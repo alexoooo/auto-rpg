@@ -8,6 +8,7 @@ import { PUNCHER } from "../src/core/mind/config.ts";
 import { dynamicRiseFits, dynamicRisePolicy, riseFootPlanted } from "../src/core/mind/rise/dynamic.ts";
 import { RISE } from "../src/core/mind/rise/stages.ts";
 import { ratesToRef } from "../src/core/build/joint-state.ts";
+import { footStatesOf } from "../src/core/control/support.ts";
 import poses from "../assets/research/posture-holds.json" with { type: "json" };
 import { uprightness } from "../src/core/control/ground.ts";
 import { embody } from "../src/core/mind/mind.ts";
@@ -23,6 +24,9 @@ import { dynamicFall, felled } from "../research/core-rise-trials.mjs";
 const config = { ...PUNCHER, subs: [{ kind: "dynamic-rise" }] };
 const soleUpOf = built => Object.fromEntries(["left", "right"].map(side => [side,
   Vector3.Up().applyRotationQuaternionToRef(Quaternion.Inverse(built.segments.get(`foot.${side}`).rest), new Vector3()).asArray()]));
+const solesOf = built => Object.fromEntries(footStatesOf(built).map(foot => [foot.side,
+  { at: foot.sole.reduce((middle, corner) => middle.addInPlace(corner), new Vector3()).scaleInPlace(1 / foot.sole.length).asArray(),
+    rest: foot.segment.rest.asArray() }]));
 
 test("dynamic rise is an additional human recovery choice, including a retained club", () => {
   for (const model of ["workshop-fighter", "workshop-rogue"]) {
@@ -41,9 +45,11 @@ test("dynamic rise is an additional human recovery choice, including a retained 
 test("dynamic rise rejects invalid model and clock data before producing a command", () => {
   const model = { channels: [{ name: "knee.left flexion", min: 0, max: 2, bind: 0 }],
     segments: [{ name: "lowerTrunk", mass: 1 }], rest: [0, 0, 0, 1], rootHeight: 1, leg: 1, gravity: 9.81,
-    held: null, fours: {}, soleUp: { left: [0, 1, 0], right: [0, 1, 0] } };
+    held: null, fours: {}, soleUp: { left: [0, 1, 0], right: [0, 1, 0] },
+    soles: { left: { at: [0, 0, 0], rest: [0, 0, 0, 1] }, right: { at: [0, 0, 0], rest: [0, 0, 0, 1] } } };
   assert.throws(() => dynamicRisePolicy({ ...model, gravity: 0 }), /invalid dynamic rise model/);
   assert.throws(() => dynamicRisePolicy({ ...model, soleUp: { left: [0, 0, 0], right: [0, 1, 0] } }), /invalid dynamic rise model/);
+  assert.throws(() => dynamicRisePolicy({ ...model, soles: undefined }), /invalid dynamic rise model/);
   const policy = dynamicRisePolicy(model);
   const before = saveState(policy.state);
   for (const dt of [0, -1, NaN, Infinity]) assert.throws(() => policy.step({}, dt), /invalid dynamic rise step/);
@@ -84,7 +90,7 @@ test("dynamic rise keeps an actual planted leg when the other hand holds a club"
       channels: held.own.muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value, bind: c.dof.spec.bind.value })),
       segments: [...stand.built.segments.values()].map(s => ({ name: s.spec.name, mass: s.rigid.mass })),
       rest: root.rest.asArray(), rootHeight: root.frame.origin[1], leg: 1, gravity: 9.81, held: "right", fours: {},
-      soleUp,
+      soleUp, soles: solesOf(stand.built),
     });
     policy.begin(observation);
     assert.deepEqual({ phase: policy.state.phase, lead: policy.state.lead }, { phase: "transfer", lead: "left" });
@@ -115,7 +121,8 @@ test("a boot landing on its side during a real fall does not release the support
       if (p.phase === "place" && p.released && loaded(`foot.${p.lead}`) && !loaded(`shank.${p.lead}`)
         && !riseFootPlanted(o, p.lead, soleUp[p.lead])) {
         assert.equal(o.down, true);
-        assert.equal(loaded("head"), true, "the foot-side contact accompanies lost trunk support");
+        assert.ok(o.contacts.some(c => c.fixed !== null && c.impulse > 0 && !c.segment.startsWith("foot.")),
+          "the body still relies on other floor contacts");
         stand.world.step();
         assert.notEqual(p.phase, "transfer", "an unsafe contact cannot start weight transfer");
         found = true;
@@ -124,6 +131,41 @@ test("a boot landing on its side during a real fall does not release the support
       stand.world.step();
     }
     assert.equal(found, true, "the physical fall must reach the contact that caused the false transition");
+  } finally { stand.dispose(); }
+});
+
+test("placement from a real fall targets a flat sole on the floor with clearance in flight", async () => {
+  const stand = await fallen();
+  try {
+    const saved = stand.body.state.mind.subs[0].policy;
+    for (let step = 0; step < 720 && !(saved.phase === "place" && saved.released); step++) stand.world.step();
+    assert.deepEqual({ phase: saved.phase, released: saved.released }, { phase: "place", released: true });
+    const o = stand.body.observe(), muscles = stand.body.muscles, root = stand.built.segments.get("lowerTrunk");
+    const leg = stand.built.spec.segments.filter(s => /^(thigh|shank)\.left$/.test(s.name)).reduce((sum, s) =>
+      sum + Vector3.Distance(Vector3.FromArray(s.proximal.value), Vector3.FromArray(s.distal.value)), 0);
+    const policy = dynamicRisePolicy({
+      channels: muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value, bind: c.dof.spec.bind.value })),
+      segments: [...stand.built.segments.values()].map(s => ({ name: s.spec.name, mass: s.rigid.mass })),
+      rest: root.rest.asArray(), rootHeight: root.frame.origin[1], leg, gravity: 9.81, held: null, fours: {},
+      soleUp: soleUpOf(stand.built), soles: solesOf(stand.built),
+    });
+    const commandAt = time => {
+      Object.assign(policy.state, structuredClone(saved), { time: time - stand.world.dt, stagnant: 0, error: Infinity });
+      return policy.step(o, stand.world.dt).frames.find(frame => frame.id === "foot");
+    };
+    const flight = commandAt(.325), landed = commandAt(.65);
+    assert.ok(flight?.orientation && landed?.orientation, "placement controls the boot's orientation as well as its point");
+    const canonical = values => values.map(v => v === 0 ? 0 : v);
+    assert.deepEqual({ ...landed.translation, velocity: canonical(landed.translation.velocity), acceleration: canonical(landed.translation.acceleration) },
+      { target: saved.pointTo, velocity: [0, 0, 0], acceleration: [0, 0, 0], seconds: .15, weight: 2 });
+    const foot = footStatesOf(stand.built).find(f => f.side === saved.lead);
+    const heights = foot.sole.map(corner => corner.subtract(Vector3.FromArray(landed.at))
+      .applyRotationQuaternionToRef(Quaternion.FromArray(landed.orientation.target), new Vector3()).y + landed.translation.target[1]);
+    assert.ok(heights.every(y => Math.abs(y - saved.ground) < 1e-10), `every sole corner lands at the floor: ${heights}`);
+    assert.ok(Math.abs(flight.translation.target[1] - (saved.pointFrom[1] + saved.pointTo[1]) / 2 - .18 * leg) < 1e-10);
+    assert.deepEqual(canonical(landed.orientation.velocity), [0, 0, 0]);
+    assert.deepEqual(canonical(landed.orientation.acceleration), [0, 0, 0]);
+    assert.ok(foot.sole.some(corner => corner.subtract(Vector3.FromArray(landed.at)).length() > .1), "the sole has extent around its tracked centre");
   } finally { stand.dispose(); }
 });
 

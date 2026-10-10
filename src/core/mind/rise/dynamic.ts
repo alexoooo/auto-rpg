@@ -7,7 +7,7 @@ import { motorControl } from "../../control/motor.ts";
 import { wholeBodyTracking, trackingRejected } from "../../control/whole-body.ts";
 import type { MotionCommand } from "../../control/tasks.ts";
 import { atan2 } from "../../math/real.ts";
-import { turnAboutToRef } from "../../math/turn.ts";
+import { spinBetweenToRef, turnAboutToRef, turnBetweenToRef } from "../../math/turn.ts";
 import { observeBody, type BodyObservation } from "../../observation.ts";
 import { guardPosture } from "../../skills/guard.ts";
 import { locomotion } from "../../skills/locomotion.ts";
@@ -24,10 +24,10 @@ import { RISE, type Lie } from "./stages.ts";
 /** Motion feedback, progress hysteresis and bounded retry deadlines; controller choices, not anatomy. */
 const T = deepFreeze({ response: .15, jointWeight: .2, centreWeight: 3, rootWeight: .5, pointWeight: 2,
   poseNear: .4, contactHold: .025, stalled: 1, attempt: 6, progress: .005,
-  prepare: .25, move: .4, extension: .8, poseResponse: .03, poseSpeed: 10,
+  prepare: .25, move: .65, extension: .8, poseResponse: .03, poseSpeed: 10,
   rootResponse: .3, rootOrientationWeight: 3, supportedRootWeight: 1,
   pronePitch: 1.3, kneelPitch: .2, kneeHeight: .5, transferHeight: .7,
-  footWidth: .2, footReach: .3, footHeight: .06, wind: .4,
+  footWidth: .2, footReach: .3, footLift: .18, wind: .4,
   slow: .1, minUpNormal: .9, hold: .5,
   contact: { maxPoints: 64, gap: .005, minUpNormal: .9, forceTolerance: 1e-5, redistributionCost: 1e-6,
     iterations: 2048, absoluteTolerance: 1e-7, relativeTolerance: 1e-6, liftOff: { accelerationTolerance: .1 } } });
@@ -38,6 +38,7 @@ interface Model {
   readonly channels: readonly { readonly name: string; readonly min: number; readonly max: number; readonly bind: number }[];
   readonly segments: readonly { readonly name: string; readonly mass: number }[];
   readonly soleUp: Readonly<Record<Side, Vec3>>;
+  readonly soles: Readonly<Record<Side, { readonly at: Vec3; readonly rest: readonly [number, number, number, number] }>>;
   readonly rest: readonly [number, number, number, number];
   readonly rootHeight: number;
   readonly leg: number;
@@ -74,13 +75,17 @@ export function dynamicRisePolicy(input: Model) {
     || !model.channels.length || model.channels.some(c => ![c.min, c.max, c.bind].every(Number.isFinite) || c.min > c.max)
     || SIDES.some(s => !model.soleUp?.[s] || !model.soleUp[s].every(Number.isFinite)
       || Math.abs(model.soleUp[s].reduce((n, v) => n + v * v, 0) - 1) > 1e-6)
+    || SIDES.some(s => !model.soles?.[s] || ![...model.soles[s].at, ...model.soles[s].rest].every(Number.isFinite)
+      || Math.abs(model.soles[s].rest.reduce((n, v) => n + v * v, 0) - 1) > 1e-6)
     || model.segments.some(s => !(s.mass > 0) || !Number.isFinite(s.mass))) throw new Error("invalid dynamic rise model");
   const state = { phase: "complete" as Phase, elapsed: 0, time: 0, attemptTime: 0, stagnant: 0, error: Infinity,
     stage: 0, held: 0, ready: 0, attempts: 0, retries: 0, completed: 0, began: 0, finished: 0,
     ground: 0, yaw: 0, lead: "left" as Side, roll: "right" as Side, released: false, landed: false,
     from: model.channels.map(() => 0), pointFrom: [0, 0, 0] as [number, number, number],
-    pointTo: [0, 0, 0] as [number, number, number], rootFrom: 0, lie: "front" as Lie };
+    pointTo: [0, 0, 0] as [number, number, number], turnFrom: [0, 0, 0, 1] as [number, number, number, number],
+    turnTo: [0, 0, 0, 1] as [number, number, number, number], rootFrom: 0, lie: "front" as Lie };
   const relative = new Quaternion(), restInverse = Quaternion.Inverse(new Quaternion(...model.rest)), way = new Vector3();
+  const pointTurn = new Quaternion(), turnStart = new Quaternion(), turnEnd = new Quaternion(), footSpin = new Vector3();
   const find = (o: BodyObservation, name: string) => {
     const segment = o.segments.find(s => s.name === name);
     if (!segment) throw new Error(`dynamic rise lacks ${name}`);
@@ -185,10 +190,15 @@ export function dynamicRisePolicy(input: Model) {
           const retained = [...hands, rear];
           if (!state.released && supported(o, retained)) {
             state.released = true; enter("place", o);
-            state.pointFrom = [...find(o, moving).position];
+            const foot = find(o, moving);
+            way.set(...model.soles[state.lead].at).applyRotationQuaternionToRef(pointTurn.set(...foot.rotation), way);
+            state.pointFrom = [foot.position[0] + way.x, foot.position[1] + way.y, foot.position[2] + way.z];
+            state.turnFrom = [...foot.rotation];
             const root = find(o, "lowerTrunk").position, turn = turnAboutToRef(Vector3.UpReadOnly, state.yaw, new Quaternion());
             way.set((state.lead === "left" ? -1 : 1) * model.leg * T.footWidth, 0, model.leg * T.footReach).applyRotationQuaternionToRef(turn, way);
-            state.pointTo = [root[0] + way.x, state.ground + model.leg * T.footHeight, root[2] + way.z];
+            state.pointTo = [root[0] + way.x, state.ground, root[2] + way.z];
+            turn.multiplyToRef(pointTurn.set(...model.soles[state.lead].rest), pointTurn);
+            state.turnTo = [pointTurn.x, pointTurn.y, pointTurn.z, pointTurn.w];
           }
           pose = { ...model.fours };
           if (state.released) for (const [name, angle] of Object.entries(posture("reach"))) {
@@ -273,10 +283,20 @@ export function dynamicRisePolicy(input: Model) {
         }
         if (state.phase === "place" && state.released) {
           const m = minimumJerk(state.time, T.move), delta = state.pointTo.map((v, k) => v - state.pointFrom[k]!);
-          frames.push({ id: "foot", frame: { kind: "segment", name: moving }, at: ZERO,
-            translation: { target: state.pointFrom.map((v, k) => v + delta[k]! * m.s) as unknown as Vec3,
-              velocity: delta.map(v => v * m.v) as unknown as Vec3, acceleration: delta.map(v => v * m.a) as unknown as Vec3,
-              seconds: T.response, weight: T.pointWeight } });
+          const lift = model.leg * T.footLift, target = state.pointFrom.map((v, k) => v + delta[k]! * m.s),
+            velocity = delta.map(v => v * m.v), acceleration = delta.map(v => v * m.a);
+          target[1]! += 4 * lift * m.s * (1 - m.s);
+          velocity[1]! += 4 * lift * (1 - 2 * m.s) * m.v;
+          acceleration[1]! += 4 * lift * ((1 - 2 * m.s) * m.a - 2 * m.v * m.v);
+          turnStart.set(...state.turnFrom); turnEnd.set(...state.turnTo);
+          turnBetweenToRef(turnStart, turnEnd, m.s, pointTurn);
+          spinBetweenToRef(turnStart, turnEnd, 1, footSpin);
+          frames.push({ id: "foot", frame: { kind: "segment", name: moving }, at: model.soles[state.lead].at,
+            translation: { target: target as unknown as Vec3, velocity: velocity as unknown as Vec3,
+              acceleration: acceleration as unknown as Vec3, seconds: T.response, weight: T.pointWeight },
+            orientation: { target: [pointTurn.x, pointTurn.y, pointTurn.z, pointTurn.w],
+              velocity: [footSpin.x * m.v, footSpin.y * m.v, footSpin.z * m.v],
+              acceleration: [footSpin.x * m.a, footSpin.y * m.a, footSpin.z * m.a], seconds: T.response, weight: T.pointWeight } });
         }
       }
       return { joints, frames, centres, supports, grips: [] };
@@ -297,15 +317,24 @@ export function dynamicRise(own: OwnBody, view: BodyView, world: World): SubMind
       Quaternion.Inverse(built.segments.get(`foot.${side}`)!.rest), new Vector3());
     return [up.x, up.y, up.z];
   };
+  const feet = footStatesOf(built);
+  const sole = (side: Side): Model["soles"][Side] => {
+    const foot = feet.find(f => f.segment.spec.name === `foot.${side}`)!, middle = new Vector3();
+    for (const corner of foot.sole) middle.addInPlace(corner);
+    middle.scaleInPlace(1 / foot.sole.length);
+    const rest = foot.segment.rest;
+    return { at: [middle.x, middle.y, middle.z], rest: [rest.x, rest.y, rest.z, rest.w] };
+  };
   const model: Model = { channels: muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value, bind: c.dof.spec.bind.value })), fours,
     segments: [...built.segments.values()].map(s => ({ name: s.spec.name, mass: s.rigid.mass })), rest: [root.rest.x, root.rest.y, root.rest.z, root.rest.w],
     soleUp: { left: soleUp("left"), right: soleUp("right") },
+    soles: { left: sole("left"), right: sole("right") },
     rootHeight: root.frame.origin[1], leg, gravity: Math.sqrt(world.physics.gravity.reduce((n, v) => n + v * v, 0)),
     held: SIDES.find(side => own.spec.held?.some(h => h.segment === `hand.${side}`)) ?? null };
   const policy = dynamicRisePolicy(model), tracking = wholeBodyTracking(built, muscles, world.physics.gravity, [], [],
     { capacity: 4, effortCost: 1e-6, contact: { physics: world.physics, settings: T.contact, dt: world.dt } });
   const observe = observeBody(built, muscles, world, () => view.senses, undefined, () => view.down);
-  const feet = footStatesOf(built), middle = new Vector3(), zero = new Vector3(), legs = locomotion(null);
+  const middle = new Vector3(), zero = new Vector3(), legs = locomotion(null);
   const motor = motorControl(built, SERVO_SECONDS, guardPosture(own.spec), undefined, own.assist);
   const requestedRates = new Float64Array(muscles.channels.length);
   const state = { policy: policy.state, tracking: tracking.state, legs: legs.state, motor: motor.state, stabilizing: false, rejected: 0 };

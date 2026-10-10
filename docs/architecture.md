@@ -654,8 +654,9 @@ empty-handed it retains both hands during placement. Support release uses the me
 outline and a mass-weighted velocity projection of the centre. A planted foot needs a loaded,
 upward-facing sole; placement enters transfer only with the trunk clear and the rear shin loaded.
 Transfer retains the hands until the projected centre is over its foot and shin. Pose seeds are clamped to the
-body's limits; the Warrior's fours seed is the installed posture asset. Placement and root-height
-aims use smooth trajectories scaled to the body's leg geometry. The whole-body tracker predicts
+body's limits; the Warrior's fours seed is the installed posture asset. Placement tracks the
+sole's centre to the floor, turns the boot flat and lifts it along an arc scaled to the leg's
+length. Root-height aims also use smooth trajectories. The whole-body tracker predicts
 loaded contacts and lift-off and asks only muscle torques; a rejected prediction applies zero
 torque. Orientation and acquisition use bounded joint-velocity feedback. A stalled objective
 retries locally, and a six-second attempt reclassifies actual contacts and orientation.
