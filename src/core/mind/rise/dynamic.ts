@@ -29,6 +29,7 @@ const T = deepFreeze({ response: .15, jointWeight: .2, centreWeight: 3, rootWeig
   pronePitch: 1.3, kneelPitch: .2, kneeHeight: .5, transferHeight: .7,
   footWidth: .2, footReach: .3, footLift: .18, wind: .4,
   slow: .1, minUpNormal: .9, hold: .5,
+  extensionSoleUp: .995, extensionRootUp: .9, standSeconds: 1.3, standLower: .03,
   contact: { maxPoints: 64, gap: .005, minUpNormal: .9, forceTolerance: 1e-5, redistributionCost: 1e-6,
     iterations: 2048, absoluteTolerance: 1e-7, relativeTolerance: 1e-6, liftOff: { accelerationTolerance: .1 } } });
 const ZERO: Vec3 = Object.freeze([0, 0, 0]);
@@ -58,6 +59,36 @@ export function riseFootPlanted(o: BodyObservation, side: Side, soleUp: Vec3,
     && c.impulse > 0 && Math.abs(c.normal[1]) >= T.minUpNormal)) return false;
   work.up.set(...soleUp).applyRotationQuaternionToRef(work.turn.set(...foot.rotation), work.up);
   return work.up.y >= T.minUpNormal;
+}
+
+/** An upright half-kneel whose lead sole and actual leg contacts can carry its capture point. */
+export function riseCanExtend(o: BodyObservation, lead: Side,
+  model: Pick<Model, "soleUp" | "rest" | "segments" | "gravity">, ground: number,
+  work = { up: new Vector3(), turn: new Quaternion(), inverse: new Quaternion() }): boolean {
+  const foot = o.segments.find(s => s.name === `foot.${lead}`), root = o.segments.find(s => s.name === "lowerTrunk");
+  if (!foot || !root || !riseFootPlanted(o, lead, model.soleUp[lead], work)) return false;
+  if (work.up.y < T.extensionSoleUp) return false;
+  Quaternion.InverseToRef(work.inverse.set(...model.rest), work.inverse);
+  work.turn.set(...root.rotation).multiplyToRef(work.inverse, work.turn);
+  work.up.set(0, 1, 0).applyRotationQuaternionToRef(work.turn, work.up);
+  if (work.up.y < T.extensionRootUp) return false;
+  const loaded = o.contacts.filter(c => c.fixed !== null && c.impulse > 0 && Math.abs(c.normal[1]) >= T.minUpNormal);
+  if (![`foot.${lead}`, `shank.${other(lead)}`].every(name => loaded.some(c => c.segment === name))
+    || loaded.some(c => /Trunk|head/.test(c.segment))) return false;
+  // The rear boot's toe can carry weight while its shin is down; its sole need not be flat yet.
+  const patches = loaded.filter(c => /^(foot|shank)\./.test(c.segment)).map(c => ({
+    corners: c.pairs.length ? c.pairs.map(p => new Vector3(...p.point)) : [new Vector3(...c.point)],
+  }));
+  const mass = model.segments.reduce((sum, s) => sum + s.mass, 0);
+  let vx = 0, vz = 0;
+  for (const s of model.segments) {
+    const segment = o.segments.find(p => p.name === s.name);
+    if (!segment) return false;
+    vx += segment.velocity[0] * s.mass / mass; vz += segment.velocity[2] * s.mass / mass;
+  }
+  const span = Math.sqrt(Math.max(0, o.centre[1] - ground) / model.gravity),
+    x = o.centre[0] + vx * span, z = o.centre[2] + vz * span, near = withinSupport(patches, x, z, 0);
+  return near[0] === x && near[1] === z;
 }
 
 /** Human rigs with two legs, usable hands and at most one compound held item. */
@@ -340,16 +371,36 @@ export function dynamicRise(own: OwnBody, view: BodyView, world: World): SubMind
   const middle = new Vector3(), zero = new Vector3(), legs = locomotion(null);
   const motor = motorControl(built, SERVO_SECONDS, guardPosture(own.spec), undefined, own.assist);
   const requestedRates = new Float64Array(muscles.channels.length);
-  const state = { policy: policy.state, tracking: tracking.state, legs: legs.state, motor: motor.state, stabilizing: false, rejected: 0 };
+  const extensionWork = { up: new Vector3(), turn: new Quaternion(), inverse: new Quaternion() };
+  const state = { policy: policy.state, tracking: tracking.state, legs: legs.state, motor: motor.state, stabilizing: false, rejected: 0,
+    extending: false, riseFrom: 0, riseYaw: 0 };
   return { get name() { return `dynamic-rise: ${policy.state.phase}`; }, state,
     wants() {
       if (legs.reference === null) legs.goal(view, null, 0, world.dt);
       return policy.state.phase !== "complete" || view.down;
     },
-    begin() { policy.begin(observe()); state.stabilizing = false; state.rejected = 0; motor.reset(); },
-    end() { policy.end(); motor.reset(); },
+    begin() { policy.begin(observe()); state.stabilizing = false; state.rejected = 0; state.extending = false; motor.reset(); },
+    end() { policy.end(); state.extending = false; motor.reset(); },
     step(_senses, dt) {
       const p = policy.state, observation = observe();
+      if (!state.extending && p.phase === "transfer" && riseCanExtend(observation, p.lead, model, p.ground, extensionWork)) {
+        state.extending = true; p.phase = "extend"; p.time = 0; p.ready = 0;
+        motor.stance.read(); state.riseFrom = motor.stance.reading.centre.y - motor.stance.reading.support.y;
+        const across = extensionWork.up.set(1, 0, 0).applyRotationQuaternionToRef(view.root.rotation, extensionWork.up);
+        state.riseYaw = atan2(-across.z, across.x); motor.stance.reset();
+      }
+      if (state.extending) {
+        readSupport(feet, feet, middle);
+        const supports = feet.map(f => ({ segment: f.segment.spec.name, corners: f.corners.filter(c => c.y - Math.min(...f.corners.map(q => q.y)) < .03)
+          .map(c => [c.x, c.y, c.z] as Vec3) }));
+        p.ready = recoveryReady(observation, supports, T) && SIDES.every(s => riseFootPlanted(observation, s, model.soleUp[s])) ? p.ready + dt : 0;
+        p.elapsed += dt; p.time += dt;
+        const u = Math.min(1, p.time / T.standSeconds), height = state.riseFrom + (legs.reference! - T.standLower - state.riseFrom) * u * u * (3 - 2 * u);
+        motor.stance.read(); motor.setStance({ feet: SIDES, centre: null, height, heading: state.riseYaw, walk: null }); motor.control(muscles, dt);
+        if (p.time >= T.standSeconds && p.ready >= T.hold) { p.completed++; p.finished = world.time; p.phase = "complete"; state.extending = false; }
+        else if (p.time >= T.attempt) { p.retries++; p.attempts++; policy.reclassify(observation); state.extending = false; }
+        return;
+      }
       if (p.phase === "stabilize") {
         if (!state.stabilizing) { motor.stance.read(); legs.resume({ ...view, stance: motor.stance.reading }); state.stabilizing = true; }
         readSupport(feet, feet, middle);

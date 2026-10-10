@@ -5,7 +5,7 @@ import { armed } from "../src/core/human/grip.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { kindsFor, treeFits } from "../src/core/mind/catalog.ts";
 import { PUNCHER } from "../src/core/mind/config.ts";
-import { dynamicRiseFits, dynamicRisePolicy, riseFootPlanted } from "../src/core/mind/rise/dynamic.ts";
+import { dynamicRiseFits, dynamicRisePolicy, riseFootPlanted, riseCanExtend } from "../src/core/mind/rise/dynamic.ts";
 import { RISE } from "../src/core/mind/rise/stages.ts";
 import { ratesToRef } from "../src/core/build/joint-state.ts";
 import { atan2 } from "../src/core/math/real.ts";
@@ -247,5 +247,52 @@ test("a dynamic support-transfer checkpoint continues identically in a fresh wor
     for (const o of expected.trace) for (const j of o.joints) {
       assert.ok(j.effort <= j.positive + .0001 && -j.effort <= j.negative + .0001, j.name);
     }
+  } finally { a.dispose(); b.dispose(); }
+});
+
+test("dynamic rise extends a supported half-kneel, then hands over a quiet stand and walk", async () => {
+  const placement = poses.find(p => p.model === "workshop-fighter" && p.id === "half-kneel").placement;
+  const make = async () => {
+    const stand = await coreStand(modelSpec("workshop-fighter"), { ...placement, engine: "rapier-coordinate" });
+    let orders = STAND_ORDERS;
+    const made = createMind(stand.built, stand.world, config, { name: "half-kneel recovery", orders: () => orders });
+    return { ...stand, body: made.body, walk() { orders = { move: { x: 0, z: 1 }, face: null, attack: null }; },
+      dispose() { made.body.dispose(); stand.dispose(); } };
+  };
+  const a = await make(), b = await make();
+  try {
+    const sub = a.body.state.mind.subs[0];
+    for (let step = 0; step < 12 && !sub.extending; step++) a.world.step();
+    assert.equal(sub.extending, true, "the controller extends before both boots have flat soles");
+    const o = a.body.observe(), model = { soleUp: soleUpOf(a.built), rest: a.built.segments.get("lowerTrunk").rest.asArray(),
+      segments: [...a.built.segments.values()].map(s => ({ name: s.spec.name, mass: s.rigid.mass })), gravity: 9.81 };
+    assert.equal(o.down, true);
+    assert.equal(riseFootPlanted(o, "right", model.soleUp.right), false);
+    assert.equal(riseCanExtend(o, "left", model, sub.policy.ground), true);
+    assert.equal(riseCanExtend({ ...o, contacts: o.contacts.filter(c => c.segment !== "foot.right") }, "left", model, sub.policy.ground), false,
+      "the loaded rear toe is part of the support that carries the capture point");
+    const saved = saveStand(a.world, { body: a.body.state });
+    const finish = stand => {
+      const recovery = stand.body.state.mind.subs[0], trace = [];
+      const step = () => {
+        stand.world.step(); const observation = stand.body.observe(); trace.push(observation);
+        assert.deepEqual({ force: stand.body.assist.meter.force, moment: stand.body.assist.meter.moment }, { force: 0, moment: 0 });
+        for (const j of observation.joints) assert.ok(j.effort <= j.positive + .0001 && -j.effort <= j.negative + .0001, j.name);
+      };
+      while (!recovery.policy.completed && stand.world.time < 4) step();
+      assert.equal(recovery.policy.completed, 1);
+      assert.ok(recovery.policy.ready >= .5);
+      assert.equal(stand.body.down, false);
+      const completed = stand.world.time;
+      for (let i = 0; i < 240; i++) { step(); assert.equal(stand.body.down, false); }
+      const from = stand.body.observe().centre; stand.walk();
+      for (let i = 0; i < 120; i++) { step(); assert.equal(stand.body.down, false); }
+      const to = stand.body.observe().centre;
+      assert.ok((to[0] - from[0]) * (to[0] - from[0]) + (to[2] - from[2]) * (to[2] - from[2]) > .05 * .05);
+      return { completed, trace, state: saveState({ world: stand.world.state, body: stand.body.state }) };
+    };
+    const expected = finish(a);
+    loadStand(b.world, { body: b.body.state }, saved);
+    assert.deepEqual(finish(b), expected);
   } finally { a.dispose(); b.dispose(); }
 });

@@ -662,6 +662,12 @@ loaded contacts and lift-off and asks only muscle torques; a rejected prediction
 torque. Orientation and acquisition use bounded joint-velocity feedback. A stalled objective
 retries locally, and a six-second attempt reclassifies actual contacts and orientation.
 
+An upright half-kneel with a flat lead sole can extend through the standing controller once
+its capture point is carried by its actual leg contacts, including the rear boot's loaded toe.
+The rear sole need not be flat before extension starts. Height rises from the measured stance
+over 1.3 seconds; the feet stay where they are during this transition, and the same quiet
+two-foot handover gate decides when recovery finishes.
+
 Handover requires half a second of quiet, loaded two-foot support, no other floor contacts and
 the centre inside the soles. Locomotion resumes from measured stance before this check and
 gradually restores height and foot spacing. Policy, trajectory, tracker and stabilization memory
