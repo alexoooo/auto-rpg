@@ -52,6 +52,10 @@ Today's walk stays exactly as it is, as the baseline to compare against.
   - no strength raised for feel;
   - every number in the body's spec or the rules carries its source;
   - each change is gated on `npm run check` and `npm test`, and CI runs the slow tier.
+- **Rising is out of scope** (owner, 2026-10-10): another agent works on it in parallel. A fall
+  ends a run as a failure: the harness counts it and stops that run, and nothing here asks the
+  body to rise or changes the rise (`src/core/mind/rise/`).
+  Shared stance code that the rise's handover reads is changed only by adding to it.
 - **Wind is the Lab's disturbance, not an assist.** It pushes the body from outside, as a shove
   does, and nothing meters it against the body's balance.
 
@@ -198,7 +202,9 @@ The question is a measurement, so it is recorded (Node stand, Rapier, 120 Hz).
 
 - **Running needs the stance to hold no foot.** Its bearing solve assumes at least one sole, so
   flight may need a whole-body layer the stance does not have. Session 05 may split if so.
-- **Faster walks change every bout's trajectory**, including the rise's handover and the kick's
-  transfer, which read the stance.
+- **Faster walks change every bout's trajectory**, and the kick's transfer reads the stance.
+- **Another agent works on rising in parallel**, and the rise's handover reads the stance. Pull
+  before each session, and keep additions to `src/core/control/` small and separate, so the two
+  lines of work merge cleanly.
 - **Wind strong enough to test a run may topple a standing guard.** The sliders' ranges are set
   from session 02's baseline.
