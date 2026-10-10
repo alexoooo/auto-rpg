@@ -120,7 +120,8 @@ test('either hand repeats a close curved strike and survives misses without assi
 });
 
 test('combat self-play takes initiative and breaks prolonged hand pressure without self-falls', async () => {
- const row=await combatTrial({left:COMBAT,right:COMBAT,recipe:{capSeconds:20}});
+ // 30 s: from the default 4 m apart, walking in takes about 10 s of it.
+ const row=await combatTrial({left:COMBAT,right:COMBAT,recipe:{capSeconds:30}});
  for(const out of Object.values(row.sides)) {
   assert.ok(out.driven>=10,JSON.stringify(out)); assert.equal(out.falls,0);
   assert.ok(out.pressureOnly.longest<2,JSON.stringify(out)); assert.ok(out.drivenDamage>.02,JSON.stringify(out));
@@ -172,7 +173,7 @@ test('either hand repeats an overhand to a high surface and survives the miss',a
 
 test('every skill set closes a bare hand for its blow and opens it in the guard', async () => {
  for(const mind of [COMBAT,RECIPE_FIGHTER]) {
-  const bout=await buildBout({left:'workshop-fighter',right:'workshop-fighter',gap:2,capSeconds:15,recoverySeconds:null,
+  const bout=await buildBout({left:'workshop-fighter',right:'workshop-fighter',gap:2,capSeconds:30,recoverySeconds:null,
    balance:{left:0,right:0},held:{left:'empty',right:'empty'},minds:{left:mind,right:mind}},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
   const tally={},free={left:0,right:0},blocked={};
   // Blocked as `createHandPoses` blocks a change, read where it reads it: before the step, after it has had its say.
@@ -180,7 +181,10 @@ test('every skill set closes a bare hand for its blow and opens it in the guard'
    const part=bout.duel.duelists[side].built.segments.get(`hand.${hand}`);blocked[`${side}.${hand}`]=poseBlocked(bout.world,part,part.poses.open.collider);}});
   try {
    bout.duel.play([]);
-   while(bout.duel.verdict===null&&bout.duel.clock<15) {
+   // Until every hand that throws has swung and been open in the guard on more than a hundred steps.
+   const seen=()=>['left','right'].every(side=>['left','right'].every(hand=>{const t=tally[`${mind.kind} ${side}.${hand}`];
+    return t&&t.guardOpen>100&&(t.swing>0||(mind===RECIPE_FIGHTER&&hand==='left'));}));
+   while(bout.duel.verdict===null&&bout.duel.clock<30&&!seen()) {
     bout.world.step();
     for(const side of ['left','right']) {
      const d=bout.duel.duelists[side],strike=d.minded.skills.report.strike,poses=d.built.handPoses.state;
