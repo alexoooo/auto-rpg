@@ -37,6 +37,9 @@ import { fileURLToPath } from "node:url";
  */
 const LINES = { forward: 0, right: Math.PI / 2, back: Math.PI, left: -Math.PI / 2 };
 
+/** The ground's side, m: twice the longest line, and some. */
+const GROUND = 200;
+
 /** One run: its record, as the run's last frame left it. */
 async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radius, legs, stance, physique }) {
   const [{ modelSpec }, { labActor }, { startRun }, { TRACKS, trackOf }, { LAB_PRESETS }, { STANCE_GAIT }, { coreStand }] = await Promise.all([
@@ -47,7 +50,8 @@ async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radi
   const info = line === undefined ? TRACKS[id] : { pieces: [{ kind: "corner", metres: 0, turn: line }, { kind: "straight", metres: 80 }], facing: 0 };
   const size = id === "square" ? side : id === "circle" ? radius : undefined;
   const track = trackOf(info.size && size !== undefined ? info.size.of(size) : info.pieces);
-  const stand = await coreStand(modelSpec(model, physique ?? undefined), { ground: true });
+  // The ground reaches past the end of every track: a body walking off its edge falls through.
+  const stand = await coreStand(modelSpec(model, physique ?? undefined), { ground: true, groundSize: GROUND });
   const mind = { ...LAB_PRESETS.script.config, ...(legs ? { locomotion: legs } : {}) };
   const tuning = stance ? { ...stance, ...(stance.gait ? { gait: { ...STANCE_GAIT, ...stance.gait } } : {}) } : undefined;
   const run = startRun(labActor(stand.built, stand.world, { mind, stance: tuning }), track, { top: pace, facing: info.facing, wind: { settings: wind, seed } });
