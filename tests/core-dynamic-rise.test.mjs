@@ -105,15 +105,15 @@ test("dynamic rise keeps an actual planted leg when the other hand holds a club"
   } finally { held?.dispose(); stand.dispose(); }
 });
 
-async function fallen() {
-  const stand = await felled({ model: "workshop-fighter", held: "empty", degrees: 247.5, engine: "rapier-coordinate" },
+async function fallen(degrees = 247.5) {
+  const stand = await felled({ model: "workshop-fighter", held: "empty", degrees, engine: "rapier-coordinate" },
     (built, world) => createMind(built, world, config, { name: "dynamic replay", orders: () => STAND_ORDERS }).body, config);
   assert.equal(stand.body.down, true, "the checkpoint follows an actual fall");
   return stand;
 }
 
 test("a boot landing on its side during a real fall does not release the supports for transfer", async () => {
-  const stand = await fallen();
+  const stand = await fallen(270);
   try {
     const p = stand.body.state.mind.subs[0].policy, soleUp = soleUpOf(stand.built);
     let found = false;

@@ -200,15 +200,20 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
           const row = dynamics.motionRow(stop.row), along = (a: readonly number[]) => row.coefficients.reduce((sum, v, i) => sum + v * a[i]!, 0);
           return { coefficients: columns.map(along), lower: stop.target - row.bias - along(base), upper: Infinity };
         });
+        const pulling = contacts && liftOff && contactSeeded
+          ? contacts.pulling(dynamics.reactionMultipliers(Array.from(scaled, (v, i) => v * scale[i]!))) : [];
         if (contacts && liftOff && contactSeeded) {
-          const pulling = contacts.pulling(dynamics.reactionMultipliers(Array.from(scaled, (v, i) => v * scale[i]!)));
-          if (pulling.length) { for (const id of pulling) releasedContacts.add(id); continue; }
           for (const constraint of contacts.releasedRows()) {
             const row = dynamics.motionRow(constraint.row), along = (a: readonly number[]) => row.coefficients.reduce((sum, v, i) => sum + v * a[i]!, 0);
             extra.push({ coefficients: columns.map(along), lower: constraint.target - row.bias - along(base), upper: Infinity });
           }
         }
         contacts?.solve(H, rhs, scale, lower, upper, scaled, extra);
+        // A bounded, redistributed contact load can carry a pose whose initial effort guess pulls.
+        if (contacts?.state.status === "rejected" && pulling.length) {
+          for (const id of pulling) releasedContacts.add(id);
+          continue;
+        }
         stopEffort?.solve(H, rhs, scale, lower, upper, scaled, extra);
         state.residual = 0; state.saturated = 0;
         for (let i = 0; i < count; i++) {

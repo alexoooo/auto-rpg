@@ -814,7 +814,9 @@ when a stop releases. It works with ground contacts or pinned fixtures and repor
 Sliding contacts and distant stop impacts are not predicted.
 Optional [local contact lift-off](reference/contact-liftoff.md) first predicts motion without
 sticking support, then selects measured contacts. Released contacts retain normal end-step
-bounds in the same torque solve. Shape curvature supplies active material-point acceleration;
+bounds in the same torque solve. The bounded contact-force solve, including requested load
+redistribution, runs before tension in an effort guess can release a selected support.
+Shape curvature supplies active material-point acceleration;
 rejected force or acceleration predictions produce zero torque. This option is independent of
 joint-stop prediction and disabled by default. Repeated mechanical lift/recontact is measured;
 sliding, general support selection and anatomical recovery remain open.
