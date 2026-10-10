@@ -279,6 +279,7 @@ export function dynamicRise(own: OwnBody, view: BodyView, world: World): SubMind
   const observe = observeBody(built, muscles, world, () => view.senses, undefined, () => view.down);
   const feet = footStatesOf(built), middle = new Vector3(), zero = new Vector3(), legs = locomotion(null);
   const motor = motorControl(built, SERVO_SECONDS, guardPosture(own.spec), undefined, own.assist);
+  const requestedRates = new Float64Array(muscles.channels.length);
   const state = { policy: policy.state, tracking: tracking.state, legs: legs.state, motor: motor.state, stabilizing: false, rejected: 0 };
   return { get name() { return `dynamic-rise: ${policy.state.phase}`; }, state,
     wants() {
@@ -306,8 +307,14 @@ export function dynamicRise(own: OwnBody, view: BodyView, world: World): SubMind
       if (p.phase === "orient" || p.phase === "acquire") {
         for (let i = 0; i < muscles.channels.length; i++) {
           const goal = command.joints[i]!;
+          requestedRates[i] = Math.max(-T.poseSpeed, Math.min(T.poseSpeed, (goal.angle - muscles.angle(i)) / T.poseResponse));
+        }
+        for (let i = 0; i < muscles.channels.length; i++) {
+          const channel = muscles.channels[i]!, first = i - channel.index;
+          let speed = 0;
+          for (let k = 0; k < channel.joint.dofs.length; k++) speed += muscles.turning(i, k) * requestedRates[first + k]!;
           muscles.activation[i] = 1;
-          muscles.velocity[i] = Math.max(-T.poseSpeed, Math.min(T.poseSpeed, (goal.angle - muscles.angle(i)) / T.poseResponse));
+          muscles.velocity[i] = speed;
         }
         own.assist.ask(zero, zero);
         return;

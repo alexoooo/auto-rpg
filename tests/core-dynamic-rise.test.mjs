@@ -5,6 +5,9 @@ import { woodenClub } from "../src/core/items/club.ts";
 import { kindsFor, treeFits } from "../src/core/mind/catalog.ts";
 import { PUNCHER } from "../src/core/mind/config.ts";
 import { dynamicRiseFits, dynamicRisePolicy } from "../src/core/mind/rise/dynamic.ts";
+import { RISE } from "../src/core/mind/rise/stages.ts";
+import { ratesToRef } from "../src/core/build/joint-state.ts";
+import { minimumJerk } from "../src/core/skills/whole-body-strike.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { modelSpec } from "../src/core/models.ts";
@@ -55,6 +58,39 @@ async function fallen() {
   assert.equal(stand.body.down, true, "the checkpoint follows an actual fall");
   return stand;
 }
+
+test("a dynamic roll requests coordinate rates through the bent joints of a real fall", async () => {
+  const stand = await felled({ model: "workshop-fighter", held: "empty", degrees: 180, engine: "rapier-coordinate" },
+    (built, world) => createMind(built, world, config, { name: "roll coordinates", orders: () => STAND_ORDERS }).body, config);
+  try {
+    const p = stand.body.state.mind.subs[0].policy, muscles = stand.body.muscles;
+    for (let step = 0; step < 360; step++) {
+      stand.world.step();
+      if (p.landed && p.phase === "orient" && p.stage === 0 && p.time >= .2) break;
+    }
+    assert.equal(p.phase, "orient");
+    assert.equal(p.stage, 0);
+    assert.ok(p.landed && p.time >= .2 && p.time < .4, "the motors are sampled during a landed back roll");
+    assert.equal(p.roll, "right");
+    const posture = RISE.roll.back[0].posture, blend = minimumJerk(p.time, .25).s;
+    let conversion = 0;
+    for (const joint of stand.built.joints.values()) {
+      const first = muscles.channel(`${joint.spec.name} ${joint.dofs[0].spec.positive}`);
+      const angles = joint.dofs.map((_, k) => muscles.angle(first + k));
+      const speeds = joint.dofs.map((_, k) => muscles.velocity[first + k]);
+      const rates = ratesToRef(joint, angles, speeds, []);
+      joint.dofs.forEach((dof, k) => {
+        const i = first + k, name = muscles.channels[i].name;
+        const target = Math.max(dof.spec.min.value, Math.min(dof.spec.max.value, (posture[name] ?? 0) - dof.spec.bind.value));
+        const goal = p.from[i] + (target - p.from[i]) * blend;
+        const requested = Math.max(-10, Math.min(10, (goal - angles[k]) / .03));
+        assert.ok(Math.abs(rates[k] - requested) < 1e-10, name);
+        conversion = Math.max(conversion, Math.abs(speeds[k] - rates[k]));
+      });
+    }
+    assert.ok(conversion > .1, "the bent-joint fixture distinguishes motor speed from coordinate rate");
+  } finally { stand.dispose(); }
+});
 
 test("a dynamic support-transfer checkpoint continues identically in a fresh world", async () => {
   const a = await fallen(), b = await fallen();
