@@ -77,9 +77,10 @@ at its limit. Under a mind with no riser the last two columns are empty.
 
 `dynamic-rise` is an additional experimental recovery sub-mind in the editor's `When down`
 slot. Its intended human baseline is a median verified recovery within 4 seconds, with at least
-15 of 16 directional falls in each body/loadout group completed within 6 seconds. This is the
-owner's requested gameplay target, not a change to anatomical strength or speed. Presets
-retain their existing recovery.
+15 of 16 directional falls in each body/loadout group and 61 of 64 overall completed within
+6 seconds. Every cardinal shove direction must pass in each group, and the full set of directions
+must be present without duplicates. This is the owner's requested gameplay target, not a change
+to anatomical strength or speed. Presets retain their existing recovery.
 
 ```powershell
 node research/dynamic-rise.mjs --workers 2

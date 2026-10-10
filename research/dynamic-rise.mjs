@@ -1,4 +1,5 @@
 import { Worker } from "node:worker_threads";
+import { dynamicRiseQualification } from "./dynamic-rise-qualification.mjs";
 
 /** Human baseline qualification on the gameplay engine, with sixteen fall directions per body/loadout. */
 const args = process.argv.slice(2), at = args.indexOf("--workers");
@@ -29,14 +30,6 @@ try {
   })));
 } finally { await Promise.all(workers.map(worker => worker.terminate())); }
 
-const groups = ["workshop-fighter", "workshop-rogue"].flatMap(model => ["empty", "club"].map(held => {
-  const selected = rows.filter(r => r.model === model && r.held === held);
-  // A censored failure remains in the median instead of making successful outliers the whole sample.
-  const times = selected.map(r => r.success ? r.seconds : Infinity).sort((a, b) => a - b);
-  const median = (times[7] + times[8]) / 2, successes = selected.filter(r => r.success).length;
-  return { model, held, trials: selected.length, falls: selected.filter(r => r.fell).length, successes,
-    median: Number.isFinite(median) ? median : null, pass: successes >= 15 && median <= 4 };
-}));
-console.log(JSON.stringify({ harness: rows[0].harness, target: { median: 4, deadline: 6, minimum: "15 of 16 per group" },
-  groups, pass: groups.every(g => g.pass), rows }, null, 2));
-process.exitCode = groups.every(g => g.pass) ? 0 : 1;
+const qualification = dynamicRiseQualification(rows);
+console.log(JSON.stringify({ harness: rows[0].harness, ...qualification, rows }, null, 2));
+process.exitCode = qualification.pass ? 0 : 1;
