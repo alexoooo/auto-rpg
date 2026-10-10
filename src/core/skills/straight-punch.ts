@@ -16,7 +16,8 @@ import { turnSense } from "./whole-body-strike.ts";
 /**
  * **A straight punch's settings.** The body walks at `pace` m/s at most to stand, facing the
  * target, with it `reach` of the arm's straight length (shoulder to knuckles) from the punching
- * shoulder, within `band` m across the ground, for `settle` s, its fist set on the
+ * shoulder, no more than `band` m further across the ground and no nearer than `CROWDED` (a foe
+ * come nearer it backs out from at its full pace), for `settle` s, its fist set on the
  * line from the shoulder to the target `chamber` m from the shoulder (none at 0). Then the hips
  * turn its punching shoulder forward by `hips` rad (the stance's heading, `Claim.steer`), the
  * chest by `turn` rad and the trunk leans `lean` rad, and `lead` s later the arm is driven at its
@@ -95,6 +96,9 @@ interface Limb {
 /** Where a straight punch is: walking to its stand-off, standing there, driven, or coming back. */
 type Phase = "approach" | "settle" | "swing" | "return";
 
+/** How far nearer than its stand-off a foe may come before the punch backs out from it, m. */
+const CROWDED = 0.05;
+
 const HANDS: readonly Side[] = Object.freeze(["left", "right"]);
 const NO_HANDS = Object.freeze({ left: null, right: null }) as Readonly<Record<Side, EffectorGoal | null>>;
 const CLOSED: Readonly<Record<Side, Readonly<Record<Side, boolean>>>> = Object.freeze({
@@ -105,9 +109,10 @@ const CLOSED: Readonly<Record<Side, Readonly<Record<Side, boolean>>>> = Object.f
  * **The straight punch**: a hand's blow thrown with the arm lined up behind the fist, for a fist
  * that meets its target with the arm's mass behind it rather than an elbow giving way. Given an
  * attack, it walks the body to where the target stands `reach` from the head, facing it, closing
- * the error over `APPROACH.seconds`, and stands there `settle` s with its fist on the line (its
- * chamber). Then it turns the hips and the chest and leans the trunk to bring the punching
- * shoulder forward, and drives the arm, `lead` s behind, at its
+ * the error over `APPROACH.seconds` (backing out at its full pace from a foe come too near), and
+ * stands there `settle` s with its fist on the line (its chamber). Then it turns the hips and the
+ * chest and leans the trunk to bring the punching shoulder forward, and drives the arm, `lead` s
+ * behind, at its
  * contact pose, solved each step for where the target is (`solveReach`): the striking point on
  * the line from the shoulder, `through` m past the target, with the elbow straight and the wrist
  * on the line where the reach leaves them free. Each channel is pushed flat out toward its goal
@@ -181,7 +186,7 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
     follows: true,
     thrown: state.thrown,
     get still() { return state.still; },
-    rangeAt: (hand, up) => ({ reach: standOff(hand, up), along: [-settings.band, settings.band] }),
+    rangeAt: (hand, up) => ({ reach: standOff(hand, up), along: [-CROWDED, settings.band] }),
   };
   const end = () => { state.hand = null; state.phase = null; state.touched = null; state.stood = 0; state.still = 0; };
   const target = new Vector3(), shoulder = new Vector3(), head = new Vector3(), headAt: [number, number, number] = [0, 0, 0];
@@ -266,11 +271,12 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
         case "approach": case "settle": {
           const [tx, , tz] = state.target, hx = view.head.x, hz = view.head.z, apart = hypot(tx - hx, tz - hz) || 1;
           const face = atan2(tx - hx, tz - hz), off = apart - standOff(hand, state.target[1] - view.head.y);
-          if (Math.abs(off) > settings.band) {
-            // Walked toward the stand-off along the line to the target, the centre of mass leading.
+          if (off > settings.band || off < -CROWDED) {
+            // Walked toward the stand-off along the line to the target, the centre of mass leading; out
+            // from a foe come too near at its full pace, or a foe walking in pushes it about.
             const heading = around.heading, ux = (tx - hx) / apart * off, uz = (tz - hz) / apart * off;
             const s = sin(heading), c = cos(heading), forward = ux * s + uz * c, right = ux * c - uz * s;
-            const speed = hypot(forward, right) / APPROACH.seconds, scale = speed > settings.pace ? settings.pace / speed : 1;
+            const speed = hypot(forward, right) / APPROACH.seconds, scale = off < 0 || speed > settings.pace ? settings.pace / speed : 1;
             state.phase = "approach"; state.stood = 0; state.still = 0;
             return { hands: NO_HANDS, posture: null, pushes, closed: CLOSED[hand], steer: 0,
               legs: { kind: "walk", walk: [forward / APPROACH.seconds * scale, right / APPROACH.seconds * scale], face } };
