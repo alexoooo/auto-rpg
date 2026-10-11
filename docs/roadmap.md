@@ -263,18 +263,53 @@ After it, each with its own plan, in the order each needs the one before:
   - **The stride** (experimental) plans its own steps on the capture point and holds 0.7 m/s
     every way for the Warrior, 0.4 for the Rogue and 0.5 for the skeleton
     (`assets/core/stride-envelope.json`), with slower turns than the stance's walk. Its forward
-    walk is about 0.8 m/s, short of a person's; a push-off at toe-off is not built.
-  - **The stride does not yet help a fight**, so the presets keep the stance's walk. In the
-    empty-hand league (Node, Rapier, 120 Hz, 110 bouts an entrant) the Puncher on it falls 1.84
-    times a bout against 0.11. Its straight punch, searched with `settle` 0, drives as soon as its
-    foe is in the band, mid-step on the stride. Waiting on both feet (0.1 s) cures the falls but
-    loses every bout to today's Puncher, and no `EDGE` helps. A blow thrown from a walk under way
-    is what the stride needs before it can be a default.
+    walk reaches about 0.8 m/s, and asked 1.4 it falls.
+  - **Its cadence is the gap, not grip.** It steps 2.6 times a second, 0.28 to 0.38 m a step,
+    where a person at its speed steps 1.2 to 1.5 times, 0.43 to 0.54 m; the friction it asks
+    stays under 0.3 (Lab lines, Node, Rapier, 120 Hz).
+  - **What caps it is the swing.** A swing of 0.3 s from rest asks the swinging hip its full
+    flexion early on, and the soles a yaw they cannot give: 50 N m at 1 m/s and 125 at 1.4,
+    the reaction to the leg's swing, which a person cancels by swinging the arms and the guard
+    holds still. Late in the swing the bearing ankle's dorsiflexion saturates as the body trails
+    its plan.
+  - **Settings tried, all kept off.** None lifted the cap; each moved the pace held by about
+    0.03 m/s or held less:
+    - a shoe's sole (`withSoles`);
+    - a person's cadence forward (`paced`);
+    - landing on contact (`lands`);
+    - a push-off (`push`).
+  - **Tried and not kept:**
+    - the plan yielding to what the soles miss;
+    - soles narrowed to where the ankle holds the whole weight (the Rogue falls at 0.5 m/s);
+    - the pelvis turning with the stride, either way;
+    - the yaw weighed less in the share;
+    - a straighter knee;
+    - a higher or lower lift;
+    - a longer swing or double support.
+  - **What is left to try:** cancelling the swing's reaction within the guard (the chest, or the
+    arms' counter-swing), or a swing that starts in the double support, where two soles give a
+    yaw. Or building on the stance's own walk, which holds 1.2 m/s forward.
+  - **The stride does not help a fight**, so the presets keep the stance's walk. In the
+    empty-hand league (Node, Rapier, 120 Hz, 66 bouts a striding entrant), each preset on the
+    stride rates under itself on the stance's walk:
+
+    | Preset | Stance's walk | Stride |
+    |---|---|---|
+    | Puncher | 1546 | 1412 |
+    | Scrapper | 1204 | 1126 |
+    | Classic | 400 | 312 |
+
+    The Puncher on the stride falls 1.74 times a bout against 0.11; its straight punch drives as
+    soon as its foe is in the band, mid-step. Waiting for both feet as the drive begins
+    (`landed`) brings that to 1.45; waiting 0.1 s on both feet (`settle`) cures the falls but
+    loses every bout to today's Puncher, and no `EDGE` helps.
   - **Running waits for a walk at a person's pace**, and its flight needs a stance that holds
     no foot.
-  - **The next phase** is [walk and run](plans/2026-10-10-walk-and-run.md): a sole that gives,
-    landing on contact, a cadence and push-off from a person's, an ask the soles can give, a blow
-    from a moving walk, then the run.
+  - **The owner's to choose: whether the game's bodies wear the shoe's sole.** It changes every
+    bout's contacts. Walking calm it is noise; under 50 N gusts it fell 4 times in 18 shod
+    against 6 bare.
+  - **The owner's to watch:** the stride in the Lab (`?play=lab`, the fighter's Walk
+    set to Walk and run in the mind editor), with each of its settings, shod with `&sole=1`.
 - **A half turn at the next rate past the envelope's still now and then runs away sideways and
   falls**, one to three of 56 in four cells: after the turn the walk's plan outruns the pace asked
   ([human and strikes](reference/human-and-strikes.md#turning)).

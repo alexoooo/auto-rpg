@@ -121,6 +121,11 @@ mass (`HumanFigure.muscled`) keeps weight from adding muscle. Without one, a mod
 The competency suite measures skills across a grid of them
 ([competencies](reference/competencies.md#physiques)).
 
+A humanoid's feet may wear a running shoe's sole (`withSoles`, `src/core/human/sole.ts`): a
+spring and damper derived from a heel-impact test of a shoe (Hoogkamer et al. 2018), sinking
+about a millimetre under a standing body. The Lab's `sole` loadout puts it on; the game's bouts
+do not.
+
 `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the model registry,
 construction, and each model's default mind and what its right hand holds. What a hand may hold is
 one list (`HELD`, `src/core/items/held.ts`: nothing, or the wooden club), and `armedWith` puts it
@@ -205,7 +210,8 @@ The shared body/controller interfaces do not depend on that engine-specific choi
 `src/core/engine/engine.ts` is the contract, and has no engine's types in it: a fixed step that
 writes each node's `position` and `rotationQuaternion`; bodies that never sleep; the spec's mass,
 whole; velocities of the centre of mass; one friction (`CONTACT_FRICTION`, 0.5) and no bounce on
-every contact; freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded
+every contact, a body's sole (`ContactMaterial.sole`) giving as a spring and damper over its
+depth against a fixed collider and as bare against a body; freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded
 by separately available negative and positive torque ceilings, with its signed whole-step impulse
 on the child (`setMotorBounds`, `motorStepImpulse`); a force and a moment on a body through one step, integrated as gravity is, beside
 the impulse that is whole before it; every body and every fixed collider a body is in contact
@@ -343,7 +349,7 @@ physics and gravity (`driveFighter` takes it). The straight punch walks to where
 fist on the line from the shoulder to the target, and drives every channel of the hips, the chest
 and the arm flat out at a contact pose solved each step by the arm's inverse kinematics
 (`solveReach`): the arm straight through the target and the wrist on the line, so the fist meets
-it with the arm behind it; its settings were searched in Arena bouts (`research/punch-in-bout.mjs`). For a stand,
+it with the arm behind it; its settings were searched in Arena bouts (`research/punch-in-bout.mjs`). With `landed` (off) it drives only with both feet bearing. For a stand,
 `recipeParts` (`src/core/skills/skills.ts`) and `pathParts` (`combat.ts`) make each blow's usual
 set and `recipeSkills` and `combatSkills` put it under the arbiter; `driveBy` hands a body to
 tactics over the skills it is given.
@@ -359,7 +365,11 @@ tactics over the skills it is given.
   reaches back is drawn in. Its swinging foot is held to its path at 0.07 s (`SwingGoal.settle`):
   a step that lands short leaves the capture point ahead of the next, and the walk runs away. A
   walk ends with steps that bring the capture point between the feet. Its locomotion carries its
-  own envelope (`Locomotion.envelope`), the stance's own walk's being no measure of it.
+  own envelope (`Locomotion.envelope`), the stance's own walk's being no measure of it. Off by
+  default, it may take a person's step time forward (`paced`, `personStep` in
+  `src/core/human/gait.ts`), end each swing as its sole meets the ground (`lands`,
+  `SwingGoal.lands`), and drive the trailing ankle through the double support (`push`,
+  `SwingGoal.push`).
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
   searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
   and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its
