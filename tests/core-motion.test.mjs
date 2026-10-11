@@ -16,6 +16,27 @@ const posture = (model) => model.channels.map((c) => ({ channel: c.name, angle: 
   rate: 0, acceleration: 0, seconds: 0.2, weight: 0.03 }));
 const feedback = (target, weight = 1) => ({ target, velocity: zero, acceleration: zero, seconds: 0.15, weight });
 
+test("support load requests are detached, frozen and validated before physical actions", () => {
+  const frame = { kind: "segment", name: "foot.left" }, model = { channels: [], frames: [frame] };
+  const normalLoad = { min: 10, max: 40, pointMin: 1 }, support = { frame, mode: "auto", normalLoad };
+  const command = { joints: [], frames: [], grips: [], supports: [support] };
+  const checked = checkedMotionCommand(command, model);
+  normalLoad.min = 20; frame.name = "absent";
+  assert.deepEqual(checked.supports, [{ frame: { kind: "segment", name: "foot.left" }, mode: "auto",
+    normalLoad: { min: 10, max: 40, pointMin: 1 } }]);
+  assert.throws(() => { checked.supports[0].normalLoad.max = 80; }, TypeError);
+  const known = checked.supports[0].frame;
+  const withLoad = (load, mode = "auto") => ({ ...command, supports: [{ frame: known, mode, normalLoad: load }] });
+  for (const load of [{}, null, [], { min: -1 }, { min: null }, { pointMin: null }, { pointMin: -1 }, { max: Infinity },
+    { min: 10, max: 5 }, { pointMin: 2, max: 1 }, { min: NaN }, { max: NaN }]) {
+    assert.throws(() => checkedMotionCommand(withLoad(load), { channels: [], frames: [known] }), /invalid support load/);
+  }
+  assert.throws(() => checkedMotionCommand(withLoad({ max: 0 }, "free"), { channels: [], frames: [known] }), /free support/);
+  for (const load of [{ min: 0 }, { max: 0 }, { pointMin: 1 }, { min: 3, max: 3 }]) {
+    assert.deepEqual(checkedMotionCommand(withLoad(load), { channels: [], frames: [known] }).supports[0].normalLoad, load);
+  }
+});
+
 test("motion policies act on detached delayed senses and replay the observed target", async () => {
   const stand = await coreStand(modelSpec(models[0]), { pinned: "lowerTrunk", actuation: "directional" });
   const second = buildBody(modelSpec(models[1]), stand.world, { position: [2, 0, 0] });

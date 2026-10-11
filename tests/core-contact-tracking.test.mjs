@@ -204,6 +204,42 @@ test("reaction inequalities change a bounded candidate and rejected solves produ
   } finally { f.dispose(); }
 });
 
+test("support load floors and caps constrain torque without creating contacts or applying forces", async () => {
+  const f = await fixture();
+  try {
+    const tracker = contactTracking(f.physics, f.frames, 1, settings), frame = { kind: "segment", name: "support" };
+    const loaded = normalLoad => ({ ...command, supports: [{ frame, mode: "auto", normalLoad }] });
+    const H = new Float64Array([1]), rhs = new Float64Array([0]), scale = new Float64Array([1]),
+      lo = new Float64Array([-1]), hi = new Float64Array([1]), candidate = new Float64Array([0]);
+    tracker.read(loaded({ min: 5 })); tracker.solve(H, rhs, scale, lo, hi, candidate);
+    assert.equal(tracker.report().points, 0);
+    assert.equal(tracker.report().status, "rejected", "positive load requires a measured support point");
+    assert.deepEqual([...candidate], [0]);
+    f.physics.step(1 / 120); const before = f.physics.save();
+    // This isolated torque response spans 10 N at rest to 30 N at torque +1.
+    for (const [normalLoad, expected] of [[{ min: 15 }, .25], [{ max: 5 }, -.25], [{ pointMin: 12 }, .1], [{ max: 0 }, -.5]]) {
+      tracker.read(loaded(normalLoad)); tracker.base([0, 10, 0]); tracker.column(0, [0, 30, 0]); candidate[0] = 0;
+      tracker.solve(H, rhs, scale, lo, hi, candidate);
+      assert.equal(tracker.report().status, "accepted");
+      assert.ok(Math.abs(candidate[0] - expected) < 1e-6, JSON.stringify({ normalLoad, torque: candidate[0] }));
+      tracker.verify({ reactionMultipliers: torque => [0, 10 + 20 * torque[0], 0] }, candidate);
+      assert.equal(tracker.report().status, "accepted");
+      assert.ok(tracker.report().loadViolation < 1e-5);
+    }
+    tracker.read(loaded({ min: 31 })); tracker.base([0, 10, 0]); tracker.column(0, [0, 30, 0]);
+    tracker.solve(H, rhs, scale, lo, hi, candidate);
+    assert.equal(tracker.report().status, "rejected", "a load request cannot exceed the bounded torque's reach");
+    assert.deepEqual([...candidate], [0]);
+    tracker.read(loaded({ min: 15 })); tracker.base([0, 10, 0]); tracker.column(0, [0, 30, 0]);
+    tracker.solve(H, rhs, scale, lo, hi, candidate);
+    tracker.verify({ reactionMultipliers: () => [0, 8, 0] }, candidate);
+    assert.equal(tracker.report().status, "rejected");
+    assert.equal(tracker.report().loadViolation, 7);
+    assert.deepEqual([...candidate], [0]);
+    assert.deepEqual(f.physics.save(), before);
+  } finally { f.dispose(); }
+});
+
 
 test("additional effort bounds share the contact solve and apply before contacts exist", async () => {
   const f = await fixture();

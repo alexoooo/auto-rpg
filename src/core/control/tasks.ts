@@ -6,6 +6,7 @@ import { deepFreeze } from "../state.ts";
 type MotionFrame = { readonly kind: "segment"; readonly name: string } | { readonly kind: "item"; readonly id: string };
 
 interface Feedback { readonly seconds: number; readonly weight: number }
+interface NormalLoad { readonly min?: number; readonly max?: number; readonly pointMin?: number }
 interface VectorGoal extends Feedback {
   readonly target: Vec3; readonly velocity: Vec3; readonly acceleration: Vec3;
   /** World components to track; omitted means all three. */
@@ -34,7 +35,19 @@ export interface MotionCommand {
   /** Mass-weighted centres of explicitly selected physical frames, each counted once. */
   readonly centres?: readonly { readonly id: string; readonly frames: readonly MotionFrame[]; readonly translation: VectorGoal }[];
   /** Desired support is separate from contact: free frames may still physically touch. */
-  readonly supports?: readonly { readonly frame: MotionFrame; readonly mode: "auto" | "free" }[];
+  readonly supports?: readonly { readonly frame: MotionFrame; readonly mode: "auto" | "free";
+    /** Total predicted compressive load bounds and a minimum per selected point, N. */
+    readonly normalLoad?: NormalLoad }[];
+}
+
+/** Finite requested load limits, with zero and an unbounded maximum as the omitted endpoints. */
+export function supportNormalBounds(load: NormalLoad): readonly [number, number, number] {
+  if (!load || typeof load !== "object" || Array.isArray(load) || (load.min === undefined && load.max === undefined && load.pointMin === undefined)) throw new Error("invalid support load");
+  const min = load.min === undefined ? 0 : load.min, max = load.max === undefined ? Infinity : load.max,
+    pointMin = load.pointMin === undefined ? 0 : load.pointMin;
+  if (!(Number.isFinite(min) && min >= 0) || !(Number.isFinite(pointMin) && pointMin >= 0)
+    || (load.max !== undefined && !Number.isFinite(max)) || !(max >= min && max >= pointMin)) throw new Error("invalid support load");
+  return [min, max, pointMin];
 }
 
 /** World component indices shared by validation and the acceleration tracker. */
@@ -123,7 +136,11 @@ export function checkedMotionCommand(command: MotionCommand, model: MotionModel)
   const supports = command.supports?.map((s) => {
     const key = motionFrameKey(s.frame);
     if (requested.has(key) || !model.frames.some((f) => motionFrameKey(f) === key) || (s.mode !== "auto" && s.mode !== "free")) throw new Error("invalid support request");
-    requested.add(key); return { frame: { ...s.frame }, mode: s.mode };
+    if (s.normalLoad !== undefined) {
+      supportNormalBounds(s.normalLoad);
+      if (s.mode !== "auto") throw new Error("a free support has no load request");
+    }
+    requested.add(key); return { ...s, frame: { ...s.frame }, ...(s.normalLoad ? { normalLoad: { ...s.normalLoad } } : {}) };
   });
   return deepFreeze({ joints, frames: goals, grips: command.grips.map((g) => ({ ...g })),
     ...(centres ? { centres } : {}), ...(supports ? { supports } : {}) });

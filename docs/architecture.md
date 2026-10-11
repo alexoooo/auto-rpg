@@ -673,7 +673,10 @@ length. Root-height aims also use smooth trajectories. Its contact prediction me
 within 1 mm on the same segment, so overlapping colliders do not create separate restraints
 at almost the same position. Physical contacts remain the engine's. The whole-body tracker predicts
 loaded contacts and lift-off and asks only muscle torques; a rejected prediction applies zero
-torque. Orientation and acquisition use bounded joint-velocity feedback. During acquisition,
+torque. Optional normal gap and velocity feedback stabilizes admitted contacts. Motion commands
+can bound a support frame's total predicted compressive load or each selected point's minimum;
+these bounds constrain muscle torque and apply no contact force to the world. Orientation and
+acquisition use bounded joint-velocity feedback. During acquisition,
 the hips respond to the pelvis's measured pitch, checking the forward reaction of drawing the
 knees under the body. Loaded hands and knees advance the tuck and prop; foot placement waits
 for the fours posture, both free hands, clear trunk contacts and a pelvis above prone. An
