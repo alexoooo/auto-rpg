@@ -722,6 +722,13 @@ replay exactly from a checkpoint. This component is separate from the production
 placement and does not establish standing or recovery timing. The boots rest on their backs;
 the sole support needed by the native one-leg transfer is not established.
 
+`stagedRise.beginSupported` can retain a supplied legal anatomical posture for its first bearing
+stage. It copies the angles into replayable state, checks every channel's actual range before
+entry, and leaves later stages on their recipe goals. The same test continues an actual
+muscle-curled, airborne rear boot through supported native contact acquisition. The front sole
+corner acquires load while both knees remain supported, and every observation and saved state
+replays exactly. A captured handoff leaves the recipe's default goals intact.
+
 An upright half-kneel with a flat lead sole can extend through the standing controller once
 its capture point is carried by its actual leg contacts, including the rear boot's loaded toe,
 and the captured pressure-transfer controller is inactive.

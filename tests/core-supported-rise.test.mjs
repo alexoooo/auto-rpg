@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { readFileSync } from "node:fs";
 import { uprightKneel } from "./fixtures/upright-kneel.mjs";
 import { coreStand, saveStand, loadStand } from "./harness/core-stand.mjs";
 import { modelSpec } from "../src/core/models.ts";
@@ -8,6 +9,10 @@ import { guardPosture } from "../src/core/skills/guard.ts";
 import { embody } from "../src/core/mind/mind.ts";
 import { stagedRise } from "../src/core/mind/rise/staged.ts";
 import { RISE } from "../src/core/mind/rise/stages.ts";
+import { centreOfToRef, footStatesOf } from "../src/core/control/support.ts";
+import { uprightness } from "../src/core/control/ground.ts";
+import { observeBody } from "../src/core/observation.ts";
+import { clockSenses } from "../src/core/mind/senses.ts";
 
 test("a supported rise refuses missing support and a pose entry without changing the world or its state", async () => {
   const spec = modelSpec("workshop-fighter"), stand = await coreStand(spec,
@@ -62,4 +67,79 @@ test("a fresh two-shove Lab fall reaches and retains an upright knee support wit
     };
     const expected = branch(); loadStand(f.stand.world, states, saved); assert.deepEqual(branch(), expected);
   } finally { f.dispose(); }
+});
+
+test("a supported handoff preserves a captured legal posture while an actual rear sole acquires load", async () => {
+  const spec = modelSpec("workshop-fighter"), stand = await coreStand(spec,
+    { engine: "rapier-coordinate", groundSize: 40, posture: guardPosture(spec) });
+  let body;
+  try {
+    stand.step(240);
+    stand.world.physics.load(new Uint8Array(readFileSync(new URL("./fixtures/actual-rear-sole-world.bin", import.meta.url))));
+    const parts = [...stand.built.segments.values()], mass = parts.reduce((sum, p) => sum + p.rigid.mass, 0),
+      centre = new Vector3(), velocity = new Vector3(), work = new Vector3(), upright = uprightness(stand.built);
+    const read = () => {
+      centre.setAll(0); velocity.setAll(0);
+      for (const p of parts) {
+        centre.addInPlace(centreOfToRef(p, work).scaleInPlace(p.rigid.mass / mass));
+        velocity.addInPlace(p.body.linearVelocityToRef(work).scaleInPlace(p.rigid.mass / mass));
+      }
+    };
+    const recipe = { ...RISE, rise: [{ kind: "bear", name: "supported sole acquisition",
+      on: [{ limb: "shin.left", share: .5 }, { limb: "shin.right", share: .5 }], leave: [], overProp: false,
+      height: null, pitch: null, posture: RISE.rise.find(s => s.name === "tall").posture, seconds: .4, limit: 8 }] };
+    recipe.rise.push({ ...recipe.rise[0], name: "supported recipe posture" });
+    body = embody(stand.built, stand.world, own => {
+      const rise = stagedRise(own, { get down() { return upright.down(); }, stance: { centre, velocity } }, recipe);
+      return { name: "captured supported handoff", state: rise.state, rise, step(senses, dt) { read(); rise.step(senses, dt); } };
+    });
+    const observe = observeBody(stand.built, body.own.muscles, stand.world, clockSenses(stand.world), undefined, () => upright.down(), true);
+    const load = name => observe().contacts.filter(c => c.segment === name && c.fixed !== null)
+      .reduce((sum, c) => sum + c.impulse / stand.world.dt, 0);
+    assert.equal(load("foot.right"), 0, "the ordinary ankle curl leaves the actual rear boot airborne");
+    assert.ok(load("shank.left") > 100 && load("shank.right") > 100);
+    const muscles = body.own.muscles, captured = Object.fromEntries(muscles.channels.map((c, i) => [c.name,
+      Math.max(c.dof.spec.min.value, Math.min(c.dof.spec.max.value, muscles.angle(i))) + c.dof.spec.bind.value]));
+    const states = { body: body.state }, initial = saveStand(stand.world, states);
+    for (const invalid of [{}, { ...captured, "ankle.right dorsiflexion": NaN },
+      { ...captured, "ankle.right dorsiflexion": muscles.channels[muscles.channel("ankle.right dorsiflexion")].dof.spec.max.value + .2 }]) {
+      assert.throws(() => body.mind.rise.beginSupported(invalid), /within every actual joint range/);
+      assert.deepEqual(saveStand(stand.world, states), initial);
+    }
+    body.mind.rise.beginSupported(); stand.step();
+    const defaultReading = { observation: observe(), saved: saveStand(stand.world, states) };
+    loadStand(stand.world, states, initial);
+    body.mind.rise.beginSupported(captured);
+    assert.deepEqual(body.mind.state.supportedPosture, captured);
+    const expectedPosture = { ...captured }; captured["ankle.right dorsiflexion"] = 0;
+    assert.deepEqual(body.mind.state.supportedPosture, expectedPosture, "the handoff detaches its caller's angles");
+    const checkpoint = saveStand(stand.world, states);
+    const branch = () => {
+      const observations = [];
+      for (let step = 0; step < 240 && body.mind.state.stage !== 1; step++) {
+        stand.step(); const o = observe(); observations.push(o);
+        assert.deepEqual(o.contacts.filter(c => c.fixed !== null && c.impulse > 0 && /Trunk|head/.test(c.segment)), []);
+        assert.deepEqual({ force: body.own.assist.meter.force, moment: body.own.assist.meter.moment }, { force: 0, moment: 0 });
+        for (const j of o.joints) assert.ok(j.effort <= j.positive + 1e-4 && -j.effort <= j.negative + 1e-4, j.name);
+      }
+      assert.deepEqual({ phase: body.mind.state.phase, stage: body.mind.state.stage }, { phase: "rise", stage: 1 },
+        "the actual loaded handoff finishes the supported acquisition and enters its recipe's next stage");
+      assert.ok(load("foot.right") > 20 && load("shank.left") > 20 && load("shank.right") > 20);
+      const foot = footStatesOf(stand.built).find(f => f.side === "right"),
+        heights = foot.ahead.slice(0, 2).map(i => foot.sole[i].applyRotationQuaternionToRef(foot.segment.node.rotationQuaternion, new Vector3())
+          .addInPlace(foot.segment.node.position).y);
+      assert.ok(Math.min(...heights) < .005, `the actual front sole corner reaches the floor: ${heights}`);
+      return { observations, saved: saveStand(stand.world, states) };
+    };
+    const expected = branch();
+    loadStand(stand.world, states, initial); body.mind.rise.beginSupported(); stand.step();
+    assert.deepEqual({ observation: observe(), saved: saveStand(stand.world, states) }, defaultReading,
+      "captured goals cannot overwrite the recipe's goals");
+    loadStand(stand.world, states, checkpoint); assert.deepEqual(branch(), expected);
+    const laterStage = saveStand(stand.world, states); loadStand(stand.world, states, laterStage); stand.step();
+    const retainedLater = { observation: observe(), physics: stand.world.physics.save() };
+    loadStand(stand.world, states, laterStage); body.mind.state.supportedPosture = null; stand.step();
+    assert.deepEqual({ observation: observe(), physics: stand.world.physics.save() }, retainedLater,
+      "the completed handoff's captured angles do not replace the later stage's recipe goals");
+  } finally { body?.dispose(); stand.dispose(); }
 });

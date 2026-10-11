@@ -95,7 +95,7 @@ export function lieOf(root: BuiltSegment, work = { turn: new Quaternion(), way: 
  * purpose is not taken from it. What only a rise needs it reads itself: how it lies, the ground's
  * level, and where its limbs are.
  */
-export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE): SubMind & { beginSupported(): void } {
+export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE): SubMind & { beginSupported(posture?: Readonly<Record<string, number>>): void } {
   const faults = stageFaults(recipe, own.spec);
   if (faults.length > 0) throw new Error(`${own.spec.model} cannot play this rise: ${faults.join("; ")}`);
   const muscles = own.muscles, root = muscles.dynamics.root.segment, count = muscles.channels.length;
@@ -118,6 +118,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const notTrunk: ReadonlySet<BuiltSegment> = new Set([...own.built.segments.entries()].filter(([name]) => !recipe.trunk.includes(name)).map(([, segment]) => segment));
   /** A stage's goal by channel, from the reference pose, as the muscles read their angles. */
   const goalsOf = new Map<Stage, Float64Array>();
+  const supportedGoals = new Float64Array(count);
   /**
    * For a bearing stage, by the recipe's limb: whether it bears, and its share; and whether the
    * stage leaves it. `keeps`: it leaves none.
@@ -132,6 +133,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   }
 
   const state = {
+    /** A supported handoff can retain the measured legal posture while its limbs acquire contact. */
+    supportedPosture: null as Record<string, number> | null,
     /** What it is doing: nothing (the body is not its own, or its rise is over), lying slack, rolling, or rising. */
     phase: "idle" as "idle" | "settle" | "roll" | "rise",
     lie: "front" as Lie,
@@ -200,7 +203,13 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   /** A step of `stage`; whether its limbs are down, those it leaves let go, the centre of mass at its aim and slow, and the pelvis turned to its. */
   const bear = (stage: BearStage, dt: number): boolean => {
     const { aim } = state.bear, { place, target, across, spin, rootSpin, turn, yaw, pitch, moved } = work;
-    const n = 1 / stage.seconds, goals = goalsOf.get(stage)!, { on, share, leaves, keeps } = bearsOf.get(stage)!;
+    const retained = state.phase === "rise" && state.stage === 0 ? state.supportedPosture : null;
+    const n = 1 / stage.seconds, goals = retained ? supportedGoals : goalsOf.get(stage)!, { on, share, leaves, keeps } = bearsOf.get(stage)!;
+    if (retained) for (let i = 0; i < count; i++) {
+      const channel = muscles.channels[i]!;
+      goals[i] = Math.max(channel.dof.spec.min.value, Math.min(channel.dof.spec.max.value,
+        retained[channel.name]! - channel.dof.spec.bind.value));
+    }
     const ground = upright.lowest(), standing = upright.standing;
     // The way the pelvis faces, about up: its left-to-right axis says it however far forward it is pitched.
     across.set(1, 0, 0).applyRotationQuaternionToRef(turnOfToRef(root, turn), across);
@@ -270,12 +279,13 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     // Lying slack, rolling or rising; or, its rise over, down and off its feet.
     wants: () => state.phase !== "idle" || fallen(),
     begin() {
+      state.supportedPosture = null;
       settle();
       state.tries = 0;
       state.furthest = -1;
     },
-    /** A controller handoff starts at the first bearing stage only with its actual supports loaded and trunk clear. */
-    beginSupported() {
+    /** A loaded, clear handoff can retain a detached anatomical posture for its first bearing stage. */
+    beginSupported(posture) {
       const first = recipe.rise[0];
       if (first?.kind !== "bear") throw new Error("a supported rise begins with a bearing stage");
       if (upright.clearance(notTrunk) <= DOWN || !first.on.every(on => {
@@ -283,6 +293,10 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
         return own.built.physics.contactsOf(own.built.segments.get(name)!.body, other => other === null)
           .some(contact => contact.impulse > 0 && -contact.normal[1] >= .9);
       })) throw new Error("a supported rise requires its actual supports and trunk clearance");
+      if (posture && muscles.channels.some(c => !Number.isFinite(posture[c.name])
+        || posture[c.name]! < c.dof.spec.min.value + c.dof.spec.bind.value
+        || posture[c.name]! > c.dof.spec.max.value + c.dof.spec.bind.value)) throw new Error("a supported posture stays within every actual joint range");
+      state.supportedPosture = posture ? { ...posture } : null;
       state.tries = 1; state.furthest = -1; state.raised = false;
       enter("rise", 0);
     },
