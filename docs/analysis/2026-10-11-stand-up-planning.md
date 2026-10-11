@@ -85,7 +85,7 @@ components are -0.0148 and -0.0169. Boot contact alone would misclassify this pr
 The regression reaches this physical configuration, verifies bounded muscle efforts and zero
 assist, and checks its full observation/controller continuation in a fresh world.
 
-## Reproduction and next decision
+## Reproduction and implications
 
 From the repository root, choose output destinations that do not yet exist:
 
@@ -97,10 +97,9 @@ node research/stand-up-contact.mjs --out .review/stand-up-contact.json
 node --test tests/research-stand-up-planning.test.mjs tests/research-stand-up-contact.test.mjs
 ```
 
-The next decision is a support sequence, rather than more freedoms in the same endpoint solve.
-Release and reposition the appropriate hand, or execute a side-sitting transition, before
-bringing the boot through. A candidate must first connect the actual fall to the demonstrated
-supported half-kneel through bounded muscle execution. Then preserve its contact gates while
-shortening it and testing changed falls, occupied hands, repeated falls and disturbances.
-The existing half-kneel extension remains a separate component witness. Full timing and
-qualification stay pending until this connection executes.
+These results reject the tested fixed-contact placement requests, not every recovery route.
+Repositioned hands, a side-sitting transition or another contact sequence remain candidates;
+none is established as a prerequisite. The half-kneel extension is a separate component witness.
+Offline search can reuse these checkpoints and geometry checks while evaluating complete
+physical movements with different actions or body configurations. Full timing and robustness
+remain pending until uninterrupted fresh-fall recovery, host handover and walking qualify.
