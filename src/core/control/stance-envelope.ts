@@ -1,5 +1,6 @@
 import measured from "../../../assets/core/stance-envelope.json" with { type: "json" };
 import strideMeasured from "../../../assets/core/stride-envelope.json" with { type: "json" };
+import simbiconMeasured from "../../../assets/core/simbicon-envelope.json" with { type: "json" };
 import type { SourceKey } from "../sources.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { sourced, type Quantity } from "../spec/quantity.ts";
@@ -107,4 +108,13 @@ export function stanceEnvelope(spec: BodySpec): StanceEnvelope {
  */
 export function strideEnvelope(spec: BodySpec): StanceEnvelope {
   return envelopeIn(strideMeasured, "stride-envelope", spec, "the stride");
+}
+
+/**
+ * The measured envelope of `spec`'s model walking by the SIMBICON walk (`src/core/skills/simbicon.ts`):
+ * `assets/core/simbicon-envelope.json`, the same batteries by the same rule at its walk's speeds
+ * (`research/core-stance-envelope.mjs --legs simbicon`).
+ */
+export function simbiconEnvelope(spec: BodySpec): StanceEnvelope {
+  return envelopeIn(simbiconMeasured, "simbicon-envelope", spec, "the SIMBICON walk");
 }

@@ -11,9 +11,10 @@
  *
  * With `--legs stride` the bodies walk and turn by the stride (`src/core/skills/stride.ts`) in
  * place of the stance's own walk, at the stride's speeds, and `--write` writes
- * `assets/core/stride-envelope.json`.
+ * `assets/core/stride-envelope.json`; with `--legs simbicon`, by the SIMBICON gait
+ * (`src/core/skills/simbicon.ts`) at its walk's speeds, writing `assets/core/simbicon-envelope.json`.
  *
- *   node research/core-stance-envelope.mjs [--legs stride] [--write] [--workers 14]
+ *   node research/core-stance-envelope.mjs [--legs stride|simbicon] [--write] [--workers 14]
  */
 import { Worker } from "node:worker_threads";
 import { availableParallelism } from "node:os";
@@ -25,7 +26,7 @@ import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
 
 /** The gait battery's speeds, m/s, by the legs it measures: the stride's reach past the stance walk's. */
-const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2] };
+const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], simbicon: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4] };
 export const WAYS = [0, 90, 180, 270, 45];
 export const MODELS = ["workshop-fighter", "workshop-rogue", "crypt-skeleton"];
 export const RATES = [0.25, 0.5, 1, 2, 4];
@@ -40,7 +41,7 @@ export const AFTERS = [...Array.from({ length: 13 }, (_, k) => k / 8), 3];
 
 const { values } = parseArgs({ options: { write: { type: "boolean", default: false }, workers: { type: "string" }, legs: { type: "string" } } });
 const legs = values.legs ?? null;
-if (legs !== null && legs !== "stride") throw new Error(`no envelope is measured for legs ${legs}`);
+if (legs !== null && legs !== "stride" && legs !== "simbicon") throw new Error(`no envelope is measured for legs ${legs}`);
 const SPEEDS = SPEEDS_OF[legs ?? "stance"];
 const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2)), hz = PHYSICS_HZ.value;
 

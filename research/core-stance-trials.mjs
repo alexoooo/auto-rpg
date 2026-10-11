@@ -10,6 +10,7 @@ import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
 import { GUARD, guardPosture } from "../src/core/skills/guard.ts";
+import { simbicon } from "../src/core/skills/simbicon.ts";
 import { stride } from "../src/core/skills/stride.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
@@ -160,14 +161,29 @@ export async function shove({ model, impulse, degrees, stance, hz = 120, walked 
 
 /**
  * The locomotion skill `legs` names, driving `b`: null for the stance's own walk, which a trial asks
- * of the stance's goal itself; `"stride"` for the stride (`src/core/skills/stride.ts`).
+ * of the stance's goal itself; `"stride"` for the stride (`src/core/skills/stride.ts`); `"simbicon"`
+ * for the SIMBICON gait (`src/core/skills/simbicon.ts`), which drives the legs itself.
  */
 function skillOf(legs, b) {
   switch (legs) {
     case null: case undefined: return null;
     case "stride": return stride(b);
+    case "simbicon": return simbicon(b);
     default: throw new Error(`no locomotion skill named ${legs}`);
   }
+}
+
+/**
+ * The command of a body walking by the locomotion skill `skill`, asked `walk` facing `face`, its
+ * posture `posture`: the stance's goal it gives (kept by `keep`, which answers the goal to stand
+ * by), or the legs it drives itself (`Locomotion.drive`) with no stance, their posture laid over.
+ * The goal kept is what a fall is read against while the legs are driven.
+ */
+function skillCommand(skill, view, walk, face, dt, posture, keep) {
+  const drive = skill.drive ? skill.drive(view, walk, face, dt) : { kind: "stance", goal: skill.goal(view, walk, face, dt) };
+  if (drive.kind === "drive") return { posture: { ...posture, ...drive.posture }, pushes: drive.pushes, stance: null };
+  const goal = keep(drive.goal);
+  return { posture, pushes: [], stance: view.time > 0 ? goal : null };
 }
 
 /**
@@ -181,11 +197,8 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
   let goal = null, pace = null;
   b.drive((view, dt) => {
     const posture = held === null ? {} : guard;
-    if (skill) {
-      // The walk in the body's frame, facing +z: forward along z, right along x.
-      goal = skill.goal(view, pace && [pace[1], pace[0]], 0, dt) ?? goal;
-      return { posture, pushes: [], stance: view.time > 0 ? goal : null };
-    }
+    // The walk in the body's frame, facing +z: forward along z, right along x.
+    if (skill) return skillCommand(skill, view, pace && [pace[1], pace[0]], 0, dt, posture, (next) => { goal = next ?? goal; return goal; });
     if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03, heading: 0 };
     return { posture, pushes: [], stance: goal && { ...goal, walk: pace } };
   });
@@ -234,10 +247,7 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120, after 
       heading += sense * d;
     }
     const posture = held === null ? {} : guard;
-    if (skill) {
-      goal = skill.goal(view, walking ? [speed, 0] : null, heading, dt) ?? goal;
-      return { posture, pushes: [], stance: view.time > 0 ? goal : null };
-    }
+    if (skill) return skillCommand(skill, view, walking ? [speed, 0] : null, heading, dt, posture, (next) => { goal = next ?? goal; return goal; });
     if (!goal && view.time > 0) goal = { feet: ["left", "right"], centre: null, height: view.standing - 0.03 };
     const walk = walking ? [speed * Math.sin(heading), speed * Math.cos(heading)] : null;
     return { posture, pushes: [], stance: goal && { ...goal, heading, walk } };

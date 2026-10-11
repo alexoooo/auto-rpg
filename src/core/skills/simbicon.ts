@@ -5,6 +5,7 @@ import type { Side } from "../spec/body.ts";
 import { atan2, sin, cos } from "../math/real.ts";
 import { spinBetweenToRef, turnAboutToRef, wrap } from "../math/turn.ts";
 import { armSwing } from "./arm-swing.ts";
+import { simbiconEnvelope } from "../control/stance-envelope.ts";
 import { locomotion, type LegsDrive, type Locomotion } from "./locomotion.ts";
 
 /**
@@ -243,7 +244,8 @@ const RIGHT: Readonly<Vector3> = Object.freeze(new Vector3(1, 0, 0));
  */
 export function simbicon(body: Body, settings: SimbiconSettings = SIMBICON): Locomotion {
   if (!validSimbicon(settings)) throw new Error("a SIMBICON gait needs every setting finite, its times, turn, speed-up and run positive and its shares of strength within (0, 1]");
-  const legs = locomotion(null, settings.turn), muscles = body.muscles, dynamics = muscles.dynamics;
+  const envelope = body.envelope ? simbiconEnvelope(body.built.spec) : null;
+  const legs = locomotion(envelope, settings.turn), muscles = body.muscles, dynamics = muscles.dynamics;
   const legOf = (side: Side): Leg => {
     const names = {
       hip: [`hip.${side} flexion`, `hip.${side} abduction`, `hip.${side} internal rotation`] as const,
@@ -411,7 +413,7 @@ export function simbicon(body: Body, settings: SimbiconSettings = SIMBICON): Loc
   };
 
   return {
-    state, envelope: null,
+    state, envelope,
     ...(swinger ? { arms: (view: BodyView) => memory.walking ? swinger(view, memory.heading, { step: null, swung: 0, off: false }) : null } : {}),
     get heading() { return memory.walking ? memory.heading : legs.heading; },
     get pace() { return memory.walking ? memory.pace : 0; },
