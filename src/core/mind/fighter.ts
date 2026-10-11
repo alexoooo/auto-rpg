@@ -137,6 +137,7 @@ const SIMBICON_FIELDS: readonly PartField<SimbiconConfig>[] = Object.freeze([
   number<SimbiconConfig, "turn">("turn", "Turn", 0.5, 12, 0.1, "rad/s"),
   number<SimbiconConfig, "speedup">("speedup", "Speed-up", 0.1, 5, 0.1, "m/s²"),
   number<SimbiconConfig, "arms">("arms", "Arm swing", 0, 3, 0.1, "rad/m"),
+  number<SimbiconConfig, "run">("run", "Runs past", 0.5, 5, 0.05, "m/s"),
 ]);
 
 /** The straight punch's settings, as a panel offers them. */
@@ -184,7 +185,7 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
   },
   "simbicon": {
     ...skill<SimbiconConfig>("locomotion", "SIMBICON walk", "experimental", { kind: "simbicon", ...SIMBICON },
-      (config) => validSimbicon(settingsOf(config)) ? [] : ["a SIMBICON gait needs every setting finite, its times, turn and speed-up positive and its shares of strength within (0, 1]"]),
+      (config) => validSimbicon(settingsOf(config)) ? [] : ["a SIMBICON gait needs every setting finite, its times, turn, speed-up and run positive and its shares of strength within (0, 1]"]),
     fields: SIMBICON_FIELDS,
   },
   "travel": {
