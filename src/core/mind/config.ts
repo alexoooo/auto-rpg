@@ -4,7 +4,7 @@ import type { AttackTuning } from "../skills/attack-path.ts";
 import type { CombatExecution, DrivenStrike } from "../skills/combat.ts";
 import type { TurnStartup } from "../skills/locomotion.ts";
 import { STRAIGHT_PUNCH, type StraightPunch } from "../skills/straight-punch.ts";
-import type { StrideSettings } from "../skills/stride.ts";
+import { STRIDE, type StrideSettings } from "../skills/stride.ts";
 import type { RunSettings } from "../skills/run.ts";
 import type { ChoosePolicy } from "../skills/choose.ts";
 import type { Placed } from "../skills/strike.ts";
@@ -288,12 +288,21 @@ export const SEEK: SeekConfig = deepFreeze({ kind: "seek", guard: "pose", aim: "
 export const OPENINGS: OpeningsConfig = deepFreeze({ kind: "openings", hands: "alternate", strikes: "linear", prefers: "head", defence: "cover",
   combinations: "none", spacing: 0, spacingStep: 0 });
 
-/** The mind every body has unless its fight says otherwise: seeking tactics over the recipe strike, lying still once down. */
+/**
+ * The legs a body gets about by: the stride while no standing foe is within 5 m, the walk in the
+ * stance once one is (`travelOrFight`). An Arena bout opens at 4 m, so it fights from its first step.
+ */
+export const TRAVEL: TravelConfig = deepFreeze({ kind: "travel", near: 5, travel: { kind: "stride", ...STRIDE }, fight: { kind: "stance-walk" } });
+
+/** The recipe fighter: seeking tactics over the recipe strike, walking in the stance, lying still once down. The Lab's minds are made from it. */
 export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tactics: SEEK, locomotion: { kind: "stance-walk" }, guard: { kind: "cover-guard" },
   blow: { kind: "recipe-strike" }, kick: null, support: null, subs: [{ kind: "lie" }] });
 
-/** The Arena's Classic: the recipe fighter, rising by stages once down. */
-export const CLASSIC: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, subs: [{ kind: "staged-rise" }] });
+/** The mind every humanoid has unless its fight says otherwise: the recipe fighter, travelling, then fighting (`TRAVEL`). */
+export const GAME_FIGHTER: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, locomotion: TRAVEL });
+
+/** The Arena's Classic: the game's fighter, rising by stages once down. */
+export const CLASSIC: FighterConfig = deepFreeze({ ...GAME_FIGHTER, subs: [{ kind: "staged-rise" }] });
 
 /** Classic throwing the straight punch, its fist lined up behind the arm (searched in Arena bouts, `research/punch-in-bout.mjs`), held at the edge of its foe's reach. */
 export const PUNCHER: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...SEEK, range: "edge" }, blow: { kind: "straight-punch", ...STRAIGHT_PUNCH } });
@@ -310,7 +319,7 @@ export const ARENA_KICKS: KickTuning = deepFreeze({ ...KICK_PATH, swingSeconds: 
  * fighting from low support against a foe that is down or rising
  * (`docs/reference/ground-combat.md#arena-integration`), and rising, then steadying, once down.
  */
-export const SCRAPPER: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, tactics: { ...OPENINGS, strikes: "mixed", prefers: "body" },
+export const SCRAPPER: FighterConfig = deepFreeze({ ...GAME_FIGHTER, tactics: { ...OPENINGS, strikes: "mixed", prefers: "body" },
   blow: { kind: "path-strike", overlap: false }, support: { kind: "support-fold" }, subs: [{ kind: "support-recovery" }] });
 
 /** A fighter of behaviours (`BehavioursConfig`): orders followed first, then `list`, then the hands covering; rising by stages once down. */

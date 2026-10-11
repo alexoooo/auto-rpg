@@ -76,7 +76,8 @@ export function skillSet(body: Body, { state: tactics, engagement }: Pick<Tactic
   };
   const resume = (view: Parameters<Skill["resume"]>[0]) => { for (const skill of all) skill.resume(view); };
   return {
-    report, state, resume, envelope: legs.envelope,
+    report, state, resume,
+    get envelope() { return legs.envelope; },
     ...(blow.releases ? { release: resume } : {}),
     command(view, intent, dt) {
       const attack = intent.attack;

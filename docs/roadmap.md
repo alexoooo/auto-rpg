@@ -291,9 +291,11 @@ After it, each with its own plan, in the order each needs the one before:
     rotation, the ankle's plantar flexors and the hip's extensors; at twice the strength it is 8 %
     of its time in the air. A run at a person's pace needs legs that thrust harder, or a
     controller that spreads the thrust.
-  - **Travel, then fight** (experimental, `travel.ts`) walks by the stride, its arms swinging,
-    until a standing foe is within 4 m, and in the stance's guard after. No preset uses it.
-  - **The stride does not help a fight**, so the presets keep the stance's walk. In the
+  - **Travel, then fight** (`travel.ts`) walks by the stride, its arms swinging, until a standing
+    foe is within 5 m, and in the stance's guard after. Every humanoid's mind gets about by it
+    (`GAME_FIGHTER`); an Arena bout opens at 4 m, so it fights by the stance's walk from its
+    first step.
+  - **The stride does not help a fight**, so a fight is in the stance's walk. In the
     empty-hand league (Node, Rapier, 120 Hz, 66 bouts a striding entrant, at the stride's
     earlier settings: a 0.3 s swing after 0.08 s on both feet), each preset on the stride rates
     under itself on the stance's walk:
@@ -310,7 +312,7 @@ After it, each with its own plan, in the order each needs the one before:
     loses every bout to today's Puncher, and no `EDGE` helps.
   - **The owner's to watch and choose:** the stride in the Lab (`?play=lab`, the fighter's Walk
     set to Walk and run in the mind editor), its arms swinging; the run (Walk set to Run); and
-    whether the presets travel by Travel, then fight out of a fight.
+    travelling, then fighting, in the Arena (`&gap=8`) and the Crypt.
 - **A half turn at the next rate past the envelope's still now and then runs away sideways and
   falls**, one to three of 56 in four cells: after the turn the walk's plan outruns the pace asked
   ([human and strikes](reference/human-and-strikes.md#turning)).

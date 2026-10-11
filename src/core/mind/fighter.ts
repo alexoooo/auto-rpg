@@ -19,7 +19,7 @@ import { supportFold } from "../skills/support-fold.ts";
 import { wholeBodyFits, wholeBodyStrike } from "../skills/whole-body-strike.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { ARENA_KICKS, type BehaviourConfig, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type TravelConfig, type LocomotionConfig,
+import { ARENA_KICKS, TRAVEL, type BehaviourConfig, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type TravelConfig, type LocomotionConfig,
   type StraightPunchConfig, type WholeBodyStrikeConfig } from "./config.ts";
 import { choice, number, toggle, type PartField } from "./fields.ts";
 import type { MindWiring } from "./minds.ts";
@@ -139,7 +139,7 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
     fields: RUN_FIELDS,
   },
   "travel": {
-    ...skill<TravelConfig>("locomotion", "Travel, then fight", "experimental", { kind: "travel", near: 4, travel: { kind: "stride", ...STRIDE }, fight: { kind: "stance-walk" } },
+    ...skill<TravelConfig>("locomotion", "Travel, then fight", "game", TRAVEL,
       (config) => Number.isFinite(config.near) && config.near > 0 ? [] : ["travel and fight need a foe's distance, finite and positive"]),
     fields: [number<TravelConfig, "near">("near", "Fight within", 0.5, 20, 0.1, "m")],
     slots: [slotOne("travel", "Travelling", "locomotion"), slotOne("fight", "Fighting", "locomotion")],
