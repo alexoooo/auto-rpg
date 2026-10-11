@@ -665,7 +665,12 @@ empty-handed it retains both hands during placement. Its observer includes unave
 points from loaded floor manifolds. Support release uses this measured contact outline, preserving
 a boot's width, and a mass-weighted velocity projection of the centre. A planted foot needs a loaded,
 upward-facing sole; placement enters transfer only with the trunk clear and the rear shin loaded.
-Transfer retains the hands until the projected centre is over its foot and shin. Pose seeds are clamped to the
+Transfer captures loaded hands, rear shin and both boots, retains their measured geometry and
+tapers the outgoing hand's predicted compressive load before lifting it. The arm lifts only
+after its measured floor load is quiet and the retained contacts still carry weight. The centre
+target transforms the physical local mass centres directly, matching the dynamics' reading.
+This controlled handoff can clear both hands and the knee while the rear boot remains tipped;
+it does not satisfy the standing gate. Pose seeds are clamped to the
 body's limits; the Warrior's fours seed is the installed posture asset. Placement reads its
 heading from the supported body's current orientation after rolling and acquisition. It tracks the
 sole's centre to the floor, turns the boot flat and lifts it along an arc scaled to the leg's
@@ -677,7 +682,8 @@ torque. Optional normal gap and velocity feedback stabilizes admitted contacts. 
 can bound a support frame's total predicted compressive load or each selected point's minimum;
 these bounds constrain muscle torque and apply no contact force to the world. Dynamic rise uses
 normal feedback and retains a measured rear toe with a positive point-load floor during placement
-and transfer; an unloaded toe is not added as support. Orientation and
+and transfer; an unloaded toe is not added as support. Its tracker also predicts joint stops
+within the same muscle envelope. Orientation and
 acquisition use bounded joint-velocity feedback. During acquisition,
 the hips respond to the pelvis's measured pitch, checking the forward reaction of drawing the
 knees under the body. Loaded hands and knees advance the tuck and prop; foot placement waits
@@ -687,7 +693,8 @@ retries locally, and a six-second attempt reclassifies actual contacts and orien
 stage measures progress against its own objective; a transition clears the outgoing error.
 
 An upright half-kneel with a flat lead sole can extend through the standing controller once
-its capture point is carried by its actual leg contacts, including the rear boot's loaded toe.
+its capture point is carried by its actual leg contacts, including the rear boot's loaded toe,
+and the captured pressure-transfer controller is inactive.
 The rear sole need not be flat before extension starts. Height rises from the measured stance
 over 1.3 seconds; the feet stay where they are during this transition, and the same quiet
 two-foot handover gate decides when recovery finishes.
@@ -702,6 +709,8 @@ not a demonstrated faster recovery route. Two 60 N s Front shoves in the Stance 
 the Warrior losing support during foot placement and repeating recovery attempts;
 `tests/lab-dynamic-rise.test.mjs` executes this known failure alongside the stage-progress and
 physical hand-and-knee acquisition and initial bounded support-command regressions.
+`tests/core-support-load.test.mjs` also runs the production handoff from an actual muscle-driven
+Lab kneel and forks it during the pressure ramp; quiet support on a tipped boot remains short of standing.
 
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
 skills' report and the envelope of the locomotion they drive) they return an `Intent` (`intent.ts`): a velocity forward

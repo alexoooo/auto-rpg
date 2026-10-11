@@ -20,6 +20,7 @@ import { applyAction } from "../actions.ts";
 import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
 import { RISE, type Lie } from "./stages.ts";
+import { handTransfer, HAND_TRANSFER } from "./hand-transfer.ts";
 
 /** Motion feedback, progress hysteresis and bounded retry deadlines; controller choices, not anatomy. */
 const T = deepFreeze({ response: .15, jointWeight: .2, centreWeight: 3, rootWeight: .5, pointWeight: 2,
@@ -38,7 +39,7 @@ const SIDES = ["left", "right"] as const;
 type Phase = "orient" | "acquire" | "place" | "transfer" | "extend" | "stabilize" | "complete";
 interface Model {
   readonly channels: readonly { readonly name: string; readonly min: number; readonly max: number; readonly bind: number }[];
-  readonly segments: readonly { readonly name: string; readonly mass: number }[];
+  readonly segments: readonly { readonly name: string; readonly mass: number; readonly localCentre?: Vec3 }[];
   readonly soleUp: Readonly<Record<Side, Vec3>>;
   readonly soles: Readonly<Record<Side, { readonly at: Vec3; readonly rest: readonly [number, number, number, number] }>>;
   readonly rest: readonly [number, number, number, number];
@@ -133,8 +134,11 @@ export function dynamicRisePolicy(input: Model) {
       || Math.abs(model.soleUp[s].reduce((n, v) => n + v * v, 0) - 1) > 1e-6)
     || SIDES.some(s => !model.soles?.[s] || ![...model.soles[s].at, ...model.soles[s].rest].every(Number.isFinite)
       || Math.abs(model.soles[s].rest.reduce((n, v) => n + v * v, 0) - 1) > 1e-6)
-    || model.segments.some(s => !(s.mass > 0) || !Number.isFinite(s.mass))) throw new Error("invalid dynamic rise model");
-  const state = { phase: "complete" as Phase, elapsed: 0, time: 0, attemptTime: 0, stagnant: 0, error: Infinity,
+    || model.segments.some(s => !(s.mass > 0) || !Number.isFinite(s.mass)
+      || (s.localCentre !== undefined && (!Array.isArray(s.localCentre) || s.localCentre.length !== 3
+        || !s.localCentre.every(Number.isFinite))))) throw new Error("invalid dynamic rise model");
+  const transfer = handTransfer(model);
+  const state = { handTransfer: transfer.state, phase: "complete" as Phase, elapsed: 0, time: 0, attemptTime: 0, stagnant: 0, error: Infinity,
     stage: 0, held: 0, ready: 0, attempts: 0, retries: 0, completed: 0, began: 0, finished: 0,
     ground: 0, yaw: 0, lead: "left" as Side, roll: "right" as Side, released: false, landed: false,
     from: model.channels.map(() => 0), pointFrom: [0, 0, 0] as [number, number, number],
@@ -182,6 +186,7 @@ export function dynamicRisePolicy(input: Model) {
     return atan2(-way.z, way.x);
   };
   const enter = (phase: Phase, o: BodyObservation) => {
+    transfer.reset();
     state.phase = phase; state.time = 0; state.stagnant = 0; state.error = Infinity; state.held = 0;
     state.from = o.joints.map(j => j.angle); state.rootFrom = find(o, "lowerTrunk").position[1];
     if (phase === "place") state.yaw = heading(o);
@@ -215,7 +220,7 @@ export function dynamicRisePolicy(input: Model) {
     const sign = mirror && /lateral flexion right|rotation right/.test(name) ? -1 : 1;
     return Math.max(c.min, Math.min(c.max, sign * (pose[name] ?? 0) - c.bind));
   });
-  return { state, begin, end() { state.phase = "complete"; }, reclassify: classify,
+  return { state, begin, end() { state.phase = "complete"; transfer.reset(); }, reclassify: classify,
     step(o: BodyObservation, dt: number): MotionCommand {
       if (!(dt > 0) || !Number.isFinite(dt)) throw new Error("invalid dynamic rise step");
       state.elapsed += dt; state.time += dt; state.attemptTime += dt;
@@ -227,6 +232,13 @@ export function dynamicRisePolicy(input: Model) {
       }
       const free = other(state.lead), hand = `hand.${freeHand()}`, rear = `shank.${free}`, moving = `foot.${state.lead}`;
       const hands = model.held ? [hand] : SIDES.map(side => `hand.${side}`);
+      if (state.phase === "transfer") {
+        if (transfer.state.stage === "inactive") transfer.begin(o, state.lead, freeHand());
+        if (transfer.state.stage !== "inactive" && state.attemptTime < T.attempt) {
+          state.released = transfer.state.stage === "lift";
+          return transfer.step(o, dt);
+        }
+      }
       const commandedPhase = state.phase, commandedStage = state.stage;
       let pose: Readonly<Record<string, number>> = {}, mirror = state.lead === "right";
       switch (state.phase) {
@@ -278,7 +290,7 @@ export function dynamicRisePolicy(input: Model) {
         }
         case "transfer":
           pose = posture("half kneel");
-          if (supported(o, [moving, rear])) state.released = true;
+          if (supported(o, [moving, rear, `foot.${free}`])) state.released = true;
           if (clear(o) && SIDES.every(s => planted(o, s)) && supported(o, [moving, `foot.${free}`])) {
             enter("extend", o); state.released = true;
           }
@@ -408,13 +420,14 @@ export function dynamicRise(own: OwnBody, view: BodyView, world: World): SubMind
     return { at: [middle.x, middle.y, middle.z], rest: [rest.x, rest.y, rest.z, rest.w] };
   };
   const model: Model = { channels: muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value, bind: c.dof.spec.bind.value })), fours,
-    segments: [...built.segments.values()].map(s => ({ name: s.spec.name, mass: s.rigid.mass })), rest: [root.rest.x, root.rest.y, root.rest.z, root.rest.w],
+    segments: [...built.segments.values()].map(s => ({ name: s.spec.name, mass: s.rigid.mass, localCentre: [...s.body.massProperties.centre] as Vec3 })), rest: [root.rest.x, root.rest.y, root.rest.z, root.rest.w],
     soleUp: { left: soleUp("left"), right: soleUp("right") },
     soles: { left: sole("left"), right: sole("right") },
     rootHeight: root.frame.origin[1], leg, gravity: Math.sqrt(world.physics.gravity.reduce((n, v) => n + v * v, 0)),
     held: SIDES.find(side => own.spec.held?.some(h => h.segment === `hand.${side}`)) ?? null };
   const policy = dynamicRisePolicy(model), tracking = wholeBodyTracking(built, muscles, world.physics.gravity, [], [],
-    { capacity: 4, effortCost: 1e-6, contact: { physics: world.physics, settings: T.contact, dt: world.dt } });
+    { capacity: HAND_TRANSFER.capacity, effortCost: 1e-6, contact: { physics: world.physics, settings: T.contact, dt: world.dt },
+      jointStops: { settings: HAND_TRANSFER.jointStops, dt: world.dt } });
   const observe = observeBody(built, muscles, world, () => view.senses, undefined, () => view.down, true);
   const middle = new Vector3(), zero = new Vector3(), legs = locomotion(null);
   const motor = motorControl(built, SERVO_SECONDS, guardPosture(own.spec), undefined, own.assist);
@@ -431,7 +444,8 @@ export function dynamicRise(own: OwnBody, view: BodyView, world: World): SubMind
     end() { policy.end(); state.extending = false; motor.reset(); },
     step(_senses, dt) {
       const p = policy.state, observation = observe();
-      if (!state.extending && p.phase === "transfer" && riseCanExtend(observation, p.lead, model, p.ground, extensionWork)) {
+      if (!state.extending && p.phase === "transfer" && p.handTransfer.stage === "inactive"
+        && riseCanExtend(observation, p.lead, model, p.ground, extensionWork)) {
         state.extending = true; p.phase = "extend"; p.time = 0; p.ready = 0;
         motor.stance.read(); state.riseFrom = motor.stance.reading.centre.y - motor.stance.reading.support.y;
         const across = extensionWork.up.set(1, 0, 0).applyRotationQuaternionToRef(view.root.rotation, extensionWork.up);

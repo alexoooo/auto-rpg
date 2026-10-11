@@ -48,10 +48,14 @@ test("dynamic rise retains a measured rear toe before asking the hands to releas
     assert.deepEqual({ phase: policy.state.phase, lead: policy.state.lead }, { phase: "transfer", lead: "right" });
     assert.deepEqual(command.supports.filter(s => s.frame.name === "foot.left"),
       [{ frame: { kind: "segment", name: "foot.left" }, mode: "auto", normalLoad: { pointMin: 1 } }]);
+    assert.equal(policy.state.handTransfer.stage, "hold");
     const unloaded = { ...observation, contacts: observation.contacts.filter(c => c.segment !== "foot.left") };
     policy.begin(unloaded); const next = policy.step(unloaded, f.stand.world.dt);
     assert.deepEqual(next.supports.filter(s => s.frame.name === "foot.left"),
       [{ frame: { kind: "segment", name: "foot.left" }, mode: "free" }], "the policy does not invent a missing toe contact");
+    assert.equal(policy.state.handTransfer.stage, "inactive", "a new unsupported attempt discards the captured handoff");
+    policy.begin(observation); policy.step(observation, f.stand.world.dt); policy.end();
+    assert.deepEqual({ stage: policy.state.handTransfer.stage, command: policy.state.handTransfer.command }, { stage: "inactive", command: null });
   } finally { f.dispose(); }
 });
 
@@ -127,6 +131,9 @@ test("dynamic rise rejects invalid model and clock data before producing a comma
   assert.throws(() => dynamicRisePolicy({ ...model, gravity: 0 }), /invalid dynamic rise model/);
   assert.throws(() => dynamicRisePolicy({ ...model, soleUp: { left: [0, 0, 0], right: [0, 1, 0] } }), /invalid dynamic rise model/);
   assert.throws(() => dynamicRisePolicy({ ...model, soles: undefined }), /invalid dynamic rise model/);
+  for (const localCentre of [[0, 0], [0, NaN, 0], [0, 0, 0, 0]]) {
+    assert.throws(() => dynamicRisePolicy({ ...model, segments: [{ name: "lowerTrunk", mass: 1, localCentre }] }), /invalid dynamic rise model/);
+  }
   const policy = dynamicRisePolicy(model);
   const before = saveState(policy.state);
   for (const dt of [0, -1, NaN, Infinity]) assert.throws(() => policy.step({}, dt), /invalid dynamic rise step/);
