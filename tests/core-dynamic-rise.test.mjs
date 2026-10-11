@@ -5,12 +5,12 @@ import { armed } from "../src/core/human/grip.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { kindsFor, treeFits } from "../src/core/mind/catalog.ts";
 import { PUNCHER } from "../src/core/mind/config.ts";
-import { dynamicRiseFits, dynamicRisePolicy, riseFootPlanted, riseCanExtend } from "../src/core/mind/rise/dynamic.ts";
+import { dynamicRiseFits, dynamicRisePolicy, riseFootPlanted, riseCanExtend, riseContactPoints } from "../src/core/mind/rise/dynamic.ts";
 import { RISE } from "../src/core/mind/rise/stages.ts";
 import { ratesToRef } from "../src/core/build/joint-state.ts";
 import { atan2 } from "../src/core/math/real.ts";
 import { turnAboutToRef } from "../src/core/math/turn.ts";
-import { footStatesOf } from "../src/core/control/support.ts";
+import { footStatesOf, withinSupport } from "../src/core/control/support.ts";
 import poses from "../assets/research/posture-holds.json" with { type: "json" };
 import { lowsOf, uprightness } from "../src/core/control/ground.ts";
 import { embody } from "../src/core/mind/mind.ts";
@@ -29,6 +29,56 @@ const soleUpOf = built => Object.fromEntries(["left", "right"].map(side => [side
 const solesOf = built => Object.fromEntries(footStatesOf(built).map(foot => [foot.side,
   { at: foot.sole.reduce((middle, corner) => middle.addInPlace(corner), new Vector3()).scaleInPlace(1 / foot.sole.length).asArray(),
     rest: foot.segment.rest.asArray() }]));
+
+test("a loaded boot's complete contact patch carries a capture point outside the pair-average outline", async () => {
+  const spec = armed(modelSpec("workshop-fighter"), "right", woodenClub());
+  const placement = poses.find(p => p.model === spec.model && p.id === "half-kneel").placement;
+  const stand = await coreStand(spec, { ...placement, engine: "rapier-coordinate" });
+  let held;
+  try {
+    held = embody(stand.built, stand.world, own => {
+      const up = uprightness(own.built), observe = observeBody(own.built, own.muscles, stand.world,
+        () => ({ time: stand.world.time, others: [] }), undefined, () => up.down(), true);
+      return { name: "contact-patch half-kneel", state: {}, observe, step() {
+        own.muscles.activation.fill(1); own.muscles.velocity.fill(0);
+      } };
+    });
+    stand.world.step(24);
+    const before = saveStand(stand.world, {}), o = held.mind.observe();
+    assert.deepEqual(saveStand(stand.world, {}), before, "reading contact patches leaves physics unchanged");
+    const boot = o.contacts.find(c => c.segment === "foot.left" && c.fixed !== null && c.impulse > 0);
+    assert.ok(boot);
+    const expected = stand.world.physics.contactManifoldsOf(stand.built.segments.get("foot.left").body, other => other === null)
+      .filter(m => m.fixed === boot.fixed && m.impulse > 0).flatMap(m => m.points.map(p => ({ point: p.point, normal: m.normal, distance: p.distance })));
+    assert.deepEqual(boot.patch, expected, "the observation retains every current point and its gap and normal");
+    assert.ok(riseContactPoints(boot).length >= 3 && boot.pairs.length === 1, "one collider pair has a finite support face");
+    assert.ok(Object.isFrozen(boot.patch) && Object.isFrozen(boot.patch[0].point));
+    const mass = [...stand.built.segments.values()].reduce((sum, s) => sum + s.rigid.mass, 0);
+    const model = { soleUp: soleUpOf(stand.built), rest: stand.built.segments.get("lowerTrunk").rest.asArray(),
+      segments: [...stand.built.segments.values()].map(s => ({ name: s.spec.name, mass: s.rigid.mass })), gravity: -stand.world.physics.gravity[1] };
+    assert.equal(riseCanExtend(o, "left", model, 0), true, "the loaded boot face supports the actual half-kneel before the impulse");
+    const legs = o.contacts.filter(c => c.fixed !== null && c.impulse > 0 && /^(foot|shank)\./.test(c.segment));
+    const averaged = legs.map(c => ({ corners: c.pairs.map(p => new Vector3(...p.point)) }));
+    const target = riseContactPoints(boot).map(p => [.75 * p[0] + .25 * boot.point[0], .75 * p[2] + .25 * boot.point[2]])
+      .find(([x, z]) => { const q = withinSupport(averaged, x, z, 0); return (q[0] - x) * (q[0] - x) + (q[1] - z) * (q[1] - z) > .000001; });
+    assert.ok(target, "the real boot face extends beyond the averaged support outline");
+    const velocity = o.segments.reduce((v, s) => v.map((value, k) => value + s.velocity[k] * stand.built.segments.get(s.name).rigid.mass / mass), [0, 0, 0]);
+    const span = Math.sqrt(o.centre[1] / model.gravity), change = [(target[0] - o.centre[0]) / span - velocity[0], 0,
+      (target[1] - o.centre[2]) / span - velocity[2]];
+    for (const s of o.segments) {
+      const part = stand.built.segments.get(s.name);
+      part.body.applyImpulse(new Vector3(...change).scale(part.rigid.mass), new Vector3(...s.centre));
+    }
+    const disturbed = held.mind.observe();
+    assert.equal(riseCanExtend(disturbed, "left", model, 0), true, "the physical velocity projection is carried by the complete boot patch");
+    const averagedObservation = { ...disturbed, contacts: disturbed.contacts.map(({ patch, ...contact }) => contact) };
+    assert.equal(riseCanExtend(averagedObservation, "left", model, 0), false, "pair averages falsely reject the same actual body state");
+    assert.deepEqual(riseContactPoints({ ...boot, impulse: 0 }), []);
+    assert.deepEqual(riseContactPoints({ ...boot, fixed: null }), []);
+    assert.deepEqual(riseContactPoints({ ...boot, patch: boot.patch.map(p => ({ ...p, distance: .01 })) }), []);
+    assert.deepEqual(riseContactPoints({ ...boot, patch: boot.patch.map(p => ({ ...p, normal: [1, 0, 0] })) }), []);
+  } finally { held?.dispose(); stand.dispose(); }
+});
 
 test("dynamic rise is an additional human recovery choice, including a retained club", () => {
   for (const model of ["workshop-fighter", "workshop-rogue"]) {

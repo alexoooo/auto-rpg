@@ -43,6 +43,8 @@ export interface BodyObservation {
     readonly segment: string; readonly other: string | null; readonly fixed: number | null;
     readonly point: Vec3; readonly normal: Vec3; readonly impulse: number;
     readonly pairs: readonly { readonly mine: number; readonly theirs: number; readonly point: Vec3; readonly normal: Vec3; readonly impulse: number }[];
+    /** Unaveraged solver points of loaded fixed-contact manifolds, when the observer requests them. */
+    readonly patch?: readonly { readonly point: Vec3; readonly normal: Vec3; readonly distance: number }[];
   }[];
   readonly senses: {
     readonly time: number; readonly side: string; readonly out: boolean;
@@ -86,7 +88,7 @@ const tuple = (v: { readonly x: number; readonly y: number; readonly z: number }
 
 /** Snapshot on demand, including current joint motion even while the muscles are idle. */
 export function observeBody(built: BuiltBody, muscles: MuscleDriver, world: World, senses: () => Senses,
-  equipment?: () => readonly EquipmentObservation[], down?: () => boolean): () => BodyObservation {
+  equipment?: () => readonly EquipmentObservation[], down?: () => boolean, contactPatches = false): () => BodyObservation {
   const read = physicalReading(built, down), p = new Vector3(), v = new Vector3();
   const spins = new Map([...built.segments.values()].map((part) => [part, new Vector3()]));
   const trackers = [...built.joints.values()].map((joint) => ({ joint, tracker: jointTracker(joint) }));
@@ -107,11 +109,16 @@ export function observeBody(built: BuiltBody, muscles: MuscleDriver, world: Worl
           effort: muscles.pulled[i]!, negative: muscles.bounds.negative[i]!, positive: muscles.bounds.positive[i]! };
       });
     });
-    const contacts = [...built.segments.values()].flatMap((part) => built.physics.contactsOf(part.body).map((contact) => ({
-      segment: part.spec.name, other: contact.other?.node.name ?? null, fixed: contact.fixed,
-      point: [...contact.point] as Vec3, normal: [...contact.normal] as Vec3, impulse: contact.impulse,
-      pairs: contact.pairs.map((pair) => ({ ...pair, point: [...pair.point] as Vec3, normal: [...pair.normal] as Vec3 })),
-    })));
+    const contacts = [...built.segments.values()].flatMap((part) => {
+      const manifolds = contactPatches ? built.physics.contactManifoldsOf(part.body, other => other === null) : [];
+      return built.physics.contactsOf(part.body).map((contact) => ({
+        segment: part.spec.name, other: contact.other?.node.name ?? null, fixed: contact.fixed,
+        point: [...contact.point] as Vec3, normal: [...contact.normal] as Vec3, impulse: contact.impulse,
+        pairs: contact.pairs.map((pair) => ({ ...pair, point: [...pair.point] as Vec3, normal: [...pair.normal] as Vec3 })),
+        ...(contactPatches ? { patch: manifolds.filter(m => contact.fixed !== null && m.fixed === contact.fixed && m.impulse > 0)
+          .flatMap(m => m.points.map(p => ({ point: [...p.point] as Vec3, normal: [...m.normal] as Vec3, distance: p.distance }))) } : {}),
+      }));
+    });
     return deepFreeze({ time: world.time, level: muscles.level, model: built.spec.model,
       handPoses: structuredClone(built.handPoses.state),
       ...(equipment ? { equipment: equipment() } : {}),

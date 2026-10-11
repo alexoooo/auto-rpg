@@ -661,8 +661,9 @@ fall of five and the skeleton from almost none
 **Dynamic rise** separates a detached observation policy from the muscle adapter. The policy
 waits for a non-foot floor contact, orients, acquires hand/shin support, places a lead foot,
 transfers weight, extends and verifies standing. It retains a held club and uses the free hand;
-empty-handed it retains both hands during placement. Support release uses the measured contact
-outline and a mass-weighted velocity projection of the centre. A planted foot needs a loaded,
+empty-handed it retains both hands during placement. Its observer includes unaveraged solver
+points from loaded floor manifolds. Support release uses this measured contact outline, preserving
+a boot's width, and a mass-weighted velocity projection of the centre. A planted foot needs a loaded,
 upward-facing sole; placement enters transfer only with the trunk clear and the rear shin loaded.
 Transfer retains the hands until the projected centre is over its foot and shin. Pose seeds are clamped to the
 body's limits; the Warrior's fours seed is the installed posture asset. Placement reads its

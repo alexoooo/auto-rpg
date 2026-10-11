@@ -52,6 +52,14 @@ const other = (side: Side): Side => side === "left" ? "right" : "left";
 const length = (a: Vec3, b: Vec3) => Math.sqrt((a[0] - b[0]) * (a[0] - b[0])
   + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]));
 
+/** A loaded floor patch retains its contact width; pair averages serve observations without patches. */
+export function riseContactPoints(contact: BodyObservation["contacts"][number]): readonly Vec3[] {
+  if (contact.fixed === null || !(contact.impulse > 0)) return [];
+  if (contact.patch) return contact.patch.filter(p => -p.normal[1] >= T.minUpNormal && p.distance <= T.contact.gap).map(p => p.point);
+  if (-contact.normal[1] < T.minUpNormal) return [];
+  return contact.pairs.length ? contact.pairs.filter(p => p.impulse > 0 && -p.normal[1] >= T.minUpNormal).map(p => p.point) : [contact.point];
+}
+
 /** Hand-and-knee support with the trunk clear and the pelvis above its prone orientation. */
 export function riseCanPlace(o: BodyObservation, model: Pick<Model, "held" | "rest">,
   work = { up: new Vector3(), turn: new Quaternion(), inverse: new Quaternion() }): boolean {
@@ -93,8 +101,9 @@ export function riseCanExtend(o: BodyObservation, lead: Side,
     || loaded.some(c => /Trunk|head/.test(c.segment))) return false;
   // The rear boot's toe can carry weight while its shin is down; its sole need not be flat yet.
   const patches = loaded.filter(c => /^(foot|shank)\./.test(c.segment)).map(c => ({
-    corners: c.pairs.length ? c.pairs.map(p => new Vector3(...p.point)) : [new Vector3(...c.point)],
-  }));
+    corners: riseContactPoints(c).map(p => new Vector3(...p)),
+  })).filter(p => p.corners.length);
+  if (!patches.length) return false;
   const mass = model.segments.reduce((sum, s) => sum + s.mass, 0);
   let vx = 0, vz = 0;
   for (const s of model.segments) {
@@ -162,7 +171,8 @@ export function dynamicRisePolicy(input: Model) {
   };
   const supported = (o: BodyObservation, names: readonly string[]) => {
     if (!names.every(n => loaded(o, n))) return false;
-    const patches = names.map(name => ({ corners: contacts(o, [name]).flatMap(c => c.pairs.length ? c.pairs.map(p => new Vector3(...p.point)) : [new Vector3(...c.point)]) }));
+    const patches = names.map(name => ({ corners: contacts(o, [name]).flatMap(c => riseContactPoints(c).map(p => new Vector3(...p))) }));
+    if (patches.some(p => !p.corners.length)) return false;
     const p = capture(o), near = withinSupport(patches, p[0], p[2], 0);
     return near[0] === p[0] && near[1] === p[2];
   };
@@ -403,7 +413,7 @@ export function dynamicRise(own: OwnBody, view: BodyView, world: World): SubMind
     held: SIDES.find(side => own.spec.held?.some(h => h.segment === `hand.${side}`)) ?? null };
   const policy = dynamicRisePolicy(model), tracking = wholeBodyTracking(built, muscles, world.physics.gravity, [], [],
     { capacity: 4, effortCost: 1e-6, contact: { physics: world.physics, settings: T.contact, dt: world.dt } });
-  const observe = observeBody(built, muscles, world, () => view.senses, undefined, () => view.down);
+  const observe = observeBody(built, muscles, world, () => view.senses, undefined, () => view.down, true);
   const middle = new Vector3(), zero = new Vector3(), legs = locomotion(null);
   const motor = motorControl(built, SERVO_SECONDS, guardPosture(own.spec), undefined, own.assist);
   const requestedRates = new Float64Array(muscles.channels.length);
