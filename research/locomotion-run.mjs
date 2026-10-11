@@ -21,7 +21,9 @@
  *   the ankles' peak torques, `{"assist": {"force": 10, "moment": 10}}` gives an assist that
  *   ceiling (shares of the body's weight, N and N m a newton), metered in the record, and with
  *   `"only": "yaw"` it gives nothing but the missed moment about the vertical; `{"hz": 240}` runs
- *   physics and control at that rate.
+ *   physics and control at that rate; `{"rocker": 0.3}` gives each foot's collider a sole that
+ *   rolls from heel to toe on an arc of that radius, m, in `"facets"` flat pieces (12 unless
+ *   given; `rockerFoot`), the stance still reading the box's flat sole.
  *
  * Each run's record goes to `--out` as a line of JSON if asked. The summary, per body, track and
  * wind: at each pace, the runs that fell (and on which piece of the track), the mean speed along the
@@ -81,6 +83,32 @@ function probed(spec, { legs = 1, ankles = 1 }) {
       ? { ...j, dofs: j.dofs.map((d) => ({ ...d, muscle: { ...d.muscle, peakPositive: scaled(d.muscle.peakPositive, ankles), peakNegative: scaled(d.muscle.peakNegative, ankles) } })) } : j) };
 }
 
+/**
+ * `foot`'s collider made a hull with the box's top and a sole rolling from heel to toe on an arc of
+ * `radius` (Hansen, Childress and Knox 2004, roll-over shapes: about a third of the leg's length),
+ * touching the box's sole at its middle, in `facets` flat pieces; its mass and inertia the box's
+ * (`changeShape`). The solver touches one piece at a time: twelve on an arc of 100 m hold a slower
+ * walk than the box, which as a hull of its corners holds the box's.
+ */
+function rockerFoot(foot, radius, facets) {
+  const { frame } = foot, box = foot.spec.shape, d = box.centre.value.map((v, k) => v - frame.origin[k]);
+  const axes = [frame.x, frame.y, frame.z], c = axes.map((a) => a[0] * d[0] + a[1] * d[1] + a[2] * d[2]), size = box.size.value;
+  // The local axes nearest the body's up and forward; the third is across the foot.
+  const up = axes.map((a) => a[1]), ahead = axes.map((a) => a[2]);
+  const ku = [0, 1, 2].reduce((m, k) => Math.abs(up[k]) > Math.abs(up[m]) ? k : m, 0);
+  const kf = [0, 1, 2].filter((k) => k !== ku).reduce((m, k) => Math.abs(ahead[k]) > Math.abs(ahead[m]) ? k : m);
+  const kw = 3 - ku - kf, su = Math.sign(up[ku]), points = [];
+  const at = (along, across, height) => { const p = [0, 0, 0]; p[kf] = c[kf] + along; p[kw] = c[kw] + across; p[ku] = c[ku] + su * height; return p; };
+  for (const across of [-size[kw] / 2, size[kw] / 2]) {
+    for (const along of [-size[kf] / 2, size[kf] / 2]) points.push(at(along, across, size[ku] / 2));
+    for (let i = 0; i <= facets; i++) {
+      const along = (2 * i / facets - 1) * size[kf] / 2;
+      points.push(at(along, across, -size[ku] / 2 + radius - Math.sqrt(radius * radius - along * along)));
+    }
+  }
+  foot.body.changeShape(0, { kind: "hull", points });
+}
+
 async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radius, legs, stance, physique, sole, probe }) {
   const [{ withSoles }, { modelSpec }, { labActor }, { startRun }, { TRACKS, trackOf }, { LAB_PRESETS }, { STANCE_GAIT }, { coreStand }] = await Promise.all([
     import("../src/core/human/sole.ts"), import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/run-mode.ts"), import("../src/lab/track.ts"),
@@ -93,6 +121,7 @@ async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radi
   // The ground reaches past the end of every track: a body walking off its edge falls through.
   const modelled = modelSpec(model, physique ?? undefined), spec = probe ? probed(modelled, probe) : modelled;
   const stand = await coreStand(sole ? withSoles(spec) : spec, { ground: true, groundSize: GROUND, ...(probe?.hz ? { hz: probe.hz } : {}) });
+  if (probe?.rocker) for (const side of ["left", "right"]) rockerFoot(stand.built.segments.get(`foot.${side}`), probe.rocker, probe.facets ?? 12);
   const mind = { ...LAB_PRESETS.script.config, ...(legs ? { locomotion: legs } : {}) };
   const tuning = stance ? { ...stance, ...(stance.gait ? { gait: { ...STANCE_GAIT, ...stance.gait } } : {}) } : undefined;
   const run = startRun(labActor(stand.built, stand.world, { mind, stance: tuning, measuring: true, ...(probe?.assist ? { assist: probe.assist } : {}) }), track, { top: pace, facing: info.facing, wind: { settings: wind, seed } });
