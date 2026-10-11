@@ -49,7 +49,6 @@ import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { appendFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PERSON_PACE, personStep } from "../src/core/human/gait.ts";
 
 /**
@@ -98,8 +97,9 @@ async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radi
   const tuning = stance ? { ...stance, ...(stance.gait ? { gait: { ...STANCE_GAIT, ...stance.gait } } : {}) } : undefined;
   const run = startRun(labActor(stand.built, stand.world, { mind, stance: tuning, measuring: true, ...(probe?.assist ? { assist: probe.assist } : {}) }), track, { top: pace, facing: info.facing, wind: { settings: wind, seed } });
   if (probe?.only === "yaw") {
-    const { assist } = run.body, ask = assist.ask.bind(assist), none = new Vector3(), yaw = new Vector3();
-    assist.ask = (force, moment) => ask(none, yaw.set(0, moment.y, 0));
+    // What the bearing solve counts on and what is given are both the clip's: only the moment about the vertical.
+    const { assist } = run.body, clip = assist.clipToRef.bind(assist);
+    assist.clipToRef = (force, moment, givenForce, givenMoment) => { clip(force, moment, givenForce, givenMoment); givenForce.setAll(0); givenMoment.x = 0; givenMoment.z = 0; };
   }
   let frame = run.frame(), off = 0, fellOn = null;
   // The legs' demand: per joint (hip, knee, ankle), the share of control steps a channel of it was

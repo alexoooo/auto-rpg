@@ -1,5 +1,6 @@
 import type { Body, BodyView } from "../body.ts";
-import type { StanceGoal, SwingGoal } from "../control/stance.ts";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { swingProgressToRef, type StanceGoal, type SwingGoal } from "../control/stance.ts";
 import { strideEnvelope } from "../control/stance-envelope.ts";
 import { footStatesOf } from "../control/support.ts";
 import type { Pose } from "../control/motor.ts";
@@ -43,6 +44,8 @@ export interface StrideSettings {
    * arms keep the guard.
    */
   readonly arms?: number;
+  /** The swing's acceleration ramped over this share of each half of its time (`SwingGoal.ramp`), at most 1/4; none or 0, minimum jerk. */
+  readonly ramp?: number;
 }
 
 /**
@@ -56,11 +59,12 @@ export const STRIDE: StrideSettings = Object.freeze({ swing: 0.3, transfer: 0.08
 
 /** Whether `settings` are a stride's: each finite, the double support not negative, the rest positive. */
 export function validStride(settings: StrideSettings): boolean {
-  const { swing, transfer, lift, settle, width, longest, accel, turn, paced, lands, push, arms } = settings;
+  const { swing, transfer, lift, settle, width, longest, accel, turn, paced, lands, push, arms, ramp } = settings;
   return [swing, transfer, lift, settle, width, longest, accel, turn].every(Number.isFinite) && transfer >= 0
     && swing > 0 && lift > 0 && settle > 0 && width > 0 && longest > 0 && accel > 0 && turn > 0
     && [paced, lands].every((x) => x === undefined || typeof x === "boolean")
-    && [push, arms].every((x) => x === undefined || Number.isFinite(x) && x >= 0);
+    && [push, arms].every((x) => x === undefined || Number.isFinite(x) && x >= 0)
+    && (ramp === undefined || Number.isFinite(ramp) && ramp >= 0 && ramp <= 0.25);
 }
 
 /**
@@ -184,7 +188,7 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
       : halt(view, goal, sign, T);
     const capture: [number, number] = moving ? [to[0] + walk[0] * T / (grow - 1) - sign * width * rx / (grow + 1),
       to[1] + walk[1] * T / (grow - 1) - sign * width * rz / (grow + 1)] : [(b.x + to[0]) / 2, (b.z + to[1]) / 2];
-    const extra = { ...settings.lands ? { lands: true } : {}, ...settings.push ? { push: settings.push } : {} };
+    const extra = { ...settings.lands ? { lands: true } : {}, ...settings.push ? { push: settings.push } : {}, ...settings.ramp ? { ramp: settings.ramp } : {} };
     if (first) return { foot: side, to, seconds: swing, lift: settings.lift, shift: true, capture, settle: settings.settle, ...extra };
     const E = exp(-w * swing);
     return { foot: side, to, seconds: swing, lift: settings.lift, transfer, capture, settle: settings.settle,
@@ -262,10 +266,11 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
     return { ...step, to, seconds: memory.swung + t, capture: [to[0] + nx, to[1] + nz], follows: true };
   };
 
+  const progress = new Vector3();
   /** Each arm's posture swinging: its shoulder's flexion the swing's for the other side's sole's lead. */
   const swungArms = (view: BodyView): Pose => {
     const s = view.stance, h = legs.heading, fx = sin(h), fz = cos(h), gain = settings.arms!, step = memory.step;
-    const eased = (t: number): number => t * t * t * (10 - 15 * t + 6 * t * t);
+    const eased = (t: number): number => swingProgressToRef(t, step?.ramp, progress).x;
     const lead = (side: Side): number => {
       let x = s.soles[side].x, z = s.soles[side].z;
       if (step && step.foot === side && s.phase === "swing") {

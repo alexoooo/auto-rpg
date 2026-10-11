@@ -96,6 +96,12 @@ export interface SwingGoal {
    */
   readonly lands?: boolean;
   /**
+   * The swing's way across the ground as a ramped acceleration, the share of each half of the
+   * swing's time its acceleration takes to rise or fall (0 to 1/4, `swingProgressToRef`); its peak
+   * is below minimum jerk's where it is under 0.15. None, minimum jerk.
+   */
+  readonly ramp?: number;
+  /**
    * The push-off: the plantarflexion, rad, the trailing foot's ankle, rolled onto its toes, is
    * driven toward through a walk's double support, with its knee's pre-swing
    * (`GaitTuning.preswing`) and at its time, so the leg launches the body and itself into the
@@ -370,7 +376,7 @@ function shiftWeight(s: Stance, swing: SwingGoal | null, bearer: FootState | und
  */
 function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): void {
   const { feet } = s, { step, tasks, reading } = s.state, { seconds } = s.tuning;
-  const { sole, level, path, along, turn, wholeAxis } = s.scratch;
+  const { sole, level, path, along, turn, wholeAxis, progress } = s.scratch;
   const foot = feet.find((f) => f.side === swing.foot)!;
   soleMiddleToRef(foot, sole);
   const met = swing.lands === true && step.lifted && step.time + dt >= LANDS_FROM * swing.seconds
@@ -389,8 +395,9 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   const tau = Math.min(1, step.time / swing.seconds), from = step.from;
   // Past its time, a foot that lands goes on down until it meets the ground.
   const late = swing.lands === true ? Math.min(Math.max(step.time - swing.seconds, 0), LATE_MOST) : 0;
-  // Minimum jerk across the ground, a lift of the same smoothness up and down.
-  const eased = tau * tau * tau * (10 - 15 * tau + 6 * tau * tau), ds = 30 * tau * tau * (1 - tau) * (1 - tau) / swing.seconds;
+  // Across the ground by its progress, a lift as smooth as minimum jerk up and down.
+  swingProgressToRef(tau, swing.ramp, progress);
+  const eased = progress.x, ds = progress.y / swing.seconds;
   const bump = 16 * tau * tau * (1 - tau) * (1 - tau), dbump = 32 * tau * (1 - tau) * (1 - 2 * tau) / swing.seconds - (late > 0 ? LATE_DESCENT / swing.lift : 0);
   path.set(from.x + (swing.to[0] - from.x) * eased, from.y + swing.lift * bump - LATE_DESCENT * late, from.z + (swing.to[1] - from.z) * eased);
   turnBetweenToRef(step.lift, level, eased, step.turn);
@@ -405,7 +412,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   // alone lags a turn by twice its rate times the swing's constant, and a foot turning over a
   // swing lands off the heading (`tests/core-stance.test.mjs`).
   const task = tasks[feet.indexOf(foot)]!, w = 1 / settle, T = swing.seconds;
-  const dds = tau < 1 ? 60 * tau * (1 - tau) * (1 - 2 * tau) / (T * T) : 0, ddbump = tau < 1 ? 32 * (1 - 6 * tau + 6 * tau * tau) / (T * T) : 0;
+  const dds = progress.z / (T * T), ddbump = tau < 1 ? 32 * (1 - 6 * tau + 6 * tau * tau) / (T * T) : 0;
   motionAtToRef(foot.segment, sole, task.linear, task.angular);
   task.linear.set((swing.to[0] - from.x) * dds + w * w * (path.x - sole.x) + 2 * w * (along.x - task.linear.x),
     swing.lift * ddbump + w * w * (path.y - sole.y) + 2 * w * (along.y - task.linear.y),
@@ -419,6 +426,31 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
     reading.own = null;
     step.catching = false;
   }
+}
+
+/**
+ * **A swing's progress** at `tau`, its share of the swing's time, into `out`: x the share of the
+ * way, y its rate per share of the time, z that rate's. With no `ramp`, minimum jerk, 10 tau^3 -
+ * 15 tau^4 + 6 tau^5 (Flash and Hogan 1985), whose acceleration peaks at 5.77 times the way over
+ * the time squared. With one, the acceleration rises over `ramp` of the time, holds, and falls
+ * over as much by the half, then the same mirrored: its peak 4 / (1 - 2 ramp), the least a
+ * way at rest at both ends can have as `ramp` goes to 0, for a sharper start and stop.
+ */
+export function swingProgressToRef(tau: number, ramp: number | undefined, out: Vector3): Vector3 {
+  if (tau >= 1) return out.set(1, 0, 0);
+  if (ramp === undefined) return out.set(tau * tau * tau * (10 - 15 * tau + 6 * tau * tau), 30 * tau * tau * (1 - tau) * (1 - tau), 60 * tau * (1 - tau) * (1 - 2 * tau));
+  const q = ramp, flip = tau > 0.5, u = flip ? 1 - tau : tau, top = 4 / (1 - 2 * q);
+  let share: number, rate: number, accel: number;
+  if (u < q) {
+    accel = top * u / q; rate = top * u * u / (2 * q); share = top * u * u * u / (6 * q);
+  } else if (u <= 0.5 - q) {
+    const d = u - q;
+    accel = top; rate = top * q / 2 + top * d; share = top * q * q / 6 + top * q / 2 * d + top * d * d / 2;
+  } else {
+    const d = 0.5 - 2 * q, r = top * q / 2 + top * d, at = top * q * q / 6 + top * q / 2 * d + top * d * d / 2, e = u - (0.5 - q);
+    accel = top * (1 - e / q); rate = r + top * e - top * e * e / (2 * q); share = at + r * e + top * e * e / 2 - top * e * e * e / (6 * q);
+  }
+  return flip ? out.set(1 - share, rate, -accel) : out.set(share, rate, accel);
 }
 
 /** Each foot's leg's channels, found once the driver's are known. */
