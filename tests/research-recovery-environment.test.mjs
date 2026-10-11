@@ -79,7 +79,7 @@ test('opposite target commands turn a fallen body joint in opposite directions t
     await e.fall({ degrees: 90 });
     const initial = e.save(), observation = e.observe(), channel = e.channels.findIndex(c => c.name === 'elbow.left flexion');
     const outcomes = [];
-    for (const target of [-1, .7]) {
+    for (const target of [-.8, .7]) {
       e.restore(initial);
       const angles = observation.joints.map((j, i) => Math.max(e.channels[i].min, Math.min(e.channels[i].max, j.angle)));
       angles[channel] = target;
@@ -89,5 +89,11 @@ test('opposite target commands turn a fallen body joint in opposite directions t
     }
     assert.ok(outcomes[0].rate < -1 && outcomes[1].rate > 1);
     assert.ok(outcomes[1].angle - outcomes[0].angle > .2);
+    e.restore(initial);
+    const angles = observation.joints.map((j, i) => Math.max(e.channels[i].min, Math.min(e.channels[i].max, j.angle)));
+    angles[channel] = 1.5;
+    for (let k = 0; k < 48; k++) e.step({ kind: 'targets', angles, response: .05, speed: 6, activation: 1 });
+    assert.ok(e.observe().joints[channel].angle > 1.3, 'the reference-relative elbow range includes deep flexion');
+    assert.equal(e.channels[channel].max, e.body.muscles.channels[channel].dof.spec.max.value);
   } finally { e.dispose(); }
 });

@@ -81,6 +81,7 @@
  "research-native-posture.test.mjs",
  "research-posture.test.mjs",
  "research-punch-calibration.test.mjs",
+ "research-recovery-native.test.mjs",
  "research-rise.test.mjs",
  "research-rollouts.test.mjs"
 ]

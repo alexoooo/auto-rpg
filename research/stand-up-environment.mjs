@@ -73,8 +73,8 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
   const recovery = (own, view, into) => {
     legacy = (baseline === 'support-recovery' ? supportRecovery : dynamicRise)(own, view, into);
     const muscles = own.muscles;
-    channels = muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value - c.dof.spec.bind.value,
-      max: c.dof.spec.max.value - c.dof.spec.bind.value, bind: c.dof.spec.bind.value,
+    channels = muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value,
+      max: c.dof.spec.max.value, bind: c.dof.spec.bind.value,
       positive: c.positive.peak, negative: c.negative.peak }));
     port = { legacy: legacy.state, active: false };
     return { name: 'offline recovery', state: port,
@@ -173,8 +173,13 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
         else experiment.failure = 'host walking displacement';
       }
     }
-    for (const j of o.joints) experiment.effortViolation = Math.max(experiment.effortViolation,
-      j.effort > 0 ? j.effort - j.positive : -j.effort - j.negative);
+    for (const j of o.joints) {
+      if (![j.angle, j.rate, j.speed, j.effort, j.positive, j.negative].every(Number.isFinite)) {
+        experiment.failure ??= 'nonfinite joint actuation'; continue;
+      }
+      experiment.effortViolation = Math.max(experiment.effortViolation,
+        j.effort > 0 ? j.effort - j.positive : -j.effort - j.negative);
+    }
     if (body.assist.meter.force !== 0 || body.assist.meter.moment !== 0) experiment.assisted = true;
     if (o.segments.some(s => [...s.position, ...s.rotation, ...s.velocity, ...s.spin].some(v => !Number.isFinite(v))))
       experiment.failure ??= 'nonfinite physics';

@@ -103,3 +103,84 @@ none is established as a prerequisite. The half-kneel extension is a separate co
 Offline search can reuse these checkpoints and geometry checks while evaluating complete
 physical movements with different actions or body configurations. Full timing and robustness
 remain pending until uninterrupted fresh-fall recovery, host handover and walking qualify.
+
+## Offline action search
+
+`research/stand-up-environment.mjs` exposes actual muscle commands independently of the recovery
+phase machine. Its Node Stance Lab host uses the engine artifact, 120 Hz, symmetric actuation
+and balance 0 named above. This experiment's core/Lab source digest is
+`74e7e3b183c90dd6f4b5a5419593e831250c6b0be09faed3f1807d9966b5734e`.
+Checkpoints include world, physics, host, skills, orders and held
+research commands. They reject mismatched source, body and engine identities. Recorded actions
+precede their corresponding observations by exactly one world step.
+
+The independent completion predicate requires upright root and soles, loaded foot support,
+supported centre of mass, slow motion for half a second, actual host handover, two seconds of
+standing and one second of walking with at least 0.1 m displacement. It counts the whole
+takeover interval. A slow completion is a feasibility witness, not a passing quick recovery.
+
+For Warrior with empty hands, on the unchanged body, the staged support-recovery baseline
+completes the two 60 N s Lab shoves at 90 degrees in 25.275 s from takeover, followed by the
+three-second verification tail. Every physical observation replays exactly through the action
+port. Original continuation, restored continuation, fresh-world continuation and candidate-order
+permutations agree. The Front reproduction does not complete in 50 s with this baseline; Dynamic
+rise also fails a twelve-second Front episode in the new environment.
+
+`research/stand-up-search.mjs` records/replays complete demonstrations and searches smooth
+bounded target trajectories or retimed command windows with smooth residuals. Command windows
+retain their exact physical prefix and evaluate their entire future, including the host tail.
+`research/cma.mjs` persists the mean, diagonal covariance, evolution paths, step size, random
+state, best candidate and generation; interrupted generations cache completed evaluations.
+Workers evaluate sequentially, propagate errors and cancel queued work. All sampled candidates,
+prefix construction and winner materialization consume the declared compute budget.
+
+The repaired command pilot evaluates 144 candidates in 216.17 wall-clock seconds across three
+workers: 503,922 world steps including materialization, approximately 2,331 steps/s. Other local
+checks shared the machine, so this is an observed run rate, not a hardware benchmark. The only
+successful candidate is the unchanged replay, with automatic handover one step earlier
+(25.2667 s). A fresh-world replay verifies it. Full-tape retiming/residuals at the tested scale
+destroy the contact trajectory; they establish no speed improvement. An earlier aborted pilot
+revealed command-index rounding at unchanged playback speed. Integer-first indexing and a
+full-length regression correct it; those candidate results are excluded.
+
+The first target-trajectory comparisons are invalidated: the adapter subtracted bind angles
+from joint limits that are already reference-relative. This incorrectly narrowed some ranges
+and extended others. The corrected adapter reads `DofSpec.min/max` directly, as `buildBody`
+passes them to the physical joints. Those searches are not evidence about the available action
+space, anatomy or relative merits of the two body candidates. Their 2,240,846 computed steps
+remain charged to the campaign. New comparisons require corrected inputs and fresh checkpoints.
+
+The existing `withSoles` body is a separate physical candidate, with the same muscle bounds.
+Under the staged baseline it completes Front in 29.2917 s but fails the 90-degree recipe in
+45 s. These two observations do not establish improved robustness. `research/stand-up-sole.mjs`
+checks actual boot dimensions, mass, inertia and the existing sole law on an isolated loaded
+boot. At 120 Hz the Warrior's half/full-body loads compress it by 1.18145/2.36291 mm, and the
+Rogue's by approximately 0.861/1.722 mm. Both unload to their own-weight compression, remain
+within the 6.1 mm layer and show no energy increase during free unloading. Complete physical
+and world-state restoration reproduces unloading exactly. This is a material fixture, not a
+recovery or whole-leg qualification.
+
+`research/stand-up-native.mjs` evaluates bounded muscle commands in the actual engine to track
+the segments of a complete demonstration. Its unchanged-speed reference reproduces the
+baseline; counterfactual steps advance neither episode time nor the selected physical path.
+Compressing the 25.275 s demonstration to a 20 s target with one optimization iteration per
+step fails: no handover after 25 s, 118,692 computed world steps and 537.48 wall-clock seconds.
+The one-step tracker loses the reference through changing contacts. This does not establish
+that a longer-horizon optimizer or another trajectory cannot succeed.
+
+Reproduce these experiments with separate output paths:
+
+```powershell
+node research/stand-up-search.mjs record --degrees 90 --output .review/stand-up/lab-right.trace
+node research/stand-up-search.mjs replay --input .review/stand-up/lab-right.trace
+node research/stand-up-search.mjs pilot --input .review/stand-up/lab-right.trace --output .review/stand-up/pilot.trace --workers 3 --generations 12
+node research/stand-up-search.mjs record --degrees 0 --seconds 12 --output .review/stand-up/front.trace
+node research/stand-up-search.mjs search --input .review/stand-up/front.trace --reference .review/stand-up/lab-right.trace --output .review/stand-up/targets.trace --representation targets --knots 4 --workers 3 --generations 100 --stepBudget 1360000 --wallSeconds 1200
+node research/stand-up-sole.mjs
+node research/stand-up-native.mjs --input .review/stand-up/lab-right.trace --output .review/stand-up/native.trace --seconds 20 --iterations 1 --stepBudget 225000
+```
+
+Search output checkpoints retain full optimizer state; rerunning an identical configuration
+resumes it. Native checkpoints retain the selected physical prefix and optimizer action.
+Complete action/observation traces are compressed local artifacts, not new runtime policies.
+These experiments have not qualified an additional recovery variant.
