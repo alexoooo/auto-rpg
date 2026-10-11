@@ -11,7 +11,7 @@ import { centreOfToRef } from "../../src/core/control/support.ts";
 import { observeBody } from "../../src/core/observation.ts";
 import { clockSenses } from "../../src/core/mind/senses.ts";
 
-/** Ordinary muscle toe placement and a supported bearing handoff after a real two-shove Lab fall. */
+/** Ordinary muscle boot contact acquisition and a supported bearing handoff after a real two-shove Lab fall. */
 export async function uprightKneel({ bearingSeconds = .2 } = {}) {
   const f = await foursSupport(.0001), { stand } = f;
   let body;
@@ -51,7 +51,7 @@ export async function uprightKneel({ bearingSeconds = .2 } = {}) {
         return { local, point, radius: low.radius };
       }).sort((a, b) => a.point.y - a.radius - b.point.y + b.radius);
       const low = candidates[0];
-      if (low.radius !== 0) throw new Error("toe placement requires a polyhedral boot");
+      if (low.radius !== 0) throw new Error("boot contact acquisition requires a polyhedral boot");
       return { name, at: low.local.asArray(), from: low.point.asArray() };
     });
     const goal = { joints: [], frames: [{ id: "root", frame: { kind: "segment", name: "lowerTrunk" }, at: zero,

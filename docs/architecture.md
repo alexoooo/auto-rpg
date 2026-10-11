@@ -705,12 +705,13 @@ pressure transfer retains the full measured patch. `tests/core-support-pivot.tes
 a real two-shove Lab knee-weight shift and an exact checkpoint replay. This supported pivot
 does not establish an upright kneel or a completed rise.
 
-`tests/core-supported-rise.test.mjs` continues that fresh two-shove fall through toe placement,
+`tests/core-supported-rise.test.mjs` continues that fresh two-shove fall through boot contact acquisition,
 a supported native bearing entry and a captured upright knee hold. The hold retains loaded
-knees and toes with the hands clear, bounds predicted support pressure and damps vertical
+knees and boots with the hands clear, bounds predicted support pressure and damps vertical
 motion while allowing the knee-supported height to settle. Its full physics and controller state
 replay exactly from a checkpoint. This component is separate from the production rise's foot
-placement and does not establish standing or recovery timing.
+placement and does not establish standing or recovery timing. The boots rest on their backs;
+the sole support needed by the native one-leg transfer is not established.
 
 An upright half-kneel with a flat lead sole can extend through the standing controller once
 its capture point is carried by its actual leg contacts, including the rear boot's loaded toe,
