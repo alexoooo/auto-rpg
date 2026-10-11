@@ -33,7 +33,9 @@
  * on two, with no wind taken off), the shortfall by component (force, pitch, roll and yaw in the
  * body's frame: the share of steps over `MISSED`, and its mean size) and by phase (standing, shifting,
  * the first and second half of a swing), and the
- * step and cadence beside a person's at the speed walked (`personStep`).
+ * step and cadence beside a person's at the speed walked (`personStep`). Its record also has each leg
+ * channel's saturation by the way it pulled and whether its leg bore or swung (`saturated`: the
+ * share of such leg-steps at full activation).
  *
  * Runs go in parallel on worker threads, one stand at a time in each.
  */
@@ -95,8 +97,23 @@ async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radi
   const PHASES = ["stand", "shift", "early", "late"], PARTS = ["force", "pitch", "roll", "yaw"];
   const missed = Object.fromEntries(PHASES.map((p) => [p, { steps: 0, ...Object.fromEntries(PARTS.map((c) => [c, 0])), size: Object.fromEntries(PARTS.map((c) => [c, 0])) }]));
   let swinging = null;
+  // Each leg channel's saturation (activation full, by the way it pulled) while its leg bore or swung.
+  const legChannels = muscles.channels.flatMap((c, i) => /^(hip|knee|ankle).(left|right) /.test(c.name)
+    ? [{ i, name: c.name.replace(/.(left|right)/, ""), side: c.name.includes(".left") ? "left" : "right" }] : []);
+  const saturated = {}, roleSteps = { bearing: 0, swinging: 0 };
   const hook = stand.world.afterStep((dt) => {
     steps++;
+    {
+      const r = run.body.view.stance, swing = stanceState.step.swing;
+      const swung = r.phase === "swing" && swing ? swing.foot : null;
+      roleSteps.bearing += swung ? 1 : 2;
+      if (swung) roleSteps.swinging++;
+      for (const { i, name, side } of legChannels) {
+        if (muscles.activation[i] < 0.99) continue;
+        const key = `${name} ${muscles.pulled[i] >= 0 ? "+" : "-"} ${side === swung ? "swinging" : "bearing"}`;
+        saturated[key] = (saturated[key] ?? 0) + 1;
+      }
+    }
     {
       const r = run.body.view.stance, swing = stanceState.step.swing, h = r.facing, sh = Math.sin(h), ch = Math.cos(h);
       const ahead = (x, z) => x * sh + z * ch, right = (x, z) => x * ch - z * sh;
@@ -154,6 +171,7 @@ async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radi
     travelled: +frame.travelled.toFixed(3), mean: +frame.mean.toFixed(3), walking: frame.walking, off: +off.toFixed(3),
     pieces: frame.pieces.map((v) => v === null ? null : +v.toFixed(3)), gait: Object.fromEntries(Object.entries(frame.gait).map(([k, v]) => [k, +v.toFixed(3)])),
     gusts: frame.gusts, fall, shortfall: +(shortfall / steps).toFixed(3),
+    saturated: Object.fromEntries(Object.entries(saturated).map(([k, n]) => [k, +(n / roleSteps[k.endsWith("swinging") ? "swinging" : "bearing"]).toFixed(3)])),
     landing: summarizeLandings(landings), friction: { one: summarizeFriction(friction.one), two: summarizeFriction(friction.two) },
     missed: Object.fromEntries(PHASES.map((p) => [p, { share: +(missed[p].steps / steps).toFixed(3),
       ...Object.fromEntries(PARTS.map((c) => [c, missed[p].steps ? +(missed[p][c] / missed[p].steps).toFixed(3) : 0])),

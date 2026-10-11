@@ -155,6 +155,24 @@ an option (`--sole`, the Lab's `&sole=1`); friction stays the contract's.
   taking load off the dorsiflexion channel that saturates.
 - **Reading:** speed held forward and back, and the ankle channels' activation.
 
+**Found.** The plan's premise was wrong about which channel saturates. Forward at 1 m/s, the
+swinging ankle's dorsiflexion almost never saturates. Two channels do:
+- **The swinging hip's flexion**, in the first half of the swing: about 25 % of all control
+  steps. A minimum-jerk path from rest carries the foot about 0.7 m in 0.3 s and peaks near
+  45 m/s².
+- **The bearing ankle's dorsiflexion**, in the second half of the swing, on a flat foot: about
+  17 %. The plan's own pivot there is 5 to 6 cm toward the toe, but the body trails the plan by
+  1.5 cm and 4 cm/s. Pulling it back asks a centre of pressure on the heel, behind what 43 N m of
+  dorsiflexion holds.
+
+What was tried:
+- **The push-off** is a stride setting, off by default (`push`, rad of plantarflexion). It drives
+  the rolled trailing ankle through the double support beside the knee's pre-swing. Forward, the
+  Warrior gains 0.02 to 0.03 m/s and the cap does not move. With a 0.15 s double support, the
+  Rogue holds 1 m/s with it and 0.7 without. On the gusty square it is no better.
+- **Knee clearance** was not built, since no clearance channel saturates.
+- **A higher lift, a longer swing or a longer double support** each held less.
+
 ### 05: an ask the soles can give
 
 - **A small contact-force solve** over the soles' corners, inside the friction pyramid and the
@@ -167,6 +185,17 @@ an option (`--sole`, the Lab's `&sole=1`); friction stays the contract's.
   does.
 - **Reading:** the shortfall's share of steps, and speed held sideways and back, where the
   shortfall is largest.
+
+**Found.** The stance's wrench share already is that solve: soles, friction, the centre of
+pressure inside the sole, twist. At 1 m/s it falls short in 96 % of early-swing steps. Two
+additions were tried; both did worse, and both were removed:
+- **The plan gives way by what the soles missed.** More falls sideways and on the gusty square.
+  The body's lag was unchanged, since the share believes it can give the heel.
+- **Each sole bears only where its ankle holds the whole weight**, on the share and on the plan's
+  support. The Rogue, whose ankle holds its weight about 4 cm either side of a sole 6.4 cm each
+  way, falls even at 0.5 m/s. A region sized for the whole weight is narrower than what a
+  saturated ankle gives a foot bearing part of it: the walk is better asking more than the ankle
+  has.
 
 ### 06: the trunk and the height
 

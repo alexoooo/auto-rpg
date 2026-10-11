@@ -33,6 +33,8 @@ export interface StrideSettings {
   readonly paced?: boolean;
   /** Whether a swing ends as its sole meets the ground (`SwingGoal.lands`); none, on its time. */
   readonly lands?: boolean;
+  /** The trailing ankle's push-off through the double support, rad of plantarflexion (`SwingGoal.push`); none or 0, no push. */
+  readonly push?: number;
 }
 
 /**
@@ -46,10 +48,11 @@ export const STRIDE: StrideSettings = Object.freeze({ swing: 0.3, transfer: 0.08
 
 /** Whether `settings` are a stride's: each finite, the double support not negative, the rest positive. */
 export function validStride(settings: StrideSettings): boolean {
-  const { swing, transfer, lift, settle, width, longest, accel, turn, paced, lands } = settings;
+  const { swing, transfer, lift, settle, width, longest, accel, turn, paced, lands, push } = settings;
   return [swing, transfer, lift, settle, width, longest, accel, turn].every(Number.isFinite) && transfer >= 0
     && swing > 0 && lift > 0 && settle > 0 && width > 0 && longest > 0 && accel > 0 && turn > 0
-    && [paced, lands].every((x) => x === undefined || typeof x === "boolean");
+    && [paced, lands].every((x) => x === undefined || typeof x === "boolean")
+    && (push === undefined || Number.isFinite(push) && push >= 0);
 }
 
 /**
@@ -164,11 +167,11 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
       : halt(view, goal, sign, T);
     const capture: [number, number] = moving ? [to[0] + walk[0] * T / (grow - 1) - sign * width * rx / (grow + 1),
       to[1] + walk[1] * T / (grow - 1) - sign * width * rz / (grow + 1)] : [(b.x + to[0]) / 2, (b.z + to[1]) / 2];
-    const lands = settings.lands ? { lands: true } : {};
-    if (first) return { foot: side, to, seconds: swing, lift: settings.lift, shift: true, capture, settle: settings.settle, ...lands };
+    const extra = { ...settings.lands ? { lands: true } : {}, ...settings.push ? { push: settings.push } : {} };
+    if (first) return { foot: side, to, seconds: swing, lift: settings.lift, shift: true, capture, settle: settings.settle, ...extra };
     const E = exp(-w * swing);
     return { foot: side, to, seconds: swing, lift: settings.lift, transfer, capture, settle: settings.settle,
-      handover: [b.x + E * (capture[0] - b.x), b.z + E * (capture[1] - b.z)], ...lands };
+      handover: [b.x + E * (capture[0] - b.x), b.z + E * (capture[1] - b.z)], ...extra };
   };
 
   /**

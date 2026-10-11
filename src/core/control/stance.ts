@@ -95,6 +95,13 @@ export interface SwingGoal {
    * (`LATE_DESCENT`) until it meets it, or for `LATE_MOST`. None, it ends on its time.
    */
   readonly lands?: boolean;
+  /**
+   * The push-off: the plantarflexion, rad, the trailing foot's ankle, rolled onto its toes, is
+   * driven toward through a walk's double support, with its knee's pre-swing
+   * (`GaitTuning.preswing`) and at its time, so the leg launches the body and itself into the
+   * step. None, the ankle is left to the task.
+   */
+  readonly push?: number;
 }
 
 /** The share of a swing's time from which the ground meeting its sole ends it (`SwingGoal.lands`): before it, the foot is still leaving the ground. */
@@ -562,6 +569,10 @@ function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleDriver):
     if (gait.preswing !== undefined && reading.phase === "shift" && pre?.transfer && pre.foot === foot.side) {
       const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / gait.preswing.seconds;
       ahead[k] = m * m * (gait.preswing.knee - (muscles.angle(i) - foot.straight)) - 2 * m * muscles.rate(i);
+      if (pre.push !== undefined) {
+        const a = k + foot.chain[1]!.dofs.length, j = foot.memory.channels[a]!;
+        ahead[a] = m * m * (-pre.push - muscles.angle(j)) - 2 * m * muscles.rate(j);
+      }
     } else {
       const k = foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / seconds.height;
       ahead[k] = m * m * (foot.chain[2]!.dofs[0]!.spec.max.value - spare - muscles.angle(i)) - 2 * m * muscles.rate(i);
