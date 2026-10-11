@@ -99,6 +99,18 @@ root cause if it holds:
 - `bodyDynamics` and Rapier disagreeing;
 - friction and twist sharing (`shareGroundWrench`).
 
+**Also read whether the failure is kinematic,** which is the only case a whole-body inverse
+kinematics would help:
+
+- how far each swinging foot lands from where it was asked;
+- how often a leg's joints press their range (`jointAngles`), or are kept from it only by the
+  height's limits (`heightLimits`, `stance.ts`);
+- how near the bearing knee comes to straight, where its leg's Jacobian loses rank.
+
+If these are small, the stance's own task-space solve already places the body, and no IK is
+built. If one of them is large, that names the IK to build, and it is added to session 03 as a
+lever like any other.
+
 **Then:**
 
 - If the cause is a defect, fix it in place, narrowly, as its own commit, under the shared-path rule
