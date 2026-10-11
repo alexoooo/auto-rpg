@@ -117,6 +117,12 @@ session 02 tries compliance alone.
 - **Reading:** the stride's lines and square with and without the sole: speed held, landing
   error, shortfall.
 
+**Found.** The sole (`withSoles`, `src/core/human/sole.ts`: 328 kN/m, 2560 N s/m, 6.1 mm, from
+a conventional shoe's midsole test) sinks about 1 mm under a standing body and costs 0.03 ms a
+step. Calm, it moves the fastest pace held by one step either way across the eight lines (noise).
+On the square under 50 N gusts, three seeds, it fell 4 times in 18 runs against 6 bare. It stays
+an option (`--sole`, the Lab's `&sole=1`); friction stays the contract's.
+
 ### 03: land on contact, and a cadence from a source
 
 - **The swing ends when the sole meets the ground.** A late foot goes on down toward its place

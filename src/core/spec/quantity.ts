@@ -31,6 +31,7 @@ type Unit =
   | "m3" | "l"
   | "N m" | "N" | "kN"
   | "N/m" | "N/mm" | "N/cm"
+  | "N s/m"
   | "rad" | "deg"
   | "rad/s" | "deg/s"
   | "m/s" | "cm/s" | "m/s2"

@@ -139,6 +139,11 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
   const materialDirection = new Vector3(), materialRotation = new Quaternion();
   const layerFor = (a: number, b: number, nx: number, ny: number, nz: number): number[] | null => {
     const first = bodyOf.get(a), second = bodyOf.get(b), one = materials.get(a), two = materials.get(b);
+    // A sole against something fixed: a collider not a body's is a fixed one.
+    if (!first !== !second) {
+      const sole = first ? one?.sole : two?.sole;
+      return sole ? [sole.stiffness, sole.damping, sole.depth] : null;
+    }
     if (!first || !second) return null;
     const fits = (body: RapierBody, point: ContactMaterial["point"], sign: number) => {
       if (!point) return false;
@@ -379,11 +384,13 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       const preparedMaterials = givenMaterials.map(given => {
         if (given?.layer && (!(given.layer.stiffness > 0) || !(given.layer.depth > 0)
           || !(given.layer.dampingRatio >= 0) || !Object.values(given.layer).every(Number.isFinite))) throw new Error("a contact layer needs finite positive stiffness and depth and nonnegative damping");
+        if (given?.sole && (!(given.sole.stiffness > 0) || !(given.sole.depth > 0)
+          || !(given.sole.damping >= 0) || !Object.values(given.sole).every(Number.isFinite))) throw new Error("a sole needs finite positive stiffness and depth and nonnegative damping");
         const direction = given?.point?.direction;
         const length = direction && Math.sqrt(direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]);
         if (given?.point && (!(length! > 0) || !direction!.every(Number.isFinite) || !(given.point.depth > 0)
           || !Number.isFinite(given.point.depth) || !(given.point.alignment >= 0 && given.point.alignment <= 1))) throw new Error("a contact point needs a finite direction, depth and normal cosine");
-        return given && { ...(given.layer ? { layer: Object.freeze({ ...given.layer }) } : {}),
+        return given && { ...(given.layer ? { layer: Object.freeze({ ...given.layer }) } : {}), ...(given.sole ? { sole: Object.freeze({ ...given.sole }) } : {}),
           ...(given.point ? { point: Object.freeze({ ...given.point, direction: Object.freeze(direction!.map(v => v / length!)) as unknown as Vec3 }) } : {}) };
       });
       const q = node.rotationQuaternion ?? Quaternion.Identity();
@@ -396,8 +403,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         const handle = raw.createCollider(contact(colliderOf(shape)).setDensity(0), rigid).handle;
         shapeOf.set(handle, k);
         const material = preparedMaterials[k];
-        if (material?.layer || material?.point) materials.set(handle, material);
-        if (material?.point) raw.getCollider(handle).setActiveHooks(R.ActiveHooks.MODIFY_SOLVER_CONTACTS);
+        if (material?.layer || material?.point || material?.sole) materials.set(handle, material);
+        if (material?.point || material?.sole) raw.getCollider(handle).setActiveHooks(R.ActiveHooks.MODIFY_SOLVER_CONTACTS);
         return handle;
       });
       let properties = mass;

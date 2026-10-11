@@ -11,7 +11,8 @@
  * a box a centimetre off another, or over the ground, is in contact with it and not pushed, and
  * each fixed collider is a contact of its own, what a reader's choice throws the read throws, and a
  * reader that reads contacts while it chooses is refused; a contact names each pair of shapes the solver
- * pushed on, by their places in their bodies; a fixed box turns about up; a
+ * pushed on, by their places in their bodies; a sole sinks into the ground by the weight on it over
+ * its stiffness, and meets another body rigid; a fixed box turns about up; a
  * body's gap to a point is to the nearest of its shapes, and none inside one; and a
  * world loaded from a save goes on as it went on from the save, its contacts, its fixed colliders
  * and its bodies the ones it had, a force asked for the next step with them, and a save of another
@@ -298,6 +299,28 @@ test("a box resting on another is in contact with it, and the lower with the gro
     assert.throws(() => b.physics.contactsOf(b.body, () => { throw new Error("chosen badly"); }), /chosen badly/);
     assert.throws(() => b.physics.contactsOf(b.body, () => b.physics.contactsOf(top).length > 0), /while another's are/);
     assert.deepEqual(b.physics.contactsOf(b.body), up);
+  } finally { b.dispose(); }
+});
+
+test("a sole sinks into the ground by the weight on it over its stiffness, and meets a body as it would bare", async () => {
+  const b = await box({ height: 3 * SIDE });
+  try {
+    const sole = { stiffness: 1000, damping: 60, depth: 0.05 }, node = new TransformNode("shod", b.node.getScene());
+    node.position.set(0, SIDE / 2, 0);
+    node.rotationQuaternion = Quaternion.Identity();
+    const shod = b.physics.addBody(node, [{ kind: "box", centre: [0, 0, 0], size: [SIDE, SIDE, SIDE] }], MASS, { materials: [{ sole }] });
+    const bare = add(b, "bare", [2 * SIDE, SIDE / 2, 0]);
+    b.step(HZ);
+    const pairOf = (body, fixed) => b.physics.contactsOf(body).find((c) => (c.other === null) === fixed).pairs[0];
+    // It bears its own weight and the dropped box's, which lands on it.
+    const sunk = 2 * MASS.mass * STANDARD_GRAVITY.value / sole.stiffness, under = pairOf(shod, true);
+    assert.ok(Math.abs(under.compression - sunk) < 0.1 * sunk, `${under.compression} m, the weight on it over its stiffness ${sunk}`);
+    assert.ok(Math.abs(node.position.y - (SIDE / 2 - sunk)) < 0.1 * sunk, `${node.position.y} m: sunk by ${sunk}`);
+    assert.equal(pairOf(bare, true).compression, undefined, "a bare box rests rigid");
+    // The box dropped from above lands on the shod one: their contact has no layer.
+    assert.equal(b.physics.contactsOf(b.body).find((c) => c.other === shod).pairs[0].compression, undefined);
+    assert.throws(() => b.physics.addBody(new TransformNode("bad", b.node.getScene()), [{ kind: "box", centre: [0, 0, 0], size: [SIDE, SIDE, SIDE] }], MASS,
+      { materials: [{ sole: { ...sole, depth: 0 } }] }), /a sole needs/);
   } finally { b.dispose(); }
 });
 

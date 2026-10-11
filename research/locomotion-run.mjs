@@ -5,7 +5,7 @@
  *
  *   node research/locomotion-run.mjs [--models workshop-fighter,workshop-rogue] [--tracks square,circle,forward,right,back,left]
  *     [--paces 0.5,1,1.5] [--winds 0:0,1:50] [--seeds 1,2] [--seconds 30] [--side 6] [--radius 4]
- *     [--legs '{"kind":"stance-walk"}'] [--stance '{...}'] [--physique '{"strength":2}'] [--workers 16] [--out runs.jsonl]
+ *     [--legs '{"kind":"stance-walk"}'] [--stance '{...}'] [--physique '{"strength":2}'] [--sole] [--workers 16] [--out runs.jsonl]
  *
  * - The tracks are the Run's, or a straight line walked facing +z in one direction (`LINES`).
  * - `--winds` is a list of rate:strength (gusts a second : N at a gust's peak).
@@ -13,6 +13,7 @@
  *   the Lab's Script preset (`LAB_PRESETS`).
  * - Each body is built as one being measured (`BodyOptions.measuring`): no envelope caps its walk.
  * - `--stance` is an experiment's stance tuning (`StanceTuning`). Its `gait` merges into `STANCE_GAIT`.
+ * - `--sole` builds the body shod (`withSoles`): each foot gives as a shoe's sole against the ground.
  * - `--physique` builds the body with a physique (`Physique`: its strength and speed scale the
  *   muscles), as a probe of whether the body or the controller caps a walk.
  *
@@ -61,9 +62,9 @@ const MISSED = 1;
 const GROUND = 200;
 
 /** One run: its record, as the run's last frame left it. */
-async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radius, legs, stance, physique }) {
-  const [{ modelSpec }, { labActor }, { startRun }, { TRACKS, trackOf }, { LAB_PRESETS }, { STANCE_GAIT }, { coreStand }] = await Promise.all([
-    import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/run-mode.ts"), import("../src/lab/track.ts"),
+async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radius, legs, stance, physique, sole }) {
+  const [{ withSoles }, { modelSpec }, { labActor }, { startRun }, { TRACKS, trackOf }, { LAB_PRESETS }, { STANCE_GAIT }, { coreStand }] = await Promise.all([
+    import("../src/core/human/sole.ts"), import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/run-mode.ts"), import("../src/lab/track.ts"),
     import("../src/lab/scenarios.ts"), import("../src/core/control/stance-tuning.ts"), import("../tests/harness/core-stand.mjs"),
   ]);
   const line = LINES[id];
@@ -71,7 +72,8 @@ async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radi
   const size = id === "square" ? side : id === "circle" ? radius : undefined;
   const track = trackOf(info.size && size !== undefined ? info.size.of(size) : info.pieces);
   // The ground reaches past the end of every track: a body walking off its edge falls through.
-  const stand = await coreStand(modelSpec(model, physique ?? undefined), { ground: true, groundSize: GROUND });
+  const spec = modelSpec(model, physique ?? undefined);
+  const stand = await coreStand(sole ? withSoles(spec) : spec, { ground: true, groundSize: GROUND });
   const mind = { ...LAB_PRESETS.script.config, ...(legs ? { locomotion: legs } : {}) };
   const tuning = stance ? { ...stance, ...(stance.gait ? { gait: { ...STANCE_GAIT, ...stance.gait } } : {}) } : undefined;
   const run = startRun(labActor(stand.built, stand.world, { mind, stance: tuning, measuring: true }), track, { top: pace, facing: info.facing, wind: { settings: wind, seed } });
@@ -188,12 +190,12 @@ if (!isMainThread) {
   const winds = list("winds", "0:0").map((w) => { const [rate, strength] = w.split(":").map(Number); return { rate, strength }; });
   const seconds = Number(arg("seconds", "30")), side = Number(arg("side", "6")), radius = Number(arg("radius", "4"));
   const legs = arg("legs") ? JSON.parse(arg("legs")) : null, stance = arg("stance") ? JSON.parse(arg("stance")) : null;
-  const physique = arg("physique") ? JSON.parse(arg("physique")) : null;
+  const physique = arg("physique") ? JSON.parse(arg("physique")) : null, sole = process.argv.includes("--sole");
   const out = arg("out"), workers = Math.min(Number(arg("workers", String(Math.max(1, availableParallelism() - 2)))), 64);
 
   const jobs = [];
   for (const model of models) for (const track of tracks) for (const wind of winds) for (const pace of paces) for (const seed of seeds)
-    jobs.push({ id: jobs.length, model, track, pace, wind, seed, seconds, side, radius, legs, stance, physique });
+    jobs.push({ id: jobs.length, model, track, pace, wind, seed, seconds, side, radius, legs, stance, physique, sole });
   // A calm wind blows the same on every seed: one seed is enough.
   const todo = jobs.filter((job) => job.wind.rate > 0 && job.wind.strength > 0 || job.seed === seeds[0]);
   const results = [];
@@ -213,7 +215,7 @@ if (!isMainThread) {
       feed(worker);
     }
   });
-  console.log(`${results.length} runs in ${((Date.now() - started) / 60000).toFixed(1)} min: Node stand, Rapier, 120 Hz, ${seconds} s, legs ${JSON.stringify(legs ?? "Script preset's")}${stance ? `, stance ${JSON.stringify(stance)}` : ""}${physique ? `, physique ${JSON.stringify(physique)}` : ""}`);
+  console.log(`${results.length} runs in ${((Date.now() - started) / 60000).toFixed(1)} min: Node stand, Rapier, 120 Hz, ${seconds} s, legs ${JSON.stringify(legs ?? "Script preset's")}${stance ? `, stance ${JSON.stringify(stance)}` : ""}${physique ? `, physique ${JSON.stringify(physique)}` : ""}${sole ? ", shod" : ""}`);
   for (const model of models) for (const track of tracks) for (const wind of winds) {
     console.log(`\n${model} ${track} wind ${wind.rate}/s ${wind.strength} N`);
     let held = null, holding = true;
