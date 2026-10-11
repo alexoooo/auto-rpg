@@ -50,16 +50,19 @@ control, skills, minds -- and a mind may use as much or as little of the stack a
 
 ## Next phase
 
-[Robust skills](plans/2026-10-08-skills-platform.md) has five chunks:
+The robust-skills plan is closed. What it built: the competency suite on the shared task runner,
+run across a grid of bodies, physiques, loadouts and two physics rates, on which today's skills
+are read ([competencies](reference/competencies.md): of the owner's thresholds, only the stand's
+is met everywhere, and the staged rise does not rise at 480 Hz); physiques (`Physique`,
+`src/core/human/physique.ts`: size, weight, strength and speed); the whole-body spike
+([whole-body spike](reference/whole-body-spike.md)); and the skill contract (`Skill`, `BlowSkill`,
+`Claim`, `src/core/skills/skill.ts`). What it did not: the explosive punch. Today's body has a
+straight blow over the punch's bar on every cell (`research/punch-ceiling.mjs`), and no controller
+tried lands one (`research/greedy-punch.mjs`, [punch layer](analysis/2026-10-08-punch-layer.md)).
 
-1. **A competency suite on the shared task runner**, run across a grid of bodies, physiques,
-   loadouts and two physics rates. Today's skills are read on it
-   ([competencies](reference/competencies.md)): of the owner's thresholds, only the stand's is
-   met everywhere, and the staged rise does not rise at 480 Hz.
-2. **Physiques**: size, weight, strength and speed.
-3. **A spike** that settles one whole-body layer under a stance and a punch.
-4. **A skill contract** that tactics choose by.
-5. **An explosive punch** thrown at full reach.
+The walk and the run are the next plan: [SIMBICON walk and run](plans/2026-10-11-simbicon-walk-and-run.md),
+a locomotion class that vaults over its stance leg and balances by where it puts the swing foot,
+beside the capture-point walks, whose ceiling the roadmap's walking item below records.
 
 Beside it, a mind is a tree of parts (tactics, a skill per kind of action, sub-minds) that a
 player sees and changes in the Arena, the Lab and the Crypt; a mind can hold several blows and
