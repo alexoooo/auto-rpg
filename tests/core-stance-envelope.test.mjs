@@ -15,7 +15,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createBody } from "../src/core/body.ts";
-import { fastestHeld, paceRound, simbiconEnvelope, stanceEnvelope, strideEnvelope, turnAt } from "../src/core/control/stance-envelope.ts";
+import { fastestHeld, paceRound, simbiconEnvelope, stanceEnvelope, strideEnvelope, turnAt, WENT, wentAsAsked } from "../src/core/control/stance-envelope.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { modelSpec } from "../src/core/models.ts";
@@ -89,6 +89,19 @@ test("the_rule_takes_the_fastest_speed_held_every_way_and_at_every_slower_one", 
   assert.equal(fastestHeld({ speeds, ways: 5, held: [5, 5, 4] }), 0.3);
   assert.equal(fastestHeld({ speeds, ways: 5, held: [5, 4, 5] }), 0.2);
   assert.equal(fastestHeld({ speeds, ways: 5, held: [4, 5, 5] }), 0);
+});
+
+test("a_walk_held_only_if_it_went_the_way_asked_at_the_pace_asked", () => {
+  // Walks of the battery by the SIMBICON walk on the Warrior at 0.5 m/s (Node stand, Rapier, 120 Hz), along and across
+  // the way asked, m/s: forward and to the right as asked; back, where it makes half the pace; and, before it set off on
+  // the leading foot, to its right, where it went left.
+  assert.equal(wentAsAsked(0.54, 0.01, 0.5), true);
+  assert.equal(wentAsAsked(0.55, 0.02, 0.5), true);
+  assert.equal(wentAsAsked(0.27, -0.08, 0.5), false);
+  assert.equal(wentAsAsked(-0.56, 0, 0.5), false);
+  // Along as asked but drifting across, and the shares' edges.
+  assert.equal(wentAsAsked(0.5, 0.3, 0.5), false);
+  assert.equal(wentAsAsked(WENT.along * 0.5, -WENT.across * 0.5, 0.5), true);
 });
 
 test("a_body_carries_its_envelope_and_none_under_another_tuning_and_the_stride_and_the_simbicon_walk_their_own_where_the_body_has_one", async () => {

@@ -21,7 +21,7 @@ import { availableParallelism } from "node:os";
 import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { HELD } from "../src/core/items/held.ts";
-import { fastestHeld } from "../src/core/control/stance-envelope.ts";
+import { fastestHeld, wentAsAsked } from "../src/core/control/stance-envelope.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
 
@@ -67,7 +67,8 @@ async function runAll(jobs) {
 
 const walks = MODELS.flatMap((model) => SPEEDS.flatMap((speed) => WAYS.flatMap((degrees) => HOLDS.map((held) => ({ trial: "walk", model, speed, degrees, held, hz, stance: {}, legs })))));
 await runAll(walks);
-const walkHeld = (model) => SPEEDS.map((speed) => walks.filter((j) => j.model === model && j.speed === speed && !j.result.fell).length);
+// A walk held if it did not fall and went the way asked at the pace asked.
+const walkHeld = (model) => SPEEDS.map((speed) => walks.filter((j) => j.model === model && j.speed === speed && !j.result.fell && wentAsAsked(j.result.along, j.result.across, speed)).length);
 const fastest = Object.fromEntries(MODELS.map((model) => [model, fastestHeld({ speeds: SPEEDS, ways: WAYS.length * HOLDS.length, held: walkHeld(model) })]));
 /** The gait battery's speeds up to `model`'s fastest walk. */
 const upTo = (model) => SPEEDS.filter((speed) => speed <= fastest[model]);

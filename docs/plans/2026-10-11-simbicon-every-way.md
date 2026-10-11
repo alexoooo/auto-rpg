@@ -150,6 +150,34 @@ roadmap.
   until owner's choice 1. The SIMBICON envelope by the new rule is the baseline every later session
   is read against.
 
+**Found.** The shares are `WENT` (`stance-envelope.ts`): along at least 0.7 of the pace asked,
+across at most 0.35. The envelope battery's walks (Node stand, Rapier, 120 Hz, 600 walks), fastest
+held by falls, then by these shares:
+
+| Walk | Warrior | Rogue | Skeleton |
+|---|---|---|---|
+| stance's walk | 0.5, 0.5 | 0.4, 0.4 | 0.4, 0.4 |
+| stride | 0.7, 0.7 | 0.5, 0.5 | 0.5, 0.5 |
+| SIMBICON | 0.5, 0 | 0.4, 0 | 0, 0 |
+
+At 0.5/0.5 and 0.6/0.4 the first two rows are the same; at 0.8/0.25 the stance's walk reads 0
+everywhere. So at 0.7/0.35 the rule moves neither walk a bout uses, and it applies to every walk:
+owner's choice 1 costs nothing in a bout. The SIMBICON walk fails at 0.2 m/s: backward it makes
+0.09 to 0.12 m/s, and its sway across reaches 0.09. No asset is written: the SIMBICON asset is
+measured again in session 06, and the other two would read the same.
+
+The bed's baseline by its new figure (the fastest pace asked with no fall and every run making 0.7
+of it along the track; 20 s, 3 seeds, calm and a 20 N gust a second; asked 0.3 to 1.4), the pace
+made in brackets:
+
+| Track | Warrior | Rogue | Skeleton |
+|---|---|---|---|
+| forward | 1.4 (1.24) | 1 (1.16) | 0.3 (0.38) |
+| right, left | 0.7 (0.62) | none, 0.5 (0.44) | none |
+| back | none (0.5 held, 0.26) | 0.3 (0.23) | none |
+| square | 0.7 (0.63) | 0.5 (0.55) | none calm |
+| circle | 1.4 (1.17) | 1 calm, 0.7 gusts | 0.3 calm, none gusts |
+
 ### 02: side and back by hand
 
 - The blend, and `side` and `back` as the part's tuning, with their bounds (`validSimbicon`).

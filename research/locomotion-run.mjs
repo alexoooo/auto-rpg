@@ -31,7 +31,9 @@
  * stance asked (`StanceReading.shortfall`), the legs' demand (the share of steps a hip, knee and
  * ankle channel was at full activation, and the most of its peak torque it gave), the way each fall
  * went in the body's frame over its last half second and the stance's phases then; and the fastest
- * pace at which no seed fell, with every slower one.
+ * pace at which no seed fell, with every slower one; and the fastest at which, besides, every run
+ * made `WENT.along` of the pace asked along the track (the run steers back to its line, so how far
+ * it strayed across is its `off`).
  *
  * Its second line at each pace reads the steps: each swing's landing (where the sole's middle was as
  * the swing's time ran out, against where it was last sent, forward and to the right in the body's
@@ -52,6 +54,7 @@ import { appendFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
 import { PERSON_PACE, personStep } from "../src/core/human/gait.ts";
+import { WENT } from "../src/core/control/stance-envelope.ts";
 
 /**
  * The straight lines a body walks facing +z, each 80 m from the origin: forward, to its right, back
@@ -289,7 +292,7 @@ if (!isMainThread) {
   console.log(`${results.length} runs in ${((Date.now() - started) / 60000).toFixed(1)} min: Node stand, Rapier, 120 Hz, ${seconds} s, legs ${JSON.stringify(legs ?? "Script preset's")}${stance ? `, stance ${JSON.stringify(stance)}` : ""}${physique ? `, physique ${JSON.stringify(physique)}` : ""}${sole ? ", shod" : ""}${probe ? `, probe ${JSON.stringify(probe)}` : ""}`);
   for (const model of models) for (const track of tracks) for (const wind of winds) {
     console.log(`\n${model} ${track} wind ${wind.rate}/s ${wind.strength} N`);
-    let held = null, holding = true;
+    let held = null, holding = true, made = null, making = true;
     for (const pace of paces) {
       const rows = results.filter((r) => r.model === model && r.track === track && r.pace === pace && r.wind.rate === wind.rate && r.wind.strength === wind.strength);
       const fell = rows.filter((r) => r.fell !== null), mean = (k) => rows.reduce((s, r) => s + r[k], 0) / rows.length;
@@ -311,9 +314,11 @@ if (!isMainThread) {
         + ` missed F/P/R/Y ${["stand", "shift", "early", "late"].map((p) => `${p} ${avg((r) => r.missed[p].share)}: ${["force", "pitch", "roll", "yaw"].map((c) => avg((r) => r.missed[p][c])).join("/")} (${["force", "pitch", "roll", "yaw"].map((c) => avg((r) => r.missed[p].size[c])).join("/")})`).join(" ")}`
         + ` person step ${person.length.toFixed(2)} cadence ${person.rate.toFixed(2)}`);
       if (holding && fell.length === 0) held = { pace, mean: mean("mean") }; else holding = false;
+      if (making && fell.length === 0 && rows.every((r) => r.mean >= WENT.along * pace)) made = { pace, mean: mean("mean") }; else making = false;
     }
     const target = TARGETS[track];
     console.log(`  fastest held: ${held ? `asked ${held.pace}, ${held.mean.toFixed(2)} m/s along the track` : "none"}`
+      + `; made as asked: ${made ? `asked ${made.pace}, ${made.mean.toFixed(2)} m/s` : "none"}`
       + (target ? `; a person: ${target.map((q) => q.value.toFixed(2)).join(" to ")} m/s` : ""));
   }
 }

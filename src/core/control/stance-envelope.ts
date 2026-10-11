@@ -36,8 +36,22 @@ export interface StanceEnvelope {
 }
 
 /**
+ * **How a walk must go to have held**, shares of the pace asked: its pace along the way asked at
+ * least `along`, and across that way at most `across`. A walk that stands, or goes another way, has
+ * not walked at the pace asked however long it stays up. At these shares the stance's walk and the
+ * stride hold the speeds they held by their falls alone; the SIMBICON walk backward makes half the
+ * pace asked, and does not.
+ */
+export const WENT = Object.freeze({ along: 0.7, across: 0.35 });
+
+/** Whether a walk asked `asked` m/s that made `along` m/s along the way asked and `across` across it went as asked (`WENT`). */
+export function wentAsAsked(along: number, across: number, asked: number): boolean {
+  return along >= WENT.along * asked && Math.abs(across) <= WENT.across * asked;
+}
+
+/**
  * A battery's trials at each speed (a walk's, or a turn's rate): how many ways of `ways` held (did
- * not fall).
+ * not fall, and a walk went as asked: `wentAsAsked`).
  */
 interface GaitTable {
   readonly speeds: readonly number[];
