@@ -670,7 +670,11 @@ heading from the supported body's current orientation after rolling and acquisit
 sole's centre to the floor, turns the boot flat and lifts it along an arc scaled to the leg's
 length. Root-height aims also use smooth trajectories. The whole-body tracker predicts
 loaded contacts and lift-off and asks only muscle torques; a rejected prediction applies zero
-torque. Orientation and acquisition use bounded joint-velocity feedback. A stalled objective
+torque. Orientation and acquisition use bounded joint-velocity feedback. During acquisition,
+the hips respond to the pelvis's measured pitch, checking the forward reaction of drawing the
+knees under the body. Loaded hands and knees advance the tuck and prop; foot placement waits
+for the fours posture, both free hands, clear trunk contacts and a pelvis above prone. An
+inverted tuck cannot start foot placement. A stalled objective
 retries locally, and a six-second attempt reclassifies actual contacts and orientation. Each
 stage measures progress against its own objective; a transition clears the outgoing error.
 
@@ -687,8 +691,9 @@ save under the hosted mind. The editor offers the variant to Warrior and Rogue w
 or one retained item; presets keep their existing recovery. Its zero-assist human timing gate
 fails ([reference/rising.md](reference/rising.md#dynamic-rise)); it is an experimental controller,
 not a demonstrated faster recovery route. Two 60 N s Front shoves in the Stance Lab also leave
-the Warrior repeating recovery attempts; `tests/lab-dynamic-rise.test.mjs` executes this known
-failure alongside the stage-progress regression.
+the Warrior losing support during foot placement and repeating recovery attempts;
+`tests/lab-dynamic-rise.test.mjs` executes this known failure alongside the stage-progress and
+physical hand-and-knee acquisition regressions.
 
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
 skills' report and the envelope of the locomotion they drive) they return an `Intent` (`intent.ts`): a velocity forward

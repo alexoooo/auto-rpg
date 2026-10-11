@@ -23,10 +23,11 @@ import { RISE, type Lie } from "./stages.ts";
 
 /** Motion feedback, progress hysteresis and bounded retry deadlines; controller choices, not anatomy. */
 const T = deepFreeze({ response: .15, jointWeight: .2, centreWeight: 3, rootWeight: .5, pointWeight: 2,
-  poseNear: .4, contactHold: .025, stalled: 1, attempt: 6, progress: .005,
+  poseNear: .4, contactHold: .05, stalled: 1, attempt: 6, progress: .005,
   prepare: .25, move: .65, extension: .8, poseResponse: .03, poseSpeed: 10,
   rootResponse: .3, rootOrientationWeight: 3, supportedRootWeight: 1,
   pronePitch: 1.3, kneelPitch: .2, kneeHeight: .5, transferHeight: .7,
+  hipPitchFeedback: 1, foursUp: .05, foursHold: .1, foursSeconds: .3,
   footWidth: .2, footReach: .3, footLift: .18, wind: .4,
   slow: .1, minUpNormal: .9, hold: .5,
   extensionSoleUp: .995, extensionRootUp: .9, standSeconds: 1.3, standLower: .03,
@@ -50,6 +51,21 @@ interface Model {
 const other = (side: Side): Side => side === "left" ? "right" : "left";
 const length = (a: Vec3, b: Vec3) => Math.sqrt((a[0] - b[0]) * (a[0] - b[0])
   + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]));
+
+/** Hand-and-knee support with the trunk clear and the pelvis above its prone orientation. */
+export function riseCanPlace(o: BodyObservation, model: Pick<Model, "held" | "rest">,
+  work = { up: new Vector3(), turn: new Quaternion(), inverse: new Quaternion() }): boolean {
+  const root = o.segments.find(s => s.name === "lowerTrunk");
+  if (!root) return false;
+  Quaternion.InverseToRef(work.inverse.set(...model.rest), work.inverse);
+  work.turn.set(...root.rotation).multiplyToRef(work.inverse, work.turn);
+  work.up.set(0, 1, 0).applyRotationQuaternionToRef(work.turn, work.up);
+  if (work.up.y <= T.foursUp) return false;
+  const loaded = o.contacts.filter(c => c.fixed !== null && c.impulse > 0 && Math.abs(c.normal[1]) >= T.minUpNormal);
+  const hands = model.held ? [`hand.${other(model.held)}`] : SIDES.map(side => `hand.${side}`);
+  return ["shank.left", "shank.right", ...hands].every(name => loaded.some(c => c.segment === name))
+    && !loaded.some(c => /Trunk|head/.test(c.segment));
+}
 
 /** A loaded sole facing up, rather than a boot touching the floor on its side or toes. */
 export function riseFootPlanted(o: BodyObservation, side: Side, soleUp: Vec3,
@@ -133,6 +149,7 @@ export function dynamicRisePolicy(input: Model) {
     && c.impulse > 0 && Math.abs(c.normal[1]) >= T.minUpNormal && (!names || names.includes(c.segment)));
   const loaded = (o: BodyObservation, name: string) => contacts(o, [name]).length > 0;
   const footWork = { up: new Vector3(), turn: new Quaternion() };
+  const placeWork = { up: new Vector3(), turn: new Quaternion(), inverse: new Quaternion() };
   const planted = (o: BodyObservation, side: Side) => riseFootPlanted(o, side, model.soleUp[side], footWork);
   const clear = (o: BodyObservation) => !contacts(o, ["head", "upperTrunk", "middleTrunk", "lowerTrunk"]).length;
   const capture = (o: BodyObservation): Vec3 => {
@@ -168,7 +185,7 @@ export function dynamicRisePolicy(input: Model) {
     const lead = SIDES.find(s => planted(o, s) && !loaded(o, `shank.${s}`) && loaded(o, `shank.${other(s)}`));
     if (SIDES.every(s => planted(o, s)) && clear(o) && !o.down) enter("stabilize", o);
     else if (clear(o) && lead) { state.lead = lead; enter("transfer", o); }
-    else if (clear(o) && SIDES.every(s => loaded(o, `shank.${s}`)) && loaded(o, `hand.${freeHand()}`)) enter("place", o);
+    else if (riseCanPlace(o, model, placeWork)) enter("place", o);
     else enter(state.lie === "front" ? "acquire" : "orient", o);
   };
   const begin = (o: BodyObservation) => {
@@ -213,14 +230,19 @@ export function dynamicRisePolicy(input: Model) {
           }
           break;
         }
-        case "acquire":
+        case "acquire": {
           pose = state.stage === 3 ? model.fours : posture(["fold", "tuck", "prop"][state.stage]!); mirror = false;
-          if (SIDES.every(s => loaded(o, `shank.${s}`)) && loaded(o, hand)
-            && clear(o)) {
+          if (SIDES.every(s => loaded(o, `shank.${s}`)) && hands.every(name => loaded(o, name))
+            && clear(o) && facing(o) === "front") {
             state.held += dt;
-            if (state.held >= T.contactHold) { enter("place", o); state.stage = 0; }
+            if (state.stage === 1 && state.held >= T.contactHold) { state.stage = 2; enter("acquire", o); }
+            else if (state.stage === 2 && riseCanPlace(o, model, placeWork) && state.held >= T.contactHold) {
+              state.stage = 3; enter("acquire", o);
+            } else if (state.stage === 3 && riseCanPlace(o, model, placeWork)
+              && state.time >= T.foursSeconds && state.held >= T.foursHold) { enter("place", o); state.stage = 0; }
           } else state.held = 0;
           break;
+        }
         case "place": {
           const retained = [...hands, rear];
           if (!state.released && supported(o, retained)) {
@@ -257,6 +279,15 @@ export function dynamicRisePolicy(input: Model) {
           break;
         case "stabilize": case "complete": break;
         default: { const never: never = state.phase; throw new Error(`unknown dynamic rise phase ${never}`); }
+      }
+      if (state.phase === "acquire") {
+        relative.set(...find(o, "lowerTrunk").rotation).multiplyToRef(restInverse, relative);
+        const front = way.set(0, 0, 1).applyRotationQuaternionToRef(relative, way).y;
+        const up = way.set(0, 1, 0).applyRotationQuaternionToRef(relative, way).y;
+        // Flexing the hips pitches the pelvis forward; the measured pitch checks that reaction during the tuck.
+        const correction = T.hipPitchFeedback * (atan2(-front, up) - T.pronePitch);
+        pose = { ...pose, "hip.left flexion": (pose["hip.left flexion"] ?? 0) - correction,
+          "hip.right flexion": (pose["hip.right flexion"] ?? 0) - correction };
       }
       const goal = angles(pose, mirror);
       let error = 0;
@@ -322,7 +353,7 @@ export function dynamicRisePolicy(input: Model) {
         }
         if (state.phase === "place" && state.released) {
           const m = minimumJerk(state.time, T.move), delta = state.pointTo.map((v, k) => v - state.pointFrom[k]!);
-          const lift = model.leg * T.footLift, target = state.pointFrom.map((v, k) => v + delta[k]! * m.s),
+          const lift = model.leg * T.footLift, target = m.s === 1 ? [...state.pointTo] : state.pointFrom.map((v, k) => v + delta[k]! * m.s),
             velocity = delta.map(v => v * m.v), acceleration = delta.map(v => v * m.a);
           target[1]! += 4 * lift * m.s * (1 - m.s);
           velocity[1]! += 4 * lift * (1 - 2 * m.s) * m.v;
