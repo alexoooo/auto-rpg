@@ -135,6 +135,17 @@ an option (`--sole`, the Lab's `&sole=1`); friction stays the contract's.
 - **The envelope's speeds** extend to 1.4, 1.8 and 2.5 m/s forward.
 - **Gate:** the owner watches the walk on the square and the circle.
 
+**Found.** Both are stride settings, off by default (`paced`, `lands`).
+- **A person's timing.** Forward only: a person's walk ratio is of forward walking, and a long,
+  slow step to the side or back topples the body. It lowers the forward shortfall at 0.5 to 1 m/s,
+  but the slow swing ends with the foot 3 to 4 cm up, and the Warrior holds less forward (0.5
+  against 1 m/s).
+- **Landing on contact** (from 0.8 of the swing; from 0.5 a scuffing toe ended swings short and
+  inside). On the lines it fell 14 times in 32 runs against 17. On the square under gusts and the
+  circle, it fell 8 against 8.
+- Neither lifts the cap, so the envelope keeps its speeds. The ankle is at full activation for 30 to
+  45 % of control steps at 1 m/s.
+
 ### 04: the push-off
 
 - **The trailing ankle drives at toe-off.** During the double support, the bearing foot's

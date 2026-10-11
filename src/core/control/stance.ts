@@ -10,7 +10,7 @@ import type { StanceTuning } from "./stance-tuning.ts";
 import { catchStep, ownStep, paceToward } from "./gait.ts";
 import { gravityOf, makeStance, type Stance } from "./stance-state.ts";
 import {
-  bearingOf, bearingSole, massCentreToRef, motionAtToRef, pointOfToRef, landingHeading, readSupport, rolledRows, soleMiddleToRef, turnOfToRef,
+  bearingOf, bearingSole, groundContact, massCentreToRef, motionAtToRef, pointOfToRef, landingHeading, readSupport, rolledRows, soleMiddleToRef, turnOfToRef,
   withinSupport, type FootState,
 } from "./support.ts";
 import { cos, atan2, exp, sinh, cosh, hypot } from "../math/real.ts";
@@ -89,7 +89,22 @@ export interface SwingGoal {
    * the stance's (`StanceTuning.seconds.swing`). A shorter one lands a fast step nearer its place.
    */
   readonly settle?: number;
+  /**
+   * Whether the swing ends as its sole meets the ground (`LANDS_FROM`): one that meets it early ends
+   * there, and one still off the ground at its time goes on down past its place's height
+   * (`LATE_DESCENT`) until it meets it, or for `LATE_MOST`. None, it ends on its time.
+   */
+  readonly lands?: boolean;
 }
+
+/** The share of a swing's time from which the ground meeting its sole ends it (`SwingGoal.lands`): before it, the foot is still leaving the ground. */
+const LANDS_FROM = 0.8;
+
+/** How far down the ground's normal at a sole is, as the cosine from up, for its meeting to land the swing: the floor, not a wall. */
+const LANDED_NORMAL = 0.5;
+
+/** How fast a late foot goes on down past its place's height, m/s, and for how long at most, s (`SwingGoal.lands`). */
+const LATE_DESCENT = 0.3, LATE_MOST = 0.1;
 
 /**
  * Where a stance is: standing (no step, or its foot landed), shifting its weight before a step, or
@@ -351,6 +366,8 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   const { sole, level, path, along, turn, wholeAxis } = s.scratch;
   const foot = feet.find((f) => f.side === swing.foot)!;
   soleMiddleToRef(foot, sole);
+  const met = swing.lands === true && step.lifted && step.time + dt >= LANDS_FROM * swing.seconds
+    && s.built.physics.contactsOf(foot.segment.body, (other) => other === null).some((c) => groundContact(c, LANDED_NORMAL));
   if (!step.lifted) {
     step.lifted = true;
     step.time = 0;
@@ -363,10 +380,12 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   level.multiplyInPlace(foot.segment.rest);
   step.time += dt;
   const tau = Math.min(1, step.time / swing.seconds), from = step.from;
+  // Past its time, a foot that lands goes on down until it meets the ground.
+  const late = swing.lands === true ? Math.min(Math.max(step.time - swing.seconds, 0), LATE_MOST) : 0;
   // Minimum jerk across the ground, a lift of the same smoothness up and down.
   const eased = tau * tau * tau * (10 - 15 * tau + 6 * tau * tau), ds = 30 * tau * tau * (1 - tau) * (1 - tau) / swing.seconds;
-  const bump = 16 * tau * tau * (1 - tau) * (1 - tau), dbump = 32 * tau * (1 - tau) * (1 - 2 * tau) / swing.seconds;
-  path.set(from.x + (swing.to[0] - from.x) * eased, from.y + swing.lift * bump, from.z + (swing.to[1] - from.z) * eased);
+  const bump = 16 * tau * tau * (1 - tau) * (1 - tau), dbump = 32 * tau * (1 - tau) * (1 - 2 * tau) / swing.seconds - (late > 0 ? LATE_DESCENT / swing.lift : 0);
+  path.set(from.x + (swing.to[0] - from.x) * eased, from.y + swing.lift * bump - LATE_DESCENT * late, from.z + (swing.to[1] - from.z) * eased);
   turnBetweenToRef(step.lift, level, eased, step.turn);
   along.set((swing.to[0] - from.x) * ds, swing.lift * dbump, (swing.to[1] - from.z) * ds);
   const settle = swing.settle ?? seconds.swing;
@@ -388,7 +407,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   task.on = true;
   task.bearing = false;
   for (const i of foot.memory.channels) s.state.owned[i] = 1;
-  if (tau >= 1) {
+  if (swing.lands === true ? met || late >= LATE_MOST : tau >= 1) {
     reading.phase = "stand";
     reading.own = null;
     step.catching = false;

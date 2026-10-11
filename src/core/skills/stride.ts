@@ -4,6 +4,7 @@ import { strideEnvelope } from "../control/stance-envelope.ts";
 import { footStatesOf } from "../control/support.ts";
 import type { Side } from "../spec/body.ts";
 import { exp, sin, cos, hypot } from "../math/real.ts";
+import { personStep } from "../human/gait.ts";
 import { locomotion, type Locomotion } from "./locomotion.ts";
 
 /** **A stride's settings**: how its steps are timed, placed and lifted, and how fast its walk changes and turns. */
@@ -23,6 +24,15 @@ export interface StrideSettings {
   readonly accel: number;
   /** The heading's fastest turn, rad/s. */
   readonly turn: number;
+  /**
+   * Whether a forward step's time is a person's at the walk's pace (`personStep`, of forward
+   * walking), shared between the swing and the double support as `swing` and `transfer` share
+   * theirs; a step to the side or back takes theirs, and one between, between the two by the
+   * cosine of the walk's angle from the heading. None, theirs.
+   */
+  readonly paced?: boolean;
+  /** Whether a swing ends as its sole meets the ground (`SwingGoal.lands`); none, on its time. */
+  readonly lands?: boolean;
 }
 
 /**
@@ -36,9 +46,10 @@ export const STRIDE: StrideSettings = Object.freeze({ swing: 0.3, transfer: 0.08
 
 /** Whether `settings` are a stride's: each finite, the double support not negative, the rest positive. */
 export function validStride(settings: StrideSettings): boolean {
-  const { swing, transfer, lift, settle, width, longest, accel, turn } = settings;
+  const { swing, transfer, lift, settle, width, longest, accel, turn, paced, lands } = settings;
   return [swing, transfer, lift, settle, width, longest, accel, turn].every(Number.isFinite) && transfer >= 0
-    && swing > 0 && lift > 0 && settle > 0 && width > 0 && longest > 0 && accel > 0 && turn > 0;
+    && swing > 0 && lift > 0 && settle > 0 && width > 0 && longest > 0 && accel > 0 && turn > 0
+    && [paced, lands].every((x) => x === undefined || typeof x === "boolean");
 }
 
 /**
@@ -118,6 +129,15 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
   const behind = leg * sin(Math.min(Math.abs(flexion.spec.min.value), Math.abs(flexion.spec.max.value)));
   const memory: StrideMemory = { step: null, lifted: false, swung: 0, last: null, pace: [0, 0], width: null };
   const state = { legs: legs.state, stride: memory };
+  /** A step's swing and its double support, s, walking at `walk` (world, m/s) facing `heading`: a person's forward at that pace, or the settings'. */
+  const timing = (walk: readonly [number, number], heading: number): readonly [number, number] => {
+    const pace = hypot(walk[0], walk[1]);
+    if (!settings.paced || pace === 0) return [settings.swing, settings.transfer];
+    // Forward along the heading is (sin, cos).
+    const ahead = Math.max((walk[0] * sin(heading) + walk[1] * cos(heading)) / pace, 0), fixed = settings.swing + settings.transfer;
+    const whole = fixed + (1 / personStep(pace).rate - fixed) * ahead, share = settings.swing / fixed;
+    return [whole * share, whole * (1 - share)];
+  };
   /** The pendulum's rate, 1/s: of the height the stance holds the centre of mass at over its soles. */
   const omega = (view: BodyView): number => Math.sqrt(g / Math.max(view.stance.plan.y, HEIGHT_FLOOR));
   const forget = (): void => {
@@ -136,18 +156,19 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
    */
   const plan = (view: BodyView, goal: StanceGoal, side: Side, walk: readonly [number, number], first: boolean): SwingGoal => {
     const s = view.stance, b = s.soles[side === "left" ? "right" : "left"], sign = side === "right" ? 1 : -1;
-    const rx = cos(goal.heading), rz = -sin(goal.heading), w = omega(view);
-    const T = first ? settings.swing : settings.swing + settings.transfer, grow = exp(w * T);
+    const rx = cos(goal.heading), rz = -sin(goal.heading), w = omega(view), [swing, transfer] = timing(walk, goal.heading);
+    const T = first ? swing : swing + transfer, grow = exp(w * T);
     const moving = walk[0] !== 0 || walk[1] !== 0;
     const width = Math.max(settings.width, clear + PASS + Math.abs(walk[0] * rx + walk[1] * rz) * T);
     const to = moving ? within(view, T, b.x, b.z, b.x + walk[0] * T + sign * width * rx, b.z + walk[1] * T + sign * width * rz, sign, rx, rz)
       : halt(view, goal, sign, T);
     const capture: [number, number] = moving ? [to[0] + walk[0] * T / (grow - 1) - sign * width * rx / (grow + 1),
       to[1] + walk[1] * T / (grow - 1) - sign * width * rz / (grow + 1)] : [(b.x + to[0]) / 2, (b.z + to[1]) / 2];
-    if (first) return { foot: side, to, seconds: settings.swing, lift: settings.lift, shift: true, capture, settle: settings.settle };
-    const E = exp(-w * settings.swing);
-    return { foot: side, to, seconds: settings.swing, lift: settings.lift, transfer: settings.transfer, capture, settle: settings.settle,
-      handover: [b.x + E * (capture[0] - b.x), b.z + E * (capture[1] - b.z)] };
+    const lands = settings.lands ? { lands: true } : {};
+    if (first) return { foot: side, to, seconds: swing, lift: settings.lift, shift: true, capture, settle: settings.settle, ...lands };
+    const E = exp(-w * swing);
+    return { foot: side, to, seconds: swing, lift: settings.lift, transfer, capture, settle: settings.settle,
+      handover: [b.x + E * (capture[0] - b.x), b.z + E * (capture[1] - b.z)], ...lands };
   };
 
   /**
@@ -197,8 +218,8 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
    */
   const reaim = (view: BodyView, goal: StanceGoal, step: SwingGoal, walk: readonly [number, number]): SwingGoal => {
     const s = view.stance, b = s.soles[step.foot === "left" ? "right" : "left"], sign = step.foot === "right" ? 1 : -1;
-    const rx = cos(goal.heading), rz = -sin(goal.heading), w = omega(view);
-    const T = settings.swing + settings.transfer, grow = exp(w * T);
+    const rx = cos(goal.heading), rz = -sin(goal.heading), w = omega(view), [swing, transfer] = timing(walk, goal.heading);
+    const T = swing + transfer, grow = exp(w * T);
     if (walk[0] === 0 && walk[1] === 0) {
       const t = Math.max(step.seconds - memory.swung, 0), to = halt(view, goal, sign, t);
       return { ...step, to, capture: [(b.x + to[0]) / 2, (b.z + to[1]) / 2], follows: true };
@@ -208,7 +229,7 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
     const nx = walk[0] * T / (grow - 1) - sign * width * rx / (grow + 1), nz = walk[1] * T / (grow - 1) - sign * width * rz / (grow + 1);
     const px = b.x, pz = b.z, xi = s.centre.x + s.velocity.x / w - px, zi = s.centre.z + s.velocity.z / w - pz;
     const landing = (t: number): [number, number] => { const k = exp(w * t); return [px + xi * k - nx, pz + zi * k - nz]; };
-    const left = Math.max(step.seconds - memory.swung, 0), least = Math.min(Math.max(SOONEST * settings.swing - memory.swung, 0), left);
+    const left = Math.max(step.seconds - memory.swung, 0), least = Math.min(Math.max(SOONEST * swing - memory.swung, 0), left);
     let t = left;
     const off = (time: number): number => { const [x, z] = landing(time); return hypot(x - b.x, z - b.z); };
     if (off(t) > reach) {

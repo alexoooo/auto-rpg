@@ -67,6 +67,8 @@ const STRIDE_FIELDS: readonly PartField<StrideConfig>[] = Object.freeze([
   number<StrideConfig, "longest">("longest", "Longest step", 0.3, 1.2, 0.01, "of the leg"),
   number<StrideConfig, "accel">("accel", "Speeding up", 0.5, 10, 0.1, "m/s²"),
   number<StrideConfig, "turn">("turn", "Turn", 0.5, 12, 0.1, "rad/s"),
+  toggle<StrideConfig, "paced">("paced", "A person's cadence"),
+  toggle<StrideConfig, "lands">("lands", "Land on contact"),
 ]);
 
 /** The straight punch's settings, as a panel offers them. */

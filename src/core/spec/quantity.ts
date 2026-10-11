@@ -34,7 +34,7 @@ type Unit =
   | "N s/m"
   | "rad" | "deg"
   | "rad/s" | "deg/s"
-  | "m/s" | "cm/s" | "m/s2"
+  | "m/s" | "cm/s" | "m/min" | "m/s2"
   | "s" | "Hz"
   | "m s" | "cm min"
   | "J" | "J/HP"
@@ -108,6 +108,7 @@ const CONVERSIONS: Readonly<Partial<Record<Unit, { readonly to: Unit; readonly f
   deg: { to: "rad", factor: Math.PI / 180 },
   "deg/s": { to: "rad/s", factor: Math.PI / 180 },
   "cm/s": { to: "m/s", factor: 1 / 100 },
+  "m/min": { to: "m/s", factor: 1 / 60 },
   "N/mm": { to: "N/m", factor: 1000 },
   "N/cm": { to: "N/m", factor: 100 },
   "cm min": { to: "m s", factor: 60 / 100 },
