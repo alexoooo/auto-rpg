@@ -383,7 +383,10 @@ tactics over the skills it is given.
   (`research/locomotion-search.mjs`), a short double support and a swing of 0.28 s among them.
   Off by default, it may take a person's step time forward (`paced`, `personStep` in
   `src/core/human/gait.ts`), end each swing as its sole meets the ground (`lands`,
-  `SwingGoal.lands`), and lengthen a swing whose landing falls short (`lengthen`).
+  `SwingGoal.lands`), lengthen a swing whose landing falls short (`lengthen`), give the push-off
+  as a torque of the ankle that lifts next (`launch`, `lead`, `SwingGoal.launch`), swing from the
+  sole's velocity as it lifts (`momentum`), and weigh a swing's missed moment at its own lever
+  (`lever`, `SwingGoal.lever`).
 - **Run** (`run.ts`, "Run", experimental) is a locomotion skill whose steps fly: each foot bears
   for `contact` and throws the body up at `flight`, and the other lands where a hopping machine
   places it (Raibert 1986), re-aimed until it lands, the capture point asked where a steady run's

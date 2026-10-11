@@ -272,7 +272,8 @@ After it, each with its own plan, in the order each needs the one before:
     bed's `--probe`), twice the strength lifts the forward walk's speed about 16 %, and an assist
     with it 1.4 m/s; the yaw given alone, lighter legs, stronger ankles, 240 Hz and more friction
     hold no more. What lifted the pace is the swing's share of the step: a longer swing and a
-    shorter double support.
+    shorter double support. The joints reach every pose the walk asks; the ankle gives 4 to 7 %
+    of the stride's positive work, where a person's gives about half (`research/gait-audit.mjs`).
   - **Tried and not kept:**
     - a shoe's sole (`withSoles`): it falls less under gusts, but the stride holds less;
     - a sole that rolls from heel to toe (`--probe '{"rocker": 0.3}'`): the solver touches one
@@ -284,17 +285,38 @@ After it, each with its own plan, in the order each needs the one before:
     - soles narrowed to where the ankle holds the whole weight (the Rogue falls at 0.5 m/s);
     - the pelvis turning with the stride, either way;
     - the yaw weighed less in the share;
-    - a straighter knee.
+    - a straighter knee;
+    - the push-off as a torque (`launch`, `lead`) and a swing from its launch (`momentum`): settings
+      left off. A swing's missed moment weighed at its own lever (`lever` 0.3) falls less and
+      walks no faster, so it is left off too;
+    - a search's best settings (a 0.31 s swing, `lengthen` and `lever` on): on the forward line
+      under gusts (10 seeds, 20 s) the Warrior holds 1.2 m/s asked and reaches 1.01, against the
+      defaults' 1.0 asked and 0.88 reached, and the Rogue 1.0 asked and 0.79 reached, against 0.7
+      and 0.64. But the Warrior falls walking back with the club at 0.7 m/s, so its envelope every
+      way is 0.5 against 0.7, and the game asks every walk at that figure;
+    - a second figure of the envelope, the fastest walk straight ahead that turns no slower than
+      the walk every way. Straight ahead the stride reaches what it is asked to 1 m/s and stays
+      up to 1.4, but at 1 m/s it turns half as fast, and nothing slows a walk for a bend. The
+      stance's walk gained the same figure, 0.7 m/s, and its faster approach felled the Rogue in
+      the smoke bout;
+    - a tendon in series with the ankle's plantar flexors (`MuscleSpec.tendonPositive`), as stiff
+      as a person's Achilles tendon: the Warrior's stride falls 3 times in 10 at 1 m/s and every
+      time at 1.2, and twice and four times as stiff do not help, which points at the stance's
+      torque control rather than the tendon; a stride searched with it is not tried. On the spot
+      it keeps the run up 8 times in 8, against 3 rigid. The mechanism is in the core; no body
+      has one.
   - **The run** (experimental, `run.ts`) flies between steps, its feet placed as a hopping
-    machine places them. On the spot it stays up, about 2 % of its time in the air; forward, at
-    0.5 to 2 m/s, it falls within 1 to 7 s. One leg's thrust saturates the bearing hip's internal
-    rotation, the ankle's plantar flexors and the hip's extensors; at twice the strength it is 8 %
-    of its time in the air. A run at a person's pace needs legs that thrust harder, or a
-    controller that spreads the thrust.
+    machine places them and the capture point asked where a steady run's is as each foot lands,
+    its arms swinging against each other. On the spot it stays up; forward it holds 10 s at about
+    1 m/s whatever pace is asked (a search over its settings reached 0.9 m/s held, 0.76 for the
+    Rogue, by giving up the flight). Each step the pelvis yaws some 0.8 rad: the swing's yaw is
+    more than the bearing sole's twist gives at the ground's friction (0.5), and the bearing hip
+    turns to its stop. A foot landed behind its neutral point, to speed up, falls within about
+    2 s. A run at 2 m/s needs the swing's yaw cancelled, or more twist at the sole.
   - **Travel, then fight** (`travel.ts`) walks by the stride, its arms swinging, until a standing
     foe is within 5 m, and in the stance's guard after. Every humanoid's mind gets about by it
     (`GAME_FIGHTER`); an Arena bout opens at 4 m, so it fights by the stance's walk from its
-    first step.
+    first step. It never runs: the run holds no faster than the stride at any pace.
   - **The stride does not help a fight**, so a fight is in the stance's walk. In the
     empty-hand league (Node, Rapier, 120 Hz, 66 bouts a striding entrant, at the stride's
     earlier settings: a 0.3 s swing after 0.08 s on both feet), each preset on the stride rates
@@ -312,7 +334,8 @@ After it, each with its own plan, in the order each needs the one before:
     loses every bout to today's Puncher, and no `EDGE` helps.
   - **The owner's to watch and choose:** the stride in the Lab (`?play=lab`, the fighter's Walk
     set to Walk and run in the mind editor), its arms swinging; the run (Walk set to Run); and
-    travelling, then fighting, in the Arena (`&gap=8`) and the Crypt.
+    travelling, then fighting, in the Arena (`&gap=8`) and the Crypt; and whether the bodies
+    take the ankle's tendon.
 - **A half turn at the next rate past the envelope's still now and then runs away sideways and
   falls**, one to three of 56 in four cells: after the turn the walk's plan outruns the pace asked
   ([human and strikes](reference/human-and-strikes.md#turning)).
