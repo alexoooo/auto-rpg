@@ -70,6 +70,7 @@ const STRIDE_FIELDS: readonly PartField<StrideConfig>[] = Object.freeze([
   toggle<StrideConfig, "paced">("paced", "A person's cadence"),
   toggle<StrideConfig, "lands">("lands", "Land on contact"),
   { ...number<StrideConfig, "push">("push", "Push-off", 0, 0.6, 0.05, "rad"), read: (config) => String(config.push ?? 0) },
+  { ...number<StrideConfig, "arms">("arms", "Arm swing", 0, 3, 0.1, "rad/m"), read: (config) => String(config.arms ?? 0) },
 ]);
 
 /** The straight punch's settings, as a panel offers them. */

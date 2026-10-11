@@ -368,8 +368,10 @@ tactics over the skills it is given.
   own envelope (`Locomotion.envelope`), the stance's own walk's being no measure of it. Off by
   default, it may take a person's step time forward (`paced`, `personStep` in
   `src/core/human/gait.ts`), end each swing as its sole meets the ground (`lands`,
-  `SwingGoal.lands`), and drive the trailing ankle through the double support (`push`,
-  `SwingGoal.push`).
+  `SwingGoal.lands`), drive the trailing ankle through the double support (`push`,
+  `SwingGoal.push`), and swing each arm out of the guard with the other side's leg (`arms`,
+  `Locomotion.arms`), which the arbiter lays over the guard's posture for the arms no blow,
+  cover or kick holds.
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
   searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
   and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its

@@ -1,7 +1,8 @@
 /**
  * **The walk and run** (`stride`, `src/core/skills/stride.ts`), on the Node stand at 120 Hz: a
- * Warrior with it walks forward 5 m and stops, on its feet, its own steps and not the stance's; a
- * fighter with it builds and steps; and its faults refuse settings it cannot carry out.
+ * Warrior with it walks forward 5 m and stops, on its feet, its own steps and not the stance's; one
+ * that swings its arms swings each with the other side's leg; a fighter with it builds and steps;
+ * and its faults refuse settings it cannot carry out.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -47,9 +48,44 @@ test("a_warrior_with_the_stride_walks_forward_five_metres_and_stops", async () =
   } finally { actor.dispose(); stand.dispose(); }
 });
 
+/** Pearson's correlation of two series. */
+function correlation(a, b) {
+  const mean = (x) => x.reduce((s, v) => s + v, 0) / x.length, ma = mean(a), mb = mean(b);
+  let ab = 0, aa = 0, bb = 0;
+  for (let i = 0; i < a.length; i++) { ab += (a[i] - ma) * (b[i] - mb); aa += (a[i] - ma) ** 2; bb += (b[i] - mb) ** 2; }
+  return ab / Math.sqrt(aa * bb);
+}
+
+test("a_stride_that_swings_the_arms_swings_each_with_the_other_sides_leg_and_one_that_does_not_keeps_the_guard", async () => {
+  for (const arms of [0, 2]) {
+    const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
+    const actor = labActor(stand.built, stand.world, { mind: { ...STRIDING, locomotion: { ...STRIDING.locomotion, arms } } });
+    actor.drive({ name: "forward", decide: () => ({ move: [0.6, 0], face: 0, guard: NO_COVER, attack: null }) });
+    const m = actor.body.muscles, shoulder = (side) => m.channels.findIndex((c) => c.name.startsWith(`shoulder.${side} flexion`));
+    const left = shoulder("left"), right = shoulder("right"), angles = { left: [], right: [] }, leads = { left: [], right: [] };
+    try {
+      stand.step(stand.seconds(2));
+      for (let k = 0; k < 360 && !actor.body.view.down; k++) {
+        stand.step(1);
+        const s = actor.body.view.stance;
+        angles.left.push(m.angle(left)); angles.right.push(m.angle(right));
+        for (const side of ["left", "right"]) leads[side].push(s.soles[side].z - s.centre.z);
+      }
+      assert.equal(actor.body.view.down, false, `arms ${arms}: fell`);
+      const range = (x) => Math.max(...x) - Math.min(...x);
+      if (!arms) assert.ok(range(angles.left) < 0.05 && range(angles.right) < 0.05, `in the guard the shoulders hold: ${range(angles.left).toFixed(3)}, ${range(angles.right).toFixed(3)} rad`);
+      else {
+        const with_ = [correlation(angles.left, leads.right), correlation(angles.right, leads.left)];
+        assert.ok(range(angles.left) > 0.2 && range(angles.right) > 0.2, `swinging: ${range(angles.left).toFixed(2)}, ${range(angles.right).toFixed(2)} rad`);
+        assert.ok(with_.every((r) => r > 0.5), `each arm goes with the other side's foot: ${with_.map((r) => r.toFixed(2))}`);
+      }
+    } finally { actor.dispose(); stand.dispose(); }
+  }
+});
+
 test("the_stride_is_a_fighters_locomotion_and_refuses_what_it_cannot_carry_out", () => {
   assert.deepEqual(treeFaults(STRIDING, ["script"]), []);
-  for (const bad of [{ swing: 0 }, { accel: -1 }, { transfer: -0.1 }, { longest: Number.NaN }]) {
+  for (const bad of [{ swing: 0 }, { accel: -1 }, { transfer: -0.1 }, { longest: Number.NaN }, { arms: -1 }]) {
     const faults = treeFaults({ ...STRIDING, locomotion: { ...STRIDING.locomotion, ...bad } }, ["script"]);
     assert.ok(faults.some((f) => f.includes("stride")), `${JSON.stringify(bad)}: ${JSON.stringify(faults)}`);
   }
