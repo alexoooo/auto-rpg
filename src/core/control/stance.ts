@@ -5,6 +5,7 @@ import { channelName, type MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
 import type { ServoWork } from "./servo.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing, type Bearing, type Limb } from "./bearing.ts";
+import { patchPlace } from "./contact-wrench.ts";
 import { rotationAtToRef } from "./kinematics.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
 import { catchStep, ownStep, paceToward } from "./gait.ts";
@@ -234,6 +235,12 @@ export interface StanceReading {
    * the soles can give makes, with whatever of this the assist supplies (`Assist`).
    */
   readonly shortfall: { readonly force: Vector3; readonly moment: Vector3 };
+  /**
+   * The ground's wrench the last command's leg torques count on at each sole (`shareGroundWrench`):
+   * a force at the place the sole bears (`at`: its middle, or its front edge's when rolled) and a
+   * moment about it, world, m, N and N m; zero for a foot that does not bear.
+   */
+  readonly asked: Readonly<Record<Side, { readonly at: Vector3; readonly force: Vector3; readonly moment: Vector3 }>>;
 }
 
 /**
@@ -675,6 +682,10 @@ function askNothing(s: Stance): void {
   state.aim.on = false;
   reading.shortfall.force.setAll(0);
   reading.shortfall.moment.setAll(0);
+  for (const side of ["left", "right"] as const) {
+    reading.asked[side].force.setAll(0);
+    reading.asked[side].moment.setAll(0);
+  }
   state.helped.force.setAll(0);
   state.helped.moment.setAll(0);
   for (const task of state.tasks) task.on = false;
@@ -718,7 +729,22 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
     },
     bear(muscles, work) {
       if (!s.state.aim.on) return;
-      bearLimbs(s.state.pose ? poseBearing! : s.bearing, muscles, work, leverOf(s, muscles.dynamics.root.centre[1]), s.tuning.boundedSwing);
+      const bearing = s.state.pose ? poseBearing! : s.bearing;
+      bearLimbs(bearing, muscles, work, leverOf(s, muscles.dynamics.root.centre[1]), s.tuning.boundedSwing);
+      // The bearing limbs' shares are in the limbs' order, which is the feet's.
+      let k = 0;
+      s.feet.forEach((foot, f) => {
+        const asked = s.state.reading.asked[foot.side], task = s.limbs[f]!.task;
+        if (task.on && task.bearing) {
+          const share = bearing.scratch.shares[k++]!;
+          asked.at.copyFrom(patchPlace(s.limbs[f]!.work.patch!));
+          asked.force.copyFrom(share.force);
+          asked.moment.copyFrom(share.moment);
+        } else {
+          asked.force.setAll(0);
+          asked.moment.setAll(0);
+        }
+      });
     },
     read(which) {
       const { feet, segments, total, pelvis } = s, { reading } = s.state, { p, whole } = s.scratch;
