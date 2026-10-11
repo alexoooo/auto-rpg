@@ -93,6 +93,9 @@ const RUN_FIELDS: readonly PartField<RunConfig>[] = Object.freeze([
   number<RunConfig, "accel">("accel", "Speeding up", 0.5, 10, 0.1, "m/s²"),
   number<RunConfig, "turn">("turn", "Turn", 0.5, 12, 0.1, "rad/s"),
   number<RunConfig, "drop">("drop", "Crouch", 0, 0.3, 0.01, "m"),
+  { ...number<RunConfig, "arms">("arms", "Arm swing", 0, 3, 0.1, "rad/m"), read: (config) => String(config.arms ?? 0) },
+  { ...number<RunConfig, "drive">("drive", "Drive", 0, 1, 0.01, "s"), read: (config) => String(config.drive ?? 0) },
+  { ...number<RunConfig, "lever">("lever", "Step's moment lever", 0, 1.5, 0.05, "m"), read: (config) => String(config.lever ?? 0) },
 ]);
 
 /** The straight punch's settings, as a panel offers them. */

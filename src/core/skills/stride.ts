@@ -1,11 +1,10 @@
 import type { Body, BodyView } from "../body.ts";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { swingProgressToRef, type StanceGoal, type SwingGoal } from "../control/stance.ts";
+import type { StanceGoal, SwingGoal } from "../control/stance.ts";
 import { strideEnvelope } from "../control/stance-envelope.ts";
 import { footStatesOf } from "../control/support.ts";
 import type { Pose } from "../control/motor.ts";
 import type { Side } from "../spec/body.ts";
-import { GUARD } from "./guard.ts";
+import { armSwing } from "./arm-swing.ts";
 import { exp, sin, cos, hypot } from "../math/real.ts";
 import { personStep } from "../human/gait.ts";
 import { locomotion, type Locomotion } from "./locomotion.ts";
@@ -110,15 +109,6 @@ const SOONEST = 0.75;
 
 /** The pendulum's least height, m: a numeric floor, for a body that has fallen flat. */
 const HEIGHT_FLOOR = 0.1;
-
-/**
- * **The arms swinging**, each from the guard (`GUARD`): the upper arm hanging, turned forward by
- * the swing and no further than `ARM_REACH` rad either way, the elbow bent as the guard bends it.
- * An arm reaches a posture that moves at a walk's cadence about `ARM_LEAD` s late (the servo's
- * lag), so each arm is asked where the other side's sole will be then: a swinging sole along its
- * minimum-jerk way to its landing, a bearing one where it is, from the centre of mass run on.
- */
-const ARM_REACH = 0.8, ARM_LEAD = 0.15;
 
 /** Whether every number of `step` is finite: a body read in a state no step can be planned from asks none. */
 function finite(step: SwingGoal): boolean {
@@ -312,27 +302,9 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
     return { ...step, to, seconds: memory.swung + t, capture: [to[0] + nx + ax, to[1] + nz + az], follows: true };
   };
 
-  const progress = new Vector3();
-  /** Each arm's posture swinging: its shoulder's flexion the swing's for the other side's sole's lead. */
-  const swungArms = (view: BodyView): Pose => {
-    const s = view.stance, h = legs.heading, fx = sin(h), fz = cos(h), gain = settings.arms!, step = memory.step;
-    const eased = (t: number): number => swingProgressToRef(t, step?.ramp, progress).x;
-    const lead = (side: Side): number => {
-      let x = s.soles[side].x, z = s.soles[side].z;
-      if (step && step.foot === side && s.phase === "swing") {
-        const from = eased(Math.min(memory.swung / step.seconds, 1)), to = eased(Math.min((memory.swung + ARM_LEAD) / step.seconds, 1));
-        const k = from < 1 ? (to - from) / (1 - from) : 0;
-        x += (step.to[0] - x) * k;
-        z += (step.to[1] - z) * k;
-      }
-      return (x - s.centre.x - s.velocity.x * ARM_LEAD) * fx + (z - s.centre.z - s.velocity.z * ARM_LEAD) * fz;
-    };
-    const flexion = (side: Side): number => Math.min(ARM_REACH, Math.max(-ARM_REACH, gain * lead(side === "left" ? "right" : "left")));
-    return {
-      "shoulder.left flexion": flexion("left"), "shoulder.left abduction": GUARD["shoulder.left abduction"]!, "elbow.left flexion": GUARD["elbow.left flexion"]!,
-      "shoulder.right flexion": flexion("right"), "shoulder.right abduction": GUARD["shoulder.right abduction"]!, "elbow.right flexion": GUARD["elbow.right flexion"]!,
-    };
-  };
+  const swinger = settings.arms ? armSwing(settings.arms) : null;
+  /** Each arm's posture swinging (`armSwing`). */
+  const swungArms = (view: BodyView): Pose => swinger!(view, legs.heading, { step: memory.step, swung: memory.swung, off: view.stance.phase === "swing" });
 
   return {
     state, envelope,
