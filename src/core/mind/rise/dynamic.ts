@@ -200,6 +200,7 @@ export function dynamicRisePolicy(input: Model) {
       }
       const free = other(state.lead), hand = `hand.${freeHand()}`, rear = `shank.${free}`, moving = `foot.${state.lead}`;
       const hands = model.held ? [hand] : SIDES.map(side => `hand.${side}`);
+      const commandedPhase = state.phase, commandedStage = state.stage;
       let pose: Readonly<Record<string, number>> = {}, mirror = state.lead === "right";
       switch (state.phase) {
         case "orient": {
@@ -270,9 +271,13 @@ export function dynamicRisePolicy(input: Model) {
       if (((state.phase === "orient" && state.stage === 2) || (state.phase === "acquire" && state.stage < 3)) && error < T.poseNear && state.time >= T.prepare) {
         state.stage++; enter(state.phase, o);
       }
-      if (error < state.error - T.progress) { state.error = error; state.stagnant = 0; }
-      else state.stagnant += dt;
-      if (state.stagnant >= T.stalled || state.attemptTime >= T.attempt) {
+      // An outgoing pose's error cannot seed the next stage's progress baseline.
+      if (state.phase === commandedPhase && state.stage === commandedStage) {
+        if (error < state.error - T.progress) { state.error = error; state.stagnant = 0; }
+        else state.stagnant += dt;
+      }
+      if (state.phase === commandedPhase && state.stage === commandedStage
+        && (state.stagnant >= T.stalled || state.attemptTime >= T.attempt)) {
         state.retries++;
         if (state.attemptTime < T.attempt && state.phase === "acquire" && state.stage < 3 && facing(o) !== "back") { state.stage++; enter("acquire", o); }
         else { state.attempts++; classify(o); }

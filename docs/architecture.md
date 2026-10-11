@@ -660,7 +660,8 @@ sole's centre to the floor, turns the boot flat and lifts it along an arc scaled
 length. Root-height aims also use smooth trajectories. The whole-body tracker predicts
 loaded contacts and lift-off and asks only muscle torques; a rejected prediction applies zero
 torque. Orientation and acquisition use bounded joint-velocity feedback. A stalled objective
-retries locally, and a six-second attempt reclassifies actual contacts and orientation.
+retries locally, and a six-second attempt reclassifies actual contacts and orientation. Each
+stage measures progress against its own objective; a transition clears the outgoing error.
 
 An upright half-kneel with a flat lead sole can extend through the standing controller once
 its capture point is carried by its actual leg contacts, including the rear boot's loaded toe.
@@ -674,7 +675,9 @@ gradually restores height and foot spacing. Policy, trajectory, tracker and stab
 save under the hosted mind. The editor offers the variant to Warrior and Rogue with empty hands
 or one retained item; presets keep their existing recovery. Its zero-assist human timing gate
 fails ([reference/rising.md](reference/rising.md#dynamic-rise)); it is an experimental controller,
-not a demonstrated faster recovery route.
+not a demonstrated faster recovery route. Two 60 N s Front shoves in the Stance Lab also leave
+the Warrior repeating recovery attempts; `tests/lab-dynamic-rise.test.mjs` executes this known
+failure alongside the stage-progress regression.
 
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
 skills' report and the body's envelope) they return an `Intent` (`intent.ts`): a velocity forward

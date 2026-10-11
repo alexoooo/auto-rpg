@@ -113,7 +113,7 @@ async function fallen(degrees = 247.5) {
 }
 
 test("a boot landing on its side during a real fall does not release the supports for transfer", async () => {
-  const stand = await fallen(270);
+  const stand = await fallen(135);
   try {
     const p = stand.body.state.mind.subs[0].policy, soleUp = soleUpOf(stand.built);
     let found = false;
