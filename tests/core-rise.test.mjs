@@ -34,8 +34,13 @@ const withStage = (recipe, stage) => ({ ...recipe, rise: recipe.rise.map((old) =
 /** The height of `built`'s segment `name`'s centre of mass, m. */
 const heightOf = (built, name) => centreOfToRef(built.segments.get(name), new Vector3()).y;
 const speedOf = (v) => Math.hypot(v.x, v.y, v.z);
-/** A riser's memory as a record to compare: its clocks left out, and of its bearing records each limb's task, on or off. */
-const seenOf = (riser) => { const { transfer, ...record } = riser; return { ...record, time: null, still: null, bear: riser.bear.tasks.map((task) => (task.on ? (task.bearing ? "bears" : "moves") : "off")) }; };
+/**
+ * A rise's progress as a record to compare: where it is in its stages and how it lies, its clocks
+ * left out, and of its bearing records each limb's task, on or off. A supported handoff's fields are
+ * core-supported-rise.test.mjs's.
+ */
+const seenOf = ({ phase, lie, stage, tries, furthest, lifted, raised, bear }) =>
+  ({ phase, lie, stage, time: null, still: null, tries, furthest, lifted, raised, bear: bear.tasks.map((task) => (task.on ? (task.bearing ? "bears" : "moves") : "off")) });
 /** `fours`, and its place among the stages. */
 const FOURS = RISE.rise[AT_FOURS], LAST = AT_FOURS;
 /** No limb of the game's recipe on; and every limb `fours` bears on bearing, the feet off. */
@@ -148,7 +153,7 @@ test("a riser lies slack until its body is still, and after a roll reads how it 
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [(own, view) => stagedRise(own, view, { ...POSES, roll: { ...POSES.roll, back: [turn] } })] });
   try {
     const riser = riserOf(body), dt = stand.world.dt, seen = [];
-    assert.deepEqual({ ...riser, bear: seenOf(riser).bear }, { phase: "idle", lie: "front", stage: 0, time: 0, still: 0, tries: 0, furthest: -1, lifted: false, raised: false, transfer: new Vector3(), bear: NONE });
+    assert.deepEqual({ ...seenOf(riser), time: riser.time, still: riser.still, transfer: riser.transfer }, { phase: "idle", lie: "front", stage: 0, time: 0, still: 0, tries: 0, furthest: -1, lifted: false, raised: false, transfer: new Vector3(), bear: NONE });
     assert.deepEqual(Object.keys(riser.bear), ["tasks", "aim", "helped", "held", "shortfall"]);
     for (let i = 0; i < stand.seconds(6) && riser.tries < 2; i++) {
       // The phase a step is played in is the one it begins with; taking the body, it begins slack.
