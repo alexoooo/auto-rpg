@@ -305,9 +305,8 @@ After it, each with its own plan, in the order each needs the one before:
     loses every bout to today's Puncher, and no `EDGE` helps.
   - **Running waits for a walk at a person's pace**, and its flight needs a stance that holds
     no foot.
-  - **The owner's to choose: whether the game's bodies wear the shoe's sole.** It changes every
-    bout's contacts. Walking calm it is noise; under 50 N gusts it fell 4 times in 18 shod
-    against 6 bare.
+  - **The next phase** is the [travel gait plan](plans/2026-10-10-travel-gait.md): the stance on a
+    shoe's sole, then what caps the walk, then the levers, a search and a run.
   - **The owner's to watch:** the stride in the Lab (`?play=lab`, the fighter's Walk
     set to Walk and run in the mind editor), with each of its settings, shod with `&sole=1`.
 - **A half turn at the next rate past the envelope's still now and then runs away sideways and
