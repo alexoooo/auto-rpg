@@ -43,15 +43,19 @@ export function walkAfterRecovery(stand) {
   const { world, duel, fighter } = stand;
   world.step(2);
   const heading = fighter.minded.skills.report.heading, from = fighter.body.view.stance.centre.clone();
-  const strides = fighter.body.view.stance.strides;
   duel.order("left", { move: { x: Math.sin(heading), z: Math.cos(heading) }, face: null, attack: null });
-  let fell = false;
+  // A step is landed when the stance's swing, or a run's flight, gives way to bearing: whichever walk takes it.
+  const swinging = () => ["swing", "flight"].includes(fighter.body.view.stance.phase);
+  let fell = false, steps = 0, was = swinging();
   for (let step = 0; step < 480 && !duel.verdict; step++) {
     if (step === 240) duel.order("left", STAND_ORDERS);
     world.step(); fell ||= fighter.body.down;
+    const is = swinging();
+    if (was && !is) steps += 1;
+    was = is;
   }
   const now = fighter.body.view.stance.centre;
-  return { fell, strides: fighter.body.view.stance.strides - strides, travel: Math.hypot(now.x - from.x, now.z - from.z) };
+  return { fell, steps, travel: Math.hypot(now.x - from.x, now.z - from.z) };
 }
 
 /** Repeat placed attacks against a real collider, or against the same point in empty space. */
@@ -125,7 +129,7 @@ export async function recoveryCycle(config) {
       const completed = recovery.completed > before, seconds = completed ? world.time - fallenAt : null;
       const walk = completed ? walkAfterRecovery(stand) : null;
       trials.push({ fell, acquired, completed, seconds, walk, stages: [...stages], retries: recovery.retries,
-        success: fell && completed && walk !== null && !walk.fell && walk.strides > 0 && walk.travel > .15 });
+        success: fell && completed && walk !== null && !walk.fell && walk.steps > 0 && walk.travel > .15 });
       if (!trials.at(-1).success) break;
     }
     const attack = config.attack && trials.every((t) => t.success) ? attackCycles(stand, { seconds: 15 }) : null;
