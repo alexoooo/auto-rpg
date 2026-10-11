@@ -233,9 +233,11 @@ const RIGHT: Readonly<Vector3> = Object.freeze(new Vector3(1, 0, 0));
  *   asked; its hip driven at the speeds that turn the pelvis upright and to the heading in the
  *   world, as the paper's stance hip holds its torso, at `hold` of its strength.
  *
- * Asked to go forward faster than `run`, it walks at `run`, and once the body has come up to it
- * runs by the same machine in the run's states (`SIMBICON_RUN`) from the next landing, and walks
- * again from a landing once the walk asked has come down under it and the body has slowed to it.
+ * Asked to go forward faster than `run`, it walks at `run` (the walk asked to the side brought down
+ * with it), and once the body has come up to it runs by the same machine in the run's states
+ * (`SIMBICON_RUN`) from the next landing, and walks again from a landing once the walk asked has
+ * come down under it and the body has slowed to it. Running, it goes straight ahead, turning only by
+ * its heading.
  *
  * Standing, and asked to place the feet, the legs are the stance's (`locomotion`): it walks from
  * the stance's stand, shifting the weight onto the first stance foot before the other lifts, and
@@ -277,14 +279,14 @@ export function simbicon(body: Body, settings: SimbiconSettings = SIMBICON): Loc
     return out;
   };
 
-  const begin = (view: BodyView, heading: number): void => {
+  const begin = (view: BodyView, heading: number, right: number): void => {
     const s = view.stance, c = s.centre;
-    // The foot nearer the centre of mass bears; the other swings first.
+    // Walking to a side, the foot on the other side bears and the leading foot swings first; else the foot nearer the centre of mass bears.
     const near = (side: Side): number => (s.soles[side].x - c.x) * (s.soles[side].x - c.x) + (s.soles[side].z - c.z) * (s.soles[side].z - c.z);
     memory.walking = true;
     memory.running = false;
     memory.air = false;
-    memory.stance = near("left") <= near("right") ? "left" : "right";
+    memory.stance = right > 0 ? "left" : right < 0 ? "right" : near("left") <= near("right") ? "left" : "right";
     memory.late = false;
     memory.time = 0;
     memory.heading = heading;
@@ -433,7 +435,7 @@ export function simbicon(body: Body, settings: SimbiconSettings = SIMBICON): Loc
         const goal = legs.goal(view, null, face, dt, lower);
         // The stance's stand until a walk is asked, the body is up and the stance takes no step of its own.
         if (!asked || !goal || view.down || view.stance.own || view.stance.phase !== "stand") return { kind: "stance", goal };
-        begin(view, legs.heading);
+        begin(view, legs.heading, asked[1]);
       }
       if (view.down) { stand(view); return { kind: "stance", goal: legs.goal(view, null, face, dt, lower) }; }
       memory.stopping = asked === null;
@@ -444,10 +446,11 @@ export function simbicon(body: Body, settings: SimbiconSettings = SIMBICON): Loc
       }
       memory.pace = Math.sqrt(forward * forward + right * right);
       memory.asked = forward;
-      // The walk the feedback asks for follows the walk asked, or rest, at up to `speedup`; walking, no faster than the run's pace.
-      const toward = memory.running ? forward : Math.min(forward, settings.run);
-      const most = settings.speedup * dt, df = toward - memory.forward, dr = right - memory.right, change = Math.sqrt(df * df + dr * dr);
-      if (change <= most) { memory.forward = toward; memory.right = right; }
+      // The walk the feedback asks for follows the walk asked, or rest, at up to `speedup`: walking, no faster forward than the run's pace, its
+      // way kept; running, straight ahead, a run turning only by its heading.
+      const scale = !memory.running && forward > settings.run ? settings.run / forward : 1, toward = forward * scale, side = memory.running ? 0 : right * scale;
+      const most = settings.speedup * dt, df = toward - memory.forward, dr = side - memory.right, change = Math.sqrt(df * df + dr * dr);
+      if (change <= most) { memory.forward = toward; memory.right = side; }
       else { memory.forward += df * most / change; memory.right += dr * most / change; }
       if (memory.shifting) {
         if (memory.stopping) { stand(view); return { kind: "stance", goal: legs.goal(view, null, face, dt, lower) }; }

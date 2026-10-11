@@ -2,7 +2,7 @@
  * **The SIMBICON walk** (`simbicon`, `src/core/skills/simbicon.ts`), on the Node stand at 120 Hz: a
  * Warrior with it walks forward 5 m on legs it drives itself, the stance knee held near its angle
  * under the body's weight, and stops on its feet, its legs given back to the stance; asked to hold,
- * it stands on the stance; it walks sideways; asked to go faster than it walks, it runs 10 m and
+ * it stands on the stance; it sets off sideways and walks the way asked; asked to go faster than it walks, it runs 10 m and
  * stops on its feet; and its faults refuse settings it cannot carry out.
  */
 import test from "node:test";
@@ -71,17 +71,21 @@ test("asked_to_hold_a_warrior_with_the_simbicon_walk_stands_on_the_stance", asyn
   } finally { actor.dispose(); stand.dispose(); }
 });
 
-test("a_warrior_with_the_simbicon_walk_walks_to_its_right", async () => {
-  const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
+test("a_warrior_with_the_simbicon_walk_sets_off_to_its_right_and_walks_there", async () => {
+  // At 0.5 m/s on this ground, where a first step by the trailing foot falls the body the other way into a walk that keeps going there.
+  const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true, groundSize: 200 });
   const actor = labActor(stand.built, stand.world, { mind: WALKING });
-  actor.drive({ name: "right", decide: () => ({ move: [0, 0.4], face: 0, guard: NO_COVER, attack: null }) });
+  actor.drive({ name: "right", decide: () => ({ move: [0, 0.5], face: 0, guard: NO_COVER, attack: null }) });
+  const gait = actor.skills.state.legs.gait;
   try {
-    stand.step(stand.seconds(5));
+    let first = null;
+    for (let k = 0; k < 5 * 120; k++) { stand.step(1); if (first === null && gait.walking) first = gait.stance; }
+    assert.equal(first, "left", "the leading foot swings first");
     const from = actor.body.view.stance.centre.clone();
     stand.step(stand.seconds(4));
     const to = actor.body.view.stance.centre;
     assert.equal(actor.body.view.down, false);
-    assert.ok((to.x - from.x) / 4 > 0.25 && Math.abs(to.z - from.z) / 4 < 0.15, `to its right at ${((to.x - from.x) / 4).toFixed(2)}, ahead at ${((to.z - from.z) / 4).toFixed(2)} m/s`);
+    assert.ok((to.x - from.x) / 4 > 0.35 && Math.abs(to.z - from.z) / 4 < 0.15, `to its right at ${((to.x - from.x) / 4).toFixed(2)}, ahead at ${((to.z - from.z) / 4).toFixed(2)} m/s`);
   } finally { actor.dispose(); stand.dispose(); }
 });
 
