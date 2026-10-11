@@ -50,8 +50,8 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  *   of its target: it makes whole-body strikes depend on the physics rate.
  *
  * **A tendon** (`MuscleSpec.tendonPositive`, `tendonNegative`) is a spring in series with its side's
- * muscles that only pulls. While the motor pushes the way a side with a tendon pulls, under
- * directional actuation, the motor is that spring (`EngineJoint.setSpring`), solved within the
+ * muscles that only pulls. While the motor pushes the way a side with a tendon pulls, under either
+ * law, the motor is that spring (`EngineJoint.setSpring`), solved within the
  * step: of the tendon's stiffness, toward the fibres' angle -- the joint's angle at which the
  * tendon would be slack -- and bounded by what the fibres can give at their own speed. The fibres'
  * speed is the one at which what they can give, activation x peak x force-velocity, equals the
@@ -261,7 +261,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       const push = target - speed;
       const toward = push > 0 ? 1 : push < 0 ? -1 : c.positive.peak <= c.negative.peak ? 1 : -1;
       const side = toward > 0 ? c.positive : c.negative;
-      if (directional && side.tendon !== null) {
+      if (side.tendon !== null) {
         const stretch = (toward > 0 ? state.stretch.positive : state.stretch.negative)[i]!, force = activation * side.peak;
         const v = fibreSpeed(force, side.curve, side.tendon, stretch, toward * speed, dt, Number.isFinite(target) ? toward * target : Infinity);
         const capacity = force > 0 ? force * forceVelocityFactor(v, side.curve) : 0;

@@ -516,12 +516,15 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       return {
         get raw() { return raw.getImpulseJoint(handle); },
         setMotor(k, speed, ceiling) {
+          joints.jointConfigureMotorModel(handle, axes[k]! as never, R.MotorModel.AccelerationBased as never);
           joints.jointConfigureMotorVelocity(handle, axes[k]! as never, speed, Infinity);
           joints.jointSetMotorMaxForce(handle, axes[k]! as never, ceiling);
         },
         setMotorBounds(k, speed, negative, positive) {
           if (!Number.isInteger(k) || k < 0 || k >= n || !Number.isFinite(speed)
             || !(negative >= 0) || !(positive >= 0)) throw new Error("invalid directional motor command");
+          // A spring (`setSpring`) leaves the freedom's motor force-based; a velocity motor is Rapier's default model.
+          joints.jointConfigureMotorModel(handle, axes[k]! as never, R.MotorModel.AccelerationBased as never);
           joints.jointConfigureMotorVelocity(handle, axes[k]! as never, speed, Infinity);
           // Rapier bounds the impulse on the parent; the contract names torque on the child.
           joints.jointSetMotorForceBounds(handle, axes[k]! as never, -positive, negative);

@@ -243,7 +243,7 @@ braking and blocking). Immutable `World.actuation` selects the symmetric gamepla
 directional research law. The latter bounds each side independently; an infinite-speed torque
 command gives the opposite side zero activation, while a finite-speed command may brake.
 A side may have a tendon in series (`MuscleSpec.tendonPositive`, `tendonNegative`, a stiffness
-about the joint): while its muscles push under the directional law, the motor is that spring
+about the joint): while its muscles push, under either law, the motor is that spring
 (`EngineJoint.setSpring`), aimed at the fibres' angle and bounded by what the fibres give at their
 own speed, so the tendon stores what a lengthening joint gives it and returns it.
 The symmetric reference can give a reversing motor the wrong side's braking strength. Default

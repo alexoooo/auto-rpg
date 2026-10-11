@@ -93,8 +93,8 @@ function seriesModel(inertia, activation, load, times) {
  * The rod pressed by its muscles at `activation` against a load as strong, which lets go at
  * `release` s; read at `times` (s) in the sense the driven muscles pull.
  */
-async function pressAndRelease(spec, axis, driven, sense, activation, release, times) {
-  const stand = await coreStand(spec, { gravity: false, ground: false, pinned: "post", hz: 120, actuation: "directional" });
+async function pressAndRelease(spec, axis, driven, sense, activation, release, times, actuation) {
+  const stand = await coreStand(spec, { gravity: false, ground: false, pinned: "post", hz: 120, actuation });
   const driver = driveMuscles(stand.built, stand.world, (d) => {
     d.velocity.fill(0); d.activation.fill(0);
     d.activation[driven] = activation; d.velocity[driven] = sense * Infinity;
@@ -122,20 +122,21 @@ const TIMES = [0.5, 1, 1.0417, 1.0833, 1.15, 1.25];
  * step before: the model is read a step early. Measured differences after the release are under
  * 1.6 % of the speed; the rigid driver's, the control, are 7 to 12 %.
  */
-test("a rod pressed through a tendon and let go moves as the series model says, both ways round and on an axis run backwards", async () => {
+test("a rod pressed through a tendon and let go moves as the series model says, both ways round, on an axis run backwards and under either law", async () => {
   const cases = [
     { tendon: "positive", sense: 1, axes: [[0.8, 0.6, 0]] },
     { tendon: "negative", sense: -1, axes: [[0.8, 0.6, 0]] },
     // The driven freedom third, its axis against the constraint's Z, X cross Y.
     { tendon: "positive", sense: 1, axes: [[1, 0, 0], [0, 1, 0], [0, 0, -1]], driven: 2 },
+    { tendon: "positive", sense: 1, axes: [[0.8, 0.6, 0]], actuation: "symmetric" },
     { tendon: null, sense: 1, axes: [[0.8, 0.6, 0]] },
   ];
   const activation = 0.5, release = 1, dt = 1 / 120;
-  for (const { tendon, sense, axes, driven = 0 } of cases) {
+  for (const { tendon, sense, axes, driven = 0, actuation = "directional" } of cases) {
     const spec = rod(tendon, axes, driven);
-    const read = await pressAndRelease(spec, axes[driven], driven, sense, activation, release, TIMES);
+    const read = await pressAndRelease(spec, axes[driven], driven, sense, activation, release, TIMES, actuation);
     const model = seriesModel(inertiaAboutPin(spec, axes[driven]), activation, (t) => (t < release ? activation * PEAK : 0), TIMES.map((t) => t - dt));
-    const label = `${tendon ?? "no"} tendon on ${JSON.stringify(axes[driven])}`;
+    const label = `${tendon ?? "no"} tendon on ${JSON.stringify(axes[driven])}, ${actuation}`;
     // Held: still, and pulling as hard as the load.
     assert.ok(Math.abs(read[1].omega) < 0.01 && Math.abs(read[1].pull - activation * PEAK) < 0.01, `${label}, held: ${JSON.stringify(read[1])}`);
     const gaps = read.slice(2).map((r, k) => Math.abs(r.omega - model[k + 2].omega) / model[k + 2].omega);
