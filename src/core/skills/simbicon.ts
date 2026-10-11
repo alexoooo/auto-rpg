@@ -287,8 +287,9 @@ export function simbicon(body: Body, settings: SimbiconSettings = SIMBICON): Loc
     const ahead = dx * fx + dz * fz, aside = (dx * rx + dz * rz) * out;
     const forward = v.x * fx + v.z * fz - memory.forward, outward = (v.x * rx + v.z * rz - memory.right) * out;
     const late = memory.late;
-    // The inverted pendulum's landing: the sole set where the centre of mass, going on as it goes, comes to rest over it.
-    const p = dynamics.pivot(sw.hip[0]), height = p[1] - s.soles[memory.stance].y, g = -body.built.physics.gravity[1];
+    // The inverted pendulum's landing: the sole set where the centre of mass, going on as it goes, comes to rest over it; a
+    // stance sole above the hip, as in a fall, gives the pendulum no height.
+    const p = dynamics.pivot(sw.hip[0]), height = Math.max(0, p[1] - s.soles[memory.stance].y), g = -body.built.physics.gravity[1];
     const rest = (u: number): number => u * Math.sqrt(height / g + u * u / (4 * g * g));
     const vf = v.x * fx + v.z * fz, vr = v.x * rx + v.z * rz, hx = c.x - p[0], hz = c.z - p[2];
     const landF = atan2(hx * fx + hz * fz + rest(vf) - settings.lead * memory.forward, height);

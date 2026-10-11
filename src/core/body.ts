@@ -244,6 +244,8 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
       if (!(segment in goals)) throw new Error(`no effector ${segment}`);
       if (goal && command.stance?.feet.some(side => segment === `foot.${side}`)) throw new Error(`two controllers own ${segment}`);
     }
+    // A motor asked a speed or level that is not a number would leave its body's island to the engine, which gives it up.
+    for (const push of command.pushes) if (!Number.isFinite(push.level) || (push.speed !== undefined && !Number.isFinite(push.speed))) throw new Error(`a push on ${push.channel} needs a finite level and speed`);
     if (command.handPoses) built.handPoses.request(Object.entries(command.handPoses).map(([hand, pose]) => ({ hand: hand as Side, pose: pose! })));
     motor.setPosture(command.posture);
     motor.setPushes(command.pushes);

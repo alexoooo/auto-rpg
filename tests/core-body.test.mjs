@@ -4,7 +4,8 @@
  * out, a released hand goes back to the posture, and the view's two readings of the knuckles, the
  * world's and the body frame's, agree. Node stand: the Warrior, lower trunk held, gravity on, no
  * ground, 120 Hz. And a body walking on the ground under the command layers goes on from an
- * engine's load as it went on from the save (`PhysicsWorld.save`, `load`).
+ * engine's load as it went on from the save (`PhysicsWorld.save`, `load`); and a body refuses a push
+ * whose level or speed is not a number, which the engine would answer by giving up its island.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -112,4 +113,22 @@ test("a driven body goes on from a load as it went on from the save", async () =
     assert.notEqual(c.walk(240).first, went.first);
     assert.deepEqual([a.body.view.down, b.body.view.down], [false, false], "and its muscles still hold it up");
   } finally { a.dispose(); b.dispose(); c.dispose(); }
+});
+
+test("a body refuses a push whose level or speed is not a number", async () => {
+  const stand = await coreStand(humanSpec("workshop-fighter"), { ground: false, pinned: "lowerTrunk", hz: 120 });
+  const body = createBody(stand.built, stand.world, { servoSeconds: 0.1 });
+  try {
+    let push = { channel: "knee.left flexion", sense: 1, level: 0.5, speed: 1 };
+    body.drive(() => ({ posture: GUARD, pushes: [push], stance: null }));
+    stand.step(2);
+    for (const bad of [{ speed: Number.NaN }, { speed: Number.POSITIVE_INFINITY }, { level: Number.NaN }]) {
+      push = { channel: "knee.left flexion", sense: 1, level: 0.5, speed: 1, ...bad };
+      assert.throws(() => stand.step(), /a push on knee.left flexion needs a finite level and speed/, JSON.stringify(bad));
+    }
+    push = { channel: "knee.left flexion", sense: 1, level: 0.5 };
+    stand.step(2);
+    const knee = stand.built.segments.get("shank.left").body.rigid;
+    assert.equal(knee.isEnabled(), true, "a push with no speed is a torque source, and the body stays in the world");
+  } finally { body.dispose(); stand.dispose(); }
 });
