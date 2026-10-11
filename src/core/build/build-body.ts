@@ -277,8 +277,22 @@ function initialPoses(spec: BodySpec, placement: Placement): ReadonlyMap<string,
   return poses;
 }
 
+/**
+ * `placement` sunk into the body's soles (`SurfaceSpec.sole`) by its weight shared evenly among
+ * them, where a shod body standing comes to rest: built at the ground's height, it falls into its
+ * soles and springs a foot off the ground. A body with no soles is placed as asked.
+ */
+function sunkIntoSoles(spec: BodySpec, placement: Placement, gravity: Vec3): Placement {
+  const soles = spec.segments.flatMap((s) => s.surface?.sole ? [s.surface.sole.stiffness.value] : []);
+  if (!soles.length) return placement;
+  const mass = spec.segments.reduce((sum, s) => sum + s.mass.value, 0) + (spec.held ?? []).reduce((sum, h) => sum + h.item.mass.value, 0);
+  const stiffness = soles.reduce((sum, k) => sum + k, 0), [x, y, z] = placement.position;
+  return { ...placement, position: [x, y + mass * gravity[1] / stiffness, z] };
+}
+
 /** Build `spec` at its declared initial pose, with coincident joint anchors before physics starts. */
-export function buildBody(spec: BodySpec, world: World, placement: Placement): BuiltBody {
+export function buildBody(spec: BodySpec, world: World, asked: Placement): BuiltBody {
+  const placement = sunkIntoSoles(spec, asked, world.physics.gravity);
   const poses = initialPoses(spec, placement);
   const segments = new Map<string, BuiltSegment>();
   for (const segment of spec.segments) {
