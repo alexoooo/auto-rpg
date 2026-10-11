@@ -132,7 +132,7 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
     fields: RUN_FIELDS,
   },
   "travel": {
-    ...skill<TravelConfig>("locomotion", "Travel, then fight", "experimental", { kind: "travel", near: 4, travel: { kind: "stride", ...STRIDE, arms: 1 }, fight: { kind: "stance-walk" } },
+    ...skill<TravelConfig>("locomotion", "Travel, then fight", "experimental", { kind: "travel", near: 4, travel: { kind: "stride", ...STRIDE }, fight: { kind: "stance-walk" } },
       (config) => Number.isFinite(config.near) && config.near > 0 ? [] : ["travel and fight need a foe's distance, finite and positive"]),
     fields: [number<TravelConfig, "near">("near", "Fight within", 0.5, 20, 0.1, "m")],
     slots: [slotOne("travel", "Travelling", "locomotion"), slotOne("fight", "Fighting", "locomotion")],

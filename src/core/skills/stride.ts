@@ -61,13 +61,18 @@ export interface StrideSettings {
 }
 
 /**
- * The stride as a fighter takes it unless told otherwise: the stance's own walk's step (a 0.3 s
- * swing after 0.08 s on both feet, lifted 5 cm, the soles 0.2 m apart, no step longer than 0.8 of
- * the leg), its foot held to its path at 0.07 s where the stance holds 0.1 (a step that lands short
- * leaves the capture point behind, and the next step longer: the walk runs away), a pace that
- * changes at 2 m/s², and the heading turning at up to 4 rad/s, the stance walk's turn at a slow pace.
+ * The stride as a fighter takes it unless told otherwise: the best of a search of its settings
+ * (`research/locomotion-search.mjs`: the fastest pace each body holds on each line, forward
+ * counted twice), the heading turning at up to 4 rad/s, the stance walk's turn at a slow pace. A
+ * swing of 0.283 s after 0.043 s on both feet, lifted 3 cm, the soles 0.286 m apart, no step longer
+ * than 0.856 of the leg, the foot held to its path at 0.052 s, the swing's acceleration ramped over
+ * 0.009 of each half, a pace that changes at 1.53 m/s² and is driven 0.206 s a m/s short, the
+ * trailing ankle pushing 0.152 rad, and the arms swinging 1.77 rad a metre the feet are apart.
  */
-export const STRIDE: StrideSettings = Object.freeze({ swing: 0.3, transfer: 0.08, lift: 0.05, settle: 0.07, width: 0.2, longest: 0.8, accel: 2, turn: 4 });
+export const STRIDE: StrideSettings = Object.freeze({
+  swing: 0.283, transfer: 0.043, lift: 0.03, settle: 0.052, width: 0.286, longest: 0.856, accel: 1.53, turn: 4,
+  push: 0.152, arms: 1.77, ramp: 0.009, drive: 0.206,
+});
 
 /** Whether `settings` are a stride's: each finite, the double support not negative, the rest positive. */
 export function validStride(settings: StrideSettings): boolean {
