@@ -1,4 +1,4 @@
-# Robust, quick stand-up: whole-body IK and physical recovery
+# Robust, quick stand-up: recovery routes, contact control and qualification
 
 ## Outcome and scope
 
@@ -6,10 +6,25 @@ An additional stand-up variant that reliably recovers Warrior and Rogue, with em
 one retained club, around the owner's four-second target. Existing presets retain their recovery.
 This plan describes proposed work; writing it does not resume the paused implementation goal.
 
-The next phase first establishes a continuous, physically executed route from the reproducible
-Lab fall to standing. Whole-body inverse kinematics (IK) is an experiment toward that route,
-with explicit comparisons against the limited limb solves. A compatible pose, a supported
-checkpoint and a successful complete recovery are separate milestones.
+The next phase establishes a continuous, physically executed route from the reproducible Lab
+fall to standing, then makes recovery robust and quick. It covers physical diagnosis, movement
+and support sequencing, contact and muscle control, feedback and fallback behavior, timing and
+full qualification. A compatible pose, a supported checkpoint and a successful complete recovery
+are separate milestones.
+
+Whole-body inverse kinematics (IK) is one bounded experiment within movement planning. It may
+help coordinate body configurations, but does not choose the complete support sequence, execute
+the motion, manage contact loads or establish robustness. The plan can succeed with coordinated
+targets that do not require a new IK solver. Adopt whole-body IK only if its physical replay
+provides a useful improvement over the simpler route candidates.
+
+| Workstream | Deliverable |
+|---|---|
+| Physical and controller diagnosis | Reproducible evidence distinguishing blocked geometry, muscle limits, incompatible objectives and incorrect contact prediction. |
+| Recovery-route design | A continuous body movement and support sequence from the real fall through standing; bounded whole-body IK experiments help generate and compare candidates. |
+| Contact and muscle control | Measured unloading, clearance, planting and weight transfer executed through ordinary muscles. |
+| Feedback and robustness | Progress-based transitions and useful alternatives that handle changed falls, lost support, another body and an occupied hand. |
+| Speed and qualification | Complete recovery meets the timing, success, handover and disturbance criteria. |
 
 The physical baseline remains gameplay `rapier-coordinate`, 120 Hz, symmetric actuation and
 balance 0. Recovery uses the body's ordinary muscles. No pose or velocity injection, external
@@ -48,7 +63,7 @@ The existing [dynamic-rise record](../reference/rising.md#dynamic-rise) describe
 failed directional qualification, with its own engine revision. It is not a measurement of the
 newly merged code. No passing full qualification is established.
 
-## 1. Refresh the failing transition and its observability
+## 1. Diagnose the physical and controller bottlenecks
 
 Run the existing two-shove fixture on the merged code. Keep one initialized body, host and world
 through the fall, acquisition, placement, extension and handover. Save legitimate continuation
@@ -75,7 +90,35 @@ the experiment.
 exactly after restoration into a fresh compatible world. Checkpoint diagnostics must identify
 actual loaded surfaces rather than a guessed sole or capsule proxy.
 
-## 2. Whole-body IK experiments
+Inspect the blocked transition independently of IK. Check whether the intended motion collides
+with the trunk or floor, presses a joint stop, needs unavailable muscle effort, or fights another
+controller objective. In particular, inspect the interaction between the requested foot motion,
+pelvis pitch/height, default joint posture and centre-of-mass target. Compare measured contact
+behavior with the controller's assumptions about sticking, sliding, rolling and lift-off.
+
+**Decision:** identify which explanation the next small experiment tests. Solver convergence,
+contact-model correction and route redesign are different actions. A model correction is pursued
+only with its own witness; more IK freedoms are not the default response to every failure.
+
+## 2. Design and compare complete recovery routes
+
+For each candidate, specify the movement of the pelvis, torso and limbs together with the
+support sequence: which surfaces carry weight, which unload, how a limb clears the body and
+floor, how its new contact is established, and how the body transfers onto it. Include the
+initial orientation/acquisition and final extension rather than treating foot placement as the
+whole skill. Draw on the supported half-kneel and extension components that already execute.
+
+Begin with two candidate route families: a coordinated kneeling transition that moves the
+pelvis and torso while bringing a foot forward, and a transition through sitting on one side
+into a half-kneel. Choose lead side and contact sequence from the actual configuration. Retain
+the hand-stepping experiment as a comparison, with its duration visible in the timing budget.
+
+Use a small set of coordinated movement targets as the first comparison. They may be designed
+directly, derived from body geometry or generated by IK. Keep their geometry, support transitions
+and actual execution distinguishable. Whole-body IK is useful if it finds a compatible movement
+that these simpler targets cannot, or adapts that movement to changed body configurations.
+
+### Bounded whole-body IK experiment
 
 Start with an offline research prototype. Reuse the body's kinematics, geometry and joint-angle
 conventions. Compare forward-kinematic points and rotations with the actual captured body, and
@@ -91,7 +134,7 @@ Report remaining task error, constraint violations, termination reason and branc
 Exhausting this search means "no solution found under these settings", not a proof that the
 body cannot perform the movement.
 
-### Controlled comparisons
+#### Controlled comparisons
 
 | Experiment | What changes | Question it answers |
 |---|---|---|
@@ -106,7 +149,7 @@ freedoms. Collision and support constraints take priority over endpoint preferen
 incompatible requests instead of hiding violations in a weighted residual. Declare positional,
 angular and clearance tolerances before comparing results, with consistent physical units.
 
-### Geometry and support semantics
+#### Geometry and support semantics
 
 - Use the applied open-hand hulls, complete boot shapes and held-item geometry. Check the whole
   moving thigh, shin and boot, including their clearance from the trunk, floor and retained limbs.
@@ -122,16 +165,17 @@ angular and clearance tolerances before comparing results, with consistent physi
 - Prefer a continuous solution near the previous one. Abrupt IK branch changes are rejected
   as motion targets even when their isolated endpoints satisfy the tasks.
 
-Begin with two candidate route families: a coordinated kneeling transition that moves the
-pelvis and torso while bringing a foot forward, and a transition through sitting on one side
-into a half-kneel. Choose lead side and contact sequence from the actual configuration. Retain
-the hand-stepping experiment as a comparison, with its duration visible in the timing budget.
+Compare the most promising whole-body IK candidate with the directly designed route using the
+same muscle controller and physical baseline. If a bounded search finds no useful candidate,
+record that result and continue route/contact diagnosis; it does not become an open-ended solver
+project. A geometric solution without useful physical execution does not justify runtime adoption.
 
-**Gate:** at least one candidate connects the actual blocked configuration to a supported
-half-kneel with legal joints, appropriate retained-contact geometry and clearance throughout
-the path. Record this as kinematic feasibility only.
+**Gate:** at least one candidate has a declared support sequence and connects the actual blocked
+configuration to a supported half-kneel with legal joints, appropriate retained-contact geometry
+and clearance throughout the path. It need not come from whole-body IK. Record this as route
+and kinematic feasibility only; the next workstream establishes execution.
 
-## 3. Execute the candidate through muscles and Rapier
+## 3. Make contact transitions and muscle execution work
 
 Restore the legitimate checkpoint and execute the candidate on the same body through the
 existing bounded controllers. Keep root motion as an objective produced by muscle effort and
@@ -142,6 +186,23 @@ Read measured loads before releasing support and before accepting a new support.
 predicted and observed response at the transition that fails. Begin with a conservative duration
 to distinguish route feasibility from speed, while recording the complete elapsed time. A slow
 successful route is a feasibility milestone, not an acceptance pass.
+
+Implement and verify the mechanics of each required transition:
+
+- Shift the body onto actual retained support and reduce the outgoing limb's measured load
+  before asking it to move. A surface close to the floor is not necessarily carrying weight.
+- Coordinate pelvis, torso and limb motion so the whole moving limb clears the body and floor.
+  Check that a boot reaches the intended bearing face rather than catching on its upper face.
+- Establish and load the new contact before transferring away from another support. Reacquiring
+  geometry and acquiring usable load are separate events.
+- Let default posture preferences yield to clearance and feasible support. A leg reach, root
+  orientation and balance request must not silently fight one another indefinitely.
+- Test the specific rolling, peeling or sliding transition if the selected route requires it.
+  Keep the engine behavior distinct from what the contact predictor models. Improve the relevant
+  prediction or choose another demonstrated contact sequence according to that evidence.
+- Detect rejected or persistently ineffective commands. Use a demonstrated feasible bearing
+  request where available, or reclassify the current body and select another route. Applying
+  zero effort or repeating an impossible objective forever is not a recovery strategy.
 
 | Result | Next action |
 |---|---|
@@ -181,9 +242,10 @@ lying states. Shove direction is not a substitute for checking the resulting lyi
 Extend to Rogue and the retained-club cases; a route that needs both hands cannot qualify a body
 with one hand occupied.
 
-Choose the runtime form from these results: a small set of demonstrated route seeds with bounded
-whole-body adaptation, or a bounded online solve if adaptation actually requires it. An offline
-global search is not automatically placed in the world's per-step path. Core arithmetic,
+Choose the runtime form from these results: a small set of demonstrated routes with measured
+adaptation, whole-body IK if it has earned a role, or another bounded planner if the evidence
+requires one. The feedback and contact-transition policy works with any of these target sources.
+An offline global search is not automatically placed in the world's per-step path. Core arithmetic,
 immutable tuning, plain saved state and exact continuation remain repository requirements.
 
 **Gate:** the route survives the selected nearby cases and perturbations, recovers after another
