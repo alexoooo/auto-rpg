@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { effectorFeedback, contactResponse } from '../src/core/control/effector-feedback.ts';
 import { openingSelector, segmentDistanceSquared } from '../src/core/mind/openings.ts';
 import { modelSpec } from '../src/core/models.ts';
-import { COMBAT } from '../src/core/mind/config.ts';
 import { loadEngine, DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { buildBout } from '../research/bout.mjs';
 import { traceOf } from './harness/trace.mjs';
@@ -13,7 +12,7 @@ import { frameOf } from '../src/core/spec/body.ts';
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { combatTrial } from '../research/arena-combat.mjs';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
-import {withParts} from './fixtures/minds.mjs';
+import {COMBAT,withParts} from './fixtures/minds.mjs';
 
 test('convex surface rays enter faces, reject misses and never substitute an internal centre',()=>{
  const vertices=[];for(const x of [-1,1])for(const y of [-1,1])for(const z of [-1,1])vertices.push([x,y,z]);
@@ -112,7 +111,7 @@ test('the real Warrior trunk hull supplies a surface opening and a fresh-world s
 });
 
 test('hull-aware body selection lands driven torso blows against an active Combat fighter',async()=>{
- const row=await combatTrial({left:withParts(COMBAT,{tactics:{strikes:'mixed',prefers:'body'}}),right:'combat',recipe:{capSeconds:30}});
+ const row=await combatTrial({left:withParts(COMBAT,{tactics:{strikes:'mixed',prefers:'body'}}),right:COMBAT,recipe:{capSeconds:30}});
  const out=row.sides.left;
  assert.ok((out.drivenTargets.middleTrunk??0)+(out.drivenTargets.upperTrunk??0)>=5,JSON.stringify(out));assert.ok(out.drivenDamage>.2,JSON.stringify(out));
  assert.equal(out.falls,0);assert.deepEqual(out.assist,{force:0,moment:0});assert.ok(out.pressureOnly.longest<2);

@@ -45,12 +45,12 @@ independent orientation, all on ordinary bounded muscles. No two effectors share
 bearing foot cannot simultaneously receive an effector goal. Detached capabilities, observations, contact
 feedback and path memory share the body/bout replay boundary. See [effector contract](reference/striking-effectors.md).
 
-The Combat fighters' `supportRecovery` sub-mind takes control from the host's down reading,
+Scrapper's `supportRecovery` sub-mind takes control from the host's down reading,
 runs `stagedRise`, then uses locomotion's gradual height restoration and foot squaring to
 stabilize. `recoveryReady` independently requires loaded feet, no other fixed support, a centre
 of mass inside their support polygon, low segment speed and the host's upright reading for a
 continuous interval. A stabilization timeout retries from the actual body. The host releases
-pending commands on takeover; Combat also clears pending skill cycles through its driver
+pending commands on takeover; the opening tactics also clear pending skill cycles through its driver
 release callback, and resumes after this handover. Recovery and
 trajectory memory are plain data under the body/bout state, including the standing reference.
 See [recovery measurements](reference/recovery-cycle.md) for the tested envelope and failures.
@@ -79,8 +79,8 @@ predictive defense variant uses age-corrected relative motion, available-hand re
 checks, cancellation and a bounded counter window. Its self-play initiative is below the
 reference diagnostic, so reference cover remains the default. See [defense measurements](reference/combat-defense.md).
 All selection, contact-response and trajectory memory belongs to the saved bout. The Arena
-exposes Combat and the body-targeting Brawler as experimental choices, with Warrior fist primitives measured in
-[combat strikes](reference/combat-strikes.md). Scrapper adds measured physical low support and attacks against grounded or rising enemies; competitive promotion and finishing power remain open.
+exposes Scrapper, which aims at the body, with Warrior fist primitives measured in
+[combat strikes](reference/combat-strikes.md), and measured physical low support and attacks against grounded or rising enemies; competitive promotion and finishing power remain open.
 
 `DuelRecipe.recoverySeconds` optionally permits a continuous interval down. Its per-side clocks
 are saved only when enabled; null allows unlimited time down until injury or the bout cap. Damage elimination remains immediate, opponents continue sensing
@@ -294,10 +294,13 @@ and driven afresh to change what it costs.
   capture point, and land facing the heading only as far as the bearing foot's hip lets the pelvis
   turn over it (`landingHeading`, `support.ts`): a faster turn is taken step by step. A push
   that carries the capture point out of the soles and away from the bearing one during a weight
-  shift is caught by a recovery step, ahead of any step the goal asks (`catchStep`).
+  shift is caught by a recovery step, ahead of any step the goal asks (`catchStep`). A goal's step
+  that follows the one under way, of the same foot, re-aims it in flight (`SwingGoal.follows`),
+  and may hold the foot to its path more tightly than the stance's own steps (`SwingGoal.settle`).
   `stanceEnvelope` (`stance-envelope.ts`) reads what each body was measured to
   hold on parent-axis Rapier under its character's balance allowance
-  (`assets/core/stance-envelope.json`). Unassisted coordinate-engine turns have a separate
+  (`assets/core/stance-envelope.json`), and `strideEnvelope` the same, walking by the stride
+  (`assets/core/stride-envelope.json`). Unassisted coordinate-engine turns have a separate
   [combat calibration](reference/combat-locomotion.md); the reference table alone does not
   establish that gameplay capability.
 - **The assist** (`assist.ts`) is a force and a moment on the root that no muscle gives: an ask
@@ -348,6 +351,15 @@ tactics over the skills it is given.
 - **Locomotion** (`locomotion.ts`) walks at no more than the body's measured fastest walk, turns
   only while walking and no faster than its envelope and optional `turnLimit` allow, and can
   set the feet at a chosen place (`Locomotion.place`).
+- **Stride** (`stride.ts`, "Walk and run", experimental) is a locomotion skill that plans its own
+  steps and hands the stance one at a time (`StanceGoal.swing`), never its own walk: each landing
+  and the capture point it is to catch are a steady capture-point walk's, re-aimed every control
+  step from the measured capture point, and a swing whose landing would be past the longest step
+  is shortened to one that is not, and one farther behind the centre of mass than the hip
+  reaches back is drawn in. Its swinging foot is held to its path at 0.07 s (`SwingGoal.settle`):
+  a step that lands short leaves the capture point ahead of the next, and the walk runs away. A
+  walk ends with steps that bring the capture point between the feet. Its locomotion carries its
+  own envelope (`Locomotion.envelope`), the stance's own walk's being no measure of it.
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
   searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
   and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its
@@ -561,7 +573,7 @@ its blow, `kick` with the foot or feet named and its kick, walking in and kickin
 standing leg within reach, and `cover`); under them the fighter's blow and kick are the ones its
 behaviours name and it has no low support (`fighterSkills`), its own slots for them not offered
 (`slotsFor`), and two strikes that name different blows are a fault. Its skills are its walk
-(`stance-walk`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
+(`stance-walk`, or the experimental `stride`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
 begin a hand while the other returns, the experimental `driven-strike` and `whole-body-strike`
 from the punch's research, or `choose-blow`, which gives each blow to one of a list of
 blows; `noBlow` stands in for none), and, optionally, a kick (`front-kick`) and low support
@@ -571,10 +583,9 @@ low support), never by a setting of their own; and a hand's contacts are read wh
 tactics or the path strike read them (`readsContact`). A skill the tactics never ask of, or a blow
 that cannot carry out what they ask, is a fault at its slot (`fighterFaults`: `blow: the path
 strike carries out a blow only along a path, and these tactics name none`). The presets are
-`CLASSIC` (seek over the recipe strike, rising by stages) and `COMBAT`, `BRAWLER`, `SCRAPPER` and
-`KICKER` (openings over the path strike; Scrapper adds low support, and Kicker a kick); and, of
-behaviours, `BEHAVIOURS` (strikes with either hand in turn), `RUNNER` (runs away), `CHARGER` (walks in and stays on the foe), `LEFT_HAND` (strikes
-with the left hand alone) and `KICKS_ONLY` (kicks, with no blow). A preset changed in the Arena's
+`CLASSIC` (seek over the recipe strike, rising by stages), `PUNCHER` (Classic holding at the edge
+and throwing the straight punch), `SCRAPPER` (openings over the path strike, aimed at the body,
+with low support) and, of behaviours, `BEHAVIOURS` (strikes with either hand in turn). A preset changed in the Arena's
 panel is named `Custom (from` its preset`)` (`controlName`, `src/arena/matchup.ts`).
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`,
@@ -680,7 +691,7 @@ the Warrior repeating recovery attempts; `tests/lab-dynamic-rise.test.mjs` execu
 failure alongside the stage-progress regression.
 
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
-skills' report and the body's envelope) they return an `Intent` (`intent.ts`): a velocity forward
+skills' report and the envelope of the locomotion they drive) they return an `Intent` (`intent.ts`): a velocity forward
 and to the right of the body's heading, or none; a way to face; how low to stand; what each hand
 covers (`Cover`), or none, holding the guard's pose; and the one attack (`Attack`), or none: a
 blow of a hand at a point, which the recipe skill chooses for what the hand holds unless it names
@@ -1160,7 +1171,10 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   that has the body once it is down among its parts. The Routine's
   targets are bodies (`targets.ts`): a ball of the attacker's head, hung where a seed drew it as
   the strike at it begins and read by the rule a fight wounds by (`watchBlows`), one at a time
-  ([reference/blows.md](reference/blows.md#targets)). The page inspects the
+  ([reference/blows.md](reference/blows.md#targets)). The Run goes round its tracks (`track.ts`)
+  at the pace asked, its feet metered from the ground's contacts (`gait-meter.ts`), and the
+  lab's wind (`wind.ts`) blows seeded gusts on its chest: a disturbance from outside, as a shove
+  is, and no assist. The page inspects the
   mind as it goes (`mindInspector`), logs what it decides, and who has the body when it changes hands (`mind-log.ts`), and what the body
   sounds of (`sound-log.ts`): its touches, its air, the touches of a target that hangs beside it,
   and the cue of the instrument that is no contact, the shove, each at the
@@ -1280,7 +1294,7 @@ include held items; foot sweeps use exact round-collider distance and conservati
 bounds. A body inside a fixed boundary margin backs away at its current heading before
 turning to fight. Existing margin penetration permits parallel or outward motion.
 
-Scrapper is an optional grounded extension of the retained standing Brawler. Its `groundCombat`
+Scrapper fights from low support as well as standing. Its `groundCombat`
 policy observes head height, trunk motion and collider geometry, admits a close approach by
 foot clearance, and otherwise uses a wider route. `pathTactics` resolves the resulting neutral
 intent through the common executor. It retains a committed hand/aim, refreshes only between
@@ -1313,10 +1327,10 @@ stroke comes to, and each phase's goal, a held contact's included. The skills ow
 of the course and, for the kick, the support transfer and placing around it. The
 optional planted punch executor admits actual loaded support and freezes locomotion for the
 whole cycle. Its [stability record](reference/punch-stability.md) passes standing cases and
-rejects the combined low-attack candidate; ordinary Brawler/Scrapper remain unchanged.
+rejects the combined low-attack candidate; ordinary Scrapper remains unchanged.
 
 The [bounded punch search](reference/punch-foundation.md) records its failed promotion and
-leaves Brawler/Scrapper settings intact. The [mass audit](reference/punch-mass-audit.md) identifies
+leaves Scrapper's settings intact. The [mass audit](reference/punch-mass-audit.md) identifies
 the current damage model's free-joint assumption without substituting a new rule.
 
 A kick (`KickAttack`, an `Attack`) passes either foot, a world point and detached target identity
@@ -1325,8 +1339,8 @@ cycle with hands and surrounds it with support transfer, verified unloading, pla
 and recentering. Supported stance poses can own one bearing leg with captured sole
 anchors, while the free leg tracks its named strike point and orientation. Effector
 path duration and optional muscle response are independent. All changing execution
-and tactical data forks with the bout. The selectable Kicker adds low shin targeting
-and alternates feet over Scrapper; its limited qualification and strength gaps are
+and tactical data forks with the bout. The front kick in a fighter's Kick slot adds low shin
+targeting and alternates feet; its limited qualification and strength gaps are
 recorded in [front kicks](reference/front-kicks.md).
 
 The shared strike apparatus clips live collision surfaces to a finite pad and

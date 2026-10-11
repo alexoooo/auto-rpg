@@ -1,5 +1,5 @@
 /**
- * The behaviours tactics: the merge, by rank, channel by channel; what each preset of behaviours
+ * The behaviours tactics: the merge, by rank, channel by channel; what a fighter of each behaviour
  * does to a Warrior that stands in guard (Node, core world, Rapier, 120 Hz, the Arena's room); and
  * the faults of behaviours whose skills disagree.
  */
@@ -8,10 +8,13 @@ import assert from "node:assert/strict";
 import { buildBout } from "../research/bout.mjs";
 import { behavioursTactics } from "../src/core/mind/behaviours.ts";
 import { treeFaults } from "../src/core/mind/catalog.ts";
-import { CHARGER, CLASSIC, KICKS_ONLY, LEFT_HAND, RUNNER } from "../src/core/mind/config.ts";
-import { withParts } from "./fixtures/minds.mjs";
+import { CLASSIC } from "../src/core/mind/config.ts";
+import { behaving, withParts } from "./fixtures/minds.mjs";
 
 const STANDS = Object.freeze({ ...CLASSIC, tactics: { kind: "stand" }, blow: null });
+const RUNNER = behaving([{ kind: "flee" }]), CHARGER = behaving([{ kind: "close-in", metres: 0.6 }]);
+const LEFT_HAND = behaving([{ kind: "strike", hands: "left", aim: "head", blow: { kind: "recipe-strike" } }]);
+const KICKS_ONLY = behaving([{ kind: "kick", feet: "alternate", kick: { kind: "front-kick" } }]);
 
 test("the first behaviour that wants a channel has it, and what none wants stands in guard", () => {
   const cover = { threat: [0, 1.6, 1], guarded: [0, 1.6, 0] }, asked = [];

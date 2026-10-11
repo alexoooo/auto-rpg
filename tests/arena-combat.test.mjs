@@ -1,7 +1,8 @@
-import { readMinds } from '../src/arena/matchup.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { combatContact, combatPairs, combatPressure, combatRating, combatTrial } from '../research/arena-combat.mjs';
+import { SCRAPPER } from '../src/core/mind/config.ts';
+import { BRAWLER } from './fixtures/minds.mjs';
 
 const blow = { normal: [0, 0, 1], closing: 3, energy: 4, sides: [
   { fighter: 'left', segment: 'hand.right', wound: { taken: [{ hp: .1 }, { hp: .2 }] } },
@@ -82,8 +83,8 @@ test('the complete autonomous bout path exposes pressure and actual damage witho
  * the sides of a mirrored pair are alike and one bout's count is one draw (from one gap to the next
  * a side's count runs from 3 to 16); and in every bout neither falls, hugs or is assisted.
  */
-async function landsBodyBlows(control){
- const minds=readMinds(`?control=${control},${control}`),outs=[];
+async function landsBodyBlows(mind){
+ const minds={left:mind,right:mind},outs=[];
  for(const gap of [3.4,3.6,3.8,4,4.2,4.4,4.6]){const row=await combatTrial({left:minds.left,right:minds.right,recipe:{capSeconds:30,gap}});outs.push(row.sides.left,row.sides.right);}
  const mean=f=>outs.reduce((sum,out)=>sum+f(out),0)/outs.length,told=JSON.stringify(outs);
  assert.ok(mean(out=>(out.drivenTargets.upperTrunk??0)+(out.drivenTargets.middleTrunk??0))>=8,told);
@@ -94,10 +95,10 @@ async function landsBodyBlows(control){
  }
 }
 
-test('the selectable Brawler pair launches repeated body blows without sustained hugging',async()=>{
- await landsBodyBlows('brawler');
+test('the Brawler pair launches repeated body blows without sustained hugging',async()=>{
+ await landsBodyBlows(BRAWLER);
 });
 
 test('the selected Scrapper pair lands body blows without sustained hugging on the real Arena body',async()=>{
- await landsBodyBlows('scrapper');
+ await landsBodyBlows(SCRAPPER);
 });

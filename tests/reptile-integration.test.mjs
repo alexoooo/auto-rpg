@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { BODY_MODELS, modelHolds, modelInfo, modelSpec, modelSupportsMind } from "../src/core/models.ts";
 import { MODEL_DISPLAY } from "../src/render/models.ts";
-import { KICKER, RECIPE_FIGHTER, QUADRUPED } from "../src/core/mind/config.ts";
+import { RECIPE_FIGHTER, QUADRUPED, SCRAPPER } from "../src/core/mind/config.ts";
+import { KICKER } from "./fixtures/minds.mjs";
 import { generateCryptDungeon } from "../src/dungeon/crypt-dungeon.ts";
 import { generateEncounterLevel, outsidePartyStart } from "../src/dungeon/encounters.ts";
 import { distance, findPath, walkable } from "../src/dungeon/map.ts";
@@ -35,11 +36,11 @@ test("registered models declare compatible default minds and equipment", () => {
 });
 
 test("arena links retain compatible choices and reject invalid recipes before building bodies", async () => {
-  const query = "?matchup=reptile,workshop-fighter&control=kicker&held=club&guard=pose";
+  const query = "?matchup=reptile,workshop-fighter&control=scrapper&held=club&guard=pose";
   assert.deepEqual(controlsFor("reptile"), ["crawl"]);
-  assert.deepEqual(readControls(query), { left: "crawl", right: "kicker" });
+  assert.deepEqual(readControls(query), { left: "crawl", right: "scrapper" });
   assert.deepEqual(readHeld(query), { left: "empty", right: "club" });
-  assert.deepEqual(readMinds(query), { left: QUADRUPED, right: KICKER });
+  assert.deepEqual(readMinds(query), { left: QUADRUPED, right: SCRAPPER });
   const scene = new Scene(new NullEngine()), world = createWorld(scene, await freshEngine("rapier-coordinate"));
   try {
     const before = world.physics.save(), nodes = scene.transformNodes.length;

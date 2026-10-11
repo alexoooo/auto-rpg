@@ -1,4 +1,6 @@
 import measured from "../../../assets/core/stance-envelope.json" with { type: "json" };
+import strideMeasured from "../../../assets/core/stride-envelope.json" with { type: "json" };
+import type { SourceKey } from "../sources.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { sourced, type Quantity } from "../spec/quantity.ts";
 
@@ -74,16 +76,35 @@ export function paceRound(envelope: StanceEnvelope, radius: number): number {
   return Math.max(0, ...envelope.turns.map((t) => Math.min(t.speed.value, t.turn.value * radius)));
 }
 
-/** The measured envelope of `spec`'s model. */
-export function stanceEnvelope(spec: BodySpec): StanceEnvelope {
-  const models: Readonly<Record<string, { readonly walk: number; readonly turns: readonly number[] }>> = measured.models;
-  const entry = models[spec.model];
-  if (!entry) throw new Error(`the stance's envelope was not measured on ${spec.model}`);
+/** An envelope's asset, as `research/core-stance-envelope.mjs` writes it: its speeds, and each model's fastest walk and turns. */
+interface EnvelopeTable {
+  readonly speeds: readonly number[];
+  readonly models: Readonly<Record<string, { readonly walk: number; readonly turns: readonly number[] }>>;
+}
+
+/** The envelope of `spec`'s model in `table`, the asset `source` names: `what` walks, for an error. */
+function envelopeIn(table: EnvelopeTable, source: SourceKey, spec: BodySpec, what: string): StanceEnvelope {
+  const entry = table.models[spec.model];
+  if (!entry) throw new Error(`${what}'s envelope was not measured on ${spec.model}`);
   return {
-    walk: sourced(entry.walk, "m/s", "core-stance-envelope", `/models/${spec.model}/walk`),
+    walk: sourced(entry.walk, "m/s", source, `/models/${spec.model}/walk`),
     turns: entry.turns.map((turn, i) => ({
-      speed: sourced(measured.speeds[i]!, "m/s", "core-stance-envelope", `/speeds/${i}`),
-      turn: sourced(turn, "rad/s", "core-stance-envelope", `/models/${spec.model}/turns/${i}`),
+      speed: sourced(table.speeds[i]!, "m/s", source, `/speeds/${i}`),
+      turn: sourced(turn, "rad/s", source, `/models/${spec.model}/turns/${i}`),
     })),
   };
+}
+
+/** The measured envelope of `spec`'s model, walking by the stance's own walk (`stance-walk`). */
+export function stanceEnvelope(spec: BodySpec): StanceEnvelope {
+  return envelopeIn(measured, "core-stance-envelope", spec, "the stance");
+}
+
+/**
+ * The measured envelope of `spec`'s model walking by the stride (`src/core/skills/stride.ts`):
+ * `assets/core/stride-envelope.json`, the same batteries by the same rule at the stride's speeds
+ * (`research/core-stance-envelope.mjs --legs stride`).
+ */
+export function strideEnvelope(spec: BodySpec): StanceEnvelope {
+  return envelopeIn(strideMeasured, "stride-envelope", spec, "the stride");
 }

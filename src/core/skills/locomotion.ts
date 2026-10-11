@@ -131,6 +131,11 @@ export interface Locomotion extends Skill {
   place(view: BodyView, footing: Footing, lower?: number): StanceGoal | null;
   /** Whether the feet have been placed at the footing last asked, and stand: set by `place`, cleared by `goal`. */
   readonly placed: boolean;
+  /**
+   * What this skill was measured to hold with the body (`StanceEnvelope`), which caps its walk and
+   * turn and which tactics plan by (`Sight.envelope`); null where the body has none.
+   */
+  readonly envelope: StanceEnvelope | null;
   /** Its memory (`src/core/state.ts`). */
   readonly state: object;
 }
@@ -218,7 +223,7 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
     return stays === "left" ? { left: kept, right: to } : { left: to, right: kept };
   };
   return {
-    state,
+    state, envelope,
     get heading() { return state.heading; },
     get pace() { return state.pace; },
     get reference() { return state.reference; },

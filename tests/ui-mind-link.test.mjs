@@ -5,10 +5,10 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CLASSIC, COMBAT, QUADRUPED, RECIPE_FIGHTER } from "../src/core/mind/config.ts";
+import { CLASSIC, QUADRUPED, RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { mindFaults, mindText, parseMind, readMind, writeMind } from "../src/ui/mind-link.ts";
-import { withParts } from "./fixtures/minds.mjs";
+import { COMBAT, withParts } from "./fixtures/minds.mjs";
 
 const PRESETS = { classic: { config: CLASSIC }, combat: { config: COMBAT } };
 const HUMAN = modelSpec("workshop-fighter"), REPTILE = modelSpec("reptile");

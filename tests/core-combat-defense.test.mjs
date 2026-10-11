@@ -6,7 +6,6 @@ import { clearStep } from '../src/core/mind/clear-step.ts';
 import { solidSenses } from '../src/core/mind/object-senses.ts';
 import { frameOf } from '../src/core/spec/body.ts';
 import { modelSpec } from '../src/core/models.ts';
-import { COMBAT } from '../src/core/mind/config.ts';
 import { armed } from '../src/core/human/grip.ts';
 import { woodenClub } from '../src/core/items/club.ts';
 import { rigidPoints } from '../src/core/build/rigid.ts';
@@ -15,7 +14,7 @@ import { loadEngine,DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { buildBout } from '../research/bout.mjs';
 import { traceOf } from './harness/trace.mjs';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
-import { withParts } from "./fixtures/minds.mjs";
+import { COMBAT, withParts } from "./fixtures/minds.mjs";
 
 const { incomingThreat } = threatReader();
 const spec=modelSpec('workshop-fighter');

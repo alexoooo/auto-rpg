@@ -21,7 +21,7 @@ try {
   await page.route("**/favicon.ico", route => route.fulfill({ status: 204 }));
   page.on("pageerror", error => errors.push(error.message));
   page.on("console", message => { if (message.type() === "error") errors.push(`${message.text()} (${message.location().url})`); });
-  const url = `${base}/?play=arena&matchup=workshop-fighter,workshop-fighter&appearance=relic,duelist&you=right&gap=4&control=combat,classic&recovery=15`;
+  const url = `${base}/?play=arena&matchup=workshop-fighter,workshop-fighter&appearance=relic,duelist&you=right&gap=4&control=scrapper,classic&recovery=15`;
   await page.goto(url);
   await page.waitForFunction(() => window.__arena?.duel);
   await page.keyboard.press("Space");

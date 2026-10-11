@@ -79,7 +79,7 @@ After it, each with its own plan, in the order each needs the one before:
 - **Retiring what the new skills replace**, each with its records:
   - the strike repertoire;
   - the staged rise;
-  - the opening presets (Combat, Brawler, Scrapper, Kicker).
+  - the opening preset (Scrapper).
 - **Items**, as columns of the grid, each a new skill only where one measurably needs it. In
   this order:
   1. armour (mass and shape);
@@ -92,10 +92,11 @@ After it, each with its own plan, in the order each needs the one before:
 ## Where the control work stands
 
 - **Fighters.** One fighter, its tactics and skills parts a player picks, runs every humanoid preset
-  through the same body and muscle contract. Four use the opening tactics over the path strike:
-  Combat, Brawler, the grounded Scrapper and Kicker. Against Classic on two Warriors, each wins
-  bare-handed (0.98 to 1.00) and loses with clubs (0.10 to 0.24), every win on the clock
-  ([presets](reference/controller-presets.md)).
+  through the same body and muscle contract. Puncher holds at the edge of its foe's reach and
+  throws the straight punch, and wins every empty-handed pairing in the league
+  (`research/empty-hand-league.mjs`). Scrapper, the grounded opening tactics over the path strike,
+  is the second tier: against Classic on two Warriors it wins bare-handed (0.98) and loses with
+  clubs (0.10), every win on the clock ([presets](reference/controller-presets.md)).
 - **The punch.** The planted punch reaches 4.3 to 5.3 m/s and 4 to 10 N s on the fist's hull.
   A person's is 8 m/s ([punch calibration](reference/punch-calibration.md)), and no paired-limb
   family reaches trained-adult force ([trained force](reference/trained-attack-force.md)). The
@@ -252,8 +253,25 @@ After it, each with its own plan, in the order each needs the one before:
 
 - **Walking.** The fastest walk held every way is 0.5 m/s for the Warrior and 0.4 for the Rogue
   and the skeleton (`assets/core/stance-envelope.json`), where a person's preferred walk is near
-  1.4 m/s. Running, a dash, a roll, a crouch and turning on the spot are not built
-  ([orders](reference/orders.md)).
+  1.4 m/s (`PERSON_PACE`, `src/core/human/gait.ts`). Running, a dash, a roll, a crouch and
+  turning on the spot are not built ([orders](reference/orders.md)).
+  - **The controller caps the walk, not the body.** On the Lab's lines and square
+    (`research/locomotion-run.mjs`), with no envelope, the stance's own walk holds 1.2 m/s forward
+    and 0.5 to 0.7 the other ways; muscles three times stronger or faster, or any one stance
+    setting, hold no more. A step lands short of the capture point, the next starts further
+    behind it, and the walk runs away.
+  - **The stride** (experimental) plans its own steps on the capture point and holds 0.7 m/s
+    every way for the Warrior, 0.4 for the Rogue and 0.5 for the skeleton
+    (`assets/core/stride-envelope.json`), with slower turns than the stance's walk. Its forward
+    walk is about 0.8 m/s, short of a person's; a push-off at toe-off is not built.
+  - **The stride does not yet help a fight**, so the presets keep the stance's walk. In the
+    empty-hand league (Node, Rapier, 120 Hz, 110 bouts an entrant) the Puncher on it falls 1.84
+    times a bout against 0.11. Its straight punch, searched with `settle` 0, drives as soon as its
+    foe is in the band, mid-step on the stride. Waiting on both feet (0.1 s) cures the falls but
+    loses every bout to today's Puncher, and no `EDGE` helps. A blow thrown from a walk under way
+    is what the stride needs before it can be a default.
+  - **Running waits for a walk at a person's pace**, and its flight needs a stance that holds
+    no foot.
 - **A half turn at the next rate past the envelope's still now and then runs away sideways and
   falls**, one to three of 56 in four cells: after the turn the walk's plan outruns the pace asked
   ([human and strikes](reference/human-and-strikes.md#turning)).

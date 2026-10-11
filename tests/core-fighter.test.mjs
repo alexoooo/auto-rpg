@@ -1,13 +1,13 @@
 // The fighter's tactics and skills as parts, on the Node arena stand, vendored Rapier, 120 Hz.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {COMBAT,KICKER,SCRAPPER} from '../src/core/mind/config.ts';
+import {SCRAPPER} from '../src/core/mind/config.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {CONTROLLERS} from '../src/core/mind/controllers.ts';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {buildBout} from '../research/bout.mjs';
 import {traceOf} from './harness/trace.mjs';
-import {withParts} from './fixtures/minds.mjs';
+import {COMBAT,KICKER,withParts} from './fixtures/minds.mjs';
 
 const bout=async(left,right,recipe={})=>buildBout({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
  minds:{left,right},recoverySeconds:null,capSeconds:30,...recipe},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});

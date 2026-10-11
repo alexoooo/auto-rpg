@@ -8,7 +8,7 @@ import { createPlayer } from "./player.ts";
 import { shoveSound } from "./sound-log.ts";
 import { startStance, type StanceFrame } from "./stance-mode.ts";
 import { groundDisc } from "./ground-disc.ts";
-import { actions, choice, keyHints, legend, readings, type Entry } from "../ui/controls.ts";
+import { actions, choice, keyHints, legend, readings, slider, type Entry } from "../ui/controls.ts";
 
 /**
  * **The Stance scenario**: the human on its own feet under the core stance, guard up, walked from
@@ -40,8 +40,8 @@ const letters = (codes: object): string[] => Object.keys(codes).filter((code) =>
 
 const PHASE: Readonly<Record<StanceFrame["phase"], string>> = { stand: "Standing", shift: "Shifting its weight", swing: "Swinging a foot" };
 
-/** The walking speeds on offer, m/s, and the shove's impulses, N s. */
-const SPEEDS = [0.2, 0.3, 0.4, 0.5], IMPULSES = [10, 20, 30, 40, 60];
+/** The shove's impulses on offer, N s. */
+const IMPULSES = [10, 20, 30, 40, 60];
 /** Where a shove pushes the chest, degrees to the right of where it faces. */
 const SHOVES: readonly Entry<number>[] = [
   { value: 0, name: "Front", title: "Toward where it faces" }, { value: 180, name: "Back", title: "Toward its back" },
@@ -78,7 +78,7 @@ export function stanceScenario(scene: Scene): LabScenario {
     panels: {
       controls: [
         keyHints([{ keys: letters(WALK_KEYS), does: "or arrows walk" }, { keys: letters(TURN_KEYS), does: "turn once walking" }]),
-        choice("Walk, m/s", SPEEDS.map((value) => ({ value, name: String(value) })), () => walkSpeed, (value) => { walkSpeed = value; }),
+        slider("Walk, m/s", 0.2, 8, 0.1, () => walkSpeed, (value) => { walkSpeed = value; }, (value) => value.toFixed(1)),
         choice("Impulse, N s", IMPULSES.map((value) => ({ value, name: String(value) })), () => impulse, (value) => { impulse = value; }),
         actions("Shove", SHOVES, (degrees) => current?.shove(impulse, degrees)),
       ],

@@ -1,6 +1,5 @@
 import type { Body, Fist } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
-import type { StanceEnvelope } from "../core/control/stance-envelope.ts";
 import { NO_COVER, type Intent } from "../core/mind/intent.ts";
 import type { Sight, Tactics } from "../core/mind/tactics.ts";
 import { rulebook, type Rulebook } from "../core/rules/rulebook.ts";
@@ -98,8 +97,8 @@ interface RoutineTactics extends Tactics {
  * reading (`done`), and take the walk back after the last; with no blow in either hand, or no
  * target, they walk out and back.
  */
-function routineTactics(track: Track, envelope: StanceEnvelope, drawing: Drawing, hands: readonly Side[]): RoutineTactics {
-  const walk = trackTactics(track, envelope, ROUTINE_GAIT);
+function routineTactics(track: Track, drawing: Drawing, hands: readonly Side[]): RoutineTactics {
+  const walk = trackTactics(track, ROUTINE_GAIT);
   let leg: Leg = "out", loops = 0, next = drawing.from;
   /** The strikes thrown so far, and as the target that is up took its turn. */
   let thrown = 0, counted = 0;
@@ -192,7 +191,7 @@ export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routin
   const { body, world } = actor, built = body.built;
   if (!built.segments.has("lowerTrunk")) throw new Error(`${built.spec.model} is not a human the routine knows`);
   const { targets: count = ROUTINE_TARGETS.count, seed = ROUTINE_TARGETS.seed, from = 0, hands = ROUTINE_HANDS, rules = rulebook("arena"), skills, hung } = options;
-  const tactics = routineTactics(trackOf(ROUTINE_TRACK), body.envelope!, { count, seed, from, stature: built.spec.stature.value },
+  const tactics = routineTactics(trackOf(ROUTINE_TRACK), { count, seed, from, stature: built.spec.stature.value },
     hands.filter((hand) => actor.strikes[hand]));
   const fists = body.view.fists;
   const speed = { left: 0, right: 0 };

@@ -10,7 +10,7 @@ have seen a humanoid in the same pose down.
 
 ## Measured
 
-`node research/reptile-down.mjs --shard <i> --of 12`: Node, core world, `rapier-coordinate`,
+`node research/reptile-down.mjs@6d565300 --shard <i> --of 12`: Node, core world, `rapier-coordinate`,
 120 Hz; the Arena with the reptile (`crawl`) on the left against the Warrior under each humanoid
 controller, bare-handed and with a club, and against a reptile, at gaps of 2 to 4 m by 0.25 m,
 60 s each: 99 bouts. Before is `b7edb00f`; after is the same tree with the reptile's body

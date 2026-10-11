@@ -2,13 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Vector3,Quaternion} from '@babylonjs/core/Maths/math.vector.js';
 import {openingSelector,validOpeningTuning} from '../src/core/mind/openings.ts';
-import {SCRAPPER,COMBAT} from '../src/core/mind/config.ts';
+import {SCRAPPER} from '../src/core/mind/config.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {frameOf} from '../src/core/spec/body.ts';
 import {traceOf} from './harness/trace.mjs';
-import {withParts} from './fixtures/minds.mjs';
+import {COMBAT,withParts} from './fixtures/minds.mjs';
 
 const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
  minds:{left:SCRAPPER,right:SCRAPPER},recoverySeconds:null,capSeconds:30};

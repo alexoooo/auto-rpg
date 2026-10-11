@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
 import {buildBout} from '../research/bout.mjs';
 import {combatContact,combatTrial} from '../research/arena-combat.mjs';
-import {KICKER,SCRAPPER} from '../src/core/mind/config.ts';
+import {SCRAPPER} from '../src/core/mind/config.ts';
+import {KICKER} from './fixtures/minds.mjs';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
-import {readMinds} from '../src/arena/matchup.ts';
 import {capsuleSurfaceAtHeight} from '../src/core/mind/openings.ts';
 import {frameOf} from '../src/core/spec/body.ts';
 import {centreOfToRef} from '../src/core/control/support.ts';
@@ -28,7 +28,6 @@ test('foot scoring requires the active moving foot and preserves actual native w
 });
 
 test('the selectable Arena profile completes either-foot native strikes and keeps the retained profiles unchanged',async()=>{
-  assert.deepEqual(readMinds('?control=kicker,scrapper'),{left:KICKER,right:SCRAPPER});
   assert.equal(SCRAPPER.kick,null);
   for(const side of ['left','right']){
     const row=await combatTrial({left:side==='left'?KICKER:'scrapper',right:side==='right'?KICKER:'scrapper',

@@ -77,6 +77,18 @@ export interface SwingGoal {
    */
   readonly transfer?: number;
   readonly handover?: readonly [number, number];
+  /**
+   * Whether this swing goes on with the step under way, of the same foot: its landing, its time and
+   * its capture point re-aimed, its path still from where the foot lifted and its clock running on.
+   * None, and a swing unlike the last starts a step afresh. A walk that plans its own steps re-aims
+   * them so as the body goes (`src/core/skills/stride.ts`).
+   */
+  readonly follows?: boolean;
+  /**
+   * The constant the swing's foot takes up its errors from its path at, s, critically damped; none,
+   * the stance's (`StanceTuning.seconds.swing`). A shorter one lands a fast step nearer its place.
+   */
+  readonly settle?: number;
 }
 
 /**
@@ -282,8 +294,9 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
 }
 
 /**
- * Which feet bear on their front edges. A walk's bearing foot whose ankle's floor is over the
- * knees' ceiling (`high`) on one foot rolls onto its front edge instead (Perry 1992, "Gait
+ * Which feet bear on their front edges. A walk's bearing foot (the stance's own walk's, or a goal's
+ * step's with a double support, `SwingGoal.transfer`) whose ankle's floor is over the knees'
+ * ceiling (`high`) on one foot rolls onto its front edge instead (Perry 1992, "Gait
  * Analysis", terminal stance: the heel rises as the body passes over the forefoot), once the plan's
  * centre of mass is past that edge: rolled, the foot's pressure is on the edge, and one rolled with
  * the centre behind it brakes the walk (`docs/reference/stance-tuning.md#heel-off`). The height
@@ -299,7 +312,7 @@ function rollFeet(s: Stance, stance: readonly FootState[], swing: SwingGoal | nu
     if (!stance.includes(foot)) continue;
     const ex = r.x - foot.edge.x, ez = r.z - foot.edge.z;
     const past = ex * (foot.edge.x - foot.middle.x) + ez * (foot.edge.z - foot.middle.z) >= 0;
-    if (heelOff && s.state.striding && past && !foot.memory.rolled && floor > high && reading.phase === "swing") foot.memory.rolled = true;
+    if (heelOff && (s.state.striding || swing?.transfer !== undefined && swing !== reading.own) && past && !foot.memory.rolled && floor > high && reading.phase === "swing") foot.memory.rolled = true;
     else if (foot.memory.rolled && !past && foot.heel <= foot.flat) foot.memory.rolled = false;
   }
   if (gait.preswing !== undefined && reading.phase === "shift" && swing?.transfer) {
@@ -356,7 +369,8 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   path.set(from.x + (swing.to[0] - from.x) * eased, from.y + swing.lift * bump, from.z + (swing.to[1] - from.z) * eased);
   turnBetweenToRef(step.lift, level, eased, step.turn);
   along.set((swing.to[0] - from.x) * ds, swing.lift * dbump, (swing.to[1] - from.z) * ds);
-  spinBetweenToRef(foot.segment.node.rotationQuaternion!, step.turn, seconds.swing, turn);
+  const settle = swing.settle ?? seconds.swing;
+  spinBetweenToRef(foot.segment.node.rotationQuaternion!, step.turn, settle, turn);
   // The whole turn from lift to landing, world, as its axis times its angle: the path's turn goes
   // about its axis at its angle times the path's rate.
   spinBetweenToRef(step.lift, level, 1, wholeAxis);
@@ -364,7 +378,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   // swing's constant; its turn's likewise, with the turn's own rate and acceleration: damping
   // alone lags a turn by twice its rate times the swing's constant, and a foot turning over a
   // swing lands off the heading (`tests/core-stance.test.mjs`).
-  const task = tasks[feet.indexOf(foot)]!, w = 1 / seconds.swing, T = swing.seconds;
+  const task = tasks[feet.indexOf(foot)]!, w = 1 / settle, T = swing.seconds;
   const dds = tau < 1 ? 60 * tau * (1 - tau) * (1 - 2 * tau) / (T * T) : 0, ddbump = tau < 1 ? 32 * (1 - 6 * tau + 6 * tau * tau) / (T * T) : 0;
   motionAtToRef(foot.segment, sole, task.linear, task.angular);
   task.linear.set((swing.to[0] - from.x) * dds + w * w * (path.x - sole.x) + 2 * w * (along.x - task.linear.x),
@@ -397,7 +411,7 @@ function stepsOfItself(goal: StanceGoal | null): goal is StanceGoal {
 /**
  * The step this command takes: a catch of a push under way (`catchStep`), or the goal's, or the
  * stance's own (`ownStep`), or none. A swing unlike the last starts a step, at its weight shift or,
- * asked to, at its swing.
+ * asked to, at its swing; one that follows the step under way re-aims it (`SwingGoal.follows`).
  */
 function chooseStep(s: Stance, goal: StanceGoal | null): SwingGoal | null {
   const { state } = s, { reading, step } = state;
@@ -416,6 +430,9 @@ function chooseStep(s: Stance, goal: StanceGoal | null): SwingGoal | null {
   if (!swing) {
     step.swing = null;
     reading.phase = "stand";
+  } else if (swing.follows && step.swing && step.swing.foot === swing.foot && reading.phase !== "stand") {
+    // The step under way, re-aimed.
+    step.swing = swing;
   } else if (!sameSwing(swing, step.swing)) {
     step.swing = swing;
     step.lifted = false;

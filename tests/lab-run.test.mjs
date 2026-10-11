@@ -4,7 +4,8 @@
  * shuttle's first half-turn, a quarter of the way round the circle -- and stays near the track. It
  * asks for the body's fastest walk (`Body.envelope`) except where its turns cannot carry that
  * round a bend. Pursuing a point 1 m on cuts inside the 4 m circle by
- * about 1 / (2 * 4) m, 12 cm. Readings: `docs/reference/lab.md#run-tolerance`.
+ * about 1 / (2 * 4) m, 12 cm. Readings: `docs/reference/lab.md#run-tolerance`. The Warrior walks the
+ * square facing +z, forward, right and back, at no more than its fastest walk when asked for more.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -52,3 +53,27 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
     });
   }
 }
+
+test("the_warrior_walks_the_square_facing_one_way_forward_right_and_back", async () => {
+  const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
+  // Asked past its fastest walk: the stance's walk takes no more than its envelope's.
+  const run = startRun(labActor(stand.built, stand.world), trackOf(TRACKS.square.size.of(2)), { top: 3, facing: TRACKS.square.facing });
+  let frame = run.frame(), turned = 0;
+  const walked = new Set();
+  try {
+    while (frame.time < 10 && !frame.fallen) {
+      stand.step(stand.seconds(0.25));
+      frame = run.frame();
+      turned = Math.max(turned, Math.abs(frame.heading));
+      if (frame.time > 0.5) walked.add(frame.walking);
+    }
+  } finally { run.dispose(); stand.dispose(); }
+  assert.ok(!frame.fallen, `fell at ${frame.time.toFixed(1)} s`);
+  assert.ok(turned < 0.05, `it faces +z throughout: turned ${turned.toFixed(3)} rad`);
+  assert.deepEqual([...walked], [run.body.envelope.walk.value], "the pace walked");
+  // Past the first corner and the second: up the forward side, across the right one, onto the way back.
+  assert.ok(frame.travelled > 4.2, `${frame.travelled.toFixed(2)} m round`);
+  assert.equal(frame.pieces.length, 4);
+  assert.ok(frame.pieces.slice(0, 3).every((v) => v !== null && v > 0.2), `each side's speed: ${frame.pieces}`);
+  assert.ok(frame.gait.touchdowns > 10 && frame.gait.step > 0.1 && frame.gait.double > 0 && frame.gait.flight === 0, `its feet: ${JSON.stringify(frame.gait)}`);
+});

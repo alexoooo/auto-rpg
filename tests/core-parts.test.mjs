@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { kindsFor, partOf, PARTS, treeFaults, treeFits, withoutTuning } from "../src/core/mind/catalog.ts";
-import { CLASSIC, COMBAT, KICKER, QUADRUPED } from "../src/core/mind/config.ts";
+import { CLASSIC, QUADRUPED } from "../src/core/mind/config.ts";
 import { PRESETS } from "../src/core/mind/controllers.ts";
 import { modelSpec } from "../src/core/models.ts";
-import { withParts } from "./fixtures/minds.mjs";
+import { COMBAT, KICKER, withParts } from "./fixtures/minds.mjs";
 
 const ROLES = ["mind", "sub-mind", "tactics", "behaviour", "locomotion", "guard", "blow", "kick", "support"];
 
@@ -19,7 +19,7 @@ test("every part has a role, a stage, frozen defaults of its own kind, and every
   }
   assert.deepEqual(Object.keys(PARTS), ["fighter", "quadruped", "direct", "lie", "staged-rise", "support-recovery", "dynamic-rise", "seek", "openings", "script", "stand", "behaviours",
     "follow-orders", "flee", "close-in", "keep-distance", "strike", "kick", "cover",
-    "stance-walk", "cover-guard", "recipe-strike", "path-strike", "driven-strike", "whole-body-strike", "straight-punch", "choose-blow", "front-kick", "support-fold"]);
+    "stance-walk", "stride", "cover-guard", "recipe-strike", "path-strike", "driven-strike", "whole-body-strike", "straight-punch", "choose-blow", "front-kick", "support-fold"]);
   assert.equal(partOf(CLASSIC), PARTS.fighter);
   assert.deepEqual(new Set(Object.values(PARTS).map((part) => part.role)), new Set(ROLES));
   for (const kind of ["point-fighter", "constructor", "toString"]) assert.throws(() => partOf({ kind }), /no part of kind/, kind);
