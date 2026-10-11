@@ -59,17 +59,31 @@ stance leg as a pendulum, and balance is a feedback on where the swing foot goes
   roles. Running has one state a leg (the stance) and a flight between, the swing foot's contact
   ending it. Each state names a target angle for every leg channel: the swing hip's flexion and
   abduction, the swing knee, both ankles, the stance knee.
-- **Joint targets go through the servo as a posture** (`BodyCommand.posture`, the leg channels
-  only). The servo's critically damped computed torque is a stiffer, better-conditioned PD than the
-  paper's; its time constant stands in for the paper's gains, and a per-channel response, where a
-  state needs one, is an addition to the drive.
+- **The legs are driven by torques the gait computes, not by the servo.** Each leg channel's
+  torque is the paper's PD toward its state's target, kp (target - angle) - kd rate, with the gains
+  in N m/rad as the paper states them. Each is given as a torque source: a `MusclePush` at the
+  torque over the channel's strength that way (`Body.muscles.strength`, as the whole-body strike
+  does), which is how the servo hands the driver its own torques. A torque source gives what the
+  muscles' force-velocity curve allows, as the servo's do.
+- **Why not the servo.** With no stance goal the servo takes the pelvis to be held, so a channel's
+  stiffness is the inertia of what hangs below it times n squared, and the body's weight coming up
+  through the sole is left to the angle's error. On the Warrior (Node stand, Rapier, 120 Hz,
+  `SERVO_SECONDS` 0.1) that is about 300 N m/rad at the hip's flexion and abduction, 45 at the knee,
+  6 at the hip's rotation and 1 at the ankle; the paper's are a few hundred at every joint. On the
+  servo a stance knee would bend a radian under the body's weight, the ankle would be limp, and
+  the hip's rotation would turn nothing. The trunk and the arms stay on the servo, hanging from the
+  pelvis as it assumes.
+- **Gravity compensation and the virtual force** (Coros 2010) are added to the PD: the weight the
+  stance leg carries and the force asked of the centre of mass go through the stance leg's Jacobian
+  transpose (`reachJacobianTo` over the chain `chainTo` gives) as hip, knee and ankle torques.
 - **The swing hip and the pelvis are controlled in the world frame.** The pelvis is the body's
   root (`BodyView.root`), and the hips hang from it, so the paper's torso is the pelvis here. A PD
-  on the pelvis's world pitch and roll toward upright gives a torque; the stance hip is given the
-  negative of that torque less the swing hip's, as a torque source (`MusclePush`, its level the
-  torque over the channel's strength that way, read from `Body.muscles.strength`, as the whole-body
-  strike does). The swing hip's target is read in the world frame too, so the leg swings to the
-  same place however the pelvis leans.
+  on the pelvis's world pitch and roll toward upright gives a torque. The stance hip is given the
+  negative of that torque less the swing hip's, the swing hip's being its own PD torque, known
+  before either is given. A torque about the pelvis becomes the hip's flexion, abduction and
+  rotation torques through the hip's motion axes as they stand (`motionAxesToRef`,
+  `joint-state.ts`), the three solved so the joint's torque is that one. The swing hip's target is
+  read in the world frame too, so the leg swings to the same place however the pelvis leans.
 - **Balance is a feedback on the swing hip's target**: the target plus `cd` times the centre of
   mass's horizontal distance from the stance ankle plus `cv` times its velocity, sagittal and
   coronal each with their own gains. That is the whole of the balance controller. The centre of
@@ -79,22 +93,27 @@ stance leg as a pendulum, and balance is a feedback on where the swing foot goes
   pendulum, the stance ankle's forward offset v sqrt(h / g) plus a term in the velocity's excess
   over the pace asked; a virtual force on the centre of mass toward the pace asked is given through
   the stance leg's Jacobian transpose as hip, knee and ankle torques; the heading is a yaw target of
-  the pelvis's world PD, the stance hip's rotation giving it.
-- **No stance goal** (`BodyCommand.stance: null`): the stance controller, the bearing solve, the
-  assist and the capture point are not in the loop. The servo takes the root to be held, which is
-  what a joint PD assumes too.
+  the pelvis's world PD, the stance hip's rotation giving it as a torque.
+- **No stance goal while it walks or runs** (`BodyCommand.stance: null`): the stance controller,
+  the bearing solve, the assist and the capture point are not in the loop.
+- **Standing is the stance's.** Asked to hold or to place, and once a stop has brought the feet
+  together, the gait answers as a locomotion does today, with the stance's stand (`goal`, `place`),
+  the one competency that meets its bar. It takes the legs from the stance at the first swing and
+  gives them back at the stop; the stance's memory is reset when it takes them back
+  (`StanceControl.reset`), and goes on from the body as it is.
 - **The arms swing** by `armSwing` (`arm-swing.ts`), as the stride's and the run's do.
 
 ### The seam in the arbiter
 
 A `Locomotion` today answers `goal` with a `StanceGoal`. The skill set (`skillSet`,
 `arbiter.ts`) gains one optional method on `Locomotion`, `drive(view, walk, face, dt)`, answering
-a `LegsDrive`: the leg channels' posture, the pushes, and each channel's response where it has
-one. A locomotion that drives has the command's stance null, its posture laid over the guard's for
-the leg channels (as `Locomotion.arms` is laid for the arms), and its pushes appended. A blow's
-`LegsAsk` of kind `walk` and `hold` are its walk and its stand; `place` stands, since this gait has
-no footing, and `placed` reads true once it stands still. A kick and a support fold need the stance
-and are not offered beside it (`fighterSkills`, `Part.slotsFor`). Nothing else in the arbiter moves.
+a `LegsDrive` (each leg channel's torque, N m) or null. While it answers one, the command's
+stance is null, the arbiter turns each torque into a push (its sense by its sign, its level the
+torque over the channel's strength that way) and appends them, and the leg channels leave the
+posture. While it answers null, its `goal` and `place` are used as any locomotion's, so it stands
+on the stance. A blow's `LegsAsk` of kind `free` and `walk` are its walk; `hold` and `place` are
+the stance's. A kick and a support fold step from the stance mid-walk and are not offered beside it
+(`fighterSkills`, `Part.slotsFor`). Nothing else in the arbiter moves.
 
 The stance's reading gains each sole's ground contact (`StanceReading.touching`, by side), read
 in `read` from the contacts the stance already reads for `SwingGoal.lands` (`groundContact`), so
@@ -148,14 +167,18 @@ architecture, the roadmap and a reference record if the owner asks for one.
 - `Locomotion.drive`, `LegsDrive` and the arbiter's handling of a locomotion that drives
   (`arbiter.ts`); the kick and support slots not offered beside it (`fighter.ts`).
 - `StanceReading.touching`, read in the stance's `read` from the soles' contacts.
-- The `simbicon` part, config and fields, with one state: standing on both feet, the leg
-  channels at the stance pose's angles, the pelvis's world PD on both hips as torque sources.
-- `tests/simbicon.test.mjs` (fast): the Warrior stands 10 s on it, is shoved 20 N s at the trunk
-  and stays up; its config refuses a setting no part reads; a fighter with it builds and steps.
-- **Reading:** the standing body's lumbar and hip flexion over 2 s, for the two-step oscillation
-  the old plan saw with `stance: null` on planted feet. If it is there, find its cause in the
-  servo (`servoSolve` with the root held) and fix it in place; if it is not, the note is wrong
-  and goes.
+- The `simbicon` part, config and fields: standing on the stance's stand, and one driven state,
+  both feet down, each leg channel's PD torque toward the stance pose's angles, the gravity
+  compensation, and the pelvis's world PD shared between the hips. The hand-over: the stance's to
+  the drive, and back with the stance's memory reset.
+- `tests/simbicon.test.mjs` (fast): asked to hold, the Warrior stands 10 s on the stance; driven
+  2 s and handed back, it stays up, and the driven knees and ankles hold within a few hundredths
+  of a radian of their targets under the body's weight (the figure the servo could not give); its
+  config refuses a setting no part reads; a fighter with it builds and steps.
+- **Reading:** the driven body's lumbar and hip flexion over its 2 s, for the two-step oscillation
+  the old plan saw with `stance: null` on planted feet. If it is there, find its cause (the PD's
+  gains at 120 Hz, or the servo's trunk on a pelvis that moves) and fix it in place; if it is not,
+  the note is wrong and goes.
 - **Reading:** the step's cost with no stance solve (`tests/core-step-cost.test.mjs` passes;
   the figure is read, not recorded).
 
@@ -166,10 +189,9 @@ architecture, the roadmap and a reference record if the owner asks for one.
   paper's rule, the arms swinging.
 - The transition on the swinging sole's contact (`touching`), and a time cap on a swing that never
   lands.
-- A walk that starts from a stand (the first swing from both feet) and ends in one (the swing
-  foot set beside the stance foot, then both held).
-- `tests/simbicon.test.mjs`: the Warrior walks forward 5 m and stops on its feet, as
-  `tests/stride.test.mjs` asks of the stride.
+- A walk that starts from the stance's stand (the first swing from both feet).
+- `tests/simbicon.test.mjs`: the Warrior walks forward 5 m and stays up. The stop waits for the
+  pace (session 03).
 - **Reading:** `research/locomotion-run.mjs --legs '{"kind":"simbicon"}'` on the forward line,
   calm and under 20 N gusts, 20 s, both bodies: the speed made, the falls, the cadence and step
   length beside a person's (`personStep`), the legs' demand (the share of steps a hip, knee and
@@ -182,6 +204,10 @@ architecture, the roadmap and a reference record if the owner asks for one.
 
 - The pace asked, 0 to 1.4 m/s forward: the inverted-pendulum landing and the virtual force
   (Coros 2010), the swing hip's world-frame target from the landing.
+- The stop: the pace asked brought to zero, the swing foot set beside the stance foot, and the
+  legs given back to the stance's stand once both are down and the centre of mass is slow.
+  `tests/simbicon.test.mjs`: the Warrior walks forward 5 m and stops on its feet, as
+  `tests/stride.test.mjs` asks of the stride.
 - The heading: the pelvis's yaw target, turned toward the facing asked at up to 2 rad/s while
   walking; a turn past what the stance hip gives in one step is taken step by step.
 - Backward and sideways: the swing hip's target mirrored; sideways by the hips' abduction. Either
