@@ -4,7 +4,7 @@
 
 An additional stand-up variant that reliably recovers Warrior and Rogue, with empty hands or
 one retained club, around the owner's four-second target. Existing presets retain their recovery.
-This plan describes proposed work; writing it does not resume the paused implementation goal.
+Implementation is authorized. The complete recovery and final qualification remain open.
 
 The next phase establishes a continuous, physically executed route from the reproducible Lab
 fall to standing, then makes recovery robust and quick. It covers physical diagnosis, movement
@@ -64,6 +64,14 @@ failed directional qualification, with its own engine revision. It is not a meas
 newly merged code. No passing full qualification is established.
 
 ## 1. Diagnose the physical and controller bottlenecks
+
+The current implementation provides `research/stand-up-replay.mjs`, the bounded A–E pose/path
+comparison in `research/stand-up-ik.mjs`, and physical boot-preparation comparisons in
+`research/stand-up-contact.mjs`. Their regressions verify read-only planning, actual geometry,
+bounded muscle execution and fresh-world continuation. The
+[current experiment](../analysis/2026-10-11-stand-up-planning.md) reproduces the complete-recovery
+failure; no new route qualifies. Route execution, robust feedback, speed and final qualification
+remain required before this plan can land.
 
 Run the existing two-shove fixture on the merged code. Keep one initialized body, host and world
 through the fall, acquisition, placement, extension and handover. Save legitimate continuation
