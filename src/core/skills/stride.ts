@@ -39,6 +39,17 @@ export interface StrideSettings {
   /** The trailing ankle's push-off through the double support, rad of plantarflexion (`SwingGoal.push`); none or 0, no push. */
   readonly push?: number;
   /**
+   * The push-off as a torque (`SwingGoal.launch`): the share of its plantarflexion's strength the
+   * ankle of the foot that lifts next gives at least, from `lead` s before the swing before it
+   * lands to its lift. None or 0, the ankle is the stance's.
+   */
+  readonly launch?: number;
+  readonly lead?: number;
+  /** Whether a swing goes on from the sole's velocity as it lifts (`SwingGoal.momentum`); none, from rest. */
+  readonly momentum?: boolean;
+  /** The lever a swing's missed moment is weighed at, m (`SwingGoal.lever`); none or 0, the stance's. */
+  readonly lever?: number;
+  /**
    * The arms' swing against the legs (`Locomotion.arms`): rad of each shoulder's flexion for every
    * metre the other side's sole is ahead of the centre of mass along the heading. None or 0, the
    * arms keep the guard.
@@ -74,13 +85,14 @@ export const STRIDE: StrideSettings = Object.freeze({
   push: 0.152, arms: 1.77, ramp: 0.009, drive: 0.206,
 });
 
-/** Whether `settings` are a stride's: each finite, the double support not negative, the rest positive. */
+/** Whether `settings` are a stride's: each finite, the double support not negative, the rest positive, a launch's share at most 1. */
 export function validStride(settings: StrideSettings): boolean {
-  const { swing, transfer, lift, settle, width, longest, accel, turn, paced, lands, push, arms, ramp, drive, lengthen } = settings;
+  const { swing, transfer, lift, settle, width, longest, accel, turn, paced, lands, push, arms, ramp, drive, lengthen, launch, lead, momentum, lever } = settings;
   return [swing, transfer, lift, settle, width, longest, accel, turn].every(Number.isFinite) && transfer >= 0
     && swing > 0 && lift > 0 && settle > 0 && width > 0 && longest > 0 && accel > 0 && turn > 0
-    && [paced, lands].every((x) => x === undefined || typeof x === "boolean")
-    && [push, arms, drive, lengthen].every((x) => x === undefined || Number.isFinite(x) && x >= 0)
+    && [paced, lands, momentum].every((x) => x === undefined || typeof x === "boolean")
+    && [push, arms, drive, lengthen, lead, lever].every((x) => x === undefined || Number.isFinite(x) && x >= 0)
+    && (launch === undefined || Number.isFinite(launch) && launch >= 0 && launch <= 1)
     && (ramp === undefined || Number.isFinite(ramp) && ramp >= 0 && ramp <= 0.25);
 }
 
@@ -205,7 +217,9 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
       : halt(view, goal, sign, T);
     const capture: [number, number] = moving ? [to[0] + walk[0] * T / (grow - 1) - sign * width * rx / (grow + 1),
       to[1] + walk[1] * T / (grow - 1) - sign * width * rz / (grow + 1)] : [(b.x + to[0]) / 2, (b.z + to[1]) / 2];
-    const extra = { ...settings.lands ? { lands: true } : {}, ...settings.push ? { push: settings.push } : {}, ...settings.ramp ? { ramp: settings.ramp } : {} };
+    const extra = { ...settings.lands ? { lands: true } : {}, ...settings.push ? { push: settings.push } : {}, ...settings.ramp ? { ramp: settings.ramp } : {},
+      ...settings.launch ? { launch: { share: settings.launch, lead: settings.lead ?? 0 } } : {}, ...settings.momentum ? { momentum: true } : {},
+      ...settings.lever ? { lever: settings.lever } : {} };
     if (first) return { foot: side, to, seconds: swing, lift: settings.lift, shift: true, capture, settle: settings.settle, ...extra };
     const E = exp(-w * swing);
     return { foot: side, to, seconds: swing, lift: settings.lift, transfer, capture, settle: settings.settle,
