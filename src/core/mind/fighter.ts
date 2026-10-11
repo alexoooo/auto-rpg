@@ -14,7 +14,7 @@ import { recipeStrike } from "../skills/strike.ts";
 import { STRAIGHT_PUNCH, straightPunch, straightPunchFits, validStraightPunch } from "../skills/straight-punch.ts";
 import { STRIDE, stride, validStride } from "../skills/stride.ts";
 import { RUN, run, validRun } from "../skills/run.ts";
-import { SIMBICON, simbicon, validSimbicon, type SimbiconSettings } from "../skills/simbicon.ts";
+import { SIMBICON, simbicon, simbiconWays, validSimbicon, validWays, type SimbiconSettings } from "../skills/simbicon.ts";
 import { travelOrFight } from "../skills/travel.ts";
 import { supportFold } from "../skills/support-fold.ts";
 import { wholeBodyFits, wholeBodyStrike } from "../skills/whole-body-strike.ts";
@@ -100,7 +100,7 @@ const RUN_FIELDS: readonly PartField<RunConfig>[] = Object.freeze([
 ]);
 
 /** A SIMBICON walk's config's settings, its kind taken off. */
-const settingsOf = ({ kind: _, ...settings }: SimbiconConfig): SimbiconSettings => settings;
+const settingsOf = ({ kind: _, tuning: __, ...settings }: SimbiconConfig): SimbiconSettings => settings;
 
 /** The SIMBICON walk's settings, as a panel offers them. Their bounds are a numeric setting, the most a panel offers. */
 const SIMBICON_FIELDS: readonly PartField<SimbiconConfig>[] = Object.freeze([
@@ -185,8 +185,11 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
   },
   "simbicon": {
     ...skill<SimbiconConfig>("locomotion", "SIMBICON walk", "experimental", { kind: "simbicon", ...SIMBICON },
-      (config) => validSimbicon(settingsOf(config)) ? [] : ["a SIMBICON gait needs every setting finite, its times, turn, speed-up and run positive and its shares of strength within (0, 1]"]),
-    fields: SIMBICON_FIELDS,
+      (config) => [
+        ...validSimbicon(settingsOf(config)) ? [] : ["a SIMBICON gait needs every setting finite, its times, turn, speed-up and run positive and its shares of strength within (0, 1]"],
+        ...validWays(simbiconWays(config.tuning)) ? [] : ["a SIMBICON gait's side and back give only the settings a way changes, each finite"],
+      ]),
+    fields: SIMBICON_FIELDS, tuning: ["side", "back"],
   },
   "travel": {
     ...skill<TravelConfig>("locomotion", "Travel, then fight", "game", TRAVEL,
@@ -384,7 +387,7 @@ function legsOf(body: Body, config: LocomotionConfig): Locomotion {
     case "stance-walk": return locomotion(body.envelope, config.tuning?.turnLimit, config.tuning?.turnStartup);
     case "stride": { const { kind: _, ...settings } = config; return stride(body, settings); }
     case "run": { const { kind: _, ...settings } = config; return run(body, settings); }
-    case "simbicon": return simbicon(body, settingsOf(config));
+    case "simbicon": return simbicon(body, settingsOf(config), simbiconWays(config.tuning));
     case "travel": return travelOrFight(legsOf(body, config.travel), legsOf(body, config.fight), config.near);
     default: { const never: never = config; throw new Error(`no locomotion of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }

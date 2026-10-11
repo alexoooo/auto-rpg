@@ -2,8 +2,9 @@
  * **The SIMBICON walk** (`simbicon`, `src/core/skills/simbicon.ts`), on the Node stand at 120 Hz: a
  * Warrior with it walks forward 5 m on legs it drives itself, the stance knee held near its angle
  * under the body's weight, and stops on its feet, its legs given back to the stance; asked to hold,
- * it stands on the stance; it sets off sideways and walks the way asked; asked to go faster than it walks, it runs 10 m and
- * stops on its feet; and its faults refuse settings it cannot carry out.
+ * it stands on the stance; it sets off sideways and walks the way asked; it walks back and to its left at the pace asked, each
+ * way by its own gait, and stops on its feet; asked to go faster than it walks, it runs 10 m and stops on its feet; and its
+ * faults refuse settings it cannot carry out.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -12,6 +13,7 @@ import { NO_COVER } from "../src/core/mind/intent.ts";
 import { treeFaults } from "../src/core/mind/catalog.ts";
 import { CONTROLLERS } from "../src/core/mind/controllers.ts";
 import { slotsOf } from "../src/core/mind/parts.ts";
+import { wentAsAsked } from "../src/core/control/stance-envelope.ts";
 import { SIMBICON } from "../src/core/skills/simbicon.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { LAB_PRESETS } from "../src/lab/scenarios.ts";
@@ -89,6 +91,29 @@ test("a_warrior_with_the_simbicon_walk_sets_off_to_its_right_and_walks_there", a
   } finally { actor.dispose(); stand.dispose(); }
 });
 
+for (const [way, move] of [["back", [-0.5, 0]], ["left", [0, -0.5]]]) test(`a_warrior_with_the_simbicon_walk_walks_${way}_at_the_pace_asked_and_stops_on_the_stance`, async () => {
+  const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true, groundSize: 200 });
+  const actor = labActor(stand.built, stand.world, { mind: WALKING });
+  let walking = true;
+  actor.drive({ name: way, decide: () => ({ move: walking ? move : null, face: 0, guard: NO_COVER, attack: null }) });
+  const gait = actor.skills.state.legs.gait;
+  try {
+    // Set off and come up to the pace; then the walk over 3 s, along the way asked and across it.
+    stand.step(stand.seconds(5));
+    const from = actor.body.view.stance.centre.clone();
+    stand.step(stand.seconds(3));
+    const to = actor.body.view.stance.centre, ux = move[1] / 0.5, uz = move[0] / 0.5;
+    const along = ((to.x - from.x) * ux + (to.z - from.z) * uz) / 3, across = ((to.x - from.x) * uz - (to.z - from.z) * ux) / 3;
+    assert.ok(wentAsAsked(along, across, 0.5), `${along.toFixed(2)} m/s along, ${across.toFixed(2)} across`);
+    walking = false;
+    stand.step(stand.seconds(6));
+    const s = actor.body.view.stance;
+    assert.equal(actor.body.view.down, false, `fell at ${actor.body.view.time.toFixed(2)} s`);
+    assert.equal(gait.walking, false, "given back to the stance");
+    assert.ok(Math.hypot(s.velocity.x, s.velocity.z) < 0.05, `standing still: ${Math.hypot(s.velocity.x, s.velocity.z).toFixed(3)} m/s`);
+  } finally { actor.dispose(); stand.dispose(); }
+});
+
 test("asked_past_its_walk_a_warrior_with_the_simbicon_walk_runs_ten_metres_and_stops_on_the_stance", async () => {
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true, groundSize: 80 });
   const actor = labActor(stand.built, stand.world, { mind: WALKING });
@@ -123,7 +148,9 @@ test("asked_past_its_walk_a_warrior_with_the_simbicon_walk_runs_ten_metres_and_s
 
 test("the_simbicon_walk_is_a_fighters_locomotion_and_refuses_what_it_cannot_carry_out", () => {
   assert.deepEqual(treeFaults(WALKING, ["script"]), []);
-  for (const bad of [{ seconds: 0 }, { longest: 0.1 }, { settle: 0 }, { swing: 1.5 }, { hold: 0 }, { ankle: -0.1 }, { turn: 0 }, { speedup: 0 }, { cd: Number.NaN }, { arms: -1 }, { run: 0 }]) {
+  assert.deepEqual(treeFaults({ ...WALKING, locomotion: { ...WALKING.locomotion, tuning: { back: { lead: 0.2 }, side: { width: 0.1 } } } }, ["script"]), []);
+  for (const bad of [{ seconds: 0 }, { longest: 0.1 }, { settle: 0 }, { swing: 1.5 }, { hold: 0 }, { ankle: -0.1 }, { turn: 0 }, { speedup: 0 }, { cd: Number.NaN }, { arms: -1 }, { run: 0 },
+    { tuning: { back: { cv: Number.NaN } } }, { tuning: { side: { settle: 0.2 } } }]) {
     const faults = treeFaults({ ...WALKING, locomotion: { ...WALKING.locomotion, ...bad } }, ["script"]);
     assert.ok(faults.some((f) => f.toLowerCase().includes("simbicon")), `${JSON.stringify(bad)}: ${JSON.stringify(faults)}`);
   }

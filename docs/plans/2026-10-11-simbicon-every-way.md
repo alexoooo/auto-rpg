@@ -191,6 +191,34 @@ made in brackets:
   0.3 to 1 m/s asked, calm and gusts, held by the new rule. The forward line again, unchanged.
 - **Eye gate:** the owner watches the Warrior walk back and to each side in the Lab.
 
+**Found.** The blend is `SIMBICON_WAYS` and `simbiconWays` (`simbicon.ts`), over the 21 settings of
+`WAY_KEYS`. The part's `tuning` gives `side` and `back` as partial ways, and the faults refuse an
+unknown or non-finite one. With side and back set to forward's, the bed's 360 runs came out exactly
+as the baseline. The run reads its own settings and is not blended.
+
+- **Back.** Driving the swinging thigh back early (`swingHip` at or below 0.1) lands the foot at
+  once, and the walk falls. What carried it was the stance: the stance ankle at −0.15 (toes up, so
+  the weight rolls back over the heel), the thigh's late angle at 0.1, and less velocity feedback
+  (`cv` 0.4, `cvAnkle` 0.6), since forward's feedback reads a backward pace as a fall to catch.
+- **Side.** No single setting helped: `swingHip`, `swingSpread`, `width`, `leadSide`, `cvSide` and
+  `lean` each did as well as forward's or worse. Side stays forward's and goes to the search.
+
+The bed by the new figure with these defaults (20 s, 3 seeds, calm and a 20 N gust a second, asked
+0.3 to 1.4), the pace made in brackets:
+
+| Track | Warrior | Rogue | Skeleton |
+|---|---|---|---|
+| forward | 1.4 (1.24) | 1 (1.16) | 0.3 (0.38) |
+| right, left | 0.7 (0.64), 0.7 (0.62) | none, 0.5 (0.45) | 0.3 calm, none gusts; none |
+| back | **0.7 (0.82)**, was none | **0.7 (0.89) calm, 0.5 (0.62) gusts**, was 0.3 | **0.7 (0.96) calm, 0.5 (0.67) gusts**, was none |
+| square | 0.7 (0.66) | 0.5 (0.55) | none calm, 0.3 gusts |
+| circle | 1.4 (1.17) | 1 calm, 0.7 gusts | 0.3 calm, none gusts |
+
+Back now carries every body at 0.5 under gusts and the Warrior at 0.7. The Warrior falls at 1 m/s
+back and to the side, and the side caps at 0.7. Forward moves on no body. `tests/simbicon.test.mjs`
+walks the Warrior back and to its left at 0.5 m/s, each held by `wentAsAsked` over 3 s, and stops
+it on the stance (its right was already held).
+
 ### 03: the search for each direction, if the owner asks
 
 - CMA-ES over `back`'s and then `side`'s settings on the Warrior, on worker threads. The objective

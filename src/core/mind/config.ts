@@ -6,7 +6,7 @@ import type { TurnStartup } from "../skills/locomotion.ts";
 import { STRAIGHT_PUNCH, type StraightPunch } from "../skills/straight-punch.ts";
 import { STRIDE, type StrideSettings } from "../skills/stride.ts";
 import type { RunSettings } from "../skills/run.ts";
-import type { SimbiconSettings } from "../skills/simbicon.ts";
+import type { SimbiconSettings, SimbiconWay } from "../skills/simbicon.ts";
 import type { ChoosePolicy } from "../skills/choose.ts";
 import type { Placed } from "../skills/strike.ts";
 import type { Repertoire } from "../skills/strikes.ts";
@@ -156,9 +156,13 @@ export interface RunConfig extends RunSettings {
   readonly kind: "run";
 }
 
-/** **The SIMBICON walk** (`simbicon`, `skills/simbicon.ts`): the legs driven by a state machine with no stance, its settings these. */
+/**
+ * **The SIMBICON walk** (`simbicon`, `skills/simbicon.ts`): the legs driven by a state machine with no stance, its settings
+ * these, forward's; and the settings it takes walking to a side or back in place of forward's, over its own (`SimbiconWays`).
+ */
 export interface SimbiconConfig extends SimbiconSettings {
   readonly kind: "simbicon";
+  readonly tuning?: { readonly side?: Partial<SimbiconWay>; readonly back?: Partial<SimbiconWay> };
 }
 
 /** **Travel and fight** (`travelOrFight`, `skills/travel.ts`): one walk while no standing foe is within `near` m, another once one is. */
