@@ -137,7 +137,8 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
     helped: { force: new Vector3(), moment: new Vector3() },
     held: { channels: [], z0: [], Z: [] },
     tasks: feet.map((foot): LimbTask => ({ on: false, bearing: false, linear: new Vector3(), angular: new Vector3(),
-      accel: new Float64Array(foot.chain.reduce((count, joint) => count + joint.dofs.length, 0)) })),
+      accel: new Float64Array(foot.chain.reduce((count, joint) => count + joint.dofs.length, 0)),
+      given: new Float64Array(foot.chain.reduce((count, joint) => count + joint.dofs.length, 0)).fill(NaN) })),
     feet: feet.map((foot) => foot.memory),
   };
   const limbs = feet.map((foot, f): Limb => ({

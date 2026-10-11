@@ -52,7 +52,8 @@ const bearing = (bears, found, probe = null) => (own) => {
   const { built, muscles } = own, feet = footStatesOf(built), pelvis = muscles.dynamics.root.segment, e = 1 / SECONDS;
   const limbs = feet.map((foot) => ({
     segment: foot.segment, memory: foot.memory, reach: foot.reach,
-    task: { on: true, bearing: bears, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(foot.chain.reduce((count, joint) => count + joint.dofs.length, 0)) },
+    task: { on: true, bearing: bears, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(foot.chain.reduce((count, joint) => count + joint.dofs.length, 0)),
+      given: new Float64Array(foot.chain.reduce((count, joint) => count + joint.dofs.length, 0)).fill(NaN) },
     stem: [], work: { at: new Vector3(), rows: null, ahead: [], toward: null, patch: null, share: 1 },
   }));
   const solve = makeBearing(null, limbs, found);
@@ -273,7 +274,7 @@ test("ground effort acts at its patch even when a different point of the rigid l
         const limbs = feet.map((foot) => {
           const channels = foot.chain.flatMap((joint) => joint.dofs.map((dof) => muscles.channel(`${joint.spec.name} ${dof.spec.positive}`)));
           return { segment: foot.segment, memory: { channels }, stem: [], reach: foot.reach,
-            task: { on: true, bearing: true, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(channels.length) },
+            task: { on: true, bearing: true, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(channels.length), given: new Float64Array(channels.length).fill(NaN) },
             work: { at: foot.middle.clone(), rows: null, ahead: channels.map(() => NaN), toward: null,
               patch: bearingSole(foot, KEEP), share: 1 } };
         });
