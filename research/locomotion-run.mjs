@@ -16,6 +16,12 @@
  * - `--sole` builds the body shod (`withSoles`): each foot gives as a shoe's sole against the ground.
  * - `--physique` builds the body with a physique (`Physique`: its strength and speed scale the
  *   muscles), as a probe of whether the body or the controller caps a walk.
+ * - `--probe` strips a limit, to read what caps a walk; nothing it builds is a body or a setting
+ *   the game has: `{"legs": 0.5}` scales the legs' segments' mass and inertia, `{"ankles": 2}`
+ *   the ankles' peak torques, `{"assist": {"force": 10, "moment": 10}}` gives an assist that
+ *   ceiling (shares of the body's weight, N and N m a newton), metered in the record, and with
+ *   `"only": "yaw"` it gives nothing but the missed moment about the vertical; `{"hz": 240}` runs
+ *   physics and control at that rate.
  *
  * Each run's record goes to `--out` as a line of JSON if asked. The summary, per body, track and
  * wind: at each pace, the runs that fell (and on which piece of the track), the mean speed along the
@@ -43,6 +49,7 @@ import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { appendFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PERSON_PACE, personStep } from "../src/core/human/gait.ts";
 
 /**
@@ -64,7 +71,18 @@ const MISSED = 1;
 const GROUND = 200;
 
 /** One run: its record, as the run's last frame left it. */
-async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radius, legs, stance, physique, sole }) {
+/** A segment's or a muscle's quantity scaled by `factor`, for a probe. */
+const scaled = (q, factor) => ({ ...q, value: Array.isArray(q.value) ? q.value.map((v) => v * factor) : q.value * factor });
+
+/** `spec` with a probe's legs and ankles (`--probe`). */
+function probed(spec, { legs = 1, ankles = 1 }) {
+  return { ...spec,
+    segments: spec.segments.map((s) => /^(thigh|shank|foot)./.test(s.name) && legs !== 1 ? { ...s, mass: scaled(s.mass, legs), inertia: scaled(s.inertia, legs) } : s),
+    joints: spec.joints.map((j) => j.name.startsWith("ankle.") && ankles !== 1
+      ? { ...j, dofs: j.dofs.map((d) => ({ ...d, muscle: { ...d.muscle, peakPositive: scaled(d.muscle.peakPositive, ankles), peakNegative: scaled(d.muscle.peakNegative, ankles) } })) } : j) };
+}
+
+async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radius, legs, stance, physique, sole, probe }) {
   const [{ withSoles }, { modelSpec }, { labActor }, { startRun }, { TRACKS, trackOf }, { LAB_PRESETS }, { STANCE_GAIT }, { coreStand }] = await Promise.all([
     import("../src/core/human/sole.ts"), import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/run-mode.ts"), import("../src/lab/track.ts"),
     import("../src/lab/scenarios.ts"), import("../src/core/control/stance-tuning.ts"), import("../tests/harness/core-stand.mjs"),
@@ -74,11 +92,15 @@ async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radi
   const size = id === "square" ? side : id === "circle" ? radius : undefined;
   const track = trackOf(info.size && size !== undefined ? info.size.of(size) : info.pieces);
   // The ground reaches past the end of every track: a body walking off its edge falls through.
-  const spec = modelSpec(model, physique ?? undefined);
-  const stand = await coreStand(sole ? withSoles(spec) : spec, { ground: true, groundSize: GROUND });
+  const modelled = modelSpec(model, physique ?? undefined), spec = probe ? probed(modelled, probe) : modelled;
+  const stand = await coreStand(sole ? withSoles(spec) : spec, { ground: true, groundSize: GROUND, ...(probe?.hz ? { hz: probe.hz } : {}) });
   const mind = { ...LAB_PRESETS.script.config, ...(legs ? { locomotion: legs } : {}) };
   const tuning = stance ? { ...stance, ...(stance.gait ? { gait: { ...STANCE_GAIT, ...stance.gait } } : {}) } : undefined;
-  const run = startRun(labActor(stand.built, stand.world, { mind, stance: tuning, measuring: true }), track, { top: pace, facing: info.facing, wind: { settings: wind, seed } });
+  const run = startRun(labActor(stand.built, stand.world, { mind, stance: tuning, measuring: true, ...(probe?.assist ? { assist: probe.assist } : {}) }), track, { top: pace, facing: info.facing, wind: { settings: wind, seed } });
+  if (probe?.only === "yaw") {
+    const { assist } = run.body, ask = assist.ask.bind(assist), none = new Vector3(), yaw = new Vector3();
+    assist.ask = (force, moment) => ask(none, yaw.set(0, moment.y, 0));
+  }
   let frame = run.frame(), off = 0, fellOn = null;
   // The legs' demand: per joint (hip, knee, ankle), the share of control steps a channel of it was
   // at full activation, and the most of its peak torque it delivered. The fall: its phase, and the
@@ -176,6 +198,7 @@ async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radi
     missed: Object.fromEntries(PHASES.map((p) => [p, { share: +(missed[p].steps / steps).toFixed(3),
       ...Object.fromEntries(PARTS.map((c) => [c, missed[p].steps ? +(missed[p][c] / missed[p].steps).toFixed(3) : 0])),
       size: Object.fromEntries(PARTS.map((c) => [c, missed[p].steps ? +(missed[p].size[c] / missed[p].steps).toFixed(1) : 0])) }])),
+    assist: run.body.assist.meter.steps ? { force: +(run.body.assist.meter.force / steps).toFixed(1), moment: +(run.body.assist.meter.moment / steps).toFixed(1) } : null,
     demand: Object.fromEntries(Object.entries(demand).map(([j, d]) => [j, { full: +(d.full / steps).toFixed(3), most: +d.most.toFixed(2) }])),
   };
 }
@@ -209,11 +232,12 @@ if (!isMainThread) {
   const seconds = Number(arg("seconds", "30")), side = Number(arg("side", "6")), radius = Number(arg("radius", "4"));
   const legs = arg("legs") ? JSON.parse(arg("legs")) : null, stance = arg("stance") ? JSON.parse(arg("stance")) : null;
   const physique = arg("physique") ? JSON.parse(arg("physique")) : null, sole = process.argv.includes("--sole");
+  const probe = arg("probe") ? JSON.parse(arg("probe")) : null;
   const out = arg("out"), workers = Math.min(Number(arg("workers", String(Math.max(1, availableParallelism() - 2)))), 64);
 
   const jobs = [];
   for (const model of models) for (const track of tracks) for (const wind of winds) for (const pace of paces) for (const seed of seeds)
-    jobs.push({ id: jobs.length, model, track, pace, wind, seed, seconds, side, radius, legs, stance, physique, sole });
+    jobs.push({ id: jobs.length, model, track, pace, wind, seed, seconds, side, radius, legs, stance, physique, sole, probe });
   // A calm wind blows the same on every seed: one seed is enough.
   const todo = jobs.filter((job) => job.wind.rate > 0 && job.wind.strength > 0 || job.seed === seeds[0]);
   const results = [];
@@ -233,7 +257,7 @@ if (!isMainThread) {
       feed(worker);
     }
   });
-  console.log(`${results.length} runs in ${((Date.now() - started) / 60000).toFixed(1)} min: Node stand, Rapier, 120 Hz, ${seconds} s, legs ${JSON.stringify(legs ?? "Script preset's")}${stance ? `, stance ${JSON.stringify(stance)}` : ""}${physique ? `, physique ${JSON.stringify(physique)}` : ""}${sole ? ", shod" : ""}`);
+  console.log(`${results.length} runs in ${((Date.now() - started) / 60000).toFixed(1)} min: Node stand, Rapier, 120 Hz, ${seconds} s, legs ${JSON.stringify(legs ?? "Script preset's")}${stance ? `, stance ${JSON.stringify(stance)}` : ""}${physique ? `, physique ${JSON.stringify(physique)}` : ""}${sole ? ", shod" : ""}${probe ? `, probe ${JSON.stringify(probe)}` : ""}`);
   for (const model of models) for (const track of tracks) for (const wind of winds) {
     console.log(`\n${model} ${track} wind ${wind.rate}/s ${wind.strength} N`);
     let held = null, holding = true;
