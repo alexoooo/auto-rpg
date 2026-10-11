@@ -13,11 +13,12 @@ import type { Skills } from "../skills/skills.ts";
 import { recipeStrike } from "../skills/strike.ts";
 import { STRAIGHT_PUNCH, straightPunch, straightPunchFits, validStraightPunch } from "../skills/straight-punch.ts";
 import { STRIDE, stride, validStride } from "../skills/stride.ts";
+import { RUN, run, validRun } from "../skills/run.ts";
 import { supportFold } from "../skills/support-fold.ts";
 import { wholeBodyFits, wholeBodyStrike } from "../skills/whole-body-strike.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { ARENA_KICKS, type BehaviourConfig, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type LocomotionConfig,
+import { ARENA_KICKS, type BehaviourConfig, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type LocomotionConfig,
   type StraightPunchConfig, type WholeBodyStrikeConfig } from "./config.ts";
 import { choice, number, toggle, type PartField } from "./fields.ts";
 import type { MindWiring } from "./minds.ts";
@@ -76,6 +77,19 @@ const STRIDE_FIELDS: readonly PartField<StrideConfig>[] = Object.freeze([
   { ...number<StrideConfig, "lengthen">("lengthen", "Swing lengthens", 0, 1, 0.05, "of its time"), read: (config) => String(config.lengthen ?? 0) },
 ]);
 
+/** The run's settings, as a panel offers them. Their bounds are a numeric setting, the most a panel offers. */
+const RUN_FIELDS: readonly PartField<RunConfig>[] = Object.freeze([
+  number<RunConfig, "contact">("contact", "On each foot", 0.1, 0.5, 0.01, "s"),
+  number<RunConfig, "flight">("flight", "Thrown up", 0.1, 1.5, 0.05, "m/s"),
+  number<RunConfig, "lift">("lift", "Lift", 0.02, 0.3, 0.01, "m"),
+  number<RunConfig, "settle">("settle", "Foot follows", 0.02, 0.2, 0.005, "s"),
+  number<RunConfig, "width">("width", "Width", 0.02, 0.4, 0.01, "m"),
+  number<RunConfig, "gain">("gain", "Speed's correction", 0, 0.5, 0.01, "s"),
+  number<RunConfig, "accel">("accel", "Speeding up", 0.5, 10, 0.1, "m/s²"),
+  number<RunConfig, "turn">("turn", "Turn", 0.5, 12, 0.1, "rad/s"),
+  number<RunConfig, "drop">("drop", "Crouch", 0, 0.3, 0.01, "m"),
+]);
+
 /** The straight punch's settings, as a panel offers them. */
 const STRAIGHT_FIELDS: readonly PartField<StraightPunchConfig>[] = Object.freeze([
   number<StraightPunchConfig, "pace">("pace", "Approach pace", 0.1, 1.5, 0.05, "m/s"),
@@ -110,6 +124,11 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
     ...skill<StrideConfig>("locomotion", "Walk and run", "experimental", { kind: "stride", ...STRIDE },
       (config) => validStride(config) ? [] : ["a stride needs every setting finite and positive, its double support not negative"]),
     fields: STRIDE_FIELDS,
+  },
+  "run": {
+    ...skill<RunConfig>("locomotion", "Run", "experimental", { kind: "run", ...RUN },
+      (config) => validRun(config) ? [] : ["a run needs every setting finite and positive, its gain not negative"]),
+    fields: RUN_FIELDS,
   },
   "cover-guard": skill("guard", "Guard and cover", "game", { kind: "cover-guard" }),
   "recipe-strike": skill("blow", "Recipe strike", "game", { kind: "recipe-strike" }),
@@ -273,6 +292,7 @@ function legsOf(body: Body, config: LocomotionConfig): Locomotion {
   switch (config.kind) {
     case "stance-walk": return locomotion(body.envelope, config.tuning?.turnLimit, config.tuning?.turnStartup);
     case "stride": { const { kind: _, ...settings } = config; return stride(body, settings); }
+    case "run": { const { kind: _, ...settings } = config; return run(body, settings); }
     default: { const never: never = config; throw new Error(`no locomotion of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }
 }

@@ -471,7 +471,7 @@ function effortRow(b: Bearing, muscles: MuscleDriver, accel: Float64Array, beari
 /**
  * What the bearing limbs' patches can give of the wrench the root's acceleration asks; where they
  * cannot give it all, the root's acceleration is the one the wrench they can give makes, with what
- * the assist gives of the rest.
+ * the assist gives of the rest. With none bearing, the one no wrench makes.
  */
 function limitToPatches(b: Bearing, p0: readonly [number, number, number], lever: number): void {
   const { assist, root, shortfall, helped } = b, { at, force, moment, missed, P, w0, W, given } = b.scratch;
@@ -500,6 +500,15 @@ function limitToPatches(b: Bearing, p0: readonly [number, number, number], lever
       given[3] = W[3]! + missed.force.x - w0[3]!; given[4] = W[4]! + missed.force.y - w0[4]!; given[5] = W[5]! + missed.force.z - w0[5]!;
       solveLinearTo(b.scratch.linear, P, given, 6, root);
     }
+  } else {
+    // Nothing bears (a run's flight): no wrench from the ground, so the root goes as gravity and
+    // the limbs' motion have it, W = 0.
+    shortfall.force.setAll(0);
+    shortfall.moment.setAll(0);
+    helped.force.setAll(0);
+    helped.moment.setAll(0);
+    for (let r = 0; r < 6; r++) given[r] = -w0[r]!;
+    solveLinearTo(b.scratch.linear, P, given, 6, root);
   }
 }
 

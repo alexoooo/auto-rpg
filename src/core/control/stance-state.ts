@@ -48,6 +48,11 @@ interface StanceState {
     readonly turn: Quaternion;
     readonly lift: Quaternion;
   };
+  /**
+   * A run's flight (`SwingGoal.flight`): whether one is under way, the centre of mass as the
+   * bearing foot left the ground, and that foot's sole's middle from it then, world.
+   */
+  readonly flight: { on: boolean; readonly left: Vector3; readonly from: Vector3 };
   /** The centre of mass's planned place (x, height over the soles, z) and velocity, since the stance began. */
   readonly plan: { on: boolean; readonly at: Vector3; readonly velocity: Vector3 };
   /** What the last reading and command found and asked (`StanceControl.reading`); its `soles` are the feet's `middle`s. */
@@ -130,6 +135,7 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
   const state: StanceState = {
     pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace: [0, 0],
     step: { swing: null, lifted: false, time: 0, held: 0, off: Infinity, catching: false, from: new Vector3(), turn: new Quaternion(), lift: new Quaternion() },
+    flight: { on: false, left: new Vector3(), from: new Vector3() },
     plan: { on: false, at: new Vector3(), velocity: new Vector3() },
     reading: { centre: new Vector3(), velocity: new Vector3(), support: new Vector3(), place: new Vector3(),
       plan: new Vector3(), planVelocity: new Vector3(),

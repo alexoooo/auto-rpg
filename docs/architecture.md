@@ -301,8 +301,12 @@ and driven afresh to change what it costs.
   turn over it (`landingHeading`, `support.ts`): a faster turn is taken step by step. A push
   that carries the capture point out of the soles and away from the bearing one during a weight
   shift is caught by a recovery step, ahead of any step the goal asks (`catchStep`). A goal's step
-  that follows the one under way, of the same foot, re-aims it in flight (`SwingGoal.follows`),
+  that follows the one under way, of the same foot, re-aims it as it swings (`SwingGoal.follows`),
   and may hold the foot to its path more tightly than the stance's own steps (`SwingGoal.settle`).
+  A step that flies (`SwingGoal.flight`) has its bearing leg bounce the centre of mass as a
+  spring-mass leg does and leave the ground at the speed asked; in its flight (`"flight"`) no
+  limb bears, the root is left to gravity (the bearing solve gives the wrench no contact makes),
+  and the trailing foot is carried with the body until the swinging one lands.
   `stanceEnvelope` (`stance-envelope.ts`) reads what each body was measured to
   hold on parent-axis Rapier under its character's balance allowance
   (`assets/core/stance-envelope.json`), and `strideEnvelope` the same, walking by the stride
@@ -372,6 +376,11 @@ tactics over the skills it is given.
   `SwingGoal.push`), and swing each arm out of the guard with the other side's leg (`arms`,
   `Locomotion.arms`), which the arbiter lays over the guard's posture for the arms no blow,
   cover or kick holds.
+- **Run** (`run.ts`, "Run", experimental) is a locomotion skill whose steps fly: each foot bears
+  for `contact` and throws the body up at `flight`, and the other lands where a hopping machine
+  places it (Raibert 1986), re-aimed until it lands. On the spot it runs on its feet; going
+  forward it falls within seconds, the bearing leg's thrust saturating its hip's internal
+  rotation, its ankle's plantar flexors and its hip's extensors.
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
   searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
   and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its
@@ -585,7 +594,7 @@ its blow, `kick` with the foot or feet named and its kick, walking in and kickin
 standing leg within reach, and `cover`); under them the fighter's blow and kick are the ones its
 behaviours name and it has no low support (`fighterSkills`), its own slots for them not offered
 (`slotsFor`), and two strikes that name different blows are a fault. Its skills are its walk
-(`stance-walk`, or the experimental `stride`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
+(`stance-walk`, or the experimental `stride` and `run`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
 begin a hand while the other returns, the experimental `driven-strike` and `whole-body-strike`
 from the punch's research, or `choose-blow`, which gives each blow to one of a list of
 blows; `noBlow` stands in for none), and, optionally, a kick (`front-kick`) and low support
