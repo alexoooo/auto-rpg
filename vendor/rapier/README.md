@@ -53,7 +53,8 @@ uses this vendored package. The package layout remains compatible with the bench
   backstop. `contactLayerWork` sums normal reaction times solver-anchor displacement over
   substeps, including unloading and CCD subdivisions; inactive readings clear at each outer
   step. Layer parameters and contact readings are serialized. Unconfigured pairs retain the
-  ordinary normal row. The core opts in only physical points against a declared material.
+  ordinary normal row. The core opts in physical points against a declared material, and a
+  declared sole against fixed colliders (`ContactMaterial.sole`).
 - **Optional angular-limit gradients** (`coordinateAngularLimits` on integration parameters)
   make impulse-joint and generic external limit rows follow the spatial gradient of their
   reported coordinate. False retains parent-axis rows; motor rows are unchanged. The setting

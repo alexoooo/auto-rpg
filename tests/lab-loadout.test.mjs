@@ -73,9 +73,9 @@ test("a_club_makes_its_hand_heavier_by_the_club_and_leaves_the_other", async () 
   } finally { stand.dispose(); }
 });
 
-test("with_a_club_in_each_hand_each_human_stands_walks_and_stops_in_the_stance", async () => {
-  for (const model of MODELS) {
-    const stand = await coreStand(loadoutSpec({ ...bare(model), right: "club", left: "club" }), { ground: true });
+test("with_a_club_in_each_hand_each_human_stands_walks_and_stops_in_the_stance_bare_or_shod", async () => {
+  for (const model of MODELS) for (const sole of [false, true]) {
+    const stand = await coreStand(loadoutSpec({ ...bare(model), right: "club", left: "club", sole }), { ground: true });
     const stance = startStance(labActor(stand.built, stand.world));
     const run = (seconds) => stand.step(stand.seconds(seconds));
     try {
@@ -87,9 +87,9 @@ test("with_a_club_in_each_hand_each_human_stands_walks_and_stops_in_the_stance",
       stance.orders.forward = 0;
       run(3);
       const stopped = stance.frame();
-      assert.ok(stood.phase === "stand" && stood.recoveries === 0 && !stood.fallen, `${model} standing: ${JSON.stringify(stood)}`);
-      assert.ok(walked.strides >= 8 && !walked.fallen, `${model} walking: ${JSON.stringify(walked)}`);
-      assert.ok(stopped.phase === "stand" && !stopped.fallen, `${model} stopping: ${JSON.stringify(stopped)}`);
+      assert.ok(stood.phase === "stand" && stood.recoveries === 0 && !stood.fallen, `${model}${sole ? " shod" : ""} standing: ${JSON.stringify(stood)}`);
+      assert.ok(walked.strides >= 8 && !walked.fallen, `${model}${sole ? " shod" : ""} walking: ${JSON.stringify(walked)}`);
+      assert.ok(stopped.phase === "stand" && !stopped.fallen, `${model}${sole ? " shod" : ""} stopping: ${JSON.stringify(stopped)}`);
     } finally { stance.dispose(); stand.dispose(); }
   }
 });

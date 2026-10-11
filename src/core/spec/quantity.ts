@@ -31,10 +31,12 @@ type Unit =
   | "m3" | "l"
   | "N m" | "N" | "kN"
   | "N/m" | "N/mm" | "N/cm"
+  | "N s/m"
   | "rad" | "deg"
   | "rad/s" | "deg/s"
-  | "m/s" | "cm/s" | "m/s2"
+  | "m/s" | "cm/s" | "m/min" | "m/s2"
   | "s" | "Hz"
+  | "m s" | "cm min"
   | "J" | "J/HP"
   /** Hit points: the rulebook's damage unit (`Rulebook.unit`), one 100 J of blunt blow. */
   | "HP";
@@ -106,8 +108,10 @@ const CONVERSIONS: Readonly<Partial<Record<Unit, { readonly to: Unit; readonly f
   deg: { to: "rad", factor: Math.PI / 180 },
   "deg/s": { to: "rad/s", factor: Math.PI / 180 },
   "cm/s": { to: "m/s", factor: 1 / 100 },
+  "m/min": { to: "m/s", factor: 1 / 60 },
   "N/mm": { to: "N/m", factor: 1000 },
   "N/cm": { to: "N/m", factor: 100 },
+  "cm min": { to: "m s", factor: 60 / 100 },
 });
 
 /** `quantity` in SI: per cent to a fraction, millimetres to metres, degrees to radians. */

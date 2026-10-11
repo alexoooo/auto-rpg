@@ -10,6 +10,8 @@ import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { uprightness } from "../src/core/control/ground.ts";
 import { centreOfToRef, footStatesOf } from "../src/core/control/support.ts";
 import { armed } from "../src/core/human/grip.ts";
+import { withSoles } from "../src/core/human/sole.ts";
+import { STANDARD_GRAVITY } from "../src/core/spec/constants.ts";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
@@ -49,6 +51,19 @@ test("a body's standing height is its spec's", async () => {
       // Its lowest point is the ground's top, which the stand has at 0.
       assert.ok(Math.abs(upright.lowest()) < 1e-3, `${spec.model}: as built its lowest point is at ${upright.lowest()} m`);
       assert.equal(upright.down(), false);
+    } finally { stand.dispose(); }
+  }
+});
+
+test("a shod body is built sunk into its soles by its weight shared between them", async () => {
+  const shod = withSoles(warrior), sole = shod.segments.find((s) => s.name === "foot.left").surface.sole;
+  const mass = shod.segments.reduce((sum, s) => sum + s.mass.value, 0);
+  const sunk = mass * STANDARD_GRAVITY.value / (2 * sole.stiffness.value);
+  for (const [spec, under] of [[warrior, 0], [shod, sunk]]) {
+    const stand = await coreStand(spec);
+    try {
+      const lowest = uprightness(stand.built).lowest();
+      assert.ok(Math.abs(lowest + under) < 1e-5, `${under ? "shod" : "bare"}: its lowest point is at ${lowest} m, where its weight on its soles puts it ${-under}`);
     } finally { stand.dispose(); }
   }
 });

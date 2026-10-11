@@ -253,25 +253,64 @@ After it, each with its own plan, in the order each needs the one before:
 
 - **Walking.** The fastest walk held every way is 0.5 m/s for the Warrior and 0.4 for the Rogue
   and the skeleton (`assets/core/stance-envelope.json`), where a person's preferred walk is near
-  1.4 m/s (`PERSON_PACE`, `src/core/human/gait.ts`). Running, a dash, a roll, a crouch and
-  turning on the spot are not built ([orders](reference/orders.md)).
-  - **The controller caps the walk, not the body.** On the Lab's lines and square
-    (`research/locomotion-run.mjs`), with no envelope, the stance's own walk holds 1.2 m/s forward
-    and 0.5 to 0.7 the other ways; muscles three times stronger or faster, or any one stance
-    setting, hold no more. A step lands short of the capture point, the next starts further
-    behind it, and the walk runs away.
+  1.4 m/s (`PERSON_PACE`, `src/core/human/gait.ts`). A dash, a roll, a crouch and turning on the
+  spot are not built ([orders](reference/orders.md)).
   - **The stride** (experimental) plans its own steps on the capture point and holds 0.7 m/s
-    every way for the Warrior, 0.4 for the Rogue and 0.5 for the skeleton
-    (`assets/core/stride-envelope.json`), with slower turns than the stance's walk. Its forward
-    walk is about 0.8 m/s, short of a person's; a push-off at toe-off is not built.
-  - **The stride does not yet help a fight**, so the presets keep the stance's walk. In the
-    empty-hand league (Node, Rapier, 120 Hz, 110 bouts an entrant) the Puncher on it falls 1.84
-    times a bout against 0.11. Its straight punch, searched with `settle` 0, drives as soon as its
-    foe is in the band, mid-step on the stride. Waiting on both feet (0.1 s) cures the falls but
-    loses every bout to today's Puncher, and no `EDGE` helps. A blow thrown from a walk under way
-    is what the stride needs before it can be a default.
-  - **Running waits for a walk at a person's pace**, and its flight needs a stance that holds
-    no foot.
+    every way for the Warrior, and 0.5 for the Rogue and the skeleton
+    (`assets/core/stride-envelope.json`). On the Lab's lines (`research/locomotion-run.mjs`,
+    Node, Rapier, 120 Hz, 20 N gusts) the Warrior holds 1.2 m/s asked forward, 0.95 along the
+    line, and 0.7 the other ways; the Rogue 1 forward (0.75 along). Its defaults are the best of a
+    search over its settings (`research/locomotion-search.mjs`); against the stance's own step
+    they fell 364 times against 425 in 640 paired runs on the lines, and 41 against 62 in 120 on
+    the turns.
+  - **The stance's own walk is no faster.** Asked 1.2 m/s forward it goes 0.80 along; the other
+    ways it holds 0.5.
+  - **What caps the walk is where the body bears.** Through each swing the realised centre of
+    pressure stays about 3 cm ahead of the bearing sole's middle whatever the stance asks, a
+    braking that costs about the fifth of the pace the walk falls short of; asking the pivot
+    further back moves the place asked, not the one realised. Stripping one limit at a time (the
+    bed's `--probe`), twice the strength lifts the forward walk's speed about 16 %, and an assist
+    with it 1.4 m/s; the yaw given alone, lighter legs, stronger ankles, 240 Hz and more friction
+    hold no more. What lifted the pace is the swing's share of the step: a longer swing and a
+    shorter double support.
+  - **Tried and not kept:**
+    - a shoe's sole (`withSoles`): it falls less under gusts, but the stride holds less;
+    - a sole that rolls from heel to toe (`--probe '{"rocker": 0.3}'`): the solver touches one
+      flat piece of it at a time, and every rocker walked slower than the box;
+    - the trunk cancelling the swing's yaw: not built, since the yaw given free held less;
+    - a person's cadence forward (`paced`), landing on contact (`lands`) and lengthening a short
+      swing (`lengthen`), each a setting left off;
+    - the plan yielding to what the soles miss;
+    - soles narrowed to where the ankle holds the whole weight (the Rogue falls at 0.5 m/s);
+    - the pelvis turning with the stride, either way;
+    - the yaw weighed less in the share;
+    - a straighter knee.
+  - **The run** (experimental, `run.ts`) flies between steps, its feet placed as a hopping
+    machine places them. On the spot it stays up, about 2 % of its time in the air; forward, at
+    0.5 to 2 m/s, it falls within 1 to 7 s. One leg's thrust saturates the bearing hip's internal
+    rotation, the ankle's plantar flexors and the hip's extensors; at twice the strength it is 8 %
+    of its time in the air. A run at a person's pace needs legs that thrust harder, or a
+    controller that spreads the thrust.
+  - **Travel, then fight** (experimental, `travel.ts`) walks by the stride, its arms swinging,
+    until a standing foe is within 4 m, and in the stance's guard after. No preset uses it.
+  - **The stride does not help a fight**, so the presets keep the stance's walk. In the
+    empty-hand league (Node, Rapier, 120 Hz, 66 bouts a striding entrant, at the stride's
+    earlier settings: a 0.3 s swing after 0.08 s on both feet), each preset on the stride rates
+    under itself on the stance's walk:
+
+    | Preset | Stance's walk | Stride |
+    |---|---|---|
+    | Puncher | 1546 | 1412 |
+    | Scrapper | 1204 | 1126 |
+    | Classic | 400 | 312 |
+
+    The Puncher on the stride falls 1.74 times a bout against 0.11; its straight punch drives as
+    soon as its foe is in the band, mid-step. Waiting for both feet as the drive begins
+    (`landed`) brings that to 1.45; waiting 0.1 s on both feet (`settle`) cures the falls but
+    loses every bout to today's Puncher, and no `EDGE` helps.
+  - **The owner's to watch and choose:** the stride in the Lab (`?play=lab`, the fighter's Walk
+    set to Walk and run in the mind editor), its arms swinging; the run (Walk set to Run); and
+    whether the presets travel by Travel, then fight out of a fight.
 - **A half turn at the next rate past the envelope's still now and then runs away sideways and
   falls**, one to three of 56 in four cells: after the turn the walk's plan outruns the pace asked
   ([human and strikes](reference/human-and-strikes.md#turning)).

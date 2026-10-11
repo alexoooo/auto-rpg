@@ -60,7 +60,8 @@ const WORN: Readonly<Record<HumanoidModel, { readonly boots: boolean; readonly a
  * physical: they make the spec (`loadout.ts`). Boots and armour are the skin's meshes alone; the
  * core has no clothing, and the boot is in the foot's shape whatever the skin shows.
  */
-export type LabLoadout = { readonly model: HumanoidModel }
+/** A loadout: the model, what each hand holds, the clothing worn, and whether its feet are shod (`withSoles`: a sole that gives against the ground). */
+export type LabLoadout = { readonly model: HumanoidModel; readonly sole: boolean }
   & Readonly<Record<(typeof LAB_HANDS)[number], Held>> & Readonly<Record<(typeof LAB_WORN)[number], boolean>>;
 
 /**
@@ -116,7 +117,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly seed: number;
 }
 
-const KEYS = ["scenario", "model", "appearance", "right", "left", "boots", "armour", "balance", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
+const KEYS = ["scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -141,6 +142,7 @@ export function labAddress(search: string): LabAddress {
     left: HELD.find((h) => h === query.get("left")) ?? "empty",
     boots: flag(query.get("boots"), worn.boots),
     armour: flag(query.get("armour"), worn.armour),
+    sole: flag(query.get("sole"), false),
     balance: balanceFrom(query.get("balance") ?? ""),
     mind: readMind(query.get("mind"), LAB_PRESETS) ?? LAB_PRESETS.script.config,
     barred: HELD.filter((h) => barred.includes(h)),
@@ -169,6 +171,7 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("left", address.left);
   query.set("boots", address.boots ? "1" : "0");
   query.set("armour", address.armour ? "1" : "0");
+  if (address.sole) query.set("sole", "1");
   if (address.balance !== null) query.set("balance", String(address.balance));
   query.set("mind", mindText(address.mind, LAB_PRESETS));
   if (address.barred.length > 0) query.set("barred", address.barred.join(","));

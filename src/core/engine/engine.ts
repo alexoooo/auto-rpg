@@ -109,6 +109,12 @@ export type ColliderShape =
 /** Optional collider material; directions are in the rigid body's local frame. */
 export interface ContactMaterial {
   readonly layer?: { readonly stiffness: number; readonly dampingRatio: number; readonly depth: number };
+  /**
+   * A layer the collider gives against any fixed collider, as a shoe's sole gives against the
+   * floor: the whole pair's spring, N/m, and dashpot, N s/m, and the deepest it compresses before
+   * the contact is rigid, m. Against a body, the contact is as it would be without it.
+   */
+  readonly sole?: { readonly stiffness: number; readonly damping: number; readonly depth: number };
   readonly point?: { readonly direction: Vec3; readonly alignment: number; readonly depth: number };
 }
 

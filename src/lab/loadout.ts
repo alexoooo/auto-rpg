@@ -1,3 +1,4 @@
+import { withSoles } from "../core/human/sole.ts";
 import { modelSpec } from "../core/models.ts";
 import { armedWith, HELD, heldItem, type Held } from "../core/items/held.ts";
 import { FIST, heldIn } from "../core/skills/strikes.ts";
@@ -7,10 +8,10 @@ import { LAB_HANDS, type LabLoadout } from "./scenarios.ts";
 /**
  * **The body a loadout makes**: the model's body, holding in each hand what the loadout says.
  * A loadout that holds nothing is the model's body itself. Boots and armour are the skin's
- * (`skin.ts`), and make no difference here.
+ * (`skin.ts`), and make no difference here; a shod loadout's feet give as a shoe's sole (`withSoles`).
  */
 export function loadoutSpec(loadout: LabLoadout): BodySpec {
-  let spec = modelSpec(loadout.model);
+  let spec = loadout.sole ? withSoles(modelSpec(loadout.model)) : modelSpec(loadout.model);
   for (const side of LAB_HANDS) spec = armedWith(spec, side, loadout[side]);
   return spec;
 }

@@ -3,6 +3,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
 import { turnAt, type StanceEnvelope } from "../control/stance-envelope.ts";
 import type { StanceGoal, SwingGoal } from "../control/stance.ts";
+import type { Pose } from "../control/motor.ts";
 import type { Side } from "../spec/body.ts";
 import { STANCE_GAIT } from "../control/stance-tuning.ts";
 import { atan2, sin, cos, hypot } from "../math/real.ts";
@@ -138,6 +139,11 @@ export interface Locomotion extends Skill {
   readonly envelope: StanceEnvelope | null;
   /** Its memory (`src/core/state.ts`). */
   readonly state: object;
+  /**
+   * The arms' posture as this walk swings them, for the arms no other skill holds (`skillSet`);
+   * absent or null, a walk that leaves them in the guard.
+   */
+  arms?(view: BodyView): Pose | null;
 }
 
 /** **What the locomotion skill remembers.** */

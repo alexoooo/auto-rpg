@@ -121,6 +121,11 @@ mass (`HumanFigure.muscled`) keeps weight from adding muscle. Without one, a mod
 The competency suite measures skills across a grid of them
 ([competencies](reference/competencies.md#physiques)).
 
+A humanoid's feet may wear a running shoe's sole (`withSoles`, `src/core/human/sole.ts`): a
+spring and damper derived from a heel-impact test of a shoe (Hoogkamer et al. 2018), sinking
+about a millimetre under a standing body. The Lab's `sole` loadout puts it on; the game's bouts
+do not.
+
 `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the model registry,
 construction, and each model's default mind and what its right hand holds. What a hand may hold is
 one list (`HELD`, `src/core/items/held.ts`: nothing, or the wooden club), and `armedWith` puts it
@@ -205,7 +210,8 @@ The shared body/controller interfaces do not depend on that engine-specific choi
 `src/core/engine/engine.ts` is the contract, and has no engine's types in it: a fixed step that
 writes each node's `position` and `rotationQuaternion`; bodies that never sleep; the spec's mass,
 whole; velocities of the centre of mass; one friction (`CONTACT_FRICTION`, 0.5) and no bounce on
-every contact; freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded
+every contact, a body's sole (`ContactMaterial.sole`) giving as a spring and damper over its
+depth against a fixed collider and as bare against a body; freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded
 by separately available negative and positive torque ceilings, with its signed whole-step impulse
 on the child (`setMotorBounds`, `motorStepImpulse`); a force and a moment on a body through one step, integrated as gravity is, beside
 the impulse that is whole before it; every body and every fixed collider a body is in contact
@@ -295,8 +301,12 @@ and driven afresh to change what it costs.
   turn over it (`landingHeading`, `support.ts`): a faster turn is taken step by step. A push
   that carries the capture point out of the soles and away from the bearing one during a weight
   shift is caught by a recovery step, ahead of any step the goal asks (`catchStep`). A goal's step
-  that follows the one under way, of the same foot, re-aims it in flight (`SwingGoal.follows`),
+  that follows the one under way, of the same foot, re-aims it as it swings (`SwingGoal.follows`),
   and may hold the foot to its path more tightly than the stance's own steps (`SwingGoal.settle`).
+  A step that flies (`SwingGoal.flight`) has its bearing leg bounce the centre of mass as a
+  spring-mass leg does and leave the ground at the speed asked; in its flight (`"flight"`) no
+  limb bears, the root is left to gravity (the bearing solve gives the wrench no contact makes),
+  and the trailing foot is carried with the body until the swinging one lands.
   `stanceEnvelope` (`stance-envelope.ts`) reads what each body was measured to
   hold on parent-axis Rapier under its character's balance allowance
   (`assets/core/stance-envelope.json`), and `strideEnvelope` the same, walking by the stride
@@ -343,7 +353,7 @@ physics and gravity (`driveFighter` takes it). The straight punch walks to where
 fist on the line from the shoulder to the target, and drives every channel of the hips, the chest
 and the arm flat out at a contact pose solved each step by the arm's inverse kinematics
 (`solveReach`): the arm straight through the target and the wrist on the line, so the fist meets
-it with the arm behind it; its settings were searched in Arena bouts (`research/punch-in-bout.mjs`). For a stand,
+it with the arm behind it; its settings were searched in Arena bouts (`research/punch-in-bout.mjs`). With `landed` (off) it drives only with both feet bearing. For a stand,
 `recipeParts` (`src/core/skills/skills.ts`) and `pathParts` (`combat.ts`) make each blow's usual
 set and `recipeSkills` and `combatSkills` put it under the arbiter; `driveBy` hands a body to
 tactics over the skills it is given.
@@ -356,10 +366,30 @@ tactics over the skills it is given.
   and the capture point it is to catch are a steady capture-point walk's, re-aimed every control
   step from the measured capture point, and a swing whose landing would be past the longest step
   is shortened to one that is not, and one farther behind the centre of mass than the hip
-  reaches back is drawn in. Its swinging foot is held to its path at 0.07 s (`SwingGoal.settle`):
-  a step that lands short leaves the capture point ahead of the next, and the walk runs away. A
-  walk ends with steps that bring the capture point between the feet. Its locomotion carries its
-  own envelope (`Locomotion.envelope`), the stance's own walk's being no measure of it.
+  reaches back is drawn in. Its swinging foot is held to its path more tightly than the stance's
+  own steps (`SwingGoal.settle`): a step that lands short leaves the capture point ahead of the
+  next, and the walk runs away. A walk ends with steps that bring the capture point between the
+  feet. Its locomotion carries its own envelope (`Locomotion.envelope`), the stance's own walk's
+  being no measure of it. It drives the trailing ankle through the double support (`push`,
+  `SwingGoal.push`), swings each arm out of the guard with the other side's leg (`arms`,
+  `Locomotion.arms`), which the arbiter lays over the guard's posture for the arms no blow, cover
+  or kick holds, ramps its swing's acceleration in place of minimum jerk (`ramp`,
+  `SwingGoal.ramp`), and asks a capture point ahead of the steady walk's while it walks slower
+  than asked (`drive`). Its defaults are the best of a search over its settings
+  (`research/locomotion-search.mjs`), a short double support and a swing of 0.28 s among them.
+  Off by default, it may take a person's step time forward (`paced`, `personStep` in
+  `src/core/human/gait.ts`), end each swing as its sole meets the ground (`lands`,
+  `SwingGoal.lands`), and lengthen a swing whose landing falls short (`lengthen`).
+- **Run** (`run.ts`, "Run", experimental) is a locomotion skill whose steps fly: each foot bears
+  for `contact` and throws the body up at `flight`, and the other lands where a hopping machine
+  places it (Raibert 1986), re-aimed until it lands. On the spot it runs on its feet; going
+  forward it falls within seconds, the bearing leg's thrust saturating its hip's internal
+  rotation, its ankle's plantar flexors and its hip's extensors.
+- **Travel and fight** (`travel.ts`, "Travel, then fight", experimental) walks by one locomotion
+  (the stride, its arms swinging) while no standing foe is within `near` (4 m), and by another (the
+  stance's walk, in the guard) once one is, until the foe is half a metre farther: it changes only
+  between steps, resumes the walk it changes to from the body as it is, and gives tactics the
+  fighting walk's envelope.
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
   searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
   and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its
@@ -573,7 +603,7 @@ its blow, `kick` with the foot or feet named and its kick, walking in and kickin
 standing leg within reach, and `cover`); under them the fighter's blow and kick are the ones its
 behaviours name and it has no low support (`fighterSkills`), its own slots for them not offered
 (`slotsFor`), and two strikes that name different blows are a fault. Its skills are its walk
-(`stance-walk`, or the experimental `stride`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
+(`stance-walk`, or the experimental `stride`, `run` and `travel`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
 begin a hand while the other returns, the experimental `driven-strike` and `whole-body-strike`
 from the punch's research, or `choose-blow`, which gives each blow to one of a list of
 blows; `noBlow` stands in for none), and, optionally, a kick (`front-kick`) and low support

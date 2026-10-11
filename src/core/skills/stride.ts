@@ -1,9 +1,13 @@
 import type { Body, BodyView } from "../body.ts";
-import type { StanceGoal, SwingGoal } from "../control/stance.ts";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { swingProgressToRef, type StanceGoal, type SwingGoal } from "../control/stance.ts";
 import { strideEnvelope } from "../control/stance-envelope.ts";
 import { footStatesOf } from "../control/support.ts";
+import type { Pose } from "../control/motor.ts";
 import type { Side } from "../spec/body.ts";
+import { GUARD } from "./guard.ts";
 import { exp, sin, cos, hypot } from "../math/real.ts";
+import { personStep } from "../human/gait.ts";
 import { locomotion, type Locomotion } from "./locomotion.ts";
 
 /** **A stride's settings**: how its steps are timed, placed and lifted, and how fast its walk changes and turns. */
@@ -23,22 +27,61 @@ export interface StrideSettings {
   readonly accel: number;
   /** The heading's fastest turn, rad/s. */
   readonly turn: number;
+  /**
+   * Whether a forward step's time is a person's at the walk's pace (`personStep`, of forward
+   * walking), shared between the swing and the double support as `swing` and `transfer` share
+   * theirs; a step to the side or back takes theirs, and one between, between the two by the
+   * cosine of the walk's angle from the heading. None, theirs.
+   */
+  readonly paced?: boolean;
+  /** Whether a swing ends as its sole meets the ground (`SwingGoal.lands`); none, on its time. */
+  readonly lands?: boolean;
+  /** The trailing ankle's push-off through the double support, rad of plantarflexion (`SwingGoal.push`); none or 0, no push. */
+  readonly push?: number;
+  /**
+   * The arms' swing against the legs (`Locomotion.arms`): rad of each shoulder's flexion for every
+   * metre the other side's sole is ahead of the centre of mass along the heading. None or 0, the
+   * arms keep the guard.
+   */
+  readonly arms?: number;
+  /** The swing's acceleration ramped over this share of each half of its time (`SwingGoal.ramp`), at most 1/4; none or 0, minimum jerk. */
+  readonly ramp?: number;
+  /**
+   * The walk's pace held to, s: the capture point asked at a landing ahead of the steady walk's by
+   * this times the measured velocity's shortfall of the pace, so that the stance's pivot moves back
+   * while the body walks slower than it is asked. None or 0, the steady walk's alone.
+   */
+  readonly drive?: number;
+  /**
+   * How much longer than its time a swing may take, as a fraction of it, while its landing falls
+   * short of a steady step (Khadiv et al. 2016): the capture point runs on further before the foot
+   * lands. None or 0, a swing is only ever shortened.
+   */
+  readonly lengthen?: number;
 }
 
 /**
- * The stride as a fighter takes it unless told otherwise: the stance's own walk's step (a 0.3 s
- * swing after 0.08 s on both feet, lifted 5 cm, the soles 0.2 m apart, no step longer than 0.8 of
- * the leg), its foot held to its path at 0.07 s where the stance holds 0.1 (a step that lands short
- * leaves the capture point behind, and the next step longer: the walk runs away), a pace that
- * changes at 2 m/s², and the heading turning at up to 4 rad/s, the stance walk's turn at a slow pace.
+ * The stride as a fighter takes it unless told otherwise: the best of a search of its settings
+ * (`research/locomotion-search.mjs`: the fastest pace each body holds on each line, forward
+ * counted twice), the heading turning at up to 4 rad/s, the stance walk's turn at a slow pace. A
+ * swing of 0.283 s after 0.043 s on both feet, lifted 3 cm, the soles 0.286 m apart, no step longer
+ * than 0.856 of the leg, the foot held to its path at 0.052 s, the swing's acceleration ramped over
+ * 0.009 of each half, a pace that changes at 1.53 m/s² and is driven 0.206 s a m/s short, the
+ * trailing ankle pushing 0.152 rad, and the arms swinging 1.77 rad a metre the feet are apart.
  */
-export const STRIDE: StrideSettings = Object.freeze({ swing: 0.3, transfer: 0.08, lift: 0.05, settle: 0.07, width: 0.2, longest: 0.8, accel: 2, turn: 4 });
+export const STRIDE: StrideSettings = Object.freeze({
+  swing: 0.283, transfer: 0.043, lift: 0.03, settle: 0.052, width: 0.286, longest: 0.856, accel: 1.53, turn: 4,
+  push: 0.152, arms: 1.77, ramp: 0.009, drive: 0.206,
+});
 
 /** Whether `settings` are a stride's: each finite, the double support not negative, the rest positive. */
 export function validStride(settings: StrideSettings): boolean {
-  const { swing, transfer, lift, settle, width, longest, accel, turn } = settings;
+  const { swing, transfer, lift, settle, width, longest, accel, turn, paced, lands, push, arms, ramp, drive, lengthen } = settings;
   return [swing, transfer, lift, settle, width, longest, accel, turn].every(Number.isFinite) && transfer >= 0
-    && swing > 0 && lift > 0 && settle > 0 && width > 0 && longest > 0 && accel > 0 && turn > 0;
+    && swing > 0 && lift > 0 && settle > 0 && width > 0 && longest > 0 && accel > 0 && turn > 0
+    && [paced, lands].every((x) => x === undefined || typeof x === "boolean")
+    && [push, arms, drive, lengthen].every((x) => x === undefined || Number.isFinite(x) && x >= 0)
+    && (ramp === undefined || Number.isFinite(ramp) && ramp >= 0 && ramp <= 0.25);
 }
 
 /**
@@ -55,6 +98,15 @@ const SOONEST = 0.75;
 
 /** The pendulum's least height, m: a numeric floor, for a body that has fallen flat. */
 const HEIGHT_FLOOR = 0.1;
+
+/**
+ * **The arms swinging**, each from the guard (`GUARD`): the upper arm hanging, turned forward by
+ * the swing and no further than `ARM_REACH` rad either way, the elbow bent as the guard bends it.
+ * An arm reaches a posture that moves at a walk's cadence about `ARM_LEAD` s late (the servo's
+ * lag), so each arm is asked where the other side's sole will be then: a swinging sole along its
+ * minimum-jerk way to its landing, a bearing one where it is, from the centre of mass run on.
+ */
+const ARM_REACH = 0.8, ARM_LEAD = 0.15;
 
 /** Whether every number of `step` is finite: a body read in a state no step can be planned from asks none. */
 function finite(step: SwingGoal): boolean {
@@ -118,6 +170,15 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
   const behind = leg * sin(Math.min(Math.abs(flexion.spec.min.value), Math.abs(flexion.spec.max.value)));
   const memory: StrideMemory = { step: null, lifted: false, swung: 0, last: null, pace: [0, 0], width: null };
   const state = { legs: legs.state, stride: memory };
+  /** A step's swing and its double support, s, walking at `walk` (world, m/s) facing `heading`: a person's forward at that pace, or the settings'. */
+  const timing = (walk: readonly [number, number], heading: number): readonly [number, number] => {
+    const pace = hypot(walk[0], walk[1]);
+    if (!settings.paced || pace === 0) return [settings.swing, settings.transfer];
+    // Forward along the heading is (sin, cos).
+    const ahead = Math.max((walk[0] * sin(heading) + walk[1] * cos(heading)) / pace, 0), fixed = settings.swing + settings.transfer;
+    const whole = fixed + (1 / personStep(pace).rate - fixed) * ahead, share = settings.swing / fixed;
+    return [whole * share, whole * (1 - share)];
+  };
   /** The pendulum's rate, 1/s: of the height the stance holds the centre of mass at over its soles. */
   const omega = (view: BodyView): number => Math.sqrt(g / Math.max(view.stance.plan.y, HEIGHT_FLOOR));
   const forget = (): void => {
@@ -136,18 +197,19 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
    */
   const plan = (view: BodyView, goal: StanceGoal, side: Side, walk: readonly [number, number], first: boolean): SwingGoal => {
     const s = view.stance, b = s.soles[side === "left" ? "right" : "left"], sign = side === "right" ? 1 : -1;
-    const rx = cos(goal.heading), rz = -sin(goal.heading), w = omega(view);
-    const T = first ? settings.swing : settings.swing + settings.transfer, grow = exp(w * T);
+    const rx = cos(goal.heading), rz = -sin(goal.heading), w = omega(view), [swing, transfer] = timing(walk, goal.heading);
+    const T = first ? swing : swing + transfer, grow = exp(w * T);
     const moving = walk[0] !== 0 || walk[1] !== 0;
     const width = Math.max(settings.width, clear + PASS + Math.abs(walk[0] * rx + walk[1] * rz) * T);
     const to = moving ? within(view, T, b.x, b.z, b.x + walk[0] * T + sign * width * rx, b.z + walk[1] * T + sign * width * rz, sign, rx, rz)
       : halt(view, goal, sign, T);
     const capture: [number, number] = moving ? [to[0] + walk[0] * T / (grow - 1) - sign * width * rx / (grow + 1),
       to[1] + walk[1] * T / (grow - 1) - sign * width * rz / (grow + 1)] : [(b.x + to[0]) / 2, (b.z + to[1]) / 2];
-    if (first) return { foot: side, to, seconds: settings.swing, lift: settings.lift, shift: true, capture, settle: settings.settle };
-    const E = exp(-w * settings.swing);
-    return { foot: side, to, seconds: settings.swing, lift: settings.lift, transfer: settings.transfer, capture, settle: settings.settle,
-      handover: [b.x + E * (capture[0] - b.x), b.z + E * (capture[1] - b.z)] };
+    const extra = { ...settings.lands ? { lands: true } : {}, ...settings.push ? { push: settings.push } : {}, ...settings.ramp ? { ramp: settings.ramp } : {} };
+    if (first) return { foot: side, to, seconds: swing, lift: settings.lift, shift: true, capture, settle: settings.settle, ...extra };
+    const E = exp(-w * swing);
+    return { foot: side, to, seconds: swing, lift: settings.lift, transfer, capture, settle: settings.settle,
+      handover: [b.x + E * (capture[0] - b.x), b.z + E * (capture[1] - b.z)], ...extra };
   };
 
   /**
@@ -197,8 +259,8 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
    */
   const reaim = (view: BodyView, goal: StanceGoal, step: SwingGoal, walk: readonly [number, number]): SwingGoal => {
     const s = view.stance, b = s.soles[step.foot === "left" ? "right" : "left"], sign = step.foot === "right" ? 1 : -1;
-    const rx = cos(goal.heading), rz = -sin(goal.heading), w = omega(view);
-    const T = settings.swing + settings.transfer, grow = exp(w * T);
+    const rx = cos(goal.heading), rz = -sin(goal.heading), w = omega(view), [swing, transfer] = timing(walk, goal.heading);
+    const T = swing + transfer, grow = exp(w * T);
     if (walk[0] === 0 && walk[1] === 0) {
       const t = Math.max(step.seconds - memory.swung, 0), to = halt(view, goal, sign, t);
       return { ...step, to, capture: [(b.x + to[0]) / 2, (b.z + to[1]) / 2], follows: true };
@@ -208,9 +270,22 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
     const nx = walk[0] * T / (grow - 1) - sign * width * rx / (grow + 1), nz = walk[1] * T / (grow - 1) - sign * width * rz / (grow + 1);
     const px = b.x, pz = b.z, xi = s.centre.x + s.velocity.x / w - px, zi = s.centre.z + s.velocity.z / w - pz;
     const landing = (t: number): [number, number] => { const k = exp(w * t); return [px + xi * k - nx, pz + zi * k - nz]; };
-    const left = Math.max(step.seconds - memory.swung, 0), least = Math.min(Math.max(SOONEST * settings.swing - memory.swung, 0), left);
+    const left = Math.max(step.seconds - memory.swung, 0), least = Math.min(Math.max(SOONEST * swing - memory.swung, 0), left);
     let t = left;
     const off = (time: number): number => { const [x, z] = landing(time); return hypot(x - b.x, z - b.z); };
+    if (settings.lengthen) {
+      // A steady step's way along the walk, and the landing's: the swing runs on, by bisection
+      // within what it may lengthen to, until the landing is as far along as the steady step.
+      const pace = hypot(walk[0], walk[1]), ux = walk[0] / pace, uz = walk[1] / pace;
+      const along = (time: number): number => { const [x, z] = landing(time); return (x - b.x) * ux + (z - b.z) * uz; };
+      const natural = Math.max(swing - memory.swung, 0), most = Math.max((1 + settings.lengthen) * swing - memory.swung, 0), steady = pace * T;
+      if (along(natural) < steady) {
+        let lo = natural, hi = most;
+        if (along(hi) < steady) lo = hi;
+        else for (let i = 0; i < 16; i++) { const mid = (lo + hi) / 2; if (along(mid) < steady) lo = mid; else hi = mid; }
+        t = lo;
+      } else t = natural;
+    }
     if (off(t) > reach) {
       // The time at which the landing is the longest step away, by bisection; a numeric setting, 16 halvings.
       let lo = least, hi = t;
@@ -218,11 +293,36 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
       t = lo;
     }
     const [x, z] = landing(t), to = within(view, t, b.x, b.z, x, z, sign, rx, rz);
-    return { ...step, to, seconds: memory.swung + t, capture: [to[0] + nx, to[1] + nz], follows: true };
+    // Ahead of the steady walk's by the drive on the velocity's shortfall of the pace.
+    const drive = settings.drive ?? 0, ax = drive * (walk[0] - s.velocity.x), az = drive * (walk[1] - s.velocity.z);
+    return { ...step, to, seconds: memory.swung + t, capture: [to[0] + nx + ax, to[1] + nz + az], follows: true };
+  };
+
+  const progress = new Vector3();
+  /** Each arm's posture swinging: its shoulder's flexion the swing's for the other side's sole's lead. */
+  const swungArms = (view: BodyView): Pose => {
+    const s = view.stance, h = legs.heading, fx = sin(h), fz = cos(h), gain = settings.arms!, step = memory.step;
+    const eased = (t: number): number => swingProgressToRef(t, step?.ramp, progress).x;
+    const lead = (side: Side): number => {
+      let x = s.soles[side].x, z = s.soles[side].z;
+      if (step && step.foot === side && s.phase === "swing") {
+        const from = eased(Math.min(memory.swung / step.seconds, 1)), to = eased(Math.min((memory.swung + ARM_LEAD) / step.seconds, 1));
+        const k = from < 1 ? (to - from) / (1 - from) : 0;
+        x += (step.to[0] - x) * k;
+        z += (step.to[1] - z) * k;
+      }
+      return (x - s.centre.x - s.velocity.x * ARM_LEAD) * fx + (z - s.centre.z - s.velocity.z * ARM_LEAD) * fz;
+    };
+    const flexion = (side: Side): number => Math.min(ARM_REACH, Math.max(-ARM_REACH, gain * lead(side === "left" ? "right" : "left")));
+    return {
+      "shoulder.left flexion": flexion("left"), "shoulder.left abduction": GUARD["shoulder.left abduction"]!, "elbow.left flexion": GUARD["elbow.left flexion"]!,
+      "shoulder.right flexion": flexion("right"), "shoulder.right abduction": GUARD["shoulder.right abduction"]!, "elbow.right flexion": GUARD["elbow.right flexion"]!,
+    };
   };
 
   return {
     state, envelope,
+    ...(settings.arms ? { arms: swungArms } : {}),
     get heading() { return legs.heading; },
     get pace() { return legs.pace; },
     get reference() { return legs.reference; },

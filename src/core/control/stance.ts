@@ -10,10 +10,10 @@ import type { StanceTuning } from "./stance-tuning.ts";
 import { catchStep, ownStep, paceToward } from "./gait.ts";
 import { gravityOf, makeStance, type Stance } from "./stance-state.ts";
 import {
-  bearingOf, bearingSole, massCentreToRef, motionAtToRef, pointOfToRef, landingHeading, readSupport, rolledRows, soleMiddleToRef, turnOfToRef,
+  bearingOf, bearingSole, groundContact, massCentreToRef, motionAtToRef, pointOfToRef, landingHeading, readSupport, rolledRows, soleMiddleToRef, turnOfToRef,
   withinSupport, type FootState,
 } from "./support.ts";
-import { cos, atan2, exp, sinh, cosh, hypot } from "../math/real.ts";
+import { sin, cos, atan2, exp, sinh, cosh, hypot } from "../math/real.ts";
 import type { Side } from "../spec/body.ts";
 import { spinBetweenToRef, turnAboutToRef, turnBetweenToRef } from "../math/turn.ts";
 import { approachToRef, turnToRef } from "./approach.ts";
@@ -89,13 +89,49 @@ export interface SwingGoal {
    * the stance's (`StanceTuning.seconds.swing`). A shorter one lands a fast step nearer its place.
    */
   readonly settle?: number;
+  /**
+   * Whether the swing ends as its sole meets the ground (`LANDS_FROM`): one that meets it early ends
+   * there, and one still off the ground at its time goes on down past its place's height
+   * (`LATE_DESCENT`) until it meets it, or for `LATE_MOST`. None, it ends on its time.
+   */
+  readonly lands?: boolean;
+  /**
+   * The swing's way across the ground as a ramped acceleration, the share of each half of the
+   * swing's time its acceleration takes to rise or fall (0 to 1/4, `swingProgressToRef`); its peak
+   * is below minimum jerk's where it is under 0.15. None, minimum jerk.
+   */
+  readonly ramp?: number;
+  /**
+   * The push-off: the plantarflexion, rad, the trailing foot's ankle, rolled onto its toes, is
+   * driven toward through a walk's double support, with its knee's pre-swing
+   * (`GaitTuning.preswing`) and at its time, so the leg launches the body and itself into the
+   * step. None, the ankle is left to the task.
+   */
+  readonly push?: number;
+  /**
+   * A run's step: the bearing foot leaves the ground at this upward speed, m/s, a flight's time
+   * (twice it over gravity) before `seconds` is up, and nothing bears until the swinging foot lands
+   * (`lands`, which a run's step asks). Through the bearing, the plan's height bounces as a
+   * spring-mass leg's does (Blickhan 1989, "The spring-mass model for running and hopping", J
+   * Biomech): down at that speed as the foot lands, and up at it as it leaves.
+   */
+  readonly flight?: number;
 }
 
+/** The share of a swing's time from which the ground meeting its sole ends it (`SwingGoal.lands`): before it, the foot is still leaving the ground. */
+const LANDS_FROM = 0.8;
+
+/** How far down the ground's normal at a sole is, as the cosine from up, for its meeting to land the swing: the floor, not a wall. */
+const LANDED_NORMAL = 0.5;
+
+/** How fast a late foot goes on down past its place's height, m/s, and for how long at most, s (`SwingGoal.lands`). */
+const LATE_DESCENT = 0.3, LATE_MOST = 0.1;
+
 /**
- * Where a stance is: standing (no step, or its foot landed), shifting its weight before a step, or
- * swinging the step's foot.
+ * Where a stance is: standing (no step, or its foot landed), shifting its weight before a step,
+ * swinging the step's foot, or in a run's flight, no foot bearing (`SwingGoal.flight`).
  */
-export type StancePhase = "stand" | "shift" | "swing";
+export type StancePhase = "stand" | "shift" | "swing" | "flight";
 
 /**
  * **Standing: the body carried by the legs, the feet where they are.** The stance plans its
@@ -348,9 +384,11 @@ function shiftWeight(s: Stance, swing: SwingGoal | null, bearer: FootState | und
  */
 function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): void {
   const { feet } = s, { step, tasks, reading } = s.state, { seconds } = s.tuning;
-  const { sole, level, path, along, turn, wholeAxis } = s.scratch;
+  const { sole, level, path, along, turn, wholeAxis, progress } = s.scratch;
   const foot = feet.find((f) => f.side === swing.foot)!;
   soleMiddleToRef(foot, sole);
+  const met = swing.lands === true && step.lifted && step.time + dt >= LANDS_FROM * swing.seconds
+    && s.built.physics.contactsOf(foot.segment.body, (other) => other === null).some((c) => groundContact(c, LANDED_NORMAL));
   if (!step.lifted) {
     step.lifted = true;
     step.time = 0;
@@ -362,11 +400,18 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   turnAboutToRef(Vector3.UpReadOnly, heading, level);
   level.multiplyInPlace(foot.segment.rest);
   step.time += dt;
+  if (swing.flight !== undefined && reading.phase === "swing" && step.time >= swing.seconds - 2 * swing.flight / gravityOf(s)) {
+    reading.phase = "flight";
+    s.state.flight.left.copyFrom(reading.centre);
+  }
   const tau = Math.min(1, step.time / swing.seconds), from = step.from;
-  // Minimum jerk across the ground, a lift of the same smoothness up and down.
-  const eased = tau * tau * tau * (10 - 15 * tau + 6 * tau * tau), ds = 30 * tau * tau * (1 - tau) * (1 - tau) / swing.seconds;
-  const bump = 16 * tau * tau * (1 - tau) * (1 - tau), dbump = 32 * tau * (1 - tau) * (1 - 2 * tau) / swing.seconds;
-  path.set(from.x + (swing.to[0] - from.x) * eased, from.y + swing.lift * bump, from.z + (swing.to[1] - from.z) * eased);
+  // Past its time, a foot that lands goes on down until it meets the ground.
+  const late = swing.lands === true ? Math.min(Math.max(step.time - swing.seconds, 0), LATE_MOST) : 0;
+  // Across the ground by its progress, a lift as smooth as minimum jerk up and down.
+  swingProgressToRef(tau, swing.ramp, progress);
+  const eased = progress.x, ds = progress.y / swing.seconds;
+  const bump = 16 * tau * tau * (1 - tau) * (1 - tau), dbump = 32 * tau * (1 - tau) * (1 - 2 * tau) / swing.seconds - (late > 0 ? LATE_DESCENT / swing.lift : 0);
+  path.set(from.x + (swing.to[0] - from.x) * eased, from.y + swing.lift * bump - LATE_DESCENT * late, from.z + (swing.to[1] - from.z) * eased);
   turnBetweenToRef(step.lift, level, eased, step.turn);
   along.set((swing.to[0] - from.x) * ds, swing.lift * dbump, (swing.to[1] - from.z) * ds);
   const settle = swing.settle ?? seconds.swing;
@@ -379,7 +424,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   // alone lags a turn by twice its rate times the swing's constant, and a foot turning over a
   // swing lands off the heading (`tests/core-stance.test.mjs`).
   const task = tasks[feet.indexOf(foot)]!, w = 1 / settle, T = swing.seconds;
-  const dds = tau < 1 ? 60 * tau * (1 - tau) * (1 - 2 * tau) / (T * T) : 0, ddbump = tau < 1 ? 32 * (1 - 6 * tau + 6 * tau * tau) / (T * T) : 0;
+  const dds = progress.z / (T * T), ddbump = tau < 1 ? 32 * (1 - 6 * tau + 6 * tau * tau) / (T * T) : 0;
   motionAtToRef(foot.segment, sole, task.linear, task.angular);
   task.linear.set((swing.to[0] - from.x) * dds + w * w * (path.x - sole.x) + 2 * w * (along.x - task.linear.x),
     swing.lift * ddbump + w * w * (path.y - sole.y) + 2 * w * (along.y - task.linear.y),
@@ -388,11 +433,79 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   task.on = true;
   task.bearing = false;
   for (const i of foot.memory.channels) s.state.owned[i] = 1;
-  if (tau >= 1) {
+  if (swing.lands === true ? met || late >= LATE_MOST : tau >= 1) {
     reading.phase = "stand";
     reading.own = null;
     step.catching = false;
   }
+}
+
+/**
+ * The plan's upward acceleration through a run step's bearing (`SwingGoal.flight`): a bounce's,
+ * its height `height` - (f T / pi) sin(pi t / T) and its upward speed -f cos(pi t / T) over the
+ * bearing's time T, down at the flight's speed f as the foot lands and up at it from `height` as
+ * it leaves, its errors taken up critically damped at 2 pi / T, a whole bounce's rate.
+ */
+function bounce(s: Stance, swing: SwingGoal, height: number): number {
+  const { step, plan } = s.state, f = swing.flight!, T = Math.max(swing.seconds - 2 * f / gravityOf(s), 1e-3);
+  const tau = Math.min(step.time / T, 1), turn = Math.PI * tau, k = 2 * Math.PI / T;
+  return f * Math.PI / T * sin(turn) + k * k * (height - f * T / Math.PI * sin(turn) - plan.at.y) + 2 * k * (-f * cos(turn) - plan.velocity.y);
+}
+
+/**
+ * **A run's flight**: no foot bears, and the root goes as gravity and the legs' own motion have it
+ * (`carryRoot` with no bearing limb). The swinging foot goes on along its path to its landing
+ * (`swingFoot`), which ends the flight; the foot that left the ground is carried with the centre
+ * of mass from where it left, lifted by the swing's lift over the flight's time and drawn in under
+ * the hip by as much, at the swing's constant.
+ */
+function fly(s: Stance, goal: StanceGoal, swing: SwingGoal, dt: number): void {
+  const { feet, state } = s, { reading, aim, tasks, flight } = state, { seconds } = s.tuning, { sole, v, p } = s.scratch;
+  aim.spin.setAll(0);
+  aim.centre.set(0, -gravityOf(s), 0);
+  aim.on = true;
+  const trailing = feet.find((f) => f.side !== swing.foot)!, task = tasks[feet.indexOf(trailing)]!;
+  const w = 1 / (swing.settle ?? seconds.swing), c = reading.centre, up = Math.max(state.step.time - (swing.seconds - 2 * swing.flight! / gravityOf(s)), 0) * swing.flight!;
+  soleMiddleToRef(trailing, sole);
+  if (!flight.on) { flight.on = true; flight.from.copyFrom(sole).subtractInPlace(flight.left); }
+  // Where it goes: its place from the centre of mass as it left, raised by the flight's rise so far.
+  p.copyFrom(c).addInPlace(flight.from);
+  p.y += Math.min(up, swing.lift);
+  motionAtToRef(trailing.segment, sole, task.linear, task.angular);
+  v.copyFrom(reading.velocity);
+  task.linear.set(w * w * (p.x - sole.x) + 2 * w * (v.x - task.linear.x), -gravityOf(s) + w * w * (p.y - sole.y) + 2 * w * (v.y - task.linear.y),
+    w * w * (p.z - sole.z) + 2 * w * (v.z - task.linear.z));
+  task.angular.scaleInPlace(-w);
+  task.on = true;
+  task.bearing = false;
+  for (const i of trailing.memory.channels) state.owned[i] = 1;
+  swingFoot(s, swing, goal.heading, dt);
+  if (reading.phase !== "flight") flight.on = false;
+}
+
+/**
+ * **A swing's progress** at `tau`, its share of the swing's time, into `out`: x the share of the
+ * way, y its rate per share of the time, z that rate's. With no `ramp`, minimum jerk, 10 tau^3 -
+ * 15 tau^4 + 6 tau^5 (Flash and Hogan 1985), whose acceleration peaks at 5.77 times the way over
+ * the time squared. With one, the acceleration rises over `ramp` of the time, holds, and falls
+ * over as much by the half, then the same mirrored: its peak 4 / (1 - 2 ramp), the least a
+ * way at rest at both ends can have as `ramp` goes to 0, for a sharper start and stop.
+ */
+export function swingProgressToRef(tau: number, ramp: number | undefined, out: Vector3): Vector3 {
+  if (tau >= 1) return out.set(1, 0, 0);
+  if (ramp === undefined) return out.set(tau * tau * tau * (10 - 15 * tau + 6 * tau * tau), 30 * tau * tau * (1 - tau) * (1 - tau), 60 * tau * (1 - tau) * (1 - 2 * tau));
+  const q = ramp, flip = tau > 0.5, u = flip ? 1 - tau : tau, top = 4 / (1 - 2 * q);
+  let share: number, rate: number, accel: number;
+  if (u < q) {
+    accel = top * u / q; rate = top * u * u / (2 * q); share = top * u * u * u / (6 * q);
+  } else if (u <= 0.5 - q) {
+    const d = u - q;
+    accel = top; rate = top * q / 2 + top * d; share = top * q * q / 6 + top * q / 2 * d + top * d * d / 2;
+  } else {
+    const d = 0.5 - 2 * q, r = top * q / 2 + top * d, at = top * q * q / 6 + top * q / 2 * d + top * d * d / 2, e = u - (0.5 - q);
+    accel = top * (1 - e / q); rate = r + top * e - top * e * e / (2 * q); share = at + r * e + top * e * e / 2 - top * e * e * e / (6 * q);
+  }
+  return flip ? out.set(1 - share, rate, -accel) : out.set(share, rate, accel);
 }
 
 /** Each foot's leg's channels, found once the driver's are known. */
@@ -445,7 +558,7 @@ function chooseStep(s: Stance, goal: StanceGoal | null): SwingGoal | null {
 
 /** The feet that bear the body: the goal's, but for a foot that is swinging. */
 function bearerOf(goal: StanceGoal | null, phase: StancePhase, swing: SwingGoal | null): readonly Side[] {
-  return !goal ? [] : phase === "swing" ? goal.feet.filter((side) => side !== swing!.foot) : goal.feet;
+  return !goal || phase === "flight" ? [] : phase === "swing" ? goal.feet.filter((side) => side !== swing!.foot) : goal.feet;
 }
 
 /**
@@ -464,7 +577,7 @@ function advancePlan(s: Stance, goal: StanceGoal, stance: readonly FootState[], 
   let low = -Infinity;
   for (const [foot, floor] of limits.floors) if (!foot.memory.rolled) low = Math.max(low, floor);
   const high = Math.max(limits.high, low), k = 1 / seconds.height;
-  const ay = k * k * (high - r.y) - 2 * k * u.y;
+  const ay = reading.phase === "swing" && swing?.flight !== undefined ? bounce(s, swing, goal.height) : k * k * (high - r.y) - 2 * k * u.y;
   u.addInPlaceFromFloats(ax * dt, ay * dt, az * dt);
   r.addInPlace(u.scale(dt));
   reading.plan.copyFrom(r);
@@ -543,6 +656,10 @@ function aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleDriver):
     if (gait.preswing !== undefined && reading.phase === "shift" && pre?.transfer && pre.foot === foot.side) {
       const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / gait.preswing.seconds;
       ahead[k] = m * m * (gait.preswing.knee - (muscles.angle(i) - foot.straight)) - 2 * m * muscles.rate(i);
+      if (pre.push !== undefined) {
+        const a = k + foot.chain[1]!.dofs.length, j = foot.memory.channels[a]!;
+        ahead[a] = m * m * (-pre.push - muscles.angle(j)) - 2 * m * muscles.rate(j);
+      }
     } else {
       const k = foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / seconds.height;
       ahead[k] = m * m * (foot.chain[2]!.dofs[0]!.spec.max.value - spare - muscles.angle(i)) - 2 * m * muscles.rate(i);
@@ -638,6 +755,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
         plan.on = false;
       }
       state.last = goal ? bearing : null;
+      if (goal && swing && reading.phase === "flight") { fly(s, goal, swing, dt); return; }
       const stance = feet.filter((foot) => bearing.includes(foot.side));
       if (!goal || stance.length === 0) return;
       readSupport(feet, stance, reading.support);

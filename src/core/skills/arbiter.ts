@@ -1,5 +1,5 @@
 import type { Body, BodyCommand } from "../body.ts";
-import type { EffectorGoal, MusclePush } from "../control/motor.ts";
+import type { EffectorGoal, MusclePush, Pose } from "../control/motor.ts";
 import type { StanceGoal } from "../control/stance.ts";
 import type { BlowAttack, KickAttack } from "../mind/intent.ts";
 import type { Tactics } from "../mind/tactics.ts";
@@ -46,7 +46,9 @@ const NO_HANDS: Readonly<Record<Side, EffectorGoal | null>> = Object.freeze({ le
  * 4. the guard covers with each hand the blow does not hold;
  * 5. the legs carry out the blow's `LegsAsk`, or the tactics' walk while it asks none; a kick, or
  *    the support lowering, rising or low, holds the walk;
- * 6. the support skill lays its stance and trunk over the command;
+ * 6. a walk that swings the arms (`Locomotion.arms`) swings each arm no blow, cover or kick holds,
+ *    while no blow drives the posture and the support stands; the support skill lays its stance and
+ *    trunk over the command;
  * 7. the kick's stance and foot goals are laid over it last, a kick beginning only while no blow
  *    is under way and the body stands.
  *
@@ -112,8 +114,11 @@ export function skillSet(body: Body, { state: tactics, engagement }: Pick<Tactic
       }
       // A blow under way turns the heading to follow its target.
       const stance = goal && claim?.steer ? { ...goal, heading: goal.heading + claim.steer } : goal;
-      const posture = claim?.posture ?? guarding, laid = support?.apply(stance, posture) ?? null;
       const hands = claim?.hands ?? NO_HANDS;
+      const swung = legs.arms && !claim?.posture && !kicking && !supporting ? legs.arms(view) : null;
+      const posture = claim?.posture ?? (swung ? swingArms(guarding, swung, {
+        left: !hands.left && !covers.left && blow.holds !== "left", right: !hands.right && !covers.right && blow.holds !== "right" }) : guarding);
+      const laid = support?.apply(stance, posture) ?? null;
       let command: BodyCommand = {
         posture: laid ? laid.posture : posture, pushes: claim?.pushes ?? none,
         effectors: { "hand.left": hands.left ?? covers.left, "hand.right": hands.right ?? covers.right }, stance: laid ? laid.stance : stance,
@@ -130,6 +135,14 @@ export function skillSet(body: Body, { state: tactics, engagement }: Pick<Tactic
       return command;
     },
   };
+}
+
+/** `guarding` with the freedoms of each arm `free` names taken from `swung`. */
+function swingArms(guarding: Pose, swung: Pose, free: Readonly<Record<Side, boolean>>): Pose {
+  if (!free.left && !free.right) return guarding;
+  const posture: Record<string, number> = { ...guarding };
+  for (const [name, angle] of Object.entries(swung)) if (free[name.includes(".left ") ? "left" : "right"]) posture[name] = angle;
+  return posture;
 }
 
 /** Each hand that closes to strike, closed as `closed` holds it, or open. */
