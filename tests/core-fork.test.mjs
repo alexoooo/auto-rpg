@@ -22,12 +22,17 @@ import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { recipeTactics } from "../src/core/mind/recipe-tactics.ts";
-import { standIntent } from "../src/core/mind/intent.ts";
+import { NO_COVER, standIntent } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { subMindsOf } from "../src/core/mind/sub-minds.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
 import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
+import { RUN } from "../src/core/skills/run.ts";
+import { STRIDE } from "../src/core/skills/stride.ts";
+import { sourced } from "../src/core/spec/quantity.ts";
+import { labActor } from "../src/lab/actor.ts";
+import { LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { stagedRise } from "../src/core/mind/rise/staged.ts";
 import { RISE } from "../src/core/mind/rise/stages.ts";
 import { REPERTOIRE } from "../src/core/skills/strikes.ts";
@@ -237,6 +242,40 @@ async function ordered() {
 }
 
 /**
+ * `spec` with a tendon in series with each ankle's plantar flexors, of a stiffness in the range
+ * Hof 1998 measured about the ankle (250 to 400 N m/rad at 100 N m).
+ */
+const tendoned = (spec) => ({ ...spec, joints: spec.joints.map((joint) => !joint.name.startsWith("ankle.") ? joint : {
+  ...joint, dofs: joint.dofs.map((dof, k) => k !== 0 ? dof : { ...dof, muscle: { ...dof.muscle,
+    tendonNegative: { stiffness: sourced(325, "N m/rad", "de-leva-1996", "a stand-in for an ankle tendon's stiffness in a fork's fixture") } } }) }) });
+
+/**
+ * The Warrior, unarmed, under the Lab's script with `locomotion`, told `move` (`Intent.move`)
+ * from 1 s on and to stand before it.
+ */
+const going = (spec, locomotion, move) => async () => {
+  const stand = await coreStand(spec);
+  const actor = labActor(stand.built, stand.world, { mind: { ...LAB_PRESETS.script.config, locomotion } });
+  const skills = actor.drive({ name: "going", decide: ({ view }) => ({ move: view.time < 1 ? null : move, face: 0, guard: NO_COVER, attack: null }) });
+  const body = actor.body, seen = { phases: new Set(), fallen: false, stretched: false };
+  return {
+    world: stand.world, builts: [stand.built], states: { body: body.state, skills: skills.state }, seen,
+    advance: () => stand.step(), read: () => ({ ...shows(body), report: skills.report }),
+    watch() {
+      seen.phases.add(body.view.stance.phase);
+      seen.fallen ||= body.view.down;
+      seen.stretched ||= body.state.muscles.stretch.negative.some((x) => x > 0);
+    },
+    dispose() { actor.dispose(); stand.dispose(); },
+  };
+};
+
+/** The Warrior, its ankles' plantar flexors each in series with a tendon (`tendoned`), running on the spot (`RUN`): each step a flight. */
+const runner = going(tendoned(humanSpec("workshop-fighter")), { kind: "run", ...RUN }, [0, 0]);
+/** The Warrior walking ahead by the stride, each swing going on from the sole's velocity as it lifts (`StrideSettings.momentum`). */
+const launched = going(humanSpec("workshop-fighter"), { kind: "stride", ...STRIDE, momentum: true }, [0.5, 0]);
+
+/**
  * How often `striker` is saved, in steps; the steps through which its Warrior's left foot is
  * pushed as it swings, and through which the Warrior is pushed over; and the steps about the one
  * at which its feet are first placed, when it is saved at every step: the skill holds that they
@@ -329,6 +368,8 @@ const NEEDED = {
     `${STANCE} > step > catching`,
   ],
   placed: ["skills > legs > placed"],
+  runner: [...["on", "left", "from"].map((field) => `${STANCE} > flight > ${field}`), "body > muscles > stretch"],
+  launched: [`${STANCE} > step > launch`],
 };
 /** The fields of the state that are not memory: no later step reads what a step left in one, and no reader of a body shows it. */
 const NOT_MEMORY = {
@@ -424,6 +465,17 @@ test("a_body_forks_in_the_middle_of_a_blow", async () => {
   // The searched strikes are a table no load wrote into.
   assert.ok(Object.isFrozen(REPERTOIRE) && REPERTOIRE.every((recipe) => Object.isFrozen(recipe.strike.pushes) && Object.isFrozen(recipe.window.along)));
   assert.equal(JSON.stringify(REPERTOIRE), repertoire);
+});
+
+test("a_body_forks_as_it_runs_on_its_tendons_and_as_its_swings_go_on_from_their_launch", async () => {
+  // Saved at every step through a run's whole step: where the centre of mass was as a flight began is read the step after.
+  const run = await forks(runner, 1, 10, 60, forgetting(NEEDED.runner), 150);
+  assertForks(run, NEEDED.runner);
+  // The fixture reaches the run's flights, its tendons stretched, and stays up.
+  assert.ok(run.seen.phases.has("flight") && run.seen.stretched && !run.seen.fallen, JSON.stringify({ ...run.seen, phases: [...run.seen.phases] }));
+  const walk = await forks(launched, 5, 40, 40, forgetting(NEEDED.launched), 150);
+  assertForks(walk, NEEDED.launched);
+  assert.ok(walk.seen.phases.has("swing") && !walk.seen.fallen, JSON.stringify({ ...walk.seen, phases: [...walk.seen.phases] }));
 });
 
 test("every_field_of_a_bodys_state_is_sorted", async () => {
