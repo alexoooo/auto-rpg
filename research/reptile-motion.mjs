@@ -55,9 +55,10 @@ export async function mirrorTrial(gap = 2, seconds = 60, bite, material) {
       }
       seen = duel.blows.length;
     }
+    if (duel.verdict) meter.end();
     return { harness: "Node arena", engine: world.physics.engine, hz: world.hz, balances: [0, 0],
       gap, seconds: world.time, compression, falls, firstLaunch, verdict: duel.verdict, cycles,
-      damagingCycles: cycles.map(list => list.filter(c => c.release !== null && c.damage > 0 && !c.failed).length),
+      damagingCycles: cycles.map(list => list.filter(c => (c.release !== null || c.ended !== undefined) && c.damage > 0 && !c.failed).length),
       biteDamage: cycles.reduce((sum, list) => sum + list.reduce((n, c) => n + c.damage, 0), 0), bites: sides.map(side => {
       const bite = duel.duelists[side].body.state.mind.host.bite;
       return { launched: bite.launched, returned: bite.returned, failed: bite.failed, aborted: bite.aborted, phase: bite.cycle.phase };

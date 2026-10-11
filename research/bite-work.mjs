@@ -1,7 +1,10 @@
 import { mouthOf } from '../src/core/reptile/bite.ts';
 import { channelName } from '../src/core/muscle/driver.ts';
 
-/** Node bite qualification: only closing-stroke work is credited; subsequent unloading is subtracted. */
+/**
+ * Node bite qualification: only closing-stroke work is credited; subsequent unloading is subtracted.
+ * A cycle open when its bout is decided (`end`) is marked `ended`: the fight it would release in is over.
+ */
 export function biteMeter(world, fighters, others = {}) {
   const known = new Map([...fighters.map(f => [f.id, f.body.built]), ...Object.entries(others)]);
   const cycles = fighters.map(() => []), pending = fighters.map(() => null), episodes = new Map();
@@ -13,7 +16,9 @@ export function biteMeter(world, fighters, others = {}) {
     return owner?.kind === 'region' && !!owner.region.surface.point;
   };
   const state = i => fighters[i].body.state.mind.host.bite;
-  return { cycles, before() {
+  return { cycles, end() {
+    pending.forEach((cycle, i) => { if (cycle) { cycle.ended = world.time; pending[i] = null; } });
+  }, before() {
     return Object.fromEntries(fighters.map((f, i) => {
       const host = f.body.state.mind.host, bite = host.bite;
       return [f.id, { rate: f.body.muscles.rate(channels[i]), phase: bite.cycle.phase,
