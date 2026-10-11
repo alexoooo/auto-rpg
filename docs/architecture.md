@@ -366,16 +366,20 @@ tactics over the skills it is given.
   and the capture point it is to catch are a steady capture-point walk's, re-aimed every control
   step from the measured capture point, and a swing whose landing would be past the longest step
   is shortened to one that is not, and one farther behind the centre of mass than the hip
-  reaches back is drawn in. Its swinging foot is held to its path at 0.07 s (`SwingGoal.settle`):
-  a step that lands short leaves the capture point ahead of the next, and the walk runs away. A
-  walk ends with steps that bring the capture point between the feet. Its locomotion carries its
-  own envelope (`Locomotion.envelope`), the stance's own walk's being no measure of it. Off by
-  default, it may take a person's step time forward (`paced`, `personStep` in
+  reaches back is drawn in. Its swinging foot is held to its path more tightly than the stance's
+  own steps (`SwingGoal.settle`): a step that lands short leaves the capture point ahead of the
+  next, and the walk runs away. A walk ends with steps that bring the capture point between the
+  feet. Its locomotion carries its own envelope (`Locomotion.envelope`), the stance's own walk's
+  being no measure of it. It drives the trailing ankle through the double support (`push`,
+  `SwingGoal.push`), swings each arm out of the guard with the other side's leg (`arms`,
+  `Locomotion.arms`), which the arbiter lays over the guard's posture for the arms no blow, cover
+  or kick holds, ramps its swing's acceleration in place of minimum jerk (`ramp`,
+  `SwingGoal.ramp`), and asks a capture point ahead of the steady walk's while it walks slower
+  than asked (`drive`). Its defaults are the best of a search over its settings
+  (`research/locomotion-search.mjs`), a short double support and a swing of 0.28 s among them.
+  Off by default, it may take a person's step time forward (`paced`, `personStep` in
   `src/core/human/gait.ts`), end each swing as its sole meets the ground (`lands`,
-  `SwingGoal.lands`), drive the trailing ankle through the double support (`push`,
-  `SwingGoal.push`), and swing each arm out of the guard with the other side's leg (`arms`,
-  `Locomotion.arms`), which the arbiter lays over the guard's posture for the arms no blow,
-  cover or kick holds.
+  `SwingGoal.lands`), and lengthen a swing whose landing falls short (`lengthen`).
 - **Run** (`run.ts`, "Run", experimental) is a locomotion skill whose steps fly: each foot bears
   for `contact` and throws the body up at `flight`, and the other lands where a hopping machine
   places it (Raibert 1986), re-aimed until it lands. On the spot it runs on its feet; going
