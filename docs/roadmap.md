@@ -352,6 +352,9 @@ After it, each with its own plan, in the order each needs the one before:
       1 m/s walk falls.
     - **Not done:** a search over the walk's settings (the plan's session 04, the owner's to
       ask for).
+    - **Next:** [the walk every way and on every body](plans/2026-10-11-simbicon-every-way.md): a
+      rule that reads where a walk went, a gait for each direction, and the gait scaled to each
+      body's legs.
   - **Travel, then fight** (`travel.ts`) walks by the stride, its arms swinging, until a standing
     foe is within 5 m, and in the stance's guard after. Every humanoid's mind gets about by it
     (`GAME_FIGHTER`); an Arena bout opens at 4 m, so it fights by the stance's walk from its
