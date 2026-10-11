@@ -153,6 +153,13 @@ export interface EngineJoint {
   setMotor(k: number, speed: number, ceiling: number): void;
   /** The same velocity motor, bounded separately in the child's negative and positive senses (nonnegative N m). */
   setMotorBounds(k: number, speed: number, negative: number, positive: number): void;
+  /**
+   * Freedom k's motor as a spring, solved within the step: a torque of `stiffness` (N m/rad) times
+   * how far the child's angle about the axis is from `target` (rad, the coordinate its limit
+   * reads), bounded separately in the child's negative and positive senses (nonnegative N m).
+   * A later `setMotor` or `setMotorBounds` makes it a velocity motor again.
+   */
+  setSpring(k: number, target: number, stiffness: number, negative: number, positive: number): void;
   /** Signed impulse delivered to the child over the entire last physics step, N m s; zero before stepping. */
   motorStepImpulse(k: number): number;
 }

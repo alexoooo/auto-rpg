@@ -242,6 +242,10 @@ curve shortening, and an eccentric branch lengthening that rises toward 1.4 time
 braking and blocking). Immutable `World.actuation` selects the symmetric gameplay reference or
 directional research law. The latter bounds each side independently; an infinite-speed torque
 command gives the opposite side zero activation, while a finite-speed command may brake.
+A side may have a tendon in series (`MuscleSpec.tendonPositive`, `tendonNegative`, a stiffness
+about the joint): while its muscles push, under either law, the motor is that spring
+(`EngineJoint.setSpring`), aimed at the fibres' angle and bounded by what the fibres give at their
+own speed, so the tendon stores what a lengthening joint gives it and returns it.
 The symmetric reference can give a reversing motor the wrong side's braking strength. Default
 migration remains gated on corrected contact/control capability. Both directional bounds and
 the command are saved with the muscles. `pulled` records the mean torque actually delivered over the
@@ -382,9 +386,13 @@ tactics over the skills it is given.
   `SwingGoal.lands`), and lengthen a swing whose landing falls short (`lengthen`).
 - **Run** (`run.ts`, "Run", experimental) is a locomotion skill whose steps fly: each foot bears
   for `contact` and throws the body up at `flight`, and the other lands where a hopping machine
-  places it (Raibert 1986), re-aimed until it lands. On the spot it runs on its feet; going
-  forward it falls within seconds, the bearing leg's thrust saturating its hip's internal
-  rotation, its ankle's plantar flexors and its hip's extensors.
+  places it (Raibert 1986), re-aimed until it lands, the capture point asked where a steady run's
+  is as the foot lands (as the stride asks a steady walk's), which is what carries it forward. Its
+  arms swing against each other with the legs (`armSwing`, `arm-swing.ts`, which the stride's
+  arms share). On the spot it runs on its feet; forward it holds at about 1 m/s whatever pace is
+  asked. Each step the pelvis yaws some 0.8 rad, the swing's yaw beyond what the bearing sole's
+  twist can give at the ground's friction, and the bearing hip turns to its stop; a foot landed
+  behind its neutral point, to speed up, falls within seconds.
 - **Travel and fight** (`travel.ts`, "Travel, then fight", experimental) walks by one locomotion
   (the stride, its arms swinging) while no standing foe is within `near` (4 m), and by another (the
   stance's walk, in the guard) once one is, until the foe is half a metre farther: it changes only

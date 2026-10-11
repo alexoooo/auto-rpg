@@ -1,5 +1,5 @@
 /**
- * **The stride's settings searched** on the locomotion test bed (`research/locomotion-run.mjs`:
+ * **The stride's or the run's settings searched** on the locomotion test bed (`research/locomotion-run.mjs`:
  * Node stand, Rapier, 120 Hz), by diagonal CMA-ES in the unit cube (`research/cma.mjs`).
  *
  * A candidate's score is the speed it walks and holds: for each body, line and seed, the paces are
@@ -9,14 +9,15 @@
  *
  *   node research/locomotion-search.mjs --out .snap/search/a [--generations 30] [--lambda 12] [--seeds 1,2,3]
  *     [--models workshop-fighter,workshop-rogue] [--lines forward,right,back] [--seconds 15] [--seed 1]
- *     [--start '{"swing":0.34}'] [--dims swing,transfer,...] [--live] [--score '{"swing":0.34}'] [--workers 30]
+ *     [--start '{"swing":0.34}'] [--dims swing,transfer,...] [--live] [--score '{"swing":0.34}'] [--workers 30] [--kind run]
  *
  * - `--live` scores the start and each dimension at either end of its range, the rest at the start:
  *   whether something reads it, and which way it moves the score.
  * - `--score` scores one setting (merged over the stride's defaults) and prints its ladders.
  * - Otherwise it searches, and writes each generation to `<out>.jsonl` and the best to `<out>-best.json`.
  *
- * The settings the search moves are `DIMS`; the rest are the stride's defaults (`STRIDE`).
+ * The settings the search moves are `DIMS`; the rest are the stride's defaults (`STRIDE`). With
+ * `--kind run`, the run's (`RUN_DIMS`, `RUN`), on the forward line, its paces `RUN_PACES`.
  */
 import { Worker } from "node:worker_threads";
 import { appendFileSync, writeFileSync } from "node:fs";
@@ -24,12 +25,23 @@ import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
 import { cmaSearch } from "./cma.mjs";
 import { STRIDE } from "../src/core/skills/stride.ts";
+import { RUN } from "../src/core/skills/run.ts";
 
 /** Each setting searched and its range; a flag is on above the middle. */
 const DIMS = {
   swing: [0.25, 0.45], transfer: [0.01, 0.12], lift: [0.03, 0.09], settle: [0.04, 0.12], width: [0.12, 0.3], longest: [0.6, 1],
   accel: [1, 4], push: [0, 0.4], arms: [0, 2], ramp: [0, 0.2], drive: [0, 1], lengthen: [0, 0.5], lands: "flag",
+  lever: [0.1, 1], launch: [0, 0.6], lead: [0, 0.15], momentum: "flag",
 };
+
+/** The run's settings searched and their ranges; a lever of 0 is the stance's own. */
+const RUN_DIMS = {
+  contact: [0.15, 0.4], flight: [0.2, 0.8], lift: [0.05, 0.2], settle: [0.03, 0.1], width: [0.1, 0.35], gain: [0, 0.3],
+  accel: [0.5, 4], drop: [0, 0.15], arms: [0, 4], drive: [0, 1], lever: [0, 1],
+};
+
+/** The paces a run climbs, m/s. */
+const RUN_PACES = [1, 1.5, 2, 2.5, 3];
 
 /** How many times another line's ladder the forward one counts. */
 const FORWARD = 2;
@@ -39,23 +51,25 @@ const PACES = [0.3, 0.5, 0.7, 1, 1.2, 1.4, 1.7, 2];
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : fallback; };
 const list = (name, fallback) => arg(name, fallback).split(",");
-const models = list("models", "workshop-fighter,workshop-rogue"), lines = list("lines", "forward,right,back");
+const kind = arg("kind", "stride"), running = kind === "run";
+const SPACE = running ? RUN_DIMS : DIMS, BASE = running ? RUN : STRIDE, LADDER = running ? RUN_PACES : PACES;
+const models = list("models", "workshop-fighter,workshop-rogue"), lines = list("lines", running ? "forward" : "forward,right,back");
 const seeds = list("seeds", "1,2,3").map(Number), seconds = Number(arg("seconds", "15"));
-const dims = arg("dims") ? list("dims") : Object.keys(DIMS), out = arg("out");
+const dims = arg("dims") ? list("dims") : Object.keys(SPACE), out = arg("out");
 const workers = Math.min(Number(arg("workers", String(Math.max(1, availableParallelism() - 2)))), 64);
-const start = { ...STRIDE, ...JSON.parse(arg("start", "{}")) };
+const start = { ...BASE, ...JSON.parse(arg("start", "{}")) };
 
 /** A setting's place in its range, [0, 1]; a flag's, a quarter or three quarters. */
 function toUnit(key, value) {
-  const range = DIMS[key];
+  const range = SPACE[key];
   if (range === "flag") return value ? 0.75 : 0.25;
   return Math.min(1, Math.max(0, ((value ?? range[0]) - range[0]) / (range[1] - range[0])));
 }
-/** The stride's settings at `u` over `dims`, the rest the start's. */
+/** The settings at `u` over `dims`, the rest the start's. */
 function settingsAt(u) {
-  const settings = { kind: "stride", ...start };
+  const settings = { kind, ...start };
   dims.forEach((key, i) => {
-    const range = DIMS[key];
+    const range = SPACE[key];
     if (range === "flag") { if (u[i] > 0.5) settings[key] = true; else delete settings[key]; }
     else settings[key] = Number((range[0] + u[i] * (range[1] - range[0])).toFixed(4));
   });
@@ -84,7 +98,7 @@ const run = (job) => new Promise((resolve, reject) => {
 /** A ladder: the paces climbed until a fall; the mean speed along the line at the fastest held, and that pace. */
 async function ladder(legs, model, track, seed) {
   let speed = 0, held = 0;
-  for (const pace of PACES) {
+  for (const pace of LADDER) {
     const r = await run({ model, track, pace, seed, legs });
     if (r.fell !== null) break;
     speed = r.mean;
@@ -110,7 +124,7 @@ const started = Date.now();
 const minutes = () => ((Date.now() - started) / 60000).toFixed(1);
 try {
   if (arg("score")) {
-    const r = await score({ kind: "stride", ...STRIDE, ...JSON.parse(arg("score")) });
+    const r = await score({ kind, ...BASE, ...JSON.parse(arg("score")) });
     console.log(`score ${r.score.toFixed(3)} in ${minutes()} min; ${JSON.stringify(r.by)}`);
   } else if (process.argv.includes("--live")) {
     const u0 = dims.map((key) => toUnit(key, start[key]));

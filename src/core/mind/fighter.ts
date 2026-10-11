@@ -72,6 +72,10 @@ const STRIDE_FIELDS: readonly PartField<StrideConfig>[] = Object.freeze([
   toggle<StrideConfig, "paced">("paced", "A person's cadence"),
   toggle<StrideConfig, "lands">("lands", "Land on contact"),
   { ...number<StrideConfig, "push">("push", "Push-off", 0, 0.6, 0.05, "rad"), read: (config) => String(config.push ?? 0) },
+  { ...number<StrideConfig, "launch">("launch", "Push-off torque", 0, 1, 0.05, "of the ankle's"), read: (config) => String(config.launch ?? 0) },
+  { ...number<StrideConfig, "lead">("lead", "Push-off lead", 0, 0.3, 0.01, "s"), read: (config) => String(config.lead ?? 0) },
+  toggle<StrideConfig, "momentum">("momentum", "Swing from its launch"),
+  { ...number<StrideConfig, "lever">("lever", "Swing's moment lever", 0, 1.5, 0.05, "m"), read: (config) => String(config.lever ?? 0) },
   { ...number<StrideConfig, "arms">("arms", "Arm swing", 0, 3, 0.1, "rad/m"), read: (config) => String(config.arms ?? 0) },
   { ...number<StrideConfig, "ramp">("ramp", "Swing ramp", 0, 0.25, 0.01, "of a half"), read: (config) => String(config.ramp ?? 0) },
   { ...number<StrideConfig, "drive">("drive", "Pace drive", 0, 2, 0.05, "s"), read: (config) => String(config.drive ?? 0) },
@@ -89,6 +93,9 @@ const RUN_FIELDS: readonly PartField<RunConfig>[] = Object.freeze([
   number<RunConfig, "accel">("accel", "Speeding up", 0.5, 10, 0.1, "m/s²"),
   number<RunConfig, "turn">("turn", "Turn", 0.5, 12, 0.1, "rad/s"),
   number<RunConfig, "drop">("drop", "Crouch", 0, 0.3, 0.01, "m"),
+  { ...number<RunConfig, "arms">("arms", "Arm swing", 0, 3, 0.1, "rad/m"), read: (config) => String(config.arms ?? 0) },
+  { ...number<RunConfig, "drive">("drive", "Drive", 0, 1, 0.01, "s"), read: (config) => String(config.drive ?? 0) },
+  { ...number<RunConfig, "lever">("lever", "Step's moment lever", 0, 1.5, 0.05, "m"), read: (config) => String(config.lever ?? 0) },
 ]);
 
 /** The straight punch's settings, as a panel offers them. */

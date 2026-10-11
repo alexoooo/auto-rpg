@@ -33,7 +33,7 @@ interface StanceState {
   last: readonly Side[] | null;
   /** The walk's pace, world (x, z), m/s: toward the goal's at the gait's acceleration, toward none standing. */
   readonly pace: [number, number];
-  /** The step under way: its swing, the time since its foot left the ground, where and how the foot left it, and the turn asked of it now. */
+  /** The step under way: its swing, the time since its foot left the ground, where, how and how fast the foot left it, and the turn asked of it now. */
   readonly step: {
     swing: SwingGoal | null;
     lifted: boolean;
@@ -45,6 +45,8 @@ interface StanceState {
     /** Whether the step under way catches a push (`catchStep`): it runs to its landing before any step the goal asks. */
     catching: boolean;
     readonly from: Vector3;
+    /** The sole's middle's velocity as the foot left the ground, world, m/s (`SwingGoal.momentum`). */
+    readonly launch: Vector3;
     readonly turn: Quaternion;
     readonly lift: Quaternion;
   };
@@ -134,13 +136,14 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
   const segments = [...built.segments.values()];
   const state: StanceState = {
     pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace: [0, 0],
-    step: { swing: null, lifted: false, time: 0, held: 0, off: Infinity, catching: false, from: new Vector3(), turn: new Quaternion(), lift: new Quaternion() },
+    step: { swing: null, lifted: false, time: 0, held: 0, off: Infinity, catching: false, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion() },
     flight: { on: false, left: new Vector3(), from: new Vector3() },
     plan: { on: false, at: new Vector3(), velocity: new Vector3() },
     reading: { centre: new Vector3(), velocity: new Vector3(), support: new Vector3(), place: new Vector3(),
       plan: new Vector3(), planVelocity: new Vector3(),
       facing: 0, phase: "stand", soles: { left: feet[0]!.middle, right: feet[1]!.middle }, own: null, recoveries: 0, strides: 0,
-      shortfall: { force: new Vector3(), moment: new Vector3() } },
+      shortfall: { force: new Vector3(), moment: new Vector3() },
+      asked: { left: { at: new Vector3(), force: new Vector3(), moment: new Vector3() }, right: { at: new Vector3(), force: new Vector3(), moment: new Vector3() } } },
     aim: { on: false, spin: new Vector3(), centre: new Vector3(), root: new Float64Array(6) },
     helped: { force: new Vector3(), moment: new Vector3() },
     held: { channels: [], z0: [], Z: [] },
