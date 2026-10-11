@@ -675,7 +675,9 @@ at almost the same position. Physical contacts remain the engine's. The whole-bo
 loaded contacts and lift-off and asks only muscle torques; a rejected prediction applies zero
 torque. Optional normal gap and velocity feedback stabilizes admitted contacts. Motion commands
 can bound a support frame's total predicted compressive load or each selected point's minimum;
-these bounds constrain muscle torque and apply no contact force to the world. Orientation and
+these bounds constrain muscle torque and apply no contact force to the world. Dynamic rise uses
+normal feedback and retains a measured rear toe with a positive point-load floor during placement
+and transfer; an unloaded toe is not added as support. Orientation and
 acquisition use bounded joint-velocity feedback. During acquisition,
 the hips respond to the pelvis's measured pitch, checking the forward reaction of drawing the
 knees under the body. Loaded hands and knees advance the tuck and prop; foot placement waits

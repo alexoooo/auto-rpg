@@ -22,6 +22,7 @@ import { modelSpec } from "../src/core/models.ts";
 import { saveState } from "../src/core/state.ts";
 import { coreStand, saveStand, loadStand } from "./harness/core-stand.mjs";
 import { dynamicFall, felled } from "../research/core-rise-trials.mjs";
+import { toeSupport } from "./fixtures/toe-support.mjs";
 
 const config = { ...PUNCHER, subs: [{ kind: "dynamic-rise" }] };
 const soleUpOf = built => Object.fromEntries(["left", "right"].map(side => [side,
@@ -29,6 +30,30 @@ const soleUpOf = built => Object.fromEntries(["left", "right"].map(side => [side
 const solesOf = built => Object.fromEntries(footStatesOf(built).map(foot => [foot.side,
   { at: foot.sole.reduce((middle, corner) => middle.addInPlace(corner), new Vector3()).scaleInPlace(1 / foot.sole.length).asArray(),
     rest: foot.segment.rest.asArray() }]));
+
+test("dynamic rise retains a measured rear toe before asking the hands to release", async () => {
+  const f = await toeSupport();
+  try {
+    f.stand.step(12);
+    const { built } = f.stand, muscles = f.body.own.muscles, root = built.segments.get("lowerTrunk");
+    const model = { channels: muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value,
+      max: c.dof.spec.max.value, bind: c.dof.spec.bind.value })), fours: {},
+      segments: [...built.segments.values()].map(s => ({ name: s.spec.name, mass: s.rigid.mass })),
+      rest: root.rest.asArray(), soleUp: soleUpOf(built), soles: solesOf(built), rootHeight: root.frame.origin[1],
+      leg: 1, gravity: -f.stand.world.physics.gravity[1], held: null };
+    const policy = dynamicRisePolicy(model), observation = f.observe();
+    assert.ok(observation.contacts.some(c => c.segment === "foot.left" && c.fixed !== null && c.impulse > 0));
+    assert.equal(riseFootPlanted(observation, "left", model.soleUp.left), false, "a loaded toe is not a flat sole");
+    policy.begin(observation); const command = policy.step(observation, f.stand.world.dt);
+    assert.deepEqual({ phase: policy.state.phase, lead: policy.state.lead }, { phase: "transfer", lead: "right" });
+    assert.deepEqual(command.supports.filter(s => s.frame.name === "foot.left"),
+      [{ frame: { kind: "segment", name: "foot.left" }, mode: "auto", normalLoad: { pointMin: 1 } }]);
+    const unloaded = { ...observation, contacts: observation.contacts.filter(c => c.segment !== "foot.left") };
+    policy.begin(unloaded); const next = policy.step(unloaded, f.stand.world.dt);
+    assert.deepEqual(next.supports.filter(s => s.frame.name === "foot.left"),
+      [{ frame: { kind: "segment", name: "foot.left" }, mode: "free" }], "the policy does not invent a missing toe contact");
+  } finally { f.dispose(); }
+});
 
 test("a loaded boot's complete contact patch carries a capture point outside the pair-average outline", async () => {
   const spec = armed(modelSpec("workshop-fighter"), "right", woodenClub());
