@@ -526,6 +526,14 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
           // Rapier bounds the impulse on the parent; the contract names torque on the child.
           joints.jointSetMotorForceBounds(handle, axes[k]! as never, -positive, negative);
         },
+        setSpring(k, target, stiffness, negative, positive) {
+          if (!Number.isInteger(k) || k < 0 || k >= n || !Number.isFinite(target) || !(stiffness > 0) || !Number.isFinite(stiffness)
+            || !(negative >= 0) || !(positive >= 0)) throw new Error("invalid spring motor command");
+          // Force-based: the stiffness is N m/rad, not scaled by the bodies' inertia.
+          joints.jointConfigureMotorModel(handle, axes[k]! as never, R.MotorModel.ForceBased as never);
+          joints.jointConfigureMotorPosition(handle, axes[k]! as never, target, stiffness, 0);
+          joints.jointSetMotorForceBounds(handle, axes[k]! as never, -positive, negative);
+        },
         motorStepImpulse(k) {
           if (!Number.isInteger(k) || k < 0 || k >= n) throw new Error("invalid motor freedom");
           return -joints.jointMotorStepImpulse(handle, axes[k]! as never);

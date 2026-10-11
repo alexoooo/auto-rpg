@@ -285,6 +285,18 @@ export interface MuscleSpec {
   /** How the torque toward positive, and toward negative, falls with speed and rises when stretched. */
   readonly speedPositive: ForceVelocitySpec;
   readonly speedNegative: ForceVelocitySpec;
+  /**
+   * The tendon in series with the muscles toward positive, and toward negative, where they have one
+   * (`driveMuscles`); none, they pull the joint directly.
+   */
+  readonly tendonPositive?: TendonSpec;
+  readonly tendonNegative?: TendonSpec;
+}
+
+/** A tendon as its joint feels it: a spring between the muscles' fibres and the joint, that only pulls. */
+interface TendonSpec {
+  /** Its stiffness about the joint's axis, N m/rad: the tendon's own, N/m, times its moment arm's square. */
+  readonly stiffness: Quantity<number>;
 }
 
 /** A force-velocity curve's inputs; `src/core/muscle/force-velocity.ts` says what each does. */

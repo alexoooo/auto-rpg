@@ -242,6 +242,10 @@ curve shortening, and an eccentric branch lengthening that rises toward 1.4 time
 braking and blocking). Immutable `World.actuation` selects the symmetric gameplay reference or
 directional research law. The latter bounds each side independently; an infinite-speed torque
 command gives the opposite side zero activation, while a finite-speed command may brake.
+A side may have a tendon in series (`MuscleSpec.tendonPositive`, `tendonNegative`, a stiffness
+about the joint): while its muscles push under the directional law, the motor is that spring
+(`EngineJoint.setSpring`), aimed at the fibres' angle and bounded by what the fibres give at their
+own speed, so the tendon stores what a lengthening joint gives it and returns it.
 The symmetric reference can give a reversing motor the wrong side's braking strength. Default
 migration remains gated on corrected contact/control capability. Both directional bounds and
 the command are saved with the muscles. `pulled` records the mean torque actually delivered over the

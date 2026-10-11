@@ -49,6 +49,17 @@ import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from
  * - **Reading the curve half a step on**, from the speed the last step's ceiling held a joint short
  *   of its target: it makes whole-body strikes depend on the physics rate.
  *
+ * **A tendon** (`MuscleSpec.tendonPositive`, `tendonNegative`) is a spring in series with its side's
+ * muscles that only pulls. While the motor pushes the way a side with a tendon pulls, under
+ * directional actuation, the motor is that spring (`EngineJoint.setSpring`), solved within the
+ * step: of the tendon's stiffness, toward the fibres' angle -- the joint's angle at which the
+ * tendon would be slack -- and bounded by what the fibres can give at their own speed. The fibres'
+ * speed is the one at which what they can give, activation x peak x force-velocity, equals the
+ * tendon's pull at the step's end, its stretch growing by the fibres' speed less the joint's
+ * (`fibreSpeed`); a command of finite speed asks them no faster. Otherwise the motor is the
+ * velocity motor above, the tendon taken as rigid. Either way the tendon's stretch after a step is
+ * what the side delivered over its stiffness.
+ *
  * A freedom's ceiling bounds its own axis only: a ball joint turning about two axes at once can
  * exceed either peak in the diagonal, by up to the root of the sum of their squares. Each peak was
  * measured about one axis at a time.
@@ -90,6 +101,8 @@ interface MuscleSide {
   /** Peak isometric torque, N m. */
   readonly peak: number;
   readonly curve: ForceVelocityCurve;
+  /** Its tendon's stiffness about the joint, N m/rad; null, none. */
+  readonly tendon: number | null;
 }
 
 export interface MuscleDriver {
@@ -159,8 +172,8 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       const muscle = dof.spec.muscle;
       channels.push({
         name: channelName(joint, index), joint, index, dof,
-        positive: { peak: muscle.peakPositive.value, curve: curveOf(muscle, "positive") },
-        negative: { peak: muscle.peakNegative.value, curve: curveOf(muscle, "negative") },
+        positive: { peak: muscle.peakPositive.value, curve: curveOf(muscle, "positive"), tendon: muscle.tendonPositive?.stiffness.value ?? null },
+        negative: { peak: muscle.peakNegative.value, curve: curveOf(muscle, "negative"), tendon: muscle.tendonNegative?.stiffness.value ?? null },
       });
       trackerOf.push(tracker);
       joint.joint.setMotor(index, 0, 0);
@@ -189,6 +202,8 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
     level: "full" as BodyLevel,
     activation: new Float64Array(n), velocity: new Float64Array(n), ceiling: new Float64Array(n), pulled: new Float64Array(n),
     bounds: { negative: new Float64Array(n), positive: new Float64Array(n) },
+    /** Each side's tendon's stretch after the last step, rad; 0 where it has none. */
+    stretch: { negative: new Float64Array(n), positive: new Float64Array(n) },
     trackers: trackers.map(({ angles, speeds, rates, turning }) => ({ angles, speeds, rates, turning })),
   };
   const driver: MuscleDriver = {
@@ -210,6 +225,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
         idle?.();
         state.activation.fill(0); state.velocity.fill(0); state.ceiling.fill(0);
         state.bounds.negative.fill(0); state.bounds.positive.fill(0);
+        state.stretch.negative.fill(0); state.stretch.positive.fill(0);
         for (const c of channels) c.joint.joint.setMotor(c.index, 0, 0);
       }
       if (fixedAt(next) !== fixedAt(state.level)) for (const segment of built.segments.values()) segment.body.setFixed(fixedAt(next));
@@ -244,6 +260,18 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       const activation = Math.max(0, Math.min(1, driver.activation[i]!));
       const push = target - speed;
       const toward = push > 0 ? 1 : push < 0 ? -1 : c.positive.peak <= c.negative.peak ? 1 : -1;
+      const side = toward > 0 ? c.positive : c.negative;
+      if (directional && side.tendon !== null) {
+        const stretch = (toward > 0 ? state.stretch.positive : state.stretch.negative)[i]!, force = activation * side.peak;
+        const v = fibreSpeed(force, side.curve, side.tendon, stretch, toward * speed, dt, Number.isFinite(target) ? toward * target : Infinity);
+        const capacity = force > 0 ? force * forceVelocityFactor(v, side.curve) : 0;
+        const positive = toward > 0 ? capacity : 0, negative = toward > 0 ? 0 : capacity;
+        state.bounds.positive[i] = positive; state.bounds.negative[i] = negative;
+        driver.ceiling[i] = capacity;
+        const along = c.dof.sign > 0, fibre = driver.angle(i) + toward * (stretch + v * dt);
+        c.joint.joint.setSpring(c.index, c.dof.sign * fibre, side.tendon, along ? negative : positive, along ? positive : negative);
+        continue;
+      }
       // Within a step the muscles turn the joint no further than their curve's tangent reaches.
       const reach = forceVelocityReach(toward * speed, (toward > 0 ? c.positive : c.negative).curve);
       const beyond = toward * target > reach;
@@ -264,9 +292,31 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       const c = channels[i]!;
       state.pulled[i] = c.dof.sign * c.joint.joint.motorStepImpulse(c.index) / dt;
       if (state.pulled[i] !== 0) state.ceiling[i] = state.pulled[i]! > 0 ? state.bounds.positive[i]! : state.bounds.negative[i]!;
+      if (c.positive.tendon !== null) state.stretch.positive[i] = Math.max(0, state.pulled[i]!) / c.positive.tendon;
+      if (c.negative.tendon !== null) state.stretch.negative[i] = Math.max(0, -state.pulled[i]!) / c.negative.tendon;
     }
   });
   return driver;
+}
+
+/**
+ * The fibres' shortening speed, rad/s in the joint's terms, behind a tendon of `stiffness` N m/rad
+ * stretched `stretch` rad, the joint turning `joint` rad/s the way they pull, over a step `dt`:
+ * where what they can give, `force` x force-velocity, equals the tendon's pull at the step's end,
+ * stiffness x (stretch + (speed - joint) dt), and no faster than `most`. What they can give falls
+ * with speed and the pull rises, so the speed is one, found by halving between a speed at which the
+ * tendon goes slack and the unloaded speed: 40 halvings, a numeric setting. With no force the
+ * tendon goes slack.
+ */
+function fibreSpeed(force: number, curve: ForceVelocityCurve, stiffness: number, stretch: number, joint: number, dt: number, most: number): number {
+  const slack = joint - stretch / dt;
+  if (!(force > 0)) return slack;
+  let lo = Math.min(slack, -curve.unloadedSpeed), hi = curve.unloadedSpeed;
+  for (let k = 0; k < 40; k++) {
+    const mid = (lo + hi) / 2;
+    if (force * forceVelocityFactor(mid, curve) > stiffness * Math.max(0, stretch + (mid - joint) * dt)) lo = mid; else hi = mid;
+  }
+  return Math.min(lo, most);
 }
 
 /** The curve for the muscles turning a freedom toward `side`, in SI, from its spec. */
