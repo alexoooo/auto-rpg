@@ -89,6 +89,7 @@ const STRAIGHT_FIELDS: readonly PartField<StraightPunchConfig>[] = Object.freeze
   number<StraightPunchConfig, "follow">("follow", "Follow through", 0, 0.1, 0.005, "s"),
   number<StraightPunchConfig, "longest">("longest", "Longest drive", 0.05, 1, 0.01, "s"),
   number<StraightPunchConfig, "recover">("recover", "Recover", 0, 1, 0.05, "s"),
+  toggle<StraightPunchConfig, "landed">("landed", "Wait for both feet"),
 ]);
 
 /**

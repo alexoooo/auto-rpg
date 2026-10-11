@@ -28,7 +28,8 @@ import { turnSense } from "./whole-body-strike.ts";
  * before the forearm opens along it. Each channel is pushed flat out until it is within `brake`
  * rad of its goal, then held there by the posture. The drive ends `follow` s after the hand begins
  * to touch something, or `longest` s after it began; the arm comes back to the guard over
- * `recover` s.
+ * `recover` s. With `landed`, the drive also waits for both feet to bear: a step under way lands
+ * first, as a boxer's lead foot lands with the jab.
  */
 export interface StraightPunch {
   readonly pace: number;
@@ -46,6 +47,7 @@ export interface StraightPunch {
   readonly follow: number;
   readonly longest: number;
   readonly recover: number;
+  readonly landed?: boolean;
 }
 
 /**
@@ -68,7 +70,8 @@ export const STRAIGHT_PUNCH: StraightPunch = deepFreeze({
 export function validStraightPunch(settings: StraightPunch): boolean {
   const values = [settings.pace, settings.reach, settings.band, settings.settle, settings.through, settings.hips, settings.turn, settings.lean,
     settings.chamber, settings.lead, settings.elbow, settings.brake, settings.follow, settings.longest, settings.recover];
-  return values.every((v) => Number.isFinite(v) && v >= 0) && settings.pace > 0 && settings.reach > 0 && settings.band > 0 && settings.longest > 0;
+  return values.every((v) => Number.isFinite(v) && v >= 0) && settings.pace > 0 && settings.reach > 0 && settings.band > 0 && settings.longest > 0
+    && (settings.landed === undefined || typeof settings.landed === "boolean");
 }
 
 /** Whether a body of `spec` can throw the straight punch: a hand effector each side, below a chest, and a thoracic joint that turns it. */
@@ -308,7 +311,7 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
           state.phase = "settle";
           const { phase, velocity } = view.stance;
           if (phase === "stand" || (phase === "shift" && hypot(velocity.x, velocity.z) < SHIFTING_PACE)) state.stood += dt;
-          if (state.stood < settings.settle) {
+          if (state.stood < settings.settle || settings.landed && phase === "swing") {
             return { hands: NO_HANDS, posture: chamber(view, hand), pushes, closed: CLOSED[hand], steer: 0, legs: { kind: "walk", walk: null, face } };
           }
           state.phase = "swing"; state.began = t; state.touched = null; state.face = face; state.thrown[hand]++;
