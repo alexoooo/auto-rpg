@@ -272,6 +272,9 @@ After it, each with its own plan, in the order each needs the one before:
     is what the stride needs before it can be a default.
   - **Running waits for a walk at a person's pace**, and its flight needs a stance that holds
     no foot.
+  - **The next phase** is [walk and run](plans/2026-10-10-walk-and-run.md): a sole that gives,
+    landing on contact, a cadence and push-off from a person's, an ask the soles can give, a blow
+    from a moving walk, then the run.
 - **A half turn at the next rate past the envelope's still now and then runs away sideways and
   falls**, one to three of 56 in four cells: after the turn the walk's plan outruns the pace asked
   ([human and strikes](reference/human-and-strikes.md#turning)).
