@@ -91,7 +91,9 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
         || command.centres?.some((g) => g.frames.some((f) => !frames.has(motionFrameKey(f))))
         || command.joints.some((g) => !channels.has(g.channel))) throw new Error("motion objectives exceed this controller's model or capacity");
     },
-    track(command: MotionCommand): Float64Array {
+    /** A call may select the deepest contact surface for a pivot; omitted, the configured band applies. */
+    track(command: MotionCommand, supportBand?: number): Float64Array {
+      if (!contacts && supportBand !== undefined) throw new Error("contact support band requires a contact model");
       const releasedContacts = new Set<string>(); let stopSeeded = false, contactSeeded = !liftOff;
       contacts?.begin();
       const candidates = stopSettings ? nearJointStops(built, stopSettings.margin, stopDt) : [], released = new Set<string>();
@@ -102,7 +104,7 @@ export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravi
       }
       // Free predictions select support and stop rows; retries release rows but retain no-crossing bounds.
       for (let pass = 0; pass <= candidates.length + contactPasses + 1; pass++) {
-        const supportRows = contacts?.read(command, releasedContacts, !contactSeeded) ?? [];
+        const supportRows = contacts?.read(command, releasedContacts, !contactSeeded, supportBand) ?? [];
         const active = !stopSeeded ? [] : candidates.filter((s) => !released.has(s.id));
         if (active.length) dynamics.update([...active.map((s) => s.row), ...supportRows], [...active.map((s) => s.target), ...(contacts?.targets() ?? [])]);
         else dynamics.update(supportRows, contacts?.targets());

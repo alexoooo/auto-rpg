@@ -52,6 +52,7 @@
  "core-support-transition.test.mjs",
  "core-supported-pose.test.mjs",
  "core-support-load.test.mjs",
+ "core-support-pivot.test.mjs",
  "crypt-core.test.mjs",
  "crypt-detail.test.mjs",
  "crypt-dungeon.test.mjs",

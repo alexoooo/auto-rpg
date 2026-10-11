@@ -16,6 +16,8 @@ export interface ContactTrackingSettings {
   readonly redistributionCost?: number;
   /** Points nearer than this distance on the same body share one prediction; zero retains every point. */
   readonly pointSeparation?: number;
+  /** Only points within this gap of the deepest point on their frame predict sticking support. */
+  readonly supportBand?: number;
   readonly maxPoints: number;
   readonly gap: number;
   readonly minUpNormal: number;
@@ -40,6 +42,9 @@ const XYZ: readonly Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], ZERO: Vec3 = [0,
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const normalized = (v: Vec3): Vec3 => { const length = Math.sqrt(dot(v, v)); return [v[0] / length, v[1] / length, v[2] / length]; };
+const checkSupportBand = (band?: number): void => {
+  if (band !== undefined && !(Number.isFinite(band) && band >= 0)) throw new Error("invalid contact support band");
+};
 /** Relative wrench rank and absolute unit-vector residual thresholds: numeric settings (`docs/reference/contact-distribution.md`). */
 const DISTRIBUTION_RANK = 1e-10;
 
@@ -92,6 +97,7 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
   if (settings.redistributionCost !== undefined && !(Number.isFinite(settings.redistributionCost) && settings.redistributionCost > 0)) throw new Error("invalid contact redistribution cost");
   const separation = settings.pointSeparation ?? 0;
   if (!(Number.isFinite(separation) && separation >= 0)) throw new Error("invalid contact point separation");
+  checkSupportBand(settings.supportBand);
   const separationSquared = separation * separation;
   const mode = settings.liftOff ? { dt: motion?.dt ?? 0, radius: motion?.radius, accelerationTolerance: settings.liftOff.accelerationTolerance } : null;
   const rounding = (r: number): boolean => r >= 0 && Number.isFinite(r);
@@ -126,7 +132,9 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
   return {
     state,
     begin(): void { if (state.motion) { state.motion.work = 0; state.motion.released.length = 0; state.motion.accelerationViolation = 0; } },
-    read(command: MotionCommand, released: ReadonlySet<string> = new Set(), freeAll = false): readonly MotionConstraint[] {
+    read(command: MotionCommand, released: ReadonlySet<string> = new Set(), freeAll = false,
+      supportBand = config.supportBand): readonly MotionConstraint[] {
+      checkSupportBand(supportBand);
       if (state.motion) state.motion.work++;
       points.length = 0; freed.length = 0; motionRows.length = 0; state.solve = null; state.forces.length = 0;
       loads.length = 0; state.loadViolation = 0; state.probing = freeAll;
@@ -140,14 +148,20 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
       for (const [frame, body] of frames) {
         if (free.has(frame)) continue;
         let serial = 0;
-        for (const manifold of physics.contactManifoldsOf(body, (other) => other === null)) {
+        const manifolds = physics.contactManifoldsOf(body, (other) => other === null);
+        let deepest = Infinity;
+        if (supportBand !== undefined) for (const manifold of manifolds) {
+          const normal = normalized(manifold.normal.map(v => -v) as unknown as Vec3);
+          if (dot(normal, up) >= config.minUpNormal) for (const point of manifold.points) deepest = Math.min(deepest, point.distance);
+        }
+        for (const manifold of manifolds) {
           const normal = normalized(manifold.normal.map((v) => -v) as unknown as Vec3);
           if (dot(normal, up) < config.minUpNormal) continue;
           const axis: Vec3 = Math.abs(normal[0]) < Math.abs(normal[1]) ? XYZ[0]! : XYZ[1]!;
           const along = dot(axis, normal), tangent = normalized(axis.map((v, k) => v - along * normal[k]!) as unknown as Vec3), across = cross(tangent, normal);
           for (const point of manifold.points) {
             const id = frame + ":" + serial++;
-            if (point.distance > config.gap) continue;
+            if (point.distance > config.gap || (supportBand !== undefined && point.distance > deepest + supportBand)) continue;
             // Overlapping colliders can report nearly coincident points whose separate rows constrain an artificial lever.
             const nearby = (p: Point) => p.body === body && p.point.reduce((sum, v, k) => sum + (v - point.point[k]!) * (v - point.point[k]!), 0) < separationSquared;
             if (points.some(nearby) || freed.some(nearby)) continue;

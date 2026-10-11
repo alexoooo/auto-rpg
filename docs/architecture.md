@@ -692,6 +692,13 @@ inverted tuck cannot start foot placement. A stalled objective
 retries locally, and a six-second attempt reclassifies actual contacts and orientation. Each
 stage measures progress against its own objective; a transition clears the outgoing error.
 
+During foot placement, sticking support uses only solver points within 0.1 mm of the deepest
+point on each segment. Nearby raised corners remain physical contacts but do not weld a tilted
+boot or shin in the acceleration model. This selection is supplied per control step; the hand
+pressure transfer retains the full measured patch. `tests/core-support-pivot.test.mjs` exercises
+a real two-shove Lab knee-weight shift and an exact checkpoint replay. This supported pivot
+does not establish an upright kneel or a completed rise.
+
 An upright half-kneel with a flat lead sole can extend through the standing controller once
 its capture point is carried by its actual leg contacts, including the rear boot's loaded toe,
 and the captured pressure-transfer controller is inactive.

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { contactTracking } from "../src/core/control/contact-tracking.ts";
 import { wholeBodyTracking, trackingRejected } from "../src/core/control/whole-body.ts";
 import { embody } from "../src/core/mind/mind.ts";
@@ -73,12 +73,12 @@ test("a bounded contact solve preserves real hands-and-knees support before choo
     assert.deepEqual(finish(), expected);
   } finally { body?.dispose(); stand.dispose(); }
 });
-async function fixture(box = false, duplicate = false) {
+async function fixture(box = false, duplicate = false, rotation = Quaternion.Identity()) {
   const rendering = new NullEngine(), scene = new Scene(rendering);
   const physics = (await freshEngine()).createPhysics({ hz: 120, gravity: true });
   physics.addFixedBox([0, -0.5, 0], [5, 1, 5]);
   const node = new TransformNode("support", scene);
-  node.position.set(0, 0.05, 0); node.rotationQuaternion = Quaternion.Identity();
+  node.position.set(0, 0.05, 0); node.rotationQuaternion = rotation;
   const shape = box ? { kind: "box", centre: [0, 0, 0], size: [0.2, 0.1, 0.2] } : { kind: "sphere", centre: [0, 0, 0], radius: 0.05 };
   const body = physics.addBody(node, duplicate ? [shape, { ...shape, centre: [1e-7, 0, 0] }] : [shape], {
     mass: 1, centre: [0, 0, 0], moments: [0.001, 0.001, 0.001], orientation: Quaternion.Identity(),
@@ -86,6 +86,30 @@ async function fixture(box = false, duplicate = false) {
   return { physics, body, frames: new Map([["segment:support", body]]),
     dispose() { physics.dispose(); scene.dispose(); rendering.dispose(); } };
 }
+
+test("a tilted support predicts its deepest edge without welding the nearby raised corners", async () => {
+  const f = await fixture(true, false, Quaternion.RotationAxis(Vector3.Forward(), .012));
+  try {
+    f.physics.step(1 / 120);
+    const before = f.physics.save(), manifolds = f.physics.contactManifoldsOf(f.body, other => other === null);
+    const points = manifolds.flatMap(m => m.points), deepest = Math.min(...points.map(p => p.distance));
+    assert.equal(points.length, 4);
+    const expected = points.filter(p => p.distance <= deepest + .0001).map(p => p.point);
+    assert.equal(expected.length, 2, "the real tilted box has one lower edge and two nearby raised corners");
+    const unfiltered = contactTracking(f.physics, f.frames, 1, settings);
+    assert.equal(unfiltered.read(command).length, 12);
+    const tracker = contactTracking(f.physics, f.frames, 1, { ...settings, supportBand: .0001 });
+    assert.deepEqual(tracker.read(command).filter((_, i) => i % 3 === 0).map(row => row[0].point), expected);
+    assert.deepEqual(f.physics.contactManifoldsOf(f.body, other => other === null), manifolds);
+    assert.deepEqual(f.physics.save(), before, "support selection changes no geometry, load or physical state");
+    assert.equal(tracker.read({ ...command, supports: [{ frame: { kind: "segment", name: "support" }, mode: "free" }] }).length, 0);
+    assert.deepEqual(tracker.read(command).filter((_, i) => i % 3 === 0).map(row => row[0].point), expected);
+    assert.deepEqual(unfiltered.read(command, new Set(), false, .0001).filter((_, i) => i % 3 === 0).map(row => row[0].point), expected);
+    assert.equal(unfiltered.read(command).length, 12, "a per-call edge choice does not mutate controller tuning");
+    for (const supportBand of [-1, NaN, Infinity]) assert.throws(() => contactTracking(f.physics, f.frames, 1,
+      { ...settings, supportBand }), /invalid contact support band/);
+  } finally { f.dispose(); }
+});
 
 test("nearby points from overlapping colliders share prediction rows without changing physical contacts", async () => {
   const f = await fixture(true, true);

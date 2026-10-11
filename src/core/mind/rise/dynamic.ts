@@ -32,6 +32,7 @@ const T = deepFreeze({ response: .15, jointWeight: .2, centreWeight: 3, rootWeig
   footWidth: .2, footReach: .3, footLift: .18, wind: .4,
   slow: .1, minUpNormal: .9, hold: .5,
   extensionSoleUp: .995, extensionRootUp: .9, standSeconds: 1.3, standLower: .03,
+  supportBand: .0001,
   contact: { normalResponseSeconds: .2, maxPoints: 64, gap: .005, minUpNormal: .9, pointSeparation: .001, forceTolerance: 1e-5, redistributionCost: 1e-6,
     iterations: 2048, absoluteTolerance: 1e-7, relativeTolerance: 1e-6, liftOff: { accelerationTolerance: .1 } } });
 const ZERO: Vec3 = Object.freeze([0, 0, 0]);
@@ -493,7 +494,7 @@ export function dynamicRise(own: OwnBody, view: BodyView, world: World): SubMind
         return;
       }
       tracking.check(command);
-      const torque = tracking.track(command);
+      const torque = tracking.track(command, p.phase === "place" ? T.supportBand : undefined);
       if (trackingRejected(tracking.state)) { torque.fill(0); state.rejected++; }
       own.assist.ask(zero, zero);
       applyAction(muscles, { kind: "torque", torque: Array.from(torque) });
