@@ -95,7 +95,7 @@ export function lieOf(root: BuiltSegment, work = { turn: new Quaternion(), way: 
  * purpose is not taken from it. What only a rise needs it reads itself: how it lies, the ground's
  * level, and where its limbs are.
  */
-export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE): SubMind {
+export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE): SubMind & { beginSupported(): void } {
   const faults = stageFaults(recipe, own.spec);
   if (faults.length > 0) throw new Error(`${own.spec.model} cannot play this rise: ${faults.join("; ")}`);
   const muscles = own.muscles, root = muscles.dynamics.root.segment, count = muscles.channels.length;
@@ -273,6 +273,18 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       settle();
       state.tries = 0;
       state.furthest = -1;
+    },
+    /** A controller handoff starts at the first bearing stage only with its actual supports loaded and trunk clear. */
+    beginSupported() {
+      const first = recipe.rise[0];
+      if (first?.kind !== "bear") throw new Error("a supported rise begins with a bearing stage");
+      if (upright.clearance(notTrunk) <= DOWN || !first.on.every(on => {
+        const name = recipe.limbs.find(limb => limb.name === on.limb)!.segment;
+        return own.built.physics.contactsOf(own.built.segments.get(name)!.body, other => other === null)
+          .some(contact => contact.impulse > 0 && -contact.normal[1] >= .9);
+      })) throw new Error("a supported rise requires its actual supports and trunk clearance");
+      state.tries = 1; state.furthest = -1; state.raised = false;
+      enter("rise", 0);
     },
     end() { state.phase = "idle"; },
     step(_senses, dt) {

@@ -650,7 +650,10 @@ slack and reads again; on its front it plays the rise. A bearing stage is done w
 where the stage asks and slow, and is given up at its limit, which ends the attempt, as does the
 trunk back on the ground once the rise has raised it: the riser lies slack and begins again. `stageFaults` says what of a recipe a body's spec cannot play, and
 a riser refuses such a recipe as it is made. What a riser remembers (its phase, how it lies, its
-stage, its attempts and the furthest it got) is its state under its mind's. The game's recipe
+stage, its attempts and the furthest it got) is its state under its mind's. A recipe
+can also enter its first bearing stage through `beginSupported`, which requires that stage's
+actual loaded floor supports and trunk clearance. This handoff changes controller state without
+placing or accelerating the body; ordinary `begin` still starts with settling. The game's recipe
 goes from the front to the feet: onto knees and hands, a kneel-up, a step to a half kneel and a
 lunge onto both feet, where its host's stance has the body and the locomotion skill, resumed,
 stands it at the stance's height and squares its feet. It stands the Warrior from seven falls of
@@ -680,8 +683,11 @@ at almost the same position. Physical contacts remain the engine's. The whole-bo
 loaded contacts and lift-off and asks only muscle torques; a rejected prediction applies zero
 torque. Optional normal gap and velocity feedback stabilizes admitted contacts. Motion commands
 can bound a support frame's total predicted compressive load or each selected point's minimum;
-these bounds constrain muscle torque and apply no contact force to the world. Dynamic rise uses
-normal feedback and retains a measured rear toe with a positive point-load floor during placement
+these bounds constrain muscle torque and apply no contact force to the world.
+An explicit positive aggregate load request also retains its admitted contact rows in the initial
+lift-off probe. It creates no missing contact; a recovery controller drops an unmet load floor
+when the measured geometry leaves the admission gap.
+Dynamic rise uses normal feedback and retains a measured rear toe with a positive point-load floor during placement
 and transfer; an unloaded toe is not added as support. Its tracker also predicts joint stops
 within the same muscle envelope. Orientation and
 acquisition use bounded joint-velocity feedback. During acquisition,
@@ -698,6 +704,13 @@ boot or shin in the acceleration model. This selection is supplied per control s
 pressure transfer retains the full measured patch. `tests/core-support-pivot.test.mjs` exercises
 a real two-shove Lab knee-weight shift and an exact checkpoint replay. This supported pivot
 does not establish an upright kneel or a completed rise.
+
+`tests/core-supported-rise.test.mjs` continues that fresh two-shove fall through toe placement,
+a supported native bearing entry and a captured upright knee hold. The hold retains loaded
+knees and toes with the hands clear, bounds predicted support pressure and damps vertical
+motion while allowing the knee-supported height to settle. Its full physics and controller state
+replay exactly from a checkpoint. This component is separate from the production rise's foot
+placement and does not establish standing or recovery timing.
 
 An upright half-kneel with a flat lead sole can extend through the standing controller once
 its capture point is carried by its actual leg contacts, including the rear boot's loaded toe,

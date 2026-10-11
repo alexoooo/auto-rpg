@@ -148,6 +148,8 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
       for (const [frame, body] of frames) {
         if (free.has(frame)) continue;
         let serial = 0;
+        // A positive aggregate request seeds support before the free-motion lift-off probe.
+        const required = loads.some(load => load.frame === frame && load.min > 0);
         const manifolds = physics.contactManifoldsOf(body, (other) => other === null);
         let deepest = Infinity;
         if (supportBand !== undefined) for (const manifold of manifolds) {
@@ -182,7 +184,7 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
             }
             if (points.length + freed.length === config.maxPoints) throw new Error("sticking contact model capacity exceeded");
             const measured = { id, body, frame, point: point.point, normal, tangent, across, target, curvature };
-            if (mode && (freeAll || released.has(id))) { freed.push(measured); continue; }
+            if (mode && ((freeAll && !required) || released.has(id))) { freed.push(measured); continue; }
             points.push(measured);
             for (const direction of XYZ) motionRows.push([{ body, point: point.point, linear: direction, angular: ZERO }]);
           }

@@ -149,6 +149,28 @@ test("desired support neither creates measured contacts nor removes physical con
   } finally { f.dispose(); }
 });
 
+test("a positive support load participates in the initial lift-off prediction", async () => {
+  const f = await fixture();
+  try {
+    f.physics.step(1 / 120);
+    const before = f.physics.save(), frame = { kind: "segment", name: "support" };
+    const tracker = contactTracking(f.physics, f.frames, 1, { ...settings, liftOff: { accelerationTolerance: .1 } }, 0,
+      { dt: 1 / 120, radius: () => .05 });
+    assert.deepEqual(tracker.read(command, new Set(), true), []);
+    assert.equal(tracker.releasedRows().length, 1);
+    const load = normalLoad => ({ ...command, supports: [{ frame, mode: "auto", normalLoad }] });
+    const seeded = tracker.read(load({ min: 1 }), new Set(), true);
+    assert.equal(seeded.length, 3, "an actually measured positive load request seeds sticking support");
+    assert.deepEqual(seeded.filter((_, i) => i % 3 === 0).map(row => row[0].point),
+      f.physics.contactManifoldsOf(f.body, other => other === null).flatMap(m => m.points.map(p => p.point)));
+    assert.deepEqual(tracker.releasedRows(), []);
+    assert.deepEqual(tracker.read(load({ min: 0 }), new Set(), true), []);
+    assert.deepEqual(tracker.read(load({ pointMin: 1 }), new Set(), true), [], "a per-selected-point floor alone chooses no support");
+    assert.deepEqual(tracker.read(command, new Set(), true), [], "load selection carries no hidden history");
+    assert.deepEqual(f.physics.save(), before);
+  } finally { f.dispose(); }
+});
+
 test("contact redistribution removes artificial tension without changing a body's wrench", async () => {
   const f = await fixture(true);
   try {
