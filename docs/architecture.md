@@ -668,12 +668,13 @@ empty-handed it retains both hands during placement. Its observer includes unave
 points from loaded floor manifolds. Support release uses this measured contact outline, preserving
 a boot's width, and a mass-weighted velocity projection of the centre. A planted foot needs a loaded,
 upward-facing sole; placement enters transfer only with the trunk clear and the rear shin loaded.
-Transfer captures loaded hands, rear shin and both boots, retains their measured geometry and
+The policy's pressure-transfer component captures loaded hands, rear shin and both boots,
+retains their measured geometry and
 tapers the outgoing hand's predicted compressive load before lifting it. The arm lifts only
 after its measured floor load is quiet and the retained contacts still carry weight. The centre
 target transforms the physical local mass centres directly, matching the dynamics' reading.
 This controlled handoff can clear both hands and the knee while the rear boot remains tipped;
-it does not satisfy the standing gate. A supported near-vertical rear toe retains native extension.
+it does not satisfy the standing gate. With compact footing, a supported near-vertical rear toe retains native extension.
 For a sole tipped farther downward, coordinated extension from a loaded upright half-kneel
 shifts the centre over the boots, lets the rear knee rise and peels the rear boot onto its sole
 using a body-local toe edge. Nearby geometry retains the requested support during zero-load
@@ -734,14 +735,24 @@ then asks for the native upright half-kneel. It reads physical mass centres and 
 clamps mirrored seeds to the rig's actual ranges, and gates hand release on measured load and
 quiet body motion. The supported-rise regression starts from the actual five-support Lab
 checkpoint, releases the hands, holds the extension-entry conditions for two seconds and
-replays every observation and saved physics/controller state exactly. This component is not
-used by production dynamic rise. Native and coordinated extension trials from this handoff
-do not complete standing; this transfer does not qualify recovery timing or the full rise.
+replays every observation and saved physics/controller state exactly. Production dynamic rise
+uses this native bearing entry for a new supported half-kneel before extension. This transfer
+does not qualify recovery timing or the full rise.
 
-Production rise begins native extension from an upright half-kneel with a flat lead sole once
+`supportedLunge` handles a wide half-kneel whose boot spacing is near a full leg length. Native
+bearing lifts the rear shin through two low heights while retaining the captured first posture
+and damping the pelvis's turn. The native stance then steps the rear foot inward before raising
+to standing. Actual loaded flat soles, an upright root, slow motion and the centre inside the
+measured soles must hold for half a second before host handover. The supported-extension
+regression continues the actual five-support Lab checkpoint through this production route,
+stands for two seconds, walks for one, and replays every observation and the full saved physics
+and controller state exactly. This checkpoint route excludes the fall and foot preparation;
+it does not qualify the full timing target or recovery across fall directions.
+
+Production rise selects extension from an upright half-kneel with a flat lead sole once
 its capture point is carried by its actual leg contacts, including the rear boot's loaded toe,
 and the captured pressure-transfer controller is inactive.
-The rear sole need not be flat before extension starts. Height rises from the measured stance
+The rear sole need not be flat before extension starts. In the compact native path, height rises from the measured stance
 over 1.3 seconds; the feet stay where they are during this transition, and the same quiet
 two-foot handover gate decides when recovery finishes.
 
@@ -755,8 +766,10 @@ not a demonstrated faster recovery route. Two 60 N s Front shoves in the Stance 
 the Warrior losing support during foot placement and repeating recovery attempts;
 `tests/lab-dynamic-rise.test.mjs` executes this known failure alongside the stage-progress and
 physical hand-and-knee acquisition and initial bounded support-command regressions.
-`tests/core-support-load.test.mjs` also runs the production handoff from an actual muscle-driven
-Lab kneel and forks it during the pressure ramp; quiet support on a tipped boot remains short of standing.
+`tests/core-support-load.test.mjs` holds actual toe support and pressure-transfer components;
+quiet support on a tipped boot remains short of standing. It also forks the production native
+handoff from an initialized standing host into a fresh world, through completion and two seconds
+of resumed standing.
 
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
 skills' report and the envelope of the locomotion they drive) they return an `Intent` (`intent.ts`): a velocity forward

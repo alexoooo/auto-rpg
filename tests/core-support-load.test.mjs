@@ -31,7 +31,7 @@ test("normal feedback and a toe load floor retain the actual kneel for five seco
   } finally { f.dispose(); }
 });
 
-test("the production rise unloads its hand from the actual kneel and forks during pressure transfer", async () => {
+test("the production native half-kneel from a standing host forks into a fresh world and hands over", async () => {
   const make = async () => {
     const spec = modelSpec("workshop-fighter"), stand = await coreStand(spec,
       { engine: "rapier-coordinate", posture: guardPosture(spec), groundSize: 40 });
@@ -45,16 +45,32 @@ test("the production rise unloads its hand from the actual kneel and forks durin
     a.stand.world.physics.load(new Uint8Array(readFileSync(new URL("fixtures/inactive-contact-world.bin", import.meta.url))));
     a.stand.world.step(240);
     const sub = a.stance.body.state.mind.subs[0];
-    assert.equal(sub.policy.handTransfer.stage, "unload", "the checkpoint is inside the physical pressure ramp");
+    assert.deepEqual({ transfer: sub.policy.handTransfer.stage, half: sub.halfKneel.active, lunge: sub.lunge.phase },
+      { transfer: "inactive", half: false, lunge: "raise" }, "the checkpoint is inside the physical native bearing path");
     const saved = saveStand(a.stand.world, { body: a.stance.body.state });
     const finish = ({ stand, stance }) => {
-      const trace = [];
-      for (let step = 0; step < 360; step++) {
+      const trace = []; let completed = null;
+      const p = stance.body.state.mind.subs[0].policy;
+      for (let step = 0; step < 1200; step++) {
         stand.world.step(); const o = stance.body.observe(); trace.push(o);
         for (const j of o.joints) assert.ok(j.effort <= j.positive + 1e-4 && -j.effort <= j.negative + 1e-4, j.name);
         assert.deepEqual({ force: stance.body.assist.meter.force, moment: stance.body.assist.meter.moment }, { force: 0, moment: 0 });
+        assert.equal(o.contacts.some(c => c.fixed !== null && c.impulse > 0 && /Trunk|head/.test(c.segment)), false);
+        if (p.completed && completed === null) {
+          completed = stand.world.time;
+          assert.ok(p.ready >= .5); assert.equal(p.retries, 0);
+          const load = name => o.contacts.filter(c => c.fixed !== null && c.segment === name)
+            .reduce((n, c) => n + c.impulse / stand.world.dt, 0);
+          assert.ok(load("foot.left") > 50 && load("foot.right") > 50);
+        }
+        if (completed !== null) {
+          assert.equal(o.down, false, "the resumed standing host stays upright");
+          if (stand.world.time - completed >= 2) break;
+        }
       }
-      return { trace, state: saveStand(stand.world, { body: stance.body.state }).state };
+      assert.notEqual(completed, null);
+      assert.equal(stance.body.has, "command");
+      return { trace, completed, state: saveStand(stand.world, { body: stance.body.state }).state };
     };
     const expected = finish(a);
     loadStand(b.stand.world, { body: b.stance.body.state }, saved);
@@ -62,17 +78,15 @@ test("the production rise unloads its hand from the actual kneel and forks durin
     const o = expected.trace.at(-1), load = name => o.contacts.filter(c => c.segment === name && c.fixed !== null)
       .reduce((sum, c) => sum + c.impulse / a.stand.world.dt, 0);
     assert.deepEqual([load("hand.left"), load("hand.right"), load("shank.left")], [0, 0, 0]);
-    assert.ok(load("foot.left") > 50 && load("foot.right") > 50);
     assert.equal(o.contacts.some(c => /Trunk|head/.test(c.segment) && c.fixed !== null && c.impulse > 0), false);
     const parts = [...a.stand.built.segments.values()], mass = parts.reduce((sum, part) => sum + part.rigid.mass, 0);
     const speed = o.segments.reduce((sum, part) => sum.addInPlace(new Vector3(...part.velocity)
       .scale(a.stand.built.segments.get(part.name).rigid.mass / mass)), new Vector3()).length();
     const root = a.stand.built.segments.get("lowerTrunk"), up = Vector3.UpReadOnly.applyRotationQuaternionToRef(
       root.node.rotationQuaternion.multiply(Quaternion.Inverse(root.rest)), new Vector3()).y;
-    assert.ok(up > .75 && speed < .05, JSON.stringify({ up, speed }));
-    assert.deepEqual({ stage: sub.policy.handTransfer.stage, liftEnd: sub.policy.handTransfer.liftEnd }, { stage: "lift", liftEnd: true });
-    assert.equal(sub.policy.completed, 0, "arm clearance from a tipped rear boot is not a completed stand");
-    assert.equal(a.stance.body.down, true);
+    assert.ok(up > .9 && speed < .2, JSON.stringify({ up, speed }));
+    assert.deepEqual({ completed: sub.policy.completed, phase: sub.policy.phase, down: a.stance.body.down },
+      { completed: 1, phase: "complete", down: false });
   } finally { a.dispose(); b.dispose(); }
 });
 

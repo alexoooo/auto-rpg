@@ -22,6 +22,8 @@ import type { SubMind } from "../sub-mind.ts";
 import { RISE, type Lie } from "./stages.ts";
 import { handTransfer, HAND_TRANSFER } from "./hand-transfer.ts";
 import { extensionCanStand, extensionNeedsPeel, supportedExtension } from "./supported-extension.ts";
+import { supportedHalfKneel } from "./supported-half-kneel.ts";
+import { supportedLunge, lungeNeedsStep } from "./supported-lunge.ts";
 
 /** Motion feedback, progress hysteresis and bounded retry deadlines; controller choices, not anatomy. */
 const T = deepFreeze({ response: .15, jointWeight: .2, centreWeight: 3, rootWeight: .5, pointWeight: 2,
@@ -435,33 +437,56 @@ export function dynamicRise(own: OwnBody, view: BodyView, world: World): SubMind
     edge: f.ahead.slice(0, 2).map(i => { const p = f.sole[i]!; return [p.x, p.y, p.z] as Vec3; }) as unknown as readonly [Vec3, Vec3],
   }])) as Readonly<Record<Side, { rest: readonly [number, number, number, number]; up: Vec3; edge: readonly [Vec3, Vec3] }>> };
   const extension = supportedExtension(extensionModel);
+  const halfKneel = supportedHalfKneel(own, view), lunge = supportedLunge(own, view);
   const observe = observeBody(built, muscles, world, () => view.senses, undefined, () => view.down, true);
   const middle = new Vector3(), zero = new Vector3(), legs = locomotion(null);
   const motor = motorControl(built, SERVO_SECONDS, guardPosture(own.spec), undefined, own.assist);
   const requestedRates = new Float64Array(muscles.channels.length);
   const extensionWork = { up: new Vector3(), turn: new Quaternion(), inverse: new Quaternion() };
   const state = { policy: policy.state, tracking: tracking.state, legs: legs.state, motor: motor.state, stabilizing: false, rejected: 0,
-    extending: false, extendingNative: false, extension: extension.state, riseFrom: 0, riseYaw: 0 };
+    extending: false, extendingNative: false, extension: extension.state, riseFrom: 0, riseYaw: 0,
+    halfKneel: halfKneel.state, lunge: lunge.state };
   return { get name() { return `dynamic-rise: ${policy.state.phase}`; }, state,
     wants() {
       if (legs.reference === null) legs.goal(view, null, 0, world.dt);
       return policy.state.phase !== "complete" || view.down;
     },
-    begin() { policy.begin(observe()); state.stabilizing = false; state.rejected = 0; state.extending = false; state.extendingNative = false; extension.reset(); motor.reset(); },
-    end() { policy.end(); state.extending = false; state.extendingNative = false; extension.reset(); motor.reset(); },
+    begin() { policy.begin(observe()); state.stabilizing = false; state.rejected = 0; state.extending = false; state.extendingNative = false; extension.reset(); halfKneel.reset(); lunge.reset(); motor.reset(); },
+    end() { policy.end(); state.extending = false; state.extendingNative = false; extension.reset(); halfKneel.reset(); lunge.reset(); motor.reset(); },
     step(_senses, dt) {
       const p = policy.state, observation = observe();
+      if (!halfKneel.state.active && p.phase === "transfer" && p.handTransfer.stage === "inactive"
+        && !riseCanExtend(observation, p.lead, model, p.ground, extensionWork)) halfKneel.begin(p.lead);
+      if (halfKneel.state.active) {
+        halfKneel.step(observation, dt); p.elapsed += dt; p.time += dt; p.attemptTime += dt;
+        if (halfKneel.released && riseCanExtend(observation, p.lead, model, p.ground, extensionWork)) {
+          halfKneel.reset(); p.time = 0; p.attemptTime = 0;
+        } else if (p.attemptTime >= T.attempt || observation.contacts.some(c => c.fixed !== null && c.impulse > 0 && /Trunk|head/.test(c.segment))) {
+          p.retries++; p.attempts++; policy.reclassify(observation); halfKneel.reset();
+        }
+        return;
+      }
       if (!state.extending && p.phase === "transfer" && p.handTransfer.stage === "inactive"
         && riseCanExtend(observation, p.lead, model, p.ground, extensionWork)) {
         state.extending = true; p.phase = "extend"; p.time = 0; p.ready = 0;
         const rear = other(p.lead);
-        state.extendingNative = !extensionNeedsPeel(observation, rear, model.soleUp[rear], extensionWork);
-        if (!state.extendingNative) extension.begin(observation, p.lead, view.standing - T.standLower);
+        if (lungeNeedsStep(observation, model.leg)) {
+          lunge.begin(p.lead); state.extendingNative = false;
+        } else {
+          state.extendingNative = !extensionNeedsPeel(observation, rear, model.soleUp[rear], extensionWork);
+          if (!state.extendingNative) extension.begin(observation, p.lead, view.standing - T.standLower);
+        }
         motor.stance.read(); state.riseFrom = motor.stance.reading.centre.y - motor.stance.reading.support.y;
         const across = extensionWork.up.set(1, 0, 0).applyRotationQuaternionToRef(view.root.rotation, extensionWork.up);
         state.riseYaw = atan2(-across.z, across.x); motor.stance.reset();
       }
       if (state.extending) {
+        if (lunge.state.phase !== "inactive") {
+          lunge.step(observation, dt); p.elapsed += dt; p.time += dt; p.ready = lunge.state.quiet;
+          if (lunge.ready) { p.completed++; p.finished = world.time; p.phase = "complete"; state.extending = false; lunge.reset(); }
+          else if (p.time >= T.attempt) { p.retries++; p.attempts++; policy.reclassify(observation); state.extending = false; lunge.reset(); }
+          return;
+        }
         if (!state.extendingNative) {
           const nearby = extension.state.anchors.filter(a => a.frame.kind === "segment" && world.physics
             .contactManifoldsOf(built.segments.get(a.frame.name)!.body, other => other === null)
