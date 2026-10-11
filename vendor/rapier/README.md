@@ -44,6 +44,10 @@ uses this vendored package. The package layout remains compatible with the bench
   anchors through the current body poses and projects their separation onto its normal.
   `solverContactDist` retains its upstream meaning: a cached distance from the last full
   contact update. Neither reading changes contact solving.
+- **Active contact impulse** (`totalSolverContactImpulse`) sums normal impulses only for
+  geometric points referenced by current solver contacts. Discarded points may retain cached
+  impulses; the aggregate excludes them without changing their upstream per-point readings.
+  Each referenced point counts once, in geometric order, with double-precision accumulation.
 - **Pair-local compliant contact** (`PhysicsHooks.contactLayer`) supplies spring stiffness,
   damping and maximum compression to a manifold. Its implicit normal row has a rigid depth
   backstop. `contactLayerWork` sums normal reaction times solver-anchor displacement over

@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { planarContactAcceleration } from "../build/contact-curvature.ts";
 import type { coupledDynamics } from "../build/coupled-dynamics.ts";
 import { constraintBasis, type MotionConstraint } from "../build/constrained-mass.ts";
@@ -6,12 +6,18 @@ import { CONTACT_FRICTION, type PhysicsWorld, type SegmentBody } from "../engine
 import { activeQuadratic } from "../math/active-quadratic.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { checkEffortBounds, type EffortBound } from "./effort-bounds.ts";
-import { motionFrameKey, type MotionCommand } from "./tasks.ts";
+import { checkedSupportEdge, motionFrameKey, supportEdgeIncludes, supportNormalBounds, type MotionCommand } from "./tasks.ts";
 
 export interface ContactTrackingSettings {
   /** Optional local lift-off prediction; tolerance is in m/s2 and supplied by the experiment. */
   readonly liftOff?: { readonly accelerationTolerance: number };
+  /** Critically damped normal gap and velocity feedback on admitted contacts, s. */
+  readonly normalResponseSeconds?: number;
   readonly redistributionCost?: number;
+  /** Points nearer than this distance on the same body share one prediction; zero retains every point. */
+  readonly pointSeparation?: number;
+  /** Only points within this gap of the deepest point on their frame predict sticking support. */
+  readonly supportBand?: number;
   readonly maxPoints: number;
   readonly gap: number;
   readonly minUpNormal: number;
@@ -36,6 +42,9 @@ const XYZ: readonly Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], ZERO: Vec3 = [0,
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const normalized = (v: Vec3): Vec3 => { const length = Math.sqrt(dot(v, v)); return [v[0] / length, v[1] / length, v[2] / length]; };
+const checkSupportBand = (band?: number): void => {
+  if (band !== undefined && !(Number.isFinite(band) && band >= 0)) throw new Error("invalid contact support band");
+};
 /** Relative wrench rank and absolute unit-vector residual thresholds: numeric settings (`docs/reference/contact-distribution.md`). */
 const DISTRIBUTION_RANK = 1e-10;
 
@@ -86,23 +95,30 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
     || !(settings.minUpNormal > 0 && settings.minUpNormal <= 1) || !(settings.forceTolerance > 0) || !Number.isFinite(settings.forceTolerance)
     || !(dot(physics.gravity, physics.gravity) > 0)) throw new Error("invalid sticking contact settings");
   if (settings.redistributionCost !== undefined && !(Number.isFinite(settings.redistributionCost) && settings.redistributionCost > 0)) throw new Error("invalid contact redistribution cost");
+  const separation = settings.pointSeparation ?? 0;
+  if (!(Number.isFinite(separation) && separation >= 0)) throw new Error("invalid contact point separation");
+  checkSupportBand(settings.supportBand);
+  const separationSquared = separation * separation;
   const mode = settings.liftOff ? { dt: motion?.dt ?? 0, radius: motion?.radius, accelerationTolerance: settings.liftOff.accelerationTolerance } : null;
   const rounding = (r: number): boolean => r >= 0 && Number.isFinite(r);
   if (mode && (!(mode.dt > 0) || !Number.isFinite(mode.dt) || !mode.radius
     || !(mode.accelerationTolerance > 0) || !Number.isFinite(mode.accelerationTolerance)
     || [...frames.keys()].some((frame) => !rounding(mode.radius!(frame, 0))))) throw new Error("invalid contact lift-off settings");
-  const config = Object.freeze({ ...settings }), capacity = channels + 5 * config.maxPoints + extraCapacity;
+  if (settings.normalResponseSeconds !== undefined && (!mode || !(settings.normalResponseSeconds > 0) || !Number.isFinite(settings.normalResponseSeconds))) throw new Error("invalid contact normal response");
+  const config = Object.freeze({ ...settings }), capacity = channels + 5 * config.maxPoints + frames.size + extraCapacity;
   let size = channels, solver = activeQuadratic(size, capacity, config);
   const up = normalized(physics.gravity.map((v) => -v) as unknown as Vec3);
   const forceScale = [...frames.values()].reduce((sum, body) => sum + body.massProperties.mass, 0) * Math.sqrt(dot(physics.gravity, physics.gravity));
   let modes: number[][] = [];
   const centre = new Vector3(), velocity = new Vector3(), spin = new Vector3(), offset = new Vector3();
+  const inverse = new Quaternion(), local = new Vector3();
   const points: Point[] = [], freed: Point[] = [], motionRows: MotionConstraint[] = [];
+  const loads: { frame: string; min: number; max: number; pointMin: number }[] = [];
   const base = new Float64Array(3 * config.maxPoints), response = new Float64Array(3 * config.maxPoints * channels);
   let matrix = new Float64Array(capacity * size);
   const lower = new Float64Array(capacity), upper = new Float64Array(capacity);
   let H = new Float64Array(size * size), gradient = new Float64Array(size), normalization = new Float64Array(size);
-  const state = { status: "unconstrained" as "unconstrained" | "accepted" | "rejected", points: 0, tension: 0, frictionViolation: 0,
+  const state = { status: "unconstrained" as "unconstrained" | "accepted" | "rejected", points: 0, tension: 0, frictionViolation: 0, loadViolation: 0, probing: false,
     motion: mode ? { work: 0, released: [] as string[], accelerationViolation: 0 } : null,
     solve: null as ReturnType<typeof solver.solve> | null,
     solver: { x: new Float64Array(channels + (config.redistributionCost === undefined ? 0 : 3 * config.maxPoints)), dual: new Float64Array(capacity) },
@@ -117,22 +133,52 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
   return {
     state,
     begin(): void { if (state.motion) { state.motion.work = 0; state.motion.released.length = 0; state.motion.accelerationViolation = 0; } },
-    read(command: MotionCommand, released: ReadonlySet<string> = new Set(), freeAll = false): readonly MotionConstraint[] {
+    read(command: MotionCommand, released: ReadonlySet<string> = new Set(), freeAll = false,
+      supportBand = config.supportBand): readonly MotionConstraint[] {
+      checkSupportBand(supportBand);
       if (state.motion) state.motion.work++;
       points.length = 0; freed.length = 0; motionRows.length = 0; state.solve = null; state.forces.length = 0;
+      loads.length = 0; state.loadViolation = 0; state.probing = freeAll;
+      for (const request of command.supports ?? []) if (request.normalLoad !== undefined) {
+        const frame = motionFrameKey(request.frame), [min, max, pointMin] = supportNormalBounds(request.normalLoad);
+        if (request.mode !== "auto" || !frames.has(frame) || loads.some(l => l.frame === frame)) throw new Error("invalid loaded support request");
+        loads.push({ frame, min, max, pointMin });
+      }
       state.status = "unconstrained"; state.tension = 0; state.frictionViolation = 0;
       const free = new Set(command.supports?.filter((s) => s.mode === "free").map((s) => motionFrameKey(s.frame)));
+      const edges = new Map((command.supports ?? []).filter(s => s.edge !== undefined).map(s => {
+        if (!mode || s.mode !== "auto") throw new Error("a bearing edge requires contact lift-off");
+        return [motionFrameKey(s.frame), checkedSupportEdge(s.edge!)] as const;
+      }));
       for (const [frame, body] of frames) {
         if (free.has(frame)) continue;
+        const edge = edges.get(frame);
+        if (edge) Quaternion.InverseToRef(body.node.rotationQuaternion!, inverse);
         let serial = 0;
-        for (const manifold of physics.contactManifoldsOf(body, (other) => other === null)) {
+        // A positive aggregate request seeds support before the free-motion lift-off probe.
+        const required = loads.some(load => load.frame === frame && load.min > 0);
+        const manifolds = physics.contactManifoldsOf(body, (other) => other === null);
+        let deepest = Infinity;
+        if (supportBand !== undefined) for (const manifold of manifolds) {
+          const normal = normalized(manifold.normal.map(v => -v) as unknown as Vec3);
+          if (dot(normal, up) >= config.minUpNormal) for (const point of manifold.points) deepest = Math.min(deepest, point.distance);
+        }
+        for (const manifold of manifolds) {
           const normal = normalized(manifold.normal.map((v) => -v) as unknown as Vec3);
           if (dot(normal, up) < config.minUpNormal) continue;
           const axis: Vec3 = Math.abs(normal[0]) < Math.abs(normal[1]) ? XYZ[0]! : XYZ[1]!;
           const along = dot(axis, normal), tangent = normalized(axis.map((v, k) => v - along * normal[k]!) as unknown as Vec3), across = cross(tangent, normal);
           for (const point of manifold.points) {
             const id = frame + ":" + serial++;
-            if (point.distance > config.gap) continue;
+            if (point.distance > config.gap || (supportBand !== undefined && point.distance > deepest + supportBand)) continue;
+            // Overlapping colliders can report nearly coincident points whose separate rows constrain an artificial lever.
+            const nearby = (p: Point) => p.body === body && p.point.reduce((sum, v, k) => sum + (v - point.point[k]!) * (v - point.point[k]!), 0) < separationSquared;
+            if (points.some(nearby) || freed.some(nearby)) continue;
+            let offEdge = false;
+            if (edge) {
+              local.set(...point.point).subtractInPlace(body.node.position).applyRotationQuaternionToRef(inverse, local);
+              offEdge = !supportEdgeIncludes([local.x, local.y, local.z], edge);
+            }
             let curvature: Vec3 = ZERO, target = 0;
             if (mode) {
               centre.set(...body.massProperties.centre).applyRotationQuaternionToRef(body.node.rotationQuaternion!, centre).addInPlace(body.node.position);
@@ -142,11 +188,15 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
               const radius = mode.radius!(frame, manifold.mine);
               if (!rounding(radius)) throw new Error("contact lift-off shape is missing");
               curvature = planarContactAcceleration({ kind: "sphere", centre: ZERO, radius }, normal, [spin.x, spin.y, spin.z]);
+              if (config.normalResponseSeconds !== undefined) {
+                const seconds = config.normalResponseSeconds, closure = -point.distance / (seconds * seconds) - 2 * rate / seconds;
+                curvature = curvature.map((v, k) => v + closure * normal[k]!) as unknown as Vec3;
+              }
               target = dot(curvature, normal) + (-point.distance / mode.dt - rate) / mode.dt;
             }
             if (points.length + freed.length === config.maxPoints) throw new Error("sticking contact model capacity exceeded");
             const measured = { id, body, frame, point: point.point, normal, tangent, across, target, curvature };
-            if (mode && (freeAll || released.has(id))) { freed.push(measured); continue; }
+            if (mode && (offEdge || (freeAll && !required) || released.has(id))) { freed.push(measured); continue; }
             points.push(measured);
             for (const direction of XYZ) motionRows.push([{ body, point: point.point, linear: direction, angular: ZERO }]);
           }
@@ -179,7 +229,7 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
     },
     solve(hessian: Float64Array, rhs: Float64Array, scale: Float64Array, lo: Float64Array, hi: Float64Array, candidate: Float64Array, extra: readonly EffortBound[] = []): void {
       checkEffortBounds(extra, channels, extraCapacity);
-      if (!points.length && !extra.length) return;
+      if (!points.length && !extra.length && (state.probing || !loads.some(l => l.min > 0))) return;
       matrix.fill(0);
       for (let i = 0; i < channels; i++) { matrix[i * size + i] = 1; lower[i] = lo[i]!; upper[i] = hi[i]!; }
       let rows = channels;
@@ -193,8 +243,21 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
           let value = 0; for (let k = 0; k < 3; k++) value += axis[k]! * mode[3 * p + k]!;
           matrix[rows * size + channels + i] = value * forceScale;
         });
-        lower[rows] = kind === 0 ? -offset : -Infinity; upper[rows] = kind === 0 ? Infinity : -offset; rows++;
+        lower[rows] = kind === 0 ? (loads.find(l => l.frame === point.frame)?.pointMin ?? 0) - offset : -Infinity;
+        upper[rows] = kind === 0 ? Infinity : -offset; rows++;
       }));
+      if (!state.probing) for (const load of loads) {
+        const selected = points.flatMap((p, i) => p.frame === load.frame ? [i] : []);
+        let offset = 0;
+        for (const p of selected) for (let k = 0; k < 3; k++) offset += points[p]!.normal[k]! * base[3 * p + k]!;
+        for (let i = 0; i < channels; i++) for (const p of selected) for (let k = 0; k < 3; k++) {
+          matrix[rows * size + i]! += points[p]!.normal[k]! * response[(3 * p + k) * channels + i]! * scale[i]!;
+        }
+        modes.forEach((mode, i) => {
+          for (const p of selected) for (let k = 0; k < 3; k++) matrix[rows * size + channels + i]! += points[p]!.normal[k]! * mode[3 * p + k]! * forceScale;
+        });
+        lower[rows] = load.min - offset; upper[rows] = load.max - offset; rows++;
+      }
       for (const bound of extra) {
         for (let i = 0; i < channels; i++) matrix[rows * size + i] = bound.coefficients[i]! * scale[i]!;
         lower[rows] = bound.lower; upper[rows] = bound.upper; rows++;
@@ -252,16 +315,27 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
         const force = [0, 1, 2].map((k) => multipliers[offset + 3 * p + k]! + state.redistribution[3 * p + k]!) as unknown as Vec3;
         const normal = dot(force, point.normal), a = dot(force, point.tangent), b = dot(force, point.across);
         state.tension = Math.max(state.tension, -normal);
+        state.loadViolation = Math.max(state.loadViolation, (loads.find(l => l.frame === point.frame)?.pointMin ?? 0) - normal);
         state.frictionViolation = Math.max(state.frictionViolation, Math.sqrt(a * a + b * b) - CONTACT_FRICTION * normal);
         state.forces.push({ frame: point.frame, point: [...point.point] as Vec3, force });
       });
+      if (!state.probing) for (const load of loads) {
+        let normal = 0;
+        points.forEach((point, p) => {
+          if (point.frame === load.frame) for (let k = 0; k < 3; k++) normal += point.normal[k]!
+            * (multipliers[offset + 3 * p + k]! + state.redistribution[3 * p + k]!);
+        });
+        state.loadViolation = Math.max(state.loadViolation, load.min - normal, normal - load.max);
+      }
       if (!Number.isFinite(state.tension + state.frictionViolation) || state.tension > config.forceTolerance || state.frictionViolation > config.forceTolerance) {
         state.status = "rejected"; torque.fill(0);
       }
+      if (!Number.isFinite(state.loadViolation) || state.loadViolation > config.forceTolerance) { state.status = "rejected"; torque.fill(0); }
     },
     /** A coupled physical constraint rejects the candidate after the contact solve. */
     reject(): void { state.status = "rejected"; state.forces.length = 0; },
     report() { return { status: state.status, points: state.points, tension: state.tension, frictionViolation: state.frictionViolation,
+      loadViolation: state.loadViolation,
       motion: state.motion ? { ...state.motion, released: [...state.motion.released] } : null,
       solve: state.solve ? { ...state.solve } : null, forces: state.forces.map((f) => ({ frame: f.frame, point: [...f.point] as Vec3, force: [...f.force] as Vec3 })) }; },
   };

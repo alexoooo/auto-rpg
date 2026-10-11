@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { withinSupport } from "../src/core/control/support.ts";
+import { riseCanPlace } from "../src/core/mind/rise/dynamic.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { guardPosture } from "../src/core/skills/guard.ts";
 import { LAB_PRESETS } from "../src/lab/scenarios.ts";
@@ -48,8 +51,52 @@ test("a new dynamic-rise stage measures its own progress after two Lab Front sho
   });
 });
 
+test("two Lab Front shoves reach supported hand-and-knee placement without repeating the fall", async () => {
+  await doubleFrontShove((stance, world) => {
+    const p = stance.body.state.mind.subs[0].policy, root = stance.body.built.segments.get("lowerTrunk");
+    const model = { held: null, rest: root.rest.asArray() };
+    const inverse = Quaternion.Inverse(root.rest), turn = new Quaternion(), up = new Vector3();
+    const supports = ["hand.left", "hand.right", "shank.left", "shank.right"];
+    let fellAt = null, inverted = false;
+    for (let step = 0; step < 480; step++) {
+      world.step();
+      if (stance.body.down && fellAt === null) fellAt = world.time;
+      const o = stance.body.observe(), loaded = o.contacts.filter(c => c.fixed !== null && c.impulse > 0 && Math.abs(c.normal[1]) >= .9);
+      turn.copyFrom(root.node.rotationQuaternion).multiplyToRef(inverse, turn);
+      up.set(0, 1, 0).applyRotationQuaternionToRef(turn, up);
+      if (up.y < 0 && supports.every(name => loaded.some(c => c.segment === name))
+        && !loaded.some(c => /Trunk|head/.test(c.segment))) {
+        inverted = true;
+        assert.equal(riseCanPlace(o, model), false, "loaded hands and knees cannot start placement with an inverted pelvis");
+      }
+      if (p.phase === "place") break;
+    }
+    assert.notEqual(fellAt, null);
+    assert.deepEqual({ phase: p.phase, attempts: p.attempts, retries: p.retries }, { phase: "place", attempts: 1, retries: 0 });
+    assert.ok(world.time - fellAt <= 3, "hand-and-knee acquisition completes without another roll attempt");
+    assert.equal(inverted, true, "the physical fall exercises the inverted tuck before acquisition");
+    const o = stance.body.observe(), loaded = o.contacts.filter(c => c.fixed !== null && c.impulse > 0 && Math.abs(c.normal[1]) >= .9);
+    assert.deepEqual(supports.map(name => loaded.some(c => c.segment === name)), [true, true, true, true]);
+    assert.equal(loaded.some(c => /Trunk|head/.test(c.segment)), false);
+    assert.ok(up.y > .15, "the pelvis is above its prone orientation");
+    assert.equal(riseCanPlace(o, model), true);
+    const sub = stance.body.state.mind.subs[0];
+    assert.deepEqual({ contact: sub.tracking.contact.status, rejected: sub.rejected }, { contact: "accepted", rejected: 0 },
+      "the actual collider contacts admit the first bounded support command instead of dropping all muscle effort");
+    const parts = [...stance.body.built.segments.values()], mass = parts.reduce((sum, part) => sum + part.rigid.mass, 0);
+    const velocity = o.segments.reduce((v, segment) => v.map((value, k) => value
+      + segment.velocity[k] * stance.body.built.segments.get(segment.name).rigid.mass / mass), [0, 0, 0]);
+    const span = Math.sqrt(o.centre[1] / -world.physics.gravity[1]), x = o.centre[0] + velocity[0] * span, z = o.centre[2] + velocity[2] * span;
+    const patches = loaded.filter(c => supports.includes(c.segment)).map(c => ({
+      corners: c.pairs.length ? c.pairs.map(pair => new Vector3(...pair.point)) : [new Vector3(...c.point)],
+    }));
+    assert.deepEqual(withinSupport(patches, x, z, 0), [x, z], "the actual support contacts carry the capture point");
+    assert.deepEqual({ force: stance.body.assist.meter.force, moment: stance.body.assist.meter.moment }, { force: 0, moment: 0 });
+  });
+});
+
 test("dynamic rise stands and hands back control within six seconds after two Lab Front shoves", {
-  todo: "the Warrior repeats orientation and acquisition attempts instead of completing recovery",
+  todo: "the Warrior loses hand-and-knee support during foot placement and repeats recovery",
 }, async () => {
   await doubleFrontShove((stance, world) => {
     const p = stance.body.state.mind.subs[0].policy;

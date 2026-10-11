@@ -31,7 +31,7 @@ const EMPTY_MATERIAL_CONTACTS: readonly MaterialContact[] = Object.freeze([]);
 type Rapier = typeof RAPIER;
 
 /** Vendor archive identity (`docs/reference/rapier-vendor.md`) and the adapter's snapshot contract. */
-const REVISION = "rapier/adapter-10/sha256:983fdf9572894a7903a45d3e4286aad7919dc6a510fd58978fe01e8a4ee1c54f";
+const REVISION = "rapier/adapter-11/sha256:0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c";
 
 /**
  * Rapier's wasm, loading or loaded: one instance a realm. Rapier's own `init` asked again while
@@ -220,8 +220,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     const shapes = [shapeOf.get(mine)!, of ? shapeOf.get(theirs)! : 0] as const;
     const pushed = scan.pushed ??= new Map(), met = scan.met ??= new Map();
     raw.narrowPhase.contactPair(mine, theirs, raw.bodies, (manifold, flipped) => {
-      let impulse = 0;
-      for (let i = 0; i < manifold.numContacts(); i++) impulse += manifold.contactImpulse(i);
+      const impulse = manifold.totalSolverContactImpulse();
       // In contact is a solver contact point: the two touch, or are within the distance Rapier
       // predicts a contact over (`normalizedPredictionDistance`, 0.02 m as Rapier ships).
       const points = manifold.numSolverContacts();
@@ -607,8 +606,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
               }
               if (!points.length) return;
               const n = manifold.normal(), sign = flipped ? -1 : 1;
-              let impulse = 0;
-              for (let k = 0; k < manifold.numContacts(); k++) impulse += manifold.contactImpulse(k);
+              const impulse = manifold.totalSolverContactImpulse();
               out.push({ other, fixed: other === null ? theirs : null, mine: shapeOf.get(mine)!,
                 theirs: other === null ? 0 : shapeOf.get(theirs)!, normal: [sign * n.x, sign * n.y, sign * n.z], points, impulse });
             });
@@ -675,9 +673,10 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
           raw.narrowPhase.contactPair(a, b, raw.bodies, (manifold, flipped) => {
             if (!(manifold.layerStiffness() > 0)) return;
             const normal = manifold.normal(), sign = flipped ? -1 : 1;
-            let work = 0, depth = 0, impulse = 0;
+            let work = 0, depth = 0;
+            const impulse = manifold.totalSolverContactImpulse();
             for (let i = 0; i < manifold.numContacts(); i++) {
-              work += manifold.contactLayerWork(i); impulse += manifold.contactImpulse(i);
+              work += manifold.contactLayerWork(i);
             }
             for (let i = 0; i < manifold.numSolverContacts(); i++) depth = Math.max(depth, -manifold.solverContactSeparation(i));
             if (work === 0 && !(impulse > 0) && !(depth > 0)) return;
@@ -697,8 +696,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       for (const [mine, material] of materials) if (material.point) raw.narrowPhase.contactPairsWith(mine, theirs => {
         raw.narrowPhase.contactPair(mine, theirs, raw.bodies, manifold => {
           if (!(manifold.layerStiffness() > 0)) return;
-          let loaded = false;
-          for (let i = 0; i < manifold.numContacts(); i++) loaded ||= manifold.contactImpulse(i) > 0;
+          let loaded = manifold.totalSolverContactImpulse() > 0;
           for (let i = 0; i < manifold.numSolverContacts(); i++) loaded ||= manifold.solverContactSeparation(i) < 0;
           if (loaded) continuingLayers.add(materialKey(mine, theirs));
         });

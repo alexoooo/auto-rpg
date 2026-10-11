@@ -44,10 +44,10 @@ index 9ebb61c..0df00e9 100644
          this.raw = raw || new RawIntegrationParameters();
      }
 diff --git a/bindings/typescript/src.ts/geometry/narrow_phase.ts b/bindings/typescript/src.ts/geometry/narrow_phase.ts
-index 6163053..63594cf 100644
+index 6163053..ca4b2a4 100644
 --- a/bindings/typescript/src.ts/geometry/narrow_phase.ts
 +++ b/bindings/typescript/src.ts/geometry/narrow_phase.ts
-@@ -202,6 +202,9 @@ export class TempContactManifold {
+@@ -202,10 +202,18 @@ export class TempContactManifold {
          return this.raw.contact_fid2(i);
      }
  
@@ -57,7 +57,16 @@ index 6163053..63594cf 100644
      public contactImpulse(i: number): number {
          return this.raw.contact_impulse(i);
      }
-@@ -246,6 +249,11 @@ export class TempContactManifold {
+ 
++    /** Normal impulse summed once per geometric point used by current solver contacts. */
++    public totalSolverContactImpulse(): number {
++        return this.raw.total_solver_contact_impulse();
++    }
++
+     // #if DIM2
+     public contactTangentImpulse(i: number): number {
+         return this.raw.contact_tangent_impulse(i);
+@@ -246,6 +254,11 @@ export class TempContactManifold {
          return this.raw.solver_contact_dist(i);
      }
  
@@ -240,7 +249,7 @@ index 9a95f0d..4a7e126 100644
      //     &mut self,
      //     handle: FlatHandle,
 diff --git a/bindings/typescript/src/geometry/narrow_phase.rs b/bindings/typescript/src/geometry/narrow_phase.rs
-index 22d78a5..ee7cb69 100644
+index 22d78a5..6314ea7 100644
 --- a/bindings/typescript/src/geometry/narrow_phase.rs
 +++ b/bindings/typescript/src/geometry/narrow_phase.rs
 @@ -229,6 +229,12 @@ impl RawContactManifold {
@@ -256,7 +265,32 @@ index 22d78a5..ee7cb69 100644
      pub fn contact_impulse(&self, i: usize) -> Real {
          unsafe {
              (&(*self.0).points)
-@@ -324,6 +330,17 @@ impl RawContactManifold {
+@@ -238,6 +244,24 @@ impl RawContactManifold {
+         }
+     }
+ 
++    /// Normal impulse from geometric points referenced by current solver contacts.
++    /// Cached impulses on discarded points are excluded. Geometric order and double
++    /// precision preserve the sum made by the JavaScript reader for active points.
++    pub fn total_solver_contact_impulse(&self) -> f64 {
++        unsafe {
++            let manifold = &*self.0;
++            let mut total = 0.0f64;
++            for (i, point) in manifold.points.iter().enumerate() {
++                if manifold.data.solver_contacts.iter().any(|contact| {
++                    contact.contact_indices()[0] as usize == i
++                }) {
++                    total += point.data.impulse as f64;
++                }
++            }
++            total
++        }
++    }
++
+     #[cfg(feature = "dim2")]
+     pub fn contact_tangent_impulse(&self, i: usize) -> Real {
+         unsafe {
+@@ -324,6 +348,17 @@ impl RawContactManifold {
          }
      }
  

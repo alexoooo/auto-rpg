@@ -71,6 +71,8 @@ export interface BearStage {
   readonly posture: Posture | "reference";
   /** The time constant of its aims, s. */
   readonly seconds: number;
+  /** The joint servo's posture response, s; absent, the bearing response also drives its posture. */
+  readonly postureSeconds?: number;
   /** The longest it may take, s: past it the attempt is over. */
   readonly limit: number;
 }
@@ -520,6 +522,8 @@ export function stageFaults(recipe: Recipe, spec: BodySpec): string[] {
         if (stage.drive && !(stage.drive.speed > 0 && stage.drive.within > 0)) faults.push(`stage ${stage.name} drives at ${stage.drive.speed} rad/s within ${stage.drive.within} s`);
         break;
       case "bear": {
+        if (stage.postureSeconds !== undefined && (!(stage.postureSeconds > 0) || !Number.isFinite(stage.postureSeconds)))
+          faults.push(`stage ${stage.name} drives its posture within ${stage.postureSeconds} s`);
         if (stage.posture !== "reference") postureFaults(stage, stage.posture);
         if (!(stage.limit > 0)) faults.push(`stage ${stage.name} may take ${stage.limit} s`);
         // Each limb it drives, to bear on or to leave, with its channels where the body has it.

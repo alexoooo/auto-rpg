@@ -680,7 +680,10 @@ slack and reads again; on its front it plays the rise. A bearing stage is done w
 where the stage asks and slow, and is given up at its limit, which ends the attempt, as does the
 trunk back on the ground once the rise has raised it: the riser lies slack and begins again. `stageFaults` says what of a recipe a body's spec cannot play, and
 a riser refuses such a recipe as it is made. What a riser remembers (its phase, how it lies, its
-stage, its attempts and the furthest it got) is its state under its mind's. The game's recipe
+stage, its attempts and the furthest it got) is its state under its mind's. A recipe
+can also enter its first bearing stage through `beginSupported`, which requires that stage's
+actual loaded floor supports and trunk clearance. This handoff changes controller state without
+placing or accelerating the body; ordinary `begin` still starts with settling. The game's recipe
 goes from the front to the feet: onto knees and hands, a kneel-up, a step to a half kneel and a
 lunge onto both feet, where its host's stance has the body and the locomotion skill, resumed,
 stands it at the stance's height and squares its feet. It stands the Warrior from seven falls of
@@ -691,22 +694,102 @@ fall of five and the skeleton from almost none
 **Dynamic rise** separates a detached observation policy from the muscle adapter. The policy
 waits for a non-foot floor contact, orients, acquires hand/shin support, places a lead foot,
 transfers weight, extends and verifies standing. It retains a held club and uses the free hand;
-empty-handed it retains both hands during placement. Support release uses the measured contact
-outline and a mass-weighted velocity projection of the centre. A planted foot needs a loaded,
+empty-handed it retains both hands during placement. Its observer includes unaveraged solver
+points from loaded floor manifolds. Support release uses this measured contact outline, preserving
+a boot's width, and a mass-weighted velocity projection of the centre. A planted foot needs a loaded,
 upward-facing sole; placement enters transfer only with the trunk clear and the rear shin loaded.
-Transfer retains the hands until the projected centre is over its foot and shin. Pose seeds are clamped to the
+The policy's pressure-transfer component captures loaded hands, rear shin and both boots,
+retains their measured geometry and
+tapers the outgoing hand's predicted compressive load before lifting it. The arm lifts only
+after its measured floor load is quiet and the retained contacts still carry weight. The centre
+target transforms the physical local mass centres directly, matching the dynamics' reading.
+This controlled handoff can clear both hands and the knee while the rear boot remains tipped;
+it does not satisfy the standing gate. With compact footing, a supported near-vertical rear toe retains native extension.
+For a sole tipped farther downward, coordinated extension from a loaded upright half-kneel
+shifts the centre over the boots, lets the rear knee rise and peels the rear boot onto its sole
+using a body-local toe edge. Nearby geometry retains the requested support during zero-load
+frames. Native standing takes over only after both actual soles are loaded and flat, the root
+is upright and the body's centre is slow. Its final quiet-standing gate precedes host handover.
+`tests/core-supported-extension.test.mjs` continues an actual muscle-produced half-kneel through
+this production path, then stands for two seconds and walks for one, with an exact checkpoint
+replay. This component does not qualify recovery from a fresh fall or the full timing target.
+Pose seeds are clamped to the
 body's limits; the Warrior's fours seed is the installed posture asset. Placement reads its
 heading from the supported body's current orientation after rolling and acquisition. It tracks the
 sole's centre to the floor, turns the boot flat and lifts it along an arc scaled to the leg's
-length. Root-height aims also use smooth trajectories. The whole-body tracker predicts
+length. Root-height aims also use smooth trajectories. Its contact prediction merges points
+within 1 mm on the same segment, so overlapping colliders do not create separate restraints
+at almost the same position. Physical contacts remain the engine's. The whole-body tracker predicts
 loaded contacts and lift-off and asks only muscle torques; a rejected prediction applies zero
-torque. Orientation and acquisition use bounded joint-velocity feedback. A stalled objective
+torque. Optional normal gap and velocity feedback stabilizes admitted contacts. Motion commands
+can bound a support frame's total predicted compressive load or each selected point's minimum;
+these bounds constrain muscle torque and apply no contact force to the world.
+An explicit positive aggregate load request also retains its admitted contact rows in the initial
+lift-off probe. It creates no missing contact; a recovery controller drops an unmet load floor
+when the measured geometry leaves the admission gap.
+Dynamic rise uses normal feedback and retains a measured rear toe with a positive point-load floor during placement
+and transfer; an unloaded toe is not added as support. Its tracker also predicts joint stops
+within the same muscle envelope. Orientation and
+acquisition use bounded joint-velocity feedback. During acquisition,
+the hips respond to the pelvis's measured pitch, checking the forward reaction of drawing the
+knees under the body. Loaded hands and knees advance the tuck and prop; foot placement waits
+for the fours posture, both free hands, clear trunk contacts and a pelvis above prone. An
+inverted tuck cannot start foot placement. A stalled objective
 retries locally, and a six-second attempt reclassifies actual contacts and orientation. Each
 stage measures progress against its own objective; a transition clears the outgoing error.
 
-An upright half-kneel with a flat lead sole can extend through the standing controller once
-its capture point is carried by its actual leg contacts, including the rear boot's loaded toe.
-The rear sole need not be flat before extension starts. Height rises from the measured stance
+During foot placement, sticking support uses only solver points within 0.1 mm of the deepest
+point on each segment. Nearby raised corners remain physical contacts but do not weld a tilted
+boot or shin in the acceleration model. This selection is supplied per control step; the hand
+pressure transfer retains the full measured patch. `tests/core-support-pivot.test.mjs` exercises
+a real two-shove Lab knee-weight shift and an exact checkpoint replay. This supported pivot
+does not establish an upright kneel or a completed rise.
+
+`tests/core-supported-rise.test.mjs` continues that fresh two-shove fall through boot contact acquisition,
+a supported native bearing entry and a captured upright knee hold. The hold retains loaded
+knees and boots with the hands clear, bounds predicted support pressure and damps vertical
+motion while allowing the knee-supported height to settle. Its full physics and controller state
+replay exactly from a checkpoint. This component is separate from the production rise's foot
+placement and does not establish standing or recovery timing. The boots rest on their backs;
+the sole support needed by the native one-leg transfer is not established.
+
+`stagedRise.beginSupported` can retain a supplied legal anatomical posture for its first bearing
+stage. It copies the angles into replayable state, checks every channel's actual range before
+entry, and leaves later stages on their recipe goals. The same test continues an actual
+muscle-curled, airborne rear boot through supported native contact acquisition. The front sole
+corner acquires load while both knees remain supported, and every observation and saved state
+replays exactly. A captured handoff leaves the recipe's default goals intact.
+`beginSupported` can hold that first bearing stage until its caller finishes a measured limb
+transition; `supportedReady` reports the stage's current completion predicate. The stage's
+deadline and trunk-contact abort still apply. A recipe can give the joint servo a separate
+`postureSeconds` response while retaining the bearing aims' response. The supported-hold test
+moves an actual free wrist on loaded shins, retains bearing after readiness, checks expiry and
+replays all observations and saved physics/controller state exactly with bounded muscles and
+zero assist. These controls leave ordinary staged-rise entry and progression unchanged.
+
+`supportedHalfKneel` transfers an actual supported posture onto its lead sole and rear shin,
+then asks for the native upright half-kneel. It reads physical mass centres and velocities,
+clamps mirrored seeds to the rig's actual ranges, and gates hand release on measured load and
+quiet body motion. The supported-rise regression starts from the actual five-support Lab
+checkpoint, releases the hands, holds the extension-entry conditions for two seconds and
+replays every observation and saved physics/controller state exactly. Production dynamic rise
+uses this native bearing entry for a new supported half-kneel before extension. This transfer
+does not qualify recovery timing or the full rise.
+
+`supportedLunge` handles a wide half-kneel whose boot spacing is near a full leg length. Native
+bearing lifts the rear shin through two low heights while retaining the captured first posture
+and damping the pelvis's turn. The native stance then steps the rear foot inward before raising
+to standing. Actual loaded flat soles, an upright root, slow motion and the centre inside the
+measured soles must hold for half a second before host handover. The supported-extension
+regression continues the actual five-support Lab checkpoint through this production route,
+stands for two seconds, walks for one, and replays every observation and the full saved physics
+and controller state exactly. This checkpoint route excludes the fall and foot preparation;
+it does not qualify the full timing target or recovery across fall directions.
+
+Production rise selects extension from an upright half-kneel with a flat lead sole once
+its capture point is carried by its actual leg contacts, including the rear boot's loaded toe,
+and the captured pressure-transfer controller is inactive.
+The rear sole need not be flat before extension starts. In the compact native path, height rises from the measured stance
 over 1.3 seconds; the feet stay where they are during this transition, and the same quiet
 two-foot handover gate decides when recovery finishes.
 
@@ -717,8 +800,13 @@ save under the hosted mind. The editor offers the variant to Warrior and Rogue w
 or one retained item; presets keep their existing recovery. Its zero-assist human timing gate
 fails ([reference/rising.md](reference/rising.md#dynamic-rise)); it is an experimental controller,
 not a demonstrated faster recovery route. Two 60 N s Front shoves in the Stance Lab also leave
-the Warrior repeating recovery attempts; `tests/lab-dynamic-rise.test.mjs` executes this known
-failure alongside the stage-progress regression.
+the Warrior losing support during foot placement and repeating recovery attempts;
+`tests/lab-dynamic-rise.test.mjs` executes this known failure alongside the stage-progress and
+physical hand-and-knee acquisition and initial bounded support-command regressions.
+`tests/core-support-load.test.mjs` holds actual toe support and pressure-transfer components;
+quiet support on a tipped boot remains short of standing. It also forks the production native
+handoff from an initialized standing host into a fresh world, through completion and two seconds
+of resumed standing.
 
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
 skills' report and the envelope of the locomotion they drive) they return an `Intent` (`intent.ts`): a velocity forward
@@ -860,6 +948,9 @@ Optional [local contact lift-off](reference/contact-liftoff.md) first predicts m
 sticking support, then selects measured contacts. Released contacts retain normal end-step
 bounds in the same torque solve. The bounded contact-force solve, including requested load
 redistribution, runs before tension in an effort guess can release a selected support.
+A desired support can name a finite edge in its body's local frame. Only measured points
+near that edge predict sticking support; the other admitted points retain normal separation
+bounds. This allows a bearing surface to peel away without removing its physical contacts.
 Shape curvature supplies active material-point acceleration;
 rejected force or acceleration predictions produce zero torque. This option is independent of
 joint-stop prediction and disabled by default. Repeated mechanical lift/recontact is measured;

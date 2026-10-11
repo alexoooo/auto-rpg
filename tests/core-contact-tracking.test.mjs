@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { contactTracking } from "../src/core/control/contact-tracking.ts";
 import { wholeBodyTracking, trackingRejected } from "../src/core/control/whole-body.ts";
 import { embody } from "../src/core/mind/mind.ts";
@@ -73,18 +73,92 @@ test("a bounded contact solve preserves real hands-and-knees support before choo
     assert.deepEqual(finish(), expected);
   } finally { body?.dispose(); stand.dispose(); }
 });
-async function fixture(box = false) {
+async function fixture(box = false, duplicate = false, rotation = Quaternion.Identity()) {
   const rendering = new NullEngine(), scene = new Scene(rendering);
   const physics = (await freshEngine()).createPhysics({ hz: 120, gravity: true });
   physics.addFixedBox([0, -0.5, 0], [5, 1, 5]);
   const node = new TransformNode("support", scene);
-  node.position.set(0, 0.05, 0); node.rotationQuaternion = Quaternion.Identity();
-  const body = physics.addBody(node, box ? [{ kind: "box", centre: [0, 0, 0], size: [0.2, 0.1, 0.2] }] : [{ kind: "sphere", centre: [0, 0, 0], radius: 0.05 }], {
+  node.position.set(0, 0.05, 0); node.rotationQuaternion = rotation;
+  const shape = box ? { kind: "box", centre: [0, 0, 0], size: [0.2, 0.1, 0.2] } : { kind: "sphere", centre: [0, 0, 0], radius: 0.05 };
+  const body = physics.addBody(node, duplicate ? [shape, { ...shape, centre: [1e-7, 0, 0] }] : [shape], {
     mass: 1, centre: [0, 0, 0], moments: [0.001, 0.001, 0.001], orientation: Quaternion.Identity(),
   });
   return { physics, body, frames: new Map([["segment:support", body]]),
     dispose() { physics.dispose(); scene.dispose(); rendering.dispose(); } };
 }
+
+test("a tilted support predicts its deepest edge without welding the nearby raised corners", async () => {
+  const f = await fixture(true, false, Quaternion.RotationAxis(Vector3.Forward(), .012));
+  try {
+    f.physics.step(1 / 120);
+    const before = f.physics.save(), manifolds = f.physics.contactManifoldsOf(f.body, other => other === null);
+    const points = manifolds.flatMap(m => m.points), deepest = Math.min(...points.map(p => p.distance));
+    assert.equal(points.length, 4);
+    const expected = points.filter(p => p.distance <= deepest + .0001).map(p => p.point);
+    assert.equal(expected.length, 2, "the real tilted box has one lower edge and two nearby raised corners");
+    const unfiltered = contactTracking(f.physics, f.frames, 1, settings);
+    assert.equal(unfiltered.read(command).length, 12);
+    const tracker = contactTracking(f.physics, f.frames, 1, { ...settings, supportBand: .0001 });
+    assert.deepEqual(tracker.read(command).filter((_, i) => i % 3 === 0).map(row => row[0].point), expected);
+    assert.deepEqual(f.physics.contactManifoldsOf(f.body, other => other === null), manifolds);
+    assert.deepEqual(f.physics.save(), before, "support selection changes no geometry, load or physical state");
+    assert.equal(tracker.read({ ...command, supports: [{ frame: { kind: "segment", name: "support" }, mode: "free" }] }).length, 0);
+    assert.deepEqual(tracker.read(command).filter((_, i) => i % 3 === 0).map(row => row[0].point), expected);
+    assert.deepEqual(unfiltered.read(command, new Set(), false, .0001).filter((_, i) => i % 3 === 0).map(row => row[0].point), expected);
+    assert.equal(unfiltered.read(command).length, 12, "a per-call edge choice does not mutate controller tuning");
+    for (const supportBand of [-1, NaN, Infinity]) assert.throws(() => contactTracking(f.physics, f.frames, 1,
+      { ...settings, supportBand }), /invalid contact support band/);
+  } finally { f.dispose(); }
+});
+
+test("a local bearing edge releases the other real patch points with normal separation bounds", async () => {
+  const f = await fixture(true, false, Quaternion.RotationAxis(Vector3.UpReadOnly, .41));
+  try {
+    f.physics.step(1 / 120);
+    const before = f.physics.save(), manifolds = f.physics.contactManifoldsOf(f.body, other => other === null),
+      measured = manifolds.flatMap(m => m.points), edge = { from: [-.1, -.05, .1], to: [.1, -.05, .1], radius: .015 },
+      request = { ...command, supports: [{ frame: { kind: "segment", name: "support" }, mode: "auto", normalLoad: { min: 1 }, edge }] };
+    assert.equal(measured.length, 4);
+    const tracker = contactTracking(f.physics, f.frames, 1, { ...settings, liftOff: { accelerationTolerance: 1e-4 } }, 0,
+      { dt: 1 / 120, radius: () => 0 });
+    const expected = measured.filter(point => new Vector3(...point.point).subtractInPlace(f.body.node.position)
+      .applyRotationQuaternionToRef(Quaternion.Inverse(f.body.node.rotationQuaternion), new Vector3()).z > 0).map(p => p.point);
+    assert.equal(expected.length, 2);
+    const rows = tracker.read(request, new Set(), true);
+    assert.deepEqual(rows.filter((_, i) => i % 3 === 0).map(row => row[0].point), expected,
+      "positive aggregate load seeds only the requested real edge, including during the free probe");
+    assert.equal(tracker.releasedRows().length, 2);
+    assert.deepEqual(tracker.releasedRows().map(r => r.row[0].point), measured.filter(p => !expected.includes(p.point)).map(p => p.point));
+    assert.ok(tracker.releasedRows().every(r => r.row[0].linear[1] > .99 && Number.isFinite(r.target)));
+    assert.equal(tracker.read(command).length, 12, "the next request recovers the complete patch");
+    assert.deepEqual(f.physics.contactManifoldsOf(f.body, other => other === null), manifolds);
+    assert.deepEqual(f.physics.save(), before, "mode selection neither moves the body nor removes actual contact");
+    const sticking = contactTracking(f.physics, f.frames, 1, settings);
+    assert.throws(() => sticking.read(request), /requires contact lift-off/);
+  } finally { f.dispose(); }
+});
+
+test("nearby points from overlapping colliders share prediction rows without changing physical contacts", async () => {
+  const f = await fixture(true, true);
+  try {
+    f.physics.step(1 / 120);
+    const before = f.physics.save(), manifolds = f.physics.contactManifoldsOf(f.body, (other) => other === null);
+    const tracker = contactTracking(f.physics, f.frames, 1, { ...settings, maxPoints: 8 });
+    const raw = tracker.read(command);
+    assert.equal(raw.length, 24, "both colliders contribute all four measured floor corners");
+    const merged = contactTracking(f.physics, f.frames, 1, { ...settings, maxPoints: 8, pointSeparation: .001 });
+    const rows = merged.read(command);
+    assert.equal(rows.length, 12, "each distinct floor corner supplies three motion rows");
+    const points = rows.filter((_, i) => i % 3 === 0).map(r => r[0].point);
+    assert.equal(new Set(points.map(p => `${p[0] > 0},${p[2] > 0}`)).size, 4, "the support outline keeps every corner");
+    assert.equal(merged.read({ ...command, supports: [{ frame: { kind: "segment", name: "support" }, mode: "free" }] }).length, 0);
+    assert.equal(merged.read(command).length, 12, "contact work is rebuilt after a different desired support");
+    assert.deepEqual(f.physics.contactManifoldsOf(f.body, (other) => other === null), manifolds);
+    assert.deepEqual(f.physics.save(), before, "the model does not delete or move real contacts");
+    for (const pointSeparation of [-1, Infinity, NaN]) assert.throws(() => contactTracking(f.physics, f.frames, 1,
+      { ...settings, pointSeparation }), /invalid contact point separation/);
+  } finally { f.dispose(); }
+});
 
 test("desired support neither creates measured contacts nor removes physical contact", async () => {
   const f = await fixture();
@@ -99,6 +173,28 @@ test("desired support neither creates measured contacts nor removes physical con
     assert.deepEqual(f.physics.contactManifoldsOf(f.body, (other) => other === null), manifolds);
     assert.deepEqual(f.physics.save(), before);
     assert.equal(tracker.read(command).length, 3);
+  } finally { f.dispose(); }
+});
+
+test("a positive support load participates in the initial lift-off prediction", async () => {
+  const f = await fixture();
+  try {
+    f.physics.step(1 / 120);
+    const before = f.physics.save(), frame = { kind: "segment", name: "support" };
+    const tracker = contactTracking(f.physics, f.frames, 1, { ...settings, liftOff: { accelerationTolerance: .1 } }, 0,
+      { dt: 1 / 120, radius: () => .05 });
+    assert.deepEqual(tracker.read(command, new Set(), true), []);
+    assert.equal(tracker.releasedRows().length, 1);
+    const load = normalLoad => ({ ...command, supports: [{ frame, mode: "auto", normalLoad }] });
+    const seeded = tracker.read(load({ min: 1 }), new Set(), true);
+    assert.equal(seeded.length, 3, "an actually measured positive load request seeds sticking support");
+    assert.deepEqual(seeded.filter((_, i) => i % 3 === 0).map(row => row[0].point),
+      f.physics.contactManifoldsOf(f.body, other => other === null).flatMap(m => m.points.map(p => p.point)));
+    assert.deepEqual(tracker.releasedRows(), []);
+    assert.deepEqual(tracker.read(load({ min: 0 }), new Set(), true), []);
+    assert.deepEqual(tracker.read(load({ pointMin: 1 }), new Set(), true), [], "a per-selected-point floor alone chooses no support");
+    assert.deepEqual(tracker.read(command, new Set(), true), [], "load selection carries no hidden history");
+    assert.deepEqual(f.physics.save(), before);
   } finally { f.dispose(); }
 });
 
@@ -178,6 +274,42 @@ test("reaction inequalities change a bounded candidate and rejected solves produ
         assert.deepEqual([...candidate], [0]);
       }
     }
+  } finally { f.dispose(); }
+});
+
+test("support load floors and caps constrain torque without creating contacts or applying forces", async () => {
+  const f = await fixture();
+  try {
+    const tracker = contactTracking(f.physics, f.frames, 1, settings), frame = { kind: "segment", name: "support" };
+    const loaded = normalLoad => ({ ...command, supports: [{ frame, mode: "auto", normalLoad }] });
+    const H = new Float64Array([1]), rhs = new Float64Array([0]), scale = new Float64Array([1]),
+      lo = new Float64Array([-1]), hi = new Float64Array([1]), candidate = new Float64Array([0]);
+    tracker.read(loaded({ min: 5 })); tracker.solve(H, rhs, scale, lo, hi, candidate);
+    assert.equal(tracker.report().points, 0);
+    assert.equal(tracker.report().status, "rejected", "positive load requires a measured support point");
+    assert.deepEqual([...candidate], [0]);
+    f.physics.step(1 / 120); const before = f.physics.save();
+    // This isolated torque response spans 10 N at rest to 30 N at torque +1.
+    for (const [normalLoad, expected] of [[{ min: 15 }, .25], [{ max: 5 }, -.25], [{ pointMin: 12 }, .1], [{ max: 0 }, -.5]]) {
+      tracker.read(loaded(normalLoad)); tracker.base([0, 10, 0]); tracker.column(0, [0, 30, 0]); candidate[0] = 0;
+      tracker.solve(H, rhs, scale, lo, hi, candidate);
+      assert.equal(tracker.report().status, "accepted");
+      assert.ok(Math.abs(candidate[0] - expected) < 1e-6, JSON.stringify({ normalLoad, torque: candidate[0] }));
+      tracker.verify({ reactionMultipliers: torque => [0, 10 + 20 * torque[0], 0] }, candidate);
+      assert.equal(tracker.report().status, "accepted");
+      assert.ok(tracker.report().loadViolation < 1e-5);
+    }
+    tracker.read(loaded({ min: 31 })); tracker.base([0, 10, 0]); tracker.column(0, [0, 30, 0]);
+    tracker.solve(H, rhs, scale, lo, hi, candidate);
+    assert.equal(tracker.report().status, "rejected", "a load request cannot exceed the bounded torque's reach");
+    assert.deepEqual([...candidate], [0]);
+    tracker.read(loaded({ min: 15 })); tracker.base([0, 10, 0]); tracker.column(0, [0, 30, 0]);
+    tracker.solve(H, rhs, scale, lo, hi, candidate);
+    tracker.verify({ reactionMultipliers: () => [0, 8, 0] }, candidate);
+    assert.equal(tracker.report().status, "rejected");
+    assert.equal(tracker.report().loadViolation, 7);
+    assert.deepEqual([...candidate], [0]);
+    assert.deepEqual(f.physics.save(), before);
   } finally { f.dispose(); }
 });
 

@@ -20,24 +20,30 @@ import { applyAction } from "../actions.ts";
 import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
 import { RISE, type Lie } from "./stages.ts";
+import { handTransfer, HAND_TRANSFER } from "./hand-transfer.ts";
+import { extensionCanStand, extensionNeedsPeel, supportedExtension } from "./supported-extension.ts";
+import { supportedHalfKneel } from "./supported-half-kneel.ts";
+import { supportedLunge, lungeNeedsStep } from "./supported-lunge.ts";
 
 /** Motion feedback, progress hysteresis and bounded retry deadlines; controller choices, not anatomy. */
 const T = deepFreeze({ response: .15, jointWeight: .2, centreWeight: 3, rootWeight: .5, pointWeight: 2,
-  poseNear: .4, contactHold: .025, stalled: 1, attempt: 6, progress: .005,
+  poseNear: .4, contactHold: .05, stalled: 1, attempt: 6, progress: .005,
   prepare: .25, move: .65, extension: .8, poseResponse: .03, poseSpeed: 10,
   rootResponse: .3, rootOrientationWeight: 3, supportedRootWeight: 1,
   pronePitch: 1.3, kneelPitch: .2, kneeHeight: .5, transferHeight: .7,
+  hipPitchFeedback: 1, foursUp: .05, foursHold: .1, foursSeconds: .3,
   footWidth: .2, footReach: .3, footLift: .18, wind: .4,
   slow: .1, minUpNormal: .9, hold: .5,
   extensionSoleUp: .995, extensionRootUp: .9, standSeconds: 1.3, standLower: .03,
-  contact: { maxPoints: 64, gap: .005, minUpNormal: .9, forceTolerance: 1e-5, redistributionCost: 1e-6,
+  supportBand: .0001,
+  contact: { normalResponseSeconds: .2, maxPoints: 64, gap: .005, minUpNormal: .9, pointSeparation: .001, forceTolerance: 1e-5, redistributionCost: 1e-6,
     iterations: 2048, absoluteTolerance: 1e-7, relativeTolerance: 1e-6, liftOff: { accelerationTolerance: .1 } } });
 const ZERO: Vec3 = Object.freeze([0, 0, 0]);
 const SIDES = ["left", "right"] as const;
 type Phase = "orient" | "acquire" | "place" | "transfer" | "extend" | "stabilize" | "complete";
 interface Model {
   readonly channels: readonly { readonly name: string; readonly min: number; readonly max: number; readonly bind: number }[];
-  readonly segments: readonly { readonly name: string; readonly mass: number }[];
+  readonly segments: readonly { readonly name: string; readonly mass: number; readonly localCentre?: Vec3 }[];
   readonly soleUp: Readonly<Record<Side, Vec3>>;
   readonly soles: Readonly<Record<Side, { readonly at: Vec3; readonly rest: readonly [number, number, number, number] }>>;
   readonly rest: readonly [number, number, number, number];
@@ -51,6 +57,29 @@ const other = (side: Side): Side => side === "left" ? "right" : "left";
 const length = (a: Vec3, b: Vec3) => Math.sqrt((a[0] - b[0]) * (a[0] - b[0])
   + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]));
 
+/** A loaded floor patch retains its contact width; pair averages serve observations without patches. */
+export function riseContactPoints(contact: BodyObservation["contacts"][number]): readonly Vec3[] {
+  if (contact.fixed === null || !(contact.impulse > 0)) return [];
+  if (contact.patch) return contact.patch.filter(p => -p.normal[1] >= T.minUpNormal && p.distance <= T.contact.gap).map(p => p.point);
+  if (-contact.normal[1] < T.minUpNormal) return [];
+  return contact.pairs.length ? contact.pairs.filter(p => p.impulse > 0 && -p.normal[1] >= T.minUpNormal).map(p => p.point) : [contact.point];
+}
+
+/** Hand-and-knee support with the trunk clear and the pelvis above its prone orientation. */
+export function riseCanPlace(o: BodyObservation, model: Pick<Model, "held" | "rest">,
+  work = { up: new Vector3(), turn: new Quaternion(), inverse: new Quaternion() }): boolean {
+  const root = o.segments.find(s => s.name === "lowerTrunk");
+  if (!root) return false;
+  Quaternion.InverseToRef(work.inverse.set(...model.rest), work.inverse);
+  work.turn.set(...root.rotation).multiplyToRef(work.inverse, work.turn);
+  work.up.set(0, 1, 0).applyRotationQuaternionToRef(work.turn, work.up);
+  if (work.up.y <= T.foursUp) return false;
+  const loaded = o.contacts.filter(c => c.fixed !== null && c.impulse > 0 && Math.abs(c.normal[1]) >= T.minUpNormal);
+  const hands = model.held ? [`hand.${other(model.held)}`] : SIDES.map(side => `hand.${side}`);
+  return ["shank.left", "shank.right", ...hands].every(name => loaded.some(c => c.segment === name))
+    && !loaded.some(c => /Trunk|head/.test(c.segment));
+}
+
 /** A loaded sole facing up, rather than a boot touching the floor on its side or toes. */
 export function riseFootPlanted(o: BodyObservation, side: Side, soleUp: Vec3,
   work = { up: new Vector3(), turn: new Quaternion() }): boolean {
@@ -61,7 +90,7 @@ export function riseFootPlanted(o: BodyObservation, side: Side, soleUp: Vec3,
   return work.up.y >= T.minUpNormal;
 }
 
-/** An upright half-kneel whose lead sole and actual leg contacts can carry its capture point. */
+/** An upright half-kneel whose lead sole, rear boot and shin carry its capture point. */
 export function riseCanExtend(o: BodyObservation, lead: Side,
   model: Pick<Model, "soleUp" | "rest" | "segments" | "gravity">, ground: number,
   work = { up: new Vector3(), turn: new Quaternion(), inverse: new Quaternion() }): boolean {
@@ -73,12 +102,13 @@ export function riseCanExtend(o: BodyObservation, lead: Side,
   work.up.set(0, 1, 0).applyRotationQuaternionToRef(work.turn, work.up);
   if (work.up.y < T.extensionRootUp) return false;
   const loaded = o.contacts.filter(c => c.fixed !== null && c.impulse > 0 && Math.abs(c.normal[1]) >= T.minUpNormal);
-  if (![`foot.${lead}`, `shank.${other(lead)}`].every(name => loaded.some(c => c.segment === name))
+  if (![`foot.${lead}`, `foot.${other(lead)}`, `shank.${other(lead)}`].every(name => loaded.some(c => c.segment === name))
     || loaded.some(c => /Trunk|head/.test(c.segment))) return false;
   // The rear boot's toe can carry weight while its shin is down; its sole need not be flat yet.
   const patches = loaded.filter(c => /^(foot|shank)\./.test(c.segment)).map(c => ({
-    corners: c.pairs.length ? c.pairs.map(p => new Vector3(...p.point)) : [new Vector3(...c.point)],
-  }));
+    corners: riseContactPoints(c).map(p => new Vector3(...p)),
+  })).filter(p => p.corners.length);
+  if (!patches.length) return false;
   const mass = model.segments.reduce((sum, s) => sum + s.mass, 0);
   let vx = 0, vz = 0;
   for (const s of model.segments) {
@@ -108,8 +138,11 @@ export function dynamicRisePolicy(input: Model) {
       || Math.abs(model.soleUp[s].reduce((n, v) => n + v * v, 0) - 1) > 1e-6)
     || SIDES.some(s => !model.soles?.[s] || ![...model.soles[s].at, ...model.soles[s].rest].every(Number.isFinite)
       || Math.abs(model.soles[s].rest.reduce((n, v) => n + v * v, 0) - 1) > 1e-6)
-    || model.segments.some(s => !(s.mass > 0) || !Number.isFinite(s.mass))) throw new Error("invalid dynamic rise model");
-  const state = { phase: "complete" as Phase, elapsed: 0, time: 0, attemptTime: 0, stagnant: 0, error: Infinity,
+    || model.segments.some(s => !(s.mass > 0) || !Number.isFinite(s.mass)
+      || (s.localCentre !== undefined && (!Array.isArray(s.localCentre) || s.localCentre.length !== 3
+        || !s.localCentre.every(Number.isFinite))))) throw new Error("invalid dynamic rise model");
+  const transfer = handTransfer(model);
+  const state = { handTransfer: transfer.state, phase: "complete" as Phase, elapsed: 0, time: 0, attemptTime: 0, stagnant: 0, error: Infinity,
     stage: 0, held: 0, ready: 0, attempts: 0, retries: 0, completed: 0, began: 0, finished: 0,
     ground: 0, yaw: 0, lead: "left" as Side, roll: "right" as Side, released: false, landed: false,
     from: model.channels.map(() => 0), pointFrom: [0, 0, 0] as [number, number, number],
@@ -133,6 +166,7 @@ export function dynamicRisePolicy(input: Model) {
     && c.impulse > 0 && Math.abs(c.normal[1]) >= T.minUpNormal && (!names || names.includes(c.segment)));
   const loaded = (o: BodyObservation, name: string) => contacts(o, [name]).length > 0;
   const footWork = { up: new Vector3(), turn: new Quaternion() };
+  const placeWork = { up: new Vector3(), turn: new Quaternion(), inverse: new Quaternion() };
   const planted = (o: BodyObservation, side: Side) => riseFootPlanted(o, side, model.soleUp[side], footWork);
   const clear = (o: BodyObservation) => !contacts(o, ["head", "upperTrunk", "middleTrunk", "lowerTrunk"]).length;
   const capture = (o: BodyObservation): Vec3 => {
@@ -145,7 +179,8 @@ export function dynamicRisePolicy(input: Model) {
   };
   const supported = (o: BodyObservation, names: readonly string[]) => {
     if (!names.every(n => loaded(o, n))) return false;
-    const patches = names.map(name => ({ corners: contacts(o, [name]).flatMap(c => c.pairs.length ? c.pairs.map(p => new Vector3(...p.point)) : [new Vector3(...c.point)]) }));
+    const patches = names.map(name => ({ corners: contacts(o, [name]).flatMap(c => riseContactPoints(c).map(p => new Vector3(...p))) }));
+    if (patches.some(p => !p.corners.length)) return false;
     const p = capture(o), near = withinSupport(patches, p[0], p[2], 0);
     return near[0] === p[0] && near[1] === p[2];
   };
@@ -155,6 +190,7 @@ export function dynamicRisePolicy(input: Model) {
     return atan2(-way.z, way.x);
   };
   const enter = (phase: Phase, o: BodyObservation) => {
+    transfer.reset();
     state.phase = phase; state.time = 0; state.stagnant = 0; state.error = Infinity; state.held = 0;
     state.from = o.joints.map(j => j.angle); state.rootFrom = find(o, "lowerTrunk").position[1];
     if (phase === "place") state.yaw = heading(o);
@@ -168,7 +204,7 @@ export function dynamicRisePolicy(input: Model) {
     const lead = SIDES.find(s => planted(o, s) && !loaded(o, `shank.${s}`) && loaded(o, `shank.${other(s)}`));
     if (SIDES.every(s => planted(o, s)) && clear(o) && !o.down) enter("stabilize", o);
     else if (clear(o) && lead) { state.lead = lead; enter("transfer", o); }
-    else if (clear(o) && SIDES.every(s => loaded(o, `shank.${s}`)) && loaded(o, `hand.${freeHand()}`)) enter("place", o);
+    else if (riseCanPlace(o, model, placeWork)) enter("place", o);
     else enter(state.lie === "front" ? "acquire" : "orient", o);
   };
   const begin = (o: BodyObservation) => {
@@ -188,7 +224,7 @@ export function dynamicRisePolicy(input: Model) {
     const sign = mirror && /lateral flexion right|rotation right/.test(name) ? -1 : 1;
     return Math.max(c.min, Math.min(c.max, sign * (pose[name] ?? 0) - c.bind));
   });
-  return { state, begin, end() { state.phase = "complete"; }, reclassify: classify,
+  return { state, begin, end() { state.phase = "complete"; transfer.reset(); }, reclassify: classify,
     step(o: BodyObservation, dt: number): MotionCommand {
       if (!(dt > 0) || !Number.isFinite(dt)) throw new Error("invalid dynamic rise step");
       state.elapsed += dt; state.time += dt; state.attemptTime += dt;
@@ -200,6 +236,13 @@ export function dynamicRisePolicy(input: Model) {
       }
       const free = other(state.lead), hand = `hand.${freeHand()}`, rear = `shank.${free}`, moving = `foot.${state.lead}`;
       const hands = model.held ? [hand] : SIDES.map(side => `hand.${side}`);
+      if (state.phase === "transfer") {
+        if (transfer.state.stage === "inactive") transfer.begin(o, state.lead, freeHand());
+        if (transfer.state.stage !== "inactive" && state.attemptTime < T.attempt) {
+          state.released = transfer.state.stage === "lift";
+          return transfer.step(o, dt);
+        }
+      }
       const commandedPhase = state.phase, commandedStage = state.stage;
       let pose: Readonly<Record<string, number>> = {}, mirror = state.lead === "right";
       switch (state.phase) {
@@ -213,14 +256,19 @@ export function dynamicRisePolicy(input: Model) {
           }
           break;
         }
-        case "acquire":
+        case "acquire": {
           pose = state.stage === 3 ? model.fours : posture(["fold", "tuck", "prop"][state.stage]!); mirror = false;
-          if (SIDES.every(s => loaded(o, `shank.${s}`)) && loaded(o, hand)
-            && clear(o)) {
+          if (SIDES.every(s => loaded(o, `shank.${s}`)) && hands.every(name => loaded(o, name))
+            && clear(o) && facing(o) === "front") {
             state.held += dt;
-            if (state.held >= T.contactHold) { enter("place", o); state.stage = 0; }
+            if (state.stage === 1 && state.held >= T.contactHold) { state.stage = 2; enter("acquire", o); }
+            else if (state.stage === 2 && riseCanPlace(o, model, placeWork) && state.held >= T.contactHold) {
+              state.stage = 3; enter("acquire", o);
+            } else if (state.stage === 3 && riseCanPlace(o, model, placeWork)
+              && state.time >= T.foursSeconds && state.held >= T.foursHold) { enter("place", o); state.stage = 0; }
           } else state.held = 0;
           break;
+        }
         case "place": {
           const retained = [...hands, rear];
           if (!state.released && supported(o, retained)) {
@@ -246,7 +294,7 @@ export function dynamicRisePolicy(input: Model) {
         }
         case "transfer":
           pose = posture("half kneel");
-          if (supported(o, [moving, rear])) state.released = true;
+          if (supported(o, [moving, rear, `foot.${free}`])) state.released = true;
           if (clear(o) && SIDES.every(s => planted(o, s)) && supported(o, [moving, `foot.${free}`])) {
             enter("extend", o); state.released = true;
           }
@@ -257,6 +305,15 @@ export function dynamicRisePolicy(input: Model) {
           break;
         case "stabilize": case "complete": break;
         default: { const never: never = state.phase; throw new Error(`unknown dynamic rise phase ${never}`); }
+      }
+      if (state.phase === "acquire") {
+        relative.set(...find(o, "lowerTrunk").rotation).multiplyToRef(restInverse, relative);
+        const front = way.set(0, 0, 1).applyRotationQuaternionToRef(relative, way).y;
+        const up = way.set(0, 1, 0).applyRotationQuaternionToRef(relative, way).y;
+        // Flexing the hips pitches the pelvis forward; the measured pitch checks that reaction during the tuck.
+        const correction = T.hipPitchFeedback * (atan2(-front, up) - T.pronePitch);
+        pose = { ...pose, "hip.left flexion": (pose["hip.left flexion"] ?? 0) - correction,
+          "hip.right flexion": (pose["hip.right flexion"] ?? 0) - correction };
       }
       const goal = angles(pose, mirror);
       let error = 0;
@@ -291,8 +348,10 @@ export function dynamicRisePolicy(input: Model) {
       const bearing = state.phase === "place" || state.phase === "transfer" || state.phase === "extend" || state.phase === "acquire";
       if (bearing) {
         const names = state.phase === "acquire" ? [...hands, rear, `shank.${state.lead}`] : state.phase === "place" ? [...hands, rear] : state.phase === "transfer" ? [moving, rear] : SIDES.map(s => `foot.${s}`);
-        const retained = state.phase === "place" && !state.released ? [...names, `shank.${state.lead}`, moving]
-          : state.phase === "transfer" && !state.released ? [...names, ...hands] : names;
+        const toe = `foot.${free}`, keepToe = (state.phase === "place" || state.phase === "transfer") && loaded(o, toe);
+        const retained = [...(state.phase === "place" && !state.released ? [...names, `shank.${state.lead}`, moving]
+          : state.phase === "transfer" && !state.released ? [...names, ...hands] : names), ...(keepToe ? [toe] : [])];
+        if (keepToe) supports.push({ frame: { kind: "segment", name: toe }, mode: "auto", normalLoad: { pointMin: 1 } });
         for (const segment of model.segments) if (!retained.includes(segment.name)) {
           supports.push({ frame: { kind: "segment", name: segment.name }, mode: "free" });
         }
@@ -322,7 +381,7 @@ export function dynamicRisePolicy(input: Model) {
         }
         if (state.phase === "place" && state.released) {
           const m = minimumJerk(state.time, T.move), delta = state.pointTo.map((v, k) => v - state.pointFrom[k]!);
-          const lift = model.leg * T.footLift, target = state.pointFrom.map((v, k) => v + delta[k]! * m.s),
+          const lift = model.leg * T.footLift, target = m.s === 1 ? [...state.pointTo] : state.pointFrom.map((v, k) => v + delta[k]! * m.s),
             velocity = delta.map(v => v * m.v), acceleration = delta.map(v => v * m.a);
           target[1]! += 4 * lift * m.s * (1 - m.s);
           velocity[1]! += 4 * lift * (1 - 2 * m.s) * m.v;
@@ -365,42 +424,90 @@ export function dynamicRise(own: OwnBody, view: BodyView, world: World): SubMind
     return { at: [middle.x, middle.y, middle.z], rest: [rest.x, rest.y, rest.z, rest.w] };
   };
   const model: Model = { channels: muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value, bind: c.dof.spec.bind.value })), fours,
-    segments: [...built.segments.values()].map(s => ({ name: s.spec.name, mass: s.rigid.mass })), rest: [root.rest.x, root.rest.y, root.rest.z, root.rest.w],
+    segments: [...built.segments.values()].map(s => ({ name: s.spec.name, mass: s.rigid.mass, localCentre: [...s.body.massProperties.centre] as Vec3 })), rest: [root.rest.x, root.rest.y, root.rest.z, root.rest.w],
     soleUp: { left: soleUp("left"), right: soleUp("right") },
     soles: { left: sole("left"), right: sole("right") },
     rootHeight: root.frame.origin[1], leg, gravity: Math.sqrt(world.physics.gravity.reduce((n, v) => n + v * v, 0)),
     held: SIDES.find(side => own.spec.held?.some(h => h.segment === `hand.${side}`)) ?? null };
   const policy = dynamicRisePolicy(model), tracking = wholeBodyTracking(built, muscles, world.physics.gravity, [], [],
-    { capacity: 4, effortCost: 1e-6, contact: { physics: world.physics, settings: T.contact, dt: world.dt } });
-  const observe = observeBody(built, muscles, world, () => view.senses, undefined, () => view.down);
+    { capacity: HAND_TRANSFER.capacity, effortCost: 1e-6, contact: { physics: world.physics, settings: T.contact, dt: world.dt },
+      jointStops: { settings: HAND_TRANSFER.jointStops, dt: world.dt } });
+  const extensionModel = { ...model, feet: Object.fromEntries(feet.map(f => [f.side, {
+    rest: model.soles[f.side].rest, up: model.soleUp[f.side],
+    edge: f.ahead.slice(0, 2).map(i => { const p = f.sole[i]!; return [p.x, p.y, p.z] as Vec3; }) as unknown as readonly [Vec3, Vec3],
+  }])) as Readonly<Record<Side, { rest: readonly [number, number, number, number]; up: Vec3; edge: readonly [Vec3, Vec3] }>> };
+  const extension = supportedExtension(extensionModel);
+  const halfKneel = supportedHalfKneel(own, view), lunge = supportedLunge(own, view);
+  const observe = observeBody(built, muscles, world, () => view.senses, undefined, () => view.down, true);
   const middle = new Vector3(), zero = new Vector3(), legs = locomotion(null);
   const motor = motorControl(built, SERVO_SECONDS, guardPosture(own.spec), undefined, own.assist);
   const requestedRates = new Float64Array(muscles.channels.length);
   const extensionWork = { up: new Vector3(), turn: new Quaternion(), inverse: new Quaternion() };
   const state = { policy: policy.state, tracking: tracking.state, legs: legs.state, motor: motor.state, stabilizing: false, rejected: 0,
-    extending: false, riseFrom: 0, riseYaw: 0 };
+    extending: false, extendingNative: false, extension: extension.state, riseFrom: 0, riseYaw: 0,
+    halfKneel: halfKneel.state, lunge: lunge.state };
   return { get name() { return `dynamic-rise: ${policy.state.phase}`; }, state,
     wants() {
       if (legs.reference === null) legs.goal(view, null, 0, world.dt);
       return policy.state.phase !== "complete" || view.down;
     },
-    begin() { policy.begin(observe()); state.stabilizing = false; state.rejected = 0; state.extending = false; motor.reset(); },
-    end() { policy.end(); state.extending = false; motor.reset(); },
+    begin() { policy.begin(observe()); state.stabilizing = false; state.rejected = 0; state.extending = false; state.extendingNative = false; extension.reset(); halfKneel.reset(); lunge.reset(); motor.reset(); },
+    end() { policy.end(); state.extending = false; state.extendingNative = false; extension.reset(); halfKneel.reset(); lunge.reset(); motor.reset(); },
     step(_senses, dt) {
       const p = policy.state, observation = observe();
-      if (!state.extending && p.phase === "transfer" && riseCanExtend(observation, p.lead, model, p.ground, extensionWork)) {
+      if (!halfKneel.state.active && p.phase === "transfer" && p.handTransfer.stage === "inactive"
+        && !riseCanExtend(observation, p.lead, model, p.ground, extensionWork)) halfKneel.begin(p.lead);
+      if (halfKneel.state.active) {
+        halfKneel.step(observation, dt); p.elapsed += dt; p.time += dt; p.attemptTime += dt;
+        if (halfKneel.released && riseCanExtend(observation, p.lead, model, p.ground, extensionWork)) {
+          halfKneel.reset(); p.time = 0; p.attemptTime = 0;
+        } else if (p.attemptTime >= T.attempt || observation.contacts.some(c => c.fixed !== null && c.impulse > 0 && /Trunk|head/.test(c.segment))) {
+          p.retries++; p.attempts++; policy.reclassify(observation); halfKneel.reset();
+        }
+        return;
+      }
+      if (!state.extending && p.phase === "transfer" && p.handTransfer.stage === "inactive"
+        && riseCanExtend(observation, p.lead, model, p.ground, extensionWork)) {
         state.extending = true; p.phase = "extend"; p.time = 0; p.ready = 0;
+        const rear = other(p.lead);
+        if (lungeNeedsStep(observation, model.leg)) {
+          lunge.begin(p.lead); state.extendingNative = false;
+        } else {
+          state.extendingNative = !extensionNeedsPeel(observation, rear, model.soleUp[rear], extensionWork);
+          if (!state.extendingNative) extension.begin(observation, p.lead, view.standing - T.standLower);
+        }
         motor.stance.read(); state.riseFrom = motor.stance.reading.centre.y - motor.stance.reading.support.y;
         const across = extensionWork.up.set(1, 0, 0).applyRotationQuaternionToRef(view.root.rotation, extensionWork.up);
         state.riseYaw = atan2(-across.z, across.x); motor.stance.reset();
       }
       if (state.extending) {
+        if (lunge.state.phase !== "inactive") {
+          lunge.step(observation, dt); p.elapsed += dt; p.time += dt; p.ready = lunge.state.quiet;
+          if (lunge.ready) { p.completed++; p.finished = world.time; p.phase = "complete"; state.extending = false; lunge.reset(); }
+          else if (p.time >= T.attempt) { p.retries++; p.attempts++; policy.reclassify(observation); state.extending = false; lunge.reset(); }
+          return;
+        }
+        if (!state.extendingNative) {
+          const nearby = extension.state.anchors.filter(a => a.frame.kind === "segment" && world.physics
+            .contactManifoldsOf(built.segments.get(a.frame.name)!.body, other => other === null)
+            .some(m => m.points.some(point => point.distance <= T.contact.gap))).map(a => a.id);
+          const command = extension.step(observation, dt, nearby), torque = tracking.track(command);
+          if (trackingRejected(tracking.state)) { torque.fill(0); state.rejected++; }
+          applyAction(muscles, { kind: "torque", torque: Array.from(torque) });
+          own.assist.ask(zero, zero);
+          p.elapsed += dt; p.time += dt;
+          if (extension.state.phase === "ready" && extensionCanStand(observation, extensionModel, dt)) {
+            state.extendingNative = true; p.time = 0; p.ready = 0; motor.reset(); motor.stance.read();
+          } else if (p.time >= T.attempt) { p.retries++; p.attempts++; policy.reclassify(observation); state.extending = false; extension.reset(); }
+          return;
+        }
         readSupport(feet, feet, middle);
         const supports = feet.map(f => ({ segment: f.segment.spec.name, corners: f.corners.filter(c => c.y - Math.min(...f.corners.map(q => q.y)) < .03)
           .map(c => [c.x, c.y, c.z] as Vec3) }));
         p.ready = recoveryReady(observation, supports, T) && SIDES.every(s => riseFootPlanted(observation, s, model.soleUp[s])) ? p.ready + dt : 0;
         p.elapsed += dt; p.time += dt;
-        const u = Math.min(1, p.time / T.standSeconds), height = state.riseFrom + (legs.reference! - T.standLower - state.riseFrom) * u * u * (3 - 2 * u);
+        const u = Math.min(1, p.time / T.standSeconds), targetHeight = view.standing - T.standLower,
+          height = extension.state.phase === "inactive" ? state.riseFrom + (targetHeight - state.riseFrom) * u * u * (3 - 2 * u) : targetHeight;
         motor.stance.read(); motor.setStance({ feet: SIDES, centre: null, height, heading: state.riseYaw, walk: null }); motor.control(muscles, dt);
         if (p.time >= T.standSeconds && p.ready >= T.hold) { p.completed++; p.finished = world.time; p.phase = "complete"; state.extending = false; }
         else if (p.time >= T.attempt) { p.retries++; p.attempts++; policy.reclassify(observation); state.extending = false; }
@@ -436,7 +543,7 @@ export function dynamicRise(own: OwnBody, view: BodyView, world: World): SubMind
         return;
       }
       tracking.check(command);
-      const torque = tracking.track(command);
+      const torque = tracking.track(command, p.phase === "place" ? T.supportBand : undefined);
       if (trackingRejected(tracking.state)) { torque.fill(0); state.rejected++; }
       own.assist.ask(zero, zero);
       applyAction(muscles, { kind: "torque", torque: Array.from(torque) });

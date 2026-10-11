@@ -6,10 +6,18 @@ bounds and accumulated effort. The muscle driver selects symmetric reference or 
 bounds from immutable world configuration. Gameplay retains the reference while corrected-law
 control is measured separately in the [common battery](control-foundation.md).
 
-Adapter 10 supports pair-local compliant point contact and world-owned work episodes, alongside
+Adapter 11 supports pair-local compliant point contact and world-owned work episodes, alongside
 stable collider-shape replacement, admitted-pair clearance queries and attached
 grip observation for coarse live hand poses. Collider
 geometry restores through the native snapshot; pending/applied pose state restores with the body.
+
+`totalSolverContactImpulse` sums normal impulses only for geometric points referenced by the
+current solver contacts. A discarded point can retain its cached impulse; it contributes no
+current load. The aggregate counts each point once, in geometric order, with double-precision
+accumulation. Contact observations and compliant-layer continuation use this reading.
+`tests/core-active-contact.test.mjs` loads an actual muscle-driven Lab fall checkpoint with four
+separated solver points and a fifth, discarded geometric point holding a nonzero cached impulse.
+The public contact and manifold readings report zero load while retaining the predictive points.
 
 ## Source and installation
 
@@ -19,9 +27,10 @@ geometry restores through the native snapshot; pending/applied pose state restor
   CCD-only pair filtering that preserves ordinary contact recycling, and current-pose
   solver contact separation, an opt-in measured-angle gradient for angular limits, and accessors
   for the native rigid-body friction-model selector, pair-local spring/damper normal rows with
-  a rigid depth backstop, and signed whole-step contact reaction work.
-- Package version: `0.21.0-auto-rpg.8`.
-- Archive SHA256: `983fdf9572894a7903a45d3e4286aad7919dc6a510fd58978fe01e8a4ee1c54f`.
+  a rigid depth backstop, signed whole-step contact reaction work, and active-contact impulse
+  aggregation without changing constraint solving or serialization.
+- Package version: `0.21.0-auto-rpg.9`.
+- Archive SHA256: `0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c`.
 - Build toolchain: Rust 1.97.1, Node 24.15.0; wasm-pack 0.12.1 and wasm-bindgen 0.2.129 from
   the upstream lockfiles. The build remaps source/cache paths and writes declarations with LF.
 - Installation: package metadata and lockfile name the same archive; SHA512 integrity is
