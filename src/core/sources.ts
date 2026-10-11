@@ -60,6 +60,15 @@ export const SOURCES = Object.freeze({
       + "expensive. Biol Lett 10(1):20131006. Preferred sideways speed 0.575 m/s (SD 0.123).",
     link: "https://doi.org/10.1098/rsbl.2013.1006",
   },
+  "huber-2022": {
+    kind: "literature",
+    cite: "Huber SK, Knols RH, Held JPO, Christen T, de Bruin ED (2022). Agreement, reliability, and concurrent "
+      + "validity of an outdoor, wearable-based walk ratio assessment in healthy adults and chronic stroke survivors. "
+      + "Front Physiol 13:857963. The walk ratio (step length over step rate) of healthy people is around 0.6 "
+      + "cm/(step/min), 0.58-0.63 (Bogen et al. 2018), and constant across walking speeds (Sekiya et al. 1996, "
+      + "J Hum Mov Stud 30:241-257: men from 53 to 137 m/min).",
+    link: "https://doi.org/10.3389/fphys.2022.857963",
+  },
   "winter-table-4-1": {
     kind: "literature",
     cite: "Winter DA. Biomechanics and Motor Control of Human Movement, Table 4.1 (anthropometric data; "

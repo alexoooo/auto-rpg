@@ -85,6 +85,19 @@ This costs no compute. Every later session reads its effect here, and the table 
 sessions 02 to 06 binds first. If the friction used never nears 0.5, grip is not the cap and
 session 02 tries compliance alone.
 
+**Found** (Warrior and Rogue, both walks, four lines, 0.5 to 1.4 m/s asked, 20 s):
+
+- **The cadence is the gap, and the other way round.** The stride steps 2.6 times a second, 0.28
+  to 0.38 m a step. A person at the same speed steps 1.2 to 1.5 times a second, 0.43 to 0.54 m
+  (`personStep`, the walk ratio). Session 03's steps grow longer *and slower* up to a person's
+  walk, quicker only past it.
+- **Grip is not the cap.** The friction asked on one foot stays under 0.3 (95th percentile)
+  wherever the walk holds, and reaches 0.4 to 0.5 only in the runs that fall. The sole's friction
+  stays the contract's.
+- **The landing is where it was sent**, within 1 to 2 cm, wherever the walk holds.
+- **The shortfall is early in the swing**: forward, force with pitch and yaw (tens of N and N m at
+  1 m/s, past 100 at 1.4); sideways, mostly force; backward, pitch.
+
 ### 02: a sole that gives, and grips
 
 - **The pair rule.** A foot segment carries a sole material: a layer (stiffness, damping ratio,

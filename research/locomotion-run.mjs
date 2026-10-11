@@ -24,13 +24,23 @@
  * went in the body's frame over its last half second and the stance's phases then; and the fastest
  * pace at which no seed fell, with every slower one.
  *
+ * Its second line at each pace reads the steps: each swing's landing (where the sole's middle was as
+ * the swing's time ran out, against where it was last sent, forward and to the right in the body's
+ * frame, and how high off the ground; and the capture point then against where the step asked it),
+ * the friction the ground was asked for (the centre of mass's horizontal over vertical ground force,
+ * from its acceleration over `FRICTION_WINDOW` steps, on one foot and on two: a lower bound of a sole's
+ * on two, with no wind taken off), the shortfall by component (force, pitch, roll and yaw in the
+ * body's frame: the share of steps over `MISSED`, and its mean size) and by phase (standing, shifting,
+ * the first and second half of a swing), and the
+ * step and cadence beside a person's at the speed walked (`personStep`).
+ *
  * Runs go in parallel on worker threads, one stand at a time in each.
  */
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { appendFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
-import { PERSON_PACE } from "../src/core/human/gait.ts";
+import { PERSON_PACE, personStep } from "../src/core/human/gait.ts";
 
 /**
  * The straight lines a body walks facing +z, each 80 m from the origin: forward, to its right, back
@@ -40,6 +50,12 @@ const LINES = { forward: 0, right: Math.PI / 2, back: Math.PI, left: -Math.PI / 
 
 /** What a person walks each line at (`PERSON_PACE`): forward, their comfortable and fastest walk. */
 const TARGETS = { forward: [PERSON_PACE.forward, PERSON_PACE.fast], right: [PERSON_PACE.sideways], back: [PERSON_PACE.back], left: [PERSON_PACE.sideways] };
+
+/** Steps the friction asked is read over: the centre of mass's acceleration, from its velocity this many steps apart. */
+const FRICTION_WINDOW = 4;
+
+/** A shortfall that counts, N and N m: what the stance asks and the soles miss by more. */
+const MISSED = 1;
 
 /** The ground's side, m: twice the longest line, and some. */
 const GROUND = 200;
@@ -70,8 +86,40 @@ async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radi
   const demand = Object.fromEntries(["hip", "knee", "ankle"].map((j) => [j, { full: 0, most: 0 }]));
   const trail = [];
   let steps = 0, shortfall = 0;
-  const hook = stand.world.afterStep(() => {
+  // The steps' readings: landings, the friction asked, the shortfall by phase and component.
+  const stanceState = run.body.state.mind.host.motor.stance, g = -stand.built.physics.gravity[1];
+  const mass = [...stand.built.segments.values()].reduce((sum, s) => sum + s.rigid.mass, 0);
+  const landings = [], velocities = [], friction = { one: [], two: [] };
+  const PHASES = ["stand", "shift", "early", "late"], PARTS = ["force", "pitch", "roll", "yaw"];
+  const missed = Object.fromEntries(PHASES.map((p) => [p, { steps: 0, ...Object.fromEntries(PARTS.map((c) => [c, 0])), size: Object.fromEntries(PARTS.map((c) => [c, 0])) }]));
+  let swinging = null;
+  const hook = stand.world.afterStep((dt) => {
     steps++;
+    {
+      const r = run.body.view.stance, swing = stanceState.step.swing, h = r.facing, sh = Math.sin(h), ch = Math.cos(h);
+      const ahead = (x, z) => x * sh + z * ch, right = (x, z) => x * ch - z * sh;
+      if (r.phase === "swing" && swing) swinging = swing;
+      else if (swinging && r.phase !== "swing") {
+        const sole = r.soles[swinging.foot], other = r.soles[swinging.foot === "left" ? "right" : "left"];
+        const dx = sole.x - swinging.to[0], dz = sole.z - swinging.to[1], w = Math.sqrt(g / Math.max(r.plan.y, 0.1));
+        const cx = r.centre.x + r.velocity.x / w - (swinging.capture?.[0] ?? NaN), cz = r.centre.z + r.velocity.z / w - (swinging.capture?.[1] ?? NaN);
+        landings.push({ ahead: ahead(dx, dz), right: right(dx, dz) * (swinging.foot === "right" ? 1 : -1), up: sole.y - other.y,
+          capture: Number.isFinite(cx) ? { ahead: ahead(cx, cz), out: right(cx, cz) * (swinging.foot === "right" ? 1 : -1) } : null });
+        swinging = null;
+      }
+      velocities.push([r.velocity.x, r.velocity.y, r.velocity.z]);
+      if (velocities.length > FRICTION_WINDOW + 1) velocities.shift();
+      if (velocities.length === FRICTION_WINDOW + 1 && !run.body.view.down) {
+        const a = velocities[FRICTION_WINDOW], b = velocities[0], k = 1 / (FRICTION_WINDOW * dt);
+        const across = Math.hypot(a[0] - b[0], a[2] - b[2]) * k, up = (a[1] - b[1]) * k + g;
+        if (up > 0.2 * g) friction[r.phase === "swing" ? "one" : "two"].push(across / up);
+      }
+      const phase = r.phase === "swing" ? (swing && stanceState.step.time < swing.seconds / 2 ? "early" : "late") : r.phase;
+      const m = r.shortfall.moment, row = missed[phase];
+      row.steps++;
+      const parts = { force: r.shortfall.force.length(), pitch: Math.abs(m.x * ch - m.z * sh), roll: Math.abs(m.x * sh + m.z * ch), yaw: Math.abs(m.y) };
+      for (const c of PARTS) { if (parts[c] > MISSED) row[c]++; row.size[c] += parts[c]; }
+    }
     const full = new Set();
     for (const { joint, i, peak } of limbs) {
       if (muscles.activation[i] >= 0.99) full.add(joint);
@@ -104,8 +152,27 @@ async function runOnce({ model, track: id, pace, wind, seed, seconds, side, radi
     travelled: +frame.travelled.toFixed(3), mean: +frame.mean.toFixed(3), walking: frame.walking, off: +off.toFixed(3),
     pieces: frame.pieces.map((v) => v === null ? null : +v.toFixed(3)), gait: Object.fromEntries(Object.entries(frame.gait).map(([k, v]) => [k, +v.toFixed(3)])),
     gusts: frame.gusts, fall, shortfall: +(shortfall / steps).toFixed(3),
+    landing: summarizeLandings(landings), friction: { one: summarizeFriction(friction.one), two: summarizeFriction(friction.two) },
+    missed: Object.fromEntries(PHASES.map((p) => [p, { share: +(missed[p].steps / steps).toFixed(3),
+      ...Object.fromEntries(PARTS.map((c) => [c, missed[p].steps ? +(missed[p][c] / missed[p].steps).toFixed(3) : 0])),
+      size: Object.fromEntries(PARTS.map((c) => [c, missed[p].steps ? +(missed[p].size[c] / missed[p].steps).toFixed(1) : 0])) }])),
     demand: Object.fromEntries(Object.entries(demand).map(([j, d]) => [j, { full: +(d.full / steps).toFixed(3), most: +d.most.toFixed(2) }])),
   };
+}
+
+/** Landings' means: the error forward and outward (the foot's own side), its absolute size, the sole's height, and the capture point's error. */
+function summarizeLandings(landings) {
+  const settled = landings.slice(2), n = settled.length, mean = (f) => n ? +(settled.reduce((s, l) => s + f(l), 0) / n).toFixed(3) : null;
+  const captured = settled.filter((l) => l.capture), m = captured.length;
+  return { n, ahead: mean((l) => l.ahead), out: mean((l) => l.right), size: mean((l) => Math.hypot(l.ahead, l.right)), up: mean((l) => l.up),
+    capture: m ? { ahead: +(captured.reduce((s, l) => s + l.capture.ahead, 0) / m).toFixed(3), out: +(captured.reduce((s, l) => s + l.capture.out, 0) / m).toFixed(3) } : null };
+}
+
+/** The friction asked: its median, its 95th percentile, and the share of steps over 0.4. */
+function summarizeFriction(ratios) {
+  if (!ratios.length) return { median: null, high: null, over: 0 };
+  const sorted = [...ratios].sort((a, b) => a - b), at = (q) => +sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))].toFixed(3);
+  return { median: at(0.5), high: at(0.95), over: +(ratios.filter((r) => r > 0.4).length / ratios.length).toFixed(3) };
 }
 
 if (!isMainThread) {
@@ -162,6 +229,14 @@ if (!isMainThread) {
         + ` full ${["hip", "knee", "ankle"].map((j) => (rows.reduce((s, r) => s + r.demand[j].full, 0) / rows.length).toFixed(2)).join("/")}`
         + ` most ${["hip", "knee", "ankle"].map((j) => Math.max(...rows.map((r) => r.demand[j].most)).toFixed(2)).join("/")}`
         + (fell.length ? ` falls ${fell.map((r) => `f${r.fall.forward}/r${r.fall.right} ${r.fall.phases.join("+")}`).join(", ")}` : ""));
+      const avg = (f) => { const v = rows.map(f).filter((x) => x !== null && x !== undefined); return v.length ? (v.reduce((a, b) => a + b, 0) / v.length).toFixed(2) : "-"; };
+      const person = personStep(mean("mean"));
+      console.log(`      landing ${avg((r) => r.landing.ahead)} ahead ${avg((r) => r.landing.out)} out |${avg((r) => r.landing.size)}| up ${avg((r) => r.landing.up)}`
+        + ` capture ${avg((r) => r.landing.capture?.ahead)} ahead ${avg((r) => r.landing.capture?.out)} out`
+        + ` friction one ${avg((r) => r.friction.one.median)}/${avg((r) => r.friction.one.high)} (${avg((r) => r.friction.one.over)} over 0.4)`
+        + ` two ${avg((r) => r.friction.two.median)}/${avg((r) => r.friction.two.high)} (${avg((r) => r.friction.two.over)})`
+        + ` missed F/P/R/Y ${["stand", "shift", "early", "late"].map((p) => `${p} ${avg((r) => r.missed[p].share)}: ${["force", "pitch", "roll", "yaw"].map((c) => avg((r) => r.missed[p][c])).join("/")} (${["force", "pitch", "roll", "yaw"].map((c) => avg((r) => r.missed[p].size[c])).join("/")})`).join(" ")}`
+        + ` person step ${person.length.toFixed(2)} cadence ${person.rate.toFixed(2)}`);
       if (holding && fell.length === 0) held = { pace, mean: mean("mean") }; else holding = false;
     }
     const target = TARGETS[track];
