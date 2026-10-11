@@ -300,6 +300,49 @@ test("a dynamic support-transfer checkpoint continues identically in a fresh wor
   } finally { a.dispose(); b.dispose(); }
 });
 
+test("dynamic rise keeps placement when the rear boot releases despite a supported capture point", async () => {
+  const spec = modelSpec("workshop-fighter");
+  const placement = poses.find(p => p.model === spec.model && p.id === "half-kneel").placement;
+  const stand = await coreStand(spec, { ...placement, engine: "rapier-coordinate" });
+  let held;
+  try {
+    held = embody(stand.built, stand.world, own => {
+      const state = { release: false }, index = own.muscles.channel("ankle.right dorsiflexion");
+      const observe = observeBody(own.built, own.muscles, stand.world,
+        () => ({ time: stand.world.time, others: [] }), undefined, () => true, true);
+      return { name: "rear boot release", state, observe, step() {
+        own.muscles.activation.fill(1); own.muscles.velocity.fill(0);
+        if (state.release) own.muscles.velocity[index] = -2;
+      } };
+    });
+    stand.world.step(24);
+    assert.ok(held.mind.observe().contacts.some(c => c.segment === "foot.right" && c.fixed !== null && c.impulse > 0));
+    held.mind.state.release = true;
+    stand.world.step(25);
+    const o = held.mind.observe(), loaded = o.contacts.filter(c => c.fixed !== null && c.impulse > 0 && -c.normal[1] > .9);
+    assert.deepEqual(loaded.map(c => c.segment).sort(), ["foot.left", "shank.right"], "ordinary ankle motion releases the actual rear boot");
+    const model = { soleUp: soleUpOf(stand.built), rest: stand.built.segments.get("lowerTrunk").rest.asArray(),
+      segments: [...stand.built.segments.values()].map(s => ({ name: s.spec.name, mass: s.rigid.mass })), gravity: 9.81 };
+    const boot = loaded.find(c => c.segment === "foot.left"), points = riseContactPoints(boot);
+    const target = points.reduce((v, p) => [v[0] + p[0] / points.length, v[1] + p[2] / points.length], [0, 0]);
+    const mass = model.segments.reduce((sum, s) => sum + s.mass, 0);
+    const velocity = o.segments.reduce((v, s) => v.map((value, k) => value
+      + s.velocity[k] * stand.built.segments.get(s.name).rigid.mass / mass), [0, 0, 0]);
+    const span = Math.sqrt(o.centre[1] / model.gravity), change = [(target[0] - o.centre[0]) / span - velocity[0], 0,
+      (target[1] - o.centre[2]) / span - velocity[2]];
+    for (const s of o.segments) {
+      const part = stand.built.segments.get(s.name);
+      part.body.applyImpulse(new Vector3(...change).scale(part.rigid.mass), new Vector3(...s.centre));
+    }
+    const disturbed = held.mind.observe(), root = stand.built.segments.get("lowerTrunk");
+    const up = Vector3.UpReadOnly.applyRotationQuaternionToRef(root.node.rotationQuaternion.multiply(Quaternion.Inverse(root.rest)), new Vector3());
+    assert.ok(up.y > .9 && riseFootPlanted(disturbed, "left", model.soleUp.left));
+    const patches = loaded.map(c => ({ corners: riseContactPoints(c).map(p => new Vector3(...p)) }));
+    assert.deepEqual(withinSupport(patches, target[0], target[1], 0), target, "the remaining contacts carry the physical capture point");
+    assert.equal(riseCanExtend(disturbed, "left", model, 0), false, "two-foot extension requires the rear boot to bear weight");
+  } finally { held?.dispose(); stand.dispose(); }
+});
+
 test("dynamic rise extends a supported half-kneel, then hands over a quiet stand and walk", async () => {
   const placement = poses.find(p => p.model === "workshop-fighter" && p.id === "half-kneel").placement;
   const make = async () => {

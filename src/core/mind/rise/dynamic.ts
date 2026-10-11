@@ -85,7 +85,7 @@ export function riseFootPlanted(o: BodyObservation, side: Side, soleUp: Vec3,
   return work.up.y >= T.minUpNormal;
 }
 
-/** An upright half-kneel whose lead sole and actual leg contacts can carry its capture point. */
+/** An upright half-kneel whose lead sole, rear boot and shin carry its capture point. */
 export function riseCanExtend(o: BodyObservation, lead: Side,
   model: Pick<Model, "soleUp" | "rest" | "segments" | "gravity">, ground: number,
   work = { up: new Vector3(), turn: new Quaternion(), inverse: new Quaternion() }): boolean {
@@ -97,7 +97,7 @@ export function riseCanExtend(o: BodyObservation, lead: Side,
   work.up.set(0, 1, 0).applyRotationQuaternionToRef(work.turn, work.up);
   if (work.up.y < T.extensionRootUp) return false;
   const loaded = o.contacts.filter(c => c.fixed !== null && c.impulse > 0 && Math.abs(c.normal[1]) >= T.minUpNormal);
-  if (![`foot.${lead}`, `shank.${other(lead)}`].every(name => loaded.some(c => c.segment === name))
+  if (![`foot.${lead}`, `foot.${other(lead)}`, `shank.${other(lead)}`].every(name => loaded.some(c => c.segment === name))
     || loaded.some(c => /Trunk|head/.test(c.segment))) return false;
   // The rear boot's toe can carry weight while its shin is down; its sole need not be flat yet.
   const patches = loaded.filter(c => /^(foot|shank)\./.test(c.segment)).map(c => ({
