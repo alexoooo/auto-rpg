@@ -88,7 +88,7 @@ test("a_stride_that_swings_the_arms_swings_each_with_the_other_sides_leg_and_one
 
 test("the_stride_is_a_fighters_locomotion_and_refuses_what_it_cannot_carry_out", () => {
   assert.deepEqual(treeFaults(STRIDING, ["script"]), []);
-  for (const bad of [{ swing: 0 }, { accel: -1 }, { transfer: -0.1 }, { longest: Number.NaN }, { arms: -1 }, { ramp: 0.3 }]) {
+  for (const bad of [{ swing: 0 }, { accel: -1 }, { transfer: -0.1 }, { longest: Number.NaN }, { arms: -1 }, { ramp: 0.3 }, { drive: -1 }, { lengthen: Number.NaN }]) {
     const faults = treeFaults({ ...STRIDING, locomotion: { ...STRIDING.locomotion, ...bad } }, ["script"]);
     assert.ok(faults.some((f) => f.includes("stride")), `${JSON.stringify(bad)}: ${JSON.stringify(faults)}`);
   }

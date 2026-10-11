@@ -72,6 +72,8 @@ const STRIDE_FIELDS: readonly PartField<StrideConfig>[] = Object.freeze([
   { ...number<StrideConfig, "push">("push", "Push-off", 0, 0.6, 0.05, "rad"), read: (config) => String(config.push ?? 0) },
   { ...number<StrideConfig, "arms">("arms", "Arm swing", 0, 3, 0.1, "rad/m"), read: (config) => String(config.arms ?? 0) },
   { ...number<StrideConfig, "ramp">("ramp", "Swing ramp", 0, 0.25, 0.01, "of a half"), read: (config) => String(config.ramp ?? 0) },
+  { ...number<StrideConfig, "drive">("drive", "Pace drive", 0, 2, 0.05, "s"), read: (config) => String(config.drive ?? 0) },
+  { ...number<StrideConfig, "lengthen">("lengthen", "Swing lengthens", 0, 1, 0.05, "of its time"), read: (config) => String(config.lengthen ?? 0) },
 ]);
 
 /** The straight punch's settings, as a panel offers them. */

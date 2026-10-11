@@ -46,6 +46,18 @@ export interface StrideSettings {
   readonly arms?: number;
   /** The swing's acceleration ramped over this share of each half of its time (`SwingGoal.ramp`), at most 1/4; none or 0, minimum jerk. */
   readonly ramp?: number;
+  /**
+   * The walk's pace held to, s: the capture point asked at a landing ahead of the steady walk's by
+   * this times the measured velocity's shortfall of the pace, so that the stance's pivot moves back
+   * while the body walks slower than it is asked. None or 0, the steady walk's alone.
+   */
+  readonly drive?: number;
+  /**
+   * How much longer than its time a swing may take, as a fraction of it, while its landing falls
+   * short of a steady step (Khadiv et al. 2016): the capture point runs on further before the foot
+   * lands. None or 0, a swing is only ever shortened.
+   */
+  readonly lengthen?: number;
 }
 
 /**
@@ -59,11 +71,11 @@ export const STRIDE: StrideSettings = Object.freeze({ swing: 0.3, transfer: 0.08
 
 /** Whether `settings` are a stride's: each finite, the double support not negative, the rest positive. */
 export function validStride(settings: StrideSettings): boolean {
-  const { swing, transfer, lift, settle, width, longest, accel, turn, paced, lands, push, arms, ramp } = settings;
+  const { swing, transfer, lift, settle, width, longest, accel, turn, paced, lands, push, arms, ramp, drive, lengthen } = settings;
   return [swing, transfer, lift, settle, width, longest, accel, turn].every(Number.isFinite) && transfer >= 0
     && swing > 0 && lift > 0 && settle > 0 && width > 0 && longest > 0 && accel > 0 && turn > 0
     && [paced, lands].every((x) => x === undefined || typeof x === "boolean")
-    && [push, arms].every((x) => x === undefined || Number.isFinite(x) && x >= 0)
+    && [push, arms, drive, lengthen].every((x) => x === undefined || Number.isFinite(x) && x >= 0)
     && (ramp === undefined || Number.isFinite(ramp) && ramp >= 0 && ramp <= 0.25);
 }
 
@@ -256,6 +268,19 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
     const left = Math.max(step.seconds - memory.swung, 0), least = Math.min(Math.max(SOONEST * swing - memory.swung, 0), left);
     let t = left;
     const off = (time: number): number => { const [x, z] = landing(time); return hypot(x - b.x, z - b.z); };
+    if (settings.lengthen) {
+      // A steady step's way along the walk, and the landing's: the swing runs on, by bisection
+      // within what it may lengthen to, until the landing is as far along as the steady step.
+      const pace = hypot(walk[0], walk[1]), ux = walk[0] / pace, uz = walk[1] / pace;
+      const along = (time: number): number => { const [x, z] = landing(time); return (x - b.x) * ux + (z - b.z) * uz; };
+      const natural = Math.max(swing - memory.swung, 0), most = Math.max((1 + settings.lengthen) * swing - memory.swung, 0), steady = pace * T;
+      if (along(natural) < steady) {
+        let lo = natural, hi = most;
+        if (along(hi) < steady) lo = hi;
+        else for (let i = 0; i < 16; i++) { const mid = (lo + hi) / 2; if (along(mid) < steady) lo = mid; else hi = mid; }
+        t = lo;
+      } else t = natural;
+    }
     if (off(t) > reach) {
       // The time at which the landing is the longest step away, by bisection; a numeric setting, 16 halvings.
       let lo = least, hi = t;
@@ -263,7 +288,9 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
       t = lo;
     }
     const [x, z] = landing(t), to = within(view, t, b.x, b.z, x, z, sign, rx, rz);
-    return { ...step, to, seconds: memory.swung + t, capture: [to[0] + nx, to[1] + nz], follows: true };
+    // Ahead of the steady walk's by the drive on the velocity's shortfall of the pace.
+    const drive = settings.drive ?? 0, ax = drive * (walk[0] - s.velocity.x), az = drive * (walk[1] - s.velocity.z);
+    return { ...step, to, seconds: memory.swung + t, capture: [to[0] + nx + ax, to[1] + nz + az], follows: true };
   };
 
   const progress = new Vector3();
