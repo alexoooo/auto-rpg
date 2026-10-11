@@ -729,7 +729,16 @@ muscle-curled, airborne rear boot through supported native contact acquisition. 
 corner acquires load while both knees remain supported, and every observation and saved state
 replays exactly. A captured handoff leaves the recipe's default goals intact.
 
-An upright half-kneel with a flat lead sole can extend through the standing controller once
+`supportedHalfKneel` transfers an actual supported posture onto its lead sole and rear shin,
+then asks for the native upright half-kneel. It reads physical mass centres and velocities,
+clamps mirrored seeds to the rig's actual ranges, and gates hand release on measured load and
+quiet body motion. The supported-rise regression starts from the actual five-support Lab
+checkpoint, releases the hands, holds the extension-entry conditions for two seconds and
+replays every observation and saved physics/controller state exactly. This component is not
+used by production dynamic rise. Native and coordinated extension trials from this handoff
+do not complete standing; this transfer does not qualify recovery timing or the full rise.
+
+Production rise begins native extension from an upright half-kneel with a flat lead sole once
 its capture point is carried by its actual leg contacts, including the rear boot's loaded toe,
 and the captured pressure-transfer controller is inactive.
 The rear sole need not be flat before extension starts. Height rises from the measured stance

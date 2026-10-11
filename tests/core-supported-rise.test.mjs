@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { readFileSync } from "node:fs";
 import { uprightKneel } from "./fixtures/upright-kneel.mjs";
 import { coreStand, saveStand, loadStand } from "./harness/core-stand.mjs";
@@ -13,6 +13,67 @@ import { centreOfToRef, footStatesOf } from "../src/core/control/support.ts";
 import { uprightness } from "../src/core/control/ground.ts";
 import { observeBody } from "../src/core/observation.ts";
 import { clockSenses } from "../src/core/mind/senses.ts";
+import { supportedHalfKneel, halfKneelHandsReleased } from "../src/core/mind/rise/supported-half-kneel.ts";
+import { riseCanExtend } from "../src/core/mind/rise/dynamic.ts";
+
+test("an actual supported half-kneel releases its hands, remains upright and forks exactly", async () => {
+  const spec = modelSpec("workshop-fighter"), stand = await coreStand(spec,
+    { engine: "rapier-coordinate", groundSize: 40, posture: guardPosture(spec) });
+  let body;
+  try {
+    stand.step(240);
+    stand.world.physics.load(new Uint8Array(readFileSync(new URL("fixtures/inactive-contact-world.bin", import.meta.url))));
+    const upright = uprightness(stand.built), root = stand.built.segments.get("lowerTrunk"), feet = footStatesOf(stand.built);
+    const model = { rest: root.rest.asArray(), gravity: -stand.world.physics.gravity[1],
+      segments: [...stand.built.segments.values()].map(p => ({ name: p.spec.name, mass: p.rigid.mass })),
+      soleUp: Object.fromEntries(feet.map(foot => [foot.side,
+        Vector3.UpReadOnly.applyRotationQuaternionToRef(Quaternion.Inverse(foot.segment.rest), new Vector3()).asArray()])) };
+    let observe;
+    body = embody(stand.built, stand.world, own => {
+      const recovery = supportedHalfKneel(own, { get down() { return upright.down(); }, stance: {} });
+      return { name: "actual half-kneel hand release", state: recovery.state, recovery, step(_senses, dt) { recovery.step(observe(), dt); } };
+    });
+    observe = observeBody(stand.built, body.own.muscles, stand.world, clockSenses(stand.world), undefined, () => upright.down(), true);
+    const initial = observe(), loaded = [...new Set(initial.contacts.filter(c => c.fixed !== null && c.impulse > 0).map(c => c.segment))].sort();
+    assert.deepEqual(loaded, ["foot.left", "foot.right", "hand.left", "hand.right", "shank.left"]);
+    assert.equal(riseCanExtend(initial, "right", model, 0), false, "the actual supported trunk is not upright enough to extend");
+    assert.equal(halfKneelHandsReleased(initial, stand.world.dt), false);
+    assert.equal(halfKneelHandsReleased(initial, 0), false);
+    const states = { body: body.state }, before = saveStand(stand.world, states);
+    assert.throws(() => body.mind.recovery.begin("left"), /actual supports and trunk clearance/);
+    assert.deepEqual(saveStand(stand.world, states), before, "a missing rear shin cannot partly change the selected recovery");
+    assert.throws(() => body.mind.recovery.step(initial, stand.world.dt), /invalid supported half-kneel step/);
+    body.mind.recovery.begin("right");
+    stand.step(120);
+    const saved = saveStand(stand.world, states);
+    const branch = () => {
+      const trace = []; let ready = null;
+      for (let step = 0; step < 360; step++) {
+        stand.step(); const o = observe(); trace.push(o);
+        for (const joint of o.joints) assert.ok(joint.effort <= joint.positive + 1e-4 && -joint.effort <= joint.negative + 1e-4, joint.name);
+        assert.deepEqual({ force: body.own.assist.meter.force, moment: body.own.assist.meter.moment }, { force: 0, moment: 0 });
+        assert.equal(o.contacts.some(c => c.fixed !== null && c.impulse > 0 && /Trunk|head/.test(c.segment)), false);
+        if (ready === null && body.mind.recovery.released && riseCanExtend(o, "right", model, 0)) ready = o.time;
+        if (ready !== null) {
+          assert.equal(riseCanExtend(o, "right", model, 0), true, "the native handoff retains its actual sole and rear support");
+          assert.equal(halfKneelHandsReleased(o, stand.world.dt), true);
+          assert.equal(o.down, true, "an upright half-kneel still needs extension");
+        }
+      }
+      assert.ok(ready !== null && trace.at(-1).time - ready >= 2, "the actual handoff holds for two seconds");
+      assert.deepEqual({ active: body.mind.recovery.state.active, lead: body.mind.recovery.state.lead,
+        first: body.mind.recovery.state.right.stage, unused: body.mind.recovery.state.left.phase },
+      { active: true, lead: "right", first: 1, unused: "idle" });
+      return { trace, ready, saved: saveStand(stand.world, states) };
+    };
+    loadStand(stand.world, states, saved); const expected = branch();
+    loadStand(stand.world, states, saved); assert.deepEqual(branch(), expected);
+    body.mind.recovery.reset();
+    assert.deepEqual({ active: body.mind.recovery.state.active, quiet: body.mind.recovery.state.quiet,
+      left: body.mind.recovery.state.left.phase, right: body.mind.recovery.state.right.phase },
+    { active: false, quiet: 0, left: "idle", right: "idle" });
+  } finally { body?.dispose(); stand.dispose(); }
+});
 
 test("a supported rise refuses missing support and a pose entry without changing the world or its state", async () => {
   const spec = modelSpec("workshop-fighter"), stand = await coreStand(spec,
