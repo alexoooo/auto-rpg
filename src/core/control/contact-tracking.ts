@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { planarContactAcceleration } from "../build/contact-curvature.ts";
 import type { coupledDynamics } from "../build/coupled-dynamics.ts";
 import { constraintBasis, type MotionConstraint } from "../build/constrained-mass.ts";
@@ -6,7 +6,7 @@ import { CONTACT_FRICTION, type PhysicsWorld, type SegmentBody } from "../engine
 import { activeQuadratic } from "../math/active-quadratic.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { checkEffortBounds, type EffortBound } from "./effort-bounds.ts";
-import { motionFrameKey, supportNormalBounds, type MotionCommand } from "./tasks.ts";
+import { checkedSupportEdge, motionFrameKey, supportEdgeIncludes, supportNormalBounds, type MotionCommand } from "./tasks.ts";
 
 export interface ContactTrackingSettings {
   /** Optional local lift-off prediction; tolerance is in m/s2 and supplied by the experiment. */
@@ -111,6 +111,7 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
   const forceScale = [...frames.values()].reduce((sum, body) => sum + body.massProperties.mass, 0) * Math.sqrt(dot(physics.gravity, physics.gravity));
   let modes: number[][] = [];
   const centre = new Vector3(), velocity = new Vector3(), spin = new Vector3(), offset = new Vector3();
+  const inverse = new Quaternion(), local = new Vector3();
   const points: Point[] = [], freed: Point[] = [], motionRows: MotionConstraint[] = [];
   const loads: { frame: string; min: number; max: number; pointMin: number }[] = [];
   const base = new Float64Array(3 * config.maxPoints), response = new Float64Array(3 * config.maxPoints * channels);
@@ -145,8 +146,14 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
       }
       state.status = "unconstrained"; state.tension = 0; state.frictionViolation = 0;
       const free = new Set(command.supports?.filter((s) => s.mode === "free").map((s) => motionFrameKey(s.frame)));
+      const edges = new Map((command.supports ?? []).filter(s => s.edge !== undefined).map(s => {
+        if (!mode || s.mode !== "auto") throw new Error("a bearing edge requires contact lift-off");
+        return [motionFrameKey(s.frame), checkedSupportEdge(s.edge!)] as const;
+      }));
       for (const [frame, body] of frames) {
         if (free.has(frame)) continue;
+        const edge = edges.get(frame);
+        if (edge) Quaternion.InverseToRef(body.node.rotationQuaternion!, inverse);
         let serial = 0;
         // A positive aggregate request seeds support before the free-motion lift-off probe.
         const required = loads.some(load => load.frame === frame && load.min > 0);
@@ -167,6 +174,11 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
             // Overlapping colliders can report nearly coincident points whose separate rows constrain an artificial lever.
             const nearby = (p: Point) => p.body === body && p.point.reduce((sum, v, k) => sum + (v - point.point[k]!) * (v - point.point[k]!), 0) < separationSquared;
             if (points.some(nearby) || freed.some(nearby)) continue;
+            let offEdge = false;
+            if (edge) {
+              local.set(...point.point).subtractInPlace(body.node.position).applyRotationQuaternionToRef(inverse, local);
+              offEdge = !supportEdgeIncludes([local.x, local.y, local.z], edge);
+            }
             let curvature: Vec3 = ZERO, target = 0;
             if (mode) {
               centre.set(...body.massProperties.centre).applyRotationQuaternionToRef(body.node.rotationQuaternion!, centre).addInPlace(body.node.position);
@@ -184,7 +196,7 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
             }
             if (points.length + freed.length === config.maxPoints) throw new Error("sticking contact model capacity exceeded");
             const measured = { id, body, frame, point: point.point, normal, tangent, across, target, curvature };
-            if (mode && ((freeAll && !required) || released.has(id))) { freed.push(measured); continue; }
+            if (mode && (offEdge || (freeAll && !required) || released.has(id))) { freed.push(measured); continue; }
             points.push(measured);
             for (const direction of XYZ) motionRows.push([{ body, point: point.point, linear: direction, angular: ZERO }]);
           }

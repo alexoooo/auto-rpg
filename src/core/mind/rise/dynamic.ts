@@ -21,6 +21,7 @@ import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
 import { RISE, type Lie } from "./stages.ts";
 import { handTransfer, HAND_TRANSFER } from "./hand-transfer.ts";
+import { extensionCanStand, extensionNeedsPeel, supportedExtension } from "./supported-extension.ts";
 
 /** Motion feedback, progress hysteresis and bounded retry deadlines; controller choices, not anatomy. */
 const T = deepFreeze({ response: .15, jointWeight: .2, centreWeight: 3, rootWeight: .5, pointWeight: 2,
@@ -429,36 +430,59 @@ export function dynamicRise(own: OwnBody, view: BodyView, world: World): SubMind
   const policy = dynamicRisePolicy(model), tracking = wholeBodyTracking(built, muscles, world.physics.gravity, [], [],
     { capacity: HAND_TRANSFER.capacity, effortCost: 1e-6, contact: { physics: world.physics, settings: T.contact, dt: world.dt },
       jointStops: { settings: HAND_TRANSFER.jointStops, dt: world.dt } });
+  const extensionModel = { ...model, feet: Object.fromEntries(feet.map(f => [f.side, {
+    rest: model.soles[f.side].rest, up: model.soleUp[f.side],
+    edge: f.ahead.slice(0, 2).map(i => { const p = f.sole[i]!; return [p.x, p.y, p.z] as Vec3; }) as unknown as readonly [Vec3, Vec3],
+  }])) as Readonly<Record<Side, { rest: readonly [number, number, number, number]; up: Vec3; edge: readonly [Vec3, Vec3] }>> };
+  const extension = supportedExtension(extensionModel);
   const observe = observeBody(built, muscles, world, () => view.senses, undefined, () => view.down, true);
   const middle = new Vector3(), zero = new Vector3(), legs = locomotion(null);
   const motor = motorControl(built, SERVO_SECONDS, guardPosture(own.spec), undefined, own.assist);
   const requestedRates = new Float64Array(muscles.channels.length);
   const extensionWork = { up: new Vector3(), turn: new Quaternion(), inverse: new Quaternion() };
   const state = { policy: policy.state, tracking: tracking.state, legs: legs.state, motor: motor.state, stabilizing: false, rejected: 0,
-    extending: false, riseFrom: 0, riseYaw: 0 };
+    extending: false, extendingNative: false, extension: extension.state, riseFrom: 0, riseYaw: 0 };
   return { get name() { return `dynamic-rise: ${policy.state.phase}`; }, state,
     wants() {
       if (legs.reference === null) legs.goal(view, null, 0, world.dt);
       return policy.state.phase !== "complete" || view.down;
     },
-    begin() { policy.begin(observe()); state.stabilizing = false; state.rejected = 0; state.extending = false; motor.reset(); },
-    end() { policy.end(); state.extending = false; motor.reset(); },
+    begin() { policy.begin(observe()); state.stabilizing = false; state.rejected = 0; state.extending = false; state.extendingNative = false; extension.reset(); motor.reset(); },
+    end() { policy.end(); state.extending = false; state.extendingNative = false; extension.reset(); motor.reset(); },
     step(_senses, dt) {
       const p = policy.state, observation = observe();
       if (!state.extending && p.phase === "transfer" && p.handTransfer.stage === "inactive"
         && riseCanExtend(observation, p.lead, model, p.ground, extensionWork)) {
         state.extending = true; p.phase = "extend"; p.time = 0; p.ready = 0;
+        const rear = other(p.lead);
+        state.extendingNative = !extensionNeedsPeel(observation, rear, model.soleUp[rear], extensionWork);
+        if (!state.extendingNative) extension.begin(observation, p.lead, view.standing - T.standLower);
         motor.stance.read(); state.riseFrom = motor.stance.reading.centre.y - motor.stance.reading.support.y;
         const across = extensionWork.up.set(1, 0, 0).applyRotationQuaternionToRef(view.root.rotation, extensionWork.up);
         state.riseYaw = atan2(-across.z, across.x); motor.stance.reset();
       }
       if (state.extending) {
+        if (!state.extendingNative) {
+          const nearby = extension.state.anchors.filter(a => a.frame.kind === "segment" && world.physics
+            .contactManifoldsOf(built.segments.get(a.frame.name)!.body, other => other === null)
+            .some(m => m.points.some(point => point.distance <= T.contact.gap))).map(a => a.id);
+          const command = extension.step(observation, dt, nearby), torque = tracking.track(command);
+          if (trackingRejected(tracking.state)) { torque.fill(0); state.rejected++; }
+          applyAction(muscles, { kind: "torque", torque: Array.from(torque) });
+          own.assist.ask(zero, zero);
+          p.elapsed += dt; p.time += dt;
+          if (extension.state.phase === "ready" && extensionCanStand(observation, extensionModel, dt)) {
+            state.extendingNative = true; p.time = 0; p.ready = 0; motor.reset(); motor.stance.read();
+          } else if (p.time >= T.attempt) { p.retries++; p.attempts++; policy.reclassify(observation); state.extending = false; extension.reset(); }
+          return;
+        }
         readSupport(feet, feet, middle);
         const supports = feet.map(f => ({ segment: f.segment.spec.name, corners: f.corners.filter(c => c.y - Math.min(...f.corners.map(q => q.y)) < .03)
           .map(c => [c.x, c.y, c.z] as Vec3) }));
         p.ready = recoveryReady(observation, supports, T) && SIDES.every(s => riseFootPlanted(observation, s, model.soleUp[s])) ? p.ready + dt : 0;
         p.elapsed += dt; p.time += dt;
-        const u = Math.min(1, p.time / T.standSeconds), height = state.riseFrom + (legs.reference! - T.standLower - state.riseFrom) * u * u * (3 - 2 * u);
+        const u = Math.min(1, p.time / T.standSeconds), targetHeight = view.standing - T.standLower,
+          height = extension.state.phase === "inactive" ? state.riseFrom + (targetHeight - state.riseFrom) * u * u * (3 - 2 * u) : targetHeight;
         motor.stance.read(); motor.setStance({ feet: SIDES, centre: null, height, heading: state.riseYaw, walk: null }); motor.control(muscles, dt);
         if (p.time >= T.standSeconds && p.ready >= T.hold) { p.completed++; p.finished = world.time; p.phase = "complete"; state.extending = false; }
         else if (p.time >= T.attempt) { p.retries++; p.attempts++; policy.reclassify(observation); state.extending = false; }

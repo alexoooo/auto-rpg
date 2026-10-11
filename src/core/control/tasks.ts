@@ -7,6 +7,7 @@ type MotionFrame = { readonly kind: "segment"; readonly name: string } | { reado
 
 interface Feedback { readonly seconds: number; readonly weight: number }
 interface NormalLoad { readonly min?: number; readonly max?: number; readonly pointMin?: number }
+interface SupportEdge { readonly from: Vec3; readonly to: Vec3; readonly radius: number }
 interface VectorGoal extends Feedback {
   readonly target: Vec3; readonly velocity: Vec3; readonly acceleration: Vec3;
   /** World components to track; omitted means all three. */
@@ -37,7 +38,26 @@ export interface MotionCommand {
   /** Desired support is separate from contact: free frames may still physically touch. */
   readonly supports?: readonly { readonly frame: MotionFrame; readonly mode: "auto" | "free";
     /** Total predicted compressive load bounds and a minimum per selected point, N. */
-    readonly normalLoad?: NormalLoad }[];
+    readonly normalLoad?: NormalLoad;
+    /** Only measured points near this body-local edge stick; other contacts retain separation bounds. */
+    readonly edge?: SupportEdge }[];
+}
+
+/** A finite, nondegenerate support edge, detached from its author's mutable request. */
+export function checkedSupportEdge(edge: SupportEdge): SupportEdge {
+  if (!edge || !Array.isArray(edge.from) || !Array.isArray(edge.to) || edge.from.length !== 3 || edge.to.length !== 3
+    || ![...edge.from, ...edge.to, edge.radius].every(Number.isFinite) || !(edge.radius > 0)
+    || edge.from.every((v, k) => v === edge.to[k])) throw new Error("invalid support edge");
+  return { from: [edge.from[0], edge.from[1], edge.from[2]], to: [edge.to[0], edge.to[1], edge.to[2]], radius: edge.radius };
+}
+
+/** A material point within the requested edge's finite capsule, in the same local frame. */
+export function supportEdgeIncludes(point: Vec3, edge: SupportEdge): boolean {
+  const dx = edge.to[0] - edge.from[0], dy = edge.to[1] - edge.from[1], dz = edge.to[2] - edge.from[2],
+    px = point[0] - edge.from[0], py = point[1] - edge.from[1], pz = point[2] - edge.from[2],
+    u = Math.max(0, Math.min(1, (px * dx + py * dy + pz * dz) / (dx * dx + dy * dy + dz * dz))),
+    x = px - u * dx, y = py - u * dy, z = pz - u * dz;
+  return x * x + y * y + z * z <= edge.radius * edge.radius;
 }
 
 /** Finite requested load limits, with zero and an unbounded maximum as the omitted endpoints. */
@@ -140,7 +160,9 @@ export function checkedMotionCommand(command: MotionCommand, model: MotionModel)
       supportNormalBounds(s.normalLoad);
       if (s.mode !== "auto") throw new Error("a free support has no load request");
     }
-    requested.add(key); return { ...s, frame: { ...s.frame }, ...(s.normalLoad ? { normalLoad: { ...s.normalLoad } } : {}) };
+    if (s.edge !== undefined && s.mode !== "auto") throw new Error("a free support has no bearing edge");
+    requested.add(key); return { ...s, frame: { ...s.frame }, ...(s.normalLoad ? { normalLoad: { ...s.normalLoad } } : {}),
+      ...(s.edge !== undefined ? { edge: checkedSupportEdge(s.edge) } : {}) };
   });
   return deepFreeze({ joints, frames: goals, grips: command.grips.map((g) => ({ ...g })),
     ...(centres ? { centres } : {}), ...(supports ? { supports } : {}) });

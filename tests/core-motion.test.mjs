@@ -37,6 +37,21 @@ test("support load requests are detached, frozen and validated before physical a
   }
 });
 
+test("bearing edge requests are detached, frozen and validated before physical actions", () => {
+  const frame = { kind: "segment", name: "foot.right" }, model = { channels: [], frames: [frame] },
+    edge = { from: [-.1, -.05, .1], to: [.1, -.05, .1], radius: .015 },
+    command = { joints: [], frames: [], grips: [], supports: [{ frame, mode: "auto", edge }] };
+  const checked = checkedMotionCommand(command, model);
+  edge.from[0] = 99; edge.radius = 99;
+  assert.deepEqual(checked.supports, [{ frame, mode: "auto", edge: { from: [-.1, -.05, .1], to: [.1, -.05, .1], radius: .015 } }]);
+  assert.throws(() => { checked.supports[0].edge.to[0] = 99; }, TypeError);
+  for (const invalid of [null, {}, { from: [0, 0], to: [1, 0, 0], radius: .1 },
+    { from: [0, NaN, 0], to: [1, 0, 0], radius: .1 }, { from: [0, 0, 0], to: [0, 0, 0], radius: .1 },
+    ...[0, -1, Infinity, NaN].map(radius => ({ from: [0, 0, 0], to: [1, 0, 0], radius }))])
+    assert.throws(() => checkedMotionCommand({ ...command, supports: [{ frame, mode: "auto", edge: invalid }] }, model), /invalid support edge/);
+  assert.throws(() => checkedMotionCommand({ ...command, supports: [{ frame, mode: "free", edge }] }, model), /free support/);
+});
+
 test("motion policies act on detached delayed senses and replay the observed target", async () => {
   const stand = await coreStand(modelSpec(models[0]), { pinned: "lowerTrunk", actuation: "directional" });
   const second = buildBody(modelSpec(models[1]), stand.world, { position: [2, 0, 0] });

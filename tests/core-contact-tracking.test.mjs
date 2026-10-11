@@ -111,6 +111,33 @@ test("a tilted support predicts its deepest edge without welding the nearby rais
   } finally { f.dispose(); }
 });
 
+test("a local bearing edge releases the other real patch points with normal separation bounds", async () => {
+  const f = await fixture(true, false, Quaternion.RotationAxis(Vector3.UpReadOnly, .41));
+  try {
+    f.physics.step(1 / 120);
+    const before = f.physics.save(), manifolds = f.physics.contactManifoldsOf(f.body, other => other === null),
+      measured = manifolds.flatMap(m => m.points), edge = { from: [-.1, -.05, .1], to: [.1, -.05, .1], radius: .015 },
+      request = { ...command, supports: [{ frame: { kind: "segment", name: "support" }, mode: "auto", normalLoad: { min: 1 }, edge }] };
+    assert.equal(measured.length, 4);
+    const tracker = contactTracking(f.physics, f.frames, 1, { ...settings, liftOff: { accelerationTolerance: 1e-4 } }, 0,
+      { dt: 1 / 120, radius: () => 0 });
+    const expected = measured.filter(point => new Vector3(...point.point).subtractInPlace(f.body.node.position)
+      .applyRotationQuaternionToRef(Quaternion.Inverse(f.body.node.rotationQuaternion), new Vector3()).z > 0).map(p => p.point);
+    assert.equal(expected.length, 2);
+    const rows = tracker.read(request, new Set(), true);
+    assert.deepEqual(rows.filter((_, i) => i % 3 === 0).map(row => row[0].point), expected,
+      "positive aggregate load seeds only the requested real edge, including during the free probe");
+    assert.equal(tracker.releasedRows().length, 2);
+    assert.deepEqual(tracker.releasedRows().map(r => r.row[0].point), measured.filter(p => !expected.includes(p.point)).map(p => p.point));
+    assert.ok(tracker.releasedRows().every(r => r.row[0].linear[1] > .99 && Number.isFinite(r.target)));
+    assert.equal(tracker.read(command).length, 12, "the next request recovers the complete patch");
+    assert.deepEqual(f.physics.contactManifoldsOf(f.body, other => other === null), manifolds);
+    assert.deepEqual(f.physics.save(), before, "mode selection neither moves the body nor removes actual contact");
+    const sticking = contactTracking(f.physics, f.frames, 1, settings);
+    assert.throws(() => sticking.read(request), /requires contact lift-off/);
+  } finally { f.dispose(); }
+});
+
 test("nearby points from overlapping colliders share prediction rows without changing physical contacts", async () => {
   const f = await fixture(true, true);
   try {

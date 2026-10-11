@@ -673,7 +673,16 @@ tapers the outgoing hand's predicted compressive load before lifting it. The arm
 after its measured floor load is quiet and the retained contacts still carry weight. The centre
 target transforms the physical local mass centres directly, matching the dynamics' reading.
 This controlled handoff can clear both hands and the knee while the rear boot remains tipped;
-it does not satisfy the standing gate. Pose seeds are clamped to the
+it does not satisfy the standing gate. A supported near-vertical rear toe retains native extension.
+For a sole tipped farther downward, coordinated extension from a loaded upright half-kneel
+shifts the centre over the boots, lets the rear knee rise and peels the rear boot onto its sole
+using a body-local toe edge. Nearby geometry retains the requested support during zero-load
+frames. Native standing takes over only after both actual soles are loaded and flat, the root
+is upright and the body's centre is slow. Its final quiet-standing gate precedes host handover.
+`tests/core-supported-extension.test.mjs` continues an actual muscle-produced half-kneel through
+this production path, then stands for two seconds and walks for one, with an exact checkpoint
+replay. This component does not qualify recovery from a fresh fall or the full timing target.
+Pose seeds are clamped to the
 body's limits; the Warrior's fours seed is the installed posture asset. Placement reads its
 heading from the supported body's current orientation after rolling and acquisition. It tracks the
 sole's centre to the floor, turns the boot flat and lifts it along an arc scaled to the leg's
@@ -873,6 +882,9 @@ Optional [local contact lift-off](reference/contact-liftoff.md) first predicts m
 sticking support, then selects measured contacts. Released contacts retain normal end-step
 bounds in the same torque solve. The bounded contact-force solve, including requested load
 redistribution, runs before tension in an effort guess can release a selected support.
+A desired support can name a finite edge in its body's local frame. Only measured points
+near that edge predict sticking support; the other admitted points retain normal separation
+bounds. This allows a bearing surface to peel away without removing its physical contacts.
 Shape curvature supplies active material-point acceleration;
 rejected force or acceleration predictions produce zero torque. This option is independent of
 joint-stop prediction and disabled by default. Repeated mechanical lift/recontact is measured;
