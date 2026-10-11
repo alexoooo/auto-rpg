@@ -19,7 +19,7 @@ test("every part has a role, a stage, frozen defaults of its own kind, and every
   }
   assert.deepEqual(Object.keys(PARTS), ["fighter", "quadruped", "direct", "lie", "staged-rise", "support-recovery", "dynamic-rise", "seek", "openings", "script", "stand", "behaviours",
     "follow-orders", "flee", "close-in", "keep-distance", "strike", "kick", "cover",
-    "stance-walk", "stride", "run", "cover-guard", "recipe-strike", "path-strike", "driven-strike", "whole-body-strike", "straight-punch", "choose-blow", "front-kick", "support-fold"]);
+    "stance-walk", "stride", "run", "travel", "cover-guard", "recipe-strike", "path-strike", "driven-strike", "whole-body-strike", "straight-punch", "choose-blow", "front-kick", "support-fold"]);
   assert.equal(partOf(CLASSIC), PARTS.fighter);
   assert.deepEqual(new Set(Object.values(PARTS).map((part) => part.role)), new Set(ROLES));
   for (const kind of ["point-fighter", "constructor", "toString"]) assert.throws(() => partOf({ kind }), /no part of kind/, kind);

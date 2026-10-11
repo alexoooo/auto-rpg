@@ -141,9 +141,9 @@ export interface Locomotion extends Skill {
   readonly state: object;
   /**
    * The arms' posture as this walk swings them, for the arms no other skill holds (`skillSet`);
-   * absent, a walk that leaves them in the guard.
+   * absent or null, a walk that leaves them in the guard.
    */
-  arms?(view: BodyView): Pose;
+  arms?(view: BodyView): Pose | null;
 }
 
 /** **What the locomotion skill remembers.** */

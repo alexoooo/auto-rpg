@@ -381,6 +381,11 @@ tactics over the skills it is given.
   places it (Raibert 1986), re-aimed until it lands. On the spot it runs on its feet; going
   forward it falls within seconds, the bearing leg's thrust saturating its hip's internal
   rotation, its ankle's plantar flexors and its hip's extensors.
+- **Travel and fight** (`travel.ts`, "Travel, then fight", experimental) walks by one locomotion
+  (the stride, its arms swinging) while no standing foe is within `near` (4 m), and by another (the
+  stance's walk, in the guard) once one is, until the foe is half a metre farther: it changes only
+  between steps, resumes the walk it changes to from the body as it is, and gives tactics the
+  fighting walk's envelope.
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
   searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
   and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its
@@ -594,7 +599,7 @@ its blow, `kick` with the foot or feet named and its kick, walking in and kickin
 standing leg within reach, and `cover`); under them the fighter's blow and kick are the ones its
 behaviours name and it has no low support (`fighterSkills`), its own slots for them not offered
 (`slotsFor`), and two strikes that name different blows are a fault. Its skills are its walk
-(`stance-walk`, or the experimental `stride` and `run`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
+(`stance-walk`, or the experimental `stride`, `run` and `travel`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
 begin a hand while the other returns, the experimental `driven-strike` and `whole-body-strike`
 from the punch's research, or `choose-blow`, which gives each blow to one of a list of
 blows; `noBlow` stands in for none), and, optionally, a kick (`front-kick`) and low support

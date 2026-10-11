@@ -155,8 +155,16 @@ export interface RunConfig extends RunSettings {
   readonly kind: "run";
 }
 
+/** **Travel and fight** (`travelOrFight`, `skills/travel.ts`): one walk while no standing foe is within `near` m, another once one is. */
+export interface TravelConfig {
+  readonly kind: "travel";
+  readonly near: number;
+  readonly travel: LocomotionConfig;
+  readonly fight: LocomotionConfig;
+}
+
 /** **The legs' skill**, by kind. */
-export type LocomotionConfig = StanceWalkConfig | StrideConfig | RunConfig;
+export type LocomotionConfig = StanceWalkConfig | StrideConfig | RunConfig | TravelConfig;
 
 /** **The guard**: the arms' posture, and a guarding hand's cover of what the tactics name (`guardSkill`). */
 interface CoverGuardConfig {
@@ -229,7 +237,7 @@ export interface FrontKickConfig {
 interface SupportFoldConfig { readonly kind: "support-fold" }
 
 /** **A skill's config**, by kind, across the fighter's skill slots. */
-export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | CoverGuardConfig | BlowConfig | FrontKickConfig | SupportFoldConfig;
+export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | TravelConfig | CoverGuardConfig | BlowConfig | FrontKickConfig | SupportFoldConfig;
 
 /**
  * **The fighter**: tactics over a skill of each role, under one arbiter (`skillSet`), handing its
