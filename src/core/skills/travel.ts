@@ -13,36 +13,43 @@ function foeWithin(view: BodyView, near: number): boolean {
 }
 
 /**
- * **Travel and fight**: a locomotion skill (`Locomotion`) that walks by `travel` while no standing
- * foe is within `near`, and by `fight` once one is, until it is `LEAVING` farther. The walk changes
+ * **Travel and fight**: a locomotion skill (`Locomotion`) that walks by `travel` while it is asked
+ * to walk and no standing foe is within `near`, and by `fight` once one is, until it is `LEAVING`
+ * farther, and whenever it is asked to stand: a body standing stands in its guard. The walk changes
  * only between steps (the stance standing or shifting its weight, and taking no step of its own),
- * and the one it changes to is resumed from the body as it is (`Skill.resume`). Its envelope, which
- * tactics plan by, is the fight's; its arms are the travelling walk's while it travels, and the
- * guard's while it fights.
+ * and the one it changes to is resumed from the body as it is (`Skill.resume`); the first it is
+ * asked for is not, since neither has driven the body. Its envelope, which tactics plan by, and its
+ * arms are the walk's it walks by: the guard's while it fights.
  */
 export function travelOrFight(travel: Locomotion, fight: Locomotion, near: number): Locomotion {
-  const memory = { fighting: false };
+  const memory = { chosen: false, fighting: true };
   const state = { travel: travel.state, fight: fight.state, choice: memory };
   const now = (): Locomotion => memory.fighting ? fight : travel;
-  const choose = (view: BodyView): void => {
-    const s = view.stance, wants = foeWithin(view, memory.fighting ? near + LEAVING : near);
+  const choose = (view: BodyView, walking: boolean): void => {
+    const s = view.stance, wants = !walking || foeWithin(view, memory.fighting ? near + LEAVING : near);
+    if (!memory.chosen) { memory.chosen = true; memory.fighting = wants; return; }
     if (wants === memory.fighting || s.own || (s.phase !== "stand" && s.phase !== "shift")) return;
     memory.fighting = wants;
     now().resume(view);
   };
   return {
-    state, envelope: fight.envelope,
+    state,
+    get envelope() { return now().envelope; },
     get heading() { return now().heading; },
     get pace() { return now().pace; },
     get reference() { return now().reference; },
     get placed() { return now().placed; },
     resume(view) {
-      memory.fighting = foeWithin(view, near);
+      memory.chosen = true;
+      memory.fighting = true;
       now().resume(view);
     },
-    place(view, footing, lower) { return now().place(view, footing, lower); },
+    place(view, footing, lower) {
+      choose(view, false);
+      return now().place(view, footing, lower);
+    },
     goal(view, walk, face, dt, lower) {
-      choose(view);
+      choose(view, walk !== null);
       return now().goal(view, walk, face, dt, lower);
     },
     ...(travel.arms ? { arms: (view: BodyView) => memory.fighting ? null : travel.arms!(view) } : {}),

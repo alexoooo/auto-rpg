@@ -241,8 +241,8 @@ test("the_dead_are_held_once_the_party_has_walked_off_and_loose_when_it_is_back"
     seconds(run, 2);
     assert.deepEqual(poses(enemy), lay);
     assert.deepEqual([run.status, enemy.alive, enemy.limp, enemy.held], ["playing", false, true, true]);
-    // Loose again as the hero comes back, and pushed aside by the hero walking into it.
-    const lies = enemy.feet();
+    // Loose again as the hero comes back, and pushed aside by the hero walking into its trunk.
+    const lies = { x: trunk.node.position.x, z: trunk.node.position.z };
     assert.ok(walkUntil(run, lies, () => !enemy.held, 30), `it is let go as the hero comes back: ${apart().toFixed(2)} m`);
     assert.ok(apart() < LEVELS.company && apart() > LEVELS.company - 0.5, `at ${LEVELS.company} m and no later: ${apart()}`);
     assert.deepEqual([enemy.limp, enemy.held], [true, false]);

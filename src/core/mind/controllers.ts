@@ -68,7 +68,7 @@ export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extra
     create: createFighter,
   },
   quadruped: {
-    role: "mind", label: "Quadruped", stage: "game", fields: [], slots: [], defaults: QUADRUPED,
+    role: "mind", label: "Quadruped", stage: "game", fields: [], slots: [], defaults: QUADRUPED, tuning: ["bite"],
     fits: quadrupedFits,
     faults: config => Object.entries(config.tuning?.bite ?? {}).flatMap(([key, value]) =>
       !(key in REPTILE_BITE) || !Number.isFinite(value) || (key === "closeRate" || key === "biteInset" || key === "contactAt" || key === "biteLead" || key === "neckRetract" ? value < 0 : value <= 0)

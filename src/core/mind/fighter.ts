@@ -19,7 +19,7 @@ import { supportFold } from "../skills/support-fold.ts";
 import { wholeBodyFits, wholeBodyStrike } from "../skills/whole-body-strike.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { ARENA_KICKS, type BehaviourConfig, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type TravelConfig, type LocomotionConfig,
+import { ARENA_KICKS, TRAVEL, type BehaviourConfig, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type TravelConfig, type LocomotionConfig,
   type StraightPunchConfig, type WholeBodyStrikeConfig } from "./config.ts";
 import { choice, number, toggle, type PartField } from "./fields.ts";
 import type { MindWiring } from "./minds.ts";
@@ -124,10 +124,13 @@ const STRAIGHT_FIELDS: readonly PartField<StraightPunchConfig>[] = Object.freeze
  * whole-body strikes the punch's, offered beside the game's.
  */
 export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<SkillConfig, { kind: K }>> } = deepFreeze({
-  "stance-walk": skill<StanceWalkConfig>("locomotion", "Walk in the stance", "game", { kind: "stance-walk" }, (config) => [
-    ...(validTurnLimit(config.tuning?.turnLimit) ? [] : ["locomotion turn limit must be finite and positive"]),
-    ...(validTurnStartup(config.tuning?.turnStartup) ? [] : ["invalid combat turn startup settings"]),
-  ]),
+  "stance-walk": {
+    ...skill<StanceWalkConfig>("locomotion", "Walk in the stance", "game", { kind: "stance-walk" }, (config) => [
+      ...(validTurnLimit(config.tuning?.turnLimit) ? [] : ["locomotion turn limit must be finite and positive"]),
+      ...(validTurnStartup(config.tuning?.turnStartup) ? [] : ["invalid combat turn startup settings"]),
+    ]),
+    tuning: ["turnLimit", "turnStartup"],
+  },
   "stride": {
     ...skill<StrideConfig>("locomotion", "Walk and run", "experimental", { kind: "stride", ...STRIDE },
       (config) => validStride(config) ? [] : ["a stride needs every setting finite and positive, its double support not negative"]),
@@ -139,19 +142,20 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
     fields: RUN_FIELDS,
   },
   "travel": {
-    ...skill<TravelConfig>("locomotion", "Travel, then fight", "experimental", { kind: "travel", near: 4, travel: { kind: "stride", ...STRIDE }, fight: { kind: "stance-walk" } },
+    ...skill<TravelConfig>("locomotion", "Travel, then fight", "game", TRAVEL,
       (config) => Number.isFinite(config.near) && config.near > 0 ? [] : ["travel and fight need a foe's distance, finite and positive"]),
     fields: [number<TravelConfig, "near">("near", "Fight within", 0.5, 20, 0.1, "m")],
     slots: [slotOne("travel", "Travelling", "locomotion"), slotOne("fight", "Fighting", "locomotion")],
   },
-  "cover-guard": skill("guard", "Guard and cover", "game", { kind: "cover-guard" }),
-  "recipe-strike": skill("blow", "Recipe strike", "game", { kind: "recipe-strike" }),
+  "cover-guard": { ...skill("guard", "Guard and cover", "game", { kind: "cover-guard" }), tuning: ["covering"] },
+  "recipe-strike": { ...skill("blow", "Recipe strike", "game", { kind: "recipe-strike" }), tuning: ["repertoire", "placed", "steer"] },
   "path-strike": {
     ...skill<PathStrikeConfig>("blow", "Path strike", "experimental", { kind: "path-strike", overlap: false }, (config) => [
       ...(validAttackTuning(pathsOf(config)) ? [] : ["combat path settings need finite nonnegative values, positive durations and elbowExtension in [0,1]"]),
       ...(!config.tuning?.execution || validCombatExecution(config.tuning.execution) ? [] : ["invalid combat execution settings"]),
     ]),
     fields: [toggle("overlap", "Overlap returns")],
+    tuning: ["paths", "execution"],
   },
   "driven-strike": {
     ...skill<DrivenStrikeConfig>("blow", "Driven strike", "experimental", { kind: "driven-strike", ...DRIVEN_STRIKE }, (config) => [
@@ -160,6 +164,7 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
       ...(!config.tuning?.execution || validCombatExecution(config.tuning.execution) ? [] : ["invalid combat execution settings"]),
     ]),
     fields: DRIVEN_FIELDS,
+    tuning: ["paths", "execution"],
   },
   "whole-body-strike": {
     ...skill<WholeBodyStrikeConfig>("blow", "Whole-body strike", "experimental", { kind: "whole-body-strike", drive: "timed" }),
@@ -178,8 +183,11 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
     fields: [choice("policy", "Choose by", [["first-able", "The first that can"], ["rotate", "Each in turn"], ["scored", "The one that lands"]])],
     slots: [slotList("options", "Among", "blow")],
   },
-  "front-kick": skill<FrontKickConfig>("kick", "Front kick", "experimental", { kind: "front-kick" },
-    (config) => validKickTuning({ ...ARENA_KICKS, ...config.tuning }) ? [] : ["invalid kick settings"]),
+  "front-kick": {
+    ...skill<FrontKickConfig>("kick", "Front kick", "experimental", { kind: "front-kick" },
+      (config) => validKickTuning({ ...ARENA_KICKS, ...config.tuning }) ? [] : ["invalid kick settings"]),
+    tuning: Object.keys(ARENA_KICKS),
+  },
   "support-fold": skill("support", "Fight from low support", "experimental", { kind: "support-fold" }),
 });
 

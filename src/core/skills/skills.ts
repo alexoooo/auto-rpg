@@ -37,7 +37,7 @@ export interface Skills extends Skill {
   /** The command for this control step. */
   command(view: BodyView, intent: Intent, dt: number): BodyCommand;
   readonly report: SkillReport;
-  /** What their locomotion was measured to hold with the body (`Locomotion.envelope`). */
+  /** What their locomotion was measured to hold with the body (`Locomotion.envelope`), read as it is now. */
   readonly envelope: StanceEnvelope | null;
   /**
    * Their memory (`src/core/state.ts`): the one command they write again each step, which the

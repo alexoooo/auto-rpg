@@ -10,7 +10,7 @@ import { companionSpawn } from "../src/dungeon/party-placement.ts";
 import { DungeonRun } from "../src/dungeon/run.ts";
 import { orderLabel } from "../src/dungeon/commands.ts";
 import { clearSegment, distance, walkable } from "../src/dungeon/map.ts";
-import { CLASSIC, RECIPE_FIGHTER } from "../src/core/mind/config.ts";
+import { CLASSIC, GAME_FIGHTER } from "../src/core/mind/config.ts";
 import { classicDungeon } from "./fixtures/classic-dungeon.mjs";
 import { freshEngine } from "./harness/core-stand.mjs";
 
@@ -40,13 +40,13 @@ test("a_party_member_plays_the_mind_the_run_is_given_for_its_model_and_an_enemy_
   try {
     seconds(run, 1);
     const minds = Object.fromEntries(run.actors.map((actor) => [actor.id, actor.fighter?.mind]));
-    assert.deepEqual(minds, { hero: RECIPE_FIGHTER, "ally-0": CLASSIC, "enemy-0": RECIPE_FIGHTER });
+    assert.deepEqual(minds, { hero: GAME_FIGHTER, "ally-0": CLASSIC, "enemy-0": GAME_FIGHTER });
     // The mind each plays is the one it names: the ally's sub-mind is the staged rise, the enemy's lies.
     assert.deepEqual(run.actors.map((actor) => actor.fighter.minded.kind), ["fighter", "fighter", "fighter"]);
   } finally { dispose(); }
   // The control: given none, the Rogue in the party lies too.
   const plain = await crypt(map, { companions: ["workshop-rogue"] });
-  try { assert.deepEqual(plain.run.party.map((member) => member.fighter.mind), [RECIPE_FIGHTER, RECIPE_FIGHTER]); } finally { plain.dispose(); }
+  try { assert.deepEqual(plain.run.party.map((member) => member.fighter.mind), [GAME_FIGHTER, GAME_FIGHTER]); } finally { plain.dispose(); }
 });
 
 test("a_dungeon_order_reads_as_its_label", () => {

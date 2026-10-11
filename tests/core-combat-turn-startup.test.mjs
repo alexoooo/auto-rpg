@@ -44,17 +44,17 @@ test('a brief startup ceiling permits fast established turns without the unassis
 });
 
 test('Arena startup timing forks during setting off and resets under ordinary standing orders',async()=>{
- const candidate=withParts(SCRAPPER,{locomotion:{tuning:{turnLimit:4,turnStartup:startup}}});
+ const candidate=withParts(SCRAPPER,{locomotion:{fight:{tuning:{turnLimit:4,turnStartup:startup}}}});
  const make=async()=>buildBout({left:'workshop-fighter',right:'workshop-fighter',gap:3,capSeconds:20,recoverySeconds:null,
   balance:{left:0,right:0},held:{left:'empty',right:'empty'},minds:{left:candidate,right:candidate}}, {physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  const a=await make(),b=await make();
  try{
   a.duel.play([]);a.duel.order('left',{move:{x:-1,z:0},face:null,attack:null});a.world.step(13);
-  const skills=a.duel.duelists.left.minded.skills;assert.ok(skills.state.legs.walkTime>0&&skills.state.legs.walkTime<startup.seconds);
+  const skills=a.duel.duelists.left.minded.skills;assert.ok(skills.state.legs.fight.walkTime>0&&skills.state.legs.fight.walkTime<startup.seconds);
   b.duel.load(a.duel.save());const trace=s=>traceOf(Object.values(s.duel.duelists).map(d=>d.built)),x=trace(a),y=trace(b);
   for(let i=0;i<180;i++){a.world.step();b.world.step();x.take();y.take();}
   assert.equal(x.digest(),y.digest());assert.deepEqual(a.duel.save().state,b.duel.save().state);
-  assert.equal(skills.state.legs.walkTime,startup.seconds);
-  a.duel.order('left',{move:null,face:null,attack:null});a.world.step();assert.equal(skills.state.legs.walkTime,0);
+  assert.equal(skills.state.legs.fight.walkTime,startup.seconds);
+  a.duel.order('left',{move:null,face:null,attack:null});a.world.step();assert.equal(skills.state.legs.fight.walkTime,0);
  }finally{a.dispose();b.dispose();}
 });

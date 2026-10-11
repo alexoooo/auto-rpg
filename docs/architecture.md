@@ -383,7 +383,10 @@ tactics over the skills it is given.
   (`research/locomotion-search.mjs`), a short double support and a swing of 0.28 s among them.
   Off by default, it may take a person's step time forward (`paced`, `personStep` in
   `src/core/human/gait.ts`), end each swing as its sole meets the ground (`lands`,
-  `SwingGoal.lands`), and lengthen a swing whose landing falls short (`lengthen`).
+  `SwingGoal.lands`), lengthen a swing whose landing falls short (`lengthen`), give the push-off
+  as a torque of the ankle that lifts next (`launch`, `lead`, `SwingGoal.launch`), swing from the
+  sole's velocity as it lifts (`momentum`), and weigh a swing's missed moment at its own lever
+  (`lever`, `SwingGoal.lever`).
 - **Run** (`run.ts`, "Run", experimental) is a locomotion skill whose steps fly: each foot bears
   for `contact` and throws the body up at `flight`, and the other lands where a hopping machine
   places it (Raibert 1986), re-aimed until it lands, the capture point asked where a steady run's
@@ -393,11 +396,13 @@ tactics over the skills it is given.
   asked. Each step the pelvis yaws some 0.8 rad, the swing's yaw beyond what the bearing sole's
   twist can give at the ground's friction, and the bearing hip turns to its stop; a foot landed
   behind its neutral point, to speed up, falls within seconds.
-- **Travel and fight** (`travel.ts`, "Travel, then fight", experimental) walks by one locomotion
-  (the stride, its arms swinging) while no standing foe is within `near` (4 m), and by another (the
-  stance's walk, in the guard) once one is, until the foe is half a metre farther: it changes only
-  between steps, resumes the walk it changes to from the body as it is, and gives tactics the
-  fighting walk's envelope.
+- **Travel and fight** (`travel.ts`, "Travel, then fight") walks by one locomotion (the stride,
+  its arms swinging) while it is asked to walk and no standing foe is within `near` (5 m in
+  `TRAVEL`), and by another (the stance's walk, in the guard) once one is, until the foe is half a
+  metre farther, and whenever it is asked to stand. It changes only between steps, resumes the
+  walk it changes to from the body as it is, and gives tactics the envelope of the walk it walks
+  by. Every humanoid's mind gets about by it (`GAME_FIGHTER`); an Arena bout opens at 4 m, so it
+  fights from its first step.
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
   searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
   and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its
@@ -597,7 +602,9 @@ sub-minds, locomotion and the strike cycle), not a flag that chooses a stack. Th
 the **quadruped** (crawl and bite); and **direct** joint control. A config read from a save or a link whose kind none has is refused
 (`partOf`), and so is a tree any part of which names a fault (`treeFaults`, which `createMind`
 reads). A part's config holds a player's fields, plain choices, and under `tuning` an
-experiment's settings, which never travel in a link.
+experiment's settings, which never travel in a link. A key its part does not read, or a tuning it
+does not name (`Part.tuning`), is a fault, so a setting put in the wrong place is refused, never
+silently dropped.
 
 **The fighter's slots** (`FighterConfig`) are its tactics, a skill of each role and its
 sub-minds. Its tactics (`tacticsOf`, `tactics-of.ts`) are `seek` (`recipeTactics`, with `guard`,
@@ -611,7 +618,7 @@ its blow, `kick` with the foot or feet named and its kick, walking in and kickin
 standing leg within reach, and `cover`); under them the fighter's blow and kick are the ones its
 behaviours name and it has no low support (`fighterSkills`), its own slots for them not offered
 (`slotsFor`), and two strikes that name different blows are a fault. Its skills are its walk
-(`stance-walk`, or the experimental `stride`, `run` and `travel`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
+(`stance-walk`, `travel`, or the experimental `stride` and `run`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
 begin a hand while the other returns, the experimental `driven-strike` and `whole-body-strike`
 from the punch's research, or `choose-blow`, which gives each blow to one of a list of
 blows; `noBlow` stands in for none), and, optionally, a kick (`front-kick`) and low support
@@ -669,8 +676,9 @@ There are four sub-minds, each of which wants the body while it is down
 `lie.ts`), which asks its muscles for nothing, `staged-rise` (`stagedRise`, `rise/staged.ts`),
 the riser, `support-recovery` (`supportRecovery`), the riser followed by a quiet standing
 handover, and experimental `dynamic-rise` (`dynamicRise`, `rise/dynamic.ts`).
-`RECIPE_FIGHTER` is Classic's fighter with `lie`: the mind every body has unless its fight says otherwise,
-so a body that falls lies still ([reference/rising.md](reference/rising.md#lying)). An arena
+`RECIPE_FIGHTER` is the seeking fighter over the recipe strike, walking in the stance, with `lie`;
+the Lab's minds are made from it. `GAME_FIGHTER` is it travelling by `TRAVEL`: the mind every
+humanoid has unless its fight says otherwise (`modelInfo`), so a body that falls lies still ([reference/rising.md](reference/rising.md#lying)). An arena
 recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives an enemy its model's (`modelInfo`) and a party member the
 mind chosen for its model on the start panel (`DungeonRunOptions.minds`), its model's unless one
 was; the lab's actor drives the fighter its page chose (`ActorOptions.mind`), the Script preset
@@ -850,7 +858,7 @@ pose, or by a cover of what threatens its head. The threat is read from the sens
 `threat.ts`): of the other sides' bodies still in the fight, the point each hand strikes with
 (its knuckles, or its club's swell) that closes fastest on the head, within `THREAT`'s distance
 and over its speed. What is sensed is as old as the senses' delay, and nothing corrects for it.
-Every body's fighter guards in the pose (`RECIPE_FIGHTER`); an Arena side whose tactics' `guard` is
+Every body's fighter guards in the pose (`GAME_FIGHTER`); an Arena side whose tactics' `guard` is
 set to cover covers ([reference/blows.md](reference/blows.md#covering-searched)).
 
 Orders come from three places. An arena side nobody has taken makes its own (`seekFoe`): from
@@ -858,7 +866,7 @@ its senses it picks the nearest body of another side still in the fight, walks a
 it once their centres are within `ATTACK_METRES` (1.8 m): at its head, at its upper trunk where its config says `body`, or, where its config says
 to aim at what pays (`SeekConfig.aim`, `bandAimed`), at the part of the band its hand's
 recipe nets most on (`StrikeReport.nets`, `markOf`). Every body's fighter aims at the head
-(`RECIPE_FIGHTER`; [reference/blows.md](reference/blows.md#aim)). Where its config says to hold at the
+(`GAME_FIGHTER`; [reference/blows.md](reference/blows.md#aim)). Where its config says to hold at the
 edge (`SeekConfig.range`, `EDGE`), it reads the foe's reach from what it sees of the foe
 (`rangeOf`, by `BodySense.spec`, the rule its own strike skill throws by, `StrikeReport.rangeAt`):
 it stands just outside it, backing out from inside it, and attacks when the part it aims at
@@ -866,7 +874,7 @@ stands in its own blow's window from where it stands, or when it has stood there
 a foe that comes within its clinch (`EDGE.clinch`, 0.65 m between the centres of mass) it backs
 out from, unless its blow is already thrown.
 While the foe is down it attacks nothing and lets it rise, facing it and backing off from it while
-any part of it lies within `CLEAR_OF_DOWN` (0.9 m), so it does not walk onto it. Every body's fighter walks in (`RECIPE_FIGHTER.tactics.range`); the Puncher holds at the edge (`PUNCHER`). A side a person has taken is
+any part of it lies within `CLEAR_OF_DOWN` (0.9 m), so it does not walk onto it. Every body's fighter walks in (`GAME_FIGHTER.tactics.range`); the Puncher holds at the edge (`PUNCHER`). A side a person has taken is
 given the person's (`Duel.order`) and does only what it is ordered, until it is handed back or is
 out of the fight. In the crypt the run plans for its fighters with the map (`DungeonRun`) and
 hands each its plan as orders, its target as the foe; its bodies sense each other, with no delay. Each

@@ -67,7 +67,22 @@ export function treeFaults(config: PartConfig, provides: readonly Provision[] = 
     });
   }
   const screen = unprovided(partOf(config).needs, provides);
-  return [...(screen ? [where(screen)] : []), ...(formed ? partOf(config).faults(config).map((fault) => where(fault)) : []), ...slots];
+  return [...(screen ? [where(screen)] : []), ...unknownSettings(config).map((fault) => where(fault)), ...(formed ? partOf(config).faults(config).map((fault) => where(fault)) : []), ...slots];
+}
+
+/**
+ * The keys of `config` its part does not read, each a sentence: a key that is none of its kind,
+ * settings, slots or defaults' keys, or its tuning's (`Part.tuning`), is a setting that would do
+ * nothing.
+ */
+function unknownSettings(config: PartConfig): readonly string[] {
+  const part = partOf(config), tuning = part.tuning ?? [];
+  const known = new Set(["kind", ...part.fields.map((field) => field.key), ...part.slots.map((slot) => slot.key), ...Object.keys(part.defaults), ...(part.tuning ? ["tuning"] : [])]);
+  const given = (config as { tuning?: unknown }).tuning;
+  return [
+    ...Object.keys(config).filter((key) => !known.has(key)).map((key) => `${part.label} has no setting ${key}`),
+    ...(part.tuning && typeof given === "object" && given !== null ? Object.keys(given).filter((key) => !tuning.includes(key)).map((key) => `${part.label} has no tuning ${key}`) : []),
+  ];
 }
 
 /** Whether a body of `spec` can carry out what every part of the tree `config` roots commands. */

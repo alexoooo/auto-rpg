@@ -49,7 +49,7 @@ test("empty hands and a retained club recover twice, walk, and resume actual str
     const result = await recoveryCycle({ held, direction: 0, repeat: 2, attack: true, seconds: 180 });
     assert.equal(result.success, true, JSON.stringify(result));
     assert.equal(result.trials.length, 2);
-    assert.ok(result.trials.every((r) => r.acquired && r.walk.strides > 0 && !r.walk.fell));
+    assert.ok(result.trials.every((r) => r.acquired && r.walk.steps > 0 && !r.walk.fell));
     assert.ok(result.attack.impacts.length >= 2);
     assert.ok(result.attack.returned.right >= 2);
     assert.equal(result.attack.fell, false);
@@ -75,7 +75,7 @@ test("the measured stabilization handover replays into a fresh arena and survive
         while (stand.world.time < 65 && r.completed === 0) stand.world.step();
         assert.equal(r.completed, 1);
         const walk = walkAfterRecovery(stand);
-        assert.equal(walk.fell, false); assert.ok(walk.strides > 0);
+        assert.equal(walk.fell, false); assert.ok(walk.steps > 0);
         return { walk, state: saveState(stand.duel.state), digest: trace.digest() };
       } finally { hook.dispose(); }
     };
