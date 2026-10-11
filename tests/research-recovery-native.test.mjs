@@ -17,6 +17,10 @@ test('native recovery preserves nominal execution, resumes and counts counterfac
     const resumed = await nativeRecovery({ input, output, iterations: 0, maximumSteps: 120 });
     assert.deepEqual(resumed.rows.map(r => r.observation), seed.rows.slice(0, 120).map(r => r.observation));
     assert.equal(resumed.compute.steps, 360);
+    const lookahead = await nativeRecovery({ input, iterations: 0, maximumSteps: 8, horizon: 6 });
+    assert.deepEqual(lookahead.rows.map(r => r.observation), seed.rows.slice(0, 8).map(r => r.observation));
+    assert.equal(lookahead.compute.steps, 8 * 13);
+    await replayRecovery(lookahead);
     const accelerated = await nativeRecovery({ input, seconds: 6, iterations: 1, maximumSteps: 8 });
     assert.equal(accelerated.rows.length, 8);
     assert.ok(accelerated.compute.steps > 8 * 35);
@@ -26,7 +30,7 @@ test('native recovery preserves nominal execution, resumes and counts counterfac
     assert.ok(Math.abs(accelerated.rows.at(-1).observation.time - seed.before.observation.time - 8 / 120) < 1e-12);
     await replayRecovery(accelerated);
   } finally {
-    for (const path of [input, output, `${output}.checkpoint`]) { try { unlinkSync(path); } catch (error) { if (error.code !== 'ENOENT') throw error; } }
+    for (const path of [input, output, `${output}.checkpoint`, `${output}.budget`]) { try { unlinkSync(path); } catch (error) { if (error.code !== 'ENOENT') throw error; } }
     rmdirSync(directory);
   }
 });

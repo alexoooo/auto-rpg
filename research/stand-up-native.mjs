@@ -9,8 +9,7 @@ import { parseArgs } from 'node:util';
 import { Quaternion } from '@babylonjs/core/Maths/math.vector.js';
 import { boundedWork, linearWork, solveLinearTo, boundedLeastSquaresTo } from '../src/core/math/flat.ts';
 import { recoveryEnvironment } from './stand-up-environment.mjs';
-import { modelSpec } from '../src/core/models.ts';
-import { withSoles } from '../src/core/human/sole.ts';
+import { recoveryDesign } from './stand-up-design.mjs';
 import { recoveryScore } from './stand-up-search.mjs';
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -33,15 +32,15 @@ function referenceAt(seed, step) {
   });
 }
 
-/** Actual-engine one-step optimization follows a complete measured recovery at a chosen duration. */
+/** Actual-engine receding-horizon optimization follows a measured recovery at a chosen duration. */
 export async function nativeRecovery({ input, output, seconds, iterations = 2, response = .15, stepBudget = 300000,
-  maximumSteps, angularWeight = .2, rootWeight = 3 } = {}) {
+  maximumSteps, angularWeight = .2, rootWeight = 3, horizon = 1 } = {}) {
   const seed = read(input);
   assert.equal(seed.result.success, true, 'native tracking needs a complete physical demonstration');
   seconds ??= seed.result.seconds;
   assert.ok(seconds > 0 && Number.isFinite(seconds) && Number.isSafeInteger(iterations) && iterations >= 0 && iterations <= 8);
-  const e = await recoveryEnvironment({ ...seed.configuration,
-    ...(seed.configuration.contact === 'shoe' ? { spec: withSoles(modelSpec(seed.configuration.model)) } : {}) });
+  assert.ok(Number.isSafeInteger(horizon) && horizon >= 1 && horizon <= 60, 'native horizon is one to sixty physical steps');
+  const e = await recoveryEnvironment({ ...seed.configuration, spec: recoveryDesign(seed.configuration) });
   e.restore(seed.initial);
   const n = e.channels.length, linear = linearWork(n), bounded = boundedWork(n), rows = [], started = performance.now();
   const remainingSeconds = seconds - (seed.before.observation.time - seed.result.takeover);
@@ -50,7 +49,8 @@ export async function nativeRecovery({ input, output, seconds, iterations = 2, r
   let x = Array(n).fill(0), steps = 0, peakCost = 0;
   const hash = bytes => createHash('sha256').update(bytes).digest('hex');
   const configuration = { input: resolve(input), inputSha: hash(readFileSync(input)), sourceSha: hash(readFileSync(new URL(import.meta.url))),
-    seconds, iterations, response, angularWeight, rootWeight, stepBudget };
+    seconds, iterations, response, angularWeight, rootWeight, stepBudget, horizon };
+  const budgetPath = output && `${output}.budget`;
   let previousMilliseconds = 0;
   if (output && existsSync(`${output}.checkpoint`)) {
     const saved = read(`${output}.checkpoint`);
@@ -58,30 +58,46 @@ export async function nativeRecovery({ input, output, seconds, iterations = 2, r
     e.restore(saved.state); rows.push(...saved.rows); x = saved.x; steps = saved.steps;
     previousMilliseconds = saved.progress.wallSeconds * 1000; peakCost = saved.peakCost;
   }
+  if (budgetPath && existsSync(budgetPath)) {
+    const budget = read(budgetPath);
+    assert.deepEqual(budget.configuration, configuration, 'native budget belongs to this configuration');
+    steps = Math.max(steps, budget.steps);
+  }
   try {
     const limit = maximumSteps ?? Math.ceil((remainingSeconds + 5) * 120);
     for (let step = rows.length; step < limit; step++) {
-      if (steps + 3 + iterations * (n + 4) > stepBudget) break;
+      if (steps + (2 + iterations * (n + 4)) * horizon + 1 > stepBudget) break;
+      if (budgetPath) write(budgetPath, { configuration, steps: steps + (2 + iterations * (n + 4)) * horizon + 1 });
       if (e.experiment.handover !== null) {
         const row = e.step({ kind: 'host' }); rows.push(row); steps++;
         if (row.result.success || row.result.failure) break;
         continue;
       }
-      const before = e.observe(), checkpoint = e.save(), now = referenceAt(seed, step * scale), next = referenceAt(seed, (step + 1) * scale);
+      const before = e.observe(), checkpoint = e.save(), now = referenceAt(seed, step * scale), next = referenceAt(seed, (step + horizon) * scale);
       const moving = step / 120 < remainingSeconds;
       const target = before.segments.map((s, i) => {
         const q = new Quaternion(...now[i].rotation).multiply(Quaternion.Inverse(new Quaternion(...s.rotation))), sign = q.w < 0 ? -1 : 1;
         return { linear: s.velocity.map((_, k) => (moving ? next[i].velocity[k] * scale : 0) + (now[i].centre[k] - s.centre[k]) / response),
           angular: s.spin.map((_, k) => (moving ? next[i].spin[k] * scale : 0) + 2 * sign * [q.x, q.y, q.z][k] / response) };
       });
-      const evaluateAction = action => {
-        e.restore(checkpoint); steps++;
-        const row = e.step(action, { automaticHandover: true });
+      const evaluateAction = (action, reference = false) => {
+        e.restore(checkpoint);
+        let first, row;
+        for (let k = 0; k < horizon; k++) {
+          const selected = reference ? seed.rows[Math.min(seed.rows.length - 1, Math.floor((step + k) * scale))].action : action;
+          steps++; row = e.step(selected, { automaticHandover: true }); first ??= row;
+          if (row.result.success || row.result.failure) break;
+        }
         const residual = row.observation.segments.flatMap((s, i) => {
           const weight = s.name === 'lowerTrunk' ? rootWeight : 1;
+          if (horizon > 1) {
+            const q = new Quaternion(...next[i].rotation).multiply(Quaternion.Inverse(new Quaternion(...s.rotation))), sign = q.w < 0 ? -1 : 1;
+            return [...s.velocity.map((v, k) => weight * (v - (moving ? next[i].velocity[k] * scale : 0) - (next[i].centre[k] - s.centre[k]) / response)),
+              ...s.spin.map((v, k) => weight * angularWeight * (v - (moving ? next[i].spin[k] * scale : 0) - 2 * sign * [q.x, q.y, q.z][k] / response))];
+          }
           return [...s.velocity.map((v, k) => weight * (v - target[i].linear[k])), ...s.spin.map((v, k) => weight * angularWeight * (v - target[i].angular[k]))];
         });
-        return { row, action, residual, cost: residual.reduce((sum, v) => sum + v * v, 0) };
+        return { row: first, action, residual, cost: residual.reduce((sum, v) => sum + v * v, 0) };
       };
       const evaluate = z => evaluateAction(commands(z));
       let current = evaluate(x);
@@ -106,7 +122,7 @@ export async function nativeRecovery({ input, output, seconds, iterations = 2, r
         if (!improved) break;
       }
       const original = seed.rows[Math.min(seed.rows.length - 1, Math.floor(step * scale))].action;
-      const replay = evaluateAction(original);
+      const replay = evaluateAction(original, true);
       if (replay.cost < current.cost) {
         current = replay;
         x = current.row.observation.joints.map(j => clamp(j.effort / Math.max(.001, j.effort >= 0 ? j.positive : j.negative), -1, 1));
@@ -125,6 +141,7 @@ export async function nativeRecovery({ input, output, seconds, iterations = 2, r
     }
     const result = { ...seed, rows, result: e.result(), native: configuration,
       compute: { steps, milliseconds: previousMilliseconds + performance.now() - started, peakCost }, score: recoveryScore(e.result(), e.measure()) };
+    if (budgetPath) write(budgetPath, { configuration, steps });
     if (output) write(output, result);
     return result;
   } finally { e.dispose(); }
@@ -132,7 +149,7 @@ export async function nativeRecovery({ input, output, seconds, iterations = 2, r
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const { values } = parseArgs({ options: { input: { type: 'string' }, output: { type: 'string' }, seconds: { type: 'string' },
-    iterations: { type: 'string' }, response: { type: 'string' }, stepBudget: { type: 'string' }, maximumSteps: { type: 'string' } } });
+    iterations: { type: 'string' }, response: { type: 'string' }, stepBudget: { type: 'string' }, maximumSteps: { type: 'string' }, horizon: { type: 'string' } } });
   const options = Object.fromEntries(Object.entries(values).map(([k, v]) => [k, ['input', 'output'].includes(k) ? v : Number(v)]));
   const result = await nativeRecovery(options); console.log(JSON.stringify({ result: result.result, compute: result.compute, score: result.score }));
 }

@@ -100,6 +100,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
 } {
   const faults = stageFaults(recipe, own.spec);
   if (faults.length > 0) throw new Error(`${own.spec.model} cannot play this rise: ${faults.join("; ")}`);
+  const speed = recipe.progress?.speed ?? SLOW, near = recipe.progress?.near ?? NEAR, turnTolerance = recipe.progress?.turn ?? TURNED;
+  const settleSpeed = recipe.progress?.settleSpeed ?? SLOW, settleSeconds = recipe.progress?.settleSeconds ?? STILL_SECONDS;
   const muscles = own.muscles, root = muscles.dynamics.root.segment, count = muscles.channels.length;
   const upright = uprightness(own.built), made = riseLimbs(own, recipe);
   const feet = footStatesOf(own.built), footSegments: ReadonlySet<BuiltSegment> = new Set(feet.map((foot) => foot.segment)), soles = new Vector3();
@@ -279,8 +281,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     bearLimbs(solve, muscles, asked, lever, true);
     const dx = place.x - c.x, dy = target.y - c.y, dz = place.z - c.z;
     // `spin` closes the pelvis's turn in the stage's time constant: the turn left is the two's product.
-    const turned = (spin.x * spin.x + spin.y * spin.y + spin.z * spin.z) * stage.seconds * stage.seconds < TURNED * TURNED;
-    return down && (keeps || state.lifted) && turned && v.x * v.x + v.y * v.y + v.z * v.z < SLOW * SLOW && dx * dx + dy * dy + dz * dz < NEAR * NEAR;
+    const turned = (spin.x * spin.x + spin.y * spin.y + spin.z * spin.z) * stage.seconds * stage.seconds < turnTolerance * turnTolerance;
+    return down && (keeps || state.lifted) && turned && v.x * v.x + v.y * v.y + v.z * v.z < speed * speed && dx * dx + dy * dy + dz * dz < near * near;
   };
 
   return {
@@ -323,8 +325,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
         case "settle": {
           slack();
           const v = view.stance.velocity;
-          state.still = v.x * v.x + v.y * v.y + v.z * v.z < SLOW * SLOW ? state.still + dt : 0;
-          if (state.still + dt / 2 < STILL_SECONDS) return;
+          state.still = v.x * v.x + v.y * v.y + v.z * v.z < settleSpeed * settleSpeed ? state.still + dt : 0;
+          if (state.still + dt / 2 < settleSeconds) return;
           state.lie = lieOf(root, lying);
           state.tries++;
           enter(state.lie === "front" ? "rise" : "roll", 0);

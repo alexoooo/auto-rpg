@@ -685,7 +685,10 @@ was; the lab's actor drives the fighter its page chose (`ActorOptions.mind`), th
 unless it is given another.
 
 **The riser plays a recipe** (`Recipe`, `RISE`, `rise/stages.ts`): plain data that names
-freedoms and limbs, and no body. It lies slack until its centre of mass is still, reads how it
+freedoms and limbs, and no body. A recipe can override intermediate motion and settling
+tolerances through `progress`; `supportRecovery` accepts a recipe without changing its final
+quiet-standing predicate. Omitted overrides retain the standard recipe's behavior.
+It lies slack until its centre of mass is still, reads how it
 lies (`lieOf`: on its front, its back or a side), and plays stages. A stage is a pose
 (`PoseStage`: every freedom turned toward a posture for a time, the posture written from each
 freedom's own zero, `DofSpec.bind`, so one posture is one shape on every body) or a bearing

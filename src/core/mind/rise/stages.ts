@@ -139,6 +139,14 @@ type LimbSpec = EndLimb | ProppedLimb | FootLimb;
  * segments and joints of the bodies it is for, and nothing in the player does.
  */
 export interface Recipe {
+  /** Intermediate transition tolerances; final standing is verified by the recovery host. */
+  readonly progress?: {
+    readonly speed?: number;
+    readonly near?: number;
+    readonly turn?: number;
+    readonly settleSpeed?: number;
+    readonly settleSeconds?: number;
+  };
   /** In the order the riser's memory keeps them. */
   readonly limbs: readonly LimbSpec[];
   /**
@@ -498,6 +506,9 @@ const SHARES_SUM = 1e-9;
 /** What is wrong with `recipe` for `spec`, in words; none if it can be played. */
 export function stageFaults(recipe: Recipe, spec: BodySpec): string[] {
   const faults = limbFaults(recipe, spec);
+  for (const [name, value] of Object.entries(recipe.progress ?? {})) {
+    if (!(value > 0) || !Number.isFinite(value)) faults.push(`recovery progress ${name} must be finite and positive`);
+  }
   if (recipe.trunk.length === 0) faults.push("the trunk has no segment");
   for (const segment of recipe.trunk) if (!spec.segments.some((other) => other.name === segment)) faults.push(`the trunk has ${segment}, which ${spec.model} lacks`);
   // Each channel's range from its own zero.

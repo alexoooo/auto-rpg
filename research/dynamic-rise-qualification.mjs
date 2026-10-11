@@ -1,5 +1,6 @@
 const MODELS = ["workshop-fighter", "workshop-rogue"], LOADOUTS = ["empty", "club"];
 const DIRECTIONS = Array.from({ length: 16 }, (_, k) => k * 22.5), CARDINAL = [0, 90, 180, 270];
+const completed = row => row.fell && row.success && Number.isFinite(row.seconds) && row.seconds >= 0 && row.seconds <= 6;
 
 /** Complete directional coverage, censored timings, and the owner's recovery acceptance thresholds. */
 export function dynamicRiseQualification(rows) {
@@ -7,10 +8,10 @@ export function dynamicRiseQualification(rows) {
     const selected = rows.filter(r => r.model === model && r.held === held);
     const complete = selected.length === DIRECTIONS.length && DIRECTIONS.every(degrees =>
       selected.filter(r => r.degrees === degrees).length === 1);
-    const times = selected.map(r => r.success ? r.seconds : Infinity).sort((a, b) => a - b);
+    const times = selected.map(r => completed(r) ? r.seconds : Infinity).sort((a, b) => a - b);
     const median = complete ? (times[7] + times[8]) / 2 : Infinity;
-    const successes = selected.filter(r => r.success).length, falls = selected.filter(r => r.fell).length;
-    const cardinal = CARDINAL.every(degrees => selected.some(r => r.degrees === degrees && r.success));
+    const successes = selected.filter(completed).length, falls = selected.filter(r => r.fell).length;
+    const cardinal = CARDINAL.every(degrees => selected.some(r => r.degrees === degrees && completed(r)));
     return { model, held, trials: selected.length, falls, successes,
       median: Number.isFinite(median) ? median : null, complete, cardinal,
       pass: complete && falls === 16 && successes >= 15 && median <= 4 && cardinal };

@@ -150,6 +150,25 @@ passes them to the physical joints. Those searches are not evidence about the av
 space, anatomy or relative merits of the two body candidates. Their 2,240,846 computed steps
 remain charged to the campaign. New comparisons require corrected inputs and fresh checkpoints.
 
+The corrected comparison uses 1,200 candidates per body, four target knots, the same successful
+90-degree baseline as posture guidance, and the Front fall. Neither body completes recovery:
+the original takes 1,237,166 counterfactual steps in 483.26 wall-clock seconds; the sole candidate
+takes 1,218,924 in 380.26 seconds. Both use three workers and the physical configuration named
+above. These are failed smooth-target searches, not evidence of physical impossibility.
+The original body's selected failure carries substantial load through the left palm and thigh
+while the right thigh contacts the middle trunk. Its left wrist pronation remains about 1.84 rad
+from its target at its approximately 6.33 N m directional motor bound. Whole-body posture error
+and torso height conceal this blocked contact configuration; a higher surrogate score is not a
+recovery.
+
+`research/stand-up-beam.mjs` retains distinct contact/height/orientation prefixes, evaluates
+overlapping half-second windows with half-second lookahead, and commits only a quarter second.
+Its checkpoints retain ancestry, physical state, optimizer state and a rewind operation. A
+one-worker, width-two Front run spends 459,120 world steps and reaches a five-second failed
+prefix, still near the floor. The recorded 8,667.31 wall-clock seconds include an unexpected
+long execution pause and are unsuitable for throughput comparison. The search stops at its
+wall budget. Short-horizon improvement of height/orientation does not supply a complete route.
+
 The existing `withSoles` body is a separate physical candidate, with the same muscle bounds.
 Under the staged baseline it completes Front in 29.2917 s but fails the 90-degree recipe in
 45 s. These two observations do not establish improved robustness. `research/stand-up-sole.mjs`
@@ -160,6 +179,27 @@ within the 6.1 mm layer and show no energy increase during free unloading. Compl
 and world-state restoration reproduces unloading exactly. This is a material fixture, not a
 recovery or whole-leg qualification.
 
+`research/stand-up-design-screen.mjs` separately screens the unchanged support controller on
+Front and 90-degree falls for forty seconds each. `research/stand-up-design.mjs` declares strength
+factors 1–3, unloaded-speed factors 1–2 and weight factors 0.6–1 through the existing physique
+specification, with baseline or compliant-sole contact. Defaults reproduce the original spec
+exactly. Every record contains original/candidate mass and all directional muscle envelopes,
+actual peak delivered torques and motor bounds. No change is a new shared-body default.
+
+| Warrior, empty hands, unchanged controller | Front | 90 degrees |
+|---|---|---|
+| Original body | No recovery in 40 s | Verified, 25.275 s |
+| Compliant soles | Verified, 29.2917 s | No recovery in 40 s |
+| Soles, strength factor 1.5 | No recovery in 40 s | No recovery in 40 s |
+| Soles, strength factor 3 | No recovery in 40 s | No recovery in 40 s |
+| Soles, unloaded-speed factor 2 | No recovery in 40 s | Handover at 33.1917 s, walking fails |
+| Soles, weight factor 0.6 | No recovery in 40 s | No recovery in 40 s |
+
+All twelve trials actually fall. The speed candidate's failed walking tail is a failure, not a
+completion. These shared-policy transfer results reject immediate adoption of these settings;
+they do not compare separately optimized controllers on every body. The changed weight also
+changes geometry through the existing physique system. It is not an isolated mass experiment.
+
 `research/stand-up-native.mjs` evaluates bounded muscle commands in the actual engine to track
 the segments of a complete demonstration. Its unchanged-speed reference reproduces the
 baseline; counterfactual steps advance neither episode time nor the selected physical path.
@@ -167,6 +207,36 @@ Compressing the 25.275 s demonstration to a 20 s target with one optimization it
 step fails: no handover after 25 s, 118,692 computed world steps and 537.48 wall-clock seconds.
 The one-step tracker loses the reference through changing contacts. This does not establish
 that a longer-horizon optimizer or another trajectory cannot succeed.
+
+`research/stand-up-feedback.mjs` searches bounded posture, timing, response and intermediate
+transition parameters while retaining the existing contact feedback. It supplies an immutable
+recipe to `supportRecovery`; the final standing and walking criteria are not search variables.
+The neutral recipe reproduces the baseline physically. Checkpoints identify the complete
+physical configuration and search source; interrupted native, trajectory, feedback and beam
+work retains a conservative charge for in-flight evaluations.
+
+For the same Warrior/empty/sole Front fall, 600 evaluations and 2,363,058 world steps take
+902.07 wall-clock seconds on three workers and find a verified 19.1667 s recovery, compared
+with the unchanged controller's 29.2917 s. Its complete action tape replays exactly in a fresh
+world. A bounded single-parameter refinement of roll, preparation, subsequent poses, bearing
+response and posture response takes 183,308 additional steps and reaches 16.2667 s, including
+all attempts before handover and followed by the three-second host tail. This remains far from
+the timing target and is evidence for one development fall only.
+
+The feedback experiments use core/Lab source digest
+`786a34e6877169fed56b85f0eed219cd014b8808cefc897c2826ca9096342810`, the same vendored engine,
+120 Hz, symmetric actuation and zero balance. Recipe changes do not alter the shared presets.
+The sole material and body specification are unchanged across this feedback comparison.
+The 19.1667 s trace reaches hands-and-knees support at about 8.675 s and begins final
+stabilization at 16.35 s. The successful sequence is still predominantly serial. Progress in
+one fall does not establish a robust new policy.
+
+The native tracker supports a multi-step physical horizon, retaining only the first selected
+action and restoring the complete world for each counterfactual. At nominal speed, both a
+one-step and six-step horizon reproduce the measured reference. Longer horizons compare the
+predicted end state against the corresponding future reference, rather than advancing the live
+episode during planning. The directional qualification reader independently rejects late or
+non-finite completion times, even when an input row declares success.
 
 Reproduce these experiments with separate output paths:
 

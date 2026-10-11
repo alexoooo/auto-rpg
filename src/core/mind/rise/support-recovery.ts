@@ -16,7 +16,7 @@ import { observeBody } from "../../observation.ts";
 import type { World } from "../../world.ts";
 import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
-import { RISE } from "./stages.ts";
+import { RISE, type Recipe } from "./stages.ts";
 import { stagedRise } from "./staged.ts";
 import { DOWN } from "./limbs.ts";
 
@@ -50,9 +50,9 @@ export function supportEntryPolicy(built: BuiltBody, model: Pick<MotionModel, "c
 }
 
 /** Rise with the reference policy, then verify quiet foot support before returning control. */
-export function supportRecovery(own: OwnBody, view: BodyView, world: World): SubMind {
+export function supportRecovery(own: OwnBody, view: BodyView, world: World, recipe: Recipe = RISE): SubMind {
   const { built, muscles } = own;
-  const rise = stagedRise(own, view), feet = footStatesOf(built), legs = locomotion(null);
+  const rise = stagedRise(own, view, recipe), feet = footStatesOf(built), legs = locomotion(null);
   const motor = motorControl(built, SERVO_SECONDS, guardPosture(built.spec), undefined, own.assist);
   const observe = observeBody(built, muscles, world, () => view.senses);
   const state = { phase: "complete" as "rise" | "stabilize" | "complete", rise: rise.state, motor: motor.state, legs: legs.state,

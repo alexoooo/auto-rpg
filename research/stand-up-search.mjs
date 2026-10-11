@@ -10,8 +10,7 @@ import { isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { parseArgs } from 'node:util';
 import { recoveryEnvironment } from './stand-up-environment.mjs';
 import { cmaSearch, workerPool } from './cma.mjs';
-import { modelSpec } from '../src/core/models.ts';
-import { withSoles } from '../src/core/human/sole.ts';
+import { recoveryDesign, recoveryDesignTable } from './stand-up-design.mjs';
 
 const digest = value => createHash('sha256').update(serialize(value)).digest('hex');
 const clamp = (value, lo, hi) => Math.max(lo, Math.min(hi, value));
@@ -22,9 +21,7 @@ const write = (path, value) => {
   renameSync(`${path}.tmp`, path);
 };
 const environment = configuration => {
-  if (!['baseline', 'shoe'].includes(configuration.contact ?? 'baseline')) throw new Error('unknown recovery body candidate');
-  return recoveryEnvironment({ ...configuration,
-    ...(configuration.contact === 'shoe' ? { spec: withSoles(modelSpec(configuration.model)) } : {}) });
+  return recoveryEnvironment({ ...configuration, spec: recoveryDesign(configuration) });
 };
 
 /** Success dominates every progress heuristic; duration includes all time since takeover. */
@@ -41,8 +38,9 @@ export function recoveryScore(result, measurement) {
 
 /** A complete baseline trace, with actions indexed before and observations after each world step. */
 export async function recordRecovery({ model = 'workshop-fighter', held = 'empty', baseline = 'support-recovery',
-  kind = 'lab', degrees = 90, seconds = 45, contact = 'baseline' } = {}) {
-  const e = await environment({ model, held, baseline, contact });
+  kind = 'lab', degrees = 90, seconds = 45, contact = 'baseline', strength = 1, speed = 1, weight = 1 } = {}) {
+  const configuration = { model, held, baseline, contact, strength, speed, weight };
+  const e = await environment(configuration);
   try {
     await e.fall({ kind, degrees });
     assert.notEqual(e.result().takeover, null, 'the recipe must produce an actual recovery takeover');
@@ -51,7 +49,7 @@ export async function recordRecovery({ model = 'workshop-fighter', held = 'empty
       const row = e.step(); rows.push(row);
       if (row.result.success || row.result.failure) break;
     }
-    return { version: 1, configuration: { model, held, baseline, contact }, recipe: { kind, degrees }, identity: e.identity,
+    return { version: 1, configuration, design: recoveryDesignTable(configuration), recipe: { kind, degrees }, identity: e.identity,
       initial, before, rows, result: e.result(), compute: { steps: rows.length, milliseconds: performance.now() - started } };
   } finally { e.dispose(); }
 }
@@ -161,29 +159,31 @@ async function search({ input, output, pilot, generations = 100, workers = Math.
   const budget = { evaluations: pilot ? 256 : Infinity, steps: stepBudget, milliseconds: Math.min(wallSeconds, pilot ? 600 : Infinity) * 1000 };
   const started = performance.now(), previousMilliseconds = saved.milliseconds;
   const persist = () => { saved.milliseconds = previousMilliseconds + performance.now() - started; write(checkpointPath, saved); };
-  const pool = workerPool(new URL(import.meta.url), { recoverySearch: true, input: resolve(input), config }, workers);
   // Each worker constructs its prefix once. Prefixes, tails and unsuccessful trials all consume budget.
+  assert.ok(saved.steps + workers * start <= budget.steps, 'worker prefixes exceed the remaining search budget');
   saved.steps += workers * start;
-  let reservedSteps = 0, reservedEvaluations = 0, stopped = false;
+  persist();
+  const pool = workerPool(new URL(import.meta.url), { recoverySearch: true, input: resolve(input), config }, workers);
+  let stopped = false;
   const interrupt = () => { stopped = true; };
   process.on('SIGINT', interrupt); process.on('SIGTERM', interrupt);
   const pending = new Set();
   const score = async u => {
     const key = digest(u);
     if (saved.cache[key]) return saved.cache[key];
-    if (stopped || saved.steps + reservedSteps + maximumSteps > budget.steps
-      || saved.evaluations + reservedEvaluations >= budget.evaluations
+    if (stopped || saved.steps + maximumSteps > budget.steps
+      || saved.evaluations >= budget.evaluations
       || previousMilliseconds + performance.now() - started >= budget.milliseconds) {
       stopped = true; throw new Error('declared search budget exhausted');
     }
-    reservedSteps += maximumSteps; reservedEvaluations++;
+    // An interrupted worker remains charged at its reserved upper bound after a restart.
+    saved.steps += maximumSteps; saved.evaluations++; persist();
     const task = pool.evaluate(u); pending.add(task);
     let result;
     try { result = await task; }
     catch (error) { result = { score: -1000000, error: String(error), steps: maximumSteps }; }
     finally { pending.delete(task); }
-    reservedSteps -= maximumSteps; reservedEvaluations--;
-    saved.steps += result.steps; saved.evaluations++;
+    saved.steps += result.steps - maximumSteps;
     saved.cache[key] = result;
     if (!saved.best || result.score > saved.best.score) saved.best = { u, ...result };
     persist();
@@ -208,10 +208,11 @@ async function search({ input, output, pilot, generations = 100, workers = Math.
   // Materializing the winner is another physical evaluation, accounted separately from sampling.
   if (saved.best && saved.steps + start + maximumSteps <= budget.steps
     && previousMilliseconds + performance.now() - started < budget.milliseconds) {
+    saved.steps += start + maximumSteps; persist();
     const evaluator = await trajectoryEvaluator(seed, config);
     try {
       const winner = evaluator.evaluate(saved.best.u, { capture: true });
-      saved.steps += start + winner.steps;
+      saved.steps += winner.steps - maximumSteps;
       assert.equal(winner.digest, saved.best.digest, 'winner must reproduce independently of worker order');
       write(output, { ...seed, rows: winner.rows, result: winner.result, lineage: { parent: resolve(input), identity, u: saved.best.u },
         compute: { steps: saved.steps, evaluations: saved.evaluations, milliseconds: previousMilliseconds + performance.now() - started } });
@@ -231,9 +232,10 @@ if (!isMainThread && workerData?.recoverySearch) {
     workers: { type: 'string' }, start: { type: 'string' }, length: { type: 'string' }, knots: { type: 'string' }, seed: { type: 'string' },
     representation: { type: 'string' }, sigma: { type: 'string' }, independent: { type: 'boolean' },
     contact: { type: 'string' }, reference: { type: 'string' },
+    strength: { type: 'string' }, speed: { type: 'string' }, weight: { type: 'string' },
     stepBudget: { type: 'string' }, wallSeconds: { type: 'string' } } });
   const options = Object.fromEntries(Object.entries(values).map(([k, v]) => [k,
-    ['degrees', 'seconds', 'generations', 'workers', 'start', 'length', 'knots', 'seed', 'stepBudget', 'wallSeconds', 'sigma'].includes(k) ? Number(v) : v]));
+    ['degrees', 'seconds', 'generations', 'workers', 'start', 'length', 'knots', 'seed', 'stepBudget', 'wallSeconds', 'sigma', 'strength', 'speed', 'weight'].includes(k) ? Number(v) : v]));
   const mode = positionals[0];
   if (mode === 'record') { assert.ok(options.output); const record = await recordRecovery(options); write(options.output, record); console.log(JSON.stringify(record.result)); }
   else if (mode === 'replay') { console.log(JSON.stringify(await replayRecovery(read(options.input)))); }

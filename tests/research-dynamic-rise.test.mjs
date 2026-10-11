@@ -43,3 +43,18 @@ test("dynamic-rise qualification retains censored failures and enforces the four
     Array.from({ length: 4 }, () => ({ successes: 16, median: 4.01, pass: false })));
   assert.equal(slow.pass, false);
 });
+
+test("a standing declaration after the deadline or without a finite recovery time cannot qualify", () => {
+  for (const seconds of [6.01, null, NaN, Infinity, -1]) {
+    const rows = trials();
+    rows[0] = { ...rows[0], seconds };
+    const result = dynamicRiseQualification(rows);
+    assert.equal(result.pass, false);
+    assert.equal(result.groups[0].successes, 15);
+    assert.equal(result.groups[0].cardinal, false);
+  }
+  const late = trials().map((row, i) => i % 16 === 1 || i % 16 === 2 ? { ...row, seconds: 8 } : row);
+  assert.equal(dynamicRiseQualification(late).pass, false, 'a good median cannot conceal two late recoveries per group');
+  const boundary = trials(); boundary[0] = { ...boundary[0], seconds: 6 };
+  assert.equal(dynamicRiseQualification(boundary).pass, true);
+});

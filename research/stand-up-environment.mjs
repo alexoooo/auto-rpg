@@ -17,6 +17,7 @@ import { observeBody } from '../src/core/observation.ts';
 import { clockSenses } from '../src/core/mind/senses.ts';
 import { footStatesOf, readSupport } from '../src/core/control/support.ts';
 import { recoveryReady } from '../src/core/control/recovery-ready.ts';
+import { deepFreeze } from '../src/core/state.ts';
 
 // Recovery acceptance and the host's verification tail, in seconds and metres.
 const VERIFY = Object.freeze({ slow: .1, minUpNormal: .9, quiet: .5, standing: 2, walking: 1,
@@ -60,8 +61,10 @@ export function checkRecoveryAction(action, channels) {
 }
 
 /** A real Lab body and host with a research action override inside the ordinary muscle path. */
-export async function recoveryEnvironment({ model = 'workshop-fighter', held = 'empty', baseline = 'support-recovery', spec: suppliedSpec } = {}) {
+export async function recoveryEnvironment({ model = 'workshop-fighter', held = 'empty', baseline = 'support-recovery', spec: suppliedSpec, recipe } = {}) {
   if (!['support-recovery', 'dynamic-rise'].includes(baseline)) throw new Error('unknown recovery baseline');
+  if (recipe && baseline !== 'support-recovery') throw new Error('a recipe belongs to support recovery');
+  recipe = recipe ? deepFreeze(structuredClone(recipe)) : undefined;
   const spec = armedWith(suppliedSpec ?? modelSpec(model), 'right', held);
   const stand = await coreStand(spec, { engine: 'rapier-coordinate', groundSize: 40, posture: guardPosture(spec), actuation: 'symmetric' });
   const { world, built } = stand;
@@ -71,7 +74,7 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
     failure: null, effortViolation: 0, assisted: false };
   let channels, legacy, port;
   const recovery = (own, view, into) => {
-    legacy = (baseline === 'support-recovery' ? supportRecovery : dynamicRise)(own, view, into);
+    legacy = baseline === 'support-recovery' ? supportRecovery(own, view, into, recipe) : dynamicRise(own, view, into);
     const muscles = own.muscles;
     channels = muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value,
       max: c.dof.spec.max.value, bind: c.dof.spec.bind.value,
@@ -119,7 +122,7 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
   const root = built.segments.get('lowerTrunk'), inverseRoot = Quaternion.Inverse(root.rest);
   const footUps = feet.map(f => Vector3.UpReadOnly.applyRotationQuaternionToRef(Quaternion.Inverse(f.segment.rest), new Vector3()));
   const states = { body: body.state, skills: skills.state, orders: stance.orders, experiment };
-  const identity = { harness: 'Node Stance Lab recovery search', model, held, baseline, hz: world.hz,
+  const identity = { harness: 'Node Stance Lab recovery search', model, held, baseline, recipeSha: recipe ? sha(JSON.stringify(recipe)) : null, hz: world.hz,
     engine: world.physics.engine, revision: world.physics.revision, artifact, artifactSha, sourceSha,
     environmentSha: sha(readFileSync(new URL('./stand-up-environment.mjs', import.meta.url))), specSha: sha(JSON.stringify(spec)),
     actuation: world.actuation, balance: 0, channels };
