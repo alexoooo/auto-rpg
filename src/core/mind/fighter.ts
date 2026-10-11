@@ -14,12 +14,13 @@ import { recipeStrike } from "../skills/strike.ts";
 import { STRAIGHT_PUNCH, straightPunch, straightPunchFits, validStraightPunch } from "../skills/straight-punch.ts";
 import { STRIDE, stride, validStride } from "../skills/stride.ts";
 import { RUN, run, validRun } from "../skills/run.ts";
+import { SIMBICON, simbicon, validSimbicon, type SimbiconSettings } from "../skills/simbicon.ts";
 import { travelOrFight } from "../skills/travel.ts";
 import { supportFold } from "../skills/support-fold.ts";
 import { wholeBodyFits, wholeBodyStrike } from "../skills/whole-body-strike.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { ARENA_KICKS, TRAVEL, type BehaviourConfig, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type TravelConfig, type LocomotionConfig,
+import { ARENA_KICKS, TRAVEL, type BehaviourConfig, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type SimbiconConfig, type TravelConfig, type LocomotionConfig,
   type StraightPunchConfig, type WholeBodyStrikeConfig } from "./config.ts";
 import { choice, number, toggle, type PartField } from "./fields.ts";
 import type { MindWiring } from "./minds.ts";
@@ -98,6 +99,46 @@ const RUN_FIELDS: readonly PartField<RunConfig>[] = Object.freeze([
   { ...number<RunConfig, "lever">("lever", "Step's moment lever", 0, 1.5, 0.05, "m"), read: (config) => String(config.lever ?? 0) },
 ]);
 
+/** A SIMBICON walk's config's settings, its kind taken off. */
+const settingsOf = ({ kind: _, ...settings }: SimbiconConfig): SimbiconSettings => settings;
+
+/** The SIMBICON walk's settings, as a panel offers them. Their bounds are a numeric setting, the most a panel offers. */
+const SIMBICON_FIELDS: readonly PartField<SimbiconConfig>[] = Object.freeze([
+  number<SimbiconConfig, "seconds">("seconds", "First state", 0.05, 1, 0.01, "s"),
+  number<SimbiconConfig, "longest">("longest", "Longest swing", 0.2, 2, 0.01, "s"),
+  number<SimbiconConfig, "swingHip">("swingHip", "Swing thigh", -1, 1.5, 0.01, "rad"),
+  number<SimbiconConfig, "swingHipLate">("swingHipLate", "Swing thigh, late", -1, 1.5, 0.01, "rad"),
+  number<SimbiconConfig, "swingSpread">("swingSpread", "Swing spread", -0.5, 0.5, 0.01, "rad"),
+  number<SimbiconConfig, "swingKnee">("swingKnee", "Swing knee", 0, 2, 0.01, "rad"),
+  number<SimbiconConfig, "swingKneeLate">("swingKneeLate", "Swing knee, late", 0, 2, 0.01, "rad"),
+  number<SimbiconConfig, "swingAnkle">("swingAnkle", "Swing ankle", -0.9, 0.4, 0.01, "rad"),
+  number<SimbiconConfig, "swingAnkleLate">("swingAnkleLate", "Swing ankle, late", -0.9, 0.4, 0.01, "rad"),
+  number<SimbiconConfig, "stanceKnee">("stanceKnee", "Stance knee", 0, 1, 0.01, "rad"),
+  number<SimbiconConfig, "stanceKneeLate">("stanceKneeLate", "Stance knee, late", 0, 1, 0.01, "rad"),
+  number<SimbiconConfig, "stanceAnkle">("stanceAnkle", "Stance ankle", -0.9, 0.4, 0.01, "rad"),
+  number<SimbiconConfig, "cvAnkle">("cvAnkle", "Stance ankle on speed", -1, 1, 0.01, "rad s/m"),
+  number<SimbiconConfig, "lean">("lean", "Pelvis lean", -0.5, 0.5, 0.01, "rad"),
+  number<SimbiconConfig, "cd">("cd", "Balance on distance", -1, 4, 0.05, "rad/m"),
+  number<SimbiconConfig, "cv">("cv", "Balance on speed", -1, 2, 0.05, "rad s/m"),
+  number<SimbiconConfig, "cdLate">("cdLate", "Balance on distance, late", -1, 4, 0.05, "rad/m"),
+  number<SimbiconConfig, "cvLate">("cvLate", "Balance on speed, late", -1, 2, 0.05, "rad s/m"),
+  number<SimbiconConfig, "cdSide">("cdSide", "Side balance on distance", -1, 4, 0.05, "rad/m"),
+  number<SimbiconConfig, "cvSide">("cvSide", "Side balance on speed", -1, 2, 0.05, "rad s/m"),
+  number<SimbiconConfig, "landing">("landing", "Pendulum landing", 0, 2, 0.05, "of its angle"),
+  number<SimbiconConfig, "lead">("lead", "Lead", 0, 1, 0.01, "s"),
+  number<SimbiconConfig, "leadSide">("leadSide", "Side lead", 0, 1, 0.01, "s"),
+  number<SimbiconConfig, "width">("width", "Step width", -0.1, 0.4, 0.01, "m"),
+  number<SimbiconConfig, "settle">("settle", "Leg response", 0.02, 0.5, 0.01, "s"),
+  number<SimbiconConfig, "stance">("stance", "Stance leg strength", 0.05, 1, 0.05, "of its own"),
+  number<SimbiconConfig, "swing">("swing", "Swing leg strength", 0.05, 1, 0.05, "of its own"),
+  number<SimbiconConfig, "ankle">("ankle", "Stance ankle strength", 0.05, 1, 0.05, "of its own"),
+  number<SimbiconConfig, "pelvis">("pelvis", "Pelvis response", 0.02, 0.5, 0.01, "s"),
+  number<SimbiconConfig, "hold">("hold", "Pelvis hold", 0.05, 1, 0.05, "of the hip's strength"),
+  number<SimbiconConfig, "turn">("turn", "Turn", 0.5, 12, 0.1, "rad/s"),
+  number<SimbiconConfig, "speedup">("speedup", "Speed-up", 0.1, 5, 0.1, "m/s²"),
+  number<SimbiconConfig, "arms">("arms", "Arm swing", 0, 3, 0.1, "rad/m"),
+]);
+
 /** The straight punch's settings, as a panel offers them. */
 const STRAIGHT_FIELDS: readonly PartField<StraightPunchConfig>[] = Object.freeze([
   number<StraightPunchConfig, "pace">("pace", "Approach pace", 0.1, 1.5, 0.05, "m/s"),
@@ -140,6 +181,11 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
     ...skill<RunConfig>("locomotion", "Run", "experimental", { kind: "run", ...RUN },
       (config) => validRun(config) ? [] : ["a run needs every setting finite and positive, its gain not negative"]),
     fields: RUN_FIELDS,
+  },
+  "simbicon": {
+    ...skill<SimbiconConfig>("locomotion", "SIMBICON walk", "experimental", { kind: "simbicon", ...SIMBICON },
+      (config) => validSimbicon(settingsOf(config)) ? [] : ["a SIMBICON gait needs every setting finite, its times, turn and speed-up positive and its shares of strength within (0, 1]"]),
+    fields: SIMBICON_FIELDS,
   },
   "travel": {
     ...skill<TravelConfig>("locomotion", "Travel, then fight", "game", TRAVEL,
@@ -191,13 +237,30 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
   "support-fold": skill("support", "Fight from low support", "experimental", { kind: "support-fold" }),
 });
 
-/** The blow, kick and low support of a fighter of `config`: its slots', or, under behaviours, the first strike's blow and the first kick's kick. */
+/**
+ * Whether a locomotion of `config` ever drives the legs itself (`Locomotion.drive`): a kick and low
+ * support step from the stance, which such a walk leaves, and are not offered beside it.
+ */
+export function drivesLegs(config: LocomotionConfig): boolean {
+  switch (config.kind) {
+    case "stance-walk": case "stride": case "run": return false;
+    case "simbicon": return true;
+    case "travel": return drivesLegs(config.travel) || drivesLegs(config.fight);
+    default: { const never: never = config; throw new Error(`no locomotion of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
+  }
+}
+
+/**
+ * The blow, kick and low support of a fighter of `config`: its slots', or, under behaviours, the
+ * first strike's blow and the first kick's kick; no kick or low support beside a walk that drives
+ * the legs (`drivesLegs`).
+ */
 function fighterSkills(config: FighterConfig): Pick<FighterConfig, "blow" | "kick" | "support"> {
-  const tactics = config.tactics;
-  if (tactics.kind !== "behaviours") return config;
+  const tactics = config.tactics, driving = drivesLegs(config.locomotion);
+  if (tactics.kind !== "behaviours") return driving ? { blow: config.blow, kick: null, support: null } : config;
   const strike = tactics.list.find((behaviour): behaviour is Extract<BehaviourConfig, { kind: "strike" }> => behaviour.kind === "strike");
   const kick = tactics.list.find((behaviour): behaviour is Extract<BehaviourConfig, { kind: "kick" }> => behaviour.kind === "kick");
-  return { blow: strike?.blow ?? null, kick: kick?.kick ?? null, support: null };
+  return { blow: strike?.blow ?? null, kick: driving ? null : kick?.kick ?? null, support: null };
 }
 
 /** What the skills of `config` can do, as its tactics plan by it; a fighter of no blow plans no path. */
@@ -250,6 +313,11 @@ export function fighterFaults(config: FighterConfig): readonly string[] {
     if (config.kick) faults.push("kick: these tactics never kick");
     if (config.support) faults.push("support: these tactics never fight from low support");
   };
+  if (drivesLegs(config.locomotion)) {
+    if (config.kick) faults.push("kick: a walk that drives the legs leaves no stance to kick from");
+    if (config.support) faults.push("support: a walk that drives the legs leaves no stance to fold");
+    if (tactics.kind === "behaviours" && tactics.list.some((behaviour) => behaviour.kind === "kick")) faults.push("tactics: a walk that drives the legs leaves no stance to kick from");
+  }
   switch (tactics.kind) {
     case "seek":
     case "script":
@@ -315,6 +383,7 @@ function legsOf(body: Body, config: LocomotionConfig): Locomotion {
     case "stance-walk": return locomotion(body.envelope, config.tuning?.turnLimit, config.tuning?.turnStartup);
     case "stride": { const { kind: _, ...settings } = config; return stride(body, settings); }
     case "run": { const { kind: _, ...settings } = config; return run(body, settings); }
+    case "simbicon": return simbicon(body, settingsOf(config));
     case "travel": return travelOrFight(legsOf(body, config.travel), legsOf(body, config.fight), config.near);
     default: { const never: never = config; throw new Error(`no locomotion of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }

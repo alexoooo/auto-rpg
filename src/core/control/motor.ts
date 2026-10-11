@@ -12,13 +12,17 @@ import type { StanceTuning } from "./stance-tuning.ts";
 export type Pose = Readonly<Record<string, number>>;
 
 /**
- * A freedom driven flat out: its muscles pull toward `sense` (+1 or -1) at activation `level`
+ * A freedom driven by its muscles alone: they pull toward `sense` (+1 or -1) at activation `level`
  * (0 to 1), a torque source at their ceiling, while the servo solves every other freedom around it.
+ * With `speed`, they drive the freedom toward that speed (rad/s, its positive sense) instead, giving
+ * no more than `level` of their strength either way: a damper the solver holds within the step,
+ * as a torque source given at a step's end is not.
  */
 export interface MusclePush {
   readonly channel: string;
   readonly sense: 1 | -1;
   readonly level: number;
+  readonly speed?: number;
 }
 
 export type { EffectorGoal } from "./effector-tracker.ts";
@@ -97,7 +101,7 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       const name = driver.channels[i]!.name;
       const push = pushes.find((p) => p.channel === name);
       if (!push) return standing && stance.owned[i] ? undefined : owned(i)?.[0] ?? pose[name] ?? 0;
-      driver.velocity[i] = push.sense * UNREACHABLE;
+      driver.velocity[i] = push.speed ?? push.sense * UNREACHABLE;
       driver.activation[i] = push.level;
       return undefined;
     }, seconds, dt, {

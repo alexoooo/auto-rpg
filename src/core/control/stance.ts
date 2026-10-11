@@ -144,6 +144,10 @@ const LANDS_FROM = 0.8;
 /** How far down the ground's normal at a sole is, as the cosine from up, for its meeting to land the swing: the floor, not a wall. */
 const LANDED_NORMAL = 0.5;
 
+/** Whether the ground pushed on `foot` in the last step, from below (`LANDED_NORMAL`). */
+const soleOnGround = (s: Stance, foot: FootState): boolean =>
+  s.built.physics.contactsOf(foot.segment.body, (other) => other === null).some((c) => groundContact(c, LANDED_NORMAL));
+
 /** How fast a late foot goes on down past its place's height, m/s, and for how long at most, s (`SwingGoal.lands`). */
 const LATE_DESCENT = 0.3, LATE_MOST = 0.1;
 
@@ -232,6 +236,11 @@ export interface StanceReading {
   readonly facing: number;
   /** Each sole's middle, world. */
   readonly soles: Readonly<Record<Side, Vector3>>;
+  /**
+   * Whether the ground bore each foot in the last step: a contact with a fixed collider that pushed,
+   * its normal within `LANDED_NORMAL` of up, as a swing that lands on contact reads it.
+   */
+  readonly touching: Readonly<Record<Side, boolean>>;
   /**
    * The place over the ground the stance holds the centre of mass toward, world (x, z; y unused):
    * the goal's, or the nearest the stance soles can hold (`withinSupport`).
@@ -413,8 +422,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   const { sole, level, path, along, turn, wholeAxis, progress, v } = s.scratch;
   const foot = feet.find((f) => f.side === swing.foot)!;
   soleMiddleToRef(foot, sole);
-  const met = swing.lands === true && step.lifted && step.time + dt >= LANDS_FROM * swing.seconds
-    && s.built.physics.contactsOf(foot.segment.body, (other) => other === null).some((c) => groundContact(c, LANDED_NORMAL));
+  const met = swing.lands === true && step.lifted && step.time + dt >= LANDS_FROM * swing.seconds && soleOnGround(s, foot);
   if (!step.lifted) {
     step.lifted = true;
     step.time = 0;
@@ -804,6 +812,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
       reading.facing = atan2(p.x, p.z);
       const on = which ?? s.state.last;
       readSupport(feet, on ? feet.filter((foot) => on.includes(foot.side)) : feet, reading.support);
+      for (const foot of feet) reading.touching[foot.side] = soleOnGround(s, foot);
     },
     command(muscles, goal, dt) {
       const { feet, state } = s, { reading, plan } = state;

@@ -6,6 +6,7 @@ import type { TurnStartup } from "../skills/locomotion.ts";
 import { STRAIGHT_PUNCH, type StraightPunch } from "../skills/straight-punch.ts";
 import { STRIDE, type StrideSettings } from "../skills/stride.ts";
 import type { RunSettings } from "../skills/run.ts";
+import type { SimbiconSettings } from "../skills/simbicon.ts";
 import type { ChoosePolicy } from "../skills/choose.ts";
 import type { Placed } from "../skills/strike.ts";
 import type { Repertoire } from "../skills/strikes.ts";
@@ -155,6 +156,11 @@ export interface RunConfig extends RunSettings {
   readonly kind: "run";
 }
 
+/** **The SIMBICON walk** (`simbicon`, `skills/simbicon.ts`): the legs driven by a state machine with no stance, its settings these. */
+export interface SimbiconConfig extends SimbiconSettings {
+  readonly kind: "simbicon";
+}
+
 /** **Travel and fight** (`travelOrFight`, `skills/travel.ts`): one walk while no standing foe is within `near` m, another once one is. */
 export interface TravelConfig {
   readonly kind: "travel";
@@ -164,7 +170,7 @@ export interface TravelConfig {
 }
 
 /** **The legs' skill**, by kind. */
-export type LocomotionConfig = StanceWalkConfig | StrideConfig | RunConfig | TravelConfig;
+export type LocomotionConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | TravelConfig;
 
 /** **The guard**: the arms' posture, and a guarding hand's cover of what the tactics name (`guardSkill`). */
 interface CoverGuardConfig {
@@ -237,7 +243,7 @@ export interface FrontKickConfig {
 interface SupportFoldConfig { readonly kind: "support-fold" }
 
 /** **A skill's config**, by kind, across the fighter's skill slots. */
-export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | TravelConfig | CoverGuardConfig | BlowConfig | FrontKickConfig | SupportFoldConfig;
+export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | TravelConfig | CoverGuardConfig | BlowConfig | FrontKickConfig | SupportFoldConfig;
 
 /**
  * **The fighter**: tactics over a skill of each role, under one arbiter (`skillSet`), handing its
