@@ -668,7 +668,9 @@ Transfer retains the hands until the projected centre is over its foot and shin.
 body's limits; the Warrior's fours seed is the installed posture asset. Placement reads its
 heading from the supported body's current orientation after rolling and acquisition. It tracks the
 sole's centre to the floor, turns the boot flat and lifts it along an arc scaled to the leg's
-length. Root-height aims also use smooth trajectories. The whole-body tracker predicts
+length. Root-height aims also use smooth trajectories. Its contact prediction merges points
+within 1 mm on the same segment, so overlapping colliders do not create separate restraints
+at almost the same position. Physical contacts remain the engine's. The whole-body tracker predicts
 loaded contacts and lift-off and asks only muscle torques; a rejected prediction applies zero
 torque. Orientation and acquisition use bounded joint-velocity feedback. During acquisition,
 the hips respond to the pelvis's measured pitch, checking the forward reaction of drawing the
@@ -693,7 +695,7 @@ fails ([reference/rising.md](reference/rising.md#dynamic-rise)); it is an experi
 not a demonstrated faster recovery route. Two 60 N s Front shoves in the Stance Lab also leave
 the Warrior losing support during foot placement and repeating recovery attempts;
 `tests/lab-dynamic-rise.test.mjs` executes this known failure alongside the stage-progress and
-physical hand-and-knee acquisition regressions.
+physical hand-and-knee acquisition and initial bounded support-command regressions.
 
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
 skills' report and the envelope of the locomotion they drive) they return an `Intent` (`intent.ts`): a velocity forward

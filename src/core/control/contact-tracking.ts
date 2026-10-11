@@ -12,6 +12,8 @@ export interface ContactTrackingSettings {
   /** Optional local lift-off prediction; tolerance is in m/s2 and supplied by the experiment. */
   readonly liftOff?: { readonly accelerationTolerance: number };
   readonly redistributionCost?: number;
+  /** Points nearer than this distance on the same body share one prediction; zero retains every point. */
+  readonly pointSeparation?: number;
   readonly maxPoints: number;
   readonly gap: number;
   readonly minUpNormal: number;
@@ -86,6 +88,9 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
     || !(settings.minUpNormal > 0 && settings.minUpNormal <= 1) || !(settings.forceTolerance > 0) || !Number.isFinite(settings.forceTolerance)
     || !(dot(physics.gravity, physics.gravity) > 0)) throw new Error("invalid sticking contact settings");
   if (settings.redistributionCost !== undefined && !(Number.isFinite(settings.redistributionCost) && settings.redistributionCost > 0)) throw new Error("invalid contact redistribution cost");
+  const separation = settings.pointSeparation ?? 0;
+  if (!(Number.isFinite(separation) && separation >= 0)) throw new Error("invalid contact point separation");
+  const separationSquared = separation * separation;
   const mode = settings.liftOff ? { dt: motion?.dt ?? 0, radius: motion?.radius, accelerationTolerance: settings.liftOff.accelerationTolerance } : null;
   const rounding = (r: number): boolean => r >= 0 && Number.isFinite(r);
   if (mode && (!(mode.dt > 0) || !Number.isFinite(mode.dt) || !mode.radius
@@ -133,6 +138,9 @@ export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<strin
           for (const point of manifold.points) {
             const id = frame + ":" + serial++;
             if (point.distance > config.gap) continue;
+            // Overlapping colliders can report nearly coincident points whose separate rows constrain an artificial lever.
+            const nearby = (p: Point) => p.body === body && p.point.reduce((sum, v, k) => sum + (v - point.point[k]!) * (v - point.point[k]!), 0) < separationSquared;
+            if (points.some(nearby) || freed.some(nearby)) continue;
             let curvature: Vec3 = ZERO, target = 0;
             if (mode) {
               centre.set(...body.massProperties.centre).applyRotationQuaternionToRef(body.node.rotationQuaternion!, centre).addInPlace(body.node.position);

@@ -73,18 +73,41 @@ test("a bounded contact solve preserves real hands-and-knees support before choo
     assert.deepEqual(finish(), expected);
   } finally { body?.dispose(); stand.dispose(); }
 });
-async function fixture(box = false) {
+async function fixture(box = false, duplicate = false) {
   const rendering = new NullEngine(), scene = new Scene(rendering);
   const physics = (await freshEngine()).createPhysics({ hz: 120, gravity: true });
   physics.addFixedBox([0, -0.5, 0], [5, 1, 5]);
   const node = new TransformNode("support", scene);
   node.position.set(0, 0.05, 0); node.rotationQuaternion = Quaternion.Identity();
-  const body = physics.addBody(node, box ? [{ kind: "box", centre: [0, 0, 0], size: [0.2, 0.1, 0.2] }] : [{ kind: "sphere", centre: [0, 0, 0], radius: 0.05 }], {
+  const shape = box ? { kind: "box", centre: [0, 0, 0], size: [0.2, 0.1, 0.2] } : { kind: "sphere", centre: [0, 0, 0], radius: 0.05 };
+  const body = physics.addBody(node, duplicate ? [shape, { ...shape, centre: [1e-7, 0, 0] }] : [shape], {
     mass: 1, centre: [0, 0, 0], moments: [0.001, 0.001, 0.001], orientation: Quaternion.Identity(),
   });
   return { physics, body, frames: new Map([["segment:support", body]]),
     dispose() { physics.dispose(); scene.dispose(); rendering.dispose(); } };
 }
+
+test("nearby points from overlapping colliders share prediction rows without changing physical contacts", async () => {
+  const f = await fixture(true, true);
+  try {
+    f.physics.step(1 / 120);
+    const before = f.physics.save(), manifolds = f.physics.contactManifoldsOf(f.body, (other) => other === null);
+    const tracker = contactTracking(f.physics, f.frames, 1, { ...settings, maxPoints: 8 });
+    const raw = tracker.read(command);
+    assert.equal(raw.length, 24, "both colliders contribute all four measured floor corners");
+    const merged = contactTracking(f.physics, f.frames, 1, { ...settings, maxPoints: 8, pointSeparation: .001 });
+    const rows = merged.read(command);
+    assert.equal(rows.length, 12, "each distinct floor corner supplies three motion rows");
+    const points = rows.filter((_, i) => i % 3 === 0).map(r => r[0].point);
+    assert.equal(new Set(points.map(p => `${p[0] > 0},${p[2] > 0}`)).size, 4, "the support outline keeps every corner");
+    assert.equal(merged.read({ ...command, supports: [{ frame: { kind: "segment", name: "support" }, mode: "free" }] }).length, 0);
+    assert.equal(merged.read(command).length, 12, "contact work is rebuilt after a different desired support");
+    assert.deepEqual(f.physics.contactManifoldsOf(f.body, (other) => other === null), manifolds);
+    assert.deepEqual(f.physics.save(), before, "the model does not delete or move real contacts");
+    for (const pointSeparation of [-1, Infinity, NaN]) assert.throws(() => contactTracking(f.physics, f.frames, 1,
+      { ...settings, pointSeparation }), /invalid contact point separation/);
+  } finally { f.dispose(); }
+});
 
 test("desired support neither creates measured contacts nor removes physical contact", async () => {
   const f = await fixture();

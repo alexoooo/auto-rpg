@@ -31,7 +31,7 @@ const T = deepFreeze({ response: .15, jointWeight: .2, centreWeight: 3, rootWeig
   footWidth: .2, footReach: .3, footLift: .18, wind: .4,
   slow: .1, minUpNormal: .9, hold: .5,
   extensionSoleUp: .995, extensionRootUp: .9, standSeconds: 1.3, standLower: .03,
-  contact: { maxPoints: 64, gap: .005, minUpNormal: .9, forceTolerance: 1e-5, redistributionCost: 1e-6,
+  contact: { maxPoints: 64, gap: .005, minUpNormal: .9, pointSeparation: .001, forceTolerance: 1e-5, redistributionCost: 1e-6,
     iterations: 2048, absoluteTolerance: 1e-7, relativeTolerance: 1e-6, liftOff: { accelerationTolerance: .1 } } });
 const ZERO: Vec3 = Object.freeze([0, 0, 0]);
 const SIDES = ["left", "right"] as const;

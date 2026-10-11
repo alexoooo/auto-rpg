@@ -16,6 +16,14 @@ norm is penalized by the supplied cost. Muscle effort retains its existing objec
 every selected point retains unilateral and inscribed-friction inequalities. The chosen final
 loads are checked against the friction circle. Failed solves command zero torque.
 
+An optional `pointSeparation` merges measured points closer than the supplied distance on the
+same rigid body before constructing prediction rows. Zero, the default, keeps every point.
+Dynamic rise uses 1 mm: overlapping colliders can otherwise supply almost coincident rows
+that constrain rotation through an artificial lever and make the reaction solve ill-conditioned.
+This changes the prediction's sampled geometry; it never changes physical manifolds or contacts.
+The compound-box regression keeps all four support corners while merging each collider's
+duplicate corner, and verifies that the physics snapshot and manifolds are unchanged.
+
 The independent test in `tests/core-contact-tracking.test.mjs` uses a physical box with four
 measured floor contacts (Node, Rapier, 120 Hz). An explicitly supplied affine reaction model has
 opposite corners in tension despite an admissible distribution with the same wrench. Without

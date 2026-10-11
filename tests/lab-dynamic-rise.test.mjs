@@ -80,6 +80,9 @@ test("two Lab Front shoves reach supported hand-and-knee placement without repea
     assert.equal(loaded.some(c => /Trunk|head/.test(c.segment)), false);
     assert.ok(up.y > .15, "the pelvis is above its prone orientation");
     assert.equal(riseCanPlace(o, model), true);
+    const sub = stance.body.state.mind.subs[0];
+    assert.deepEqual({ contact: sub.tracking.contact.status, rejected: sub.rejected }, { contact: "accepted", rejected: 0 },
+      "the actual collider contacts admit the first bounded support command instead of dropping all muscle effort");
     const parts = [...stance.body.built.segments.values()], mass = parts.reduce((sum, part) => sum + part.rigid.mass, 0);
     const velocity = o.segments.reduce((v, segment) => v.map((value, k) => value
       + segment.velocity[k] * stance.body.built.segments.get(segment.name).rigid.mass / mass), [0, 0, 0]);
