@@ -204,3 +204,84 @@ test("a supported handoff preserves a captured legal posture while an actual rea
       "the completed handoff's captured angles do not replace the later stage's recipe goals");
   } finally { body?.dispose(); stand.dispose(); }
 });
+
+test("a supported hold drives its free wrist past bearing readiness, expires and forks exactly", async () => {
+  const spec = modelSpec("workshop-fighter"), stand = await coreStand(spec,
+    { engine: "rapier-coordinate", groundSize: 40, posture: guardPosture(spec) });
+  let body;
+  try {
+    stand.step(240);
+    stand.world.physics.load(new Uint8Array(readFileSync(new URL("fixtures/actual-rear-sole-world.bin", import.meta.url))));
+    const parts = [...stand.built.segments.values()], mass = parts.reduce((sum, p) => sum + p.rigid.mass, 0),
+      centre = new Vector3(), velocity = new Vector3(), work = new Vector3(), upright = uprightness(stand.built);
+    const read = () => {
+      centre.setAll(0); velocity.setAll(0);
+      for (const p of parts) {
+        centre.addInPlace(centreOfToRef(p, work).scaleInPlace(p.rigid.mass / mass));
+        velocity.addInPlace(p.body.linearVelocityToRef(work).scaleInPlace(p.rigid.mass / mass));
+      }
+    };
+    const stage = { kind: "bear", name: "retained support with a free wrist",
+      on: [{ limb: "shin.left", share: .5 }, { limb: "shin.right", share: .5 }], leave: [], overProp: false,
+      height: null, pitch: null, posture: "reference", seconds: .4, limit: 4 };
+    body = embody(stand.built, stand.world, own => {
+      const view = { get down() { return upright.down(); }, stance: { centre, velocity } },
+        slow = stagedRise(own, view, { ...RISE, rise: [stage] }),
+        fast = stagedRise(own, view, { ...RISE, rise: [{ ...stage, postureSeconds: .12 }] }),
+        state = { choice: "slow", slow: slow.state, fast: fast.state };
+      for (const invalid of [0, -1, NaN, Infinity]) assert.throws(() =>
+        stagedRise(own, view, { ...RISE, rise: [{ ...stage, postureSeconds: invalid }] }), /drives its posture within/);
+      return { name: "retained physical support", state, slow, fast,
+        step(senses, dt) { read(); (state.choice === "slow" ? slow : fast).step(senses, dt); } };
+    });
+    const muscles = body.own.muscles, name = "wrist.left pronation", index = muscles.channel(name), channel = muscles.channels[index],
+      from = muscles.angle(index), to = from + .4 < channel.dof.spec.max.value ? from + .4 : from - .4,
+      captured = Object.fromEntries(muscles.channels.map((c, i) => [c.name,
+        Math.max(c.dof.spec.min.value, Math.min(c.dof.spec.max.value, muscles.angle(i))) + c.dof.spec.bind.value]));
+    captured[name] = to + channel.dof.spec.bind.value;
+    const states = { body: body.state }, initial = saveStand(stand.world, states);
+    for (const hold of ["yes", 1, null]) {
+      assert.throws(() => body.mind.fast.beginSupported(captured, { hold }), /boolean choice/);
+      assert.deepEqual(saveStand(stand.world, states), initial, "an invalid hold leaves the physical stand and both controllers untouched");
+    }
+    body.mind.slow.beginSupported(captured, { hold: true }); stand.step(36);
+    const slowError = Math.abs(to - muscles.angle(index));
+    loadStand(stand.world, states, initial); body.mind.state.choice = "fast";
+    body.mind.fast.beginSupported(captured, { hold: true }); stand.step(36);
+    assert.ok(Math.abs(to - muscles.angle(index)) < slowError * .6, "the free wrist responds faster without accelerating the bearing aims");
+    const observe = observeBody(stand.built, muscles, stand.world, clockSenses(stand.world), undefined, () => upright.down(), true);
+    const checkpoint = saveStand(stand.world, states);
+    const branch = () => {
+      const trace = []; let readyAt = null;
+      for (let step = 0; step < 324; step++) {
+        stand.step(); const o = observe(); trace.push(o);
+        assert.deepEqual({ phase: body.mind.fast.state.phase, stage: body.mind.fast.state.stage }, { phase: "rise", stage: 0 });
+        assert.equal(body.mind.fast.state.holdSupported, true);
+        assert.equal(o.contacts.some(c => c.fixed !== null && c.impulse > 0 && /Trunk|head/.test(c.segment)), false);
+        for (const side of ["left", "right"]) assert.ok(o.contacts.some(c => c.fixed !== null && c.impulse > 0 && c.segment === `shank.${side}`));
+        for (const j of o.joints) assert.ok(j.effort <= j.positive + 1e-4 && -j.effort <= j.negative + 1e-4, j.name);
+        assert.deepEqual({ force: body.own.assist.meter.force, moment: body.own.assist.meter.moment }, { force: 0, moment: 0 });
+        if (body.mind.fast.state.supportedReady && readyAt === null) readyAt = o.time;
+      }
+      assert.ok(readyAt !== null && trace.at(-1).time - readyAt > 1, "bearing readiness keeps driving the supported pose");
+      assert.ok(Math.abs(to - muscles.angle(index)) < .02, "the actual free wrist reaches its goal while the support is retained");
+      return { trace, readyAt, saved: saveStand(stand.world, states) };
+    };
+    loadStand(stand.world, states, checkpoint); const expected = branch();
+    loadStand(stand.world, states, checkpoint); assert.deepEqual(branch(), expected);
+    assert.equal(body.mind.fast.state.supportedReady, true);
+    const trunk = stand.built.segments.get("lowerTrunk");
+    trunk.body.applyImpulse(new Vector3(10, 0, 0), trunk.node.position);
+    stand.step();
+    assert.equal(body.mind.fast.state.supportedReady, false, "a real impulse revokes readiness on the next control step");
+    stand.step(119);
+    assert.deepEqual({ phase: body.mind.fast.state.phase, held: body.mind.fast.state.holdSupported, ready: body.mind.fast.state.supportedReady },
+      { phase: "settle", held: false, ready: false }, "a held stage still honors its bearing deadline");
+    body.mind.fast.end();
+    assert.deepEqual({ phase: body.mind.fast.state.phase, held: body.mind.fast.state.holdSupported, ready: body.mind.fast.state.supportedReady },
+      { phase: "idle", held: false, ready: false });
+    body.mind.fast.begin();
+    assert.deepEqual({ held: body.mind.fast.state.holdSupported, ready: body.mind.fast.state.supportedReady, capture: body.mind.fast.state.supportedPosture },
+      { held: false, ready: false, capture: null });
+  } finally { body?.dispose(); stand.dispose(); }
+});

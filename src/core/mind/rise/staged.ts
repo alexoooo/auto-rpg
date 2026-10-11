@@ -95,7 +95,9 @@ export function lieOf(root: BuiltSegment, work = { turn: new Quaternion(), way: 
  * purpose is not taken from it. What only a rise needs it reads itself: how it lies, the ground's
  * level, and where its limbs are.
  */
-export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE): SubMind & { beginSupported(posture?: Readonly<Record<string, number>>): void } {
+export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE): SubMind & {
+  beginSupported(posture?: Readonly<Record<string, number>>, options?: { readonly hold?: boolean }): void;
+} {
   const faults = stageFaults(recipe, own.spec);
   if (faults.length > 0) throw new Error(`${own.spec.model} cannot play this rise: ${faults.join("; ")}`);
   const muscles = own.muscles, root = muscles.dynamics.root.segment, count = muscles.channels.length;
@@ -135,6 +137,10 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const state = {
     /** A supported handoff can retain the measured legal posture while its limbs acquire contact. */
     supportedPosture: null as Record<string, number> | null,
+    /** A caller can retain the first supported bearing stage while a free limb reaches its measured goal. */
+    holdSupported: false,
+    /** Whether the retained stage's supports, transfer, centre and pelvis currently meet its completion predicate. */
+    supportedReady: false,
     /** What it is doing: nothing (the body is not its own, or its rise is over), lying slack, rolling, or rising. */
     phase: "idle" as "idle" | "settle" | "roll" | "rise",
     lie: "front" as Lie,
@@ -174,6 +180,8 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   };
   const settle = (): void => {
     state.phase = "settle";
+    state.holdSupported = false;
+    state.supportedReady = false;
     state.still = 0;
     state.raised = false;
   };
@@ -187,6 +195,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       return;
     }
     state.phase = phase;
+    state.supportedReady = false;
     state.stage = index;
     state.time = 0;
     state.lifted = false;
@@ -261,7 +270,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     // Motor control's order: the servo's asks, the root's acceleration, the servo's solve around
     // the limbs' motion, and the limbs' torques. Every freedom is asked toward the posture: a
     // bearing limb's are then the solve's, and its stem moves as the servo asked.
-    const asked = servoAsk(muscles, (i) => goals[i], stage.seconds, dt);
+    const asked = servoAsk(muscles, (i) => goals[i], stage.postureSeconds ?? stage.seconds, dt);
     // A moment the patches miss is weighed as a force missed at the root's height over the ground.
     const lever = muscles.dynamics.root.centre[1] - ground;
     const carried = carryRoot(solve, muscles, asked, aim, lever);
@@ -284,8 +293,9 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
       state.tries = 0;
       state.furthest = -1;
     },
-    /** A loaded, clear handoff can retain a detached anatomical posture for its first bearing stage. */
-    beginSupported(posture) {
+    /** A loaded, clear handoff can retain a detached posture and hold its first bearing stage within that stage's deadline. */
+    beginSupported(posture, options = {}) {
+      if (options.hold !== undefined && typeof options.hold !== "boolean") throw new Error("a supported hold is a boolean choice");
       const first = recipe.rise[0];
       if (first?.kind !== "bear") throw new Error("a supported rise begins with a bearing stage");
       if (upright.clearance(notTrunk) <= DOWN || !first.on.every(on => {
@@ -297,10 +307,12 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
         || posture[c.name]! < c.dof.spec.min.value + c.dof.spec.bind.value
         || posture[c.name]! > c.dof.spec.max.value + c.dof.spec.bind.value)) throw new Error("a supported posture stays within every actual joint range");
       state.supportedPosture = posture ? { ...posture } : null;
+      state.holdSupported = options.hold ?? false;
+      state.supportedReady = false;
       state.tries = 1; state.furthest = -1; state.raised = false;
       enter("rise", 0);
     },
-    end() { state.phase = "idle"; },
+    end() { state.phase = "idle"; state.holdSupported = false; state.supportedReady = false; },
     step(_senses, dt) {
       switch (state.phase) {
         case "idle":
@@ -340,7 +352,9 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
             case "bear": {
               const there = bear(stage, dt);
               state.time += dt;
-              if (there) enter(state.phase, state.stage + 1);
+              const held = state.phase === "rise" && state.stage === 0 && state.holdSupported;
+              state.supportedReady = held && there;
+              if (there && !held) enter(state.phase, state.stage + 1);
               else if (state.time + dt / 2 >= stage.limit) settle();
               return;
             }

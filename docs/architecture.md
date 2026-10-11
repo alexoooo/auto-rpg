@@ -729,6 +729,13 @@ entry, and leaves later stages on their recipe goals. The same test continues an
 muscle-curled, airborne rear boot through supported native contact acquisition. The front sole
 corner acquires load while both knees remain supported, and every observation and saved state
 replays exactly. A captured handoff leaves the recipe's default goals intact.
+`beginSupported` can hold that first bearing stage until its caller finishes a measured limb
+transition; `supportedReady` reports the stage's current completion predicate. The stage's
+deadline and trunk-contact abort still apply. A recipe can give the joint servo a separate
+`postureSeconds` response while retaining the bearing aims' response. The supported-hold test
+moves an actual free wrist on loaded shins, retains bearing after readiness, checks expiry and
+replays all observations and saved physics/controller state exactly with bounded muscles and
+zero assist. These controls leave ordinary staged-rise entry and progression unchanged.
 
 `supportedHalfKneel` transfers an actual supported posture onto its lead sole and rear shin,
 then asks for the native upright half-kneel. It reads physical mass centres and velocities,
