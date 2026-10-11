@@ -53,8 +53,8 @@ function openingsFaults(config: OpeningsConfig): readonly string[] {
 
 /** **Every kind of tactics** (`Part`): what a fighter's `tactics` slot may hold. */
 export const TACTICS_PARTS: { readonly [K in TacticsConfig["kind"]]: Part<Extract<TacticsConfig, { kind: K }>> } = deepFreeze({
-  seek: { role: "tactics", label: "Seek the foe", stage: "game", fields: SEEK_FIELDS, slots: [], defaults: SEEK, fits: commandable, faults: seekFaults },
-  openings: { role: "tactics", label: "Choose openings", stage: "experimental", fields: OPENINGS_FIELDS, slots: [], defaults: OPENINGS, fits: commandable, faults: openingsFaults },
+  seek: { role: "tactics", label: "Seek the foe", stage: "game", fields: SEEK_FIELDS, slots: [], defaults: SEEK, tuning: ["threat", "edge"], fits: commandable, faults: seekFaults },
+  openings: { role: "tactics", label: "Choose openings", stage: "experimental", fields: OPENINGS_FIELDS, slots: [], defaults: OPENINGS, tuning: ["openings"], fits: commandable, faults: openingsFaults },
   script: { role: "tactics", label: "Follow the script", stage: "game", fields: [], slots: [], defaults: { kind: "script" }, needs: "script", fits: commandable, faults: () => [] },
   stand: { role: "tactics", label: "Stand in guard", stage: "game", fields: [], slots: [], defaults: { kind: "stand" }, fits: commandable, faults: () => [] },
   behaviours: { role: "tactics", label: "Behaviours", stage: "game", fields: [], slots: [slotList("list", "Behaviours", "behaviour")], defaults: BEHAVIOURS.tactics as BehavioursConfig,

@@ -43,7 +43,7 @@ test("each side's mind travels in a link as its whole tree, without research tun
   // A preset writes nothing; a changed tree writes itself whole, and a link drops any research tuning.
   assert.equal(mindsSearch("?control=classic,scrapper", { left: CLASSIC, right: SCRAPPER }), "?control=classic%2Cscrapper");
   const edited = withParts(SCRAPPER, { tactics: { prefers: "head", spacing: .5 }, subs: [{ kind: "staged-rise" }, { kind: "lie" }] });
-  const tuned = withParts(edited, { locomotion: { tuning: { turnLimit: 2 } }, blow: { tuning: { paths: { returnLimit: .05 } } } });
+  const tuned = withParts(edited, { locomotion: { fight: { tuning: { turnLimit: 2 } } }, blow: { tuning: { paths: { returnLimit: .05 } } } });
   const search = mindsSearch("?control=classic,scrapper&left.mind=x", { left: CLASSIC, right: tuned });
   assert.deepEqual(JSON.parse(query(search).get("right.mind")), edited);
   assert.equal(query(search).get("left.mind"), null);

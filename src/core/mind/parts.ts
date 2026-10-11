@@ -44,6 +44,8 @@ export interface Part<C extends PartConfig = PartConfig> {
   slotsFor?(config: C): readonly Slot[];
   /** The config a slot set to this kind takes. */
   readonly defaults: C;
+  /** The keys of the research tuning a config of it may carry (`tuning`); none, it carries none. */
+  readonly tuning?: readonly string[];
   /** What a screen must give a mind for this part to run, if anything. */
   readonly needs?: Provision;
   /** Whether a body of `spec` can carry out what a part of `config` commands. */

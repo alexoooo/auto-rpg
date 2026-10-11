@@ -62,6 +62,10 @@ test("a tree names what is wrong with it where it is, and no mind is made of one
   assert.deepEqual(treeFaults(withParts(KICKER, { kick: { tuning: { swingSeconds: .3 } } })), []);
   assert.deepEqual(treeFaults(withParts(COMBAT, { tactics: { spacingStep: -.1 } })), ["tactics: invalid combat range learning settings"]);
   assert.deepEqual(treeFaults(withParts(COMBAT, { locomotion: { fight: { tuning: { turnLimit: 0 } } } })), ["locomotion.fight: locomotion turn limit must be finite and positive"]);
+  // A setting or tuning no part reads is refused where it is, not silently dropped: travel's turn is its fight's walk's.
+  assert.deepEqual(treeFaults(withParts(SCRAPPER, { locomotion: { tuning: { turnLimit: 1 } } })), ["locomotion: Travel, then fight has no setting tuning"]);
+  assert.deepEqual(treeFaults(withParts(SCRAPPER, { locomotion: { fight: { tuning: { turnLimt: 1 } } } })), ["locomotion.fight: Walk in the stance has no tuning turnLimt"]);
+  assert.deepEqual(treeFaults(withParts(CLASSIC, { blow: { reach: 1 } })), ["blow: Recipe strike has no setting reach"]);
   assert.match(treeFaults(withParts(COMBAT, { blow: { tuning: { paths: { elbowExtension: 2 } } } }))[0], /^blow: combat path settings/);
   assert.match(treeFaults(withParts(COMBAT, { tactics: { tuning: { openings: { headLateral: 2 } } } }))[0], /^tactics: opening preferences/);
   assert.deepEqual(treeFaults(withParts(CLASSIC, { tactics: { tuning: { edge: { band: -1, patience: 4, clinch: 0 } } } })), ["tactics: the edge needs a finite nonnegative band, patience and clinch"]);

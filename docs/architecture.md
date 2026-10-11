@@ -602,7 +602,9 @@ sub-minds, locomotion and the strike cycle), not a flag that chooses a stack. Th
 the **quadruped** (crawl and bite); and **direct** joint control. A config read from a save or a link whose kind none has is refused
 (`partOf`), and so is a tree any part of which names a fault (`treeFaults`, which `createMind`
 reads). A part's config holds a player's fields, plain choices, and under `tuning` an
-experiment's settings, which never travel in a link.
+experiment's settings, which never travel in a link. A key its part does not read, or a tuning it
+does not name (`Part.tuning`), is a fault, so a setting put in the wrong place is refused, never
+silently dropped.
 
 **The fighter's slots** (`FighterConfig`) are its tactics, a skill of each role and its
 sub-minds. Its tactics (`tacticsOf`, `tactics-of.ts`) are `seek` (`recipeTactics`, with `guard`,
