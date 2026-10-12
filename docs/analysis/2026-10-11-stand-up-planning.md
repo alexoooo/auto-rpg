@@ -1718,3 +1718,72 @@ Validation: `npm run check`, `npm test` (673 passes, zero failures, five existin
 named body/phase/feedback/retiming regressions, 36 matched body/state pairs, unchanged frozen
 control traces and the exact altered-body replay pass. Whitespace and line-ending gates pass.
 Runtime integration and all full four/six-second qualification requirements remain unfinished.
+
+## Side-fall support transitions, 2026-10-12
+
+The full goal remains **not achieved**. The saved 90-degree Warrior/empty fall reaches loaded
+support on both hands and both shins at 3.208333 s. A searched continuation raises the trunk over
+the knees but never completes recovery. This is intermediate support-transition evidence, not a
+second successful fall. The original-body 6.975 s witness and frozen 1/16 completion count remain
+unchanged; no full qualification partition is run or passed here.
+
+All measurements use **Node Stance Lab / frozen game Rapier coordinate / 120 Hz / original
+symmetric muscle envelopes / Balance 0 / ordinary stance host**. Body, muscles, solver, contact
+law, frozen cases, optimized baseline and recovery criteria are unchanged. Search branches restore
+complete physical snapshots and issue ordinary muscle actions. No external force or pose edit
+prepares an intermediate state.
+
+The preceding side-fall search assigns a late reference phase while the pelvis and thigh remain
+on the floor. `research/stand-up-rollout-search.mjs --target 2` instead measures distance to the
+successful front-fall demonstration's two-second hands-and-knees state, without a phase reward.
+The metric uses joint angles, root-local gravity, height, normalized floor impulses and motion.
+This is a development search objective; the recovery evaluator is unchanged.
+
+| Experiment, Node harness above | Physical branch evaluations | Physical steps | Wall seconds | Outcome |
+|---|---:|---:|---:|---|
+| Fixed support target, five-second prefix limit | 15,471 | 371,304 | 165.715 | Hands/shins support; no recovery |
+| Continuation from the selected 3.2-second action prefix, nine-second total limit | 17,582 | 421,968 | 201.617 | Upright kneeling; no recovery |
+
+The continuation counts include replaying the sixteen prefix controls and their 384 steps. Each
+search has a 240 s wall cap. The new `--prefix` option checks the saved case, checkpoint and
+reference identities, replays every prefix action, and requires the entire final observation hash
+to match. Prefix time remains in the episode clock. The second search does not initialize a body
+directly in a kneeling pose.
+
+At 3.208333 s the left/right hand impulses are 1.213796/1.184133 N s and the left/right shank
+impulses are 1.822361/2.896240 N s. These are individual 120 Hz step readings, not sustained load
+measurements. Replaying the original demonstration from there fails through 17.458333 s. The
+searched continuation ends its active prefix at 9.008333 s with height 0.531441 m and trunk-up
+component 0.928266, supported principally by the right shin. Neither foot carries a floor impulse
+at that sample. Six seconds of ordinary-host continuation fail to produce handover: the complete
+record ends at 15.008333 s. The next unresolved physical transition is loading a foot and leaving
+kneeling support, with the preceding transitions also still too slow for the full target.
+
+All 33,037 worker branches are free of adapter errors and external-actuation events; the sixteen
+replayed prefix controls are separately verified. Maximum measured effort-bound excess is
+0.00004561914 N m, below the unchanged 0.0001 tolerance. These branches are development search,
+not independent recovery trials.
+
+The matched failure replay is `.review/stand-up-support-target/replay.html`. It labels the saved
+side fall and both failures: candidate 15.008333 s, baseline 38 s. Both initial observations and
+physical identities match; the baseline trace exactly reproduces the preceding frozen comparison.
+The candidate's 1,800 observations, final result, full replay and split continuation reproduce
+exactly, physical SHA-256 `f390dd73325f5297cc6310eaa170215f561cb14fa1c077d5538af8746e30caea`.
+The successful 7.25 s control also passes the expanded verifier. Failure traces are admitted only
+for verification; search guidance still requires a complete successful reference. The viewer is
+built but not visually inspected because of the existing local-file browser restriction. No
+server is started.
+
+`research/stand-up-path-results.json` under `supportTargetSearch` retains both search summaries,
+the selected prefix and complete continuation plan, failed direct continuation, matched baseline
+identity, physical samples and exact-replay proofs. To reproduce, use the preceding 7.25 s source,
+case index 1, `--transfer yes`, width 24, block 24, full orientation, support diversity and roll
+controls. The first search uses `--target 2 --seconds 5 --penalty 1 --velocity-weight 0.01
+--contact-weight 2`; the second uses the recorded prefix with `--seconds 9 --penalty 12
+--velocity-weight 0.02 --contact-weight 0.2`. Both use `--wall 240`. Write the stored prefix or
+selected plan object to JSON for the existing `--prefix` or `--mode record --plan` interface.
+The failed recording verifies with `--mode verify --source <selected.trace.gz> --case 1`.
+
+Validation: `npm run check`, `npm test` (673 passes, zero failures, five existing TODOs), exact
+successful and failed replay/restoration checks, matched frozen baseline, whitespace and
+line-ending gates pass. The recovery performance goal fails; no runtime controller is promoted.
