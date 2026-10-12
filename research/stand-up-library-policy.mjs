@@ -3,6 +3,7 @@ import {gunzipSync} from 'node:zlib';
 import {pathPolicy} from './stand-up-path-policy.mjs';
 import {phaseFeatures} from './stand-up-phase-features.mjs';
 import {responsePolicy,responseFeatures} from './stand-up-response-policy.mjs';
+import assert from 'node:assert/strict';
 
 /** Select a reference by measured posture, support and motion; every reference has its own phase. */
 export function libraryPolicy({channels,reference,parameters:p}) {
@@ -47,8 +48,22 @@ export function libraryPolicy({channels,reference,parameters:p}) {
   policy.state=state;return policy;
 }
 
+/** Body and loadout select a controller configuration; the movement still reads ordinary observations. */
+export function configuredPolicy({channels,configuration,specification,loadReference}) {
+  const override=specification.bodies?.[`${configuration.model}/${configuration.held}`];
+  const selected=override??specification,reference=loadReference(selected.reference);
+  if(override)assert.deepEqual(channels,reference.identity.channels,'body-specific guidance matches the supplied muscle channels');
+  const args={channels,reference,parameters:selected.parameters};
+  switch(selected.kind??'library') {
+    case 'library':return libraryPolicy(args);
+    case 'path':return pathPolicy(args);
+    default:throw new Error('unknown body controller');
+  }
+}
+
 /** The frozen action interface supplies no scene or engine handles to the policy. */
-export function createPolicy({channels}) {
-  const configuration=JSON.parse(readFileSync(process.env.STAND_UP_LIBRARY_CONFIG));
-  return libraryPolicy({channels,reference:JSON.parse(gunzipSync(readFileSync(configuration.reference))),parameters:configuration.parameters});
+export function createPolicy({channels,configuration}) {
+  const specification=JSON.parse(readFileSync(process.env.STAND_UP_LIBRARY_CONFIG));
+  return configuredPolicy({channels,configuration,specification,
+    loadReference:file=>JSON.parse(gunzipSync(readFileSync(file)))});
 }

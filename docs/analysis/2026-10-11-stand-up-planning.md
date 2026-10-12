@@ -2403,3 +2403,98 @@ focused controller tests, `npm run build`, matched replay and extraction checks 
 retains its MuJoCo browser-externalization and large-chunk warnings. Whitespace and line-ending
 gates pass. The next missing evidence is an actual successful target-body movement and a stable
 muscle-driven transition into quiet support; geometric transfer alone has not supplied either.
+
+## Warrior/club quiet-support recovery, 2026-10-12
+
+The unchanged saved Warrior/club 90-degree fall now completes unassisted recovery in
+**7.191667 s**, including the frozen quiet-support, ordinary standing and walking checks.
+The body-aware controller library completes **3/16 frozen cases**, up from 2/16, with **none
+within six seconds**. Four nearby perturbed falls still fail. The four-second median / six-second
+recovery goal, independent qualification and gameplay integration remain unfinished.
+
+All figures here use **Node Stance Lab / frozen game Rapier coordinate / 120 Hz / original
+symmetric muscle envelopes / Balance 0 / ordinary stance host**. Body, host, muscle limits,
+contact law, solver and acceptance criteria are unchanged. Only ordinary muscle and host actions
+are issued. The successful movement is a new body/loadout witness, not robustness qualification.
+
+Holding the source reference's last pose had failed to establish stable standing in this body.
+Four alternative targets come from the actual Warrior/club
+failure recording: its joint angles at 5.5, 6 and 7 seconds, and their mean over 7-12 seconds.
+The path controller can request these explicit terminal angles, clamped to the actual channel
+limits, through motor-axis posture feedback and joint-speed damping. They are pose requests;
+the body is never placed in them. All 48 immediate-takeover settings still fail through twelve
+seconds. Taking over after an exactly reproduced six-second physical prefix improves support,
+but the first 24 settings also fail within twelve seconds. Twelve existing contact-torque
+controller settings from the same prefix fail as well.
+
+A 32-trial terminal-gain/damping refinement allows sixteen seconds of observation. Ten trials
+complete, the fastest in **7.191667 s**, using the mean target, velocity-error gain 48, damping
+0.5 and activation 1. These settings do not increase strength or speed envelopes. A finite
+handover with inadequate walking is still a failure; several such outcomes remain in the table.
+The successful trace's 1,222 steps include its full six-second prefix and three-second host tail.
+Every physical observation, final result and restored split continuation replays exactly.
+
+The prefix is then removed from the controller. Its path feedback yields to the ordinary host
+when the original path release condition is met, and takes muscle control again at six seconds
+on its observed clock to settle toward the measured target. The evaluator independently requires
+half a second of quiet support before permanent handover. This observation-and-clock policy
+reproduces **every row of the prefix-based recording exactly**, including actions and results.
+It uses no saved-state hash or engine handle. Body/loadout metadata selects this policy for
+Warrior/club; other bodies keep the preceding observation-selected library. The selector checks
+the target reference's complete muscle-channel metadata.
+
+A 30-trial earlier-transition/gain screen produces four completions but no improvement. A further
+48 whole-path timing/gain trials retain only the 7.191667 s setting. The original nominal fresh
+fall reproduces the saved-case trace exactly, while 88 degrees, 92 degrees, and 58/62 N s at
+90 degrees all fail through fourteen seconds. All use the physical two-shove preparation with
+0.2 s separation. The nominal repetition is a control, not an additional independent success.
+
+The full unchanged frozen comparison takes 203.413 wall seconds while other work shares the
+machine. Front and first-side Warrior/empty traces remain exactly 7.25 and 7.041667 s. The new
+Warrior/club trace is 7.191667 s; thirteen cases fail. Every optimized baseline record matches,
+initial states match, and the floating-controller negative control is rejected. Failure-inclusive
+frozen medians remain infinite. No qualification partition or gameplay preset changes.
+
+A separately bounded actual-physics search spends 19,003 evaluations and 263,436 steps. It stops
+after its in-flight batch at 184.120 wall seconds under a 180 s cap, reaching 4.9 seconds of its
+requested 5.5-second search horizon. It finds no recovery and is not restarted or reported as a
+finished horizon. Its 18,954 logged branches contain no adapter errors or external actuation;
+49 reference-anchor evaluations account for the remaining evaluations. Maximum effort-bound
+excess is 0.00004768372 N m, below the unchanged 0.0001 tolerance.
+
+The successful body-specific trajectory also supplies 144 measured local muscle-response samples,
+with six-step perturbation and six-step coast windows, stride six and speed-request delta four.
+These measurements use 124,416 worker steps and 51.849 wall seconds. Median two-channel prediction
+error is 0.352517 across all samples, or 0.473036 across the 113 samples with a nonzero measured
+response; ordinary-host intervals can have zero response to recovery-command perturbations.
+The approximate model is not itself recovery evidence. A seventeen-trial feedback screen retains
+the exact nominal trajectory in its action-replay control and four rate-one feedback settings;
+all twelve faster settings fail. The four feedback settings then each recover only the nominal
+recipe among the same five fresh recipes. None adds perturbation coverage or speed.
+
+Across all 236 grid trials, 25 complete and none completes within six seconds; repeated controls
+are included in those counts. The grids consume 371,602 steps, with no adapter errors, external
+actuation, invalid final commands or nonfinite final joint observations. Maximum effort-bound
+excess is 0.00004654265 N m. The selected controller's physical trace SHA-256 is
+`19aee60da5b947dbc7b2cccc534dbaaee88a5ec38b7533cad74e72b4f8a8948f`.
+`.review/stand-up-club-settle/replay.html` compares it with the optimized baseline from the
+identical complete initial observation and body. The baseline replay fails through twelve
+seconds; the full frozen baseline also fails. The page is built and its embedded recordings
+checked, but is not visually inspected because of the existing local-file browser restriction.
+
+`research/stand-up-path-results.json` under `clubSettling` retains the measured targets, every
+grid setting/outcome, prefix and clock-based configurations, complete frozen comparison,
+successful replay proof, failed bounded search, response diagnostics and replay identity.
+The path experiment's `--mode record --case 5` consumes the stored clock configuration.
+Set `STAND_UP_LIBRARY_CONFIG` to the stored body-aware library configuration and run the frozen
+checkout's unchanged `node research/stand-up-acceptance.mjs --candidate
+<absolute-stand-up-library-policy-path> --output <report.json>` for the complete comparison.
+Extract the successful recording with the path experiment's `--mode extract`; measure responses
+with `research/stand-up-response-measure.mjs --case 5 --horizon 6 --stride 6 --delta 4 --coast yes
+--root-motion yes`. Saved-record verification uses the rollout tool's `--mode verify --case 5`.
+
+Validation: `npm run check`, `npm test` (681 passes, zero failures, five existing TODOs), seventeen
+focused controller tests, the full frozen comparison, exact replay/restoration and matched
+prefix/clock checks pass. Whitespace and line-ending gates pass. The concrete remaining gap is
+speed and transfer: the new supported settling movement still needs more than seven seconds,
+and its four nearby perturbations fail.

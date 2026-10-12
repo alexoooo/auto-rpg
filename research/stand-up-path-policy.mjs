@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { turningToRef } from '../src/core/build/joint-state.ts';
 import { phaseFeatures } from './stand-up-phase-features.mjs';
+import assert from 'node:assert/strict';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
@@ -9,7 +10,11 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 export function pathPolicy({ channels, reference, parameters }) {
   const p = { rate: 1, gain: 0, window: 0, poseWeight: 1, rootWeight: 1, release: reference.release,
     releaseHeight: 0, releaseUp: -1, ...parameters };
-  const state = { phase: p.startPhase??0, started: null, previous: null, released: false, settling: false };
+  const state = { phase: p.startPhase??0, started: null, previous: null, released: false, settling: false, settleAt: null };
+  const terminalAngles=p.terminalAngles?.map((v,i)=>{
+    assert.ok(Number.isFinite(v)&&channels[i]);return clamp(v,channels[i].min,channels[i].max);
+  });
+  if(terminalAngles)assert.equal(terminalAngles.length,channels.length);
   const correction = channels.map(()=>0), turning=[];
   const frames = reference.frames;
   const upOf = o => {
@@ -45,18 +50,26 @@ export function pathPolicy({ channels, reference, parameters }) {
       state.phase = Math.min(maximum,Math.max(minimum,index));
     }
     const index = clamp(Math.round(state.phase),0,frames.length-1), frame = frames[index];
-    if (state.phase >= p.release && o.height >= p.releaseHeight && up[1] >= p.releaseUp) {
-      if(p.terminalGain>0)state.settling=true;
+    if(state.settleAt!==null) {
+      if(o.time<state.settleAt)return {kind:'host'};
+      state.settling=true;
+    } else if (state.phase >= p.release && o.height >= p.releaseHeight && up[1] >= p.releaseUp) {
+      if(p.terminalGain>0) {
+        state.settleAt=state.started+(p.terminalAfter??0);
+        if(o.time<state.settleAt)return {kind:'host'};
+        state.settling=true;
+      }
       else {state.released = true; return { kind:'host' };}
     }
     if(frame.kind==='host')return {kind:'host'};
-    for(let j=0;j<channels.length;j++)correction[j]=frame.angles[j]-o.joints[j].angle;
+    const goal=state.settling&&terminalAngles?terminalAngles:frame.angles;
+    for(let j=0;j<channels.length;j++)correction[j]=goal[j]-o.joints[j].angle;
     if(reference.joints) {
       let start=0;
       for(const joint of reference.joints) {
         const n=joint.dofs.length,angles=o.joints.slice(start,start+n).map(j=>j.angle);
         turningToRef(joint,angles,turning);
-        const errors=frame.angles.slice(start,start+n).map((a,j)=>a-angles[j]);
+        const errors=goal.slice(start,start+n).map((a,j)=>a-angles[j]);
         for(let j=0;j<n;j++)correction[start+j]=turning[j].reduce((s,v,k)=>s+v*errors[k],0);
         start+=n;
       }

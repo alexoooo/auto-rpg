@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { pathPolicy } from '../research/stand-up-path-policy.mjs';
 import { phaseFeatures } from '../research/stand-up-phase-features.mjs';
-import { libraryPolicy } from '../research/stand-up-library-policy.mjs';
+import { libraryPolicy, configuredPolicy } from '../research/stand-up-library-policy.mjs';
 import { responseFeatures, responsePolicy } from '../research/stand-up-response-policy.mjs';
 import { prefixPolicy } from '../research/stand-up-prefix-response-policy.mjs';
 import { createHash } from 'node:crypto';
@@ -61,6 +61,23 @@ test('a recovery reference resumes muscle actions after a temporary host interva
   assert.deepEqual(actions,[muscles,{kind:'host'},muscles,{kind:'host'}]);
 });
 
+test('body-specific recovery selection uses both model and loadout and preserves the default library',()=>{
+  const channels=[{name:'knee.left flexion',min:0,max:2}];
+  const frame=v=>({kind:'muscles',velocity:[v],activation:[.5],handPoses:{},angles:[0],speeds:[0],
+    gravity:[0,1,0],height:1,up:[0,1,0],loads:{}});
+  const ref=v=>({identity:{channels},rootUp:[0,1,0],release:3,frames:[frame(v),frame(v),frame(v)]});
+  const references={default:{references:[ref(1)]},club:ref(2)};
+  const specification={reference:'default',parameters:{},bodies:{'warrior/club':{kind:'path',reference:'club',parameters:{}}}};
+  const before=structuredClone(specification),loadReference=file=>references[file];
+  const observation={time:0,height:1,segments:[{name:'lowerTrunk',rotation:[0,0,0,1]}],contacts:[],joints:[{angle:0,speed:0}]};
+  for(const [model,held,expected] of [['warrior','club',2],['warrior','empty',1],['rogue','club',1]]) {
+    const policy=configuredPolicy({channels,configuration:{model,held},specification,loadReference});
+    assert.deepEqual(policy(observation).velocity,[expected]);
+  }
+  assert.deepEqual(specification,before);
+  assert.throws(()=>configuredPolicy({channels:[{name:'wrong'}],configuration:{model:'warrior',held:'club'},specification,loadReference}),/muscle channels/);
+});
+
 test('terminal posture braking uses bounded muscles and leaves actual quiet handover to the environment',()=>{
   const reference={rootUp:[0,1,0],release:1,frames:[{kind:'muscles',angles:[.4],speeds:[1],
     velocity:['+inf'],activation:[.7],handPoses:{left:'open'},up:[0,1,0]}]};
@@ -73,6 +90,19 @@ test('terminal posture braking uses bounded muscles and leaves actual quiet hand
   assert.ok(Math.abs(actual.velocity[0]-.2)<1e-12);assert.equal(policy.state.settling,true);assert.equal(policy.state.released,false);
   const ordinary=pathPolicy({channels:[{name:'knee.left flexion'}],reference,parameters:{...parameters,terminalGain:0}});
   ordinary(o);assert.deepEqual(ordinary({...o,time:1/120}),{kind:'host'});
+  const own=pathPolicy({channels:[{name:'knee.left flexion',min:0,max:.5}],reference,
+    parameters:{...parameters,terminalAngles:[.8]}});
+  own(o);const clamped=own({...o,time:1/120});
+  assert.ok(Math.abs(clamped.velocity[0]-.6)<1e-12);
+  assert.deepEqual(clamped.activation,[.5]);assert.equal(own.state.settling,true);
+  assert.throws(()=>pathPolicy({channels:[{name:'knee.left flexion',min:0,max:.5}],reference,
+    parameters:{...parameters,terminalAngles:[]}}));
+  const deferred=pathPolicy({channels:[{name:'knee.left flexion'}],reference,
+    parameters:{...parameters,terminalAfter:1}});
+  deferred(o);assert.deepEqual(deferred({...o,time:1/120}),{kind:'host'});
+  assert.deepEqual(deferred({...o,time:.5,height:.7}),{kind:'host'});
+  assert.equal(deferred({...o,time:1}).kind,'muscles');
+  assert.equal(deferred.state.settling,true);assert.equal(deferred.state.released,false);
 });
 
 test('reflected guidance swaps anatomical limbs and hand poses, preserves limits, and treats angular motion as axial',()=>{
