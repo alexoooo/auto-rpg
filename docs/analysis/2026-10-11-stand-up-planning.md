@@ -1787,3 +1787,87 @@ The failed recording verifies with `--mode verify --source <selected.trace.gz> -
 Validation: `npm run check`, `npm test` (673 passes, zero failures, five existing TODOs), exact
 successful and failed replay/restoration checks, matched frozen baseline, whitespace and
 line-ending gates pass. The recovery performance goal fails; no runtime controller is promoted.
+
+## Foot-transition proposals and motion, 2026-10-12
+
+The full goal remains **not achieved**. Six follow-up searches fail to complete the saved side
+fall. The original-body 6.975 s witness, frozen 1/16 completion count and zero six-second
+completions remain unchanged. No runtime controller is promoted and no qualification partition
+is run. Every measurement below uses **Node Stance Lab / frozen game Rapier coordinate / 120 Hz /
+original symmetric muscle envelopes / Balance 0 / ordinary stance host**. There are no body,
+muscle, host, solver, contact-law or acceptance changes.
+
+The support-target search now proposes the target posture explicitly as well as later reference
+postures. Its `--guidance nearest` option separates the destination used to score progress from
+the reference phase used to propose actions. The nearest reference posture supplies those
+proposals, while the score continues to measure distance to the fixed destination. A history
+record retains the best plan at each depth so an earlier intermediate can be replayed.
+
+`--local-motion yes` compares pelvis velocity and spin in body-relative coordinates using the
+existing heading-invariant `responseFeatures` implementation. The optional `--feedback yes`
+proposals add joint-angle-error feedback to finite reference muscle-speed commands, with gains
+4 and 12 per second and a six-rad/s coordinate correction cap before muscle-axis conversion.
+They retain reference activations and infinite-speed commands. The actual muscle driver retains
+its original effort and force-velocity limits. These are offline search proposals, not a deployed
+feedback controller.
+
+| Search, Node harness above | Physical evaluations | Physical steps | Wall seconds | Outcome |
+|---|---:|---:|---:|---|
+| Foot-support target, six-second total limit | 11,848 | 284,352 | 126.042 | No recovery |
+| Upright-kneeling target, 4.8-second total limit | 6,338 | 152,112 | 69.500 | No recovery |
+| Same target with nearest-phase proposals | 6,396 | 153,504 | 82.654 | No recovery |
+| Foot target from the nine-second kneeling prefix, eleven-second total limit | 5,789 | 138,936 | 63.392 | No recovery |
+| Upright target with body-relative motion and higher motion weight | 6,367 | 152,808 | 70.892 | No recovery |
+| Same motion-aware target with feedback proposals | 6,805 | 163,320 | 74.068 | No recovery |
+
+The first search has a 240 s wall cap; the others have 180 s caps. All finish their requested
+search horizons. Times and step counts include physically replaying each prefix. The 4.8-second
+screens are intermediate-transition searches, not assertions that recovery has occurred at that
+deadline. The eleven-second test cannot meet the six-second goal even if its component succeeds.
+
+The nine-second upright-kneeling state is a moving transient. Its pelvis speed is 0.811331 m/s,
+compared with 0.274636 m/s at the reference's 3.6-second kneeling sample. The attempted foot
+continuation loses support rather than producing a stable stand. This corrects any interpretation
+of the preceding upright snapshot as a stable platform for the next movement.
+
+The motion-aware attempt's closest state occurs at 4.208333 s. Its support is both hands and the
+right thigh, not the intended knees. The left/right hip flexion readings are -0.295457/-0.403433
+rad while the reference target is +0.492839/+0.447854 rad; commanded extension continues at about
+2.87/2.73 rad/s. Measured hip efforts at that sample are approximately 29/53 N m, below their
+instantaneous envelopes of 120/192 N m. These samples identify hip overshoot but do not establish
+a strength limit as its cause.
+
+Adding feedback lowers the best objective error from 1.380440 to 1.161566 under the same
+motion-aware metric. It still does not restore the required support: the selected 4.408333 s
+state rests on hands and thighs. Its six-second ordinary-host tail also fails, with no handover
+by the recording's 10.408333 s end. Lower objective error is not a recovery improvement.
+
+Across 43,418 worker branches there are no adapter errors or external-actuation events. The
+additional 125 prefix-control evaluations replay complete physical states. Maximum branch
+effort-bound excess is 0.00004376299 N m; including the recorded host tail, the maximum is
+0.00004379367 N m, below the unchanged 0.0001 tolerance.
+
+The matched failure replay is `.review/stand-up-foot-transition/replay.html`, explicitly labeled
+as a failed side-fall feedback attempt. It compares the 10.408333 s failed continuation with the
+unchanged baseline's 38 s failure. Initial observations and physical identities match, and the
+baseline exactly reproduces the preceding frozen comparison. Recording now checks the searched
+endpoint before appending its host tail. All 1,248 candidate observations, the final result and
+the split continuation replay exactly, physical SHA-256
+`20f16d2818124797c9551202cd3558e7a27aee8046326236e342bc72b4403912`.
+The known successful control also replays exactly with the new scoring options. The viewer is
+built but not visually inspected because of the existing local-file browser restriction; no
+server is started.
+
+`research/stand-up-path-results.json` under `footTransitionSearch` retains all six configurations,
+search outcomes and per-depth metrics, the selected complete plan, joint/contact diagnostics,
+matched baseline and exact-replay proofs. The preceding source and prefix reconstruction applies.
+The selected experiment uses case 1, width 32, block 24, `--seconds 4.8 --wall 180 --target 3.6
+--guidance nearest --local-motion yes --feedback yes --penalty 1 --velocity-weight 0.2
+--contact-weight 0.5 --orientation full --transfer yes --diversity support --roll yes`, with the
+recorded sixteen-control prefix. Its selected plan records through the existing `--mode record`
+interface and verifies with `--mode verify --source <feedback.trace.gz> --case 1`.
+
+Validation: `npm run check`, `npm test` (673 passes, zero failures, five existing TODOs), all
+nine named phase/feedback regressions, matched baseline, exact searched endpoint and full
+successful/failed replay checks pass. Whitespace and line-ending gates pass. The performance
+goal remains unmet; stable knee-to-foot support and faster preceding transitions remain open.

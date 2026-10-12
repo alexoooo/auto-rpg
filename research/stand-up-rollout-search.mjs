@@ -11,6 +11,7 @@ import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { workerPool } from './cma.mjs';
 import { turningToRef } from '../src/core/build/joint-state.ts';
 import { recordedPolicy } from './stand-up-rollout-candidate.mjs';
+import { responseFeatures } from './stand-up-response-policy.mjs';
 
 const frozen=new URL('../.tools/stand-up-frozen/',import.meta.url);
 const {acceptanceEnvironment,evaluateAcceptanceCase,frozenRevision}=await import(new URL('research/stand-up-acceptance.mjs',frozen));
@@ -39,11 +40,12 @@ async function rolloutStand(sourcePath,caseIndex=0,options={}) {
   const describe=o=>{
     const q=new Quaternion(...o.segments.find(s=>s.name==='lowerTrunk').rotation),up=axis.applyRotationQuaternionToRef(q,new Vector3());
     const body=o.segments.find(s=>s.name==='lowerTrunk');
+    const motion=options.localMotion?responseFeatures(o,true).slice(-6):[...body.spin,...body.velocity];
     const gravity=new Vector3(0,1,0).applyRotationQuaternionToRef(Quaternion.Inverse(q),new Vector3());
     const loads=o.segments.map(s=>o.contacts.filter(c=>c.segment===s.name&&c.fixed!==null).reduce((sum,c)=>sum+c.impulse,0));
     const total=loads.reduce((sum,v)=>sum+v,0);
     return {angles:o.joints.map(j=>j.angle),speeds:o.joints.map(j=>j.speed),height:o.height,up:up.asArray(),
-      gravity:gravity.asArray(),loads:loads.map(v=>total?v/total:0),velocity:body.velocity,spin:body.spin};
+      gravity:gravity.asArray(),loads:loads.map(v=>total?v/total:0),velocity:motion.slice(3),spin:motion.slice(0,3)};
   };
   const observations=[source.initial,...source.rows.map(r=>r.observation)],reference=observations.map(describe);
   const last=Math.min(reference.length-1,Number.isFinite(source.result.seconds)?Math.round(source.result.seconds*120):source.rows.length);
@@ -62,6 +64,16 @@ async function rolloutStand(sourcePath,caseIndex=0,options={}) {
       const error=distance(d,reference[i]),score=(target===null?i/120:0)-(options.penalty??6)*error;
       if(score>best.score)best={score,phase:i,poseError:error};
     }
+    if(options.nearestPhase) {
+      // The destination scores progress; the nearest reference posture supplies action proposals.
+      assert.notEqual(target,null,'nearest-phase proposals require a separate support target');
+      let phaseError=Infinity,nearest=0;
+      for(let i=0;i<=last;i+=6) {
+        const error=distance(d,reference[i]);
+        if(error<phaseError){phaseError=error;nearest=i;}
+      }
+      best={...best,targetPhase:target,phase:nearest,phaseError};
+    }
     return {...best,height:d.height,up:d.up[1],tilt:d.gravity,
       support:d.loads.map((v,i)=>v>.02?i:null).filter(i=>i!==null)};
   };
@@ -72,15 +84,20 @@ async function rolloutStand(sourcePath,caseIndex=0,options={}) {
     if(control.kind==='replay')return source.rows[Math.min(source.rows.length-1,Math.round(control.start+step*control.rate))].action;
     if(control.kind==='pose')return {kind:'targets',angles:reference[control.target].angles.map((v,i)=>Math.max(e.channels[i].min,Math.min(e.channels[i].max,v))),
       response:control.response,speed:control.speed,activation:1};
-    if(control.kind==='hybrid') {
+    if(control.kind==='hybrid'||control.kind==='feedback') {
       const base=source.rows[Math.min(source.rows.length-1,control.start+step)].action;
       if(base.kind!=='muscles')return base;
       const out=structuredClone(base),o=e.observe();let offset=0;
       for(const joint of e.stand.built.joints.values()) {
         const n=joint.dofs.length,angles=o.joints.slice(offset,offset+n).map(j=>j.angle),turning=turningToRef(joint,angles,[]);
-        for(let i=0;i<n;i++)if(/^(hip|knee|ankle)\./.test(e.channels[offset+i].name)) {
-          out.velocity[offset+i]=turning[i].reduce((sum,v,k)=>sum+v*Math.max(-6,Math.min(6,
-            (reference[control.target].angles[offset+k]-angles[k])/control.response)),0);out.activation[offset+i]=1;
+        for(let i=0;i<n;i++)if(control.kind==='feedback'||/^(hip|knee|ankle)\./.test(e.channels[offset+i].name)) {
+          const target=control.kind==='feedback'?Math.min(last,control.start+step):control.target;
+          const correction=turning[i].reduce((sum,v,k)=>sum+v*Math.max(-6,Math.min(6,
+            control.kind==='feedback'?(reference[target].angles[offset+k]-angles[k])*control.gain:
+              (reference[target].angles[offset+k]-angles[k])/control.response)),0);
+          if(control.kind==='feedback') {
+            if(typeof out.velocity[offset+i]==='number')out.velocity[offset+i]+=correction;
+          }else {out.velocity[offset+i]=correction;out.activation[offset+i]=1;}
         }
         offset+=n;
       }
@@ -112,12 +129,13 @@ if(!isMainThread&&workerData?.rolloutSearch) {
     catch(error){parentPort.postMessage({id,r:{error:String(error.stack),score:-Infinity}});}
   });
 }else if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href) {
-  const {values:v}=parseArgs({options:Object.fromEntries(['source','out','mode','plan','stage','case','width','block','seconds','wall','penalty','velocity-weight','anchor','orientation','contact-weight','transfer','diversity','roll','target','prefix'].map(k=>[k,{type:'string'}]))});
+  const {values:v}=parseArgs({options:Object.fromEntries(['source','out','mode','plan','stage','case','width','block','seconds','wall','penalty','velocity-weight','anchor','orientation','contact-weight','transfer','diversity','roll','target','prefix','guidance','local-motion','feedback'].map(k=>[k,{type:'string'}]))});
   assert.ok(v.source&&v.out);mkdirSync(dirname(resolve(v.out)),{recursive:true});
   const revision=frozenRevision(),sourceSha256=digest(readFileSync(v.source)),codeSha256=digest(readFileSync(new URL(import.meta.url)));
   const options={penalty:Number(v.penalty??6),velocityWeight:Number(v['velocity-weight']??0),
     fullOrientation:v.orientation==='full',contactWeight:Number(v['contact-weight']??0),transfer:v.transfer==='yes',
-    ...(v.target===undefined?{}:{targetSeconds:Number(v.target)}),verifyOnly:v.mode==='verify'};
+    ...(v.target===undefined?{}:{targetSeconds:Number(v.target)}),verifyOnly:v.mode==='verify',nearestPhase:v.guidance==='nearest',
+    localMotion:v['local-motion']==='yes'};
   assert.ok(!options.transfer||v.anchor!=='yes','a different starting state has no verified reference anchor');
   assert.ok(!options.transfer||v.mode!=='verify','verify requires the trace recorded from this saved fall');
   const stand=await rolloutStand(v.source,Number(v.case??0),options),begun=Date.now();
@@ -138,8 +156,10 @@ if(!isMainThread&&workerData?.rolloutSearch) {
       assert.ok(Array.isArray(plan?.plan),'select a recorded plan');
       if(plan.sourcePhysicalTraceSha256)assert.equal(stand.sourcePhysicalTraceSha256,plan.sourcePhysicalTraceSha256);
       let snapshot=stand.initial,phase=0,last;
-      for(const control of [...plan.plan,{kind:'host',steps:120*6}]) {
+      for(const [index,control] of [...plan.plan,{kind:'host',steps:120*6}].entries()) {
         last=stand.run(snapshot,control,phase,true);rows.push(...last.rows);snapshot=last.snapshot;phase=last.phase;
+        if(index===plan.plan.length-1&&plan.observationSha256)assert.equal(last.observationSha256,plan.observationSha256,
+          'recording reproduces the searched endpoint before appending the host tail');
         if(last.result.success||last.result.failure)break;
       }
       const trace=createHash('sha256');rows.forEach(r=>trace.update(JSON.stringify(r.observation)));
@@ -177,7 +197,7 @@ if(!isMainThread&&workerData?.rolloutSearch) {
       }
       const configuration={case:stand.c.id,checkpointSha256:stand.c.sha256,initialObservationSha256:stand.c.observationSha256,
         referenceInitialObservationSha256:stand.referenceInitialObservationSha256,width,block,seconds,wall:Number(v.wall??600),anchor:v.anchor==='yes',
-        diversity:v.diversity??'phase',roll:v.roll==='yes',options,
+        diversity:v.diversity??'phase',roll:v.roll==='yes',feedback:v.feedback==='yes',options,
         ...(v.prefix?{prefixSha256:digest(readFileSync(v.prefix)),prefixSteps}:{})};
       const pool=workerPool(new URL(import.meta.url),{rolloutSearch:true,source:resolve(v.source),caseIndex:Number(v.case??0),options},3);
       let beam=[initialNode],evaluations=initialNode.plan.length,steps=prefixSteps,complete=null,anchor=beam[0];
@@ -186,8 +206,12 @@ if(!isMainThread&&workerData?.rolloutSearch) {
           const jobs=beam.flatMap(parent=>{
             const start=Math.min(stand.last,Math.round(parent.phase)),duration=Math.min(block,seconds*120-prefixSteps-depth*block);
             const controls=[1,1.5,2,3].map(rate=>({kind:'replay',start,rate,steps:duration}));
+            // These velocity gains close joint-angle error at two rates without raising reference activation.
+            if(v.feedback==='yes')for(const gain of [4,12])controls.push({kind:'feedback',start,gain,steps:duration});
             for(const ahead of [30,60,120,240])for(const response of [.1,.3])controls.push({kind:'pose',target:Math.min(stand.last,start+ahead),response,speed:6,steps:duration});
             for(const ahead of [30,120,240])controls.push({kind:'hybrid',start,target:Math.min(stand.last,start+ahead),response:.2,steps:duration});
+            if(options.targetSeconds!==undefined)for(const response of [.1,.3])controls.push({kind:'pose',
+              target:Math.round(options.targetSeconds*120),response,speed:6,steps:duration});
             if(v.roll==='yes'&&(parent.height??0)<.5) {
               for(const lie of ['back','left','right'])for(let index=0;index<RISE.roll[lie].length;index++)
                 controls.push({kind:'roll',lie,index,response:.15,steps:duration});
@@ -224,6 +248,7 @@ if(!isMainThread&&workerData?.rolloutSearch) {
           }
           const best=complete??beam[0],{snapshot,...record}=best;
           write(v.out+'.best.json',{revision,sourceSha256,sourcePhysicalTraceSha256:stand.sourcePhysicalTraceSha256,codeSha256,configuration,options,...record,evaluations,steps});
+          appendFileSync(v.out+'.history.jsonl',JSON.stringify({depth,...record})+'\n');
           const elapsed=Math.min(seconds,(prefixSteps+(depth+1)*block)/120);
           write(v.out+'.progress.json',{depth,elapsed,beam:beam.map(({phase,score,height,up,result})=>({phase,score,height,up,result})),evaluations,steps});
           console.log(JSON.stringify({depth,elapsed,phase:best.phase/120,height:best.height,up:best.up,score:best.score,evaluations,steps,success:best.result.success}));
