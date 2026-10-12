@@ -13,6 +13,7 @@ import { contactModel } from './stand-up-contact-model.mjs';
 import { contactPolicy } from './stand-up-contact-policy.mjs';
 import { trackingPolicy } from './stand-up-tracking-policy.mjs';
 import { phaseFeatures } from './stand-up-phase-features.mjs';
+import { libraryPolicy } from './stand-up-library-policy.mjs';
 import { cmaSearch, workerPool } from './cma.mjs';
 
 const frozen = new URL('../.tools/stand-up-frozen/',import.meta.url);
@@ -21,7 +22,7 @@ const { unassistedAudit, unassistedResult } = await import(new URL('research/sta
 const manifest = JSON.parse(readFileSync(new URL('research/stand-up-acceptance/cases.json',frozen)));
 const digest = x => createHash('sha256').update(x).digest('hex');
 const write = (file,data) => writeFileSync(file,JSON.stringify(data,null,2)+'\n');
-const sourceIdentity=()=>Object.fromEntries(['stand-up-path-policy.mjs','stand-up-compact-policy.mjs','stand-up-path-experiment.mjs','stand-up-contact-model.mjs','stand-up-contact-policy.mjs','stand-up-detached-dynamics.mjs','stand-up-tracking-policy.mjs','stand-up-phase-features.mjs']
+const sourceIdentity=()=>Object.fromEntries(['stand-up-path-policy.mjs','stand-up-compact-policy.mjs','stand-up-path-experiment.mjs','stand-up-contact-model.mjs','stand-up-contact-policy.mjs','stand-up-detached-dynamics.mjs','stand-up-tracking-policy.mjs','stand-up-phase-features.mjs','stand-up-library-policy.mjs']
   .map(name=>[name,digest(readFileSync(new URL(name,import.meta.url)))]));
 
 /** Execute only candidate muscle actions from the unchanged complete saved fall. */
@@ -37,7 +38,7 @@ async function trial(configuration, { caseIndex=0, seconds=20, capture=false }={
     else if(configuration.fall)await e.fall({...c.fall,...configuration.fall});
     else e.restore(gunzipSync(saved));
     const initial=e.observe(); if(!configuration.fall&&!configuration.standing)assert.equal(digest(JSON.stringify(initial)),c.observationSha256);
-    const factory=configuration.kind==='tracking'?trackingPolicy:configuration.kind==='contact'?contactPolicy:configuration.kind==='compact'?compactPolicy:pathPolicy;
+    const factory=configuration.kind==='library'?libraryPolicy:configuration.kind==='tracking'?trackingPolicy:configuration.kind==='contact'?contactPolicy:configuration.kind==='compact'?compactPolicy:pathPolicy;
     const policy=factory({channels:e.channels,reference,model,parameters:configuration.parameters});
     audit=unassistedAudit(e.stand.built,()=>e.stand.world.steps);
     let steps=0, peakHeight=0, last, quality=0, peakQuality=0;
@@ -61,6 +62,7 @@ async function trial(configuration, { caseIndex=0, seconds=20, capture=false }={
         feet:row.observation.segments.filter(s=>s.name.startsWith('foot.')).map(s=>({name:s.name,centre:s.centre,
           impulse:row.observation.contacts.filter(c=>c.segment===s.name&&c.fixed!==null).reduce((sum,c)=>sum+c.impulse,0)})),
         loaded:row.observation.contacts.filter(c=>c.fixed!==null&&c.impulse>0).map(c=>c.segment),
+        ...(configuration.kind==='library'?{reference:policy.state.reference,switches:policy.state.switches,errors:policy.state.errors}:{}),
         ...(['contact','tracking'].includes(configuration.kind)?{control:structuredClone(policy.state)}:{})});}
       if(row.result.success||row.result.failure||audit.events.length)break;
     }
@@ -99,9 +101,20 @@ else if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1]
       const frames=source.rows.slice(0,release).map((r,i)=>{const o=i?source.rows[i-1].observation:source.initial;
         return {...r.action,angles:o.joints.map(j=>j.angle),speeds:o.joints.map(j=>j.speed),up:rotate(o.segments.find(s=>s.name==='lowerTrunk').rotation),...phaseFeatures(o)};});
       const joints=[...e.stand.built.joints.values()].map(j=>({dofs:j.dofs.map(d=>({sign:d.sign}))}));
-      writeFileSync(v.out,gzipSync(JSON.stringify({sourceSha256:digest(readFileSync(v.source)),rootUp,rootFront,rootAcross,joints,roll:RISE.roll,release,frames})));
+      writeFileSync(v.out,gzipSync(JSON.stringify({sourceSha256:digest(readFileSync(v.source)),identity:source.identity,
+        sourcePhysicalTraceSha256:source.traceSha256,rootUp,rootFront,rootAcross,joints,roll:RISE.roll,release,frames})));
       console.log(JSON.stringify({release,frames:frames.length,output:v.out}));
     } finally {e.dispose();}
+  } else if(v.mode==='library') {
+    const configuration=JSON.parse(readFileSync(v.config));
+    const references=configuration.references.map(file=>JSON.parse(gunzipSync(readFileSync(file))));
+    assert.ok(references.length>0&&references.every(r=>r.identity),'library references declare their physical configuration');
+    for(const reference of references) {
+      assert.deepEqual(reference.identity,references[0].identity,'library references use the same body, engine and host');
+      assert.deepEqual(reference.joints,references[0].joints,'library references use the same joint coordinates');
+    }
+    writeFileSync(v.out,gzipSync(JSON.stringify({...references[0],references})));
+    console.log(JSON.stringify({references:references.length,output:v.out}));
   } else {
     const configuration=JSON.parse(readFileSync(v.config)),options={caseIndex:Number(v.case??0),seconds:Number(v.seconds??20)};
     if(v.mode==='record') {
@@ -129,6 +142,6 @@ else if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1]
             write(v.out+'.best.json',s.best.r);console.log(JSON.stringify({entry,best:s.best.r?.result}));return Date.now()<deadline-20000;}});
         write(v.out+'.summary.json',{revision,sources,steps,evaluations,wallSeconds:(Date.now()-begun)/1000,result});
       }finally{await pool.terminate();}
-    } else throw new Error('choose extract, record, grid or search');
+    } else throw new Error('choose extract, library, record, grid or search');
   }
 }

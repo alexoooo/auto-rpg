@@ -1459,3 +1459,86 @@ Validation: `npm run check`, `npm test` (665 passes, zero failures, five existin
 two named phase/reference regressions, matched fresh-start identities, exact fresh replay,
 the accelerated saved-case check and the full frozen candidate comparison pass. The whitespace
 and line-ending gates pass. The recovery performance goal remains unmet.
+
+## Multiple-reference feedback, 2026-10-12
+
+The full unassisted goal remains **not achieved**. A library controller reproduces six represented
+fresh starts but fails every additional start in its fourteen-case development screen. Its complete
+frozen comparison still completes only 1/16, none within six seconds. The fastest saved-fall witness
+remains the separate 6.975 s setting above. No runtime integration or full qualification is claimed.
+
+All measurements below use **Node Stance Lab / frozen game Rapier coordinate / 120 Hz / symmetric
+original muscle envelopes / Balance 0**. Fresh falls retain the Warrior/empty compliant-sole body,
+ordinary stance host and physical shove preparation. The full frozen comparison also includes its
+unchanged Rogue and club configurations. Anatomy, muscles, host, solver and acceptance criteria
+are unchanged. All successes include the existing standing and walking verification tail.
+
+`research/stand-up-library-policy.mjs` maintains a separate measured phase for each reference and
+selects commands by joint posture, root-local gravity, height, floor loads and optional velocity
+error. Its optional inverse-error blend combines finite muscle velocity and activation requests.
+An exact reference selects its own commands; a host or infinite-velocity request retains discrete
+selection. The policy receives detached observations and emits only the frozen muscle/host actions.
+Reference extraction records physical identity and trace identity. The experiment's `library` mode
+refuses to pack references with different physical configurations or joint coordinates; a deliberately
+mismatched balance declaration is rejected before any simulation.
+
+The initial library contains the nominal 7.25 s, -1-degree 7.291667 s and +1-degree 7.125 s traces.
+Discrete reference selection reproduces those three trajectories but fails both half-degree starts.
+Blending finds a -0.5-degree recovery in 7 s and a +0.5-degree recovery in 7.458333 s, with different
+blend exponents. A +2-degree start recovers in 7.916667 s. These three are then added as demonstrations;
+the expanded-library successes are therefore training results, not independent transfer evidence.
+
+| Development experiment, Node harness above, 12 s episode cap | Successful trials / all trials |
+|---|---|
+| Three references, discrete selection | 9/15; three reproduced starts across three settings |
+| Blend exponent and feedback gain | 9/21 |
+| Additional directions and blend exponents | 4/24 |
+| Velocity-aware phase matching and finite-command damping | 2/24 |
+| Six references, one fixed parameter set | 6/14; all eight additional starts fail |
+| Bounded phase progression on four additional starts | 0/24 |
+
+These grids share cases and controls; their counts are not independent trials or a qualification
+sample. All results and configurations, including failures, remain in
+`research/stand-up-path-results.json` under `libraryFeedback`. One damping trial reaches handover
+at 8.908333 s but fails the host walking-displacement check and is counted as a failure. No trial
+has external actuation; the largest effort-bound excess is 0.00004334864 N m, below the unchanged
+0.0001 tolerance.
+
+The expanded library uses the previous selected parameters plus `blend: 2`, `switchCost: 0` and
+`velocityWeight: 0.02`. Its -1, -0.5, 0, +0.5, +1 and +2-degree starts finish in 7.283333, 7,
+7.25, 7.458333, 7.125 and 7.916667 s. Its -2, -0.75, -0.25, +0.25, +0.75, +1.5, +2.5 and
++3-degree starts all fail by twelve seconds. Phase-jump limits of 1, 1.5 and 2 times real time,
+combined with minimum progression of 0 or 0.5, do not repair the four quarter-degree failures.
+The observed failures reject these settings as a robust controller, not physical feasibility.
+
+The complete unchanged frozen `--candidate` comparison takes 214.458 s: both controllers finish
+1/16 within 35 s; the library finishes 1/16 within 12 s and 0/16 within 6 s. Its other fifteen
+episodes reach the deadline. Failure-inclusive medians are infinite. Every optimized baseline
+record exactly matches the preceding frozen comparison, all initial states match, and the
+floating-controller negative control is rejected.
+
+The matched fresh -0.5-degree replay is `.review/stand-up-library/replay.html`. The candidate
+finishes in 7 s; the optimized baseline fails by 38 s, from identical complete initial observations
+and physical identities. Independent regeneration and action replay match all 1,199 observations
+and the complete result exactly, physical SHA-256
+`458bd0e9fa48a4b9f80be66171cc7d471dd0ad9c99504462920094019f0ad6f3`.
+The viewer identifies the fresh angle and includes the verification tail. It is built but not
+visually inspected because of the existing browser local-file restriction; no server is started.
+
+For reproduction, reconstruct the three `libraryFeedback.initialReferences` using the preceding
+sections, extract each with `--mode extract`, and pack them with
+`node research/stand-up-path-experiment.mjs --mode library --config <file> --out <library.json.gz>`.
+The config has a `references` array of extracted gzip filenames. Use the recorded `addedReferences`
+configurations to record the three additional trajectories against that initial library, extract
+them, and pack all six in the recorded order. `libraryFeedback.configuration` contains the final
+parameters; point its `reference` at the rebuilt library and set `STAND_UP_LIBRARY_CONFIG` to the
+configuration file. The frozen evaluator accepts
+`--candidate <absolute-path-to-research/stand-up-library-policy.mjs>`. A fresh record adds
+`fall: {"degrees": -0.5}` and uses `--mode record --seconds 38`; changing `kind` to `baseline`
+produces its matched comparator. The existing fresh-replay verifier checks the candidate trace.
+
+Validation: `npm run check`, `npm test` (668 passes, zero failures, five existing TODOs), all five
+named phase/library regressions, packing rejection, matched physical identities, exact fresh replay
+and the full frozen comparison pass. Whitespace and line-ending gates pass. The performance goal
+fails. More demonstrations reproduce more trained starts, but do not restore missing support on
+the additional falls; recovery across different contact configurations remains the next capability.

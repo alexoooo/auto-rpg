@@ -22,6 +22,7 @@ export function pathPolicy({ channels, reference, parameters }) {
     if (state.released) return { kind: 'host' };
     state.started ??= o.time;
     const minimum=state.phase+(state.previous===null?0:(o.time-state.previous)*120*(p.minRate??0));
+    const maximum=p.maxRate===undefined?Infinity:state.phase+(state.previous===null?0:(o.time-state.previous)*120*p.maxRate);
     if (state.previous !== null) state.phase += (o.time-state.previous)*120*p.rate;
     state.previous = o.time;
     const expected = clamp(Math.round(state.phase),0,frames.length-1), up = upOf(o);
@@ -37,10 +38,11 @@ export function pathPolicy({ channels, reference, parameters }) {
         error = p.poseWeight*error + p.rootWeight*orientation.reduce((sum,v,k)=>sum+(v-goal[k])**2,0)
           +(features?(p.phaseHeightWeight??0)*(features.height-f.height)**2
             +(p.phaseLoadWeight??0)*Object.entries(f.loads).reduce((sum,[name,v])=>sum+(v-(features.loads[name]??0))**2,0):0)
+          + (p.phaseVelocityWeight??0)*o.joints.reduce((sum,j,k)=>sum+(j.speed-f.speeds[k])**2/channels.length,0)
           + .02*((i-expected)/Math.max(1,span))**2;
         if (error < best) { best = error; index = i; }
       }
-      state.phase = Math.max(minimum,index);
+      state.phase = Math.min(maximum,Math.max(minimum,index));
     }
     const index = clamp(Math.round(state.phase),0,frames.length-1), frame = frames[index];
     if (state.phase >= p.release && o.height >= p.releaseHeight && up[1] >= p.releaseUp) {
@@ -61,7 +63,7 @@ export function pathPolicy({ channels, reference, parameters }) {
     const activation=[...frame.activation];
     return { kind:'muscles', handPoses: {...frame.handPoses},
       velocity: frame.velocity.map((v,j) => {
-        if(typeof v==='number')return v+p.gain*correction[j];
+        if(typeof v==='number')return v+p.gain*correction[j]+(p.finiteDamping??0)*(frame.speeds[j]-o.joints[j].speed);
         if(!(p.torqueGain>0))return v;
         const asked=(v==='+inf'?1:-1)*frame.activation[j]+p.torqueGain*correction[j]
           +(p.damping??0)*(frame.speeds[j]-o.joints[j].speed);
