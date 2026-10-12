@@ -10,7 +10,7 @@
  *   node research/locomotion-search.mjs --out .snap/search/a [--generations 30] [--lambda 12] [--seeds 1,2,3]
  *     [--models workshop-fighter,workshop-rogue] [--lines forward,right,back] [--seconds 15] [--seed 1]
  *     [--start '{"swing":0.34}'] [--dims swing,transfer,...] [--live] [--score '{"swing":0.34}'] [--workers 30] [--kind run]
- *     [--kind simbicon --way forward|back|side|all] [--objective battery [--turns] | played]
+ *     [--kind simbicon --way forward|back|side|all] [--objective battery [--turns] | played | both]
  *
  * - `--live` scores the start and each dimension at either end of its range, the rest at the start:
  *   whether something reads it, and which way it moves the score.
@@ -46,6 +46,10 @@
  * it fell. Its winds' seeds are not the ones the Run's bed is read on. With `--way all` it searches
  * every way's gait at once, each setting named for its way (`forward.cv`, `side.cv`, `back.cv`), and
  * the walk's speed-up and swerve (`ALL_EXTRA`).
+ *
+ * With `--objective both` the score is the battery's and the played objective's together: the
+ * battery holds a candidate to setting off, going as asked and stopping, which the Run under the
+ * envelope as measured does not see, and the Run to its gusts and bends, which the battery does not.
  */
 import { Worker } from "node:worker_threads";
 import { appendFileSync, writeFileSync } from "node:fs";
@@ -208,7 +212,7 @@ const run = (job) => new Promise((resolve, reject) => {
   pump();
 });
 
-const trialPool = objective === "battery" ? Array.from({ length: workers }, () => new Worker(fileURLToPath(new URL("./core-stance-worker.mjs", import.meta.url)))) : [];
+const trialPool = objective === "battery" || objective === "both" ? Array.from({ length: workers }, () => new Worker(fileURLToPath(new URL("./core-stance-worker.mjs", import.meta.url)))) : [];
 const trialIdle = [...trialPool], trialQueue = [], trialWaiting = new Map();
 const trialPump = () => { while (trialIdle.length && trialQueue.length) { const job = trialQueue.shift(); trialIdle.pop().postMessage(job); } };
 for (const worker of trialPool) worker.on("message", ({ id, result, error }) => {
@@ -306,6 +310,10 @@ let heldStart = null;
 async function score(legs) {
   if (objective === "battery") return batteryScore(legs);
   if (objective === "played") return playedScore(legs);
+  if (objective === "both") {
+    const [walked, played] = await Promise.all([batteryScore(legs), playedScore(legs)]);
+    return { score: walked.score + played.score, legs, by: { battery: Number(walked.score.toFixed(3)), played: Number(played.score.toFixed(3)), ...walked.by, ...played.by }, ladders: walked.ladders, turns: walked.turns };
+  }
   const tracks = way && !lines.includes("square") ? [...lines, "square"] : lines;
   const [all, stops] = await Promise.all([
     Promise.all(models.flatMap((model) => tracks.flatMap((track) => seeds.map((seed) => ladder(legs, model, track, seed))))),
