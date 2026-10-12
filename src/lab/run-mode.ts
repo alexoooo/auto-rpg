@@ -1,5 +1,5 @@
 import type { Body } from "../core/body.ts";
-import { paceRound, turnAt, type StanceEnvelope } from "../core/control/stance-envelope.ts";
+import { carried, paceRound, turnAt, type StanceEnvelope } from "../core/control/stance-envelope.ts";
 import { NO_COVER, type Intent } from "../core/mind/intent.ts";
 import { wrap } from "../core/math/turn.ts";
 import type { Tactics } from "../core/mind/tactics.ts";
@@ -21,14 +21,18 @@ import { startWind, type WindSettings } from "./wind.ts";
  * sideways or back.
  *
  * Their pace is the body's fastest walk (`Sight.envelope`, what its locomotion was measured to hold
- * with it), or the pace the lab asks (`RunOptions.top`), which may be past it: pushing a walk past what
- * it holds is what the Run is for. Either way it is no faster than the body's turn carries it round
- * the tightest bend within `AIM_AHEAD` either way (`turnAt` and `paceRound`; past the envelope's
- * fastest walk, at the turn it held there).
+ * with it), or the pace the lab asks (`RunOptions.top`), which may be past it: a locomotion skill
+ * takes a walk asked past what the body holds that way at the most it holds (`paceToward`). Either
+ * way it is no faster than the body's turn carries it round each bend (`turnAt` and `paceRound`;
+ * past the envelope's fastest walk, at the turn it held there), and a corner is taken at
+ * `CORNER_PACE`.
  *
- * It slows before a bend and keeps the bend's pace a metre past it, for its heading lags the
- * track's: sped up at the arc's end, it leaves the bend short of the way back and drifts off the
- * track. The locomotion skill's own acceleration takes it from one pace to the other.
+ * It brakes for a bend or a corner ahead at `BRAKE`, so as to reach it at its pace. Facing along
+ * the track, it is no faster than its turns carry it round the arc from its heading to the point it
+ * aims at: its heading lags the track's, and sped up at a bend's end before it has come round, it
+ * would leave the bend short of the way back and drift off the track; run wide, it comes back onto
+ * it at a pace it turns at. The locomotion skill's own acceleration takes it from one pace to the
+ * other.
  *
  * Wind may blow on it (`wind.ts`), and its feet are metered (`gait-meter.ts`).
  *
@@ -85,12 +89,25 @@ interface RunSession {
  */
 const AIM_AHEAD = 1;
 
-/** The tightest radius of `track` within `metres` of `s` either way, m (Infinity on a straight). */
-function tightest(track: Track, s: number, metres: number): number {
-  let most = 0;
-  for (let d = -metres; d <= metres; d += 0.05) most = Math.max(most, Math.abs(track.at(s + d).curvature));
-  return most === 0 ? Infinity : 1 / most;
+/**
+ * How hard the Run slows for a bend or a corner, m/s²: about as hard as the body slows, which is
+ * less than the walk asked of the SIMBICON walk's feedback changes (`SimbiconSettings.speedup`):
+ * slowed harder, the body comes to a bend going faster than its pace there, and swings wide of it,
+ * or carries on past a corner while its walk swings round to the next way.
+ */
+const BRAKE = 0.3;
+/** The pace the Run takes a corner at, m/s: the slowest pace the envelopes measure. */
+const CORNER_PACE = 0.2;
+
+/** How far ahead of `s` the next corner of `track` is, m (Infinity on a track with none). */
+function toCorner(track: Track, s: number): number {
+  let least = Infinity;
+  for (const at of track.corners) least = Math.min(least, ((at - s) % track.length + track.length) % track.length);
+  return least;
 }
+
+/** How finely the Run reads the track ahead for its bends, m. */
+const LOOK_STEP = 0.05;
 
 /**
  * The fastest pace no faster than `top` at which `envelope`'s turns carry the body round a bend of
@@ -101,7 +118,7 @@ function paceRoundTo(envelope: StanceEnvelope | null, radius: number, top: numbe
   if (!envelope) return Infinity;
   const within = paceRound(envelope, radius);
   if (top === undefined || top <= envelope.walk.value) return within;
-  return Math.max(within, Math.min(top, turnAt(envelope, top) * radius));
+  return Math.max(within, Math.min(top, carried(turnAt(envelope, top), radius)));
 }
 
 /** How the Run's tactics go round. */
@@ -156,9 +173,22 @@ export function trackTactics(track: Track, { top, pace: most, turn, facing }: Tr
         const to = track.at(along + AIM_AHEAD);
         aim = [to.x, to.z];
         const toward = Math.atan2(to.x - c.x, to.z - c.z);
-        const radius = tightest(track, along, AIM_AHEAD), bend = Math.min(paceRoundTo(envelope, radius, top), turning * radius);
-        bending = bend < fastest;
-        pace = Math.min(fastest, bend);
+        // Each bend as far ahead as it takes to brake from the fastest pace, at its pace and braking to it; the next corner likewise.
+        let bend = Infinity;
+        for (let d = 0; d <= fastest * fastest / (2 * BRAKE); d += LOOK_STEP) {
+          const k = Math.abs(track.at(along + d).curvature), radius = k === 0 ? Infinity : 1 / k;
+          const at = Math.min(paceRoundTo(envelope, radius, top), carried(turning, radius));
+          bend = Math.min(bend, Math.sqrt(at * at + 2 * BRAKE * d));
+        }
+        const corner = Math.max(CORNER_PACE, Math.sqrt(2 * BRAKE * toCorner(track, along)));
+        // Facing along the track, no faster than its turns carry it round the arc from its heading to the point it aims at.
+        if (facing === undefined) {
+          const lag = Math.abs(wrap(toward - report.heading)), reach = Math.sqrt((to.x - c.x) * (to.x - c.x) + (to.z - c.z) * (to.z - c.z));
+          const radius = lag === 0 ? Infinity : reach / (2 * (lag < Math.PI / 2 ? Math.sin(lag) : 1));
+          bend = Math.min(bend, paceRoundTo(envelope, radius, top), carried(turning, radius));
+        }
+        bending = Math.min(bend, corner) < fastest;
+        pace = Math.min(fastest, bend, corner);
         if (facing === undefined) {
           face = turn === undefined ? toward : report.heading + Math.max(-turn * dt, Math.min(turn * dt, wrap(toward - report.heading)));
           move = [pace, 0];

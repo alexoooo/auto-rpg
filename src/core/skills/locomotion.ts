@@ -1,7 +1,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import type { BodyView } from "../body.ts";
-import { turnAt, type StanceEnvelope } from "../control/stance-envelope.ts";
+import { paceToward, turnAt, type StanceEnvelope } from "../control/stance-envelope.ts";
 import type { StanceGoal, SwingGoal } from "../control/stance.ts";
 import type { MusclePush, Pose } from "../control/motor.ts";
 import type { Side } from "../spec/body.ts";
@@ -98,7 +98,7 @@ const SQUARE_NEAR = 0.1;
  * holds with the body (`StanceEnvelope`, `Body.envelope`).
  *
  * - **The walk** is the intent's velocity (forward along the heading and to its right, m/s), its
- *   speed capped at the envelope's fastest walk. None stands.
+ *   speed capped at the envelope's fastest walk that way (`paceToward`). None stands.
  * - **The heading** turns toward the intent's facing only while the body walks, as the stance
  *   turns (each step lands its foot facing the heading; standing, a pelvis turned a quarter over
  *   planted feet falls), no faster than the envelope turns at the pace the body was last asked to
@@ -278,7 +278,7 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
           const rate = Math.min(envelope ? turnAt(envelope, state.pace) : Infinity, turnLimit ?? Infinity, startupLimit) * dt;
           state.heading += Math.max(-rate, Math.min(rate, turn));
         } else state.heading += turn;
-        const speed = hypot(walk[0], walk[1]), most = envelope?.walk.value ?? Infinity;
+        const speed = hypot(walk[0], walk[1]), most = envelope ? paceToward(envelope, walk[0], walk[1]) : Infinity;
         if (speed > most) walk = [walk[0] * most / speed, walk[1] * most / speed];
         state.pace = Math.min(speed, most);
         if (turnStartup) state.walkTime = speed > 0 ? Math.min(turnStartup.seconds, state.walkTime! + dt) : 0;

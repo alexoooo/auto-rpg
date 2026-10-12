@@ -15,7 +15,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createBody } from "../src/core/body.ts";
-import { fastestHeld, paceRound, simbiconEnvelope, stanceEnvelope, strideEnvelope, turnAt, WENT, wentAsAsked } from "../src/core/control/stance-envelope.ts";
+import { fastestHeld, paceRound, paceToward, simbiconEnvelope, stanceEnvelope, strideEnvelope, turnAt, turnedAsAsked, TURNED, WENT, wentAsAsked } from "../src/core/control/stance-envelope.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { modelSpec } from "../src/core/models.ts";
@@ -34,6 +34,8 @@ const WALKS = [
   { name: "stride", asset: await read("stride-envelope.json"), source: "stride-envelope", envelope: strideEnvelope, legs: "stride" },
   { name: "simbicon", asset: await read("simbicon-envelope.json"), source: "simbicon-envelope", envelope: simbiconEnvelope, legs: "simbicon" },
 ];
+/** A body's fastest walk forward in `asset`: its own way's where the asset measured each way. */
+const forwardOf = (asset, entry) => entry.byWay ? entry.byWay[asset.ways.indexOf(0)] : entry.walk;
 
 for (const { name, asset } of WALKS) test(`the_${name}_envelope_was_measured_on_the_cores_harness_at_the_games_rate`, () => {
   assert.equal(asset.harness, CORE_STANCE_HARNESS);
@@ -43,14 +45,24 @@ for (const { name, asset } of WALKS) test(`the_${name}_envelope_was_measured_on_
 for (const { name, asset, source, envelope } of WALKS) test(`each_bodys_fastest_${name}_walk_and_its_turns_are_the_rules_reading_of_its_tables`, () => {
   for (const [model, entry] of Object.entries(asset.models)) {
     assert.equal(entry.walk, fastestHeld({ speeds: asset.speeds, ways: asset.ways.length * asset.holds.length, held: entry.held }), model);
-    // A turn at every speed up to the fastest walk, and none past it.
-    const upTo = asset.speeds.filter((speed) => speed <= entry.walk);
+    // A turn at every speed up to the fastest walk forward, and none past it.
+    const upTo = asset.speeds.filter((speed) => speed <= forwardOf(asset, entry));
     assert.equal(entry.turnHeld.length, upTo.length, model);
     const ways = asset.senses.length * asset.holds.length * asset.afters.length;
     assert.deepEqual(entry.turns, entry.turnHeld.map((held) => fastestHeld({ speeds: asset.rates, ways, held })), model);
     const at = (where) => ({ kind: "source", source, where });
+    const walk = { value: entry.walk, unit: "m/s", provenance: at(`/models/${model}/walk`) };
+    // Each way by the rule over its own trials, where the asset measured them; where not, the fastest walk.
+    if (entry.byWay) {
+      assert.deepEqual(entry.byWay, entry.wayHeld.map((held) => fastestHeld({ speeds: asset.speeds, ways: asset.holds.length, held })), model);
+      assert.deepEqual(entry.held, asset.speeds.map((_, s) => entry.wayHeld.reduce((sum, way) => sum + way[s], 0)), model);
+    }
+    const way = (degrees) => {
+      const i = asset.ways.indexOf(degrees);
+      return entry.byWay ? { value: entry.byWay[i], unit: "m/s", provenance: at(`/models/${model}/byWay/${i}`) } : walk;
+    };
     assert.deepEqual(envelope(modelSpec(model)), {
-      walk: { value: entry.walk, unit: "m/s", provenance: at(`/models/${model}/walk`) },
+      walk, ways: { forward: way(0), right: way(90), back: way(180), left: way(270) },
       turns: upTo.map((speed, i) => ({
         speed: { value: speed, unit: "m/s", provenance: at(`/speeds/${i}`) },
         turn: { value: entry.turns[i], unit: "rad/s", provenance: at(`/models/${model}/turns/${i}`) },
@@ -74,6 +86,27 @@ test("a_turn_is_the_slowest_listed_speeds_at_or_above_the_walk_and_a_bends_pace_
   // A wide bend, or none: the fastest walk.
   assert.equal(paceRound(envelope, 4), 0.5);
   assert.equal(paceRound(envelope, Infinity), 0.5);
+  // A speed that held no turn still walks a straight, and no bend.
+  const stiff = { ...envelope, turns: [[0.2, 2], [0.5, 0]].map(([speed, turn]) => ({ speed: q(speed), turn: q(turn) })) };
+  assert.equal(paceRound(stiff, Infinity), 0.5);
+  assert.equal(paceRound(stiff, 0.3), 0.2);
+});
+
+test("a_walk_asked_past_its_way_is_held_at_the_ellipse_through_the_ways_either_side_of_it", () => {
+  const q = (value) => ({ value, unit: "m/s", provenance: { kind: "source", source: "simbicon-envelope", where: "" } });
+  const envelope = { walk: q(0.5), ways: { forward: q(1.6), right: q(0.6), back: q(1), left: q(0) }, turns: [] };
+  // Straight each way, its own; between forward and right, on the ellipse through 1.6 and 0.6.
+  assert.equal(paceToward(envelope, 2, 0), 1.6);
+  assert.equal(paceToward(envelope, 0, 1), 0.6);
+  assert.equal(paceToward(envelope, -0.3, 0), 1);
+  const u = 1 / Math.sqrt(2), most = paceToward(envelope, 1, 1);
+  assert.ok(Math.abs((u * most / 1.6) ** 2 + (u * most / 0.6) ** 2 - 1) < 1e-12, String(most));
+  // A way that held nothing holds no walk with a share of it.
+  assert.equal(paceToward(envelope, 1, -0.1), 0);
+  assert.equal(paceToward(envelope, 0, -1), 0);
+  // All ways alike: that pace, whatever the way.
+  const round = { ...envelope, ways: { forward: q(0.5), right: q(0.5), back: q(0.5), left: q(0.5) } };
+  assert.equal(paceToward(round, 0.3, -0.7), 0.5);
 });
 
 test("the_labs_turn_rate_is_inside_every_bodys_envelope_at_the_routines_pace", () => {
@@ -89,6 +122,13 @@ test("the_rule_takes_the_fastest_speed_held_every_way_and_at_every_slower_one", 
   assert.equal(fastestHeld({ speeds, ways: 5, held: [5, 5, 4] }), 0.3);
   assert.equal(fastestHeld({ speeds, ways: 5, held: [5, 4, 5] }), 0.2);
   assert.equal(fastestHeld({ speeds, ways: 5, held: [4, 5, 5] }), 0);
+});
+
+test("a_turn_held_only_if_the_body_faced_round_with_the_heading_asked", () => {
+  assert.equal(turnedAsAsked(0), true);
+  assert.equal(turnedAsAsked(TURNED), true);
+  // A half turn asked at 1 rad/s that the legs take at 0.5 lags a quarter turn as it ends.
+  assert.equal(turnedAsAsked(Math.PI / 2), false);
 });
 
 test("a_walk_held_only_if_it_went_the_way_asked_at_the_pace_asked", () => {
@@ -133,13 +173,28 @@ for (const { name, asset, legs } of WALKS) for (const model of Object.keys(asset
     for (const held of asset.holds) for (const degrees of asset.ways) if ((await walk({ model, degrees, speed, held, stance: {}, hz: asset.hz, legs })).fell) fell.push(`${held} ${degrees}`);
     assert.deepEqual(fell, [], `${model} at ${speed} m/s`);
   });
+}
 
-  test(`${model}_turns_both_ways_at_its_fastest_turn_at_its_fastest_${name}_walk_from_setting_off_and_under_way`, async () => {
-    const { walk: speed, turns } = asset.models[model], rate = turns[turns.length - 1];
+// A body that held no speed forward has no turn to hold again.
+for (const { name, asset, legs } of WALKS) for (const model of Object.keys(asset.models).filter((m) => forwardOf(asset, asset.models[m]) > 0)) {
+  test(`${model}_turns_both_ways_at_its_fastest_turn_at_its_fastest_${name}_walk_forward_from_setting_off_and_under_way`, async () => {
+    const { turns } = asset.models[model], speed = forwardOf(asset, asset.models[model]), rate = turns[turns.length - 1];
     const fell = [];
     for (const held of asset.holds) for (const after of [asset.afters[0], asset.afters.at(-1)]) for (const sense of asset.senses) {
-      if ((await turn({ model, speed, rate, sense, held, after, stance: {}, hz: asset.hz, legs })).fell) fell.push(`${held} ${after} ${sense}`);
+      const r = await turn({ model, speed, rate, sense, held, after, stance: {}, hz: asset.hz, legs });
+      if (r.fell || !turnedAsAsked(r.lag)) fell.push(`${held} ${after} ${sense}${r.fell ? "" : ` lagging ${r.lag.toFixed(2)} rad`}`);
     }
     assert.deepEqual(fell, [], `${model} walking ${speed} m/s, turning ${rate} rad/s`);
+  });
+}
+
+// Where an asset measured each way, each body holds each way at its fastest that way.
+for (const { name, asset, legs } of WALKS) for (const model of Object.keys(asset.models).filter((m) => asset.models[m].byWay)) {
+  test(`${model}_holds_each_way_at_its_fastest_${name}_walk_that_way`, async () => {
+    const { byWay } = asset.models[model], trials = [];
+    for (const held of asset.holds) asset.ways.forEach((degrees, i) => { if (byWay[i] > 0) trials.push({ held, degrees, speed: byWay[i] }); });
+    const falls = [];
+    for (const trial of trials) if ((await walk({ model, ...trial, stance: {}, hz: asset.hz, legs })).fell) falls.push(`${trial.held} ${trial.degrees} at ${trial.speed}`);
+    assert.deepEqual(falls, [], model);
   });
 }

@@ -135,9 +135,11 @@ const SIMBICON_FIELDS: readonly PartField<SimbiconConfig>[] = Object.freeze([
   number<SimbiconConfig, "pelvis">("pelvis", "Pelvis response", 0.02, 0.5, 0.01, "s"),
   number<SimbiconConfig, "hold">("hold", "Pelvis hold", 0.05, 1, 0.05, "of the hip's strength"),
   number<SimbiconConfig, "turn">("turn", "Turn", 0.5, 12, 0.1, "rad/s"),
+  number<SimbiconConfig, "swerve">("swerve", "Swerve", 0.1, 5, 0.1, "m/s²"),
   number<SimbiconConfig, "speedup">("speedup", "Speed-up", 0.1, 5, 0.1, "m/s²"),
   number<SimbiconConfig, "arms">("arms", "Arm swing", 0, 3, 0.1, "rad/m"),
   number<SimbiconConfig, "run">("run", "Runs past", 0.5, 5, 0.05, "m/s"),
+  number<SimbiconConfig, "leg">("leg", "Set for a leg of", 0.3, 1.5, 0.01, "m"),
 ]);
 
 /** The straight punch's settings, as a panel offers them. */
@@ -186,7 +188,7 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
   "simbicon": {
     ...skill<SimbiconConfig>("locomotion", "SIMBICON walk", "experimental", { kind: "simbicon", ...SIMBICON },
       (config) => [
-        ...validSimbicon(settingsOf(config)) ? [] : ["a SIMBICON gait needs every setting finite, its times, turn, speed-up and run positive and its shares of strength within (0, 1]"],
+        ...validSimbicon(settingsOf(config)) ? [] : ["a SIMBICON gait needs every setting finite, its times, turn, swerve, speed-up, run and leg positive, and its shares of strength within (0, 1]"],
         ...validWays(simbiconWays(config.tuning)) ? [] : ["a SIMBICON gait's side and back give only the settings a way changes, each finite"],
       ]),
     fields: SIMBICON_FIELDS, tuning: ["side", "back"],

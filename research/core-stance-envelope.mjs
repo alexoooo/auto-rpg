@@ -4,10 +4,10 @@
  * (`walk` in `core-stance-trials.mjs`), on each core body as a fight plays it with each thing its
  * right hand holds (`HOLDS`: in the guard, under its character's balance) at the game's rate, each
  * trial on a worker of its own stand; how many held at each speed and the fastest held by the
- * envelope's rule. Then the turn battery, walking at each speed up to that fastest walk: the
+ * envelope's rule, and each way's alone (`wayHeld`, `byWay`). Then the turn battery, walking forward at each speed up to its fastest walk forward: the
  * heading turned half round at each rate both ways (`turn`), beginning at each of `AFTERS` s
- * after the walk sets off, how many held at each rate and the fastest held by the same rule, at
- * each speed. With `--write` it writes `assets/core/stance-envelope.json`.
+ * after the walk sets off, how many held at each rate (did not fall, and turned as asked:
+ * `turnedAsAsked`) and the fastest held by the same rule, at each speed. With `--write` it writes `assets/core/stance-envelope.json`.
  *
  * With `--legs stride` the bodies walk and turn by the stride (`src/core/skills/stride.ts`) in
  * place of the stance's own walk, at the stride's speeds, and `--write` writes
@@ -21,15 +21,19 @@ import { availableParallelism } from "node:os";
 import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { HELD } from "../src/core/items/held.ts";
-import { fastestHeld, wentAsAsked } from "../src/core/control/stance-envelope.ts";
+import { fastestHeld, turnedAsAsked, wentAsAsked } from "../src/core/control/stance-envelope.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
 
 /** The gait battery's speeds, m/s, by the legs it measures: the stride's reach past the stance walk's. */
-const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], simbicon: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4] };
+const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], simbicon: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.7, 2, 2.5] };
 export const WAYS = [0, 90, 180, 270, 45];
 export const MODELS = ["workshop-fighter", "workshop-rogue", "crypt-skeleton"];
-export const RATES = [0.25, 0.5, 1, 2, 4];
+/**
+ * The turn battery's rates, rad/s, by the legs it measures: the SIMBICON walk's finer, for its turns
+ * set the Run's pace round a bend and a turn read between two rates is the slower's.
+ */
+const RATES_OF = { stance: [0.25, 0.5, 1, 2, 4], stride: [0.25, 0.5, 1, 2, 4], simbicon: [0.25, 0.35, 0.5, 0.7, 1, 1.4, 2, 4] };
 export const SENSES = [1, -1];
 /** What a fight puts in a body's right hand: every way a body is played is a way it must hold. */
 export const HOLDS = HELD;
@@ -42,7 +46,7 @@ export const AFTERS = [...Array.from({ length: 13 }, (_, k) => k / 8), 3];
 const { values } = parseArgs({ options: { write: { type: "boolean", default: false }, workers: { type: "string" }, legs: { type: "string" } } });
 const legs = values.legs ?? null;
 if (legs !== null && legs !== "stride" && legs !== "simbicon") throw new Error(`no envelope is measured for legs ${legs}`);
-const SPEEDS = SPEEDS_OF[legs ?? "stance"];
+const SPEEDS = SPEEDS_OF[legs ?? "stance"], RATES = RATES_OF[legs ?? "stance"];
 const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2)), hz = PHYSICS_HZ.value;
 
 const pool = Array.from({ length: lanes }, () => new Worker(new URL("./core-stance-worker.mjs", import.meta.url)));
@@ -68,17 +72,23 @@ async function runAll(jobs) {
 const walks = MODELS.flatMap((model) => SPEEDS.flatMap((speed) => WAYS.flatMap((degrees) => HOLDS.map((held) => ({ trial: "walk", model, speed, degrees, held, hz, stance: {}, legs })))));
 await runAll(walks);
 // A walk held if it did not fall and went the way asked at the pace asked.
-const walkHeld = (model) => SPEEDS.map((speed) => walks.filter((j) => j.model === model && j.speed === speed && !j.result.fell && wentAsAsked(j.result.along, j.result.across, speed)).length);
+const went = (j) => !j.result.fell && wentAsAsked(j.result.along, j.result.across, j.speed);
+const walkHeld = (model) => SPEEDS.map((speed) => walks.filter((j) => j.model === model && j.speed === speed && went(j)).length);
+/** At each speed, how many of the holds held walking `degrees` round. */
+const wayHeld = (model, degrees) => SPEEDS.map((speed) => walks.filter((j) => j.model === model && j.speed === speed && j.degrees === degrees && went(j)).length);
 const fastest = Object.fromEntries(MODELS.map((model) => [model, fastestHeld({ speeds: SPEEDS, ways: WAYS.length * HOLDS.length, held: walkHeld(model) })]));
-/** The gait battery's speeds up to `model`'s fastest walk. */
-const upTo = (model) => SPEEDS.filter((speed) => speed <= fastest[model]);
+/** The gait battery's speeds up to `model`'s fastest walk forward, the way a turn walks. */
+const forward = (model) => fastestHeld({ speeds: SPEEDS, ways: HOLDS.length, held: wayHeld(model, 0) });
+const upTo = (model) => SPEEDS.filter((speed) => speed <= forward(model));
 const turns = MODELS.flatMap((model) => upTo(model).flatMap((speed) => RATES.flatMap((rate) => SENSES.flatMap((sense) => HOLDS.flatMap((held) => AFTERS.map((after) => ({ trial: "turn", model, speed, rate, sense, held, after, hz, stance: {}, legs })))))));
 await runAll(turns);
 await Promise.all(pool.map((w) => w.terminate()));
-const turnHeld = (model, speed) => RATES.map((rate) => turns.filter((j) => j.model === model && j.speed === speed && j.rate === rate && !j.result.fell).length);
+const turnHeld = (model, speed) => RATES.map((rate) => turns.filter((j) => j.model === model && j.speed === speed && j.rate === rate && !j.result.fell && turnedAsAsked(j.result.lag)).length);
 
 const models = Object.fromEntries(MODELS.map((model) => [model, {
   held: walkHeld(model), walk: fastest[model],
+  wayHeld: WAYS.map((degrees) => wayHeld(model, degrees)),
+  byWay: WAYS.map((degrees) => fastestHeld({ speeds: SPEEDS, ways: HOLDS.length, held: wayHeld(model, degrees) })),
   turnHeld: upTo(model).map((speed) => turnHeld(model, speed)),
   turns: upTo(model).map((speed) => fastestHeld({ speeds: RATES, ways: SENSES.length * HOLDS.length * AFTERS.length, held: turnHeld(model, speed) })),
 }]));

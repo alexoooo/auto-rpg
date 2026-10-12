@@ -56,7 +56,7 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
 
 test("the_warrior_walks_the_square_facing_one_way_forward_right_and_back", async () => {
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
-  // Asked past its fastest walk: the stance's walk takes no more than its envelope's.
+  // Asked past its fastest walk: the stance's walk takes no more than its envelope's, and slower braking for each corner.
   const run = startRun(labActor(stand.built, stand.world), trackOf(TRACKS.square.size.of(2)), { top: 3, facing: TRACKS.square.facing });
   let frame = run.frame(), turned = 0;
   const walked = new Set();
@@ -70,7 +70,7 @@ test("the_warrior_walks_the_square_facing_one_way_forward_right_and_back", async
   } finally { run.dispose(); stand.dispose(); }
   assert.ok(!frame.fallen, `fell at ${frame.time.toFixed(1)} s`);
   assert.ok(turned < 0.05, `it faces +z throughout: turned ${turned.toFixed(3)} rad`);
-  assert.deepEqual([...walked], [run.body.envelope.walk.value], "the pace walked");
+  assert.equal(Math.max(...walked), run.body.envelope.walk.value, `the paces walked: ${[...walked]}`);
   // Past the first corner and the second: up the forward side, across the right one, onto the way back.
   assert.ok(frame.travelled > 4.2, `${frame.travelled.toFixed(2)} m round`);
   assert.equal(frame.pieces.length, 4);

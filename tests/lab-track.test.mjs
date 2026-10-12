@@ -73,6 +73,7 @@ test("the_square_goes_forward_right_back_and_left_and_comes_in_sizes", () => {
     const track = trackOf(TRACKS.square.size.of(side));
     near(track.length, 4 * side, 1e-9, `the ${side} m square's length`);
     assert.deepEqual(track.lengths, [side, 0, side, 0, side, 0, side], `the ${side} m square's pieces`);
+    assert.deepEqual(track.corners, [side, 2 * side, 3 * side], `the ${side} m square's corners`);
     // Each side's middle, and the way it goes: +z, +x, -z, -x.
     const middles = [[0, side / 2, 0], [side / 2, side, Math.PI / 2], [side, side / 2, Math.PI], [side / 2, 0, -Math.PI / 2]];
     middles.forEach(([x, z, heading], k) => {
