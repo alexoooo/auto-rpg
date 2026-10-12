@@ -2597,3 +2597,75 @@ Validation: `npm run check`, `npm test` (681 passes, zero failures, five existin
 physical preflight, wrong-body rejection, successful and failed replay/restoration, and the full
 frozen comparison pass. Whitespace and line-ending gates pass. The remaining problem includes
 both the strict timing miss and the lack of recovery from nearby perturbed falls.
+
+## Rogue guidance and support-transition search, 2026-10-12
+
+**Failure: no Rogue recovery is found.** Nineteen direct trials and three bounded physical
+searches do not improve the selected library's preceding 3/16 frozen result, with none within
+six seconds. The full four-second median / six-second recovery goal remains unfinished.
+
+All figures use **Node Stance Lab / frozen game Rapier coordinate adapter 11 / 120 Hz / original
+symmetric muscle envelopes / Balance 0 / ordinary stance host**. The saved Rogue/empty
+90-degree fall, anatomy, muscle limits and evaluator remain unchanged. No assistance is used.
+
+The preceding Warrior/club 6.033333 s trajectory is retargeted as explicitly unmeasured guidance
+for Rogue: 722 frames, standing-height scale 0.894239 and 272 joint-limit clamps. Retargeted
+motion is not a physical Rogue recording. All nineteen direct baseline/feedback trials fail
+through twelve seconds, consuming 27,341 steps.
+
+`research/stand-up-rollout-search.mjs --guidance-reference` accepts this separate guidance while
+retaining an actual Rogue recording for the saved initial observation, body identity and
+geometry. `research/stand-up-search-guidance.mjs` validates target channels and finite features,
+maps contact weights by segment name, rejects assistance and separates muscle requests from
+posture costs. Target-body sole orientations are unmeasured and remain absent; the search refuses
+to score them or use the guidance as a physical replay anchor. Guided tail eligibility uses
+85% of the actual body's standing height, solely as a search heuristic. Recovery criteria do
+not change. Wrong-body guidance is rejected before recording any action.
+
+A preflight applies 180 guidance actions followed by 720 ordinary-host steps. All 900 rows match
+the existing path controller's zero-feedback recording exactly. Fresh replay and restored split
+continuation match as well. The preceding successful Warrior/club trace also remains exact.
+
+| Physical search | Scope on the original clock | Evaluations | World steps | Wall seconds | Recovery |
+| --- | --- | ---: | ---: | ---: | --- |
+| Guidance trajectory | Start through six seconds | 19,604 | 235,248 | 127.242 | Fail |
+| Upright target | Recorded 3.8 s prefix through six seconds | 10,485 | 125,820 | 67.964 | Fail |
+| Kneeling target and anatomical postures | Same prefix through six seconds | 9,054 | 216,840 | 96.161 | Fail |
+
+Each search has its own declared 180 s cap and completes its requested horizon. The continuation
+prefix is replayed and its complete endpoint observation checked; its time remains in every
+result. The anatomical-posture option, `--rise yes`, adds bounded muscle requests for the game's
+existing fold, prop, kneel and other rise postures, converted through Rogue's own bind angles
+and limits. It evaluates 4,025 such branches. A separate physical recording exercises all 25
+postures and replays exactly, including restored continuation.
+
+No searched state qualifies for a standing host tail. Across 39,067 logged branches there are
+zero adapter errors or external-actuation events; the 76 replayed prefix blocks account for the
+remaining evaluations. Maximum effort-bound excess is 0.00002343849 N m, below the unchanged
+0.0001 tolerance. Direct trials likewise contain no adapter errors, external actuation, invalid
+final commands or nonfinite final joint observations.
+
+The expanded search's selected diagnostic prefix reaches 0.356171 m height and root-up 0.853002
+at 4.408333 s, supported by the left hand and right thigh. Its sole-up values are -0.917366 and
+-0.210199: this is not standing support. This selected prefix contains no anatomical-posture
+primitive; adding those proposals does not establish their usefulness. Its ordinary-host
+continuation still fails through 10.408333 s. Both other recorded search continuations fail too,
+and their complete observations and restored continuations replay exactly.
+
+`.review/stand-up-rogue-guidance/replay.html` compares the diagnostic movement with the optimized
+baseline from the identical complete initial state and body. The baseline fails through twelve
+seconds. Embedded records and labels are checked; the page is not visually inspected because
+of the existing local-file browser restriction. The candidate's physical trace SHA-256 is
+`4d736245c306c12757056c31048271a6c361ffddc931597d02d59918d57c8bc6`.
+
+`research/stand-up-path-results.json` under `rogueGuidanceSearch` retains guidance provenance,
+all direct outcomes, search configurations and plans, audits, physical replay proofs and the
+matched replay identity. Its top-level status is corrected to the current library result.
+No candidate is promoted and no qualification partition is rerun or claimed passed. The next
+unresolved transition is achieving durable support after turning off the floor; these short
+posture branches do not supply it.
+
+Validation: `npm run check`, `npm test` (682 passes, zero failures, five existing TODOs), eighteen
+focused controller tests, wrong-body rejection, matched preflight, all recorded replay/restoration
+checks and the replay build pass. Whitespace and line-ending gates pass. No gameplay or browser
+source changes and no development server is started.

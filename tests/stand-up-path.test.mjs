@@ -9,6 +9,24 @@ import { createHash } from 'node:crypto';
 import { mirrorReference } from '../research/stand-up-mirror-reference.mjs';
 import { retargetReference } from '../research/stand-up-retarget-reference.mjs';
 import { ratesToRef } from '../src/core/build/joint-state.ts';
+import { searchGuidance } from '../research/stand-up-search-guidance.mjs';
+
+test('detached search guidance matches the target body and separates requests from physical measurements',()=>{
+  const identity={model:'target',balance:0,channels:[{name:'joint'}]};
+  const frame={kind:'muscles',angles:[.2],speeds:[.3],rootMotion:[1,2,3,4,5,6],gravity:[0,1,0],up:[0,1,0],height:.8,
+    loads:{'foot.left':.2,'foot.right':.3,absent:.5},soleUp:[1,1],velocity:['+inf'],activation:[.5],handPoses:{left:'open'}};
+  const reference={identity,frames:[frame,{...frame,kind:'host'}]},before=structuredClone(reference);
+  const actual=searchGuidance(reference,identity,['foot.right','foot.left']);
+  assert.deepEqual(reference,before);
+  assert.deepEqual(actual.features[0],{angles:[.2],speeds:[.3],height:.8,up:[0,1,0],gravity:[0,1,0],
+    loads:[.6,.4],spin:[1,2,3],velocity:[4,5,6],soleUp:null});
+  assert.deepEqual(actual.actions,[{kind:'muscles',velocity:['+inf'],activation:[.5],handPoses:{left:'open'}},{kind:'host'}]);
+  assert.throws(()=>searchGuidance(reference,{...identity,model:'other'},['foot.left']),/target physical body/);
+  const bad=structuredClone(reference);bad.frames[0].assist={force:[0,1,0],moment:[0,0,0]};
+  assert.throws(()=>searchGuidance(bad,identity,['foot.left']),/no assist request/);
+  const nonfinite=structuredClone(reference);nonfinite.frames[0].rootMotion[0]=Infinity;
+  assert.throws(()=>searchGuidance(nonfinite,identity,['foot.left']));
+});
 
 test('body guidance transfers anatomical rates, local frames and physical height without transferring response calibration',()=>{
   const channels=[0,1,2].map(i=>({name:`joint ${i}`,bind:.1*i,min:-2,max:2}));

@@ -13,11 +13,13 @@ import { turningToRef } from '../src/core/build/joint-state.ts';
 import { recordedPolicy } from './stand-up-rollout-candidate.mjs';
 import { responseFeatures } from './stand-up-response-policy.mjs';
 import { pathPolicy } from './stand-up-path-policy.mjs';
+import { searchGuidance } from './stand-up-search-guidance.mjs';
 
 const frozen=new URL('../.tools/stand-up-frozen/',import.meta.url);
 const {acceptanceEnvironment,evaluateAcceptanceCase,frozenRevision}=await import(new URL('research/stand-up-acceptance.mjs',frozen));
 const {unassistedAudit,unassistedResult}=await import(new URL('research/stand-up-unassisted.mjs',frozen));
 const {RISE}=await import(new URL('src/core/mind/rise/stages.ts',frozen));
+const {uprightness}=await import(new URL('src/core/control/ground.ts',frozen));
 const manifest=JSON.parse(readFileSync(new URL('research/stand-up-acceptance/cases.json',frozen)));
 const digest=v=>createHash('sha256').update(v).digest('hex');
 const write=(file,data)=>writeFileSync(file,JSON.stringify(data,null,2)+'\n');
@@ -25,14 +27,16 @@ const write=(file,data)=>writeFileSync(file,JSON.stringify(data,null,2)+'\n');
 /** Branches restore complete game states; every simulated continuation uses ordinary muscle actions. */
 async function rolloutStand(sourcePath,caseIndex=0,options={}) {
   const source=deserialize(gunzipSync(readFileSync(sourcePath))),c=manifest.cases[caseIndex];
-  assert.ok(source.rows.length&&(options.verifyOnly||source.result.success&&Number.isFinite(source.result.seconds)),
-    'search guidance requires a complete recovery; exact replay also accepts recorded failures');
+  assert.ok(source.rows.length&&(options.verifyOnly||options.guidanceReference||source.result.success&&Number.isFinite(source.result.seconds)),
+    'search needs a successful trajectory or an explicitly separate guidance reference');
   const sourceTrace=createHash('sha256');source.rows.forEach(r=>sourceTrace.update(JSON.stringify(r.observation)));
   const sourcePhysicalTraceSha256=sourceTrace.digest('hex');
   const e=await acceptanceEnvironment(c.configuration),bytes=readFileSync(new URL('research/stand-up-acceptance/'+c.file,frozen));
+  const terminalHeight=options.guidanceReference ? .85*uprightness(e.stand.built).standing : .85;
   assert.equal(digest(bytes),c.sha256);const initial=gunzipSync(bytes);e.restore(initial);
   const initialObservation=e.observe(),referenceInitialObservationSha256=digest(JSON.stringify(source.initial));
   if(options.verifyOnly)assert.deepEqual(source.identity,e.identity);
+  if(options.guidanceReference)assert.deepEqual(source.identity,e.identity,'the physical source recording belongs to the searched body');
   assert.equal(digest(JSON.stringify(initialObservation)),c.observationSha256);
   if(options.transfer)assert.deepEqual(source.identity,e.identity,'transfer preserves the complete body, engine and host configuration');
   else assert.equal(referenceInitialObservationSha256,c.observationSha256,'the demonstration starts at the selected saved fall');
@@ -51,10 +55,19 @@ async function rolloutStand(sourcePath,caseIndex=0,options={}) {
     return {angles:o.joints.map(j=>j.angle),speeds:o.joints.map(j=>j.speed),height:o.height,up:up.asArray(),soleUp,
       gravity:gravity.asArray(),loads:loads.map(v=>total?v/total:0),velocity:motion.slice(3),spin:motion.slice(0,3)};
   };
-  const observations=[source.initial,...source.rows.map(r=>r.observation)],reference=observations.map(describe);
+  const observations=[source.initial,...source.rows.map(r=>r.observation)];
+  let reference=observations.map(describe),actions=source.rows.map(r=>r.action);
   assert.deepEqual(describe(initialObservation).soleUp,e.measure().soleUp,'search sole readings match the frozen recovery measurement');
   source.rows.forEach((row,i)=>assert.deepEqual(reference[i+1].soleUp,row.soleUp,'recorded sole orientations match the frozen measurement throughout the trajectory'));
-  const last=Math.min(reference.length-1,Number.isFinite(source.result.seconds)?Math.round(source.result.seconds*120):source.rows.length);
+  let last=Math.min(reference.length-1,Number.isFinite(source.result.seconds)?Math.round(source.result.seconds*120):source.rows.length);
+  if(options.guidanceReference) {
+    assert.ok(options.localMotion,'guidance root motion is body-local');
+    assert.equal(options.terminalSoleWeight??0,0,'guidance has no measured target-body sole orientations');
+    const bytes=readFileSync(options.guidanceReference.path);assert.equal(digest(bytes),options.guidanceReference.sha256);
+    assert.equal(digest(readFileSync(new URL('stand-up-search-guidance.mjs',import.meta.url))),options.guidanceReference.adapterSha256);
+    const guide=JSON.parse(gunzipSync(bytes)),detached=searchGuidance(guide,e.identity,initialObservation.segments.map(s=>s.name));
+    reference=detached.features;actions=detached.actions;last=reference.length-1;
+  }
   const distance=(a,b)=>{
     // Terminal penalties ramp between half and 85% of the reference handover height.
     const ramp=options.terminalMotionWeight!==undefined||options.terminalContactWeight!==undefined||options.terminalSoleWeight!==undefined
@@ -64,7 +77,7 @@ async function rolloutStand(sourcePath,caseIndex=0,options={}) {
     return 4*(a.height-b.height)**2+2*(options.fullOrientation
       ?a.gravity.reduce((s,v,i)=>s+(v-b.gravity[i])**2,0):(a.up[1]-b.up[1])**2)+
       contactWeight*a.loads.reduce((s,v,i)=>s+(v-b.loads[i])**2,0)+
-      ramp*(options.terminalSoleWeight??0)*a.soleUp.reduce((s,v,i)=>s+(v-b.soleUp[i])**2,0)+
+      (options.terminalSoleWeight?ramp*options.terminalSoleWeight*a.soleUp.reduce((s,v,i)=>s+(v-b.soleUp[i])**2,0):0)+
       a.angles.reduce((s,v,i)=>s+(v-b.angles[i])**2/a.angles.length,0)+
       motionWeight*(a.speeds.reduce((s,v,i)=>s+(v-b.speeds[i])**2/a.speeds.length,0)
         +a.velocity.reduce((s,v,i)=>s+(v-b.velocity[i])**2,0)+a.spin.reduce((s,v,i)=>s+(v-b.spin[i])**2,0));
@@ -95,7 +108,13 @@ async function rolloutStand(sourcePath,caseIndex=0,options={}) {
     if(control.kind==='host')return {kind:'host'};
     if(control.kind==='roll')return {kind:'targets',angles:e.channels.map(c=>Math.max(c.min,Math.min(c.max,
       (RISE.roll[control.lie][control.index].posture[c.name]??0)-c.bind))),response:control.response,speed:6,activation:1};
-    if(control.kind==='replay')return source.rows[Math.min(source.rows.length-1,Math.round(control.start+step*control.rate))].action;
+    if(control.kind==='rise') {
+      const stage=RISE.rise[control.index];
+      assert.ok(stage&&stage.posture!=='reference','a rise proposal names an anatomical posture');
+      return {kind:'targets',angles:e.channels.map(c=>Math.max(c.min,Math.min(c.max,
+        (stage.posture[c.name]??0)-c.bind))),response:control.response,speed:control.speed,activation:1};
+    }
+    if(control.kind==='replay')return actions[Math.min(actions.length-1,Math.round(control.start+step*control.rate))];
     if(control.kind==='pose')return {kind:'targets',angles:reference[control.target].angles.map((v,i)=>Math.max(e.channels[i].min,Math.min(e.channels[i].max,v))),
       response:control.response,speed:control.speed,activation:1};
     if(control.kind==='damped-pose') {
@@ -109,7 +128,7 @@ async function rolloutStand(sourcePath,caseIndex=0,options={}) {
       return {kind:'muscles',velocity,activation:e.channels.map(()=>control.activation),handPoses:{left:'open',right:'open'}};
     }
     if(control.kind==='hybrid'||control.kind==='feedback') {
-      const base=source.rows[Math.min(source.rows.length-1,control.start+step)].action;
+      const base=actions[Math.min(actions.length-1,control.start+step)];
       if(base.kind!=='muscles')return base;
       const out=structuredClone(base),o=e.observe();let offset=0;
       for(const joint of e.stand.built.joints.values()) {
@@ -149,7 +168,7 @@ async function rolloutStand(sourcePath,caseIndex=0,options={}) {
         traceSha256:hash.digest('hex'),...(capture?{rows}:{})};
     }finally{audit.dispose();}
   };
-  return {e,initial,initialObservation,referenceInitialObservationSha256,c,source,last,run,evaluate,sourcePhysicalTraceSha256};
+  return {e,initial,initialObservation,referenceInitialObservationSha256,c,source,last,run,evaluate,sourcePhysicalTraceSha256,terminalHeight};
 }
 
 if(!isMainThread&&workerData?.rolloutSearch) {
@@ -159,18 +178,22 @@ if(!isMainThread&&workerData?.rolloutSearch) {
     catch(error){parentPort.postMessage({id,r:{error:String(error.stack),score:-Infinity}});}
   });
 }else if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href) {
-  const {values:v}=parseArgs({options:Object.fromEntries(['source','out','mode','plan','stage','case','width','block','seconds','wall','penalty','velocity-weight','anchor','orientation','contact-weight','transfer','diversity','roll','target','prefix','guidance','local-motion','feedback','terminal-motion-weight','terminal-contact-weight','terminal-sole-weight','gentle','braking','settle-config','terminal-limit'].map(k=>[k,{type:'string'}]))});
+  const {values:v}=parseArgs({options:Object.fromEntries(['source','out','mode','plan','stage','case','width','block','seconds','wall','penalty','velocity-weight','anchor','orientation','contact-weight','transfer','diversity','roll','rise','target','prefix','guidance','local-motion','feedback','terminal-motion-weight','terminal-contact-weight','terminal-sole-weight','gentle','braking','settle-config','terminal-limit','guidance-reference'].map(k=>[k,{type:'string'}]))});
   assert.ok(v.source&&v.out);mkdirSync(dirname(resolve(v.out)),{recursive:true});
   const revision=frozenRevision(),sourceSha256=digest(readFileSync(v.source)),codeSha256=digest(readFileSync(new URL(import.meta.url)));
   const options={penalty:Number(v.penalty??6),velocityWeight:Number(v['velocity-weight']??0),
     fullOrientation:v.orientation==='full',contactWeight:Number(v['contact-weight']??0),transfer:v.transfer==='yes',
     ...(v.target===undefined?{}:{targetSeconds:Number(v.target)}),verifyOnly:v.mode==='verify',nearestPhase:v.guidance==='nearest',
     localMotion:v['local-motion']==='yes',
+    ...(v['guidance-reference']?{guidanceReference:{path:resolve(v['guidance-reference']),sha256:digest(readFileSync(v['guidance-reference'])),
+      adapterSha256:digest(readFileSync(new URL('stand-up-search-guidance.mjs',import.meta.url)))}}:{}),
     ...(v['terminal-motion-weight']===undefined?{}:{terminalMotionWeight:Number(v['terminal-motion-weight'])}),
     ...(v['terminal-contact-weight']===undefined?{}:{terminalContactWeight:Number(v['terminal-contact-weight'])}),
     ...(v['terminal-sole-weight']===undefined?{}:{terminalSoleWeight:Number(v['terminal-sole-weight'])})};
   assert.ok(!options.transfer||v.anchor!=='yes','a different starting state has no verified reference anchor');
   assert.ok(!options.transfer||v.mode!=='verify','verify requires the trace recorded from this saved fall');
+  assert.ok(!options.guidanceReference||v.anchor!=='yes','unmeasured guidance has no physical replay anchor');
+  assert.ok(!options.guidanceReference||v.mode!=='verify','verification replays the actual recorded target-body actions');
   const stand=await rolloutStand(v.source,Number(v.case??0),options),begun=Date.now();
   try {
     if(v.mode==='verify') {
@@ -195,6 +218,7 @@ if(!isMainThread&&workerData?.rolloutSearch) {
     }else if(v.mode==='record') {
       const book=JSON.parse(readFileSync(v.plan)),plan=v.stage?book.stages[v.stage]:book,rows=[];
       assert.ok(Array.isArray(plan?.plan),'select a recorded plan');
+      if(plan.options?.guidanceReference)assert.deepEqual(options.guidanceReference,plan.options.guidanceReference);
       if(plan.sourcePhysicalTraceSha256)assert.equal(stand.sourcePhysicalTraceSha256,plan.sourcePhysicalTraceSha256);
       let snapshot=stand.initial,phase=0,last;
       for(const [index,control] of [...plan.plan,{kind:'host',steps:120*6}].entries()) {
@@ -207,7 +231,8 @@ if(!isMainThread&&workerData?.rolloutSearch) {
       const record={initial:stand.initialObservation,geometry:stand.source.geometry,identity:stand.e.identity,checkpointSha256:stand.c.sha256,
         case:stand.c.id,initialObservationSha256:stand.c.observationSha256,referenceInitialObservationSha256:stand.referenceInitialObservationSha256,
         rows,result:last.result,screenOutcome:last.result.success?'success':last.result.failure??'screen-deadline',
-        traceSha256:trace.digest('hex'),revision,sourceSha256,sourcePhysicalTraceSha256:stand.sourcePhysicalTraceSha256,codeSha256,plan:plan.plan};
+        traceSha256:trace.digest('hex'),revision,sourceSha256,sourcePhysicalTraceSha256:stand.sourcePhysicalTraceSha256,codeSha256,plan:plan.plan,
+        ...(options.guidanceReference?{guidanceReference:options.guidanceReference}:{})};
       const tape={channels:stand.e.channels,initialObservationSha256:stand.c.observationSha256,actions:rows.map(r=>r.action)};
       writeFileSync(v.out+'.actions.json.gz',gzipSync(JSON.stringify(tape)));
       if(record.result.success) {
@@ -250,8 +275,9 @@ if(!isMainThread&&workerData?.rolloutSearch) {
       }
       const configuration={case:stand.c.id,checkpointSha256:stand.c.sha256,initialObservationSha256:stand.c.observationSha256,
         referenceInitialObservationSha256:stand.referenceInitialObservationSha256,width,block,seconds,wall:Number(v.wall??600),anchor:v.anchor==='yes',
-        diversity:v.diversity??'phase',roll:v.roll==='yes',feedback:v.feedback==='yes',gentle:v.gentle==='yes',braking:v.braking==='yes',options,
+        diversity:v.diversity??'phase',roll:v.roll==='yes',rise:v.rise==='yes',feedback:v.feedback==='yes',gentle:v.gentle==='yes',braking:v.braking==='yes',options,
         ...(settling?{settling,terminalLimit}:{}),
+        ...(options.guidanceReference?{terminalHeight:stand.terminalHeight}:{}),
         ...(v.prefix?{prefixSha256:digest(readFileSync(v.prefix)),prefixSteps}:{})};
       const pool=workerPool(new URL(import.meta.url),{rolloutSearch:true,source:resolve(v.source),caseIndex:Number(v.case??0),options},3);
       let beam=[initialNode],evaluations=initialNode.plan.length,steps=prefixSteps,complete=null,anchor=beam[0];
@@ -277,6 +303,10 @@ if(!isMainThread&&workerData?.rolloutSearch) {
                 controls.push({kind:'roll',lie,index,response:.15,steps:duration});
               for(const target of [0,120,240,360])controls.push({kind:'pose',target:Math.min(target,stand.last),response:.15,speed:6,steps:duration});
             }
+            // Anatomical stage postures offer support transitions outside the guidance trajectory.
+            if(v.rise==='yes')RISE.rise.forEach((stage,index)=>{
+              if(stage.posture!=='reference')controls.push({kind:'rise',index,response:.2,speed:6,steps:duration});
+            });
             if(parent.height>.5)controls.push({kind:'host',steps:duration});
             return controls.map(control=>({parent,control}));
           });
@@ -299,7 +329,7 @@ if(!isMainThread&&workerData?.rolloutSearch) {
             assert.ok(!next.error&&!next.result.failure);anchor={...next,phase:(depth+1)*block,plan:[...anchor.plan,control]};
             if(!seen.has(anchor.observationSha256)) {if(beam.length===width)beam.pop();beam.push(anchor);}
           }
-          const supported=beam.filter(n=>n.result.handover!==null || n.height>.85&&n.up>.9);
+          const supported=beam.filter(n=>n.result.handover!==null || n.height>stand.terminalHeight&&n.up>.9);
           const terminalNodes=settling?supported.slice(0,terminalLimit):supported;
           if(settling&&supported.includes(anchor)&&!terminalNodes.includes(anchor))terminalNodes.push(anchor);
           const terminalJobs=terminalNodes.flatMap(node=>[{kind:'host',steps:720},...(settling?[settling]:[])].map(control=>({node,control})));
