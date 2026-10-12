@@ -7,6 +7,25 @@ import { atan2 } from '../src/core/math/real.ts';
 
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 
+/** Optional segment weights aim balance over selected existing contacts, with all contacts as fallback. */
+export function contactBalanceTarget(patches,owners,weights,out) {
+  if(!patches.length||patches.length!==owners.length)throw new Error('balance target requires owned contact patches');
+  out.setAll(0);
+  if(weights) {
+    if(Object.values(weights).some(v=>!Number.isFinite(v)||v<0))throw new Error('contact weights must be finite and nonnegative');
+    const counts=new Map();owners.forEach(name=>counts.set(name,(counts.get(name)??0)+1));
+    let total=0;
+    patches.forEach((patch,i)=>{
+      const weight=(weights[owners[i]]??1)/counts.get(owners[i]);total+=weight;
+      out.addInPlaceFromFloats(patch.at.x*weight,patch.at.y*weight,patch.at.z*weight);
+    });
+    if(total>0)return out.scaleInPlace(1/total);
+  }
+  // A preferred support that has not been established cannot prevent recovery from using the floor.
+  out.setAll(0);for(const patch of patches)out.addInPlace(patch.at);
+  return out.scaleInPlace(1/patches.length);
+}
+
 /** Desired ground reactions are converted to internal joint torques, never applied to a rigid body. */
 export function contactPolicy({model,parameters:p={}}) {
   const state={phase:p.phase??'hold',started:null,heading:null,held:0,released:false,
@@ -22,9 +41,13 @@ export function contactPolicy({model,parameters:p={}}) {
     return clamp((pose.posture[c.name]??0)-c.bind,c.min,c.max);
   });
   const goals=postureAngles(p.posture??'reference');
+  const finalGoals=p.postureTo?postureAngles(p.postureTo):goals;
+  const postureSeconds=p.postureSeconds??.5;
+  if(p.postureTo&&(!Number.isFinite(postureSeconds)||postureSeconds<=0))throw new Error('posture transition takes positive finite time');
   const policy=o=> {
     if(state.released)return {kind:'host'};
     state.started??=o.time;
+    const postureBlend=p.postureTo?clamp((o.time-state.started-(p.postureAfter??0))/postureSeconds,0,1):0;
     const byName=new Map(o.segments.map(s=>[s.name,s])),root=byName.get('lowerTrunk');
     relative.set(...root.rotation).multiplyToRef(inverseRest,relative);
     up.set(0,1,0).applyRotationQuaternionToRef(relative,up);
@@ -46,7 +69,7 @@ export function contactPolicy({model,parameters:p={}}) {
     const centre=new Vector3(...o.centre),comVelocity=new Vector3();
     for(const part of model.segments)comVelocity.addInPlaceFromFloats(...byName.get(part.name).velocity.map(v=>v*part.mass/mass));
     if(patches.length) {
-      point.setAll(0);for(const patch of patches)point.addInPlace(patch.at);point.scaleInPlace(1/patches.length);
+      contactBalanceTarget(patches,owners,p.supportWeights,point);
       const ground=point.y,height=(p.height??1)*model.standing;
       force.set(mass*((p.horizontal??8)*(point.x-centre.x)-(p.linearDamping??4)*comVelocity.x),
         clamp(weight+mass*((p.vertical??30)*(ground+height-centre.y)-(p.verticalDamping??8)*comVelocity.y),0,weight*(p.maxLoad??2)),
@@ -82,7 +105,10 @@ export function contactPolicy({model,parameters:p={}}) {
         const i=start+j,c=model.channels[i],obs=o.joints[i];
         axis.set(...axes[j]).applyRotationQuaternionToRef(rotation,axis);
         const supportTorque=-Vector3.Dot(axis,moment)*(p.feedforward??1);
-        let error=0;for(let k=0;k<n;k++)error+=turning[j][k]*(goals[start+k]-angles[k]);
+        let error=0;for(let k=0;k<n;k++) {
+          const goal=postureBlend?goals[start+k]+postureBlend*(finalGoals[start+k]-goals[start+k]):goals[start+k];
+          error+=turning[j][k]*(goal-angles[k]);
+        }
         const scale=Math.min(c.positive.peak,c.negative.peak);
         const torque=supportTorque+scale*((p.poseGain??.5)*error-(p.poseDamping??.06)*obs.speed);
         state.gravityTorque[i]=-Vector3.Dot(axis,gravityMoment);

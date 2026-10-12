@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { pathPolicy } from '../research/stand-up-path-policy.mjs';
 import { phaseFeatures } from '../research/stand-up-phase-features.mjs';
 import { libraryPolicy, configuredPolicy } from '../research/stand-up-library-policy.mjs';
@@ -10,6 +11,19 @@ import { mirrorReference } from '../research/stand-up-mirror-reference.mjs';
 import { retargetReference } from '../research/stand-up-retarget-reference.mjs';
 import { ratesToRef } from '../src/core/build/joint-state.ts';
 import { searchGuidance } from '../research/stand-up-search-guidance.mjs';
+import { contactBalanceTarget } from '../research/stand-up-contact-policy.mjs';
+
+test('contact balance targets weight actual supports independently of patch count and fall back before preferred support exists',()=>{
+  const patches=[{at:new Vector3(-1,0,0)},{at:new Vector3(1,0,0)},{at:new Vector3(3,0,0)}];
+  const owners=['hand.left','foot.left','foot.left'],out=new Vector3();
+  assert.deepEqual(contactBalanceTarget(patches,owners,undefined,out).asArray(),[1,0,0]);
+  assert.deepEqual(contactBalanceTarget(patches,owners,{'hand.left':0,'foot.left':1},out).asArray(),[2,0,0]);
+  assert.deepEqual(contactBalanceTarget(patches,owners,{'hand.left':1,'foot.left':1},out).asArray(),[.5,0,0]);
+  assert.deepEqual(contactBalanceTarget(patches.slice(0,1),owners.slice(0,1),{'hand.left':0,'foot.left':1},out).asArray(),[-1,0,0]);
+  assert.deepEqual(patches.map(p=>p.at.asArray()),[[-1,0,0],[1,0,0],[3,0,0]]);
+  assert.throws(()=>contactBalanceTarget(patches,owners,{'hand.left':-1},out),/nonnegative/);
+  assert.throws(()=>contactBalanceTarget(patches,owners,{'foot.left':Infinity},out),/finite/);
+});
 
 test('detached search guidance matches the target body and separates requests from physical measurements',()=>{
   const identity={model:'target',balance:0,channels:[{name:'joint'}]};

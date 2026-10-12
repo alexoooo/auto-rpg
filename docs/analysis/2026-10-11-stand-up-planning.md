@@ -2669,3 +2669,70 @@ Validation: `npm run check`, `npm test` (682 passes, zero failures, five existin
 focused controller tests, wrong-body rejection, matched preflight, all recorded replay/restoration
 checks and the replay build pass. Whitespace and line-ending gates pass. No gameplay or browser
 source changes and no development server is started.
+
+## Longer Rogue actions and contact-feedback transitions, 2026-10-12
+
+**Failure: earlier hands-and-shins support does not produce a recovery.** A longer-action search
+and 56 contact-feedback trials leave the preceding selected library at 3/16 frozen cases, none
+within six seconds. No independent qualification or gameplay integration is completed.
+
+Every figure uses **Node Stance Lab / frozen game Rapier coordinate adapter 11 / 120 Hz / original
+symmetric muscle envelopes / Balance 0 / ordinary stance host**. The same saved Rogue/empty
+90-degree fall, body, muscle limits, baseline and acceptance criteria are retained.
+
+The guidance search increases each action block from twelve to sixty physics steps, keeping the
+preceding width twelve, six-second horizon, guidance, costs and action families. It completes
+3,828 evaluations and 229,680 world steps in 91.612 wall seconds, within its declared 180 s cap.
+No recovery or state eligible for a standing host tail is found. All branches are free of adapter
+errors and external actuation; maximum effort-bound excess is 0.00002264473 N m, below the
+unchanged 0.0001 tolerance.
+
+A recorded 300-step prefix reaches both hands and shins at 2.508333 s on the original clock,
+with height 0.327265 m and root-up 0.027332. This earlier contact pattern is not standing or
+recovery. The ordinary host still fails through 8.508333 s. Complete recording and restored
+continuation replay exactly. Every subsequent candidate reproduces the entire physical prefix,
+including its endpoint and accumulated clock.
+
+| Continuation from that prefix | Trials | Recovery by six seconds with standing/walking tail |
+| --- | ---: | --- |
+| Existing contact feedback; four postures, three pitches, two posture gains | 24 | 0 |
+| Foot-biased balance targets; twelve settings and unchanged control | 13 | 0 |
+| Gradual posture extension; eighteen settings and unchanged control | 19 | 0 |
+
+`research/stand-up-contact-policy.mjs` can weight the balance target by existing support segment.
+With explicit `supportWeights`, each segment's patches share its weight, so additional contact
+points do not multiply that segment's preference. When no preferred support is established, the
+target falls back to all existing patches. Without weights, the preceding arithmetic is preserved.
+The optional `postureTo`, `postureAfter` and `postureSeconds` parameters interpolate between
+clamped anatomical targets using observed time. Both changes request muscle torques through the
+existing bounded activation path; neither applies forces to the body or changes muscle strength.
+
+Foot-biased balance changes the motion but does not unload the hands and recover. Holding the
+initial fours posture also keeps a deeply folded knee target. Eighteen gradual extensions toward
+the reference stance, kneeling or tall-kneeling targets test that further hypothesis and still fail.
+The diagnostic candidate with the highest accumulated search quality has sole-up 0.844127 and
+0.930477 at six seconds, but root-up **-0.757786**, height 0.437994 m and both hands still loaded.
+Its higher score is not a recovery improvement. Nine channels request full activation at that
+instant. The ground-wrench solve's small reported residual concerns its desired allocation;
+it does not demonstrate that the actual, activation-limited body produces that wrench.
+
+All 56 trials fail through nine seconds, including the full prefix. They consume 60,424 world
+steps, with zero adapter errors, external actuation, invalid final commands or nonfinite final
+joint observations. Maximum effort-bound excess is 0.00001913807 N m. Both optional changes
+disabled reproduce all 1,079 rows of the preceding contact-control recording exactly, including
+actions and final result. The selected failed transition also matches its grid trajectory and
+independently replays exactly, including restored split continuation.
+
+`.review/stand-up-rogue-horizon/replay.html` compares that transition with the unchanged optimized
+baseline from the identical complete initial observation and body. Its embedded records and
+labels are checked; visual inspection remains undone under the existing local-file browser
+restriction. The candidate's physical trace SHA-256 is
+`4cdbb054da512d44e86c56616ede162532d3ace942deba37568348a9a1dd045e`.
+`research/stand-up-path-results.json` under `rogueLongHorizon` retains the full configurations,
+outcomes, physical prefix, controller equivalence checks, replay proofs and diagnostic timeline.
+
+Validation: `npm run check`, `npm test` (683 passes, zero failures, five existing TODOs), nineteen
+focused controller tests, exact physical prefix and controller-equivalence checks, recorded
+replay/restoration, replay build, whitespace and line-ending gates pass. The default contact
+controller is unchanged; the experimental options are not promoted into gameplay. The unresolved
+problem is producing the required body rotation and support transfer under actual muscle limits.
