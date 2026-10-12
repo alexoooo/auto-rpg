@@ -8,6 +8,8 @@ interface Model {
   readonly rootHeight: number;
   readonly weight: number;
   readonly angles: readonly number[];
+  readonly lateAngles?: readonly number[];
+  readonly foldAngles?: readonly (number|null)[];
   readonly forceLimit: number;
 }
 interface Measurement {
@@ -17,7 +19,7 @@ interface Measurement {
 }
 interface Settings {
   readonly lift?: number; readonly turn?: number; readonly damping?: number;
-  readonly height?: number; readonly settleAfter?: number; readonly settleHeight?: number; readonly horizontal?: number; readonly response?: number; readonly speed?: number;
+  readonly releaseSeconds?: number; readonly repositionAfter?: number; readonly repositionSeconds?: number; readonly postureAfter?: number; readonly settleHorizontal?: number; readonly height?: number; readonly settleAfter?: number; readonly settleHeight?: number; readonly horizontal?: number; readonly response?: number; readonly speed?: number;
   readonly yawLock?: boolean; readonly verticalPriority?: boolean; readonly supportedRelease?: boolean;
 }
 
@@ -25,11 +27,20 @@ interface Settings {
 export function recoveryFeedback(model: Model, settings: Settings = {}) {
   // Gains use body weights, metres and seconds; the caller's Assist clips the requested wrench.
   const { lift = 1, turn = .12, damping = .055, height = 1, horizontal = 0,
-    response = .15, speed = 6, settleAfter = Infinity, settleHeight = height, yawLock = true, verticalPriority = false, supportedRelease = false } = settings;
+    response = .15, speed = 6, settleAfter = Infinity, settleHeight = height, settleHorizontal = 0, postureAfter = Infinity, repositionAfter = Infinity, repositionSeconds = 1, releaseSeconds = 0, yawLock = true, verticalPriority = false, supportedRelease = false } = settings;
   const rest = new Quaternion(...model.rest), inverse = Quaternion.Inverse(rest);
   const q = new Quaternion(), yaw = new Quaternion(), target = new Quaternion(), error = new Vector3();
   const up = new Vector3(), across = new Vector3();
-  const state = { heading: null as number | null, released: false, started: null as number | null };
+  const state = { heading: null as number | null, released: false, started: null as number | null, postureBlend: 0, repositionBlend: 0,
+    releaseStarted:null as number|null,lastForce:[0,0,0],lastMoment:[0,0,0] };
+  const angles = [...model.angles];
+  const mayRelease = (ready:boolean,time:number):boolean => {
+    const phase=(time-(state.started??time)-repositionAfter)/repositionSeconds;
+    return ready && !(model.foldAngles && phase>=0 && phase<1);
+  };
+  const canRelease = (ready:boolean,time:number):boolean => mayRelease(ready,time)
+    && (releaseSeconds<=0 || (state.lastForce.every(v=>v===0) && state.lastMoment.every(v=>v===0))
+      || (state.releaseStarted!==null && time-state.releaseStarted>=releaseSeconds));
   const control = (measurement: Measurement) => {
     if (state.released) return { kind: "host" } as const;
     const r = measurement.observation.segments.find(s => s.name === "lowerTrunk")!;
@@ -42,9 +53,6 @@ export function recoveryFeedback(model: Model, settings: Settings = {}) {
     if (!yawLock) {
       const size = hypot(up.x,up.z), tilt = atan2(size,up.y);
       if (size > 1e-8) error.set(-up.z*tilt/size,0,up.x*tilt/size);
-    }
-    if (supportedRelease ? measurement.ready : up.y > .95 && measurement.soleUp.every(v => v > .8) && r.centre[1] > .9*model.rootHeight) {
-      state.released = true; return { kind: "host" } as const;
     }
     state.started ??= measurement.observation.time;
     // Lowering a late terminal target lets the loaded soles settle without restarting the recovery.
@@ -63,10 +71,43 @@ export function recoveryFeedback(model: Model, settings: Settings = {}) {
       force[0] = force[0]!*scale; force[2] = force[2]!*scale;
     }
     const moment = [error.x,error.y,error.z].map((v,i) => model.weight*(turn*v-damping*r.spin[i]!));
-    if (up.y > .98 && measurement.soleUp.every(v => v > .95) && unload < .05) {
+    if (settleHorizontal > 0 && measurement.observation.time-state.started > settleAfter
+      && up.y > .9 && measurement.soleUp.every(v => v > .9)) {
+      // Loaded feet need the whole body's centre over them; lifting can keep their edges unloaded.
+      force[0] = model.weight*settleHorizontal*(2*(centre[0]!-measurement.observation.centre[0])-.5*r.velocity[0]);
+      force[1] = 0;
+      force[2] = model.weight*settleHorizontal*(2*(centre[2]!-measurement.observation.centre[2])-.5*r.velocity[2]);
+    } else if (up.y > .98 && measurement.soleUp.every(v => v > .95) && unload < .05) {
       force.fill(0); moment.fill(0);
     }
-    return { kind: "targets", angles: model.angles, response, speed, activation: 1, assist: { force, moment } } as const;
+    // A bounded alternate support target changes continuously through the same muscle limits.
+    state.postureBlend = model.lateAngles ? Math.max(0,Math.min(1,measurement.observation.time-state.started-postureAfter)) : 0;
+    for (let i=0;i<angles.length;i++) angles[i]=model.angles[i]!+state.postureBlend*((model.lateAngles?.[i]??model.angles[i]!)-model.angles[i]!);
+    // One brief unloading pulse frees split or overlapping feet before the standing target resumes.
+    const reposition = (measurement.observation.time-state.started-repositionAfter)/repositionSeconds;
+    state.repositionBlend = model.foldAngles && reposition >= 0 && reposition < 1
+      ? reposition < .25 ? reposition/.25 : reposition < .65 ? 1 : (1-reposition)/.35 : 0;
+    if (state.repositionBlend > 0) {
+      for (let i=0;i<angles.length;i++) {
+        const folded = model.foldAngles?.[i];
+        if (folded !== null && folded !== undefined) angles[i]=angles[i]!+state.repositionBlend*(folded-angles[i]!);
+      }
+      for (let i=0;i<force.length;i++) force[i]=force[i]!*(1-state.repositionBlend)+(i===1?model.weight*state.repositionBlend:0);
+    }
+    const ready = supportedRelease ? measurement.ready : up.y > .95 && measurement.soleUp.every(v => v > .8) && r.centre[1] > .9*model.rootHeight;
+    if (canRelease(ready,measurement.observation.time)) {
+      state.released=true;return {kind:"host"} as const;
+    }
+    if (mayRelease(ready,measurement.observation.time)) {
+      // Fade the last recovery wrench before returning ownership to ordinary locomotion.
+      state.releaseStarted ??= measurement.observation.time;
+      const remaining=Math.max(0,1-(measurement.observation.time-state.releaseStarted)/releaseSeconds);
+      for(let i=0;i<force.length;i++){force[i]=state.lastForce[i]!*remaining;moment[i]=state.lastMoment[i]!*remaining;}
+    } else {
+      state.releaseStarted=null;
+      for(let i=0;i<force.length;i++){state.lastForce[i]=force[i]!;state.lastMoment[i]=moment[i]!;}
+    }
+    return { kind: "targets", angles, response, speed, activation: 1, assist: { force, moment } } as const;
   };
-  return Object.assign(control,{state});
+  return Object.assign(control,{state,canRelease});
 }

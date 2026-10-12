@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { recoveryEnvironment } from './stand-up-environment.mjs';
 import { guardPosture } from '../src/core/skills/guard.ts';
-import {assistedPosture} from '../src/core/control/recovery-posture.ts';
+import {assistedPosture,recoveryFoldAngles,ASSISTED_RECOVERY} from '../src/core/control/recovery-posture.ts';
 import { norm } from '../src/core/math/real.ts';
 import { recoveryFeedback } from '../src/core/control/recovery-feedback.ts';
 import { recoveryDesign } from './stand-up-design.mjs';
@@ -17,6 +17,8 @@ export function assistControl(e, settings = {}) {
     rootHeight: e.observe().segments.find(s => s.name === 'lowerTrunk').centre[1],
     weight: [...built.segments.values()].reduce((sum,s) => sum+s.rigid.mass,0)*norm(e.stand.world.physics.gravity),
     angles: settings.posture === 'staggered' ? e.channels.map(c => Math.max(c.min,Math.min(c.max,staggered[c.name]??0))) : settings.angles ?? e.channels.map(c => Math.max(c.min,Math.min(c.max,guard[c.name]??0))),
+    lateAngles:e.channels.map(c=>Math.max(c.min,Math.min(c.max,assistedPosture(built.spec,true)[c.name]??0))),
+    foldAngles:recoveryFoldAngles(e.channels,settings.repositionKnee??ASSISTED_RECOVERY.settings.repositionKnee),
     forceLimit: e.body.assist.most.force }, settings);
 }
 
@@ -39,7 +41,7 @@ export async function assistedTrial(configuration) {
         e.stance.shove(configuration.disturbance.impulse,configuration.disturbance.degrees);disturbed=true;
       }
       const action = configuration.control === 'legacy' ? undefined : control(e.measure());
-      const row = e.step(action, { automaticHandover: true });
+      const row = e.step(action, { automaticHandover: false });
       if (i % 30 === 0) rows.push({ time: row.result.elapsed, height: row.observation.height, up: row.rootUp,
         soleUp: row.soleUp, ready: row.ready, force: e.body.assist.given.force.asArray(), moment: e.body.assist.given.moment.asArray() });
       if (row.result.success || row.result.failure) break;

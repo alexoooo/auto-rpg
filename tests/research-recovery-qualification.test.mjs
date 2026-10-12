@@ -20,3 +20,11 @@ test('comparison requires matched anatomy and a substantive improvement over a s
   baseline.forEach(r=>r.result.seconds=4);assert.equal(recoveryComparison(candidate,baseline).pass,false);
   baseline[0].identity.specSha='different';assert.equal(recoveryComparison(candidate,baseline).matched,false);
 });
+
+
+test('fresh confirmation cases must match their own frozen manifest',()=>{
+ const manifest=structuredClone(cases),r=rows();
+ manifest.selection[1].degrees+=.125;r[1].case=manifest.selection[1];
+ assert.equal(recoveryQualification(r).complete,false);
+ assert.equal(recoveryQualification(r,{manifest}).pass,true);
+});

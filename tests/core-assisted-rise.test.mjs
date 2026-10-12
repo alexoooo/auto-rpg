@@ -20,7 +20,7 @@ test('runtime assisted rise follows the research feedback on an actual Front fal
   const control=assistControl(a,{...preset.settings,angles:a.channels.map(c=>assistedPosture(a.stand.built.spec)[c.name]??0)});
   await a.fall();await b.fall();assert.deepEqual(a.observe(),b.observe());
   for(let i=0;i<720;i++){
-   const x=a.step(control(a.measure()),{automaticHandover:true}),y=b.step();
+   const x=a.step(control(a.measure()),{automaticHandover:false}),y=b.step();
    assert.equal(JSON.stringify(y.action),JSON.stringify(x.action),`action step ${i}`);
    assert.equal(JSON.stringify(y.observation),JSON.stringify(x.observation),`physical step ${i}`);
    if(x.result.handover!==null){assert.equal(y.result.handover,x.result.handover);break;}
@@ -80,4 +80,51 @@ test('the Lab actor and timed shove controls execute the complete assisted recov
   assert.deepEqual(actor.body.assist.given.moment.asArray(),e.body.assist.given.moment.asArray());
   assert.equal(e.legacy.state.phase,'idle');
  }finally{e.dispose();stance.dispose();stand.dispose();}
+});
+
+
+test('late recovery centres the Rogue over its loaded feet and returns to walking',async()=>{
+ const e=await recoveryEnvironment({model:'workshop-rogue',balance:100,host:'simbicon',baseline:'assisted-rise'});
+ try{
+  await e.fall({degrees:139.47772306390107,impulse:90,separation:.2,settleSteps:21,passiveSteps:180});
+  assert.equal(e.result().fell,true);
+  while(e.result().elapsed<12&&!e.result().success&&!e.result().failure)e.step();
+  assert.equal(e.result().success,true,JSON.stringify(e.result()));
+  assert.ok(e.result().seconds<=8);assert.equal(e.legacy.state.phase,'idle');
+  assert.ok(e.legacy.state.feedback.releaseStarted!==null,'the nonzero recovery wrench fades before handover');
+ }finally{e.dispose();}
+});
+
+
+test('an alternate support pose escapes a loaded edge stall without restarting time',async()=>{
+ const e=await recoveryEnvironment({model:'workshop-rogue',balance:100,host:'simbicon',baseline:'assisted-rise'});
+ try{
+  await e.fall({degrees:330.47334604896605,impulse:57.60971878655255,separation:.34371021304978056,settleSteps:12,passiveSteps:180});
+  let alternate=false;
+  assert.equal(e.result().fell,true);
+  while(e.result().elapsed<15&&!e.result().success&&!e.result().failure){e.step();alternate ||= e.legacy.state.feedback.postureBlend>0;}
+  assert.equal(alternate,true);assert.equal(e.result().success,true,JSON.stringify(e.result()));
+  assert.ok(e.result().seconds<=10);assert.equal(e.legacy.state.attempts,1);
+ }finally{e.dispose();}
+});
+
+
+test('bounded unloading separates crossed feet and restores through its contact transition',async()=>{
+ const e=await recoveryEnvironment({held:'club',balance:100,host:'simbicon',baseline:'assisted-rise'});
+ try{
+  await e.fall({degrees:166.55837928212642,impulse:120,separation:.2});
+  let disturbed=false,pulsed=false;
+  while(e.result().elapsed<15&&!e.result().success&&!e.result().failure){
+   if(!disturbed&&e.result().elapsed>=1.4267557455165838){e.stance.shove(18.688575289256587,270);disturbed=true;}
+   e.step();
+   if(!pulsed&&e.legacy.state.feedback.repositionBlend>=.8){
+    pulsed=true;const saved=e.save(),expected=Array.from({length:30},()=>e.step());
+    e.restore(saved);assert.deepEqual(Array.from({length:30},()=>e.step()),expected);
+   }
+  }
+  assert.equal(disturbed,true);assert.equal(pulsed,true);
+  assert.equal(e.result().success,true,JSON.stringify(e.result()));assert.ok(e.result().seconds<=10);
+  assert.equal(e.legacy.state.attempts,1);
+  assert.ok(e.experiment.assistance.recovery.forcePeak<=e.body.assist.most.force*(1+1e-12));
+ }finally{e.dispose();}
 });

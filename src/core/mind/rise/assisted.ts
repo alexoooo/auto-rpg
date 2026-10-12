@@ -5,7 +5,7 @@ import { recoveryFeedback } from "../../control/recovery-feedback.ts";
 import { recoveryMeasurement } from "../../control/recovery-measurement.ts";
 import { norm } from "../../math/real.ts";
 import { observeBody } from "../../observation.ts";
-import { ASSISTED_RECOVERY, assistedPosture } from "../../control/recovery-posture.ts";
+import { ASSISTED_RECOVERY, assistedPosture, recoveryFoldAngles } from "../../control/recovery-posture.ts";
 import { deepFreeze } from "../../state.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import { commandable } from "../../body.ts";
@@ -25,30 +25,32 @@ export const assistedRiseFits = (spec: BodySpec): boolean => commandable(spec) &
 export function assistedRise(own: OwnBody, view: BodyView, world: World): SubMind {
   if (!assistedRiseFits(own.built.spec)) throw new Error("assisted rise has no posture for this body");
   const { built, muscles, assist } = own, root = built.segments.get("lowerTrunk")!;
-  const fallback = supportRecovery(own,view,world), posture = assistedPosture(built.spec);
+  const fallback = supportRecovery(own,view,world), posture = assistedPosture(built.spec), latePosture = assistedPosture(built.spec,true);
   const channels = muscles.channels.map(c => ({min:c.dof.spec.min.value,max:c.dof.spec.max.value,name:c.name}));
   const weight = [...built.segments.values()].reduce((sum,s) => sum+s.rigid.mass,0)*norm(world.physics.gravity);
   const control = recoveryFeedback(deepFreeze({rest:[root.rest.x,root.rest.y,root.rest.z,root.rest.w] as [number,number,number,number],
     rootHeight:centreOfToRef(root,new Vector3()).y,weight,forceLimit:assist.most.force,
-    angles:channels.map(c => Math.max(c.min,Math.min(c.max,posture[c.name]??0)))}),SETTINGS);
+    angles:channels.map(c => Math.max(c.min,Math.min(c.max,posture[c.name]??0))),
+    lateAngles:channels.map(c => Math.max(c.min,Math.min(c.max,latePosture[c.name]??0))),
+    foldAngles:recoveryFoldAngles(channels,SETTINGS.repositionKnee)}),SETTINGS);
   const observe = observeBody(built,muscles,world,() => view.senses,undefined,() => view.down,true);
   const measure = recoveryMeasurement(built,observe), force = new Vector3(), moment = new Vector3();
   const state = {phase:"idle" as "idle" | "entry" | "assist" | "fallback",time:0,
     feedback:control.state,fallback:fallback.state,attempts:0};
   const permitted = () => assist.on && assist.most.force >= weight*(SETTINGS.requiredWeight-SETTINGS.ceilingTolerance);
   const release = () => assist.ask(force.setAll(0),moment.setAll(0));
-  return {get name(){return `assisted rise: ${state.phase}`;},state,
+  return {get name(){return `assisted rise: ${state.phase === "assist" && state.feedback.releaseStarted !== null ? "releasing" : state.phase === "assist" && state.feedback.repositionBlend > 0 ? "reposition feet" : state.phase === "assist" && state.feedback.postureBlend > 0 ? "settling" : state.phase}`;},state,
     wants(senses){
       if (state.phase === "idle") return fallback.wants(senses);
       if (state.phase === "fallback") return fallback.wants(senses);
       if (!permitted() || state.time >= SETTINGS.seconds) {
         release();fallback.begin();state.phase="fallback";return true;
       }
-      if (state.phase === "assist" && measure().ready) {state.feedback.released=true;return false;}
+      if (state.phase === "assist" && control.canRelease(measure().ready,world.time)) {state.feedback.released=true;return false;}
       return true;
     },
     begin(){
-      state.time=0;state.attempts++;state.feedback.heading=null;state.feedback.released=false;state.feedback.started=null;
+      state.time=0;state.attempts++;state.feedback.heading=null;state.feedback.released=false;state.feedback.started=null;state.feedback.postureBlend=0;state.feedback.repositionBlend=0;state.feedback.releaseStarted=null;state.feedback.lastForce.fill(0);state.feedback.lastMoment.fill(0);
       fallback.begin();state.phase=permitted()?"entry":"fallback";
     },
     end(){release();fallback.end();state.phase="idle";},

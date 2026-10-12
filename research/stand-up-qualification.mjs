@@ -15,9 +15,9 @@ const completed=(row,deadline)=>row?.result?.fell===true && row.result.success==
 const middle=values=>{const v=[...values].sort((a,b)=>a-b),n=v.length;return n ? (v[Math.floor((n-1)/2)]+v[Math.floor(n/2)])/2 : Infinity;};
 
 /** Frozen-case coverage and failure-inclusive timing gates; gameplay review remains a separate requirement. */
-export function recoveryQualification(rows,{partition='selection',level='full'}={}) {
+export function recoveryQualification(rows,{partition='selection',level='full',manifest=cases}={}) {
   if (!['full','substantial'].includes(level) || ![...Object.keys(limits),'repeated'].includes(partition)) throw new Error('unknown recovery qualification');
-  const expected=cases[partition], keys=rows.map(r=>canonical(r.case));
+  const expected=manifest[partition], keys=rows.map(r=>canonical(r.case));
   const complete=rows.length===expected.length && expected.every(c=>keys.filter(k=>k===canonical(c)).length===1);
   const repeated=partition==='repeated', limit=repeated ? null : limits[partition];
   const [minimum,perGroup,medianLimit,deadline]=repeated ? [15,0,Infinity,level==='full'?6:12] : limit[level];
@@ -59,5 +59,6 @@ export function recoveryComparison(candidate,baseline) {
 
 if(process.argv[1] && import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
   const report=JSON.parse(readFileSync(process.argv[2],'utf8'));
-  console.log(JSON.stringify(['substantial','full'].map(level=>recoveryQualification(report.records,{partition:report.partition,level})),null,2));
+  const manifest=report.manifest?JSON.parse(readFileSync(report.manifest,'utf8')):cases;
+  console.log(JSON.stringify(['substantial','full'].map(level=>recoveryQualification(report.records,{partition:report.partition,level,manifest})),null,2));
 }

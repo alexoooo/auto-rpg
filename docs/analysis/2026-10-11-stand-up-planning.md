@@ -569,3 +569,67 @@ but seed 121 takes 13.3833 s on Front. Seed 120 takes 3.7000, 3.4333, 2.2667 and
 Core-versus-NumPy inference on 64 replay observations per seed differs by at most 1.2e-15;
 full exported closed-loop episodes are evaluated separately. These results do not yet establish
 an advantage over the fixed feedback controller on varied bodies or held items.
+
+
+### Support-transition corrections and confirmation
+
+All figures here use the Node Stance Lab recovery harness, gameplay Rapier coordinate engine,
+120 Hz, unchanged Warrior/Rogue anatomy and muscles, and Balance 100 for recovery and SIMBICON
+host unless a recovery-only allowance is stated. The late centring correction stops upward help
+and moves the whole-body centre toward the feet while retaining righting feedback. It completes
+126/128 on the retired lying-state set, versus 114/128 before that correction, and preserves
+64/64 directional selection successes. Those repaired cases are development data.
+
+Six Rogue-specific whole-body IK terminal seeds were also executed on four difficult falls.
+The +0.15 m stagger at reference width completed all four, whereas straight symmetric legs
+completed none. Replacing the primary pose everywhere lost a different selection case (31/32
+Rogue selection successes), so the model-specific pose is instead a bounded, smoothly blended
+alternate after six seconds without handover. The simple compliant-sole pilot completed three
+of four difficult cases, the same count as rigid feet with different failures. It did not justify
+changing the body or expanding palm/toe/material branches.
+
+A fresh confirmation manifest, seed 120102026, was frozen before evaluation. Its prefix audit
+found a missing Warrior/club side orientation. The predeclared coverage rule replaced one
+non-lying case with the first reserved recipe reaching that side, before recovery outcomes were
+examined. With the alternate pose, confirmation completed 124/128 lying falls within 12 seconds
+(group medians 4.9500, 5.0917, 4.7458 and 5.0125 s, including the 1.5-second passive prefix), and
+all 16 same-body three-fall sequences. Fifteen sequences met six seconds on every fall. However,
+only 28/32 disturbed cases completed, so this candidate did not qualify. The whole confirmation
+set is retired after its failures informed the next correction.
+
+The three actual disturbed failures were mechanically distinct from the nearly quiet Rogue
+failures: two Warriors held a roughly one-metre split stance with large hip tracking errors,
+and one retained-club Warrior had loaded foot-to-foot contact. A bounded physical search tried
+18 combinations of start time (4/6 s), duration (0.5/1/1.5 s) and knee flexion (0.6/1/1.4 rad)
+on each of these three states. All 54 completed. The selected conservative correction starts
+only after six seconds, folds for half a second with a one-radian knee target, and uses the same
+one-body-weight ceiling to unload the feet; it does not reset the recovery clock.
+
+A factorial ablation on the same three generating recipes identifies the useful intervention.
+Neither intervention completed any case. Folding alone failed the split stances and took
+12.5833 s on the overlapping feet. Unloading alone completed the two split stances in
+7.9417/7.9500 s but failed the overlapping feet. Combining them completed all three in
+8.0917/8.0750/8.7167 s. The production correction preserves 64/64 selection successes and
+completes 31/32 on the retired disturbed set; the remaining recipe never fell. These are still
+repair measurements, not independent qualification. An additional 0.1-second release fade is
+used when the last recovery wrench is nonzero; an already-zero wrench needs no fade delay.
+
+The two-unit Node Arena check uses Puncher minds with SIMBICON, the new recovery and Balance 100
+on both sides, plus two scheduled shove pairs. The Warrior returns to combat after three
+recoveries, the Rogue after one, and both take further wounds after returning upright. A save at
+step 330 continues with identical per-step pose and control/wound digests across the second
+recovery and later contacts. The initial run averaged 2.24 ms/world step for both units with
+other research running (p95 4.96 ms, peak JS heap 135 MB). This is a harness/load-specific reading,
+not an isolated policy-only benchmark. The strengthened gameplay script also checks complete
+saved-state equality and requires actual returns and subsequent combat.
+
+The same-fall assistance pilot holds ordinary-host Balance at 100 and clips only recovery help.
+Before the unloading correction, all 16 cardinal body/loadout cases complete within 12 seconds
+at recovery allowance 100; none complete at 0, 10, 25 or 50. These are recovery-only causal
+comparisons, not zero-Balance gameplay results. The selected controller is re-evaluated after
+its final changes before those figures are used as its assistance evidence.
+
+`research/stand-up-holdout-v3.json` reserves another independent set. It preserves the same
+bounds and physical coverage audit, and predeclares orthogonal/reversed 120 N s fallback recipes
+when the aligned stronger shoves still prevent falling. Prevention is recorded separately and
+never counts as a successful get-up. No outcome from that set is used for tuning.

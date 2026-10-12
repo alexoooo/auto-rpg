@@ -22,7 +22,7 @@ function poseOf(e){
 }
 
 /** Full runtime, disturbance and same-body repeated-fall trials under one declared configuration. */
-export async function recoveryTrial(configuration,c,policySha){
+export async function recoveryTrial(configuration,c,policySha,fallbackRecipes=cases.fallbackRecipes){
  const e=await recoveryEnvironment({...configuration,...c,spec:recoveryDesign({...configuration,...c})});
  const control=assistControl(e,{...preset.settings,...configuration,angles:e.channels.map(k=>assistedPosture(e.stand.built.spec)[k.name]??0)});
  const started=performance.now(),falls=[];let chargedSteps=0;
@@ -31,9 +31,10 @@ export async function recoveryTrial(configuration,c,policySha){
    if(falls.length)e.nextFall();
    control.state.heading=null;control.state.released=false;control.state.started=null;
    const pristine=e.save(),origin=e.stand.world.steps,attempts=[];
-   for(const fallback of [null,...cases.fallbackRecipes]){
+   for(const fallback of [null,...fallbackRecipes]){
     if(fallback)e.restore(pristine);
-    const executed={...recipe,...fallback,passiveSteps:configuration.passiveSteps??0};
+    const {degreesOffset=0,...override}=fallback??{};
+    const executed={...recipe,...override,degrees:((recipe.degrees??0)+degreesOffset)%360,passiveSteps:configuration.passiveSteps??0};
     await e.fall(executed);chargedSteps+=e.stand.world.steps-origin;
     attempts.push({recipe:executed,fell:e.result().fell});if(e.result().fell)break;
    }
@@ -42,7 +43,7 @@ export async function recoveryTrial(configuration,c,policySha){
     if(recipe.disturbance && !disturbed && e.result().elapsed>=recipe.disturbance.after){
      e.stance.shove(recipe.disturbance.impulse,recipe.disturbance.degrees);disturbed=true;
     }
-    const row=e.step(configuration.control==='feedback'?control(e.measure()):undefined,{automaticHandover:configuration.control==='feedback'});
+    const row=e.step(configuration.control==='feedback'?control(e.measure()):undefined,{automaticHandover:false});
     if(row.result.success||row.result.failure)break;
    }
    chargedSteps+=e.stand.world.steps-at;
@@ -56,23 +57,24 @@ export async function recoveryTrial(configuration,c,policySha){
 }
 
 if(!isMainThread && workerData?.qualification)parentPort.on('message',async({id,x})=>{
- try{parentPort.postMessage({id,r:await recoveryTrial(x.configuration,x.case,x.policySha)});}
+ try{parentPort.postMessage({id,r:await recoveryTrial(x.configuration,x.case,x.policySha,x.fallbackRecipes)});}
  catch(error){parentPort.postMessage({id,r:{case:x.case,policySha:x.policySha,error:String(error.stack??error)}});}
 });
 else if(process.argv[1] && import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  const {values}=parseArgs({options:{partition:{type:'string',default:'selection'},workers:{type:'string',default:'3'},
-  config:{type:'string'},output:{type:'string'}}});
+  config:{type:'string'},manifest:{type:'string'},output:{type:'string'}}});
  if(!['selection','validation','disturbed','repeated'].includes(values.partition)||!values.output)throw new Error('partition and output required');
+ const manifest=values.manifest?JSON.parse(readFileSync(values.manifest,'utf8')):cases;
  const configuration=values.config?JSON.parse(readFileSync(values.config,'utf8')):{balance:100,host:'simbicon',baseline:'assisted-rise',seconds:35};
- if(values.partition==='validation')configuration.passiveSteps=cases.protocol.validationPassiveSteps;
+ if(values.partition==='validation')configuration.passiveSteps=manifest.protocol.validationPassiveSteps;
  const {passiveSteps: _prefix,...policyConfiguration}=configuration;
  const policySha=createHash('sha256').update(JSON.stringify({configuration:policyConfiguration,preset})).digest('hex');
  const pool=workerPool(new URL(import.meta.url),{qualification:true},Number(values.workers)),records=[];
  mkdirSync(dirname(values.output),{recursive:true});
- const write=()=>writeFileSync(values.output,JSON.stringify({partition:values.partition,configuration,policySha,records,
-  gates:['substantial','full'].map(level=>recoveryQualification(records,{partition:values.partition,level}))},null,2));
- try{await Promise.all(cases[values.partition].map(async c=>{
-  const r=await pool.evaluate({configuration,case:c,policySha});records.push(r);write();
+ const write=()=>writeFileSync(values.output,JSON.stringify({partition:values.partition,configuration,policySha,manifest:values.manifest??null,manifestSha:createHash('sha256').update(JSON.stringify(manifest)).digest('hex'),records,
+  gates:['substantial','full'].map(level=>recoveryQualification(records,{partition:values.partition,level,manifest}))},null,2));
+ try{await Promise.all(manifest[values.partition].map(async c=>{
+  const r=await pool.evaluate({configuration,case:c,policySha,fallbackRecipes:manifest.fallbackRecipes});records.push(r);write();
   console.log(JSON.stringify({case:c,result:r.result,falls:r.falls?.map(f=>f.result),error:r.error}));
  }));}finally{await pool.terminate();write();}
 }

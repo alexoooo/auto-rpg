@@ -77,7 +77,7 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
   });
   let walkSpeed = 0.3, impulse = 30, recoveryMode: LabAddress["recoveryMode"] = "assisted";
   // The run the controls act on: the latest one started.
-  let current: (ScenarioRun & { shove(impulse: number, degrees: number): void; walk(): void }) | null = null;
+  let current: (ScenarioRun & { shove(impulse: number, degrees: number): void; walk(): void; pair(): void }) | null = null;
 
   return {
     keys: new Set([...Object.keys(WALK_KEYS), ...Object.keys(TURN_KEYS)]),
@@ -90,6 +90,7 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
             ? "Live feedback with a staggered-foot target. Balance 100% permits up to one body weight of force plus a righting moment. Lower Balance or another body uses the existing recovery fallback. Qualification is in progress."
             : "Recorded search result replayed as an ordinary recovery recipe, with compliant soles and zero Balance. Slow and unreliable."),
           action("Reset demonstration", () => experiment.reproduceRecovery(recoveryMode), "Reset the selected variant and repeat its two timed Front shoves."),
+          action("Repeat two shoves", () => current?.pair(), "Repeat the selected timed shove pair on this body without resetting it."),
           action("Walk forward for 1 s", () => current?.walk(), "Check movement after recovery through the ordinary walking controller."),
           actions("Stress cases",[
             {value:247.5,name:"Rogue diagonal"},{value:180,name:"Rogue club Back"},{value:337.5,name:"Rogue club oblique"}],
@@ -107,7 +108,12 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
       const { world } = actor, { built } = actor.body;
       const shoved = shoveSound(built);
       const stance = startStance(actor, (segment, impulse, at) => heard(shoved(segment, impulse, at)), experiment ? address.recoveryPush : false), capture = new Vector3();
-      const recovery = {start:null as number|null,seconds:0,active:false,walkUntil:-Infinity};
+      const recovery = {start:null as number|null,seconds:0,active:false,walkUntil:-Infinity,secondShove:-1};
+      const repeated = world.afterStep(() => {
+        if (world.steps === recovery.secondShove) {
+          stance.shove(address.recoveryPush.impulse,address.recoveryPush.degrees);recovery.secondShove=-1;
+        }
+      });
       const history = recordHistory(built, world, historySeconds, (): StanceMoment => {
         const s = stance.body.view.stance;
         stance.capturePointToRef(capture);
@@ -160,6 +166,10 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
           return f.time;
         },
         walk(): void {player.goLive();recovery.walkUntil=world.time+1;},
+        pair(): void {
+          player.goLive();stance.shove(address.recoveryPush.impulse,address.recoveryPush.degrees);
+          recovery.secondShove=world.steps+Math.round(address.recoveryPush.separation*world.hz);
+        },
         // On the stance, the hands stay open.
         closure: () => 0,
         shove(impulse: number, degrees: number): void {
@@ -168,7 +178,7 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
         },
         dispose(): void {
           if (current === run) current = null;
-          history.dispose();
+          history.dispose();repeated.dispose();
           stance.dispose();
         },
       };
