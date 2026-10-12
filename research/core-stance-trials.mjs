@@ -12,6 +12,7 @@ import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rule
 import { GUARD, guardPosture } from "../src/core/skills/guard.ts";
 import { SIMBICON, simbicon, simbiconWays } from "../src/core/skills/simbicon.ts";
 import { stride } from "../src/core/skills/stride.ts";
+import { startWind } from "../src/lab/wind.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
 export const CORE_STANCE_HARNESS = "Node core stand (tests/harness/core-stand.mjs), Rapier";
@@ -196,10 +197,12 @@ function skillCommand(skill, view, walk, face, dt, posture, keep) {
 /**
  * Walk at `speed` m/s `degrees` from forward for 8 s after 1 s, then walk nowhere 4 s (`walking` in
  * the tests); as a fight plays the body with `held` (`body`), walking by the stance's own walk or
- * by the locomotion skill `legs` names (`skillOf`).
+ * by the locomotion skill `legs` names (`skillOf`). Given `wind` (`{ rate, strength, seed }`), the
+ * lab's gusts blow on it throughout (`startWind`, `src/lab/wind.ts`).
  */
-export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique, legs = null }) {
+export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique, legs = null, wind = null }) {
   const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique);
+  const blowing = wind && startWind(stand.built, stand.world, { rate: wind.rate, strength: wind.strength }, wind.seed);
   const way = degrees * Math.PI / 180, ux = Math.sin(way), uz = Math.cos(way), skill = skillOf(legs, b);
   let goal = null, pace = null;
   b.drive((view, dt) => {
@@ -233,7 +236,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
     const s = b.view.stance;
     return { strides, fell: low > 0.25 || !Number.isFinite(low), along, across: sideways, speed: s.velocity.length(), phase: s.phase,
       stepped: s.strides - settled, off: across(s.centre, s.place) };
-  } finally { b.dispose(); stand.dispose(); }
+  } finally { blowing?.dispose(); b.dispose(); stand.dispose(); }
 }
 
 /**

@@ -15,7 +15,18 @@
  * (`src/core/skills/simbicon.ts`) at its walk's speeds, writing `assets/core/simbicon-envelope.json`.
  *
  *   node research/core-stance-envelope.mjs [--legs stride|simbicon] [--write] [--workers 14]
+ *     [--config settings.json] [--physique '{"speed":1.25}'] [--out envelope.json] [--walks]
+ *     [--gusts 1:20:1,2]
+ *
+ * With `--legs simbicon --config`, the walk is the SIMBICON gait's with the settings in that file
+ * (a `SimbiconConfig`, as the Lab's mind takes it) in place of its defaults; `--out` writes the
+ * envelope to that file in place of the asset. `--physique` builds each body of that physique
+ * (`Physique`, `src/core/human/physique.ts`) in place of its own. `--walks` measures the walks alone,
+ * with no turns. `--gusts rate:strength:seeds` walks each walk calm and again in the lab's gusts
+ * (`startWind`) on each seed, and a speed holds only if every one of them held: calm, as asked;
+ * in the gusts, standing.
  */
+import { readFileSync } from "node:fs";
 import { Worker } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { writeFile } from "node:fs/promises";
@@ -25,8 +36,12 @@ import { fastestHeld, turnedAsAsked, wentAsAsked } from "../src/core/control/sta
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
 
-/** The gait battery's speeds, m/s, by the legs it measures: the stride's reach past the stance walk's. */
-const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], simbicon: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.7, 2, 2.5] };
+/**
+ * The gait battery's speeds, m/s, by the legs it measures: the stride's reach past the stance walk's;
+ * the SIMBICON walk's take 1.5, just past the pace it runs from (`SimbiconSettings.run`), where it
+ * first runs and is brought down to a walk again.
+ */
+const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], simbicon: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5] };
 export const WAYS = [0, 90, 180, 270, 45];
 export const MODELS = ["workshop-fighter", "workshop-rogue", "crypt-skeleton"];
 /**
@@ -43,9 +58,19 @@ export const HOLDS = HELD;
  */
 export const AFTERS = [...Array.from({ length: 13 }, (_, k) => k / 8), 3];
 
-const { values } = parseArgs({ options: { write: { type: "boolean", default: false }, workers: { type: "string" }, legs: { type: "string" } } });
+const { values } = parseArgs({ options: { write: { type: "boolean", default: false }, workers: { type: "string" }, legs: { type: "string" }, config: { type: "string" }, out: { type: "string" }, physique: { type: "string" }, walks: { type: "boolean", default: false }, gusts: { type: "string" } } });
+/** The winds each walk is walked in: calm, and the gusts on each seed asked. */
+const WINDS = [null, ...(() => {
+  if (!values.gusts) return [];
+  const [rate, strength, seeds] = values.gusts.split(":");
+  return seeds.split(",").map((seed) => ({ rate: Number(rate), strength: Number(strength), seed: Number(seed) }));
+})()];
+const physique = values.physique ? JSON.parse(values.physique) : undefined;
 const legs = values.legs ?? null;
 if (legs !== null && legs !== "stride" && legs !== "simbicon") throw new Error(`no envelope is measured for legs ${legs}`);
+if (values.config && legs !== "simbicon") throw new Error("--config gives a SIMBICON walk's settings: it needs --legs simbicon");
+/** What each trial walks by: the legs' name, or the SIMBICON walk's settings given. */
+const walker = values.config ? JSON.parse(readFileSync(values.config, "utf8")) : legs;
 const SPEEDS = SPEEDS_OF[legs ?? "stance"], RATES = RATES_OF[legs ?? "stance"];
 const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2)), hz = PHYSICS_HZ.value;
 
@@ -69,18 +94,18 @@ async function runAll(jobs) {
   })));
 }
 
-const walks = MODELS.flatMap((model) => SPEEDS.flatMap((speed) => WAYS.flatMap((degrees) => HOLDS.map((held) => ({ trial: "walk", model, speed, degrees, held, hz, stance: {}, legs })))));
+const walks = MODELS.flatMap((model) => SPEEDS.flatMap((speed) => WAYS.flatMap((degrees) => HOLDS.flatMap((held) => WINDS.map((wind) => ({ trial: "walk", model, speed, degrees, held, hz, stance: {}, legs: walker, physique, wind }))))));
 await runAll(walks);
-// A walk held if it did not fall and went the way asked at the pace asked.
-const went = (j) => !j.result.fell && wentAsAsked(j.result.along, j.result.across, j.speed);
+// A walk held if it did not fall and, calm, went the way asked at the pace asked: a gust throws a slow walk off its way, and is there to throw the body down.
+const went = (j) => !j.result.fell && (j.wind !== null || wentAsAsked(j.result.along, j.result.across, j.speed));
 const walkHeld = (model) => SPEEDS.map((speed) => walks.filter((j) => j.model === model && j.speed === speed && went(j)).length);
 /** At each speed, how many of the holds held walking `degrees` round. */
 const wayHeld = (model, degrees) => SPEEDS.map((speed) => walks.filter((j) => j.model === model && j.speed === speed && j.degrees === degrees && went(j)).length);
-const fastest = Object.fromEntries(MODELS.map((model) => [model, fastestHeld({ speeds: SPEEDS, ways: WAYS.length * HOLDS.length, held: walkHeld(model) })]));
+const fastest = Object.fromEntries(MODELS.map((model) => [model, fastestHeld({ speeds: SPEEDS, ways: WAYS.length * HOLDS.length * WINDS.length, held: walkHeld(model) })]));
 /** The gait battery's speeds up to `model`'s fastest walk forward, the way a turn walks. */
-const forward = (model) => fastestHeld({ speeds: SPEEDS, ways: HOLDS.length, held: wayHeld(model, 0) });
+const forward = (model) => fastestHeld({ speeds: SPEEDS, ways: HOLDS.length * WINDS.length, held: wayHeld(model, 0) });
 const upTo = (model) => SPEEDS.filter((speed) => speed <= forward(model));
-const turns = MODELS.flatMap((model) => upTo(model).flatMap((speed) => RATES.flatMap((rate) => SENSES.flatMap((sense) => HOLDS.flatMap((held) => AFTERS.map((after) => ({ trial: "turn", model, speed, rate, sense, held, after, hz, stance: {}, legs })))))));
+const turns = values.walks ? [] : MODELS.flatMap((model) => upTo(model).flatMap((speed) => RATES.flatMap((rate) => SENSES.flatMap((sense) => HOLDS.flatMap((held) => AFTERS.map((after) => ({ trial: "turn", model, speed, rate, sense, held, after, hz, stance: {}, legs: walker, physique })))))));
 await runAll(turns);
 await Promise.all(pool.map((w) => w.terminate()));
 const turnHeld = (model, speed) => RATES.map((rate) => turns.filter((j) => j.model === model && j.speed === speed && j.rate === rate && !j.result.fell && turnedAsAsked(j.result.lag)).length);
@@ -88,13 +113,14 @@ const turnHeld = (model, speed) => RATES.map((rate) => turns.filter((j) => j.mod
 const models = Object.fromEntries(MODELS.map((model) => [model, {
   held: walkHeld(model), walk: fastest[model],
   wayHeld: WAYS.map((degrees) => wayHeld(model, degrees)),
-  byWay: WAYS.map((degrees) => fastestHeld({ speeds: SPEEDS, ways: HOLDS.length, held: wayHeld(model, degrees) })),
+  byWay: WAYS.map((degrees) => fastestHeld({ speeds: SPEEDS, ways: HOLDS.length * WINDS.length, held: wayHeld(model, degrees) })),
   turnHeld: upTo(model).map((speed) => turnHeld(model, speed)),
   turns: upTo(model).map((speed) => fastestHeld({ speeds: RATES, ways: SENSES.length * HOLDS.length * AFTERS.length, held: turnHeld(model, speed) })),
 }]));
-const envelope = { harness: CORE_STANCE_HARNESS, played: "each body built in the guard and holding it, under its character's balance (the rulebook's per cent), with each of `holds` in its right hand" + (legs ? `, walking by the ${legs}` : ""), ...(legs ? { legs } : {}), hz, measured: new Date().toISOString().slice(0, 10), speeds: SPEEDS, ways: WAYS, rates: RATES, senses: SENSES, holds: HOLDS, afters: AFTERS, models };
+const envelope = { harness: CORE_STANCE_HARNESS, played: "each body built in the guard and holding it, under its character's balance (the rulebook's per cent), with each of `holds` in its right hand" + (legs ? `, walking by the ${legs}` : "") + (WINDS.length > 1 ? ", each walk calm and in each of `winds`" : ""), ...(legs ? { legs } : {}), hz, measured: new Date().toISOString().slice(0, 10), speeds: SPEEDS, ways: WAYS, rates: RATES, senses: SENSES, holds: HOLDS, afters: AFTERS, ...(WINDS.length > 1 ? { winds: WINDS.slice(1) } : {}), models };
 console.log(`${CORE_STANCE_HARNESS}, ${hz} Hz; ${walks.length} walks and ${turns.length} turns in ${((Date.now() - started) / 1000).toFixed(0)} s`);
 // Two-space JSON with each list of numbers on one line.
 const text = `${JSON.stringify(envelope, null, 2).replace(/\[[-\d.,\s]*\]/g, (list) => list.replace(/\s+/g, "").replaceAll(",", ", "))}\n`;
 console.log(text);
-if (values.write) await writeFile(new URL(`../assets/core/${legs ?? "stance"}-envelope.json`, import.meta.url), text);
+if (values.out) await writeFile(values.out, text);
+else if (values.write) await writeFile(new URL(`../assets/core/${legs ?? "stance"}-envelope.json`, import.meta.url), text);

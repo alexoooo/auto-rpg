@@ -393,6 +393,8 @@ in 60 s over 60 s, a fall stopping it where it fell.
 | side searched, fine rates, set-off turn | 0.97 / 0.84 / 0.91 | 0.58 / 0.56 / 0.57 | 0.64 / 0.56 / 0.51 | 11 of 252 |
 | Run braking 0.3 m/s² | 0.97 / 0.84 / 0.91 | 0.65 / 0.62 / 0.62 | 0.65 / 0.58 / 0.51 | 10 of 252 |
 | swerve 1.6, heading held through the set-off shift | 0.98 / 0.84 / 0.91 | 0.77 / 0.71 / 0.78 | 0.65 / 0.58 / 0.51 | 10 of 252 |
+| faced 1.25 m ahead along the track (`AIM_ALONG`) | 0.98 / 0.84 / 0.92 | 0.79 / 0.74 / 0.81 | 0.65 / 0.58 / 0.51 | 10 of 252 |
+| braking for bends 0.3 s early (`LEAD`) | 0.98 / 0.84 / 0.92 | 0.81 / 0.75 / 0.82 | 0.65 / 0.58 / 0.51 | 10 of 252 |
 
 ### 06: the envelope, and travelling by it
 

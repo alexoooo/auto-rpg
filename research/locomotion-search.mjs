@@ -43,7 +43,7 @@
  * (`locomotion-run.mjs --played`: under the body's measured envelope, which the candidate did not
  * make): on each body each of `PLAYED.tracks` at each of its paces, calm and in each gust, for
  * `PLAYED.seconds`; the score is the mean speed made along the track, a fall stopping the body where
- * it fell. Its winds' seeds are not the ones the Run's bed is read on. With `--way all` it searches
+ * it fell; `--tracks` names others. Its winds' seeds are not the ones the Run's bed is read on. With `--way all` it searches
  * every way's gait at once, each setting named for its way (`forward.cv`, `side.cv`, `back.cv`), and
  * the walk's speed-up and swerve (`ALL_EXTRA`).
  *
@@ -79,8 +79,8 @@ const RUN_DIMS = {
 const WAY_DIMS = {
   swingHip: [-0.2, 0.8], swingHipLate: [-0.3, 0.4], swingSpread: [-0.3, 0.2], swingKnee: [0.4, 1.6], swingKneeLate: [0, 0.5],
   swingAnkle: [-0.1, 0.35], swingAnkleLate: [-0.1, 0.35], stanceKnee: [0, 0.4], stanceKneeLate: [0, 0.4], stanceAnkle: [-0.4, 0.2],
-  cvAnkle: [0, 1], lean: [-0.2, 0.2], cd: [-0.5, 0.5], cv: [-0.2, 0.8], cdLate: [-0.5, 0.5], cvLate: [-0.2, 0.6],
-  cdSide: [-0.5, 0.5], cvSide: [-0.3, 0.5], lead: [-0.2, 0.4], leadSide: [0, 0.5], width: [0.05, 0.3],
+  cvAnkle: [0, 1], cvAnkleSide: [-1, 1], ankle: [0.1, 0.6], lean: [-0.2, 0.2], cd: [-0.5, 0.5], cv: [-0.2, 0.8], cdLate: [-0.5, 0.5], cvLate: [-0.2, 0.6],
+  cdSide: [-0.5, 0.5], cvSide: [-0.3, 0.5], lead: [-0.2, 0.4], leadSide: [0, 0.5], leadOut: [-0.3, 0.5], width: [0.05, 0.3], vf: [0, 1.5], vfSide: [0, 1.5], vfMost: [0.1, 1], trim: [0, 0.5], trimSide: [0, 0.5],
 };
 
 /** The ways `--way all` searches together, and the gait's settings it searches with them. */
@@ -273,12 +273,13 @@ async function batteryScore(legs) {
 
 /** A candidate's played score: the mean speed it made on the Run's tracks (`PLAYED`), and each body's mean on each track. */
 async function playedScore(legs) {
-  const runs = await Promise.all(models.flatMap((model) => PLAYED.tracks.flatMap((track) => PLAYED.paces.flatMap((pace) => PLAYED.winds.map(async ([rate, strength, seed]) => {
+  const tracks = arg("tracks") ? list("tracks") : PLAYED.tracks;
+  const runs = await Promise.all(models.flatMap((model) => tracks.flatMap((track) => PLAYED.paces.flatMap((pace) => PLAYED.winds.map(async ([rate, strength, seed]) => {
     const r = await run({ model, track, pace, seed, legs, played: true, seconds: PLAYED.seconds, wind: { rate, strength } });
     return { model, track, made: r.fell === null ? r.mean : r.mean * r.fell / PLAYED.seconds, fell: r.fell !== null };
   })))));
   const by = {};
-  for (const model of models) for (const track of PLAYED.tracks) {
+  for (const model of models) for (const track of tracks) {
     const mine = runs.filter((r) => r.model === model && r.track === track);
     by[`${model.replace("workshop-", "")} ${track}`] = `${(mine.reduce((sum, r) => sum + r.made, 0) / mine.length).toFixed(2)}/${mine.filter((r) => r.fell).length}`;
   }
