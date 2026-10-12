@@ -271,6 +271,15 @@ it, which reads as sliding or being pushed.
   its isometric torque, which speed alone does not raise.
 - Read each on the legs alone and on the whole body. The extras (strength, the upper body) join
   Haste only where this shows they help the walk or the run (the owner's rule).
+- **Found (the walks of the envelope, calm and in 20 N gusts on two seeds; Node core stand, Rapier,
+  120 Hz; every muscle at x1.25 speed):** with the gait as it is the body is no faster and no
+  steadier: the Warrior's side walk rises to 1.2 m/s, the skeleton's falls to 0.2 and its back to
+  1, and the Warrior's and the skeleton's every-way walks fall to 0. With the gait's times
+  shortened by the square root of the speed or by the speed itself (C2's rule, its speeds and rates
+  raised alike), forward rises (Warrior 1.5 and 1.7, Rogue 1.5 and 0, skeleton 1.4 and 1.5) and
+  the side and back walks fall apart (the Warrior's back 0.7 and 0.3). A faster muscle gives the
+  walk nothing at a walking pace, where it is far from its unloaded speed; it pays only where the
+  gait asks speed of it, and this gait's cadence does not rise with the pace.
 
 ### C2. The gait uses the headroom
 

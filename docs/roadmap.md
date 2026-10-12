@@ -338,7 +338,7 @@ After it, each with its own plan, in the order each needs the one before:
     circle (1.17), 0.7 round the square, and 0.5 back (0.26). The Rogue holds 1 m/s forward
     (1.16: it walks faster than asked) and 0.5 to the sides, falls from 1.4 forward crouched with
     the ankle at its dorsiflexion stop, and falls walking back at 0.5. Every way, calm and in 20 N
-    gusts, its envelope (`assets/core/simbicon-envelope.json`) is 0.7 m/s for the Warrior, 0.4 for
+    gusts, its envelope (`assets/core/simbicon-envelope.json`) is 0.7 m/s for the Warrior, 0.2 for
     the skeleton and 0 for the Rogue, whose diagonal at 0.2 makes 0.67 of the pace asked. So
     tactics, which plan by the walk held every way, would travel by it no faster than by the stride
     (0.7, 0.5, 0.5), though it goes forward twice as fast. The envelope battery counts falls, not where the body went: before the walk set off on
