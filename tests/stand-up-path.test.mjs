@@ -12,6 +12,23 @@ import { retargetReference } from '../research/stand-up-retarget-reference.mjs';
 import { ratesToRef } from '../src/core/build/joint-state.ts';
 import { searchGuidance } from '../research/stand-up-search-guidance.mjs';
 import { contactBalanceTarget } from '../research/stand-up-contact-policy.mjs';
+import { contactEffort } from '../research/stand-up-contact-effort.mjs';
+
+test('contact effort carries gravity and descendant ground forces in the muscle sense at speed',()=>{
+  const side={peak:10,curve:{unloadedSpeed:10,curvature:.25,eccentricCeiling:1.5,eccentricSlopeRatio:2}};
+  const model={gravity:[0,-10,0],segments:[{name:'root',mass:1},{name:'link',mass:1}],channels:[{positive:side,negative:side}],
+    joints:[{parent:'root',dofs:[{sign:1}],axes:{x:[0,0,1],y:[1,0,0],z:[0,1,0]},
+      parentRestInverse:[0,0,0,1],pivot:[0,0,0],descendants:['link']}]};
+  const o={segments:[{name:'root',position:[0,0,0],centre:[0,0,0],rotation:[0,0,0,1]},
+    {name:'link',centre:[.5,0,0]}],joints:[{angle:0,speed:0}]};
+  const patches=[{at:new Vector3(1,0,0)},{at:new Vector3(-1,0,0)}],owners=['link','root'];
+  const a=contactEffort(model,o,patches,owners,[0]);
+  assert.deepEqual([...a.t0],[10]);assert.deepEqual([...a.C],[0,2,0,0,0,0,0,0,0,0,0,0]);
+  assert.equal((a.t0[0]-a.C[1]*4)/a.scales[0],1);
+  assert.equal(contactEffort(model,o,patches,owners,[.2]).t0[0],12);
+  const fast=contactEffort(model,{...o,joints:[{angle:0,speed:10}]},patches,owners,[0]);
+  assert.ok(fast.C[1]>a.C[1]&&[...fast.C,...fast.t0].every(Number.isFinite));
+});
 
 test('contact balance targets weight actual supports independently of patch count and fall back before preferred support exists',()=>{
   const patches=[{at:new Vector3(-1,0,0)},{at:new Vector3(1,0,0)},{at:new Vector3(3,0,0)}];

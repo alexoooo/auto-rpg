@@ -2736,3 +2736,87 @@ focused controller tests, exact physical prefix and controller-equivalence check
 replay/restoration, replay build, whitespace and line-ending gates pass. The default contact
 controller is unchanged; the experimental options are not promoted into gameplay. The unresolved
 problem is producing the required body rotation and support transfer under actual muscle limits.
+
+## Muscle-aware contact allocation, 2026-10-12
+
+**The full recovery goal remains unfinished.** Muscle-aware allocation reduces a measured torque
+mismatch and produces an upright Rogue kneel. Subsequent foot-placement movements still fail.
+All 56 trials fail through nine seconds; the selected library's preceding frozen result remains
+3/16, none within six seconds. No body change, assistance, qualification pass or gameplay promotion
+is made.
+
+Every figure uses **Node Stance Lab / frozen game Rapier coordinate adapter 11 / 120 Hz / original
+symmetric muscle envelopes / Balance 0 / ordinary stance host**, on the same Rogue/empty
+90-degree saved fall. Physical prefixes remain in the recovery clock and are checked step for step.
+
+`research/stand-up-contact-diagnose.mjs <record.trace.gz> <report.json>` reconstructs each contact
+controller action from its recorded observations and checks it against the actual action. It
+compares requested torque with measured motor effort, and desired vertical force with mass times
+the change in whole-body vertical velocity minus gravity. The latter is the net force beyond
+gravity, not a direct measurement of ground reaction alone; it also includes damping and solver
+effects. The tool excludes held loads and samples only the controller's post-prefix actions within
+the three-to-six-second window. It makes no peak or physics-rate comparison.
+
+For the preceding posture-extension failure, mean desired upward force is 1,127.974 N while the
+momentum-derived value is 562.479 N. Mean absolute lumbar-flexion request is 270.512 N m and
+measured effort is 37.880 N m. The ground allocator's mean vertical residual is only 5.288 N:
+that residual plainly does not establish execution of the desired wrench.
+
+`research/stand-up-contact-effort.mjs` supplies the existing allocator's optional muscle-effort
+cost. Each row predicts gravity and posture torque minus the moments of requested ground forces
+on that joint's descendants, in the actual motor axes. Its scale uses the geometric mean of the
+two directional force-velocity capacities. A 5% isometric normalization floor conditions the
+soft cost when a shortening capacity reaches zero; actual commands continue to use the true
+capacity, with unchanged activation bounds. This is a soft preference, **not a hard feasibility
+constraint**. The experiment records this helper's source hash. Predicted weighted torque agrees
+with the command calculation to relative error below 1e-10 throughout the separately diagnosed
+recordings; the largest recorded error is 4.908e-12.
+
+A matched static-posture comparison changes only `effortScale` from zero to ten. The means below
+use all 360 post-prefix samples in the three-to-six-second window:
+
+| Measured quantity | Ordinary allocation | Muscle-aware allocation |
+| --- | ---: | ---: |
+| Saturated channels per step | 9.536 | 2.322 |
+| Absolute lumbar torque request, N m | 176.746 | 46.330 |
+| Absolute measured lumbar effort, N m | 20.766 | 39.024 |
+| Absolute lumbar request/effort difference, N m | 155.979 | 7.306 |
+| Desired vertical force, N | 936.129 | 878.544 |
+| Momentum-derived force beyond gravity, N | 565.744 | 566.518 |
+
+Neither controller recovers. Ten initial allocation/control trials are followed by eighteen
+posture extensions. One extension toward the kneeling target reaches root-up 0.927590 at
+4.008333 s and 0.970211 at six seconds, at height 0.415072 m. Both hands and shins still bear;
+the soles face upward. This is an intermediate posture, not standing support.
+
+Sixteen contact/path continuations from the exactly reproduced four-second kneel fail. Twelve
+further continuations use optional `bearing` requests to leave the left shin out of the desired
+force allocation while retaining its actual physical contacts. If none of the preferred contacts
+exists, the controller uses all available contacts; a physical preflight proves that fallback
+matches the ordinary command and step before either preferred foot contacts the floor.
+
+The selected foot-placement movement unloads the left shin and contacts the left foot, but at six
+seconds its sole-up is -0.554167; right sole-up is -0.259040. Root-up is 0.936296 and height
+0.426329 m, with both hands and the right shin also loaded. It fails through nine seconds.
+Its complete 480-step prefix, muscle actions, physical observations and restored continuation
+match exactly. The kneeling recording independently replays exactly as well. Both effort weighting
+and bearing selection disabled preserve all 1,079 rows of the preceding control recording.
+
+The 56 trials consume 60,424 world steps. There are no adapter errors, external-actuation events,
+invalid final commands or nonfinite final joint observations. Maximum effort-bound excess is
+0.00002372976 N m, below the unchanged 0.0001 tolerance. The recorded kneel and foot-placement
+traces match their grid trials; no score improvement is counted as a recovery.
+
+`.review/stand-up-muscle-sharing/replay.html` compares the foot-placement movement with the
+optimized baseline from the identical complete initial state and body. Embedded recordings and
+labels are checked; visual inspection remains undone under the existing local-file browser
+restriction. Candidate physical trace SHA-256:
+`808db8ebf105d6945d0a6c048d5b4708df5513546641325e42956db6660bc021`.
+`research/stand-up-path-results.json` under `muscleAwareContactSharing` retains every setting and
+outcome, matched effort measurements, prefix checks, allocation-error audits and replay proofs.
+
+Validation: `npm run check`, `npm test` (684 passes, zero failures, five existing TODOs), twenty
+focused controller tests, physical fallback/default-equivalence checks, action reconstruction,
+exact replay/restoration, replay build, whitespace and line-ending gates pass. The remaining
+transition is placing and loading a usable sole while maintaining the upright trunk, then rising
+and passing the unchanged standing/walking handover.

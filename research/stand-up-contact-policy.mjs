@@ -4,6 +4,7 @@ import { motionAxesToRef, turningToRef } from '../src/core/build/joint-state.ts'
 import { forceVelocityFactor } from '../src/core/muscle/force-velocity.ts';
 import { spinBetweenToRef, turnAboutToRef } from '../src/core/math/turn.ts';
 import { atan2 } from '../src/core/math/real.ts';
+import { contactEffort } from './stand-up-contact-effort.mjs';
 
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 
@@ -29,7 +30,7 @@ export function contactBalanceTarget(patches,owners,weights,out) {
 /** Desired ground reactions are converted to internal joint torques, never applied to a rigid body. */
 export function contactPolicy({model,parameters:p={}}) {
   const state={phase:p.phase??'hold',started:null,heading:null,held:0,released:false,
-    contacts:[],requestedForce:[0,0,0],miss:[0,0,0],saturated:0,gravityTorque:[],contactTorque:[],torque:[]};
+    contacts:[],requestedForce:[0,0,0],miss:[0,0,0],saturated:0,gravityTorque:[],contactTorque:[],torque:[],effortPredictionError:0};
   const mass=model.segments.reduce((s,b)=>s+b.mass,0), gravity=new Vector3(...model.gravity),weight=-mass*gravity.y;
   const work=groundWrenchWork(0,24), shares=Array.from({length:24},()=>({force:new Vector3(),moment:new Vector3()}));
   const rest=new Quaternion(...model.rootRest), inverseRest=Quaternion.Inverse(rest), relative=new Quaternion(), rotation=new Quaternion();
@@ -53,8 +54,11 @@ export function contactPolicy({model,parameters:p={}}) {
     up.set(0,1,0).applyRotationQuaternionToRef(relative,up);
     across.set(1,0,0).applyRotationQuaternionToRef(relative,across);
     state.heading??=atan2(-across.z,across.x);
-    const loaded=o.contacts.filter(c=>c.fixed!==null&&c.impulse>0&&-c.normal[1]>.9
+    const available=o.contacts.filter(c=>c.fixed!==null&&c.impulse>0&&-c.normal[1]>.9
       && /^(foot|hand|shank)\./.test(c.segment));
+    // Desired bearing can leave a limb free to swing; its physical contacts remain the world's own.
+    const preferred=p.bearing?available.filter(c=>p.bearing.includes(c.segment)):available;
+    const loaded=preferred.length?preferred:available;
     const patches=[],owners=[];
     for(const c of loaded) {
       const raw=(c.patch??[]).filter(pt=>pt.distance<=0&&-pt.normal[1]>.9).map(pt=>pt.point);
@@ -67,6 +71,7 @@ export function contactPolicy({model,parameters:p={}}) {
     }
     state.contacts=[...new Set(owners)];
     const centre=new Vector3(...o.centre),comVelocity=new Vector3();
+    let effort;state.effortPredictionError=0;
     for(const part of model.segments)comVelocity.addInPlaceFromFloats(...byName.get(part.name).velocity.map(v=>v*part.mass/mass));
     if(patches.length) {
       contactBalanceTarget(patches,owners,p.supportWeights,point);
@@ -80,7 +85,9 @@ export function contactPolicy({model,parameters:p={}}) {
       spinBetweenToRef(new Quaternion(...root.rotation),target,1,turnError);
       moment.set(...turnError.asArray().map((v,i)=>weight*((p.orientation??.15)*v-(p.angularDamping??.04)*root.spin[i])));
       const miss={force:new Vector3(),moment:new Vector3()};
-      shareGroundWrench(work,patches,centre,force,moment,model.friction,.3,shares,miss);
+      effort=p.effortScale>0?contactEffort(model,o,patches,owners,
+        goals.map((v,i)=>postureBlend?v+postureBlend*(finalGoals[i]-v):v),p):undefined;
+      shareGroundWrench(work,patches,centre,force,moment,model.friction,.3,shares,miss,undefined,effort);
       state.requestedForce=force.asArray();state.miss=miss.force.asArray();
     }else {state.requestedForce=[0,0,0];state.miss=[0,0,0];}
     let start=0;state.saturated=0;
@@ -111,6 +118,15 @@ export function contactPolicy({model,parameters:p={}}) {
         }
         const scale=Math.min(c.positive.peak,c.negative.peak);
         const torque=supportTorque+scale*((p.poseGain??.5)*error-(p.poseDamping??.06)*obs.speed);
+        if(effort) {
+          let predicted=effort.t0[i];
+          for(let s=0;s<patches.length;s++) {
+            const offset=i*6*patches.length+6*s,f=shares[s].force;
+            predicted-=effort.C[offset]*f.x+effort.C[offset+1]*f.y+effort.C[offset+2]*f.z;
+          }
+          const actual=torque*effort.scales[i];
+          state.effortPredictionError=Math.max(state.effortPredictionError,Math.abs(predicted-actual)/Math.max(1,Math.abs(predicted),Math.abs(actual)));
+        }
         state.gravityTorque[i]=-Vector3.Dot(axis,gravityMoment);
         state.contactTorque[i]=-Vector3.Dot(axis,moment)-state.gravityTorque[i];
         state.torque[i]=torque;

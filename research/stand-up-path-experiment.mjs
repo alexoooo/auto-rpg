@@ -24,7 +24,7 @@ const { unassistedAudit, unassistedResult } = await import(new URL('research/sta
 const manifest = JSON.parse(readFileSync(new URL('research/stand-up-acceptance/cases.json',frozen)));
 const digest = x => createHash('sha256').update(x).digest('hex');
 const write = (file,data) => writeFileSync(file,JSON.stringify(data,null,2)+'\n');
-const sourceIdentity=()=>Object.fromEntries(['stand-up-path-policy.mjs','stand-up-compact-policy.mjs','stand-up-path-experiment.mjs','stand-up-contact-model.mjs','stand-up-contact-policy.mjs','stand-up-detached-dynamics.mjs','stand-up-tracking-policy.mjs','stand-up-phase-features.mjs','stand-up-library-policy.mjs','stand-up-response-policy.mjs','stand-up-foot-design.mjs']
+const sourceIdentity=()=>Object.fromEntries(['stand-up-path-policy.mjs','stand-up-compact-policy.mjs','stand-up-path-experiment.mjs','stand-up-contact-model.mjs','stand-up-contact-policy.mjs','stand-up-contact-effort.mjs','stand-up-detached-dynamics.mjs','stand-up-tracking-policy.mjs','stand-up-phase-features.mjs','stand-up-library-policy.mjs','stand-up-response-policy.mjs','stand-up-foot-design.mjs']
   .map(name=>[name,digest(readFileSync(new URL(name,import.meta.url)))]));
 
 /** Execute only candidate muscle actions from the unchanged complete saved fall. */
