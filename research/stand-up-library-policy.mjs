@@ -2,14 +2,23 @@ import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 import {pathPolicy} from './stand-up-path-policy.mjs';
 import {phaseFeatures} from './stand-up-phase-features.mjs';
+import {responsePolicy,responseFeatures} from './stand-up-response-policy.mjs';
 
 /** Select a reference by measured posture, support and motion; every reference has its own phase. */
 export function libraryPolicy({channels,reference,parameters:p}) {
-  const references=reference.references,policies=references.map(reference=>pathPolicy({channels,reference,parameters:p}));
+  const references=reference.references,policies=references.map((reference,i)=>{
+    const controller=p.controllers?.[i],parameters={...p,...controller?.parameters};
+    switch(controller?.kind??'path') {
+      case 'path':return pathPolicy({channels,reference,parameters});
+      case 'response':return responsePolicy({channels,reference,parameters});
+      default:throw new Error('unknown reference controller');
+    }
+  });
   const state={phase:0,reference:null,released:false,switches:0,errors:[]};
   const policy=o=>{
     if(state.released)return {kind:'host'};
     const features=phaseFeatures(o),actions=policies.map(policy=>policy(o));
+    const motion=p.rootMotionWeight>0?responseFeatures(o,true).slice(-6):null;
     const errors=references.map((ref,i)=>{
       const f=ref.frames[Math.max(0,Math.min(ref.frames.length-1,Math.round(policies[i].state.phase)))];
       return (p.poseWeight??1)*o.joints.reduce((sum,j,k)=>sum+(j.angle-f.angles[k])**2/channels.length,0)
@@ -17,6 +26,7 @@ export function libraryPolicy({channels,reference,parameters:p}) {
         +(p.phaseHeightWeight??4)*(features.height-f.height)**2
         +(p.phaseLoadWeight??.2)*Object.entries(f.loads).reduce((sum,[name,v])=>sum+(v-(features.loads[name]??0))**2,0)
         +(p.velocityWeight??0)*o.joints.reduce((sum,j,k)=>sum+(j.speed-f.speeds[k])**2/channels.length,0)
+        +(motion?p.rootMotionWeight*motion.reduce((sum,v,k)=>sum+(v-f.rootMotion[k])**2,0):0)
         +(state.reference!==null&&state.reference!==i?(p.switchCost??0):0);
     });
     const selected=p.initialOnly&&state.reference!==null?state.reference:errors.indexOf(Math.min(...errors));

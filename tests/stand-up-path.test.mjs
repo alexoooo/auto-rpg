@@ -62,6 +62,26 @@ test('velocity-aware phase matching distinguishes equal poses moving in opposite
   assert.equal(policy.state.phase,1);
 });
 
+test('a recovery library selects measured-response feedback by body-relative motion and retains its controller',()=>{
+  const frame=(angle,velocity,spin)=>({kind:'muscles',velocity:[velocity],activation:[.4],handPoses:{left:'open'},
+    angles:[angle],speeds:[0],up:[0,1,0],gravity:[0,1,0],height:.5,loads:{lowerTrunk:0},rootMotion:[spin,0,0,0,0,0]});
+  const reference={references:[{rootUp:[0,1,0],release:3,frames:Array(3).fill(frame(0,-2,-1))},
+    {rootUp:[0,1,0],release:3,frames:Array(3).fill(frame(1,4,1)),responseMeasurement:{configuration:{rootMotion:true}},
+      responses:[{step:0,columns:[[0,0,0,0,1,0,0,0,0,0,0,0]]}]}]};
+  const parameters={initialOnly:true,rootMotionWeight:1,controllers:[{kind:'path'},
+    {kind:'response',parameters:{ridge:1,responseGain:1,pathGain:0}}]};
+  const channels=[{name:'knee.left flexion'}],o={time:0,height:.5,contacts:[],joints:[{angle:0,speed:0}],
+    segments:[{name:'lowerTrunk',rotation:[0,0,0,1],spin:[1,0,0],velocity:[0,0,0]}]};
+  const before=structuredClone({reference,parameters,o}),policy=libraryPolicy({channels,reference,parameters});
+  assert.deepEqual(policy(o),{kind:'muscles',velocity:[4.5],activation:[.4],handPoses:{left:'open'}});
+  assert.equal(policy.state.reference,1);
+  assert.deepEqual(policy({...o,time:1/120,segments:[{...o.segments[0],spin:[-1,0,0]}]}),
+    {kind:'muscles',velocity:[4.5],activation:[.4],handPoses:{left:'open'}});
+  assert.equal(policy.state.reference,1);assert.equal(policy.state.switches,0);
+  assert.deepEqual({reference,parameters,o},before);
+  assert.throws(()=>libraryPolicy({channels,reference,parameters:{controllers:[{kind:'unknown'}]}}),/unknown reference controller/);
+});
+
 test('phase matching respects elapsed time when a distant reference pose is closer',()=>{
   const frames=Array.from({length:30},(_,i)=>({kind:'muscles',velocity:[i],activation:[.4],handPoses:{},
     angles:[i],speeds:[0],up:[0,1,0]}));

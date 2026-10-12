@@ -16,10 +16,14 @@ const manifest=JSON.parse(readFileSync(new URL('research/stand-up-acceptance/cas
 const hash=v=>createHash('sha256').update(v).digest('hex');
 
 async function measuredStand(configuration) {
-  const source=deserialize(gunzipSync(readFileSync(configuration.source))),c=manifest.cases[0],e=await acceptanceEnvironment(c.configuration);
+  const source=deserialize(gunzipSync(readFileSync(configuration.source))),c=manifest.cases[configuration.caseIndex??0],e=await acceptanceEnvironment(c.configuration);
   assert.ok(source.result.success);assert.deepEqual(source.identity,e.identity);
-  const saved=readFileSync(new URL('research/stand-up-acceptance/'+c.file,frozen));assert.equal(hash(saved),c.sha256);
-  e.restore(gunzipSync(saved));assert.deepEqual(e.observe(),source.initial);
+  if(source.configuration?.fall)await e.fall({...c.fall,...source.configuration.fall});
+  else {
+    const saved=readFileSync(new URL('research/stand-up-acceptance/'+c.file,frozen));assert.equal(hash(saved),c.sha256);
+    e.restore(gunzipSync(saved));
+  }
+  assert.deepEqual(e.observe(),source.initial,'physical preparation reproduces the reference starting state');
   const run=(snapshot,step,channel,offset)=>{
     e.restore(snapshot);const audit=unassistedAudit(e.stand.built,()=>e.stand.world.steps);
     try {
@@ -42,7 +46,7 @@ async function measuredStand(configuration) {
       return {features,coast,effortViolation:result.effortViolation};
     }finally{audit.dispose();}
   };
-  return {e,source,run};
+  return {e,source,run,c};
 }
 
 if(!isMainThread) {
@@ -69,9 +73,10 @@ if(!isMainThread) {
     }catch(error){parentPort.postMessage({id,r:{step:x.step,error:String(error.stack)}});}
   });
 }else {
-  const {values:v}=parseArgs({options:Object.fromEntries(['source','reference','out','horizon','stride','delta','wall','root-motion','coast'].map(k=>[k,{type:'string'}]))});
+  const {values:v}=parseArgs({options:Object.fromEntries(['source','reference','out','horizon','stride','delta','wall','root-motion','coast','case'].map(k=>[k,{type:'string'}]))});
   assert.ok(v.source&&v.reference&&v.out);
-  const configuration={source:resolve(v.source),horizon:Number(v.horizon??12),stride:Number(v.stride??12),delta:Number(v.delta??4),rootMotion:v['root-motion']==='yes',coast:v.coast==='yes'};
+  const configuration={source:resolve(v.source),caseIndex:Number(v.case??0),horizon:Number(v.horizon??12),stride:Number(v.stride??12),delta:Number(v.delta??4),rootMotion:v['root-motion']==='yes',coast:v.coast==='yes'};
+  assert.ok(Number.isSafeInteger(configuration.caseIndex)&&manifest.cases[configuration.caseIndex]);
   assert.ok(Number.isSafeInteger(configuration.horizon)&&configuration.horizon>0&&Number.isSafeInteger(configuration.stride)&&configuration.stride>0&&configuration.delta>0);
   mkdirSync(dirname(resolve(v.out)),{recursive:true});const revision=frozenRevision(),begun=Date.now(),deadline=begun+Number(v.wall??300)*1000;
   const reference=JSON.parse(gunzipSync(readFileSync(v.reference))),stand=await measuredStand(configuration),samples=[];
@@ -99,7 +104,9 @@ if(!isMainThread) {
       console.log(JSON.stringify({samples:samples.length,last:samples.at(-1).step,steps}));
     }
     const complete=samples.length===Math.ceil(reference.release/configuration.stride);
-    const report={revision,configuration,complete,steps,wallSeconds:(Date.now()-begun)/1000,sourcePhysicalTraceSha256:stand.source.traceSha256,
+    const report={revision,configuration,case:stand.c.id,fall:stand.source.configuration?.fall??null,
+      checkpointSha256:stand.source.configuration?.fall?null:stand.c.sha256,initialObservationSha256:hash(JSON.stringify(stand.source.initial)),
+      complete,steps,wallSeconds:(Date.now()-begun)/1000,sourcePhysicalTraceSha256:stand.source.traceSha256,
       sourceSha256:hash(readFileSync(v.source)),referenceSha256:hash(readFileSync(v.reference)),
       sources:Object.fromEntries(['stand-up-response-measure.mjs','stand-up-response-policy.mjs'].map(n=>[n,hash(readFileSync(new URL(n,import.meta.url)))])),
       samples:samples.map(({columns,coastColumns,...r})=>r)};

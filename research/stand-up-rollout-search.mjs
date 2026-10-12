@@ -97,6 +97,16 @@ async function rolloutStand(sourcePath,caseIndex=0,options={}) {
     if(control.kind==='replay')return source.rows[Math.min(source.rows.length-1,Math.round(control.start+step*control.rate))].action;
     if(control.kind==='pose')return {kind:'targets',angles:reference[control.target].angles.map((v,i)=>Math.max(e.channels[i].min,Math.min(e.channels[i].max,v))),
       response:control.response,speed:control.speed,activation:1};
+    if(control.kind==='damped-pose') {
+      const o=e.observe(),velocity=[];let offset=0;
+      for(const joint of e.stand.built.joints.values()) {
+        const n=joint.dofs.length,angles=o.joints.slice(offset,offset+n).map(j=>j.angle),turning=turningToRef(joint,angles,[]);
+        for(let i=0;i<n;i++)velocity.push(turning[i].reduce((sum,v,k)=>sum+v*Math.max(-control.speed,Math.min(control.speed,
+          (reference[control.target].angles[offset+k]-angles[k])/control.response)),0)-control.damping*o.joints[offset+i].speed);
+        offset+=n;
+      }
+      return {kind:'muscles',velocity,activation:e.channels.map(()=>control.activation),handPoses:{left:'open',right:'open'}};
+    }
     if(control.kind==='hybrid'||control.kind==='feedback') {
       const base=source.rows[Math.min(source.rows.length-1,control.start+step)].action;
       if(base.kind!=='muscles')return base;
@@ -142,7 +152,7 @@ if(!isMainThread&&workerData?.rolloutSearch) {
     catch(error){parentPort.postMessage({id,r:{error:String(error.stack),score:-Infinity}});}
   });
 }else if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href) {
-  const {values:v}=parseArgs({options:Object.fromEntries(['source','out','mode','plan','stage','case','width','block','seconds','wall','penalty','velocity-weight','anchor','orientation','contact-weight','transfer','diversity','roll','target','prefix','guidance','local-motion','feedback','terminal-motion-weight','terminal-contact-weight','terminal-sole-weight','gentle'].map(k=>[k,{type:'string'}]))});
+  const {values:v}=parseArgs({options:Object.fromEntries(['source','out','mode','plan','stage','case','width','block','seconds','wall','penalty','velocity-weight','anchor','orientation','contact-weight','transfer','diversity','roll','target','prefix','guidance','local-motion','feedback','terminal-motion-weight','terminal-contact-weight','terminal-sole-weight','gentle','braking'].map(k=>[k,{type:'string'}]))});
   assert.ok(v.source&&v.out);mkdirSync(dirname(resolve(v.out)),{recursive:true});
   const revision=frozenRevision(),sourceSha256=digest(readFileSync(v.source)),codeSha256=digest(readFileSync(new URL(import.meta.url)));
   const options={penalty:Number(v.penalty??6),velocityWeight:Number(v['velocity-weight']??0),
@@ -213,7 +223,7 @@ if(!isMainThread&&workerData?.rolloutSearch) {
       }
       const configuration={case:stand.c.id,checkpointSha256:stand.c.sha256,initialObservationSha256:stand.c.observationSha256,
         referenceInitialObservationSha256:stand.referenceInitialObservationSha256,width,block,seconds,wall:Number(v.wall??600),anchor:v.anchor==='yes',
-        diversity:v.diversity??'phase',roll:v.roll==='yes',feedback:v.feedback==='yes',gentle:v.gentle==='yes',options,
+        diversity:v.diversity??'phase',roll:v.roll==='yes',feedback:v.feedback==='yes',gentle:v.gentle==='yes',braking:v.braking==='yes',options,
         ...(v.prefix?{prefixSha256:digest(readFileSync(v.prefix)),prefixSteps}:{})};
       const pool=workerPool(new URL(import.meta.url),{rolloutSearch:true,source:resolve(v.source),caseIndex:Number(v.case??0),options},3);
       let beam=[initialNode],evaluations=initialNode.plan.length,steps=prefixSteps,complete=null,anchor=beam[0];
@@ -228,6 +238,9 @@ if(!isMainThread&&workerData?.rolloutSearch) {
             // Slower posture requests let a rising body brake before reaching its standing target.
             if(v.gentle==='yes'&&parent.height>.5)for(const ahead of [120,240])for(const speed of [1.5,3])
               controls.push({kind:'pose',target:Math.min(stand.last,start+ahead),response:.3,speed,steps:duration});
+            // Motor-axis speed feedback brakes motion while the posture request seeks standing support.
+            if(v.braking==='yes'&&parent.height>.5)for(const damping of [.5,1,2])for(const activation of [.5,1])
+              controls.push({kind:'damped-pose',target:stand.last,response:.3,speed:3,damping,activation,steps:duration});
             for(const ahead of [30,120,240])controls.push({kind:'hybrid',start,target:Math.min(stand.last,start+ahead),response:.2,steps:duration});
             if(options.targetSeconds!==undefined)for(const response of [.1,.3])controls.push({kind:'pose',
               target:Math.round(options.targetSeconds*120),response,speed:6,steps:duration});

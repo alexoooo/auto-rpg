@@ -135,11 +135,13 @@ After it, each with its own plan, in the order each needs the one before:
     and zero balance assistance. Measured muscle-response feedback transfers one demonstration
     to three additional fresh starts in 7.075-7.775 s, but ten other selected starts fail. A recorded
     muscle prefix followed by that feedback completes a different saved side fall in 8.6333 s;
-    further physical search shortens that side fall to 6.6583 s with ordinary-host continuation.
-    The composed candidate completes two of sixteen frozen cases, none within six seconds; its
-    prefix applies only to the exact saved starting observation. All successes include
-    standing/walking verification; none establishes the timing target or a robust gameplay controller
-    ([saved side fall](analysis/2026-10-11-stand-up-planning.md#saved-side-fall-speed-and-settling-2026-10-12)).
+    further physical search shortens that side fall to 6.4167 s with ordinary-host continuation.
+    Side-fall measured feedback produces a verified 5.9 s fresh development recovery. A library
+    selected from observed posture and motion completes four of five trained side-fall recipes,
+    one within six seconds, and two of sixteen frozen cases, none within six seconds. It does
+    not depend on an exact saved-state hash. All successes include standing/walking verification;
+    the four-second median, broad coverage and gameplay integration remain unfinished
+    ([side-fall feedback](analysis/2026-10-11-stand-up-planning.md#measured-side-fall-feedback-and-reference-selection-2026-10-12)).
   - **Assisted rise is a separate experiment**, with external lift and righting at recovery and
     host Balance 100. Historical assisted-only results:
     63/64 directional selection, 126/128 independent lying falls, 16/16 three-fall sequences and
