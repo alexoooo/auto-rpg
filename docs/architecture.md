@@ -714,16 +714,19 @@ unless it is given another.
 **Assisted rise** is an additional experimental Warrior/Rogue controller. It uses the existing
 metered `Assist` port for bounded root force and righting moment, plus ordinary muscle commands
 toward a staggered-foot target. The leg target is an offline collision-aware IK result; the upper
-body retains the loadout's guard. Late height settling lowers the target over one second after
-four seconds without release. The selected allowance is Balance 100%, with the existing moment
-rule; lower allowances use support recovery. It releases help at physical two-foot support and
-falls back to support recovery after twelve seconds, without restarting the elapsed attempt.
-Its state, including heading, start time and fallback, is replayable. Ordinary gameplay presets
-are unchanged. The Lab's Get-up experiment selects it with the SIMBICON host and original feet;
-the slow searched sole-body witness remains a separate choice. Independent acceptance uses
-actual penetrating contact-patch points, upright trunk/soles, quiet motion and the ordinary host's
-standing/walking tail. Selection evidence and remaining qualification are in the existing
-[recovery study](analysis/2026-10-11-stand-up-planning.md).
+body retains the loadout's guard. After four seconds, supported upright feet receive horizontal
+whole-body centring without upward help. A Rogue-specific alternate leg target blends in after
+six seconds, with one half-second unloading/folding pulse to free trapped feet. A supported
+release fades the remaining wrench over 0.1 seconds and suppresses the pulse. Transient contact
+loss does not restart that fade; a sustained loss of upright trunk/foot orientation rearms help.
+Actual physical support still gates handover. The selected allowance is Balance 100%, with the
+existing moment rule; lower allowances use support recovery. The twelve-second fallback keeps
+the original elapsed attempt. State, including heading, transition blends and release anchors,
+is replayable. Ordinary gameplay presets and anatomy are unchanged. The Lab's Get-up experiment
+selects it with the SIMBICON host and original feet; the slow searched sole-body witness remains
+a separate choice. Independent acceptance uses actual penetrating contact-patch points, upright
+trunk/soles, quiet motion and the ordinary host's standing/walking tail. Evidence and remaining
+qualification are in the [recovery study](analysis/2026-10-11-stand-up-planning.md).
 
 **The riser plays a recipe** (`Recipe`, `RISE`, `rise/stages.ts`): plain data that names
 freedoms and limbs, and no body. A recipe can override intermediate motion and settling

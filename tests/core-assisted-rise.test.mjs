@@ -128,3 +128,19 @@ test('bounded unloading separates crossed feet and restores through its contact 
   assert.ok(e.experiment.assistance.recovery.forcePeak<=e.body.assist.most.force*(1+1e-12));
  }finally{e.dispose();}
 });
+
+test('supported release survives transient contact loss without restarting the wrench',async()=>{
+ const e=await recoveryEnvironment({balance:100,host:'simbicon',baseline:'assisted-rise'});
+ try{
+  await e.fall({degrees:189.50688888015847,impulse:120,separation:.2});
+  let fading=false,transient=false;
+  while(e.result().elapsed<16&&!e.result().success&&!e.result().failure){
+   e.step();const state=e.legacy.state.feedback;
+   fading ||= state.releaseStarted!==null;
+   if(state.releaseStarted!==null && !e.measure().ready && e.legacy.state.phase==='assist')transient=true;
+  }
+  assert.equal(fading,true);assert.equal(transient,true);
+  assert.equal(e.result().success,true,JSON.stringify(e.result()));assert.ok(e.result().seconds<=12);
+  assert.equal(e.legacy.state.attempts,1);assert.equal(e.body.has,'command');
+ }finally{e.dispose();}
+});

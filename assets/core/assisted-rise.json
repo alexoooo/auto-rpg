@@ -12,7 +12,9 @@
     "repositionAfter": 6,
     "repositionSeconds": 0.5,
     "repositionKnee": 1,
-    "releaseSeconds": 0.1
+    "releaseSeconds": 0.1,
+    "contactCentre": false,
+    "stableRelease": true
   },
   "posture": {
     "hip.left flexion": 0.22672161529036194,

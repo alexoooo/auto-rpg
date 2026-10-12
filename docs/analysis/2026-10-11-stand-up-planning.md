@@ -633,3 +633,53 @@ its final changes before those figures are used as its assistance evidence.
 bounds and physical coverage audit, and predeclares orthogonal/reversed 120 N s fallback recipes
 when the aligned stronger shoves still prevent falling. Prevention is recorded separately and
 never counts as a successful get-up. No outcome from that set is used for tuning.
+
+
+### Release stability and the next independent set
+
+The frozen unloading/fade candidate completes 63/64 directional cases within six seconds,
+126/128 V3 lying-state cases within twelve seconds (120 within six), and 32/32 disturbed cases
+within twelve seconds (30 within six). It fails the repeated-fall gate at 14/16 whole sequences.
+These are Node Stance Lab results at 120 Hz, gameplay Rapier coordinate engine, symmetric muscles,
+original bodies, recovery Balance 100 and ordinary SIMBICON host Balance 100. V3 is retired after
+its failures inform the next correction; its passing partitions do not qualify the corrected policy.
+
+The failed sequences distinguish two mechanisms. Warrior empty, 189.50688888015847 degrees,
+120 N s twice, reaches physically ready support repeatedly, but transient contact loss restarts
+its 0.1-second wrench fade. The scheduled six-second foot pulse can also interrupt that release.
+A latched fade holds the remaining wrench at zero through transient patch loss, suppresses the
+foot pulse during release, and rearms help only after one second with lost upright foot/trunk
+orientation. Actual physical support still gates handover, and quiet standing plus the host tail
+still gate completion. The exact physical regression now completes within twelve seconds.
+
+Rogue empty, after successful recovery from 318.58400484753724 degrees and its walking tail,
+stalls on the next 288.5692672786357-degree fall. It is nearly motionless with upright feet, but
+its centre is outside their loaded patch. A saved-state ablation aiming late horizontal feedback
+at the actual penetrating patch centroid completes in 5.40 seconds at gain 2, versus no completion
+within twelve seconds without that correction. However, enabling it broadly loses other host-tail
+successes: contact-centre plus latched release finishes 62/64 selection and 14/16 retired repeated
+sequences. It remains an explicit disabled experiment, not the selected runtime setting.
+
+Latched release alone preserves all eight earlier physical regressions and passes the new
+transient-contact regression. It completes 63/64 selection within twelve seconds (62 within six)
+and 15/16 retired repeated sequences. The remaining selection failure is Warrior club at 22.5
+degrees, which reaches quiet handover in 5.1917 seconds but fails the one-second walking-distance
+check. The remaining retired repeated failure is retained, not omitted from the count.
+
+The uniform-friction margin probe applies the declared coefficient to all colliders before every
+solver step, including recreated hand colliders. At 0.4, 0.5 and 0.6, each of the sixteen cardinal
+body/loadout cases completes within twelve seconds with the pre-latched candidate (48/48 total).
+An earlier partial probe set friction only at construction and is discarded. This is an explicit
+research engine-law perturbation, not a changed gameplay material or arbitrary-surface claim.
+
+The pre-latched candidate also completes two forced recoveries in a thirty-second two-unit Arena
+bout. Both fighters return to active wounded combat; 200 contacts are recorded. Restoring the
+checkpoint reproduces every physical pose, control/wound trace and the complete final saved state
+exactly. Under concurrent research load the Node whole-world mean is 2.70 ms/step and p95 5.39 ms,
+with peak sampled heap 106 MB; this is not isolated controller cost. The final selected candidate
+receives a separate gameplay run.
+
+`research/stand-up-holdout-v4.json`, seed 1210202604, reserves fresh lying, disturbed and repeated
+cases with the same bounds and predeclared coverage procedure. Its recovery outcomes are not
+used to choose or tune the frozen release-only candidate. `research/stand-up-diagnose.mjs` captures
+complete failing continuations and prior successful falls, with exact-source/configuration checks.

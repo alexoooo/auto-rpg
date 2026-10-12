@@ -129,7 +129,7 @@ After it, each with its own plan, in the order each needs the one before:
     remain open; existing presets retain their recovery.
   - The [recovery campaign](plans/2026-10-11-offline-stand-up-search.md) reproduces a published
     controller and adapts SAC to Rapier. A separate Balance-100 feedback/IK candidate completes
-    all 64 directional selection cases within 12 seconds, with group medians 3.36-3.85 s.
+    63 of 64 directional selection cases within 12 seconds.
     It is available in the Lab; independent validation, repeated-fall and gameplay gates remain
     open. Learning's added value and reduced assistance are separate questions. The original
     body and muscles remain selected; human appearance is optional.
