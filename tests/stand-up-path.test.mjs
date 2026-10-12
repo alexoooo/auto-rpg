@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { pathPolicy } from '../research/stand-up-path-policy.mjs';
 import { phaseFeatures } from '../research/stand-up-phase-features.mjs';
 import { libraryPolicy } from '../research/stand-up-library-policy.mjs';
+import { responseFeatures, responsePolicy } from '../research/stand-up-response-policy.mjs';
 
 test('a recovery reference resumes muscle actions after a temporary host interval',()=>{
   const muscles={kind:'muscles',velocity:[1],activation:[.3],handPoses:{left:'open'}};
@@ -70,4 +71,46 @@ test('phase matching respects elapsed time when a distant reference pose is clos
   });
   assert.deepEqual(actual,[0,1.5,3].map((phase,i)=>({phase,
     action:{kind:'muscles',velocity:[[0,2,3][i]],activation:[.4],handPoses:{}}})));
+});
+
+test('measured coupled responses distribute a posture correction and retain muscle command bounds',()=>{
+  const channels=[{name:'hip.left flexion'},{name:'knee.left flexion'}];
+  const reference={rootUp:[0,1,0],release:1,frames:[{kind:'muscles',velocity:[1,2],activation:[.4,.6],handPoses:{},
+    angles:[1,0],speeds:[0,0],gravity:[0,1,0],height:.5}],
+    responses:[{step:0,columns:[[0,0,0,0,1,1,0,0],[0,0,0,0,1,-1,0,0]]}]};
+  const observation={time:0,height:.5,segments:[{name:'lowerTrunk',rotation:[0,0,0,1]}],contacts:[],joints:[{angle:0,speed:0},{angle:0,speed:0}]};
+  const parameters={ridge:1,responseGain:1,responseCap:2,responseRootWeight:0,responseHeightWeight:0,responseSpeedWeight:0};
+  const before=structuredClone({reference,observation});
+  const policy=responsePolicy({channels,reference,parameters});
+  assert.deepEqual(policy(observation),{kind:'muscles',velocity:[1.25,2.25],activation:[.4,.6],handPoses:{}});
+  assert.deepEqual({reference,observation},before);
+  const bounded=responsePolicy({channels,reference,parameters:{...parameters,responseCap:.1}});
+  assert.deepEqual(bounded(observation),{kind:'muscles',velocity:[1.1,2.1],activation:[.4,.6],handPoses:{}});
+  const exact=responsePolicy({channels,reference,parameters});
+  assert.deepEqual(exact({...observation,joints:[{angle:1,speed:0},{angle:0,speed:0}]}),
+    {kind:'muscles',velocity:[1,2],activation:[.4,.6],handPoses:{}});
+});
+
+test('measured response momentum is local to the root and invariant to world heading',()=>{
+  const observation={height:.5,contacts:[],joints:[{angle:0,speed:0}],
+    segments:[{name:'lowerTrunk',rotation:[0,0,0,1],spin:[1,2,3],velocity:[-2,0,1]}]};
+  const before=structuredClone(observation),features=responseFeatures(observation,true);
+  assert.deepEqual(features.slice(-6),[1,2,3,-2,0,1]);assert.deepEqual(observation,before);
+  const turned={...observation,segments:[{name:'lowerTrunk',rotation:[0,Math.SQRT1_2,0,Math.SQRT1_2],
+    spin:[3,2,-1],velocity:[1,0,2]}]};
+  const actual=responseFeatures(turned,true);
+  assert.equal(actual.length,features.length);
+  actual.forEach((v,i)=>assert.ok(Math.abs(v-features[i])<1e-12));
+});
+
+test('measured disturbance growth increases feedback before the next reference transition',()=>{
+  const frame={kind:'muscles',velocity:[0],activation:[.4],handPoses:{},angles:[1],speeds:[0],gravity:[0,1,0],height:.5};
+  const reference={rootUp:[0,1,0],release:3,frames:[frame,frame,frame],responses:[
+    {step:0,columns:[[0,0,0,0,1,0]],coastColumns:[[0,0,0,0,3,0]]},
+    {step:1,columns:[[0,0,0,0,1,0]]}]};
+  const policy=responsePolicy({channels:[{name:'knee.left flexion'}],reference,parameters:{ridge:1,responseGain:1,coastGain:1}});
+  const observation={time:0,height:.5,segments:[{name:'lowerTrunk',rotation:[0,0,0,1]}],contacts:[],joints:[{angle:1,speed:0}]};
+  assert.deepEqual(policy(observation),{kind:'muscles',velocity:[0],activation:[.4],handPoses:{}});
+  assert.deepEqual(policy({...observation,time:1/120,joints:[{angle:0,speed:0}]}),
+    {kind:'muscles',velocity:[1],activation:[.4],handPoses:{}});
 });

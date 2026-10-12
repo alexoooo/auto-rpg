@@ -132,11 +132,11 @@ After it, each with its own plan, in the order each needs the one before:
     `stand-up-acceptance-v1` comparison retains that recipe and rejects external actuation.
     Changes to its evaluator, baseline, cases or criteria require the owner's agreement.
     Actual-physics search and feedback reach 6.975 s on that saved fall with unchanged muscles
-    and zero balance assistance. Library feedback recovers six fresh starts represented by its
-    demonstrations in 7-7.9167 s, but all eight additional starts fail; the frozen comparison still
-    completes only one of sixteen, none within six seconds. All successes include
+    and zero balance assistance. Measured muscle-response feedback transfers one demonstration
+    to three additional fresh starts in 7.075-7.775 s, but ten other selected starts fail; the frozen
+    comparison still completes only one of sixteen, none within six seconds. All successes include
     standing/walking verification; none establishes the timing target or a robust gameplay controller
-    ([library feedback](analysis/2026-10-11-stand-up-planning.md#multiple-reference-feedback-2026-10-12)).
+    ([measured response](analysis/2026-10-11-stand-up-planning.md#measured-muscle-response-feedback-2026-10-12)).
   - **Assisted rise is a separate experiment**, with external lift and righting at recovery and
     host Balance 100. Historical assisted-only results:
     63/64 directional selection, 126/128 independent lying falls, 16/16 three-fall sequences and

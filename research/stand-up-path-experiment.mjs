@@ -14,6 +14,7 @@ import { contactPolicy } from './stand-up-contact-policy.mjs';
 import { trackingPolicy } from './stand-up-tracking-policy.mjs';
 import { phaseFeatures } from './stand-up-phase-features.mjs';
 import { libraryPolicy } from './stand-up-library-policy.mjs';
+import { responsePolicy } from './stand-up-response-policy.mjs';
 import { cmaSearch, workerPool } from './cma.mjs';
 
 const frozen = new URL('../.tools/stand-up-frozen/',import.meta.url);
@@ -22,7 +23,7 @@ const { unassistedAudit, unassistedResult } = await import(new URL('research/sta
 const manifest = JSON.parse(readFileSync(new URL('research/stand-up-acceptance/cases.json',frozen)));
 const digest = x => createHash('sha256').update(x).digest('hex');
 const write = (file,data) => writeFileSync(file,JSON.stringify(data,null,2)+'\n');
-const sourceIdentity=()=>Object.fromEntries(['stand-up-path-policy.mjs','stand-up-compact-policy.mjs','stand-up-path-experiment.mjs','stand-up-contact-model.mjs','stand-up-contact-policy.mjs','stand-up-detached-dynamics.mjs','stand-up-tracking-policy.mjs','stand-up-phase-features.mjs','stand-up-library-policy.mjs']
+const sourceIdentity=()=>Object.fromEntries(['stand-up-path-policy.mjs','stand-up-compact-policy.mjs','stand-up-path-experiment.mjs','stand-up-contact-model.mjs','stand-up-contact-policy.mjs','stand-up-detached-dynamics.mjs','stand-up-tracking-policy.mjs','stand-up-phase-features.mjs','stand-up-library-policy.mjs','stand-up-response-policy.mjs']
   .map(name=>[name,digest(readFileSync(new URL(name,import.meta.url)))]));
 
 /** Execute only candidate muscle actions from the unchanged complete saved fall. */
@@ -38,7 +39,7 @@ async function trial(configuration, { caseIndex=0, seconds=20, capture=false }={
     else if(configuration.fall)await e.fall({...c.fall,...configuration.fall});
     else e.restore(gunzipSync(saved));
     const initial=e.observe(); if(!configuration.fall&&!configuration.standing)assert.equal(digest(JSON.stringify(initial)),c.observationSha256);
-    const factory=configuration.kind==='library'?libraryPolicy:configuration.kind==='tracking'?trackingPolicy:configuration.kind==='contact'?contactPolicy:configuration.kind==='compact'?compactPolicy:pathPolicy;
+    const factory=configuration.kind==='response'?responsePolicy:configuration.kind==='library'?libraryPolicy:configuration.kind==='tracking'?trackingPolicy:configuration.kind==='contact'?contactPolicy:configuration.kind==='compact'?compactPolicy:pathPolicy;
     const policy=factory({channels:e.channels,reference,model,parameters:configuration.parameters});
     audit=unassistedAudit(e.stand.built,()=>e.stand.world.steps);
     let steps=0, peakHeight=0, last, quality=0, peakQuality=0;

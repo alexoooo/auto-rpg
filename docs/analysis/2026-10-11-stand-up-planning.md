@@ -1542,3 +1542,97 @@ named phase/library regressions, packing rejection, matched physical identities,
 and the full frozen comparison pass. Whitespace and line-ending gates pass. The performance goal
 fails. More demonstrations reproduce more trained starts, but do not restore missing support on
 the additional falls; recovery across different contact configurations remains the next capability.
+
+## Measured muscle-response feedback, 2026-10-12
+
+The full goal remains **not achieved**. Local actuator responses measured in actual game physics
+let one nominal demonstration recover three additional fresh starts with one feedback setting.
+Ten other selected starts fail, every accelerated trial fails, and the frozen comparison gains no
+completion. The separate 6.975 s saved-fall witness remains the fastest verified result.
+
+All measurements here use **Node Stance Lab / frozen game Rapier coordinate / 120 Hz / symmetric
+original muscle envelopes / Balance 0**. Fresh starts retain the Warrior/empty compliant-sole body
+and ordinary stance host; the complete frozen comparison retains all its bodies and loadouts.
+There are no anatomy, muscle, host, solver, contact-law or acceptance changes. Every success
+includes the unchanged standing and walking tail.
+
+`research/stand-up-response-measure.mjs` restores complete physical snapshots along the nominal
+7.25 s demonstration. For each sampled phase it perturbs each finite muscle-speed command in
+both directions and measures the resulting posture and velocity. The muscle driver still applies
+its original activation and force-velocity limits. Every unperturbed branch must reproduce its
+reference features exactly; every perturbed branch must pass the external-actuation and effort
+audits. The tool checks reference/trace and body identity before measurement. A paired perturbation
+on two channels, excluded from the fitted columns, measures local prediction error.
+
+The validated calibrations use 52 samples with a twelve-step horizon and +/-4 rad/s request offsets,
+then 104 samples with a six-step horizon and +/-1 rad/s offsets. The latter also reads root-local
+angular and linear velocity. A third calibration measures how those disturbances evolve for six
+more steps after the perturbation stops. Together these use 179,712 physical continuation steps;
+an earlier 44,304-step calibration precedes the explicit held-out perturbation check and is retained
+separately. The measurement tool imposes a 240 s wall limit on each run; all three complete.
+
+`research/stand-up-response-policy.mjs` uses regularized measured response inverses to correct
+the reference muscle-speed requests, capped at +/-4 rad/s correction. Optional measured disturbance
+growth predicts the next local error before correction. Activations and infinite-speed commands
+retain the reference requests. At runtime the policy receives only detached observations; snapshots,
+physics worlds and branch evaluation belong exclusively to offline measurement.
+
+The local model is approximate. On the common gravity/height/joint-angle/joint-speed features, the
+median weighted relative prediction error is 0.455409 for the twelve-step model and 0.355745 for
+the six-step model; their 90th percentiles are 1.016100 and 0.963502. These are diagnostic feature
+errors on paired command perturbations, not physical recovery rates or validation of accuracy on
+different falls. The recorded weights make the two comparisons use the same feature metric.
+
+| Development experiment, Node harness above, 12 s episode cap | Successful trials / all trials |
+|---|---|
+| Twelve-step local response | 6/36; all six reproduce the nominal start |
+| Six-step response including root motion | 7/36; six nominal and one +0.5-degree recovery |
+| Predicted disturbance growth, including accelerated trials | 8/36; four nominal and four -0.5-degree recoveries |
+| Intermediate prediction gains | 5/16 |
+| Selected setting on wider fresh starts | 1/6 |
+
+The grids share controls and directions and are development data. All twelve accelerated trials
+at 1.25 times reference progression fail. Handover followed by failed walking displacement occurs
+at 7.458333, 7.883333 and 7.758333 s in three separate trials; all count as failures. Across these
+130 trials there are no adapter errors or external-actuation events. Maximum effort-bound excess
+is 0.00004559813 N m, below the unchanged 0.0001 tolerance.
+
+The selected six-step model uses `pathGain: 16`, `responseGain: 0.1`, `coastGain: 0.35`,
+`ridge: 0.0001`, the four-rad/s correction cap and the recorded phase parameters. The same setting
+finishes -0.5, 0, +0.5 and +1-degree starts in 7.075, 7.25, 7.775 and 7.766667 s. Only the nominal
+demonstration supplies model measurements. The -3, -2, -1, -0.75, -0.25, +0.25, +0.75, +2, +3
+and 90-degree starts fail, including the -3-degree walking failure. This does not establish a
+continuous interval of recoverable starts or a robust controller.
+
+The complete unchanged frozen `--candidate` comparison takes 175.665 s. The candidate finishes
+1/16 within 35 s, 1/16 within 12 s and 0/16 within 6 s; all other episodes reach the deadline.
+Failure-inclusive medians remain infinite. Every optimized baseline record exactly reproduces
+the preceding comparison, all starting states match, and the floating-controller negative control
+is rejected. Runtime integration and every full qualification partition remain unfinished.
+
+The matched -0.5-degree replay is `.review/stand-up-response/replay.html`: candidate 7.075 s,
+optimized baseline no recovery by 38 s, with identical complete starting observations and physical
+identities. Independent regeneration and action replay match all 1,208 observations and the full
+result, physical SHA-256 `ee26651c35ecca8599dd5e48684669a95a89f246f68b14d1827fe669c2f64915`.
+The viewer includes the standing/walking tail and labels the fresh fall. It is built but not visually
+inspected because of the existing browser local-file restriction. No server is started.
+
+For reproduction, reconstruct and extract the nominal 7.25 s trace with the preceding commands,
+then measure the selected model:
+
+```powershell
+node research/stand-up-response-measure.mjs --source <nominal.trace.gz> --reference <nominal-reference.json.gz> --out .review/response-model --horizon 6 --stride 6 --delta 1 --root-motion yes --coast yes --wall 240
+```
+
+The output `.json.gz` is the reference for `kind: "response"` in the existing path experiment.
+`research/stand-up-path-results.json` under `measuredResponseFeedback` retains exact parameters,
+measurement provenance, prediction checks, every trial, frozen comparison and replay verification.
+Point that configuration at the rebuilt model, set `STAND_UP_RESPONSE_CONFIG` to its file, and
+run the frozen evaluator with `--candidate <absolute-path-to-research/stand-up-response-policy.mjs>`.
+The existing record, fresh-replay verification and viewer commands apply unchanged.
+
+Validation: `npm run check`, `npm test` (671 passes, zero failures, five existing TODOs), all eight
+named phase/feedback regressions, exact sampled baselines, bounded physical branches, paired
+perturbation measurements, matched fresh replay and the complete frozen comparison pass.
+Whitespace and line-ending gates pass. The four-second median / six-second recovery goal fails;
+the measured local models still do not control the different support transitions in the other falls.
