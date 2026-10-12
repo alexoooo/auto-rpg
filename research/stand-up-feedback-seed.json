@@ -1,0 +1,169 @@
+{
+  "description": "Slow physical feasibility witness for one development fall; not a qualified recovery variant.",
+  "configuration": {
+    "model": "workshop-fighter",
+    "held": "empty",
+    "contact": "shoe",
+    "strength": 1,
+    "speed": 1,
+    "weight": 1,
+    "seconds": 26,
+    "degrees": 0
+  },
+  "identity": {
+    "harness": "Node Stance Lab recovery search",
+    "model": "workshop-fighter",
+    "held": "empty",
+    "baseline": "support-recovery",
+    "recipeSha": "4d268b653b995bce06df62476799f2793742df8ed2a47a7d0b47231c3b80e77b",
+    "hz": 120,
+    "engine": "rapier-coordinate",
+    "revision": "rapier/adapter-11/sha256:0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c/coordinate-limits",
+    "artifact": "vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.9.tgz",
+    "artifactSha": "0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c",
+    "sourceSha": "786a34e6877169fed56b85f0eed219cd014b8808cefc897c2826ca9096342810",
+    "environmentSha": "1d0e777b06f95c5f627bf883363cff416e04c2ec8a896f4bb353055df36ba793",
+    "specSha": "89a7a051e52d295ba5848b8aaeb62e643372243b81acc76cb2b5fa398fb1fa94",
+    "actuation": "symmetric",
+    "balance": 0
+  },
+  "result": {
+    "fell": true,
+    "success": true,
+    "failure": null,
+    "firstDown": 2.55,
+    "takeover": 2.5416666666666665,
+    "handover": 18.1,
+    "seconds": 15.558333333333335,
+    "fromFirstDown": 15.55,
+    "elapsed": 18.558333333333334,
+    "effortViolation": 0.000035855569763043604,
+    "assisted": false,
+    "quiet": 0
+  },
+  "feedback": {
+    "u": [
+      0.06134244207992704,
+      0.6501443604100514,
+      0.42833149735471737,
+      0.7957806926739734,
+      0.5306037285076666,
+      0.1581500334773961,
+      0.18372561814600707,
+      0.31343637705288413,
+      0.7401860689878507,
+      0.1589572278424608,
+      0.065689246746051,
+      0.5208231118164077,
+      0.5454370984044016,
+      0.19217336537177432,
+      0.4972586650433971,
+      0.5509615862984009,
+      0.299799050526837
+    ],
+    "parameters": [
+      [
+        "roll",
+        0.1,
+        1,
+        1
+      ],
+      [
+        "prepare",
+        0.1,
+        1,
+        1
+      ],
+      [
+        "poses",
+        0.1,
+        1,
+        1
+      ],
+      [
+        "bearing",
+        0.15,
+        1,
+        1
+      ],
+      [
+        "response",
+        0.1,
+        1,
+        1
+      ],
+      [
+        "speed",
+        1,
+        4,
+        1
+      ],
+      [
+        "progressSpeed",
+        0.1,
+        1.2,
+        0.1
+      ],
+      [
+        "settleSpeed",
+        0.1,
+        1,
+        0.1
+      ],
+      [
+        "settleSeconds",
+        0.025,
+        0.5,
+        0.5
+      ],
+      [
+        "near",
+        0.05,
+        0.1,
+        0.05
+      ],
+      [
+        "turn",
+        0.15,
+        0.45,
+        0.15
+      ],
+      [
+        "hip",
+        -0.2,
+        0.2,
+        0
+      ],
+      [
+        "knee",
+        -0.2,
+        0.2,
+        0
+      ],
+      [
+        "shoulder",
+        -0.25,
+        0.25,
+        0
+      ],
+      [
+        "wrist",
+        -0.4,
+        0.4,
+        0
+      ],
+      [
+        "height",
+        -0.05,
+        0.05,
+        0
+      ],
+      [
+        "pitch",
+        -0.1,
+        0.1,
+        0
+      ]
+    ]
+  }
+}

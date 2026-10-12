@@ -25,7 +25,10 @@ export const FEEDBACK_PARAMETERS = deepFreeze([
 const initial = FEEDBACK_PARAMETERS.map(([, lo, hi, value]) => (value - lo) / (hi - lo));
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const hash = value => createHash('sha256').update(serialize(value)).digest('hex');
-const read = path => deserialize(gunzipSync(readFileSync(path)));
+const read = path => {
+  const bytes = readFileSync(path);
+  return bytes[0] === 0x1f && bytes[1] === 0x8b ? deserialize(gunzipSync(bytes)) : JSON.parse(bytes.toString('utf8'));
+};
 const write = (path, value) => {
   mkdirSync(dirname(path), { recursive: true }); writeFileSync(`${path}.tmp`, gzipSync(serialize(value))); renameSync(`${path}.tmp`, path);
 };
@@ -72,11 +75,11 @@ export async function feedbackTrial(configuration, u = initial, capture = false)
       if (row.result.success || row.result.failure) break;
     }
     const result = e.result(), measurement = e.measure();
-    return { score: result.fell ? recoveryScore(result, measurement) : -1000000,
+    return { identity: e.identity, score: result.fell ? recoveryScore(result, measurement) : -1000000,
       result, steps: e.stand.world.steps, milliseconds: performance.now() - started,
       final: { height: measurement.observation.height, rootUp: measurement.rootUp, phase: e.legacy.state.rise.phase, stage: e.legacy.state.rise.stage,
         retries: e.legacy.state.retries, tries: e.legacy.state.rise.tries, furthest: e.legacy.state.rise.furthest }, peaks,
-      ...(capture ? { version: 1, initial: checkpoint, before, identity: e.identity, configuration: { ...configuration, recipe },
+      ...(capture ? { version: 1, initial: checkpoint, before, configuration: { ...configuration, recipe },
         rows, recipe: { kind: configuration.kind ?? 'lab', degrees: configuration.degrees ?? 0 }, design: recoveryDesignTable(configuration) } : {}) };
   } catch (error) { return { score: -1000000, error: String(error.stack ?? error), steps: e.stand.world.steps, milliseconds: performance.now() - started }; }
   finally { e.dispose(); }

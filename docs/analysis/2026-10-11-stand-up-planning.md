@@ -231,12 +231,63 @@ The 19.1667 s trace reaches hands-and-knees support at about 8.675 s and begins 
 stabilization at 16.35 s. The successful sequence is still predominantly serial. Progress in
 one fall does not establish a robust new policy.
 
+A second seeded feedback search evaluates 296 candidates on two workers, using 901,847 world
+steps in 907.17 wall-clock seconds. Its best completes the same development fall in 15.5583 s.
+A separately charged fresh-fall reconstruction and full action replay verify that result.
+This search stops on its wall budget; finishing the in-flight generation accounts for the
+7.17 s overrun. No additional candidates are launched afterward.
+
+`research/stand-up-feedback-seed.json` retains the 15.5583 s witness's parameters, physical
+identity, configuration and full terminal result as a portable seed. It is not a gameplay
+preset. Recording it generates the complete physical action/observation tape from a new fall;
+no installed pose or opaque checkpoint is needed to reconstruct it:
+
+```powershell
+node research/stand-up-feedback.mjs --mode record --seed research/stand-up-feedback-seed.json --output .review/stand-up/feedback-witness.trace --seconds 35
+node research/stand-up-search.mjs replay --input .review/stand-up/feedback-witness.trace
+```
+
+A matched development transfer screen uses the sole body, the four cardinal two-shove recipes,
+Warrior/Rogue and empty hands/right-hand club, with a 35 s episode cap including the host tail.
+All sixteen cases per controller actually fall. These are development comparisons, not the
+64-direction final qualification; zero cases satisfy the six-second deadline.
+
+| Controller on the same sole bodies | Warrior, empty | Warrior, club | Rogue, empty | Rogue, club |
+|---|---|---|---|---|
+| Unchanged support recovery | 2/4: Front 29.2917 s; 180 degrees 30.925 s | 0/4 | 0/4 | 0/4 |
+| 16.2667 s refinement | 1/4: Front 16.2667 s | 0/4 | 0/4 | 0/4 |
+| 15.5583 s final seed | 1/4: Front 15.5583 s | 0/4 | 0/4 | 0/4 |
+
+The baseline/earlier-seed screen consumes 142,043 world steps in 348.59 wall-clock seconds;
+the separate final-seed screen consumes 70,220 in 179.13 seconds, one worker each while other
+experiments share the machine. Records retain all failures and complete physical identities.
+The first screen captured the earlier seed while the final seed was being reconstructed; its
+candidate is identified by recipe digest and is not mislabeled as the final result. The final
+screen uses a fixed copy of the final seed. The club is the existing statically retained item
+on the hand's compound rigid body, with its actual collision geometry and mass.
+
+The faster Front result therefore fails the robustness objective and loses a completion the
+unchanged controller retains. It is unsuitable for promotion. It shows that the search can
+find a faster complete physical route for one state, not that the route is broadly usable.
+
 The native tracker supports a multi-step physical horizon, retaining only the first selected
 action and restoring the complete world for each counterfactual. At nominal speed, both a
 one-step and six-step horizon reproduce the measured reference. Longer horizons compare the
 predicted end state against the corresponding future reference, rather than advancing the live
 episode during planning. The directional qualification reader independently rejects late or
 non-finite completion times, even when an input row declares success.
+
+Compressing the 16.2667 s feedback demonstration toward 12 s with the one-step native tracker
+also fails: no handover in the seventeen-second physical episode, 80,281 world steps and
+355.11 wall-clock seconds. This is the same Node/engine/body/actuation/balance configuration.
+The native tracker can preserve an exact action prefix before compressing the remainder;
+the prefix remains part of the recovery clock, rather than becoming a new episode origin.
+The twelve-step horizon without a preserved prefix is stopped at its wall allocation with
+550,236 steps charged, including the interrupted evaluation reservation. Its last durable
+physical prefix is 9.5083 s with no handover and torso height about 0.246 m. That checkpoint
+records 1,219.35 s; manual budget enforcement has an overrun. This is a censored failure to
+find a recovery, not a completed seventeen-second trial. Native search now also enforces a
+finite wall budget between selected physical steps and retains its elapsed budget on resume.
 
 Reproduce these experiments with separate output paths:
 

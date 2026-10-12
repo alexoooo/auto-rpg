@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { feedbackRecipe, FEEDBACK_PARAMETERS } from '../research/stand-up-feedback.mjs';
+import { feedbackRecipe, feedbackTrial, FEEDBACK_PARAMETERS } from '../research/stand-up-feedback.mjs';
+import witness from '../research/stand-up-feedback-seed.json' with { type: 'json' };
 import { recoveryEnvironment } from '../research/stand-up-environment.mjs';
 import { modelSpec } from '../src/core/models.ts';
 import { RISE, stageFaults } from '../src/core/mind/rise/stages.ts';
@@ -22,4 +23,12 @@ test('feedback recipe defaults preserve actual baseline continuation and custom 
     assert.ok(stageFaults({ ...RISE, progress: { settleSpeed: value } }, spec).some(s => s.includes('progress')));
   }
   assert.throws(() => feedbackRecipe(spec, Array(FEEDBACK_PARAMETERS.length).fill(NaN)), /invalid/);
+});
+
+test('the portable slow witness reproduces a complete fresh-fall recovery through the actual host', async () => {
+  assert.deepEqual(witness.feedback.parameters, FEEDBACK_PARAMETERS);
+  const replay = await feedbackTrial(witness.configuration, witness.feedback.u);
+  assert.deepEqual(replay.result, witness.result);
+  assert.equal(replay.result.success, true);
+  assert.ok(replay.result.seconds > 6, 'this seed does not satisfy the fast-recovery requirement');
 });

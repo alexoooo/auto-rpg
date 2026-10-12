@@ -26,6 +26,21 @@ It is neither a globally optimal solution nor a robust controller. Failing to fi
 within a search budget is not proof that one cannot exist. The complete new recovery, runtime
 feedback and final qualification remain open.
 
+## Execution status
+
+The outcome has not landed. The offline action environment, exact replay, resumable trajectory
+and continuation searches, native lookahead experiments, explicit body screens and bounded
+feedback-recipe search are implemented. The portable research seed in
+`research/stand-up-feedback-seed.json` completes one Warrior/empty-hands/sole Front fall in
+15.5583 seconds, with a verified standing/walking tail. It does not meet the timing target or
+generalize across the tested development falls. It is not a gameplay preset.
+
+The body/controller comparisons have not selected a qualified physical redesign. A fast,
+robust runtime variant, visible motion review, repeated-fall/disturbance/combat qualification
+and the final 64-case gate remain unfinished. Retain this plan until those requirements pass;
+do not treat the research infrastructure or the slow witness as completion. Detailed results
+and reproduction commands are in [the existing study](../analysis/2026-10-11-stand-up-planning.md).
+
 ## Existing evidence and reusable work
 
 | Existing work | Role in this plan |

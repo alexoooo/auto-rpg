@@ -21,6 +21,13 @@ test('native recovery preserves nominal execution, resumes and counts counterfac
     assert.deepEqual(lookahead.rows.map(r => r.observation), seed.rows.slice(0, 8).map(r => r.observation));
     assert.equal(lookahead.compute.steps, 8 * 13);
     await replayRecovery(lookahead);
+    const prefix = await nativeRecovery({ input, iterations: 0, maximumSteps: 16, horizon: 6, prefix: 12 });
+    assert.deepEqual(prefix.rows.map(r => r.observation), seed.rows.slice(0, 16).map(r => r.observation));
+    assert.equal(prefix.compute.steps, 12 + 4 * 13);
+    const exhausted = await nativeRecovery({ input, wallSeconds: .000001 });
+    assert.equal(exhausted.rows.length, 0);
+    assert.equal(exhausted.compute.steps, 0);
+    assert.equal(exhausted.result.success, false);
     const accelerated = await nativeRecovery({ input, seconds: 6, iterations: 1, maximumSteps: 8 });
     assert.equal(accelerated.rows.length, 8);
     assert.ok(accelerated.compute.steps > 8 * 35);
