@@ -2971,3 +2971,81 @@ Validation: `npm run check`, `npm test` (685 passes, zero failures, five existin
 transition/command tests, recorded-action reconstruction, exact replay/restoration and replay build
 pass. Whitespace and line-ending gates are checked before committing. These checks do not establish
 recovery or the four-second median/six-second reliability goal.
+
+## Right-foot placement and two-foot targets, 2026-10-12
+
+**The full goal remains unfinished.** This batch records 82 failed physical trials, including
+34 previously unrecorded continuation trials and 48 further trials. The selected frozen library
+remains 3/16, none within six seconds. No qualification partition or gameplay integration is added.
+
+Every physical figure uses **Node Stance Lab / frozen game Rapier coordinate adapter 11 / 120 Hz /
+original symmetric muscle envelopes / Balance 0 / ordinary stance host**, on the same Rogue/empty
+90-degree saved fall. Bodies, muscle curves, limits, solver settings, saved cases and acceptance
+criteria are unchanged. Complete preparation prefixes remain in the recovery clock.
+
+| Physical comparison | Trials | Episode limit | Complete recoveries |
+| --- | ---: | ---: | ---: |
+| Partial left-leg extension after loading | 12 | 18 s | 0 |
+| Earlier sequenced transfer and placement | 18 | 9 s | 0 |
+| Whole-body rise, retaining or releasing auxiliary supports | 4 | 15 s | 0 |
+| Geometric two-foot targets from the loaded-foot checkpoint | 18 | 15 s | 0 |
+| The same joint targets from the earlier support checkpoint | 18 | 9 s | 0 |
+| Lower arm posture and lift demands from the earlier checkpoint | 12 | 9 s | 0 |
+
+The late checkpoint is 7.933333 seconds into recovery. Its left foot bears 275.150 N, but its
+right hand and right thigh still carry load. The measured centre is approximately 0.152 m behind
+the nearest point of the left-foot/right-hand support region. The right hand is already about
+6.7 mm into the floor in the measured solver state. This is not a stable one-foot stance.
+
+Nine right-foot endpoint solves retaining the existing left-foot/right-hand supports all fail
+the unchanged geometric screen. Allowing the planned right sole to contribute endpoint support
+admits seven of nine; also fixing the left sole's position and orientation admits all nine.
+These are endpoint assumptions about future contact, not physical support and not reachable paths.
+All 18 muscle-driven continuations of the latter targets fail to establish their right-foot
+transition, as do all 18 attempts starting at 2.508333 seconds. The earlier centre targets are
+translated horizontally by the difference between the two measured starting centres; this is
+a changed command target, not a physical body translation or a claim of transferred feasibility.
+
+Two further nine-target geometric screens require the centre to remain over the existing left
+foot and right hand. Their desired hand contact point is projected onto the floor rather than
+retaining the measured penetration; the second also requests the measured hand orientation.
+All 18 fail clearance or retained-frame/goal tolerances. Neither supplies a feasible intermediate
+support transition. The geometric requests do not alter the actual world state.
+
+The recorded earlier attempt has both hands and feet touching at 3.508333 seconds, but root-up is
+0.485568 and sole-up is only 0.174312/0.328797. It does not rise. Reconstruction matches all 779
+post-prefix muscle commands. Over seconds 3–6, mean requested vertical reaction is 948.327 N;
+the measured non-gravity vertical force is 558.773 N, against body weight 564.594 N. The latter
+includes solver and damping effects and is not a muscle work measurement. Left shoulder abduction
+requests 54.571 N m mean absolute torque and delivers 15.973 N m; left wrist flexion requests
+28.651 N m and delivers 7.114 N m. Persistent arm saturation motivates the twelve lower-demand
+trials, but none recovers or establishes the required right-foot transition.
+
+`trackingPolicy` offers `retainRiseSupports` to retain observed auxiliary hand/thigh supports
+during extension. The existing default remains unchanged. Both settings, at response times
+0.3 and 0.6 seconds, fail in the actual frozen world. Rejected tracking solves number 1/9 without
+the option and 114/529 with it; rejected solves continue to request zero torque. Retaining those
+constraints alone does not solve the physical transition.
+
+The 82 trials consume 117,278 physical steps. There are no external-actuation events, invalid
+final commands or nonfinite final joint observations. Maximum effort-bound excess is
+0.00002181721 N m, below the unchanged 0.0001 tolerance. Thirty-six initial configuration attempts
+were rejected by the existing unit-quaternion guard; their records are retained separately.
+Normalizing the planned target quaternion permits the subsequent 36 two-foot physical trials;
+the guard is unchanged and those input rejections are not recoveries.
+
+`research/stand-up-path-results.json` under `rightFootPlacement` retains all executed configurations
+through checked stage/posture tables, every outcome, geometric failures, input rejections,
+diagnostics and exact replay proof. `.review/stand-up-right-placement/replay.html` compares the
+earlier failed placement with the optimized baseline from the identical initial observation and
+physical body. Its embedded records are checked; visual inspection remains undone under the
+existing local-file browser restriction. Candidate physical trace SHA-256:
+`5508ab3ed23b66de8e7613d7eb75837ed37de1480365c6af132abed103e83bd2`.
+
+Validation of the current tracking change includes the four actual-physics trials, TypeScript,
+recorded-action reconstruction, exact replay/restoration and replay build. The post-merge fast
+suite reports 683 passes, two failures and five TODOs: `research-stand-up-acceptance.test.mjs` and
+`stand-up-detached.test.mjs` load frozen checkpoints through current source and are rejected by
+the source-identity guard. The pinned checkout and guard are unchanged. The browser build passes;
+the targeted locomotion envelope test reports 28 passes, zero failures and six TODOs. These
+software checks and the failed motion experiments do not establish the requested recovery goal.

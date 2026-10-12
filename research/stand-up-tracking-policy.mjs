@@ -102,7 +102,7 @@ export function trackingPolicy({model,parameters:p={}}) {
       const a=model.segments.find(s=>s.name===p.stepFoot),b=model.segments.find(s=>s.name===other);
       const offset=new Vector3(b.referenceCentre[0]-a.referenceCentre[0],0,0).applyRotationQuaternionToRef(yaw,new Vector3());
       const target=state.stepTarget.map((v,i)=>v+offset.asArray()[i]);
-      command.supports=model.segments.filter(s=>!s.name.startsWith('foot.')||(s.name===other&&!supported(other)))
+      if(!p.retainRiseSupports)command.supports=model.segments.filter(s=>!s.name.startsWith('foot.')||(s.name===other&&!supported(other)))
         .map(s=>({frame:{kind:'segment',name:s.name},mode:'free'}));
       command.frames.push({id:'second-foot',frame:{kind:'segment',name:other},at:b.properties.centre,
         translation:{target,velocity:[0,0,0],acceleration:[0,0,0],seconds:.3,weight:p.footWeight??3},
