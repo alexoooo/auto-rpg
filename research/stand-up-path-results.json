@@ -1,0 +1,6508 @@
+{
+  "objective": "Four-second failure-inclusive group median and six-second recovery at full qualification reliability; unassisted throughout.",
+  "status": "NOT ACHIEVED; no faster or additional recovery from these candidates.",
+  "harness": {
+    "scope": "16 development continuations; no robustness qualification or goal-completion gate",
+    "harness": "Node Stance Lab recovery search",
+    "engine": "rapier-coordinate",
+    "hz": 120,
+    "actuation": "symmetric",
+    "balance": 0,
+    "host": "stance",
+    "ground": "40 m box, standard gravity and engine contact law",
+    "baseline": "support-recovery with stand-up-feedback-seed.json final 15.5583 s recipe",
+    "anatomy": "Warrior/Rogue default bodies with existing compliant soles; empty or right-hand club; unchanged muscles",
+    "prefix": "240 standing steps, two 60 N s shoves 24 steps apart, saved after first recovery takeover; optimized prefix shared by all candidates",
+    "clock": "original takeover, including shared prefix; never reset at checkpoint",
+    "episodeSeconds": 38,
+    "handoverDeadline": 35,
+    "success": "zero external actuation throughout; existing physical upright/loaded two-foot support and quiet 0.5 s; actual host handover, 2 s standing then 1 s walking at least 0.1 m; bounded efforts",
+    "reporting": "all cases retained; show 6/12/35 s counts; failures infinity in medians; no new substantial-improvement threshold",
+    "changes": "owner agreement required before changing evaluator, baseline, cases, body configurations or criteria"
+  },
+  "revision": "4ebb4d8ddb9eac1b5c9af9e27c695edf80348a40",
+  "bodyChanges": [],
+  "experiments": [
+    {
+      "name": "path-grid",
+      "configuration": {
+        "grid": [
+          {
+            "rate": 1,
+            "gain": 0
+          },
+          {
+            "rate": 1,
+            "gain": 1
+          },
+          {
+            "rate": 1,
+            "gain": 4
+          },
+          {
+            "rate": 1,
+            "gain": 10
+          },
+          {
+            "rate": 1.25,
+            "gain": 0
+          },
+          {
+            "rate": 1.25,
+            "gain": 1
+          },
+          {
+            "rate": 1.25,
+            "gain": 4
+          },
+          {
+            "rate": 1.25,
+            "gain": 10
+          },
+          {
+            "rate": 1.6,
+            "gain": 0
+          },
+          {
+            "rate": 1.6,
+            "gain": 1
+          },
+          {
+            "rate": 1.6,
+            "gain": 4
+          },
+          {
+            "rate": 1.6,
+            "gain": 10
+          },
+          {
+            "rate": 2.2,
+            "gain": 0
+          },
+          {
+            "rate": 2.2,
+            "gain": 1
+          },
+          {
+            "rate": 2.2,
+            "gain": 4
+          },
+          {
+            "rate": 2.2,
+            "gain": 10
+          }
+        ],
+        "reference": ".review/stand-up-full/reference.json.gz",
+        "parameters": {
+          "gain": 0,
+          "window": 0,
+          "rate": 1
+        }
+      },
+      "results": [
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 0,
+              "window": 0,
+              "rate": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 1,
+              "window": 0,
+              "rate": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 4,
+              "window": 0,
+              "rate": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 10,
+              "window": 0,
+              "rate": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 0,
+              "window": 0,
+              "rate": 1.25
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.0000444108680426325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "f7274379ab4e4c2256e7275d731e84bd73f5541a9fb15e229cd4360769e144ac"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 1,
+              "window": 0,
+              "rate": 1.25
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00004250618462720013,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "5fbe8210d59f4e5b81793ba45604311b797a0b7330d269e4ce429d341b3b9ce6"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 4,
+              "window": 0,
+              "rate": 1.25
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00004290835391884684,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "d0b2bc2097f32db7aa718c8b4590b5a9b70ece30e076790d2365affe385cec47"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 10,
+              "window": 0,
+              "rate": 1.25
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00004296484001997669,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "bf487f765912b6d4ccd3e9b56657fbbdb8ea356520c6e784a22db560810ab3de"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 0,
+              "window": 0,
+              "rate": 1.6
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.000042230260248743434,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "8a36d525041dc20f6aa46c5b3d1dbbfbd3822fbe89c4601785422bdf101b44ed"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 1,
+              "window": 0,
+              "rate": 1.6
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00004315657611186907,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "9b35f1ed79465134e98e5b49e9756c04518454fb138c9d9be3d9226424802608"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 4,
+              "window": 0,
+              "rate": 1.6
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.0000443734048189981,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "b985fed8cfcf20b35436f3079da88fd2dc4132b925adcacf612b049b75b92d32"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 10,
+              "window": 0,
+              "rate": 1.6
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.0000437941436643996,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "fd182aff3400f7a006d9d6d4444f530c3452fb0cecc39cbdc197f473b499a191"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 4,
+              "window": 0,
+              "rate": 2.2
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "nonfinite joint actuation",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 11.633333333333335,
+            "effortViolation": 0.000041882043433361105,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1395,
+          "traceSha256": "0934e0a3e524b9bee3971bb4e6ed0732341d60bc9a04015ea6a5db66398b62a0"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 0,
+              "window": 0,
+              "rate": 2.2
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.000043066514535894385,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "82e167d96f2aefc521dc402a4b7ee0c9c0594fc5521bea99c82fd3248404fa50"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 1,
+              "window": 0,
+              "rate": 2.2
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.000043023843261380534,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "2e7d324d2ebc05b8c497a2c8def6a820dd761c99fe044e67a3e8523ea3aa344c"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "parameters": {
+              "gain": 10,
+              "window": 0,
+              "rate": 2.2
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.000042235779858401656,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "4192b756beb7530fab1f10341fa093eba33ba172557ad451f204c9aeb0757b95"
+        }
+      ]
+    },
+    {
+      "name": "path-feedback",
+      "configuration": {
+        "grid": [
+          {
+            "gain": 0,
+            "fall": {
+              "degrees": -1
+            }
+          },
+          {
+            "gain": 4,
+            "fall": {
+              "degrees": -1
+            }
+          },
+          {
+            "gain": 10,
+            "fall": {
+              "degrees": -1
+            }
+          },
+          {
+            "gain": 0,
+            "fall": {
+              "degrees": 0
+            }
+          },
+          {
+            "gain": 4,
+            "fall": {
+              "degrees": 0
+            }
+          },
+          {
+            "gain": 10,
+            "fall": {
+              "degrees": 0
+            }
+          },
+          {
+            "gain": 0,
+            "fall": {
+              "degrees": 1
+            }
+          },
+          {
+            "gain": 4,
+            "fall": {
+              "degrees": 1
+            }
+          },
+          {
+            "gain": 10,
+            "fall": {
+              "degrees": 1
+            }
+          },
+          {
+            "gain": 0,
+            "window": 0.2,
+            "rate": 1
+          },
+          {
+            "gain": 4,
+            "window": 0.2,
+            "rate": 1
+          },
+          {
+            "gain": 10,
+            "window": 0.2,
+            "rate": 1
+          },
+          {
+            "gain": 0,
+            "window": 0.2,
+            "rate": 1.5
+          },
+          {
+            "gain": 4,
+            "window": 0.2,
+            "rate": 1.5
+          },
+          {
+            "gain": 10,
+            "window": 0.2,
+            "rate": 1.5
+          },
+          {
+            "gain": 0,
+            "window": 0.2,
+            "rate": 2.2
+          },
+          {
+            "gain": 4,
+            "window": 0.2,
+            "rate": 2.2
+          },
+          {
+            "gain": 10,
+            "window": 0.2,
+            "rate": 2.2
+          }
+        ],
+        "parameters": {
+          "gain": 0,
+          "window": 0,
+          "rate": 1
+        },
+        "reference": ".review/stand-up-full/reference.json.gz"
+      },
+      "results": [
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 0,
+              "window": 0,
+              "rate": 1
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "fall": {
+              "degrees": -1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.000041180474340762885,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "768f1a81b8d556b818265660e0e3213259fdae700cd458bacbd96cb3f06a5091"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 10,
+              "window": 0,
+              "rate": 1
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "fall": {
+              "degrees": -1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.000041961669921875,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "73c67adf02832f2ead4e72a70d928b435e7191dc2fece3902f1a2730aea7e531"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 4,
+              "window": 0,
+              "rate": 1
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "fall": {
+              "degrees": -1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00004349695245764451,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "1de91ca32f96dbbdf09e683833c2e4c503c5223e54f8fcfbd7fcc8d022856910"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 0,
+              "window": 0,
+              "rate": 1
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "fall": {
+              "degrees": 0
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 10,
+              "window": 0,
+              "rate": 1
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "fall": {
+              "degrees": 0
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 4,
+              "window": 0,
+              "rate": 1
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "fall": {
+              "degrees": 0
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 4,
+              "window": 0,
+              "rate": 1
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "fall": {
+              "degrees": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "nonfinite joint actuation",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 19.575,
+            "effortViolation": 0.00004540147278930817,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2348,
+          "traceSha256": "b14254f3e67f6ca1dc1aaddb226dd04ac48e3804c84fc2ca580808e1b7022f06",
+          "nonfinite": [
+            {
+              "name": "hip.left flexion",
+              "angle": 1.6662280324858751,
+              "rate": -7.716272548251276,
+              "speed": -6.2888354985486785,
+              "effort": 122.29798212647438,
+              "negative": null,
+              "positive": null
+            },
+            {
+              "name": "hip.left abduction",
+              "angle": 0.4167203724290355,
+              "rate": -4.197298596917667,
+              "speed": -7.941651257849476,
+              "effort": -208.36423102766275,
+              "negative": null,
+              "positive": null
+            },
+            {
+              "name": "hip.left internal rotation",
+              "angle": 0.5301033180390422,
+              "rate": -15.864375695260991,
+              "speed": -6.7904231205817105,
+              "effort": -819.3303939700127,
+              "negative": null,
+              "positive": null
+            },
+            {
+              "name": "knee.left flexion",
+              "angle": -0.14486692284878214,
+              "rate": -0.0000027333177664792275,
+              "speed": -0.0000027333177664792275,
+              "effort": -1239.056864976883,
+              "negative": null,
+              "positive": null
+            },
+            {
+              "name": "ankle.left dorsiflexion",
+              "angle": 0.34489137704317596,
+              "rate": -3.1102034585056084,
+              "speed": -3.0296576674321365,
+              "effort": -17.978598838672042,
+              "negative": null,
+              "positive": null
+            },
+            {
+              "name": "ankle.left inversion",
+              "angle": -0.3280387691084525,
+              "rate": -1.9866493207345237,
+              "speed": -1.9296694537026375,
+              "effort": -19.72932237200439,
+              "negative": null,
+              "positive": null
+            }
+          ],
+          "invalidCommands": [
+            {
+              "name": "hip.left flexion",
+              "activation": null,
+              "velocity": null
+            },
+            {
+              "name": "hip.left abduction",
+              "activation": null,
+              "velocity": null
+            },
+            {
+              "name": "hip.left internal rotation",
+              "activation": null,
+              "velocity": null
+            },
+            {
+              "name": "knee.left flexion",
+              "activation": null,
+              "velocity": null
+            },
+            {
+              "name": "ankle.left dorsiflexion",
+              "activation": null,
+              "velocity": null
+            },
+            {
+              "name": "ankle.left inversion",
+              "activation": null,
+              "velocity": null
+            }
+          ]
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 0,
+              "window": 0,
+              "rate": 1
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "fall": {
+              "degrees": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00004373015741521158,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "fc5ef96e92e741adb63251311fe2bfe8e143f8a069619c1af5ff1db00b011b2f"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 10,
+              "window": 0,
+              "rate": 1
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "fall": {
+              "degrees": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00004377774723707262,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "0e90a14fe842fd01e87159905449ab1a10cadd3397888a280eea1a254aed52e7"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 0,
+              "window": 0.2,
+              "rate": 1
+            },
+            "reference": ".review/stand-up-full/reference.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 10,
+              "window": 0.2,
+              "rate": 1
+            },
+            "reference": ".review/stand-up-full/reference.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 4,
+              "window": 0.2,
+              "rate": 1
+            },
+            "reference": ".review/stand-up-full/reference.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 0,
+              "window": 0.2,
+              "rate": 1.5
+            },
+            "reference": ".review/stand-up-full/reference.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00003412195366081505,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "e30b13f52d61e874b7ad16f02b04e19d0ed3986d2d97ec7a904276a9f848a493"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 4,
+              "window": 0.2,
+              "rate": 1.5
+            },
+            "reference": ".review/stand-up-full/reference.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.000043383534148233593,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "3c9f88eed6b20758aea16f27b67d02c32d226c97ace7a268dd1a5408499aeabd"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 10,
+              "window": 0.2,
+              "rate": 1.5
+            },
+            "reference": ".review/stand-up-full/reference.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00004226085889058595,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "88b7f651a8d5291604d40ef60f41fdae2f4db4a256840d21b0d8da74622a91e1"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 0,
+              "window": 0.2,
+              "rate": 2.2
+            },
+            "reference": ".review/stand-up-full/reference.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00003412195366081505,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "16030519bdc3836600705cefe9bd0369233ecd121a192fc3979f2d5ea9a6628e"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 4,
+              "window": 0.2,
+              "rate": 2.2
+            },
+            "reference": ".review/stand-up-full/reference.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00003583508822657677,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "140fb14399891670e62e9c8a514355d85a9522c30b00dbe96c7d8bed6df403bc"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "gain": 10,
+              "window": 0.2,
+              "rate": 2.2
+            },
+            "reference": ".review/stand-up-full/reference.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00004647180770689374,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "c29483d4f4a86730298a6e12451a3c74df627ae4ebabf618144de5c5d2bd94a4"
+        }
+      ]
+    },
+    {
+      "name": "compact-grid",
+      "configuration": {
+        "parameters": {
+          "speed": 8,
+          "response": 0.12
+        },
+        "reference": ".review/stand-up-full/reference.json.gz",
+        "grid": [
+          {
+            "speed": 4,
+            "response": 0.04
+          },
+          {
+            "speed": 8,
+            "response": 0.04
+          },
+          {
+            "speed": 16,
+            "response": 0.04
+          },
+          {
+            "speed": 4,
+            "response": 0.1
+          },
+          {
+            "speed": 8,
+            "response": 0.1
+          },
+          {
+            "speed": 16,
+            "response": 0.1
+          },
+          {
+            "speed": 4,
+            "response": 0.2
+          },
+          {
+            "speed": 8,
+            "response": 0.2
+          },
+          {
+            "speed": 16,
+            "response": 0.2
+          }
+        ],
+        "kind": "compact"
+      },
+      "results": [
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 4,
+              "response": 0.04
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "kind": "compact"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000022468207703241205,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "7f41717c8f54b480e70aea9478c5af265a1f214973aa9e0fb7c1907e90d4c9ac"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.04
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "kind": "compact"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000020208393948450976,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "d0b4c437be07a4f6c59634db35a7ed04ad7325fb6e0a1e55142979cb1838cb91"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 16,
+              "response": 0.04
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "kind": "compact"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000022532943461328614,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "75b0bfa6dc5c7cc0b77bc3a731812220b07eff2f0448c81982b12bec686aa73e"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 4,
+              "response": 0.1
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "kind": "compact"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.00002407070462595584,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "eddcee3c4b8745458384aa853b3bccd721cc31e9ccabb28160134cf83e909995"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 16,
+              "response": 0.1
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "kind": "compact"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.00002456716745768972,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "89782773da17ac8d4f613093978ec58d69d2d9da3e1237219ac85f4db7e56a6c"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.1
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "kind": "compact"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000020208393948450976,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "a1cc720dfcb71b2f40bc06e9c69341c1a14aa389ffebbf14ebd105c814ad3e40"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 4,
+              "response": 0.2
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "kind": "compact"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000021690044519573348,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "4fbfc05a3eb26044cc69e809c45803eb5dcf3656e56aa021b915021444e040d5"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.2
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "kind": "compact"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000020208393948450976,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "7f93e0ba40d99746b87496e87f2d9fdf72d1c2ff8a9f5e9d988acb410463fbe4"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 16,
+              "response": 0.2
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "kind": "compact"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000020208393948450976,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "4ee8bcde3f1fac6ac13f18b72f08ab37c777d829380ef0e4b06d62cb5905b358"
+        }
+      ]
+    },
+    {
+      "name": "roll-grid",
+      "sources": {
+        "stand-up-path-policy.mjs": "0c16b173a583c96db91504efbbfdece48b91b356e9dadecd5f8276d3aa8e3f16",
+        "stand-up-compact-policy.mjs": "b0f42ca54be951c7f67187c054d5783fea1563dd5e5d331348bf612ad0d6f1e5",
+        "stand-up-path-experiment.mjs": "b691c191f02fa54b386f18d06b86de2e626c50b76a97a94023466350f4f7777d"
+      },
+      "configuration": {
+        "parameters": {
+          "speed": 8,
+          "response": 0.12
+        },
+        "kind": "compact",
+        "reference": ".review/stand-up-full/reference-roll.json.gz",
+        "grid": [
+          {
+            "waitSeconds": 0,
+            "rollSeconds": 0.3
+          },
+          {
+            "waitSeconds": 0,
+            "rollSeconds": 0.6
+          },
+          {
+            "waitSeconds": 0,
+            "rollSeconds": 1
+          },
+          {
+            "waitSeconds": 0.5,
+            "rollSeconds": 0.3
+          },
+          {
+            "waitSeconds": 0.5,
+            "rollSeconds": 0.6
+          },
+          {
+            "waitSeconds": 0.5,
+            "rollSeconds": 1
+          },
+          {
+            "waitSeconds": 1,
+            "rollSeconds": 0.3
+          },
+          {
+            "waitSeconds": 1,
+            "rollSeconds": 0.6
+          },
+          {
+            "waitSeconds": 1,
+            "rollSeconds": 1
+          }
+        ]
+      },
+      "note": "Preliminary version classifies orientation before waiting; corrected by roll-after-wait-grid.",
+      "results": [
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 0,
+              "rollSeconds": 1
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000021224849859891037,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "98899306d6b3b558ead10860b8a333ee53c892598cfbf0269fa09efa78450a7f"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 0,
+              "rollSeconds": 0.3
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000021224849859891037,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "98899306d6b3b558ead10860b8a333ee53c892598cfbf0269fa09efa78450a7f"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 0,
+              "rollSeconds": 0.6
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000021224849859891037,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "98899306d6b3b558ead10860b8a333ee53c892598cfbf0269fa09efa78450a7f"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 0.5,
+              "rollSeconds": 0.3
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000020208393948450976,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "c30d4cfeebc42623154c53382573f9c6229e4d5f66301f2efd4e248f9cb87fd1"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 0.5,
+              "rollSeconds": 0.6
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000020208393948450976,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "c30d4cfeebc42623154c53382573f9c6229e4d5f66301f2efd4e248f9cb87fd1"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 0.5,
+              "rollSeconds": 1
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000020208393948450976,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "c30d4cfeebc42623154c53382573f9c6229e4d5f66301f2efd4e248f9cb87fd1"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 1,
+              "rollSeconds": 0.6
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000020208393948450976,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "08941bc613ae3ea05e3fa6cc226a7ba912695daceb6049d20fc0e5477450947c"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 1,
+              "rollSeconds": 1
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000020208393948450976,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "08941bc613ae3ea05e3fa6cc226a7ba912695daceb6049d20fc0e5477450947c"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 1,
+              "rollSeconds": 0.3
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000020208393948450976,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "08941bc613ae3ea05e3fa6cc226a7ba912695daceb6049d20fc0e5477450947c"
+        }
+      ]
+    },
+    {
+      "name": "roll-after-wait-grid",
+      "sources": {
+        "stand-up-path-policy.mjs": "0c16b173a583c96db91504efbbfdece48b91b356e9dadecd5f8276d3aa8e3f16",
+        "stand-up-compact-policy.mjs": "5ac1b505f627f8e5291da46959c5cec8ec85973d077b5bb597c4d5bdb87f145f",
+        "stand-up-path-experiment.mjs": "b691c191f02fa54b386f18d06b86de2e626c50b76a97a94023466350f4f7777d"
+      },
+      "configuration": {
+        "parameters": {
+          "speed": 8,
+          "response": 0.12
+        },
+        "kind": "compact",
+        "reference": ".review/stand-up-full/reference-roll.json.gz",
+        "grid": [
+          {
+            "waitSeconds": 0,
+            "rollSeconds": 0.3
+          },
+          {
+            "waitSeconds": 0,
+            "rollSeconds": 0.6
+          },
+          {
+            "waitSeconds": 0,
+            "rollSeconds": 1
+          },
+          {
+            "waitSeconds": 0.5,
+            "rollSeconds": 0.3
+          },
+          {
+            "waitSeconds": 0.5,
+            "rollSeconds": 0.6
+          },
+          {
+            "waitSeconds": 0.5,
+            "rollSeconds": 1
+          },
+          {
+            "waitSeconds": 1,
+            "rollSeconds": 0.3
+          },
+          {
+            "waitSeconds": 1,
+            "rollSeconds": 0.6
+          },
+          {
+            "waitSeconds": 1,
+            "rollSeconds": 1
+          }
+        ]
+      },
+      "results": [
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 0,
+              "rollSeconds": 0.6
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000021224849859891037,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "98899306d6b3b558ead10860b8a333ee53c892598cfbf0269fa09efa78450a7f"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 0,
+              "rollSeconds": 0.3
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000021224849859891037,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "98899306d6b3b558ead10860b8a333ee53c892598cfbf0269fa09efa78450a7f"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 0,
+              "rollSeconds": 1
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000021224849859891037,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "98899306d6b3b558ead10860b8a333ee53c892598cfbf0269fa09efa78450a7f"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 0.5,
+              "rollSeconds": 0.3
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000020208393948450976,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "ed237623a44516acf5eaa428e83e938f6b33d0c0880e05cbf65ab76a0cbb548e"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 0.5,
+              "rollSeconds": 1
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.0000229156209741177,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "609be6f8a2b7ee3dec573a80c53acb847bacbe5959ac8a8d25a0fffe8936961a"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 0.5,
+              "rollSeconds": 0.6
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000021931038133971015,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "cedbf30591b04bf5fe21c070341a1d04f79e9f95737627e208942f19aa62b2a5"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 1,
+              "rollSeconds": 0.6
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000026280864005912008,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "588539613407cf04f274b9b16af0d4974b2ad787a0bfed9f4244c271a0815bc6"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 1,
+              "rollSeconds": 1
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.00003983277673569319,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "3e5ba75e7755093e12822b26848bff0b4b7675396b0570d2851ae1ecc896059c"
+        },
+        {
+          "configuration": {
+            "parameters": {
+              "speed": 8,
+              "response": 0.12,
+              "waitSeconds": 1,
+              "rollSeconds": 0.3
+            },
+            "kind": "compact",
+            "reference": ".review/stand-up-full/reference-roll.json.gz"
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000025571029112825272,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "traceSha256": "99e34db842f0176e3020f1cc489d64b2f590dcc8fe35c7cde005809e8ad39696"
+        }
+      ]
+    },
+    {
+      "name": "torque-grid",
+      "sources": {
+        "stand-up-path-policy.mjs": "f653fe61ff05c7fddc1a7a4c3edd3546c0e2b84aa26141af72528b138d71ff59",
+        "stand-up-compact-policy.mjs": "5ac1b505f627f8e5291da46959c5cec8ec85973d077b5bb597c4d5bdb87f145f",
+        "stand-up-path-experiment.mjs": "98629478276e2238f80521709b47e25384bbf10793068c3f344e738eeacd5b0f"
+      },
+      "configuration": {
+        "reference": ".review/stand-up-full/reference-torque.json.gz",
+        "grid": [
+          {
+            "torqueGain": 0.3,
+            "fall": {
+              "degrees": -1
+            },
+            "damping": 0.1
+          },
+          {
+            "torqueGain": 1,
+            "fall": {
+              "degrees": -1
+            },
+            "damping": 0.1
+          },
+          {
+            "torqueGain": 3,
+            "fall": {
+              "degrees": -1
+            },
+            "damping": 0.1
+          },
+          {
+            "torqueGain": 0.3,
+            "fall": {
+              "degrees": 0
+            },
+            "damping": 0.1
+          },
+          {
+            "torqueGain": 1,
+            "fall": {
+              "degrees": 0
+            },
+            "damping": 0.1
+          },
+          {
+            "torqueGain": 3,
+            "fall": {
+              "degrees": 0
+            },
+            "damping": 0.1
+          },
+          {
+            "torqueGain": 0.3,
+            "fall": {
+              "degrees": 1
+            },
+            "damping": 0.1
+          },
+          {
+            "torqueGain": 1,
+            "fall": {
+              "degrees": 1
+            },
+            "damping": 0.1
+          },
+          {
+            "torqueGain": 3,
+            "fall": {
+              "degrees": 1
+            },
+            "damping": 0.1
+          },
+          {
+            "torqueGain": 0.3,
+            "damping": 0.1,
+            "rate": 1.3
+          },
+          {
+            "torqueGain": 1,
+            "damping": 0.1,
+            "rate": 1.3
+          },
+          {
+            "torqueGain": 3,
+            "damping": 0.1,
+            "rate": 1.3
+          },
+          {
+            "torqueGain": 0.3,
+            "damping": 0.1,
+            "rate": 1.7
+          },
+          {
+            "torqueGain": 1,
+            "damping": 0.1,
+            "rate": 1.7
+          },
+          {
+            "torqueGain": 3,
+            "damping": 0.1,
+            "rate": 1.7
+          },
+          {
+            "torqueGain": 0.3,
+            "damping": 0.1,
+            "rate": 2.2
+          },
+          {
+            "torqueGain": 1,
+            "damping": 0.1,
+            "rate": 2.2
+          },
+          {
+            "torqueGain": 3,
+            "damping": 0.1,
+            "rate": 2.2
+          }
+        ],
+        "parameters": {
+          "window": 0.2,
+          "gain": 4,
+          "rate": 1
+        }
+      },
+      "results": [
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 1,
+              "torqueGain": 1,
+              "damping": 0.1
+            },
+            "fall": {
+              "degrees": -1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.000029282641406780385,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "44968d86c4114f1b5d586fa921cf12c2bf4ec5ebb1fddfcadcaba1c88a866256"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 1,
+              "torqueGain": 3,
+              "damping": 0.1
+            },
+            "fall": {
+              "degrees": -1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.000029282641406780385,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "44968d86c4114f1b5d586fa921cf12c2bf4ec5ebb1fddfcadcaba1c88a866256"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 1,
+              "torqueGain": 0.3,
+              "damping": 0.1
+            },
+            "fall": {
+              "degrees": -1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.000029282641406780385,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "44968d86c4114f1b5d586fa921cf12c2bf4ec5ebb1fddfcadcaba1c88a866256"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 1,
+              "torqueGain": 0.3,
+              "damping": 0.1
+            },
+            "fall": {
+              "degrees": 0
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 1,
+              "torqueGain": 1,
+              "damping": 0.1
+            },
+            "fall": {
+              "degrees": 0
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 1,
+              "torqueGain": 3,
+              "damping": 0.1
+            },
+            "fall": {
+              "degrees": 0
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 1,
+              "torqueGain": 3,
+              "damping": 0.1
+            },
+            "fall": {
+              "degrees": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00003095995793955808,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "de7f066171b0cf50dc790de6bd024e35623ddd96abc88f31ee5f39c509245b1f"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 1,
+              "torqueGain": 0.3,
+              "damping": 0.1
+            },
+            "fall": {
+              "degrees": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00003095995793955808,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "de7f066171b0cf50dc790de6bd024e35623ddd96abc88f31ee5f39c509245b1f"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 1,
+              "torqueGain": 1,
+              "damping": 0.1
+            },
+            "fall": {
+              "degrees": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00003095995793955808,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "de7f066171b0cf50dc790de6bd024e35623ddd96abc88f31ee5f39c509245b1f"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 1.3,
+              "torqueGain": 0.3,
+              "damping": 0.1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 1.3,
+              "torqueGain": 1,
+              "damping": 0.1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 1.3,
+              "torqueGain": 3,
+              "damping": 0.1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": true,
+            "failure": null,
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": 14.95,
+            "seconds": 12.408333333333333,
+            "fromFirstDown": 12.399999999999999,
+            "elapsed": 15.408333333333333,
+            "effortViolation": 0.00004193843579969325,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1848,
+          "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 1.7,
+              "torqueGain": 0.3,
+              "damping": 0.1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00003412195366081505,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "8957843e7bb703201a05d2cfd2dc2d3ec4514fd5cd0591e44d37fd877f9e030d"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 1.7,
+              "torqueGain": 1,
+              "damping": 0.1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00003412195366081505,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "885b52bdf7c235414eee66606e674f7543ceb425138b02b6dd892a6f3c551541"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 1.7,
+              "torqueGain": 3,
+              "damping": 0.1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00003412195366081505,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "03464f828fe1940cde1931921df4ee73b56725fc12cac749fcd770618333d17a"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 2.2,
+              "torqueGain": 1,
+              "damping": 0.1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00003412195366081505,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "885b52bdf7c235414eee66606e674f7543ceb425138b02b6dd892a6f3c551541"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 2.2,
+              "torqueGain": 0.3,
+              "damping": 0.1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00003412195366081505,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "8957843e7bb703201a05d2cfd2dc2d3ec4514fd5cd0591e44d37fd877f9e030d"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "window": 0.2,
+              "gain": 4,
+              "rate": 2.2,
+              "torqueGain": 3,
+              "damping": 0.1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 20,
+            "effortViolation": 0.00003412195366081505,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2399,
+          "traceSha256": "03464f828fe1940cde1931921df4ee73b56725fc12cac749fcd770618333d17a"
+        }
+      ]
+    },
+    {
+      "name": "torque-progress",
+      "sources": {
+        "stand-up-path-policy.mjs": "34f6cd9c9b89b6f20d238cb5c74460ff0d2897b91c96b03dae4524eebaddf8fe",
+        "stand-up-compact-policy.mjs": "5ac1b505f627f8e5291da46959c5cec8ec85973d077b5bb597c4d5bdb87f145f",
+        "stand-up-path-experiment.mjs": "98629478276e2238f80521709b47e25384bbf10793068c3f344e738eeacd5b0f"
+      },
+      "configuration": {
+        "reference": ".review/stand-up-full/reference-torque.json.gz",
+        "parameters": {
+          "rate": 1,
+          "window": 0,
+          "gain": 4,
+          "damping": 0.1
+        },
+        "grid": [
+          {
+            "torqueGain": 0.3,
+            "rate": 1.15
+          },
+          {
+            "torqueGain": 1,
+            "rate": 1.15
+          },
+          {
+            "torqueGain": 3,
+            "rate": 1.15
+          },
+          {
+            "torqueGain": 0.3,
+            "rate": 1.3
+          },
+          {
+            "torqueGain": 1,
+            "rate": 1.3
+          },
+          {
+            "torqueGain": 3,
+            "rate": 1.3
+          },
+          {
+            "torqueGain": 0.3,
+            "rate": 1.5
+          },
+          {
+            "torqueGain": 1,
+            "rate": 1.5
+          },
+          {
+            "torqueGain": 3,
+            "rate": 1.5
+          },
+          {
+            "torqueGain": 0.3,
+            "rate": 2
+          },
+          {
+            "torqueGain": 1,
+            "rate": 2
+          },
+          {
+            "torqueGain": 3,
+            "rate": 2
+          },
+          {
+            "window": 0.2,
+            "fall": {
+              "degrees": -1
+            },
+            "torqueGain": 0.3,
+            "minRate": 0.75
+          },
+          {
+            "window": 0.2,
+            "fall": {
+              "degrees": -1
+            },
+            "torqueGain": 1,
+            "minRate": 0.75
+          },
+          {
+            "window": 0.2,
+            "fall": {
+              "degrees": -1
+            },
+            "torqueGain": 3,
+            "minRate": 0.75
+          },
+          {
+            "window": 0.2,
+            "fall": {
+              "degrees": 1
+            },
+            "torqueGain": 0.3,
+            "minRate": 0.75
+          },
+          {
+            "window": 0.2,
+            "fall": {
+              "degrees": 1
+            },
+            "torqueGain": 1,
+            "minRate": 0.75
+          },
+          {
+            "window": 0.2,
+            "fall": {
+              "degrees": 1
+            },
+            "torqueGain": 3,
+            "minRate": 0.75
+          }
+        ]
+      },
+      "results": [
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 1.15,
+              "window": 0,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 0.3
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.000042809823639800015,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "ee699371ab8bbd647eb80fb0bd77ad4103358f59a42a5632a8f4d2d08f018213"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 1.15,
+              "window": 0,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 3
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.00004332143112151243,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "4049d016f37d7f52d30c9b78eedf7597a1507ae2f8fc18fa7a61946b6cfbbb2a"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 1.15,
+              "window": 0,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.000041961669921875,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "132350d0c0158f75afcf479fa24729514a20e54e5e56ad4c7ec98f0e21ce57a2"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 1.3,
+              "window": 0,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 0.3
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.00004365086556390452,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "f51da9473597825a4cc0edd2560b41a9ad17a52d4ba9a51d7f0a7f0508a99852"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 1.3,
+              "window": 0,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.000043274550250771426,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "4b6deab187a50d07840c5262db071edfdd9c508b082b1aee85779a3895169312"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 1.3,
+              "window": 0,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 3
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.00004187636125152494,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "7e8b60ac98ad1c7ca67769e0165a9f014cea6699850d54c7ff33d5c4ab6e9d83"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 1.5,
+              "window": 0,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 0.3
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.000040720011952544155,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "c799d7e85e6782cda0f4fc457745c2c52d923b72b1fb8b796962098d3f86c266"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 1.5,
+              "window": 0,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.00004072614603956026,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "41b712b8a5cb65c882f0ecacb8e0cfbde9cfc80b513cdea758e897b52da71901"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 1.5,
+              "window": 0,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 3
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.0000436513944350736,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "ee0a47f3ba1c42680a5845fd786af0de6c21f2496eac07f62c61b3ae5065ee81"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 2,
+              "window": 0,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 0.3
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.000041580868412438576,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "98b4a570f1addeb2d7f640e4a02ced1adea5f93dec7689b69e779f21a2708c6d"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 2,
+              "window": 0,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.000040347964443299134,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "ee4fcd279216535b6eec2e0f4e23b4468ccf6dfc1663775f64661bb5d986a31f"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 2,
+              "window": 0,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 3
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.00004125732203874577,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "905d275580a5d76bbc138c4b43025c5ba739898d943a3d199c1bf25a85dec9f7"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 1,
+              "window": 0.2,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 0.3,
+              "minRate": 0.75
+            },
+            "fall": {
+              "degrees": -1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.00004647645118893706,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "5bb30a058dbc6b9f1d03fb41e489ff7aa52c3c2de98154bed042d265a3790598"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 1,
+              "window": 0.2,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 1,
+              "minRate": 0.75
+            },
+            "fall": {
+              "degrees": -1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.00004197752440404656,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "b7a781dcd207e873629be02de975872e1e77a76027382f729b6670b575ea9963"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 1,
+              "window": 0.2,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 3,
+              "minRate": 0.75
+            },
+            "fall": {
+              "degrees": -1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.00004489633596449494,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "278164bb24ad30005f5997ce67591e9bfe93c0940fade5588d80cf10ada81d8d"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 1,
+              "window": 0.2,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 0.3,
+              "minRate": 0.75
+            },
+            "fall": {
+              "degrees": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.000041896180960065976,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "3e7ee3cc030f5a9135f8a98015d50ffeee7092c2a476004621456f7b86336518"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 1,
+              "window": 0.2,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 1,
+              "minRate": 0.75
+            },
+            "fall": {
+              "degrees": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.00004465859910851577,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "cf2d4e082b6929d9e3d359c4f94290e0990efeb1374ee4979b59b1f70e8e57b3"
+        },
+        {
+          "configuration": {
+            "reference": ".review/stand-up-full/reference-torque.json.gz",
+            "parameters": {
+              "rate": 1,
+              "window": 0.2,
+              "gain": 4,
+              "damping": 0.1,
+              "torqueGain": 3,
+              "minRate": 0.75
+            },
+            "fall": {
+              "degrees": 1
+            }
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.5833333333333335,
+            "takeover": 2.575,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 18,
+            "effortViolation": 0.000041505935655550275,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 2159,
+          "traceSha256": "3287c3700899b3e099f9179b6720940fbbab7bfc1be291ccce3502b5dfa13f30"
+        }
+      ]
+    }
+  ],
+  "search": {
+    "configuration": {
+      "parameters": {
+        "speed": 4,
+        "response": 0.2,
+        "hip0": 2,
+        "knee0": 2.4,
+        "ankle0": -0.7,
+        "shoulder0": 1.2,
+        "elbow0": 1.8,
+        "wrist0": -1,
+        "lumbar0": 0.4,
+        "thoracic0": 0.2,
+        "abduction0": 0.35,
+        "seconds0": 0.7,
+        "hip1": 1.7,
+        "knee1": 2,
+        "ankle1": 0.35,
+        "shoulder1": 1.8,
+        "elbow1": 0.4,
+        "wrist1": -1,
+        "lumbar1": 0.3,
+        "thoracic1": 0.2,
+        "abduction1": 0.3,
+        "seconds1": 0.7,
+        "hip2": 1.7,
+        "knee2": 2.2,
+        "ankle2": 0.3,
+        "shoulder2": 1,
+        "elbow2": 0.4,
+        "wrist2": -0.4,
+        "lumbar2": -0.15,
+        "thoracic2": 0.1,
+        "abduction2": 0.3,
+        "seconds2": 0.7,
+        "hip3": 0.2,
+        "knee3": 0.3,
+        "ankle3": 0.1,
+        "shoulder3": 0.4,
+        "elbow3": 1,
+        "wrist3": -0.1,
+        "lumbar3": 0,
+        "thoracic3": 0.05,
+        "abduction3": 0.25,
+        "seconds3": 0.7
+      },
+      "reference": ".review/stand-up-full/reference.json.gz",
+      "kind": "compact",
+      "fields": [
+        [
+          "hip0",
+          -0.2,
+          2.1
+        ],
+        [
+          "knee0",
+          0.1,
+          2.5
+        ],
+        [
+          "ankle0",
+          -0.85,
+          0.38
+        ],
+        [
+          "shoulder0",
+          -0.8,
+          2.8
+        ],
+        [
+          "elbow0",
+          0.1,
+          2.4
+        ],
+        [
+          "wrist0",
+          -1.3,
+          1.3
+        ],
+        [
+          "lumbar0",
+          -0.3,
+          0.7
+        ],
+        [
+          "thoracic0",
+          -0.2,
+          0.5
+        ],
+        [
+          "abduction0",
+          0,
+          1.2
+        ],
+        [
+          "seconds0",
+          0.15,
+          1.4
+        ],
+        [
+          "hip1",
+          -0.2,
+          2.1
+        ],
+        [
+          "knee1",
+          0.1,
+          2.5
+        ],
+        [
+          "ankle1",
+          -0.85,
+          0.38
+        ],
+        [
+          "shoulder1",
+          -0.8,
+          2.8
+        ],
+        [
+          "elbow1",
+          0.1,
+          2.4
+        ],
+        [
+          "wrist1",
+          -1.3,
+          1.3
+        ],
+        [
+          "lumbar1",
+          -0.3,
+          0.7
+        ],
+        [
+          "thoracic1",
+          -0.2,
+          0.5
+        ],
+        [
+          "abduction1",
+          0,
+          1.2
+        ],
+        [
+          "seconds1",
+          0.15,
+          1.4
+        ],
+        [
+          "hip2",
+          -0.2,
+          2.1
+        ],
+        [
+          "knee2",
+          0.1,
+          2.5
+        ],
+        [
+          "ankle2",
+          -0.85,
+          0.38
+        ],
+        [
+          "shoulder2",
+          -0.8,
+          2.8
+        ],
+        [
+          "elbow2",
+          0.1,
+          2.4
+        ],
+        [
+          "wrist2",
+          -1.3,
+          1.3
+        ],
+        [
+          "lumbar2",
+          -0.3,
+          0.7
+        ],
+        [
+          "thoracic2",
+          -0.2,
+          0.5
+        ],
+        [
+          "abduction2",
+          0,
+          1.2
+        ],
+        [
+          "seconds2",
+          0.15,
+          1.4
+        ],
+        [
+          "hip3",
+          -0.2,
+          2.1
+        ],
+        [
+          "knee3",
+          0.1,
+          2.5
+        ],
+        [
+          "ankle3",
+          -0.85,
+          0.38
+        ],
+        [
+          "shoulder3",
+          -0.8,
+          2.8
+        ],
+        [
+          "elbow3",
+          0.1,
+          2.4
+        ],
+        [
+          "wrist3",
+          -1.3,
+          1.3
+        ],
+        [
+          "lumbar3",
+          -0.3,
+          0.7
+        ],
+        [
+          "thoracic3",
+          -0.2,
+          0.5
+        ],
+        [
+          "abduction3",
+          0,
+          1.2
+        ]
+      ]
+    },
+    "evaluations": 576,
+    "steps": 621504,
+    "wallSeconds": 581.341,
+    "best": {
+      "configuration": {
+        "parameters": {
+          "speed": 4,
+          "response": 0.2,
+          "hip0": 1.5143755504933787,
+          "knee0": 1.438505013330226,
+          "ankle0": -0.020963133428567926,
+          "shoulder0": 1.8729736713604959,
+          "elbow0": 1.8144168644091065,
+          "wrist0": -0.13793422366254937,
+          "lumbar0": 0.5888372922752421,
+          "thoracic0": 0.14069620474542321,
+          "abduction0": 0.36200689830412475,
+          "seconds0": 0.2368801591233714,
+          "hip1": 1.4047835187379794,
+          "knee1": 2.372623309305772,
+          "ankle1": 0.38,
+          "shoulder1": 0.660926522172411,
+          "elbow1": 0.3219962356144477,
+          "wrist1": -0.7754486677759282,
+          "lumbar1": -0.14791857554882204,
+          "thoracic1": -0.2,
+          "abduction1": 0.2589762228831188,
+          "seconds1": 0.2902521000764735,
+          "hip2": 1.8651787763304386,
+          "knee2": 2.22116502357809,
+          "ankle2": 0.23686856004769818,
+          "shoulder2": 0.7960111882123686,
+          "elbow2": 0.5116348306694832,
+          "wrist2": 0.49184218349102893,
+          "lumbar2": -0.21337905915265526,
+          "thoracic2": 0.37156980964236036,
+          "abduction2": 0.4712729005117678,
+          "seconds2": 0.5263339369276362,
+          "hip3": -0.2,
+          "knee3": 2.066504106629095,
+          "ankle3": 0.19728879106290653,
+          "shoulder3": 1.1157600217699615,
+          "elbow3": 0.6626183827967475,
+          "wrist3": 0.4615731836447121,
+          "lumbar3": -0.3,
+          "thoracic3": 0.4537441427104523,
+          "abduction3": 0.057789029946268396,
+          "seconds3": 0.7
+        },
+        "reference": ".review/stand-up-full/reference.json.gz",
+        "kind": "compact",
+        "fields": [
+          [
+            "hip0",
+            -0.2,
+            2.1
+          ],
+          [
+            "knee0",
+            0.1,
+            2.5
+          ],
+          [
+            "ankle0",
+            -0.85,
+            0.38
+          ],
+          [
+            "shoulder0",
+            -0.8,
+            2.8
+          ],
+          [
+            "elbow0",
+            0.1,
+            2.4
+          ],
+          [
+            "wrist0",
+            -1.3,
+            1.3
+          ],
+          [
+            "lumbar0",
+            -0.3,
+            0.7
+          ],
+          [
+            "thoracic0",
+            -0.2,
+            0.5
+          ],
+          [
+            "abduction0",
+            0,
+            1.2
+          ],
+          [
+            "seconds0",
+            0.15,
+            1.4
+          ],
+          [
+            "hip1",
+            -0.2,
+            2.1
+          ],
+          [
+            "knee1",
+            0.1,
+            2.5
+          ],
+          [
+            "ankle1",
+            -0.85,
+            0.38
+          ],
+          [
+            "shoulder1",
+            -0.8,
+            2.8
+          ],
+          [
+            "elbow1",
+            0.1,
+            2.4
+          ],
+          [
+            "wrist1",
+            -1.3,
+            1.3
+          ],
+          [
+            "lumbar1",
+            -0.3,
+            0.7
+          ],
+          [
+            "thoracic1",
+            -0.2,
+            0.5
+          ],
+          [
+            "abduction1",
+            0,
+            1.2
+          ],
+          [
+            "seconds1",
+            0.15,
+            1.4
+          ],
+          [
+            "hip2",
+            -0.2,
+            2.1
+          ],
+          [
+            "knee2",
+            0.1,
+            2.5
+          ],
+          [
+            "ankle2",
+            -0.85,
+            0.38
+          ],
+          [
+            "shoulder2",
+            -0.8,
+            2.8
+          ],
+          [
+            "elbow2",
+            0.1,
+            2.4
+          ],
+          [
+            "wrist2",
+            -1.3,
+            1.3
+          ],
+          [
+            "lumbar2",
+            -0.3,
+            0.7
+          ],
+          [
+            "thoracic2",
+            -0.2,
+            0.5
+          ],
+          [
+            "abduction2",
+            0,
+            1.2
+          ],
+          [
+            "seconds2",
+            0.15,
+            1.4
+          ],
+          [
+            "hip3",
+            -0.2,
+            2.1
+          ],
+          [
+            "knee3",
+            0.1,
+            2.5
+          ],
+          [
+            "ankle3",
+            -0.85,
+            0.38
+          ],
+          [
+            "shoulder3",
+            -0.8,
+            2.8
+          ],
+          [
+            "elbow3",
+            0.1,
+            2.4
+          ],
+          [
+            "wrist3",
+            -1.3,
+            1.3
+          ],
+          [
+            "lumbar3",
+            -0.3,
+            0.7
+          ],
+          [
+            "thoracic3",
+            -0.2,
+            0.5
+          ],
+          [
+            "abduction3",
+            0,
+            1.2
+          ]
+        ]
+      },
+      "case": "workshop-fighter-empty-0",
+      "result": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.55,
+        "takeover": 2.5416666666666665,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 9,
+        "effortViolation": 0.000020208393948450976,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "steps": 1079,
+      "traceSha256": "49c6660008a143401550a1cf03d3248828e48c6c58bf3a926848597d23f73a38"
+    },
+    "optimizer": {
+      "version": 1,
+      "n": 39,
+      "lambda": 12,
+      "random": 182209877,
+      "generation": 48,
+      "mean": [
+        0.7623862943764108,
+        0.6023739920489141,
+        0.6246451827050927,
+        0.6544519780143354,
+        0.828892693538655,
+        0.5534818609517036,
+        0.8283558631125465,
+        0.46122522514403635,
+        0.28576580440056637,
+        0.06472761103192397,
+        0.7918675577813704,
+        0.9631367504135281,
+        0.9367634437699028,
+        0.2647789598349566,
+        0.09334157684522333,
+        0.19635410701747713,
+        0.08856273356639846,
+        0.03306758004001768,
+        0.15989396056055363,
+        0.15950625592783482,
+        0.8428949269843712,
+        0.9016195973874309,
+        0.776244975023262,
+        0.427490434377175,
+        0.23687483852119204,
+        0.7738467479384106,
+        0.14808967573030057,
+        0.7440440506678684,
+        0.34718977294729564,
+        0.30098431722340785,
+        0.006435474586687792,
+        0.795406663090178,
+        0.7751616107138045,
+        0.5764456613328923,
+        0.2845684027168166,
+        0.7451822689843496,
+        0.030175044021691844,
+        0.9003288778374918,
+        0.023433319758331253
+      ],
+      "covariance": [
+        0.8597212255322235,
+        0.8315377166293934,
+        0.8411310716972206,
+        0.7817345411255525,
+        0.7537961382420162,
+        0.79400205047125,
+        0.8156020242002229,
+        0.8820310368308361,
+        0.5903557668484205,
+        0.5355210051338829,
+        0.9348563333472926,
+        0.7122315964449044,
+        0.8033600338351011,
+        1.0182599270691126,
+        0.6440254084156436,
+        1.0756822766252132,
+        1.0108725512071495,
+        0.8313897380531982,
+        0.8088807517087315,
+        0.5719284429888323,
+        0.6639280282875267,
+        0.7389467264136951,
+        0.7584841943680869,
+        0.9781050219650714,
+        0.8800465772609851,
+        1.0723587029760637,
+        0.9528944452760856,
+        0.9907983121007455,
+        0.7331848754237118,
+        0.622305872200532,
+        0.2811736725893008,
+        0.6250958844862808,
+        0.93149857756038,
+        0.7234436840132077,
+        0.7704398126466668,
+        1.0141035577379636,
+        0.8644851441787067,
+        0.9383680056180497,
+        0.5484780731004215
+      ],
+      "ps": [
+        0.6150660836534537,
+        -0.041337521270564614,
+        0.9029265581960593,
+        -1.0492900554732798,
+        0.5471949533667806,
+        1.0837655921031342,
+        -0.8740743239942408,
+        0.29267086405078513,
+        1.922959917421027,
+        0.6525121993330584,
+        -0.7541327565848717,
+        0.28155767772092805,
+        0.5309363457496487,
+        -2.083845922999882,
+        0.02000429421517909,
+        -0.40906389156846584,
+        -0.45958448990305356,
+        -0.7205185938480954,
+        -0.042618198711302124,
+        1.30372698855182,
+        1.020847989875757,
+        0.2648233886050183,
+        -0.3603292656614136,
+        0.4744782686052103,
+        0.5994142878844647,
+        2.598191150499588,
+        0.4739986309640939,
+        -0.578571751712565,
+        0.11980539343247057,
+        -0.5827074197528972,
+        -0.08163809431618976,
+        -1.1492498307388876,
+        2.5136937662327754,
+        -0.28547855071999784,
+        -0.0033704249258989516,
+        -0.1711316005262828,
+        -2.069362226324129,
+        0.9628268455527524,
+        -0.198879012215375
+      ],
+      "pc": [
+        0.43926847606076025,
+        -0.19525334351642304,
+        1.067171525218233,
+        -0.810833878537499,
+        0.36766898578705365,
+        1.183755971548011,
+        -0.6594339480861077,
+        0.29092956734078756,
+        1.4378525888194276,
+        0.3219602607630628,
+        -0.6124795805942811,
+        0.3512615459751182,
+        0.4963789127895707,
+        -2.0070297404653052,
+        0.013218243824956899,
+        -0.2725267310176389,
+        -0.6973954472830945,
+        -0.866957920074416,
+        -0.01022612627598618,
+        0.8407614095851687,
+        0.7645088137328165,
+        0.30278710204145876,
+        -0.2734579303746547,
+        0.4800827182584022,
+        0.4278486132196491,
+        2.5066214639596973,
+        0.34634831564936386,
+        -0.21372405375961767,
+        0.1273111429588198,
+        -0.37833200625690167,
+        -0.07807842273111651,
+        -0.7849174513954849,
+        2.2361734177207424,
+        -0.16488481951821693,
+        0.15991791849118114,
+        0.03636188400384122,
+        -1.845038522539571,
+        1.0116971331641418,
+        -0.2993646341650369
+      ],
+      "sigma": 0.07238360414369766,
+      "best": {
+        "score": -9844.93689821881,
+        "u": [
+          0.7453806741275558,
+          0.5577104222209275,
+          0.6740137126597009,
+          0.7424926864890267,
+          0.7453986366996116,
+          0.4469483755144041,
+          0.888837292275242,
+          0.4867088639220332,
+          0.3016724152534373,
+          0.06950412729869714,
+          0.6977319646686866,
+          0.9469263788774049,
+          1,
+          0.4058129228256698,
+          0.09652010244106422,
+          0.20175051239387376,
+          0.15208142445117795,
+          0,
+          0.21581351906926566,
+          0.11220168006117881,
+          0.8979038157958427,
+          0.8838187598242042,
+          0.883632975648535,
+          0.44333644117010246,
+          0.178971665508471,
+          0.6891700705734727,
+          0.08662094084734473,
+          0.8165282994890863,
+          0.39272741709313985,
+          0.30106714954210895,
+          0,
+          0.8193767110954563,
+          0.8514543016771599,
+          0.5321555616027671,
+          0.2446166881724989,
+          0.6775281475556585,
+          0,
+          0.9339202038720748,
+          0.048157524955223664
+        ],
+        "r": {
+          "configuration": {
+            "parameters": {
+              "speed": 4,
+              "response": 0.2,
+              "hip0": 1.5143755504933787,
+              "knee0": 1.438505013330226,
+              "ankle0": -0.020963133428567926,
+              "shoulder0": 1.8729736713604959,
+              "elbow0": 1.8144168644091065,
+              "wrist0": -0.13793422366254937,
+              "lumbar0": 0.5888372922752421,
+              "thoracic0": 0.14069620474542321,
+              "abduction0": 0.36200689830412475,
+              "seconds0": 0.2368801591233714,
+              "hip1": 1.4047835187379794,
+              "knee1": 2.372623309305772,
+              "ankle1": 0.38,
+              "shoulder1": 0.660926522172411,
+              "elbow1": 0.3219962356144477,
+              "wrist1": -0.7754486677759282,
+              "lumbar1": -0.14791857554882204,
+              "thoracic1": -0.2,
+              "abduction1": 0.2589762228831188,
+              "seconds1": 0.2902521000764735,
+              "hip2": 1.8651787763304386,
+              "knee2": 2.22116502357809,
+              "ankle2": 0.23686856004769818,
+              "shoulder2": 0.7960111882123686,
+              "elbow2": 0.5116348306694832,
+              "wrist2": 0.49184218349102893,
+              "lumbar2": -0.21337905915265526,
+              "thoracic2": 0.37156980964236036,
+              "abduction2": 0.4712729005117678,
+              "seconds2": 0.5263339369276362,
+              "hip3": -0.2,
+              "knee3": 2.066504106629095,
+              "ankle3": 0.19728879106290653,
+              "shoulder3": 1.1157600217699615,
+              "elbow3": 0.6626183827967475,
+              "wrist3": 0.4615731836447121,
+              "lumbar3": -0.3,
+              "thoracic3": 0.4537441427104523,
+              "abduction3": 0.057789029946268396,
+              "seconds3": 0.7
+            },
+            "reference": ".review/stand-up-full/reference.json.gz",
+            "kind": "compact",
+            "fields": [
+              [
+                "hip0",
+                -0.2,
+                2.1
+              ],
+              [
+                "knee0",
+                0.1,
+                2.5
+              ],
+              [
+                "ankle0",
+                -0.85,
+                0.38
+              ],
+              [
+                "shoulder0",
+                -0.8,
+                2.8
+              ],
+              [
+                "elbow0",
+                0.1,
+                2.4
+              ],
+              [
+                "wrist0",
+                -1.3,
+                1.3
+              ],
+              [
+                "lumbar0",
+                -0.3,
+                0.7
+              ],
+              [
+                "thoracic0",
+                -0.2,
+                0.5
+              ],
+              [
+                "abduction0",
+                0,
+                1.2
+              ],
+              [
+                "seconds0",
+                0.15,
+                1.4
+              ],
+              [
+                "hip1",
+                -0.2,
+                2.1
+              ],
+              [
+                "knee1",
+                0.1,
+                2.5
+              ],
+              [
+                "ankle1",
+                -0.85,
+                0.38
+              ],
+              [
+                "shoulder1",
+                -0.8,
+                2.8
+              ],
+              [
+                "elbow1",
+                0.1,
+                2.4
+              ],
+              [
+                "wrist1",
+                -1.3,
+                1.3
+              ],
+              [
+                "lumbar1",
+                -0.3,
+                0.7
+              ],
+              [
+                "thoracic1",
+                -0.2,
+                0.5
+              ],
+              [
+                "abduction1",
+                0,
+                1.2
+              ],
+              [
+                "seconds1",
+                0.15,
+                1.4
+              ],
+              [
+                "hip2",
+                -0.2,
+                2.1
+              ],
+              [
+                "knee2",
+                0.1,
+                2.5
+              ],
+              [
+                "ankle2",
+                -0.85,
+                0.38
+              ],
+              [
+                "shoulder2",
+                -0.8,
+                2.8
+              ],
+              [
+                "elbow2",
+                0.1,
+                2.4
+              ],
+              [
+                "wrist2",
+                -1.3,
+                1.3
+              ],
+              [
+                "lumbar2",
+                -0.3,
+                0.7
+              ],
+              [
+                "thoracic2",
+                -0.2,
+                0.5
+              ],
+              [
+                "abduction2",
+                0,
+                1.2
+              ],
+              [
+                "seconds2",
+                0.15,
+                1.4
+              ],
+              [
+                "hip3",
+                -0.2,
+                2.1
+              ],
+              [
+                "knee3",
+                0.1,
+                2.5
+              ],
+              [
+                "ankle3",
+                -0.85,
+                0.38
+              ],
+              [
+                "shoulder3",
+                -0.8,
+                2.8
+              ],
+              [
+                "elbow3",
+                0.1,
+                2.4
+              ],
+              [
+                "wrist3",
+                -1.3,
+                1.3
+              ],
+              [
+                "lumbar3",
+                -0.3,
+                0.7
+              ],
+              [
+                "thoracic3",
+                -0.2,
+                0.5
+              ],
+              [
+                "abduction3",
+                0,
+                1.2
+              ]
+            ]
+          },
+          "case": "workshop-fighter-empty-0",
+          "result": {
+            "fell": true,
+            "success": false,
+            "failure": "episode deadline",
+            "firstDown": 2.55,
+            "takeover": 2.5416666666666665,
+            "handover": null,
+            "seconds": null,
+            "fromFirstDown": null,
+            "elapsed": 9,
+            "effortViolation": 0.000020208393948450976,
+            "assisted": false,
+            "quiet": 0,
+            "externalActuation": []
+          },
+          "steps": 1079,
+          "score": -9844.93689821881,
+          "peakHeight": 0.6843203457934671,
+          "quality": 1.3678925160923923,
+          "peakQuality": 0.1827385017195065,
+          "timeline": [
+            {
+              "seconds": 0.016666666666666607,
+              "phase": 0,
+              "height": 0.6843203457934671,
+              "rootUp": -0.18770022337304626,
+              "soleUp": [
+                0.8901415431159586,
+                0.6291412649916682
+              ],
+              "loaded": []
+            },
+            {
+              "seconds": 0.5,
+              "phase": 1,
+              "height": 0.2580696822633056,
+              "rootUp": -0.08261448845452712,
+              "soleUp": [
+                -0.004877551191023958,
+                -0.15945472799844576
+              ],
+              "loaded": [
+                "upperArm.right",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 1,
+              "phase": 2,
+              "height": 0.2491993979634271,
+              "rootUp": 0.0822358751033202,
+              "soleUp": [
+                0.2167647435462909,
+                0.21709700068204027
+              ],
+              "loaded": [
+                "middleTrunk",
+                "lowerTrunk"
+              ]
+            },
+            {
+              "seconds": 1.5000000000000004,
+              "phase": 3,
+              "height": 0.2722732231081173,
+              "rootUp": -0.3273550094180213,
+              "soleUp": [
+                0.8817876522146401,
+                0.9436159377602638
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 2.0000000000000004,
+              "phase": 3,
+              "height": 0.3020601598155823,
+              "rootUp": -0.4836868237930513,
+              "soleUp": [
+                0.9764507951240057,
+                0.9579530658522056
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 2.5000000000000004,
+              "phase": 3,
+              "height": 0.30289177812431267,
+              "rootUp": -0.4996165612077738,
+              "soleUp": [
+                0.9812921634831709,
+                0.9564480144147894
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 3.0000000000000004,
+              "phase": 3,
+              "height": 0.30301838079819826,
+              "rootUp": -0.5017278085003962,
+              "soleUp": [
+                0.9801752336360449,
+                0.9522103275154082
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 3.5000000000000004,
+              "phase": 3,
+              "height": 0.3034061965486602,
+              "rootUp": -0.5037641050105189,
+              "soleUp": [
+                0.9765743726757005,
+                0.9457657873936957
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 4,
+              "phase": 3,
+              "height": 0.30417676254062703,
+              "rootUp": -0.5060286413455726,
+              "soleUp": [
+                0.9689337442862508,
+                0.93584614854794
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 4.5,
+              "phase": 3,
+              "height": 0.30546959959355363,
+              "rootUp": -0.5087024682367751,
+              "soleUp": [
+                0.9531058322109197,
+                0.9187067866247959
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 5,
+              "phase": 3,
+              "height": 0.3069707343245942,
+              "rootUp": -0.5106858808251601,
+              "soleUp": [
+                0.9308354123914443,
+                0.8955541726182835
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 5.5,
+              "phase": 3,
+              "height": 0.30795713442405487,
+              "rootUp": -0.5070138410042985,
+              "soleUp": [
+                0.9283908774483687,
+                0.9044074189349011
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 6,
+              "phase": 3,
+              "height": 0.3087923439224756,
+              "rootUp": -0.5059392257351423,
+              "soleUp": [
+                0.934560780241752,
+                0.8930973134779095
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 6.5,
+              "phase": 3,
+              "height": 0.310444431931764,
+              "rootUp": -0.4992463967675413,
+              "soleUp": [
+                0.9244911247403476,
+                0.9055517419064995
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 7,
+              "phase": 3,
+              "height": 0.31209952438944644,
+              "rootUp": -0.4960435073538718,
+              "soleUp": [
+                0.9369958278929225,
+                0.8951595050589419
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 7.5,
+              "phase": 3,
+              "height": 0.31596383653364246,
+              "rootUp": -0.48527387361790575,
+              "soleUp": [
+                0.9368228029218719,
+                0.9068697533078113
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 8,
+              "phase": 3,
+              "height": 0.3183060873661693,
+              "rootUp": -0.48053178960357534,
+              "soleUp": [
+                0.9232205151801106,
+                0.9000945405586945
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 8.5,
+              "phase": 3,
+              "height": 0.3208614928040833,
+              "rootUp": -0.4724925575707993,
+              "soleUp": [
+                0.9285619161249731,
+                0.908508537643174
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            },
+            {
+              "seconds": 9,
+              "phase": 3,
+              "height": 0.32197489992770356,
+              "rootUp": -0.46883030648053475,
+              "soleUp": [
+                0.9221769253371664,
+                0.9116943902396902
+              ],
+              "loaded": [
+                "head",
+                "foot.left",
+                "foot.right"
+              ]
+            }
+          ],
+          "nonfinite": [],
+          "invalidCommands": [],
+          "traceSha256": "49c6660008a143401550a1cf03d3248828e48c6c58bf3a926848597d23f73a38"
+        },
+        "g": 46
+      },
+      "log": [
+        {
+          "g": 0,
+          "best": -9956.3651,
+          "median": -9972.6722,
+          "sigma": 0.113,
+          "errors": 0
+        },
+        {
+          "g": 1,
+          "best": -9939.7204,
+          "median": -9956.9708,
+          "sigma": 0.11,
+          "errors": 0
+        },
+        {
+          "g": 2,
+          "best": -9917.9996,
+          "median": -9944.8191,
+          "sigma": 0.108,
+          "errors": 0
+        },
+        {
+          "g": 3,
+          "best": -9899.8778,
+          "median": -9926.7431,
+          "sigma": 0.108,
+          "errors": 0
+        },
+        {
+          "g": 4,
+          "best": -9905.0338,
+          "median": -9926.9567,
+          "sigma": 0.107,
+          "errors": 0
+        },
+        {
+          "g": 5,
+          "best": -9889.2716,
+          "median": -9924.225,
+          "sigma": 0.106,
+          "errors": 0
+        },
+        {
+          "g": 6,
+          "best": -9877.8955,
+          "median": -9897.4486,
+          "sigma": 0.106,
+          "errors": 0
+        },
+        {
+          "g": 7,
+          "best": -9881.1944,
+          "median": -9894.2842,
+          "sigma": 0.107,
+          "errors": 0
+        },
+        {
+          "g": 8,
+          "best": -9871.4137,
+          "median": -9884.9417,
+          "sigma": 0.109,
+          "errors": 0
+        },
+        {
+          "g": 9,
+          "best": -9871.4844,
+          "median": -9879.0328,
+          "sigma": 0.11,
+          "errors": 0
+        },
+        {
+          "g": 10,
+          "best": -9868.2033,
+          "median": -9875.7136,
+          "sigma": 0.111,
+          "errors": 0
+        },
+        {
+          "g": 11,
+          "best": -9862.1232,
+          "median": -9874.8847,
+          "sigma": 0.112,
+          "errors": 0
+        },
+        {
+          "g": 12,
+          "best": -9863.7148,
+          "median": -9868.8988,
+          "sigma": 0.112,
+          "errors": 0
+        },
+        {
+          "g": 13,
+          "best": -9867.665,
+          "median": -9899.9889,
+          "sigma": 0.112,
+          "errors": 0
+        },
+        {
+          "g": 14,
+          "best": -9864.0648,
+          "median": -9872.3588,
+          "sigma": 0.11,
+          "errors": 0
+        },
+        {
+          "g": 15,
+          "best": -9866.0131,
+          "median": -9870.6422,
+          "sigma": 0.109,
+          "errors": 0
+        },
+        {
+          "g": 16,
+          "best": -9863.3638,
+          "median": -9869.1806,
+          "sigma": 0.106,
+          "errors": 0
+        },
+        {
+          "g": 17,
+          "best": -9861.5966,
+          "median": -9876.3487,
+          "sigma": 0.102,
+          "errors": 0
+        },
+        {
+          "g": 18,
+          "best": -9864.068,
+          "median": -9869.3327,
+          "sigma": 0.1,
+          "errors": 0
+        },
+        {
+          "g": 19,
+          "best": -9859.421,
+          "median": -9867.8109,
+          "sigma": 0.098,
+          "errors": 0
+        },
+        {
+          "g": 20,
+          "best": -9858.2489,
+          "median": -9862.6619,
+          "sigma": 0.096,
+          "errors": 0
+        },
+        {
+          "g": 21,
+          "best": -9859.1994,
+          "median": -9863.252,
+          "sigma": 0.095,
+          "errors": 0
+        },
+        {
+          "g": 22,
+          "best": -9855.3934,
+          "median": -9860.1785,
+          "sigma": 0.094,
+          "errors": 0
+        },
+        {
+          "g": 23,
+          "best": -9856.009,
+          "median": -9864.2425,
+          "sigma": 0.094,
+          "errors": 0
+        },
+        {
+          "g": 24,
+          "best": -9857.9619,
+          "median": -9863.2579,
+          "sigma": 0.092,
+          "errors": 0
+        },
+        {
+          "g": 25,
+          "best": -9857.541,
+          "median": -9864.906,
+          "sigma": 0.09,
+          "errors": 0
+        },
+        {
+          "g": 26,
+          "best": -9856.2289,
+          "median": -9863.0315,
+          "sigma": 0.088,
+          "errors": 0
+        },
+        {
+          "g": 27,
+          "best": -9855.7753,
+          "median": -9858.7983,
+          "sigma": 0.087,
+          "errors": 0
+        },
+        {
+          "g": 28,
+          "best": -9854.9521,
+          "median": -9859.8333,
+          "sigma": 0.085,
+          "errors": 0
+        },
+        {
+          "g": 29,
+          "best": -9857.5728,
+          "median": -9861.2944,
+          "sigma": 0.084,
+          "errors": 0
+        },
+        {
+          "g": 30,
+          "best": -9856.6335,
+          "median": -9859.1075,
+          "sigma": 0.083,
+          "errors": 0
+        },
+        {
+          "g": 31,
+          "best": -9853.0891,
+          "median": -9861.8252,
+          "sigma": 0.081,
+          "errors": 0
+        },
+        {
+          "g": 32,
+          "best": -9854.8286,
+          "median": -9860.057,
+          "sigma": 0.08,
+          "errors": 0
+        },
+        {
+          "g": 33,
+          "best": -9854.2124,
+          "median": -9858.0335,
+          "sigma": 0.079,
+          "errors": 0
+        },
+        {
+          "g": 34,
+          "best": -9854.9947,
+          "median": -9856.7798,
+          "sigma": 0.078,
+          "errors": 0
+        },
+        {
+          "g": 35,
+          "best": -9854.7826,
+          "median": -9859.5371,
+          "sigma": 0.077,
+          "errors": 0
+        },
+        {
+          "g": 36,
+          "best": -9854.1321,
+          "median": -9858.6563,
+          "sigma": 0.077,
+          "errors": 0
+        },
+        {
+          "g": 37,
+          "best": -9854.1805,
+          "median": -9857.8571,
+          "sigma": 0.077,
+          "errors": 0
+        },
+        {
+          "g": 38,
+          "best": -9854.6849,
+          "median": -9857.5507,
+          "sigma": 0.077,
+          "errors": 0
+        },
+        {
+          "g": 39,
+          "best": -9853.5369,
+          "median": -9856.7328,
+          "sigma": 0.077,
+          "errors": 0
+        },
+        {
+          "g": 40,
+          "best": -9854.443,
+          "median": -9860.4825,
+          "sigma": 0.077,
+          "errors": 0
+        },
+        {
+          "g": 41,
+          "best": -9853.0323,
+          "median": -9858.6133,
+          "sigma": 0.077,
+          "errors": 0
+        },
+        {
+          "g": 42,
+          "best": -9854.0508,
+          "median": -9856.8432,
+          "sigma": 0.075,
+          "errors": 0
+        },
+        {
+          "g": 43,
+          "best": -9853.3081,
+          "median": -9857.3246,
+          "sigma": 0.074,
+          "errors": 0
+        },
+        {
+          "g": 44,
+          "best": -9851.3469,
+          "median": -9859.3174,
+          "sigma": 0.073,
+          "errors": 0
+        },
+        {
+          "g": 45,
+          "best": -9852.2469,
+          "median": -9857.721,
+          "sigma": 0.072,
+          "errors": 0
+        },
+        {
+          "g": 46,
+          "best": -9844.9369,
+          "median": -9855.0382,
+          "sigma": 0.072,
+          "errors": 0
+        },
+        {
+          "g": 47,
+          "best": -9848.3274,
+          "median": -9854.818,
+          "sigma": 0.072,
+          "errors": 0
+        }
+      ]
+    }
+  },
+  "ordinaryHostFailures": [
+    {
+      "configuration": {
+        "parameters": {
+          "release": 0
+        },
+        "reference": ".review/stand-up-full/reference.json.gz"
+      },
+      "case": "workshop-fighter-empty-90",
+      "result": {
+        "fell": true,
+        "success": false,
+        "failure": "nonfinite joint actuation",
+        "firstDown": 2.5833333333333335,
+        "takeover": 2.575,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 26.95,
+        "effortViolation": 0.00004359944210818867,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "steps": 3233,
+      "traceSha256": "c1dacb2d2d9bddf74fd3f6af506a980d89c8c577f884aaec1537088fbedb9159",
+      "nonfinite": [
+        {
+          "name": "hip.right flexion",
+          "angle": -0.003759452470183958,
+          "rate": -9.339526194462646,
+          "speed": -5.893311871017322,
+          "effort": -1296.633460521698,
+          "negative": null,
+          "positive": null
+        },
+        {
+          "name": "hip.right abduction",
+          "angle": -0.24163537102536203,
+          "rate": -5.157954366436914,
+          "speed": -7.714533750348036,
+          "effort": -998.0202823877335,
+          "negative": null,
+          "positive": null
+        },
+        {
+          "name": "hip.right internal rotation",
+          "angle": -0.8151291489591428,
+          "rate": 0.007921250557560327,
+          "speed": 0.9436567275578107,
+          "effort": -821.3084989786148,
+          "negative": null,
+          "positive": null
+        },
+        {
+          "name": "knee.right flexion",
+          "angle": 1.4406318214895888,
+          "rate": -7.310120765389031,
+          "speed": -7.310120765389031,
+          "effort": 394.184767305851,
+          "negative": null,
+          "positive": null
+        },
+        {
+          "name": "ankle.right dorsiflexion",
+          "angle": 0.34434952453596446,
+          "rate": -0.32179255650822475,
+          "speed": -0.31319229734804943,
+          "effort": 19.314047070220113,
+          "negative": null,
+          "positive": null
+        },
+        {
+          "name": "ankle.right inversion",
+          "angle": -0.33327545643450157,
+          "rate": 2.4212855509287823,
+          "speed": 2.3521144967922476,
+          "effort": -48.633375875651836,
+          "negative": null,
+          "positive": null
+        }
+      ]
+    },
+    {
+      "configuration": {
+        "parameters": {
+          "release": 0
+        },
+        "reference": ".review/stand-up-full/reference.json.gz"
+      },
+      "case": "workshop-rogue-empty-90",
+      "result": {
+        "fell": true,
+        "success": false,
+        "failure": "nonfinite joint actuation",
+        "firstDown": 2.6083333333333334,
+        "takeover": 2.6,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 9.508333333333333,
+        "effortViolation": 0.00002259037870544489,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "steps": 1140,
+      "traceSha256": "10f83229d711c03de2dea3d84b5d8f1805ac0e3fff523ddffd5862e6b22adbe0",
+      "nonfinite": [
+        {
+          "name": "hip.left flexion",
+          "angle": 2.0968706629542577,
+          "rate": -5.483655505274823,
+          "speed": -3.866502291293644,
+          "effort": -610.1472866535187,
+          "negative": null,
+          "positive": null
+        },
+        {
+          "name": "hip.left abduction",
+          "angle": 0.4924538700752357,
+          "rate": -0.7581383725609301,
+          "speed": -8.176842835535835,
+          "effort": -238.8598807901144,
+          "negative": null,
+          "positive": null
+        },
+        {
+          "name": "hip.left internal rotation",
+          "angle": 0.6997842416884459,
+          "rate": -21.17855651800744,
+          "speed": -6.6772972340227374,
+          "effort": -820.7562433183193,
+          "negative": null,
+          "positive": null
+        },
+        {
+          "name": "knee.left flexion",
+          "angle": -0.22886288479096398,
+          "rate": -4.602702088587056e-7,
+          "speed": -4.602702088587056e-7,
+          "effort": -492.6264292001724,
+          "negative": null,
+          "positive": null
+        },
+        {
+          "name": "ankle.left dorsiflexion",
+          "angle": 0.33509398433181725,
+          "rate": -2.830069834739938,
+          "speed": -2.8300390192701137,
+          "effort": -18.77584976144135,
+          "negative": null,
+          "positive": null
+        },
+        {
+          "name": "ankle.left inversion",
+          "angle": 0.0066933117118170024,
+          "rate": -3.0376648448159362,
+          "speed": -2.953187403617613,
+          "effort": -13.766225196886808,
+          "negative": null,
+          "positive": null
+        }
+      ],
+      "invalidCommands": [
+        {
+          "name": "hip.left flexion",
+          "activation": null,
+          "velocity": null
+        },
+        {
+          "name": "hip.left abduction",
+          "activation": null,
+          "velocity": null
+        },
+        {
+          "name": "hip.left internal rotation",
+          "activation": null,
+          "velocity": null
+        },
+        {
+          "name": "knee.left flexion",
+          "activation": null,
+          "velocity": null
+        },
+        {
+          "name": "ankle.left dorsiflexion",
+          "activation": null,
+          "velocity": null
+        },
+        {
+          "name": "ankle.left inversion",
+          "activation": null,
+          "velocity": null
+        }
+      ]
+    }
+  ],
+  "frozenComparison": {
+    "configuration": {
+      "parameters": {
+        "minRate": 0.75,
+        "window": 0.2,
+        "damping": 0.1,
+        "torqueGain": 1,
+        "gain": 4,
+        "rate": 1
+      },
+      "reference": ".review/stand-up-full/reference-torque.json.gz"
+    },
+    "candidate": {
+      "path": "C:\\Users\\ostro\\IdeaProjects\\auto-rpg\\research\\stand-up-path-policy.mjs",
+      "sha256": "34f6cd9c9b89b6f20d238cb5c74460ff0d2897b91c96b03dae4524eebaddf8fe"
+    },
+    "manifestSha256": "638647064297fd1594c1075b25a42154b61538350c5e23e741763e9ac72b8a97",
+    "summary": {
+      "baseline": {
+        "cases": 16,
+        "within6": 0,
+        "within12": 0,
+        "within35": 1,
+        "failureInclusiveMedian": null,
+        "medianMeaning": "not reached; failures are infinity",
+        "rejectedExternalActuation": 0
+      },
+      "candidate": {
+        "cases": 16,
+        "within6": 0,
+        "within12": 0,
+        "within35": 1,
+        "failureInclusiveMedian": null,
+        "medianMeaning": "not reached; failures are infinity",
+        "rejectedExternalActuation": 0
+      },
+      "floatingControllerRejected": true,
+      "matchedInitialStates": true,
+      "lostCompletions": [],
+      "gainedCompletions": [],
+      "robustnessQualified": false,
+      "criteriaChanged": false
+    },
+    "baseline": [
+      {
+        "case": "workshop-fighter-empty-0",
+        "result": {
+          "fell": true,
+          "success": true,
+          "failure": null,
+          "firstDown": 2.55,
+          "takeover": 2.5416666666666665,
+          "handover": 18.1,
+          "seconds": 15.558333333333335,
+          "fromFirstDown": 15.55,
+          "elapsed": 18.558333333333334,
+          "effortViolation": 0.000035855569763043604,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 2226,
+        "traceSha256": "af1d60f62875f6ca932bf98488d282b51e4066b084ac027cfd6e39b9fce43309"
+      },
+      {
+        "case": "workshop-fighter-empty-90",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.5833333333333335,
+          "takeover": 2.575,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.00004105557570710516,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "4355a449a6a1e00be4d8630049aa94e154add7262814c6647e7c9f529b202d6d"
+      },
+      {
+        "case": "workshop-fighter-empty-180",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.825,
+          "takeover": 2.816666666666667,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.000042950562942678516,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "3a05d3d6a1448c3bf0a7b652580d21491ddad1c8d85dee38c7c05936710a8bad"
+      },
+      {
+        "case": "workshop-fighter-empty-270",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.716666666666667,
+          "takeover": 2.7083333333333335,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.000039565656265949656,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "57c5a2375316923f0dc21e5e07688b9b9fde662f4a060107f625174a0121c169"
+      },
+      {
+        "case": "workshop-fighter-club-0",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.65,
+          "takeover": 2.6416666666666666,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.00004103114736153657,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "f2ee80d70ab11de7d3a5aee729fe7c939995aea89f5cc4a6b39b5cb3ab5a130c"
+      },
+      {
+        "case": "workshop-fighter-club-90",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.6,
+          "takeover": 2.591666666666667,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.00003920785331956722,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "9d26f16e99c86f68128bc02faed3e3874897e7f7eba82739f45168d8eb87ae79"
+      },
+      {
+        "case": "workshop-fighter-club-180",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.816666666666667,
+          "takeover": 2.808333333333333,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.000036409205733889394,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "e6e68ccb9ae776cc7bede389a291001b24bf84f05203f767633d222bb57c9069"
+      },
+      {
+        "case": "workshop-fighter-club-270",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.6166666666666667,
+          "takeover": 2.6083333333333334,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.000041925296443423576,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "82bc1fc2ac65c3d7725c6f0b009b99de3aa32de9c5b55a924bb6f4e928dad9d3"
+      },
+      {
+        "case": "workshop-rogue-empty-0",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.433333333333333,
+          "takeover": 2.425,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.00002175209311872095,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "770683817e0097f86c4c7681c10d730218fcc7b362bf5d48aa15669381b0451e"
+      },
+      {
+        "case": "workshop-rogue-empty-90",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.6083333333333334,
+          "takeover": 2.6,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.000021371545699366834,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "6cc0b5f6642f36505d5459fde81f3b75d214632bca9a27af5ff0c0c6669f3b94"
+      },
+      {
+        "case": "workshop-rogue-empty-180",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.4916666666666667,
+          "takeover": 2.4833333333333334,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.000020553299378889278,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "6f8d3b3a798ace65ebe0e06720397fe6e9124970b4fabcd0b91f7bf53f15ebdf"
+      },
+      {
+        "case": "workshop-rogue-empty-270",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.6166666666666667,
+          "takeover": 2.6083333333333334,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.000019907010567976613,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "8950dfb2f0d43c759acb4c341aa687be93960dc6e88a1ca8257ef2a47b8210aa"
+      },
+      {
+        "case": "workshop-rogue-club-0",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.5,
+          "takeover": 2.4916666666666667,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.000020065568548943702,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "b3263b86d5bcc178ea1b3f3bd8b5251d72969fca0f104dd6b4cf6d9f06ddb5fd"
+      },
+      {
+        "case": "workshop-rogue-club-90",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.566666666666667,
+          "takeover": 2.558333333333333,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.000020612706464362418,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "1260017768dc879cb608ae831ba94b8fdf28fcb85e69f6e54ff16576ff0fc102"
+      },
+      {
+        "case": "workshop-rogue-club-180",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.475,
+          "takeover": 2.466666666666667,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.000020778609638227863,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "e32d19addfc4a0dcffcc372c3100be83f9cbb5603cbdb836b99d4860e69685bf"
+      },
+      {
+        "case": "workshop-rogue-club-270",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.566666666666667,
+          "takeover": 2.558333333333333,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.00002110490882500926,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "4d4e857b4f130b3035432e26c07b57f8b0035ffea1dc877b57ecd6fb59f7754c"
+      }
+    ],
+    "candidateRows": [
+      {
+        "case": "workshop-fighter-empty-0",
+        "result": {
+          "fell": true,
+          "success": true,
+          "failure": null,
+          "firstDown": 2.55,
+          "takeover": 2.5416666666666665,
+          "handover": 14.95,
+          "seconds": 12.408333333333333,
+          "fromFirstDown": 12.399999999999999,
+          "elapsed": 15.408333333333333,
+          "effortViolation": 0.00004193843579969325,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 1848,
+        "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b"
+      },
+      {
+        "case": "workshop-fighter-empty-90",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.5833333333333335,
+          "takeover": 2.575,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.000043398324805821176,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "4d856286ee27b35d33a42c55ab887cf930362f768f3dbe94c4c0133934681d94"
+      },
+      {
+        "case": "workshop-fighter-empty-180",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.825,
+          "takeover": 2.816666666666667,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.000047430149379579234,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "9fc45fdc79e507959153de976573d4f072e66b350f6233068f0e7af99c3e598d"
+      },
+      {
+        "case": "workshop-fighter-empty-270",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "nonfinite joint actuation",
+          "firstDown": 2.716666666666667,
+          "takeover": 2.7083333333333335,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 24.64166666666667,
+          "effortViolation": 0.00004347612673427648,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 2956,
+        "traceSha256": "06c436de0566eef914d65ce6525cc57cf4cfc3e191889c0bea5aa5a096b8e67f"
+      },
+      {
+        "case": "workshop-fighter-club-0",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.65,
+          "takeover": 2.6416666666666666,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.00004341510594940701,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "244d92bbdf213b0e567735036b10c65272be64f0ad44246aa8721d74799908e2"
+      },
+      {
+        "case": "workshop-fighter-club-90",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "nonfinite joint actuation",
+          "firstDown": 2.6,
+          "takeover": 2.591666666666667,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 33.56666666666666,
+          "effortViolation": 0.000044315389970961405,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4027,
+        "traceSha256": "85cd9862366f75ff9c2180572fca6a5b70e0bac77e76e1bf8b7e5d9e53525361"
+      },
+      {
+        "case": "workshop-fighter-club-180",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.816666666666667,
+          "takeover": 2.808333333333333,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.00004305974204044105,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "43e0c261c70636e2e06fd6b75e2413c153b563a86135b2e14c4505dc0bb285e8"
+      },
+      {
+        "case": "workshop-fighter-club-270",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "nonfinite joint actuation",
+          "firstDown": 2.6166666666666667,
+          "takeover": 2.6083333333333334,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 30.53333333333333,
+          "effortViolation": 0.000043514224387308786,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 3663,
+        "traceSha256": "17e33d0349f987a6da6a9c45801a9da03e1bf74360f18e31886df69f17231cab"
+      },
+      {
+        "case": "workshop-rogue-empty-0",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "nonfinite joint actuation",
+          "firstDown": 2.433333333333333,
+          "takeover": 2.425,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 20.53333333333333,
+          "effortViolation": 0.000021690239407234913,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 2463,
+        "traceSha256": "cd9cb2f473390a7c953b6d6d19dd6f5f81606f32071601239db21321e73f30cd"
+      },
+      {
+        "case": "workshop-rogue-empty-90",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.6083333333333334,
+          "takeover": 2.6,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.000021894700495295183,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "a209aad0b6e26638ecb9f6131959ba38de6b4ae1caaf6f134cd710d8827665da"
+      },
+      {
+        "case": "workshop-rogue-empty-180",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "nonfinite joint actuation",
+          "firstDown": 2.4916666666666667,
+          "takeover": 2.4833333333333334,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 15.508333333333333,
+          "effortViolation": 0.000021564563155607175,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 1860,
+        "traceSha256": "d27e599204d9500d03adf6d90478863156fb97d76bbfb21bdf1ca59ea6cb13fd"
+      },
+      {
+        "case": "workshop-rogue-empty-270",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.6166666666666667,
+          "takeover": 2.6083333333333334,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.0000222792695865337,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "39433f965327e28bcf6b2487e055d23fadcfdca0617109a49dab6d67df616eae"
+      },
+      {
+        "case": "workshop-rogue-club-0",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "nonfinite joint actuation",
+          "firstDown": 2.5,
+          "takeover": 2.4916666666666667,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 36.15,
+          "effortViolation": 0.00002191733136669427,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4337,
+        "traceSha256": "29718f1eb08ef1c964043a6fd786b37e6732c323cb10d356c94d8c1f2bc28809"
+      },
+      {
+        "case": "workshop-rogue-club-90",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "nonfinite joint actuation",
+          "firstDown": 2.566666666666667,
+          "takeover": 2.558333333333333,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 21.916666666666668,
+          "effortViolation": 0.00002122724131936593,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 2629,
+        "traceSha256": "6a137fcc7ccd30de777817a1acd7a8220242d01e6cfc0384aeb750a54bfc9767"
+      },
+      {
+        "case": "workshop-rogue-club-180",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "episode deadline",
+          "firstDown": 2.475,
+          "takeover": 2.466666666666667,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 38,
+          "effortViolation": 0.00002309783909026919,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 4559,
+        "traceSha256": "909d7d3713a22bd07e0d10a6759ac9d5aaac23ce6afc37320bb1ba0d28047d1b"
+      },
+      {
+        "case": "workshop-rogue-club-270",
+        "result": {
+          "fell": true,
+          "success": false,
+          "failure": "nonfinite joint actuation",
+          "firstDown": 2.566666666666667,
+          "takeover": 2.558333333333333,
+          "handover": null,
+          "seconds": null,
+          "fromFirstDown": null,
+          "elapsed": 14.216666666666665,
+          "effortViolation": 0.0000218810421301896,
+          "assisted": false,
+          "quiet": 0,
+          "externalActuation": []
+        },
+        "steps": 1705,
+        "traceSha256": "812bd49f4b9851f8c97982a983df912dc9b4627002814af1d30f41bec40c9b8a"
+      }
+    ],
+    "negativeControl": {
+      "case": "workshop-fighter-empty-0",
+      "controller": "floating-negative-control",
+      "checkpointSha256": "3ac4defee135b4c70b707f2299ca13ff5af6c80631b41ea30121f992414c1a1d",
+      "initialObservationSha256": "501ef893e6c3ed210127d8fc4d22ddac531d4b8a21ec6332c92f19fa2e4ba382",
+      "identity": {
+        "harness": "Node Stance Lab recovery search",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "baseline": "support-recovery",
+        "host": "stance",
+        "assistedBaseline": false,
+        "comparison": true,
+        "recipeSha": "4d268b653b995bce06df62476799f2793742df8ed2a47a7d0b47231c3b80e77b",
+        "hz": 120,
+        "engine": "rapier-coordinate",
+        "revision": "rapier/adapter-11/sha256:0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c/coordinate-limits",
+        "artifact": "vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.9.tgz",
+        "artifactSha": "0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c",
+        "sourceSha": "6a2db126c07a54945ee56a9d1f0c7348a86e0701d47a9b8eea2ae6ab52e0ab60",
+        "environmentSha": "d4cc16d06ea33ee426bc325647e1e662519770b89129484b56e5b083f9f671a7",
+        "specSha": "89a7a051e52d295ba5848b8aaeb62e643372243b81acc76cb2b5fa398fb1fa94",
+        "actuation": "symmetric",
+        "balance": 100,
+        "channels": [
+          {
+            "name": "neck flexion",
+            "min": -1.0629055144645467,
+            "max": 1.1397000015522971,
+            "bind": 0,
+            "positive": 30.779220779220775,
+            "negative": 53.35064935064935
+          },
+          {
+            "name": "neck lateral flexion right",
+            "min": -0.7906341511534313,
+            "max": 0.7557275661135446,
+            "bind": 0,
+            "positive": 36.93506493506493,
+            "negative": 36.93506493506493
+          },
+          {
+            "name": "neck rotation right",
+            "min": -1.3002702927357754,
+            "max": 1.2426744274199626,
+            "bind": 0,
+            "positive": 15.389610389610388,
+            "negative": 15.389610389610388
+          },
+          {
+            "name": "thoracic flexion",
+            "min": -0.23911010752322315,
+            "max": 0.36826447217080355,
+            "bind": 0,
+            "positive": 93.96049046321524,
+            "negative": 127.1103542234332
+          },
+          {
+            "name": "thoracic lateral flexion right",
+            "min": -0.2722713633111154,
+            "max": 0.2722713633111154,
+            "bind": 0,
+            "positive": 68.0217983651226,
+            "negative": 76.73978201634876
+          },
+          {
+            "name": "thoracic rotation right",
+            "min": -0.43458698374658805,
+            "max": 0.43458698374658805,
+            "bind": 0,
+            "positive": 52.95367847411443,
+            "negative": 51.33923705722069
+          },
+          {
+            "name": "lumbar flexion",
+            "min": -0.2792526803190927,
+            "max": 0.8901179185171081,
+            "bind": 0,
+            "positive": 93.96049046321524,
+            "negative": 127.1103542234332
+          },
+          {
+            "name": "lumbar lateral flexion right",
+            "min": -0.3141592653589793,
+            "max": 0.29670597283903605,
+            "bind": 0,
+            "positive": 68.0217983651226,
+            "negative": 76.73978201634876
+          },
+          {
+            "name": "lumbar rotation right",
+            "min": -0.08726646259971647,
+            "max": 0.06981317007977318,
+            "bind": 0,
+            "positive": 52.95367847411443,
+            "negative": 51.33923705722069
+          },
+          {
+            "name": "shoulder.left flexion",
+            "min": -1.174090634769606,
+            "max": 3.021680887024762,
+            "bind": 0.027409316209331493,
+            "positive": 67.4390243902439,
+            "negative": 98.37533875338754
+          },
+          {
+            "name": "shoulder.left abduction",
+            "min": -0.7191159499508002,
+            "max": 2.4189860451350045,
+            "bind": 0.7191159499508002,
+            "positive": 64.44173441734418,
+            "negative": 95.91327913279133
+          },
+          {
+            "name": "shoulder.left internal rotation",
+            "min": -1.5063235584809922,
+            "max": 1.1099249902585078,
+            "bind": -0.0906527070938192,
+            "positive": 63.58536585365854,
+            "negative": 38.429539295392956
+          },
+          {
+            "name": "elbow.left flexion",
+            "min": -0.8615068911931567,
+            "max": 1.6552578901826664,
+            "bind": 0.8056563551293382,
+            "positive": 75.25338753387534,
+            "negative": 56.94850948509485
+          },
+          {
+            "name": "wrist.left flexion",
+            "min": -1.4317755068150615,
+            "max": 1.4654710514955254,
+            "bind": 0.05296539773954119,
+            "positive": 25.584010840108398,
+            "negative": 14.023035230352303
+          },
+          {
+            "name": "wrist.left radial deviation",
+            "min": -0.8961934847578699,
+            "max": 0.4302567467578206,
+            "bind": 0.07763406557252932,
+            "positive": 15.842530282637957,
+            "negative": 28.176312247644685
+          },
+          {
+            "name": "wrist.left pronation",
+            "min": -1.706258214065037,
+            "max": 1.4353344395247563,
+            "bind": 0.06564871719036719,
+            "positive": 7.335714285714285,
+            "negative": 8.652380952380952
+          },
+          {
+            "name": "hip.left flexion",
+            "min": -0.422749554194331,
+            "max": 2.10099654418947,
+            "bind": 0.11033561808734602,
+            "positive": 153.02685003340002,
+            "negative": 218.02940579980003
+          },
+          {
+            "name": "hip.left abduction",
+            "min": -0.3333921726682006,
+            "max": 0.46596862474520234,
+            "bind": 0.09428206514497743,
+            "positive": 198.03523035230353,
+            "negative": 232.28997289972904
+          },
+          {
+            "name": "hip.left internal rotation",
+            "min": -0.8150687606813519,
+            "max": 0.6475171524898963,
+            "bind": 0,
+            "positive": 77.82249322493226,
+            "negative": 53.2018970189702
+          },
+          {
+            "name": "knee.left flexion",
+            "min": -0.14486705560180382,
+            "max": 2.4574188591217414,
+            "bind": 0.10996047056191724,
+            "positive": 141.3008130081301,
+            "negative": 259.0514905149052
+          },
+          {
+            "name": "ankle.left dorsiflexion",
+            "min": -0.9065594759732407,
+            "max": 0.3570589024706539,
+            "bind": 0.032149520724081566,
+            "positive": 43.03252032520326,
+            "negative": 152.00542005420056
+          },
+          {
+            "name": "ankle.left inversion",
+            "min": -0.3324852225049198,
+            "max": 0.6031857894892403,
+            "bind": 0,
+            "positive": 37.911802853437095,
+            "negative": 34.2230869001297
+          },
+          {
+            "name": "shoulder.right flexion",
+            "min": -1.174090634769606,
+            "max": 3.021680887024762,
+            "bind": 0.027409316209331493,
+            "positive": 67.4390243902439,
+            "negative": 98.37533875338754
+          },
+          {
+            "name": "shoulder.right abduction",
+            "min": -0.7191159499508002,
+            "max": 2.4189860451350045,
+            "bind": 0.7191159499508002,
+            "positive": 64.44173441734418,
+            "negative": 95.91327913279133
+          },
+          {
+            "name": "shoulder.right internal rotation",
+            "min": -1.5063235584809922,
+            "max": 1.1099249902585078,
+            "bind": -0.0906527070938192,
+            "positive": 63.58536585365854,
+            "negative": 38.429539295392956
+          },
+          {
+            "name": "elbow.right flexion",
+            "min": -0.8615068911931567,
+            "max": 1.6552578901826664,
+            "bind": 0.8056563551293382,
+            "positive": 75.25338753387534,
+            "negative": 56.94850948509485
+          },
+          {
+            "name": "wrist.right flexion",
+            "min": -1.4317755068150615,
+            "max": 1.4654710514955254,
+            "bind": 0.05296539773954119,
+            "positive": 25.584010840108398,
+            "negative": 14.023035230352303
+          },
+          {
+            "name": "wrist.right radial deviation",
+            "min": -0.9206280942857904,
+            "max": 0.41629411274186595,
+            "bind": 0.07763406557252932,
+            "positive": 15.842530282637957,
+            "negative": 28.176312247644685
+          },
+          {
+            "name": "wrist.right pronation",
+            "min": -1.706258214065037,
+            "max": 1.4353344395247563,
+            "bind": 0.06564871719036719,
+            "positive": 7.335714285714285,
+            "negative": 8.652380952380952
+          },
+          {
+            "name": "hip.right flexion",
+            "min": -0.422749554194331,
+            "max": 2.10099654418947,
+            "bind": 0.11033561808734602,
+            "positive": 153.02685003340002,
+            "negative": 218.02940579980003
+          },
+          {
+            "name": "hip.right abduction",
+            "min": -0.3333921726682006,
+            "max": 0.46596862474520234,
+            "bind": 0.09428206514497743,
+            "positive": 198.03523035230353,
+            "negative": 232.28997289972904
+          },
+          {
+            "name": "hip.right internal rotation",
+            "min": -0.8150687606813519,
+            "max": 0.6475171524898963,
+            "bind": 0,
+            "positive": 77.82249322493226,
+            "negative": 53.2018970189702
+          },
+          {
+            "name": "knee.right flexion",
+            "min": -0.14486705560180382,
+            "max": 2.4574188591217414,
+            "bind": 0.10996047056191724,
+            "positive": 141.3008130081301,
+            "negative": 259.0514905149052
+          },
+          {
+            "name": "ankle.right dorsiflexion",
+            "min": -0.9065594759732407,
+            "max": 0.3570589024706539,
+            "bind": 0.032149520724081566,
+            "positive": 43.03252032520326,
+            "negative": 152.00542005420056
+          },
+          {
+            "name": "ankle.right inversion",
+            "min": -0.3324852225049198,
+            "max": 0.6031857894892403,
+            "bind": 0,
+            "positive": 37.911802853437095,
+            "negative": 34.2230869001297
+          }
+        ]
+      },
+      "steps": 2,
+      "traceSha256": "f7b20b7e7d976dc65e397e02fadfb577d61242d963b76e99ea885843e70a3fd7",
+      "result": {
+        "fell": true,
+        "success": false,
+        "failure": "external actuation",
+        "firstDown": 2.55,
+        "takeover": 2.5416666666666665,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 0.025000000000000355,
+        "effortViolation": 0.000020747922746977565,
+        "assisted": true,
+        "quiet": 0,
+        "externalActuation": [
+          {
+            "step": 307,
+            "segment": "lowerTrunk",
+            "method": "applyForce",
+            "value": [
+              -193.32131445558886,
+              506.42230771258676,
+              -553.5003916537407
+            ]
+          },
+          {
+            "step": 307,
+            "segment": "lowerTrunk",
+            "method": "applyTorque",
+            "value": [
+              -184.69845130762266,
+              38.51053846675201,
+              70.54713164836592
+            ]
+          }
+        ]
+      },
+      "role": "negative control; identical saved fall, Balance 100 enabled solely to demonstrate rejection"
+    },
+    "wallSeconds": 373.3236063
+  },
+  "replay": {
+    "file": ".review/stand-up-full/short-sequence-failure.html",
+    "record": ".review/stand-up-full/compact-failure.trace.gz",
+    "result": {
+      "fell": true,
+      "success": false,
+      "failure": "episode deadline",
+      "firstDown": 2.55,
+      "takeover": 2.5416666666666665,
+      "handover": null,
+      "seconds": null,
+      "fromFirstDown": null,
+      "elapsed": 9,
+      "effortViolation": 0.000020208393948450976,
+      "assisted": false,
+      "quiet": 0,
+      "externalActuation": []
+    },
+    "traceSha256": "49c6660008a143401550a1cf03d3248828e48c6c58bf3a926848597d23f73a38",
+    "exactReconstruction": true
+  },
+  "checks": {
+    "typecheck": "pass",
+    "fastTests": {
+      "tests": 666,
+      "pass": 661,
+      "fail": 0,
+      "todo": 5
+    },
+    "frozenBaselineExact": true,
+    "negativeControlRejected": true
+  },
+  "next": "Contact and weight-transfer feedback with a movement route that remains feasible across fall orientations; frozen evaluator and muscle limits unchanged."
+}
