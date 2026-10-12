@@ -337,10 +337,21 @@ in 60 s over 60 s, a fall stopping it where it fell.
   turn ends). The SIMBICON walk turns its heading no faster than its `swerve` over its speed, so
   the old battery read turns of up to 4 rad/s that the walk never took; the Run then asked paces
   for them and swung 5 m wide of the shuttle's half-turns.
-- **Turning harder falls.** With the heading's cap raised (`swerve` 0.5 and 1 m/s²), the turn
-  battery at 0.3–1.4 m/s stops lagging and falls instead: the Warrior at 1 m/s asked to turn
-  1 rad/s lags on all 16 trials at 0.5, and at 1 holds 9 of 16, the rest falling. `swerve` stays 0.5, separate from
+- **Turning while setting off falls.** The turn battery's falls at slow walks were turns begun in
+  the set-off shift, whose mark across the heading moved as the heading turned: the Rogue at
+  0.2 m/s turning 0.5 rad/s fell on 5 of 56, all begun in the first quarter second. The heading
+  now holds through the shift, and the Warrior's and the Rogue's turns at 0.2–0.5 m/s read
+  1 rad/s (from 0.7 and 0.35). Turns begun in the shift at 1.2–1.4 m/s fall more on the Warrior
+  as the heading catches up after it (0.5 → 0.35 and 0.25 → 0 rad/s); the Run never sets off
+  into a turn. `swerve` is 1.6 m/s² (0.5, 0.85, 1.2, 1.6, 2.5 and 4 read on the bed, the
+  envelope as it was: 0.723 to 0.737, then the Warrior falling on the shuttle), separate from
   `speedup`, and reads the body's own speed where it is faster than the walk asked.
+- **Searches that did not carry to the bed.** The forward gait searched on the walk and turn
+  batteries (`b3-fwd`, 40 generations, 1.99 → 2.41) read 0.654 against 0.705: the skeleton lost
+  its 45° walk and fell on 18 of 28 squares. The side and back searched on the Run itself
+  (`--objective played`, under the envelope as it was) read 0.723, but neither sets off from
+  standing (backward falls; the side drifts past `WENT`), so the envelope measured again holds no
+  side or back walk; their gain was the `swerve` the search took with them.
 - **A NaN fell the Rogue on the shuttle**: a straight's radius times a turn of 0 (`carried`).
 - **The run overshoots.** Asked 1.4 m/s it goes 1.9–2.0, and the walk it gives way to brakes at
   `speedup`, so it reached the half-turn at 1.8 and fell. It ran at all because a walk capped at
@@ -380,6 +391,8 @@ in 60 s over 60 s, a fall stopping it where it fell.
 | back searched | 0.92 / 0.84 / 0.91 | 0.53 / 0.47 / 0.55 | 0.69 / 0.61 / 0.20 | 8 of 252 |
 | no look back | 0.92 / 0.84 / 0.91 | 0.57 / 0.55 / 0.57 | 0.69 / 0.61 / 0.20 | 8 of 252 |
 | side searched, fine rates, set-off turn | 0.97 / 0.84 / 0.91 | 0.58 / 0.56 / 0.57 | 0.64 / 0.56 / 0.51 | 11 of 252 |
+| Run braking 0.3 m/s² | 0.97 / 0.84 / 0.91 | 0.65 / 0.62 / 0.62 | 0.65 / 0.58 / 0.51 | 10 of 252 |
+| swerve 1.6, heading held through the set-off shift | 0.98 / 0.84 / 0.91 | 0.77 / 0.71 / 0.78 | 0.65 / 0.58 / 0.51 | 10 of 252 |
 
 ### 06: the envelope, and travelling by it
 

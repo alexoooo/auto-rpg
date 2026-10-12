@@ -79,7 +79,8 @@ export interface SimbiconSettings {
   readonly hold: number;
   /**
    * The heading's fastest turn while walking, rad/s, and no faster than swings the body's velocity
-   * round at `swerve`, m/s²: its pace, or the walk asked if that is faster, times the turn.
+   * round at `swerve`, m/s²: its pace, or the walk asked if that is faster, times the turn. Setting
+   * off, the heading holds while the weight shifts onto the first stance foot, and turns once it lifts.
    */
   readonly turn: number;
   readonly swerve: number;
@@ -134,7 +135,7 @@ export const SIMBICON: SimbiconSettings = Object.freeze({
   swingHip: 0.598, swingHipLate: -0.03, swingSpread: 0.023, swingKnee: 1.19, swingKneeLate: 0.206, swingAnkle: 0.34, swingAnkleLate: 0.031,
   stanceKnee: 0.043, stanceKneeLate: 0.159, stanceAnkle: -0.023, cvAnkle: 0.221, lean: 0.116,
   cd: 0.07, cv: 0.292, cdLate: 0.24, cvLate: 0.162, cdSide: -0.242, cvSide: -0.051, landing: 1, lead: 0.134, leadSide: 0.121, width: 0.158,
-  settle: 0.1, stance: 1, swing: 0.5, ankle: 0.3, pelvis: 0.1, hold: 1, turn: 2, swerve: 0.5, speedup: 0.5, arms: 0, run: 1.4,
+  settle: 0.1, stance: 1, swing: 0.5, ankle: 0.3, pelvis: 0.1, hold: 1, turn: 2, swerve: 1.6, speedup: 0.5, arms: 0, run: 1.4,
   leg: 0.8815024260685317,
 });
 
@@ -586,7 +587,9 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
       // A walk asked past what the body holds that way is taken at the most it holds (`paceToward`).
       const speed = asked ? Math.sqrt(asked[0] * asked[0] + asked[1] * asked[1]) : 0, holds = asked && envelope ? paceToward(envelope, asked[0], asked[1]) : Infinity;
       const held = speed > holds ? holds / speed : 1, forward = asked ? asked[0] * held : 0, right = asked ? asked[1] * held : 0;
-      if (asked) {
+      // The heading turns once the weight has shifted: the shift brings the centre of mass over the sole across the heading,
+      // and a heading that turns under it shifts it toward a moving mark.
+      if (asked && !memory.shifting) {
         const v = view.stance.velocity, going = Math.max(memory.pace, Math.sqrt(v.x * v.x + v.z * v.z));
         const rate = Math.min(settings.turn, going > 0 ? settings.swerve / going : Infinity) * dt, turn = wrap(face - memory.heading);
         memory.heading += Math.max(-rate, Math.min(rate, turn));
