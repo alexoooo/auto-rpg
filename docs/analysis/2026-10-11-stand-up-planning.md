@@ -1964,3 +1964,114 @@ matched baselines and both complete frozen comparisons pass. Prefix tests reject
 intermediate observation even when its endpoint matches, and retain the observation clock.
 Whitespace and line-ending gates pass. Runtime integration and the full timing/robustness goal
 remain unfinished.
+
+## Saved side fall speed and settling, 2026-10-12
+
+The saved 90-degree Warrior/empty fall now has an exactly verified **6.658333 s** recovery,
+down from 8.633333 s. The four-second median / six-second recovery goal remains **not achieved**.
+This is a faster movement from the same saved state, not another independent success or a
+robustness qualification. No body, muscle, host, solver, contact-law or acceptance setting changes.
+All measurements in this section use **Node Stance Lab / frozen game Rapier coordinate / 120 Hz /
+original symmetric muscle envelopes / Balance 0 / ordinary stance host**.
+
+The offline search can increase its motion and contact penalties as height approaches the
+reference handover height. It also measures each sole's orientation from detached segment
+rotations and the body's rest frame. Those measurements exactly match the frozen evaluator at
+the initial state and every sample of the recorded guidance trajectory. The optional terminal
+sole penalty compares orientations; it does not substitute for the evaluator's loaded-patch,
+centre-of-mass, quiet-motion or walking checks. Optional slower posture proposals request
+lower joint speeds while preserving the actual muscle force-velocity limits.
+
+The early low-motion-penalty branch reaches near-standing height at 3.808333 s but does not
+recover. Its host continuation fails through 9.808333 s. A constant stronger motion penalty
+finds an 8.258333 s success, but the apparent near-standing posture at 5.808333 s has sole-up
+components only 0.32129 and 0.46455. Boot contact and torso height therefore conceal an unstable
+transition. Combined terminal motion, contact and sole scoring finds 6.783333 s; a finer search
+using that verified trajectory finds 6.658333 s. These are combined search changes, not an
+ablation establishing any one penalty as the cause of improvement.
+
+The 6.658333 s recording executes 540 ordinary muscle actions, then returns control to the
+ordinary stance host. Its 4.516667 s sample has height 0.881939 and sole-up components 0.411938
+and 0.541398. By 5.516667 s both soles are nearly flat, but the fastest segment still moves at
+2.122063 m/s. At 6.016667 s that speed is 0.570822 m/s. Quiet support begins around 6.158333 s;
+the unchanged half-second quiet interval produces handover at 6.658333 s. The subsequent
+two-second standing and one-second walking verification succeeds. This identifies remaining
+settling delay; it does not establish a physical lower bound.
+
+The detached candidate factory permits an ordinary-host continuation after a verified prefix,
+alongside its existing measured-response continuation. The entire initial observation selects
+the exact-case prefix, and every subsequent prefix observation and its endpoint must reproduce
+before continuation. Other starting states retain the preceding response controller. This remains
+an exact-start development witness, not a general side-fall controller.
+
+All 1,158 recorded observations, the final result, fresh replay and restored split continuation
+match exactly. Physical trace SHA-256:
+`5d7ba164e4225900e29adb0c068ee433eeee4bd2dc38e01927c5a66d43c32c56`.
+The separate frozen action-interface evaluation reproduces the same result and physical trace.
+The matched replay is `.review/stand-up-side-speed/replay.html`, containing the 6.658333 s
+candidate and the unchanged optimized baseline's failure through 38 s. It labels the saved side
+fall and includes the standing/walking tail. It is built but not visually inspected because of
+the existing local-file browser restriction. No server is started.
+
+| Side-fall search, Node harness above | Physical evaluations | Physical steps | Wall seconds | Recovery |
+|---|---:|---:|---:|---|
+| Low motion penalty | 12,009 | 319,536 | 168.379 | None |
+| Constant stronger motion penalty | 11,825 | 295,462 | 148.009 | 8.258333 s |
+| Ramped motion and contact penalties | 11,898 | 285,552 | 138.707 | None |
+| Combined motion, contact and sole penalties | 13,337 | 335,610 | 167.954 | 6.783333 s |
+| Finer action windows using that trajectory | 25,197 | 378,354 | 289.354 | 6.658333 s |
+| Follow-up using the finer trajectory | 22,520 | 324,370 | 261.475 | 6.633333 s |
+
+Each search has a 300 s wall cap and finishes its requested horizon. Wall times overlap other
+work and are not isolated throughput measurements. The final 0.025 s improvement is separately
+recorded, exactly replayed, and reproduced through the frozen single-case action interface. The
+complete sixteen-case comparison and linked viewer retain the 6.658333 s configuration.
+Across 96,561 logged worker branches there are no adapter errors or external-actuation events;
+the maximum effort-bound excess is 0.00004768372 N m, below the unchanged 0.0001 tolerance.
+The additional 225 reference-anchor evaluations account for the difference from the table total.
+
+The complete unchanged frozen comparison takes 219.208 s wall time and retains two completions
+out of sixteen: front 7.25 s and side 6.658333 s. None completes within six seconds; failure-inclusive
+medians remain infinite. All sixteen optimized baseline records and all fifteen fallback candidate
+records exactly match the preceding comparison. Initial states match and the floating-controller
+negative control is rejected. No qualification partition passes or gameplay controller is promoted.
+
+A twelve-trial path-feedback grid tests the extracted side-fall trajectory without exact-start
+prefix selection. The unchanged playback and three nominal-rate feedback gains reproduce the
+entire 6.658333 s physical trace. Two 1.05-rate feedback variants complete more slowly, in
+6.866667 and 7.991667 s. Four trials fail at the twelve-second deadline and two reach handover
+but fail the ordinary-host walking displacement. Those walking failures are failures, despite
+their finite handover times.
+
+Five physically generated recipes then compare the optimized baseline, unchanged playback and
+gain-12 observation feedback: the nominal 90-degree/60 N s fall, angles 88 and 92 degrees, and
+impulses 58 and 62 N s. Separation remains 0.2 s. Each recipe supplies the same complete initial
+observation to all three controllers; the nominal recipe regenerates the frozen saved start.
+The baseline completes 0/5 by twelve seconds, playback 1/5 and feedback 2/5. Feedback's additional
+success is the 58 N s fall in 7.875 s. Both angular changes and the stronger shove still fail.
+This small development screen shows limited transfer, not robustness or six-second performance.
+
+The 58 N s feedback success is separately recorded and exactly replays every observation and
+result after regenerating its physical fall. The nominal control regenerates the saved start
+and its complete successful trace. No pose or velocity is injected to create the variations.
+`research/stand-up-path-results.json` under `sideFallSpeedSearch` retains the six search
+configurations and selected plans, branch audits, full frozen comparison, both feedback grids,
+initial-state identities, trajectory diagnostics, prefix provenance and all replay proofs.
+
+Reconstruct the searches in table order using their stored plans and references: the first four
+use the preceding 8.633333 s side-fall recording, the finer search uses the 6.783333 s recording,
+and the follow-up uses the 6.658333 s recording. Each selected plan records through
+`research/stand-up-rollout-search.mjs --mode record --source <reference.trace.gz> --plan
+<stored-plan.json> --case 1 --out <destination>`. Verify the recording with that tool's
+`--mode verify --source <recording.trace.gz> --case 1` interface. Export its first 540 actions
+with the path experiment's `--mode prefix`; the stored composed configuration selects
+`continuation: "host"` and retains the preceding measured-response fallback. Set
+`STAND_UP_PREFIX_RESPONSE_CONFIG` to that configuration and run the frozen checkout's unchanged
+`node research/stand-up-acceptance.mjs --candidate <absolute-prefix-response-policy-path>
+--output <report.json>`. The fresh success verifies through `research/stand-up-fresh-replay.mjs`.
+
+Validation: `npm run check`, `npm test` (675 passes, zero failures, five existing TODOs), frozen
+comparison, exact successful recordings and restored continuations, fresh-fall replay, whitespace
+and line-ending gates pass. The existing recovery TODOs remain unresolved. This work improves
+two narrow measurements and establishes one additional fresh-start transfer; it does not satisfy
+the four-second median, six-second recovery, runtime integration or robustness requirements.

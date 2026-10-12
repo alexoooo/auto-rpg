@@ -37,6 +37,8 @@ async function rolloutStand(sourcePath,caseIndex=0,options={}) {
   else assert.equal(referenceInitialObservationSha256,c.observationSha256,'the demonstration starts at the selected saved fall');
   const root=e.stand.built.segments.get('lowerTrunk'),inverse=Quaternion.Inverse(root.rest);
   const axis=new Vector3(0,1,0).applyRotationQuaternionToRef(inverse,new Vector3());
+  const feet=initialObservation.segments.filter(s=>s.name.startsWith('foot.')).map(s=>({name:s.name,
+    up:Vector3.UpReadOnly.applyRotationQuaternionToRef(Quaternion.Inverse(e.stand.built.segments.get(s.name).rest),new Vector3())}));
   const describe=o=>{
     const q=new Quaternion(...o.segments.find(s=>s.name==='lowerTrunk').rotation),up=axis.applyRotationQuaternionToRef(q,new Vector3());
     const body=o.segments.find(s=>s.name==='lowerTrunk');
@@ -44,17 +46,28 @@ async function rolloutStand(sourcePath,caseIndex=0,options={}) {
     const gravity=new Vector3(0,1,0).applyRotationQuaternionToRef(Quaternion.Inverse(q),new Vector3());
     const loads=o.segments.map(s=>o.contacts.filter(c=>c.segment===s.name&&c.fixed!==null).reduce((sum,c)=>sum+c.impulse,0));
     const total=loads.reduce((sum,v)=>sum+v,0);
-    return {angles:o.joints.map(j=>j.angle),speeds:o.joints.map(j=>j.speed),height:o.height,up:up.asArray(),
+    const soleUp=feet.map(f=>f.up.applyRotationQuaternionToRef(new Quaternion(...o.segments.find(s=>s.name===f.name).rotation),new Vector3()).y);
+    return {angles:o.joints.map(j=>j.angle),speeds:o.joints.map(j=>j.speed),height:o.height,up:up.asArray(),soleUp,
       gravity:gravity.asArray(),loads:loads.map(v=>total?v/total:0),velocity:motion.slice(3),spin:motion.slice(0,3)};
   };
   const observations=[source.initial,...source.rows.map(r=>r.observation)],reference=observations.map(describe);
+  assert.deepEqual(describe(initialObservation).soleUp,e.measure().soleUp,'search sole readings match the frozen recovery measurement');
+  source.rows.forEach((row,i)=>assert.deepEqual(reference[i+1].soleUp,row.soleUp,'recorded sole orientations match the frozen measurement throughout the trajectory'));
   const last=Math.min(reference.length-1,Number.isFinite(source.result.seconds)?Math.round(source.result.seconds*120):source.rows.length);
-  const distance=(a,b)=>4*(a.height-b.height)**2+2*(options.fullOrientation
-    ?a.gravity.reduce((s,v,i)=>s+(v-b.gravity[i])**2,0):(a.up[1]-b.up[1])**2)+
-    (options.contactWeight??0)*a.loads.reduce((s,v,i)=>s+(v-b.loads[i])**2,0)+
-    a.angles.reduce((s,v,i)=>s+(v-b.angles[i])**2/a.angles.length,0)+
-    (options.velocityWeight??0)*(a.speeds.reduce((s,v,i)=>s+(v-b.speeds[i])**2/a.speeds.length,0)
-      +a.velocity.reduce((s,v,i)=>s+(v-b.velocity[i])**2,0)+a.spin.reduce((s,v,i)=>s+(v-b.spin[i])**2,0));
+  const distance=(a,b)=>{
+    // Terminal penalties ramp between half and 85% of the reference handover height.
+    const ramp=options.terminalMotionWeight!==undefined||options.terminalContactWeight!==undefined||options.terminalSoleWeight!==undefined
+      ?Math.max(0,Math.min(1,(a.height/reference[last].height-.5)/.35)):0;
+    const contactWeight=(options.contactWeight??0)+ramp*((options.terminalContactWeight??options.contactWeight??0)-(options.contactWeight??0));
+    const motionWeight=(options.velocityWeight??0)+ramp*((options.terminalMotionWeight??options.velocityWeight??0)-(options.velocityWeight??0));
+    return 4*(a.height-b.height)**2+2*(options.fullOrientation
+      ?a.gravity.reduce((s,v,i)=>s+(v-b.gravity[i])**2,0):(a.up[1]-b.up[1])**2)+
+      contactWeight*a.loads.reduce((s,v,i)=>s+(v-b.loads[i])**2,0)+
+      ramp*(options.terminalSoleWeight??0)*a.soleUp.reduce((s,v,i)=>s+(v-b.soleUp[i])**2,0)+
+      a.angles.reduce((s,v,i)=>s+(v-b.angles[i])**2/a.angles.length,0)+
+      motionWeight*(a.speeds.reduce((s,v,i)=>s+(v-b.speeds[i])**2/a.speeds.length,0)
+        +a.velocity.reduce((s,v,i)=>s+(v-b.velocity[i])**2,0)+a.spin.reduce((s,v,i)=>s+(v-b.spin[i])**2,0));
+  };
   const evaluate=(o,phase,span=360)=>{
     const d=describe(o);let best={score:-Infinity,phase};
     const target=options.targetSeconds===undefined?null:Math.round(options.targetSeconds*120);
@@ -74,7 +87,7 @@ async function rolloutStand(sourcePath,caseIndex=0,options={}) {
       }
       best={...best,targetPhase:target,phase:nearest,phaseError};
     }
-    return {...best,height:d.height,up:d.up[1],tilt:d.gravity,
+    return {...best,height:d.height,up:d.up[1],tilt:d.gravity,soleUp:d.soleUp,
       support:d.loads.map((v,i)=>v>.02?i:null).filter(i=>i!==null)};
   };
   const action=(control,step)=>{
@@ -129,13 +142,16 @@ if(!isMainThread&&workerData?.rolloutSearch) {
     catch(error){parentPort.postMessage({id,r:{error:String(error.stack),score:-Infinity}});}
   });
 }else if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href) {
-  const {values:v}=parseArgs({options:Object.fromEntries(['source','out','mode','plan','stage','case','width','block','seconds','wall','penalty','velocity-weight','anchor','orientation','contact-weight','transfer','diversity','roll','target','prefix','guidance','local-motion','feedback'].map(k=>[k,{type:'string'}]))});
+  const {values:v}=parseArgs({options:Object.fromEntries(['source','out','mode','plan','stage','case','width','block','seconds','wall','penalty','velocity-weight','anchor','orientation','contact-weight','transfer','diversity','roll','target','prefix','guidance','local-motion','feedback','terminal-motion-weight','terminal-contact-weight','terminal-sole-weight','gentle'].map(k=>[k,{type:'string'}]))});
   assert.ok(v.source&&v.out);mkdirSync(dirname(resolve(v.out)),{recursive:true});
   const revision=frozenRevision(),sourceSha256=digest(readFileSync(v.source)),codeSha256=digest(readFileSync(new URL(import.meta.url)));
   const options={penalty:Number(v.penalty??6),velocityWeight:Number(v['velocity-weight']??0),
     fullOrientation:v.orientation==='full',contactWeight:Number(v['contact-weight']??0),transfer:v.transfer==='yes',
     ...(v.target===undefined?{}:{targetSeconds:Number(v.target)}),verifyOnly:v.mode==='verify',nearestPhase:v.guidance==='nearest',
-    localMotion:v['local-motion']==='yes'};
+    localMotion:v['local-motion']==='yes',
+    ...(v['terminal-motion-weight']===undefined?{}:{terminalMotionWeight:Number(v['terminal-motion-weight'])}),
+    ...(v['terminal-contact-weight']===undefined?{}:{terminalContactWeight:Number(v['terminal-contact-weight'])}),
+    ...(v['terminal-sole-weight']===undefined?{}:{terminalSoleWeight:Number(v['terminal-sole-weight'])})};
   assert.ok(!options.transfer||v.anchor!=='yes','a different starting state has no verified reference anchor');
   assert.ok(!options.transfer||v.mode!=='verify','verify requires the trace recorded from this saved fall');
   const stand=await rolloutStand(v.source,Number(v.case??0),options),begun=Date.now();
@@ -197,7 +213,7 @@ if(!isMainThread&&workerData?.rolloutSearch) {
       }
       const configuration={case:stand.c.id,checkpointSha256:stand.c.sha256,initialObservationSha256:stand.c.observationSha256,
         referenceInitialObservationSha256:stand.referenceInitialObservationSha256,width,block,seconds,wall:Number(v.wall??600),anchor:v.anchor==='yes',
-        diversity:v.diversity??'phase',roll:v.roll==='yes',feedback:v.feedback==='yes',options,
+        diversity:v.diversity??'phase',roll:v.roll==='yes',feedback:v.feedback==='yes',gentle:v.gentle==='yes',options,
         ...(v.prefix?{prefixSha256:digest(readFileSync(v.prefix)),prefixSteps}:{})};
       const pool=workerPool(new URL(import.meta.url),{rolloutSearch:true,source:resolve(v.source),caseIndex:Number(v.case??0),options},3);
       let beam=[initialNode],evaluations=initialNode.plan.length,steps=prefixSteps,complete=null,anchor=beam[0];
@@ -209,6 +225,9 @@ if(!isMainThread&&workerData?.rolloutSearch) {
             // These velocity gains close joint-angle error at two rates without raising reference activation.
             if(v.feedback==='yes')for(const gain of [4,12])controls.push({kind:'feedback',start,gain,steps:duration});
             for(const ahead of [30,60,120,240])for(const response of [.1,.3])controls.push({kind:'pose',target:Math.min(stand.last,start+ahead),response,speed:6,steps:duration});
+            // Slower posture requests let a rising body brake before reaching its standing target.
+            if(v.gentle==='yes'&&parent.height>.5)for(const ahead of [120,240])for(const speed of [1.5,3])
+              controls.push({kind:'pose',target:Math.min(stand.last,start+ahead),response:.3,speed,steps:duration});
             for(const ahead of [30,120,240])controls.push({kind:'hybrid',start,target:Math.min(stand.last,start+ahead),response:.2,steps:duration});
             if(options.targetSeconds!==undefined)for(const response of [.1,.3])controls.push({kind:'pose',
               target:Math.round(options.targetSeconds*120),response,speed:6,steps:duration});
