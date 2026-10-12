@@ -1264,3 +1264,99 @@ robustness, repeated falls, disturbances and runtime integration all remain unfi
 Validation: the named physical regression test, `npm run check`, `npm test` (663 passes, zero
 failures, five existing TODOs) and exact failed-trace reconstruction pass. No browser source
 changes are made in this experiment and no server is started.
+
+## Physical rollout search, 2026-10-12
+
+The full goal remains **not achieved**. Actual-physics search reduces the one saved Warrior/empty
+fall from 12.408333 s to **7.25 s**, followed by the complete three-second standing/walking tail.
+This is 41.6% faster than the previous saved action witness and 53.4% faster than the frozen
+15.558333 s optimized baseline. It still misses six seconds and supplies no demonstrated increase
+in recovery coverage. The body, original muscle envelopes, solver, contact law and ordinary host
+are unchanged. All measurements here use **Node Stance Lab / frozen game Rapier coordinate /
+120 Hz / symmetric actuation / Balance 0**, with the existing compliant soles.
+
+`research/stand-up-rollout-search.mjs` branches complete physical snapshots and evaluates short
+muscle-action continuations. Candidates replay accelerated portions of a successful trace, ask
+for nearby joint targets, or combine reference arm commands with leg targets. The revised score
+compares body tilt, motion and actual floor-load shares as well as joint angles and height.
+One branch retains the exact reference trajectory. Each worker advances its own world sequentially;
+no artificial support, pose installation or force enters the selected physical continuation.
+An initial pilot confused a numerical pose error with a failed evaluation and is excluded.
+
+| Search, Node harness above | Branch/tail evaluations | World steps | Best qualifying recovery |
+|---|---:|---:|---|
+| Pose/height score, six-second prefix | 4,092 | 98,208 | None |
+| Motion-aware score with retained reference, six-second prefix | 7,034 | 168,816 | None; ordinary-host continuation also fails |
+| Extend search through the rise | 12,183 | 308,981 | 10.808333 s |
+| Full tilt and floor-load comparison, using that trace | 9,643 | 250,416 | 8.358333 s |
+| Repeat from the faster trace | 6,555 | 170,557 | 7.85 s |
+| Lower tracking-error penalty, wider search | 9,714 | 280,070 | 7.441667 s |
+| Halve action blocks to 0.1 s | 16,758 | 254,468 | 7.25 s |
+
+Search-prefix duration is not recovery time: every number in the last column includes the
+subsequent settling interval. Each success is re-recorded from the unchanged saved fall and its
+complete muscle-action trace is independently checked through the frozen `evaluateAcceptanceCase`.
+The final search stops on its 300-second limit at 5.4 s of prefix exploration; finishing the
+in-flight batch takes the recorded wall time to 300.967 s. These are separate experiments following
+the earlier two-hour task, not an extension charged to that completed task.
+
+The final trace contains 1,229 continuation observations, SHA-256
+`0a9494b5daa12c8742c4a5c573be28b21e4ed315b249d4079dd6ae7e86460afd`.
+Its maximum effort-bound excess is 0.0000364415 N m, below the unchanged 0.0001 tolerance;
+assistance and external-actuation events are zero. Exact replay, repeated restoration and
+continuation after a discarded alternative branch pass on both the 7.441667 s and final traces.
+Full standing/walking verification is part of every reported successful result.
+
+The final action module runs through the complete unchanged frozen `--candidate` comparison.
+Both controllers complete 1/16 within 35 s; the candidate completes 1/16 within 12 s and 0/16
+within 6 s. Neither has a finite failure-inclusive median. All optimized baseline results and
+physical traces reproduce, every initial state matches, and the floating-controller negative
+control is rejected. The candidate's other outcomes are ten nonfinite-actuation failures and
+five episode deadlines, all retained as failures. The module selects its action tape only on
+the exact saved initial observation and returns to the ordinary host otherwise; this screen
+does not establish a transferable recovery controller.
+
+Transfer remains unsuccessful. On the 8.358333 s reference, six nominal velocity-feedback/phase
+settings reproduce the same successful trace, but all twelve tested -1/+1-degree fresh-fall
+continuations fail by 14 s. Another twelve nearby-fall torque-feedback/damping settings also fail.
+Eight coupled-tracking settling variants, started after the complete 5.4 s prefix of the
+7.441667 s route, all fail by 12 s. Their selected recording matches all 648 prefix observations
+exactly. These failures do not establish physical impossibility, but they reject the tested
+feedback and settling settings as a general controller.
+
+Reference extraction now retains temporary ordinary-host intervals before recovery actions
+resume, and the feedback policy resumes after them. Prefix replay removes descriptive metadata
+from a host action, as the frozen action interface requires. Eight adapter-error attempts before
+that correction are retained separately and excluded from the recovery comparison. The fast
+regression checks the complete muscle/host/muscle/terminal-host action sequence.
+
+`research/stand-up-rollout-plan.json` preserves the five selected action plans. First reconstruct
+`.review/saved-candidate.trace.gz` with the saved-fall commands above, then use fresh output names:
+
+```powershell
+$source = '.review/saved-candidate.trace.gz'
+foreach ($stage in 'ten', 'eight', 'seven', 'fast', 'fine') {
+  node research/stand-up-rollout-search.mjs --mode record --source $source --plan research/stand-up-rollout-plan.json --stage $stage --out ".review/rollout-$stage"
+  $source = ".review/rollout-$stage.trace.gz"
+}
+$env:STAND_UP_ROLLOUT_ACTIONS = "$PWD/.review/rollout-fine.actions.json.gz"
+node .tools/stand-up-frozen/research/stand-up-acceptance.mjs --candidate "$PWD/research/stand-up-rollout-candidate.mjs" --output .review/rollout-acceptance.json
+node research/stand-up-saved-viewer-build.mjs .review/saved-baseline.trace.gz $source .review/rollout-replay.html
+```
+
+Each plan checks its reference's physical trace identity. `--mode record` writes an action tape,
+full physical recording and report, and checks a successful result and trace against the frozen
+evaluator. The local final replay is `.review/stand-up-rollouts/replay.html`, alongside the complete
+search ledgers, transfer results and failed settling recording. It was built successfully but has
+not been visually inspected; the browser's local-file restriction remains in effect. No server
+is started. `research/stand-up-path-results.json` retains the compact machine-readable evidence.
+
+The next missing capability is robust feedback through changing contacts. Exact saved actions
+remain a single-start demonstration. Runtime integration, the four-second median, six-second
+deadline, independent validation, repeated falls and disturbance qualification are unfinished.
+
+Validation: the named temporary-host regression, exact physical prefix comparison, complete
+frozen comparison, selected-trace reconstruction and restore checks pass. The recovery
+performance goal fails as recorded above. `npm run check` and `npm test` pass (664 passes,
+zero failures, five existing TODOs). Whitespace and line-ending gates pass. No browser source
+changes are made and no development server is started.

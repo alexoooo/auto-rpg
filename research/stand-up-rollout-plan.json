@@ -1,0 +1,1293 @@
+{
+  "scope": "One frozen Warrior empty-hand saved fall; not a general recovery policy",
+  "revision": "4ebb4d8ddb9eac1b5c9af9e27c695edf80348a40",
+  "stages": {
+    "ten": {
+      "sourcePhysicalTraceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b",
+      "plan": [
+        {
+          "kind": "replay",
+          "start": 0,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 24,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 48,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 72,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 96,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 120,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 144,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 168,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 192,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 216,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 240,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 264,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 288,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 312,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 336,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 360,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 384,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 408,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 432,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 456,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 480,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 504,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 528,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 552,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 576,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 600,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 624,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 648,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 672,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 696,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "hybrid",
+          "start": 720,
+          "target": 750,
+          "response": 0.2,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 744,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 768,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1032,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 966,
+          "rate": 3,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1068,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1116,
+          "response": 0.3,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1110,
+          "response": 0.3,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1110,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1152,
+          "response": 0.3,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1152,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 1158,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1248,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1302,
+          "response": 0.3,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1314,
+          "response": 0.3,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1489,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "host",
+          "steps": 720
+        }
+      ],
+      "result": {
+        "fell": true,
+        "success": true,
+        "failure": null,
+        "firstDown": 2.55,
+        "takeover": 2.5416666666666665,
+        "handover": 13.35,
+        "seconds": 10.808333333333334,
+        "fromFirstDown": 10.8,
+        "elapsed": 13.808333333333335,
+        "effortViolation": 0.00003412195366081505,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      }
+    },
+    "eight": {
+      "sourcePhysicalTraceSha256": "511cf8fdf73ffd15ef208a85e4acc264f1ffde22235df07bf3e1925857bd2a39",
+      "plan": [
+        {
+          "kind": "pose",
+          "target": 30,
+          "response": 0.3,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 294,
+          "response": 0.3,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 276,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 252,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 366,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "hybrid",
+          "start": 360,
+          "target": 390,
+          "response": 0.2,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 444,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 414,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 498,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 540,
+          "rate": 1.5,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 630,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 660,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "hybrid",
+          "start": 648,
+          "target": 678,
+          "response": 0.2,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 672,
+          "rate": 2,
+          "steps": 24
+        },
+        {
+          "kind": "hybrid",
+          "start": 720,
+          "target": 750,
+          "response": 0.2,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 744,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "hybrid",
+          "start": 768,
+          "target": 798,
+          "response": 0.2,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 816,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 816,
+          "rate": 1.5,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 912,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 888,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 906,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 924,
+          "rate": 1.5,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 948,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1002,
+          "response": 0.3,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1014,
+          "response": 0.3,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 984,
+          "rate": 1.5,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 1014,
+          "rate": 2,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1068,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1297,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1224,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 1248,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "host",
+          "steps": 720
+        }
+      ],
+      "result": {
+        "fell": true,
+        "success": true,
+        "failure": null,
+        "firstDown": 2.55,
+        "takeover": 2.5416666666666665,
+        "handover": 10.9,
+        "seconds": 8.358333333333334,
+        "fromFirstDown": 8.350000000000001,
+        "elapsed": 11.358333333333334,
+        "effortViolation": 0.00003644153673576511,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      }
+    },
+    "seven": {
+      "sourcePhysicalTraceSha256": "7f030ab986393cddd706343f009bdf4bf298fdc52cad66847223a1e126d8fd69",
+      "plan": [
+        {
+          "kind": "replay",
+          "start": 0,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 24,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 48,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 72,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 96,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 120,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 144,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 168,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 192,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 216,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 240,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 264,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 288,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 312,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 336,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 360,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 384,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 408,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 432,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 456,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 480,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 510,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 528,
+          "rate": 1.5,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 552,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 576,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 600,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 618,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 642,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 666,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "host",
+          "steps": 720
+        }
+      ],
+      "result": {
+        "fell": true,
+        "success": true,
+        "failure": null,
+        "firstDown": 2.55,
+        "takeover": 2.5416666666666665,
+        "handover": 10.391666666666667,
+        "seconds": 7.850000000000001,
+        "fromFirstDown": 7.841666666666668,
+        "elapsed": 10.850000000000001,
+        "effortViolation": 0.000037785639449339214,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      }
+    },
+    "fast": {
+      "sourcePhysicalTraceSha256": "d90ef587a5e8dee36373abd9e516351861dd7d598948658fef2ae591d6e81729",
+      "plan": [
+        {
+          "kind": "replay",
+          "start": 0,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 24,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 48,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 72,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 96,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 120,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 144,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 168,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 192,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 216,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 240,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 264,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 288,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 312,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 336,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 360,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 384,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 408,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 432,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 456,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 480,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 504,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 528,
+          "rate": 1.5,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 552,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 576,
+          "rate": 1.5,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 624,
+          "rate": 1.5,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 654,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "replay",
+          "start": 672,
+          "rate": 1,
+          "steps": 24
+        },
+        {
+          "kind": "pose",
+          "target": 816,
+          "response": 0.3,
+          "speed": 6,
+          "steps": 24
+        },
+        {
+          "kind": "host",
+          "steps": 720
+        }
+      ],
+      "result": {
+        "fell": true,
+        "success": true,
+        "failure": null,
+        "firstDown": 2.55,
+        "takeover": 2.5416666666666665,
+        "handover": 9.983333333333333,
+        "seconds": 7.441666666666666,
+        "fromFirstDown": 7.433333333333333,
+        "elapsed": 10.441666666666666,
+        "effortViolation": 0.00003644153673576511,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      }
+    },
+    "fine": {
+      "sourcePhysicalTraceSha256": "721f36db14405681df913d03c317dd5d9c085b372d8a531e7b961d4bda6a687b",
+      "plan": [
+        {
+          "kind": "replay",
+          "start": 0,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 12,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 24,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 36,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 48,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 60,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 72,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 84,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 96,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 108,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 120,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 132,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 144,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 156,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 168,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 180,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 192,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 204,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 216,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 228,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 240,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 252,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 264,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 276,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 288,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 300,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 312,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 324,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 336,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 348,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 360,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 372,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 384,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 396,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 408,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 420,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 432,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 444,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 456,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 468,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 480,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 492,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 504,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 516,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 528,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 540,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "replay",
+          "start": 552,
+          "rate": 1,
+          "steps": 12
+        },
+        {
+          "kind": "pose",
+          "target": 804,
+          "response": 0.3,
+          "speed": 6,
+          "steps": 12
+        },
+        {
+          "kind": "pose",
+          "target": 648,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 12
+        },
+        {
+          "kind": "pose",
+          "target": 684,
+          "response": 0.1,
+          "speed": 6,
+          "steps": 12
+        },
+        {
+          "kind": "pose",
+          "target": 678,
+          "response": 0.3,
+          "speed": 6,
+          "steps": 12
+        },
+        {
+          "kind": "pose",
+          "target": 774,
+          "response": 0.3,
+          "speed": 6,
+          "steps": 12
+        },
+        {
+          "kind": "host",
+          "steps": 720
+        }
+      ],
+      "result": {
+        "fell": true,
+        "success": true,
+        "failure": null,
+        "firstDown": 2.55,
+        "takeover": 2.5416666666666665,
+        "handover": 9.791666666666666,
+        "seconds": 7.25,
+        "fromFirstDown": 7.241666666666666,
+        "elapsed": 10.25,
+        "effortViolation": 0.00003644153673576511,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      }
+    }
+  }
+}

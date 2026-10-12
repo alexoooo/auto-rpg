@@ -42,7 +42,8 @@ async function trial(configuration, { caseIndex=0, seconds=20, capture=false }={
     let steps=0, peakHeight=0, last, quality=0, peakQuality=0;
     const hash=createHash('sha256');
     while(e.result().elapsed<seconds&&steps<seconds*120) {
-      const action=steps<(configuration.prefixSteps??0)?reference.frames[steps]:policy(e.observe());
+      const frame=reference.frames[steps];
+      const action=steps<(configuration.prefixSteps??0)?(!frame||frame.kind==='host'?{kind:'host'}:frame):policy(e.observe());
       const row=e.step(action,{automaticHandover:!configuration.standing}); steps++;
       hash.update(JSON.stringify(row.observation)); if(capture)rows.push(row);
       peakHeight=Math.max(peakHeight,row.observation.height);
@@ -91,7 +92,8 @@ else if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1]
       const rootAcross=new Vector3(1,0,0).applyRotationQuaternionToRef(Quaternion.Inverse(rest),new Vector3()).asArray();
       const {RISE}=await import(new URL('src/core/mind/rise/stages.ts',frozen));
       const rotate=(rotation)=>new Vector3(...rootUp).applyRotationQuaternionToRef(new Quaternion(...rotation),new Vector3()).asArray();
-      const release=source.rows.findIndex(r=>r.action.kind==='host');
+      const release=source.rows.findLastIndex(r=>r.action.kind!=='host')+1;
+      assert.ok(release>0,'the reference contains recovery actions before its terminal host continuation');
       const frames=source.rows.slice(0,release).map((r,i)=>{const o=i?source.rows[i-1].observation:source.initial;
         return {...r.action,angles:o.joints.map(j=>j.angle),speeds:o.joints.map(j=>j.speed),up:rotate(o.segments.find(s=>s.name==='lowerTrunk').rotation)};});
       const joints=[...e.stand.built.joints.values()].map(j=>({dofs:j.dofs.map(d=>({sign:d.sign}))}));

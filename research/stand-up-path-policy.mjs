@@ -41,6 +41,7 @@ export function pathPolicy({ channels, reference, parameters }) {
     if (state.phase >= p.release && o.height >= p.releaseHeight && up[1] >= p.releaseUp) {
       state.released = true; return { kind:'host' };
     }
+    if(frame.kind==='host')return {kind:'host'};
     for(let j=0;j<channels.length;j++)correction[j]=frame.angles[j]-o.joints[j].angle;
     if(reference.joints) {
       let start=0;
