@@ -321,7 +321,8 @@ These experiments have not qualified an additional recovery variant.
 
 ## Published-controller and assisted-recovery campaign
 
-The campaign is in progress; no new recovery is qualified. The fixed case manifest is
+The campaign qualifies a substantial assisted improvement, with the full four/six-second target
+still open. The final qualification and limitations are below. The original case manifest is
 `research/stand-up-learning-cases.json`; local resumable artifacts and the campaign ledger live
 under ignored `research/runs/get-up-learning/`. The reference checkout is pinned to
 `tianxintao/get_up_control` revision `5ad52fbe1b5b7c56522a1aa10ccf17fb81c0d79e`.
@@ -683,3 +684,140 @@ receives a separate gameplay run.
 cases with the same bounds and predeclared coverage procedure. Its recovery outcomes are not
 used to choose or tune the frozen release-only candidate. `research/stand-up-diagnose.mjs` captures
 complete failing continuations and prior successful falls, with exact-source/configuration checks.
+
+
+### Qualified assisted result
+
+The selected runtime is `assisted-rise`, with the configuration in
+`assets/core/assisted-rise.json`, original Warrior/Rogue anatomy, unchanged symmetric muscles,
+gameplay Rapier coordinate engine at 120 Hz, and **Balance 100 for both recovery and the ordinary
+SIMBICON host**. It is an additional choice; no normal character, locomotion or recovery preset
+is replaced. The selected policy source is commit `58b5e809`. All four final partitions have the
+same policy SHA `42090123be733e59d9f49972ced16905b0923f90b59ead49f0cc8379130193c3` and source SHA
+`dc3c1ab2d175d9ae95ce480698dccca020122633f0cf2aabaf13018e004ec6fb`.
+
+These are Node Stance Lab results, with real falls, actual loaded foot patches, upright trunk and
+soles, 0.5 seconds below 0.1 m/s segment speeds, released recovery help, two seconds of ordinary
+host standing and one second walking at least 0.1 m. The handover clock includes preparation,
+retries, settling and the quiet check; verification follows without increasing that deadline.
+
+| Final partition | Within 6 s | Within 12 s | Within 35 s | Substantial gate |
+|---|---:|---:|---:|---|
+| Directional selection | 62/64 | 63/64 | 63/64 | Pass |
+| V4 independent lying starts | 116/128 | 126/128 | 127/128 | Pass |
+| V4 repeated sequences, three falls each | 10/16 | 16/16 | 16/16 | Pass |
+| V4 disturbed recoveries | 29/32 | 30/32 | 31/32 | Pass |
+
+All 48 actual recoveries in the repeated sequences complete within 12 seconds; the slowest is
+8.5333 seconds. The V4 prefix audit covers prone, supine and both sides in every model/loadout
+group without replacements. Validation group success counts within twelve seconds are
+32/32, 32/32, 31/32 and 31/32 (Warrior empty/club, Rogue empty/club). Failure-inclusive group
+medians are 5.2083, 5.3333, 4.9750 and 5.0375 seconds, including the 1.5-second passive prefix.
+The full target fails: neither the four-second validation median nor all six-second reliability
+requirements are met. These finite engineering cases do not establish population-level human
+reliability or recovery under arbitrary disturbances.
+
+The frozen principal comparator is staged rise, selected before the final candidate. All rows
+below use the same original bodies, gameplay engine, 120 Hz and symmetric muscle path. The first
+four also share ordinary-host Balance 100 and SIMBICON; the last is a separate combined-product
+comparison with original zero-Balance/stance-host play.
+
+| 64-direction comparison | Within 12 s | Within 35 s |
+|---|---:|---:|
+| Selected assisted rise | 63 | 63 |
+| Staged rise, matched assistance ceiling | 0 | 32 |
+| Support recovery, matched assistance ceiling | 0 | 28 |
+| Staged rise with experimental root-feedback wrench | 0 | 0 |
+| Original staged rise, zero Balance and stance host | 0 | 12 |
+
+The matched principal comparison passes the declared improvement margin: 63 additional cases at
+12 seconds, with matched spec, host, balance, engine artifact, actuation, source and rate. Its
+failure-inclusive median is censored; the new selection median is 3.8083 seconds. The experimental
+staged-plus-feedback control replaces its assist request under the shared ceiling; it does not
+stack two allowances or replace staged joint commands. Simply attaching that wrench to the old
+stages does not recover successfully. It is not the principal comparator.
+
+The final same-fall causal assistance test keeps host Balance 100 throughout and clips only
+recovery requests. Across sixteen cardinals, allowances 0, 10, 25 and 50 produce no complete
+recovery within twelve seconds; allowance 100 completes all sixteen. This selects the lowest
+successful *tested* allowance, not proof of an exact minimum. The actual lower-Balance runtime
+uses existing support recovery; the clipped-policy ablation is a separate experiment.
+
+The final friction probe passes 16/16 cardinals at each uniform coefficient 0.4, 0.5 and 0.6.
+These research laws are applied before every solver step, including recreated hand colliders.
+Gameplay remains at its original friction law. The final two-unit Arena checkpoint test repeats
+the physical/control/wound continuation and complete saved state exactly, returns the Warrior
+from two forced recoveries at bout times 5.8 and 17.4 seconds, and resumes wounded combat with
+200 recorded contacts. The under-load world-cost reading is kept distinct from the active-policy
+callback measurement in `research/stand-up-results.json`.
+
+Browser review uses the owner's existing server without restarting it. The shared entry is
+`?play=lab&scenario=recovery&balance=100`. The page visibly runs active assistance, releases it,
+returns to the real host and moves on command, in skin and collision-shape views. The final
+Rogue club 202.5-degree example reports 5.93 seconds of recovery ownership, zero assistance after
+release, and 0.17 m/s while walking; those page readings are distinct from Node quiet-handover
+qualification. Repeat two shoves preserves the existing body. A caught shove is prevention, not
+get-up success. Lab stress buttons retain both slow examples and the failed walking check.
+
+Remaining counterexamples are explicit. Warrior club 22.5 degrees reaches quiet handover but
+fails walking displacement. V4 Rogue empty 138.09744842204964 degrees remains unrecovered by
+35 seconds after its supine prefix; another Rogue club validation case finishes after twelve.
+The disturbed Rogue empty 266.52743375860155-degree case does not finish by 35 seconds, while
+Warrior club 326.8404536973685 degrees finishes in 12.1917 seconds. Exact generated recipes,
+all deadline failures, delivered-assistance summaries and raw-report hashes are in the compact
+`research/stand-up-results.json`; full local reports and saved worlds remain under the ignored
+campaign directory. No held-out outcome is used to change the final candidate.
+
+The learning branch remains a method adaptation, not a learned production-policy success claim.
+The reference pretrained teacher/student execute locally and published SAC updates/resume work;
+full ten-million-transition retraining is not completed. Three independent thirty-minute adapted
+SAC runs produce successful episodes, but the selected seed's 61/64 directional results do not
+beat the simpler feedback controller. The browser therefore runs deterministic feedback and
+ordinary muscle commands, with no training library or neural weights loaded. Whole-body IK
+supplies a useful terminal seed; its geometric feasibility alone never determines success.
+The sole pilot gives no net gain, so broader palm/toe/morphology searches are stopped. Automated
+strength/assistance curriculum advancement is not implemented; the fixed-stage pilots and
+retained assisted result are reported as such.
+
+This closes the campaign at its permitted substantial-assisted outcome, rather than claiming
+its full target or every optional research branch succeeded. The early-finish rule applies only
+after all acceptance, comparison, gameplay and visual checks pass. The four/six-second target,
+lower useful assistance, learned added value and broader bodies/surfaces remain on the roadmap.
+
+
+The active recovery callbacks, including observation/support reads, take a combined mean of
+0.270-0.497 ms per physics step across sixteen cardinal body/loadout trials on the i7-13700H.
+No other agent physics worker runs during this reading. `wants` and `step` are timed separately;
+this is controller cost, not total world-step cost. Instrumented outcomes match the selection
+outcomes exactly. Requested and delivered wrench peaks/integrals are recorded separately;
+for example, the Warrior Front requests a peak 2,553.5 N while its delivered peak is limited to
+774.7 N. This does not increase muscle strength or bypass the Balance ceiling.
+
+At qualification, the ledger charges 9,058,899 physics steps: 6,943,899 explicitly recorded steps
+plus 2,115,000 conservative allowances for reference/setup, interrupted probes, tests and browser
+work. Conservative charges are not claimed as measured executed steps. The 24-million-step
+validation reserve remains protected inside the 160-million cap. The campaign reaches its
+qualified outcome and delivery checks in about 4.3 active hours, so it uses the plan's explicit early-finish exception;
+it does not claim that the nominal 24 hours or full published training schedule ran.
+
+Reproduce the selected physical gates from the committed configuration:
+
+```powershell
+node research/stand-up-campaign.mjs --partition selection --workers 3 --output research/runs/selected.json
+node research/stand-up-campaign.mjs --partition validation --manifest research/stand-up-holdout-v4.json --workers 3 --output research/runs/validation.json
+node research/stand-up-campaign.mjs --partition repeated --manifest research/stand-up-holdout-v4.json --workers 3 --output research/runs/repeated.json
+node research/stand-up-campaign.mjs --partition disturbed --manifest research/stand-up-holdout-v4.json --workers 3 --output research/runs/disturbed.json
+node research/stand-up-gameplay.mjs research/runs/gameplay.json
+node research/stand-up-assistance.mjs research/runs/assistance.json
+node research/stand-up-friction.mjs research/runs/friction.json
+node research/stand-up-cost.mjs research/runs/cost.json
+```
+
+Comparator configurations, their matched identities and all failed case recipes are embedded in
+`research/stand-up-results.json`; pass the chosen configuration as `--config` to the campaign
+runner. The existing complete raw reports, training checkpoints, optimizer/replay/PRNG state,
+source snapshots and three actor exports remain local and resumable at their generating source.
+Upstream reference assets/code/weights remain local because no upstream redistribution license
+was found. The final repository gate is type checking, the fast suite, browser build, the nine
+focused physical regressions, qualification checks and whitespace/line-ending checks. Existing
+six-second and other TODOs remain visible.

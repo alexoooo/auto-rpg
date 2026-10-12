@@ -184,7 +184,8 @@ without resuming on its own.
 - **Get-up experiment**: live assisted recovery on Warrior or Rogue, with an explicit Balance
   setting. The default demonstration uses Balance 100%, the original feet and SIMBICON walking.
   It repeats two timed Front shoves; stress-case buttons reproduce other falls. Readouts show
-  recovery control time and delivered help. The slow searched witness remains selectable.
+  recovery control time and delivered help. Repeat two shoves tests the same body again; Walk
+  forward for 1 s checks the handover. The slow searched witness remains selectable.
   Open `?play=lab&scenario=recovery&balance=100`; lower Balance uses the old recovery fallback.
 - **Routine**: it walks out, strikes at ten targets hung high, middle and low, turns and walks
   back. Each target is a ball of its own head, and the table says what the blow did to it or how

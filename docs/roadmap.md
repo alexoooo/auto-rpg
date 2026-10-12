@@ -127,12 +127,14 @@ After it, each with its own plan, in the order each needs the one before:
     completes verified handover within the deadline
     ([dynamic rise](reference/rising.md#dynamic-rise)). Support transfer and reliable handover
     remain open; existing presets retain their recovery.
-  - The [recovery campaign](plans/2026-10-11-offline-stand-up-search.md) reproduces a published
-    controller and adapts SAC to Rapier. A separate Balance-100 feedback/IK candidate completes
-    63 of 64 directional selection cases within 12 seconds.
-    It is available in the Lab; independent validation, repeated-fall and gameplay gates remain
-    open. Learning's added value and reduced assistance are separate questions. The original
-    body and muscles remain selected; human appearance is optional.
+  - **Assisted rise** meets the substantial-improvement gate at recovery and host Balance 100:
+    63/64 directional selection, 126/128 independent lying falls, 16/16 three-fall sequences and
+    30/32 disturbed recoveries within twelve seconds, followed by standing and walking. It is
+    an additional Warrior/Rogue choice with original anatomy and ordinary muscles; presets do
+    not change. The [recovery study](analysis/2026-10-11-stand-up-planning.md) records the published
+    controller reproduction, SAC adaptation, feedback/IK result and retained failures. Learned
+    residuals have not improved on the selected feedback controller. The four-second median /
+    six-second deadline, lower assistance and broader bodies/surfaces remain open.
   - The Crypt still uses `lie`.
 - **The posture hold.** On the hands' hulls, independent joint feedback
   [holds no installed pose](reference/posture-hold.md) within 2 cm for 10 s. An

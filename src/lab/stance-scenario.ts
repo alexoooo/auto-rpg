@@ -87,7 +87,7 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
           {value:"assisted" as const,name:"Live assisted rise"},{value:"witness" as const,name:"Slow searched witness"}],
           () => recoveryMode, mode => {recoveryMode=mode;experiment.reproduceRecovery(mode);}),
           note(() => recoveryMode === "assisted"
-            ? "Live feedback with a staggered-foot target. Balance 100% permits up to one body weight of force plus a righting moment. Lower Balance or another body uses the existing recovery fallback. Qualification is in progress."
+            ? "Tested on Warrior and Rogue with empty hands or a right-hand club. Balance 100% permits up to one body weight of force plus a righting moment. It passes the 12-second reliability tests, with occasional failures. Lower Balance uses the existing recovery fallback."
             : "Recorded search result replayed as an ordinary recovery recipe, with compliant soles and zero Balance. Slow and unreliable."),
           action("Reset demonstration", () => experiment.reproduceRecovery(recoveryMode), "Reset the selected variant and repeat its two timed Front shoves."),
           action("Repeat two shoves", () => current?.pair(), "Repeat the selected timed shove pair on this body without resetting it."),

@@ -714,7 +714,7 @@ unless it is given another.
 **Assisted rise** is an additional experimental Warrior/Rogue controller. It uses the existing
 metered `Assist` port for bounded root force and righting moment, plus ordinary muscle commands
 toward a staggered-foot target. The leg target is an offline collision-aware IK result; the upper
-body retains the loadout's guard. After four seconds, supported upright feet receive horizontal
+body retains the loadout's guard. After four seconds, upright feet receive horizontal
 whole-body centring without upward help. A Rogue-specific alternate leg target blends in after
 six seconds, with one half-second unloading/folding pulse to free trapped feet. A supported
 release fades the remaining wrench over 0.1 seconds and suppresses the pulse. Transient contact
@@ -725,8 +725,7 @@ the original elapsed attempt. State, including heading, transition blends and re
 is replayable. Ordinary gameplay presets and anatomy are unchanged. The Lab's Get-up experiment
 selects it with the SIMBICON host and original feet; the slow searched sole-body witness remains
 a separate choice. Independent acceptance uses actual penetrating contact-patch points, upright
-trunk/soles, quiet motion and the ordinary host's standing/walking tail. Evidence and remaining
-qualification are in the [recovery study](analysis/2026-10-11-stand-up-planning.md).
+trunk/soles, quiet motion and the ordinary host's standing/walking tail. Evidence and limits are in the [recovery study](analysis/2026-10-11-stand-up-planning.md).
 
 **The riser plays a recipe** (`Recipe`, `RISE`, `rise/stages.ts`): plain data that names
 freedoms and limbs, and no body. A recipe can override intermediate motion and settling
@@ -1364,12 +1363,15 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   and the cue of the instrument that is no contact, the shove, each at the
   mind's time, so the page plays what the frame it shows sounded of, live or replayed. Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
   built from data (`src/ui/controls.ts`).
-  The **Get-up experiment** uses the portable searched recipe (`src/lab/recovery-recipe.ts`,
-  shared with the offline feedback search). Its menu card opens a Warrior with empty hands,
-  compliant soles, zero balance and 120 Hz. The Script host uses experimental recovery;
-  its Mind editor is hidden. The reproduction button restores that setup and queues Front
-  impulses of 60 N s at 2 s and 2.2 s. The 35-second history includes the owning controller.
-  This is a visual experiment, not a qualified fast recovery.
+  The **Get-up experiment** selects live assisted rise or the portable slow searched recipe
+  (`src/lab/recovery-recipe.ts`, shared with offline feedback search). Its menu card opens a
+  Warrior with empty hands, original feet, Balance 100%, SIMBICON locomotion and 120 Hz. The
+  slow witness instead uses compliant soles, zero Balance and the original Script host. The
+  Mind editor is hidden. Reset demonstration restores the selected setup and queues Front
+  impulses of 60 N s at 2 s and 2.2 s; Repeat two shoves acts on the existing body. A one-second
+  walking command checks handover. Stress cases reproduce named directional falls, including
+  a slow recovery and a failed walking check. The 35-second history records owning controller,
+  elapsed recovery control time, force/moment with their ceilings, and release to the host.
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
   with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).
 - **The physics bench** (`/physics-bench.html`, `src/physics-bench/`): the bake-off's cases on
