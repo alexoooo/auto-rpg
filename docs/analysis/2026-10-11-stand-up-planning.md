@@ -925,3 +925,117 @@ These existing Lab links generate a fresh fall with the specified recipe; they d
 the Node binary checkpoint. Node results are the acceptance evidence. Browser and Node physics
 are not generally interchangeable, and these instructions do not claim exact cross-runtime replay.
 An arbitrary action-module candidate is not automatically exposed as a Lab variant.
+
+## Bounded saved-fall improvement, 2026-10-12
+
+One materially faster **unassisted saved-fall trajectory** is established. This is a narrow
+development witness, not completion of the broader fast, robust stand-up goal. The search starts
+at 14:14:43 UTC and stops at 14:43:07 UTC, inside the owner's two-hour allocation; verification
+and replay packaging follow within that allocation. No body changes are made.
+
+All measurements in this section use **Node Stance Lab, gameplay `rapier-coordinate` adapter 11,
+120 Hz, symmetric muscles, Warrior, empty hands, existing compliant soles, ordinary stance host,
+and Balance 0 throughout**, including standing and walking. The frozen evaluator is commit
+`4ebb4d8ddb9eac1b5c9af9e27c695edf80348a40`, the commit behind `stand-up-acceptance-v1`.
+The saved case is `workshop-fighter-empty-0`, checkpoint SHA-256
+`3ac4defee135b4c70b707f2299ca13ff5af6c80631b41ea30121f992414c1a1d`.
+Its complete physics, body, host and controller state is restored; the original takeover clock
+is retained. Neither the frozen checkout nor its criteria, baseline, cases or physical configuration
+is changed.
+
+| Same saved fall, Node Stance Lab / game Rapier / 120 Hz | Qualified handover | End of standing/walking verification | Result |
+|---|---:|---:|---|
+| Frozen optimized baseline | 15.558333 s | 18.558333 s | Pass |
+| Selected muscle trajectory and earlier ordinary-host release | 12.408333 s | 15.408333 s | Pass |
+
+The reduction is **3.150 seconds, 20.246%**. The candidate combines bounded recipe changes and
+shorter individual pose stages with returning control to the ordinary host at
+9.658333 seconds (action index 1158). That release request is **not** counted as recovery completion: the host finishes
+the physical rise, and the independent quiet-support predicate first records qualified handover
+at 12.408333 seconds. The subsequent two seconds standing and one second walking pass; measured
+walking displacement is 0.239100 m against the unchanged 0.1 m requirement.
+
+The engine-seam audit records no external actuation, pinning or mass changes. All preparation,
+recovery and host assistance meters remain exactly zero. Commands use ordinary muscle activation
+and velocity channels with the original directional strength/speed limits. The maximum numerical
+effort-bound excess is 0.0000419384 N m, below the frozen 0.0001 tolerance. No strength, anatomy,
+mass, contact law, solver setting or locomotion configuration changes are used.
+
+The selected recipe is in `research/stand-up-saved-seed.json`. Its actions are in
+`research/stand-up-saved-actions.json.gz`, consumed by `research/stand-up-saved-candidate.mjs`.
+This is an open-loop trajectory for one exact saved state. The module recognizes that initial
+observation and returns the ordinary host action on an unfamiliar state; it is not a general
+recovery policy or a new gameplay preset. The frozen sixteen-case comparison remains the
+development screen, with every failure retained. Both baseline and candidate complete 1/16 by
+35 seconds and 0/16 by 6 or 12 seconds; failure-inclusive medians remain infinite. The candidate's
+other fifteen cases fail: ten with nonfinite joint actuation under its ordinary-host fallback,
+five at the episode deadline. No completion is lost or gained, and no broader reliability gain
+is claimed. All sixteen baseline result/trace records reproduce exactly, all initial-state hashes
+match, and the actual floating-controller negative control is rejected for external actuation.
+
+### Search evidence and replay
+
+The eight bounded searches evaluate 1,425 trials and 3,493,824 world steps, excluding recording,
+materialization and verification. Several searches overlap in wall time, with sequential worlds
+inside worker threads. Recipe-generation trials restore the saved state into the same physical
+environment with only the immutable controller recipe identity changed. Their results are search
+evidence; the selected commands are independently executed through the untouched frozen
+`--candidate` action interface before acceptance.
+
+| Search, Node Stance Lab / game Rapier / 120 Hz | Trials | Best verified search-trial time |
+|---|---:|---:|
+| Feedback CMA | 432 | 15.275000 s |
+| Individual pose-duration CMA | 396 | 15.066667 s |
+| Individual pose-duration coordinate search | 250 | 14.666667 s |
+| Feedback coordinate search | 238 | 14.583333 s |
+| Earlier host release on the frozen baseline trajectory | 65 | 13.116667 s |
+| Earlier host release on the feedback-coordinate trajectory | 29 | 13.741667 s |
+| Narrow release window on the pose-coordinate trajectory | 14 | 12.408333 s |
+| Matched transition instant on the feedback-coordinate trajectory | 1 | Failure |
+
+A direct combination of the two independently improved recipes also fails to recover in
+24 seconds. Failed trials and host-tail failures are not omitted from the local search ledgers.
+Reconstruction also exposes a one-step sensitivity: PowerShell rounds an unquoted decimal release
+threshold, causing release one physics step earlier and failure to recover within 22 seconds.
+The quoted exact threshold reproduces; the reconstruction command uses integer action index 1158
+to avoid that ambiguity. This timing sensitivity is further evidence against a robustness claim.
+The selected action continuation independently reproduces all 1,848 physical observations, its
+whole result and the trace SHA-256
+`65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b`
+through `evaluateAcceptanceCase`. `research/stand-up-saved-materialize.mjs` asserts that equality
+and records the candidate entry, action-data and generating-trace hashes.
+
+Local artifacts are under `.review/stand-up-two-hour/`: `acceptance.json` is the complete frozen
+comparison; `candidate.json` includes the physical audit and dependency identities; the compressed
+`baseline.trace.gz` and `candidate.trace.gz` retain full observations. Open **`replay.html`** directly
+in a browser. It is standalone, includes both recordings, and offers playback speed, pause, single
+steps, scrubbing and an orbit camera. It draws the measured segment transforms and actual collider
+shapes, with loaded floor patches marked. It replays Node poses and does not claim browser/Node
+physics equivalence. No development server is required for inspection.
+
+To reproduce, use Node 24.15.0 and a clean detached checkout in `.tools/stand-up-frozen`, with
+`npm ci` run there. The frozen comparison accepts the committed action module directly:
+
+```powershell
+node .tools/stand-up-frozen/research/stand-up-acceptance.mjs --candidate "$PWD/research/stand-up-saved-candidate.mjs" --output .review/saved-fall-acceptance.json
+```
+
+To reconstruct the selected trajectory and standalone replay, use fresh output names:
+
+```powershell
+node research/stand-up-saved-search.mjs --out .review/saved-baseline --record yes --seconds 38
+node research/stand-up-saved-search.mjs --out .review/saved-recipe --mode stages --start research/stand-up-saved-seed.json --record yes --seconds 38
+node research/stand-up-saved-release.mjs .review/saved-recipe.trace.gz .review/saved-release --step 1158
+node research/stand-up-saved-materialize.mjs .review/saved-release.trace.gz .review/saved-candidate
+node research/stand-up-saved-viewer-build.mjs .review/saved-baseline.trace.gz .review/saved-candidate.trace.gz .review/saved-replay.html
+```
+
+Materialization writes the action-data file beside the candidate module and checks the full
+physical continuation against the frozen evaluator. The replay builder uses the installed game
+Rapier's convex-hull geometry and bundles the existing Babylon dependency into the HTML.
+
+Validation: `npm run check`, `npm test` (661 pass, 0 fail, 5 existing TODOs), `npm run build`
+(existing large-chunk warning), complete frozen candidate comparison, exact selected-trace replay,
+and visual inspection of the standalone replay through its walking tail. The five TODO contracts
+remain unresolved; the fast suite exits successfully. `research/stand-up-saved-result.json`
+retains the comparison summary, failures, identities and selected physical audit.

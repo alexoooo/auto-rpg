@@ -1,0 +1,1706 @@
+{
+  "description": "One faster unassisted saved-fall trajectory; no robustness qualification.",
+  "evaluatorCommit": "4ebb4d8ddb9eac1b5c9af9e27c695edf80348a40",
+  "manifestSha256": "638647064297fd1594c1075b25a42154b61538350c5e23e741763e9ac72b8a97",
+  "protocol": {
+    "scope": "16 development continuations; no robustness qualification or goal-completion gate",
+    "harness": "Node Stance Lab recovery search",
+    "engine": "rapier-coordinate",
+    "hz": 120,
+    "actuation": "symmetric",
+    "balance": 0,
+    "host": "stance",
+    "ground": "40 m box, standard gravity and engine contact law",
+    "baseline": "support-recovery with stand-up-feedback-seed.json final 15.5583 s recipe",
+    "anatomy": "Warrior/Rogue default bodies with existing compliant soles; empty or right-hand club; unchanged muscles",
+    "prefix": "240 standing steps, two 60 N s shoves 24 steps apart, saved after first recovery takeover; optimized prefix shared by all candidates",
+    "clock": "original takeover, including shared prefix; never reset at checkpoint",
+    "episodeSeconds": 38,
+    "handoverDeadline": 35,
+    "success": "zero external actuation throughout; existing physical upright/loaded two-foot support and quiet 0.5 s; actual host handover, 2 s standing then 1 s walking at least 0.1 m; bounded efforts",
+    "reporting": "all cases retained; show 6/12/35 s counts; failures infinity in medians; no new substantial-improvement threshold",
+    "changes": "owner agreement required before changing evaluator, baseline, cases, body configurations or criteria"
+  },
+  "bodyChanges": [],
+  "baseline": {
+    "case": "workshop-fighter-empty-0",
+    "controller": "optimized",
+    "checkpointSha256": "3ac4defee135b4c70b707f2299ca13ff5af6c80631b41ea30121f992414c1a1d",
+    "initialObservationSha256": "501ef893e6c3ed210127d8fc4d22ddac531d4b8a21ec6332c92f19fa2e4ba382",
+    "identity": {
+      "harness": "Node Stance Lab recovery search",
+      "model": "workshop-fighter",
+      "held": "empty",
+      "baseline": "support-recovery",
+      "host": "stance",
+      "assistedBaseline": false,
+      "comparison": true,
+      "recipeSha": "4d268b653b995bce06df62476799f2793742df8ed2a47a7d0b47231c3b80e77b",
+      "hz": 120,
+      "engine": "rapier-coordinate",
+      "revision": "rapier/adapter-11/sha256:0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c/coordinate-limits",
+      "artifact": "vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.9.tgz",
+      "artifactSha": "0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c",
+      "sourceSha": "6a2db126c07a54945ee56a9d1f0c7348a86e0701d47a9b8eea2ae6ab52e0ab60",
+      "environmentSha": "d4cc16d06ea33ee426bc325647e1e662519770b89129484b56e5b083f9f671a7",
+      "specSha": "89a7a051e52d295ba5848b8aaeb62e643372243b81acc76cb2b5fa398fb1fa94",
+      "actuation": "symmetric",
+      "balance": 0,
+      "channels": [
+        {
+          "name": "neck flexion",
+          "min": -1.0629055144645467,
+          "max": 1.1397000015522971,
+          "bind": 0,
+          "positive": 30.779220779220775,
+          "negative": 53.35064935064935
+        },
+        {
+          "name": "neck lateral flexion right",
+          "min": -0.7906341511534313,
+          "max": 0.7557275661135446,
+          "bind": 0,
+          "positive": 36.93506493506493,
+          "negative": 36.93506493506493
+        },
+        {
+          "name": "neck rotation right",
+          "min": -1.3002702927357754,
+          "max": 1.2426744274199626,
+          "bind": 0,
+          "positive": 15.389610389610388,
+          "negative": 15.389610389610388
+        },
+        {
+          "name": "thoracic flexion",
+          "min": -0.23911010752322315,
+          "max": 0.36826447217080355,
+          "bind": 0,
+          "positive": 93.96049046321524,
+          "negative": 127.1103542234332
+        },
+        {
+          "name": "thoracic lateral flexion right",
+          "min": -0.2722713633111154,
+          "max": 0.2722713633111154,
+          "bind": 0,
+          "positive": 68.0217983651226,
+          "negative": 76.73978201634876
+        },
+        {
+          "name": "thoracic rotation right",
+          "min": -0.43458698374658805,
+          "max": 0.43458698374658805,
+          "bind": 0,
+          "positive": 52.95367847411443,
+          "negative": 51.33923705722069
+        },
+        {
+          "name": "lumbar flexion",
+          "min": -0.2792526803190927,
+          "max": 0.8901179185171081,
+          "bind": 0,
+          "positive": 93.96049046321524,
+          "negative": 127.1103542234332
+        },
+        {
+          "name": "lumbar lateral flexion right",
+          "min": -0.3141592653589793,
+          "max": 0.29670597283903605,
+          "bind": 0,
+          "positive": 68.0217983651226,
+          "negative": 76.73978201634876
+        },
+        {
+          "name": "lumbar rotation right",
+          "min": -0.08726646259971647,
+          "max": 0.06981317007977318,
+          "bind": 0,
+          "positive": 52.95367847411443,
+          "negative": 51.33923705722069
+        },
+        {
+          "name": "shoulder.left flexion",
+          "min": -1.174090634769606,
+          "max": 3.021680887024762,
+          "bind": 0.027409316209331493,
+          "positive": 67.4390243902439,
+          "negative": 98.37533875338754
+        },
+        {
+          "name": "shoulder.left abduction",
+          "min": -0.7191159499508002,
+          "max": 2.4189860451350045,
+          "bind": 0.7191159499508002,
+          "positive": 64.44173441734418,
+          "negative": 95.91327913279133
+        },
+        {
+          "name": "shoulder.left internal rotation",
+          "min": -1.5063235584809922,
+          "max": 1.1099249902585078,
+          "bind": -0.0906527070938192,
+          "positive": 63.58536585365854,
+          "negative": 38.429539295392956
+        },
+        {
+          "name": "elbow.left flexion",
+          "min": -0.8615068911931567,
+          "max": 1.6552578901826664,
+          "bind": 0.8056563551293382,
+          "positive": 75.25338753387534,
+          "negative": 56.94850948509485
+        },
+        {
+          "name": "wrist.left flexion",
+          "min": -1.4317755068150615,
+          "max": 1.4654710514955254,
+          "bind": 0.05296539773954119,
+          "positive": 25.584010840108398,
+          "negative": 14.023035230352303
+        },
+        {
+          "name": "wrist.left radial deviation",
+          "min": -0.8961934847578699,
+          "max": 0.4302567467578206,
+          "bind": 0.07763406557252932,
+          "positive": 15.842530282637957,
+          "negative": 28.176312247644685
+        },
+        {
+          "name": "wrist.left pronation",
+          "min": -1.706258214065037,
+          "max": 1.4353344395247563,
+          "bind": 0.06564871719036719,
+          "positive": 7.335714285714285,
+          "negative": 8.652380952380952
+        },
+        {
+          "name": "hip.left flexion",
+          "min": -0.422749554194331,
+          "max": 2.10099654418947,
+          "bind": 0.11033561808734602,
+          "positive": 153.02685003340002,
+          "negative": 218.02940579980003
+        },
+        {
+          "name": "hip.left abduction",
+          "min": -0.3333921726682006,
+          "max": 0.46596862474520234,
+          "bind": 0.09428206514497743,
+          "positive": 198.03523035230353,
+          "negative": 232.28997289972904
+        },
+        {
+          "name": "hip.left internal rotation",
+          "min": -0.8150687606813519,
+          "max": 0.6475171524898963,
+          "bind": 0,
+          "positive": 77.82249322493226,
+          "negative": 53.2018970189702
+        },
+        {
+          "name": "knee.left flexion",
+          "min": -0.14486705560180382,
+          "max": 2.4574188591217414,
+          "bind": 0.10996047056191724,
+          "positive": 141.3008130081301,
+          "negative": 259.0514905149052
+        },
+        {
+          "name": "ankle.left dorsiflexion",
+          "min": -0.9065594759732407,
+          "max": 0.3570589024706539,
+          "bind": 0.032149520724081566,
+          "positive": 43.03252032520326,
+          "negative": 152.00542005420056
+        },
+        {
+          "name": "ankle.left inversion",
+          "min": -0.3324852225049198,
+          "max": 0.6031857894892403,
+          "bind": 0,
+          "positive": 37.911802853437095,
+          "negative": 34.2230869001297
+        },
+        {
+          "name": "shoulder.right flexion",
+          "min": -1.174090634769606,
+          "max": 3.021680887024762,
+          "bind": 0.027409316209331493,
+          "positive": 67.4390243902439,
+          "negative": 98.37533875338754
+        },
+        {
+          "name": "shoulder.right abduction",
+          "min": -0.7191159499508002,
+          "max": 2.4189860451350045,
+          "bind": 0.7191159499508002,
+          "positive": 64.44173441734418,
+          "negative": 95.91327913279133
+        },
+        {
+          "name": "shoulder.right internal rotation",
+          "min": -1.5063235584809922,
+          "max": 1.1099249902585078,
+          "bind": -0.0906527070938192,
+          "positive": 63.58536585365854,
+          "negative": 38.429539295392956
+        },
+        {
+          "name": "elbow.right flexion",
+          "min": -0.8615068911931567,
+          "max": 1.6552578901826664,
+          "bind": 0.8056563551293382,
+          "positive": 75.25338753387534,
+          "negative": 56.94850948509485
+        },
+        {
+          "name": "wrist.right flexion",
+          "min": -1.4317755068150615,
+          "max": 1.4654710514955254,
+          "bind": 0.05296539773954119,
+          "positive": 25.584010840108398,
+          "negative": 14.023035230352303
+        },
+        {
+          "name": "wrist.right radial deviation",
+          "min": -0.9206280942857904,
+          "max": 0.41629411274186595,
+          "bind": 0.07763406557252932,
+          "positive": 15.842530282637957,
+          "negative": 28.176312247644685
+        },
+        {
+          "name": "wrist.right pronation",
+          "min": -1.706258214065037,
+          "max": 1.4353344395247563,
+          "bind": 0.06564871719036719,
+          "positive": 7.335714285714285,
+          "negative": 8.652380952380952
+        },
+        {
+          "name": "hip.right flexion",
+          "min": -0.422749554194331,
+          "max": 2.10099654418947,
+          "bind": 0.11033561808734602,
+          "positive": 153.02685003340002,
+          "negative": 218.02940579980003
+        },
+        {
+          "name": "hip.right abduction",
+          "min": -0.3333921726682006,
+          "max": 0.46596862474520234,
+          "bind": 0.09428206514497743,
+          "positive": 198.03523035230353,
+          "negative": 232.28997289972904
+        },
+        {
+          "name": "hip.right internal rotation",
+          "min": -0.8150687606813519,
+          "max": 0.6475171524898963,
+          "bind": 0,
+          "positive": 77.82249322493226,
+          "negative": 53.2018970189702
+        },
+        {
+          "name": "knee.right flexion",
+          "min": -0.14486705560180382,
+          "max": 2.4574188591217414,
+          "bind": 0.10996047056191724,
+          "positive": 141.3008130081301,
+          "negative": 259.0514905149052
+        },
+        {
+          "name": "ankle.right dorsiflexion",
+          "min": -0.9065594759732407,
+          "max": 0.3570589024706539,
+          "bind": 0.032149520724081566,
+          "positive": 43.03252032520326,
+          "negative": 152.00542005420056
+        },
+        {
+          "name": "ankle.right inversion",
+          "min": -0.3324852225049198,
+          "max": 0.6031857894892403,
+          "bind": 0,
+          "positive": 37.911802853437095,
+          "negative": 34.2230869001297
+        }
+      ]
+    },
+    "steps": 2226,
+    "traceSha256": "af1d60f62875f6ca932bf98488d282b51e4066b084ac027cfd6e39b9fce43309",
+    "result": {
+      "fell": true,
+      "success": true,
+      "failure": null,
+      "firstDown": 2.55,
+      "takeover": 2.5416666666666665,
+      "handover": 18.1,
+      "seconds": 15.558333333333335,
+      "fromFirstDown": 15.55,
+      "elapsed": 18.558333333333334,
+      "effortViolation": 0.000035855569763043604,
+      "assisted": false,
+      "quiet": 0,
+      "externalActuation": []
+    }
+  },
+  "candidate": {
+    "case": "workshop-fighter-empty-0",
+    "controller": "action module",
+    "checkpointSha256": "3ac4defee135b4c70b707f2299ca13ff5af6c80631b41ea30121f992414c1a1d",
+    "initialObservationSha256": "501ef893e6c3ed210127d8fc4d22ddac531d4b8a21ec6332c92f19fa2e4ba382",
+    "identity": {
+      "harness": "Node Stance Lab recovery search",
+      "model": "workshop-fighter",
+      "held": "empty",
+      "baseline": "support-recovery",
+      "host": "stance",
+      "assistedBaseline": false,
+      "comparison": true,
+      "recipeSha": "4d268b653b995bce06df62476799f2793742df8ed2a47a7d0b47231c3b80e77b",
+      "hz": 120,
+      "engine": "rapier-coordinate",
+      "revision": "rapier/adapter-11/sha256:0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c/coordinate-limits",
+      "artifact": "vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.9.tgz",
+      "artifactSha": "0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c",
+      "sourceSha": "6a2db126c07a54945ee56a9d1f0c7348a86e0701d47a9b8eea2ae6ab52e0ab60",
+      "environmentSha": "d4cc16d06ea33ee426bc325647e1e662519770b89129484b56e5b083f9f671a7",
+      "specSha": "89a7a051e52d295ba5848b8aaeb62e643372243b81acc76cb2b5fa398fb1fa94",
+      "actuation": "symmetric",
+      "balance": 0,
+      "channels": [
+        {
+          "name": "neck flexion",
+          "min": -1.0629055144645467,
+          "max": 1.1397000015522971,
+          "bind": 0,
+          "positive": 30.779220779220775,
+          "negative": 53.35064935064935
+        },
+        {
+          "name": "neck lateral flexion right",
+          "min": -0.7906341511534313,
+          "max": 0.7557275661135446,
+          "bind": 0,
+          "positive": 36.93506493506493,
+          "negative": 36.93506493506493
+        },
+        {
+          "name": "neck rotation right",
+          "min": -1.3002702927357754,
+          "max": 1.2426744274199626,
+          "bind": 0,
+          "positive": 15.389610389610388,
+          "negative": 15.389610389610388
+        },
+        {
+          "name": "thoracic flexion",
+          "min": -0.23911010752322315,
+          "max": 0.36826447217080355,
+          "bind": 0,
+          "positive": 93.96049046321524,
+          "negative": 127.1103542234332
+        },
+        {
+          "name": "thoracic lateral flexion right",
+          "min": -0.2722713633111154,
+          "max": 0.2722713633111154,
+          "bind": 0,
+          "positive": 68.0217983651226,
+          "negative": 76.73978201634876
+        },
+        {
+          "name": "thoracic rotation right",
+          "min": -0.43458698374658805,
+          "max": 0.43458698374658805,
+          "bind": 0,
+          "positive": 52.95367847411443,
+          "negative": 51.33923705722069
+        },
+        {
+          "name": "lumbar flexion",
+          "min": -0.2792526803190927,
+          "max": 0.8901179185171081,
+          "bind": 0,
+          "positive": 93.96049046321524,
+          "negative": 127.1103542234332
+        },
+        {
+          "name": "lumbar lateral flexion right",
+          "min": -0.3141592653589793,
+          "max": 0.29670597283903605,
+          "bind": 0,
+          "positive": 68.0217983651226,
+          "negative": 76.73978201634876
+        },
+        {
+          "name": "lumbar rotation right",
+          "min": -0.08726646259971647,
+          "max": 0.06981317007977318,
+          "bind": 0,
+          "positive": 52.95367847411443,
+          "negative": 51.33923705722069
+        },
+        {
+          "name": "shoulder.left flexion",
+          "min": -1.174090634769606,
+          "max": 3.021680887024762,
+          "bind": 0.027409316209331493,
+          "positive": 67.4390243902439,
+          "negative": 98.37533875338754
+        },
+        {
+          "name": "shoulder.left abduction",
+          "min": -0.7191159499508002,
+          "max": 2.4189860451350045,
+          "bind": 0.7191159499508002,
+          "positive": 64.44173441734418,
+          "negative": 95.91327913279133
+        },
+        {
+          "name": "shoulder.left internal rotation",
+          "min": -1.5063235584809922,
+          "max": 1.1099249902585078,
+          "bind": -0.0906527070938192,
+          "positive": 63.58536585365854,
+          "negative": 38.429539295392956
+        },
+        {
+          "name": "elbow.left flexion",
+          "min": -0.8615068911931567,
+          "max": 1.6552578901826664,
+          "bind": 0.8056563551293382,
+          "positive": 75.25338753387534,
+          "negative": 56.94850948509485
+        },
+        {
+          "name": "wrist.left flexion",
+          "min": -1.4317755068150615,
+          "max": 1.4654710514955254,
+          "bind": 0.05296539773954119,
+          "positive": 25.584010840108398,
+          "negative": 14.023035230352303
+        },
+        {
+          "name": "wrist.left radial deviation",
+          "min": -0.8961934847578699,
+          "max": 0.4302567467578206,
+          "bind": 0.07763406557252932,
+          "positive": 15.842530282637957,
+          "negative": 28.176312247644685
+        },
+        {
+          "name": "wrist.left pronation",
+          "min": -1.706258214065037,
+          "max": 1.4353344395247563,
+          "bind": 0.06564871719036719,
+          "positive": 7.335714285714285,
+          "negative": 8.652380952380952
+        },
+        {
+          "name": "hip.left flexion",
+          "min": -0.422749554194331,
+          "max": 2.10099654418947,
+          "bind": 0.11033561808734602,
+          "positive": 153.02685003340002,
+          "negative": 218.02940579980003
+        },
+        {
+          "name": "hip.left abduction",
+          "min": -0.3333921726682006,
+          "max": 0.46596862474520234,
+          "bind": 0.09428206514497743,
+          "positive": 198.03523035230353,
+          "negative": 232.28997289972904
+        },
+        {
+          "name": "hip.left internal rotation",
+          "min": -0.8150687606813519,
+          "max": 0.6475171524898963,
+          "bind": 0,
+          "positive": 77.82249322493226,
+          "negative": 53.2018970189702
+        },
+        {
+          "name": "knee.left flexion",
+          "min": -0.14486705560180382,
+          "max": 2.4574188591217414,
+          "bind": 0.10996047056191724,
+          "positive": 141.3008130081301,
+          "negative": 259.0514905149052
+        },
+        {
+          "name": "ankle.left dorsiflexion",
+          "min": -0.9065594759732407,
+          "max": 0.3570589024706539,
+          "bind": 0.032149520724081566,
+          "positive": 43.03252032520326,
+          "negative": 152.00542005420056
+        },
+        {
+          "name": "ankle.left inversion",
+          "min": -0.3324852225049198,
+          "max": 0.6031857894892403,
+          "bind": 0,
+          "positive": 37.911802853437095,
+          "negative": 34.2230869001297
+        },
+        {
+          "name": "shoulder.right flexion",
+          "min": -1.174090634769606,
+          "max": 3.021680887024762,
+          "bind": 0.027409316209331493,
+          "positive": 67.4390243902439,
+          "negative": 98.37533875338754
+        },
+        {
+          "name": "shoulder.right abduction",
+          "min": -0.7191159499508002,
+          "max": 2.4189860451350045,
+          "bind": 0.7191159499508002,
+          "positive": 64.44173441734418,
+          "negative": 95.91327913279133
+        },
+        {
+          "name": "shoulder.right internal rotation",
+          "min": -1.5063235584809922,
+          "max": 1.1099249902585078,
+          "bind": -0.0906527070938192,
+          "positive": 63.58536585365854,
+          "negative": 38.429539295392956
+        },
+        {
+          "name": "elbow.right flexion",
+          "min": -0.8615068911931567,
+          "max": 1.6552578901826664,
+          "bind": 0.8056563551293382,
+          "positive": 75.25338753387534,
+          "negative": 56.94850948509485
+        },
+        {
+          "name": "wrist.right flexion",
+          "min": -1.4317755068150615,
+          "max": 1.4654710514955254,
+          "bind": 0.05296539773954119,
+          "positive": 25.584010840108398,
+          "negative": 14.023035230352303
+        },
+        {
+          "name": "wrist.right radial deviation",
+          "min": -0.9206280942857904,
+          "max": 0.41629411274186595,
+          "bind": 0.07763406557252932,
+          "positive": 15.842530282637957,
+          "negative": 28.176312247644685
+        },
+        {
+          "name": "wrist.right pronation",
+          "min": -1.706258214065037,
+          "max": 1.4353344395247563,
+          "bind": 0.06564871719036719,
+          "positive": 7.335714285714285,
+          "negative": 8.652380952380952
+        },
+        {
+          "name": "hip.right flexion",
+          "min": -0.422749554194331,
+          "max": 2.10099654418947,
+          "bind": 0.11033561808734602,
+          "positive": 153.02685003340002,
+          "negative": 218.02940579980003
+        },
+        {
+          "name": "hip.right abduction",
+          "min": -0.3333921726682006,
+          "max": 0.46596862474520234,
+          "bind": 0.09428206514497743,
+          "positive": 198.03523035230353,
+          "negative": 232.28997289972904
+        },
+        {
+          "name": "hip.right internal rotation",
+          "min": -0.8150687606813519,
+          "max": 0.6475171524898963,
+          "bind": 0,
+          "positive": 77.82249322493226,
+          "negative": 53.2018970189702
+        },
+        {
+          "name": "knee.right flexion",
+          "min": -0.14486705560180382,
+          "max": 2.4574188591217414,
+          "bind": 0.10996047056191724,
+          "positive": 141.3008130081301,
+          "negative": 259.0514905149052
+        },
+        {
+          "name": "ankle.right dorsiflexion",
+          "min": -0.9065594759732407,
+          "max": 0.3570589024706539,
+          "bind": 0.032149520724081566,
+          "positive": 43.03252032520326,
+          "negative": 152.00542005420056
+        },
+        {
+          "name": "ankle.right inversion",
+          "min": -0.3324852225049198,
+          "max": 0.6031857894892403,
+          "bind": 0,
+          "positive": 37.911802853437095,
+          "negative": 34.2230869001297
+        }
+      ]
+    },
+    "steps": 1848,
+    "traceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b",
+    "result": {
+      "fell": true,
+      "success": true,
+      "failure": null,
+      "firstDown": 2.55,
+      "takeover": 2.5416666666666665,
+      "handover": 14.95,
+      "seconds": 12.408333333333333,
+      "fromFirstDown": 12.399999999999999,
+      "elapsed": 15.408333333333333,
+      "effortViolation": 0.00004193843579969325,
+      "assisted": false,
+      "quiet": 0,
+      "externalActuation": []
+    }
+  },
+  "verification": {
+    "walkingDisplacement": 0.23909989001017098,
+    "assistance": {
+      "preparation": {
+        "seconds": 2.5416666666666603,
+        "activeSeconds": 0,
+        "forcePeak": 0,
+        "momentPeak": 0,
+        "forceIntegral": 0,
+        "momentIntegral": 0,
+        "forceSaturatedSeconds": 0,
+        "momentSaturatedSeconds": 0,
+        "positiveWork": 0,
+        "negativeWork": 0
+      },
+      "recovery": {
+        "seconds": 9.658333333333426,
+        "activeSeconds": 0,
+        "forcePeak": 0,
+        "momentPeak": 0,
+        "forceIntegral": 0,
+        "momentIntegral": 0,
+        "forceSaturatedSeconds": 0,
+        "momentSaturatedSeconds": 0,
+        "positiveWork": 0,
+        "negativeWork": 0
+      },
+      "host": {
+        "seconds": 5.7500000000000755,
+        "activeSeconds": 0,
+        "forcePeak": 0,
+        "momentPeak": 0,
+        "forceIntegral": 0,
+        "momentIntegral": 0,
+        "forceSaturatedSeconds": 0,
+        "momentSaturatedSeconds": 0,
+        "positiveWork": 0,
+        "negativeWork": 0
+      }
+    }
+  },
+  "provenance": {
+    "generatingTraceSha256": "ceda5c013107e3cc5d2243420d83352e8f39aca330fa380115e0cf5e9af8023f",
+    "candidateModuleSha256": "87400de962bd7e158c5a047953a25ad58c9b8622c8c7761ff6ecf82d825f1f4f",
+    "candidateActionsSha256": "0699f071485b06943c613403bb81870428b808f10b2b655285bbc2fd7b61eab5",
+    "seedSha256": "5faaee6ebd3f3cb6734d72d64143bc35c066328072b3caedbf749499fe1796d0",
+    "candidateDependencies": [
+      "node:assert/strict",
+      "node:fs",
+      "node:crypto",
+      "node:zlib",
+      "stand-up-saved-actions.json.gz"
+    ]
+  },
+  "summary": {
+    "baseline": {
+      "cases": 16,
+      "within6": 0,
+      "within12": 0,
+      "within35": 1,
+      "failureInclusiveMedian": null,
+      "medianMeaning": "not reached; failures are infinity",
+      "rejectedExternalActuation": 0
+    },
+    "candidate": {
+      "cases": 16,
+      "within6": 0,
+      "within12": 0,
+      "within35": 1,
+      "failureInclusiveMedian": null,
+      "medianMeaning": "not reached; failures are infinity",
+      "rejectedExternalActuation": 0
+    },
+    "floatingControllerRejected": true,
+    "matchedInitialStates": true,
+    "lostCompletions": [],
+    "gainedCompletions": [],
+    "robustnessQualified": false,
+    "criteriaChanged": false
+  },
+  "allCases": [
+    {
+      "case": "workshop-fighter-empty-0",
+      "baseline": {
+        "fell": true,
+        "success": true,
+        "failure": null,
+        "firstDown": 2.55,
+        "takeover": 2.5416666666666665,
+        "handover": 18.1,
+        "seconds": 15.558333333333335,
+        "fromFirstDown": 15.55,
+        "elapsed": 18.558333333333334,
+        "effortViolation": 0.000035855569763043604,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": true,
+        "failure": null,
+        "firstDown": 2.55,
+        "takeover": 2.5416666666666665,
+        "handover": 14.95,
+        "seconds": 12.408333333333333,
+        "fromFirstDown": 12.399999999999999,
+        "elapsed": 15.408333333333333,
+        "effortViolation": 0.00004193843579969325,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "af1d60f62875f6ca932bf98488d282b51e4066b084ac027cfd6e39b9fce43309",
+      "candidateTraceSha256": "65dfe069cc55043b92d57e8beddc1a5e6cf5f5a0ff639dd513f4422ba5bd7e3b",
+      "checkpointSha256": "3ac4defee135b4c70b707f2299ca13ff5af6c80631b41ea30121f992414c1a1d"
+    },
+    {
+      "case": "workshop-fighter-empty-90",
+      "baseline": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.5833333333333335,
+        "takeover": 2.575,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.00004105557570710516,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": false,
+        "failure": "nonfinite joint actuation",
+        "firstDown": 2.5833333333333335,
+        "takeover": 2.575,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 26.95,
+        "effortViolation": 0.00004359944210818867,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "4355a449a6a1e00be4d8630049aa94e154add7262814c6647e7c9f529b202d6d",
+      "candidateTraceSha256": "c1dacb2d2d9bddf74fd3f6af506a980d89c8c577f884aaec1537088fbedb9159",
+      "checkpointSha256": "6f32a90a407cec6c2162152b65276cae9b327631cc5c7da6e9099202b47263e8"
+    },
+    {
+      "case": "workshop-fighter-empty-180",
+      "baseline": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.825,
+        "takeover": 2.816666666666667,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.000042950562942678516,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": false,
+        "failure": "nonfinite joint actuation",
+        "firstDown": 2.825,
+        "takeover": 2.816666666666667,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 14.383333333333333,
+        "effortViolation": 0.00004323461661215333,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "3a05d3d6a1448c3bf0a7b652580d21491ddad1c8d85dee38c7c05936710a8bad",
+      "candidateTraceSha256": "52ad248b5fb6729fe09879b758a8d74bd56be6d48539857cc92731d37b7bd369",
+      "checkpointSha256": "1679119b478c41cb25c4ba0fe1be020e31f9e73a2c5ee45e91b0407aca095290"
+    },
+    {
+      "case": "workshop-fighter-empty-270",
+      "baseline": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.716666666666667,
+        "takeover": 2.7083333333333335,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.000039565656265949656,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": false,
+        "failure": "nonfinite joint actuation",
+        "firstDown": 2.716666666666667,
+        "takeover": 2.7083333333333335,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 21.650000000000002,
+        "effortViolation": 0.00004705827507223148,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "57c5a2375316923f0dc21e5e07688b9b9fde662f4a060107f625174a0121c169",
+      "candidateTraceSha256": "238e76f8c6c5dca82e65efc0ff315531c4ce769b8264c64bbbcef01dfe8fd25b",
+      "checkpointSha256": "b9b7add32f4d569c5db3cd424894ce93c84a89c3c8c74088800780ebf70570ed"
+    },
+    {
+      "case": "workshop-fighter-club-0",
+      "baseline": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.65,
+        "takeover": 2.6416666666666666,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.00004103114736153657,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.65,
+        "takeover": 2.6416666666666666,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.00004717192530279135,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "f2ee80d70ab11de7d3a5aee729fe7c939995aea89f5cc4a6b39b5cb3ab5a130c",
+      "candidateTraceSha256": "2460ef6e8f1e4a51b1ca1a7df7d81ee42e5d414a031ff828ca03bd51a71fbea1",
+      "checkpointSha256": "cef3a8138784b7d2e155ad6545f9e67d23a853e66bdc0092fd03b84f81b011de"
+    },
+    {
+      "case": "workshop-fighter-club-90",
+      "baseline": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.6,
+        "takeover": 2.591666666666667,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.00003920785331956722,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.6,
+        "takeover": 2.591666666666667,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.000044175372181598505,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "9d26f16e99c86f68128bc02faed3e3874897e7f7eba82739f45168d8eb87ae79",
+      "candidateTraceSha256": "66c3281936a9d0e91b7a85b4eeac04e2123c6adcce134a15b9a7b93575dec11f",
+      "checkpointSha256": "6c3ec0b390a69ecaf9d5ca853b752bdb99468fed61176f9190a602b3334c4f02"
+    },
+    {
+      "case": "workshop-fighter-club-180",
+      "baseline": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.816666666666667,
+        "takeover": 2.808333333333333,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.000036409205733889394,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.816666666666667,
+        "takeover": 2.808333333333333,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.00004616413275471132,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "e6e68ccb9ae776cc7bede389a291001b24bf84f05203f767633d222bb57c9069",
+      "candidateTraceSha256": "b8f73051a82a07cf0b3940ff53c7a279880f014556cc754b6bb9dd5082a2d6c2",
+      "checkpointSha256": "d8a72bd39529c1732d582c696e49967c38e3823e0cc18905dbe878d69b21b488"
+    },
+    {
+      "case": "workshop-fighter-club-270",
+      "baseline": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.6166666666666667,
+        "takeover": 2.6083333333333334,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.000041925296443423576,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.6166666666666667,
+        "takeover": 2.6083333333333334,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.0000448224826641308,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "82bc1fc2ac65c3d7725c6f0b009b99de3aa32de9c5b55a924bb6f4e928dad9d3",
+      "candidateTraceSha256": "b3eaedd76760a0811a529d091dd26ebe0eea3cccb323444a7fc5be6c69942f03",
+      "checkpointSha256": "99e7ca56051333cbaf69f6173a470e49f8457168a789275cd3c933cf725cd85e"
+    },
+    {
+      "case": "workshop-rogue-empty-0",
+      "baseline": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.433333333333333,
+        "takeover": 2.425,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.00002175209311872095,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": false,
+        "failure": "nonfinite joint actuation",
+        "firstDown": 2.433333333333333,
+        "takeover": 2.425,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 26.416666666666664,
+        "effortViolation": 0.000022422748713779583,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "770683817e0097f86c4c7681c10d730218fcc7b362bf5d48aa15669381b0451e",
+      "candidateTraceSha256": "903dc813b5234b491fc7b15ecf3b6657b75a8396d52b8b92a5069b92b68dd142",
+      "checkpointSha256": "9d65b2c92b1781bb677b649c10ca83376519d9843bade170f1023778474bb4ec"
+    },
+    {
+      "case": "workshop-rogue-empty-90",
+      "baseline": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.6083333333333334,
+        "takeover": 2.6,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.000021371545699366834,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": false,
+        "failure": "nonfinite joint actuation",
+        "firstDown": 2.6083333333333334,
+        "takeover": 2.6,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 9.508333333333333,
+        "effortViolation": 0.00002259037870544489,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "6cc0b5f6642f36505d5459fde81f3b75d214632bca9a27af5ff0c0c6669f3b94",
+      "candidateTraceSha256": "10f83229d711c03de2dea3d84b5d8f1805ac0e3fff523ddffd5862e6b22adbe0",
+      "checkpointSha256": "5df36a5e5cd2802a4ae74b9efe5889029ea46e544322f37cedde65c505388ead"
+    },
+    {
+      "case": "workshop-rogue-empty-180",
+      "baseline": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.4916666666666667,
+        "takeover": 2.4833333333333334,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.000020553299378889278,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": false,
+        "failure": "nonfinite joint actuation",
+        "firstDown": 2.4916666666666667,
+        "takeover": 2.4833333333333334,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 8.466666666666665,
+        "effortViolation": 0.000022071050835847927,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "6f8d3b3a798ace65ebe0e06720397fe6e9124970b4fabcd0b91f7bf53f15ebdf",
+      "candidateTraceSha256": "6e2419de09787542ea8eb0dcc05d3a5fea89b68c52d8745329986bba8e13c1d8",
+      "checkpointSha256": "9a2b4aa61a050d0d1bcbf63db4e09d99b36140ec749bc2cf6151ba3dba093605"
+    },
+    {
+      "case": "workshop-rogue-empty-270",
+      "baseline": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.6166666666666667,
+        "takeover": 2.6083333333333334,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.000019907010567976613,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": false,
+        "failure": "nonfinite joint actuation",
+        "firstDown": 2.6166666666666667,
+        "takeover": 2.6083333333333334,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 10.866666666666667,
+        "effortViolation": 0.000021867426738708673,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "8950dfb2f0d43c759acb4c341aa687be93960dc6e88a1ca8257ef2a47b8210aa",
+      "candidateTraceSha256": "f26219b374e8dda344ed0724db46c0acc6f9aa44c84c5bf668bdd34f3dd153ec",
+      "checkpointSha256": "f5039cdb9b3fbc7322005bf95b20e8e12f27c9539d4324b0b88c7bff1288f740"
+    },
+    {
+      "case": "workshop-rogue-club-0",
+      "baseline": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.5,
+        "takeover": 2.4916666666666667,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.000020065568548943702,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": false,
+        "failure": "nonfinite joint actuation",
+        "firstDown": 2.5,
+        "takeover": 2.4916666666666667,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 35.125,
+        "effortViolation": 0.000022720989676372483,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "b3263b86d5bcc178ea1b3f3bd8b5251d72969fca0f104dd6b4cf6d9f06ddb5fd",
+      "candidateTraceSha256": "29fcb8817acbf8b856167e24362400314d4cba747e7a1b98f93c467e5a414421",
+      "checkpointSha256": "8deb8ece2402e617ae01906c6f50f6e756d94d0d6186488147e8d4727a5453cb"
+    },
+    {
+      "case": "workshop-rogue-club-90",
+      "baseline": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.566666666666667,
+        "takeover": 2.558333333333333,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.000020612706464362418,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": false,
+        "failure": "nonfinite joint actuation",
+        "firstDown": 2.566666666666667,
+        "takeover": 2.558333333333333,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 27.95,
+        "effortViolation": 0.00002264883076463775,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "1260017768dc879cb608ae831ba94b8fdf28fcb85e69f6e54ff16576ff0fc102",
+      "candidateTraceSha256": "f8f758f0873329915ffd8dd6b4cd8a45c589fdda368c854b44d030050a4d35f7",
+      "checkpointSha256": "013bfa9f8aa4f78e0ed617bca470ca1d856d838e9a3d9f4e3788f858d36ddce1"
+    },
+    {
+      "case": "workshop-rogue-club-180",
+      "baseline": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.475,
+        "takeover": 2.466666666666667,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.000020778609638227863,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": false,
+        "failure": "nonfinite joint actuation",
+        "firstDown": 2.475,
+        "takeover": 2.466666666666667,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 23.491666666666667,
+        "effortViolation": 0.000021954905349730325,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "e32d19addfc4a0dcffcc372c3100be83f9cbb5603cbdb836b99d4860e69685bf",
+      "candidateTraceSha256": "1fe221526809ad661460b140f6a3352c3c399b58bc9f018794a085a67e761471",
+      "checkpointSha256": "a48334a067cddcdf28049589f1691e46226cecef7eba715017012fe7b9edca6a"
+    },
+    {
+      "case": "workshop-rogue-club-270",
+      "baseline": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.566666666666667,
+        "takeover": 2.558333333333333,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.00002110490882500926,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "candidate": {
+        "fell": true,
+        "success": false,
+        "failure": "episode deadline",
+        "firstDown": 2.566666666666667,
+        "takeover": 2.558333333333333,
+        "handover": null,
+        "seconds": null,
+        "fromFirstDown": null,
+        "elapsed": 38,
+        "effortViolation": 0.00002191037816601238,
+        "assisted": false,
+        "quiet": 0,
+        "externalActuation": []
+      },
+      "baselineTraceSha256": "4d4e857b4f130b3035432e26c07b57f8b0035ffea1dc877b57ecd6fb59f7754c",
+      "candidateTraceSha256": "f4e6953f0e1c137a49a2660ba7469a7d64351a1fea0acfcb78c4f7f78cd34bfb",
+      "checkpointSha256": "5d8254adeafd10e0dee300dfc77afc1953f90d2b85cac2765b0947ceeac77b8f"
+    }
+  ],
+  "negativeControl": {
+    "case": "workshop-fighter-empty-0",
+    "controller": "floating-negative-control",
+    "checkpointSha256": "3ac4defee135b4c70b707f2299ca13ff5af6c80631b41ea30121f992414c1a1d",
+    "initialObservationSha256": "501ef893e6c3ed210127d8fc4d22ddac531d4b8a21ec6332c92f19fa2e4ba382",
+    "identity": {
+      "harness": "Node Stance Lab recovery search",
+      "model": "workshop-fighter",
+      "held": "empty",
+      "baseline": "support-recovery",
+      "host": "stance",
+      "assistedBaseline": false,
+      "comparison": true,
+      "recipeSha": "4d268b653b995bce06df62476799f2793742df8ed2a47a7d0b47231c3b80e77b",
+      "hz": 120,
+      "engine": "rapier-coordinate",
+      "revision": "rapier/adapter-11/sha256:0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c/coordinate-limits",
+      "artifact": "vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.9.tgz",
+      "artifactSha": "0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c",
+      "sourceSha": "6a2db126c07a54945ee56a9d1f0c7348a86e0701d47a9b8eea2ae6ab52e0ab60",
+      "environmentSha": "d4cc16d06ea33ee426bc325647e1e662519770b89129484b56e5b083f9f671a7",
+      "specSha": "89a7a051e52d295ba5848b8aaeb62e643372243b81acc76cb2b5fa398fb1fa94",
+      "actuation": "symmetric",
+      "balance": 100,
+      "channels": [
+        {
+          "name": "neck flexion",
+          "min": -1.0629055144645467,
+          "max": 1.1397000015522971,
+          "bind": 0,
+          "positive": 30.779220779220775,
+          "negative": 53.35064935064935
+        },
+        {
+          "name": "neck lateral flexion right",
+          "min": -0.7906341511534313,
+          "max": 0.7557275661135446,
+          "bind": 0,
+          "positive": 36.93506493506493,
+          "negative": 36.93506493506493
+        },
+        {
+          "name": "neck rotation right",
+          "min": -1.3002702927357754,
+          "max": 1.2426744274199626,
+          "bind": 0,
+          "positive": 15.389610389610388,
+          "negative": 15.389610389610388
+        },
+        {
+          "name": "thoracic flexion",
+          "min": -0.23911010752322315,
+          "max": 0.36826447217080355,
+          "bind": 0,
+          "positive": 93.96049046321524,
+          "negative": 127.1103542234332
+        },
+        {
+          "name": "thoracic lateral flexion right",
+          "min": -0.2722713633111154,
+          "max": 0.2722713633111154,
+          "bind": 0,
+          "positive": 68.0217983651226,
+          "negative": 76.73978201634876
+        },
+        {
+          "name": "thoracic rotation right",
+          "min": -0.43458698374658805,
+          "max": 0.43458698374658805,
+          "bind": 0,
+          "positive": 52.95367847411443,
+          "negative": 51.33923705722069
+        },
+        {
+          "name": "lumbar flexion",
+          "min": -0.2792526803190927,
+          "max": 0.8901179185171081,
+          "bind": 0,
+          "positive": 93.96049046321524,
+          "negative": 127.1103542234332
+        },
+        {
+          "name": "lumbar lateral flexion right",
+          "min": -0.3141592653589793,
+          "max": 0.29670597283903605,
+          "bind": 0,
+          "positive": 68.0217983651226,
+          "negative": 76.73978201634876
+        },
+        {
+          "name": "lumbar rotation right",
+          "min": -0.08726646259971647,
+          "max": 0.06981317007977318,
+          "bind": 0,
+          "positive": 52.95367847411443,
+          "negative": 51.33923705722069
+        },
+        {
+          "name": "shoulder.left flexion",
+          "min": -1.174090634769606,
+          "max": 3.021680887024762,
+          "bind": 0.027409316209331493,
+          "positive": 67.4390243902439,
+          "negative": 98.37533875338754
+        },
+        {
+          "name": "shoulder.left abduction",
+          "min": -0.7191159499508002,
+          "max": 2.4189860451350045,
+          "bind": 0.7191159499508002,
+          "positive": 64.44173441734418,
+          "negative": 95.91327913279133
+        },
+        {
+          "name": "shoulder.left internal rotation",
+          "min": -1.5063235584809922,
+          "max": 1.1099249902585078,
+          "bind": -0.0906527070938192,
+          "positive": 63.58536585365854,
+          "negative": 38.429539295392956
+        },
+        {
+          "name": "elbow.left flexion",
+          "min": -0.8615068911931567,
+          "max": 1.6552578901826664,
+          "bind": 0.8056563551293382,
+          "positive": 75.25338753387534,
+          "negative": 56.94850948509485
+        },
+        {
+          "name": "wrist.left flexion",
+          "min": -1.4317755068150615,
+          "max": 1.4654710514955254,
+          "bind": 0.05296539773954119,
+          "positive": 25.584010840108398,
+          "negative": 14.023035230352303
+        },
+        {
+          "name": "wrist.left radial deviation",
+          "min": -0.8961934847578699,
+          "max": 0.4302567467578206,
+          "bind": 0.07763406557252932,
+          "positive": 15.842530282637957,
+          "negative": 28.176312247644685
+        },
+        {
+          "name": "wrist.left pronation",
+          "min": -1.706258214065037,
+          "max": 1.4353344395247563,
+          "bind": 0.06564871719036719,
+          "positive": 7.335714285714285,
+          "negative": 8.652380952380952
+        },
+        {
+          "name": "hip.left flexion",
+          "min": -0.422749554194331,
+          "max": 2.10099654418947,
+          "bind": 0.11033561808734602,
+          "positive": 153.02685003340002,
+          "negative": 218.02940579980003
+        },
+        {
+          "name": "hip.left abduction",
+          "min": -0.3333921726682006,
+          "max": 0.46596862474520234,
+          "bind": 0.09428206514497743,
+          "positive": 198.03523035230353,
+          "negative": 232.28997289972904
+        },
+        {
+          "name": "hip.left internal rotation",
+          "min": -0.8150687606813519,
+          "max": 0.6475171524898963,
+          "bind": 0,
+          "positive": 77.82249322493226,
+          "negative": 53.2018970189702
+        },
+        {
+          "name": "knee.left flexion",
+          "min": -0.14486705560180382,
+          "max": 2.4574188591217414,
+          "bind": 0.10996047056191724,
+          "positive": 141.3008130081301,
+          "negative": 259.0514905149052
+        },
+        {
+          "name": "ankle.left dorsiflexion",
+          "min": -0.9065594759732407,
+          "max": 0.3570589024706539,
+          "bind": 0.032149520724081566,
+          "positive": 43.03252032520326,
+          "negative": 152.00542005420056
+        },
+        {
+          "name": "ankle.left inversion",
+          "min": -0.3324852225049198,
+          "max": 0.6031857894892403,
+          "bind": 0,
+          "positive": 37.911802853437095,
+          "negative": 34.2230869001297
+        },
+        {
+          "name": "shoulder.right flexion",
+          "min": -1.174090634769606,
+          "max": 3.021680887024762,
+          "bind": 0.027409316209331493,
+          "positive": 67.4390243902439,
+          "negative": 98.37533875338754
+        },
+        {
+          "name": "shoulder.right abduction",
+          "min": -0.7191159499508002,
+          "max": 2.4189860451350045,
+          "bind": 0.7191159499508002,
+          "positive": 64.44173441734418,
+          "negative": 95.91327913279133
+        },
+        {
+          "name": "shoulder.right internal rotation",
+          "min": -1.5063235584809922,
+          "max": 1.1099249902585078,
+          "bind": -0.0906527070938192,
+          "positive": 63.58536585365854,
+          "negative": 38.429539295392956
+        },
+        {
+          "name": "elbow.right flexion",
+          "min": -0.8615068911931567,
+          "max": 1.6552578901826664,
+          "bind": 0.8056563551293382,
+          "positive": 75.25338753387534,
+          "negative": 56.94850948509485
+        },
+        {
+          "name": "wrist.right flexion",
+          "min": -1.4317755068150615,
+          "max": 1.4654710514955254,
+          "bind": 0.05296539773954119,
+          "positive": 25.584010840108398,
+          "negative": 14.023035230352303
+        },
+        {
+          "name": "wrist.right radial deviation",
+          "min": -0.9206280942857904,
+          "max": 0.41629411274186595,
+          "bind": 0.07763406557252932,
+          "positive": 15.842530282637957,
+          "negative": 28.176312247644685
+        },
+        {
+          "name": "wrist.right pronation",
+          "min": -1.706258214065037,
+          "max": 1.4353344395247563,
+          "bind": 0.06564871719036719,
+          "positive": 7.335714285714285,
+          "negative": 8.652380952380952
+        },
+        {
+          "name": "hip.right flexion",
+          "min": -0.422749554194331,
+          "max": 2.10099654418947,
+          "bind": 0.11033561808734602,
+          "positive": 153.02685003340002,
+          "negative": 218.02940579980003
+        },
+        {
+          "name": "hip.right abduction",
+          "min": -0.3333921726682006,
+          "max": 0.46596862474520234,
+          "bind": 0.09428206514497743,
+          "positive": 198.03523035230353,
+          "negative": 232.28997289972904
+        },
+        {
+          "name": "hip.right internal rotation",
+          "min": -0.8150687606813519,
+          "max": 0.6475171524898963,
+          "bind": 0,
+          "positive": 77.82249322493226,
+          "negative": 53.2018970189702
+        },
+        {
+          "name": "knee.right flexion",
+          "min": -0.14486705560180382,
+          "max": 2.4574188591217414,
+          "bind": 0.10996047056191724,
+          "positive": 141.3008130081301,
+          "negative": 259.0514905149052
+        },
+        {
+          "name": "ankle.right dorsiflexion",
+          "min": -0.9065594759732407,
+          "max": 0.3570589024706539,
+          "bind": 0.032149520724081566,
+          "positive": 43.03252032520326,
+          "negative": 152.00542005420056
+        },
+        {
+          "name": "ankle.right inversion",
+          "min": -0.3324852225049198,
+          "max": 0.6031857894892403,
+          "bind": 0,
+          "positive": 37.911802853437095,
+          "negative": 34.2230869001297
+        }
+      ]
+    },
+    "steps": 2,
+    "traceSha256": "f7b20b7e7d976dc65e397e02fadfb577d61242d963b76e99ea885843e70a3fd7",
+    "result": {
+      "fell": true,
+      "success": false,
+      "failure": "external actuation",
+      "firstDown": 2.55,
+      "takeover": 2.5416666666666665,
+      "handover": null,
+      "seconds": null,
+      "fromFirstDown": null,
+      "elapsed": 0.025000000000000355,
+      "effortViolation": 0.000020747922746977565,
+      "assisted": true,
+      "quiet": 0,
+      "externalActuation": [
+        {
+          "step": 307,
+          "segment": "lowerTrunk",
+          "method": "applyForce",
+          "value": [
+            -193.32131445558886,
+            506.42230771258676,
+            -553.5003916537407
+          ]
+        },
+        {
+          "step": 307,
+          "segment": "lowerTrunk",
+          "method": "applyTorque",
+          "value": [
+            -184.69845130762266,
+            38.51053846675201,
+            70.54713164836592
+          ]
+        }
+      ]
+    },
+    "role": "negative control; identical saved fall, Balance 100 enabled solely to demonstrate rejection"
+  },
+  "search": {
+    "startedUTC": "2026-10-12 14:14:43 UTC",
+    "stoppedUTC": "2026-10-12 14:43:07 UTC",
+    "deadlineUTC": "2026-10-12 16:14:43 UTC",
+    "trials": 1425,
+    "worldSteps": 3493824,
+    "note": "Search counts exclude recording, materialization and verification; parallel runs overlap in wall time."
+  },
+  "checks": {
+    "typecheck": "pass",
+    "fastSuite": {
+      "pass": 661,
+      "fail": 0,
+      "todo": 5
+    },
+    "build": "pass; existing large-chunk warning",
+    "frozenComparison": "pass; all baseline traces match",
+    "selectedReplay": "exact whole physical trace and result match",
+    "visualReplay": "inspected through standing and walking"
+  },
+  "reconstruction": {
+    "releaseStep": 1158,
+    "releaseElapsed": 9.658333333333333,
+    "exactTraceMatched": true,
+    "oneStepEarlier": "fails to recover within 22 seconds"
+  }
+}
