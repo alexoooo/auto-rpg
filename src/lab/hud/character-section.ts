@@ -3,7 +3,7 @@ import { isBalance } from "../../core/rules/rulebook.ts";
 import { balanceAddress, loadoutBalance, strikesOf } from "../loadout.ts";
 import { LAB_HANDS, LAB_PRESETS, LAB_PROVIDES, LAB_WORN, MODELS } from "../scenarios.ts";
 import { HELD as HOLDS, type Held } from "../../core/items/held.ts";
-import { choice, entries, following, group, quantity, switches, when, type Control, type Named } from "../../ui/controls.ts";
+import { choice, entries, following, group, quantity, switches, toggle, when, type Control, type Named } from "../../ui/controls.ts";
 import { mindEditor } from "../../ui/mind-editor.ts";
 import { writeMind } from "../../ui/mind-link.ts";
 import type { LabPage } from "./sections.ts";
@@ -35,13 +35,14 @@ export function characterSection(page: LabPage): readonly Control[] {
       quantity("Balance, %", BALANCE_STEP, isBalance, () => loadoutBalance(page.shown.balance, page.spec),
         (balance) => page.load({ ...page.shown, balance: balanceAddress(balance, page.spec) })),
     ]),
+    toggle("Compliant soles", () => page.shown.sole, () => page.load({ ...page.shown, sole: !page.shown.sole })),
     group("Items", [
       ...LAB_HANDS.map((hand) =>
         choice(HANDS[hand], entries(HOLDS, HELD), () => page.shown[hand], (held) => page.load({ ...page.shown, [hand]: held }))),
       when(() => wearsClothing(page.shown.model, page.shown.appearance),
         switches("Wears", entries(LAB_WORN, WORN), (part) => page.shown[part], (part) => page.show({ ...page.shown, [part]: !page.shown[part] }))),
     ]),
-    group("Mind", [
+    when(() => page.shown.scenario !== "recovery", group("Mind", [
       choice("Preset", PRESET_IDS.map((id) => ({ value: id as string, name: LAB_PRESETS[id].label })), () => presetOf(page),
         (id) => page.load({ ...page.shown, mind: LAB_PRESETS[id as keyof typeof LAB_PRESETS].config })),
       // Its tree, drawn again for each body loaded; a change loads a body under the mind changed.
@@ -55,6 +56,6 @@ export function characterSection(page: LabPage): readonly Control[] {
         strikesOf(spec).map(({ held, name }) => ({ value: held, name })),
         (held) => !page.shown.barred.includes(held),
         (held) => page.load({ ...page.shown, barred: HOLDS.filter((h) => (h === held) !== page.shown.barred.includes(h)) }))),
-    ]),
+    ])),
   ];
 }

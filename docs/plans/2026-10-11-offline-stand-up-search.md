@@ -35,6 +35,9 @@ feedback-recipe search are implemented. The portable research seed in
 15.5583 seconds, with a verified standing/walking tail. It does not meet the timing target or
 generalize across the tested development falls. It is not a gameplay preset.
 
+The Lab menu exposes the portable recipe as **Get-up experiment**, with compliant soles,
+zero balance and a repeatable two-Front-shove setup. Browser motion review remains open.
+
 The body/controller comparisons have not selected a qualified physical redesign. A fast,
 robust runtime variant, visible motion review, repeated-fall/disturbance/combat qualification
 and the final 64-case gate remain unfinished. Retain this plan until those requirements pass;

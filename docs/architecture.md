@@ -1328,7 +1328,7 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   where nothing need be read (`SightIndex`), made again when a door opens. The
   page hears every built body where the party sees (`hearRun`, `hearing.ts`), its listener made
   again when a body is built.
-- **The lab** (`src/lab/`): one body at a time in the Stance, Routine, Run and Blow
+- **The lab** (`src/lab/`): one body at a time in the Stance, Get-up experiment, Routine, Run and Blow
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
   Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
   page chose: its balance, its mind and the strikes it may throw. The mind is a fighter
@@ -1346,6 +1346,12 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   and the cue of the instrument that is no contact, the shove, each at the
   mind's time, so the page plays what the frame it shows sounded of, live or replayed. Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
   built from data (`src/ui/controls.ts`).
+  The **Get-up experiment** uses the portable searched recipe (`src/lab/recovery-recipe.ts`,
+  shared with the offline feedback search). Its menu card opens a Warrior with empty hands,
+  compliant soles, zero balance and 120 Hz. The Script host uses experimental recovery;
+  its Mind editor is hidden. The reproduction button restores that setup and queues Front
+  impulses of 60 N s at 2 s and 2.2 s. The 35-second history includes the owning controller.
+  This is a visual experiment, not a qualified fast recovery.
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
   with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).
 - **The physics bench** (`/physics-bench.html`, `src/physics-bench/`): the bake-off's cases on

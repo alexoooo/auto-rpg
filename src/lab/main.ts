@@ -34,11 +34,13 @@ import { blowScenario } from "./blow-scenario.ts";
 import { routineScenario } from "./routine-scenario.ts";
 import { runScenario } from "./run-scenario.ts";
 import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
-import { labHref, labMind, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
+import { labHref, labMind, LAB_PRESETS, recoveryAddress, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
 import { dresserFor } from "../render/dress.ts";
 import { skinSlot, type SkinSlot } from "../render/skin-slot.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
+import { feedbackRecipe } from "./recovery-recipe.ts";
+import recoverySeed from "../../research/stand-up-feedback-seed.json" with { type: "json" };
 import { stanceScenario } from "./stance-scenario.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { need } from "../dom.ts";
@@ -78,7 +80,8 @@ import { need } from "../dom.ts";
 const PERCENT = balancePercent(rulebook("arena"));
 
 const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => LabScenario>> = {
-  stance: stanceScenario,
+  stance: (scene) => stanceScenario(scene),
+  recovery: (scene, shell) => stanceScenario(scene, shell),
   routine: routineScenario,
   run: runScenario,
   blow: blowScenario,
@@ -138,7 +141,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   }
   MeshBuilder.CreateLineSystem("lab.grid", { lines, colors: lines.map((l) => l.map(() => lineColour)) }, scene);
 
-  const scenario = SCENARIO[address.scenario](scene, { restart: () => load(shown) });
+  const scenario = SCENARIO[address.scenario](scene, { restart: () => load(shown), reproduceRecovery: () => load(recoveryAddress(shown)) });
   need("scenario-name").textContent = SCENARIOS.find((s) => s.id === address.scenario)!.name;
   const back = need<HTMLAnchorElement>("to-scenarios");
 
@@ -226,10 +229,13 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const spec = loadoutSpec(to), built = buildBody(spec, world, { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) });
     const balance = loadoutBalance(to.balance, built.spec);
     const log = createMindLog();
+    const mind = to.scenario === "recovery"
+      ? { ...LAB_PRESETS.script.config, subs: [{ kind: "support-recovery" as const }] } : labMind(to.mind, spec).plays;
     const actor = labActor(built, world, {
-      mind: labMind(to.mind, spec).plays, assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), around: (tactics) => logged(tactics, log),
+      mind,
+      recoveryRecipe: to.scenario === "recovery" ? feedbackRecipe(spec, recoverySeed.feedback.u) : undefined, assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), around: (tactics) => logged(tactics, log),
     });
-    thinking.inspect(mindInspector(labMind(to.mind, spec).plays, spec, () => ({ body: actor.body, skills: actor.skills })));
+    thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.skills })));
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
     const view = drawBody(built, scene, Color3.FromHexString(MODEL_DISPLAY[to.model].tint)), heldView = drawHeld(built, scene);
     const sounds = createSoundLog(world.dt, AIR_SECONDS), logging = logSounds(world, actor.body, sounds);

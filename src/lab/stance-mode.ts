@@ -106,7 +106,7 @@ function stanceTactics(orders: StanceOrders): Tactics {
  * driven by the page's orders. `pushed` is told of each shove as it is applied: the segment
  * pushed, the impulse, N s, and where, world.
  */
-export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void): StanceSession {
+export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void, reproduceRecovery = false): StanceSession {
   const { body, world } = actor, built = body.built;
   const trunk = built.segments.get("middleTrunk");
   if (!trunk) throw new Error(`${built.spec.model} has no middle trunk to shove`);
@@ -134,18 +134,24 @@ export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impul
     };
   };
 
+  const push = (impulse: number, degrees: number): void => {
+    const a = report.heading + degrees * Math.PI / 180;
+    shove = new Vector3(impulse * Math.sin(a), 0, impulse * Math.cos(a));
+  };
+  // The search's two impulses: after 2 s standing, then 0.2 s later, on physics steps.
+  const reproduction = reproduceRecovery ? world.afterStep(() => {
+    if (world.steps === 2 * world.hz || world.steps === Math.round(2.2 * world.hz)) push(60, 0);
+  }) : null;
   return {
     body, orders, frame,
-    shove(impulse, degrees) {
-      const a = report.heading + degrees * Math.PI / 180;
-      shove = new Vector3(impulse * Math.sin(a), 0, impulse * Math.cos(a));
-    },
+    shove: push,
     capturePointToRef(out) {
       const g = -world.physics.gravity[1];
       const s = body.view.stance, w = Math.sqrt(g / Math.max(s.centre.y - s.support.y, 0.1));
       return out.set(s.centre.x + s.velocity.x / w, 0, s.centre.z + s.velocity.z / w);
     },
     dispose() {
+      reproduction?.dispose();
       shoving.dispose();
       actor.dispose();
     },

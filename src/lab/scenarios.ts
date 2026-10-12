@@ -23,7 +23,7 @@ import { mindFaults, mindText, readMind } from "../ui/mind-link.ts";
  * reads its options from here, so an option offered is one the lab has.
  */
 
-export type ScenarioId = "stance" | "routine" | "run" | "blow";
+export type ScenarioId = "stance" | "routine" | "run" | "blow" | "recovery";
 
 interface ScenarioInfo {
   readonly id: ScenarioId;
@@ -36,6 +36,7 @@ interface ScenarioInfo {
 /** Every scenario, in the menu's order; the first is the default. */
 export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "stance", name: "Stance", line: "Walk it from the keyboard, and shove it." },
+  { id: "recovery", name: "Get-up experiment", line: "Try the searched recovery with compliant soles. Experimental: slow and unreliable." },
   { id: "routine", name: "Routine", line: "It walks out, strikes at ten targets hung high, middle and low, turns and walks back." },
   { id: "run", name: "Run", line: "It goes round a track at the pace asked, in the wind: a big circle, back and forth, or a square walked facing one way." },
   { id: "blow", name: "Blow", line: "It swings a club blow the strike search found into a head, and reads what it lands with.", holds: { right: "club" } },
@@ -182,4 +183,10 @@ export function labHref(address: LabAddress, search = ""): string {
   if (address.targets !== LAB_TARGETS.count) query.set("targets", String(address.targets));
   if (address.seed !== LAB_TARGETS.seed) query.set("seed", String(address.seed));
   return `?${query}`;
+}
+
+/** The searched demonstration's physical setup; view preferences stay with the page. */
+export function recoveryAddress(address: LabAddress): LabAddress {
+  return { ...address, scenario: "recovery", model: "workshop-fighter", right: "empty", left: "empty", sole: true,
+    balance: 0, hz: 120, mind: LAB_PRESETS.script.config, barred: [], appearance: "default" };
 }

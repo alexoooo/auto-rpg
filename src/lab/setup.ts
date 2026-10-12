@@ -1,4 +1,4 @@
-import { labHref, SCENARIOS, type LabAddress } from "./scenarios.ts";
+import { labHref, recoveryAddress, SCENARIOS, type LabAddress } from "./scenarios.ts";
 import { need } from "../dom.ts";
 
 /**
@@ -10,7 +10,7 @@ import { need } from "../dom.ts";
 export function showScenarios(address: LabAddress): void {
   const cards = SCENARIOS.map((scenario) => {
     const card = document.createElement("a");
-    card.href = labHref({ ...address, ...scenario.holds, scenario: scenario.id }, window.location.search);
+    card.href = labHref(scenario.id === "recovery" ? recoveryAddress(address) : { ...address, ...scenario.holds, scenario: scenario.id }, window.location.search);
     card.append(Object.assign(document.createElement("strong"), { textContent: scenario.name }),
       Object.assign(document.createElement("span"), { textContent: scenario.line }));
     return card;

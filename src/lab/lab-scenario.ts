@@ -36,6 +36,8 @@ export const SCENARIO_PANELS = ["scenario", "controls", "readout"] as const;
 export interface LabShell {
   /** Start the scenario again on a new body in a new world, as Restart does. */
   restart(): void;
+  /** Reset to the searched recovery's Warrior, soles and unassisted 120 Hz setup. */
+  reproduceRecovery(): void;
 }
 
 interface ScenarioContext {

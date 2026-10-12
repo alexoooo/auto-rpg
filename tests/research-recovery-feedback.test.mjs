@@ -32,3 +32,33 @@ test('the portable slow witness reproduces a complete fresh-fall recovery throug
   assert.equal(replay.result.success, true);
   assert.ok(replay.result.seconds > 6, 'this seed does not satisfy the fast-recovery requirement');
 });
+
+
+test('the visible Lab setup applies the search shoves on the same steps and enters the same recovery', async () => {
+  const { labAddress, labHref, recoveryAddress } = await import('../src/lab/scenarios.ts');
+  const { loadoutSpec } = await import('../src/lab/loadout.ts');
+  const { labActor } = await import('../src/lab/actor.ts');
+  const { startStance } = await import('../src/lab/stance-mode.ts');
+  const { coreStand } = await import('./harness/core-stand.mjs');
+  const { guardPosture } = await import('../src/core/skills/guard.ts');
+  const { balanceCeiling, balancePercent, rulebook } = await import('../src/core/rules/rulebook.ts');
+  const address = recoveryAddress(labAddress('?scenario=stance&model=workshop-rogue&right=club&balance=20&hz=480'));
+  assert.deepEqual(labAddress(labHref(address)), address);
+  const spec = loadoutSpec(address), recipe = feedbackRecipe(spec, witness.feedback.u);
+  const stand = await coreStand(spec, { engine: 'rapier-coordinate', groundSize: 40, posture: guardPosture(spec) });
+  const actor = labActor(stand.built, stand.world, { mind: address.mind, recoveryRecipe: recipe,
+    assist: balanceCeiling(0, balancePercent(rulebook('arena'))) });
+  const shoves = [];
+  const stance = startStance(actor, (_, impulse) => shoves.push([stand.world.steps, impulse.length()]), true);
+  const reference = await recoveryEnvironment({ spec, recipe });
+  try {
+    await reference.fall();
+    while (reference.stand.world.steps < 400) reference.step();
+    stand.step(400);
+    assert.deepEqual(shoves, [[240, 60], [264, 60]]);
+    assert.match(String(actor.body.has), /recovery/);
+    const poses = built => [...built.segments].map(([name, s]) => [name, s.node.position.asArray(), s.node.rotationQuaternion.asArray()]);
+    assert.deepEqual(poses(stand.built), poses(reference.stand.built));
+    assert.deepEqual([...actor.body.muscles.velocity], [...reference.body.muscles.velocity]);
+  } finally { reference.dispose(); stance.dispose(); stand.dispose(); }
+});

@@ -7,23 +7,14 @@ import { createHash } from 'node:crypto';
 import { isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { parseArgs } from 'node:util';
 import assert from 'node:assert/strict';
-import { RISE, stageFaults } from '../src/core/mind/rise/stages.ts';
-import { deepFreeze } from '../src/core/state.ts';
+import { FEEDBACK_PARAMETERS, feedbackRecipe } from '../src/lab/recovery-recipe.ts';
+export { FEEDBACK_PARAMETERS, feedbackRecipe } from '../src/lab/recovery-recipe.ts';
 import { recoveryEnvironment } from './stand-up-environment.mjs';
 import { recoveryDesign, recoveryDesignTable } from './stand-up-design.mjs';
 import { cmaSearch, workerPool } from './cma.mjs';
 import { recoveryScore } from './stand-up-search.mjs';
 
-/** Bounded controller parameters; the independent final-standing predicate is not a parameter. */
-export const FEEDBACK_PARAMETERS = deepFreeze([
-  ['roll', .1, 1, 1], ['prepare', .1, 1, 1], ['poses', .1, 1, 1], ['bearing', .15, 1, 1],
-  ['response', .1, 1, 1], ['speed', 1, 4, 1], ['progressSpeed', .1, 1.2, .1],
-  ['settleSpeed', .1, 1, .1], ['settleSeconds', .025, .5, .5], ['near', .05, .1, .05], ['turn', .15, .45, .15],
-  ['hip', -.2, .2, 0], ['knee', -.2, .2, 0], ['shoulder', -.25, .25, 0], ['wrist', -.4, .4, 0],
-  ['height', -.05, .05, 0], ['pitch', -.1, .1, 0],
-]);
 const initial = FEEDBACK_PARAMETERS.map(([, lo, hi, value]) => (value - lo) / (hi - lo));
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const hash = value => createHash('sha256').update(serialize(value)).digest('hex');
 const read = path => {
   const bytes = readFileSync(path);
@@ -32,34 +23,6 @@ const read = path => {
 const write = (path, value) => {
   mkdirSync(dirname(path), { recursive: true }); writeFileSync(`${path}.tmp`, gzipSync(serialize(value))); renameSync(`${path}.tmp`, path);
 };
-
-/** Preserve the feedback/contact policy while varying its entire supported movement recipe. */
-export function feedbackRecipe(spec, u = initial) {
-  if (u.length !== FEEDBACK_PARAMETERS.length || Array.from(u).some(v => !Number.isFinite(v) || v < 0 || v > 1)) throw new Error('invalid recovery feedback candidate');
-  const p = Object.fromEntries(FEEDBACK_PARAMETERS.map(([name, lo, hi], i) => [name, lo + (hi - lo) * u[i]]));
-  const shift = name => name.startsWith('hip.') && name.endsWith(' flexion') ? p.hip
-    : name.startsWith('knee.') ? p.knee : name.startsWith('shoulder.') && name.endsWith(' flexion') ? p.shoulder
-      : name.startsWith('wrist.') && name.endsWith(' pronation') ? p.wrist : 0;
-  const posture = value => value === 'reference' ? value : Object.fromEntries(spec.joints.flatMap(j => j.dofs.map(d => {
-    const name = `${j.name} ${d.positive}`;
-    return [name, clamp((value[name] ?? 0) + shift(name), d.min.value + d.bind.value, d.max.value + d.bind.value)];
-  })));
-  const pose = (stage, factor, changePosture) => ({ ...stage, posture: changePosture ? posture(stage.posture) : stage.posture,
-    seconds: stage.seconds * factor, drive: { within: (stage.drive?.within ?? .2) * p.response, speed: (stage.drive?.speed ?? 3) * p.speed } });
-  const recipe = deepFreeze({ ...RISE,
-    roll: Object.fromEntries(Object.entries(RISE.roll).map(([lie, stages]) => [lie, stages.map(s => pose(s, p.roll, false))])),
-    rise: RISE.rise.map((s, i) => {
-      switch (s.kind) {
-        case 'pose': return pose(s, i < 3 ? p.prepare : p.poses, true);
-        case 'bear': return { ...s, seconds: s.seconds * p.bearing, posture: posture(s.posture),
-          ...(s.postureSeconds !== undefined ? { postureSeconds: s.postureSeconds * p.response } : {}),
-          height: s.height === null ? null : clamp(s.height + p.height, .1, 1.1), pitch: s.pitch === null ? null : s.pitch + p.pitch };
-        default: throw new Error('unknown recovery stage');
-      }
-    }), progress: { speed: p.progressSpeed, near: p.near, turn: p.turn, settleSpeed: p.settleSpeed, settleSeconds: p.settleSeconds } });
-  const faults = stageFaults(recipe, spec); if (faults.length) throw new Error(faults.join('; '));
-  return recipe;
-}
 
 export async function feedbackTrial(configuration, u = initial, capture = false) {
   const spec = recoveryDesign(configuration), recipe = feedbackRecipe(spec, u);
