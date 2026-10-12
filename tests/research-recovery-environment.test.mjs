@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { deserialize, serialize } from 'node:v8';
 import { recoveryEnvironment } from '../research/stand-up-environment.mjs';
+import { assistControl } from '../research/stand-up-assist.mjs';
 
 test('recovery actions reject invalid arrays atomically and copy accepted commands', async () => {
   const e = await recoveryEnvironment();
@@ -95,5 +96,53 @@ test('opposite target commands turn a fallen body joint in opposite directions t
     for (let k = 0; k < 48; k++) e.step({ kind: 'targets', angles, response: .05, speed: 6, activation: 1 });
     assert.ok(e.observe().joints[channel].angle > 1.3, 'the reference-relative elbow range includes deep flexion');
     assert.equal(e.channels[channel].max, e.body.muscles.channels[channel].dof.spec.max.value);
+  } finally { e.dispose(); }
+});
+
+
+test('assisted actions clip the actual wrench, replay it exactly and clear it when omitted', async () => {
+  const e = await recoveryEnvironment({ balance: 25 });
+  try {
+    const action = { kind: 'muscles', activation: Array(e.channels.length).fill(0),
+      velocity: Array(e.channels.length).fill(0), assist: { force: [0, 1e6, 0], moment: [1e6, 0, 0] } };
+    for (const assist of [{ force: [0,NaN,0], moment: [0,0,0] },
+      { force: Array(3), moment: [0,0,0] }, { force: [0,0], moment: [0,0,0] }]) {
+      const before = structuredClone(e.experiment);
+      assert.throws(() => e.act({ ...action, assist }));
+      assert.deepEqual(e.experiment, before);
+    }
+    const saved = e.save(), first = e.step(action);
+    assert.deepEqual(first.action.assist, { force: [0,e.body.assist.most.force,0], moment: [e.body.assist.most.moment,0,0] });
+    assert.equal(first.result.assisted, true);
+    e.restore(saved);
+    assert.deepEqual(e.step(first.action).observation, first.observation);
+    const { assist, ...plain } = action;
+    e.step(plain);
+    assert.deepEqual(e.body.assist.given.force.asArray(), [0,0,0]);
+    assert.deepEqual(e.body.assist.given.moment.asArray(), [0,0,0]);
+    const unassisted = await recoveryEnvironment();
+    try {
+      unassisted.step(action);
+      assert.deepEqual(unassisted.body.assist.given.force.asArray(), [0,0,0]);
+      assert.deepEqual(unassisted.body.assist.given.moment.asArray(), [0,0,0]);
+      assert.equal(unassisted.result().assisted, false);
+    } finally { unassisted.dispose(); }
+  } finally { e.dispose(); }
+});
+
+test('settled tilted feet are evaluated using loaded contact patches', async () => {
+  const e = await recoveryEnvironment({ balance: 100 });
+  const control = assistControl(e, { turn: .5, damping: .1, lift: 1.2, horizontal: 1 });
+  try {
+    await e.fall({ degrees: 90 });
+    for (let i = 0; i < 600 && e.result().handover === null; i++) e.step(control(e.measure()), { automaticHandover: true });
+    assert.ok(e.result().handover !== null, 'physical support is recognized before the walking tail');
+    const m = e.measure();
+    assert.equal(m.ready, true);
+    assert.equal(e.body.has, 'command');
+    assert.ok(m.soleUp.every(v => v > .99 && v < 1));
+    const loaded = m.observation.contacts.filter(c => c.fixed !== null && c.impulse > 0);
+    assert.deepEqual(loaded.map(c => c.segment).sort(), ['foot.left', 'foot.right']);
+    assert.ok(loaded.every(c => c.patch.filter(p => p.distance <= 0).length >= 3));
   } finally { e.dispose(); }
 });

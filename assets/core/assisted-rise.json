@@ -1,0 +1,49 @@
+{
+  "settings": {
+    "turn": 0.5,
+    "damping": 0.1,
+    "lift": 1.2,
+    "horizontal": 1,
+    "supportedRelease": true,
+    "settleAfter": 4,
+    "settleHeight": 0.98,
+    "settleHorizontal": 2,
+    "postureAfter": 6,
+    "repositionAfter": 6,
+    "repositionSeconds": 0.5,
+    "repositionKnee": 1,
+    "releaseSeconds": 0.1,
+    "contactCentre": false,
+    "stableRelease": true
+  },
+  "posture": {
+    "hip.left flexion": 0.22672161529036194,
+    "hip.left abduction": -0.08720107923890982,
+    "hip.left internal rotation": -0.02566764805340265,
+    "knee.left flexion": 0.04964107416587796,
+    "ankle.left dorsiflexion": -0.1777885024919223,
+    "ankle.left inversion": -0.08771801711924636,
+    "hip.right flexion": -0.1059626497701251,
+    "hip.right abduction": 0.08682926092559506,
+    "hip.right internal rotation": 0.026411877567594135,
+    "knee.right flexion": 0.06968085188074478,
+    "ankle.right dorsiflexion": 0.1769419410518035,
+    "ankle.right inversion": 0.088146866594875
+  },
+  "latePosture": {
+    "workshop-rogue": {
+      "hip.left flexion": 0.21162317814809042,
+      "hip.left abduction": 0.05472874508875646,
+      "hip.left internal rotation": -0.007788883731441267,
+      "knee.left flexion": 0.08675791814870955,
+      "ankle.left dorsiflexion": -0.12462780717058422,
+      "ankle.left inversion": 0.05425529652465974,
+      "hip.right flexion": -0.17971699761282556,
+      "hip.right abduction": -0.054394732560744244,
+      "hip.right internal rotation": 0.023225506739368067,
+      "knee.right flexion": 0.08277782719697234,
+      "ankle.right dorsiflexion": 0.26332555870272417,
+      "ankle.right inversion": -0.05364669212942015
+    }
+  }
+}

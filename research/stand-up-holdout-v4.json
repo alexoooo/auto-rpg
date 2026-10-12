@@ -1,0 +1,3259 @@
+{
+  "version": 4,
+  "seed": 1210202604,
+  "selection": [
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 0,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 22.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 45,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 67.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 90,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 112.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 135,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 157.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 180,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 202.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 225,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 247.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 270,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 292.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 315,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 337.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 0,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 22.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 45,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 67.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 90,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 112.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 135,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 157.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 180,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 202.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 225,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 247.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 270,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 292.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 315,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 337.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 0,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 22.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 45,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 67.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 90,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 112.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 135,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 157.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 180,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 202.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 225,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 247.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 270,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 292.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 315,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 337.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 0,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 22.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 45,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 67.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 90,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 112.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 135,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 157.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 180,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 202.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 225,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 247.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 270,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 292.5,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 315,
+      "impulse": 60,
+      "separation": 0.2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 337.5,
+      "impulse": 60,
+      "separation": 0.2
+    }
+  ],
+  "validation": [
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 2.1663534044637345,
+      "impulse": 47.15021251235157,
+      "separation": 0.34636800988810135,
+      "settleSteps": 4
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 11.393390723678749,
+      "impulse": 45.2669228380546,
+      "separation": 0.15682543345028535,
+      "settleSteps": 39
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 29.941493457590695,
+      "impulse": 47.14202892500907,
+      "separation": 0.33148699925513936,
+      "settleSteps": 49
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 37.38607179344399,
+      "impulse": 55.15399213414639,
+      "separation": 0.1069927434087731,
+      "settleSteps": 37
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 47.54421701742103,
+      "impulse": 72.96449983958155,
+      "separation": 0.15147932219551877,
+      "settleSteps": 42
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 64.39274655858753,
+      "impulse": 72.65652695205063,
+      "separation": 0.24672417711699382,
+      "settleSteps": 28
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 77.1964541109628,
+      "impulse": 46.1595068173483,
+      "separation": 0.22639321555616335,
+      "settleSteps": 54
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 79.55359608371509,
+      "impulse": 60.805361489765346,
+      "separation": 0.2367982570664026,
+      "settleSteps": 42
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 99.87814562948188,
+      "impulse": 66.35914138052613,
+      "separation": 0.19907049528555945,
+      "settleSteps": 30
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 109.9008455008152,
+      "impulse": 48.3680242812261,
+      "separation": 0.164156225475017,
+      "settleSteps": 48
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 119.33359098475194,
+      "impulse": 50.17242376226932,
+      "separation": 0.3145410876837559,
+      "settleSteps": 15
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 126.40417416550918,
+      "impulse": 73.42295694630593,
+      "separation": 0.1791090755374171,
+      "settleSteps": 22
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 136.78092076530447,
+      "impulse": 54.447021656669676,
+      "separation": 0.19004256065236405,
+      "settleSteps": 36
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 151.2192508133012,
+      "impulse": 61.30873294081539,
+      "separation": 0.27316958267474545,
+      "settleSteps": 38
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 160.0746943926788,
+      "impulse": 53.9059689687565,
+      "separation": 0.2256646549445577,
+      "settleSteps": 4
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 174.3893937158282,
+      "impulse": 56.94827630650252,
+      "separation": 0.19750933578470722,
+      "settleSteps": 8
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 191.07162277767202,
+      "impulse": 73.15938456449658,
+      "separation": 0.1556188154150732,
+      "settleSteps": 52
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 195.00035583710996,
+      "impulse": 61.54808042105287,
+      "separation": 0.2720407684915699,
+      "settleSteps": 52
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 213.69941597658908,
+      "impulse": 73.09119102079421,
+      "separation": 0.24013272227020935,
+      "settleSteps": 54
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 218.0382349897991,
+      "impulse": 73.67242674808949,
+      "separation": 0.3351241903961636,
+      "settleSteps": 36
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 227.72875584749272,
+      "impulse": 71.6208333754912,
+      "separation": 0.34796982231782747,
+      "settleSteps": 6
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 240.70050899143098,
+      "impulse": 64.69260358717293,
+      "separation": 0.3338998183258809,
+      "settleSteps": 36
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 249.4983937064535,
+      "impulse": 48.83999787736684,
+      "separation": 0.17957386021735147,
+      "settleSteps": 57
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 261.91019582067383,
+      "impulse": 68.61112482380122,
+      "separation": 0.30524480758467687,
+      "settleSteps": 41
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 279.5933729837998,
+      "impulse": 56.52433073613793,
+      "separation": 0.1308384097297676,
+      "settleSteps": 27
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 281.2831387735787,
+      "impulse": 56.26094867940992,
+      "separation": 0.24735528320306913,
+      "settleSteps": 26
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 293.72637688036775,
+      "impulse": 52.020156872458756,
+      "separation": 0.29750140496762467,
+      "settleSteps": 20
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 310.04841661982937,
+      "impulse": 73.87969646137208,
+      "separation": 0.13195337118813769,
+      "settleSteps": 58
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 324.3222010237514,
+      "impulse": 56.506198667921126,
+      "separation": 0.12016467164503411,
+      "settleSteps": 38
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 326.42187875899253,
+      "impulse": 46.058871312998235,
+      "separation": 0.3071192297735251,
+      "settleSteps": 46
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 340.30535112455254,
+      "impulse": 67.63029471505433,
+      "separation": 0.16993845832766966,
+      "settleSteps": 29
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 355.43280537676765,
+      "impulse": 53.06807696353644,
+      "separation": 0.2907480806694366,
+      "settleSteps": 1
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 7.3505726174334995,
+      "impulse": 63.77812850754708,
+      "separation": 0.11196719991276041,
+      "settleSteps": 2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 16.16993210365763,
+      "impulse": 58.70828109327704,
+      "separation": 0.2972402178798802,
+      "settleSteps": 19
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 25.34590753930388,
+      "impulse": 56.740331961773336,
+      "separation": 0.2928392495610751,
+      "settleSteps": 14
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 39.760701370832976,
+      "impulse": 52.613467876799405,
+      "separation": 0.13916390595259145,
+      "settleSteps": 26
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 49.870823486417066,
+      "impulse": 58.651981498114765,
+      "separation": 0.1132099055335857,
+      "settleSteps": 6
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 59.46473586926004,
+      "impulse": 57.34278602991253,
+      "separation": 0.20832066118018702,
+      "settleSteps": 1
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 71.59554607904283,
+      "impulse": 48.981289244256914,
+      "separation": 0.2880111327045597,
+      "settleSteps": 9
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 82.08328081149375,
+      "impulse": 46.729376879520714,
+      "separation": 0.16777019501896576,
+      "settleSteps": 58
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 99.04377078608377,
+      "impulse": 58.92925541382283,
+      "separation": 0.19124777192482725,
+      "settleSteps": 1
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 108.46367821184685,
+      "impulse": 46.01690421346575,
+      "separation": 0.17973298552678899,
+      "settleSteps": 25
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 122.40369808132527,
+      "impulse": 56.87888705637306,
+      "separation": 0.19632957127178088,
+      "settleSteps": 9
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 134.2244645426399,
+      "impulse": 66.99627303052694,
+      "separation": 0.12873480861308054,
+      "settleSteps": 27
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 145.54219359968556,
+      "impulse": 68.21941680740565,
+      "separation": 0.1570282172993757,
+      "settleSteps": 48
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 151.18359339045128,
+      "impulse": 67.51734829042107,
+      "separation": 0.23537626928882674,
+      "settleSteps": 58
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 162.47207329346566,
+      "impulse": 49.54552163835615,
+      "separation": 0.2790593662881292,
+      "settleSteps": 24
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 171.98978311236715,
+      "impulse": 55.375673663802445,
+      "separation": 0.3107273329165764,
+      "settleSteps": 53
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 190.7725135885994,
+      "impulse": 57.2315416065976,
+      "separation": 0.13228967549512163,
+      "settleSteps": 7
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 199.20698949223151,
+      "impulse": 66.57419028226286,
+      "separation": 0.1513468564604409,
+      "settleSteps": 44
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 204.46258654090343,
+      "impulse": 50.38069860544056,
+      "separation": 0.3035688344039954,
+      "settleSteps": 53
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 217.60200339689618,
+      "impulse": 47.959955488331616,
+      "separation": 0.324927119736094,
+      "settleSteps": 29
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 225.07791999232722,
+      "impulse": 48.14931511413306,
+      "separation": 0.1901865959749557,
+      "settleSteps": 36
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 243.38517343247076,
+      "impulse": 64.2358615854755,
+      "separation": 0.3465633566607721,
+      "settleSteps": 43
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 255.95048272720305,
+      "impulse": 71.44603294786066,
+      "separation": 0.18395480789477006,
+      "settleSteps": 44
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 261.6542536005727,
+      "impulse": 49.347354588098824,
+      "separation": 0.245648286503274,
+      "settleSteps": 5
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 273.441494628496,
+      "impulse": 49.0060320077464,
+      "separation": 0.24591444382676855,
+      "settleSteps": 11
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 288.29137595457723,
+      "impulse": 62.24415297154337,
+      "separation": 0.27339164513396097,
+      "settleSteps": 8
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 297.627461834054,
+      "impulse": 47.84024903085083,
+      "separation": 0.12166763466084377,
+      "settleSteps": 30
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 308.8131482558674,
+      "impulse": 57.016966422088444,
+      "separation": 0.2509647162747569,
+      "settleSteps": 24
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 317.4393368928577,
+      "impulse": 48.05959634017199,
+      "separation": 0.19733469976345078,
+      "settleSteps": 24
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 330.4238766300841,
+      "impulse": 67.40921458695084,
+      "separation": 0.30826986274914814,
+      "settleSteps": 48
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 340.25480392127065,
+      "impulse": 72.07418059464544,
+      "separation": 0.24613617822760717,
+      "settleSteps": 31
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 356.02191322337603,
+      "impulse": 55.70374582428485,
+      "separation": 0.26333505773218346,
+      "settleSteps": 23
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 9.744679055584129,
+      "impulse": 53.82869564462453,
+      "separation": 0.1141658986103721,
+      "settleSteps": 12
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 11.8054932585801,
+      "impulse": 68.52534062694758,
+      "separation": 0.13907590924063698,
+      "settleSteps": 32
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 22.730555130110588,
+      "impulse": 64.82323205564171,
+      "separation": 0.28682880169944835,
+      "settleSteps": 4
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 44.24396984948544,
+      "impulse": 65.85194518323988,
+      "separation": 0.10948476284975187,
+      "settleSteps": 44
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 48.82565333362436,
+      "impulse": 57.055775416083634,
+      "separation": 0.3221374649670906,
+      "settleSteps": 41
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 56.984357749752235,
+      "impulse": 50.30445608776063,
+      "separation": 0.24042932452866808,
+      "settleSteps": 43
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 71.98308960621944,
+      "impulse": 51.3534856075421,
+      "separation": 0.12260777662741021,
+      "settleSteps": 4
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 87.34895167144714,
+      "impulse": 45.49781398382038,
+      "separation": 0.1075288150110282,
+      "settleSteps": 50
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 92.81193997099763,
+      "impulse": 63.7626387225464,
+      "separation": 0.2525140477460809,
+      "settleSteps": 1
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 108.37972711276961,
+      "impulse": 69.47506010066718,
+      "separation": 0.23746751850703732,
+      "settleSteps": 43
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 121.56796319031855,
+      "impulse": 72.56034581456333,
+      "separation": 0.11415854349033908,
+      "settleSteps": 14
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 131.86812551430194,
+      "impulse": 46.406555003486574,
+      "separation": 0.29207681395346297,
+      "settleSteps": 52
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 138.09744842204964,
+      "impulse": 69.6412716479972,
+      "separation": 0.2647660143789835,
+      "settleSteps": 50
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 154.5879644152592,
+      "impulse": 72.66419734340161,
+      "separation": 0.1430422062636353,
+      "settleSteps": 32
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 164.98418787581613,
+      "impulse": 46.279353448189795,
+      "separation": 0.12400322753237561,
+      "settleSteps": 7
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 172.73147260973928,
+      "impulse": 47.27064260747284,
+      "separation": 0.3372353575774468,
+      "settleSteps": 58
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 183.8995744692511,
+      "impulse": 63.264519651420414,
+      "separation": 0.3221234979224391,
+      "settleSteps": 41
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 197.04845030297292,
+      "impulse": 46.7235218686983,
+      "separation": 0.2026711185113527,
+      "settleSteps": 48
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 210.1558244842454,
+      "impulse": 45.414408654905856,
+      "separation": 0.18873621962266043,
+      "settleSteps": 51
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 223.68855426757364,
+      "impulse": 64.19466053601354,
+      "separation": 0.3450895594083704,
+      "settleSteps": 1
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 232.9623252231977,
+      "impulse": 50.461087566800416,
+      "separation": 0.13220139705808834,
+      "settleSteps": 21
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 239.49670799978776,
+      "impulse": 73.10429710429162,
+      "separation": 0.28516300158808006,
+      "settleSteps": 1
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 257.6351076652645,
+      "impulse": 52.31277095619589,
+      "separation": 0.15964917625533417,
+      "settleSteps": 24
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 261.76163687574444,
+      "impulse": 55.07030190434307,
+      "separation": 0.2363280485966243,
+      "settleSteps": 0
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 281.00944412261015,
+      "impulse": 48.69053960312158,
+      "separation": 0.28762437609257174,
+      "settleSteps": 5
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 288.66752830770565,
+      "impulse": 52.23239585291594,
+      "separation": 0.2732426174567081,
+      "settleSteps": 54
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 301.3055708966567,
+      "impulse": 73.14005924854428,
+      "separation": 0.34335601954953743,
+      "settleSteps": 56
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 306.69881690031616,
+      "impulse": 63.95136920269579,
+      "separation": 0.14086796991759912,
+      "settleSteps": 15
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 317.44753593433416,
+      "impulse": 51.41829934436828,
+      "separation": 0.15665186495753006,
+      "settleSteps": 1
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 332.49809460685356,
+      "impulse": 57.88330029230565,
+      "separation": 0.2041757437051274,
+      "settleSteps": 45
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 340.3351714843302,
+      "impulse": 72.25525180343539,
+      "separation": 0.1424179372494109,
+      "settleSteps": 6
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 354.17714588547824,
+      "impulse": 65.42877429630607,
+      "separation": 0.2884799837716855,
+      "settleSteps": 48
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 9.159745962533634,
+      "impulse": 71.81080264504999,
+      "separation": 0.16962325848871843,
+      "settleSteps": 51
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 15.310372857784387,
+      "impulse": 74.43164866883308,
+      "separation": 0.28402107135625554,
+      "settleSteps": 55
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 24.825697019405197,
+      "impulse": 50.96530701499432,
+      "separation": 0.18117643842706457,
+      "settleSteps": 4
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 44.578077067562845,
+      "impulse": 58.69773263577372,
+      "separation": 0.22914667028235272,
+      "settleSteps": 40
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 47.84715635905741,
+      "impulse": 49.918199270032346,
+      "separation": 0.20601658147061244,
+      "settleSteps": 14
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 64.72155060939258,
+      "impulse": 46.156970341689885,
+      "separation": 0.2928336711716838,
+      "settleSteps": 6
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 77.04277184297098,
+      "impulse": 61.553829233162105,
+      "separation": 0.2640530694858171,
+      "settleSteps": 58
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 87.91091992141446,
+      "impulse": 62.70121893379837,
+      "separation": 0.2543984993477352,
+      "settleSteps": 53
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 97.33417290000943,
+      "impulse": 49.80574106331915,
+      "separation": 0.29354550406569613,
+      "settleSteps": 33
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 112.16660746227717,
+      "impulse": 51.51176427025348,
+      "separation": 0.11253319048555568,
+      "settleSteps": 28
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 118.79138068266911,
+      "impulse": 73.23089200537652,
+      "separation": 0.28831073777982963,
+      "settleSteps": 57
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 129.8188043673872,
+      "impulse": 46.321039670147,
+      "separation": 0.1053249218617566,
+      "settleSteps": 5
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 137.63134322332917,
+      "impulse": 72.95887114014477,
+      "separation": 0.32555490542436016,
+      "settleSteps": 21
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 147.92006810515886,
+      "impulse": 69.04934466350824,
+      "separation": 0.12090054360451177,
+      "settleSteps": 8
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 165.41959559050156,
+      "impulse": 45.016118134371936,
+      "separation": 0.23433045527199284,
+      "settleSteps": 50
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 175.61104513326427,
+      "impulse": 51.81656374130398,
+      "separation": 0.24869610994355754,
+      "settleSteps": 48
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 180.22504504508106,
+      "impulse": 57.02514199074358,
+      "separation": 0.15461818032199517,
+      "settleSteps": 32
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 200.93931855488336,
+      "impulse": 53.32888510543853,
+      "separation": 0.22135141046019272,
+      "settleSteps": 3
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 213.47788119659526,
+      "impulse": 49.278739797882736,
+      "separation": 0.23703424955019728,
+      "settleSteps": 58
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 224.63138077495387,
+      "impulse": 49.640519418753684,
+      "separation": 0.24722950133727864,
+      "settleSteps": 58
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 235.03061115945457,
+      "impulse": 50.18921548034996,
+      "separation": 0.23316223915899173,
+      "settleSteps": 44
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 238.31773115642136,
+      "impulse": 49.29041855502874,
+      "separation": 0.23356123660923914,
+      "settleSteps": 18
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 252.67221970920218,
+      "impulse": 56.11259854864329,
+      "separation": 0.2265101638273336,
+      "settleSteps": 33
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 259.7110986764892,
+      "impulse": 52.813994348980486,
+      "separation": 0.15021479941206053,
+      "settleSteps": 23
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 277.34545443876414,
+      "impulse": 55.54786284919828,
+      "separation": 0.25409250796074045,
+      "settleSteps": 33
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 289.7377895828686,
+      "impulse": 66.62983734626323,
+      "separation": 0.28409023323329163,
+      "settleSteps": 25
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 300.31723591469927,
+      "impulse": 47.71114531438798,
+      "separation": 0.3186372569412924,
+      "settleSteps": 57
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 304.12216005002847,
+      "impulse": 51.301435553468764,
+      "separation": 0.13413897316204385,
+      "settleSteps": 55
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 316.0521928334492,
+      "impulse": 55.484964712522924,
+      "separation": 0.29141792837763203,
+      "settleSteps": 56
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 335.6742138354457,
+      "impulse": 74.17389318812639,
+      "separation": 0.19700837713899091,
+      "settleSteps": 42
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 345.7893221775885,
+      "impulse": 72.74244039785117,
+      "separation": 0.2057106033549644,
+      "settleSteps": 0
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 354.7803249358549,
+      "impulse": 66.38564942870289,
+      "separation": 0.1433112572063692,
+      "settleSteps": 55
+    }
+  ],
+  "disturbed": [
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 122.90450024418533,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 18.988438707310706,
+        "after": 0.9949949122965336
+      }
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 302.5181632395834,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 270,
+        "impulse": 14.185289612505585,
+        "after": 0.7329403380863369
+      }
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 88.88522858731449,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 19.44171550916508,
+        "after": 1.0802859095856547
+      }
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 301.86120509169996,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 19.96672604465857,
+        "after": 1.5545247555710375
+      }
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 281.4885217230767,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 17.467476923484355,
+        "after": 1.1580113787204027
+      }
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 178.62396902404726,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 12.747536508832127,
+        "after": 1.33520652865991
+      }
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 0.29270301572978497,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 270,
+        "impulse": 13.54929304914549,
+        "after": 1.9059962937608361
+      }
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 320.3938116040081,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 270,
+        "impulse": 10.296752529684454,
+        "after": 1.1547729116864502
+      }
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 110.19804029725492,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 270,
+        "impulse": 18.62399440491572,
+        "after": 1.497128310147673
+      }
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 325.0921234767884,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 11.69333664001897,
+        "after": 1.0297110956162214
+      }
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 291.727812057361,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 16.215712709818035,
+        "after": 0.7338484390638769
+      }
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 342.5123421382159,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 270,
+        "impulse": 19.60910900728777,
+        "after": 1.1796553106978536
+      }
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 146.43391295336187,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 270,
+        "impulse": 11.431137474719435,
+        "after": 1.469868064392358
+      }
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 238.55631577782333,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 12.881599080283195,
+        "after": 1.410468216985464
+      }
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 231.11512533389032,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 270,
+        "impulse": 18.267937919590622,
+        "after": 0.7589429463259876
+      }
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 326.8404536973685,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 18.589835942257196,
+        "after": 1.8548698080703616
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 354.2141361068934,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 16.952122368384153,
+        "after": 1.076887154020369
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 106.59545137546957,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 270,
+        "impulse": 12.415766941849142,
+        "after": 1.5244341758079827
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 276.1412979941815,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 13.838735308963805,
+        "after": 0.9876249060034752
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 168.1841745134443,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 11.976530647370964,
+        "after": 1.5554742324166
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 144.1956480871886,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 270,
+        "impulse": 15.219276801217347,
+        "after": 1.8617339050397277
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 235.7731708791107,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 12.40482863271609,
+        "after": 1.961082721594721
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 137.1034589689225,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 270,
+        "impulse": 16.81352299870923,
+        "after": 0.7595159318298101
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 266.52743375860155,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 270,
+        "impulse": 19.00082035223022,
+        "after": 0.928621360566467
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 18.296779906377196,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 270,
+        "impulse": 13.635038307402283,
+        "after": 1.1748962770216167
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 139.1067277919501,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 11.3808164303191,
+        "after": 1.3744034944102168
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 79.35243009589612,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 270,
+        "impulse": 17.882651726249605,
+        "after": 0.9837973029352725
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 14.344870476052165,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 17.21952607156709,
+        "after": 1.0992432404309511
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 170.13126916252077,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 270,
+        "impulse": 14.422302751336247,
+        "after": 1.3771771541796625
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 37.59908686392009,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 15.503633685875684,
+        "after": 1.7332492927089334
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 151.93159117363393,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 10.38825728232041,
+        "after": 1.4470301163382828
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 278.0399854760617,
+      "impulse": 60,
+      "separation": 0.2,
+      "disturbance": {
+        "degrees": 90,
+        "impulse": 13.89993691118434,
+        "after": 1.227165326476097
+      }
+    }
+  ],
+  "repeated": [
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "falls": [
+        {
+          "degrees": 296.38244348578155,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 351.72764075919986,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 176.21917736716568,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "falls": [
+        {
+          "degrees": 151.19155168533325,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 242.55349955521524,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 48.83161487057805,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "falls": [
+        {
+          "degrees": 8.72691915370524,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 260.08879143744707,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 260.5518868099898,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "falls": [
+        {
+          "degrees": 334.37686851248145,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 22.04520841129124,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 85.51527477800846,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "falls": [
+        {
+          "degrees": 245.13126670382917,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 326.69466147199273,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 356.3711389247328,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "falls": [
+        {
+          "degrees": 195.00316109508276,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 201.70626285485923,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 202.16295478865504,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "falls": [
+        {
+          "degrees": 57.30405625887215,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 319.22876939177513,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 32.35631472431123,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "falls": [
+        {
+          "degrees": 179.75095437839627,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 82.32117027975619,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 10.944381393492222,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "falls": [
+        {
+          "degrees": 77.83172587864101,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 98.50261515006423,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 310.4671308863908,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "falls": [
+        {
+          "degrees": 26.023139879107475,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 331.8917415942997,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 226.1617218889296,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "falls": [
+        {
+          "degrees": 285.11164077557623,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 138.84643625468016,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 289.29129171185195,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "falls": [
+        {
+          "degrees": 272.32114059850574,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 71.53919798322022,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 228.50748986005783,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "falls": [
+        {
+          "degrees": 172.59710035286844,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 33.44932856038213,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 88.60644028522074,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "falls": [
+        {
+          "degrees": 40.00022727996111,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 183.2976474892348,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 1.6714887879788876,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "falls": [
+        {
+          "degrees": 239.85928078182042,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 334.32782985270023,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 115.97003608010709,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "falls": [
+        {
+          "degrees": 229.29071048274636,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 84.85076361335814,
+          "impulse": 60,
+          "separation": 0.2
+        },
+        {
+          "degrees": 22.28799518197775,
+          "impulse": 60,
+          "separation": 0.2
+        }
+      ]
+    }
+  ],
+  "fallbackRecipes": [
+    {
+      "impulse": 90,
+      "separation": 0.2
+    },
+    {
+      "impulse": 120,
+      "separation": 0.2
+    },
+    {
+      "impulse": 120,
+      "separation": 0.2,
+      "degreesOffset": 90
+    },
+    {
+      "impulse": 120,
+      "separation": 0.2,
+      "degreesOffset": 180
+    }
+  ],
+  "coverage": "classify actual fallen orientation; record missing groups and prevention, never count a non-fall as recovery",
+  "protocol": {
+    "validationPassiveSteps": 180,
+    "description": "After takeover and the declared settle prefix, permit 180 passive physical steps before recovery control. The original takeover clock continues. Frozen before final outcome evaluation.",
+    "coverageRepair": "Before evaluating recovery outcomes, audit the generating prefixes. For a missing prone/supine/left-side/right-side group, use the first reserved recipe producing that orientation to replace the first prevented/upright/inverted case, else the last case of the most represented orientation (keeping at least one). Preserve all original recipes and prefix audit records; freeze the resulting 32/group manifest before evaluating recovery.",
+    "fallbackDescription": "When both stronger aligned recipes prevent falling, try their declared orthogonal then reversed directions; retain prevention attempts and charge all steps. No non-fall counts as a recovery."
+  },
+  "replaces": "stand-up-holdout-v3.json",
+  "reason": "Two failed repeated sequences informed release stability and contact-centre experiments; all V3 outcomes are retired from independent qualification.",
+  "coverageReservations": [
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 197.73433475755155,
+      "impulse": 64.04556530993432,
+      "separation": 0.23899631338426844,
+      "settleSteps": 35
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 174.00777432136238,
+      "impulse": 62.96139466110617,
+      "separation": 0.16275264109717683,
+      "settleSteps": 35
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 287.7692792471498,
+      "impulse": 58.710277690552175,
+      "separation": 0.24212421287084,
+      "settleSteps": 27
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 1.5725700091570616,
+      "impulse": 53.92324686516076,
+      "separation": 0.13808559087337927,
+      "settleSteps": 54
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 318.1460802163929,
+      "impulse": 47.429721797816455,
+      "separation": 0.18131291350582615,
+      "settleSteps": 44
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 67.38758551888168,
+      "impulse": 72.14752389583737,
+      "separation": 0.34412298231618477,
+      "settleSteps": 27
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 34.96039501391351,
+      "impulse": 73.0412503844127,
+      "separation": 0.2614846145384945,
+      "settleSteps": 56
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 313.11610515229404,
+      "impulse": 47.492757705040276,
+      "separation": 0.3050085112568922,
+      "settleSteps": 24
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 104.36891614459455,
+      "impulse": 67.92750428896397,
+      "separation": 0.2763218911946751,
+      "settleSteps": 1
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 298.64651086740196,
+      "impulse": 54.04050270561129,
+      "separation": 0.3487341401283629,
+      "settleSteps": 0
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 234.5424962695688,
+      "impulse": 69.4656311860308,
+      "separation": 0.1985997259267606,
+      "settleSteps": 4
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 305.29540727846324,
+      "impulse": 65.2320545213297,
+      "separation": 0.33028462921502066,
+      "settleSteps": 19
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 200.11927320621908,
+      "impulse": 69.85150433611125,
+      "separation": 0.16114253966370598,
+      "settleSteps": 22
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 301.5107466559857,
+      "impulse": 63.38016873691231,
+      "separation": 0.24540706790285186,
+      "settleSteps": 2
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 169.1577949281782,
+      "impulse": 70.29894133564085,
+      "separation": 0.32840622306102885,
+      "settleSteps": 42
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 11.074953926727176,
+      "impulse": 53.55577964801341,
+      "separation": 0.23500540592940525,
+      "settleSteps": 43
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 332.59014456532896,
+      "impulse": 69.61392286699265,
+      "separation": 0.15868516775080935,
+      "settleSteps": 57
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 83.80805167369545,
+      "impulse": 71.8497190112248,
+      "separation": 0.2301599846337922,
+      "settleSteps": 25
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 196.17506540380418,
+      "impulse": 47.14381144847721,
+      "separation": 0.30694429759168995,
+      "settleSteps": 3
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 48.77078513614833,
+      "impulse": 68.00943479407579,
+      "separation": 0.23777206820668653,
+      "settleSteps": 26
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 54.951085885986686,
+      "impulse": 60.10157018434256,
+      "separation": 0.16827609991887585,
+      "settleSteps": 20
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 249.96774720959365,
+      "impulse": 52.45070992503315,
+      "separation": 0.26683337494032455,
+      "settleSteps": 31
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 330.1896446105093,
+      "impulse": 65.26498151477426,
+      "separation": 0.3119826567941345,
+      "settleSteps": 57
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 204.55050344578922,
+      "impulse": 57.6443810435012,
+      "separation": 0.14532060847850517,
+      "settleSteps": 22
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 208.84821533225477,
+      "impulse": 65.05086596589535,
+      "separation": 0.3062826762557961,
+      "settleSteps": 55
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 223.52071705274284,
+      "impulse": 63.87805724982172,
+      "separation": 0.22771498906658963,
+      "settleSteps": 24
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 265.52343196235597,
+      "impulse": 67.96430089976639,
+      "separation": 0.18364352356875316,
+      "settleSteps": 10
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 174.93327389471233,
+      "impulse": 69.39283885527402,
+      "separation": 0.2431467848015018,
+      "settleSteps": 50
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 66.9042135681957,
+      "impulse": 73.4228392643854,
+      "separation": 0.29673825247446073,
+      "settleSteps": 11
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 69.5994074922055,
+      "impulse": 64.89503613207489,
+      "separation": 0.28416484288172794,
+      "settleSteps": 10
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 118.72488937340677,
+      "impulse": 50.95572834368795,
+      "separation": 0.31502763644093645,
+      "settleSteps": 44
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "empty",
+      "degrees": 309.28982402198017,
+      "impulse": 62.44288806337863,
+      "separation": 0.186131120857317,
+      "settleSteps": 51
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 201.42347286455333,
+      "impulse": 45.929528404958546,
+      "separation": 0.186252523411531,
+      "settleSteps": 9
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 245.63153221271932,
+      "impulse": 74.26173723768443,
+      "separation": 0.18547996549168602,
+      "settleSteps": 23
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 13.893160996958613,
+      "impulse": 68.2327443966642,
+      "separation": 0.2745741388876922,
+      "settleSteps": 18
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 153.71859214268625,
+      "impulse": 72.04756458755583,
+      "separation": 0.3043928378843702,
+      "settleSteps": 11
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 184.8508771788329,
+      "impulse": 64.27671391982585,
+      "separation": 0.2609953109291382,
+      "settleSteps": 6
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 150.75270264409482,
+      "impulse": 62.27942768018693,
+      "separation": 0.3203450194210745,
+      "settleSteps": 24
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 48.56976899318397,
+      "impulse": 54.97648748103529,
+      "separation": 0.18255341212498025,
+      "settleSteps": 6
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 328.19573200307786,
+      "impulse": 58.81640778388828,
+      "separation": 0.1270709652104415,
+      "settleSteps": 25
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 1.0637066792696714,
+      "impulse": 59.27873179782182,
+      "separation": 0.29273173791589213,
+      "settleSteps": 25
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 149.28933366201818,
+      "impulse": 57.75818675290793,
+      "separation": 0.2490576938376762,
+      "settleSteps": 16
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 195.7904081325978,
+      "impulse": 61.17344854865223,
+      "separation": 0.23772903784411029,
+      "settleSteps": 56
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 306.0080712195486,
+      "impulse": 69.14426577743143,
+      "separation": 0.2756268186145462,
+      "settleSteps": 9
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 341.8545639049262,
+      "impulse": 61.080693122930825,
+      "separation": 0.12335404680343345,
+      "settleSteps": 48
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 278.5125434305519,
+      "impulse": 53.02818413358182,
+      "separation": 0.18564157882938162,
+      "settleSteps": 25
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 244.71096220426261,
+      "impulse": 61.612293370999396,
+      "separation": 0.222545016289223,
+      "settleSteps": 12
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 237.1025092061609,
+      "impulse": 59.926737933419645,
+      "separation": 0.31283887099707497,
+      "settleSteps": 43
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 9.367613894864917,
+      "impulse": 47.70856835413724,
+      "separation": 0.3235142456484027,
+      "settleSteps": 26
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 86.67001261375844,
+      "impulse": 65.64419887494296,
+      "separation": 0.20178628010908142,
+      "settleSteps": 28
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 266.0888774972409,
+      "impulse": 51.15004709456116,
+      "separation": 0.218517613329459,
+      "settleSteps": 21
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 333.6525078769773,
+      "impulse": 70.4715329920873,
+      "separation": 0.10446411088341848,
+      "settleSteps": 43
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 258.5985841881484,
+      "impulse": 59.444187325425446,
+      "separation": 0.3332491081324406,
+      "settleSteps": 7
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 95.48598437570035,
+      "impulse": 72.76061940472573,
+      "separation": 0.11747241901466624,
+      "settleSteps": 20
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 274.78316280059516,
+      "impulse": 69.0870942408219,
+      "separation": 0.2468603604589589,
+      "settleSteps": 12
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 172.55809164606035,
+      "impulse": 66.87346906866878,
+      "separation": 0.20986304242396728,
+      "settleSteps": 21
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 139.89476482383907,
+      "impulse": 73.20023924577981,
+      "separation": 0.10260517356218771,
+      "settleSteps": 44
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 22.661264380440116,
+      "impulse": 65.50644352566451,
+      "separation": 0.14159663250902668,
+      "settleSteps": 46
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 252.2543894033879,
+      "impulse": 73.54217870626599,
+      "separation": 0.15910905479686335,
+      "settleSteps": 14
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 157.94584742747247,
+      "impulse": 56.389473653398454,
+      "separation": 0.272624685394112,
+      "settleSteps": 39
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 121.45500834099948,
+      "impulse": 56.895272699184716,
+      "separation": 0.23226374686928467,
+      "settleSteps": 29
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 244.37322079204023,
+      "impulse": 73.36027841549367,
+      "separation": 0.26259657318005336,
+      "settleSteps": 28
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 169.06469109468162,
+      "impulse": 55.8274037623778,
+      "separation": 0.27774675908731294,
+      "settleSteps": 55
+    },
+    {
+      "model": "workshop-fighter",
+      "held": "club",
+      "degrees": 103.6689246352762,
+      "impulse": 51.813583611510694,
+      "separation": 0.16119157519424335,
+      "settleSteps": 51
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 314.5437829848379,
+      "impulse": 51.279775626026094,
+      "separation": 0.1883829189115204,
+      "settleSteps": 32
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 312.53997202031314,
+      "impulse": 51.82596516329795,
+      "separation": 0.15621231422992424,
+      "settleSteps": 26
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 347.847281685099,
+      "impulse": 73.46094663720578,
+      "separation": 0.13569445112952963,
+      "settleSteps": 27
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 167.4856800120324,
+      "impulse": 60.54220820311457,
+      "separation": 0.2765944038634188,
+      "settleSteps": 26
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 197.80512160621583,
+      "impulse": 72.9188380530104,
+      "separation": 0.2749352194019593,
+      "settleSteps": 25
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 196.0895515512675,
+      "impulse": 65.48169531393796,
+      "separation": 0.10812059809686617,
+      "settleSteps": 59
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 107.51247181557119,
+      "impulse": 61.844440321438015,
+      "separation": 0.34256733997026456,
+      "settleSteps": 50
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 208.0690701585263,
+      "impulse": 49.49917426798493,
+      "separation": 0.1427538066287525,
+      "settleSteps": 21
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 224.10991153679788,
+      "impulse": 71.29043822642416,
+      "separation": 0.17309064880246297,
+      "settleSteps": 5
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 89.10119201056659,
+      "impulse": 65.55132154840976,
+      "separation": 0.1465200495091267,
+      "settleSteps": 22
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 48.236555149778724,
+      "impulse": 64.74542963784188,
+      "separation": 0.33624973284313453,
+      "settleSteps": 34
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 71.52547094039619,
+      "impulse": 49.95846109930426,
+      "separation": 0.17952798838960007,
+      "settleSteps": 32
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 65.98317719064653,
+      "impulse": 56.08314426150173,
+      "separation": 0.16486596126342193,
+      "settleSteps": 17
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 307.5471834372729,
+      "impulse": 50.04128307569772,
+      "separation": 0.25661345777334643,
+      "settleSteps": 17
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 163.3453373517841,
+      "impulse": 71.88666238915175,
+      "separation": 0.17329451671103016,
+      "settleSteps": 27
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 104.94045364670455,
+      "impulse": 56.13256259355694,
+      "separation": 0.14860899626510218,
+      "settleSteps": 47
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 223.17650548182428,
+      "impulse": 48.147633648477495,
+      "separation": 0.11650642656022683,
+      "settleSteps": 40
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 65.25137837044895,
+      "impulse": 67.96387847978622,
+      "separation": 0.32423837782116605,
+      "settleSteps": 46
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 24.641186585649848,
+      "impulse": 51.340495753102005,
+      "separation": 0.18979559416184202,
+      "settleSteps": 16
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 284.5011520665139,
+      "impulse": 65.42733202222735,
+      "separation": 0.28263614299939943,
+      "settleSteps": 56
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 245.16804582439363,
+      "impulse": 73.87169325258583,
+      "separation": 0.11911083009326831,
+      "settleSteps": 3
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 16.389191849157214,
+      "impulse": 63.71226571965963,
+      "separation": 0.27649213020922614,
+      "settleSteps": 29
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 244.90303351543844,
+      "impulse": 63.90389628242701,
+      "separation": 0.14201288340846077,
+      "settleSteps": 12
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 237.9962624888867,
+      "impulse": 72.81698203179985,
+      "separation": 0.17582100696163253,
+      "settleSteps": 4
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 193.66251013241708,
+      "impulse": 69.5552193140611,
+      "separation": 0.12925647288793699,
+      "settleSteps": 45
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 117.98760141246021,
+      "impulse": 51.43546212930232,
+      "separation": 0.22235680111916736,
+      "settleSteps": 3
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 340.3863713052124,
+      "impulse": 47.47343990486115,
+      "separation": 0.346997318288777,
+      "settleSteps": 4
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 347.3160437028855,
+      "impulse": 65.21908464375883,
+      "separation": 0.174572432145942,
+      "settleSteps": 56
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 305.09117281995714,
+      "impulse": 55.7852174481377,
+      "separation": 0.10962417159462348,
+      "settleSteps": 55
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 12.425147099420428,
+      "impulse": 49.41334441769868,
+      "separation": 0.34332424235763026,
+      "settleSteps": 22
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 193.32325561903417,
+      "impulse": 51.4203119231388,
+      "separation": 0.3232158482656814,
+      "settleSteps": 40
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "empty",
+      "degrees": 330.9523169975728,
+      "impulse": 45.869571254588664,
+      "separation": 0.2681215281714685,
+      "settleSteps": 10
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 290.1647517364472,
+      "impulse": 55.69738166872412,
+      "separation": 0.23586810167180375,
+      "settleSteps": 38
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 153.8442978914827,
+      "impulse": 48.744357540272176,
+      "separation": 0.29847300607943905,
+      "settleSteps": 21
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 357.79969970695674,
+      "impulse": 67.51159936655313,
+      "separation": 0.2418137585860677,
+      "settleSteps": 25
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 240.4185704793781,
+      "impulse": 72.1676380885765,
+      "separation": 0.3489285581395961,
+      "settleSteps": 28
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 43.429740546271205,
+      "impulse": 59.488937691785395,
+      "separation": 0.3174454855849035,
+      "settleSteps": 1
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 349.2494486924261,
+      "impulse": 48.630769229494035,
+      "separation": 0.21028135620290414,
+      "settleSteps": 32
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 320.5540960561484,
+      "impulse": 74.31019422132522,
+      "separation": 0.33431908787460995,
+      "settleSteps": 9
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 12.704562535509467,
+      "impulse": 47.24490742664784,
+      "separation": 0.11346983487019316,
+      "settleSteps": 44
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 239.64708569459617,
+      "impulse": 69.1916889930144,
+      "separation": 0.3350261372630484,
+      "settleSteps": 45
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 43.91570216976106,
+      "impulse": 57.42821597959846,
+      "separation": 0.21071233596885577,
+      "settleSteps": 2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 191.3612515758723,
+      "impulse": 61.02198325563222,
+      "separation": 0.2563385034096427,
+      "settleSteps": 37
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 321.2319429125637,
+      "impulse": 48.730083773843944,
+      "separation": 0.30646413980284704,
+      "settleSteps": 7
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 152.23048347048461,
+      "impulse": 55.873598218895495,
+      "separation": 0.29297788507537914,
+      "settleSteps": 17
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 115.17277023755014,
+      "impulse": 55.03034403081983,
+      "separation": 0.2289994964026846,
+      "settleSteps": 46
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 112.87314380519092,
+      "impulse": 62.88973380345851,
+      "separation": 0.15201034137280658,
+      "settleSteps": 17
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 237.88120477460325,
+      "impulse": 73.11349305789918,
+      "separation": 0.34261865677544845,
+      "settleSteps": 30
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 168.69519266299903,
+      "impulse": 72.54598739091307,
+      "separation": 0.1978658230160363,
+      "settleSteps": 40
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 175.07692730985582,
+      "impulse": 45.61790899839252,
+      "separation": 0.20047990415478126,
+      "settleSteps": 29
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 273.09331278316677,
+      "impulse": 59.287072573788464,
+      "separation": 0.23798270357074217,
+      "settleSteps": 52
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 280.50940378569067,
+      "impulse": 48.360070581547916,
+      "separation": 0.338056585250888,
+      "settleSteps": 47
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 13.15803456120193,
+      "impulse": 68.5385379055515,
+      "separation": 0.1990773107041605,
+      "settleSteps": 52
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 32.9110103007406,
+      "impulse": 52.033775872550905,
+      "separation": 0.20721914150053636,
+      "settleSteps": 0
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 207.87686104886234,
+      "impulse": 58.09348565060645,
+      "separation": 0.1940384574350901,
+      "settleSteps": 41
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 275.45015810988843,
+      "impulse": 68.28436102252454,
+      "separation": 0.2509421403170563,
+      "settleSteps": 6
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 208.8373929541558,
+      "impulse": 63.87429053429514,
+      "separation": 0.22944697338389233,
+      "settleSteps": 7
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 77.68441862426698,
+      "impulse": 50.157919018529356,
+      "separation": 0.11863630634034053,
+      "settleSteps": 37
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 263.43045364134014,
+      "impulse": 60.069318492896855,
+      "separation": 0.303720236022491,
+      "settleSteps": 56
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 100.01364841125906,
+      "impulse": 56.92551843356341,
+      "separation": 0.272105552686844,
+      "settleSteps": 12
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 300.55321413092315,
+      "impulse": 53.64464542362839,
+      "separation": 0.14588170192437247,
+      "settleSteps": 11
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 220.63311419449747,
+      "impulse": 53.28242217656225,
+      "separation": 0.2321290121995844,
+      "settleSteps": 24
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 178.81231809966266,
+      "impulse": 53.23077593464404,
+      "separation": 0.3449554380145855,
+      "settleSteps": 2
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "club",
+      "degrees": 64.98661785386503,
+      "impulse": 62.92230624239892,
+      "separation": 0.21566806869814173,
+      "settleSteps": 48
+    }
+  ]
+}

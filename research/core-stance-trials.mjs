@@ -244,8 +244,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
  * `held` (`body`), walking by the stance's own walk or by the locomotion skill `legs` names (`skillOf`).
  */
 export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null, actuation, physique, legs = null }) {
-  // A heading turned at no rate never comes half round.
-  if (!(rate > 0)) throw new Error(`a turn trial needs a rate above 0 rad/s, not ${rate}`);
+  if (!Number.isFinite(rate) || rate <= 0) throw new Error("a turn rate must be finite and positive");
   const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique);
   const skill = skillOf(legs, b);
   let goal = null, heading = 0, turning = false, walking = false, turned = 0;

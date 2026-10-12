@@ -175,6 +175,10 @@ for (const { name, asset, legs } of WALKS) for (const model of Object.keys(asset
   });
 }
 
+test("a_turn_trial_rejects_rates_that_cannot_finish_a_half_turn", async () => {
+  for (const rate of [0, -1, Infinity, NaN]) await assert.rejects(turn({ rate }), /finite and positive/);
+});
+
 /**
  * Why a walk's turns do not hold again: the stance's and the stride's tables count a turn held
  * where the body stayed up, not where it faced round (`turnedAsAsked`). Read under that rule, the

@@ -7,6 +7,7 @@ import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { HELD, type Held } from "../core/items/held.ts";
 import { RECIPE_FIGHTER, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
+import { SIMBICON } from "../core/skills/simbicon.ts";
 import type { Provision } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { deepFreeze } from "../core/state.ts";
@@ -36,7 +37,7 @@ interface ScenarioInfo {
 /** Every scenario, in the menu's order; the first is the default. */
 export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "stance", name: "Stance", line: "Walk it from the keyboard, and shove it." },
-  { id: "recovery", name: "Get-up experiment", line: "Try the searched recovery with compliant soles. Experimental: slow and unreliable." },
+  { id: "recovery", name: "Get-up experiment", line: "Live assisted recovery, with the slow searched witness available for comparison." },
   { id: "routine", name: "Routine", line: "It walks out, strikes at ten targets hung high, middle and low, turns and walks back." },
   { id: "run", name: "Run", line: "It goes round a track at the pace asked, in the wind: a big circle, back and forth, or a square walked facing one way." },
   { id: "blow", name: "Blow", line: "It swings a club blow the strike search found into a head, and reads what it lands with.", holds: { right: "club" } },
@@ -103,6 +104,9 @@ export function labMind(config: MindConfig, spec: BodySpec): { readonly plays: F
 export const LAB_TARGETS = { most: 30, count: 10, seed: 1 } as const;
 
 export interface LabAddress extends LabLoadout, ViewSettings {
+  readonly recoveryMode: "assisted" | "witness";
+  /** Two timed chest impulses: direction in degrees, impulse in N s, separation in seconds. */
+  readonly recoveryPush: { readonly degrees: number; readonly impulse: number; readonly separation: number };
   readonly appearance: Appearance;
   /** The scenario to run; none is the menu. */
   readonly scenario: ScenarioId | null;
@@ -118,7 +122,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly seed: number;
 }
 
-const KEYS = ["scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
+const KEYS = ["recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -135,7 +139,13 @@ export function labAddress(search: string): LabAddress {
   const query = new URLSearchParams(search);
   const model = MODELS.find((m) => m.id === query.get("model"))?.id ?? MODELS[0].id;
   const worn = WORN[model], barred = (query.get("barred") ?? "").split(",");
+  const bounded = (key: string, lo: number, hi: number, fallback: number): number => {
+    const text = query.get(key), value = text === null || text.trim() === "" ? NaN : Number(text);
+    return Number.isFinite(value) && value >= lo && value <= hi ? value : fallback;
+  };
   return {
+    recoveryMode: query.get("recoveryMode") === "witness" ? "witness" : "assisted",
+    recoveryPush: {degrees:bounded("pushDegrees",0,360,0),impulse:bounded("pushImpulse",10,120,60),separation:bounded("pushSeparation",.05,1,.2)},
     scenario: SCENARIOS.find((s) => s.id === query.get("scenario"))?.id ?? null,
     model,
     appearance: appearanceFor(model, query.get("appearance")),
@@ -164,6 +174,10 @@ export function labAddress(search: string): LabAddress {
 export function labHref(address: LabAddress, search = ""): string {
   const query = new URLSearchParams(playHref("lab", search));
   for (const key of KEYS) query.delete(key);
+  if (address.recoveryMode !== "assisted") query.set("recoveryMode", address.recoveryMode);
+  if (address.recoveryPush.degrees !== 0) query.set("pushDegrees", String(address.recoveryPush.degrees));
+  if (address.recoveryPush.impulse !== 60) query.set("pushImpulse", String(address.recoveryPush.impulse));
+  if (address.recoveryPush.separation !== .2) query.set("pushSeparation", String(address.recoveryPush.separation));
   if (address.scenario) query.set("scenario", address.scenario);
   query.set("model", address.model);
   const appearance = appearanceFor(address.model, address.appearance);
@@ -185,8 +199,12 @@ export function labHref(address: LabAddress, search = ""): string {
   return `?${query}`;
 }
 
-/** The searched demonstration's physical setup; view preferences stay with the page. */
-export function recoveryAddress(address: LabAddress): LabAddress {
-  return { ...address, scenario: "recovery", model: "workshop-fighter", right: "empty", left: "empty", sole: true,
-    balance: 0, hz: 120, mind: LAB_PRESETS.script.config, barred: [], appearance: "default" };
+/** An explicit recovery demonstration; changing it preserves the view preferences. */
+export function recoveryAddress(address: LabAddress, recoveryMode: LabAddress["recoveryMode"] = "assisted"): LabAddress {
+  const assisted = recoveryMode === "assisted";
+  return { ...address, scenario: "recovery", recoveryMode, recoveryPush: {degrees:0,impulse:60,separation:.2},
+    model: "workshop-fighter", right: "empty", left: "empty", sole: !assisted,
+    balance: assisted ? 100 : 0, hz: 120, mind: assisted
+      ? {...LAB_PRESETS.script.config,locomotion:{kind:"simbicon",...SIMBICON},subs:[{kind:"assisted-rise"}]}
+      : LAB_PRESETS.script.config, barred: [], appearance: "default" };
 }
