@@ -193,6 +193,18 @@ screens build on it; it never imports them.
 - **Parallel runs need worker threads**, one sequential loop in each.
 - **Under CPU load a dropped test count is a timeout**, not a regression; re-run on a quiet machine.
 
+## Frozen stand-up acceptance
+
+The owner's fast, robust unassisted stand-up goal is unfinished. Assisted recovery is a separate
+experiment and cannot satisfy it. `stand-up-acceptance-v1` pins the evaluator, optimized baseline
+and saved falls. Subsequent controller experiments run through that checkout's
+`node research/stand-up-acceptance.mjs --candidate <module>` action interface. Do not move the
+ref, change its criteria, replace cases, substitute a weaker baseline, or change the body/host
+configuration without the owner's agreement. The comparison is a development screen, not a
+robustness qualification. Report failures and external-actuation rejections as failures.
+Implementation, passing software checks and improvement on this screen are separate claims;
+none alone establishes completion. Budget exhaustion ends work with an incomplete report.
+
 ## Measurement
 
 When the question is a measurement:

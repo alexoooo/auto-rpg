@@ -1,9 +1,15 @@
 # Stand-up planning and contact experiments
 
-The complete recovery remains unresolved. These experiments establish reproducible diagnosis
-and reject particular motion requests; they do not establish a working additional recovery.
-The six-second Lab test remains an executed failing TODO, and the directional qualification has
-not been run against a new successful route.
+The owner's goal of substantially faster, robust unassisted recovery is **not achieved**.
+The optimized unassisted recipe is a slow, narrow feasibility witness. The additional
+`assisted-rise` variant lifts and rights the body with external forces and moments at Balance 100;
+its results below are assisted-only evidence, not completion of that goal. Turning off recovery
+help produced zero of sixteen twelve-second completions in the recorded ablation. That ablation
+still allowed host assistance and is not a fully unassisted evaluation.
+
+The earlier campaign-completion and early-finish claims were incorrect: assistance permission
+was treated as permission to substitute a different objective. The work remains incomplete.
+See [frozen unassisted comparison](#frozen-unassisted-comparison) for the acceptance repair.
 
 ## Harness and reproduction
 
@@ -779,10 +785,11 @@ The sole pilot gives no net gain, so broader palm/toe/morphology searches are st
 strength/assistance curriculum advancement is not implemented; the fixed-stage pilots and
 retained assisted result are reported as such.
 
-This closes the campaign at its permitted substantial-assisted outcome, rather than claiming
-its full target or every optional research branch succeeded. The early-finish rule applies only
-after all acceptance, comparison, gameplay and visual checks pass. The four/six-second target,
-lower useful assistance, learned added value and broader bodies/surfaces remain on the roadmap.
+These results qualify only the separately labeled assisted experiment under its historical
+criteria. They do not satisfy the owner's unassisted objective or justify declaring the work
+complete. The comparison also omitted the best recorded optimized recipe; its apparent margin
+must not be reported as improvement over that recipe. Fast, robust unassisted recovery,
+learned added value and broader body/surface experiments remain unfinished.
 
 
 The active recovery callbacks, including observation/support reads, take a combined mean of
@@ -796,9 +803,9 @@ for example, the Warrior Front requests a peak 2,553.5 N while its delivered pea
 At qualification, the ledger charges 9,058,899 physics steps: 6,943,899 explicitly recorded steps
 plus 2,115,000 conservative allowances for reference/setup, interrupted probes, tests and browser
 work. Conservative charges are not claimed as measured executed steps. The 24-million-step
-validation reserve remains protected inside the 160-million cap. The campaign reaches its
-qualified outcome and delivery checks in about 4.3 active hours, so it uses the plan's explicit early-finish exception;
-it does not claim that the nominal 24 hours or full published training schedule ran.
+validation reserve remained unused inside the 160-million cap. Work stopped after about 4.3
+active hours. The assisted result did not justify early completion of the owner's goal; neither
+the nominal 24 hours nor the full published training schedule ran.
 
 Reproduce the selected physical gates from the committed configuration:
 
@@ -821,3 +828,100 @@ Upstream reference assets/code/weights remain local because no upstream redistri
 was found. The final repository gate is type checking, the fast suite, browser build, the nine
 focused physical regressions, qualification checks and whitespace/line-ending checks. Existing
 six-second and other TODOs remain visible.
+
+
+## Frozen unassisted comparison
+
+`stand-up-acceptance-v1` is the named Git commit for the evaluator, baseline and saved falls.
+The owner's acceptance criteria may not be changed without agreement. This is a reproducible
+**development comparison**, not a replacement qualification or evidence that recovery is solved.
+
+Run from that checkout, with Node 24.15.0 and the lockfile-installed dependencies:
+
+```powershell
+node research/stand-up-acceptance.mjs
+```
+
+The command refuses a different HEAD or tracked-file edits. It compares the ordinary support
+controller against the best recorded optimized recipe (`stand-up-feedback-seed.json`, the
+15.5583 s Front witness), then proves that the shipped floating controller is rejected. The
+report is `.tools/stand-up-acceptance/report.json`; exit zero means the comparison ran and its
+controls passed, **not that a controller met the recovery goal**. External-actuation violations
+by a candidate produce exit code 2. Exceptions, identity mismatches or an incomplete run are
+errors, never successful comparisons. Partial reports lack a final summary.
+
+Sixteen committed compressed checkpoints cover Warrior and Rogue, each empty-handed or with a
+right-hand club, at four cardinal shove directions. All use the existing compliant soles,
+unchanged default muscle/body properties, the stance host, Balance 0, symmetric actuation,
+gameplay Rapier coordinate engine at 120 Hz and the same ground. The snapshots contain complete
+physics, world, host, skills and recovery state. The original optimized recovery prefix is shared
+by every continuation and remains included in elapsed time. These are not independent fresh-fall
+candidate trials, repeated falls, disturbances or held-out robustness evidence.
+
+The prefix audit allows exactly the two declared chest impulses at steps 240 and 264, and no
+other external actuation. From restoration through standing and walking, the evaluator records
+all segment-body force, torque, impulse and angular-impulse calls at the engine interface; it
+also rejects pinning and mass changes. Zero in a later step or an opposite force cannot erase
+an earlier violation. This catches calls outside the ordinary Assist meter. Solver gravity,
+physical contacts and bounded joint motors remain permitted. The actual floating controller is
+run from the same first checkpoint with Balance 100 enabled expressly as a negative control;
+its external force and moment invalidate it immediately. That is not a performance comparison.
+
+The unchanged physical completion predicate requires upright trunk and soles, actual loaded
+foot patches, centre of mass in support, quiet motion for 0.5 seconds, ordinary-host handover,
+two seconds standing and one second walking at least 0.1 m. Help is forbidden during that entire
+tail as well as recovery. Handover later than 35 seconds fails; the episode allows a further
+three seconds to verify it. Counts at 6, 12 and 35 seconds and failure-inclusive medians are
+reported without deleting failed cases. No new threshold defining substantial improvement or
+human-level robustness is introduced. Full physical trace hashes and results of the frozen
+optimized baseline must reproduce on every command run.
+
+Other existing controls can be compared with `--controller dynamic` or `--controller assisted`.
+Both run at Balance 0; Assisted therefore exercises its existing fallback. `--controller optimized`
+is an identical-continuation reproducibility control. A future experimental action module can
+be evaluated without editing the frozen checkout:
+
+```powershell
+node research/stand-up-acceptance.mjs --candidate C:\path\to\candidate.mjs
+```
+
+The module exports `createPolicy({ channels, configuration })`, returning a function called on
+a detached body observation each step. It returns the existing `muscles`, bounded `targets`, or
+`host` action accepted by `checkRecoveryAction`. Any requested nonzero assistance is rejected,
+even if the ceiling would clip it away. The factory is reconstructed separately for every case.
+Place experiments outside tracked evaluator files. Report candidate source and dependency
+identities; the command hashes the entry module, not its transitive imports. Changes to the
+body, host, engine, baseline or case set require a separately agreed protocol and matched runs.
+Do not move the frozen ref. Keep its commit hash outside the experiment when independently
+reviewing a result; Git refs and repository instructions are an audit trail, not a security
+boundary against someone who can rewrite the evaluator or execute arbitrary candidate code.
+
+To keep working on newer source while running this exact gate, make a detached checkout of
+`stand-up-acceptance-v1`, run `npm ci` there, and run the command there with the candidate module's
+absolute path. Existing binary checkpoints require the captured Node version; a different
+runtime must be separately revalidated, not silently substituted.
+
+### Inspect in the Lab
+
+Use the server for the frozen checkout (or the current checkout while it is that same commit).
+If no server is running, `npm run dev` starts it; do not replace another running server.
+Open this exact address for the optimized baseline's Front case:
+
+`http://localhost:5180/?play=lab&scenario=recovery&recoveryMode=witness&model=workshop-fighter&right=empty&left=empty&boots=1&armour=1&sole=1&balance=0&hz=120&pushDegrees=0&pushImpulse=60&pushSeparation=0.2`
+
+1. Confirm **Get-up variant: Slow searched witness**, Warrior, compliant soles and Balance 0.
+2. Let its automatic two Front shoves run; do not add manual shoves or walking during recovery.
+   Watch **Delivered help / ceiling** stay zero. Space pauses; the timeline scrubs recorded motion.
+3. After recovery, use **Walk forward for 1 s** to inspect host movement. This manual visual
+   check does not replace the Node evaluator's automatic standing/walking tail.
+4. Change `pushDegrees` in the address to 90, 180 or 270 to inspect the retained failing cases.
+   Change `model` to `workshop-rogue` and/or `right` to `club` for the other frozen configurations.
+   Navigate to the full address; **Reset demonstration** resets to the default Warrior Front recipe.
+5. To inspect the separate floating variant, choose **Live assisted rise**. This explicitly
+   changes to original feet, SIMBICON and Balance 100. Its visible lift and positive help reading
+   are assisted behavior and are not unassisted progress.
+
+These existing Lab links generate a fresh fall with the specified recipe; they do not import
+the Node binary checkpoint. Node results are the acceptance evidence. Browser and Node physics
+are not generally interchangeable, and these instructions do not claim exact cross-runtime replay.
+An arbitrary action-module candidate is not automatically exposed as a Lab variant.

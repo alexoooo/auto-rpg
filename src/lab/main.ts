@@ -202,6 +202,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     }
     showView();
     for (const control of Object.values(controls).flat()) control.refresh();
+    for (const control of Object.values(scenario.panels).flat()) control.refresh();
   }
 
   function unload(): void {

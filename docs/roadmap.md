@@ -127,7 +127,12 @@ After it, each with its own plan, in the order each needs the one before:
     completes verified handover within the deadline
     ([dynamic rise](reference/rising.md#dynamic-rise)). Support transfer and reliable handover
     remain open; existing presets retain their recovery.
-  - **Assisted rise** meets the substantial-improvement gate at recovery and host Balance 100:
+  - **Fast, robust unassisted recovery remains unsolved.** The optimized compliant-sole recipe
+    produced one 15.5583 s development success and failed the robustness objective. The frozen
+    `stand-up-acceptance-v1` comparison retains that recipe and rejects external actuation.
+    Changes to its evaluator, baseline, cases or criteria require the owner's agreement.
+  - **Assisted rise is a separate experiment**, with external lift and righting at recovery and
+    host Balance 100. Historical assisted-only results:
     63/64 directional selection, 126/128 independent lying falls, 16/16 three-fall sequences and
     30/32 disturbed recoveries within twelve seconds, followed by standing and walking. It is
     an additional Warrior/Rogue choice with original anatomy and ordinary muscles; presets do

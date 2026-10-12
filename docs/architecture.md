@@ -711,7 +711,8 @@ mind chosen for its model on the start panel (`DungeonRunOptions.minds`), its mo
 was; the lab's actor drives the fighter its page chose (`ActorOptions.mind`), the Script preset
 unless it is given another.
 
-**Assisted rise** is an additional experimental Warrior/Rogue controller. It uses the existing
+**Assisted rise** is an additional experimental Warrior/Rogue controller, separate from the
+unfinished goal of fast, robust unassisted rising. It uses the existing
 metered `Assist` port for bounded root force and righting moment, plus ordinary muscle commands
 toward a staggered-foot target. The leg target is an offline collision-aware IK result; the upper
 body retains the loadout's guard. After four seconds, upright feet receive horizontal

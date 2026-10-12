@@ -29,15 +29,16 @@ import { balanceCeiling, balancePercent, rulebook } from '../src/core/rules/rule
 const VERIFY = Object.freeze({ slow: .1, minUpNormal: .9, quiet: .5, standing: 2, walking: 1,
   displacement: .1, soleUp: .9, rootUp: .9 });
 const sha = value => createHash('sha256').update(value).digest('hex');
+const sourceText = url => readFileSync(url, 'utf8').replaceAll('\r\n', '\n');
 const artifact = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
   .dependencies['@dimforge/rapier3d-simd-compat'].replace(/^file:/, '');
 const artifactSha = sha(readFileSync(new URL(`../${artifact}`, import.meta.url)));
 const sourceHash = createHash('sha256');
 for (const name of readdirSync(new URL('../src/core/', import.meta.url), { recursive: true }).filter(n => n.endsWith('.ts')).sort()) {
   sourceHash.update(name.replaceAll('\\', '/'));
-  sourceHash.update(readFileSync(new URL(`../src/core/${name.replaceAll('\\', '/')}`, import.meta.url)));
+  sourceHash.update(sourceText(new URL(`../src/core/${name.replaceAll('\\', '/')}`, import.meta.url)));
 }
-for (const name of ['actor', 'stance-mode', 'scenarios', 'recovery-recipe']) sourceHash.update(readFileSync(new URL(`../src/lab/${name}.ts`, import.meta.url)));
+for (const name of ['actor', 'stance-mode', 'scenarios', 'recovery-recipe']) sourceHash.update(sourceText(new URL(`../src/lab/${name}.ts`, import.meta.url)));
 const sourceSha = sourceHash.digest('hex');
 const encoded = v => v === Infinity ? '+inf' : v === -Infinity ? '-inf' : v;
 const decoded = v => v === '+inf' ? Infinity : v === '-inf' ? -Infinity : v;
@@ -71,10 +72,11 @@ export function checkRecoveryAction(action, channels) {
 }
 
 /** A real Lab body and host with a research action override inside the ordinary muscle path. */
-export async function recoveryEnvironment({ model = 'workshop-fighter', held = 'empty', baseline = 'support-recovery', spec: suppliedSpec, recipe, balance = 0, host = 'stance', assistedBaseline = false } = {}) {
+export async function recoveryEnvironment({ model = 'workshop-fighter', held = 'empty', baseline = 'support-recovery', spec: suppliedSpec, recipe, balance = 0, host = 'stance', assistedBaseline = false, comparison = false } = {}) {
   if (!['support-recovery', 'staged-rise', 'dynamic-rise', 'assisted-rise'].includes(baseline)) throw new Error('unknown recovery baseline');
   if (!['stance','simbicon'].includes(host)) throw new Error('unknown recovery host');
   if (recipe && baseline !== 'support-recovery') throw new Error('a recipe belongs to support recovery');
+  if (comparison && (baseline !== 'support-recovery' || !recipe)) throw new Error('comparison requires the optimized support recipe');
   recipe = recipe ? deepFreeze(structuredClone(recipe)) : undefined;
   const spec = armedWith(suppliedSpec ?? modelSpec(model), 'right', held);
   const stand = await coreStand(spec, { engine: 'rapier-coordinate', groundSize: 40, posture: guardPosture(spec), actuation: 'symmetric' });
@@ -100,6 +102,15 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
       case 'dynamic-rise': legacy=dynamicRise(own,view,into);break;
       case 'assisted-rise': legacy=assistedRise(own,view,into);break;
       default:throw new Error('unknown recovery baseline');
+    }
+    if (comparison) {
+      const policies = { optimized: legacy, standard: supportRecovery(own, view, into),
+        dynamic: dynamicRise(own, view, into), assisted: assistedRise(own, view, into) };
+      const state = { selected: 'optimized', policies: Object.fromEntries(Object.entries(policies).map(([key, policy]) => [key, policy.state])) };
+      legacy = { state, get name() { return policies[state.selected].name; },
+        wants(senses) { return policies[state.selected].wants(senses); },
+        begin() { policies[state.selected].begin(); }, end() { policies[state.selected].end(); },
+        step(senses, dt) { policies[state.selected].step(senses, dt); } };
     }
     const muscles = own.muscles;
     channels = muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value,
@@ -152,9 +163,9 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
   const observe = observeBody(built, body.muscles, world, clockSenses(world), undefined, () => body.down, true);
   const root = built.segments.get('lowerTrunk');
   const states = { body: body.state, skills: skills.state, orders: stance.orders, experiment };
-  const identity = { harness: 'Node Stance Lab recovery search', model, held, baseline, host, assistedBaseline, recipeSha: recipe ? sha(JSON.stringify(recipe)) : null, hz: world.hz,
+  const identity = { harness: 'Node Stance Lab recovery search', model, held, baseline, host, assistedBaseline, ...(comparison ? { comparison: true } : {}), recipeSha: recipe ? sha(JSON.stringify(recipe)) : null, hz: world.hz,
     engine: world.physics.engine, revision: world.physics.revision, artifact, artifactSha, sourceSha,
-    environmentSha: sha(readFileSync(new URL('./stand-up-environment.mjs', import.meta.url))), specSha: sha(JSON.stringify(spec)),
+    environmentSha: sha(sourceText(new URL('./stand-up-environment.mjs', import.meta.url))), specSha: sha(JSON.stringify(spec)),
     actuation: world.actuation, balance, channels };
   const save = () => serialize({ identity, saved: saveStand(world, states) });
   const restore = bytes => {
@@ -240,6 +251,12 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
     elapsed: experiment.takeover === null ? 0 : world.time - experiment.takeover, effortViolation: experiment.effortViolation,
     assisted: experiment.assisted, quiet: experiment.quiet });
   return { stand, body, stance, channels, identity, experiment, legacy, observe, measure, act, step, save, restore, result,
+    selectComparison(name) {
+      if (!comparison || !Object.hasOwn(legacy.state.policies, name)) throw new Error('unknown comparison controller');
+      if (port.active) legacy.end();
+      legacy.state.selected = name;
+      if (port.active) legacy.begin();
+    },
     nextFall() {
       assert.equal(experiment.success,true,'a repeated fall follows a complete host tail');
       assert.equal(body.has,'command');
