@@ -27,7 +27,8 @@ import { startWind, type WindSettings } from "./wind.ts";
  * past the envelope's fastest walk, at the turn it held there), and a corner is taken at
  * `CORNER_PACE`.
  *
- * It brakes for a bend or a corner ahead at `BRAKE`, so as to reach it at its pace. Facing along
+ * It brakes for a bend or a corner ahead at `BRAKE`, so as to reach it at its pace, and for a bend
+ * `LEAD` early at the body's own speed. Facing along
  * the track, it is no faster than its turns carry it round the arc from its heading to the point it
  * aims at: its heading lags the track's, and sped up at a bend's end before it has come round, it
  * would leave the bend short of the way back and drift off the track; run wide, it comes back onto
@@ -102,6 +103,12 @@ const AIM_ALONG = 1.25;
  * or carries on past a corner while its walk swings round to the next way.
  */
 const BRAKE = 0.3;
+/**
+ * How long the body's speed trails the walk asked, s: slowed for a bend, it goes on at about the
+ * speed it had for this long, so the Run brakes for a bend as if it were as much nearer as the body
+ * goes in that time.
+ */
+const LEAD = 0.3;
 /** The pace the Run takes a corner at, m/s: the slowest pace the envelopes measure. */
 const CORNER_PACE = 0.2;
 
@@ -157,7 +164,7 @@ export function trackTactics(track: Track, { top, pace: most, turn, facing }: Tr
   return {
     name: "track",
     decide({ view, report, envelope }, dt): Intent {
-      const c = view.stance.centre, fastest = Math.min(top ?? envelope?.walk.value ?? 0, most ?? Infinity);
+      const c = view.stance.centre, v = view.stance.velocity, fastest = Math.min(top ?? envelope?.walk.value ?? 0, most ?? Infinity);
       if (view.time > 0) {
         setOff ??= view.time;
         const s = track.nearest(c.x, c.z, along);
@@ -179,12 +186,14 @@ export function trackTactics(track: Track, { top, pace: most, turn, facing }: Tr
         const to = track.at(along + (facing === undefined ? AIM_ALONG : AIM_AHEAD));
         aim = [to.x, to.z];
         const toward = Math.atan2(to.x - c.x, to.z - c.z);
-        // Each bend as far ahead as it takes to brake from the fastest pace, at its pace and braking to it; the next corner likewise.
+        // Each bend as far ahead as it takes to brake from the fastest pace, at its pace and braking to it from `LEAD` early; the next
+        // corner likewise.
         let bend = Infinity;
-        for (let d = 0; d <= fastest * fastest / (2 * BRAKE); d += LOOK_STEP) {
+        const early = LEAD * Math.sqrt(v.x * v.x + v.z * v.z);
+        for (let d = 0; d <= early + fastest * fastest / (2 * BRAKE); d += LOOK_STEP) {
           const k = Math.abs(track.at(along + d).curvature), radius = k === 0 ? Infinity : 1 / k;
           const at = Math.min(paceRoundTo(envelope, radius, top), carried(turning, radius));
-          bend = Math.min(bend, Math.sqrt(at * at + 2 * BRAKE * d));
+          bend = Math.min(bend, Math.sqrt(at * at + 2 * BRAKE * Math.max(0, d - early)));
         }
         const corner = Math.max(CORNER_PACE, Math.sqrt(2 * BRAKE * toCorner(track, along)));
         // Facing along the track, no faster than its turns carry it round the arc from its heading to the point it aims at.

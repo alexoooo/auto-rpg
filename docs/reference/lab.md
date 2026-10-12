@@ -200,7 +200,14 @@ a fall stopping the body where it fell:
 | 2 m | 1.01 / 0.87 / 0.94 | 0.93 / 0.85 / 0.64 | 21 | 0.89 |
 
 Past 1.25 m the skeleton reaches the shuttle's half-turn still going about 1.1 m/s, turns, and
-falls. `AIM_ALONG`: 1.25 m.
+falls: its speed trails the walk asked by about half a second. Braking for each bend as if it
+were as much nearer as the body goes in 0.3 s (`LEAD`, `run-mode.ts`), it does not, and faced
+1.75 m ahead the shuttles read 0.88 / 0.82 / 0.89; but the walker then cuts the course, by
+about the square of how far it faces over twice the radius (0.38 m inside the circle), and the
+stance walk swings 61 cm off the shuttle. Faced 1.25 m ahead and braking 0.3 s early, the
+shuttles read 0.81 / 0.75 / 0.82, and the same on gust seeds 7–12.
+
+`AIM_ALONG`: 1.25 m.
 
 ## Run tolerance
 
