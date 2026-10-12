@@ -43,16 +43,31 @@ async function trial(configuration, { caseIndex=0, seconds=20, capture=false }={
     else if(configuration.fall)await e.fall({...c.fall,...configuration.fall});
     else e.restore(gunzipSync(saved));
     const initial=e.observe(); if(!configuration.fall&&!configuration.standing)assert.equal(digest(JSON.stringify(initial)),c.observationSha256);
+    const prefix=configuration.prefixTape?JSON.parse(gunzipSync(readFileSync(configuration.prefixTape))):null;
+    if(prefix) {
+      assert.notEqual(configuration.kind,'baseline','a candidate prefix does not alter the optimized baseline');
+      assert.ok(Number.isInteger(configuration.prefixSteps)&&configuration.prefixSteps>0);
+      assert.equal(configuration.prefixSteps,prefix.actions.length);
+      assert.deepEqual(prefix.identity,e.identity);assert.deepEqual(prefix.channels,e.channels);
+      assert.equal(prefix.initialObservationSha256,digest(JSON.stringify(initial)));
+    }
     const factory=configuration.kind==='response'?responsePolicy:configuration.kind==='library'?libraryPolicy:configuration.kind==='tracking'?trackingPolicy:configuration.kind==='contact'?contactPolicy:configuration.kind==='compact'?compactPolicy:pathPolicy;
     const policy=factory({channels:e.channels,reference,model,parameters:configuration.parameters});
     audit=unassistedAudit(e.stand.built,()=>e.stand.world.steps);
     let steps=0, peakHeight=0, last, quality=0, peakQuality=0;
-    const hash=createHash('sha256');
+    const hash=createHash('sha256'),prefixHash=prefix?createHash('sha256'):null;
     while(e.result().elapsed<seconds&&steps<seconds*120) {
-      const frame=reference.frames[steps];
+      const frame=prefix?prefix.actions[steps]:reference.frames[steps];
       const action=configuration.kind==='baseline'?undefined:
         steps<(configuration.prefixSteps??0)?(!frame||frame.kind==='host'?{kind:'host'}:frame):policy(e.observe());
       const row=e.step(action,{automaticHandover:!configuration.standing}); steps++;
+      if(prefix&&steps<=configuration.prefixSteps) {
+        prefixHash.update(JSON.stringify(row.observation));
+        if(steps===configuration.prefixSteps) {
+          assert.equal(digest(JSON.stringify(row.observation)),prefix.endpointObservationSha256);
+          assert.equal(prefixHash.digest('hex'),prefix.traceSha256,'every physical prefix observation reproduces its recording');
+        }
+      }
       hash.update(JSON.stringify(row.observation)); if(capture)rows.push(row);
       peakHeight=Math.max(peakHeight,row.observation.height);
       if(row.result.elapsed>1) {
@@ -72,9 +87,11 @@ async function trial(configuration, { caseIndex=0, seconds=20, capture=false }={
       if(row.result.success||row.result.failure||audit.events.length)break;
     }
     const result=unassistedResult(e.result(),audit.events), measured=e.measure();
+    if(prefix)assert.ok(steps>=configuration.prefixSteps,'the entire physical prefix precedes the continuation');
     if(!result.success&&!result.failure)result.failure='episode deadline';
     const score=result.success ? 100000-1000*result.seconds : -10000+100*quality+100*peakQuality;
     return {configuration,case:c.id,...(changed?{design:changed.design,identity:e.identity}:{}),initialObservationSha256:digest(JSON.stringify(initial)),result,steps,score,peakHeight,quality,peakQuality,timeline,
+      ...(prefix?{prefix:{steps:configuration.prefixSteps,traceSha256:prefix.traceSha256,endpointObservationSha256:prefix.endpointObservationSha256,tapeSha256:digest(readFileSync(configuration.prefixTape)),exact:true}}:{}),
       nonfinite:measured.observation.joints.filter(j=>![j.angle,j.rate,j.speed,j.effort,j.positive,j.negative].every(Number.isFinite)),
       invalidCommands:[...e.body.muscles.activation].map((v,i)=>({name:e.channels[i].name,activation:v,velocity:e.body.muscles.velocity[i]})).filter(c=>!Number.isFinite(c.activation)||Number.isNaN(c.velocity)),
       traceSha256:hash.digest('hex'),
@@ -89,9 +106,20 @@ if(!isMainThread&&workerData?.pathExperiment) parentPort.on('message',async({id,
   catch(error){parentPort.postMessage({id,r:{score:-20000,error:String(error.stack)}});}
 });
 else if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href) {
-  const {values:v}=parseArgs({options:Object.fromEntries(['mode','source','out','config','case','seconds','wall','seed','sigma'].map(k=>[k,{type:'string'}]))});
+  const {values:v}=parseArgs({options:Object.fromEntries(['mode','source','out','config','case','seconds','wall','seed','sigma','prefix-steps'].map(k=>[k,{type:'string'}]))});
   assert.ok(v.out);mkdirSync(dirname(resolve(v.out)),{recursive:true});const revision=frozenRevision(),sources=sourceIdentity();
-  if(v.mode==='extract') {
+  if(v.mode==='prefix') {
+    const source=deserialize(gunzipSync(readFileSync(v.source))),count=Number(v['prefix-steps']);
+    assert.ok(Number.isInteger(count)&&count>0&&count<=source.rows.length);
+    assert.ok(!source.result.assisted&&!source.result.externalActuation.length);
+    const entire=createHash('sha256'),part=createHash('sha256');
+    source.rows.forEach((r,i)=>{const observation=JSON.stringify(r.observation);entire.update(observation);if(i<count)part.update(observation);});
+    assert.equal(entire.digest('hex'),source.traceSha256);
+    const prefix={identity:source.identity,channels:source.identity.channels,initialObservationSha256:digest(JSON.stringify(source.initial)),
+      endpointObservationSha256:digest(JSON.stringify(source.rows[count-1].observation)),traceSha256:part.digest('hex'),actions:source.rows.slice(0,count).map(r=>r.action)};
+    writeFileSync(v.out,gzipSync(JSON.stringify(prefix)));
+    console.log(JSON.stringify({steps:count,sourcePhysicalTraceSha256:source.traceSha256,prefixTraceSha256:prefix.traceSha256,output:v.out}));
+  } else if(v.mode==='extract') {
     const source=deserialize(gunzipSync(readFileSync(v.source))),e=await acceptanceEnvironment(manifest.cases[0].configuration);
     try {
       const rest=e.stand.built.segments.get('lowerTrunk').rest;

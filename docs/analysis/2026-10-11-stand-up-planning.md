@@ -1871,3 +1871,96 @@ Validation: `npm run check`, `npm test` (673 passes, zero failures, five existin
 nine named phase/feedback regressions, matched baseline, exact searched endpoint and full
 successful/failed replay checks pass. Whitespace and line-ending gates pass. The performance
 goal remains unmet; stable knee-to-foot support and faster preceding transitions remain open.
+
+## Saved side fall with measured-response continuation, 2026-10-12
+
+The saved 90-degree Warrior/empty fall now completes in **8.633333 s**, against the unchanged
+optimized baseline's failure through 38 s. This is a second distinct saved-fall completion, but
+the full four-second median / six-second recovery goal remains **not achieved**. The complete
+frozen comparison improves from one to two completions out of sixteen; none is within six
+seconds, failure-inclusive medians remain infinite and every full qualification partition remains
+unfinished. The separate 6.975 s front-fall witness remains the fastest original-body result.
+
+All measurements below use **Node Stance Lab / frozen game Rapier coordinate / 120 Hz /
+original symmetric muscle envelopes / Balance 0 / ordinary stance host**, with the unchanged
+compliant-sole bodies. There are no anatomy, strength, speed-limit, solver, contact-law, host or
+acceptance changes. Every success includes the unchanged quiet supported handover, two seconds
+of ordinary-host standing and one second walking at least 0.1 m.
+
+The controller executes the previously verified sixteen-control side-fall prefix as 384 recorded
+muscle actions, then continues with the measured-response controller trained on the nominal
+7.25 s front-fall demonstration. The prefix reaches hands/shins support at 3.208333 s on the
+recovery clock. `startPhase: 240` starts reference tracking at the demonstration's two-second
+sample; it does not reset the physical world, episode clock or acceptance state. This composes
+the physical transition with observation feedback instead of replaying the remainder of the
+front-fall demonstration.
+
+`research/stand-up-path-experiment.mjs` accepts a `prefixTape`, requires its body identity,
+channels and complete initial observation to match, and verifies the entire prefix observation
+hash and endpoint before feedback starts. A prefix cannot modify the optimized baseline.
+`research/stand-up-prefix-response-policy.mjs` supplies the composed candidate through the
+frozen detached-action interface. It selects the prefix only on the exact initial observation
+hash, verifies every observed prefix step, and otherwise uses the unchanged earlier response
+controller. It receives no engine handles. This exact-start selection is a development witness,
+not a general side-fall recognizer or a robust gameplay controller.
+
+| Side-fall development screen, Node harness above, fourteen-second episode cap | Completions | Recovery times |
+|---|---:|---|
+| Eighteen measured-response and three joint-feedback continuations | 1/21 | 8.866667 s |
+| Twelve timing/feedback variants around that setting | 2/12 | Reproduced 8.866667 s; new 8.633333 s |
+
+The first success uses path gain 16, response gain 0.2, disturbance-growth gain 0.35, rate 1 and
+minimum rate 0.5. The faster setting uses response gain 0.3 and rate/motion-rate 1.1, retaining
+the other selected parameters. Motion-rate scales finite reference speed commands and feedback
+velocity targets together; it does not raise activation or the muscle driver's limits. Thirty
+trials fail at the episode deadline without handover. The repeated successful control has the
+same complete physical trace as its first run. These settings share one starting state and are
+not independent robustness evidence.
+
+The 33 trials use 54,611 physical steps, including every prefix, with no adapter errors,
+nonfinite observations, invalid commands or external-actuation events. Maximum effort-bound
+excess is 0.00004331158 N m, below the unchanged 0.0001 tolerance. All prefixes reproduce the
+same 384-observation trace, SHA-256
+`04f8fb81ab47ac2838c178bd1dcb5bf8c15d00db705cde5a0cfeb36afe965d85`.
+
+Both selected settings run through the complete unchanged frozen `--candidate` comparison.
+The first takes 193.616 s wall time and the faster setting 220.503 s; these runs overlap other
+work and are not isolated compute-cost measurements. Both complete the original front fall in
+7.25 s and the new side fall at their stated times, with fourteen deadline failures. All sixteen
+optimized baseline records and all fifteen fallback candidate records exactly match the previous
+comparison. Starting states match and the floating-controller negative control is rejected.
+Neither comparison changes the criteria, loses a completion or qualifies robustness.
+
+The matched replay is `.review/stand-up-prefix-response/replay.html`: faster candidate 8.633333 s,
+baseline no recovery through 38 s. It labels the saved side fall, recorded prefix and verification
+tail. All 1,395 observations, the final result and a split continuation replay exactly. The
+frozen action-interface run has the same physical SHA-256:
+`f42d7619f3295bc47e77bcec048c0aefd89a847c4e73deab774036cefa7f186a`.
+The first 8.866667 s recording is also retained and exactly verified. The viewer is built but
+not visually inspected because of the existing local-file browser restriction. No server is started.
+
+`research/stand-up-path-results.json` under `prefixResponseContinuation` retains all trial
+configurations and outcomes, both complete frozen comparisons with physical identity hashes,
+the selected/fallback configurations, replay proofs and prefix provenance. Reconstruct the
+preceding side prefix from `supportTargetSearch.prefix` and the 7.25 s reference, record it with
+the rollout tool, then export the first 384 steps:
+
+```powershell
+node research/stand-up-path-experiment.mjs --mode prefix --source <recorded-prefix.trace.gz> --prefix-steps 384 --out <prefix.json.gz>
+```
+
+The exporter checks the source trace hash; exporting from the complete successful recording
+regenerates the tested tape byte for byte. Point the stored configuration at that tape and the
+preceding measured `coast` response model, set `STAND_UP_PREFIX_RESPONSE_CONFIG` to its JSON
+file, and invoke the frozen checkout's `node research/stand-up-acceptance.mjs --candidate
+<absolute-path-to-research/stand-up-prefix-response-policy.mjs> --output <report.json>`.
+The selected configuration also works with the existing path experiment's `--mode record
+--case 1 --seconds 14`. The recorded success verifies with the rollout tool's `--mode verify
+--source <recording.trace.gz> --case 1`.
+
+Validation: `npm run check`, `npm test` (675 passes, zero failures, five existing TODOs), the
+eleven phase/prefix/feedback regressions, exact prefix export, full replay/restoration checks,
+matched baselines and both complete frozen comparisons pass. Prefix tests reject a changed
+intermediate observation even when its endpoint matches, and retain the observation clock.
+Whitespace and line-ending gates pass. Runtime integration and the full timing/robustness goal
+remain unfinished.

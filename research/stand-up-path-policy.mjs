@@ -9,7 +9,7 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 export function pathPolicy({ channels, reference, parameters }) {
   const p = { rate: 1, gain: 0, window: 0, poseWeight: 1, rootWeight: 1, release: reference.release,
     releaseHeight: 0, releaseUp: -1, ...parameters };
-  const state = { phase: 0, started: null, previous: null, released: false };
+  const state = { phase: p.startPhase??0, started: null, previous: null, released: false };
   const correction = channels.map(()=>0), turning=[];
   const frames = reference.frames;
   const upOf = o => {

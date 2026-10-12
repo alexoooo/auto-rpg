@@ -38,7 +38,7 @@ export function responsePolicy({channels,reference,parameters:p={}}) {
     if(inverse.some(row=>row.some(v=>!Number.isFinite(v))))throw new Error('nonfinite measured response inverse');
     return inverse;
   });
-  const state={phase:0,sample:0,correction:[],released:false};
+  const state={phase:path.state.phase,sample:0,correction:[],released:false};
   const policy=o=>{
     const action=path(o);state.phase=path.state.phase;state.released=path.state.released;
     if(action.kind!=='muscles')return action;

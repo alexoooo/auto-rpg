@@ -4,6 +4,8 @@ import { pathPolicy } from '../research/stand-up-path-policy.mjs';
 import { phaseFeatures } from '../research/stand-up-phase-features.mjs';
 import { libraryPolicy } from '../research/stand-up-library-policy.mjs';
 import { responseFeatures, responsePolicy } from '../research/stand-up-response-policy.mjs';
+import { prefixPolicy } from '../research/stand-up-prefix-response-policy.mjs';
+import { createHash } from 'node:crypto';
 
 test('a recovery reference resumes muscle actions after a temporary host interval',()=>{
   const muscles={kind:'muscles',velocity:[1],activation:[.3],handPoses:{left:'open'}};
@@ -121,4 +123,39 @@ test('trajectory retiming scales commanded speed and velocity feedback without r
     parameters:{motionRate:1.5,finiteDamping:.5}});
   assert.deepEqual(policy({time:0,height:.5,segments:[{name:'lowerTrunk',rotation:[0,0,0,1]}],joints:[{angle:0,speed:1}]}),
     {kind:'muscles',velocity:[4.75],activation:[.4],handPoses:{}});
+});
+
+test('a measured continuation starts at its declared reference phase and advances by observed time',()=>{
+  const frames=[0,1,2,3].map(v=>({kind:'muscles',velocity:[v],activation:[.4],handPoses:{},angles:[0],speeds:[0],gravity:[0,1,0],height:.5}));
+  const policy=responsePolicy({channels:[{name:'knee.left flexion'}],
+    reference:{rootUp:[0,1,0],release:4,frames,responses:[{step:0,columns:[[0,0,0,0,0,0]]},{step:2,columns:[[0,0,0,0,0,0]]}]},
+    parameters:{startPhase:2,ridge:1}});
+  const observation={time:100,height:.5,segments:[{name:'lowerTrunk',rotation:[0,0,0,1]}],contacts:[],joints:[{angle:0,speed:0}]};
+  assert.equal(policy.state.phase,2);
+  assert.deepEqual(policy(observation),{kind:'muscles',velocity:[2],activation:[.4],handPoses:{}});
+  assert.equal(policy.state.sample,1);
+  assert.deepEqual(policy({...observation,time:100+1/120}),{kind:'muscles',velocity:[3],activation:[.4],handPoses:{}});
+  assert.ok(Math.abs(policy.state.phase-3)<1e-10);
+  assert.deepEqual(policy({...observation,time:100+1/40}),{kind:'host'});
+});
+
+test('a saved prefix preserves the observation clock and verifies every step before feedback',()=>{
+  const digest=o=>createHash('sha256').update(JSON.stringify(o)).digest('hex');
+  const channels=[{name:'knee.left flexion'}],initial={time:10,angle:0},middle={time:10+1/120,angle:1},end={time:10+2/120,angle:2};
+  const action={kind:'muscles',velocity:[1],activation:[.4],handPoses:{}};
+  const prefix={channels,actions:[action,action],initialObservationSha256:digest(initial),endpointObservationSha256:digest(end),
+    traceSha256:createHash('sha256').update(JSON.stringify(middle)).update(JSON.stringify(end)).digest('hex')};
+  const observed=[],continuation=o=>{observed.push(o);return {kind:'host'};},fallback=()=>action;
+  const policy=prefixPolicy({channels,prefix,continuation,fallback});
+  assert.deepEqual(policy(initial),action);assert.deepEqual(observed,[]);
+  assert.deepEqual(policy(middle),action);assert.deepEqual(observed,[]);
+  assert.deepEqual(policy(end),{kind:'host'});assert.deepEqual(observed,[end]);
+  const later={...end,time:end.time+1/120};policy(later);assert.deepEqual(observed,[end,later]);
+  assert.deepEqual(policy.state,{matched:true,steps:2,stage:'continuation'});
+  const invalid=prefixPolicy({channels,prefix,continuation,fallback});invalid(initial);invalid(middle);
+  assert.throws(()=>invalid({...end,angle:3}));
+  const drifted=prefixPolicy({channels,prefix,continuation,fallback});drifted(initial);drifted({...middle,angle:9});
+  assert.throws(()=>drifted(end),/complete physical prefix/);
+  const other=prefixPolicy({channels,prefix,continuation,fallback});assert.deepEqual(other({...initial,time:11}),action);
+  assert.deepEqual(other.state,{matched:false,steps:0,stage:'fallback'});
 });
