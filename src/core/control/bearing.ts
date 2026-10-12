@@ -221,7 +221,7 @@ export function makeBearing(assist: Assist | null, limbs: readonly Limb[],
 }
 
 /** The Jacobian of `channels` at `point`, world, into `out` (6 by the channels): a segment they carry's spin's rows, then the point's velocity's, a column a freedom. */
-function jacobianTo(channels: readonly number[], point: Vector3, driver: MuscleDriver, out: Float64Array): Float64Array {
+export function jacobianTo(channels: readonly number[], point: Vector3, driver: MuscleDriver, out: Float64Array): Float64Array {
   const dynamics = driver.dynamics, m = channels.length;
   for (let c = 0; c < m; c++) {
     const i = channels[c]!, axis = dynamics.axis(i), pivot = dynamics.pivot(i);

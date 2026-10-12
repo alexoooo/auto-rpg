@@ -109,6 +109,48 @@ table (A2) for each way.
 **Commits:** A1 with A2, A3, A5; A4 only if needed. Each lands with `npm run check` and `npm test`,
 and the touched slow tests run by name.
 
+### Found (Node stand, Rapier, 120 Hz; the bed is circle, shuttle and square, three bodies, paces 0.5 to 2.5, calm and 1:20 gusts, seeds 1 to 6, 60 s, mean speed made; 0.761 and 10 falls at the start)
+
+- **The servo (A1) does not help.** Forward it changes little. To the side (`vf` 2, `vfSide` 2)
+  it lifts the Warrior's and the Rogue's square (0.65 to 0.67, 0.58 to 0.63) and throws the
+  skeleton's (0.51 to 0.39, 19 falls); capping it (`vfMost` 0.25, 0.12) keeps the falls. It stays
+  at 0, a setting the search may use.
+- **The stance ankle's share as a way setting, and its inversion against the side error
+  (`cvAnkleSide`)** move the square by under 0.01.
+- **The landing's trim** (`trim`, `trimSide`) is the regulator A2's table asked for: forward at 0.1
+  it brings a slow walk asked forward from about 1.4 to 1.0 of asked, the owner's overshoot. To
+  the side it oscillates. It learns only over a stride with the walk asked steady (`TRIM_STEADY`),
+  or a trim learnt on one leg of the square throws the next. On the bed it is a wash (a score
+  capped at the pace asked: 0.738 against 0.736), so it stays at 0, ready for the Lab.
+- **A search of the side way scored on the square** (A3, CMA, 24 generations) reaches 0.615 against
+  0.580 under the old envelope and holds on seeds 7 to 12 (0.612 against 0.574); measured again,
+  its envelope certifies side walks the skeleton cannot hold on the square, so it is not kept.
+- **The set-off shift waited out its 1.5 s every time.** The stance holds its centre of mass
+  inside its soles' outline drawn in (`SUPPORT_INSET`), 7 cm short of the stance sole's middle,
+  and the shift asked 3 cm. It now ends once its capture point stops closing (`SHIFT.closing`):
+  the walk sets off 0.75 s sooner, every Warrior turn at 1.2 and 1.4 m/s holds (19 of 120 fell),
+  and the bed under the old envelope reads 0.769 with 8 falls.
+- **The envelope's speeds skipped the run's start.** The run makes about 2 m/s whatever is asked
+  from 1.5, and its stop hands the walk a body at 1.7 m/s, which falls; 1.7 held, so the Warrior's
+  forward read 1.7. The battery now walks 1.5.
+- **The side caps are tracking caps.** Side walks make 0.68 to 0.74 of asked, so a side cap is
+  where that ratio crosses `WENT.along`; a body asked that pace on the square goes near its edge.
+- **An envelope measured in the gusts** (`--gusts 1:20:1,2`, the shift fixed) reads 0.766 with 16
+  falls, all the skeleton's on the square. The gust is in newtons, so it weighs most on the
+  lightest body. Nine of them are on its back walk, which the envelope holds to 1.7 over a 5 s
+  trial: over 20 s in eight gust seeds it falls 5 times in 16 at 1.5 m/s and about once at 1 to
+  1.2. A lower back cap moves the falls to the side walks (at 1: 0.524, 12 falls; at 0.7: 0.460,
+  14). Its walk to the right falls on the first step with the club about once in 8 at every pace
+  from 0.3 to 0.5, calm or gusted, over 8 s or 25 s alike: the leading foot lands past the capture
+  point and the centre of mass carries over it, so no cap removes it.
+- **The run is not a lever as it stands.** It makes about 2.2 m/s at any pace asked from 1.5, and
+  slowing it to 1 or stopping falls in 3 of 8 trials for the Warrior and 5 of 8 for the Rogue. Its
+  push eased by its excess speed changes neither; the walk handed no more than the run's pace
+  falls every time. With the run off (`run` 2.5) the Warrior walks to 1.6 m/s asked (1.46 made)
+  without a fall, the skeleton to 1.4 and the Rogue to 1.2; its envelope reads 0.776 with 13
+  falls, the circle and the shuttle unchanged: the circle is held by the turns, the shuttle by
+  something else.
+
 ## B. Motion capture as the gait's reference
 
 The idea is to replace SIMBICON's hand-set angles with human joint trajectories by phase, and keep
@@ -137,6 +179,15 @@ It is not kinematic playback: the physics drives the body throughout.
 - Note any other dataset whose licence allows use in the game. A licence is read, never assumed.
 - **Outcome:** for each way, a clip or "none". With no side clips, the side way keeps SIMBICON's
   angles and B serves forward and back only.
+- **Found (cgspeed's motions list, to be checked against CMU's index):** every way has clips.
+  - Several subjects walk forward, back and sideways and run in one session, so one person's
+    proportions serve every way: 111 (01 backwards, 26 sideways, 23–24 run), 113 (01 backwards,
+    17–18 sideways, 07 run), 141 (31 backwards, 32–33 sideways, 01–03 and 34 run), 143 (39
+    backwards, 40 sideways, 01–04 and 42 run).
+  - Speeds: 132 walks slow (45–50) and fast (17–22) and backwards (13); 136 walks backwards
+    normally (25–26).
+  - Sidesteps one at a time: subject 83; run side steps: 127_13–14.
+  - Turns while walking or running: 16, 69, 104, 127.
 - Raw downloads go in a scratch directory outside the repo, treated as untrusted data. Only the
   derived tables are committed.
 
@@ -218,6 +269,17 @@ it, which reads as sliding or being pushed.
 - Run the battery's envelope at higher asked speeds to see how much faster it can go.
 - Also read speed with strength (`{"speed":1.25,"strength":1.1}`). From rest a limb accelerates on
   its isometric torque, which speed alone does not raise.
+- Read each on the legs alone and on the whole body. The extras (strength, the upper body) join
+  Haste only where this shows they help the walk or the run (the owner's rule).
+- **Found (the walks of the envelope, calm and in 20 N gusts on two seeds; Node core stand, Rapier,
+  120 Hz; every muscle at x1.25 speed):** with the gait as it is the body is no faster and no
+  steadier: the Warrior's side walk rises to 1.2 m/s, the skeleton's falls to 0.2 and its back to
+  1, and the Warrior's and the skeleton's every-way walks fall to 0. With the gait's times
+  shortened by the square root of the speed or by the speed itself (C2's rule, its speeds and rates
+  raised alike), forward rises (Warrior 1.5 and 1.7, Rogue 1.5 and 0, skeleton 1.4 and 1.5) and
+  the side and back walks fall apart (the Warrior's back 0.7 and 0.3). A faster muscle gives the
+  walk nothing at a walking pace, where it is far from its unloaded speed; it pays only where the
+  gait asks speed of it, and this gait's cadence does not rise with the pace.
 
 ### C2. The gait uses the headroom
 
@@ -231,16 +293,18 @@ it, which reads as sliding or being pushed.
 
 ### C3. The attribute
 
-- **The stat:** `AttributeSpec` gains `haste`, a per cent, the owner's (an `owner-haste` source), as
-  `balance` is. It enters the figure as a speed factor of 1 + haste/100 (`physiqueFigure`).
-- **The scope**, the owner's choice:
-  - (a) every muscle: a classic haste, with faster blows, guards and rises too;
-  - (b) the legs' muscles only, needing a per-region factor: movement speed alone.
+- **The stat:** `AttributeSpec` gains `haste`, the owner's (an `owner-haste` source), as `balance`
+  is: a per cent of the human baseline, 100 % by default. The baseline is the measured curves
+  `jointSpeed` reads (Anderson 2007 for the hip, knee and ankle). It multiplies the legs' unloaded
+  speeds of shortening, and their strength too if C1 shows that helps.
+- **The scope, the owner's:** the legs' muscles only (the hip's, knee's and ankle's exertions in
+  `jointSpeed`), unless C1 shows the trunk or arms help the walk. An upper-body attribute may come
+  later, outside this plan.
 - **The envelope:** measured per model at a few haste levels, with the envelope at a haste
   interpolated between them; or a rule scaling it by the C2 exponent, checked against the measured
   levels.
-- **Pages:** the Lab and the Arena take `&haste=` beside `&balance=`. Every character's haste is 0
-  until the owner sets one.
+- **Pages:** the Lab and the Arena take `&haste=` beside `&balance=`. Every character's haste is
+  100 % until the owner sets one.
 - **Reporting:** a figure measured on a hasted body names each side's haste, as it names balance.
 
 ## Order of work
@@ -248,7 +312,7 @@ it, which reads as sliding or being pushed.
 1. A2, then A1: the table, then the servo. In parallel, C1 (measurement only) and B1 (a survey,
    no code).
 2. A3, then A5.
-3. C2, then C3 once the owner has chosen the scope.
+3. C2, then C3.
 4. B2 to B5, if B1 finds the data.
 
 The background searches of the 2026-10-11 plan are stopped or finished before A1 changes
@@ -257,10 +321,10 @@ voids its scores.
 
 ## The owner's choices
 
-- Haste's scope: every muscle, or the legs only (C3).
 - Haste's range, and each character's value.
-- Whether Haste also raises strength, if C1 shows speed alone does little from rest.
-- Whether the mocap gait becomes the default walk (B5, after the eye gate).
+- The default walk is whichever controller measures best, mocap or not (B5), after the eye gate.
+- **Decided:** Haste is the legs' alone, a per cent of the human baseline; it takes strength or the
+  upper body only where they help locomotion.
 - Which datasets beyond CMU, if any (B1).
 
 ## Eye gates
