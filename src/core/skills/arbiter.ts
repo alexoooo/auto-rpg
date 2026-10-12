@@ -6,7 +6,7 @@ import type { Tactics } from "../mind/tactics.ts";
 import type { HandPose, Side } from "../spec/body.ts";
 import { guardPosture, type GuardSkill } from "./guard.ts";
 import type { KickSkill } from "./kick.ts";
-import { STANCE_LOWER, type Locomotion } from "./locomotion.ts";
+import { STANCE_LOWER, type LegsDrive, type Locomotion } from "./locomotion.ts";
 import type { Around, BlowSkill, LegsAsk, Skill } from "./skill.ts";
 import type { SkillReport, Skills } from "./skills.ts";
 import { closesToStrike } from "./strikes.ts";
@@ -45,7 +45,9 @@ const NO_HANDS: Readonly<Record<Side, EffectorGoal | null>> = Object.freeze({ le
  *    given the body whole, and the steps after this one stand aside;
  * 4. the guard covers with each hand the blow does not hold;
  * 5. the legs carry out the blow's `LegsAsk`, or the tactics' walk while it asks none; a kick, or
- *    the support lowering, rising or low, holds the walk;
+ *    the support lowering, rising or low, holds the walk; a walk that drives the legs itself
+ *    (`Locomotion.drive`) leaves the stance no goal, its pushes laid after the blow's and its
+ *    posture over the rest;
  * 6. a walk that swings the arms (`Locomotion.arms`) swings each arm no blow, cover or kick holds,
  *    while no blow drives the posture and the support stands; the support skill lays its stance and
  *    trunk over the command;
@@ -104,24 +106,37 @@ export function skillSet(body: Body, { state: tactics, engagement }: Pick<Tactic
       const lower = support ? STANCE_LOWER : intent.lower;
       const supporting = support !== null && support.report.stage !== "stand" && support.report.stage !== "wait";
       const ask = kicking || supporting ? null : claim?.legs ?? FREE;
-      let goal: StanceGoal | null;
-      if (!ask) goal = legs.goal(view, null, intent.face, dt, lower);
+      let moving: { readonly walk: readonly [number, number] | null; readonly face: number } | null = null, goal: StanceGoal | null = null;
+      if (!ask) moving = { walk: null, face: intent.face };
       else switch (ask.kind) {
-        case "free": goal = legs.goal(view, intent.move, intent.face, dt, lower); break;
-        case "hold": goal = legs.goal(view, null, intent.face, dt, lower); break;
-        case "walk": goal = legs.goal(view, ask.walk, ask.face, dt, lower); break;
+        case "free": moving = { walk: intent.move, face: intent.face }; break;
+        case "hold": moving = { walk: null, face: intent.face }; break;
+        case "walk": moving = { walk: ask.walk, face: ask.face }; break;
         case "place": goal = legs.place(view, ask.footing, lower); break;
         default: { const never: never = ask; throw new Error(`unknown legs ask ${JSON.stringify(never)}`); }
       }
+      // A walk that drives the legs (`Locomotion.drive`) is asked in place of its goal.
+      let driven: Extract<LegsDrive, { kind: "drive" }> | null = null;
+      if (moving && !legs.drive) goal = legs.goal(view, moving.walk, moving.face, dt, lower);
+      else if (moving) {
+        const drive = legs.drive!(view, moving.walk, moving.face, dt, lower);
+        switch (drive.kind) {
+          case "stance": goal = drive.goal; break;
+          case "drive": driven = drive; break;
+          default: { const never: never = drive; throw new Error(`unknown legs drive ${JSON.stringify(never)}`); }
+        }
+      }
       // A blow under way turns the heading to follow its target.
       const stance = goal && claim?.steer ? { ...goal, heading: goal.heading + claim.steer } : goal;
+      const pushed = driven ? [...claim?.pushes ?? none, ...driven.pushes] : claim?.pushes ?? none;
       const hands = claim?.hands ?? NO_HANDS;
       const swung = legs.arms && !claim?.posture && !kicking && !supporting ? legs.arms(view) : null;
-      const posture = claim?.posture ?? (swung ? swingArms(guarding, swung, {
+      const armed = claim?.posture ?? (swung ? swingArms(guarding, swung, {
         left: !hands.left && !covers.left && blow.holds !== "left", right: !hands.right && !covers.right && blow.holds !== "right" }) : guarding);
+      const posture = driven ? { ...armed, ...driven.posture } : armed;
       const laid = support?.apply(stance, posture) ?? null;
       let command: BodyCommand = {
-        posture: laid ? laid.posture : posture, pushes: claim?.pushes ?? none,
+        posture: laid ? laid.posture : posture, pushes: pushed,
         effectors: { "hand.left": hands.left ?? covers.left, "hand.right": hands.right ?? covers.right }, stance: laid ? laid.stance : stance,
         ...(closing ? { handPoses: poses(closes, claim?.closed ?? null) } : {}),
       };

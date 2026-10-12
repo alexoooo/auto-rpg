@@ -313,8 +313,9 @@ and driven afresh to change what it costs.
   and the trailing foot is carried with the body until the swinging one lands.
   `stanceEnvelope` (`stance-envelope.ts`) reads what each body was measured to
   hold on parent-axis Rapier under its character's balance allowance
-  (`assets/core/stance-envelope.json`), and `strideEnvelope` the same, walking by the stride
-  (`assets/core/stride-envelope.json`). Unassisted coordinate-engine turns have a separate
+  (`assets/core/stance-envelope.json`), and `strideEnvelope` and `simbiconEnvelope` the same,
+  walking by the stride (`assets/core/stride-envelope.json`) and by the SIMBICON walk
+  (`assets/core/simbicon-envelope.json`). Unassisted coordinate-engine turns have a separate
   [combat calibration](reference/combat-locomotion.md); the reference table alone does not
   establish that gameplay capability.
 - **The assist** (`assist.ts`) is a force and a moment on the root that no muscle gives: an ask
@@ -336,7 +337,8 @@ claim the body whole (`Claim.whole`): it drives every freedom by its pushes, the
 and the posture stand aside, and it holds the legs, the trunk and both hands. The arbiter moves the
 support skill first, by the stance the blow under way keeps; takes the blow's claim; has the
 guard cover with each hand the blow does not hold; carries out the legs' ask, a kick or the
-support lowering, low or rising holding the walk; lays the support's stance and trunk over the
+support lowering, low or rising holding the walk, and a walk that drives the legs itself
+(`Locomotion.drive`) giving the stance no goal, its pushes laid after the blow's; lays the support's stance and trunk over the
 command; and lays a kick's stance and foot goals over it last, a kick beginning only while no
 blow is under way and the body stands. A blow skill of one kind is swapped for another without
 touching the rest. A fighter's set is the skills its slots name (`skillPartsOf`,
@@ -396,13 +398,37 @@ tactics over the skills it is given.
   asked. Each step the pelvis yaws some 0.8 rad, the swing's yaw beyond what the bearing sole's
   twist can give at the ground's friction, and the bearing hip turns to its stop; a foot landed
   behind its neutral point, to speed up, falls within seconds.
-- **Travel and fight** (`travel.ts`, "Travel, then fight") walks by one locomotion (the stride,
-  its arms swinging) while it is asked to walk and no standing foe is within `near` (5 m in
-  `TRAVEL`), and by another (the stance's walk, in the guard) once one is, until the foe is half a
-  metre farther, and whenever it is asked to stand. It changes only between steps, resumes the
-  walk it changes to from the body as it is, and gives tactics the envelope of the walk it walks
-  by. Every humanoid's mind gets about by it (`GAME_FIGHTER`); an Arena bout opens at 4 m, so it
-  fights from its first step.
+- **SIMBICON** (`simbicon.ts`, "SIMBICON walk", experimental) is a locomotion skill that drives the
+  legs itself (`Locomotion.drive`, `LegsDrive`): no stance goal, every leg freedom pushed
+  (`MusclePush.speed`) toward its state's angle at its error over `settle`, at up to a share of its
+  strength, the paper's PD with its damping held by the solver (Yin, Loken and van de Panne 2007).
+  Each stance has two states, the second ending as the swinging sole meets the ground
+  (`StanceReading.touching`) or at `longest`. The swinging thigh's lean is set in the world; late in
+  the swing, and out to its side throughout, it reaches toward where the inverted pendulum would
+  bring the centre of mass to rest over the sole (Coros, Beaudoin and van de Panne 2010), short of
+  it by the walk asked times `lead`. These replace the paper's late-swing feedback on distance,
+  which lifted the thigh to 1.57 rad when the foot did not land. The stance ankle gives, raised as
+  the body is slower than asked. The stance hip is driven at the speeds that turn the pelvis upright
+  and to the heading in the world. The walk sets off from the stance's stand with the weight shifted
+  onto the first stance foot (the trailing one when the walk asked goes to a side), and stops by
+  bringing the walk asked to rest and giving the legs back to the stance as a foot lands with the
+  body slow. Asked faster than `run` (1.4 m/s) it walks at 1.4, the whole walk asked scaled down.
+  Once the body has come up to it, the same machine runs in `SIMBICON_RUN`'s states: each sole lands
+  by Raibert's hopping rule, and the stance leg folds as its first state ends. The run is grounded:
+  it never leaves the ground. It goes straight ahead, turning only by its heading, and walks again
+  from a landing once the walk asked has come down 0.2 under 1.4 and the body has slowed to 1.4. Its
+  envelope is its own (`simbiconEnvelope`). A kick and low support step from the stance, so a
+  fighter offers neither beside it (`drivesLegs`, `fighter.ts`). A push whose level or speed is not
+  a number is refused (`obey`, `body.ts`): Rapier disables the island of a body given one, which
+  then hangs in the air.
+- **Travel and fight** (`travel.ts`, "Travel, then fight") walks by one locomotion (the stride, its
+  arms swinging) while it is asked to walk and no standing foe is within `near` (5 m in `TRAVEL`),
+  and by another (the stance's walk, in the guard) once one is, until the foe is half a metre
+  farther, and whenever it is asked to stand. It changes only between steps, a walk that drives the
+  legs asked to stand first and changed from once it has given them back; resumes the walk it
+  changes to from the body as it is, and gives tactics the envelope of the walk it walks by. Every
+  humanoid's mind gets about by it (`GAME_FIGHTER`); an Arena bout opens at 4 m, so it fights from
+  its first step.
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
   searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
   and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its

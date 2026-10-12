@@ -9,7 +9,7 @@ import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
 import { BEHAVIOURS, CLASSIC, PUNCHER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type DirectMindConfig, type MindConfig } from "./config.ts";
 import { createDirectBody, directFaults } from "./direct.ts";
-import { createFighter, fighterFaults } from "./fighter.ts";
+import { createFighter, drivesLegs, fighterFaults } from "./fighter.ts";
 import type { Minded, MindWiring } from "./minds.ts";
 import { slotList, slotOne, type Part, type Slot } from "./parts.ts";
 
@@ -48,6 +48,9 @@ const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
 /** A fighter's slots under behaviours, which carry its blow and its kick themselves (`StrikeConfig`, `KickConfig`). */
 const BEHAVING_SLOTS: readonly Slot[] = Object.freeze(FIGHTER_SLOTS.filter((slot) => !["blow", "kick", "support"].includes(slot.key)));
 
+/** A fighter's slots beside a walk that drives its legs (`drivesLegs`), which leaves no stance for a kick or low support. */
+const DRIVING_SLOTS: readonly Slot[] = Object.freeze(FIGHTER_SLOTS.filter((slot) => !["kick", "support"].includes(slot.key)));
+
 /**
  * **Every controller, by its mind's kind**: the one place a kind is made, matched to a body and
  * offered by name. A kind without an entry does not compile.
@@ -55,7 +58,7 @@ const BEHAVING_SLOTS: readonly Slot[] = Object.freeze(FIGHTER_SLOTS.filter((slot
 export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extract<MindConfig, { kind: K }>> } = Object.freeze({
   fighter: {
     role: "mind", label: "Fighter", stage: "game", fields: [], slots: FIGHTER_SLOTS, defaults: RECIPE_FIGHTER,
-    slotsFor: (config) => config.tactics?.kind === "behaviours" ? BEHAVING_SLOTS : FIGHTER_SLOTS,
+    slotsFor: (config) => config.tactics?.kind === "behaviours" ? BEHAVING_SLOTS : config.locomotion && drivesLegs(config.locomotion) ? DRIVING_SLOTS : FIGHTER_SLOTS,
     fits: commandable,
     faults: fighterFaults,
     presets: deepFreeze({

@@ -50,16 +50,21 @@ control, skills, minds -- and a mind may use as much or as little of the stack a
 
 ## Next phase
 
-[Robust skills](plans/2026-10-08-skills-platform.md) has five chunks:
+The robust-skills plan is closed. What it built: the competency suite on the shared task runner,
+run across a grid of bodies, physiques, loadouts and two physics rates, on which today's skills
+are read ([competencies](reference/competencies.md): of the owner's thresholds, only the stand's
+is met everywhere, and the staged rise does not rise at 480 Hz); physiques (`Physique`,
+`src/core/human/physique.ts`: size, weight, strength and speed); the whole-body spike
+([whole-body spike](reference/whole-body-spike.md)); and the skill contract (`Skill`, `BlowSkill`,
+`Claim`, `src/core/skills/skill.ts`). What it did not: the explosive punch. Today's body has a
+straight blow over the punch's bar on every cell (`research/punch-ceiling.mjs`), and no controller
+tried lands one (`research/greedy-punch.mjs`, [punch layer](analysis/2026-10-08-punch-layer.md)).
 
-1. **A competency suite on the shared task runner**, run across a grid of bodies, physiques,
-   loadouts and two physics rates. Today's skills are read on it
-   ([competencies](reference/competencies.md)): of the owner's thresholds, only the stand's is
-   met everywhere, and the staged rise does not rise at 480 Hz.
-2. **Physiques**: size, weight, strength and speed.
-3. **A spike** that settles one whole-body layer under a stance and a punch.
-4. **A skill contract** that tactics choose by.
-5. **An explosive punch** thrown at full reach.
+The SIMBICON walk and run plan is closed. It built a locomotion class that vaults over its
+stance leg and balances by where it puts the swing foot, beside the capture-point walks (the
+walking item below). Forward it walks to 1.4 m/s and runs, on the ground, to 2.5. Every other
+way it is no faster than the stride. It is an experimental part, and `TRAVEL` still names the
+stride.
 
 Beside it, a mind is a tree of parts (tactics, a skill per kind of action, sub-minds) that a
 player sees and changes in the Arena, the Lab and the Crypt; a mind can hold several blows and
@@ -317,10 +322,44 @@ After it, each with its own plan, in the order each needs the one before:
     more than the bearing sole's twist gives at the ground's friction (0.5), and the bearing hip
     turns to its stop. A foot landed behind its neutral point, to speed up, falls within about
     2 s. A run at 2 m/s needs the swing's yaw cancelled, or more twist at the sole.
+  - **The SIMBICON walk** (experimental, `simbicon.ts`) drives the legs itself, with no stance
+    goal. On the Lab's lines (`research/locomotion-run.mjs`, Node, Rapier, 120 Hz, 20 s, 3 seeds,
+    calm and 20 N gusts alike) the Warrior holds 2.5 m/s asked forward (2.06 along the line,
+    setting off and the change to the run included), 0.7 to either side (0.62), 1.4 round the
+    circle (1.17), 0.7 round the square, and 0.5 back (0.26). The Rogue holds 1 m/s forward
+    (1.16: it walks faster than asked) and 0.5 to the sides, falls from 1.4 forward crouched with
+    the ankle at its dorsiflexion stop, and falls walking back at 0.5. Every way, its envelope
+    (`assets/core/simbicon-envelope.json`) is 0.5 m/s for the Warrior, 0.4 for the Rogue and 0 for
+    the skeleton, which falls once in 10 at 0.2. So tactics, which plan by the walk held every way,
+    would travel by it slower than by the stride (0.7, 0.5, 0.5), though it goes forward twice as
+    fast. The envelope battery counts falls, not where the body went: before the walk set off on
+    the leading foot it walked the wrong way at 0.5 m/s to the right, and the battery called it
+    held.
+    - **Its run** is the same machine past 1.4 m/s, in states a cross-entropy search found on the
+      Warrior, its Raibert gain then raised by hand. It never leaves the ground. Every
+      structure that pushed off into a flight fell within a second, and two legs pushing flat out
+      from a crouch lift the centre of mass at only 0.88 m/s, the crouch held to 5 cm by the
+      ankle's 0.35 rad dorsiflexion stop. On the stand it holds 40 s at 1.6 to 2.5 m/s asked, at
+      about 2 to 2.5 (faster than asked under 2: its pace barely follows the ask), and falls
+      within 8 s at 3. It runs straight ahead: a sideways ask felled it within 15 s. Stopping
+      from a run stands 14 times in 15. The fall comes as the run brakes from 1.4 to 0.9 m/s in
+      half a second, just before the walk takes over.
+    - **Departures from the paper:** the late swing lands by the inverted pendulum (Coros 2010)
+      in place of the paper's feedback on distance; there is no gravity term through the stance
+      leg; gains are a settling time and shares of strength, not N m/rad.
+    - **Open:** in about a fifth of steps the pelvis and lumbar alternate from step to step
+      (about 2 mrad), traced to the stance hip's spin term; without it the chatter goes and the
+      1 m/s walk falls.
+    - **Not done:** a search over the walk's settings (the plan's session 04, the owner's to
+      ask for).
+    - **Next:** [the walk every way and on every body](plans/2026-10-11-simbicon-every-way.md): a
+      rule that reads where a walk went, a gait for each direction, and the gait scaled to each
+      body's legs.
   - **Travel, then fight** (`travel.ts`) walks by the stride, its arms swinging, until a standing
     foe is within 5 m, and in the stance's guard after. Every humanoid's mind gets about by it
     (`GAME_FIGHTER`); an Arena bout opens at 4 m, so it fights by the stance's walk from its
-    first step. It never runs: the run holds no faster than the stride at any pace.
+    first step. It never runs: the run holds no faster than the stride at any pace. It also travels
+    by a walk that drives the legs, such as the SIMBICON walk, asking it to stand before it changes.
   - **The stride does not help a fight**, so a fight is in the stance's walk. In the
     empty-hand league (Node, Rapier, 120 Hz, 66 bouts a striding entrant, at the stride's
     earlier settings: a 0.3 s swing after 0.08 s on both feet), each preset on the stride rates
@@ -336,10 +375,13 @@ After it, each with its own plan, in the order each needs the one before:
     soon as its foe is in the band, mid-step. Waiting for both feet as the drive begins
     (`landed`) brings that to 1.45; waiting 0.1 s on both feet (`settle`) cures the falls but
     loses every bout to today's Puncher, and no `EDGE` helps.
-  - **The owner's to watch and choose:** the stride in the Lab (`?play=lab`, the fighter's Walk
-    set to Walk and run in the mind editor), its arms swinging; the run (Walk set to Run); and
-    travelling, then fighting, in the Arena (`&gap=8`) and the Crypt; and whether the bodies
-    take the ankle's tendon.
+  - **The owner's to watch and choose:** the SIMBICON walk and its run in the Lab (`?play=lab`,
+    Walk set to SIMBICON walk), the change between them, and travelling by it in the Arena;
+    whether `TRAVEL` names it; whether to search its settings; and, for a flight, what to change
+    in the body (strength, the ankle's range, the sole). Also the stride in the Lab (the fighter's
+    Walk set to Walk and run in the mind editor), its arms swinging; the run (Walk set to Run);
+    travelling, then fighting, in the Arena (`&gap=8`) and the Crypt; and whether the bodies take
+    the ankle's tendon.
 - **A half turn at the next rate past the envelope's still now and then runs away sideways and
   falls**, one to three of 56 in four cells: after the turn the walk's plan outruns the pace asked
   ([human and strikes](reference/human-and-strikes.md#turning)).

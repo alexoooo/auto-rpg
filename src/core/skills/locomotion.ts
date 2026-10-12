@@ -3,7 +3,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
 import { turnAt, type StanceEnvelope } from "../control/stance-envelope.ts";
 import type { StanceGoal, SwingGoal } from "../control/stance.ts";
-import type { Pose } from "../control/motor.ts";
+import type { MusclePush, Pose } from "../control/motor.ts";
 import type { Side } from "../spec/body.ts";
 import { STANCE_GAIT } from "../control/stance-tuning.ts";
 import { atan2, sin, cos, hypot } from "../math/real.ts";
@@ -144,7 +144,22 @@ export interface Locomotion extends Skill {
    * absent or null, a walk that leaves them in the guard.
    */
   arms?(view: BodyView): Pose | null;
+  /**
+   * In place of `goal`, for a walk that may drive the legs itself: for `walk` and `face` this
+   * control step, a stance goal as `goal` gives one, or the legs' own drive (`LegsDrive`). Absent,
+   * a walk is the stance's, and the skill set asks `goal`.
+   */
+  drive?(view: BodyView, walk: readonly [forward: number, right: number] | null, face: number, dt: number, lower?: number): LegsDrive;
 }
+
+/**
+ * **What a walk that drives the legs asks** (`Locomotion.drive`): the stance's goal, or the legs
+ * driven with no stance: some freedoms by their muscles alone, as pushes (`MusclePush`), and
+ * the rest by the servo, toward the angles of `posture`, laid over the command's.
+ */
+export type LegsDrive =
+  | { readonly kind: "stance"; readonly goal: StanceGoal | null }
+  | { readonly kind: "drive"; readonly posture: Pose; readonly pushes: readonly MusclePush[] };
 
 /** **What the locomotion skill remembers.** */
 interface LocomotionState extends LegsMemory {
