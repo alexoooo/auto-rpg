@@ -65,7 +65,8 @@ function show() {
   patches.forEach((m,i)=>{m.setEnabled(i<f.contacts.length);if(i<f.contacts.length)m.position.set(...f.contacts[i]);});
   const elapsed=f.elapsed, handover=record.result.seconds;
   const phase=handover!==null&&elapsed>=handover?(elapsed>=handover+2?'Walking verification':'Standing verification'):'Recovery';
-  status.textContent=`${elapsed.toFixed(3)} s since takeover · ${phase} · Balance 0 · ${record.result.success?'Verified completion':'Failed'}${handover===null?'':` · handover ${handover.toFixed(3)} s`}`;
+  status.textContent=record.component?`${elapsed.toFixed(3)} s · Standing component · Balance 0 · No recovery claim`
+    :`${elapsed.toFixed(3)} s since takeover · ${phase} · Balance 0 · ${record.result.success?'Verified completion':'Failed'}${handover===null?'':` · handover ${handover.toFixed(3)} s`}`;
   slider.value=time; document.querySelector('#clock').textContent=`${elapsed.toFixed(3)} s`;
 }
 play.onclick=()=>{running=!running;play.textContent=running?'Pause':'Play';};

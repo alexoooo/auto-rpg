@@ -1104,10 +1104,9 @@ empty at 90 degrees, 9.508333 s. Their failing steps are rejected. This identifi
 commands, not a proven root cause or a reason to waive muscle-bound checks. Releasing an
 unsuccessful recovery into the ordinary host is not a fallback recovery strategy.
 
-The next implementation work is contact and weight-transfer feedback that can establish a
-feasible support sequence across orientations. The tested replay correction and four-posture
-search are not sufficient. Runtime integration and every full qualification partition remain
-unfinished. No gameplay preset changes in this screen.
+The tested replay correction and four-posture search are not sufficient. The contact-feedback
+experiments below address support and weight transfer. Runtime integration and every full
+qualification partition remain unfinished. No gameplay preset changes in this screen.
 
 The local failed short-route replay is `.review/stand-up-full/short-sequence-failure.html`, with
 the frozen optimized baseline for comparison. Its failed physical recording is
@@ -1132,3 +1131,70 @@ the exact tested configurations, including the failed search seed and optimizer 
 Validation: `npm run check` passes; `npm test` reports 661 passes, no failures and five existing
 TODOs. The complete frozen comparison and exact selected-failure reconstruction pass their
 software/reproducibility checks. The recovery performance tests fail as recorded above.
+
+## Detached contact-feedback components, 2026-10-12
+
+The full recovery goal remains **not achieved**. A new controller demonstrates a standing
+weight transfer and foot lift, but all thirteen tested saved-fall transitions fail. This is
+component progress, with no improvement in qualifying recovery time or recovery coverage.
+
+These measurements use **Node Stance Lab / frozen game Rapier coordinate / 120 Hz / symmetric
+original muscle envelopes / Balance 0**, Warrior with empty hands and the existing compliant
+soles. There are no body, muscle, solver, contact-law or host changes. The frozen evaluator and
+saved falls remain unchanged. No full qualification partition is run for these failed policies.
+
+`research/stand-up-contact-model.mjs` extracts static anatomy and muscle data into a serializable
+descriptor. `research/stand-up-detached-dynamics.mjs` reconstructs read-only prediction bodies
+from that descriptor and detached observations; they have no engine handles or actuation methods.
+`research/stand-up-tracking-policy.mjs` uses the core's coupled acceleration and bounded tracking
+solver, then emits ordinary muscle activation/velocity commands. Its support constraints exist
+only in the prediction. The physical game receives no artificial pins or ground forces.
+
+`tests/stand-up-detached.test.mjs` compares the entire generalized acceleration vector and every
+segment's point acceleration with the actual body's coupled model, at standing and moving fallen
+observations. They match exactly, and prediction leaves the complete observation unchanged.
+This verifies the detached model's wiring, not agreement between predicted and realized contact
+motion. The frozen observation omits collider IDs on patch points; optional rolling prediction
+estimates them using the nearest measured impulse pair, defaulting to collider zero when none
+exists. This approximation and unmodelled self contacts remain limitations.
+
+| Component experiment, Node harness above | Outcome |
+|---|---|
+| Static contact-wrench torques, nine standing starts | Eight fall within two seconds; the ninth sinks/tilts. Replaced by coupled acceleration tracking. |
+| Coupled tracking, four standing/shift/crouch starts | All remain up through five seconds; the requested 8 cm crouch reaches about 5 cm. |
+| Coupled tracking, four lateral shifts followed by a left-foot lift | One remains up through six seconds; three fall. |
+| High-kneel transition after the saved trajectory's seven-second prefix, nine trials | All fail by the eleven- or thirteen-second total episode cap, including joint-stop and rolling-contact variants. |
+| Foot placement from hands and knees after the four-second prefix, four trials | All fail by the eight-second total cap, including release of the same-side hand. |
+
+The standing lift's selected parameters are `response: 0.3`, `shiftX: 0.23`, and
+`liftFoot: "foot.left"`. At every recorded step from four through six seconds, the root-up cosine
+is at least 0.999592, the left foot's centre is at least 0.040750 m above its initial height,
+the left foot has zero floor impulse, and the right foot remains loaded. Maximum effort-bound
+excess is 0.0000116081 N m, below the unchanged 0.0001 tolerance; assistance and external-actuation
+events remain zero. The body starts standing: this is **not** a six-second recovery.
+All 720 physical continuation observations reproduce exactly, SHA-256
+`d8234f9f99271602e41d0d33cf6d4cdcbe96a068d55ff0c42bd4c5ec896e5461`.
+
+`research/stand-up-path-results.json` retains every configuration/result, source identities,
+failure timelines and the selected component's measurements. Local recordings and configuration
+files are in `.review/stand-up-contact-feedback/`. Open `weight-transfer.html` directly for the
+component replay and standing-hold comparison. Its labels explicitly distinguish standing
+components from recovery. Browser visual inspection was not performed: the browser tool rejects
+local-file URLs, and no workaround was attempted. The HTML was built successfully.
+
+To reproduce the component, use the reference-extraction command above, write a configuration
+with `kind: "tracking"`, `standing: true`, that reference path, and the selected `parameters`,
+then run `stand-up-path-experiment.mjs --mode record --config <file> --out <stem> --seconds 6`.
+The same runner uses `prefixSteps` only for component isolation on a saved fall: those steps
+are physically replayed, audited and included in the original recovery clock. They are never
+removed from reported recovery times.
+
+The missing capability remains reliable acquisition and replacement of support while down.
+Standing balance is insufficient: the kneeling samples lose their intended support, and a
+locally accepted acceleration prediction does not establish a feasible physical transition.
+Further work must address that mismatch before another timing or robustness claim.
+
+Validation: `npm run check`, `npm test` (662 passes, zero failures, five existing TODOs),
+`npm run build` (existing MuJoCo externalization and large-chunk warnings), the named detached
+dynamics test, and exact selected-component reconstruction pass. The recovery performance tests
+fail as listed above. No development server was started.

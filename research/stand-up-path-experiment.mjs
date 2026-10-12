@@ -9,6 +9,9 @@ import { parseArgs } from 'node:util';
 import { isMainThread, workerData, parentPort } from 'node:worker_threads';
 import { pathPolicy } from './stand-up-path-policy.mjs';
 import { compactPolicy } from './stand-up-compact-policy.mjs';
+import { contactModel } from './stand-up-contact-model.mjs';
+import { contactPolicy } from './stand-up-contact-policy.mjs';
+import { trackingPolicy } from './stand-up-tracking-policy.mjs';
 import { cmaSearch, workerPool } from './cma.mjs';
 
 const frozen = new URL('../.tools/stand-up-frozen/',import.meta.url);
@@ -17,27 +20,30 @@ const { unassistedAudit, unassistedResult } = await import(new URL('research/sta
 const manifest = JSON.parse(readFileSync(new URL('research/stand-up-acceptance/cases.json',frozen)));
 const digest = x => createHash('sha256').update(x).digest('hex');
 const write = (file,data) => writeFileSync(file,JSON.stringify(data,null,2)+'\n');
-const sourceIdentity=()=>Object.fromEntries(['stand-up-path-policy.mjs','stand-up-compact-policy.mjs','stand-up-path-experiment.mjs']
+const sourceIdentity=()=>Object.fromEntries(['stand-up-path-policy.mjs','stand-up-compact-policy.mjs','stand-up-path-experiment.mjs','stand-up-contact-model.mjs','stand-up-contact-policy.mjs','stand-up-detached-dynamics.mjs','stand-up-tracking-policy.mjs']
   .map(name=>[name,digest(readFileSync(new URL(name,import.meta.url)))]));
 
 /** Execute only candidate muscle actions from the unchanged complete saved fall. */
 async function trial(configuration, { caseIndex=0, seconds=20, capture=false }={}) {
   const c=manifest.cases[caseIndex], e=await acceptanceEnvironment(c.configuration), rows=[], timeline=[];
   const reference=JSON.parse(gunzipSync(readFileSync(configuration.reference)));
+  const model=['contact','tracking'].includes(configuration.kind)?contactModel(e):undefined;
   let audit;
   try {
     const saved=readFileSync(new URL(`research/stand-up-acceptance/${c.file}`,frozen));
     assert.equal(digest(saved),c.sha256);
-    if(configuration.fall)await e.fall({...c.fall,...configuration.fall});
+    if(configuration.standing) { /* The standing component does not constitute a recovered fall. */ }
+    else if(configuration.fall)await e.fall({...c.fall,...configuration.fall});
     else e.restore(gunzipSync(saved));
-    const initial=e.observe(); if(!configuration.fall)assert.equal(digest(JSON.stringify(initial)),c.observationSha256);
-    const factory=configuration.kind==='compact'?compactPolicy:pathPolicy;
-    const policy=factory({channels:e.channels,reference,parameters:configuration.parameters});
+    const initial=e.observe(); if(!configuration.fall&&!configuration.standing)assert.equal(digest(JSON.stringify(initial)),c.observationSha256);
+    const factory=configuration.kind==='tracking'?trackingPolicy:configuration.kind==='contact'?contactPolicy:configuration.kind==='compact'?compactPolicy:pathPolicy;
+    const policy=factory({channels:e.channels,reference,model,parameters:configuration.parameters});
     audit=unassistedAudit(e.stand.built,()=>e.stand.world.steps);
     let steps=0, peakHeight=0, last, quality=0, peakQuality=0;
     const hash=createHash('sha256');
-    while(e.result().elapsed<seconds) {
-      const row=e.step(policy(e.observe()),{automaticHandover:true}); steps++;
+    while(e.result().elapsed<seconds&&steps<seconds*120) {
+      const action=steps<(configuration.prefixSteps??0)?reference.frames[steps]:policy(e.observe());
+      const row=e.step(action,{automaticHandover:!configuration.standing}); steps++;
       hash.update(JSON.stringify(row.observation)); if(capture)rows.push(row);
       peakHeight=Math.max(peakHeight,row.observation.height);
       if(row.result.elapsed>1) {
@@ -48,8 +54,11 @@ async function trial(configuration, { caseIndex=0, seconds=20, capture=false }={
       }
       const marker=Math.floor(row.result.elapsed*2);
       if(marker!==last) {last=marker;timeline.push({seconds:row.result.elapsed,phase:policy.state.phase,
-        height:row.observation.height,rootUp:row.rootUp,soleUp:row.soleUp,
-        loaded:row.observation.contacts.filter(c=>c.fixed!==null&&c.impulse>0).map(c=>c.segment)});}
+        height:row.observation.height,rootUp:row.rootUp,soleUp:row.soleUp,centre:row.observation.centre,
+        feet:row.observation.segments.filter(s=>s.name.startsWith('foot.')).map(s=>({name:s.name,centre:s.centre,
+          impulse:row.observation.contacts.filter(c=>c.segment===s.name&&c.fixed!==null).reduce((sum,c)=>sum+c.impulse,0)})),
+        loaded:row.observation.contacts.filter(c=>c.fixed!==null&&c.impulse>0).map(c=>c.segment),
+        ...(['contact','tracking'].includes(configuration.kind)?{control:structuredClone(policy.state)}:{})});}
       if(row.result.success||row.result.failure||audit.events.length)break;
     }
     const result=unassistedResult(e.result(),audit.events), measured=e.measure();
@@ -59,7 +68,7 @@ async function trial(configuration, { caseIndex=0, seconds=20, capture=false }={
       nonfinite:measured.observation.joints.filter(j=>![j.angle,j.rate,j.speed,j.effort,j.positive,j.negative].every(Number.isFinite)),
       invalidCommands:[...e.body.muscles.activation].map((v,i)=>({name:e.channels[i].name,activation:v,velocity:e.body.muscles.velocity[i]})).filter(c=>!Number.isFinite(c.activation)||Number.isNaN(c.velocity)),
       traceSha256:hash.digest('hex'),
-      ...(capture?{initial,rows,identity:e.identity,checkpointSha256:configuration.fall?null:c.sha256,
+      ...(capture?{initial,rows,identity:e.identity,checkpointSha256:configuration.fall||configuration.standing?null:c.sha256,
         geometry:JSON.parse(JSON.stringify([...e.stand.built.segments.values()].map(s=>({name:s.spec.name,frame:s.frame,
           shapes:s.rigid.shapes,poses:s.poses&&Object.fromEntries(Object.entries(s.poses).map(([name,pose])=>[name,pose.rigid.shapes]))}))))}: {})};
   } finally {audit?.dispose();e.dispose();}
