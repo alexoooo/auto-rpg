@@ -1,11 +1,13 @@
-# Fast, robust rising: a 24-hour research campaign
+# Fast, robust rising: reproduce, adapt and train a published controller
 
 ## Mandate and outcome
 
-Research and implement substantially better recovery through joint design of movement,
-feedback, feet and open hands. Plan for **24 hours of active campaign time**, with an explicit
-extension envelope to 32 hours. This is a sustained research effort, not another short parameter
-sweep. Writing this plan does not start the campaign or launch compute.
+Research and implement substantially better recovery by reproducing **Learning to Get Up**, then
+adapting its learning method to the actual game body and Rapier. Use **HoST** to guide assisted
+exploration and robustness experiments. Feet, open hands and whole-body IK remain supporting
+experiments after the training loop works. Plan for **24 hours of active campaign time**, with
+an explicit extension envelope to 32 hours. Writing this plan does not launch the campaign.
+This is a research allocation, not a promise that full training fits within it.
 
 Priority order: reliability, speed, compatibility with ordinary play, then appearance.
 Human-looking movement is optional. Rolling, sliding, asymmetric pushes and unusual but
@@ -15,8 +17,11 @@ old strategy qualifies if it becomes substantially faster and more robust. The c
 
 The owner permits experiments with sole geometry/materials, open-hand geometry and palm
 compliance, body/leg geometry and muscles. Treat the current body as one design candidate.
-Keep an additional recovery variant and explicit body configurations until comparative results
-justify promotion; do not silently replace shared anatomy, gameplay presets or physics.
+The owner also permits **assisted get-up as a useful gameplay skill**, through existing Balance
+or an explicit recovery attribute. Assistance may remain in the delivered controller; removing
+it is not a prerequisite for success. Keep an additional recovery variant and explicit body/
+assistance configurations until comparative results justify promotion; do not silently replace
+shared anatomy, gameplay presets or physics.
 
 This document replaces the previous campaign plan in place. Reuse its implemented tools and
 retain its unmet objectives. Deliver physical demonstrations, a practical feedback controller
@@ -42,16 +47,19 @@ We tried full-trajectory sampling, branching continuations and reference compres
 recipe tuning. The native tracker's twelve-step lookahead was 0.1 s; that was not the horizon of
 every experiment. Longer horizons alone are not an established cure.
 
-Replace and compare two concrete weaknesses:
+The central hypothesis is that a published learning method and curriculum can discover a
+closed-loop recovery that our hand-designed phases and trajectory scoring have not found.
+Reproduce a known working reference before designing another optimizer. A paper citation or
+pretrained replay is not a reproduction of training, and neither is a working Rapier controller.
 
-- `recoveryScore` rewards failed candidates mainly for height, uprightness and low velocity.
-  A useful roll/unload can initially worsen all three. Its causal effect needs an experiment.
-- `beamEvaluator` forecasts a candidate pose followed by interpolation toward standing, with
-  one second of combined control/lookahead and a narrow retained frontier. That is not a
-  reliable test of whether an intermediate contact state has a successful continuation.
+Preserve the old search tools as controls and targeted diagnostics. Their height/uprightness
+score can penalize useful rolling, and the beam's short interpolation-to-standing continuation
+can misjudge intermediate support states. Those are hypotheses for bounded experiments, not the
+main implementation agenda. Longer horizons alone are not an established cure.
 
-Keep the old score/planner as controls. Compare methods at equal compute, on identical starting
-states and bodies. Do not attribute gains to a new algorithm when only its budget increased.
+The studies demonstrate success on their own bodies and simulators. We reuse training methods,
+not an assumption that their weights or trajectories transfer. Existing code has been inspected
+for availability; no upstream implementation has yet been executed locally.
 
 ## Success levels and clocks
 
@@ -60,22 +68,36 @@ under that label while the full target remains open.
 
 | Level | Required outcome on the 64-case directional selection suite |
 |---|---|
-| Feasibility | One unassisted recovery from the exact two-Front-shove fall within 6 s, followed by verified standing and walking. A slower new route is a development seed only. |
+| Feasibility | One recovery from the exact two-Front-shove fall within 6 s at a declared assistance setting, followed by verified standing and walking. A slower route is a development seed only. |
 | Substantial improvement | At least 58/64 completions within 12 s, at least 14/16 in each group, group median at most 8 s, every cardinal direction passing. |
 | Full target | At least 61/64 completions within 6 s, at least 15/16 in each group, group median at most 4 s, every cardinal direction passing. |
 
+Apply these gates separately to **assisted** and **zero-assist** configurations. A qualified
+assisted result achieves the gameplay objective at its declared setting; zero-assist success is
+an independent result and is not required to land it. Do not pool assistance levels to meet a
+gate. Freeze one primary assistance configuration before final qualification; secondary settings
+are explicitly exploratory unless they receive their own full qualification.
+
 Groups are Warrior/Rogue crossed with empty hands/retained right-hand club. Both landing levels
-also require independent validation and gameplay checks below. Substantial improvement must beat
-the frozen existing comparator by at least 10 additional cases at the same 12-second deadline;
-if that comparator already meets the substantial reliability gate, require at least 30% reduction
+also require independent validation and gameplay checks below. A claim of algorithmic substantial
+improvement must beat the frozen matched-assistance comparator by at least 10 additional cases
+at the same 12-second deadline; if that comparator already meets the substantial reliability gate,
+require at least 30% reduction
 in failure-inclusive median without losing completions instead. Also report 35-second completion
 rates so a faster deadline cannot hide lost eventual recoveries. Compare against the original
 body/controller and against the same controller on the selected body. Beating only the weak
 15.56-second refinement is insufficient.
 
 Screen staged rise and support recovery before candidate selection, freeze the principal
-comparator and report the other. Keep original and current-sole anatomy separate. Do not select
-the weakest baseline after seeing results.
+comparator and report the other. Match anatomy, assistance ceilings, recovery gating and ordinary
+host Balance in controlled comparisons. Also run the old controller with the simple metered
+recovery assist developed below: identify what assistance alone buys before crediting learning.
+Keep original and current-sole anatomy separate. Report the original zero-Balance gameplay
+baseline separately; that comparison measures the combined product change, not algorithm quality.
+Do not select the weakest baseline after seeing results. If the simple assisted old controller
+already meets the absolute reliability/time gates and the stated improvement margin over original
+gameplay, it can land as the assisted product improvement. Report that learning has not added value;
+do not require beating that new assisted control to deliver an already successful solution.
 
 The clock starts at actual recovery takeover; also report first-down time and the Lab's deadline
 from that origin. Landing, preparation, retries and the 0.5-second quiet-standing check count.
@@ -93,51 +115,62 @@ this is a meaningful 12+ hour effort, not closure after the first failed four-ho
 
 | Active hours | Work | Observable deliverable |
 |---|---|---|
-| 0-2 | Audit, manifests, baseline and optimizer controls | Replayable failures, frozen comparison/validation recipes, calibrated budgets |
-| 2-5 | Mechanical pilots and successful recovery suffixes | Valid foot/palm designs and short routes into standing, or isolated failure evidence |
-| 5-10 | Contact-strategy and long-horizon discovery | Diverse physical routes; first complete fall-to-standing demonstration and playback |
-| 10-14 | Body/controller co-optimization and timing | Matched comparisons and a reliability/time/design shortlist |
-| 14-18 | Feedback, curriculum and switching | Runtime candidate handling varied falls without repeating failed actions |
-| 18-20 | Adversarial failure search and repairs | Minimal failure recipes; frozen final candidate |
+| 0-3 | Reproduce upstream playback, audit training and freeze comparisons | Working reference or exact setup blocker; pinned sources, hardware and case manifests |
+| 3-6 | Adapt observations/actions, assistance and learner to Rapier | End-to-end rollout/update/checkpoint loop; measured training throughput and actuator checks |
+| 6-12 | Train recovery with a success-driven curriculum | First complete Rapier recoveries, retained assisted candidate and assistance ablation |
+| 12-16 | Expand fall coverage and test selected contact designs | Repeated gains across starts/seeds; body/assistance shortlist |
+| 16-20 | Export policy, test fallback and search adversarial failures | Playable feedback candidate, action parity checks and frozen final configuration |
 | 20-24 | Held-out qualification and delivery | Results table, gameplay checks, visible review and reproducible artifacts |
 
 Create a durable campaign ledger. Track wall time, worker-seconds, physics steps, evaluations,
-body/engine/source identities, seeds and cancellations. Start with three worker threads, at most
-four, one sequential physics loop per worker, leaving capacity for the owner's session. This plan
-does not require sub-agent delegation.
+body/engine/source identities, training updates, seeds and cancellations. Start with three worker
+threads, at most four, one sequential physics loop per worker, leaving capacity for the owner's
+session. This plan does not require sub-agent delegation.
 
-The nominal campaign has a **160-million counterfactual physics-step cap** and a 24-hour active
-allocation. All methods, restarts, body designs, finite differences, tails and failed evaluations
-share it. Protect 15% of compute for validation. These are proposed caps, not throughput claims.
-A 15-minute pilot measures restore/step/score cost and predicts affordable complete evaluations.
-Reduce branch/population counts when needed; never claim nominally budgeted rollouts actually ran.
+The nominal campaign has a **160-million simulated physics-step cap** and a 24-hour active
+allocation. Count all reference simulations, training environments, evaluation tails and failed
+runs. Record engine steps, internal substeps, policy transitions, simulated seconds and learner
+updates separately; one GPU batch is not one step, and engines need not cost the same per step.
+Protect 15% of compute for validation. These are proposed caps, not throughput claims.
+A 15-minute pilot measures end-to-end collection, transport, update and evaluation throughput,
+including learner/worker idle time. Predict affordable training transitions and compare them with
+the upstream schedule. Reduce experimental breadth before starving the main training run; record
+if the budget cannot support a credible attempt. Training curves, not elapsed time, determine
+whether to continue. Never claim nominally budgeted rollouts actually ran.
 
-Checkpoint at least once a minute, including optimizer state, physical ancestry and budget.
+Checkpoint at least once a minute, including policy, normalizers, optimizer, replay buffer or
+rollout state, curriculum, PRNGs, physical ancestry and budget. Verify resumed learning retains
+that state; exact cross-hardware training determinism is not the runtime replay contract.
 Reserve maximum steps before launching an evaluation and charge interrupted work conservatively.
 Bound deadline overrun to an in-flight evaluation. Resume without resetting counters.
 
-At hours 5, 10, 14 and 20, record a continue/change/close decision using the phase gates. An
+At hours 3, 6, 12, 16 and 20, record a continue/change/close decision using the phase gates. An
 additional **8-hour / 40-million-step extension envelope** requires a written decision naming
 the promising result or narrow blocker it addresses. It is not a fresh budget per failed idea.
 Phases that pass early and branches that fail donate time to other declared work. Preserve the
 validation reserve; with no viable candidate, use it for failure reproduction/reporting rather
 than a misleading qualification run. Budget exhaustion is not achievement.
 
-Use local CPU execution initially. Inventory available GPU/training/simulator tooling in the
-first two hours. Cloud spending and new external services are outside this plan. Any GPU or
-alternate-engine branch needs a bounded setup cost and a measured reason it can improve the
-working path. Do not let infrastructure replacement consume the campaign.
+Inventory local CPU, GPU, Python, compatible Linux/WSL and simulator tooling in the first phase.
+Use an isolated pinned environment for upstream dependencies. Upstream execution in MuJoCo is
+part of reproduction, not a game-engine migration. Rapier data collection may be CPU-bound even
+with a GPU learner; do not borrow Isaac Gym throughput claims. Cloud spending and new external
+services are outside this plan. Bound setup work and record actionable blockers rather than
+letting infrastructure replacement consume the campaign.
 
 ## Physical contract and reusable work
 
-Use gameplay `rapier-coordinate`, 120 Hz, symmetric actuation, balance 0 and the pinned vendored
-Rapier artifact. Keep collision, joint limits, speed-dependent muscle bounds, actual retained
-items and material laws active. Qualified movement uses `World.step` and ordinary muscle commands;
-root motion comes from internal actuation and physical contact reactions.
+Qualify in gameplay `rapier-coordinate`, 120 Hz, symmetric actuation, the pinned vendored Rapier
+artifact and explicitly declared Balance/recovery assistance. Keep collision, joint limits,
+speed-dependent muscle bounds, retained items and material laws active. Qualified movement uses
+`World.step`, ordinary muscle commands and the authorized metered `Assist` path. Root motion may
+come from muscle/contact reactions and that declared external wrench, never pose/velocity writes.
+Zero-assist claims require no external wrench and target-body muscle capacity restored.
 
 The offline planner may inspect full state and restore candidate-start checkpoints. The runtime
 policy reads only permitted body/senses observations and uses ordinary muscle/permitted grip
-commands. It has plain serializable state, immutable tuning and deterministic core arithmetic.
+commands plus explicitly granted assistance requests. It has plain serializable state, immutable
+tuning and deterministic core arithmetic.
 Offline population search stays outside the game loop unless a separate runtime budget is measured.
 
 Restore physics/world/body/controller/orders/actions/material history and clocks together.
@@ -148,7 +181,7 @@ contact manifolds across bodies. Include shared Lab recipe source in configurati
 | Existing component | Role |
 |---|---|
 | `research/stand-up-environment.mjs` | Actual host, action port, reset/replay and physical evaluator |
-| `research/stand-up-search.mjs`, `stand-up-beam.mjs`, `stand-up-native.mjs` | Controls and rollout machinery; replace weak continuation scoring rather than adding phase patches |
+| `research/stand-up-search.mjs`, `stand-up-beam.mjs`, `stand-up-native.mjs` | Frozen search controls and targeted diagnosis; not the main learning algorithm |
 | `research/cma.mjs` | Resumable covariance search, including PRNG and optimizer paths |
 | `research/stand-up-design.mjs`, `stand-up-design-screen.mjs`, `stand-up-sole.mjs` | Extend narrow body screens to real sole/palm designs and matched trials |
 | `src/lab/recovery-recipe.ts`, `research/stand-up-feedback.mjs` | Existing-recipe comparator and seed, not the required action representation |
@@ -161,87 +194,149 @@ Recheck action coordinates: legal min/max are already reference-relative; add bi
 an anatomical posture API requires it. Test signs/coupling through actual joints. Keep the known
 successful action replay and known failed/unfinished recovery as evaluator controls.
 
-## 1. Give the search an achievable ending
+## 1. Reproduce a working reference before adapting it
 
-Build a library of **physically reached** near-standing, crouched and supported states from
-executed baseline recoveries and controlled physical lowering. Save velocities, contacts,
-material history and the prefix that produced each state. Do not install attractive poses and
-call them reachable. Label assistance-dependent fixtures separately.
+Start with [Learning to Get Up](https://github.com/tianxintao/get_up_control): pin the upstream
+revision, dependencies, body assets and pretrained teacher/student checksums. Check licensing
+before incorporating source, assets or weights. Keep the research environment separate from game
+runtime dependencies. Replay the supplied controller on its original MuJoCo model and save
+observations, actions and video across varied fallen starts, including observed failures.
 
-Optimize 0.5-2 s suffixes into quiet standing and the host tail. Then move the starting point
-earlier, retaining successful suffixes as initial guesses while allowing them to change. This
-is a curriculum over starting difficulty, not reverse-time physics or teleported stitching.
-Continue every segment from its predecessor's actual state and reoptimize; pose matching cannot
-join dynamic trajectories. Final qualification always starts at the full fall.
+Audit the implementation rather than reconstructing it from the abstract. Extract the exact
+observation normalization, action semantics, controller frequency, actuator model, rewards,
+termination, fall initialization, SAC configuration and strength curriculum. Trace one episode
+from state through action to applied torque. Execute a short training/resume smoke run; distinguish
+that from successfully retraining the paper's result. Preserve a small unchanged upstream control.
 
-Keep independently generated strategies alongside the old controller's seeds. Measure each
-suffix's capture region by perturbing incoming configuration, velocity and contact load, then
-actually executing it. A matched endpoint is not a universal terminal controller.
+The reproduction gate is successful pretrained playback plus a verified train/update/resume path
+and a concrete mapping to our body. Upstream reward or termination is not our gameplay success
+predicate. Record deviations required by the port, and introduce them separately from algorithm
+changes. Natural-motion slowing/distillation is optional after reliable target-speed recovery.
 
-Before scaling up, recover a perturbed known-solvable suffix and reject unfinished, airborne,
-wrong-support and artificially assisted traces. If the final supported rise remains unsolved
-at hour 5, isolate the first lost contact, blocked joint or saturated actuator. Spend at most
-the next two hours on that reduced problem before changing approach. Deliver an executed
-counterexample, not a generic claim about Rapier or an inability to diagnose it.
+**Hour-3 gate:** usable reference and adaptation spec, or an exact dependency/model blocker.
+Bound compatibility fixes to this phase. If blocked, inspect FRASA's smaller published training
+pipeline as the documented fallback; budget that substitution explicitly and retain its restricted
+symmetric action-space caveat. Do not claim reproduction or default silently to more recipe tuning.
+HoST is a robustness/assistance reference; switching the main learner to its PPO implementation
+requires a specific failure hypothesis, a pinned configuration and a bounded comparison.
 
-## 2. Search contact strategies and coordinated motion
+## 2. Adapt and train on actual Rapier dynamics
 
-Use two levels: loose contact sequences and continuous timed muscle/joint trajectories. Contacts
-are goals, not welded anchors. Timing, release, rolling and sliding are variables. Describe
-actual body patches, orientation and load: touching is not necessarily useful support.
+Connect an external learner to the existing headless environment through persistent batched
+workers. Python may own learning; Node workers own actual `World.step` rollouts. Avoid starting a
+process or sending an RPC for every joint or physics substep. Verify episode reset, terminal versus
+time-limit handling, reward scaling, finite observations, action delays and randomization seeds.
+Measure the complete pipeline before launching long training. Keep one primary learner/config.
 
-Seed several families where geometry allows:
+Build an explicit joint/action map through actual muscles: signs, ranges, bind conventions,
+reference frames and speed-dependent effort limits. A MuJoCo motor action is not automatically an
+Auto-RPG muscle command. Test isolated channels and a coordinated supported rise. Action repeat
+must preserve 120 Hz physics and a declared policy rate. Include any action filtering/history in
+the exported controller. Do not secretly raise gains, strength or damping to make the port work.
 
-- Roll prone, acquire hand/shin support, bring feet underneath and extend.
-- Side roll into one-hand support, fold a leg underneath and rise asymmetrically.
-- Supine rock/sit-up into a squat, helped by an arm or forearm when available.
-- Wide-foot crouch, early hand release and coordinated hip/knee/ankle extension.
-- Unstructured trajectories without a prescribed contact order, allowing unexpected solutions.
+Use only observations available to the runtime body/senses, including permitted configuration,
+velocity, orientation, contact information, loadout and assistance setting. Privileged training
+state may evaluate rewards or a separately identified critic, but cannot leak into the actor.
+Retain full-body asymmetric control for coverage; reduced symmetric actions are an ablation or
+initial curriculum, not evidence for handling one occupied hand and side falls.
 
-A retained club remains physically present. Adapt to the unavailable palm, use other valid
-supports or actual item contacts; never discard the loadout silently.
+Begin with the published reward and curriculum structure, translated for scale and actuator
+semantics with each deviation documented. Audit reward components against actual successful and
+failed traces. Penalize endless hovering, jitter and repeated resets through the task's real
+completion/timeout criteria. Keep training returns separate from held-out recovery metrics.
+Do not reward height as a substitute for terminal foot support and host handover.
 
-Search whole-recovery trajectories of 4-8 s, allowing 12 s feasibility seeds, and local windows
-of 1-3 s with a physically simulated successful continuation where one exists. Compare a small
-horizon sweep at matched budget. Never replace continuation with interpolation toward standing.
-Where no successful suffix is known, retain uncertainty and state diversity rather than treating
-the leaf as nearly solved.
+Run a short fixed-body comparison of strength curriculum versus HoST-inspired root assistance,
+then give the better-supported configuration the main budget. Do not change both at once and
+attribute the result to either. Training strength overrides are immutable, labeled and restored
+before target-body qualification. Retained gameplay assistance is governed below. Reduce difficulty
+when learning stalls, retain successful checkpoints, and advance curricula based on measured
+success across starts rather than elapsed updates alone. Keep an assisted checkpoint before
+attempting reductions; unsuccessful zero-assist refinement cannot erase the playable result.
 
-Start with coarse smooth temporal knots and coordinated limb/trunk variables. Refine knots and
-release symmetry around contact changes. Alternate arm, trunk and leg blocks with whole-body
-updates; preserve coupled optimization when separate blocks stall. Optimize duration/overlap
-without compulsory settling. Compare against the old action representation at equal step budget.
+Physically reached near-standing/supported states from executed recoveries or lowering can seed
+an easier reset curriculum. Save the generating prefix and velocities/contact history. Move toward
+full falls as success grows; never stitch poses or count late-checkpoint success as a full get-up.
+Train on prone, supine, both sides, residual spin, awkward arms, yaw and retained load. Try separate
+posture experts with observable selection if a single policy fails; HoST's repository does not
+establish joint prone/supine training as solved. Count switching time and policy-memory resets.
 
-Maintain an archive indexed by support set, lying orientation, foot availability and momentum
-direction. Start with 16-32 physically distinct retained states if memory permits, rather than
-three branches. Save ancestry and backtrack. Diversity is useful for finding continuations, not
-as an independent objective. Route switches start from the current physical state.
+**Hour-6 gate:** correct rollout/update/resume loop, verified action/assist application and a
+credible throughput budget. If an easy supported or assisted task cannot be learned, diagnose
+that minimal task before spending millions of full-fall steps.
 
-Rank physical validity, successful recovery, robustness margin, then time and optional effort/
-smoothness. Before success, compare contact-aware shaping with the old height score. Permit
-useful temporary loss of height or increase in velocity. Assess leaves with executed suffix
-rollouts; a learned predictor is advisory, independently calibrated and cannot declare success.
+**Hour-12 gate:** repeated complete Rapier recoveries at a declared target assistance level,
+preferably within six seconds, or an isolated adapter, exploration or mechanical failure.
+Expose the best actual attempt and a representative failure in the Lab. A higher reward curve or
+one lucky tape does not pass this gate. Evaluate at least three independent training seeds within
+the allocated budget; report their spread and short/failed runs, not just the selected seed.
 
-**Hour-10 gate:** a full unassisted demonstration, preferably within six seconds, or a precise
-unsolved suffix/transition. Explore at least one strategy outside the old staged recipe. Expose
-the best complete attempt, failures included, in the Lab before the next large allocation.
+### Assistance is both a curriculum tool and a gameplay outcome
 
-### Whole-body IK is a bounded experiment
+HoST uses temporary pulling during training. Retaining a bounded assist in our game is an
+owner-authorized design choice inspired by that mechanism, not a claim about its deployed policy.
+Maintain separate labels for temporary training help, retained gameplay help and zero-assist runs.
 
-Allow at most 90 minutes within motion discovery for an A/B/C comparison: direct joint-space
-seeds, collision-aware whole-body IK contact seeds, and contact goals optimized without IK.
-Give them equal physical-rollout budgets and the same final evaluator.
+Prefer existing `AttributeSpec.balance`, `balanceCeiling` and `Assist` first. They already express
+force in body weights and moment in weight-metres, clip requests, and meter actual delivered
+wrenches (`src/core/control/assist.ts`, `src/core/rules/rulebook.ts`). A separate recovery attribute
+is an allowed experiment if standing Balance and get-up power need independent control. Give it
+explicit units, provenance, UI meaning and a shared ceiling/arbitration rule; never stack two
+unmetered allowances or disguise support as anatomy. Do not change default character attributes
+merely to expose the experiment.
 
-Coordinate pelvis/trunk, legs and available arms; respect measured joint coordinates, whole-limb
-clearance, contact normals and patches. Generate continuous paths, not endpoint fits. Avoid
-static-balance constraints during intended dynamic transfers. Judge IK by executed recovery and
-search efficiency. Drop it if geometric precision does not help. Reuse prior failure fixtures;
-do not repeat the entire old IK study.
+Build a simple bounded root-height/orientation feedback assist as the first control, then compare
+it with a learned wrench or learned modulation of that feedback. Start with requested upward force
+and righting moment; extend directions only for a demonstrated need. Recovery cannot require
+already-supported feet to access its assist. Route requests through the body's authorized port;
+policies never receive engine handles. Audit `Assist.ask` ownership: the last ask wins, so stance
+and recovery must not overwrite or double-count each other. Release recovery requests at handover,
+interruption and death, and verify no stale wrench persists into another step or recovery.
+
+Pilot Balance values 0, 10, 25, 50 and 100 percent on the fixed body, under the existing moment rule.
+These are experimental ceilings, not selected game defaults. Temporary training help may start
+higher when recorded, but qualification uses a frozen gameplay setting. Optimize success/time
+first, then reduce required force, torque, duration and abruptness. Select the lowest useful
+ceiling from a success/time/assistance comparison, not an arbitrary zero-assist requirement.
+A change to the force/moment relationship is a separately named rule experiment.
+
+Measure requested and delivered peak/mean force and moment, saturation, active duration, integrated
+force magnitude (N s), integrated moment magnitude (N m s), and positive/negative external work
+from wrench and root linear/angular velocities. `Assist.meter` sums magnitudes; it does not itself
+measure work. Separate training, recovery and host-tail assistance. A positive Balance setting
+with zero delivered wrench is not evidence that the policy actually needed assistance.
+
+For causal comparisons, replay an identical physically reached fall with recovery help gated until
+takeover; retain the same ordinary-host assistance across those variants. Separately test the full
+gameplay configuration from standing, where Balance may prevent the fall. Fall prevention is not
+get-up success. Restore assistance state together with physics and controller state.
+
+Require loaded correctly oriented feet and a stable handover at the chosen assistance level.
+A hovering upright body fails. The recovery-specific assist must ramp out and release to the host's
+declared ordinary Balance before the completion check; this transition counts toward the clock.
+The host standing/walking tail may use that declared Balance, with delivered help reported. Also
+probe sudden loss/reduction of help as a robustness diagnostic, not a zero-assist landing gate.
+
+### Targeted motion search and whole-body IK
+
+Keep successful physical suffixes, loose contact sequences, 4-8 s trajectory search and partwise
+optimization as targeted tools for a diagnosed transition or useful curriculum seed. They do not
+replace the reproduction/training path by default. Allow at most two total hours within the main
+schedule for this branch, including up to 90 minutes for whole-body IK.
+
+Compare direct joint-space seeds, collision-aware whole-body IK contact seeds and contact goals
+without IK at equal physical-rollout budgets. Coordinate pelvis/trunk, legs and available arms;
+respect actual joint coordinates, whole-limb clearance and contact patches. Generate continuous
+paths and execute them. Geometric fit alone cannot prove dynamic feasibility. Retain a seed only
+if it improves executed recovery or sample efficiency; otherwise stop the branch. Reuse the prior
+failure fixtures instead of repeating the whole IK study.
 
 ## 3. Make contact geometry work for recovery
 
-Run mechanics pilots early, then optimize movement for each surviving body. Cheap body pilots
-and motion discovery can overlap but share one ledger. Try rigid compounds on existing bodies
+Freeze one body for the first learning experiments. Once the training loop produces complete
+recoveries, use contact failures to choose mechanics pilots and then retrain/fine-tune for each
+surviving body. An isolated mechanical blocker may justify an earlier pilot, but do not multiply
+body designs before establishing the learning method. Try rigid compounds on existing bodies
 before adding tiny articulated bodies.
 
 These are initial owner-authorized engineering search bounds, not anatomical facts. Freeze
@@ -259,10 +354,12 @@ expansion needs a recorded decision.
 | Body clearance | Hip/torso/shank collider dimensions within 10% of baseline where contact diagnosis warrants it | Allow a blocked knee/foot to pass the torso or other leg |
 | Muscle allocation | Selected bottleneck channel strength/speed factors 1-1.5, against unchanged muscles | Resolve a demonstrated actuation limit |
 
-Avoid the full Cartesian product. Screen roughly 12-20 mechanically distinct designs, retain at
-most four, give those equal initial controller-search budgets, then advance at most two to long
-feedback search. Include baseline, sole-only, palm-only and combined sole/palm comparisons before
-attributing gains to one material change.
+Avoid the full Cartesian product. Screen 4-8 mechanically distinct designs and retain at most
+two for policy adaptation within hours 12-16. Include baseline, sole-only, palm-only and combined
+sole/palm comparisons before attributing gains to a material change. Compare frozen-policy
+transfer first, then equal-budget fine-tuning from the same checkpoint; report both. Preserve a
+fixed-body training control so extra learner updates cannot masquerade as a geometry improvement.
+Use scratch training only when the transfer experiment warrants its cost.
 
 Verify the material path before claiming compliant palms. `ContactMaterial.sole` acts against
 fixed colliders and covers the assigned collider's contacts; it is not intrinsically restricted
@@ -282,66 +379,77 @@ Regenerate falls, use matched external shove recipes and also actual reached lyi
 Report fall prevention separately: resisting the shove is not successful recovery. Record all
 geometry/mass/material changes and equal compute allocations.
 
-**Hour-14 gate:** a body/controller pair with replicated gains across development falls, or a
-no-go decision per design. A faster Front outlier that loses other cases cannot win selection.
+**Hour-16 gate:** a body/controller/assistance configuration with replicated gains across varied
+development falls, or a no-go decision per design. A faster Front outlier that loses other cases
+cannot win selection. Drop anatomy changes if the original body with assistance already performs
+better under the same budget.
 
-### Creative branches with explicit exits
+### Further mechanical branches with explicit exits
 
-Use at most four total hours from the existing phase allocations on these branches, chosen by
-evidence. Their individual caps do not add to the campaign budget. None is a prerequisite.
+These are optional responses to measured blockers, sharing at most two hours within the existing
+mechanics allocation. Neither expands the budget or delays a viable assisted candidate.
 
-- **Assistance that disappears:** temporarily supply declared, metered pelvis support or increased
-  muscle capacity to discover a route, then progressively remove it while reoptimizing. Label all
-  assisted results. A route counts only at zero artificial assistance with target-body actuator
-  limits restored. A zero-assist failure is not a demonstration or a gameplay solution.
-- **Learn success prediction or a compact policy:** with positive/negative continuation data,
-  train a small predictor or feedback policy on actual rollouts. Compare to nearest-demonstration
-  feedback at equal simulation budget. Cap setup/training at three hours and stop without improved
-  independent rollout success. Imitating only the old recipe is not a new discovered strategy.
 - **Articulated toes:** investigate only if rigid compound soles leave a measured rollover
   obstruction. Start with one loaded hinge and its actual ankle connection, reproducing the
-  known failure and rigid control. A hybrid/reduced-coordinate solution needs effort, limits,
-  load/unload and replay contracts before whole-body use. Cap the pilot at 90 minutes; a whole
-  engine migration is out of scope. See [passive toes](../reference/man-passive-toes.md) and
-  the [solver-contract screen](../reference/solver-contract.md).
-- **Another simulator as proposal generator:** only if preflight finds an existing useful model.
-  First show contact/actuation agreement on a simple loaded task. Transfer proposals into actual
-  Rapier and reoptimize there; another engine's success never counts as ours. Stop the port if
-  its two-hour pilot does not establish useful agreement and affordable throughput.
+  known mass-ratio failure and rigid control. A hybrid/reduced-coordinate solution needs effort,
+  limits, load/unload and replay contracts before whole-body use. Cap the pilot at 90 minutes;
+  a whole-engine migration is out of scope. See [passive toes](../reference/man-passive-toes.md)
+  and the [solver-contract screen](../reference/solver-contract.md).
+- **Alternate simulator for our body:** upstream MuJoCo reproduction is already required; porting
+  our body to another simulator for training is a separate branch. Attempt it only if throughput
+  or contact evidence justifies the cost and a useful model already exists. Compare loaded
+  contact/actuation behavior first, then replay proposals in actual Rapier. Stop after a two-hour
+  pilot without useful agreement. Alternate-engine success never qualifies our gameplay variant.
 
-## 4. Turn demonstrations into robust, cheap feedback
+## 4. Export the learned feedback policy and make it playable
 
-Begin with a library of verified routes, state-based selection, phase adaptation and bounded
-feedback around actual contact transitions. No neural network is required. Inputs include body
-configuration/velocity, loaded patches, orientation and progress; no engine handles or camera
-information enter the policy.
+The primary deliverable is a compact policy that responds to current state, not playback of a
+fixed successful trajectory. Export exact weights, normalization, observation ordering, action
+mapping, policy rate, filtering and any recurrent state. Include body, loadout and assistance
+conditioning or explicit compatible-model selection. Record the trained configuration's identity.
 
-Train on small variations around successful starts, then expand to forward/backward/side falls,
-residual spin, awkward arms, yaw and retained load. Curriculum states must be physically reached.
-Training from late checkpoints cannot replace full-fall evaluation. Search gains/selection on
-sets of cases with at least three independent optimizer seeds, not one nominal tape.
+Compare training-side and exported inference on a saved observation corpus, then compare full
+closed-loop episodes on the same Rapier states. Small action differences may change contacts;
+a tolerant tensor comparison alone is insufficient. Preserve deterministic core arithmetic and
+plain serializable policy state. Keep training libraries outside the browser/core; use an audited
+inference implementation compatible with repository boundaries. Audit activation functions and
+numeric precision rather than assuming a generic inference runtime preserves bout replay.
 
-Measure progress toward attainable support/continuation, not phase number. Detect sustained
-stalls or recurrent state/action loops; switch to a different verified route or bounded exploratory
-action. Explicitly test stuck states. Count every retry and fallback second. Existing-recovery
-fallback can preserve gameplay but cannot conceal a failed quick-recovery deadline.
+Integrate as an additional standing-up variant with the actual host's down/takeover/release rules.
+Test interruption, retained item handling, repeated falls and changes in allowed assistance.
+Bound stale actions when inference updates more slowly than physics. Explicitly clear recovery
+requests on handover. Measure CPU time per active policy, memory and a multi-unit bout; a cheap
+neural forward pass does not establish total control cost.
 
-Probe each route's margin: increase perturbations until it fails, vary materials/friction in a
-declared neighborhood and delay contact acquisition. Prefer a slightly slower route with a wider
-successful neighborhood. Curriculum and candidate selection should grow that neighborhood.
+Train and test stuck states. Detect sustained stalls or recurrent state/action loops; permit a
+bounded expert switch or existing-recovery fallback. Attribute improvement to the control path
+that actually produced it; fallback cannot hide a failed quick-recovery deadline. Count all
+retries, route switching and fallback time. Do not assume a selected expert recovers from arbitrary
+mid-motion states without testing those transitions.
 
-If a learned policy wins, export exact normalization/weights/action mapping, verify agreement
-between training and exported actions, preserve deterministic arithmetic and plain saved state,
-and test a second recovery in the same world. Measure runtime cost for this actual budget question;
-offline throughput is separate. Keep population search outside the game loop.
+Probe success margins by perturbing incoming motion, friction and contact timing within declared
+bounds. Curriculum/selection should widen that region. If compression or distillation is needed
+for runtime cost, evaluate the student independently; teacher success does not transfer by label.
+A route library with feedback is a bounded fallback deliverable, separately labeled if training
+fails, rather than evidence that the reproduction objective succeeded.
 
-**Hour-18 gate:** a candidate meeting a development approximation of the substantial-improvement
-gate, or a precise account of missing coverage. A nominal action tape is not robust feedback.
+Extend the Lab experiment to select the new variant, body configuration and allowed assistance.
+Show Balance or recovery-attribute units, delivered force/moment, saturation, elapsed recovery time,
+policy/expert and assist release. Keep the old slow witness available. Provide exact shareable
+recipes for successful and failed attempts, including the two Front shoves and repeated falls.
+Clearly distinguish upstream reference video, recorded action playback and live exported-policy
+control. Verify visual motion from fall through host handover and movement.
+
+**Hour-20 gate:** an exported feedback candidate approaching the substantial-improvement gate
+on development cases, with action/replay checks and failure coverage, or a precise account of
+what remains missing. Freeze body, policy, assist settings and normalizers before held-out trials.
 
 ## 5. Search for counterexamples before the owner does
 
-Spend two hours trying to defeat the best candidate within declared disturbance bounds. Search
-shove magnitude/separation, yaw, physically generated residual motion and recovery-time impulses.
+Spend two hours within the 16-20 allocation trying to defeat the best candidate within declared
+disturbance bounds. Search shove magnitude/separation, yaw, physically generated residual motion
+and recovery-time impulses.
+Include assist saturation and transitions between recovery and ordinary-host assistance.
 Minimize each failure to the smallest input change that reproduces it.
 
 Record the first meaningful divergence: wrong-face contact, insufficient friction, geometric
@@ -384,9 +492,12 @@ Disturbance trials add one lateral impulse of 10-20 N s at 0.5-2 s after takeove
 magnitude and timing distributions before tuning. The original recovery clock continues.
 
 Completion requires upright body, loaded correctly oriented feet, supported centre of mass and
-segment linear speeds below 0.1 m/s for 0.5 s, then the real-host standing/walking tail.
-Preserve the evaluator's upright normal threshold of 0.9 for trunk and terminal foot support. Redesign the geometric
-support predicate where necessary while retaining its physical meaning. Report exact counts,
+segment linear speeds below 0.1 m/s for 0.5 s, then the real-host standing/walking tail. The
+recovery-specific wrench has released before that check; ordinary-host Balance is the declared
+configuration's and its contribution is reported. No airborne or externally suspended endpoint
+passes, even if its orientation and velocity satisfy the numeric thresholds.
+Preserve the evaluator's upright normal threshold of 0.9 for trunk and terminal foot support.
+Redesign the geometric support predicate where necessary while retaining its physical meaning. Report exact counts,
 all failures, censored timing and uncertainty. Finite test success is not a population-level
 comparison with humans.
 
@@ -404,14 +515,21 @@ explicitly incomplete.
 
 A substantial result can land under that label only after all its gates pass; keep the four/six-
 second target open. Do not remove the six-second failing TODO because a 12-second result passes.
-No single-case or body-only improvement is the finished recovery skill.
+No single-case or body-only improvement is the finished recovery skill. An assisted candidate
+that passes all gates can land as assisted recovery even when its zero-assist counterpart fails;
+keep the zero-assist limitation and its separate tests visible. Qualification results name both
+recovery allowance and ordinary-host Balance.
 
 ## Evidence, reviewability and stopping
 
 Each batch produces compact results and replayable best/worst examples, with body/material,
-engine artifact, source, rate, actuation, balance, loadout, case and optimizer identities.
+engine artifact, source, rate, actuation, balance/recovery allowance, delivered assistance,
+loadout, case, learner and checkpoint identities.
 Separate physical seconds, wall seconds and worker-seconds. Keep raw traces/checkpoints locally
-resumable; commit portable seeds/configurations and necessary regressions, not all sampled worlds.
+resumable; commit portable inference weights/configurations and necessary regressions, not all
+sampled worlds or replay buffers. Record upstream licenses, pinned revisions, dependency commands,
+training commands, checkpoint checksums and every substantive method deviation. Keep pretrained
+replay, partial training, successful retraining and successful game adaptation as separate claims.
 
 Extend the Lab experiment to choose selected candidates and reproduce their recipes. Keep the
 original slow witness available as a control. Display actual body settings and experimental
@@ -438,13 +556,27 @@ outcomes rather than relabeling them as success.
 
 ## Method references and limits of transfer
 
-- [PartwiseMPC: Interactive Control of Contact-Guided Motions](https://www.cs.ubc.ca/~van/papers/2024-partwiseMPC/index.html)
-  motivates loose contact keyframes, flexible timing and partwise/whole-body optimization.
-  Adapting those ideas to our actuator/contact model is an experiment, not a reproduction claim.
-- [Learning to Get Up](https://tianxintao.github.io/get_up_control/)
-  demonstrates discovering motions with stronger characters and adapting to weaker ones.
-  Our temporary-assistance branch borrows the curriculum idea; only final unassisted target-body
-  execution counts. Its motion-style objectives are not our priority.
-- [MuJoCo MPC overview](https://github.com/google-deepmind/mujoco_mpc/blob/main/docs/OVERVIEW.md)
-  provides trajectory-cost and predictive-control formulations. Borrowing those methods does not
-  require migrating the game; another engine's motion must survive actual Rapier execution.
+- [Learning to Get Up, SIGGRAPH 2022](https://tianxintao.github.io/get_up_control/),
+  [official implementation and pretrained policies](https://github.com/tianxintao/get_up_control):
+  primary reproduction/adaptation target. Its strong-to-weak curriculum supplies a demonstrated
+  discovery method; the later stylistic slowing is optional for our objective. MuJoCo body,
+  actuator and observation differences require adaptation/retraining, not direct weight reuse.
+- [HoST, RSS 2025](https://taohuang13.github.io/humanoid-standingup.github.io/),
+  [official implementation](https://github.com/InternRobotics/HoST): assistance, robustness and
+  curriculum reference. Temporary pulling and motion constraints guide exploration. The repository
+  notes unresolved joint prone/supine training; assess separate experts explicitly. Persistent
+  gameplay help is our authorized extension, not an upstream demonstrated result.
+- [FRASA paper](https://arxiv.org/html/2410.08655v1),
+  [official implementation](https://github.com/Rhoban/frasa): fallback reproduction candidate and
+  action-space simplification reference. Its roughly 2-3 s physical-robot recoveries use a small
+  robot and five symmetric control degrees of freedom. Neither speed nor training cost can be
+  assumed for our full-body, asymmetric, retained-item task.
+- [PartwiseMPC: Interactive Control of Contact-Guided Motions](https://www.cs.ubc.ca/~van/papers/2024-partwiseMPC/index.html):
+  bounded contact-guided proposal/transition diagnosis, not the primary training path. Flexible
+  timing and partwise/whole-body optimization remain useful if a specific transition warrants it.
+- [Existing assist contract and measurements](../reference/assist.md): game-side force/moment
+  units, Balance mapping and metering. Prior standing/bout results do not establish get-up ability.
+
+Published success motivates this campaign; it does not establish success on our body. The first
+local reference execution, learning curves, actual Rapier recovery and exported gameplay result
+must each be demonstrated and labeled separately.
