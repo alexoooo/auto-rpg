@@ -97,3 +97,34 @@ test('opposite target commands turn a fallen body joint in opposite directions t
     assert.equal(e.channels[channel].max, e.body.muscles.channels[channel].dof.spec.max.value);
   } finally { e.dispose(); }
 });
+
+
+test('assisted actions clip the actual wrench, replay it exactly and clear it when omitted', async () => {
+  const e = await recoveryEnvironment({ balance: 25 });
+  try {
+    const action = { kind: 'muscles', activation: Array(e.channels.length).fill(0),
+      velocity: Array(e.channels.length).fill(0), assist: { force: [0, 1e6, 0], moment: [1e6, 0, 0] } };
+    for (const assist of [{ force: [0,NaN,0], moment: [0,0,0] },
+      { force: Array(3), moment: [0,0,0] }, { force: [0,0], moment: [0,0,0] }]) {
+      const before = structuredClone(e.experiment);
+      assert.throws(() => e.act({ ...action, assist }));
+      assert.deepEqual(e.experiment, before);
+    }
+    const saved = e.save(), first = e.step(action);
+    assert.deepEqual(first.action.assist, { force: [0,e.body.assist.most.force,0], moment: [e.body.assist.most.moment,0,0] });
+    assert.equal(first.result.assisted, true);
+    e.restore(saved);
+    assert.deepEqual(e.step(first.action).observation, first.observation);
+    const { assist, ...plain } = action;
+    e.step(plain);
+    assert.deepEqual(e.body.assist.given.force.asArray(), [0,0,0]);
+    assert.deepEqual(e.body.assist.given.moment.asArray(), [0,0,0]);
+    const unassisted = await recoveryEnvironment();
+    try {
+      unassisted.step(action);
+      assert.deepEqual(unassisted.body.assist.given.force.asArray(), [0,0,0]);
+      assert.deepEqual(unassisted.body.assist.given.moment.asArray(), [0,0,0]);
+      assert.equal(unassisted.result().assisted, false);
+    } finally { unassisted.dispose(); }
+  } finally { e.dispose(); }
+});

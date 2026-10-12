@@ -318,3 +318,44 @@ Search output checkpoints retain full optimizer state; rerunning an identical co
 resumes it. Native checkpoints retain the selected physical prefix and optimizer action.
 Complete action/observation traces are compressed local artifacts, not new runtime policies.
 These experiments have not qualified an additional recovery variant.
+
+## Published-controller and assisted-recovery campaign
+
+The campaign is in progress; no new recovery is qualified. The fixed case manifest is
+`research/stand-up-learning-cases.json`; local resumable artifacts and the campaign ledger live
+under ignored `research/runs/get-up-learning/`. The reference checkout is pinned to
+`tianxintao/get_up_control` revision `5ad52fbe1b5b7c56522a1aa10ccf17fb81c0d79e`.
+It has no license file, so upstream code, assets and pretrained weights remain local and are not
+redistributed. `research/stand-up-reference.py` executes that separate checkout.
+
+The first reference run used local CPU, Python 3.11.11, PyTorch 2.5.1, MuJoCo 3.1.6 and dm_control
+1.0.20, with the supplied teacher at power 0.4, 40 Hz control and 200 Hz physics. Four 250-action
+episodes ended with head heights 0.595, 0.687, 0.663 and 0.623 m; none reached the reference
+standing diagnostic. This is a failed reproduction under changed dependencies, not evidence
+against the published result. Seventeen learner updates executed, parameters changed, and
+save/load restored identical deterministic actions before another successful update. This is
+only a training/resume smoke check. Matching the original dependencies is the next reference
+experiment. Raw trajectories, video, checksums and exact package versions are in `reference/`.
+
+The research action port now accepts explicit root force/moment requests, clips them through the
+existing Balance mechanism, records delivered assistance in replay tapes and accepts assisted
+outcomes only when a positive Balance ceiling was declared. Omitted requests clear the recovery
+wrench. Zero-Balance behavior and its original complete action-tape replay remain covered.
+
+Initial game pilots use Node Stance Lab, gameplay Rapier adapter 11, 120 Hz, symmetric actuation,
+Warrior, empty hands, original anatomy and Balance 100 throughout (including before the fall).
+These are development trials; changed pre-fall assistance prevents a causal comparison with the
+previous zero-Balance witness. All use the real two Front shoves of 60 N s, 0.2 s apart.
+
+| Feedback pilot | Result after 12 s or evaluator termination |
+|---|---|
+| Vertical unloading plus righting torque | Tilted equilibrium, root up normal 0.603 |
+| Stronger righting feedback | Tilted equilibrium, root up normal 0.752 |
+| Add horizontal feedback toward the feet | Root up normal 0.998, but no quiet-standing handover |
+| Release to ordinary host after acquiring an upright stance | Quiet-standing handover in 3.2833 s; fails the walking tail with about 0.0804 m displacement against 0.1 m required |
+
+The last pilot takes actual host strides and remains upright, but it is not a completed recovery
+under the frozen evaluator. No timing or displacement gate has been relaxed. The scripts and
+full pilot settings are `research/stand-up-assist.mjs` and local `assist-100-*.json` records.
+These pilots motivate horizontal assistance and explicit host handover; they do not establish
+coverage over other falls, loadouts, bodies or assistance levels.
