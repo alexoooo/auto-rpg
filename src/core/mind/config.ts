@@ -29,8 +29,11 @@ interface SupportRecoveryConfig { readonly kind: "support-recovery" }
 /** Contact-driven human recovery (`dynamicRise`, `rise/dynamic.ts`). */
 interface DynamicRiseConfig { readonly kind: "dynamic-rise" }
 
+/** Metered root feedback with a bounded support-recovery fallback. */
+interface AssistedRiseConfig { readonly kind: "assisted-rise" }
+
 /** **A sub-mind's config**, by kind: what a host's slot holds, whole, so a sub-mind is configured where it is chosen. */
-export type SubMindConfig = LieConfig | StagedRiseConfig | SupportRecoveryConfig | DynamicRiseConfig;
+export type SubMindConfig = LieConfig | StagedRiseConfig | SupportRecoveryConfig | DynamicRiseConfig | AssistedRiseConfig;
 
 /**
  * **Tactics that seek the foe** (`seekFoe`, `recipeTactics`): walk at the nearest foe and attack

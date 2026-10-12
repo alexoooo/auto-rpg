@@ -106,7 +106,7 @@ function stanceTactics(orders: StanceOrders): Tactics {
  * driven by the page's orders. `pushed` is told of each shove as it is applied: the segment
  * pushed, the impulse, N s, and where, world.
  */
-export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void, reproduceRecovery = false): StanceSession {
+export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void, reproduceRecovery: boolean | { readonly impulse: number; readonly degrees: number; readonly separation: number } = false): StanceSession {
   const { body, world } = actor, built = body.built;
   const trunk = built.segments.get("middleTrunk");
   if (!trunk) throw new Error(`${built.spec.model} has no middle trunk to shove`);
@@ -139,8 +139,9 @@ export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impul
     shove = new Vector3(impulse * Math.sin(a), 0, impulse * Math.cos(a));
   };
   // The search's two impulses: after 2 s standing, then 0.2 s later, on physics steps.
+  const recipe = typeof reproduceRecovery === "object" ? reproduceRecovery : {impulse:60,degrees:0,separation:.2};
   const reproduction = reproduceRecovery ? world.afterStep(() => {
-    if (world.steps === 2 * world.hz || world.steps === Math.round(2.2 * world.hz)) push(60, 0);
+    if (world.steps === 2 * world.hz || world.steps === Math.round((2+recipe.separation) * world.hz)) push(recipe.impulse, recipe.degrees);
   }) : null;
   return {
     body, orders, frame,

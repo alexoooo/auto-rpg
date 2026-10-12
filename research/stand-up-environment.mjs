@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { serialize, deserialize } from 'node:v8';
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
+import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { coreStand, saveStand, loadStand } from '../tests/harness/core-stand.mjs';
 import { modelSpec } from '../src/core/models.ts';
 import { armedWith } from '../src/core/items/held.ts';
@@ -11,12 +11,17 @@ import { driveFighter, fighterBody } from '../src/core/mind/fighter.ts';
 import { LAB_PRESETS } from '../src/lab/scenarios.ts';
 import { startStance } from '../src/lab/stance-mode.ts';
 import { guardPosture } from '../src/core/skills/guard.ts';
+import { SIMBICON } from '../src/core/skills/simbicon.ts';
 import { supportRecovery } from '../src/core/mind/rise/support-recovery.ts';
 import { dynamicRise } from '../src/core/mind/rise/dynamic.ts';
+import { stagedRise } from '../src/core/mind/rise/staged.ts';
+import { assistedRise } from '../src/core/mind/rise/assisted.ts';
 import { observeBody } from '../src/core/observation.ts';
 import { clockSenses } from '../src/core/mind/senses.ts';
-import { footStatesOf, readSupport } from '../src/core/control/support.ts';
-import { recoveryReady } from '../src/core/control/recovery-ready.ts';
+import { recoveryFeedback } from '../src/core/control/recovery-feedback.ts';
+import { norm } from '../src/core/math/real.ts';
+import preset from '../assets/core/assisted-rise.json' with {type:'json'};
+import { recoveryMeasurement } from '../src/core/control/recovery-measurement.ts';
 import { deepFreeze } from '../src/core/state.ts';
 import { balanceCeiling, balancePercent, rulebook } from '../src/core/rules/rulebook.ts';
 
@@ -66,27 +71,36 @@ export function checkRecoveryAction(action, channels) {
 }
 
 /** A real Lab body and host with a research action override inside the ordinary muscle path. */
-export async function recoveryEnvironment({ model = 'workshop-fighter', held = 'empty', baseline = 'support-recovery', spec: suppliedSpec, recipe, balance = 0 } = {}) {
-  if (!['support-recovery', 'dynamic-rise'].includes(baseline)) throw new Error('unknown recovery baseline');
+export async function recoveryEnvironment({ model = 'workshop-fighter', held = 'empty', baseline = 'support-recovery', spec: suppliedSpec, recipe, balance = 0, host = 'stance', assistedBaseline = false } = {}) {
+  if (!['support-recovery', 'staged-rise', 'dynamic-rise', 'assisted-rise'].includes(baseline)) throw new Error('unknown recovery baseline');
+  if (!['stance','simbicon'].includes(host)) throw new Error('unknown recovery host');
   if (recipe && baseline !== 'support-recovery') throw new Error('a recipe belongs to support recovery');
   recipe = recipe ? deepFreeze(structuredClone(recipe)) : undefined;
   const spec = armedWith(suppliedSpec ?? modelSpec(model), 'right', held);
   const stand = await coreStand(spec, { engine: 'rapier-coordinate', groundSize: 40, posture: guardPosture(spec), actuation: 'symmetric' });
   const { world, built } = stand;
   const ceiling = balanceCeiling(balance, balancePercent(rulebook('arena')));
-  const config = { ...LAB_PRESETS.script.config, subs: [] }, wiring = { name: 'lab', orders: () => null, assist: ceiling };
+  const config = { ...LAB_PRESETS.script.config, subs: [],
+    ...(host==='simbicon' ? {locomotion:{kind:'simbicon',...SIMBICON}} : {}) }, wiring = { name: 'lab', orders: () => null, assist: ceiling };
   const assistForce = new Vector3(), assistMoment = new Vector3();
   const linearBefore = new Vector3(), angularBefore = new Vector3();
   const meter = () => ({ seconds: 0, activeSeconds: 0, forcePeak: 0, momentPeak: 0,
     forceIntegral: 0, momentIntegral: 0, forceSaturatedSeconds: 0, momentSaturatedSeconds: 0,
     positiveWork: 0, negativeWork: 0 });
-  const experiment = { mode: 'baseline', action: null, lastAction: null, actionStep: -1,
+  const freshExperiment = () => ({ mode: 'baseline', action: null, lastAction: null, actionStep: -1,
     firstDown: null, takeover: null, quiet: 0, handover: null, walkFrom: null, success: false,
     failure: null, effortViolation: 0, assisted: false,
-    assistance: { preparation: meter(), recovery: meter(), host: meter() } };
-  let channels, legacy, port;
+    assistance: { preparation: meter(), recovery: meter(), host: meter() } });
+  const experiment = freshExperiment();
+  let channels, legacy, port, baselineFeedback;
   const recovery = (own, view, into) => {
-    legacy = baseline === 'support-recovery' ? supportRecovery(own, view, into, recipe) : dynamicRise(own, view, into);
+    switch (baseline) {
+      case 'support-recovery': legacy=supportRecovery(own,view,into,recipe);break;
+      case 'staged-rise': legacy=stagedRise(own,view);break;
+      case 'dynamic-rise': legacy=dynamicRise(own,view,into);break;
+      case 'assisted-rise': legacy=assistedRise(own,view,into);break;
+      default:throw new Error('unknown recovery baseline');
+    }
     const muscles = own.muscles;
     channels = muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value,
       max: c.dof.spec.max.value, bind: c.dof.spec.bind.value,
@@ -100,7 +114,11 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
       begin() { port.active = true; experiment.takeover ??= into.time; if (experiment.mode === 'baseline') legacy.begin(); },
       end() { port.active = false; if (experiment.mode === 'baseline') legacy.end(); },
       step(senses, dt) {
-        if (experiment.mode === 'baseline') legacy.step(senses, dt);
+        if (experiment.mode === 'baseline') {
+          legacy.step(senses, dt);
+          if(baselineFeedback){const help=baselineFeedback(measure());
+            own.assist.ask(assistForce.set(...(help.assist?.force??[0,0,0])),assistMoment.set(...(help.assist?.moment??[0,0,0])));}
+        }
         else {
           const action = experiment.action;
           if (action.kind === 'muscles') {
@@ -132,11 +150,9 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
   const actor = { body, world, drive(script) { return skills = driveFighter(body, world, config, { ...wiring, script }); }, dispose() { body.dispose(); } };
   const stance = startStance(actor);
   const observe = observeBody(built, body.muscles, world, clockSenses(world), undefined, () => body.down, true);
-  const feet = footStatesOf(built), middle = new Vector3(), up = new Vector3(), turn = new Quaternion();
-  const root = built.segments.get('lowerTrunk'), inverseRoot = Quaternion.Inverse(root.rest);
-  const footUps = feet.map(f => Vector3.UpReadOnly.applyRotationQuaternionToRef(Quaternion.Inverse(f.segment.rest), new Vector3()));
+  const root = built.segments.get('lowerTrunk');
   const states = { body: body.state, skills: skills.state, orders: stance.orders, experiment };
-  const identity = { harness: 'Node Stance Lab recovery search', model, held, baseline, recipeSha: recipe ? sha(JSON.stringify(recipe)) : null, hz: world.hz,
+  const identity = { harness: 'Node Stance Lab recovery search', model, held, baseline, host, assistedBaseline, recipeSha: recipe ? sha(JSON.stringify(recipe)) : null, hz: world.hz,
     engine: world.physics.engine, revision: world.physics.revision, artifact, artifactSha, sourceSha,
     environmentSha: sha(readFileSync(new URL('./stand-up-environment.mjs', import.meta.url))), specSha: sha(JSON.stringify(spec)),
     actuation: world.actuation, balance, channels };
@@ -150,22 +166,13 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
     const checked = checkRecoveryAction(action, channels);
     experiment.action = checked; experiment.mode = 'action';
   };
-  const measure = () => {
-    const o = observe();
-    root.node.rotationQuaternion.multiplyToRef(inverseRoot, turn);
-    up.set(0, 1, 0).applyRotationQuaternionToRef(turn, up);
-    const rootUp = up.y;
-    readSupport(feet, feet, middle);
-    const soleUp = feet.map((f, i) => {
-      up.copyFrom(footUps[i]).applyRotationQuaternionToRef(f.segment.node.rotationQuaternion, up); return up.y;
-    });
-    const supports = feet.map(f => ({ segment: f.segment.spec.name,
-      corners: o.contacts.filter(c => c.segment === f.segment.spec.name && c.fixed !== null
-        && c.impulse > 0 && Math.abs(c.normal[1]) >= VERIFY.minUpNormal)
-        .flatMap(c => c.patch.filter(p => p.distance <= 0 && Math.abs(p.normal[1]) >= VERIFY.minUpNormal).map(p => p.point)) }));
-    const ready = rootUp >= VERIFY.rootUp && soleUp.every(v => v >= VERIFY.soleUp) && recoveryReady(o, supports, VERIFY);
-    return { observation: o, rootUp, soleUp, ready };
-  };
+  const measure = recoveryMeasurement(built,observe);
+  if(assistedBaseline){
+    baselineFeedback=recoveryFeedback({rest:root.rest.asArray(),rootHeight:observe().segments.find(s=>s.name==='lowerTrunk').centre[1],
+      weight:[...built.segments.values()].reduce((sum,s)=>sum+s.rigid.mass,0)*norm(world.physics.gravity),
+      angles:channels.map(c=>preset.posture[c.name]??0),forceLimit:body.assist.most.force},preset.settings);
+    experiment.feedback=baselineFeedback.state;
+  }
   const step = (action, { automaticHandover = false } = {}) => {
     if (action !== undefined) act(action);
     if (experiment.handover !== null) {
@@ -174,7 +181,7 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
         experiment.walkFrom ??= observe().centre;
         stance.orders.forward = .3;
       }
-    } else if (automaticHandover && (experiment.quiet >= VERIFY.quiet
+    } else if (automaticHandover && experiment.mode === 'action' && (experiment.quiet >= VERIFY.quiet
       || (experiment.mode === 'action' && experiment.action?.assist && measure().ready))) act({ kind: 'host' });
     const before = world.steps;
     root.body.linearVelocityToRef(linearBefore); root.body.angularVelocityToRef(angularBefore);
@@ -196,7 +203,7 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
       + moment.z*(angularBefore.z+segment.spin[2]));
     help.positiveWork += Math.max(0,work); help.negativeWork += Math.min(0,work);
     if (o.down) experiment.firstDown ??= world.time;
-    const recoveryHelp = experiment.mode === 'action' && experiment.actionStep === before
+    const recoveryHelp = experiment.actionStep === before
       && (body.assist.given.force.lengthSquared() > 0 || body.assist.given.moment.lengthSquared() > 0);
     experiment.quiet = ready && !recoveryHelp ? experiment.quiet + world.dt : 0;
     const issued = experiment.actionStep === before ? structuredClone(experiment.lastAction) : { kind: 'host' };
@@ -222,6 +229,8 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
     if (body.assist.meter.force !== 0 || body.assist.meter.moment !== 0) experiment.assisted = true;
     if (o.segments.some(s => [...s.position, ...s.rotation, ...s.velocity, ...s.spin].some(v => !Number.isFinite(v))))
       experiment.failure ??= 'nonfinite physics';
+    if (Math.abs(o.centre[0]) > 20 || Math.abs(o.centre[2]) > 20 || o.centre[1] < -2)
+      experiment.failure ??= 'left recovery surface';
     return { action: issued, observation: o, rootUp, soleUp, ready, result: result() };
   };
   const result = () => ({ fell: experiment.firstDown !== null, success: experiment.success && (balance > 0 || !experiment.assisted) && experiment.effortViolation < .0001,
@@ -231,9 +240,17 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
     elapsed: experiment.takeover === null ? 0 : world.time - experiment.takeover, effortViolation: experiment.effortViolation,
     assisted: experiment.assisted, quiet: experiment.quiet });
   return { stand, body, stance, channels, identity, experiment, legacy, observe, measure, act, step, save, restore, result,
-    async fall({ kind = 'lab', degrees = 0, impulse = 60, separation = .2, settleSteps = 0 } = {}) {
+    nextFall() {
+      assert.equal(experiment.success,true,'a repeated fall follows a complete host tail');
+      assert.equal(body.has,'command');
+      Object.assign(experiment,freshExperiment());
+      if(baselineFeedback){baselineFeedback.state.heading=null;baselineFeedback.state.released=false;baselineFeedback.state.started=null;}
+      stance.orders.forward=0;stance.orders.right=0;stance.orders.turn=0;
+    },
+    async fall({ kind = 'lab', degrees = 0, impulse = 60, separation = .2, settleSteps = 0, passiveSteps = 0 } = {}) {
       if (!(impulse > 0) || !Number.isFinite(impulse) || !(separation > 0) || !Number.isFinite(separation)
-        || !Number.isSafeInteger(settleSteps) || settleSteps < 0) throw new Error('invalid fall recipe');
+        || !Number.isSafeInteger(settleSteps) || settleSteps < 0
+        || !Number.isSafeInteger(passiveSteps) || passiveSteps < 0) throw new Error('invalid fall recipe');
       for (let i = 0; i < 240; i++) step();
       assert.equal(body.down, false, 'the recovery host starts standing');
       const mass = [...built.segments.values()].reduce((sum, s) => sum + s.rigid.mass, 0);
@@ -241,6 +258,11 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
       if (kind === 'lab') { for (let i = 1; i < Math.round(separation * world.hz); i++) step(); stance.shove(impulse, degrees); step(); }
       for (let i = 0; i < 360 && experiment.takeover === null; i++) step();
       for (let i = 0; i < settleSteps; i++) step();
+      if (experiment.takeover !== null && passiveSteps) {
+        const passive={kind:'muscles',velocity:channels.map(()=>0),activation:channels.map(()=>0)};
+        for (let i=0;i<passiveSteps;i++) step(passive);
+        experiment.mode='baseline';experiment.action=null;
+      }
       return result();
     },
     dispose() { stance.dispose(); stand.dispose(); } };

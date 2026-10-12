@@ -697,11 +697,12 @@ goal or by its posture, `BlowSkill.holds`), whose slot it marks live. Each side'
 HUD has one, the Lab's thinking section one, and the Crypt's HUD one, for the enemy under the
 pointer, else the enemy the party is locked on, else the first selected member.
 
-There are four sub-minds, each of which wants the body while it is down
+There are five sub-minds, each of which wants the body while it is down
 (`BodyView.down`), and the body hands each maker its world (`SubMindMaker`): `lie` (`lying`,
 `lie.ts`), which asks its muscles for nothing, `staged-rise` (`stagedRise`, `rise/staged.ts`),
 the riser, `support-recovery` (`supportRecovery`), the riser followed by a quiet standing
-handover, and experimental `dynamic-rise` (`dynamicRise`, `rise/dynamic.ts`).
+handover, experimental `dynamic-rise` (`dynamicRise`, `rise/dynamic.ts`), and
+`assisted-rise` (`assistedRise`, `rise/assisted.ts`).
 `RECIPE_FIGHTER` is the seeking fighter over the recipe strike, walking in the stance, with `lie`;
 the Lab's minds are made from it. `GAME_FIGHTER` is it travelling by `TRAVEL`: the mind every
 humanoid has unless its fight says otherwise (`modelInfo`), so a body that falls lies still ([reference/rising.md](reference/rising.md#lying)). An arena
@@ -709,6 +710,20 @@ recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives an enemy 
 mind chosen for its model on the start panel (`DungeonRunOptions.minds`), its model's unless one
 was; the lab's actor drives the fighter its page chose (`ActorOptions.mind`), the Script preset
 unless it is given another.
+
+**Assisted rise** is an additional experimental Warrior/Rogue controller. It uses the existing
+metered `Assist` port for bounded root force and righting moment, plus ordinary muscle commands
+toward a staggered-foot target. The leg target is an offline collision-aware IK result; the upper
+body retains the loadout's guard. Late height settling lowers the target over one second after
+four seconds without release. The selected allowance is Balance 100%, with the existing moment
+rule; lower allowances use support recovery. It releases help at physical two-foot support and
+falls back to support recovery after twelve seconds, without restarting the elapsed attempt.
+Its state, including heading, start time and fallback, is replayable. Ordinary gameplay presets
+are unchanged. The Lab's Get-up experiment selects it with the SIMBICON host and original feet;
+the slow searched sole-body witness remains a separate choice. Independent acceptance uses
+actual penetrating contact-patch points, upright trunk/soles, quiet motion and the ordinary host's
+standing/walking tail. Selection evidence and remaining qualification are in the existing
+[recovery study](analysis/2026-10-11-stand-up-planning.md).
 
 **The riser plays a recipe** (`Recipe`, `RISE`, `rise/stages.ts`): plain data that names
 freedoms and limbs, and no body. A recipe can override intermediate motion and settling

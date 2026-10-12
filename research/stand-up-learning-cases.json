@@ -2211,5 +2211,9 @@
       "separation": 0.2
     }
   ],
-  "coverage": "classify actual fallen orientation; record missing groups and prevention, never count a non-fall as recovery"
+  "coverage": "classify actual fallen orientation; record missing groups and prevention, never count a non-fall as recovery",
+  "protocol": {
+    "validationPassiveSteps": 180,
+    "description": "After takeover and the declared settle prefix, permit 180 passive physical steps before recovery control. The original takeover clock continues. Frozen before final outcome evaluation."
+  }
 }

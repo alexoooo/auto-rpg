@@ -16,6 +16,8 @@ if (!isMainThread) {
         case 'reset':result=await e.reset(value);break;
         case 'step':result=e.step(value);break;
         case 'policyStep':if(!actor)throw new Error('no exported actor loaded');result=e.step(actor(e.observation()));break;
+        case 'inspect':result=e.inspect();break;
+        case 'predict':if(!actor)throw new Error('no exported actor loaded');result=actor(value);break;
         case 'save':result=Buffer.from(e.save()).toString('base64');break;
         case 'restore':e.restore(Buffer.from(value,'base64'));result={observation:e.observation()};break;
         case 'close':e.dispose();result={closed:true};break;

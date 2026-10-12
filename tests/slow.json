@@ -11,6 +11,7 @@
  "audio-bodies.test.mjs",
  "character-motion.test.mjs",
  "core-assist.test.mjs",
+ "core-assisted-rise.test.mjs",
  "core-bar.test.mjs",
  "core-choose.test.mjs",
  "core-combat-arm.test.mjs",

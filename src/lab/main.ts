@@ -34,6 +34,8 @@ import { blowScenario } from "./blow-scenario.ts";
 import { routineScenario } from "./routine-scenario.ts";
 import { runScenario } from "./run-scenario.ts";
 import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
+import { assistedRiseFits } from "../core/mind/rise/assisted.ts";
+import { SIMBICON } from "../core/skills/simbicon.ts";
 import { labHref, labMind, LAB_PRESETS, recoveryAddress, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
 import { dresserFor } from "../render/dress.ts";
@@ -141,7 +143,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   }
   MeshBuilder.CreateLineSystem("lab.grid", { lines, colors: lines.map((l) => l.map(() => lineColour)) }, scene);
 
-  const scenario = SCENARIO[address.scenario](scene, { restart: () => load(shown), reproduceRecovery: () => load(recoveryAddress(shown)) });
+  const scenario = SCENARIO[address.scenario](scene, { restart: () => load(shown), reproduceRecovery: (mode,recipe) => load({...recoveryAddress(shown, mode ?? shown.recoveryMode),...recipe}) });
   need("scenario-name").textContent = SCENARIOS.find((s) => s.id === address.scenario)!.name;
   const back = need<HTMLAnchorElement>("to-scenarios");
 
@@ -229,11 +231,11 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const spec = loadoutSpec(to), built = buildBody(spec, world, { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) });
     const balance = loadoutBalance(to.balance, built.spec);
     const log = createMindLog();
-    const mind = to.scenario === "recovery"
-      ? { ...LAB_PRESETS.script.config, subs: [{ kind: "support-recovery" as const }] } : labMind(to.mind, spec).plays;
+    const mind = to.scenario === "recovery" && to.recoveryMode === "witness"
+      ? { ...LAB_PRESETS.script.config, subs: [{ kind: "support-recovery" as const }] } : to.scenario === "recovery" ? {...labMind(to.mind,spec).plays,locomotion:{kind:"simbicon" as const,...SIMBICON},subs:[assistedRiseFits(spec)?{kind:"assisted-rise" as const}:{kind:"support-recovery" as const}]} : labMind(to.mind, spec).plays;
     const actor = labActor(built, world, {
       mind,
-      recoveryRecipe: to.scenario === "recovery" ? feedbackRecipe(spec, recoverySeed.feedback.u) : undefined, assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), around: (tactics) => logged(tactics, log),
+      recoveryRecipe: to.scenario === "recovery" && to.recoveryMode === "witness" ? feedbackRecipe(spec, recoverySeed.feedback.u) : undefined, assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), around: (tactics) => logged(tactics, log),
     });
     thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.skills })));
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();

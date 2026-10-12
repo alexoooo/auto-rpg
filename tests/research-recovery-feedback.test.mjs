@@ -42,7 +42,7 @@ test('the visible Lab setup applies the search shoves on the same steps and ente
   const { coreStand } = await import('./harness/core-stand.mjs');
   const { guardPosture } = await import('../src/core/skills/guard.ts');
   const { balanceCeiling, balancePercent, rulebook } = await import('../src/core/rules/rulebook.ts');
-  const address = recoveryAddress(labAddress('?scenario=stance&model=workshop-rogue&right=club&balance=20&hz=480'));
+  const address = recoveryAddress(labAddress('?scenario=stance&model=workshop-rogue&right=club&balance=20&hz=480'),'witness');
   assert.deepEqual(labAddress(labHref(address)), address);
   const spec = loadoutSpec(address), recipe = feedbackRecipe(spec, witness.feedback.u);
   const stand = await coreStand(spec, { engine: 'rapier-coordinate', groundSize: 40, posture: guardPosture(spec) });

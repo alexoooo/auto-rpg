@@ -455,3 +455,117 @@ The local residual configuration is `{"balance":100,"mode":"residual","residual"
 "seconds":12,"seed":120,"actionRepeat":3}`. Use a fresh output directory with corrected reset
 semantics; exact resume rejects changed environment identities. `--warm-start` explicitly carries
 network ancestry into a new experiment and restarts replay/optimizers; it is not exact resume.
+
+The right-side deterministic failure is a premature handover, not an unexplained stalled solve.
+At about 1.73 s after takeover, root horizontal speed is about 1.98 m/s and only the right foot is
+loaded; the old geometric release fires shortly afterward. The host develops large angular motion,
+then leaves the finite test floor. `policy-right-release.json` preserves the divergence. A controller
+probe requiring actual quiet support before release reaches quiet host standing in 5.18, 5.70 and
+5.39 s for Front/Right/Left, respectively; all three still fail the separate walking-distance tail.
+Back's 60 N s recipe prevents falling and is not counted. Off-surface motion now terminates as an
+explicit failure, rather than consuming the rest of a timeout. No qualification threshold changed.
+
+The terminal reward also needed correction. With unit standing reward and discount 0.97, ending
+success with a bonus of 10 undervalues successful termination relative to continued standing.
+Success now includes the absorbing standing state's value `1/(1-0.97)`; failures remain terminal.
+This is a task adaptation, distinct from the original reference environment's continuation rules.
+
+CUDA installation succeeded in a separate Python 3.11 environment with PyTorch 2.5.1+cu124 on the
+RTX 4060 Laptop GPU. The corrected-reset CUDA residual pilot completed 15,069 transitions, 4,024
+updates and 98,827 physical steps in 300.98 s. That is similar throughput to the small-network CPU
+pilot, not evidence of a large GPU speedup. Its exact source is commit 49d61fab. Subsequent pilots
+record separate action, rollout, reset, update and checkpoint wall times, plus source snapshots;
+GPU RNG state is included in checkpoints. Older pilot checkpoints retain their separate identities.
+
+The bounded 15-minute comparisons finished on the fixed body. Direct torque with strength 1.5 /
+Balance 0 completed 14,391 transitions and 58,362 physics steps; direct torque with strength 1 /
+Balance 100 completed 13,735 transitions and 68,649 steps. Supported-release residual control
+completed 13,484 transitions and 67,896 steps. None completed a training episode under the strict
+host tail. Deterministic evaluation of the supported residual completed one of four development
+cardinals; another reached quiet handover but failed walking. These short runs do not demonstrate
+that either learning curriculum is impossible. They justify solving the easier terminal task before
+allocating the main learning budget.
+
+The required staged-rise and support-recovery screen used the original body, both model/loadout
+groups and both stance/SIMBICON hosts, Balance 100, gameplay Rapier at 120 Hz. Staged rise completed
+8/16 cardinal cases by 35 seconds and support recovery 7/16, with none within 12 seconds. Staged
+rise is the frozen principal comparator; support recovery remains reported. An earlier optional
+Dynamic rise probe threw `a supported rise requires its actual supports and trunk clearance` and
+is retained as a failed diagnostic, not substituted for staged rise. Final matched comparisons
+must use the production release path without the research action override's automatic handover.
+
+The existing SIMBICON host moves the original Warrior 0.11432 m in the one-second, 0.3 m/s
+never-fallen walking probe at either Balance 0 or 100. It is explicitly selected in the assisted
+configuration; this is not a change to ordinary gameplay's locomotion default. Strict support
+release with SIMBICON completed the four Warrior development cardinals in 5.1833, 5.7000, 7.1833
+and 5.3917 seconds (Back used the declared 90 N s fallback after prevention at 60).
+
+The first 64-case feedback selection completed 52/64 within 12 seconds, but target-coordinate
+inspection exposed a real controller bug: guard angles were already reference-relative, and the
+new adapter subtracted bind again. Initial physically built guard angles and live muscle readings
+agree without that subtraction. Correcting it removes inward arm pressure and narrowed feet;
+those earlier controller results are not evidence for the corrected configuration.
+
+Six collision-aware whole-body IK terminal poses were generated with stagger +/-0.15 or 0 m,
+width 0.8 or 1 times the reference spacing, and pelvis 0.02 m lower. All were geometrically feasible.
+Physical trials on three diagnosed failures showed why that alone is insufficient: some poses
+failed the host walking tail, and one took 14.425 s. The +0.15 m stagger at reference width cleared
+all three. A 64-case development selection with that pose completed 61/64 within 12 s; group
+failure-inclusive medians were 3.8500, 3.4833, 3.3625 and 3.7083 s for Warrior empty/club and Rogue
+empty/club. This passes the substantial **selection partition only**, not final qualification.
+`research/stand-up-terminal.mjs` regenerates the six geometric candidates; retained targets execute
+through ordinary joint commands, not installed poses or playback.
+
+Runtime parity testing caught a second adapter discrepancy: research used 9.81 m/s² while the
+actual world uses 9.80665. Both now derive weight from the world's gravity, as Assist does. Exact
+physical observations and delivered commands agree through a full Front recovery. Contact-state
+restore, retained club grip, withdrawal clearing and zero-allowance fallback also pass focused
+physical tests. New full-episode tests are in the slow tier. No qualification claim uses a tolerant
+comparison to conceal divergent physical trajectories.
+
+The first actual runtime selection completed 62/64, but Rogue club Back failed a required cardinal,
+so this does not pass the selection gate. Diagnosing the two remaining failures found distinct
+conditions. Rogue empty at 247.5 degrees stood nearly motionless with only three penetrating foot
+patch points and continued upward help (~66 N); its COM was outside the resulting support triangle.
+A slightly lower terminal height cleared it. Rogue club Back handed back to a host whose occupied
+hand contacted its chest: the IK seed had also replaced the held-item wrist target with an empty-hand
+one. Preserving the ordinary held-item guard cleared that case. Combining a permanently lower
+height with the guard correction did not clear Back. A bounded late lowering, after four seconds
+without release and blended over one second to 98% height, clears the diagnosed empty case in
+5.075 s and preserves Back at 3.725 s. Front/Right development controls pass at 4.2333/4.025 s.
+The actual runtime selection passes 64/64 within six seconds, with group medians 3.8500,
+3.5750, 3.3583 and 3.4417 s. This is selection evidence, not independent qualification.
+
+Three independent seed-120/121/122 SAC runs compare smoothed small residuals around the staggered
+feedback control: 256 hidden units, 0.05 residual, 0.15 s action filter, 40 Hz policy, ordinary 120 Hz
+physics, SIMBICON host and Balance 100. Each has a 30-minute/600,000-step cap and exact source
+snapshot. These runs retain their original generating controller; later runtime fixes are distinct
+experiments. Training successes do not establish added value over the feedback controller.
+
+Before inspecting final outcomes, the validation generation protocol was made explicit: the frozen
+128 non-grid shove recipes retain their settle prefix, then add 180 zero-activation, zero-assist
+physical steps so that testing includes lying starts. The original takeover clock continues through
+that prefix. Actual orientation is classified from the pelvis, and each group must include prone,
+supine and both sides; missing coverage fails qualification. Selection uses immediate recovery.
+Repeated sequences retain the same body, world, host and assistance history after each complete
+standing/walking tail. Disturbance trials add their frozen lateral shove without restarting time.
+
+The Lab exposes live assisted feedback separately from the slow searched witness. The selected
+variant uses original rigid feet, unchanged muscle capacity and explicit Balance 100; no anatomy
+or ordinary gameplay defaults change. Its instantaneous help and ceiling, recovery control time,
+phase and release are visible. Browser review observed an actual Front fall, active help, upright
+return and zero delivered help after release, in both skin and collision-shape views. This is a
+page demonstration, not a replacement for independent Node qualification or the walking tail.
+
+The first independent 128-case lying-state validation completes 114/128 within 12 seconds,
+107/128 within six. It fails the substantial gate (116 total and 28/group required), so the
+candidate remains experimental. Observed failures include insufficient host walking displacement,
+no quiet supported handover, and one recipe whose stronger fall attempts were all prevented.
+The set is retired to development if used to repair the controller; fresh validation is required.
+
+The three 30-minute filtered SAC runs complete 80/82, 78/79 and 78/78 training episodes. Their
+exported deterministic four-cardinal development evaluations complete 4/4 each by 35 seconds,
+but seed 121 takes 13.3833 s on Front. Seed 120 takes 3.7000, 3.4333, 2.2667 and 3.7750 s.
+Core-versus-NumPy inference on 64 replay observations per seed differs by at most 1.2e-15;
+full exported closed-loop episodes are evaluated separately. These results do not yet establish
+an advantage over the fixed feedback controller on varied bodies or held items.

@@ -1,0 +1,25 @@
+{
+  "settings": {
+    "turn": 0.5,
+    "damping": 0.1,
+    "lift": 1.2,
+    "horizontal": 1,
+    "supportedRelease": true,
+    "settleAfter": 4,
+    "settleHeight": 0.98
+  },
+  "posture": {
+    "hip.left flexion": 0.22672161529036194,
+    "hip.left abduction": -0.08720107923890982,
+    "hip.left internal rotation": -0.02566764805340265,
+    "knee.left flexion": 0.04964107416587796,
+    "ankle.left dorsiflexion": -0.1777885024919223,
+    "ankle.left inversion": -0.08771801711924636,
+    "hip.right flexion": -0.1059626497701251,
+    "hip.right abduction": 0.08682926092559506,
+    "hip.right internal rotation": 0.026411877567594135,
+    "knee.right flexion": 0.06968085188074478,
+    "ankle.right dorsiflexion": 0.1769419410518035,
+    "ankle.right inversion": 0.088146866594875
+  }
+}

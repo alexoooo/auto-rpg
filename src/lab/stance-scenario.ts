@@ -2,6 +2,7 @@ import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Scene } from "@babylonjs/core/scene.js";
+import type { LabAddress } from "./scenarios.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, LabShell, ScenarioRun } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
@@ -24,6 +25,7 @@ import { action, actions, choice, note, keyHints, legend, readings, slider, type
 interface StanceMoment {
   readonly frame: StanceFrame;
   readonly controller: string;
+  readonly recovery: {readonly seconds: number;readonly released: boolean;readonly force: number;readonly moment: number;readonly forceLimit: number;readonly momentLimit: number};
   readonly centre: readonly [number, number];
   readonly capture: readonly [number, number];
   readonly place: readonly [number, number];
@@ -68,20 +70,30 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
   const historySeconds = experiment ? 35 : HISTORY_SECONDS;
   const shown = readings({
     controller: { name: "Controller" },
+    recovery: {name:"Recovery control time",unit:"s"}, assist: {name:"Delivered help / ceiling",unit:"N; N m"}, release: {name:"Recovery control"},
     phase: { name: "Doing" }, state: { name: "State" }, strides: { name: "Walking steps" }, recoveries: { name: "Catching steps" },
     speed: { name: "Speed", unit: "m/s" }, height: { name: "Height / goal", unit: "m" }, off: { name: "Off its place", unit: "cm" },
     heading: { name: "Heading" },
   });
-  let walkSpeed = 0.3, impulse = 30;
+  let walkSpeed = 0.3, impulse = 30, recoveryMode: LabAddress["recoveryMode"] = "assisted";
   // The run the controls act on: the latest one started.
-  let current: (ScenarioRun & { shove(impulse: number, degrees: number): void }) | null = null;
+  let current: (ScenarioRun & { shove(impulse: number, degrees: number): void; walk(): void }) | null = null;
 
   return {
     keys: new Set([...Object.keys(WALK_KEYS), ...Object.keys(TURN_KEYS)]),
     panels: {
       controls: [
-        ...(experiment ? [note(() => "Experimental searched recovery with compliant soles. Slow and unreliable: one tested fall recovered in about 16 s; other falls may fail. Restart repeats the two Front shoves."),
-          action("Reproduce two Front shoves", () => experiment.reproduceRecovery(), "Reset to Warrior, empty hands, compliant soles, zero balance and 120 Hz; shove twice at 60 N s after 2 seconds.")] : []),
+        ...(experiment ? [choice("Get-up variant",[
+          {value:"assisted" as const,name:"Live assisted rise"},{value:"witness" as const,name:"Slow searched witness"}],
+          () => recoveryMode, mode => {recoveryMode=mode;experiment.reproduceRecovery(mode);}),
+          note(() => recoveryMode === "assisted"
+            ? "Live feedback with a staggered-foot target. Balance 100% permits up to one body weight of force plus a righting moment. Lower Balance or another body uses the existing recovery fallback. Qualification is in progress."
+            : "Recorded search result replayed as an ordinary recovery recipe, with compliant soles and zero Balance. Slow and unreliable."),
+          action("Reset demonstration", () => experiment.reproduceRecovery(recoveryMode), "Reset the selected variant and repeat its two timed Front shoves."),
+          action("Walk forward for 1 s", () => current?.walk(), "Check movement after recovery through the ordinary walking controller."),
+          actions("Stress cases",[
+            {value:247.5,name:"Rogue diagonal"},{value:180,name:"Rogue club Back"},{value:337.5,name:"Rogue club oblique"}],
+            degrees => experiment.reproduceRecovery("assisted",{model:"workshop-rogue",right:degrees===247.5?"empty":"club",recoveryPush:{degrees,impulse:60,separation:.2}}))] : []),
         keyHints([{ keys: letters(WALK_KEYS), does: "or arrows walk" }, { keys: letters(TURN_KEYS), does: "turn once walking" }]),
         slider("Walk, m/s", 0.2, 8, 0.1, () => walkSpeed, (value) => { walkSpeed = value; }, (value) => value.toFixed(1)),
         choice("Impulse, N s", IMPULSES.map((value) => ({ value, name: String(value) })), () => impulse, (value) => { impulse = value; }),
@@ -90,14 +102,22 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
       readout: [shown, legend([MARKS.centre, MARKS.capture, MARKS.place])],
     },
     timelineLabel: `The last ${historySeconds} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
-    start({ actor, changed, clock, heard }) {
+    start({ actor, address, changed, clock, heard }) {
+      recoveryMode=address.recoveryMode;
       const { world } = actor, { built } = actor.body;
       const shoved = shoveSound(built);
-      const stance = startStance(actor, (segment, impulse, at) => heard(shoved(segment, impulse, at)), !!experiment), capture = new Vector3();
+      const stance = startStance(actor, (segment, impulse, at) => heard(shoved(segment, impulse, at)), experiment ? address.recoveryPush : false), capture = new Vector3();
+      const recovery = {start:null as number|null,seconds:0,active:false,walkUntil:-Infinity};
       const history = recordHistory(built, world, historySeconds, (): StanceMoment => {
         const s = stance.body.view.stance;
         stance.capturePointToRef(capture);
-        return { frame: stance.frame(), controller: String(actor.body.has), centre: [s.centre.x, s.centre.z], capture: [capture.x, capture.z], place: [s.place.x, s.place.z] };
+        const active=actor.body.has !== "command";
+        if(active && !recovery.active)recovery.start=world.time-world.dt;
+        if(active && recovery.start!==null)recovery.seconds=world.time-recovery.start;
+        recovery.active=active;
+        const help=actor.body.assist;
+        return { frame: stance.frame(), controller: String(actor.body.has),
+          recovery:{seconds:recovery.seconds,released:!active,force:help.given.force.length(),moment:help.given.moment.length(),forceLimit:help.most.force,momentLimit:help.most.moment}, centre: [s.centre.x, s.centre.z], capture: [capture.x, capture.z], place: [s.place.x, s.place.z] };
       });
       const player = createPlayer({ world, recording: history }, changed, clock);
       const run = {
@@ -110,6 +130,8 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
             if (walk) { forward += walk[0]; right += walk[1]; }
             turn += TURN_KEYS[code] ?? 0;
           }
+          if (forward || right || turn) recovery.walkUntil=-Infinity;
+          else if (world.time < recovery.walkUntil) forward=1;
           forward = Math.sign(forward);
           right = Math.sign(right);
           // A diagonal walks at the chosen speed, not faster.
@@ -123,6 +145,9 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
           if (!moment) return null;
           const f = moment.frame;
           shown.write({
+            recovery:moment.recovery.seconds.toFixed(2),
+            assist:`${moment.recovery.force.toFixed(1)} / ${moment.recovery.forceLimit.toFixed(1)}; ${moment.recovery.moment.toFixed(1)} / ${moment.recovery.momentLimit.toFixed(1)}`,
+            release:moment.recovery.released ? "Released to host" : "Active",
             controller: moment.controller, phase: PHASE[f.phase], state: f.fallen ? "Down" : "Upright", strides: String(f.strides),
             recoveries: String(f.recoveries), speed: f.speed.toFixed(2), height: `${f.height.toFixed(3)} / ${f.goal.toFixed(3)}`,
             off: (100 * f.off).toFixed(1), heading: `${Math.round(f.heading * 180 / Math.PI)}°`,
@@ -134,6 +159,7 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
           headingMark.position.set(moment.centre[0] + 0.175 * Math.sin(f.heading), 0.008, moment.centre[1] + 0.175 * Math.cos(f.heading));
           return f.time;
         },
+        walk(): void {player.goLive();recovery.walkUntil=world.time+1;},
         // On the stance, the hands stay open.
         closure: () => 0,
         shove(impulse: number, degrees: number): void {

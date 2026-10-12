@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
+import { recoveryFeatures } from '../src/core/control/recovery-features.ts';
 import { serialize, deserialize } from 'node:v8';
 import { recoveryEnvironment } from './stand-up-environment.mjs';
 import { recoveryDesign } from './stand-up-design.mjs';
@@ -12,35 +12,14 @@ export async function learningEnvironment(configuration = {}) {
   const e = await recoveryEnvironment({ ...options, spec: recoveryDesign(options) });
   const reference = e.measure(), standing = reference.observation.height;
   const root = e.stand.built.segments.get('lowerTrunk');
-  const restInverse = Quaternion.Inverse(root.rest), q = new Quaternion(), inverse = new Quaternion(), turn = new Quaternion(), v = new Vector3();
-  const extremities = ['head','hand.left','hand.right','foot.left','foot.right'];
-  const contacts = [...extremities,'shank.left','shank.right','lowerTrunk','upperTrunk'];
   const actionSize = e.channels.length + 6;
   const previous = Array(actionSize).fill(0);
   const prior = assistControl(e, { turn: .5, damping: .1, lift: 1.2, horizontal: 1, ...options.feedback });
   let randomState = options.seed >>> 0, steps = 0, totalSteps = 0, returnValue = 0;
   const random = () => ((randomState = (Math.imul(randomState,1664525)+1013904223)>>>0)/4294967296);
   const pristine = e.save();
-  const observation = () => {
-    const m = e.measure(), o = m.observation, r = o.segments.find(s=>s.name==='lowerTrunk');
-    q.set(...r.rotation).multiplyToRef(restInverse, turn); Quaternion.InverseToRef(turn,inverse);
-    const local = a => v.set(...a).applyRotationQuaternionToRef(inverse,v).asArray();
-    const features = [o.height/standing, m.rootUp, ...m.soleUp, ...local([0,1,0]),
-      ...local(r.velocity).map(x=>x/3), ...local(r.spin).map(x=>x/10)];
-    o.joints.forEach((j,i)=>features.push(2*(j.angle-e.channels[i].min)/(e.channels[i].max-e.channels[i].min)-1, j.rate/10));
-    for (const name of extremities) {
-      const part=o.segments.find(s=>s.name===name);
-      features.push(...local(part.centre.map((x,k)=>(x-r.centre[k])/standing)));
-    }
-    for (const name of contacts) features.push(o.contacts.some(c=>c.segment===name && c.fixed!==null && c.impulse>0)?1:0);
-    if (options.mode === 'residual') {
-      const heading = prior.state.heading ?? 0;
-      features.push(...local([Math.sin(heading),0,Math.cos(heading)]), prior.state.released ? 1 : 0);
-    }
-    features.push(...previous, options.balance/100, options.strength ?? 1, 1);
-    if (!features.every(Number.isFinite)) throw new Error('nonfinite policy observation');
-    return features;
-  };
+  const features = recoveryFeatures({rest:root.rest.asArray(),standing,channels:e.channels,balance:options.balance,strength:options.strength??1});
+  const observation = () => features(e.measure(),previous,options.mode==='residual' ? prior.state : undefined);
   const reward = m => {
     const o=m.observation;
     // The published long-tail head-height reward is scaled to this model's reference height.
@@ -57,6 +36,10 @@ export async function learningEnvironment(configuration = {}) {
   };
   const step = action => {
     if (!Array.isArray(action) || action.length!==actionSize || !action.every(x=>Number.isFinite(x)&&Math.abs(x)<=1)) throw new Error('invalid policy action');
+    if (options.filterSeconds) {
+      const interval=options.actionRepeat/120, fraction=interval/(options.filterSeconds+interval);
+      action=action.map((x,i)=>previous[i]+fraction*(x-previous[i]));
+    }
     const n=e.channels.length;
     const help={force:action.slice(n,n+3).map(x=>x*e.body.assist.most.force),moment:action.slice(n+3).map(x=>x*e.body.assist.most.moment)};
     let command=options.mode==='torque'
@@ -79,14 +62,15 @@ export async function learningEnvironment(configuration = {}) {
     previous.splice(0,previous.length,...action);
     value/=options.actionRepeat;
     const terminated=!!(row.result.success||row.result.failure), truncated=steps>=options.seconds*120;
-    if(row.result.success)value+=10;
+    // Success is an absorbing standing state: termination retains its discounted unit reward.
+    if(row.result.success)value+=1/(1-(options.discount??.97));
     if(row.result.failure)value-=1;
     returnValue+=value;
     return {observation:observation(),reward:value,terminated,truncated,components,result:row.result,
       assistance:structuredClone(e.experiment.assistance),episodeSteps:steps,totalSteps,returnValue};
   };
   const reset = async ({ degrees, impulse, separation, settleSteps } = {}) => {
-    e.restore(pristine);steps=0;returnValue=0;previous.fill(0);prior.state.heading=null;prior.state.released=false;
+    e.restore(pristine);steps=0;returnValue=0;previous.fill(0);prior.state.heading=null;prior.state.released=false;prior.state.started=null;
     const before=e.stand.world.steps;
     const requestedRecipe={degrees:degrees??random()*360,
       impulse:impulse??(options.randomizeFalls ? 45+30*random() : 60),
@@ -105,9 +89,14 @@ export async function learningEnvironment(configuration = {}) {
       attempts.push({...recipe,fell:e.result().fell});
     }
     if (degrees === undefined && !e.result().fell) throw new Error('training reset could not produce a physical fall');
-    return {observation:observation(),result:e.result(),requestedRecipe,recipe,attempts,totalSteps};
+    const initial = observation(), gravity = initial.slice(4,7);
+    const initialPose = gravity[1] > .65 ? 'upright' : gravity[1] < -.65 ? 'inverted'
+      : Math.abs(gravity[0]) > Math.abs(gravity[2]) ? (gravity[0] > 0 ? 'left-side' : 'right-side')
+      : gravity[2] > 0 ? 'supine' : 'prone';
+    return {observation:initial,initialPose,result:e.result(),requestedRecipe,recipe,attempts,totalSteps};
   };
   return { actionSize, observation, step, reset,
+    inspect:()=>({measurement:e.measure(),host:e.stance.frame(),prior:structuredClone(prior.state),result:e.result(),has:e.body.has}),
     identity:{...e.identity,options,observationVersion:1,actionSize},
     save:()=>serialize({physical:e.save(),previous,prior:prior.state,randomState,steps,totalSteps,returnValue}),
     restore(bytes){const s=deserialize(bytes);e.restore(s.physical);previous.splice(0,previous.length,...s.previous);
