@@ -2498,3 +2498,102 @@ focused controller tests, the full frozen comparison, exact replay/restoration a
 prefix/clock checks pass. Whitespace and line-ending gates pass. The concrete remaining gap is
 speed and transfer: the new supported settling movement still needs more than seven seconds,
 and its four nearby perturbations fail.
+
+## Settling-aware physical search, 2026-10-12
+
+Warrior/club's unchanged saved 90-degree fall improves from 7.191667 s to **6.033333 s**, a
+1.158333 s reduction, including the unchanged standing and walking checks. **It still fails the
+six-second deadline.** The selected body-aware library remains **3/16** on the complete frozen
+screen, with none within six seconds. Nearby perturbation coverage does not improve. The full
+four-second median / six-second recovery goal and gameplay integration remain unfinished.
+
+Every figure here uses **Node Stance Lab / frozen game Rapier coordinate / 120 Hz / original
+symmetric muscle envelopes / Balance 0 / ordinary stance host**. Anatomy, muscle limits, host,
+solver, saved falls and acceptance criteria are unchanged. No assistance is substituted.
+
+The rollout search can test the measured muscle-settling controller as a terminal continuation,
+alongside the ordinary host. Its `settle` action constructs the existing path controller with
+the recorded terminal target, gain, damping and activation, and requests immediate settling.
+It requires the complete body-identity hash and the controller source hash to match. The action
+contains its configuration and reference frame, so recording a plan does not depend on silently
+reloading a changed tuning file. An intentionally wrong body identity is rejected before settling
+commands are issued.
+
+The search tests up to four eligible beam states plus its retained reference anchor when present;
+eligibility is the existing height/up heuristic, not proof of loaded support. Both continuations
+run for up to six seconds through the actual world and frozen recovery predicate, with the entire prefix
+clock retained. Independent tails run on the existing sequential worker loops in parallel;
+their results are consumed in input order. The ordinary-host-only search retains its existing
+candidate set when this option is absent.
+
+A preflight reproduces the previous 7.191667 s recovery through the new settling action: all
+1,222 rows, actions and results match exactly, as does the independent frozen action-interface
+evaluation. Fresh replay and restored split continuation also match. The subsequent bounded
+search uses width twelve, twelve-step blocks and the new settling option. It finishes its full
+5.5-second horizon in 117.060 wall seconds under a 180 s cap, using 13,497 evaluations and
+221,436 physical steps. It finds no completed recovery. Its 42 host tails and 42 settling tails
+are failures; near-standing states are not promoted to successes.
+
+The selected searched prefix reaches 0.936865 m height, root-up 0.913012 and sole-up
+0.999886/0.976956 at 5.508333 s on the full clock. Its separately recorded ordinary-host
+continuation still fails. The failed trajectory and its restored split continuation reproduce
+exactly. A further test therefore blends the terminal joint-angle request toward this reached
+posture, while preserving every actual prefix action and observation. This changes only the
+muscle target; it neither places the body nor removes the prefix from the recovery clock.
+
+Nineteen settings after the 5.2-second prefix all fail. Nineteen after the 5.5-second prefix
+produce eight completions, the fastest **6.133333 s**, using a 75% reached-posture blend with
+gain 24 and damping 0.25 or 0.5. Fifty-four earlier-takeover/posture settings produce thirteen
+completions, the fastest **6.041667 s**. A 36-trial local gain/damping/blend screen produces
+thirteen completions and reaches **6.033333 s**. Twenty-four additional timing settings produce
+nineteen completions but no further improvement. Later finite handovers that do not finish the
+standing/walking tail within the screen remain failures.
+
+The selected result replays the first 648 physical steps, then uses a target blended 60% toward
+that reached posture and 40% toward the preceding measured standing target, with gain 28,
+damping 0.625 and activation 1. These controller settings leave the original muscle envelopes
+in force. All 1,083 observations and the final result reproduce exactly, including restored
+continuation. This is a measured 6.033333 s result, not a rounded six-second completion.
+
+Extracting the complete trajectory produces a path controller with no exact-start prefix.
+An action-replay control and feedback gains 0/2/4 at rate one reproduce the nominal trajectory;
+the selected gain-four controller reproduces every row of the prefix-based recording exactly.
+The nine small speed-increase settings fail. The four gains 0/2/4/8 each recover only the nominal
+recipe among the five fresh recipes: 88 degrees, 92 degrees and 58/62 N s at 90 degrees all fail.
+The nominal fresh preparation reproduces the same initial state and trace, so those repeated
+controls are not additional independent robustness evidence.
+
+The complete frozen comparison takes 167.973 wall seconds. Warrior/empty front and first-side
+records remain exactly 7.25 and 7.041667 s; Warrior/club is now 6.033333 s. All sixteen optimized
+baseline records match, initial states match, and the floating-controller negative control is
+rejected. Thirteen cases still fail and failure-inclusive medians remain infinite. No independent
+qualification partition passes and no gameplay preset changes.
+
+The 185 grid trials consume 247,975 world steps, with 61 completions, all above six seconds.
+These counts include repeated nominal controls. There are no adapter errors, external-actuation
+events, invalid final commands or nonfinite final joint observations. Maximum grid effort-bound
+excess is 0.00004535394 N m. The search's 13,442 logged branches likewise contain no adapter
+errors or external actuation, with maximum excess 0.00004685784 N m. Its 55 reference-anchor
+evaluations account for the remaining search evaluation count. Both maxima remain below the
+unchanged 0.0001 tolerance.
+
+The faster trace's physical SHA-256 is
+`2cc0c1c8426e79c151921dbc8660f658ef9fe6ca589875953c3013b2e7c2ecfa`.
+`.review/stand-up-settling-search/replay.html` compares it with the optimized baseline from the
+identical complete initial observation and body. Its embedded records and labels are checked;
+the page is not visually inspected because of the existing local-file browser restriction.
+
+`research/stand-up-path-results.json` under `settlingAwareSearch` retains the terminal action,
+preflight and rejection checks, complete search configuration and audits, failed reached-state
+recording, all target blends and grid results, successful replay proofs, prefix-free path
+configuration, complete frozen comparison and replay identity. Reproduce the search with the
+rollout tool's `--settle-config <measured-path-config.json> --terminal-limit 4`, using its recorded
+remaining arguments and budget. Its `--mode record` consumes the stored plan, and `--mode verify
+--case 5` checks saved recordings. The path experiment's prefix, record and extract modes consume
+the recorded prefix lengths and controller configurations. The unchanged frozen evaluator takes
+the stored body-aware library through `STAND_UP_LIBRARY_CONFIG` and the library action module.
+
+Validation: `npm run check`, `npm test` (681 passes, zero failures, five existing TODOs), matched
+physical preflight, wrong-body rejection, successful and failed replay/restoration, and the full
+frozen comparison pass. Whitespace and line-ending gates pass. The remaining problem includes
+both the strict timing miss and the lack of recovery from nearby perturbed falls.

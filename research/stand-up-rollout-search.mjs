@@ -12,6 +12,7 @@ import { workerPool } from './cma.mjs';
 import { turningToRef } from '../src/core/build/joint-state.ts';
 import { recordedPolicy } from './stand-up-rollout-candidate.mjs';
 import { responseFeatures } from './stand-up-response-policy.mjs';
+import { pathPolicy } from './stand-up-path-policy.mjs';
 
 const frozen=new URL('../.tools/stand-up-frozen/',import.meta.url);
 const {acceptanceEnvironment,evaluateAcceptanceCase,frozenRevision}=await import(new URL('research/stand-up-acceptance.mjs',frozen));
@@ -132,8 +133,14 @@ async function rolloutStand(sourcePath,caseIndex=0,options={}) {
     e.restore(snapshot);const audit=unassistedAudit(e.stand.built,()=>e.stand.world.steps),rows=[],hash=createHash('sha256');
     let steps=0;
     try {
+      let settling;
+      if(control.kind==='settle') {
+        assert.equal(digest(JSON.stringify(e.identity)),control.identitySha256,'settling uses its measured body and muscle channels');
+        assert.equal(digest(readFileSync(new URL('stand-up-path-policy.mjs',import.meta.url))),control.policySha256);
+        settling=pathPolicy({channels:e.channels,reference:control.reference,parameters:control.parameters});
+      }
       for(let i=0;i<control.steps;i++) {
-        const row=e.step(action(control,i),{automaticHandover:true});steps++;hash.update(JSON.stringify(row.observation));
+        const row=e.step(settling?settling(e.observe()):action(control,i),{automaticHandover:true});steps++;hash.update(JSON.stringify(row.observation));
         if(capture)rows.push(row);
         if(row.result.success||row.result.failure||audit.events.length)break;
       }
@@ -152,7 +159,7 @@ if(!isMainThread&&workerData?.rolloutSearch) {
     catch(error){parentPort.postMessage({id,r:{error:String(error.stack),score:-Infinity}});}
   });
 }else if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href) {
-  const {values:v}=parseArgs({options:Object.fromEntries(['source','out','mode','plan','stage','case','width','block','seconds','wall','penalty','velocity-weight','anchor','orientation','contact-weight','transfer','diversity','roll','target','prefix','guidance','local-motion','feedback','terminal-motion-weight','terminal-contact-weight','terminal-sole-weight','gentle','braking'].map(k=>[k,{type:'string'}]))});
+  const {values:v}=parseArgs({options:Object.fromEntries(['source','out','mode','plan','stage','case','width','block','seconds','wall','penalty','velocity-weight','anchor','orientation','contact-weight','transfer','diversity','roll','target','prefix','guidance','local-motion','feedback','terminal-motion-weight','terminal-contact-weight','terminal-sole-weight','gentle','braking','settle-config','terminal-limit'].map(k=>[k,{type:'string'}]))});
   assert.ok(v.source&&v.out);mkdirSync(dirname(resolve(v.out)),{recursive:true});
   const revision=frozenRevision(),sourceSha256=digest(readFileSync(v.source)),codeSha256=digest(readFileSync(new URL(import.meta.url)));
   const options={penalty:Number(v.penalty??6),velocityWeight:Number(v['velocity-weight']??0),
@@ -213,6 +220,18 @@ if(!isMainThread&&workerData?.rolloutSearch) {
     }else if(v.mode==='search') {
       const width=Number(v.width??12),block=Number(v.block??24),seconds=Number(v.seconds??6),deadline=begun+Number(v.wall??600)*1000;
       assert.ok(Number.isInteger(width)&&width>0&&Number.isInteger(block)&&block>0&&Number.isFinite(seconds)&&seconds>0);
+      let settling=null;
+      const terminalLimit=Number(v['terminal-limit']??4);
+      if(v['settle-config']) {
+        assert.ok(Number.isSafeInteger(terminalLimit)&&terminalLimit>0);
+        const bytes=readFileSync(v['settle-config']),config=JSON.parse(bytes),ref=JSON.parse(gunzipSync(readFileSync(config.reference)));
+        assert.deepEqual(ref.identity,stand.e.identity);
+        assert.ok(config.parameters.terminalGain>0&&config.parameters.terminalAngles);
+        settling={kind:'settle',identitySha256:digest(JSON.stringify(ref.identity)),configurationSha256:digest(bytes),
+          policySha256:digest(readFileSync(new URL('stand-up-path-policy.mjs',import.meta.url))),
+          reference:{rootUp:ref.rootUp,joints:ref.joints,frames:[ref.frames.at(-1)],release:0},
+          parameters:{...config.parameters,startPhase:0,release:0,releaseHeight:0,releaseUp:-1,terminalAfter:0,window:0},steps:720};
+      }
       let initialNode={snapshot:stand.initial,phase:0,score:0,plan:[]},prefixSteps=0;
       if(v.prefix) {
         assert.notEqual(v.anchor,'yes','a support prefix is not the nominal reference anchor');
@@ -232,6 +251,7 @@ if(!isMainThread&&workerData?.rolloutSearch) {
       const configuration={case:stand.c.id,checkpointSha256:stand.c.sha256,initialObservationSha256:stand.c.observationSha256,
         referenceInitialObservationSha256:stand.referenceInitialObservationSha256,width,block,seconds,wall:Number(v.wall??600),anchor:v.anchor==='yes',
         diversity:v.diversity??'phase',roll:v.roll==='yes',feedback:v.feedback==='yes',gentle:v.gentle==='yes',braking:v.braking==='yes',options,
+        ...(settling?{settling,terminalLimit}:{}),
         ...(v.prefix?{prefixSha256:digest(readFileSync(v.prefix)),prefixSteps}:{})};
       const pool=workerPool(new URL(import.meta.url),{rolloutSearch:true,source:resolve(v.source),caseIndex:Number(v.case??0),options},3);
       let beam=[initialNode],evaluations=initialNode.plan.length,steps=prefixSteps,complete=null,anchor=beam[0];
@@ -279,9 +299,14 @@ if(!isMainThread&&workerData?.rolloutSearch) {
             assert.ok(!next.error&&!next.result.failure);anchor={...next,phase:(depth+1)*block,plan:[...anchor.plan,control]};
             if(!seen.has(anchor.observationSha256)) {if(beam.length===width)beam.pop();beam.push(anchor);}
           }
-          for(const node of beam.filter(n=>n.result.handover!==null || n.height>.85&&n.up>.9)) {
-            const control={kind:'host',steps:720};
-            const tail=await pool.evaluate({snapshot:node.snapshot,control,phase:node.phase});evaluations++;steps+=tail.steps??0;
+          const supported=beam.filter(n=>n.result.handover!==null || n.height>.85&&n.up>.9);
+          const terminalNodes=settling?supported.slice(0,terminalLimit):supported;
+          if(settling&&supported.includes(anchor)&&!terminalNodes.includes(anchor))terminalNodes.push(anchor);
+          const terminalJobs=terminalNodes.flatMap(node=>[{kind:'host',steps:720},...(settling?[settling]:[])].map(control=>({node,control})));
+          // Each independent tail restores its complete snapshot; result order preserves deterministic selection.
+          const tails=await Promise.all(terminalJobs.map(async job=>({...job,tail:await pool.evaluate({snapshot:job.node.snapshot,control:job.control,phase:job.node.phase})})));
+          for(const {node,control,tail} of tails) {
+            evaluations++;steps+=tail.steps??0;
             const {snapshot,...record}=tail;
             appendFileSync(v.out+'.jsonl',JSON.stringify({depth,control,parentPhase:node.phase,verification:true,...record})+'\n');
             if(tail.result?.success&&(!complete||tail.result.seconds<complete.result.seconds))complete={...tail,plan:[...node.plan,control]};
