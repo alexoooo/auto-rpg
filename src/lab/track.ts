@@ -34,6 +34,8 @@ export interface Track {
   piece(s: number): number;
   /** Each piece's length, m, in order. */
   readonly lengths: readonly number[];
+  /** How far along it each corner is, m, in order. */
+  readonly corners: readonly number[];
   /**
    * The arc length of the track's point nearest (x, z), searched from `back` metres behind `near`
    * to `ahead` in front of it, wrapped into [0, length). A window, not the whole track: where a
@@ -83,6 +85,7 @@ export function trackOf(pieces: readonly Piece[]): Track {
   };
   return {
     length, at, piece, lengths: pieces.map((p) => p.metres),
+    corners: pieces.flatMap((p, i) => p.kind === "corner" ? [starts[i]!.s] : []),
     nearest(px, pz, near, back = 0.5, ahead = 1) {
       // A centimetre's scan of the window, then a millimetre's about the best of it.
       let best = near - back, least = Infinity;

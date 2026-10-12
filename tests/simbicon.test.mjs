@@ -1,10 +1,11 @@
 /**
  * **The SIMBICON walk** (`simbicon`, `src/core/skills/simbicon.ts`), on the Node stand at 120 Hz: a
- * Warrior with it walks forward 5 m on legs it drives itself, the stance knee held near its angle
- * under the body's weight, and stops on its feet, its legs given back to the stance; asked to hold,
+ * Warrior with it walks forward 5 m on legs it drives itself, the stance knee in late stance
+ * between its angles, not folded past them by the body's weight, and stops on its feet, its legs given back to the stance; asked to hold,
  * it stands on the stance; it sets off sideways and walks the way asked; it walks back and to its left at the pace asked, each
- * way by its own gait, and stops on its feet; asked to go faster than it walks, it runs 10 m and stops on its feet; and its
- * faults refuse settings it cannot carry out.
+ * way by its own gait, and stops on its feet; asked to go faster than it walks, with no envelope to cap it, it runs 10 m and stops on its feet; its
+ * settings, set for the Warrior's leg, come through to the Warrior as set and to a shorter leg scaled by dynamic similarity;
+ * and its faults refuse settings it cannot carry out.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -14,12 +15,14 @@ import { treeFaults } from "../src/core/mind/catalog.ts";
 import { CONTROLLERS } from "../src/core/mind/controllers.ts";
 import { slotsOf } from "../src/core/mind/parts.ts";
 import { wentAsAsked } from "../src/core/control/stance-envelope.ts";
-import { SIMBICON } from "../src/core/skills/simbicon.ts";
+import { legOf, scaledGait, SIMBICON } from "../src/core/skills/simbicon.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const WALKING = { ...LAB_PRESETS.script.config, locomotion: { kind: "simbicon", ...SIMBICON } };
+/** How far past its early and late angles the late stance knee may be, rad. */
+const KNEE_SLACK = 0.02;
 
 test("a_warrior_with_the_simbicon_walk_drives_its_legs_five_metres_forward_and_stops_on_the_stance", async () => {
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
@@ -30,7 +33,7 @@ test("a_warrior_with_the_simbicon_walk_drives_its_legs_five_metres_forward_and_s
   actor.drive({ name: "five-metres", decide: ({ view }) => ({ move: view.stance.centre.z - start < 5 ? [1, 0] : null, face: 0, guard: NO_COVER, attack: null }) });
   const gait = actor.skills.state.legs.gait;
   let stopped = null, handed = null, driven = 0, steps = 0, last = null;
-  const errors = [];
+  const angles = [], least = Math.min(SIMBICON.stanceKnee, SIMBICON.stanceKneeLate) - KNEE_SLACK, most = Math.max(SIMBICON.stanceKnee, SIMBICON.stanceKneeLate) + KNEE_SLACK;
   try {
     for (let k = 0; k < 20 * 120 && !actor.body.view.down; k++) {
       stand.step(1);
@@ -39,18 +42,18 @@ test("a_warrior_with_the_simbicon_walk_drives_its_legs_five_metres_forward_and_s
         driven++;
         assert.equal(actor.skills.state.command.stance, null, "a driven walk asks the stance nothing");
         if (gait.stance !== last) { steps++; last = gait.stance; }
-        // The stance knee in its late state, the landing's bend taken up and the body's weight on it.
-        if (gait.late && t > 4) errors.push(Math.abs(m.angle(knee[gait.stance]) - SIMBICON.stanceKneeLate));
+        // The stance knee in its late state, the landing's bend taken up and the body's weight on it: on its way from its early angle to its late one.
+        if (gait.late && t > 4) angles.push(m.angle(knee[gait.stance]));
       }
       if (stopped === null && s.centre.z - start >= 5) stopped = t;
       if (stopped !== null && handed === null && !gait.walking) handed = t;
       if (handed !== null && t > handed + 3) break;
     }
-    const s = actor.body.view.stance, mean = errors.reduce((a, b) => a + b, 0) / errors.length;
+    const s = actor.body.view.stance;
     assert.equal(actor.body.view.down, false, `fell at ${actor.body.view.time.toFixed(2)} s`);
     assert.ok(stopped !== null && stopped < 12, `5 m on by ${stopped?.toFixed(2)} s`);
     assert.ok(steps >= 8, `its own steps: ${steps}`);
-    assert.ok(mean < 0.02 && Math.max(...errors) < 0.06, `the stance knee within ${mean.toFixed(3)} rad of its angle, at most ${Math.max(...errors).toFixed(3)}`);
+    assert.ok(angles.length > 0 && Math.min(...angles) >= least && Math.max(...angles) <= most, `the late stance knee from ${Math.min(...angles).toFixed(3)} to ${Math.max(...angles).toFixed(3)} rad, its angles ${SIMBICON.stanceKnee} and ${SIMBICON.stanceKneeLate}`);
     assert.ok(handed !== null && handed - stopped < 4, `given back to the stance ${(handed - stopped).toFixed(2)} s after the mark`);
     assert.ok(s.centre.z - start < 7, `stopped within 2 m of the mark: ${(s.centre.z - start).toFixed(2)} m`);
     assert.ok(Math.hypot(s.velocity.x, s.velocity.z) < 0.05, `standing still: ${Math.hypot(s.velocity.x, s.velocity.z).toFixed(3)} m/s`);
@@ -115,8 +118,9 @@ for (const [way, move] of [["back", [-0.5, 0]], ["left", [0, -0.5]]]) test(`a_wa
 });
 
 test("asked_past_its_walk_a_warrior_with_the_simbicon_walk_runs_ten_metres_and_stops_on_the_stance", async () => {
+  // Measured, with no envelope to cap its walk: the Warrior's measured envelope holds no run, so it walks at its fastest walk instead.
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true, groundSize: 80 });
-  const actor = labActor(stand.built, stand.world, { mind: WALKING });
+  const actor = labActor(stand.built, stand.world, { mind: WALKING, measuring: true });
   // Forward at 2 m/s, facing +z, until it has run 10 m; then stand.
   let from = null, ran = 0;
   actor.drive({ name: "run", decide: () => ({ move: ran < 10 ? [2, 0] : null, face: 0, guard: NO_COVER, attack: null }) });
@@ -146,10 +150,25 @@ test("asked_past_its_walk_a_warrior_with_the_simbicon_walk_runs_ten_metres_and_s
   } finally { actor.dispose(); stand.dispose(); }
 });
 
+test("a_simbicon_gait_comes_through_to_the_warrior_as_set_and_to_a_shorter_leg_scaled_by_dynamic_similarity", () => {
+  assert.equal(SIMBICON.leg, legOf(humanSpec("workshop-fighter")));
+  assert.equal(scaledGait(SIMBICON, legOf(humanSpec("workshop-fighter")) / SIMBICON.leg), SIMBICON);
+  const k = legOf(humanSpec("workshop-rogue")) / SIMBICON.leg, root = Math.sqrt(k), rogue = scaledGait(SIMBICON, k);
+  assert.ok(k > 0.85 && k < 0.9, `the Rogue's leg is ${k.toFixed(3)} of the Warrior's`);
+  // A time, a length, a speed, a rate, a gain on speed, an angle and a share of strength.
+  const near = (a, b) => Math.abs(a - b) < 1e-12;
+  assert.ok(near(rogue.seconds, SIMBICON.seconds * root) && near(rogue.lead, SIMBICON.lead * root));
+  assert.ok(near(rogue.width, SIMBICON.width * k) && near(rogue.leg, legOf(humanSpec("workshop-rogue"))));
+  assert.ok(near(rogue.run, SIMBICON.run * root) && near(rogue.turn, SIMBICON.turn / root) && near(rogue.cv, SIMBICON.cv / root));
+  assert.equal(rogue.swingHip, SIMBICON.swingHip);
+  assert.equal(rogue.stance, SIMBICON.stance);
+  assert.deepEqual(Object.keys(rogue), Object.keys(SIMBICON));
+});
+
 test("the_simbicon_walk_is_a_fighters_locomotion_and_refuses_what_it_cannot_carry_out", () => {
   assert.deepEqual(treeFaults(WALKING, ["script"]), []);
   assert.deepEqual(treeFaults({ ...WALKING, locomotion: { ...WALKING.locomotion, tuning: { back: { lead: 0.2 }, side: { width: 0.1 } } } }, ["script"]), []);
-  for (const bad of [{ seconds: 0 }, { longest: 0.1 }, { settle: 0 }, { swing: 1.5 }, { hold: 0 }, { ankle: -0.1 }, { turn: 0 }, { speedup: 0 }, { cd: Number.NaN }, { arms: -1 }, { run: 0 },
+  for (const bad of [{ seconds: 0 }, { longest: 0.1 }, { settle: 0 }, { swing: 1.5 }, { hold: 0 }, { ankle: -0.1 }, { turn: 0 }, { speedup: 0 }, { cd: Number.NaN }, { arms: -1 }, { run: 0 }, { leg: 0 },
     { tuning: { back: { cv: Number.NaN } } }, { tuning: { side: { settle: 0.2 } } }]) {
     const faults = treeFaults({ ...WALKING, locomotion: { ...WALKING.locomotion, ...bad } }, ["script"]);
     assert.ok(faults.some((f) => f.toLowerCase().includes("simbicon")), `${JSON.stringify(bad)}: ${JSON.stringify(faults)}`);

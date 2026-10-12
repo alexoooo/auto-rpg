@@ -197,9 +197,9 @@ unknown or non-finite one. With side and back set to forward's, the bed's 360 ru
 as the baseline. The run reads its own settings and is not blended.
 
 - **Back.** Driving the swinging thigh back early (`swingHip` at or below 0.1) lands the foot at
-  once, and the walk falls. What carried it was the stance: the stance ankle at −0.15 (toes up, so
-  the weight rolls back over the heel), the thigh's late angle at 0.1, and less velocity feedback
-  (`cv` 0.4, `cvAnkle` 0.6), since forward's feedback reads a backward pace as a fall to catch.
+  once, and the walk falls. What carried it was the stance: the stance foot pointed (−0.15, so the
+  body bears on the forefoot), the thigh's late angle at 0.1, and twice forward's velocity feedback
+  (`cv` 0.4, `cvAnkle` 0.6).
 - **Side.** No single setting helped: `swingHip`, `swingSpread`, `width`, `leadSide`, `cvSide` and
   `lean` each did as well as forward's or worse. Side stays forward's and goes to the search.
 
@@ -227,6 +227,23 @@ it on the stance (its right was already held).
   settings (Cohen's d of the paired margin), never a candidate against its own noise.
 - The best become the part's tuning defaults. The search's command and its table go in the commit.
 
+**Found.** `research/locomotion-search.mjs --kind simbicon --way back|side|forward` searches a way's
+21 settings (`WAY_DIMS`) by diagonal CMA-ES, 16 candidates a generation, each on 3 seeds under
+20 N gusts. A ladder climbs the paces until one falls or does not go as asked. The start's ladders
+are a floor: each pace a body's line or square holds short of the start's, on its worst seed,
+costs 1 of the score. Each search took 12 to 28 minutes. Judged on 16 fresh seeds (11 to 26),
+paired by seed and line:
+
+- **Back, on the Warrior alone:** 0.82 → 1.40 m/s, d 5.1, better on all 16. But on the skeleton
+  this gait falls at every pace where the hand gait walked 0.5. One gait serves every body, so the
+  search ran again over all three.
+- **Back, on all three:** against the Warrior's gait, the Warrior 1.36 → 1.22, the Rogue
+  0.72 → 0.91, the skeleton 0 → 1.39 (d 0.71, better in 33 of 48). On their worst seeds: the Warrior
+  0.7, the Rogue 0.5, the skeleton 1. This is the default.
+- **Side, on all three:** against forward's, the Warrior 0.63 either way, the Rogue 0.47 → 0.62,
+  the skeleton 0.10 → 0.54 (d 0.72, better in 83 of 96). On the Warrior's worst seeds under gusts,
+  0.5 where forward's held 0.7. This is the default.
+
 ### 04: scaled to the body
 
 - Leg length from the spec, and the scaling rule in `simbicon(body, settings)`. On the Warrior L is
@@ -238,10 +255,144 @@ it on the stance (its right was already held).
   ankle's stop widened, each leg channel's saturation from the bed's record. The reading names the body's cap or the
   controller's.
 
+**Found.** `legOf` (`simbicon.ts`) measures hip to ankle: Warrior 0.8815 m, Rogue 0.7789, skeleton
+0.7900. The Rogue's leg is 0.884 of the Warrior's, so its times go ×0.94. `SimbiconSettings.leg`
+names the leg a gait was set for, so a gait searched on another body carries its own. `scaledGait`
+scales each setting by its dimension (`DIMENSION`). It also scales the run and each way. On the
+Warrior k is exactly 1, and the settings come through as the same object.
+
+Scaled against unscaled, with the Warrior-searched back (bed, gusts, worst of 3 seeds):
+
+| Line | Rogue scaled, unscaled | Skeleton scaled, unscaled |
+|---|---|---|
+| forward | 0.7, 1 | none, 0.3 |
+| right, left | 0.5 and 0.5, none and 0.5 | none, none |
+| back | 0.5, 1 | none, none |
+| square | 0.5, 0.5 (calm 0.7, 0.5) | none, 0.3 |
+| circle | 1, 0.7 | none, none |
+
+Scaling is a 6 % change in time, and it moves each line by a pace either way. The skeleton is on a
+knife edge: it falls within 3 s of setting off, its hip and knee at full activation in 79 % of steps.
+The rule is kept, since it is the physics. The searches above ran with it, on all three bodies.
+
+Probes on the Rogue and the skeleton (bed, gusts, forward, right, back):
+
+- Twice the strength (`--physique '{"strength":2}'`) is worse. The Rogue walks nowhere forward
+  (0.21 m/s at 0.5 asked), and the skeleton stands at 0.3 and 0.5 and falls past them.
+- Twice the ankles' torque (`--probe '{"ankles":2}'`) lets the Rogue walk back at 0.7. It costs the
+  Rogue forward and right, and moves the skeleton only to 0.3 to the right.
+- The ankles' dorsiflexion stop at 0.6 rad (`--probe '{"dorsiflexion":0.6}'`, new) takes the Rogue
+  to the right and back from 0.5 to 0.7. The skeleton does not move.
+
+So the skeleton's cap is the controller, not its body: no strength, ankle or stop lets the
+Warrior's forward gait walk it. The Rogue is held partly by its ankle stop (0.35 rad), which is the
+body's and the owner's choice 3.
+
 ### 05: a body's own gait, if scaling falls short and the owner asks
 
 - The search of session 03 on the Rogue, and on the skeleton if session 04 found its cap is the
   controller's. The best become a preset that fits that body, not a branch in the skill.
+
+**Findings.** The cap was the controller's, so forward's gait was searched on all three bodies at
+once, which made a preset per body unnecessary
+(`research/locomotion-search.mjs --kind simbicon --way forward --models workshop-fighter,workshop-rogue,crypt-skeleton`,
+25 generations of 16, seeds 1–3, 20 s, 20 N gusts).
+
+- The first search (`s05-fwd3`) gained a lot (paired on fresh seeds 11–26: Warrior +0.19 m/s,
+  Rogue +0.47, skeleton +1.13; d 1.33, 47 of 48 better) but could not stop. Asked for no walk, it
+  walked on at 0.35–0.46 m/s, and since every way's blend comes to rest on forward's gait, no way
+  stopped. The simbicon and travel tests caught it.
+- The objective then gained a stop: on each body, line and seed, a calm walk at 0.3 m/s is asked
+  to stand after 6 s, and each run that falls or still goes faster than 0.1 m/s over its last
+  second costs 1. Searched again (`s05-fwd3s`), paired on seeds 11–26 against the hand gait:
+  Warrior +0.16 m/s (14 better, 2 worse), Rogue +0.47 (16/0), skeleton +1.08 (16/0); d 1.35,
+  46 of 48 better, every stop at rest. On their worst seeds forward holds 1.7 m/s on the Warrior
+  and the Rogue and 1.2 on the skeleton. It is `SIMBICON`'s forward gait.
+- The envelope battery walked off its 20 m ground at 1.4 m/s and read the fall as the gait's. Its
+  ground is now 60 m (`GROUND` in `core-stance-trials.mjs`).
+- The owner watched the square in the Lab: it overshot each corner, fell strafing right when asked
+  faster than the side holds, and at a slower pace tripped walking back. Built for it:
+  - the envelope keeps each way's fastest walk (`byWay`, `StanceEnvelope.ways`);
+  - a locomotion skill takes a walk asked past what the body holds that way at the most it holds
+    (`paceToward`, an ellipse between the ways);
+  - the Run brakes for a corner (`BRAKE`, `CORNER_PACE` in `run-mode.ts`);
+  - turns are measured walking forward up to the fastest walk forward, not the slowest way's.
+- What the battery shows next: slow walks miss `WENT`. Asked for 0.2 m/s back, the Warrior with the
+  club makes 0.7 and drifts 0.19 across; at 45° every body drifts left of the way; the skeleton
+  falls walking left. So the every-way walk is 0 on each body.
+- A step-to-step integral on the speed's error, trimming the landing, was tried at gains from
+  0.03 to 0.3 m per m/s, on one step and on the stride. Every gain did worse than none: 45 of 60
+  slow trials held with none, 42 to 0 with the trim. Its sign was checked by flipping it, which
+  sent the side walks the wrong way. It is not kept.
+
+### The Run's three scenarios (the owner's standing directive)
+
+The owner asked for robustness and speed as the Lab's Run measures it: the circle, the shuttle and
+the square, on all three bodies. The bed is the Lab as played
+(`research/locomotion-run.mjs --played`: the envelope's caps, the Run's own pacing), 60 s, paces
+asked 0.5, 1, 1.5 and 2.5 m/s, calm and 20 N gusts on seeds 1–6. A run's score is the way it made
+in 60 s over 60 s, a fall stopping it where it fell.
+
+- **A turn holds only if the body faced round** (`TURNED`, 0.5 rad behind the heading asked as the
+  turn ends). The SIMBICON walk turns its heading no faster than its `swerve` over its speed, so
+  the old battery read turns of up to 4 rad/s that the walk never took; the Run then asked paces
+  for them and swung 5 m wide of the shuttle's half-turns.
+- **Turning while setting off falls.** The turn battery's falls at slow walks were turns begun in
+  the set-off shift, whose mark across the heading moved as the heading turned: the Rogue at
+  0.2 m/s turning 0.5 rad/s fell on 5 of 56, all begun in the first quarter second. The heading
+  now holds through the shift, and the Warrior's and the Rogue's turns at 0.2–0.5 m/s read
+  1 rad/s (from 0.7 and 0.35). Turns begun in the shift at 1.2–1.4 m/s fall more on the Warrior
+  as the heading catches up after it (0.5 → 0.35 and 0.25 → 0 rad/s); the Run never sets off
+  into a turn. `swerve` is 1.6 m/s² (0.5, 0.85, 1.2, 1.6, 2.5 and 4 read on the bed, the
+  envelope as it was: 0.723 to 0.737, then the Warrior falling on the shuttle), separate from
+  `speedup`, and reads the body's own speed where it is faster than the walk asked.
+- **Searches that did not carry to the bed.** The forward gait searched on the walk and turn
+  batteries (`b3-fwd`, 40 generations, 1.99 → 2.41) read 0.654 against 0.705: the skeleton lost
+  its 45° walk and fell on 18 of 28 squares. The side and back searched on the Run itself
+  (`--objective played`, under the envelope as it was) read 0.723, but neither sets off from
+  standing (backward falls; the side drifts past `WENT`), so the envelope measured again holds no
+  side or back walk; their gain was the `swerve` the search took with them.
+- **A NaN fell the Rogue on the shuttle**: a straight's radius times a turn of 0 (`carried`).
+- **The run overshoots.** Asked 1.4 m/s it goes 1.9–2.0, and the walk it gives way to brakes at
+  `speedup`, so it reached the half-turn at 1.8 and fell. It ran at all because a walk capped at
+  1.4 came out one unit in the last place over the run's 1.4; the run now needs the walk asked
+  `past` it. It gave way only once the body was slower than the run's pace, which it never was;
+  now once the walk asked is `below` it. Its landing's speed gain at 0.15, 0.3 and 0.5 changed
+  little (forward line, 1.5–2.5 m/s asked).
+- **The Run's pace**: braking for each bend over the whole distance it takes, from where it is
+  (a look back crawled the shuttle's first 6 s after each half-turn at the half-turn's pace); and,
+  facing along the track, no faster than its turns carry it round the arc from its heading to the
+  point it aims at.
+- **The slow back walk** was searched on the walk battery itself (`--objective battery`: each
+  hold's `quality`, near misses earning part, and no faster than `OVER` of the pace asked):
+  every body now walks back as asked from 0.2 m/s, the Warrior and the Rogue to 1.7 and the
+  skeleton to 2 (calm, `b1-back`, 60 generations of 20).
+- **The side walk** was searched the same way on the right, the left and 45° (`b2-side`), and the
+  envelope read at finer rates (the SIMBICON's turns at 0.25, 0.35, 0.5, 0.7, 1, 1.4, 2 and 4 rad/s).
+- **Setting off facing away fell.** A walk asked with the face 90° off the body's heading turned
+  the heading while the first step shifted the weight onto one foot, and the body fell back at any
+  turn rate; the travel test's Warrior, built side-on to its foe, never closed. Past `SET_OFF`
+  (0.35 rad) the stance now turns the body where it stands, and the walk sets off once it faces
+  near the way asked. Walking the way asked in the world while the heading lagged (the walk turned
+  into the heading's frame) fixed the travel too, but the shuttle's half-turns then asked the
+  skeleton's weak side walk, and it fell 27 times in 28.
+- **What made no gain.** A trim of the walk the feedback aims at by a share of each step's speed
+  error (0.3, at most half the pace) made the Warrior's side walk exact to 0.7 m/s and felled it at
+  1, where it had made 0.73; the skeleton's side walk, steady only near its own pace, fell from
+  0.3 m/s; and the forward walk's overspeed at 0.7 did not move. A `speedup` and Run `BRAKE` of
+  1 m/s² felled 78 of 252 (0.539).
+- **The 45° walk drifts forward** because the forward gait overspeeds at slow paces (0.2 asked goes
+  0.35–0.39, 0.5 goes 0.6–0.74), and the side and back are now accurate.
+
+| bed | circle W / R / S | shuttle W / R / S | square W / R / S | falls |
+|---|---|---|---|---|
+| before (3 seeds) | 0.92 / 0.84 / 0.91 | 0.41 / 0.29 / 0.61 | 0.13 / 0.52 / 0.11 | 22 of 144 |
+| run, pace, swerve | 0.92 / 0.84 / 0.91 | 0.53 / 0.47 / 0.55 | 0.13 / 0.52 / 0.12 | 13 of 252 |
+| back searched | 0.92 / 0.84 / 0.91 | 0.53 / 0.47 / 0.55 | 0.69 / 0.61 / 0.20 | 8 of 252 |
+| no look back | 0.92 / 0.84 / 0.91 | 0.57 / 0.55 / 0.57 | 0.69 / 0.61 / 0.20 | 8 of 252 |
+| side searched, fine rates, set-off turn | 0.97 / 0.84 / 0.91 | 0.58 / 0.56 / 0.57 | 0.64 / 0.56 / 0.51 | 11 of 252 |
+| Run braking 0.3 m/s² | 0.97 / 0.84 / 0.91 | 0.65 / 0.62 / 0.62 | 0.65 / 0.58 / 0.51 | 10 of 252 |
+| swerve 1.6, heading held through the set-off shift | 0.98 / 0.84 / 0.91 | 0.77 / 0.71 / 0.78 | 0.65 / 0.58 / 0.51 | 10 of 252 |
 
 ### 06: the envelope, and travelling by it
 

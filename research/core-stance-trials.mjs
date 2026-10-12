@@ -10,7 +10,7 @@ import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
 import { GUARD, guardPosture } from "../src/core/skills/guard.ts";
-import { simbicon } from "../src/core/skills/simbicon.ts";
+import { SIMBICON, simbicon, simbiconWays } from "../src/core/skills/simbicon.ts";
 import { stride } from "../src/core/skills/stride.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
@@ -24,11 +24,14 @@ const across = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
  * fight plays it: the club in that hand, the arms in the body's guard (`guardPosture`) and built
  * in it, and its character's balance under it (`balanceCeiling`, the rulebook's per cent).
  * `actuation` is the world's (`createWorld`), and `physique` the body's (`Physique`,
- * `src/core/human/physique.ts`).
+ * `src/core/human/physique.ts`). Its ground is `GROUND` across, so no trial walks off it.
  */
+/** The trials' ground, m across: the fastest walk of a battery, 2.5 m/s for its 10 s, stays on it. */
+const GROUND = 60;
+
 async function body(model, stance, hz, held = null, actuation, physique) {
   const spec = held === "club" ? armed(modelSpec(model, physique), "right", woodenClub()) : modelSpec(model, physique);
-  const stand = await coreStand(spec, { ground: true, hz, actuation, ...(held === null ? {} : { posture: guardPosture(spec) }) });
+  const stand = await coreStand(spec, { ground: true, groundSize: GROUND, hz, actuation, ...(held === null ? {} : { posture: guardPosture(spec) }) });
   const assist = held === null ? undefined : balanceCeiling(stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
   const built = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance, measuring: true, assist });
   return { stand, body: built, guard: guardPosture(spec), feet: ["left", "right"].map((side) => stand.built.segments.get(`foot.${side}`)) };
@@ -169,7 +172,11 @@ function skillOf(legs, b) {
     case null: case undefined: return null;
     case "stride": return stride(b);
     case "simbicon": return simbicon(b);
-    default: throw new Error(`no locomotion skill named ${legs}`);
+    default: {
+      // A SIMBICON gait of its own: its settings over the defaults, and its ways' tuning.
+      if (legs?.kind === "simbicon") { const { kind, tuning, ...settings } = legs; return simbicon(b, { ...SIMBICON, ...settings }, simbiconWays(tuning)); }
+      throw new Error(`no locomotion skill named ${legs}`);
+    }
   }
 }
 
@@ -237,6 +244,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
  * `held` (`body`), walking by the stance's own walk or by the locomotion skill `legs` names (`skillOf`).
  */
 export async function turn({ model, speed, rate, sense, stance, hz = 120, after = 3, held = null, actuation, physique, legs = null }) {
+  if (!Number.isFinite(rate) || rate <= 0) throw new Error("a turn rate must be finite and positive");
   const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique);
   const skill = skillOf(legs, b);
   let goal = null, heading = 0, turning = false, walking = false, turned = 0;
@@ -267,12 +275,14 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120, after 
     run(after);
     turning = true;
     run(Math.PI / rate);
+    // How far the body's facing lags the heading asked as the turn asked ends, rad.
+    const facing = b.view.stance.facing, lag = Math.abs(Math.atan2(Math.sin(facing - heading), Math.cos(facing - heading)));
     run(2);
     let off = 0;
     run(1, (s) => { if (s.velocity.length() > 0.05) off = Math.max(off, Math.abs(Math.atan2(Math.sin(Math.atan2(s.velocity.x, s.velocity.z) - heading), Math.cos(Math.atan2(s.velocity.x, s.velocity.z) - heading)))); });
     walking = false;
     run(2);
-    return { fell: low > 0.25 || !Number.isFinite(low), off, speed: b.view.stance.velocity.length(), phase: b.view.stance.phase };
+    return { fell: low > 0.25 || !Number.isFinite(low), off, lag, speed: b.view.stance.velocity.length(), phase: b.view.stance.phase };
   } finally { b.dispose(); stand.dispose(); }
 }
 
