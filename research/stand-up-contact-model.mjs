@@ -16,6 +16,7 @@ export function contactModel(environment) {
     channels:environment.body.muscles.channels.map(c=>({name:c.name,min:c.dof.spec.min.value,max:c.dof.spec.max.value,
       bind:c.dof.spec.bind.value,positive:structuredClone(c.positive),negative:structuredClone(c.negative)})),
     segments:[...built.segments.values()].map(s=>({name:s.spec.name,mass:s.rigid.mass,
+      referenceCentre:observation.segments.find(part=>part.name===s.spec.name).centre,
       frame:structuredClone(s.frame),rest:s.rest.asArray(),rigid:data(s.rigid),
       properties:{...structuredClone(s.body.massProperties),orientation:s.body.massProperties.orientation.asArray()}})),
     joints:joints.map(j=> {

@@ -1198,3 +1198,69 @@ Validation: `npm run check`, `npm test` (662 passes, zero failures, five existin
 `npm run build` (existing MuJoCo externalization and large-chunk warnings), the named detached
 dynamics test, and exact selected-component reconstruction pass. The recovery performance tests
 fail as listed above. No development server was started.
+
+## Contact acquisition and prediction probe, 2026-10-12
+
+The full goal remains **not achieved**. The contact controller now admits a landed foot as support
+and can enter a rise attempt, but none of the 62 further trials completes recovery. Six are
+identical repeats: the root-priority grid supplied an unused `centreHeightOffset` parameter.
+They are retained in the evidence and do not count as independent configurations.
+
+All measurements here use **Node Stance Lab / frozen game Rapier coordinate / 120 Hz / symmetric
+original muscle envelopes / Balance 0**, Warrior empty, existing compliant soles and the unchanged
+ordinary host. No body, muscle, solver or frozen acceptance changes are made.
+
+`research/stand-up-tracking-probe.mjs` executes sixty physical steps from standing and from the
+saved trajectory's four- and seven-second prefixes. It compares requested muscle torque with
+whole-step delivered torque, and coupled-model acceleration under predicted support forces with
+the following physical velocity change. Median absolute torque differences are respectively
+1.99e-8, 3.20e-8 and 9.93e-8 N m. The largest differences are 0.00000274, 0.137833 and 2.509105 N m;
+the latter cases include channels near anatomical stops. This is an actuation diagnostic with
+contact and controller-switch transients, not a muscle peak-strength measurement.
+The requested torques mostly arrive, while predicted root acceleration can differ substantially
+from the resulting motion. Fifty-seven of the sixty fours samples and eight kneeling samples
+have loaded self contacts, which the controller's floor-support predictor does not model.
+These observations do not isolate a single cause of the acceleration mismatch.
+
+Two controller defects are corrected. A placement's default foot-centre height comes from the
+body's measured standing height, with a small requested compression, rather than a target above
+the sole. A foot that becomes flat and loaded stops being excluded from predicted support.
+The optional extension stage transfers toward that foot, raises the centre-of-mass target and
+asks the other foot to land. `tests/stand-up-detached.test.mjs` exercises this transition through
+the real saved-fall action sequence, checks measured sole orientation/load and the predicted
+support force, and confirms that this intermediate event is not reported as recovery.
+
+| Experiment, Node harness above | Trials | Recovery result |
+|---|---:|---|
+| Immediate centre-of-mass transfer from kneeling | 12 | All fail by 10 s |
+| Foot swing without waiting for static balance | 12 | All fail by 10 s |
+| Placement at the measured sole height | 6 | All fail by 10 s |
+| Admit the landed foot and attempt extension | 6 | All fail by 12 s |
+| Increase trunk-orientation priority | 12, six distinct | All fail by 10 s |
+| Wider foot paths from hands and knees, with/without same-side hand release | 8 | All fail by 9 s |
+| Isolated extension from the saved trajectory's nine-second prefix | 6 | All fail by 15 s |
+
+Every cap includes the original prefix. These are transition experiments, not new qualifying
+recoveries or full robustness runs. The selected failed acquisition run admits its left foot at
+8.283333 s after takeover, then fails to rise. Re-recording reproduces all 1,439 physical
+observations and the complete result, SHA-256
+`c917a08cbd3b1612c6bde23b4d6e94f9436ecf03fe709c47ed71705e7761a665`.
+Its maximum effort-bound excess is 0.0000346886 N m, below the frozen tolerance, and its assist
+and external-actuation audit remains zero. It supplies no speed or coverage improvement.
+
+`research/stand-up-path-results.json` retains all configurations, outcomes, source identities,
+the probe summary and the duplicate-run disclosure. The full local probe is
+`.review/stand-up-tracking-probe/prediction.json`; `selected-config.json` reproduces the failed
+recording with the existing runner's `--mode record --seconds 12` command. The standalone
+`failed-acquisition.html` in that directory compares it with the frozen optimized baseline.
+The browser's local-file policy still prevents visual inspection; the replay is built, and its
+physical trace is verified, but it is not visually reviewed.
+
+Further gain tuning of this local predictor is not supported by these results. A useful next
+controller needs a route that is feasible through the actual contacts and anatomical stops,
+including the momentum carried into each transition. Qualifying timing, independent-start
+robustness, repeated falls, disturbances and runtime integration all remain unfinished.
+
+Validation: the named physical regression test, `npm run check`, `npm test` (663 passes, zero
+failures, five existing TODOs) and exact failed-trace reconstruction pass. No browser source
+changes are made in this experiment and no server is started.
