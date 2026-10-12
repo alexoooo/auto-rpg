@@ -36,6 +36,8 @@ const WALKS = [
 ];
 /** A body's fastest walk forward in `asset`: its own way's where the asset measured each way. */
 const forwardOf = (asset, entry) => entry.byWay ? entry.byWay[asset.ways.indexOf(0)] : entry.walk;
+/** How many times `asset` walked each way at each speed: once with each thing held, calm and in each of its winds. */
+const walksOf = (asset) => asset.holds.length * (1 + (asset.winds?.length ?? 0));
 
 for (const { name, asset } of WALKS) test(`the_${name}_envelope_was_measured_on_the_cores_harness_at_the_games_rate`, () => {
   assert.equal(asset.harness, CORE_STANCE_HARNESS);
@@ -44,7 +46,7 @@ for (const { name, asset } of WALKS) test(`the_${name}_envelope_was_measured_on_
 
 for (const { name, asset, source, envelope } of WALKS) test(`each_bodys_fastest_${name}_walk_and_its_turns_are_the_rules_reading_of_its_tables`, () => {
   for (const [model, entry] of Object.entries(asset.models)) {
-    assert.equal(entry.walk, fastestHeld({ speeds: asset.speeds, ways: asset.ways.length * asset.holds.length, held: entry.held }), model);
+    assert.equal(entry.walk, fastestHeld({ speeds: asset.speeds, ways: asset.ways.length * walksOf(asset), held: entry.held }), model);
     // A turn at every speed up to the fastest walk forward, and none past it.
     const upTo = asset.speeds.filter((speed) => speed <= forwardOf(asset, entry));
     assert.equal(entry.turnHeld.length, upTo.length, model);
@@ -54,7 +56,7 @@ for (const { name, asset, source, envelope } of WALKS) test(`each_bodys_fastest_
     const walk = { value: entry.walk, unit: "m/s", provenance: at(`/models/${model}/walk`) };
     // Each way by the rule over its own trials, where the asset measured them; where not, the fastest walk.
     if (entry.byWay) {
-      assert.deepEqual(entry.byWay, entry.wayHeld.map((held) => fastestHeld({ speeds: asset.speeds, ways: asset.holds.length, held })), model);
+      assert.deepEqual(entry.byWay, entry.wayHeld.map((held) => fastestHeld({ speeds: asset.speeds, ways: walksOf(asset), held })), model);
       assert.deepEqual(entry.held, asset.speeds.map((_, s) => entry.wayHeld.reduce((sum, way) => sum + way[s], 0)), model);
     }
     const way = (degrees) => {

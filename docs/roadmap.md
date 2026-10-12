@@ -337,11 +337,11 @@ After it, each with its own plan, in the order each needs the one before:
     setting off and the change to the run included), 0.7 to either side (0.62), 1.4 round the
     circle (1.17), 0.7 round the square, and 0.5 back (0.26). The Rogue holds 1 m/s forward
     (1.16: it walks faster than asked) and 0.5 to the sides, falls from 1.4 forward crouched with
-    the ankle at its dorsiflexion stop, and falls walking back at 0.5. Every way, its envelope
-    (`assets/core/simbicon-envelope.json`) is 0.5 m/s for the Warrior, 0.4 for the Rogue and 0 for
-    the skeleton, which falls once in 10 at 0.2. So tactics, which plan by the walk held every way,
-    would travel by it slower than by the stride (0.7, 0.5, 0.5), though it goes forward twice as
-    fast. The envelope battery counts falls, not where the body went: before the walk set off on
+    the ankle at its dorsiflexion stop, and falls walking back at 0.5. Every way, calm and in 20 N
+    gusts, its envelope (`assets/core/simbicon-envelope.json`) is 0.7 m/s for the Warrior, 0.4 for
+    the skeleton and 0 for the Rogue, whose diagonal at 0.2 makes 0.67 of the pace asked. So
+    tactics, which plan by the walk held every way, would travel by it no faster than by the stride
+    (0.7, 0.5, 0.5), though it goes forward twice as fast. The envelope battery counts falls, not where the body went: before the walk set off on
     the leading foot it walked the wrong way at 0.5 m/s to the right, and the battery called it
     held.
     - **Its run** is the same machine past 1.4 m/s, in states a cross-entropy search found on the
