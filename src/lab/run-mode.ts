@@ -14,11 +14,11 @@ import { startWind, type WindSettings } from "./wind.ts";
  * its mind has carries the walk out.
  *
  * Each control step the tactics find the body on the track (`Track.nearest`, from where it last
- * was) and aim at the track's point `AIM_AHEAD` ahead of that. On a track walked facing along it,
- * they face that point and walk forward; the locomotion skill turns the heading toward it no faster
+ * was) and aim at the track's point ahead of that. On a track walked facing along it, they face
+ * the point `AIM_ALONG` ahead and walk forward; the locomotion skill turns the heading toward it no faster
  * than the body turns at the pace it walks. On a track walked facing one way (`TrackInfo.facing`,
- * the square), they face that way and walk toward the point in the body's own frame: forward,
- * sideways or back.
+ * the square), they face that way and walk toward the point `AIM_AHEAD` ahead in the body's own
+ * frame: forward, sideways or back.
  *
  * Their pace is the body's fastest walk (`Sight.envelope`, what its locomotion was measured to hold
  * with it), or the pace the lab asks (`RunOptions.top`), which may be past it: a locomotion skill
@@ -88,6 +88,12 @@ interface RunSession {
  * drift add up loop after loop. Set: `docs/reference/lab.md#aim-ahead`.
  */
 const AIM_AHEAD = 1;
+/**
+ * How far along a track a walker facing along it faces, m: further than `AIM_AHEAD`, so that it
+ * turns into a bend over a wider arc, at a pace its turns carry round it. Set:
+ * `docs/reference/lab.md#aim-ahead`.
+ */
+const AIM_ALONG = 1.25;
 
 /**
  * How hard the Run slows for a bend or a corner, m/s²: about as hard as the body slows, which is
@@ -170,7 +176,7 @@ export function trackTactics(track: Track, { top, pace: most, turn, facing }: Tr
           lastLap = view.time - lapFrom;
           lapFrom = view.time;
         }
-        const to = track.at(along + AIM_AHEAD);
+        const to = track.at(along + (facing === undefined ? AIM_ALONG : AIM_AHEAD));
         aim = [to.x, to.z];
         const toward = Math.atan2(to.x - c.x, to.z - c.z);
         // Each bend as far ahead as it takes to brake from the fastest pace, at its pace and braking to it; the next corner likewise.

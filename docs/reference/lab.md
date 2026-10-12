@@ -185,6 +185,23 @@ A walker round the Routine's path, each human (Node core stand, 120 Hz). The rea
 `AIM_AHEAD`: 1 m. Set: the readings behind it have not been taken on the engine the lab runs on
 now, where the run test below holds a walker facing 1 m ahead within 0.4 m of each track.
 
+A walker facing along the track (`AIM_ALONG`) turns into a bend over the arc from its heading to
+the point it faces, and the Run asks no faster than its turns carry it round that arc. On the
+Run's bed (`research/locomotion-run.mjs --played`, the Warrior, the Rogue and the skeleton on the
+circle and the shuttle, paces asked 0.5, 1, 1.5 and 2.5 m/s, calm and 20 N gusts on seeds 1–6,
+60 s; Node core stand, Rapier, 120 Hz; the SIMBICON walk), the mean speed made along the track,
+a fall stopping the body where it fell:
+
+| Faced ahead | Circle W / R / S, m/s | Shuttle W / R / S, m/s | Falls of 168 | Most off the track, m |
+|-------------|-----------------------|------------------------|--------------|-----------------------|
+| 1 m | 0.98 / 0.84 / 0.91 | 0.77 / 0.71 / 0.78 | 0 | 0.51 |
+| 1.25 m | 0.98 / 0.84 / 0.92 | 0.79 / 0.74 / 0.81 | 0 | 0.45 |
+| 1.5 m | 0.99 / 0.85 / 0.92 | 0.83 / 0.77 / 0.80 | 2 | 0.70 |
+| 2 m | 1.01 / 0.87 / 0.94 | 0.93 / 0.85 / 0.64 | 21 | 0.89 |
+
+Past 1.25 m the skeleton reaches the shuttle's half-turn still going about 1.1 m/s, turns, and
+falls. `AIM_ALONG`: 1.25 m.
+
 ## Run tolerance
 
 `tests/lab-run.test.mjs`: each human round each track for 30 s, asked its fastest walk
