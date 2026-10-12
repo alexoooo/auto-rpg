@@ -131,10 +131,11 @@ After it, each with its own plan, in the order each needs the one before:
     produced one 15.5583 s development success and failed the robustness objective. The frozen
     `stand-up-acceptance-v1` comparison retains that recipe and rejects external actuation.
     Changes to its evaluator, baseline, cases or criteria require the owner's agreement.
-    Actual-physics action search reaches 7.25 s on that saved fall with unchanged muscles and
-    zero balance assistance, including verified standing/walking afterward; tested nearby-fall
-    feedback still fails. This is a narrow demonstration, not a robust gameplay controller
-    ([rollout search](analysis/2026-10-11-stand-up-planning.md#physical-rollout-search-2026-10-12)).
+    Actual-physics search and feedback reach 6.975 s on that saved fall with unchanged muscles
+    and zero balance assistance. A different feedback setting recovers on three isolated fresh
+    starts in 7.125-7.725 s, but intermediate and wider directions fail. All successes include
+    standing/walking verification; none establishes the timing target or a robust gameplay controller
+    ([feedback transfer](analysis/2026-10-11-stand-up-planning.md#contact-aware-phase-feedback-and-transfer-2026-10-12)).
   - **Assisted rise is a separate experiment**, with external lift and righting at recovery and
     host Balance 100. Historical assisted-only results:
     63/64 directional selection, 126/128 independent lying falls, 16/16 three-fall sequences and

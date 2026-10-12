@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { turningToRef } from '../src/core/build/joint-state.ts';
+import { phaseFeatures } from './stand-up-phase-features.mjs';
 
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
@@ -25,13 +26,17 @@ export function pathPolicy({ channels, reference, parameters }) {
     state.previous = o.time;
     const expected = clamp(Math.round(state.phase),0,frames.length-1), up = upOf(o);
     if (p.window > 0 && state.phase < p.release) {
+      const features=p.localGravity?phaseFeatures(o):null;
       let best = Infinity, index = expected;
       const span = Math.round(p.window*120);
       for (let i = Math.max(0,expected-span); i <= Math.min(frames.length-1,expected+span); i++) {
         const f = frames[i];
         let error = 0;
         for (let j=0;j<channels.length;j++) error += (o.joints[j].angle-f.angles[j])**2/channels.length;
-        error = p.poseWeight*error + p.rootWeight*up.reduce((sum,v,k)=>sum+(v-f.up[k])**2,0)
+        const orientation=features?features.gravity:up,goal=features?f.gravity:f.up;
+        error = p.poseWeight*error + p.rootWeight*orientation.reduce((sum,v,k)=>sum+(v-goal[k])**2,0)
+          +(features?(p.phaseHeightWeight??0)*(features.height-f.height)**2
+            +(p.phaseLoadWeight??0)*Object.entries(f.loads).reduce((sum,[name,v])=>sum+(v-(features.loads[name]??0))**2,0):0)
           + .02*((i-expected)/Math.max(1,span))**2;
         if (error < best) { best = error; index = i; }
       }

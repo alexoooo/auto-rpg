@@ -1360,3 +1360,102 @@ frozen comparison, selected-trace reconstruction and restore checks pass. The re
 performance goal fails as recorded above. `npm run check` and `npm test` pass (664 passes,
 zero failures, five existing TODOs). Whitespace and line-ending gates pass. No browser source
 changes are made and no development server is started.
+
+## Contact-aware phase feedback and transfer, 2026-10-12
+
+The full goal remains **not achieved**. One observation-based parameter set now recovers on
+three fresh nearby starts, while a different accelerated setting reaches **6.975 s** on the
+original saved fall. Neither meets six seconds. Intermediate and wider angles still fail,
+and the frozen sixteen-case comparison gains no additional completion.
+
+All measurements in this section use **Node Stance Lab / frozen game Rapier coordinate / 120 Hz /
+symmetric original muscle envelopes / Balance 0**, with unchanged Warrior/empty compliant-sole
+anatomy and ordinary host, except the explicitly named full sixteen-case comparison, which also
+includes the frozen Rogue and club configurations. No body, muscle, host or acceptance change
+is made. Every reported success includes the unchanged standing/walking verification tail.
+
+`research/stand-up-phase-features.mjs` reads gravity in the root's local frame, body height and
+normalized actual floor impulses. `stand-up-path-policy.mjs` optionally uses these observations
+to match a reference phase and applies stronger joint-error feedback to the reference muscle
+commands. This removes world heading from the orientation comparison and distinguishes support
+states that similar joint angles alone can confuse. The policy receives detached observations
+and emits ordinary muscle actions; it does not receive a physics world or match an initial-state
+hash. Reference extraction preserves these additional features.
+
+With the 7.25 s demonstration as reference, the selected settings are `gain: 20`, `window: 0.8`,
+`rate: 1`, `minRate: 0.5`, `localGravity: true`, `phaseHeightWeight: 4`, `phaseLoadWeight: 0.2`,
+`releaseHeight: 0.85`, and `releaseUp: 0.9`. The fresh comparisons use the same two 60 N s shoves,
+0.2 s apart, and a 38 s episode cap. Complete initial-observation hashes match each pair.
+
+| Fresh fall, Node harness above | Optimized baseline | Same selected feedback controller |
+|---|---|---|
+| -1 degree | No completion by 38 s | 7.725 s |
+| 0 degrees | 15.558333 s | 7.25 s |
+| +1 degree | No completion by 38 s | 7.125 s |
+
+This is a small development comparison, not robust coverage: the selected controller fails all
+eight additional directions -5, -3, -2, -0.5, +0.5, +2, +3 and +5 degrees in twelve-second
+episodes. In particular, successes at +/-1 degree do not establish an interval of recoverable
+starts. The initial feedback grid has seven successes in eighteen trials: six reproduce the
+nominal trace, and one completes the -1-degree fall. The progression grid has five successes
+in eighteen nearby-fall trials. Both grids retain all failed configurations.
+
+The selected feedback setting runs through the unchanged frozen `--candidate` interface: 1/16
+within 35 s, 1/16 within 12 s, and 0/16 within 6 s; the other fifteen runs reach the episode
+deadline. The failure-inclusive median is not reached. Every optimized baseline result and
+trace reproduces, all saved initial states match, and the floating-controller negative control
+is rejected. No candidate has an external-actuation event.
+
+Of eighteen accelerated nominal/nearby trials, only `gain: 16`, `rate: 1.1`, `minRate: 1.1`
+with the other settings above succeeds, on the original saved fall in 6.975 s. Its full result
+and physical trace independently match frozen `evaluateAcceptanceCase`, SHA-256
+`4316088932c90ec37c9f884bb8d1186a70248bd39c86f99faa8d8f2e83007563`.
+That setting fails both tested neighboring starts. The sixteen-case result above belongs to
+the selected transfer setting, not this faster single-case setting.
+
+The +1-degree success is independently regenerated and replayed by
+`research/stand-up-fresh-replay.mjs`. All 1,214 continuation observations and the complete result
+match exactly, SHA-256 `fb874e3cb7205868bfdaf7adae2bdd79de1b84ad576adf5ee18341579aa6a012`.
+The maximum effort-bound excess is 0.00003061694 N m, below the frozen 0.0001 tolerance; assistance
+and external-actuation events are zero. The candidate and its recorded baseline have identical
+complete initial observations and physical configurations.
+
+Transfer search on the actual frozen 90-degree saved fall remains unsuccessful. Direct guidance
+from the Front demonstration explores 2,325 continuations and 55,800 world steps without a
+completion. Adding the existing roll postures and retaining distinct floor-support/tilt states
+explores 17,415 continuations and 417,960 steps, also without a completion. The latter stops on
+its 240 s wall limit at a 5.6 s prefix; completing the in-flight batch takes 246.162 s. Its recorded
+ordinary-host continuation still fails through 11.608333 s. Transfer mode verifies identical
+body/engine/host identities, retains the selected saved checkpoint and records its actual initial
+observation; it neither substitutes the reference fall nor changes a frozen case.
+
+The local replays are `.review/stand-up-transfer/replay.html` (the matched fresh +1-degree
+comparison) and `faster-replay.html` (the 6.975 s saved-fall witness). Their motion is verified and
+the HTML is built, but they are not visually inspected because the browser local-file restriction
+remains in effect. No development server is started. The compact results, exact configurations,
+initial-state identities and failures are retained in `research/stand-up-path-results.json`.
+
+For reproduction, reconstruct `.review/rollout-fine.trace.gz` with the five plan commands above,
+then extract its phase reference:
+
+```powershell
+node research/stand-up-path-experiment.mjs --mode extract --source .review/rollout-fine.trace.gz --out .review/transfer-reference.json.gz
+```
+
+Write a configuration with `reference` set to the absolute path of that output and `parameters`
+set to the selected settings above. Set `STAND_UP_PATH_CONFIG` to its absolute path and run the
+frozen evaluator with `--candidate "$PWD/research/stand-up-path-policy.mjs"`. For a fresh record,
+add `fall: {"degrees": 1}` to a copy of the configuration and run the experiment's `--mode record
+--config <file> --out <stem> --seconds 38`; `kind: "baseline"` selects the optimized baseline
+for the matched research trial. Verify the successful fresh record with
+`node research/stand-up-fresh-replay.mjs <stem>.trace.gz <verification.json>`.
+
+The next missing capability is recovery across genuinely different contact configurations.
+The three isolated successful fresh starts do not meet the robustness objective, and faster
+phase progression usually destroys the route. Runtime integration and every full qualification
+partition remain unfinished.
+
+Validation: `npm run check`, `npm test` (665 passes, zero failures, five existing TODOs), the
+two named phase/reference regressions, matched fresh-start identities, exact fresh replay,
+the accelerated saved-case check and the full frozen candidate comparison pass. The whitespace
+and line-ending gates pass. The recovery performance goal remains unmet.

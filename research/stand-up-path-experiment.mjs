@@ -12,6 +12,7 @@ import { compactPolicy } from './stand-up-compact-policy.mjs';
 import { contactModel } from './stand-up-contact-model.mjs';
 import { contactPolicy } from './stand-up-contact-policy.mjs';
 import { trackingPolicy } from './stand-up-tracking-policy.mjs';
+import { phaseFeatures } from './stand-up-phase-features.mjs';
 import { cmaSearch, workerPool } from './cma.mjs';
 
 const frozen = new URL('../.tools/stand-up-frozen/',import.meta.url);
@@ -20,7 +21,7 @@ const { unassistedAudit, unassistedResult } = await import(new URL('research/sta
 const manifest = JSON.parse(readFileSync(new URL('research/stand-up-acceptance/cases.json',frozen)));
 const digest = x => createHash('sha256').update(x).digest('hex');
 const write = (file,data) => writeFileSync(file,JSON.stringify(data,null,2)+'\n');
-const sourceIdentity=()=>Object.fromEntries(['stand-up-path-policy.mjs','stand-up-compact-policy.mjs','stand-up-path-experiment.mjs','stand-up-contact-model.mjs','stand-up-contact-policy.mjs','stand-up-detached-dynamics.mjs','stand-up-tracking-policy.mjs']
+const sourceIdentity=()=>Object.fromEntries(['stand-up-path-policy.mjs','stand-up-compact-policy.mjs','stand-up-path-experiment.mjs','stand-up-contact-model.mjs','stand-up-contact-policy.mjs','stand-up-detached-dynamics.mjs','stand-up-tracking-policy.mjs','stand-up-phase-features.mjs']
   .map(name=>[name,digest(readFileSync(new URL(name,import.meta.url)))]));
 
 /** Execute only candidate muscle actions from the unchanged complete saved fall. */
@@ -43,7 +44,8 @@ async function trial(configuration, { caseIndex=0, seconds=20, capture=false }={
     const hash=createHash('sha256');
     while(e.result().elapsed<seconds&&steps<seconds*120) {
       const frame=reference.frames[steps];
-      const action=steps<(configuration.prefixSteps??0)?(!frame||frame.kind==='host'?{kind:'host'}:frame):policy(e.observe());
+      const action=configuration.kind==='baseline'?undefined:
+        steps<(configuration.prefixSteps??0)?(!frame||frame.kind==='host'?{kind:'host'}:frame):policy(e.observe());
       const row=e.step(action,{automaticHandover:!configuration.standing}); steps++;
       hash.update(JSON.stringify(row.observation)); if(capture)rows.push(row);
       peakHeight=Math.max(peakHeight,row.observation.height);
@@ -54,7 +56,7 @@ async function trial(configuration, { caseIndex=0, seconds=20, capture=false }={
         quality+=q/120;peakQuality=Math.max(peakQuality,q);
       }
       const marker=Math.floor(row.result.elapsed*2);
-      if(marker!==last) {last=marker;timeline.push({seconds:row.result.elapsed,phase:policy.state.phase,
+      if(marker!==last) {last=marker;timeline.push({seconds:row.result.elapsed,phase:configuration.kind==='baseline'?'baseline':policy.state.phase,
         height:row.observation.height,rootUp:row.rootUp,soleUp:row.soleUp,centre:row.observation.centre,
         feet:row.observation.segments.filter(s=>s.name.startsWith('foot.')).map(s=>({name:s.name,centre:s.centre,
           impulse:row.observation.contacts.filter(c=>c.segment===s.name&&c.fixed!==null).reduce((sum,c)=>sum+c.impulse,0)})),
@@ -65,7 +67,7 @@ async function trial(configuration, { caseIndex=0, seconds=20, capture=false }={
     const result=unassistedResult(e.result(),audit.events), measured=e.measure();
     if(!result.success&&!result.failure)result.failure='episode deadline';
     const score=result.success ? 100000-1000*result.seconds : -10000+100*quality+100*peakQuality;
-    return {configuration,case:c.id,result,steps,score,peakHeight,quality,peakQuality,timeline,
+    return {configuration,case:c.id,initialObservationSha256:digest(JSON.stringify(initial)),result,steps,score,peakHeight,quality,peakQuality,timeline,
       nonfinite:measured.observation.joints.filter(j=>![j.angle,j.rate,j.speed,j.effort,j.positive,j.negative].every(Number.isFinite)),
       invalidCommands:[...e.body.muscles.activation].map((v,i)=>({name:e.channels[i].name,activation:v,velocity:e.body.muscles.velocity[i]})).filter(c=>!Number.isFinite(c.activation)||Number.isNaN(c.velocity)),
       traceSha256:hash.digest('hex'),
@@ -95,7 +97,7 @@ else if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1]
       const release=source.rows.findLastIndex(r=>r.action.kind!=='host')+1;
       assert.ok(release>0,'the reference contains recovery actions before its terminal host continuation');
       const frames=source.rows.slice(0,release).map((r,i)=>{const o=i?source.rows[i-1].observation:source.initial;
-        return {...r.action,angles:o.joints.map(j=>j.angle),speeds:o.joints.map(j=>j.speed),up:rotate(o.segments.find(s=>s.name==='lowerTrunk').rotation)};});
+        return {...r.action,angles:o.joints.map(j=>j.angle),speeds:o.joints.map(j=>j.speed),up:rotate(o.segments.find(s=>s.name==='lowerTrunk').rotation),...phaseFeatures(o)};});
       const joints=[...e.stand.built.joints.values()].map(j=>({dofs:j.dofs.map(d=>({sign:d.sign}))}));
       writeFileSync(v.out,gzipSync(JSON.stringify({sourceSha256:digest(readFileSync(v.source)),rootUp,rootFront,rootAcross,joints,roll:RISE.roll,release,frames})));
       console.log(JSON.stringify({release,frames:frames.length,output:v.out}));
