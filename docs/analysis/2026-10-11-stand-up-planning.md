@@ -288,6 +288,19 @@ physical prefix is 9.5083 s with no handover and torso height about 0.246 m. Tha
 records 1,219.35 s; manual budget enforcement has an overrun. This is a censored failure to
 find a recovery, not a completed seventeen-second trial. Native search now also enforces a
 finite wall budget between selected physical steps and retains its elapsed budget on resume.
+Preserving the initial 120 physical steps also fails to produce a recovery before its wall
+allocation is closed: 476,625 steps charged, including the interrupted reservation. Its last
+durable prefix is 9.0083 s, including the preserved second, with no handover and torso height
+about 0.204 m; the saved checkpoint records 1,135.89 wall-clock seconds. This trial is likewise
+censored rather than a completed twelve-second target rollout. The exact executing native
+module is retained alongside the local checkpoint and verified against its recorded digest.
+
+The campaign closes without a qualifying candidate. Neither shortened motion tracking nor
+optimization of the existing recipe provides the requested fast, robust recovery in these
+experiments. The reusable result is a validated search/replay environment and a faster but
+narrow slow witness. A new runtime variant, repeated-fall/disturbance/combat checks, visible
+motion review and final qualification remain undone. These failures do not establish that
+the body or Rapier makes the requested movement impossible.
 
 Reproduce these experiments with separate output paths:
 
