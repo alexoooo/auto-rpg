@@ -14,7 +14,8 @@ parser.add_argument("--reference", default=".tools/get-up-reference")
 parser.add_argument("--output", default="research/runs/get-up-learning/reference")
 parser.add_argument("--episodes", type=int, default=4)
 parser.add_argument("--updates", type=int, default=16)
-parser.add_argument("--power", type=float, default=.4)
+parser.add_argument("--power", type=float)
+parser.add_argument("--student", action="store_true")
 options = parser.parse_args()
 reference = Path(options.reference).resolve()
 output = Path(options.output).resolve()
@@ -25,7 +26,7 @@ import numpy as np
 import torch
 import imageio.v2 as imageio
 from main import ArgParserTrain
-from env import HumanoidStandupEnv
+from env import HumanoidStandupEnv, HumanoidStandupVelocityEnv
 from SAC import SAC
 from utils import ReplayBuffer
 
@@ -36,7 +37,11 @@ def load_tensors(path, **kwargs):
     return original_load(path, map_location="cpu", **({"weights_only": True} if int(torch.__version__.split(".")[0]) >= 2 else {}), **kwargs)
 torch.load = load_tensors
 args = ArgParserTrain().parse_args([])
-args.power = args.power_end = args.curr_power = options.power
+metadata = json.loads((reference / "experiment/pretrained/student/args.json").read_text())
+power = options.power if options.power is not None else metadata["teacher_power"]
+args.power = args.power_end = args.curr_power = power
+args.teacher_power = power
+args.teacher_student = options.student
 args.discount = .97
 args.actor_lr = 1e-5
 args.batch_size = 32
@@ -45,11 +50,15 @@ args.replay_buffer_size = 4096
 args.seed = 120
 np.random.seed(args.seed)
 torch.manual_seed(args.seed)
-env = HumanoidStandupEnv(args, args.seed)
+env = (HumanoidStandupVelocityEnv if options.student else HumanoidStandupEnv)(args, args.seed)
 policy = SAC(env.obs_shape, env.action_space, init_temperature=args.init_temperature,
     alpha_lr=args.alpha_lr, actor_lr=args.actor_lr, critic_lr=args.critic_lr, tau=args.tau,
     discount=args.discount, critic_target_update_freq=args.critic_target_update_freq, args=args)
-checkpoint = reference / "experiment/pretrained/teacher/model/best_model"
+if options.student:
+    teacher = SAC(env.teacher_env.obs_shape, env.teacher_env.action_space, args=args)
+    teacher.load(str(reference / "experiment/pretrained/teacher/model/best_model"), load_optimizer=False)
+    env.set_teacher_policy(teacher)
+checkpoint = reference / ("experiment/pretrained/student/model/best_model" if options.student else "experiment/pretrained/teacher/model/best_model")
 policy.load(str(checkpoint), load_optimizer=False)
 buffer = ReplayBuffer(env.obs_shape, env.action_space, args, max_size=4096)
 records = []
@@ -57,22 +66,29 @@ traces = []
 start = time.monotonic()
 for episode in range(options.episodes):
     state = env.reset(test_time=True)
+    episode_origin = env.physics.time()
     frames = []
     trace = []
     first_standing = None
+    upstream_finish = None
     quiet = 0
     for step in range(250):
         action = policy.select_action(state)
+        before_step = env.physics.time()
         next_state, reward, done, _ = env.step(action, test_time=True)
+        action_dt = env.physics.time() - before_step
+        elapsed = env.physics.time() - episode_origin
         assert np.isfinite(next_state).all() and np.isfinite(action).all()
         # Upstream horizon is a truncation, not an absorbing failure.
         buffer.add(state, action, next_state, reward, False)
         height = float(env.physics.head_height())
         upright = float(env.physics.torso_upright())
         speed = float(np.linalg.norm(env.physics.center_of_mass_velocity()))
+        if height > 1.4 and upstream_finish is None:
+            upstream_finish = elapsed
         quiet = quiet + 1 if height >= 1.5 and upright >= .9 and speed < .3 else 0
         if quiet >= 10 and first_standing is None:
-            first_standing = (step + 1) * env.env.control_timestep()
+            first_standing = elapsed
         trace.append({"state": state.tolist(), "action": action.tolist(), "reward": float(reward),
             "height": height, "upright": upright, "speed": speed})
         if episode == 0:
@@ -81,9 +97,9 @@ for episode in range(options.episodes):
         if done:
             break
     if frames:
-        imageio.mimsave(output / "teacher.mp4", frames, fps=round(1 / env.env.control_timestep()))
+        imageio.mimsave(output / "teacher.mp4", frames, fps=round(1 / action_dt))
         imageio.imwrite(output / "teacher-final.png", frames[-1])
-    record = {"episode": episode, "steps": len(trace), "standingSeconds": first_standing,
+    record = {"episode": episode, "steps": len(trace), "standingSeconds": first_standing, "upstreamHeightSeconds": upstream_finish,
         "finalHeight": trace[-1]["height"], "finalUpright": trace[-1]["upright"],
         "return": sum(row["reward"] for row in trace)}
     records.append(record)
@@ -105,18 +121,18 @@ torch.save({"rng": torch.get_rng_state(), "total_it": policy.total_it}, output /
 buffer.load(str(output / "buffer.npz"))
 policy.train(buffer, args.batch_size)
 assert np.isfinite(policy.select_action(state)).all()
-report = {"harness": "upstream dm_control HumanoidStandupEnv; teacher policy; local CPU",
+report = {"harness": "upstream dm_control get-up reference; local CPU",
     "revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
     "packages": {p: importlib.metadata.version(p) for p in ["torch", "numpy", "mujoco", "dm-control"]},
-    "controlTimestep": env.env.control_timestep(), "physicsTimestep": env.physics.timestep(),
-    "observations": env.obs_shape, "actions": env.action_space, "power": options.power,
+    "controlTimestep": action_dt, "nominalEnvironmentTimestep": env.env.control_timestep(), "physicsTimestep": env.physics.timestep(),
+    "observations": env.obs_shape, "actions": env.action_space, "power": power, "student": options.student,
     "records": records, "smokeUpdates": options.updates+1,
     "actionChange": float(np.max(np.abs(after-before))), "resumeActionExact": True,
     "wallSeconds": time.monotonic()-start,
     "files": {str(p.relative_to(reference)): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in (reference / "experiment/pretrained").rglob("*.pt")},
-    "deviations": ["Python 3.11, PyTorch 2.5.1, MuJoCo 3.1.6 and dm_control 1.0.20 compatibility environment",
-        "teacher-only evaluation; no slow student; success reading is a reference diagnostic, not game qualification",
+    "deviations": ["Exact runtime packages are recorded above; isolated Windows Python " + sys.version.split()[0],
+        "Upstream teacher trajectory ends at head height >1.4m; stricter standing diagnostic is reported separately; neither is game qualification",
         "short update/save/load smoke, not full training reproduction"]}
 (output / "report.json").write_text(json.dumps(report, indent=2)+"\n")
 (output / "traces.json").write_text(json.dumps(traces)+"\n")

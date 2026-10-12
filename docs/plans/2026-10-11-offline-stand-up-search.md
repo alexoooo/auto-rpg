@@ -58,8 +58,8 @@ can misjudge intermediate support states. Those are hypotheses for bounded exper
 main implementation agenda. Longer horizons alone are not an established cure.
 
 The studies demonstrate success on their own bodies and simulators. We reuse training methods,
-not an assumption that their weights or trajectories transfer. Existing code has been inspected
-for availability; no upstream implementation has yet been executed locally.
+not an assumption that their weights or trajectories transfer. Local execution, dependency
+audits and adaptation results are tracked in the existing study as the campaign proceeds.
 
 ## Success levels and clocks
 

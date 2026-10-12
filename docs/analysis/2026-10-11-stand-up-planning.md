@@ -328,14 +328,28 @@ under ignored `research/runs/get-up-learning/`. The reference checkout is pinned
 It has no license file, so upstream code, assets and pretrained weights remain local and are not
 redistributed. `research/stand-up-reference.py` executes that separate checkout.
 
-The first reference run used local CPU, Python 3.11.11, PyTorch 2.5.1, MuJoCo 3.1.6 and dm_control
-1.0.20, with the supplied teacher at power 0.4, 40 Hz control and 200 Hz physics. Four 250-action
-episodes ended with head heights 0.595, 0.687, 0.663 and 0.623 m; none reached the reference
-standing diagnostic. This is a failed reproduction under changed dependencies, not evidence
-against the published result. Seventeen learner updates executed, parameters changed, and
-save/load restored identical deterministic actions before another successful update. This is
-only a training/resume smoke check. Matching the original dependencies is the next reference
-experiment. Raw trajectories, video, checksums and exact package versions are in `reference/`.
+The reference reproduction exposed a checkpoint-configuration mismatch. The CLI's teacher power
+0.4 leaves the supplied teacher crouched under both modern dependencies and the original stack
+(Python 3.8.10, PyTorch 1.5.1, MuJoCo 2.1.3, dm_control 1.0.1). The supplied student's metadata
+records teacher power **0.663420431**, consistent with the teacher's final curriculum strength.
+With that recorded power, the teacher reaches the upstream head-height criterion (>1.4 m) in
+4/4 physical fallen starts: 0.625, 1.075, 1.525 and 0.725 seconds after reset. Final head heights
+are 1.46-1.475 m; rendered playback was inspected. These are upstream MuJoCo results at 200 Hz
+physics and 40 Hz policy, not game qualification or successful retraining.
+
+The supplied student also reaches that upstream criterion in 2/2 starts, at 1.225 and 2.15 seconds.
+Its actual physics clock advances 0.025 s per policy call (800 Hz internal physics), despite the
+environment's nominal control-timestep field reporting 0.00625 s. The runner measures elapsed
+physics time directly. Use `reference-student-clock/`, not the earlier nominal-clock diagnostic.
+Raw reports, trajectories, video and checkpoint digests are in `reference-recorded-power/` and
+`reference-student-clock/`. The stricter head-height/quiet diagnostic in those reports remains
+separate from the upstream criterion; neither substitutes for the game's physical evaluator.
+
+Learner updates change parameters, checkpoint loading restores identical deterministic actions,
+and another update succeeds. This is a short train/update/resume smoke test, not reproduction of
+the ten-million-transition training schedule. The isolated modern environment uses Python 3.11.11,
+PyTorch 2.5.1 CPU, NumPy 1.26.4, MuJoCo 3.1.6 and dm_control 1.0.20; the original stack is retained
+as a compatibility control. Upstream code/assets/weights remain outside the committed repository.
 
 The research action port now accepts explicit root force/moment requests, clips them through the
 existing Balance mechanism, records delivered assistance in replay tapes and accepts assisted
@@ -359,3 +373,85 @@ under the frozen evaluator. No timing or displacement gate has been relaxed. The
 full pilot settings are `research/stand-up-assist.mjs` and local `assist-100-*.json` records.
 These pilots motivate horizontal assistance and explicit host handover; they do not establish
 coverage over other falls, loadouts, bodies or assistance levels.
+
+The Rapier adapter has 151 observations and 41 actions: 35 actual muscle channels plus six
+root-wrench components, evaluated at 40 Hz over 120 Hz `World.step`. Observations use local-frame
+orientation/velocity, normalized joint positions/rates, extremities, loaded contacts, action
+history and declared configuration. Torque signs, legal reference-relative targets and speed-
+dependent effort remain in the existing muscle path. The residual-feedback ablation adds four
+observations for its remembered heading and release state; its full asymmetric joint corrections
+and wrench corrections are explicitly separate from the published direct-torque representation.
+
+The port retains the published SAC implementation in the local checkout. Method deviations are
+explicit: 256-sample batches versus the saved reference's 1024, 200,000 replay capacity versus
+one million, one learner update per three parallel transitions, 12-second training episodes,
+body-scaled height reward, an approximated velocity penalty, and a physical completion bonus.
+The 256-hidden-unit network and residual feedback are bounded ablations of the 1024-unit direct
+muscle/wrench pilot, not a faithful reproduction claim. Curriculum advancement is not implemented
+yet. Ordinary host release and walking still decide completion independently of shaped reward.
+
+The persistent three-worker bridge resumes physical worlds, observations, replay, optimizers,
+PRNGs and counters. A 120-transition/30-update smoke run resumed to 240 transitions/70 updates;
+physical counts advanced from 1,694 to 2,054 without resetting. The fast regression restores and
+compares complete physical transitions, rewards and action history, and rejects invalid actions
+atomically. This establishes adapter correctness, not learned recovery.
+
+A 20-case feedback pilot covered Balance 0/10/25/50/100 and four cardinal shove directions.
+Five configurations prevented the requested fall; the other fifteen produced no complete
+recovery under the then-current evaluator. This exposed a support-measurement defect: selecting
+only geometric foot corners within 1 mm of the lowest corner discards loaded corners of slightly
+tilted feet. The evaluator now uses actual loaded, penetrating Rapier contact-patch points.
+The Balance-100 side trial is consequently recognized as quietly supported at 3.7917 s, but
+still fails the walking tail. A regression exercises this real tilted-foot configuration.
+Prior results using the old support calculation need re-evaluation before comparative claims.
+
+The walking shortfall also occurs without a fall. Node Stance Lab, original Warrior, empty hands,
+120 Hz, after four seconds standing: a 0.3 m/s forward command moves 0.09919 m in one second at
+Balance 0 and 0.08844 m at Balance 100. Asking 0.6 m/s gives 0.10022 and 0.08898 m respectively.
+This diagnoses a host-startup limitation, not permission to relax the 0.1 m qualification gate.
+No complete recovery or qualified new gameplay variant is claimed.
+
+The 15-minute direct-muscle pilot (1024 hidden units, CPU, seed 120) completed 16,062 transitions,
+2,021 updates and 78,240 physics steps in 904.06 seconds, with no complete recovery. Warm-up
+collection was much faster than learning; the full published ten-million-transition schedule
+is not credible at this measured CPU update rate within the campaign allocation.
+
+The five-minute residual-feedback ablation (256 hidden units, CPU, seed 120, residual scale 0.15)
+completed 15,693 transitions, 4,232 updates and 92,303 physics steps in 300.89 seconds. It produced
+several successful training episodes, but not a qualified policy. That pilot also exposed a reset
+bug: some fallback shoves still prevented falling, so the learner received stationary high-reward
+samples. Reset now records every attempted shove, follows the declared 90/120 N s fallbacks,
+and resamples random training falls instead of training on prevention. Explicit evaluation cases
+retain prevention as a separate outcome. The affected pilot is a development seed, not a clean
+curriculum comparison.
+
+Frozen deterministic evaluation of that pilot under the corrected contact/release evaluator:
+Node Stance Lab, gameplay Rapier, 120 Hz, original Warrior, empty hands, Balance 100 for recovery
+and host, four development cardinal directions (not held-out qualification):
+
+| Requested direction | Executed impulse | Quiet handover | Complete standing/walking tail |
+|---|---:|---:|---|
+| Front | 60 N s twice | 3.3083 s | Pass |
+| Right | 60 N s twice | None by 35 s | Fail |
+| Back | 90 N s twice, after prevention at 60 | 2.5750 s | Pass |
+| Left | 60 N s twice | 3.1750 s | Fails walking displacement |
+
+Both NumPy double-precision inference and the deterministic core ReLU/tanh evaluator reproduce
+these outcome records. This passes the Front feasibility target at the declared assistance,
+not the substantial-improvement or robustness gates. Requested-versus-executed fall recipes,
+physics identities and trapezoidal root-wrench work/magnitude meters are retained in local
+`residual-256-core-development.json`. Recovery assistance must release before quiet time counts;
+the ordinary host's declared Balance may remain during the verification tail.
+
+Reproduction commands for the implemented learning path (local upstream checkout required):
+
+```powershell
+.tools/get-up-venv/Scripts/python.exe research/stand-up-reference.py --output research/runs/get-up-learning/reference-recorded-power
+.tools/get-up-venv/Scripts/python.exe research/stand-up-train.py --config research/runs/get-up-learning/residual-config.json --hidden 256 --batch 256 --warmup 3000 --wall-seconds 300 --step-limit 500000 --output research/runs/get-up-learning/residual-256-pilot
+.tools/get-up-venv/Scripts/python.exe research/stand-up-evaluate.py --actor research/runs/get-up-learning/residual-256-pilot/actor.json --output research/runs/get-up-learning/residual-256-core-development.json --workers 3
+```
+
+The local residual configuration is `{"balance":100,"mode":"residual","residual":0.15,
+"seconds":12,"seed":120,"actionRepeat":3}`. Use a fresh output directory with corrected reset
+semantics; exact resume rejects changed environment identities. `--warm-start` explicitly carries
+network ancestry into a new experiment and restarts replay/optimizers; it is not exact resume.

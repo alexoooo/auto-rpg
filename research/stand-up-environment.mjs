@@ -76,9 +76,14 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
   const ceiling = balanceCeiling(balance, balancePercent(rulebook('arena')));
   const config = { ...LAB_PRESETS.script.config, subs: [] }, wiring = { name: 'lab', orders: () => null, assist: ceiling };
   const assistForce = new Vector3(), assistMoment = new Vector3();
+  const linearBefore = new Vector3(), angularBefore = new Vector3();
+  const meter = () => ({ seconds: 0, activeSeconds: 0, forcePeak: 0, momentPeak: 0,
+    forceIntegral: 0, momentIntegral: 0, forceSaturatedSeconds: 0, momentSaturatedSeconds: 0,
+    positiveWork: 0, negativeWork: 0 });
   const experiment = { mode: 'baseline', action: null, lastAction: null, actionStep: -1,
     firstDown: null, takeover: null, quiet: 0, handover: null, walkFrom: null, success: false,
-    failure: null, effortViolation: 0, assisted: false };
+    failure: null, effortViolation: 0, assisted: false,
+    assistance: { preparation: meter(), recovery: meter(), host: meter() } };
   let channels, legacy, port;
   const recovery = (own, view, into) => {
     legacy = baseline === 'support-recovery' ? supportRecovery(own, view, into, recipe) : dynamicRise(own, view, into);
@@ -155,7 +160,9 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
       up.copyFrom(footUps[i]).applyRotationQuaternionToRef(f.segment.node.rotationQuaternion, up); return up.y;
     });
     const supports = feet.map(f => ({ segment: f.segment.spec.name,
-      corners: f.corners.filter(p => p.y <= Math.min(...f.corners.map(c => c.y)) + .001).map(p => [p.x, p.y, p.z]) }));
+      corners: o.contacts.filter(c => c.segment === f.segment.spec.name && c.fixed !== null
+        && c.impulse > 0 && Math.abs(c.normal[1]) >= VERIFY.minUpNormal)
+        .flatMap(c => c.patch.filter(p => p.distance <= 0 && Math.abs(p.normal[1]) >= VERIFY.minUpNormal).map(p => p.point)) }));
     const ready = rootUp >= VERIFY.rootUp && soleUp.every(v => v >= VERIFY.soleUp) && recoveryReady(o, supports, VERIFY);
     return { observation: o, rootUp, soleUp, ready };
   };
@@ -167,12 +174,31 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
         experiment.walkFrom ??= observe().centre;
         stance.orders.forward = .3;
       }
-    } else if (automaticHandover && experiment.quiet >= VERIFY.quiet) act({ kind: 'host' });
+    } else if (automaticHandover && (experiment.quiet >= VERIFY.quiet
+      || (experiment.mode === 'action' && experiment.action?.assist && measure().ready))) act({ kind: 'host' });
     const before = world.steps;
+    root.body.linearVelocityToRef(linearBefore); root.body.angularVelocityToRef(angularBefore);
     world.step();
     const { observation: o, rootUp, soleUp, ready } = measure();
+    const help = experiment.assistance[experiment.takeover === null ? 'preparation'
+      : body.has === 'command' ? 'host' : 'recovery'];
+    const force = body.assist.given.force, moment = body.assist.given.moment;
+    const f = force.length(), m = moment.length(), segment = o.segments.find(s => s.name === 'lowerTrunk');
+    help.seconds += world.dt; if (f > 0 || m > 0) help.activeSeconds += world.dt;
+    help.forcePeak = Math.max(help.forcePeak, f); help.momentPeak = Math.max(help.momentPeak, m);
+    help.forceIntegral += f*world.dt; help.momentIntegral += m*world.dt;
+    if (f > 0 && f >= body.assist.most.force*(1-1e-10)) help.forceSaturatedSeconds += world.dt;
+    if (m > 0 && m >= body.assist.most.moment*(1-1e-10)) help.momentSaturatedSeconds += world.dt;
+    // Trapezoidal external work uses root COM velocities on either side of the solver step.
+    const work = world.dt*.5*(force.x*(linearBefore.x+segment.velocity[0])
+      + force.y*(linearBefore.y+segment.velocity[1]) + force.z*(linearBefore.z+segment.velocity[2])
+      + moment.x*(angularBefore.x+segment.spin[0]) + moment.y*(angularBefore.y+segment.spin[1])
+      + moment.z*(angularBefore.z+segment.spin[2]));
+    help.positiveWork += Math.max(0,work); help.negativeWork += Math.min(0,work);
     if (o.down) experiment.firstDown ??= world.time;
-    experiment.quiet = ready ? experiment.quiet + world.dt : 0;
+    const recoveryHelp = experiment.mode === 'action' && experiment.actionStep === before
+      && (body.assist.given.force.lengthSquared() > 0 || body.assist.given.moment.lengthSquared() > 0);
+    experiment.quiet = ready && !recoveryHelp ? experiment.quiet + world.dt : 0;
     const issued = experiment.actionStep === before ? structuredClone(experiment.lastAction) : { kind: 'host' };
     if (balance > 0 && issued.kind === 'muscles') issued.assist = { force: body.assist.given.force.asArray(), moment: body.assist.given.moment.asArray() };
     if (experiment.firstDown !== null && experiment.handover === null && experiment.quiet >= VERIFY.quiet
