@@ -46,7 +46,8 @@ export function responsePolicy({channels,reference,parameters:p={}}) {
     for(let i=1;i<reference.responses.length;i++)if(Math.abs(reference.responses[i].step-state.phase)<Math.abs(reference.responses[selected].step-state.phase))selected=i;
     state.sample=selected;
     const f=reference.frames[Math.max(0,Math.min(reference.frames.length-1,Math.round(state.phase)))];
-    const target=[...f.gravity,f.height,...f.angles,...f.speeds,...(withMotion?f.rootMotion:[])],observed=responseFeatures(o,withMotion),cap=p.responseCap??4;
+    const target=[...f.gravity,f.height,...f.angles,...f.speeds.map(v=>v*(p.motionRate??1)),
+      ...(withMotion?f.rootMotion.map(v=>v*(p.motionRate??1)):[])],observed=responseFeatures(o,withMotion),cap=p.responseCap??4;
     let error=target.map((v,i)=>v-observed[i]);
     if(p.coastGain>0&&selected>0) {
       const previous=reference.responses[selected-1];

@@ -114,3 +114,11 @@ test('measured disturbance growth increases feedback before the next reference t
   assert.deepEqual(policy({...observation,time:1/120,joints:[{angle:0,speed:0}]}),
     {kind:'muscles',velocity:[1],activation:[.4],handPoses:{}});
 });
+
+test('trajectory retiming scales commanded speed and velocity feedback without raising activation',()=>{
+  const policy=pathPolicy({channels:[{name:'knee.left flexion'}],
+    reference:{rootUp:[0,1,0],release:1,frames:[{kind:'muscles',velocity:[2],activation:[.4],handPoses:{},angles:[0],speeds:[3]}]},
+    parameters:{motionRate:1.5,finiteDamping:.5}});
+  assert.deepEqual(policy({time:0,height:.5,segments:[{name:'lowerTrunk',rotation:[0,0,0,1]}],joints:[{angle:0,speed:1}]}),
+    {kind:'muscles',velocity:[4.75],activation:[.4],handPoses:{}});
+});

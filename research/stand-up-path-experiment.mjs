@@ -15,6 +15,7 @@ import { trackingPolicy } from './stand-up-tracking-policy.mjs';
 import { phaseFeatures } from './stand-up-phase-features.mjs';
 import { libraryPolicy } from './stand-up-library-policy.mjs';
 import { responsePolicy } from './stand-up-response-policy.mjs';
+import { bodyEnvironment } from './stand-up-foot-design.mjs';
 import { cmaSearch, workerPool } from './cma.mjs';
 
 const frozen = new URL('../.tools/stand-up-frozen/',import.meta.url);
@@ -23,12 +24,15 @@ const { unassistedAudit, unassistedResult } = await import(new URL('research/sta
 const manifest = JSON.parse(readFileSync(new URL('research/stand-up-acceptance/cases.json',frozen)));
 const digest = x => createHash('sha256').update(x).digest('hex');
 const write = (file,data) => writeFileSync(file,JSON.stringify(data,null,2)+'\n');
-const sourceIdentity=()=>Object.fromEntries(['stand-up-path-policy.mjs','stand-up-compact-policy.mjs','stand-up-path-experiment.mjs','stand-up-contact-model.mjs','stand-up-contact-policy.mjs','stand-up-detached-dynamics.mjs','stand-up-tracking-policy.mjs','stand-up-phase-features.mjs','stand-up-library-policy.mjs','stand-up-response-policy.mjs']
+const sourceIdentity=()=>Object.fromEntries(['stand-up-path-policy.mjs','stand-up-compact-policy.mjs','stand-up-path-experiment.mjs','stand-up-contact-model.mjs','stand-up-contact-policy.mjs','stand-up-detached-dynamics.mjs','stand-up-tracking-policy.mjs','stand-up-phase-features.mjs','stand-up-library-policy.mjs','stand-up-response-policy.mjs','stand-up-foot-design.mjs']
   .map(name=>[name,digest(readFileSync(new URL(name,import.meta.url)))]));
 
 /** Execute only candidate muscle actions from the unchanged complete saved fall. */
 async function trial(configuration, { caseIndex=0, seconds=20, capture=false }={}) {
-  const c=manifest.cases[caseIndex], e=await acceptanceEnvironment(c.configuration), rows=[], timeline=[];
+  const c=manifest.cases[caseIndex];
+  assert.ok(!(configuration.feet||configuration.body)||configuration.fall,'altered bodies use explicitly identified fresh falls, never a frozen checkpoint');
+  const changed=configuration.feet||configuration.body?await bodyEnvironment(c.configuration,configuration.body??{feet:configuration.feet}):null;
+  const e=changed?.environment??await acceptanceEnvironment(c.configuration), rows=[], timeline=[];
   const reference=JSON.parse(gunzipSync(readFileSync(configuration.reference)));
   const model=['contact','tracking'].includes(configuration.kind)?contactModel(e):undefined;
   let audit;
@@ -70,7 +74,7 @@ async function trial(configuration, { caseIndex=0, seconds=20, capture=false }={
     const result=unassistedResult(e.result(),audit.events), measured=e.measure();
     if(!result.success&&!result.failure)result.failure='episode deadline';
     const score=result.success ? 100000-1000*result.seconds : -10000+100*quality+100*peakQuality;
-    return {configuration,case:c.id,initialObservationSha256:digest(JSON.stringify(initial)),result,steps,score,peakHeight,quality,peakQuality,timeline,
+    return {configuration,case:c.id,...(changed?{design:changed.design,identity:e.identity}:{}),initialObservationSha256:digest(JSON.stringify(initial)),result,steps,score,peakHeight,quality,peakQuality,timeline,
       nonfinite:measured.observation.joints.filter(j=>![j.angle,j.rate,j.speed,j.effort,j.positive,j.negative].every(Number.isFinite)),
       invalidCommands:[...e.body.muscles.activation].map((v,i)=>({name:e.channels[i].name,activation:v,velocity:e.body.muscles.velocity[i]})).filter(c=>!Number.isFinite(c.activation)||Number.isNaN(c.velocity)),
       traceSha256:hash.digest('hex'),
@@ -125,8 +129,8 @@ else if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1]
     } else if(v.mode==='grid') {
       const pool=workerPool(new URL(import.meta.url),{pathExperiment:true,options},3),results=[];
       try {
-        const jobs=configuration.grid.map(({fall,...parameters})=>({...configuration,grid:undefined,
-          ...(fall?{fall}:{}),parameters:{...configuration.parameters,...parameters}}));
+        const jobs=configuration.grid.map(({fall,feet,body,kind,...parameters})=>({...configuration,grid:undefined,
+          ...(fall?{fall}:{}),...(feet?{feet}:{}),...(body?{body}:{}),...(kind?{kind}:{}),parameters:{...configuration.parameters,...parameters}}));
         await Promise.all(jobs.map(async config=>{const r=await pool.evaluate(config);results.push(r);appendFileSync(v.out+'.jsonl',JSON.stringify(r)+'\n');
           console.log(JSON.stringify({parameters:config.parameters,result:r.result,error:r.error}));}));
       } finally {await pool.terminate();write(v.out+'.json',{revision,sources,results});}

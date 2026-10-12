@@ -1636,3 +1636,85 @@ named phase/feedback regressions, exact sampled baselines, bounded physical bran
 perturbation measurements, matched fresh replay and the complete frozen comparison pass.
 Whitespace and line-ending gates pass. The four-second median / six-second recovery goal fails;
 the measured local models still do not control the different support transitions in the other falls.
+
+## Foot proportions and body weight, 2026-10-12
+
+The full goal remains **not achieved**. The owner permits identified body changes tested with both
+controllers. Six foot-proportion variants and two lighter game physiques do not improve the
+six-second screen. None is adopted into gameplay. The fastest original-body witness remains
+6.975 s; the one lighter-body success takes 7.058333 s and supplies no robustness qualification.
+
+All measurements here use **Node Stance Lab / frozen game Rapier coordinate / 120 Hz / symmetric
+original muscle envelopes / Balance 0 / ordinary stance host**. Both controllers retain the existing
+compliant sole material, joint coordinates and limits, and every muscle strength/speed parameter.
+The baseline is the frozen optimized recipe, rebuilt for each stated body from its same parameters;
+the candidate is the selected measured-response controller above, without retraining its model.
+Each body receives fresh physical forward, right, backward and left falls from the same two 60 N s
+shoves. Each baseline/candidate pair has identical complete initial-observation hashes and body
+identities. No original saved checkpoint is loaded into an altered body, and no frozen case,
+evaluator or criterion is changed.
+
+`research/stand-up-foot-design.mjs` implements rectangular foot proportions because the unchanged
+stance host reads rectangular soles. Each foot's mass stays fixed. Its endpoints, mass centre,
+collision box and named points undergo the same affine deformation about the ankle's projection
+onto the sole plane; its second mass moments are scaled consistently to derive its new inertia.
+The original ground plane is retained. These are declared physical foot changes, not assistance
+or solver conditioning. The separate weight variants use the game's existing physique rule,
+changing segment masses, breadths, inertias and hand shapes while retaining mass-centre locations
+and the original muscle envelopes. The machine record contains before/after tables and parameters.
+
+| Body variant, Node harness above | Body mass | Optimized baseline completed | Candidate completed |
+|---|---:|---:|---:|
+| Original dimensions | 79 kg | 1/4 | 1/4 |
+| Foot width x0.75 | 79 kg | 0/4 | 0/4 |
+| Foot width x1.25 | 79 kg | 0/4 | 0/4 |
+| Foot length x0.75 | 79 kg | 0/4 | 0/4 |
+| Foot length x1.25 | 79 kg | 0/4 | 0/4 |
+| Foot height x0.5 | 79 kg | 0/4 | 0/4 |
+| Width x1.25, length x0.75, height x0.5 | 79 kg | 0/4 | 0/4 |
+| Game weight x0.8 | 63.2 kg | 0/4 | 1/4 |
+| Game weight x0.6 | 47.4 kg | 0/4 | 0/4 |
+
+These paired episodes have a 38 s cap, including the existing three-second standing/walking tail.
+The unchanged body's forward times are 15.558333 s and 7.25 s. Its eight results, physical traces
+and initial observations exactly match the corresponding preceding frozen comparison. On the
+63.2 kg body, only the candidate's forward fall completes, in 7.058333 s; its optimized baseline
+fails through 38 s. All other altered-body outcomes reach the episode deadline. These are body
+and controller development screens, not evidence that other body designs cannot meet the goal.
+
+Sixteen faster-progression trials on the 63.2 kg body all fail by fourteen seconds. A separate
+sixteen-trial screen retimes finite speed commands, joint-speed feedback targets and root-motion
+targets along with phase progression, using factors 1.05, 1.1, 1.2 and 1.3 on both original and
+63.2 kg bodies. All fail. The `motionRate` parameter makes this retiming explicit without changing
+activation or the muscle driver's limits; its default preserves existing command speeds.
+
+The first retiming run has eight original-body setup assertion failures: two separately generated
+specs have distinct provenance function objects despite equal physical values. Those attempts
+never simulate and are excluded from performance counts. The repaired path reuses the original
+spec for unit weight and checks physical joint data instead of provenance function identity.
+The complete rerun has no setup errors, and both unchanged-body controls independently reproduce
+their full frozen traces. The original errors and duplicate lighter-body runs remain in the record.
+Across the 104 completed paired-body and accelerated trial settings, no recovery meets six seconds,
+no external-actuation event occurs, and maximum effort-bound excess is 0.00004721550 N m, below
+the unchanged 0.0001 tolerance. Trial settings share cases and are not independent qualification data.
+
+The replay `.review/stand-up-feet/replay.html` explicitly labels the **63.2 kg altered body** and
+compares it with its matched baseline. Independent regeneration and replay match all 1,206
+observations and the complete candidate result, physical SHA-256
+`30cb456a1911bc324b87fecc89c9db30a713c430234bfbf0a3eaaade2b61859d`.
+Both recordings also reproduce their body-screen results and traces. The HTML is built but not
+visually inspected because of the existing browser local-file restriction; no server is started.
+
+To reproduce, use the preceding measured-response model and selected configuration. Add
+`body: {"weight": 0.8}` and `fall: {"degrees": 0}` for the lighter-body record, or
+`body: {"feet": {"width": 1.25, "length": 0.75, "height": 0.5}}` for that foot variant.
+The existing path experiment accepts these fields with `--mode record --seconds 38`; `kind:
+"baseline"` selects the matched optimized controller. A body override without a fresh-fall
+declaration is rejected. The fresh-replay verifier rebuilds the declared body before checking
+its identity and every observation. `research/stand-up-path-results.json` under `bodyGeometryScreen`
+retains all configurations, paired identities, physical tables, failures and replay verification.
+
+Validation: `npm run check`, `npm test` (673 passes, zero failures, five existing TODOs), ten
+named body/phase/feedback/retiming regressions, 36 matched body/state pairs, unchanged frozen
+control traces and the exact altered-body replay pass. Whitespace and line-ending gates pass.
+Runtime integration and all full four/six-second qualification requirements remain unfinished.

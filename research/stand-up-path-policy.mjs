@@ -63,10 +63,10 @@ export function pathPolicy({ channels, reference, parameters }) {
     const activation=[...frame.activation];
     return { kind:'muscles', handPoses: {...frame.handPoses},
       velocity: frame.velocity.map((v,j) => {
-        if(typeof v==='number')return v+p.gain*correction[j]+(p.finiteDamping??0)*(frame.speeds[j]-o.joints[j].speed);
+        if(typeof v==='number')return v*(p.motionRate??1)+p.gain*correction[j]+(p.finiteDamping??0)*(frame.speeds[j]*(p.motionRate??1)-o.joints[j].speed);
         if(!(p.torqueGain>0))return v;
         const asked=(v==='+inf'?1:-1)*frame.activation[j]+p.torqueGain*correction[j]
-          +(p.damping??0)*(frame.speeds[j]-o.joints[j].speed);
+          +(p.damping??0)*(frame.speeds[j]*(p.motionRate??1)-o.joints[j].speed);
         activation[j]=Math.min(1,Math.abs(asked));return asked>=0?'+inf':'-inf';
       }), activation };
   };
