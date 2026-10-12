@@ -170,12 +170,20 @@ if(!isMainThread&&workerData?.rolloutSearch) {
       const control={kind:'replay',start:0,rate:1,steps:stand.source.rows.length};
       const a=stand.run(stand.initial,control,0,true),b=stand.run(stand.initial,control,0,true);
       assert.deepEqual(a.rows,b.rows);assert.deepEqual(a.rows.map(r=>r.observation),stand.source.rows.map(r=>r.observation));
-      assert.deepEqual(a.result,stand.source.result);assert.equal(a.traceSha256,stand.source.traceSha256);
+      const expected=structuredClone(stand.source.result),deadline=expected.failure==='episode deadline';
+      if(deadline) {
+        assert.equal(expected.success,false);
+        assert.equal(stand.source.rows.at(-1).result.failure,null,'an outer episode limit is not a physical failure');
+        assert.equal(expected.elapsed,stand.source.rows.at(-1).result.elapsed);
+        expected.failure=null;
+      }
+      assert.deepEqual(a.result,expected);assert.equal(a.traceSha256,stand.source.traceSha256);
       const splitAt=Math.floor(control.steps/2),split=stand.run(stand.initial,{...control,steps:splitAt},0);
       stand.run(split.snapshot,{kind:'pose',target:Math.min(900,stand.last),response:.1,speed:6,steps:24},splitAt);
       const tail=stand.run(split.snapshot,{...control,start:splitAt,steps:control.steps-splitAt},splitAt,true);
       assert.deepEqual(tail.rows,a.rows.slice(splitAt));
-      write(v.out+'.json',{revision,sourceSha256,codeSha256,steps:a.steps,traceSha256:a.traceSha256,exact:true,result:a.result});
+      write(v.out+'.json',{revision,sourceSha256,codeSha256,steps:a.steps,traceSha256:a.traceSha256,exact:true,result:a.result,
+        ...(deadline?{screenOutcome:'episode deadline',recordedResult:stand.source.result}:{})});
       console.log('exact replay, restore and split continuation verified');
     }else if(v.mode==='record') {
       const book=JSON.parse(readFileSync(v.plan)),plan=v.stage?book.stages[v.stage]:book,rows=[];

@@ -120,8 +120,17 @@ else if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1]
     writeFileSync(v.out,gzipSync(JSON.stringify(prefix)));
     console.log(JSON.stringify({steps:count,sourcePhysicalTraceSha256:source.traceSha256,prefixTraceSha256:prefix.traceSha256,output:v.out}));
   } else if(v.mode==='extract') {
-    const source=deserialize(gunzipSync(readFileSync(v.source))),e=await acceptanceEnvironment(manifest.cases[0].configuration);
+    const source=deserialize(gunzipSync(readFileSync(v.source)));
+    const c=manifest.cases.find(c=>c.id===source.case)??manifest.cases.find(c=>
+      c.configuration.model===source.identity.model&&c.configuration.held===source.identity.held);
+    assert.ok(c,'the recording identifies a supported body and loadout');
+    const configuration=source.configuration??{};
+    const changed=configuration.body||configuration.feet?
+      await bodyEnvironment(c.configuration,configuration.body??{feet:configuration.feet}):null;
+    const e=changed?.environment??await acceptanceEnvironment(c.configuration);
     try {
+      assert.deepEqual(e.identity,source.identity,'reference geometry belongs to the recorded physical body');
+      const {uprightness}=await import(new URL('src/core/control/ground.ts',frozen));
       const rest=e.stand.built.segments.get('lowerTrunk').rest;
       const {Vector3,Quaternion}=await import('@babylonjs/core/Maths/math.vector.js');
       const rootUp=Vector3.UpReadOnly.applyRotationQuaternionToRef(Quaternion.Inverse(rest),new Vector3()).asArray();
@@ -136,7 +145,8 @@ else if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1]
           ...phaseFeatures(o),rootMotion:responseFeatures(o,true).slice(-6)};});
       const joints=[...e.stand.built.joints.values()].map(j=>({dofs:j.dofs.map(d=>({sign:d.sign}))}));
       writeFileSync(v.out,gzipSync(JSON.stringify({sourceSha256:digest(readFileSync(v.source)),identity:source.identity,
-        sourcePhysicalTraceSha256:source.traceSha256,rootUp,rootFront,rootAcross,joints,roll:RISE.roll,release,frames})));
+        sourcePhysicalTraceSha256:source.traceSha256,standingHeight:uprightness(e.stand.built).standing,
+        rootUp,rootFront,rootAcross,joints,roll:RISE.roll,release,frames})));
       console.log(JSON.stringify({release,frames:frames.length,output:v.out}));
     } finally {e.dispose();}
   } else if(v.mode==='library') {
@@ -158,8 +168,8 @@ else if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1]
     } else if(v.mode==='grid') {
       const pool=workerPool(new URL(import.meta.url),{pathExperiment:true,options},3),results=[];
       try {
-        const jobs=configuration.grid.map(({fall,feet,body,kind,...parameters})=>({...configuration,grid:undefined,
-          ...(fall?{fall}:{}),...(feet?{feet}:{}),...(body?{body}:{}),...(kind?{kind}:{}),parameters:{...configuration.parameters,...parameters}}));
+        const jobs=configuration.grid.map(({fall,feet,body,kind,reference,...parameters})=>({...configuration,grid:undefined,
+          ...(fall?{fall}:{}),...(feet?{feet}:{}),...(body?{body}:{}),...(kind?{kind}:{}),...(reference?{reference}:{}),parameters:{...configuration.parameters,...parameters}}));
         await Promise.all(jobs.map(async config=>{const r=await pool.evaluate(config);results.push(r);appendFileSync(v.out+'.jsonl',JSON.stringify(r)+'\n');
           console.log(JSON.stringify({parameters:config.parameters,result:r.result,error:r.error}));}));
       } finally {await pool.terminate();write(v.out+'.json',{revision,sources,results});}

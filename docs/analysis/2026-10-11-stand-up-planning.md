@@ -2315,3 +2315,91 @@ focused controller/reflection tests, both frozen comparisons, matched replay, in
 replays and failed-trace restoration checks pass. Whitespace and line-ending gates pass. The
 four-second median, six-second reliability across the required bodies and loadouts, independent
 qualification and gameplay integration remain unfinished.
+
+## Body-reference transfer and settling, 2026-10-12
+
+**No new recovery is established.** All 150 candidate trials and six matched optimized-baseline
+trials fail through twelve seconds. This screen tests the unchanged saved front and 90-degree
+falls for Warrior/club, Rogue/empty and Rogue/club. It does not replace any frozen case or run the
+independent qualification partitions. The preceding library's frozen result remains 2/16,
+with none within six seconds; the full four-second median / six-second goal remains unfinished.
+
+Every figure here uses **Node Stance Lab / frozen game Rapier coordinate / 120 Hz / original
+symmetric muscle envelopes / Balance 0 / ordinary stance host**. No body, muscle limit, host,
+solver or recovery criterion changes. The 156 trials consume 224,484 world steps, with no adapter
+errors, invalid final commands, nonfinite final joint observations or external-actuation events.
+Maximum effort-bound excess is 0.00004556412 N m, below the unchanged 0.0001 tolerance.
+
+Reference extraction had assumed the first frozen case's Warrior/empty geometry. It now selects
+the recording's actual body and loadout, builds any explicitly recorded body design, and requires
+the complete physical identity to match before extracting root axes and joint metadata. It also
+stores the body's physical standing height. A real Rogue recording extracts Rogue's axes and
+0.9097733 m standing height; a deliberately mislabeled recording is rejected before output.
+Re-extracting the previous Warrior opposite-side recording reproduces the entire existing
+reference exactly, apart from the added standing-height field. The prior Warrior evidence is
+unchanged by this correction.
+
+`research/stand-up-retarget-reference.mjs` constructs explicitly unmeasured guidance for another
+existing body. It converts anatomical bind angles, clamps to the target's actual joint limits,
+converts finite motor-axis speeds through coordinate rates, rotates root-local features, and
+scales linear motion and height features by the target/source physical standing-height ratio.
+The Rogue/empty ratio is 0.896776 and Rogue/club 0.900476 relative to Warrior/empty. This does not
+change acceptance heights or physical anatomy. The candidate's voluntary host-release height
+uses the same ratio; the frozen evaluator independently decides recovery.
+
+Mixed finite/infinite joint commands retain their entire original command and activation:
+infinite requests encode saturated muscle torque, so finite-speed coordinate algebra cannot
+transform them. This approximation is recorded explicitly. Original response calibration and
+measured-trajectory claims are removed. Parent provenance, source/target body metadata, angle
+clamps and preserved torque-command joints are recorded. These are control hypotheses whose
+physical outcomes must be measured, not demonstrations in the target body.
+
+The side-route screen uses gains 4/12/24 and rates 1/1.05, both raw and adapted guidance, on each
+additional body/loadout group: 36 candidate failures plus three baseline failures. The front-route
+screen uses gains 8/16/24 and rates 0.9/1/1.1 with both references: 54 candidate failures plus
+three baseline failures. Only path feedback is used here; another body's response calibration
+is not presented as measured target-body dynamics. These grids do not isolate individual
+adaptation components as causes, and their failures do not establish physical impossibility.
+
+Warrior/club can reach loaded two-foot standing without completing recovery. Its selected
+adapted side-path trial returns to the ordinary host but never satisfies quiet support. From
+seven through twelve seconds, root-up ranges from 0.949579 to 0.961276, while maximum segment
+linear speed stays between 0.129998 and 0.163202 m/s, above the required 0.1 m/s. Sampled
+middle-trunk and lower-trunk motion persists. The complete trace has zero ready steps. This is
+a failure, despite its height, upright soles and foot loading.
+
+A 24-trial full-path velocity-damping screen also produces no recovery. An optional terminal
+posture controller then holds the final reference angles through ordinary muscle commands,
+with joint-speed damping and bounded activation. It leaves quiet-support detection and host
+handover to the unchanged evaluator. All 36 tested terminal settings fail and generally lose
+the standing position. Holding this reference endpoint is not a successful settling solution.
+The settings remain research options; no gameplay controller or preset adopts them.
+
+Both the selected club failure and a Rogue failure reproduce every physical observation,
+final physical result and restored split continuation exactly. The path screen labels an outer
+timeout `episode deadline`; the underlying physics result still has no intrinsic failure.
+The replay verifier checks that distinction explicitly while preserving the failed screen
+outcome. Its prior successful 6.416667 s saved-fall witness also replays exactly.
+
+`.review/stand-up-body-transfer/replay.html` contains the selected Warrior/club failure and its
+optimized baseline from the identical complete initial observation and physical identity.
+The candidate's physical trace SHA-256 is
+`8a2818b18468494f817ab4fcc948242eed95748205c0821b0431f9a7f75ffb59`.
+The viewer builder checks matched identities and initial observations and derives its body,
+loadout and fall labels from the records. This replay is built and its embedded records checked;
+it is not visually inspected because of the existing local-file browser restriction.
+
+`research/stand-up-path-results.json` under `bodyReferenceTransfer` retains body measurements,
+reference provenance and transformation diagnostics, every grid configuration and outcome,
+the three complete recording reports, speed diagnostics, extraction checks and replay proofs.
+Recreate a transferred reference with `node research/stand-up-retarget-reference.mjs
+<source-reference.json.gz> <target-case-index> <output.json.gz>`. The path experiment's grid and
+record modes consume the stored configurations; grid entries can select a reference explicitly.
+Extract recordings with its `--mode extract`. Verify saved recordings through
+`research/stand-up-rollout-search.mjs --mode verify --case <index>`, keeping their full clocks.
+
+Validation: `npm run check`, `npm test` (680 passes, zero failures, five existing TODOs), sixteen
+focused controller tests, `npm run build`, matched replay and extraction checks pass. The build
+retains its MuJoCo browser-externalization and large-chunk warnings. Whitespace and line-ending
+gates pass. The next missing evidence is an actual successful target-body movement and a stable
+muscle-driven transition into quiet support; geometric transfer alone has not supplied either.

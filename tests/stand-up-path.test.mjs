@@ -7,6 +7,49 @@ import { responseFeatures, responsePolicy } from '../research/stand-up-response-
 import { prefixPolicy } from '../research/stand-up-prefix-response-policy.mjs';
 import { createHash } from 'node:crypto';
 import { mirrorReference } from '../research/stand-up-mirror-reference.mjs';
+import { retargetReference } from '../research/stand-up-retarget-reference.mjs';
+import { ratesToRef } from '../src/core/build/joint-state.ts';
+
+test('body guidance transfers anatomical rates, local frames and physical height without transferring response calibration',()=>{
+  const channels=[0,1,2].map(i=>({name:`joint ${i}`,bind:.1*i,min:-2,max:2}));
+  const source={identity:{channels},standingHeight:1,rootAcross:[1,0,0],rootUp:[0,1,0],rootFront:[0,0,1],
+    joints:[{dofs:[{sign:1},{sign:-1},{sign:1}]}]};
+  const target=structuredClone(source);target.standingHeight=.8;target.identity.channels[1].bind=.4;
+  target.rootAcross=[0,1,0];target.rootUp=[-1,0,0];
+  const frame={kind:'muscles',angles:[.3,.4,.5],speeds:[1,2,3],velocity:[3,1,2],activation:[.1,.2,.3],
+    handPoses:{left:'open'},gravity:[1,2,3],height:.5,rootMotion:[1,2,3,4,5,6],up:[0,1,0],loads:{'foot.left':1}};
+  const reference={...source,frames:[frame],release:1,responses:[{}],responseMeasurement:{},sourcePhysicalTraceSha256:'physical'};
+  const before=structuredClone({reference,source,target}),adapted=retargetReference(reference,source,target),actual=adapted.frames[0];
+  assert.deepEqual({reference,source,target},before);
+  assert.deepEqual(actual.gravity,[-2,1,3]);assert.equal(actual.height,.4);
+  assert.deepEqual(actual.rootMotion,[-2,1,3,-4,3.2,4.800000000000001]);
+  actual.angles.forEach((v,i)=>assert.ok(Math.abs(v-[.3,.1,.5][i])<1e-12));
+  for(const field of ['speeds','velocity']) {
+    const a=ratesToRef(source.joints[0],frame.angles,frame[field],[]);
+    const b=ratesToRef(target.joints[0],actual.angles,actual[field],[]);
+    a.forEach((v,i)=>assert.ok(Math.abs(v-b[i])<1e-12));
+  }
+  assert.deepEqual(actual.activation,frame.activation);assert.deepEqual(actual.loads,frame.loads);
+  assert.equal(adapted.responses,undefined);assert.equal(adapted.responseMeasurement,undefined);
+  assert.equal(adapted.sourcePhysicalTraceSha256,undefined);assert.equal(adapted.transformation.measuredTrajectory,false);
+  assert.equal(adapted.transformation.parentPhysicalTraceSha256,'physical');
+  assert.deepEqual(retargetReference(reference,source,source).frames,reference.frames);
+  const wrong=structuredClone(source);wrong.identity.channels[0].name='wrong';
+  assert.throws(()=>retargetReference(reference,wrong,target),/source geometry/);
+});
+
+test('body guidance clamps legal target angles and explicitly preserves mixed torque commands',()=>{
+  const source={identity:{channels:[{name:'a',bind:0,min:-2,max:2},{name:'b',bind:0,min:-2,max:2}]},
+    standingHeight:1,rootAcross:[1,0,0],rootUp:[0,1,0],rootFront:[0,0,1],joints:[{dofs:[{sign:1},{sign:1}]}]};
+  const target=structuredClone(source);target.identity.channels[0].max=.2;
+  const frame={kind:'muscles',angles:[.5,.1],speeds:[1,2],velocity:['+inf',3],activation:[.4,.7],
+    handPoses:{},gravity:[0,1,0],up:[0,1,0],height:.5,loads:{}};
+  const adapted=retargetReference({...source,frames:[frame]},source,target);
+  assert.deepEqual(adapted.frames[0].angles,[.2,.1]);assert.deepEqual(adapted.frames[0].velocity,['+inf',3]);
+  assert.deepEqual(adapted.frames[0].activation,[.4,.7]);
+  assert.deepEqual(adapted.transformation.clipped,[{frame:0,channel:'a',asked:.5,given:.2}]);
+  assert.deepEqual(adapted.transformation.preservedTorqueJoints,[{frame:0,joint:0}]);
+});
 
 test('a recovery reference resumes muscle actions after a temporary host interval',()=>{
   const muscles={kind:'muscles',velocity:[1],activation:[.3],handPoses:{left:'open'}};
@@ -16,6 +59,20 @@ test('a recovery reference resumes muscle actions after a temporary host interva
   const actions=[0,1,2,3].map(step=>policy({time:step/120,height:1,
     segments:[{name:'lowerTrunk',rotation:[0,0,0,1]}],joints:[{angle:0,speed:0}]}));
   assert.deepEqual(actions,[muscles,{kind:'host'},muscles,{kind:'host'}]);
+});
+
+test('terminal posture braking uses bounded muscles and leaves actual quiet handover to the environment',()=>{
+  const reference={rootUp:[0,1,0],release:1,frames:[{kind:'muscles',angles:[.4],speeds:[1],
+    velocity:['+inf'],activation:[.7],handPoses:{left:'open'},up:[0,1,0]}]};
+  const parameters={releaseHeight:.8,releaseUp:.9,terminalGain:4,terminalDamping:2,terminalActivation:.5};
+  const policy=pathPolicy({channels:[{name:'knee.left flexion'}],reference,parameters});
+  const o={time:0,height:1,segments:[{name:'lowerTrunk',rotation:[0,0,0,1]}],joints:[{angle:.2,speed:.3}]};
+  assert.deepEqual(policy(o),{kind:'muscles',velocity:['+inf'],activation:[.7],handPoses:{left:'open'}});
+  const actual=policy({...o,time:1/120});
+  assert.equal(actual.kind,'muscles');assert.deepEqual(actual.activation,[.5]);
+  assert.ok(Math.abs(actual.velocity[0]-.2)<1e-12);assert.equal(policy.state.settling,true);assert.equal(policy.state.released,false);
+  const ordinary=pathPolicy({channels:[{name:'knee.left flexion'}],reference,parameters:{...parameters,terminalGain:0}});
+  ordinary(o);assert.deepEqual(ordinary({...o,time:1/120}),{kind:'host'});
 });
 
 test('reflected guidance swaps anatomical limbs and hand poses, preserves limits, and treats angular motion as axial',()=>{

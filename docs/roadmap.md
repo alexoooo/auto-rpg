@@ -139,8 +139,11 @@ After it, each with its own plan, in the order each needs the one before:
     Side-fall measured feedback produces verified 5.9 s and 5.775 s fresh development recoveries
     on opposite sides. A library selected from observed posture and motion completes seven of ten
     trained side-fall recipes, two within six seconds, and two of sixteen frozen cases, none within
-    six seconds. It does
-    not depend on an exact saved-state hash. All successes include standing/walking verification;
+    six seconds. It does not depend on an exact saved-state hash. Adapting guidance to the other
+    body/loadout groups and testing muscle-driven settling adds no recoveries in 150 candidate
+    trials; loaded standing can still fail quiet support
+    ([body transfer](analysis/2026-10-11-stand-up-planning.md#body-reference-transfer-and-settling-2026-10-12)).
+    All successes include standing/walking verification;
     the four-second median, broad coverage and gameplay integration remain unfinished
     ([opposite-side feedback](analysis/2026-10-11-stand-up-planning.md#opposite-side-guidance-and-feedback-2026-10-12)).
   - **Assisted rise is a separate experiment**, with external lift and righting at recovery and

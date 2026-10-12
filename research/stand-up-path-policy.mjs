@@ -9,7 +9,7 @@ const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 export function pathPolicy({ channels, reference, parameters }) {
   const p = { rate: 1, gain: 0, window: 0, poseWeight: 1, rootWeight: 1, release: reference.release,
     releaseHeight: 0, releaseUp: -1, ...parameters };
-  const state = { phase: p.startPhase??0, started: null, previous: null, released: false };
+  const state = { phase: p.startPhase??0, started: null, previous: null, released: false, settling: false };
   const correction = channels.map(()=>0), turning=[];
   const frames = reference.frames;
   const upOf = o => {
@@ -46,7 +46,8 @@ export function pathPolicy({ channels, reference, parameters }) {
     }
     const index = clamp(Math.round(state.phase),0,frames.length-1), frame = frames[index];
     if (state.phase >= p.release && o.height >= p.releaseHeight && up[1] >= p.releaseUp) {
-      state.released = true; return { kind:'host' };
+      if(p.terminalGain>0)state.settling=true;
+      else {state.released = true; return { kind:'host' };}
     }
     if(frame.kind==='host')return {kind:'host'};
     for(let j=0;j<channels.length;j++)correction[j]=frame.angles[j]-o.joints[j].angle;
@@ -60,6 +61,9 @@ export function pathPolicy({ channels, reference, parameters }) {
         start+=n;
       }
     }
+    if(state.settling)return {kind:'muscles',handPoses:{...frame.handPoses},
+      activation:frame.activation.map(a=>clamp(p.terminalActivation??a,0,1)),
+      velocity:correction.map((v,j)=>p.terminalGain*v-(p.terminalDamping??1)*o.joints[j].speed)};
     const activation=[...frame.activation];
     return { kind:'muscles', handPoses: {...frame.handPoses},
       velocity: frame.velocity.map((v,j) => {
