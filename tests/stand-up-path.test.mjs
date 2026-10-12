@@ -17,13 +17,13 @@ import { contactEffort } from '../research/stand-up-contact-effort.mjs';
 test('explicit contact postures blend reference coordinates through bounded muscle commands',()=>{
   const side={peak:10,curve:{unloadedSpeed:10,curvature:.25,eccentricCeiling:1.5,eccentricSlopeRatio:2}};
   const model={gravity:[0,-10,0],rootRest:[0,0,0,1],referenceAngles:[0],standing:1,friction:.8,
-    segments:[{name:'lowerTrunk',mass:1},{name:'foot.left',mass:1}],
+    segments:[{name:'lowerTrunk',mass:1},{name:'foot.left',mass:1,rest:[0,0,0,1]}],
     channels:[{name:'joint',min:-1,max:1,bind:.3,positive:side,negative:side}],
     joints:[{parent:'lowerTrunk',dofs:[{sign:1}],axes:{x:[0,0,1],y:[1,0,0],z:[0,1,0]},
       parentRestInverse:[0,0,0,1],pivot:[0,0,0],descendants:['foot.left']}]};
   const o={time:0,centre:[.25,0,0],contacts:[],
     segments:[{name:'lowerTrunk',position:[0,0,0],centre:[0,0,0],rotation:[0,0,0,1],velocity:[0,0,0],spin:[0,0,0]},
-      {name:'foot.left',centre:[.5,0,0],velocity:[0,0,0]}],joints:[{angle:0,speed:0}]};
+      {name:'foot.left',centre:[.5,0,0],velocity:[0,0,0],rotation:[0,0,0,1]}],joints:[{angle:0,speed:0}]};
   const parameters={postureTarget:{joint:.2},postureSeconds:1},before=structuredClone(parameters);
   const policy=contactPolicy({model,parameters}),ordinary=contactPolicy({model});
   assert.deepEqual(policy(o),ordinary(o));
@@ -46,6 +46,37 @@ test('explicit contact postures blend reference coordinates through bounded musc
   assert.deepEqual(loaded.centre,[.25,0,0]);
   const strong=contactPolicy({model,parameters:{...parameters,poseGains:{joint:10}}});
   strong(o);assert.deepEqual(strong({...o,time:1}).activation,[1]);
+  const observed=contactPolicy({model,parameters:{...parameters,posture:'observed'}});
+  const displaced={...o,joints:[{angle:.4,speed:0}]};
+  assert.deepEqual(observed(displaced).activation,[.5]);
+  assert.ok(Math.abs(observed({...displaced,time:.5}).activation[0]-.45)<1e-12);
+  assert.deepEqual(observed.state.initialAngles,[.4]);
+  assert.deepEqual(observed({...displaced,time:1}).activation,[.4]);
+  const held=contactPolicy({model,parameters:{posture:'observed'}});
+  assert.deepEqual(held(displaced).activation,[.5]);
+  assert.ok(Math.abs(held({...displaced,time:1,joints:[{angle:.5,speed:0}]}).activation[0]-.45)<1e-12);
+  const bounded=contactPolicy({model,parameters:{posture:'observed'}});
+  bounded({...o,joints:[{angle:2,speed:0}]});assert.deepEqual(bounded.state.initialAngles,[1]);
+  assert.equal(displaced.joints[0].angle,.4);
+  const sequence=contactPolicy({model,parameters:{sequence:[
+    {parameters:{posture:'observed',centreTarget:[.25,0,0]},advance:{after:.5,foot:'foot.left',centreTolerance:.05,hold:.2,loadFraction:.2}},
+    {parameters:{...parameters,posture:'observed'}}]}});
+  sequence(loaded);
+  const edge={...loaded,time:.5,segments:loaded.segments.map(s=>s.name==='foot.left'?{...s,rotation:[1,0,0,0]}:s)};
+  sequence(edge);assert.equal(sequence.state.readySince,null);
+  sequence({...loaded,time:.6});assert.equal(sequence.state.readySince,.6);
+  sequence({...loaded,time:.7,centre:[.4,0,0]});assert.equal(sequence.state.readySince,null);
+  sequence({...loaded,time:.8});
+  sequence({...loaded,time:.9,contacts:[]});assert.equal(sequence.state.readySince,null);
+  sequence({...loaded,time:.95,contacts:loaded.contacts.map(c=>({...c,impulse:.001}))});assert.equal(sequence.state.readySince,null);
+  sequence({...loaded,time:1});sequence({...loaded,time:1.21});
+  assert.equal(sequence.state.stageIndex,1);assert.equal(sequence.state.stageStarted,1.21);
+  assert.deepEqual(sequence.state.switches,[{time:1.21,stage:1}]);
+  assert.deepEqual(sequence.state.stages[1].initialAngles,[0]);
+  assert.throws(()=>contactPolicy({model,parameters:{sequence:[]}}),/requires stages/);
+  assert.throws(()=>contactPolicy({model,parameters:{sequence:[{parameters:{sequence:[]}}]}}),/cannot nest/);
+  assert.throws(()=>contactPolicy({model,parameters:{sequence:[{parameters:{},advance:{after:0}}]}}),/bounded timing/);
+  assert.throws(()=>contactPolicy({model,parameters:{sequence:[{parameters:{},advance:{after:1,loadFraction:.2}}]}}),/defined support target/);
   assert.throws(()=>contactPolicy({model,parameters:{poseGains:{absent:1}}}),/known channels/);
   assert.throws(()=>contactPolicy({model,parameters:{poseGains:{joint:-1}}}),/nonnegative/);
 });

@@ -5,8 +5,56 @@ import { forceVelocityFactor } from '../src/core/muscle/force-velocity.ts';
 import { spinBetweenToRef, turnAboutToRef } from '../src/core/math/turn.ts';
 import { atan2 } from '../src/core/math/real.ts';
 import { contactEffort } from './stand-up-contact-effort.mjs';
+import { PHYSICS_HZ } from '../src/core/world.ts';
 
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+
+/** A contact sequence advances on observed support and keeps every stage's controller state. */
+function contactSequence(model,sequence) {
+  if(!Array.isArray(sequence)||!sequence.length)throw new Error('contact sequence requires stages');
+  for(const stage of sequence) {
+    if(stage.parameters?.sequence)throw new Error('contact sequences cannot nest');
+    const a=stage.advance;
+    if(a&&(!Number.isFinite(a.after)||a.after<=0||!Number.isFinite(a.hold??0)||(a.hold??0)<0
+      ||(a.foot!==undefined&&!['foot.left','foot.right'].includes(a.foot))
+      ||(a.loadFraction!==undefined&&(!a.foot||!Number.isFinite(a.loadFraction)||a.loadFraction<0||a.loadFraction>1))
+      ||(a.centreTolerance!==undefined&&(!stage.parameters.centreTarget||!Number.isFinite(a.centreTolerance)||a.centreTolerance<=0))))
+      throw new Error('contact transition requires bounded timing and a defined support target');
+  }
+  const policies=sequence.map(s=>contactPolicy({model,parameters:s.parameters}));
+  const weight=-model.segments.reduce((sum,s)=>sum+s.mass,0)*model.gravity[1];
+  const state={stageIndex:0,stageStarted:null,readySince:null,switches:[],stages:policies.map(p=>p.state)};
+  const policy=o=> {
+    state.stageStarted??=o.time;
+    const stage=sequence[state.stageIndex],a=stage.advance;
+    if(a&&state.stageIndex+1<policies.length) {
+      let ready=o.time-state.stageStarted>=a.after;
+      if(a.centreTolerance!==undefined) {
+        const target=stage.parameters.centreTarget,dx=o.centre[0]-target[0],dz=o.centre[2]-target[2];
+        ready&&=dx*dx+dz*dz<=a.centreTolerance*a.centreTolerance;
+      }
+      if(a.foot) {
+        const foot=o.segments.find(s=>s.name===a.foot),rest=model.segments.find(s=>s.name===a.foot).rest;
+        const relative=new Quaternion(...foot.rotation).multiply(Quaternion.Inverse(new Quaternion(...rest)));
+        const up=new Vector3(0,1,0).applyRotationQuaternionToRef(relative,new Vector3());
+        const impulse=o.contacts.filter(c=>c.segment===a.foot&&c.fixed!==null&&c.impulse>0&&-c.normal[1]>.9)
+          .reduce((sum,c)=>sum+c.impulse,0);
+        ready&&=up.y>.9&&impulse>0&&impulse*PHYSICS_HZ.value>=(a.loadFraction??0)*weight;
+      }
+      if(!ready)state.readySince=null;
+      else {
+        state.readySince??=o.time;
+        if(o.time-state.readySince>=(a.hold??0)) {
+          state.stageIndex++;state.stageStarted=o.time;state.readySince=null;
+          state.switches.push({time:o.time,stage:state.stageIndex});
+        }
+      }
+    }
+    const active=policies[state.stageIndex],action=active(o);
+    Object.assign(state,active.state);return action;
+  };
+  policy.state=state;return policy;
+}
 
 /** Optional segment weights aim balance over selected existing contacts, with all contacts as fallback. */
 export function contactBalanceTarget(patches,owners,weights,out) {
@@ -29,6 +77,7 @@ export function contactBalanceTarget(patches,owners,weights,out) {
 
 /** Desired ground reactions are converted to internal joint torques, never applied to a rigid body. */
 export function contactPolicy({model,parameters:p={}}) {
+  if(p.sequence)return contactSequence(model,p.sequence);
   const state={phase:p.phase??'hold',started:null,heading:null,held:0,released:false,
     contacts:[],requestedForce:[0,0,0],miss:[0,0,0],saturated:0,gravityTorque:[],contactTorque:[],torque:[],effortPredictionError:0};
   const mass=model.segments.reduce((s,b)=>s+b.mass,0), gravity=new Vector3(...model.gravity),weight=-mass*gravity.y;
@@ -41,7 +90,7 @@ export function contactPolicy({model,parameters:p={}}) {
     const pose=model.poses.find(s=>s.name===name);if(!pose)throw new Error(`unknown contact posture ${name}`);
     return clamp((pose.posture[c.name]??0)-c.bind,c.min,c.max);
   });
-  const goals=postureAngles(p.posture??'reference');
+  const goals=p.posture==='observed'?null:postureAngles(p.posture??'reference');
   if(p.poseGains&&Object.entries(p.poseGains).some(([name,gain])=>!model.channels.some(c=>c.name===name)||!Number.isFinite(gain)||gain<0))
     throw new Error('posture gains require known channels and finite nonnegative values');
   // Explicit targets are joint-reference coordinates from the actual body's bounded geometric solve.
@@ -59,6 +108,8 @@ export function contactPolicy({model,parameters:p={}}) {
   const policy=o=> {
     if(state.released)return {kind:'host'};
     state.started??=o.time;
+    if(!goals)state.initialAngles??=model.channels.map((c,i)=>clamp(o.joints[i].angle,c.min,c.max));
+    const initialGoals=goals??state.initialAngles;
     const postureBlend=transition?clamp((o.time-state.started-(p.postureAfter??0))/postureSeconds,0,1):0;
     const byName=new Map(o.segments.map(s=>[s.name,s])),root=byName.get('lowerTrunk');
     if(p.centreTarget)state.initialCentre??=[...o.centre];
@@ -106,7 +157,7 @@ export function contactPolicy({model,parameters:p={}}) {
       moment.set(...turnError.asArray().map((v,i)=>weight*((p.orientation??.15)*v-(p.angularDamping??.04)*root.spin[i])));
       const miss={force:new Vector3(),moment:new Vector3()};
       effort=p.effortScale>0?contactEffort(model,o,patches,owners,
-        goals.map((v,i)=>postureBlend?v+postureBlend*(finalGoals[i]-v):v),p):undefined;
+        initialGoals.map((v,i)=>postureBlend?v+postureBlend*(finalGoals[i]-v):v),p):undefined;
       shareGroundWrench(work,patches,centre,force,moment,model.friction,.3,shares,miss,undefined,effort);
       state.requestedForce=force.asArray();state.miss=miss.force.asArray();
     }else {state.requestedForce=[0,0,0];state.miss=[0,0,0];}
@@ -133,7 +184,7 @@ export function contactPolicy({model,parameters:p={}}) {
         axis.set(...axes[j]).applyRotationQuaternionToRef(rotation,axis);
         const supportTorque=-Vector3.Dot(axis,moment)*(p.feedforward??1);
         let error=0;for(let k=0;k<n;k++) {
-          const goal=postureBlend?goals[start+k]+postureBlend*(finalGoals[start+k]-goals[start+k]):goals[start+k];
+          const goal=postureBlend?initialGoals[start+k]+postureBlend*(finalGoals[start+k]-initialGoals[start+k]):initialGoals[start+k];
           error+=turning[j][k]*(goal-angles[k]);
         }
         const scale=Math.min(c.positive.peak,c.negative.peak);

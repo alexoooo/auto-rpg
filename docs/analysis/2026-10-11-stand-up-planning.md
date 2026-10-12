@@ -2889,9 +2889,85 @@ restriction. Candidate physical trace SHA-256:
 `d0a4e8016b4623934e03db583d27de84e42ed1c5a5b8ab6d7b34df1455dd8d67`.
 `research/stand-up-path-results.json` under `geometricFootPlacement` retains the geometric solves,
 failed paths, all physical configurations and outcomes, diagnostics, replay proof and matched
-controller check. The next unresolved action is transferring support before freeing the hand and
-swinging the foot; endpoint fitting and stronger leg feedback alone have not done this.
+controller check. Those trials did not establish support transfer before freeing the hand and
+swinging the foot; endpoint fitting and stronger leg feedback alone did not do this.
 
 Validation: `npm run check`, `npm test` (685 passes, zero failures, five existing TODOs), the actual
 physics planning regression, action reconstruction, exact replay/restoration and replay build pass.
 Whitespace and line-ending gates are checked before committing. Full qualification remains unpassed.
+
+## Support transfer and sequenced placement, 2026-10-12
+
+**The full recovery goal remains unfinished.** A sequenced experiment establishes a late loaded
+left foot and transfers part of the body's weight onto it, but subsequent extension or right-foot
+placement fails. All 94 trials fail recovery. The selected frozen library remains 3/16, none within
+six seconds; no full qualification partition passes and nothing is promoted into gameplay.
+
+Every figure uses **Node Stance Lab / frozen game Rapier coordinate adapter 11 / 120 Hz / original
+symmetric muscle envelopes / Balance 0 / ordinary stance host**, on the same Rogue/empty 90-degree
+saved fall. The complete 480-step kneeling prefix reproduces exactly and remains in the clock.
+Bodies, joint limits, muscle curves, contact laws, solver settings and acceptance criteria are unchanged.
+
+Sixteen preliminary transfers compare partial/full centre targets, measured/geometric posture
+requests, two posture gains and two horizontal responses while retaining available support. One
+continuation unloads the left hand and shin with root-up 0.883642 at 5.5 seconds; it tips over later.
+The geometric request itself had failed the prior floor-clearance screen, so its physical execution
+is measured directly and does not inherit a claim of geometric feasibility. Nine placement solves
+from the recorded five-second continuation also fail the unchanged geometric screen. Their bounded
+joint coordinates are experimental requests, not proven paths.
+
+`contactPolicy` can start its posture blend from the first observed joint angles, clamped to the
+actual ranges. An optional sequence retains each stage's plain controller state and advances on
+elapsed time, centre-target error, or sustained foot orientation and positive floor contact.
+An optional load threshold uses measured contact impulse, the core's physical step rate and the
+body's own weight. A temporary loss of the required support resets the hold interval. These are
+internal experimental transitions; the frozen recovery evaluator alone decides completion.
+
+| Physical comparison | Trials | Episode limit | Complete recoveries |
+| --- | ---: | ---: | ---: |
+| Preliminary transfer | 16 | 9 s | 0 |
+| Transfer, placement and rise sequence | 24 | 9 s | 0 |
+| Earlier transfer and stronger hip/ankle feedback | 24 | 9 s | 0 |
+| Right-foot placement before extension | 9 | 12 s | 0 |
+| Loading the left foot before extension | 12 | 12 s | 0 |
+| Loading the left foot, then placing the right foot | 9 | 15 s | 0 |
+
+The longer diagnostic episodes cannot satisfy the six-second deadline through a late handover;
+they distinguish late feasibility from continued failure. None completes even late. All clocks
+include preparation, transfer and the unchanged standing/walking verification requirements.
+
+Two stronger-feedback sequences first enter their rise stage at 6.858333 and 7.108333 seconds.
+The earlier transition has left sole-up 0.937480, root-up 0.724682 and only 53.137 N of left-foot
+load, obtained from that step's measured normal impulse. Positive foot contact alone has left most
+of the weight elsewhere. The direct extension subsequently loses support.
+
+A separate loading stage holds the observed posture and requests balance nearer the actual left
+foot. Ten of twelve settings pass their selected 20% or 40% body-weight threshold, but all fail the
+subsequent rise. The recorded 40% setting advances at 7.933333 seconds with left-foot load 275.150 N,
+sole-up 0.942379 and root-up 0.809939. At 7.5 seconds its sole-up is 0.979056 and root-up 0.801351.
+This is partial weight bearing in a propped posture, not quiet two-foot standing. Nine continuations
+that try to place the right foot after this transfer never satisfy their right-foot transition.
+
+The 94 trials consume 115,466 physical steps. There are zero adapter errors, external-actuation
+events, invalid final commands or nonfinite final joint observations. Maximum effort-bound excess
+is 0.00002181721 N m, below the unchanged 0.0001 tolerance. Sampled allocation/command prediction
+error is below 6.002e-13. The loaded-foot and direct-extension recordings independently replay
+exactly, including restored split continuation. Detached reconstruction matches every new muscle
+command. The preceding controller's 599 post-prefix commands remain identical, both directly and
+inside a single-stage sequence.
+
+`.review/stand-up-pre-transfer/replay.html` compares the loading attempt and failed rise with the
+optimized baseline from the identical complete initial observation and physical body. Embedded
+records are checked; visual inspection remains undone under the existing local-file browser
+restriction. Candidate physical trace SHA-256:
+`8ca0a12d3e7026ac778ad80936d09828931c714e73188dd3e95fcc61fe4016a1`.
+`research/stand-up-path-results.json` under `supportSequencing` retains every outcome and executed
+configuration through indexed stage/posture tables, with expansion checked against the original
+configurations. It also retains geometry failures, actual transition loads, replay proofs and
+source identities. Right-foot placement and extension under the existing muscle limits remain
+unresolved; the established left-foot transfer also remains too slow.
+
+Validation: `npm run check`, `npm test` (685 passes, zero failures, five existing TODOs), focused
+transition/command tests, recorded-action reconstruction, exact replay/restoration and replay build
+pass. Whitespace and line-ending gates are checked before committing. These checks do not establish
+recovery or the four-second median/six-second reliability goal.
