@@ -218,6 +218,8 @@ it, which reads as sliding or being pushed.
 - Run the battery's envelope at higher asked speeds to see how much faster it can go.
 - Also read speed with strength (`{"speed":1.25,"strength":1.1}`). From rest a limb accelerates on
   its isometric torque, which speed alone does not raise.
+- Read each on the legs alone and on the whole body. The extras (strength, the upper body) join
+  Haste only where this shows they help the walk or the run (the owner's rule).
 
 ### C2. The gait uses the headroom
 
@@ -231,16 +233,18 @@ it, which reads as sliding or being pushed.
 
 ### C3. The attribute
 
-- **The stat:** `AttributeSpec` gains `haste`, a per cent, the owner's (an `owner-haste` source), as
-  `balance` is. It enters the figure as a speed factor of 1 + haste/100 (`physiqueFigure`).
-- **The scope**, the owner's choice:
-  - (a) every muscle: a classic haste, with faster blows, guards and rises too;
-  - (b) the legs' muscles only, needing a per-region factor: movement speed alone.
+- **The stat:** `AttributeSpec` gains `haste`, the owner's (an `owner-haste` source), as `balance`
+  is: a per cent of the human baseline, 100 % by default. The baseline is the measured curves
+  `jointSpeed` reads (Anderson 2007 for the hip, knee and ankle). It multiplies the legs' unloaded
+  speeds of shortening, and their strength too if C1 shows that helps.
+- **The scope, the owner's:** the legs' muscles only (the hip's, knee's and ankle's exertions in
+  `jointSpeed`), unless C1 shows the trunk or arms help the walk. An upper-body attribute may come
+  later, outside this plan.
 - **The envelope:** measured per model at a few haste levels, with the envelope at a haste
   interpolated between them; or a rule scaling it by the C2 exponent, checked against the measured
   levels.
-- **Pages:** the Lab and the Arena take `&haste=` beside `&balance=`. Every character's haste is 0
-  until the owner sets one.
+- **Pages:** the Lab and the Arena take `&haste=` beside `&balance=`. Every character's haste is
+  100 % until the owner sets one.
 - **Reporting:** a figure measured on a hasted body names each side's haste, as it names balance.
 
 ## Order of work
@@ -248,7 +252,7 @@ it, which reads as sliding or being pushed.
 1. A2, then A1: the table, then the servo. In parallel, C1 (measurement only) and B1 (a survey,
    no code).
 2. A3, then A5.
-3. C2, then C3 once the owner has chosen the scope.
+3. C2, then C3.
 4. B2 to B5, if B1 finds the data.
 
 The background searches of the 2026-10-11 plan are stopped or finished before A1 changes
@@ -257,10 +261,10 @@ voids its scores.
 
 ## The owner's choices
 
-- Haste's scope: every muscle, or the legs only (C3).
 - Haste's range, and each character's value.
-- Whether Haste also raises strength, if C1 shows speed alone does little from rest.
-- Whether the mocap gait becomes the default walk (B5, after the eye gate).
+- The default walk is whichever controller measures best, mocap or not (B5), after the eye gate.
+- **Decided:** Haste is the legs' alone, a per cent of the human baseline; it takes strength or the
+  upper body only where they help locomotion.
 - Which datasets beyond CMU, if any (B1).
 
 ## Eye gates
