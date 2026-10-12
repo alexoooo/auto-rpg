@@ -34,6 +34,8 @@ test("a real fall has immutable pose planning and complete exact checkpoints in 
     assert.equal(paired.pass, true, JSON.stringify(paired));
     assert.ok(paired.goalErrors.every(e => e.position < .005 && e.orientation < .035));
     assert.throws(() => solveStandUpPose(model, { variant: "unrecognized" }), /unknown IK variant/);
+    for (const selfClearance of [-.006, NaN, Infinity])
+      assert.throws(() => solveStandUpPose(model, { selfClearance }), /cannot weaken/);
     const x = [...model.initial]; x[0] = .3; x[3] = .7;
     const held = solveStandUpPose(model, { variant: "A", seed: x, iterations: 1 });
     assert.deepEqual(held.x.slice(0, 6), model.initial.slice(0, 6), "limb-only seeds cannot silently move a held pelvis");
@@ -44,6 +46,9 @@ test("a real fall has immutable pose planning and complete exact checkpoints in 
     assert.equal(obstructed.pass, false);
     assert.ok(obstructed.violations.some(c => c.pair.includes("thigh.left") && c.pair.some(name => /Trunk/.test(name))),
       "endpoint residuals cannot hide the obstructing actual thigh and trunk shapes");
+    const stricter = solveStandUpPose(model, { variant: "A", seed: obstructed.x, iterations: 0, selfClearance: 0 });
+    assert.equal(stricter.pass, false);
+    assert.deepEqual(stricter.violations, obstructed.violations, "a search margin cannot change the geometric verdict");
     unchanged();
     const samples = [];
     for (let k = 0; k < 60; k++) { f.step(); samples.push(f.sample()); }

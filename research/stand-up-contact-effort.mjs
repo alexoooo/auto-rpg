@@ -31,7 +31,7 @@ export function contactEffort(model,o,patches,owners,goals,p={}) {
       const capacity=Math.max(.05*peak,Math.sqrt(positive*negative));
       const scale=capacity>0?(p.effortScale??1)*weight/capacity:0,feedforward=p.feedforward??1;
       scales[i]=scale;
-      t0[i]=scale*(-Vector3.Dot(axis,moment)*feedforward+peak*((p.poseGain??.5)*error-(p.poseDamping??.06)*speed));
+      t0[i]=scale*(-Vector3.Dot(axis,moment)*feedforward+peak*((p.poseGains?.[c.name]??p.poseGain??.5)*error-(p.poseDamping??.06)*speed));
       patches.forEach((patch,s)=>{
         if(!joint.descendants.includes(owners[s]))return;
         arm.copyFrom(patch.at).subtractInPlace(pivot);Vector3.CrossToRef(axis,arm,cross);

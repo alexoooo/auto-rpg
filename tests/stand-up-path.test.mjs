@@ -11,12 +11,48 @@ import { mirrorReference } from '../research/stand-up-mirror-reference.mjs';
 import { retargetReference } from '../research/stand-up-retarget-reference.mjs';
 import { ratesToRef } from '../src/core/build/joint-state.ts';
 import { searchGuidance } from '../research/stand-up-search-guidance.mjs';
-import { contactBalanceTarget } from '../research/stand-up-contact-policy.mjs';
+import { contactBalanceTarget, contactPolicy } from '../research/stand-up-contact-policy.mjs';
 import { contactEffort } from '../research/stand-up-contact-effort.mjs';
+
+test('explicit contact postures blend reference coordinates through bounded muscle commands',()=>{
+  const side={peak:10,curve:{unloadedSpeed:10,curvature:.25,eccentricCeiling:1.5,eccentricSlopeRatio:2}};
+  const model={gravity:[0,-10,0],rootRest:[0,0,0,1],referenceAngles:[0],standing:1,friction:.8,
+    segments:[{name:'lowerTrunk',mass:1},{name:'foot.left',mass:1}],
+    channels:[{name:'joint',min:-1,max:1,bind:.3,positive:side,negative:side}],
+    joints:[{parent:'lowerTrunk',dofs:[{sign:1}],axes:{x:[0,0,1],y:[1,0,0],z:[0,1,0]},
+      parentRestInverse:[0,0,0,1],pivot:[0,0,0],descendants:['foot.left']}]};
+  const o={time:0,centre:[.25,0,0],contacts:[],
+    segments:[{name:'lowerTrunk',position:[0,0,0],centre:[0,0,0],rotation:[0,0,0,1],velocity:[0,0,0],spin:[0,0,0]},
+      {name:'foot.left',centre:[.5,0,0],velocity:[0,0,0]}],joints:[{angle:0,speed:0}]};
+  const parameters={postureTarget:{joint:.2},postureSeconds:1},before=structuredClone(parameters);
+  const policy=contactPolicy({model,parameters}),ordinary=contactPolicy({model});
+  assert.deepEqual(policy(o),ordinary(o));
+  assert.deepEqual(policy({...o,time:.5}).activation,[.55]);
+  assert.deepEqual(policy({...o,time:1}).activation,[.6]);
+  assert.deepEqual(policy({...o,time:2}).velocity,['+inf']);
+  assert.deepEqual(parameters,before);
+  for(const target of [{joint:2},{other:.2},{joint:NaN},{}])
+    assert.throws(()=>contactPolicy({model,parameters:{postureTarget:target}}),/every bounded channel/);
+  assert.throws(()=>contactPolicy({model,parameters:{...parameters,postureTo:'reference'}}),/no named destination/);
+  assert.throws(()=>contactPolicy({model,parameters:{...parameters,postureSeconds:0}}),/positive finite time/);
+  assert.throws(()=>contactPolicy({model,parameters:{centreTarget:[0,NaN,0]}}),/finite coordinates/);
+  assert.throws(()=>contactPolicy({model,parameters:{rootTarget:[0,0,0,2]}}),/unit quaternion/);
+  const loaded={...o,contacts:[{segment:'foot.left',fixed:'floor',impulse:1,normal:[0,-1,0],point:[.5,0,0]}]};
+  const requested={...parameters,centreTarget:[.5,.1,0],rootTarget:[0,0,.6,.8]};
+  const a=contactPolicy({model,parameters:requested});
+  const b=contactPolicy({model,parameters:{...requested,rootTarget:requested.rootTarget.map(v=>-v)}});
+  for(const time of [0,.5,1])assert.deepEqual(a({...loaded,time}),b({...loaded,time}));
+  assert.deepEqual(a.state.requestedForce,[4,26,0]);
+  assert.deepEqual(loaded.centre,[.25,0,0]);
+  const strong=contactPolicy({model,parameters:{...parameters,poseGains:{joint:10}}});
+  strong(o);assert.deepEqual(strong({...o,time:1}).activation,[1]);
+  assert.throws(()=>contactPolicy({model,parameters:{poseGains:{absent:1}}}),/known channels/);
+  assert.throws(()=>contactPolicy({model,parameters:{poseGains:{joint:-1}}}),/nonnegative/);
+});
 
 test('contact effort carries gravity and descendant ground forces in the muscle sense at speed',()=>{
   const side={peak:10,curve:{unloadedSpeed:10,curvature:.25,eccentricCeiling:1.5,eccentricSlopeRatio:2}};
-  const model={gravity:[0,-10,0],segments:[{name:'root',mass:1},{name:'link',mass:1}],channels:[{positive:side,negative:side}],
+  const model={gravity:[0,-10,0],segments:[{name:'root',mass:1},{name:'link',mass:1}],channels:[{name:'joint',positive:side,negative:side}],
     joints:[{parent:'root',dofs:[{sign:1}],axes:{x:[0,0,1],y:[1,0,0],z:[0,1,0]},
       parentRestInverse:[0,0,0,1],pivot:[0,0,0],descendants:['link']}]};
   const o={segments:[{name:'root',position:[0,0,0],centre:[0,0,0],rotation:[0,0,0,1]},
@@ -26,6 +62,7 @@ test('contact effort carries gravity and descendant ground forces in the muscle 
   assert.deepEqual([...a.t0],[10]);assert.deepEqual([...a.C],[0,2,0,0,0,0,0,0,0,0,0,0]);
   assert.equal((a.t0[0]-a.C[1]*4)/a.scales[0],1);
   assert.equal(contactEffort(model,o,patches,owners,[.2]).t0[0],12);
+  assert.equal(contactEffort(model,o,patches,owners,[.2],{poseGains:{joint:2}}).t0[0],18);
   const fast=contactEffort(model,{...o,joints:[{angle:0,speed:10}]},patches,owners,[0]);
   assert.ok(fast.C[1]>a.C[1]&&[...fast.C,...fast.t0].every(Number.isFinite));
 });

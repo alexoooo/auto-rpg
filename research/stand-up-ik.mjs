@@ -166,8 +166,10 @@ function linear(A, b) {
 /** Range-bounded damped least squares with explicit reporting of every geometric violation. */
 export function solveStandUpPose(model, { variant = "D", seed = model.initial, target = model.target,
   rotation = model.targetRotation, preferred = model.initial, iterations = IK_SETTINGS.iterations,
-  rootRotation = null, rootHeight = null, goals = [] } = {}) {
+  rootRotation = null, rootHeight = null, goals = [], selfClearance = -IK_SETTINGS.penetrationTolerance } = {}) {
   if (!["A", "B", "C", "D", "E"].includes(variant)) throw new Error(`unknown IK variant: ${variant}`);
+  if (!Number.isFinite(selfClearance) || selfClearance < -IK_SETTINGS.penetrationTolerance)
+    throw new Error("self clearance cannot weaken the geometric penetration tolerance");
   const free = model.initial.map((_, k) => k).filter(k => {
     if (k < 6) return variant !== "A";
     const name = model.channels[k - 6].name;
@@ -198,7 +200,10 @@ export function solveStandUpPose(model, { variant = "D", seed = model.initial, t
     if (rootHeight !== null) r.push(p.get("lowerTrunk").position.y - rootHeight);
     const c = model.centre(p), near = withinSupport(model.patches, c[0], c[2], 0);
     r.push((c[0] - near[0]) * IK_SETTINGS.supportWeight, (c[2] - near[1]) * IK_SETTINGS.supportWeight);
-    if (collision) for (const contact of model.contacts(p)) r.push(Math.min(0, contact.distance + IK_SETTINGS.penetrationTolerance) * IK_SETTINGS.collisionWeight);
+    if (collision) for (const contact of model.contacts(p)) {
+      const clearance = contact.pair.includes("floor") ? -IK_SETTINGS.penetrationTolerance : selfClearance;
+      r.push(Math.min(0, contact.distance - clearance) * IK_SETTINGS.collisionWeight);
+    }
     for (const k of free) r.push((x[k] - preferred[k]) * IK_SETTINGS.preferenceWeight);
     if (r.some(v => !Number.isFinite(v))) throw new Error(`nonfinite residual ${JSON.stringify({ variant, r, x })}`);
     return r;

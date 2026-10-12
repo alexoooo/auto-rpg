@@ -2820,3 +2820,78 @@ focused controller tests, physical fallback/default-equivalence checks, action r
 exact replay/restoration, replay build, whitespace and line-ending gates pass. The remaining
 transition is placing and loading a usable sole while maintaining the upright trunk, then rising
 and passing the unchanged standing/walking handover.
+
+## Geometric foot-placement targets, 2026-10-12
+
+**The full recovery goal remains unfinished.** Three endpoints pass the existing geometric
+screen after releasing the left hand, but no continuous screened route or physical recovery is
+established. All 78 physical trials fail through nine seconds. The selected frozen library remains
+3/16, none within six seconds; no body change or gameplay promotion is made.
+
+Every physical figure uses **Node Stance Lab / frozen game Rapier coordinate adapter 11 / 120 Hz /
+original symmetric muscle envelopes / Balance 0 / ordinary stance host**, on the same Rogue/empty
+90-degree saved fall. The first 480 steps reproduce the preceding kneeling trace exactly and remain
+in the recovery clock. Its pelvis is upright; this does not imply an upright spine or standing support.
+
+The measured kneel's forward-kinematic discrepancies are 0.0000551 m and 0.0000817 rad. A fixed-root
+left-leg solve places the sole within 0.000492 m and 0.002777 rad of the default target, but overlaps
+the thigh with the trunk by about 6 cm and the foot with the left hand by 6.5 cm. This endpoint fails.
+Nine whole-body placements retaining both hands also fail. Releasing the left-hand target and
+requiring centre-of-mass support over the actual right-hand/right-shin patches produces nearly
+passing endpoints, but all nine initially fail the unchanged tolerances.
+
+`solveStandUpPose` now accepts an optional stricter self-clearance search margin. It cannot weaken
+the geometric penetration tolerance, and final pass criteria remain unchanged. Refining the nine
+released-hand candidates toward zero self-penetration yields three passing endpoints. Their left
+sole errors are 0.000168–0.001017 m and 0.003119–0.011333 rad, with retained-contact and support errors
+inside the existing 5 mm limits. Passing this screen permits its original 5 mm penetration tolerance;
+it is not proof of positive clearance or physical execution.
+
+Nine continuous-path attempts compare those endpoints at three lift heights, with 48 requested
+waypoints each. Every attempt fails its first waypoint, including excessive branch motion or
+contact/geometric violations. A separate preliminary weight shift retaining both hands and the
+right shin nearly reaches the requested support region but fails floor clearance: the left hand
+penetrates by 7.13 mm. None of these geometric results is a complete route.
+
+The contact experiment accepts explicit named joint-reference targets, bounded by the actual
+body's ranges, and optional centre and root-orientation targets. These only change desired muscle
+commands through the existing allocation and torque calculation. No geometric pose, velocity or
+reaction force is applied to physics. Joint targets blend over a declared interval; per-channel
+feedback gains alter requested torque while preserving the true force-velocity capacity and
+activation ceiling. The allocation's effort model uses the same gains as the command calculation.
+
+| Physical comparison | Trials | Complete recoveries |
+| --- | ---: | ---: |
+| Three endpoints, right-hand/right-shin bearing, gain and transition-time choices | 18 | 0 |
+| Retaining additional support during placement | 18 | 0 |
+| Including planned centre and root-orientation targets | 24 | 0 |
+| Stronger feedback on the freed left leg | 18 | 0 |
+
+Immediate two-contact bearing collapses in every tested setting. Retaining additional support
+can preserve the kneel and unload the left shin, but the foot lands on its edge. The selected
+continuation at six seconds has root-up 0.912638 and sole-up components 0.012493 and -0.976917.
+The left knee is 0.680061 rad from its target. Stronger leg feedback reduces that knee error to
+0.080856 rad and increases its measured extension torque from 1.5126 to 10.8307 N m, but the left
+hip then remains 1.107554 rad from its flexion target; sole-up is still only 0.022448. Better knee
+tracking does not establish usable foot support or a recovery.
+
+The 78 trials consume 84,162 physical steps, including every prefix. There are no adapter errors,
+external-actuation events, invalid final commands or nonfinite final joint observations. Maximum
+effort-bound excess is 0.00001558328 N m, below the unchanged 0.0001 tolerance. Sampled predicted
+and commanded weighted torques agree to relative error below 1.577e-12. Recorded continuations
+match their grid traces; disabling the new options preserves all 1,079 rows of the prior controller.
+The selected recording independently replays exactly, including restored split continuation.
+
+`.review/stand-up-foot-placement/replay.html` compares the selected failed placement with the
+optimized baseline from the identical complete initial observation and physical body. Embedded
+records are checked; visual inspection remains undone under the existing local-file browser
+restriction. Candidate physical trace SHA-256:
+`d0a4e8016b4623934e03db583d27de84e42ed1c5a5b8ab6d7b34df1455dd8d67`.
+`research/stand-up-path-results.json` under `geometricFootPlacement` retains the geometric solves,
+failed paths, all physical configurations and outcomes, diagnostics, replay proof and matched
+controller check. The next unresolved action is transferring support before freeing the hand and
+swinging the foot; endpoint fitting and stronger leg feedback alone have not done this.
+
+Validation: `npm run check`, `npm test` (685 passes, zero failures, five existing TODOs), the actual
+physics planning regression, action reconstruction, exact replay/restoration and replay build pass.
+Whitespace and line-ending gates are checked before committing. Full qualification remains unpassed.

@@ -42,14 +42,27 @@ export function contactPolicy({model,parameters:p={}}) {
     return clamp((pose.posture[c.name]??0)-c.bind,c.min,c.max);
   });
   const goals=postureAngles(p.posture??'reference');
-  const finalGoals=p.postureTo?postureAngles(p.postureTo):goals;
+  if(p.poseGains&&Object.entries(p.poseGains).some(([name,gain])=>!model.channels.some(c=>c.name===name)||!Number.isFinite(gain)||gain<0))
+    throw new Error('posture gains require known channels and finite nonnegative values');
+  // Explicit targets are joint-reference coordinates from the actual body's bounded geometric solve.
+  if(p.postureTarget && (p.postureTo || Object.keys(p.postureTarget).length!==model.channels.length
+    || model.channels.some(c=>!Number.isFinite(p.postureTarget[c.name])||p.postureTarget[c.name]<c.min||p.postureTarget[c.name]>c.max)))
+    throw new Error('explicit posture target requires every bounded channel and no named destination');
+  const transition=!!(p.postureTo||p.postureTarget);
+  const finalGoals=p.postureTarget?model.channels.map(c=>p.postureTarget[c.name]):p.postureTo?postureAngles(p.postureTo):goals;
   const postureSeconds=p.postureSeconds??.5;
-  if(p.postureTo&&(!Number.isFinite(postureSeconds)||postureSeconds<=0))throw new Error('posture transition takes positive finite time');
+  if(transition&&(!Number.isFinite(postureSeconds)||postureSeconds<=0))throw new Error('posture transition takes positive finite time');
+  for(const [name,size] of [['centreTarget',3],['rootTarget',4]])if(p[name]!==undefined
+    &&(!Array.isArray(p[name])||p[name].length!==size||p[name].some(v=>!Number.isFinite(v))))
+    throw new Error(`${name} requires ${size} finite coordinates`);
+  if(p.rootTarget&&Math.abs(p.rootTarget.reduce((s,v)=>s+v*v,0)-1)>1e-8)throw new Error('rootTarget requires a unit quaternion');
   const policy=o=> {
     if(state.released)return {kind:'host'};
     state.started??=o.time;
-    const postureBlend=p.postureTo?clamp((o.time-state.started-(p.postureAfter??0))/postureSeconds,0,1):0;
+    const postureBlend=transition?clamp((o.time-state.started-(p.postureAfter??0))/postureSeconds,0,1):0;
     const byName=new Map(o.segments.map(s=>[s.name,s])),root=byName.get('lowerTrunk');
+    if(p.centreTarget)state.initialCentre??=[...o.centre];
+    if(p.rootTarget)state.initialRoot??=[...root.rotation];
     relative.set(...root.rotation).multiplyToRef(inverseRest,relative);
     up.set(0,1,0).applyRotationQuaternionToRef(relative,up);
     across.set(1,0,0).applyRotationQuaternionToRef(relative,across);
@@ -76,12 +89,19 @@ export function contactPolicy({model,parameters:p={}}) {
     if(patches.length) {
       contactBalanceTarget(patches,owners,p.supportWeights,point);
       const ground=point.y,height=(p.height??1)*model.standing;
-      force.set(mass*((p.horizontal??8)*(point.x-centre.x)-(p.linearDamping??4)*comVelocity.x),
-        clamp(weight+mass*((p.vertical??30)*(ground+height-centre.y)-(p.verticalDamping??8)*comVelocity.y),0,weight*(p.maxLoad??2)),
-        mass*((p.horizontal??8)*(point.z-centre.z)-(p.linearDamping??4)*comVelocity.z));
+      // Planned centre motion changes the muscle-derived reaction request, never the body's state.
+      const blend=transition?postureBlend:1;
+      const centreGoal=p.centreTarget?state.initialCentre.map((v,i)=>v+blend*(p.centreTarget[i]-v)):[point.x,ground+height,point.z];
+      force.set(mass*((p.horizontal??8)*(centreGoal[0]-centre.x)-(p.linearDamping??4)*comVelocity.x),
+        clamp(weight+mass*((p.vertical??30)*(centreGoal[1]-centre.y)-(p.verticalDamping??8)*comVelocity.y),0,weight*(p.maxLoad??2)),
+        mass*((p.horizontal??8)*(centreGoal[2]-centre.z)-(p.linearDamping??4)*comVelocity.z));
       turnAboutToRef(Vector3.UpReadOnly,state.heading,yaw);
       turnAboutToRef(Vector3.RightReadOnly,p.pitch??0,pitch);
       yaw.multiplyToRef(pitch,target);target.multiplyInPlace(rest);
+      if(p.rootTarget) {
+        const sign=state.initialRoot.reduce((s,v,i)=>s+v*p.rootTarget[i],0)<0?-1:1;
+        target.set(...state.initialRoot.map((v,i)=>v+blend*(sign*p.rootTarget[i]-v))).normalize();
+      }
       spinBetweenToRef(new Quaternion(...root.rotation),target,1,turnError);
       moment.set(...turnError.asArray().map((v,i)=>weight*((p.orientation??.15)*v-(p.angularDamping??.04)*root.spin[i])));
       const miss={force:new Vector3(),moment:new Vector3()};
@@ -117,7 +137,7 @@ export function contactPolicy({model,parameters:p={}}) {
           error+=turning[j][k]*(goal-angles[k]);
         }
         const scale=Math.min(c.positive.peak,c.negative.peak);
-        const torque=supportTorque+scale*((p.poseGain??.5)*error-(p.poseDamping??.06)*obs.speed);
+        const torque=supportTorque+scale*((p.poseGains?.[c.name]??p.poseGain??.5)*error-(p.poseDamping??.06)*obs.speed);
         if(effort) {
           let predicted=effort.t0[i];
           for(let s=0;s<patches.length;s++) {
