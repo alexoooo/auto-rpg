@@ -14,7 +14,7 @@ import { contactPolicy } from './stand-up-contact-policy.mjs';
 import { trackingPolicy } from './stand-up-tracking-policy.mjs';
 import { phaseFeatures } from './stand-up-phase-features.mjs';
 import { libraryPolicy } from './stand-up-library-policy.mjs';
-import { responsePolicy } from './stand-up-response-policy.mjs';
+import { responsePolicy, responseFeatures } from './stand-up-response-policy.mjs';
 import { bodyEnvironment } from './stand-up-foot-design.mjs';
 import { cmaSearch, workerPool } from './cma.mjs';
 
@@ -132,7 +132,8 @@ else if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1]
       const release=source.rows.findLastIndex(r=>r.action.kind!=='host')+1;
       assert.ok(release>0,'the reference contains recovery actions before its terminal host continuation');
       const frames=source.rows.slice(0,release).map((r,i)=>{const o=i?source.rows[i-1].observation:source.initial;
-        return {...r.action,angles:o.joints.map(j=>j.angle),speeds:o.joints.map(j=>j.speed),up:rotate(o.segments.find(s=>s.name==='lowerTrunk').rotation),...phaseFeatures(o)};});
+        return {...r.action,angles:o.joints.map(j=>j.angle),speeds:o.joints.map(j=>j.speed),up:rotate(o.segments.find(s=>s.name==='lowerTrunk').rotation),
+          ...phaseFeatures(o),rootMotion:responseFeatures(o,true).slice(-6)};});
       const joints=[...e.stand.built.joints.values()].map(j=>({dofs:j.dofs.map(d=>({sign:d.sign}))}));
       writeFileSync(v.out,gzipSync(JSON.stringify({sourceSha256:digest(readFileSync(v.source)),identity:source.identity,
         sourcePhysicalTraceSha256:source.traceSha256,rootUp,rootFront,rootAcross,joints,roll:RISE.roll,release,frames})));

@@ -2191,3 +2191,127 @@ focused controller tests, both frozen comparisons, matched baseline, exact fresh
 frozen replay/restoration checks pass. Whitespace and line-ending gates pass. A verified
 sub-six-second unassisted development recovery is established; four-second medians, six-second reliability,
 independent qualification and gameplay integration remain unfinished.
+
+## Opposite-side guidance and feedback, 2026-10-12
+
+The fresh 272-degree Warrior/empty fall now has an exactly verified **5.775 s** unassisted
+recovery, including the unchanged quiet-support, ordinary standing and walking checks. The
+broader-coverage observation-selected library completes **7/10 development recipes**, two within
+six seconds. Its failure-inclusive median on those ten recipes is 6.6 s. The full four-second
+median / six-second recovery goal remains **not achieved**; these recipes are used during
+development and are not independent qualification data.
+
+Every measurement in this section uses **Node Stance Lab / frozen game Rapier coordinate /
+120 Hz / original symmetric muscle envelopes / Balance 0 / ordinary stance host**. Body,
+muscle limits, contact law, solver, host and acceptance criteria are unchanged. Fresh falls
+use the physical two-shove preparation, with 0.2 s separation. No pose or velocity is injected.
+
+`research/stand-up-mirror-reference.mjs` constructs reflected guidance from a recorded path.
+It swaps anatomical limb channels and hand requests, reverses trunk lateral-flexion and axial
+rotation commands, converts through each channel's anatomical bind angle, and clamps target
+angles to the target side's actual ranges. Gravity and linear motion are reflected in the
+root's local sagittal plane; angular motion receives the opposite sign appropriate to an axial
+vector. Support shares swap sides. Muscle activations are preserved, and finite or infinite
+speed requests change only by the indicated channel/sign mapping.
+
+This is a control hypothesis, not a reflected physical recording. The tool explicitly marks
+the output as unmeasured guidance and removes the original local response calibration and
+physical-trace claim. It retains parent provenance. The 506-frame reference needs 309 target
+clamps, the largest 0.017619 rad at lumbar rotation; no joint limit is changed. The regression
+checks bind conversion, limits, hand selection, axial versus linear reflection, involution of
+unclipped angles, input immutability and removal of calibration claims. Real-body trials, not
+the reflection algebra, determine whether recovery occurs.
+
+An eighteen-trial screen applies rates 0.9, 1 and 1.1 with gains 4, 12 and 24 to the unchanged
+saved 270-degree fall and a physical 272-degree fall. All nine saved-fall trials fail by twelve
+seconds. Five fresh-fall trials complete, including **6.0 s** at rate 1/gain 24. That result
+independently regenerates and exactly replays the entire fall recovery and host tail.
+A twelve-trial local timing/gain screen then finds **5.825 s** at rate/motion-rate 1.025 and
+gain 24; ten trials complete, with two within six seconds. This faster result also independently
+replays exactly. Neither screen establishes success on the saved 270-degree case.
+
+Measured-path feedback is then tested separately from synthetic reflection. The extracted
+6.0 s trajectory completes the nominal fresh fall at each of gains 4, 12 and 24; gain 24 also
+recovers 58 and 62 N s opposite-side variations in 6.441667 and 6.358333 s. Gain 12 recovers
+62 N s in 7.308333 s. The other nine of fifteen trials fail. Extracting the 5.825 s trajectory
+and tracking it at rate 1 gives **5.775 s** with gain 12;
+this is a new feedback trajectory, not a claim that the 5.825 s recording is reproduced.
+The same setting recovers 268 degrees in 6.3 s. Gain 24 recovers the nominal fall in 5.991667 s
+and the 62 N s variation in 6.183333 s. Four of these ten trials complete, two within six
+seconds. A finite handover followed by inadequate walking remains a failure.
+
+All 1,052 observations and results of the selected 5.775 s run replay exactly after regenerating
+the physical fall. Its physical SHA-256 is
+`e16562b6933b2b69a757a315cd56448ce3c121562b8ed9eb17c50ade69c59951`.
+The matched optimized baseline fails through twelve seconds from the identical complete initial
+observation and physical identity. `.review/stand-up-side-mirror/replay.html` contains both,
+labels the fresh 272-degree recipe and includes the standing/walking tail. It is built but not
+visually inspected because of the existing local-file browser restriction. No server is started.
+
+Extracted paths now retain measured body-relative root motion, so the library can score a path
+without requiring a response-calibration run merely to obtain those features. The third library
+reference is the measured opposite-side path, with gain 12; the front and first-side settings
+are unchanged. It chooses the correct side reference on the ten tested side recipes. All five
+preceding first-side traces match exactly, including their failure. The added opposite-side
+reference recovers 268 and 272 degrees but fails 270 degrees, 58 N s and the 62 N s walking
+tail. No exact-start hash selects the controller.
+
+The complete transfer table motivates a broader-coverage library: its opposite-side reference
+uses the measured 6.0 s trajectory and gain 24. It completes seven of the same ten recipes,
+including 272 degrees and the 58/62 N s opposite-side variations, but loses the 268-degree
+completion. Both libraries preserve all five previous first-side traces. Each has two recoveries
+within six seconds. The faster 5.775 s witness remains a separate configuration; the selected
+broader-coverage library's corresponding recovery takes 6.0 s. Neither library meets the full goal.
+
+Two bounded rollout searches retain their failures. Another attempt to shorten the saved
+90-degree witness uses 26,970 evaluations and 373,992 physical steps in 247.188 wall seconds,
+finishes its five-second horizon and finds no improvement over 6.416667 s. Transferring the
+measured 6.0 s opposite-side trajectory to the unchanged saved 270-degree fall uses 25,902
+evaluations and 329,106 physical steps. It stops after the in-flight batch at 311.092 wall
+seconds under its 300 s cap, reaching only 3.9 s of the requested 5.5 s search horizon. It is
+not restarted or reported as a completed horizon. The selected posture is nearly upright but
+does not recover: a separately recorded six-second ordinary-host continuation fails to reach
+handover by 9.908333 s. Every observation, result and restored split continuation of that failed
+recording replays exactly. Near-standing height is not counted as a success.
+
+A separately bounded continuation search starts from that verified 3.9-second prefix and keeps
+the original clock. Its 180 s allocation is separate from the stopped transfer search. It spends
+9,828 evaluations and 161,124 physical steps in 138.376 wall seconds, finishes the six-second
+total horizon and finds no recovery. The selected plan's further six-second ordinary-host tail
+also fails, with no handover through 12.008333 s. Its complete failed trace and restored split
+continuation replay exactly. Neither failed search is a physical impossibility claim.
+
+Both complete frozen library comparisons retain **2/16** recoveries, front 7.25 s and side
+7.041667 s, with none within six seconds. The front and first-side candidate records exactly
+match the preceding library, and all sixteen optimized baseline records match. The faster-side
+library takes 243.746 wall seconds and the broader-coverage library 208.840 s, while other work
+shares the machine. Both match initial states and reject the floating-controller negative control.
+Frozen failure-inclusive medians remain infinite. The opposite-side saved case still fails.
+
+Across 62,611 logged search branches there are no adapter errors or external-actuation events.
+The 50 reference-anchor evaluations and 39 prefix-control evaluations account for the remaining
+evaluation count. Maximum branch effort-bound excess is 0.00004672307 N m, below the unchanged
+0.0001 tolerance. All 75 grid trials retain finite joint observations, valid muscle commands,
+bounded efforts and zero external actuation. Repeated nominal runs in those grids are controls,
+not independent robustness evidence.
+
+`research/stand-up-path-results.json` under `oppositeSideReflection` retains the reflected
+guidance's provenance, channel/sign mapping and target clamps; all three searches, plans and
+audits; every grid result; both complete frozen comparisons; both library configurations;
+matched baseline; and successful/failed replay proofs. Recreate the synthetic guide with
+`node research/stand-up-mirror-reference.mjs <5.9-second-extracted-path.json.gz> <output.json.gz>`.
+The path experiment's grid and record modes consume the stored settings with `--case 3`.
+Extract the measured 6.0 s or 5.825 s record with its `--mode extract`, then use `--mode library`
+to combine that path with the preceding front and first-side references. The selected coverage
+configuration uses gain 24 and the 6.0 s opposite reference; the speed configuration uses gain 12
+and the 5.825 s reference. Set `STAND_UP_LIBRARY_CONFIG` to the chosen configuration and invoke
+the frozen checkout's unchanged `node research/stand-up-acceptance.mjs --candidate
+<absolute-stand-up-library-policy-path> --output <report.json>`. Fresh successes verify through
+`research/stand-up-fresh-replay.mjs`; failed saved traces verify through the rollout tool's
+`--mode verify --case 3` interface.
+
+Validation: `npm run check`, `npm test` (677 passes, zero failures, five existing TODOs), thirteen
+focused controller/reflection tests, both frozen comparisons, matched replay, independent fresh
+replays and failed-trace restoration checks pass. Whitespace and line-ending gates pass. The
+four-second median, six-second reliability across the required bodies and loadouts, independent
+qualification and gameplay integration remain unfinished.

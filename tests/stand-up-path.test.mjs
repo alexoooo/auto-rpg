@@ -6,6 +6,7 @@ import { libraryPolicy } from '../research/stand-up-library-policy.mjs';
 import { responseFeatures, responsePolicy } from '../research/stand-up-response-policy.mjs';
 import { prefixPolicy } from '../research/stand-up-prefix-response-policy.mjs';
 import { createHash } from 'node:crypto';
+import { mirrorReference } from '../research/stand-up-mirror-reference.mjs';
 
 test('a recovery reference resumes muscle actions after a temporary host interval',()=>{
   const muscles={kind:'muscles',velocity:[1],activation:[.3],handPoses:{left:'open'}};
@@ -15,6 +16,27 @@ test('a recovery reference resumes muscle actions after a temporary host interva
   const actions=[0,1,2,3].map(step=>policy({time:step/120,height:1,
     segments:[{name:'lowerTrunk',rotation:[0,0,0,1]}],joints:[{angle:0,speed:0}]}));
   assert.deepEqual(actions,[muscles,{kind:'host'},muscles,{kind:'host'}]);
+});
+
+test('reflected guidance swaps anatomical limbs and hand poses, preserves limits, and treats angular motion as axial',()=>{
+  const identity={channels:[{name:'neck rotation right',bind:.1,min:-2,max:2},
+    {name:'hip.left flexion',bind:.2,min:-2,max:2},{name:'hip.right flexion',bind:.3,min:-2,max:2}]};
+  const frame={kind:'muscles',angles:[.4,.5,.8],speeds:[1,2,3],velocity:['+inf',2,'-inf'],activation:[.1,.2,.3],
+    handPoses:{left:'open',right:'fist'},gravity:[1,2,3],up:[1,2,3],rootMotion:[1,2,3,4,5,6],loads:{'foot.left':.7,'foot.right':.3}};
+  const reference={identity,rootAcross:[0,0,1],frames:[frame],responses:[{}],responseMeasurement:{},sourcePhysicalTraceSha256:'source'};
+  const before=structuredClone(reference),mirrored=mirrorReference(reference),actual=mirrored.frames[0];
+  assert.deepEqual(reference,before);assert.equal(mirrored.responses,undefined);assert.equal(mirrored.responseMeasurement,undefined);
+  assert.equal(mirrored.sourcePhysicalTraceSha256,undefined);assert.equal(mirrored.transformation.measuredTrajectory,false);
+  assert.equal(mirrored.transformation.parentPhysicalTraceSha256,'source');
+  actual.angles.forEach((v,i)=>assert.ok(Math.abs(v-[-.6,.9,.4][i])<1e-12));
+  assert.deepEqual(actual.speeds,[-1,3,2]);assert.deepEqual(actual.velocity,['-inf','-inf',2]);
+  assert.deepEqual(actual.activation,[.1,.3,.2]);assert.deepEqual(actual.handPoses,{right:'open',left:'fist'});
+  assert.deepEqual(actual.gravity,[1,2,-3]);assert.deepEqual(actual.up,[-1,2,3]);
+  assert.deepEqual(actual.rootMotion,[-1,-2,3,4,5,-6]);assert.deepEqual(actual.loads,{'foot.right':.7,'foot.left':.3});
+  mirrorReference(mirrored).frames[0].angles.forEach((v,i)=>assert.ok(Math.abs(v-frame.angles[i])<1e-12));
+  const restricted=structuredClone(reference);restricted.identity.channels[1].max=.6;
+  const limited=mirrorReference(restricted);assert.equal(limited.frames[0].angles[1],.6);
+  assert.equal(limited.transformation.clipped.length,1);assert.equal(limited.transformation.clipped[0].channel,'hip.left flexion');
 });
 
 test('recovery phase features preserve tilt across world headings and exclude self-contact loads',()=>{
