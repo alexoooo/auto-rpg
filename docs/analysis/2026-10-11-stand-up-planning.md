@@ -4659,3 +4659,70 @@ with failure-inclusive median infinity. The four-second median and six-second re
 remains unfinished. This commit changes only recorded evidence and analysis; source hashes,
 cited paths, whitespace and line endings are checked. The two previously reported current-source
 checkpoint-configuration test failures remain unresolved; software tests are not repeated.
+
+### Hand support, joint-rate conversion and continuous foot carry
+
+Harness: frozen Node Stance action evaluator, game Rapier coordinate adapter 11, 120 Hz,
+saved workshop-fighter-club-90 fall, original compliant-sole Warrior and right-hand club,
+original symmetric muscles and stance host, Balance 0. The body, muscle limits, host, saved
+fall and acceptance criteria are unchanged. Every physical continuation uses muscle actions.
+The detached model comes from the identity-matched fresh standing environment.
+
+The experiments compare a hand-and-foot prefix ending at 3.208333 s with an earlier low
+hands-and-shins prefix ending at 2.408333 s. The earlier pose initially loads only the right
+hand. Placing the left hand is therefore tested before freeing either leg. Neither prefix
+introduces sustained upright kneeling as a destination.
+
+| Comparison | Trials | Scope |
+| --- | ---: | --- |
+| Separate knee readiness, then add folded-leg goals | 8 | Recovery through second 6 |
+| Direct, retained and rotation-aligned joint overrides | 12 | Recovery through second 6; incorrect angle-rate conversion |
+| Earlier prefix, hand-supported step and hip-clearance thresholds | 12 | Recovery through second 6 |
+| Joint-target and measured hand-placement components | 8 | 0.4 s and 1 s components |
+| Corrected conversion, release of leg targets, pelvis clearance, continuous handoff | 16 | Recovery through second 6 |
+| Hold the hand-placement controller without stepping | 2 | Support control through second 6 |
+
+There are 58 trials and 21,070 continuation steps. All 48 recovery attempts fail to place the
+requested foot or recover by six seconds. The ten component/control trials are not whole
+recovery tests. Assistance and external actuation are zero throughout; maximum effort-bound
+excess is 0.0000453287 N m, below the unchanged 0.0001 tolerance.
+
+The twelve raw joint-override trials confuse joint-coordinate angle rates with muscle-axis
+velocities. They are physically bounded failures but do not validate the intended joint
+servo. Corrected overrides use turningToRef and exactly match the live driver's conversion
+at its pre-physics update. An initial check incorrectly reads the driver's previous-step
+cache; comparing at the correct update point resolves that assertion. Correcting conversion
+alone does not establish foot placement. Holding the same joint goals throughout the carry
+also overrides the foot tracker's leg commands; releasing those goals does not solve placement.
+
+A suspected hand-geometry mismatch is ruled out for the recordings: the left hand remains
+open and the club-carrying right hand remains in grip. No hand-shape source change is retained.
+
+The hold-only controls sustain two loaded hands and at least one loaded shin for 254 and
+320 consecutive steps (2.116667 and 2.666667 s). This establishes a useful support component,
+not standing. A subsequent handoff preserves the hand controller's centre, trunk orientation
+and joint targets, waits for 18 supported observations, and leaves the moving leg to the
+foot tracker. All four variants still miss placement. In the recorded right-leg variant,
+at 5.908333 s both hands carry 65.841 and 165.589 N and the opposite shin carries 455.940 N.
+At six seconds the right foot remains unloaded and 0.325220 m from its horizontal target;
+its sole-up is -0.849989 and the knee remains deeply folded at 2.395784 rad. There is no
+handover. Preserving support is progress on the component, not a recovery-time improvement.
+
+The inspectable recording is .review/stand-up-knee-carry/continuous-replay.html. Its 720
+candidate and 1,084 previous-candidate frames match the physical recordings. Independent
+replay reproduces all 719 candidate observations, complete restoration and split continuation.
+Its first 288 observations match the earlier saved-fall prefix. Browser inspection at
+4.708333 s shows hand support with the moving foot still raised behind the body.
+Physical SHA-256: bea797ef753b7b66bada86a6c6577bbb86e361e42cce185e8882e9cae4d21399.
+The released-joint and earlier flawed-servo failures have separate verified recordings.
+handSupportedLegCarry in research/stand-up-path-results.json preserves the configurations,
+outcomes, source snapshots, interpretation corrections and replay verification.
+
+No controller is promoted to the Lab. The selected frozen library remains 3/16, none within
+six seconds, with failure-inclusive median infinity. Full qualification and the four-second
+median/six-second recovery goal remain unfinished. The next diagnostic is the freed foot's
+predicted versus actual response while the continuous hand-support targets remain in place.
+
+Only evidence and analysis are retained. Source hashes, cited paths, whitespace and line
+endings are checked. The two previously reported current-source checkpoint-configuration
+software-test failures remain unresolved; the unchanged software gates are not repeated.
