@@ -61,12 +61,12 @@ function usesReferenceLook(scenario: DungeonScenario): boolean {
   }
 }
 
-/** The pause panel's title for a run of `party` bodies. */
-function pauseTitle(status: RunStatus, party: number): string {
+/** The pause panel's title for the run's status. */
+function pauseTitle(status: RunStatus): string {
   switch (status) {
     case "playing": return "Paused";
-    case "won": return "You escaped.";
-    case "dead": return party > 1 ? "Your party has fallen." : "Your hero has fallen.";
+    case "won": return "Escaped";
+    case "dead": return "Defeat";
     default: {
       const never: never = status;
       throw new Error(`unknown run status ${JSON.stringify(never)}`);
@@ -241,10 +241,9 @@ function setPaused(page: DungeonPage, value: boolean): void {
   run.commands.right = run.commands.up = 0;
   run.commands.cancelPointer();
   need("pause-panel").hidden = !value;
-  need("pause-title").textContent = pauseTitle(run.status, run.party.length);
-  need("pause-copy").textContent = run.status === "playing"
-    ? "Your run is frozen. Wheel zoom remains available."
-    : `Seed ${page.seed} · ${Math.floor(run.clock)} seconds in the depths.`;
+  need("pause-title").textContent = pauseTitle(run.status);
+  need("run-time").hidden = run.status === "playing";
+  need("run-time").textContent = `${Math.floor(run.clock)} s`;
   need("resume").hidden = run.status !== "playing";
   need("pause-button").textContent = value ? "Resume · Esc" : "Pause · Esc";
 }
@@ -455,9 +454,6 @@ function wireControls(page: DungeonPage): void {
     page.held.clear();
     page.run?.commands.setMode({ keyboard: keyboard.checked, facing: facing.checked });
     if (page.run) canvas.focus();
-    need("control-help").textContent = keyboard.checked
-      ? facing.checked ? "WASD / arrows to move · cursor to face · attacks are automatic" : "WASD / arrows to move · AI faces and attacks"
-      : facing.checked ? "Cursor to face · AI explores, moves and attacks" : "Click to attack-move · click an enemy to lock on · drag to force move";
   };
   keyboard.addEventListener("change", modeChanged, { signal });
   facing.addEventListener("change", modeChanged, { signal });
@@ -696,6 +692,7 @@ function refreshHud(page: DungeonPage, party: Party): void {
     need<HTMLProgressElement>("target-hp").value = target.vitality;
   }
   need("notice").textContent = run.notice;
+  need("notice").hidden = !run.notice;
   drawRoutes(page);
   inspectMind(page, run);
 }

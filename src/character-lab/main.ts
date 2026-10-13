@@ -218,7 +218,6 @@ function showControls(kit: Loadout): void {
   buttons("[data-pose]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.pose === pose)));
   need<HTMLSelectElement>("weapon").value = kit.weapon;
   need("character-title").textContent = character.name;
-  need("character-class").textContent = character.subtitle;
   const count = (n: number): string => String(n).padStart(2, "0");
   need("model-count").textContent = `${count(IDS.indexOf(current) + 1)} / ${count(IDS.length)}`;
   need("equipment-note").textContent = WEAPONS[kit.weapon].note;

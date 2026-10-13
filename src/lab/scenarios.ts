@@ -28,18 +28,17 @@ export type ScenarioId = "stance" | "routine" | "run" | "blow" | "recovery";
 interface ScenarioInfo {
   readonly id: ScenarioId;
   readonly name: string;
-  readonly line: string;
   /** What the menu's card puts in the hands, where the scenario needs it; the scenario's page can change it after. */
   readonly holds?: Partial<Pick<LabLoadout, "right" | "left">>;
 }
 
 /** Every scenario, in the menu's order; the first is the default. */
 export const SCENARIOS: readonly ScenarioInfo[] = [
-  { id: "stance", name: "Stance", line: "Walk it from the keyboard, and shove it." },
-  { id: "recovery", name: "Get-up experiment", line: "Test the selected recovery controller with repeatable shoves." },
-  { id: "routine", name: "Routine", line: "It walks out, strikes at ten targets hung high, middle and low, turns and walks back." },
-  { id: "run", name: "Run", line: "It goes round a track at the pace asked, in the wind: a big circle, back and forth, or a square walked facing one way." },
-  { id: "blow", name: "Blow", line: "It swings a club blow the strike search found into a head, and reads what it lands with.", holds: { right: "club" } },
+  { id: "stance", name: "Stance" },
+  { id: "recovery", name: "Get-up experiment" },
+  { id: "routine", name: "Routine" },
+  { id: "run", name: "Run" },
+  { id: "blow", name: "Blow", holds: { right: "club" } },
 ];
 
 export const MODELS: readonly { readonly id: HumanoidModel; readonly name: string }[] = HUMANOID_MODELS.map((id) => ({ id, name: MODEL_DISPLAY[id].label }));

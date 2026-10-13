@@ -111,13 +111,6 @@ body {
   letter-spacing: 0.02em;
 }
 
-.lede {
-  margin: 0 0 20px;
-  color: var(--dim);
-  font-size: 12.5px;
-  line-height: 1.6;
-}
-
 .keys {
   display: grid;
   grid-template-columns: 96px 1fr;

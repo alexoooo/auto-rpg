@@ -6,25 +6,25 @@ export interface Loadout { boots: boolean; armour: boolean; weapon: WeaponId }
 /** The workshop's characters, in the order the page counts them. `armour` is what the page calls each one's. */
 export const CHARACTERS = {
   fighter: {
-    name: "The Fighter", subtitle: "STEEL & RESOLVE", asset: "fighter.glb", armour: "Plate armour",
+    name: "The Fighter", asset: "fighter.glb", armour: "Plate armour",
     defaults: { boots: true, armour: true, weapon: "sword-shield" },
   },
   rogue: {
-    name: "The Rogue", subtitle: "INSTINCT & INTENT", asset: "rogue.glb", armour: "Leather armour",
+    name: "The Rogue", asset: "rogue.glb", armour: "Leather armour",
     defaults: { boots: true, armour: false, weapon: "bow" },
   },
 } as const;
 
 /** What can be in the hands. `groups` are the mesh groups a choice shows: a mesh is named `<group>__<part>`. */
 export const WEAPONS: Record<WeaponId, { label: string; groups: readonly string[]; note: string }> = {
-  empty: { label: "Empty hands", groups: [], note: "Unarmed. Both hands are free." },
-  sword: { label: "Sword", groups: ["sword"], note: "A steel arming sword in the right hand." },
-  shield: { label: "Shield", groups: ["shield"], note: "A brass-edged heater shield in the left hand." },
+  empty: { label: "Empty hands", groups: [], note: "Unarmed" },
+  sword: { label: "Sword", groups: ["sword"], note: "Right: sword" },
+  shield: { label: "Shield", groups: ["shield"], note: "Left: shield" },
   "sword-shield": {
     label: "Sword & shield", groups: ["sword", "shield"],
-    note: "Arming sword in the right hand. Heater shield in the left.",
+    note: "Right: sword · Left: shield",
   },
-  bow: { label: "Bow", groups: ["bow"], note: "Two-handed bow. Walk, draw, aim and release." },
+  bow: { label: "Bow", groups: ["bow"], note: "Two-handed" },
 };
 
 /** Whether the mesh `name` is shown with `kit`. The shield's forearm strap has a cut for a bare sleeve and one
