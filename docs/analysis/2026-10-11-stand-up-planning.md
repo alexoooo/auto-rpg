@@ -3716,3 +3716,62 @@ preserved under footContactResponse in research/stand-up-path-results.json.
 No production controller change is promoted. Evidence whitespace and line-ending checks pass;
 the previously reported two current-source checkpoint-identity test failures remain unresolved.
 The four-second median / six-second recovery goal and live Warrior loop remain unfinished.
+
+## Coordinated physical search and surface targets, 2026-10-13
+
+**No recovery succeeds.** Four offline searches and fourteen complete continuous-feedback
+trials use the original Rogue/empty 90-degree saved fall. Harness: frozen Node Stance Lab /
+game Rapier coordinate adapter 11 / 120 Hz / original compliant soles and symmetric muscle
+envelopes / ordinary stance host / Balance 0. No body changes, stronger muscles, assistance
+or held-kneel prefix are introduced. Search branches restore complete checkpoints; every
+continuation acts through the ordinary muscle action port and retains the original clock.
+
+Each search keeps up to eight diverse states, using 24-step action blocks through six seconds.
+The first proposes standing, crouching, floor pressing, rolling and relative limb changes.
+The second adds hand/foot placement from the observed chain Jacobians. The third reduces
+uprightness credit without downward-facing loaded soles; the fourth corrects placement to
+use actual collision surface points. These heuristic scores are not acceptance criteria.
+All four selected complete trajectories fail without handover. Branch counts are short
+continuations, not independent falls or complete recovery trials:
+
+| Search, frozen Node harness above | Branch evaluations | Exploration steps |
+|---|---:|---:|
+| search | 7175 | 171952 |
+| placement | 8813 | 211208 |
+| support | 8802 | 210946 |
+| surface | 8823 | 211448 |
+
+The placement target contains a geometric inconsistency: moving a tilted sole's centre to
+the floor puts an edge below it. Over the 720 recorded support-search states, that requested
+translation puts the left/right foot collider more than 1 cm below the plane in every frame,
+with worst clearances -0.121985/-0.125866 m. The analogous fixed-height hand-centre targets
+reach -0.059657/-0.023260 m. These are counterfactual target clearances, not physical
+penetration measurements. Selecting the lowest collider vertices instead keeps the translated
+foot geometry at the plane and the hand geometry within 0.000005 m, from vertex averaging.
+It does not prove that the joints can reach the target or support the resulting posture.
+
+The continuous prototype applies surface placement every physical step. Eight trials test
+the correction, hand placement, accepting tilted loaded soles as temporary support, foot
+orientation weight and forward placement; six combine it with the previously measured heading
+correction. All fourteen fail by six seconds with no handover, consuming 10,066 world steps.
+The disabled surface and heading controls reproduce their preceding traces exactly. All
+report zero assistance and external actuation, finite final readings and legal final commands;
+maximum effort-bound excess is 0.000021514792791776927, below 0.0001.
+
+Independent action replay, restoration and split continuation reproduce each of the four
+searched trajectories and the selected continuous record exactly. Plain static model data
+and recorded observations reconstruct all 719 continuous-policy actions exactly. Its hash is:
+
+f1b256d5dfb44df435fb2f23a75c5bb0df9b1e56a3c1cf6aa8213f0d47943a5a
+
+The final continuous attempt is inspectable at .review/stand-up-surface-policy/replay.html,
+against the unchanged optimized baseline from the identical full initial state and body.
+All 720 embedded candidate frames and identity are checked. Browser inspection near 5.992 s
+confirms the low, failed endpoint. The posture and initial placement searches are also inspected;
+the corrected search replay is generated and checked but not visually inspected.
+
+research/stand-up-path-results.json under footSurfaceSearch preserves sources, configurations,
+search plans, endpoint diagnostics, the geometry audit and replay proofs. No production change
+is promoted. Whitespace and line-ending checks pass. The previously reported two current-source
+checkpoint-identity test failures remain unresolved; the full four-second median / six-second
+recovery goal and the live Warrior loop remain unfinished.
