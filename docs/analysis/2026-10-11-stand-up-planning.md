@@ -3281,3 +3281,68 @@ two failures and five TODOs (690 total). The unresolved failures remain
 `research-stand-up-acceptance.test.mjs` and `stand-up-detached.test.mjs`: both reject frozen
 checkpoints under the current-source identity. The identity guard is unchanged. Exact replay,
 command reconstruction, embedded replay checks, whitespace and line-ending gates pass.
+
+## Support retention after foot placement, 2026-10-12
+
+**No additional standing recovery succeeds.** The Node Stance Lab frozen action evaluator,
+Rapier coordinate adapter 11 at 120 Hz, original empty-handed Rogue, original symmetric muscle
+envelopes, ordinary stance host and Balance 0 executes 51 support/placement trials and 84,189
+steps. Every trial fails its diagnostic deadline. The complete prefixes remain on the original
+recovery clock; no body, saved fall, baseline or acceptance criterion changes.
+
+Six wider/toed-out right-foot endpoint targets, four rearward targets and four matched local
+solver-restart comparisons produce no valid collision-free endpoint. Eight direct physical
+foot-frame requests and eight timed ramps produce no two-foot support transition. Two control
+continuations show that the previously reached 9.875-second transfer is transient: continuing
+its controller or holding its measured pose does not retain support. Advancing through timed
+ramp stages does not establish a physical support transition.
+
+A static diagnostic uses the actual positive ground-contact points at the earlier kneel,
+loaded-left-foot pose and late transfer. Independent substitution finds force/moment-balanced,
+friction-feasible reactions whose required torques remain below the original at-rest muscle
+peaks. The sixteen-facet witnesses use at most 54.06%, 50.98% and 63.01% of the respective
+sign-specific peaks. All solver reports have an inconsistent status and nonzero dual residual;
+these are feasible witnesses, **not certified optima**. Joint-limit reactions and dynamic
+stability are outside that calculation.
+
+Twelve fixed-torque/pose-feedback continuations, followed by nine stronger-feedback settings,
+all lose the late transferred pose. Six tests from earlier poses and six matched tests that
+recompute gravity and contact lever arms from actual observations identify a better retained
+kneel. They still produce no standing recovery. The detached controller applies only bounded
+ordinary muscle commands. Its computed reaction forces are inputs to a torque calculation,
+never forces injected into the physics world.
+
+The selected kneeling continuation starts after the unchanged 480-step prefix, at recovery
+4.008333 s. With pose gain 8, damping 0.03 and recomputed supporting torques, the Node frozen
+Rapier stand's centre height stays between 0.406564 and 0.409983 m over recovery seconds 5–12;
+root up stays between 0.917272 and 0.926235. The maximum segment linear speed at each step remains
+between 0.139336 and 0.375316 m/s, so this is not quiet support. Neither sole supports standing,
+and zero samples pass the recovery-ready predicate. The higher gain 32 retains height but
+creates substantially more motion and saturation. The earlier loaded-left-foot continuation
+also retains its contacts longer, while its torso continues to drift downward.
+
+The next support investigation starts from the retained earlier kneel; the late transfer is
+not a stable base for another foot movement. The four-second prefix already consumes the
+requested median, so holding or completing this late component cannot establish the timing goal.
+
+A separate nine-trial initial-motion screen on the unchanged Warrior front saved fall finds no
+improvement. The existing first reference from phase zero alone recovers in 7.25 s; the other
+eight reference/phase choices fail through twelve seconds. The selected frozen library remains
+3/16, none within six seconds, and full qualification is unfinished.
+
+`research/stand-up-path-results.json` preserves all configurations, terminal failures, hashes,
+geometry results, static feasibility witnesses and the detached support policy source under
+`supportHold`; the initial-motion screen is under `initialMotionChoice`. The copied diagnostic
+runner's original source manifest does not identify its replaced policy, so the actual policy
+source and runner hash are recorded separately. Raw files are in
+`.review/stand-up-wide-placement/`, `.review/stand-up-static-hold/` and
+`.review/stand-up-initial-choice/`.
+
+`.review/stand-up-static-hold/replay.html` compares the selected failed kneeling continuation
+with the unchanged optimized baseline from the identical saved fall. Candidate physical SHA-256:
+`fe9497087a28df80ba40c2a03a4e5297adfb6ecec41ba45491cf31d819d4b09c`.
+The candidate repeats its grid trace exactly; action replay, restoration and split continuation
+pass. Embedded replay identity and frame count are checked; visual inspection is not performed.
+All 51 trials have zero assistance and no external-actuation events. Maximum normalized effort
+violation is 0.0000218173, below the unchanged 0.0001 audit tolerance. Terminal commands and joint
+readings are finite. These checks establish neither recovery nor robustness.
