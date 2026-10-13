@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import asset from '../assets/research/research-rise.json' with { type: 'json' };
+import unshodAsset from '../assets/research/research-rise-unshod-warrior.json' with { type: 'json' };
 import observations from './fixtures/research-rise-observations.json' with { type: 'json' };
 import { libraryPolicy } from '../src/core/mind/rise/reference-library.ts';
 import { pathPolicy } from '../src/core/mind/rise/reference-path.ts';
@@ -9,6 +10,7 @@ import { pathPolicy as researchPath } from '../research/stand-up-path-policy.mjs
 import { loadState, saveState } from '../src/core/state.ts';
 import { CLASSIC } from '../src/core/mind/config.ts';
 import { modelSpec } from '../src/core/models.ts';
+import { withSoles } from '../src/core/human/sole.ts';
 import { mindText, parseMind } from '../src/ui/mind-link.ts';
 import { coreStand, saveStand, loadStand } from './harness/core-stand.mjs';
 import { labActor } from '../src/lab/actor.ts';
@@ -17,7 +19,7 @@ import { LAB_PRESETS } from '../src/lab/scenarios.ts';
 const data = JSON.parse(asset.payload);
 
 test('live reference policies preserve the research commands and restore every nested phase', () => {
-  for (const entry of [data.default, ...Object.values(data.bodies)]) {
+  for (const entry of [data.default, ...Object.values(data.bodies), JSON.parse(unshodAsset.payload).default]) {
     const channels = entry.channels.map(name => ({ name, min: -10, max: 10 }));
     const args = { ...entry, channels };
     const create = entry.kind === 'library' ? libraryPolicy : pathPolicy;
@@ -32,6 +34,17 @@ test('live reference policies preserve the research commands and restore every n
       assert.deepEqual(twin(observation), action);
       assert.deepEqual(twin.state, live.state);
     }
+  }
+});
+
+test('live Warrior guidance augments only the unshod empty-handed body library', async () => {
+  for (const [spec, count] of [[modelSpec('workshop-fighter'), 5],
+    [withSoles(modelSpec('workshop-fighter')), 3], [modelSpec('workshop-rogue'), 3]]) {
+    const stand = await coreStand(spec, { engine: 'rapier-coordinate' });
+    const stance = startStance(labActor(stand.built, stand.world,
+      { mind: { ...LAB_PRESETS.script.config, subs: [{ kind: 'research-rise' }] } }));
+    try { assert.equal(stance.body.state.mind.subs[0].policy.policies.length, count); }
+    finally { stance.dispose(); stand.dispose(); }
   }
 });
 

@@ -3962,3 +3962,69 @@ footMeasuredResponse in research/stand-up-path-results.json. No production contr
 promoted. Whitespace and line-ending checks pass; the previously reported two current-source
 checkpoint-identity test failures remain unresolved. The full recovery goal and live Warrior
 loop remain unfinished.
+
+## Body-specific live Warrior guidance, 2026-10-13
+
+**The reproduced live Left loop improves, but the full recovery goal is not achieved.** The
+empty-handed Warrior without compliant soles now adds two measured motions to Research rise's
+observation-selected library. Other physical loadouts retain their existing inputs. This is a
+live muscle controller shared by the Lab, Arena and Dungeon, not pose playback in the Lab.
+No body, muscle limit, contact law, assist ceiling or frozen acceptance criterion changes.
+
+The harness is **current-source Node Stance / game Rapier coordinate adapter 11 / 120 Hz /
+original unshod Warrior / symmetric muscles / ordinary stance host / Balance 0**. Preparation
+stands for 240 steps and applies two horizontal impulses 24 steps apart. Times below run from
+the first recovery takeover to the live adapter's half-second quiet, upright, loaded two-foot
+completion. The comparator is the previous live Research rise, not the frozen optimized
+baseline. Each successful new-library continuation additionally stays with the ordinary host
+for two seconds standing and one second walking, moving at least 0.1 m without falling.
+
+| Gust direction and impulse | Previous live controller | New live library |
+| --- | ---: | ---: |
+| Front, 60 N s | 12.891667 s | 12.891667 s |
+| Right, 60 N s | 6.466667 s | 6.466667 s |
+| Back, 60 N s | 34.700000 s | 34.700000 s |
+| Left, 60 N s | 31.991667 s, five attempts | 6.400000 s, one attempt |
+| -88 degrees, 60 N s | 30.533333 s | 30.533333 s |
+| -92 degrees, 60 N s | 13.733333 s | 6.275000 s |
+| Left, 58 N s | fails through session 42 s | fails through session 42 s |
+| Left, 62 N s | 6.625000 s | 6.625000 s |
+
+Neither library completes any of these eight recipes within six seconds. These development
+recipes are not robustness qualification. They do not establish the outcome of the owner's
+arbitrary ongoing browser state, and the remaining failed and slow cases still need work.
+
+Seven changes to the existing opposite-side reference's gain or minimum phase rate fail.
+Mirroring the measured successful unshod Right motion supplies a 6.4-second Left continuation;
+replacing the old reference outright regresses the 62 N s case to 33.316667 s. The retained
+library instead adds the physically measured 6.4-second continuation and the existing
+6.625-second live 62 N s continuation. Posture, support and root velocity select a reference;
+the controller receives neither the gust recipe nor an initial-state hash. The retained
+references follow one recorded step per control step with bounded joint-error feedback.
+Six attempts to accelerate that measured motion all fail. Earlier host release also fails or
+slows recovery. All measured live trials meter zero assistance and no external actuation.
+
+The final core controller exactly reproduces the selected candidate's entire physical trace,
+including its host tail. Restoring after one recovery second exactly reproduces all subsequent
+observations and nested policy state for both comparator and candidate. The candidate walks
+0.205267 m during its one-second host check. Its physical SHA-256 is
+`b9f12ebb620c8ba560afbd1c03406731e0fdda9a1645873e425ef1f4532add05`.
+The standalone `.review/live-rise/replay.html` compares the same initial observation and body;
+all 1,129 candidate frames match the final core recording. Chrome inspection shows a kneeling
+transition at three seconds and an upright walking finish at 9.4 seconds. Natural-looking
+motion is not established; the discarded prolonged feet-up hold is not revived as a target.
+
+Three direct trials of the mirrored guidance on the unchanged frozen Warrior/empty/270-degree
+saved fall all fail through ten seconds without handover. Those use the frozen Node Stance
+evaluator, its original compliant soles and muscle envelopes, and Balance 0. The live result
+does not improve the frozen acceptance claim. Its full four-second median and six-second
+recovery goal remains unfinished.
+
+`research/stand-up-path-results.json` preserves configurations, source snapshots, comparisons,
+failures, asset hashes and replay verification under `liveWarriorGuidance`. The additional
+runtime asset is `assets/research/research-rise-unshod-warrior.json`, packaged with
+`scripts/bundle-research-rise.mjs`. TypeScript and production build pass; both focused recovery
+test files pass all six tests. The fast suite reports 694 tests, 687 pass, two fail and five
+TODO. The same existing failures in `research-stand-up-acceptance.test.mjs` and
+`stand-up-detached.test.mjs` reject frozen checkpoints in the current-source harness. Their
+identity guards remain intact. Whitespace and line-ending gates pass.

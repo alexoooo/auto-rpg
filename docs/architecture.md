@@ -762,6 +762,9 @@ selected research candidate's immutable policy inputs; `scripts/bundle-research-
 packages an explicit library configuration and records source hashes. No saved physics state
 is loaded. The Warrior's right-hand wooden club selects its dedicated path; other supported
 loadouts use the motion library. Nested policy state participates in saves and Lab scrubbing.
+The empty-handed Warrior without compliant soles adds two measured live Stance motions from
+`assets/research/research-rise-unshod-warrior.json` to that library. Its observed posture, support
+and velocity select among the references; the disturbance direction is not a controller input.
 Quiet, upright loaded-foot support releases the episode to its host. A reference that ends while
 the body remains down gets two seconds to settle before reselection from the actual pose;
 other unsuccessful attempts restart after twenty seconds. Host action requests allow the

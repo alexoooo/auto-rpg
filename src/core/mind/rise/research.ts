@@ -1,4 +1,5 @@
 import data from "../../../../assets/research/research-rise.json" with { type: "json" };
+import unshodData from "../../../../assets/research/research-rise-unshod-warrior.json" with { type: "json" };
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../../body.ts";
 import { recoveryMeasurement } from "../../control/recovery-measurement.ts";
@@ -15,13 +16,21 @@ import type { ReferenceAction, ReferenceParameters, RiseReference } from "./refe
 interface Entry { kind: "library" | "path"; channels: string[]; parameters: ReferenceParameters; reference: RiseReference }
 const SIDES = ["left", "right"] as const;
 const bundle = deepFreeze(JSON.parse(data.payload)) as { default: Entry; bodies: Record<string, Entry> };
+const additions = deepFreeze(JSON.parse(unshodData.payload)).default as Entry;
+const unshodWarrior: Entry = deepFreeze({ ...bundle.default,
+  parameters: { ...bundle.default.parameters,
+    controllers: [...bundle.default.parameters.controllers!, ...additions.parameters.controllers!] },
+  reference: { ...bundle.default.reference,
+    references: [...bundle.default.reference.references, ...additions.reference.references] } });
 
 /** Recorded reference motions with feedback, executed through the body's ordinary muscles. */
 export function researchRise(own: OwnBody, view: BodyView, world: World): SubMind {
   if (!dynamicRiseFits(own.spec)) throw new Error(`${own.spec.model} cannot take research rise`);
   const held = own.spec.held ?? [];
   const club = held.length === 1 && held[0].segment === "hand.right" && held[0].item.name === "wooden club";
-  const entry = bundle.bodies[`${own.spec.model}/${club ? "club" : "empty"}`] ?? bundle.default;
+  const entry = own.spec.model === "workshop-fighter" && held.length === 0
+    && own.spec.segments.every(s => s.surface?.sole === undefined) ? unshodWarrior
+    : bundle.bodies[`${own.spec.model}/${club ? "club" : "empty"}`] ?? bundle.default;
   const channels = own.muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value }));
   if (channels.length !== entry.channels.length || channels.some((c, i) => c.name !== entry.channels[i]))
     throw new Error("research rise reference does not match this body's muscle channels");
