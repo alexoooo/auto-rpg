@@ -1,249 +1,547 @@
 # Discrete combat actions and configurable tactics
 
-## Goal and scope
+## Goal
 
-Separate choosing whom to attack from choosing what to do, and give both ordinary tactics and a
-future meta-policy the same discrete action vocabulary. The Lab's Attack scenario exercises the
-game's orders, senses, policies and skills against physical targets. It owns the experiment's
-environment, not an alternative combat controller.
+Every attack a fighter makes goes through one protocol, whatever its effector: a hand or a foot,
+bare or holding an item. A fighter has a list of named, configured **actions**. Its tactics
+choose **whom** to attack (its focus) and **what** to do (an action, an effector and a region of
+the target). The tactics start the action as an **instance** with an id. The skills carry the
+instance out and report its lifecycle and outcome under that id. Footwork, guarding and evasion
+stay continuous; only commitments are discrete.
 
-Keep the design small: a shared target context, an action catalogue, replaceable selectors and a
-bounded execution contract. Extend the existing mind configuration and skill arbitration. Do not
-build a general scripting language, a second behaviour engine or a Lab-specific action system.
-Recovery and the current When down configuration are outside this work. Backward compatibility
-with superseded configurations is not required.
+The shape is the options framework (Sutton, Precup and Singh, 1999):
 
-## Current code and the gap
+- an action's readiness is its initiation set;
+- its executor's ending is its termination;
+- withdrawing the request interrupts it.
 
-- `src/core/mind/intent.ts` describes hand blows and foot kicks. A blow can specify one of six
-  path families and continuous path parameters. Those families are not six independently
-  supported actions: executors differ in which parameters they actually use. A hand blow can
-  also use a held item; the category does not mean exclusively bare-handed punching.
-- `src/core/skills/skill.ts` provides the current blow execution contract. Its `accepts` and
-  `busy` predicates do not provide a complete capability, initiation and termination contract.
-- `src/core/skills/choose.ts` chooses an executor using first-able, rotation or historical contact
-  scores. It inherits range information from its first option and counts contact with any foe.
-  This is a useful starting point for selection, but is not yet a reliable action catalogue or
-  an outcome model for planning.
-- `src/core/mind/targets.ts` turns a foe order into a world point. The explicit-order branch in
-  `src/core/mind/path-tactics.ts` then bypasses autonomous opening selection. Ordering an attack
-  on a body should constrain the target while retaining the configured attack policy.
-- `src/core/mind/behaviours.ts` composes behaviours by command channel. Target selection inside
-  separate behaviours needs to become shared context, so movement and attack agree on the foe.
+A future meta-policy or planner receives the same candidates and ledger. Learning, search and
+duration models are not this plan.
 
-## Decision boundaries
+Scope:
 
-```text
-Orders + sensed bodies
-          |
-          v
-Target selector -> selected target context
-                            |
-Body + equipment + configured actions + live target geometry
-                            |
-                            v
-                    Action candidates
-                            |
-                            v
-                      Action selector
-                            |
-                            v
-                   One action instance
-                            |
-                            v
-                Skills -> muscles -> physics
-                            |
-                            v
-                   Progress and outcome
+- Humanoid fighters in the Arena, the Crypt and the Lab.
+- The reptile only where `Orders` changes under it.
+- Recovery and the sub-minds are outside it, except that a takeover ends instances cleanly.
+- Old configurations and links are not kept working.
+
+## Where the code stands
+
+- **Attacks are per-step points.** `Intent.attack` (`src/core/mind/intent.ts`) is a world point,
+  asked again every step; the skill latches onto it. Tactics infer an attack's lifecycle by
+  watching counters change:
+  - `cycles !== state.cycle` in `pathTactics`;
+  - `aim.thrown !== thrown` in `recipeTactics`;
+  - `report.kick?.foot` in `kickTactics`.
+- **Identity is lost early.** `aimedOrders(..., highMark)` (`fighter.ts`) turns an ordered foe into
+  a point before the tactics see it. The `given` branch of `pathTactics` then throws a forced
+  straight blow with no `targetId`. `Orders.attack` is a bare point: the Arena's aim is where the
+  pointer's ray crosses a level plane (`src/arena/orders-input.ts`).
+- **Two attack paths.** Blows go through `BlowSkill` and the arbiter's blow slot. Kicks go through
+  `KickSkill`, `KickAttack`, `kickTactics`' `during`/`now`/`after` and kick-specific branches of
+  `skillSet` (`src/core/skills/arbiter.ts`):
+  - a kick that has been asked for but not yet admitted already stops the walk and holds back the
+    blow;
+  - the kick's stance is laid over the composed command last.
+- **Selection lives in the wrong layer.** `chooseSkill` (`src/core/skills/choose.ts`) picks an
+  executor inside the skill layer. Its `accepts` is `true` for every option but the path strike.
+  It takes a hand's range from its first option, and counts a landed blow on contact with any
+  foe.
+- **Aims are spread across the tactics**, and depend on tactics-only state:
+  - the openings choose a front by `OpeningTuning` and a blocked surface, re-scored every 0.12 s;
+  - linear openings score fronts as `straight` and throw `cross` on odd cycles;
+  - `recipeTactics` holds its point while it stays within `APPROACH.reach`;
+  - Seek and the no-opening fallback aim at segment centres, with prediction;
+  - the tracking kick re-picks the nearest leg every step;
+  - ground combat throws a latched, downward, unextended blow.
+- **Approach has three owners:**
+  - the tactics: `seekFoe`, the delta and braking of `pathTactics`, the kick's approach;
+  - the recipe strike's own walk-in (`APPROACH`);
+  - the straight punch, which walks itself to its stand-off.
+- **Six private `nearestFoe` calls**, measured from the head or the centre, with `standing` or
+  `standing-first`, decide the foe in `behaviours.ts`, `kick-tactics.ts`, `path-tactics.ts` and
+  `recipe-tactics.ts`. Movement and attack can disagree.
+- **Contact feedback is partial.** It is on only for a fighter that `readsContact`
+  (`fighter.ts`), so a Seek fighter on the recipe strike has none. `EffectorFeedback.contact` is
+  the step's strongest contact; the full list (`contacts`) is kept only with `points`.
+- **Held items are on the hand.** A held item's shapes are compound shapes of the hand's own
+  rigid body (`src/core/build/rigid.ts`), so a club's contacts already arrive on `hand.*`.
+- **The Lab counts any contact** of the actor's bodies with a target as an impact
+  (`src/lab/attack-mode.ts`).
+- **What already exists to build on:**
+  - the shared finite strike cycle (`advanceStrike`, `effectorStrike`);
+  - contact classification (`contactResponse`, `src/core/control/effector-feedback.ts`);
+  - the surface geometry of `src/core/mind/openings.ts`;
+  - `StrikeWindow` (`strikes.ts`);
+  - Move's ranked rule lists.
+
+## The design
+
+### Vocabulary
+
+| Term | Meaning |
+| --- | --- |
+| Focus | The sensed body this fighter attacks, or none. Decided once a step, before anything else. |
+| Proximity | Any foe near this body. Move's gait rule and the guard's threat read proximity, never the focus. |
+| Action | A named entry of the fighter's `actions`: its kind, its settings, the effectors it may use, the regions it aims at and its aim rule. Immutable. |
+| Executor | The skill that carries out actions of one kind. Actions with the same kind and executor settings share one. |
+| Region | A mark of the target's spec (`high`, `middle`, `legs`), `any`, or one named segment. |
+| Candidate | Action × effector × region for the focus, with its readiness and an optional labelled estimate. Plain data. |
+| Readiness | `ready`, `position` (the window the target must be brought into) or `blocked` (with a reason). Geometric and pure. |
+| Instance | One started request, with an id. It owns its action, effector and target until it ends. |
+| Ledger | One record for each ended instance: how it ended and what its effector touched. |
+| Footwork | Continuous behaviours on the legs channel. They read the pending candidate's window and are not actions. |
+
+### Targets
+
+```ts
+type TargetRef =
+  /** What a policy attacks: a sensed body and a region of it; the executor aims. */
+  | { readonly kind: "body"; readonly body: string; readonly region: Region }
+  /** What a script, a research harness or a test attacks: a world point the producer aims, with the
+      body it belongs to where there is one (for attribution and intended contact), and a contact direction. */
+  | { readonly kind: "point"; readonly at: Vec3; readonly body?: string; readonly direction?: Vec3 };
+
+type Region = { readonly kind: "mark"; readonly mark: "high" | "middle" | "legs" | "any" }
+            | { readonly kind: "segment"; readonly segment: string };
 ```
 
-The target selector chooses a sensed body identity. A player's attack order locks that choice;
-an automatic selector may choose nearest, seeded random or a configured priority. The action
-selector chooses among candidates for that body. Target selection never prescribes a punch path,
-and action selection never silently substitutes another foe.
+- **Point targets are permanent.** Scripts, research harnesses and tests command an exact point
+  (`src/lab/blow.ts`, `research/punch-calibration.mjs`, `research/front-kicks.mjs`, ...). Until
+  step 3 deletes them, the old tactics also use point targets, carrying exactly what they carry
+  today.
+- **A policy never emits a point.** The behaviours tactics produce only body targets.
+- **A region is a set of segments.** The executor's aim rule may move between the segments of a
+  mark while it tracks, as the kick moves between the legs.
+- **A body without the mark offers all its segments.**
 
-Keep target eligibility and action feasibility callable separately. This lets a future joint
-selector compare actions across eligible targets without duplicating either rule. A player lock
-restricts that candidate set to the ordered body. If the ordered body disappears, report target
-loss; switching to another body requires an explicit automatic-selection policy or new order.
+### Actions and executors
 
-Live target context contains sensed geometry and motion, not engine handles. It is shared by
-positioning, aiming and attack selection. Defensive behaviours may respond to other threats, but
-cannot change the attack target. Preserve ordinary movement/stop orders and their precedence;
-an attack order is not a shortcut around the policy pipeline.
+`FighterConfig.blow` and `.kick`, the behaviours' own `strike.blow` and `kick.kick`, and
+`choose-blow` are replaced by one list:
 
-## Discrete actions, continuous execution
+```ts
+interface FighterConfig { /* ... */ readonly actions: readonly ActionConfig[] }
 
-An attack choice names a registered technique, effector, target region and configured variant.
-For example, this is illustrative configuration, not a new fixed schema of required techniques:
+/** Every kind shares these; its own settings follow (`family`, `armExtension`, its tuning, ...). */
+interface ActionBase {
+  /** Unique in the list: what requests, the ledger, rules and displays name it by. */
+  readonly name: string;
+  /** Effector names of the body (`BodySpec.effectors`), validated against the spec. */
+  readonly effectors: readonly string[];
+  readonly regions: readonly Region["mark"][];
+  readonly aim: AimRule;
+}
 
-```json
-{
-  "technique": "straight-punch",
-  "effector": "right-hand",
-  "target": { "body": "target-7", "region": "surface" },
-  "variant": "standard"
+type AimRule =
+  | { readonly kind: "centre"; readonly lead: number }
+  | { readonly kind: "surface"; readonly tuning: OpeningTuning }
+  | { readonly kind: "leg-height"; readonly height: number };
+```
+
+Today's kinds become action kinds: `recipe-strike`, `path-strike` (with `family` and
+`armExtension`), `driven-strike`, `whole-body-strike`, `straight-punch` and `front-kick`.
+
+- **A path family is a setting of an action.** A hook and a straight are two actions. The six
+  families are validated by the path strike's `faults`; no other kind has one.
+- **Executor settings and action settings.** Each kind says which of its settings are the
+  executor's and which the action's:
+  - the path strike's paths and execution are its executor's;
+  - family, arm extension and aim are each action's.
+
+  Actions with equal executor settings share one executor, which keeps their common state
+  (the path strike's one striking hand, cooldown and overlap). An action's own settings travel
+  with each request.
+- **Each kind registers as a `Part`** (`src/core/mind/parts.ts`, `catalog.ts`):
+  - `fits` is capability: the effectors exist, and the executor supports what the hand holds;
+  - `faults` validates settings, and the list's faults include duplicate names;
+  - the kind's module makes its executor.
+- **Nothing outside an action's own module branches on its kind.** Selectors, behaviours,
+  screens and the arbiter see candidates, statuses, claims and the ledger. A research executor is
+  compared with another by putting both in the list.
+- **Aim rules are the one owner of target geometry.** They are shared functions over the surface
+  functions of `openings.ts` and `targets.ts`. An executor calls its action's rule when its
+  technique says:
+  - every step while it tracks (the straight punch, the kick);
+  - once at the start (the path strike latches);
+  - held while the point stays within its window (the recipe strike).
+
+  A `surface` rule scores fronts by its tuning and penalises a region this body's ledger
+  records as blocked. Its score is the candidate's estimate.
+- **No technique taxonomy** is added until a reader needs one.
+
+```ts
+interface Executor extends Skill {
+  /** Pure: whether `effector` of action `action` could start on `target` now, and if not what would let it. */
+  readiness(view: BodyView, action: string, effector: string, target: TargetRef): Readiness;
+  /** Called every step in registration order, with the requests addressed to it (possibly none): one claim over its instances. */
+  command(view: BodyView, requests: readonly ActionRequest[], around: Around, dt: number): Claim | null;
+  readonly live: readonly ActionStatus[];
+  /** The stance height its trunk-holding instance asks, as its last command left it. */
+  readonly lower: number | null;
+  readonly state: object;
 }
 ```
 
-All choices are discrete. Candidate regions come from the target's supported anatomy or surfaces;
-a generic physical object need not pretend to have a head. The skill resolves the chosen region
-into a live aim point and controls tracking, trajectory, timing, balance and muscles. The policy
-does not emit arbitrary world points, joint angles, path vectors or per-step extension values.
-The executor declares when it can still track and when a committed motion must finish.
+`Around` gains the tactics' walk and stance height (`Intent.move`, `Intent.lower`), which the
+recipe strike and the path strike read today.
 
-Selectable differences use named, immutable variants. Numerical tuning belongs to the configured
-variant or controller and is validated there. Do not enumerate every numerical combination as an
-action. Generate only configured, supported candidates for the current body and target, in stable
-order; discrete does not mean that every character shares one enormous Cartesian product.
+### The instance protocol
 
-### Technique and implementation are separate
+```ts
+interface Intent { move; face; guard; lower?; destination?; readonly actions: readonly ActionRequest[] }
 
-A technique describes the intended physical action; an executor implements it. Recipe strike,
-path strike, driven strike and whole-body strike are implementation choices, not automatically
-four distinct combat techniques. Existing path families can become techniques or variants only
-where their distinction is implemented and their capability is explicit. Do not preserve all six
-as selectable actions merely because the old union lists them.
+interface ActionRequest {
+  /** From the body's one counter (`Sight.instance()`, held in the skill set's state): never reused. */
+  readonly id: number;
+  readonly action: string;
+  readonly effector: string;
+  readonly target: TargetRef;
+}
 
-Each configured action binds its technique and variant to one compatible executor. Different
-research implementations can be compared using explicitly named bindings; ordinary policies
-need not know which controller solves the motion. Held equipment and body structure participate
-in capability checking. Never silently interpret an unsupported hook as a straight punch, or
-advertise an empty-hand action for a weapon configuration it does not support.
+interface ActionStatus {
+  readonly id: number;
+  readonly action: string;
+  readonly effector: string;
+  readonly target: TargetRef;
+  /** prepare: withdrawal stops it. commit: withdrawal does not cut it short. release: winding down, holding only `holds`. */
+  readonly phase: "prepare" | "commit" | "release";
+  /** The executor's own stage, for display (`chamber`, `transfer`, ...). */
+  readonly stage: string;
+  readonly holds: readonly Resource[];
+}
+```
 
-Use the registration and validation pattern in `src/core/mind/parts.ts` and
-`src/core/mind/catalog.ts`. Action registrations own their semantics, supported bindings and
-parameter validation. The catalogue, editor and selectors read that source of truth. Adding a
-technique may require its implementation and registration, but must not require a special case
-in every selector, screen or planner. Closed protocol unions remain typed and exhaustively handled.
+The rules, which the skill set enforces:
 
-### Positioning and waiting are actions too
+1. **Start.** A request with a new id starts an instance.
+   - It is `refused` at once only if it is invalid, the body or its holdings cannot carry it, or
+     its resources are held by another instance. Nothing silently falls back to another action,
+     effector or target.
+   - Conditions that pass with time do not refuse. These are the executor's startup, cooldown,
+     quiet support and settling. The instance waits in `prepare` (stage `admitting`) and may hold
+     resources while it waits, as today's kick stops the walk before it begins. Its executor's
+     time limits bound the wait.
+2. **Continue.** A request listed again continues its instance.
+   - Its action, effector, the target's kind and body, and a body target's region may not
+     change; a request that changes them throws.
+   - A point target's `at` and `direction` may move, since its producer aims.
+   - Something new is a new id.
+3. **Withdraw.** An id no longer listed is a withdrawal.
+   - When the instance stops is the executor's. A stage is `commit` only if withdrawal does not
+     cut it short, so a selector reads the truth from `phase`.
+   - Withdrawals are handled before starts in the same step.
+   - Listing nothing is how a higher-ranked behaviour holds the attack back.
+4. **End.** An instance ends as one of:
+   - `completed`
+   - `cancelled`
+   - `refused`
+   - `interrupted`: a sub-mind takes the body, or the body is idled by its level (`Mind.idle`).
+     This is recorded at that moment, whatever the executor's `releases`.
+   - `lost`: a body target is out or no longer sensed before `commit`
+   - `stalled`: an executor's own time limit
 
-Expose bounded positioning actions alongside attacks: enter a chosen technique's usable range,
-increase separation, circle to either side, and hold guard. These are examples of registered
-actions, not a mandatory list embedded in the policy loop. Distances, angles and dwell durations
-come from validated configuration or the chosen technique's requirements.
+   The ending says how the instance ended, not whether it hit. An ended id listed again is
+   ignored, since a producer reads the report one step late.
+5. **Release.** While one instance is in `release`, another may start if their resources are
+   disjoint. The shared executor's own rules still apply. This is how combinations overlap.
 
-Use long-range approach as an explicit action. An attack owns its final alignment and local
-stance adjustment, not an unbounded pursuit. A simple behaviour can compose approach then attack;
-both steps retain the same target and selected technique. Moving targets can invalidate readiness
-and cause reconsideration. Dungeon route finding retains its existing owner; define the handoff
-to local positioning so navigation and the attack skill never issue competing movement commands.
+### Resources and composition
 
-Every action has a completion condition and a bounded failure condition. A guard action used by a
-planner holds for its configured interval; background guarding can continue whenever arbitration
-leaves resources free. Keep that distinction explicit instead of forcing a policy to select guard
-on every physics step.
+- **Resources** are the body's effector names plus `trunk` and `legs`.
+- **Every executor is commanded every step, in registration order**, as every skill is now.
+- **The arbiter composes in three passes:**
+  1. **Base claims.** Hands, posture, pushes, closed hands and legs asks, in request order; a
+     conflict refuses the later start.
+  2. **Stance.** The walk or the legs ask of the claim that holds `legs`, then the support skill
+     and the walk's arm swing over what is free. The support reads the trunk-holding instance's
+     `lower` as the last command left it, as it reads the blow's now.
+  3. **Overlays.** A claim's stance and effector overlay laid over the composed command last.
+     This is where today's kick goes: its admission conditions become its `admitting` stage, and
+     its stance overlay becomes its claim's overlay.
+- **The guard covers any hand no claim holds.** `Claim.whole` claims every resource.
+- **`Holders` becomes a record by resource.** Each pass keeps today's order, so step 1 moves no
+  fingerprint.
 
-## The minimal execution contract
+### Readiness and the window
 
-Separate immutable action definitions, candidate observations and mutable action instances.
-Implement only fields with an immediate reader; a future planner does not justify unused metadata.
+```ts
+type Readiness =
+  | { readonly kind: "ready" }
+  | { readonly kind: "position"; readonly window: Window }
+  | { readonly kind: "blocked"; readonly reason: string };
 
-| Contract | Required meaning |
+/** Where the aim point must lie in the body's ground frame (from the stance centre, facing), and how slow the body must be. */
+interface Window {
+  readonly at: Vec3;
+  readonly along: readonly [number, number];
+  readonly across: readonly [number, number];
+  readonly facing: number;
+  readonly speed: number;
+}
+```
+
+- **Readiness is geometric and pure.** Holding still for a time (`COMBAT.settle`,
+  `KICK_SELECTION.hold`) is the executor's `admitting`, not readiness.
+- **Height.** A target outside the executor's height band (`StrikeWindow.up`) is `blocked` until
+  footwork can change the stance's height.
+- **Each executor states its window from its own geometry:**
+  - the recipe strike from its recipe windows;
+  - the placed blow from its `WITHIN`;
+  - the straight punch from its stand-off;
+  - the kick from `KICK_SELECTION`, offset to the kicking foot.
+- **The executor owns everything inside its window**, including the local step it takes there
+  (`APPROACH`). Outside the window it reports `position` and, from step 3, does not walk the body.
+  One footwork controller then brings any action's target into its window.
+
+### The ledger and contact attribution
+
+The skill set keeps a ledger in its state: the last `LEDGER_LENGTH` ended instances, each with a
+sequence number, so a reader takes what is newer than it last read.
+
+```ts
+interface Ended {
+  readonly sequence: number;
+  readonly id: number; readonly action: string; readonly effector: string; readonly target: TargetRef;
+  readonly began: number; readonly ended: number;
+  readonly ending: { readonly kind: "completed" | "cancelled" | "refused" | "interrupted" | "lost" | "stalled"; readonly reason?: string };
+  /** The first contact of its effector from commit to its end, by `contactResponse` against its target's body; null for none. */
+  readonly contact: "target" | "block" | "incidental" | "world" | null;
+  /** Whether its effector touched the target's body at all while the instance held it. */
+  readonly touched: boolean;
+}
+```
+
+- **Attribution is common code** in the skill set. It reads each instance's effector's whole
+  contact list, so a sole's ground contact cannot mask the target. It is never an executor's
+  private count. A torso bump is not the effector, so it credits nothing.
+- **Feedback for every fighter.** Every fighter's body therefore reads feedback with contact
+  identity, and the full contact list for its action effectors. This is a step cost, read
+  before step 1 lands (`docs/reference/step-cost.md`).
+- **A point target without a body** records its contact class against no body: `incidental` or
+  `world`.
+- **Damage stays with the rules.** Wounds stay in the rules' blow record (`watchBlows`). Joining a
+  wound to an instance waits until a reader needs it.
+- **Readers:**
+  - the `scored` selector and the follow-up rule;
+  - the `surface` aim rule's blocked penalty;
+  - range learning;
+  - the Lab's counts;
+  - the Arena's status.
+
+### Decisions in the behaviours tactics
+
+`behaviours` becomes the one configurable tactics. `seek` and `openings` become presets of it,
+and `script` and `stand` remain. Its config has three parts, run in this order every step.
+
+**1. `target`: the focus rules.** A ranked list, like Move's rules; each rule decides the focus
+(a body, or none) or passes to the next:
+
+- `ordered`: the orders' foe. If that body is not sensed or is out, the focus is none and the
+  report says the target is lost. It never falls through to another body.
+- `current`: keep the present focus while it is sensed and in the fight.
+- `nearest`: measured from the stance centre, by `standing` or `standing-first`.
+
+The default is `[ordered, current, nearest]`.
+
+**2. `choose`: one action selector over the candidates for the focus.**
+
+- **The pending candidate.** It keeps one until that candidate starts, is refused, becomes
+  `blocked`, runs out of `patience`, or the focus changes.
+- **Cost.** It rebuilds the whole candidate table at most every `rethink` seconds. Today's
+  openings rethink every 0.12 s. It reads only the pending candidate's readiness every step.
+- **Kinds:**
+  - `first-ready`: the list order, the first `ready`, else the first `position`;
+  - `rotate`: the next after the last started;
+  - `rules`: ranked conditions. The conditions are one registry, which Move's rules then share;
+  - `scored`: by the ledger, `(touched + 1) / (thrown + 2)` for each action;
+  - `estimate`: by the candidates' labelled estimates. The `surface` aim rule's score carries the
+    openings' scoring, and the recipe strike's measured nets carry Seek's `pays`.
+- **Overlap.** It may start during another instance's `release` when its setting allows.
+
+**3. `list`: ranked behaviours by channel, as now.** Every behaviour reads the shared focus and
+the pending candidate; none calls `nearestFoe`. The channels are:
+
+- `legs`
+- `actions`: the requests to list
+- each hand's cover
+
+The behaviours:
+
+- `attack` (actions): continues live instances and starts the pending candidate when it is
+  `ready`.
+- `approach` (legs): brings the pending window's point into the window, clear of solids, with
+  a spacing that range learning may adapt from the ledger.
+- `follow-orders`: while the orders say move, it takes the legs and lists no actions. This is
+  today's precedence, and it is the hand-off from the Crypt's route finding to local
+  positioning.
+- Footwork behaviours: `flee`, `close-in`, `keep-distance`, `edge`, `evade`, `clear-of-walls`,
+  `break-clinch`, `clear-of-fallen`.
+- `cover`, with `pose`, `cover` and `predictive`.
+- `ground`: today's ground combat, at the focus, through the protocol. Its own positioning stays
+  inside it until readiness can express support stages.
+
+`Tactics.engagement` reports the phase, the focus, the pending candidate and the candidate table.
+The Arena's status and the Lab read them.
+
+### Orders (step 3)
+
+- **`Orders.attack` (a point) and `aimedOrders` are deleted.** `Orders.foe` names a body, and
+  `Orders.region` may name one of its segments.
+- **The Arena's attack.** A ray test against the sensed bodies' collision segments finds the body
+  and segment under the pointer, never `scene.pick` on cosmetic meshes. With no body under the
+  pointer, there is no attack.
+- **The reptile's intent stops extending `Orders`** and resolves its ordered foe in its own
+  tactics (`src/core/reptile/tactics.ts`).
+- **The Crypt already orders by `foe`.** Its fighters now attack the ordered body with their
+  configured actions, not a forced straight blow at the head's centre.
+
+### Where today's tactics go
+
+| Today | Becomes |
 | --- | --- |
-| Identity | Stable configured action ID and a distinct ID for each started instance. |
-| Capability | Whether this body, equipment and executor support this action at all. |
-| Readiness | Ready, needs positioning, or temporarily blocked, with a reason and actionable requirements. |
-| Start | Revalidate a candidate against current observations and either start or explicitly refuse it. |
-| Progress | Phase, relevant progress, and whether cancellation is currently allowed. |
-| Termination | Completed, cancelled, interrupted, target lost or stalled, with a reason. |
-| Outcome | Observed contacts and consequences associated with this instance, independently of termination. |
+| `seekFoe`'s nearest foe, `close` | The focus rules; `first-ready`; `approach`. |
+| `seekFoe` `edge`, patience, clinch | `edge` (reads the focus's `rangeOf`) yielding after patience; `break-clinch`. |
+| `seekFoe` with a fallen foe (`CLEAR_OF_DOWN`) | `clear-of-fallen`; `nearest` by `standing-first`. |
+| `recipeTactics`' held aim | The recipe strike holding its aim rule's point within its window. |
+| `aim: head/body/pays` | An action's `regions`; `pays` through `estimate`. |
+| `hands: alternate` | An action's two effectors under `rotate`. |
+| Openings' `strikes`; linear's straight/cross alternation | Which path-strike actions are in the list; `rotate` over a straight and a cross. |
+| `openingSelector`, the blocked surface | The `surface` aim rule and `estimate`; the ledger's blocks. |
+| `defence: predictive`, evade | `cover` with `predictive`; `evade`. |
+| `combinations: follow-up` | A `rules` condition: the other effector's instance touched the target within its window. |
+| `combinations: overlap`, `PathStrikeConfig.overlap` | Starting during `release`, under the shared executor's rules. |
+| `spacing`, `spacingStep` | `approach`'s spacing, adapted from the ledger's clean misses. |
+| Boundary exit, pressure escape, three blocks | `clear-of-walls`, `break-clinch`, the blocked penalty. |
+| `groundCombat` | `ground`, on the focus and the protocol. |
+| `kickTactics` admission, approach, deadline, cooldown | The kick's readiness and `admitting`, `approach`, `stalled`, a `rules` condition. |
+| `chooseSkill` | Selector kinds; its counts become the ledger. |
+| The Lab's `choose()` | The fighter's focus rules; a click is an order. |
 
-The action owns its target, effector, variant and executor from accepted start through termination.
-Do not select again on every tick merely because a controller has not entered its swing. Ordinary
-reselection happens at termination or an explicit permitted cancellation point. A new player order
-can request cancellation; committed motion follows the executor's cancellation contract. Recovery
-may forcibly interrupt ownership through the existing sub-mind mechanism and must release claims.
+### State and determinism
 
-There is one active deliberate action per fighter initially. Keep simultaneous background guard
-and support in the existing skill arbiter (`src/core/skills/arbiter.ts`), which remains the authority
-for limb and body claims. Do not add a competing policy-level limb scheduler. All control continues
-on the world's existing physics clock (`src/core/world.ts`).
+- **New memory is plain data in `state` objects** (`src/core/state.ts`): the body's id counter,
+  live instances, the ledger, the pending candidate and selector history. Seeded selection, when
+  it comes, uses `randomStream`.
+- **Candidate order is stable:** the action list, then each action's effectors, then its regions,
+  then the spec's segment order.
+- **Allocation.** The step stays under `tests/core-step-cost.test.mjs`'s allocation ceiling.
 
-Contacts enter as observations and are consumed at the next control step. Attribute an attack
-contact using the active instance, requested target and actual attacking surface, including a held
-item when relevant. A torso bump that removes a Lab target is not a successful punch. Distinguish
-requested-target contact, other contact and no qualifying contact; completion alone is not a hit.
-Damage comes only from existing combat rules. Report uncertainty where contact attribution is
-insufficient rather than inventing accuracy, damage or causal credit.
+### Rules this design holds to as it grows
 
-Catalogue definitions and configuration are immutable. Instance state, selection history, random
-state and pending observations are plain snapshot data under the existing state ownership rules
-(`src/core/state.ts`). No functions, nodes or engine handles enter replay state. Candidate order,
-tie-breaking and seeded randomness must reproduce after replay or fork.
+- One protocol for every attack and effector. A new action kind is one module and one registration.
+- Selectors see candidates and the ledger; behaviours see the focus, the pending candidate and
+  statuses; neither sees an executor's kind or internals.
+- Resources are the only arbitration. A conflict refuses; it never merges or substitutes.
+- A target's geometry has one owner: the aim rules.
+- Focus is whom this body attacks; proximity is who threatens it.
+- Names, not places in a list, identify actions.
+- No compatibility aliases. What a step replaces, it deletes.
 
-## Customizable behaviours and presets
+## Steps
 
-Provide independent configuration slots for target selection and action selection. Begin with
-fixed choice, rotation and ordered conditional choice over the same candidate contract; add
-seeded random or scored selection when needed. Conditions use shared observations and readiness
-predicates. They do not copy range calculations or probe controller-specific internal fields.
+Each step lands as commits that each pass the gate (`npm run check`, `npm test`, plus `npm run
+build` when browser code changes). Every step updates the editor, the inspector, every caller and
+the documents it makes wrong.
 
-Seek and Choose openings become configurations of these shared decisions, positioning and defence.
-Seek can prefer a configured attack and approach when required. Choose openings can rank candidate
-regions and techniques using the geometry already owned by `src/core/mind/openings.ts`. Behaviours
-remains the customization surface, with presets supplying ordinary editable configurations.
-Replace the old Choose a blow wrapper with action selection over explicit bindings; do not retain
-two nested selectors with competing ownership or incompatible success scores.
+### 1. Actions and the instance protocol, with no bout changed
 
-Reuse mind config validation, serialization and `src/ui/mind-editor.ts`. The editor should expose
-target policy, action policy, available actions and their bindings, without maintaining a separate
-hard-coded attack menu. Unsupported configuration produces a clear validation error. Experimental
-implementations retain their status; inclusion in the catalogue is not a claim of physical quality.
+What it does:
 
-A future meta-policy receives the same candidates and outcomes. It may choose an action directly
-or choose among configured policies, with an explicit ownership boundary. Planning over action
-sequences additionally needs an outcome/duration model; a discrete vocabulary alone does not
-supply one. Estimated costs and durations, if later needed, must be labelled estimates and kept
-separate from measured execution outcomes. Training, search and learned models are not this task.
+- `FighterConfig.actions` (named) replaces `blow`, `kick` and `choose-blow`, with the behaviours'
+  own blow and kick slots. Every preset is migrated:
+  - Scrapper's list holds its path-strike families and the ground's downward blow;
+  - Classic's holds its recipe strike.
+- Executors, the three-pass composition, `ActionRequest` with the body's id counter, statuses,
+  the ledger, and attribution with feedback for every fighter are built.
+- Every producer of an Intent emits requests:
+  - the old tactics: Seek, Openings, `kickTactics`, ground combat and the behaviours;
+  - the Lab's scripts and blow;
+  - the research scripts.
 
-## Attack scenario integration
+  The old tactics use point targets carrying today's point, `targetId` and direction, and name
+  their actions.
+- Withdrawal stays as each executor has it. `Orders` is unchanged.
+- The Lab shows the ledger's counts beside its physical impact count.
 
-`src/lab/attack-mode.ts` and `src/lab/attack-scenario.ts` continue to own physical target creation,
-movement, wind, selection UI and removal after impact. Automatic attack orders remain the default,
-with click-to-select override. Target speed defaults to zero and wind remains configurable.
+Checks:
 
-The Lab issues ordinary target orders. Its automatic target policy can advance after a target is
-hit or lost, while any committed action still follows the shared execution contract. Show the
-selected body, chosen action, readiness, current phase and last outcome through normal reports.
-Keep the scenario's count of impacted targets distinct from action success. No timers in the Lab
-choose hands, trigger swings, force poses or declare combat success.
+- No bout changes: `scripts/fingerprint.mjs`, before and after, on Arena bouts and a Crypt run. If
+  feedback for every fighter, or any other piece, moves a fingerprint, that is reported and
+  resolved before going on.
+- Tests on the core stand:
+  - every ending, each asserted as a whole ledger record;
+  - a changed request throws, and an ended id listed again is ignored;
+  - a conflicting start is refused, and a kick waits in `admitting` and holds the walk;
+  - a hand touching a body other than the target's is `incidental`, a torso bump credits
+    nothing, and a club's contact is attributed;
+  - a takeover ends the live instance `interrupted` at once;
+  - a fork in the middle of an instance (`tests/arena-fork.test.mjs`) plays on the same.
 
-## Implementation sequence and acceptance
+### 2. Decisions in the behaviours tactics
 
-1. **Define and exercise the contract with one real attack.** Add the shared target context,
-   supported-action binding, readiness and instance lifecycle. Carry target identity through
-   orders to execution. Migrate a supported straight-punch binding through the complete game
-   path; do not publish a broad catalogue of names whose executors ignore the distinctions.
-2. **Separate positioning and selection.** Make approach explicit, share technique requirements,
-   and implement fixed, rotation and ordered conditional selectors. Add a second genuinely
-   distinct supported action to establish that selection and readiness are not punch-specific.
-   Replace Choose a blow and migrate its callers/configuration; remove superseded paths.
-3. **Compose the tactics presets.** Move Seek and Choose openings onto shared target/action
-   decisions and ordinary behaviour configuration. Reuse their applicable geometry and defence
-   logic. Update the editor and game callers together, without compatibility aliases.
-4. **Finish Lab visibility and integration checks.** Keep the existing physical targets and
-   controls; display shared reports. Update architecture, roadmap and player documentation where
-   the changes make them wrong. Delete this plan when the work lands.
+What it does:
 
-Acceptance covers the whole order-to-contact path, not isolated endpoint mocks:
+- Body targets with regions and aim rules, the focus rules, readiness and windows, `approach` and
+  the other footwork behaviours, the selectors and the `attack` behaviour are built.
+- The Behaviours preset moves onto them; the other presets are unchanged.
+- The front kick is the second action under the same selection.
 
-- A player-selected body remains the target even when another foe is nearer; automatic selection
-  and moving-target tracking use the same execution route. An explicit order still exercises the
-  configured action selector instead of forcing a straight blow.
-- Two supported actions expose their own requirements. Unsupported body/equipment/technique
-  combinations are rejected; none silently falls back to another motion.
-- Selection remains stable throughout an instance, including preparation. Changed orders, target
-  removal, blocked approach and recovery interruption produce explicit, bounded outcomes and
-  release ownership correctly.
-- Requested-target contact, incidental contact and completed misses remain distinguishable.
-  Lab target removal cannot inflate an action's hit count.
-- Replay/fork preserves target, selected action, lifecycle and seeded selection state. Normal
-  guarding, navigation and skill resource arbitration continue to work.
+Checks:
 
-Use focused tests for these contracts and an end-to-end physical Attack fixture. Follow the
-repository's normal code gates (`npm run check`, `npm test`, and `npm run build` for browser
-changes); run related slow tests only when their covered behaviour changes. Briefly inspect the
-visible Lab controls and reports. No new benchmark campaign or physical robustness claim is part
-of this design work.
+- An ordered body stays the focus while another is nearer; its loss ends the instance as `lost`,
+  and no other body is taken.
+- Punch and kick each report their own window; footwork brings each target into it on the stand.
+- The pending candidate holds through `prepare`.
+- A move order withdraws an instance; it stops in `prepare` and runs on in `commit`.
+- Selection and the candidate table replay the same after a fork.
+
+### 3. Presets on the shared decisions, and orders by identity
+
+What it does:
+
+- Classic, Puncher, Scrapper and Behaviours become behaviours configurations.
+- Executors are bounded to their windows; `ground` takes the focus.
+- The Orders changes above, the Arena's ray test and the reptile's intent.
+- Deleted: `seek`, `openings`, `recipeTactics`, `seekFoe`, `pathTactics`, `kickTactics`,
+  `chooseSkill`, `aimedOrders`, `highMark`, `Orders.attack`, and `Abilities`' fields no longer
+  read.
+
+The presets' measured standings (`docs/reference/controller-presets.md`, the roadmap's
+"Fighters") are of the old tactics. They are rewritten as the commit that holds them, not
+re-measured unless the owner asks.
+
+Checks:
+
+- Every preset passes `treeFaults` and fits its bodies.
+- The smoke bout wounds both sides and plays the same twice.
+- The Crypt is run on several seeds.
+- The reptile's tests pass.
+
+### 4. Lab and editor
+
+What it does:
+
+- The Lab's Attack shows the focus, the candidate table with readiness and estimates, the live
+  instance's phase and stage, and the ledger's counts. It drops its own target choice; a click is
+  an order.
+- The editor offers the actions list, the focus rules and the selector from the registrations.
+- `docs/architecture.md` (Minds and the skill set), the roadmap's Tactics item and `README.md`'s
+  Arena controls are updated, and this plan is deleted.
+
+Checks:
+
+- A brief look in a browser.
+- A clicked target stays the focus.
+- A target removed after a torso bump does not raise the ledger's target count.
+
+## Decided here, for the owner to confirm
+
+- The Arena's attack needs a body under the cursor; swinging at empty air goes away.
+- The focus is sticky (`current` before `nearest`), where today the nearest foe is re-chosen every
+  step.
+- Executors stop walking the body outside their windows, which changes how Puncher closes in.
+- Every fighter reads contact feedback, at a step cost read in step 1.
+- Ground combat keeps its own positioning in this plan; expressing support stages in readiness is
+  later work.
+- The presets' standings become history once step 3 lands.
