@@ -90,7 +90,9 @@ export function trackingPolicy({model,parameters:p={}}) {
         command.supports=freed.map(name=>({frame:{kind:'segment',name},mode:'free'}));
         const local=detached.built.segments.get(moving).body.massProperties.centre;
         const u=Math.min(1,(o.time-state.liftedAt)/(p.stepSeconds??1));
-        const target=stepTarget?footStart.map((v,i)=>v+(stepTarget[i]-v)*u+(i===1?4*u*(1-u)*(p.stepArc??.2):0))
+        // Rise-only control loads an existing support instead of swinging that foot through the air.
+        const arc=p.riseOnly?0:(p.stepArc??.2);
+        const target=stepTarget?footStart.map((v,i)=>v+(stepTarget[i]-v)*u+(i===1?4*u*(1-u)*arc:0))
           :footStart.map((v,i)=>v+(i===1?(p.liftHeight??.04):0));
         command.frames.push({id:'lift',frame:{kind:'segment',name:moving},at:local,
           translation:{target,velocity:[0,0,0],acceleration:[0,0,0],seconds:p.liftResponse??.3,weight:p.footWeight??3},

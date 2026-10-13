@@ -33,6 +33,28 @@ test('detached recovery dynamics reproduces the physical body at standing and mo
   }finally{e.dispose();}
 });
 
+test('rise-only tracking keeps its supporting foot out of the stepping arc',async()=>{
+  const e=await acceptanceEnvironment({model:'workshop-fighter',held:'empty',contact:'shoe',strength:1,speed:1,weight:1});
+  const model=contactModel(e),audit=unassistedAudit(e.stand.built,()=>e.stand.world.steps);
+  try {
+    for(let i=0;i<12;i++)e.step({kind:'host'});
+    const parameters={stepFoot:'foot.left',riseOnly:true,extend:true,holdAngles:true,
+      retainRiseSupports:true,stepSeconds:.2,riseSeconds:1,response:.5,footWeight:3};
+    const plain=trackingPolicy({model,parameters});
+    const grounded=trackingPolicy({model,parameters:{...parameters,stepArc:0}});
+    const exaggerated=trackingPolicy({model,parameters:{...parameters,stepArc:.4}});
+    for(let i=0;i<16;i++) {
+      const observation=e.observe(),expected=grounded(observation);
+      assert.deepEqual(plain(observation),expected,'rise-only commands cannot inherit the default lifting arc');
+      assert.deepEqual(exaggerated(observation),expected,'a step-only setting cannot move a rise-only support');
+      assert.equal(plain.state.phase,'extend');
+      e.step(expected);
+    }
+    assert.deepEqual(audit.events,[]);
+    assert.equal(e.result().assisted,false);
+  }finally{audit.dispose();e.dispose();}
+});
+
 test('a physically landed recovery foot becomes predicted support before the rise attempt',async()=>{
   const cases=JSON.parse(readFileSync(new URL('../research/stand-up-acceptance/cases.json',import.meta.url)));
   const c=cases.cases[0],e=await acceptanceEnvironment(c.configuration),model=contactModel(e);
