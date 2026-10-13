@@ -331,17 +331,17 @@ After it, each with its own plan, in the order each needs the one before:
     more than the bearing sole's twist gives at the ground's friction (0.5), and the bearing hip
     turns to its stop. A foot landed behind its neutral point, to speed up, falls within about
     2 s. A run at 2 m/s needs the swing's yaw cancelled, or more twist at the sole.
-  - **The SIMBICON walk** (experimental, `simbicon.ts`) drives the legs itself, with no stance
+  - **The SIMBICON walk** (`simbicon.ts`, the walk every fighter travels by) drives the legs itself, with no stance
     goal. On the Lab's lines (`research/locomotion-run.mjs`, Node, Rapier, 120 Hz, 20 s, 3 seeds,
     calm and 20 N gusts alike) the Warrior holds 2.5 m/s asked forward (2.06 along the line,
     setting off and the change to the run included), 0.7 to either side (0.62), 1.4 round the
     circle (1.17), 0.7 round the square, and 0.5 back (0.26). The Rogue holds 1 m/s forward
     (1.16: it walks faster than asked) and 0.5 to the sides, falls from 1.4 forward crouched with
-    the ankle at its dorsiflexion stop, and falls walking back at 0.5. Every way, calm and in 20 N
-    gusts, its envelope (`assets/core/simbicon-envelope.json`) is 0.7 m/s for the Warrior, 0.2 for
-    the skeleton and 0 for the Rogue, whose diagonal at 0.2 makes 0.67 of the pace asked. So
-    tactics, which plan by the walk held every way, would travel by it no faster than by the stride
-    (0.7, 0.5, 0.5), though it goes forward twice as fast. The envelope battery counts falls, not where the body went: before the walk set off on
+    the ankle at its dorsiflexion stop, and falls walking back at 0.5. Every way, calm and in 5 N
+    gusts, its envelope (`assets/core/simbicon-envelope.json`) is 0.7 m/s for the Warrior and the
+    Rogue and 0.3 for the skeleton; it is measured from 0.3, since slower a step's pendulum carries
+    the body on past the pace asked or short of it. Tactics, which plan by the walk held every way,
+    travel by it no faster than by the stride (0.7, 0.5, 0.5), though it goes forward twice as fast. The envelope battery counts falls, not where the body went: before the walk set off on
     the leading foot it walked the wrong way at 0.5 m/s to the right, and the battery called it
     held.
     - **Its run** is the same machine past 1.4 m/s, in states a cross-entropy search found on the

@@ -52,7 +52,8 @@ const NO_HANDS: Readonly<Record<Side, EffectorGoal | null>> = Object.freeze({ le
  *    while no blow drives the posture and the support stands; the support skill lays its stance and
  *    trunk over the command;
  * 7. the kick's stance and foot goals are laid over it last, a kick beginning only while no blow
- *    is under way and the body stands.
+ *    is under way, the body stands and no walk drives the legs: a kick asked holds the walk, so a
+ *    walk that drives them stops and gives them back to the stance first.
  *
  * Every skill answers `Skill.resume`, from one list: a skill added to it cannot be left out.
  * `tactics` will hand the set its intent; their memory (`Tactics.state`) is kept with the skills'.
@@ -140,7 +141,7 @@ export function skillSet(body: Body, { state: tactics, engagement }: Pick<Tactic
         effectors: { "hand.left": hands.left ?? covers.left, "hand.right": hands.right ?? covers.right }, stance: laid ? laid.stance : stance,
         ...(closing ? { handPoses: poses(closes, claim?.closed ?? null) } : {}),
       };
-      const motion = kick?.command(view, kicked, command.stance, !blow.busy && !view.down && (!support || support.report.stage === "stand"), dt);
+      const motion = kick?.command(view, kicked, command.stance, !blow.busy && !view.down && !driven && (!support || support.report.stage === "stand"), dt);
       if (motion) command = { ...command, ...motion, effectors: { ...command.effectors, ...motion.effectors } };
       holders.legs = motion ? "kick" : laid && laid.stance !== stance ? "support" : !claim || claim.legs.kind === "free" ? "tactics" : "blow";
       holders.trunk = laid && laid.posture !== posture ? "support" : claim?.posture ? "blow" : "guard";

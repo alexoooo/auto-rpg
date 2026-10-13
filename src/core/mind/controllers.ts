@@ -48,8 +48,8 @@ const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
 /** A fighter's slots under behaviours, which carry its blow and its kick themselves (`StrikeConfig`, `KickConfig`). */
 const BEHAVING_SLOTS: readonly Slot[] = Object.freeze(FIGHTER_SLOTS.filter((slot) => !["blow", "kick", "support"].includes(slot.key)));
 
-/** A fighter's slots beside a walk that drives its legs (`drivesLegs`), which leaves no stance for a kick or low support. */
-const DRIVING_SLOTS: readonly Slot[] = Object.freeze(FIGHTER_SLOTS.filter((slot) => !["kick", "support"].includes(slot.key)));
+/** A fighter's slots beside a walk that drives its legs (`drivesLegs`), which leaves no stance for low support. */
+const DRIVING_SLOTS: readonly Slot[] = Object.freeze(FIGHTER_SLOTS.filter((slot) => slot.key !== "support"));
 
 /**
  * **Every controller, by its mind's kind**: the one place a kind is made, matched to a body and

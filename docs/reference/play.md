@@ -353,8 +353,14 @@ the rule and without, is a measurement to make.
 - `AVOID`: a walker steps round a body in its way. A body is in the way within the two
   footprints and 0.15 m of the walker's line, and no more than 1 m beyond that along it. The step
   aside is the walk turned 1.05 rad away from the body, a body within 0.05 m of the line counting
-  as on one side; it is taken if the point 0.65 m along it is floor and no more than 0.05 m
-  nearer the body, and the other way is tried if not.
+  as on one side. It can be taken if the point 0.65 m along it is floor, and that point is no
+  more than 0.05 m nearer the body or, round a body standing still, the line along it passes
+  the body by the two footprints and 0.15 m. The way that can be taken with no other body in
+  the way of it is taken, else the way that can be taken, the side away from the body first.
+  The line's test lets a walker turn while a standing body is still well ahead: the Rogue
+  walking by SIMBICON at 0.8 m/s turns about 1 rad in 0.5 s, 0.4 m on, and meets the hero it
+  passes if it turns only once a step aside gains no nearness. Round a walking body it is not
+  used: four Warriors sent to one point weave into each other when each swerves early.
 - `MOVING`, 0.1, is a numeric setting: a walk is a unit step or none.
 
 ## Run timing

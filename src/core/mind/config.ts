@@ -6,7 +6,7 @@ import type { TurnStartup } from "../skills/locomotion.ts";
 import { STRAIGHT_PUNCH, type StraightPunch } from "../skills/straight-punch.ts";
 import { STRIDE, type StrideSettings } from "../skills/stride.ts";
 import type { RunSettings } from "../skills/run.ts";
-import type { SimbiconSettings, SimbiconWay } from "../skills/simbicon.ts";
+import { SIMBICON, type SimbiconRun, type SimbiconSettings, type SimbiconWay } from "../skills/simbicon.ts";
 import type { ChoosePolicy } from "../skills/choose.ts";
 import type { Placed } from "../skills/strike.ts";
 import type { Repertoire } from "../skills/strikes.ts";
@@ -165,7 +165,7 @@ export interface RunConfig extends RunSettings {
  */
 export interface SimbiconConfig extends SimbiconSettings {
   readonly kind: "simbicon";
-  readonly tuning?: { readonly side?: Partial<SimbiconWay>; readonly back?: Partial<SimbiconWay> };
+  readonly tuning?: { readonly side?: Partial<SimbiconWay>; readonly back?: Partial<SimbiconWay>; readonly run?: Partial<SimbiconRun> };
 }
 
 /** **Travel and fight** (`travelOrFight`, `skills/travel.ts`): one walk while no standing foe is within `near` m, another once one is. */
@@ -302,10 +302,10 @@ export const OPENINGS: OpeningsConfig = deepFreeze({ kind: "openings", hands: "a
   combinations: "none", spacing: 0, spacingStep: 0 });
 
 /**
- * The legs a body gets about by: the stride while no standing foe is within 5 m, the walk in the
- * stance once one is (`travelOrFight`). An Arena bout opens at 4 m, so it fights from its first step.
+ * The legs a body gets about by: the SIMBICON walk while no standing foe is within 5 m, the walk in
+ * the stance once one is (`travelOrFight`). An Arena bout opens at 4 m, so it fights from its first step.
  */
-export const TRAVEL: TravelConfig = deepFreeze({ kind: "travel", near: 5, travel: { kind: "stride", ...STRIDE }, fight: { kind: "stance-walk" } });
+export const TRAVEL: TravelConfig = deepFreeze({ kind: "travel", near: 5, travel: { kind: "simbicon", ...SIMBICON }, fight: { kind: "stance-walk" } });
 
 /** The recipe fighter: seeking tactics over the recipe strike, walking in the stance, lying still once down. The Lab's minds are made from it. */
 export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tactics: SEEK, locomotion: { kind: "stance-walk" }, guard: { kind: "cover-guard" },
@@ -330,9 +330,10 @@ export const ARENA_KICKS: KickTuning = deepFreeze({ ...KICK_PATH, swingSeconds: 
  * The Arena's second-tier fighter: opening tactics over the path strike, straight blows and hooks
  * aimed at the body (`docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`),
  * fighting from low support against a foe that is down or rising
- * (`docs/reference/ground-combat.md#arena-integration`), and rising, then steadying, once down.
+ * (`docs/reference/ground-combat.md#arena-integration`), and rising, then steadying, once down. It
+ * travels by the stride, which leaves the stance its low support steps from (`drivesLegs`).
  */
-export const SCRAPPER: FighterConfig = deepFreeze({ ...GAME_FIGHTER, tactics: { ...OPENINGS, strikes: "mixed", prefers: "body" },
+export const SCRAPPER: FighterConfig = deepFreeze({ ...GAME_FIGHTER, locomotion: { ...TRAVEL, travel: { kind: "stride", ...STRIDE } }, tactics: { ...OPENINGS, strikes: "mixed", prefers: "body" },
   blow: { kind: "path-strike", overlap: false }, support: { kind: "support-fold" }, subs: [{ kind: "support-recovery" }] });
 
 /** A fighter of behaviours (`BehavioursConfig`): orders followed first, then `list`, then the hands covering; rising by stages once down. */

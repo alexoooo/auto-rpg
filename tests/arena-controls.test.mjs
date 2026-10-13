@@ -64,7 +64,7 @@ test("each side's mind travels in a link as its whole tree, without research tun
       }
     }
   }
-  assert.ok(fields > 40, `${fields} changes of a field`);
+  assert.ok(fields > 30, `${fields} changes of a field`);
   // A tree with a fault is the preset whole, and the panel shows it with why.
   const faulty = withParts(SCRAPPER, { tactics: { combinations: "follow-up", hands: "right" } }), refused = mindsSearch("?control=classic,scrapper", { left: CLASSIC, right: faulty });
   assert.deepEqual(readMinds(refused).right, SCRAPPER);

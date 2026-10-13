@@ -39,9 +39,11 @@ import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
 /**
  * The gait battery's speeds, m/s, by the legs it measures: the stride's reach past the stance walk's;
  * the SIMBICON walk's take 1.5, just past the pace it runs from (`SimbiconSettings.run`), where it
- * first runs and is brought down to a walk again.
+ * first runs and is brought down to a walk again, and begin at 0.3: slower, a step's pendulum carries
+ * the body on past the pace asked, or short of it (the Rogue asked 0.2 forward makes 0.34, and to its
+ * forward right 0.13 along).
  */
-const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], simbicon: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5] };
+const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], simbicon: [0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5] };
 export const WAYS = [0, 90, 180, 270, 45];
 export const MODELS = ["workshop-fighter", "workshop-rogue", "crypt-skeleton"];
 /**

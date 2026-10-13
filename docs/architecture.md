@@ -398,7 +398,7 @@ tactics over the skills it is given.
   asked. Each step the pelvis yaws some 0.8 rad, the swing's yaw beyond what the bearing sole's
   twist can give at the ground's friction, and the bearing hip turns to its stop; a foot landed
   behind its neutral point, to speed up, falls within seconds.
-- **SIMBICON** (`simbicon.ts`, "SIMBICON walk", experimental) is a locomotion skill that drives the
+- **SIMBICON** (`simbicon.ts`, "SIMBICON walk") is a locomotion skill that drives the
   legs itself (`Locomotion.drive`, `LegsDrive`): no stance goal, every leg freedom pushed
   (`MusclePush.speed`) toward its state's angle at its error over `settle`, at up to a share of its
   strength, the paper's PD with its damping held by the solver (Yin, Loken and van de Panne 2007).
@@ -412,17 +412,21 @@ tactics over the skills it is given.
   and to the heading in the world. The walk sets off from the stance's stand with the weight shifted
   onto the first stance foot (the trailing one when the walk asked goes to a side), and stops by
   bringing the walk asked to rest and giving the legs back to the stance as a foot lands with the
-  body slow. Asked faster than `run` (1.4 m/s) it walks at 1.4, the whole walk asked scaled down.
+  body slow. It sets off the way the body faces, and while the way asked is more than 0.35 rad
+  from its heading it steps where it stands as the heading turns; under way it walks on through a
+  bend of up to a right angle, turning as it goes, and past that it brakes to 0.3 m/s before it
+  turns round (`SET_OFF`, `TURN_ROUND`). Asked faster than `run` (1.4 m/s) it walks at 1.4, the whole walk asked scaled down.
   Once the body has come up to it, the same machine runs in `SIMBICON_RUN`'s states: each sole lands
   by Raibert's hopping rule, and the stance leg folds as its first state ends. The run is grounded:
   it never leaves the ground. It goes straight ahead, turning only by its heading, and walks again
   from a landing once the walk asked has come down 0.2 under 1.4 and the body has slowed to 1.4. Its
-  envelope is its own (`simbiconEnvelope`). A kick and low support step from the stance, so a
-  fighter offers neither beside it (`drivesLegs`, `fighter.ts`). A push whose level or speed is not
+  envelope is its own (`simbiconEnvelope`). Low support folds the stance, so a fighter does not
+  offer it beside this walk; a kick asked holds the walk, which stops and gives the legs back to the
+  stance before the kick begins (`drivesLegs`, `fighter.ts`; `skillSet`, `arbiter.ts`). A push whose level or speed is not
   a number is refused (`obey`, `body.ts`): Rapier disables the island of a body given one, which
   then hangs in the air.
-- **Travel and fight** (`travel.ts`, "Travel, then fight") walks by one locomotion (the stride, its
-  arms swinging) while it is asked to walk and no standing foe is within `near` (5 m in `TRAVEL`),
+- **Travel and fight** (`travel.ts`, "Travel, then fight") walks by one locomotion (the SIMBICON
+  walk) while it is asked to walk and no standing foe is within `near` (5 m in `TRAVEL`),
   and by another (the stance's walk, in the guard) once one is, until the foe is half a metre
   farther, and whenever it is asked to stand. It changes only between steps, a walk that drives the
   legs asked to stand first and changed from once it has given them back; resumes the walk it
@@ -644,7 +648,7 @@ its blow, `kick` with the foot or feet named and its kick, walking in and kickin
 standing leg within reach, and `cover`); under them the fighter's blow and kick are the ones its
 behaviours name and it has no low support (`fighterSkills`), its own slots for them not offered
 (`slotsFor`), and two strikes that name different blows are a fault. Its skills are its walk
-(`stance-walk`, `travel`, or the experimental `stride` and `run`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
+(`stance-walk`, `travel`, `simbicon`, or the experimental `stride` and `run`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
 begin a hand while the other returns, the experimental `driven-strike` and `whole-body-strike`
 from the punch's research, or `choose-blow`, which gives each blow to one of a list of
 blows; `noBlow` stands in for none), and, optionally, a kick (`front-kick`) and low support
@@ -662,7 +666,8 @@ panel is named `Custom (from` its preset`)` (`controlName`, `src/arena/matchup.t
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`,
 `sub-mind`, `tactics`, `behaviour`, or a skill's: `locomotion`, `guard`, `blow`, `kick`, `support`), a label, a stage (`game`, or `experimental` for research offered beside the
 game's), the settings a person may change (`fields`, built from `fields.ts`'s `choice`, `toggle`
-and `number`), its slots (`slotsOf`: those `slotsFor` keeps for a config, where a part has it), the config it starts from (`defaults`), the bodies it fits (`fits`) and
+and `number`: only what a player can reason about, such as how fast a walk turns or how far a punch
+stands off; a controller's searched constants stay in its config, not offered), its slots (`slotsOf`: those `slotsFor` keeps for a config, where a part has it), the config it starts from (`defaults`), the bodies it fits (`fits`) and
 what is wrong with a config of it (`faults`), and what it needs of the screen it runs on (`needs`, a
 `Provision`: the script tactics need a script, which only the Lab gives). A slot is a key of the config that holds another
 part of a stated role, or none where it is optional (`slotOne`), or a ranked list of them
@@ -881,8 +886,8 @@ names no joint, pose or push. `driveBy(body, tactics)` hands the body
 to them through the skills.
 
 Each fighter's tactics carry out `Orders` (`orders.ts`): a direction to walk, a direction to
-face and a point to attack, each or none, in the world's frame, as plain data naming no joint,
-pace or camera; or, in place of the point, a sensed foe by its id (`Orders.foe`), on which the
+face and a point to attack, each or none, in the world's frame, as plain data naming no joint
+or camera, and a pace only as a ceiling (`Orders.pace`, as a walk coming to a stop asks); or, in place of the point, a sensed foe by its id (`Orders.foe`), on which the
 mind finds its own point as it senses it (`aimedOrders`, `targets.ts`): a fighter the foe's
 high mark (`highMark`), the reptile a nearest surface point carried in the sensed segment frame (`nearestSurface`). Each step the tactics ask for the orders, with what the body sees. Walking and
 facing are one part both fighters share (`orderedIntent`, `ordered.ts`), as are the hand that
@@ -890,7 +895,7 @@ does not attack (`guarding`) and whom and where they aim (`targets.ts`: the near
 `nearestFoe`; the nearest surface, `nearestSurface`; how a fallen foe lies, `lyingAxis`), read by
 the foe's marks (`BodySpec.marks`: its high mark, its middle, its base, its legs and what it
 guards with, where a contact is a block, `contactResponse`) and never by a human segment's name. Ordered to walk, the body walks that way at its fastest
-walk, turning to it. Ordered to face another way as it walks, it walks at half that pace until
+walk, or the pace ordered if that is less, turning to it. Ordered to face another way as it walks, it walks at half that pace until
 it has turned to its facing, and from then at half plus the other half times the cosine of the
 angle between its heading and its walk (`STRAFE`, [reference/orders.md](reference/orders.md)).
 Given a point the seeking tactics (`recipeTactics`, `recipe-tactics.ts`) attack it with the
