@@ -23,13 +23,11 @@ import { mindFaults, mindText, readMind } from "../ui/mind-link.ts";
  * reads its options from here, so an option offered is one the lab has.
  */
 
-export type ScenarioId = "stance" | "routine" | "run" | "blow" | "recovery";
+export type ScenarioId = "stance" | "routine" | "run" | "recovery";
 
 interface ScenarioInfo {
   readonly id: ScenarioId;
   readonly name: string;
-  /** What the menu's card puts in the hands, where the scenario needs it; the scenario's page can change it after. */
-  readonly holds?: Partial<Pick<LabLoadout, "right" | "left">>;
 }
 
 /** Every scenario, in the menu's order; the first is the default. */
@@ -38,7 +36,6 @@ export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "recovery", name: "Get-up experiment" },
   { id: "routine", name: "Routine" },
   { id: "run", name: "Run" },
-  { id: "blow", name: "Blow", holds: { right: "club" } },
 ];
 
 export const MODELS: readonly { readonly id: HumanoidModel; readonly name: string }[] = HUMANOID_MODELS.map((id) => ({ id, name: MODEL_DISPLAY[id].label }));

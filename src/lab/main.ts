@@ -30,7 +30,6 @@ import { viewSection } from "./hud/view-section.ts";
 import { SCENARIO_PANELS, type LabScenario, type LabShell, type ScenarioRun } from "./lab-scenario.ts";
 import { allowing, loadoutBalance, loadoutSpec } from "./loadout.ts";
 import { createMindLog, logged, watchHas, type MindLog } from "./mind-log.ts";
-import { blowScenario } from "./blow-scenario.ts";
 import { routineScenario } from "./routine-scenario.ts";
 import { runScenario } from "./run-scenario.ts";
 import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
@@ -47,10 +46,9 @@ import { need } from "../dom.ts";
 
 /**
  * **The lab**: a core human in one scenario (`scenarios.ts`), the page's shell around it. The
- * scenario -- the Stance (`stance-scenario.ts`), the Routine (`routine-scenario.ts`), the Run
- * (`run-scenario.ts`) or the Blow (`blow-scenario.ts`) -- owns what it does to the body, its panels
- * and its marks; the shell owns the rest. The HUD is sections (`hud/sections.ts`): the shell fills
- * them with its own controls, each section's in its module, then with the scenario's panels.
+ * scenario owns what it does to the body, its panels and its marks; the shell owns the rest.
+ * The HUD is sections (`hud/sections.ts`): the shell fills them with its own controls, each
+ * section's in its module, then with the scenario's panels.
  *
  * The body is the loadout's (`loadout.ts`): the model, and what each hand holds. Its assist
  * (`actor.ts`) has the ceiling its balance buys (`loadoutBalance`), named by the clock. Its mind (`labMind`, `scenarios.ts`)
@@ -84,7 +82,6 @@ const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => L
   recovery: (scene, shell) => stanceScenario(scene, shell),
   routine: routineScenario,
   run: runScenario,
-  blow: blowScenario,
 };
 
 /**

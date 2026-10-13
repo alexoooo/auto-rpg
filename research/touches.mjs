@@ -73,7 +73,7 @@ Logger.LogLevels = Logger.ErrorLogLevel;
 const KINDS = ["stand", "walk", "run", "shove", "fall", "routine", "blow", "bouts"];
 const BOUTS = [["workshop-fighter", "workshop-rogue"], ["crypt-skeleton", "workshop-fighter"], ["workshop-rogue", "crypt-skeleton"]];
 const WALKS = [0.2, 0.5], SHOVES = [20, 30, 40, 50, 60], FALL_SHOVE = 80;
-/** Seconds after the Blow's pushes begin at which the page pauses its world (`HOLD`, `src/lab/blow-scenario.ts`). */
+/** Seconds after a stored blow's pushes begin for which the instrument watches. */
 const BLOW_HOLD = 1.5;
 /** What a per cent of balance is: the arena's, as the Lab's page has it. */
 const RULES = rulebook("arena"), PERCENT = balancePercent(RULES);

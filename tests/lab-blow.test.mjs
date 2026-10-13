@@ -1,10 +1,10 @@
 /**
- * **The lab's Blow scenario reads what the search reads** (`src/lab/blow-scenario.ts`): a stored
+ * **The stored-blow rig reads what the search reads**: a stored
  * blow (`LAB_BLOWS`), thrown on the body the lab's loadout makes with what the blow was found
  * with in the hand (`throwBlow`, `watchBlow`), is read as the strike search's evaluator reads
  * that blow (`evaluateBlow`, `research/core-blow.mjs`), to the digit; the list is the unit blow
  * and every recipe of the repertoire; a blow's target hangs at its place from the head as the body
- * stands, a ball of its band's part; and the menu's Blow card puts the club in the right hand.
+ * stands, a ball of its band's part.
  * Node core stand, Rapier, 120 Hz (the unit blow 480 Hz). The control, run by hand: the lab's copy of the blow moved 1 cm
  * farther reads another blow, and fails.
  */
@@ -20,7 +20,6 @@ import { labActor } from "../src/lab/actor.ts";
 import { bandRise, throwBlow, watchBlow } from "../src/lab/blow.ts";
 import { LAB_BLOWS } from "../src/lab/blows.ts";
 import { loadoutSpec } from "../src/lab/loadout.ts";
-import { labAddress, labHref, SCENARIOS } from "../src/lab/scenarios.ts";
 import { ballOf, dummySpec } from "../src/lab/targets.ts";
 import { evaluateBlow, heldSpec } from "../research/core-blow.mjs";
 import { WARRIOR_STRAIGHT } from "./fixtures/strikes.mjs";
@@ -87,12 +86,4 @@ test("a_blows_target_hangs_at_its_place_from_the_head_a_ball_of_its_bands_part",
       assert.equal(watch.radius, ballOf(dummySpec(spec, BANDS[band])).ball.radius.value);
     } finally { watch.dispose(); blow.dispose(); stand.dispose(); }
   }
-});
-
-test("the_blow_card_puts_the_club_in_the_right_hand", () => {
-  const blow = SCENARIOS.find((s) => s.id === "blow");
-  assert.deepEqual(blow.holds, { right: "club" });
-  const from = labAddress("?play=lab&model=workshop-rogue");
-  const opened = labAddress(labHref({ ...from, ...blow.holds, scenario: blow.id }, "?play=lab&model=workshop-rogue"));
-  assert.deepEqual(opened, { ...from, right: "club", scenario: "blow" });
 });

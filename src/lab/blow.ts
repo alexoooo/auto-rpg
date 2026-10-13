@@ -16,7 +16,7 @@ import { ballOf, dummySpec, hangDummy, TARGET_CLEAR, type Dummy } from "./target
 
 /**
  * **One blow, thrown standing**: the rig the strike search throws its blows on
- * (`research/core-blow.mjs`), and the lab's Blow scenario (`blow-scenario.ts`) with it. A core
+ * (`research/core-blow.mjs`). A core
  * human (`src/core/body.ts`), driven by tactics that attack once (`attackOnce`), throws `strike`
  * through the strike skill (`src/core/skills/strike.ts`), the skill's repertoire being that one
  * strike: it stands in the guard `STAND` seconds where it was built, facing +z, holds the strike's

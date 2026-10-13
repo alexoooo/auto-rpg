@@ -4,12 +4,11 @@ import type { BlowPlace } from "./blow.ts";
 import type { Side } from "../core/spec/body.ts";
 
 /**
- * **The blows the lab's Blow scenario throws** (`blow-scenario.ts`): each a strike found by the
+ * **Stored blows for research and tests**: each a strike found by the
  * strike search (`research/core-strike-search.mjs`), with the place its target stood at, the
- * body it was found on and what it read there. The lab throws it on whichever body is loaded,
- * at the lab's rate; the readings beside it are the search's.
+ * body it was found on and what it read there. The readings are the search's.
  */
-export interface StoredBlow {
+interface StoredBlow {
   readonly id: string;
   readonly name: string;
   /** Where it was found and what it read there. */
@@ -26,7 +25,7 @@ export interface StoredBlow {
 }
 
 /**
- * Every stored blow, in the order offered; the first is the default. The club's best is the
+ * Every stored blow, the club's best first. The club's best is the
  * blow the wooden club's energy was measured by (`research/core-club-unit.json`); after it,
  * every recipe of the repertoire (`REPERTOIRE`).
  */

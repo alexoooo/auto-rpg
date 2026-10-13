@@ -243,10 +243,9 @@ The page logs what its body sounds of against the mind's time (`createSoundLog`,
   or a Restart, plays its last 100 ms and no more.
 - **A target is heard with the body.** A scenario that puts another body in the world hands it to
   the page (`ScenarioContext.hears`), as the Routine does each target it hangs
-  (`src/lab/targets.ts`) and the Blow its one (`watchBlow`, `src/lab/blow.ts`): its touches on
-  the body are logged with the body's own, keyed `other:body`, and its touches on the ground,
-  keyed `other:ground`, from the step it is hung until its reading closes or its blow is thrown
-  again.
+  (`src/lab/targets.ts`): its touches on the body are logged with the body's own, keyed
+  `other:body`, and its touches on the ground, keyed `other:ground`, from the step it is hung
+  until its reading closes.
 - **`AIR_SECONDS`** (`src/lab/main.ts`), 30 s of the body's air: as long as the Routine's
   recording, the longest a scenario keeps. The log keeps its latest 1024 cues (`CAPACITY`), a
   numeric setting.

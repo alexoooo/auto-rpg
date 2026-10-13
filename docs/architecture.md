@@ -1266,7 +1266,7 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   where nothing need be read (`SightIndex`), made again when a door opens. The
   page hears every built body where the party sees (`hearRun`, `hearing.ts`), its listener made
   again when a body is built.
-- **The lab** (`src/lab/`): one body at a time in the Stance, Get-up experiment, Routine, Run and Blow
+- **The lab** (`src/lab/`): one body at a time in the Stance, Get-up experiment, Routine and Run
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
   Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
   page chose: its balance, its mind and the strikes it may throw. The mind is a fighter
@@ -1318,9 +1318,9 @@ physics, rejecting stale asynchronous loads and preserving current clothing and 
 
 `strike-hands.ts` gives skins their fingers' closure. In the Arena and the Crypt a fighter's
 fingers are its body's applied hand poses (`fighterHands`): closed in a fist or a grip, open else,
-since every skill set closes a bare hand for its blow. Lab Routine and Lab Blow, whose skills drive
-the strike skill alone, adapt the active command owner's strike report to `hand-pose.ts`, the
-shared finger presentation controller (`strikeHands`), advanced after each simulation step: empty
+since every skill set closes a bare hand for its blow. Lab Routine adapts the active command
+owner's strike report to `hand-pose.ts`, the shared finger presentation controller (`strikeHands`),
+advanced after each simulation step: empty
 hands close during chambering, remain fists during swings and relax during return or
 interruption. Skins only read closure, and held-item grips take precedence.
 Presentation belongs to the character rather than its replaceable skin and owns no physical

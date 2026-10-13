@@ -109,7 +109,7 @@ stance, strike or scenario says when a sound is due:
   of what they hold. A body has one looping voice that follows it (`GameAudio.swish`, `SWISH`).
 
 Every screen plays both. The lab plays its body's from a log at the mind's time, with the touches
-of a target the Routine or the Blow hangs beside it, and the cue of its one instrument that is no
+of a target the Routine hangs beside it, and the cue of its one instrument that is no
 contact, the page's hand shoving the body (`src/lab/sound-log.ts`, [lab.md](lab.md#sound)). The arena plays its two sides'
 as they happen, until the verdict (`src/arena/main.ts`). The crypt plays every built body's
 while the party sees the cell the body stands in (`hearRun`, `src/dungeon/hearing.ts`), fading

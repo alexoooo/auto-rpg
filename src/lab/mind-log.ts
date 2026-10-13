@@ -15,9 +15,7 @@ import type { Side } from "../core/spec/body.ts";
  */
 
 /**
- * The notes a log keeps unless told. The busiest scenario writes two a second (the Blow; Node
- * stand, Rapier, 120 Hz) and the longest recording the page scrubs through is 30 s: this is
- * several times what one holds.
+ * The maximum notes a log keeps unless told, bounding memory while retaining recent decisions.
  */
 const CAPACITY = 512;
 

@@ -206,9 +206,6 @@ without resuming on its own.
   facing one way, forward, right, back and left. Gusts of wind, as often and as strong as two
   more sliders say, push it as it goes; the readout says its speeds, how far it is off the track,
   its steps and how much of the time it is on both feet or none.
-- **Blow**: it throws a stored blow, the Warrior's strongest club blow or any searched recipe, at
-  a target hung where that blow's target stood, a ball of a head or of an upper trunk, and says
-  what the blow cost each of the two.
 
 Its sections, each of which folds away, choose the body and its balance, what each hand holds,
 boots and armour, its mind (**Preset**: Script carries out the scenario, Guard stands in guard;
