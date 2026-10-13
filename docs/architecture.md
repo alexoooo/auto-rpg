@@ -845,7 +845,7 @@ where it stands with nothing driving it, until the party nears; and the dead are
 lie once their fall is over and nobody walks near.
 The lab
 has tactics of its own:
-`stanceTactics` (the keys), `trackTactics` (the Run), `routineTactics` and `attackOnce`.
+`stanceTactics` (the keys), `trackTactics` and `commandsTactics` (the Locomotion scenario), `routineTactics` and `attackOnce`.
 
 ## Experimental separate equipment
 
@@ -1266,7 +1266,7 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   where nothing need be read (`SightIndex`), made again when a door opens. The
   page hears every built body where the party sees (`hearRun`, `hearing.ts`), its listener made
   again when a body is built.
-- **The lab** (`src/lab/`): one body at a time in the Stance, Get-up experiment, Routine, Run and Blow
+- **The lab** (`src/lab/`): one body at a time in the Stance, Get-up experiment, Routine, Locomotion and Blow
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
   Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
   page chose: its balance, its mind and the strikes it may throw. The mind is a fighter
@@ -1275,7 +1275,8 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   that has the body once it is down among its parts. The Routine's
   targets are bodies (`targets.ts`): a ball of the attacker's head, hung where a seed drew it as
   the strike at it begins and read by the rule a fight wounds by (`watchBlows`), one at a time
-  ([reference/blows.md](reference/blows.md#targets)). The Run goes round its tracks (`track.ts`)
+  ([reference/blows.md](reference/blows.md#targets)). The Locomotion scenario goes round its tracks (`track.ts`), or from one
+  random destination to the next (`commands.ts`),
   at the pace asked, its feet metered from the ground's contacts (`gait-meter.ts`), and the
   lab's wind (`wind.ts`) blows seeded gusts on its chest: a disturbance from outside, as a shove
   is, and no assist. The page inspects the

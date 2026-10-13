@@ -1,5 +1,5 @@
 /**
- * **The Run scenario's tracks**: closed paths across the ground, laid end to end from straights,
+ * **The Locomotion scenario's tracks**: closed paths across the ground, laid end to end from straights,
  * arcs and corners, each starting at the origin facing +z, where the lab builds its body. A heading is the
  * lab's: 0 faces +z and it grows to the right, the right of a heading h being (cos h, -sin h); an
  * arc of positive curvature turns right.
@@ -105,7 +105,7 @@ export function trackOf(pieces: readonly Piece[]): Track {
 /**
  * The big circle's radius by default, m: the owner's "big circle", about 25 m a lap. Walked at
  * 0.5 m/s it asks the heading to turn 0.125 rad/s, inside the turn each body holds walking at its
- * fastest (`Body.envelope`, `assets/core/stance-envelope.json`). The Run's slider sets another.
+ * fastest (`Body.envelope`, `assets/core/stance-envelope.json`). The scenario's slider sets another.
  */
 export const CIRCLE_RADIUS = 4;
 /**
@@ -115,25 +115,35 @@ export const CIRCLE_RADIUS = 4;
  */
 export const TURN_PACE = 0.3;
 
-/** The shuttle's straight, m. */
+/** The shuttle's straight by default, m: the scenario's slider sets another. */
 export const SHUTTLE_METRES = 6;
 /**
- * The shuttle's half-turn's radius, m: the Run's and the Routine's, `TURN_PACE` at
+ * The shuttle's half-turn's radius, m: the Locomotion scenario's and the Routine's, `TURN_PACE` at
  * `LAB_TURN_RATE` (0.3 m/s at 1 rad/s).
  */
 export const SHUTTLE_TURN_RADIUS = TURN_PACE / LAB_TURN_RATE;
 
-/** The square's side by default, m: the Run's slider sets another. */
+/** The square's and the diamond's side by default, m: the scenario's slider sets another. */
 export const SQUARE_SIDE = 6;
 
-export const TRACK_IDS = ["circle", "shuttle", "square"] as const;
-export type TrackId = (typeof TRACK_IDS)[number];
+export const TRACK_IDS = ["circle", "shuttle", "square", "diamond"] as const;
+type TrackId = (typeof TRACK_IDS)[number];
 
 /** A circle of `radius`, m, turning right. */
 const circle = (radius: number): readonly Piece[] => [{ kind: "arc", metres: 2 * Math.PI * radius, curvature: 1 / radius }];
+/** Straight back and forth, `metres` each way, turning round at each end on the shuttle's half-turn. */
+const shuttle = (metres: number): readonly Piece[] => [0, 1].flatMap((): Piece[] => [
+  { kind: "straight", metres },
+  { kind: "arc", metres: Math.PI * SHUTTLE_TURN_RADIUS, curvature: 1 / SHUTTLE_TURN_RADIUS },
+]);
 /** A square of `side`, m, turning right at each corner: walked facing +z, forward, right, back and left. */
 const square = (side: number): readonly Piece[] => [0, 1, 2, 3].flatMap((k): Piece[] =>
   [...(k > 0 ? [{ kind: "corner", metres: 0, turn: Math.PI / 2 } as const] : []), { kind: "straight", metres: side }]);
+/**
+ * The square of `side`, m, turned an eighth to the right: walked facing +z, its ways are forward and
+ * right, back and right, back and left, and forward and left, as W+D, S+D, S+A and W+A ask.
+ */
+const diamond = (side: number): readonly Piece[] => [{ kind: "corner", metres: 0, turn: Math.PI / 4 }, ...square(side)];
 
 interface TrackInfo {
   readonly name: string;
@@ -150,23 +160,25 @@ interface TrackInfo {
 
 export const TRACKS: Readonly<Record<TrackId, TrackInfo>> = {
   circle: {
-    name: "Big circle",
+    name: "Circle",
     pieces: circle(CIRCLE_RADIUS),
     size: { name: "Radius", least: 2, most: 20, metres: CIRCLE_RADIUS, of: circle },
   },
   shuttle: {
     name: "Back and forth",
-    pieces: [
-      { kind: "straight", metres: SHUTTLE_METRES },
-      { kind: "arc", metres: Math.PI * SHUTTLE_TURN_RADIUS, curvature: 1 / SHUTTLE_TURN_RADIUS },
-      { kind: "straight", metres: SHUTTLE_METRES },
-      { kind: "arc", metres: Math.PI * SHUTTLE_TURN_RADIUS, curvature: 1 / SHUTTLE_TURN_RADIUS },
-    ],
+    pieces: shuttle(SHUTTLE_METRES),
+    size: { name: "Distance", least: 2, most: 30, metres: SHUTTLE_METRES, of: shuttle },
   },
   square: {
     name: "Square, W D S A",
     pieces: square(SQUARE_SIDE),
     size: { name: "Side", least: 2, most: 20, metres: SQUARE_SIDE, of: square },
+    facing: 0,
+  },
+  diamond: {
+    name: "Diamond, W+D S+D S+A W+A",
+    pieces: diamond(SQUARE_SIDE),
+    size: { name: "Side", least: 2, most: 20, metres: SQUARE_SIDE, of: diamond },
     facing: 0,
   },
 };

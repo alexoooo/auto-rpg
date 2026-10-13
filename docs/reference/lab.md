@@ -4,8 +4,8 @@ The readings behind the lab's constants and fitted poses: the hand poses the ski
 (`src/render/club-grip.ts`, `src/render/skin.ts`), the page's seek budget
 (`src/lab/main.ts`), where the Routine's targets are drawn and how they are read
 (`src/lab/targets.ts`), the Routine's gait (`src/lab/routine.ts`, `src/lab/track.ts`),
-how far ahead a walker on a track faces (`src/lab/run-mode.ts`), how far off the track
-the run test lets a walker go (`tests/lab-run.test.mjs`), and what the page hears
+how far ahead a walker on a track faces (`src/lab/locomotion-mode.ts`), how far off the track
+the run test lets a walker go (`tests/lab-locomotion.test.mjs`), and what the page hears
 (`src/lab/sound-log.ts`).
 
 ## Club grip
@@ -186,8 +186,8 @@ A walker round the Routine's path, each human (Node core stand, 120 Hz). The rea
 now, where the run test below holds a walker facing 1 m ahead within 0.4 m of each track.
 
 A walker facing along the track (`AIM_ALONG`) turns into a bend over the arc from its heading to
-the point it faces, and the Run asks no faster than its turns carry it round that arc. On the
-Run's bed (`research/locomotion-run.mjs --played`, the Warrior, the Rogue and the skeleton on the
+the point it faces, and the Locomotion scenario asks no faster than its turns carry it round that arc. On the
+locomotion bed (`research/locomotion-run.mjs --played`, the Warrior, the Rogue and the skeleton on the
 circle and the shuttle, paces asked 0.5, 1, 1.5 and 2.5 m/s, calm and 20 N gusts on seeds 1–6,
 60 s; Node core stand, Rapier, 120 Hz; the SIMBICON walk), the mean speed made along the track,
 a fall stopping the body where it fell:
@@ -201,7 +201,7 @@ a fall stopping the body where it fell:
 
 Past 1.25 m the skeleton reaches the shuttle's half-turn still going about 1.1 m/s, turns, and
 falls: its speed trails the walk asked by about half a second. Braking for each bend as if it
-were as much nearer as the body goes in 0.3 s (`LEAD`, `run-mode.ts`), it does not, and faced
+were as much nearer as the body goes in 0.3 s (`LEAD`, `locomotion-mode.ts`), it does not, and faced
 1.75 m ahead the shuttles read 0.88 / 0.82 / 0.89; but the walker then cuts the course, by
 about the square of how far it faces over twice the radius (0.38 m inside the circle), and the
 stance walk swings 61 cm off the shuttle. Faced 1.25 m ahead and braking 0.3 s early, the
@@ -209,9 +209,9 @@ shuttles read 0.81 / 0.75 / 0.82, and the same on gust seeds 7–12.
 
 `AIM_ALONG`: 1.25 m.
 
-## Run tolerance
+## Locomotion tolerance
 
-`tests/lab-run.test.mjs`: each human round each track for 30 s, asked its fastest walk
+`tests/lab-locomotion.test.mjs`: each human round each track for 30 s, asked its fastest walk
 (Warrior 0.5 m/s, Rogue 0.4), which each one's turn carries round the shuttle's 0.3 m half-turns
 as well (`paceRound`). Node core stand, Rapier, 120 Hz. None fell.
 
@@ -220,7 +220,7 @@ as well (`paceRound`). Node core stand, Rapier, 120 Hz. None fell.
 | Circle  | 0.463, 0.347                              | 11.4, 11.9                                                |
 | Shuttle | 0.480, 0.364                              | 26.5, 28.0                                                |
 
-Command: `node --test tests/lab-run.test.mjs`, which reports each run's two readings as its
+Command: `node --test tests/lab-locomotion.test.mjs`, which reports each run's two readings as its
 diagnostic; the speed is the distance gone along the track over the 30 s.
 
 On the circle, pursuing a point 1 m on cuts inside a 4 m circle by about 1 / (2 * 4) m, 12 cm.

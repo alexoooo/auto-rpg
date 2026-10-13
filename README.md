@@ -201,11 +201,14 @@ without resuming on its own.
 - **Routine**: it walks out, strikes at ten targets hung high, middle and low, turns and walks
   back. Each target is a ball of its own head, and the table says what the blow did to it or how
   near it passed. `&targets=` (0 to 30) and `&seed=` in the address choose how many and which.
-- **Run**: it goes round a track at the pace a slider asks (0.2 to 8 m/s, past what its walk
-  holds if need be): a big circle of any radius, straight back and forth, or a square walked
-  facing one way, forward, right, back and left. Gusts of wind, as often and as strong as two
-  more sliders say, push it as it goes; the readout says its speeds, how far it is off the track,
-  its steps and how much of the time it is on both feet or none.
+- **Locomotion**: it goes round a course as fast as its walk holds (Max), or at the pace a slider
+  asks (0.2 to 4 m/s, past what its walk holds if need be): a circle of any radius, straight back
+  and forth over any distance, a square walked facing one way, forward, right, back and left, a
+  diamond walked facing one way along the diagonals (W+D, S+D, S+A, W+A), or random commands, one
+  destination after another over an area, as the crypt sends a body. Gusts of wind, as often and
+  as strong as two more sliders say, push it as it goes; the readout says its speeds, how far it
+  is off its way, its steps and how much of the time it is on both feet or none.
+  `research/locomotion-run.mjs` runs the same courses as a battery.
 - **Blow**: it throws a stored blow, the Warrior's strongest club blow or any searched recipe, at
   a target hung where that blow's target stood, a ball of a head or of an upper trunk, and says
   what the blow cost each of the two.

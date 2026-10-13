@@ -5,7 +5,7 @@
  * placed, the feet step to a footing each once, the farther first; and resumed, it asks the
  * height the body is at, rising to the stance's over `RISING_SECONDS`, and steps a foot out of
  * its stance's width to the other's side. The
- * whole path, tactics to body, is `tests/lab-run.test.mjs`'s and `tests/lab-routine.test.mjs`'s.
+ * whole path, tactics to body, is `tests/lab-locomotion.test.mjs`'s and `tests/lab-routine.test.mjs`'s.
  */
 import test from "node:test";
 import assert from "node:assert/strict";

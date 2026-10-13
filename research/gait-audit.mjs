@@ -49,14 +49,14 @@ const mean = (xs) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : nul
 const round = (x, k = 3) => x === null || x === undefined || !Number.isFinite(x) ? null : +x.toFixed(k);
 
 async function runOnce({ model, pace, seconds, from, stride }) {
-  const [{ modelSpec }, { labActor }, { startRun }, { trackOf }, { LAB_PRESETS }, { coreStand }, { STRIDE }, { massCentreToRef }, { personStep }] = await Promise.all([
-    import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/run-mode.ts"), import("../src/lab/track.ts"),
+  const [{ modelSpec }, { labActor }, { startLocomotion }, { trackOf }, { LAB_PRESETS }, { coreStand }, { STRIDE }, { massCentreToRef }, { personStep }] = await Promise.all([
+    import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/locomotion-mode.ts"), import("../src/lab/track.ts"),
     import("../src/lab/scenarios.ts"), import("../tests/harness/core-stand.mjs"), import("../src/core/skills/stride.ts"),
     import("../src/core/control/support.ts"), import("../src/core/human/gait.ts"),
   ]);
   const stand = await coreStand(modelSpec(model), { ground: true, groundSize: GROUND });
   const mind = { ...LAB_PRESETS.script.config, locomotion: { kind: "stride", ...STRIDE, ...stride } };
-  const run = startRun(labActor(stand.built, stand.world, { mind, measuring: true }), trackOf(LINE.pieces), { top: pace, facing: LINE.facing });
+  const run = startLocomotion(labActor(stand.built, stand.world, { mind, measuring: true }), trackOf(LINE.pieces), { top: pace, facing: LINE.facing });
   const { body } = run, muscles = body.muscles, reading = body.view.stance, dt = stand.world.dt;
   const segments = [...stand.built.segments.values()], mass = segments.reduce((s, x) => s + x.rigid.mass, 0);
   const legs = muscles.channels.flatMap((c, i) => {

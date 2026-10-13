@@ -22,7 +22,7 @@ import { LAB_BLOWS } from "../src/lab/blows.ts";
 import { loadoutSpec } from "../src/lab/loadout.ts";
 import { CATCH_UP_MS } from "../src/lab/player.ts";
 import { startRoutine } from "../src/lab/routine.ts";
-import { startRun } from "../src/lab/run-mode.ts";
+import { startLocomotion } from "../src/lab/locomotion-mode.ts";
 import { createSoundLog, LAB_BODY, LAB_OTHER, logSounds, shoveSound } from "../src/lab/sound-log.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
 import { hardestOn } from "../src/lab/targets.ts";
@@ -200,7 +200,7 @@ test("what a step sounded of is held at the time its frame shows, under every mo
 
   // The Run, round the shuttle.
   const run = await logged(modelSpec("workshop-fighter"), 4, (actor) => {
-    const session = startRun(actor, trackOf(TRACKS.shuttle.pieces));
+    const session = startLocomotion(actor, trackOf(TRACKS.shuttle.pieces));
     return { time: () => session.frame().time, dispose: () => session.dispose() };
   });
   assert.deepEqual(run.faults.slice(0, 5), []);

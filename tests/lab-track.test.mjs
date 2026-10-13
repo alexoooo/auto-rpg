@@ -1,19 +1,22 @@
 /**
- * **The Run scenario's tracks** (`src/lab/track.ts`): closed paths from the origin facing +z,
+ * **The Locomotion scenario's tracks** (`src/lab/track.ts`): closed paths from the origin,
  * continuous, of the length their pieces say, and found again from a point on them -- on the
  * shuttle, from the straight the body is on, not the one 0.6 m across. The square goes forward,
- * right, back and left of +z, turning at its corners in no length, and comes in sizes.
+ * right, back and left of +z, turning at its corners in no length, and comes in sizes; the diamond
+ * goes along the diagonals between them; the shuttle comes in distances. Random commands
+ * (`src/lab/commands.ts`) scatter destinations over their area, each far enough from the last.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { CIRCLE_RADIUS, SHUTTLE_METRES, SHUTTLE_TURN_RADIUS, SQUARE_SIDE, TRACK_IDS, TRACKS, trackOf, TURN_PACE } from "../src/lab/track.ts";
 import { LAB_TURN_RATE } from "../src/lab/stance-mode.ts";
+import { commandsOf, LEAST_LEG, LONGEST_STAND } from "../src/lab/commands.ts";
 
 const near = (a, b, within, what) => assert.ok(Math.abs(a - b) <= within, `${what}: ${a} against ${b}`);
 const wrap = (a) => a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
 
 test("each_track_starts_where_the_body_stands_and_closes_on_itself", () => {
-  assert.deepEqual([...TRACK_IDS], ["circle", "shuttle", "square"]);
+  assert.deepEqual([...TRACK_IDS], ["circle", "shuttle", "square", "diamond"]);
   near(trackOf(TRACKS.circle.pieces).length, 2 * Math.PI * CIRCLE_RADIUS, 1e-9, "circle length");
   near(trackOf(TRACKS.shuttle.pieces).length, 2 * SHUTTLE_METRES + 2 * Math.PI * SHUTTLE_TURN_RADIUS, 1e-9, "shuttle length");
   // The shuttle turns on the Routine's arc: its pace at the lab's turn rate.
@@ -21,7 +24,8 @@ test("each_track_starts_where_the_body_stands_and_closes_on_itself", () => {
   for (const id of TRACK_IDS) {
     const track = trackOf(TRACKS[id].pieces);
     for (const at of [track.at(0), track.at(track.length)]) {
-      near(at.x, 0, 1e-9, `${id} x`); near(at.z, 0, 1e-9, `${id} z`); near(wrap(at.heading), 0, 1e-9, `${id} heading`);
+      // Each sets off along +z but the diamond, which turns an eighth right at once.
+      near(at.x, 0, 1e-9, `${id} x`); near(at.z, 0, 1e-9, `${id} z`); near(wrap(at.heading), id === "diamond" ? Math.PI / 4 : 0, 1e-9, `${id} heading`);
     }
   }
   // The circle turns right, round (4, 0); the shuttle's far end is 6 m up +z, its way back 0.6 m to the right.
@@ -89,4 +93,42 @@ test("the_square_goes_forward_right_back_and_left_and_comes_in_sizes", () => {
   assert.equal(TRACKS.square.facing, 0, "walked facing +z");
   assert.equal(TRACKS.circle.size.of(CIRCLE_RADIUS)[0].curvature, 1 / CIRCLE_RADIUS);
   near(trackOf(TRACKS.circle.size.of(10)).length, 20 * Math.PI, 1e-9, "a 10 m circle");
+});
+
+test("the_diamond_goes_along_the_diagonals_facing_one_way", () => {
+  const side = 3, track = trackOf(TRACKS.diamond.size.of(side));
+  near(track.length, 4 * side, 1e-9, "the diamond's length");
+  assert.equal(TRACKS.diamond.facing, 0, "walked facing +z");
+  // Each side's way: W+D, S+D, S+A, W+A.
+  [Math.PI / 4, 3 * Math.PI / 4, -3 * Math.PI / 4, -Math.PI / 4].forEach((heading, k) => {
+    near(wrap(track.at((k + 0.5) * side).heading - heading), 0, 1e-9, `side ${k}'s heading`);
+  });
+  // Its far corner is straight to the right, a diagonal of the square away.
+  const far = track.at(2 * side);
+  near(far.x, side * Math.SQRT2, 1e-9, "far corner x"); near(far.z, 0, 1e-9, "far corner z");
+});
+
+test("the_shuttle_comes_in_distances", () => {
+  for (const metres of [2, SHUTTLE_METRES, 20]) {
+    near(trackOf(TRACKS.shuttle.size.of(metres)).length, 2 * metres + 2 * Math.PI * SHUTTLE_TURN_RADIUS, 1e-9, `a ${metres} m shuttle`);
+  }
+  assert.deepEqual(TRACKS.shuttle.size.of(SHUTTLE_METRES), TRACKS.shuttle.pieces);
+});
+
+test("random_commands_scatter_destinations_over_their_area_each_away_from_the_last", () => {
+  for (const [area, seed] of [[4, 1], [10, 2], [30, 3]]) {
+    const commands = commandsOf(area, seed), again = commandsOf(area, seed);
+    let last = { x: 0, z: 0 };
+    for (let i = 0; i < 200; i++) {
+      const c = commands.at(i);
+      assert.ok(Math.abs(c.x) <= area / 2 && Math.abs(c.z) <= area / 2, `${area} m, seed ${seed}: command ${i} at ${c.x}, ${c.z}`);
+      assert.ok(Math.hypot(c.x - last.x, c.z - last.z) >= LEAST_LEG, `${area} m, seed ${seed}: command ${i} too near the last`);
+      assert.ok(c.stand >= 0 && c.stand < LONGEST_STAND);
+      last = c;
+    }
+    // Drawn again from the same seed, in another order, the same.
+    assert.deepEqual(again.at(150), commands.at(150));
+    assert.deepEqual(again.at(3), commands.at(3));
+  }
+  assert.notDeepEqual(commandsOf(10, 1).at(0), commandsOf(10, 2).at(0));
 });

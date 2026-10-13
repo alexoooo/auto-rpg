@@ -32,7 +32,7 @@ import { allowing, loadoutBalance, loadoutSpec } from "./loadout.ts";
 import { createMindLog, logged, watchHas, type MindLog } from "./mind-log.ts";
 import { blowScenario } from "./blow-scenario.ts";
 import { routineScenario } from "./routine-scenario.ts";
-import { runScenario } from "./run-scenario.ts";
+import { locomotionScenario } from "./locomotion-scenario.ts";
 import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
 import { labHref, labMind, LAB_PRESETS, recoveryAddress, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
@@ -48,7 +48,7 @@ import { need } from "../dom.ts";
 /**
  * **The lab**: a core human in one scenario (`scenarios.ts`), the page's shell around it. The
  * scenario -- the Stance (`stance-scenario.ts`), the Routine (`routine-scenario.ts`), the Run
- * (`run-scenario.ts`) or the Blow (`blow-scenario.ts`) -- owns what it does to the body, its panels
+ * (`locomotion-scenario.ts`) or the Blow (`blow-scenario.ts`) -- owns what it does to the body, its panels
  * and its marks; the shell owns the rest. The HUD is sections (`hud/sections.ts`): the shell fills
  * them with its own controls, each section's in its module, then with the scenario's panels.
  *
@@ -83,7 +83,7 @@ const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => L
   stance: (scene) => stanceScenario(scene),
   recovery: (scene, shell) => stanceScenario(scene, shell),
   routine: routineScenario,
-  run: runScenario,
+  locomotion: locomotionScenario,
   blow: blowScenario,
 };
 

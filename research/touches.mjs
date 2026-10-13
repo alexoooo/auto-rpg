@@ -12,7 +12,7 @@
  * The cases, for each model:
  * - `stand`: standing 10 s (`startStance`, no orders).
  * - `walk`: standing 3 s, then 10 s walking forward at 0.2 and at 0.5 m/s.
- * - `run`: the Run on each of its tracks, 30 s (`startRun`).
+ * - `run`: the Locomotion scenario on each of its tracks, 30 s (`startLocomotion`).
  * - `shove`: standing 2 s, then a shove of 20 to 60 N s from behind, and 4 s.
  * - `fall`: standing 2 s, then a shove of 80 N s from the front, and 6 s.
  * - `routine`: the Routine to the end of its first loop, or 150 s (`startRoutine`), with the
@@ -58,7 +58,7 @@ import { inFrameOf, throwBlow, watchBlow } from "../src/lab/blow.ts";
 import { LAB_BLOWS } from "../src/lab/blows.ts";
 import { loadoutBalance, loadoutSpec } from "../src/lab/loadout.ts";
 import { startRoutine } from "../src/lab/routine.ts";
-import { startRun } from "../src/lab/run-mode.ts";
+import { startLocomotion } from "../src/lab/locomotion-mode.ts";
 import { labAddress, MODELS } from "../src/lab/scenarios.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
 import { hardestOn } from "../src/lab/targets.ts";
@@ -251,7 +251,7 @@ const LAB = {
     read: (_, run) => `${whole(run)} s, ${some(run.took.strides, "stride")}, ${run.took.metres.toFixed(2)} m from where it set off, ${fellWords(run)}`,
   })),
   run: (model) => TRACK_IDS.map((id) => labRun("run", model, id, {
-    start: (actor) => startRun(actor, trackOf(TRACKS[id].pieces)), seconds: () => 30,
+    start: (actor) => startLocomotion(actor, trackOf(TRACKS[id].pieces)), seconds: () => 30,
     read: (session, run) => {
       const frame = session.frame();
       return `${whole(run)} s, ${some(run.took.strides, "stride")}, ${frame.travelled.toFixed(1)} m round at ${frame.mean.toFixed(2)} m/s, ${fellWords(run)}`;

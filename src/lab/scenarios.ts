@@ -23,7 +23,7 @@ import { mindFaults, mindText, readMind } from "../ui/mind-link.ts";
  * reads its options from here, so an option offered is one the lab has.
  */
 
-export type ScenarioId = "stance" | "routine" | "run" | "blow" | "recovery";
+export type ScenarioId = "stance" | "routine" | "locomotion" | "blow" | "recovery";
 
 interface ScenarioInfo {
   readonly id: ScenarioId;
@@ -37,7 +37,7 @@ export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "stance", name: "Stance" },
   { id: "recovery", name: "Get-up experiment" },
   { id: "routine", name: "Routine" },
-  { id: "run", name: "Run" },
+  { id: "locomotion", name: "Locomotion" },
   { id: "blow", name: "Blow", holds: { right: "club" } },
 ];
 
