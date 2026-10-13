@@ -4028,3 +4028,68 @@ test files pass all six tests. The fast suite reports 694 tests, 687 pass, two f
 TODO. The same existing failures in `research-stand-up-acceptance.test.mjs` and
 `stand-up-detached.test.mjs` reject frozen checkpoints in the current-source harness. Their
 identity guards remain intact. Whitespace and line-ending gates pass.
+
+
+## Quiet-support settling and local timing, 2026-10-13
+
+**No faster recovery is found.** These experiments use the unchanged frozen Node Stance
+action evaluator, game Rapier coordinate adapter 11 at 120 Hz, original Warrior with its
+wooden club, symmetric muscle envelopes, ordinary stance host and Balance 0. The saved
+90-degree fall, complete recovery clock, half-second quiet interval and standing/walking
+host tail remain unchanged. No held-kneel prefix, body change or external actuation is added.
+
+The starting measured path completes in 6.033333 seconds and passes the host tail. Forty-six
+settling configurations test brief or continuous Cartesian hand/head damping through ordinary
+joint-velocity requests, terminal leg and upper-body targets, and small right-ankle inversion
+targets. Twenty-four pass the complete evaluator; none beats the starting time. The others
+fail the episode deadline or host tail. These configurations execute 52,488 world steps.
+Thirty-four configurations are rerun after the optional controller branches are complete;
+configuration-matched physical hashes and results reproduce exactly.
+
+The selected brief arm-damping trial reduces maximum segment speed below 0.1 m/s at
+5.525 recovery seconds, one step before the original path. It still cannot start the quiet
+interval: the centre lies 5.669 mm outside the inset support outline. The second right-foot
+patch point remains 3.308 micrometres above the floor. On the next step that point reaches
+the ground, the centre lies inside the outline, and quiet support begins at 5.533333 seconds.
+The contact-distance and support-margin criteria are retained. Twelve ankle-target trials
+fail to establish a faster complete recovery. The selected damping recording independently
+passes exact action replay, checkpoint restoration and split continuation, with physical hash
+
+e8b984fbe3ced7f27b536788818d250b1b7635b034210b3d44eb0e69b60cd4f0.
+
+Fifty-six further configurations test local phase and command-speed increases over eleven
+half-second portions of the complete rise, followed by posture/velocity feedback on a selected
+accelerated transition. They execute 66,336 world steps. Seven pass, none faster than
+6.033333 seconds. The first phase sweep permits measured-posture matching to cancel some
+requested acceleration. The second explicitly bounds local phase advance, and its disabled
+control reproduces the original physical trace. The two variants over reference seconds
+4.5–5.0 also reproduce the original physical trace; those are not successful accelerations.
+
+The selected bounded 2% speed increase over reference seconds 3.5–4.0 first changes a physical
+observation at recovery second 3.525. It adds right-foot contact earlier and reaches centre
+height 0.749784 m at 4.25 seconds, versus 0.740166 m for the original. Both then lose right-foot
+support, and their later trajectories separate. At 5.5 seconds the original has both feet
+loaded while the accelerated trial has only the right foot loaded. The latter never completes
+recovery within ten seconds. Nine stronger posture/velocity feedback settings also fail;
+their disabled control exactly reproduces the selected failed trace. Independent action replay,
+checkpoint restoration and split continuation pass for that failed trace:
+
+5488ea91cb17e0425a0cabd776c03dceba6cbf02127832021d6a76b3f18c7f00.
+
+This closes the local timing and late damping search at these settings. Earlier foot placement
+alone does not preserve the subsequent load transfer; the next controller investigation needs
+to retain actual foot support during that transfer rather than continue scaling reference time.
+No candidate from these experiments is promoted to the live Lab.
+
+The configurations, failures, support diagnostics, exact source snapshots and replay checks
+are preserved under quietMotionSettling and phaseWindowRise in
+research/stand-up-path-results.json. All 102 configurations meter zero assistance and report
+no external-actuation events, nonfinite final joint readings or invalid final commands.
+Maximum effort-bound excess is 0.0000446418570163587, below the unchanged 0.0001 tolerance.
+The quiet-support viewer is .review/stand-up-quiet-motion/replay.html; it is not visually
+inspected in this experiment. The phase-window failure is retained as a trace, not installed
+as a Lab scenario. This is an evidence-only change: JSON assertions, cited-file checks,
+whitespace and line-ending gates pass. Software tests are not rerun; the two previously
+reported checkpoint-identity failures remain unresolved. The selected frozen library's
+previously measured 3/16 result is unchanged. The four-second median, six-second deadline
+and full qualification remain unachieved.
