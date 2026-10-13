@@ -439,6 +439,10 @@ After it, each with its own plan, in the order each needs the one before:
 
 ### The Crypt
 
+- **Party reversals and crowd motion.** The party can fall before returning to a held enemy;
+  local steering lacks the locomotion controller's braking response and excludes fallen bodies.
+  The [problem and proposal](analysis/2026-10-13-crowd-reversal.md) record the failing regression
+  and a physical movement contract to investigate. Movement remains unfixed.
 - **Authored set pieces** for generated depths
   (`docs/plans/2026-09-23-depths-06-set-pieces.md@144961d4`).
 - **The skeleton's intent** ([architecture](architecture.md#standing-decisions)): the ribcage and
