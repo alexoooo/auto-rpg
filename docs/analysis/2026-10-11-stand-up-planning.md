@@ -3538,3 +3538,44 @@ No production controller change is retained. Document/data whitespace and line-e
 pass; the prior two current-source checkpoint-identity test failures remain unresolved.
 The selected frozen library remains 3/16 with none within six seconds. The median, deadline
 and full qualification remain unmet.
+
+## Rejecting the feet-up kneeling route, 2026-10-12
+
+The owner rejects the sustained feet-up kneel as an unhelpful, inhuman recovery target.
+That criticism changes the controller direction: establish a planted foot under the body,
+transfer load to it, and rise through hip and knee extension. Hands and incidental knee
+contacts may support the transition, but a stable feet-up kneel is not a useful terminal target.
+The retained route already consumes 5.341667 recovery seconds before its continuation begins;
+it cannot establish the four-second median. This branch is closed without a gameplay promotion.
+
+Before that direction change, the frozen Node Stance Lab / game Rapier coordinate adapter 11 /
+120 Hz / original Rogue body and symmetric muscle limits / Balance 0 tests twelve further
+continuations, including their complete 640-step prefixes. All twelve fail by twelve seconds,
+across 17,268 world steps. Six compare a trajectory governor based on measured wrist/spine torque
+and velocity error, including its disabled control. Six coordinate both arms and optionally
+the shared spine, with range-bounded joint rates and reduced wrist weighting. None recovers.
+The disabled governor reproduces the preceding physical trace exactly. Every trial reports
+zero assistance, no external actuation, finite final observations and legal final commands;
+maximum effort-bound excess is 0.0000155833, below the unchanged 0.0001 tolerance.
+
+The preceding complete failed rise saturates right-wrist flexion throughout the 0.6–0.9 s
+window after continuation starts, and both wrists and lumbar flexion throughout 0.9–1.2 s.
+The body loses its posture before the timed release of its hands. At each window endpoint,
+the centre of mass remains inside the measured ground-contact patch hull; that alone does
+not imply a feasible distribution of joint effort. The governor delays motion, then some
+variants stop advancing and still collapse. A speed-only correction is insufficient for
+this route. The shared-spine Jacobian has a maximum numerical point-column discrepancy of
+0.000110078 m/rad over 26 hand/channel pairs at the unchanged prefix; this checks the local
+kinematics, not the dynamics or the viability of a whole recovery.
+
+A read-only audit of six existing Rogue recordings checks for a downward-facing sole
+(sole-up > 0.8) carrying more than 20 N for twelve consecutive steps. This diagnostic is
+not an acceptance criterion. Neither the baseline nor the retained kneel contains such a
+span. The earliest span among those six is at 7.141667 s, already beyond the requested
+deadline. No early usable foot placement is established by these recordings.
+
+Configurations, source snapshots, all outcomes, torque windows and the foot-contact audit
+are preserved under retainedTripod.transitionFailure in research/stand-up-path-results.json.
+No production code changes. Whitespace and line-ending gates pass; the two previously
+reported current-source checkpoint-identity test failures remain unresolved. The selected
+frozen library remains 3/16, with none within six seconds. The full goal is unfinished.
