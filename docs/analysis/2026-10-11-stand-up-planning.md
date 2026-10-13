@@ -3905,3 +3905,60 @@ outcomes and replay proofs are preserved under footReplantGeometry in
 research/stand-up-path-results.json. Evidence whitespace and line-ending checks pass. The
 previously reported two current-source checkpoint-identity test failures remain unresolved.
 The four-second median / six-second recovery goal and live Warrior loop remain unfinished.
+
+## Objective ablations and measured muscle response, 2026-10-13
+
+**No recovery succeeds.** These experiments use the frozen Node Stance Lab / game Rapier
+coordinate adapter 11 / 120 Hz / original Rogue empty 90-degree saved fall, compliant soles
+and symmetric muscle envelopes / ordinary stance host / Balance 0. The original body, muscle
+limits, physical contacts, host, complete fall clock and acceptance criteria remain unchanged.
+No held-kneel prefix or assistance is used.
+
+Six full-fall feedback trials compare all objectives, no joint objectives, limbs only, feet
+only, body and feet, and limbs with centre-of-mass height. The unchanged control reproduces
+the preceding corrected-geometry trace exactly. All six fail by six seconds, without handover
+or a completed internal replant, consuming 4,314 world steps. Removing competing objectives
+does not by itself establish effective foot placement.
+
+A different offline search measures local action responses in the actual frozen physics.
+At each decision, it restores the complete current state and tests positive and negative
+activation changes on each of the 35 muscle channels. A bounded least-squares fit proposes
+combined changes; full, half and quarter changes are tested physically. The lowest measured
+task cost among those proposals, individual pulses and the continuing action selects the
+next block. Every selected block reproduces its measured branch exactly. These are local
+finite-difference proposals, not an accurate global model or a live controller.
+
+The first search uses 12-step blocks and foot offsets of 0.18 m sideways and 0.15 m forward
+relative to the pelvis. The second widens those offsets to 0.40 m and 0.35 m. The third uses
+24-step blocks, 0.25 m offsets and an explicit sole-loading objective. That objective averages
+the last half-block's measured floor impulses, discounts soles below uprightness 1 linearly
+to zero at 0.5, and divides by body weight. It is a search score, not a raw load share or a
+replacement standing criterion. The movement objectives retain the corrected actual foot
+geometry and ordinary muscle limits.
+
+| Search, frozen Node harness above | Short branch evaluations | Exploration steps | Recovery |
+|---|---:|---:|---|
+| Measured response | 4,440 | 53,206 | Failure, no handover |
+| Wider placement | 4,440 | 53,206 | Failure, no handover |
+| Sole loading | 2,220 | 53,206 | Failure, no handover |
+
+The 11,100 short continuations and 159,618 exploration steps are not independent saved falls.
+All three selected complete trajectories fail by six seconds. Relative centre-of-mass height
+ends at 0.206502, 0.221681 and 0.227395 m respectively. Better local scores and torso orientation
+still do not produce standing. Every explored branch passes the unassisted/effort audit;
+maximum effort-bound excess across trials and search branches is 0.000021882285665242307,
+below 0.0001. The feedback trials report finite final readings and legal final commands.
+
+Independent action replay, restoration and split continuation reproduce all three selected
+search paths exactly. The sole-loading path's physical SHA-256 is:
+
+7718f9eda7e4fd9ed3df63f8e000dbf58fa1cf5025d7d85addff609eff1965f9
+
+The standalone .review/stand-up-measured-response/replay.html compares that failure with the
+unchanged optimized baseline from the same saved fall and body. All 720 embedded candidate
+frames match the recording; browser inspection near 5.992 s confirms the body remains down.
+Sources, configurations, outcomes, selected action plans and replay proofs are preserved under
+footMeasuredResponse in research/stand-up-path-results.json. No production controller is
+promoted. Whitespace and line-ending checks pass; the previously reported two current-source
+checkpoint-identity test failures remain unresolved. The full recovery goal and live Warrior
+loop remain unfinished.
