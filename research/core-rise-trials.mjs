@@ -89,8 +89,8 @@ export function watchFall(world, built, body, watch = WATCH_SECONDS) {
   };
 }
 
-/** The memory of `body`'s staged riser (`stagedRise`), or null if no sub-mind of its mind is one. */
-export const riserOf = (body) => (body.state.mind.subs ?? []).find((sub) => sub && "furthest" in sub) ?? null;
+/** The memory of `body`'s staged riser (`stagedRise`), its own or the one a support recovery runs (`rise`), or null if no sub-mind of its mind has one. */
+export const riserOf = (body) => (body.state.mind.subs ?? []).map((sub) => sub?.rise ?? sub).find((sub) => sub && "furthest" in sub) ?? null;
 
 /** The row of a body that did not fall. */
 const HELD = Object.freeze({ fell: false, risen: false, seconds: null, peak: null, asked: null, moved: null, lie: null, stage: null, ended: null, up: null });
