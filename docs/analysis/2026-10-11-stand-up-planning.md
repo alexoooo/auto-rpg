@@ -4528,3 +4528,70 @@ none within six seconds; the four-second median and six-second recovery goal rem
 unfinished. Document/data whitespace, cited-path and line-ending checks pass. Software tests
 are not rerun for this evidence-only change; the two previously reported current-source
 checkpoint-identity test failures remain unresolved.
+
+### Support tracking and the rise-only swing arc
+
+Harness: frozen Node Stance action evaluator, game Rapier coordinate adapter 11, 120 Hz,
+saved workshop-fighter-club-90 fall, original compliant-sole Warrior and right-hand club,
+original symmetric muscle limits and stance host, Balance 0. The frozen revision, saved
+fall, body and acceptance criteria remain unchanged. These are development comparisons.
+
+The hand-and-foot prefix reaches 3.208333 seconds without an upright-kneeling waypoint.
+Twelve one-second hold/shift trials use detached whole-body dynamics to request bounded
+muscle actions. A 0.15 m horizontal centre-of-mass request toward the feet, with 0.3 s
+response and sticking-contact prediction, moves the measured centre about 0.107 m toward
+them while both hands and feet retain load at the endpoint. It has no rejected prediction.
+This is an intermediate weight shift, not recovery.
+
+An initial rise comparison captured the model after restoring the fall. Its standing height
+was therefore 0.716436 m rather than the identity-matched fresh body's 1.036492 m, and its
+reference joint angles also described the fall. That comparison is invalid: seven completed
+trials are excluded, and the process was stopped. The hold/shift probes do not consume those
+reference fields because they hold measured angles without stepping or extending. Subsequent
+rise trials use a fresh standing environment whose complete identity matches the saved body.
+
+The experimental tracker also inherited the default 0.2 m foot-swing arc when riseOnly had
+already marked the foot placed. The retained fix makes the swing arc zero for rise-only
+control. Ordinary stepping retains its configured arc. A physical regression fails before
+the change and passes afterward; this is a research-controller fix, not a live Lab change.
+
+| Full rise comparison | Runs | Recovery by six seconds |
+| --- | ---: | ---: |
+| Correct standing model, original swing-arc behaviour | 12 | 0 |
+| Explicit zero swing arc | 4 | 0 |
+| Gradual torso, joint and centre targets, including unchanged control | 3 | 0 |
+| Retain measured foot targets, with and without progress-gated extension | 4 | 0 |
+| Same foot targets with sticking-contact prediction | 2 | 0 |
+
+The unchanged gradual-rise control reproduces the matched explicit-zero-arc continuation
+exactly, including all 335 physical observations and its result. Neither gradual objectives,
+retaining initial foot transforms as muscle-driven targets, nor disabling predicted lift-off
+establishes a recovery. The targets never pin or directly reposition physical bodies.
+Prediction rejection means the controller emits zero torque for that step; it is distinct
+from external-actuation rejection. All accepted comparisons have zero assistance and external
+actuation. Their maximum effort-bound excess is 0.000037065357105348085 N m, below the unchanged 0.0001
+tolerance.
+
+The recorded progress-gated attempt loses both measured foot loads by 3.408333 seconds,
+0.2 s after the transfer starts. By 4.008333 seconds its height is 0.233301 m; browser inspection
+shows the body collapsed low onto its side. The initial 0.660171 m horizontal gap between
+the centre of mass and mean foot centre grows to 0.753872 m. Holding foot targets does not
+establish that those feet remain physically supporting the body.
+
+The replay at .review/stand-up-supported-transfer/replay.html explicitly labels this as a
+failed six-second attempt and compares it with the previous 6.033333-second candidate.
+All 720 and 1,084 embedded frames match their recordings. Independent replay reproduces
+all 719 candidate observations; complete restore and split continuation also pass.
+Physical SHA-256: 946e05e7b9bfcca48e43e05ee5a4a4c18ede6ed15553ec76b68669a44bc75d9b.
+supportedTransferTracking in research/stand-up-path-results.json preserves trial outcomes,
+source snapshots, the invalid-reference diagnosis and replay verification.
+
+No candidate is promoted to the Lab. The selected frozen library remains 3/16, none within
+six seconds, with failure-inclusive median infinity. The four-second median and six-second
+recovery goal remains unfinished. The next missing transition is bringing a foot beneath
+the body while the hands carry load, rather than extending from this wide pike.
+
+TypeScript and the focused rise-only regression pass. The fast suite reports 696 tests:
+689 pass, five TODO and two failures. The saved-fall restore and physical-foot-acquisition
+tests reject the current-source checkpoint configuration; their identity guards remain
+unchanged. No browser runtime source changes, so no production build is required.
