@@ -3623,3 +3623,49 @@ outcomes, source versions, contact diagnostics and replay verification. No produ
 is changed. Whitespace and line-ending gates pass; the two previously reported current-source
 checkpoint-identity test failures remain unresolved. The selected frozen library remains 3/16,
 none within six seconds. The full four-second median / six-second recovery goal is unfinished.
+
+## Heading and coupled foot transfer, 2026-10-13
+
+**All 26 complete-fall trials fail within the original six-second screen.** They consume
+18,694 world steps in frozen Node Stance Lab / game Rapier coordinate adapter 11 / 120 Hz /
+original Rogue/empty body and symmetric muscle limits / ordinary stance host / Balance 0.
+No held-kneel prefix, body change, stronger muscle, physical pin or assistance is introduced.
+The full recovery goal remains unfinished.
+
+The original foot-first prototype takes heading from the pelvis's sideways axis even when
+that axis points nearly vertically. At the saved fall, its horizontal projection length is
+0.247958, versus 0.970304 for the forward axis. The resulting headings differ by 103.098651
+degrees. Choosing the better-conditioned axis removes that arbitrary heading choice, but
+does not establish recovery. Six heading/support variants and six unloaded-leg flexion or
+staggered-foot variants all fail. The unchanged-heading and zero-preference controls each
+reproduce their preceding physical trajectories exactly.
+
+Six further trials solve both legs together with virtual pelvis translation and rotation,
+allowing the requested body motion to change within joint-rate limits. Only joint velocities
+reach the ordinary muscle port; the virtual pelvis variables are never applied to physics.
+These attempts fail. Their solve can propose downward pelvis motion while the torso is on
+the floor, or assume controllable pelvis motion before a sole is loaded. Four trials add
+penalties for inward normal velocity at observed non-foot ground contacts; four more fix
+unsupported pelvis variables to measured motion. Those also fail. Both disabled controls
+match their preceding physical traces exactly. The ground penalties are soft and retain
+small predicted inward velocities; they do not prove nonpenetration or dynamic feasibility.
+
+All grid trials report zero assistance, no external-actuation events, finite final readings
+and legal final commands. Maximum effort-bound excess is 0.000021078186648537667,
+below the unchanged 0.0001 tolerance. The selected final attempt repeats its grid trace;
+independent action replay, restoration and split continuation are exact. After disposing
+the physical environment, its plain model and observations reconstruct all 719 actions
+exactly, confirming that the policy does not require engine handles. Physical SHA-256:
+
+1b123fb491ef687d6b576d8106f762336bd1c4927b1bf7bb4e7cae4c3e225713
+
+The failed recording is inspectable at .review/stand-up-foot-transfer/replay.html alongside
+the unchanged optimized baseline from the identical full initial state and body. The 720
+embedded candidate frames and identity are checked; this new replay is not visually inspected.
+Configurations, source versions, all failures, heading measurements and replay proofs are
+preserved under footFirstTransfer in research/stand-up-path-results.json.
+
+No production code changes or controller promotion are made. Document whitespace and line-ending
+checks pass. The two previously reported current-source checkpoint-identity test failures remain
+unresolved. The selected frozen library remains 3/16 with none within six seconds; full timing
+and robustness qualification are still unachieved.
