@@ -342,7 +342,8 @@ and `script` and `stand` remain. Its config has three parts, run in this order e
 - `current`: keep the present focus while it is sensed and in the fight.
 - `nearest`: measured from the stance centre, by `standing` or `standing-first`.
 
-The default is `[ordered, current, nearest]`.
+Stickiness is a choice of rules, made in each configuration: `[ordered, current, nearest]` keeps
+its foe, and `[ordered, nearest]` takes the nearest every step, as today's tactics do.
 
 **2. `choose`: one action selector over the candidates for the focus.**
 
@@ -501,7 +502,11 @@ Checks:
 What it does:
 
 - Classic, Puncher, Scrapper and Behaviours become behaviours configurations.
-- Executors are bounded to their windows; `ground` takes the focus.
+- Executors are bounded to their windows, so the straight punch no longer walks itself in from
+  afar; Puncher closes in by `approach` instead.
+- `ground` takes the focus and keeps its own positioning. It is Scrapper's today, held by
+  `docs/reference/ground-combat.md`'s fixtures; expressing support stages in readiness is later
+  work.
 - The Orders changes above, the Arena's ray test and the reptile's intent.
 - Deleted: `seek`, `openings`, `recipeTactics`, `seekFoe`, `pathTactics`, `kickTactics`,
   `chooseSkill`, `aimedOrders`, `highMark`, `Orders.attack`, and `Abilities`' fields no longer
@@ -534,14 +539,3 @@ Checks:
 - A brief look in a browser.
 - A clicked target stays the focus.
 - A target removed after a torso bump does not raise the ledger's target count.
-
-## Decided here, for the owner to confirm
-
-- The Arena's attack needs a body under the cursor; swinging at empty air goes away.
-- The focus is sticky (`current` before `nearest`), where today the nearest foe is re-chosen every
-  step.
-- Executors stop walking the body outside their windows, which changes how Puncher closes in.
-- Every fighter reads contact feedback, at a step cost read in step 1.
-- Ground combat keeps its own positioning in this plan; expressing support stages in readiness is
-  later work.
-- The presets' standings become history once step 3 lands.
