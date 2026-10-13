@@ -1,12 +1,12 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { Body } from "../body.ts";
+import type { Body, BodyView } from "../body.ts";
 import type { BuiltSegment } from "../build/build-body.ts";
 import { rigidPoints } from "../build/rigid.ts";
 import type { MusclePush, Pose } from "../control/motor.ts";
 import { centreOfToRef, pointOfToRef } from "../control/support.ts";
 import type { MotionCommand } from "../control/tasks.ts";
 import { wholeBodyTracking } from "../control/whole-body.ts";
-import { hypot } from "../math/real.ts";
+import { cos, hypot, sin } from "../math/real.ts";
 import { turnAboutToRef } from "../math/turn.ts";
 import type { BodySpec, Side } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
@@ -15,8 +15,11 @@ import type { World } from "../world.ts";
 import { ATTACK_PATH } from "./attack-path.ts";
 import { guardPosture } from "./guard.ts";
 import type { BlowSkill, LegsAsk } from "./skill.ts";
-import { placedReach, type StrikeReport } from "./strike.ts";
-import { aimOf } from "./strikes.ts";
+import { placedHeightFits, placedReach, type StrikeReport } from "./strike.ts";
+import { aimOf, closesToStrike } from "./strikes.ts";
+import type { BlowAttack } from "../mind/intent.ts";
+import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetRef } from "./action.ts";
+import { withinActionWindow } from "../mind/action-window.ts";
 
 /**
  * **The whole-body solve's settings** (`wholeBodyTracking`), the spike's own choices
@@ -152,7 +155,7 @@ const NO_HANDS = Object.freeze({ left: null, right: null });
  * `returned` m of there or the blow's `cycle` is up. A blow begins as the path strike's does, not
  * before `startup` s on the clock and `hold` s after the last ended (`ATTACK_PATH`).
  */
-export function wholeBodyStrike(body: Body, world: World, drive: WholeBodyDrive): BlowSkill {
+function wholeBodyTechnique(body: Body, world: World, drive: WholeBodyDrive, returnsHome = false) {
   const built = body.built, spec = built.spec, muscles = body.muscles, guard = guardPosture(spec), { punch } = WHOLE_BODY;
   if (!wholeBodyFits(spec)) throw new Error(`${spec.model} cannot take the whole-body strike`);
   const tracking = wholeBodyTracking(built, muscles, world.physics.gravity, [], [], { capacity: WHOLE_BODY.capacity, effortCost: WHOLE_BODY.effortCost,
@@ -241,6 +244,9 @@ export function wholeBodyStrike(body: Body, world: World, drive: WholeBodyDrive)
       }
       case "return":
         frames.push(heldTurn(state.pelvis));
+        if (returnsHome) frames.push({ id: "fist", frame: limb, at: at[hand], translation: {
+          target: [...state.home] as Vec3, velocity: ZERO, acceleration: ZERO, seconds: WHOLE_BODY.jointSeconds, weight: punch.fistWeight,
+        } });
         return { joints: guardJoints(model, guard), grips: [], centres: [hold.centre], frames };
       case null: throw new Error("no blow under way");
       default: { const never: never = state.phase; throw new Error(`no phase ${JSON.stringify(never)}`); }
@@ -271,21 +277,12 @@ export function wholeBodyStrike(body: Body, world: World, drive: WholeBodyDrive)
       default: { const never: never = state.phase; throw new Error(`no phase ${JSON.stringify(never)}`); }
     }
   };
-  return {
-    report, state, releases: true,
-    get holds() { return state.hand; },
-    get busy() { return state.phase !== null; },
-    lower: null,
-    accepts: () => true,
-    resume() {
+  const resume = () => {
       if (state.phase !== null) state.interrupted++;
       state.phase = null; state.hand = null; state.touched = null; state.still = 0;
-    },
-    command(view, attack, _intent, _around, dt) {
+  };
+  const begin = (view: BodyView, attack: BlowAttack, preparing = false) => {
       const t = view.time;
-      state.now = t; state.still += dt;
-      if (state.phase === null) {
-        if (!attack || view.down || t < ATTACK_PATH.startup || state.still < ATTACK_PATH.hold) return null;
         const hand = attack.hand, p = fist(hand), home: Vec3 = [p.x, p.y, p.z];
         // The way the body faces, level: its root's forward.
         facing.set(0, 0, 1).applyRotationQuaternionToRef(view.root.rotation, facing);
@@ -299,14 +296,17 @@ export function wholeBodyStrike(body: Body, world: World, drive: WholeBodyDrive)
         state.pelvis[0] = r.x; state.pelvis[1] = r.y; state.pelvis[2] = r.z; state.pelvis[3] = r.w;
         state.chest[0] = c.x; state.chest[1] = c.y; state.chest[2] = c.z; state.chest[3] = c.w;
         const runup = drive === "flat-out" ? FLAT_OUT.runup : null;
-        if (runup === null) { state.phase = "swing"; state.thrown[hand]++; }
+        if (runup === null) {
+          state.phase = preparing ? "chamber" : "swing";
+          if (preparing) copy(state.back, home);
+          else state.thrown[hand]++;
+        }
         else {
           state.phase = "chamber";
           for (let k = 0; k < 3; k++) state.back[k] = attack.target[k]! - state.unit[k]! * runup;
         }
-      } else advance(t, state.hand!, (view.effectors[`hand.${state.hand!}`]?.feedback?.impulse ?? 0) > 0);
-      const hand = state.hand;
-      if (state.phase === null || hand === null) return null;
+  };
+  const command = (t: number, hand: Side) => {
       const command = goals(t, hand);
       tracking.check(command);
       const torque = tracking.track(command), pushes: MusclePush[] = [];
@@ -314,7 +314,120 @@ export function wholeBodyStrike(body: Body, world: World, drive: WholeBodyDrive)
         const sense = torque[i]! >= 0 ? 1 : -1, strength = muscles.strength(i, sense);
         pushes.push({ channel: muscles.channels[i]!.name, sense, level: strength > 0 ? Math.min(1, Math.abs(torque[i]!) / strength) : 0 });
       }
-      return { hands: NO_HANDS, posture: null, pushes, closed: { left: hand === "left", right: hand === "right" }, legs: HOLD, steer: 0, whole: true };
+      return pushes;
+  };
+  return { state, report, resume, begin, advance, command, fist, aimAt };
+}
+
+/** A whole-body strike solves the active motion once per control interval. */
+export function wholeBodyStrike(body: Body, world: World, drive: WholeBodyDrive): BlowSkill {
+  const { state, report, resume, begin, advance, command } = wholeBodyTechnique(body, world, drive);
+  return {
+    report, state, releases: true,
+    get holds() { return state.hand; },
+    get busy() { return state.phase !== null; },
+    lower: null, accepts: () => true, resume,
+    command(view, attack, _intent, _around, dt) {
+      const t = view.time;
+      state.now = t; state.still += dt;
+      if (state.phase === null) {
+        if (!attack || view.down || t < ATTACK_PATH.startup || state.still < ATTACK_PATH.hold) return null;
+        begin(view, attack);
+      } else advance(t, state.hand!, (view.effectors[`hand.${state.hand!}`]?.feedback?.impulse ?? 0) > 0);
+      const hand = state.hand;
+      if (state.phase === null || hand === null) return null;
+      return { hands: NO_HANDS, posture: null, pushes: command(t, hand), closed: { left: hand === "left", right: hand === "right" }, legs: HOLD, steer: 0, whole: true };
+    },
+  };
+}
+
+/** Whole-body action commands are the result of one solve during admission or elapsed update. */
+export function wholeBodyExecutor(body: Body, world: World, actions: readonly string[], drive: WholeBodyDrive,
+  resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null = (_view, target) => target.kind === "point" ? target.at : null): Executor {
+  const technique = wholeBodyTechnique(body, world, drive, true), motion = technique.state;
+  const footprint = Object.freeze(["hand.left", "hand.right", "trunk", "legs"]);
+  const state = { motion, pushes: [] as readonly MusclePush[], cooldown: 0,
+    live: null as null | { request: ActionRequest; hand: Side; phase: "prepare" | "commit" | "release"; stage: string; elapsed: number;
+      withdrawn: boolean; ending: ActionEnding } };
+  const sideOf = (effector: string): Side => {
+    if (effector === "hand.left") return "left";
+    if (effector === "hand.right") return "right";
+    throw new Error(`whole-body executor has no effector ${effector}`);
+  };
+  const release = (ending: ActionEnding, now: number) => {
+    const live = state.live!; live.phase = "release"; live.stage = "return"; live.ending = ending;
+    motion.phase = "return"; motion.ended = now;
+  };
+  return {
+    state,
+    needs(_action, effector) { sideOf(effector); return footprint; },
+    readiness(view, action, effector, target, around) {
+      if (!actions.includes(action)) return { kind: "blocked", reason: "unknown action" };
+      if (effector !== "hand.left" && effector !== "hand.right") return { kind: "blocked", reason: "unsupported effector" };
+      if (view.down) return { kind: "blocked", reason: "body is down" };
+      if (state.live || view.time < ATTACK_PATH.startup || state.cooldown < ATTACK_PATH.hold) return { kind: "waiting", reason: "whole-body startup or return" };
+      const at = resolve(view, target, action, effector);
+      if (!at) return { kind: "blocked", reason: "target has no aim" };
+      const hand = sideOf(effector);
+      if (!placedHeightFits(body.built.spec, hand, at[1] - view.head.y)) return { kind: "blocked", reason: "target is outside the arm's height band" };
+      const reach = placedReach(body.built.spec, hand, at[1] - view.head.y);
+      const dx = view.head.x - view.stance.centre.x, dz = view.head.z - view.stance.centre.z;
+      const ahead = dx * sin(around.heading) + dz * cos(around.heading), across = dx * cos(around.heading) - dz * sin(around.heading);
+      // The solve admits a slow approach and a modest facing error before its preparation.
+      const window = { at, along: [reach + ahead - ATTACK_PATH.near, reach + ahead + ATTACK_PATH.near] as const,
+        across: [across - ATTACK_PATH.near, across + ATTACK_PATH.near] as const, facing: .4, speed: .3 };
+      if (!withinActionWindow(view, window, around.heading)) return { kind: "position", window };
+      return { kind: "ready" };
+    },
+    resume() { state.live = null; state.pushes = []; state.cooldown = 0; technique.resume(); },
+    start(view, request) {
+      if (state.live) throw new Error("whole-body executor already owns an instance");
+      const hand = sideOf(request.effector), target = resolve(view, request.target, request.action, request.effector);
+      if (!target) throw new Error("whole-body target has no aim");
+      state.live = { request: { ...request }, hand, phase: "prepare", stage: "admitting", elapsed: 0, withdrawn: false, ending: { kind: "completed" } };
+      technique.begin(view, { kind: "blow", hand, target }, true);
+      state.pushes = technique.command(view.time, hand);
+    },
+    update(view, continued, _around, dt) {
+      state.cooldown += dt;
+      const live = state.live;
+      if (!live) return [];
+      const id = live.request.id;
+      if (view.down) { state.live = null; technique.resume(); state.pushes = []; return [{ id, ending: { kind: "interrupted", reason: "body is down" } }]; }
+      const requested = continued.some(one => one.id === id);
+      if (!requested) live.withdrawn = true;
+      live.elapsed += dt;
+      if (live.phase === "prepare") {
+        if (!resolve(view, live.request.target, live.request.action, live.request.effector)) release({ kind: "lost", reason: "target is no longer sensed" }, view.time);
+        else if (live.withdrawn) release({ kind: "cancelled" }, view.time);
+        else if (drive === "timed") {
+          motion.phase = "swing"; motion.struck = view.time; live.phase = "commit"; live.stage = "swing";
+        } else {
+          const p = technique.fist(live.hand), near = hypot(p.x - motion.back[0], p.y - motion.back[1], p.z - motion.back[2]) < FLAT_OUT.wound;
+          if (near) {
+            technique.aimAt([p.x, p.y, p.z]); motion.phase = "swing"; motion.struck = view.time; motion.touched = null;
+            live.phase = "commit"; live.stage = "swing";
+          } else if (live.elapsed >= FLAT_OUT.longest) release({ kind: "stalled", reason: "whole-body chamber deadline" }, view.time);
+          else live.stage = "chamber";
+        }
+      } else {
+        const returning = live.phase === "release", p = returning ? technique.fist(live.hand) : null;
+        const back = p && hypot(p.x - motion.home[0], p.y - motion.home[1], p.z - motion.home[2]) < WHOLE_BODY.punch.returned;
+        technique.advance(view.time, live.hand, (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0);
+        if (motion.phase === null) {
+          const ending = back ? live.ending : { kind: "stalled" as const, reason: `whole-body return deadline after ${live.ending.reason ?? live.ending.kind}` };
+          state.live = null; state.pushes = []; state.cooldown = 0; return [{ id, ending }];
+        }
+        if (motion.phase === "return") { live.phase = "release"; live.stage = "return"; }
+      }
+      state.pushes = technique.command(view.time, live.hand);
+      const updates: LifecycleUpdate[] = [{ id, phase: live.phase, stage: live.stage, holds: footprint }];
+      return updates;
+    },
+    command(_view, id) {
+      const live = state.live;
+      if (!live || live.request.id !== id) throw new Error(`whole-body executor has no instance ${id}`);
+      return { pushes: state.pushes, ...(closesToStrike(body.built.spec, live.hand) ? { handPoses: { [live.hand]: "fist" as const } } : {}) };
     },
   };
 }

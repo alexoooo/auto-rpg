@@ -12,6 +12,9 @@ import { guardPosture } from "./guard.ts";
 import type { BlowSkill } from "./skill.ts";
 import { APPROACH, type StrikeReport } from "./strike.ts";
 import { turnSense } from "./whole-body-strike.ts";
+import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetRef } from "./action.ts";
+import { withinActionWindow } from "../mind/action-window.ts";
+import { closesToStrike } from "./strikes.ts";
 
 /**
  * **A straight punch's settings.** The body walks at `pace` m/s at most (and `LEAST_PACE` at
@@ -147,7 +150,7 @@ const CLOSED: Readonly<Record<Side, Readonly<Record<Side, boolean>>>> = Object.f
  * guard and stands. An attack given up before the drive is dropped; a drive begun is thrown to its
  * end. It has the legs from its approach to its return, and the hand is closed throughout.
  */
-export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUNCH): BlowSkill {
+function straightTechnique(body: Body, settings: StraightPunch) {
   const built = body.built, spec = built.spec, guard = guardPosture(spec), sense = { left: turnSense("left"), right: turnSense("right") };
   if (!straightPunchFits(spec)) throw new Error(`${spec.model} cannot throw the straight punch`);
   const effectors = bodyEffectors(built), at = new Vector3(), before = new Vector3();
@@ -259,15 +262,7 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
     }
     return posture;
   };
-  return {
-    report, state, releases: false, lower: null,
-    get holds() { return state.hand; },
-    get busy() { return state.phase === "swing" || state.phase === "return"; },
-    accepts: () => true,
-    resume() { end(); },
-    command(view, attack, _intent, around, dt) {
-      const t = state.now = view.time;
-      state.still += dt;
+  const read = (view: BodyView) => {
       headAt[0] = view.head.x; headAt[1] = view.head.y; headAt[2] = view.head.z;
       intoFrameToRef(view.root, headAt, head);
       state.headY = view.head.y;
@@ -284,6 +279,24 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
         const into = state.shoulders[side];
         into[0] = x - head.x; into[1] = shoulder.y - head.y; into[2] = z - head.z;
       }
+  };
+  return { state, report, end, read, standOff, chamber, drive, sense,
+    heightFits: (hand: Side, up: number) => Math.abs(up - state.shoulders[hand][1]) <= settings.reach * limbs[hand].arm };
+}
+
+/** The continuous straight-punch driver carries a target into its local stroke and return. */
+export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUNCH): BlowSkill {
+  const { state, report, end, read, standOff, chamber, drive, sense } = straightTechnique(body, settings);
+  return {
+    report, state, releases: false, lower: null,
+    get holds() { return state.hand; },
+    get busy() { return state.phase === "swing" || state.phase === "return"; },
+    accepts: () => true,
+    resume() { end(); },
+    command(view, attack, _intent, around, dt) {
+      const t = state.now = view.time;
+      state.still += dt;
+      read(view);
       if (view.down) { if (state.hand) end(); return null; }
       // An attack given up, or another hand's, before the drive drops it.
       if ((state.phase === "approach" || state.phase === "settle") && attack?.hand !== state.hand) end();
@@ -337,6 +350,104 @@ export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUN
       }
       const posture = drive(view, hand, t - state.began, pushes);
       return { hands: NO_HANDS, posture, pushes, closed: CLOSED[hand], steer: sense[hand] * settings.hips, legs: { kind: "walk", walk: null, face: state.face } };
+    },
+  };
+}
+
+/** A stopped approach must establish its local stroke within this many seconds. */
+const PUNCH_PREPARE_LIMIT = 6;
+
+/** A straight-punch instance owns settling, its committed drive and its bounded guard return. */
+export function straightPunchExecutor(body: Body, actions: readonly string[], settings: StraightPunch = STRAIGHT_PUNCH,
+  resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null = (_view, target) => target.kind === "point" ? target.at : null): Executor {
+  if (!validStraightPunch(settings)) throw new Error("invalid straight punch settings");
+  const technique = straightTechnique(body, settings), motion = technique.state, guard = guardPosture(body.built.spec);
+  technique.read(body.view);
+  const sides = { left: ["hand.left", "trunk", "legs"], right: ["hand.right", "trunk", "legs"] } as const;
+  const sideOf = (effector: string): Side => {
+    if (effector === "hand.left") return "left";
+    if (effector === "hand.right") return "right";
+    throw new Error(`straight punch has no effector ${effector}`);
+  };
+  const state = { motion, live: null as null | { request: ActionRequest; hand: Side; phase: "prepare" | "commit" | "release";
+    stage: "admitting" | "settle" | "swing" | "return"; time: number; quiet: number; lower: number;
+    withdrawn: boolean; ending: ActionEnding } };
+  const release = (ending: ActionEnding) => {
+    const live = state.live!; live.phase = "release"; live.stage = "return"; live.time = 0; live.ending = ending; motion.phase = "return";
+  };
+  const sparse = (posture: Pose, hand: Side): Pose => Object.fromEntries(Object.entries(posture)
+    .filter(([channel]) => !channel.includes(`.${hand === "left" ? "right" : "left"} `)));
+  return {
+    state,
+    needs(_action, effector) { return sides[sideOf(effector)]; },
+    readiness(view, action, effector, target, around) {
+      if (!actions.includes(action)) return { kind: "blocked", reason: "unknown action" };
+      if (effector !== "hand.left" && effector !== "hand.right") return { kind: "blocked", reason: "unsupported effector" };
+      if (view.down) return { kind: "blocked", reason: "body is down" };
+      if (state.live) return { kind: "waiting", reason: "straight punch is striking or returning" };
+      const at = resolve(view, target, action, effector);
+      if (!at) return { kind: "blocked", reason: "target has no aim" };
+      const hand = sideOf(effector), reach = technique.standOff(hand, at[1] - view.head.y);
+      if (!technique.heightFits(hand, at[1] - view.head.y)) return { kind: "blocked", reason: "target is outside the arm's height band" };
+      const dx = view.head.x - view.stance.centre.x, dz = view.head.z - view.stance.centre.z;
+      const ahead = dx * sin(around.heading) + dz * cos(around.heading), across = dx * cos(around.heading) - dz * sin(around.heading);
+      // Entry permits the configured approach speed and a modest bearing error before settling.
+      const window = { at, along: [reach + ahead - CROWDED, reach + ahead + settings.band] as const,
+        across: [across - settings.band, across + settings.band] as const, facing: .4, speed: settings.pace };
+      if (!withinActionWindow(view, window, around.heading)) return { kind: "position", window };
+      return { kind: "ready" };
+    },
+    resume() { state.live = null; technique.end(); },
+    start(view, request, around) {
+      if (state.live) throw new Error("straight punch already owns an instance");
+      const hand = sideOf(request.effector), at = resolve(view, request.target, request.action, request.effector);
+      if (!at) throw new Error("straight punch target has no aim");
+      state.live = { request: { ...request }, hand, phase: "prepare", stage: "admitting", time: 0, quiet: 0, lower: around.lower,
+        withdrawn: false, ending: { kind: "completed" } };
+      motion.hand = hand; motion.phase = "settle"; motion.target = [...at]; motion.face = atan2(at[0] - view.head.x, at[2] - view.head.z);
+      motion.began = view.time; motion.now = view.time; motion.touched = null; motion.touching = false;
+    },
+    update(view, continued, _around, dt) {
+      technique.read(view); motion.now = view.time;
+      const live = state.live;
+      if (!live) return [];
+      if (view.down) { state.live = null; technique.end(); return [{ id: live.request.id, ending: { kind: "interrupted", reason: "body is down" } }]; }
+      const request = continued.find(one => one.id === live.request.id);
+      if (!request) live.withdrawn = true;
+      const source = request ?? live.request, at = resolve(view, source.target, source.action, source.effector);
+      if (live.phase === "prepare" && (live.withdrawn || !at)) release(!at ? { kind: "lost", reason: "target is no longer sensed" } : { kind: "cancelled" });
+      if (at && !live.withdrawn && live.phase !== "release") motion.target = [...at];
+      live.time += dt;
+      if (live.phase === "prepare") {
+        live.stage = "settle";
+        const quiet = view.stance.phase === "stand" || view.stance.phase === "shift" && hypot(view.stance.velocity.x, view.stance.velocity.z) < SHIFTING_PACE;
+        live.quiet = quiet ? live.quiet + dt : 0;
+        if (live.time >= PUNCH_PREPARE_LIMIT) release({ kind: "stalled", reason: "settling deadline" });
+        else if (quiet && live.quiet >= settings.settle) {
+          live.phase = "commit"; live.stage = "swing"; live.time = 0; motion.phase = "swing";
+          motion.began = view.time; motion.touched = null; motion.face = atan2(motion.target[0] - view.head.x, motion.target[2] - view.head.z);
+          motion.touching = (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0;
+        }
+      } else if (live.phase === "commit") {
+        const touching = (view.effectors[live.request.effector]?.feedback?.impulse ?? 0) > 0;
+        if (touching && !motion.touching && motion.touched === null) motion.touched = view.time;
+        motion.touching = touching;
+        if (motion.touched !== null && view.time - motion.touched >= settings.follow || live.time >= settings.longest) release({ kind: "completed" });
+      } else if (live.time >= settings.recover) {
+        const ending = live.ending; state.live = null; technique.end(); return [{ id: live.request.id, ending }];
+      }
+      const updates: LifecycleUpdate[] = [{ id: live.request.id, phase: live.phase, stage: live.stage, holds: sides[live.hand] }];
+      return updates;
+    },
+    command(view, id) {
+      const live = state.live;
+      if (!live || live.request.id !== id) throw new Error(`straight punch has no instance ${id}`);
+      const pushes: MusclePush[] = [];
+      const posture = live.phase === "commit" ? technique.drive(view, live.hand, live.time, pushes)
+        : live.phase === "prepare" ? technique.chamber(view, live.hand) ?? guard : guard;
+      return { posture: sparse(posture, live.hand), pushes, ...(closesToStrike(body.built.spec, live.hand) ? { handPoses: { [live.hand]: "fist" as const } } : {}),
+        legs: { kind: "walk", walk: null, face: motion.face }, lower: live.lower,
+        steer: live.phase === "commit" ? technique.sense[live.hand] * settings.hips : 0 };
     },
   };
 }

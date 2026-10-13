@@ -12,8 +12,10 @@ import { GUARD } from "./guard.ts";
 import { PLACING, type Footing } from "./locomotion.ts";
 import { wrap } from "../math/turn.ts";
 import type { BlowSkill, Skill } from "./skill.ts";
-import { aimOf, holdsAt, netsOf, recipeAt, recipesFor, REPERTOIRE, type Band, type Chosen, type Repertoire, type StrikeWindow } from "./strikes.ts";
+import { aimOf, closesToStrike, holdsAt, netsOf, recipeAt, recipesFor, REPERTOIRE, type Band, type Chosen, type Repertoire, type StrikeWindow } from "./strikes.ts";
 import { sin, cos, asin, atan2, hypot } from "../math/real.ts";
+import type { ActionAround, ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetRef } from "./action.ts";
+import { withinActionWindow } from "../mind/action-window.ts";
 
 /**
  * **Seconds stood still in the guard before a strike is thrown**: the start every recipe was
@@ -110,6 +112,12 @@ function placedDistance({ length, shoulder, toes }: Arm, stretch: number, up: nu
  */
 export function placedReach(spec: BodySpec, hand: Side, up: number, placing: Placed = PLACED): number {
   return placedDistance(armOf(spec, hand, aimOf(spec, hand)), placing.stretch, up);
+}
+
+/** Whether a level approach can put the hand's striking point at this height above the head. */
+export function placedHeightFits(spec: BodySpec, hand: Side, up: number, placing: Placed = PLACED): boolean {
+  const arm = armOf(spec, hand, aimOf(spec, hand));
+  return Math.abs(up - arm.shoulder[1]) <= arm.length * placing.stretch;
 }
 
 /** How a hand's attack is carried out: thrown with a recipe, or placed with the point it strikes with. */
@@ -567,6 +575,149 @@ export function recipeStrike(spec: BodySpec, repertoire: Repertoire = REPERTOIRE
         hands: made.hands, posture: made.posture === guard ? null : made.posture, pushes: made.pushes, closed, steer: made.steer,
         legs: made.footing ? { kind: "place", footing: made.footing } : { kind: "walk", walk: made.walk, face: made.face },
       };
+    },
+  };
+}
+
+/** A recipe's admitted preparation and return are finite even when its feet cannot settle. */
+const RECIPE_ACTION = Object.freeze({ prepare: 6, return: .4, returnLimit: 1.2, near: .05, slow: .6, hold: .05 });
+
+/** Recipe settings and the shared aim rule supplied by an action's registration. */
+interface RecipeActionSettings {
+  readonly repertoire?: Repertoire;
+  readonly placed?: Placed;
+  readonly steer?: number;
+  readonly guard?: Pose;
+  readonly resolve?: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null;
+}
+
+/** A named recipe executor separates elapsed motion from pure per-instance command generation. */
+export function recipeExecutor(spec: BodySpec, actions: readonly string[], settings: RecipeActionSettings = {}): Executor {
+  const repertoire = settings.repertoire ?? REPERTOIRE, placing = settings.placed ?? PLACED;
+  const guard = settings.guard ?? GUARD, steering = settings.steer ?? STEER;
+  const known = { left: blowsOf(spec, repertoire, "left"), right: blowsOf(spec, repertoire, "right") };
+  const hands = { left: ["hand.left", "trunk", "legs"], right: ["hand.right", "trunk", "legs"] } as const;
+  const resolve = settings.resolve ?? ((_view: BodyView, target: TargetRef) => target.kind === "point" ? target.at : null);
+  const sideOf = (effector: string): Side => {
+    if (effector === "hand.left") return "left";
+    if (effector === "hand.right") return "right";
+    throw new Error(`recipe executor has no effector ${effector}`);
+  };
+  const ownGuard = (hand: Side): Pose => Object.fromEntries(Object.entries(guard).filter(([name]) => !name.includes(`.${hand === "left" ? "right" : "left"} `)));
+  const guarding = { left: ownGuard("left"), right: ownGuard("right") };
+  const state = { live: null as null | {
+    request: ActionRequest; hand: Side; phase: "prepare" | "commit" | "release";
+    stage: "admitting" | "settle" | "chamber" | "swing" | "return";
+    time: number; elapsed: number; quiet: number; ready: number; withdrawn: boolean;
+    ending: ActionEnding; recipe: number | null; target: Vec3; home: Vec3; previous: Vec3;
+    facing: number; lower: number; steer: number;
+  } };
+  const local = new Vector3();
+  const selected = (hand: Side, recipe: number | null) => recipe === null ? known[hand].placed : known[hand].recipes[recipe]!;
+  const preparation = (view: BodyView, action: string, effector: string, target: TargetRef, heading: number) => {
+    if (!actions.includes(action)) return { kind: "blocked", reason: "unknown action" } as const;
+    if (effector !== "hand.left" && effector !== "hand.right") return { kind: "blocked", reason: "unsupported effector" } as const;
+    if (view.down) return { kind: "blocked", reason: "body is down" } as const;
+    if (state.live) return { kind: "waiting", reason: "recipe executor is returning or striking" } as const;
+    const at = resolve(view, target, action, effector);
+    if (!at) return { kind: "blocked", reason: "target has no aim" } as const;
+    const hand = sideOf(effector), recipe = chooseIn(known[hand], at[1] - view.head.y), blow = selected(hand, recipe);
+    if (blow.kind === "placed" && Math.abs(at[1] - view.head.y - blow.arm.shoulder[1]) > blow.arm.length * placing.stretch)
+      return { kind: "blocked", reason: "target is outside the arm's height band" } as const;
+    const reach = standOff(blow, at[1] - view.head.y, placing), window = windowOf(blow);
+    const dx = view.head.x - view.stance.centre.x, dz = view.head.z - view.stance.centre.z;
+    const ahead = dx * sin(heading) + dz * cos(heading), aside = dx * cos(heading) - dz * sin(heading);
+    // Entry permits a modest facing error and approach speed; settling belongs to preparation.
+    const entry = { at, along: [reach + ahead + window.along[0], reach + ahead + window.along[1]] as const,
+      across: [aside + window.across[0], aside + window.across[1]] as const, facing: .4, speed: APPROACH.pace };
+    if (!withinActionWindow(view, entry, heading)) return { kind: "position", window: entry } as const;
+    return { kind: "ready" } as const;
+  };
+  const release = (ending: ActionEnding) => {
+    const live = state.live!;
+    live.phase = "release"; live.stage = "return"; live.time = 0; live.ready = 0; live.ending = ending;
+  };
+  return {
+    state,
+    needs(_action, effector) { return hands[sideOf(effector)]; },
+    readiness(view, action, effector, target, around) { return preparation(view, action, effector, target, around.heading); },
+    resume() { state.live = null; },
+    start(view, request, around) {
+      if (state.live) throw new Error("recipe executor already owns an instance");
+      const hand = sideOf(request.effector), target = resolve(view, request.target, request.action, request.effector);
+      if (!target) throw new Error("recipe target has no aim");
+      const p = view.effectors[request.effector]!.points[aimOf(spec, hand)]!;
+      state.live = { request: { ...request }, hand, phase: "prepare", stage: "admitting", time: 0, elapsed: 0, quiet: 0, ready: 0,
+        withdrawn: false, ending: { kind: "completed" }, recipe: chooseIn(known[hand], target[1] - view.head.y),
+        target: [...target], home: [p.x, p.y, p.z], previous: [p.x, p.y, p.z],
+        facing: atan2(target[0] - view.head.x, target[2] - view.head.z), lower: around.lower, steer: 0 };
+    },
+    update(view, continued, around, dt) {
+      const live = state.live;
+      if (!live) return [];
+      const request = continued.find(one => one.id === live.request.id);
+      if (!request) live.withdrawn = true;
+      if (view.down) {
+        state.live = null;
+        return [{ id: live.request.id, ending: { kind: "interrupted", reason: "body is down" } }];
+      }
+      const source = request ?? live.request;
+      const target = resolve(view, source.target, source.action, source.effector);
+      if (live.phase === "prepare" && !target) release({ kind: "lost", reason: "target is no longer sensed" });
+      else if (live.phase === "prepare" && live.withdrawn) release({ kind: "cancelled" });
+      if (target && !live.withdrawn && live.phase !== "release") live.target = [...target];
+      live.time += dt; live.elapsed += dt;
+      const blow = selected(live.hand, live.recipe);
+      const chamber = blow.kind === "recipe" ? blow.chosen.strike.chamber?.seconds ?? 0 : 0;
+      const duration = blow.kind === "recipe" ? Math.max(0, ...blow.chosen.strike.pushes.map(push => push.to)) : placing.seconds;
+      if (live.phase === "prepare") {
+        if (live.elapsed >= RECIPE_ACTION.prepare) release({ kind: "stalled", reason: "preparation deadline" });
+        else if (live.stage === "chamber") {
+          if (live.time >= chamber) { live.phase = "commit"; live.stage = "swing"; live.time = 0; }
+        } else {
+          live.stage = "settle";
+          live.quiet = view.stance.phase === "stand" && hypot(view.stance.velocity.x, view.stance.velocity.z) <= RECIPE_ACTION.slow
+            && (!around.support || around.support.ready || around.support.stage === "stand") ? live.quiet + dt : 0;
+          if (live.quiet >= STAND) {
+            live.stage = chamber > 0 ? "chamber" : "swing"; live.phase = chamber > 0 ? "prepare" : "commit"; live.time = 0;
+          }
+        }
+      } else if (live.phase === "commit") {
+        live.steer = Math.max(-steering, Math.min(steering, wrap(atan2(live.target[0] - view.head.x, live.target[2] - view.head.z) - live.facing)));
+        if (live.time >= duration) release({ kind: "completed" });
+      } else {
+        const p = view.effectors[live.request.effector]!.points[aimOf(spec, live.hand)]!;
+        const near = hypot(p.x - live.home[0], p.y - live.home[1], p.z - live.home[2]) <= RECIPE_ACTION.near;
+        const slow = hypot(p.x - live.previous[0], p.y - live.previous[1], p.z - live.previous[2]) <= RECIPE_ACTION.slow * dt;
+        live.ready = near && slow ? live.ready + dt : 0;
+        if (live.ready >= RECIPE_ACTION.hold || live.time >= RECIPE_ACTION.returnLimit) {
+          state.live = null;
+          return [{ id: live.request.id, ending: live.ready >= RECIPE_ACTION.hold ? live.ending
+            : { kind: "stalled", reason: `return deadline${live.ending.reason ? ` after ${live.ending.reason}` : ""}` } }];
+        }
+      }
+      const p = view.effectors[live.request.effector]!.points[aimOf(spec, live.hand)]!;
+      live.previous = [p.x, p.y, p.z];
+      const updates: LifecycleUpdate[] = [{ id: live.request.id, phase: live.phase, stage: live.stage, holds: hands[live.hand] }];
+      return updates;
+    },
+    command(view, id, _around: ActionAround) {
+      const live = state.live;
+      if (!live || live.request.id !== id) throw new Error(`recipe executor has no instance ${id}`);
+      const common = { posture: guarding[live.hand], legs: { kind: "walk" as const, walk: null, face: live.facing },
+        lower: live.lower, steer: live.steer, ...(closesToStrike(spec, live.hand) ? { handPoses: { [live.hand]: "fist" as const } } : {}) };
+      if (live.phase === "release") return { ...common, effectors: { [live.request.effector]: {
+        places: [{ point: aimOf(spec, live.hand), position: live.home }], seconds: RECIPE_ACTION.return,
+      } } };
+      const blow = selected(live.hand, live.recipe);
+      if (live.phase === "prepare") return live.stage === "chamber" && blow.kind === "recipe"
+        ? { ...common, posture: { ...common.posture, ...blow.chosen.strike.chamber?.pose } } : common;
+      if (blow.kind === "recipe") return { ...common, pushes: blow.chosen.strike.pushes
+        .filter(push => live.time >= push.from && live.time < push.to)
+        .map(push => ({ channel: push.channel, sense: push.sense, level: push.level ?? 1 })) };
+      intoFrameToRef(view.root, live.target, local);
+      return { ...common, effectors: { [live.request.effector]: { places: [{ point: blow.aim, position: [local.x, local.y, local.z] as Vec3 }],
+        seconds: placing.seconds, through: placing.through, follows: true } } };
     },
   };
 }

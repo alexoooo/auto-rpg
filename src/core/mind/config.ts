@@ -17,6 +17,8 @@ import type { Covering } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
 import type { Threat } from "./threat.ts";
 import type { Edge } from "./recipe-tactics.ts";
+import type { AimRule } from "./action-aim.ts";
+import type { Region } from "../skills/action.ts";
 
 /** Lie still while down: ask the muscles for nothing (`lying`, `lie.ts`). */
 interface LieConfig { readonly kind: "lie" }
@@ -262,6 +264,21 @@ export type BlowConfig = RecipeStrikeConfig | PathStrikeConfig | DrivenStrikeCon
 export interface FrontKickConfig {
   readonly kind: "front-kick";
   readonly tuning?: Partial<KickTuning>;
+}
+
+/** Named execution state shared only by actions that explicitly refer to it. */
+export type ExecutorConfig = (Exclude<BlowConfig, ChooseBlowConfig> | FrontKickConfig) & { readonly name: string };
+
+/** A configured attack's identity, anatomical choices and its executor-specific motion settings. */
+export interface ActionConfig {
+  readonly name: string;
+  readonly executor: string;
+  readonly effectors: readonly string[];
+  readonly regions: readonly Region[];
+  readonly aim: AimRule;
+  readonly family?: import("./intent.ts").BlowFamily;
+  readonly armExtension?: number;
+  readonly lower?: number;
 }
 
 /** **Fighting from low support** (`supportFold`): lowering, folding and rising again. */

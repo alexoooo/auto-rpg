@@ -299,7 +299,8 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
     scratch.set(...at).applyRotationQuaternionToRef(sensed.rotation, scratch).addInPlace(sensed.position);
     return [scratch.x, scratch.y, scratch.z];
   };
-  return (view: BodyView, foe: BodySense, hand: Side, blockedSurface: string | null = null, repertoire: "linear" | "mixed" | "vertical" | "boxing" = "linear") => {
+  return (view: BodyView, foe: BodySense, hand: Side, blockedSurface: string | null = null, repertoire: "linear" | "mixed" | "vertical" | "boxing" = "linear",
+    selection?: { readonly family: BlowFamily; readonly segments: readonly string[]; readonly blocked?: readonly string[] }) => {
     const handShape = spec.segments.find(s => s.name === `hand.${hand}`)!.shape;
     const margin = (handShape.kind === "capsule" || handShape.kind === "sphere" ? handShape.radius.value : 0) * OPENINGS.handMargin;
     const fist = view.fists[hand].position;
@@ -318,8 +319,9 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
       case "boxing": families = ["straight", "hook", "uppercut"]; break;
       default: { const never: never = repertoire; throw new Error(`unknown repertoire ${never}`); }
     }
+    if (selection) families = [selection.family];
     const { high, middle } = foe.spec.marks;
-    for (const name of [high, ...middle]) {
+    for (const name of selection?.segments ?? [high, ...middle]) {
       const segment = foe.spec.segments.find(s => s.name === name), sensed = foe.segments.get(name);
       const local = segment && capsule(segment), poly = segment && polyhedron(segment);
       if ((!local&&!poly) || !sensed) continue;
@@ -347,9 +349,9 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
         fronts.push(front);
        }
       }
-      const top = repertoire === "vertical" ? upperSurface(foe, name, start) : null;
+      const top = selection?.family === "overhand" || repertoire === "vertical" ? upperSurface(foe, name, start) : null;
       if (top) fronts.push(top);
-      const bottom = repertoire === "boxing" ? lowerSurface(foe, name, start) : null;
+      const bottom = selection?.family === "uppercut" || repertoire === "boxing" ? lowerSurface(foe, name, start) : null;
       if (bottom) fronts.push(bottom);
       for(const front of fronts) {
         const lever = sub(front, [sensed.centre.x, sensed.centre.y, sensed.centre.z]);
@@ -379,7 +381,7 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
               previous = next;
             }
           }
-          const score = (preference[name] ?? 0) + (name === blockedSurface ? settings.repeated : 0) + (blocked ? settings.blocked : 0)
+          const score = (preference[name] ?? 0) + (name === blockedSurface || selection?.blocked?.includes(name) ? settings.repeated : 0) + (blocked ? settings.blocked : 0)
             + settings.reachPenalty * Math.abs(length(flat) - reach + paths.windup) + terms.cost;
           if (!best || score < best.score) best = { hand, target, segment: name, family, blocked, reach, score,
             ...(terms.vertical !== 0 ? { direction: [0, terms.vertical, 0] as Vec3 } : {}) };
