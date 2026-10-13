@@ -1,7 +1,7 @@
 /**
  * The core stance's trials, one stand each (Node, the core's stand, 120 Hz unless `hz` is given):
- * the batteries `research/core-stance-sweep.mjs` sweeps a stance tuning over. Each mirrors a case
- * of `tests/core-stance.test.mjs`, and returns plain numbers.
+ * the batteries `research/core-stance-sweep.mjs` sweeps a stance tuning over. Each but `orders` mirrors
+ * a case of `tests/core-stance.test.mjs`, and each returns plain numbers.
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody } from "../src/core/body.ts";
@@ -300,4 +300,42 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120, after 
   } finally { b.dispose(); stand.dispose(); }
 }
 
-export const TRIALS = { stand, edge, step, shove, walk, turn };
+/**
+ * Orders as a person or a crowd gives them, at random from `seed`, for `seconds` after 1 s standing:
+ * each held `ORDERS.least` to `ORDERS.most` s, a stand (one in six), a walk at `speed` m/s turning
+ * to a new heading (one in two), or a walk at it a new way with the heading kept (one in three). As a
+ * fight plays the body with `held` (`body`), walking by the locomotion skill `legs` names
+ * (`skillOf`): whether it fell, and when.
+ */
+export async function orders({ model, speed, seed, seconds = 30, stance, hz = 120, held = null, actuation, physique, legs = null }) {
+  const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique);
+  const skill = skillOf(legs, b);
+  if (!skill) throw new Error("orders are given to a locomotion skill");
+  let state = (seed * 2654435761) % 4294967296;
+  const random = () => { state = (state * 1664525 + 1013904223) % 4294967296; return state / 4294967296; };
+  let goal = null, walk = null, heading = 0;
+  b.drive((view, dt) => skillCommand(skill, view, walk, heading, dt, held === null ? {} : guard, (next) => { goal = next ?? goal; return goal; }));
+  try {
+    stand.step(stand.seconds(1));
+    let low = -Infinity, next = 0;
+    for (let i = 0; i < stand.seconds(seconds); i++) {
+      if (i >= next) {
+        next = i + stand.seconds(ORDERS.least + (ORDERS.most - ORDERS.least) * random());
+        const kind = random(), way = 2 * Math.PI * random();
+        if (kind < 1 / 6) walk = null;
+        else if (kind < 2 / 3) { walk = [speed, 0]; heading = way; }
+        else { heading = skill.heading; walk = [speed * Math.cos(way), speed * Math.sin(way)]; }
+      }
+      stand.step(1);
+      const s = b.view.stance;
+      if (goal) low = Math.max(low, goal.height - (s.centre.y - s.support.y));
+      if (low > 0.25 || !Number.isFinite(low)) return { fell: true, at: b.view.time };
+    }
+    return { fell: false, at: null };
+  } finally { b.dispose(); stand.dispose(); }
+}
+
+/** How long each of `orders`' orders is held, s: from about a step to a few strides. */
+const ORDERS = { least: 0.3, most: 2 };
+
+export const TRIALS = { stand, edge, step, shove, walk, turn, orders };

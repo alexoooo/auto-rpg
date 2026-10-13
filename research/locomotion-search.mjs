@@ -54,8 +54,14 @@
  * make): on each body each of `PLAYED.tracks` at each of its paces, calm and in each gust, for
  * `PLAYED.seconds`; the score is the mean speed made along the track, a fall stopping the body where
  * it fell; `--tracks` names others. Its winds' seeds are not the ones the Run's bed is read on. With `--way all` it searches
- * every way's gait at once (with `--way forward --timing`, forward's and the stance's timing, `TIMING_DIMS`), each setting named for its way (`forward.cv`, `side.cv`, `back.cv`), and
+ * every way's gait at once (with `--way forward --timing`, forward's and the stance's timing, `TIMING_DIMS`; with `--steer`, its speed-up and turn, `STEER_DIMS`), each setting named for its way (`forward.cv`, `side.cv`, `back.cv`), and
  * the walk's speed-up and swerve (`ALL_EXTRA`).
+ *
+ * With `--orders` a battery candidate also walks random orders (`orders` in `core-stance-trials.mjs`:
+ * stands, turns and ways changed every few steps) on each body at each of `ORDERS.paces`, with each thing
+ * a fight puts in the right hand, on each of `ORDERS.seeds`, which the Run's checks do not read; the share
+ * that stood throughout adds `ORDERS.weight` times itself to the score. A crowd and a person at the keys
+ * give such orders, and a walk that holds each way alone can fall changing between them.
  *
  * With `--objective both` the score is the battery's and the played objective's together: the
  * battery holds a candidate to setting off, going as asked and stopping, which the Run under the
@@ -108,6 +114,8 @@ const TIMING_DIMS = { seconds: [0.18, 0.45], longest: [0.6, 1.2] };
 /** The ways `--way all` searches together, and the gait's settings it searches with them. */
 const ALL_WAYS = ["forward", "side", "back"];
 const ALL_EXTRA = { speedup: [0.3, 1], swerve: [0.2, 1.5] };
+/** With `--way forward --steer`, the walk's speed-up and turn searched with forward's settings. */
+const STEER_DIMS = { ...ALL_EXTRA, swerve: [0.6, 2.4], turn: [1, 2.5] };
 const ALL_DIMS = { ...Object.fromEntries(ALL_WAYS.flatMap((w) => Object.entries(WAY_DIMS).map(([key, range]) => [`${w}.${key}`, range]))), ...ALL_EXTRA };
 
 /**
@@ -162,6 +170,9 @@ const BATTERY = { speeds: [0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.7, 2], ways: [0, 9
  * turns slow and tight, its circle at speed.
  */
 const TURNS = { speeds: [0.3, 0.7, 1.2], rates: [0.35, 0.5, 0.7, 1, 1.4], afters: [0, 3], weight: 1 };
+/** With `--orders`, the random orders' paces, m/s, seeds, and the weight of the share that stood. */
+const ORDERS = { paces: [0.2, 0.3, 0.5, 0.7], seeds: [101, 102, 103, 104, 105, 106, 107, 108], weight: 2 };
+
 /** How near a turn came to holding, [0, 1]: 0 if it fell; else less the share of `TURNED` its facing lagged past it. */
 const turnQuality = (r) => r.fell ? 0 : Math.max(0, 1 - Math.max(0, r.lag - TURNED) / TURNED);
 
@@ -170,13 +181,13 @@ const PACES = [0.3, 0.5, 0.7, 1, 1.2, 1.4, 1.7, 2];
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : fallback; };
 const list = (name, fallback) => arg(name, fallback).split(",");
-const objective = arg("objective", "bed"), turning = process.argv.includes("--turns"), tracking = process.argv.includes("--track"), narrow = arg("narrow") ? Number(arg("narrow")) : null;
+const objective = arg("objective", "bed"), turning = process.argv.includes("--turns"), ordering = process.argv.includes("--orders"), tracking = process.argv.includes("--track"), narrow = arg("narrow") ? Number(arg("narrow")) : null;
 const kind = arg("kind", "stride"), running = kind === "run", way = kind === "simbicon" ? arg("way", "back") : null;
 /** With `--way run`, the legs the run is searched over. */
 const baseLegs = arg("legs") ? JSON.parse(readFileSync(arg("legs"), "utf8")) : { kind, ...SIMBICON };
 if (arg("speeds")) BATTERY.speeds = list("speeds").map(Number);
-const SPACE = running ? RUN_DIMS : way === "run" ? RUN_WAY_DIMS : way === "all" ? ALL_DIMS : way === "forward" && process.argv.includes("--timing") ? { ...WAY_DIMS, ...TIMING_DIMS } : way ? WAY_DIMS : DIMS, LADDER = running ? RUN_PACES : PACES;
-const BASE = running ? RUN : way === "run" ? { ...simbiconRun(baseLegs.tuning?.run), at: baseLegs.run } : way === "all" ? allOf(SIMBICON, simbiconWays()) : way === "forward" ? { ...wayOf(SIMBICON), seconds: SIMBICON.seconds, longest: SIMBICON.longest } : way ? simbiconWays()[way] : STRIDE;
+const SPACE = running ? RUN_DIMS : way === "run" ? RUN_WAY_DIMS : way === "all" ? ALL_DIMS : way === "forward" ? { ...WAY_DIMS, ...(process.argv.includes("--timing") ? TIMING_DIMS : {}), ...(process.argv.includes("--steer") ? STEER_DIMS : {}) } : way ? WAY_DIMS : DIMS, LADDER = running ? RUN_PACES : PACES;
+const BASE = running ? RUN : way === "run" ? { ...simbiconRun(baseLegs.tuning?.run), at: baseLegs.run } : way === "all" ? allOf(SIMBICON, simbiconWays()) : way === "forward" ? { ...wayOf(SIMBICON), seconds: SIMBICON.seconds, longest: SIMBICON.longest, speedup: SIMBICON.speedup, swerve: SIMBICON.swerve, turn: SIMBICON.turn } : way ? simbiconWays()[way] : STRIDE;
 const models = list("models", way ? "workshop-fighter" : "workshop-fighter,workshop-rogue");
 const lines = list("lines", running || way === "forward" || way === "run" ? "forward" : way === "back" ? "back" : way ? "right,left" : "forward,right,back");
 const seeds = list("seeds", "1,2,3").map(Number), seconds = Number(arg("seconds", "15"));
@@ -294,16 +305,20 @@ async function turnLadder(legs, model, speed) {
   return { model, speed, credit, fastest };
 }
 
-/** A candidate's battery score: its ways' credits, weighted, with its turns' if asked, and each body's fastest each way and each turn. */
+/** A candidate's battery score: its ways' credits, weighted, with its turns' and its orders' if asked, and each body's fastest each way and each turn, and how many of its orders it fell under. */
 async function batteryScore(legs) {
-  const [ladders, turns] = await Promise.all([
+  const [ladders, turns, ordered] = await Promise.all([
     Promise.all(models.flatMap((model) => batteryWays.map((degrees) => batteryLadder(legs, model, degrees)))),
     turning ? Promise.all(models.flatMap((model) => TURNS.speeds.map((speed) => turnLadder(legs, model, speed)))) : [],
+    ordering ? Promise.all(models.flatMap((model) => ORDERS.paces.flatMap((speed) => HELD.flatMap((held) => ORDERS.seeds.map(async (seed) =>
+      ({ model, ...await trial({ trial: "orders", model, speed, held, seed, legs }) })))))) : [],
   ]);
   const walked = ladders.reduce((s, l) => s + BATTERY.weight[l.degrees] * l.credit, 0) / ladders.reduce((s, l) => s + BATTERY.weight[l.degrees], 0);
-  const total = walked + (turning ? TURNS.weight * turns.reduce((s, t) => s + t.credit, 0) / turns.length : 0);
+  const stood = ordered.length ? ordered.filter((r) => !r.fell).length / ordered.length : 0;
+  const total = walked + (turning ? TURNS.weight * turns.reduce((s, t) => s + t.credit, 0) / turns.length : 0) + (ordering ? ORDERS.weight * stood : 0);
   const by = Object.fromEntries(models.map((model) => [model.replace("workshop-", ""), batteryWays.map((d) => ladders.find((l) => l.model === model && l.degrees === d).fastest).join(",")
-    + (turning ? ` turns ${TURNS.speeds.map((v) => turns.find((t) => t.model === model && t.speed === v).fastest).join(",")}` : "")]));
+    + (turning ? ` turns ${TURNS.speeds.map((v) => turns.find((t) => t.model === model && t.speed === v).fastest).join(",")}` : "")
+    + (ordering ? ` fell ${ordered.filter((r) => r.model === model && r.fell).length}/${ordered.filter((r) => r.model === model).length}` : "")]));
   return { score: total, legs, by, ladders, turns };
 }
 
