@@ -6,6 +6,7 @@ import { NO_COVER, type Intent } from "../core/mind/intent.ts";
 import type { Tactics } from "../core/mind/tactics.ts";
 import { STANCE_LOWER } from "../core/skills/locomotion.ts";
 import type { Actor } from "./actor.ts";
+import type { World } from "../core/world.ts";
 
 /**
  * **The lab's stance mode**: a human on its own feet under the core stance
@@ -107,23 +108,10 @@ function stanceTactics(orders: StanceOrders): Tactics {
  * pushed, the impulse, N s, and where, world.
  */
 export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void, reproduceRecovery: boolean | { readonly impulse: number; readonly degrees: number; readonly separation: number } = false): StanceSession {
-  const { body, world } = actor, built = body.built;
-  const trunk = built.segments.get("middleTrunk");
-  if (!trunk) throw new Error(`${built.spec.model} has no middle trunk to shove`);
+  const { body, world } = actor;
   const orders = restOrders();
   const { report } = actor.drive(stanceTactics(orders));
-  let shove: Vector3 | null = null;
-  const turn = new Quaternion(), at = new Vector3();
-  // After the body's control, before the solver: the page's hand on the world, not the body's.
-  const shoving = world.beforeStep(() => {
-    if (!shove) return;
-    trunk.node.rotationQuaternion!.multiplyToRef(Quaternion.Inverse(trunk.rest), turn);
-    const com = trunk.rigid.centre, o = trunk.frame.origin;
-    at.set(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternionToRef(turn, at).addInPlace(trunk.node.position);
-    trunk.body.applyImpulse(shove, at);
-    pushed?.(trunk, shove, at);
-    shove = null;
-  });
+  const shoving = shoveBody(body, world, () => report.heading, pushed);
 
   const frame = (): StanceFrame => {
     const s = body.view.stance, height = s.centre.y - s.support.y;
@@ -134,10 +122,7 @@ export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impul
     };
   };
 
-  const push = (impulse: number, degrees: number): void => {
-    const a = report.heading + degrees * Math.PI / 180;
-    shove = new Vector3(impulse * Math.sin(a), 0, impulse * Math.cos(a));
-  };
+  const push = shoving.shove;
   // The search's two impulses: after 2 s standing, then 0.2 s later, on physics steps.
   const recipe = typeof reproduceRecovery === "object" ? reproduceRecovery : {impulse:60,degrees:0,separation:.2};
   const reproduction = reproduceRecovery ? world.afterStep(() => {
@@ -157,4 +142,30 @@ export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impul
       actor.dispose();
     },
   };
+}
+
+/** Queue a level impulse on the middle trunk before physics, relative to the supplied heading. */
+export function shoveBody(body: Body, world: World, heading: () => number,
+  pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void) {
+  const built = body.built;
+  const trunk = built.segments.get("middleTrunk");
+  if (!trunk) throw new Error(`${built.spec.model} has no middle trunk to shove`);
+  let shove: Vector3 | null = null;
+  const turn = new Quaternion(), at = new Vector3();
+  // After the body's control, before the solver: the page's hand on the world, not the body's.
+  const shoving = world.beforeStep(() => {
+    if (!shove) return;
+    trunk.node.rotationQuaternion!.multiplyToRef(Quaternion.Inverse(trunk.rest), turn);
+    const com = trunk.rigid.centre, o = trunk.frame.origin;
+    at.set(com[0] - o[0], com[1] - o[1], com[2] - o[2]).applyRotationQuaternionToRef(turn, at).addInPlace(trunk.node.position);
+    trunk.body.applyImpulse(shove, at);
+    pushed?.(trunk, shove, at);
+    shove = null;
+  });
+
+  const push = (impulse: number, degrees: number): void => {
+    const a = heading() + degrees * Math.PI / 180;
+    shove = new Vector3(impulse * Math.sin(a), 0, impulse * Math.cos(a));
+  };
+  return { shove: push, dispose: () => shoving.dispose() };
 }

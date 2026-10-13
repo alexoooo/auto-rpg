@@ -37,7 +37,7 @@ read (`src/core/skills/skills.ts`).
 
 `createBody` (`src/core/body.ts`) gives a built body the command layers as its mind
 (`commandMind`, hosting the sub-minds it is given, under `embody`): its muscles and motor control. Each step it
-reads the body's `BodyView` (time, joint angles, fists, each effector's points, head, stance), asks its driver,
+reads the body's `BodyView` (time, joint angles, fists, each effector's points, head, stance and ground support), asks its driver,
 and obeys the `BodyCommand` it gets back: a posture, named effector goals, timed pushes and a stance goal.
 Body data declares each effector and its free chain (`BodySpec.effectors`), and a command names
 goals by the effector's segment: a hand, a foot or a paw, on one point tracker, a foot with an
@@ -58,8 +58,17 @@ The independent `supportEntryPolicy` remains available to the research task; it 
 support and does not supply the arena's standing transition.
 
 Each effector's optional feedback (`BodyView.effectors`) samples actual point motion and external
-contact impulses from the preceding physics step, with no engine objects exposed. Feedback is
-plain bout state.
+contact impulses after each completed physics interval, before `Body.afterPhysics` listeners run,
+including while idle or under a sub-mind. The next control step reads that sample; no engine
+objects are exposed. Feedback is plain bout state.
+
+`BodyView.ground` (`mind/ground/reading.ts`) reads each segment's signed fixed-contact load,
+sole tilt and loaded heel/toe support, trunk orientation, height and motion while the body is
+down or its host has released it. Otherwise it is null. Held items, walls and overhead contacts
+provide no body support. The position label settles over six steps; loads and geometry update
+immediately. `standReady` requires quiet, flat two-foot support carrying nearly the whole weight,
+the centre of mass inside the inset sole polygon, and the host's upright reading. These facts
+and the label's memory save with the body's state.
 
 
 The opening tactics select collider-derived target surfaces, and the path strike commits a hand trajectory through
@@ -1086,8 +1095,10 @@ fresh-world replay accompany the [human comparison](reference/punch-calibration.
 `createWorld(scene, engine)` (`src/core/world.ts`) makes the world: one fixed step at 120 Hz
 (`PHYSICS_HZ`) that owns physics, control, combat and the clock. A step runs the sensing hooks (a fight's senses, `createSenses`), the before-step hooks
 in the order they were added, one solver step, which writes every node, the world's compliant
-contact-work episodes, and the after-step hooks
-(readings, blows); the clock is the count of steps. Each body adds one before-step hook
+contact-work episodes, the post-physics observations (`afterPhysics`), and the after-step hooks
+(readings, blows). The clock advances before contact work and observations; it is the count of steps.
+Post-physics observations finish before any after-step event can end or remove a fighter.
+Each body adds one before-step hook
 (`driveMuscles`), in which the muscles read the joints, the body's mind steps (`embody`), its
 assist gives what the mind asked of it and the motors are set; for a game body the mind is `commandMind` with its sub-minds (`hosting`): it reads the view (`look`), and then a sub-mind that wants the
 body drives it, or the tactics, the skills and motor control do; a page may add its own (the crypt's
@@ -1289,7 +1300,7 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   where nothing need be read (`SightIndex`), made again when a door opens. The
   page hears every built body where the party sees (`hearRun`, `hearing.ts`), its listener made
   again when a body is built.
-- **The lab** (`src/lab/`): one body at a time in the Stance, Get-up experiment, Attack and Locomotion
+- **The lab** (`src/lab/`): one body at a time in the Stance, Get-up experiment, On the ground, Attack and Locomotion
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
   Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
   page chose: its balance, its mind and the strikes it may throw. The mind is a fighter
@@ -1319,6 +1330,14 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   checks handover. The Mind editor selects the recovery controller. Stress cases reproduce
   named directional falls. The history records the owning controller, recovery control time,
   force/moment with their ceilings, and release to the host.
+  **On the ground** supplies seeded placed, dropped and shoved starts (`ground-starts.ts`).
+  Joint kinematics reject nonadjacent shape overlap before physics starts; a draw that cannot
+  clear in five attempts is reported. Its selected mind runs immediately, with recovery supplied
+  in the default tree, and an optional hanging foe enters the same senses as combat targets.
+  Ground classifications, support loads, recovery phases, attempts and assist impulses are
+  recorded with the body and foe. `research/rising-bed.mjs` runs these starts in worker threads;
+  its separate target mode fixes the 64 directional falls and verifies quiet standing and the
+  host's subsequent stand and walk independently of the controller's hand-back.
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
   with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).
 - **The physics bench** (`/physics-bench.html`, `src/physics-bench/`): the bake-off's cases on

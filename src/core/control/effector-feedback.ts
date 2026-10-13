@@ -8,12 +8,25 @@ import { motionAtToRef, pointOfToRef } from "./support.ts";
 
 /** Permitted contact identity, detached from engine handles: a body's segment says whether its body covers with it (`Marks.guards`). */
 export type ContactTarget = { readonly kind: "body"; readonly body: string; readonly segment: string; readonly guard: boolean }
-  | { readonly kind: "object"; readonly id: string } | { readonly kind: "world" };
+  | { readonly kind: "object"; readonly id: string } | { readonly kind: "world"; readonly id?: string };
 
 /** Trusted adapter maps physics bodies to permitted identities; only detached results enter a view. */
 export type ContactIdentity = (other: SegmentBody | null) => ContactTarget | null;
 
-export interface EffectorContact { readonly target: ContactTarget; readonly point: Vec3; readonly normal: Vec3; readonly impulse: number; readonly compression?: number }
+export interface EffectorContact {
+  readonly target: ContactTarget; readonly point: Vec3; readonly normal: Vec3; readonly impulse: number; readonly compression?: number;
+  /** Stable detached identity for external fixed colliders or objects without a semantic target id. */
+  readonly key?: string;
+}
+
+/** One present contact episode, including intervals whose normal impulse is zero. */
+interface EffectorContactPair extends EffectorContact {
+  readonly key: string;
+  /** The completed interval applies positive normal impulse. */
+  readonly loaded: boolean;
+  /** The first loaded interval since this pair last separated. */
+  readonly onset: boolean;
+}
 
 /** Own striking-point motion and external touch; no engine objects or opponent intentions. */
 export interface EffectorFeedback {
@@ -31,12 +44,17 @@ export interface EffectorFeedback {
   readonly contacts?: readonly ContactTarget[];
   /** Greatest measured normal compression among selected striking-region contacts. */
   readonly compression?: number;
+  /** Every present external pair, deduplicated across its manifolds. */
+  readonly pairs?: readonly EffectorContactPair[];
+  /** World step of the completed sample, when the caller supplies one. */
+  readonly completedStep?: number;
 }
 
-/** Trusted contact and motion sampler for any declared physical endpoint, sampled before control from the last completed physics step. */
+/** Trusted contact and motion sampler for any declared physical endpoint and its completed physics interval. */
 export function effectorFeedback(built: BuiltBody, segments: readonly string[], identity?: ContactIdentity,
   external?: (segment: string) => readonly EffectorContact[], points?: Readonly<Record<string, { readonly point: string; readonly regions?: readonly string[] }>>) {
   const make = () => ({ point: [0, 0, 0] as [number, number, number], velocity: [0, 0, 0] as [number, number, number],
+    pairs: [] as EffectorContactPair[], episodes: new Map<string, boolean>(), completedStep: -1,
     impulse: 0, contactPoint: null as Vec3 | null, ...(identity || external ? { contact: null as EffectorContact | null } : {}),
     ...(points ? { obstructed: false, obstruction: null as EffectorContact | null, contacts: [] as ContactTarget[], compression: 0 } : {}) });
   const state = Object.fromEntries(segments.map(name => [name, make()]));
@@ -51,9 +69,30 @@ export function effectorFeedback(built: BuiltBody, segments: readonly string[], 
     return { name, segment, point, shapes, strike: declared.get("strike")?.value };
   });
   const point = new Vector3(), velocity = new Vector3(), spin = new Vector3();
-  return { state, read() {
+  const present = new Map<string, EffectorContactPair>();
+  const targetKey = (target: ContactTarget): string => {
+    switch (target.kind) {
+      case "body": return JSON.stringify(["body", target.body, target.segment]);
+      case "object": return JSON.stringify(["object", target.id]);
+      case "world": {
+        if (target.id === undefined) throw new Error("an external world contact needs a stable key");
+        return JSON.stringify(["world", target.id]);
+      }
+      default: { const never: never = target; throw new Error(`unknown contact target ${never}`); }
+    }
+  };
+  return { state, read(completedStep?: number) {
     for (const item of parts) {
       const out = state[item.name]!;
+      if (completedStep !== undefined && out.completedStep === completedStep) continue;
+      if (completedStep !== undefined) out.completedStep = completedStep;
+      present.clear();
+      const observe = (key: string, target: ContactTarget, at: Vec3, normal: Vec3, impulse: number) => {
+        const previous = present.get(key), total = (previous?.impulse ?? 0) + impulse;
+        const strongest = previous && previous.impulse >= impulse ? previous : { point: at, normal };
+        present.set(key, { key, target: { ...target }, point: [...strongest.point], normal: [...strongest.normal],
+          impulse: total, loaded: total > 0, onset: total > 0 && !out.episodes.get(key) });
+      };
       pointOfToRef(item.segment, item.segment.handPose?.applied === "fist" && item.strike ? item.strike : item.point, point);
       motionAtToRef(item.segment, point, velocity, spin);
       out.point[0] = point.x; out.point[1] = point.y; out.point[2] = point.z;
@@ -62,8 +101,13 @@ export function effectorFeedback(built: BuiltBody, segments: readonly string[], 
       if (points) { out.obstructed = false; out.obstruction = null; out.contacts!.length = 0; out.compression = 0; }
       let strongest = 0;
       for (const contact of built.physics.contactsOf(item.segment.body)) {
-        if ((contact.other && own.has(contact.other)) || !(contact.impulse > 0)) continue;
+        if (contact.other && own.has(contact.other)) continue;
         const permitted = identity?.(contact.other);
+        const target: ContactTarget = contact.other ? permitted ?? { kind: "object", id: `physics-body:${contact.other.id}` }
+          : { kind: "world", id: `fixed:${contact.fixed}` };
+        const key = JSON.stringify([item.name, targetKey(target)]);
+        observe(key, target, contact.point, contact.normal ?? [0, 0, 0], contact.impulse);
+        if (!(contact.impulse > 0)) continue;
         if (points) out.contacts!.push({ ...(permitted ?? { kind: "world" as const }) });
         const pairs = item.shapes ? contact.pairs.filter(pair => item.shapes!.includes(pair.mine)) : [contact];
         if (item.shapes && !pairs.length) {
@@ -83,7 +127,9 @@ export function effectorFeedback(built: BuiltBody, segments: readonly string[], 
         }
       }
       for (const contact of external?.(item.name) ?? []) {
-        if (!(contact.impulse > 0) || !Number.isFinite(contact.impulse)) continue;
+        if (contact.impulse < 0 || !Number.isFinite(contact.impulse)) continue;
+        observe(JSON.stringify([item.name, contact.key ?? targetKey(contact.target)]), contact.target, contact.point, contact.normal, contact.impulse);
+        if (!(contact.impulse > 0)) continue;
         if (points) out.contacts!.push({ ...contact.target });
         if (points && contact.compression !== undefined) out.compression = Math.max(out.compression!, contact.compression);
         out.impulse += contact.impulse;
@@ -91,6 +137,12 @@ export function effectorFeedback(built: BuiltBody, segments: readonly string[], 
         if (contact.impulse > (out.contact?.impulse ?? 0))
           out.contact = { ...contact, target: { ...contact.target }, point: [...contact.point], normal: [...contact.normal] };
       }
+      out.pairs.length = 0;
+      for (const [key, pair] of present) {
+        out.pairs.push(pair);
+        out.episodes.set(key, (out.episodes.get(key) ?? false) || pair.loaded);
+      }
+      for (const key of out.episodes.keys()) if (!present.has(key)) out.episodes.delete(key);
     }
   } };
 }

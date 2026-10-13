@@ -1,5 +1,6 @@
 import { partOf } from "../core/mind/catalog.ts";
 import type { MindConfig } from "../core/mind/config.ts";
+import type { Provision } from "../core/mind/parts.ts";
 import type { Holders } from "../core/skills/arbiter.ts";
 import type { StrikeReport } from "../core/skills/strike.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -37,10 +38,11 @@ const hasText = (has: string, fighter: boolean): string =>
  * of the tree holds the legs, the trunk and each hand (`SkillReport.holders`), its slot marked
  * live. `inspected` answers null while there is no body to read.
  */
-export function mindInspector(config: MindConfig, spec: BodySpec, inspected: () => Inspected | null): { readonly element: HTMLElement; refresh(): void } {
+export function mindInspector(config: MindConfig, spec: BodySpec, inspected: () => Inspected | null,
+  provides: readonly Provision[] = []): { readonly element: HTMLElement; refresh(): void } {
   const element = document.createElement("div"), live = document.createElement("dl");
   element.className = "mind-inspector"; live.className = "mind-live";
-  const tree = mindEditor(config, { spec, readOnly: true });
+  const tree = mindEditor(config, { spec, provides, readOnly: true });
   element.append(live, tree.element);
   const row = (term: string): HTMLElement => {
     const name = document.createElement("dt"), value = document.createElement("dd");

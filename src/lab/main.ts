@@ -33,7 +33,7 @@ import { createMindLog, logged, watchHas, type MindLog } from "./mind-log.ts";
 import { attackScenario } from "./attack-scenario.ts";
 import { locomotionScenario } from "./locomotion-scenario.ts";
 import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
-import { labHref, labMind, LAB_PRESETS, recoveryAddress, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
+import { labHref, labMind, LAB_PRESETS, LAB_PROVIDES, recoveryAddress, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
 import { dresserFor } from "../render/dress.ts";
 import { skinSlot, type SkinSlot } from "../render/skin-slot.ts";
@@ -41,6 +41,7 @@ import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import { feedbackRecipe } from "./recovery-recipe.ts";
 import recoverySeed from "../../research/stand-up-feedback-seed.json" with { type: "json" };
 import { stanceScenario } from "./stance-scenario.ts";
+import { groundScenario } from "./ground-scenario.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { need } from "../dom.ts";
 
@@ -82,6 +83,7 @@ const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => L
   recovery: (scene, shell) => stanceScenario(scene, shell),
   attack: attackScenario,
   locomotion: locomotionScenario,
+  ground: groundScenario,
 };
 
 /**
@@ -138,7 +140,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   }
   MeshBuilder.CreateLineSystem("lab.grid", { lines, colors: lines.map((l) => l.map(() => lineColour)) }, scene);
 
-  const scenario = SCENARIO[address.scenario](scene, { restart: () => load(shown), reproduceRecovery: (mode,recipe) => load({...recoveryAddress(shown, mode ?? shown.recoveryMode),...recipe}) });
+  const scenario = SCENARIO[address.scenario](scene, { load, restart: () => load(shown), reproduceRecovery: (mode,recipe) => load({...recoveryAddress(shown, mode ?? shown.recoveryMode),...recipe}) });
   need("scenario-name").textContent = SCENARIOS.find((s) => s.id === address.scenario)!.name;
   const back = need<HTMLAnchorElement>("to-scenarios");
 
@@ -223,8 +225,12 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     unload();
     world = createWorld(scene, physicsEngine, { hz: to.hz });
     world.physics.addFixedBox([0, -0.5, 0], [40, 1, 40]);
-    // Its skills hold the guard from the first step, so it is built holding it.
-    const spec = loadoutSpec(to), built = buildBody(spec, world, { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) });
+    // The scenario supplies its initial placement; ordinary starts hold the standing guard.
+    const spec = loadoutSpec(to);
+    let placement: Parameters<typeof buildBody>[2];
+    try { placement = scenario.placement?.(spec, to) ?? { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) }; }
+    catch (error) { console.error(error); show(to); return; }
+    const built = buildBody(spec, world, placement);
     const balance = loadoutBalance(to.balance, built.spec);
     const log = createMindLog();
     const chosen = to.scenario === "recovery" && to.recoveryMode === "witness"
@@ -234,7 +240,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
       mind,
       recoveryRecipe: to.scenario === "recovery" && to.recoveryMode === "witness" ? feedbackRecipe(spec, recoverySeed.feedback.u) : undefined, assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), around: (tactics) => logged(tactics, log),
     });
-    thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.skills })));
+    thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.skills }), to.scenario === "attack" ? [] : LAB_PROVIDES));
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
     const view = drawBody(built, scene, Color3.FromHexString(MODEL_DISPLAY[to.model].tint)), heldView = drawHeld(built, scene);
     const sounds = createSoundLog(world.dt, AIR_SECONDS), logging = logSounds(world, actor.body, sounds);

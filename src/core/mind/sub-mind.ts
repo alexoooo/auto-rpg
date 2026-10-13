@@ -24,7 +24,7 @@ export interface HostMind extends Mind {
   /** Command the body on what `look` read: the rest of its step. */
   act(dt: number): void;
   /** The body is a sub-mind's from this step: what it was in the middle of is over, and what it shows of its own commands says so. */
-  release(): void;
+  release(reason?: "takeover" | "idle"): void;
   /** The body is its own again from this step: it goes on from the body as it is. */
   resume(): void;
 }
@@ -54,9 +54,9 @@ const HOST = -1, NOBODY = -2;
 export function hosting(host: HostMind, subs: readonly SubMind[]): Hosted {
   const state = { has: HOST, host: host.state ?? null, subs: subs.map((sub) => sub.state ?? null) };
   /** Whoever has the body gives it up. */
-  const giveUp = (): void => {
+  const giveUp = (reason: "takeover" | "idle"): void => {
     if (state.has >= 0) subs[state.has]!.end();
-    else if (state.has === HOST) host.release();
+    else if (state.has === HOST) host.release(reason);
   };
   return {
     name: host.name, state,
@@ -65,7 +65,7 @@ export function hosting(host: HostMind, subs: readonly SubMind[]): Hosted {
       host.look(senses);
       const want = subs.findIndex((sub) => sub.wants(senses));
       if (want !== state.has) {
-        giveUp();
+        giveUp("takeover");
         if (want >= 0) subs[want]!.begin();
         else host.resume();
         state.has = want;
@@ -74,7 +74,7 @@ export function hosting(host: HostMind, subs: readonly SubMind[]): Hosted {
       else subs[want]!.step(senses, dt);
     },
     idle() {
-      giveUp();
+      giveUp("idle");
       state.has = NOBODY;
     },
   };

@@ -11,6 +11,7 @@ import type { Provision } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { deepFreeze } from "../core/state.ts";
 import { mindFaults, mindText, readMind } from "../ui/mind-link.ts";
+import { groundMind } from "./ground-config.ts";
 
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
@@ -23,7 +24,7 @@ import { mindFaults, mindText, readMind } from "../ui/mind-link.ts";
  * reads its options from here, so an option offered is one the lab has.
  */
 
-export type ScenarioId = "stance" | "attack" | "locomotion" | "recovery";
+export type ScenarioId = "stance" | "attack" | "locomotion" | "recovery" | "ground";
 
 interface ScenarioInfo {
   readonly id: ScenarioId;
@@ -34,6 +35,7 @@ interface ScenarioInfo {
 export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "stance", name: "Stance" },
   { id: "recovery", name: "Get-up experiment" },
+  { id: "ground", name: "On the ground" },
   { id: "attack", name: "Attack" },
   { id: "locomotion", name: "Locomotion" },
 ];
@@ -96,6 +98,15 @@ export function labMind(config: MindConfig, spec: BodySpec, scenario: ScenarioId
 const LAB_TARGETS = { most: 30, count: 10, seed: 1 } as const;
 
 export interface LabAddress extends LabLoadout, ViewSettings {
+  readonly ground: {
+    readonly start: "shoved" | "dropped" | "placed";
+    readonly posture: "back" | "front" | "left" | "right" | "fours" | "half-kneel" | "squat";
+    /** Null draws the shove from the seed. */
+    readonly degrees: number | null;
+    readonly impulse: number | null;
+    readonly foe: 0 | 1 | 2 | 4;
+    readonly gusts: boolean;
+  };
   readonly recoveryMode: "witness" | "selected";
   /** Two timed chest impulses: direction in degrees, impulse in N s, separation in seconds. */
   readonly recoveryPush: { readonly degrees: number; readonly impulse: number; readonly separation: number };
@@ -114,7 +125,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly seed: number;
 }
 
-const KEYS = ["recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
+const KEYS = ["groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -136,6 +147,14 @@ export function labAddress(search: string): LabAddress {
     return Number.isFinite(value) && value >= lo && value <= hi ? value : fallback;
   };
   return {
+    ground: {
+      start: (["shoved", "dropped", "placed"] as const).find(v => v === query.get("groundStart")) ?? "shoved",
+      posture: (["back", "front", "left", "right", "fours", "half-kneel", "squat"] as const).find(v => v === query.get("groundPosture")) ?? "back",
+      degrees: query.has("groundDegrees") ? bounded("groundDegrees", 0, 360, 0) : null,
+      impulse: query.has("groundImpulse") ? bounded("groundImpulse", 40, 90, 60) : null,
+      foe: ([0, 1, 2, 4] as const).find(v => String(v) === query.get("groundFoe")) ?? 0,
+      gusts: flag(query.get("groundGusts"), false),
+    },
     recoveryMode: recoveryModeFrom(query.get("recoveryMode")),
     recoveryPush: {degrees:bounded("pushDegrees",0,360,0),impulse:bounded("pushImpulse",10,120,60),separation:bounded("pushSeparation",.05,1,.2)},
     scenario: SCENARIOS.find((s) => s.id === query.get("scenario"))?.id ?? null,
@@ -147,7 +166,8 @@ export function labAddress(search: string): LabAddress {
     armour: flag(query.get("armour"), worn.armour),
     sole: flag(query.get("sole"), false),
     balance: balanceFrom(query.get("balance") ?? ""),
-    mind: readMind(query.get("mind"), LAB_PRESETS) ?? (query.get("scenario") === "attack" ? PUNCHER : LAB_PRESETS.script.config),
+    mind: readMind(query.get("mind"), LAB_PRESETS) ?? (query.get("scenario") === "attack" ? PUNCHER
+      : query.get("scenario") === "ground" ? groundMind(LAB_PRESETS.script.config) : LAB_PRESETS.script.config),
     barred: HELD.filter((h) => barred.includes(h)),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
     view: VIEW_MODES.find((v) => v === query.get("view")) ?? VIEW_MODES[0],
@@ -166,6 +186,12 @@ export function labAddress(search: string): LabAddress {
 export function labHref(address: LabAddress, search = ""): string {
   const query = new URLSearchParams(playHref("lab", search));
   for (const key of KEYS) query.delete(key);
+  if (address.ground.start !== "shoved") query.set("groundStart", address.ground.start);
+  if (address.ground.posture !== "back") query.set("groundPosture", address.ground.posture);
+  if (address.ground.degrees !== null) query.set("groundDegrees", String(address.ground.degrees));
+  if (address.ground.impulse !== null) query.set("groundImpulse", String(address.ground.impulse));
+  if (address.ground.foe !== 0) query.set("groundFoe", String(address.ground.foe));
+  if (address.ground.gusts) query.set("groundGusts", "1");
   if (address.recoveryMode !== "selected") query.set("recoveryMode", address.recoveryMode);
   if (address.recoveryPush.degrees !== 0) query.set("pushDegrees", String(address.recoveryPush.degrees));
   if (address.recoveryPush.impulse !== 60) query.set("pushImpulse", String(address.recoveryPush.impulse));

@@ -83,6 +83,62 @@ test("sensing runs before every step hook, whenever it was added", async () => {
   } finally { stand.dispose(); }
 });
 
+test("post-physics observations read the completed interval before an earlier after-step callback removes them", async () => {
+  const stand = await airborne();
+  const { world } = stand, head = stand.built.segments.get("head").body, v = new Vector3(), calls = [];
+  try {
+    world.step(3);
+    let observation;
+    world.afterStep(() => {
+      head.linearVelocityToRef(v);
+      calls.push({ phase: "event", steps: world.steps, time: world.time, speed: v.y });
+      observation.dispose();
+    });
+    world.beforeStep(() => {
+      head.linearVelocityToRef(v);
+      calls.push({ phase: "control", steps: world.steps, time: world.time, speed: v.y });
+    });
+    observation = world.afterPhysics((dt) => {
+      assert.equal(dt, world.dt);
+      head.linearVelocityToRef(v);
+      calls.push({ phase: "observation", steps: world.steps, time: world.time, speed: v.y });
+    });
+    world.step(2);
+    const before = calls[0].speed, completed = calls[1].speed, next = calls[4].speed;
+    assert.deepEqual(calls, [
+      { phase: "control", steps: 3, time: 3 / 120, speed: before },
+      { phase: "observation", steps: 4, time: 4 / 120, speed: completed },
+      { phase: "event", steps: 4, time: 4 / 120, speed: completed },
+      { phase: "control", steps: 4, time: 4 / 120, speed: completed },
+      { phase: "event", steps: 5, time: 5 / 120, speed: next },
+    ]);
+    assert.ok(Math.abs(completed - before + 9.80665 * world.dt) < 5e-4, "the observation includes the solver's gravity impulse");
+    assert.ok(next < completed, "the following interval still advances after observation removal");
+  } finally { stand.dispose(); }
+});
+
+test("post-physics hooks added before their phase run immediately, additions within it wait and removals stop at once", async () => {
+  const stand = await airborne();
+  const { world } = stand, calls = [];
+  try {
+    let second;
+    const before = world.beforeStep(() => {
+      before.dispose();
+      world.afterPhysics(() => {
+        calls.push(`first ${world.steps}`);
+        if (world.steps === 1) {
+          world.afterPhysics(() => calls.push(`late ${world.steps}`));
+          world.afterStep(() => calls.push(`event ${world.steps}`));
+        }
+        second.dispose();
+      });
+      second = world.afterPhysics(() => calls.push(`second ${world.steps}`));
+    });
+    world.step(2);
+    assert.deepEqual(calls, ["first 1", "event 1", "first 2", "late 2", "event 2"]);
+  } finally { stand.dispose(); }
+});
+
 test("elapsed time becomes whole steps, the remainder is carried, and a page that falls behind runs slow", async () => {
   const stand = await airborne();
   const { world } = stand, dt = world.dt;

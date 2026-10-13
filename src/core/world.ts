@@ -13,8 +13,9 @@ export const PHYSICS_HZ: Quantity<number> = sourced(120, "Hz", "owner-physics-ra
  * into whole steps), and nothing else moves its bodies or its clock.
  *
  * A step is: the sensing hooks; the step hooks, in the order they were added (minds, motor control,
- * the muscle driver); then one solver step of `dt`, which writes every body's node; then physical contact work; then the
- * after-step hooks (readings). The physics is the engine's the world was made with (`src/core/engine/engine.ts`),
+ * the muscle driver); then one solver step of `dt`, which writes every body's node; then the clock advances,
+ * physical contact work is read, and the post-physics hooks observe the completed interval; then the
+ * after-step hooks (events and readings). The physics is the engine's the world was made with (`src/core/engine/engine.ts`),
  * beside the scene, which only carries the nodes: `scene.render()` never advances it, and a page renders what the steps
  * produced. The clock is the count of steps; `time` is that count over the rate, not a sum of deltas.
  *
@@ -47,7 +48,9 @@ export interface World {
   sense(hook: StepHook): Hook;
   /** Run `hook` before every solver step, after the hooks added before it. */
   beforeStep(hook: StepHook): Hook;
-  /** Run `hook` after every solver step, after the hooks added before it. */
+  /** Observe each completed solver interval after the clock advances, before any after-step event can change a body. */
+  afterPhysics(hook: StepHook): Hook;
+  /** Run `hook` after all post-physics observations, after the hooks added before it. */
   afterStep(hook: StepHook): Hook;
   /** Take `n` steps. */
   step(n?: number): void;
@@ -87,7 +90,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
   if (actuation !== "symmetric" && actuation !== "directional") throw new Error(`unknown actuation ${String(actuation)}`);
   const physics = engine.createPhysics({ hz, gravity });
   const dt = 1 / hz;
-  const sensing: HookEntry[] = [], before: HookEntry[] = [], after: HookEntry[] = [];
+  const sensing: HookEntry[] = [], before: HookEntry[] = [], observed: HookEntry[] = [], after: HookEntry[] = [];
   const state = { steps: 0, owed: 0, contactWork: { active: new Map<string, ContactWork>(), released: [] as ContactWork[] } };
   const touched = new Set<string>(), centre = new Vector3(), spin = new Vector3(), one = new Vector3(), two = new Vector3();
   const motion = (body: SegmentBody, point: Vec3, out: Vector3) => {
@@ -138,6 +141,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
     get time() { return state.steps / hz; },
     sense: (hook) => add(sensing, hook),
     beforeStep: (hook) => add(before, hook),
+    afterPhysics: (hook) => add(observed, hook),
     afterStep: (hook) => add(after, hook),
     step(n = 1) {
       if (disposed) throw new Error("the world was disposed");
@@ -149,6 +153,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
         physics.step(dt);
         state.steps += 1;
         readWork();
+        runAll(observed);
         runAll(after);
       }
     },
@@ -164,6 +169,7 @@ export function createWorld(scene: Scene, engine: PhysicsEngine, { hz = PHYSICS_
       disposed = true;
       sensing.length = 0;
       before.length = 0;
+      observed.length = 0;
       after.length = 0;
       physics.dispose();
     },

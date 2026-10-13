@@ -14,7 +14,7 @@ import { labAddress, labHref, recoveryAddress, LAB_PRESETS, LAB_RATES, MODELS, S
 const SCRIPT = LAB_PRESETS.script.config, GUARD = LAB_PRESETS.guard.config;
 /** A mind no preset is: the Guard preset getting up once down. */
 const RISING = { ...GUARD, subs: [{ kind: "support-recovery" }] };
-const DEFAULTS = { recoveryMode: "selected", recoveryPush: {degrees:0,impulse:60,separation:.2}, appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, sole: false, balance: null, mind: SCRIPT, barred: [], hz: 120,
+const DEFAULTS = { ground: {start:"shoved",posture:"back",degrees:null,impulse:null,foe:0,gusts:false}, recoveryMode: "selected", recoveryPush: {degrees:0,impulse:60,separation:.2}, appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, sole: false, balance: null, mind: SCRIPT, barred: [], hz: 120,
   view: "world", camera: "free", projection: "orthographic", targets: 10, seed: 1 };
 /** The Rogue as the workshop dresses it: boots, no armour. */
 const ROGUE = { model: "workshop-rogue", boots: true, armour: false };
@@ -128,7 +128,7 @@ test("the_lab_offers_the_game_rate_first_and_distinct_scenarios", () => {
   assert.equal(LAB_RATES[0], PHYSICS_HZ.value);
   assert.equal(new Set(SCENARIOS.map((s) => s.id)).size, SCENARIOS.length);
   assert.ok(SCENARIOS.every((s) => s.name));
-  assert.deepEqual(SCENARIOS.map((s) => s.id), ["stance", "recovery", "attack", "locomotion"]);
+  assert.deepEqual(SCENARIOS.map((s) => s.id), ["stance", "recovery", "ground", "attack", "locomotion"]);
   assert.equal(labAddress("?play=lab&scenario=locomotion").scenario, "locomotion");
 });
 

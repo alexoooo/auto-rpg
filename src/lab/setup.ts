@@ -1,5 +1,6 @@
 import { labHref, LAB_PRESETS, recoveryAddress, SCENARIOS, type LabAddress } from "./scenarios.ts";
 import { need } from "../dom.ts";
+import { groundMind } from "./ground-config.ts";
 
 /**
  * **The lab's scenario menu** (`?play=lab`): a card for each scenario, and a click opens it. The
@@ -15,6 +16,7 @@ export function showScenarios(address: LabAddress): void {
       if (scenario.id === "attack" && mind.tactics.kind === "script") mind = LAB_PRESETS.puncher.config;
       else if (scenario.id !== "attack" && mind.tactics.kind !== "script" && mind.tactics.kind !== "stand")
         mind = { ...mind, tactics: { kind: "script" } };
+      if (scenario.id === "ground") mind = groundMind(mind);
     }
     const chosen = { ...address, mind, scenario: scenario.id };
     card.href = labHref(scenario.id === "recovery" ? recoveryAddress(chosen) : chosen, window.location.search);

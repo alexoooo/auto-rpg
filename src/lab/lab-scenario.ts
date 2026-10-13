@@ -1,11 +1,11 @@
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { SoundCue } from "../audio/cues.ts";
-import type { BuiltBody } from "../core/build/build-body.ts";
+import type { buildBody, BuiltBody } from "../core/build/build-body.ts";
 import type { Player, Playhead } from "./player.ts";
 import type { Actor } from "./actor.ts";
 import type { Control } from "../ui/controls.ts";
 import type { LabAddress } from "./scenarios.ts";
-import type { Side } from "../core/spec/body.ts";
+import type { BodySpec, Side } from "../core/spec/body.ts";
 import type { FighterConfig } from "../core/mind/config.ts";
 
 /**
@@ -26,6 +26,8 @@ export interface LabScenario {
   readonly timelineLabel: string;
   /** The mind its body plays, from the one the page chose; absent, that one. */
   mind?(chosen: FighterConfig): FighterConfig;
+  /** A physical initial pose in place of the shell's standing guard. */
+  placement?(spec: BodySpec, address: LabAddress): Parameters<typeof buildBody>[2];
   start(context: ScenarioContext): ScenarioRun;
 }
 
@@ -37,6 +39,8 @@ export const SCENARIO_PANELS = ["scenario", "controls", "readout"] as const;
 
 /** What the shell offers a scenario's own controls. */
 export interface LabShell {
+  /** Restart with the scenario's new address, preserving its loadout and view. */
+  load(address: LabAddress): void;
   /** Start the scenario again on a new body in a new world, as Restart does. */
   restart(): void;
   /** Reset to the chosen recovery demonstration, with its explicit body and assistance. */
@@ -45,7 +49,7 @@ export interface LabShell {
 
 interface ScenarioContext {
   readonly scene: Scene;
-  /** A body at the origin facing +z, in its guard on the ground; the scenario supplies its orders or script (`Actor.drive`). */
+  /** A body built in the scenario's placement; the scenario supplies its orders or script (`Actor.drive`). */
   readonly actor: Actor;
   /** The address the body was loaded from: what a scenario reads of its own in it. */
   readonly address: LabAddress;

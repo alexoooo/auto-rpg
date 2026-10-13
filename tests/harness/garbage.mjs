@@ -12,6 +12,9 @@ import { standIntent } from "../../src/core/mind/intent.ts";
 import { driveBy } from "../../src/core/mind/tactics.ts";
 import { createWorld } from "../../src/core/world.ts";
 import { freshEngine } from "./core-stand.mjs";
+import { lying } from "../../src/core/mind/lie.ts";
+import { GUARD } from "../../src/core/skills/guard.ts";
+import { poseAngles } from "../../src/core/control/kinematics.ts";
 
 /**
  * `count` bodies of `model` with the club on a ground in a world of their own, on a square grid
@@ -30,6 +33,16 @@ export async function standBodies(count, model = "crypt-skeleton", { only } = {}
     return body;
   });
   return { world, bodies, dispose() { world.dispose(); scene.dispose(); } };
+}
+
+/** A Warrior on its back under its lying sub-mind, so every step reads all fixed support. */
+export async function downBody() {
+  const rendering = new NullEngine(), scene = new Scene(rendering), world = createWorld(scene, await freshEngine());
+  world.physics.addFixedBox([0, -.5, 0], [20, 1, 20]);
+  const spec = modelSpec("workshop-fighter"), half = Math.sqrt(.5);
+  const built = buildBody(spec, world, { position: [0, .4, 0], rotation: [-half, 0, 0, half], joints: poseAngles(spec, GUARD) });
+  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS, subs: [lying] });
+  return { world, body, dispose() { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); rendering.dispose(); } };
 }
 
 /**

@@ -15,10 +15,12 @@ import type { HostMind } from "./mind/sub-mind.ts";
 import type { SubMindMaker } from "./mind/sub-minds.ts";
 import type { BodyLevel, MuscleDriver } from "./muscle/driver.ts";
 import type { World } from "./world.ts";
+import { PHYSICS_HZ } from "./world.ts";
 import type { PhysicalBody } from "./physical-body.ts";
 import { centreReading } from "./observation.ts";
 import { effectorFeedback, type ContactIdentity, type EffectorContact, type EffectorFeedback } from "./control/effector-feedback.ts";
 import type { BodySpec, Side, HandPose } from "./spec/body.ts";
+import { groundReading, type GroundReading } from "./mind/ground/reading.ts";
 
 /**
  * **A body, commanded and seen.** One class for every body assembled from a spec: its muscles
@@ -61,7 +63,9 @@ export interface Body extends PhysicalBody {
    */
   readonly state: object;
   /** Drive each control step; null keeps the command. `released` discards pending driver work on sub-mind takeover or idle. */
-  drive(driver: BodyDriver | null, released?: (view: BodyView) => void): void;
+  drive(driver: BodyDriver | null, released?: (view: BodyView, reason: "takeover" | "idle" | "replaced") => void): void;
+  /** Observe completed physics intervals after effector feedback is sampled, including while idle or under a sub-mind. */
+  afterPhysics(listener: (step: number, time: number) => void): () => void;
   dispose(): void;
 }
 
@@ -142,6 +146,8 @@ export interface BodyView {
   readonly standing: number;
   /** Whether the body is down (`uprightness`, `src/core/control/ground.ts`): true while it is, false once it is up again. */
   readonly down: boolean;
+  /** Current physical ground support while down or released to a sub-mind; null while the host stands. */
+  readonly ground: GroundReading | null;
   /** Whether a sub-mind had the body until this step: whatever its driver had under way is over. */
   readonly resumed: boolean;
 }
@@ -193,12 +199,15 @@ export interface BodyOptions {
  */
 interface CommandMind extends HostMind {
   readonly view: BodyView;
+  /** Sample the completed solver interval before its consumers run. */
+  sample(step: number): void;
   /** Drive each control step; null keeps the command. `released` discards pending driver work on sub-mind takeover or idle. */
-  drive(driver: BodyDriver | null, released?: (view: BodyView) => void): void;
+  drive(driver: BodyDriver | null, released?: (view: BodyView, reason: "takeover" | "idle" | "replaced") => void): void;
 }
 
 /** The command layers over `own`, holding its reference pose until something drives them. */
-export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feedbackEnabled, contactIdentity, contacts }: BodyOptions): CommandMind {
+export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feedbackEnabled, contactIdentity, contacts }: BodyOptions,
+  dt = 1 / PHYSICS_HZ.value): CommandMind {
   const { built, muscles } = own;
   const motor: MotorControl = motorControl(built, servoSeconds, {}, stance, own.assist);
   const feedback = feedbackEnabled ? effectorFeedback(built, motor.effectors.map(e => e.segment), contactIdentity,
@@ -207,6 +216,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
   const head = centreReading(built, "head");
   const angles: Record<string, number> = {};
   const upright = uprightness(built);
+  const ground = groundReading(built, dt);
   const goals: Record<string, EffectorGoal | null> = Object.fromEntries(motor.effectors.map(e => [e.segment, null]));
   const effectors = Object.fromEntries(motor.effectors.map(e => [e.segment, {
     points: Object.fromEntries(Object.keys(e.points).map(name => [name, new Vector3()])), rotation: new Quaternion(),
@@ -221,6 +231,9 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
     head: head.centre,
     motor: motor.state,
     down: false,
+    ground: ground.state,
+    subOwned: false,
+    groundActive: false,
     resumed: false,
   };
   const view = {
@@ -234,10 +247,11 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
     stance: motor.stance.reading,
     standing: standingHeight(built),
     get down() { return state.down; },
+    get ground() { return state.groundActive ? ground.state.reading : null; },
     get resumed() { return state.resumed; },
   };
   let driver: BodyDriver | null = null;
-  let released: ((view: BodyView) => void) | undefined;
+  let released: ((view: BodyView, reason: "takeover" | "idle" | "replaced") => void) | undefined;
 
   const obey = (command: BodyCommand): void => {
     for (const [segment, goal] of Object.entries(command.effectors ?? {})) {
@@ -260,7 +274,6 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
   obey(restCommand());
 
   const look = (senses: Senses): void => {
-    feedback?.read();
     state.time = senses.time;
     view.senses = senses;
     muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
@@ -277,6 +290,9 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
     motor.stance.read();
     const standing = motor.standing;
     state.down = upright.down(standing?.height, standing?.pose !== undefined);
+    state.groundActive = state.down || state.subOwned;
+    if (state.groundActive) ground.read();
+    else ground.reset();
   };
   const act = (dt: number): void => {
     const next = driver?.(view, dt);
@@ -287,14 +303,16 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
   return {
     name: COMMAND,
     view, look, act, state,
-    drive(next, onRelease) { driver = next; released = onRelease; },
+    sample(step) { feedback?.read(step); },
+    drive(next, onRelease) { if (driver && driver !== next) released?.(view, "replaced"); driver = next; released = onRelease; },
     step(senses, dt) { look(senses); act(dt); },
-    release() {
-      released?.(view);
+    release(reason = "takeover") {
+      state.subOwned = true;
+      released?.(view, reason);
       motor.reset();
       for (const segment in goals) goals[segment] = null;
     },
-    resume() { state.resumed = true; },
+    resume() { state.subOwned = false; state.resumed = true; },
   };
 }
 
@@ -312,16 +330,28 @@ export function commandable(spec: BodySpec): boolean {
 export function createBody(built: BuiltBody, world: World, options: BodyOptions): Body {
   let command!: CommandMind;
   const body = hostedBody(built, world, options, (own, sense) => {
-    command = commandMind(own, options);
+    command = commandMind(own, options, world.dt);
     const subs = (options.subs ?? []).map((make) => make(own, command.view, world));
     // Before its first step the view is the body as built, where a driver or a run first finds it.
+    command.sample(world.steps);
     command.look(sense());
     return { host: command, subs, down: () => command.view.down };
   });
+  const listeners = new Set<(step: number, time: number) => void>();
+  const sampled = world.afterPhysics(() => {
+    command.sample(world.steps);
+    for (const listener of listeners) listener(world.steps, world.time);
+  });
+  const disposeBody = body.dispose;
   return Object.assign(body, {
     view: command.view,
     envelope: !options.measuring && Object.keys(options.stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null,
-    drive: (next: BodyDriver | null, released?: (view: BodyView) => void) => command.drive(next, released),
+    drive: (next: BodyDriver | null, released?: (view: BodyView, reason: "takeover" | "idle" | "replaced") => void) => command.drive(next, released),
+    afterPhysics(listener: (step: number, time: number) => void): () => void {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+    dispose() { command.drive(null); sampled.dispose(); listeners.clear(); disposeBody(); },
   });
 }
 

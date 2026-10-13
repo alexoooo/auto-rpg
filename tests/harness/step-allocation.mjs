@@ -3,15 +3,16 @@
  * (`tests/harness/garbage.mjs`) runs it in a process of its own. Node, the core world, Rapier,
  * 120 Hz.
  *
- *   node tests/harness/step-allocation.mjs standing|standing-array|bout
+ *   node tests/harness/step-allocation.mjs standing|standing-array|down|bout
  *
  * - `standing`: two skeletons standing (`standBodies`), 240 steps read from 3 s.
  * - `standing-array`: the same, with one `new Array(4096)` made first in every step.
  * - `bout`: the Warrior against the Rogue with clubs, 480 steps read from 2 s.
+ * - `down`: the Warrior lying on its back, 240 steps read from 3 s, with the ground reader active.
  */
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { buildBout } from "../../research/bout.mjs";
-import { allocatedIn, standBodies } from "./garbage.mjs";
+import { allocatedIn, downBody, standBodies } from "./garbage.mjs";
 
 // Babylon greets every engine it makes on the console.
 Logger.LogLevels = Logger.NoneLogLevel;
@@ -37,11 +38,22 @@ async function bout() {
   } finally { dispose(); }
 }
 
+async function down() {
+  const steps = 240, { world, body, dispose } = await downBody();
+  try {
+    world.step(3 * world.hz);
+    if (!body.view.down || body.view.ground?.position !== "back") throw new Error("the allocation fixture is not lying on its back");
+    const { bytes } = await allocatedIn(() => world.step(steps));
+    if (!body.view.down || body.view.ground?.position !== "back") throw new Error("the body left its ground reading during the measured steps");
+    return bytes / steps / 1024;
+  } finally { dispose(); }
+}
+
 /** What the hook keeps, so its array is not taken away unmade. */
 let kept = null;
 const fixture = process.argv[2];
 const kib = fixture === "standing" ? await standing() : fixture === "standing-array" ? await standing(() => { kept = new Array(4096); })
-  : fixture === "bout" ? await bout() : null;
+  : fixture === "bout" ? await bout() : fixture === "down" ? await down() : null;
 if (kib === null) throw new Error(`no fixture ${fixture}`);
 if (fixture === "standing-array" && !kept) throw new Error("the hook never ran");
 process.stdout.write(String(kib));
