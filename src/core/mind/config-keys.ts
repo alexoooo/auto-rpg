@@ -39,7 +39,7 @@ export const CONFIG_KEYS = deepFreeze({
     turn: true, drop: true, arms: true, drive: true, lever: true,
   },
   "simbicon": {
-    kind: true, tuning: true, seconds: true, longest: true, swingHip: true, swingHipLate: true,
+    kind: true, tuning: true, runs: true, seconds: true, longest: true, swingHip: true, swingHipLate: true,
     swingKnee: true, swingKneeLate: true, swingSpread: true, swingAnkle: true, swingAnkleLate: true,
     stanceKnee: true, stanceKneeLate: true, stanceAnkle: true, cvAnkle: true, cvAnkleSide: true, lean: true,
     cd: true, cv: true, cdLate: true, cvLate: true, cdSide: true, cvSide: true, landing: true, lead: true,

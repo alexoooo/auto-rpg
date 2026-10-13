@@ -156,10 +156,12 @@ export interface RunConfig extends RunSettings {
 
 /**
  * **The SIMBICON walk** (`simbicon`, `skills/simbicon.ts`): the legs driven by a state machine with no stance, its settings
- * these, forward's; and the settings it takes walking to a side or back in place of forward's, over its own (`SimbiconWays`).
+ * these, forward's; and the settings it takes walking to a side or back in place of forward's, over its own (`SimbiconWays`),
+ * and running, over the run's. It runs unless `runs` is false (`Locomotion.runs`).
  */
 export interface SimbiconConfig extends SimbiconSettings {
   readonly kind: "simbicon";
+  readonly runs?: boolean;
   readonly tuning?: { readonly side?: Partial<SimbiconWay>; readonly back?: Partial<SimbiconWay>; readonly run?: Partial<SimbiconRun> };
 }
 
@@ -318,11 +320,16 @@ export const OPENINGS: OpeningsConfig = deepFreeze({ kind: "openings", hands: "a
   combinations: "none", spacing: 0, spacingStep: 0 });
 
 /**
- * The legs a body gets about by (`move`): braced while it stands or a standing foe is within 5 m,
- * walking otherwise. An Arena bout opens at 4 m, so it fights from its first step.
+ * The legs a body gets about by (`move`): braced while it stands or a standing foe is within 5 m;
+ * walking while one is within 10 m, so that it comes to a fight at a walk it stops from in a few
+ * steps; running to where it goes more than 6 m off, where it has time to come up to the run, or
+ * with nowhere to go and no foe near; walking otherwise. An Arena bout opens at 4 m, so it fights
+ * from its first step.
  */
 export const MOVE: MoveConfig = deepFreeze({ kind: "move",
-  rules: [{ kind: "when-standing", gait: "braced" }, { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" }], otherwise: "walk" });
+  rules: [{ kind: "when-standing", gait: "braced" }, { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" },
+    { kind: "when-distance", of: "foe", than: "under", metres: 10, gait: "walk" }, { kind: "when-distance", of: "destination", than: "over", metres: 6, gait: "run" }],
+  otherwise: "walk" });
 
 /** The recipe fighter: seeking tactics over the recipe strike, walking in the stance, lying still once down. The Lab's minds are made from it. */
 export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tactics: SEEK, locomotion: { kind: "stance-walk" }, guard: { kind: "cover-guard" },
@@ -350,7 +357,7 @@ export const ARENA_KICKS: KickTuning = deepFreeze({ ...KICK_PATH, swingSeconds: 
  * (`docs/reference/ground-combat.md#arena-integration`), and rising, then steadying, once down. It
  * travels by the stride, which leaves the stance its low support steps from (`drivesLegs`).
  */
-export const SCRAPPER: FighterConfig = deepFreeze({ ...GAME_FIGHTER, locomotion: { ...MOVE, otherwise: "stride" }, tactics: { ...OPENINGS, strikes: "mixed", prefers: "body" },
+export const SCRAPPER: FighterConfig = deepFreeze({ ...GAME_FIGHTER, locomotion: { ...MOVE, rules: MOVE.rules.filter((rule) => rule.gait === "braced"), otherwise: "stride" }, tactics: { ...OPENINGS, strikes: "mixed", prefers: "body" },
   blow: { kind: "path-strike", overlap: false }, support: { kind: "support-fold" }, subs: [{ kind: "support-recovery" }] });
 
 /** A fighter of behaviours (`BehavioursConfig`): orders followed first, then `list`, then the hands covering; rising and steadying on its feet once down. */

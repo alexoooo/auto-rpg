@@ -14,13 +14,15 @@
  * With `--legs stride` the bodies walk and turn by the stride (`src/core/skills/stride.ts`) in
  * place of the stance's own walk, at the stride's speeds, and `--write` writes
  * `assets/core/stride-envelope.json`; with `--legs simbicon`, by the SIMBICON gait
- * (`src/core/skills/simbicon.ts`) at its walk's speeds, writing `assets/core/simbicon-envelope.json`.
+ * (`src/core/skills/simbicon.ts`) told it may not run, at its walk's speeds, writing
+ * `assets/core/simbicon-envelope.json`; with `--legs simbicon-run`, by it free to run, at its run's
+ * speeds, writing `assets/core/simbicon-run-envelope.json`.
  *
- *   node research/core-stance-envelope.mjs [--legs stride|simbicon] [--write] [--workers 14]
+ *   node research/core-stance-envelope.mjs [--legs stride|simbicon|simbicon-run] [--write] [--workers 14]
  *     [--config settings.json] [--physique '{"speed":1.25}'] [--out envelope.json] [--walks]
  *     [--gusts 1:20:1,2]
  *
- * With `--legs simbicon --config`, the walk is the SIMBICON gait's with the settings in that file
+ * With `--legs simbicon --config` (or `simbicon-run`), the walk is the SIMBICON gait's with the settings in that file
  * (a `SimbiconConfig`, as the Lab's mind takes it) in place of its defaults; `--out` writes the
  * envelope to that file in place of the asset. `--physique` builds each body of that physique
  * (`Physique`, `src/core/human/physique.ts`) in place of its own. `--walks` measures the walks alone,
@@ -45,14 +47,16 @@ import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
  * the body on past the pace asked, or short of it (the Rogue asked 0.2 forward makes 0.34, and to its
  * forward right 0.13 along).
  */
-const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], simbicon: [0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5] };
+const SIMBICON_SPEEDS = [0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5];
+const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], simbicon: SIMBICON_SPEEDS, "simbicon-run": [...SIMBICON_SPEEDS, 3] };
 export const WAYS = [0, 90, 180, 270, 45];
 export const MODELS = ["workshop-fighter", "workshop-rogue", "crypt-skeleton"];
 /**
  * The turn battery's rates, rad/s, by the legs it measures: the SIMBICON walk's finer, for its turns
  * set the Run's pace round a bend and a turn read between two rates is the slower's.
  */
-const RATES_OF = { stance: [0.25, 0.5, 1, 2, 4], stride: [0.25, 0.5, 1, 2, 4], simbicon: [0.25, 0.35, 0.5, 0.7, 1, 1.4, 2, 4] };
+const SIMBICON_RATES = [0.25, 0.35, 0.5, 0.7, 1, 1.4, 2, 4];
+const RATES_OF = { stance: [0.25, 0.5, 1, 2, 4], stride: [0.25, 0.5, 1, 2, 4], simbicon: SIMBICON_RATES, "simbicon-run": SIMBICON_RATES };
 export const SENSES = [1, -1];
 /** What a fight puts in a body's right hand: every way a body is played is a way it must hold. */
 export const HOLDS = HELD;
@@ -71,10 +75,11 @@ const WINDS = [null, ...(() => {
 })()];
 const physique = values.physique ? JSON.parse(values.physique) : undefined;
 const legs = values.legs ?? null;
-if (legs !== null && legs !== "stride" && legs !== "simbicon") throw new Error(`no envelope is measured for legs ${legs}`);
-if (values.config && legs !== "simbicon") throw new Error("--config gives a SIMBICON walk's settings: it needs --legs simbicon");
-/** What each trial walks by: the legs' name, or the SIMBICON walk's settings given. */
-const walker = values.config ? JSON.parse(readFileSync(values.config, "utf8")) : legs;
+if (legs !== null && !Object.hasOwn(SPEEDS_OF, legs)) throw new Error(`no envelope is measured for legs ${legs}`);
+const simbiconLegs = legs === "simbicon" || legs === "simbicon-run";
+if (values.config && !simbiconLegs) throw new Error("--config gives a SIMBICON walk's settings: it needs --legs simbicon or simbicon-run");
+/** What each trial walks by: the legs' name, or the SIMBICON walk's settings given, free to run as the legs say. */
+const walker = values.config ? { ...JSON.parse(readFileSync(values.config, "utf8")), runs: legs === "simbicon-run" } : legs;
 const SPEEDS = SPEEDS_OF[legs ?? "stance"], RATES = RATES_OF[legs ?? "stance"];
 const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2)), hz = PHYSICS_HZ.value;
 

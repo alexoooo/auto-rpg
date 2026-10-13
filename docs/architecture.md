@@ -313,11 +313,12 @@ and driven afresh to change what it costs.
   and the trailing foot is carried with the body until the swinging one lands.
   `stanceEnvelope` (`stance-envelope.ts`) reads what each body was measured to
   hold on parent-axis Rapier under its character's balance allowance
-  (`assets/core/stance-envelope.json`), and `strideEnvelope` and `simbiconEnvelope` the same,
-  walking by the stride (`assets/core/stride-envelope.json`) and by the SIMBICON walk
-  (`assets/core/simbicon-envelope.json`). An asset reads each body over everything a fight puts in
+  (`assets/core/stance-envelope.json`), and `strideEnvelope`, `simbiconEnvelope` and
+  `simbiconRunEnvelope` the same, walking by the stride (`assets/core/stride-envelope.json`) and by
+  the SIMBICON walk told it may not run (`assets/core/simbicon-envelope.json`) and free to run
+  (`assets/core/simbicon-run-envelope.json`). An asset reads each body over everything a fight puts in
   its right hand, and may read each thing held apart (`holds`), which a body holding it reads
-  (`heldBy`, `held.ts`); the SIMBICON walk's does. Unassisted coordinate-engine turns have a separate
+  (`heldBy`, `held.ts`); the SIMBICON walk's do. Unassisted coordinate-engine turns have a separate
   [combat calibration](reference/combat-locomotion.md); the reference table alone does not
   establish that gameplay capability.
 - **The assist** (`assist.ts`) is a force and a moment on the root that no muscle gives: an ask
@@ -424,19 +425,23 @@ tactics over the skills it is given.
   body slow. It sets off the way the body faces, and while the way asked is more than 0.35 rad
   from its heading it steps where it stands as the heading turns; under way it walks on through a
   bend of up to a right angle, turning as it goes, and past that it brakes to 0.3 m/s before it
-  turns round (`SET_OFF`, `TURN_ROUND`). Asked faster than `run` (1.4 m/s) it walks at 1.4, the whole walk asked scaled down.
-  Once the body has come up to it, or, asked 0.5 m/s past it, once the walk has been asked 1.4 for
-  2 s (`RUN_SWITCH`), the same machine runs in `SIMBICON_RUN`'s states from the pace the body goes: each sole lands
-  by Raibert's hopping rule, and the stance leg folds as its first state ends. The run is grounded:
-  it never leaves the ground. It goes straight ahead, turning only by its heading, and walks again
-  from a landing once the walk asked has come down 0.2 under 1.4 and the body has slowed to 1.4. Its
-  envelope is its own (`simbiconEnvelope`). Low support folds the stance, so a fighter does not
+  turns round (`SET_OFF`, `TURN_ROUND`). Asked faster than `run` (1.27 m/s) it walks at 1.27, the whole walk asked scaled down.
+  Once the body has come up to it, or, for a body whose walk makes less, once the walk has been
+  asked 1.27 for 1 s (`RUN_SWITCH`), the same machine runs in `SIMBICON_RUN`'s states from the pace
+  the body goes: each sole lands by Raibert's hopping rule, the stance leg folds as its first state
+  ends, and the arms hang and swing against the legs, elbows bent, whatever the guard. The run is
+  grounded: it never leaves the ground. It goes straight ahead, turning only by its heading, and
+  walks again from a landing once the walk asked has come down 0.2 under 1.27 and the body has
+  slowed to 1.27. Told it may not run (`Locomotion.runs`, `SimbiconConfig.runs`), it walks no faster
+  than 1.27, and a run under way walks again from a landing once the walk asked has come down to 1.27. Its
+  envelope is the walk's (`simbiconEnvelope`), or the run's (`simbiconRunEnvelope`) while it may run. Low support folds the stance, so a fighter does not
   offer it beside this walk; a kick asked holds the walk, which stops and gives the legs back to the
   stance before the kick begins (`drivesLegs`, `fighter.ts`; `skillSet`, `arbiter.ts`). A push whose level or speed is not
   a number is refused (`obey`, `body.ts`): Rapier disables the island of a body given one, which
   then hangs in the air.
 - **Move** (`move.ts`, "Move") walks by one of the gaits (`GAITS`, `gaits.ts`: Braced, the
-  stance's walk; Walk, the SIMBICON walk; the stride, experimental), each a controller with its
+  stance's walk; Walk, the SIMBICON walk told it may not run; Run, the same walk free to run; the
+  stride, experimental), each a controller with its
   searched settings and none of them a person's to tune: the gait of the first of its rules that
   holds, or its `otherwise`. A rule (`MoveRuleConfig`) holds while the body is asked to stand, or
   while a distance is under or over so many metres: the nearest standing foe's, or the
@@ -444,9 +449,14 @@ tactics over the skills it is given.
   `Orders.destination`), infinitely far where there is none. A distance's rule lets go of the gait
   it chose only half a metre past it. Move changes gait only between steps, a gait that drives the
   legs asked to stand first and changed from once it has given them back; resumes the gait it
-  changes to from the body as it is, and gives tactics the envelope of the gait it walks by. Every
-  humanoid's mind gets about by `MOVE` (`GAME_FIGHTER`): braced while it stands or a standing foe
-  is within 5 m, walking otherwise; an Arena bout opens at 4 m, so it fights from its first step.
+  changes to from the body as it is, and gives tactics the envelope of the gait it walks by. Two
+  gaits of one walk (`MoveGait`), as Walk and Run are, change at once, the walk told whether it may
+  run. Every humanoid's mind gets about by `MOVE` (`GAME_FIGHTER`): braced while it stands or a
+  standing foe is within 5 m; walking while one is within 10 m, so that it comes to a fight at a
+  walk it stops from in a few steps; running to where it goes more than 6 m off, or with nowhere to
+  go; walking otherwise. An Arena bout opens at 4 m, so it fights from its first step. Ordered a
+  way only, as tactics closing on a foe order it, a body walks at the walk that holds every way;
+  sent somewhere (`Orders.destination`), at its fastest forward (`orderedIntent`, `ordered.ts`).
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
   searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
   and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its
@@ -817,7 +827,7 @@ does not attack (`guarding`) and whom and where they aim (`targets.ts`: the near
 `nearestFoe`; the nearest surface, `nearestSurface`; how a fallen foe lies, `lyingAxis`), read by
 the foe's marks (`BodySpec.marks`: its high mark, its middle, its base, its legs and what it
 guards with, where a contact is a block, `contactResponse`) and never by a human segment's name. Ordered to walk, the body walks that way at its fastest
-walk, or the pace ordered if that is less, turning to it. Ordered to face another way as it walks, it walks at half that pace until
+walk, its fastest forward where it is sent somewhere (`Orders.destination`), or the pace ordered if that is less, turning to it. Ordered to face another way as it walks, it walks at half that pace until
 it has turned to its facing, and from then at half plus the other half times the cosine of the
 angle between its heading and its walk (`STRAFE`, [reference/orders.md](reference/orders.md)).
 Given a point the seeking tactics (`recipeTactics`, `recipe-tactics.ts`) attack it with the

@@ -10,7 +10,7 @@ import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
 import { GUARD, guardPosture } from "../src/core/skills/guard.ts";
-import { SIMBICON, simbicon, simbiconWays } from "../src/core/skills/simbicon.ts";
+import { SIMBICON, simbicon, simbiconRun, simbiconWays } from "../src/core/skills/simbicon.ts";
 import { stride } from "../src/core/skills/stride.ts";
 import { startWind } from "../src/lab/wind.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
@@ -166,16 +166,18 @@ export async function shove({ model, impulse, degrees, stance, hz = 120, walked 
 /**
  * The locomotion skill `legs` names, driving `b`: null for the stance's own walk, which a trial asks
  * of the stance's goal itself; `"stride"` for the stride (`src/core/skills/stride.ts`); `"simbicon"`
- * for the SIMBICON gait (`src/core/skills/simbicon.ts`), which drives the legs itself.
+ * for the SIMBICON gait (`src/core/skills/simbicon.ts`), which drives the legs itself, told it may
+ * not run, and `"simbicon-run"` for it free to run; a `SimbiconConfig` for a SIMBICON gait of its own.
  */
 function skillOf(legs, b) {
   switch (legs) {
     case null: case undefined: return null;
     case "stride": return stride(b);
-    case "simbicon": return simbicon(b);
+    case "simbicon": return simbicon(b, SIMBICON, simbiconWays(), simbiconRun(), false);
+    case "simbicon-run": return simbicon(b);
     default: {
-      // A SIMBICON gait of its own: its settings over the defaults, and its ways' tuning.
-      if (legs?.kind === "simbicon") { const { kind, tuning, ...settings } = legs; return simbicon(b, { ...SIMBICON, ...settings }, simbiconWays(tuning)); }
+      // A SIMBICON gait of its own: its settings over the defaults, its ways' and its run's tuning, and whether it may run.
+      if (legs?.kind === "simbicon") { const { kind, tuning, runs = true, ...settings } = legs; return simbicon(b, { ...SIMBICON, ...settings }, simbiconWays(tuning), simbiconRun(tuning?.run), runs); }
       throw new Error(`no locomotion skill named ${legs}`);
     }
   }

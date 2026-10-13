@@ -3,7 +3,8 @@
  * Warrior with it walks forward 5 m on legs it drives itself, the stance knee in late stance
  * between its angles, not folded past them by the body's weight, and stops on its feet, its legs given back to the stance; asked to hold,
  * it stands on the stance; it sets off sideways and walks the way asked; it walks back and to its left at the pace asked, each
- * way by its own gait, and stops on its feet; asked to go faster than it walks, with no envelope to cap it, it runs 10 m and stops on its feet; its
+ * way by its own gait, and stops on its feet; asked to go faster than it walks, with no envelope to cap it, it runs 10 m and stops on its feet,
+ * and told it may not run, walks again within 2 s; its
  * settings, set for the Warrior's leg, come through to the Warrior as set and to a shorter leg scaled by dynamic similarity;
  * and its faults refuse settings it cannot carry out.
  */
@@ -118,7 +119,7 @@ for (const [way, move] of [["back", [-0.5, 0]], ["left", [0, -0.5]]]) test(`a_wa
 });
 
 test("asked_past_its_walk_a_warrior_with_the_simbicon_walk_runs_ten_metres_and_stops_on_the_stance", async () => {
-  // Measured, with no envelope to cap its walk: the Warrior's measured envelope holds no run, so it walks at its fastest walk instead.
+  // Measured, with no envelope to cap its pace.
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true, groundSize: 80 });
   const actor = labActor(stand.built, stand.world, { mind: WALKING, measuring: true });
   // Forward at 2 m/s, facing +z, until it has run 10 m; then stand.
@@ -142,11 +143,34 @@ test("asked_past_its_walk_a_warrior_with_the_simbicon_walk_runs_ten_metres_and_s
     const s = actor.body.view.stance;
     assert.equal(actor.body.view.down, false, `fell at ${actor.body.view.time.toFixed(2)} s`);
     assert.ok(began !== null && began < 8, `running from ${began?.toFixed(2)} s`);
-    assert.ok(stopped !== null && (stopped - began) < 10 / 1.8, `10 m in ${(stopped - began).toFixed(2)} s`);
+    // Faster than the walk goes at the most it is asked.
+    assert.ok(stopped !== null && (stopped - began) < 10 / SIMBICON.run, `10 m in ${(stopped - began).toFixed(2)} s`);
     assert.ok(running / 120 > 3, `ran ${(running / 120).toFixed(1)} s`);
     assert.ok(handed !== null && handed - stopped < 8, `given back to the stance ${(handed - stopped).toFixed(2)} s after the mark`);
     assert.ok(Math.hypot(s.velocity.x, s.velocity.z) < 0.05, `standing still: ${Math.hypot(s.velocity.x, s.velocity.z).toFixed(3)} m/s`);
     assert.equal(s.phase, "stand", "no step under way");
+  } finally { actor.dispose(); stand.dispose(); }
+});
+
+test("a_run_told_it_may_not_run_walks_again_within_two_seconds_though_it_goes_faster_than_the_walk_asked", async () => {
+  // Move's Run while it is sent past 6 m, its Walk nearer: asked 2 m/s throughout, measured, with no envelope to cap it.
+  const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true, groundSize: 80 });
+  const locomotion = { kind: "move", rules: [{ kind: "when-distance", of: "destination", than: "over", metres: 6, gait: "run" }], otherwise: "walk" };
+  const actor = labActor(stand.built, stand.world, { mind: { ...WALKING, locomotion }, measuring: true });
+  let near = false;
+  actor.drive({ name: "run", decide: () => ({ move: [2, 0], face: 0, guard: NO_COVER, attack: null, destination: near ? 3 : 20 }) });
+  const gait = actor.skills.state.legs.gaits[0].gait;
+  try {
+    stand.step(stand.seconds(8));
+    assert.equal(gait.running, true, "running while sent far");
+    near = true;
+    let walked = null;
+    for (let k = 0; k < stand.seconds(4) && !actor.body.view.down; k++) {
+      stand.step(1);
+      if (walked === null && !gait.running) walked = k / 120;
+    }
+    assert.equal(actor.body.view.down, false, `fell at ${actor.body.view.time.toFixed(2)} s`);
+    assert.ok(walked !== null && walked < 2, `walking ${walked?.toFixed(2)} s after it was told it may not run`);
   } finally { actor.dispose(); stand.dispose(); }
 });
 

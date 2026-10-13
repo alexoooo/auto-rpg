@@ -22,12 +22,13 @@ import { coreStand } from "./harness/core-stand.mjs";
 
 const { threatOf } = threatReader();
 
-const QUARTER = Math.PI / 2, WALK = 0.7;
+/** A body's walk every way and forward (`StanceEnvelope`), m/s: its fastest walk forward is its own. */
+const QUARTER = Math.PI / 2, WALK = 0.7, FORWARD = 1.2, ENVELOPE = { walk: { value: WALK }, ways: { forward: { value: FORWARD } } };
 const EAST = { x: 1, z: 0 }, NORTH = { x: 0, z: 1 }, SOUTH = { x: 0, z: -1 };
 
 test("tactics_turn_orders_into_an_intent", () => {
   /** The intent `orders` become for a body whose stance is asked to face `heading`. */
-  const intent = (orders, heading = 0, envelope = { walk: { value: WALK } }) =>
+  const intent = (orders, heading = 0, envelope = ENVELOPE) =>
     recipeTactics("orders", () => orders).decide({ view: { resumed: false }, report: { heading, strike: { thrown: { right: 0 } } }, envelope }, 1 / 120);
   /** `got` is `{ move, face, guard: NO_COVER, attack: null }`, its numbers within 1e-12. */
   const is = (got, move, face, what) => {
@@ -41,9 +42,12 @@ test("tactics_turn_orders_into_an_intent", () => {
   const half = STRAFE.share * WALK;
   assert.equal(half, 0.35);
 
-  // Facing its walk, it walks forward at its fastest and turns to it.
+  // Facing its walk, it walks forward at its fastest and turns to it; sent somewhere, at its fastest forward.
   is(intent({ move: NORTH, face: null, attack: null }), [WALK, 0], 0, "walking ahead");
   is(intent({ move: EAST, face: null, attack: null }), [WALK, 0], QUARTER, "walking to its right");
+  const sent = recipeTactics("orders", () => ({ move: EAST, face: null, attack: null, destination: 9 }))
+    .decide({ view: { resumed: false }, report: { heading: 0, strike: { thrown: { right: 0 } } }, envelope: ENVELOPE }, 1 / 120);
+  assert.deepEqual([sent.move, sent.destination], [[FORWARD, 0], 9], "sent somewhere");
   // Facing elsewhere, the walk is in the heading's frame: forward, and to the right.
   is(intent({ move: EAST, face: NORTH, attack: null }), [0, half], 0, "across its heading");
   is(intent({ move: NORTH, face: NORTH, attack: null }), [WALK, 0], 0, "ahead, facing ahead");
@@ -73,7 +77,7 @@ test("tactics_turn_orders_into_an_intent", () => {
 
   // An experiment's rule is passed in.
   const slow = recipeTactics("orders", () => ({ move: EAST, face: NORTH, attack: null }), { ...STRAFE, share: 0.25 })
-    .decide({ view: { resumed: false }, report: { heading: 0, strike: { thrown: { right: 0 } } }, envelope: { walk: { value: WALK } } }, 1 / 120);
+    .decide({ view: { resumed: false }, report: { heading: 0, strike: { thrown: { right: 0 } } }, envelope: ENVELOPE }, 1 / 120);
   is(slow, [0, 0.175], 0, "a quarter share");
 });
 
@@ -87,7 +91,7 @@ test("a_fighter_told_to_cover_gives_the_cover_to_the_hand_that_does_not_attack",
       id: "foe", side: "right", spec: modelSpec("workshop-fighter"), out: false, centre: new Vector3(0, 1, 2), velocity: Vector3.Zero(),
       segments: new Map([["hand.left", sensedHand(new Vector3(0.2, 1.2, 2), Vector3.Zero())], ["hand.right", sensedHand(new Vector3(0, 1.6, 0.6), new Vector3(0, 0, -speed))]]),
     }] } },
-    report: { heading: 0, strike: { thrown: { right: 0 } } }, envelope: { walk: { value: WALK } },
+    report: { heading: 0, strike: { thrown: { right: 0 } } }, envelope: ENVELOPE,
   });
   /** What the hands do, told to guard by `guard`: what each covers, and the attack. */
   const hands = (guard, orders, speed) => {
