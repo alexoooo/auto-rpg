@@ -4,8 +4,9 @@ The Crypt's party can fall before completing an ordinary return journey. This cu
 breaks `nobody_in_the_fight_is_held_with_the_party_near` in
 `tests/crypt-core.test.mjs`: the assertion reports a failure to wake an enemy, but the party
 has already fallen and the run has ended. Changing wake distances or extending the timeout
-would not fix that failure. This is a problem statement and proposal; movement code and
-the failing regression are unchanged.
+would not fix that failure. Movement code and the regression's assertions are unchanged.
+At the owner's request the regression is marked TODO: it still runs and reports the failure,
+but does not block CI while party movement is deferred.
 
 ## Reproduction and evidence
 
@@ -122,5 +123,5 @@ Name the engine and rate for results; a pass on parent-axis Rapier is not automa
 pass on the gameplay engine. Any prediction must be checked against actual subsequent motion.
 
 No assistance, stronger muscles, body teleports, seed-specific routes, enlarged wake distances
-or relaxed survival assertions should substitute for this work. The existing CI movement
-failure remains unresolved pending a separately authorized implementation.
+or relaxed survival assertions should substitute for this work. The movement failure remains
+unresolved as a non-blocking TODO pending a separately authorized implementation.
