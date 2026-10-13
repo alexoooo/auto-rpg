@@ -365,6 +365,66 @@ After it, each with its own plan, in the order each needs the one before:
     - **Open:** in about a fifth of steps the pelvis and lumbar alternate from step to step
       (about 2 mrad), traced to the stance hip's spin term; without it the chatter goes and the
       1 m/s walk falls.
+    - **Tried and not kept** (the Lab's three tracks, three bodies, seeds 1 to 6, Node stand,
+      Rapier, 120 Hz, on the wider gait before it was narrowed):
+      - the stance leg's servo on the side way (`vfSide` 2): it speeds the Warrior's and the
+        Rogue's square and throws the skeleton's (0.51 to 0.39 of the pace, 19 falls against
+        10), capped or not;
+      - the landing's trim to the side, which oscillates; forward it brings a slow walk from 1.4
+        to 1 of the pace asked, and is a wash on the tracks;
+      - the stance ankle's share set per way, and its inversion against the side error
+        (`cvAnkleSide`): under 0.01 of the pace on the tracks;
+      - more or less lead on the side walk (`leadSide`, `leadOut`): more brings its pace made
+        from 0.75 to about 1 of asked, and falls at paces it holds now; less makes it slower;
+      - a cadence quickened with the pace (the first state shortened as the walk asked rises):
+        worse for every body;
+      - a side way searched on the square: its envelope certified side walks the skeleton could
+        not hold there.
+    - **Later variants of a gait**, each one a character unlocks, after the gaits plan's jog and
+      run:
+      - **Haste, "more fast":** a faster muscle, not a push. Its knob is Hill's unloaded speed of
+        shortening (`ForceVelocityCurve.unloadedSpeed`), which `Physique.speed` already scales;
+        strength, mass and gravity stay as they are, so a hasted body cannot float or look
+        fast-forwarded. A forward force on the root is rejected: it is an assist, and reads as
+        sliding.
+        - Measured (Node stand, Rapier, 120 Hz, every muscle at x1.25): at walking paces, where a
+          muscle is far from its unloaded speed, the gait as it is gains nothing, and some of its
+          ways fall more. Forward with the run off, the Warrior holds 1.8 m/s asked (1.63 made)
+          without a fall, against 2 falls in 4 at x1, and the Rogue 1.4, against 2 in 4: about
+          0.2 m/s more at the top. With the gait's times shortened by the square root of the speed or by the
+          speed itself, forward rises and the side and back walks fall apart.
+        - So Haste pays only on a gait that asks its muscles for speed. Its rule scales the gait's
+          time dimensions (`DIMENSION`, `simbicon.ts`) by the body's muscle speed against the
+          reference body's, as `scaledGait` scales them by leg length, with the exponent (0, 1/2
+          or 1) measured, and the envelope measured at a few levels of haste.
+        - **Decided by the owner:** Haste is the legs' muscles alone (the hip's, knee's and
+          ankle's exertions in `jointSpeed`), a per cent of the human baseline, 100 % by default,
+          in `AttributeSpec` as `balance` is, with an `owner-haste` source; strength or the upper
+          body join it only where they help locomotion. The Lab and the Arena take `&haste=` beside
+          `&balance=`, and a figure on a hasted body names each side's haste. Its range and each
+          character's value are the owner's.
+      - **Motion capture, "more smooth":** human joint trajectories by phase as the gait's
+        targets, with SIMBICON's landing, balance feedback and stance hip on top (Lee, Kim and Lee
+        2010, "Data-driven biped control"). The physics drives the body throughout.
+        - **The data:** the CMU Graphics Lab database (mocap.cs.cmu.edu), which places no
+          restriction on use; cgspeed's BVH conversion (github.com/Shriinivas/cmubvh) adds none.
+          Subjects 111, 113, 141 and 143 each walk forward, back and to the side and run in one
+          session; 132 walks slow (45 to 50), fast (17 to 22) and back (13); 83 sidesteps; 127
+          runs sidesteps (13, 14); 16, 69, 104 and 127 turn. The list is cgspeed's, to be checked
+          against CMU's index. Raw clips stay outside the repo as untrusted data; only derived
+          tables are committed.
+        - **The import:** `research/mocap-import.mjs` reads a clip into what a SIMBICON walk asks
+          of the legs, step by step. Five clips read: forward 141_25, 1.08 m/s at 1.84 steps a
+          second; 132_17, 1.83 m/s at 2.03; back 141_31, 0.97 m/s at 1.97; side 141_33, 0.58 m/s
+          at 1.6 to 1.9; the run 141_34, 2.05 m/s at 2.42. The side and back walks already match a
+          person's speeds; forward a person goes faster by longer steps.
+        - **Left:** the asset of angles by phase per way and speed, read as the joints' limits
+          read them (`jointAngles`) and scaled by Froude as `scaledGait` scales; a `SOURCES` entry
+          per clip; a check that the reference posed on each body keeps the soles off the floor in
+          swing and on it in stance; the tracking gait, its phase running from landing to landing
+          and its clip a blend of the two nearest speeds; its feedback searched with the
+          reference's angles fixed; and a comparison on the bed and in the Lab, after which the
+          owner chooses the default.
     - **Next:** [gaits, Move and the Lab's Locomotion battery](plans/2026-10-13-gaits-and-locomotion-lab.md):
       named gaits from braced to run, chosen by the player's rule list in place of Travel, then
       fight; a jog and run the Crypt travels by; and the Lab's Run as a five-track battery.

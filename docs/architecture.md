@@ -411,8 +411,15 @@ tactics over the skills it is given.
   it by the walk asked times `lead`. These replace the paper's late-swing feedback on distance,
   which lifted the thigh to 1.57 rad when the foot did not land. The stance ankle gives, raised as
   the body is slower than asked. The stance hip is driven at the speeds that turn the pelvis upright
-  and to the heading in the world. The walk sets off from the stance's stand with the weight shifted
-  onto the first stance foot (the trailing one when the walk asked goes to a side), and stops by
+  and to the heading in the world. The stance leg's servo, the velocity form of Coros's virtual
+  force on the centre of mass, drives the stance leg besides at the speeds that carry the centre of
+  mass over the planted foot by the stride's error from the walk asked (`vf`, `vfSide`, at most
+  `vfMost`); the landing's trims (`trim`, `trimSide`) land the swinging sole shorter while the walk
+  is slower than asked, learnt only while the walk asked holds steady (`TRIM_STEADY`). The forward
+  walk's settings use the servo and a small forward trim; the side and back ways' use neither. The
+  walk sets off from the stance's stand with the weight shifted onto the first stance foot (the
+  trailing one when the walk asked goes to a side) until its capture point comes near that foot or
+  stops closing on it (`SHIFT`), and stops by
   bringing the walk asked to rest and giving the legs back to the stance as a foot lands with the
   body slow. It sets off the way the body faces, and while the way asked is more than 0.35 rad
   from its heading it steps where it stands as the heading turns; under way it walks on through a

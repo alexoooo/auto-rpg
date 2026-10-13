@@ -14,9 +14,9 @@ aims:
 Two more parts follow from these: the turn rate becomes the controller's own business, and a
 weapon can be put away for a gait that needs empty hands.
 
-Motion capture and Haste stay in [their plan](2026-10-12-virtual-forces-mocap-haste.md). In this
-plan's terms, each would be a variant of a gait that a character can unlock: Haste "more fast",
-motion capture "more smooth".
+Motion capture and Haste come after this plan, each a variant of a gait that a character can
+unlock: Haste "more fast", motion capture "more smooth". The roadmap holds what is known of each
+(SIMBICON's later variants).
 
 ## Where things stand
 
@@ -29,6 +29,16 @@ Every figure is from the Node core stand, Rapier, 120 Hz.
     against 1.34 for the earlier, wider gait, which looked wrong to the owner.
   - The Lab bed (circle, shuttle and square; three bodies; seeds 1 to 6; 5 N gusts) reads 0.767
     with 5 falls.
+  - Its capacity, not its tuning, holds its pace. Before it was narrowed, the side walk made at
+    most about 0.75 m/s and the forward walk 1.4, whatever the landing's leads. Neither the stance
+    leg's servo nor the landing's trims, which correct the pace through the stance and the landing,
+    raised either; the roadmap lists what was tried.
+  - It takes 2.7 to 3.2 steps a second, of 0.3 to 0.65 m. A person walking forward at 1.1 to 1.8
+    m/s takes 1.8 to 2 steps a second, of 0.6 to 0.9 m (CMU 141_25, 132_17): faster by longer
+    steps, not quicker ones. A cadence quickened with the pace asked is worse for every body.
+  - A search scored by the holds alone certifies speeds the walk does not make: one walked a fifth
+    under every pace asked. `research/locomotion-search.mjs --track` credits each hold by the share
+    of the pace it made, and the fast walk's and the run's searches score that way.
 - **The run** is a mode of the same skill (`SIMBICON_RUN`, `RUN_SWITCH`): a grounded run with no
   flight.
   - It starts only after the walk has been asked 0.5 m/s past 1.4 for 2 s, so in practice almost
