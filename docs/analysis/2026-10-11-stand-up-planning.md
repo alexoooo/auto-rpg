@@ -3388,3 +3388,19 @@ transitions and outcomes under `liveRetryScreen`; raw samples are in
 line-ending checks pass; the prior two current-source checkpoint-identity test failures remain
 unresolved. A successful loaded-foot transition, not another retry timing change, remains the
 missing behavior. The median, six-second deadline and full qualification remain unmet.
+
+The supplied Stance URL is also checked with a denser support diagnostic on the same Left
+reproduction. Current Node Stance / game Rapier coordinate / 120 Hz, original Warrior and
+muscles, Balance 0: every original half-second trajectory sample repeats exactly. At session
+19.458333 s (attempt three), root up is 0.989934, but left/right sole up are -0.291596 and
+-0.397656. The loaded parts are the left shin and right foot. By 19.908333 s the right foot has
+lost load; the body then falls onto its left thigh as reference phase continues to advance.
+These are post-step contact impulses divided by the step duration, not static force estimates.
+The observation supports a failed transition onto flat feet, not a successful kneel-to-stand.
+No controller correction is retained. The sixty-second run meters zero assistance throughout.
+
+The diagnostic and selected support samples are preserved under
+`liveRetryScreen.supportDiagnosis` in `research/stand-up-path-results.json`. Its raw
+`ready` field is excluded from conclusions because the diagnostic observer omits the contact
+patches that predicate needs; the production recovery observer includes them. This additional
+Node reproduction does not establish what happens in the owner's particular browser state.

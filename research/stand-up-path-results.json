@@ -413287,6 +413287,361 @@
       "productionControllerRestored": true,
       "softwareGates": "No production code change retained. Document/data whitespace and line-ending gates apply. The prior two checkpoint-identity test failures remain unresolved."
     },
-    "next": "Reproduce and correct the transition from kneeling to loaded feet. Repeated attempts and shorter timeouts do not establish robust recovery; the four-second median and six-second recovery goal remain unmet."
+    "next": "Reproduce and correct the transition from kneeling to loaded feet. Repeated attempts and shorter timeouts do not establish robust recovery; the four-second median and six-second recovery goal remain unmet.",
+    "supportDiagnosis": {
+      "status": "Reproduced; not fixed. This is the current live controller in the Node Stance harness, not frozen acceptance or a browser reproduction.",
+      "harness": {
+        "name": "Current Node Stance using coreStand, labActor and startStance; not the frozen acceptance evaluator",
+        "engine": "game Rapier coordinate",
+        "hz": 120,
+        "model": "workshop-fighter",
+        "held": "empty",
+        "compliantSoles": false,
+        "balance": 0,
+        "mind": "LAB_PRESETS.script with research-rise",
+        "muscles": "unchanged original envelopes",
+        "fall": "Stand for 2 s; 60 N s shove at heading-relative direction, followed after 24 steps by the same shove. Single screen omits the second shove.",
+        "duration": "60 s after the second shove is queued",
+        "reporting": "Completion is the live adapter quiet-support release, sampled every 0.5 s. Reported completion times are upper bounds at that sampling resolution, not frozen acceptance times or a host walking qualification."
+      },
+      "fall": {
+        "direction": 270,
+        "impulseNs": 60,
+        "firstStep": 240,
+        "separationSteps": 24
+      },
+      "samplingSeconds": 0.05,
+      "physicalOutcome": {
+        "firstDown": 2.6,
+        "attempts": 5,
+        "completed": 1,
+        "maxMeteredAssistance": 0
+      },
+      "source": {
+        "path": ".review/lab-research-rise/support-loop.mjs",
+        "sha256": "0ee3b1b616eb8f5bcdc3efa00669cc0808f5e07821ea004efac6f4e3a547ea21",
+        "text": "import fs from 'node:fs';\nimport {Worker,isMainThread,workerData,parentPort} from 'node:worker_threads';\nimport {coreStand} from '../../tests/harness/core-stand.mjs';\nimport {modelSpec} from '../../src/core/models.ts';\nimport {guardPosture} from '../../src/core/skills/guard.ts';\nimport {LAB_PRESETS} from '../../src/lab/scenarios.ts';\nimport {labActor} from '../../src/lab/actor.ts';\nimport {recoveryMeasurement} from '../../src/core/control/recovery-measurement.ts';\nimport {startStance} from '../../src/lab/stance-mode.ts';\nif(isMainThread){\n const results=await Promise.all([270].map(degrees=>new Promise((resolve,reject)=>{const w=new Worker(new URL(import.meta.url),{workerData:{degrees}});w.on('message',resolve);w.on('error',reject);})));\n fs.writeFileSync('.review/lab-research-rise/support-loop.json',JSON.stringify(results,null,2)+'\\n');console.log(JSON.stringify(results.map(({samples,...r})=>r)));\n}else{\n const spec=modelSpec('workshop-fighter'),stand=await coreStand(spec,{engine:'rapier-coordinate',groundSize:40,posture:guardPosture(spec)});\n const mind={...LAB_PRESETS.script.config,subs:[{kind:'research-rise'}]},stance=startStance(labActor(stand.built,stand.world,{mind})),samples=[];\n const measure=recoveryMeasurement(stand.built,()=>stance.body.observe());\n try{\n  stand.world.step(240);stance.shove(60,workerData.degrees);stand.world.step(24);stance.shove(60,workerData.degrees);\n  let first=null,maxHelp=0;\n  for(let i=0;i<7200;i++){\n   stand.world.step();if(stance.body.down)first??=stand.world.time;\n   maxHelp=Math.max(maxHelp,stance.body.assist.meter.force,stance.body.assist.meter.moment);\n   if(i%6===0){const m=measure(),o=m.observation,s=stance.body.state.mind.subs[0];samples.push({rootUp:m.rootUp,soleUp:m.soleUp,ready:m.ready,loads:Object.fromEntries(o.contacts.filter(c=>c.fixed!==null&&c.impulse>0).map(c=>[c.segment,c.impulse/stand.world.dt])),time:stand.world.time,down:stance.body.down,height:o.height,controller:stance.body.has,attempts:s.attempts,completed:s.completed,phase:s.policy.phase,reference:s.policy.reference,exhaustedAt:s.exhaustedAt});}\n  }\n  const s=stance.body.state.mind.subs[0];parentPort.postMessage({...workerData,first,maxHelp,attempts:s.attempts,completed:s.completed,down:stance.body.down,samples});\n }finally{stance.dispose();stand.dispose();}\n}\n"
+      },
+      "raw": {
+        "path": ".review/lab-research-rise/support-loop.json",
+        "sha256": "fccc80672f4632e3a35929057bfe9ad281de9a8f439dae51caffdbc019d0fa70"
+      },
+      "validation": "All original half-second trajectory samples reproduce exactly. The diagnostic ready field is excluded: body.observe does not request contact patches, which that predicate requires. Production recovery measurement does request them.",
+      "interpretation": "During attempt three, the torso becomes upright while neither sole is flat. Right-foot load disappears, support transfers to the left shin and thigh, and the body topples while reference phase continues to advance. This demonstrates failed foot support acquisition; it does not establish a unique cause or a working correction.",
+      "samples": [
+        {
+          "rootUp": 0.9899344621793063,
+          "soleUp": [
+            -0.2915961102697866,
+            -0.3976563441941609
+          ],
+          "loads": {
+            "shank.left": 136.8504023551941,
+            "foot.right": 620.5564498901367
+          },
+          "time": 19.458333333333332,
+          "down": true,
+          "height": 0.5858214261322652,
+          "controller": "research-rise: 384",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 383.5000000000001,
+          "reference": 2,
+          "exhaustedAt": null
+        },
+        {
+          "rootUp": 0.9876743529552804,
+          "soleUp": [
+            -0.3057714895863184,
+            -0.39550260145175214
+          ],
+          "loads": {
+            "shank.left": 176.31618976593018,
+            "foot.right": 606.9238471984863
+          },
+          "time": 19.508333333333333,
+          "down": true,
+          "height": 0.5852484579359191,
+          "controller": "research-rise: 387",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 386.5000000000002,
+          "reference": 2,
+          "exhaustedAt": null
+        },
+        {
+          "rootUp": 0.9849767837285112,
+          "soleUp": [
+            -0.3239295015352941,
+            -0.39725857648134094
+          ],
+          "loads": {
+            "shank.left": 240.73708534240723,
+            "foot.right": 564.7709083557129
+          },
+          "time": 19.558333333333334,
+          "down": true,
+          "height": 0.5846954426114044,
+          "controller": "research-rise: 390",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 389.50000000000034,
+          "reference": 2,
+          "exhaustedAt": null
+        },
+        {
+          "rootUp": 0.979948317503244,
+          "soleUp": [
+            -0.34742718087992874,
+            -0.39385435557450615
+          ],
+          "loads": {
+            "shank.left": 228.0986738204956,
+            "foot.right": 497.8714370727539
+          },
+          "time": 19.608333333333334,
+          "down": true,
+          "height": 0.5835571218352823,
+          "controller": "research-rise: 393",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 392.5000000000005,
+          "reference": 2,
+          "exhaustedAt": null
+        },
+        {
+          "rootUp": 0.9719233608042326,
+          "soleUp": [
+            -0.38447714124242904,
+            -0.38628092821261384
+          ],
+          "loads": {
+            "shank.left": 118.04637551307678,
+            "foot.right": 650.1385688781738
+          },
+          "time": 19.658333333333335,
+          "down": true,
+          "height": 0.5822817452698343,
+          "controller": "research-rise: 396",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 395.50000000000045,
+          "reference": 2,
+          "exhaustedAt": null
+        },
+        {
+          "rootUp": 0.9636800941910435,
+          "soleUp": [
+            -0.4185301419900942,
+            -0.38115638807605756
+          ],
+          "loads": {
+            "shank.left": 199.19797897338867,
+            "foot.right": 552.355899810791
+          },
+          "time": 19.708333333333332,
+          "down": true,
+          "height": 0.5803354440333442,
+          "controller": "research-rise: 399",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 398.50000000000057,
+          "reference": 2,
+          "exhaustedAt": null
+        },
+        {
+          "rootUp": 0.9521168772709488,
+          "soleUp": [
+            -0.45582832389034267,
+            -0.3716384825074519
+          ],
+          "loads": {
+            "shank.left": 245.0923490524292,
+            "foot.right": 492.7851104736328
+          },
+          "time": 19.758333333333333,
+          "down": true,
+          "height": 0.5769656592933856,
+          "controller": "research-rise: 402",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 401.5000000000007,
+          "reference": 2,
+          "exhaustedAt": null
+        },
+        {
+          "rootUp": 0.9375602585191547,
+          "soleUp": [
+            -0.5006325712211056,
+            -0.3587432574996187
+          ],
+          "loads": {
+            "shank.left": 479.8805809020996,
+            "foot.right": 247.28041648864746
+          },
+          "time": 19.808333333333334,
+          "down": true,
+          "height": 0.5715114960111476,
+          "controller": "research-rise: 405",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 404.5000000000008,
+          "reference": 2,
+          "exhaustedAt": null
+        },
+        {
+          "rootUp": 0.9168194233259079,
+          "soleUp": [
+            -0.5469468737264888,
+            -0.35114571655595855
+          ],
+          "loads": {
+            "shank.left": 595.6377983093262,
+            "foot.right": 107.58966207504272
+          },
+          "time": 19.858333333333334,
+          "down": true,
+          "height": 0.5632984143571556,
+          "controller": "research-rise: 408",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 407.50000000000097,
+          "reference": 2,
+          "exhaustedAt": null
+        },
+        {
+          "rootUp": 0.8866828125636899,
+          "soleUp": [
+            -0.5926141106609216,
+            -0.33402844492454226
+          ],
+          "loads": {
+            "shank.left": 616.3088893890381
+          },
+          "time": 19.908333333333335,
+          "down": true,
+          "height": 0.551826649654955,
+          "controller": "research-rise: 411",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 410.5000000000009,
+          "reference": 2,
+          "exhaustedAt": null
+        },
+        {
+          "rootUp": 0.8475266664533959,
+          "soleUp": [
+            -0.6442138025011631,
+            -0.32892600343726935
+          ],
+          "loads": {
+            "thigh.left": 1003.3847002917901,
+            "shank.left": 52.779353857040405
+          },
+          "time": 19.958333333333332,
+          "down": true,
+          "height": 0.5363761440525453,
+          "controller": "research-rise: 414",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 413.500000000001,
+          "reference": 2,
+          "exhaustedAt": null
+        },
+        {
+          "rootUp": 0.8037111055235691,
+          "soleUp": [
+            -0.7027174728483702,
+            -0.3513506649145343
+          ],
+          "loads": {
+            "thigh.left": 613.2136631011963
+          },
+          "time": 20.008333333333333,
+          "down": true,
+          "height": 0.5174548395760064,
+          "controller": "research-rise: 417",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 416.50000000000114,
+          "reference": 2,
+          "exhaustedAt": null
+        },
+        {
+          "rootUp": 0.7481399063716746,
+          "soleUp": [
+            -0.764224496860182,
+            -0.3809619623011902
+          ],
+          "loads": {
+            "thigh.left": 470.8288764953613
+          },
+          "time": 20.058333333333334,
+          "down": true,
+          "height": 0.49101615191462145,
+          "controller": "research-rise: 420",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 419.50000000000125,
+          "reference": 2,
+          "exhaustedAt": null
+        },
+        {
+          "rootUp": 0.6769348430287135,
+          "soleUp": [
+            -0.825050547440597,
+            -0.4151574329196341
+          ],
+          "loads": {
+            "thigh.left": 431.84919834136963
+          },
+          "time": 20.108333333333334,
+          "down": true,
+          "height": 0.45457498063402846,
+          "controller": "research-rise: 423",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 422.5000000000014,
+          "reference": 2,
+          "exhaustedAt": null
+        },
+        {
+          "rootUp": 0.5773775837191923,
+          "soleUp": [
+            -0.8810959104310658,
+            -0.4501211022944583
+          ],
+          "loads": {
+            "thigh.left": 254.81884002685547
+          },
+          "time": 20.158333333333335,
+          "down": true,
+          "height": 0.4056066339275508,
+          "controller": "research-rise: 426",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 425.50000000000136,
+          "reference": 2,
+          "exhaustedAt": null
+        },
+        {
+          "rootUp": 0.43837310311288386,
+          "soleUp": [
+            -0.9196597486694635,
+            -0.4270513635642442
+          ],
+          "loads": {},
+          "time": 20.208333333333332,
+          "down": true,
+          "height": 0.3437586952379837,
+          "controller": "research-rise: 429",
+          "attempts": 3,
+          "completed": 0,
+          "phase": 428.5000000000015,
+          "reference": 2,
+          "exhaustedAt": null
+        }
+      ]
+    }
   }
 }
