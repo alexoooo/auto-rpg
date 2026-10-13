@@ -868006,5 +868006,1082 @@
       ".review/stand-up-foot-support/feet-reference.json.gz": "ae926283ce81734203d09eafad3dbd8e45972b66f200d68a4547d306d4051b45",
       ".review/stand-up-foot-support/commands-reference.json.gz": "437c4d8ee7bb60681155242e6632b3e04c03a33d27580d9a2d54a2870db3a34c"
     }
+  },
+  "stanceTorqueReset": {
+    "harness": "Current-source Node Stance / game Rapier coordinate adapter 11 / 120 Hz / original compliant-sole Warrior / original symmetric muscles / Balance 0",
+    "frozenEvaluatorChanged": false,
+    "bodyChanged": false,
+    "muscleLimitsChanged": false,
+    "liveHostResetChanged": true,
+    "diagnosis": {
+      "revision": "4ebb4d8ddb9eac1b5c9af9e27c695edf80348a40",
+      "identicalPreHandoverObservation": true,
+      "identicalUnfilteredTorque": true,
+      "allTwelveLegCommandsExplainedByPreviousTorque": true,
+      "records": {
+        "original": [
+          [
+            {
+              "channel": "hip.left flexion",
+              "previous": -114.11788909692429,
+              "unfiltered": -35.659453917461924,
+              "filtered": -74.88867150719311,
+              "actual": -74.88867150719311,
+              "error": 0
+            },
+            {
+              "channel": "hip.left abduction",
+              "previous": -45.11503046546822,
+              "unfiltered": -5.790169667439205,
+              "filtered": -25.452600066453712,
+              "actual": -25.452600066453712,
+              "error": 0
+            },
+            {
+              "channel": "hip.left internal rotation",
+              "previous": 39.460972951725374,
+              "unfiltered": 1.3213152778792416,
+              "filtered": 20.39114411480231,
+              "actual": 20.39114411480231,
+              "error": 0
+            },
+            {
+              "channel": "knee.left flexion",
+              "previous": 34.97430410424044,
+              "unfiltered": 28.420632246875375,
+              "filtered": 31.69746817555791,
+              "actual": 31.69746817555791,
+              "error": 0
+            },
+            {
+              "channel": "ankle.left dorsiflexion",
+              "previous": -85.74786732106833,
+              "unfiltered": -20.31254326406246,
+              "filtered": -53.03020529256539,
+              "actual": -53.030205292565384,
+              "error": 7.105427357601002e-15
+            },
+            {
+              "channel": "ankle.left inversion",
+              "previous": -28.290567046386972,
+              "unfiltered": -6.265387147612758,
+              "filtered": -17.277977096999866,
+              "actual": -17.277977096999866,
+              "error": 0
+            }
+          ],
+          [
+            {
+              "channel": "hip.right flexion",
+              "previous": -5.22807214171014,
+              "unfiltered": -64.41506372802066,
+              "filtered": -34.8215679348654,
+              "actual": -34.8215679348654,
+              "error": 0
+            },
+            {
+              "channel": "hip.right abduction",
+              "previous": -60.979658278414306,
+              "unfiltered": 22.80368522120215,
+              "filtered": -19.087986528606077,
+              "actual": -19.087986528606077,
+              "error": 0
+            },
+            {
+              "channel": "hip.right internal rotation",
+              "previous": 36.87825190967315,
+              "unfiltered": -19.859514926267888,
+              "filtered": 8.509368491702633,
+              "actual": 8.509368491702633,
+              "error": 0
+            },
+            {
+              "channel": "knee.right flexion",
+              "previous": -37.19785942268157,
+              "unfiltered": -18.444175543733216,
+              "filtered": -27.82101748320739,
+              "actual": -27.82101748320739,
+              "error": 0
+            },
+            {
+              "channel": "ankle.right dorsiflexion",
+              "previous": -55.18225017328849,
+              "unfiltered": -125.49143947432837,
+              "filtered": -90.33684482380843,
+              "actual": -90.33684482380843,
+              "error": 0
+            },
+            {
+              "channel": "ankle.right inversion",
+              "previous": 19.40102367943589,
+              "unfiltered": 37.29057295869201,
+              "filtered": 28.345798319063952,
+              "actual": 28.345798319063952,
+              "error": 0
+            }
+          ]
+        ],
+        "commands": [
+          [
+            {
+              "channel": "hip.left flexion",
+              "previous": -105.4897569561463,
+              "unfiltered": -35.659453917461924,
+              "filtered": -70.5746054368041,
+              "actual": -70.5746054368041,
+              "error": 0
+            },
+            {
+              "channel": "hip.left abduction",
+              "previous": -115.05557188002183,
+              "unfiltered": -5.790169667439205,
+              "filtered": -60.422870773730516,
+              "actual": -60.42287077373051,
+              "error": 7.105427357601002e-15
+            },
+            {
+              "channel": "hip.left internal rotation",
+              "previous": -43.3882509193559,
+              "unfiltered": 1.3213152778792416,
+              "filtered": -21.033467820738327,
+              "actual": -21.033467820738327,
+              "error": 0
+            },
+            {
+              "channel": "knee.left flexion",
+              "previous": -167.969751380736,
+              "unfiltered": 28.420632246875375,
+              "filtered": -69.77455956693031,
+              "actual": -69.77455956693031,
+              "error": 0
+            },
+            {
+              "channel": "ankle.left dorsiflexion",
+              "previous": 15.474226378063424,
+              "unfiltered": -20.31254326406246,
+              "filtered": -2.4191584429995174,
+              "actual": -2.4191584429995174,
+              "error": 0
+            },
+            {
+              "channel": "ankle.left inversion",
+              "previous": -26.922339223494134,
+              "unfiltered": -6.265387147612758,
+              "filtered": -16.593863185553445,
+              "actual": -16.593863185553445,
+              "error": 0
+            }
+          ],
+          [
+            {
+              "channel": "hip.right flexion",
+              "previous": null,
+              "unfiltered": -64.41506372802066,
+              "filtered": -64.41506372802066,
+              "actual": -64.41506372802066,
+              "error": 0
+            },
+            {
+              "channel": "hip.right abduction",
+              "previous": null,
+              "unfiltered": 22.80368522120215,
+              "filtered": 22.80368522120215,
+              "actual": 22.80368522120215,
+              "error": 0
+            },
+            {
+              "channel": "hip.right internal rotation",
+              "previous": null,
+              "unfiltered": -19.859514926267888,
+              "filtered": -19.859514926267888,
+              "actual": -19.859514926267888,
+              "error": 0
+            },
+            {
+              "channel": "knee.right flexion",
+              "previous": null,
+              "unfiltered": -18.444175543733216,
+              "filtered": -18.444175543733216,
+              "actual": -18.444175543733216,
+              "error": 0
+            },
+            {
+              "channel": "ankle.right dorsiflexion",
+              "previous": null,
+              "unfiltered": -125.49143947432837,
+              "filtered": -125.49143947432837,
+              "actual": -125.49143947432837,
+              "error": 0
+            },
+            {
+              "channel": "ankle.right inversion",
+              "previous": null,
+              "unfiltered": 37.29057295869201,
+              "filtered": 37.29057295869201,
+              "actual": 37.29057295869201,
+              "error": 0
+            }
+          ]
+        ]
+      }
+    },
+    "change": "Clear the previous compliant-sole torque when stance control releases the body, so filtering cannot bridge an interruption.",
+    "witness": {
+      "before": {
+        "fell": true,
+        "success": true,
+        "failure": null,
+        "firstDown": 2.55,
+        "takeover": 2.5416666666666665,
+        "handover": 18.1,
+        "seconds": 15.558333333333335,
+        "fromFirstDown": 15.55,
+        "elapsed": 18.558333333333334,
+        "effortViolation": 0.000035855569763043604,
+        "assisted": false,
+        "quiet": 0
+      },
+      "after": {
+        "fell": true,
+        "success": true,
+        "failure": null,
+        "firstDown": 2.55,
+        "takeover": 2.5416666666666665,
+        "handover": 17.416666666666668,
+        "seconds": 14.875000000000002,
+        "fromFirstDown": 14.866666666666667,
+        "elapsed": 17.875,
+        "effortViolation": 0.000035855569763043604,
+        "assisted": false,
+        "quiet": 0
+      },
+      "unchangedConfiguration": {
+        "model": "workshop-fighter",
+        "held": "empty",
+        "contact": "shoe",
+        "strength": 1,
+        "speed": 1,
+        "weight": 1,
+        "seconds": 26,
+        "degrees": 0
+      },
+      "unchangedFeedback": {
+        "u": [
+          0.06134244207992704,
+          0.6501443604100514,
+          0.42833149735471737,
+          0.7957806926739734,
+          0.5306037285076666,
+          0.1581500334773961,
+          0.18372561814600707,
+          0.31343637705288413,
+          0.7401860689878507,
+          0.1589572278424608,
+          0.065689246746051,
+          0.5208231118164077,
+          0.5454370984044016,
+          0.19217336537177432,
+          0.4972586650433971,
+          0.5509615862984009,
+          0.299799050526837
+        ],
+        "parameters": [
+          [
+            "roll",
+            0.1,
+            1,
+            1
+          ],
+          [
+            "prepare",
+            0.1,
+            1,
+            1
+          ],
+          [
+            "poses",
+            0.1,
+            1,
+            1
+          ],
+          [
+            "bearing",
+            0.15,
+            1,
+            1
+          ],
+          [
+            "response",
+            0.1,
+            1,
+            1
+          ],
+          [
+            "speed",
+            1,
+            4,
+            1
+          ],
+          [
+            "progressSpeed",
+            0.1,
+            1.2,
+            0.1
+          ],
+          [
+            "settleSpeed",
+            0.1,
+            1,
+            0.1
+          ],
+          [
+            "settleSeconds",
+            0.025,
+            0.5,
+            0.5
+          ],
+          [
+            "near",
+            0.05,
+            0.1,
+            0.05
+          ],
+          [
+            "turn",
+            0.15,
+            0.45,
+            0.15
+          ],
+          [
+            "hip",
+            -0.2,
+            0.2,
+            0
+          ],
+          [
+            "knee",
+            -0.2,
+            0.2,
+            0
+          ],
+          [
+            "shoulder",
+            -0.25,
+            0.25,
+            0
+          ],
+          [
+            "wrist",
+            -0.4,
+            0.4,
+            0
+          ],
+          [
+            "height",
+            -0.05,
+            0.05,
+            0
+          ],
+          [
+            "pitch",
+            -0.1,
+            0.1,
+            0
+          ]
+        ]
+      },
+      "beforeIdentity": {
+        "harness": "Node Stance Lab recovery search",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "baseline": "support-recovery",
+        "recipeSha": "4d268b653b995bce06df62476799f2793742df8ed2a47a7d0b47231c3b80e77b",
+        "hz": 120,
+        "engine": "rapier-coordinate",
+        "revision": "rapier/adapter-11/sha256:0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c/coordinate-limits",
+        "artifact": "vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.9.tgz",
+        "artifactSha": "0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c",
+        "sourceSha": "786a34e6877169fed56b85f0eed219cd014b8808cefc897c2826ca9096342810",
+        "environmentSha": "1d0e777b06f95c5f627bf883363cff416e04c2ec8a896f4bb353055df36ba793",
+        "specSha": "89a7a051e52d295ba5848b8aaeb62e643372243b81acc76cb2b5fa398fb1fa94",
+        "actuation": "symmetric",
+        "balance": 0
+      },
+      "afterIdentity": {
+        "harness": "Node Stance Lab recovery search",
+        "model": "workshop-fighter",
+        "held": "empty",
+        "baseline": "support-recovery",
+        "host": "stance",
+        "assistedBaseline": false,
+        "recipeSha": "4d268b653b995bce06df62476799f2793742df8ed2a47a7d0b47231c3b80e77b",
+        "hz": 120,
+        "engine": "rapier-coordinate",
+        "revision": "rapier/adapter-11/sha256:0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c/coordinate-limits",
+        "artifact": "vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.9.tgz",
+        "artifactSha": "0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c",
+        "sourceSha": "b977ca64c09164f95647edc6d57cd2fc90e9474e678c518931f5369de9809337",
+        "environmentSha": "d4cc16d06ea33ee426bc325647e1e662519770b89129484b56e5b083f9f671a7",
+        "specSha": "89a7a051e52d295ba5848b8aaeb62e643372243b81acc76cb2b5fa398fb1fa94",
+        "actuation": "symmetric",
+        "balance": 0,
+        "channels": [
+          {
+            "name": "neck flexion",
+            "min": -1.0629055144645467,
+            "max": 1.1397000015522971,
+            "bind": 0,
+            "positive": 30.779220779220775,
+            "negative": 53.35064935064935
+          },
+          {
+            "name": "neck lateral flexion right",
+            "min": -0.7906341511534313,
+            "max": 0.7557275661135446,
+            "bind": 0,
+            "positive": 36.93506493506493,
+            "negative": 36.93506493506493
+          },
+          {
+            "name": "neck rotation right",
+            "min": -1.3002702927357754,
+            "max": 1.2426744274199626,
+            "bind": 0,
+            "positive": 15.389610389610388,
+            "negative": 15.389610389610388
+          },
+          {
+            "name": "thoracic flexion",
+            "min": -0.23911010752322315,
+            "max": 0.36826447217080355,
+            "bind": 0,
+            "positive": 93.96049046321524,
+            "negative": 127.1103542234332
+          },
+          {
+            "name": "thoracic lateral flexion right",
+            "min": -0.2722713633111154,
+            "max": 0.2722713633111154,
+            "bind": 0,
+            "positive": 68.0217983651226,
+            "negative": 76.73978201634876
+          },
+          {
+            "name": "thoracic rotation right",
+            "min": -0.43458698374658805,
+            "max": 0.43458698374658805,
+            "bind": 0,
+            "positive": 52.95367847411443,
+            "negative": 51.33923705722069
+          },
+          {
+            "name": "lumbar flexion",
+            "min": -0.2792526803190927,
+            "max": 0.8901179185171081,
+            "bind": 0,
+            "positive": 93.96049046321524,
+            "negative": 127.1103542234332
+          },
+          {
+            "name": "lumbar lateral flexion right",
+            "min": -0.3141592653589793,
+            "max": 0.29670597283903605,
+            "bind": 0,
+            "positive": 68.0217983651226,
+            "negative": 76.73978201634876
+          },
+          {
+            "name": "lumbar rotation right",
+            "min": -0.08726646259971647,
+            "max": 0.06981317007977318,
+            "bind": 0,
+            "positive": 52.95367847411443,
+            "negative": 51.33923705722069
+          },
+          {
+            "name": "shoulder.left flexion",
+            "min": -1.174090634769606,
+            "max": 3.021680887024762,
+            "bind": 0.027409316209331493,
+            "positive": 67.4390243902439,
+            "negative": 98.37533875338754
+          },
+          {
+            "name": "shoulder.left abduction",
+            "min": -0.7191159499508002,
+            "max": 2.4189860451350045,
+            "bind": 0.7191159499508002,
+            "positive": 64.44173441734418,
+            "negative": 95.91327913279133
+          },
+          {
+            "name": "shoulder.left internal rotation",
+            "min": -1.5063235584809922,
+            "max": 1.1099249902585078,
+            "bind": -0.0906527070938192,
+            "positive": 63.58536585365854,
+            "negative": 38.429539295392956
+          },
+          {
+            "name": "elbow.left flexion",
+            "min": -0.8615068911931567,
+            "max": 1.6552578901826664,
+            "bind": 0.8056563551293382,
+            "positive": 75.25338753387534,
+            "negative": 56.94850948509485
+          },
+          {
+            "name": "wrist.left flexion",
+            "min": -1.4317755068150615,
+            "max": 1.4654710514955254,
+            "bind": 0.05296539773954119,
+            "positive": 25.584010840108398,
+            "negative": 14.023035230352303
+          },
+          {
+            "name": "wrist.left radial deviation",
+            "min": -0.8961934847578699,
+            "max": 0.4302567467578206,
+            "bind": 0.07763406557252932,
+            "positive": 15.842530282637957,
+            "negative": 28.176312247644685
+          },
+          {
+            "name": "wrist.left pronation",
+            "min": -1.706258214065037,
+            "max": 1.4353344395247563,
+            "bind": 0.06564871719036719,
+            "positive": 7.335714285714285,
+            "negative": 8.652380952380952
+          },
+          {
+            "name": "hip.left flexion",
+            "min": -0.422749554194331,
+            "max": 2.10099654418947,
+            "bind": 0.11033561808734602,
+            "positive": 153.02685003340002,
+            "negative": 218.02940579980003
+          },
+          {
+            "name": "hip.left abduction",
+            "min": -0.3333921726682006,
+            "max": 0.46596862474520234,
+            "bind": 0.09428206514497743,
+            "positive": 198.03523035230353,
+            "negative": 232.28997289972904
+          },
+          {
+            "name": "hip.left internal rotation",
+            "min": -0.8150687606813519,
+            "max": 0.6475171524898963,
+            "bind": 0,
+            "positive": 77.82249322493226,
+            "negative": 53.2018970189702
+          },
+          {
+            "name": "knee.left flexion",
+            "min": -0.14486705560180382,
+            "max": 2.4574188591217414,
+            "bind": 0.10996047056191724,
+            "positive": 141.3008130081301,
+            "negative": 259.0514905149052
+          },
+          {
+            "name": "ankle.left dorsiflexion",
+            "min": -0.9065594759732407,
+            "max": 0.3570589024706539,
+            "bind": 0.032149520724081566,
+            "positive": 43.03252032520326,
+            "negative": 152.00542005420056
+          },
+          {
+            "name": "ankle.left inversion",
+            "min": -0.3324852225049198,
+            "max": 0.6031857894892403,
+            "bind": 0,
+            "positive": 37.911802853437095,
+            "negative": 34.2230869001297
+          },
+          {
+            "name": "shoulder.right flexion",
+            "min": -1.174090634769606,
+            "max": 3.021680887024762,
+            "bind": 0.027409316209331493,
+            "positive": 67.4390243902439,
+            "negative": 98.37533875338754
+          },
+          {
+            "name": "shoulder.right abduction",
+            "min": -0.7191159499508002,
+            "max": 2.4189860451350045,
+            "bind": 0.7191159499508002,
+            "positive": 64.44173441734418,
+            "negative": 95.91327913279133
+          },
+          {
+            "name": "shoulder.right internal rotation",
+            "min": -1.5063235584809922,
+            "max": 1.1099249902585078,
+            "bind": -0.0906527070938192,
+            "positive": 63.58536585365854,
+            "negative": 38.429539295392956
+          },
+          {
+            "name": "elbow.right flexion",
+            "min": -0.8615068911931567,
+            "max": 1.6552578901826664,
+            "bind": 0.8056563551293382,
+            "positive": 75.25338753387534,
+            "negative": 56.94850948509485
+          },
+          {
+            "name": "wrist.right flexion",
+            "min": -1.4317755068150615,
+            "max": 1.4654710514955254,
+            "bind": 0.05296539773954119,
+            "positive": 25.584010840108398,
+            "negative": 14.023035230352303
+          },
+          {
+            "name": "wrist.right radial deviation",
+            "min": -0.9206280942857904,
+            "max": 0.41629411274186595,
+            "bind": 0.07763406557252932,
+            "positive": 15.842530282637957,
+            "negative": 28.176312247644685
+          },
+          {
+            "name": "wrist.right pronation",
+            "min": -1.706258214065037,
+            "max": 1.4353344395247563,
+            "bind": 0.06564871719036719,
+            "positive": 7.335714285714285,
+            "negative": 8.652380952380952
+          },
+          {
+            "name": "hip.right flexion",
+            "min": -0.422749554194331,
+            "max": 2.10099654418947,
+            "bind": 0.11033561808734602,
+            "positive": 153.02685003340002,
+            "negative": 218.02940579980003
+          },
+          {
+            "name": "hip.right abduction",
+            "min": -0.3333921726682006,
+            "max": 0.46596862474520234,
+            "bind": 0.09428206514497743,
+            "positive": 198.03523035230353,
+            "negative": 232.28997289972904
+          },
+          {
+            "name": "hip.right internal rotation",
+            "min": -0.8150687606813519,
+            "max": 0.6475171524898963,
+            "bind": 0,
+            "positive": 77.82249322493226,
+            "negative": 53.2018970189702
+          },
+          {
+            "name": "knee.right flexion",
+            "min": -0.14486705560180382,
+            "max": 2.4574188591217414,
+            "bind": 0.10996047056191724,
+            "positive": 141.3008130081301,
+            "negative": 259.0514905149052
+          },
+          {
+            "name": "ankle.right dorsiflexion",
+            "min": -0.9065594759732407,
+            "max": 0.3570589024706539,
+            "bind": 0.032149520724081566,
+            "positive": 43.03252032520326,
+            "negative": 152.00542005420056
+          },
+          {
+            "name": "ankle.right inversion",
+            "min": -0.3324852225049198,
+            "max": 0.6031857894892403,
+            "bind": 0,
+            "positive": 37.911802853437095,
+            "negative": 34.2230869001297
+          }
+        ]
+      },
+      "verification": {
+        "identity": {
+          "harness": "Node Stance Lab recovery search",
+          "model": "workshop-fighter",
+          "held": "empty",
+          "baseline": "support-recovery",
+          "host": "stance",
+          "assistedBaseline": false,
+          "recipeSha": "4d268b653b995bce06df62476799f2793742df8ed2a47a7d0b47231c3b80e77b",
+          "hz": 120,
+          "engine": "rapier-coordinate",
+          "revision": "rapier/adapter-11/sha256:0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c/coordinate-limits",
+          "artifact": "vendor/rapier/dimforge-rapier3d-simd-compat-0.21.0-auto-rpg.9.tgz",
+          "artifactSha": "0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c",
+          "sourceSha": "b977ca64c09164f95647edc6d57cd2fc90e9474e678c518931f5369de9809337",
+          "environmentSha": "d4cc16d06ea33ee426bc325647e1e662519770b89129484b56e5b083f9f671a7",
+          "specSha": "89a7a051e52d295ba5848b8aaeb62e643372243b81acc76cb2b5fa398fb1fa94",
+          "actuation": "symmetric",
+          "balance": 0,
+          "channels": [
+            {
+              "name": "neck flexion",
+              "min": -1.0629055144645467,
+              "max": 1.1397000015522971,
+              "bind": 0,
+              "positive": 30.779220779220775,
+              "negative": 53.35064935064935
+            },
+            {
+              "name": "neck lateral flexion right",
+              "min": -0.7906341511534313,
+              "max": 0.7557275661135446,
+              "bind": 0,
+              "positive": 36.93506493506493,
+              "negative": 36.93506493506493
+            },
+            {
+              "name": "neck rotation right",
+              "min": -1.3002702927357754,
+              "max": 1.2426744274199626,
+              "bind": 0,
+              "positive": 15.389610389610388,
+              "negative": 15.389610389610388
+            },
+            {
+              "name": "thoracic flexion",
+              "min": -0.23911010752322315,
+              "max": 0.36826447217080355,
+              "bind": 0,
+              "positive": 93.96049046321524,
+              "negative": 127.1103542234332
+            },
+            {
+              "name": "thoracic lateral flexion right",
+              "min": -0.2722713633111154,
+              "max": 0.2722713633111154,
+              "bind": 0,
+              "positive": 68.0217983651226,
+              "negative": 76.73978201634876
+            },
+            {
+              "name": "thoracic rotation right",
+              "min": -0.43458698374658805,
+              "max": 0.43458698374658805,
+              "bind": 0,
+              "positive": 52.95367847411443,
+              "negative": 51.33923705722069
+            },
+            {
+              "name": "lumbar flexion",
+              "min": -0.2792526803190927,
+              "max": 0.8901179185171081,
+              "bind": 0,
+              "positive": 93.96049046321524,
+              "negative": 127.1103542234332
+            },
+            {
+              "name": "lumbar lateral flexion right",
+              "min": -0.3141592653589793,
+              "max": 0.29670597283903605,
+              "bind": 0,
+              "positive": 68.0217983651226,
+              "negative": 76.73978201634876
+            },
+            {
+              "name": "lumbar rotation right",
+              "min": -0.08726646259971647,
+              "max": 0.06981317007977318,
+              "bind": 0,
+              "positive": 52.95367847411443,
+              "negative": 51.33923705722069
+            },
+            {
+              "name": "shoulder.left flexion",
+              "min": -1.174090634769606,
+              "max": 3.021680887024762,
+              "bind": 0.027409316209331493,
+              "positive": 67.4390243902439,
+              "negative": 98.37533875338754
+            },
+            {
+              "name": "shoulder.left abduction",
+              "min": -0.7191159499508002,
+              "max": 2.4189860451350045,
+              "bind": 0.7191159499508002,
+              "positive": 64.44173441734418,
+              "negative": 95.91327913279133
+            },
+            {
+              "name": "shoulder.left internal rotation",
+              "min": -1.5063235584809922,
+              "max": 1.1099249902585078,
+              "bind": -0.0906527070938192,
+              "positive": 63.58536585365854,
+              "negative": 38.429539295392956
+            },
+            {
+              "name": "elbow.left flexion",
+              "min": -0.8615068911931567,
+              "max": 1.6552578901826664,
+              "bind": 0.8056563551293382,
+              "positive": 75.25338753387534,
+              "negative": 56.94850948509485
+            },
+            {
+              "name": "wrist.left flexion",
+              "min": -1.4317755068150615,
+              "max": 1.4654710514955254,
+              "bind": 0.05296539773954119,
+              "positive": 25.584010840108398,
+              "negative": 14.023035230352303
+            },
+            {
+              "name": "wrist.left radial deviation",
+              "min": -0.8961934847578699,
+              "max": 0.4302567467578206,
+              "bind": 0.07763406557252932,
+              "positive": 15.842530282637957,
+              "negative": 28.176312247644685
+            },
+            {
+              "name": "wrist.left pronation",
+              "min": -1.706258214065037,
+              "max": 1.4353344395247563,
+              "bind": 0.06564871719036719,
+              "positive": 7.335714285714285,
+              "negative": 8.652380952380952
+            },
+            {
+              "name": "hip.left flexion",
+              "min": -0.422749554194331,
+              "max": 2.10099654418947,
+              "bind": 0.11033561808734602,
+              "positive": 153.02685003340002,
+              "negative": 218.02940579980003
+            },
+            {
+              "name": "hip.left abduction",
+              "min": -0.3333921726682006,
+              "max": 0.46596862474520234,
+              "bind": 0.09428206514497743,
+              "positive": 198.03523035230353,
+              "negative": 232.28997289972904
+            },
+            {
+              "name": "hip.left internal rotation",
+              "min": -0.8150687606813519,
+              "max": 0.6475171524898963,
+              "bind": 0,
+              "positive": 77.82249322493226,
+              "negative": 53.2018970189702
+            },
+            {
+              "name": "knee.left flexion",
+              "min": -0.14486705560180382,
+              "max": 2.4574188591217414,
+              "bind": 0.10996047056191724,
+              "positive": 141.3008130081301,
+              "negative": 259.0514905149052
+            },
+            {
+              "name": "ankle.left dorsiflexion",
+              "min": -0.9065594759732407,
+              "max": 0.3570589024706539,
+              "bind": 0.032149520724081566,
+              "positive": 43.03252032520326,
+              "negative": 152.00542005420056
+            },
+            {
+              "name": "ankle.left inversion",
+              "min": -0.3324852225049198,
+              "max": 0.6031857894892403,
+              "bind": 0,
+              "positive": 37.911802853437095,
+              "negative": 34.2230869001297
+            },
+            {
+              "name": "shoulder.right flexion",
+              "min": -1.174090634769606,
+              "max": 3.021680887024762,
+              "bind": 0.027409316209331493,
+              "positive": 67.4390243902439,
+              "negative": 98.37533875338754
+            },
+            {
+              "name": "shoulder.right abduction",
+              "min": -0.7191159499508002,
+              "max": 2.4189860451350045,
+              "bind": 0.7191159499508002,
+              "positive": 64.44173441734418,
+              "negative": 95.91327913279133
+            },
+            {
+              "name": "shoulder.right internal rotation",
+              "min": -1.5063235584809922,
+              "max": 1.1099249902585078,
+              "bind": -0.0906527070938192,
+              "positive": 63.58536585365854,
+              "negative": 38.429539295392956
+            },
+            {
+              "name": "elbow.right flexion",
+              "min": -0.8615068911931567,
+              "max": 1.6552578901826664,
+              "bind": 0.8056563551293382,
+              "positive": 75.25338753387534,
+              "negative": 56.94850948509485
+            },
+            {
+              "name": "wrist.right flexion",
+              "min": -1.4317755068150615,
+              "max": 1.4654710514955254,
+              "bind": 0.05296539773954119,
+              "positive": 25.584010840108398,
+              "negative": 14.023035230352303
+            },
+            {
+              "name": "wrist.right radial deviation",
+              "min": -0.9206280942857904,
+              "max": 0.41629411274186595,
+              "bind": 0.07763406557252932,
+              "positive": 15.842530282637957,
+              "negative": 28.176312247644685
+            },
+            {
+              "name": "wrist.right pronation",
+              "min": -1.706258214065037,
+              "max": 1.4353344395247563,
+              "bind": 0.06564871719036719,
+              "positive": 7.335714285714285,
+              "negative": 8.652380952380952
+            },
+            {
+              "name": "hip.right flexion",
+              "min": -0.422749554194331,
+              "max": 2.10099654418947,
+              "bind": 0.11033561808734602,
+              "positive": 153.02685003340002,
+              "negative": 218.02940579980003
+            },
+            {
+              "name": "hip.right abduction",
+              "min": -0.3333921726682006,
+              "max": 0.46596862474520234,
+              "bind": 0.09428206514497743,
+              "positive": 198.03523035230353,
+              "negative": 232.28997289972904
+            },
+            {
+              "name": "hip.right internal rotation",
+              "min": -0.8150687606813519,
+              "max": 0.6475171524898963,
+              "bind": 0,
+              "positive": 77.82249322493226,
+              "negative": 53.2018970189702
+            },
+            {
+              "name": "knee.right flexion",
+              "min": -0.14486705560180382,
+              "max": 2.4574188591217414,
+              "bind": 0.10996047056191724,
+              "positive": 141.3008130081301,
+              "negative": 259.0514905149052
+            },
+            {
+              "name": "ankle.right dorsiflexion",
+              "min": -0.9065594759732407,
+              "max": 0.3570589024706539,
+              "bind": 0.032149520724081566,
+              "positive": 43.03252032520326,
+              "negative": 152.00542005420056
+            },
+            {
+              "name": "ankle.right inversion",
+              "min": -0.3324852225049198,
+              "max": 0.6031857894892403,
+              "bind": 0,
+              "positive": 37.911802853437095,
+              "negative": 34.2230869001297
+            }
+          ]
+        },
+        "steps": 2144,
+        "traceSha256": "0e81e6ed668166ac77b279878d8c2435d82075b7138b623a05b4c72ea7712add",
+        "exact": true,
+        "restoredSplit": true,
+        "result": {
+          "fell": true,
+          "success": true,
+          "failure": null,
+          "firstDown": 2.55,
+          "takeover": 2.5416666666666665,
+          "handover": 17.416666666666668,
+          "seconds": 14.875000000000002,
+          "fromFirstDown": 14.866666666666667,
+          "elapsed": 17.875,
+          "effortViolation": 0.000035855569763043604,
+          "assisted": false,
+          "quiet": 0
+        },
+        "externalActuation": []
+      }
+    },
+    "viewer": {
+      "path": ".review/stand-up-foot-support/fixed-witness.html",
+      "sha256": "11beedf5cc0e3f61a22ce5a164500990ea2c5021cbebf777428dff4131186ab2",
+      "frames": 2145,
+      "exactEmbeddedFrames": true,
+      "visuallyInspectedAtSeconds": [
+        17.875
+      ],
+      "observation": "The finish is upright on the feet during walking verification."
+    },
+    "checks": {
+      "typescript": "pass",
+      "build": "pass",
+      "targeted": {
+        "tests": 15,
+        "pass": 15
+      },
+      "fast": {
+        "tests": 695,
+        "pass": 688,
+        "fail": 2,
+        "todo": 5,
+        "failures": [
+          "research-stand-up-acceptance.test.mjs: incompatible frozen checkpoint",
+          "stand-up-detached.test.mjs: incompatible frozen checkpoint"
+        ]
+      },
+      "regressionFailedBeforeFix": true
+    },
+    "outcome": "A handover defect is fixed in the shared live stance controller. The unchanged portable feedback witness improves from 15.558333 to 14.875 seconds. This is not a frozen acceptance improvement or completion of the four-second median and six-second deadline.",
+    "sources": {
+      "src/core/control/stance.ts": {
+        "sha256": "7b58dfa370055b4a0b37c0a4e08a1b0e08bd3815f94ae2ded727d5db6d909618",
+        "text": "import { Quaternion, Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\r\nimport type { Vec3 } from \"../spec/quantity.ts\";\r\nimport type { BuiltBody } from \"../build/build-body.ts\";\r\nimport { channelName, type MuscleDriver } from \"../muscle/driver.ts\";\r\nimport type { Assist } from \"./assist.ts\";\r\nimport type { ServoWork } from \"./servo.ts\";\r\nimport { bearLimbs, carryRoot, limbMotion, makeBearing, type Bearing, type Limb } from \"./bearing.ts\";\r\nimport { patchPlace } from \"./contact-wrench.ts\";\r\nimport { rotationAtToRef } from \"./kinematics.ts\";\r\nimport type { StanceTuning } from \"./stance-tuning.ts\";\r\nimport { catchStep, ownStep, paceToward } from \"./gait.ts\";\r\nimport { gravityOf, makeStance, type Stance } from \"./stance-state.ts\";\r\nimport {\r\n  bearingOf, bearingSole, groundContact, massCentreToRef, motionAtToRef, pointOfToRef, landingHeading, readSupport, rolledRows, soleMiddleToRef, turnOfToRef,\r\n  withinSupport, type FootState,\r\n} from \"./support.ts\";\r\nimport { sin, cos, atan2, exp, sinh, cosh, hypot } from \"../math/real.ts\";\r\nimport type { Side } from \"../spec/body.ts\";\r\nimport { spinBetweenToRef, turnAboutToRef, turnBetweenToRef } from \"../math/turn.ts\";\r\nimport { approachToRef, turnToRef } from \"./approach.ts\";\r\n\r\n/**\r\n * **What a stance is asked for**: which feet bear the body, where its centre of mass goes, and which\r\n * way its pelvis faces.\r\n */\r\nexport interface StanceGoal {\r\n  /** The feet bearing weight; the other leg is left to the posture. */\r\n  readonly feet: readonly Side[];\r\n  /** The centre of mass's place over the ground, world (x, z), m; null for the middle of the stance feet. */\r\n  readonly centre: readonly [number, number] | null;\r\n  /** The centre of mass's height over the stance feet's soles, m. */\r\n  readonly height: number;\r\n  /** The pelvis's heading, rad about the world's up: 0 faces it as in the reference pose. */\r\n  readonly heading: number;\r\n  /** A supported root pitch, rad, and response time, s; the bearing feet stay planted and no step is requested. */\r\n  readonly pose?: { readonly pitch: number; readonly seconds: number;\r\n    /** Captured bearing soles, world position and rotation since reference; errors are corrected through muscles. */\r\n    readonly anchors?: Readonly<Partial<Record<Side, { readonly position: Vec3; readonly rotation: readonly [number, number, number, number] }>>> };\r\n  /** A foot not in `feet` carried to a landing place; none, and the other leg is left to the posture. */\r\n  readonly swing?: SwingGoal | null;\r\n  /**\r\n   * A walk: the centre of mass's velocity across the ground, world (x, z), m/s. With both feet in\r\n   * `feet` and no `swing`, the stance steps of itself, each foot in turn (`STANCE_GAIT`); walking\r\n   * nowhere, it steps only to catch a push (`STANCE_RECOVERY`).\r\n   */\r\n  readonly walk?: readonly [number, number] | null;\r\n}\r\n\r\n/**\r\n * **A step's swing**: the foot lifted and carried to where its sole's middle lands, over the ground,\r\n * on a minimum-jerk path lifted by `lift` at its middle, its turn carried from the one it left the\r\n * ground with to flat and facing the heading as it lands. A goal equal to the last keeps its path;\r\n * a new one starts from where the foot is.\r\n */\r\nexport interface SwingGoal {\r\n  readonly foot: Side;\r\n  /** The sole's middle's landing place, world (x, z), m. */\r\n  readonly to: readonly [number, number];\r\n  /** The swing's time, s. */\r\n  readonly seconds: number;\r\n  /** How high the sole's middle is lifted at the swing's middle, m. */\r\n  readonly lift: number;\r\n  /**\r\n   * Whether the weight is first shifted onto the other foot (the default): the foot leaves the\r\n   * ground once the body's capture point is over the other sole. A step to catch a fall lifts at\r\n   * once.\r\n   */\r\n  readonly shift?: boolean;\r\n  /**\r\n   * Where the capture point is brought by the time the foot lands, world (x, z), m: the pivot the\r\n   * body falls about in the bearing sole is chosen for it. None, and the middle of the stance the\r\n   * step lands in.\r\n   */\r\n  readonly capture?: readonly [number, number];\r\n  /**\r\n   * A walk's double support before the lift, s (`transferStep`): both soles bear, and the foot lifts\r\n   * when it is over, not on the capture point; the plan brings its capture point to `handover` by then.\r\n   */\r\n  readonly transfer?: number;\r\n  readonly handover?: readonly [number, number];\r\n  /**\r\n   * Whether this swing goes on with the step under way, of the same foot: its landing, its time and\r\n   * its capture point re-aimed, its path still from where the foot lifted and its clock running on.\r\n   * None, and a swing unlike the last starts a step afresh. A walk that plans its own steps re-aims\r\n   * them so as the body goes (`src/core/skills/stride.ts`).\r\n   */\r\n  readonly follows?: boolean;\r\n  /**\r\n   * The constant the swing's foot takes up its errors from its path at, s, critically damped; none,\r\n   * the stance's (`StanceTuning.seconds.swing`). A shorter one lands a fast step nearer its place.\r\n   */\r\n  readonly settle?: number;\r\n  /**\r\n   * Whether the swing ends as its sole meets the ground (`LANDS_FROM`): one that meets it early ends\r\n   * there, and one still off the ground at its time goes on down past its place's height\r\n   * (`LATE_DESCENT`) until it meets it, or for `LATE_MOST`. None, it ends on its time.\r\n   */\r\n  readonly lands?: boolean;\r\n  /**\r\n   * The swing's way across the ground as a ramped acceleration, the share of each half of the\r\n   * swing's time its acceleration takes to rise or fall (0 to 1/4, `swingProgressToRef`); its peak\r\n   * is below minimum jerk's where it is under 0.15. None, minimum jerk.\r\n   */\r\n  readonly ramp?: number;\r\n  /**\r\n   * The push-off: the plantarflexion, rad, the trailing foot's ankle, rolled onto its toes, is\r\n   * driven toward through a walk's double support, with its knee's pre-swing\r\n   * (`GaitTuning.preswing`) and at its time, so the leg launches the body and itself into the\r\n   * step. None, the ankle is left to the task.\r\n   */\r\n  readonly push?: number;\r\n  /**\r\n   * The push-off as a torque: the ankle of the foot that lifts next plantarflexes at least at\r\n   * `share` of what it can give that way (`MuscleDriver.strength`), from `lead` s before the step\r\n   * before it lands, through the double support (`transfer`), to its lift; the rest of the body is\r\n   * solved as if it did not. None, the ankle is the solve's.\r\n   */\r\n  readonly launch?: { readonly share: number; readonly lead: number };\r\n  /**\r\n   * Whether the swing's path starts at the sole's velocity as the foot lifts, coming to rest at\r\n   * its landing as the path does (a quintic's term for a start's velocity), rather than at rest:\r\n   * the swing goes on with what the push-off gave the leg. None, from rest.\r\n   */\r\n  readonly momentum?: boolean;\r\n  /**\r\n   * The lever, m, a missed moment of the ground's wrench is weighed against a missed force at\r\n   * through the swing (`shareGroundWrench`): a shorter one has the bearing sole give the centre of\r\n   * mass its plan before the pelvis its turn. None, the stance's (`leverOf`).\r\n   */\r\n  readonly lever?: number;\r\n  /**\r\n   * A run's step: the bearing foot leaves the ground at this upward speed, m/s, a flight's time\r\n   * (twice it over gravity) before `seconds` is up, and nothing bears until the swinging foot lands\r\n   * (`lands`, which a run's step asks). Through the bearing, the plan's height bounces as a\r\n   * spring-mass leg's does (Blickhan 1989, \"The spring-mass model for running and hopping\", J\r\n   * Biomech): down at that speed as the foot lands, and up at it as it leaves.\r\n   */\r\n  readonly flight?: number;\r\n}\r\n\r\n/** The share of a swing's time from which the ground meeting its sole ends it (`SwingGoal.lands`): before it, the foot is still leaving the ground. */\r\nconst LANDS_FROM = 0.8;\r\n\r\n/** How far down the ground's normal at a sole is, as the cosine from up, for its meeting to land the swing: the floor, not a wall. */\r\nconst LANDED_NORMAL = 0.5;\r\n\r\n/** Whether the ground pushed on `foot` in the last step, from below (`LANDED_NORMAL`). */\r\nconst soleOnGround = (s: Stance, foot: FootState): boolean =>\r\n  s.built.physics.contactsOf(foot.segment.body, (other) => other === null).some((c) => groundContact(c, LANDED_NORMAL));\r\n\r\n/** How fast a late foot goes on down past its place's height, m/s, and for how long at most, s (`SwingGoal.lands`). */\r\nconst LATE_DESCENT = 0.3, LATE_MOST = 0.1;\r\n\r\n/**\r\n * Where a stance is: standing (no step, or its foot landed), shifting its weight before a step,\r\n * swinging the step's foot, or in a run's flight, no foot bearing (`SwingGoal.flight`).\r\n */\r\nexport type StancePhase = \"stand\" | \"shift\" | \"swing\" | \"flight\";\r\n\r\n/**\r\n * **Standing: the body carried by the legs, the feet where they are.** The stance plans its\r\n * centre of mass's way to the goal -- critically damped at a time constant (`STANCE_SECONDS`),\r\n * toward a place the soles can hold (`withinSupport`), no higher than the legs reach with their\r\n * knees bent (`STANCE_KNEE_BEND`) and no lower than they reach within their ankles' range\r\n * (`STANCE_ANKLE_SPARE`) -- and each step asks for accelerations: the centre of mass's, the plan's\r\n * with its errors from the plan taken up at `STANCE_TRACK`; the pelvis's turn toward upright at the\r\n * goal's heading; and each bearing foot's, none, what motion it has damped out.\r\n *\r\n * **The legs give those by torque, through the whole body's floating-base dynamics**\r\n * (`BodyDynamics.root`): the bearing solve's work (`bearing.ts`), with the stance's legs its limbs\r\n * and their soles its patches (`aimLimb`). The root's six rows say what wrench the ground must give for the body's\r\n * accelerations; each stance leg's freedoms' accelerations follow from the root's and its foot's\r\n * (`carry`). The ground's wrench is shared among the bearing soles as nearly as a sole can give it\r\n * (`shareGroundWrench`: no pull, the centre of pressure on the sole, friction, twist), and where\r\n * the soles cannot give it all, the root is asked for the acceleration the wrench they can give\r\n * makes: a body pushed past its feet is not asked to stand. The rest of the body is servoed around\r\n * that root acceleration (`servoSolve`), and each stance leg's torques are its freedoms' inverse\r\n * dynamics less the ground's wrench on its foot (`bear`), given to the muscles as torque sources.\r\n * Every inertia is the body's own (`humanSpec`), and nothing conditions it.\r\n *\r\n * **A step** (`SwingGoal`) shifts the weight onto the other foot until the body's capture point is\r\n * over that sole, lifts the foot, and carries it on its path while the plan falls as an inverted\r\n * pendulum about a point of the bearing sole chosen to bring the capture point to the middle of the\r\n * stance the step lands in; the foot lands at the swing's end, and the stance holds the new feet.\r\n * The swinging foot is asked for its path's acceleration with its errors taken up at the swing's\r\n * constant, through the same inverse dynamics, no ground under it.\r\n *\r\n * The plan is what makes a move settle: the body tracks a path that is itself settled, rather than\r\n * chasing its goal from a velocity it reads a step late, which overshoots or coasts through the place.\r\n *\r\n * A torque past a muscle's strength is not given, and a body asked for more than its feet can take\r\n * tips or falls. With an assist (`Assist`) the root may be given what the soles miss, up to the\r\n * fight's ceiling; with none, nothing holds the body up that the legs' muscles do not.\r\n */\r\nexport interface StanceControl {\r\n  /**\r\n   * Read the body: its centre of mass and velocity, and the soles of `feet` (the last command's\r\n   * stance feet, or both). A body reads this before its driver decides, so the driver's view is\r\n   * this step's; `command` uses it.\r\n   */\r\n  read(feet?: readonly Side[]): void;\r\n  /**\r\n   * Set `goal`'s aims from the last reading: the centre of mass's, the pelvis's turn's and each\r\n   * stance leg's foot's accelerations. The stance legs' channels are marked in `owned`, for the\r\n   * servo to leave. With no goal nothing is asked.\r\n   */\r\n  command(driver: MuscleDriver, goal: StanceGoal | null, dt: number): void;\r\n  /**\r\n   * The root's acceleration the last command asks for (angular, then its centre's, world), given\r\n   * the servo's asked accelerations of the freedoms the stance does not own (`servoAsk`); null if\r\n   * the stance carries nothing. The servo solves the rest of the body with it.\r\n   */\r\n  carry(driver: MuscleDriver, work: ServoWork): Float64Array | null;\r\n  /** The owned legs' torques, once the servo has solved the rest (`servoSolve`). */\r\n  bear(driver: MuscleDriver, work: ServoWork): void;\r\n  /**\r\n   * Forget the stance under way: nothing is driven or asked, no step is being taken, and the next\r\n   * command begins from the body as it is. The steps counted stay.\r\n   */\r\n  reset(): void;\r\n  /** Each channel the last command drove, 1, or 0. */\r\n  readonly owned: Uint8Array;\r\n  /** What the last reading and command found and asked. */\r\n  readonly reading: StanceReading;\r\n  /** Its memory, whole (`StanceState`, `src/core/state.ts`). */\r\n  readonly state: object;\r\n}\r\n\r\nexport interface StanceReading {\r\n  /** The centre of mass and its velocity, world. */\r\n  readonly centre: Vector3;\r\n  readonly velocity: Vector3;\r\n  /** The middle of the stance feet's soles, world; with no stance, of both feet. */\r\n  readonly support: Vector3;\r\n  /** The way the pelvis faces, rad about up, as a heading is counted: 0 as in the reference pose, growing to the right. */\r\n  readonly facing: number;\r\n  /** Each sole's middle, world. */\r\n  readonly soles: Readonly<Record<Side, Vector3>>;\r\n  /**\r\n   * Whether the ground bore each foot in the last step: a contact with a fixed collider that pushed,\r\n   * its normal within `LANDED_NORMAL` of up, as a swing that lands on contact reads it.\r\n   */\r\n  readonly touching: Readonly<Record<Side, boolean>>;\r\n  /**\r\n   * The place over the ground the stance holds the centre of mass toward, world (x, z; y unused):\r\n   * the goal's, or the nearest the stance soles can hold (`withinSupport`).\r\n   */\r\n  readonly place: Vector3;\r\n  /** The plan the centre of mass is held to: its place (x, height over the stance soles, z) and velocity, world. */\r\n  readonly plan: Vector3;\r\n  readonly planVelocity: Vector3;\r\n  /** Where the stance is in a step. */\r\n  readonly phase: StancePhase;\r\n  /** The step the stance is taking of itself -- to walk, or to catch a push -- while it is under way; else null. */\r\n  readonly own: SwingGoal | null;\r\n  /** How many steps the stance has taken to catch a push, and to walk. */\r\n  readonly recoveries: number;\r\n  readonly strides: number;\r\n  /**\r\n   * What the last command asked of the ground and the bearing soles could not give\r\n   * (`shareGroundWrench`): a force, and a moment about the root's centre of mass, world, N and N m.\r\n   * None with no stance, or no sole bearing. The root was asked for the motion that the wrench\r\n   * the soles can give makes, with whatever of this the assist supplies (`Assist`).\r\n   */\r\n  readonly shortfall: { readonly force: Vector3; readonly moment: Vector3 };\r\n  /**\r\n   * The ground's wrench the last command's leg torques count on at each sole (`shareGroundWrench`):\r\n   * a force at the place the sole bears (`at`: its middle, or its front edge's when rolled) and a\r\n   * moment about it, world, m, N and N m; zero for a foot that does not bear.\r\n   */\r\n  readonly asked: Readonly<Record<Side, { readonly at: Vector3; readonly force: Vector3; readonly moment: Vector3 }>>;\r\n}\r\n\r\n/**\r\n * The plan's acceleration across the ground (x, z) by the stance's phase, and the place it is\r\n * held toward, into the reading. `pendulum` is g over the plan's height.\r\n */\r\nfunction planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], swing: SwingGoal | null, bearer: FootState | undefined,\r\n  pendulum: number, dt: number): [number, number] {\r\n  const { plan, reading, step } = s.state, { seconds, inset } = s.tuning;\r\n  const r = plan.at, u = plan.velocity, n = 1 / seconds.across;\r\n  if (reading.phase === \"swing\") {\r\n    // On one foot the plan falls as an inverted pendulum of its height about a point of the\r\n    // bearing sole (Kajita et al. 2001, \"The 3D linear inverted pendulum mode\", IROS), whose\r\n    // capture point runs away from that point exponentially. The point is chosen each step so\r\n    // that the capture point reaches the middle of the stance the step lands in as the foot\r\n    // lands (Englsberger et al. 2011, \"Bipedal walking control based on Capture Point\r\n    // dynamics\", IROS), within what the sole holds: the body falls toward its new stance.\r\n    const w = Math.sqrt(pendulum), grow = exp(w * Math.max(swing!.seconds - step.time, dt));\r\n    const [tx, tz] = swing!.capture ?? [(bearer!.middle.x + swing!.to[0]) / 2, (bearer!.middle.z + swing!.to[1]) / 2];\r\n    const [px, pz] = withinSupport([bearingOf(bearer!)], (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow),\r\n      inset);\r\n    reading.place.set(px, 0, pz);\r\n    return [pendulum * (r.x - px), pendulum * (r.z - pz)];\r\n  }\r\n  if (reading.phase === \"shift\" && swing!.transfer) {\r\n    // A walk's double support: both soles bear, and the plan falls as the pendulum about a\r\n    // point of them chosen, as a swing's is, to bring its capture point to the step's handover\r\n    // as the foot lifts (Englsberger et al. 2015, \"Three-dimensional bipedal walking control\r\n    // based on Divergent Component of Motion\", IEEE T-RO): the walk keeps its momentum.\r\n    const w = Math.sqrt(pendulum), grow = exp(w * Math.max(swing!.transfer - step.held, dt));\r\n    const [tx, tz] = swing!.handover!;\r\n    const [px, pz] = withinSupport(stance.map(bearingOf), (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow),\r\n      inset);\r\n    reading.place.set(px, 0, pz);\r\n    return [pendulum * (r.x - px), pendulum * (r.z - pz)];\r\n  }\r\n  if (reading.phase === \"shift\") {\r\n    // Before a step the plan goes toward the bearing sole's middle, as fast as its constant\r\n    // takes it, past what a stance on both feet holds: the foot lifts before it gets there.\r\n    reading.place.set(bearer!.middle.x, 0, bearer!.middle.z);\r\n    return [n * n * (bearer!.middle.x - r.x) - 2 * n * u.x, n * n * (bearer!.middle.z - r.z) - 2 * n * u.z];\r\n  }\r\n  // A place outside what the soles can hold is taken at the nearest point that they can.\r\n  const [gx, gz] = withinSupport(stance, goal.centre?.[0] ?? reading.support.x, goal.centre?.[1] ?? reading.support.z, inset);\r\n  reading.place.set(gx, 0, gz);\r\n  return [n * n * (gx - r.x) - 2 * n * u.x, n * n * (gz - r.z) - 2 * n * u.z];\r\n}\r\n\r\n/**\r\n * The plan's height limits. No higher than each leg reaches with its knee bent by\r\n * `STANCE_KNEE_BEND`, its hip carried as the plan carries the centre of mass: a stance leg from its\r\n * ankle, a swinging leg from where its ankle will be when its sole lands, its hip where the plan\r\n * will have it then (the pendulum about the place, over the swing's time left). Taken from the hip\r\n * where it is, a long step's leg reaches from behind the bearing foot to a landing ahead of it, and\r\n * the plan drops the body as the foot lifts. And no lower than each leg reaches with its ankle\r\n * dorsiflexed to its range less `STANCE_ANKLE_SPARE`, its foot where it stands or will land: the\r\n * knee's place is then fixed, and the hip is a thigh from it; each leg's such floor is in `floors`.\r\n */\r\nfunction heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[], swing: SwingGoal | null, pendulum: number):\r\n  { high: number; floors: [FootState, number][] } {\r\n  const { feet } = s, { plan, reading, step } = s.state, { bend, spare } = s.tuning, { hipAt, ankleAt, kneeAt, shank, footTurn } = s.scratch;\r\n  const r = plan.at, u = plan.velocity, c = reading.centre;\r\n  let high = goal.height;\r\n  const floors: [FootState, number][] = [];\r\n  let landX = r.x, landZ = r.z;\r\n  if (reading.phase === \"swing\") {\r\n    const w = Math.sqrt(pendulum), left = Math.max(swing!.seconds - step.time, 0), ch = cosh(w * left), sh = sinh(w * left);\r\n    landX = reading.place.x + (r.x - reading.place.x) * ch + u.x / w * sh;\r\n    landZ = reading.place.z + (r.z - reading.place.z) * ch + u.z / w * sh;\r\n  }\r\n  for (const foot of reading.phase === \"swing\" ? feet : stance) {\r\n    const [hip, knee, ankle] = foot.chain;\r\n    pointOfToRef(hip!.parent, hip!.spec.centre.value, hipAt);\r\n    pointOfToRef(ankle!.parent, ankle!.spec.centre.value, ankleAt);\r\n    const swinging = !stance.includes(foot);\r\n    const [a, b] = foot.lengths, hx = hipAt.x + (swinging ? landX : r.x) - c.x, hz = hipAt.z + (swinging ? landZ : r.z) - c.z, rise = c.y - hipAt.y - reading.support.y;\r\n    if (swinging) ankleAt.addInPlaceFromFloats(swing!.to[0] - foot.middle.x, reading.support.y - foot.middle.y, swing!.to[1] - foot.middle.z);\r\n    if (bend !== null && !s.state.pose) {\r\n      const long = Math.sqrt(a * a + b * b + 2 * a * b * cos(bend)), spread = hypot(hx - ankleAt.x, hz - ankleAt.z);\r\n      high = Math.min(high, ankleAt.y + Math.sqrt(Math.max(0, long * long - spread * spread)) + rise);\r\n    }\r\n    if (spare !== null) {\r\n      // The shank's turn is the foot's with the ankle's own undone (rel = D_shank^-1 D_foot).\r\n      const dorsiflexion = ankle!.dofs[0]!.spec;\r\n      rotationAtToRef(ankle!, [dorsiflexion.max.value - spare, 0], shank);\r\n      turnOfToRef(foot.segment, footTurn).multiplyToRef(Quaternion.InverseToRef(shank, shank), shank);\r\n      const k = knee!.spec.centre.value, o = ankle!.spec.centre.value;\r\n      kneeAt.set(k[0] - o[0], k[1] - o[1], k[2] - o[2]).applyRotationQuaternionToRef(shank, kneeAt).addInPlace(ankleAt);\r\n      const spread = hypot(hx - kneeAt.x, hz - kneeAt.z);\r\n      if (spread < a) floors.push([foot, kneeAt.y + Math.sqrt(a * a - spread * spread) + rise]);\r\n    }\r\n  }\r\n  return { high, floors };\r\n}\r\n\r\n/**\r\n * Which feet bear on their front edges. A walk's bearing foot (the stance's own walk's, or a goal's\r\n * step's with a double support, `SwingGoal.transfer`) whose ankle's floor is over the knees'\r\n * ceiling (`high`) on one foot rolls onto its front edge instead (Perry 1992, \"Gait\r\n * Analysis\", terminal stance: the heel rises as the body passes over the forefoot), once the plan's\r\n * centre of mass is past that edge: rolled, the foot's pressure is on the edge, and one rolled with\r\n * the centre behind it brakes the walk (`docs/reference/stance-tuning.md#heel-off`). The height\r\n * keeps the knees bent, and the ankle its range. The foot rolls back once its heel is down with the\r\n * centre behind the edge, and is flat again whenever it leaves the ground. Through a walk's double\r\n * support the trailing foot rolls for its pre-swing.\r\n */\r\nfunction rollFeet(s: Stance, stance: readonly FootState[], swing: SwingGoal | null, floors: readonly [FootState, number][], high: number): void {\r\n  const { feet } = s, { plan, reading } = s.state, { heelOff, gait } = s.tuning;\r\n  const r = plan.at, u = plan.velocity;\r\n  for (const foot of feet) if (!stance.includes(foot)) foot.memory.rolled = false;\r\n  for (const [foot, floor] of floors) {\r\n    if (!stance.includes(foot)) continue;\r\n    const ex = r.x - foot.edge.x, ez = r.z - foot.edge.z;\r\n    const past = ex * (foot.edge.x - foot.middle.x) + ez * (foot.edge.z - foot.middle.z) >= 0;\r\n    if (heelOff && (s.state.striding || swing?.transfer !== undefined && swing !== reading.own) && past && !foot.memory.rolled && floor > high && reading.phase === \"swing\") foot.memory.rolled = true;\r\n    else if (foot.memory.rolled && !past && foot.heel <= foot.flat) foot.memory.rolled = false;\r\n  }\r\n  if (gait.preswing !== undefined && reading.phase === \"shift\" && swing?.transfer) {\r\n    // Only while the body goes the foot's way: it walks off its toes, not its heel.\r\n    const trailing = feet.find((f) => f.side === swing.foot)!;\r\n    if (stance.includes(trailing) && u.x * (trailing.edge.x - trailing.middle.x) + u.z * (trailing.edge.z - trailing.middle.z) > 0) trailing.memory.rolled = true;\r\n  }\r\n}\r\n\r\n/**\r\n * The weight shift before a step ends, and the foot lifts, once the body's capture point (Pratt et\r\n * al. 2006, \"Capture point: a step toward humanoid push recovery\", Humanoids) is over the bearing\r\n * sole: from there the body falls toward that foot, not away from it. A walk's double support ends\r\n * on its time.\r\n */\r\nfunction shiftWeight(s: Stance, swing: SwingGoal | null, bearer: FootState | undefined, height: number, dt: number): void {\r\n  const { reading, step } = s.state, { inset } = s.tuning;\r\n  if (reading.phase === \"shift\" && swing!.transfer) {\r\n    step.held += dt;\r\n    if (step.held >= swing!.transfer) reading.phase = \"swing\";\r\n  } else if (reading.phase === \"shift\") {\r\n    const c = reading.centre, vel = reading.velocity, g = gravityOf(s);\r\n    // The height's floor, 1 mm, is a numeric setting.\r\n    const w = Math.sqrt(g / Math.max(height, 1e-3)), cx = c.x + vel.x / w, cz = c.z + vel.z / w;\r\n    const [hx, hz] = withinSupport([bearer!], cx, cz, inset);\r\n    if (hx === cx && hz === cz) reading.phase = \"swing\";\r\n  }\r\n}\r\n\r\n/**\r\n * The swing: `swing`'s foot's sole carried along its path, its turn carried from the one it left\r\n * the ground with to flat and facing `heading` as it lands; the step ends as it lands.\r\n */\r\nfunction swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): void {\r\n  const { feet } = s, { step, tasks, reading } = s.state, { seconds } = s.tuning;\r\n  const { sole, level, path, along, turn, wholeAxis, progress, v } = s.scratch;\r\n  const foot = feet.find((f) => f.side === swing.foot)!;\r\n  soleMiddleToRef(foot, sole);\r\n  const met = swing.lands === true && step.lifted && step.time + dt >= LANDS_FROM * swing.seconds && soleOnGround(s, foot);\r\n  if (!step.lifted) {\r\n    step.lifted = true;\r\n    step.time = 0;\r\n    step.from.copyFrom(sole);\r\n    step.lift.copyFrom(foot.segment.node.rotationQuaternion!);\r\n    motionAtToRef(foot.segment, sole, step.launch, v);\r\n  }\r\n  // It lands flat, facing the heading: its reference-pose turn, turned about up by the heading.\r\n  // (Held at the turn it left with, a foot's yaw drifts step by step.)\r\n  turnAboutToRef(Vector3.UpReadOnly, heading, level);\r\n  level.multiplyInPlace(foot.segment.rest);\r\n  step.time += dt;\r\n  if (swing.flight !== undefined && reading.phase === \"swing\" && step.time >= swing.seconds - 2 * swing.flight / gravityOf(s)) {\r\n    reading.phase = \"flight\";\r\n    s.state.flight.left.copyFrom(reading.centre);\r\n  }\r\n  const tau = Math.min(1, step.time / swing.seconds), from = step.from;\r\n  // Past its time, a foot that lands goes on down until it meets the ground.\r\n  const late = swing.lands === true ? Math.min(Math.max(step.time - swing.seconds, 0), LATE_MOST) : 0;\r\n  // Across the ground by its progress, a lift as smooth as minimum jerk up and down.\r\n  swingProgressToRef(tau, swing.ramp, progress);\r\n  const eased = progress.x, ds = progress.y / swing.seconds;\r\n  const bump = 16 * tau * tau * (1 - tau) * (1 - tau), dbump = 32 * tau * (1 - tau) * (1 - 2 * tau) / swing.seconds - (late > 0 ? LATE_DESCENT / swing.lift : 0);\r\n  path.set(from.x + (swing.to[0] - from.x) * eased, from.y + swing.lift * bump - LATE_DESCENT * late, from.z + (swing.to[1] - from.z) * eased);\r\n  // Going on from the launch: the quintic that starts at a unit rate and is at rest at both ends,\r\n  // h = tau - 6 tau^3 + 8 tau^4 - 3 tau^5, times the launch's velocity over the swing's time.\r\n  const T = swing.seconds, launch = swing.momentum === true && tau < 1 ? step.launch : null;\r\n  const h = tau - 6 * tau * tau * tau + 8 * tau * tau * tau * tau - 3 * tau * tau * tau * tau * tau;\r\n  const dh = 1 - 18 * tau * tau + 32 * tau * tau * tau - 15 * tau * tau * tau * tau, ddh = -36 * tau + 96 * tau * tau - 60 * tau * tau * tau;\r\n  if (launch) path.addInPlaceFromFloats(launch.x * T * h, launch.y * T * h, launch.z * T * h);\r\n  turnBetweenToRef(step.lift, level, eased, step.turn);\r\n  along.set((swing.to[0] - from.x) * ds, swing.lift * dbump, (swing.to[1] - from.z) * ds);\r\n  if (launch) along.addInPlaceFromFloats(launch.x * dh, launch.y * dh, launch.z * dh);\r\n  const settle = swing.settle ?? seconds.swing;\r\n  spinBetweenToRef(foot.segment.node.rotationQuaternion!, step.turn, settle, turn);\r\n  // The whole turn from lift to landing, world, as its axis times its angle: the path's turn goes\r\n  // about its axis at its angle times the path's rate.\r\n  spinBetweenToRef(step.lift, level, 1, wholeAxis);\r\n  // The path's acceleration, and its errors in place and speed taken up critically damped at the\r\n  // swing's constant; its turn's likewise, with the turn's own rate and acceleration: damping\r\n  // alone lags a turn by twice its rate times the swing's constant, and a foot turning over a\r\n  // swing lands off the heading (`tests/core-stance.test.mjs`).\r\n  const task = tasks[feet.indexOf(foot)]!, w = 1 / settle;\r\n  const dds = progress.z / (T * T), ddbump = tau < 1 ? 32 * (1 - 6 * tau + 6 * tau * tau) / (T * T) : 0, kick = launch ? ddh / T : 0;\r\n  motionAtToRef(foot.segment, sole, task.linear, task.angular);\r\n  task.linear.set((swing.to[0] - from.x) * dds + (launch ? launch.x * kick : 0) + w * w * (path.x - sole.x) + 2 * w * (along.x - task.linear.x),\r\n    swing.lift * ddbump + (launch ? launch.y * kick : 0) + w * w * (path.y - sole.y) + 2 * w * (along.y - task.linear.y),\r\n    (swing.to[1] - from.z) * dds + (launch ? launch.z * kick : 0) + w * w * (path.z - sole.z) + 2 * w * (along.z - task.linear.z));\r\n  task.angular.scaleInPlace(-2 * w).addInPlace(turn.scale(w)).addInPlace(wholeAxis.scale(dds + 2 * w * ds));\r\n  task.on = true;\r\n  task.bearing = false;\r\n  for (const i of foot.memory.channels) s.state.owned[i] = 1;\r\n  if (swing.lands === true ? met || late >= LATE_MOST : tau >= 1) {\r\n    reading.phase = \"stand\";\r\n    reading.own = null;\r\n    step.catching = false;\r\n  }\r\n}\r\n\r\n/**\r\n * The plan's upward acceleration through a run step's bearing (`SwingGoal.flight`): a bounce's,\r\n * its height `height` - (f T / pi) sin(pi t / T) and its upward speed -f cos(pi t / T) over the\r\n * bearing's time T, down at the flight's speed f as the foot lands and up at it from `height` as\r\n * it leaves, its errors taken up critically damped at 2 pi / T, a whole bounce's rate.\r\n */\r\nfunction bounce(s: Stance, swing: SwingGoal, height: number): number {\r\n  const { step, plan } = s.state, f = swing.flight!, T = Math.max(swing.seconds - 2 * f / gravityOf(s), 1e-3);\r\n  const tau = Math.min(step.time / T, 1), turn = Math.PI * tau, k = 2 * Math.PI / T;\r\n  return f * Math.PI / T * sin(turn) + k * k * (height - f * T / Math.PI * sin(turn) - plan.at.y) + 2 * k * (-f * cos(turn) - plan.velocity.y);\r\n}\r\n\r\n/**\r\n * **A run's flight**: no foot bears, and the root goes as gravity and the legs' own motion have it\r\n * (`carryRoot` with no bearing limb). The swinging foot goes on along its path to its landing\r\n * (`swingFoot`), which ends the flight; the foot that left the ground is carried with the centre\r\n * of mass from where it left, lifted by the swing's lift over the flight's time and drawn in under\r\n * the hip by as much, at the swing's constant.\r\n */\r\nfunction fly(s: Stance, goal: StanceGoal, swing: SwingGoal, dt: number): void {\r\n  const { feet, state } = s, { reading, aim, tasks, flight } = state, { seconds } = s.tuning, { sole, v, p } = s.scratch;\r\n  aim.spin.setAll(0);\r\n  aim.centre.set(0, -gravityOf(s), 0);\r\n  aim.on = true;\r\n  const trailing = feet.find((f) => f.side !== swing.foot)!, task = tasks[feet.indexOf(trailing)]!;\r\n  const w = 1 / (swing.settle ?? seconds.swing), c = reading.centre, up = Math.max(state.step.time - (swing.seconds - 2 * swing.flight! / gravityOf(s)), 0) * swing.flight!;\r\n  soleMiddleToRef(trailing, sole);\r\n  if (!flight.on) { flight.on = true; flight.from.copyFrom(sole).subtractInPlace(flight.left); }\r\n  // Where it goes: its place from the centre of mass as it left, raised by the flight's rise so far.\r\n  p.copyFrom(c).addInPlace(flight.from);\r\n  p.y += Math.min(up, swing.lift);\r\n  motionAtToRef(trailing.segment, sole, task.linear, task.angular);\r\n  v.copyFrom(reading.velocity);\r\n  task.linear.set(w * w * (p.x - sole.x) + 2 * w * (v.x - task.linear.x), -gravityOf(s) + w * w * (p.y - sole.y) + 2 * w * (v.y - task.linear.y),\r\n    w * w * (p.z - sole.z) + 2 * w * (v.z - task.linear.z));\r\n  task.angular.scaleInPlace(-w);\r\n  task.on = true;\r\n  task.bearing = false;\r\n  for (const i of trailing.memory.channels) state.owned[i] = 1;\r\n  swingFoot(s, swing, goal.heading, dt);\r\n  if (reading.phase !== \"flight\") flight.on = false;\r\n}\r\n\r\n/**\r\n * **A swing's progress** at `tau`, its share of the swing's time, into `out`: x the share of the\r\n * way, y its rate per share of the time, z that rate's. With no `ramp`, minimum jerk, 10 tau^3 -\r\n * 15 tau^4 + 6 tau^5 (Flash and Hogan 1985), whose acceleration peaks at 5.77 times the way over\r\n * the time squared. With one, the acceleration rises over `ramp` of the time, holds, and falls\r\n * over as much by the half, then the same mirrored: its peak 4 / (1 - 2 ramp), the least a\r\n * way at rest at both ends can have as `ramp` goes to 0, for a sharper start and stop.\r\n */\r\nexport function swingProgressToRef(tau: number, ramp: number | undefined, out: Vector3): Vector3 {\r\n  if (tau >= 1) return out.set(1, 0, 0);\r\n  if (ramp === undefined) return out.set(tau * tau * tau * (10 - 15 * tau + 6 * tau * tau), 30 * tau * tau * (1 - tau) * (1 - tau), 60 * tau * (1 - tau) * (1 - 2 * tau));\r\n  const q = ramp, flip = tau > 0.5, u = flip ? 1 - tau : tau, top = 4 / (1 - 2 * q);\r\n  let share: number, rate: number, accel: number;\r\n  if (u < q) {\r\n    accel = top * u / q; rate = top * u * u / (2 * q); share = top * u * u * u / (6 * q);\r\n  } else if (u <= 0.5 - q) {\r\n    const d = u - q;\r\n    accel = top; rate = top * q / 2 + top * d; share = top * q * q / 6 + top * q / 2 * d + top * d * d / 2;\r\n  } else {\r\n    const d = 0.5 - 2 * q, r = top * q / 2 + top * d, at = top * q * q / 6 + top * q / 2 * d + top * d * d / 2, e = u - (0.5 - q);\r\n    accel = top * (1 - e / q); rate = r + top * e - top * e * e / (2 * q); share = at + r * e + top * e * e / 2 - top * e * e * e / (6 * q);\r\n  }\r\n  return flip ? out.set(1 - share, rate, -accel) : out.set(share, rate, accel);\r\n}\r\n\r\n/** Each foot's leg's channels, found once the driver's are known. */\r\nfunction bindChannels(s: Stance, muscles: MuscleDriver): void {\r\n  const { state } = s;\r\n  if (state.owned.length === muscles.channels.length) return;\r\n  state.owned = new Uint8Array(muscles.channels.length);\r\n  for (const foot of s.feet) foot.memory.channels = foot.chain.flatMap((joint) => joint.dofs.map((_, k) => muscles.channel(channelName(joint, k))));\r\n}\r\n\r\n/** Whether `goal` leaves the stance to step of itself: it stands on both feet and asks for no step. */\r\nfunction stepsOfItself(goal: StanceGoal | null): goal is StanceGoal {\r\n  return !!goal && goal.feet.includes(\"left\") && goal.feet.includes(\"right\") && !goal.swing;\r\n}\r\n\r\n/**\r\n * The step this command takes: a catch of a push under way (`catchStep`), or the goal's, or the\r\n * stance's own (`ownStep`), or none. A swing unlike the last starts a step, at its weight shift or,\r\n * asked to, at its swing; one that follows the step under way re-aims it (`SwingGoal.follows`).\r\n */\r\nfunction chooseStep(s: Stance, goal: StanceGoal | null): SwingGoal | null {\r\n  const { state } = s, { reading, step } = state;\r\n  if (!goal) step.catching = false;\r\n  else if (!step.catching) step.catching = catchStep(s);\r\n  // A catch runs to its landing.\r\n  if (step.catching) {\r\n    // Nothing else is chosen.\r\n  } else if (stepsOfItself(goal)) ownStep(s, goal.heading);\r\n  else {\r\n    reading.own = null;\r\n    state.stride = null;\r\n    state.striding = null;\r\n  }\r\n  const swing = step.catching ? reading.own : goal?.swing ?? reading.own;\r\n  if (!swing) {\r\n    step.swing = null;\r\n    reading.phase = \"stand\";\r\n  } else if (swing.follows && step.swing && step.swing.foot === swing.foot && reading.phase !== \"stand\") {\r\n    // The step under way, re-aimed.\r\n    step.swing = swing;\r\n  } else if (!sameSwing(swing, step.swing)) {\r\n    step.swing = swing;\r\n    step.lifted = false;\r\n    step.held = 0;\r\n    step.off = Infinity;\r\n    reading.phase = swing.shift === false ? \"swing\" : \"shift\";\r\n  }\r\n  return swing;\r\n}\r\n\r\n/** The feet that bear the body: the goal's, but for a foot that is swinging. */\r\nfunction bearerOf(goal: StanceGoal | null, phase: StancePhase, swing: SwingGoal | null): readonly Side[] {\r\n  return !goal || phase === \"flight\" ? [] : phase === \"swing\" ? goal.feet.filter((side) => side !== swing!.foot) : goal.feet;\r\n}\r\n\r\n/**\r\n * The plan, one step on: where the centre of mass should be, moving critically damped toward the goal\r\n * across the ground and in height at each time constant, from where the stance began. The ground is\r\n * level, y up; the plan's y is the height over the soles. Returns the plan's acceleration.\r\n */\r\nfunction advancePlan(s: Stance, goal: StanceGoal, stance: readonly FootState[], swing: SwingGoal | null, bearer: FootState | undefined,\r\n  pendulum: number, dt: number): [number, number, number] {\r\n  const { plan, reading } = s.state, { seconds } = s.tuning;\r\n  const r = plan.at, u = plan.velocity;\r\n  const [ax, az] = planAcross(s, goal, stance, swing, bearer, pendulum, dt);\r\n  // Where the ceiling and a floor disagree, the ankle's stop is the harder limit.\r\n  const limits = heightLimits(s, goal, stance, swing, pendulum);\r\n  rollFeet(s, stance, swing, limits.floors, limits.high);\r\n  let low = -Infinity;\r\n  for (const [foot, floor] of limits.floors) if (!foot.memory.rolled) low = Math.max(low, floor);\r\n  const high = Math.max(limits.high, low), k = 1 / seconds.height;\r\n  const ay = reading.phase === \"swing\" && swing?.flight !== undefined ? bounce(s, swing, goal.height) : k * k * (high - r.y) - 2 * k * u.y;\r\n  u.addInPlaceFromFloats(ax * dt, ay * dt, az * dt);\r\n  r.addInPlace(u.scale(dt));\r\n  reading.plan.copyFrom(r);\r\n  reading.planVelocity.copyFrom(u);\r\n  return [ax, ay, az];\r\n}\r\n\r\n/**\r\n * The root's aims. Its angular acceleration: toward upright at `heading`, critically damped at the\r\n * turn's constant (`turnToRef`). The centre of mass's: the plan's (`planned`),\r\n * its errors from the plan taken up critically damped at the rate `e`, one over `STANCE_TRACK`.\r\n * `height` is the centre of mass's over the stance soles.\r\n */\r\nfunction aimRoot(s: Stance, heading: number, planned: readonly [number, number, number], height: number, e: number): void {\r\n  const { pelvis } = s, { aim, plan, reading } = s.state, { seconds } = s.tuning, { target, pelvisSpin } = s.scratch;\r\n  const r = plan.at, u = plan.velocity, c = reading.centre, vel = reading.velocity, [ax, ay, az] = planned;\r\n  turnAboutToRef(Vector3.UpReadOnly, heading, target).multiplyInPlace(pelvis.rest);\r\n  turnToRef(pelvis.node.rotationQuaternion!, target, seconds.turn, pelvis.body.angularVelocityToRef(pelvisSpin), aim.spin);\r\n  aim.centre.set(ax + e * e * (r.x - c.x) + 2 * e * (u.x - vel.x), ay + e * e * (r.y - height) + 2 * e * (u.y - vel.y),\r\n    az + e * e * (r.z - c.z) + 2 * e * (u.z - vel.z));\r\n  aim.on = true;\r\n}\r\n\r\n/** Each of `stance`'s feet held still where it bears, what motion it has damped out at the rate `e`. */\r\nfunction holdStance(s: Stance, stance: readonly FootState[], e: number): void {\r\n  const { feet } = s, { tasks } = s.state;\r\n  for (const foot of stance) {\r\n    const task = tasks[feet.indexOf(foot)]!;\r\n    motionAtToRef(foot.segment, foot.memory.rolled ? foot.edge : foot.middle, task.linear, task.angular);\r\n    task.linear.scaleInPlace(-e);\r\n    task.angular.scaleInPlace(-e);\r\n    task.on = true;\r\n    task.bearing = true;\r\n    for (const i of foot.memory.channels) s.state.owned[i] = 1;\r\n  }\r\n}\r\n\r\n/**\r\n * The lever a missed moment of the ground's wrench is weighed against a missed force at\r\n * (`shareGroundWrench`): the height of the root's centre, where the wrench is taken, over the\r\n * soles, at least a sole's half-length. A moment the soles miss is a force they miss at the\r\n * root's height. No fixed lever serves both humans better: `docs/reference/stance-tuning.md#wrench-lever`.\r\n * A swing may ask its own (`SwingGoal.lever`).\r\n */\r\nfunction leverOf(s: Stance, height: number): number {\r\n  const { reading, step } = s.state;\r\n  if (reading.phase === \"swing\" && step.swing?.lever !== undefined) return step.swing.lever;\r\n  return Math.max(s.feet[0]!.reach, height - s.state.reading.support.y);\r\n}\r\n\r\n/**\r\n * A driven leg's part of the solve, for this step (`Limb.work`): the point its task is asked at;\r\n * where it bears, its patch; and the leg's own asks ahead of the task. A knee past straight is\r\n * asked back toward the bend; a rolled foot's turn about its front edge is left free and its ankle\r\n * held short of its stop, or, in a walk's pre-swing, its knee bent.\r\n */\r\nfunction aimLimb(s: Stance, foot: FootState, limb: Limb, muscles: MuscleDriver): void {\r\n  const { reading, step } = s.state, { bend, spare, gait, seconds, soleMargin } = s.tuning, { task, work } = limb, { ahead } = work;\r\n  // The point: bearing, where the foot bears, as last read; swinging, its sole's middle, now.\r\n  if (task.bearing) work.at.copyFrom(foot.memory.rolled ? foot.edge : foot.middle);\r\n  else soleMiddleToRef(foot, work.at);\r\n  // A knee past straight is on the Jacobian's other branch, where the leg shortens by extending\r\n  // the knee further, into its stop. That knee is asked back toward `STANCE_KNEE_BEND`,\r\n  // critically damped at the height's constant, ahead of the foot's task, and the leg's other\r\n  // freedoms take the task.\r\n  ahead.length = foot.memory.channels.length;\r\n  ahead.fill(NaN);\r\n  if (bend !== null && !s.state.pose) {\r\n    const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, flexed = muscles.angle(i) - foot.straight, m = 1 / seconds.height;\r\n    if (flexed < 0) ahead[k] = m * m * (bend - flexed) - 2 * m * muscles.rate(i);\r\n  }\r\n  work.rows = null;\r\n  if (task.bearing && foot.memory.rolled && spare !== null) {\r\n    // Rolled, the foot's turn about its front edge is free and the ankle is held at its stop\r\n    // less the spare, critically damped at the height's constant: the leg pivots on the edge.\r\n    // Of the spin's rows the task keeps the one about the level normal to the edge, and the one about up.\r\n    work.rows = rolledRows(foot);\r\n    const pre = step.swing;\r\n    if (gait.preswing !== undefined && reading.phase === \"shift\" && pre?.transfer && pre.foot === foot.side) {\r\n      const k = foot.chain[0]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / gait.preswing.seconds;\r\n      ahead[k] = m * m * (gait.preswing.knee - (muscles.angle(i) - foot.straight)) - 2 * m * muscles.rate(i);\r\n      if (pre.push !== undefined) {\r\n        const a = k + foot.chain[1]!.dofs.length, j = foot.memory.channels[a]!;\r\n        ahead[a] = m * m * (-pre.push - muscles.angle(j)) - 2 * m * muscles.rate(j);\r\n      }\r\n    } else {\r\n      const k = foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length, i = foot.memory.channels[k]!, m = 1 / seconds.height;\r\n      ahead[k] = m * m * (foot.chain[2]!.dofs[0]!.spec.max.value - spare - muscles.angle(i)) - 2 * m * muscles.rate(i);\r\n    }\r\n  }\r\n  work.patch = task.bearing ? bearingSole(foot, 1 - soleMargin) : null;\r\n}\r\n\r\n/**\r\n * The push-off as a torque (`SwingGoal.launch`): the ankle of the foot that lifts next -- the\r\n * bearing one late in a swing, the trailing one through a walk's double support -- given at least\r\n * the asked share of its plantarflexion's strength, where the stance drives its leg.\r\n */\r\nfunction pushOff(s: Stance, muscles: MuscleDriver): void {\r\n  const { reading, step, tasks } = s.state, swing = step.swing, launch = swing?.launch;\r\n  if (!swing || !launch) return;\r\n  const side = reading.phase === \"shift\" && swing.transfer ? swing.foot\r\n    : reading.phase === \"swing\" && swing.seconds - step.time <= launch.lead ? (swing.foot === \"left\" ? \"right\" : \"left\") : null;\r\n  const f = s.feet.findIndex((foot) => foot.side === side);\r\n  if (f < 0 || !tasks[f]!.on || !tasks[f]!.bearing) return;\r\n  const foot = s.feet[f]!, i = foot.memory.channels[foot.chain[0]!.dofs.length + foot.chain[1]!.dofs.length]!;\r\n  // The ankle's first freedom is its dorsiflexion: plantarflexion pulls it the negative way.\r\n  if (muscles.velocity[i]! < 0 && muscles.activation[i]! >= launch.share) return;\r\n  muscles.velocity[i] = -Infinity;\r\n  muscles.activation[i] = launch.share;\r\n}\r\n\r\n/** Nothing is driven and nothing asked: where every command begins, and what a reset leaves. */\r\nfunction askNothing(s: Stance): void {\r\n  const { state } = s, { reading } = state;\r\n  state.owned.fill(0);\r\n  state.aim.on = false;\r\n  reading.shortfall.force.setAll(0);\r\n  reading.shortfall.moment.setAll(0);\r\n  for (const side of [\"left\", \"right\"] as const) {\r\n    reading.asked[side].force.setAll(0);\r\n    reading.asked[side].moment.setAll(0);\r\n  }\r\n  state.helped.force.setAll(0);\r\n  state.helped.moment.setAll(0);\r\n  for (const task of state.tasks) task.on = false;\r\n}\r\n\r\nexport function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assist: Assist | null = null): StanceControl {\r\n  const s = makeStance(built, tuning, assist);\r\n  let poseBearing: Bearing | null = null;\r\n  return {\r\n    reset() {\r\n      const { state } = s, { reading, step } = state;\r\n      askNothing(s);\r\n      // Sole damping averages consecutive stance torques; release breaks that sequence.\r\n      for (const task of state.tasks) task.given.fill(NaN);\r\n      state.plan.on = false;\r\n      state.pose = null;\r\n      state.last = null;\r\n      state.stride = null;\r\n      state.striding = null;\r\n      state.pace[0] = 0;\r\n      state.pace[1] = 0;\r\n      step.swing = null;\r\n      step.lifted = false;\r\n      step.time = 0;\r\n      step.held = 0;\r\n      step.off = Infinity;\r\n      step.catching = false;\r\n      reading.phase = \"stand\";\r\n      reading.own = null;\r\n      for (const foot of s.feet) foot.memory.rolled = false;\r\n    },\r\n    get owned() { return s.state.owned; },\r\n    reading: s.state.reading,\r\n    state: s.state,\r\n    carry(muscles, work) {\r\n      const { aim } = s.state;\r\n      if (!aim.on) return null;\r\n      s.feet.forEach((foot, f) => { if (s.limbs[f]!.task.on) aimLimb(s, foot, s.limbs[f]!, muscles); });\r\n      const bearing = s.state.pose ? poseBearing! : s.bearing;\r\n      const root = carryRoot(bearing, muscles, work, aim, leverOf(s, muscles.dynamics.root.centre[1]));\r\n      if (s.state.pose) limbMotion(bearing, work, s.state.owned);\r\n      return root;\r\n    },\r\n    bear(muscles, work) {\r\n      if (!s.state.aim.on) return;\r\n      const bearing = s.state.pose ? poseBearing! : s.bearing;\r\n      bearLimbs(bearing, muscles, work, leverOf(s, muscles.dynamics.root.centre[1]), s.tuning.boundedSwing);\r\n      // The bearing limbs' shares are in the limbs' order, which is the feet's.\r\n      let k = 0;\r\n      s.feet.forEach((foot, f) => {\r\n        const asked = s.state.reading.asked[foot.side], task = s.limbs[f]!.task;\r\n        if (task.on && task.bearing) {\r\n          const share = bearing.scratch.shares[k++]!;\r\n          asked.at.copyFrom(patchPlace(s.limbs[f]!.work.patch!));\r\n          asked.force.copyFrom(share.force);\r\n          asked.moment.copyFrom(share.moment);\r\n        } else {\r\n          asked.force.setAll(0);\r\n          asked.moment.setAll(0);\r\n        }\r\n      });\r\n      if (!s.state.pose) pushOff(s, muscles);\r\n    },\r\n    read(which) {\r\n      const { feet, segments, total, pelvis } = s, { reading } = s.state, { p, whole } = s.scratch;\r\n      massCentreToRef(segments, total, reading.centre, p, reading.velocity);\r\n      // The reference pose faces +z: its forward, turned as the pelvis has turned since.\r\n      p.set(0, 0, 1).applyRotationQuaternionToRef(turnOfToRef(pelvis, whole), p);\r\n      reading.facing = atan2(p.x, p.z);\r\n      const on = which ?? s.state.last;\r\n      readSupport(feet, on ? feet.filter((foot) => on.includes(foot.side)) : feet, reading.support);\r\n      for (const foot of feet) reading.touching[foot.side] = soleOnGround(s, foot);\r\n    },\r\n    command(muscles, goal, dt) {\r\n      const { feet, state } = s, { reading, plan } = state;\r\n      bindChannels(s, muscles);\r\n      askNothing(s);\r\n      state.pose = goal?.pose ?? null;\r\n      if (goal?.pose) {\r\n        if (!Number.isFinite(goal.pose.pitch) || !(goal.pose.seconds > 0) || !Number.isFinite(goal.pose.seconds)\r\n          || goal.feet.length < 1 || goal.feet.length > 2 || (goal.feet.length === 2 && goal.feet[0] === goal.feet[1])\r\n          || goal.feet.some(side => side !== \"left\" && side !== \"right\") || goal.swing || goal.walk)\r\n          throw new Error(\"a supported root pose requires a finite pitch, positive response and one or two planted feet\");\r\n        if (goal.pose.anchors) for (const [side, anchor] of Object.entries(goal.pose.anchors))\r\n          if (!goal.feet.includes(side as Side) || !anchor || anchor.position.length !== 3 || anchor.rotation.length !== 4 || !anchor.position.every(Number.isFinite)\r\n            || !anchor.rotation.every(Number.isFinite) || Math.abs(anchor.rotation.reduce((sum, v) => sum + v * v, 0) - 1) > 1e-8)\r\n            throw new Error(\"a supported sole anchor requires a bearing foot, finite position and unit rotation\");\r\n        // Channel binding precedes allocation: effort rows are sized from the bound limb channels.\r\n        poseBearing ??= makeBearing(assist, s.limbs, { root: state.aim.root, helped: state.helped, held: state.held, shortfall: reading.shortfall }, { effort: true });\r\n        holdPose(s, goal, goal.pose);\r\n        return;\r\n      }\r\n      paceToward(s, stepsOfItself(goal) ? goal.walk : null, dt);\r\n      const swing = chooseStep(s, goal);\r\n      const bearing = bearerOf(goal, reading.phase, swing);\r\n      if (!goal || !state.last || bearing.length !== state.last.length || bearing.some((side) => !state.last!.includes(side))) {\r\n        plan.on = false;\r\n      }\r\n      state.last = goal ? bearing : null;\r\n      if (goal && swing && reading.phase === \"flight\") { fly(s, goal, swing, dt); return; }\r\n      const stance = feet.filter((foot) => bearing.includes(foot.side));\r\n      if (!goal || stance.length === 0) return;\r\n      readSupport(feet, stance, reading.support);\r\n      const c = reading.centre, vel = reading.velocity, g = gravityOf(s);\r\n      const height = c.y - reading.support.y;\r\n      if (!plan.on) {\r\n        plan.at.set(c.x, height, c.z);\r\n        plan.velocity.copyFrom(vel);\r\n        plan.on = true;\r\n      }\r\n      // The pendulum is the plan's as this step finds it, before the plan goes on. Its height's\r\n      // floor, 1 mm, is a numeric setting.\r\n      const pendulum = g / Math.max(plan.at.y, 1e-3);\r\n      const bearer = swing ? stance.find((foot) => foot.side !== swing.foot) : undefined;\r\n      const planned = advancePlan(s, goal, stance, swing, bearer, pendulum, dt);\r\n      shiftWeight(s, swing, bearer, height, dt);\r\n      const e = 1 / s.tuning.track;\r\n      aimRoot(s, goal.heading, planned, height, e);\r\n      holdStance(s, stance, e);\r\n      // A step lands facing the heading as far as the bearing foot's hip lets the pelvis turn over it\r\n      // (`landingHeading`): a turn past that is taken step by step.\r\n      if (reading.phase === \"swing\" && swing) swingFoot(s, swing, bearer ? landingHeading(bearer, goal.heading) : goal.heading, dt);\r\n    },\r\n  };\r\n}\r\n\r\n/** A planted-foot root pose, followed at its own response rather than by the walking pendulum. */\r\nfunction holdPose(s: Stance, goal: StanceGoal, pose: NonNullable<StanceGoal[\"pose\"]>): void {\r\n  const { state, feet, pelvis } = s, { reading, aim } = state, n = 1 / pose.seconds;\r\n  const bearing = goal.feet.length === feet.length ? feet : feet.filter(foot => goal.feet.includes(foot.side));\r\n  readSupport(feet, bearing, reading.support);\r\n  reading.phase = \"stand\"; reading.own = null; state.plan.on = false; state.last = goal.feet;\r\n  state.step.swing = null; state.step.catching = false; state.stride = null; state.striding = null; state.pace.fill(0);\r\n  const c = reading.centre, v = reading.velocity, p = reading.support;\r\n  const [x, z] = goal.centre ? withinSupport(bearing.map(bearingOf), goal.centre[0], goal.centre[1], s.tuning.inset) : [p.x, p.z];\r\n  approachToRef(s.scratch.p.set(x, p.y + goal.height, z), c, v, n, aim.centre);\r\n  turnAboutToRef(Vector3.UpReadOnly, goal.heading, s.scratch.target);\r\n  turnAboutToRef(s.scratch.wholeAxis.set(1, 0, 0), pose.pitch, s.scratch.footTurn);\r\n  s.scratch.target.multiplyInPlace(s.scratch.footTurn).multiplyInPlace(pelvis.rest);\r\n  turnToRef(pelvis.node.rotationQuaternion!, s.scratch.target, pose.seconds, pelvis.body.angularVelocityToRef(s.scratch.pelvisSpin), aim.spin);\r\n  aim.on = true;\r\n  for (const foot of bearing) {\r\n    foot.memory.rolled = false;\r\n    const task = state.tasks[feet.indexOf(foot)]!;\r\n    motionAtToRef(foot.segment, foot.middle, task.linear, task.angular);\r\n    const vy = task.linear.y;\r\n    task.linear.scaleInPlace(-n); task.linear.y = n * n * (p.y - foot.middle.y) - 2 * n * vy;\r\n    task.angular.scaleInPlace(-n);\r\n    const anchor = pose.anchors?.[foot.side];\r\n    if (anchor) {\r\n      motionAtToRef(foot.segment, foot.middle, s.scratch.v, s.scratch.pelvisSpin);\r\n      approachToRef(s.scratch.p.set(...anchor.position), foot.middle, s.scratch.v, n, task.linear);\r\n      s.scratch.target.set(...anchor.rotation).multiplyInPlace(foot.segment.rest);\r\n      turnToRef(foot.segment.node.rotationQuaternion!, s.scratch.target, pose.seconds, s.scratch.pelvisSpin, task.angular);\r\n    }\r\n    task.on = true; task.bearing = true;\r\n    for (const i of foot.memory.channels) state.owned[i] = 1;\r\n  }\r\n}\r\n\r\n/** Whether two swings are the same step. */\r\nfunction sameSwing(a: SwingGoal, b: SwingGoal | null): boolean {\r\n  return b !== null && a.foot === b.foot && a.to[0] === b.to[0] && a.to[1] === b.to[1] && a.seconds === b.seconds\r\n    && a.lift === b.lift && (a.shift ?? true) === (b.shift ?? true);\r\n}\r\n"
+      },
+      "tests/core-stance-handover.test.mjs": {
+        "sha256": "cb7a498c7cbd0cd57d799f8bd76e2e803c810f54f11e165dc850777204dc0276",
+        "text": "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { createBody } from '../src/core/body.ts';\nimport { withSoles } from '../src/core/human/sole.ts';\nimport { modelSpec } from '../src/core/models.ts';\nimport { guardPosture } from '../src/core/skills/guard.ts';\nimport { coreStand } from './harness/core-stand.mjs';\n\ntest('stance torque filtering starts afresh after a sub-mind releases the body', async () => {\n  for (const model of ['workshop-fighter', 'workshop-rogue']) {\n    const spec = withSoles(modelSpec(model)), posture = guardPosture(spec);\n    const stand = await coreStand(spec, { engine: 'rapier-coordinate', posture });\n    const state = { active: false };\n    const body = createBody(stand.built, stand.world, { subs: [own => ({\n      name: 'hold', state, wants: () => state.active, begin() {}, end() {},\n      step() { own.muscles.activation.fill(.25); own.muscles.velocity.fill(0); },\n    })] });\n    let goal;\n    body.drive(view => {\n      goal ??= { feet: ['left', 'right'], centre: null,\n        height: view.stance.centre.y - view.stance.support.y - .03, heading: 0 };\n      return { posture, pushes: [], stance: goal };\n    });\n    const tasks = body.state.mind.host.motor.stance.tasks;\n    try {\n      stand.world.step(120);\n      assert.equal(body.has, 'command');\n      assert.deepEqual(tasks.map(t => ({ bearing: t.bearing, finite: [...t.given].map(Number.isFinite) })),\n        [{ bearing: true, finite: Array(6).fill(true) }, { bearing: true, finite: Array(6).fill(true) }]);\n      assert.ok(tasks.some(t => [...t.given].some(v => Math.abs(v) > 1)), 'loaded stance supplies nonzero torque history');\n      state.active = true;\n      for (let i = 0; i < 3; i++) {\n        stand.world.step();\n        assert.equal(body.has, 'hold');\n        assert.deepEqual(tasks.map(t => ({ on: t.on, empty: [...t.given].map(Number.isNaN) })),\n          [{ on: false, empty: Array(6).fill(true) }, { on: false, empty: Array(6).fill(true) }]);\n      }\n      state.active = false;\n      stand.world.step();\n      assert.equal(body.has, 'command');\n      for (const [f, side] of ['left', 'right'].entries()) {\n        const leg = body.muscles.channels.map((c, i) => ({ c, i }))\n          .filter(({ c }) => new RegExp(`^(hip|knee|ankle)\\\\.${side} `).test(c.name));\n        assert.equal(leg.length, 6);\n        assert.equal(tasks[f].bearing, true);\n        for (const [k, { i }] of leg.entries()) {\n          const asked = tasks[f].given[k], sense = Math.sign(asked);\n          assert.ok(Number.isFinite(asked));\n          const expected = sense * Math.min(Math.abs(asked), body.muscles.strength(i, sense));\n          const delivered = Math.sign(body.muscles.velocity[i]) * body.muscles.activation[i]\n            * body.muscles.strength(i, Math.sign(body.muscles.velocity[i]));\n          assert.ok(Math.abs(delivered - expected) < 1e-10, body.muscles.channels[i].name);\n        }\n      }\n    } finally { body.dispose(); stand.dispose(); }\n  }\n});\n"
+      },
+      ".review/stand-up-foot-support/filter-diagnosis.mjs": {
+        "sha256": "6eceffc87b2cd6b67241a11f33cb578144f85efe97948132708975f71356a5aa",
+        "text": "import fs from 'node:fs';\nimport assert from 'node:assert/strict';\nimport {gunzipSync} from 'node:zlib';\nimport {deserialize} from 'node:v8';\nconst dir='.review/stand-up-foot-support/',frozen=new URL('../../.tools/stand-up-frozen/',import.meta.url);\nconst {acceptanceEnvironment,frozenRevision}=await import(new URL('research/stand-up-acceptance.mjs',frozen));\nconst manifest=JSON.parse(fs.readFileSync(new URL('research/stand-up-acceptance/cases.json',frozen))),c=manifest.cases[5];\nconst e=await acceptanceEnvironment(c.configuration),records={};\ntry{\n const saved=gunzipSync(fs.readFileSync(new URL('research/stand-up-acceptance/'+c.file,frozen))),revision=frozenRevision();\n for(const name of ['original','commands']){\n  const source=deserialize(gunzipSync(fs.readFileSync(dir+name+'.trace.gz')));e.restore(saved);\n  for(let i=0;i<722;i++)e.step(source.rows[i].action,{automaticHandover:true});\n  const before=e.body.state.mind.host.motor.stance.tasks.map(t=>[...t.given]);\n  const observation=e.observe();e.step(source.rows[722].action,{automaticHandover:true});\n  const after=e.body.state.mind.host.motor.stance.tasks.map(t=>[...t.given]);\n  const legs=['left','right'].map((side,f)=>e.channels.map((c,i)=>({c,i})).filter(({c})=>new RegExp('^(hip|knee|ankle)\\\\.'+side+' ').test(c.name)).map(({c,i},k)=>{\n   const sense=Math.sign(e.body.muscles.velocity[i]),strength=e.body.muscles.strength(i,sense),actual=sense*e.body.muscles.activation[i]*strength;\n   const expected=Number.isNaN(before[f][k])?after[f][k]:(after[f][k]+before[f][k])/2;\n   const bounded=Math.sign(expected)*Math.min(Math.abs(expected),e.body.muscles.strength(i,Math.sign(expected)));\n   assert.ok(Math.abs(actual-bounded)<1e-10,c.name+': torque filter does not explain command');\n   return {channel:c.name,previous:Number.isNaN(before[f][k])?null:before[f][k],unfiltered:after[f][k],filtered:expected,actual,error:actual-bounded};\n  }));\n  assert.equal(legs.flat().length,12);records[name]={observation,legs};\n }\n assert.deepEqual(records.original.observation,records.commands.observation);\n for(let f=0;f<2;f++)for(let k=0;k<6;k++)assert.equal(records.original.legs[f][k].unfiltered,records.commands.legs[f][k].unfiltered);\n const report={revision,identicalPreHandoverObservation:true,identicalUnfilteredTorque:true,allTwelveLegCommandsExplainedByPreviousTorque:true,records:Object.fromEntries(Object.entries(records).map(([k,{legs}])=>[k,legs]))};\n fs.writeFileSync(dir+'filter-diagnosis.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));\n}finally{e.dispose();}\n"
+      },
+      ".review/stand-up-foot-support/verify-seed.mjs": {
+        "sha256": "e20078350cbfe965f239ef269bd4a6bb14167e1e628f3d4157e6ef78bfacccd9",
+        "text": "import fs from 'node:fs';\nimport assert from 'node:assert/strict';\nimport {deserialize} from 'node:v8';\nimport {gunzipSync} from 'node:zlib';\nimport {createHash} from 'node:crypto';\nimport {recoveryEnvironment} from '../../research/stand-up-environment.mjs';\nimport {recoveryDesign} from '../../research/stand-up-design.mjs';\nimport {feedbackRecipe} from '../../research/stand-up-feedback.mjs';\nimport {unassistedAudit} from '../../research/stand-up-unassisted.mjs';\nconst dir='.review/stand-up-foot-support/',w=JSON.parse(fs.readFileSync('research/stand-up-feedback-seed.json'));\nconst trace=deserialize(gunzipSync(fs.readFileSync(dir+'seed-after.trace.gz'))),spec=recoveryDesign(w.configuration);\nconst e=await recoveryEnvironment({...w.configuration,spec,recipe:feedbackRecipe(spec,w.feedback.u)});\nlet audit;\ntry{\n assert.deepEqual(e.identity,trace.identity);e.restore(trace.initial);\n assert.equal(JSON.stringify(e.observe()),JSON.stringify(trace.before.observation));\n audit=unassistedAudit(e.stand.built,()=>e.stand.world.steps);\n const hash=createHash('sha256'),split=Math.floor(trace.rows.length/2);let checkpoint;\n for(let i=0;i<trace.rows.length;i++){\n  const row=e.step(),text=JSON.stringify(row.observation);\n  assert.equal(text,JSON.stringify(trace.rows[i].observation),'observation at '+i);hash.update(text);\n  if(i+1===split)checkpoint=e.save();\n }\n assert.deepEqual(e.result(),w.result);assert.deepEqual(audit.events,[]);audit.dispose();audit=null;\n e.restore(checkpoint);for(let i=0;i<10;i++)e.step();e.restore(checkpoint);\n audit=unassistedAudit(e.stand.built,()=>e.stand.world.steps);\n for(let i=split;i<trace.rows.length;i++)assert.equal(JSON.stringify(e.step().observation),JSON.stringify(trace.rows[i].observation),'restored observation at '+i);\n assert.deepEqual(e.result(),w.result);assert.deepEqual(audit.events,[]);\n const report={identity:e.identity,steps:trace.rows.length,traceSha256:hash.digest('hex'),exact:true,restoredSplit:true,result:w.result,externalActuation:[]};\n fs.writeFileSync(dir+'seed-verification.json',JSON.stringify(report,null,2));console.log(JSON.stringify({steps:report.steps,traceSha256:report.traceSha256,exact:report.exact,restoredSplit:report.restoredSplit}));\n}finally{audit?.dispose();e.dispose();}\n"
+      },
+      ".review/stand-up-foot-support/seed-viewer.mjs": {
+        "sha256": "96a661531939704b5d07145b12865be52ce78e8c200fdaf37284de25382b0512",
+        "text": "import fs from 'node:fs';\nimport assert from 'node:assert/strict';\nimport {gunzipSync,gzipSync} from 'node:zlib';\nimport {deserialize,serialize} from 'node:v8';\nimport {createHash} from 'node:crypto';\nimport {recoveryEnvironment} from '../../research/stand-up-environment.mjs';\nimport {recoveryDesign} from '../../research/stand-up-design.mjs';\nimport {feedbackRecipe} from '../../research/stand-up-feedback.mjs';\nconst dir='.review/stand-up-foot-support/',w=JSON.parse(fs.readFileSync('research/stand-up-feedback-seed.json'));\nconst r=deserialize(gunzipSync(fs.readFileSync(dir+'seed-after.trace.gz'))),spec=recoveryDesign(w.configuration);\nconst e=await recoveryEnvironment({...w.configuration,spec,recipe:feedbackRecipe(spec,w.feedback.u)});\ntry{\n assert.deepEqual(e.identity,r.identity);\n const geometry=JSON.parse(JSON.stringify([...e.stand.built.segments.values()].map(s=>({name:s.spec.name,frame:s.frame,shapes:s.rigid.shapes,\n  poses:s.poses&&Object.fromEntries(Object.entries(s.poses).map(([name,p])=>[name,p.rigid.shapes]))}))));\n const hash=createHash('sha256');r.rows.forEach(row=>hash.update(JSON.stringify(row.observation)));\n const trace={configuration:{fall:{degrees:w.configuration.degrees}},identity:r.identity,result:r.result,initial:r.before.observation,rows:r.rows,geometry,traceSha256:hash.digest('hex')};\n fs.writeFileSync(dir+'seed-viewer.trace.gz',gzipSync(serialize(trace)));\n console.log(JSON.stringify({traceSha256:trace.traceSha256,frames:r.rows.length+1}));\n}finally{e.dispose();}\n"
+      }
+    }
   }
 }

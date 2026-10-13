@@ -249,8 +249,9 @@ A separately charged fresh-fall reconstruction and full action replay verify tha
 This search stops on its wall budget; finishing the in-flight generation accounts for the
 7.17 s overrun. No additional candidates are launched afterward.
 
-`research/stand-up-feedback-seed.json` retains the 15.5583 s witness's parameters, physical
-identity, configuration and full terminal result as a portable seed. It is not a gameplay
+`research/stand-up-feedback-seed.json` retains the winning witness's parameters and a current-source
+physical identity, configuration and full terminal result as a portable seed. The frozen checkout
+retains the original 15.5583 s result. The portable seed is not a gameplay
 preset. Recording it generates the complete physical action/observation tape from a new fall;
 no installed pose or opaque checkpoint is needed to reconstruct it:
 
@@ -4158,3 +4159,61 @@ the two previously reported checkpoint-identity failures remain unresolved. The 
 four-second median, six-second deadline and qualification remain unachieved. The next
 investigation is the control-history dependence at host handover, before any further attempt
 to replace that interval with an entirely muscle-driven candidate.
+
+
+## Clearing interrupted stance torque history, 2026-10-13
+
+The paired frozen handover is now explained. The compliant-sole filter averages the current
+unfiltered leg torque with the preceding value in LimbTask.given. Stance release disables its
+tasks but leaves those previous values intact. They can therefore survive seconds of recovery
+and enter the first resumed stance step. The two physically identical handovers have identical
+unfiltered torques; their different retained values explain all twelve differing leg commands,
+to a maximum arithmetic discrepancy of 7.106e-15 N m. Four commands reverse direction.
+For example, the left knee asks for +28.420632 N m, but an old -167.969751 N m request makes
+the filter send -69.774560 N m. This is stale torque history, not evidence of false grounded-foot
+sensing. The diagnosis runs in the unchanged frozen Node Stance / Rapier coordinate / 120 Hz
+Warrior-with-club saved fall; it changes no evaluator state or criterion.
+
+The shared live stance reset now clears each task's previous torque to NaN, the filter's
+existing no-history value. The first resumed request uses its current torque, and subsequent
+consecutive stance steps retain the existing damping. No muscle strength, speed, anatomy,
+solver parameter, assistance or controller selection changes. The frozen checkout retains
+its original host and original witness; this runtime correction is not counted as an
+improvement on frozen acceptance.
+
+A regression test drives both compliant-sole humans on the current-source Node stand with
+game Rapier coordinate at 120 Hz. It establishes finite nonzero stance history, hands the body
+to a muscle-command sub-mind for three steps, then returns it to the ordinary host. It asserts
+the complete released-history records and checks all twelve resumed leg commands against the
+unfiltered bounded torques. It fails before the fix and passes afterward in under a second.
+All seven focused stance/research-rise tests and all eight sub-mind tests pass.
+
+The unchanged portable feedback witness, on the current-source Node Stance evaluator with
+the original compliant-sole Warrior, symmetric muscles and Balance 0, completes its fresh
+forward fall in 14.875000 seconds rather than the recorded 15.558333 seconds. Both results
+include the ordinary standing/walking verification tail. The feedback parameters, body spec,
+configuration and engine artifact are identical. The current-source portable record in
+research/stand-up-feedback-seed.json is re-recorded; its frozen counterpart is not changed.
+The result remains much slower than the goal and establishes no broader recovery rate.
+
+All 2,144 recorded steps reproduce exactly from the current-source checkpoint, including a
+restored split continuation. Both audited continuations report no external-actuation events.
+The witness meters zero assistance and a maximum effort-bound excess of 0.000035855569763043604,
+below the unchanged 0.0001 tolerance. Its physical SHA-256 is
+
+0e81e6ed668166ac77b279878d8c2435d82075b7138b623a05b4c72ea7712add.
+
+The standalone .review/stand-up-foot-support/fixed-witness.html contains 2,145 verified frames,
+including the initial observation. Chrome inspection at 17.875 seconds shows the upright
+walking-verification finish. It is a recording for inspection, not a replacement for the
+live selectable controller. Evidence, the torque diagnosis, unchanged parameters, identities,
+source snapshots and verification are preserved under stanceTorqueReset in
+research/stand-up-path-results.json.
+
+TypeScript and the browser build pass. The final fast suite reports 695 tests: 688 pass,
+two fail and five TODO. The two existing failures in research-stand-up-acceptance.test.mjs
+and stand-up-detached.test.mjs reject frozen checkpoints in the current-source harness;
+their guards remain intact. The initial fast run also detects the changed witness timing;
+after re-recording its successful result, that assertion passes. Whitespace, cited-file and
+line-ending checks pass. The four-second median, six-second deadline and full qualification
+remain unachieved.

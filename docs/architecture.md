@@ -697,6 +697,10 @@ goal or by its posture, `BlowSkill.holds`), whose slot it marks live. Each side'
 HUD has one, the Lab's thinking section one, and the Crypt's HUD one, for the enemy under the
 pointer, else the enemy the party is locked on, else the first selected member.
 
+When a sub-mind takes over, the host releases its stance and clears the previous leg torques
+used by the compliant-sole damping filter. On return, filtering starts with the current torque
+request; it does not average in a request from before the takeover.
+
 There are five sub-minds, each of which wants the body while it is down
 (`BodyView.down`), and the body hands each maker its world (`SubMindMaker`): `lie` (`lying`,
 `lie.ts`), which asks its muscles for nothing, `staged-rise` (`stagedRise`, `rise/staged.ts`),
