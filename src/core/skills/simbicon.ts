@@ -208,7 +208,8 @@ const SIMBICON_RUN: SimbiconRun = Object.freeze({
  * less than the run's pace, once the walk asked has stood at it for `top` s, by when the body goes as
  * fast as it walks, taking up the pace the body goes; and gives way to the walk
  * once the walk asked has come down `below` under it and the body has slowed to the run's pace, its
- * landings braking it until then; the walk takes up the pace the body goes and slows from it.
+ * landings braking it until then, or, told it may not run, once the walk asked has come down to the
+ * run's pace; the walk takes up the pace the body goes and slows from it.
  */
 const RUN_SWITCH = { past: 0.05, short: 0.1, below: 0.2, top: 1 } as const;
 
@@ -458,7 +459,7 @@ const RIGHT: Readonly<Vector3> = Object.freeze(new Vector3(1, 0, 0));
  * (`SIMBICON_RUN`) from the next landing, and walks again from a landing once the walk asked has
  * come down under it and the body has slowed to it. Running, it goes straight ahead, turning only by
  * its heading. Told it may not run (`may`, `Locomotion.runs`), it walks forward no faster than
- * `run`, and running, walks again from a landing once the body has slowed to it; its envelope is
+ * `run`, and running, walks again from a landing once the walk asked has come down to it; its envelope is
  * the walk's (`simbiconEnvelope`), and the run's (`simbiconRunEnvelope`) while it may run.
  *
  * The settings, each way's and the run's are taken scaled to the body's leg (`scaledGait`, `legOf`)
@@ -607,7 +608,8 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
         // The run takes up the pace the body goes and speeds up from it.
         if (memory.running) memory.forward = Math.min(memory.forward, along);
       }
-      else if ((!memory.may || memory.forward < settings.run - RUN_SWITCH.below) && along <= settings.run) {
+      // Told it may not run, its pace asked comes down to the walk's top and it walks from there: a run asked that slowly goes faster.
+      else if (memory.may ? memory.forward < settings.run - RUN_SWITCH.below && along <= settings.run : memory.forward <= settings.run) {
         memory.running = false;
         memory.forward = Math.max(memory.forward, along);
       }

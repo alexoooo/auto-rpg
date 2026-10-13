@@ -426,7 +426,7 @@ tactics over the skills it is given.
   grounded: it never leaves the ground. It goes straight ahead, turning only by its heading, and
   walks again from a landing once the walk asked has come down 0.2 under 1.27 and the body has
   slowed to 1.27. Told it may not run (`Locomotion.runs`, `SimbiconConfig.runs`), it walks no faster
-  than 1.27, and a run under way walks again from a landing once the body has slowed to it. Its
+  than 1.27, and a run under way walks again from a landing once the walk asked has come down to 1.27. Its
   envelope is the walk's (`simbiconEnvelope`), or the run's (`simbiconRunEnvelope`) while it may run. Low support folds the stance, so a fighter does not
   offer it beside this walk; a kick asked holds the walk, which stops and gives the legs back to the
   stance before the kick begins (`drivesLegs`, `fighter.ts`; `skillSet`, `arbiter.ts`). A push whose level or speed is not
