@@ -17,7 +17,8 @@ function contactSequence(model,sequence) {
     const a=stage.advance;
     if(a&&(!Number.isFinite(a.after)||a.after<=0||!Number.isFinite(a.hold??0)||(a.hold??0)<0
       ||(a.foot!==undefined&&!['foot.left','foot.right'].includes(a.foot))
-      ||(a.loadFraction!==undefined&&(!a.foot||!Number.isFinite(a.loadFraction)||a.loadFraction<0||a.loadFraction>1))
+      ||(a.contact!==undefined&&!model.segments.some(s=>s.name===a.contact))
+      ||(a.loadFraction!==undefined&&(!(a.foot||a.contact)||!Number.isFinite(a.loadFraction)||a.loadFraction<0||a.loadFraction>1))
       ||(a.centreTolerance!==undefined&&(!stage.parameters.centreTarget||!Number.isFinite(a.centreTolerance)||a.centreTolerance<=0))))
       throw new Error('contact transition requires bounded timing and a defined support target');
   }
@@ -37,9 +38,12 @@ function contactSequence(model,sequence) {
         const foot=o.segments.find(s=>s.name===a.foot),rest=model.segments.find(s=>s.name===a.foot).rest;
         const relative=new Quaternion(...foot.rotation).multiply(Quaternion.Inverse(new Quaternion(...rest)));
         const up=new Vector3(0,1,0).applyRotationQuaternionToRef(relative,new Vector3());
-        const impulse=o.contacts.filter(c=>c.segment===a.foot&&c.fixed!==null&&c.impulse>0&&-c.normal[1]>.9)
+        ready&&=up.y>.9;
+      }
+      for(const name of [a.foot,a.contact].filter(Boolean)) {
+        const impulse=o.contacts.filter(c=>c.segment===name&&c.fixed!==null&&c.impulse>0&&-c.normal[1]>.9)
           .reduce((sum,c)=>sum+c.impulse,0);
-        ready&&=up.y>.9&&impulse>0&&impulse*PHYSICS_HZ.value>=(a.loadFraction??0)*weight;
+        ready&&=impulse>0&&impulse*PHYSICS_HZ.value>=(a.loadFraction??0)*weight;
       }
       if(!ready)state.readySince=null;
       else {
@@ -78,6 +82,10 @@ export function contactBalanceTarget(patches,owners,weights,out) {
 /** Desired ground reactions are converted to internal joint torques, never applied to a rigid body. */
 export function contactPolicy({model,parameters:p={}}) {
   if(p.sequence)return contactSequence(model,p.sequence);
+  if(p.additionalSupports!==undefined&&(!Array.isArray(p.additionalSupports)
+    ||p.additionalSupports.some(name=>!model.segments.some(s=>s.name===name))))
+    throw new Error('additional supports require known body segments');
+  const additionalSupports=new Set(p.additionalSupports??[]);
   const state={phase:p.phase??'hold',started:null,heading:null,held:0,released:false,
     contacts:[],requestedForce:[0,0,0],miss:[0,0,0],saturated:0,gravityTorque:[],contactTorque:[],torque:[],effortPredictionError:0};
   const mass=model.segments.reduce((s,b)=>s+b.mass,0), gravity=new Vector3(...model.gravity),weight=-mass*gravity.y;
@@ -119,7 +127,7 @@ export function contactPolicy({model,parameters:p={}}) {
     across.set(1,0,0).applyRotationQuaternionToRef(relative,across);
     state.heading??=atan2(-across.z,across.x);
     const available=o.contacts.filter(c=>c.fixed!==null&&c.impulse>0&&-c.normal[1]>.9
-      && /^(foot|hand|shank)\./.test(c.segment));
+      && (/^(foot|hand|shank)\./.test(c.segment)||additionalSupports.has(c.segment)));
     // Desired bearing can leave a limb free to swing; its physical contacts remain the world's own.
     const preferred=p.bearing?available.filter(c=>p.bearing.includes(c.segment)):available;
     const loaded=preferred.length?preferred:available;

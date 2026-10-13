@@ -79,6 +79,33 @@ test('explicit contact postures blend reference coordinates through bounded musc
   assert.throws(()=>contactPolicy({model,parameters:{sequence:[{parameters:{},advance:{after:1,loadFraction:.2}}]}}),/defined support target/);
   assert.throws(()=>contactPolicy({model,parameters:{poseGains:{absent:1}}}),/known channels/);
   assert.throws(()=>contactPolicy({model,parameters:{poseGains:{joint:-1}}}),/nonnegative/);
+  assert.throws(()=>contactPolicy({model,parameters:{additionalSupports:['absent']}}),/known body segments/);
+  assert.throws(()=>contactPolicy({model,parameters:{additionalSupports:'foot.left'}}),/known body segments/);
+  const rootContact={segment:'lowerTrunk',fixed:'floor',impulse:1,normal:[0,-1,0],point:[0,0,0]};
+  const propped={...loaded,contacts:[...loaded.contacts,rootContact]},saved=structuredClone(propped);
+  const defaults=contactPolicy({model}),explicit=contactPolicy({model,parameters:{additionalSupports:[]}});
+  assert.deepEqual(defaults(propped),explicit(propped));
+  assert.deepEqual(defaults.state.contacts,['foot.left']);
+  const admitted=contactPolicy({model,parameters:{additionalSupports:['lowerTrunk']}});
+  const action=admitted(propped);
+  assert.deepEqual(admitted.state.contacts,['foot.left','lowerTrunk']);
+  assert.notDeepEqual(action,defaults(propped),'the observed extra support changes the muscle reaction allocation');
+  for(const absent of [{...rootContact,impulse:0},{...rootContact,fixed:null},{...rootContact,normal:[0,1,0]}]) {
+    admitted({...propped,contacts:[loaded.contacts[0],absent]});
+    assert.deepEqual(admitted.state.contacts,['foot.left'],'naming a segment cannot manufacture support');
+  }
+  assert.deepEqual(propped,saved,'allocation does not change the physical observation');
+  const transfer=contactPolicy({model,parameters:{sequence:[
+    {parameters:{additionalSupports:['lowerTrunk']},advance:{after:.5,contact:'lowerTrunk',loadFraction:.2,hold:.1}},
+    {parameters:{posture:'observed'}}]}});
+  transfer(propped);
+  transfer({...propped,time:.5,contacts:[loaded.contacts[0],{...rootContact,impulse:.001}]});
+  assert.equal(transfer.state.readySince,null,'positive contact below the load threshold cannot advance');
+  transfer({...propped,time:.6});assert.equal(transfer.state.readySince,.6);
+  transfer({...propped,time:.65,contacts:loaded.contacts});assert.equal(transfer.state.readySince,null);
+  transfer({...propped,time:.7});transfer({...propped,time:.81});
+  assert.deepEqual(transfer.state.switches,[{time:.81,stage:1}]);
+  assert.throws(()=>contactPolicy({model,parameters:{sequence:[{parameters:{},advance:{after:1,contact:'absent'}}]}}),/defined support target/);
 });
 
 test('contact effort carries gravity and descendant ground forces in the muscle sense at speed',()=>{

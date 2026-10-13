@@ -3049,3 +3049,69 @@ suite reports 683 passes, two failures and five TODOs: `research-stand-up-accept
 the source-identity guard. The pinned checkout and guard are unchanged. The browser build passes;
 the targeted locomotion envelope test reports 28 passes, zero failures and six TODOs. These
 software checks and the failed motion experiments do not establish the requested recovery goal.
+
+## Replanting the free hand, 2026-10-12
+
+**All 24 physical trials fail recovery.** Six continuations establish left-hand load, but the
+recorded earliest transition loses usable left-foot support. None of twelve stricter continuations
+establishes simultaneous loaded hand and upright-foot support. The selected frozen library remains
+3/16, none within six seconds; the full goal and gameplay integration remain unfinished.
+
+Every physical figure uses **Node Stance Lab / frozen game Rapier coordinate adapter 11 / 120 Hz /
+original symmetric muscle envelopes / Balance 0 / ordinary stance host**, on the same Rogue/empty
+90-degree saved fall. The exact 951-step prefix reaches the previously loaded left foot at
+7.933333 seconds. These are late feasibility diagnostics, not six-second successes. No body,
+muscle, joint, solver, saved case or acceptance setting changes.
+
+The contact allocator's default support list includes feet, hands and shanks. The measured late
+state also bears weight on its right thigh. An optional `additionalSupports` list admits named
+body segments only when the observation reports positive upward ground-contact impulse. It
+changes the allocation used to request internal muscle torque; it applies no force to the world.
+Unknown names are rejected, and omitting the option preserves the existing allocation.
+
+An optional sequence `advance.contact` requires actual ground load through a named segment.
+It can be combined with `advance.foot`, whose existing upright-sole requirement still applies.
+Both contacts must then meet the specified load fraction and hold interval; losing either resets
+the interval. This is an internal stage gate, not a replacement for frozen recovery acceptance.
+
+The offline hand-placement solve retains the measured left foot, right hand and right-thigh
+contact points, projects desired contact points onto the floor, and requests a left palm orientation
+reflected from the measured right hand. The intended new left-hand contact contributes a planned
+endpoint support point. One of nine endpoints passes the unchanged geometric screen, with left-hand
+position error 2.701 mm and orientation error 0.019037 rad. That does not establish reachability or
+positive load at every planned support. Six further endpoints constrained to preserve the measured
+pelvis orientation all fail the geometric screen.
+
+The first twelve physical trials compare the passing endpoint at three left-arm posture gains
+and two blend times, with and without thigh support admission. Six reach their hand-only gate;
+none subsequently places the right foot or recovers. The earliest hand transition, with thigh
+admission, occurs at 8.700000 seconds. Left-hand load is 140.508 N, but left-foot load is zero,
+left sole-up is 0.868054 and root-up is 0.304864. The right forearm bears 239.366 N, right hand
+22.897 N and right thigh 151.557 N. Loads are measured step normal impulses multiplied by 120 Hz.
+The hand has been planted as the torso tips forward; usable foot support has not been preserved.
+
+The next twelve trials hold the measured initial centre and pelvis targets while changing either
+the left-arm joint targets alone or the full posture, at three left-arm gains. They compare default
+support admission with additional thigh and forearm contacts. These changed targets are experimental
+muscle requests, not geometrically proven paths. Their gate requires both left-hand load and a
+loaded left sole with up-normal above 0.9. All twelve fail that gate and fail recovery by 15 seconds.
+
+The 24 trials consume 43,176 physical steps. There are no adapter errors, external-actuation events,
+invalid final commands or nonfinite final joint observations. Maximum effort-bound excess is
+0.00002181721 N m, below the unchanged 0.0001 tolerance. All 848 post-prefix commands in the new
+recording reconstruct exactly. All 779 commands from the preceding recorded attempt remain identical
+when the new options are absent. Complete checkpoint replay and restored continuation match exactly.
+
+`research/stand-up-path-results.json` under `handSupport` retains every executed configuration and
+outcome through checked posture/stage tables, all geometric failures, the measured hand transition,
+diagnostics and replay proof. `.review/stand-up-hand-support/replay.html` compares the recorded failure
+with the optimized baseline from the identical complete initial observation and physical body.
+Embedded replay records are checked; visual inspection remains undone under the existing local-file
+browser restriction. Candidate physical trace SHA-256:
+`06d9295dd2dcadf71de4555efa1041c0efc31aac0fe1a26094879372dd22457a`.
+
+Validation: TypeScript and 21 focused tests pass. The fast suite reports 683 passes, two failures
+and five TODOs. The same `research-stand-up-acceptance.test.mjs` and `stand-up-detached.test.mjs`
+failures reject frozen checkpoints under current-source identities; the pinned checkout and guard
+remain unchanged. Exact replay, action reconstruction, replay build, whitespace and line-ending
+checks pass. No result in this batch establishes the requested median or reliability.
