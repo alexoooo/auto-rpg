@@ -4726,3 +4726,71 @@ predicted versus actual response while the continuous hand-support targets remai
 Only evidence and analysis are retained. Source hashes, cited paths, whitespace and line
 endings are checked. The two previously reported current-source checkpoint-configuration
 software-test failures remain unresolved; the unchanged software gates are not repeated.
+
+### Foot-carry prediction, motor reach and geometric clearance
+
+Harness: frozen Node Stance action evaluator, game Rapier coordinate adapter 11, 120 Hz,
+saved workshop-fighter-club-90 fall, original compliant-sole Warrior and club, original
+symmetric muscle limits and stance host, Balance 0. No body, muscle, host, saved-fall,
+physics or acceptance change is made. The full recovery goal remains unfinished.
+
+Instrumenting the continuous-support controller reproduces all 719 physical observations
+exactly. Its 204 foot-carry steps compare requested acceleration, predicted acceleration
+under requested torque, prediction under measured motor torque, and measured velocity change.
+At recovery second 4.308333, the foot-acceleration prediction misses by 22.981133 m/s2;
+substituting measured motor torque reduces that particular discrepancy to 0.582257 m/s2.
+The right ankle inversion request is -2.244632 N m, but measured effort is +0.787374 N m.
+A separate reconstruction matches all 228 actions up to that step. The torque plan predicts
+an end speed of -8.865901 rad/s although the driver's existing negative command reach is
+-2.185431 rad/s. The physical joint ends at -3.816902 rad/s; the velocity motor brakes it.
+The muscle envelope permits external motion beyond command reach. Treating a bounded torque
+request as an exactly realized actuator torque misses this behavior.
+
+Other discrepancies remain when measured torques match the requests. At 5.108333 s, the
+ankle dorsiflexion coordinate starts at 0.241257 rad and moves at 21.048061 rad/s toward its
+0.357059 rad limit. Its estimated arrival is 0.005502 s, inside the 0.008333 s world step.
+The existing 0.02 rad proximity check omits it; a velocity-projected check admits it. The
+physical next angle is 0.356831 rad. Of the original 204 carry steps, 123 include measured
+body-to-body contact, 109 have a velocity-projected limit arrival, and 92 have a motor
+request/effort discrepancy above 0.01 N m. These overlapping diagnostic categories do not
+establish isolated causes. The prediction includes floor support, but not self-contact reactions.
+
+Four full-deadline trials constrain predicted end speeds using existing force-velocity reach,
+with two margins and both lead legs. Four right-lead comparisons cross velocity-projected
+stops with rotational damping of the carried foot. Disabling both additions reproduces the
+matched motor-bound control exactly. All eight trials, comprising 3,448 continuation steps,
+fail foot placement and recovery by six seconds. All meter zero assistance and external
+actuation; maximum effort-bound excess is 0.0000370654 N m, below the unchanged tolerance.
+
+The selected combined variant has median foot-acceleration prediction error 3.646672 m/s2,
+versus 7.595041 for the preceding continuous-support control, across their respective 199
+and 204 carry steps. These are different resulting trajectories, including contacts and
+limit encounters, so this is neither an isolated causal comparison nor a recovery improvement.
+At six seconds the moving foot is unloaded and remains 0.335421 m from its horizontal target,
+compared with 0.325220 m in the preceding control. No handover occurs.
+
+The geometry check uses the exactly replayed 4.3-second physical state. Its forward-kinematic
+errors are 0.0000287921 m and 0.0000708972 rad, within the existing 0.001 tolerances. Twelve
+fixed-pelvis, right-leg-only searches, including wider targets and several knee seeds, remain
+at least 0.353567 m from the requested carry endpoint and report collisions. Four whole-body
+searches retain measured hand and opposite-shin anchors while raising the pelvis; four
+refinements add clearance and optional flat-foot orientation. The closest reported foot error
+is 0.014908 m, but that endpoint violates floor and self-clearance. Nine nearer flat-foot
+planting searches also fail. All 29 endpoints fail the unchanged geometry criteria. These are
+local search failures, not proofs of global infeasibility, and no colliding pose is promoted.
+
+The standalone .review/stand-up-foot-response/replay.html compares the combined failed
+variant with the failed continuous-support control. Both 720-frame tracks match their
+recordings; their first 417 physical observations are identical. Independent action replay,
+complete restoration and split continuation pass for all 719 candidate steps. Browser
+inspection at 4.708333 s shows hand support with the moving foot still folded behind the body.
+Physical SHA-256: 5ca3f8e88d8db46f14e6365d3fadbd1b38b9610e7be4d95233c92e51fc721294.
+footCarryPrediction in research/stand-up-path-results.json preserves the diagnostics,
+experiments, geometric failures, exact sources and replay verification.
+
+The next missing component is a collision-clear coordinated pelvis, trunk and foot transition
+under hand support. The current fixed-pelvis target is not established as reachable. The
+selected frozen library remains 3/16, none within six seconds, with failure-inclusive median
+infinity. No Lab controller changes. Only evidence and analysis are retained: source hashes,
+cited paths, whitespace and line endings pass. Software gates are not repeated; the two
+previously reported checkpoint-configuration test failures remain unresolved.
