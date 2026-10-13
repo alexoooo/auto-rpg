@@ -3346,3 +3346,45 @@ pass. Embedded replay identity and frame count are checked; visual inspection is
 All 51 trials have zero assistance and no external-actuation events. Maximum normalized effort
 violation is 0.0000218173, below the unchanged 0.0001 audit tolerance. Terminal commands and joint
 readings are finite. These checks establish neither recovery nor robustness.
+
+## Live Warrior retry loop, 2026-10-12
+
+**The reported loop is not fixed.** The owner reports repeated kneeling and toppling after one
+or two 60 N s side gusts in Stance, using Research rise, empty hands, no compliant soles and
+Balance 0. The earlier terminal-timeout change removes a long pause; it does not establish
+successful support acquisition. The Lab's boots and armour switches are appearance only.
+
+The current Node Stance stand (`coreStand`, `labActor`, `startStance`), game Rapier coordinate
+engine at 120 Hz, original unshod Warrior and original muscles reproduces repeated failed
+attempts after two Left gusts. These tests stand for two seconds and apply the gusts 24 steps
+apart. They run for sixty seconds after the second gust is queued. The current adapter releases
+after five attempts in the Left case. Two single-gust side tests at that same starting time do
+not knock the body down. These standardized tests do not establish that the owner's particular
+long-running state will eventually recover.
+
+Three retry experiments align the references to a full-path frame nearest the observed posture,
+gravity, height and contact loads: on every retry, on odd attempts from the third, or on even
+attempts. The following readings are **current Node Stance / Rapier / 120 Hz**, measured from
+first down to the first sampled live-adapter quiet-support completion. Sampling is every 0.5 s,
+so these are upper bounds at that resolution, not frozen acceptance or host-walking results.
+
+| Retry policy | Front | Right | Back | Left |
+| --- | ---: | ---: | ---: | ---: |
+| Current controller | 13.03 s | 6.62 s | 34.88 s | 32.11 s |
+| Nearest frame on every retry | fails | 6.62 s | fails | 13.61 s |
+| Nearest frame on odd attempts from third | 13.03 s | 6.62 s | 25.38 s | fails |
+| Nearest frame on even attempts | 19.53 s | 6.62 s | 41.38 s | 13.61 s |
+
+Every alteration regresses another direction, so none is adopted. The production controller is
+restored unchanged. All eighteen live runs meter zero assist force and moment every step; body
+and muscle limits are unchanged. The isolated adapter's unchanged Front and Right controls
+reproduce the complete sampled production trajectories exactly. The local dev server reloaded
+the owner's paused tab during the first source experiment; subsequent experiments use isolated
+modules without changing the live source. The reset page is not recovery evidence.
+
+`research/stand-up-path-results.json` records configurations, source text/hashes, sampled attempt
+transitions and outcomes under `liveRetryScreen`; raw samples are in
+`.review/lab-research-rise/loops-*.json`. No production code change is retained. Whitespace and
+line-ending checks pass; the prior two current-source checkpoint-identity test failures remain
+unresolved. A successful loaded-foot transition, not another retry timing change, remains the
+missing behavior. The median, six-second deadline and full qualification remain unmet.

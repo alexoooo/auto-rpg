@@ -411984,5 +411984,1309 @@
         "traceSha256": "84bbfaa5bad898b08f81b20671bdacb9def6aa51218aaea00d4f5997c8308d12"
       }
     ]
+  },
+  "liveRetryScreen": {
+    "status": "NOT FIXED. The live Warrior repeats failed attempts after side gusts. No tested retry alteration is adopted: each regresses another direction. The user-reported indefinite loop is not established to recover by these standardized reproductions.",
+    "harness": {
+      "name": "Current Node Stance using coreStand, labActor and startStance; not the frozen acceptance evaluator",
+      "engine": "game Rapier coordinate",
+      "hz": 120,
+      "model": "workshop-fighter",
+      "held": "empty",
+      "compliantSoles": false,
+      "balance": 0,
+      "mind": "LAB_PRESETS.script with research-rise",
+      "muscles": "unchanged original envelopes",
+      "fall": "Stand for 2 s; 60 N s shove at heading-relative direction, followed after 24 steps by the same shove. Single screen omits the second shove.",
+      "duration": "60 s after the second shove is queued",
+      "reporting": "Completion is the live adapter quiet-support release, sampled every 0.5 s. Reported completion times are upper bounds at that sampling resolution, not frozen acceptance times or a host walking qualification."
+    },
+    "productionController": {
+      "path": "src/core/mind/rise/research.ts",
+      "sha256": "bab74b8716174dfacb2063877a32fb24d21c96af71b2a964f0d689072eb0cdb0",
+      "changed": false
+    },
+    "variants": {
+      "nearest": "On every failed retry, align each reference to its closest full-path frame by posture, local gravity, height and contact-load error.",
+      "delayed": "Keep initial-frame starts for the first two attempts, then align odd-numbered attempts.",
+      "alternate": "Align even-numbered attempts, start odd-numbered attempts from the beginning."
+    },
+    "candidates": {
+      "nearest": {
+        "path": ".review/lab-research-rise/research-nearest.ts",
+        "sha256": "9acb95714c08a558fd28d6f284b9f11fe11ee74558ffbf928d947040d3c309cd",
+        "source": "import data from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/assets/research/research-rise.json\" with { type: \"json\" };\nimport { Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\nimport type { BodyView } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/body.ts\";\nimport { recoveryMeasurement } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/control/recovery-measurement.ts\";\nimport { observeBody } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/observation.ts\";\nimport { deepFreeze, loadState, saveState } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/state.ts\";\nimport type { World } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/world.ts\";\nimport type { OwnBody } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/mind.ts\";\nimport type { SubMind } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/sub-mind.ts\";\nimport { dynamicRiseFits } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/rise/dynamic.ts\";\nimport { libraryPolicy } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/rise/reference-library.ts\";\nimport { pathPolicy } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/rise/reference-path.ts\";\nimport { phaseFeatures } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/rise/reference-features.ts\";\nimport type { ReferenceAction, ReferenceParameters, RiseReference } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/rise/reference-types.ts\";\n\ninterface Entry { kind: \"library\" | \"path\"; channels: string[]; parameters: ReferenceParameters; reference: RiseReference }\nconst SIDES = [\"left\", \"right\"] as const;\nconst bundle = deepFreeze(JSON.parse(data.payload)) as { default: Entry; bodies: Record<string, Entry> };\n\n/** Recorded reference motions with feedback, executed through the body's ordinary muscles. */\nexport function researchRise(own: OwnBody, view: BodyView, world: World): SubMind {\n  if (!dynamicRiseFits(own.spec)) throw new Error(`${own.spec.model} cannot take research rise`);\n  const held = own.spec.held ?? [];\n  const club = held.length === 1 && held[0].segment === \"hand.right\" && held[0].item.name === \"wooden club\";\n  const entry = bundle.bodies[`${own.spec.model}/${club ? \"club\" : \"empty\"}`] ?? bundle.default;\n  const channels = own.muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value }));\n  if (channels.length !== entry.channels.length || channels.some((c, i) => c.name !== entry.channels[i]))\n    throw new Error(\"research rise reference does not match this body's muscle channels\");\n  const args = { channels, reference: entry.reference, parameters: entry.parameters };\n  const policy = entry.kind === \"library\" ? libraryPolicy(args) : pathPolicy(args);\n  const initial = saveState(policy.state);\n  const observe = observeBody(own.built, own.muscles, world, () => view.senses, undefined, () => view.down, true);\n  const measure = recoveryMeasurement(own.built, observe), zero = new Vector3();\n  const state = { policy: policy.state, active: false, started: 0, quiet: 0, attempts: 0, completed: 0,\n    exhaustedAt: null as number | null,\n    action: { kind: \"host\" } as ReferenceAction };\n  const start = () => {\n    const retry = state.active;\n    loadState(policy.state, initial); state.active = true; state.started = world.time;\n    state.quiet = 0; state.exhaustedAt = null; state.attempts++;\n    if (retry) {\n      const o = observe(), f = phaseFeatures(o);\n      const references = entry.kind === \"library\" ? entry.reference.references : [entry.reference];\n      const states = \"policies\" in policy.state ? policy.state.policies : [policy.state];\n      for (let i = 0; i < references.length; i++) {\n        let best = Infinity, phase = 0;\n        for (let j = 0; j < references[i].frames.length; j++) {\n          const target = references[i].frames[j];\n          if (target.kind !== \"muscles\") continue;\n          const error = o.joints.reduce((sum, joint, k) => sum + (joint.angle - target.angles[k]) * (joint.angle - target.angles[k]), 0) / channels.length\n            + f.gravity.reduce((sum, v, k) => sum + (v - target.gravity[k]) * (v - target.gravity[k]), 0)\n            + 4 * (f.height - target.height) * (f.height - target.height)\n            + .2 * Object.entries(target.loads).reduce((sum, [name, v]) => sum + (v - (f.loads[name] ?? 0)) * (v - (f.loads[name] ?? 0)), 0);\n          if (error < best) { best = error; phase = j; }\n        }\n        const tracking = states[i];\n        tracking.phase = phase;\n        if (\"path\" in tracking) tracking.path.phase = phase;\n      }\n    }\n  };\n  return { get name() { return `research-rise: ${Math.round(policy.state.phase)}`; }, state,\n    wants() {\n      if (!state.active) { if (!view.down) return false; start(); }\n      const m = measure();\n      state.quiet = m.ready ? state.quiet + world.dt : 0;\n      // Quiet support releases the episode; a failed attempt can start again from the actual fall.\n      if (state.quiet >= .5) { state.active = false; state.completed++; state.action = { kind: \"host\" }; return false; }\n      const selected = \"reference\" in policy.state ? policy.state.reference ?? 0 : 0;\n      const reference = entry.kind === \"library\" ? entry.reference.references[selected] : entry.reference;\n      // Give the terminal command time to settle, then reselect from the actual pose if still down.\n      if (view.down && policy.state.phase >= reference.frames.length - 1) state.exhaustedAt ??= world.time;\n      else state.exhaustedAt = null;\n      if (view.down && (world.time - state.started >= 20\n        || (state.exhaustedAt !== null && world.time - state.exhaustedAt >= 2))) start();\n      state.action = policy(m.observation);\n      return state.action.kind === \"muscles\";\n    },\n    begin() {},\n    end() { own.assist.ask(zero, zero); },\n    step() {\n      const action = state.action;\n      if (action.kind !== \"muscles\") return;\n      own.muscles.activation.set(action.activation);\n      for (let i = 0; i < channels.length; i++) {\n        const v = action.velocity[i];\n        own.muscles.velocity[i] = v === \"+inf\" ? Infinity : v === \"-inf\" ? -Infinity : v;\n      }\n      own.built.handPoses.request(SIDES.filter(hand => action.handPoses[hand] !== undefined)\n        .map(hand => ({ hand, pose: action.handPoses[hand] })));\n      own.assist.ask(zero, zero);\n    } };\n}\n"
+      },
+      "delayed": {
+        "path": ".review/lab-research-rise/research-delayed.ts",
+        "sha256": "bb488c4bfdabd967e099f8675d0e3266443dc42b0eaa55c660a2e44acf1e0a42",
+        "source": "import data from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/assets/research/research-rise.json\" with { type: \"json\" };\nimport { Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\nimport type { BodyView } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/body.ts\";\nimport { recoveryMeasurement } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/control/recovery-measurement.ts\";\nimport { observeBody } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/observation.ts\";\nimport { deepFreeze, loadState, saveState } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/state.ts\";\nimport type { World } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/world.ts\";\nimport type { OwnBody } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/mind.ts\";\nimport type { SubMind } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/sub-mind.ts\";\nimport { dynamicRiseFits } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/rise/dynamic.ts\";\nimport { libraryPolicy } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/rise/reference-library.ts\";\nimport { pathPolicy } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/rise/reference-path.ts\";\nimport { phaseFeatures } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/rise/reference-features.ts\";\nimport type { ReferenceAction, ReferenceParameters, RiseReference } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/rise/reference-types.ts\";\n\ninterface Entry { kind: \"library\" | \"path\"; channels: string[]; parameters: ReferenceParameters; reference: RiseReference }\nconst SIDES = [\"left\", \"right\"] as const;\nconst bundle = deepFreeze(JSON.parse(data.payload)) as { default: Entry; bodies: Record<string, Entry> };\n\n/** Recorded reference motions with feedback, executed through the body's ordinary muscles. */\nexport function researchRise(own: OwnBody, view: BodyView, world: World): SubMind {\n  if (!dynamicRiseFits(own.spec)) throw new Error(`${own.spec.model} cannot take research rise`);\n  const held = own.spec.held ?? [];\n  const club = held.length === 1 && held[0].segment === \"hand.right\" && held[0].item.name === \"wooden club\";\n  const entry = bundle.bodies[`${own.spec.model}/${club ? \"club\" : \"empty\"}`] ?? bundle.default;\n  const channels = own.muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value }));\n  if (channels.length !== entry.channels.length || channels.some((c, i) => c.name !== entry.channels[i]))\n    throw new Error(\"research rise reference does not match this body's muscle channels\");\n  const args = { channels, reference: entry.reference, parameters: entry.parameters };\n  const policy = entry.kind === \"library\" ? libraryPolicy(args) : pathPolicy(args);\n  const initial = saveState(policy.state);\n  const observe = observeBody(own.built, own.muscles, world, () => view.senses, undefined, () => view.down, true);\n  const measure = recoveryMeasurement(own.built, observe), zero = new Vector3();\n  const state = { policy: policy.state, active: false, started: 0, quiet: 0, attempts: 0, completed: 0,\n    exhaustedAt: null as number | null,\n    action: { kind: \"host\" } as ReferenceAction };\n  const start = () => {\n    const retry = state.active;\n    loadState(policy.state, initial); state.active = true; state.started = world.time;\n    state.quiet = 0; state.exhaustedAt = null; state.attempts++;\n    if (retry && state.attempts >= 3 && state.attempts % 2 === 1) {\n      const o = observe(), f = phaseFeatures(o);\n      const references = entry.kind === \"library\" ? entry.reference.references : [entry.reference];\n      const states = \"policies\" in policy.state ? policy.state.policies : [policy.state];\n      for (let i = 0; i < references.length; i++) {\n        let best = Infinity, phase = 0;\n        for (let j = 0; j < references[i].frames.length; j++) {\n          const target = references[i].frames[j];\n          if (target.kind !== \"muscles\") continue;\n          const error = o.joints.reduce((sum, joint, k) => sum + (joint.angle - target.angles[k]) * (joint.angle - target.angles[k]), 0) / channels.length\n            + f.gravity.reduce((sum, v, k) => sum + (v - target.gravity[k]) * (v - target.gravity[k]), 0)\n            + 4 * (f.height - target.height) * (f.height - target.height)\n            + .2 * Object.entries(target.loads).reduce((sum, [name, v]) => sum + (v - (f.loads[name] ?? 0)) * (v - (f.loads[name] ?? 0)), 0);\n          if (error < best) { best = error; phase = j; }\n        }\n        const tracking = states[i];\n        tracking.phase = phase;\n        if (\"path\" in tracking) tracking.path.phase = phase;\n      }\n    }\n  };\n  return { get name() { return `research-rise: ${Math.round(policy.state.phase)}`; }, state,\n    wants() {\n      if (!state.active) { if (!view.down) return false; start(); }\n      const m = measure();\n      state.quiet = m.ready ? state.quiet + world.dt : 0;\n      // Quiet support releases the episode; a failed attempt can start again from the actual fall.\n      if (state.quiet >= .5) { state.active = false; state.completed++; state.action = { kind: \"host\" }; return false; }\n      const selected = \"reference\" in policy.state ? policy.state.reference ?? 0 : 0;\n      const reference = entry.kind === \"library\" ? entry.reference.references[selected] : entry.reference;\n      // Give the terminal command time to settle, then reselect from the actual pose if still down.\n      if (view.down && policy.state.phase >= reference.frames.length - 1) state.exhaustedAt ??= world.time;\n      else state.exhaustedAt = null;\n      if (view.down && (world.time - state.started >= 20\n        || (state.exhaustedAt !== null && world.time - state.exhaustedAt >= 2))) start();\n      state.action = policy(m.observation);\n      return state.action.kind === \"muscles\";\n    },\n    begin() {},\n    end() { own.assist.ask(zero, zero); },\n    step() {\n      const action = state.action;\n      if (action.kind !== \"muscles\") return;\n      own.muscles.activation.set(action.activation);\n      for (let i = 0; i < channels.length; i++) {\n        const v = action.velocity[i];\n        own.muscles.velocity[i] = v === \"+inf\" ? Infinity : v === \"-inf\" ? -Infinity : v;\n      }\n      own.built.handPoses.request(SIDES.filter(hand => action.handPoses[hand] !== undefined)\n        .map(hand => ({ hand, pose: action.handPoses[hand] })));\n      own.assist.ask(zero, zero);\n    } };\n}\n"
+      },
+      "alternate": {
+        "path": ".review/lab-research-rise/research-alternate.ts",
+        "sha256": "fdc656eee8ae35967e48851f0a2255195d8883277b3348d366528973fa7b196d",
+        "source": "import data from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/assets/research/research-rise.json\" with { type: \"json\" };\nimport { Vector3 } from \"@babylonjs/core/Maths/math.vector.js\";\nimport type { BodyView } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/body.ts\";\nimport { recoveryMeasurement } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/control/recovery-measurement.ts\";\nimport { observeBody } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/observation.ts\";\nimport { deepFreeze, loadState, saveState } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/state.ts\";\nimport type { World } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/world.ts\";\nimport type { OwnBody } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/mind.ts\";\nimport type { SubMind } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/sub-mind.ts\";\nimport { dynamicRiseFits } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/rise/dynamic.ts\";\nimport { libraryPolicy } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/rise/reference-library.ts\";\nimport { pathPolicy } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/rise/reference-path.ts\";\nimport { phaseFeatures } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/rise/reference-features.ts\";\nimport type { ReferenceAction, ReferenceParameters, RiseReference } from \"file:///C:/Users/ostro/IdeaProjects/auto-rpg/src/core/mind/rise/reference-types.ts\";\n\ninterface Entry { kind: \"library\" | \"path\"; channels: string[]; parameters: ReferenceParameters; reference: RiseReference }\nconst SIDES = [\"left\", \"right\"] as const;\nconst bundle = deepFreeze(JSON.parse(data.payload)) as { default: Entry; bodies: Record<string, Entry> };\n\n/** Recorded reference motions with feedback, executed through the body's ordinary muscles. */\nexport function researchRise(own: OwnBody, view: BodyView, world: World): SubMind {\n  if (!dynamicRiseFits(own.spec)) throw new Error(`${own.spec.model} cannot take research rise`);\n  const held = own.spec.held ?? [];\n  const club = held.length === 1 && held[0].segment === \"hand.right\" && held[0].item.name === \"wooden club\";\n  const entry = bundle.bodies[`${own.spec.model}/${club ? \"club\" : \"empty\"}`] ?? bundle.default;\n  const channels = own.muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value }));\n  if (channels.length !== entry.channels.length || channels.some((c, i) => c.name !== entry.channels[i]))\n    throw new Error(\"research rise reference does not match this body's muscle channels\");\n  const args = { channels, reference: entry.reference, parameters: entry.parameters };\n  const policy = entry.kind === \"library\" ? libraryPolicy(args) : pathPolicy(args);\n  const initial = saveState(policy.state);\n  const observe = observeBody(own.built, own.muscles, world, () => view.senses, undefined, () => view.down, true);\n  const measure = recoveryMeasurement(own.built, observe), zero = new Vector3();\n  const state = { policy: policy.state, active: false, started: 0, quiet: 0, attempts: 0, completed: 0,\n    exhaustedAt: null as number | null,\n    action: { kind: \"host\" } as ReferenceAction };\n  const start = () => {\n    const retry = state.active;\n    loadState(policy.state, initial); state.active = true; state.started = world.time;\n    state.quiet = 0; state.exhaustedAt = null; state.attempts++;\n    if (retry && state.attempts % 2 === 0) {\n      const o = observe(), f = phaseFeatures(o);\n      const references = entry.kind === \"library\" ? entry.reference.references : [entry.reference];\n      const states = \"policies\" in policy.state ? policy.state.policies : [policy.state];\n      for (let i = 0; i < references.length; i++) {\n        let best = Infinity, phase = 0;\n        for (let j = 0; j < references[i].frames.length; j++) {\n          const target = references[i].frames[j];\n          if (target.kind !== \"muscles\") continue;\n          const error = o.joints.reduce((sum, joint, k) => sum + (joint.angle - target.angles[k]) * (joint.angle - target.angles[k]), 0) / channels.length\n            + f.gravity.reduce((sum, v, k) => sum + (v - target.gravity[k]) * (v - target.gravity[k]), 0)\n            + 4 * (f.height - target.height) * (f.height - target.height)\n            + .2 * Object.entries(target.loads).reduce((sum, [name, v]) => sum + (v - (f.loads[name] ?? 0)) * (v - (f.loads[name] ?? 0)), 0);\n          if (error < best) { best = error; phase = j; }\n        }\n        const tracking = states[i];\n        tracking.phase = phase;\n        if (\"path\" in tracking) tracking.path.phase = phase;\n      }\n    }\n  };\n  return { get name() { return `research-rise: ${Math.round(policy.state.phase)}`; }, state,\n    wants() {\n      if (!state.active) { if (!view.down) return false; start(); }\n      const m = measure();\n      state.quiet = m.ready ? state.quiet + world.dt : 0;\n      // Quiet support releases the episode; a failed attempt can start again from the actual fall.\n      if (state.quiet >= .5) { state.active = false; state.completed++; state.action = { kind: \"host\" }; return false; }\n      const selected = \"reference\" in policy.state ? policy.state.reference ?? 0 : 0;\n      const reference = entry.kind === \"library\" ? entry.reference.references[selected] : entry.reference;\n      // Give the terminal command time to settle, then reselect from the actual pose if still down.\n      if (view.down && policy.state.phase >= reference.frames.length - 1) state.exhaustedAt ??= world.time;\n      else state.exhaustedAt = null;\n      if (view.down && (world.time - state.started >= 20\n        || (state.exhaustedAt !== null && world.time - state.exhaustedAt >= 2))) start();\n      state.action = policy(m.observation);\n      return state.action.kind === \"muscles\";\n    },\n    begin() {},\n    end() { own.assist.ask(zero, zero); },\n    step() {\n      const action = state.action;\n      if (action.kind !== \"muscles\") return;\n      own.muscles.activation.set(action.activation);\n      for (let i = 0; i < channels.length; i++) {\n        const v = action.velocity[i];\n        own.muscles.velocity[i] = v === \"+inf\" ? Infinity : v === \"-inf\" ? -Infinity : v;\n      }\n      own.built.handPoses.request(SIDES.filter(hand => action.handPoses[hand] !== undefined)\n        .map(hand => ({ hand, pose: action.handPoses[hand] })));\n      own.assist.ask(zero, zero);\n    } };\n}\n"
+      }
+    },
+    "screens": {
+      "before": {
+        "path": ".review/lab-research-rise/loops-before.json",
+        "sha256": "ccd70f5a21e770404dcfb5570fe730192fed855fe188fdd3cf68bd27e6919100",
+        "results": [
+          {
+            "degrees": 0,
+            "first": 2.675,
+            "maxHelp": 0,
+            "attempts": 2,
+            "completed": 1,
+            "down": false,
+            "completionFromFirstDownSample": 13.033333333333335,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 0.9839390400033866,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 2.7083333333333335,
+                "down": true,
+                "height": 0.7187430057500804,
+                "controller": "research-rise: 4",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 4.0000000000000195,
+                "reference": 0,
+                "exhaustedAt": null
+              },
+              {
+                "time": 9.208333333333334,
+                "down": true,
+                "height": 0.18995446072710603,
+                "controller": "research-rise: 12",
+                "attempts": 2,
+                "completed": 0,
+                "phase": 11.999999999999744,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 15.708333333333334,
+                "down": false,
+                "height": 0.9861327091408509,
+                "controller": "command",
+                "attempts": 2,
+                "completed": 1,
+                "phase": 495.50000000000017,
+                "reference": 2,
+                "exhaustedAt": null
+              }
+            ]
+          },
+          {
+            "degrees": 90,
+            "first": 2.591666666666667,
+            "maxHelp": 0,
+            "attempts": 1,
+            "completed": 1,
+            "down": false,
+            "completionFromFirstDownSample": 6.616666666666667,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 1.0152748927361428,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 2.7083333333333335,
+                "down": true,
+                "height": 0.4881294804360976,
+                "controller": "research-rise: 7",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 7.000000000000002,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 9.208333333333334,
+                "down": false,
+                "height": 0.9925591991082294,
+                "controller": "command",
+                "attempts": 1,
+                "completed": 1,
+                "phase": 506.00000000000006,
+                "reference": 1,
+                "exhaustedAt": null
+              }
+            ]
+          },
+          {
+            "degrees": 180,
+            "first": 2.825,
+            "maxHelp": 0,
+            "attempts": 5,
+            "completed": 1,
+            "down": false,
+            "completionFromFirstDownSample": 34.88333333333333,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 0.9919520917998493,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 3.2083333333333335,
+                "down": true,
+                "height": 0.2501706001850852,
+                "controller": "research-rise: 56",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 56,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 9.708333333333334,
+                "down": true,
+                "height": 0.20409967560306802,
+                "controller": "research-rise: 66",
+                "attempts": 2,
+                "completed": 0,
+                "phase": 66,
+                "reference": 0,
+                "exhaustedAt": null
+              },
+              {
+                "time": 15.708333333333334,
+                "down": true,
+                "height": 0.2704591413857006,
+                "controller": "research-rise: 42",
+                "attempts": 3,
+                "completed": 0,
+                "phase": 41.99999999999993,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 22.708333333333332,
+                "down": true,
+                "height": 0.20264542981757358,
+                "controller": "research-rise: 66",
+                "attempts": 4,
+                "completed": 0,
+                "phase": 66.49999999999997,
+                "reference": 0,
+                "exhaustedAt": null
+              },
+              {
+                "time": 31.208333333333332,
+                "down": true,
+                "height": 0.1998138280127914,
+                "controller": "research-rise: 59",
+                "attempts": 5,
+                "completed": 0,
+                "phase": 58.999999999999986,
+                "reference": 0,
+                "exhaustedAt": null
+              },
+              {
+                "time": 37.708333333333336,
+                "down": false,
+                "height": 0.9852776165598218,
+                "controller": "command",
+                "attempts": 5,
+                "completed": 1,
+                "phase": 624,
+                "reference": 0,
+                "exhaustedAt": null
+              }
+            ]
+          },
+          {
+            "degrees": 270,
+            "first": 2.6,
+            "maxHelp": 0,
+            "attempts": 5,
+            "completed": 1,
+            "down": false,
+            "completionFromFirstDownSample": 32.108333333333334,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 1.012869512076337,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 2.7083333333333335,
+                "down": true,
+                "height": 0.5545845839280614,
+                "controller": "research-rise: 7",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 6.5000000000000036,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 10.708333333333334,
+                "down": true,
+                "height": 0.20568594309182725,
+                "controller": "research-rise: 88",
+                "attempts": 2,
+                "completed": 0,
+                "phase": 87.50000000000003,
+                "reference": 0,
+                "exhaustedAt": null
+              },
+              {
+                "time": 16.208333333333332,
+                "down": true,
+                "height": 0.21333064562784845,
+                "controller": "research-rise: 24",
+                "attempts": 3,
+                "completed": 0,
+                "phase": 24.499999999999673,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 23.708333333333332,
+                "down": true,
+                "height": 0.26442422532512594,
+                "controller": "research-rise: 185",
+                "attempts": 4,
+                "completed": 0,
+                "phase": 185.49999999999991,
+                "reference": 0,
+                "exhaustedAt": null
+              },
+              {
+                "time": 28.708333333333332,
+                "down": true,
+                "height": 0.28568391860185155,
+                "controller": "research-rise: 46",
+                "attempts": 5,
+                "completed": 0,
+                "phase": 45.999999999999915,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 34.708333333333336,
+                "down": false,
+                "height": 1.0007766054575942,
+                "controller": "command",
+                "attempts": 5,
+                "completed": 1,
+                "phase": 495.49999999999994,
+                "reference": 2,
+                "exhaustedAt": null
+              }
+            ]
+          }
+        ]
+      },
+      "nearest": {
+        "path": ".review/lab-research-rise/loops-nearest.json",
+        "sha256": "375e7914561233f53f2c3b41c25902ff3b43a20967dc0a352d54a772c92e5889",
+        "results": [
+          {
+            "degrees": 0,
+            "first": 2.675,
+            "maxHelp": 0,
+            "attempts": 9,
+            "completed": 0,
+            "down": true,
+            "completionFromFirstDownSample": null,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 0.9839390400033866,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 2.7083333333333335,
+                "down": true,
+                "height": 0.7187430057500804,
+                "controller": "research-rise: 4",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 4.0000000000000195,
+                "reference": 0,
+                "exhaustedAt": null
+              },
+              {
+                "time": 9.208333333333334,
+                "down": true,
+                "height": 0.20716229288246246,
+                "controller": "research-rise: 74",
+                "attempts": 2,
+                "completed": 0,
+                "phase": 74.49999999999997,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 16.208333333333332,
+                "down": true,
+                "height": 0.25336126011157906,
+                "controller": "research-rise: 88",
+                "attempts": 3,
+                "completed": 0,
+                "phase": 87.99999999999996,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 22.708333333333332,
+                "down": true,
+                "height": 0.20577892050984892,
+                "controller": "research-rise: 70",
+                "attempts": 4,
+                "completed": 0,
+                "phase": 69.99999999999994,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 29.708333333333332,
+                "down": true,
+                "height": 0.24821542362909743,
+                "controller": "research-rise: 92",
+                "attempts": 5,
+                "completed": 0,
+                "phase": 92.00000000000004,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 36.208333333333336,
+                "down": true,
+                "height": 0.2270804652089759,
+                "controller": "research-rise: 77",
+                "attempts": 6,
+                "completed": 0,
+                "phase": 76.50000000000028,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 43.208333333333336,
+                "down": true,
+                "height": 0.2481701531876953,
+                "controller": "research-rise: 92",
+                "attempts": 7,
+                "completed": 0,
+                "phase": 92.00000000000026,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 49.708333333333336,
+                "down": true,
+                "height": 0.23253472477582735,
+                "controller": "research-rise: 78",
+                "attempts": 8,
+                "completed": 0,
+                "phase": 77.50000000000023,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 56.708333333333336,
+                "down": true,
+                "height": 0.24667025814945404,
+                "controller": "research-rise: 94",
+                "attempts": 9,
+                "completed": 0,
+                "phase": 94.00000000000014,
+                "reference": 1,
+                "exhaustedAt": null
+              }
+            ]
+          },
+          {
+            "degrees": 90,
+            "first": 2.591666666666667,
+            "maxHelp": 0,
+            "attempts": 1,
+            "completed": 1,
+            "down": false,
+            "completionFromFirstDownSample": 6.616666666666667,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 1.0152748927361428,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 2.7083333333333335,
+                "down": true,
+                "height": 0.4881294804360976,
+                "controller": "research-rise: 7",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 7.000000000000002,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 9.208333333333334,
+                "down": false,
+                "height": 0.9925591991082294,
+                "controller": "command",
+                "attempts": 1,
+                "completed": 1,
+                "phase": 506.00000000000006,
+                "reference": 1,
+                "exhaustedAt": null
+              }
+            ]
+          },
+          {
+            "degrees": 180,
+            "first": 2.825,
+            "maxHelp": 0,
+            "attempts": 9,
+            "completed": 0,
+            "down": true,
+            "completionFromFirstDownSample": null,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 0.9919520917998493,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 3.2083333333333335,
+                "down": true,
+                "height": 0.2501706001850852,
+                "controller": "research-rise: 56",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 56,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 9.708333333333334,
+                "down": true,
+                "height": 0.2086590542295069,
+                "controller": "research-rise: 74",
+                "attempts": 2,
+                "completed": 0,
+                "phase": 73.99999999999983,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 16.708333333333332,
+                "down": true,
+                "height": 0.20236823496016748,
+                "controller": "research-rise: 188",
+                "attempts": 3,
+                "completed": 0,
+                "phase": 187.99999999999991,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 24.208333333333332,
+                "down": true,
+                "height": 0.22008869416857318,
+                "controller": "research-rise: 199",
+                "attempts": 4,
+                "completed": 0,
+                "phase": 198.99999999999974,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 31.208333333333332,
+                "down": true,
+                "height": 0.18983194239779877,
+                "controller": "research-rise: 190",
+                "attempts": 5,
+                "completed": 0,
+                "phase": 190.00000000000003,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 38.708333333333336,
+                "down": true,
+                "height": 0.19925723999501843,
+                "controller": "research-rise: 195",
+                "attempts": 6,
+                "completed": 0,
+                "phase": 194.50000000000003,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 44.708333333333336,
+                "down": true,
+                "height": 0.23963340198987126,
+                "controller": "research-rise: 87",
+                "attempts": 7,
+                "completed": 0,
+                "phase": 86.50000000000037,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 51.208333333333336,
+                "down": true,
+                "height": 0.24667872346529993,
+                "controller": "research-rise: 91",
+                "attempts": 8,
+                "completed": 0,
+                "phase": 90.50000000000014,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 57.708333333333336,
+                "down": true,
+                "height": 0.23704966200236913,
+                "controller": "research-rise: 86",
+                "attempts": 9,
+                "completed": 0,
+                "phase": 85.5,
+                "reference": 2,
+                "exhaustedAt": null
+              }
+            ]
+          },
+          {
+            "degrees": 270,
+            "first": 2.6,
+            "maxHelp": 0,
+            "attempts": 2,
+            "completed": 1,
+            "down": false,
+            "completionFromFirstDownSample": 13.608333333333333,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 1.012869512076337,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 2.7083333333333335,
+                "down": true,
+                "height": 0.5545845839280614,
+                "controller": "research-rise: 7",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 6.5000000000000036,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 10.708333333333334,
+                "down": true,
+                "height": 0.24667081798463814,
+                "controller": "research-rise: 96",
+                "attempts": 2,
+                "completed": 0,
+                "phase": 96.00000000000006,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 16.208333333333332,
+                "down": false,
+                "height": 0.9864180224874788,
+                "controller": "command",
+                "attempts": 2,
+                "completed": 1,
+                "phase": 495.00000000000017,
+                "reference": 2,
+                "exhaustedAt": null
+              }
+            ]
+          }
+        ]
+      },
+      "delayed": {
+        "path": ".review/lab-research-rise/loops-delayed.json",
+        "sha256": "3c00d0d4f64b3763a655a20932c88ef589e5bb4a9bc0e54be55672b6781d2a93",
+        "results": [
+          {
+            "degrees": 0,
+            "first": 2.675,
+            "maxHelp": 0,
+            "attempts": 2,
+            "completed": 1,
+            "down": false,
+            "completionFromFirstDownSample": 13.033333333333335,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 0.9839390400033866,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 2.7083333333333335,
+                "down": true,
+                "height": 0.7187430057500804,
+                "controller": "research-rise: 4",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 4.0000000000000195,
+                "reference": 0,
+                "exhaustedAt": null
+              },
+              {
+                "time": 9.208333333333334,
+                "down": true,
+                "height": 0.18995446072710603,
+                "controller": "research-rise: 12",
+                "attempts": 2,
+                "completed": 0,
+                "phase": 11.999999999999744,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 15.708333333333334,
+                "down": false,
+                "height": 0.9861327091408509,
+                "controller": "command",
+                "attempts": 2,
+                "completed": 1,
+                "phase": 495.50000000000017,
+                "reference": 2,
+                "exhaustedAt": null
+              }
+            ]
+          },
+          {
+            "degrees": 90,
+            "first": 2.591666666666667,
+            "maxHelp": 0,
+            "attempts": 1,
+            "completed": 1,
+            "down": false,
+            "completionFromFirstDownSample": 6.616666666666667,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 1.0152748927361428,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 2.7083333333333335,
+                "down": true,
+                "height": 0.4881294804360976,
+                "controller": "research-rise: 7",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 7.000000000000002,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 9.208333333333334,
+                "down": false,
+                "height": 0.9925591991082294,
+                "controller": "command",
+                "attempts": 1,
+                "completed": 1,
+                "phase": 506.00000000000006,
+                "reference": 1,
+                "exhaustedAt": null
+              }
+            ]
+          },
+          {
+            "degrees": 180,
+            "first": 2.825,
+            "maxHelp": 0,
+            "attempts": 4,
+            "completed": 1,
+            "down": false,
+            "completionFromFirstDownSample": 25.383333333333333,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 0.9919520917998493,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 3.2083333333333335,
+                "down": true,
+                "height": 0.2501706001850852,
+                "controller": "research-rise: 56",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 56,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 9.708333333333334,
+                "down": true,
+                "height": 0.20409967560306802,
+                "controller": "research-rise: 66",
+                "attempts": 2,
+                "completed": 0,
+                "phase": 66,
+                "reference": 0,
+                "exhaustedAt": null
+              },
+              {
+                "time": 15.708333333333334,
+                "down": true,
+                "height": 0.25330441340703835,
+                "controller": "research-rise: 91",
+                "attempts": 3,
+                "completed": 0,
+                "phase": 91.00000000000006,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 22.208333333333332,
+                "down": true,
+                "height": 0.20413003899008572,
+                "controller": "research-rise: 12",
+                "attempts": 4,
+                "completed": 0,
+                "phase": 12.499999999999972,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 28.208333333333332,
+                "down": false,
+                "height": 0.9892181976615599,
+                "controller": "command",
+                "attempts": 4,
+                "completed": 1,
+                "phase": 495.49999999999994,
+                "reference": 2,
+                "exhaustedAt": null
+              }
+            ]
+          },
+          {
+            "degrees": 270,
+            "first": 2.6,
+            "maxHelp": 0,
+            "attempts": 9,
+            "completed": 0,
+            "down": true,
+            "completionFromFirstDownSample": null,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 1.012869512076337,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 2.7083333333333335,
+                "down": true,
+                "height": 0.5545845839280614,
+                "controller": "research-rise: 7",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 6.5000000000000036,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 10.708333333333334,
+                "down": true,
+                "height": 0.20568594309182725,
+                "controller": "research-rise: 88",
+                "attempts": 2,
+                "completed": 0,
+                "phase": 87.50000000000003,
+                "reference": 0,
+                "exhaustedAt": null
+              },
+              {
+                "time": 16.208333333333332,
+                "down": true,
+                "height": 0.23780074982712246,
+                "controller": "research-rise: 82",
+                "attempts": 3,
+                "completed": 0,
+                "phase": 81.5,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 23.208333333333332,
+                "down": true,
+                "height": 0.286720277361836,
+                "controller": "research-rise: 46",
+                "attempts": 4,
+                "completed": 0,
+                "phase": 46.0000000000002,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 30.208333333333332,
+                "down": true,
+                "height": 0.20839433268760382,
+                "controller": "research-rise: 184",
+                "attempts": 5,
+                "completed": 0,
+                "phase": 184.49999999999991,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 37.208333333333336,
+                "down": true,
+                "height": 0.26428876402281487,
+                "controller": "research-rise: 186",
+                "attempts": 6,
+                "completed": 0,
+                "phase": 185.50000000000026,
+                "reference": 0,
+                "exhaustedAt": null
+              },
+              {
+                "time": 42.208333333333336,
+                "down": true,
+                "height": 0.24772680992771534,
+                "controller": "research-rise: 99",
+                "attempts": 7,
+                "completed": 0,
+                "phase": 99,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 49.208333333333336,
+                "down": true,
+                "height": 0.17877923169105975,
+                "controller": "research-rise: 117",
+                "attempts": 8,
+                "completed": 0,
+                "phase": 117.00000000000037,
+                "reference": 0,
+                "exhaustedAt": null
+              },
+              {
+                "time": 56.708333333333336,
+                "down": true,
+                "height": 0.22751645495981881,
+                "controller": "research-rise: 202",
+                "attempts": 9,
+                "completed": 0,
+                "phase": 201.50000000000006,
+                "reference": 2,
+                "exhaustedAt": null
+              }
+            ]
+          }
+        ]
+      },
+      "alternate": {
+        "path": ".review/lab-research-rise/loops-alternate.json",
+        "sha256": "b7ad80937c068b14ecaab08c0d33fe347c76f580e5a0298c1f09cc44a42723e5",
+        "results": [
+          {
+            "degrees": 0,
+            "first": 2.675,
+            "maxHelp": 0,
+            "attempts": 3,
+            "completed": 1,
+            "down": false,
+            "completionFromFirstDownSample": 19.53333333333333,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 0.9839390400033866,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 2.7083333333333335,
+                "down": true,
+                "height": 0.7187430057500804,
+                "controller": "research-rise: 4",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 4.0000000000000195,
+                "reference": 0,
+                "exhaustedAt": null
+              },
+              {
+                "time": 9.208333333333334,
+                "down": true,
+                "height": 0.20716229288246246,
+                "controller": "research-rise: 74",
+                "attempts": 2,
+                "completed": 0,
+                "phase": 74.49999999999997,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 16.208333333333332,
+                "down": true,
+                "height": 0.25795049524761027,
+                "controller": "research-rise: 36",
+                "attempts": 3,
+                "completed": 0,
+                "phase": 36.000000000000405,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 22.208333333333332,
+                "down": false,
+                "height": 0.9943239836236402,
+                "controller": "command",
+                "attempts": 3,
+                "completed": 1,
+                "phase": 495.49999999999994,
+                "reference": 2,
+                "exhaustedAt": null
+              }
+            ]
+          },
+          {
+            "degrees": 90,
+            "first": 2.591666666666667,
+            "maxHelp": 0,
+            "attempts": 1,
+            "completed": 1,
+            "down": false,
+            "completionFromFirstDownSample": 6.616666666666667,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 1.0152748927361428,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 2.7083333333333335,
+                "down": true,
+                "height": 0.4881294804360976,
+                "controller": "research-rise: 7",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 7.000000000000002,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 9.208333333333334,
+                "down": false,
+                "height": 0.9925591991082294,
+                "controller": "command",
+                "attempts": 1,
+                "completed": 1,
+                "phase": 506.00000000000006,
+                "reference": 1,
+                "exhaustedAt": null
+              }
+            ]
+          },
+          {
+            "degrees": 180,
+            "first": 2.825,
+            "maxHelp": 0,
+            "attempts": 6,
+            "completed": 1,
+            "down": false,
+            "completionFromFirstDownSample": 41.38333333333333,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 0.9919520917998493,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 3.2083333333333335,
+                "down": true,
+                "height": 0.2501706001850852,
+                "controller": "research-rise: 56",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 56,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 9.708333333333334,
+                "down": true,
+                "height": 0.2086590542295069,
+                "controller": "research-rise: 74",
+                "attempts": 2,
+                "completed": 0,
+                "phase": 73.99999999999983,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 16.708333333333332,
+                "down": true,
+                "height": 0.2077371135735368,
+                "controller": "research-rise: 161",
+                "attempts": 3,
+                "completed": 0,
+                "phase": 161.49999999999997,
+                "reference": 0,
+                "exhaustedAt": null
+              },
+              {
+                "time": 26.208333333333332,
+                "down": true,
+                "height": 0.1964874253890989,
+                "controller": "research-rise: 188",
+                "attempts": 4,
+                "completed": 0,
+                "phase": 187.99999999999997,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 33.708333333333336,
+                "down": true,
+                "height": 0.16990864377639034,
+                "controller": "research-rise: 164",
+                "attempts": 5,
+                "completed": 0,
+                "phase": 164.00000000000026,
+                "reference": 0,
+                "exhaustedAt": null
+              },
+              {
+                "time": 38.208333333333336,
+                "down": true,
+                "height": 0.24556122389304802,
+                "controller": "research-rise: 92",
+                "attempts": 6,
+                "completed": 0,
+                "phase": 91.99999999999997,
+                "reference": 1,
+                "exhaustedAt": null
+              },
+              {
+                "time": 44.208333333333336,
+                "down": false,
+                "height": 0.9876032990048217,
+                "controller": "command",
+                "attempts": 6,
+                "completed": 1,
+                "phase": 506.49999999999994,
+                "reference": 1,
+                "exhaustedAt": null
+              }
+            ]
+          },
+          {
+            "degrees": 270,
+            "first": 2.6,
+            "maxHelp": 0,
+            "attempts": 2,
+            "completed": 1,
+            "down": false,
+            "completionFromFirstDownSample": 13.608333333333333,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 1.012869512076337,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              },
+              {
+                "time": 2.7083333333333335,
+                "down": true,
+                "height": 0.5545845839280614,
+                "controller": "research-rise: 7",
+                "attempts": 1,
+                "completed": 0,
+                "phase": 6.5000000000000036,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 10.708333333333334,
+                "down": true,
+                "height": 0.24667081798463814,
+                "controller": "research-rise: 96",
+                "attempts": 2,
+                "completed": 0,
+                "phase": 96.00000000000006,
+                "reference": 2,
+                "exhaustedAt": null
+              },
+              {
+                "time": 16.208333333333332,
+                "down": false,
+                "height": 0.9864180224874788,
+                "controller": "command",
+                "attempts": 2,
+                "completed": 1,
+                "phase": 495.00000000000017,
+                "reference": 2,
+                "exhaustedAt": null
+              }
+            ]
+          }
+        ]
+      },
+      "single": {
+        "path": ".review/lab-research-rise/loops-single.json",
+        "sha256": "ab14e23736d96345c37fbb7e11e39245d787b1dac46445a58688b41948ebebf8",
+        "results": [
+          {
+            "degrees": 90,
+            "first": null,
+            "maxHelp": 0,
+            "attempts": 0,
+            "completed": 0,
+            "down": false,
+            "completionFromFirstDownSample": null,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 1.0154627111675012,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              }
+            ]
+          },
+          {
+            "degrees": 270,
+            "first": null,
+            "maxHelp": 0,
+            "attempts": 0,
+            "completed": 0,
+            "down": false,
+            "completionFromFirstDownSample": null,
+            "transitions": [
+              {
+                "time": 2.2083333333333335,
+                "down": false,
+                "height": 1.012892274812172,
+                "controller": "command",
+                "attempts": 0,
+                "completed": 0,
+                "phase": 0,
+                "reference": null,
+                "exhaustedAt": null
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "validation": {
+      "meteredAssistanceEveryStep": 0,
+      "frontAndRightControlSamplesExact": true,
+      "productionControllerRestored": true,
+      "softwareGates": "No production code change retained. Document/data whitespace and line-ending gates apply. The prior two checkpoint-identity test failures remain unresolved."
+    },
+    "next": "Reproduce and correct the transition from kneeling to loaded feet. Repeated attempts and shorter timeouts do not establish robust recovery; the four-second median and six-second recovery goal remain unmet."
   }
 }
