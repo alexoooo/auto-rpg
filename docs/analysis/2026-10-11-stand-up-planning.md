@@ -3775,3 +3775,61 @@ search plans, endpoint diagnostics, the geometry audit and replay proofs. No pro
 is promoted. Whitespace and line-ending checks pass. The previously reported two current-source
 checkpoint-identity test failures remain unresolved; the full four-second median / six-second
 recovery goal and the live Warrior loop remain unfinished.
+
+## Coupled self-contact and limb placement, 2026-10-13
+
+**No recovery succeeds.** These experiments use the frozen Node Stance Lab / game Rapier
+coordinate adapter 11 / 120 Hz / original Rogue empty 90-degree fall, compliant soles and
+symmetric muscle envelopes / ordinary stance host / Balance 0. No body, muscle, host,
+physical contact or assistance setting changes. The complete-fall trials retain the original
+clock and use no held-kneel prefix.
+
+The detached acceleration predictor omits observed self-contact. An experimental extension
+adds equal-and-opposite normal rows for loaded self-contact pairs to its unilateral constraint
+solve. A negative predicted reaction releases the row; released rows retain separation bounds.
+These rows exist only in the prediction, and the physical body receives ordinary muscle
+commands. The approximation does not model self-contact friction, curvature or future impacts.
+
+Eight short branches compare the original tracker, an exactly matching disabled extension,
+and two self-contact response settings at two states of the preceding complete foot-first
+attempt. Each branch advances twelve physical steps, for 96 continuation steps total. At the
+48-step prefix, no self-contact occurs and all four continuations match exactly. Nevertheless,
+mean pelvis acceleration errors are 3.282806 m/s2 and 29.607267 rad/s2: omission of self-contact
+cannot explain the entire prediction gap. At the 192-step prefix, the extension changes the
+action and subsequent trajectory. Mean linear error changes from 2.250595 to 1.975249 m/s2,
+while angular error worsens from 17.906322 to 19.703744 rad/s2. These are separate closed-loop
+trajectories, not an accuracy comparison under identical applied commands. No probe rejects
+its prediction, but that does not establish physical accuracy or a viable transfer.
+
+Eight full-fall trials test self-contact prediction, its disabled control, response timing,
+joint-velocity objectives and predicted contact lift-off. All fail by six seconds without
+handover. The original tracker and disabled extension reproduce the same physical trace.
+
+Six further full-fall trials add hand and foot surface-point objectives to the same coupled
+solve as torso orientation and centre-of-mass height. Variants gate the height request on
+current sole loading, add foot orientation, change placement weights and disable self-contact.
+The height gate never prevents limb placement. The disabled frame-target control reproduces
+the preceding trial exactly. Every trial fails. Adding frame targets alone reduces rejected
+predictions from 191 to 11, yet ends at only 0.175953 m relative centre-of-mass height. Solver
+acceptance is not recovery. Loaded-foot anchoring still lacks a deliberate release/replant
+decision; that is an untested next hypothesis, not an established cause of the live Lab loop.
+
+The fourteen complete trials consume 10,066 world steps. All probes and trials report zero
+assistance and external actuation; maximum effort-bound excess is 0.000021583812184644557,
+below 0.0001. All full trials have finite final readings and legal final commands.
+
+The selected coupled-placement failure is independently recorded and exactly matches its grid
+trace. Independent action replay, restoration and split continuation are exact. Detached
+observations and static model data reconstruct all 719 actions; all 720 embedded replay frames
+match the recording. Physical SHA-256:
+
+5a10e4880911b26acfdb67b33852cfec4ba8051cf6575e06f1df5b70526e2ec0
+
+The standalone .review/stand-up-coupled-placement/replay.html compares it with the unchanged
+optimized baseline from the same complete saved fall and body. Browser inspection near 5.992 s
+confirms the body remains down. Sources, configurations, results, probe readings and replay
+proofs are preserved under footCoupledContact in research/stand-up-path-results.json.
+
+No production controller change is promoted. Evidence whitespace and line-ending checks pass;
+the previously reported two current-source checkpoint-identity test failures remain unresolved.
+The four-second median / six-second recovery goal and live Warrior loop remain unfinished.
