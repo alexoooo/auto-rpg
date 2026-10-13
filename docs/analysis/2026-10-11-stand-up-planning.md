@@ -4217,3 +4217,62 @@ their guards remain intact. The initial fast run also detects the changed witnes
 after re-recording its successful result, that assertion passes. Whitespace, cited-file and
 line-ending checks pass. The four-second median, six-second deadline and full qualification
 remain unachieved.
+
+## Measured support margin and settling, 2026-10-13
+
+**The timing goal remains unmet.** The frozen Node Stance action evaluator / game Rapier
+coordinate adapter 11 / 120 Hz / original compliant-sole Warrior with right-hand club /
+unchanged symmetric muscles / ordinary stance host / Balance 0 runs 72 trials and 83,309
+world steps on the saved 90-degree fall. These include 38 preceding host-pulse and early-braking
+trials and 34 support-correction trials. Twenty-five pass the complete standing and walking
+tail; none recovers within six seconds. The ten-second experimental episode limit includes
+the full recovery clock and the three-second host tail. A deadline failure is not a claim
+about eventual recovery under the longer acceptance deadline.
+
+| Trial group | Trials | Complete recoveries | Best handover (s) |
+|---|---:|---:|---:|
+| Brief host-control pulses, including two unmodified controls | 26 | 2 | 6.033333 |
+| Earlier arm braking | 12 | 6 | 6.033333 |
+| Measured support-margin correction, including two controls | 14 | 12 | 6.025000 |
+| Stronger combined support correction and arm braking | 12 | 3 | 6.025000 |
+| Right-hand braking with and without support correction | 8 | 2 | 6.025000 |
+
+All 24 host-pulse variants fail. The support correction reads actual positive loaded-foot
+patches, projects the measured centre of mass into the evaluator's unchanged inset support
+outline, and asks thoracic and lumbar muscles for bounded additional velocity. Its detached
+mass-weighted motion Jacobian assumes a fixed root for that correction; this is a tested
+control heuristic, not a proof of contact-constrained dynamics. If either foot lacks measured
+support, it leaves the base recovery action intact. No physical pin, assist, body change or
+held-kneel prefix is introduced.
+
+The best selected trial changes handover from 6.033333 to 6.025000 s: one 120 Hz step.
+It does **not** establish earlier physical settling. Both traces first meet continuous quiet
+support at 5.533333 s. At 6.025 s both accumulate 0.500000 s of quiet support, but the selected
+path already requests the host while the previous path still requests muscles. The unchanged
+evaluator releases the previous path on the next step. At 5.525 s the selected path's centre
+is inside the support region, but maximum segment speed is 0.112849 m/s, still above the
+unchanged 0.1 m/s readiness limit. Stronger braking fails to resolve this tradeoff.
+
+The selected recording independently reproduces all 1,082 physical observations, including
+checkpoint restoration and split continuation. Zero assistance and zero external actuation
+hold for every trial; all final commands and readings are valid, and maximum effort-bound
+excess remains below the unchanged 0.0001 tolerance. Physical SHA-256:
+
+`12bd248c16dd69220161a092bcf00f46ea84bbcbd67add499348f05d4144b9ca`.
+
+The standalone `.review/stand-up-support-margin/replay.html` compares the selected trajectory
+with the previous 6.033333-second candidate, correctly labelled as a candidate rather than
+the optimized baseline. Its 1,083 and 1,084 embedded frames match their respective recordings.
+Chrome inspection at 9.025 s shows the selected body upright at its walking-verification finish.
+This replay is separate from the live Lab controller.
+
+`supportMarginSettling` in `research/stand-up-path-results.json` preserves all configurations,
+results, diagnostics, exact source snapshots and verification. Local settling-gain search
+stops here: subsequent work must establish earlier physical foot planting and rising, not
+optimize the one-step handover difference. No production controller is promoted. The selected
+frozen library remains 3/16, none within six seconds, with failures infinite in the median.
+The four-second median, six-second deadline and broader qualification remain unfinished.
+
+Document/data whitespace, cited-path and line-ending checks pass. Software tests are not rerun
+for this evidence-only commit; the two previously reported current-source checkpoint-identity
+test failures remain unresolved.
