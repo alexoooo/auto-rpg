@@ -4276,3 +4276,75 @@ The four-second median, six-second deadline and broader qualification remain unf
 Document/data whitespace, cited-path and line-ending checks pass. Software tests are not rerun
 for this evidence-only commit; the two previously reported current-source checkpoint-identity
 test failures remain unresolved.
+
+## Earlier sole placement and failed support transfer, 2026-10-13
+
+**No modified trajectory recovers.** Fifty-five trials run 65,365 world steps in the frozen
+Node Stance action evaluator / game Rapier coordinate adapter 11 / 120 Hz / original
+compliant-sole Warrior with right-hand club / unchanged symmetric muscles / ordinary stance
+host / Balance 0. Five controls exactly reproduce the previous 6.033333-second candidate;
+the other fifty trials fail the ten-second experimental deadline. There are 39 distinct
+physical traces, including the control. No body, host, physics, muscle or evaluator change
+is made. The complete saved-fall clock remains in every trial.
+
+| Trial group | Trials | Complete recoveries |
+|---|---:|---:|
+| Leading-leg or both-leg reference advance, including a control | 17 | 1 control |
+| Ankle flattening after actual leading-foot contact | 8 | 1 control |
+| Coordinated hip/knee/ankle rotation and contact-point retention | 7 | 1 control |
+| Added trunk motion toward measured leading-foot load | 9 | 1 control |
+| Ankle preparation before touchdown | 7 | 1 control |
+| Contact-triggered release of the placement correction | 7 | 0 |
+
+Advancing the leading leg's reference by 0.05–0.4 seconds brings some edge contact forward
+but does not establish recovery. The time gate and the opposite-shin support gate produce
+identical paired traces: the required opposite-shin support is already present when the
+3.2-second time gate opens. Advancing both legs can lift the body sooner while losing balance.
+These trials are not successful acceleration of the whole recovery.
+
+The reference keeps the leading ankle strongly pointed during foot placement. An ankle-only
+angular-velocity request can turn that sole toward the floor, but can also lift the foot clear.
+The next variants coordinate hip, knee and ankle velocities to turn the sole while seeking
+its measured contact point. These targets command muscles only; they never pin the body or
+inject pose or velocity. A further trunk correction asks the centre of mass toward actual
+loaded leading-foot patches. Both corrections use detached motion Jacobians, and their
+fixed-root approximations do not establish coupled contact dynamics.
+
+The selected combined trial establishes a nearly flat loaded leading sole at 3.975000 s,
+compared with 4.641667 s in the previous candidate. This diagnostic requires sole-up at least
+0.9, positive floor contact with an actual penetrating/touching patch and at least 20 N load
+for twelve consecutive 120 Hz steps. It is not the recovery criterion. The selected span
+lasts 54 steps, through 4.416667 s. At 4.0 s the leading sole-up is 0.924456, while the rear
+sole-up is only 0.051551 and pelvis-up is 0.869967. The body then topples. Earlier leading-foot
+support alone is insufficient; the rear foot and the rest of the body do not complete a
+balanced extension. The short loaded-foot span later in the collapsed trajectory also does
+not constitute recovery.
+
+Six release variants stop the auxiliary placement/transfer correction after 1, 6 or 12
+consecutive loaded-sole samples, immediately or with a 0.1-second delay. All still fail.
+Their disabled-release control exactly reproduces the selected failed trace. Six additional
+ankle-preparation trials start before touchdown, at 2.7, 2.9 or 3.1 seconds; all fail as well.
+This rules out those tested local continuations, not every possible foot-first recovery.
+
+The selected failure repeats its search recording and independently reproduces all 1,199
+observations through exact muscle-action replay, restoration and split continuation. Every
+trial has zero assistance and zero external actuation, valid final readings and commands,
+and effort-bound excess below 0.0001; the maximum is 0.0000475200 N m. Physical SHA-256:
+
+`1b17f278228993b3da53491d0209f7d94c8a0de3b5e6d93bee238d2aa7046d55`.
+
+The standalone `.review/stand-up-foot-transfer/replay.html` compares this failed trajectory
+with the previous candidate, with 1,200 and 1,084 exactly matched embedded frames. Chrome
+inspection at 4.008333 s shows the low foot-supported pose; at 10 s the body is fallen.
+The recording is labelled as a failed recovery and is separate from the live Lab controller.
+
+`earlySoleTransfer` in `research/stand-up-path-results.json` preserves configurations,
+results, diagnostics, source snapshots and replay verification. The next controller experiment
+must address the coupled support transfer and extension rather than treating early foot
+contact as a finished movement. No failed policy is promoted to gameplay. The selected frozen
+library remains 3/16, none within six seconds; the four-second median, six-second deadline
+and broader qualification remain unfinished.
+
+Document/data whitespace, cited-path and line-ending checks pass. No production code changes,
+so software tests are not rerun. The two previously reported current-source checkpoint-identity
+test failures remain unresolved.
