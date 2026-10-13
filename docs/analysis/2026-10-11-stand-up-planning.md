@@ -4450,3 +4450,81 @@ policy is promoted to the Lab. The four-second median and six-second recovery go
 unfinished. The 21 focused path tests pass; the TypeScript and full fast-gate results and two
 unresolved checkpoint-identity failures are reported in the preceding section. Whitespace and
 line-ending gates pass.
+
+## Bilateral extension into hand-and-foot support, 2026-10-13
+
+**A measured support transition succeeds; recovery does not.** Harness: frozen Node Stance
+action evaluator / game Rapier coordinate adapter 11 / 120 Hz / original compliant-sole
+Warrior with right-hand club / original symmetric muscles / ordinary stance host / Balance 0.
+The saved fall, full elapsed clock, anatomy, muscle limits, host and recovery criteria remain
+unchanged. All continuations act through ordinary muscle commands, with no physical pins or
+pose injection. No upright-kneeling waypoint or held-kneel prefix is introduced.
+
+The exact 288-action prefix ends at 2.408333 seconds with right-hand and both-shin support.
+Extending both knees while retaining hip flexion and asking the arms to press establishes
+hand-and-foot support in all 36 short parameter trials. The diagnostic requires both feet
+to carry more than 20 N through actual floor patches, sole-up above -0.2, at least one hand
+carrying more than 20 N, and centre-of-mass height above 0.3 m. It permits toe support and
+does not count as recovery or flat-foot standing.
+
+The selected request uses anatomical hip flexion 2 rad, knee flexion 0, ankle dorsiflexion
+0.35, shoulder flexion 1.6 and elbow flexion 0.25, converted through each channel's bind and
+clamped to its legal target range. It establishes the diagnostic at 2.550000 seconds and
+retains it for 80 consecutive steps through 3.208333 seconds. At that endpoint, left/right
+foot loads are 174.025/215.680 N, hand loads are 200.218/231.809 N, sole-up is
+0.874682/0.876818, and relative centre-of-mass height is 0.557655 m. The pelvis is elevated
+and the trunk slopes down toward the hands. It is not upright standing.
+
+| Probe group in the frozen Node harness above | Trials | Continuation steps, excluding replayed prefixes |
+|---|---:|---:|
+| Bilateral extension and arm pressing | 36 | 3,456 |
+| Direct squat/rise targets followed by ordinary-host control | 36 | 29,376 |
+| One-leg stepping from two support timings | 72 | 3,456 |
+| Arm-driven weight transfer | 21 | 1,512 |
+| Ankle/hip/knee coordination at three timings | 162 | 15,552 |
+| Approximate geometric placement targets | 12 | 1,152 |
+| Explicit foot lift followed by placement | 6 | 576 |
+
+The short probes are components, not complete recovery evaluations. All 36 direct-rise
+continuations remain without handover at 10.008333 seconds. From the selected support state,
+the feet are about 0.66 m horizontally from the centre of mass. The tested arm requests and
+one-leg targets do not close that gap sufficiently. Explicit lifting removes the left foot's
+load while the right foot and hands retain support, but subsequent placement does not produce
+the needed transfer. The selected support transition followed directly by six seconds of
+ordinary-host control also has no handover, at 9.208333 seconds.
+
+The ideal-joint geometry model differs from the physical support state by 0.000385 m and
+0.001630 rad at worst. Its existing 0.001-rad agreement tolerance fails; eight additional
+support timings also fail that angular check. The tolerance is not relaxed. Eight approximate
+placement solves are therefore unqualified proposals only, and none passes its endpoint
+geometry checks either. Twelve physical muscle-target trials and six lift/place trials use
+their requested joint angles without applying their root transforms. All outcomes above come
+from actual frozen physics, not from those geometric predictions.
+
+A coordinated search from the 384-action hand-and-foot prefix evaluates 8,286 branches and
+99,804 world steps through 5.5 seconds, with no recovery. It proposes arm and bilateral leg
+changes alongside measured reference actions. The selected trajectory loses foot support and
+collapses; the terminal posture cost does not prevent this. This failed search does not
+establish that every continuation from hand-and-foot support is impossible.
+
+All probes, search branches and the recorded attempt have zero assistance and external
+actuation. Maximum effort-bound excess is 0.0000468794 N m, below the unchanged 0.0001
+tolerance. Independent replay reproduces all 1,104 observations of the selected attempt;
+restoration and split continuation pass, and the first 288 observations match their source.
+Physical SHA-256:
+
+b9735f6472bd47153f0f434f3f95c8f67dedf913b4a809ad76d30052318bc1fb
+
+The standalone .review/stand-up-toe-support/replay.html compares this failed recovery attempt
+with the previous 6.033333-second candidate. Its 1,105 and 1,084 embedded frames exactly
+match their recordings. Chrome inspection at 3.208333 seconds shows loaded hands and feet
+with the pelvis elevated. It is separate from the live Lab controller and explicitly labelled
+as a failed recovery. bilateralFootSupport in research/stand-up-path-results.json preserves
+configurations, outcomes, geometric failures, source snapshots and replay verification.
+
+The next missing transition is weight transfer and foot placement while preserving useful
+hand-and-foot support. No controller is promoted. The selected frozen library remains 3/16,
+none within six seconds; the four-second median and six-second recovery goal remains
+unfinished. Document/data whitespace, cited-path and line-ending checks pass. Software tests
+are not rerun for this evidence-only change; the two previously reported current-source
+checkpoint-identity test failures remain unresolved.
