@@ -226,10 +226,13 @@ a brisk walk) is the bar for how it looks.
    - an empty hand.
 
    If the carry posture holds, the run carries the club that way, and part F waits.
-5. **Flight**, if the grounded run tops out short of a run. The body binds flight (the ankle's
-   dorsiflexion stop, the push's strength), so whether to change the body is the owner's choice,
-   put with its measurement: what changing the ankle's range, or Haste's muscle speed, buys in top
-   speed.
+5. **Flight**, if the grounded run tops out short of a run. The body binds flight: the ankle's
+   dorsiflexion stop and the push's strength. The owner allows changing the body, on any
+   character. Each change follows the core's rules:
+   - its value comes from a source, such as the ankle's range a running person uses;
+   - it lands with its measured before/after table: top speed, flight time, falls, and the
+     stance's and the rise's tests, which read the same body;
+   - it applies to every character the source covers, not to one body for feel.
 6. **The fast walk** is searched the same way at 1.2 to 1.6 m/s asked, with the narrow width held.
 
 **Eye gate:** the owner watches jog and run in the Lab (Back and forth, at a long distance) and
@@ -239,7 +242,7 @@ travelling by them in the Crypt.
 
 This part is only needed if part E finds that a running gait needs empty hands.
 
-- **Recommended: a strap on the back.** The club becomes free equipment (`createEquipment`,
+- **A strap on the back** (the owner's choice). The club becomes free equipment (`createEquipment`,
   `src/core/equipment.ts`) with two grips:
   - the hand's;
   - a strap's: the torso, at a frame between the shoulder blades, handle up over the shoulder of
@@ -288,13 +291,11 @@ where browser code changes. Its touched slow tests run by name.
   bed says they win.
 - **07, putting a weapon away (part F),** only if 05 finds it is needed.
 
-The flight question (E5) goes to the owner when 05 has its figures.
-
 ## The owner's choices
 
-- Flight for the run: whether to change the body, with what each change buys (E5).
-- How a weapon is put away, if it must be (F): the back strap is recommended.
 - **Decided:**
+  - the body may change, on any character, where flight needs it (E5);
+  - a weapon goes away on a strap on the back, if a run needs empty hands (F);
   - each loadout has its own gait limits;
   - gusts stay at the Lab's 5 N;
   - the narrow walk stays, top speed past 1.1 being the fast walk's and the run's;
