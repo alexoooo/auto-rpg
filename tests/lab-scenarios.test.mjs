@@ -13,8 +13,8 @@ import { labAddress, labHref, recoveryAddress, LAB_PRESETS, LAB_RATES, MODELS, S
 
 const SCRIPT = LAB_PRESETS.script.config, GUARD = LAB_PRESETS.guard.config;
 /** A mind no preset is: the Guard preset getting up once down. */
-const RISING = { ...GUARD, subs: [{ kind: "staged-rise" }] };
-const DEFAULTS = { recoveryMode: "assisted", recoveryPush: {degrees:0,impulse:60,separation:.2}, appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, sole: false, balance: null, mind: SCRIPT, barred: [], hz: 120,
+const RISING = { ...GUARD, subs: [{ kind: "support-recovery" }] };
+const DEFAULTS = { recoveryMode: "selected", recoveryPush: {degrees:0,impulse:60,separation:.2}, appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, sole: false, balance: null, mind: SCRIPT, barred: [], hz: 120,
   view: "world", camera: "free", projection: "orthographic", targets: 10, seed: 1 };
 /** The Rogue as the workshop dresses it: boots, no armour. */
 const ROGUE = { model: "workshop-rogue", boots: true, armour: false };
@@ -134,7 +134,7 @@ test("the_lab_offers_the_game_rate_first_and_distinct_scenarios", () => {
 
 
 test("recovery variant and timed shove recipes remain explicit in shareable addresses",()=>{
- for(const recoveryMode of ["assisted","witness","selected"]){
+ for(const recoveryMode of ["witness","selected"]){
   const address={...DEFAULTS,scenario:"recovery",recoveryMode,recoveryPush:{degrees:247.5,impulse:90,separation:.35}};
   assert.deepEqual(labAddress(labHref(address)),address);
  }

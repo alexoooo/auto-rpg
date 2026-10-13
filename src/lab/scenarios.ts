@@ -7,7 +7,6 @@ import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { HELD, type Held } from "../core/items/held.ts";
 import { RECIPE_FIGHTER, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
-import { SIMBICON } from "../core/skills/simbicon.ts";
 import type { Provision } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { deepFreeze } from "../core/state.ts";
@@ -37,7 +36,7 @@ interface ScenarioInfo {
 /** Every scenario, in the menu's order; the first is the default. */
 export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "stance", name: "Stance", line: "Walk it from the keyboard, and shove it." },
-  { id: "recovery", name: "Get-up experiment", line: "Live assisted recovery, with the slow searched witness available for comparison." },
+  { id: "recovery", name: "Get-up experiment", line: "Test the selected recovery controller with repeatable shoves." },
   { id: "routine", name: "Routine", line: "It walks out, strikes at ten targets hung high, middle and low, turns and walks back." },
   { id: "run", name: "Run", line: "It goes round a track at the pace asked, in the wind: a big circle, back and forth, or a square walked facing one way." },
   { id: "blow", name: "Blow", line: "It swings a club blow the strike search found into a head, and reads what it lands with.", holds: { right: "club" } },
@@ -104,7 +103,7 @@ export function labMind(config: MindConfig, spec: BodySpec): { readonly plays: F
 export const LAB_TARGETS = { most: 30, count: 10, seed: 1 } as const;
 
 export interface LabAddress extends LabLoadout, ViewSettings {
-  readonly recoveryMode: "assisted" | "witness" | "selected";
+  readonly recoveryMode: "witness" | "selected";
   /** Two timed chest impulses: direction in degrees, impulse in N s, separation in seconds. */
   readonly recoveryPush: { readonly degrees: number; readonly impulse: number; readonly separation: number };
   readonly appearance: Appearance;
@@ -174,7 +173,7 @@ export function labAddress(search: string): LabAddress {
 export function labHref(address: LabAddress, search = ""): string {
   const query = new URLSearchParams(playHref("lab", search));
   for (const key of KEYS) query.delete(key);
-  if (address.recoveryMode !== "assisted") query.set("recoveryMode", address.recoveryMode);
+  if (address.recoveryMode !== "selected") query.set("recoveryMode", address.recoveryMode);
   if (address.recoveryPush.degrees !== 0) query.set("pushDegrees", String(address.recoveryPush.degrees));
   if (address.recoveryPush.impulse !== 60) query.set("pushImpulse", String(address.recoveryPush.impulse));
   if (address.recoveryPush.separation !== .2) query.set("pushSeparation", String(address.recoveryPush.separation));
@@ -200,19 +199,16 @@ export function labHref(address: LabAddress, search = ""): string {
 }
 
 /** An explicit recovery demonstration; changing it preserves the view preferences. */
-export function recoveryAddress(address: LabAddress, recoveryMode: LabAddress["recoveryMode"] = "assisted"): LabAddress {
+export function recoveryAddress(address: LabAddress, recoveryMode: LabAddress["recoveryMode"] = "selected"): LabAddress {
   if (recoveryMode === "selected") return { ...address, scenario: "recovery", recoveryMode };
-  const assisted = recoveryMode === "assisted";
   return { ...address, scenario: "recovery", recoveryMode, recoveryPush: {degrees:0,impulse:60,separation:.2},
-    model: "workshop-fighter", right: "empty", left: "empty", sole: !assisted,
-    balance: assisted ? 100 : 0, hz: 120, mind: assisted
-      ? {...LAB_PRESETS.script.config,locomotion:{kind:"simbicon",...SIMBICON},subs:[{kind:"assisted-rise"}]}
-      : LAB_PRESETS.script.config, barred: [], appearance: "default" };
+    model: "workshop-fighter", right: "empty", left: "empty", sole: true,
+    balance: 0, hz: 120, mind: LAB_PRESETS.script.config, barred: [], appearance: "default" };
 }
 
 function recoveryModeFrom(value: string | null): LabAddress["recoveryMode"] {
   switch (value) {
     case "selected": case "witness": return value;
-    default: return "assisted";
+    default: return "selected";
   }
 }

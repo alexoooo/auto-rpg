@@ -200,7 +200,7 @@ async function main() {
       : ["posture-hold", "support-entry"].includes(values.suite) ? "independent joint-feedback actuator velocities; bounded directional muscles"
       : ["bar", "support", "point-strike", "moving-strike", "defense"].includes(values.suite) ? "whole-body motion objectives and granted grip requests; bounded muscle torques"
       : values.suite === "competency" ? `today's skills: the stance and its walk, ${values.blow ? `the ${values.blow} blow part` : "the path strike's planted cross"}, the front kick, the predictive guard and the staged rise`
-      : values.suite === "ccd" ? "initial impulses, then free dynamics; no held action" : values.suite === "reach" ? "actuator velocities or layered posture targets, declared per job" : "existing fighter skills and staged-rise/lie",
+      : values.suite === "ccd" ? "initial impulses, then free dynamics; no held action" : values.suite === "reach" ? "actuator velocities or layered posture targets, declared per job" : "existing fighter skills and support-recovery/lie",
     policyPeriodSteps: values.suite === "reach" ? 4 : 1, assists: { rootBalancePercent: 0, weapon: false },
     unavailable: ["integrated recovery/combat", "opponent defense", "actuator work", "contact penetration"],
     jobs };

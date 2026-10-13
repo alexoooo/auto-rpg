@@ -13,14 +13,8 @@ import { startStance } from '../src/lab/stance-mode.ts';
 import { guardPosture } from '../src/core/skills/guard.ts';
 import { SIMBICON } from '../src/core/skills/simbicon.ts';
 import { supportRecovery } from '../src/core/mind/rise/support-recovery.ts';
-import { dynamicRise } from '../src/core/mind/rise/dynamic.ts';
-import { stagedRise } from '../src/core/mind/rise/staged.ts';
-import { assistedRise } from '../src/core/mind/rise/assisted.ts';
 import { observeBody } from '../src/core/observation.ts';
 import { clockSenses } from '../src/core/mind/senses.ts';
-import { recoveryFeedback } from '../src/core/control/recovery-feedback.ts';
-import { norm } from '../src/core/math/real.ts';
-import preset from '../assets/core/assisted-rise.json' with {type:'json'};
 import { recoveryMeasurement } from '../src/core/control/recovery-measurement.ts';
 import { deepFreeze } from '../src/core/state.ts';
 import { balanceCeiling, balancePercent, rulebook } from '../src/core/rules/rulebook.ts';
@@ -72,8 +66,8 @@ export function checkRecoveryAction(action, channels) {
 }
 
 /** A real Lab body and host with a research action override inside the ordinary muscle path. */
-export async function recoveryEnvironment({ model = 'workshop-fighter', held = 'empty', baseline = 'support-recovery', spec: suppliedSpec, recipe, balance = 0, host = 'stance', assistedBaseline = false, comparison = false } = {}) {
-  if (!['support-recovery', 'staged-rise', 'dynamic-rise', 'assisted-rise'].includes(baseline)) throw new Error('unknown recovery baseline');
+export async function recoveryEnvironment({ model = 'workshop-fighter', held = 'empty', baseline = 'support-recovery', spec: suppliedSpec, recipe, balance = 0, host = 'stance', comparison = false } = {}) {
+  if (baseline !== 'support-recovery') throw new Error('unknown recovery baseline');
   if (!['stance','simbicon'].includes(host)) throw new Error('unknown recovery host');
   if (recipe && baseline !== 'support-recovery') throw new Error('a recipe belongs to support recovery');
   if (comparison && (baseline !== 'support-recovery' || !recipe)) throw new Error('comparison requires the optimized support recipe');
@@ -94,18 +88,11 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
     failure: null, effortViolation: 0, assisted: false,
     assistance: { preparation: meter(), recovery: meter(), host: meter() } });
   const experiment = freshExperiment();
-  let channels, legacy, port, baselineFeedback;
+  let channels, legacy, port;
   const recovery = (own, view, into) => {
-    switch (baseline) {
-      case 'support-recovery': legacy=supportRecovery(own,view,into,recipe);break;
-      case 'staged-rise': legacy=stagedRise(own,view);break;
-      case 'dynamic-rise': legacy=dynamicRise(own,view,into);break;
-      case 'assisted-rise': legacy=assistedRise(own,view,into);break;
-      default:throw new Error('unknown recovery baseline');
-    }
+    legacy = supportRecovery(own, view, into, recipe);
     if (comparison) {
-      const policies = { optimized: legacy, standard: supportRecovery(own, view, into),
-        dynamic: dynamicRise(own, view, into), assisted: assistedRise(own, view, into) };
+      const policies = { optimized: legacy, standard: supportRecovery(own, view, into) };
       const state = { selected: 'optimized', policies: Object.fromEntries(Object.entries(policies).map(([key, policy]) => [key, policy.state])) };
       legacy = { state, get name() { return policies[state.selected].name; },
         wants(senses) { return policies[state.selected].wants(senses); },
@@ -127,8 +114,6 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
       step(senses, dt) {
         if (experiment.mode === 'baseline') {
           legacy.step(senses, dt);
-          if(baselineFeedback){const help=baselineFeedback(measure());
-            own.assist.ask(assistForce.set(...(help.assist?.force??[0,0,0])),assistMoment.set(...(help.assist?.moment??[0,0,0])));}
         }
         else {
           const action = experiment.action;
@@ -163,7 +148,7 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
   const observe = observeBody(built, body.muscles, world, clockSenses(world), undefined, () => body.down, true);
   const root = built.segments.get('lowerTrunk');
   const states = { body: body.state, skills: skills.state, orders: stance.orders, experiment };
-  const identity = { harness: 'Node Stance Lab recovery search', model, held, baseline, host, assistedBaseline, ...(comparison ? { comparison: true } : {}), recipeSha: recipe ? sha(JSON.stringify(recipe)) : null, hz: world.hz,
+  const identity = { harness: 'Node Stance Lab recovery search', model, held, baseline, host, ...(comparison ? { comparison: true } : {}), recipeSha: recipe ? sha(JSON.stringify(recipe)) : null, hz: world.hz,
     engine: world.physics.engine, revision: world.physics.revision, artifact, artifactSha, sourceSha,
     environmentSha: sha(sourceText(new URL('./stand-up-environment.mjs', import.meta.url))), specSha: sha(JSON.stringify(spec)),
     actuation: world.actuation, balance, channels };
@@ -178,12 +163,6 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
     experiment.action = checked; experiment.mode = 'action';
   };
   const measure = recoveryMeasurement(built,observe);
-  if(assistedBaseline){
-    baselineFeedback=recoveryFeedback({rest:root.rest.asArray(),rootHeight:observe().segments.find(s=>s.name==='lowerTrunk').centre[1],
-      weight:[...built.segments.values()].reduce((sum,s)=>sum+s.rigid.mass,0)*norm(world.physics.gravity),
-      angles:channels.map(c=>preset.posture[c.name]??0),forceLimit:body.assist.most.force},preset.settings);
-    experiment.feedback=baselineFeedback.state;
-  }
   const step = (action, { automaticHandover = false } = {}) => {
     if (action !== undefined) act(action);
     if (experiment.handover !== null) {
@@ -261,7 +240,6 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
       assert.equal(experiment.success,true,'a repeated fall follows a complete host tail');
       assert.equal(body.has,'command');
       Object.assign(experiment,freshExperiment());
-      if(baselineFeedback){baselineFeedback.state.heading=null;baselineFeedback.state.released=false;baselineFeedback.state.started=null;}
       stance.orders.forward=0;stance.orders.right=0;stance.orders.turn=0;
     },
     async fall({ kind = 'lab', degrees = 0, impulse = 60, separation = .2, settleSteps = 0, passiveSteps = 0 } = {}) {

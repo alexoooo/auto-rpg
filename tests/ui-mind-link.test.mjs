@@ -31,8 +31,8 @@ test("a_link_carries_no_research_tuning_either_way", () => {
   assert.deepEqual(readMind(JSON.stringify(tuned), PRESETS), CLASSIC);
 });
 
-test("a dynamic recovery choice travels in the whole mind link", () => {
-  const config = { ...CLASSIC, subs: [{ kind: "dynamic-rise" }] };
+test("a research recovery choice travels in the whole mind link", () => {
+  const config = { ...CLASSIC, subs: [{ kind: "research-rise" }] };
   const text = mindText(config, PRESETS);
   assert.deepEqual(parseMind(text, HUMAN), { config, faults: [] });
   assert.deepEqual(readMind(text, PRESETS), config);

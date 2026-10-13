@@ -3,11 +3,8 @@ import { deepFreeze } from "../state.ts";
 import type { SubMindConfig } from "./config.ts";
 import { lying } from "./lie.ts";
 import type { OwnBody } from "./mind.ts";
-import { stagedRise } from "./rise/staged.ts";
-import { assistedRise, assistedRiseFits } from "./rise/assisted.ts";
 import { supportRecovery } from "./rise/support-recovery.ts";
-import { dynamicRise, dynamicRiseFits } from "./rise/dynamic.ts";
-import { researchRise } from "./rise/research.ts";
+import { researchRise, researchRiseFits } from "./rise/research.ts";
 import type { Part } from "./parts.ts";
 import type { SubMind } from "./sub-mind.ts";
 import type { World } from "../world.ts";
@@ -28,24 +25,16 @@ const plain = <K extends SubMindConfig["kind"]>(kind: K, label: string, fits: Pa
  */
 export const SUB_MIND_PARTS: { readonly [K in SubMindConfig["kind"]]: Part<Extract<SubMindConfig, { kind: K }>> } = Object.freeze({
   lie: plain("lie", "Lie still", () => true),
-  "staged-rise": plain("staged-rise", "Rise by stages", (spec) => commandable(spec)),
   "support-recovery": plain("support-recovery", "Rise, then steady", (spec) => commandable(spec)),
-  "assisted-rise": deepFreeze({ role: "sub-mind", label: "Assisted rise (Balance 100%)", stage: "experimental", fields: [], slots: [],
-    defaults: { kind: "assisted-rise" }, fits: assistedRiseFits, faults: () => [] } as const),
-  "dynamic-rise": deepFreeze({ role: "sub-mind", label: "Dynamic rise", stage: "experimental", fields: [], slots: [],
-    defaults: { kind: "dynamic-rise" }, fits: dynamicRiseFits, faults: () => [] } as const),
   "research-rise": deepFreeze({ role: "sub-mind", label: "Research rise", stage: "experimental", fields: [], slots: [],
-    defaults: { kind: "research-rise" }, fits: dynamicRiseFits, faults: () => [] } as const),
+    defaults: { kind: "research-rise" }, fits: researchRiseFits, faults: () => [] } as const),
 });
 
 /** The sub-mind `config` names. */
 export function subMind(own: OwnBody, view: BodyView, config: SubMindConfig, world: World): SubMind {
   switch (config.kind) {
     case "lie": return lying(own, view);
-    case "staged-rise": return stagedRise(own, view);
     case "support-recovery": return supportRecovery(own, view, world);
-    case "assisted-rise": return assistedRise(own, view, world);
-    case "dynamic-rise": return dynamicRise(own, view, world);
     case "research-rise": return researchRise(own, view, world);
     default: return unknownKind(config);
   }

@@ -220,7 +220,7 @@ test("a_lab_body_that_is_down_is_handed_to_the_sub_minds_its_mind_names", async 
   // Given none it has the game's, which lies.
   assert.deepEqual(await has(undefined), [true, "lie"]);
   assert.deepEqual(await has(subs([{ kind: "lie" }])), [true, "lie"]);
-  assert.deepEqual(await has(subs([{ kind: "staged-rise" }])), [true, "staged-rise"]);
+  assert.deepEqual(await has(subs([{ kind: "support-recovery" }])), [true, "recovery: rise"]);
   // Given no sub-mind, nobody takes it from the command layers.
   assert.deepEqual(await has(subs([])), [true, "command"]);
 });

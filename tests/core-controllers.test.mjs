@@ -42,11 +42,11 @@ test("every preset id reads to its tree: tactics, a skill of each role and the s
   const path = { kind: "path-strike", overlap: false }, recovery = [{ kind: "support-recovery" }];
   const fighter = (tactics, blow, kick, support, subs, locomotion = travel) => ({ kind: "fighter", tactics, locomotion, guard, blow, kick, support, subs });
   const body = { ...openings, strikes: "mixed", prefers: "body" };
-  const rise = [{ kind: "staged-rise" }];
+  const rise = [{ kind: "support-recovery" }];
   const behaving = (list) => ({ kind: "behaviours", list: [{ kind: "follow-orders" }, ...list, { kind: "cover", guard: "cover" }] });
   assert.deepEqual(Object.fromEntries(Object.entries(PRESETS).map(([id, { config }]) => [id, config])), {
-    classic: fighter(seek, { kind: "recipe-strike" }, null, null, [{ kind: "staged-rise" }]),
-    puncher: fighter({ ...seek, range: "edge" }, { kind: "straight-punch", ...STRAIGHT_PUNCH }, null, null, [{ kind: "staged-rise" }]),
+    classic: fighter(seek, { kind: "recipe-strike" }, null, null, [{ kind: "support-recovery" }]),
+    puncher: fighter({ ...seek, range: "edge" }, { kind: "straight-punch", ...STRAIGHT_PUNCH }, null, null, [{ kind: "support-recovery" }]),
     scrapper: fighter(body, path, null, { kind: "support-fold" }, recovery, striding),
     behaviours: fighter(behaving([{ kind: "strike", hands: "alternate", aim: "head", blow: { kind: "recipe-strike" } }]), null, null, null, rise),
     crawl: { kind: "quadruped" },

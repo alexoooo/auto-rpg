@@ -181,12 +181,10 @@ without resuming on its own.
 
 - **Stance**: walk it from the keyboard (W/S or Up/Down forward and back, A/D or Left/Right
   sideways, Q/E turn while walking) at the speed a slider sets, and shove it.
-- **Get-up experiment**: live assisted recovery on Warrior or Rogue, with an explicit Balance
-  setting. The default demonstration uses Balance 100%, the original feet and SIMBICON walking.
-  It repeats two timed Front shoves; stress-case buttons reproduce other falls. Readouts show
-  recovery control time and delivered help. Repeat two shoves tests the same body again; Walk
-  forward for 1 s checks the handover. The slow searched witness remains selectable.
-  Open `?play=lab&scenario=recovery&balance=100`; lower Balance uses the old recovery fallback.
+- **Get-up experiment**: test the live controller selected under Character → Mind → When down.
+  Choose Lie still, Rise, then steady, or experimental Research rise; use Balance 0 for
+  unassisted recovery. Two timed shoves make falls repeatable. Repeat two shoves tests the same
+  body again; Walk forward for 1 s checks handover. Stress-case buttons reproduce other falls.
 - **Routine**: it walks out, strikes at ten targets hung high, middle and low, turns and walks
   back. Each target is a ball of its own head, and the table says what the blow did to it or how
   near it passed. `&targets=` (0 to 30) and `&seed=` in the address choose how many and which.

@@ -70,7 +70,7 @@ sample set describe that set, not all possible falls or encounters.
 
 | Task | Fixture | Outcome and denominator |
 |---|---|---|
-| Recovery | Existing `felled` shove: reference body, stand 1 s, impulse 1.5 N s/kg, wait at most 3 s to fall; watch 40 s | Both default lying and staged-rise minds; rose means 2 continuous seconds up. Summary success also requires up at the end. Denominator is falls, excluding held shoves. |
+| Recovery | Existing `felled` shove: reference body, stand 1 s, impulse 1.5 N s/kg, wait at most 3 s to fall; watch 40 s | Both default lying and rise-then-steady minds; rose means 2 continuous seconds up. Summary success also requires up at the end. Denominator is falls, excluding held shoves. |
 | Strike at place | Existing high-band recipe through `evaluateBlow`, either hand, empty or club | Target damage >0 and no fall; all trials in the cell are the denominator. |
 | Strike offset | Same, with target offset disclosed at commitment | A stationary displaced target, not a moving-target test; same success definition. |
 | Strike at nothing | Same throw without the target | No fall and back in stance phase `stand`; no damage is required for success. |

@@ -75,7 +75,7 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
     speed: { name: "Speed", unit: "m/s" }, height: { name: "Height / goal", unit: "m" }, off: { name: "Off its place", unit: "cm" },
     heading: { name: "Heading" },
   });
-  let walkSpeed = 0.3, impulse = 30, recoveryMode: LabAddress["recoveryMode"] = "assisted";
+  let walkSpeed = 0.3, impulse = 30, recoveryMode: LabAddress["recoveryMode"] = "selected";
   // The run the controls act on: the latest one started.
   let current: (ScenarioRun & { shove(impulse: number, degrees: number): void; walk(): void; pair(): void }) | null = null;
 
@@ -84,12 +84,11 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
     panels: {
       controls: [
         ...(experiment ? [choice("Get-up variant",[
-          {value:"assisted" as const,name:"Live assisted rise"},{value:"witness" as const,name:"Slow searched witness"},
+          {value:"witness" as const,name:"Slow searched witness"},
           {value:"selected" as const,name:"Selected mind"}],
           () => recoveryMode, mode => {recoveryMode=mode;experiment.reproduceRecovery(mode);}),
           note(() => {
             switch (recoveryMode) {
-              case "assisted": return "Assisted experiment: Balance 100% permits external lift up to one body weight plus a righting moment. Its historical assisted results do not meet the goal of fast, robust unassisted recovery. Lower Balance uses the existing recovery fallback.";
               case "witness": return "Recorded search result replayed as an ordinary recovery recipe, with compliant soles and zero Balance. Slow and unreliable.";
               case "selected": return "Live controller from Character → Mind → When down. Set Balance to 0 to inspect unassisted recovery.";
               default: { const never: never = recoveryMode; throw new Error(`unknown recovery mode ${never}`); }

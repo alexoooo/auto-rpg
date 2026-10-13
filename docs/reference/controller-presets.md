@@ -6,7 +6,8 @@ bare-handed and with the wooden club. Scrapper's are the README's figures; the r
 Scrapper is the Arena's preset (`SCRAPPER`, `src/core/mind/config.ts`); the other three are the
 tests' fighters (`tests/fixtures/minds.mjs`).
 
-Each is a fighter's tree (`FighterConfig`):
+The measured configurations were these fighter trees (`FighterConfig`); current Classic uses
+`support-recovery`, so this table describes the recorded comparison, not today's preset:
 
 | preset | tactics | blow | kick | low support | when down |
 |---|---|---|---|---|---|

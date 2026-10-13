@@ -4,11 +4,11 @@ import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { recoveryEnvironment } from '../research/stand-up-environment.mjs';
-import { acceptanceEnvironment, evaluateAcceptanceCase, rejectFloatingController, summarizeAcceptance } from '../research/stand-up-acceptance.mjs';
+import { acceptanceEnvironment, evaluateAcceptanceCase, rejectAssistedAction, summarizeAcceptance } from '../research/stand-up-acceptance.mjs';
 import { unassistedAudit, unassistedResult } from '../research/stand-up-unassisted.mjs';
 
-test('unassisted gate rejects the shipped floating controller through real force and moment calls', async () => {
-  const negative = await rejectFloatingController();
+test('unassisted gate rejects an assisted action through real force and moment calls', async () => {
+  const negative = await rejectAssistedAction();
   assert.equal(negative.identity.balance, 100);
   assert.equal(negative.result.success, false);
   assert.equal(negative.result.failure, 'external actuation');
@@ -60,7 +60,7 @@ test('a saved fall preserves physical state and elapsed time across controller c
     e.restore(saved);
     const initial = e.observe(), clock = e.result();
     const traces = [];
-    for (const controller of ['standard', 'dynamic', 'standard']) {
+    for (const controller of ['standard', 'optimized', 'standard']) {
       e.restore(saved);
       e.selectComparison(controller);
       assert.deepEqual(e.observe(), initial);
@@ -77,7 +77,7 @@ test('a saved fall preserves physical state and elapsed time across controller c
   assert.equal(rejected.result.success, false);
   assert.equal(rejected.result.failure, 'external actuation');
   assert.equal(rejected.steps, 0);
-  const floating = await rejectFloatingController(c, manifest);
+  const floating = await rejectAssistedAction(c, manifest);
   assert.equal(floating.checkpointSha256, rejected.checkpointSha256);
   assert.equal(floating.initialObservationSha256, rejected.initialObservationSha256);
 });
