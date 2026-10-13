@@ -8,21 +8,24 @@ import { startStance } from "../../src/lab/stance-mode.ts";
 import { embody } from "../../src/core/mind/mind.ts";
 import { applyAction } from "../../src/core/mind/actions.ts";
 import { wholeBodyTracking } from "../../src/core/control/whole-body.ts";
-import { HAND_TRANSFER } from "../../src/core/mind/rise/hand-transfer.ts";
+import { readFileSync } from "node:fs";
 import { observeBody } from "../../src/core/observation.ts";
 import { clockSenses } from "../../src/core/mind/senses.ts";
 
-/** A real two-shove Lab fall, handed from acquisition to a bounded knee-weight shift. */
+/** Joint-limit prediction settings for the physical support fixtures. */
+export const SUPPORT_JOINT_STOPS = Object.freeze({ margin: .001, forceTolerance: 1e-5, accelerationTolerance: 1e-4,
+  iterations: 2048, absoluteTolerance: 1e-7, relativeTolerance: 1e-6 });
+
+/** A captured physical two-shove fall, handed to a bounded knee-weight shift. */
 export async function foursSupport(supportBand) {
   const spec = modelSpec("workshop-fighter"), stand = await coreStand(spec,
     { engine: "rapier-coordinate", groundSize: 40, posture: guardPosture(spec) });
-  const mind = { ...LAB_PRESETS.script.config, subs: [{ kind: "dynamic-rise" }] };
+  const mind = { ...LAB_PRESETS.script.config, subs: [] };
   const stance = startStance(labActor(stand.built, stand.world, { mind }));
   let body;
   try {
-    stand.world.step(240); stance.shove(60, 0); stand.world.step(24); stance.shove(60, 0);
-    for (let step = 0; step < 600 && stance.body.state.mind.subs[0].policy.phase !== "place"; step++) stand.world.step();
-    if (stance.body.state.mind.subs[0].policy.phase !== "place") throw new Error("actual Lab fall did not acquire support");
+    stand.world.step(240);
+    stand.world.physics.load(new Uint8Array(readFileSync(new URL("actual-fours-world.bin", import.meta.url))));
     const o = stance.body.observe(), parts = [...stand.built.segments.values()], mass = parts.reduce((sum, part) => sum + part.rigid.mass, 0);
     const root = stand.built.segments.get("lowerTrunk"), zero = Object.freeze([0, 0, 0]);
     const from = parts.reduce((sum, part) => sum.addInPlace(new Vector3(...part.body.massProperties.centre)
@@ -53,7 +56,7 @@ export async function foursSupport(supportBand) {
         capacity: 8, effortCost: 1e-6, contact: { physics: stand.world.physics, dt: stand.world.dt,
           settings: { normalResponseSeconds: .2, maxPoints: 64, gap: .005, minUpNormal: .9, pointSeparation: .001,
             forceTolerance: 1e-5, redistributionCost: 1e-6, iterations: 2048, absoluteTolerance: 1e-7, relativeTolerance: 1e-6,
-            liftOff: { accelerationTolerance: .1 } } }, jointStops: { dt: stand.world.dt, settings: HAND_TRANSFER.jointStops } });
+            liftOff: { accelerationTolerance: .1 } } }, jointStops: { dt: stand.world.dt, settings: SUPPORT_JOINT_STOPS } });
       const state = { time: 0, from, target, goal, tracking: tracker.state };
       return { name: "supported knee-weight shift", state, step() {
         const u = Math.min(1, state.time), p = u * u * (3 - 2 * u), v = u < 1 ? 6 * u * (1 - u) : 0, a = u < 1 ? 6 - 12 * u : 0;

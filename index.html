@@ -62,7 +62,7 @@
       <aside id="pause-menu" class="gone" aria-label="Game paused">
         <div class="pause-copy">
           <strong>PAUSED</strong>
-          <span>Arena frozen &middot; Space or Esc resumes</span>
+          <span>Space / Esc</span>
         </div>
         <div class="pause-actions">
           <button id="resume" class="action" type="button">Resume</button>
@@ -83,23 +83,17 @@
       <div id="help" class="gone">
         <div class="panel">
           <h1>Controls</h1>
-          <p class="lede">
-            Each side is fought by its own mind, which walks at the other and swings its club at
-            the other&rsquo;s head, unless you take it: then it does what you order and nothing
-            else. A side is out when its bar empties, its head goes, or it stays down past the selected recovery window; after two minutes
-            the fuller bar wins.
-          </p>
           <dl class="keys">
-            <dt>W A S D, or the arrows</dt><dd>walk, as the camera sees it</dd>
-            <dt>Pointer</dt><dd>where your fighter faces while it walks</dd>
-            <dt>Left button</dt><dd>attack where you point; hold to keep attacking</dd>
+            <dt>W A S D, or the arrows</dt><dd>Move relative to camera</dd>
+            <dt>Pointer</dt><dd>Face cursor</dd>
+            <dt>Left button</dt><dd>Attack; hold to repeat</dd>
             <dt>Middle or right drag</dt><dd>orbit the Free camera</dd>
             <dt>Wheel</dt><dd>zoom</dd>
             <dt>View panel</dt><dd>World or Tactical, camera mode, projection and fighter focus; works while paused</dd>
-            <dt>Pause / Resume</dt><dd>buttons below the clock and in the pause menu; Space or Esc also toggles pause</dd>
-            <dt>R</dt><dd>this bout again</dd>
-            <dt>Random replay</dt><dd>at a verdict or in the pause menu &mdash; the right side is redrawn</dd>
-            <dt>?</dt><dd>this list</dd>
+            <dt>Pause / Resume</dt><dd>Space / Esc</dd>
+            <dt>R</dt><dd>Replay</dd>
+            <dt>Random replay</dt><dd>Randomize opponent</dd>
+            <dt>?</dt><dd>Controls</dd>
           </dl>
           <button id="help-close" class="action" type="button">Close</button>
         </div>
@@ -110,37 +104,46 @@
       <canvas id="dungeon" aria-label="Dungeon game" tabindex="0"></canvas>
       <header class="topbar">
         <a href="./" class="brand">AUTO-RPG <span>/ THE DEPTHS</span></a>
-        <div class="objective"><span class="diamond">◇</span> FIND THE EXIT <small id="seed-label"></small></div>
+        <small id="seed-label"></small>
         <div class="topbar-end"><small id="frame-meter" aria-label="Frame counter"></small><button id="pause-button" type="button">Pause <kbd>Esc</kbd></button></div>
       </header>
       <section id="target-panel" hidden aria-label="Selected enemy"><span id="target-name"></span><progress id="target-hp" max="1" value="1"></progress></section>
       <details id="mind-panel"><summary>Mind <small id="mind-who"></small></summary><div id="mind-view"></div></details>
-      <div id="notice" role="status">Preparing the dungeon…</div>
+      <div id="notice" role="status" hidden></div>
       <footer class="bottom-bar">
-        <section class="hero-panel"><span class="eyebrow">YOUR HERO</span><strong id="hero-name">Warrior</strong>
+        <section class="hero-panel"><span class="eyebrow">HERO</span><strong id="hero-name">Warrior</strong>
           <div class="health"><progress id="hero-hp" max="1" value="1"></progress><span id="hp-label">100% HP</span></div>
         </section>
-        <section class="control-panel"><span class="eyebrow">TAKE CONTROL</span>
+        <section class="control-panel"><span class="eyebrow">CONTROLS</span>
           <div class="switches"><label><input id="keyboard" type="checkbox" /> Keyboard movement</label><label><input id="facing" type="checkbox" /> Mouse facing</label></div>
-          <small id="control-help">Click to attack-move · click an enemy to lock on · drag to force move</small>
         </section>
-        <section class="party-panel" aria-label="Your party"><span class="eyebrow">YOUR PARTY <kbd>1</kbd>–<kbd>4</kbd> · <kbd>0</kbd> all · <kbd>F</kbd> regroup</span>
+        <section class="party-panel" aria-label="Your party"><span class="eyebrow">PARTY <kbd>1</kbd>–<kbd>4</kbd> · <kbd>0</kbd> all · <kbd>F</kbd> regroup</span>
           <ol id="party-list"></ol>
         </section>
         <button id="help-button" type="button" aria-expanded="false">Controls <kbd>?</kbd></button>
       </footer>
       <section id="pause-panel" class="dialog compact" hidden aria-labelledby="pause-title">
-        <span class="eyebrow">THE DEPTHS</span><h2 id="pause-title">Paused</h2><p id="pause-copy">Your run is frozen.</p>
+        <span class="eyebrow">THE DEPTHS</span><h2 id="pause-title">Paused</h2><p id="run-time" hidden></p>
         <button id="resume" class="primary">Resume</button><button id="retry">Retry same seed</button><button id="new-run">New dungeon</button>
         <a href="./">Main menu</a>
       </section>
       <section id="help" class="dialog help" hidden>
-        <h2>Your hero fights automatically.</h2>
-        <p>With both switches off, <b>click the floor</b> to attack-move, <b>click an enemy</b> to lock on, or <b>drag a route</b> to keep moving through danger. The hero follows while you draw.</p>
-        <p>You order a <b>party</b>. An order goes to whoever is selected: everybody at first. <b>1</b>–<b>4</b> or a click on a party member or its row selects that one alone, <b>Shift</b> adds it, <b>0</b> selects everybody. A companion you sent somewhere holds there; <b>F</b> calls the selected companions back to the hero, whom an idle companion follows. Enemies go for whichever of you they see nearest, and the run lasts while anybody stands.</p>
-        <p><b>Keyboard movement</b> uses WASD or arrows, relative to the screen. <b>Mouse facing</b> turns toward the cursor. Each switch gives its channel to you and leaves the other to the AI. With mouse facing alone, the hero explores automatically.</p>
-        <p>Attacks and counters are always automatic. Brief dodges may adjust movement. Doors open on approach. Reach the green exit circle to escape.</p>
-        <p><b>Wheel</b> zooms · <b>Space / Esc</b> pauses · <b>?</b> closes this help.</p><button id="close-help">Got it</button>
+        <h2>Controls</h2>
+        <dl class="keys">
+          <dt>Click floor</dt><dd>Attack-move</dd>
+          <dt>Click enemy</dt><dd>Lock target</dd>
+          <dt>Drag floor</dt><dd>Force move</dd>
+          <dt>1–4 / click ally</dt><dd>Select member; Shift adds</dd>
+          <dt>0</dt><dd>Select all</dd>
+          <dt>F</dt><dd>Regroup selected companions</dd>
+          <dt>Keyboard movement</dt><dd>WASD / arrows, relative to camera</dd>
+          <dt>Mouse facing</dt><dd>Face cursor; auto-explore without keyboard movement</dd>
+          <dt>Combat</dt><dd>Automatic attacks and counters</dd>
+          <dt>Wheel</dt><dd>Zoom</dd>
+          <dt>Space / Esc</dt><dd>Pause / resume</dd>
+          <dt>?</dt><dd>Controls</dd>
+        </dl>
+        <button id="close-help">Close</button>
       </section>
       <div id="dungeon-sound"></div>
       </div>
@@ -180,7 +183,7 @@
       <main id="lab-select">
         <h1>LAB</h1>
         <nav id="lab-scenarios" aria-label="Scenarios"></nav>
-        <p><a href="./control-foundation.html">Control foundation: compare controllers and replay a pinned reach</a></p>
+        <p><a href="./control-foundation.html">Control foundation</a></p>
         <a href="./">&larr; Main menu</a>
       </main>
     </template>

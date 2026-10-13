@@ -40,7 +40,7 @@ export const FOUNDATION = Object.freeze({ version: 2, samples: 2, watch: 40, bou
 
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const heldName = (held) => held === "club" ? "wooden club" : "fist";
-const riseMind = { ...RECIPE_FIGHTER, subs: [{ kind: "staged-rise" }] };
+const riseMind = { ...RECIPE_FIGHTER, subs: [{ kind: "support-recovery" }] };
 const suites = ["baseline", "recovery", "strike-block", "point-strike", "moving-strike", "defense", "bar", "support", "posture-hold", "support-entry", "integrated", "reach", "ccd", "solver", "competency"];
 /** The bodies the competency suite measures by default: the workshop humans. */
 const WORKSHOP = Object.freeze(["workshop-fighter", "workshop-rogue"]);
@@ -168,7 +168,7 @@ export function foundationJobs({ suite = "baseline", split = "development", samp
         add({ ...common, task: "reach", controller, channel: "elbow.right flexion", target: [0.5, 0.7],
           pin: "lowerTrunk", gravity: true, servoSeconds: 0.1, tolerance: 0.025, holdSteps: 120,
           policyPeriodSteps: 4, maxSteps: 360, speed: 3 });
-      if (["baseline", "recovery"].includes(suite)) for (const recovery of ["lie", "staged-rise"])
+      if (["baseline", "recovery"].includes(suite)) for (const recovery of ["lie", "support-recovery"])
         add({ ...common, task: "recovery", recovery, degrees, impulse: 1.5, watch: FOUNDATION.watch });
       if (["baseline", "strike-block"].includes(suite)) {
         for (const hand of ["left", "right"]) for (const target of ["place", "offset", "miss"])
@@ -251,7 +251,7 @@ function instrument(world, readings) {
 
 async function recoveryTrial(job) {
   let readings;
-  const mind = job.recovery === "staged-rise" ? riseMind : RECIPE_FIGHTER;
+  const mind = job.recovery === "support-recovery" ? riseMind : RECIPE_FIGHTER;
   const fall = await felled(job, (built, world) => {
     const body = createMind(built, world, mind, { name: "foundation", orders: () => STAND_ORDERS }).body;
     readings = meter([built], [body]);

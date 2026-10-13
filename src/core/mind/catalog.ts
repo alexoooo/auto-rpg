@@ -2,6 +2,7 @@ import type { BodySpec } from "../spec/body.ts";
 import { BEHAVIOUR_PARTS } from "./behaviours.ts";
 import type { BehaviourConfig, MindConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { CONTROLLERS } from "./controllers.ts";
+import { CONFIG_KEYS } from "./config-keys.ts";
 import { SKILL_PARTS } from "./fighter.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Role } from "./parts.ts";
 import { SUB_MIND_PARTS } from "./sub-minds.ts";
@@ -71,16 +72,14 @@ export function treeFaults(config: PartConfig, provides: readonly Provision[] = 
 }
 
 /**
- * The keys of `config` its part does not read, each a sentence: a key that is none of its kind,
- * settings, slots or defaults' keys, or its tuning's (`Part.tuning`), is a setting that would do
- * nothing.
+ * The keys outside the config's complete type-checked shape, and outside its research tuning.
  */
 function unknownSettings(config: PartConfig): readonly string[] {
   const part = partOf(config), tuning = part.tuning ?? [];
-  const known = new Set(["kind", ...part.fields.map((field) => field.key), ...part.slots.map((slot) => slot.key), ...Object.keys(part.defaults), ...(part.tuning ? ["tuning"] : [])]);
+  const known = CONFIG_KEYS[config.kind as keyof typeof CONFIG_KEYS];
   const given = (config as { tuning?: unknown }).tuning;
   return [
-    ...Object.keys(config).filter((key) => !known.has(key)).map((key) => `${part.label} has no setting ${key}`),
+    ...Object.keys(config).filter((key) => !Object.hasOwn(known, key)).map((key) => `${part.label} has no setting ${key}`),
     ...(part.tuning && typeof given === "object" && given !== null ? Object.keys(given).filter((key) => !tuning.includes(key)).map((key) => `${part.label} has no tuning ${key}`) : []),
   ];
 }

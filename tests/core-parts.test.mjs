@@ -5,6 +5,10 @@ import { CLASSIC, QUADRUPED } from "../src/core/mind/config.ts";
 import { PRESETS } from "../src/core/mind/controllers.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { COMBAT, KICKER, withParts } from "./fixtures/minds.mjs";
+import { CONFIG_KEYS } from "../src/core/mind/config-keys.ts";
+import { STRIDE } from "../src/core/skills/stride.ts";
+import { RUN } from "../src/core/skills/run.ts";
+import { parseMind, writeMind } from "../src/ui/mind-link.ts";
 
 const ROLES = ["mind", "sub-mind", "tactics", "behaviour", "locomotion", "guard", "blow", "kick", "support"];
 
@@ -15,14 +19,31 @@ test("every part has a role, a stage, frozen defaults of its own kind, and every
     assert.equal(part.defaults.kind, kind);
     assert.ok(Object.isFrozen(part.defaults), kind);
     assert.deepEqual(treeFaults(part.defaults, part.needs ? [part.needs] : []), [], kind);
+    for (const key of [...part.fields.map(field => field.key), ...part.slots.map(slot => slot.key), ...Object.keys(part.defaults)]) {
+      assert.ok(Object.hasOwn(CONFIG_KEYS[kind], key), `${kind}.${key} belongs to the configuration`);
+    }
     for (const slot of part.slots) assert.ok(Object.values(PARTS).some((other) => other.role === slot.role), `${kind}.${slot.key}`);
   }
-  assert.deepEqual(Object.keys(PARTS), ["fighter", "quadruped", "direct", "lie", "staged-rise", "support-recovery", "assisted-rise", "dynamic-rise", "research-rise", "seek", "openings", "script", "stand", "behaviours",
+  assert.deepEqual(Object.keys(PARTS), ["fighter", "quadruped", "direct", "lie", "support-recovery", "research-rise", "seek", "openings", "script", "stand", "behaviours",
     "follow-orders", "flee", "close-in", "keep-distance", "strike", "kick", "cover",
     "stance-walk", "stride", "run", "simbicon", "travel", "cover-guard", "recipe-strike", "path-strike", "driven-strike", "whole-body-strike", "straight-punch", "choose-blow", "front-kick", "support-fold"]);
   assert.equal(partOf(CLASSIC), PARTS.fighter);
   assert.deepEqual(new Set(Object.values(PARTS).map((part) => part.role)), new Set(ROLES));
-  for (const kind of ["point-fighter", "constructor", "toString"]) assert.throws(() => partOf({ kind }), /no part of kind/, kind);
+  for (const kind of ["point-fighter", "constructor", "toString", "staged-rise", "assisted-rise", "dynamic-rise"]) assert.throws(() => partOf({ kind }), /no part of kind/, kind);
+});
+
+test("controller settings survive links and validation independently of editor fields", () => {
+  const stride = { kind: "stride", ...STRIDE, paced: true, lands: true, launch: .2, lead: .1, momentum: true, lever: .8, lengthen: .1 };
+  const run = { kind: "run", ...RUN, drive: .2, lever: .8 };
+  for (const locomotion of [stride, run]) {
+    const config = { ...CLASSIC, locomotion };
+    assert.deepEqual(parseMind(writeMind(config), modelSpec("workshop-fighter")), { config, faults: [] });
+    assert.deepEqual(treeFaults({ ...config, locomotion: { ...locomotion, misspelled: true } }),
+      [`locomotion: ${PARTS[locomotion.kind].label} has no setting misspelled`]);
+  }
+  assert.ok(!PARTS.stride.fields.some(field => field.key === "momentum"));
+  assert.ok(treeFaults({ ...stride, momentum: "yes" }).length > 0, "hidden settings still validate their values");
+  assert.ok(treeFaults({ ...run, lever: -1 }).length > 0);
 });
 
 test("a tree's faults say where they are, and every preset has none", () => {
@@ -61,12 +82,13 @@ test("a tree fits a body where every part does, and every part of a role is offe
   // Every tactics part is offered on every screen; the script only where the screen gives one.
   assert.deepEqual(offered("tactics", human), [["seek", null], ["openings", null], ["script", "this screen gives no script"], ["stand", null], ["behaviours", null]]);
   assert.deepEqual(kindsFor("tactics", human, ["script"]).map(({ reason }) => reason), [null, null, null, null, null]);
-  assert.deepEqual(offered("sub-mind", reptile), [["lie", null], ["staged-rise", "does not fit this body"], ["support-recovery", "does not fit this body"], ["assisted-rise", "does not fit this body"], ["dynamic-rise", "does not fit this body"], ["research-rise", "does not fit this body"]]);
+  assert.deepEqual(offered("sub-mind", human), [["lie", null], ["support-recovery", null], ["research-rise", null]]);
+  assert.deepEqual(offered("sub-mind", reptile), [["lie", null], ["support-recovery", "does not fit this body"], ["research-rise", "does not fit this body"]]);
 });
 
 test("a tree without its tuning keeps everything else, its slots' parts included", () => {
   assert.deepEqual(withoutTuning(withParts(KICKER, { locomotion: { fight: { tuning: { turnLimit: 1 } } }, blow: { tuning: { paths: { returnLimit: .05 } } }, kick: { tuning: { contactSpeed: 2 } } })), KICKER);
-  assert.deepEqual(withoutTuning({ ...withParts(CLASSIC, { tactics: { tuning: { edge: { band: 1, patience: 1, clinch: 0 } } } }), subs: [{ kind: "lie", tuning: { x: 1 } }, { kind: "staged-rise" }] }),
-    { ...CLASSIC, subs: [{ kind: "lie" }, { kind: "staged-rise" }] });
+  assert.deepEqual(withoutTuning({ ...withParts(CLASSIC, { tactics: { tuning: { edge: { band: 1, patience: 1, clinch: 0 } } } }), subs: [{ kind: "lie", tuning: { x: 1 } }, { kind: "support-recovery" }] }),
+    { ...CLASSIC, subs: [{ kind: "lie" }, { kind: "support-recovery" }] });
   assert.deepEqual(withoutTuning({ ...QUADRUPED, tuning: { bite: { open: .1 } } }), QUADRUPED);
 });

@@ -1,5 +1,4 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { sin, cos } from "../math/real.ts";
 import type { BodyObservation } from "../observation.ts";
 
 interface Model {
@@ -10,14 +9,14 @@ interface Model {
   readonly strength: number;
 }
 
-/** Body-local actor inputs shared by training and runtime, including the residual controller's memory. */
+/** Body-local actor inputs and previous actions for recovery training. */
 export function recoveryFeatures(model: Model) {
   const restInverse = Quaternion.Inverse(new Quaternion(...model.rest));
   const q = new Quaternion(), inverse = new Quaternion(), turn = new Quaternion(), v = new Vector3();
   const extremities = ["head","hand.left","hand.right","foot.left","foot.right"];
   const contacts = [...extremities,"shank.left","shank.right","lowerTrunk","upperTrunk"];
   return (measurement: { readonly observation: BodyObservation; readonly rootUp: number; readonly soleUp: readonly number[] },
-    previous: readonly number[], prior?: { readonly heading: number | null; readonly released: boolean }): number[] => {
+    previous: readonly number[]): number[] => {
     const o = measurement.observation, r = o.segments.find(s => s.name === "lowerTrunk")!;
     q.set(...r.rotation).multiplyToRef(restInverse,turn); Quaternion.InverseToRef(turn,inverse);
     const local = (a: readonly number[]) => {
@@ -31,10 +30,6 @@ export function recoveryFeatures(model: Model) {
       features.push(...local(part.centre.map((x,k) => (x-r.centre[k]!)/model.standing)));
     }
     for (const name of contacts) features.push(o.contacts.some(c => c.segment === name && c.fixed !== null && c.impulse > 0) ? 1 : 0);
-    if (prior) {
-      const heading = prior.heading ?? 0;
-      features.push(...local([sin(heading),0,cos(heading)]),prior.released ? 1 : 0);
-    }
     features.push(...previous,model.balance/100,model.strength,1);
     if (!features.every(Number.isFinite)) throw new Error("nonfinite recovery observation");
     return features;

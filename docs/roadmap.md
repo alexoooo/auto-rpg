@@ -114,19 +114,13 @@ After it, each with its own plan, in the order each needs the one before:
 - **Kicks.** Either-foot [front kicks](reference/front-kicks.md) share the punch's tracker and
   cycle. Higher targets and competitive kick selection are open.
 - **Rising.** Rising is built to the feet and continues Arena bouts:
-  - Classic tries its staged rise. The opening presets verify standing support before handing back
+  - Classic, Puncher and the opening presets use the staged recipe and verify standing support before handing back
     ([recovery cycle](reference/recovery-cycle.md)).
   - On the hands' hulls, the Warrior rises from 11 of 16 falls empty-handed and 9 of 14 with the
     club; the Rogue from 2 of 32. The capsule hands rose from 13, 13 and 6 on the same shoves
     ([rising](reference/rising.md#staged)).
   - Passing rises take 22 to 29 s. Most of it is pose stages of set time, which can lose a
     quarter and no more.
-  - Experimental Dynamic rise is an additional `When down` choice for Warrior and Rogue,
-    including a retained club. Its contact-driven preparation and whole-body support transfer
-    do not pass the four-second median / six-second deadline: none of 64 development falls
-    completes verified handover within the deadline
-    ([dynamic rise](reference/rising.md#dynamic-rise)). Support transfer and reliable handover
-    remain open; existing presets retain their recovery.
   - **Fast, robust unassisted recovery remains unsolved.** The optimized compliant-sole recipe
     produced one 15.5583 s development success and failed the robustness objective. The frozen
     `stand-up-acceptance-v1` comparison retains that recipe and rejects external actuation.
@@ -146,15 +140,6 @@ After it, each with its own plan, in the order each needs the one before:
     All successes include standing/walking verification;
     the four-second median, broad coverage and gameplay integration remain unfinished
     ([opposite-side feedback](analysis/2026-10-11-stand-up-planning.md#opposite-side-guidance-and-feedback-2026-10-12)).
-  - **Assisted rise is a separate experiment**, with external lift and righting at recovery and
-    host Balance 100. Historical assisted-only results:
-    63/64 directional selection, 126/128 independent lying falls, 16/16 three-fall sequences and
-    30/32 disturbed recoveries within twelve seconds, followed by standing and walking. It is
-    an additional Warrior/Rogue choice with original anatomy and ordinary muscles; presets do
-    not change. The [recovery study](analysis/2026-10-11-stand-up-planning.md) records the published
-    controller reproduction, SAC adaptation, feedback/IK result and retained failures. Learned
-    residuals have not improved on the selected feedback controller. The four-second median /
-    six-second deadline, lower assistance and broader bodies/surfaces remain open.
   - The Crypt still uses `lie`.
 - **The posture hold.** On the hands' hulls, independent joint feedback
   [holds no installed pose](reference/posture-hold.md) within 2 cm for 10 s. An
@@ -454,6 +439,11 @@ After it, each with its own plan, in the order each needs the one before:
 
 ### The Crypt
 
+- **Party reversals and crowd motion.** The party can fall before returning to a held enemy;
+  local steering lacks the locomotion controller's braking response and excludes fallen bodies.
+  The [problem and proposal](analysis/2026-10-13-crowd-reversal.md) record the failing regression
+  and a physical movement contract to investigate. Movement remains unfixed; its regression
+  runs as a non-blocking TODO while the owner defers party-motion work.
 - **Authored set pieces** for generated depths
   (`docs/plans/2026-09-23-depths-06-set-pieces.md@144961d4`).
 - **The skeleton's intent** ([architecture](architecture.md#standing-decisions)): the ribcage and

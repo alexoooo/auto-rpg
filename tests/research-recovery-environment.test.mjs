@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { deserialize, serialize } from 'node:v8';
 import { recoveryEnvironment } from '../research/stand-up-environment.mjs';
-import { assistControl } from '../research/stand-up-assist.mjs';
 
 test('recovery actions reject invalid arrays atomically and copy accepted commands', async () => {
   const e = await recoveryEnvironment();
@@ -44,9 +43,11 @@ test('actual fallen-state continuations restore commands, observations and compl
     fresh.restore(initial); assert.deepEqual(run(fresh, one), a);
     assert.equal(a.trace.at(-1).result.fell, true);
     assert.equal(a.trace.at(-1).result.success, false);
-    const invalid = deserialize(initial); invalid.identity.specSha = 'another-body';
-    assert.throws(() => fresh.restore(serialize(invalid)), /configuration/);
-    assert.deepEqual(deserialize(fresh.save()).saved.state, a.state);
+    for (const field of ['specSha', 'sourceSha', 'environmentSha', 'revision']) {
+      const invalid = deserialize(initial); invalid.identity[field] = 'incompatible';
+      assert.throws(() => fresh.restore(serialize(invalid)), /configuration/, field);
+      assert.deepEqual(deserialize(fresh.save()).saved.state, a.state, 'rejected checkpoints change nothing');
+    }
   } finally { fresh.dispose(); e.dispose(); }
 });
 
@@ -127,22 +128,5 @@ test('assisted actions clip the actual wrench, replay it exactly and clear it wh
       assert.deepEqual(unassisted.body.assist.given.moment.asArray(), [0,0,0]);
       assert.equal(unassisted.result().assisted, false);
     } finally { unassisted.dispose(); }
-  } finally { e.dispose(); }
-});
-
-test('settled tilted feet are evaluated using loaded contact patches', async () => {
-  const e = await recoveryEnvironment({ balance: 100 });
-  const control = assistControl(e, { turn: .5, damping: .1, lift: 1.2, horizontal: 1 });
-  try {
-    await e.fall({ degrees: 90 });
-    for (let i = 0; i < 600 && e.result().handover === null; i++) e.step(control(e.measure()), { automaticHandover: true });
-    assert.ok(e.result().handover !== null, 'physical support is recognized before the walking tail');
-    const m = e.measure();
-    assert.equal(m.ready, true);
-    assert.equal(e.body.has, 'command');
-    assert.ok(m.soleUp.every(v => v > .99 && v < 1));
-    const loaded = m.observation.contacts.filter(c => c.fixed !== null && c.impulse > 0);
-    assert.deepEqual(loaded.map(c => c.segment).sort(), ['foot.left', 'foot.right']);
-    assert.ok(loaded.every(c => c.patch.filter(p => p.distance <= 0).length >= 3));
   } finally { e.dispose(); }
 });

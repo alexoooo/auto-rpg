@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { deserialize } from "node:v8";
 import { standUpReplay } from "../research/stand-up-replay.mjs";
 import { IK_SETTINGS, standUpKinematics, solveStandUpPose, solveStandUpPath } from "../research/stand-up-ik.mjs";
@@ -8,9 +9,8 @@ test("a real fall has immutable pose planning and complete exact checkpoints in 
   const f = await standUpReplay();
   let fresh;
   try {
-    f.fall();
-    for (let k = 0; k < 600 && f.stance.body.state.mind.subs[0].policy.phase !== "place"; k++) f.step();
-    assert.equal(f.stance.body.state.mind.subs[0].policy.phase, "place");
+    f.step(240);
+    f.stand.world.physics.load(new Uint8Array(readFileSync(new URL("fixtures/actual-fours-world.bin", import.meta.url))));
     const checkpoint = f.save(), model = standUpKinematics(f);
     assert.ok(model.fkError.position < IK_SETTINGS.fkPositionTolerance, JSON.stringify(model.fkError));
     assert.ok(model.fkError.orientation < IK_SETTINGS.fkAngularTolerance, JSON.stringify(model.fkError));

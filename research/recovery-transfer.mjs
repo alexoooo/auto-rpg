@@ -20,10 +20,12 @@ export async function transferTrial({ hand = 'left' } = {}) {
   const made = riseLimbs({ spec: built.spec, built, muscles: body.muscles, assist: body.assist }, recipe);
   const upright = uprightness(built), riser = riserOf(body), c = new Vector3(), p = new Vector3(), v = new Vector3();
   const segments = [...built.segments.values()], mass = segments.reduce((s, part) => s + part.rigid.mass, 0);
+  const transfer = [];
   let projection = null, released = null, gapBefore = null, peak = 0, clearance = null;
   try {
     for (let i = 0; i < 16 * world.hz; i++) {
-      if (riser.phase === 'rise' && riser.stage === at + 1) {
+      const transferring = riser.phase === 'rise' && riser.stage === at + 1;
+      if (transferring) {
         made.read(upright.lowest(), false); c.setAll(0);
         for (const segment of segments) c.addInPlace(centreOfToRef(segment, p).scaleInPlace(segment.rigid.mass / mass));
         const supports = made.limbs.filter((_, k) => stage.on.some(on => on.limb === recipe.limbs[k].name))
@@ -36,6 +38,8 @@ export async function transferTrial({ hand = 'left' } = {}) {
       world.step();
       if (riser.phase === 'rise' && riser.stage === at + 1) {
         peak = Math.max(peak, ...segments.map(s => s.body.linearVelocityToRef(v).length()));
+        if (transferring && !was) transfer.push({ projection, lifted: riser.lifted,
+          bearing: riser.bear.tasks.map(t => t.on && t.bearing) });
         if (!was && riser.lifted) released = { seconds: riser.time, projection,
           bearing: riser.bear.tasks.map(t => t.on && t.bearing) };
         if (released) {
@@ -46,7 +50,7 @@ export async function transferTrial({ hand = 'left' } = {}) {
       if (riser.furthest === at + 1 && riser.phase !== 'rise') break;
     }
     return { harness: { kind: 'Node toppled Warrior', engine: world.physics.engine, revision: world.physics.revision,
-      hz: world.hz, actuation: world.actuation, balance: 0, held: 'empty' }, hand, gapBefore, released, clearance, peak,
+      hz: world.hz, actuation: world.actuation, balance: 0, held: 'empty' }, hand, gapBefore, released, clearance, peak, transfer,
       phase: riser.phase, assist: { force: body.assist.meter.force, moment: body.assist.meter.moment } };
   } finally { dispose(); }
 }

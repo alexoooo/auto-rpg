@@ -2,24 +2,22 @@ import { recoveryFeatures } from '../src/core/control/recovery-features.ts';
 import { serialize, deserialize } from 'node:v8';
 import { recoveryEnvironment } from './stand-up-environment.mjs';
 import { recoveryDesign } from './stand-up-design.mjs';
-import { assistControl } from './stand-up-assist.mjs';
 
 /** Full-body observations and bounded actions over the actual game world's recovery port. */
 export async function learningEnvironment(configuration = {}) {
-  const options = { balance: 100, seconds: 12, actionRepeat: 3, seed: 1, mode: 'torque', ...configuration };
-  if (!['torque', 'targets', 'residual'].includes(options.mode) || !Number.isSafeInteger(options.actionRepeat)
+  const options = { balance: 0, seconds: 12, actionRepeat: 3, seed: 1, mode: 'torque', ...configuration };
+  if (!['torque', 'targets'].includes(options.mode) || !Number.isSafeInteger(options.actionRepeat)
     || options.actionRepeat < 1 || options.actionRepeat > 12) throw new Error('invalid training action mapping');
   const e = await recoveryEnvironment({ ...options, spec: recoveryDesign(options) });
   const reference = e.measure(), standing = reference.observation.height;
   const root = e.stand.built.segments.get('lowerTrunk');
   const actionSize = e.channels.length + 6;
   const previous = Array(actionSize).fill(0);
-  const prior = assistControl(e, { turn: .5, damping: .1, lift: 1.2, horizontal: 1, ...options.feedback });
   let randomState = options.seed >>> 0, steps = 0, totalSteps = 0, returnValue = 0;
   const random = () => ((randomState = (Math.imul(randomState,1664525)+1013904223)>>>0)/4294967296);
   const pristine = e.save();
   const features = recoveryFeatures({rest:root.rest.asArray(),standing,channels:e.channels,balance:options.balance,strength:options.strength??1});
-  const observation = () => features(e.measure(),previous,options.mode==='residual' ? prior.state : undefined);
+  const observation = () => features(e.measure(),previous);
   const reward = m => {
     const o=m.observation;
     // The published long-tail head-height reward is scaled to this model's reference height.
@@ -47,14 +45,6 @@ export async function learningEnvironment(configuration = {}) {
       : {kind:'targets',angles:action.slice(0,n).map((x,i)=>e.channels[i].min+(x+1)/2*(e.channels[i].max-e.channels[i].min)),response:.15,speed:6,activation:1,assist:help};
     let row, value=0, components;
     for(let k=0;k<options.actionRepeat;k++) {
-      if (options.mode === 'residual') {
-        const base = prior(e.measure()), scale = options.residual ?? .2;
-        command = base.kind === 'host' ? base : { ...base,
-          angles: base.angles.map((x,i) => Math.max(e.channels[i].min, Math.min(e.channels[i].max,
-            x + scale*action[i]*(e.channels[i].max-e.channels[i].min)))),
-          assist: { force: base.assist.force.map((x,i) => x+scale*help.force[i]),
-            moment: base.assist.moment.map((x,i) => x+scale*help.moment[i]) } };
-      }
       row=e.step(command,{automaticHandover:true}); steps++;totalSteps++;
       components=reward(row); value+=components.shaped;
       if(row.result.success||row.result.failure)break;
@@ -70,7 +60,7 @@ export async function learningEnvironment(configuration = {}) {
       assistance:structuredClone(e.experiment.assistance),episodeSteps:steps,totalSteps,returnValue};
   };
   const reset = async ({ degrees, impulse, separation, settleSteps } = {}) => {
-    e.restore(pristine);steps=0;returnValue=0;previous.fill(0);prior.state.heading=null;prior.state.released=false;prior.state.started=null;
+    e.restore(pristine);steps=0;returnValue=0;previous.fill(0);
     const before=e.stand.world.steps;
     const requestedRecipe={degrees:degrees??random()*360,
       impulse:impulse??(options.randomizeFalls ? 45+30*random() : 60),
@@ -96,11 +86,10 @@ export async function learningEnvironment(configuration = {}) {
     return {observation:initial,initialPose,result:e.result(),requestedRecipe,recipe,attempts,totalSteps};
   };
   return { actionSize, observation, step, reset,
-    inspect:()=>({measurement:e.measure(),host:e.stance.frame(),prior:structuredClone(prior.state),result:e.result(),has:e.body.has}),
+    inspect:()=>({measurement:e.measure(),host:e.stance.frame(),result:e.result(),has:e.body.has}),
     identity:{...e.identity,options,observationVersion:1,actionSize},
-    save:()=>serialize({physical:e.save(),previous,prior:prior.state,randomState,steps,totalSteps,returnValue}),
+    save:()=>serialize({physical:e.save(),previous,randomState,steps,totalSteps,returnValue}),
     restore(bytes){const s=deserialize(bytes);e.restore(s.physical);previous.splice(0,previous.length,...s.previous);
-      Object.assign(prior.state,s.prior);
       randomState=s.randomState;steps=s.steps;totalSteps=s.totalSteps;returnValue=s.returnValue;},
     dispose:()=>e.dispose() };
 }

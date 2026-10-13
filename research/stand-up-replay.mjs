@@ -12,8 +12,6 @@ import { clockSenses } from "../src/core/mind/senses.ts";
 import { LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
-import { createBody } from "../src/core/body.ts";
-import { driveFighter, fighterBody } from "../src/core/mind/fighter.ts";
 import { coreStand, saveStand, loadStand } from "../tests/harness/core-stand.mjs";
 
 const digest = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -55,38 +53,30 @@ export function standUpCheckpoint(bytes) {
 }
 
 /** The actual Lab host and body persist through the shoves, recovery and commanded handover. */
-export async function standUpReplay({ model = "workshop-fighter", held = "empty", recovery, recoveryId } = {}) {
+export async function standUpReplay({ model = "workshop-fighter", held = "empty", mind = { ...LAB_PRESETS.script.config, subs: [{ kind: "support-recovery" }] } } = {}) {
   const spec = armedWith(modelSpec(model), "right", held);
   const stand = await coreStand(spec, { engine: "rapier-coordinate", groundSize: 40, posture: guardPosture(spec) });
-  const config = { ...LAB_PRESETS.script.config, subs: [{ kind: "dynamic-rise" }] };
-  if (recovery && !recoveryId) { stand.dispose(); throw new Error("an experimental recovery requires its configuration identity"); }
-  const actor = recovery ? (() => {
-    const wiring = { name: "lab", orders: () => null };
-    const body = createBody(stand.built, stand.world, { ...fighterBody(config, wiring), subs: [recovery] });
-    let skills = null;
-    return { body, world: stand.world, get skills() { return skills; },
-      drive(script) { return skills = driveFighter(body, stand.world, config, { ...wiring, script }); },
-      dispose() { body.dispose(); } };
-  })() : labActor(stand.built, stand.world, { mind: config });
+  const config = structuredClone(mind);
+  const actor = labActor(stand.built, stand.world, { mind: config });
   const stance = startStance(actor), { body } = stance;
   const states = { body: body.state, skills: actor.skills.state, orders: stance.orders };
   const observe = observeBody(stand.built, body.muscles, stand.world, clockSenses(stand.world), undefined, () => body.down, true);
   const metadata = { harness: "Node Stance Lab host", engine: stand.world.physics.engine,
     revision: stand.world.physics.revision, artifact, artifactSha256, controllerSha256, specSha256: digest(JSON.stringify(spec)), hz: 1 / stand.world.dt,
-    actuation: stand.world.actuation, balance: 0, model, held, mind: config, recoveryId: recoveryId ?? "production",
+    actuation: stand.world.actuation, balance: 0, model, held, mind: config,
     shoves: [{ impulse: 60, degrees: 0, step: 240 }, { impulse: 60, degrees: 0, step: 264 }] };
   const root = stand.built.segments.get("lowerTrunk"), inverse = Quaternion.Inverse(root.rest);
   let firstDown = null;
   const sample = () => {
-    const o = observe(), sub = body.state.mind.subs[0], p = sub.policy;
+    const o = observe();
     const up = Vector3.UpReadOnly.applyRotationQuaternionToRef(root.node.rotationQuaternion.multiply(inverse), new Vector3()).y;
     const mass = [...stand.built.segments.values()].reduce((sum, part) => sum + part.rigid.mass, 0);
     const velocity = o.segments.reduce((v, s) => v.map((value, k) => value
       + s.velocity[k] * stand.built.segments.get(s.name).rigid.mass / mass), [0, 0, 0]);
-    const seconds = Math.sqrt(Math.max(0, o.centre[1] - p.ground) / -stand.world.physics.gravity[1]);
+    const seconds = Math.sqrt(Math.max(0, o.centre[1]) / -stand.world.physics.gravity[1]);
     return structuredClone({ time: o.time, fromSecondShove: o.time - 264 * stand.world.dt,
       firstDown, fromFirstDown: firstDown === null ? null : o.time - firstDown,
-      policy: p, up, centre: o.centre, velocity, capture: [o.centre[0] + velocity[0] * seconds, o.centre[2] + velocity[2] * seconds],
+      controller: { name: body.has, state: body.state.mind.subs }, up, centre: o.centre, velocity, capture: [o.centre[0] + velocity[0] * seconds, o.centre[2] + velocity[2] * seconds],
       handPoses: o.handPoses, segments: o.segments, joints: o.joints.map((j, i) => ({ ...j,
         min: body.muscles.channels[i].dof.spec.min.value, max: body.muscles.channels[i].dof.spec.max.value,
         activation: body.muscles.activation[i], requestedVelocity: Number.isFinite(body.muscles.velocity[i])
@@ -94,8 +84,6 @@ export async function standUpReplay({ model = "workshop-fighter", held = "empty"
         atBound: j.effort > 0 ? j.positive > 0 && j.effort >= j.positive * .98
           : j.negative > 0 && -j.effort >= j.negative * .98 })),
       floor: o.contacts.filter(c => c.fixed !== null), self: o.contacts.filter(c => c.other !== null),
-      tracking: { contact: sub.tracking.contact, stops: sub.tracking.stops, rejected: sub.rejected },
-      experiment: sub.experiment ?? null,
       assist: { force: body.assist.meter.force, moment: body.assist.meter.moment }, down: o.down });
   };
   const step = (count = 1) => {
@@ -119,36 +107,36 @@ export async function standUpReplay({ model = "workshop-fighter", held = "empty"
     dispose() { stance.dispose(); stand.dispose(); } };
 }
 
-/** A fresh fall, its actual placement checkpoint and its uninterrupted production continuation. */
+/** A fresh fall and an exact continuation from its first down observation. */
 export async function replayStandUp({ watch = 8, verifyFork = true, ...options } = {}) {
   const f = await standUpReplay(options);
   try {
     f.fall();
     const events = [], checkpoints = [];
-    let last = "", placement = null;
+    let last = "", fallen = null;
     for (let k = 0; k < Math.round(watch / f.stand.world.dt); k++) {
-      f.step(); const p = f.stance.body.state.mind.subs[0].policy;
-      const key = `${p.phase}/${p.stage}/${p.retries}/${p.released}`;
+      f.step();
+      const key = f.stance.body.has;
       if (key !== last) {
         last = key; events.push(f.sample());
         const checkpoint = f.save(); checkpoints.push(checkpoint);
-        if (p.phase === "place" && placement === null) placement = checkpoint;
+        if (f.stance.body.down && fallen === null) fallen = checkpoint;
       }
-      if (p.completed) break;
+      if (fallen && !f.stance.body.down && key === "command") break;
     }
     const final = f.sample();
     let exact = null;
-    if (verifyFork && placement) {
+    if (verifyFork && fallen) {
       const continuation = () => {
         const trace = [];
         for (let k = 0; k < 60; k++) { f.step(); trace.push(f.sample()); }
         return { trace, saved: saveStand(f.stand.world, { body: f.stance.body.state,
           skills: f.actor.skills.state, orders: f.stance.orders }) };
       };
-      f.restore(placement); const expected = continuation();
+      f.restore(fallen); const expected = continuation();
       const fresh = await standUpReplay(options);
       try {
-        fresh.restore(placement);
+        fresh.restore(fallen);
         const trace = [];
         for (let k = 0; k < 60; k++) { fresh.step(); trace.push(fresh.sample()); }
         assert.deepEqual({ trace, saved: saveStand(fresh.stand.world, { body: fresh.stance.body.state,
@@ -171,7 +159,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   report.checkpoints = checkpoints.map(({ id, diagnostic }) => ({ id, diagnostic }));
   writeFileSync(`${process.argv[at + 1]}/replay.json`, JSON.stringify(report, null, 2), { flag: "wx" });
   console.log(JSON.stringify({ metadata: result.metadata, exact: result.exact,
-    transitions: result.events.map(e => ({ seconds: e.fromSecondShove, phase: e.policy.phase,
-      stage: e.policy.stage, retries: e.policy.retries, up: e.up, down: e.down,
-      rejected: e.tracking.rejected })), completed: result.final.policy.completed }, null, 2));
+    transitions: result.events.map(e => ({ seconds: e.fromSecondShove, controller: e.controller.name, up: e.up, down: e.down })) }, null, 2));
 }

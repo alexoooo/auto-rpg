@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { learningEnvironment } from '../research/stand-up-learning-environment.mjs';
 
-for (const mode of ['torque','residual']) test(`${mode} learning resumes physical transitions, action history, reward and sampling state`, async()=>{
+for (const mode of ['torque','targets']) test(`${mode} learning resumes physical transitions, action history, reward and sampling state`, async()=>{
   const e=await learningEnvironment({seed:4,balance:50,mode});
   try {
     const reset=await e.reset({degrees:90});

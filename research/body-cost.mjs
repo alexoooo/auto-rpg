@@ -84,7 +84,7 @@ async function cost(count) {
   rows.push(read("down, held"));
   level("limp");
   for (const { body } of bodies) body.dispose();
-  bodies.forEach((b, i) => { bodies[i] = driven(b.body.built, subMindsOf([{ kind: "staged-rise" }])); });
+  bodies.forEach((b, i) => { bodies[i] = driven(b.body.built, subMindsOf([{ kind: "support-recovery" }])); });
   world.step(3 * world.hz);
   // What each riser is at, counted over the bodies at every step of the reading.
   const doing = { slack: 0, posing: 0, bearing: 0 };

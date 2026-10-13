@@ -50,7 +50,7 @@ export function summarizeAcceptance(rows) {
 export async function evaluateAcceptanceCase(c, manifest, candidateFactory, controller = 'optimized') {
   const checkpoint = readFileSync(new URL(c.file, directory));
   assert.equal(digest(checkpoint), c.sha256, 'saved fall bytes match their frozen identity');
-  const negative = controller === 'floating-negative-control';
+  const negative = controller === 'assisted-negative-control';
   const e = await acceptanceEnvironment(c.configuration, negative ? 100 : 0);
   let audit;
   try {
@@ -69,7 +69,7 @@ export async function evaluateAcceptanceCase(c, manifest, candidateFactory, cont
     const initial = digest(JSON.stringify(e.observe()));
     assert.equal(initial, c.observationSha256, 'restored starting observation must match');
     audit = unassistedAudit(e.stand.built, () => e.stand.world.steps);
-    if (controller !== 'optimized') e.selectComparison(negative ? 'assisted' : controller);
+    if (controller !== 'optimized' && !negative) e.selectComparison(controller);
     const policy = candidateFactory && await candidateFactory(structuredClone({ channels: e.channels, configuration: c.configuration }));
     if (candidateFactory) assert.equal(typeof policy, 'function', 'createPolicy returns an action function');
     const trace = createHash('sha256');
@@ -84,6 +84,8 @@ export async function evaluateAcceptanceCase(c, manifest, candidateFactory, cont
           result = unassistedResult(e.result(), audit.events); break;
         }
       }
+      if (negative) action = { kind: 'muscles', activation: e.channels.map(() => 0), velocity: e.channels.map(() => 0),
+        assist: { force: [0, 1, 0], moment: [1, 0, 0] } };
       const row = e.step(action, { automaticHandover: true });
       trace.update(JSON.stringify(row.observation));
       result = unassistedResult(row.result, audit.events);
@@ -99,25 +101,26 @@ export async function evaluateAcceptanceCase(c, manifest, candidateFactory, cont
   } finally { audit?.dispose(); e.dispose(); }
 }
 
-/** The shipped floating controller is a deliberate negative control, with its real Balance 100 force path enabled. */
-export async function rejectFloatingController(c, manifest) {
+/** A nonzero assistance request exercises the real force path as a rejection control. */
+export async function rejectAssistedAction(c, manifest) {
   if (c) {
-    const row = await evaluateAcceptanceCase(c, manifest, null, 'floating-negative-control');
+    const row = await evaluateAcceptanceCase(c, manifest, null, 'assisted-negative-control');
     assert.equal(row.result.success, false);
     assert.equal(row.result.failure, 'external actuation');
     assert.ok(row.result.externalActuation.some(v => v.method === 'applyForce'));
     assert.ok(row.result.externalActuation.some(v => v.method === 'applyTorque'));
     return { ...row, role: 'negative control; identical saved fall, Balance 100 enabled solely to demonstrate rejection' };
   }
-  const e = await recoveryEnvironment({ baseline: 'assisted-rise', host: 'simbicon', balance: 100 });
+  const e = await recoveryEnvironment({ balance: 100 });
   let audit;
   try {
     await e.fall();
     assert.equal(e.result().fell, true);
     audit = unassistedAudit(e.stand.built, () => e.stand.world.steps);
-    for (let i = 0; i < 30 && audit.events.length === 0; i++) e.step();
-    assert.ok(audit.events.some(v => v.method === 'applyForce'), 'real floating controller delivers a force');
-    assert.ok(audit.events.some(v => v.method === 'applyTorque'), 'real floating controller delivers a moment');
+    e.step({ kind: 'muscles', activation: e.channels.map(() => 0), velocity: e.channels.map(() => 0),
+      assist: { force: [0, 1, 0], moment: [1, 0, 0] } });
+    assert.ok(audit.events.some(v => v.method === 'applyForce'), 'assisted action delivers a force');
+    assert.ok(audit.events.some(v => v.method === 'applyTorque'), 'assisted action delivers a moment');
     const result = unassistedResult(e.result(), audit.events);
     assert.equal(result.success, false);
     assert.equal(result.failure, 'external actuation');
@@ -128,7 +131,7 @@ export async function rejectFloatingController(c, manifest) {
 
 async function main() {
   const { values } = parseArgs({ options: { candidate: { type: 'string' }, controller: { type: 'string', default: 'standard' }, output: { type: 'string', default: '.tools/stand-up-acceptance/report.json' } } });
-  assert.ok(['optimized', 'standard', 'dynamic', 'assisted'].includes(values.controller), 'unknown built-in comparison');
+  assert.ok(['optimized', 'standard'].includes(values.controller), 'unknown built-in comparison');
   assert.ok(!values.candidate || values.controller === 'standard', 'choose a candidate module or a built-in controller');
   const revision = frozenRevision(), started = performance.now();
   const manifest = JSON.parse(readFileSync(new URL('cases.json', directory), 'utf8'));
@@ -154,10 +157,10 @@ async function main() {
     console.log(JSON.stringify({ case: c.id, baseline: baseline.result.seconds, baselineSuccess: baseline.result.success,
       candidate: candidate.result.seconds, candidateSuccess: candidate.result.success, failure: candidate.result.failure }));
   }
-  report.negativeControl = await rejectFloatingController(manifest.cases[0], manifest);
+  report.negativeControl = await rejectAssistedAction(manifest.cases[0], manifest);
   assert.equal(frozenRevision(), revision, 'the evaluator must remain frozen throughout the run');
   report.summary = { baseline: summarizeAcceptance(report.baseline), candidate: summarizeAcceptance(report.candidateRows),
-    floatingControllerRejected: true, matchedInitialStates: report.baseline.every((b, i) => b.initialObservationSha256 === report.candidateRows[i].initialObservationSha256),
+    assistedActionRejected: true, matchedInitialStates: report.baseline.every((b, i) => b.initialObservationSha256 === report.candidateRows[i].initialObservationSha256),
     lostCompletions: report.baseline.filter((b, i) => b.result.success && !report.candidateRows[i].result.success).map(b => b.case),
     gainedCompletions: report.baseline.filter((b, i) => !b.result.success && report.candidateRows[i].result.success).map(b => b.case),
     robustnessQualified: false, criteriaChanged: false };

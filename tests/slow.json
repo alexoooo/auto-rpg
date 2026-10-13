@@ -1,4 +1,5 @@
 [
+ "frozen/recovery.test.mjs",
  "lab-research-rise.test.mjs",
  "arena-combat-checkpoint.test.mjs",
  "arena-combat.test.mjs",
@@ -12,7 +13,6 @@
  "audio-bodies.test.mjs",
  "character-motion.test.mjs",
  "core-assist.test.mjs",
- "core-assisted-rise.test.mjs",
  "core-bar.test.mjs",
  "core-choose.test.mjs",
  "core-combat-arm.test.mjs",
@@ -45,7 +45,6 @@
  "core-reach.test.mjs",
  "core-reptile.test.mjs",
  "core-rise.test.mjs",
- "core-supported-extension.test.mjs",
  "core-shared-strike.test.mjs",
  "core-stance-envelope.test.mjs",
  "core-stance.test.mjs",

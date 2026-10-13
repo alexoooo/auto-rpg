@@ -229,7 +229,7 @@ export class DungeonRun {
   readonly explored = new Set<number>();
   visible = new Set<number>();
   status: RunStatus = "playing";
-  notice = "Find the exit. Click to move; drag to keep moving through danger.";
+  notice = "";
   /** The camera's elevation, which decides where on a wall in front of the hero the cut-away falls. The page sets it. */
   pitch = CAMERA_PITCH;
   /** The unit step on the ground toward the camera, which decides what the keys walk along and which walls the
@@ -511,7 +511,7 @@ export class DungeonRun {
         return { x: 0, z: 0 };
       }
       const point = order.points[actor.next], move = this.follow(actor, point, actor.next === order.points.length - 1 && !order.drawing);
-      if (!actor.route.length && distance(at, point) >= ARRIVAL.point) this.notice = "That path is blocked. Draw a new route on the floor.";
+      if (!actor.route.length && distance(at, point) >= ARRIVAL.point) this.notice = "Path blocked";
       return move;
     }
     if (actor.target) {
@@ -525,7 +525,7 @@ export class DungeonRun {
         return { x: 0, z: 0 };
       }
       const move = this.follow(actor, order.destination, true);
-      if (!actor.route.length) this.notice = "Destination unreachable. Choose another floor point.";
+      if (!actor.route.length) this.notice = "Destination unreachable";
       return move;
     }
     if (!hero) {
@@ -604,12 +604,12 @@ export class DungeonRun {
         member.next = 0; member.replan = true;
         if (order.kind !== "idle") member.post = null;
       }
-      this.notice = order.kind === "force" ? "Force move — following your drawn route" : "Find the illuminated exit.";
+      this.notice = "";
     }
     for (const member of this.party) if (member.replan) {
       member.replan = false; member.route = []; member.goal = null; member.target = null; member.lastSeen = null;
       this.nextPerception = 0;
-      if (member.order.kind === "idle" && member === this.hero) this.notice = "Find the illuminated exit.";
+      if (member.order.kind === "idle" && member === this.hero) this.notice = "";
     }
     this.level.openNearby(this.actors.filter(a => a.fighter && a.alive).map(a => a.feet()));
     if (this.clock >= this.nextPerception) { this.perceive(); this.nextPerception = this.clock + RUN_TIMING.perceive; }

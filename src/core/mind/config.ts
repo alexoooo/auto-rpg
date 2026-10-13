@@ -20,23 +20,14 @@ import type { Edge } from "./recipe-tactics.ts";
 /** Lie still while down: ask the muscles for nothing (`lying`, `lie.ts`). */
 interface LieConfig { readonly kind: "lie" }
 
-/** Rise by stages (`stagedRise`, `rise/staged.ts`): the recipe is the game's (`RISE`). */
-interface StagedRiseConfig { readonly kind: "staged-rise" }
-
 /** Rise by stages, then stand quiet on loaded feet before giving the body back (`supportRecovery`, `rise/support-recovery.ts`). */
 interface SupportRecoveryConfig { readonly kind: "support-recovery" }
-
-/** Contact-driven human recovery (`dynamicRise`, `rise/dynamic.ts`). */
-interface DynamicRiseConfig { readonly kind: "dynamic-rise" }
 
 /** Experimental reference-motion feedback through ordinary muscles. */
 interface ResearchRiseConfig { readonly kind: "research-rise" }
 
-/** Metered root feedback with a bounded support-recovery fallback. */
-interface AssistedRiseConfig { readonly kind: "assisted-rise" }
-
 /** **A sub-mind's config**, by kind: what a host's slot holds, whole, so a sub-mind is configured where it is chosen. */
-export type SubMindConfig = LieConfig | StagedRiseConfig | SupportRecoveryConfig | DynamicRiseConfig | AssistedRiseConfig | ResearchRiseConfig;
+export type SubMindConfig = LieConfig | SupportRecoveryConfig | ResearchRiseConfig;
 
 /**
  * **Tactics that seek the foe** (`seekFoe`, `recipeTactics`): walk at the nearest foe and attack
@@ -317,8 +308,8 @@ export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tacti
 /** The mind every humanoid has unless its fight says otherwise: the recipe fighter, travelling, then fighting (`TRAVEL`). */
 export const GAME_FIGHTER: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, locomotion: TRAVEL });
 
-/** The Arena's Classic: the game's fighter, rising by stages once down. */
-export const CLASSIC: FighterConfig = deepFreeze({ ...GAME_FIGHTER, subs: [{ kind: "staged-rise" }] });
+/** The Arena's Classic: the game's fighter, rising and steadying on its feet once down. */
+export const CLASSIC: FighterConfig = deepFreeze({ ...GAME_FIGHTER, subs: [{ kind: "support-recovery" }] });
 
 /** Classic throwing the straight punch, its fist lined up behind the arm (searched in Arena bouts, `research/punch-in-bout.mjs`), held at the edge of its foe's reach. */
 export const PUNCHER: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...SEEK, range: "edge" }, blow: { kind: "straight-punch", ...STRAIGHT_PUNCH } });
@@ -339,7 +330,7 @@ export const ARENA_KICKS: KickTuning = deepFreeze({ ...KICK_PATH, swingSeconds: 
 export const SCRAPPER: FighterConfig = deepFreeze({ ...GAME_FIGHTER, locomotion: { ...TRAVEL, travel: { kind: "stride", ...STRIDE } }, tactics: { ...OPENINGS, strikes: "mixed", prefers: "body" },
   blow: { kind: "path-strike", overlap: false }, support: { kind: "support-fold" }, subs: [{ kind: "support-recovery" }] });
 
-/** A fighter of behaviours (`BehavioursConfig`): orders followed first, then `list`, then the hands covering; rising by stages once down. */
+/** A fighter of behaviours (`BehavioursConfig`): orders followed first, then `list`, then the hands covering; rising and steadying on its feet once down. */
 const behaving = (list: readonly BehaviourConfig[]): FighterConfig => deepFreeze({ ...CLASSIC, blow: null,
   tactics: { kind: "behaviours", list: [{ kind: "follow-orders" }, ...list, { kind: "cover", guard: "cover" }] } });
 

@@ -1,10 +1,9 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { foursSupport } from "./fours-support.mjs";
+import { foursSupport, SUPPORT_JOINT_STOPS } from "./fours-support.mjs";
 import { embody } from "../../src/core/mind/mind.ts";
 import { applyAction } from "../../src/core/mind/actions.ts";
 import { stagedRise } from "../../src/core/mind/rise/staged.ts";
 import { RISE } from "../../src/core/mind/rise/stages.ts";
-import { HAND_TRANSFER } from "../../src/core/mind/rise/hand-transfer.ts";
 import { wholeBodyTracking } from "../../src/core/control/whole-body.ts";
 import { lowsOf, uprightness } from "../../src/core/control/ground.ts";
 import { centreOfToRef } from "../../src/core/control/support.ts";
@@ -72,7 +71,7 @@ export async function uprightKneel({ bearingSeconds = .2 } = {}) {
         capacity: 12, effortCost: 1e-6, contact: { physics: stand.world.physics, dt: stand.world.dt,
           settings: { normalResponseSeconds: .2, maxPoints: 64, gap: .005, minUpNormal: .9, pointSeparation: .001,
             forceTolerance: 1e-5, redistributionCost: 1e-6, iterations: 2048, absoluteTolerance: 1e-7, relativeTolerance: 1e-6,
-            liftOff: { accelerationTolerance: .1 } } }, jointStops: { dt: stand.world.dt, settings: HAND_TRANSFER.jointStops } });
+            liftOff: { accelerationTolerance: .1 } } }, jointStops: { dt: stand.world.dt, settings: SUPPORT_JOINT_STOPS } });
       const observe = observeBody(stand.built, own.muscles, stand.world, clockSenses(stand.world), undefined, () => upright.down(), true);
       const state = { phase: "toes", time: 0, boots, goal, bearing: bearing.state,
         tracking: tracker.state, captured: null, rejected: 0 };

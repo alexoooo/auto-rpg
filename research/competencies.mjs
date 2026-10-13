@@ -145,7 +145,7 @@ export function competencyJobs({ competency, model, held, seed, physique, blow }
   }
   if (wanted("rise")) {
     const { ways, impulse, watch } = COMPETENCY.rise;
-    for (let k = 0; k < ways; k++) jobs.push({ ...common, task: "recovery", competency: "rise", recovery: "staged-rise",
+    for (let k = 0; k < ways; k++) jobs.push({ ...common, task: "recovery", competency: "rise", recovery: "support-recovery",
       degrees: (k + fraction) * 360 / ways, impulse, watch });
   }
   if (wanted("kick")) {

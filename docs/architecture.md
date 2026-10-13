@@ -635,7 +635,11 @@ the **quadruped** (crawl and bite); and **direct** joint control. A config read 
 reads). A part's config holds a player's fields, plain choices, and under `tuning` an
 experiment's settings, which never travel in a link. A key its part does not read, or a tuning it
 does not name (`Part.tuning`), is a fault, so a setting put in the wrong place is refused, never
-silently dropped.
+silently dropped. `CONFIG_KEYS` (`src/core/mind/config-keys.ts`) enumerates the accepted keys
+independently of editor fields and default values. Its mapped type requires every property of
+every config kind, including optional settings, and rejects extra keys at compile time. Parts'
+fault predicates validate values; slots validate nested parts. Hiding an editor field does not
+remove that setting from saved configs, links or research overrides.
 
 **The fighter's slots** (`FighterConfig`) are its tactics, a skill of each role and its
 sub-minds. Its tactics (`tacticsOf`, `tactics-of.ts`) are `seek` (`recipeTactics`, with `guard`,
@@ -707,12 +711,13 @@ When a sub-mind takes over, the host releases its stance and clears the previous
 used by the compliant-sole damping filter. On return, filtering starts with the current torque
 request; it does not average in a request from before the takeover.
 
-There are five sub-minds, each of which wants the body while it is down
-(`BodyView.down`), and the body hands each maker its world (`SubMindMaker`): `lie` (`lying`,
-`lie.ts`), which asks its muscles for nothing, `staged-rise` (`stagedRise`, `rise/staged.ts`),
-the riser, `support-recovery` (`supportRecovery`), the riser followed by a quiet standing
-handover, experimental `dynamic-rise` (`dynamicRise`, `rise/dynamic.ts`), and
-`assisted-rise` (`assistedRise`, `rise/assisted.ts`).
+There are three sub-minds. Each reads its host's down state (`BodyView.down`) and receives
+the body's world (`SubMindMaker`): `lie` (`lying`, `lie.ts`) asks the muscles for nothing;
+`support-recovery` (`supportRecovery`) plays the staged recipe and verifies quiet standing
+before handover; `research-rise` (`researchRise`) tracks experimental reference motions with
+live feedback through ordinary muscles. Classic, Puncher, Scrapper and Behaviours use
+`support-recovery`. The staged riser is an internal component of that baseline, not a separate
+editor choice.
 `RECIPE_FIGHTER` is the seeking fighter over the recipe strike, walking in the stance, with `lie`;
 the Lab's minds are made from it. `GAME_FIGHTER` is it travelling by `TRAVEL`: the mind every
 humanoid has unless its fight says otherwise (`modelInfo`), so a body that falls lies still ([reference/rising.md](reference/rising.md#lying)). An arena
@@ -720,23 +725,6 @@ recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives an enemy 
 mind chosen for its model on the start panel (`DungeonRunOptions.minds`), its model's unless one
 was; the lab's actor drives the fighter its page chose (`ActorOptions.mind`), the Script preset
 unless it is given another.
-
-**Assisted rise** is an additional experimental Warrior/Rogue controller, separate from the
-unfinished goal of fast, robust unassisted rising. It uses the existing
-metered `Assist` port for bounded root force and righting moment, plus ordinary muscle commands
-toward a staggered-foot target. The leg target is an offline collision-aware IK result; the upper
-body retains the loadout's guard. After four seconds, upright feet receive horizontal
-whole-body centring without upward help. A Rogue-specific alternate leg target blends in after
-six seconds, with one half-second unloading/folding pulse to free trapped feet. A supported
-release fades the remaining wrench over 0.1 seconds and suppresses the pulse. Transient contact
-loss does not restart that fade; a sustained loss of upright trunk/foot orientation rearms help.
-Actual physical support still gates handover. The selected allowance is Balance 100%, with the
-existing moment rule; lower allowances use support recovery. The twelve-second fallback keeps
-the original elapsed attempt. State, including heading, transition blends and release anchors,
-is replayable. Ordinary gameplay presets and anatomy are unchanged. The Lab's Get-up experiment
-selects it with the SIMBICON host and original feet; the slow searched sole-body witness remains
-a separate choice. Independent acceptance uses actual penetrating contact-patch points, upright
-trunk/soles, quiet motion and the ordinary host's standing/walking tail. Evidence and limits are in the [recovery study](analysis/2026-10-11-stand-up-planning.md).
 
 **The riser plays a recipe** (`Recipe`, `RISE`, `rise/stages.ts`): plain data that names
 freedoms and limbs, and no body. A recipe can override intermediate motion and settling
@@ -781,124 +769,21 @@ other unsuccessful attempts restart after twenty seconds. Host action requests a
 ordinary stance controller to act. The recovery itself requests zero assistance and leaves
 body and muscle limits unchanged. Its experimental status does not claim robust recovery.
 The Get-up experiment's `selected` mode preserves the edited mind and loadout, including when
-repeating its timed shoves, instead of installing an assisted or witness controller.
+repeating its timed shoves, instead of installing the witness recipe.
 
-**Dynamic rise** separates a detached observation policy from the muscle adapter. The policy
-waits for a non-foot floor contact, orients, acquires hand/shin support, places a lead foot,
-transfers weight, extends and verifies standing. It retains a held club and uses the free hand;
-empty-handed it retains both hands during placement. Its observer includes unaveraged solver
-points from loaded floor manifolds. Support release uses this measured contact outline, preserving
-a boot's width, and a mass-weighted velocity projection of the centre. A planted foot needs a loaded,
-upward-facing sole; placement enters transfer only with the trunk clear and the rear shin loaded.
-The policy's pressure-transfer component captures loaded hands, rear shin and both boots,
-retains their measured geometry and
-tapers the outgoing hand's predicted compressive load before lifting it. The arm lifts only
-after its measured floor load is quiet and the retained contacts still carry weight. The centre
-target transforms the physical local mass centres directly, matching the dynamics' reading.
-This controlled handoff can clear both hands and the knee while the rear boot remains tipped;
-it does not satisfy the standing gate. With compact footing, a supported near-vertical rear toe retains native extension.
-For a sole tipped farther downward, coordinated extension from a loaded upright half-kneel
-shifts the centre over the boots, lets the rear knee rise and peels the rear boot onto its sole
-using a body-local toe edge. Nearby geometry retains the requested support during zero-load
-frames. Native standing takes over only after both actual soles are loaded and flat, the root
-is upright and the body's centre is slow. Its final quiet-standing gate precedes host handover.
-`tests/core-supported-extension.test.mjs` continues an actual muscle-produced half-kneel through
-this production path, then stands for two seconds and walks for one, with an exact checkpoint
-replay. This component does not qualify recovery from a fresh fall or the full timing target.
-Pose seeds are clamped to the
-body's limits; the Warrior's fours seed is the installed posture asset. Placement reads its
-heading from the supported body's current orientation after rolling and acquisition. It tracks the
-sole's centre to the floor, turns the boot flat and lifts it along an arc scaled to the leg's
-length. Root-height aims also use smooth trajectories. Its contact prediction merges points
-within 1 mm on the same segment, so overlapping colliders do not create separate restraints
-at almost the same position. Physical contacts remain the engine's. The whole-body tracker predicts
-loaded contacts and lift-off and asks only muscle torques; a rejected prediction applies zero
-torque. Optional normal gap and velocity feedback stabilizes admitted contacts. Motion commands
-can bound a support frame's total predicted compressive load or each selected point's minimum;
-these bounds constrain muscle torque and apply no contact force to the world.
-An explicit positive aggregate load request also retains its admitted contact rows in the initial
-lift-off probe. It creates no missing contact; a recovery controller drops an unmet load floor
-when the measured geometry leaves the admission gap.
-Dynamic rise uses normal feedback and retains a measured rear toe with a positive point-load floor during placement
-and transfer; an unloaded toe is not added as support. Its tracker also predicts joint stops
-within the same muscle envelope. Orientation and
-acquisition use bounded joint-velocity feedback. During acquisition,
-the hips respond to the pelvis's measured pitch, checking the forward reaction of drawing the
-knees under the body. Loaded hands and knees advance the tuck and prop; foot placement waits
-for the fours posture, both free hands, clear trunk contacts and a pelvis above prone. An
-inverted tuck cannot start foot placement. A stalled objective
-retries locally, and a six-second attempt reclassifies actual contacts and orientation. Each
-stage measures progress against its own objective; a transition clears the outgoing error.
+The whole-body tracker's support controls remain independent of a recovery controller.
+Optional normal gap and velocity feedback stabilizes admitted contacts; support commands can
+bound total compressive load or each point's minimum. These bounds constrain muscle torque,
+not externally applied contact force. A per-step support band selects the deepest solver points
+without welding raised corners of a tilted segment. The physical support fixtures test these
+controls from captured, muscle-produced falls, without a recovery controller preparing the pose.
 
-During foot placement, sticking support uses only solver points within 0.1 mm of the deepest
-point on each segment. Nearby raised corners remain physical contacts but do not weld a tilted
-boot or shin in the acceleration model. This selection is supplied per control step; the hand
-pressure transfer retains the full measured patch. `tests/core-support-pivot.test.mjs` exercises
-a real two-shove Lab knee-weight shift and an exact checkpoint replay. This supported pivot
-does not establish an upright kneel or a completed rise.
-
-`tests/core-supported-rise.test.mjs` continues that fresh two-shove fall through boot contact acquisition,
-a supported native bearing entry and a captured upright knee hold. The hold retains loaded
-knees and boots with the hands clear, bounds predicted support pressure and damps vertical
-motion while allowing the knee-supported height to settle. Its full physics and controller state
-replay exactly from a checkpoint. This component is separate from the production rise's foot
-placement and does not establish standing or recovery timing. The boots rest on their backs;
-the sole support needed by the native one-leg transfer is not established.
-
-`stagedRise.beginSupported` can retain a supplied legal anatomical posture for its first bearing
-stage. It copies the angles into replayable state, checks every channel's actual range before
-entry, and leaves later stages on their recipe goals. The same test continues an actual
-muscle-curled, airborne rear boot through supported native contact acquisition. The front sole
-corner acquires load while both knees remain supported, and every observation and saved state
-replays exactly. A captured handoff leaves the recipe's default goals intact.
-`beginSupported` can hold that first bearing stage until its caller finishes a measured limb
-transition; `supportedReady` reports the stage's current completion predicate. The stage's
-deadline and trunk-contact abort still apply. A recipe can give the joint servo a separate
-`postureSeconds` response while retaining the bearing aims' response. The supported-hold test
-moves an actual free wrist on loaded shins, retains bearing after readiness, checks expiry and
-replays all observations and saved physics/controller state exactly with bounded muscles and
-zero assist. These controls leave ordinary staged-rise entry and progression unchanged.
-
-`supportedHalfKneel` transfers an actual supported posture onto its lead sole and rear shin,
-then asks for the native upright half-kneel. It reads physical mass centres and velocities,
-clamps mirrored seeds to the rig's actual ranges, and gates hand release on measured load and
-quiet body motion. The supported-rise regression starts from the actual five-support Lab
-checkpoint, releases the hands, holds the extension-entry conditions for two seconds and
-replays every observation and saved physics/controller state exactly. Production dynamic rise
-uses this native bearing entry for a new supported half-kneel before extension. This transfer
-does not qualify recovery timing or the full rise.
-
-`supportedLunge` handles a wide half-kneel whose boot spacing is near a full leg length. Native
-bearing lifts the rear shin through two low heights while retaining the captured first posture
-and damping the pelvis's turn. The native stance then steps the rear foot inward before raising
-to standing. Actual loaded flat soles, an upright root, slow motion and the centre inside the
-measured soles must hold for half a second before host handover. The supported-extension
-regression continues the actual five-support Lab checkpoint through this production route,
-stands for two seconds, walks for one, and replays every observation and the full saved physics
-and controller state exactly. This checkpoint route excludes the fall and foot preparation;
-it does not qualify the full timing target or recovery across fall directions.
-
-Production rise selects extension from an upright half-kneel with a flat lead sole once
-its capture point is carried by its actual leg contacts, including the rear boot's loaded toe,
-and the captured pressure-transfer controller is inactive.
-The rear sole need not be flat before extension starts. In the compact native path, height rises from the measured stance
-over 1.3 seconds; the feet stay where they are during this transition, and the same quiet
-two-foot handover gate decides when recovery finishes.
-
-Handover requires half a second of quiet, loaded two-foot support, no other floor contacts and
-the centre inside the soles. Locomotion resumes from measured stance before this check and
-gradually restores height and foot spacing. Policy, trajectory, tracker and stabilization memory
-save under the hosted mind. The editor offers the variant to Warrior and Rogue with empty hands
-or one retained item; presets keep their existing recovery. Its zero-assist human timing gate
-fails ([reference/rising.md](reference/rising.md#dynamic-rise)); it is an experimental controller,
-not a demonstrated faster recovery route. Two 60 N s Front shoves in the Stance Lab also leave
-the Warrior losing support during foot placement and repeating recovery attempts;
-`tests/lab-dynamic-rise.test.mjs` executes this known failure alongside the stage-progress and
-physical hand-and-knee acquisition and initial bounded support-command regressions.
-`tests/core-support-load.test.mjs` holds actual toe support and pressure-transfer components;
-quiet support on a tipped boot remains short of standing. It also forks the production native
-handoff from an initialized standing host into a fresh world, through completion and two seconds
-of resumed standing.
+`stagedRise.beginSupported` copies a supplied legal anatomical posture into replayable state
+for its first bearing stage and checks actual loaded supports and trunk clearance before entry.
+It can hold the stage while a caller completes a limb transition; `supportedReady` reports its
+completion predicate. Deadline and trunk-contact aborts still apply. A recipe's `postureSeconds`
+can set the joint response independently of the bearing response. The supported-rise tests
+exercise support acquisition, a retained free-wrist movement, expiry and exact continuation.
 
 `Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
 skills' report and the envelope of the locomotion they drive) they return an `Intent` (`intent.ts`): a velocity forward
@@ -1150,6 +1035,12 @@ can load directly; a rejected load leaves the current episode intact. The identi
 resolved anatomy, task/controller settings, rate, actuation, gravity and solver artifact/adapter
 revision. The snapshot is structured data and bytes, not a JSON-only serialization format.
 
+Current-code replay tests capture fresh states. Historical stand-up checkpoints run only in the
+immutable evaluator checkout, prepared by `scripts/frozen-evaluator.mjs` with its own lockfile
+and captured Node version. `npm run test:frozen` checks the checkout before and after the
+separate test process; CI runs it in a dedicated job alongside the current-code suite. The
+checkpoint identity guards remain strict, and the saved falls and evaluator are unchanged.
+
 `createReachTask` (`tasks/reach.ts`) is the Node/browser builder for a pinned joint reach. It
 supports actuator actions through the detached policy port or posture actions through the
 layered body, with the same task goal and hold criterion. The optional `reachAction` demonstration
@@ -1393,15 +1284,13 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   and the cue of the instrument that is no contact, the shove, each at the
   mind's time, so the page plays what the frame it shows sounded of, live or replayed. Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
   built from data (`src/ui/controls.ts`).
-  The **Get-up experiment** selects live assisted rise or the portable slow searched recipe
-  (`src/lab/recovery-recipe.ts`, shared with offline feedback search). Its menu card opens a
-  Warrior with empty hands, original feet, Balance 100%, SIMBICON locomotion and 120 Hz. The
-  slow witness instead uses compliant soles, zero Balance and the original Script host. The
-  Mind editor is hidden. Reset demonstration restores the selected setup and queues Front
-  impulses of 60 N s at 2 s and 2.2 s; Repeat two shoves acts on the existing body. A one-second
-  walking command checks handover. Stress cases reproduce named directional falls, including
-  a slow recovery and a failed walking check. The 35-second history records owning controller,
-  elapsed recovery control time, force/moment with their ceilings, and release to the host.
+  The **Get-up experiment** uses the selected live mind and loadout by default. Its optional
+  slow witness uses the portable searched recipe (`src/lab/recovery-recipe.ts`), compliant soles,
+  zero Balance and the Script host. Reset demonstration queues Front impulses of 60 N s at
+  2 s and 2.2 s; Repeat two shoves acts on the existing body. A one-second walking command
+  checks handover. The Mind editor selects the recovery controller. Stress cases reproduce
+  named directional falls. The history records the owning controller, recovery control time,
+  force/moment with their ceilings, and release to the host.
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
   with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).
 - **The physics bench** (`/physics-bench.html`, `src/physics-bench/`): the bake-off's cases on
