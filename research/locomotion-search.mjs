@@ -41,8 +41,8 @@
  * seed as well, as the envelope does; a gusted hold holds if it does not fall. With `--track` a calm
  * hold's credit (not whether the ladder climbs on) is also scaled by the share of the pace asked it made, up to 1: `WENT`'s tolerance
  * otherwise lets a gait walk a fifth under every pace asked, which the Run, asking paces, reads as slow.
- * With `--narrow k` a calm hold's credit is also cut as its soles land wider apart than `k` times
- * they stood (`NARROW`): a gait searched in gusts otherwise straddles.
+ * With `--narrow k` a hold's credit, calm or gusted, is also cut as its soles land wider apart than `k`
+ * times they stood (`NARROW`): a gait searched in gusts otherwise straddles.
  *
  * With `--way run` the SIMBICON run's settings (`RUN_WAY_DIMS`) are searched as the part's `tuning.run`
  * over the legs `--legs` names (a JSON file of a SIMBICON config; else the defaults), on the battery's
@@ -139,8 +139,8 @@ const FORWARD = 2;
  * A walk made far faster than asked overshoots every corner of the Run's square.
  */
 const OVER = { share: 1.3, plus: 0.15 };
-/** With `--narrow k`, how much of a calm hold's credit each share of its standing width its steps land wider than `k` times it takes off. */
-const NARROW = 2;
+/** With `--narrow k`, how much of a hold's credit each share of its standing width its steps land wider than `k` times it takes off. */
+const NARROW = 1;
 function quality(r, asked) {
   if (r.fell) return 0;
   const short = (WENT.along * asked - r.along) / ((1 - WENT.along) * asked), wide = (Math.abs(r.across) - WENT.across * asked) / (WENT.across * asked);
@@ -151,7 +151,7 @@ function quality(r, asked) {
  * The battery objective's speeds climbed, m/s (`--speeds` names others); its ways, degrees to the right
  * of forward; and each way's weight: forward most, for the Run's circle and shuttle walk forward.
  */
-const BATTERY = { speeds: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.7, 2], ways: [0, 90, 180, 270, 45], weight: { 0: 2, 90: 1, 180: 1, 270: 1, 45: 0.5 } };
+const BATTERY = { speeds: [0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.7, 2], ways: [0, 90, 180, 270, 45], weight: { 0: 2, 90: 1, 180: 1, 270: 1, 45: 1.5 } };
 
 /**
  * With `--turns`, the turn battery's cells the battery objective climbs as well (`turn` in
@@ -268,7 +268,7 @@ async function batteryLadder(legs, model, degrees) {
     const results = await Promise.all(HELD.flatMap((held) => batteryWinds.map(async (wind) => {
       const r = await trial({ model, degrees, speed, held, legs, wind }), q = wind ? (r.fell ? 0 : 1) : quality(r, speed);
       const made = wind || !tracking ? 1 : Math.min(1, Math.max(0, r.along / speed));
-      const wide = wind || narrow === null || r.width === null ? 1 : Math.max(0, 1 - NARROW * Math.max(0, r.width / r.stood - narrow));
+      const wide = narrow === null || r.width === null ? 1 : Math.max(0, 1 - NARROW * Math.max(0, r.width / r.stood - narrow));
       return [q, q * made * wide];
     })));
     const share = results.reduce((sum, [q]) => sum + q, 0) / results.length, earned = results.reduce((sum, [, e]) => sum + e, 0) / results.length;

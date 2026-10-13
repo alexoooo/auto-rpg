@@ -21,7 +21,7 @@ import { LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const WALKING = { ...LAB_PRESETS.script.config, locomotion: { kind: "simbicon", ...SIMBICON } };
-/** How far past its early and late angles the late stance knee may be, rad. */
+/** How far past its early and late angles the late stance knee may be, rad; or past straight, where an angle near it locks under the body's weight. */
 const KNEE_SLACK = 0.02;
 
 test("a_warrior_with_the_simbicon_walk_drives_its_legs_five_metres_forward_and_stops_on_the_stance", async () => {
@@ -33,7 +33,7 @@ test("a_warrior_with_the_simbicon_walk_drives_its_legs_five_metres_forward_and_s
   actor.drive({ name: "five-metres", decide: ({ view }) => ({ move: view.stance.centre.z - start < 5 ? [1, 0] : null, face: 0, guard: NO_COVER, attack: null }) });
   const gait = actor.skills.state.legs.gait;
   let stopped = null, handed = null, driven = 0, steps = 0, last = null;
-  const angles = [], least = Math.min(SIMBICON.stanceKnee, SIMBICON.stanceKneeLate) - KNEE_SLACK, most = Math.max(SIMBICON.stanceKnee, SIMBICON.stanceKneeLate) + KNEE_SLACK;
+  const angles = [], least = Math.min(SIMBICON.stanceKnee, SIMBICON.stanceKneeLate, 0) - KNEE_SLACK, most = Math.max(SIMBICON.stanceKnee, SIMBICON.stanceKneeLate) + KNEE_SLACK;
   try {
     for (let k = 0; k < 20 * 120 && !actor.body.view.down; k++) {
       stand.step(1);

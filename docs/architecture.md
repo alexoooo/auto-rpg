@@ -416,7 +416,8 @@ tactics over the skills it is given.
   from its heading it steps where it stands as the heading turns; under way it walks on through a
   bend of up to a right angle, turning as it goes, and past that it brakes to 0.3 m/s before it
   turns round (`SET_OFF`, `TURN_ROUND`). Asked faster than `run` (1.4 m/s) it walks at 1.4, the whole walk asked scaled down.
-  Once the body has come up to it, the same machine runs in `SIMBICON_RUN`'s states: each sole lands
+  Once the body has come up to it, or, asked 0.5 m/s past it, once the walk has been asked 1.4 for
+  2 s (`RUN_SWITCH`), the same machine runs in `SIMBICON_RUN`'s states from the pace the body goes: each sole lands
   by Raibert's hopping rule, and the stance leg folds as its first state ends. The run is grounded:
   it never leaves the ground. It goes straight ahead, turning only by its heading, and walks again
   from a landing once the walk asked has come down 0.2 under 1.4 and the body has slowed to 1.4. Its
