@@ -104,7 +104,7 @@ export function labMind(config: MindConfig, spec: BodySpec): { readonly plays: F
 export const LAB_TARGETS = { most: 30, count: 10, seed: 1 } as const;
 
 export interface LabAddress extends LabLoadout, ViewSettings {
-  readonly recoveryMode: "assisted" | "witness";
+  readonly recoveryMode: "assisted" | "witness" | "selected";
   /** Two timed chest impulses: direction in degrees, impulse in N s, separation in seconds. */
   readonly recoveryPush: { readonly degrees: number; readonly impulse: number; readonly separation: number };
   readonly appearance: Appearance;
@@ -144,7 +144,7 @@ export function labAddress(search: string): LabAddress {
     return Number.isFinite(value) && value >= lo && value <= hi ? value : fallback;
   };
   return {
-    recoveryMode: query.get("recoveryMode") === "witness" ? "witness" : "assisted",
+    recoveryMode: recoveryModeFrom(query.get("recoveryMode")),
     recoveryPush: {degrees:bounded("pushDegrees",0,360,0),impulse:bounded("pushImpulse",10,120,60),separation:bounded("pushSeparation",.05,1,.2)},
     scenario: SCENARIOS.find((s) => s.id === query.get("scenario"))?.id ?? null,
     model,
@@ -201,10 +201,18 @@ export function labHref(address: LabAddress, search = ""): string {
 
 /** An explicit recovery demonstration; changing it preserves the view preferences. */
 export function recoveryAddress(address: LabAddress, recoveryMode: LabAddress["recoveryMode"] = "assisted"): LabAddress {
+  if (recoveryMode === "selected") return { ...address, scenario: "recovery", recoveryMode };
   const assisted = recoveryMode === "assisted";
   return { ...address, scenario: "recovery", recoveryMode, recoveryPush: {degrees:0,impulse:60,separation:.2},
     model: "workshop-fighter", right: "empty", left: "empty", sole: !assisted,
     balance: assisted ? 100 : 0, hz: 120, mind: assisted
       ? {...LAB_PRESETS.script.config,locomotion:{kind:"simbicon",...SIMBICON},subs:[{kind:"assisted-rise"}]}
       : LAB_PRESETS.script.config, barred: [], appearance: "default" };
+}
+
+function recoveryModeFrom(value: string | null): LabAddress["recoveryMode"] {
+  switch (value) {
+    case "selected": case "witness": return value;
+    default: return "assisted";
+  }
 }

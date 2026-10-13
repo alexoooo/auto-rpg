@@ -11,6 +11,12 @@ The earlier campaign-completion and early-finish claims were incorrect: assistan
 was treated as permission to substitute a different objective. The work remains incomplete.
 See [frozen unassisted comparison](#frozen-unassisted-comparison) for the acceptance repair.
 
+The selected motion-library candidate is available as **Research rise (experimental)** in the
+shared **When down** editor, including Stance, Arena and Dungeon. It runs feedback on the live
+body through ordinary muscles; the browser does not restore a recorded fall or play saved poses.
+This exposes the candidate for inspection and does not qualify recovery performance. The later
+contact-transfer continuations remain offline experiments, including their failed holds.
+
 ## Harness and reproduction
 
 All figures below use the **Node Stance Lab host**, Warrior (`workshop-fighter`), empty hands,
@@ -3265,7 +3271,8 @@ Its physical SHA-256 is
 `.review/stand-up-centre-transfer/replay.html` compares it with the unchanged optimized baseline
 from the identical saved fall. The embedded frames and identities are checked; the replay has
 not been visually inspected. The selected frozen controller library remains 3/16, none within
-six seconds. Full qualification and gameplay integration remain unfinished.
+six seconds. Full qualification remains unfinished; the motion-library candidate has a shared
+live controller adapter, while these contact-transfer continuations remain offline experiments.
 
 Validation: `npm run check` and all 21 focused path tests pass, including free-fall cancellation,
 static-equilibrium equivalence, reactions outside a joint's descendants, allocator/command

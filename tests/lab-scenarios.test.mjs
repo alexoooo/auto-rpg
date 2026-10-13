@@ -9,7 +9,7 @@ import { routeFor } from "../src/app-route.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CHARACTERS } from "../src/character-lab/catalog.ts";
 import { HELD } from "../src/core/items/held.ts";
-import { labAddress, labHref, LAB_PRESETS, LAB_RATES, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
+import { labAddress, labHref, recoveryAddress, LAB_PRESETS, LAB_RATES, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
 
 const SCRIPT = LAB_PRESETS.script.config, GUARD = LAB_PRESETS.guard.config;
 /** A mind no preset is: the Guard preset getting up once down. */
@@ -134,9 +134,17 @@ test("the_lab_offers_the_game_rate_first_and_distinct_scenarios", () => {
 
 
 test("recovery variant and timed shove recipes remain explicit in shareable addresses",()=>{
- for(const recoveryMode of ["assisted","witness"]){
+ for(const recoveryMode of ["assisted","witness","selected"]){
   const address={...DEFAULTS,scenario:"recovery",recoveryMode,recoveryPush:{degrees:247.5,impulse:90,separation:.35}};
   assert.deepEqual(labAddress(labHref(address)),address);
  }
  assert.deepEqual(labAddress("?pushDegrees=NaN&pushImpulse=-10&pushSeparation=0").recoveryPush,DEFAULTS.recoveryPush);
+});
+
+test("the selected-mind recovery demonstration preserves the live controller and body", () => {
+  const address = { ...DEFAULTS, scenario: "stance", model: "workshop-rogue", right: "club", balance: 0,
+    mind: { ...SCRIPT, subs: [{ kind: "research-rise" }] } };
+  const selected = recoveryAddress(address, "selected");
+  assert.deepEqual(selected, { ...address, scenario: "recovery", recoveryMode: "selected" });
+  assert.deepEqual(labAddress(labHref(selected)), selected);
 });

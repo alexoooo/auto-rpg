@@ -84,11 +84,17 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
     panels: {
       controls: [
         ...(experiment ? [choice("Get-up variant",[
-          {value:"assisted" as const,name:"Live assisted rise"},{value:"witness" as const,name:"Slow searched witness"}],
+          {value:"assisted" as const,name:"Live assisted rise"},{value:"witness" as const,name:"Slow searched witness"},
+          {value:"selected" as const,name:"Selected mind"}],
           () => recoveryMode, mode => {recoveryMode=mode;experiment.reproduceRecovery(mode);}),
-          note(() => recoveryMode === "assisted"
-            ? "Assisted experiment: Balance 100% permits external lift up to one body weight plus a righting moment. Its historical assisted results do not meet the goal of fast, robust unassisted recovery. Lower Balance uses the existing recovery fallback."
-            : "Recorded search result replayed as an ordinary recovery recipe, with compliant soles and zero Balance. Slow and unreliable."),
+          note(() => {
+            switch (recoveryMode) {
+              case "assisted": return "Assisted experiment: Balance 100% permits external lift up to one body weight plus a righting moment. Its historical assisted results do not meet the goal of fast, robust unassisted recovery. Lower Balance uses the existing recovery fallback.";
+              case "witness": return "Recorded search result replayed as an ordinary recovery recipe, with compliant soles and zero Balance. Slow and unreliable.";
+              case "selected": return "Live controller from Character → Mind → When down. Set Balance to 0 to inspect unassisted recovery.";
+              default: { const never: never = recoveryMode; throw new Error(`unknown recovery mode ${never}`); }
+            }
+          }),
           action("Reset demonstration", () => experiment.reproduceRecovery(recoveryMode), "Reset the selected variant and repeat its two timed Front shoves."),
           action("Repeat two shoves", () => current?.pair(), "Repeat the selected timed shove pair on this body without resetting it."),
           action("Walk forward for 1 s", () => current?.walk(), "Check movement after recovery through the ordinary walking controller."),
@@ -98,7 +104,7 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
             {value:{model:"workshop-rogue" as const,right:"club" as const,degrees:337.5},name:"Rogue club oblique"},
             {value:{model:"workshop-rogue" as const,right:"club" as const,degrees:202.5},name:"Rogue club late rise"},
             {value:{model:"workshop-fighter" as const,right:"club" as const,degrees:22.5},name:"Warrior club walking check"}],
-            c => experiment.reproduceRecovery("assisted",{model:c.model,right:c.right,recoveryPush:{degrees:c.degrees,impulse:60,separation:.2}}))] : []),
+            c => experiment.reproduceRecovery(recoveryMode,{model:c.model,right:c.right,recoveryPush:{degrees:c.degrees,impulse:60,separation:.2}}))] : []),
         keyHints([{ keys: letters(WALK_KEYS), does: "or arrows walk" }, { keys: letters(TURN_KEYS), does: "turn once walking" }]),
         slider("Walk, m/s", 0.2, 8, 0.1, () => walkSpeed, (value) => { walkSpeed = value; }, (value) => value.toFixed(1)),
         choice("Impulse, N s", IMPULSES.map((value) => ({ value, name: String(value) })), () => impulse, (value) => { impulse = value; }),

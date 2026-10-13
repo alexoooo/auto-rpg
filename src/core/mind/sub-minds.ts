@@ -7,6 +7,7 @@ import { stagedRise } from "./rise/staged.ts";
 import { assistedRise, assistedRiseFits } from "./rise/assisted.ts";
 import { supportRecovery } from "./rise/support-recovery.ts";
 import { dynamicRise, dynamicRiseFits } from "./rise/dynamic.ts";
+import { researchRise } from "./rise/research.ts";
 import type { Part } from "./parts.ts";
 import type { SubMind } from "./sub-mind.ts";
 import type { World } from "../world.ts";
@@ -33,6 +34,8 @@ export const SUB_MIND_PARTS: { readonly [K in SubMindConfig["kind"]]: Part<Extra
     defaults: { kind: "assisted-rise" }, fits: assistedRiseFits, faults: () => [] } as const),
   "dynamic-rise": deepFreeze({ role: "sub-mind", label: "Dynamic rise", stage: "experimental", fields: [], slots: [],
     defaults: { kind: "dynamic-rise" }, fits: dynamicRiseFits, faults: () => [] } as const),
+  "research-rise": deepFreeze({ role: "sub-mind", label: "Research rise", stage: "experimental", fields: [], slots: [],
+    defaults: { kind: "research-rise" }, fits: dynamicRiseFits, faults: () => [] } as const),
 });
 
 /** The sub-mind `config` names. */
@@ -43,6 +46,7 @@ export function subMind(own: OwnBody, view: BodyView, config: SubMindConfig, wor
     case "support-recovery": return supportRecovery(own, view, world);
     case "assisted-rise": return assistedRise(own, view, world);
     case "dynamic-rise": return dynamicRise(own, view, world);
+    case "research-rise": return researchRise(own, view, world);
     default: return unknownKind(config);
   }
 }

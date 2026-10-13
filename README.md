@@ -205,6 +205,13 @@ any of its parts may be changed, among them what has the body once it is down: t
 the Warrior up from most falls, with the club or without) and the strikes it may throw, the camera
 (Free, Isometric or Chase), the view, and 120 or 480 Hz; one shows the mind as it goes and logs
 what it decides.
+To try the live research get-up controller, open **Stance → Character → Mind → When down**
+and replace **Lie still** with **Research rise (experimental)**. Set **Balance** to **0** and
+use the Shove controls. This controller responds to the body's current state through its
+muscles; it uses reference motions as targets and does not play back saved body poses. The
+same choice is available for Warrior and Rogue in the Arena and Dungeon mind editors. In
+the Get-up experiment, editing the mind selects **Selected mind**, which keeps your choice.
+Recovery remains unreliable and has not met the four-second median / six-second goal.
 The transport pauses (Space), steps one physics step at a time, scrubs, and slows time to 1/4 or
 1/10.
 

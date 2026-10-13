@@ -42,13 +42,13 @@ export function characterSection(page: LabPage): readonly Control[] {
       when(() => wearsClothing(page.shown.model, page.shown.appearance),
         switches("Wears", entries(LAB_WORN, WORN), (part) => page.shown[part], (part) => page.show({ ...page.shown, [part]: !page.shown[part] }))),
     ]),
-    when(() => page.shown.scenario !== "recovery", group("Mind", [
+    group("Mind", [
       choice("Preset", PRESET_IDS.map((id) => ({ value: id as string, name: LAB_PRESETS[id].label })), () => presetOf(page),
-        (id) => page.load({ ...page.shown, mind: LAB_PRESETS[id as keyof typeof LAB_PRESETS].config })),
+        (id) => page.load({ ...page.shown, recoveryMode: "selected", mind: LAB_PRESETS[id as keyof typeof LAB_PRESETS].config })),
       // Its tree, drawn again for each body loaded; a change loads a body under the mind changed.
       following(() => page.spec, (spec) => {
         const editor = mindEditor(page.shown.mind, { spec, provides: LAB_PROVIDES, onFault: "the Script preset is used",
-          onChange: (mind) => page.load({ ...page.shown, mind }) });
+          onChange: (mind) => page.load({ ...page.shown, recoveryMode: "selected", mind }) });
         return { element: editor.element, refresh() {} };
       }),
       // The strikes are the loaded body's; a hand whose strike is barred guards, whatever its mind asks.
@@ -56,6 +56,6 @@ export function characterSection(page: LabPage): readonly Control[] {
         strikesOf(spec).map(({ held, name }) => ({ value: held, name })),
         (held) => !page.shown.barred.includes(held),
         (held) => page.load({ ...page.shown, barred: HOLDS.filter((h) => (h === held) !== page.shown.barred.includes(h)) }))),
-    ])),
+    ]),
   ];
 }

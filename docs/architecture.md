@@ -754,6 +754,22 @@ eight with nothing in its hands and more than three of four with the club, the R
 fall of five and the skeleton from almost none
 ([reference/rising.md](reference/rising.md#where-the-rise-stops)).
 
+**Research rise** is a shared experimental sub-mind (`rise/research.ts`), selectable in the Lab,
+Arena and Dungeon for the human rigs. Its path, response and library policies read detached
+observations each control step, select and track reference motion, and request only ordinary
+muscle velocities, activations and hand poses. `assets/research/research-rise.json` contains the
+selected research candidate's immutable policy inputs; `scripts/bundle-research-rise.mjs`
+packages an explicit library configuration and records source hashes. No saved physics state
+is loaded. The Warrior's right-hand wooden club selects its dedicated path; other supported
+loadouts use the motion library. Nested policy state participates in saves and Lab scrubbing.
+Quiet, upright loaded-foot support releases the episode to its host. A reference that ends while
+the body remains down gets two seconds to settle before reselection from the actual pose;
+other unsuccessful attempts restart after twenty seconds. Host action requests allow the
+ordinary stance controller to act. The recovery itself requests zero assistance and leaves
+body and muscle limits unchanged. Its experimental status does not claim robust recovery.
+The Get-up experiment's `selected` mode preserves the edited mind and loadout, including when
+repeating its timed shoves, instead of installing an assisted or witness controller.
+
 **Dynamic rise** separates a detached observation policy from the muscle adapter. The policy
 waits for a non-foot floor contact, orients, acquires hand/shin support, places a lead foot,
 transfers weight, extends and verifies standing. It retains a held club and uses the free hand;

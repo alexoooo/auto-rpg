@@ -1,4 +1,5 @@
 [
+ "lab-research-rise.test.mjs",
  "arena-combat-checkpoint.test.mjs",
  "arena-combat.test.mjs",
  "arena-control-cycle.test.mjs",
