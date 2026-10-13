@@ -315,7 +315,9 @@ and driven afresh to change what it costs.
   hold on parent-axis Rapier under its character's balance allowance
   (`assets/core/stance-envelope.json`), and `strideEnvelope` and `simbiconEnvelope` the same,
   walking by the stride (`assets/core/stride-envelope.json`) and by the SIMBICON walk
-  (`assets/core/simbicon-envelope.json`). Unassisted coordinate-engine turns have a separate
+  (`assets/core/simbicon-envelope.json`). An asset reads each body over everything a fight puts in
+  its right hand, and may read each thing held apart (`holds`), which a body holding it reads
+  (`heldBy`, `held.ts`); the SIMBICON walk's does. Unassisted coordinate-engine turns have a separate
   [combat calibration](reference/combat-locomotion.md); the reference table alone does not
   establish that gameplay capability.
 - **The assist** (`assist.ts`) is a force and a moment on the root that no muscle gives: an ask

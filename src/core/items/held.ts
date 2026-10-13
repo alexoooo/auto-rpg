@@ -18,6 +18,12 @@ export function heldItem(held: Held): ItemSpec | null {
   }
 }
 
+/** What `hand` of `spec` holds, by `HELD`'s name; null for an item none of them names. */
+export function heldBy(spec: BodySpec, hand: Side): Held | null {
+  const item = spec.held?.find((h) => h.segment === `hand.${hand}`)?.item;
+  return item ? HELD.find((held) => heldItem(held)?.name === item.name) ?? null : "empty";
+}
+
 /** Whether the `hand` of `spec` can hold `held`: anything can hold nothing, and only a hand that closes on a haft (`canHold`) a club. */
 const canHoldIn = (spec: BodySpec, hand: Side, held: Held): boolean => held === "empty" || canHold(spec, hand);
 

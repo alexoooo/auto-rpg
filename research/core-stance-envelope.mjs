@@ -7,7 +7,9 @@
  * envelope's rule, and each way's alone (`wayHeld`, `byWay`). Then the turn battery, walking forward at each speed up to its fastest walk forward: the
  * heading turned half round at each rate both ways (`turn`), beginning at each of `AFTERS` s
  * after the walk sets off, how many held at each rate (did not fall, and turned as asked:
- * `turnedAsAsked`) and the fastest held by the same rule, at each speed. With `--write` it writes `assets/core/stance-envelope.json`.
+ * `turnedAsAsked`) and the fastest held by the same rule, at each speed. Each body's readings are
+ * over every thing held, the least of them, and again over each thing held alone (`holds`), which a
+ * body holding it reads. With `--write` it writes `assets/core/stance-envelope.json`.
  *
  * With `--legs stride` the bodies walk and turn by the stride (`src/core/skills/stride.ts`) in
  * place of the stance's own walk, at the stride's speeds, and `--write` writes
@@ -100,24 +102,32 @@ const walks = MODELS.flatMap((model) => SPEEDS.flatMap((speed) => WAYS.flatMap((
 await runAll(walks);
 // A walk held if it did not fall and, calm, went the way asked at the pace asked: a gust throws a slow walk off its way, and is there to throw the body down.
 const went = (j) => !j.result.fell && (j.wind !== null || wentAsAsked(j.result.along, j.result.across, j.speed));
-const walkHeld = (model) => SPEEDS.map((speed) => walks.filter((j) => j.model === model && j.speed === speed && went(j)).length);
-/** At each speed, how many of the holds held walking `degrees` round. */
-const wayHeld = (model, degrees) => SPEEDS.map((speed) => walks.filter((j) => j.model === model && j.speed === speed && j.degrees === degrees && went(j)).length);
-const fastest = Object.fromEntries(MODELS.map((model) => [model, fastestHeld({ speeds: SPEEDS, ways: WAYS.length * HOLDS.length * WINDS.length, held: walkHeld(model) })]));
-/** The gait battery's speeds up to `model`'s fastest walk forward, the way a turn walks. */
-const forward = (model) => fastestHeld({ speeds: SPEEDS, ways: HOLDS.length * WINDS.length, held: wayHeld(model, 0) });
-const upTo = (model) => SPEEDS.filter((speed) => speed <= forward(model));
-const turns = values.walks ? [] : MODELS.flatMap((model) => upTo(model).flatMap((speed) => RATES.flatMap((rate) => SENSES.flatMap((sense) => HOLDS.flatMap((held) => AFTERS.map((after) => ({ trial: "turn", model, speed, rate, sense, held, after, hz, stance: {}, legs: walker, physique })))))));
+// Each reading is over the things held `holds`: all of them, or one.
+const walkHeld = (model, holds) => SPEEDS.map((speed) => walks.filter((j) => j.model === model && holds.includes(j.held) && j.speed === speed && went(j)).length);
+/** At each speed, how many of the walks with each of `holds` held walking `degrees` round. */
+const wayHeld = (model, holds, degrees) => SPEEDS.map((speed) => walks.filter((j) => j.model === model && holds.includes(j.held) && j.speed === speed && j.degrees === degrees && went(j)).length);
+/** The gait battery's speeds up to `model`'s fastest walk forward with each of `holds`, the way a turn walks. */
+const upTo = (model, holds) => {
+  const forward = fastestHeld({ speeds: SPEEDS, ways: holds.length * WINDS.length, held: wayHeld(model, holds, 0) });
+  return SPEEDS.filter((speed) => speed <= forward);
+};
+// Each thing held turns at the speeds up to its own fastest walk forward: the least of them, at those up to theirs.
+const turns = values.walks ? [] : MODELS.flatMap((model) => HOLDS.flatMap((held) => upTo(model, [held]).flatMap((speed) => RATES.flatMap((rate) => SENSES.flatMap((sense) => AFTERS.map((after) => ({ trial: "turn", model, speed, rate, sense, held, after, hz, stance: {}, legs: walker, physique })))))));
 await runAll(turns);
 await Promise.all(pool.map((w) => w.terminate()));
-const turnHeld = (model, speed) => RATES.map((rate) => turns.filter((j) => j.model === model && j.speed === speed && j.rate === rate && !j.result.fell && turnedAsAsked(j.result.lag)).length);
+const turnHeld = (model, holds, speed) => RATES.map((rate) => turns.filter((j) => j.model === model && holds.includes(j.held) && j.speed === speed && j.rate === rate && !j.result.fell && turnedAsAsked(j.result.lag)).length);
 
+/** `model`'s readings over the things held `holds`. */
+const readings = (model, holds) => ({
+  held: walkHeld(model, holds), walk: fastestHeld({ speeds: SPEEDS, ways: WAYS.length * holds.length * WINDS.length, held: walkHeld(model, holds) }),
+  wayHeld: WAYS.map((degrees) => wayHeld(model, holds, degrees)),
+  byWay: WAYS.map((degrees) => fastestHeld({ speeds: SPEEDS, ways: holds.length * WINDS.length, held: wayHeld(model, holds, degrees) })),
+  turnHeld: upTo(model, holds).map((speed) => turnHeld(model, holds, speed)),
+  turns: upTo(model, holds).map((speed) => fastestHeld({ speeds: RATES, ways: SENSES.length * holds.length * AFTERS.length, held: turnHeld(model, holds, speed) })),
+});
 const models = Object.fromEntries(MODELS.map((model) => [model, {
-  held: walkHeld(model), walk: fastest[model],
-  wayHeld: WAYS.map((degrees) => wayHeld(model, degrees)),
-  byWay: WAYS.map((degrees) => fastestHeld({ speeds: SPEEDS, ways: HOLDS.length * WINDS.length, held: wayHeld(model, degrees) })),
-  turnHeld: upTo(model).map((speed) => turnHeld(model, speed)),
-  turns: upTo(model).map((speed) => fastestHeld({ speeds: RATES, ways: SENSES.length * HOLDS.length * AFTERS.length, held: turnHeld(model, speed) })),
+  ...readings(model, HOLDS),
+  holds: Object.fromEntries(HOLDS.map((held) => [held, readings(model, [held])])),
 }]));
 const envelope = { harness: CORE_STANCE_HARNESS, played: "each body built in the guard and holding it, under its character's balance (the rulebook's per cent), with each of `holds` in its right hand" + (legs ? `, walking by the ${legs}` : "") + (WINDS.length > 1 ? ", each walk calm and in each of `winds`" : ""), ...(legs ? { legs } : {}), hz, measured: new Date().toISOString().slice(0, 10), speeds: SPEEDS, ways: WAYS, rates: RATES, senses: SENSES, holds: HOLDS, afters: AFTERS, ...(WINDS.length > 1 ? { winds: WINDS.slice(1) } : {}), models };
 console.log(`${CORE_STANCE_HARNESS}, ${hz} Hz; ${walks.length} walks and ${turns.length} turns in ${((Date.now() - started) / 1000).toFixed(0)} s`);
