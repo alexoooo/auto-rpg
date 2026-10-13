@@ -3404,3 +3404,63 @@ The diagnostic and selected support samples are preserved under
 `ready` field is excluded from conclusions because the diagnostic observer omits the contact
 patches that predicate needs; the production recovery observer includes them. This additional
 Node reproduction does not establish what happens in the owner's particular browser state.
+
+## Retained three-contact kneel and outward placement, 2026-10-12
+
+**No new standing recovery succeeds.** The frozen Node Stance Lab action evaluator, game
+Rapier coordinate adapter 11 at 120 Hz, original empty-handed Rogue, symmetric muscle limits,
+ordinary stance host and Balance 0 executes 48 valid physical trials and 69,072 steps. All fail
+at twelve recovery seconds. Six additional hand-target configurations are rejected for a
+non-unit quaternion before accepting any post-prefix command; normalized targets are tested
+separately. No body, evaluator, acceptance criterion or original recovery clock changes.
+
+The trials comprise thirteen holds/placements, six support-release/orientation requests,
+eight hand relocations, six normalized hand-lift feedback requests, nine finite-velocity
+controllers and six outward-foot continuations. The last group starts after the complete
+640-step prefix. All valid trials have zero assistance, no external-actuation events and no
+nonfinite readings or invalid commands. Maximum effort violation is 0.0000207645, below the
+unchanged 0.0001 tolerance. Repeating the original hold reproduces its physical hash exactly.
+
+The finite-velocity hand-target trial with gain 12 retains both hands and the right shin for
+all 601 samples over recovery seconds 5.5–10.5. The left shin is unloaded throughout, and the
+centre-of-mass projection remains inside the actual three-contact support region. Height is
+0.404298–0.405897 m and root up is 0.889763–0.903588. The maximum segment linear speed at each
+step ranges from 0.009882 to 0.161896 m/s. This is a retained kneel, not standing or an accepted
+recovery. The requested hand relocation itself is not established by retaining those contacts.
+The velocity mode delivers ordinary, bounded muscle commands; its computed diagnostic reaction
+forces and feedforward torques do not enter those commands or act on the world.
+
+Nine hand endpoint solves produce one valid endpoint. Eighteen initial foot endpoint solves,
+with and without retained-segment orientation constraints, produce none. Twelve wider foot
+requests find two close endpoints. Refining those two with a stricter zero-floor-penetration
+planning penalty produces one valid endpoint under the unchanged final checks: foot position
+error 0.002172 m, rotation error 0.033518 rad, no reported geometric violations and the centre
+inside the retained support region. Its target is 0.45 m farther outward and 0.20 m farther
+forward than the initial foot request. This proves only an endpoint for this captured body.
+
+Six physical whole-pose transitions to that endpoint, durations 0.5/1/2 s and velocity gains
+12/32, lose support and produce no sampled flat, loaded left sole. Nine continuous geometric
+path checks, using three lift heights with the original solver, projected-gradient fallback
+or a coarser numerical derivative, all fail at the first or second waypoint. The fallback and
+coarser derivative do not establish a path; remaining position errors exceed the unchanged
+5 mm tolerance. A feasible endpoint is insufficient for this movement.
+
+The retained kneel's exact muscle-action replay, restoration and split continuation pass.
+Its physical SHA-256 is
+`335f55b880183bed299132e5e6d381080bdf3af6adaea5b14a5746ce21d973f4`.
+The standalone `.review/stand-up-held-kneel/replay.html` compares it with the unchanged frozen
+optimized baseline from the same saved fall. Embedded identity and 1,440 frames are checked;
+the rendered candidate is visually inspected in Chrome at 6.008 s and is visibly still down.
+This replay is separate from the live Lab controller.
+
+`research/stand-up-path-results.json` preserves configurations, failures, geometry results,
+source text/hashes, replay verification and support measurements under `retainedTripod`.
+Raw records are in `.review/stand-up-held-kneel/`. Only evidence is committed; no production
+controller change is retained. Document/data whitespace and line-ending gates pass. The prior
+two current-source checkpoint-identity test failures remain unresolved; software checks are
+not rerun for this evidence-only change.
+
+The next missing component is a physical route from this retained base to a flat loaded foot.
+The prefix reaches the diagnostic three-contact hold at 5.341667 s, already beyond the requested
+median, and cannot itself satisfy either timing goal. The selected frozen recovery library
+remains 3/16 with none within six seconds. Full qualification remains unfinished.
