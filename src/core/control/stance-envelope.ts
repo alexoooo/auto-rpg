@@ -1,6 +1,7 @@
 import measured from "../../../assets/core/stance-envelope.json" with { type: "json" };
 import strideMeasured from "../../../assets/core/stride-envelope.json" with { type: "json" };
 import simbiconMeasured from "../../../assets/core/simbicon-envelope.json" with { type: "json" };
+import { heldBy } from "../items/held.ts";
 import type { SourceKey } from "../sources.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { sourced, type Quantity } from "../spec/quantity.ts";
@@ -21,8 +22,9 @@ import { sourced, type Quantity } from "../spec/quantity.ts";
  * a bend.
  *
  * Measured on the body as a fight plays it, at the rate the asset names: in the guard, under its
- * character's balance, with each thing a fight puts in its right hand. Another rate, or another
- * thing held, is a body the table did not see. Unassisted coordinate-engine Warrior turns are
+ * character's balance, with each thing a fight puts in its right hand. A body holding one of them
+ * reads that loadout's own envelope where the asset measured it, and the least of them where not.
+ * Another rate, or another thing held, is a body the table did not see. Unassisted coordinate-engine Warrior turns are
  * separately measured in `docs/reference/combat-locomotion.md`; callers may apply a lower ceiling.
  */
 export interface StanceEnvelope {
@@ -133,37 +135,50 @@ export function carried(turn: number, radius: number): number {
   return radius === Infinity ? Infinity : turn * radius;
 }
 
+/** A body's readings in an envelope's asset: its fastest walk, its fastest each way where the asset measured them (`byWay`, in the order of `ways`), and its turns. */
+interface EnvelopeEntry {
+  readonly walk: number;
+  readonly byWay?: readonly number[];
+  readonly turns: readonly number[];
+}
+
 /**
  * An envelope's asset, as `research/core-stance-envelope.mjs` writes it: its speeds and ways (degrees
- * to the right of forward), and each model's fastest walk, its fastest each way where it measured
- * them (`byWay`, in the order of `ways`), and its turns.
+ * to the right of forward), and each model's readings over every thing its right hand held, the
+ * least of them, with each one's own where it measured them (`holds`).
  */
 interface EnvelopeTable {
   readonly speeds: readonly number[];
   readonly ways: readonly number[];
-  readonly models: Readonly<Record<string, { readonly walk: number; readonly byWay?: readonly number[]; readonly turns: readonly number[] }>>;
+  readonly models: Readonly<Record<string, EnvelopeEntry & { readonly holds?: Readonly<Record<string, EnvelopeEntry>> }>>;
 }
 
 /** The ways `StanceEnvelope.ways` names, by their degrees to the right of forward. */
 const CARDINAL = { forward: 0, right: 90, back: 180, left: 270 } as const;
 
-/** The envelope of `spec`'s model in `table`, the asset `source` names: `what` walks, for an error. */
+/**
+ * The envelope of `spec`'s model in `table`, the asset `source` names, with what its right hand
+ * holds (`heldBy`) where the asset measured that apart, and over everything it measured held where
+ * not: `what` walks, for an error.
+ */
 function envelopeIn(table: EnvelopeTable, source: SourceKey, spec: BodySpec, what: string): StanceEnvelope {
-  const entry = table.models[spec.model];
-  if (!entry) throw new Error(`${what}'s envelope was not measured on ${spec.model}`);
-  const walk = sourced(entry.walk, "m/s", source, `/models/${spec.model}/walk`), byWay = entry.byWay;
+  const model = table.models[spec.model];
+  if (!model) throw new Error(`${what}'s envelope was not measured on ${spec.model}`);
+  const held = heldBy(spec, "right"), own = held === null ? undefined : model.holds?.[held];
+  const entry = own ?? model, at = own ? `/models/${spec.model}/holds/${held}` : `/models/${spec.model}`;
+  const walk = sourced(entry.walk, "m/s", source, `${at}/walk`), byWay = entry.byWay;
   const way = (degrees: number): Quantity<number> => {
     if (!byWay) return walk;
     const i = table.ways.indexOf(degrees);
     if (i < 0) throw new Error(`${what}'s envelope measured no walk ${degrees} degrees round`);
-    return sourced(byWay[i]!, "m/s", source, `/models/${spec.model}/byWay/${i}`);
+    return sourced(byWay[i]!, "m/s", source, `${at}/byWay/${i}`);
   };
   return {
     walk,
     ways: { forward: way(CARDINAL.forward), right: way(CARDINAL.right), back: way(CARDINAL.back), left: way(CARDINAL.left) },
     turns: entry.turns.map((turn, i) => ({
       speed: sourced(table.speeds[i]!, "m/s", source, `/speeds/${i}`),
-      turn: sourced(turn, "rad/s", source, `/models/${spec.model}/turns/${i}`),
+      turn: sourced(turn, "rad/s", source, `${at}/turns/${i}`),
     })),
   };
 }

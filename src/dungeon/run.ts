@@ -92,6 +92,8 @@ export interface DungeonActor {
   progress: { at: Point; since: number };
   /** The most it walks this step, m/s, coming to a stop where it is going (`STOPPING`); null walks at its own pace. */
   pace: number | null;
+  /** How far it has left to walk along its route this step, m (`Orders.destination`); null where it walks along none. */
+  going: number | null;
   /**
    * A party member's standing order, and for a drawn route the index of the next point on it. A force
    * order is shared by reference with `DungeonCommands.order`, whose route grows while it is drawn, so
@@ -103,7 +105,7 @@ export interface DungeonActor {
   /** The order was dropped by the run rather than replaced by the person, and the member replans next step. */
   replan: boolean;
   /** What its tactics carry out this step: a direction to walk (unit, world) or null to stand, a way to face, and whom to attack. */
-  plan: { move: Point | null; pace: number | null; face: Point | null; attack: DungeonActor | null };
+  plan: { move: Point | null; pace: number | null; going: number | null; face: Point | null; attack: DungeonActor | null };
 }
 
 /** How far behind the hero an unposted companion trails before it walks after it, metres: clear of the hero's reach
@@ -268,8 +270,8 @@ export class DungeonRun {
         get held() { return this.fighter?.body.level === "held"; },
         get vitality() { return this.fighter?.pool.bar() ?? 1; },
         target: null, home: { ...at }, lastSeen: null, alertedUntil: 0, route: [], goal: null, nextPlan: 0,
-        radius: cryptModel(model).radius, progress: { at: { ...at }, since: 0 }, pace: null,
-        order: IDLE, next: 0, post: null, replan: false, plan: { move: null, pace: null, face: null, attack: null },
+        radius: cryptModel(model).radius, progress: { at: { ...at }, since: 0 }, pace: null, going: null,
+        order: IDLE, next: 0, post: null, replan: false, plan: { move: null, pace: null, going: null, face: null, attack: null },
       };
       this.actors.push(actor); return actor;
     };
@@ -315,8 +317,9 @@ export class DungeonRun {
         return null;
       },
       orders: () => {
-        const { move, pace, face, attack } = actor.plan;
-        return { move, ...(move && pace !== null ? { pace } : {}), face: move ? null : face, attack: null, ...(attack ? { foe: attack.id } : {}) };
+        const { move, pace, going, face, attack } = actor.plan;
+        return { move, ...(move && pace !== null ? { pace } : {}), ...(move && going !== null ? { destination: going } : {}), face: move ? null : face, attack: null,
+          ...(attack ? { foe: attack.id } : {}) };
       },
     });
     this.watch?.dispose();
@@ -424,11 +427,10 @@ export class DungeonRun {
     }
     while (actor.route.length && distance(at, actor.route[0]) < ARRIVAL.waypoint) actor.route.shift();
     if (!actor.route.length) return { x: 0, z: 0 };
-    if (stops) {
-      let left = 0;
-      for (let i = 0; i < actor.route.length; i++) left += distance(i ? actor.route[i - 1]! : at, actor.route[i]!);
-      actor.pace = Math.max(STOPPING.least, left / STOPPING.seconds);
-    }
+    let left = 0;
+    for (let i = 0; i < actor.route.length; i++) left += distance(i ? actor.route[i - 1]! : at, actor.route[i]!);
+    actor.going = left;
+    if (stops) actor.pace = Math.max(STOPPING.least, left / STOPPING.seconds);
     return direction(at, actor.route[0]);
   }
 
@@ -590,7 +592,7 @@ export class DungeonRun {
     if (this.status === "playing") this.wake();
     this.levels();
     if (this.status !== "playing") {
-      for (const actor of this.actors) actor.plan = { move: null, pace: null, face: null, attack: null };
+      for (const actor of this.actors) actor.plan = { move: null, pace: null, going: null, face: null, attack: null };
       return;
     }
     if (this.commands.revision !== this.commandRevision) {
@@ -615,17 +617,17 @@ export class DungeonRun {
     if (this.clock >= this.nextPerception) { this.perceive(); this.nextPerception = this.clock + RUN_TIMING.perceive; }
     for (const actor of this.actors) {
       if (!actor.fighter || !actor.alive || actor.held) {
-        actor.plan = { move: null, pace: null, face: null, attack: null };
+        actor.plan = { move: null, pace: null, going: null, face: null, attack: null };
         continue;
       }
-      actor.pace = null;
+      actor.pace = null; actor.going = null;
       let move = actor.side === "party" ? this.memberMovement(actor) : this.enemyMovement(actor);
       if (move && !(actor === this.hero && this.commands.mode.keyboard)) move = this.avoidCrowd(actor, move);
       const walking = move !== null && Math.hypot(move.x, move.z) > MOVING;
       const at = actor.feet(), target = actor.target;
       const face = target ? direction(at, target.feet())
         : actor === this.hero && this.commands.mode.facing && this.commands.cursor ? direction(at, this.commands.cursor) : null;
-      actor.plan = { move: walking ? move : null, pace: actor.pace, face, attack: move === null && target?.fighter && target.alive ? target : null };
+      actor.plan = { move: walking ? move : null, pace: actor.pace, going: actor.going, face, attack: move === null && target?.fighter && target.alive ? target : null };
     }
     // A recovering party member keeps the run alive; reaching the exit requires an upright body.
     const alive = this.party.filter(member => member.alive);

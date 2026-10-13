@@ -63,8 +63,8 @@ tried lands one (`research/greedy-punch.mjs`, [punch layer](analysis/2026-10-08-
 The SIMBICON walk and run plan is closed. It built a locomotion class that vaults over its
 stance leg and balances by where it puts the swing foot, beside the capture-point walks (the
 walking item below). Forward it walks to 1.4 m/s and runs, on the ground, to 2.5. Every other
-way it is no faster than the stride. It is an experimental part, and `TRAVEL` still names the
-stride.
+way it is no faster than the stride. It is Move's Walk gait (`GAITS`), which every humanoid
+travels by.
 
 Beside it, a mind is a tree of parts (tactics, a skill per kind of action, sub-minds) that a
 player sees and changes in the Arena, the Lab and the Crypt; a mind can hold several blows and
@@ -365,13 +365,14 @@ After it, each with its own plan, in the order each needs the one before:
     - **Open:** in about a fifth of steps the pelvis and lumbar alternate from step to step
       (about 2 mrad), traced to the stance hip's spin term; without it the chatter goes and the
       1 m/s walk falls.
-    - **Next:** [the walk every way and on every body](plans/2026-10-11-simbicon-every-way.md): a
-      rule that reads where a walk went, a gait for each direction, and the gait scaled to each
-      body's legs.
-  - **Travel, then fight** (`travel.ts`) walks by the SIMBICON walk (the Scrapper by the stride)
-    until a standing foe is within 5 m, and in the stance's guard after. Every humanoid's mind gets about by it
-    (`GAME_FIGHTER`); an Arena bout opens at 4 m, so it fights by the stance's walk from its
-    first step. It never runs: the run holds no faster than the stride at any pace. It also travels
+    - **Next:** [gaits, Move and the Lab's Locomotion battery](plans/2026-10-13-gaits-and-locomotion-lab.md):
+      named gaits from braced to run, chosen by the player's rule list in place of Travel, then
+      fight; a jog and run the Crypt travels by; and the Lab's Run as a five-track battery.
+  - **Move** (`move.ts`) walks by the Walk gait, the SIMBICON walk (the Scrapper by the stride),
+    until a standing foe is within 5 m, and braced, in the stance's guard, after and whenever it
+    stands. Every humanoid's mind gets about by it (`GAME_FIGHTER`); an Arena bout opens at 4 m,
+    so it fights braced from its first step. A rule may read the destination's distance, which the
+    Crypt's and the Lab's orders give; none reads a leader's yet, since no body follows one. It never runs: the run holds no faster than the stride at any pace. It also travels
     by a walk that drives the legs, such as the SIMBICON walk, asking it to stand before it changes.
   - **The stride does not help a fight**, so a fight is in the stance's walk. In the
     empty-hand league (Node, Rapier, 120 Hz, 66 bouts a striding entrant, at the stride's
@@ -390,7 +391,7 @@ After it, each with its own plan, in the order each needs the one before:
     loses every bout to today's Puncher, and no `EDGE` helps.
   - **The owner's to watch and choose:** the SIMBICON walk and its run in the Lab (`?play=lab`,
     Walk set to SIMBICON walk), the change between them, and travelling by it in the Arena;
-    whether `TRAVEL` names it; whether to search its settings; and, for a flight, what to change
+    whether to search its settings; and, for a flight, what to change
     in the body (strength, the ankle's range, the sole). Also the stride in the Lab (the fighter's
     Walk set to Walk and run in the mind editor), its arms swinging; the run (Walk set to Run);
     travelling, then fighting, in the Arena (`&gap=8`) and the Crypt; and whether the bodies take

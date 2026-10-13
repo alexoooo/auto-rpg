@@ -1,7 +1,7 @@
-import type { BehaviourConfig, MindConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
+import type { BehaviourConfig, MindConfig, MoveRuleConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { deepFreeze } from "../state.ts";
 
-type Config = MindConfig | SubMindConfig | TacticsConfig | BehaviourConfig | SkillConfig;
+type Config = MindConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig;
 
 /** Every accepted top-level key, including optional settings. The mapped type requires every config
  * property and rejects extras; editor fields and default values carry no validation authority.
@@ -45,9 +45,11 @@ export const CONFIG_KEYS = deepFreeze({
     cd: true, cv: true, cdLate: true, cvLate: true, cdSide: true, cvSide: true, landing: true, lead: true,
     leadSide: true, leadOut: true, width: true, vf: true, vfSide: true, vfMost: true, trim: true,
     trimSide: true, trimMost: true, trimLeak: true, settle: true, stance: true, swing: true, ankle: true,
-    pelvis: true, hold: true, turn: true, swerve: true, speedup: true, arms: true, run: true, leg: true,
+    pelvis: true, hold: true, turn: true, swerve: true, turnRate: true, speedup: true, arms: true, run: true, leg: true,
   },
-  "travel": { kind: true, near: true, travel: true, fight: true },
+  "move": { kind: true, rules: true, otherwise: true },
+  "when-standing": { kind: true, gait: true },
+  "when-distance": { kind: true, of: true, than: true, metres: true, gait: true },
   "cover-guard": { kind: true, tuning: true },
   "recipe-strike": { kind: true, tuning: true },
   "path-strike": { kind: true, overlap: true, tuning: true },

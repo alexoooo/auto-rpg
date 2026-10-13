@@ -1,18 +1,20 @@
 /**
- * **The lab's run mode** (`src/lab/run-mode.ts`), on the Node stand as the page runs it:
+ * **The lab's locomotion mode** (`src/lab/locomotion-mode.ts`), on the Node stand as the page runs it:
  * each human round each track for 30 s, at 120 Hz. It stays on its feet, gets round -- past the
  * shuttle's first half-turn, a quarter of the way round the circle -- and stays near the track. It
  * asks for the body's fastest walk (`Body.envelope`) except where its turns cannot carry that
  * round a bend. Pursuing a point 1 m on cuts inside the 4 m circle by
- * about 1 / (2 * 4) m, 12 cm. Readings: `docs/reference/lab.md#run-tolerance`. The Warrior walks the
+ * about 1 / (2 * 4) m, 12 cm. Readings: `docs/reference/lab.md#locomotion-tolerance`. The Warrior walks the
  * square facing +z, forward, right and back, at no more than its fastest walk when asked for more.
+ * Sent on random commands, it reaches one destination after another and stands at each.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { paceRound } from "../src/core/control/stance-envelope.ts";
 import { labActor } from "../src/lab/actor.ts";
-import { startRun } from "../src/lab/run-mode.ts";
+import { startLocomotion } from "../src/lab/locomotion-mode.ts";
+import { ARRIVED, commandsOf } from "../src/lab/commands.ts";
 import { CIRCLE_RADIUS, SHUTTLE_METRES, SHUTTLE_TURN_RADIUS, TRACKS, trackOf } from "../src/lab/track.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -29,7 +31,7 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
   for (const id of ["circle", "shuttle"]) {
     test(`${model}_runs_round_the_${id}`, async (t) => {
       const stand = await coreStand(humanSpec(model), { ground: true });
-      const run = startRun(labActor(stand.built, stand.world), trackOf(TRACKS[id].pieces));
+      const run = startLocomotion(labActor(stand.built, stand.world), trackOf(TRACKS[id].pieces));
       let off = 0, frame = run.frame();
       /** The paces asked, on the straight and in a bend. */
       const paces = { straight: new Set(), bend: new Set() };
@@ -57,7 +59,7 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
 test("the_warrior_walks_the_square_facing_one_way_forward_right_and_back", async () => {
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
   // Asked past its fastest walk: the stance's walk takes no more than its envelope's, and slower braking for each corner.
-  const run = startRun(labActor(stand.built, stand.world), trackOf(TRACKS.square.size.of(2)), { top: 3, facing: TRACKS.square.facing });
+  const run = startLocomotion(labActor(stand.built, stand.world), trackOf(TRACKS.square.size.of(2)), { top: 3, facing: TRACKS.square.facing });
   let frame = run.frame(), turned = 0;
   const walked = new Set();
   try {
@@ -77,3 +79,27 @@ test("the_warrior_walks_the_square_facing_one_way_forward_right_and_back", async
   assert.ok(frame.pieces.slice(0, 3).every((v) => v !== null && v > 0.2), `each side's speed: ${frame.pieces}`);
   assert.ok(frame.gait.touchdowns > 10 && frame.gait.step > 0.1 && frame.gait.double > 0 && frame.gait.flight === 0, `its feet: ${JSON.stringify(frame.gait)}`);
 });
+
+for (const seed of [1, 2]) {
+  test(`the_warrior_reaches_destination_after_destination_on_random_commands_seed_${seed}`, async () => {
+    const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
+    const commands = commandsOf(6, seed);
+    const run = startLocomotion(labActor(stand.built, stand.world), commands);
+    let frame = run.frame(), nearest = Infinity, stood = 0;
+    try {
+      while (frame.time < 25 && !frame.fallen) {
+        stand.step(stand.seconds(0.25));
+        frame = run.frame();
+        const c = run.body.view.stance.centre, to = commands.at(0);
+        if (frame.laps === 0) nearest = Math.min(nearest, Math.hypot(c.x - to.x, c.z - to.z));
+        if (frame.pace === 0 && frame.laps > 0) stood++;
+      }
+    } finally { run.dispose(); stand.dispose(); }
+    assert.ok(!frame.fallen, `fell at ${frame.time.toFixed(1)} s`);
+    assert.ok(frame.laps >= 2, `${frame.laps} destinations reached; within ${nearest.toFixed(2)} m of the first before it`);
+    assert.ok(nearest > ARRIVED, "it went to the first from beyond arriving");
+    assert.ok(stood > 0, "it stood at a destination");
+    assert.ok(frame.leg && frame.leg.index === frame.laps - (frame.pace === 0 ? 1 : 0), `its walk under way: ${JSON.stringify(frame.leg)} after ${frame.laps}`);
+    assert.ok(frame.mean > 0.2 && frame.travelled > 4, `${frame.travelled.toFixed(2)} m at ${frame.mean.toFixed(2)} m/s`);
+  });
+}

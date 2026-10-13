@@ -10,7 +10,7 @@ import { STRIDE } from "../src/core/skills/stride.ts";
 import { RUN } from "../src/core/skills/run.ts";
 import { parseMind, writeMind } from "../src/ui/mind-link.ts";
 
-const ROLES = ["mind", "sub-mind", "tactics", "behaviour", "locomotion", "guard", "blow", "kick", "support"];
+const ROLES = ["mind", "sub-mind", "tactics", "behaviour", "move-rule", "locomotion", "guard", "blow", "kick", "support"];
 
 test("every part has a role, a stage, frozen defaults of its own kind, and every slot's role has parts", () => {
   for (const [kind, part] of Object.entries(PARTS)) {
@@ -25,8 +25,8 @@ test("every part has a role, a stage, frozen defaults of its own kind, and every
     for (const slot of part.slots) assert.ok(Object.values(PARTS).some((other) => other.role === slot.role), `${kind}.${slot.key}`);
   }
   assert.deepEqual(Object.keys(PARTS), ["fighter", "quadruped", "direct", "lie", "support-recovery", "research-rise", "seek", "openings", "script", "stand", "behaviours",
-    "follow-orders", "flee", "close-in", "keep-distance", "strike", "kick", "cover",
-    "stance-walk", "stride", "run", "simbicon", "travel", "cover-guard", "recipe-strike", "path-strike", "driven-strike", "whole-body-strike", "straight-punch", "choose-blow", "front-kick", "support-fold"]);
+    "follow-orders", "flee", "close-in", "keep-distance", "strike", "kick", "cover", "when-standing", "when-distance",
+    "stance-walk", "stride", "run", "simbicon", "move", "cover-guard", "recipe-strike", "path-strike", "driven-strike", "whole-body-strike", "straight-punch", "choose-blow", "front-kick", "support-fold"]);
   assert.equal(partOf(CLASSIC), PARTS.fighter);
   assert.deepEqual(new Set(Object.values(PARTS).map((part) => part.role)), new Set(ROLES));
   for (const kind of ["point-fighter", "constructor", "toString", "staged-rise", "assisted-rise", "dynamic-rise"]) assert.throws(() => partOf({ kind }), /no part of kind/, kind);
@@ -87,7 +87,8 @@ test("a tree fits a body where every part does, and every part of a role is offe
 });
 
 test("a tree without its tuning keeps everything else, its slots' parts included", () => {
-  assert.deepEqual(withoutTuning(withParts(KICKER, { locomotion: { fight: { tuning: { turnLimit: 1 } } }, blow: { tuning: { paths: { returnLimit: .05 } } }, kick: { tuning: { contactSpeed: 2 } } })), KICKER);
+  assert.deepEqual(withoutTuning(withParts(KICKER, { blow: { tuning: { paths: { returnLimit: .05 } } }, kick: { tuning: { contactSpeed: 2 } } })), KICKER);
+  assert.deepEqual(withoutTuning({ ...KICKER, locomotion: { kind: "stance-walk", tuning: { turnLimit: 1 } } }), { ...KICKER, locomotion: { kind: "stance-walk" } });
   assert.deepEqual(withoutTuning({ ...withParts(CLASSIC, { tactics: { tuning: { edge: { band: 1, patience: 1, clinch: 0 } } } }), subs: [{ kind: "lie", tuning: { x: 1 } }, { kind: "support-recovery" }] }),
     { ...CLASSIC, subs: [{ kind: "lie" }, { kind: "support-recovery" }] });
   assert.deepEqual(withoutTuning({ ...QUADRUPED, tuning: { bite: { open: .1 } } }), QUADRUPED);

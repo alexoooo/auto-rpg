@@ -79,14 +79,14 @@ const mean = (xs) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : nul
 const round = (x, k = 3) => x === null || x === undefined ? null : +x.toFixed(k);
 
 async function runOnce({ model, pace, legs, seconds, from, scale, stride }) {
-  const [{ modelSpec }, { labActor }, { startRun }, { trackOf }, { LAB_PRESETS }, { coreStand }, { STRIDE }, { footStatesOf, centreOfToRef }] = await Promise.all([
-    import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/run-mode.ts"), import("../src/lab/track.ts"),
+  const [{ modelSpec }, { labActor }, { startLocomotion }, { trackOf }, { LAB_PRESETS }, { coreStand }, { STRIDE }, { footStatesOf, centreOfToRef }] = await Promise.all([
+    import("../src/core/models.ts"), import("../src/lab/actor.ts"), import("../src/lab/locomotion-mode.ts"), import("../src/lab/track.ts"),
     import("../src/lab/scenarios.ts"), import("../tests/harness/core-stand.mjs"), import("../src/core/skills/stride.ts"), import("../src/core/control/support.ts"),
   ]);
   centreOf = centreOfToRef;
   const stand = await coreStand(modelSpec(model), { ground: true, groundSize: GROUND });
   const subject = legs === "sway" ? await swaying(stand, pace)
-    : running(stand, { labActor, startRun, trackOf, LAB_PRESETS, STRIDE }, legs, stride, pace);
+    : running(stand, { labActor, startLocomotion, trackOf, LAB_PRESETS, STRIDE }, legs, stride, pace);
   const { muscles, stance, reading } = subject, dt = stand.world.dt, g = -stand.built.physics.gravity[1];
   const segments = [...stand.built.segments.values()], mass = segments.reduce((s, x) => s + x.rigid.mass, 0);
   const feet = footStatesOf(stand.built);
@@ -292,10 +292,10 @@ function summarize(rows, torque, kin) {
 }
 
 /** The Lab's Run on the forward line, its legs the stride's or the stance's own walk. */
-function running(stand, { labActor, startRun, trackOf, LAB_PRESETS, STRIDE }, legs, stride, pace) {
+function running(stand, { labActor, startLocomotion, trackOf, LAB_PRESETS, STRIDE }, legs, stride, pace) {
   const locomotion = legs === "stride" ? { kind: "stride", ...STRIDE, ...stride } : null;
   const mind = { ...LAB_PRESETS.script.config, ...(locomotion ? { locomotion } : {}) };
-  const run = startRun(labActor(stand.built, stand.world, { mind, measuring: true }), trackOf(LINE.pieces), { top: pace, facing: LINE.facing });
+  const run = startLocomotion(labActor(stand.built, stand.world, { mind, measuring: true }), trackOf(LINE.pieces), { top: pace, facing: LINE.facing });
   const { body } = run;
   return { muscles: body.muscles, stance: body.state.mind.host.motor.stance, reading: body.view.stance, down: () => body.view.down,
     advance: () => stand.step(stand.seconds(0.1)), frame: () => run.frame(), dispose: () => run.dispose() };

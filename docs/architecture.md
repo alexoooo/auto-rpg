@@ -315,7 +315,9 @@ and driven afresh to change what it costs.
   hold on parent-axis Rapier under its character's balance allowance
   (`assets/core/stance-envelope.json`), and `strideEnvelope` and `simbiconEnvelope` the same,
   walking by the stride (`assets/core/stride-envelope.json`) and by the SIMBICON walk
-  (`assets/core/simbicon-envelope.json`). Unassisted coordinate-engine turns have a separate
+  (`assets/core/simbicon-envelope.json`). An asset reads each body over everything a fight puts in
+  its right hand, and may read each thing held apart (`holds`), which a body holding it reads
+  (`heldBy`, `held.ts`); the SIMBICON walk's does. Unassisted coordinate-engine turns have a separate
   [combat calibration](reference/combat-locomotion.md); the reference table alone does not
   establish that gameplay capability.
 - **The assist** (`assist.ts`) is a force and a moment on the root that no muscle gives: an ask
@@ -426,14 +428,18 @@ tactics over the skills it is given.
   stance before the kick begins (`drivesLegs`, `fighter.ts`; `skillSet`, `arbiter.ts`). A push whose level or speed is not
   a number is refused (`obey`, `body.ts`): Rapier disables the island of a body given one, which
   then hangs in the air.
-- **Travel and fight** (`travel.ts`, "Travel, then fight") walks by one locomotion (the SIMBICON
-  walk) while it is asked to walk and no standing foe is within `near` (5 m in `TRAVEL`),
-  and by another (the stance's walk, in the guard) once one is, until the foe is half a metre
-  farther, and whenever it is asked to stand. It changes only between steps, a walk that drives the
-  legs asked to stand first and changed from once it has given them back; resumes the walk it
-  changes to from the body as it is, and gives tactics the envelope of the walk it walks by. Every
-  humanoid's mind gets about by it (`GAME_FIGHTER`); an Arena bout opens at 4 m, so it fights from
-  its first step.
+- **Move** (`move.ts`, "Move") walks by one of the gaits (`GAITS`, `gaits.ts`: Braced, the
+  stance's walk; Walk, the SIMBICON walk; the stride, experimental), each a controller with its
+  searched settings and none of them a person's to tune: the gait of the first of its rules that
+  holds, or its `otherwise`. A rule (`MoveRuleConfig`) holds while the body is asked to stand, or
+  while a distance is under or over so many metres: the nearest standing foe's, or the
+  destination's, how far the tactics say the walk has left to go (`Intent.destination`, from
+  `Orders.destination`), infinitely far where there is none. A distance's rule lets go of the gait
+  it chose only half a metre past it. Move changes gait only between steps, a gait that drives the
+  legs asked to stand first and changed from once it has given them back; resumes the gait it
+  changes to from the body as it is, and gives tactics the envelope of the gait it walks by. Every
+  humanoid's mind gets about by `MOVE` (`GAME_FIGHTER`): braced while it stands or a standing foe
+  is within 5 m, walking otherwise; an Arena bout opens at 4 m, so it fights from its first step.
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
   searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
   and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its
@@ -719,7 +725,7 @@ live feedback through ordinary muscles. Classic, Puncher, Scrapper and Behaviour
 `support-recovery`. The staged riser is an internal component of that baseline, not a separate
 editor choice.
 `RECIPE_FIGHTER` is the seeking fighter over the recipe strike, walking in the stance, with `lie`;
-the Lab's minds are made from it. `GAME_FIGHTER` is it travelling by `TRAVEL`: the mind every
+the Lab's minds are made from it. `GAME_FIGHTER` is it getting about by `MOVE`: the mind every
 humanoid has unless its fight says otherwise (`modelInfo`), so a body that falls lies still ([reference/rising.md](reference/rising.md#lying)). An arena
 recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives an enemy its model's (`modelInfo`) and a party member the
 mind chosen for its model on the start panel (`DungeonRunOptions.minds`), its model's unless one
@@ -843,8 +849,9 @@ body's level is the levels' rule's (`levelsOf`, the run's `LEVELS`): one out of 
 limp, its assist withdrawn; an enemy waiting at its home with the party far off is held, fixed
 where it stands with nothing driving it, until the party nears; and the dead are held where they
 lie once their fall is over and nobody walks near.
-The Lab uses `stanceTactics` for the keys and `trackTactics` for Run. Attack supplies game
-orders to the selected mind. `routineTactics` and `attackOnce` are scripted research fixtures.
+The Lab uses `stanceTactics` for the keys and `trackTactics` and `commandsTactics` for
+Locomotion. Attack supplies game orders to the selected mind. `routineTactics` and `attackOnce`
+are scripted research fixtures.
 
 ## Experimental separate equipment
 
@@ -1265,7 +1272,7 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   where nothing need be read (`SightIndex`), made again when a door opens. The
   page hears every built body where the party sees (`hearRun`, `hearing.ts`), its listener made
   again when a body is built.
-- **The lab** (`src/lab/`): one body at a time in the Stance, Get-up experiment, Attack and Run
+- **The lab** (`src/lab/`): one body at a time in the Stance, Get-up experiment, Attack and Locomotion
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
   Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
   page chose: its balance, its mind and the strikes it may throw. The mind is a fighter
@@ -1277,8 +1284,9 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   (`targets.ts`), floated against gravity and moved by impulses at the chosen speed until impact.
   Solver contact with the actor marks a hit; after 0.6 s the target's collider and senses are
   removed and a new target spawns. Automatic selection chooses the nearest unhit target; a click
-  overrides it. Wind uses the same gust model as Run. This exercises combat in an open field;
-  Crypt pathfinding remains the dungeon's responsibility. The Run goes round its tracks (`track.ts`)
+  overrides it. Wind uses the same gust model as Locomotion. This exercises combat in an open field;
+  Crypt pathfinding remains the dungeon's responsibility. The Locomotion scenario goes round its
+  tracks (`track.ts`), or from one random destination to the next (`commands.ts`),
   at the pace asked, its feet metered from the ground's contacts (`gait-meter.ts`), and the
   lab's wind (`wind.ts`) blows seeded gusts on its chest: a disturbance from outside, as a shove
   is, and no assist. The page inspects the

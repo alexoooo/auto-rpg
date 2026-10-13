@@ -203,11 +203,14 @@ without resuming on its own.
   physical impact and are replaced. Target speed defaults to zero; adjust it and the wind gusts
   live to exercise tracking and balance. Puncher is the default mind; Classic is also available.
   `&targets=` (0 to 30) and `&seed=` choose the field's population and random sequence.
-- **Run**: it goes round a track at the pace a slider asks (0.2 to 8 m/s, past what its walk
-  holds if need be): a big circle of any radius, straight back and forth, or a square walked
-  facing one way, forward, right, back and left. Gusts of wind, as often and as strong as two
-  more sliders say, push it as it goes; the readout says its speeds, how far it is off the track,
-  its steps and how much of the time it is on both feet or none.
+- **Locomotion**: it goes round a course as fast as its walk holds (Max), or at the pace a slider
+  asks (0.2 to 4 m/s, past what its walk holds if need be): a circle of any radius, straight back
+  and forth over any distance, a square walked facing one way, forward, right, back and left, a
+  diamond walked facing one way along the diagonals (W+D, S+D, S+A, W+A), or random commands, one
+  destination after another over an area, as the crypt sends a body. Gusts of wind, as often and
+  as strong as two more sliders say, push it as it goes; the readout says its speeds, how far it
+  is off its way, its steps and how much of the time it is on both feet or none.
+  `research/locomotion-run.mjs` runs the same courses as a battery.
 
 Its sections, each of which folds away, choose the body and its balance, what each hand holds,
 boots and armour, its mind (**Preset**: Script carries out the scenario, Guard stands in guard;

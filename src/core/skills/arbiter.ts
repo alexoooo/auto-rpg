@@ -118,9 +118,9 @@ export function skillSet(body: Body, { state: tactics, engagement }: Pick<Tactic
       }
       // A walk that drives the legs (`Locomotion.drive`) is asked in place of its goal.
       let driven: Extract<LegsDrive, { kind: "drive" }> | null = null;
-      if (moving && !legs.drive) goal = legs.goal(view, moving.walk, moving.face, dt, lower);
+      if (moving && !legs.drive) goal = legs.goal(view, moving.walk, moving.face, dt, lower, intent.destination);
       else if (moving) {
-        const drive = legs.drive!(view, moving.walk, moving.face, dt, lower);
+        const drive = legs.drive!(view, moving.walk, moving.face, dt, lower, intent.destination);
         switch (drive.kind) {
           case "stance": goal = drive.goal; break;
           case "drive": driven = drive; break;

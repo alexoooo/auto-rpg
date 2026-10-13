@@ -31,7 +31,7 @@ import { SCENARIO_PANELS, type LabScenario, type LabShell, type ScenarioRun } fr
 import { allowing, loadoutBalance, loadoutSpec } from "./loadout.ts";
 import { createMindLog, logged, watchHas, type MindLog } from "./mind-log.ts";
 import { attackScenario } from "./attack-scenario.ts";
-import { runScenario } from "./run-scenario.ts";
+import { locomotionScenario } from "./locomotion-scenario.ts";
 import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
 import { labHref, labMind, LAB_PRESETS, recoveryAddress, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
@@ -81,7 +81,7 @@ const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => L
   stance: (scene) => stanceScenario(scene),
   recovery: (scene, shell) => stanceScenario(scene, shell),
   attack: attackScenario,
-  run: runScenario,
+  locomotion: locomotionScenario,
 };
 
 /**
@@ -227,8 +227,9 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const spec = loadoutSpec(to), built = buildBody(spec, world, { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) });
     const balance = loadoutBalance(to.balance, built.spec);
     const log = createMindLog();
-    const mind = to.scenario === "recovery" && to.recoveryMode === "witness"
+    const chosen = to.scenario === "recovery" && to.recoveryMode === "witness"
       ? { ...LAB_PRESETS.script.config, subs: [{ kind: "support-recovery" as const }] } : labMind(to.mind, spec, to.scenario).plays;
+    const mind = scenario.mind?.(chosen) ?? chosen;
     const actor = labActor(built, world, {
       mind,
       recoveryRecipe: to.scenario === "recovery" && to.recoveryMode === "witness" ? feedbackRecipe(spec, recoverySeed.feedback.u) : undefined, assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), around: (tactics) => logged(tactics, log),

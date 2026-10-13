@@ -21,7 +21,7 @@ import { THREAT } from "./threat.ts";
  * how low), the attack, and what each hand covers. A channel it leaves out is the next behaviour's.
  */
 interface Wants {
-  readonly legs?: Pick<Intent, "move" | "face" | "lower">;
+  readonly legs?: Pick<Intent, "move" | "face" | "lower" | "destination">;
   readonly attack?: Attack;
   readonly left?: Cover | null;
   readonly right?: Cover | null;
@@ -68,14 +68,15 @@ export function behavioursTactics(name: string, list: readonly Behaviour[]): Tac
         taken.legs = legs !== undefined; taken.attack = attack !== undefined;
       }
       return { move: legs?.move ?? null, face: legs?.face ?? sight.report.heading, ...(legs?.lower === undefined ? {} : { lower: legs.lower }),
-        guard: { left: left ?? null, right: right ?? null }, attack: attack ?? null };
+        guard: { left: left ?? null, right: right ?? null }, attack: attack ?? null, ...(legs?.destination === undefined ? {} : { destination: legs.destination }) };
     },
   };
 }
 
 /** The legs `intent` asks for, its walk kept clear of the solids a body of clearance `radius` senses (`clearMove`). */
 function clearLegs({ view, report }: Sight, intent: Intent, radius: number): Wants["legs"] {
-  return { move: clearMove(view.stance.centre, view.senses.solids, report.heading, intent.move, radius, CLEAR.ahead), face: intent.face };
+  return { move: clearMove(view.stance.centre, view.senses.solids, report.heading, intent.move, radius, CLEAR.ahead), face: intent.face,
+    ...(intent.destination === undefined ? {} : { destination: intent.destination }) };
 }
 
 /** Carry out a person's orders while there are any, by the recipe tactics: their walk, their facing and their attack. */

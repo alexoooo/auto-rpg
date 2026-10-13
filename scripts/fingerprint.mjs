@@ -52,7 +52,7 @@ import { DungeonRun } from "../src/dungeon/run.ts";
 import { revealScenery } from "../src/dungeon/scenery-visibility.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { startRoutine } from "../src/lab/routine.ts";
-import { startRun } from "../src/lab/run-mode.ts";
+import { startLocomotion } from "../src/lab/locomotion-mode.ts";
 import { TRACKS, trackOf } from "../src/lab/track.ts";
 import { buildBout } from "../research/bout.mjs";
 import { surface } from "./character-lab/contact.mjs";
@@ -161,7 +161,7 @@ async function cryptFight(seed) {
 /** `model` round the lab's circle for 10 s. */
 async function labRun(model) {
   const stand = await coreStand(humanSpec(model), { ground: true });
-  const run = startRun(labActor(stand.built, stand.world), trackOf(TRACKS.circle.pieces));
+  const run = startLocomotion(labActor(stand.built, stand.world), trackOf(TRACKS.circle.pieces));
   try {
     const trace = traceOf([stand.built]);
     for (let i = 0; i < stand.seconds(10); i++) { stand.step(); trace.take(); }

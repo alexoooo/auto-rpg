@@ -318,7 +318,7 @@ Chosen: on, keyed on the centre of mass.
 Command: the sweep at `f36962f7`, with the two gait commands of the pre-swing's table;
 `{"heelOff": false}` is the control and `{}` the heel-off keyed on the centre of mass. Both rows
 were read again. The row keyed on the capture point was read on a controller that was never
-committed. The circle's column was read by hand on the lab's run (`src/lab/run-mode.ts`), with a
+committed. The circle's column was read by hand on the lab's run (`src/lab/locomotion-mode.ts`), with a
 script that was not kept.
 
 ## Track

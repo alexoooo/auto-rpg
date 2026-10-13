@@ -6,7 +6,7 @@ import { rulebook, type Rulebook } from "../core/rules/rulebook.ts";
 import type { RecipeOptions, SkillReport } from "../core/skills/skills.ts";
 import { APPROACH } from "../core/skills/strike.ts";
 import type { Actor } from "./actor.ts";
-import { trackTactics } from "./run-mode.ts";
+import { trackTactics } from "./locomotion-mode.ts";
 import { LAB_TURN_RATE } from "./stance-mode.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import { drawTargets, readTarget, type Target, type TargetReading } from "./targets.ts";
@@ -19,7 +19,7 @@ import type { Side } from "../core/spec/body.ts";
  * (`routineTactics`), as any body is: they ask for a walk and a facing and give each hand an
  * action, and the skills (`src/core/skills/skills.ts`) carry them out.
  *
- * - **The walk is the Run's** (`trackTactics`, `run-mode.ts`): round a shuttle of `ROUTINE_METRES`
+ * - **The walk is the Locomotion scenario's** (`trackTactics`, `locomotion-mode.ts`): round a shuttle of `ROUTINE_METRES`
  *   straights, at the pace and turn of `ROUTINE_GAIT`.
  * - **The targets are bodies** (`targets.ts`): drawn by seed about the place `POST_BEYOND` beyond
  *   the walk out, high, middle and low, one up at a time, each hung as its strike begins and read
@@ -53,7 +53,7 @@ const POST_BEYOND = 0.45;
 
 /**
  * **How the Routine walks and turns**: at `TURN_PACE` (m/s) and `LAB_TURN_RATE` (rad/s), the pair
- * whose ratio is its half-turns' radius (`SHUTTLE_TURN_RADIUS`). The Run takes the same half-turns
+ * whose ratio is its half-turns' radius (`SHUTTLE_TURN_RADIUS`). The Locomotion scenario takes the same half-turns
  * at the body's fastest walk and turn, but it comes to them walking. The Routine sets off into its
  * turn from standing at its targets, where a faster turn fell. Battery:
  * `docs/reference/lab.md#routine-gait`.
@@ -89,7 +89,7 @@ interface RoutineTactics extends Tactics {
 }
 
 /**
- * **The Routine's tactics**: round `track` as the Run goes (`trackTactics`), and at its targets,
+ * **The Routine's tactics**: round `track` as the Locomotion scenario goes (`trackTactics`), and at its targets,
  * the hands of `hands` that have a blow attack them in turn, a target each. They hand their walk
  * to the attack once the first target is within the hand's reach (`StrikeReport.rangeAt`) and the
  * distance the strike skill closes at its own fastest (`APPROACH`'s pace over its seconds); they
@@ -118,7 +118,7 @@ function routineTactics(track: Track, drawing: Drawing, hands: readonly Side[]):
     decide(sight: Sight, dt: number): Intent {
       const { view, report } = sight;
       const walked = walk.decide(sight, dt);
-      const laps = walk.frame(view.time).laps;
+      const laps = walk.frame(view.time, view.stance.centre.x, view.stance.centre.z).laps;
       const end = track.at(ROUTINE_METRES);
       const place: Vec3 = [end.x + POST_BEYOND * Math.sin(end.heading), 0, end.z + POST_BEYOND * Math.cos(end.heading)];
       targets ??= drawTargets(drawing.seed, drawing.count, { place, heading: end.heading, stature: drawing.stature, head: view.head.y });

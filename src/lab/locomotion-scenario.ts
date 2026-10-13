@@ -5,29 +5,34 @@ import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { massOf } from "../core/control/support.ts";
+import { MOVE } from "../core/mind/config.ts";
+import { GAIT_NAMES, GAITS, type GaitName } from "../core/skills/gaits.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, LabShell } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
-import { startRun, type RunFrame } from "./run-mode.ts";
-import { TRACK_IDS, TRACKS, trackOf, type Track, type TrackId } from "./track.ts";
+import { startLocomotion, type LocomotionFrame } from "./locomotion-mode.ts";
+import { COMMANDS_AREA, commandsOf } from "./commands.ts";
+import { TRACK_IDS, TRACKS, trackOf, type Track } from "./track.ts";
 import type { WindSettings } from "./wind.ts";
 import { groundDisc } from "./ground-disc.ts";
 import { choice, following, legend, readings, slider, type Control } from "../ui/controls.ts";
 
 /**
- * **The Run scenario**: the human round a track (`run-mode.ts`) at the pace the lab asks, on the
- * track chosen -- the big circle, straight back and forth, or the square walked facing one way,
- * forward, right, back and left (`track.ts`) -- with the wind blowing on it as the lab sets it
- * (`wind.ts`). Choosing a track, its size or the pace starts the run again; the wind changes the
- * run under way. The readout is the run's: its laps, its speeds, how far it is off the track, what
- * its feet do (`gait-meter.ts`) and the wind. On the ground: the track, the centre of mass over it
- * and the point it aims at; at the chest, an arrow along the wind while it blows. The last ten
- * seconds are recorded (`history.ts`).
+ * **The Locomotion scenario**: the human round a course (`locomotion-mode.ts`) at the pace the lab
+ * asks, by default the fastest its walk holds (Max), on the course chosen -- a circle, straight back
+ * and forth, the square walked facing one way, forward, right, back and left, the diamond walked
+ * facing one way along the diagonals (`track.ts`), or random commands, one destination after
+ * another (`commands.ts`) -- with the wind blowing on it as the lab sets it (`wind.ts`). Choosing a
+ * course, its size or the pace starts the run again; the wind changes the run under way. The
+ * readout is the run's: its laps or destinations reached, its speeds, how far it is off its way,
+ * what its feet do (`gait-meter.ts`) and the wind. On the ground: the track, or the walk under way
+ * to its destination, the centre of mass over it and the point it aims at; at the chest, an arrow
+ * along the wind while it blows. The last ten seconds are recorded (`history.ts`).
  */
 
 /** What the history holds of each step: the readout, and where the centre of mass was. */
 interface RunMoment {
-  readonly frame: RunFrame;
+  readonly frame: LocomotionFrame;
   readonly centre: readonly [number, number];
 }
 /** Seconds of the run the page keeps to scrub back through. */
@@ -35,17 +40,37 @@ const HISTORY_SECONDS = 10;
 /** The track's painted width, m. */
 const LANE = 0.08;
 const MARKS = {
-  track: { colour: new Color3(0.85, 0.64, 0.36), name: "the track" },
+  track: { colour: new Color3(0.85, 0.64, 0.36), name: "the track, or the walk under way" },
   centre: { colour: new Color3(0.95, 0.75, 0.4), name: "centre of mass" },
   aim: { colour: new Color3(0.35, 0.65, 0.9), name: "the point it aims at" },
   wind: { colour: new Color3(0.55, 0.85, 0.95), name: "the wind" },
 };
 /** The wind arrow's length per newton, m, and its height over the ground, m. */
 const ARROW_PER_NEWTON = 0.01, ARROW_HEIGHT = 1.35;
-/** The pace the Run asks unless the slider says, m/s: a person's preferred walk (`docs/roadmap.md`). */
-const TOP = 1.4;
+/** The pace slider's range, m/s: its notch past the fastest reads Max, the fastest the body's walk holds. */
+const PACES = { least: 0.2, most: 4, step: 0.1 } as const;
+const MAX = PACES.most + PACES.step;
 /** The wind unless the sliders say: none. */
 const CALM: WindSettings = { rate: 0, strength: 0 };
+
+/** The courses: the tracks, and random commands. */
+const COURSE_IDS = [...TRACK_IDS, "random"] as const;
+type CourseId = (typeof COURSE_IDS)[number];
+const COURSES: Readonly<Record<CourseId, { readonly name: string; readonly size?: { readonly name: string; readonly least: number; readonly most: number; readonly metres: number } }>> = {
+  ...TRACKS,
+  random: { name: "Random commands", size: { name: "Area", least: 4, most: 30, metres: COMMANDS_AREA } },
+};
+
+/**
+ * What the body gets about by: Move as the game plays it (`MOVE`), one gait alone, or the
+ * locomotion of the mind the page chose.
+ */
+type Legs = "move" | GaitName | "mind";
+const LEGS: readonly { readonly value: Legs; readonly name: string }[] = [
+  { value: "move", name: "Move, as the game" },
+  ...GAIT_NAMES.map((name) => ({ value: name, name: GAITS[name].stage === "experimental" ? `${GAITS[name].label} (experimental)` : GAITS[name].label })),
+  { value: "mind", name: "The mind's own" },
+];
 
 /** A flat strip along `track` on the ground, for the eye; it collides with nothing. */
 function paintTrack(scene: Scene, track: Track, material: StandardMaterial): Mesh {
@@ -63,7 +88,7 @@ function paintTrack(scene: Scene, track: Track, material: StandardMaterial): Mes
   return strip;
 }
 
-export function runScenario(scene: Scene, shell: LabShell): LabScenario {
+export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
   const trackMaterial = new StandardMaterial("lab.track", scene);
   trackMaterial.diffuseColor = MARKS.track.colour;
   trackMaterial.emissiveColor = trackMaterial.diffuseColor.scale(0.4);
@@ -93,10 +118,13 @@ export function runScenario(scene: Scene, shell: LabShell): LabScenario {
     step: { name: "Step", unit: "m" }, cadence: { name: "Steps a second" }, support: { name: "Both feet / none", unit: "%" },
     wind: { name: "Wind", unit: "N" },
   });
-  let chosen: TrackId = TRACK_IDS[0], top = TOP, wind = CALM;
-  /** Each track's size, m, where it comes in sizes. */
-  const sizes = new Map(TRACK_IDS.flatMap((id) => { const size = TRACKS[id].size; return size ? [[id, size.metres] as const] : []; }));
-  let painted: { readonly id: TrackId; readonly size: number | undefined; readonly track: Track; readonly mesh: Mesh } | null = null;
+  // The pace asked: none is Max.
+  let chosen: CourseId = COURSE_IDS[0], top: number | undefined = undefined, wind = CALM, legs: Legs = "move";
+  /** Each course's size, m, where it comes in sizes. */
+  const sizes = new Map(COURSE_IDS.flatMap((id) => { const size = COURSES[id].size; return size ? [[id, size.metres] as const] : []; }));
+  // The track painted, or on random commands the walk under way, by its command.
+  let painted: { readonly id: CourseId; readonly size: number | undefined; readonly track: Track | null; readonly mesh: Mesh } | null = null;
+  let leg: { readonly index: number; readonly mesh: Mesh } | null = null;
   // The run the wind's sliders act on: the latest one started.
   let current: { wind: WindSettings } | null = null;
   /** The body's weight, N, for the wind's share of it. */
@@ -105,9 +133,9 @@ export function runScenario(scene: Scene, shell: LabShell): LabScenario {
   /** Nothing, where a track has no size. */
   const unsized: Control = { element: document.createElement("div"), refresh() {} };
 
-  // The chosen track's size, if it comes in sizes: made again when another track is chosen.
+  // The chosen course's size, if it comes in sizes: made again when another course is chosen.
   const sized = following(() => chosen, (id) => {
-    const size = TRACKS[id].size;
+    const size = COURSES[id].size;
     return size ? slider(`${size.name}, m`, size.least, size.most, 0.5, () => sizes.get(id)!, (metres) => { sizes.set(id, metres); shell.restart(); }) : unsized;
   });
 
@@ -115,9 +143,11 @@ export function runScenario(scene: Scene, shell: LabShell): LabScenario {
     keys: new Set(),
     panels: {
       scenario: [
-        choice("Track", TRACK_IDS.map((id) => ({ value: id, name: TRACKS[id].name })), () => chosen, (id) => { chosen = id; sized.refresh(); shell.restart(); }),
+        choice("Course", COURSE_IDS.map((id) => ({ value: id, name: COURSES[id].name })), () => chosen, (id) => { chosen = id; sized.refresh(); shell.restart(); }),
+        choice("Gait", LEGS, () => legs, (value) => { legs = value; shell.restart(); }),
         sized,
-        slider("Pace, m/s", 0.2, 8, 0.1, () => top, (pace) => { top = pace; shell.restart(); }, (pace) => pace.toFixed(1)),
+        slider("Pace, m/s", PACES.least, MAX, PACES.step, () => top ?? MAX, (pace) => { top = pace > PACES.most ? undefined : pace; shell.restart(); },
+          (pace) => pace > PACES.most ? "Max" : pace.toFixed(1)),
       ],
       controls: [
         slider("Gusts a second", 0, 2, 0.1, () => wind.rate, (rate) => setWind({ ...wind, rate }), (rate) => rate.toFixed(1)),
@@ -126,17 +156,24 @@ export function runScenario(scene: Scene, shell: LabShell): LabScenario {
       ],
       readout: [shown, legend([MARKS.track, MARKS.centre, MARKS.aim, MARKS.wind])],
     },
+    mind: (mind) => legs === "mind" ? mind : { ...mind, locomotion: legs === "move" ? MOVE : { kind: "move", rules: [], otherwise: legs } },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
     start({ actor, changed, clock, address }) {
       const { world } = actor, { built } = actor.body;
-      const info = TRACKS[chosen], size = sizes.get(chosen);
+      const size = sizes.get(chosen);
       if (painted?.id !== chosen || painted.size !== size) {
         painted?.mesh.dispose();
-        const track = trackOf(info.size && size !== undefined ? info.size.of(size) : info.pieces);
-        painted = { id: chosen, size, track, mesh: paintTrack(scene, track, trackMaterial) };
+        leg?.mesh.dispose();
+        leg = null;
+        if (chosen === "random") painted = null;
+        else {
+          const info = TRACKS[chosen], track = trackOf(info.size && size !== undefined ? info.size.of(size) : info.pieces);
+          painted = { id: chosen, size, track, mesh: paintTrack(scene, track, trackMaterial) };
+        }
       }
       weight = massOf([...built.segments.values()]) * -world.physics.gravity[1];
-      const run = startRun(actor, painted.track, { top, facing: info.facing, wind: { settings: wind, seed: address.seed } });
+      const course = chosen === "random" ? commandsOf(size ?? COMMANDS_AREA, address.seed) : painted!.track!;
+      const run = startLocomotion(actor, course, { top, facing: chosen === "random" ? undefined : TRACKS[chosen].facing, wind: { settings: wind, seed: address.seed } });
       current = run;
       const history = recordHistory(built, world, HISTORY_SECONDS, (): RunMoment => {
         const c = run.body.view.stance.centre;
@@ -153,13 +190,22 @@ export function runScenario(scene: Scene, shell: LabShell): LabScenario {
           const f = moment.frame, g = f.gait, force = Math.hypot(f.wind[0], f.wind[1]);
           shown.write({
             state: f.fallen ? "Fallen: restart" : "On its feet",
-            laps: `${f.laps} (${f.travelled.toFixed(1)} m)`, lap: f.lastLap === null ? "-" : f.lastLap.toFixed(1),
+            laps: `${f.laps}${f.leg ? " reached" : ""} (${f.travelled.toFixed(1)} m)`, lap: f.lastLap === null ? "-" : f.lastLap.toFixed(1),
             pace: f.pace.toFixed(2), walking: f.walking.toFixed(2),
             speed: f.speed.toFixed(2), mean: f.mean.toFixed(2), pieces: f.pieces.map((v) => v === null ? "-" : v.toFixed(2)).join(" / "),
             off: (100 * f.off).toFixed(1),
             step: g.step.toFixed(2), cadence: g.cadence.toFixed(2), support: `${Math.round(100 * g.double)} / ${Math.round(100 * g.flight)}`,
             wind: `${force.toFixed(0)} (${f.gusts} gusts)`,
           }, f.fallen ? ["state"] : []);
+          if (f.leg && leg?.index !== f.leg.index) {
+            // The walk under way: a straight from where it set off to its destination.
+            leg?.mesh.dispose();
+            const [x0, z0] = f.leg.from, [x1, z1] = f.leg.to;
+            const way = trackOf([{ kind: "corner", metres: 0, turn: Math.atan2(x1 - x0, z1 - z0) }, { kind: "straight", metres: Math.max(0.01, Math.hypot(x1 - x0, z1 - z0)) }]);
+            const mesh = paintTrack(scene, way, trackMaterial);
+            mesh.position.x = x0; mesh.position.z = z0;
+            leg = { index: f.leg.index, mesh };
+          }
           centreMark.position.x = moment.centre[0]; centreMark.position.z = moment.centre[1];
           aimMark.position.x = f.aim[0]; aimMark.position.z = f.aim[1];
           arrow.isVisible = force > 0;

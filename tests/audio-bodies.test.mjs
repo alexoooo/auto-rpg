@@ -23,7 +23,7 @@ import { labActor } from "../src/lab/actor.ts";
 import { throwBlow, watchBlow } from "../src/lab/blow.ts";
 import { LAB_BLOWS } from "../src/lab/blows.ts";
 import { loadoutSpec } from "../src/lab/loadout.ts";
-import { startRun } from "../src/lab/run-mode.ts";
+import { startLocomotion } from "../src/lab/locomotion-mode.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
 import { TRACKS, trackOf } from "../src/lab/track.ts";
 import { lone } from "./fixtures/lone.mjs";
@@ -194,7 +194,7 @@ test("a body's air is its club's end in a blow", async () => {
 test("a walker's air is under what a swish begins at, round both tracks", async () => {
   for (const id of ["circle", "shuttle"]) {
     const stand = await coreStand(modelSpec("workshop-fighter"), { ground: true });
-    const run = startRun(labActor(stand.built, stand.world), trackOf(TRACKS[id].pieces));
+    const run = startLocomotion(labActor(stand.built, stand.world), trackOf(TRACKS[id].pieces));
     const air = airOf(stand.built), at = new Vector3();
     let fastest = 0;
     // From the first second on: the body's first steps take its arms from its reference pose to its guard.

@@ -15,7 +15,7 @@ import { throwBlow } from "../src/lab/blow.ts";
 import { LAB_BLOWS } from "../src/lab/blows.ts";
 import { loadoutSpec } from "../src/lab/loadout.ts";
 import { createMindLog, logged, watchHas } from "../src/lab/mind-log.ts";
-import { startRun } from "../src/lab/run-mode.ts";
+import { startLocomotion } from "../src/lab/locomotion-mode.ts";
 import { CIRCLE_RADIUS, TRACKS, trackOf } from "../src/lab/track.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -70,7 +70,7 @@ test("the_log_of_a_run_and_of_a_blow_is_what_their_scripts_decide", async () => 
   const dt = 1 / 120;
   {
     const spec = humanSpec("workshop-fighter"), stand = await coreStand(spec, { ground: true }), log = createMindLog();
-    const run = startRun(labActor(stand.built, stand.world, { around: (script) => logged(script, log) }), trackOf(TRACKS.circle.pieces));
+    const run = startLocomotion(labActor(stand.built, stand.world, { around: (script) => logged(script, log) }), trackOf(TRACKS.circle.pieces));
     try {
       stand.step(stand.seconds(20));
       // It sets off on its second step, at the one pace the circle lets it walk (its fastest walk, or

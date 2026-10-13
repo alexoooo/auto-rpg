@@ -1,21 +1,21 @@
 import type { BodySpec } from "../spec/body.ts";
 import { BEHAVIOUR_PARTS } from "./behaviours.ts";
-import type { BehaviourConfig, MindConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
+import type { BehaviourConfig, MindConfig, MoveRuleConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { CONTROLLERS } from "./controllers.ts";
 import { CONFIG_KEYS } from "./config-keys.ts";
-import { SKILL_PARTS } from "./fighter.ts";
+import { MOVE_RULE_PARTS, SKILL_PARTS } from "./fighter.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Role } from "./parts.ts";
 import { SUB_MIND_PARTS } from "./sub-minds.ts";
 import { TACTICS_PARTS } from "./tactics-of.ts";
 
 /** Every part's config, by kind. */
-type AnyPart = MindConfig | SubMindConfig | TacticsConfig | BehaviourConfig | SkillConfig;
+type AnyPart = MindConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig;
 
 /**
  * **Every part, by its kind**, across roles: the one list a screen offers a slot's choices from.
  * A kind without an entry does not compile.
  */
-export const PARTS: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = Object.freeze({ ...CONTROLLERS, ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...SKILL_PARTS });
+export const PARTS: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = Object.freeze({ ...CONTROLLERS, ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...MOVE_RULE_PARTS, ...SKILL_PARTS });
 
 /** The part of `config`'s kind; a thrown error for a kind no part has, read from a save or a link. */
 export function partOf<C extends PartConfig>(config: C): Part<C> {

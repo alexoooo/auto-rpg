@@ -128,8 +128,8 @@ test("the_lab_offers_the_game_rate_first_and_distinct_scenarios", () => {
   assert.equal(LAB_RATES[0], PHYSICS_HZ.value);
   assert.equal(new Set(SCENARIOS.map((s) => s.id)).size, SCENARIOS.length);
   assert.ok(SCENARIOS.every((s) => s.name));
-  assert.deepEqual(SCENARIOS.map((s) => s.id), ["stance", "recovery", "attack", "run"]);
-  assert.equal(labAddress("?play=lab&scenario=run").scenario, "run");
+  assert.deepEqual(SCENARIOS.map((s) => s.id), ["stance", "recovery", "attack", "locomotion"]);
+  assert.equal(labAddress("?play=lab&scenario=locomotion").scenario, "locomotion");
 });
 
 
