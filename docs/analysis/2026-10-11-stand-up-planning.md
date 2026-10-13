@@ -3464,3 +3464,35 @@ The next missing component is a physical route from this retained base to a flat
 The prefix reaches the diagnostic three-contact hold at 5.341667 s, already beyond the requested
 median, and cannot itself satisfy either timing goal. The selected frozen recovery library
 remains 3/16 with none within six seconds. Full qualification remains unfinished.
+
+## Feet-up hold clarification and rear placement, 2026-10-12
+
+The owner observes that the feet rise and stay raised in the retained-kneel replay. This is
+confirmed. At six recovery seconds in the frozen Node Stance / game Rapier coordinate / 120 Hz
+recording, both feet carry zero measured load; their centres are about 0.391 and 0.392 m above
+the floor. The controller requests knee flexions 2.308688 and 2.444607 rad, and measures
+2.306905 and 2.449769 rad. It finishes its target blend and holds those bent knees. It has no
+later foot-placement or standing stage. There is no evidence here of a false loaded-foot
+estimate: the diagnostic contact readings say the feet are unloaded. Computed diagnostic
+reaction forces do not enter this finite-velocity controller's commands.
+
+Three backward geometric searches from the valid foot endpoint fail at waypoint two. Six
+forward/backward pose-fitting searches that omit collision penalties from their objective
+advance three or four waypoints, then fail the unchanged final or interpolated collision
+checks. The initial measured pose itself passes the geometric collision screen. No complete
+route is established, and no geometry rejection is treated as a physical recovery.
+
+Thirteen further physical trials use the unchanged frozen Rogue, original muscles, stance
+host and Balance 0, counting the full 640-step prefix. Six lower only the left leg, alongside
+one retained-target control; six extend both knees. The one-leg requests can add foot-edge
+contact while the torso sinks. The two-leg requests briefly add both feet, then lose upper-body
+support. All thirteen fail by twelve seconds; none is promoted. They execute 18,707 steps,
+with zero assistance, no external-actuation events, finite readings and legal commands.
+Maximum effort violation is 0.0000155833, below the unchanged 0.0001 tolerance.
+
+Configurations, support readings, failures and geometric paths are preserved under
+`retainedTripod.rearPlacement` in `research/stand-up-path-results.json`. No production code
+changes. Whitespace and line-ending checks pass; the two previously reported source-identity
+test failures remain unresolved. Supporting-arm and trunk motion must be coordinated with
+leg extension; retaining their kneeling targets does not preserve support through that change.
+The four-second median, six-second recovery and full qualification remain unfinished.
