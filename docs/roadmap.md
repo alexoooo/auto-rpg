@@ -346,26 +346,29 @@ After it, each with its own plan, in the order each needs the one before:
     more than the bearing sole's twist gives at the ground's friction (0.5), and the bearing hip
     turns to its stop. A foot landed behind its neutral point, to speed up, falls within about
     2 s. A run at 2 m/s needs the swing's yaw cancelled, or more twist at the sole.
-  - **The SIMBICON walk** (experimental, `simbicon.ts`) drives the legs itself, with no stance
+  - **The SIMBICON walk** (`simbicon.ts`, the walk every fighter travels by) drives the legs itself, with no stance
     goal. On the Lab's lines (`research/locomotion-run.mjs`, Node, Rapier, 120 Hz, 20 s, 3 seeds,
-    calm and 20 N gusts alike) the Warrior holds 2.5 m/s asked forward (2.06 along the line,
-    setting off and the change to the run included), 0.7 to either side (0.62), 1.4 round the
-    circle (1.17), 0.7 round the square, and 0.5 back (0.26). The Rogue holds 1 m/s forward
-    (1.16: it walks faster than asked) and 0.5 to the sides, falls from 1.4 forward crouched with
-    the ankle at its dorsiflexion stop, and falls walking back at 0.5. Every way, calm and in 20 N
-    gusts, its envelope (`assets/core/simbicon-envelope.json`) is 0.7 m/s for the Warrior, 0.2 for
-    the skeleton and 0 for the Rogue, whose diagonal at 0.2 makes 0.67 of the pace asked. So
-    tactics, which plan by the walk held every way, would travel by it no faster than by the stride
-    (0.7, 0.5, 0.5), though it goes forward twice as fast. The envelope battery counts falls, not where the body went: before the walk set off on
-    the leading foot it walked the wrong way at 0.5 m/s to the right, and the battery called it
-    held.
+    calm and 5 N gusts alike) no body falls forward up to 2.5 m/s asked, but none runs: the walk
+    takes the pace asked no faster than 1.4 and makes 1.05 along the line on the Warrior, 0.95 on
+    the Rogue and 1.04 on the skeleton, short of the 1.4 the run waits for. The Warrior and the
+    Rogue hold 1 m/s to either side (0.6), 1.4 back (0.95) and 1 round the square (0.67); the
+    skeleton holds 0.5 to 0.7 to the sides, 1 back, 1 round the circle and 0.5 round the square.
+    Each steps about as wide as it stands. Every way, calm and in 5 N gusts, its envelope
+    (`assets/core/simbicon-envelope.json`) is 0.7 m/s for the Warrior and the Rogue and 0.3 for
+    the skeleton; it is measured from 0.3, since slower a step's pendulum carries the body on past
+    the pace asked or short of it. Tactics plan by the walk held every way, so they travel at 0.7,
+    though it goes forward twice as fast.
     - **Its run** is the same machine past 1.4 m/s, in states a cross-entropy search found on the
       Warrior, its Raibert gain then raised by hand. It never leaves the ground. Every
       structure that pushed off into a flight fell within a second, and two legs pushing flat out
       from a crouch lift the centre of mass at only 0.88 m/s, the crouch held to 5 cm by the
       ankle's 0.35 rad dorsiflexion stop. On the stand it holds 40 s at 1.6 to 2.5 m/s asked, at
       about 2 to 2.5 (faster than asked under 2: its pace barely follows the ask), and falls
-      within 8 s at 3. It runs straight ahead: a sideways ask felled it within 15 s. Stopping
+      within 8 s at 3. It runs straight ahead: a sideways ask felled it within 15 s. The walk asked
+      1.4 makes only 1.05 to 1.15, so asked 0.5 past it the run begins once the walk has been asked
+      1.4 for 2 s, from the pace the body goes (trial walk, Node stand, Rapier, 120 Hz): the Warrior
+      empty-handed then runs at about 2.2 m/s asked 2, and with the club falls within 1.5 s of the
+      change, so the envelope, which takes the slowest of what a body holds, holds no run. Stopping
       from a run stands 14 times in 15. The fall comes as the run brakes from 1.4 to 0.9 m/s in
       half a second, just before the walk takes over.
     - **Departures from the paper:** the late swing lands by the inverted pendulum (Coros 2010)
@@ -374,13 +377,11 @@ After it, each with its own plan, in the order each needs the one before:
     - **Open:** in about a fifth of steps the pelvis and lumbar alternate from step to step
       (about 2 mrad), traced to the stance hip's spin term; without it the chatter goes and the
       1 m/s walk falls.
-    - **Not done:** a search over the walk's settings (the plan's session 04, the owner's to
-      ask for).
     - **Next:** [the walk every way and on every body](plans/2026-10-11-simbicon-every-way.md): a
       rule that reads where a walk went, a gait for each direction, and the gait scaled to each
       body's legs.
-  - **Travel, then fight** (`travel.ts`) walks by the stride, its arms swinging, until a standing
-    foe is within 5 m, and in the stance's guard after. Every humanoid's mind gets about by it
+  - **Travel, then fight** (`travel.ts`) walks by the SIMBICON walk (the Scrapper by the stride)
+    until a standing foe is within 5 m, and in the stance's guard after. Every humanoid's mind gets about by it
     (`GAME_FIGHTER`); an Arena bout opens at 4 m, so it fights by the stance's walk from its
     first step. It never runs: the run holds no faster than the stride at any pace. It also travels
     by a walk that drives the legs, such as the SIMBICON walk, asking it to stand before it changes.

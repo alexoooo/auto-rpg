@@ -141,7 +141,7 @@ export interface SimbiconSettings {
  * The swinging sole lands where a hopping machine's does (Raibert 1986): ahead of the centre of
  * mass by half the way it goes in `contact` s, and `gain` s of its speed more than the walk asked.
  */
-interface SimbiconRun extends Omit<SimbiconSettings, "stanceKneeLate" | "lead" | "leadOut" | "vf" | "vfSide" | "vfMost" | "trim" | "trimSide" | "trimMost" | "trimLeak" | "turn" | "swerve" | "speedup" | "arms" | "run" | "leg"> {
+export interface SimbiconRun extends Omit<SimbiconSettings, "stanceKneeLate" | "lead" | "leadOut" | "vf" | "vfSide" | "vfMost" | "trim" | "trimSide" | "trimMost" | "trimLeak" | "turn" | "swerve" | "speedup" | "arms" | "run" | "leg"> {
   readonly push: number;
   readonly pushKnee: number;
   readonly pushAnkle: number;
@@ -157,17 +157,18 @@ interface SimbiconRun extends Omit<SimbiconSettings, "stanceKneeLate" | "lead" |
  * thigh and its spread placed by the inverted pendulum's landing in place of the paper's feedback
  * on distance, and its stance ankle giving; then its angles, lean, gains and landing searched on
  * the Warrior, the Rogue and the skeleton together (`research/locomotion-search.mjs --kind simbicon
- * --way forward`, scored as well by coming to rest when asked to stand): the swinging thigh driven
- * further and its knee bent more, the feet set wider and the pelvis leaning forward. Forward under
- * gusts on their worst seeds, the Warrior and the Rogue walk and run on to 1.7 m/s and the skeleton
- * walks to 1.2, and each comes to rest when asked.
+ * --way forward --objective battery --turns --track --narrow 0.9 --winds 1:5:11,12,13,14`): scored on
+ * the envelope's walk battery calm and in the lab's 5 N gusts, by the share of each pace it made, and
+ * cut as its soles land wider than 0.9 of how they stood. It steps about as wide as it stands, with
+ * the stance leg's speed servo and the landing's trims on. Calm, each body walks within an eighth of
+ * a metre a second of the pace asked to 1 m/s, and holds to 1.4 asked making 1.08 to 1.15.
  */
 export const SIMBICON: SimbiconSettings = Object.freeze({
   seconds: 0.25, longest: 0.8,
-  swingHip: 0.598, swingHipLate: -0.03, swingSpread: 0.023, swingKnee: 1.19, swingKneeLate: 0.206, swingAnkle: 0.34, swingAnkleLate: 0.031,
-  stanceKnee: 0.043, stanceKneeLate: 0.159, stanceAnkle: -0.023, cvAnkle: 0.221, cvAnkleSide: 0, lean: 0.116,
-  cd: 0.07, cv: 0.292, cdLate: 0.24, cvLate: 0.162, cdSide: -0.242, cvSide: -0.051, landing: 1, lead: 0.134, leadSide: 0.121, leadOut: 0.121, width: 0.158, vf: 0, vfSide: 0, vfMost: 0.5, trim: 0, trimSide: 0, trimMost: 0.1, trimLeak: 0.2,
-  settle: 0.1, stance: 1, swing: 0.5, ankle: 0.3, pelvis: 0.1, hold: 1, turn: 2, swerve: 1.6, speedup: 0.5, arms: 0, run: 1.4,
+  swingHip: 0.596, swingHipLate: -0.0317, swingSpread: -0.1043, swingKnee: 1.1192, swingKneeLate: 0.0323, swingAnkle: 0.35, swingAnkleLate: 0.1059,
+  stanceKnee: 0.0197, stanceKneeLate: 0.2298, stanceAnkle: -0.0123, cvAnkle: 0.2434, cvAnkleSide: -0.5131, lean: 0.1583,
+  cd: 0.5, cv: 0.141, cdLate: 0.2207, cvLate: 0.2293, cdSide: -0.5, cvSide: 0.0138, landing: 1, lead: 0.0793, leadSide: 0.1406, leadOut: -0.0657, width: 0.2269, vf: 0.5255, vfSide: 0.6894, vfMost: 0.6701, trim: 0.0083, trimSide: 0, trimMost: 0.1, trimLeak: 0.2,
+  settle: 0.1, stance: 1, swing: 0.5, ankle: 0.2902, pelvis: 0.1, hold: 1, turn: 2, swerve: 1.6, speedup: 0.5, arms: 0, run: 1.4,
   leg: 0.8815024260685317,
 });
 
@@ -191,24 +192,28 @@ const SIMBICON_RUN: SimbiconRun = Object.freeze({
 /**
  * Changing between the walk and the run as a foot lands, m/s: the run begins once the walk asked is
  * `past` over the run's pace and the body goes forward no slower than `short` under it (a walk
- * asked at the run's pace, as a cap on the walk gives it, walks), and gives way to the walk once the walk
- * asked has come down `below` under it, the walk taking up the pace the body goes and slowing
- * from it: the run has no brake of its own.
+ * asked at the run's pace, as a cap on the walk gives it, walks), or, for a walk that makes less than
+ * it is asked, once the walk asked is `far` over the run's pace and has stood at it for `top` s, by
+ * when the body goes as fast as it walks, taking up the pace the body goes; and gives way to the walk
+ * once the walk asked has come down `below` under it and the body has slowed to the run's pace, its
+ * landings braking it until then; the walk takes up the pace the body goes and slows from it.
  */
-const RUN_SWITCH = { past: 0.05, short: 0.1, below: 0.2 } as const;
+const RUN_SWITCH = { past: 0.05, short: 0.1, below: 0.2, far: 0.5, top: 2 } as const;
 
 /** The most the walk asked may change over a stride, m/s, forward and to the side together, for the landing's trims to learn from it (`SimbiconSettings.trim`). */
 const TRIM_STEADY = 0.05;
 
 /**
- * The farthest the face asked may be from the stance's heading for a walk to set off, rad: past it the
- * stance turns the body where it stands first, since a heading turned while the first step shifts the
- * weight onto one foot throws the body.
+ * The farthest the face asked may be from the walk's heading for it to walk as asked, rad: setting off
+ * (`set`), past it the walk steps where it stands while its heading turns, as a person turns round; under
+ * way, it walks on turning through a bend up to `round`, and past that it brakes to turn round. The
+ * stance's own turn where it stands twists the pelvis over feet that stay put, and a walk set off from
+ * it walks across the way the feet face.
  */
-const SET_OFF = 0.35;
+const SET_OFF = Object.freeze({ set: 0.35, round: Math.PI / 2 });
 
-/** The walk the stance is asked while it turns the body where it stands. */
-const IN_PLACE: readonly [number, number] = Object.freeze([0, 0]) as readonly [number, number];
+/** The speed, m/s, under which a walk is setting off (`SET_OFF`), and turns its heading turning round: faster, it brakes first. */
+const TURN_ROUND = 0.3;
 
 /**
  * **What a gait's setting measures**, for its scaling to a leg of another length by dynamic
@@ -302,6 +307,19 @@ export function simbiconWays(tuning: { readonly side?: Partial<SimbiconWay>; rea
   return { side: { ...ways.side, ...tuning.side }, back: { ...ways.back, ...tuning.back } };
 }
 
+/** The run's settings with `tuning`'s laid over them. */
+export function simbiconRun(tuning: Partial<SimbiconRun> = {}): SimbiconRun {
+  return { ...SIMBICON_RUN, ...tuning };
+}
+
+/** Whether a run's settings are each finite, its times positive, its landing's gain and reach not negative, and its shares of strength within (0, 1]. */
+export function validSimbiconRun(run: SimbiconRun): boolean {
+  const { seconds, longest, settle, pelvis, contact, gain, reach, stance, swing, ankle, hold, push, pushKnee } = run;
+  return Object.keys(run).length === Object.keys(SIMBICON_RUN).length && (Object.values(run) as number[]).every(Number.isFinite)
+    && seconds > 0 && longest > seconds && [settle, pelvis, contact].every((x) => x > 0) && gain >= 0 && reach >= 0
+    && [stance, swing, ankle, hold, push, pushKnee].every((x) => x > 0 && x <= 1);
+}
+
 /** Whether `ways` are a gait's: each way has exactly the settings a way changes, each finite. */
 export function validWays(ways: SimbiconWays): boolean {
   return [ways.side, ways.back].every((way) => Object.keys(way).length === WAY_KEYS.length
@@ -363,6 +381,8 @@ interface SimbiconMemory {
   shifting: boolean;
   /** Shifting, how far the capture point was short of the first stance sole across the heading at the last step, m. */
   short: number;
+  /** How long the walk asked forward has stood at the run's pace, s (`RUN_SWITCH.top`). */
+  capped: number;
   /** The time since the walk set off, s; the centre of mass's x and z and that time at the last two landings, the earlier first; and how many it has. */
   clock: number;
   landings: number[];
@@ -432,10 +452,11 @@ const RIGHT: Readonly<Vector3> = Object.freeze(new Vector3(1, 0, 0));
  * asked to stand while walking it brings the walk asked to rest and gives the legs back to the
  * stance as a swinging foot lands once the body is slow, the stance resumed from the body as it is.
  */
-export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWays: SimbiconWays = SIMBICON_WAYS): Locomotion {
+export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWays: SimbiconWays = SIMBICON_WAYS, givenRun: SimbiconRun = SIMBICON_RUN): Locomotion {
   if (!validSimbicon(given)) throw new Error("a SIMBICON gait needs every setting finite, its times, turn, swerve, speed-up, run and leg positive, and its shares of strength within (0, 1]");
   if (!validWays(givenWays)) throw new Error("a SIMBICON gait needs each way to give every setting a way changes, finite");
-  const k = legOf(body.built.spec) / given.leg, settings = scaledGait(given, k), runGait = scaledGait(SIMBICON_RUN, k);
+  if (!validSimbiconRun(givenRun)) throw new Error("a SIMBICON run needs every setting finite, its times positive, its gain and reach not negative and its shares of strength within (0, 1]");
+  const k = legOf(body.built.spec) / given.leg, settings = scaledGait(given, k), runGait = scaledGait(givenRun, k);
   const ways: SimbiconWays = { side: scaledGait(givenWays.side, k), back: scaledGait(givenWays.back, k) };
   const envelope = body.envelope ? simbiconEnvelope(body.built.spec) : null;
   const legs = locomotion(envelope, settings.turn), muscles = body.muscles, dynamics = muscles.dynamics;
@@ -449,7 +470,7 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
   };
   const leg = { left: limbOf("left"), right: limbOf("right") };
   const memory: SimbiconMemory = { walking: false, running: false, air: false, stance: "left", late: false, time: 0, heading: 0, pace: 0, asked: 0, forward: 0, right: 0,
-    root: new Quaternion(), read: false, stopping: false, shifting: false, short: 0, clock: 0, landings: [0, 0, 0, 0, 0, 0], landed: 0, stride: [0, 0], trim: [0, 0], trimAsked: [0, 0, 0, 0] };
+    root: new Quaternion(), read: false, stopping: false, shifting: false, short: 0, capped: 0, clock: 0, landings: [0, 0, 0, 0, 0, 0], landed: 0, stride: [0, 0], trim: [0, 0], trimAsked: [0, 0, 0, 0] };
   const state = { legs: legs.state, gait: memory };
   const scratch = { target: new Quaternion(), pitch: new Quaternion(), error: new Vector3(), spin: new Vector3(), up: new Vector3(),
     relative: new Vector3(), speeds: [0, 0, 0] as [number, number, number] };
@@ -489,6 +510,7 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
     memory.stopping = false;
     memory.shifting = true;
     memory.clock = 0;
+    memory.capped = 0;
     memory.landed = 0;
     memory.trim[0] = 0;
     memory.trim[1] = 0;
@@ -528,6 +550,7 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
     const swing: Side = memory.stance === "left" ? "right" : "left";
     memory.time += dt;
     memory.clock += dt;
+    memory.capped = memory.forward >= settings.run ? memory.capped + dt : 0;
     const timing = memory.running ? runGait : settings;
     if (!memory.late && memory.time >= timing.seconds) memory.late = true;
     else if (memory.late && (s.touching[swing] || memory.time >= timing.longest)) {
@@ -559,8 +582,12 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
       memory.air = false;
       memory.time = 0;
       // The walk and the run change as a foot lands.
-      if (!memory.running) memory.running = memory.asked > settings.run + RUN_SWITCH.past && memory.forward >= settings.run && along >= settings.run - RUN_SWITCH.short;
-      else if (memory.forward < settings.run - RUN_SWITCH.below) {
+      if (!memory.running) {
+        memory.running = memory.asked > settings.run + RUN_SWITCH.past && memory.forward >= settings.run && (along >= settings.run - RUN_SWITCH.short || memory.asked > settings.run + RUN_SWITCH.far && memory.capped >= RUN_SWITCH.top);
+        // The run takes up the pace the body goes and speeds up from it.
+        if (memory.running) memory.forward = Math.min(memory.forward, along);
+      }
+      else if (memory.forward < settings.run - RUN_SWITCH.below && along <= settings.run) {
         memory.running = false;
         memory.forward = Math.max(memory.forward, along);
       }
@@ -671,20 +698,24 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
     },
     drive(view, asked, face, dt, lower) {
       if (!memory.walking) {
-        const turning = asked !== null && Math.abs(wrap(face - legs.heading)) > SET_OFF, goal = legs.goal(view, turning ? IN_PLACE : null, face, dt, lower);
-        // The stance's stand until a walk is asked, the body faces near the way asked (`SET_OFF`), is up and the stance takes no step of its own.
-        if (!asked || turning || !goal || view.down || view.stance.own || view.stance.phase !== "stand") return { kind: "stance", goal };
-        begin(view, legs.heading, asked[1]);
+        const goal = legs.goal(view, null, asked ? legs.heading : face, dt, lower);
+        // The stance's stand until a walk is asked, the body is up and the stance takes no step of its own; the walk sets off the way the body faces.
+        if (!asked || !goal || view.down || view.stance.own || view.stance.phase !== "stand") return { kind: "stance", goal };
+        begin(view, view.stance.facing, asked[1]);
       }
       if (view.down) { stand(view); return { kind: "stance", goal: legs.goal(view, null, face, dt, lower) }; }
       memory.stopping = asked === null;
       // A walk asked past what the body holds that way is taken at the most it holds (`paceToward`).
       const speed = asked ? Math.sqrt(asked[0] * asked[0] + asked[1] * asked[1]) : 0, holds = asked && envelope ? paceToward(envelope, asked[0], asked[1]) : Infinity;
-      const held = speed > holds ? holds / speed : 1, forward = asked ? asked[0] * held : 0, right = asked ? asked[1] * held : 0;
+      // Facing far from the way asked (`SET_OFF`), it slows to a stop and steps where it stands while its heading turns.
+      const v = view.stance.velocity, moving = Math.sqrt(v.x * v.x + v.z * v.z);
+      const held = speed > holds ? holds / speed : 1, square = Math.abs(wrap(face - memory.heading)) <= (moving > TURN_ROUND ? SET_OFF.round : SET_OFF.set);
+      const forward = asked && square ? asked[0] * held : 0, right = asked && square ? asked[1] * held : 0;
       // The heading turns once the weight has shifted: the shift brings the centre of mass over the sole across the heading,
       // and a heading that turns under it shifts it toward a moving mark.
-      if (asked && !memory.shifting) {
-        const v = view.stance.velocity, going = Math.max(memory.pace, Math.sqrt(v.x * v.x + v.z * v.z));
+      // Turning round, the heading waits for the body to slow to `TURN_ROUND`: braking and turning at once throws it.
+      if (asked && !memory.shifting && (square || moving <= TURN_ROUND)) {
+        const going = Math.max(memory.pace, moving);
         const rate = Math.min(settings.turn, going > 0 ? settings.swerve / going : Infinity) * dt, turn = wrap(face - memory.heading);
         memory.heading += Math.max(-rate, Math.min(rate, turn));
       }

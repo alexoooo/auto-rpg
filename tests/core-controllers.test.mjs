@@ -7,6 +7,7 @@ import { createMind } from "../src/core/mind/minds.ts";
 import { BODY_MODELS, modelSpec } from "../src/core/models.ts";
 import { CONTROLS, controlsFor } from "../src/arena/matchup.ts";
 import { STRAIGHT_PUNCH } from "../src/core/skills/straight-punch.ts";
+import { SIMBICON } from "../src/core/skills/simbicon.ts";
 import { STRIDE } from "../src/core/skills/stride.ts";
 import { COMBAT, KICKER, withParts } from "./fixtures/minds.mjs";
 
@@ -36,17 +37,17 @@ test("each controller says which bodies its presets fit, and the Arena offers ju
 });
 
 test("every preset id reads to its tree: tactics, a skill of each role and the sub-minds", () => {
-  const walk = { kind: "stance-walk" }, travel = { kind: "travel", near: 5, travel: { kind: "stride", ...STRIDE }, fight: walk }, guard = { kind: "cover-guard" }, seek = { kind: "seek", guard: "pose", aim: "head", range: "close" };
+  const walk = { kind: "stance-walk" }, travel = { kind: "travel", near: 5, travel: { kind: "simbicon", ...SIMBICON }, fight: walk }, striding = { ...travel, travel: { kind: "stride", ...STRIDE } }, guard = { kind: "cover-guard" }, seek = { kind: "seek", guard: "pose", aim: "head", range: "close" };
   const openings = { kind: "openings", hands: "alternate", strikes: "linear", prefers: "head", defence: "cover", combinations: "none", spacing: 0, spacingStep: 0 };
   const path = { kind: "path-strike", overlap: false }, recovery = [{ kind: "support-recovery" }];
-  const fighter = (tactics, blow, kick, support, subs) => ({ kind: "fighter", tactics, locomotion: travel, guard, blow, kick, support, subs });
+  const fighter = (tactics, blow, kick, support, subs, locomotion = travel) => ({ kind: "fighter", tactics, locomotion, guard, blow, kick, support, subs });
   const body = { ...openings, strikes: "mixed", prefers: "body" };
   const rise = [{ kind: "staged-rise" }];
   const behaving = (list) => ({ kind: "behaviours", list: [{ kind: "follow-orders" }, ...list, { kind: "cover", guard: "cover" }] });
   assert.deepEqual(Object.fromEntries(Object.entries(PRESETS).map(([id, { config }]) => [id, config])), {
     classic: fighter(seek, { kind: "recipe-strike" }, null, null, [{ kind: "staged-rise" }]),
     puncher: fighter({ ...seek, range: "edge" }, { kind: "straight-punch", ...STRAIGHT_PUNCH }, null, null, [{ kind: "staged-rise" }]),
-    scrapper: fighter(body, path, null, { kind: "support-fold" }, recovery),
+    scrapper: fighter(body, path, null, { kind: "support-fold" }, recovery, striding),
     behaviours: fighter(behaving([{ kind: "strike", hands: "alternate", aim: "head", blow: { kind: "recipe-strike" } }]), null, null, null, rise),
     crawl: { kind: "quadruped" },
   });
@@ -72,7 +73,8 @@ test("a tree names what is wrong with it where it is, and no mind is made of one
   assert.deepEqual(treeFaults(withParts(CLASSIC, { tactics: { tuning: { edge: { band: .25, patience: 4, clinch: .7 } } } })), []);
   // A skill the tactics never ask of, or a blow that cannot carry out what they ask, is a fault at its slot.
   assert.deepEqual(treeFaults(withParts(CLASSIC, { blow: { kind: "path-strike", overlap: false } })), ["blow: the path strike carries out a blow only along a path, and these tactics name none"]);
-  assert.deepEqual(treeFaults(withParts(CLASSIC, { kick: { kind: "front-kick" }, support: { kind: "support-fold" } })), ["kick: these tactics never kick", "support: these tactics never fight from low support"]);
+  assert.deepEqual(treeFaults(withParts(CLASSIC, { kick: { kind: "front-kick" }, support: { kind: "support-fold" } })),
+    ["support: a walk that drives the legs leaves no stance to fold", "kick: these tactics never kick", "support: these tactics never fight from low support"]);
   assert.deepEqual(treeFaults(withParts(COMBAT, { blow: { kind: "recipe-strike" } })), []);
   const faults = (config) => controllerOf(config).faults(config);
   assert.deepEqual(faults({ kind: "direct", targets: {}, seconds: 0, speed: 1, activation: 1 }), ["invalid direct controller gains"]);

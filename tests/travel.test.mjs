@@ -16,11 +16,12 @@ import { SKILL_PARTS } from "../src/core/mind/fighter.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { NO_COVER } from "../src/core/mind/intent.ts";
 import { SIMBICON } from "../src/core/skills/simbicon.ts";
+import { STRIDE } from "../src/core/skills/stride.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
-const TRAVELLING = { ...RECIPE_FIGHTER, locomotion: SKILL_PARTS.travel.defaults }, NEAR = TRAVELLING.locomotion.near;
+const TRAVELLING = { ...RECIPE_FIGHTER, locomotion: { ...SKILL_PARTS.travel.defaults, travel: { kind: "stride", ...STRIDE } } }, NEAR = TRAVELLING.locomotion.near;
 
 /** The SIMBICON walk's memory in a mind's state. */
 function gaitOf(state, depth = 0) {

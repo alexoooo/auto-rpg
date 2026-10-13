@@ -73,6 +73,8 @@ test("a_tape_rides_in_a_link's_fragment", () => {
   ];
   for (const entry of wrong) assert.deepEqual(readTape(tapeHash([tape[0], entry])), [], JSON.stringify(entry));
   assert.deepEqual([STAND_ORDERS, tape[1].orders, null, [], { move: null, face: null, attack: "head" }].map(isOrders), [true, true, false, false, false]);
+  // A pace is a ceiling, m/s: a number, finite and not below zero, or none.
+  assert.deepEqual([0.4, 0, -0.1, Infinity, "slow"].map((pace) => isOrders({ move: { x: 0, z: 1 }, pace, face: null, attack: null })), [true, true, false, false, false]);
   // The gap and the cap a link asks for, each within its range or not at all.
   // What each side's right hand holds: left then right, one word for both, or the club.
   assert.deepEqual(["?held=empty,club", "?play=arena&held=empty", "?held=club", "?held=%20club%20,empty"].map(readHeld),

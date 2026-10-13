@@ -5,12 +5,14 @@ export interface Heading { readonly x: number; readonly z: number }
 
 /**
  * **What a body is told to do**, by a person, a team's plan or its own tactics: plain data, in
- * the world's frame, naming no joint, pace or camera. Tactics that take orders carry them out
+ * the world's frame, naming no joint or camera, and a pace only as a ceiling. Tactics that take orders carry them out
  * (`recipeTactics`); the body defends itself meanwhile.
  */
 export interface Orders {
   /** Walk this way (its length is not read), at the body's own pace. Null stands. */
   readonly move: Heading | null;
+  /** Walk no faster than this, m/s, as a walk coming to a stop does; absent, the body's own pace is the only bound. */
+  readonly pace?: number;
   /** Face this way (its length is not read past 0.08). Null faces the walk, or, standing, as it stands. */
   readonly face: Heading | null;
   /** Attack this world point with the mind's chosen endpoint; the walk waits. Null guards. */
@@ -27,8 +29,8 @@ const isHeading = (value: unknown): value is Heading => typeof value === "object
 /** Whether `value` is orders: what orders read from outside the program must be before a body is given them. */
 export function isOrders(value: unknown): value is Orders {
   if (typeof value !== "object" || value === null) return false;
-  const { move, face, attack, foe } = value as Record<string, unknown>;
-  return (move === null || isHeading(move)) && (face === null || isHeading(face))
+  const { move, pace, face, attack, foe } = value as Record<string, unknown>;
+  return (move === null || isHeading(move)) && (pace === undefined || typeof pace === "number" && Number.isFinite(pace) && pace >= 0) && (face === null || isHeading(face))
     && (attack === null || (Array.isArray(attack) && attack.length === 3 && attack.every((n) => Number.isFinite(n))))
     && (foe === undefined || typeof foe === "string");
 }

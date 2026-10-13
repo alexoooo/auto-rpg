@@ -33,15 +33,15 @@ export function guarding(guard: SeekConfig["guard"], threat: Threat = THREAT): (
  * **Orders to walk and to face, carried out**, the hands covering as `guard` says and attacking
  * nothing. Ordered to walk, a body walks that way at its fastest walk (`Body.envelope`), turning to it; ordered to face
  * another way as it walks, it walks at the pace that holds (`strafe`, `STRAFE` unless an
- * experiment passes another); standing, it faces as ordered, or keeps its heading. The stance
+ * experiment passes another); either no faster than the pace ordered (`Orders.pace`); standing, it faces as ordered, or keeps its heading. The stance
  * turns only while it walks (`locomotion`), so a standing body ordered to face does not turn.
  */
-export function orderedIntent({ report, envelope }: Sight, { move, face }: Pick<Orders, "move" | "face">, guard: Intent["guard"],
+export function orderedIntent({ report, envelope }: Sight, { move, face, pace = Infinity }: Pick<Orders, "move" | "face" | "pace">, guard: Intent["guard"],
   strafe: typeof STRAFE = STRAFE): Intent {
   // A facing under 8 cm long names no direction: the point to face is over the body itself.
   const facing = face && hypot(face.x, face.z) > 0.08 ? atan2(face.x, face.z) : null;
   if (!move || !envelope) return { move: null, face: facing ?? report.heading, guard, attack: null };
-  const bearing = atan2(move.x, move.z), walk = envelope.walk.value;
+  const bearing = atan2(move.x, move.z), walk = Math.min(envelope.walk.value, pace);
   // Facing its walk: the walk the envelope measured, forward, turning to it.
   if (facing === null) return { move: [walk, 0], face: bearing, guard, attack: null };
   // Facing elsewhere: the walk's direction in the heading's frame, at the pace that holds.
