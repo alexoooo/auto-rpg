@@ -3669,3 +3669,50 @@ No production code changes or controller promotion are made. Document whitespace
 checks pass. The two previously reported current-source checkpoint-identity test failures remain
 unresolved. The selected frozen library remains 3/16 with none within six seconds; full timing
 and robustness qualification are still unachieved.
+
+## Measured hip response and support loss, 2026-10-13
+
+**No recovery succeeds.** A direct physical response test examines the foot-first recording
+at 48 and 192 steps, including its complete original fall prefix. The harness is frozen Node
+Stance Lab / game Rapier coordinate adapter 11 / 120 Hz / original Rogue empty with compliant
+soles and symmetric muscle envelopes / ordinary stance host / Balance 0. No body or muscle
+change, assistance, physical pin or injected actuation is used.
+
+The 192-step state has both soles loaded while pelvis-up is -0.755307. The upper and middle
+trunk remain on the floor, and the right foot presses against the pelvis at 364.369 N. Each
+short probe restores the same complete physical checkpoint and changes only selected muscle
+velocity commands to plus or minus 4 rad/s for twelve steps. The 122 probes consume 1,464
+continuation steps, excluding the once-reproduced prefixes. The unchanged action is the
+control at each state; these probes are not recovery attempts or strength measurements.
+
+At the early state, paired hip flexion improves endpoint pelvis-up by 0.112522 relative to
+the unchanged continuation, but lowers upper-trunk height by 0.005589 m. At the later state,
+it improves pelvis-up by 0.050913 and upper-trunk height by only 0.001925 m. The pelvis still
+points downward. Lumbar extension gives a larger late pelvis-up change while lowering the
+upper trunk: a local orientation improvement can be another misleading progress measure.
+
+Eight complete-fall trials test a hip-flexion intervention, its disabled control, speed,
+target and spine variants. All fail by six seconds; sustained flexion loses foot support.
+Six further trials retain the other hip placement commands, gate the intervention on current
+sole loading instead of latched contact, and test both together. Those also fail. All fourteen
+use the original full fall clock, with 10,066 steps total. Two disabled controls exactly
+reproduce their preceding trajectories. This is no evidence of a viable weight transfer.
+
+The maximum measured effort-bound excess across probes and trials is 0.000020809349706496505,
+below 0.0001; all report zero assistance and no external actuation. Full trials report finite
+final readings and legal final commands. The selected current-contact/retained-placement
+variant reproduces its grid trace, and independent action replay, restoration and split
+continuation are exact. The detached policy reconstructs all 719 actions from plain static
+model data and recorded observations. Physical SHA-256:
+
+c8735fcf4b29c51b6e9df54e8584f160d9eb1369afa6906bf7d9cc5d11997fd6
+
+The standalone .review/stand-up-contact-response/replay.html compares this failed attempt
+with the unchanged optimized baseline from the same complete saved fall and body. All 720
+embedded candidate frames and identity are checked; this replay is not visually inspected.
+Configurations, measured responses, all outcomes, source versions and replay proofs are
+preserved under footContactResponse in research/stand-up-path-results.json.
+
+No production controller change is promoted. Evidence whitespace and line-ending checks pass;
+the previously reported two current-source checkpoint-identity test failures remain unresolved.
+The four-second median / six-second recovery goal and live Warrior loop remain unfinished.
