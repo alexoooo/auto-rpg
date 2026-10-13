@@ -4,7 +4,7 @@ import { motionAxesToRef, turningToRef } from '../src/core/build/joint-state.ts'
 import { forceVelocityFactor } from '../src/core/muscle/force-velocity.ts';
 import { spinBetweenToRef, turnAboutToRef } from '../src/core/math/turn.ts';
 import { atan2 } from '../src/core/math/real.ts';
-import { contactEffort } from './stand-up-contact-effort.mjs';
+import { contactEffort, contactFrameFeedback } from './stand-up-contact-effort.mjs';
 import { PHYSICS_HZ } from '../src/core/world.ts';
 
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
@@ -120,6 +120,8 @@ export function contactPolicy({model,parameters:p={}}) {
     const initialGoals=goals??state.initialAngles;
     const postureBlend=transition?clamp((o.time-state.started-(p.postureAfter??0))/postureSeconds,0,1):0;
     const byName=new Map(o.segments.map(s=>[s.name,s])),root=byName.get('lowerTrunk');
+    const feedback=contactFrameFeedback(model,o,p);
+    if(feedback)state.frameTorque=new Array(model.channels.length).fill(0);
     if(p.centreTarget)state.initialCentre??=[...o.centre];
     if(p.rootTarget)state.initialRoot??=[...root.rotation];
     relative.set(...root.rotation).multiplyToRef(inverseRest,relative);
@@ -196,7 +198,8 @@ export function contactPolicy({model,parameters:p={}}) {
           error+=turning[j][k]*(goal-angles[k]);
         }
         const scale=Math.min(c.positive.peak,c.negative.peak);
-        const torque=supportTorque+scale*((p.poseGains?.[c.name]??p.poseGain??.5)*error-(p.poseDamping??.06)*obs.speed);
+        let torque=supportTorque+scale*((p.poseGains?.[c.name]??p.poseGain??.5)*error-(p.poseDamping??.06)*obs.speed);
+        if(feedback) {state.frameTorque[i]=scale*feedback[i];torque+=state.frameTorque[i];}
         if(effort) {
           let predicted=effort.t0[i];
           for(let s=0;s<patches.length;s++) {

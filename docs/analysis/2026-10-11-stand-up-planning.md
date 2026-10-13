@@ -3115,3 +3115,81 @@ and five TODOs. The same `research-stand-up-acceptance.test.mjs` and `stand-up-d
 failures reject frozen checkpoints under current-source identities; the pinned checkout and guard
 remain unchanged. Exact replay, action reconstruction, replay build, whitespace and line-ending
 checks pass. No result in this batch establishes the requested median or reliability.
+
+## Measured foot and hand frame feedback, 2026-10-12
+
+**All 40 physical trials fail recovery and none reaches its next support stage.** Measured
+orientation feedback can keep a sole facing upward while that foot loses load. Adding measured
+point-position feedback, or reaching for the left palm's intended contact, does not establish
+the missing transfer. The selected frozen library remains 3/16, none within six seconds. Full
+qualification and gameplay integration remain unfinished.
+
+Every physical figure uses **Node Stance Lab / frozen game Rapier coordinate adapter 11 / 120 Hz /
+original symmetric muscle envelopes / Balance 0 / ordinary stance host**, on the same Rogue/empty
+90-degree saved fall. The complete 951-step prefix reaches the loaded-left-foot checkpoint at
+7.933333 seconds and remains in the clock. The 15-second episodes test late feasibility only.
+Bodies, muscle curves, limits, solver settings and acceptance criteria are unchanged.
+
+`contactFrameFeedback` projects measured segment orientation and point-position errors onto the
+joint axes of that segment's ancestors. Point velocity uses centre-of-mass velocity plus the
+angular contribution at the requested point. The correction is scaled by each joint's existing
+minimum directional peak, added to its requested internal torque, and capped by the existing
+force-velocity-dependent muscle capacity. The ground-reaction allocator includes the same
+correction in its effort model. No point is pinned and no force or moment is applied externally.
+
+Optional `orientationTargets` name a segment, unit world quaternion, gain and damping. Optional
+`positionTargets` name a segment, local point, world target, gain and damping. Targets must be
+finite and refer to a segment with an actuated ancestor; gains must be nonnegative. Position
+gain has units of inverse metres squared, and its damping has seconds per metre squared, because
+the point Jacobian contributes a lever arm before scaling by the joint's torque capacity.
+Omitting both options preserves existing muscle commands.
+
+| Physical comparison | Trials | Complete recoveries | Next support stage reached |
+| --- | ---: | ---: | ---: |
+| Sole orientation feedback and matched controls | 14 | 0 | 0 |
+| Sole position plus orientation feedback and matched controls | 14 | 0 | 0 |
+| Measured left-palm reach while preserving sole feedback | 12 | 0 | 0 |
+
+The first two comparisons each cover the hand-placement and right-foot-placement sequences.
+Orientation gains are 0.5, 2 and 8, with damping 0.05 or 0.2; position gains are 4, 16 and 64,
+with damping 1 or 4. The sole targets are its measured initial orientation and contact point,
+not a physical constraint. The palm trials use its previously planned contact, with three
+position gains, two damping settings, and optional orientation feedback. They remove the left
+arm's fixed joint-posture gain while retaining ordinary bounded muscle actuation.
+
+The recorded combined-foot-feedback attempt still has left-foot load 128.128 N, sole-up
+0.978311 and root-up 0.705101 at 9 seconds. Its requested foot point is 16.135 mm from target.
+At 9.5 seconds sole-up remains 0.942258, but load is zero, point error is 149.727 mm and root-up
+has fallen to 0.046862. The left hand carries no load at either sample. An upright sole is not
+a loaded supporting foot, and neither establishes recovery.
+
+The 40 trials consume 71,960 physical steps. There are no adapter errors, external-actuation
+events, invalid final commands or nonfinite final joint observations. Maximum effort-bound
+excess is 0.00002341832 N m, below the unchanged 0.0001 tolerance. All 848 new post-prefix commands
+reconstruct exactly; maximum allocator/command prediction error in that recording is below
+1.575e-12. The preceding recording's 848 commands remain unchanged without frame targets.
+Two default controls reproduce preceding physical trace hashes, and two orientation-only controls
+reproduce their traces after point feedback is added. Grid records are matched to submitted
+configurations explicitly, independently of worker completion order.
+
+`research/stand-up-path-results.json` under `frameFeedback` retains every configuration and outcome,
+matched controls, measured foot samples, command reconstruction and exact replay/restoration proof.
+`.review/stand-up-sole-feedback/replay.html` compares the recorded failure with the optimized
+baseline from the identical initial observation and physical body. Embedded records are checked;
+visual inspection remains undone under the existing local-file browser restriction. Candidate
+physical trace SHA-256:
+`beaa3bdd85c768891eaf71b6bdcbf14abd16df16ab1070be281f884532cbbb35`.
+
+The initial centre remains behind the measured left-foot/right-hand support region, as the
+preceding support measurement shows. Frame correction alone does not demonstrate unloading the
+right thigh. The next physical test is a centre transfer over existing supports before another
+lift, with the foot's measured frame retained, rather than an immediate target that depends on
+future contact.
+
+Validation: TypeScript and 21 focused tests pass, including orientation sign and world-frame
+invariance, point-Jacobian correction, point-velocity damping, muscle saturation, and allocator/
+command agreement. The fast suite reports 683 passes, two failures and five TODOs. The same
+`research-stand-up-acceptance.test.mjs` and `stand-up-detached.test.mjs` failures reject frozen
+checkpoints under current-source identities; the frozen checkout and guard are unchanged.
+Exact replay/restoration, command reconstruction, replay build, whitespace and line-ending checks
+pass. These checks do not establish recovery or the requested median and reliability.

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
+import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { pathPolicy } from '../research/stand-up-path-policy.mjs';
 import { phaseFeatures } from '../research/stand-up-phase-features.mjs';
 import { libraryPolicy, configuredPolicy } from '../research/stand-up-library-policy.mjs';
@@ -12,7 +12,7 @@ import { retargetReference } from '../research/stand-up-retarget-reference.mjs';
 import { ratesToRef } from '../src/core/build/joint-state.ts';
 import { searchGuidance } from '../research/stand-up-search-guidance.mjs';
 import { contactBalanceTarget, contactPolicy } from '../research/stand-up-contact-policy.mjs';
-import { contactEffort } from '../research/stand-up-contact-effort.mjs';
+import { contactEffort, contactFrameFeedback } from '../research/stand-up-contact-effort.mjs';
 
 test('explicit contact postures blend reference coordinates through bounded muscle commands',()=>{
   const side={peak:10,curve:{unloadedSpeed:10,curvature:.25,eccentricCeiling:1.5,eccentricSlopeRatio:2}};
@@ -106,6 +106,46 @@ test('explicit contact postures blend reference coordinates through bounded musc
   transfer({...propped,time:.7});transfer({...propped,time:.81});
   assert.deepEqual(transfer.state.switches,[{time:.81,stage:1}]);
   assert.throws(()=>contactPolicy({model,parameters:{sequence:[{parameters:{},advance:{after:1,contact:'absent'}}]}}),/defined support target/);
+  const turned=structuredClone(o),q=Quaternion.RotationAxis(Vector3.Forward(),.2);
+  turned.joints[0]={angle:.2,speed:0};
+  turned.segments[1].rotation=q.asArray();turned.segments[1].spin=[0,0,0];
+  turned.segments[1].centre=new Vector3(.5,0,0).applyRotationQuaternion(q).asArray();
+  turned.centre=turned.segments[1].centre.map(v=>v/2);
+  const orientationTargets={'foot.left':{rotation:[0,0,0,1],gain:2,damping:.1}};
+  const oriented=contactPolicy({model,parameters:{feedforward:0,poseGain:0,poseDamping:0,orientationTargets}});
+  const correction=oriented(turned);
+  assert.ok(Math.abs(oriented.state.frameTorque[0]+4)<1e-12);
+  assert.deepEqual(correction.velocity,['-inf']);assert.ok(Math.abs(correction.activation[0]-.4)<1e-12);
+  const allocator=contactEffort(model,turned,[],[],[.2],{feedforward:0,poseGain:0,poseDamping:0,orientationTargets});
+  assert.ok(Math.abs(allocator.t0[0]/allocator.scales[0]-oriented.state.torque[0])<1e-12);
+  const spinning={...turned,segments:turned.segments.map(s=>s.name==='foot.left'?{...s,spin:[0,0,3]}:s)};
+  assert.ok(Math.abs(contactFrameFeedback(model,spinning,{orientationTargets})[0]+.7)<1e-12);
+  const worldTurn=Quaternion.RotationAxis(Vector3.Up(),.9),rotated=structuredClone(turned);
+  for(const s of rotated.segments) {
+    s.rotation=worldTurn.multiply(new Quaternion(...s.rotation)).asArray();
+    s.centre=new Vector3(...s.centre).applyRotationQuaternion(worldTurn).asArray();
+  }
+  const global={'foot.left':{...orientationTargets['foot.left'],rotation:worldTurn.asArray()}};
+  assert.ok(Math.abs(contactFrameFeedback(model,rotated,{orientationTargets:global})[0]+.4)<1e-12);
+  const opposite={'foot.left':{...global['foot.left'],rotation:global['foot.left'].rotation.map(v=>-v)}};
+  assert.deepEqual(contactFrameFeedback(model,rotated,{orientationTargets:global}),contactFrameFeedback(model,rotated,{orientationTargets:opposite}));
+  for(const bad of [{absent:orientationTargets['foot.left']},{'foot.left':{rotation:[0,0,0,2],gain:1,damping:0}},{'foot.left':{rotation:[0,0,0,1],gain:-1,damping:0}}])
+    assert.throws(()=>contactFrameFeedback(model,turned,{orientationTargets:bad}),/actuated segment/);
+  turned.segments[1].position=[0,0,0];
+  const positionTargets={'foot.left':{at:[.5,0,0],target:[.5,0,0],gain:2,damping:0}};
+  const displacement=contactFrameFeedback(model,turned,{positionTargets})[0];
+  assert.ok(Math.abs(displacement+.5*Math.sin(.2))<1e-12,'the point Jacobian corrects the displaced point through the hinge');
+  const settings={feedforward:0,poseGain:0,poseDamping:0,orientationTargets,positionTargets};
+  const positioned=contactPolicy({model,parameters:settings});positioned(turned);
+  const combined=contactEffort(model,turned,[],[],[.2],settings);
+  assert.ok(Math.abs(combined.t0[0]/combined.scales[0]-positioned.state.torque[0])<1e-12);
+  assert.ok(Math.abs(positioned.state.frameTorque[0]-10*(displacement-.4))<1e-12);
+  const fastPoint={...turned,segments:turned.segments.map(s=>s.name==='foot.left'?{...s,velocity:[0,1,0]}:s)};
+  const damped={'foot.left':{...positionTargets['foot.left'],gain:0,damping:1}};
+  assert.ok(Math.abs(contactFrameFeedback(model,fastPoint,{positionTargets:damped})[0]+.5*Math.cos(.2))<1e-12);
+  const strongPoint={'foot.left':{...positionTargets['foot.left'],gain:1000}};
+  assert.deepEqual(contactPolicy({model,parameters:{...settings,positionTargets:strongPoint}})(turned).activation,[1]);
+  assert.throws(()=>contactFrameFeedback(model,turned,{positionTargets:{'foot.left':{...positionTargets['foot.left'],at:[0]}}}),/finite points/);
 });
 
 test('contact effort carries gravity and descendant ground forces in the muscle sense at speed',()=>{
