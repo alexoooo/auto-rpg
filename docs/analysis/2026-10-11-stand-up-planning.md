@@ -4595,3 +4595,67 @@ TypeScript and the focused rise-only regression pass. The fast suite reports 696
 689 pass, five TODO and two failures. The saved-fall restore and physical-foot-acquisition
 tests reject the current-source checkpoint configuration; their identity guards remain
 unchanged. No browser runtime source changes, so no production build is required.
+
+### Hand-supported foot placement and competing joint targets
+
+Harness: frozen Node Stance action evaluator, game Rapier coordinate adapter 11, 120 Hz,
+saved workshop-fighter-club-90 fall, original compliant-sole Warrior and right-hand club,
+original symmetric muscles and stance host, Balance 0. No body, muscle, host, saved-fall
+or acceptance change is made. The model is captured from an identity-matched fresh standing
+environment before restoring the fall. These experiments use muscle actions only.
+
+The verified hand-and-foot prefix ends at 3.208333 seconds. The step prototype uses the
+other foot and both hands as measured supports instead of requiring knee contacts. The
+first eight trials can report recontact without reaching the requested foot position; three
+do so. This is not successful placement. Their tilted-foot orientation also conflicts with
+the requested flat-standing centre height. Subsequent comparisons require prior airborne
+motion, completed swing time, measured loaded contact, sole-up above 0.9 and horizontal
+target error below 0.06 m before declaring placement.
+
+| Comparison | Trials | Scope |
+| --- | ---: | --- |
+| Initial step from foot support | 8 | 1.5 s component; deficient landing gate |
+| Consistent tilted-foot height, with/without moving-leg posture objectives | 8 | 1.5 s component |
+| Gradual flat-foot orientation and three weight-shift fractions | 6 | 1.5 s component |
+| Explicit knee-flexion target | 4 | 1.5 s component |
+| Lower centre of mass during the step, extension enabled after placement | 4 | Through recovery second 6 |
+| Modest torso rotation during the swing | 4 | 1.5 s component |
+| Carry foot before flattening/lowering, extension enabled after placement | 4 | Through recovery second 6 |
+
+These 38 trials take 8,080 continuation steps. None of the 30 trials with the corrected
+placement gate completes its requested placement. All eight trials run through the full
+six-second deadline miss recovery. Short component trials do not establish whole-recovery
+failure or success by that deadline. All have zero assistance and external actuation;
+maximum effort-bound excess is 0.0000370654 N m, below the unchanged 0.0001 tolerance.
+
+The recorded left-foot trial combines the knee target and torso rotation. At 4.708333 s
+the foot has advanced 0.263271 m horizontally along x, but remains 0.208756 m from its
+horizontal target. Its load is only 6.467 N while the two hands carry 253.877 and 199.656 N
+and the other foot carries 289.193 N. The torso remains pitched down over the hands.
+Continued through six seconds, placement still does not complete: horizontal target error
+is 0.193858 m and the moving foot has no load. No handover occurs.
+
+The actual lead knee ends at -0.1448669 rad, its extension stop, despite a requested
+0.8 rad flexion; the ankle is at its 0.357059 rad dorsiflexion limit. Those observations
+identify a conflict among the requested motions. They do not establish flat-foot orientation
+as the sole cause: the four trials delaying flattening also fail to reach the placement area.
+The next component separates knee flexion from forward foot translation, with the moving
+leg's predicted support released while the hands and other foot carry load. A controller
+must observe the bend before requesting the carry and must observe useful placement before
+asking for extension. Sustained upright kneeling is not introduced as a target.
+
+The .review/stand-up-bearing-step/replay.html recording is labelled as an unsuccessful
+hand-supported step, separate from the live Lab controller. Its 720 candidate and 1,084
+previous-candidate frames match the physical recordings. Independent replay reproduces all
+719 candidate observations, complete restoration and split continuation; its first 384
+observations match the verified hand-and-foot prefix. Browser inspection at 4.708333 s shows
+the hands supporting an elevated pelvis, with the lead leg still extended behind it.
+Physical SHA-256: 6a22f0321fa331e452298b990fab392116f6b0fa9dd51b7aebd86d4c26b434ba.
+handSupportedFootStep in research/stand-up-path-results.json preserves all configurations,
+outcomes, source snapshots, measured joint limits and replay verification.
+
+No controller is promoted. The selected frozen library remains 3/16, none within six seconds,
+with failure-inclusive median infinity. The four-second median and six-second recovery goal
+remains unfinished. This commit changes only recorded evidence and analysis; source hashes,
+cited paths, whitespace and line endings are checked. The two previously reported current-source
+checkpoint-configuration test failures remain unresolved; software tests are not repeated.
