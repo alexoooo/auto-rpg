@@ -377,9 +377,9 @@ After it, each with its own plan, in the order each needs the one before:
     - **Open:** in about a fifth of steps the pelvis and lumbar alternate from step to step
       (about 2 mrad), traced to the stance hip's spin term; without it the chatter goes and the
       1 m/s walk falls.
-    - **Next:** [the walk every way and on every body](plans/2026-10-11-simbicon-every-way.md): a
-      rule that reads where a walk went, a gait for each direction, and the gait scaled to each
-      body's legs.
+    - **Next:** [gaits, Move and the Lab's Locomotion battery](plans/2026-10-13-gaits-and-locomotion-lab.md):
+      named gaits from braced to run, chosen by the player's rule list in place of Travel, then
+      fight; a jog and run the Crypt travels by; and the Lab's Run as a five-track battery.
   - **Travel, then fight** (`travel.ts`) walks by the SIMBICON walk (the Scrapper by the stride)
     until a standing foe is within 5 m, and in the stance's guard after. Every humanoid's mind gets about by it
     (`GAME_FIGHTER`); an Arena bout opens at 4 m, so it fights by the stance's walk from its
