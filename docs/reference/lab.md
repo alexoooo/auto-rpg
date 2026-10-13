@@ -242,11 +242,11 @@ The page logs what its body sounds of against the mind's time (`createSoundLog`,
   run of the world or of a replay (`src/lab/player.ts`). A jump of the time shown, as on a seek
   or a Restart, plays its last 100 ms and no more.
 - **A target is heard with the body.** A scenario that puts another body in the world hands it to
-  the page (`ScenarioContext.hears`), as the Routine does each target it hangs
+  the page (`ScenarioContext.hears`), as Attack does for its targets
   (`src/lab/targets.ts`): its touches on the body are logged with the body's own, keyed
   `other:body`, and its touches on the ground, keyed `other:ground`, from the step it is hung
   until its reading closes.
-- **`AIR_SECONDS`** (`src/lab/main.ts`), 30 s of the body's air: as long as the Routine's
+- **`AIR_SECONDS`** (`src/lab/main.ts`), 30 s of the body's air: as long as Attack's
   recording, the longest a scenario keeps. The log keeps its latest 1024 cues (`CAPACITY`), a
   numeric setting.
 - **A shove's energy** is what its impulse J gives the mass m it meets from rest, J squared over

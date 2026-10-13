@@ -42,7 +42,7 @@ export interface LabShell {
 
 interface ScenarioContext {
   readonly scene: Scene;
-  /** A body in its reference pose at the origin, facing +z, on the ground of its world, as the page stands it: the scenario's mode hands it its script (`Actor.drive`). */
+  /** A body at the origin facing +z, in its guard on the ground; the scenario supplies its orders or script (`Actor.drive`). */
   readonly actor: Actor;
   /** The address the body was loaded from: what a scenario reads of its own in it. */
   readonly address: LabAddress;

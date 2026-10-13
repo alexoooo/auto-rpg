@@ -8,6 +8,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { stanceEnvelope } from "../src/core/control/stance-envelope.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
+import { CLASSIC, PUNCHER } from "../src/core/mind/config.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
 import { placedReach, STAND } from "../src/core/skills/strike.ts";
@@ -128,9 +129,9 @@ test("with_every_strike_barred_the_routine_walks_to_its_targets_and_back", async
   } finally { routine.dispose(); stand.dispose(); }
 });
 
-test("the_first_lab_preset_follows_the_script_and_the_guard_stands_the_way_it_faces", () => {
-  assert.deepEqual(Object.keys(LAB_PRESETS), ["script", "guard"]);
-  assert.deepEqual(Object.values(LAB_PRESETS).map(({ config }) => config.tactics), [{ kind: "script" }, { kind: "stand" }]);
+test("the_lab_presets_offer_game_fighters_scripted_tactics_and_a_standing_guard", () => {
+  assert.deepEqual(Object.keys(LAB_PRESETS), ["classic", "puncher", "script", "guard"]);
+  assert.deepEqual(Object.values(LAB_PRESETS).map(({ config }) => config.tactics), [CLASSIC.tactics, PUNCHER.tactics, { kind: "script" }, { kind: "stand" }]);
   const script = { name: "a script", decide: () => { throw new Error("the script decided"); } };
   const tactics = (config, given) => tacticsOf(config.tactics, null, "lab", null, () => null, given);
   assert.equal(tactics(LAB_PRESETS.script.config, script), script);
@@ -199,7 +200,7 @@ test("while_a_lab_blow_is_under_way_the_skills_its_actor_reports_give_the_hand_t
 });
 
 test("a_lab_body_that_is_down_is_handed_to_the_sub_minds_its_mind_names", async () => {
-  assert.deepEqual(Object.values(LAB_PRESETS).map(({ config }) => config.subs), [[{ kind: "lie" }], [{ kind: "lie" }]]);
+  assert.deepEqual(Object.values(LAB_PRESETS).map(({ config }) => config.subs), [CLASSIC.subs, PUNCHER.subs, [{ kind: "lie" }], [{ kind: "lie" }]]);
   /** The Script preset with `subs` for its sub-minds. */
   const subs = (list) => ({ mind: { ...LAB_PRESETS.script.config, subs: list } });
   /** The Warrior standing under an actor given `options`, shoved 120 N s forward at its middle trunk a second in: who has it a second after it is down. */

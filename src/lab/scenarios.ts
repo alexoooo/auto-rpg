@@ -6,7 +6,7 @@ import { HUMANOID_MODELS, type HumanoidModel } from "../core/models.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { HELD, type Held } from "../core/items/held.ts";
-import { RECIPE_FIGHTER, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
+import { CLASSIC, PUNCHER, RECIPE_FIGHTER, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
 import type { Provision } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { deepFreeze } from "../core/state.ts";
@@ -23,7 +23,7 @@ import { mindFaults, mindText, readMind } from "../ui/mind-link.ts";
  * reads its options from here, so an option offered is one the lab has.
  */
 
-export type ScenarioId = "stance" | "routine" | "run" | "recovery";
+export type ScenarioId = "stance" | "attack" | "run" | "recovery";
 
 interface ScenarioInfo {
   readonly id: ScenarioId;
@@ -34,7 +34,7 @@ interface ScenarioInfo {
 export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "stance", name: "Stance" },
   { id: "recovery", name: "Get-up experiment" },
-  { id: "routine", name: "Routine" },
+  { id: "attack", name: "Attack" },
   { id: "run", name: "Run" },
 ];
 
@@ -69,12 +69,13 @@ export const LAB_RATES = [120, 480] as const;
 type LabRate = (typeof LAB_RATES)[number];
 
 /**
- * **The minds the Lab names**, by the id its address carries; the first is the default. A scenario's
- * mode writes a script, which the Script preset's tactics carry out on the game's recipe skills
- * (`labActor`, `actor.ts`); Guard stands in guard the way it faces, whatever the script asks. Each
- * lies still once down; any part of either may be changed (`mindEditor`).
+ * **The minds the Lab names**, by the id its address carries. Attack defaults to Puncher and
+ * carries out game orders; Classic offers the game's recipe fighter. Other scenarios default to
+ * Script, which carries out their tactics. Guard stands still. Each tree is editable (`mindEditor`).
  */
-export const LAB_PRESETS: Readonly<Record<"script" | "guard", { readonly label: string; readonly config: FighterConfig }>> = deepFreeze({
+export const LAB_PRESETS: Readonly<Record<"script" | "guard" | "classic" | "puncher", { readonly label: string; readonly config: FighterConfig }>> = deepFreeze({
+  classic: { label: "Classic", config: CLASSIC },
+  puncher: { label: "Puncher", config: PUNCHER },
   script: { label: "Script", config: { ...RECIPE_FIGHTER, tactics: { kind: "script" } } },
   guard: { label: "Guard", config: { ...RECIPE_FIGHTER, tactics: { kind: "stand" } } },
 });
@@ -84,19 +85,15 @@ export const LAB_PROVIDES: readonly Provision[] = Object.freeze(["script"]);
 
 /**
  * What a Lab body of `spec` is driven by under the mind `config`, and what is wrong with `config`
- * (`mindFaults`): the Lab drives a fighter, and a mind with a fault plays the Script preset whole.
+ * (`mindFaults`): a faulty mind plays the scenario's default, Puncher in Attack and Script elsewhere.
  */
-export function labMind(config: MindConfig, spec: BodySpec): { readonly plays: FighterConfig; readonly faults: readonly string[] } {
-  const faults = config.kind === "fighter" ? mindFaults(config, spec, LAB_PROVIDES) : ["the Lab drives a fighter"];
-  return { plays: config.kind === "fighter" && faults.length === 0 ? config : LAB_PRESETS.script.config, faults };
+export function labMind(config: MindConfig, spec: BodySpec, scenario: ScenarioId | null = null): { readonly plays: FighterConfig; readonly faults: readonly string[] } {
+  const faults = config.kind === "fighter" ? mindFaults(config, spec, scenario === "attack" ? [] : LAB_PROVIDES) : ["the Lab drives a fighter"];
+  return { plays: config.kind === "fighter" && faults.length === 0 ? config : scenario === "attack" ? PUNCHER : LAB_PRESETS.script.config, faults };
 }
 
-/**
- * The Routine's targets: the most the address may ask for, and how many it has and the seed they are
- * drawn from unless the address says (`ROUTINE_TARGETS`, `routine.ts`, which the test pins these to
- * without the menu loading the routine).
- */
-export const LAB_TARGETS = { most: 30, count: 10, seed: 1 } as const;
+/** The Attack field's target count and random seed unless the address supplies them. */
+const LAB_TARGETS = { most: 30, count: 10, seed: 1 } as const;
 
 export interface LabAddress extends LabLoadout, ViewSettings {
   readonly recoveryMode: "witness" | "selected";
@@ -112,7 +109,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   /** What its mind may not strike with: each thing held whose strike is barred. */
   readonly barred: readonly Held[];
   readonly hz: LabRate;
-  /** The Routine's targets a loop, 0 to `LAB_TARGETS.most`, and the seed they are drawn from (`drawTargets`, `targets.ts`). */
+  /** Targets maintained in the Attack field, 0 to `LAB_TARGETS.most`. */
   readonly targets: number;
   readonly seed: number;
 }
@@ -150,7 +147,7 @@ export function labAddress(search: string): LabAddress {
     armour: flag(query.get("armour"), worn.armour),
     sole: flag(query.get("sole"), false),
     balance: balanceFrom(query.get("balance") ?? ""),
-    mind: readMind(query.get("mind"), LAB_PRESETS) ?? LAB_PRESETS.script.config,
+    mind: readMind(query.get("mind"), LAB_PRESETS) ?? (query.get("scenario") === "attack" ? PUNCHER : LAB_PRESETS.script.config),
     barred: HELD.filter((h) => barred.includes(h)),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
     view: VIEW_MODES.find((v) => v === query.get("view")) ?? VIEW_MODES[0],

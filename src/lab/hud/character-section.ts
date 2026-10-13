@@ -43,11 +43,11 @@ export function characterSection(page: LabPage): readonly Control[] {
         switches("Wears", entries(LAB_WORN, WORN), (part) => page.shown[part], (part) => page.show({ ...page.shown, [part]: !page.shown[part] }))),
     ]),
     group("Mind", [
-      choice("Preset", PRESET_IDS.map((id) => ({ value: id as string, name: LAB_PRESETS[id].label })), () => presetOf(page),
+      choice("Preset", PRESET_IDS.filter(id => page.shown.scenario === "attack" ? id !== "script" : id === "script" || id === "guard").map((id) => ({ value: id as string, name: LAB_PRESETS[id].label })), () => presetOf(page),
         (id) => page.load({ ...page.shown, recoveryMode: "selected", mind: LAB_PRESETS[id as keyof typeof LAB_PRESETS].config })),
       // Its tree, drawn again for each body loaded; a change loads a body under the mind changed.
       following(() => page.spec, (spec) => {
-        const editor = mindEditor(page.shown.mind, { spec, provides: LAB_PROVIDES, onFault: "the Script preset is used",
+        const editor = mindEditor(page.shown.mind, { spec, provides: page.shown.scenario === "attack" ? [] : LAB_PROVIDES, onFault: page.shown.scenario === "attack" ? "the Puncher preset is used" : "the Script preset is used",
           onChange: (mind) => page.load({ ...page.shown, recoveryMode: "selected", mind }) });
         return { element: editor.element, refresh() {} };
       }),

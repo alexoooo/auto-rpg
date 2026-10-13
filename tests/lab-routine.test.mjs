@@ -1,5 +1,5 @@
 /**
- * **The lab's Routine** (`src/lab/routine.ts`), on the Node stand as the page runs it:
+ * **The lab's Routine** (`src/lab/routine.ts`), on the Node research stand:
  * tactics on the core's skills, each human for two loops of four targets at 120 Hz: the second
  * sets off from its targets into the turn, where a faster turn falls (`ROUTINE_GAIT`). It stays on
  * its feet, completes the loops, and reads its targets in their order, the same ones each loop,
@@ -22,8 +22,7 @@ import { energyShares } from "../src/core/rules/share.ts";
 import { APPROACH } from "../src/core/skills/strike.ts";
 import { recipeFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { labActor } from "../src/lab/actor.ts";
-import { ROUTINE_HANDS, ROUTINE_TARGETS, startRoutine } from "../src/lab/routine.ts";
-import { LAB_TARGETS } from "../src/lab/scenarios.ts";
+import { ROUTINE_HANDS, startRoutine } from "../src/lab/routine.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const LOOPS = 2, TARGETS = 4, SEED = 4;
@@ -32,9 +31,7 @@ const SECONDS = (30 + 8 * TARGETS) * LOOPS;
 /** How far off a hand that lands a blow may read, m: at the ball at a control step, or within a centimetre of it between two. */
 const LANDS_WITHIN = 0.01;
 
-test("the_page_draws_the_targets_the_routine_does_unless_its_address_says", () => {
-  assert.deepEqual({ count: LAB_TARGETS.count, seed: LAB_TARGETS.seed }, ROUTINE_TARGETS);
-});
+
 
 for (const model of ["workshop-fighter", "workshop-rogue"]) {
   test(`${model}_completes_two_routine_loops_striking_at_its_targets_from_where_its_feet_were_set`, { todo: model === "workshop-rogue" ? "a bare hand strikes with its fist's measured surface (`closesToStrike`), about 9 cm short of the open capsule's fingers that its blows' spacing, aim and recipes were tuned to" : undefined }, async () => {

@@ -25,7 +25,7 @@ test("Lab appearances survive scenario navigation and never enter the physical l
     assert.deepEqual(labAddress(href), address);
     assert.equal(new URLSearchParams(href).get("keep"), "yes");
     const menu = labAddress(labHref({ ...address, scenario: null }));
-    assert.deepEqual(labAddress(labHref({ ...menu, scenario: "routine" })), { ...address, scenario: "routine" });
+    assert.deepEqual(labAddress(labHref({ ...menu, scenario: "attack" })), { ...address, scenario: "attack" });
     assert.deepEqual(physical(loadoutSpec(address)), physical(spec));
   }
   for (const model of ["workshop-rogue", "crypt-skeleton"]) {

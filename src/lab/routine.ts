@@ -14,7 +14,7 @@ import { SHUTTLE_TURN_RADIUS, TURN_PACE, trackOf, type Piece, type Track } from 
 import type { Side } from "../core/spec/body.ts";
 
 /**
- * **The lab's routine**: a human walks out, strikes at each of its targets in turn, turns, walks
+ * **The scripted research routine**: a human walks out, strikes at each of its targets in turn, turns, walks
  * back to where it started and turns again, on a loop. It is driven by tactics
  * (`routineTactics`), as any body is: they ask for a walk and a facing and give each hand an
  * action, and the skills (`src/core/skills/skills.ts`) carry them out.
@@ -31,14 +31,14 @@ import type { Side } from "../core/spec/body.ts";
  *   mirrored from the right's, or places its blow.
  *
  * Every torque comes from the muscle driver (`src/core/muscle/driver.ts`), so the strikes are as
- * fast as the muscles make them: that is what the page is for.
+ * fast as the muscles make them. Research runners and regression tests use this fixture.
  */
 
 /** The Routine's straights, m. */
 const ROUTINE_METRES = 2;
 
 /** The Routine's path: out, a half-turn to the right, back, and a half-turn to its start. */
-export const ROUTINE_TRACK: readonly Piece[] = [
+const ROUTINE_TRACK: readonly Piece[] = [
   { kind: "straight", metres: ROUTINE_METRES },
   { kind: "arc", metres: Math.PI * SHUTTLE_TURN_RADIUS, curvature: 1 / SHUTTLE_TURN_RADIUS },
   { kind: "straight", metres: ROUTINE_METRES },
@@ -166,7 +166,7 @@ interface RoutineOptions {
 }
 
 /** How many targets the Routine strikes at a loop, and the seed they are drawn from, unless told. */
-export const ROUTINE_TARGETS = { count: 10, seed: 1 } as const;
+const ROUTINE_TARGETS = { count: 10, seed: 1 } as const;
 
 interface Routine {
   readonly body: Body;

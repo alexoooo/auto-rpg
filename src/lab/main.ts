@@ -30,7 +30,7 @@ import { viewSection } from "./hud/view-section.ts";
 import { SCENARIO_PANELS, type LabScenario, type LabShell, type ScenarioRun } from "./lab-scenario.ts";
 import { allowing, loadoutBalance, loadoutSpec } from "./loadout.ts";
 import { createMindLog, logged, watchHas, type MindLog } from "./mind-log.ts";
-import { routineScenario } from "./routine-scenario.ts";
+import { attackScenario } from "./attack-scenario.ts";
 import { runScenario } from "./run-scenario.ts";
 import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
 import { labHref, labMind, LAB_PRESETS, recoveryAddress, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
@@ -52,7 +52,7 @@ import { need } from "../dom.ts";
  *
  * The body is the loadout's (`loadout.ts`): the model, and what each hand holds. Its assist
  * (`actor.ts`) has the ceiling its balance buys (`loadoutBalance`), named by the clock. Its mind (`labMind`, `scenarios.ts`)
- * carries out the scenario's script or stands, and throws no strike the address bars; what it decides
+ * carries out game orders, the scenario's script or stands, and throws no strike the address bars; what it decides
  * is logged (`mind-log.ts`), and the Thinking section shows the log up to the time shown. It is drawn in one
  * of two views: World, the workshop model's skin (`skin.ts`), wearing the loadout's clothing, or
  * Tactical, the collision shapes themselves (`src/render/body-shapes.ts`); what a hand holds is drawn as its shapes
@@ -69,7 +69,7 @@ import { need } from "../dom.ts";
  * player (`player.ts`) is the only thing that steps the world. Pausing stops it. Choosing a step
  * behind the live one shows it from the recording, and playing from there replays the recording at
  * the world's pace until it reaches the live step, where the world runs on. Choosing a step ahead
- * -- on the routine's loop, or a nudge past the stance's history -- runs the world there as fast as
+ * -- past the recorded history -- runs the world there as fast as
  * the page allows, and holds it there. The world is never rewound: what follows the live step is
  * always its own.
  */
@@ -80,7 +80,7 @@ const PERCENT = balancePercent(rulebook("arena"));
 const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => LabScenario>> = {
   stance: (scene) => stanceScenario(scene),
   recovery: (scene, shell) => stanceScenario(scene, shell),
-  routine: routineScenario,
+  attack: attackScenario,
   run: runScenario,
 };
 
@@ -90,7 +90,7 @@ const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => L
  */
 const SEEK_BUDGET_MS = 10;
 
-/** Seconds of the body's air the page keeps: as long as the longest recording a scenario keeps, the Routine's. */
+/** Seconds of the body's air the page keeps: as long as the longest recording a scenario keeps, the Attack scenario's. */
 const AIR_SECONDS = 30;
 
 /** A key pressed in a slider is the slider's: focused, it takes its arrows. */
@@ -228,7 +228,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const balance = loadoutBalance(to.balance, built.spec);
     const log = createMindLog();
     const mind = to.scenario === "recovery" && to.recoveryMode === "witness"
-      ? { ...LAB_PRESETS.script.config, subs: [{ kind: "support-recovery" as const }] } : labMind(to.mind, spec).plays;
+      ? { ...LAB_PRESETS.script.config, subs: [{ kind: "support-recovery" as const }] } : labMind(to.mind, spec, to.scenario).plays;
     const actor = labActor(built, world, {
       mind,
       recoveryRecipe: to.scenario === "recovery" && to.recoveryMode === "witness" ? feedbackRecipe(spec, recoverySeed.feedback.u) : undefined, assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), around: (tactics) => logged(tactics, log),

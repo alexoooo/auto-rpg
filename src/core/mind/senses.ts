@@ -79,6 +79,8 @@ export interface SensesHub {
    * it or after. Until the next step the others see it as it stands now, in the fight.
    */
   add(sensed: Sensed): () => Senses;
+  /** Stop carrying a body before its physics is disposed. */
+  remove(id: string): void;
   /** Its memory (`src/core/state.ts`): each body's frames and which of them is shown, by the body's id. */
   readonly state: object;
   /**
@@ -182,6 +184,16 @@ export function createSenses(world: World, delay = 0): SensesHub {
 
   return {
     state,
+    remove(id) {
+      const index = carried.findIndex((entry) => entry.sensed.id === id);
+      if (index < 0) return;
+      carried.splice(index, 1);
+      delete state[id];
+      for (const entry of carried) {
+        const other = entry.others.findIndex((body) => body.id === id);
+        if (other >= 0) entry.others.splice(other, 1);
+      }
+    },
     show() {
       for (const entry of carried) {
         const memory = state[entry.sensed.id]!;

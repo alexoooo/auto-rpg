@@ -198,9 +198,11 @@ without resuming on its own.
   Choose Lie still, Rise, then steady, or experimental Research rise; use Balance 0 for
   unassisted recovery. Two timed shoves make falls repeatable. Repeat two shoves tests the same
   body again; Walk forward for 1 s checks handover. Stress-case buttons reproduce other falls.
-- **Routine**: it walks out, strikes at ten targets hung high, middle and low, turns and walks
-  back. Each target is a ball of its own head, and the table says what the blow did to it or how
-  near it passed. `&targets=` (0 to 30) and `&seed=` in the address choose how many and which.
+- **Attack**: seeded physical targets, automatically selected for the character's regular game
+  mind to approach and attack. Click another target to switch. Targets disappear shortly after
+  physical impact and are replaced. Target speed defaults to zero; adjust it and the wind gusts
+  live to exercise tracking and balance. Puncher is the default mind; Classic is also available.
+  `&targets=` (0 to 30) and `&seed=` choose the field's population and random sequence.
 - **Run**: it goes round a track at the pace a slider asks (0.2 to 8 m/s, past what its walk
   holds if need be): a big circle of any radius, straight back and forth, or a square walked
   facing one way, forward, right, back and left. Gusts of wind, as often and as strong as two

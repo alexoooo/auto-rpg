@@ -6,6 +6,7 @@ import { treeFaults } from "../core/mind/catalog.ts";
 import type { FighterConfig } from "../core/mind/config.ts";
 import { driveFighter, fighterBody } from "../core/mind/fighter.ts";
 import type { MindWiring } from "../core/mind/minds.ts";
+import { clockSenses } from "../core/mind/senses.ts";
 import type { Sight, Tactics } from "../core/mind/tactics.ts";
 import type { RecipeOptions, Skills } from "../core/skills/skills.ts";
 import { heldIn } from "../core/skills/strikes.ts";
@@ -18,8 +19,11 @@ import { LAB_PRESETS } from "./scenarios.ts";
 /** A mode's instrument: it reads what the mind sees, before the mind decides, and changes nothing. */
 type Watch = (sight: Sight, dt: number) => void;
 
-/** What a mode drives its body with, beside its script. */
+/** A mode's orders and senses, or its script, and optional instruments. */
 interface Driving {
+  readonly orders?: MindWiring["orders"];
+  readonly senses?: MindWiring["senses"];
+  readonly contactIdentity?: MindWiring["contactIdentity"];
   /** What its recipe strike and guard are made with, in place of their defaults: their `tuning` in the mind's config. */
   readonly skills?: RecipeOptions;
   /** Read each step, whatever the mind is. */
@@ -29,7 +33,7 @@ interface Driving {
 /**
  * **A lab body and what drives it.** Every mode stands its body through an actor, so what a page
  * or an experiment gives a body is given here, and a mode knows none of it. Its mind is a fighter's
- * config (`ActorOptions.mind`), whose scripted tactics carry out a mode's script. A mode takes its
+ * config (`ActorOptions.mind`), carrying out game orders or a mode's script. A mode takes its
  * actor over: it disposes it with itself.
  */
 export interface Actor {
@@ -37,8 +41,8 @@ export interface Actor {
   readonly world: World;
   /** Whether each hand may attack: what it holds is not barred (`ActorOptions.allows`). A mode asks no strike of a hand that may not. */
   readonly strikes: Readonly<Record<Side, boolean>>;
-  /** Hand the body to its mind, given `script`, a mode's, to carry out (`MindWiring.script`). Returns the skills, for their report. */
-  drive(script: Tactics, driving?: Driving): Skills;
+  /** Hand the body to its mind with orders and senses, or a scenario script. Returns the skills for their report. */
+  drive(script?: Tactics, driving?: Driving): Skills;
   /** The skills its mind last drove it with (`drive`), for their report; null before it is driven. */
   readonly skills: Skills | null;
   dispose(): void;
@@ -105,14 +109,19 @@ function tuned(config: FighterConfig, skills: RecipeOptions | undefined): Fighte
 export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.script.config, assist, stance, measuring, allows = () => true, around = (tactics) => tactics, recoveryRecipe }: ActorOptions = {}): Actor {
   const fault = treeFaults(mind, ["script"])[0];
   if (fault) throw new Error(fault);
-  const wiring: MindWiring = { name: "lab", orders: () => null, assist };
+  let input: Driving = {};
+  const clock = clockSenses(world);
+  const wiring: MindWiring = { name: "lab", orders: (senses) => input.orders?.(senses) ?? null, assist,
+    senses: () => (input.senses ?? clock)(), contactIdentity: (other) => input.contactIdentity?.(other) ?? null };
   const body = createBody(built, world, { ...fighterBody(mind, wiring), stance, measuring,
     ...(recoveryRecipe ? { subs: [(own, view, into) => supportRecovery(own, view, into, recoveryRecipe)] } : {}) });
   const strikes = { left: allows(heldIn(built.spec, "left")), right: allows(heldIn(built.spec, "right")) };
   let driven: Skills | null = null;
   return {
     body, world, strikes,
-    drive(script, { skills, watch } = {}) {
+    drive(script, driving = {}) {
+      input = driving;
+      const { skills, watch } = driving;
       return driven = driveFighter(body, world, tuned(mind, skills), { ...wiring, script }, (tactics) => {
         const made = barred(around(tactics), strikes);
         return watch ? watched(made, watch) : made;

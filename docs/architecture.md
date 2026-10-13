@@ -621,7 +621,7 @@ fighter's skills and their report). A fight enlists each of its bodies the one w
 `src/core/combatant.ts`): built where it stands with what it holds, its pool under the fight's
 rules, carried by the fight's senses with whatever fixed geometry they are granted, and under the
 mind its config makes with the assist its balance gives. The Arena and the Crypt both do; the Lab
-drives a body by a mode's script rather than a fight's mind.
+drives a fighter through game orders in Attack or a scenario's script elsewhere.
 
 **A kind of mind is a controller** (`CONTROLLERS`, `controllers.ts`), a mapped type over the
 kinds, so a kind without one does not compile: it says which bodies it fits (`fits`), names
@@ -843,9 +843,8 @@ body's level is the levels' rule's (`levelsOf`, the run's `LEVELS`): one out of 
 limp, its assist withdrawn; an enemy waiting at its home with the party far off is held, fixed
 where it stands with nothing driving it, until the party nears; and the dead are held where they
 lie once their fall is over and nobody walks near.
-The lab
-has tactics of its own:
-`stanceTactics` (the keys), `trackTactics` (the Run), `routineTactics` and `attackOnce`.
+The Lab uses `stanceTactics` for the keys and `trackTactics` for Run. Attack supplies game
+orders to the selected mind. `routineTactics` and `attackOnce` are scripted research fixtures.
 
 ## Experimental separate equipment
 
@@ -1266,16 +1265,20 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   where nothing need be read (`SightIndex`), made again when a door opens. The
   page hears every built body where the party sees (`hearRun`, `hearing.ts`), its listener made
   again when a body is built.
-- **The lab** (`src/lab/`): one body at a time in the Stance, Get-up experiment, Routine and Run
+- **The lab** (`src/lab/`): one body at a time in the Stance, Get-up experiment, Attack and Run
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
   Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
   page chose: its balance, its mind and the strikes it may throw. The mind is a fighter
-  (`labMind`): a preset (`LAB_PRESETS`: Script, whose tactics follow the scenario's script, or
-  Guard, which stands in guard) or any tree changed from one, carried by `&mind=`, the sub-mind
-  that has the body once it is down among its parts. The Routine's
-  targets are bodies (`targets.ts`): a ball of the attacker's head, hung where a seed drew it as
-  the strike at it begins and read by the rule a fight wounds by (`watchBlows`), one at a time
-  ([reference/blows.md](reference/blows.md#targets)). The Run goes round its tracks (`track.ts`)
+  (`labMind`): a preset or an edited tree carried by `&mind=`, including its recovery sub-mind.
+  Attack defaults to Puncher and also offers Classic and Guard; scripted scenarios default to
+  Script. Attack (`attack-mode.ts`) issues `Orders.foe`, the same body-target order the Crypt
+  issues after navigation. `createSenses` carries the physical targets to the mind, which owns
+  approach, aim and striking. Seeded targets are dynamic balls of the attacker's head
+  (`targets.ts`), floated against gravity and moved by impulses at the chosen speed until impact.
+  Solver contact with the actor marks a hit; after 0.6 s the target's collider and senses are
+  removed and a new target spawns. Automatic selection chooses the nearest unhit target; a click
+  overrides it. Wind uses the same gust model as Run. This exercises combat in an open field;
+  Crypt pathfinding remains the dungeon's responsibility. The Run goes round its tracks (`track.ts`)
   at the pace asked, its feet metered from the ground's contacts (`gait-meter.ts`), and the
   lab's wind (`wind.ts`) blows seeded gusts on its chest: a disturbance from outside, as a shove
   is, and no assist. The page inspects the
@@ -1318,11 +1321,8 @@ physics, rejecting stale asynchronous loads and preserving current clothing and 
 
 `strike-hands.ts` gives skins their fingers' closure. In the Arena and the Crypt a fighter's
 fingers are its body's applied hand poses (`fighterHands`): closed in a fist or a grip, open else,
-since every skill set closes a bare hand for its blow. Lab Routine adapts the active command
-owner's strike report to `hand-pose.ts`, the shared finger presentation controller (`strikeHands`),
-advanced after each simulation step: empty
-hands close during chambering, remain fists during swings and relax during return or
-interruption. Skins only read closure, and held-item grips take precedence.
+since every skill set closes a bare hand for its blow. Lab Attack also reads the physical hand poses and records them with its target history.
+Research strike viewers can adapt the active command owner's strike report with `strikeHands`. Skins only read closure, and held-item grips take precedence.
 Presentation belongs to the character rather than its replaceable skin and owns no physical
 state. Lab history records closure beside the body's transforms for scrubbing and replay;
 paused rendering advances neither. Timing: [fist presentation](reference/lab.md#fist-presentation).

@@ -21,8 +21,8 @@ const ROGUE = { model: "workshop-rogue", boots: true, armour: false };
 
 test("the_lab_address_names_a_scenario_a_character_a_rate_a_view_and_a_camera_or_falls_back", () => {
   assert.deepEqual(labAddress("?play=lab"), DEFAULTS);
-  assert.deepEqual(labAddress("?play=lab&scenario=routine&model=workshop-rogue&right=club&left=club&boots=0&armour=1&sole=1&balance=2.5&mind=guard&barred=club,empty&hz=480&view=tactical&camera=chase&projection=perspective&targets=4&seed=7"),
-    { ...DEFAULTS, appearance: "default", scenario: "routine", model: "workshop-rogue", right: "club", left: "club", boots: false, armour: true, sole: true, balance: 2.5, mind: GUARD,
+  assert.deepEqual(labAddress("?play=lab&scenario=attack&model=workshop-rogue&right=club&left=club&boots=0&armour=1&sole=1&balance=2.5&mind=guard&barred=club,empty&hz=480&view=tactical&camera=chase&projection=perspective&targets=4&seed=7"),
+    { ...DEFAULTS, appearance: "default", scenario: "attack", model: "workshop-rogue", right: "club", left: "club", boots: false, armour: true, sole: true, balance: 2.5, mind: GUARD,
       barred: ["empty", "club"], hz: 480, view: "tactical",
       camera: "chase", projection: "perspective", targets: 4, seed: 7 });
   // Each field falls back alone; a known value beside an unknown one is kept.
@@ -64,7 +64,7 @@ test("every_choice_the_lab_offers_reads_back_from_the_address_it_writes", () => 
                 for (const boots of [false, true]) {
                   for (const [armour, sole] of [[false, false], [false, true], [true, false], [true, true]]) {
                     for (const [mind, barred] of [SCRIPT, GUARD, RISING].flatMap((m) => [[], ["empty"], ["club"], ["empty", "club"]].map((b) => [m, b]))) {
-                      // The Routine's targets and their seed ride with the scenario, so that each is met with every choice.
+                      // The Attack's targets and their seed ride with the scenario, so that each is met with every choice.
                       const [targets, seed] = scenario === null ? [10, 1] : [SCENARIOS.findIndex((s) => s.id === scenario), 4294967295];
                       const address = { ...DEFAULTS, appearance: "default", scenario, model, right, left, boots, armour, sole, balance, mind, barred, hz, view, camera, projection, targets, seed }, href = labHref(address);
                       assert.equal(routeFor(href), "lab", href);
@@ -92,12 +92,12 @@ test("a_balance_in_the_address_is_a_plain_decimal_per_cent_none_or_more_or_the_c
   assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, balance: 0 }, "?play=lab&balance=3")).getAll("balance"), ["0"]);
 });
 
-test("the_routines_targets_and_their_seed_are_whole_numbers_in_the_address_or_the_routines_own", () => {
+test("the_attacks_targets_and_their_seed_are_whole_numbers_in_the_address_or_the_attacks_own", () => {
   assert.deepEqual(["0", "4", "30"].map((text) => labAddress(`?targets=${text}`).targets), [0, 4, 30]);
   for (const text of ["", "31", "-1", "1.5", "1e1", "0x4", "%204", "many", "9".repeat(400)]) assert.equal(labAddress(`?targets=${text}`).targets, 10, text);
   assert.deepEqual(["0", "2", "4294967295"].map((text) => labAddress(`?seed=${text}`).seed), [0, 2, 4294967295]);
   for (const text of ["", "4294967296", "-1", "1.0", "one", "9".repeat(400)]) assert.equal(labAddress(`?seed=${text}`).seed, 1, text);
-  // The routine's own are no parameters at all, and replace ones that were there.
+  // The attack's own are no parameters at all, and replace ones that were there.
   const own = new URLSearchParams(labHref(DEFAULTS, "?play=lab&targets=4&seed=9"));
   assert.deepEqual([own.has("targets"), own.has("seed")], [false, false]);
   const said = new URLSearchParams(labHref({ ...DEFAULTS, targets: 4, seed: 9 }, "?play=lab&targets=7&seed=3"));
@@ -106,7 +106,7 @@ test("the_routines_targets_and_their_seed_are_whole_numbers_in_the_address_or_th
 
 test("the_lab_address_keeps_the_rest_of_the_query_and_replaces_its_own", () => {
   const href = labHref({ ...DEFAULTS, ...ROGUE, right: "club", hz: 480 },
-    "?play=lab&scenario=routine&model=workshop-fighter&right=empty&armour=1&hz=120&quality=reduced");
+    "?play=lab&scenario=attack&model=workshop-fighter&right=empty&armour=1&hz=120&quality=reduced");
   const query = new URLSearchParams(href);
   assert.equal(query.get("quality"), "reduced");
   assert.equal(query.has("scenario"), false, "going back to the menu drops the scenario");
@@ -128,7 +128,7 @@ test("the_lab_offers_the_game_rate_first_and_distinct_scenarios", () => {
   assert.equal(LAB_RATES[0], PHYSICS_HZ.value);
   assert.equal(new Set(SCENARIOS.map((s) => s.id)).size, SCENARIOS.length);
   assert.ok(SCENARIOS.every((s) => s.name));
-  assert.deepEqual(SCENARIOS.map((s) => s.id), ["stance", "recovery", "routine", "run"]);
+  assert.deepEqual(SCENARIOS.map((s) => s.id), ["stance", "recovery", "attack", "run"]);
   assert.equal(labAddress("?play=lab&scenario=run").scenario, "run");
 });
 

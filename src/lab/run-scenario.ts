@@ -48,7 +48,7 @@ const TOP = 1.4;
 const CALM: WindSettings = { rate: 0, strength: 0 };
 
 /** A flat strip along `track` on the ground, for the eye; it collides with nothing. */
-export function paintTrack(scene: Scene, track: Track, material: StandardMaterial): Mesh {
+function paintTrack(scene: Scene, track: Track, material: StandardMaterial): Mesh {
   const left: Vector3[] = [], right: Vector3[] = [];
   const pieces = Math.ceil(track.length / 0.05);
   for (let i = 0; i <= pieces; i++) {

@@ -1,4 +1,4 @@
-import { labHref, recoveryAddress, SCENARIOS, type LabAddress } from "./scenarios.ts";
+import { labHref, LAB_PRESETS, recoveryAddress, SCENARIOS, type LabAddress } from "./scenarios.ts";
 import { need } from "../dom.ts";
 
 /**
@@ -10,7 +10,14 @@ import { need } from "../dom.ts";
 export function showScenarios(address: LabAddress): void {
   const cards = SCENARIOS.map((scenario) => {
     const card = document.createElement("a");
-    card.href = labHref(scenario.id === "recovery" ? recoveryAddress(address) : { ...address, scenario: scenario.id }, window.location.search);
+    let mind = address.mind;
+    if (mind.kind === "fighter") {
+      if (scenario.id === "attack" && mind.tactics.kind === "script") mind = LAB_PRESETS.puncher.config;
+      else if (scenario.id !== "attack" && mind.tactics.kind !== "script" && mind.tactics.kind !== "stand")
+        mind = { ...mind, tactics: { kind: "script" } };
+    }
+    const chosen = { ...address, mind, scenario: scenario.id };
+    card.href = labHref(scenario.id === "recovery" ? recoveryAddress(chosen) : chosen, window.location.search);
     card.append(Object.assign(document.createElement("strong"), { textContent: scenario.name }));
     return card;
   });
