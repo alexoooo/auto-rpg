@@ -687,8 +687,8 @@ the reason it cannot go there for a body or on a screen, or null. The fighter ha
 its `subs` slot.
 
 **The mind editor** (`mindEditor`, `src/ui/mind-editor.ts`) draws a tree for a body: each part's
-fields, its research `tuning` read-only, each single slot as a picker of every part of its role
-(the ones that cannot go there disabled with the reason, an experimental one so labelled), each
+fields, its research `tuning` read-only, each single slot as a picker of parts its screen supports
+(incompatible bodies disabled with the reason, experimental parts labelled), each
 list slot with add, move up and remove, and the tree's faults by path. It is the Arena's panel
 under each side's controller, the Lab's under its body, and the Crypt's under each hero on the
 start panel (`partyMinds`, `src/dungeon/party-minds.ts`). A screen's link carries a mind as the id

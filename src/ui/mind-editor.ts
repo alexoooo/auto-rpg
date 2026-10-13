@@ -19,7 +19,7 @@ interface MindEditor {
 interface EditorOptions {
   /** The body the mind is for: a part that does not fit it is offered disabled, with the reason. */
   readonly spec: BodySpec;
-  /** What the screen gives a mind (`Provision`): a part that needs what it does not is offered disabled, with the reason. Nothing unless given. */
+  /** What the screen gives a mind (`Provision`): parts requiring an absent provision are omitted. Nothing unless given. */
   readonly provides?: readonly Provision[];
   /** Called after each change a person makes. */
   readonly onChange?: (config: MindConfig) => void;
@@ -75,8 +75,8 @@ function fieldInput<C extends PartConfig>(field: PartField<C>, config: C, write:
 
 /**
  * **A mind's editor** for a body of `spec`: each part's settings, its research `tuning` read-only,
- * and each slot's part chosen from every part of its role (`kindsFor`), the ones that cannot go
- * there disabled with the reason; a list slot's parts added, moved up and removed. Every change
+ * and each slot's part chosen from its role (`kindsFor`), omitting parts the screen cannot supply
+ * and disabling those that do not fit the body; a list slot's parts added, moved up and removed. Every change
  * draws the tree again.
  */
 export function mindEditor(config: MindConfig, { spec: body, provides = [], onChange, readOnly = false, onFault }: EditorOptions): MindEditor {
@@ -87,10 +87,11 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], onCh
   const faultsOf = (config: MindConfig): readonly string[] => mindFaults(config, spec, provides);
   const change = (next: PartConfig) => { draw(next as MindConfig); onChange?.(current); };
 
-  /** The kinds a slot may be set to, each disabled with the reason it cannot go there. */
+  /** Parts the screen supplies, with incompatible bodies explained by disabled choices. */
   const choices = (slot: Slot) => [
     ...(slot.optional && !slot.many ? [{ value: "", text: "None" }] : []),
-    ...kindsFor(slot.role, spec, provides).map(({ kind, part, reason }) => ({ value: kind, text: reason ? `${named(part)}: ${reason}` : named(part), disabled: reason !== null })),
+    ...kindsFor(slot.role, spec, provides).filter(({ part }) => !part.needs || provides.includes(part.needs))
+      .map(({ kind, part, reason }) => ({ value: kind, text: reason ? `${named(part)}: ${reason}` : named(part), disabled: reason !== null })),
   ];
   const defaultsOf = (kind: string): PartConfig => partOf({ kind }).defaults;
 

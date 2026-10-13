@@ -80,7 +80,10 @@ After it, each with its own plan, in the order each needs the one before:
   - a dynamic rise, carrying momentum from one support to the next;
   - kicking;
   - running.
-- **Tactics** over the skill contract, compared with Classic.
+- **Tactics** over the skill contract, compared with Classic. Customizable behaviours are the
+  direction: Seek and Choose openings become presets assembled from shared decisions about
+  targets, distance, attacks and defence, with game orders constraining the selected target
+  without bypassing those decisions.
 - **Retiring what the new skills replace**, each with its records:
   - the strike repertoire;
   - the staged rise;
