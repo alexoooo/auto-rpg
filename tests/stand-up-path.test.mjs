@@ -146,6 +146,22 @@ test('explicit contact postures blend reference coordinates through bounded musc
   const strongPoint={'foot.left':{...positionTargets['foot.left'],gain:1000}};
   assert.deepEqual(contactPolicy({model,parameters:{...settings,positionTargets:strongPoint}})(turned).activation,[1]);
   assert.throws(()=>contactFrameFeedback(model,turned,{positionTargets:{'foot.left':{...positionTargets['foot.left'],at:[0]}}}),/finite points/);
+  assert.throws(()=>contactPolicy({model,parameters:{linearInertia:1}}),/must be boolean/);
+  const inertial=contactPolicy({model,parameters:{linearInertia:true,poseGain:0,poseDamping:0,effortScale:1}});
+  assert.deepEqual(inertial(o),{kind:'muscles',activation:[0],velocity:[0],handPoses:{left:'open',right:'open'}},
+    'a freely falling joint needs no torque to counter uniform gravity');
+  assert.deepEqual(inertial.state.linearAcceleration,[0,-10,0]);
+  assert.deepEqual(inertial.state.gravityTorque,[5]);assert.deepEqual(inertial.state.inertiaTorque,[-5]);
+  for(const supported of [loaded,propped]) {
+    const moving=contactPolicy({model,parameters:{linearInertia:true,poseGain:0,poseDamping:0,effortScale:1,additionalSupports:['lowerTrunk']}});
+    const command=moving(supported);
+    assert.ok(moving.state.effortPredictionError<1e-12,'the coupled allocation predicts the delivered command');
+    assert.ok(command.activation.every(v=>v>=0&&v<=1));
+    const expected=.5*(moving.state.linearAcceleration[1]+10);
+    assert.ok(Math.abs(moving.state.gravityTorque[0]+moving.state.inertiaTorque[0]-expected)<1e-12);
+  }
+  const disabled=contactPolicy({model,parameters:{linearInertia:false}});
+  assert.deepEqual(disabled(loaded),contactPolicy({model})(loaded));
 });
 
 test('contact effort carries gravity and descendant ground forces in the muscle sense at speed',()=>{
@@ -163,6 +179,13 @@ test('contact effort carries gravity and descendant ground forces in the muscle 
   assert.equal(contactEffort(model,o,patches,owners,[.2],{poseGains:{joint:2}}).t0[0],18);
   const fast=contactEffort(model,{...o,joints:[{angle:0,speed:10}]},patches,owners,[0]);
   assert.ok(fast.C[1]>a.C[1]&&[...fast.C,...fast.t0].every(Number.isFinite));
+  const inertial=contactEffort(model,o,patches,owners,[0],{linearInertia:true});
+  assert.deepEqual([...inertial.t0],[0]);
+  assert.deepEqual([...inertial.C],[0,1.5,0,0,0,0,0,-.5,0,0,0,0]);
+  const torque=(left,right)=>(inertial.t0[0]-inertial.C[1]*left-inertial.C[7]*right)/inertial.scales[0];
+  assert.equal(torque(4,16),1,'weight-balanced reactions recover the static joint torque');
+  assert.equal(torque(4,0),-3,'partial support includes the downward acceleration of the descendant mass');
+  assert.equal(torque(0,40),10,'a reaction outside this joint subtree accelerates its descendant');
 });
 
 test('contact balance targets weight actual supports independently of patch count and fall back before preferred support exists',()=>{

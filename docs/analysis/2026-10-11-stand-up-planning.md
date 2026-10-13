@@ -3182,9 +3182,8 @@ physical trace SHA-256:
 
 The initial centre remains behind the measured left-foot/right-hand support region, as the
 preceding support measurement shows. Frame correction alone does not demonstrate unloading the
-right thigh. The next physical test is a centre transfer over existing supports before another
-lift, with the foot's measured frame retained, rather than an immediate target that depends on
-future contact.
+right thigh. The centre-transfer experiment below tests that missing movement before another
+lift, with the foot's measured frame retained.
 
 Validation: TypeScript and 21 focused tests pass, including orientation sign and world-frame
 invariance, point-Jacobian correction, point-velocity damping, muscle saturation, and allocator/
@@ -3193,3 +3192,85 @@ command agreement. The fast suite reports 683 passes, two failures and five TODO
 checkpoints under current-source identities; the frozen checkout and guard are unchanged.
 Exact replay/restoration, command reconstruction, replay build, whitespace and line-ending checks
 pass. These checks do not establish recovery or the requested median and reliability.
+
+## Centre transfer and translational inertia, 2026-10-12
+
+**No additional recovery succeeds.** The Node Stance Lab frozen action evaluator, game Rapier
+coordinate adapter 11 at 120 Hz, original Rogue with empty hands, symmetric muscle envelopes,
+ordinary stance host and Balance 0 executes 28 trials / 50,372 steps. All fail the 15-second
+diagnostic deadline. Six additional configurations are rejected before execution because measured
+joint coordinates exceed legal command targets; the corrected commands clamp to the existing
+ranges. No body, muscle envelope, acceptance criterion, saved fall or baseline changes.
+
+Every trial repeats the same verified 951-step prefix, already 7.933333 seconds into recovery.
+These are late component diagnostics and cannot themselves satisfy the six-second deadline.
+`research/stand-up-path-results.json` records configurations, source hashes, rejections and full
+terminal results under `centreTransfer`; raw artifacts are in `.review/stand-up-centre-transfer/`.
+
+Four endpoint solves retain only the existing left-foot/right-hand supports and hold the measured
+left-foot frame. One passes the unchanged geometric tolerances, placing the centre at
+[1.165004, 0.523933, 0.392769] m. Neither that whole-pose target nor an observed-pose transfer to
+its horizontal centre succeeds physically: six valid trials of each leave the first stage
+unfinished. Geometry does not establish muscle feasibility or a collision-free movement path.
+
+Eight shorter shifts instead aim at the nearest point in the measured existing support region,
+comparing unchanged/lowered centre height, inclusion of the already-contacting right thigh in
+load allocation, and retained/disabled root orientation feedback. One advances: lowering the
+centre request by 0.06 m, admitting the thigh and disabling the root orientation term. Its local
+gate requires horizontal centre error at most 0.025 m, left-sole up above 0.9, and at least 30%
+body-weight load on that foot for 0.1 s. The gate triggers at recovery time 9.875 s; the first
+following command completes at 9.883333 s. At that sample the root up is 0.661655, left-sole up
+0.909843 and the foot bears 254.15 N. Both hands also have positive ground contacts, while the
+right thigh is unloaded. This is an intermediate support transfer, not a standing recovery.
+The subsequent right-foot placement fails.
+
+Restoring all 1,184 steps to the attained 9.875-second state reproduces every observation.
+Four new right-foot endpoint solves retain the measured left foot and both hands, including
+their orientations, and count only those existing support patches. All four fail: right-sole
+position errors range from 0.1153 to 0.2235 m and orientation errors from 1.837 to 2.616 rad,
+with additional support/clearance violations. Two additional initial right-leg configurations
+also fail. The closer of those reaches a 0.0598 m sole-position error and 0.0671 rad orientation
+error, but penetrates the trunk with the right thigh by up to 0.0831 m. These local solves do not
+prove infeasibility. Neither a valid joint branch nor a physical transition to the second sole
+is established from this three-contact pose.
+
+The optional `linearInertia` experiment accounts for uniform translational acceleration implied
+by the allocated reactions: `a = gravity + sum(ground forces) / total mass`. Each descendant's
+`mass * a` moment enters the joint torque, and the same dependence on every ground force enters
+the allocator's muscle-effort cost. A freely falling body therefore receives no gravity-cancelling
+joint torque from this term; weight-balanced reactions give the static result. Relative segment
+accelerations, angular acceleration and rotational bias remain outside this approximation.
+Actual commands retain the existing force/velocity muscle limits. The default calculation is
+unchanged, and the recorded default transfer's physical hash matches its pre-edit trial exactly.
+Held-item forces are not represented in this empty-hand approximation.
+
+Eight matched acceleration-aware trials all fail without reaching the next stage. The variant
+does not improve the intermediate transfer. Over recovery seconds 8 through 9.8, 217 samples of
+the matched pair give the following mean vectors in world x/y/z, in newtons:
+
+| Controller | Requested ground force | Allocated ground force | Measured non-gravity force from body momentum |
+| --- | --- | --- | --- |
+| Static torque conversion | [20.918, 554.402, 37.761] | [26.356, 549.979, 4.473] | [4.273, 565.209, -5.296] |
+| Uniform translational inertia | [50.831, 569.027, -5.356] | [55.169, 583.542, -11.840] | [5.122, 556.618, 2.126] |
+
+These are two diverging trajectories, not force-response estimates at identical states. Both
+remain far from realizing their allocated horizontal forces. Command reconstruction matches all
+848 post-prefix actions in each recording; maximum normalized allocator/command discrepancies
+are 4.462e-12 and 1.466e-12, respectively. Agreement verifies the implementation's arithmetic,
+not its physical approximation.
+
+The transfer recording reproduces exactly twice, including restoration and split continuation.
+Its physical SHA-256 is
+`84da59ce8862845b995199576e87a763a8c560c044e822588651c65ec6cf6f76`.
+`.review/stand-up-centre-transfer/replay.html` compares it with the unchanged optimized baseline
+from the identical saved fall. The embedded frames and identities are checked; the replay has
+not been visually inspected. The selected frozen controller library remains 3/16, none within
+six seconds. Full qualification and gameplay integration remain unfinished.
+
+Validation: `npm run check` and all 21 focused path tests pass, including free-fall cancellation,
+static-equilibrium equivalence, reactions outside a joint's descendants, allocator/command
+agreement and bounded activation. `npm test -- --test-concurrency=4` completes with 683 passes,
+two failures and five TODOs (690 total). The unresolved failures remain
+`research-stand-up-acceptance.test.mjs` and `stand-up-detached.test.mjs`: both reject frozen
+checkpoints under the current-source identity. The identity guard is unchanged. Exact replay,
+command reconstruction, embedded replay checks, whitespace and line-ending gates pass.

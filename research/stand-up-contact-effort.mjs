@@ -45,24 +45,26 @@ export function contactFrameFeedback(model,o,{orientationTargets,positionTargets
   return result;
 }
 
-/** Weighted static muscle torques t0 - C f for the existing ground-wrench allocator. */
+/** Weighted muscle torques t0 - C f, optionally including uniform linear acceleration from the allocated reactions. */
 export function contactEffort(model,o,patches,owners,goals,p={}) {
   const feedback=contactFrameFeedback(model,o,p);
   const width=6*patches.length,count=model.channels.length,C=new Float64Array(count*width),t0=new Float64Array(count),scales=new Float64Array(count);
   const byName=new Map(o.segments.map(s=>[s.name,s])),gravity=new Vector3(...model.gravity);
-  const weight=-model.segments.reduce((s,b)=>s+b.mass,0)*gravity.y;
+  const mass=model.segments.reduce((s,b)=>s+b.mass,0),weight=-mass*gravity.y;
   const rotation=new Quaternion(),axis=new Vector3(),pivot=new Vector3(),arm=new Vector3(),moment=new Vector3(),cross=new Vector3();
+  const massArm=new Vector3(),inertiaCoefficient=new Vector3();
   const axes=[],turning=[];let start=0;
   for(const joint of model.joints) {
     const parent=byName.get(joint.parent),n=joint.dofs.length,angles=o.joints.slice(start,start+n).map(j=>j.angle);
     motionAxesToRef(joint,angles,axes);turningToRef(joint,angles,turning);
     rotation.set(...parent.rotation).multiplyToRef(new Quaternion(...joint.parentRestInverse),rotation);
     pivot.set(...joint.pivot).applyRotationQuaternionToRef(new Quaternion(...parent.rotation),pivot).addInPlaceFromFloats(...parent.position);
-    moment.setAll(0);
+    moment.setAll(0);massArm.setAll(0);
     for(const name of joint.descendants) {
       const part=model.segments.find(s=>s.name===name),body=byName.get(name);
       arm.set(...body.centre).subtractInPlace(pivot);Vector3.CrossToRef(arm,gravity,cross);
       moment.addInPlace(cross.scaleInPlace(part.mass));
+      if(p.linearInertia)massArm.addInPlace(arm.scale(part.mass/mass));
     }
     for(let j=0;j<n;j++) {
       const i=start+j,c=model.channels[i],speed=o.joints[i].speed;
@@ -75,12 +77,16 @@ export function contactEffort(model,o,patches,owners,goals,p={}) {
       const capacity=Math.max(.05*peak,Math.sqrt(positive*negative));
       const scale=capacity>0?(p.effortScale??1)*weight/capacity:0,feedforward=p.feedforward??1;
       scales[i]=scale;
-      let torque=-Vector3.Dot(axis,moment)*feedforward+peak*((p.poseGains?.[c.name]??p.poseGain??.5)*error-(p.poseDamping??.06)*speed);
+      let torque=(p.linearInertia?0:-Vector3.Dot(axis,moment)*feedforward)+peak*((p.poseGains?.[c.name]??p.poseGain??.5)*error-(p.poseDamping??.06)*speed);
       if(feedback)torque+=peak*feedback[i];
       t0[i]=scale*torque;
+      if(p.linearInertia)Vector3.CrossToRef(axis,massArm,inertiaCoefficient);
       patches.forEach((patch,s)=>{
-        if(!joint.descendants.includes(owners[s]))return;
-        arm.copyFrom(patch.at).subtractInPlace(pivot);Vector3.CrossToRef(axis,arm,cross);
+        if(joint.descendants.includes(owners[s])) {
+          arm.copyFrom(patch.at).subtractInPlace(pivot);Vector3.CrossToRef(axis,arm,cross);
+        } else if(p.linearInertia)cross.setAll(0);
+        else return;
+        if(p.linearInertia)cross.subtractInPlace(inertiaCoefficient);
         const offset=i*width+6*s;
         C[offset]=scale*feedforward*cross.x;C[offset+1]=scale*feedforward*cross.y;C[offset+2]=scale*feedforward*cross.z;
       });

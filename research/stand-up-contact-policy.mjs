@@ -82,6 +82,7 @@ export function contactBalanceTarget(patches,owners,weights,out) {
 /** Desired ground reactions are converted to internal joint torques, never applied to a rigid body. */
 export function contactPolicy({model,parameters:p={}}) {
   if(p.sequence)return contactSequence(model,p.sequence);
+  if(p.linearInertia!==undefined&&typeof p.linearInertia!=='boolean')throw new Error('linear inertia must be boolean');
   if(p.additionalSupports!==undefined&&(!Array.isArray(p.additionalSupports)
     ||p.additionalSupports.some(name=>!model.segments.some(s=>s.name===name))))
     throw new Error('additional supports require known body segments');
@@ -93,6 +94,7 @@ export function contactPolicy({model,parameters:p={}}) {
   const rest=new Quaternion(...model.rootRest), inverseRest=Quaternion.Inverse(rest), relative=new Quaternion(), rotation=new Quaternion();
   const target=new Quaternion(),yaw=new Quaternion(),pitch=new Quaternion(),turnError=new Vector3(),up=new Vector3(),across=new Vector3();
   const point=new Vector3(),axis=new Vector3(),pivot=new Vector3(),arm=new Vector3(),force=new Vector3(),moment=new Vector3();
+  const linearAcceleration=new Vector3(),inertiaMoment=new Vector3();
   const axes=[],turning=[],velocity=model.channels.map(()=>0),activation=model.channels.map(()=>0);
   const postureAngles=name=>name==='reference'?model.referenceAngles:model.channels.map(c=>{
     const pose=model.poses.find(s=>s.name===name);if(!pose)throw new Error(`unknown contact posture ${name}`);
@@ -171,6 +173,11 @@ export function contactPolicy({model,parameters:p={}}) {
       shareGroundWrench(work,patches,centre,force,moment,model.friction,.3,shares,miss,undefined,effort);
       state.requestedForce=force.asArray();state.miss=miss.force.asArray();
     }else {state.requestedForce=[0,0,0];state.miss=[0,0,0];}
+    if(p.linearInertia) {
+      linearAcceleration.copyFrom(gravity);
+      for(let i=0;i<patches.length;i++)linearAcceleration.addInPlace(shares[i].force.scale(1/mass));
+      state.linearAcceleration=linearAcceleration.asArray();state.inertiaTorque=[];
+    }
     let start=0;state.saturated=0;
     for(const joint of model.joints) {
       const parent=byName.get(joint.parent),n=joint.dofs.length;
@@ -185,6 +192,16 @@ export function contactPolicy({model,parameters:p={}}) {
         Vector3.CrossToRef(arm,gravity,point);moment.addInPlace(point.scaleInPlace(part.mass));
       }
       const gravityMoment=moment.clone();
+      if(p.linearInertia) {
+        inertiaMoment.setAll(0);
+        for(const name of joint.descendants) {
+          const part=model.segments.find(s=>s.name===name),body=byName.get(name);
+          arm.set(...body.centre).subtractInPlace(pivot);
+          Vector3.CrossToRef(arm,linearAcceleration,point);inertiaMoment.addInPlace(point.scaleInPlace(part.mass));
+        }
+        // Uniform centre acceleration supplies only an inertial torque estimate; muscles still perform every action.
+        moment.subtractInPlace(inertiaMoment);
+      }
       for(let i=0;i<patches.length;i++)if(joint.descendants.includes(owners[i])) {
         arm.copyFrom(patches[i].at).subtractInPlace(pivot);
         Vector3.CrossToRef(arm,shares[i].force,point);moment.addInPlace(point);
@@ -211,6 +228,10 @@ export function contactPolicy({model,parameters:p={}}) {
         }
         state.gravityTorque[i]=-Vector3.Dot(axis,gravityMoment);
         state.contactTorque[i]=-Vector3.Dot(axis,moment)-state.gravityTorque[i];
+        if(p.linearInertia) {
+          state.inertiaTorque[i]=Vector3.Dot(axis,inertiaMoment);
+          state.contactTorque[i]-=state.inertiaTorque[i];
+        }
         state.torque[i]=torque;
         const side=torque>=0?c.positive:c.negative;
         const capacity=side.peak*forceVelocityFactor((torque>=0?1:-1)*obs.speed,side.curve);
