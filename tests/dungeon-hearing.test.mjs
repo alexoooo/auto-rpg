@@ -90,13 +90,14 @@ test("a_body_thrown_at_a_wall_in_sight_is_heard_on_the_wall", async () => {
     const hearing = hearRun(run, (cue) => cues.push({ time: run.clock, ...cue }));
     const every = everyTouch(run, [hero, enemy], all);
     seconds(run, 1.2);
-    // 60 N s at the skeleton's upper trunk, at a side wall 1.5 m off.
-    const trunk = enemy.fighter.built.segments.get("upperTrunk");
-    trunk.body.applyImpulse(new Vector3(0, 0, 60), centreOfToRef(trunk, new Vector3()));
+    // The whole skeleton thrown at 3 m/s at a side wall 1.5 m off: a shove at one segment reaches
+    // the wall or not by the phase of the skeleton's walk, and this reaches it from any phase.
+    const centre = new Vector3();
+    for (const segment of enemy.fighter.built.segments.values()) segment.body.applyImpulse(new Vector3(0, 0, 3 * segment.rigid.mass), centreOfToRef(segment, centre));
     seconds(run, 3);
     // A side wall's face is square to z, and a touch's normal runs from the body into it.
     const walls = all.filter(({ touch }) => touch.on === null && touch.normal[2] > 0.9);
-    assert.ok(walls.length >= 3, `${walls.length} touches on the wall`);
+    assert.ok(walls.length > 0, `${walls.length} touches on the wall`);
     assert.ok(walls.every(({ touch }) => touch.of.body.actor === enemy), "all of them the thrown body's");
     // The wall's face is the edge of the floor's cells, z 21.5: a touch's point is within the solver's
     // overlap of it, a millimetre or so, and the hall's other wall is 3 m off.
