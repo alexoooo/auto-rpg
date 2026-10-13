@@ -49,11 +49,11 @@
  * forward way: its holds past the walk's `run` run, and its stops hand the run back to the walk.
  * `--speeds` names the speeds a battery climbs.
  *
- * With `--objective played` a SIMBICON candidate is scored on the Lab's Run as it plays it
- * (`locomotion-run.mjs --played`: under the body's measured envelope, which the candidate did not
+ * With `--objective played` a SIMBICON candidate is scored on the Lab's Locomotion scenario as it
+ * plays it (`locomotion-run.mjs --played`: under the body's measured envelope, which the candidate did not
  * make): on each body each of `PLAYED.tracks` at each of its paces, calm and in each gust, for
  * `PLAYED.seconds`; the score is the mean speed made along the track, a fall stopping the body where
- * it fell; `--tracks` names others. Its winds' seeds are not the ones the Run's bed is read on. With `--way all` it searches
+ * it fell; `--tracks` names others. Its winds' seeds are not the ones the Locomotion bed is read on. With `--way all` it searches
  * every way's gait at once (with `--way forward --timing`, forward's and the stance's timing, `TIMING_DIMS`; with `--steer`, its speed-up and turn, `STEER_DIMS`), each setting named for its way (`forward.cv`, `side.cv`, `back.cv`), and
  * the walk's speed-up and swerve (`ALL_EXTRA`).
  *

@@ -434,15 +434,15 @@ tactics over the skills it is given.
   body slow. It sets off the way the body faces, and while the way asked is more than 0.35 rad
   from its heading it steps where it stands as the heading turns; under way it walks on through a
   bend of up to a right angle, turning as it goes, and past that it brakes to 0.3 m/s before it
-  turns round (`SET_OFF`, `TURN_ROUND`). Asked faster than `run` (1.27 m/s) it walks at 1.27, the whole walk asked scaled down.
+  turns round (`SET_OFF`, `TURN_ROUND`). Asked faster than `run` (1.32 m/s) it walks at 1.32, the whole walk asked scaled down.
   Once the body has come up to it, or, for a body whose walk makes less, once the walk has been
-  asked 1.27 for 1 s (`RUN_SWITCH`), the same machine runs in `SIMBICON_RUN`'s states from the pace
+  asked 1.32 for 1 s (`RUN_SWITCH`), the same machine runs in `SIMBICON_RUN`'s states from the pace
   the body goes: each sole lands by Raibert's hopping rule, the stance leg folds as its first state
   ends, and the arms hang and swing against the legs, elbows bent, whatever the guard. The run is
   grounded: it never leaves the ground. It goes straight ahead, turning only by its heading, and
-  walks again from a landing once the walk asked has come down 0.2 under 1.27 and the body has
-  slowed to 1.27. Told it may not run (`Locomotion.runs`, `SimbiconConfig.runs`), it walks no faster
-  than 1.27, and a run under way walks again from a landing once the walk asked has come down to 1.27. Its
+  walks again from a landing once the walk asked has come down 0.2 under 1.32 and the body has
+  slowed to 1.32. Told it may not run (`Locomotion.runs`, `SimbiconConfig.runs`), it walks no faster
+  than 1.32, and a run under way walks again from a landing once the walk asked has come down to 1.32. Its
   envelope is the walk's (`simbiconEnvelope`), or the run's (`simbiconRunEnvelope`) while it may run. Low support folds the stance, so a fighter does not
   offer it beside this walk; a kick asked holds the walk, which stops and gives the legs back to the
   stance before the kick begins (`drivesLegs`, `fighter.ts`; `skillSet`, `arbiter.ts`). A push whose level or speed is not

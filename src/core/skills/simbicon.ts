@@ -177,7 +177,7 @@ export const SIMBICON: SimbiconSettings = Object.freeze({
   swingHip: 0.596, swingHipLate: -0.0317, swingSpread: -0.1043, swingKnee: 1.1192, swingKneeLate: 0.0323, swingAnkle: 0.35, swingAnkleLate: 0.1059,
   stanceKnee: 0.0197, stanceKneeLate: 0.2298, stanceAnkle: -0.0123, cvAnkle: 0.2434, cvAnkleSide: -0.5131, lean: 0.1583,
   cd: 0.5, cv: 0.141, cdLate: 0.2207, cvLate: 0.2293, cdSide: -0.5, cvSide: 0.0138, landing: 1, lead: 0.0793, leadSide: 0.1406, leadOut: -0.0657, width: 0.2269, vf: 0.5255, vfSide: 0.6894, vfMost: 0.6701, trim: 0.0083, trimSide: 0, trimMost: 0.1, trimLeak: 0.2,
-  settle: 0.1, stance: 1, swing: 0.5, ankle: 0.2902, pelvis: 0.1, hold: 1, turn: 2, swerve: 1.6, turnRate: 2, speedup: 0.5, arms: 0, run: 1.2729,
+  settle: 0.1, stance: 1, swing: 0.5, ankle: 0.2902, pelvis: 0.1, hold: 1, turn: 2, swerve: 1.6, turnRate: 2, speedup: 0.5, arms: 0, run: 1.3179,
   leg: 0.8815024260685317,
 });
 
@@ -188,17 +188,19 @@ export const SIMBICON: SimbiconSettings = Object.freeze({
  * with the pace it runs from: 60 generations at `--speeds 1.4,1.7,2,2.2,2.5` from an earlier run's
  * settings, 60 more from the best (`--legs` of it), then 50 from that best at `--sigma 0.08 --track
  * --speeds 1.7,2,2.2,2.5,2.8`, and 40 from that best at `--sigma 0.06` in four gusts (`--winds
- * 1:5:11,12,13,14`). Scored on the envelope's walk battery forward, calm and in the lab's 5 N gusts,
- * with each thing held, the last two by the share of each pace it made, and cut as its soles land
- * wider than 0.9 of how they stood.
+ * 1:5:11,12,13,14`), then 40 more from that best in those gusts with its turns (`--turns
+ * --turn-speeds 1.7,2.2`). Scored on the envelope's walk battery forward, calm and in the lab's 5 N
+ * gusts, with each thing held, the last three by the share of each pace it made, the last also by
+ * the turns held at those paces (`TURNS`), and cut as its soles land wider than 0.9 of how they
+ * stood.
  */
 const SIMBICON_RUN: SimbiconRun = Object.freeze({
-  seconds: 0.2418, longest: 0.7914,
-  swingHip: 0.79, swingHipLate: 0.0315, swingSpread: -0.0139, swingKnee: 1.4409, swingKneeLate: 0.0452, swingAnkle: 0.3499, swingAnkleLate: 0.3382,
-  stanceKnee: 0.2574, stanceAnkle: 0.178, cvAnkle: 0.7477, cvAnkleSide: 0, lean: 0.1395,
-  cd: 0.1181, cv: 0.0594, cdLate: 0.0416, cvLate: 0.0353, cdSide: -0.214, cvSide: -0.2131, landing: 1, leadSide: 0.1486, width: 0.1366,
-  settle: 0.1277, stance: 0.9496, swing: 0.8576, ankle: 0.5895, pelvis: 0.067, hold: 0.9725,
-  push: 0.9405, pushKnee: 0.7666, pushAnkle: -0.0858, reach: 0.0035, trailKnee: 1.0577, contact: 0.2704, gain: 0.1289, arms: 0.2022, elbow: 1.3181,
+  seconds: 0.2431, longest: 0.7853,
+  swingHip: 0.8569, swingHipLate: 0.0296, swingSpread: 0.0003, swingKnee: 1.35, swingKneeLate: 0.0146, swingAnkle: 0.4, swingAnkleLate: 0.3561,
+  stanceKnee: 0.245, stanceAnkle: 0.0801, cvAnkle: 0.675, cvAnkleSide: 0, lean: 0.1463,
+  cd: 0.0937, cv: 0.1199, cdLate: 0.0517, cvLate: -0.0331, cdSide: -0.1874, cvSide: -0.1058, landing: 1, leadSide: 0.2041, width: 0.1126,
+  settle: 0.1483, stance: 0.9417, swing: 0.9018, ankle: 0.4867, pelvis: 0.067, hold: 0.9968,
+  push: 0.9976, pushKnee: 0.8648, pushAnkle: -0.0867, reach: 0.0033, trailKnee: 1.1159, contact: 0.2769, gain: 0.1971, arms: 0.1001, elbow: 1.3607,
 });
 
 /**

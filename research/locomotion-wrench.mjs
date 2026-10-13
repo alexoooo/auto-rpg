@@ -1,7 +1,7 @@
 /**
- * **Where a walk's ground force is lost**, on the locomotion test bed's setup (the Lab's Run on the
- * Node stand, Rapier, 120 Hz, no wind): each control step, for each bearing foot, the chain from the
- * stance's plan to the ground, and where it parts.
+ * **Where a walk's ground force is lost**, on the locomotion test bed's setup (the Lab's Locomotion
+ * scenario on the Node stand, Rapier, 120 Hz, no wind): each control step, for each bearing foot,
+ * the chain from the stance's plan to the ground, and where it parts.
  *
  *   node research/locomotion-wrench.mjs [--models workshop-fighter,workshop-rogue] [--paces 0,0.5,1.2]
  *     [--legs stride,stance,sway] [--seconds 12] [--from 3] [--out wrench.jsonl] [--workers 12]
@@ -291,7 +291,7 @@ function summarize(rows, torque, kin) {
   return out;
 }
 
-/** The Lab's Run on the forward line, its legs the stride's or the stance's own walk. */
+/** The Lab's Locomotion scenario on the forward line, its legs the stride's or the stance's own walk. */
 function running(stand, { labActor, startLocomotion, trackOf, LAB_PRESETS, STRIDE }, legs, stride, pace) {
   const locomotion = legs === "stride" ? { kind: "stride", ...STRIDE, ...stride } : null;
   const mind = { ...LAB_PRESETS.script.config, ...(locomotion ? { locomotion } : {}) };
