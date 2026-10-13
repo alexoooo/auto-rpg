@@ -3579,3 +3579,47 @@ are preserved under retainedTripod.transitionFailure in research/stand-up-path-r
 No production code changes. Whitespace and line-ending gates pass; the two previously
 reported current-source checkpoint-identity test failures remain unresolved. The selected
 frozen library remains 3/16, with none within six seconds. The full goal is unfinished.
+
+## Foot placement from the complete fall, 2026-10-13
+
+**No recovery succeeds.** A new detached prototype starts at the original saved Rogue/empty
+90-degree fall, without the held-kneel prefix. It targets each sole at the floor beneath the
+body using joint-range-bounded differential kinematics, then requests extension through a
+loaded foot. Additional variants coordinate pelvis righting and temporary hand placement.
+All requests pass through ordinary muscles. No physical pins, injected forces, pose resets,
+body changes, stronger muscles or assistance are used.
+
+Harness: frozen Node Stance Lab, game Rapier coordinate adapter 11, 120 Hz, original symmetric
+muscle limits, ordinary stance host, Balance 0. Sixteen complete-fall trials consume 11,504
+world steps and all fail at six recovery seconds. Four test direct placement; six test
+pelvis righting, including its disabled control; six test hand placement, including its
+disabled control. Both disabled controls reproduce their preceding physical trajectories
+exactly. All trials report no external actuation, finite final observations and legal final
+commands. Maximum effort-bound excess is 0.000022294314589998976, below 0.0001.
+
+In the selected failed record, the right sole is downward-facing and loaded continuously
+from 0.408333 to 0.666667 s (sole-up at least 0.816109, load at least 28.1596 N). The left sole
+meets the same diagnostic from 1.366667 s, and both do from 1.566667 s through the deadline.
+The diagnostic requires sole-up > 0.8 and upward floor contact > 20 N for twelve consecutive
+steps; it is not a recovery criterion. At six seconds, height is only 0.208472 m and pelvis-up
+is -0.761458. The middle trunk bears 282.344 N while the feet bear 88.947 and 204.717 N.
+Early foot loading is established; useful weight transfer and standing are not.
+
+The twelve leg Jacobian point columns are compared with numerical joint motion at the
+exactly reproduced 60-step state. Maximum discrepancy is 0.000132663 m/rad; forward-kinematic
+position/orientation discrepancies are 0.000077840 m and 0.000730154 rad. This checks local
+kinematics only. The selected recording repeats its grid trace, and independent action replay,
+restore and split continuation are exact. Physical SHA-256:
+
+4665a6c1a93e19cb8c072b363964d05b4023d8f0a716bc92024825bd8d2277c1
+
+The standalone .review/stand-up-foot-first/replay.html compares it with the unchanged optimized
+baseline from the identical complete initial state and body. All 720 candidate frames and
+embedded identity are checked. Browser inspection near 0.508 and 5.992 s confirms the head/trunk
+support and failed outcome. This remains an experiment, separate from the live Lab controller.
+
+research/stand-up-path-results.json under footFirstRecovery preserves all configurations,
+outcomes, source versions, contact diagnostics and replay verification. No production code
+is changed. Whitespace and line-ending gates pass; the two previously reported current-source
+checkpoint-identity test failures remain unresolved. The selected frozen library remains 3/16,
+none within six seconds. The full four-second median / six-second recovery goal is unfinished.
