@@ -11,8 +11,10 @@ built; `docs/roadmap.md` says where it is going. This file is the rules for work
 npm ci           # not `install`: the exact lockfile
 npm run dev      # http://localhost:5180, strictPort
 npm run check    # tsc --noEmit
-npm test         # the fast tier, about 45 s: every test file but tests/slow.json's
-npm run test:all # every test file, as CI runs them
+npm test         # the fast tier, about 45 s: current-code tests except tests/slow.json's
+npm run test:all # all current-code tests, as CI runs them
+npm run setup:frozen # prepares the immutable evaluator; Node 24.15.0 and full Git history
+npm run test:frozen # historical replay tests, a separate CI job
 npm run build    # check, then vite build
 ```
 

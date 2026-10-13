@@ -1,7 +1,7 @@
 /**
- * The test tiers. `npm test` runs every test file but the slow ones (`tests/slow.json`, whole bouts,
- * rises and loops): the check a change runs, in about a minute. `npm run test:all` runs them too, as
- * CI does. Further arguments go to `node --test`.
+ * The current-code tiers. `npm test` excludes the slow files (`tests/slow.json`, whole bouts,
+ * rises and loops); `npm run test:all` includes them, as CI does. Historical replays live under
+ * tests/frozen and run through `npm run test:frozen`. Further arguments go to `node --test`.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";

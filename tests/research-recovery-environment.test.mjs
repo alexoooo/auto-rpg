@@ -43,9 +43,11 @@ test('actual fallen-state continuations restore commands, observations and compl
     fresh.restore(initial); assert.deepEqual(run(fresh, one), a);
     assert.equal(a.trace.at(-1).result.fell, true);
     assert.equal(a.trace.at(-1).result.success, false);
-    const invalid = deserialize(initial); invalid.identity.specSha = 'another-body';
-    assert.throws(() => fresh.restore(serialize(invalid)), /configuration/);
-    assert.deepEqual(deserialize(fresh.save()).saved.state, a.state);
+    for (const field of ['specSha', 'sourceSha', 'environmentSha', 'revision']) {
+      const invalid = deserialize(initial); invalid.identity[field] = 'incompatible';
+      assert.throws(() => fresh.restore(serialize(invalid)), /configuration/, field);
+      assert.deepEqual(deserialize(fresh.save()).saved.state, a.state, 'rejected checkpoints change nothing');
+    }
   } finally { fresh.dispose(); e.dispose(); }
 });
 

@@ -12,7 +12,9 @@
     "preview": "vite preview",
     "check": "tsc --noEmit",
     "test": "node scripts/test.mjs",
-    "test:all": "node scripts/test.mjs --all"
+    "test:all": "node scripts/test.mjs --all",
+    "setup:frozen": "node scripts/frozen-evaluator.mjs --prepare",
+    "test:frozen": "node scripts/test-frozen.mjs"
   },
   "dependencies": {
     "@babylonjs/core": "9.18.1",

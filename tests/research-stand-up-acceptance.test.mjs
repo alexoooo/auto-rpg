@@ -1,10 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
-import { readFileSync } from 'node:fs';
-import { gunzipSync } from 'node:zlib';
 import { recoveryEnvironment } from '../research/stand-up-environment.mjs';
-import { acceptanceEnvironment, evaluateAcceptanceCase, rejectAssistedAction, summarizeAcceptance } from '../research/stand-up-acceptance.mjs';
+import { acceptanceEnvironment, rejectAssistedAction, summarizeAcceptance } from '../research/stand-up-acceptance.mjs';
 import { unassistedAudit, unassistedResult } from '../research/stand-up-unassisted.mjs';
 
 test('unassisted gate rejects an assisted action through real force and moment calls', async () => {
@@ -50,34 +48,26 @@ test('failure-inclusive statistics cannot turn a few successful episodes into a 
   assert.equal(summarizeAcceptance([row(null, true), row(NaN, true), row(-1, true), row(36, true)]).within35, 0);
 });
 
-test('a saved fall preserves physical state and elapsed time across controller choices and rejects requested assistance', async () => {
-  const manifest = JSON.parse(readFileSync(new URL('../research/stand-up-acceptance/cases.json', import.meta.url)));
-  const c = manifest.cases[0];
-  assert.equal(manifest.cases.length, 16);
-  const e = await acceptanceEnvironment(c.configuration);
+test('current comparison controllers preserve a newly captured fall and its clock', async () => {
+  const e = await acceptanceEnvironment({ model: 'workshop-fighter', held: 'empty', contact: 'shoe', strength: 1, speed: 1, weight: 1 });
   try {
-    const saved = gunzipSync(readFileSync(new URL(`../research/stand-up-acceptance/${c.file}`, import.meta.url)));
-    e.restore(saved);
-    const initial = e.observe(), clock = e.result();
-    const traces = [];
+    await e.fall();
+    const saved = e.save(), initial = e.observe(), clock = e.result(), traces = [];
+    assert.equal(clock.fell, true);
     for (const controller of ['standard', 'optimized', 'standard']) {
-      e.restore(saved);
-      e.selectComparison(controller);
+      e.restore(saved); e.selectComparison(controller);
       assert.deepEqual(e.observe(), initial);
-      assert.deepEqual(e.result(), clock, 'a new policy cannot restart the recovery clock');
-      traces.push(Array.from({ length: 24 }, () => e.step()));
+      assert.deepEqual(e.result(), clock);
+      const trace = [];
+      let driven = 0;
+      for (let step = 0; step < 10 * e.stand.world.hz && driven < 24; step++) {
+        const row = e.step(); trace.push(row);
+        if (row.action.kind === 'muscles' && row.action.activation.some(value => value > 0)) driven++;
+      }
+      assert.equal(driven, 24, 'the continuation must reach muscle-driven recovery after settling');
+      traces.push(trace);
     }
-    assert.deepEqual(traces[0], traces[2], 'controller ordering cannot change a continuation');
-    assert.notDeepEqual(traces[0], traces[1], 'different real controllers exercise different actions');
+    assert.deepEqual(traces[0], traces[2]);
+    assert.notDeepEqual(traces[0], traces[1]);
   } finally { e.dispose(); }
-  const rejected = await evaluateAcceptanceCase(c, manifest, ({ channels }) => () => ({
-    kind: 'muscles', activation: channels.map(() => 0), velocity: channels.map(() => 0),
-    assist: { force: [0, 1, 0], moment: [0, 0, 0] },
-  }));
-  assert.equal(rejected.result.success, false);
-  assert.equal(rejected.result.failure, 'external actuation');
-  assert.equal(rejected.steps, 0);
-  const floating = await rejectAssistedAction(c, manifest);
-  assert.equal(floating.checkpointSha256, rejected.checkpointSha256);
-  assert.equal(floating.initialObservationSha256, rejected.initialObservationSha256);
 });

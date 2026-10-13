@@ -5,6 +5,10 @@ import { CLASSIC, QUADRUPED } from "../src/core/mind/config.ts";
 import { PRESETS } from "../src/core/mind/controllers.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { COMBAT, KICKER, withParts } from "./fixtures/minds.mjs";
+import { CONFIG_KEYS } from "../src/core/mind/config-keys.ts";
+import { STRIDE } from "../src/core/skills/stride.ts";
+import { RUN } from "../src/core/skills/run.ts";
+import { parseMind, writeMind } from "../src/ui/mind-link.ts";
 
 const ROLES = ["mind", "sub-mind", "tactics", "behaviour", "locomotion", "guard", "blow", "kick", "support"];
 
@@ -15,6 +19,9 @@ test("every part has a role, a stage, frozen defaults of its own kind, and every
     assert.equal(part.defaults.kind, kind);
     assert.ok(Object.isFrozen(part.defaults), kind);
     assert.deepEqual(treeFaults(part.defaults, part.needs ? [part.needs] : []), [], kind);
+    for (const key of [...part.fields.map(field => field.key), ...part.slots.map(slot => slot.key), ...Object.keys(part.defaults)]) {
+      assert.ok(Object.hasOwn(CONFIG_KEYS[kind], key), `${kind}.${key} belongs to the configuration`);
+    }
     for (const slot of part.slots) assert.ok(Object.values(PARTS).some((other) => other.role === slot.role), `${kind}.${slot.key}`);
   }
   assert.deepEqual(Object.keys(PARTS), ["fighter", "quadruped", "direct", "lie", "support-recovery", "research-rise", "seek", "openings", "script", "stand", "behaviours",
@@ -23,6 +30,20 @@ test("every part has a role, a stage, frozen defaults of its own kind, and every
   assert.equal(partOf(CLASSIC), PARTS.fighter);
   assert.deepEqual(new Set(Object.values(PARTS).map((part) => part.role)), new Set(ROLES));
   for (const kind of ["point-fighter", "constructor", "toString", "staged-rise", "assisted-rise", "dynamic-rise"]) assert.throws(() => partOf({ kind }), /no part of kind/, kind);
+});
+
+test("controller settings survive links and validation independently of editor fields", () => {
+  const stride = { kind: "stride", ...STRIDE, paced: true, lands: true, launch: .2, lead: .1, momentum: true, lever: .8, lengthen: .1 };
+  const run = { kind: "run", ...RUN, drive: .2, lever: .8 };
+  for (const locomotion of [stride, run]) {
+    const config = { ...CLASSIC, locomotion };
+    assert.deepEqual(parseMind(writeMind(config), modelSpec("workshop-fighter")), { config, faults: [] });
+    assert.deepEqual(treeFaults({ ...config, locomotion: { ...locomotion, misspelled: true } }),
+      [`locomotion: ${PARTS[locomotion.kind].label} has no setting misspelled`]);
+  }
+  assert.ok(!PARTS.stride.fields.some(field => field.key === "momentum"));
+  assert.ok(treeFaults({ ...stride, momentum: "yes" }).length > 0, "hidden settings still validate their values");
+  assert.ok(treeFaults({ ...run, lever: -1 }).length > 0);
 });
 
 test("a tree's faults say where they are, and every preset has none", () => {

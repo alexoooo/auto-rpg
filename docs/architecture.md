@@ -635,7 +635,11 @@ the **quadruped** (crawl and bite); and **direct** joint control. A config read 
 reads). A part's config holds a player's fields, plain choices, and under `tuning` an
 experiment's settings, which never travel in a link. A key its part does not read, or a tuning it
 does not name (`Part.tuning`), is a fault, so a setting put in the wrong place is refused, never
-silently dropped.
+silently dropped. `CONFIG_KEYS` (`src/core/mind/config-keys.ts`) enumerates the accepted keys
+independently of editor fields and default values. Its mapped type requires every property of
+every config kind, including optional settings, and rejects extra keys at compile time. Parts'
+fault predicates validate values; slots validate nested parts. Hiding an editor field does not
+remove that setting from saved configs, links or research overrides.
 
 **The fighter's slots** (`FighterConfig`) are its tactics, a skill of each role and its
 sub-minds. Its tactics (`tacticsOf`, `tactics-of.ts`) are `seek` (`recipeTactics`, with `guard`,
@@ -1030,6 +1034,12 @@ configuration identity, restores it and only then replaces the live episode. A f
 can load directly; a rejected load leaves the current episode intact. The identity includes
 resolved anatomy, task/controller settings, rate, actuation, gravity and solver artifact/adapter
 revision. The snapshot is structured data and bytes, not a JSON-only serialization format.
+
+Current-code replay tests capture fresh states. Historical stand-up checkpoints run only in the
+immutable evaluator checkout, prepared by `scripts/frozen-evaluator.mjs` with its own lockfile
+and captured Node version. `npm run test:frozen` checks the checkout before and after the
+separate test process; CI runs it in a dedicated job alongside the current-code suite. The
+checkpoint identity guards remain strict, and the saved falls and evaluator are unchanged.
 
 `createReachTask` (`tasks/reach.ts`) is the Node/browser builder for a pinned joint reach. It
 supports actuator actions through the detached policy port or posture actions through the

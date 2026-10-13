@@ -26,11 +26,24 @@ Requires **Node 22.13.0 or newer**; `.npmrc` sets `engine-strict=true`, so an ol
 npm ci        # not `npm install`: the exact lockfile
 npm run dev   # http://localhost:5180
 npm run check # tsc, no emit
-npm test      # the fast tests: the core, the rules and a short bout (npm run test:all: every test)
+npm test      # the fast tests: the core, the rules and a short bout
+npm run test:all # all current-code tests, including slow physical scenarios
 npm run build # check, then the production bundle
 ```
 
 Everything the pages need is committed, so a fresh clone runs with no download step.
+
+Historical stand-up replay tests run separately, using the immutable evaluator's own source
+and lockfile. They require **Node 24.15.0** and a clone with full Git history:
+
+```powershell
+npm run setup:frozen # prepares .tools/stand-up-frozen at the pinned commit and runs npm ci there
+npm run test:frozen  # tests/frozen; refuses a changed checkout or incompatible Node version
+```
+
+CI runs the current-code suite and frozen suite in separate jobs; both gate deployment.
+Current-code tests capture fresh checkpoints. Historical checkpoints keep their original
+identity checks and are never re-stamped to match newer code.
 
 ## The Arena
 
