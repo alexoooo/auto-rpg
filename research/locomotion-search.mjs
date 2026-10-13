@@ -37,14 +37,17 @@
  * falling, and earns each step of speed times the holds' mean `quality`, up to and including the first it
  * did not hold whole; the score is the mean of the ways' credits, each weighted `BATTERY.weight`,
  * over the ways the searched way's gait reads (`--ways` names others), and with `--turns` its turns'
- * (`TURNS`).
+ * (`TURNS`). `--winds rate:strength:seed,seed` walks each hold calm and in the lab's gusts on each
+ * seed as well, as the envelope does; a gusted hold holds if it does not fall. With `--track` a calm
+ * hold's credit (not whether the ladder climbs on) is also scaled by the share of the pace asked it made, up to 1: `WENT`'s tolerance
+ * otherwise lets a gait walk a fifth under every pace asked, which the Run, asking paces, reads as slow.
  *
  * With `--objective played` a SIMBICON candidate is scored on the Lab's Run as it plays it
  * (`locomotion-run.mjs --played`: under the body's measured envelope, which the candidate did not
  * make): on each body each of `PLAYED.tracks` at each of its paces, calm and in each gust, for
  * `PLAYED.seconds`; the score is the mean speed made along the track, a fall stopping the body where
  * it fell; `--tracks` names others. Its winds' seeds are not the ones the Run's bed is read on. With `--way all` it searches
- * every way's gait at once, each setting named for its way (`forward.cv`, `side.cv`, `back.cv`), and
+ * every way's gait at once (with `--way forward --timing`, forward's and the stance's timing, `TIMING_DIMS`), each setting named for its way (`forward.cv`, `side.cv`, `back.cv`), and
  * the walk's speed-up and swerve (`ALL_EXTRA`).
  *
  * With `--objective both` the score is the battery's and the played objective's together: the
@@ -82,6 +85,9 @@ const WAY_DIMS = {
   cvAnkle: [0, 1], cvAnkleSide: [-1, 1], ankle: [0.1, 0.6], lean: [-0.2, 0.2], cd: [-0.5, 0.5], cv: [-0.2, 0.8], cdLate: [-0.5, 0.5], cvLate: [-0.2, 0.6],
   cdSide: [-0.5, 0.5], cvSide: [-0.3, 0.5], lead: [-0.2, 0.4], leadSide: [0, 0.5], leadOut: [-0.3, 0.5], width: [0.05, 0.3], vf: [0, 1.5], vfSide: [0, 1.5], vfMost: [0.1, 1], trim: [0, 0.5], trimSide: [0, 0.5],
 };
+
+/** With `--timing`, the gait's stance timing searched with forward's settings: every way's steps take it. */
+const TIMING_DIMS = { seconds: [0.18, 0.45], longest: [0.6, 1.2] };
 
 /** The ways `--way all` searches together, and the gait's settings it searches with them. */
 const ALL_WAYS = ["forward", "side", "back"];
@@ -145,10 +151,10 @@ const PACES = [0.3, 0.5, 0.7, 1, 1.2, 1.4, 1.7, 2];
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : fallback; };
 const list = (name, fallback) => arg(name, fallback).split(",");
-const objective = arg("objective", "bed"), turning = process.argv.includes("--turns");
+const objective = arg("objective", "bed"), turning = process.argv.includes("--turns"), tracking = process.argv.includes("--track");
 const kind = arg("kind", "stride"), running = kind === "run", way = kind === "simbicon" ? arg("way", "back") : null;
-const SPACE = running ? RUN_DIMS : way === "all" ? ALL_DIMS : way ? WAY_DIMS : DIMS, LADDER = running ? RUN_PACES : PACES;
-const BASE = running ? RUN : way === "all" ? allOf(SIMBICON, simbiconWays()) : way === "forward" ? wayOf(SIMBICON) : way ? simbiconWays()[way] : STRIDE;
+const SPACE = running ? RUN_DIMS : way === "all" ? ALL_DIMS : way === "forward" && process.argv.includes("--timing") ? { ...WAY_DIMS, ...TIMING_DIMS } : way ? WAY_DIMS : DIMS, LADDER = running ? RUN_PACES : PACES;
+const BASE = running ? RUN : way === "all" ? allOf(SIMBICON, simbiconWays()) : way === "forward" ? { ...wayOf(SIMBICON), seconds: SIMBICON.seconds, longest: SIMBICON.longest } : way ? simbiconWays()[way] : STRIDE;
 const models = list("models", way ? "workshop-fighter" : "workshop-fighter,workshop-rogue");
 const lines = list("lines", running || way === "forward" ? "forward" : way === "back" ? "back" : way ? "right,left" : "forward,right,back");
 const seeds = list("seeds", "1,2,3").map(Number), seconds = Number(arg("seconds", "15"));
@@ -156,6 +162,8 @@ const dims = arg("dims") ? list("dims") : Object.keys(SPACE), out = arg("out");
 const workers = Math.min(Number(arg("workers", String(Math.max(1, availableParallelism() - 2)))), 64);
 const start = { ...BASE, ...JSON.parse(arg("start", "{}")) };
 /** The battery's ways a candidate is scored on: `--ways`, else those its way's gait reads (forward's, forward and between forward and the side). */
+/** The battery's winds: calm, then `--winds`' gusts (`rate:strength:seed,seed`). */
+const batteryWinds = [null, ...(arg("winds") ? (([rate, strength, seeds]) => seeds.split(",").map((seed) => ({ rate: Number(rate), strength: Number(strength), seed: Number(seed) })))(arg("winds").split(":")) : [])];
 const batteryWays = arg("ways") ? list("ways").map(Number) : way === "back" ? [180] : way === "side" ? [90, 270, 45] : way === "forward" ? [0, 45] : BATTERY.ways;
 
 /** A setting's place in its range, [0, 1]; a flag's, a quarter or three quarters. */
@@ -234,9 +242,13 @@ const trial = (job) => new Promise((resolve, reject) => {
 async function batteryLadder(legs, model, degrees) {
   let credit = 0, last = 0, fastest = 0;
   for (const speed of BATTERY.speeds) {
-    const results = await Promise.all(HELD.map((held) => trial({ model, degrees, speed, held, legs })));
-    const share = results.reduce((sum, r) => sum + quality(r, speed), 0) / HELD.length;
-    credit += (speed - last) * share;
+    // Each hold's quality, and that scaled by the share of the pace it made (`--track`): the ladder climbs on the first, and earns the second.
+    const results = await Promise.all(HELD.flatMap((held) => batteryWinds.map(async (wind) => {
+      const r = await trial({ model, degrees, speed, held, legs, wind }), q = wind ? (r.fell ? 0 : 1) : quality(r, speed);
+      return [q, wind || !tracking ? q : q * Math.min(1, Math.max(0, r.along / speed))];
+    })));
+    const share = results.reduce((sum, [q]) => sum + q, 0) / results.length, earned = results.reduce((sum, [, e]) => sum + e, 0) / results.length;
+    credit += (speed - last) * earned;
     last = speed;
     if (share < 1) break;
     fastest = speed;

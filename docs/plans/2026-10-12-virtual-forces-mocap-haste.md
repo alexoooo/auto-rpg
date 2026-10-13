@@ -150,6 +150,34 @@ and the touched slow tests run by name.
   without a fall, the skeleton to 1.4 and the Rogue to 1.2; its envelope reads 0.776 with 13
   falls, the circle and the shuttle unchanged: the circle is held by the turns, the shuttle by
   something else.
+- **Four gust seeds, not two** (`--gusts 1:20:1,2,3,4`, the envelope as committed): 0.771 with 13
+  falls. By track and body, the Warrior's, the Rogue's and the skeleton's: circle 1.04, 0.85,
+  0.92; shuttle 0.83, 0.77, 0.80; square 0.66, 0.58, 0.48. The skeleton's falls are spread over
+  every way of the square: a light body's fragility in a gust, not one way's cap.
+- **The pacing is at the walk's edge.** On the shuttle and the square (0.682, 16 falls) a quicker
+  speed-up with a later brake (0.8 and 0.5) reads 0.653 with 33 falls, 1.2 and 0.8 reads 0.447
+  with 77, and a corner taken at 0.4 m/s rather than 0.2 changes nothing.
+- **A cadence quickened with the pace** (the first state shortened as the walk asked rises) is
+  worse for every body.
+- **A forward search certifies speeds it does not make.** Searched on the envelope's battery
+  (forward and between forward and the side, calm and in four gust seeds the bed is not read on,
+  the run off, with the turns) the forward gait's own envelope rises in every way: forward 1.7,
+  1.7 and 2 m/s for the Warrior, the Rogue and the skeleton, against 1.4, 1 and 1.2; the turns at
+  speed too. On the bed it reads 0.729 with 11 falls against 0.771: it walks a fifth under every
+  pace asked (the Warrior makes 0.85 m/s asked 1), which `WENT`'s tolerance passes, and asked 2
+  it makes 1.4, what today's walk makes asked 1.4. Crediting each hold by the share of the pace it
+  made (`--track`) does not move it.
+- **The stance timing searched with forward's settings** (`--timing`, `--track`) keeps the first
+  state near 0.25 s and walks no longer steps; its forward settings, with the timing as it was,
+  make 1.5 m/s asked 2 (the Warrior) and read 0.778 with 11 falls on the bed (0.764 with each
+  run's speed capped at its pace, against 0.745), and 0.771 against 0.758 on gust seeds 7 to 12:
+  the circle and the shuttle gain for every body, the skeleton's square loses. It walks no faster
+  than 1.23 m/s asked 1.4, so the run, which begins once the walk makes the run's pace, never
+  begins; it waits on the run's work (the owner wants a jog and a run at the faster paces).
+- **The side lead trades the pace made for the pace held.** More `leadSide` and `leadOut` (the
+  landing short of rest) brings the side walks from 0.75 to about 1 of asked and falls at paces
+  the lead as it is holds; less makes them slower. Made, the side walk tops out near 0.75 m/s
+  and forward near 1.4 whatever the leads: the gait's capacity, not its tuning, holds the Run.
 
 ## B. Motion capture as the gait's reference
 
@@ -213,6 +241,13 @@ Its output:
 - `assets/core/mocap-gaits.json`: per way and speed, joint angles by phase for stance and swing,
   the cycle's duration, and the walk's speed.
 - A `SOURCES` entry for each clip: subject, trial, and the licence statement.
+
+- **Found (five clips imported by `research/mocap-import.mjs`, each to its own file; no asset yet):** forward 141_25 walks 1.08 m/s
+  at 1.84 steps a second, 0.59 m a step; 132_17 walks fast, 1.83 m/s at 2.03 steps a second,
+  0.9 m a step; back 141_31 0.97 m/s at 1.97; side 141_33 0.58 m/s at about 1.6 to 1.9; the run
+  141_34 2.05 m/s at 2.42. SIMBICON walks 2.7 to 3.2 steps a second with steps of 0.3 to
+  0.65 m. Its side and back already match a person's speeds; forward a person goes faster by
+  longer steps at a lower cadence, which is where B can pay.
 
 **Check:** the reference posed on each body, frame by frame, keeps the soles off the floor in swing
 and on it in stance (no physics). A broken retarget shows here before anything is tuned.
@@ -280,6 +315,9 @@ it, which reads as sliding or being pushed.
   the side and back walks fall apart (the Warrior's back 0.7 and 0.3). A faster muscle gives the
   walk nothing at a walking pace, where it is far from its unloaded speed; it pays only where the
   gait asks speed of it, and this gait's cadence does not rise with the pace.
+- **Found (forward trials with the run off, the gait as it is, x1.25 on every muscle):** the
+  Warrior holds 1.8 m/s asked (1.63 made) without a fall, against 2 falls in 4 at x1; the Rogue
+  holds 1.4 against 2 in 4. Haste raises the top forward walk by about 0.2 m/s.
 
 ### C2. The gait uses the headroom
 
