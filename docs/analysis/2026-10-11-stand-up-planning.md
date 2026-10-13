@@ -4348,3 +4348,105 @@ and broader qualification remain unfinished.
 Document/data whitespace, cited-path and line-ending checks pass. No production code changes,
 so software tests are not rerun. The two previously reported current-source checkpoint-identity
 test failures remain unresolved.
+
+## Sole-guided continuation and its limits, 2026-10-13
+
+The coupled continuation recovers in **6.408333 s**, slower than the previous 6.025000 s
+best. It repairs the preceding failed foot-transfer trajectory but does not meet the six-second
+deadline or improve the four-second median. Harness: frozen Node Stance action evaluator /
+game Rapier coordinate adapter 11 / 120 Hz / original compliant-sole Warrior with right-hand
+club / original symmetric muscles / ordinary stance host / Balance 0. Body, host, muscle
+limits, saved fall and acceptance criteria remain unchanged.
+
+The first 432 actions reproduce the failed transfer exactly. Subsequent guidance combines
+that recording with the earlier successful trajectory from the same body. These are proposed
+continuations, not a measured combined trajectory. Every candidate runs through physical
+world steps. The search can now read measured sole orientations supplied in detached guidance;
+the default still omits them. It rejects missing or nonfinite orientation pairs and references
+explicitly marked as unmeasured transformations. Sole orientation is a search cost, not a
+replacement for actual loaded contact or the frozen recovery predicate.
+
+| Search in the frozen Node harness above | Branch evaluations | World steps | Recovery (s) |
+|---|---:|---:|---:|
+| Coupled continuation without sole cost | 1,685 | 62,352 | None |
+| Measured sole cost | 1,692 | 67,321 | 6.816667 |
+| Measured sole cost and muscle settling tail | 1,693 | 67,753 | 6.408333 |
+| Earlier continuation from the 2.4-second prefix | 1,730 | 40,416 | None |
+| Earlier continuation with hands-and-feet posture proposals | 2,276 | 53,088 | None |
+
+These counts are short search branches, not independent complete falls. Sixteen subsequent
+terminal posture and damping variants yield one success: the unchanged 6.408333-second
+control. All fifteen modifications fail. All evaluated physical branches have zero assistance
+and external actuation, with effort-bound excess below the unchanged 0.0001 tolerance.
+
+The retained command reproduces all 1,128 recorded observations exactly, including its
+432-step prefix. The independent frozen evaluator confirms recovery and the standing/walking
+tail. Exact action replay, restoration and split continuation pass. Thirty initial search
+branches match the prototype's physical hashes, scores and results. Physical SHA-256:
+
+1629453291025aa23131276b68d0436a8264cdf6ab53f6d032a29b54e7df3c13
+
+The standalone .review/stand-up-transfer-rollouts/replay.html compares this recovery with the
+preceding failed transfer. Its 1,129 and 1,200 embedded frames match the recordings exactly;
+Chrome inspection at 9.408333 s confirms the upright walking-verification endpoint. The label
+explicitly says this is slower than the prior best. It is separate from the live Lab controller.
+Sources, configurations, selected plans, failures and verification are preserved under
+coupledSoleContinuation in research/stand-up-path-results.json.
+
+No production controller is promoted. The selected frozen library remains 3/16, none within
+six seconds; the full goal remains unfinished. TypeScript checking and all 21 focused path
+tests pass. The fast gate reports 688 passed, two failed and five TODO out of 695 tests. The
+two failures remain the current-source checkpoint-identity mismatches in
+tests/research-stand-up-acceptance.test.mjs and tests/stand-up-detached.test.mjs; their guards
+are not weakened. No browser/runtime code changes, so no build is required.
+
+## Foot placement before hand release, 2026-10-13
+
+**Both corrected searches fail.** Harness: frozen Node Stance action evaluator / game Rapier
+coordinate adapter 11 / 120 Hz / original compliant-sole Warrior with right-hand club /
+original symmetric muscles / ordinary stance host / Balance 0. No anatomy, host, muscle,
+contact, evaluator or saved-fall change is made.
+
+The measured 2.4-second prefix has right-hand and both-shin support. The preceding trajectory
+raises the torso by 2.8 seconds while the hands have lifted and the feet remain raised.
+The new search starts at the earlier prefix, retaining the entire saved-fall clock. It proposes
+one-leg hip/knee/ankle targets while asking the other joints to retain their measured angles.
+A second search adds hip abduction and rotation to sweep the leg outward. Requests still act
+only through the original muscles; retaining joint angles does not guarantee retained hand
+contact. The search cost rewards low foot placement, orientation and loading beneath the
+pelvis, with penalties for lost hand load and collapse. Upright kneeling earns no progress
+reward, and no held-kneel prefix is used.
+
+| Search in the frozen Node harness above | Branch evaluations | World steps | Rejected requests |
+|---|---:|---:|---:|
+| Initial placement prototype | 3,584 | 60,792 | 1,062 |
+| All target angles clamped to their legal ranges | 3,578 | 86,136 | 0 |
+| Added outward leg sweep | 3,872 | 139,644 | 0 |
+
+The first prototype copied measured angles outside the allowed target ranges; the unchanged
+action port rejects these requests. Clamping every requested angle fixes the proposal defect,
+not the recovery. Neither corrected search has an endpoint with foot load above 3% of total,
+sole-up above 0.65 and foot-centre height below 0.15 m. This is only an experimental placement
+diagnostic, weaker than the frozen support and recovery criteria. The search limits are 4.2
+and 4.5 seconds including the prefix. All physical branches have zero assistance and external
+actuation, and effort-bound excess below 0.0001.
+
+The selected corrected placement trajectory, followed by six seconds of ordinary host control,
+still has no handover at 10.208333 seconds. It exactly reproduces all 288 prefix observations;
+independent action replay, checkpoint restoration and split continuation pass. Physical hash:
+
+fbb83e2804a29f3e8f8b70f0d5f40f3caf6ae33ac6e14088021f6d9ef9edbd11
+
+The standalone .review/stand-up-low-transfer/replay.html labels it as a failed recovery and
+compares it with the previous 6.033333-second candidate. All 1,225 and 1,084 embedded frames
+match their recordings. Chrome inspection at 4.075 seconds shows the body collapsed low.
+lowFootPlacement in research/stand-up-path-results.json preserves all search configurations,
+selected plans, rejected-action counts, prototype sources, diagnostics and verification.
+
+Changing the target from upright knees to a planted foot does not by itself produce a usable
+support transfer. Further work needs coordinated hand support, body-weight transfer and leg
+clearance; these tested joint-target proposals do not establish that controller. No failed
+policy is promoted to the Lab. The four-second median and six-second recovery goal remains
+unfinished. The 21 focused path tests pass; the TypeScript and full fast-gate results and two
+unresolved checkpoint-identity failures are reported in the preceding section. Whitespace and
+line-ending gates pass.

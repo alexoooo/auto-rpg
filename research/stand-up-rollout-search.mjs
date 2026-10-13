@@ -62,10 +62,10 @@ async function rolloutStand(sourcePath,caseIndex=0,options={}) {
   let last=Math.min(reference.length-1,Number.isFinite(source.result.seconds)?Math.round(source.result.seconds*120):source.rows.length);
   if(options.guidanceReference) {
     assert.ok(options.localMotion,'guidance root motion is body-local');
-    assert.equal(options.terminalSoleWeight??0,0,'guidance has no measured target-body sole orientations');
     const bytes=readFileSync(options.guidanceReference.path);assert.equal(digest(bytes),options.guidanceReference.sha256);
     assert.equal(digest(readFileSync(new URL('stand-up-search-guidance.mjs',import.meta.url))),options.guidanceReference.adapterSha256);
-    const guide=JSON.parse(gunzipSync(bytes)),detached=searchGuidance(guide,e.identity,initialObservation.segments.map(s=>s.name));
+    const guide=JSON.parse(gunzipSync(bytes)),detached=searchGuidance(guide,e.identity,initialObservation.segments.map(s=>s.name),
+      {soleOrientations:Boolean(options.terminalSoleWeight)});
     reference=detached.features;actions=detached.actions;last=reference.length-1;
   }
   const distance=(a,b)=>{

@@ -210,6 +210,16 @@ test('detached search guidance matches the target body and separates requests fr
   assert.deepEqual(actual.features[0],{angles:[.2],speeds:[.3],height:.8,up:[0,1,0],gravity:[0,1,0],
     loads:[.6,.4],spin:[1,2,3],velocity:[4,5,6],soleUp:null});
   assert.deepEqual(actual.actions,[{kind:'muscles',velocity:['+inf'],activation:[.5],handPoses:{left:'open'}},{kind:'host'}]);
+  const measured=searchGuidance(reference,identity,['foot.right','foot.left'],{soleOrientations:true});
+  assert.deepEqual(measured,{...actual,features:actual.features.map(f=>({...f,soleUp:[1,1]}))});
+  measured.features[0].soleUp[0]=.5;
+  assert.deepEqual(reference,before,'sole guidance owns its arrays');
+  const missingSole=structuredClone(reference);delete missingSole.frames[1].soleUp;
+  assert.throws(()=>searchGuidance(missingSole,identity,['foot.left'],{soleOrientations:true}),/measured left\/right orientations/);
+  const invalidSole=structuredClone(reference);invalidSole.frames[0].soleUp=[1,NaN];
+  assert.throws(()=>searchGuidance(invalidSole,identity,['foot.left'],{soleOrientations:true}),/measured left\/right orientations/);
+  assert.throws(()=>searchGuidance({...reference,transformation:{measuredTrajectory:false}},identity,['foot.left'],
+    {soleOrientations:true}),/target-body measurements/);
   assert.throws(()=>searchGuidance(reference,{...identity,model:'other'},['foot.left']),/target physical body/);
   const bad=structuredClone(reference);bad.frames[0].assist={force:[0,1,0],moment:[0,0,0]};
   assert.throws(()=>searchGuidance(bad,identity,['foot.left']),/no assist request/);
