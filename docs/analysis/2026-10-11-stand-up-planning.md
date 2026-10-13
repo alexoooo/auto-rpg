@@ -4093,3 +4093,68 @@ whitespace and line-ending gates pass. Software tests are not rerun; the two pre
 reported checkpoint-identity failures remain unresolved. The selected frozen library's
 previously measured 3/16 result is unchanged. The four-second median, six-second deadline
 and full qualification remain unachieved.
+
+
+## Foot-motion feedback and host-history comparison, 2026-10-13
+
+**No faster recovery is found.** The unchanged frozen Node Stance action evaluator, game Rapier
+coordinate adapter 11 at 120 Hz, original Warrior with wooden club and symmetric muscle limits,
+ordinary stance host and Balance 0 test forty configurations over 47,612 world steps. The saved
+90-degree fall, complete clock and standing/walking tail remain unchanged. The three controls
+that retain the original physical trajectory succeed in 6.033333 seconds. All thirty-six
+modified feedback/handover configurations and the accelerated disabled-feedback control fail
+through ten seconds. No candidate is promoted, and no body, physics or host change is made.
+
+Twelve variants apply Cartesian foot-contact feedback through the ordinary finite-velocity
+muscle requests during recovery seconds 3.8–4.45. The correction uses measured contact points,
+joint-motion rows and only leg channels; it applies no physical pin or body force. All fail.
+Twelve further variants correct only vertical foot motion, with or without a vertical position
+target, during seconds 4.1–4.45. All fail. Holding or slowing a contact point can oppose the
+foot motion in the successful reference; these results do not establish a successful support
+controller or prove that foot feedback in general cannot work.
+
+Six reference-relative variants instead correct deviations from the measured foot position
+and point velocity at the selected reference phase. Two unaccelerated positive-feedback
+controls reproduce the original physical trace exactly, confirming that their feedback leaves
+that trajectory unchanged. The six accelerated variants still fail. The selected low-gain
+failure repeats its grid trace, and exact action replay, restoration and split continuation
+pass. Its physical SHA-256 is
+
+e0d2d5c79fd3f501442d67e72a9cd227513fa5e748e9a5946c3163261241c9aa.
+
+A separate comparison exposes the role of the live host interval. The original path requests
+the ordinary stance host for 103 steps, at recovery seconds 4.458333–5.308333. Recording its
+actual muscle commands and issuing those through the candidate action interface reproduces
+every physical observation through row 721, at 6.025 seconds. The next ordinary-host step
+differs, and the episode fails through ten seconds. Releasing to the live host earlier at six
+candidate ages from 5.3 to 6.0 seconds also fails. The clock still starts at the original
+takeover, not at those releases.
+
+The paired snapshot comparison confirms equal physical observations immediately before the
+divergence, different retained controller state, and different leg activations and four leg
+torque directions on the following host step. This establishes a dependence on control history;
+it does not isolate the responsible state or establish a false foot-contact estimate. The
+original physical endpoint alone is therefore insufficient evidence that replacing the host
+interval preserves recovery. The frozen host is neither patched nor reconfigured.
+
+The actual failed command-replay trajectory independently passes exact action replay,
+restoration and split continuation. Its physical SHA-256 is
+
+cdf3d0824b98af4943c157a2fa708f4a64f0ad2c4db80e25c7d0a66f6c16e952.
+
+The standalone .review/stand-up-foot-support/replay.html compares that failure with the
+original 6.033333-second path, explicitly labelled as such. All 1,200 candidate and 1,084
+original frames match their recordings; this viewer is not visually inspected. An initial
+whole-trace equality check was stopped after it failed to return promptly. A bounded comparison
+then located the first mismatch, and verification of the actual failed trace completed.
+
+Configurations, results, exact source snapshots, source hashes, controller-state differences
+and replay checks are preserved under footSupportFeedback in research/stand-up-path-results.json.
+All forty configurations report zero assistance, no external actuation, no nonfinite final
+joint readings and no invalid final commands. Maximum effort-bound excess is
+0.000041961669921875, below the unchanged 0.0001 tolerance. JSON evidence assertions, cited-file,
+whitespace and line-ending checks pass. This evidence-only change does not rerun software tests;
+the two previously reported checkpoint-identity failures remain unresolved. The full
+four-second median, six-second deadline and qualification remain unachieved. The next
+investigation is the control-history dependence at host handover, before any further attempt
+to replace that interval with an entirely muscle-driven candidate.
