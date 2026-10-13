@@ -539,3 +539,177 @@ Checks:
 - A brief look in a browser.
 - A clicked target stays the focus.
 - A target removed after a torso bump does not raise the ledger's target count.
+
+## Design review
+
+These recommendations are for discussion before implementation; the contracts and steps above
+have not yet been rewritten to incorporate them. The shared instance protocol, explicit target
+identity, continuous footwork and permanent research point targets are the foundation to keep.
+A separate technique taxonomy can wait for a reader that needs it.
+
+### Concurrency, dual wielding and defence
+
+Keep resource-based concurrency in the intended design. A single active attack is a useful
+intermediate implementation milestone, not a restriction on the repertoire or final system.
+Straight punches, hooks, uppercuts, club strikes and kicks can all be available to the selector.
+Building one attack first, then a kick, is an implementation sequence that tests the contract
+before migrating the remaining controllers.
+
+Dual wielding includes attacking with either weapon, defending with the other, and overlapping
+attacks where their requirements permit. Simultaneous attack and defence belongs in the initial
+usable system; it is not deferred merely because two overlapping attacks are harder to arbitrate.
+A right-hand attack normally leaves the left hand available, but a technique that uses both arms
+must claim both. Different hands alone do not establish compatibility: both actions may need
+incompatible trunk rotation, stance or support.
+
+Distinguish continuous guard tracking from a deliberate defensive commitment. A parry may need
+an instance, phases and an outcome just as an attack does. Keep the action protocol capable of
+representing both, under the same ownership rules. This does not require converting every guard
+update into an instance or inventing a new parry controller as part of the protocol migration.
+
+Acceptance should eventually include a right-hand attack with left-hand defence, the reverse,
+and compatible overlapping attacks, as well as rejection of incompatible combinations. Include
+held items in these cases. Test the actual composed command and behaviour, not just two claims
+whose resource names happen to differ.
+
+### 1. Narrow the first migration and its preservation promise
+
+Step 1 currently replaces configuration, every intent producer, executor ownership, arbitration
+and feedback while requiring every tested bout to remain identical. This is too much to bind to
+one preservation promise. It risks encoding existing special cases, such as the kick's final
+stance overlay, into the new architecture just to preserve evaluation order.
+
+Separate mechanical request-identity changes from deliberate ownership and composition changes.
+Fingerprint the portions that claim no behavioural change. For the others, preserve explicit
+contracts, report intentional differences and run the relevant checks. Do not make accidental
+controller ordering a permanent architectural requirement.
+
+Build one complete attack through the protocol, then a kick to exercise a different effector and
+support requirement. Bring over the other implementations once those boundaries work. Supporting
+only one active attack during that milestone must not become the final concurrency contract.
+
+### 2. Admit resource claims before advancing execution
+
+The sequence needs to be explicit:
+
+```text
+Propose required resources -> admit atomically -> advance admitted instances -> compose commands
+```
+
+A conflicting start must not advance the rejected executor's state and then require rollback.
+Withdrawals can be considered before starts, but a committed instance retains its claims until
+its cancellation contract actually releases them.
+
+Define resource changes during an instance as well as conflicts at start. For an initial
+implementation, reserve the required resources at admission and allow progressive release.
+If staged acquisition is later needed, define its waiting and failure rules explicitly; do not
+let two instances each hold something while waiting indefinitely for the other's resource.
+
+Overlays may write only the resources their instance owns. Being applied last is not authority
+to overwrite another action. This matters especially when a hand action also drives the trunk
+or a foot action modifies the whole stance. A released resource cannot remain under an old
+instance's returning motion unless the composition contract explicitly permits that motion.
+
+Exclusive resources are a conservative starting point. Compatible sharing of trunk or support
+would require a declared composition rule; do not infer it from different hand names or merge
+arbitrary muscle commands. Revisit the resource granularity using concrete dual-wielding cases.
+
+### 3. Make shared state deliberate
+
+Equal executor settings should not implicitly determine shared mutable state. Under that rule,
+a small tuning change to a hook could separate its executor from the straight punch and thereby
+change their shared cooldown or overlap behaviour.
+
+Separate immutable controller configuration, per-instance state and restrictions deliberately
+shared across actions. Share immutable configuration freely. Give body- or effector-level
+restrictions an explicit owner. Where actions must share a stateful executor, prefer an explicit
+binding over deduplication by configuration equality. Tuning edits should not accidentally change
+which actions inhibit one another.
+
+### 4. Observe contacts while an instance is live
+
+An ended-instance ledger containing the first contact class and a `touched` boolean cannot
+satisfy all its proposed readers:
+
+- A follow-up may need to react while the first attack is still returning.
+- A blocked-surface penalty needs the contacted segment or region.
+- An attack can touch a guard and subsequently reach its intended region.
+- A club and its holding hand share a rigid body, so effector identity alone does not establish
+  which striking surface made contact.
+- Preparation or guard contact should not automatically count as a landed attack for selection.
+
+Provide live instance observations and an end summary using the same attribution logic. Preserve
+observed target and segment, attacking surface where available, phase and contact timing. Derive
+blocked, landed and scoring decisions from those facts. Explicitly report unavailable attribution
+rather than claiming more precision than the physics feedback provides.
+
+Keep observations bounded and limited to the named readers; a permanent physics event archive is
+unnecessary. Define ledger overflow for consumers. A display buffer's retention length must not
+silently reset learned statistics. If selection deliberately uses a rolling history, expose that
+as the scoring policy's semantics. Define an attempt's denominator too: refused or cancelled
+preparation is not necessarily a thrown attack.
+
+### 5. Separate availability, positioning and preparation
+
+Readiness should be pure, but need not be exclusively geometric. A pure query can read current
+cooldown, ownership, equipment and observed support without changing them. Otherwise a kick that
+is geometrically ready may reserve the legs while waiting through cooldown, despite another
+useful action being available.
+
+Distinguish available to begin preparing, needs positioning, and temporarily unavailable with a
+reason. Once admitted, preparation may acquire and use resources to establish the conditions
+needed for commitment. In particular, do not require the quiet stance before admission if
+admission is what allows the action to stop the walk and establish that stance.
+
+Clarify the window's coordinate frame and the meaning of facing and speed: desired values,
+bounds or tolerances. The current window has no height requirement, while the text allows
+footwork to correct height; specify who requests that stance change. Keep the initial contract
+small and explicit rather than treating one geometric window as a solution for every support
+transition.
+
+### 6. Leave a boundary for tactical choices above attacks
+
+Continuous steering and defence are appropriate, but a future meta-policy needs a way to choose
+more than which strike to throw. Retreating or waiting for an opening should not be outside its
+vocabulary merely because their motor execution is continuous.
+
+A possible extension is:
+
+```text
+Tactical choice: target + positioning policy + attack policy + ending condition
+                                  |
+                   Continuous steering and defence
+                                  |
+                        Discrete action instances
+```
+
+Examples are closing to jab range and attempting one jab, holding distance until an opening, or
+retreating until separation is restored. These would compose the same configurable behaviours,
+not introduce alternative motion controllers. A choice that starts no attack still needs a
+bounded ending condition and an observable result.
+
+The options framework includes an execution policy as well as initiation and termination; it
+does not restrict temporally extended choices to individual attacks
+([Sutton, Precup and Singh, 1999](https://www.sciencedirect.com/science/article/pii/S0004370299000521)).
+Build the action protocol now and leave this composition boundary open. A planner, training system
+or general-purpose behaviour language is not required for this work.
+
+### Details to settle before coding
+
+- **Missing marks:** requesting legs on a target without legs must not silently mean anywhere.
+  Make `any` an explicit choice, or configure a fallback explicitly.
+- **Estimate comparison:** an opening score and a recipe's measured net damage are different
+  quantities. Labels alone do not make them comparable; the selector needs a declared scoring
+  rule when mixing them.
+- **Pending versus active:** the candidate stops being pending once admitted. The instance owns
+  its selection throughout preparation and execution. Reconcile this with the check that says
+  the pending candidate holds through `prepare`.
+- **Region types:** `Region["mark"]` is invalid across the current union because the segment
+  variant has no `mark`. It also excludes named segments from an action's configured regions.
+  Express the actual supported choices consistently.
+- **Stale IDs:** ignoring an ended request must remain correct after its ledger entry expires.
+  Define request ordering and stale-ID detection independently of the history buffer.
+
+The priority is to make ownership and observations trustworthy, then demonstrate composition
+with attacks and defence. Resource-based concurrency remains the destination; a smaller first
+milestone reduces migration risk without turning dual wielding into alternating hands only.
