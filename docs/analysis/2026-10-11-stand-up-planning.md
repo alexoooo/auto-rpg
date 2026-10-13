@@ -3729,8 +3729,9 @@ continuation acts through the ordinary muscle action port and retains the origin
 Each search keeps up to eight diverse states, using 24-step action blocks through six seconds.
 The first proposes standing, crouching, floor pressing, rolling and relative limb changes.
 The second adds hand/foot placement from the observed chain Jacobians. The third reduces
-uprightness credit without downward-facing loaded soles; the fourth corrects placement to
-use actual collision surface points. These heuristic scores are not acceptance criteria.
+uprightness credit without downward-facing loaded soles; the fourth tests surface-point
+placement using an incorrect conversion of box dimensions. These heuristic scores are not
+acceptance criteria.
 All four selected complete trajectories fail without handover. Branch counts are short
 continuations, not independent falls or complete recovery trials:
 
@@ -3744,13 +3745,18 @@ continuations, not independent falls or complete recovery trials:
 The placement target contains a geometric inconsistency: moving a tilted sole's centre to
 the floor puts an edge below it. Over the 720 recorded support-search states, that requested
 translation puts the left/right foot collider more than 1 cm below the plane in every frame,
-with worst clearances -0.121985/-0.125866 m. The analogous fixed-height hand-centre targets
+with worst clearances -0.108059/-0.161964 m, using the corrected local-axis box geometry.
+The analogous fixed-height hand-centre targets
 reach -0.059657/-0.023260 m. These are counterfactual target clearances, not physical
-penetration measurements. Selecting the lowest collider vertices instead keeps the translated
+penetration measurements. Selecting the lowest actual collider vertices keeps the translated
 foot geometry at the plane and the hand geometry within 0.000005 m, from vertex averaging.
-It does not prove that the joints can reach the target or support the resulting posture.
+The prototype's box-vertex conversion instead treats local-axis dimensions as body-axis
+dimensions. Its requested translations leave the left foot up to 0.059226 m above the plane
+and the right foot up to 0.064959 m below it. The initial foot-clearance audit uses that same
+incorrect geometry and is invalid; the numbers here are remeasured with the actual box axes.
+Correct target geometry does not establish reachability or support.
 
-The continuous prototype applies surface placement every physical step. Eight trials test
+The continuous prototype applies that flawed surface placement every physical step. Eight trials test
 the correction, hand placement, accepting tilted loaded soles as temporary support, foot
 orientation weight and forward placement; six combine it with the previously measured heading
 correction. All fourteen fail by six seconds with no handover, consuming 10,066 world steps.
@@ -3768,7 +3774,7 @@ The final continuous attempt is inspectable at .review/stand-up-surface-policy/r
 against the unchanged optimized baseline from the identical full initial state and body.
 All 720 embedded candidate frames and identity are checked. Browser inspection near 5.992 s
 confirms the low, failed endpoint. The posture and initial placement searches are also inspected;
-the corrected search replay is generated and checked but not visually inspected.
+the surface-search replay is generated and checked but not visually inspected.
 
 research/stand-up-path-results.json under footSurfaceSearch preserves sources, configurations,
 search plans, endpoint diagnostics, the geometry audit and replay proofs. No production change
@@ -3805,8 +3811,9 @@ Eight full-fall trials test self-contact prediction, its disabled control, respo
 joint-velocity objectives and predicted contact lift-off. All fail by six seconds without
 handover. The original tracker and disabled extension reproduce the same physical trace.
 
-Six further full-fall trials add hand and foot surface-point objectives to the same coupled
-solve as torso orientation and centre-of-mass height. Variants gate the height request on
+Six further full-fall trials add hand and foot point objectives to the same coupled
+solve as torso orientation and centre-of-mass height. Their foot vertices use the incorrect
+box-axis conversion described above. Variants gate the height request on
 current sole loading, add foot orientation, change placement weights and disable self-contact.
 The height gate never prevents limb placement. The disabled frame-target control reproduces
 the preceding trial exactly. Every trial fails. Adding frame targets alone reduces rejected
@@ -3832,4 +3839,69 @@ proofs are preserved under footCoupledContact in research/stand-up-path-results.
 
 No production controller change is promoted. Evidence whitespace and line-ending checks pass;
 the previously reported two current-source checkpoint-identity test failures remain unresolved.
+The four-second median / six-second recovery goal and live Warrior loop remain unfinished.
+
+## Foot release and actual box geometry, 2026-10-13
+
+**No recovery succeeds.** Sixteen complete-fall feedback trials use the frozen Node Stance
+Lab / game Rapier coordinate adapter 11 / 120 Hz / original Rogue empty 90-degree saved fall,
+compliant soles and symmetric muscle envelopes / ordinary stance host / Balance 0. The body,
+muscles, actual contacts, host and frozen acceptance criteria are unchanged. The full fall
+clock remains intact; no held-kneel prefix is used.
+
+The release prototype alternates feet through lift, move and plant requests. Its completion
+check requires eight consecutive loaded, reasonably flat samples near the requested landing
+point. Failed attempts time out and switch feet. This is an internal placement check, not a
+replacement for the frozen standing acceptance. A model-only change retains unilateral floor
+separation when a foot is requested free of sticking support. In the saved 192-step diagnostic,
+the original free-foot request removes all of that foot's floor rows; the extension retains
+one normal separation row while releasing its three sticking rows. With no free-foot request,
+both predict the same twelve sticking rows. Neither version changes physical contacts.
+
+Six trials test release order, placement geometry, self-contact and task weights. Four further
+trials remove the dependency of torso lift on existing sole loading. All fail with no handover
+and no completed internal replant. The disabled release control exactly reproduces the
+preceding coupled-placement trace.
+
+The research surface-point code contains a separate geometry defect. A box's centre is in
+body coordinates, but its dimensions are already in segment-local axes. The prototype rotates
+those dimensions a second time. Correct local box vertices agree with the game's existing
+sole-centre geometry within 1e-12 m. The preceding surface-clearance figures above are corrected
+using the actual geometry over the same 720 recorded states; the initial foot audit is invalid.
+
+Position and orientation requests must also describe the same destination. At the 26 sampled
+foot targets of the preceding coupled-placement recording, the old requested point and flat
+orientation imply actual collider clearances from -0.184295 m to +0.088665 m. These are
+counterfactual target clearances, not physical penetration or flight measurements. Choosing the
+local bottom face in the requested flat orientation puts the actual sole at the destination
+plane, within floating-point roundoff. It does not prove the body can reach or load that pose.
+
+Six trials compare the geometry correction, the destination point correction, release order,
+release disabled and the height gate. All fail. The geometry-disabled control exactly
+reproduces the ungated release trial. Across all sixteen trials there are 11,504 world steps,
+zero assistance and external actuation, finite final readings and legal final commands.
+Maximum effort-bound excess is 0.00002054883236723981, below 0.0001.
+
+The selected corrected-geometry attempt exactly reproduces its grid trace. Independent action
+replay, restoration and split continuation pass; static model data and observations reconstruct
+all 719 actions. All 720 embedded viewer frames match the recording. Physical SHA-256:
+
+916e762dd43cc9508fe5b3e88cd67532b402fc3ac56e63af7e6ae1fa3ffc5328
+
+The standalone .review/stand-up-foot-geometry/replay.html compares this failure with the
+unchanged optimized baseline from the same saved fall and body. Browser inspection near
+5.992 s confirms the body remains down. No failed controller is promoted to the live Lab.
+
+Repeating the eight-state, 24-step-block physical search with the corrected box vertices also
+fails without handover. It evaluates 8,808 short branches and 211,088 exploration steps through
+the original six-second deadline. These are not independent falls. Every branch uses the
+ordinary muscle port and passes the unassisted/effort audit. The selected complete path passes
+exact replay, restoration and split continuation, with physical SHA-256:
+
+ae60306da45346f9b5a2e354078edbc9508543df19f182e2bf18fa5092c472e1
+
+Sources, configurations, corrected geometry measurements, invalidated reference audit, full
+outcomes and replay proofs are preserved under footReplantGeometry in
+research/stand-up-path-results.json. Evidence whitespace and line-ending checks pass. The
+previously reported two current-source checkpoint-identity test failures remain unresolved.
 The four-second median / six-second recovery goal and live Warrior loop remain unfinished.
