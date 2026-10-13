@@ -3496,3 +3496,45 @@ changes. Whitespace and line-ending checks pass; the two previously reported sou
 test failures remain unresolved. Supporting-arm and trunk motion must be coordinated with
 leg extension; retaining their kneeling targets does not preserve support through that change.
 The four-second median, six-second recovery and full qualification remain unfinished.
+
+## Measured-hand feedback and complete rise continuations, 2026-10-12
+
+**No additional recovery succeeds.** The frozen Node Stance Lab action evaluator, game Rapier
+coordinate adapter 11 at 120 Hz, original empty-handed Rogue, unchanged symmetric muscles,
+ordinary stance host and Balance 0 runs 31 valid trials and 44,609 steps. Every trial includes
+the 640-step prefix and fails at twelve recovery seconds. Three initial orientation variants
+are rejected by a prototype vector-API error before a post-prefix action is accepted; corrected
+variants are tested separately. No physics, body, muscle or acceptance change is made.
+
+The candidate reads loaded hand contact points and uses them as targets for a differential
+arm-velocity solve. These targets are muscle requests, not physical pins. Point feedback alone,
+point plus orientation feedback, additive correction to the held posture, and corrections
+limited by remaining joint-angle travel all fail to preserve a route to standing. Some additive
+variants retain hand contact longer while the head or trunk reaches the floor. They do not
+establish flat-sole support or recovery. Six further trials coordinate hip flexion and elbow
+extension; six complete continuations release the hand targets and blend into the original
+standing posture. All fail, including those complete attempts rather than terminal holds.
+
+At the unchanged prefix, the arm Jacobian is checked against numerical joint motion expressed
+in motor-speed coordinates. Maximum point-column discrepancy is 0.000109401 m/rad; the model's
+forward-kinematic discrepancies are 0.000081344 m and 0.000218258 rad. This finds no large sign
+or frame mismatch at that pose; it is not a dynamics validation. With contact feedback disabled,
+the wrapper reproduces the prior physical trajectory exactly.
+
+All valid trials meter zero assistance and report no external-actuation events, nonfinite
+readings or invalid commands. Maximum effort violation is 0.0000161597, below the unchanged
+0.0001 tolerance. A selected complete failed rise repeats its grid trace exactly, and independent
+action replay, restoration and split continuation pass. Physical SHA-256:
+`bb442992183709a02013105c84ccdaeb79a47a7b5c3778505056bf49aaf29998`.
+The standalone `.review/stand-up-held-kneel/pike-rise-replay.html` compares it with the unchanged
+optimized baseline from the identical saved fall. Embedded identity and 1,440 frames are checked;
+this new recording is not visually inspected. It is separate from the live Lab controller.
+
+`research/stand-up-path-results.json` preserves the configurations, failures, rejected runs,
+Jacobian check, actual source snapshots and replay verification under
+`retainedTripod.handContactControl`. The first report's source manifest omits its wrapper;
+that exact wrapper and runner are identified separately. Later reports include their wrappers.
+No production controller change is retained. Document/data whitespace and line-ending gates
+pass; the prior two current-source checkpoint-identity test failures remain unresolved.
+The selected frozen library remains 3/16 with none within six seconds. The median, deadline
+and full qualification remain unmet.
