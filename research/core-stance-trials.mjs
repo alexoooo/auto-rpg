@@ -198,7 +198,9 @@ function skillCommand(skill, view, walk, face, dt, posture, keep) {
  * Walk at `speed` m/s `degrees` from forward for 8 s after 1 s, then walk nowhere 4 s (`walking` in
  * the tests); as a fight plays the body with `held` (`body`), walking by the stance's own walk or
  * by the locomotion skill `legs` names (`skillOf`). Given `wind` (`{ rate, strength, seed }`), the
- * lab's gusts blow on it throughout (`startWind`, `src/lab/wind.ts`).
+ * lab's gusts blow on it throughout (`startWind`, `src/lab/wind.ts`). `stood` is the soles' distance
+ * apart across the way as it sets off, m, and `width` their mean as each lands over the 3 s measured
+ * (null if none landed).
  */
 export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique, legs = null, wind = null }) {
   const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique);
@@ -214,18 +216,27 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
   });
   try {
     stand.step(stand.seconds(1));
-    let low = -Infinity;
+    let low = -Infinity, measuring = false;
+    const was = { left: true, right: true }, widths = [];
     const run = (seconds) => {
       for (let i = 0; i < stand.seconds(seconds); i++) {
         stand.step(1);
         const s = b.view.stance;
         if (goal) low = Math.max(low, goal.height - (s.centre.y - s.support.y));
+        // The soles' distance apart across the way walked as each lands, over the walk measured.
+        for (const side of ["left", "right"]) {
+          if (measuring && s.touching[side] && !was[side]) widths.push(Math.abs((s.soles.left.x - s.soles.right.x) * uz - (s.soles.left.z - s.soles.right.z) * ux));
+          was[side] = s.touching[side];
+        }
       }
     };
+    const soles = b.view.stance.soles, stood = Math.abs((soles.left.x - soles.right.x) * uz - (soles.left.z - soles.right.z) * ux);
     pace = [speed * ux, speed * uz];
     run(5);
     const from = b.view.stance.centre.clone();
+    measuring = true;
     run(3);
+    measuring = false;
     const to = b.view.stance.centre;
     const along = ((to.x - from.x) * ux + (to.z - from.z) * uz) / 3, sideways = ((to.x - from.x) * uz - (to.z - from.z) * ux) / 3;
     const strides = b.view.stance.strides;
@@ -235,7 +246,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
     run(2);
     const s = b.view.stance;
     return { strides, fell: low > 0.25 || !Number.isFinite(low), along, across: sideways, speed: s.velocity.length(), phase: s.phase,
-      stepped: s.strides - settled, off: across(s.centre, s.place) };
+      stepped: s.strides - settled, off: across(s.centre, s.place), stood, width: widths.length ? widths.reduce((a, w) => a + w, 0) / widths.length : null };
   } finally { blowing?.dispose(); b.dispose(); stand.dispose(); }
 }
 
