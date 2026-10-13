@@ -109,7 +109,7 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
   "simbicon": {
     ...skill<SimbiconConfig>("locomotion", "SIMBICON walk", "game", { kind: "simbicon", ...SIMBICON },
       (config) => [
-        ...validSimbicon(settingsOf(config)) ? [] : ["a SIMBICON gait needs every setting finite, its times, turn, swerve, speed-up, run and leg positive, and its shares of strength within (0, 1]"],
+        ...validSimbicon(settingsOf(config)) ? [] : ["a SIMBICON gait needs every setting finite, its times, turn, swerve, turn's change, speed-up, run and leg positive, and its shares of strength within (0, 1]"],
         ...validWays(simbiconWays(config.tuning)) ? [] : ["a SIMBICON gait's side and back give only the settings a way changes, each finite"],
         ...validSimbiconRun(simbiconRun(config.tuning?.run)) ? [] : ["a SIMBICON gait's run gives only the run's settings, each finite, its times positive and its shares of strength within (0, 1]"],
       ]),
