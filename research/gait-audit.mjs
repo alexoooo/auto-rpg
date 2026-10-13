@@ -1,6 +1,7 @@
 /**
- * **The stride beside a person's walk**, on the locomotion test bed's setup (the Lab's Run on the
- * forward line, Node stand, Rapier, 120 Hz, no wind): per step, from a landing to the next,
+ * **The stride beside a person's walk**, on the locomotion test bed's setup (the Lab's Locomotion
+ * scenario on the forward line, Node stand, Rapier, 120 Hz, no wind): per step, from a landing to
+ * the next,
  *
  * - each leg joint's power, the delivered torque (`MuscleDriver.pulled`) times the joint's speed,
  *   summed over both legs: its positive and negative work, J/kg, and each joint's share of the
