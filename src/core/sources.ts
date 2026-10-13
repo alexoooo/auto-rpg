@@ -439,9 +439,17 @@ export const SOURCES = Object.freeze({
   },
   "simbicon-envelope": {
     kind: "asset", file: "assets/core/simbicon-envelope.json",
-    what: "What the SIMBICON walk (src/core/skills/simbicon.ts) held with each body as a fight plays it, by the "
+    what: "What the SIMBICON walk (src/core/skills/simbicon.ts) told it may not run held with each body as a fight plays it, by the "
       + "batteries and rule of core-stance-envelope at its walk's speeds, 0.3-2.5 m/s, each walk calm and in "
       + "the lab's 5 N gusts on four seeds; written by research/core-stance-envelope.mjs --legs simbicon "
+      + "--gusts 1:5:1,2,3,4 --write, whose harness it names, and held to the rule by "
+      + "tests/core-stance-envelope.test.mjs.",
+  },
+  "simbicon-run-envelope": {
+    kind: "asset", file: "assets/core/simbicon-run-envelope.json",
+    what: "What the SIMBICON walk (src/core/skills/simbicon.ts) free to run held with each body as a fight plays it, by "
+      + "the batteries and rule of core-stance-envelope at its run's speeds, 0.3-3 m/s, each walk calm and in the "
+      + "lab's 5 N gusts on four seeds; written by research/core-stance-envelope.mjs --legs simbicon-run "
       + "--gusts 1:5:1,2,3,4 --write, whose harness it names, and held to the rule by "
       + "tests/core-stance-envelope.test.mjs.",
   },

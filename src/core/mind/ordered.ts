@@ -31,8 +31,10 @@ export function guarding(guard: SeekConfig["guard"], threat: Threat = THREAT): (
 
 /**
  * **Orders to walk and to face, carried out**, the hands covering as `guard` says and attacking
- * nothing. Ordered to walk, a body walks that way at its fastest walk (`Body.envelope`), turning to it; ordered to face
- * another way as it walks, it walks at the pace that holds (`strafe`, `STRAFE` unless an
+ * nothing. Ordered to walk, a body walks that way at its fastest walk (`StanceEnvelope.walk`), turning to it, and sent
+ * somewhere (`Orders.destination`), at its fastest walk forward (`StanceEnvelope.ways`): a walk ordered only a way, as
+ * tactics closing on a foe order one, is one it stops from in a few steps. Ordered to face
+ * another way as it walks, it walks at the pace that holds every way by `strafe` (`STRAFE` unless an
  * experiment passes another); either no faster than the pace ordered (`Orders.pace`); standing, it faces as ordered, or keeps its heading. The stance
  * turns only while it walks (`locomotion`), so a standing body ordered to face does not turn.
  * How far it is from where it is ordered to go (`Orders.destination`) goes on to its locomotion.
@@ -44,8 +46,8 @@ export function orderedIntent({ report, envelope }: Sight, { move, face, pace = 
   const facing = face && hypot(face.x, face.z) > 0.08 ? atan2(face.x, face.z) : null;
   if (!move || !envelope) return { move: null, face: facing ?? report.heading, guard, attack: null, ...going };
   const bearing = atan2(move.x, move.z), walk = Math.min(envelope.walk.value, pace);
-  // Facing its walk: the walk the envelope measured, forward, turning to it.
-  if (facing === null) return { move: [walk, 0], face: bearing, guard, attack: null, ...going };
+  // Facing its walk: the walk the envelope measured, forward where it is sent somewhere, turning to it.
+  if (facing === null) return { move: [destination === undefined ? walk : Math.min(envelope.ways.forward.value, pace), 0], face: bearing, guard, attack: null, ...going };
   // Facing elsewhere: the walk's direction in the heading's frame, at the pace that holds.
   const off = bearing - report.heading;
   const share = Math.abs(wrap(facing - report.heading)) < strafe.turned

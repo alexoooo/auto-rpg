@@ -37,7 +37,7 @@
  * falling, and earns each step of speed times the holds' mean `quality`, up to and including the first it
  * did not hold whole; the score is the mean of the ways' credits, each weighted `BATTERY.weight`,
  * over the ways the searched way's gait reads (`--ways` names others), and with `--turns` its turns'
- * (`TURNS`). `--winds rate:strength:seed,seed` walks each hold calm and in the lab's gusts on each
+ * (`TURNS`; `--turn-speeds` names the speeds it turns at). `--winds rate:strength:seed,seed` walks each hold calm and in the lab's gusts on each
  * seed as well, as the envelope does; a gusted hold holds if it does not fall. With `--track` a calm
  * hold's credit (not whether the ladder climbs on) is also scaled by the share of the pace asked it made, up to 1: `WENT`'s tolerance
  * otherwise lets a gait walk a fifth under every pace asked, which the Run, asking paces, reads as slow.
@@ -105,7 +105,7 @@ const RUN_WAY_DIMS = {
   swingKneeLate: [0, 0.6], swingAnkle: [-0.1, 0.4], swingAnkleLate: [-0.1, 0.4], stanceKnee: [0, 0.4], stanceAnkle: [-0.2, 0.4], cvAnkle: [0, 1],
   lean: [-0.1, 0.35], cd: [-0.4, 0.4], cv: [-0.3, 0.6], cdLate: [-0.4, 0.4], cvLate: [-0.3, 0.6], cdSide: [-0.5, 0.3], cvSide: [-0.3, 0.3],
   leadSide: [0, 0.4], width: [0.03, 0.15], settle: [0.06, 0.25], stance: [0.5, 1], swing: [0.3, 1], ankle: [0.2, 1], hold: [0.5, 1],
-  push: [0.2, 1], pushKnee: [0.2, 1], pushAnkle: [-0.8, 0], reach: [0, 0.3], trailKnee: [0.2, 1.2], contact: [0.15, 0.4], gain: [0, 0.4], at: [1, 1.6],
+  push: [0.2, 1], pushKnee: [0.2, 1], pushAnkle: [-0.8, 0], reach: [0, 0.3], trailKnee: [0.2, 1.2], contact: [0.15, 0.4], gain: [0, 0.4], arms: [0, 3], elbow: [0, 1.6], at: [1, 1.6],
 };
 
 /** With `--timing`, the gait's stance timing searched with forward's settings: every way's steps take it. */
@@ -186,6 +186,7 @@ const kind = arg("kind", "stride"), running = kind === "run", way = kind === "si
 /** With `--way run`, the legs the run is searched over. */
 const baseLegs = arg("legs") ? JSON.parse(readFileSync(arg("legs"), "utf8")) : { kind, ...SIMBICON };
 if (arg("speeds")) BATTERY.speeds = list("speeds").map(Number);
+if (arg("turn-speeds")) TURNS.speeds = list("turn-speeds").map(Number);
 const SPACE = running ? RUN_DIMS : way === "run" ? RUN_WAY_DIMS : way === "all" ? ALL_DIMS : way === "forward" ? { ...WAY_DIMS, ...(process.argv.includes("--timing") ? TIMING_DIMS : {}), ...(process.argv.includes("--steer") ? STEER_DIMS : {}) } : way ? WAY_DIMS : DIMS, LADDER = running ? RUN_PACES : PACES;
 const BASE = running ? RUN : way === "run" ? { ...simbiconRun(baseLegs.tuning?.run), at: baseLegs.run } : way === "all" ? allOf(SIMBICON, simbiconWays()) : way === "forward" ? { ...wayOf(SIMBICON), seconds: SIMBICON.seconds, longest: SIMBICON.longest, speedup: SIMBICON.speedup, swerve: SIMBICON.swerve, turn: SIMBICON.turn } : way ? simbiconWays()[way] : STRIDE;
 const models = list("models", way ? "workshop-fighter" : "workshop-fighter,workshop-rogue");

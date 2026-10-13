@@ -38,8 +38,9 @@ test("every preset id reads to its tree: tactics, a skill of each role and the s
   const walk = { kind: "stance-walk" }, guard = { kind: "cover-guard" }, seek = { kind: "seek", guard: "pose", aim: "head", range: "close" };
   const openings = { kind: "openings", hands: "alternate", strikes: "linear", prefers: "head", defence: "cover", combinations: "none", spacing: 0, spacingStep: 0 };
   const path = { kind: "path-strike", overlap: false }, recovery = [{ kind: "support-recovery" }];
-  const travel = { kind: "move", rules: [{ kind: "when-standing", gait: "braced" }, { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" }], otherwise: "walk" };
-  const striding = { ...travel, otherwise: "stride" };
+  const travel = { kind: "move", rules: [{ kind: "when-standing", gait: "braced" }, { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" },
+    { kind: "when-distance", of: "foe", than: "under", metres: 10, gait: "walk" }, { kind: "when-distance", of: "destination", than: "over", metres: 6, gait: "run" }], otherwise: "walk" };
+  const striding = { ...travel, rules: travel.rules.slice(0, 2), otherwise: "stride" };
   const fighter = (tactics, blow, kick, support, subs, locomotion = travel) => ({ kind: "fighter", tactics, locomotion, guard, blow, kick, support, subs });
   const body = { ...openings, strikes: "mixed", prefers: "body" };
   const rise = [{ kind: "support-recovery" }];

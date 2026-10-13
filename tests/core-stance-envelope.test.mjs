@@ -1,12 +1,12 @@
 /**
  * **The stance's, the stride's and the SIMBICON walk's envelopes**
  * (`src/core/control/stance-envelope.ts`, `assets/core/stance-envelope.json`,
- * `assets/core/stride-envelope.json`, `assets/core/simbicon-envelope.json`): each asset was measured
+ * `assets/core/stride-envelope.json`, `assets/core/simbicon-envelope.json`, `assets/core/simbicon-run-envelope.json`): each asset was measured
  * on the parent-axis Rapier reference harness at the game's rate; this battery does not establish
  * coordinate-engine or reduced-balance capability. Each body's fastest walk and its turn at each
  * speed are the rule's reading of its own tables, by each walk; the rules, sampled both sides; a
  * body carries its envelope, and none under another stance tuning or while it is measured, and the
- * stride and the SIMBICON walk their own where the body has one; the lab's turn rate is inside every body's at the
+ * stride and the SIMBICON walk their own where the body has one, the run's while it may run; the lab's turn rate is inside every body's at the
  * Routine's pace; and at its fastest walk each body, as a fight plays it with each thing it holds,
  * holds all five ways again, and at the fastest walk forward it turns at, its fastest turn there
  * both ways, begun as the walk sets off and under way, by each walk (Node core stand, Rapier, 120 Hz).
@@ -15,7 +15,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createBody } from "../src/core/body.ts";
-import { fastestHeld, paceRound, paceToward, simbiconEnvelope, stanceEnvelope, strideEnvelope, turnAt, turnedAsAsked, TURNED, WENT, wentAsAsked } from "../src/core/control/stance-envelope.ts";
+import { fastestHeld, paceRound, paceToward, simbiconEnvelope, simbiconRunEnvelope, stanceEnvelope, strideEnvelope, turnAt, turnedAsAsked, TURNED, WENT, wentAsAsked } from "../src/core/control/stance-envelope.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { armedWith } from "../src/core/items/held.ts";
@@ -34,6 +34,7 @@ const WALKS = [
   { name: "stance", asset, source: "core-stance-envelope", envelope: stanceEnvelope, legs: null },
   { name: "stride", asset: await read("stride-envelope.json"), source: "stride-envelope", envelope: strideEnvelope, legs: "stride" },
   { name: "simbicon", asset: await read("simbicon-envelope.json"), source: "simbicon-envelope", envelope: simbiconEnvelope, legs: "simbicon" },
+  { name: "simbicon-run", asset: await read("simbicon-run-envelope.json"), source: "simbicon-run-envelope", envelope: simbiconRunEnvelope, legs: "simbicon-run" },
 ];
 /** A body's fastest walk forward in `asset`: its own way's where the asset measured each way. */
 const forwardOf = (asset, entry) => entry.byWay ? entry.byWay[asset.ways.indexOf(0)] : entry.walk;
@@ -155,13 +156,16 @@ test("a_walk_held_only_if_it_went_the_way_asked_at_the_pace_asked", () => {
   assert.equal(wentAsAsked(WENT.along * 0.5, -WENT.across * 0.5, 0.5), true);
 });
 
-test("a_body_carries_its_envelope_and_none_under_another_tuning_and_the_stride_and_the_simbicon_walk_their_own_where_the_body_has_one", async () => {
+test("a_body_carries_its_envelope_and_none_under_another_tuning_and_the_stride_and_the_simbicon_walk_their_own_where_the_body_has_one_the_runs_while_it_may_run", async () => {
   const stand = await coreStand(humanSpec("workshop-rogue"), { ground: true });
   try {
     const plain = createBody(stand.built, stand.world, { servoSeconds: 0.1 });
     assert.deepEqual(plain.envelope, stanceEnvelope(stand.built.spec));
     assert.deepEqual(stride(plain).envelope, strideEnvelope(stand.built.spec));
-    assert.deepEqual(simbicon(plain).envelope, simbiconEnvelope(stand.built.spec));
+    const walking = simbicon(plain);
+    assert.deepEqual(walking.envelope, simbiconRunEnvelope(stand.built.spec));
+    walking.runs(false);
+    assert.deepEqual(walking.envelope, simbiconEnvelope(stand.built.spec));
     plain.dispose();
     const tuned = createBody(stand.built, stand.world, { servoSeconds: 0.1, stance: { track: 0.15 } });
     assert.equal(tuned.envelope, null);
@@ -200,7 +204,7 @@ test("a_turn_trial_rejects_rates_that_cannot_finish_a_half_turn", async () => {
 const STALE_TURNS = "the stance's and the stride's tables count a turn held where the body stayed up, not where it faced round";
 // A body that turned at no speed has no turn to hold again.
 for (const { name, asset, legs } of WALKS) for (const model of Object.keys(asset.models).filter((m) => asset.models[m].turns.some((t) => t > 0))) {
-  test(`${model}_turns_both_ways_at_its_fastest_turn_at_the_fastest_${name}_walk_forward_it_turns_at_from_setting_off_and_under_way`, { todo: name === "simbicon" ? false : STALE_TURNS }, async () => {
+  test(`${model}_turns_both_ways_at_its_fastest_turn_at_the_fastest_${name}_walk_forward_it_turns_at_from_setting_off_and_under_way`, { todo: name.startsWith("simbicon") ? false : STALE_TURNS }, async () => {
     const { turns } = asset.models[model], i = turns.findLastIndex((t) => t > 0), speed = asset.speeds[i], rate = turns[i];
     const fell = [];
     for (const held of asset.holds) for (const after of [asset.afters[0], asset.afters.at(-1)]) for (const sense of asset.senses) {

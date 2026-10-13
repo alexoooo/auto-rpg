@@ -118,7 +118,7 @@ for (const [way, move] of [["back", [-0.5, 0]], ["left", [0, -0.5]]]) test(`a_wa
 });
 
 test("asked_past_its_walk_a_warrior_with_the_simbicon_walk_runs_ten_metres_and_stops_on_the_stance", async () => {
-  // Measured, with no envelope to cap its walk: the Warrior's measured envelope holds no run, so it walks at its fastest walk instead.
+  // Measured, with no envelope to cap its pace.
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true, groundSize: 80 });
   const actor = labActor(stand.built, stand.world, { mind: WALKING, measuring: true });
   // Forward at 2 m/s, facing +z, until it has run 10 m; then stand.
@@ -142,7 +142,8 @@ test("asked_past_its_walk_a_warrior_with_the_simbicon_walk_runs_ten_metres_and_s
     const s = actor.body.view.stance;
     assert.equal(actor.body.view.down, false, `fell at ${actor.body.view.time.toFixed(2)} s`);
     assert.ok(began !== null && began < 8, `running from ${began?.toFixed(2)} s`);
-    assert.ok(stopped !== null && (stopped - began) < 10 / 1.8, `10 m in ${(stopped - began).toFixed(2)} s`);
+    // Faster than the walk goes at the most it is asked.
+    assert.ok(stopped !== null && (stopped - began) < 10 / SIMBICON.run, `10 m in ${(stopped - began).toFixed(2)} s`);
     assert.ok(running / 120 > 3, `ran ${(running / 120).toFixed(1)} s`);
     assert.ok(handed !== null && handed - stopped < 8, `given back to the stance ${(handed - stopped).toFixed(2)} s after the mark`);
     assert.ok(Math.hypot(s.velocity.x, s.velocity.z) < 0.05, `standing still: ${Math.hypot(s.velocity.x, s.velocity.z).toFixed(3)} m/s`);

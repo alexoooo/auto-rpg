@@ -16,7 +16,7 @@ import { STRIDE, stride, validStride } from "../skills/stride.ts";
 import { RUN, run, validRun } from "../skills/run.ts";
 import { SIMBICON, simbicon, simbiconRun, simbiconWays, validSimbicon, validSimbiconRun, validWays, type SimbiconSettings } from "../skills/simbicon.ts";
 import { GAIT_NAMES, GAITS, type GaitName } from "../skills/gaits.ts";
-import { distanceRule, move, standingRule, type MoveRule } from "../skills/move.ts";
+import { distanceRule, move, standingRule, type MoveGait, type MoveRule } from "../skills/move.ts";
 import { supportFold } from "../skills/support-fold.ts";
 import { wholeBodyFits, wholeBodyStrike } from "../skills/whole-body-strike.ts";
 import { deepFreeze } from "../state.ts";
@@ -62,7 +62,7 @@ const DRIVEN_FIELDS: readonly PartField<DrivenStrikeConfig>[] = Object.freeze([
 ]);
 
 /** A SIMBICON walk's config's settings, its kind taken off. */
-const settingsOf = ({ kind: _, tuning: __, ...settings }: SimbiconConfig): SimbiconSettings => settings;
+const settingsOf = ({ kind: _, tuning: __, runs: ___, ...settings }: SimbiconConfig): SimbiconSettings => settings;
 
 /** Whether `name` is a gait's (`GAITS`): a config read from a save or a link may name any. */
 const isGait = (name: string): name is GaitName => Object.hasOwn(GAITS, name);
@@ -318,10 +318,17 @@ function legsOf(body: Body, config: LocomotionConfig): Locomotion {
     case "stance-walk": return locomotion(body.envelope, config.tuning?.turnLimit, config.tuning?.turnStartup);
     case "stride": { const { kind: _, ...settings } = config; return stride(body, settings); }
     case "run": { const { kind: _, ...settings } = config; return run(body, settings); }
-    case "simbicon": return simbicon(body, settingsOf(config), simbiconWays(config.tuning), simbiconRun(config.tuning?.run));
+    case "simbicon": return simbicon(body, settingsOf(config), simbiconWays(config.tuning), simbiconRun(config.tuning?.run), config.runs ?? true);
     case "move": {
-      const names = gaitsOf(config);
-      return move(names.map((name) => legsOf(body, GAITS[name].legs)), config.rules.map((r) => moveRule(r, names.indexOf(r.gait))), names.indexOf(config.otherwise));
+      const names = gaitsOf(config), built = new Map<string, Locomotion>();
+      // Gaits whose legs differ only in whether they may run share one walk (`MoveGait`).
+      const gaits = names.map((name): MoveGait => {
+        const legs: LocomotionConfig = GAITS[name].legs, runs = legs.kind === "simbicon" ? legs.runs ?? true : undefined;
+        const key = JSON.stringify(legs.kind === "simbicon" ? { ...legs, runs: undefined } : legs);
+        if (!built.has(key)) built.set(key, legsOf(body, legs));
+        return { legs: built.get(key)!, ...(runs === undefined ? {} : { runs }) };
+      });
+      return move(gaits, config.rules.map((r) => moveRule(r, names.indexOf(r.gait))), names.indexOf(config.otherwise));
     }
     default: { const never: never = config; throw new Error(`no locomotion of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }

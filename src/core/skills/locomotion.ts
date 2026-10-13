@@ -148,6 +148,11 @@ export interface Locomotion extends Skill {
    */
   arms?(view: BodyView): Pose | null;
   /**
+   * For a walk that runs as well, whether it may run from now on: told not, it walks no faster than
+   * its walk, and its envelope is its walk's. Absent, a walk that does not run.
+   */
+  runs?(may: boolean): void;
+  /**
    * In place of `goal`, for a walk that may drive the legs itself: for `walk` and `face` this
    * control step, a stance goal as `goal` gives one, or the legs' own drive (`LegsDrive`). Absent,
    * a walk is the stance's, and the skill set asks `goal`.

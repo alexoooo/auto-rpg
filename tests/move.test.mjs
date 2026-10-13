@@ -5,7 +5,8 @@
  * steps; a Warrior on the stand walking by the SIMBICON walk changes to the braced walk only once
  * that walk has given the legs back to the stance, and back to it from the stance's stand; in a bout
  * it walks by it until the Rogue is near, and fights braced once the legs are given back; a rule
- * of the destination's distance chooses by what the tactics say is left to go; and its faults
+ * of the destination's distance chooses by what the tactics say is left to go; two gaits of one
+ * walk change at once, mid-step, the walk told whether it may run; and its faults
  * refuse a distance it cannot read and a gait none is called.
  */
 import test from "node:test";
@@ -21,9 +22,9 @@ import { labActor } from "../src/lab/actor.ts";
 import { LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
-/** Move as it starts: braced standing and within `NEAR` of a standing foe, and otherwise walking. */
+/** Move as it starts: braced standing and within `NEAR` of a standing foe, walking nearer a foe than its walk's rule, and otherwise walking or running. */
 const MOVING = SKILL_PARTS.move.defaults, NEAR = MOVING.rules.find((rule) => rule.of === "foe").metres;
-const TRAVELLING = { ...RECIPE_FIGHTER, locomotion: { ...MOVING, otherwise: "stride" } };
+const TRAVELLING = { ...RECIPE_FIGHTER, locomotion: { ...MOVING, rules: MOVING.rules.filter((rule) => rule.gait === "braced"), otherwise: "stride" } };
 const WALKING = { ...RECIPE_FIGHTER, locomotion: MOVING };
 
 /** The SIMBICON walk's memory in a mind's state. */
@@ -136,7 +137,7 @@ test("a_rule_of_the_destinations_distance_chooses_by_what_is_left_to_go_letting_
   const gaits = ["near", "far"].map((name) => ({ name, resumed: 0, state: {}, envelope: null, heading: 0, pace: 0, reference: null, placed: false,
     resume() { this.resumed++; }, place: () => null, goal: () => null }));
   const view = { stance: { phase: "stand", own: false, centre: { x: 0, z: 0 } }, senses: { side: "left", others: [] } };
-  const legs = move(gaits, [distanceRule(0, "destination", "under", 3)], 1), choice = legs.state.choice;
+  const legs = move(gaits.map((gait) => ({ legs: gait })), [distanceRule(0, "destination", "under", 3)], 1), choice = legs.state.choice;
   const walk = (destination, phase = "stand") => { view.stance.phase = phase; legs.goal(view, [1, 0], 0, 1 / 120, undefined, destination); return gaits[choice.gait].name; };
   // The first gait chosen is not resumed; none told, the destination is infinitely far.
   assert.equal(walk(10), "far");
@@ -149,4 +150,18 @@ test("a_rule_of_the_destinations_distance_chooses_by_what_is_left_to_go_letting_
   // Let go of only past the rule's distance and its margin.
   assert.equal(walk(3.4), "near");
   assert.equal(walk(3.6), "far");
+});
+
+test("two_gaits_of_one_walk_change_at_once_mid_step_the_walk_told_whether_it_may_run", () => {
+  // One stand-in walk that remembers what it was told, and a body mid-step with no foe about.
+  const told = [], walk = { resumed: 0, state: {}, envelope: null, heading: 0, pace: 0, reference: null, placed: false,
+    resume() { this.resumed++; }, runs(may) { told.push(may); }, place: () => null, goal: () => null };
+  const view = { stance: { phase: "swing", own: false, centre: { x: 0, z: 0 } }, senses: { side: "left", others: [] } };
+  const legs = move([{ legs: walk, runs: false }, { legs: walk, runs: true }], [distanceRule(0, "destination", "under", 3)], 1), choice = legs.state.choice;
+  const go = (destination) => { legs.goal(view, [1, 0], 0, 1 / 120, undefined, destination); return [choice.gait, told.at(-1)]; };
+  assert.deepEqual(go(10), [1, true]);
+  assert.deepEqual(go(2), [0, false]);
+  assert.deepEqual(go(10), [1, true]);
+  assert.equal(walk.resumed, 0, "a walk going on is not resumed");
+  assert.equal(legs.state.gaits.length, 1, "the walk's memory is in the state once");
 });
