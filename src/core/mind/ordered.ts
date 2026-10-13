@@ -35,18 +35,20 @@ export function guarding(guard: SeekConfig["guard"], threat: Threat = THREAT): (
  * another way as it walks, it walks at the pace that holds (`strafe`, `STRAFE` unless an
  * experiment passes another); either no faster than the pace ordered (`Orders.pace`); standing, it faces as ordered, or keeps its heading. The stance
  * turns only while it walks (`locomotion`), so a standing body ordered to face does not turn.
+ * How far it is from where it is ordered to go (`Orders.destination`) goes on to its locomotion.
  */
-export function orderedIntent({ report, envelope }: Sight, { move, face, pace = Infinity }: Pick<Orders, "move" | "face" | "pace">, guard: Intent["guard"],
-  strafe: typeof STRAFE = STRAFE): Intent {
+export function orderedIntent({ report, envelope }: Sight, { move, face, pace = Infinity, destination }: Pick<Orders, "move" | "face" | "pace" | "destination">,
+  guard: Intent["guard"], strafe: typeof STRAFE = STRAFE): Intent {
+  const going = destination === undefined ? {} : { destination };
   // A facing under 8 cm long names no direction: the point to face is over the body itself.
   const facing = face && hypot(face.x, face.z) > 0.08 ? atan2(face.x, face.z) : null;
-  if (!move || !envelope) return { move: null, face: facing ?? report.heading, guard, attack: null };
+  if (!move || !envelope) return { move: null, face: facing ?? report.heading, guard, attack: null, ...going };
   const bearing = atan2(move.x, move.z), walk = Math.min(envelope.walk.value, pace);
   // Facing its walk: the walk the envelope measured, forward, turning to it.
-  if (facing === null) return { move: [walk, 0], face: bearing, guard, attack: null };
+  if (facing === null) return { move: [walk, 0], face: bearing, guard, attack: null, ...going };
   // Facing elsewhere: the walk's direction in the heading's frame, at the pace that holds.
   const off = bearing - report.heading;
   const share = Math.abs(wrap(facing - report.heading)) < strafe.turned
     ? strafe.share + (1 - strafe.share) * Math.max(0, cos(off)) : strafe.share;
-  return { move: [walk * share * cos(off), walk * share * sin(off)], face: facing, guard, attack: null };
+  return { move: [walk * share * cos(off), walk * share * sin(off)], face: facing, guard, attack: null, ...going };
 }

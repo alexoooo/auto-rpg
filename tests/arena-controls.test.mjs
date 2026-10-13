@@ -43,14 +43,14 @@ test("each side's mind travels in a link as its whole tree, without research tun
   // A preset writes nothing; a changed tree writes itself whole, and a link drops any research tuning.
   assert.equal(mindsSearch("?control=classic,scrapper", { left: CLASSIC, right: SCRAPPER }), "?control=classic%2Cscrapper");
   const edited = withParts(SCRAPPER, { tactics: { prefers: "head", spacing: .5 }, subs: [{ kind: "support-recovery" }, { kind: "lie" }] });
-  const tuned = withParts(edited, { locomotion: { fight: { tuning: { turnLimit: 2 } } }, blow: { tuning: { paths: { returnLimit: .05 } } } });
+  const tuned = withParts(edited, { blow: { tuning: { paths: { returnLimit: .05 } } } });
   const search = mindsSearch("?control=classic,scrapper&left.mind=x", { left: CLASSIC, right: tuned });
   assert.deepEqual(JSON.parse(query(search).get("right.mind")), edited);
   assert.equal(query(search).get("left.mind"), null);
   assert.deepEqual(readMinds(search), { left: CLASSIC, right: edited });
   assert.deepEqual(readMinds(`?control=classic,scrapper&right.mind=${encodeURIComponent(JSON.stringify(tuned))}`).right, edited);
   // Every field of every part of every preset, set to each value it takes but the preset's, round trips, or is the preset where the tree has a fault.
-  let fields = 0;
+  const reached = new Set();
   for (const [control, { config: preset }] of Object.entries(PRESETS)) {
     const parts = [[null, preset], ...partOf(preset).slots.filter((slot) => !slot.many && preset[slot.key]).map((slot) => [slot.key, preset[slot.key]])];
     for (const [key, part] of parts) for (const field of partOf(part).fields) {
@@ -60,11 +60,12 @@ test("each side's mind travels in a link as its whole tree, without research tun
         const linked = mindsSearch(`?control=classic,${control}`, { left: CLASSIC, right: config });
         assert.deepEqual(readMinds(linked).right, treeFaults(config).length > 0 ? preset : config, `${control} ${key}.${field.key}=${value}`);
         assert.deepEqual(readMinds(linked).left, CLASSIC);
-        fields++;
+        reached.add(`${part.kind}.${field.key}`);
       }
     }
   }
-  assert.ok(fields > 30, `${fields} changes of a field`);
+  // The walk reaches the parts a person edits most: the tactics, the blow and how the body gets about.
+  for (const field of ["seek.aim", "openings.spacing", "path-strike.overlap", "move.otherwise"]) assert.ok(reached.has(field), [...reached].join(" "));
   // A tree with a fault is the preset whole, and the panel shows it with why.
   const faulty = withParts(SCRAPPER, { tactics: { combinations: "follow-up", hands: "right" } }), refused = mindsSearch("?control=classic,scrapper", { left: CLASSIC, right: faulty });
   assert.deepEqual(readMinds(refused).right, SCRAPPER);

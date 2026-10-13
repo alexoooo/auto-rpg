@@ -428,14 +428,18 @@ tactics over the skills it is given.
   stance before the kick begins (`drivesLegs`, `fighter.ts`; `skillSet`, `arbiter.ts`). A push whose level or speed is not
   a number is refused (`obey`, `body.ts`): Rapier disables the island of a body given one, which
   then hangs in the air.
-- **Travel and fight** (`travel.ts`, "Travel, then fight") walks by one locomotion (the SIMBICON
-  walk) while it is asked to walk and no standing foe is within `near` (5 m in `TRAVEL`),
-  and by another (the stance's walk, in the guard) once one is, until the foe is half a metre
-  farther, and whenever it is asked to stand. It changes only between steps, a walk that drives the
-  legs asked to stand first and changed from once it has given them back; resumes the walk it
-  changes to from the body as it is, and gives tactics the envelope of the walk it walks by. Every
-  humanoid's mind gets about by it (`GAME_FIGHTER`); an Arena bout opens at 4 m, so it fights from
-  its first step.
+- **Move** (`move.ts`, "Move") walks by one of the gaits (`GAITS`, `gaits.ts`: Braced, the
+  stance's walk; Walk, the SIMBICON walk; the stride, experimental), each a controller with its
+  searched settings and none of them a person's to tune: the gait of the first of its rules that
+  holds, or its `otherwise`. A rule (`MoveRuleConfig`) holds while the body is asked to stand, or
+  while a distance is under or over so many metres: the nearest standing foe's, or the
+  destination's, how far the tactics say the walk has left to go (`Intent.destination`, from
+  `Orders.destination`), infinitely far where there is none. A distance's rule lets go of the gait
+  it chose only half a metre past it. Move changes gait only between steps, a gait that drives the
+  legs asked to stand first and changed from once it has given them back; resumes the gait it
+  changes to from the body as it is, and gives tactics the envelope of the gait it walks by. Every
+  humanoid's mind gets about by `MOVE` (`GAME_FIGHTER`): braced while it stands or a standing foe
+  is within 5 m, walking otherwise; an Arena bout opens at 4 m, so it fights from its first step.
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
   searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
   and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its
@@ -721,7 +725,7 @@ live feedback through ordinary muscles. Classic, Puncher, Scrapper and Behaviour
 `support-recovery`. The staged riser is an internal component of that baseline, not a separate
 editor choice.
 `RECIPE_FIGHTER` is the seeking fighter over the recipe strike, walking in the stance, with `lie`;
-the Lab's minds are made from it. `GAME_FIGHTER` is it travelling by `TRAVEL`: the mind every
+the Lab's minds are made from it. `GAME_FIGHTER` is it getting about by `MOVE`: the mind every
 humanoid has unless its fight says otherwise (`modelInfo`), so a body that falls lies still ([reference/rising.md](reference/rising.md#lying)). An arena
 recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives an enemy its model's (`modelInfo`) and a party member the
 mind chosen for its model on the start panel (`DungeonRunOptions.minds`), its model's unless one

@@ -5,6 +5,8 @@ import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import { massOf } from "../core/control/support.ts";
+import { MOVE } from "../core/mind/config.ts";
+import { GAIT_NAMES, GAITS, type GaitName } from "../core/skills/gaits.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario, LabShell } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
@@ -59,6 +61,17 @@ const COURSES: Readonly<Record<CourseId, { readonly name: string; readonly size?
   random: { name: "Random commands", size: { name: "Area", least: 4, most: 30, metres: COMMANDS_AREA } },
 };
 
+/**
+ * What the body gets about by: Move as the game plays it (`MOVE`), one gait alone, or the
+ * locomotion of the mind the page chose.
+ */
+type Legs = "move" | GaitName | "mind";
+const LEGS: readonly { readonly value: Legs; readonly name: string }[] = [
+  { value: "move", name: "Move, as the game" },
+  ...GAIT_NAMES.map((name) => ({ value: name, name: GAITS[name].stage === "experimental" ? `${GAITS[name].label} (experimental)` : GAITS[name].label })),
+  { value: "mind", name: "The mind's own" },
+];
+
 /** A flat strip along `track` on the ground, for the eye; it collides with nothing. */
 export function paintTrack(scene: Scene, track: Track, material: StandardMaterial): Mesh {
   const left: Vector3[] = [], right: Vector3[] = [];
@@ -106,7 +119,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
     wind: { name: "Wind", unit: "N" },
   });
   // The pace asked: none is Max.
-  let chosen: CourseId = COURSE_IDS[0], top: number | undefined = undefined, wind = CALM;
+  let chosen: CourseId = COURSE_IDS[0], top: number | undefined = undefined, wind = CALM, legs: Legs = "move";
   /** Each course's size, m, where it comes in sizes. */
   const sizes = new Map(COURSE_IDS.flatMap((id) => { const size = COURSES[id].size; return size ? [[id, size.metres] as const] : []; }));
   // The track painted, or on random commands the walk under way, by its command.
@@ -131,6 +144,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
     panels: {
       scenario: [
         choice("Course", COURSE_IDS.map((id) => ({ value: id, name: COURSES[id].name })), () => chosen, (id) => { chosen = id; sized.refresh(); shell.restart(); }),
+        choice("Gait", LEGS, () => legs, (value) => { legs = value; shell.restart(); }),
         sized,
         slider("Pace, m/s", PACES.least, MAX, PACES.step, () => top ?? MAX, (pace) => { top = pace > PACES.most ? undefined : pace; shell.restart(); },
           (pace) => pace > PACES.most ? "Max" : pace.toFixed(1)),
@@ -142,6 +156,7 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
       ],
       readout: [shown, legend([MARKS.track, MARKS.centre, MARKS.aim, MARKS.wind])],
     },
+    mind: (mind) => legs === "mind" ? mind : { ...mind, locomotion: legs === "move" ? MOVE : { kind: "move", rules: [], otherwise: legs } },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds, one physics step a notch; dragging pauses. Arrow keys step once it has focus.`,
     start({ actor, changed, clock, address }) {
       const { world } = actor, { built } = actor.body;

@@ -230,8 +230,9 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const spec = loadoutSpec(to), built = buildBody(spec, world, { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) });
     const balance = loadoutBalance(to.balance, built.spec);
     const log = createMindLog();
-    const mind = to.scenario === "recovery" && to.recoveryMode === "witness"
+    const chosen = to.scenario === "recovery" && to.recoveryMode === "witness"
       ? { ...LAB_PRESETS.script.config, subs: [{ kind: "support-recovery" as const }] } : labMind(to.mind, spec).plays;
+    const mind = scenario.mind?.(chosen) ?? chosen;
     const actor = labActor(built, world, {
       mind,
       recoveryRecipe: to.scenario === "recovery" && to.recoveryMode === "witness" ? feedbackRecipe(spec, recoverySeed.feedback.u) : undefined, assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), around: (tactics) => logged(tactics, log),

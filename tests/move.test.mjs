@@ -1,11 +1,12 @@
 /**
- * **Travel and fight** (`travelOrFight`, `src/core/skills/travel.ts`), in an Arena bout on the Node
- * stand at 120 Hz: the Warrior, 8 m from the Rogue, travels by the stride with its arms swinging
- * until the Rogue is within the travel's `near`, then walks in the stance's guard, changing between steps; a
- * Warrior on the stand travelling by the SIMBICON walk changes to the stance's walk only once that
- * walk has given the legs back to the stance, and back to it from the stance's stand; in a bout it
- * travels by it until the Rogue is near, and fights by the stance's walk once the legs are given
- * back; and its faults refuse a distance it cannot read.
+ * **Move** (`move`, `src/core/skills/move.ts`), in an Arena bout on the Node stand at 120 Hz: the
+ * Warrior, 8 m from the Rogue, gets about by the stride with its arms swinging until the Rogue is
+ * within the foe's rule's distance, then walks braced, in the stance's guard, changing between
+ * steps; a Warrior on the stand walking by the SIMBICON walk changes to the braced walk only once
+ * that walk has given the legs back to the stance, and back to it from the stance's stand; in a bout
+ * it walks by it until the Rogue is near, and fights braced once the legs are given back; a rule
+ * of the destination's distance chooses by what the tactics say is left to go; and its faults
+ * refuse a distance it cannot read and a gait none is called.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -15,13 +16,15 @@ import { treeFaults } from "../src/core/mind/catalog.ts";
 import { SKILL_PARTS } from "../src/core/mind/fighter.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { NO_COVER } from "../src/core/mind/intent.ts";
-import { SIMBICON } from "../src/core/skills/simbicon.ts";
-import { STRIDE } from "../src/core/skills/stride.ts";
+import { distanceRule, move } from "../src/core/skills/move.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
-const TRAVELLING = { ...RECIPE_FIGHTER, locomotion: { ...SKILL_PARTS.travel.defaults, travel: { kind: "stride", ...STRIDE } } }, NEAR = TRAVELLING.locomotion.near;
+/** Move as it starts: braced standing and within `NEAR` of a standing foe, and otherwise walking. */
+const MOVING = SKILL_PARTS.move.defaults, NEAR = MOVING.rules.find((rule) => rule.of === "foe").metres;
+const TRAVELLING = { ...RECIPE_FIGHTER, locomotion: { ...MOVING, otherwise: "stride" } };
+const WALKING = { ...RECIPE_FIGHTER, locomotion: MOVING };
 
 /** The SIMBICON walk's memory in a mind's state. */
 function gaitOf(state, depth = 0) {
@@ -31,10 +34,10 @@ function gaitOf(state, depth = 0) {
   return null;
 }
 
-/** The travel skill's choice in `duelist`'s memory. */
+/** Move's choice in a mind's memory, and whether it is braced: the first of its gaits, which its rules name first. */
 function choiceOf(state, depth = 0) {
   if (!state || typeof state !== "object" || depth > 6) return null;
-  if (state.choice && "fighting" in state.choice) return state.choice;
+  if (state.choice && "gait" in state.choice) return { get fighting() { return state.choice.gait === 0; }, get gait() { return state.choice.gait; } };
   for (const value of Object.values(state)) { const found = choiceOf(value, depth + 1); if (found) return found; }
   return null;
 }
@@ -43,7 +46,7 @@ test("a_warrior_travels_by_the_stride_until_its_foe_is_near_then_walks_in_the_gu
   const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 8, minds: { left: TRAVELLING, right: RECIPE_FIGHTER } });
   try {
     const me = duel.duelists.left, foe = duel.duelists.right, choice = choiceOf(me.minded.state);
-    assert.ok(choice, "the travel skill's choice is in the mind's state");
+    assert.ok(choice, "Move's choice is in the mind's state");
     const shoulder = me.body.muscles.channels.findIndex((c) => c.name.startsWith("shoulder.left flexion"));
     const swing = { travel: [], fight: [] };
     let changed = null, changes = 0, last = false;
@@ -68,13 +71,13 @@ test("a_warrior_travels_by_the_stride_until_its_foe_is_near_then_walks_in_the_gu
 
 test("travelling_by_a_walk_that_drives_the_legs_it_changes_walk_only_once_the_legs_are_the_stances_both_ways", async () => {
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
-  const mind = { ...LAB_PRESETS.script.config, locomotion: { kind: "travel", near: NEAR, travel: { kind: "simbicon", ...SIMBICON }, fight: { kind: "stance-walk" } } };
+  const mind = { ...LAB_PRESETS.script.config, locomotion: MOVING };
   const actor = labActor(stand.built, stand.world, { mind });
-  // With no foe, a walk asked is the travel's and a stand the fight's: walk, stand, walk again.
+  // With no foe, a walk asked is the SIMBICON walk and a stand braced: walk, stand, walk again.
   actor.drive({ name: "walk-stand-walk", decide: ({ view }) => ({ move: view.time < 5 || view.time >= 10 ? [0.8, 0] : null, face: 0, guard: NO_COVER, attack: null }) });
-  const choice = choiceOf(actor.skills.state), gait = actor.skills.state.legs.travel.gait;
+  const choice = choiceOf(actor.skills.state), gait = actor.skills.state.legs.gaits[1].gait;
   try {
-    assert.ok(choice, "the travel skill's choice is in the skills' state");
+    assert.ok(choice, "Move's choice is in the skills' state");
     const changes = [];
     let last = null, driven = { first: 0, second: 0 };
     for (let k = 0; k < 15 * 120 && !actor.body.view.down; k++) {
@@ -94,12 +97,11 @@ test("travelling_by_a_walk_that_drives_the_legs_it_changes_walk_only_once_the_le
 });
 
 test("a_warrior_travels_by_the_simbicon_walk_until_its_foe_is_near_then_fights_by_the_stances_walk_once_the_legs_are_given_back", async () => {
-  const mind = { ...RECIPE_FIGHTER, locomotion: { kind: "travel", near: NEAR, travel: { kind: "simbicon", ...SIMBICON }, fight: { kind: "stance-walk" } } };
-  const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 8, minds: { left: mind, right: RECIPE_FIGHTER } });
+  const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 8, minds: { left: WALKING, right: RECIPE_FIGHTER } });
   try {
     const me = duel.duelists.left, foe = duel.duelists.right, choice = choiceOf(me.minded.state);
     const gait = gaitOf(me.minded.state);
-    assert.ok(choice && gait, "the travel skill's choice and the SIMBICON walk's memory are in the mind's state");
+    assert.ok(choice && gait, "Move's choice and the SIMBICON walk's memory are in the mind's state");
     const changes = [];
     let last = null, driven = 0, near = null;
     while (duel.clock < 9 && !duel.verdict) {
@@ -118,10 +120,33 @@ test("a_warrior_travels_by_the_simbicon_walk_until_its_foe_is_near_then_fights_b
   } finally { dispose(); }
 });
 
-test("travel_and_fight_is_a_fighters_locomotion_and_refuses_a_distance_it_cannot_read", () => {
+test("move_is_a_fighters_locomotion_and_refuses_a_distance_it_cannot_read_and_a_gait_none_is_called", () => {
   assert.deepEqual(treeFaults(TRAVELLING, []), []);
-  for (const near of [0, -1, Number.NaN]) {
-    const faults = treeFaults({ ...TRAVELLING, locomotion: { ...TRAVELLING.locomotion, near } }, []);
-    assert.ok(faults.some((f) => f.includes("travel")), `${near}: ${JSON.stringify(faults)}`);
+  const [standing, near] = MOVING.rules;
+  for (const metres of [0, -1, Number.NaN]) {
+    const faults = treeFaults({ ...TRAVELLING, locomotion: { ...MOVING, rules: [standing, { ...near, metres }] } }, []);
+    assert.ok(faults.some((f) => f.startsWith("locomotion.rules.1") && f.includes("distance")), `${metres}: ${JSON.stringify(faults)}`);
   }
+  assert.ok(treeFaults({ ...TRAVELLING, locomotion: { ...MOVING, otherwise: "fly" } }, []).some((f) => f.includes("fly")));
+  assert.ok(treeFaults({ ...TRAVELLING, locomotion: { ...MOVING, rules: [{ ...standing, gait: "fly" }] } }, []).some((f) => f.includes("fly")));
+});
+
+test("a_rule_of_the_destinations_distance_chooses_by_what_is_left_to_go_letting_go_only_past_it_and_changing_between_steps", () => {
+  // Two stand-in gaits that remember being resumed, and a body standing between steps with no foe about.
+  const gaits = ["near", "far"].map((name) => ({ name, resumed: 0, state: {}, envelope: null, heading: 0, pace: 0, reference: null, placed: false,
+    resume() { this.resumed++; }, place: () => null, goal: () => null }));
+  const view = { stance: { phase: "stand", own: false, centre: { x: 0, z: 0 } }, senses: { side: "left", others: [] } };
+  const legs = move(gaits, [distanceRule(0, "destination", "under", 3)], 1), choice = legs.state.choice;
+  const walk = (destination, phase = "stand") => { view.stance.phase = phase; legs.goal(view, [1, 0], 0, 1 / 120, undefined, destination); return gaits[choice.gait].name; };
+  // The first gait chosen is not resumed; none told, the destination is infinitely far.
+  assert.equal(walk(10), "far");
+  assert.equal(walk(undefined), "far");
+  assert.deepEqual(gaits.map((g) => g.resumed), [0, 0]);
+  // Mid-step, the change waits; between steps it is made, and the gait resumed.
+  assert.equal(walk(2.9, "swing"), "far");
+  assert.equal(walk(2.9), "near");
+  assert.deepEqual(gaits.map((g) => g.resumed), [1, 0]);
+  // Let go of only past the rule's distance and its margin.
+  assert.equal(walk(3.4), "near");
+  assert.equal(walk(3.6), "far");
 });

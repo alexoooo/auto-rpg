@@ -7,8 +7,6 @@ import { createMind } from "../src/core/mind/minds.ts";
 import { BODY_MODELS, modelSpec } from "../src/core/models.ts";
 import { CONTROLS, controlsFor } from "../src/arena/matchup.ts";
 import { STRAIGHT_PUNCH } from "../src/core/skills/straight-punch.ts";
-import { SIMBICON } from "../src/core/skills/simbicon.ts";
-import { STRIDE } from "../src/core/skills/stride.ts";
 import { COMBAT, KICKER, withParts } from "./fixtures/minds.mjs";
 
 test("every preset is its controller's kind, under an id no other controller uses", () => {
@@ -37,9 +35,11 @@ test("each controller says which bodies its presets fit, and the Arena offers ju
 });
 
 test("every preset id reads to its tree: tactics, a skill of each role and the sub-minds", () => {
-  const walk = { kind: "stance-walk" }, travel = { kind: "travel", near: 5, travel: { kind: "simbicon", ...SIMBICON }, fight: walk }, striding = { ...travel, travel: { kind: "stride", ...STRIDE } }, guard = { kind: "cover-guard" }, seek = { kind: "seek", guard: "pose", aim: "head", range: "close" };
+  const walk = { kind: "stance-walk" }, guard = { kind: "cover-guard" }, seek = { kind: "seek", guard: "pose", aim: "head", range: "close" };
   const openings = { kind: "openings", hands: "alternate", strikes: "linear", prefers: "head", defence: "cover", combinations: "none", spacing: 0, spacingStep: 0 };
   const path = { kind: "path-strike", overlap: false }, recovery = [{ kind: "support-recovery" }];
+  const travel = { kind: "move", rules: [{ kind: "when-standing", gait: "braced" }, { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" }], otherwise: "walk" };
+  const striding = { ...travel, otherwise: "stride" };
   const fighter = (tactics, blow, kick, support, subs, locomotion = travel) => ({ kind: "fighter", tactics, locomotion, guard, blow, kick, support, subs });
   const body = { ...openings, strikes: "mixed", prefers: "body" };
   const rise = [{ kind: "support-recovery" }];
@@ -62,10 +62,10 @@ test("a tree names what is wrong with it where it is, and no mind is made of one
   assert.deepEqual(treeFaults(withParts(KICKER, { kick: { tuning: { swingSeconds: -1 } } })), ["kick: invalid kick settings"]);
   assert.deepEqual(treeFaults(withParts(KICKER, { kick: { tuning: { swingSeconds: .3 } } })), []);
   assert.deepEqual(treeFaults(withParts(COMBAT, { tactics: { spacingStep: -.1 } })), ["tactics: invalid combat range learning settings"]);
-  assert.deepEqual(treeFaults(withParts(COMBAT, { locomotion: { fight: { tuning: { turnLimit: 0 } } } })), ["locomotion.fight: locomotion turn limit must be finite and positive"]);
-  // A setting or tuning no part reads is refused where it is, not silently dropped: travel's turn is its fight's walk's.
-  assert.deepEqual(treeFaults(withParts(SCRAPPER, { locomotion: { tuning: { turnLimit: 1 } } })), ["locomotion: Travel, then fight has no setting tuning"]);
-  assert.deepEqual(treeFaults(withParts(SCRAPPER, { locomotion: { fight: { tuning: { turnLimt: 1 } } } })), ["locomotion.fight: Walk in the stance has no tuning turnLimt"]);
+  assert.deepEqual(treeFaults({ ...COMBAT, locomotion: { kind: "stance-walk", tuning: { turnLimit: 0 } } }), ["locomotion: locomotion turn limit must be finite and positive"]);
+  // A setting or tuning no part reads is refused where it is, not silently dropped: Move's gaits are the game's, and take none.
+  assert.deepEqual(treeFaults(withParts(SCRAPPER, { locomotion: { tuning: { turnLimit: 1 } } })), ["locomotion: Move has no setting tuning"]);
+  assert.deepEqual(treeFaults({ ...SCRAPPER, locomotion: { kind: "stance-walk", tuning: { turnLimt: 1 } } }), ["locomotion: Walk in the stance has no tuning turnLimt"]);
   assert.deepEqual(treeFaults(withParts(CLASSIC, { blow: { reach: 1 } })), ["blow: Recipe strike has no setting reach"]);
   assert.match(treeFaults(withParts(COMBAT, { blow: { tuning: { paths: { elbowExtension: 2 } } } }))[0], /^blow: combat path settings/);
   assert.match(treeFaults(withParts(COMBAT, { tactics: { tuning: { openings: { headLateral: 2 } } } }))[0], /^tactics: opening preferences/);

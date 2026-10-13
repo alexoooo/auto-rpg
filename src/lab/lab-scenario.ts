@@ -6,6 +6,7 @@ import type { Actor } from "./actor.ts";
 import type { Control } from "../ui/controls.ts";
 import type { LabAddress } from "./scenarios.ts";
 import type { Side } from "../core/spec/body.ts";
+import type { FighterConfig } from "../core/mind/config.ts";
 
 /**
  * **What the lab's shell (`main.ts`) asks of a scenario.** The shell owns the page: the engine,
@@ -23,6 +24,8 @@ export interface LabScenario {
   readonly keys: ReadonlySet<string>;
   /** What the transport bar's slider says it steps through. */
   readonly timelineLabel: string;
+  /** The mind its body plays, from the one the page chose; absent, that one. */
+  mind?(chosen: FighterConfig): FighterConfig;
   start(context: ScenarioContext): ScenarioRun;
 }
 

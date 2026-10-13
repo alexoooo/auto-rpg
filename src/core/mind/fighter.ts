@@ -15,16 +15,17 @@ import { STRAIGHT_PUNCH, straightPunch, straightPunchFits, validStraightPunch } 
 import { STRIDE, stride, validStride } from "../skills/stride.ts";
 import { RUN, run, validRun } from "../skills/run.ts";
 import { SIMBICON, simbicon, simbiconRun, simbiconWays, validSimbicon, validSimbiconRun, validWays, type SimbiconSettings } from "../skills/simbicon.ts";
-import { travelOrFight } from "../skills/travel.ts";
+import { GAIT_NAMES, GAITS, type GaitName } from "../skills/gaits.ts";
+import { distanceRule, move, standingRule, type MoveRule } from "../skills/move.ts";
 import { supportFold } from "../skills/support-fold.ts";
 import { wholeBodyFits, wholeBodyStrike } from "../skills/whole-body-strike.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { ARENA_KICKS, TRAVEL, type BehaviourConfig, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type SimbiconConfig, type TravelConfig, type LocomotionConfig,
+import { ARENA_KICKS, MOVE, type BehaviourConfig, type BlowConfig, type ChooseBlowConfig, type DrivenStrikeConfig, type FighterConfig, type FrontKickConfig, type PathStrikeConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type SimbiconConfig, type MoveConfig, type MoveRuleConfig, type LocomotionConfig,
   type StraightPunchConfig, type WholeBodyStrikeConfig } from "./config.ts";
 import { choice, number, toggle, type PartField } from "./fields.ts";
 import type { MindWiring } from "./minds.ts";
-import { slotList, slotOne, type Part } from "./parts.ts";
+import { slotList, type Part } from "./parts.ts";
 import { subMindsOf } from "./sub-minds.ts";
 import { tacticsOf } from "./tactics-of.ts";
 import { driveBy, type Abilities, type Tactics } from "./tactics.ts";
@@ -60,42 +61,29 @@ const DRIVEN_FIELDS: readonly PartField<DrivenStrikeConfig>[] = Object.freeze([
   number<DrivenStrikeConfig, "contact">("contact", "Contact speed", 1, 12, 0.5, "m/s"),
 ]);
 
-/** The stride's settings a person can choose, as a panel offers them: how quickly it speeds up and turns, and its arm swing. The rest are its controller's, searched, not chosen. */
-const STRIDE_FIELDS: readonly PartField<StrideConfig>[] = Object.freeze([
-  number<StrideConfig, "accel">("accel", "Speeding up", 0.5, 10, 0.1, "m/s²"),
-  number<StrideConfig, "turn">("turn", "Turn", 0.5, 12, 0.1, "rad/s"),
-  { ...number<StrideConfig, "arms">("arms", "Arm swing", 0, 3, 0.1, "rad/m"), read: (config) => String(config.arms ?? 0) },
-]);
-
-/** The run's settings a person can choose, as a panel offers them: how quickly it speeds up and turns, and its arm swing. The rest are its controller's, searched, not chosen. */
-const RUN_FIELDS: readonly PartField<RunConfig>[] = Object.freeze([
-  number<RunConfig, "accel">("accel", "Speeding up", 0.5, 10, 0.1, "m/s²"),
-  number<RunConfig, "turn">("turn", "Turn", 0.5, 12, 0.1, "rad/s"),
-  { ...number<RunConfig, "arms">("arms", "Arm swing", 0, 3, 0.1, "rad/m"), read: (config) => String(config.arms ?? 0) },
-]);
-
 /** A SIMBICON walk's config's settings, its kind taken off. */
 const settingsOf = ({ kind: _, tuning: __, ...settings }: SimbiconConfig): SimbiconSettings => settings;
 
-/**
- * The SIMBICON walk's settings a person can choose, as a panel offers them: how quickly it turns,
- * corners and speeds up, its arm swing and the pace it runs past. The rest are its controller's,
- * searched on the bodies, not chosen.
- */
-const SIMBICON_FIELDS: readonly PartField<SimbiconConfig>[] = Object.freeze([
-  number<SimbiconConfig, "turn">("turn", "Turn", 0.5, 12, 0.1, "rad/s"),
-  number<SimbiconConfig, "swerve">("swerve", "Cornering", 0.1, 5, 0.1, "m/s²"),
-  number<SimbiconConfig, "speedup">("speedup", "Speed-up", 0.1, 5, 0.1, "m/s²"),
-  number<SimbiconConfig, "arms">("arms", "Arm swing", 0, 3, 0.1, "rad/m"),
-  number<SimbiconConfig, "run">("run", "Runs past", 0.5, 5, 0.05, "m/s"),
-]);
+/** Whether `name` is a gait's (`GAITS`): a config read from a save or a link may name any. */
+const isGait = (name: string): name is GaitName => Object.hasOwn(GAITS, name);
 
-/** The straight punch's settings a person can choose, as a panel offers them: how it comes in and how far it stands off. The rest are its technique's, searched, not chosen. */
-const STRAIGHT_FIELDS: readonly PartField<StraightPunchConfig>[] = Object.freeze([
-  number<StraightPunchConfig, "pace">("pace", "Approach pace", 0.1, 1.5, 0.05, "m/s"),
-  number<StraightPunchConfig, "reach">("reach", "Stand-off", 0.2, 1.2, 0.01, "m"),
-  toggle<StraightPunchConfig, "landed">("landed", "Wait for both feet"),
-]);
+/** The gaits as a choice offers them. */
+const GAIT_CHOICES = GAIT_NAMES.map((name): [GaitName, string] => [name, GAITS[name].stage === "experimental" ? `${GAITS[name].label} (experimental)` : GAITS[name].label]);
+
+/** A rule part of Move: a gait it chooses, and what is wrong with a config of it. */
+const rule = <C extends MoveRuleConfig>(label: string, defaults: C, fields: readonly PartField<C>[], faults: (config: C) => readonly string[] = () => []): Part<C> =>
+  ({ role: "move-rule", label, stage: "game", fields: [...fields, choice<C, "gait">("gait", "Gait", GAIT_CHOICES)], slots: [], defaults, fits: () => true,
+    faults: (config) => [...faults(config), ...isGait(config.gait) ? [] : [`no gait called ${JSON.stringify(config.gait)}`]] });
+
+/** **Every rule of Move, by its kind** (`Part`): what Move's rule list holds. */
+export const MOVE_RULE_PARTS: { readonly [K in MoveRuleConfig["kind"]]: Part<Extract<MoveRuleConfig, { kind: K }>> } = deepFreeze({
+  "when-standing": rule<Extract<MoveRuleConfig, { kind: "when-standing" }>>("While standing", { kind: "when-standing", gait: "braced" }, []),
+  "when-distance": rule<Extract<MoveRuleConfig, { kind: "when-distance" }>>("While a distance", { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" }, [
+    choice("of", "From", [["foe", "The nearest foe"], ["destination", "The destination"]]),
+    choice("than", "Is", [["under", "Under"], ["over", "Over"]]),
+    number("metres", "Metres", 0.5, 50, 0.5, "m"),
+  ], (config) => Number.isFinite(config.metres) && config.metres > 0 ? [] : ["a rule's distance must be finite and positive"]),
+});
 
 /**
  * **Every skill, by its kind** (`Part`): what a fighter's skill slots hold, each its role's. The
@@ -113,12 +101,10 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
   "stride": {
     ...skill<StrideConfig>("locomotion", "Walk and run", "experimental", { kind: "stride", ...STRIDE },
       (config) => validStride(config) ? [] : ["a stride needs every setting finite and positive, its double support not negative"]),
-    fields: STRIDE_FIELDS,
   },
   "run": {
     ...skill<RunConfig>("locomotion", "Run", "experimental", { kind: "run", ...RUN },
       (config) => validRun(config) ? [] : ["a run needs every setting finite and positive, its gain not negative"]),
-    fields: RUN_FIELDS,
   },
   "simbicon": {
     ...skill<SimbiconConfig>("locomotion", "SIMBICON walk", "game", { kind: "simbicon", ...SIMBICON },
@@ -127,13 +113,12 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
         ...validWays(simbiconWays(config.tuning)) ? [] : ["a SIMBICON gait's side and back give only the settings a way changes, each finite"],
         ...validSimbiconRun(simbiconRun(config.tuning?.run)) ? [] : ["a SIMBICON gait's run gives only the run's settings, each finite, its times positive and its shares of strength within (0, 1]"],
       ]),
-    fields: SIMBICON_FIELDS, tuning: ["side", "back", "run"],
+    tuning: ["side", "back", "run"],
   },
-  "travel": {
-    ...skill<TravelConfig>("locomotion", "Travel, then fight", "game", TRAVEL,
-      (config) => Number.isFinite(config.near) && config.near > 0 ? [] : ["travel and fight need a foe's distance, finite and positive"]),
-    fields: [number<TravelConfig, "near">("near", "Fight within", 0.5, 20, 0.1, "m")],
-    slots: [slotOne("travel", "Travelling", "locomotion"), slotOne("fight", "Fighting", "locomotion")],
+  "move": {
+    ...skill<MoveConfig>("locomotion", "Move", "game", MOVE, (config) => isGait(config.otherwise) ? [] : [`move: no gait called ${JSON.stringify(config.otherwise)}`]),
+    fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
+    slots: [slotList("rules", "When", "move-rule")],
   },
   "cover-guard": { ...skill("guard", "Guard and cover", "game", { kind: "cover-guard" }), tuning: ["covering"] },
   "recipe-strike": { ...skill("blow", "Recipe strike", "game", { kind: "recipe-strike" }), tuning: ["repertoire", "placed", "steer"] },
@@ -163,7 +148,6 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
     ...skill<StraightPunchConfig>("blow", "Straight punch", "game", { kind: "straight-punch", ...STRAIGHT_PUNCH },
       (config) => validStraightPunch(config) ? [] : ["a straight punch needs every setting finite and not negative, and a pace, reach, band and drive's length above zero"]),
     fits: (spec) => commandable(spec) && straightPunchFits(spec),
-    fields: STRAIGHT_FIELDS,
   },
   "choose-blow": {
     ...skill<ChooseBlowConfig>("blow", "Choose a blow", "experimental", { kind: "choose-blow", options: [{ kind: "recipe-strike" }], policy: "first-able" },
@@ -188,7 +172,7 @@ export function drivesLegs(config: LocomotionConfig): boolean {
   switch (config.kind) {
     case "stance-walk": case "stride": case "run": return false;
     case "simbicon": return true;
-    case "travel": return drivesLegs(config.travel) || drivesLegs(config.fight);
+    case "move": return gaitsOf(config).some((name) => isGait(name) && drivesLegs(GAITS[name].legs));
     default: { const never: never = config; throw new Error(`no locomotion of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }
 }
@@ -316,6 +300,18 @@ export function blowOf(body: Body, world: World, config: BlowConfig): BlowSkill 
   }
 }
 
+/** The gaits `config` walks by, each once, in the order its rules and then `otherwise` name them. */
+const gaitsOf = (config: MoveConfig): readonly GaitName[] => [...new Set([...config.rules.map((r) => r.gait), config.otherwise])];
+
+/** The rule `config` makes, choosing the `gait`th of its Move's gaits. */
+function moveRule(config: MoveRuleConfig, gait: number): MoveRule {
+  switch (config.kind) {
+    case "when-standing": return standingRule(gait);
+    case "when-distance": return distanceRule(gait, config.of, config.than, config.metres);
+    default: { const never: never = config; throw new Error(`no rule of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
+  }
+}
+
 /** The legs' skill of `config` for `body`. */
 function legsOf(body: Body, config: LocomotionConfig): Locomotion {
   switch (config.kind) {
@@ -323,7 +319,10 @@ function legsOf(body: Body, config: LocomotionConfig): Locomotion {
     case "stride": { const { kind: _, ...settings } = config; return stride(body, settings); }
     case "run": { const { kind: _, ...settings } = config; return run(body, settings); }
     case "simbicon": return simbicon(body, settingsOf(config), simbiconWays(config.tuning), simbiconRun(config.tuning?.run));
-    case "travel": return travelOrFight(legsOf(body, config.travel), legsOf(body, config.fight), config.near);
+    case "move": {
+      const names = gaitsOf(config);
+      return move(names.map((name) => legsOf(body, GAITS[name].legs)), config.rules.map((r) => moveRule(r, names.indexOf(r.gait))), names.indexOf(config.otherwise));
+    }
     default: { const never: never = config; throw new Error(`no locomotion of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }
 }

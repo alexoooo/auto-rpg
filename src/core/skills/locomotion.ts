@@ -117,8 +117,11 @@ const SQUARE_NEAR = 0.1;
  * it walks or stands (`squaring`). The reference height stays: it is the body's.
  */
 export interface Locomotion extends Skill {
-  /** The stance goal for `walk` and `face` this control step (null before the body's first step). */
-  goal(view: BodyView, walk: readonly [forward: number, right: number] | null, face: number, dt: number, lower?: number): StanceGoal | null;
+  /**
+   * The stance goal for `walk` and `face` this control step (null before the body's first step),
+   * `destination` m from where the tactics are taking the body, absent where they take it nowhere.
+   */
+  goal(view: BodyView, walk: readonly [forward: number, right: number] | null, face: number, dt: number, lower?: number, destination?: number): StanceGoal | null;
   /** The heading the stance is asked to face, rad. */
   readonly heading: number;
   /** The walk's speed asked, m/s (0 standing). */
@@ -149,7 +152,7 @@ export interface Locomotion extends Skill {
    * control step, a stance goal as `goal` gives one, or the legs' own drive (`LegsDrive`). Absent,
    * a walk is the stance's, and the skill set asks `goal`.
    */
-  drive?(view: BodyView, walk: readonly [forward: number, right: number] | null, face: number, dt: number, lower?: number): LegsDrive;
+  drive?(view: BodyView, walk: readonly [forward: number, right: number] | null, face: number, dt: number, lower?: number, destination?: number): LegsDrive;
 }
 
 /**

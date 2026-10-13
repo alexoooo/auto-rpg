@@ -40,7 +40,8 @@ import { startWind, type WindSettings } from "./wind.ts";
  * other.
  *
  * Sent to a destination, the tactics face it and walk forward, as on a track walked facing along it,
- * and brake to arrive at `CORNER_PACE`; there, they stand as long as the command says.
+ * and brake to arrive at `CORNER_PACE`, telling the locomotion how far it has to go (`Intent.destination`);
+ * there, they stand as long as the command says.
  *
  * Wind may blow on it (`wind.ts`), and its feet are metered (`gait-meter.ts`).
  *
@@ -297,7 +298,7 @@ function commandsTactics(commands: Commands, { top }: { readonly top?: number } 
       bending = Math.min(arrive, turning) < fastest;
       pace = Math.min(fastest, arrive, turning);
       face = toward;
-      return { move: [pace, 0], face, guard: NO_COVER, attack: null };
+      return { move: [pace, 0], face, guard: NO_COVER, attack: null, destination: d };
     },
     frame(_time, x, z) {
       const to = commands.at(index);

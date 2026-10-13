@@ -26,6 +26,8 @@ export interface Intent {
   readonly lower?: number;
   /** The one attack asked for (`Attack`), or null. */
   readonly attack: Attack | null;
+  /** How far the body is from where its walk is taking it, m; absent where it is taking it nowhere. Its locomotion may choose its gait by it (`move`). */
+  readonly destination?: number;
 }
 
 /** What a guarding hand covers: where the threat is, and the place of its own body it is kept from; world, m. */

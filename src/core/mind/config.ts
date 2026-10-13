@@ -4,10 +4,11 @@ import type { AttackTuning } from "../skills/attack-path.ts";
 import type { CombatExecution, DrivenStrike } from "../skills/combat.ts";
 import type { TurnStartup } from "../skills/locomotion.ts";
 import { STRAIGHT_PUNCH, type StraightPunch } from "../skills/straight-punch.ts";
-import { STRIDE, type StrideSettings } from "../skills/stride.ts";
+import type { StrideSettings } from "../skills/stride.ts";
 import type { RunSettings } from "../skills/run.ts";
-import { SIMBICON, type SimbiconRun, type SimbiconSettings, type SimbiconWay } from "../skills/simbicon.ts";
+import type { SimbiconRun, SimbiconSettings, SimbiconWay } from "../skills/simbicon.ts";
 import type { ChoosePolicy } from "../skills/choose.ts";
+import type { GaitName } from "../skills/gaits.ts";
 import type { Placed } from "../skills/strike.ts";
 import type { Repertoire } from "../skills/strikes.ts";
 import type { WholeBodyDrive } from "../skills/whole-body-strike.ts";
@@ -162,16 +163,37 @@ export interface SimbiconConfig extends SimbiconSettings {
   readonly tuning?: { readonly side?: Partial<SimbiconWay>; readonly back?: Partial<SimbiconWay>; readonly run?: Partial<SimbiconRun> };
 }
 
-/** **Travel and fight** (`travelOrFight`, `skills/travel.ts`): one walk while no standing foe is within `near` m, another once one is. */
-export interface TravelConfig {
-  readonly kind: "travel";
-  readonly near: number;
-  readonly travel: LocomotionConfig;
-  readonly fight: LocomotionConfig;
+/** A rule of Move: while the body is asked to stand, `gait`. */
+interface WhenStandingConfig { readonly kind: "when-standing"; readonly gait: GaitName }
+
+/**
+ * A rule of Move: while what `of` names is `than` `metres` away, `gait`: the nearest standing
+ * foe, or where the body's walk is taking it (`Intent.destination`). Where there is none, it is
+ * infinitely far.
+ */
+interface WhenDistanceConfig {
+  readonly kind: "when-distance";
+  readonly of: "foe" | "destination";
+  readonly than: "under" | "over";
+  readonly metres: number;
+  readonly gait: GaitName;
+}
+
+/** **A rule of Move's config**, by kind: when it chooses its gait. */
+export type MoveRuleConfig = WhenStandingConfig | WhenDistanceConfig;
+
+/**
+ * **Move** (`move`, `skills/move.ts`): the gait (`GAITS`) of the first of `rules` that holds, or
+ * `otherwise`'s.
+ */
+export interface MoveConfig {
+  readonly kind: "move";
+  readonly rules: readonly MoveRuleConfig[];
+  readonly otherwise: GaitName;
 }
 
 /** **The legs' skill**, by kind. */
-export type LocomotionConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | TravelConfig;
+export type LocomotionConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | MoveConfig;
 
 /** **The guard**: the arms' posture, and a guarding hand's cover of what the tactics name (`guardSkill`). */
 interface CoverGuardConfig {
@@ -244,7 +266,7 @@ export interface FrontKickConfig {
 interface SupportFoldConfig { readonly kind: "support-fold" }
 
 /** **A skill's config**, by kind, across the fighter's skill slots. */
-export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | TravelConfig | CoverGuardConfig | BlowConfig | FrontKickConfig | SupportFoldConfig;
+export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | MoveConfig | CoverGuardConfig | BlowConfig | FrontKickConfig | SupportFoldConfig;
 
 /**
  * **The fighter**: tactics over a skill of each role, under one arbiter (`skillSet`), handing its
@@ -296,17 +318,18 @@ export const OPENINGS: OpeningsConfig = deepFreeze({ kind: "openings", hands: "a
   combinations: "none", spacing: 0, spacingStep: 0 });
 
 /**
- * The legs a body gets about by: the SIMBICON walk while no standing foe is within 5 m, the walk in
- * the stance once one is (`travelOrFight`). An Arena bout opens at 4 m, so it fights from its first step.
+ * The legs a body gets about by (`move`): braced while it stands or a standing foe is within 5 m,
+ * walking otherwise. An Arena bout opens at 4 m, so it fights from its first step.
  */
-export const TRAVEL: TravelConfig = deepFreeze({ kind: "travel", near: 5, travel: { kind: "simbicon", ...SIMBICON }, fight: { kind: "stance-walk" } });
+export const MOVE: MoveConfig = deepFreeze({ kind: "move",
+  rules: [{ kind: "when-standing", gait: "braced" }, { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" }], otherwise: "walk" });
 
 /** The recipe fighter: seeking tactics over the recipe strike, walking in the stance, lying still once down. The Lab's minds are made from it. */
 export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tactics: SEEK, locomotion: { kind: "stance-walk" }, guard: { kind: "cover-guard" },
   blow: { kind: "recipe-strike" }, kick: null, support: null, subs: [{ kind: "lie" }] });
 
-/** The mind every humanoid has unless its fight says otherwise: the recipe fighter, travelling, then fighting (`TRAVEL`). */
-export const GAME_FIGHTER: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, locomotion: TRAVEL });
+/** The mind every humanoid has unless its fight says otherwise: the recipe fighter, getting about by `MOVE`. */
+export const GAME_FIGHTER: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, locomotion: MOVE });
 
 /** The Arena's Classic: the game's fighter, rising and steadying on its feet once down. */
 export const CLASSIC: FighterConfig = deepFreeze({ ...GAME_FIGHTER, subs: [{ kind: "support-recovery" }] });
@@ -327,7 +350,7 @@ export const ARENA_KICKS: KickTuning = deepFreeze({ ...KICK_PATH, swingSeconds: 
  * (`docs/reference/ground-combat.md#arena-integration`), and rising, then steadying, once down. It
  * travels by the stride, which leaves the stance its low support steps from (`drivesLegs`).
  */
-export const SCRAPPER: FighterConfig = deepFreeze({ ...GAME_FIGHTER, locomotion: { ...TRAVEL, travel: { kind: "stride", ...STRIDE } }, tactics: { ...OPENINGS, strikes: "mixed", prefers: "body" },
+export const SCRAPPER: FighterConfig = deepFreeze({ ...GAME_FIGHTER, locomotion: { ...MOVE, otherwise: "stride" }, tactics: { ...OPENINGS, strikes: "mixed", prefers: "body" },
   blow: { kind: "path-strike", overlap: false }, support: { kind: "support-fold" }, subs: [{ kind: "support-recovery" }] });
 
 /** A fighter of behaviours (`BehavioursConfig`): orders followed first, then `list`, then the hands covering; rising and steadying on its feet once down. */
