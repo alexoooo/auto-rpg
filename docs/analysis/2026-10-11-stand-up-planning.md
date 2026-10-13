@@ -4794,3 +4794,33 @@ selected frozen library remains 3/16, none within six seconds, with failure-incl
 infinity. No Lab controller changes. Only evidence and analysis are retained: source hashes,
 cited paths, whitespace and line endings pass. Software gates are not repeated; the two
 previously reported checkpoint-configuration test failures remain unresolved.
+
+### Rear-foot support endpoint check and review handoff
+
+Harness: frozen Node Stance action evaluator, game Rapier coordinate adapter 11, 120 Hz,
+saved workshop-fighter-club-90 fall, original compliant-sole Warrior and right-hand club,
+original symmetric muscles and stance host, Balance 0. The physical prefix reproduces the
+same 4.3-second state used by the preceding geometry check; no body or physics changes.
+
+Four whole-body endpoint searches retain measured contacts at both hands and the opposite
+foot, freeing the supporting shin so the pelvis and supporting leg can move together.
+The searches cross pelvis-height targets of 0.55 and 0.65 m with right-knee seeds of 1.4
+and 2.2 rad. All four fail the unchanged geometry criteria. Their foot-position errors are
+0.010081, 0.170125, 0.030709 and 0.093761 m, respectively. The closest endpoint still has
+floor penetrations of 0.007802 m at the left hand, 0.006612 m at the supporting foot and
+0.009208 m at the moving foot, as well as trunk/thigh and forearm/thigh collisions. Its
+left-hand anchor error is 0.012010 m. It is not a usable reference pose.
+
+Forward-kinematic qualification passes, and geometry queries leave physical observations
+unchanged. These local search failures do not establish global infeasibility. No endpoint
+is driven through the muscles, no new recovery is claimed, and no Lab controller changes.
+rearFootAnchoredGeometry in research/stand-up-path-results.json preserves all four results,
+source snapshots and raw-file hashes. The preceding verified failed-attempt replay remains
+.review/stand-up-foot-response/replay.html; this geometric check creates no physical replay.
+
+The current item is concluded and further work is paused at the owner's request for review.
+The selected frozen library remains 3/16, none within six seconds, with failure-inclusive
+median infinity. The four-second median/six-second recovery goal is not achieved. This
+handoff changes evidence and analysis only. Source and result checks, cited paths, whitespace
+and line-ending checks pass. Software tests are not rerun; the saved-fall restore and
+physical-foot-acquisition checkpoint-configuration failures remain unresolved.

@@ -979081,5 +979081,588 @@
       "Only the right-lead combinations of projected stops and rotational damping are screened. No robustness or broad-body qualification is inferred."
     ],
     "nextAction": "Find a collision-clear coordinated pelvis, trunk and foot transition under measured hand support. The present fixed-pelvis forward-foot target is not established as reachable; do not spend another torque sweep on that target or use a colliding geometric endpoint as a reference."
+  },
+  "rearFootAnchoredGeometry": {
+    "harness": "Frozen Node Stance action evaluator / game Rapier coordinate adapter 11 / 120 Hz / original compliant-sole Warrior with right-hand club / original symmetric muscle limits / ordinary stance host / Balance 0",
+    "revision": "4ebb4d8ddb9eac1b5c9af9e27c695edf80348a40",
+    "case": "workshop-fighter-club-90",
+    "bodyChanged": false,
+    "muscleLimitsChanged": false,
+    "hostChanged": false,
+    "criteriaChanged": false,
+    "status": "Failure: all four hand-and-rear-foot anchored endpoint searches fail unchanged geometry criteria. No physical candidate or Lab change.",
+    "report": {
+      "source": ".review/stand-up-knee-carry/continuous.trace.gz",
+      "elapsed": 4.3,
+      "physicalObservationSha256": "c51bc11b7491e6f6cab7a7ffa5a9ad82bd148eb46b2c9435647c0c0ff3e3710d",
+      "fkError": {
+        "position": 0.000028792061020211834,
+        "orientation": 0.00007089718345681432
+      },
+      "fkQualified": true,
+      "settings": {
+        "iterations": 180,
+        "derivative": 0.00002,
+        "damping": 0.0001,
+        "fkPositionTolerance": 0.001,
+        "fkAngularTolerance": 0.001,
+        "positionTolerance": 0.005,
+        "angularTolerance": 0.035,
+        "penetrationTolerance": 0.005,
+        "maximumStep": 0.15,
+        "collisionWeight": 20,
+        "supportWeight": 3,
+        "preferenceWeight": 0.01
+      },
+      "scope": "Whole-body endpoint search with measured hand and opposite-foot anchors, collision penalties and raised pelvis; no physical motion or recovery claim",
+      "results": [
+        {
+          "rootHeight": 0.55,
+          "knee": 1.4,
+          "target": [
+            0.9105226978770797,
+            0.16183765006617248,
+            -0.816000451701795
+          ],
+          "variant": "D",
+          "x": [
+            0.32035253445926587,
+            0.09000250315161616,
+            0.06729895889698331,
+            -0.5124209775992836,
+            -0.4780975036854464,
+            0.5469542624317659,
+            -1.0343577358759926,
+            0.21683603297732268,
+            -0.2728621007145059,
+            0.36826447217080355,
+            0.2701911055140387,
+            0.3650020397933405,
+            0.7799653018326157,
+            -0.29018497505209334,
+            0.06410511871052475,
+            0.6271129998178824,
+            1.3057302767400434,
+            0.550534361423278,
+            0.6541014385850168,
+            -1.4317755068150615,
+            0.4302567467578206,
+            0.062680270088776,
+            0.7486410003694794,
+            -0.01961557847743824,
+            0.39367193173512793,
+            1.5813889869441888,
+            -0.4175472116461089,
+            -0.1895274986538266,
+            1.1504267379790367,
+            -0.5658742314954747,
+            -0.43244126458328147,
+            -0.714216039814703,
+            -0.30671191369963674,
+            -0.08705857711632745,
+            -1.1668653641438334,
+            1.456835656655258,
+            0.3756110191297199,
+            -0.5686864951428499,
+            2.2465433230793557,
+            -0.9065594759732407,
+            0.2358265471877125
+          ],
+          "iterations": 22,
+          "termination": "no decreasing bounded step",
+          "loss": 0.028553949525429115,
+          "footError": 0,
+          "angularError": 0,
+          "retainedErrors": [
+            {
+              "name": "hand.left",
+              "error": 0.012010117720517985
+            },
+            {
+              "name": "foot.left",
+              "error": 0.004870178396266379
+            },
+            {
+              "name": "hand.right",
+              "error": 0.012013443040795052
+            }
+          ],
+          "supportError": 0,
+          "centre": [
+            1.1851760297311793,
+            0.38179123894474576,
+            -0.5430121322665986
+          ],
+          "root": [
+            1.147224704430732,
+            0.5454562566229907,
+            -0.6088209646946305
+          ],
+          "violations": [
+            {
+              "pair": [
+                "hand.left",
+                "floor"
+              ],
+              "distance": -0.00780190518506399
+            },
+            {
+              "pair": [
+                "foot.left",
+                "floor"
+              ],
+              "distance": -0.006612079464139775
+            },
+            {
+              "pair": [
+                "foot.right",
+                "floor"
+              ],
+              "distance": -0.009207834836375578
+            },
+            {
+              "pair": [
+                "middleTrunk",
+                "thigh.left"
+              ],
+              "distance": -0.007284303195774555
+            },
+            {
+              "pair": [
+                "middleTrunk",
+                "thigh.right"
+              ],
+              "distance": -0.008934787474572659
+            },
+            {
+              "pair": [
+                "forearm.right",
+                "thigh.right"
+              ],
+              "distance": -0.008664283901453018
+            }
+          ],
+          "rootAngularError": 0,
+          "rootHeightError": 0.004543743377009357,
+          "goalErrors": [
+            {
+              "name": "foot.right",
+              "position": 0.010080780832046238,
+              "orientation": 0
+            }
+          ],
+          "pass": false
+        },
+        {
+          "rootHeight": 0.55,
+          "knee": 2.2,
+          "target": [
+            0.9105226978770797,
+            0.16183765006617248,
+            -0.816000451701795
+          ],
+          "variant": "D",
+          "x": [
+            0.21727125298370586,
+            0.06139733555692646,
+            -0.046708357284902635,
+            -0.2539610663780888,
+            0.0022144515068999466,
+            0.23122378941045685,
+            -1.0343577358759926,
+            0.21683603297732268,
+            -0.2728621007145059,
+            0.36826447217080355,
+            -0.06813876793155575,
+            0.3787120717302212,
+            0.23731895501090133,
+            -0.31197498422465314,
+            0.06981317007977318,
+            0.45337263320850213,
+            0.6566918128073148,
+            -0.16478146540257987,
+            0.8136539390610132,
+            -1.4317755068150615,
+            0.4302567467578206,
+            -0.46914642425837216,
+            1.1475527100968246,
+            -0.01706348921411051,
+            0.04511726617624557,
+            1.796816963471942,
+            -0.23013802501111058,
+            0.01091350452619054,
+            1.10704946041041,
+            -0.4075525445233117,
+            0.029663574216224876,
+            -0.554722027598983,
+            -0.5525315065182657,
+            0.41629411274186595,
+            -0.6874188072348828,
+            1.9340903343944569,
+            0.26720246247204876,
+            -0.5877377717407318,
+            2.3431914233316413,
+            -0.7753172706965122,
+            0.18505353768798388
+          ],
+          "iterations": 8,
+          "termination": "no decreasing bounded step",
+          "loss": 0.05332940206324608,
+          "footError": 0,
+          "angularError": 0,
+          "retainedErrors": [
+            {
+              "name": "hand.left",
+              "error": 0.010919676797895846
+            },
+            {
+              "name": "foot.left",
+              "error": 0.0055017119797858985
+            },
+            {
+              "name": "hand.right",
+              "error": 0.010463300104885258
+            }
+          ],
+          "supportError": 0,
+          "centre": [
+            1.1078848375579664,
+            0.39610789271061503,
+            -0.6723352158009164
+          ],
+          "root": [
+            1.0441434229551718,
+            0.516851089028301,
+            -0.7228282808765164
+          ],
+          "violations": [
+            {
+              "pair": [
+                "hand.left",
+                "floor"
+              ],
+              "distance": -0.008004838658591251
+            },
+            {
+              "pair": [
+                "foot.left",
+                "floor"
+              ],
+              "distance": -0.00534747361651311
+            },
+            {
+              "pair": [
+                "hand.right",
+                "floor"
+              ],
+              "distance": -0.010984443454184943
+            },
+            {
+              "pair": [
+                "middleTrunk",
+                "thigh.right"
+              ],
+              "distance": -0.007648421451449394
+            }
+          ],
+          "rootAngularError": 0,
+          "rootHeightError": 0.03314891097169903,
+          "goalErrors": [
+            {
+              "name": "foot.right",
+              "position": 0.17012539369680618,
+              "orientation": 0
+            }
+          ],
+          "pass": false
+        },
+        {
+          "rootHeight": 0.65,
+          "knee": 1.4,
+          "target": [
+            0.9105226978770797,
+            0.16183765006617248,
+            -0.816000451701795
+          ],
+          "variant": "D",
+          "x": [
+            0.44357002018920416,
+            0.1520293359940767,
+            0.11162487660198546,
+            -0.7122812110121742,
+            -0.8648192615428577,
+            0.6412740672962406,
+            -1.0343577358759926,
+            0.21683603297732268,
+            -0.2728621007145059,
+            0.36826447217080355,
+            0.2722713633111154,
+            0.43458698374658805,
+            0.8901179185171081,
+            0.192894350882804,
+            0.06981317007977318,
+            0.9251863690268499,
+            1.7654122179946923,
+            1.1021151087224375,
+            0.13926967163695042,
+            -1.3975608324508755,
+            0.4302567467578206,
+            0.5005946097002185,
+            0.6565165765950818,
+            0.06762270603461853,
+            0.6475171524898963,
+            1.1645013195207392,
+            -0.7766539179960067,
+            -0.3324852225049198,
+            1.2396105112202969,
+            -0.6085503840889226,
+            -0.8498241943952461,
+            -0.7831170369575682,
+            -0.09198467810568402,
+            -0.5162522439121083,
+            -1.481189618333625,
+            0.9084044320334317,
+            0.28375218851476736,
+            -0.8077058996770394,
+            1.8368406081984556,
+            -0.9063149809291683,
+            0.588188301553385
+          ],
+          "iterations": 30,
+          "termination": "no decreasing bounded step",
+          "loss": 0.08943469832907426,
+          "footError": 0,
+          "angularError": 0,
+          "retainedErrors": [
+            {
+              "name": "hand.left",
+              "error": 0.026039518735217253
+            },
+            {
+              "name": "foot.left",
+              "error": 0.010011521662646107
+            },
+            {
+              "name": "hand.right",
+              "error": 0.02043807004050599
+            }
+          ],
+          "supportError": 0,
+          "centre": [
+            1.2729930408503882,
+            0.4116266189392873,
+            -0.5141065516889222
+          ],
+          "root": [
+            1.2704421901606702,
+            0.6074830894654513,
+            -0.5644950469896283
+          ],
+          "violations": [
+            {
+              "pair": [
+                "hand.left",
+                "floor"
+              ],
+              "distance": -0.008434626120055841
+            },
+            {
+              "pair": [
+                "foot.left",
+                "floor"
+              ],
+              "distance": -0.005180459746302657
+            },
+            {
+              "pair": [
+                "hand.right",
+                "floor"
+              ],
+              "distance": -0.011407009209136579
+            },
+            {
+              "pair": [
+                "shank.right",
+                "floor"
+              ],
+              "distance": -0.005904038749331278
+            },
+            {
+              "pair": [
+                "foot.right",
+                "floor"
+              ],
+              "distance": -0.01597559615331734
+            },
+            {
+              "pair": [
+                "middleTrunk",
+                "thigh.right"
+              ],
+              "distance": -0.008385060355067253
+            }
+          ],
+          "rootAngularError": 0,
+          "rootHeightError": 0.04251691053454876,
+          "goalErrors": [
+            {
+              "name": "foot.right",
+              "position": 0.030709151158361616,
+              "orientation": 0
+            }
+          ],
+          "pass": false
+        },
+        {
+          "rootHeight": 0.65,
+          "knee": 2.2,
+          "target": [
+            0.9105226978770797,
+            0.16183765006617248,
+            -0.816000451701795
+          ],
+          "variant": "D",
+          "x": [
+            0.27775036626105143,
+            0.1546855274818748,
+            -0.15998647582801934,
+            -0.3639888977993319,
+            0.040544899968691345,
+            0.4260820966679644,
+            -1.0343577358759926,
+            0.21683603297732268,
+            -0.2728621007145059,
+            0.36826447217080355,
+            0.03974746587600454,
+            0.36339071615185203,
+            0.6171710729378987,
+            -0.3141592653589793,
+            0.06981317007977318,
+            0.716038886017471,
+            0.5476101040374273,
+            -0.4548494536714919,
+            0.23163153524382565,
+            -1.4317755068150615,
+            0.4302567467578206,
+            -0.3921949828601846,
+            0.8562124885573625,
+            0.0011445562105226025,
+            0.1204715690080328,
+            1.4963711302798028,
+            -0.4945802618105547,
+            -0.030838297680194967,
+            1.1672667552946954,
+            -0.07909181295891753,
+            0.158617137301531,
+            -0.2931711167092507,
+            -0.3338405910567548,
+            0.41629411274186595,
+            -0.5430470304645535,
+            1.7035840549579608,
+            0.05413359150231119,
+            -0.8150687606813519,
+            2.166167409610652,
+            -0.8075623632640293,
+            0.5511661064055127
+          ],
+          "iterations": 15,
+          "termination": "no decreasing bounded step",
+          "loss": 0.02694492663824754,
+          "footError": 0,
+          "angularError": 0,
+          "retainedErrors": [
+            {
+              "name": "hand.left",
+              "error": 0.016987172921045946
+            },
+            {
+              "name": "foot.left",
+              "error": 0.009222309299571208
+            },
+            {
+              "name": "hand.right",
+              "error": 0.00950402522499934
+            }
+          ],
+          "supportError": 0,
+          "centre": [
+            1.1678926630260507,
+            0.449011914496225,
+            -0.7820087189803762
+          ],
+          "root": [
+            1.1046225362325175,
+            0.6101392809532493,
+            -0.8361063994196332
+          ],
+          "violations": [
+            {
+              "pair": [
+                "hand.left",
+                "floor"
+              ],
+              "distance": -0.008412336177784308
+            },
+            {
+              "pair": [
+                "foot.left",
+                "floor"
+              ],
+              "distance": -0.00546097151501268
+            },
+            {
+              "pair": [
+                "middleTrunk",
+                "thigh.left"
+              ],
+              "distance": -0.005677294917404652
+            },
+            {
+              "pair": [
+                "middleTrunk",
+                "thigh.right"
+              ],
+              "distance": -0.009104151278734207
+            },
+            {
+              "pair": [
+                "forearm.right",
+                "thigh.right"
+              ],
+              "distance": -0.005837300792336464
+            }
+          ],
+          "rootAngularError": 0,
+          "rootHeightError": 0.0398607190467507,
+          "goalErrors": [
+            {
+              "name": "foot.right",
+              "position": 0.09376063514148736,
+              "orientation": 0
+            }
+          ],
+          "pass": false
+        }
+      ]
+    },
+    "sources": {
+      ".review/stand-up-rear-foot/prepare.mjs": {
+        "sha256": "0686b0b73eaa55d8e845d6f92383327ce2e799c26da1ed1746e740fdf124ba1e",
+        "text": "import fs from 'node:fs';\nconst dir='.review/stand-up-rear-foot/';\nlet source=fs.readFileSync('.review/stand-up-foot-response/body-geometry.mjs','utf8')\n .replace(\"dir='.review/stand-up-foot-response/'\",\"dir='.review/stand-up-rear-foot/'\")\n .replaceAll(\"['hand.left','hand.right','shank.left']\",\"['hand.left','hand.right','foot.left']\")\n .replace('opposite-shin anchors','opposite-foot anchors').replace('outside:r.rootHeight','rootHeight:r.rootHeight');\nfs.writeFileSync(dir+'geometry.mjs',source);\r\n"
+      },
+      ".review/stand-up-rear-foot/geometry.mjs": {
+        "sha256": "e5ccd9a45e2a1e277daa53c9bf5239285811df70c20fb5fae7dd9b98b764fe14",
+        "text": "import fs from 'node:fs';import assert from 'node:assert/strict';import {deserialize} from 'node:v8';import {gunzipSync} from 'node:zlib';import {Quaternion,Vector3} from '@babylonjs/core/Maths/math.vector.js';\nimport {standUpKinematics,solveStandUpPose,IK_SETTINGS} from '../../research/stand-up-ik.mjs';import {rolloutStand} from '../stand-up-toe-support/stand.mjs';\nconst dir='.review/stand-up-rear-foot/',source='.review/stand-up-knee-carry/continuous.trace.gz',trace=deserialize(gunzipSync(fs.readFileSync(source))),stand=await rolloutStand(source,5,{verifyOnly:true});\ntry{\n const prefix=stand.run(stand.initial,{kind:'replay',start:0,rate:1,steps:515},0,true);assert.deepEqual(prefix.rows.map(r=>r.observation),trace.rows.slice(0,515).map(r=>r.observation));\n const before=stand.e.observe(),model=standUpKinematics({stand:stand.e.stand,observe:stand.e.observe,stance:{body:stand.e.body},metadata:stand.e.identity});\n const retained=before.contacts.filter(c=>c.fixed!==null&&c.impulse>0&&['hand.left','hand.right','foot.left'].includes(c.segment)).map(c=>{\n  const part=before.segments.find(s=>s.name===c.segment),at=new Vector3(...c.point).subtractInPlace(new Vector3(...part.position)).applyRotationQuaternionToRef(Quaternion.Inverse(new Quaternion(...part.rotation)),new Vector3());\n  return {name:c.segment,at:at.asArray(),target:[...c.point]};\n });\n const alias={...model,retained,patches:before.contacts.filter(c=>c.fixed!==null&&c.impulse>0&&['hand.left','hand.right','foot.left'].includes(c.segment)).map(c=>({corners:(c.patch?.filter(p=>p.distance<=.005&&-p.normal[1]>=.9).map(p=>new Vector3(...p.point)))??[new Vector3(...c.point)]})).filter(p=>p.corners.length)};\n const foot=stand.e.stand.built.segments.get('foot.right'),out=new Vector3(1,0,0).applyRotationQuaternionToRef(new Quaternion(...trace.policyState.yaw),new Vector3()).asArray(),results=[];\n for(const rootHeight of [.55,.65])for(const knee of [1.4,2.2]){\n  const target=trace.policyState.stepTarget.map((v,k)=>v+(k===1?.15:0)),seed=[...model.initial];\n  if(knee!==null){seed[6+model.channels.findIndex(c=>c.name==='knee.right flexion')]=knee;seed[6+model.channels.findIndex(c=>c.name==='hip.right flexion')]=1.8;}\n  const r=solveStandUpPose(alias,{variant:'D',seed,iterations:120,rootHeight,target:null,rotation:null,goals:[{name:'foot.right',at:[...foot.body.massProperties.centre],target}]});\n  results.push({rootHeight,knee,target,...r});\n }\n assert.deepEqual(stand.e.observe(),before,'geometry queries do not change physical observations');\n const report={source,elapsed:prefix.result.elapsed,physicalObservationSha256:prefix.observationSha256,fkError:model.fkError,fkQualified:model.fkError.position<=IK_SETTINGS.fkPositionTolerance&&model.fkError.orientation<=IK_SETTINGS.fkAngularTolerance,settings:IK_SETTINGS,scope:'Whole-body endpoint search with measured hand and opposite-foot anchors, collision penalties and raised pelvis; no physical motion or recovery claim',results};\n fs.writeFileSync(dir+'body-geometry.json',JSON.stringify(report,null,2)+'\\n');console.log(JSON.stringify({fkError:report.fkError,fkQualified:report.fkQualified,results:results.map(r=>({rootHeight:r.rootHeight,knee:r.knee,error:r.goalErrors[0].position,pass:r.pass,violations:r.violations}))}));\n}finally{stand.e.dispose();}\r\n"
+      }
+    },
+    "raw": {
+      ".review/stand-up-rear-foot/body-geometry.json": "a87d0abf115d1f41e42e773c9716c9e66f7662b4172f7508335336a8b398719b",
+      ".review/stand-up-rear-foot/geometry.log": "dc9fefe1c72b15ad0454ed3d4df8660dc94321a9ff360b0b0243680bcd1690ea"
+    },
+    "limitations": [
+      "Local endpoint optimization does not prove global infeasibility or physical reachability.",
+      "The replayed prefix is physical; geometric trial poses are never installed in the simulation. No new recovery rollout or replay is produced."
+    ],
+    "disposition": "Current work item concluded without a usable endpoint. Further controller work is paused at the owner request; the four-second median and six-second recovery goal remains unfinished."
   }
 }
