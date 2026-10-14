@@ -536,7 +536,10 @@ export function strikeSkill(spec: BodySpec, repertoire: Repertoire, placing: Pla
   };
 }
 
-/** A recipe's admitted preparation and return are finite even when its feet cannot settle. */
+/**
+ * A recipe's admitted preparation and return are finite even when its feet cannot settle: `prepare`
+ * s bounds placing and settling; a chamber, once begun, runs its recipe's own fixed time.
+ */
 const RECIPE_ACTION = Object.freeze({ prepare: 6, return: .4, returnLimit: 1.2, near: .05, slow: .6, hold: .05 });
 
 /** Recipe settings and the shared aim rule supplied by an action's registration. */
@@ -631,7 +634,7 @@ export function recipeExecutor(spec: BodySpec, actions: readonly string[], setti
       const chamber = blow.kind === "recipe" ? blow.chosen.strike.chamber?.seconds ?? 0 : 0;
       const duration = blow.kind === "recipe" ? Math.max(0, ...blow.chosen.strike.pushes.map(push => push.to)) : placing.seconds;
       if (live.phase === "prepare") {
-        if (live.elapsed >= RECIPE_ACTION.prepare) release({ kind: "stalled", reason: "preparation deadline" });
+        if (live.stage !== "chamber" && live.elapsed >= RECIPE_ACTION.prepare) release({ kind: "stalled", reason: "preparation deadline" });
         else if (live.stage === "chamber") {
           if (live.time >= chamber) { live.phase = "commit"; live.stage = "swing"; live.time = 0; }
         } else if (live.stage === "place") {
