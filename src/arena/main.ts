@@ -155,7 +155,8 @@ export async function bootArena(): Promise<void> {
     for (const [value, textContent] of [["club", "Wooden club"], ["empty", "Empty hands"]])
       held.append(Object.assign(document.createElement("option"), { value, textContent }));
     held.value = heldChoices?.[side] ?? modelInfo(matchup[side]).held; held.addEventListener("change", () => held.blur());
-    equipment.append(held); choices.append(equipment); heldPickers[side] = held;
+    // What it holds before how it thinks: the mind's tree is last, and scrolls in what room is left.
+    equipment.append(held); controller.before(equipment); heldPickers[side] = held;
     const refresh = refreshChoices[side] = () => {
       refreshAppearance();
       const model = select.value as BodyModel, choices = controlsFor(model), previous = control.value;
