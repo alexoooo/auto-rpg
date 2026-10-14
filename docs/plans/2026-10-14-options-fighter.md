@@ -137,7 +137,8 @@ simulated budget, never wall-clock), the quadruped, party control, and the stand
 
 ## The owner's decisions on the way
 
-- Stage 4: the default weights; whether a mind senses its own wounds (no hand-built model needs
-  it; a "hurt" state would).
-- Stage 6: which trade-offs a player sees; whether old configs and links are converted or
-  refused; whether the `fighter` kind's behaviours stay as a ranked kind or go.
+What a mind is made of (its weights, what it senses, its options and models) is its developer's to
+choose, mind by mind. What the player meets is the owner's:
+
+- Stage 6: which trade-offs a player sees, and whether the `fighter` kind's presets stay in the
+  game beside the options fighter.
