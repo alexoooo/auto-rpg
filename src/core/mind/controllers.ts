@@ -7,13 +7,13 @@ import { guardPosture } from "../skills/guard.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, PUNCHER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type DirectMindConfig, type MindConfig } from "./config.ts";
+import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, OPTIONS, PUNCHER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type DirectMindConfig, type MindConfig } from "./config.ts";
 import { createDirectBody, directFaults } from "./direct.ts";
 import { createFighter, fighterFaults } from "./fighter.ts";
 import { actionConfigFaults } from "./action-config.ts";
 import type { Minded, MindWiring } from "./minds.ts";
 import { slotList, slotOne, type Part, type Slot } from "./parts.ts";
-import { createOptionsFighter, OPTIONS, optionsFit } from "./options/mind.ts";
+import { createOptionsFighter, optionsFit } from "./options/mind.ts";
 
 /**
  * **A controller**: a kind of mind, as a part (`Part`) of role `mind`, with its named configs, the
@@ -52,6 +52,14 @@ const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
  * offered by name. A kind without an entry does not compile.
  */
 export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extract<MindConfig, { kind: K }>> } = Object.freeze({
+  options: {
+    role: "mind", label: "Options fighter", stage: "game", fields: [], slots: [], defaults: OPTIONS,
+    fits: optionsFit,
+    faults: () => [],
+    presets: deepFreeze({ options: { label: "Options fighter", config: OPTIONS } }),
+    builtIn: guardPosture,
+    create: createOptionsFighter,
+  },
   fighter: {
     role: "mind", label: "Fighter", stage: "game", fields: [], slots: FIGHTER_SLOTS, defaults: RECIPE_FIGHTER,
     fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0,
@@ -65,14 +73,6 @@ export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extra
     }),
     builtIn: guardPosture,
     create: createFighter,
-  },
-  options: {
-    role: "mind", label: "Options fighter", stage: "experimental", fields: [], slots: [], defaults: OPTIONS,
-    fits: optionsFit,
-    faults: () => [],
-    presets: deepFreeze({ options: { label: "Options fighter", config: OPTIONS } }),
-    builtIn: guardPosture,
-    create: createOptionsFighter,
   },
   quadruped: {
     role: "mind", label: "Quadruped", stage: "game", fields: [], slots: [], defaults: QUADRUPED, tuning: ["bite"],

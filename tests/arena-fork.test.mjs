@@ -17,7 +17,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Duel, SIDES } from "../src/arena/duel.ts";
 import { addArenaSolids } from "../src/arena/room.ts";
-import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
+import { CLASSIC, RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { isClash, woundedIn } from "../src/core/rules/blows.ts";
 import { NO_COVER } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
@@ -40,6 +40,8 @@ const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", g
 /** The same bout with both sides covering what threatens them. */
 const cover = withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover" } : behaviour) } });
 const COVERING = deepFreeze({ ...RECIPE, minds: { left: cover, right: cover } });
+/** The same bout under Classic, which fells its foe with the club within a minute. */
+const CLUBBING = deepFreeze({ ...RECIPE, minds: { left: CLASSIC, right: CLASSIC } });
 const BACK = { move: { x: -1, z: 0 }, face: null };
 const TAPE = deepFreeze([{ step: 300, side: "left", orders: BACK }, { step: 420, side: "left", orders: null }]);
 /** Steps a twin's world has taken when its bout is built: a bout begins at whatever step its world is at. */
@@ -149,7 +151,7 @@ test("a_bout_forks_across_a_cover", async () => {
 
 test("a_bout_rewinds", async () => {
   const tape = JSON.parse(JSON.stringify(TAPE)), given = JSON.stringify(tape);
-  const stand = await bout("trunk", RECIPE, tape), { duel } = stand;
+  const stand = await bout("trunk", CLUBBING, tape), { duel } = stand;
   try {
     // To its very start, saved before its first step.
     const start = duel.save(), first = stepped(stand, 360), was = saveState(duel.state);

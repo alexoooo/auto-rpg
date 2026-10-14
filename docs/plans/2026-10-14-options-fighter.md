@@ -35,7 +35,8 @@ blocked blows, aim held through a blow) had no place in the generic list and was
 ## Where it lives
 
 - A controller of its own in `CONTROLLERS` (`src/core/mind/controllers.ts`), kind `options` as a
-  working name, stage experimental until stage 5, its code under `src/core/mind/options/`.
+  working name, its code under `src/core/mind/options/`. It is every humanoid's own mind, in the
+  Arena and the Crypt (the owner's choice, 2026-10-14).
 - It reuses what a fighter is built from: the skill set (`skillSet`), the executors and their
   actions, the gaits, the guard, the support fold, the threat reader, the ground techniques, and
   the down sub-minds (stand-up, get-away, ground-fight, lie).
@@ -136,9 +137,7 @@ simulated budget, never wall-clock), the quadruped, party control, and the stand
 
 ## The owner's decisions on the way
 
-- Stage 1: the kind's name.
 - Stage 4: the default weights; whether a mind senses its own wounds (no hand-built model needs
   it; a "hurt" state would).
-- Stage 5: whether it becomes the Arena's and the Crypt's default.
 - Stage 6: which trade-offs a player sees; whether old configs and links are converted or
   refused; whether the `fighter` kind's behaviours stay as a ranked kind or go.

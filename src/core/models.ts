@@ -1,7 +1,7 @@
 import { HUMANOID_MODELS, humanoidSpec, type HumanoidModel } from "./human/spec.ts";
 import type { Physique } from "./human/physique.ts";
 import type { BodySpec } from "./spec/body.ts";
-import { GAME_FIGHTER, QUADRUPED, type MindConfig } from "./mind/config.ts";
+import { OPTIONS, QUADRUPED, type MindConfig } from "./mind/config.ts";
 import { treeFits } from "./mind/catalog.ts";
 import { reptileSpec } from "./reptile/spec.ts";
 import { deepFreeze } from "./state.ts";
@@ -28,7 +28,7 @@ export function modelInfo(model: BodyModel): ModelInfo {
   }
 }
 
-const HUMANOID: ModelInfo = deepFreeze({ mind: GAME_FIGHTER, held: "club" });
+const HUMANOID: ModelInfo = deepFreeze({ mind: OPTIONS, held: "club" });
 const REPTILE: ModelInfo = deepFreeze({ mind: QUADRUPED, held: "empty" });
 
 /**

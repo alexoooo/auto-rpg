@@ -20,7 +20,7 @@ import type { Hook, World } from "../core/world.ts";
 /**
  * **A bout in the arena**: two bodies, each empty-handed (`ARENA_HELD`) unless the recipe arms its
  * right hand (`DuelRecipe.held`), each under a
- * mind made from its config (`createMind`; the game's fighter, `GAME_FIGHTER`, unless the recipe names
+ * mind made from its config (`createMind`; its model's, `modelInfo`, unless the recipe names
  * another), wounded by the core's blows under the arena's rulebook, and judged.
  *
  * - **They stand** the recipe's gap apart (`GAP_METRES` unless it says) across the arena's
@@ -95,7 +95,7 @@ interface DuelRecipe {
   readonly balance?: { readonly left: number; readonly right: number };
   /** What a per cent of balance is, in place of the rulebook's (`Rulebook.balance`): a sweep's. */
   readonly balancePercent?: AssistCeiling;
-  /** Each side's mind, in place of the fighter every body has (`GAME_FIGHTER`): an experiment's, or a table's row. */
+  /** Each side's mind, in place of its model's (`modelInfo`): an experiment's, or a table's row. */
   readonly minds?: Readonly<Record<Side, MindConfig>>;
   /** Seconds continuously down before a fall ends the bout; null continues until injury or the cap. Zero is the reference fall rule. */
   readonly recoverySeconds?: number | null;

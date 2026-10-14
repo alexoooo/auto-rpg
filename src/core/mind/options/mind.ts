@@ -55,9 +55,6 @@ const DOWN: readonly (readonly [string, SubMindConfig])[] = deepFreeze([
 /** Whether a body of `spec` takes the options fighter's commands and carries out its skills' actions. */
 export const optionsFit = (spec: BodySpec): boolean => commandable(spec) && actionConfigFaults(spec, SKILLS.executors, SKILLS.actions).length === 0;
 
-/** The options fighter's config: its kind, and nothing to set yet. */
-export const OPTIONS: OptionsConfig = deepFreeze({ kind: "options" });
-
 /**
  * **The options fighter**: a meta-controller (`metaController`) over options, in rank order, each
  * worth more than the next. Down: get up; roll away from a foe near; fight from the ground; lie

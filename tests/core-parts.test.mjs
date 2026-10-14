@@ -72,7 +72,7 @@ test("a tree fits a body where every part does, and every part of a role is offe
   assert.equal(treeFits(reptile, CLASSIC), false);
   assert.equal(treeFits(reptile, QUADRUPED), true);
   const offered = (role, spec) => kindsFor(role, spec).map(({ kind, reason }) => [kind, reason]);
-  assert.deepEqual(offered("mind", human), [["fighter", null], ["options", null], ["quadruped", "does not fit this body"], ["direct", null]]);
+  assert.deepEqual(offered("mind", human), [["options", null], ["fighter", null], ["quadruped", "does not fit this body"], ["direct", null]]);
   assert.deepEqual(offered("executor", human), [["recipe-strike", null], ["path-strike", null], ["driven-strike", null], ["front-kick", null], ["straight-punch", null], ["whole-body-strike", null]]);
   assert.deepEqual(offered("tactics", reptile), [["script", "does not fit this body"], ["stand", "does not fit this body"], ["behaviours", "does not fit this body"]]);
   assert.deepEqual(offered("tactics", human), [["script", "this screen gives no script"], ["stand", null], ["behaviours", null]]);

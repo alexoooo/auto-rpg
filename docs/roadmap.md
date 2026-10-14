@@ -118,7 +118,7 @@ After it, each with its own plan, in the order each needs the one before:
   ([punch](analysis/2026-10-08-punch-layer.md)).
 - **Kicks.** Either-foot [front kicks](reference/front-kicks.md) share the punch's tracker and
   cycle. Higher targets and competitive kick selection are open.
-- **Rising.** Every humanoid stands up once down (`GAME_FIGHTER`'s Stand up with `step-up`), in
+- **Rising.** Every humanoid stands up once down (Stand up with `step-up`: Classic's, and the options fighter's get up), in
   the Arena's presets and in the Crypt, where a fall no longer ends a fight:
   - On the owner's 64-fall target (Node stand, Rapier, 120 Hz, Balance 0, Grit 0, 30 s cap,
     `node research/rising-bed.mjs --target --techniques step-up`), step-up stands the Warrior from
@@ -443,8 +443,8 @@ After it, each with its own plan, in the order each needs the one before:
     stance's guard, while it stands or a standing foe is within 5 m; walking (the SIMBICON walk
     told it may not run) while one is within 10 m; running to a destination more than 6 m off,
     or with none, as in the Arena; walking otherwise. A rule lets go of its gait half a metre
-    past its distance. The Scrapper gets about by the stride. Every humanoid's mind gets about by
-    it (`GAME_FIGHTER`); an Arena bout opens at 4 m, so it fights braced from its first step. The
+    past its distance. The Scrapper gets about by the stride. Classic gets about by
+    it (`CLASSIC`); an Arena bout opens at 4 m, so it fights braced from its first step. The
     Crypt's and the Lab's orders give a destination; none reads a leader's yet, since no body
     follows one. Running to a destination it is asked its fastest pace forward
     (`orderedIntent`). The walk and the run are one machine and change at once; a gait that

@@ -27,10 +27,12 @@ async function bout(overrides = {}) {
 }
 
 test("controller and recovery links preserve independent choices", () => {
-  assert.deepEqual(readControls(""), { left: "classic", right: "classic" });
-  assert.deepEqual(readControls("?control=unknown,scrapper"), { left: "classic", right: "scrapper" });
-  assert.deepEqual(readControls("?control=combat,kicker"), { left: "classic", right: "classic" });
-  assert.deepEqual(readControls("?control=point-left,point-alternate"), { left: "classic", right: "classic" });
+  // A side's control is its model's own mind's preset unless the link names another it fits.
+  assert.deepEqual(readControls(""), { left: "options", right: "options" });
+  assert.deepEqual(readControls("?control=unknown,scrapper"), { left: "options", right: "scrapper" });
+  assert.deepEqual(readControls("?control=combat,kicker"), { left: "options", right: "options" });
+  assert.deepEqual(readControls("?control=point-left,point-alternate"), { left: "options", right: "options" });
+  assert.deepEqual(readControls("?matchup=reptile,workshop-fighter&control=classic"), { left: "crawl", right: "classic" });
   assert.deepEqual(readMinds("?control=scrapper,classic&guard=cover&right.guard=cover"), { left: SCRAPPER, right: CLASSIC });
   assert.deepEqual(readMinds("?control=puncher,scrapper"), { left: PUNCHER, right: SCRAPPER });
   assert.deepEqual(["", "?recovery=", "?recovery=-1", "?recovery=Infinity", "?recovery=61"].map(readRecovery), Array(5).fill(undefined));

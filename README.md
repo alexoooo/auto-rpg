@@ -59,7 +59,8 @@ side. Isometric offers orthographic and perspective projection; Chase follows on
 These controls work while paused and after the verdict. Links retain the view with `view`,
 `camera`, `projection` and `focus` parameters.
 
-Each contender has a **Controller** choice: Classic fighter, **Puncher**, **Scrapper**, or
+Each contender has a **Controller** choice: the **Options fighter** (every humanoid's own mind, in
+the Arena and the Crypt), Classic fighter, **Puncher**, **Counter-puncher**, **Scrapper**, or
 **Behaviours**, a fighter made of behaviours. A preset you change in the panel reads
 **Custom (from** its preset**)**.
 Humanoids choose a wooden club or empty hands.

@@ -10,7 +10,7 @@ import { companionSpawn } from "../src/dungeon/party-placement.ts";
 import { DungeonRun } from "../src/dungeon/run.ts";
 import { orderLabel } from "../src/dungeon/commands.ts";
 import { clearSegment, distance, walkable } from "../src/dungeon/map.ts";
-import { CLASSIC, GAME_FIGHTER } from "../src/core/mind/config.ts";
+import { CLASSIC, OPTIONS } from "../src/core/mind/config.ts";
 import { classicDungeon } from "./fixtures/classic-dungeon.mjs";
 import { freshEngine } from "./harness/core-stand.mjs";
 
@@ -35,18 +35,18 @@ function floorAway(map, metres, bearing = 0) {
 
 test("a_party_member_plays_the_mind_the_run_is_given_for_its_model_and_an_enemy_its_models_own", async () => {
   const map = classicDungeon(42); map.spawns = [floorAway(map, 3)];
-  // The Rogue rising by stages (Classic) where its model lies still once down; an enemy Rogue nearby, which the party stirs.
+  // The Rogue under Classic where its model's own mind is the options fighter; an enemy Rogue nearby, which the party stirs.
   const { run, dispose } = await crypt(map, { companions: ["workshop-rogue"], enemy: () => "workshop-rogue", minds: { "workshop-rogue": CLASSIC } });
   try {
     seconds(run, 1);
     const minds = Object.fromEntries(run.actors.map((actor) => [actor.id, actor.fighter?.mind]));
-    assert.deepEqual(minds, { hero: GAME_FIGHTER, "ally-0": CLASSIC, "enemy-0": GAME_FIGHTER });
-    // The mind each plays is the one it names: the ally's sub-mind is the staged rise, the enemy's lies.
-    assert.deepEqual(run.actors.map((actor) => actor.fighter.minded.kind), ["fighter", "fighter", "fighter"]);
+    assert.deepEqual(minds, { hero: OPTIONS, "ally-0": CLASSIC, "enemy-0": OPTIONS });
+    // The mind each plays is the one it names: the options fighter's tactics decide by a meta-controller, Classic's do not.
+    assert.deepEqual(Object.fromEntries(run.actors.map((actor) => [actor.id, "meta" in actor.fighter.minded.skills.state.tactics])), { hero: true, "ally-0": false, "enemy-0": true });
   } finally { dispose(); }
-  // The control: given none, the Rogue in the party lies too.
+  // The control: given none, the Rogue in the party plays its model's own.
   const plain = await crypt(map, { companions: ["workshop-rogue"] });
-  try { assert.deepEqual(plain.run.party.map((member) => member.fighter.mind), [GAME_FIGHTER, GAME_FIGHTER]); } finally { plain.dispose(); }
+  try { assert.deepEqual(plain.run.party.map((member) => member.fighter.mind), [OPTIONS, OPTIONS]); } finally { plain.dispose(); }
 });
 
 test("a_dungeon_order_reads_as_its_label", () => {

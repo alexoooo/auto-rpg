@@ -278,11 +278,11 @@ export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tacti
 /** Standing up by stepping up (`stepUp`), the way the game's fighters rise once down. */
 export const STAND_UP: StandUpConfig = deepFreeze({ kind: "stand-up", techniques: ["step-up"] });
 
-/** The mind every humanoid has unless its fight says otherwise: the recipe fighter, getting about by `MOVE` and standing up once down. */
-export const GAME_FIGHTER: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, locomotion: MOVE, subs: [STAND_UP] });
+/** The Classic fighter: the recipe fighter, getting about by `MOVE` and standing up once down. */
+export const CLASSIC: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, locomotion: MOVE, subs: [STAND_UP] });
 
-/** The Arena's Classic: the game's fighter. */
-export const CLASSIC: FighterConfig = GAME_FIGHTER;
+/** The options fighter's config (`createOptionsFighter`), the mind every humanoid has unless its fight says otherwise: its kind, and nothing to set yet. */
+export const OPTIONS: OptionsConfig = deepFreeze({ kind: "options" });
 
 /** Classic throwing the straight punch, its fist lined up behind the arm (searched in Arena bouts, `research/punch-in-bout.mjs`), held at the edge of its foe's reach. */
 export const PUNCHER: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...FIGHTING, list: [
@@ -311,7 +311,7 @@ export const ARENA_KICKS: KickTuning = deepFreeze({ ...KICK_PATH, swingSeconds: 
  * (`docs/reference/ground-combat.md#arena-integration`), and rising, then steadying, once down. It
  * travels by the stride, which leaves the stance its low support steps from (`drivesLegs`).
  */
-export const SCRAPPER: FighterConfig = deepFreeze({ ...GAME_FIGHTER,
+export const SCRAPPER: FighterConfig = deepFreeze({ ...CLASSIC,
   locomotion: { ...MOVE, rules: MOVE.rules.filter(rule => rule.gait === "braced"), otherwise: "stride" },
   tactics: { ...FIGHTING, choose: { kind: "estimate", rethink: .2, patience: 2 }, list: [
     { kind: "follow-orders" }, { kind: "clear-of-walls" }, { kind: "ground" }, { kind: "attack" },

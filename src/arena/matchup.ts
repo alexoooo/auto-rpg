@@ -1,4 +1,4 @@
-import { BODY_MODELS, modelHolds, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHolds, modelInfo, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { PRESETS } from "../core/mind/controllers.ts";
 import { isOrders } from "../core/mind/orders.ts";
@@ -152,7 +152,7 @@ export function readControls(search: string): Readonly<Record<Side, Control>> {
   const models = readMatchup(search);
   const read = (s: string | undefined, model: BodyModel): Control => {
     const choices = controlsFor(model);
-    return s !== undefined && choices.includes(s) ? s : choices.includes("classic") ? "classic" : choices[0]!;
+    return s !== undefined && choices.includes(s) ? s : choices.find((control) => PRESETS[control]!.config === modelInfo(model).mind) ?? choices[0]!;
   };
   return { left: read(parts[0], models.left), right: read(parts[1] ?? parts[0], models.right) };
 }

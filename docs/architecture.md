@@ -444,7 +444,7 @@ Their actuator methods and their readiness/footprints remain their own.
   legs asked to stand first and changed from once it has given them back; resumes the gait it
   changes to from the body as it is, and gives tactics the envelope of the gait it walks by. Two
   gaits of one walk (`MoveGait`), as Walk and Run are, change at once, the walk told whether it may
-  run. Every humanoid's mind gets about by `MOVE` (`GAME_FIGHTER`): braced while it stands or a
+  run. Classic gets about by `MOVE` (`CLASSIC`): braced while it stands or a
   standing foe is within 5 m; walking while one is within 10 m, so that it comes to a fight at a
   walk it stops from in a few steps; running to where it goes more than 6 m off, or with nowhere to
   go; walking otherwise. An Arena bout opens at 4 m, so it fights from its first step. Ordered a
@@ -637,8 +637,8 @@ unique across controllers) and makes the mind (`create`). Each controller compos
 tactics and skills; what they share is shared code (the orders, the targets, the guard, the
 sub-minds, locomotion and the strike cycle), not a flag that chooses a stack. There are four: the
 **fighter** (`createFighter`, `fighter.ts`), whose tactics and skills are parts in its slots;
-the **options fighter** (`createOptionsFighter`, `src/core/mind/options/`), experimental, with
-nothing yet to configure; the **quadruped** (crawl and bite); and **direct** joint control. A config read from a save or a link whose kind none has is refused
+the **options fighter** (`createOptionsFighter`, `src/core/mind/options/`), every humanoid's own
+mind, with nothing yet to configure; the **quadruped** (crawl and bite); and **direct** joint control. A config read from a save or a link whose kind none has is refused
 (`partOf`), and so is a tree any part of which names a fault (`treeFaults`, which `createMind`
 reads). A part's config holds a player's fields, plain choices, and under `tuning` an
 experiment's settings, which never travel in a link. A key its part does not read, or a tuning it
@@ -751,9 +751,10 @@ the stance climbing to standing height. The others remain experimental. `SubMind
 critical phase and lets ranked higher sub-minds take it at the first yielding boundary.
 
 `RECIPE_FIGHTER` uses shared action tactics over the recipe executor, walking in the stance, with `lie`;
-the Lab's minds are made from it. `GAME_FIGHTER` is it getting about by `MOVE` and standing up
-once down (`STAND_UP`, step-up alone): the mind every humanoid has unless its fight says
-otherwise (`modelInfo`), and Classic. Puncher, Scrapper and Behaviours stand up as it does. An arena
+the Lab's minds are made from it. `CLASSIC` is it getting about by `MOVE` and standing up
+once down (`STAND_UP`, step-up alone); Puncher, Scrapper and Behaviours stand up as it does. The
+mind every humanoid has unless its fight says otherwise (`modelInfo`) is the options fighter
+(`OPTIONS`), and the Arena's picker opens on it. An arena
 recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives an enemy its model's (`modelInfo`) and a party member the
 mind chosen for its model on the start panel (`DungeonRunOptions.minds`), its model's unless one
 was; the lab's actor drives the fighter its page chose (`ActorOptions.mind`), the Script preset
