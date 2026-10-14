@@ -137,8 +137,8 @@ test("a real Lab blow records fists, replays them and preserves closure through 
   const stand = await coreStand(modelSpec("workshop-fighter"));
   const actor = labActor(stand.built, stand.world);
   const blow = throwBlow(actor, { hand: "left", strike: null, place: { ahead: .5, up: 0 }, band: "high" });
-  const hands = strikeHands(stand.world, actor.body, () => blow.report.strike);
-  const history = recordHistory(stand.built, stand.world, 10, () => ({ closure: hands.snapshot(), phase: blow.report.strike.phase }));
+  const hands = fighterHands({ minded: { body: actor.body } }), phase = () => blow.report.actions.find(action => action.effector === "hand.left")?.phase ?? null;
+  const history = recordHistory(stand.built, stand.world, 10, () => ({ closure: hands.snapshot(), phase: phase() }));
   const player = createPlayer({ world: stand.world, recording: history }, () => {}, () => 0);
   const slot = skinSlot(stand.built);
   const options = { clothing: { boots: true, armour: true }, closure: hand => history.at(player.shownFrame() ?? history.live())?.closure[hand] ?? 0 };
@@ -150,7 +150,7 @@ test("a real Lab blow records fists, replays them and preserves closure through 
     let swing = -1;
     for (let i = 0; i < stand.seconds(9); i++) {
       stand.step();
-      if (blow.report.strike.phase === "swing" && swing < 0) swing = history.live();
+      if (phase() === "commit" && swing < 0) swing = history.live();
       if (swing >= 0 && hands.closure("left") === 0) break;
     }
     assert.ok(swing >= 0, "the fixture actually swings");
@@ -206,18 +206,13 @@ test("Crypt supplies the world to presentation during construction and when an e
   }
 });
 
-for (const mind of [RECIPE_FIGHTER, COMBAT]) test(`${mind.tactics.kind}: actual Arena punches form fists without changing the bout`, async () => {
+for (const [name, mind] of [["the recipe fighter", RECIPE_FIGHTER], ["Combat", COMBAT]]) test(`${name}: actual Arena punches form fists without changing the bout`, async () => {
   const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: 2, capSeconds: 8,
     balance: { left: 25, right: 25 }, held: { left: "empty", right: "empty" }, minds: { left: mind, right: mind } };
   const run = async decorated => {
     const stand = await buildBout(recipe, { physicsEngine: await freshEngine(DEFAULT_ENGINE) });
     const { world, duel } = stand, scene = world.scene, poses = [], skins = [], swung = new Set();
     try {
-      // Classic receives stationary practice marks so its approach does not chase a moving foe.
-      if (mind.tactics.kind === "seek") for (const side of ["left", "right"]) {
-        const head = duel.duelists[side].body.physical.head;
-        duel.order(side, { move: null, face: 0, attack: [head.x, head.y, head.z + .5] });
-      }
       if (decorated) for (const [index, fighter] of Object.values(duel.duelists).entries()) {
         const hands = fighterHands(fighter);
         poses.push(hands);
@@ -228,12 +223,13 @@ for (const mind of [RECIPE_FIGHTER, COMBAT]) test(`${mind.tactics.kind}: actual 
         if (decorated) {
           scene.onBeforeRenderObservable.notifyObservers(scene);
           for (const [index, fighter] of Object.values(duel.duelists).entries()) {
-            const strike = fighter.minded.skills.report.strike;
-            if (strike.phase !== "swing" || !commandsBody(fighter.body) || fighter.pool.ending()) continue;
-            assert.equal(poses[index].closure(strike.hand), 1);
-            const finger = skins[index].meshes.find(m => m.name.endsWith(`.hand.${strike.hand}.finger.0.2`));
+            const strike = fighter.minded.skills.report.actions.find(action => action.phase === "commit" && action.effector.startsWith("hand."));
+            if (!strike || !commandsBody(fighter.body) || fighter.pool.ending()) continue;
+            const hand = strike.effector.slice(5);
+            assert.equal(poses[index].closure(hand), 1);
+            const finger = skins[index].meshes.find(m => m.name.endsWith(`.hand.${hand}.finger.0.2`));
             near(finger.rotationQuaternion.x, -Math.sin(5 * Math.PI / 12));
-            swung.add(`${fighter.side}:${strike.hand}`);
+            swung.add(`${fighter.side}:${hand}`);
           }
         }
       }

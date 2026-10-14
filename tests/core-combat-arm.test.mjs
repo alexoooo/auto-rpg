@@ -1,35 +1,33 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validArmExtension,NO_COVER} from '../src/core/mind/intent.ts';
-import {ATTACK_PATH} from '../src/core/skills/attack-path.ts';
-import {combatSkills} from '../src/core/skills/combat.ts';
+import {validArmExtension} from '../src/core/mind/intent.ts';
+import {SCRAPPER} from '../src/core/mind/config.ts';
+import {actionConfigFaults} from '../src/core/mind/action-config.ts';
+import {driveFighter} from '../src/core/mind/fighter.ts';
 import {combatStrike} from '../research/combat-strikes.mjs';
 import {coreStand,saveStand,loadStand} from './harness/core-stand.mjs';
+import {pathStand} from './harness/path-stand.mjs';
 import {modelSpec} from '../src/core/models.ts';
 import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
 import {GUARD} from '../src/core/skills/guard.ts';
 import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {traceOf} from './harness/trace.mjs';
 
-async function stand(hand,armExtension,elbowExtension=0) {
- const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
- const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body,{},{paths:{...ATTACK_PATH,elbowExtension}});
- const action={kind:'blow',hand,target:[hand==='right'?.1:-.1,1.63,.6],path:{family:'straight',armExtension}};
- body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,attack:view.time>=2?action:null},dt));
- return {...s,body,skills,action};
-}
+/** Scrapper with its straight action's arm style set to `armExtension`. */
+const styled=armExtension=>({...SCRAPPER,actions:SCRAPPER.actions.map(action=>action.name==='straight'?{...action,armExtension}:action)});
 
-test('the shared executor rejects invalid action arm styles before capturing a strike',async()=>{
+test('an invalid action arm style is a fault of the config, refused before any executor is built',async()=>{
  for(const v of [undefined,0,.5,1])assert.equal(validArmExtension(v),true);
  for(const v of [-.1,1.1,NaN,Infinity])assert.equal(validArmExtension(v),false);
- const s=await stand('right',0);
+ const spec=modelSpec('workshop-fighter');
+ for(const v of [0,.5,1])assert.deepEqual(actionConfigFaults(spec,SCRAPPER.executors,styled(v).actions),[]);
+ const s=await coreStand(spec,{engine:DEFAULT_ENGINE}),body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true});
  try{
-  s.step(240);const snapshot=structuredClone(s.skills.state);
-  for(const armExtension of [-.1,1.1,NaN,Infinity]){
-   assert.throws(()=>s.skills.command(s.body.view,{move:null,face:0,guard:NO_COVER,attack:{...s.action,path:{...s.action.path,armExtension}}},1/120),/armExtension/);
-   assert.equal(s.skills.state.blow.hands.right.action,snapshot.blow.hands.right.action);assert.equal(s.skills.state.blow.hand,null);
+  for(const v of [-.1,1.1,NaN,Infinity]){
+   assert.deepEqual(actionConfigFaults(spec,SCRAPPER.executors,styled(v).actions),['straight: invalid arm extension']);
+   assert.throws(()=>driveFighter(body,s.world,styled(v),{name:'styled',orders:()=>null}),/^Error: straight: invalid arm extension$/);
   }
- }finally{s.body.dispose();s.dispose();}
+ }finally{body.dispose();s.dispose();}
 });
 
 test('action arm style overrides both inherited preferences through whole physical contact and miss cycles on either hand',async()=>{
@@ -44,24 +42,33 @@ test('action arm style overrides both inherited preferences through whole physic
  }
 });
 
-test('captured arm style survives changed proposals, verified return, fresh-world forks and takeover',async()=>{
+test('an action arm style extends the elbow in its swing, keeps the target it took through a moved proposal and a fresh-world fork to its verified return, and ends on takeover',async()=>{
  for(const hand of ['right','left']){
-  const a=await stand(hand,1),b=await stand(hand,1);
+  const a=await pathStand({hand,action:{armExtension:1}}),b=await pathStand({hand,action:{armExtension:1}}),name=`elbow.${hand} flexion`;
   try{
-   while(a.skills.report.strike.phase!=='swing'&&a.world.time<5)a.step();a.step(8);
-   assert.equal(a.skills.report.strike.phase,'swing');assert.ok(a.skills.state.blow.hands[hand].elbow>0);
-   a.action.path.armExtension=0;
-   const states=s=>({body:s.body.state,skills:s.skills.state});
-   loadStand(b.world,states(b),saveStand(a.world,states(a)));b.action.path.armExtension=0;
-   const ta=traceOf([a.built]),tb=traceOf([b.built]);let returned=false;
-   for(let i=0;i<200;i++){
-    if(a.skills.report.strike.hand&&!returned)assert.equal(a.skills.state.blow.hands[hand].action.path.armExtension,1);
-    a.step();b.step();ta.take();tb.take();returned ||= a.skills.report.strike.pointCycle.returned[hand]>0;
+   while(a.stage()!=='swing'&&a.world.time<5)a.step();a.step(8);
+   assert.equal(a.stage(),'swing');
+   const live=a.paths.lives[hand],taken=[...live.target];
+   assert.ok(live.elbow>0&&a.skills.state.command.posture[name]<GUARD[name]-.1,JSON.stringify({elbow:live.elbow,posture:a.skills.state.command.posture[name]}));
+   // The same request, its point moved: the stroke keeps the point it was admitted with.
+   a.aim.at=[a.aim.at[0],a.aim.at[1]-.2,a.aim.at[2]];
+   loadStand(b.world,b.states(),saveStand(a.world,a.states()));b.aim.at=[...a.aim.at];
+   const ta=traceOf([a.built]),tb=traceOf([b.built]),id=live.request.id;
+   for(let i=0;i<200&&!a.skills.report.ledger.some(record=>record.id===id);i++){
+    assert.deepEqual(a.paths.lives[hand].target,taken);
+    a.step();b.step();ta.take();tb.take();
    }
-   assert.equal(returned,true);assert.deepEqual(saveStand(a.world,states(a)).state,saveStand(b.world,states(b)).state);
-   assert.equal(ta.digest(),tb.digest());assert.equal(a.skills.state.blow.hands[hand].action.path.armExtension,0);
-   assert.equal(a.skills.state.command.posture[`elbow.${hand} flexion`],GUARD[`elbow.${hand} flexion`]);
-   a.skills.resume(a.body.view);assert.equal(a.skills.state.blow.hands[hand].elbow,0);assert.equal(a.skills.state.blow.hands[hand].initialElbow,0);assert.equal(a.skills.state.blow.hands[hand].action,null);
+   assert.deepEqual(a.skills.report.ledger.find(record=>record.id===id)?.ending,{kind:'completed'});
+   assert.deepEqual([a,b].map(s=>s.cycles.reading().returned[hand]),[1,1]);
+   assert.deepEqual(saveStand(a.world,a.states()).state,saveStand(b.world,b.states()).state);
+   assert.equal(ta.digest(),tb.digest());
+   assert.equal(a.paths.lives[hand],null);assert.equal(a.skills.state.command.posture[name],GUARD[name]);
+   // The next stroke, taken over in its swing, ends there and leaves the executor nothing.
+   while(a.stage()!=='swing'&&a.world.time<10)a.step();a.step(4);
+   const next=a.paths.lives[hand];assert.ok(next&&next.elbow>0);
+   a.skills.release(a.body.view,'takeover');
+   assert.deepEqual(a.paths.lives,{left:null,right:null});assert.deepEqual(a.skills.report.actions,[]);
+   assert.deepEqual(a.skills.report.ledger.at(-1).ending,{kind:'interrupted',reason:'takeover'});
   }finally{a.body.dispose();b.body.dispose();a.dispose();b.dispose();}
  }
 });

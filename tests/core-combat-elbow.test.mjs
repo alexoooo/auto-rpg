@@ -2,13 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {validAttackTuning,ATTACK_PATH} from '../src/core/skills/attack-path.ts';
 import {combatStrike} from '../research/combat-strikes.mjs';
-import {coreStand,saveStand,loadStand} from './harness/core-stand.mjs';
-import {modelSpec} from '../src/core/models.ts';
-import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
-import {combatSkills} from '../src/core/skills/combat.ts';
+import {saveStand,loadStand} from './harness/core-stand.mjs';
+import {pathStand} from './harness/path-stand.mjs';
 import {GUARD} from '../src/core/skills/guard.ts';
-import {NO_COVER} from '../src/core/mind/intent.ts';
-import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {traceOf} from './harness/trace.mjs';
 
 test('shared path validation bounds the elbow preference and rejects invalid durations and numbers',()=>{
@@ -35,20 +31,14 @@ test('either hand repeats extended head punches with useful contact mass and sur
  }
 });
 
-async function stand(hand='right',family='straight') {
- const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
- const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body,{},{paths:{...ATTACK_PATH,elbowExtension:1}});
- body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,
-  attack:view.time>=2?{kind:'blow',hand,target:[hand==='right'?.1:-.1,1.63,.6],path:{family}}:null},dt));
- return {...s,body,skills};
-}
+const stand=(hand='right',family='straight')=>pathStand({hand,action:{family},tuning:{elbowExtension:1}});
 
 test('extended cross preference composes with bounded trunk rotation on both hands',async()=>{
  for(const hand of ['right','left']){
   const s=await stand(hand,'cross');
   try{
-   while(s.skills.report.strike.phase!=='swing'&&s.world.time<5)s.step();s.step(8);
-   assert.equal(s.skills.report.strike.phase,'swing');
+   while(s.stage()!=='swing'&&s.world.time<5)s.step();s.step(8);
+   assert.equal(s.stage(),'swing');
    const pose=s.skills.state.command.posture,name=`elbow.${hand} flexion`;
    assert.ok(pose[name]<GUARD[name]-.1,JSON.stringify(pose));
    assert.ok(hand==='right'?pose['thoracic rotation right']>0:pose['thoracic rotation right']<0);
@@ -59,19 +49,24 @@ test('extended cross preference composes with bounded trunk rotation on both han
  }
 });
 
-test('elbow interpolation survives a fresh-world swing/return fork and resets on takeover',async()=>{
+test('elbow interpolation survives a fresh-world swing/return fork and ends on takeover',async()=>{
  for(const phase of ['swing','return']){
   const a=await stand(),b=await stand();
   try{
-   while(a.skills.report.strike.phase!==phase&&a.world.time<5)a.step();a.step(3);
-   assert.equal(a.skills.report.strike.phase,phase);assert.ok(a.skills.state.blow.hands.right.elbow>0);
-   const states=s=>({body:s.body.state,skills:s.skills.state});
-   loadStand(b.world,states(b),saveStand(a.world,states(a)));
+   while(a.stage()!==phase&&a.world.time<5)a.step();a.step(3);
+   assert.equal(a.stage(),phase);assert.ok(a.paths.lives.right.elbow>0);
+   loadStand(b.world,b.states(),saveStand(a.world,a.states()));
    const ta=traceOf([a.built]),tb=traceOf([b.built]);
    for(let i=0;i<160;i++){a.step();b.step();ta.take();tb.take();}
-   assert.deepEqual(saveStand(a.world,states(a)).state,saveStand(b.world,states(b)).state);
-   assert.equal(ta.digest(),tb.digest());assert.ok(a.skills.report.strike.pointCycle.returned.right>=1);
-   a.skills.resume(a.body.view);assert.equal(a.skills.state.blow.hands.right.elbow,0);assert.equal(a.skills.state.blow.hands.right.initialElbow,0);assert.equal(a.skills.report.strike.hand,null);
+   assert.ok([a,b].every(s=>s.cycles.reading().returned.right>=1));
+   assert.deepEqual(saveStand(a.world,a.states()).state,saveStand(b.world,b.states()).state);
+   assert.equal(ta.digest(),tb.digest());
+   // The stroke under way when the host takes the body ends there, and the executor holds no elbow.
+   while(!(a.paths.lives.right?.elbow>0)&&a.world.time<10)a.step();
+   assert.ok(a.paths.lives.right?.elbow>0);
+   a.skills.release(a.body.view,'takeover');
+   assert.deepEqual(a.paths.lives,{left:null,right:null});assert.deepEqual(a.skills.report.actions,[]);
+   assert.deepEqual(a.skills.report.ledger.at(-1).ending,{kind:'interrupted',reason:'takeover'});
   }finally{a.body.dispose();b.body.dispose();a.dispose();b.dispose();}
  }
 });

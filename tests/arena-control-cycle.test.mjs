@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { recoveryReady } from "../src/core/control/recovery-ready.ts";
 import { footStatesOf, readSupport } from "../src/core/control/support.ts";
-import { saveState } from "../src/core/state.ts";
-import { controlArena, recoveryCycle, strikeCycle, shoveControlFighter, walkAfterRecovery } from "../research/arena-control-trials.mjs";
+import { loadState, saveState } from "../src/core/state.ts";
+import { controlArena, pointAttacks, recoveryCycle, strikeCycle, shoveControlFighter, walkAfterRecovery } from "../research/arena-control-trials.mjs";
 import { traceOf } from "./harness/trace.mjs";
 
 test("handover requires upright, quiet, loaded foot support rather than a recovery stage", async () => {
@@ -127,17 +127,17 @@ test("a strike's return and its measured completion survive a fresh-world fork",
   const a = await controlArena(), b = await controlArena();
   try {
     a.world.step(180);
-    const h = a.fighter.body.view.head;
-    a.duel.order("left", { move: null, face: null, attack: [h.x, h.y, h.z + .65] });
-    const report = a.fighter.minded.skills.report.strike;
-    while (a.world.time < 15 && report.phase !== "return") a.world.step();
-    assert.equal(report.phase, "return");
-    a.world.step(10);
-    const saved = a.duel.save(); b.duel.load(saved);
-    const trace = traceOf(Object.values(a.duel.duelists).map((d) => d.built)), other = traceOf(Object.values(b.duel.duelists).map((d) => d.built));
-    for (let step = 0; step < 600; step++) { a.world.step(); b.world.step(); trace.take(); other.take(); }
-    assert.ok(report.pointCycle.returned.right >= 2);
-    assert.equal(trace.digest(), other.digest());
+    const h = a.fighter.body.view.head, target = [h.x, h.y, h.z + .65];
+    const one = pointAttacks(a, target), other = pointAttacks(b, target);
+    while (a.world.time < 15 && one.skills.report.actions[0]?.phase !== "release") { a.world.step(); one.cycles.sample(); }
+    assert.equal(one.skills.report.actions[0]?.stage, "return");
+    a.world.step(10); one.cycles.sample();
+    const saved = a.duel.save(); b.duel.load(saved); loadState(other.state, saveState(one.state));
+    const trace = traceOf(Object.values(a.duel.duelists).map((d) => d.built)), traced = traceOf(Object.values(b.duel.duelists).map((d) => d.built));
+    for (let step = 0; step < 600; step++) { a.world.step(); b.world.step(); one.cycles.sample(); other.cycles.sample(); trace.take(); traced.take(); }
+    assert.ok(one.cycles.reading().returned.right >= 2, JSON.stringify(one.cycles.reading()));
+    assert.equal(trace.digest(), traced.digest());
     assert.deepEqual(saveState(a.duel.state), saveState(b.duel.state));
+    assert.deepEqual(saveState(one.state), saveState(other.state));
   } finally { a.dispose(); b.dispose(); }
 });

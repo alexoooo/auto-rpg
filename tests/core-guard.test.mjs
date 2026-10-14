@@ -3,8 +3,8 @@
  * from its senses (`threatOf`, `src/core/mind/threat.ts`): a bare hand comes between the threat and
  * the head, and goes back to the guard; a club is laid across the threat's line, and is not swung
  * end over end; the threat is the foe's striking point that closes fastest on the head; in a bout
- * a club's blow at the head is met by the club that covers; an experiment's cover and threat ride
- * in the mind's config; the guard gives no goal to a hand the strike has; and a held item is
+ * a club's blow at the head is met by the club that covers; an experiment's cover rides in the
+ * mind's config; the guard gives no goal to a hand the strike has; and a held item is
  * turned at the wrist as near upright as the wrist allows, clear of its holder (`guardPosture`) (Node core stand and
  * arena bout, Rapier, 120 Hz; each side's balance its character's).
  */
@@ -21,7 +21,7 @@ import { armed } from "../src/core/human/grip.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
+import { FIGHTING, RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { createSenses } from "../src/core/mind/senses.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
@@ -232,7 +232,9 @@ test("the_threat_is_the_foes_striking_point_that_closes_fastest", async () => {
  * under `guard`: the surface of the one who stands.
  */
 async function firstBlow(gap, guard, experiment = {}) {
-  const { world, duel, dispose } = await buildBout({ left: "workshop-rogue", right: "workshop-fighter", gap, minds: { left: RECIPE_FIGHTER, right: withParts(RECIPE_FIGHTER, { tactics: { guard, tuning: { threat: experiment.threat } }, guard: { tuning: { covering: experiment.covering } } }) } });
+  const list = FIGHTING.list.map((behaviour) => behaviour.kind === "cover" ? { kind: "cover", guard } : behaviour);
+  const right = withParts(RECIPE_FIGHTER, { tactics: { list }, ...(experiment.covering ? { guard: { tuning: { covering: experiment.covering } } } : {}) });
+  const { world, duel, dispose } = await buildBout({ left: "workshop-rogue", right: "workshop-fighter", gap, minds: { left: RECIPE_FIGHTER, right } });
   try {
     duel.play([{ step: 0, side: "right", orders: STAND_ORDERS }]);
     while (duel.blows.length === 0 && duel.clock < 20) world.step();
@@ -255,54 +257,59 @@ test("a_clubs_blow_at_the_head_is_met_by_the_club_that_covers", async () => {
   }
 });
 
-test("an_experiments_cover_and_threat_ride_in_the_minds_config", async () => {
+test("an_experiments_cover_rides_in_the_minds_config", async () => {
   const pose = await firstBlow(3, "pose"), cover = await firstBlow(3, "cover");
   assert.notDeepEqual(cover, pose);
-  // The cover and the threat that are set, written out, are the bout with none written.
-  assert.deepEqual(await firstBlow(3, "cover", { covering: { ...GUARD_COVER }, threat: { ...THREAT } }), cover);
-  // A threat nothing can be is the pose's bout, to the bit; a cover held further out is another bout.
-  assert.deepEqual(await firstBlow(3, "cover", { threat: { within: 0, closing: THREAT.closing } }), pose);
-  assert.deepEqual(await firstBlow(3, "cover", { threat: { within: THREAT.within, closing: 1e9 } }), pose);
+  // The cover that is set, written out, is the bout with none written; a cover held further out is another bout.
+  assert.deepEqual(await firstBlow(3, "cover", { covering: { ...GUARD_COVER } }), cover);
   const further = await firstBlow(3, "cover", { covering: { out: GUARD_COVER.out + 0.15, seconds: GUARD_COVER.seconds } });
   assert.notDeepEqual(further, cover);
   assert.notDeepEqual(further, pose);
-  // In the pose neither is read.
-  assert.deepEqual(await firstBlow(3, "pose", { covering: { out: 0.5, seconds: 1 }, threat: { within: 9, closing: 0 } }), pose);
+  // In the pose the cover is not read.
+  assert.deepEqual(await firstBlow(3, "pose", { covering: { out: 0.5, seconds: 1 } }), pose);
 });
 
 test("the_guard_has_the_hands_the_strike_has_not", async () => {
   const stand = await coreStand(WARRIOR, { ground: true });
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   const skills = recipeSkills(body);
-  // The right hand attacks until its recipe's pushes begin, and is then told to cover as the left is all along.
-  const held = { target: null, covers: false, seen: [] };
+  // The right hand's strike is asked until it is swung, and the hand is then told to cover as the left is all along.
+  const held = { target: null, request: null, covers: false, seen: [] };
+  const around = () => ({ heading: skills.report.heading, placed: true, support: null, walk: null, lower: .03 });
   body.drive((view, dt) => {
     const cover = { threat: [view.head.x, view.head.y, view.head.z + 0.8], guarded: view.head.asArray() };
-    const attack = !held.covers && held.target ? { kind: "blow", hand: "right", target: held.target } : null;
-    const command = skills.command(view, { move: null, face: 0, guard: { left: held.target ? cover : null, right: held.covers ? cover : null }, attack }, dt);
-    const { hand, phase, blow } = skills.report.strike;
-    if (phase === "swing") held.covers = true;
-    held.seen.push({ hand, phase, blow, covers: held.covers, left: command.effectors["hand.left"]?.places.map((place) => place.point) ?? null, right: command.effectors["hand.right"]?.places.map((place) => place.point) ?? null });
+    if (held.target && !held.request && !held.covers) held.request = { id: skills.instance(), action: "strike", effector: "hand.right", target: { kind: "point", at: held.target } };
+    const actions = held.request && !held.covers ? [held.request] : [];
+    const command = skills.command(view, { move: null, face: 0, guard: { left: held.target ? cover : null, right: held.covers ? cover : null }, actions }, dt);
+    const [live] = skills.report.actions;
+    if (live?.phase === "commit") held.covers = true;
+    held.seen.push({ hand: live?.effector ?? null, phase: live?.phase ?? null, action: live?.action ?? null, covers: held.covers,
+      left: command.effectors["hand.left"]?.places.map((place) => place.point) ?? null, right: command.effectors["hand.right"]?.places.map((place) => place.point) ?? null });
     return command;
   });
   try {
     stand.step(stand.seconds(1));
     assert.ok(held.seen.every(({ left, right }) => left === null && right === null), "with no cover asked, no hand has a goal");
-    // A target the fist's recipe is thrown at: straight ahead, at the height of the head.
+    // A target the fist's recipe is thrown at from where the body stands: straight ahead, at the height of the head.
     const { head } = body.view;
-    held.target = [head.x, head.y + 0.04, head.z + skills.report.strike.rangeAt("right", 0).reach];
+    const ahead = Array.from({ length: 80 }, (_, i) => .3 + i * .01).find((z) =>
+      skills.readiness(body.view, "strike", "hand.right", { kind: "point", at: [head.x, head.y + 0.04, head.z + z] }, around()).kind === "ready");
+    assert.ok(ahead !== undefined, "some target straight ahead is ready without a step");
+    held.target = [head.x, head.y + 0.04, head.z + ahead];
     held.seen.length = 0;
-    stand.step(stand.seconds(6));
+    // The recipe places and settles the body for about 5 s before it swings.
+    stand.step(stand.seconds(10));
     const { seen } = held;
     // While the strike had the right hand, the guard gave it nothing, whatever it was told; the left covered throughout.
-    const taken = seen.filter(({ hand }) => hand === "right"), told = taken.filter(({ covers }) => covers);
-    assert.ok(told.length > 5 && told.every(({ blow }) => blow === "recipe"), `the recipe went on ${told.length} steps after its hand was told to cover`);
-    assert.deepEqual(taken.filter(({ right }) => right !== null), [], "the guard places no hand the strike has");
+    const taken = seen.filter(({ hand }) => hand === "hand.right"), told = taken.filter(({ covers }) => covers);
+    assert.ok(told.length > 5 && told.every(({ action }) => action === "strike"), `the strike went on ${told.length} steps after its hand was told to cover`);
+    // The guard's goal is the knuckles' cover; a hand the strike has carries the strike's goal, or none.
+    assert.deepEqual(taken.filter(({ right }) => right !== null && right.join() !== "strike"), [], "the guard places no hand the strike has");
     assert.deepEqual(seen.filter(({ left }) => left?.join() !== "knuckles"), [], "the left hand covers at every step");
     // The strike over, the right hand is the guard's, and covers.
-    const after = seen.slice(seen.findLastIndex(({ hand }) => hand === "right") + 1);
+    const after = seen.slice(seen.findLastIndex(({ hand }) => hand === "hand.right") + 1);
     assert.ok(after.length > 100 && after.every(({ hand, right }) => hand === null && right?.join() === "knuckles"), `${after.length} steps after the strike, the right hand covers`);
-    assert.equal(skills.report.strike.thrown.right, 1);
+    assert.deepEqual(skills.report.ledger.map(({ effector, committed }) => ({ effector, committed })), [{ effector: "hand.right", committed: true }]);
   } finally { body.dispose(); stand.dispose(); }
 });
 

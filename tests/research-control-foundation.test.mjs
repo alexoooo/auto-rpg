@@ -89,10 +89,11 @@ test("foundation starts are reproducible, split-disjoint and explicit about unsu
   assert.ok(directional.every((j, i) => j.actuation === "directional" && j.id !== a[i].id));
 });
 
-test("preparation counts commitments, not frames in a swing or aborted approaches", () => {
+test("preparation counts commitments, not steps in a commitment or its release, nor withdrawn preparations", () => {
   const meter = attackAccounting();
-  for (const [phase, time] of [["approach", 1], ["place", 2], ["chamber", 4], ["swing", 5], ["swing", 6], [null, 7],
-    ["approach", 8], [null, 9], ["settle", 10], ["swing", 12]]) meter.take(phase, time);
+  // A blow prepared from 2 s and committed at 5; one prepared at 8 and withdrawn; one prepared from 10 and committed at 12.
+  for (const [phase, time] of [[null, 1], ["prepare", 2], ["prepare", 4], ["commit", 5], ["commit", 6], ["release", 6.5], [null, 7],
+    ["prepare", 8], [null, 9], ["prepare", 10], ["commit", 12]]) meter.take(phase, time);
   assert.deepEqual(meter.preparations, [3, 2]);
   assert.deepEqual(proportion(0, 0), { successes: 0, count: 0, rate: null, interval95: null });
   const interval = proportion(1, 2);

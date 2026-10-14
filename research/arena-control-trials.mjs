@@ -54,13 +54,34 @@ export function walkAfterRecovery(stand) {
   let fell = false, steps = 0, was = swinging();
   for (let step = 0; step < 480 && !duel.verdict; step++) {
     if (step === 240) duel.order("left", STAND_ORDERS);
-    world.step(); cycles.sample(); fell ||= fighter.body.down;
+    world.step(); fell ||= fighter.body.down;
     const is = swinging();
     if (was && !is) steps += 1;
     was = is;
   }
   const now = fighter.body.view.stance.centre;
   return { fell, steps, travel: Math.hypot(now.x - from.x, now.z - from.z) };
+}
+
+/**
+ * The fighter's own skills, driven by a script in place of its tactics, striking the world point
+ * `target` with its first action again and again, with `hand` or each in turn ("alternate"), until
+ * `state.own.cancelled`. Its `state` is what of it a step changes, beside the bout's.
+ */
+export function pointAttacks(stand, target, hand = stand.harness.hand) {
+  const { world, fighter } = stand;
+  const producer = actionProducer(), action = fighter.mind.actions[0], own = { cancelled: false };
+  const script = { name: "point-cycles", state: producer.state, decide(sight) {
+    const around = { heading: sight.report.heading, placed: sight.view.stance.phase === "stand", support: sight.report.support ?? null, walk: null, lower: .03 };
+    const retained = sight.report.actions.find(item => item.id === producer.state.current?.id);
+    const effector = retained?.effector ?? (hand === "alternate" ? action.effectors[cycles.state.sequence % action.effectors.length] : "hand." + hand);
+    const ask = producer.request(sight, own.cancelled ? null : { action: action.name, effector, target: { kind: "point", at: target } }, around);
+    const position = ask.readiness?.kind === "position" ? approachActionWindow(sight.view, ask.readiness.window, sight.report.heading, sight.envelope?.walk.value ?? 0, .4) : {};
+    return { ...standIntent(sight.report.heading), ...position, actions: ask.requests };
+  } };
+  const skills = driveFighter(fighter.body, world, { ...fighter.mind, tactics: { kind: "script" } }, { name: "point-cycles", orders: () => null, script });
+  const cycles = actionCycles(skills);
+  return { skills, cycles, state: { own, skills: skills.state, cycles: cycles.state } };
 }
 
 /** Repeat placed attacks against a real collider, or against the same point in empty space. */
@@ -70,24 +91,13 @@ export function attackCycles(stand, { mode = "hit", seconds = 20, cancel = false
   const head = fighter.body.view.head, reach = harness.held === "club" ? 1 : .65;
   const target = [head.x + reach * forward[0], head.y, head.z + reach * forward[1]];
   const obstacle = mode === "hit" ? world.physics.addFixedBox([target[0] + .04 * forward[0], target[1], target[2] + .04 * forward[1]], [.2, .2, .08], heading) : null;
-  let cancelled = false;
-  const producer = actionProducer(), action = fighter.mind.actions[0];
-  const script = { name: "point-cycles", state: producer.state, decide(sight) {
-    const around = { heading: sight.report.heading, placed: sight.view.stance.phase === "stand", support: sight.report.support ?? null, walk: null, lower: .03 };
-    const retained = sight.report.actions.find(item => item.id === producer.state.current?.id);
-    const effector = retained?.effector ?? (harness.hand === "alternate" ? action.effectors[cycles.state.sequence % action.effectors.length] : "hand." + harness.hand);
-    const ask = producer.request(sight, cancelled ? null : { action: action.name, effector, target: { kind: "point", at: target } }, around);
-    const position = ask.readiness?.kind === "position" ? approachActionWindow(sight.view, ask.readiness.window, sight.report.heading, sight.envelope?.walk.value ?? 0, .4) : {};
-    return { ...standIntent(sight.report.heading), ...position, actions: ask.requests };
-  } };
-  const skills = driveFighter(fighter.body, world, { ...fighter.mind, tactics: { kind: "script" } }, { name: "point-cycles", orders: () => null, script });
-  const cycles = actionCycles(skills), report = skills.report, active = () => report.actions[0], start = world.time;
+  const attacks = pointAttacks(stand, target), { skills, cycles } = attacks;
+  const report = skills.report, active = () => report.actions[0], start = world.time;
   let fell = false, contactSteps = 0, swingContactSteps = 0, previousPhase = null, contactedThisSwing = false;
   const transitions = [], contactHands = new Set(), impacts = [], touchingBefore = { left: false, right: false };
   const point = new Vector3(), velocity = new Vector3(), spin = new Vector3();
   const aims = Object.fromEntries(["left", "right"].map((hand) => [hand,
     rigidPoints(fighter.built.spec, fighter.built.segments.get(`hand.${hand}`).spec).get(aimOf(fighter.built.spec, hand)).value]));
-
   while (world.time - start < seconds && !duel.verdict) {
     const closing = {};
     for (const hand of ["left", "right"]) {
@@ -101,7 +111,7 @@ export function attackCycles(stand, { mode = "hit", seconds = 20, cancel = false
       if (active()?.stage === "swing") contactedThisSwing = false;
       transitions.push({ phase: active()?.stage ?? null, hand: active()?.effector.slice(5), time: world.time - start }); previousPhase = active()?.stage ?? null;
     }
-    if (cancel && !cancelled && active()?.stage === "swing" && world.time - (active()?.began ?? world.time) >= .1) { duel.order("left", STAND_ORDERS); cancelled = true; }
+    if (cancel && !attacks.state.own.cancelled && active()?.stage === "swing" && world.time - (active()?.began ?? world.time) >= .1) { duel.order("left", STAND_ORDERS); attacks.state.own.cancelled = true; }
     for (const hand of ["left", "right"]) {
       const touching = obstacle && world.physics.contactsOf(fighter.built.segments.get(`hand.${hand}`).body).some((c) => c.fixed === obstacle.id && c.impulse > 0);
       if (touching) {
@@ -116,7 +126,7 @@ export function attackCycles(stand, { mode = "hit", seconds = 20, cancel = false
     }
   }
   duel.order("left", STAND_ORDERS);
-  return { mode, fell, contactSteps, swingContactSteps, impacts, contactHands: [...contactHands], transitions, cancelled,
+  return { mode, fell, contactSteps, swingContactSteps, impacts, contactHands: [...contactHands], transitions, cancelled: attacks.state.own.cancelled,
     thrown: cycles.reading().thrown, returned: cycles.reading().returned, failed: cycles.reading().failed, interrupted: cycles.reading().aborted };
 }
 
