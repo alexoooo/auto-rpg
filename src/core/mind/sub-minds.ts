@@ -6,7 +6,7 @@ import { TECHNIQUES, type TechniqueName } from "./ground/techniques.ts";
 import { graphWork, reachable } from "./ground/graph.ts";
 import { commandable, type Body, type BodyView } from "../body.ts";
 import { deepFreeze } from "../state.ts";
-import type { SubMindConfig } from "./config.ts";
+import { STAND_UP, type SubMindConfig } from "./config.ts";
 import { lying } from "./lie.ts";
 import type { OwnBody } from "./mind.ts";
 import { supportRecovery } from "./rise/support-recovery.ts";
@@ -30,8 +30,8 @@ const plain = <K extends SubMindConfig["kind"]>(kind: K, label: string, fits: Pa
  * a rise is the human's recipe (`RISE`), for a body that takes the commands it gives.
  */
 export const SUB_MIND_PARTS: { readonly [K in SubMindConfig["kind"]]: Part<Extract<SubMindConfig, { kind: K }>> } = Object.freeze({
-  "stand-up": deepFreeze<Part<Extract<SubMindConfig, { kind: "stand-up" }>>>({ role: "sub-mind", label: "Stand up", stage: "experimental", fields: [], slots: [],
-    defaults: { kind: "stand-up", techniques: ["plant-up", "roll", "roll-back", "sit-up", "post-up"] },
+  "stand-up": deepFreeze<Part<Extract<SubMindConfig, { kind: "stand-up" }>>>({ role: "sub-mind", label: "Stand up", stage: "game", fields: [], slots: [],
+    defaults: STAND_UP,
     fits: (spec, config) => commandable(spec) && Array.isArray(config.techniques) && config.techniques.every((name: TechniqueName) => TECHNIQUES[name]?.fits(spec)),
     faults: config => {
       if (!Array.isArray(config.techniques)) return ["techniques must be a ranked list"];

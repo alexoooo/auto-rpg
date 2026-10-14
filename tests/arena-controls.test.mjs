@@ -108,7 +108,7 @@ test("a real fall hands control to recovery, keeps sensing the opponent, and rep
     while (!fighter.body.down && duel.steps < 600) world.step();
     assert.ok(fighter.body.down, "the physical shove caused a fall");
     world.step(2);
-    assert.equal(fighter.body.has, "recovery: rise");
+    assert.equal(fighter.body.has, "stand up: brace");
     assert.equal(duel.verdict, null);
     assert.equal(duel.eliminated("left"), false);
     assert.equal(duel.duelists.right.body.view.senses.others.find(o => o.id === "left").out, false);
