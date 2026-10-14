@@ -231,8 +231,12 @@ export interface FighterConfig {
  */
 export type MindConfig = FighterConfig | OptionsConfig | DirectMindConfig | QuadrupedConfig;
 
-/** **The options fighter** (`createOptionsFighter`, `options/mind.ts`): a meta-controller over options; nothing in it is set yet. */
-export interface OptionsConfig { readonly kind: "options" }
+/** **The options fighter** (`createOptionsFighter`, `options/mind.ts`): a meta-controller over options; nothing in it is set yet but an experiment's tuning. */
+export interface OptionsConfig {
+  readonly kind: "options";
+  /** Whether its cover reflex runs: it does unless `cover` is false. */
+  readonly tuning?: { readonly cover?: boolean };
+}
 
 /** Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. */
 interface QuadrupedConfig {

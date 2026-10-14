@@ -190,6 +190,9 @@ export function pathExecutor(body: Body, actions: readonly PathAction[], setting
       if (!withinActionWindow(view, window, around.heading)) return { kind: "position", window };
       return { kind: "ready" };
     },
+    interrupt(_view, id) {
+      for (const hand of ["left", "right"] as const) if (state.lives[hand]?.request.id === id) { state.lives[hand] = null; strikes[hand].reset(); }
+    },
     resume() {
       state.lives.left = null; state.lives.right = null; state.cooldown = 0;
       strikes.left.reset(); strikes.right.reset();

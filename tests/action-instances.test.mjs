@@ -71,6 +71,23 @@ test("disjoint instances run together and withdrawal cannot be undone", () => {
   assert.equal(set.ledger[0].committed, false);
 });
 
+test("a live action is ended at once where its executor can forget it, freeing its hand, and runs on where it cannot", () => {
+  for (const stoppable of [true, false]) {
+    const { set, motion, request, step } = fixture();
+    if (stoppable) motion.interrupt = (_view, id) => { motion.state.live = motion.state.live.filter((item) => item.id !== id); };
+    const right = request(), left = request("hand.left");
+    step(0, [right, left]);
+    set.stop({ time: 1 }, [right.id], "taken");
+    if (!stoppable) { assert.deepEqual(set.live.map((s) => s.id), [right.id, left.id], "it runs on"); continue; }
+    assert.deepEqual(set.live.map((s) => s.id), [left.id]);
+    assert.deepEqual(motion.state.live.map((item) => item.id), [left.id], "its executor has forgotten it");
+    assert.deepEqual([set.ledger.at(-1).id, set.ledger.at(-1).ending], [right.id, { kind: "interrupted", reason: "taken" }]);
+    const next = request();
+    step(1, [left, next]);
+    assert.deepEqual(set.live.map((s) => s.id), [left.id, next.id], "the hand it held is free at once");
+  }
+});
+
 test("ids are issued, ordered, unique, retired and target identity is immutable", () => {
   const { set, request, step } = fixture({ ledger: 1 }), first = request(), skipped = request(), third = request();
   assert.throws(() => step(0, [{ ...third, id: 4 }]), /unissued/);

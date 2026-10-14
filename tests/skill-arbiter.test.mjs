@@ -24,7 +24,8 @@ function parts(claim = { effectors: { "hand.right": THROWN }, handPoses: { right
   const executor = { state, needs: () => needs, readiness: () => ({ kind: "ready" }),
     start: (_view, request) => { state.id = request.id; calls.push(["start", request.id]); },
     update: () => state.id === null ? [] : [{ id: state.id, phase: "commit", stage: "swing", holds: needs }],
-    command: () => claim, resume: () => { state.id = null; calls.push(["resume", "executor"]); } };
+    command: () => claim, resume: () => { state.id = null; calls.push(["resume", "executor"]); },
+    interrupt: (_view, id) => { if (state.id === id) state.id = null; calls.push(["interrupt", id]); } };
   return { calls, parts: { legs, guard, support, executors: [{ name: "motion", executor }], actions: [{ name: "strike", executor: "motion", effectors: ["hand.right"] }] } };
 }
 async function standing() {
@@ -78,6 +79,18 @@ test("support is claimed by an action before its lowering is applied", async () 
     assert.equal(command.posture["lumbar flexion"], .5);
     assert.equal(skills.report.holders["channel:lumbar flexion"], 1);
     assert.equal(skills.report.holders.stance, 1);
+  } finally { s.dispose(); }
+});
+
+test("an interrupt in the intent ends its action at once and the guard has its hand in the same step", async () => {
+  const s = await standing();
+  try {
+    const made = parts(), skills = skillSet(s.body, {}, made.parts);
+    assert.deepEqual(skills.command(s.body.view, intent(skills), DT).effectors["hand.right"], THROWN);
+    const command = skills.command(s.body.view, { ...intent(skills, []), interrupt: [1] }, DT);
+    assert.deepEqual([command.effectors["hand.right"], skills.report.actions, skills.report.holders["effector:hand.right"]], [COVER.right, [], "default"]);
+    assert.deepEqual(skills.report.ledger.map(record => [record.id, record.ending.kind]), [[1, "interrupted"]]);
+    assert.deepEqual(made.calls.filter(call => call[0] === "interrupt"), [["interrupt", 1]]);
   } finally { s.dispose(); }
 });
 

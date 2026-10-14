@@ -183,6 +183,17 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
         }
       }
     },
+    /** End each of `ids` that is live and whose executor can forget it at once (`Executor.interrupt`), as interrupted for `reason`. */
+    stop(view: BodyView, ids: readonly number[], reason: string): void {
+      for (const id of ids) {
+        const item = find(id), executor = item ? executors[item.executor]!.executor : null;
+        if (!item || !executor?.interrupt) continue;
+        executor.interrupt(view, id);
+        end(item, { kind: "interrupted", reason }, Math.max(view.time, state.observedTime));
+        const attributed = state.attribution.findIndex(a => a.id === id);
+        if (attributed >= 0) state.attribution.splice(attributed, 1);
+      }
+    },
     interrupt(view: BodyView, reason: string): void {
       while (state.live.length) end(state.live[0]!, { kind: "interrupted", reason }, Math.max(view.time, state.observedTime));
       state.attribution.length = 0;

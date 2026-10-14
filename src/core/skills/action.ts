@@ -134,5 +134,7 @@ export interface Executor extends Skill {
   start(view: BodyView, request: ActionRequest, around: ActionAround): void;
   command(view: BodyView, id: number, around: ActionAround): ActionClaim;
   overlay?(view: BodyView, id: number, base: Readonly<BodyCommand>, around: ActionAround): CommandPatch | null;
+  /** Forget instance `id` at once, what it held going back to the defaults; an executor without it lets its actions run their course. */
+  interrupt?(view: BodyView, id: number): void;
   readonly state: object;
 }

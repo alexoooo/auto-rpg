@@ -53,9 +53,9 @@ const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
  */
 export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extract<MindConfig, { kind: K }>> } = Object.freeze({
   options: {
-    role: "mind", label: "Options fighter", stage: "game", fields: [], slots: [], defaults: OPTIONS,
+    role: "mind", label: "Options fighter", stage: "game", fields: [], slots: [], defaults: OPTIONS, tuning: ["cover"],
     fits: optionsFit,
-    faults: () => [],
+    faults: config => ["undefined", "boolean"].includes(typeof config.tuning?.cover) ? [] : ["tuning.cover: true or false"],
     presets: deepFreeze({ options: { label: "Options fighter", config: OPTIONS } }),
     builtIn: guardPosture,
     create: createOptionsFighter,

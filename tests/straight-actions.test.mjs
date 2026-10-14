@@ -36,5 +36,7 @@ test("the native straight punch prepares, commits, returns and emits pure own-ar
     executor.start(body.view, { ...request, id: 2 }, around);
     assert.equal(executor.update(body.view, [], around, 1 / 120)[0].phase, "release");
     assert.deepEqual(executor.state.live.ending, { kind: "cancelled" });
+    executor.interrupt(body.view, 2);
+    assert.deepEqual([executor.state.live, executor.update(body.view, [], around, 1 / 120)], [null, []], "interrupted, it is forgotten at once");
   } finally { body.dispose(); stand.dispose(); }
 });

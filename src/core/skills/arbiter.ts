@@ -74,6 +74,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     },
     command(view: BodyView, intent: Intent, dt: number): BodyCommand {
       const near = context(intent);
+      if (intent.interrupt?.length) instances.stop(view, intent.interrupt, "its mind took what it held");
       instances.step(view, intent.actions, near, dt);
       for (const key in state.owners) delete state.owners[key];
       for (const key in state.reservations) delete state.reservations[key];

@@ -78,7 +78,10 @@ and returns to guard. Optional lateral head-surface samples expand the same coll
 A new opposite-hand action can overlap a physically returning hand when their resources and the
 shared executor permit it. Each hand has its own `effectorStrike`, so the returning instance keeps
 its motion sequence and completion checks; both arms share ordinary body commands, muscles and
-locomotion. Recovery interrupts both instances.
+locomotion. Recovery interrupts both instances. A mind may end one live action at once by naming it in
+its intent (`Intent.interrupt`): the set records it interrupted and its executor forgets it
+(`Executor.interrupt`, which the straight punch and the path executor have; an action of another
+runs its course), so what it held is free in the same step.
 The overlap admission screen does not establish stronger combat; see [measurements](reference/combat-overlap.md).
 Classic uses the recipe executor. Released resources return to the continuous defaults. Contact
 feedback carries trusted detached body/segment labels, point, normal and impulse; committed guard
@@ -684,7 +687,13 @@ guard's pose, and the Scrapper's low blow, support fold and gaits (braced near, 
 which leave the stance the fold steps from). Its body hands itself to one sub-mind, the down half
 (`downHalf`), which wants the body when the decision is a down option and hands it to that option's
 sub-mind, ending one and beginning another when the decision changes; so standing and down are one
-decision's. Its `Minded` is a fighter's, so what reads a fighter's report reads it.
+decision's. Under the option, reflexes (`reflexLayer`, `reflex.ts`) patch its intent every control
+step, in rank order: each, set off by its trigger, takes the hands it may that no reflex before it
+has, for at most its longest hold, then lets go until its trigger has gone; a hand a blow holds or
+the option asks for it takes only where it seizes, ending that blow (`Intent.interrupt`). The one
+reflex is cover: the hand on the side a blow closes on the head from, where it is free, between the
+two, for at most 1 s; the other hand stays the option's. Its `Minded` is a fighter's, so what
+reads a fighter's report reads it.
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`,
 `sub-mind`, `tactics`, `behaviour`, or a skill's: `locomotion`, `guard`, `executor`, `support`), a label, a stage (`game`, or `experimental` for research offered beside the

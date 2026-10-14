@@ -19,6 +19,7 @@ import { evade } from "./evade.ts";
 import type { Option, Situation } from "./option.ts";
 import { strikeLow } from "./low.ts";
 import { followOrders } from "./orders.ts";
+import { cover, reflexLayer } from "./reflex.ts";
 import { situationReader } from "./situation.ts";
 import { strike } from "./strike.ts";
 import { walker } from "./walk.ts";
@@ -47,6 +48,9 @@ const EDGE = (() => {
   return edge;
 })();
 
+/** The longest its cover holds a hand up against one run of blows, s. */
+const COVER_LONGEST = 1;
+
 /** What it does down, by rank: the sub-mind each down option is carried out by. */
 const DOWN: readonly (readonly [string, SubMindConfig])[] = deepFreeze([
   ["get up", STAND_UP], ["roll away", SUB_MIND_PARTS["get-away"].defaults], ["fight from the ground", SUB_MIND_PARTS["ground-fight"].defaults], ["lie still", { kind: "lie" }],
@@ -65,12 +69,15 @@ export const optionsFit = (spec: BodySpec): boolean => commandable(spec) && acti
  * near, and out of a solid's clearance (`Walker.constrain`). Standing options are carried out
  * through its skills (`SKILLS`), the hands holding the guard's pose; a down option is carried out
  * by its sub-mind, which the body's one sub-mind, its down half (`downHalf`), hands the body to.
+ * Under the option, its reflexes patch what it asks every control step (`reflexLayer`): its one,
+ * cover, puts the hand on the side a blow closes on the head from, where it is free, between the
+ * two (`cover`).
  *
  * The meta-controller decides once a control step, at the first that asks: the down half, which the
  * body asks whether it wants the body each step once it has looked and before its command layers act
  * (`hosting`), else the tactics. So what the body does, down or standing, is the one decision's.
  */
-export function createOptionsFighter(built: BuiltBody, world: World, _config: OptionsConfig, wiring: MindWiring) {
+export function createOptionsFighter(built: BuiltBody, world: World, config: OptionsConfig, wiring: MindWiring) {
   const walk = walker(built.spec), reader = situationReader((sight) => wiring.orders(sight.view.senses));
   let sight: Sight | null = null, meta: ReturnType<typeof metaController> | null = null;
   // The situation is read once a step, by whichever asks first; it is of the step's view, so nothing of it outlives the step.
@@ -97,14 +104,15 @@ export function createOptionsFighter(built: BuiltBody, world: World, _config: Op
     setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false, facing: "foe" }, walk),
   ];
   meta = metaController(options, options.map((_, i) => options.length - i));
-  const state = { meta: meta.state, situation: reader.state, options: options.map((option) => option.state) };
+  const reflexes = reflexLayer(config.tuning?.cover === false ? [] : [cover(COVER_LONGEST)]);
+  const state = { meta: meta.state, situation: reader.state, options: options.map((option) => option.state), reflexes: reflexes.state };
   const engagement = { get phase() { return meta!.state.running < 0 ? "guard" : options[meta!.state.running]!.name; } };
   const tactics: Tactics = { name: "options", state, engagement,
     decide(seen, dt) {
       const now = situation(seen), chosen = meta!.decide(now);
       const asked = chosen?.posture === "standing" ? chosen.step(now, dt) : { move: null, face: seen.report.heading, actions: [] };
       const near = chosen?.posture === "standing" ? chosen.near?.(now) ?? null : null;
-      return { ...asked, move: walk.constrain(now, asked.move, near), guard: NO_COVER };
+      return reflexes.apply(now, { ...asked, move: walk.constrain(now, asked.move, near), guard: NO_COVER });
     } };
   let skills: Skills;
   skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, world, SKILLS, driving, () => skills?.report.ledger ?? []));

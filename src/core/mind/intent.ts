@@ -27,6 +27,11 @@ export interface Intent {
   readonly lower?: number;
   /** Discrete commitments requested on this control step. */
   readonly actions: readonly ActionRequest[];
+  /**
+   * Live actions to end at once, as interrupted, freeing what they hold, by id; one whose executor
+   * cannot be stopped at once runs its course (`Executor.interrupt`).
+   */
+  readonly interrupt?: readonly number[];
   /** How far the body is from where its walk is taking it, m; absent where it is taking it nowhere. Its locomotion may choose its gait by it (`move`). */
   readonly destination?: number;
 }

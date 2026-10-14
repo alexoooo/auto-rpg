@@ -37,6 +37,21 @@ test("path footprints follow the action and command inspection is pure", async (
   } finally { f.dispose(); }
 });
 
+test("a path action interrupted is forgotten at once, and its hand admits another", async () => {
+  const f = await fixture();
+  try {
+    const { body, executor, request } = f;
+    executor.start(body.view, request, around);
+    executor.update(body.view, [request], around, dt);
+    executor.interrupt(body.view, 2);
+    assert.notEqual(executor.state.lives.right, null, "another id leaves it be");
+    executor.interrupt(body.view, request.id);
+    assert.deepEqual([executor.state.lives.right, executor.update(body.view, [], around, dt)], [null, []]);
+    executor.start(body.view, { ...request, id: 2 }, around);
+    assert.equal(executor.state.lives.right.request.id, 2);
+  } finally { f.dispose(); }
+});
+
 test("path withdrawal before its commitment boundary cannot be undone", async () => {
   const f = await fixture();
   try {

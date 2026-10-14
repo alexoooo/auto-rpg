@@ -316,6 +316,7 @@ export function straightPunchExecutor(body: Body, actions: readonly string[], se
       return { kind: "ready" };
     },
     resume() { state.live = null; technique.end(); },
+    interrupt(_view, id) { if (state.live?.request.id === id) { state.live = null; technique.end(); } },
     start(view, request, around) {
       if (state.live) throw new Error("straight punch already owns an instance");
       const hand = sideOf(request.effector), at = resolve(view, request.target, request.action, request.effector);
