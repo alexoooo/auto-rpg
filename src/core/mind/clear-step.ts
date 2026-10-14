@@ -2,66 +2,85 @@ import { cos, sin } from "../math/real.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { SolidSense } from "./object-senses.ts";
 
-function sweepBounds(solid: SolidSense, from: Vec3, to: Vec3) {
-  let a: Vec3, b: Vec3, low: Vec3, high: Vec3;
+/**
+ * A sweep from (`fx`, `fy`, `fz`) to (`tx`, `ty`, `tz`) in `solid`'s frame, written into `out`:
+ * the sweep's start at 0-2, its end at 3-5, and the solid's lowest corner at 6-8 and highest at
+ * 9-11. A box's frame is its own, turned and centred; a hull's is the world's, about its points'
+ * bounds.
+ */
+const SWEEP = 12;
+
+function sweepBounds(out: Float64Array, solid: SolidSense, fx: number, fy: number, fz: number, tx: number, ty: number, tz: number): Float64Array {
   switch (solid.kind) {
     case "box": {
-    const c = cos(solid.turn ?? 0), s = sin(solid.turn ?? 0);
-    const local = (v: Vec3): Vec3 => { const x = v[0] - solid.centre[0], z = v[2] - solid.centre[2];
-      return [c * x - s * z, v[1] - solid.centre[1], s * x + c * z]; };
-    a = local(from); b = local(to); low = solid.size.map(v => -v / 2) as unknown as Vec3; high = solid.size.map(v => v / 2) as unknown as Vec3;
-    break;
+      const c = cos(solid.turn ?? 0), s = sin(solid.turn ?? 0), cx = solid.centre[0], cy = solid.centre[1], cz = solid.centre[2];
+      let x = fx - cx, z = fz - cz;
+      out[0] = c * x - s * z; out[1] = fy - cy; out[2] = s * x + c * z;
+      x = tx - cx; z = tz - cz;
+      out[3] = c * x - s * z; out[4] = ty - cy; out[5] = s * x + c * z;
+      for (let k = 0; k < 3; k++) { out[6 + k] = -solid.size[k]! / 2; out[9 + k] = solid.size[k]! / 2; }
+      break;
     }
     case "hull":
-    a = from; b = to;
-    low = [0, 1, 2].map(k => Math.min(...solid.points.map(p => p[k]!))) as unknown as Vec3;
-    high = [0, 1, 2].map(k => Math.max(...solid.points.map(p => p[k]!))) as unknown as Vec3;
-    break;
+      out[0] = fx; out[1] = fy; out[2] = fz; out[3] = tx; out[4] = ty; out[5] = tz;
+      for (let k = 0; k < 3; k++) {
+        let low = Infinity, high = -Infinity;
+        for (let i = 0; i < solid.points.length; i++) { const p = solid.points[i]![k]!; low = Math.min(low, p); high = Math.max(high, p); }
+        out[6 + k] = low; out[9 + k] = high;
+      }
+      break;
     default: { const never: never = solid; throw new Error(`unknown sensed solid ${never}`); }
   }
-  return {a,b,low,high};
+  return out;
 }
 
 /** Closest outward horizontal direction when the body occupies a fixed solid's clearance margin. */
 export function clearanceExit(from: Vec3, radius: number, solids: readonly SolidSense[]): readonly [number,number] | null {
   if (!(radius >= 0) || !Number.isFinite(radius)) throw new Error("invalid body clearance radius");
-  for (const solid of solids) {
-    const {a,low,high}=sweepBounds(solid,from,from);
-    if(high[1]<=a[1]-radius||low[1]>=a[1]+radius)continue;
-    if([0,2].some(k=>a[k]!<low[k]!-radius||a[k]!>high[k]!+radius))continue;
-    let nearest=Infinity,axis=0,side=0;
-    for(const k of [0,2])for(const direction of [-1,1]) {
-      const gap=direction<0?a[k]!-low[k]!+radius:high[k]!+radius-a[k]!;
-      if(gap<nearest){nearest=gap;axis=k;side=direction;}
+  const w = new Float64Array(SWEEP);
+  for (let i = 0; i < solids.length; i++) {
+    const solid = solids[i]!;
+    sweepBounds(w, solid, from[0], from[1], from[2], from[0], from[1], from[2]);
+    if (w[10]! <= w[1]! - radius || w[7]! >= w[1]! + radius) continue;
+    if (w[0]! < w[6]! - radius || w[0]! > w[9]! + radius || w[2]! < w[8]! - radius || w[2]! > w[11]! + radius) continue;
+    let nearest = Infinity, axis = 0, side = 0;
+    for (let k = 0; k <= 2; k += 2) for (let direction = -1; direction <= 1; direction += 2) {
+      const gap = direction < 0 ? w[k]! - w[6 + k]! + radius : w[9 + k]! + radius - w[k]!;
+      if (gap < nearest) { nearest = gap; axis = k; side = direction; }
     }
-    const x=axis===0?side:0,z=axis===2?side:0;
-    if(solid.kind==="hull")return [x,z];
-    const c=cos(solid.turn??0),s=sin(solid.turn??0);
-    return [c*x+s*z,-s*x+c*z];
+    const x = axis === 0 ? side : 0, z = axis === 2 ? side : 0;
+    if (solid.kind === "hull") return [x, z];
+    const c = cos(solid.turn ?? 0), s = sin(solid.turn ?? 0);
+    return [c * x + s * z, -s * x + c * z];
   }
   return null;
 }
 
-/** Conservative swept-body clearance against rotated boxes and hull world bounds; floor is below the sweep. */
-export function clearStep(from: Vec3, to: Vec3, radius: number, solids: readonly SolidSense[]): boolean {
-  if (!(radius >= 0) || !Number.isFinite(radius)) throw new Error("invalid body clearance radius");
-  for (const solid of solids) {
-    const {a,b,low,high} = sweepBounds(solid,from,to);
-    if (high[1] <= Math.min(a[1], b[1]) - radius || low[1] >= Math.max(a[1], b[1]) + radius) continue;
+/** `clearStep` from (`fx`, `fy`, `fz`) to (`tx`, `ty`, `tz`), with `w` to work in. */
+function clearSweep(w: Float64Array, fx: number, fy: number, fz: number, tx: number, ty: number, tz: number, radius: number, solids: readonly SolidSense[]): boolean {
+  for (let i = 0; i < solids.length; i++) {
+    sweepBounds(w, solids[i]!, fx, fy, fz, tx, ty, tz);
+    if (w[10]! <= Math.min(w[1]!, w[4]!) - radius || w[7]! >= Math.max(w[1]!, w[4]!) + radius) continue;
     let first = 0, last = 1, inside = true, inset = Infinity, escape = Infinity;
-    for (const k of [0, 2] as const) {
-      const lower = low[k] - radius, upper = high[k] + radius, d = b[k] - a[k];
-      inside &&= a[k] >= lower && a[k] <= upper;
+    for (let k = 0; k <= 2; k += 2) {
+      const a = w[k]!, lower = w[6 + k]! - radius, upper = w[9 + k]! + radius, d = w[3 + k]! - a;
+      inside &&= a >= lower && a <= upper;
       // A body inside the clearance margin may reduce its nearest penetration without crossing the solid.
-      inset = Math.min(inset, a[k] - lower, upper - a[k]);
-      if (a[k] !== (lower + upper) / 2 && (a[k] - (lower + upper) / 2) * d >= 0) escape = Math.min(escape, a[k] - lower, upper - a[k]);
-      if (d === 0) { if (a[k] < lower || a[k] > upper) { first = 1; last = 0; } }
-      else { const u = (lower - a[k]) / d, v = (upper - a[k]) / d;
+      inset = Math.min(inset, a - lower, upper - a);
+      if (a !== (lower + upper) / 2 && (a - (lower + upper) / 2) * d >= 0) escape = Math.min(escape, a - lower, upper - a);
+      if (d === 0) { if (a < lower || a > upper) { first = 1; last = 0; } }
+      else { const u = (lower - a) / d, v = (upper - a) / d;
         first = Math.max(first, Math.min(u, v)); last = Math.min(last, Math.max(u, v)); }
     }
     if (first <= last && !(inside && escape <= inset)) return false;
   }
   return true;
+}
+
+/** Conservative swept-body clearance against rotated boxes and hull world bounds; floor is below the sweep. */
+export function clearStep(from: Vec3, to: Vec3, radius: number, solids: readonly SolidSense[]): boolean {
+  if (!(radius >= 0) || !Number.isFinite(radius)) throw new Error("invalid body clearance radius");
+  return clearSweep(new Float64Array(SWEEP), from[0], from[1], from[2], to[0], to[1], to[2], radius, solids);
 }
 
 /**
@@ -73,11 +92,13 @@ export function clearStep(from: Vec3, to: Vec3, radius: number, solids: readonly
 export function clearMove(centre: { readonly x: number; readonly y: number; readonly z: number }, solids: readonly SolidSense[] | undefined,
   heading: number, move: readonly [number, number] | null, radius: number, ahead: number): readonly [number, number] | null {
   if (!move || !solids) return move;
-  const from: Vec3 = [centre.x, centre.y, centre.z];
-  const candidates = [move, [move[0], -move[1]], [0, Math.abs(move[0]) + Math.abs(move[1])], [0, -Math.abs(move[0]) - Math.abs(move[1])]] as const;
-  for (const candidate of candidates) {
-    const dx = candidate[0] * sin(heading) + candidate[1] * cos(heading), dz = candidate[0] * cos(heading) - candidate[1] * sin(heading);
-    if (clearStep(from, [centre.x + dx * ahead, centre.y, centre.z + dz * ahead], radius, solids)) return candidate;
+  if (!(radius >= 0) || !Number.isFinite(radius)) throw new Error("invalid body clearance radius");
+  const w = new Float64Array(SWEEP), sh = sin(heading), ch = cos(heading), speed = Math.abs(move[0]) + Math.abs(move[1]);
+  for (let candidate = 0; candidate < 4; candidate++) {
+    const forward = candidate < 2 ? move[0] : 0, right = candidate === 0 ? move[1] : candidate === 1 ? -move[1] : candidate === 2 ? speed : -Math.abs(move[0]) - Math.abs(move[1]);
+    const dx = forward * sh + right * ch, dz = forward * ch - right * sh;
+    if (clearSweep(w, centre.x, centre.y, centre.z, centre.x + dx * ahead, centre.y, centre.z + dz * ahead, radius, solids))
+      return candidate === 0 ? move : [forward, right];
   }
   return null;
 }
