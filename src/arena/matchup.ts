@@ -85,7 +85,7 @@ const HELD_PARAM = "held";
 
 /**
  * What an address has each side's right hand hold (`DuelRecipe.held`): two of `HELD`, left
- * then right, or one for both; undefined for anything else, and each then holds the club.
+ * then right, or one for both; undefined for anything else, and each then holds its model's default.
  */
 export function readHeld(search: string): Readonly<Record<Side, Held>> | undefined {
   const text = new URLSearchParams(search).get(HELD_PARAM);

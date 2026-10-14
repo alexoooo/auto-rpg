@@ -28,7 +28,7 @@ export function modelInfo(model: BodyModel): ModelInfo {
   }
 }
 
-const HUMANOID: ModelInfo = deepFreeze({ mind: GAME_FIGHTER, held: "club" });
+const HUMANOID: ModelInfo = deepFreeze({ mind: GAME_FIGHTER, held: "empty" });
 const REPTILE: ModelInfo = deepFreeze({ mind: QUADRUPED, held: "empty" });
 
 /**

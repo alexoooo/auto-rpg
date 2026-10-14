@@ -110,7 +110,7 @@ Try `?play=arena&matchup=workshop-fighter,workshop-rogue&control=scrapper,classi
 These choices travel in links and replays (`control`, `held`, `recovery`).
 
 The circular stone arena is enclosed by a low parapet, with eight braziers around its edge. Each
-humanoid starts with a wooden club unless selected otherwise. Its mind walks at the opponent and
+humanoid starts empty-handed unless given the wooden club. Its mind walks at the opponent and
 attacks its head; the reptile approaches a surface near its mouth. A side is out when its wounds end it or it stays down for the chosen recovery
 window, when one is selected. At the two-minute bell the fuller bar wins; equal bars draw.
 

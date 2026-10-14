@@ -1,6 +1,6 @@
 /**
  * **Move** (`move`, `src/core/skills/move.ts`), in an Arena bout on the Node stand at 120 Hz: the
- * Warrior, 8 m from the Rogue, gets about by the stride with its arms swinging until the Rogue is
+ * Warrior, 8 m from the Rogue, both with the club, gets about by the stride with its arms swinging until the Rogue is
  * within the foe's rule's distance, then walks braced, in the stance's guard, changing between
  * steps; a Warrior on the stand walking by the SIMBICON walk changes to the braced walk only once
  * that walk has given the legs back to the stance, and back to it from the stance's stand; in a bout
@@ -44,7 +44,8 @@ function choiceOf(state, depth = 0) {
 }
 
 test("a_warrior_travels_by_the_stride_until_its_foe_is_near_then_walks_in_the_guard_changing_between_steps", async () => {
-  const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 8, minds: { left: TRAVELLING, right: RECIPE_FIGHTER } });
+  // Both armed with the club: empty-handed from 8 m, the Warrior falls in the braced walk three steps after the change.
+  const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 8, held: { left: "club", right: "club" }, minds: { left: TRAVELLING, right: RECIPE_FIGHTER } });
   try {
     const me = duel.duelists.left, foe = duel.duelists.right, choice = choiceOf(me.minded.state);
     assert.ok(choice, "Move's choice is in the mind's state");

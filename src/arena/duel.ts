@@ -18,8 +18,8 @@ import { loadState, saveState, type Saved } from "../core/state.ts";
 import type { Hook, World } from "../core/world.ts";
 
 /**
- * **A bout in the arena**: two bodies, each with the wooden club in its right hand unless the
- * recipe empties it (`DuelRecipe.held`), each under a
+ * **A bout in the arena**: two bodies, each with what its model holds by default in its right hand
+ * (`modelInfo`: nothing) unless the recipe says (`DuelRecipe.held`), each under a
  * mind made from its config (`createMind`; the game's fighter, `GAME_FIGHTER`, unless the recipe names
  * another), wounded by the core's blows under the arena's rulebook, and judged.
  *
@@ -96,7 +96,7 @@ interface DuelRecipe {
   readonly minds?: Readonly<Record<Side, MindConfig>>;
   /** Seconds continuously down before a fall ends the bout; null continues until injury or the cap. Zero is the reference fall rule. */
   readonly recoverySeconds?: number | null;
-  /** What each side's right hand holds; the wooden club unless given. */
+  /** What each side's right hand holds; its model's default (`modelInfo`) unless given. */
   readonly held?: Readonly<Record<Side, Held>>;
   /** The arena's rules with these in their place (`rulebook`'s override): an experiment's. */
   readonly rules?: RulebookOverride;

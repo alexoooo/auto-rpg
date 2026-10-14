@@ -228,7 +228,8 @@ test("a_fighters_aim_rides_in_its_named_actions", async () => {
   const thrown = async (mark) => {
     const { world, dispose } = await arena();
     const config = { ...RECIPE_FIGHTER, actions: RECIPE_FIGHTER.actions.map(action => ({ ...action, regions: [{ kind: "mark", mark }] })) };
-    const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds: { left: config, right: RECIPE_FIGHTER } });
+    // Armed: the recipe's bare hand commits too seldom for this fixture.
+    const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-fighter", gap: 3, held: { left: "club", right: "club" }, minds: { left: config, right: RECIPE_FIGHTER } });
     try {
       duel.play([{ step: 0, side: "right", orders: STAND_ORDERS }]);
       const report = () => duel.duelists.left.minded.skills.report;
@@ -269,14 +270,14 @@ test("a_bout's_recipe_is_plain_data_that_builds_the_same_bout", async () => {
   } finally { duel?.dispose(); dispose(); }
 });
 
-test("a_side's_right_hand_holds_the_club_unless_its_recipe_empties_it", async () => {
+test("a_side's_right_hand_is_empty_unless_its_recipe_arms_it", async () => {
   const names = (duelist) => (duelist.built.spec.held ?? []).map((held) => [held.segment, held.item.name]);
   const built = async (held) => {
     const { world, dispose } = await arena();
     const duel = new Duel(world, { left: "workshop-fighter", right: "crypt-skeleton", ...held });
     try { return [names(duel.duelists.left), names(duel.duelists.right)]; } finally { duel.dispose(); dispose(); }
   };
-  assert.deepEqual(await built({}), [[["hand.right", "wooden club"]], [["hand.right", "wooden club"]]]);
+  assert.deepEqual(await built({}), [[], []]);
   assert.deepEqual(await built({ held: { left: "empty", right: "club" } }), [[], [["hand.right", "wooden club"]]]);
   assert.deepEqual(await built({ held: { left: "club", right: "empty" } }), [[["hand.right", "wooden club"]], []]);
   await assert.rejects(built({ held: { left: "sword", right: "club" } }), /a hand holds nothing called sword/);

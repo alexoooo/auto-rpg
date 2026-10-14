@@ -4,7 +4,7 @@
  * from went on, in the bout it came from or in another of the same recipe. Node, core world,
  * Rapier, 120 Hz.
  *
- * The bout is the fighter against the rogue from 3.25 m apart, each with a balance of 25 %, each
+ * The bout is the fighter against the rogue from 3.25 m apart, each with the club and a balance of 25 %, each
  * seeing the other a step late, under a tape that orders the left side back before step 300
  * and hands it back to itself before step 420. It crosses the named action's whole lifecycle.
  *
@@ -35,7 +35,7 @@ import { withParts } from "./fixtures/minds.mjs";
 const { threatOf } = threatReader();
 
 // Severing at empty makes the fatal physical blow exercise attachment memory as well as damage.
-const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.25, balance: { left: 25, right: 25 }, senseDelay: 1,
+const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.25, held: { left: "club", right: "club" }, balance: { left: 25, right: 25 }, senseDelay: 1,
   rules: { severMargin: sourced(0, "1", "owner-hp-pool", "fork fixture: a part severs at empty") } });
 /** The same bout with both sides covering what threatens them. */
 const cover = withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover" } : behaviour) } });
@@ -218,7 +218,7 @@ test("a_load_is_of_the_same_recipe", async () => {
       assert.throws(() => from.duel.load(minds.duel.save()), /another bout's recipe/);
     } finally { minds.dispose(); }
     // And a bout of the same recipe takes it whatever the order its recipe's keys were written in.
-    const again = await bout("twin", { rules: RECIPE.rules, senseDelay: RECIPE.senseDelay, balance: { right: 25, left: 25 }, gap: RECIPE.gap, right: RECIPE.right, left: RECIPE.left });
+    const again = await bout("twin", { rules: RECIPE.rules, senseDelay: RECIPE.senseDelay, balance: { right: 25, left: 25 }, held: { right: "club", left: "club" }, gap: RECIPE.gap, right: RECIPE.right, left: RECIPE.left });
     try {
       again.duel.load(saved);
       assert.equal(stepped(again, 300), stepped(from, 300));

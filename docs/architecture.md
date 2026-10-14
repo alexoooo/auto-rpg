@@ -1223,7 +1223,7 @@ bout the best. What it reports is the ceiling of what it searched and of nothing
 arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, each a
 `<template>` mounted once per page load. Changing screen is a navigation.
 
-- **The Arena** (`src/arena/`): two clubbed bodies in the Forge (`src/arena/scene.ts`,
+- **The Arena** (`src/arena/`): two bodies, empty-handed unless armed, in the Forge (`src/arena/scene.ts`,
   `src/arena/room.ts`), each driven by its side's mind under a `Duel`, to a verdict, each
 side's mind inspected under its bar. A person
   may take a side (`&you=left`): each frame the page turns the walking keys, as the camera sees
