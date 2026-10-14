@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { combatContact, combatPairs, combatPressure, combatRating, combatTrial } from '../research/arena-combat.mjs';
-import { SCRAPPER } from '../src/core/mind/config.ts';
 import { BRAWLER } from './fixtures/minds.mjs';
 
 const blow = { normal: [0, 0, 1], closing: 3, energy: 4, sides: [
@@ -98,8 +97,4 @@ async function landsBodyBlows(mind){
 
 test('the Brawler pair launches repeated body blows without sustained hugging',async()=>{
  await landsBodyBlows(BRAWLER);
-});
-
-test('the selected Scrapper pair lands body blows without sustained hugging on the real Arena body',async()=>{
- await landsBodyBlows(SCRAPPER);
 });

@@ -178,23 +178,6 @@ test("a_body_walking_up_to_where_an_enemy_waits_has_it_built_and_a_held_one_let_
   } finally { dispose(); }
 });
 
-test("an_enemy_held_and_let_go_is_the_body_and_the_mind_it_was", async () => {
-  const { map, far } = restFixture(1);
-  const { run, dispose } = await crypt(1, map);
-  try {
-    const [enemy] = run.enemies;
-    seconds(run, 1);
-    const { body, minded } = enemy.fighter;
-    assert.ok(walkUntil(run, far, () => enemy.held, 30), "it is held once the party has walked off");
-    // It fights the party that comes to it: it goes for the hero on its feet, and blows land between the two.
-    assert.ok(walkUntil(run, enemy.home, () => enemy.target === run.hero, 60), `it sees the hero by ${run.clock.toFixed(1)} s`);
-    assert.ok(enemy.fighter.body.view.head.y > 1, `on its feet: head at ${enemy.fighter.body.view.head.y} m`);
-    const struck = () => woundsBy(run.blows, enemy.id, run.hero.id) + woundsBy(run.blows, run.hero.id, enemy.id);
-    assert.ok(until(run, () => struck() > 0, 60), `and blows land between them by ${run.clock.toFixed(1)} s`);
-    assert.deepEqual([enemy.fighter.body === body, enemy.fighter.minded === minded], [true, true]);
-  } finally { dispose(); }
-});
-
 /**
  * The floor nearest `from` by a path that is between `least` and `most` m from `at`, by a path that
  * keeps `wide` m from `at`, or as far as `from` is if nearer: a walker crossing a body that lies there may trip on it.

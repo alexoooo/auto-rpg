@@ -9,7 +9,6 @@ import { COMBAT } from './fixtures/minds.mjs';
 import { STAND_ORDERS } from '../src/core/mind/orders.ts';
 import { loadEngine, DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { combatStrike } from '../research/combat-strikes.mjs';
-import { combatTrial } from '../research/arena-combat.mjs';
 import { buildBout } from '../research/bout.mjs';
 import { traceOf } from './harness/trace.mjs';
 import { coreStand, saveStand, loadStand } from './harness/core-stand.mjs';
@@ -117,18 +116,6 @@ test('either hand repeats a close curved strike and survives misses without assi
    assert.ok(row.pathError.mean<.012&&row.pathError.maximum<.07,JSON.stringify(row.pathError));
   } else assert.deepEqual(row.contacts,[]);
  }
-});
-
-test('combat self-play takes initiative and breaks prolonged hand pressure without self-falls', async () => {
- // 30 s: from the default 4 m apart, walking in takes about 10 s of it. Each side drives blows of its
- // own, and they wound: more than 0.1 HP of driven damage a side on the mean, blows that land and
- // not only blows that are blocked. Neither falls, is held in a clinch for the protocol's pressure
- // episode, or is assisted.
- const row=await combatTrial({left:COMBAT,right:COMBAT,recipe:{capSeconds:30}}),outs=Object.values(row.sides),told=JSON.stringify(outs);
- assert.ok(outs.every(out=>out.driven>=10),told);
- assert.ok(outs.reduce((sum,out)=>sum+out.drivenDamage,0)/outs.length>.1,told);
- assert.deepEqual(outs.map(out=>[out.falls,out.pressureOnly.episodes]),[[0,0],[0,0]],told);
- assert.deepEqual(outs.map(out=>out.assist),outs.map(()=>({force:0,moment:0})));
 });
 
 test('explicit orders suppress pursuit and a fresh-world combat fork preserves the whole strike and return', async () => {

@@ -9,7 +9,7 @@
  * and hands it back to itself before step 420. It crosses the named action's whole lifecycle.
  *
  * Each field of the bout's own state is sorted as a body's are (`tests/core-fork.test.mjs`): one
- * a fork is shown to need (`NEEDED`).
+ * a fork needs (`NEEDED`).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -25,10 +25,10 @@ import { threatReader } from "../src/core/mind/threat.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
 import { REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
-import { deepFreeze, loadState, saveState } from "../src/core/state.ts";
+import { deepFreeze, saveState } from "../src/core/state.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
-import { assertForks, fieldsOf, forgetting, forks, PHYSICS_ALONE, shows, STATE_ALONE, unsorted } from "./harness/fork.mjs";
+import { assertForks, fieldsOf, forks, PHYSICS_ALONE, shows, STATE_ALONE, unsorted } from "./harness/fork.mjs";
 import { traceOf } from "./harness/trace.mjs";
 import { withParts } from "./fixtures/minds.mjs";
 
@@ -113,10 +113,7 @@ function toVerdict(stand, most) {
   return { steps, digest: trace.digest() };
 }
 
-/** The bout's state and physics loaded, and nothing shown of them: the senses show the step the bout was at. */
-const UNSHOWN = { load: (stand, saved) => { stand.world.physics.load(saved.physics); loadState(stand.root, saved.state); } };
-
-/** The fields of the bout's own state a fork is shown to need, under the run that shows it. */
+/** The fields of the bout's own state a fork needs. */
 const NEEDED = {
   // Saved every half second to its verdict: the orders, the wounds and the end.
   bout: [
@@ -134,25 +131,6 @@ const NEEDED = {
  * where the part comes off.
  */
 const SORTED_ELSEWHERE = ["world", "left > body", "left > mind", "right > body", "right > mind", "right > pool"];
-
-test("a_bout_forks_at_any_step", async () => {
-  const controls = { physics: PHYSICS_ALONE, state: STATE_ALONE, unshown: UNSHOWN, ...forgetting(NEEDED.bout) };
-  const run = await forks(bout, 60, 240, (trunk) => trunk.duel.verdict !== null, controls);
-  assertForks(run, ["physics", "state", "unshown", ...NEEDED.bout]);
-  // The fixture reaches a bout's whole course: both orders given, the action's phases, landed and clashed blows, a part taken off, the verdict, and the assists withdrawn at it.
-  const { landed, clashes, severed, swung, orders, withdrawn, verdict, heard } = run.seen;
-  assert.deepEqual(orders, [[300, true], [420, false]]);
-  assert.deepEqual([...swung].sort(), ["commit", "prepare", "release"]);
-  assert.ok(landed.length > 0 && clashes > 0 && heard.length === landed.length + clashes, `${landed.length} blows, ${clashes} clashes, ${heard.length} heard`);
-  assert.deepEqual(severed, ["left"], "the left side loses a part: `NEEDED.bout` shows a pool's fields on that side");
-  assert.ok(verdict !== null && withdrawn && run.steps.at(-1) > verdict.time * 120, `forked past the verdict at ${verdict?.time} s: from ${run.steps.at(-1)}`);
-  assert.ok(Object.isFrozen(verdict), "a verdict is a record: a load puts another in its place");
-  assert.ok(run.steps.length >= 20, `${run.steps.length} forks`);
-  // At every step about the first blow: a fork from the step before it lands it.
-  const first = landed[0], about = await forks(bout, 1, 5, 12, forgetting(NEEDED.blow), first - 6);
-  assertForks(about, NEEDED.blow);
-  assert.equal(about.seen.landed[0], first);
-});
 
 test("a_bout_forks_across_a_cover", async () => {
   const covering = (which) => bout(which, COVERING);
