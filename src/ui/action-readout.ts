@@ -24,6 +24,10 @@ export function actionReadout() {
     const engagement = report.engagement;
     if (engagement) {
       text(`Focus: ${engagement.focus ?? "none"}${engagement.lost ? " (lost)" : ""} · ${engagement.phase}`);
+      for (const offer of engagement.offers ?? []) {
+        const terms = offer.terms;
+        text(`${offer.name === engagement.phase ? "Chosen · " : ""}${offer.name} · ${offer.worth.toFixed(2)}${terms ? ` · ${terms.duration.toFixed(1)} s, dealt ${terms.dealt.toFixed(1)} J, taken ${terms.taken.toFixed(1)}, orders ${terms.orders.toFixed(2)}, falls ${terms.fall.toFixed(2)}` : ""}`);
+      }
       for (const candidate of engagement.candidates ?? []) {
         const ready = candidate.readiness;
         const region = candidate.target.region;

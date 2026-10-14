@@ -5,7 +5,9 @@ import { regionSegments } from "../action-aim.ts";
 import type { ActionConfig } from "../config.ts";
 import type { Sight } from "../tactics.ts";
 import type { Situation, StandingOption } from "./option.ts";
+import { clinched, exposed, orderedDealt, record, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
+import type { Side } from "../../spec/body.ts";
 
 /** How long a strike may wait to be admitted before it is given up, s. */
 const PATIENCE = 2;
@@ -21,7 +23,9 @@ export const around = (sight: Sight): ActionAround => ({ heading: sight.report.h
  * over: then it has run its course. Where it does not close, it is on offer only with a limb ready.
  * A blow asked for and refused, every limb refused, or `PATIENCE` s without a blow also end it. It
  * yields until its blow is committed. The region struck is what the orders name on the focus, else
- * the first of the action's regions the focus has.
+ * the first of the action's regions the focus has. Its model: walking, where it closes, until the
+ * focus is in its reach, then a blow of its record (`record`) from its stronger hand, within the
+ * focus's reach from where it stands or the focus would reach it, and through the blow coming.
  */
 export function strike(action: ActionConfig, walk: Walker, closes: boolean): StandingOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false };
@@ -57,6 +61,13 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean): Sta
     ended: () => state.over,
     begin(now) { state.limb = null; state.target = targetOf(now); state.id = null; state.since = now.time; state.over = false; },
     end() { state.id = null; state.limb = null; state.target = null; },
+    models: { "hand-built": (now): Terms => {
+      const { lands, seconds } = record(now.sight.report.ledger, action.name), { apart, theirs, mine } = now.reach, pace = walk.pace(now);
+      const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.blows[limb.slice(5) as Side] : 0));
+      const walking = closes ? Math.max(0, apart - mine) / pace : 0, inReach = seconds + (closes ? Math.max(0, Math.min(apart, theirs) - mine) / pace : 0);
+      const dealt = lands * blow, duration = walking + seconds;
+      return { duration, dealt, taken: now.danger + exposed(now, inReach, Math.min(apart, mine)), orders: orderedDealt(now, dealt), fall: clinched(now, duration) };
+    } },
     step(now) {
       const face = walk.facing(now), still = { move: null, face, actions: [] };
       const running = live(now);

@@ -1,5 +1,23 @@
 import type { SubMind } from "../sub-mind.ts";
-import type { DownOption } from "./option.ts";
+import type { DownOption, Situation } from "./option.ts";
+import type { Terms } from "./value.ts";
+
+/** Near enough that a standing focus strikes a body that is down, m, centre to centre. */
+const NEAR = 1.2;
+
+/**
+ * How a down option is priced: how long it runs, s; the chance it ends with the body standing;
+ * and the share of a near focus's blows it keeps off while it runs.
+ */
+export interface DownModel {
+  readonly seconds: number;
+  readonly stands: number;
+  readonly shelter: number;
+}
+
+/** The terms of a down option of `model`: the near focus's blows it does not keep off, the blow coming, and the chance it stays down. */
+const downTerms = (model: DownModel) => (now: Situation): Terms => ({ duration: model.seconds, dealt: 0, orders: 0, fall: 1 - model.stands,
+  taken: now.danger + (now.apart <= NEAR ? now.exposure * model.seconds * (1 - model.shelter) : 0) });
 
 /** Whether the body is the down half's (`downHalf`): handed to it by the body's host, and not yet taken back. */
 interface Half { current: boolean }
@@ -9,8 +27,9 @@ interface Half { current: boolean }
  * `mind` would have the body, giving way while it does not hold it. Its sub-mind is begun when the
  * option is, if the body is the down half's, or else when the down half is handed the body
  * (`start`); and ended when the option is, or when the down half gives the body up (`stop`).
+ * Its model is `model`'s (`DownModel`).
  */
-export function downOption(name: string, mind: SubMind, half: Half): DownOption & { start(): void; stop(): void } {
+export function downOption(name: string, mind: SubMind, half: Half, model: DownModel): DownOption & { start(): void; stop(): void } {
   const state = { begun: false };
   const start = (): void => { if (!state.begun) { mind.begin(); state.begun = true; } };
   const stop = (): void => { if (state.begun) { mind.end(); state.begun = false; } };
@@ -21,6 +40,7 @@ export function downOption(name: string, mind: SubMind, half: Half): DownOption 
     ended: () => false,
     begin() { if (half.current) start(); },
     end: stop,
+    models: { "hand-built": downTerms(model) },
     start,
     stop,
   };

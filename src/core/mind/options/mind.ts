@@ -12,8 +12,8 @@ import { SUB_MIND_PARTS, subMind } from "../sub-minds.ts";
 import { driveBy, type Sight, type Tactics } from "../tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
 import { setDistance } from "./distance.ts";
-import { metaController } from "./meta.ts";
-import { downHalf, downOption } from "./down.ts";
+import { metaController, valued } from "./meta.ts";
+import { downHalf, downOption, type DownModel } from "./down.ts";
 import { holdEdge } from "./edge.ts";
 import { evade } from "./evade.ts";
 import type { Option, Situation } from "./option.ts";
@@ -22,6 +22,7 @@ import { followOrders } from "./orders.ts";
 import { cover, reflexLayer } from "./reflex.ts";
 import { situationReader } from "./situation.ts";
 import { strike } from "./strike.ts";
+import { CLINCH, WEIGHTS } from "./value.ts";
 import { walker } from "./walk.ts";
 
 /** Its blow at a low foe: the Scrapper's, thrown from low support. */
@@ -51,17 +52,21 @@ const EDGE = (() => {
 /** The longest its cover holds a hand up against one run of blows, s. */
 const COVER_LONGEST = 1;
 
-/** What it does down, by rank: the sub-mind each down option is carried out by. */
-const DOWN: readonly (readonly [string, SubMindConfig])[] = deepFreeze([
-  ["get up", STAND_UP], ["roll away", SUB_MIND_PARTS["get-away"].defaults], ["fight from the ground", SUB_MIND_PARTS["ground-fight"].defaults], ["lie still", { kind: "lie" }],
+/** What it does down, by rank: the sub-mind each down option is carried out by, and how it is priced. */
+const DOWN: readonly (readonly [string, SubMindConfig, DownModel])[] = deepFreeze([
+  ["get up", STAND_UP, { seconds: 5, stands: .7, shelter: 0 }],
+  ["roll away", SUB_MIND_PARTS["get-away"].defaults, { seconds: 2, stands: 0, shelter: .5 }],
+  ["fight from the ground", SUB_MIND_PARTS["ground-fight"].defaults, { seconds: 2, stands: 0, shelter: .3 }],
+  ["lie still", { kind: "lie" }, { seconds: 2, stands: 0, shelter: 0 }],
 ]);
 
 /** Whether a body of `spec` takes the options fighter's commands and carries out its skills' actions. */
 export const optionsFit = (spec: BodySpec): boolean => commandable(spec) && actionConfigFaults(spec, SKILLS.executors, SKILLS.actions).length === 0;
 
 /**
- * **The options fighter**: a meta-controller (`metaController`) over options, in rank order, each
- * worth more than the next. Down: get up; roll away from a foe near; fight from the ground; lie
+ * **The options fighter**: a meta-controller (`metaController`) over options, which takes the one
+ * worth most: by what each is expected to bring (`valued`), its hand-built model's terms weighed
+ * by the config's weights over `WEIGHTS`; or, ranked, each worth more than the next, in order. Down: get up; roll away from a foe near; fight from the ground; lie
  * still. Standing: follow orders; break a clinch; strike with a hand that is ready; strike a foe
  * that is down or low, from low support; step back from a blow coming in; hold at the edge of its
  * foe's reach, as the Counter-puncher does; close and strike; and hold, facing its foe. Whatever a
@@ -78,7 +83,7 @@ export const optionsFit = (spec: BodySpec): boolean => commandable(spec) && acti
  * (`hosting`), else the tactics. So what the body does, down or standing, is the one decision's.
  */
 export function createOptionsFighter(built: BuiltBody, world: World, config: OptionsConfig, wiring: MindWiring) {
-  const walk = walker(built.spec), reader = situationReader((sight) => wiring.orders(sight.view.senses));
+  const walk = walker(built.spec), reader = situationReader(built.spec, (sight) => wiring.orders(sight.view.senses));
   let sight: Sight | null = null, meta: ReturnType<typeof metaController> | null = null;
   // The situation is read once a step, by whichever asks first; it is of the step's view, so nothing of it outlives the step.
   let read: Situation | null = null;
@@ -87,15 +92,15 @@ export function createOptionsFighter(built: BuiltBody, world: World, config: Opt
   const half = { current: false }, downs: ReturnType<typeof downOption>[] = [];
   const running = () => { const chosen = meta && meta.state.running >= 0 ? options[meta.state.running]! : null; return chosen?.posture === "down" ? downs.find((down) => down === chosen) ?? null : null; };
   const body = createBody(built, world, { ...fighterBody(SKILLS, wiring), subs: [(own, view, w, afterPhysics) => {
-    for (const [name, config] of DOWN) downs.push(downOption(name, subMind(own, view, config, w, afterPhysics), half));
+    for (const [name, sub, model] of DOWN) downs.push(downOption(name, subMind(own, view, sub, w, afterPhysics), half, model));
     return downHalf(downs, running, decide, half);
   }] });
   if (downs.length !== DOWN.length) throw new Error("the options fighter's body made no down half");
   const standing = SKILLS.actions.filter((action) => action.lower === undefined), strikeNow = standing.map((action) => strike(action, walk, false));
   const options: readonly Option[] = [
     ...downs,
-    followOrders(),
-    setDistance({ name: "break the clinch", foe: "standing", to: "centre", near: .65, far: Infinity, correcting: true, facing: "foe" }, walk),
+    followOrders(walk),
+    setDistance({ name: "break the clinch", foe: "standing", to: "centre", near: CLINCH.within, far: Infinity, correcting: true, facing: "foe" }, walk),
     ...strikeNow,
     strikeLow(LOW, built.spec, walk),
     evade(walk),
@@ -103,10 +108,10 @@ export function createOptionsFighter(built: BuiltBody, world: World, config: Opt
     ...standing.map((action) => strike(action, walk, true)),
     setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false, facing: "foe" }, walk),
   ];
-  meta = metaController(options, options.map((_, i) => options.length - i));
+  meta = metaController(options, config.meta === "ranked" ? options.map((_, i) => options.length - i) : valued("hand-built", { ...WEIGHTS, ...config.weights }));
   const reflexes = reflexLayer(config.tuning?.cover === false ? [] : [cover(COVER_LONGEST)]);
   const state = { meta: meta.state, situation: reader.state, options: options.map((option) => option.state), reflexes: reflexes.state };
-  const engagement = { get phase() { return meta!.state.running < 0 ? "guard" : options[meta!.state.running]!.name; } };
+  const engagement = { get phase() { return meta!.state.running < 0 ? "guard" : options[meta!.state.running]!.name; }, get offers() { return meta!.state.offers; } };
   const tactics: Tactics = { name: "options", state, engagement,
     decide(seen, dt) {
       const now = situation(seen), chosen = meta!.decide(now);

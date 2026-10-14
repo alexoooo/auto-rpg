@@ -1,6 +1,10 @@
 import { atan2, hypot } from "../../math/real.ts";
 import type { Situation, StandingOption } from "./option.ts";
+import { CLINCH, clinched, exposed, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
+
+/** How far ahead keeping a distance is priced, s. */
+const AHEAD = 1;
 
 /** How far past its bounds a correction carries on before it has run its course, m. */
 const BAND = .1;
@@ -37,7 +41,10 @@ function facing(how: Goal["facing"], x: number, z: number): number {
 /**
  * **Set distance**: keep from the focus as `goal` says, facing it or away: backing off while nearer than
  * its near bound, closing while farther than its far one (a correction, until `BAND` m inside
- * them), standing still between. It always yields, and asks for no blow.
+ * them), standing still between. It always yields, and asks for no blow. Its model: a correction
+ * walks to `BAND` m inside its bounds, a keeping goes on `AHEAD` s, through the blow coming and
+ * the focus's reach while it stands in it; a correction that ends out of a clinch (`CLINCH`) leaves
+ * its chance of going down behind.
  */
 export function setDistance(goal: Goal, walk: Walker): StandingOption {
   const apart = (now: Situation): number => {
@@ -57,6 +64,12 @@ export function setDistance(goal: Goal, walk: Walker): StandingOption {
     ended: (now) => goal.correcting && !outside(now, BAND),
     begin() {},
     end() {},
+    models: { "hand-built": (now): Terms => {
+      const d = apart(now), to = d < goal.near + BAND ? goal.near + BAND : d > goal.far - BAND ? goal.far - BAND : d;
+      const duration = goal.correcting ? Math.abs(to - d) / walk.pace(now) : AHEAD, after = now.reach.apart + to - d;
+      const leaves = goal.correcting && goal.near >= CLINCH.within;
+      return { duration, dealt: 0, taken: now.danger + exposed(now, duration, Math.min(now.reach.apart, after)), orders: 0, fall: leaves ? 0 : clinched(now, duration) };
+    } },
     step(now) {
       const d = apart(now), focus = now.focus!, centre = now.sight.view.stance.centre;
       const x = focus.centre.x - centre.x, z = focus.centre.z - centre.z, margin = goal.correcting ? BAND : 0;

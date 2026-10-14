@@ -1,7 +1,9 @@
-import { hypot } from "../../math/real.ts";
-import { rangeOf } from "../../skills/strike.ts";
 import type { Situation, StandingOption } from "./option.ts";
+import { clinched, exposed, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
+
+/** How far ahead holding the edge is priced, s, short of its patience. */
+const AHEAD = 1;
 
 /** How the edge is held: how far past the foe's reach it stands, m, and how long it waits there for the foe to come in, s. */
 interface Edge {
@@ -14,15 +16,13 @@ interface Edge {
  * bound to `band` m past it, head to head, walking in from farther and back from nearer, facing
  * it. On offer with no blow of its own under way, until it has waited `patience` s at the edge for
  * the same foe; it has run its course once a blow is `ready`, so that the meta-controller decides
- * again at once, or once its patience is spent. It always yields, and asks for no blow.
+ * again at once, or once its patience is spent. It always yields, and asks for no blow. Its model:
+ * the rest of its patience, at most `AHEAD` s, through the blow coming, and the focus's reach
+ * where it stands in it: a foe within reach strikes while it backs away.
  */
 export function holdEdge(edge: Edge, walk: Walker, ready: (now: Situation) => boolean): StandingOption {
   const state = { focus: null as string | null, since: null as number | null };
-  const reach = (now: Situation) => {
-    const focus = now.focus!, mine = now.sight.view.head, theirs = focus.segments.get(focus.spec.marks.high)?.centre ?? focus.centre;
-    const range = rangeOf(focus.spec, "right", mine.y - theirs.y);
-    return { outside: range.reach + range.along[1], apart: hypot(theirs.x - mine.x, theirs.z - mine.z) };
-  };
+  const reach = (now: Situation) => ({ outside: now.reach.theirs, apart: now.reach.apart });
   const spent = (now: Situation): boolean => state.focus === now.focus?.id && state.since !== null && now.time - state.since >= edge.patience;
   return {
     name: "hold at the edge", posture: "standing", state,
@@ -35,6 +35,10 @@ export function holdEdge(edge: Edge, walk: Walker, ready: (now: Situation) => bo
     ended: (now) => spent(now) || ready(now),
     begin(now) { if (state.focus !== now.focus?.id) { state.focus = now.focus?.id ?? null; state.since = null; } },
     end() {},
+    models: { "hand-built": (now): Terms => {
+      const waited = state.focus === now.focus?.id && state.since !== null ? now.time - state.since : 0, duration = Math.min(AHEAD, Math.max(0, edge.patience - waited));
+      return { duration, dealt: 0, taken: now.danger + exposed(now, duration), orders: 0, fall: clinched(now, duration) };
+    } },
     step(now) {
       const face = walk.facing(now), { outside, apart } = reach(now), focus = now.focus!, centre = now.sight.view.stance.centre;
       if (apart >= outside && apart <= outside + edge.band) state.since ??= now.time;

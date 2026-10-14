@@ -19,6 +19,8 @@ import { SCRAPPER } from "../src/core/mind/config.ts";
 import { walker } from "../src/core/mind/options/walk.ts";
 
 const SPEC = humanSpec("workshop-fighter"), walk = walker(SPEC), PACE = .5, HEAD = 1.6;
+/** How far the foe reaches a head level with its own, m head to head: its range's outer bound. */
+const OUTSIDE = (() => { const range = rangeOf(SPEC, "right", 0); return range.reach + range.along[1]; })();
 
 /** A foe standing (or lying) `apart` m down +z of a body at the origin facing +z, its head level with the body's. */
 const foe = (apart, down = false, id = "foe") => {
@@ -32,7 +34,8 @@ const situation = (others, { time = 0, solids = [], incoming = null, actions = [
   return {
     sight: { view: { time, down: false, head: { x: 0, y: HEAD, z: 0 }, stance: { centre: { x: 0, y: 1, z: 0 }, support: { y: 0 }, phase: "stand" }, senses: { side: "left", others, solids } },
       report: { heading: 0, actions }, envelope: { walk: { value: PACE } } },
-    time, down: false, orders: null, focus, apart: focus ? Math.abs(focus.centre.z) : Infinity, threat: null, incoming,
+    time, down: false, orders: null, focus, apart: focus ? Math.abs(focus.centre.z) : Infinity, threat: null, incoming, danger: 0, exposure: 0, blows: { left: 0, right: 0 },
+    reach: focus ? { apart: Math.abs(focus.centre.z), theirs: OUTSIDE, mine: OUTSIDE } : { apart: Infinity, theirs: 0, mine: 0 },
   };
 };
 const forward = (intent) => intent.move?.[0] ?? 0;

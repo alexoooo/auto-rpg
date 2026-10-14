@@ -14,6 +14,7 @@ import { actionConfigFaults } from "./action-config.ts";
 import type { Minded, MindWiring } from "./minds.ts";
 import { slotList, slotOne, type Part, type Slot } from "./parts.ts";
 import { createOptionsFighter, optionsFit } from "./options/mind.ts";
+import { TERMS } from "./options/value.ts";
 
 /**
  * **A controller**: a kind of mind, as a part (`Part`) of role `mind`, with its named configs, the
@@ -55,7 +56,11 @@ export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extra
   options: {
     role: "mind", label: "Options fighter", stage: "game", fields: [], slots: [], defaults: OPTIONS, tuning: ["cover"],
     fits: optionsFit,
-    faults: config => ["undefined", "boolean"].includes(typeof config.tuning?.cover) ? [] : ["tuning.cover: true or false"],
+    faults: config => [
+      ...[undefined, "valued", "ranked"].includes(config.meta) ? [] : ["meta: valued or ranked"],
+      ...Object.entries(config.weights ?? {}).flatMap(([term, weight]) => TERMS.includes(term as typeof TERMS[number]) && Number.isFinite(weight) && weight >= 0 ? [] : [`weights.${term}: a term (${TERMS.join(", ")}) of a finite weight, not negative`]),
+      ...["undefined", "boolean"].includes(typeof config.tuning?.cover) ? [] : ["tuning.cover: true or false"],
+    ],
     presets: deepFreeze({ options: { label: "Options fighter", config: OPTIONS } }),
     builtIn: guardPosture,
     create: createOptionsFighter,

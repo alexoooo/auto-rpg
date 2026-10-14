@@ -670,10 +670,24 @@ whether it can begin or go on (`available`), whether it may give way (`yields`),
 its course (`ended`), and, standing, what it asks of the skills each step; a down option is carried
 out by its sub-mind. Once a control step the fighter reads its situation (`situationReader`,
 `situation.ts`: down or not, its orders, its focus and how far off it is, the threat and whether a
-blow is predicted to land), and the meta-controller takes the available option of the highest worth,
-keeping the running one while it does not yield or is not beaten by more than `DECIDING.keep`. It
-decides afresh every `DECIDING.rethink` s, at once on an event (down or up, a threat, another focus,
-other orders), and when the running option is over or unavailable. Its options, by rank: down, get
+blow is predicted to land, and what its options are priced from: what the blow coming costs, how
+far each side reaches, what a second in the focus's reach costs, and what each hand's blow at the
+focus is worth), and the meta-controller takes the available option of the highest worth, keeping
+the running one while it does not yield or is not beaten by more than its keep. It decides afresh
+every `DECIDING.rethink` s, at once on an event (down or up, a threat, another focus, other orders),
+and when the running option is over or unavailable. Its worth is valued (`valued`, `value.ts`)
+unless its config says ranked: each option's model (`Option.models`, by kind; each has a hand-built
+one) gives its terms (`Terms`): how long it runs, the energy its blows put into the focus, the cost
+of the blows it takes (a blow's energy squared over 30 J, so a jab costs little and a heavy blow a
+lot), its progress on orders (metres walked as ordered, and blows dealt to a foe the orders name),
+and its chance of ending down; the worth is the terms weighed by the config's weights over
+`WEIGHTS`, a second of its run and one more. A blow's energy is the rules' impact energy
+(`impactEnergy`) of the striking arm and what it holds against the head, at the speed it closes,
+or 5 m/s for one not under way; a blow's chance of landing and its length are the body's own record
+of the action (`record`, from the ledger, with a prior), and a foe within reach lands as often as
+the body does. Orders are a term, not a rank: walking where it is told, it walks through a weak blow
+and steps back from a heavy one. The offers a decision chose from are kept (`Offer`) and shown by
+the Arena's readout. Ranked, each option is worth more than the next. Its options, by rank: down, get
 up, roll away from a foe near, fight from the ground and lie still, each carried out by its sub-mind
 (`downOption`, `down.ts`); standing, follow orders (`orders.ts`), break a clinch (`distance.ts`),
 strike with each action from where it stands (`strike.ts`), strike a foe down or low from beside it,

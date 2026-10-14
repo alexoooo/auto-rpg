@@ -17,6 +17,7 @@ import type { Covering } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
 import type { AimRule } from "./action-aim.ts";
 import type { Region } from "../skills/action.ts";
+import type { Weights } from "./options/value.ts";
 
 /** Lie still while down: ask the muscles for nothing (`lying`, `lie.ts`). */
 interface LieConfig { readonly kind: "lie" }
@@ -234,6 +235,10 @@ export type MindConfig = FighterConfig | OptionsConfig | DirectMindConfig | Quad
 /** **The options fighter** (`createOptionsFighter`, `options/mind.ts`): a meta-controller over options; nothing in it is set yet but an experiment's tuning. */
 export interface OptionsConfig {
   readonly kind: "options";
+  /** How it chooses among its options: by what each is expected to bring, weighed (`valued`, unless absent), or by a fixed rank. */
+  readonly meta?: "valued" | "ranked";
+  /** What its valued choice weighs each term by, over the fighter's own (`WEIGHTS`). */
+  readonly weights?: Readonly<Partial<Weights>>;
   /** Whether its cover reflex runs: it does unless `cover` is false. */
   readonly tuning?: { readonly cover?: boolean };
 }

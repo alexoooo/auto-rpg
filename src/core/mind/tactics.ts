@@ -1,4 +1,5 @@
 import type { Body, BodyView } from "../body.ts";
+import type { Offer } from "./options/meta.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import { recipeSkills, type SkillReport, type Skills } from "../skills/skills.ts";
 import type { Intent } from "./intent.ts";
@@ -17,8 +18,8 @@ export interface Tactics<S = Sight, I = Intent> {
    * (`Skills.state`). Tactics that keep what they remember anywhere else do not fork.
    */
   readonly state?: object;
-  /** Current engagement decision, read by gameplay status displays. */
-  readonly engagement?: { readonly phase: string } & Partial<Omit<ActionEngagement, "phase">>;
+  /** Current engagement decision, read by gameplay status displays; with the offers it was chosen from, where they were priced (`Offer`). */
+  readonly engagement?: { readonly phase: string; readonly offers?: readonly Offer[] } & Partial<Omit<ActionEngagement, "phase">>;
 }
 
 /**

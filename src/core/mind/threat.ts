@@ -8,6 +8,7 @@ import { type Side, frameOf, type BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { dot, sub } from "../spec/vec.ts";
 import type { Cover } from "./intent.ts";
+import type { BodySense } from "./senses.ts";
 import { distance } from "../spec/vec.ts";
 import { placedReach } from "../skills/strike.ts";
 
@@ -50,7 +51,9 @@ interface ThreatWork { readonly point: Vector3; readonly velocity: Vector3; read
 export function threatReader() {
   const work: ThreatWork = { point: new Vector3(), velocity: new Vector3(), lever: new Vector3() };
   return {
-    threatOf: (view: BodyView, counts?: Threat, prediction?: { readonly out: number; readonly horizon: number }) => threatOf(view, work, counts, prediction),
+    threatOf: (view: BodyView, counts?: Threat, prediction?: { readonly out: number; readonly horizon: number }) => threatOf(view, work, counts, prediction)?.cover ?? null,
+    /** The threat (`threatOf`), with the speed its striking point closes on the head at, m/s, and whose hand it is. */
+    blowOf: (view: BodyView, counts?: Threat, prediction?: { readonly out: number; readonly horizon: number }) => threatOf(view, work, counts, prediction),
     incomingThreat: (view: BodyView, ownVelocity: Vec3, counts?: Threat) => incomingThreat(view, ownVelocity, work, counts),
   };
 }
@@ -66,9 +69,9 @@ export function threatReader() {
  * the plane is covered immediately. No crossing in the horizon means no candidate.
  */
 function threatOf(view: BodyView, { point, velocity, lever }: ThreatWork, counts: Threat = THREAT,
-  prediction?: { readonly out: number; readonly horizon: number }): Cover | null {
+  prediction?: { readonly out: number; readonly horizon: number }): { cover: Cover; closing: number; foe: BodySense; hand: Side } | null {
   const { senses, head } = view;
-  let threat: Vec3 | null = null, fastest = counts.closing;
+  let threat: Vec3 | null = null, fastest = counts.closing, by: { foe: BodySense; hand: Side } | null = null;
   for (const other of senses.others) {
     if (other.side === senses.side || other.out) continue;
     let striking = STRIKING.get(other.spec);
@@ -93,10 +96,10 @@ function threatOf(view: BodyView, { point, velocity, lever }: ThreatWork, counts
         if (!crossing) continue;
         candidate = crossing.position;
       }
-      fastest = closing; threat = candidate;
+      fastest = closing; threat = candidate; by = { foe: other, hand };
     }
   }
-  return threat && { threat, guarded: [head.x, head.y, head.z] };
+  return threat && by && { cover: { threat, guarded: [head.x, head.y, head.z] }, closing: fastest, ...by };
 }
 
 /** Predictive defense search cells, the reference cover's plane among them: `docs/reference/combat-defense.md#settings`. */

@@ -32,7 +32,7 @@ test("a_meta_controller_takes_the_available_option_of_highest_worth", () => {
   c.flags.available = a.flags.available = false;
   assert.equal(meta.decide(at(2 / 120)), null);
   assert.deepEqual(log, ["begin b", "end b", "begin c", "end c"]);
-  assert.deepEqual(meta.state, { running: -1, decided: 2 / 120, next: 2 / 120 + DECIDING.rethink, event: meta.state.event });
+  assert.deepEqual(meta.state, { running: -1, decided: 2 / 120, next: 2 / 120 + DECIDING.rethink, event: meta.state.event, offers: [] });
 });
 
 test("a_meta_controller_decides_afresh_on_its_interval_and_on_an_event", () => {

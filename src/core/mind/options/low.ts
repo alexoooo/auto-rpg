@@ -6,13 +6,19 @@ import { groundPosition } from "../ground-position.ts";
 import { lowOpponent } from "../sensed-bounds.ts";
 import type { Situation, StandingOption } from "./option.ts";
 import { around } from "./strike.ts";
+import { orderedDealt, record, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
+
+/** The chance a body goes down lowering to strike from low support and rising again. */
+const FOLD_FALLS = .05;
 
 /**
  * **Strike a low foe**: `action`, a blow from low support, at the focus while it is down or low,
  * from beside it (`groundPosition`): walking there, lowering through the support fold and striking
  * once placed, then rising. It is on offer while the focus is low or the placement is under way,
  * and yields only before the placement begins; its walk need not keep out of the focus's reach.
+ * Its model: walking beside the focus, then a blow of its record (`record`) from its stronger hand,
+ * the fold's own chance of going down (`FOLD_FALLS`), and the blow coming.
  */
 export function strikeLow(action: ActionConfig, spec: BodySpec, walk: Walker): StandingOption {
   const ground = groundPosition(spec, walk.clear, {}, true);
@@ -32,6 +38,10 @@ export function strikeLow(action: ActionConfig, spec: BodySpec, walk: Walker): S
     begin() { state.id = null; },
     end() { ground.reset(); state.id = null; },
     near: (now) => now.focus?.id ?? null,
+    models: { "hand-built": (now): Terms => {
+      const { lands, seconds } = record(now.sight.report.ledger, action.name), dealt = lands * Math.max(now.blows.left, now.blows.right);
+      return { duration: now.apart / walk.pace(now) + seconds, dealt, taken: now.danger, orders: orderedDealt(now, dealt), fall: FOLD_FALLS };
+    } },
     step(now, dt) {
       const { view, report } = now.sight, focus = now.focus!;
       const placement = ground.decide(view, report, focus, state.hand, dt);
