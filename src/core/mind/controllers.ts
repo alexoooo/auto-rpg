@@ -13,6 +13,7 @@ import { createFighter, fighterFaults } from "./fighter.ts";
 import { actionConfigFaults } from "./action-config.ts";
 import type { Minded, MindWiring } from "./minds.ts";
 import { slotList, slotOne, type Part, type Slot } from "./parts.ts";
+import { createOptionsFighter, OPTIONS, optionsFit } from "./options/mind.ts";
 
 /**
  * **A controller**: a kind of mind, as a part (`Part`) of role `mind`, with its named configs, the
@@ -64,6 +65,14 @@ export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extra
     }),
     builtIn: guardPosture,
     create: createFighter,
+  },
+  options: {
+    role: "mind", label: "Options fighter", stage: "experimental", fields: [], slots: [], defaults: OPTIONS,
+    fits: optionsFit,
+    faults: () => [],
+    presets: deepFreeze({ options: { label: "Options fighter", config: OPTIONS } }),
+    builtIn: guardPosture,
+    create: createOptionsFighter,
   },
   quadruped: {
     role: "mind", label: "Quadruped", stage: "game", fields: [], slots: [], defaults: QUADRUPED, tuning: ["bite"],

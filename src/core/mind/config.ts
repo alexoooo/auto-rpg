@@ -229,7 +229,10 @@ export interface FighterConfig {
  * **A mind's config**, by kind: plain data, so it rides in a recipe, a save and a link. Each kind
  * of mind declares its own; a fight passes one through and reads nothing in it.
  */
-export type MindConfig = FighterConfig | DirectMindConfig | QuadrupedConfig;
+export type MindConfig = FighterConfig | OptionsConfig | DirectMindConfig | QuadrupedConfig;
+
+/** **The options fighter** (`createOptionsFighter`, `options/mind.ts`): a meta-controller over options; nothing in it is set yet. */
+export interface OptionsConfig { readonly kind: "options" }
 
 /** Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. */
 interface QuadrupedConfig {

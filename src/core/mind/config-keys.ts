@@ -8,6 +8,7 @@ type Config = MindConfig | SubMindConfig | TacticsConfig | BehaviourConfig | Mov
  * Each part's faults predicate validates values, and its slots validate nested parts. */
 export const CONFIG_KEYS = deepFreeze({
   "fighter": { kind: true, tactics: true, locomotion: true, guard: true, executors: true, actions: true, support: true, subs: true },
+  "options": { kind: true },
   "direct": { kind: true, targets: true, seconds: true, speed: true, activation: true },
   "quadruped": { kind: true, tuning: true },
   "get-away": { kind: true, metres: true },

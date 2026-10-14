@@ -17,13 +17,13 @@ test("every preset is its controller's kind, under an id no other controller use
     assert.equal(controllerOf(preset.config), controller);
     ids.push(id);
   }
-  assert.deepEqual(ids, ["classic", "puncher", "counter", "scrapper", "behaviours", "crawl"]);
+  assert.deepEqual(ids, ["classic", "puncher", "counter", "scrapper", "behaviours", "options", "crawl"]);
   assert.deepEqual(Object.keys(CONTROLS), ids);
   assert.throws(() => controllerOf({ kind: "point-fighter" }), /no mind of kind "point-fighter"/);
 });
 
 test("each controller says which bodies its presets fit, and the Arena offers just those", () => {
-  const humanoid = ["classic", "puncher", "counter", "scrapper", "behaviours"];
+  const humanoid = ["classic", "puncher", "counter", "scrapper", "behaviours", "options"];
   for (const model of BODY_MODELS) {
     const spec = modelSpec(model), fitting = [];
     for (const controller of Object.values(CONTROLLERS)) for (const [id, preset] of Object.entries(controller.presets))

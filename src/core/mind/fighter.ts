@@ -4,6 +4,7 @@ import { skillSet } from "../skills/arbiter.ts";
 import { guardSkill } from "../skills/guard.ts";
 import { locomotion, validTurnLimit, validTurnStartup, type Locomotion } from "../skills/locomotion.ts";
 import type { Skills } from "../skills/skills.ts";
+import type { Ended } from "../skills/action.ts";
 import { STRIDE, stride, validStride } from "../skills/stride.ts";
 import { RUN, run, validRun } from "../skills/run.ts";
 import { SIMBICON, simbicon, simbiconRun, simbiconWays, validSimbicon, validSimbiconRun, validWays, type SimbiconSettings } from "../skills/simbicon.ts";
@@ -181,13 +182,18 @@ export function driveFighter(body: Body, world: World, config: FighterConfig, wi
   const tactics = tacticsOf(config.tactics, body.built.spec, wiring.name, config.actions,
     sight => wiring.orders(sight.view.senses), wiring.script, configuredActionEstimates(body.built.spec, config.executors, config.actions));
   let skills: Skills;
-  skills = driveBy(body, around(tactics), (made, driving) => skillSet(made, driving, {
+  skills = driveBy(body, around(tactics), (made, driving) => fighterSkills(made, world, config, driving, () => skills?.report.ledger ?? []));
+  return skills;
+}
+
+/** The skills `config` names for `made`, under `driving`: its legs, guard, low support and executors, its actions read through `ledger`. */
+export function fighterSkills(made: Body, world: World, config: FighterConfig, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[]): Skills {
+  return skillSet(made, driving, {
     legs: legsOf(made, config.locomotion), guard: guardSkill(made.built.spec, config.guard.tuning?.covering),
     support: config.support ? supportFold(made) : null,
-    executors: configuredExecutors(made, world, config.executors, config.actions, () => skills?.report.ledger ?? []),
+    executors: configuredExecutors(made, world, config.executors, config.actions, ledger),
     actions: config.actions,
-  }));
-  return skills;
+  });
 }
 
 /** **A fighter**: its body and sub-minds (`fighterBody`), driven by its tactics over its skills (`driveFighter`). */

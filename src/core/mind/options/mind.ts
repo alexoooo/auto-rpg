@@ -1,0 +1,88 @@
+import { commandable, createBody } from "../../body.ts";
+import type { BuiltBody } from "../../build/build-body.ts";
+import type { BodySpec } from "../../spec/body.ts";
+import { deepFreeze } from "../../state.ts";
+import type { World } from "../../world.ts";
+import { COUNTER_PUNCHER, STAND_UP, type OptionsConfig } from "../config.ts";
+import { actionConfigFaults } from "../action-config.ts";
+import { fighterBody, fighterSkills } from "../fighter.ts";
+import { NO_COVER } from "../intent.ts";
+import type { MindWiring } from "../minds.ts";
+import type { SubMind } from "../sub-mind.ts";
+import { subMind } from "../sub-minds.ts";
+import { driveBy, type Sight, type Tactics } from "../tactics.ts";
+import type { Skills } from "../../skills/skills.ts";
+import { setDistance } from "./distance.ts";
+import { metaController } from "./meta.ts";
+import type { DownOption, Option, Situation } from "./option.ts";
+import { followOrders } from "./orders.ts";
+import { recover } from "./recover.ts";
+import { situationReader } from "./situation.ts";
+import { strike } from "./strike.ts";
+import { walker } from "./walk.ts";
+
+/** The skills it fights with: the Counter-puncher's (`COUNTER_PUNCHER`), its straight punch with either hand. */
+const SKILLS = COUNTER_PUNCHER;
+
+/** Whether a body of `spec` takes the options fighter's commands and carries out its skills' actions. */
+export const optionsFit = (spec: BodySpec): boolean => commandable(spec) && actionConfigFaults(spec, SKILLS.executors, SKILLS.actions).length === 0;
+
+/** The options fighter's config: its kind, and nothing to set yet. */
+export const OPTIONS: OptionsConfig = deepFreeze({ kind: "options" });
+
+/**
+ * **The options fighter**: a meta-controller (`metaController`) over options, in rank order, each
+ * worth more than the next: recover once down; follow orders; stand off a fallen foe; break a
+ * clinch; strike; and hold, facing its foe. Standing options are carried out through the
+ * Counter-puncher's skills, the hands holding the guard's pose; a down option is carried out by its
+ * sub-mind, which the body's one sub-mind, its down half, hands the body to.
+ *
+ * The meta-controller decides once a control step, at the first that asks: the down half, which the
+ * body asks whether it wants the body each step once it has looked and before its command layers act
+ * (`hosting`), else the tactics. So what the body does, down or standing, is the one decision's.
+ */
+export function createOptionsFighter(built: BuiltBody, world: World, _config: OptionsConfig, wiring: MindWiring) {
+  const walk = walker(built.spec), reader = situationReader((sight) => wiring.orders(sight.view.senses));
+  let sight: Sight | null = null, meta: ReturnType<typeof metaController> | null = null, down: DownOption | null = null;
+  // The situation is read once a step, by whichever asks first; it is of the step's view, so nothing of it outlives the step.
+  let read: Situation | null = null;
+  const situation = (seen: Sight): Situation => read !== null && read.time === seen.view.time ? read : read = reader.read(seen);
+  const decide = (): Option | null => sight && meta ? meta.decide(situation(sight)) : null;
+  const half = { current: false };
+  const downHalf = (rise: SubMind): SubMind => ({
+    get name() { return rise.name; },
+    state: half,
+    wants() { return decide()?.posture === "down"; },
+    holds: () => rise.holds?.() ?? false,
+    begin() { half.current = true; rise.begin(); },
+    end() { if (half.current) rise.end(); half.current = false; },
+    step(senses, dt) { rise.step(senses, dt); },
+  });
+  const body = createBody(built, world, { ...fighterBody(SKILLS, wiring), subs: [(own, view, w, afterPhysics) => {
+    const rise = subMind(own, view, STAND_UP, w, afterPhysics);
+    down = recover(rise);
+    return downHalf(rise);
+  }] });
+  if (!down) throw new Error("the options fighter's body made no down half");
+  const options: readonly Option[] = [
+    down,
+    followOrders(walk),
+    setDistance({ name: "stand off a fallen foe", foe: "down", to: "segment", near: .9, far: Infinity, correcting: false }, walk),
+    setDistance({ name: "break the clinch", foe: "standing", to: "centre", near: .65, far: Infinity, correcting: true }, walk),
+    ...SKILLS.actions.map((action) => strike(action, walk)),
+    setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false }, walk),
+  ];
+  meta = metaController(options, options.map((_, i) => options.length - i));
+  const state = { meta: meta.state, situation: reader.state, options: options.map((option) => option.state) };
+  const engagement = { get phase() { return meta!.state.running < 0 ? "guard" : options[meta!.state.running]!.name; } };
+  const tactics: Tactics = { name: "options", state, engagement,
+    decide(seen, dt) {
+      const now = situation(seen), chosen = meta!.decide(now);
+      const asked = chosen?.posture === "standing" ? chosen.step(now, dt) : { move: null, face: seen.report.heading, actions: [] };
+      return { ...asked, guard: NO_COVER };
+    } };
+  let skills: Skills;
+  skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, world, SKILLS, driving, () => skills?.report.ledger ?? []));
+  sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, instance: skills.instance, readiness: skills.readiness };
+  return { kind: "fighter" as const, body, skills, state: skills.state };
+}

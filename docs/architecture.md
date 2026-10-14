@@ -144,7 +144,7 @@ in a hand, refusing a hand that cannot close on it; the Arena, the Crypt, the La
 tasks all read it. How the Crypt walks a model (its footprint, how near it fights, how long it
 waits on a stalled route, whether a fall ends its fight) is the Crypt's (`cryptModel`,
 `src/dungeon/actors.ts`). What a body can do is read from its spec: `modelHolds` (a hand a haft lies across, `canHold`) and `modelSupportsMind`, which asks
-the mind's controller (`Controller.fits`: `commandable` for both fighters, `quadrupedFits` for
+the mind's controller (`Controller.fits`: `commandable` and its actions for the fighters, `quadrupedFits` for
 the quadruped, any body for direct control). How a model is shown, its label,
 clothing and shape tint, is the screens' (`MODEL_DISPLAY`, `src/render/models.ts`).
 Humanoid-only tasks use `HUMANOID_MODELS`; they do not fabricate hands on a different body.
@@ -635,9 +635,10 @@ kinds, so a kind without one does not compile: it says which bodies it fits (`fi
 its presets (`PRESETS` merges them; the Arena's picker and a link's `control=` read them, ids
 unique across controllers) and makes the mind (`create`). Each controller composes its own
 tactics and skills; what they share is shared code (the orders, the targets, the guard, the
-sub-minds, locomotion and the strike cycle), not a flag that chooses a stack. There are three: the
+sub-minds, locomotion and the strike cycle), not a flag that chooses a stack. There are four: the
 **fighter** (`createFighter`, `fighter.ts`), whose tactics and skills are parts in its slots;
-the **quadruped** (crawl and bite); and **direct** joint control. A config read from a save or a link whose kind none has is refused
+the **options fighter** (`createOptionsFighter`, `src/core/mind/options/`), experimental, with
+nothing yet to configure; the **quadruped** (crawl and bite); and **direct** joint control. A config read from a save or a link whose kind none has is refused
 (`partOf`), and so is a tree any part of which names a fault (`treeFaults`, which `createMind`
 reads). A part's config holds a player's fields, plain choices, and under `tuning` an
 experiment's settings, which never travel in a link. A key its part does not read, or a tuning it
@@ -659,6 +660,23 @@ Classic uses recipe actions, Puncher uses straight punches and edge spacing, Cou
 the edge for the whole bout and drives from further out so that a foe walking in meets its punch,
 Scrapper uses path actions with low support, and Behaviours rotates its actions. Preset edits are named Custom in the
 Arena. Script tactics accept explicit research requests through the same admission protocol.
+
+**The options fighter** is a meta-controller over options (`metaController`,
+`src/core/mind/options/meta.ts`). An option (`Option`, `option.ts`) is what the body does over
+time: whether it can begin or go on (`available`), whether it may give way (`yields`), whether it
+has run its course (`ended`), and, standing, what it asks of the skills each step; a down option
+is carried out by its sub-mind. Once a control step the fighter reads its situation
+(`situationReader`, `situation.ts`: down or not, its orders, its focus and how far off it is, the
+threat), and the meta-controller takes the available option of the highest worth, keeping the
+running one while it does not yield or is not beaten by more than `DECIDING.keep`. It decides
+afresh every `DECIDING.rethink` s, at once on an event (down or up, a threat, another focus,
+other orders), and when the running option is over or unavailable. Its options, by rank: recover
+(the stand-up sub-mind, `recover.ts`), follow orders (`orders.ts`), set distance from a fallen foe
+and out of a clinch (`distance.ts`), strike with each action (`strike.ts`: walk to the blow's
+window and throw it, one option where the fighter's tactics have approach and attack), and hold.
+It fights with the Counter-puncher's skills, hands at the guard's pose. Its body hands itself to
+one sub-mind, the down half, which wants the body when the decision is a down option; so standing
+and down are one decision's. Its `Minded` is a fighter's, so what reads a fighter's report reads it.
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`,
 `sub-mind`, `tactics`, `behaviour`, or a skill's: `locomotion`, `guard`, `executor`, `support`), a label, a stage (`game`, or `experimental` for research offered beside the
