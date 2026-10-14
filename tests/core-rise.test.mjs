@@ -396,10 +396,10 @@ test("on a side, a body goes on over that side onto its front", async () => {
   const mirrored = (posture) => Object.fromEntries(Object.entries(posture).map(([name, angle]) => [name.replace(/.(left|right) /, (_, side) => `.${side === "left" ? "right" : "left"} `), angle]));
   assert.deepEqual(RISE.roll.left, RISE.roll.right.map((stage) => ({ ...stage, posture: mirrored(stage.posture) })));
   assert.deepEqual(Object.keys(RISE.roll.right[0].posture).sort(), ["hip.left abduction", "hip.left flexion", "shoulder.right flexion"], "the fixture: the roll's postures are of one side and the other");
-  // Two shoves that leave a body on a side, under the fighter's mind as the battery has it: it reads the side, rolls, and reads its front.
+  // Two shoves that leave a body on a side, under Classic rising by "Rise, then steady": it reads the side, rolls, and reads its front.
   // The club's is one of the battery's sixteen (1.5 N s/kg); none of them leaves the empty-handed Warrior on its right, and 1.8 N s/kg from 90 degrees does.
   for (const [model, held, degrees, side, impulse] of [["workshop-fighter", "empty", 90, "right", 1.8], ["workshop-fighter", "club", 247.5, "left", 1.5]]) {
-    const mind = CLASSIC;
+    const mind = { ...CLASSIC, subs: [{ kind: "support-recovery" }] };
     const { world, body, dispose } = await felled({ model, held, degrees, impulse }, (made, into) => createMind(made, into, mind, { name: "shoved", orders: () => STAND_ORDERS }).body);
     try {
       const riser = riserOf(body), reads = [];

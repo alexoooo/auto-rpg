@@ -83,7 +83,7 @@ test('an actual fall interrupts the kick and yields to recovery in a continuing 
     while(s.duel.clock<15&&!skills.report.actions.some(action=>action.effector.startsWith('foot.')&&action.stage==='unload'))s.world.step();assert.ok(s.duel.clock<15);
     const trunk=d.built.segments.get('upperTrunk');trunk.body.applyImpulse(new Vector3(0,0,80),centreOfToRef(trunk,new Vector3()));
     let down=false,recovery=false;
-    for(let i=0;i<1200;i++){s.world.step();down ||= d.body.down;recovery ||= d.body.has.startsWith('recovery:');}
+    for(let i=0;i<1200;i++){s.world.step();down ||= d.body.down;recovery ||= d.body.has.startsWith('stand up:');}
     assert.ok(down&&recovery);assert.ok(skills.report.ledger.some(record=>record.effector.startsWith('foot.')&&record.ending.kind==='interrupted'));assert.deepEqual(skills.report.actions,[]);
     assert.equal(s.duel.verdict,null,'a fall does not end a continuing bout');
     assert.ok(d.body.assist.meter.force===0&&d.body.assist.meter.moment===0);

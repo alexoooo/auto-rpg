@@ -30,7 +30,7 @@ test("registered models declare compatible default minds and equipment", () => {
     assert.equal(modelSupportsMind(model, { kind: "direct", targets: {}, seconds: .1, speed: 1, activation: 1 }), true);
     assert.equal(info.held, model === "reptile" ? "empty" : "club");
     assert.equal(modelHolds(model), model !== "reptile");
-    assert.equal(cryptModel(model).fallEndsFight, model !== "reptile");
+    assert.equal(cryptModel(model).fallEndsFight, false);
     assert.equal(MODEL_DISPLAY[model].clothing, model === "workshop-fighter" || model === "workshop-rogue");
   }
 });
