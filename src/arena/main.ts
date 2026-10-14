@@ -13,7 +13,7 @@ import { airOf, hearTouches } from "../audio/body-sounds.ts";
 import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
-import { BODY_MODELS, modelHolds, modelInfo, modelSpec, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHolds, modelSpec, type BodyModel } from "../core/models.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { createWorld, type World } from "../core/world.ts";
 import type { SkinView } from "../render/skin-view.ts";
@@ -21,7 +21,7 @@ import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
-import { boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
+import { ARENA_HELD, boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
 import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, controllerLabel, controlName, controlsFor, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
 import { PRESETS } from "../core/mind/controllers.ts";
 import { partOf } from "../core/mind/catalog.ts";
@@ -98,7 +98,7 @@ export async function bootArena(): Promise<void> {
   const mindOf = {} as Record<Side, () => MindConfig>;
   const controls = readControls(location.search), heldChoices = readHeld(location.search);
   const linkedControl = JSON.stringify(readMinds(location.search)), linkedRecovery = readRecovery(location.search);
-  const linkedHeld = JSON.stringify(heldChoices ?? { left: modelInfo(matchup.left).held, right: modelInfo(matchup.right).held });
+  const linkedHeld = JSON.stringify(heldChoices ?? { left: ARENA_HELD, right: ARENA_HELD });
   const pickers = {} as Record<Side, HTMLSelectElement>;
   const refreshChoices = {} as Record<Side, () => void>;
   const previews = {} as Record<Side, Awaited<ReturnType<typeof showHeroLineup>>>;
@@ -156,7 +156,7 @@ export async function bootArena(): Promise<void> {
     equipment.className = "field"; equipment.textContent = "Right hand"; held.setAttribute("aria-label", `${side} equipment`);
     for (const [value, textContent] of [["club", "Wooden club"], ["empty", "Empty hands"]])
       held.append(Object.assign(document.createElement("option"), { value, textContent }));
-    held.value = heldChoices?.[side] ?? modelInfo(matchup[side]).held; held.addEventListener("change", () => held.blur());
+    held.value = heldChoices?.[side] ?? ARENA_HELD; held.addEventListener("change", () => held.blur());
     // What it holds before how it thinks: the mind's tree is last, and scrolls in what room is left.
     equipment.append(held); controller.before(equipment); heldPickers[side] = held;
     const refresh = refreshChoices[side] = () => {

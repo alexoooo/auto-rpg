@@ -18,8 +18,8 @@ import { loadState, saveState, type Saved } from "../core/state.ts";
 import type { Hook, World } from "../core/world.ts";
 
 /**
- * **A bout in the arena**: two bodies, each with what its model holds by default in its right hand
- * (`modelInfo`: nothing) unless the recipe says (`DuelRecipe.held`), each under a
+ * **A bout in the arena**: two bodies, each empty-handed (`ARENA_HELD`) unless the recipe arms its
+ * right hand (`DuelRecipe.held`), each under a
  * mind made from its config (`createMind`; the game's fighter, `GAME_FIGHTER`, unless the recipe names
  * another), wounded by the core's blows under the arena's rulebook, and judged.
  *
@@ -56,6 +56,9 @@ const GAP_METRES = 4;
 export const CAP_SECONDS = 120;
 
 export const SIDES: readonly Side[] = Object.freeze(["left", "right"]);
+
+/** What a side's right hand holds in a bout whose recipe does not say: nothing. */
+export const ARENA_HELD: Held = "empty";
 
 /** How a bout ended: the loser's pool's ending, its fall, or the clock. */
 export type DuelEnding = Exclude<Ending, "time"> | "fallen" | "time";
@@ -96,7 +99,7 @@ interface DuelRecipe {
   readonly minds?: Readonly<Record<Side, MindConfig>>;
   /** Seconds continuously down before a fall ends the bout; null continues until injury or the cap. Zero is the reference fall rule. */
   readonly recoverySeconds?: number | null;
-  /** What each side's right hand holds; its model's default (`modelInfo`) unless given. */
+  /** What each side's right hand holds; nothing (`ARENA_HELD`) unless given. */
   readonly held?: Readonly<Record<Side, Held>>;
   /** The arena's rules with these in their place (`rulebook`'s override): an experiment's. */
   readonly rules?: RulebookOverride;
@@ -217,7 +220,7 @@ export class Duel {
     if (recipe.recoverySeconds !== undefined && recipe.recoverySeconds !== null && (!Number.isFinite(recipe.recoverySeconds) || recipe.recoverySeconds < 0))
       throw new Error("invalid recovery window");
     for (const side of SIDES) {
-      const model = recipe[side], info = modelInfo(model), held = recipe.held?.[side] ?? info.held, config = recipe.minds?.[side] ?? info.mind;
+      const model = recipe[side], info = modelInfo(model), held = recipe.held?.[side] ?? ARENA_HELD, config = recipe.minds?.[side] ?? info.mind;
       if (held === "club" && !modelHolds(model)) throw new Error(`${model} cannot hold a club`);
       if (!modelSupportsMind(model, config)) throw new Error(`incompatible controller for ${model}`);
     }
@@ -243,7 +246,7 @@ export class Duel {
     const duelists = {} as Record<Side, Duelist>;
     for (const side of SIDES) {
       const model = recipe[side];
-      const info = modelInfo(model), held = recipe.held?.[side] ?? info.held, config = recipe.minds?.[side] ?? info.mind;
+      const info = modelInfo(model), held = recipe.held?.[side] ?? ARENA_HELD, config = recipe.minds?.[side] ?? info.mind;
       const original = recipe.surfaces ? stiffened(modelSpec(model), recipe.surfaces) : modelSpec(model);
       const spec = armedWith(recipe.contactLayer ? layered(original, recipe.contactLayer) : original, "right", held);
       const x = (side === "left" ? -1 : 1) * gap / 2;
