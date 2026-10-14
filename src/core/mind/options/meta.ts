@@ -7,9 +7,9 @@ import type { Option, Situation } from "./option.ts";
  */
 export const DECIDING = Object.freeze({ rethink: .2, keep: .5 });
 
-/** What changes the situation enough to decide at once: the body going down or getting up, a threat, another focus, other orders. */
+/** What changes the situation enough to decide at once: the body going down or getting up, a threat or a blow coming, another focus, other orders. */
 const eventOf = (now: Situation): string =>
-  JSON.stringify([now.down, now.threat !== null, now.focus?.id ?? null, now.orders]);
+  JSON.stringify([now.down, now.threat !== null, now.incoming !== null, now.focus?.id ?? null, now.orders]);
 
 /**
  * **A meta-controller**: of `options`, the one the body carries out, by `values` (the option's

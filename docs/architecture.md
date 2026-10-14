@@ -662,23 +662,26 @@ Scrapper uses path actions with low support, and Behaviours rotates its actions.
 Arena. Script tactics accept explicit research requests through the same admission protocol.
 
 **The options fighter** is a meta-controller over options (`metaController`,
-`src/core/mind/options/meta.ts`). An option (`Option`, `option.ts`) is what the body does over
-time: whether it can begin or go on (`available`), whether it may give way (`yields`), whether it
-has run its course (`ended`), and, standing, what it asks of the skills each step; a down option
-is carried out by its sub-mind. Once a control step the fighter reads its situation
-(`situationReader`, `situation.ts`: down or not, its orders, its focus and how far off it is, the
-threat), and the meta-controller takes the available option of the highest worth, keeping the
-running one while it does not yield or is not beaten by more than `DECIDING.keep`. It decides
-afresh every `DECIDING.rethink` s, at once on an event (down or up, a threat, another focus,
+`src/core/mind/options/meta.ts`). An option (`Option`, `option.ts`) is what the body does over time:
+whether it can begin or go on (`available`), whether it may give way (`yields`), whether it has run
+its course (`ended`), and, standing, what it asks of the skills each step; a down option is carried
+out by its sub-mind. Once a control step the fighter reads its situation (`situationReader`,
+`situation.ts`: down or not, its orders, its focus and how far off it is, the threat and whether a
+blow is predicted to land), and the meta-controller takes the available option of the highest worth,
+keeping the running one while it does not yield or is not beaten by more than `DECIDING.keep`. It
+decides afresh every `DECIDING.rethink` s, at once on an event (down or up, a threat, another focus,
 other orders), and when the running option is over or unavailable. Its options, by rank: down, get
-up, roll away from a foe near, fight from the ground and lie still, each carried out by its
-sub-mind (`downOption`, `down.ts`); standing, follow orders (`orders.ts`), set distance from a fallen foe
-and out of a clinch (`distance.ts`), strike with each action (`strike.ts`: walk to the blow's
-window and throw it, one option where the fighter's tactics have approach and attack), and hold.
-It fights with the Counter-puncher's skills, hands at the guard's pose. Its body hands itself to
-one sub-mind, the down half (`downHalf`), which wants the body when the decision is a down option
-and hands it to that option's sub-mind, ending one and beginning another when the decision changes;
-so standing and down are one decision's. Its `Minded` is a fighter's, so what reads a fighter's report reads it.
+up, roll away from a foe near, fight from the ground and lie still, each carried out by its sub-mind
+(`downOption`, `down.ts`); standing, follow orders (`orders.ts`), break a clinch (`distance.ts`),
+strike with each action from where it stands (`strike.ts`), step back from a blow coming in
+(`evade.ts`), hold at the edge of its foe's reach until a blow is ready or its patience is spent
+(`edge.ts`, the Counter-puncher's band and patience), close and strike (walk to the blow's window
+and throw it), and hold. Whatever a standing option asks, its walk (`walker`, `walk.ts`) keeps out
+of a solid's clearance and a fallen body's reach. It fights with the Counter-puncher's skills, hands
+at the guard's pose. Its body hands itself to one sub-mind, the down half (`downHalf`), which wants
+the body when the decision is a down option and hands it to that option's sub-mind, ending one and
+beginning another when the decision changes; so standing and down are one decision's. Its `Minded`
+is a fighter's, so what reads a fighter's report reads it.
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`,
 `sub-mind`, `tactics`, `behaviour`, or a skill's: `locomotion`, `guard`, `executor`, `support`), a label, a stage (`game`, or `experimental` for research offered beside the

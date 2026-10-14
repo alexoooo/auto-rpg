@@ -18,7 +18,7 @@ import { bodyClearance, lowOpponent } from "./sensed-bounds.ts";
 import { groundPosition } from "./ground-position.ts";
 import type { BodySense } from "./senses.ts";
 import type { Sight, Tactics } from "./tactics.ts";
-import { THREAT, threatReader } from "./threat.ts";
+import { PREDICTION, THREAT, threatReader } from "./threat.ts";
 
 /** An action's own registration supplies measured estimates without exposing its executor kind. */
 interface ActionEstimate {
@@ -48,8 +48,6 @@ export interface ActionEngagement {
 
 /** Footwork checks the next half metre and keeps feet clear of each fallen segment. */
 const SPACE = Object.freeze({ margin: .08, ahead: .5, band: .1, fallbackPace: .3, fallen: .9 });
-/** Predictive cover looks just ahead of the head for an incoming contact. */
-const PREDICTION = Object.freeze({ out: .2, horizon: .4 });
 
 /** Conditions share detached facts; distance reads proximity, while target and follow-up read focus. */
 export function actionCondition(condition: ConditionConfig, sight: Sight, orders: Orders | null, focus: BodySense | null): boolean {

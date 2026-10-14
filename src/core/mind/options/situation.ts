@@ -2,7 +2,7 @@ import { hypot } from "../../math/real.ts";
 import type { Orders } from "../orders.ts";
 import type { BodySense } from "../senses.ts";
 import type { Sight } from "../tactics.ts";
-import { THREAT, threatReader } from "../threat.ts";
+import { PREDICTION, THREAT, threatReader } from "../threat.ts";
 import type { Situation } from "./option.ts";
 
 /**
@@ -33,7 +33,7 @@ export function situationReader(ordersOf: (sight: Sight) => Orders | null) {
       const orders = ordersOf(sight), focus = focusOf(sight, orders), centre = sight.view.stance.centre;
       state.focus = focus?.id ?? null;
       return { sight, time: sight.view.time, down: sight.view.down, orders, focus,
-        apart: focus ? hypot(focus.centre.x - centre.x, focus.centre.z - centre.z) : Infinity, threat: threat.threatOf(sight.view, THREAT) };
+        apart: focus ? hypot(focus.centre.x - centre.x, focus.centre.z - centre.z) : Infinity, threat: threat.threatOf(sight.view, THREAT), incoming: threat.threatOf(sight.view, THREAT, PREDICTION) };
     },
   };
 }

@@ -17,6 +17,9 @@ import { placedReach } from "../skills/strike.ts";
  */
 export const THREAT: Threat = Object.freeze({ within: 1.5, closing: 2 });
 
+/** A blow predicted to land (`threatOf`): a threat's striking point crossing the plane `out` m ahead of the head within `horizon` s. */
+export const PREDICTION = Object.freeze({ out: .2, horizon: .4 });
+
 /** What counts as a threat (`THREAT`). */
 interface Threat {
   readonly within: number;

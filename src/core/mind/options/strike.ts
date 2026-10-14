@@ -15,14 +15,14 @@ const around = (sight: Sight): ActionAround => ({ heading: sight.report.heading,
   support: sight.report.support ?? null, walk: null, lower: STANCE_LOWER });
 
 /**
- * **Strike**: `action` at the focus, a standing foe, with the first of its limbs that is ready, or
- * else the first its executor would admit from a place to walk to (its window). It walks there,
- * asks for the blow once the limb is ready, and goes on asking until the blow is over: then it has
- * run its course. A blow asked for and refused, every limb refused, or `PATIENCE` s without a blow
+ * **Strike**: `action` at the focus, a standing foe, with the first of its limbs that is ready; or,
+ * where it `closes`, else the first its executor would admit from a place to walk to (its window),
+ * walking there. It asks for the blow once the limb is ready, and goes on asking until the blow is
+ * over: then it has run its course. Where it does not close, it is on offer only with a limb ready. A blow asked for and refused, every limb refused, or `PATIENCE` s without a blow
  * also end it. It yields until its blow is committed. The region struck is what the orders name on
  * the focus, else the first of the action's regions the focus has.
  */
-export function strike(action: ActionConfig, walk: Walker): StandingOption {
+export function strike(action: ActionConfig, walk: Walker, closes: boolean): StandingOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false };
   const targetOf = (now: Situation): TargetRef | null => {
     const focus = now.focus;
@@ -33,19 +33,19 @@ export function strike(action: ActionConfig, walk: Walker): StandingOption {
   };
   const readiness = (now: Situation, limb: string, target: TargetRef): Readiness =>
     now.sight.readiness(now.sight.view, action.name, limb, target, around(now.sight));
-  /** The first limb ready, else the first with a window to walk to; null with neither. */
+  /** The first limb ready, else, where it closes, the first with a window to walk to; null with neither. */
   const limbFor = (now: Situation, target: TargetRef): { limb: string; readiness: Readiness } | null => {
     let placed: { limb: string; readiness: Readiness } | null = null;
     for (const limb of action.effectors) {
       const ready = readiness(now, limb, target);
       if (ready.kind === "ready") return { limb, readiness: ready };
-      if (ready.kind === "position") placed ??= { limb, readiness: ready };
+      if (closes && ready.kind === "position") placed ??= { limb, readiness: ready };
     }
     return placed;
   };
   const live = (now: Situation) => state.id === null ? undefined : now.sight.report.actions.find((a) => a.id === state.id);
   return {
-    name: `strike: ${action.name}`, posture: "standing", state,
+    name: closes ? `close and ${action.name}` : action.name, posture: "standing", state,
     available(now) {
       if (live(now)) return true;
       if (now.down || !now.focus || now.focus.down || state.target !== null && state.target.body !== now.focus.id) return false;

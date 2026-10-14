@@ -7,7 +7,7 @@ import type { Sight } from "../tactics.ts";
 /**
  * **What a decision reads**, once a control step: the body and its skills as the last step left
  * them, whether it is down, its orders, the foe it fights (its focus) and how far off that foe is,
- * and a foe's blow closing on its head.
+ * and a foe's blow closing on its head or predicted to reach it.
  */
 export interface Situation {
   readonly sight: Sight;
@@ -18,6 +18,8 @@ export interface Situation {
   /** Across the ground between the centres of mass, m; Infinity with no focus. */
   readonly apart: number;
   readonly threat: Cover | null;
+  /** A foe's blow predicted to reach the head (`PREDICTION`). */
+  readonly incoming: Cover | null;
 }
 
 /**

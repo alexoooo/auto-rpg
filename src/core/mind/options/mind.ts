@@ -14,6 +14,8 @@ import type { Skills } from "../../skills/skills.ts";
 import { setDistance } from "./distance.ts";
 import { metaController } from "./meta.ts";
 import { downHalf, downOption } from "./down.ts";
+import { holdEdge } from "./edge.ts";
+import { evade } from "./evade.ts";
 import type { Option, Situation } from "./option.ts";
 import { followOrders } from "./orders.ts";
 import { situationReader } from "./situation.ts";
@@ -22,6 +24,13 @@ import { walker } from "./walk.ts";
 
 /** The skills it fights with: the Counter-puncher's (`COUNTER_PUNCHER`), its straight punch with either hand. */
 const SKILLS = COUNTER_PUNCHER;
+
+/** How it holds the edge of its foe's reach: as the Counter-puncher does. */
+const EDGE = (() => {
+  const edge = "list" in SKILLS.tactics ? SKILLS.tactics.list.find((item) => item.kind === "edge") : undefined;
+  if (edge?.kind !== "edge") throw new Error("the Counter-puncher holds no edge");
+  return edge;
+})();
 
 /** What it does down, by rank: the sub-mind each down option is carried out by. */
 const DOWN: readonly (readonly [string, SubMindConfig])[] = deepFreeze([
@@ -37,10 +46,12 @@ export const OPTIONS: OptionsConfig = deepFreeze({ kind: "options" });
 /**
  * **The options fighter**: a meta-controller (`metaController`) over options, in rank order, each
  * worth more than the next. Down: get up; roll away from a foe near; fight from the ground; lie
- * still. Standing: follow orders; stand off a fallen foe; break a clinch; strike; and hold, facing
- * its foe. Standing options are carried out through the Counter-puncher's skills, the hands holding
- * the guard's pose; a down option is carried out by its sub-mind, which the body's one sub-mind,
- * its down half (`downHalf`), hands the body to.
+ * still. Standing: follow orders; break a clinch; strike with a hand that is ready; step back from a
+ * blow coming in; hold at the edge of its foe's reach, as the Counter-puncher does; close and strike;
+ * and hold, facing its foe. Whatever a standing option asks, its walk keeps out of a fallen body's
+ * reach and a solid's clearance (`Walker.constrain`). Standing options are carried out through the
+ * Counter-puncher's skills, the hands holding the guard's pose; a down option is carried out by its
+ * sub-mind, which the body's one sub-mind, its down half (`downHalf`), hands the body to.
  *
  * The meta-controller decides once a control step, at the first that asks: the down half, which the
  * body asks whether it wants the body each step once it has looked and before its command layers act
@@ -60,13 +71,16 @@ export function createOptionsFighter(built: BuiltBody, world: World, _config: Op
     return downHalf(downs, running, decide, half);
   }] });
   if (downs.length !== DOWN.length) throw new Error("the options fighter's body made no down half");
+  const strikeNow = SKILLS.actions.map((action) => strike(action, walk, false));
   const options: readonly Option[] = [
     ...downs,
-    followOrders(walk),
-    setDistance({ name: "stand off a fallen foe", foe: "down", to: "segment", near: .9, far: Infinity, correcting: false }, walk),
-    setDistance({ name: "break the clinch", foe: "standing", to: "centre", near: .65, far: Infinity, correcting: true }, walk),
-    ...SKILLS.actions.map((action) => strike(action, walk)),
-    setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false }, walk),
+    followOrders(),
+    setDistance({ name: "break the clinch", foe: "standing", to: "centre", near: .65, far: Infinity, correcting: true, facing: "foe" }, walk),
+    ...strikeNow,
+    evade(walk),
+    holdEdge(EDGE, walk, (now) => strikeNow.some((option) => option.available(now))),
+    ...SKILLS.actions.map((action) => strike(action, walk, true)),
+    setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false, facing: "foe" }, walk),
   ];
   meta = metaController(options, options.map((_, i) => options.length - i));
   const state = { meta: meta.state, situation: reader.state, options: options.map((option) => option.state) };
@@ -75,7 +89,7 @@ export function createOptionsFighter(built: BuiltBody, world: World, _config: Op
     decide(seen, dt) {
       const now = situation(seen), chosen = meta!.decide(now);
       const asked = chosen?.posture === "standing" ? chosen.step(now, dt) : { move: null, face: seen.report.heading, actions: [] };
-      return { ...asked, guard: NO_COVER };
+      return { ...asked, move: walk.constrain(now, asked.move, null), guard: NO_COVER };
     } };
   let skills: Skills;
   skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, world, SKILLS, driving, () => skills?.report.ledger ?? []));
