@@ -705,9 +705,8 @@ The baseline sub-minds each read its host's down state (`BodyView.down`) and rec
 the body's world (`SubMindMaker`): `lie` (`lying`, `lie.ts`) asks the muscles for nothing;
 `support-recovery` (`supportRecovery`) plays the staged recipe and verifies quiet standing
 before handover; `research-rise` (`researchRise`) tracks experimental reference motions with
-live feedback through ordinary muscles. Classic, Puncher, Counter-puncher, Scrapper and Behaviours
-use `support-recovery`. The staged riser is an internal component of that baseline, not a separate
-editor choice.
+live feedback through ordinary muscles. The staged riser is an internal component of that
+baseline, not a separate editor choice.
 
 Experimental ground recovery reads one shared `BodyView.ground` after contact sampling. Physical
 loads, sole flatness, trunk orientation and velocity remain immediate; only the named position
@@ -718,13 +717,17 @@ simple route to standing in player order and retains its purpose across successf
 Stand up executes contracts, braces during tumbling, steadies on feet, repositions deliberately,
 and backs off when stuck. Failures belong to a technique, side and starting position and survive
 successful rolls. Its bounded log names attempts and distinguishes verified hand-back from the
-steadying timeout. These techniques remain experimental: software contracts and repeatable
-failures do not establish successful recovery. `SubMind.holds` preserves a wanted body through a
+steadying timeout. `step-up` (`ground/step-up.ts`) is the game's technique: the staged recipe's
+route from the front (roll, hands and knees, kneel up, the left foot through, the lunge), each
+stage's time and completion searched per model on target falls
+(`research/rising-step-search.mjs`), joined part-way from hands and knees or a half kneel, then
+the stance climbing to standing height. The others remain experimental. `SubMind.holds` preserves a wanted body through a
 critical phase and lets ranked higher sub-minds take it at the first yielding boundary.
 
 `RECIPE_FIGHTER` uses shared action tactics over the recipe executor, walking in the stance, with `lie`;
-the Lab's minds are made from it. `GAME_FIGHTER` is it getting about by `MOVE`: the mind every
-humanoid has unless its fight says otherwise (`modelInfo`), so a body that falls lies still ([reference/rising.md](reference/rising.md#lying)). An arena
+the Lab's minds are made from it. `GAME_FIGHTER` is it getting about by `MOVE` and standing up
+once down (`STAND_UP`, step-up alone): the mind every humanoid has unless its fight says
+otherwise (`modelInfo`), and Classic. Puncher, Scrapper and Behaviours stand up as it does. An arena
 recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives an enemy its model's (`modelInfo`) and a party member the
 mind chosen for its model on the start panel (`DungeonRunOptions.minds`), its model's unless one
 was; the lab's actor drives the fighter its page chose (`ActorOptions.mind`), the Script preset

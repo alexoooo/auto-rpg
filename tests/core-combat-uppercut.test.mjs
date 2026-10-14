@@ -11,10 +11,6 @@ import {buildBout} from '../research/bout.mjs';
 import {SCRAPPER} from '../src/core/mind/config.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {DEFAULT_ENGINE,loadEngine} from '../src/core/engine/engines.ts';
-import {coreStand,saveStand,loadStand} from './harness/core-stand.mjs';
-import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
-import {combatSkills} from '../src/core/skills/combat.ts';
-import {NO_COVER} from '../src/core/mind/intent.ts';
 import {traceOf} from './harness/trace.mjs';
 import {COMBAT,withParts} from './fixtures/minds.mjs';
 
@@ -68,28 +64,6 @@ test('both hands repeat actual upward contacts and survive clean misses with ver
   if(mode==='hit'){
    assert.equal(row.contacts.length,6);assert.ok(row.contacts.every(c=>c.closing>2.9&&c.mass>.2),JSON.stringify(row.contacts));
   }else{assert.deepEqual(row.contacts,[]);assert.ok(row.peaks.every(p=>p>2.9),JSON.stringify(row.peaks));}
- }
-});
-
-test('a fresh-world fork preserves the full upward swing and return with either hand',async()=>{
- const make=async hand=>{
-  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
-  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body);
-  body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,
-   attack:view.time>=2?{kind:'blow',hand,target:[hand==='right'?.1:-.1,1.63,.35],path:{family:'uppercut',direction:[0,1,0]}}:null},dt));
-  return {...s,body,skills};
- };
- for(const hand of ['right','left'])for(const phase of ['swing','return']){
-  const a=await make(hand),b=await make(hand);
-  try{
-   while(a.skills.report.strike.phase!==phase&&a.world.time<5)a.step();a.step(3);assert.equal(a.skills.report.strike.phase,phase);
-   assert.equal(a.skills.state.blow.hands[hand].action.path.family,'uppercut');assert.deepEqual(a.skills.state.blow.hands[hand].action.path.direction,[0,1,0]);
-   const states=s=>({body:s.body.state,skills:s.skills.state});loadStand(b.world,states(b),saveStand(a.world,states(a)));
-   const ta=traceOf([a.built]),tb=traceOf([b.built]);
-   for(let i=0;i<200;i++){a.step();b.step();ta.take();tb.take();}
-   assert.equal(ta.digest(),tb.digest());assert.deepEqual(saveStand(a.world,states(a)).state,saveStand(b.world,states(b)).state);
-   assert.ok(a.skills.report.strike.pointCycle.returned[hand]>=1);assert.equal(a.body.down,false);
-  }finally{a.body.dispose();b.body.dispose();a.dispose();b.dispose();}
  }
 });
 

@@ -33,8 +33,8 @@ Against the reading it replaced (the centre of mass over the soles' middles, kep
 bout that ends by a fall ends 0.05 to 0.6 s later, and is the same bout to the bit until the step
 it used to end at (`bouts.md#down-read-from-the-body`).
 
-A body's mind reads it too: the game's hands a body that is down to `lie`, which asks its muscles
-for nothing ([Lying](#lying)).
+A body's mind reads it too: the game's hands a body that is down to Stand up, and the recipe
+fighter's to `lie`, which asks its muscles for nothing ([Lying](#lying)).
 
 ## Battery
 
@@ -80,7 +80,9 @@ slot. Its intended human baseline is a median verified recovery within 4 seconds
 15 of 16 directional falls in each body/loadout group and 61 of 64 overall completed within
 6 seconds. Every cardinal shove direction must pass in each group, and the full set of directions
 must be present without duplicates. This is the owner's requested gameplay target, not a change
-to anatomical strength or speed. Presets retain their existing recovery.
+to anatomical strength or speed. The game's fighters and the Arena's presets stand up with
+`step-up` ([architecture](../architecture.md)); the target is read by
+`node research/rising-step-search.mjs --score`, and is not met.
 
 ```powershell
 # Historical command at 54f3fba1; the experiment is removed from the current tree.
@@ -140,7 +142,7 @@ weights from 1 to 4 s after the shove, past 1e30 at 6 s and past 1e100 at 16 s.
 
 ## Lying
 
-The game's mind (`RECIPE_FIGHTER`): from the step a body is down it is `lie`'s (`lying`,
+The recipe fighter (`RECIPE_FIGHTER`, the Lab's minds): from the step a body is down it is `lie`'s (`lying`,
 `src/core/mind/lie.ts`), which asks its muscles for nothing, and the command layers ask its
 stance nothing.
 

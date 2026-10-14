@@ -216,9 +216,9 @@ test("a_bout's_minds_are_its_recipe's", async () => {
     } finally { duel.dispose(); dispose(); }
   };
   const bare = { ...RECIPE_FIGHTER, subs: [] };
-  // The game's mind lies where it fell; one whose recipe gives it no sub-minds keeps its body. Each side has its own.
-  assert.deepEqual(await felled("left", {}), ["lie", "command"]);
-  assert.deepEqual(await felled("right", {}), ["command", "lie"]);
+  // The game's mind braces to stand up; the recipe fighter lies where it fell; one whose recipe gives it no sub-minds keeps its body. Each side has its own.
+  assert.deepEqual(await felled("left", {}), ["stand up: brace", "command"]);
+  assert.deepEqual(await felled("right", {}), ["command", "stand up: brace"]);
   assert.deepEqual(await felled("left", { minds: { left: bare, right: RECIPE_FIGHTER } }), ["command", "command"]);
   assert.deepEqual(await felled("right", { minds: { left: bare, right: RECIPE_FIGHTER } }), ["command", "lie"]);
   assert.deepEqual(await felled("right", { minds: { left: RECIPE_FIGHTER, right: bare } }), ["command", "command"]);

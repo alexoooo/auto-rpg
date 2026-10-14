@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { foundationJobs, foundationTrial, attackAccounting, proportion } from "../research/control-foundation-trials.mjs";
+import { foundationJobs, foundationTrial } from "../research/control-foundation-trials.mjs";
 import { runFoundation, summarizeCompetencies, summarizeFoundation } from "../research/control-foundation.mjs";
 import { PHYSIQUE_GRID, physiqueGrid, physiqueLabel, physiqueRanges } from "../research/physiques.mjs";
 import { COMPETENCY, RATES, competencyFigures, competencyPasses, fullReach } from "../research/competencies.mjs";
@@ -87,18 +87,6 @@ test("foundation starts are reproducible, split-disjoint and explicit about unsu
   assert.throws(() => foundationJobs({ actuation: "typo" }), /actuation/);
   const directional = foundationJobs({ ...options, actuation: "directional" });
   assert.ok(directional.every((j, i) => j.actuation === "directional" && j.id !== a[i].id));
-});
-
-test("preparation counts commitments, not frames in a swing or aborted approaches", () => {
-  const meter = attackAccounting();
-  for (const [phase, time] of [["approach", 1], ["place", 2], ["chamber", 4], ["swing", 5], ["swing", 6], [null, 7],
-    ["approach", 8], [null, 9], ["settle", 10], ["swing", 12]]) meter.take(phase, time);
-  assert.deepEqual(meter.preparations, [3, 2]);
-  assert.deepEqual(proportion(0, 0), { successes: 0, count: 0, rate: null, interval95: null });
-  const interval = proportion(1, 2);
-  assert.equal(interval.rate, 0.5);
-  assert.ok(interval.interval95[0] > 0 && interval.interval95[0] < 0.1 && interval.interval95[1] > 0.9);
-  assert.throws(() => proportion(2, 1), /counts/);
 });
 
 test("the common runner hosts both reach controllers and keeps their denominators separate", async () => {

@@ -143,7 +143,7 @@ Colliders do not change with wounds, and static pressure creates no work over ti
 
 The Crypt's `HUMANOID` (`cryptModel`, `src/dungeon/actors.ts`) retains the .35 m footprint and one-second progress interval from
 [following](play.md#following), and `ATTACK_METRES` from
-[attack distance](human-and-strikes.md#attack-distance). Humanoid falls end a dungeon fight.
+[attack distance](human-and-strikes.md#attack-distance). A humanoid that falls stays in the fight and gets up, as the reptile does.
 The reptile has empty hands and a quadruped mind by default (`modelInfo`), and in the Crypt .52 m attack spacing
 and an eight-second progress interval. These are controller choices allowing heading changes
 and careful close crawling as well as the faster trot. `STALL_METRES` retains the 50 mm

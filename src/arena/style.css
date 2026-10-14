@@ -213,7 +213,9 @@ body:has(#curtain:not(.gone)) #hud { visibility: hidden; }
 #curtain .contender {
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  /* The choices take the room they need and the preview what is left, down to a strip; past
+     that the open mind scrolls within its panel. */
+  grid-template-rows: auto minmax(96px, 1fr) minmax(0, max-content);
   align-self: center;
   height: min(72vh, 760px);
   min-height: 0;
@@ -228,6 +230,8 @@ body:has(#curtain:not(.gone)) #hud { visibility: hidden; }
   border-radius: 48% 48% 0 0 / 22% 22% 0 0;
   mask-image: linear-gradient(#000, transparent 88%);
 }
+/* An open mind takes the panel's whole column. */
+#curtain .contender:has(> .contender-choices > .settings[open]) { align-self: stretch; height: auto; }
 #curtain .contender[data-side="left"] { grid-column: 1; grid-row: 2 / -1; }
 #curtain .contender[data-side="right"] { grid-column: 3; grid-row: 2 / -1; }
 #curtain .contender-head { text-align: center; }
@@ -235,7 +239,10 @@ body:has(#curtain:not(.gone)) #hud { visibility: hidden; }
   margin: 4px 0 0; font-size: 13px; font-weight: 400; letter-spacing: .24em;
   text-transform: uppercase; color: #bca98c;
 }
-.contender-choices { display: grid; gap: 8px; }
+.contender-choices { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.contender-choices > * { flex: none; }
+#curtain .contender-choices > .settings[open] { flex: 0 1 auto; min-height: 0; overflow: hidden auto; overscroll-behavior: contain; padding-right: 4px; }
+#curtain .settings[open] > summary { position: sticky; top: 0; z-index: 1; padding: 2px 0; background: #140f10; }
 #curtain .settings summary { cursor: pointer; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #b7a790; }
 #curtain .settings .field { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); align-items: center; margin-top: 6px; font-size: 12px; color: #b7a790; }
 #curtain .settings select, #curtain .settings input { padding: 6px 8px; font: 13px Georgia, serif; letter-spacing: 0; text-transform: none; }

@@ -157,7 +157,8 @@ export async function bootArena(): Promise<void> {
     for (const [value, textContent] of [["club", "Wooden club"], ["empty", "Empty hands"]])
       held.append(Object.assign(document.createElement("option"), { value, textContent }));
     held.value = heldChoices?.[side] ?? modelInfo(matchup[side]).held; held.addEventListener("change", () => held.blur());
-    equipment.append(held); choices.append(equipment); heldPickers[side] = held;
+    // What it holds before how it thinks: the mind's tree is last, and scrolls in what room is left.
+    equipment.append(held); controller.before(equipment); heldPickers[side] = held;
     const refresh = refreshChoices[side] = () => {
       refreshAppearance();
       const model = select.value as BodyModel, choices = controlsFor(model), previous = control.value;
@@ -195,7 +196,7 @@ export async function bootArena(): Promise<void> {
   recoveryField.className = "field recovery"; recoveryField.textContent = "After a fall";
   recoveryPicker.setAttribute("aria-label", "Recovery window");
   recoveryPicker.append(Object.assign(document.createElement("option"), { value: "continue", textContent: "Continue fighting and attempt recovery" }));
-  for (const seconds of new Set([0, 15, 30, 60, linkedRecovery ?? 60])) recoveryPicker.append(Object.assign(document.createElement("option"),
+  for (const seconds of new Set([0, 20, 30, 60, linkedRecovery ?? 60])) recoveryPicker.append(Object.assign(document.createElement("option"),
     { value: String(seconds), textContent: seconds === 0 ? "Fall ends bout" : `${seconds} seconds down before defeat` }));
   recoveryPicker.value = linkedRecovery == null ? "continue" : String(linkedRecovery); recoveryPicker.addEventListener("change", () => recoveryPicker.blur());
   recoveryField.append(recoveryPicker); need("matchup").after(recoveryField);

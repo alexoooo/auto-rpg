@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { CONTROLLERS, controllerOf, PRESETS } from "../src/core/mind/controllers.ts";
-import { CLASSIC, RECIPE_FIGHTER, SCRAPPER } from "../src/core/mind/config.ts";
+import { CLASSIC, RECIPE_FIGHTER, SCRAPPER, STAND_UP } from "../src/core/mind/config.ts";
 import { treeFaults } from "../src/core/mind/catalog.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { BODY_MODELS, modelSpec } from "../src/core/models.ts";
@@ -37,7 +37,7 @@ test("each controller says which bodies its presets fit, and the Arena offers ju
 test("presets bind actions to explicitly named execution state", () => {
   for (const [id, { config }] of Object.entries(CONTROLLERS.fighter.presets)) {
     assert.equal(config.tactics.kind, "behaviours", id);
-    assert.deepEqual(config.subs, [{ kind: "support-recovery" }], id);
+    assert.deepEqual(config.subs, [STAND_UP], id);
     assert.equal(Object.hasOwn(config, "blow"), false);
     assert.equal(Object.hasOwn(config, "kick"), false);
     for (const action of config.actions) assert.equal(config.executors.filter(executor => executor.name === action.executor).length, 1, action.name);

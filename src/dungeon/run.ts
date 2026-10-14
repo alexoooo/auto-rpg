@@ -35,7 +35,7 @@ import { generateEncounterLevel } from "./encounters.ts";
  *   a reptile receives the nearest sensed collider surface within its mouth's reach.
  * - **Wounds** are the core's blows (`watchBlows`) under the dungeon's rulebook. A fighter is out
  *   of the fight once its pool has ended, or a fall ends that model's fight (`modelInfo`'s
- *   `fallEndsFight`). A reptile remains alive while recovering. An eliminated body goes limp:
+ *   `fallEndsFight`); none does today, so a fallen body stays in the fight while it gets up. An eliminated body goes limp:
  *   nothing drives its muscles again, and a step costs it only what the solver takes.
  * - **An enemy is built** once a standing party member comes within `WAKE_METRES` of where it waits,
  *   beyond its sight: a standing body costs a step 0.53 ms of its 8.33
@@ -359,8 +359,7 @@ export class DungeonRun {
   /**
    * Put each body at its level (`levelsOf`). One found out of the fight, for good, is out from now:
    * its assist is withdrawn, and the rule lets it go limp, so it lies as the blow or the fall left
-   * it. A body that fell had already been let go by its mind (`GAME_FIGHTER` lies still while down); one
-   * whose pool ended standing is let go here.
+   * it, wherever its mind had it.
    */
   private levels(): void {
     for (const actor of this.actors) if (actor.fighter && actor.outAt === null && !actor.alive) {

@@ -215,7 +215,7 @@ function floorBetween(map, at, from, least, most, wide) {
 }
 
 test("the_dead_are_held_once_the_party_has_walked_off_and_loose_when_it_is_back", async () => {
-  // The enemy waits beyond the party's sight and is felled by a shove, so that the hero walks up to it from afar.
+  // The enemy waits beyond the party's sight, is shoved down and put out by a wound that empties its pool, so that the hero walks up to it from afar.
   const { map } = restFixture(1);
   const { run, dispose } = await crypt(1, map);
   try {
@@ -223,7 +223,8 @@ test("the_dead_are_held_once_the_party_has_walked_off_and_loose_when_it_is_back"
     seconds(run, 1);
     const trunk = enemy.fighter.built.segments.get("upperTrunk");
     trunk.body.applyImpulse(new Vector3(100, 0, 0), centreOfToRef(trunk, new Vector3()));
-    assert.ok(until(run, () => !enemy.alive, 3), "the shove fells it");
+    enemy.fighter.pool.wound({ part: "head", damage: enemy.fighter.pool.total, clean: false });
+    assert.equal(enemy.alive, false, "the wound puts it out");
     run.step();
     assert.deepEqual([enemy.limp, enemy.held], [true, false], "it is let go limp at the next step");
     // It comes to lie still, the party within `LEVELS.rest`, before a place beside it is chosen by its feet.
@@ -312,22 +313,21 @@ test("a_closed_door_is_a_wall_until_it_opens", async () => {
   } finally { dispose(); }
 });
 
-test("a_run_is_lost_when_its_last_member_falls_in_whatever_step_that_is", async () => {
+test("a_run_is_lost_when_its_last_member_is_out_in_whatever_step_that_is", async () => {
   // One hall, the hero alone in it: its one enemy waits unbuilt, far beyond `WAKE_METRES`.
   const size = 41, floor = new Uint8Array(size * size);
   for (let z = 19; z <= 21; z++) for (let x = 3; x <= 37; x++) floor[z * size + x] = 1;
   const hall = () => ({ seed: 1, size, floor: floor.slice(), doors: [], rooms: [{ id: 0, centre: { x: 20, z: 20 }, min: { x: 3, z: 19 }, max: { x: 37, z: 21 } }],
     start: { x: 6, z: 20 }, exit: { x: 37, z: 20 }, spawns: [{ x: 33, z: 20 }] });
-  // The party looks about it every 0.2 s, 24 steps: felled a step later each time, the hero is first
-  // found down in every step of that round, the one the party looks in among them.
+  // The party looks about it every 0.2 s, 24 steps: put out a step later each time, the hero is first
+  // found out in every step of that round, the one the party looks in among them.
   const ended = [];
   for (let late = 0; late < 24; late++) {
     const { run, dispose } = await crypt(42, hall());
     try {
       run.step(60 + late);
-      const trunk = run.hero.fighter.built.segments.get("upperTrunk");
-      // 200 N s at the upper trunk, from the side: it does not keep its feet.
-      trunk.body.applyImpulse(new Vector3(0, 0, 200), centreOfToRef(trunk, new Vector3()));
+      // A wound that empties its pool: a fall alone no longer ends a humanoid's fight.
+      run.hero.fighter.pool.wound({ part: "head", damage: run.hero.fighter.pool.total, clean: false });
       seconds(run, 3);
       ended.push([late, run.status, run.visible.size > 0]);
     } finally { dispose(); }

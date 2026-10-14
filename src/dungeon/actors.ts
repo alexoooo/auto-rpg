@@ -16,7 +16,7 @@ interface CryptModel {
 }
 
 /** Every humanoid's footprint, spacing and recovery: `docs/reference/reptile.md#encounters`. */
-const HUMANOID: CryptModel = deepFreeze({ radius: .35, attackMetres: 1.8, progressSeconds: 1, fallEndsFight: true });
+const HUMANOID: CryptModel = deepFreeze({ radius: .35, attackMetres: 1.8, progressSeconds: 1, fallEndsFight: false });
 
 let reptileModel: CryptModel | undefined;
 /** The reptile's collider footprint, bite spacing and continued recovery: `docs/reference/reptile.md#encounters`. */

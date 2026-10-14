@@ -272,11 +272,14 @@ export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tacti
   executors: [{ name: "recipe", kind: "recipe-strike" }],
   actions: [{ name: "strike", executor: "recipe", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "high" }], aim: { kind: "centre", lead: 0 } }], support: null, subs: [{ kind: "lie" }] });
 
-/** The mind every humanoid has unless its fight says otherwise: the recipe fighter, getting about by `MOVE`. */
-export const GAME_FIGHTER: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, locomotion: MOVE });
+/** Standing up by stepping up (`stepUp`), the way the game's fighters rise once down. */
+export const STAND_UP: StandUpConfig = deepFreeze({ kind: "stand-up", techniques: ["step-up"] });
 
-/** The Arena's Classic: the game's fighter, rising and steadying on its feet once down. */
-export const CLASSIC: FighterConfig = deepFreeze({ ...GAME_FIGHTER, subs: [{ kind: "support-recovery" }] });
+/** The mind every humanoid has unless its fight says otherwise: the recipe fighter, getting about by `MOVE` and standing up once down. */
+export const GAME_FIGHTER: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, locomotion: MOVE, subs: [STAND_UP] });
+
+/** The Arena's Classic: the game's fighter. */
+export const CLASSIC: FighterConfig = GAME_FIGHTER;
 
 /** Classic throwing the straight punch, its fist lined up behind the arm (searched in Arena bouts, `research/punch-in-bout.mjs`), held at the edge of its foe's reach. */
 export const PUNCHER: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...FIGHTING, list: [
@@ -313,7 +316,7 @@ export const SCRAPPER: FighterConfig = deepFreeze({ ...GAME_FIGHTER,
   executors: [{ name: "paths", kind: "path-strike", overlap: false }],
   actions: (["straight", "cross", "hook", "downward"] as const).map(family => ({ name: family, executor: "paths", family, ...(family === "downward" ? { lower: .5 } : {}),
     effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark" as const, mark: "middle" as const }], aim: { kind: "surface" as const, tuning: BODY_OPENINGS } })),
-  support: { kind: "support-fold" }, subs: [{ kind: "support-recovery" }] });
+  support: { kind: "support-fold" } });
 
 /** The configurable behaviour fighter starts from the shared recipe actions. */
 export const BEHAVIOURS: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...FIGHTING, choose: { kind: "rotate", rethink: .2, patience: 2 }, list: [

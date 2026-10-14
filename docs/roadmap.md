@@ -118,14 +118,24 @@ After it, each with its own plan, in the order each needs the one before:
   ([punch](analysis/2026-10-08-punch-layer.md)).
 - **Kicks.** Either-foot [front kicks](reference/front-kicks.md) share the punch's tracker and
   cycle. Higher targets and competitive kick selection are open.
-- **Rising.** Rising is built to the feet and continues Arena bouts:
-  - Classic, Puncher and the opening presets use the staged recipe and verify standing support before handing back
-    ([recovery cycle](reference/recovery-cycle.md)).
-  - On the hands' hulls, the Warrior rises from 11 of 16 falls empty-handed and 9 of 14 with the
-    club; the Rogue from 2 of 32. The capsule hands rose from 13, 13 and 6 on the same shoves
-    ([rising](reference/rising.md#staged)).
-  - Passing rises take 22 to 29 s. Most of it is pose stages of set time, which can lose a
-    quarter and no more.
+- **Rising.** Every humanoid stands up once down (`GAME_FIGHTER`'s Stand up with `step-up`), in
+  the Arena's presets and in the Crypt, where a fall no longer ends a fight:
+  - On the owner's 64-fall target (Node stand, Rapier, 120 Hz, Balance 0, Grit 0, 30 s cap,
+    `node research/rising-bed.mjs --target --techniques step-up`), step-up stands the Warrior from
+    16 of 16 falls empty-handed and 15 of 16 with the club, medians 14.2 and 14.3 s; the Rogue from
+    10 and 6 of 16, medians 20.6 s and the cap. "Rise, then steady" stands 6, 8, 0 and 1 of the same
+    falls, medians 29.5 s and over. On 48 shoves that fell the skeleton, step-up stands 9 and
+    "Rise, then steady" none; the skeleton's roll from its back to its front is what fails.
+  - None stands within 6 s, and the 4 s median target is not met. The time is the route's, not
+    the muscles': brace about 0.7 s, settle 0.7, roll 2.7, rise 9, steady 1.4, then the target's
+    verification. Searched at twice the Warrior's strength, or 1.5 times the Rogue's, the route
+    stood as often and no faster, so the plan's surge assist (Grit) is not built: a joint-torque
+    help cannot shorten a route whose stages wait on balance.
+  - The Rogue's tuning is fitted to its eight training directions (13 of 16 there, 14 of 32 on the
+    target's sixteen). Get away, Fight on the ground and the other techniques stay experimental; the
+    mirror and escape patches held in `research/checkpoints/2026-10-13-ground.zip` are not applied.
+  - Eye gates: standing up in the Lab, in Arena bouts and in the Crypt; whether the rise looks
+    human. The plan this landed from is `docs/plans/2026-10-13-stand-up.md@ef94828a`.
   - **Fast, robust unassisted recovery remains unsolved.** The optimized compliant-sole recipe
     produced one 15.5583 s development success and failed the robustness objective. The frozen
     `stand-up-acceptance-v1` comparison retains that recipe and rejects external actuation.
@@ -145,7 +155,6 @@ After it, each with its own plan, in the order each needs the one before:
     All successes include standing/walking verification;
     the four-second median, broad coverage and gameplay integration remain unfinished
     ([opposite-side feedback](analysis/2026-10-11-stand-up-planning.md#opposite-side-guidance-and-feedback-2026-10-12)).
-  - The Crypt still uses `lie`.
 - **The posture hold.** On the hands' hulls, independent joint feedback
   [holds no installed pose](reference/posture-hold.md) within 2 cm for 10 s. An
   [offline native-rollout controller](reference/native-posture-control.md) holds the half-kneel,
