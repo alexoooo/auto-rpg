@@ -68,9 +68,16 @@ test("a_run_is_heard_while_the_party_sees_where_a_body_stands_and_at_no_other_ti
     const [, its] = airs();
     assert.deepEqual(its, { id: "enemy-0", speed: air(at), at: { x: at.x, z: at.z } }, "and its air is its fastest point's");
 
-    const unseen = all.filter((one) => !one.seen), inSight = all.filter((one) => one.seen);
-    assert.ok(unseen.length > 0 && inSight.length > 0, `${unseen.length} touches out of sight and ${inSight.length} in it`);
-    assert.deepEqual(new Set(all.map(({ cue }) => `${cue.key} ${cue.kind}`)), new Set(["enemy-0:ground bone"]), "all of them the skeleton's footfalls");
+    const footfalls = all.filter(({ touch }) => touch.of.body.actor === enemy);
+    const unseen = footfalls.filter((one) => !one.seen), visibleFootfalls = footfalls.filter((one) => one.seen);
+    const inSight = all.filter((one) => one.seen);
+    assert.ok(unseen.length > 0 && visibleFootfalls.length > 0, `${unseen.length} enemy touches out of sight and ${visibleFootfalls.length} in it`);
+    assert.deepEqual(new Set(footfalls.map(({ cue }) => `${cue.key} ${cue.kind}`)), new Set(["enemy-0:ground bone"]), "the skeleton's ground contacts use its bone voice");
+    const heroTouches = all.filter(({ touch }) => touch.of.body.actor === hero);
+    assert.equal(all.length, footfalls.length + heroTouches.length, "every touch belongs to one of the two bodies");
+    for (const { cue, seen } of heroTouches) {
+      assert.deepEqual({ key: cue.key, kind: cue.kind, seen }, { key: "hero:ground", kind: "body", seen: true }, "the visible hero's own ground contacts are audible too");
+    }
     assert.deepEqual(cues, inSight.map(({ cue }) => cue), "what is heard is what a body in sight sounded of");
 
     // Heard twice over, the run is the run nobody hears.

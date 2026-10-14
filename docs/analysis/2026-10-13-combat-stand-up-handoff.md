@@ -105,6 +105,15 @@ the plan gives one-foot and kneeling positions to Stand up.
 No full `test:all` or frozen evaluator run was requested or claimed. The owner's visual judgment
 of recovery and any assisted effort remains outstanding.
 
+The subsequent CI investigation found that run `38486130709` tested remote locomotion commit
+`5719a9d4`, before this local implementation. Its sole non-TODO failure was the dungeon-hearing
+test assuming only the skeleton made ground-contact sounds; a visible hero contact is legitimate
+and must also be heard. The test now checks the skeleton's out-of-sight and visible contacts
+separately, permits the hero's correctly voiced contacts, and retains exact audible-event and
+physical replay equality. The named three-test hearing suite, TypeScript check, and fast suite
+(806 passes, zero failures, two existing TODOs) pass with the correction. This test is in the
+slow tier; the fast suite alone does not exercise it. The CI run's frozen job passed.
+
 ## Continue in this order
 
 1. Read the final checkpoint/transfer status below, unpack the transfer archive, and install the
