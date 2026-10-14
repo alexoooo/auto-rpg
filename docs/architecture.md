@@ -670,13 +670,15 @@ is carried out by its sub-mind. Once a control step the fighter reads its situat
 threat), and the meta-controller takes the available option of the highest worth, keeping the
 running one while it does not yield or is not beaten by more than `DECIDING.keep`. It decides
 afresh every `DECIDING.rethink` s, at once on an event (down or up, a threat, another focus,
-other orders), and when the running option is over or unavailable. Its options, by rank: recover
-(the stand-up sub-mind, `recover.ts`), follow orders (`orders.ts`), set distance from a fallen foe
+other orders), and when the running option is over or unavailable. Its options, by rank: down, get
+up, roll away from a foe near, fight from the ground and lie still, each carried out by its
+sub-mind (`downOption`, `down.ts`); standing, follow orders (`orders.ts`), set distance from a fallen foe
 and out of a clinch (`distance.ts`), strike with each action (`strike.ts`: walk to the blow's
 window and throw it, one option where the fighter's tactics have approach and attack), and hold.
 It fights with the Counter-puncher's skills, hands at the guard's pose. Its body hands itself to
-one sub-mind, the down half, which wants the body when the decision is a down option; so standing
-and down are one decision's. Its `Minded` is a fighter's, so what reads a fighter's report reads it.
+one sub-mind, the down half (`downHalf`), which wants the body when the decision is a down option
+and hands it to that option's sub-mind, ending one and beginning another when the decision changes;
+so standing and down are one decision's. Its `Minded` is a fighter's, so what reads a fighter's report reads it.
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`,
 `sub-mind`, `tactics`, `behaviour`, or a skill's: `locomotion`, `guard`, `executor`, `support`), a label, a stage (`game`, or `experimental` for research offered beside the
