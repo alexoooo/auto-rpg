@@ -128,17 +128,11 @@ This is the stage whose question is a measurement.
   draws the tree generically, with player labels, choices from lists, and body parts picked from
   the body. A test refuses a field that takes typed text.
 - Presets rewritten in the new shape.
+- The `fighter` kind's presets stay, as baselines the league measures against, until they stop
+  being useful as such.
 
 ## Not in this plan
 
 Learned models, lookahead, the decision rate or thinking time as an attribute (counted in
 simulated budget, never wall-clock), the quadruped, party control, and the stand-up evaluator
 (`stand-up-acceptance-v1`), which nothing here touches.
-
-## The owner's decisions on the way
-
-What a mind is made of (its weights, what it senses, its options and models) is its developer's to
-choose, mind by mind. What the player meets is the owner's:
-
-- Stage 6: which trade-offs a player sees, and whether the `fighter` kind's presets stay in the
-  game beside the options fighter.
