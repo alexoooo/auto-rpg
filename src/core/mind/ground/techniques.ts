@@ -11,10 +11,11 @@ import { rollToFront } from "./roll.ts";
 import { rollBack } from "./roll-back.ts";
 import { sitUp } from "./sit-up.ts";
 import { postUp } from "./post-up.ts";
+import { stepUp } from "./step-up.ts";
 
 /** A physical event completes a technique; other ends remain failures in the bed. */
 export type TechniqueEnd = "done" | "failed" | "stalled" | "timed-out" | "interrupted";
-export type TechniqueName = "plant-up" | "roll" | "roll-back" | "sit-up" | "post-up";
+export type TechniqueName = "step-up" | "plant-up" | "roll" | "roll-back" | "sit-up" | "post-up";
 export interface TechniqueRun {
   readonly state: object;
   readonly phase: string;
@@ -105,6 +106,10 @@ const humanoid = (spec: BodySpec) => spec.model === "workshop-fighter" || spec.m
 
 /** The registry offers compatible anatomy independently of whether an experimental route succeeds. */
 export const TECHNIQUES: Readonly<Record<TechniqueName, TechniqueSpec>> = Object.freeze({
+  "step-up": Object.freeze({ label: "Step up", stage: "game", sides: Object.freeze(["left"] as const),
+    edges: Object.freeze((["front", "back", "left", "right", "fours", "half-kneel", "kneeling", "sitting", "between"] as const)
+      .map(from => Object.freeze({ from, to: "standing" as const }))),
+    fits: humanoid, make: stepUp }),
   "plant-up": Object.freeze({ label: "Plant up", stage: "experimental", sides: Object.freeze(["left"] as const),
     edges: Object.freeze((["front", "fours", "half-kneel", "crouch"] as const).map(from => Object.freeze({ from, to: "standing" as const }))),
     fits: humanoid,
