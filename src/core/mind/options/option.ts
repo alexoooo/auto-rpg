@@ -46,6 +46,8 @@ interface OptionBase {
 export interface StandingOption extends OptionBase {
   readonly posture: "standing";
   step(now: Situation, dt: number): Omit<Intent, "guard">;
+  /** The body it means to be near, whose reach its walk need not keep out of (`Walker.constrain`); none where absent. */
+  near?(now: Situation): string | null;
 }
 
 /** An option a body carries out down, by the sub-mind it hands its body to. */

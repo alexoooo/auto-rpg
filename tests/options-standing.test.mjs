@@ -2,8 +2,9 @@
  * **Standing options on built situations** (`src/core/mind/options/`): a distance goal closes,
  * backs off or stands as its bounds say, and flees facing away; holding the edge walks to just
  * outside the foe's reach and stands there, and has run its course once a blow is ready or its
- * patience is spent; evading steps back while a blow is predicted to land; and every walk keeps
- * out of a fallen body's reach and out of a solid's clearance. Situations built by hand, the foe
+ * patience is spent; evading steps back while a blow is predicted to land; striking a low foe is
+ * on offer only against one down and may walk into its reach; and every walk keeps out of a fallen
+ * body's reach and out of a solid's clearance. Situations built by hand, the foe
  * the Warrior's spec, no physics.
  */
 import test from "node:test";
@@ -13,6 +14,8 @@ import { rangeOf } from "../src/core/skills/strike.ts";
 import { setDistance } from "../src/core/mind/options/distance.ts";
 import { holdEdge } from "../src/core/mind/options/edge.ts";
 import { evade } from "../src/core/mind/options/evade.ts";
+import { strikeLow } from "../src/core/mind/options/low.ts";
+import { SCRAPPER } from "../src/core/mind/config.ts";
 import { walker } from "../src/core/mind/options/walk.ts";
 
 const SPEC = humanSpec("workshop-fighter"), walk = walker(SPEC), PACE = .5, HEAD = 1.6;
@@ -27,7 +30,7 @@ const foe = (apart, down = false, id = "foe") => {
 const situation = (others, { time = 0, solids = [], incoming = null, actions = [] } = {}) => {
   const focus = others[0] ?? null;
   return {
-    sight: { view: { time, down: false, head: { x: 0, y: HEAD, z: 0 }, stance: { centre: { x: 0, y: 1, z: 0 }, phase: "stand" }, senses: { side: "left", others, solids } },
+    sight: { view: { time, down: false, head: { x: 0, y: HEAD, z: 0 }, stance: { centre: { x: 0, y: 1, z: 0 }, support: { y: 0 }, phase: "stand" }, senses: { side: "left", others, solids } },
       report: { heading: 0, actions }, envelope: { walk: { value: PACE } } },
     time, down: false, orders: null, focus, apart: focus ? Math.abs(focus.centre.z) : Infinity, threat: null, incoming,
   };
@@ -71,6 +74,14 @@ test("evading_steps_back_while_a_blow_is_predicted_to_land", () => {
   assert.equal(option.available(threatened), true);
   assert.ok(forward(option.step(threatened)) < 0);
   assert.equal(option.ended(situation([foe(1)])), true);
+});
+
+test("striking_a_low_foe_is_on_offer_against_one_down_and_may_walk_into_its_reach", () => {
+  const option = strikeLow(SCRAPPER.actions.find((action) => action.lower !== undefined), SPEC, walk), lying = situation([foe(1, true)]);
+  assert.equal(option.available(situation([foe(1)])), false, "not against a standing foe");
+  assert.equal(option.available(lying), true);
+  assert.equal(option.near(lying), "foe");
+  assert.equal(option.yields(lying), true, "it yields until its placement begins");
 });
 
 test("every_walk_keeps_out_of_a_fallen_body's_reach_and_a_solid's_clearance", () => {

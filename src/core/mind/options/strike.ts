@@ -10,17 +10,18 @@ import type { Walker } from "./walk.ts";
 /** How long a strike may wait to be admitted before it is given up, s. */
 const PATIENCE = 2;
 
-/** What the action's executor reads of the skills beside it, as the last step left them. */
-const around = (sight: Sight): ActionAround => ({ heading: sight.report.heading, placed: sight.view.stance.phase === "stand",
+/** What an action's executor reads of the skills beside it, as the last step left them. */
+export const around = (sight: Sight): ActionAround => ({ heading: sight.report.heading, placed: sight.view.stance.phase === "stand",
   support: sight.report.support ?? null, walk: null, lower: STANCE_LOWER });
 
 /**
  * **Strike**: `action` at the focus, a standing foe, with the first of its limbs that is ready; or,
  * where it `closes`, else the first its executor would admit from a place to walk to (its window),
  * walking there. It asks for the blow once the limb is ready, and goes on asking until the blow is
- * over: then it has run its course. Where it does not close, it is on offer only with a limb ready. A blow asked for and refused, every limb refused, or `PATIENCE` s without a blow
- * also end it. It yields until its blow is committed. The region struck is what the orders name on
- * the focus, else the first of the action's regions the focus has.
+ * over: then it has run its course. Where it does not close, it is on offer only with a limb ready.
+ * A blow asked for and refused, every limb refused, or `PATIENCE` s without a blow also end it. It
+ * yields until its blow is committed. The region struck is what the orders name on the focus, else
+ * the first of the action's regions the focus has.
  */
 export function strike(action: ActionConfig, walk: Walker, closes: boolean): StandingOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false };

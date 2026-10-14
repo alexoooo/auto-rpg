@@ -673,15 +673,18 @@ decides afresh every `DECIDING.rethink` s, at once on an event (down or up, a th
 other orders), and when the running option is over or unavailable. Its options, by rank: down, get
 up, roll away from a foe near, fight from the ground and lie still, each carried out by its sub-mind
 (`downOption`, `down.ts`); standing, follow orders (`orders.ts`), break a clinch (`distance.ts`),
-strike with each action from where it stands (`strike.ts`), step back from a blow coming in
-(`evade.ts`), hold at the edge of its foe's reach until a blow is ready or its patience is spent
-(`edge.ts`, the Counter-puncher's band and patience), close and strike (walk to the blow's window
-and throw it), and hold. Whatever a standing option asks, its walk (`walker`, `walk.ts`) keeps out
-of a solid's clearance and a fallen body's reach. It fights with the Counter-puncher's skills, hands
-at the guard's pose. Its body hands itself to one sub-mind, the down half (`downHalf`), which wants
-the body when the decision is a down option and hands it to that option's sub-mind, ending one and
-beginning another when the decision changes; so standing and down are one decision's. Its `Minded`
-is a fighter's, so what reads a fighter's report reads it.
+strike with each action from where it stands (`strike.ts`), strike a foe down or low from beside it,
+lowering through the support fold (`low.ts`, the Scrapper's ground positioning and low blow), step
+back from a blow coming in (`evade.ts`), hold at the edge of its foe's reach until a blow is ready
+or its patience is spent (`edge.ts`, the Counter-puncher's band and patience), close and strike
+(walk to the blow's window and throw it), and hold. Whatever a standing option asks, its walk
+(`walker`, `walk.ts`) keeps out of a solid's clearance and a fallen body's reach, but the reach of
+the body the option means to be near. It fights with the Counter-puncher's skills, hands at the
+guard's pose, and the Scrapper's low blow, support fold and gaits (braced near, striding farther,
+which leave the stance the fold steps from). Its body hands itself to one sub-mind, the down half
+(`downHalf`), which wants the body when the decision is a down option and hands it to that option's
+sub-mind, ending one and beginning another when the decision changes; so standing and down are one
+decision's. Its `Minded` is a fighter's, so what reads a fighter's report reads it.
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`,
 `sub-mind`, `tactics`, `behaviour`, or a skill's: `locomotion`, `guard`, `executor`, `support`), a label, a stage (`game`, or `experimental` for research offered beside the

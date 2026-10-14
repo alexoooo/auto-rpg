@@ -1,4 +1,5 @@
 import { atan2, cos, hypot, sin } from "../../math/real.ts";
+import type { BodyView } from "../../body.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import { clearanceExit, clearMove } from "../clear-step.ts";
 import { bodyClearance } from "../sensed-bounds.ts";
@@ -44,9 +45,12 @@ export function walker(spec: BodySpec) {
     }
     return from ? [centre.x - from.x, centre.z - from.z] : null;
   };
+  /** `move` (forward, right, m/s) for a body heading `heading`, or the nearest to it that keeps clear of the solids. */
+  const clear = (view: BodyView, heading: number, move: Move): Move => clearMove(view.stance.centre, view.senses.solids, heading, move, radius, SPACE.ahead);
   return {
     radius,
     pace,
+    clear,
     /**
      * The walk the body is given for `move` (forward, right, m/s): out of a solid's clearance or a
      * fallen body's reach (`away`) if it is in one, but `exempt`'s, the body the option means to be
@@ -54,7 +58,7 @@ export function walker(spec: BodySpec) {
      */
     constrain(now: Situation, move: Move, exempt: string | null): Move {
       const out = away(now, exempt), { view, report } = now.sight;
-      return clearMove(view.stance.centre, view.senses.solids, report.heading, out ? along(now, out[0], out[1]) : move, radius, SPACE.ahead);
+      return clear(view, report.heading, out ? along(now, out[0], out[1]) : move);
     },
     /** The heading to the focus, or the body's own with none. */
     facing(now: Situation): number {
