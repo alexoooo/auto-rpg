@@ -68,7 +68,7 @@ export function walkAfterRecovery(stand) {
  * `target` with its first action again and again, with `hand` or each in turn ("alternate"), until
  * `state.own.cancelled`. Its `state` is what of it a step changes, beside the bout's.
  */
-export function pointAttacks(stand, target, hand = stand.harness.hand) {
+function pointAttacks(stand, target, hand = stand.harness.hand) {
   const { world, fighter } = stand;
   const producer = actionProducer(), action = fighter.mind.actions[0], own = { cancelled: false };
   const script = { name: "point-cycles", state: producer.state, decide(sight) {

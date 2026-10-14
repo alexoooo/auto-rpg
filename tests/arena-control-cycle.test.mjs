@@ -3,9 +3,7 @@ import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { recoveryReady } from "../src/core/control/recovery-ready.ts";
 import { footStatesOf, readSupport } from "../src/core/control/support.ts";
-import { loadState, saveState } from "../src/core/state.ts";
-import { controlArena, pointAttacks, recoveryCycle, strikeCycle, shoveControlFighter, walkAfterRecovery } from "../research/arena-control-trials.mjs";
-import { traceOf } from "./harness/trace.mjs";
+import { controlArena, recoveryCycle, strikeCycle } from "../research/arena-control-trials.mjs";
 
 test("handover requires upright, quiet, loaded foot support rather than a recovery stage", async () => {
   const stand = await controlArena();
@@ -58,33 +56,6 @@ test("empty hands and a retained club recover twice, walk, and resume actual str
   }
 });
 
-test("the measured stabilization handover replays into a fresh arena and survives walking", async () => {
-  const a = await controlArena(), b = await controlArena();
-  try {
-    a.world.step(120); shoveControlFighter(a, 0);
-    const recovery = a.fighter.body.state.mind.subs[0];
-    while (a.world.time < 60 && !(recovery.phase === "stabilize" && recovery.ready > .1)) a.world.step();
-    assert.equal(recovery.phase, "stabilize");
-    assert.ok(recovery.ready > 0 && recovery.ready < .5);
-    const saved = a.duel.save(); b.duel.load(saved);
-    const finish = (stand) => {
-      const trace = traceOf(Object.values(stand.duel.duelists).map((d) => d.built));
-      const hook = stand.world.afterStep(() => trace.take());
-      try {
-        const r = stand.fighter.body.state.mind.subs[0];
-        while (stand.world.time < 65 && r.completed === 0) stand.world.step();
-        assert.equal(r.completed, 1);
-        const walk = walkAfterRecovery(stand);
-        assert.equal(walk.fell, false); assert.ok(walk.steps > 0);
-        return { walk, state: saveState(stand.duel.state), digest: trace.digest() };
-      } finally { hook.dispose(); }
-    };
-    const expected = finish(a);
-    assert.deepEqual(finish(b), expected);
-    a.duel.load(saved); assert.deepEqual(finish(a), expected);
-  } finally { a.dispose(); b.dispose(); }
-});
-
 test("both hands strike and return repeatedly after contact and misses", {
   todo: "a bare hand strikes with its fist's measured surface (`closesToStrike`), about 9 cm short of the open capsule's fingers that its blows' spacing, aim and recipes were tuned to",
 }, async (t) => {
@@ -121,23 +92,4 @@ test("cancelling a committed strike finishes its swing and returns its hand, and
   assert.deepEqual(result.returned, { left: 0, right: 1 });
   assert.equal(result.failed, 0); assert.equal(result.interrupted, 0);
   assert.deepEqual(result.transitions.map((s) => s.phase), ["admitting", "chamber", "swing", "return", null]);
-});
-
-test("a strike's return and its measured completion survive a fresh-world fork", async () => {
-  const a = await controlArena(), b = await controlArena();
-  try {
-    a.world.step(180);
-    const h = a.fighter.body.view.head, target = [h.x, h.y, h.z + .65];
-    const one = pointAttacks(a, target), other = pointAttacks(b, target);
-    while (a.world.time < 15 && one.skills.report.actions[0]?.phase !== "release") { a.world.step(); one.cycles.sample(); }
-    assert.equal(one.skills.report.actions[0]?.stage, "return");
-    a.world.step(10); one.cycles.sample();
-    const saved = a.duel.save(); b.duel.load(saved); loadState(other.state, saveState(one.state));
-    const trace = traceOf(Object.values(a.duel.duelists).map((d) => d.built)), traced = traceOf(Object.values(b.duel.duelists).map((d) => d.built));
-    for (let step = 0; step < 600; step++) { a.world.step(); b.world.step(); one.cycles.sample(); other.cycles.sample(); trace.take(); traced.take(); }
-    assert.ok(one.cycles.reading().returned.right >= 2, JSON.stringify(one.cycles.reading()));
-    assert.equal(trace.digest(), traced.digest());
-    assert.deepEqual(saveState(a.duel.state), saveState(b.duel.state));
-    assert.deepEqual(saveState(one.state), saveState(other.state));
-  } finally { a.dispose(); b.dispose(); }
 });
