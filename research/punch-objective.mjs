@@ -41,7 +41,7 @@ const SETTLE = 1;
 export async function referenceHead({ model = "workshop-fighter", physique, part = "head", hz = 120 } = {}) {
   const spec = modelSpec(model, physique), s = await coreStand(spec, { engine: DEFAULT_ENGINE, hz, posture: guardPosture(spec) });
   const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true }), skills = combatSkills(body, {});
-  body.drive((view, dt) => skills.command(view, { move: null, face: 0, guard: NO_COVER, attack: null }, dt));
+  body.drive((view, dt) => skills.command(view, { move: null, face: 0, guard: NO_COVER, actions: [] }, dt));
   try {
     for (let i = 0; i < Math.round(SETTLE * hz); i++) s.world.step();
     if (body.view.down) throw new Error(`${model} did not stand in guard for ${SETTLE} s`);

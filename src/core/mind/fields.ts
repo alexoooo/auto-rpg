@@ -30,7 +30,7 @@ interface NumberField<C> extends Field<C> {
  * **A setting a person may change** on a part's config (`Part.fields`): a player's field, never an
  * experiment's `tuning`. The mind editor shows it (`src/ui/mind-editor.ts`).
  */
-export type PartField<C> = ChoiceField<C> | NumberField<C>;
+export type PartField<C> = ChoiceField<C> | NumberField<C> | (Field<C> & { readonly kind: "text" });
 
 /** The string-valued field `key` of a config, from `options`. */
 export function choice<C, K extends keyof C & string>(key: K, label: string, options: readonly Option<C[K] & string>[]): ChoiceField<C> {
@@ -62,4 +62,10 @@ export function number<C, K extends keyof C & string>(key: K, label: string, lea
       return Number.isFinite(value) && value >= least && value <= most ? { ...config, [key]: value } : null;
     },
   };
+}
+
+/** A nonempty name retained as plain text in the config. */
+export function text<C, K extends keyof C & string>(key: K, label: string): PartField<C> {
+  return { kind: "text", key, label, read: config => String(config[key]),
+    write: (config, value) => value.trim() ? { ...config, [key]: value.trim() } : null };
 }

@@ -33,7 +33,7 @@ import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
 import { arenaViewSearch, cameraFocuses, normalizeArenaView, readArenaView, type ArenaFocus, type ArenaView } from "./view.ts";
 import { choice, following, type Control } from "../ui/controls.ts";
 import { viewControls } from "../ui/view-controls.ts";
-import { aimPoint, keysToMove, personOrders } from "./orders-input.ts";
+import { aimPoint, keysToMove, personOrders, rayTarget } from "./orders-input.ts";
 import type { Side } from "../core/spec/body.ts";
 
 /**
@@ -419,7 +419,8 @@ export async function bootArena(): Promise<void> {
     const centre = duel.duelists[you].body.physical.centre;
     const ray = pointer ? scene.createPickingRay(pointer.x, pointer.y, null, camera) : null;
     const point = ray ? aimPoint(ray.origin.asArray(), ray.direction.asArray(), centre.y) : null;
-    duel.order(you, personOrders(keysToMove(keys, rig.azimuth), point, attacking, centre));
+    const target = attacking && ray ? rayTarget(duel.duelists[you].senses(), ray.origin.asArray(), ray.direction.asArray(), camera.maxZ) : null;
+    duel.order(you, personOrders(keysToMove(keys, rig.azimuth), point, target, centre));
   };
   const airAt = new Vector3();
   const frame = () => {
@@ -433,7 +434,7 @@ export async function bootArena(): Promise<void> {
       const fighter = duel.duelists[row.side];
       row.bar.value = fighter.pool.bar();
       const mind = fighter.minded, controller = controllers[row.side];
-      const phase = "skills" in mind ? mind.skills.report.strike.phase ?? mind.skills.report.engagement?.phase ?? "guard / move" : mind.body.has;
+      const phase = "skills" in mind ? mind.skills.report.actions[0]?.stage ?? mind.skills.report.engagement?.phase ?? "guard / move" : mind.body.has;
       const down = duel.state.recovery?.[row.side];
       row.status.textContent = fighter.body.down
         ? `${fighter.body.has}${duel.recipe.recoverySeconds === null ? " - getting up" : down !== undefined ? ` - ${Math.max(0, duel.recipe.recoverySeconds! - down).toFixed(1)} s recovery left` : " - down"}`

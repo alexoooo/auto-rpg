@@ -8,9 +8,9 @@ export async function combatOverlap({lead='right',mode='hit',seconds=10,tuning={
   const contacts=[],phases=[];let overlapSteps=0,fell=false,last=null;
   for(let i=0;i<seconds*120;i++){
    s.step();fell ||= s.body.down;
-   const state=s.skills.state,returning=s.skills.report.strike.returning,phase=state.blow.hand?state.blow.hands[state.blow.hand].cycle.phase:null,key=[state.blow.hand,phase,returning].join('/');
-   if(key!==last){phases.push({time:s.world.time,hand:state.blow.hand,phase,returning});last=key;}
-   if(returning&&state.command.effectors["hand.left"]&&state.command.effectors["hand.right"])overlapSteps++;
+   const state=s.skills.state,returning=s.skills.report.actions.find(action=>action.phase==='release'),active=s.skills.report.actions.find(action=>action.phase!=='release'),phase=active?.phase??null,key=[active?.effector,phase,returning?.effector].join('/');
+   if(key!==last){phases.push({time:s.world.time,hand:active?.effector.split('.')[1]??null,phase,returning:returning?.effector.split('.')[1]??null});last=key;}
+   if(returning&&active&&state.command.effectors["hand.left"]&&state.command.effectors["hand.right"])overlapSteps++;
    const w=s.policy.witness;
    if(w.phase==='swing'&&s.obstacle){
     const contact=s.world.physics.contactsOf(s.built.segments.get(`hand.${w.hand}`).body).find(c=>c.fixed===s.obstacle.id&&c.impulse>0);
@@ -19,8 +19,8 @@ export async function combatOverlap({lead='right',mode='hit',seconds=10,tuning={
   }
   return {harness:{kind:'Node unpinned core stand',engine:s.world.physics.name??'rapier-coordinate',hz:s.world.hz,
    model:'workshop-fighter',held:'empty',balance:0},lead,mode,seconds,tuning,fell,overlapSteps,phases,contacts,
-   overlaps:structuredClone(s.policy.overlaps),pairs:s.policy.pairs,cycles:structuredClone(s.skills.report.strike.pointCycle),
-   thrown:structuredClone(s.skills.report.strike.thrown),assist:{force:s.body.assist.meter.force,moment:s.body.assist.meter.moment}};
+   overlaps:structuredClone(s.policy.overlaps),pairs:s.policy.pairs,cycles:s.cycles.reading(),
+   thrown:s.cycles.reading().thrown,assist:{force:s.body.assist.meter.force,moment:s.body.assist.meter.moment}};
  }finally{s.dispose();}
 }
 if(import.meta.url===pathToFileURL(process.argv[1]).href)console.log(JSON.stringify(await combatOverlap(process.argv[2]?JSON.parse(process.argv[2]):{})));

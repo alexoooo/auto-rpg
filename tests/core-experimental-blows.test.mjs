@@ -17,15 +17,15 @@ const GUARDING = { legs: "tactics", trunk: "guard", left: "guard", right: "guard
 
 test("each research blow is an experimental part offered wherever a blow goes", () => {
   for (const spec of [modelSpec("workshop-fighter"), modelSpec("workshop-rogue")]) {
-    const offered = new Map(kindsFor("blow", spec).map(({ kind, reason }) => [kind, reason]));
+    const offered = new Map(kindsFor("executor", spec).map(({ kind, reason }) => [kind, reason]));
     for (const kind of EXPERIMENTAL) {
       assert.equal(PARTS[kind].stage, "experimental", kind);
-      assert.equal(PARTS[kind].role, "blow", kind);
+      assert.equal(PARTS[kind].role, "executor", kind);
       assert.equal(offered.get(kind), null, `${kind} on ${spec.model}`);
     }
   }
-  assert.equal(partOf(PARTS["whole-body-strike"].defaults).fields[0].key, "drive");
-  assert.deepEqual(PARTS["driven-strike"].fields.map((field) => field.key), ["drive", "torso", "windup", "contact"]);
+  assert.equal(partOf(PARTS["whole-body-strike"].defaults).fields[1].key, "drive");
+  assert.deepEqual(PARTS["driven-strike"].fields.map((field) => field.key), ["name", "drive", "torso", "windup", "contact"]);
 });
 
 /**
@@ -41,19 +41,19 @@ async function firstBlow(blow) {
     let began = false, ended = false, steps = 0, whole = 0;
     for (let i = 0; i < 6 * 120 && !ended; i++) {
       s.step(1);
-      const under = s.skills.report.strike.phase !== null, command = s.skills.state.command;
+      const under = s.skills.report.actions.length > 0, command = s.skills.state.command;
       if (under) { steps++; if (command.stance === null && command.pushes.length === s.body.muscles.channels.length) whole++; }
       began ||= under;
       ended = began && !under;
     }
-    return { ended, thrown: s.skills.report.strike.thrown.right, landed: s.state.impacts.length + (s.state.active ? 1 : 0),
-      whole: whole === 0 ? "none" : whole === steps ? "all" : "some", holders: { ...s.skills.report.holders }, fell: s.state.fell };
+    return { ended, thrown: s.cycles.reading().thrown.right, landed: s.state.impacts.length + (s.state.active ? 1 : 0),
+      whole: whole === 0 ? "none" : whole === steps ? "all" : "some", holders: [...new Set(Object.values(s.skills.report.holders))], fell: s.state.fell };
   } finally { s.dispose(); }
 }
 
 test("each research blow on the stand takes a blow, lands it or misses, and gives the body back standing", async () => {
   // The driven strike's stroke ends where its bearing support fails, before the fist reaches the pad.
-  assert.deepEqual(await firstBlow(blowConfig("driven-strike")), { ended: true, thrown: 1, landed: 0, whole: "none", holders: GUARDING, fell: false });
-  assert.deepEqual(await firstBlow(blowConfig("whole-body-strike")), { ended: true, thrown: 1, landed: 1, whole: "all", holders: GUARDING, fell: false });
-  assert.deepEqual(await firstBlow(blowConfig("whole-body-strike", "drive=flat-out")), { ended: true, thrown: 1, landed: 1, whole: "all", holders: GUARDING, fell: false });
+  assert.deepEqual(await firstBlow(blowConfig("driven-strike")), { ended: true, thrown: 1, landed: 0, whole: "none", holders: ["default"], fell: false });
+  assert.deepEqual(await firstBlow(blowConfig("whole-body-strike")), { ended: true, thrown: 1, landed: 1, whole: "all", holders: ["default"], fell: false });
+  assert.deepEqual(await firstBlow(blowConfig("whole-body-strike", "drive=flat-out")), { ended: true, thrown: 1, landed: 1, whole: "all", holders: ["default"], fell: false });
 });

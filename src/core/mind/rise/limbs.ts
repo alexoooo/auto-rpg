@@ -36,7 +36,7 @@ const TAKES_SECONDS = 0.1;
 const POINT_ROWS: readonly Row[] = [0, 1, 2].map((axis): Row => [[3 + axis, 1]]);
 
 /** A recipe's limbs, made of a body. */
-interface RiseLimbs {
+export interface RiseLimbs {
   /** The limbs as the solve takes them, in the recipe's order. */
   readonly limbs: readonly Limb[];
   /** What they keep from step to step: each limb's task, in the recipe's order. */
@@ -80,7 +80,7 @@ interface Part {
 }
 
 /** `recipe`'s limbs made of `own`'s body, which can play it (`stageFaults`). */
-export function riseLimbs(own: OwnBody, recipe: Recipe): RiseLimbs {
+export function riseLimbs(own: OwnBody, recipe: Pick<Recipe, "limbs">): RiseLimbs {
   const feet = recipe.limbs.some((limb) => limb.kind === "propped" || limb.kind === "foot") ? footStatesOf(own.built) : [];
   const footOf = (segment: string): FootState => feet.find((foot) => foot.segment.spec.name === segment)!;
   const support = new Vector3();

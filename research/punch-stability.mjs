@@ -29,7 +29,7 @@ export async function qualifyPunchStability(paths={contactSpeed:5,swingSeconds:.
  }
  for(const hand of ['left','right'])for(const recover of [false,true]) {
   const r=await groundFight({hand,recover,seconds:45,
-   candidate:withParts(SCRAPPER,{blow:{tuning:{paths,execution:PLANTED_PUNCH_EXECUTION}}}),measureSupport:true});
+   candidate:withParts(SCRAPPER,{executors:SCRAPPER.executors.map(executor=>({...executor,tuning:{...executor.tuning,paths,execution:PLANTED_PUNCH_EXECUTION}}))}),measureSupport:true});
   ground.push(r);process.stderr.write(`ground ${hand}/${recover}: ${JSON.stringify(r.summary)}\n`);
  }
  if(combatFingerprint()!==fingerprint)console.warn('source changed during punch stability qualification: the results may mix two versions of the code');

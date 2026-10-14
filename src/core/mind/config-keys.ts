@@ -1,32 +1,36 @@
-import type { BehaviourConfig, MindConfig, MoveRuleConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
+import type { BehaviourConfig, ExecutorConfig, MindConfig, MoveRuleConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { deepFreeze } from "../state.ts";
 
-type Config = MindConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig;
+type Config = MindConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ExecutorConfig;
 
 /** Every accepted top-level key, including optional settings. The mapped type requires every config
  * property and rejects extras; editor fields and default values carry no validation authority.
  * Each part's faults predicate validates values, and its slots validate nested parts. */
 export const CONFIG_KEYS = deepFreeze({
-  "fighter": { kind: true, tactics: true, locomotion: true, guard: true, blow: true, kick: true, support: true, subs: true },
+  "fighter": { kind: true, tactics: true, locomotion: true, guard: true, executors: true, actions: true, support: true, subs: true },
   "direct": { kind: true, targets: true, seconds: true, speed: true, activation: true },
   "quadruped": { kind: true, tuning: true },
+  "get-away": { kind: true, metres: true },
+  "ground-fight": { kind: true, reach: true, kicks: true },
+  "stand-up": { kind: true, techniques: true },
   "lie": { kind: true },
   "support-recovery": { kind: true },
   "research-rise": { kind: true },
-  "seek": { kind: true, guard: true, aim: true, range: true, tuning: true },
-  "openings": {
-    kind: true, hands: true, strikes: true, prefers: true, defence: true, combinations: true, spacing: true,
-    spacingStep: true, tuning: true,
-  },
   "script": { kind: true },
   "stand": { kind: true },
-  "behaviours": { kind: true, list: true },
+  "behaviours": { kind: true, target: true, choose: true, list: true },
   "follow-orders": { kind: true },
   "flee": { kind: true },
   "close-in": { kind: true, metres: true },
   "keep-distance": { kind: true, metres: true },
-  "strike": { kind: true, hands: true, aim: true, blow: true },
-  "kick": { kind: true, feet: true, kick: true },
+  "attack": { kind: true },
+  "clear-of-walls": { kind: true },
+  "clear-of-fallen": { kind: true },
+  "evade": { kind: true },
+  "approach": { kind: true, spacing: true, spacingStep: true },
+  "break-clinch": { kind: true, metres: true },
+  "edge": { kind: true, band: true, patience: true },
+  "ground": { kind: true },
   "cover": { kind: true, guard: true },
   "stance-walk": { kind: true, tuning: true },
   "stride": {
@@ -51,16 +55,15 @@ export const CONFIG_KEYS = deepFreeze({
   "when-standing": { kind: true, gait: true },
   "when-distance": { kind: true, of: true, than: true, metres: true, gait: true },
   "cover-guard": { kind: true, tuning: true },
-  "recipe-strike": { kind: true, tuning: true },
-  "path-strike": { kind: true, overlap: true, tuning: true },
-  "driven-strike": { kind: true, tuning: true, drive: true, torso: true, windup: true, contact: true },
-  "whole-body-strike": { kind: true, drive: true },
+  "recipe-strike": { kind: true, name: true, tuning: true },
+  "path-strike": { kind: true, name: true, overlap: true, tuning: true },
+  "driven-strike": { kind: true, name: true, tuning: true, drive: true, torso: true, windup: true, contact: true },
+  "whole-body-strike": { kind: true, name: true, drive: true },
   "straight-punch": {
-    kind: true, pace: true, reach: true, band: true, settle: true, through: true, hips: true, turn: true,
+    kind: true, name: true, pace: true, reach: true, band: true, settle: true, through: true, hips: true, turn: true,
     lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
     recover: true, landed: true,
   },
-  "choose-blow": { kind: true, options: true, policy: true },
-  "front-kick": { kind: true, tuning: true },
+  "front-kick": { kind: true, name: true, tuning: true },
   "support-fold": { kind: true },
 } satisfies { readonly [K in Config["kind"]]: { readonly [P in keyof Extract<Config, { kind: K }>]-?: true } });

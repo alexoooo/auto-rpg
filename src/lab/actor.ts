@@ -1,4 +1,4 @@
-import { createBody, type Body } from "../core/body.ts";
+import { createBody, type Body, type BodyOptions } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
@@ -49,6 +49,8 @@ export interface Actor {
 }
 
 interface ActorOptions {
+  /** An explicit experiment's pre-created sub-minds, in place of the selected fighter's. */
+  readonly subs?: BodyOptions["subs"];
   /** A Lab experiment's immutable recovery recipe in place of the mind's recovery choices. */
   readonly recoveryRecipe?: Recipe;
   /** Its mind: the script on the game's recipe skills, lying still once down (`LAB_PRESETS.script`), unless given. */
@@ -85,9 +87,9 @@ function watched(tactics: Tactics, watch: Watch): Tactics {
 function barred(tactics: Tactics, strikes: Readonly<Record<Side, boolean>>): Tactics {
   if (strikes.left && strikes.right) return tactics;
   return deciding(tactics, (sight, dt) => {
-    const intent = tactics.decide(sight, dt), { guard, attack } = intent;
+    const intent = tactics.decide(sight, dt), { guard, actions } = intent;
     return { ...intent, guard: { left: strikes.left ? guard.left : null, right: strikes.right ? guard.right : null },
-      attack: attack?.kind === "blow" && !strikes[attack.hand] ? null : attack };
+      actions: actions.filter(action => action.effector !== "hand.left" || strikes.left).filter(action => action.effector !== "hand.right" || strikes.right) };
   });
 }
 
@@ -101,12 +103,13 @@ function tuned(config: FighterConfig, skills: RecipeOptions | undefined): Fighte
   return {
     ...config,
     guard: cover === undefined ? config.guard : { ...config.guard, tuning: { ...config.guard.tuning, covering: cover } },
-    blow: config.blow?.kind === "recipe-strike" && Object.keys(strike).length > 0 ? { ...config.blow, tuning: { ...config.blow.tuning, ...strike } } : config.blow,
+    executors: config.executors.map(executor => executor.kind === "recipe-strike" && Object.keys(strike).length > 0
+      ? { ...executor, tuning: { ...executor.tuning, ...strike } } : executor),
   };
 }
 
 /** `built`, a human in its reference pose on the ground of `world`, as a mode's actor; a mind with a fault in its tree (`treeFaults`, given a script) is refused. */
-export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.script.config, assist, stance, measuring, allows = () => true, around = (tactics) => tactics, recoveryRecipe }: ActorOptions = {}): Actor {
+export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.script.config, assist, stance, measuring, allows = () => true, around = (tactics) => tactics, recoveryRecipe, subs }: ActorOptions = {}): Actor {
   const fault = treeFaults(mind, ["script"])[0];
   if (fault) throw new Error(fault);
   let input: Driving = {};
@@ -114,7 +117,7 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
   const wiring: MindWiring = { name: "lab", orders: (senses) => input.orders?.(senses) ?? null, assist,
     senses: () => (input.senses ?? clock)(), contactIdentity: (other) => input.contactIdentity?.(other) ?? null };
   const body = createBody(built, world, { ...fighterBody(mind, wiring), stance, measuring,
-    ...(recoveryRecipe ? { subs: [(own, view, into) => supportRecovery(own, view, into, recoveryRecipe)] } : {}) });
+    ...(recoveryRecipe ? { subs: [(own, view, into) => supportRecovery(own, view, into, recoveryRecipe)] } : {}), ...(subs ? { subs } : {}) });
   const strikes = { left: allows(heldIn(built.spec, "left")), right: allows(heldIn(built.spec, "right")) };
   let driven: Skills | null = null;
   return {

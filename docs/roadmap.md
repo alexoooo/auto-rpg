@@ -55,8 +55,8 @@ run across a grid of bodies, physiques, loadouts and two physics rates, on which
 are read ([competencies](reference/competencies.md): of the owner's thresholds, only the stand's
 is met everywhere, and the staged rise does not rise at 480 Hz); physiques (`Physique`,
 `src/core/human/physique.ts`: size, weight, strength and speed); the whole-body spike
-([whole-body spike](reference/whole-body-spike.md)); and the skill contract (`Skill`, `BlowSkill`,
-`Claim`, `src/core/skills/skill.ts`). What it did not: the explosive punch. Today's body has a
+([whole-body spike](reference/whole-body-spike.md)); and the continuous skill seam. Discrete actions now use lifecycle, resource ownership and
+contact-ledger contracts (`src/core/skills/action.ts`). What it did not: the explosive punch. Today's body has a
 straight blow over the punch's bar on every cell (`research/punch-ceiling.mjs`), and no controller
 tried lands one (`research/greedy-punch.mjs`, [punch layer](analysis/2026-10-08-punch-layer.md)).
 
@@ -83,10 +83,9 @@ After it, each with its own plan, in the order each needs the one before:
   - a dynamic rise, carrying momentum from one support to the next;
   - kicking;
   - running.
-- **Tactics** over the skill contract, compared with Classic. Customizable behaviours are the
-  direction: Seek and Choose openings become presets assembled from shared decisions about
-  targets, distance, attacks and defence, with game orders constraining the selected target
-  without bypassing those decisions.
+- **Tactics** use shared decisions about targets, approach, actions and defence. The presets
+  compose those behaviours over named executors; game orders constrain target identity without
+  bypassing action selection. Competitive comparison remains open.
 - **Retiring what the new skills replace**, each with its records:
   - the strike repertoire;
   - the staged rise;
@@ -102,12 +101,12 @@ After it, each with its own plan, in the order each needs the one before:
 
 ## Where the control work stands
 
-- **Fighters.** One fighter, its tactics and skills parts a player picks, runs every humanoid preset
-  through the same body and muscle contract. Puncher holds at the edge of its foe's reach and
-  throws the straight punch, and wins every empty-handed pairing in the league
-  (`research/empty-hand-league.mjs`). Scrapper, the grounded opening tactics over the path strike,
-  is the second tier: against Classic on two Warriors it wins bare-handed (0.98) and loses with
-  clubs (0.10), every win on the clock ([presets](reference/controller-presets.md)).
+- **Fighters.** One configurable fighter runs every humanoid preset through shared action
+  selection, ownership, feedback and the body/muscle contract. Puncher uses edge spacing and
+  straight punches; Scrapper uses path actions and low support. The old preset standings,
+  including Scrapper's 0.98 bare-handed and 0.10 club win rates against Classic, belong to the
+  revision in [the recorded comparison](reference/controller-presets.md), not the current
+  controllers. They have not been reranked.
 - **The punch.** The planted punch reaches 4.3 to 5.3 m/s and 4 to 10 N s on the fist's hull.
   A person's is 8 m/s ([punch calibration](reference/punch-calibration.md)), and no paired-limb
   family reaches trained-adult force ([trained force](reference/trained-attack-force.md)). The
@@ -215,8 +214,9 @@ After it, each with its own plan, in the order each needs the one before:
   A thought is a pure function of a question asked at one step and answered at a step the asker
   names. When an answer is late the world waits (the owner's choice). It is built with its first
   client: a rollout in play, a planner, or a learned mind's slow part.
-- **Tactics are thin.** The recipe tactics (`recipeTactics`) can't attack a moving body. The arena
-  needs tactics of its own beyond walking at the other body and attacking its head.
+- **Shared action tactics are built.** Named actions, executor readiness, identity targets,
+  approach, conditional selection and terminal feedback share one pipeline. Their competitive
+  quality and finishing power remain to be judged in play.
 - **Covering is late.** A fighter can cover its head against a blow it sees coming
   (`guard: "cover"`). The cover saves no more of the head than the pose
   ([blows](reference/blows.md#covering-searched)). Not built:
@@ -231,7 +231,7 @@ After it, each with its own plan, in the order each needs the one before:
   club, high and middle (`assets/core/strikes.json`, [blows](reference/blows.md#searched)), and
   Classic throws it. It is to be retired when the new skills meet the suite.
 - **The owner's to choose, each landed at its default:**
-  - **Where a fighter aims** (`SeekConfig.aim`): the head, or the part a blow pays most
+  - **Where a fighter aims** (an action's region aim): the head, or the part a blow pays most
     on. Aiming at what pays gains 0.015 to 0.018 of the bar's margin over two pilots and wins
     fewer bouts ([blows](reference/blows.md#aim)).
   - **Whether a bare fist strikes at a head at all.** The hand takes the greater share of a blow

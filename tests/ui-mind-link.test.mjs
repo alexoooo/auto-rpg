@@ -16,7 +16,7 @@ const HUMAN = modelSpec("workshop-fighter"), REPTILE = modelSpec("reptile");
 test("a_link_names_a_preset_by_its_id_and_any_other_mind_by_its_whole_tree", () => {
   assert.deepEqual([mindText(CLASSIC, PRESETS), mindText(COMBAT, PRESETS)], ["classic", "combat"]);
   assert.deepEqual([readMind("classic", PRESETS), readMind("combat", PRESETS)], [CLASSIC, COMBAT]);
-  const changed = withParts(CLASSIC, { blow: { kind: "path-strike" }, tactics: { kind: "openings" } });
+  const changed = { ...CLASSIC, actions: CLASSIC.actions.map(action => ({ ...action, name: "jab" })) };
   assert.equal(mindText(changed, PRESETS), JSON.stringify(changed));
   assert.deepEqual(readMind(mindText(changed, PRESETS), PRESETS), changed);
   // A preset's tree written whole is read as that preset's, and written back as its id.
@@ -25,7 +25,7 @@ test("a_link_names_a_preset_by_its_id_and_any_other_mind_by_its_whole_tree", () 
 });
 
 test("a_link_carries_no_research_tuning_either_way", () => {
-  const tuned = withParts(CLASSIC, { blow: { tuning: { steer: 0.1 } }, tactics: { tuning: { edge: { band: 1, patience: 1, clinch: 0 } } } });
+  const tuned = { ...CLASSIC, executors: CLASSIC.executors.map(executor => ({ ...executor, tuning: { steer: .1 } })) };
   assert.equal(writeMind(tuned), JSON.stringify(CLASSIC));
   assert.equal(mindText(tuned, PRESETS), "classic");
   assert.deepEqual(readMind(JSON.stringify(tuned), PRESETS), CLASSIC);

@@ -1,63 +1,24 @@
 import type { BodyView } from "../body.ts";
-import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import { atan2, cos, hypot, sin } from "../math/real.ts";
-import type { ActionAround, ActionIntent, ActionRequest, ActionStatus, Ended, Readiness, Region, TargetRef } from "../skills/action.ts";
+import type { ActionAround, ActionRequest, Readiness, Region, TargetRef } from "../skills/action.ts";
 import { cleanMiss, landed } from "../skills/action-instances.ts";
 import { STANCE_LOWER } from "../skills/locomotion.ts";
 import { rangeOf } from "../skills/strike.ts";
-import type { SupportReport } from "../skills/support-fold.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import { actionAim, regionSegments } from "./action-aim.ts";
 import { approachActionWindow } from "./action-window.ts";
 import { clearanceExit, clearMove } from "./clear-step.ts";
-import type { ActionConfig } from "./config.ts";
-import type { Cover } from "./intent.ts";
-import type { Heading } from "./orders.ts";
-import { bodyClearance } from "./sensed-bounds.ts";
+import type { ActionConfig, BehavioursConfig, ConditionConfig } from "./config.ts";
+import { conditionMatches } from "./conditions.ts";
+import type { Cover, Intent } from "./intent.ts";
+import type { Orders } from "./orders.ts";
+import { orderedIntent } from "./ordered.ts";
+import { bodyClearance, lowOpponent } from "./sensed-bounds.ts";
+import { groundPosition } from "./ground-position.ts";
 import type { BodySense } from "./senses.ts";
-import type { Tactics } from "./tactics.ts";
+import type { Sight, Tactics } from "./tactics.ts";
 import { THREAT, threatReader } from "./threat.ts";
-
-/** Ordered identity is independent of the action's aiming rule. */
-interface ActionOrders {
-  readonly move: Heading | null;
-  readonly face: Heading | null;
-  readonly pace?: number;
-  readonly foe?: string;
-  readonly region?: string;
-  readonly destination?: number;
-}
-
-/** Selection sees the public protocol and never an executor's motion state or kind. */
-export interface ActionSight {
-  readonly view: BodyView;
-  readonly report: { readonly heading: number; readonly actions: readonly ActionStatus[]; readonly ledger: readonly Ended[]; readonly support?: SupportReport };
-  readonly envelope: StanceEnvelope | null;
-  instance(): number;
-  readiness(view: BodyView, action: string, effector: string, target: TargetRef, around: ActionAround): Readiness;
-}
-
-type FocusRule = { readonly kind: "ordered" | "current" } | { readonly kind: "nearest"; readonly prefer: "standing" | "standing-first" };
-type Condition = { readonly kind: "always" | "when-standing" | "target-down" }
-  | { readonly kind: "when-distance"; readonly of: "foe" | "destination"; readonly than: "under" | "over"; readonly metres: number }
-  | { readonly kind: "follow-up"; readonly seconds: number };
-type Selector = { readonly kind: "first-ready" | "rotate" | "scored" | "estimate" }
-  | { readonly kind: "rules"; readonly rules: readonly { readonly when: Condition; readonly actions: readonly string[] }[]; readonly otherwise: readonly string[] };
-type Behaviour = { readonly kind: "attack" | "follow-orders" | "clear-of-walls" | "clear-of-fallen" | "evade" }
-  | { readonly kind: "approach"; readonly spacing?: number; readonly spacingStep?: number }
-  | { readonly kind: "flee" }
-  | { readonly kind: "close-in" | "keep-distance" | "break-clinch"; readonly metres: number }
-  | { readonly kind: "edge"; readonly band: number; readonly patience: number }
-  | { readonly kind: "ground"; readonly lower: number }
-  | { readonly kind: "cover"; readonly guard: "pose" | "cover" | "predictive" };
-
-/** Ranked focus, a bounded selector, then independent ranked behaviour channels. */
-interface ActionTacticsConfig {
-  readonly target: readonly FocusRule[];
-  readonly choose: Selector & { readonly rethink: number; readonly patience: number };
-  readonly list: readonly Behaviour[];
-}
 
 /** An action's own registration supplies measured estimates without exposing its executor kind. */
 interface ActionEstimate {
@@ -76,47 +37,36 @@ interface Candidate {
   readonly eligible: boolean;
 }
 
-/** Footwork keeps a small clearance margin and checks the next half metre. */
-const SPACE = Object.freeze({ margin: .08, ahead: .5, band: .1, fallbackPace: .3 });
+/** Detached decision facts for status displays and candidate inspection. */
+export interface ActionEngagement {
+  readonly phase: string;
+  readonly focus: string | null;
+  readonly lost: boolean;
+  readonly pending: { readonly key: string; readonly since: number } | null;
+  readonly candidates: readonly Candidate[];
+}
+
+/** Footwork checks the next half metre and keeps feet clear of each fallen segment. */
+const SPACE = Object.freeze({ margin: .08, ahead: .5, band: .1, fallbackPace: .3, fallen: .9 });
 /** Predictive cover looks just ahead of the head for an incoming contact. */
 const PREDICTION = Object.freeze({ out: .2, horizon: .4 });
 
 /** Conditions share detached facts; distance reads proximity, while target and follow-up read focus. */
-export function actionCondition(condition: Condition, sight: ActionSight, orders: ActionOrders | null, focus: BodySense | null): boolean {
-  switch (condition.kind) {
-    case "always": return true;
-    case "when-standing": return !orders?.move;
-    case "target-down": return focus?.down ?? false;
-    case "follow-up": return [...sight.report.actions, ...sight.report.ledger].some(action => action.target.body === focus?.id && action.contacts.lastTarget !== null
-      && sight.view.time - action.contacts.lastTarget >= 0 && sight.view.time - action.contacts.lastTarget <= condition.seconds);
-    case "when-distance": {
-      let distance: number | undefined;
-      switch (condition.of) {
-        case "destination": distance = orders?.destination; break;
-        case "foe": {
-          const centre = sight.view.stance.centre;
-          for (const foe of sight.view.senses.others) if (!foe.out && foe.side !== sight.view.senses.side) {
-            const apart = hypot(foe.centre.x - centre.x, foe.centre.z - centre.z);
-            distance = distance === undefined ? apart : Math.min(distance, apart);
-          }
-          break;
-        }
-        default: { const never: never = condition.of; throw new Error(`unknown distance source ${never}`); }
-      }
-      if (distance === undefined) return false;
-      switch (condition.than) {
-        case "under": return distance < condition.metres;
-        case "over": return distance > condition.metres;
-        default: { const never: never = condition.than; throw new Error(`unknown comparison ${never}`); }
-      }
-    }
-    default: { const never: never = condition; throw new Error(`unknown action condition ${JSON.stringify(never)}`); }
+export function actionCondition(condition: ConditionConfig, sight: Sight, orders: Orders | null, focus: BodySense | null): boolean {
+  let foe = Infinity, sinceTarget = Infinity;
+  const centre = sight.view.stance.centre;
+  for (const other of sight.view.senses.others) if (!other.out && other.side !== sight.view.senses.side)
+    foe = Math.min(foe, hypot(other.centre.x - centre.x, other.centre.z - centre.z));
+  if (focus) for (const record of [...sight.report.actions, ...sight.report.ledger]) {
+    if (record.target.body !== focus.id || record.contacts.lastTarget === null) continue;
+    const since = sight.view.time - record.contacts.lastTarget;
+    if (since >= 0) sinceTarget = Math.min(sinceTarget, since);
   }
+  return conditionMatches(condition, { walking: !!orders?.move, foe, destination: orders?.destination ?? Infinity, targetDown: focus?.down ?? false, sinceTarget });
 }
-
 /** Shared focus and candidate selection give every behaviour the same opponent and admission facts. */
-export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[], settings: ActionTacticsConfig,
-  ordersOf: (sight: ActionSight) => ActionOrders | null = () => null, estimates: ActionEstimates = {}): Tactics<ActionSight, ActionIntent> {
+export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[], settings: Omit<BehavioursConfig, "kind">,
+  ordersOf: (sight: Sight) => Orders | null = () => null, estimates: ActionEstimates = {}): Tactics<Sight, Intent> {
   const config = deepFreeze(structuredConfig(settings)), actions = deepFreeze(supplied.map(action => structuredConfig(action)));
   if (!Number.isFinite(config.choose.rethink) || config.choose.rethink < 0 || !Number.isFinite(config.choose.patience) || config.choose.patience <= 0)
     throw new Error("action selection needs a finite rethink and positive patience");
@@ -126,6 +76,8 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
   }
   const aims = new Map(actions.map(action => [action.name, actionAim(spec, action.aim, action.family)]));
   const radius = bodyClearance(spec) + SPACE.margin, threat = threatReader();
+  const ground = config.list.some(behaviour => behaviour.kind === "ground")
+    ? groundPosition(spec, (view, heading, move) => clearMove(view.stance.centre, view.senses.solids, heading, move, radius, SPACE.ahead), {}, true) : null;
   const state = {
     phase: "guard", focus: null as string | null, orderedRegion: null as string | null, lost: false, nextTable: 0,
     pending: null as { key: string; since: number } | null, candidates: [] as Candidate[],
@@ -133,8 +85,9 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
     sequence: 0, missed: 0, counts: Object.fromEntries(actions.map(action => [action.name, { committed: 0, landed: 0 }])),
     spacing: config.list.map(behaviour => behaviour.kind === "approach" ? behaviour.spacing ?? 0 : 0),
     edgeSince: config.list.map(() => null as number | null),
+    ground: ground?.state ?? null,
   };
-  const selectFocus = (sight: ActionSight, orders: ActionOrders | null): BodySense | null => {
+  const selectFocus = (sight: Sight, orders: Orders | null): BodySense | null => {
     const { view } = sight, valid = (id: string) => view.senses.others.find(foe => foe.id === id && !foe.out && foe.side !== view.senses.side) ?? null;
     state.lost = false;
     for (const rule of config.target) switch (rule.kind) {
@@ -155,11 +108,11 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
     }
     return null;
   };
-  const around = (sight: ActionSight): ActionAround => ({ heading: sight.report.heading, placed: sight.view.stance.phase === "stand",
+  const around = (sight: Sight): ActionAround => ({ heading: sight.report.heading, placed: sight.view.stance.phase === "stand",
     support: sight.report.support ?? null, walk: null, lower: STANCE_LOWER });
-  const recheck = (sight: ActionSight, candidate: Candidate): Readiness => candidate.readiness = candidate.eligible
+  const recheck = (sight: Sight, candidate: Candidate): Readiness => candidate.readiness = candidate.eligible
     ? sight.readiness(sight.view, candidate.action, candidate.effector, candidate.target, around(sight)) : candidate.readiness;
-  const rebuild = (sight: ActionSight, focus: BodySense | null, orders: ActionOrders | null) => {
+  const rebuild = (sight: Sight, focus: BodySense | null, orders: Orders | null) => {
     state.candidates.length = 0;
     if (focus) for (const action of actions) for (const effector of action.effectors) {
       let found = false;
@@ -179,7 +132,7 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
     }
     state.nextTable = sight.view.time + config.choose.rethink;
   };
-  const ranked = (sight: ActionSight, focus: BodySense | null, orders: ActionOrders | null): Candidate[] => {
+  const ranked = (sight: Sight, focus: BodySense | null, orders: Orders | null): Candidate[] => {
     let candidates = [...state.candidates];
     switch (config.choose.kind) {
       case "first-ready": break;
@@ -203,12 +156,13 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
     }
     return candidates;
   };
-  const walking = (sight: ActionSight, x: number, z: number, face: number, pace: number): Pick<ActionIntent, "move" | "face"> => {
+  const walking = (sight: Sight, x: number, z: number, face: number, pace: number): Pick<Intent, "move" | "face"> => {
     const distance = hypot(x, z), h = sight.report.heading;
     const move: readonly [number, number] | null = distance > 0 ? [(x * sin(h) + z * cos(h)) * pace / distance, (x * cos(h) - z * sin(h)) * pace / distance] : null;
     return { move: clearMove(sight.view.stance.centre, sight.view.senses.solids, h, move, radius, SPACE.ahead), face };
   };
-  return { name: "Actions", state, engagement: state, decide(sight) {
+  return { name: "Actions", state, engagement: state, decide(sight, dt) {
+    if (sight.view.senses.out) { ground?.reset(); state.pending = null; state.awaiting = null; state.phase = "out"; return { move: null, face: sight.report.heading, guard: { left: null, right: null }, actions: [] }; }
     const orders = ordersOf(sight), focus = selectFocus(sight, orders), changed = state.focus !== (focus?.id ?? null) || state.orderedRegion !== (orders?.region ?? null);
     state.focus = focus?.id ?? null;
     state.orderedRegion = orders?.region ?? null;
@@ -225,9 +179,10 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
       if (cleanMiss(record))
         config.list.forEach((behaviour, i) => { if (behaviour.kind === "approach") state.spacing[i] = Math.max(0, state.spacing[i]! - (behaviour.spacingStep ?? 0)); });
     }
-    if (changed) { state.pending = null; state.edgeSince.fill(null); }
+    if (changed) { state.pending = null; state.edgeSince.fill(null); ground?.reset(); }
     if (changed || sight.view.time >= state.nextTable) rebuild(sight, focus, orders);
     let pending = state.candidates.find(candidate => candidate.key === state.pending?.key);
+    if (pending && config.choose.kind === "rules" && !ranked(sight, focus, orders).some(candidate => candidate.key === pending!.key)) { pending = undefined; state.pending = null; }
     if (pending && (sight.view.time - state.pending!.since >= config.choose.patience || recheck(sight, pending).kind === "blocked")) { pending = undefined; state.pending = null; }
     if (!pending || pending.readiness.kind === "waiting") {
       let position: Candidate | undefined, waiting: Candidate | undefined;
@@ -243,15 +198,20 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
       pending ??= position ?? waiting;
       if (pending && state.pending?.key !== pending.key) state.pending = { key: pending.key, since: sight.view.time };
     }
-    let legs: Pick<ActionIntent, "move" | "face" | "lower" | "destination"> | undefined, requested: readonly ActionRequest[] | undefined;
+    let legs: Pick<Intent, "move" | "face" | "lower" | "destination"> | undefined, requested: readonly ActionRequest[] | undefined;
     let left: Cover | null | undefined, right: Cover | null | undefined;
     const centre = sight.view.stance.centre, dx = focus ? focus.centre.x - centre.x : 0, dz = focus ? focus.centre.z - centre.z : 0;
     const face = focus ? atan2(dx, dz) : sight.report.heading, pace = Math.min(sight.envelope?.walk.value ?? SPACE.fallbackPace, orders?.pace ?? Infinity);
     state.phase = state.lost ? "lost" : "guard";
     for (const [i, behaviour] of config.list.entries()) switch (behaviour.kind) {
-      case "follow-orders": if (orders?.move) {
-        if (!legs) legs = { ...walking(sight, orders.move.x, orders.move.z, orders.face ? atan2(orders.face.x, orders.face.z) : atan2(orders.move.x, orders.move.z), pace), ...(orders.destination === undefined ? {} : { destination: orders.destination }) };
-        requested ??= []; state.phase = "move";
+      case "follow-orders": if (orders) {
+        if (orders.move || orders.foe === undefined) ground?.reset();
+        if (!legs) {
+          const ordered = orderedIntent(sight, orders, { left: null, right: null });
+          legs = { ...ordered, move: clearMove(centre, sight.view.senses.solids, sight.report.heading, ordered.move, radius, SPACE.ahead) };
+        }
+        if (orders.move || orders.foe === undefined) requested ??= [];
+        if (orders.move) state.phase = "move";
       } break;
       case "attack": if (!requested) {
         const asks: ActionRequest[] = sight.report.actions.map(action => ({ id: action.id, action: action.action, effector: action.effector, target: structuredConfig(action.target) }));
@@ -283,11 +243,24 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
         if (exit) { legs = walking(sight, exit[0], exit[1], face, pace); state.phase = "clear"; }
       } break;
       case "evade": if (!legs && threat.threatOf(sight.view, THREAT, PREDICTION)) { legs = walking(sight, -dx, -dz, face, pace); requested ??= []; state.phase = "evade"; } break;
-      case "clear-of-fallen": if (!legs && focus?.down && hypot(dx, dz) < radius * 2) { legs = walking(sight, -dx, -dz, face, pace); state.phase = "clear"; } break;
-      case "ground": if (!legs && focus?.down && pending?.readiness.kind === "position") {
-        legs = { ...approachActionWindow(sight.view, pending.readiness.window, sight.report.heading, pace, radius), lower: behaviour.lower }; state.phase = "ground";
+      case "clear-of-fallen": if (!legs && focus?.down) {
+        let near = Infinity; for (const segment of focus.segments.values()) near = Math.min(near, hypot(segment.centre.x - centre.x, segment.centre.z - centre.z));
+        legs = near < SPACE.fallen ? walking(sight, -dx, -dz, face, pace) : { move: null, face }; requested ??= []; state.phase = "clear";
       } break;
-      case "edge": if (!legs && focus && !focus.down && !sight.report.actions.length && pending?.readiness.kind !== "ready") {
+      case "ground": if (!legs && ground && focus && (lowOpponent(sight.view, focus) || ground.state.near.active || ground.state.wide.active)) {
+        const candidates = ranked(sight, focus, orders).filter(candidate => candidate.eligible && actions.find(action => action.name === candidate.action)?.lower !== undefined);
+        const selected = candidates.find(candidate => candidate.key === pending?.key) ?? candidates[0];
+        if (!selected) break;
+        const placement = ground.decide(sight.view, sight.report, focus, selected.effector === "hand.left" ? "left" : "right", dt);
+        if (!placement) break;
+        const candidate = candidates.find(candidate => candidate.effector === `hand.${placement.hand}`) ?? selected;
+        if (pending?.key !== candidate.key) state.pending = { key: candidate.key, since: sight.view.time };
+        pending = candidate; recheck(sight, pending);
+        legs = placement; state.phase = ground.state.phase;
+        if (!placement.allow) requested ??= [];
+      } break;
+      case "edge": if (!legs && focus && !focus.down && focus.spec.effectors?.some(effector => effector.segment === "hand.left")
+        && focus.spec.effectors.some(effector => effector.segment === "hand.right") && !sight.report.actions.length && pending?.readiness.kind !== "ready") {
         const mine = sight.view.head, theirs = focus.segments.get(focus.spec.marks.high)?.centre ?? focus.centre;
         const reach = rangeOf(focus.spec, "right", mine.y - theirs.y), outside = reach.reach + reach.along[1];
         const apart = hypot(theirs.x - mine.x, theirs.z - mine.z);

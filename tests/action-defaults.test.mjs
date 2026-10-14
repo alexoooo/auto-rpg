@@ -5,14 +5,13 @@ import { humanSpec } from "../src/core/human/spec.ts";
 import { createBody } from "../src/core/body.ts";
 import { guardPosture, guardSkill } from "../src/core/skills/guard.ts";
 import { locomotion, STANCE_LOWER } from "../src/core/skills/locomotion.ts";
-import { actionSkillSet } from "../src/core/skills/action-skill-set.ts";
+import { skillSet } from "../src/core/skills/arbiter.ts";
 
 async function fixture(make, services = {}) {
   const spec = humanSpec("workshop-fighter"), stand = await coreStand(spec, { posture: guardPosture(spec) });
   const body = createBody(stand.built, stand.world, { servoSeconds: .1 });
   const motion = make(body), legs = services.legs ?? locomotion(body.envelope);
-  const skills = actionSkillSet(body, { legs, guard: guardSkill(spec), ...services }, [{ name: "motion", executor: motion }],
-    [{ name: "action", executor: "motion", effectors: ["hand.right"] }]);
+  const skills = skillSet(body, {}, {...{ legs, guard: guardSkill(spec), ...services }, executors:[{ name: "motion", executor: motion }], actions:[{ name: "action", executor: "motion", effectors: ["hand.right"] }]});
   const request = { id: skills.instance(), action: "action", effector: "hand.right", target: { kind: "point", at: [0, 1, 1] } };
   const intent = { face: 0, move: null, guard: { left: null, right: null }, actions: [request] };
   return { ...stand, body, skills, motion, intent, dispose() { body.dispose(); stand.dispose(); } };

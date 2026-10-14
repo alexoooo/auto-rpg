@@ -9,6 +9,7 @@ import { massOf } from "../core/control/support.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { legend, readings, slider } from "../ui/controls.ts";
 import { startAttack } from "./attack-mode.ts";
+import { actionReadout } from "../ui/action-readout.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
@@ -27,8 +28,10 @@ export function attackScenario(scene: Scene): LabScenario {
   let speed = 0, wind: WindSettings = { rate: 0, strength: 0 }, weight = 0;
   let current: ReturnType<typeof startAttack> | null = null;
   const setWind = (settings: WindSettings): void => { wind = settings; if (current) current.wind.settings = settings; };
-  const shown = readings({ hits: { name: "Targets impacted" }, target: { name: "Ordered target" },
-    phase: { name: "Attack" }, state: { name: "Body" }, wind: { name: "Wind", unit: "N" } });
+  const actionDetails = actionReadout();
+  const shown = readings({ hits: { name: "Physical impacts" }, target: { name: "Focus" },
+    committed: { name: "Committed" }, landed: { name: "Landed" }, blocked: { name: "Blocked" }, missed: { name: "Clean misses" },
+    refused: { name: "Refused" }, stalled: { name: "Stalled" }, interrupted: { name: "Interrupted" }, phase: { name: "Attack" }, state: { name: "Body" }, wind: { name: "Wind", unit: "N" } });
   return {
     keys: new Set(),
     panels: {
@@ -38,7 +41,7 @@ export function attackScenario(scene: Scene): LabScenario {
         slider("Gust, N", 0, 200, 1, () => wind.strength, (strength) => setWind({ ...wind, strength }),
           (strength) => weight > 0 ? `${strength} (${Math.round(100 * strength / weight)} % of its weight)` : String(strength)),
       ],
-      readout: [shown, legend(Object.values(MARKS))],
+      readout: [shown, { element: actionDetails.element, refresh() {} }, legend(Object.values(MARKS))],
     },
     timelineLabel: `The last ${HISTORY_SECONDS} seconds; dragging pauses. Click a target to attack it.`,
     start({ actor, address, changed, clock, hears }) {
@@ -83,8 +86,9 @@ export function attackScenario(scene: Scene): LabScenario {
             ball.material.alpha = target.fade;
           }
           for (let i = moment.targets.length; i < balls.length; i++) balls[i]!.mesh.setEnabled(false);
-          shown.write({ hits: String(moment.hits), target: moment.selected ?? "None", phase: moment.phase ?? "Guard",
+          shown.write({ ...Object.fromEntries(Object.entries(moment.totals).map(([key, value]) => [key, String(value)])) as Record<keyof typeof moment.totals, string>, hits: String(moment.hits), target: moment.selected ?? "None", phase: moment.phase ?? "Guard",
             state: moment.down ? "Down" : "Upright", wind: Math.hypot(...moment.wind).toFixed(1) });
+          actionDetails.refresh({ actions: moment.actions, ledger: moment.ledger, engagement: moment.engagement });
           return moment.time;
         },
         closure: (hand) => history.at(player.shownFrame() ?? history.live())?.closure[hand] ?? hands.closure(hand),

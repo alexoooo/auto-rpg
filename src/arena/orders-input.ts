@@ -1,5 +1,7 @@
 import type { Heading, Orders } from "../core/mind/orders.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
+import type { Senses } from "../core/mind/senses.ts";
+import { surfaceEntry } from "../core/mind/openings.ts";
 
 /** Which of the four walking keys are down. */
 interface MoveKeys { readonly up: boolean; readonly down: boolean; readonly left: boolean; readonly right: boolean }
@@ -26,11 +28,27 @@ export function aimPoint(origin: Vec3, direction: Vec3, height: number): Vec3 | 
   return direction[1] < 0 && t > 0 ? [origin[0] + t * direction[0], height, origin[2] + t * direction[2]] : null;
 }
 
-/** A person's orders for a body whose centre of mass is over `at`: walk the keys' way, face the point, and attack it while the button is down. */
-export function personOrders(move: Heading | null, point: Vec3 | null, attacking: boolean, at: { readonly x: number; readonly z: number }): Orders {
+/** The nearest sensed anatomical surface along a finite ray; decorative meshes have no authority. */
+export function rayTarget(senses: Senses, origin: Vec3, direction: Vec3, length: number): { readonly foe: string; readonly region: string } | null {
+  const to: Vec3 = [origin[0] + direction[0] * length, origin[1] + direction[1] * length, origin[2] + direction[2] * length];
+  let distance = Infinity, target: { foe: string; region: string } | null = null;
+  for (const foe of senses.others) {
+    if (foe.out || foe.side === senses.side) continue;
+    for (const part of foe.spec.segments) {
+      const hit = surfaceEntry(foe, part.name, origin, to);
+      if (!hit) continue;
+      const squared = hit.at.reduce((sum, value, i) => sum + (value - origin[i]!) * (value - origin[i]!), 0);
+      if (squared < distance) { distance = squared; target = { foe: foe.id, region: part.name }; }
+    }
+  }
+  return target;
+}
+
+/** Keys give a walk, the pointer gives facing, and a pressed anatomical hit gives identity. */
+export function personOrders(move: Heading | null, point: Vec3 | null, target: { readonly foe: string; readonly region: string } | null, at: { readonly x: number; readonly z: number }): Orders {
   return {
     move,
     face: point ? { x: point[0] - at.x, z: point[2] - at.z } : null,
-    attack: attacking && point ? point : null,
+    ...(target ?? {}),
   };
 }

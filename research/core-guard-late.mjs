@@ -35,7 +35,7 @@ const threat = values.threat ? JSON.parse(values.threat) : THREAT;
 
 /** One bout with `covers` covering: its head's blows as the step before each left them, and the bout's counts. */
 async function play(left, right, gap, covers) {
-  const mind = (side) => side === covers ? withParts(RECIPE_FIGHTER, { tactics: { guard: "cover", tuning: { threat } } }) : RECIPE_FIGHTER;
+  const mind = (side) => side === covers ? withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover", tuning: { threat } } : behaviour) } }) : RECIPE_FIGHTER;
   const { world, duel, dispose } = await buildBout({ left, right, gap, senseDelay: delay, minds: { left: mind("left"), right: mind("right") } });
   try {
     const me = duel.duelists[covers], { view } = me.body;
@@ -45,10 +45,10 @@ async function play(left, right, gap, covers) {
     while (!duel.verdict) {
       const cover = view.down ? null : threatOf(view, threat);
       if (cover) { since ??= duel.clock; counts.seen++; } else since = null;
-      const strike = me.minded.skills.report.strike;
-      if (strike.hand) counts.struck++;
+      const strike = me.minded.skills.report.actions.find(action => action.effector.startsWith("hand."));
+      if (strike) counts.struck++;
       counts.steps++;
-      const before = { since, cover, strike: strike.hand ? `${strike.hand} ${strike.phase}` : "none", head: view.head.clone(), knuckles: view.fists.left.position.clone(),
+      const before = { since, cover, strike: strike ? `${strike.effector} ${strike.phase}` : "none", head: view.head.clone(), knuckles: view.fists.left.position.clone(),
         swell: toWorld(view.effectors["hand.right"].points.swellFrom).add(toWorld(view.effectors["hand.right"].points.swellTo)).scale(0.5) };
       world.step();
       for (; read < duel.blows.length; read++) {

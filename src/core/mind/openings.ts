@@ -3,7 +3,7 @@ import type { BodyView } from "../body.ts";
 import { attackPath, ATTACK_PATH, type AttackTuning } from "../skills/attack-path.ts";
 import { pointPath } from "../control/point-path.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
-import type { BlowAttack, BlowFamily } from "./intent.ts";
+import type { BlowFamily } from "./intent.ts";
 import { aimOf } from "../skills/strikes.ts";
 import { placedReach } from "../skills/strike.ts";
 import { type Side, frameOf, type BodySpec, type SegmentSpec } from "../spec/body.ts";
@@ -279,11 +279,6 @@ interface Opening {
   readonly blocked: boolean;
   readonly reach: number;
   readonly score: number;
-}
-
-/** The blow an opening asks for, along its family's path. */
-export function openingAction({ hand, target, family, direction }: Opening): BlowAttack {
-  return { kind: "blow", hand, target, path: { family, ...(direction ? { direction } : {}) } };
 }
 
 /** A replaceable, bounded geometric selector; reads physical shapes and poses, never opponent policy or health. */

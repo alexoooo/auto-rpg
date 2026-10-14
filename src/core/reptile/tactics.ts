@@ -3,7 +3,7 @@ import type { OwnBody } from "../mind/mind.ts";
 import type { Orders } from "../mind/orders.ts";
 import { STAND_ORDERS } from "../mind/orders.ts";
 import type { Tactics } from "../mind/tactics.ts";
-import { aimedOrders, nearestSurface } from "../mind/targets.ts";
+import { nearestSurface } from "../mind/targets.ts";
 import { surfaceEntry, surfaceContains } from "../mind/openings.ts";
 import { pointOfToRef } from "../control/support.ts";
 import { pointAtToRef, rootFrameToRef } from "../control/kinematics.ts";
@@ -16,13 +16,14 @@ import { turnAboutToRef } from "../math/turn.ts";
 import { headingAligned } from "./trot.ts";
 
 /** Bite preparation accompanies approach; the committed stroke waits for loaded paws. */
-interface QuadrupedIntent extends Orders { readonly prepareBite: boolean; readonly creep: boolean; readonly travel: boolean }
+interface QuadrupedIntent extends Orders { readonly biteAt: Vec3 | null; readonly prepareBite: boolean; readonly creep: boolean; readonly travel: boolean }
 
 /**
  * Each tooth seeks the first exposed sensed surface along its closing arc, with its piercing
  * direction facing the surface. Preparation retains that point in the opponent segment frame.
  */
-export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => Orders | null, T = REPTILE_BITE): Tactics<{ readonly view: QuadrupedView; readonly bite: Pick<StrikeCycleState, "phase"> }, QuadrupedIntent> & { readonly state: { pending: number; phase: StrikeCycleState["phase"]; target: { foe: string; part: string; local: Vec3; tooth: string } | null } } {
+export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => Orders | null, T = REPTILE_BITE,
+  biteTarget?: (view: QuadrupedView) => Vec3 | null): Tactics<{ readonly view: QuadrupedView; readonly bite: Pick<StrikeCycleState, "phase"> }, QuadrupedIntent> & { readonly state: { pending: number; phase: StrikeCycleState["phase"]; target: { foe: string; part: string; local: Vec3; tooth: string } | null } } {
   const mouth = new Vector3(), { head, lower, hinge, teeth } = mouthOf(own.built);
   const carried = new Vector3(), inverse = new Quaternion();
   const frame = { position: new Vector3(), rotation: new Quaternion() }, closing = new Vector3(), shiftDirection = new Vector3();
@@ -48,14 +49,14 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
     else state.pending = 0;
     if (returned || state.pending >= T.biteTimeout) { state.target = null; state.pending = 0; }
     const ordered = orders(view);
-    if (view.senses.out) return { ...STAND_ORDERS, prepareBite: false, creep: false, travel: false };
+    if (view.senses.out) return { ...STAND_ORDERS, biteAt: null, prepareBite: false, creep: false, travel: false };
     pointOfToRef(head, head.spec.points!.mouth!.value, mouth);
     const from: Vec3 = [mouth.x, mouth.y, mouth.z];
     const inside = (at: Vec3) => view.senses.others.some(foe => !foe.out && foe.side !== view.senses.side
       && foe.spec.segments.some(part => surfaceContains(foe, part.name, at)));
     const buried = inside(from);
     const accept = (at: Vec3) => Math.abs(at[1] - mouth.y) <= T.biteElevation;
-    const near = nearestSurface(view.senses, from, accept, ordered?.foe);
+    const near = nearestSurface(view.senses, from, accept, ordered?.foe, ordered?.region);
     rootFrameToRef(head, frame);
     shiftDirection.set(0, 0, 1).applyRotationQuaternionToRef(frame.rotation, shiftDirection);
     const horizontal = Math.sqrt(shiftDirection.x * shiftDirection.x + shiftDirection.z * shiftDirection.z);
@@ -85,7 +86,7 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
           turnAboutToRef(jawAxis, T.open * (1 - progress / T.biteSamples), jawTurn);
           closing.set(...tooth.direction.value).applyRotationQuaternionToRef(jawTurn, closing).applyRotationQuaternionToRef(frame.rotation, closing);
           const alignment = -(closing.x * exposed.normal[0] + closing.y * exposed.normal[1] + closing.z * exposed.normal[2]);
-          if (alignment >= tooth.alignment.value && accept(exposed.at) && (ordered?.foe === undefined || exposed.foe === ordered.foe)
+          if (alignment >= tooth.alignment.value && accept(exposed.at) && (ordered?.foe === undefined || exposed.foe === ordered.foe) && (ordered?.region === undefined || exposed.part === ordered.region)
             && (!candidate || Math.abs(shift) < candidate.shift || Math.abs(shift) === candidate.shift && (progress < candidate.progress
               || progress === candidate.progress && alignment > candidate.alignment)))
             candidate = { foe: exposed.foe, part: exposed.part, at: exposed.at, normal: exposed.normal, shift: Math.abs(shift), progress, tooth: toothName, alignment };
@@ -93,7 +94,7 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
         }
       }
     }
-    if ((sight.bite.phase === null || sight.bite.phase === "chamber") && ordered?.foe !== undefined && state.target?.foe !== ordered.foe) state.target = null;
+    if ((sight.bite.phase === null || sight.bite.phase === "chamber") && ordered?.foe !== undefined && (state.target?.foe !== ordered.foe || ordered.region !== undefined && state.target?.part !== ordered.region)) state.target = null;
     if (!state.target && candidate) {
       const segment = view.senses.others.find(foe => foe.id === candidate.foe)!.segments.get(candidate.part)!;
       carried.set(...candidate.at).subtractInPlace(segment.position).applyRotationQuaternionToRef(Quaternion.InverseToRef(segment.rotation, inverse), carried);
@@ -112,16 +113,17 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
     }
     if ((sight.bite.phase === null || sight.bite.phase === "chamber") && target && !accept(target)) { state.target = null; target = null; }
     if (buried && (sight.bite.phase === null || sight.bite.phase === "chamber")) { state.target = null; target = null; }
-    const given = aimedOrders(ordered, view.senses, () => target);
-    const approach = target ?? near?.at;
+    const given = biteTarget ? { ...(ordered ?? STAND_ORDERS), biteAt: biteTarget(view) }
+      : ordered ? { ...ordered, biteAt: ordered.foe === undefined ? null : target } : null;
+    const approach = given?.biteAt ?? target ?? near?.at;
     const ax = approach ? approach[0] - mouth.x : Infinity, az = approach ? approach[2] - mouth.z : Infinity;
     const nearest = ax * ax + az * az;
-    const prepareBite = nearest <= T.bitePrepareNear * T.bitePrepareNear || !!given?.attack;
+    const prepareBite = nearest <= T.bitePrepareNear * T.bitePrepareNear || !!given?.biteAt;
     const capture = entry + T.biteShift;
     const creep = nearest <= capture * capture || sight.bite.phase !== null;
     const travel = nearest > T.creepNear * T.creepNear && sight.bite.phase === null;
     if (given) return { ...given, prepareBite, creep, travel };
-    if (!approach) return { ...STAND_ORDERS, prepareBite: false, creep: false, travel: true };
+    if (!approach) return { ...STAND_ORDERS, biteAt: null, prepareBite: false, creep: false, travel: true };
     const dx = approach[0] - view.centre.x, dz = approach[2] - view.centre.z, distance = Math.sqrt(dx * dx + dz * dz);
     const face = distance ? { x: dx / distance, z: dz / distance } : null;
     const gap = Math.sqrt(nearest) - (target ? capture : entry);
@@ -131,10 +133,10 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
     const blocked = !target && (buried || loaded());
     if (blocked) {
       const x = shiftDirection.x, z = shiftDirection.z;
-      return { move: { x: -x, z: -z }, face: { x, z }, attack: null, prepareBite, creep: true, travel: false };
+      return { move: { x: -x, z: -z }, face: { x, z }, biteAt: null, prepareBite, creep: true, travel: false };
     }
     const retreat = !target && nearest <= entry * entry && aligned;
     return { move: !face || attacking ? null : retreat ? { x: -face.x, z: -face.z } : { x: face.x * speed, z: face.z * speed },
-      face, attack: attacking ? target : null, prepareBite, creep: creep || retreat, travel };
+      face, biteAt: attacking ? target : null, prepareBite, creep: creep || retreat, travel };
   } };
 }

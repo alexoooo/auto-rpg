@@ -56,7 +56,7 @@ test("the_labs_blow_on_the_loadouts_body_reads_as_the_search_reads_it", async ()
     let ended = null;
     for (let i = 0; i < stand.seconds(8) && !(ended !== null && blow.time - ended >= 1); i++) {
       stand.step(1);
-      if (ended === null && blow.report.strike.thrown[stored.hand] > 0) ended = blow.time;
+      if (ended === null && blow.report.ledger.some(record => record.effector === `hand.${stored.hand}`)) ended = blow.time;
     }
     lab = plain(watch.reading);
   } finally { watch.dispose(); blow.dispose(); stand.dispose(); }

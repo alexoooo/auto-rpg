@@ -13,7 +13,7 @@ import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
-import { recipeTactics } from "../src/core/mind/recipe-tactics.ts";
+import { walkingTactics, pointTactics, committedRecords } from "./fixtures/action-tactics.mjs";
 import { embody } from "../src/core/mind/mind.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
@@ -257,7 +257,7 @@ test("a body taken in the middle of a step forgets the step, steps its feet apar
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [hold] });
   const stance = body.state.mind.host.motor.stance;
   try {
-    const skills = driveBy(body, recipeTactics("walk", () => ({ move: { x: 0, z: 1 }, face: null, attack: null })));
+    const skills = driveBy(body, walkingTactics(stand.built.spec, () => ({ move: { x: 0, z: 1 }, face: null })));
     /** The stance's memory of the step under way. */
     const memory = () => ({
       plan: stance.plan.on, last: stance.last, stride: stance.stride, striding: stance.striding, pace: [...stance.pace],
@@ -293,7 +293,7 @@ test("a body taken in the middle of a step forgets the step, steps its feet apar
 test("a body handed back goes on from where it is", async () => {
   const stand = await coreStand(armed(warrior, "right", woodenClub()));
   // A point to its right, at head height: the strike skill walks it there, turning, and sets its feet.
-  const ATTACK = Object.freeze({ move: null, face: null, attack: Object.freeze([1.6, 1.6, 0.4]) });
+  const ATTACK = Object.freeze([1.6, 1.6, .4]);
   /** How long the body is held, in steps: counted, since a time that is a whole number of steps reads either side of its last one. */
   const HELD = 48;
   let skills = null, until = null;
@@ -301,7 +301,7 @@ test("a body handed back goes on from where it is", async () => {
   const hold = (own) => ({
     name: "hold",
     wants() {
-      if (until === null && skills.report.strike.phase === "chamber") until = stand.world.steps + HELD;
+      if (until === null && skills.report.actions[0]?.stage === "chamber") until = stand.world.steps + HELD;
       return until !== null && stand.world.steps < until;
     },
     begin() {}, end() {},
@@ -311,11 +311,10 @@ test("a body handed back goes on from where it is", async () => {
   try {
     // What the tactics see each step they decide: the driver's own view, as the skills have been resumed on it.
     const decided = [];
-    skills = driveBy(body, recipeTactics("back", ({ view, report }) => {
+    skills = driveBy(body, pointTactics(stand.built.spec, () => ATTACK, ({ view, report }) => {
       // The way the pelvis faces, read from its left-to-right axis, (cos h, 0, -sin h).
       const across = new Vector3(1, 0, 0).applyRotationQuaternion(view.root.rotation);
-      decided.push({ time: view.time, resumed: view.resumed, phase: report.strike.phase, heading: report.heading, facing: view.stance.facing, across: atan2(-across.z, across.x), thrown: report.strike.thrown.right });
-      return ATTACK;
+      decided.push({ time: view.time, resumed: view.resumed, phase: report.actions[0]?.stage ?? null, heading: report.heading, facing: view.stance.facing, across: atan2(-across.z, across.x), thrown: committedRecords(report).length, began: report.actions[0]?.began ?? null, id: report.actions[0]?.id ?? null });
     }));
     const had = [];
     let down = false;
@@ -337,16 +336,16 @@ test("a body handed back goes on from where it is", async () => {
     assert.deepEqual({ phase: at.phase, thrown: at.thrown, heading: at.heading }, { phase: null, thrown: 0, heading: at.across });
     assert.ok(Math.abs(at.across - at.facing) < 0.01, `its left-to-right axis faces it ${at.across} rad, its forward ${at.facing}`);
     assert.ok(at.facing > 1 && Math.abs(at.facing - before.heading) < 0.1, `the fixture turned it to its right: it faces ${at.facing} rad, and was asked ${before.heading}`);
-    // It goes on: within 4 s it has thrown a strike begun since, and has not gone down.
+    // The shared approach reacquires entry after the hand-back, then a fresh preparation commits.
     const from = stand.world.steps;
-    while (skills.report.strike.thrown.right === 0 && stand.world.steps < from + stand.seconds(4)) run(1);
-    assert.equal(skills.report.strike.thrown.right, 1, "it threw a strike begun after the hand-back");
+    while (committedRecords(skills.report).length === 0 && stand.world.steps < from + stand.seconds(6)) run(1);
+    assert.equal(committedRecords(skills.report).length, 1, JSON.stringify({ report:skills.report, from, time:stand.world.time, tail:decided.slice(-3) }));
     assert.equal(down, false);
-    // Its feet are square where they stand, so it places none: it stands its time again.
-    assert.deepEqual(decided.slice(back + 1, back + 3).map((step) => step.phase), ["settle", "settle"]);
-    // Begun from nothing: it stood again as long as a strike asks before it chambered.
+    const interrupted = skills.report.ledger.find(record => record.ending.reason === "takeover");
+    assert.ok(interrupted && !interrupted.committed);
     const chambered = decided.find((step, k) => k > back && step.phase === "chamber");
-    assert.ok(chambered.time - at.time >= STAND - 2 * stand.world.dt, `back at ${at.time} s, it chambered at ${chambered.time} s`);
+    assert.ok(chambered.id > interrupted.id);
+    assert.ok(chambered.time - chambered.began >= STAND - 2 * stand.world.dt);
     assert.deepEqual(had, ["command", "hold", "command"]);
   } finally { body.dispose(); stand.dispose(); }
 });

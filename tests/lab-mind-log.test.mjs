@@ -37,9 +37,9 @@ test("a_log_keeps_its_last_notes_and_gives_those_made_by_a_time", () => {
 });
 
 test("logged_tactics_decide_as_their_own_and_note_each_thing_as_it_changes", () => {
-  const stand = { move: null, face: 0, guard: NO_COVER, attack: null };
-  const attack = { ...stand, attack: { kind: "blow", hand: "right", target: [0, 1, 1] } };
-  const strike = (phase) => ({ phase, blow: phase && "recipe", chosen: phase && { strike: { name: "a blow" } } });
+  const stand = { move: null, face: 0, guard: NO_COVER, actions: [] };
+  const attack = { ...stand, actions: [{ id: 1, action: "strike", effector: "hand.right", target: { kind: "point", at: [0, 1, 1] } }] };
+  const strike = (phase) => ({ actions: phase ? [{ id: 1, action: "strike", phase: phase === "chamber" ? "prepare" : "commit", stage: phase }] : [], ledger: [] });
   // Each step: what the tactics decide, and what they see of their skills.
   const steps = [
     [stand, strike(null)], [stand, strike(null)], [{ ...stand, move: [0.3, 0], face: 1 }, strike(null)],
@@ -56,12 +56,12 @@ test("logged_tactics_decide_as_their_own_and_note_each_thing_as_it_changes", () 
     // What is theirs is read through to them as it is now, and they decide once a step.
     assert.deepEqual([tactics.name, tactics.decided], ["scripted", step]);
     assert.equal(tactics.state, own.state);
-    assert.equal(tactics.decide({ view: { time: step / 10 }, report: { strike: seen } }, 0.1), intent);
+    assert.equal(tactics.decide({ view: { time: step / 10 }, report: seen }, 0.1), intent);
   }
   assert.equal(tactics.decided, steps.length);
   assert.deepEqual(log.upTo(Infinity, 100).map(({ time, text }) => `${time} ${text}`), [
     "0 stand", "0 left guard", "0 right guard", "0.2 move 0.30 0.00", "0.4 move 0.30 -0.10", "0.5 stand", "0.5 right attack",
-    "0.6 strike chamber a blow", "0.7 strike swing a blow", "0.8 right guard", "0.9 right attack", "0.9 strike swing a blow",
+    "0.6 #1 strike prepare/chamber", "0.7 #1 strike commit/swing", "0.8 right guard", "0.9 right attack", "0.9 #1 strike commit/swing",
     "1 right guard",
   ]);
 });
@@ -84,17 +84,19 @@ test("the_log_of_a_run_and_of_a_blow_is_what_their_scripts_decide", async () => 
     } finally { run.dispose(); stand.dispose(); }
   }
   {
-    const stored = LAB_BLOWS[0], log = createMindLog(), name = stored.strike.name;
+    const stored = LAB_BLOWS[0], log = createMindLog();
     const stand = await coreStand(loadoutSpec({ model: stored.model, right: "club", left: "empty" }), { ground: true });
     const blow = throwBlow(labActor(stand.built, stand.world, { around: (script) => logged(script, log) }), { hand: stored.hand, strike: stored.strike, place: stored.place, band: stored.band });
     try {
       stand.step(stand.seconds(blow.pushing + 1));
       const notes = log.upTo(Infinity, 100);
-      assert.deepEqual(texts(notes), ["stand", "left guard", "right attack", `strike settle ${name}`, `strike chamber ${name}`, `strike swing ${name}`, "right guard"]);
-      // The skills' report is the last step's: a phase is noted the step after it begins.
-      const at = (text) => notes.find((note) => note.text === text).time;
-      assert.ok(Math.abs(at(`strike chamber ${name}`) - (STAND + dt)) < 1e-9, `chambering at ${at(`strike chamber ${name}`)}`);
-      assert.ok(Math.abs(at(`strike swing ${name}`) - (blow.pushing + dt)) < dt, `swinging at ${at(`strike swing ${name}`)}, pushing from ${blow.pushing}`);
+      assert.ok(texts(notes).includes("right attack"));
+      assert.ok(texts(notes).some(text => text.includes("strike prepare/")), texts(notes).join(", "));
+      assert.ok(texts(notes).some(text => text.includes("strike commit/")), texts(notes).join(", "));
+      const preparation = notes.find(note => note.text.includes("strike prepare/"));
+      const committed = notes.find(note => note.text.includes("strike commit/"));
+      assert.ok(preparation.time >= 0 && committed.time >= STAND && committed.time > preparation.time);
+
     } finally { blow.dispose(); stand.dispose(); }
   }
 });

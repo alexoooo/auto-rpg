@@ -1,5 +1,5 @@
 /**
- * Whether a fighter that holds at the edge of its foe's reach (`SeekConfig.range`, `"edge"`)
+ * Whether a fighter that holds at the edge of its foe's reach (the approach behaviour's range, `"edge"`)
  * does better than one that walks in to attack: arena bouts (`bout.mjs`), each in a world of its
  * own on a worker (`bout-pool.mjs`).
  *
@@ -29,7 +29,8 @@ import { SIDES } from "../src/arena/duel.ts";
 import { HELD } from "../src/core/items/held.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
-import { EDGE } from "../src/core/mind/recipe-tactics.ts";
+/** The experimental edge spacing, patience in seconds and clinch in metres. */
+const EDGE = { band: .25, patience: 4, clinch: .1 };
 import { BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
 import { withParts } from "../tests/fixtures/minds.mjs";
@@ -65,7 +66,7 @@ function sideOf(row, side) {
 
 /** A bout's job, and the record its row becomes: `edge` is the side that holds at the edge, or null in the control. */
 function jobOf(seed, held, left, right, at, edge) {
-  const mind = (side) => side === at ? withParts(RECIPE_FIGHTER, { tactics: { range: "edge", tuning: { edge } } }) : RECIPE_FIGHTER;
+  const mind = (side) => side === at ? withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "approach" ? { ...behaviour, range: "edge", tuning: { edge } } : behaviour) } }) : RECIPE_FIGHTER;
   return {
     key: { seed, gap: gapOf(seed), held, left, right, at, edge },
     recipe: { left, right, gap: gapOf(seed), held: { left: held, right: held }, minds: { left: mind("left"), right: mind("right") } },

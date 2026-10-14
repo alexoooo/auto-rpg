@@ -27,7 +27,7 @@ interface StrikeDef {
 }
 
 /** A strike's cycle, where its point was at the last read (root frame), and what its strokes have come to. */
-export interface StrikeState extends StrikeCycleState {
+interface StrikeState extends StrikeCycleState {
   previous: Vec3 | null;
   thrown: number;
   returned: number;

@@ -18,7 +18,7 @@ import { placedReach } from "../skills/strike.ts";
 export const THREAT: Threat = Object.freeze({ within: 1.5, closing: 2 });
 
 /** What counts as a threat (`THREAT`). */
-export interface Threat {
+interface Threat {
   readonly within: number;
   readonly closing: number;
 }
@@ -97,7 +97,7 @@ function threatOf(view: BodyView, { point, velocity, lever }: ThreatWork, counts
 }
 
 /** Predictive defense search cells, the reference cover's plane among them: `docs/reference/combat-defense.md#settings`. */
-export const DEFENSE = Object.freeze({ out: .3, horizon: .3, speed: 3, reserve: .08, minimum: .05 });
+const DEFENSE = Object.freeze({ out: .3, horizon: .3, speed: 3, reserve: .08, minimum: .05 });
 
 /** Detached constant-motion threat, corrected for sample age and the guarded point's own motion. */
 function incomingThreat(view: BodyView, ownVelocity: Vec3, { point, velocity, lever }: ThreatWork, counts: Threat = THREAT) {

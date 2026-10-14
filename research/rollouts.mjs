@@ -96,15 +96,14 @@ export function responsesAt(duel, side) {
   const o = duel.duelists[side].body.view.stance.centre, foe = duel.duelists[other(side)];
   const f = foe.body.view.stance.centre, d = Math.max(0.001, Math.hypot(f.x - o.x, f.z - o.z));
   const toward = { x: (f.x - o.x) / d, z: (f.z - o.z) / d }, right = { x: toward.z, z: -toward.x };
-  const head = centreOfToRef(foe.built.segments.get("head"), new Vector3());
   return [
     { name: "own", orders: null },
-    { name: "attack", orders: { move: null, face: toward, attack: [head.x, head.y, head.z] } },
-    { name: "hold", orders: { move: null, face: toward, attack: null } },
-    { name: "close", orders: { move: toward, face: null, attack: null } },
-    { name: "back", orders: { move: { x: -toward.x, z: -toward.z }, face: toward, attack: null } },
-    { name: "left", orders: { move: { x: -right.x, z: -right.z }, face: toward, attack: null } },
-    { name: "right", orders: { move: right, face: toward, attack: null } },
+    { name: "attack", orders: { move: null, face: toward, foe: foe.id } },
+    { name: "hold", orders: { move: null, face: toward } },
+    { name: "close", orders: { move: toward, face: null } },
+    { name: "back", orders: { move: { x: -toward.x, z: -toward.z }, face: toward } },
+    { name: "left", orders: { move: { x: -right.x, z: -right.z }, face: toward } },
+    { name: "right", orders: { move: right, face: toward } },
   ];
 }
 

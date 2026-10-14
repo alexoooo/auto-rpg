@@ -55,7 +55,7 @@ export interface BodySpec {
  * far end from `high`, the two its long axis; `legs`, what a low kick meets; `guards`, what it
  * covers with, where a blow that meets it is blocked.
  */
-export interface Marks {
+interface Marks {
   readonly high: string;
   readonly middle: readonly string[];
   readonly base: string;

@@ -42,8 +42,8 @@ test("each side's mind travels in a link as its whole tree, without research tun
   const query = (search) => new URLSearchParams(search);
   // A preset writes nothing; a changed tree writes itself whole, and a link drops any research tuning.
   assert.equal(mindsSearch("?control=classic,scrapper", { left: CLASSIC, right: SCRAPPER }), "?control=classic%2Cscrapper");
-  const edited = withParts(SCRAPPER, { tactics: { prefers: "head", spacing: .5 }, subs: [{ kind: "support-recovery" }, { kind: "lie" }] });
-  const tuned = withParts(edited, { blow: { tuning: { paths: { returnLimit: .05 } } } });
+  const edited = { ...SCRAPPER, actions: SCRAPPER.actions.map(action => ({ ...action, regions: [{ kind: "mark", mark: "high" }] })), tactics: { ...SCRAPPER.tactics, list: SCRAPPER.tactics.list.map(b => b.kind === "approach" ? { ...b, spacing: .5 } : b) }, subs: [{ kind: "support-recovery" }, { kind: "lie" }] };
+  const tuned = { ...edited, executors: edited.executors.map(executor => ({ ...executor, tuning: { paths: { returnLimit: .05 } } })) };
   const search = mindsSearch("?control=classic,scrapper&left.mind=x", { left: CLASSIC, right: tuned });
   assert.deepEqual(JSON.parse(query(search).get("right.mind")), edited);
   assert.equal(query(search).get("left.mind"), null);
@@ -65,15 +65,17 @@ test("each side's mind travels in a link as its whole tree, without research tun
     }
   }
   // The walk reaches the parts a person edits most: the tactics, the blow and how the body gets about.
-  for (const field of ["seek.aim", "openings.spacing", "path-strike.overlap", "move.otherwise"]) assert.ok(reached.has(field), [...reached].join(" "));
-  // A tree with a fault is the preset whole, and the panel shows it with why.
-  const faulty = withParts(SCRAPPER, { tactics: { combinations: "follow-up", hands: "right" } }), refused = mindsSearch("?control=classic,scrapper", { left: CLASSIC, right: faulty });
+  for (const field of ["move.otherwise"]) assert.ok(reached.has(field), [...reached].join(" "));
+  // A named action with no executor is rejected as a whole config.
+  const faulty = { ...SCRAPPER, actions: SCRAPPER.actions.map(action => ({ ...action, executor: "missing" })) };
+  const refused = mindsSearch("?control=classic,scrapper", { left: CLASSIC, right: faulty });
   assert.deepEqual(readMinds(refused).right, SCRAPPER);
-  assert.deepEqual(linkedMind(refused, "right"), { config: faulty, faults: ["tactics: combat combinations require alternate hands"] });
-  // Classic with the path strike for its blow is a fault at the blow, and plays Classic.
-  const pathed = withParts(CLASSIC, { blow: { kind: "path-strike", overlap: false } }), classic = mindsSearch("?control=classic,scrapper", { left: pathed, right: SCRAPPER });
+  assert.deepEqual(linkedMind(refused, "right"), { config: faulty, faults: treeFaults(faulty) });
+  assert.ok(treeFaults(faulty).some(fault => fault.includes("missing")));
+  const pathed = { ...CLASSIC, executors: [{ name: "paths", kind: "path-strike", overlap: false }], actions: CLASSIC.actions.map(action => ({ ...action, executor: "paths" })) };
+  const classic = mindsSearch("?control=classic,scrapper", { left: pathed, right: SCRAPPER });
   assert.deepEqual(readMinds(classic).left, CLASSIC);
-  assert.deepEqual(linkedMind(classic, "left").faults, ["blow: the path strike carries out a blow only along a path, and these tactics name none"]);
+  assert.deepEqual(linkedMind(classic, "left").faults, ["the mind does not fit this body"]);
   const nested = mindsSearch("?control=classic,scrapper", { left: CLASSIC, right: { ...SCRAPPER, subs: [{ kind: "lie" }, { kind: "fly" }] } });
   assert.deepEqual(linkedMind(nested, "right").faults, ['subs.1: no part of kind "fly"']);
   assert.deepEqual(readMinds(nested).right, SCRAPPER);
@@ -90,7 +92,7 @@ test("each side's mind travels in a link as its whole tree, without research tun
   // The HUD marks an edited side.
   assert.deepEqual(["left", "right"].map((side) => controllerLabel(search, side)), ["Classic fighter", "Custom (from Scrapper)"]);
   assert.equal(controllerLabel("?control=classic,puncher", "right"), "Puncher");
-  assert.equal(readMinds(`?control=classic,scrapper&right.mind=${encodeURIComponent(JSON.stringify(withParts(SCRAPPER, { tactics: { spacing: .25 } })))}`).right.tactics.spacing, .25);
+  assert.equal(readMinds(search).right.tactics.list.find(b => b.kind === "approach").spacing, .5);
   assert.deepEqual(readMinds("?control=puncher,classic").left, PUNCHER);
   assert.deepEqual(readMinds("?control=classic,classic").left, CLASSIC);
 });

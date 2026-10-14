@@ -24,7 +24,7 @@ test("recipe admission and command inspection do not advance motion", async () =
   try {
     const { executor, body, request } = f;
     assert.deepEqual(executor.readiness(body.view, "jab", "hand.right", request.target, around), { kind: "ready" });
-    assert.deepEqual(executor.state, { live: null });
+    assert.deepEqual(executor.state, { width: null, live: null });
     executor.start(body.view, request, around);
     assert.equal(executor.state.live.stage, "admitting");
     assert.equal(executor.state.live.time, 0);
@@ -45,6 +45,7 @@ test("a cancelled recipe cannot recommit when the same request returns", async (
     assert.deepEqual(executor.update(body.view, [], around, dt), [
       { id: 1, phase: "release", stage: "return", holds: ["hand.right", "trunk", "legs"] },
     ]);
+    const width = executor.state.width;
     let ended;
     for (let i = 0; i < 10; i++) {
       const result = executor.update(body.view, [request], around, dt);
@@ -52,7 +53,7 @@ test("a cancelled recipe cannot recommit when the same request returns", async (
       assert.equal(result[0].phase, "release");
     }
     assert.deepEqual(ended, [{ id: 1, ending: { kind: "cancelled" } }]);
-    assert.deepEqual(executor.state, { live: null });
+    assert.deepEqual(executor.state, { width, live: null });
   } finally { f.dispose(); }
 });
 
@@ -78,6 +79,7 @@ test("a recipe's committed placed stroke continues after withdrawal and returns 
     assert.equal(released, true);
     assert.ok(ended, "the finite return ends");
     assert.notEqual(ended.kind, "cancelled");
-    assert.deepEqual(executor.state, { live: null });
+    assert.ok(executor.state.width > 0);
+    assert.equal(executor.state.live, null);
   } finally { f.dispose(); }
 });

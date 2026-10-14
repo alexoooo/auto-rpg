@@ -4,7 +4,7 @@ What one world step (`World.step`, `src/core/world.ts`) takes in time and in mem
 added, in a bout and in a crypt run: where the time goes, what a step allocates, what the collector
 takes, and which steps are long and why.
 
-Every figure here is wall time or bytes read in **Node 24.19, the core world, Rapier, 120 Hz, one
+Except for the discrete-action allocation check below, these historical figures are wall time or bytes read in **Node 24.19, the core world, Rapier, 120 Hz, one
 thread of the development host** (a 16-core desktop), with nothing else running on it. A step is
 8.33 ms of the game's time, so a step of 8.33 ms is real time with nothing drawn; a page at 60
 frames a second takes two steps a frame and draws. None of it is read on a page yet.
@@ -23,6 +23,30 @@ node research/rest-probe.mjs
 node research/rest-probe.mjs --bodies 4
 node research/blow-cost.mjs
 ```
+
+## Discrete-action allocation
+
+The action protocol adds detached immutable commands, concrete resource ownership, action
+lifecycles and post-physics contact episodes. Its trajectories also change the work in the bout
+fixture. **Node 24.15.0, core world, Rapier, 120 Hz**, using
+`tests/harness/step-allocation.mjs`: two standing skeletons, 240 sampled steps after 3 s; and the
+Warrior against the Rogue with clubs, 480 sampled steps after 2 s. Each reading has its own
+process. Background searches were running, so this is an allocation check, with no timing claim.
+
+The initial gate read 122 KiB per body per step standing and 250 in the bout. Removing an unused
+overlay snapshot, redundant shallow command copies and intermediate arrays in immutable copying
+leaves these five readings:
+
+| Fixture | KiB per body per step | Highest plus a quarter, rounded up |
+|---|---|---|
+| Standing | 111.69, 110.86, 110.23, 111.07, 111.05 | 140 |
+| Bout | 238.71, 239.09, 240.93, 240.71, 239.51 | 302 |
+
+These replace the historical 100 and 139 KiB ceilings below. The down-body ceiling stays 206.
+The ownership and contact features retain an allocation cost; the ceilings do not claim that
+the migration preserves the old cost. The copying change preserves the sampled Arena and
+standing fingerprints exactly (`scripts/fingerprint.mjs`): Arena pose `31a56675fae9fb65`, its
+continuation `b7e015073e408c8f`, and standing skeleton `b853520385722a06`.
 
 ## Bodies in a step
 
@@ -305,8 +329,9 @@ fingerprint is the same to the bit (`node scripts/fingerprint.mjs`, the bout's d
 (`research/step-time.mjs`, the least of three playings, read twice), one and eight skeletons
 standing (`research/step-garbage.mjs --bodies 1,8`), and what a body's step allocates, the
 highest of five readings each in a process of its own (`tests/harness/step-allocation.mjs`, the
-fixtures `tests/core-step-cost.test.mjs` holds under a ceiling: the highest of the last row's
-five readings and a quarter, 100 KiB standing and 139 in the bout).
+fixtures `tests/core-step-cost.test.mjs` held under a ceiling: the highest of the last row's
+five readings and a quarter, 100 KiB standing and 139 in the bout; the action protocol's current
+ceilings are above).
 
 A ceiling sees a copy put back in a dear loop and not one in a small one. With each pivot's row
 copied to a plain array (`[...row]`) in the ground wrench's elimination (`eliminate`,

@@ -10,6 +10,8 @@ export interface SubMind extends Mind {
   wants(senses: Senses): boolean;
   /** The body is its own from this step: it starts from the body as it is. */
   begin(): void;
+  /** Keep a wanted body through a phase that cannot safely yield to a higher-ranked sub-mind. */
+  holds?(): boolean;
   /** The body is its own no longer: the host has it back, or a sub-mind of higher rank took it. */
   end(): void;
 }
@@ -63,7 +65,8 @@ export function hosting(host: HostMind, subs: readonly SubMind[]): Hosted {
     get has() { return state.has === NOBODY ? "nobody" : state.has === HOST ? host.name : subs[state.has]!.name; },
     step(senses, dt) {
       host.look(senses);
-      const want = subs.findIndex((sub) => sub.wants(senses));
+      const holder = state.has >= 0 && subs[state.has]!.holds && subs[state.has]!.wants(senses) && subs[state.has]!.holds!() ? state.has : -1;
+      const want = holder >= 0 ? holder : subs.findIndex((sub) => sub.wants(senses));
       if (want !== state.has) {
         giveUp("takeover");
         if (want >= 0) subs[want]!.begin();

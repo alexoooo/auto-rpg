@@ -318,7 +318,7 @@ export class DungeonRun {
       },
       orders: () => {
         const { move, pace, going, face, attack } = actor.plan;
-        return { move, ...(move && pace !== null ? { pace } : {}), ...(move && going !== null ? { destination: going } : {}), face: move ? null : face, attack: null,
+        return { move, ...(move && pace !== null ? { pace } : {}), ...(move && going !== null ? { destination: going } : {}), face: move ? null : face,
           ...(attack ? { foe: attack.id } : {}) };
       },
     });

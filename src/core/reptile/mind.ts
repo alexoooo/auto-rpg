@@ -37,7 +37,7 @@ export function quadrupedFits(spec: BodySpec): boolean {
 }
 
 /** A quadruped mind drives its own support chains through the common floating-base solve. */
-export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Partial<MindWiring> = {}, tuning: { crawl: typeof REPTILE_CRAWL; trot: typeof REPTILE_TROT; motor: typeof REPTILE_MOTOR; travel: typeof REPTILE_TRAVEL; bite?: typeof REPTILE_BITE } = { crawl: REPTILE_CRAWL, trot: REPTILE_TROT, motor: REPTILE_MOTOR, travel: REPTILE_TRAVEL }) {
+export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Partial<MindWiring> & { readonly biteTarget?: Parameters<typeof quadrupedTactics>[3] } = {}, tuning: { crawl: typeof REPTILE_CRAWL; trot: typeof REPTILE_TROT; motor: typeof REPTILE_MOTOR; travel: typeof REPTILE_TRAVEL; bite?: typeof REPTILE_BITE } = { crawl: REPTILE_CRAWL, trot: REPTILE_TROT, motor: REPTILE_MOTOR, travel: REPTILE_TRAVEL }) {
   const orders = wiring.orders ?? ((): null => null);
   const upright = uprightness(built), down = (): boolean => upright.down();
   // The paws, in the order the crawl lifts them: the effectors the spec says it stands on.
@@ -64,7 +64,7 @@ export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Part
       motor.read(); feedback.read(); turnOfToRef(motor.root, turn); forward.applyRotationQuaternionToRef(turn, front);
       reading.senses = s; look.yaw = atan2(front.x, front.z); look.down = down();
     };
-    const snap = bite(own, tracker, tuning.bite, feedback.state[lower.spec.name], feedback.state[head.spec.name]), tactics = quadrupedTactics(own, view => orders(view.senses), tuning.bite), skills = [skill, creep, snap];
+    const snap = bite(own, tracker, tuning.bite, feedback.state[lower.spec.name], feedback.state[head.spec.name]), tactics = quadrupedTactics(own, view => orders(view.senses), tuning.bite, wiring.biteTarget), skills = [skill, creep, snap];
     const sight = { view, bite: snap.state.cycle };
     read(senses()); for (const s of skills) s.resume(view);
     const host: HostMind = { name: "crawl", state: { motor: motor.state, crawl: skill.state, creep: creep.state, gait, bite: snap.state, tactics: tactics.state, tracker: tracker.state, feedback: feedback.state, look }, look: read,
@@ -82,8 +82,8 @@ export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Part
       }
       let movement: Orders = intent;
       if (gait.reacquire) movement = placing ? { ...STAND_ORDERS, move: { x: 0, z: 0 }, face: heading } : STAND_ORDERS;
-      else if (withdrawing) movement = { move: { x: -sin(view.yaw), z: -cos(view.yaw) }, face: { x: sin(view.yaw), z: cos(view.yaw) }, attack: null };
-      else if (busy || intent.attack) movement = STAND_ORDERS;
+      else if (withdrawing) movement = { move: { x: -sin(view.yaw), z: -cos(view.yaw) }, face: { x: sin(view.yaw), z: cos(view.yaw) } };
+      else if (busy || intent.biteAt) movement = STAND_ORDERS;
       const wanted = gait.reacquire || withdrawing || intent.creep || gait.kind === "crawl" && !intent.travel ? "crawl" : "trot";
       let active = locomotion[gait.kind];
       if (wanted !== gait.kind && active.state.phase === "settle") {
@@ -95,7 +95,7 @@ export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Part
       const command = gait.kind === "crawl"
         ? creep.command(view, walking, dt, intent.prepareBite || busy ? tuning.trot.crawlHeight : tuning.crawl.crawlHeight)
         : skill.command(view, walking, dt);
-      snap.command(view, gait.reacquire ? null : intent.attack, active.state.phase === "settle" && (snap.state.cycle.phase === "swing" || snap.state.cycle.phase === "return"
+      snap.command(view, gait.reacquire ? null : intent.biteAt, active.state.phase === "settle" && (snap.state.cycle.phase === "swing" || snap.state.cycle.phase === "return"
         ? view.feet.reduce((loaded, f) => loaded + (f.contact ? 1 : 0), 0) >= paws.length - 1
         : view.feet.every(f => f.contact)), dt, command, intent.prepareBite, tactics.state.target);
       rootFrameToRef(motor.root, frame);

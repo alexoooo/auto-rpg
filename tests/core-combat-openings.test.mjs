@@ -56,7 +56,7 @@ test('contact labels select the strongest permitted contact independently of str
  }finally{s.dispose();}
 });
 
-test('a physical guard block triggers an angle change and replay preserves contact memory',async()=>{
+test('physical guard contacts retain anatomical labels and replay preserves the action ledger',async()=>{
  const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},minds:{left:COMBAT,right:COMBAT},recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
@@ -67,12 +67,12 @@ test('a physical guard block triggers an angle change and replay preserves conta
    if(!foe)continue;
    const opening=select(view,foe,'right'),alternate=select(view,foe,'right',opening.segment);
    if(alternate.score>opening.score)penalized++;
-   if(d.minded.skills.report.engagement.phase==='escape'&&d.minded.skills.state.tactics.blockedSurface)escaped++;
+   if(d.minded.skills.report.ledger.some(record=>record.contacts.counts.commit.block>0))escaped++;
    for(const f of ['hand.left','hand.right'].map(s=>view.effectors[s].feedback))if(f.contact?.target.kind==='body'){
     assert.equal(f.contact.target.body,'right');assert.ok(foe.segments.has(f.contact.target.segment));
     assert.ok(Math.abs(Math.hypot(...f.contact.normal)-1)<1e-5);assert.ok(f.contact.impulse>0);labeled++;
    }
-   if(!snapshot&&d.minded.skills.state.tactics.blockedSurface){
+   if(!snapshot&&d.minded.skills.report.ledger.some(record=>record.contacts.counts.commit.block>0)){
     b.duel.load(a.duel.save());const ta=traceOf(Object.values(a.duel.duelists).map(d=>d.built)),tb=traceOf(Object.values(b.duel.duelists).map(d=>d.built));
     for(let k=0;k<120;k++){a.world.step();b.world.step();ta.take();tb.take();}
     assert.deepEqual(b.duel.save().state,a.duel.save().state);assert.equal(tb.digest(),ta.digest());snapshot=true;
@@ -83,7 +83,7 @@ test('a physical guard block triggers an angle change and replay preserves conta
 });
 
 test('the real Warrior trunk hull supplies a surface opening and a fresh-world selection fork',async()=>{
- const config=withParts(COMBAT,{tactics:{strikes:'mixed',tuning:{openings:{head:1,upperTrunk:.2,middleTrunk:0}}}});
+ const config={...COMBAT,actions:COMBAT.actions.map(action=>({...action,regions:[{kind:'segment',segment:'middleTrunk'}],aim:{kind:'surface',tuning:{head:1,upperTrunk:.2,middleTrunk:0}}}))};
  const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
   minds:{left:config,right:COMBAT},recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
@@ -100,9 +100,9 @@ test('the real Warrior trunk hull supplies a surface opening and a fresh-world s
   const distances=poly.planes.map(p=>Vector3.Dot(new Vector3(...p.normal),position)-p.offset);
   assert.ok(Math.max(...distances)<.005&&Math.abs(Math.max(...distances))<.005,'target lies on the physical hull within its short prediction');
   a.duel.order('left',null);a.duel.order('right',null);
-  while(a.world.time<15&&!(a.duel.duelists.left.minded.skills.report.strike.phase==='swing'&&a.duel.duelists.left.minded.skills.state.tactics.surface==='middleTrunk'))a.world.step();
-  assert.equal(a.duel.duelists.left.minded.skills.state.tactics.surface,'middleTrunk');
-  assert.equal(a.duel.duelists.left.minded.skills.report.strike.phase,'swing');
+  while(a.world.time<15&&!(a.duel.duelists.left.minded.skills.report.actions.some(action=>action.phase==='commit'&&action.target.region.segment==='middleTrunk')))a.world.step();
+  assert.equal(a.duel.duelists.left.minded.skills.report.actions.find(action=>action.phase==='commit')?.target.region.segment,'middleTrunk');
+  assert.ok(a.duel.duelists.left.minded.skills.report.actions.some(action=>action.phase==='commit'));
   b.duel.load(a.duel.save());const trace=s=>traceOf(Object.values(s.duel.duelists).map(d=>d.built)),ta=trace(a),tb=trace(b);
   for(let k=0;k<200;k++){a.world.step();b.world.step();ta.take();tb.take();}
   assert.deepEqual(a.duel.save().state,b.duel.save().state);assert.equal(ta.digest(),tb.digest());
@@ -111,7 +111,7 @@ test('the real Warrior trunk hull supplies a surface opening and a fresh-world s
 });
 
 test('hull-aware body selection lands driven torso blows against an active Combat fighter',async()=>{
- const row=await combatTrial({left:withParts(COMBAT,{tactics:{strikes:'mixed',prefers:'body'}}),right:COMBAT,recipe:{capSeconds:30}});
+ const row=await combatTrial({left:{...COMBAT,actions:COMBAT.actions.map(action=>({...action,regions:[{kind:'mark',mark:'middle'}]}))},right:COMBAT,recipe:{capSeconds:30}});
  const out=row.sides.left;
  assert.ok((out.drivenTargets.middleTrunk??0)+(out.drivenTargets.upperTrunk??0)>=5,JSON.stringify(out));assert.ok(out.drivenDamage>.2,JSON.stringify(out));
  assert.equal(out.falls,0);assert.deepEqual(out.assist,{force:0,moment:0});assert.ok(out.pressureOnly.longest<2);
@@ -121,21 +121,20 @@ test('hull-aware body selection lands driven torso blows against an active Comba
 test('a selected overhand keeps its world contact direction through execution and fresh-world replay', {
   todo: "a bare hand strikes with its fist's measured surface (`closesToStrike`), about 9 cm short of the open capsule's fingers that its blows' spacing, aim and recipes were tuned to",
 }, async()=>{
- const candidate=withParts(COMBAT,{tactics:{strikes:'vertical',tuning:{openings:{overhand:-.6}}}});
+ const candidate={...COMBAT,actions:[{...COMBAT.actions[0],name:'overhand',family:'overhand',regions:[{kind:'segment',segment:'head'}],aim:{kind:'surface',tuning:{overhand:-.6}}}]};
  const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
   minds:{left:candidate,right:COMBAT},recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try {
   const d=a.duel.duelists.left,skills=d.minded.skills;
-  while(a.duel.clock<20&&!(skills.state.blow.hands[skills.state.blow.hand]?.action?.path.family==='overhand'&&skills.report.strike.phase==='swing'))a.world.step();
-  assert.equal(skills.state.blow.hands[skills.state.blow.hand]?.action?.path.family,'overhand');assert.equal(skills.report.strike.phase,'swing');
-  assert.deepEqual(skills.state.blow.hands[skills.state.blow.hand]?.action.path.direction,[0,-1,0]);
-  const hand=skills.report.strike.hand,goal=skills.state.command.effectors[`hand.${hand}`];
+  while(a.duel.clock<20&&!(skills.report.actions.some(action=>action.action==='overhand'&&action.phase==='commit')))a.world.step();
+  const committed=skills.report.actions.find(action=>action.action==='overhand'&&action.phase==='commit');assert.ok(committed);
+  const hand=committed.effector.split('.')[1],goal=skills.state.command.effectors[`hand.${hand}`];
   const world=new Vector3(...goal.terminalVelocity).applyRotationQuaternionToRef(d.body.view.root.rotation,new Vector3());
   assert.ok(Math.abs(world.x)<1e-8&&Math.abs(world.y+5)<1e-8&&Math.abs(world.z)<1e-8,JSON.stringify(world.asArray()));
   b.duel.load(a.duel.save());const trace=s=>traceOf(Object.values(s.duel.duelists).map(d=>d.built)),ta=trace(a),tb=trace(b);
   for(let i=0;i<240;i++){a.world.step();b.world.step();ta.take();tb.take();}
   assert.deepEqual(a.duel.save().state,b.duel.save().state);assert.equal(ta.digest(),tb.digest());
-  assert.ok(skills.report.strike.pointCycle.returned[hand]>0);
+  assert.ok(skills.report.ledger.some(record=>record.id===committed.id&&record.ending.kind==='completed'));
  }finally{a.dispose();b.dispose();}
 });

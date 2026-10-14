@@ -15,8 +15,8 @@ test('either foot unloads, strikes, withdraws, lands and recentres against real 
     assert.ok(r.head[1]>1.5);
     if(mode==='miss')assert.deepEqual(r.impacts,[]);
     else assert.ok(r.impacts.filter(e=>e.eligible).length>=3);
-    if(mode==='block')assert.equal(r.cycle.strikes[foot].admitted,0,'an unrelated blocker cannot admit follow-through');
-    else if(mode==='hit')assert.ok(r.cycle.strikes[foot].admitted>=3,'matched target contacts admit the bounded interval');
+    if(mode==='block')assert.equal(r.cycle.cycles[foot].admitted,0,'an unrelated blocker cannot admit follow-through');
+    else if(mode==='hit')assert.ok(r.cycle.cycles[foot].admitted>=3,'matched target contacts admit the bounded interval');
     for(const impact of r.impacts.filter(e=>e.eligible)){
       assert.ok(impact.preImpact.velocity[2]>0,'the foot is moving toward the pad before the force');
       assert.ok(Math.abs(impact.samples.reduce((n,s)=>n+s.impulse,0)-impact.impulse)<1e-12);
@@ -29,24 +29,26 @@ test('fresh-world forks reproduce unloading, bounded contact and placement throu
   for(const stage of ['unload','impact','place']){
     const a=await frontKickStand(),b=await frontKickStand();
     try{
-      while(a.world.time<10&&(stage==='impact'?!a.skills.state.kick.strikes.right.impact:a.skills.report.kick.stage!==stage))a.step();
+      while(a.world.time<10&&(stage==='impact'?!a.executorState.cycles.right.impact:a.skills.report.actions[0]?.stage!==stage))a.step();
       assert.ok(a.world.time<10,stage);
       loadStand(b.world,states(b),saveStand(a.world,states(a)));
       const ta=traceOf([a.built]),tb=traceOf([b.built]);
       for(let i=0;i<720;i++){a.step();b.step();ta.take();tb.take();}
       assert.equal(ta.digest(),tb.digest(),stage);
       assert.deepEqual(saveStand(a.world,states(a)).state,saveStand(b.world,states(b)).state);
-      assert.ok(a.skills.report.kick.returned.right>=1);assert.equal(a.body.down,false);
+      assert.ok(a.cycles.reading().returned.right>=1);assert.equal(a.body.down,false);
     }finally{a.dispose();b.dispose();}
   }
 });
 
 test('cancelling a committed kick withdraws and places the foot without starting another stroke',async()=>{
   for(const foot of ['left','right']){
-    const s=await frontKickStand({foot,cancelAt:5.3});
+    const s=await frontKickStand({foot});
     try{
-      s.step(15*120);const r=s.reading();
-      assert.equal(r.fell,false);assert.equal(r.floorContacts,0);assert.equal(r.report.foot,null);
+      while(s.world.time<10&&!s.skills.report.actions.some(action=>action.phase==='commit'))s.step();
+      assert.ok(s.skills.report.actions.some(action=>action.phase==='commit'));
+      s.state.requesting=false;s.step(10*120);const r=s.reading();
+      assert.equal(r.fell,false);assert.equal(r.floorContacts,0);assert.deepEqual(s.skills.report.actions,[]);
       assert.equal(r.report.failed,0);assert.equal(r.report.returned[foot],1);
       assert.equal(r.unloadedLaunches,1);assert.equal(r.loadedLaunches,0);
       assert.ok(s.body.view.stance.velocity.length()<.05);

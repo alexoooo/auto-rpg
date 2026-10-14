@@ -1,3 +1,4 @@
+import { cos } from "../math/real.ts";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../body.ts";
 import { uprightness } from "../control/ground.ts";
@@ -10,6 +11,13 @@ import type { Skill } from "./skill.ts";
 /** Supported low-combat probes and physical gates: `docs/reference/supported-root-pose.md#combat-fold-settings`. */
 const COMBAT_FOLD = Object.freeze({ lower: .5, pitch: .9, response: .5, transition: 2,
   lumbar: .89, thoracic: .368, footGap: .015, clearance: .15, slow: .1, hold: .05, normal: .9 });
+
+/** Predicted head drop combines the support translation with the requested trunk pitch. */
+export function supportHeadDrop(view: BodyView, lower: number): number {
+  const depth = Math.max(0, Math.min(1, (lower - STANCE_LOWER) / (COMBAT_FOLD.lower - STANCE_LOWER)));
+  return (COMBAT_FOLD.lower - STANCE_LOWER) * depth
+    + Math.max(0, view.head.y - view.stance.centre.y) * (1 - cos(COMBAT_FOLD.pitch * depth));
+}
 
 /** The executor's actual supported transition; policies read readiness before requesting a stroke. */
 export interface SupportReport {

@@ -14,7 +14,7 @@ import { withParts } from "./fixtures/minds.mjs";
 
 test("a Puncher that walks in lands its fist with the arm behind it, wounding a Warrior that stands in guard", async () => {
   // The game's Puncher holds at the edge of a foe's reach, and a foe that never comes waits out its patience there.
-  const bout = await boutOf({ ...PUNCHER, tactics: { ...PUNCHER.tactics, range: "close" } }, { gap: 1.2, seconds: 5 });
+  const bout = await boutOf({ ...PUNCHER, tactics: { ...PUNCHER.tactics, list: PUNCHER.tactics.list.filter(behaviour => behaviour.kind !== "edge" && behaviour.kind !== "break-clinch") } }, { gap: 1.2, seconds: 5 });
   const wounding = bout.punches.filter((p) => p.hp[0] > 0.01);
   assert.ok(bout.thrown >= 2, `punches thrown: ${bout.thrown}`);
   assert.ok(wounding.length >= 2, `wounding punches: ${JSON.stringify(bout.punches)}`);
@@ -24,8 +24,8 @@ test("a Puncher that walks in lands its fist with the arm behind it, wounding a 
 
 test("a straight punch's settings are finite and not negative, and it needs a chest that turns over two hands", () => {
   assert.deepEqual(treeFaults(PUNCHER), []);
-  assert.deepEqual(treeFaults(withParts(PUNCHER, { blow: { reach: 0 } })),
-    ["blow: a straight punch needs every setting finite and not negative, and a pace, reach, band and drive's length above zero"]);
-  assert.deepEqual(treeFaults(withParts(PUNCHER, { blow: { lean: -0.1 } })).length, 1);
+  assert.deepEqual(treeFaults({ ...PUNCHER, executors: PUNCHER.executors.map(executor => ({ ...executor, reach: 0 })) }),
+    ["executors.0: invalid straight punch settings"]);
+  assert.deepEqual(treeFaults({ ...PUNCHER, executors: PUNCHER.executors.map(executor => ({ ...executor, lean: -.1 })) }).length, 1);
   assert.deepEqual([straightPunchFits(modelSpec("workshop-fighter")), straightPunchFits(modelSpec("reptile"))], [true, false]);
 });

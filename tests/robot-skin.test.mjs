@@ -135,8 +135,8 @@ test("an ordered bout has the same complete snapshot through dressing and shell 
     const bout = new Duel(world, { left: "workshop-fighter", right: "workshop-fighter" });
     let skins = [];
     try {
-      bout.order("left", { move: { x: 1, z: 0 }, face: null, attack: null });
-      bout.order("right", { move: null, face: null, attack: null });
+      bout.order("left", { move: { x: 1, z: 0 }, face: null, actions: [] });
+      bout.order("right", { move: null, face: null, actions: [] });
       for (let phase = 0; phase < 3; phase++) {
         if (dressed) {
           for (const skin of skins) skin.dispose();

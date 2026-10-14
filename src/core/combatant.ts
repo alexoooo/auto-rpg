@@ -3,7 +3,7 @@ import type { AssistCeiling } from "./control/assist.ts";
 import type { MindConfig } from "./mind/config.ts";
 import { builtAngles, createMind, type Minded, type MindWiring } from "./mind/minds.ts";
 import type { SolidSense } from "./mind/object-senses.ts";
-import type { SensesHub } from "./mind/senses.ts";
+import type { Senses, SensesHub } from "./mind/senses.ts";
 import type { PhysicalBody } from "./physical-body.ts";
 import type { Fighter } from "./rules/blows.ts";
 import { createPool } from "./rules/pool.ts";
@@ -36,6 +36,8 @@ interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdenti
 
 /** A body in a fight under its mind: what the blows read (`Fighter`), the mind, the config it was made from, and the body it drives. */
 export interface Combatant extends Fighter {
+  /** Detached perception used by identity-based orders and inspection. */
+  senses(): Senses;
   readonly minded: Minded;
   /** The config its mind was made from: what an inspector shows of it (`mindInspector`). */
   readonly mind: MindConfig;
@@ -60,5 +62,5 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
     name: enlisting.name, senses, assist, orders: enlisting.orders,
     ...(enlisting.contactIdentity ? { contactIdentity: enlisting.contactIdentity } : {}),
   });
-  return { id, side, built, pool, minded, mind, body: minded.body, muscles: minded.body.muscles };
+  return { id, side, built, pool, minded, mind, senses, body: minded.body, muscles: minded.body.muscles };
 }

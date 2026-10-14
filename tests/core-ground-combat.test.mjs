@@ -9,7 +9,6 @@ import { STAND_ORDERS } from '../src/core/mind/orders.ts';
 import { centreOfToRef } from '../src/core/control/support.ts';
 import { readMinds } from '../src/arena/matchup.ts';
 import { traceOf } from './harness/trace.mjs';
-import {withParts} from './fixtures/minds.mjs';
 
 for(const hand of ['right','left'])for(const recover of [false,true])test(`the real Arena ${hand} hand attacks a ${recover?'recovering':'stationary fallen'} Warrior and returns standing`, { todo: "a bare hand strikes with its fist's measured surface (`closesToStrike`), about 9 cm short of the open capsule's fingers that its blows' spacing, aim and recipes were tuned to" }, async()=>{
  const row=await groundFight({hand,recover,seconds:45}),out=row.summary;
@@ -24,7 +23,7 @@ for(const hand of ['right','left'])for(const recover of [false,true])test(`the r
 });
 
 test('selectable grounded combat forks its approach and low swing and obeys an ordinary stand order',async()=>{
- const candidate=withParts(readMinds('?control=scrapper').left,{tactics:{hands:'right'}});
+ const preset=readMinds('?control=scrapper').left,candidate={...preset,actions:preset.actions.map(action=>({...action,effectors:['hand.right']}))};
  assert.deepEqual(readMinds('?control=scrapper').left,SCRAPPER);
  const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
   minds:{left:candidate,right:RECIPE_FIGHTER},gap:.8,capSeconds:60,recoverySeconds:null};
@@ -36,16 +35,16 @@ test('selectable grounded combat forks its approach and low swing and obeys an o
   a.world.step(120);a.duel.order('left',null);
   const skills=a.duel.duelists.left.minded.skills;
   for(const phase of ['approach','swing']){
-   while(a.duel.clock<25&&!(phase==='approach'?skills.state.tactics.ground.wide.route?.length:skills.state.blow.hands[skills.state.blow.hand]?.action?.path.family==='downward'&&skills.report.strike.phase==='swing'))a.world.step();
-   assert.ok(a.duel.clock<25,phase);
+   while(a.duel.clock<25&&!(phase==='approach'?skills.state.tactics.ground.wide.route?.length:skills.report.actions.some(action=>action.action==='downward'&&action.phase==='commit')))a.world.step();
+   assert.ok(a.duel.clock<25,JSON.stringify({phase,ground:skills.state.tactics.ground,pending:skills.state.tactics.pending,candidates:skills.state.tactics.candidates.map(c=>({action:c.action,effector:c.effector,readiness:c.readiness})),live:skills.report.actions,ledger:skills.report.ledger}));
    b.duel.load(a.duel.save());const ta=trace(a),tb=trace(b);
    for(let i=0;i<180;i++){a.world.step();b.world.step();ta.take();tb.take();}
    assert.equal(tb.digest(),ta.digest());assert.deepEqual(b.duel.save().state,a.duel.save().state);
   }
   a.duel.order('left',STAND_ORDERS);a.world.step();
   assert.equal(skills.state.tactics.ground.near.active,false);assert.equal(skills.state.tactics.ground.wide.active,false);
-  while(a.duel.clock<40&&(skills.report.support.stage!=='stand'||skills.report.strike.hand))a.world.step();
-  assert.ok(a.duel.clock<40);assert.equal(skills.report.support.stage,'stand');assert.equal(skills.report.strike.hand,null);
+  while(a.duel.clock<40&&(skills.report.support.stage!=='stand'||skills.report.actions.length))a.world.step();
+  assert.ok(a.duel.clock<40);assert.equal(skills.report.support.stage,'stand');assert.equal(skills.report.actions.length,0);
   assert.equal(a.duel.duelists.left.body.down,false);assert.equal(a.duel.verdict,null);
  }finally{a.dispose();b.dispose();}
 });

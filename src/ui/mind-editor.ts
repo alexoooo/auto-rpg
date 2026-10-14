@@ -1,5 +1,7 @@
+import { techniqueEditor } from "./mind-ground.ts";
 import { kindsFor, partOf, PARTS } from "../core/mind/catalog.ts";
-import type { MindConfig } from "../core/mind/config.ts";
+import { actionEditor, selectionEditor } from "./mind-actions.ts";
+import type { BehavioursConfig, FighterConfig, MindConfig, StandUpConfig } from "../core/mind/config.ts";
 import type { PartField } from "../core/mind/fields.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Slot } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -59,10 +61,15 @@ function button(text: string, title: string, run: () => void, readOnly: boolean)
 }
 
 /** The input of a field of `config`, which writes what is set through the field (`PartField.write`). */
-function fieldInput<C extends PartConfig>(field: PartField<C>, config: C, write: (config: C) => void, readOnly: boolean): HTMLElement {
+function fieldInput<C>(field: PartField<C>, config: C, write: (config: C) => void, readOnly: boolean): HTMLElement {
   switch (field.kind) {
     case "choice":
       return picker(field.options.map(([value, text]) => ({ value, text })), field.read(config), (text) => write(field.write(config, text) ?? config), readOnly);
+    case "text": {
+      const input = Object.assign(document.createElement("input"), { type: "text", value: field.read(config), disabled: readOnly });
+      input.addEventListener("change", () => { input.blur(); write(field.write(config, input.value) ?? config); });
+      return input;
+    }
     case "number": {
       const input = Object.assign(document.createElement("input"), { type: "number", min: String(field.least), max: String(field.most), step: String(field.step), value: field.read(config), disabled: readOnly });
       input.setAttribute("aria-label", `${field.label}, ${field.unit}`);
@@ -111,6 +118,9 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], onCh
       shown.className = "mind-tuning"; shown.textContent = `Research tuning, read-only\n${JSON.stringify(tuning, null, 1)}`;
       block.append(shown);
     }
+    if (config.kind === "behaviours") block.append(selectionEditor(config as BehavioursConfig, write, readOnly));
+    if (config.kind === "stand-up") block.append(techniqueEditor(config as StandUpConfig, spec, write, readOnly));
+    if (config.kind === "fighter") block.append(actionEditor(config as FighterConfig, write, readOnly));
     for (const slot of slotsOf(part, config)) block.append(drawSlot(config, slot, write));
     return block;
   };
@@ -133,15 +143,29 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], onCh
     list.forEach((child, i) => {
       const item = document.createElement("div"), line = document.createElement("div");
       item.className = "mind-item"; line.className = "mind-item-line";
-      const replace = (next: PartConfig) => set(list.map((other, j) => j === i ? next : other));
-      line.append(picker(choices(slot), child.kind, (kind) => replace(defaultsOf(kind)), readOnly),
+      const replace = (next: PartConfig) => {
+        if (slot.role === "executor") {
+          const before = child as PartConfig & { name: string }, after = next as PartConfig & { name: string }, fighter = config as FighterConfig;
+          write({ ...fighter, executors: list.map((other, j) => j === i ? next : other),
+            actions: fighter.actions.map(action => action.executor === before.name ? { ...action, executor: after.name } : action) } as unknown as FighterConfig);
+        } else set(list.map((other, j) => j === i ? next : other));
+      };
+      line.append(picker(choices(slot), child.kind, (kind) => replace(slot.role === "executor" ? { ...defaultsOf(kind), name: (child as PartConfig & { name: string }).name } as PartConfig : defaultsOf(kind)), readOnly),
         button("↑", `Move ${slot.label.toLowerCase()} ${i + 1} up`, () => set(list.map((other, j) => j === i - 1 ? child : j === i ? list[i - 1]! : other)), readOnly || i === 0),
         button("✕", `Remove ${slot.label.toLowerCase()} ${i + 1}`, () => set(list.filter((_, j) => j !== i)), readOnly));
       item.append(line, drawPart(child, replace));
       holder.append(item);
     });
     if (!readOnly) {
-      const add = picker([{ value: "", text: "Add…" }, ...choices(slot)], "", (kind) => { if (kind) set([...list, defaultsOf(kind)]); }, readOnly);
+      const add = picker([{ value: "", text: "Add…" }, ...choices(slot)], "", (kind) => { if (kind) {
+        let next = defaultsOf(kind);
+        if (slot.role === "executor") {
+          const base = (next as PartConfig & { name: string }).name; let name = base, suffix = 2;
+          while (list.some(entry => (entry as PartConfig & { name: string }).name === name)) name = `${base}-${suffix++}`;
+          next = { ...next, name } as PartConfig;
+        }
+        set([...list, next]);
+      } }, readOnly);
       add.setAttribute("aria-label", `Add to ${slot.label.toLowerCase()}`);
       holder.append(add);
     }

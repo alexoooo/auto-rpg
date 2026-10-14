@@ -238,6 +238,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const mind = scenario.mind?.(chosen) ?? chosen;
     const actor = labActor(built, world, {
       mind,
+      subs: scenario.subs?.(to),
       recoveryRecipe: to.scenario === "recovery" && to.recoveryMode === "witness" ? feedbackRecipe(spec, recoverySeed.feedback.u) : undefined, assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), around: (tactics) => logged(tactics, log),
     });
     thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.skills }), to.scenario === "attack" ? [] : LAB_PROVIDES));

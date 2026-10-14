@@ -9,7 +9,6 @@ import { observeBody } from "../src/core/observation.ts";
 import { recoveryMeasurement } from "../src/core/control/recovery-measurement.ts";
 import { clockSenses } from "../src/core/mind/senses.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
-import { PUNCHER } from "../src/core/mind/config.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
 import { addArenaSolids } from "../src/arena/room.ts";
 import { labAddress } from "../src/lab/scenarios.ts";
@@ -17,9 +16,27 @@ import { loadoutSpec } from "../src/lab/loadout.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { groundPlacement } from "../src/lab/ground-starts.ts";
 import { startGround } from "../src/lab/ground-mode.ts";
+import { techniqueTrial } from "./rising-technique.mjs";
+import { risingMind } from "./rising-config.mjs";
+import { TECHNIQUES } from "../src/core/mind/ground/techniques.ts";
 
 /** The same starts and instrumentation as the Lab; target verification is independent of hand-back. */
 export async function risingTrial(job) {
+  if (job.grit !== undefined && job.grit !== 0) throw new Error("the unassisted rising bed fixes Grit 0");
+  if (job.technique) {
+    const result = await techniqueTrial(job), phases = {}, attempts = [];
+    for (let i = 0; i < result.trail.length; i++) {
+      const entry = result.trail[i], until = result.trail[i + 1]?.at ?? result.endedAt ?? result.seconds;
+      phases[entry.phase] = (phases[entry.phase] ?? 0) + Math.max(0, until - entry.at);
+    }
+    if (job.after && result.predecessor) attempts.push({ controller: job.after, side: TECHNIQUES[job.after].sides[0],
+      end: result.predecessor, seconds: result.predecessorSeconds });
+    if (result.candidateBegun) attempts.push({ controller: job.technique,
+      side: TECHNIQUES[job.technique].sides[0], end: result.end, seconds: result.seconds });
+    return { ...result, cap: 8, status: result.end, stood: result.destination === "standing" && result.reached && result.survived,
+      handback: result.reached ? result.seconds : null, verified: result.reached ? result.seconds : null,
+      phases, attempts };
+  }
   const defaults = labAddress("?scenario=ground"), balance = job.balance ?? 0;
   const address = { ...defaults, model: job.model, right: job.held, left: "empty", balance, seed: job.seed,
     ground: { ...defaults.ground, start: job.start, posture: job.posture ?? "back", degrees: job.degrees ?? null,
@@ -33,7 +50,7 @@ export async function risingTrial(job) {
   addArenaSolids(world.physics);
   const built = buildBody(spec, world, placement);
   if (job.target) address.ground.impulse = 1.5 * [...built.segments.values()].reduce((sum, part) => sum + part.rigid.mass, 0);
-  const actor = labActor(built, world, { mind: { ...PUNCHER, subs: [{ kind: job.sub ?? "support-recovery" }] },
+  const actor = labActor(built, world, { mind: risingMind(job.sub ?? "support-recovery", job.techniques),
     assist: balanceCeiling(balance, balancePercent(rulebook("arena"))) });
   let orders = STAND_ORDERS;
   const run = startGround(actor, address, { orders: () => orders });
@@ -73,8 +90,9 @@ export async function risingTrial(job) {
     }
     if (!stood) run.meter.cap();
     const frame = run.frame();
-    return { ...job, balance, cap, status: stood ? "stood" : run.state.status === "landed standing" ? "landed standing" : failedAfter ? "fell after verification" : "failed",
-      stood, handback: frame.handback, takeover, verified, walked, trail: frame.trail, attempts: frame.attempts,
+    return { ...job, balance, cap, status: stood ? "stood" : run.state.status === "landed standing" ? "landed standing"
+      : takeover === null && job.start === "shoved" ? "no takeover" : failedAfter ? "fell after verification" : "failed",
+      stood, handback: frame.handback, handBackReason: frame.handBackReason, takeover, verified, walked, trail: frame.trail, attempts: frame.attempts,
       phases: frame.phases, assist: frame.assist };
   } finally { run.dispose(); built.dispose(); world.dispose(); scene.dispose(); engine.dispose(); }
 }

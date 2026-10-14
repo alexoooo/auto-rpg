@@ -71,23 +71,18 @@ Its anatomy is an authored estimate; its blunt bite is weak, and fighting effect
 unqualified against humanoids. [Control checks](docs/reference/reptile.md) cover standing, fast
 travel, biting mirror matches, release and recovery. Recovery may take several retries,
 particularly from awkward leg positions.
-Every humanoid preset is one fighter whose tactics and skills you can change in the Arena's
-panel. Classic seeks its foe and strikes by searched recipes; Puncher holds at the edge of its
-foe's reach and throws the straight punch; Scrapper chooses openings and strikes along hand paths
-on a shared strike cycle, and fights from low support too.
-A fighter's tactics may instead be **Behaviours**: a ranked list you build in the panel from
-following orders, running away, closing in, keeping a distance, striking (with the hand you name),
-kicking (with the foot you name) and guarding. Each step the first behaviour that wants the legs,
-the attack or a hand has it, so "run away, guard" is a runner and "strike with the left, guard"
-fights with the left hand only. A strike names its blow and a kick its kick, so under Behaviours the fighter has
-no Blow, Kick or Low support of its own to set. A kick walks in and kicks the nearest standing
-leg within reach; the front kick is slow, and a foe who keeps moving rarely lets it land.
-Any of them may throw one of two experimental blows from the punch's research instead: the
-driven strike, which turns the trunk flat out behind the arm, or the whole-body strike, one
-solve over every muscle at once ([measured](docs/reference/competencies.md#research-blows)).
-Against Classic on two Warriors ([384 bouts each](docs/reference/controller-presets.md)), Scrapper
-wins bare-handed (0.98), all of it at the time cap, and loses with clubs (0.10), often by a wound.
-Finishing power remains under evaluation.
+Every humanoid preset is one fighter whose tactics, named actions and executors you can change
+in the Arena's panel. Classic uses searched recipe strikes; Puncher holds at the edge and throws
+straight punches; Scrapper uses hand paths and can lower itself to strike a downed foe.
+
+The ranked behaviours combine following orders, attacking, approaching, keeping a distance,
+retreating and guarding. Configure each action's executor, hands or feet, aim and eligibility,
+then choose actions by rank, rotation or conditional rules. The inspector shows what each action
+is doing, which controls it owns, why another is waiting and how recent attempts ended.
+Experimental driven and whole-body executors remain available beside the ordinary ones.
+
+[Earlier preset measurements](docs/reference/controller-presets.md) describe the controllers at
+the revision recorded there. The discrete action controllers have not been reranked.
 **Puncher** is Classic throwing the straight punch: it stands an arm apart, where the foe's head
 is eight tenths of its arm's length from its punching shoulder once the punch turns that shoulder
 forward, sets its fist on the line to the head, and drives its hips and chest and, a moment
@@ -137,7 +132,7 @@ turn; across its heading or backward it walks at half pace.
 | --- | --- |
 | W A S D, or the arrows | walk, as the camera sees the ground |
 | Pointer | where your fighter faces while it walks |
-| Left button | attack where you point; hold to keep attacking |
+| Left button | attack the sensed body part under the pointer; hold to keep attacking |
 | Middle or right drag | orbit the Free camera |
 | Wheel | zoom |
 | Pause / Resume buttons, or Space / Esc | pause and resume a bout (leaving the window pauses too) |

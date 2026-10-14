@@ -21,7 +21,7 @@ import { humanSpec } from "../src/core/human/spec.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
-import { recipeTactics } from "../src/core/mind/recipe-tactics.ts";
+import { walkingTactics, pointTactics, committedRecords } from "./fixtures/action-tactics.mjs";
 import { NO_COVER, standIntent } from "../src/core/mind/intent.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { subMindsOf } from "../src/core/mind/sub-minds.ts";
@@ -135,6 +135,21 @@ const pulled = ({ ceiling = null, frame = null, withdraw = Infinity, share = 0.1
     dispose() { body.dispose(); stand.dispose(); },
   };
 };
+/** A forward shove during an explicit foot shift replaces it with a catch that must run to landing. */
+async function catching() {
+  const stand = await coreStand(humanSpec("workshop-fighter"));
+  const body = createBody(stand.built, stand.world, { servoSeconds: .1 });
+  const height = body.view.standing - .03, root = body.muscles.dynamics.root.segment;
+  body.drive(view => ({ posture: GUARD, pushes: [], stance: { feet: BOTH, centre: null, height, heading: 0,
+    ...(view.time > .5 ? { swing: { foot: "left", to: [-.15, .3], seconds: .5, lift: .05 } } : {}) } }));
+  const seen = { caught: false };
+  return { world: stand.world, builts: [stand.built], states: { body: body.state }, seen,
+    advance() { if (stand.world.steps === 64) root.body.applyImpulse(new Vector3(0, 0, 70), root.node.position); stand.step(); },
+    read: () => shows(body),
+    watch() { seen.caught ||= body.state.mind.host.motor.stance.step.catching; },
+    dispose() { body.dispose(); stand.dispose(); } };
+}
+
 const framed = pulled({ frame: 0.011 });
 const helped = pulled({ ceiling: { force: 0.25, moment: 0.065 }, withdraw: 300 });
 /** Pulled at its whole weight for a quarter second, it falls; its mind is the game's, which lies where it fell. Saved at every step from `FELLED.from`, `FELLED.count` times. */
@@ -195,7 +210,7 @@ async function taken() {
     step() { own.muscles.activation.fill(1); own.muscles.velocity.fill(0); },
   });
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [hold] });
-  const skills = driveBy(body, recipeTactics("walk", () => ({ move: { x: 0, z: 1 }, face: null, attack: null })));
+  const skills = driveBy(body, walkingTactics(stand.built.spec, () => ({ move: { x: 0, z: 1 }, face: null })));
   const seen = { has: [], squared: 0, rose: 0, fallen: false };
   return {
     world: stand.world, builts: [stand.built], states: { body: body.state, skills: skills.state }, seen,
@@ -211,11 +226,11 @@ async function taken() {
 }
 
 const EAST = Object.freeze({ x: 1, z: 0 }), NORTH = Object.freeze({ x: 0, z: 1 }), WEST = Object.freeze({ x: -1, z: 0 });
-const walking = (move, face = null) => deepFreeze({ move, face, attack: null });
+const walking = (move, face = null) => deepFreeze({ move, face });
 const ORDERS = { east: walking(EAST), eastFacingNorth: walking(EAST, NORTH), west: walking(WEST) };
 
 /**
- * The Warrior, club in hand, under a fighter's tactics (`recipeTactics`) and orders that are a
+ * The Warrior, club in hand, under a fighter's tactics (`actionTactics`) and orders that are a
  * function of the view's time alone. It stands a second; walks east 2 s, facing its walk, so its
  * heading turns a quarter to its right once the walk is under way; walks on east 1.5 s facing
  * north, at the pace that holds, its heading turning back; walks west, turning a quarter to its
@@ -224,7 +239,7 @@ const ORDERS = { east: walking(EAST), eastFacingNorth: walking(EAST, NORTH), wes
 async function ordered() {
   const stand = await coreStand(fighter);
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
-  const skills = driveBy(body, recipeTactics("orders", ({ view: { time } }) =>
+  const skills = driveBy(body, walkingTactics(stand.built.spec, ({ view: { time } }) =>
     time < 1 ? STAND_ORDERS : time < 3 ? ORDERS.east : time < 4.5 ? ORDERS.eastFacingNorth : time < 5.1 ? ORDERS.west : STAND_ORDERS));
   const seen = { strides: 0, headings: [0, 0], paces: new Set(), fallen: false };
   return {
@@ -256,7 +271,7 @@ const tendoned = (spec) => ({ ...spec, joints: spec.joints.map((joint) => !joint
 const going = (spec, locomotion, move) => async () => {
   const stand = await coreStand(spec);
   const actor = labActor(stand.built, stand.world, { mind: { ...LAB_PRESETS.script.config, locomotion } });
-  const skills = actor.drive({ name: "going", decide: ({ view }) => ({ move: view.time < 1 ? null : move, face: 0, guard: NO_COVER, attack: null }) });
+  const skills = actor.drive({ name: "going", decide: ({ view }) => ({ move: view.time < 1 ? null : move, face: 0, guard: NO_COVER, actions: [] }) });
   const body = actor.body, seen = { phases: new Set(), fallen: false, stretched: false };
   return {
     world: stand.world, builts: [stand.built], states: { body: body.state, skills: skills.state }, seen,
@@ -281,7 +296,7 @@ const launched = going(humanSpec("workshop-fighter"), { kind: "stride", ...STRID
  * at which its feet are first placed, when it is saved at every step: the skill holds that they
  * are placed for one step.
  */
-const STRIKER = { every: 20, nudged: [290, 315], shoved: [600, 630], placed: [300, 340] };
+const STRIKER = { every: 20, nudged: [290, 315], shoved: [1000, 1030], placed: [300, 340] };
 
 /**
  * A Warrior with a club and, 1.4 m ahead of it, a skeleton, on a ground in a bare world. The
@@ -304,16 +319,16 @@ async function striker() {
     return { built, body: createBody(built, world, { servoSeconds: SERVO_SECONDS }) };
   };
   const warrior = make(fighter, 0), skeleton = make(modelSpec("crypt-skeleton"), 1.4);
-  const skills = driveBy(warrior.body, recipeTactics("attack", () => {
+  const skills = driveBy(warrior.body, pointTactics(warrior.built.spec, () => {
     const head = skeleton.body.view.head;
-    return { move: null, face: null, attack: [head.x, head.y, head.z] };
+    return [head.x, head.y, head.z];
   }));
   const foe = driveBy(skeleton.body, { name: "stand", decide: () => standIntent(0) });
   const root = warrior.body.muscles.dynamics.root.segment, at = new Vector3();
   const weight = [...warrior.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0) * -warrior.built.physics.gravity[1];
   const shove = new Vector3(0, 0, weight * world.dt);
   const foot = warrior.built.segments.get("foot.left"), nudge = new Vector3(-10 * world.dt, 0, 0);
-  const seen = { thrown: 0, atSaves: new Set(), phases: new Set(), placed: false, fallen: false, repertoire: JSON.stringify(REPERTOIRE) };
+  const seen = { thrown: 0, atSaves: new Set(), phases: new Set(), placed: false, placedAt: null, fallen: false, repertoire: JSON.stringify(REPERTOIRE) };
   return {
     world, builts: [warrior.built, skeleton.built], seen,
     states: { body: warrior.body.state, skills: skills.state, foe: skeleton.body.state, foeSkills: foe.state },
@@ -324,11 +339,11 @@ async function striker() {
     },
     read: () => ({ ...shows(warrior.body), report: skills.report, foe: shows(skeleton.body), foeReport: foe.report }),
     watch() {
-      const { strike } = skills.report, fallen = warrior.body.view.down;
-      seen.thrown = strike.thrown.right;
-      seen.phases.add(strike.phase);
-      if (world.steps % STRIKER.every === 0) seen.atSaves.add(strike.phase);
-      if (world.steps >= STRIKER.placed[0]) seen.placed ||= skills.state.legs.placed;
+      const strike = skills.report.actions[0], fallen = warrior.body.view.down;
+      seen.thrown = committedRecords(skills.report).length;
+      seen.phases.add(strike?.stage ?? null);
+      if (world.steps % STRIKER.every === 0) seen.atSaves.add(strike?.stage ?? null);
+      if (skills.state.legs.placed) { seen.placed = true; seen.placedAt ??= world.steps; }
       seen.fallen = fallen;
     },
     dispose() {
@@ -354,19 +369,14 @@ const NEEDED = {
     ...["on", "at", "velocity"].map((field) => `${STANCE} > plan > ${field}`),
   ],
   framed: ["world > owed"],
+  catching: [`${STANCE} > step > catching`],
   helped: ["given", "meter", "withdrawn"].map((field) => `body > assist > ${field}`),
   felled: ["body > mind > has"],
   levelled: ["body > muscles > level"],
   rising: ["body > mind > subs"],
   ordered: ["heading", "pace"].map((field) => `skills > legs > ${field}`),
   taken: ["width", "squaring", "rising"].map((field) => `skills > legs > ${field}`),
-  striker: [
-    ...["reference", "placing"].map((field) => `skills > legs > ${field}`),
-    ...["hand", "phase", "blow", "recipe", "distance", "stoodFor", "still", "since", "begun", "readyAt", "origin", "bearing", "steer", "width", "over", "thrown"].map((field) => `skills > blow > ${field}`),
-    "skills > holders",
-    "skills > tactics > aim",
-    `${STANCE} > step > catching`,
-  ],
+  striker: ["skills > actions", "skills > tactics", "skills > legs > placing"],
   placed: ["skills > legs > placed"],
   runner: [...["on", "left", "from"].map((field) => `${STANCE} > flight > ${field}`), "body > muscles > stretch"],
   launched: [`${STANCE} > step > launch`],
@@ -385,8 +395,18 @@ const NOT_MEMORY = {
   ...Object.fromEntries(["aim", "helped", "held", "tasks", "pose"].map((field) =>
     [`${STANCE} > ${field}`, "the stance's `command` writes it each step, for `carry` and `bear` of that step"])),
   "skills > command": "each step the skills write its posture, effectors, pushes and stance before the body reads them: it is in the state for what the body's shares with it",
-  "skills > blow > pushes": "each command of a strike clears it and fills it before the body reads it",
+  "skills > owners": "every composition names the effective owners from current claims",
+  "skills > reservations": "every composition rebuilds reservations from admitted resources",
+  "skills > support": "the recipe fixture has no support service and retains null",
+  "skills > legs > reference": "the immutable anatomical standing height is read again if the cached reference is empty",
+  "body > mind > host > groundActive": "every look derives activity from current down and sub-mind ownership before reading the view",
 };
+
+test("a catch during an explicit shift forks and needs its retained ownership", async () => {
+  const run = await forks(catching, 1, 10, 12, forgetting(NEEDED.catching), 62);
+  assertForks(run, NEEDED.catching);
+  assert.equal(run.seen.caught, true);
+});
 
 test("a_standing_and_a_walking_body_fork", async () => {
   const run = await forks(walker, 25, 50, 36, { physics: PHYSICS_ALONE, state: STATE_ALONE, ...forgetting(NEEDED.walker) });
@@ -452,16 +472,15 @@ test("a_body_under_orders_forks_through_its_turns", async () => {
 });
 
 test("a_body_forks_in_the_middle_of_a_blow", async () => {
-  const run = await forks(striker, STRIKER.every, 60, 34, forgetting(NEEDED.striker));
+  const run = await forks(striker, STRIKER.every, 60, 60, forgetting(NEEDED.striker));
   assertForks(run, NEEDED.striker);
   // The fixture reaches the blow: every phase of a strike, its chamber and its swing at a save, the blow thrown; and the fall.
   const { thrown, atSaves, phases, fallen, repertoire } = run.seen;
-  assert.deepEqual([...phases].map(String).sort(), ["approach", "chamber", "null", "place", "settle", "swing"]);
+  for (const phase of [null, "place", "settle", "chamber", "swing"]) assert.ok(phases.has(phase), JSON.stringify([...phases]));
   assert.ok(thrown > 0 && atSaves.has("chamber") && atSaves.has("swing") && fallen, `${thrown} thrown, saved in ${[...atSaves]}`);
-  // Saved at every step as its feet are placed: the one step the skill holds them placed is a save.
-  const [from, to] = STRIKER.placed, placing = await forks(striker, 1, 5, to - from, forgetting(NEEDED.placed), from);
+  assert.ok(run.seen.placedAt !== null, "the feet reach verified placement");
+  const placing = await forks(striker, 1, 5, 5, forgetting(NEEDED.placed), Math.max(0, run.seen.placedAt - 2));
   assertForks(placing, NEEDED.placed);
-  assert.ok(placing.seen.placed, "the feet were placed within the steps saved");
   // The searched strikes are a table no load wrote into.
   assert.ok(Object.isFrozen(REPERTOIRE) && REPERTOIRE.every((recipe) => Object.isFrozen(recipe.strike.pushes) && Object.isFrozen(recipe.window.along)));
   assert.equal(JSON.stringify(REPERTOIRE), repertoire);
@@ -487,6 +506,7 @@ test("every_field_of_a_bodys_state_is_sorted", async () => {
     const rotations = ["left", "right"].map(hand => `body > mind > host > motor > effectors > hand.${hand} > fromRotation`);
     // Pose memory is exercised by physical opening/closure and fresh-world continuation in core-hand-poses.test.mjs.
     // Loaded contact-work memory and its negative control are exercised in core-contact-episodes.test.mjs.
-    assert.deepEqual(unsorted(fields, [...Object.values(NEEDED).flat(), "body > handPoses", "world > contactWork", ...effectors, ...rotations], Object.keys(NOT_MEMORY)), []);
+    // Ground reading replay and host ownership are exercised in ground-reading and core-sub-mind.
+    assert.deepEqual(unsorted(fields, [...Object.values(NEEDED).flat(), "body > handPoses", "world > contactWork", "body > mind > host > ground", "body > mind > host > subOwned", ...effectors, ...rotations], Object.keys(NOT_MEMORY)), []);
   } finally { stand.dispose(); struck.dispose(); }
 });

@@ -2,6 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body } from "../core/body.ts";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { standIntent, type Intent } from "../core/mind/intent.ts";
+import { copyActionTarget, type ActionRequest } from "../core/skills/action.ts";
 import type { Tactics } from "../core/mind/tactics.ts";
 import { watchBlows, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool } from "../core/rules/pool.ts";
@@ -39,16 +40,23 @@ import { ballOf, dummySpec, hangDummy, TARGET_CLEAR, type Dummy } from "./target
  * moved under the blow, as its tactics see it.
  */
 function attackOnce(hand: Side, target: (head: Vector3) => Vec3, time: () => number, moved?: Partial<StandOff>): Tactics {
-  let aim: Vec3 | null = null;
+  const state = { aim: null as Vec3 | null, request: null as ActionRequest | null };
   const guarding: Intent = standIntent(0);
   return {
-    name: "attack once",
-    decide({ view, report }) {
-      if (!aim || time() < STAND) aim = target(view.head);
-      if (report.strike.thrown[hand] > 0) return guarding;
-      const thrown = moved && (report.strike.phase === "chamber" || report.strike.phase === "swing");
-      const at: Vec3 = thrown ? [aim[0] + (moved.across ?? 0), aim[1] + (moved.up ?? 0), aim[2] + (moved.along ?? 0)] : aim;
-      return { ...guarding, attack: { kind: "blow", hand, target: at } };
+    name: "attack once", state,
+    decide({ view, report, instance, readiness }) {
+      if (!state.aim || time() < STAND) state.aim = target(view.head);
+      if (state.request && report.ledger.some(record => record.id === state.request!.id)) return guarding;
+      const live = report.actions.find(action => action.id === state.request?.id);
+      const thrown = moved && live && (live.stage === "chamber" || live.phase === "commit" || live.phase === "release");
+      const at: Vec3 = thrown ? [state.aim[0] + (moved.across ?? 0), state.aim[1] + (moved.up ?? 0), state.aim[2] + (moved.along ?? 0)] : state.aim;
+      const aimed = { kind: "point" as const, at, body: "dummy" };
+      if (!state.request) {
+        const ready = readiness(view, "strike", `hand.${hand}`, aimed, { heading: report.heading, placed: view.stance.phase === "stand", support: report.support ?? null, walk: null, lower: 0 });
+        if (ready.kind === "waiting") return guarding;
+        state.request = { id: instance(), action: "strike", effector: `hand.${hand}`, target: copyActionTarget(aimed) };
+      } else state.request = { ...state.request, target: copyActionTarget(aimed) };
+      return { ...guarding, actions: [state.request] };
     },
   };
 }
@@ -88,6 +96,8 @@ interface ThrownBlow extends Throw {
   readonly body: Body;
   /** What its skills report: whether a blow is being thrown, or has been, is read here and not from the clock. */
   readonly report: SkillReport;
+  /** Bind the experiment's target for detached contact attribution. */
+  bindTarget(built: BuiltBody | null): void;
   /** When a strike's pushes begin, s from the start; a placed blow's path begins when the body has stood. */
   readonly pushing: number;
   /** The control steps taken, s. */
@@ -110,14 +120,19 @@ export function throwBlow(actor: Actor, thrown: Throw): ThrownBlow {
   const { body } = actor, built = body.built, { hand, strike, place, band } = thrown;
   if (strike && strike.hand !== hand) throw new Error(`${strike.name} is the ${strike.hand} hand's, not the ${hand}'s`);
   const recipe: Repertoire[number] | null = strike && { model: built.spec.model, held: heldIn(built.spec, hand), band, strike, place, found: "an experiment's", window: AT_ITS_PLACE, net: 0 };
-  let time = 0;
+  let time = 0, targetBody: BuiltBody | null = null;
   const tactics = attackOnce(hand, (head) => [head.x, head.y + place.up, head.z + place.ahead], () => time, thrown.moved);
   // The clock counts the step under way, whatever mind decides it.
   const skills = { repertoire: recipe ? [recipe] : [], ...(thrown.steer === undefined ? {} : { steer: thrown.steer }) };
-  const { report } = actor.drive(tactics, { skills, watch: (_, dt) => { time += dt; } });
+  const { report } = actor.drive(tactics, { skills, watch: (_, dt) => { time += dt; }, contactIdentity(other) {
+    for (const segment of targetBody?.segments.values() ?? []) if (segment.body === other)
+      return { kind: "body", body: "dummy", segment: segment.spec.name, guard: false };
+    return null;
+  } });
   return {
     hand, strike, place, band, body, report, pushing: STAND + (strike?.chamber?.seconds ?? 0),
     get time() { return time; },
+    bindTarget(built) { targetBody = built; },
     dispose: () => actor.dispose(),
   };
 }
@@ -189,12 +204,13 @@ export function watchBlow(actor: Actor, blow: ThrownBlow, rules: Rulebook,
       at = [stood.x + (off?.across ?? 0), stood.y + place.up + (off?.up ?? 0), stood.z + place.ahead + (off?.along ?? 0)];
     }
     if (!dummy) return;
-    const where = at, thrown = blow.report.strike.thrown[hand] > 0;
+    const where = at, thrown = blow.report.ledger.some(record => record.effector === `hand.${hand}`);
     if (!up && !thrown && segments.every((segment) => segment.body.gapTo(where) - radius > TARGET_CLEAR)) {
       const target = hangDummy(world, spec, where, rules);
+      blow.bindTarget(target.fighter.built);
       up = { dummy: target, watch: watchBlows(world, [attacker, target.fighter], rules), whole: target.fighter.pool.attachedHp(), told: hung?.(target.fighter.built) ?? null };
     }
-    if (blow.report.strike.since >= 0 || thrown) {
+    if (blow.report.actions.some(action => action.effector === `hand.${hand}` && action.phase !== "prepare") || thrown) {
       const gap = Math.max(0, striking.body.gapTo(centre()!) - radius);
       nearest = nearest === null ? gap : Math.min(nearest, gap);
     }
@@ -210,6 +226,7 @@ export function watchBlow(actor: Actor, blow: ThrownBlow, rules: Rulebook,
     radius,
     dispose() {
       hook.dispose();
+      blow.bindTarget(null);
       up?.told?.dispose();
       up?.watch.dispose();
       up?.dummy.dispose();

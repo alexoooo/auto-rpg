@@ -163,7 +163,7 @@ export function competencyJobs({ competency, model, held, seed, physique, blow }
  */
 export function blowConfig(kind, settings = "") {
   const part = PARTS[kind];
-  if (!part || part.role !== "blow") throw new Error(`no blow part ${kind}`);
+  if (!part || part.role !== "executor") throw new Error(`no blow part ${kind}`);
   const config = structuredClone({ ...part.defaults, ...(kind === "path-strike" || kind === "driven-strike"
     ? { tuning: { paths: { elbowExtension: 0.5 }, execution: PLANTED_PUNCH_EXECUTION } } : {}) });
   for (const pair of settings.split(",").filter(Boolean)) {
@@ -220,7 +220,7 @@ async function punchTrial(job) {
     ...(job.blow ? { blow: job.blow } : {}) });
   const changes = [];
   const hook = s.world.beforeStep(() => {
-    const phase = s.skills.report.strike.phase;
+    const action = s.skills.report.actions[0], phase = action?.phase === "commit" ? "swing" : action?.phase === "prepare" ? "chamber" : action ? "return" : null;
     if (phase !== changes.at(-1)?.phase) changes.push({ time: s.world.time, phase });
   });
   try {

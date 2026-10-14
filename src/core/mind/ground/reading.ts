@@ -7,7 +7,7 @@ import { lieOf } from "../rise/staged.ts";
 import type { Lie } from "../rise/stages.ts";
 
 /** The body's contact configuration, named only from its present physical readings. */
-type Position = "standing" | "crouch" | "half-kneel" | "kneeling" | "fours" | "sitting" | Lie | "between";
+export type Position = "standing" | "crouch" | "half-kneel" | "kneeling" | "fours" | "sitting" | Lie | "between";
 
 /** What a body on the ground knows this step; all fields are plain data written in place. */
 export interface GroundReading {

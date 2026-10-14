@@ -1,8 +1,7 @@
 /**
  * **The straight punch in the game**: Arena bouts (`buildBout`) of a Puncher (`PUNCHER`) throwing the
  * straight punch (`straightPunch`, `src/core/skills/straight-punch.ts`) bare-handed at what `--aim`
- * names (`SeekConfig.aim`, the head unless asked), come to as `--range` says (`SeekConfig.range`,
- * the edge unless asked), of a bare-handed Warrior, priced by the arena's
+ * names (the head unless asked), come to as `--range` says (the edge unless asked), of a bare-handed Warrior, priced by the arena's
  * rulebook as its blows land (`Duel.blows`). A bout's
  * score is the hit points the foe lost less those the puncher lost, with `FELL` taken off for each
  * second the puncher spent down and `LOST` for a bout it lost; with `--head`, also that many hit points for
@@ -26,6 +25,7 @@
 import { availableParallelism } from "node:os";
 import { pathToFileURL } from "node:url";
 import { isMainThread, parentPort, workerData } from "node:worker_threads";
+import { actionCycles } from "./action-cycles.mjs";
 import { buildBout } from "./bout.mjs";
 import { cmaSearch, workerPool } from "./cma.mjs";
 import { CLASSIC, PUNCHER, SCRAPPER } from "../src/core/mind/config.ts";
@@ -33,7 +33,7 @@ import { BRAWLER, COMBAT, KICKER } from "../tests/fixtures/minds.mjs";
 import { STRAIGHT_PUNCH } from "../src/core/skills/straight-punch.ts";
 
 /** A Warrior standing in guard, throwing nothing. */
-const STANDS = Object.freeze({ ...CLASSIC, tactics: { kind: "stand" }, blow: null });
+const STANDS = Object.freeze({ ...CLASSIC, tactics: { kind: "stand" }, executors: [], actions: [] });
 
 /** Both sides bare-handed: the Warrior's own loadout is a club. */
 const BARE = Object.freeze({ left: "empty", right: "empty" });
@@ -50,7 +50,7 @@ const RIVAL = Object.freeze(isMainThread ? JSON.parse(argOf("rival") ?? "{}") : 
 
 /** The foes a setting may be scored against, by name. */
 const FOES = Object.freeze({ stands: STANDS, classic: CLASSIC, combat: COMBAT, brawler: BRAWLER, kicker: KICKER, scrapper: SCRAPPER, puncher: PUNCHER,
-  rival: { ...PUNCHER, blow: { ...PUNCHER.blow, ...RIVAL } } });
+  rival: { ...PUNCHER, executors: PUNCHER.executors.map(executor => ({ ...executor, ...RIVAL })) } });
 
 /** The settings searched, each its range. */
 const RANGES = Object.freeze({
@@ -71,10 +71,10 @@ const toUnit = (settings) => KEYS.map((key) => (settings[key] - RANGES[key][0]) 
 export async function boutOf(mind, { foe = STANDS, gap = 1.4, seconds = 8, hz = 120, held = BARE } = {}) {
   const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-fighter", minds: { left: mind, right: foe }, held, gap }, { hz });
   try {
-    const left = duel.duelists.left;
+    const left = duel.duelists.left, cycles = actionCycles(left.minded.skills);
     let down = 0;
     while (world.time < seconds && !duel.verdict) {
-      world.step();
+      world.step(); cycles.sample();
       if (left.body.view.down) down += world.dt;
     }
     let given = 0, taken = 0;
@@ -88,16 +88,18 @@ export async function boutOf(mind, { foe = STANDS, gap = 1.4, seconds = 8, hz = 
         kg: [+me.kg.toFixed(2), +them.kg.toFixed(2)], hp: [+them.damage.toFixed(3), +me.damage.toFixed(3)] });
     }
     const headOf = (side) => { const d = duel.duelists[side], vital = d.body.built.spec.wounds.vital[0]; return 1 - d.pool.hp(vital) / d.pool.max(vital); };
-    const thrown = left.minded.skills.report.strike.thrown;
+    const thrown = cycles.reading().thrown;
     const lost = duel.verdict?.winner === "right" ? 1 : 0;
     return { gap, given, taken, heads: [headOf("right"), headOf("left")], down, lost, thrown: thrown.left + thrown.right, punches, verdict: duel.verdict ? `${duel.verdict.winner ?? "draw"} by ${duel.verdict.ending}` : null,
       score: given - taken - FELL * down - LOST * lost };
   } finally { dispose(); }
 }
 
-/** One bout of the straight punch with `settings` (`boutOf`), aimed at what `aim` names (`SeekConfig.aim`) and come to as `range` says (`SeekConfig.range`), the rest of it the Puncher's. */
-export const punchBout = (settings, { aim = PUNCHER.tactics.aim, range = PUNCHER.tactics.range, ...options } = {}) =>
-  boutOf({ ...PUNCHER, tactics: { ...PUNCHER.tactics, aim, range }, blow: { kind: "straight-punch", ...STRAIGHT_PUNCH, ...settings } }, options);
+/** One bout of the straight punch with `settings` (`boutOf`), aimed at what `aim` names (the action's region) and come to as `range` says (the approach behaviour's range), the rest of it the Puncher's. */
+export const punchBout = (settings, { aim = "head", range = "close", ...options } = {}) =>
+  boutOf({ ...PUNCHER, tactics: { ...PUNCHER.tactics, list: PUNCHER.tactics.list.map(behaviour => behaviour.kind === "approach" ? { ...behaviour, range } : behaviour) },
+    actions: PUNCHER.actions.map(action => ({ ...action, regions: [{ kind: "mark", mark: aim === "head" ? "high" : "any" }] })),
+    executors: [{ name: "punch", kind: "straight-punch", ...STRAIGHT_PUNCH, ...settings }] }, options);
 
 /** The bouts a setting is scored on unless asked: one a gap against each foe named. */
 const GAPS = [1.0, 1.4, 1.8, 2.2];
@@ -125,7 +127,7 @@ if (!isMainThread && workerData?.punchInBout) {
   });
 } else if (isMainThread && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2), arg = (name, fallback) => { const i = argv.indexOf(`--${name}`); return i < 0 ? fallback : argv[i + 1]; };
-  const hz = Number(arg("hz", 120)), foes = arg("foes", "stands").split(","), aim = arg("aim", PUNCHER.tactics.aim), range = arg("range", PUNCHER.tactics.range);
+  const hz = Number(arg("hz", 120)), foes = arg("foes", "stands").split(","), aim = arg("aim", "head"), range = arg("range", "close");
   const gaps = arg("gaps", GAPS.join(",")).split(",").map(Number), seconds = Number(arg("seconds", 8)), scene = argv.includes("--scene"), head = Number(arg("head", 0));
   for (const foe of foes) if (!FOES[foe]) throw new Error(`no foe ${foe}: ${Object.keys(FOES).join(", ")}`);
   if (argv.includes("--search")) {

@@ -80,7 +80,8 @@ export async function combatTrial(config) {
   const before = world.beforeStep(() => {
     for (const side of ['left', 'right']) {
       const d = duel.duelists[side], out = sides[side], other = duel.duelists[side === 'left' ? 'right' : 'left'];
-      const report = d.minded.kind === 'direct' ? null : d.minded.skills.report.strike;
+      const actions = d.minded.kind === 'direct' ? [] : d.minded.skills.report.actions;
+      const report = actions.find(action => action.effector.startsWith('hand.'));
       const relativeSpeed = {}, relativeVelocity = {};
       for (const hand of ['left', 'right']) {
         const point = d.body.view?.fists[hand].position;
@@ -89,14 +90,14 @@ export async function combatTrial(config) {
         vector.subtractInPlace(d.body.view.stance.velocity);
         relativeSpeed[hand] = vector.length(); relativeVelocity[hand] = vector.asArray();
       }
-      const kick = d.minded.skills?.report.kick, footVelocity = {}, footSpeed = {};
+      const kick = actions.find(action => action.effector.startsWith('foot.')), footVelocity = {}, footSpeed = {};
       if(kick)for(const foot of ['left','right']){
         const limb=d.built.segments.get(`foot.${foot}`);
         pointOfToRef(limb,limb.spec.points.strike.value,footPoint);motionAtToRef(limb,footPoint,vector,spin);
         vector.subtractInPlace(d.body.view.stance.velocity);footVelocity[foot]=vector.asArray();footSpeed[foot]=vector.length();
       }
-      out.witness = { phase: report?.phase, hand: report?.hand, relativeSpeed, relativeVelocity, down: d.body.down,
-        ...(kick?{kick:{foot:kick.foot,phase:kick.phase,relativeVelocity:footVelocity,relativeSpeed:footSpeed}}:{}),
+      out.witness = { phase: report?.phase === 'commit' ? 'swing' : report?.phase, hand: report?.effector.split('.')[1], relativeSpeed, relativeVelocity, down: d.body.down,
+        ...(kick?{kick:{foot:kick.effector.split('.')[1],phase:kick.phase === 'commit' ? 'swing' : kick.phase,relativeVelocity:footVelocity,relativeSpeed:footSpeed}}:{}),
         foeLow: other.body.down || other.body.physical.head.y < COMBAT_PROTOCOL.lowHeadHeight };
       out.drivenThisStep = false;
     }
@@ -111,15 +112,14 @@ export async function combatTrial(config) {
         if (!d.body.down && out.wasDown) out.recoveries++;
         out.wasDown = d.body.down;
         if (d.body.down) out.downSeconds += world.dt;
-        const phase = d.body.has === 'command' ? report?.engagement?.phase ?? report?.strike.phase ?? 'guard' : d.body.has;
-        const strikePhase = report?.strike.phase;
-        if(strikePhase==='swing'&&out.lastPhase!=='swing'&&d.minded.skills.state.blow.hands?.[d.minded.skills.state.blow.hand]?.action) {
-          const tactics=d.minded.skills.state.tactics;
-          const family=d.minded.skills.state.blow.hands?.[d.minded.skills.state.blow.hand]?.action.path.family,surface=tactics.surface;
-          out.pathLaunches[family]=(out.pathLaunches[family]??0)+1;
-          out.intendedSurfaces[surface]=(out.intendedSurfaces[surface]??0)+1;
+        const phase = d.body.has === 'command' ? report?.engagement?.phase ?? report?.actions[0]?.phase ?? 'guard' : d.body.has;
+        const committed = report?.actions.find(action => action.phase === 'commit');
+        if (committed && out.lastPhase !== committed.id) {
+          out.pathLaunches[committed.action] = (out.pathLaunches[committed.action] ?? 0) + 1;
+          const region = committed.target.kind === 'body' ? JSON.stringify(committed.target.region) : 'point';
+          out.intendedSurfaces[region] = (out.intendedSurfaces[region] ?? 0) + 1;
         }
-        out.lastPhase=strikePhase;
+        out.lastPhase = committed?.id ?? null;
         out.phases[phase] = (out.phases[phase] ?? 0) + world.dt;
         const other = bodies[side === 'left' ? 'right' : 'left'];
         const touching = ['left', 'right'].some(hand => world.physics.contactsOf(d.built.segments.get(`hand.${hand}`).body)
@@ -169,9 +169,9 @@ export async function combatTrial(config) {
       delete out.touching; delete out.drivenThisStep;
       delete out.lastPhase;
       const tactics = d.minded.skills?.state?.tactics;
-      const learned = tactics?.range;
-      if(d.minded.skills?.report.kick)out.kicks=structuredClone({...d.minded.skills.report.kick});
-      if (learned) out.rangeLearning = structuredClone(learned);
+      const learned = tactics?.spacing;
+      if(d.minded.skills)out.actionEndings=structuredClone(d.minded.skills.report.ledger);
+      if (learned) out.approachSpacing = structuredClone(learned);
       out.bar = d.pool.bar(); out.assist = { force: d.body.assist.meter.force, moment: d.body.assist.meter.moment };
     }
     return { config, recipe, protocol: COMBAT_PROTOCOL, harness: { kind: 'Node Arena Duel', engine: physicsEngine.name,

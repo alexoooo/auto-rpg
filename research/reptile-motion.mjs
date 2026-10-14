@@ -15,7 +15,7 @@ export async function motionTrial(tuning, direction = [0, 1], seconds = 10, yaw 
   try {
     stand.step(240);
     const start = mind.body.observe().centre;
-    orders = { move: { x: direction[0], z: direction[1] }, face: { x: Math.sin(yaw), z: Math.cos(yaw) }, attack: null };
+    orders = { move: { x: direction[0], z: direction[1] }, face: { x: Math.sin(yaw), z: Math.cos(yaw) } };
     let down = 0, firstDown = null, minHeight = Infinity;
     const phases = {};
     for (let step = 0; step < seconds * stand.world.hz; step++) {

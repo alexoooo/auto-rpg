@@ -7,6 +7,7 @@
  * (`tests/fixtures/strikes.mjs`): what is under test is the reading, whatever a search finds.
  */
 import test from "node:test";
+import { pointScript } from "./fixtures/point-script.mjs";
 import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -182,23 +183,20 @@ async function strikeAt(loadout, places, skills) {
   const head = actor.body.view.head.y;
   const targets = places.map((place) => ({ at: place(head), stratum: "control" }));
   const readings = [];
-  let open = null, thrown = 0, counted = 0, began = null, before = [];
-  const tactics = {
-    name: "attack",
-    decide: () => ({ move: null, face: 0, guard: NO_COVER, attack: readings.length < targets.length && thrown === counted ? { kind: "blow", hand: "right", target: targets[readings.length].at } : null }),
-  };
-  actor.drive(tactics, { skills: { repertoire: FIXTURE_REPERTOIRE, ...skills }, watch(sight) {
+  let open = null, began = null, before = [];
+  const tactics = pointScript(() => readings.length < targets.length
+    ? { key: readings.length, action: "strike", effector: "hand.right", target: { kind: "point", at: targets[readings.length].at, body: "dummy" } } : null);
+  actor.drive(tactics, { contactIdentity: other => open?.identify(other) ?? null, skills: { repertoire: FIXTURE_REPERTOIRE, ...skills }, watch(sight) {
     if (readings.length >= targets.length) return;
-    open ??= readTarget(actor, targets[readings.length], "right", RULES);
-    const { phase } = sight.report.strike;
-    thrown = sight.report.strike.thrown.right;
-    if (began === null && (phase === "chamber" || phase === "swing")) began = stand.world.time;
+    open ??= readTarget(actor, targets[readings.length], "right", RULES, undefined, { repertoire: FIXTURE_REPERTOIRE, ...skills });
+    const live = sight.report.actions[0];
+    if (began === null && live) began = stand.world.time;
     if (began === null) before.push(open.ball);
     const reading = open.step(sight);
     if (!reading) return;
     readings.push({ ...reading, began, ended: stand.world.time, before, heading: sight.report.heading });
     open.dispose();
-    open = null; began = null; counted = thrown; before = [];
+    open = null; began = null; before = [];
   } });
   try {
     for (let i = 0; i < stand.seconds(15 * targets.length) && readings.length < targets.length && !actor.body.view.down; i++) stand.step(1);
@@ -299,18 +297,19 @@ test("a_placed_blow_lands_whichever_way_the_body_faces", async () => {
 });
 
 test("a_reading_is_one_targets_own", async () => {
-  // Two targets in turn: the first where the recipe lands; the second 1.5 m under it, where a blow is placed and falls
-  // short. At 1.3 m under it the placed club grazes the target, and at 1.4 m a shin walks into it.
+  // Two targets in turn: a reachable recipe and an unreachable low point, explicitly refused.
   const { head, readings, down } = await strikeAt(CLUB, [(h) => [0, h, 1.3], (h) => [0, h - 1.5, 1.3]]);
   assert.equal(down, false);
   assert.deepEqual(readings.map(record), [
     { target: { at: [0, head, 1.3], stratum: "control" }, hand: "right", strike: "searched right club blow", hung: true, fell: false,
       ...CLUBBED },
-    { target: { at: [0, head - 1.5, 1.3], stratum: "control" }, hand: "right", strike: "placed", hung: true, fell: false, ...UNSTRUCK },
+    { target: { at: [0, head - 1.5, 1.3], stratum: "control" }, hand: "right", strike: null, hung: false, fell: false, ...UNSTRUCK },
   ]);
   const [first, second] = readings;
-  assert.ok(first.blow.time < first.ended && first.ended < second.began, `${first.blow.time}, ${first.ended}, ${second.began}`);
-  assert.ok(second.nearest > 0.2, `it passed ${second.nearest} m off`);
+  assert.ok(first.blow.time < first.ended && first.ended < second.ended, `${first.blow.time}, ${first.ended}, ${second.began}`);
+  assert.equal(second.nearest, null);
+  assert.equal(second.ending?.ending.kind, "refused");
+  assert.equal(second.ending?.committed, false);
 });
 
 test("a_reading_is_of_the_blow_that_cost_its_dummy_most", {
@@ -363,14 +362,14 @@ async function strikeFromInside(shoved) {
   const actor = labActor(stand.built, stand.world);
   const ahead = [0, actor.body.view.head.y, 0.8], chest = stand.built.segments.get("upperTrunk"), head = stand.built.segments.get("head");
   let open = null, reading = null, ball = null, thrown = 0, clear = 0;
-  actor.drive({ name: "attack", decide: () => ({ move: null, face: 0, guard: NO_COVER, attack: thrown ? null : { kind: "blow", hand: "right", target: ahead } }) }, { skills: { repertoire: FIXTURE_REPERTOIRE }, watch(sight) {
-    if (shoved && !thrown && sight.report.strike.thrown.right) chest.body.applyImpulse(new Vector3(0, 0, -150), chest.node.position);
-    thrown = sight.report.strike.thrown.right;
+  actor.drive(pointScript(() => ({ key: 0, action: "strike", effector: "hand.right", target: { kind: "point", at: ahead, body: "dummy" } })), { skills: { repertoire: FIXTURE_REPERTOIRE }, watch(sight) {
+    if (shoved && !thrown && (sight.report.actions.some(action => action.phase === "release") || sight.report.ledger.length > 0)) chest.body.applyImpulse(new Vector3(0, 0, -150), chest.node.position);
+    thrown = sight.report.actions.some(action => action.phase === "release") || sight.report.ledger.length > 0;
     if (reading) return;
     if (!open) {
-      if (sight.report.strike.phase !== "chamber" && sight.report.strike.phase !== "swing") return;
+      if (!sight.report.actions.length) return;
       const { x, y, z } = sight.view.head;
-      open = readTarget(actor, { at: [x, y, z], stratum: "control" }, "right", RULES);
+      open = readTarget(actor, { at: [x, y, z], stratum: "control" }, "right", RULES, undefined, { repertoire: FIXTURE_REPERTOIRE });
     }
     ball = open.ball;
     // The steps of the watch at which the head is off the place by more than the ball and a hand's breadth.

@@ -1,6 +1,6 @@
 /**
- * **Orders** (`src/core/mind/orders.ts`) and the tactics that carry them out (`recipeTactics`,
- * `src/core/mind/recipe-tactics.ts`): what an order becomes as an intent, on sights made by hand, what a
+ * **Orders** (`src/core/mind/orders.ts`) and the tactics that carry them out (`orderedIntent`,
+ * `src/core/mind/ordered.ts`): what an order becomes as an intent, on sights made by hand, what a
  * hand that does not attack is given under each way of guarding, and a body walking one way while
  * it faces another (Node stand, Rapier, 120 Hz: the Warrior with the
  * club in its right hand).
@@ -12,8 +12,9 @@ import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { recipeTactics } from "../src/core/mind/recipe-tactics.ts";
-import { STRAFE } from "../src/core/mind/ordered.ts";
+import { actionTactics } from "../src/core/mind/action-tactics.ts";
+import { FIGHTING } from "../src/core/mind/config.ts";
+import { STRAFE, orderedIntent } from "../src/core/mind/ordered.ts";
 import { NO_COVER } from "../src/core/mind/intent.ts";
 import { sameOrders, STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
@@ -29,55 +30,49 @@ const EAST = { x: 1, z: 0 }, NORTH = { x: 0, z: 1 }, SOUTH = { x: 0, z: -1 };
 test("tactics_turn_orders_into_an_intent", () => {
   /** The intent `orders` become for a body whose stance is asked to face `heading`. */
   const intent = (orders, heading = 0, envelope = ENVELOPE) =>
-    recipeTactics("orders", () => orders).decide({ view: { resumed: false }, report: { heading, strike: { thrown: { right: 0 } } }, envelope }, 1 / 120);
-  /** `got` is `{ move, face, guard: NO_COVER, attack: null }`, its numbers within 1e-12. */
+    orderedIntent({ report: { heading }, envelope }, orders, NO_COVER);
+  /** `got` is `{ move, face, guard: NO_COVER }`, its numbers within 1e-12. */
   const is = (got, move, face, what) => {
     const near = (a, b) => Math.abs(a - b) < 1e-12;
     assert.ok(move === null ? got.move === null : got.move !== null && near(got.move[0], move[0]) && near(got.move[1], move[1]),
       `${what}: move ${JSON.stringify(got.move)}, not ${JSON.stringify(move)}`);
     assert.ok(near(got.face, face), `${what}: face ${got.face}, not ${face}`);
-    assert.deepEqual([got.guard, got.attack], [NO_COVER, null], what);
-    assert.deepEqual(Object.keys(got).sort(), ["attack", "face", "guard", "move"], what);
+    assert.deepEqual([got.guard, got.actions], [NO_COVER, []], what);
+    assert.deepEqual(Object.keys(got).sort(), ["actions", "face", "guard", "move"], what);
   };
   const half = STRAFE.share * WALK;
   assert.equal(half, 0.35);
 
   // Facing its walk, it walks forward at its fastest and turns to it; sent somewhere, at its fastest forward.
-  is(intent({ move: NORTH, face: null, attack: null }), [WALK, 0], 0, "walking ahead");
-  is(intent({ move: EAST, face: null, attack: null }), [WALK, 0], QUARTER, "walking to its right");
-  const sent = recipeTactics("orders", () => ({ move: EAST, face: null, attack: null, destination: 9 }))
-    .decide({ view: { resumed: false }, report: { heading: 0, strike: { thrown: { right: 0 } } }, envelope: ENVELOPE }, 1 / 120);
+  is(intent({ move: NORTH, face: null }), [WALK, 0], 0, "walking ahead");
+  is(intent({ move: EAST, face: null }), [WALK, 0], QUARTER, "walking to its right");
+  const sent = orderedIntent({ report: { heading: 0 }, envelope: ENVELOPE }, { move: EAST, face: null, destination: 9 }, NO_COVER);
   assert.deepEqual([sent.move, sent.destination], [[FORWARD, 0], 9], "sent somewhere");
   // Facing elsewhere, the walk is in the heading's frame: forward, and to the right.
-  is(intent({ move: EAST, face: NORTH, attack: null }), [0, half], 0, "across its heading");
-  is(intent({ move: NORTH, face: NORTH, attack: null }), [WALK, 0], 0, "ahead, facing ahead");
-  is(intent({ move: SOUTH, face: NORTH, attack: null }), [-half, 0], 0, "backward");
-  is(intent({ move: { x: 1, z: 1 }, face: NORTH, attack: null }),
+  is(intent({ move: EAST, face: NORTH }), [0, half], 0, "across its heading");
+  is(intent({ move: NORTH, face: NORTH }), [WALK, 0], 0, "ahead, facing ahead");
+  is(intent({ move: SOUTH, face: NORTH }), [-half, 0], 0, "backward");
+  is(intent({ move: { x: 1, z: 1 }, face: NORTH }),
     [(0.5 + 0.5 * Math.SQRT1_2) * WALK * Math.SQRT1_2, (0.5 + 0.5 * Math.SQRT1_2) * WALK * Math.SQRT1_2], 0, "an eighth off its heading");
   // Not yet turned to its facing, it holds the half pace even walking straight ahead.
-  is(intent({ move: NORTH, face: SOUTH, attack: null }), [half, 0], Math.PI, "a half turn to make");
-  is(intent({ move: NORTH, face: EAST, attack: null }, 0.2), [half * Math.cos(-0.2), half * Math.sin(-0.2)], QUARTER, "a quarter turn to make");
+  is(intent({ move: NORTH, face: SOUTH }), [half, 0], Math.PI, "a half turn to make");
+  is(intent({ move: NORTH, face: EAST }, 0.2), [half * Math.cos(-0.2), half * Math.sin(-0.2)], QUARTER, "a quarter turn to make");
   // Either side of the angle within which it counts as turned.
   const turnedTo = (angle) => ({ x: Math.sin(angle), z: Math.cos(angle) });
-  is(intent({ move: NORTH, face: turnedTo(STRAFE.turned - 0.01), attack: null }), [WALK, 0], STRAFE.turned - 0.01, "all but turned");
-  is(intent({ move: NORTH, face: turnedTo(-STRAFE.turned - 0.01), attack: null }), [half, 0], -STRAFE.turned - 0.01, "not quite turned");
+  is(intent({ move: NORTH, face: turnedTo(STRAFE.turned - 0.01) }), [WALK, 0], STRAFE.turned - 0.01, "all but turned");
+  is(intent({ move: NORTH, face: turnedTo(-STRAFE.turned - 0.01) }), [half, 0], -STRAFE.turned - 0.01, "not quite turned");
   // The angle is taken the short way round: a heading of 3 and a facing of -3 are 0.28 rad apart.
-  is(intent({ move: turnedTo(3), face: turnedTo(-3), attack: null }, 3), [WALK, 0], -3, "across the half turn");
+  is(intent({ move: turnedTo(3), face: turnedTo(-3) }, 3), [WALK, 0], -3, "across the half turn");
 
   // Standing, it asks for the facing ordered, or for the heading it has.
-  is(intent({ move: null, face: EAST, attack: null }), null, QUARTER, "standing, facing");
+  is(intent({ move: null, face: EAST }), null, QUARTER, "standing, facing");
   is(intent(STAND_ORDERS, 0.4), null, 0.4, "standing");
-  is(intent({ move: null, face: { x: 0.05, z: 0 }, attack: null }, 0.4), null, 0.4, "a facing too short to read");
+  is(intent({ move: null, face: { x: 0.05, z: 0 } }, 0.4), null, 0.4, "a facing too short to read");
   // With no envelope it has no walk to ask for.
-  is(intent({ move: EAST, face: NORTH, attack: null }, 0.4, null), null, 0, "no envelope");
-
-  // An attack waits for no walk, and holds the heading.
-  assert.deepEqual(intent({ move: EAST, face: NORTH, attack: [1, 1.6, 0] }, 0.4),
-    { move: null, face: 0.4, guard: NO_COVER, attack: { kind: "blow", hand: "right", target: [1, 1.6, 0] } });
+  is(intent({ move: EAST, face: NORTH }, 0.4, null), null, 0, "no envelope");
 
   // An experiment's rule is passed in.
-  const slow = recipeTactics("orders", () => ({ move: EAST, face: NORTH, attack: null }), { ...STRAFE, share: 0.25 })
-    .decide({ view: { resumed: false }, report: { heading: 0, strike: { thrown: { right: 0 } } }, envelope: ENVELOPE }, 1 / 120);
+  const slow = orderedIntent({ report: { heading: 0 }, envelope: ENVELOPE }, { move: EAST, face: NORTH }, NO_COVER, { ...STRAFE, share: .25 });
   is(slow, [0, 0.175], 0, "a quarter share");
 });
 
@@ -93,12 +88,6 @@ test("a_fighter_told_to_cover_gives_the_cover_to_the_hand_that_does_not_attack",
     }] } },
     report: { heading: 0, strike: { thrown: { right: 0 } } }, envelope: ENVELOPE,
   });
-  /** What the hands do, told to guard by `guard`: what each covers, and the attack. */
-  const hands = (guard, orders, speed) => {
-    const intent = recipeTactics("orders", () => orders, STRAFE, guard).decide(sight(speed), 1 / 120);
-    return { guard: intent.guard, attack: intent.attack };
-  };
-  const attack = { move: null, face: null, attack: [0, 1.6, 1] }, struck = { kind: "blow", hand: "right", target: [0, 1.6, 1] };
   const cover = threatOf(sight(5).view);
   assert.ok(cover && Math.hypot(cover.threat[0], cover.threat[1] - 1.6, cover.threat[2] - 0.6) < 0.2, `the sight's threat: ${JSON.stringify(cover)}`);
   assert.deepEqual(cover.guarded, [0, 1.6, 0]);
@@ -109,18 +98,13 @@ test("a_fighter_told_to_cover_gives_the_cover_to_the_hand_that_does_not_attack",
   const projection = predicted.threat.reduce((sum, v, k) => sum + (v - [head.x, head.y, head.z][k]) * from[k] / length, 0);
   assert.ok(Math.abs(projection - .3) < 1e-12);
   assert.equal(threatOf(sight(5).view, undefined, { out: .3, horizon: .001 }), null, "a crossing beyond the planning horizon is refused");
-  // Told to cover: the hand that does not attack covers, and both do when neither attacks.
-  assert.deepEqual(hands("cover", attack, 5), { guard: { left: cover, right: null }, attack: struck });
-  assert.deepEqual(hands("cover", STAND_ORDERS, 5), { guard: { left: cover, right: cover }, attack: null });
-  assert.deepEqual(hands("cover", { move: EAST, face: null, attack: null }, 5), { guard: { left: cover, right: cover }, attack: null });
-  // With nothing threatening, the plain guard.
-  assert.deepEqual(hands("cover", attack, 1), { guard: NO_COVER, attack: struck });
-  assert.deepEqual(hands("cover", STAND_ORDERS, 1), { guard: NO_COVER, attack: null });
-  // In the pose, the plain guard whatever threatens.
-  assert.deepEqual(hands("pose", attack, 5), { guard: NO_COVER, attack: struck });
-  assert.deepEqual(hands("pose", STAND_ORDERS, 5), { guard: NO_COVER, attack: null });
-  // A way of guarding nobody knows is refused as the tactics are made.
-  assert.throws(() => recipeTactics("orders", () => STAND_ORDERS, STRAFE, "shield"), /in the pose or by a cover, not by "shield"/);
+  const read = sight(5);
+  read.view.time = 0; read.view.stance = { centre: new Vector3(), phase: "stand" };
+  read.report = { heading: 0, actions: [], ledger: [] };
+  const tactics = actionTactics(modelSpec("workshop-fighter"), [], { ...FIGHTING, list: [{ kind: "cover", guard: "cover" }] });
+  assert.deepEqual(tactics.decide(read, 1 / 120).guard, { left: cover, right: cover });
+  read.view.senses = sight(1).view.senses;
+  assert.deepEqual(tactics.decide(read, 1 / 120).guard, NO_COVER);
 });
 
 test("a_body_walks_one_way_while_it_faces_another", async () => {
@@ -129,7 +113,7 @@ test("a_body_walks_one_way_while_it_faces_another", async () => {
     const stand = await coreStand(armed(modelSpec("workshop-fighter"), "right", woodenClub()));
     const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
     try {
-      const skills = driveBy(body, recipeTactics("orders", () => orders));
+      const skills = driveBy(body, actionTactics(stand.built.spec, [], FIGHTING, () => orders));
       const from = body.view.stance.centre.clone();
       stand.step(stand.seconds(8));
       const to = body.view.stance.centre;
@@ -137,26 +121,26 @@ test("a_body_walks_one_way_while_it_faces_another", async () => {
     } finally { body.dispose(); stand.dispose(); }
   };
   // Read on this stand: 1.47 m along x and 0.03 m along z, facing; 2.89 m, turning to its walk.
-  const facing = await walk({ move: EAST, face: NORTH, attack: null });
+  const facing = await walk({ move: EAST, face: NORTH });
   assert.equal(facing.fallen, false, "it fell");
   assert.ok(facing.x > 1.1 && facing.x < 1.8, `along its walk: ${facing.x}`);
   assert.ok(Math.abs(facing.z) < 0.3, `across it: ${facing.z}`);
   assert.ok(Math.abs(facing.heading) < 0.01, `it kept its heading: ${facing.heading}`);
   // The control: the same walk, facing it.
-  const turning = await walk({ move: EAST, face: null, attack: null });
+  const turning = await walk({ move: EAST, face: null });
   assert.equal(turning.fallen, false, "the control fell");
   assert.ok(turning.x > 2.6, `the control went ${turning.x}`);
   assert.ok(Math.abs(turning.heading - QUARTER) < 0.02, `the control turned to ${turning.heading}`);
 });
 
 test("orders_are_the_same_when_they_say_the_same", () => {
-  const walk = { move: { x: 1, z: 0 }, face: { x: 0, z: 1 }, attack: [1, 1.6, 0] };
+  const walk = { move: { x: 1, z: 0 }, face: { x: 0, z: 1 }, foe: "target", region: "head" };
   assert.equal(sameOrders(null, null), true);
-  assert.equal(sameOrders(STAND_ORDERS, { move: null, face: null, attack: null }), true);
+  assert.equal(sameOrders(STAND_ORDERS, { move: null, face: null }), true);
   assert.equal(sameOrders(null, STAND_ORDERS), false, "no orders are not orders to stand");
   assert.equal(sameOrders(STAND_ORDERS, null), false);
   assert.equal(sameOrders(walk, structuredClone(walk)), true);
-  for (const other of [{ ...walk, move: { x: 1, z: 1e-9 } }, { ...walk, face: null }, { ...walk, attack: [1, 1.6, 1e-9] }, { ...walk, attack: null }]) {
+  for (const other of [{ ...walk, move: { x: 1, z: 1e-9 } }, { ...walk, face: null }, { ...walk, region: "upperTrunk" }, { ...walk, foe: "other" }]) {
     assert.equal(sameOrders(walk, other), false, JSON.stringify(other));
   }
 });

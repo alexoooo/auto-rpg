@@ -1,20 +1,17 @@
 import type { BodyView } from "../body.ts";
 import { hypot } from "../math/real.ts";
 import { nearestFoe } from "../mind/targets.ts";
+import { conditionMatches, type ConditionReading } from "../mind/conditions.ts";
 import type { LegsDrive, Locomotion } from "./locomotion.ts";
 
 /**
  * How far past a rule's distance the body goes before the rule lets go of the gait it chose, m: no
  * switching back and forth at the edge.
  */
-const LEAVING = 0.5;
+export const LEAVING = 0.5;
 
 /** What a rule of Move reads: its distances, m (Infinity where there is nothing to measure to), and whether the body is asked to walk. */
-interface Reading {
-  readonly walking: boolean;
-  readonly foe: number;
-  readonly destination: number;
-}
+type Reading = ConditionReading;
 
 /**
  * **A rule of Move**, compiled: the gait it chooses (an index of Move's gaits), and whether it
@@ -27,15 +24,14 @@ export interface MoveRule {
 }
 
 /** A rule that matches while the body is asked to stand: a body standing stands by its gait. */
-export const standingRule = (gait: number): MoveRule => ({ gait, matches: (reading) => !reading.walking });
+export const standingRule = (gait: number): MoveRule => ({ gait, matches: (reading) => conditionMatches({ kind: "when-standing" }, reading) });
 
 /** A rule that matches while what `of` names is under (or over) `metres` away. */
 export function distanceRule(gait: number, of: "foe" | "destination", than: "under" | "over", metres: number): MoveRule {
   return {
     gait,
     matches(reading, holding) {
-      const distance = reading[of];
-      return than === "under" ? distance <= metres + (holding ? LEAVING : 0) : distance > metres - (holding ? LEAVING : 0);
+      return conditionMatches({ kind: "when-distance", of, than, metres }, reading, holding ? LEAVING : 0);
     },
   };
 }

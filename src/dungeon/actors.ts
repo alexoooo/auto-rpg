@@ -1,5 +1,4 @@
 import { lowsOf } from "../core/control/ground.ts";
-import { ATTACK_METRES } from "../core/mind/recipe-tactics.ts";
 import { modelSpec, type BodyModel } from "../core/models.ts";
 import { deepFreeze } from "../core/state.ts";
 import { frameOf } from "../core/spec/body.ts";
@@ -17,7 +16,7 @@ interface CryptModel {
 }
 
 /** Every humanoid's footprint, spacing and recovery: `docs/reference/reptile.md#encounters`. */
-const HUMANOID: CryptModel = deepFreeze({ radius: .35, attackMetres: ATTACK_METRES, progressSeconds: 1, fallEndsFight: true });
+const HUMANOID: CryptModel = deepFreeze({ radius: .35, attackMetres: 1.8, progressSeconds: 1, fallEndsFight: true });
 
 let reptileModel: CryptModel | undefined;
 /** The reptile's collider footprint, bite spacing and continued recovery: `docs/reference/reptile.md#encounters`. */

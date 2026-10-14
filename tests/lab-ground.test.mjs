@@ -12,6 +12,7 @@ import { CLASSIC } from "../src/core/mind/config.ts";
 import { risingOptions, risingJobs, risingReport } from "../research/rising-bed.mjs";
 import { risingTrial } from "../research/rising-worker.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
+import { groundTechnique } from "../src/lab/ground-technique.ts";
 
 const address = (start, seed = 4, posture = "back") => {
   const defaults = labAddress("?scenario=ground");
@@ -19,7 +20,7 @@ const address = (start, seed = 4, posture = "back") => {
 };
 
 test("ground address preserves each restart control and selects only installed postures", () => {
-  const input = { ...address("placed", 12, "fours"), ground: { ...address("placed").ground, posture: "fours", degrees: 172, impulse: 83, foe: 2, gusts: true } };
+  const input = { ...address("placed", 12, "fours"), ground: { ...address("placed").ground, drive: "plant-up", waypoint: "plant", posture: "fours", degrees: 172, impulse: 83, foe: 2, gusts: true } };
   assert.deepEqual(labAddress(labHref(input)), input);
   assert.deepEqual(groundPostures(modelSpec("workshop-fighter")), GROUND_POSTURES);
   assert.deepEqual(groundPostures(modelSpec("workshop-rogue")), ["back", "front", "left", "right"]);
@@ -120,4 +121,44 @@ test("the bed executes a physical episode and returns an honest capped failure w
   assert.ok(Object.values(row.phases).reduce((a, b) => a + b, 0) >= .1 - 1e-9);
   assert.deepEqual(row.assist, { forcePeak: 0, momentPeak: 0, forceImpulse: 0, momentImpulse: 0 });
   assert.equal(row.attempts.at(-1).end, "cap");
+});
+
+test("standalone technique beds retain predecessors, fit models, and their eight-second failure cap", () => {
+  const options = risingOptions(["--technique", "plant-up", "--after", "roll", "--starts", "dropped", "--held", "empty", "--seeds", "1"]);
+  const jobs = risingJobs(options);
+  assert.deepEqual(jobs.map(job => [job.model, job.technique, job.after]), [
+    ["workshop-fighter", "plant-up", "roll"], ["workshop-rogue", "plant-up", "roll"],
+    ["crypt-skeleton", "plant-up", "roll"],
+  ]);
+  assert.throws(() => risingOptions(["--technique", "plant-up", "--target"]), /standalone techniques/);
+  assert.throws(() => risingOptions(["--after", "roll"]), /requires --technique/);
+  assert.throws(() => risingOptions(["--technique", "plant-up", "--models", "reptile"]), /models/);
+  const report = risingReport(jobs.map(job => ({ ...job, cap: 8, reached: false, stood: false, handback: null, status: "failed", phases: {} })));
+  assert.equal(report.mode, "standalone technique"); assert.equal(report.cap, 8);
+  assert.ok(report.groups.every(group => group.median === 8 && group.stood === 0 && group.reached === 0));
+});
+
+test("the experimental stand-up bed drives the skeleton and reports its actual capped outcome", async () => {
+  // This draw has geometric clearance, so the fixture exercises the controller after construction.
+  const row = await risingTrial({ id: 0, model: "crypt-skeleton", held: "empty", seed: 0, start: "placed", posture: "back", sub: "stand-up", balance: 0, cap: .1 });
+  assert.equal(row.stood, false); assert.equal(row.handback, null);
+  assert.ok(row.trail.some(entry => entry.controller.startsWith("stand up:")), JSON.stringify(row));
+  assert.deepEqual(row.assist, { forcePeak: 0, momentPeak: 0, forceImpulse: 0, momentImpulse: 0 });
+});
+
+test("a standalone Lab technique retains its terminal attempt until restart", async () => {
+  const spec = modelSpec("workshop-fighter"), at = address("placed", 4, "front");
+  const stand = await coreStand(spec, groundPlacement(spec, at));
+  const actor = labActor(stand.built, stand.world, { mind: LAB_PRESETS.script.config,
+    subs: [(own, view, world) => groundTechnique("plant-up", own, view, world)] });
+  const run = startGround(actor, at);
+  try {
+    stand.step(8 * 120);
+    const attempts = structuredClone(run.frame().attempts);
+    assert.equal(attempts.length, 1);
+    assert.notEqual(attempts[0].end, "cap");
+    assert.equal(run.frame().techniqueReached, attempts[0].end === "done");
+    run.shove(); stand.step(2 * 120);
+    assert.deepEqual(run.frame().attempts, attempts);
+  } finally { run.dispose(); stand.dispose(); }
 });

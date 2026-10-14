@@ -2,15 +2,14 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../body.ts";
 import { bodyEffectors } from "../control/effectors.ts";
 import { intoFrameToRef, pointAtToRef, reachWork, solveReach } from "../control/kinematics.ts";
-import type { EffectorGoal, MusclePush, Pose } from "../control/motor.ts";
+import type { MusclePush, Pose } from "../control/motor.ts";
 import { atan2, cos, hypot, sin } from "../math/real.ts";
 import { channelName } from "../muscle/driver.ts";
 import type { BodySpec, Side } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import { guardPosture } from "./guard.ts";
-import type { BlowSkill } from "./skill.ts";
-import { APPROACH, type StrikeReport } from "./strike.ts";
+import { type StrikeReport } from "./strike.ts";
 import { turnSense } from "./whole-body-strike.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetRef } from "./action.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
@@ -113,12 +112,6 @@ type Phase = "approach" | "settle" | "swing" | "return";
 const CROWDED = 0.05;
 
 /**
- * The least pace it walks toward a stand-off still ahead of it, m/s: closing the last few
- * centimetres over `APPROACH.seconds` crawls, and a foe that steps in meanwhile has its blow first.
- */
-const LEAST_PACE = 0.4;
-
-/**
  * The fastest its centre of mass may move across the ground, m/s, for a stance shifting its weight
  * for a step to count as set: a drive begun from a shift while the body still carries its walk
  * throws it over.
@@ -126,11 +119,6 @@ const LEAST_PACE = 0.4;
 const SHIFTING_PACE = 0.25;
 
 const HANDS: readonly Side[] = Object.freeze(["left", "right"]);
-const NO_HANDS = Object.freeze({ left: null, right: null }) as Readonly<Record<Side, EffectorGoal | null>>;
-const CLOSED: Readonly<Record<Side, Readonly<Record<Side, boolean>>>> = Object.freeze({
-  left: Object.freeze({ left: true, right: false }), right: Object.freeze({ left: false, right: true }),
-});
-
 /**
  * **The straight punch**: a hand's blow thrown with the arm lined up behind the fist, for a fist
  * that meets its target with the arm's mass behind it rather than an elbow giving way. Given an
@@ -282,76 +270,6 @@ function straightTechnique(body: Body, settings: StraightPunch) {
   };
   return { state, report, end, read, standOff, chamber, drive, sense,
     heightFits: (hand: Side, up: number) => Math.abs(up - state.shoulders[hand][1]) <= settings.reach * limbs[hand].arm };
-}
-
-/** The continuous straight-punch driver carries a target into its local stroke and return. */
-export function straightPunch(body: Body, settings: StraightPunch = STRAIGHT_PUNCH): BlowSkill {
-  const { state, report, end, read, standOff, chamber, drive, sense } = straightTechnique(body, settings);
-  return {
-    report, state, releases: false, lower: null,
-    get holds() { return state.hand; },
-    get busy() { return state.phase === "swing" || state.phase === "return"; },
-    accepts: () => true,
-    resume() { end(); },
-    command(view, attack, _intent, around, dt) {
-      const t = state.now = view.time;
-      state.still += dt;
-      read(view);
-      if (view.down) { if (state.hand) end(); return null; }
-      // An attack given up, or another hand's, before the drive drops it.
-      if ((state.phase === "approach" || state.phase === "settle") && attack?.hand !== state.hand) end();
-      if (state.phase === null) {
-        if (!attack) return null;
-        state.hand = attack.hand; state.phase = "approach"; state.stood = 0;
-      }
-      const hand = state.hand!;
-      if (attack && attack.hand === hand && state.phase !== "return") { state.target[0] = attack.target[0]; state.target[1] = attack.target[1]; state.target[2] = attack.target[2]; }
-      const pushes: MusclePush[] = [];
-      switch (state.phase) {
-        case "approach": case "settle": {
-          const [tx, , tz] = state.target, hx = view.head.x, hz = view.head.z, apart = hypot(tx - hx, tz - hz) || 1;
-          const face = atan2(tx - hx, tz - hz), off = apart - standOff(hand, state.target[1] - view.head.y);
-          if (off > settings.band || off < -CROWDED) {
-            // Walked toward the stand-off along the line to the target, the centre of mass leading; out
-            // from a foe come too near at its full pace, or a foe walking in pushes it about.
-            const heading = around.heading, ux = (tx - hx) / apart * off, uz = (tz - hz) / apart * off;
-            const s = sin(heading), c = cos(heading), forward = ux * s + uz * c, right = ux * c - uz * s;
-            const speed = hypot(forward, right) / APPROACH.seconds, scale = off < 0 || speed > settings.pace ? settings.pace / speed : speed < LEAST_PACE ? LEAST_PACE / speed : 1;
-            state.phase = "approach"; state.stood = 0; state.still = 0;
-            return { hands: NO_HANDS, posture: null, pushes, closed: CLOSED[hand], steer: 0,
-              legs: { kind: "walk", walk: [forward / APPROACH.seconds * scale, right / APPROACH.seconds * scale], face } };
-          }
-          state.phase = "settle";
-          const { phase, velocity } = view.stance;
-          if (phase === "stand" || (phase === "shift" && hypot(velocity.x, velocity.z) < SHIFTING_PACE)) state.stood += dt;
-          if (state.stood < settings.settle || settings.landed && phase === "swing") {
-            return { hands: NO_HANDS, posture: chamber(view, hand), pushes, closed: CLOSED[hand], steer: 0, legs: { kind: "walk", walk: null, face } };
-          }
-          state.phase = "swing"; state.began = t; state.touched = null; state.face = face; state.thrown[hand]++;
-          state.touching = (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0;
-          break;
-        }
-        case "swing": {
-          // A touch the hand had as the drive began is not its blow: one that begins under it is.
-          const touching = (view.effectors[`hand.${hand}`]?.feedback?.impulse ?? 0) > 0;
-          if (touching && !state.touching && state.touched === null) state.touched = t;
-          state.touching = touching;
-          if ((state.touched !== null && t - state.touched >= settings.follow) || t - state.began >= settings.longest) { state.phase = "return"; state.ended = t; }
-          break;
-        }
-        case "return":
-          if (t - state.ended >= settings.recover) { end(); return null; }
-          break;
-        case null: return null;
-        default: { const never: never = state.phase; throw new Error(`no phase ${JSON.stringify(never)}`); }
-      }
-      if (state.phase === "return") {
-        return { hands: NO_HANDS, posture: null, pushes, closed: CLOSED[hand], steer: 0, legs: { kind: "walk", walk: null, face: state.face } };
-      }
-      const posture = drive(view, hand, t - state.began, pushes);
-      return { hands: NO_HANDS, posture, pushes, closed: CLOSED[hand], steer: sense[hand] * settings.hips, legs: { kind: "walk", walk: null, face: state.face } };
-    },
-  };
 }
 
 /** A stopped approach must establish its local stroke within this many seconds. */

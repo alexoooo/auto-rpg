@@ -3,6 +3,7 @@
  * a body reaches it through the actor, whatever mode drives it.
  */
 import test from "node:test";
+import { rangeOf } from "../src/core/skills/strike.ts";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { centreOfToRef } from "../src/core/control/support.ts";
@@ -69,13 +70,13 @@ test("a_lab_body_stands_under_the_stance_tuning_its_actor_is_given", async () =>
 });
 
 /** How far ahead of the head each hand strikes at a target as high as the head, as a strike skill's report has it. */
-const reachesOf = (strike) => ({ left: strike.rangeAt("left", 0).reach, right: strike.rangeAt("right", 0).reach });
+const reachesOf = (spec, repertoire) => ({ left: rangeOf(spec, "left", 0, repertoire).reach, right: rangeOf(spec, "right", 0, repertoire).reach });
 
 /** Which hands of `loadout`'s body may strike, and the reach the skills report for each, its actor given `options`. */
 async function strikes(loadout, options) {
   const stand = await coreStand(loadoutSpec(loadout), { ground: true });
   const actor = labActor(stand.built, stand.world, options);
-  try { return { may: { ...actor.strikes }, reach: reachesOf(actor.drive({ name: "stand", decide: () => standIntent(0) }).report.strike) }; }
+  try { return { may: { ...actor.strikes }, reach: reachesOf(stand.built.spec) }; }
   finally { actor.dispose(); stand.dispose(); }
 }
 
@@ -106,7 +107,7 @@ test("a_hand_with_no_recipe_reaches_as_far_as_its_placed_blow", async () => {
   const stand = await coreStand(loadoutSpec({ model: stored.model, right: "club", left: "empty" }), { ground: true });
   const blow = throwBlow(labActor(stand.built, stand.world), { hand: stored.hand, strike: stored.strike, place: { ahead: distance, up: 0 }, band: stored.band });
   try {
-    const { left, right } = reachesOf(blow.report.strike);
+    const { left, right } = reachesOf(stand.built.spec, [{ model: stored.model, held: stored.held, band: stored.band, strike: stored.strike, place: { ahead: distance, up: 0 }, window: { along: [-.01, .01], across: [-.01, .01], up: [-.01, .01] }, net: 0 }]);
     assert.equal(right, distance);
     // A placed blow is thrown with the arm out, from farther off than the Warrior's straight
     // (`tests/fixtures/strikes.mjs`); and from nearer than the club's.
@@ -124,8 +125,8 @@ test("with_every_strike_barred_the_routine_walks_to_its_targets_and_back", async
       stand.step(1);
       if (routine.tactics.leg !== legs.at(-1)) legs.push(routine.tactics.leg);
     }
-    assert.deepEqual({ fallen: routine.body.view.down, loops: routine.tactics.loops, readings: routine.readings.length, up: routine.ball(), thrown: routine.report.strike.thrown, legs },
-      { fallen: false, loops: 1, readings: 0, up: null, thrown: { left: 0, right: 0 }, legs: ["out", "back", "out"] });
+    assert.deepEqual({ fallen: routine.body.view.down, loops: routine.tactics.loops, readings: routine.readings.length, up: routine.ball(), ledger: routine.report.ledger, legs },
+      { fallen: false, loops: 1, readings: 0, up: null, ledger: [], legs: ["out", "back", "out"] });
   } finally { routine.dispose(); stand.dispose(); }
 });
 
@@ -135,7 +136,7 @@ test("the_lab_presets_offer_game_fighters_scripted_tactics_and_a_standing_guard"
   const script = { name: "a script", decide: () => { throw new Error("the script decided"); } };
   const tactics = (config, given) => tacticsOf(config.tactics, null, "lab", null, () => null, given);
   assert.equal(tactics(LAB_PRESETS.script.config, script), script);
-  assert.throws(() => tactics(LAB_PRESETS.script.config, undefined), /need the screen's script/);
+  assert.throws(() => tactics(LAB_PRESETS.script.config, undefined), /require a supplied script/);
   assert.deepEqual(tactics(LAB_PRESETS.guard.config, script).decide({ report: { heading: 1.25 } }, 1 / 120), standIntent(1.25));
 });
 
@@ -144,8 +145,9 @@ test("a_lab_body_plays_the_mind_it_is_given_or_the_script_preset_where_that_has_
   assert.deepEqual(labMind(guard, spec), { plays: guard, faults: [] });
   // A mind of another kind, and a fighter whose parts disagree, play the Script preset whole.
   assert.deepEqual(labMind({ kind: "lie" }, spec), { plays: LAB_PRESETS.script.config, faults: ["the Lab drives a fighter"] });
-  assert.deepEqual(labMind({ ...guard, kick: { kind: "front-kick" } }, spec),
-    { plays: LAB_PRESETS.script.config, faults: ["kick: these tactics never kick"] });
+  const invalid = labMind({ ...guard, actions: [{ name: "unknown", executor: "missing", effectors: ["foot.right"], regions: [], aim: { kind: "centre" } }] }, spec);
+  assert.deepEqual(invalid.plays, LAB_PRESETS.script.config);
+  assert.ok(invalid.faults.some(fault => fault.includes("missing")));
 });
 
 test("under_the_guard_a_mode_stands_still_while_its_instruments_run", async () => {
@@ -172,18 +174,18 @@ test("under_the_guard_a_mode_stands_still_while_its_instruments_run", async () =
     const watch = watchBlow(actor, blow, RULES);
     try {
       const phases = new Set();
-      for (let i = 0; i < armed.seconds(seconds); i++) { armed.step(1); phases.add(blow.report.strike.phase); }
+      for (let i = 0; i < armed.seconds(seconds); i++) { armed.step(1); phases.add(blow.report.actions[0]?.phase ?? null); }
       assert.ok(Math.abs(blow.time - seconds) < armed.world.dt, `the blow's clock reads ${blow.time} s after ${seconds}`);
       // Its target hangs where the blow would land, and nothing comes near it.
-      assert.deepEqual({ phases: [...phases], thrown: blow.report.strike.thrown, reading: watch.reading, fallen: blow.body.view.down },
-        { phases: [null], thrown: { left: 0, right: 0 }, reading: { done: 0, cost: 0, nearest: null, hung: true, blows: [] }, fallen: false });
+      assert.deepEqual({ phases: [...phases], ledger: blow.report.ledger, reading: watch.reading, fallen: blow.body.view.down },
+        { phases: [null], ledger: [], reading: { done: 0, cost: 0, nearest: null, hung: true, blows: [] }, fallen: false });
     } finally { watch.dispose(); blow.dispose(); armed.dispose(); }
   }
 });
 
 test("while_a_lab_blow_is_under_way_the_skills_its_actor_reports_give_the_hand_to_the_blow", async () => {
   // What a mind's inspector reads (`mindInspector`): the hand under the blow is the blow's, before and after it the guard's.
-  const stored = LAB_BLOWS[0], seconds = STAND + stored.strike.chamber.seconds + 0.5;
+  const stored = LAB_BLOWS[0], seconds = STAND + stored.strike.chamber.seconds + 6;
   const armed = await coreStand(loadoutSpec({ model: stored.model, right: "club", left: "empty" }), { ground: true });
   const actor = labActor(armed.built, armed.world);
   assert.equal(actor.skills, null, "nothing is reported before a mode drives it");
@@ -192,10 +194,11 @@ test("while_a_lab_blow_is_under_way_the_skills_its_actor_reports_give_the_hand_t
     const seen = new Set();
     for (let i = 0; i < armed.seconds(seconds); i++) {
       armed.step(1);
-      const { strike, holders } = actor.skills.report;
-      seen.add(`${strike.phase ? "blow" : "none"} ${holders[stored.hand]} ${holders.left}`);
+      const { actions, holders } = actor.skills.report;
+      const active = actions.find(action => action.effector === `hand.${stored.hand}`);
+      seen.add(`${active ? "action" : "none"} ${typeof holders[`effector:hand.${stored.hand}`]} ${holders["effector:hand.left"]}`);
     }
-    assert.deepEqual([...seen].sort(), ["blow blow guard", "none guard guard"]);
+    assert.deepEqual([...seen].sort(), ["action number default", "none string default"]);
   } finally { blow.dispose(); armed.dispose(); }
 });
 

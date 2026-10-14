@@ -2,9 +2,12 @@
 import { Worker } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { pathToFileURL } from "node:url";
-import { writeFile } from "node:fs/promises";
+import { writeFile, appendFile } from "node:fs/promises";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { groundPostures } from "../src/lab/ground-starts.ts";
+import { TECHNIQUES } from "../src/core/mind/ground/techniques.ts";
+import { risingImplementation } from "./rising-provenance.mjs";
+import { risingMind } from "./rising-config.mjs";
 
 const median = values => { const sorted = [...values].sort((a, b) => a - b), mid = sorted.length >> 1; return sorted.length ? (sorted[mid] + sorted[(sorted.length - 1) >> 1]) / 2 : null; };
 const list = (text, allowed, name) => {
@@ -16,7 +19,7 @@ const list = (text, allowed, name) => {
 /** Parse only explicit supported controls; the target's physical protocol cannot be overridden. */
 export function risingOptions(args) {
   const options = { starts: ["shoved", "dropped"], models: [...HUMANOID_MODELS], held: ["empty", "club"], seeds: [1, 2, 3, 4, 5, 6],
-    sub: "support-recovery", balance: 0, gusts: false, target: false, workers: Math.max(1, availableParallelism() - 2), out: null };
+    sub: "support-recovery", techniques: null, technique: null, after: null, balance: 0, gusts: false, target: false, workers: Math.max(1, availableParallelism() - 2), out: null };
   const specified = new Set();
   for (let i = 0; i < args.length; i++) {
     const key = args[i]; specified.add(key);
@@ -33,7 +36,11 @@ export function risingOptions(args) {
         if (!options.seeds.length || options.seeds.some(seed => !Number.isSafeInteger(seed) || seed < 0) || new Set(options.seeds).size !== options.seeds.length) throw new Error(`invalid seeds: ${value}`);
         break;
       }
-      case "--sub": if (value !== "support-recovery") throw new Error(`unsupported sub-mind: ${value}`); options.sub = value; break;
+      case "--sub": if (!["support-recovery", "stand-up"].includes(value)) throw new Error(`unsupported sub-mind: ${value}`); options.sub = value; break;
+      case "--technique": case "--after":
+        if (!Object.hasOwn(TECHNIQUES, value)) throw new Error(`unknown technique: ${value}`);
+        options[key.slice(2)] = value; break;
+      case "--techniques": options.techniques = list(value, Object.keys(TECHNIQUES), "techniques"); break;
       case "--balance": options.balance = Number(value); if (!Number.isFinite(options.balance) || options.balance < 0) throw new Error(`invalid balance: ${value}`); break;
       case "--workers": options.workers = Number(value); if (!Number.isSafeInteger(options.workers) || options.workers < 1) throw new Error(`invalid workers: ${value}`); break;
       case "--out": options.out = value; break;
@@ -42,6 +49,14 @@ export function risingOptions(args) {
   }
   if (options.target && (["--starts", "--models", "--held", "--seeds", "--gusts"].some(key => specified.has(key)) || options.balance !== 0))
     throw new Error("--target fixes models, loadouts, directions, calm air and Balance 0");
+  if (options.after && !options.technique) throw new Error("--after requires --technique");
+  if (options.techniques) {
+    if (options.technique || specified.has("--sub") && options.sub !== "stand-up") throw new Error("--techniques configures the stand-up sub-mind");
+    options.sub = "stand-up";
+  }
+  if (options.technique && (options.target || options.balance !== 0 || options.gusts)) throw new Error("standalone techniques use calm Balance 0 eight-second trials, separately from --target");
+  if (options.technique && !specified.has("--models")) options.models = options.models.filter(model => TECHNIQUES[options.technique].fits(modelSpec(model)));
+  if (options.technique && options.models.some(model => !TECHNIQUES[options.technique].fits(modelSpec(model)))) throw new Error("technique does not fit every selected model");
   return options;
 }
 
@@ -50,9 +65,12 @@ export function risingJobs(options) {
   const jobs = [];
   if (options.target) {
     for (const model of ["workshop-fighter", "workshop-rogue"]) for (const held of ["empty", "club"]) for (let direction = 0; direction < 16; direction++)
-      jobs.push({ model, held, seed: 1, start: "shoved", degrees: direction * 22.5, balance: 0, gusts: false, target: true, sub: options.sub });
+      jobs.push({ model, held, seed: 1, start: "shoved", degrees: direction * 22.5, balance: 0, grit: 0, gusts: false, target: true, sub: options.sub,
+        ...(options.techniques ? { techniques: options.techniques } : {}) });
   } else for (const model of options.models) for (const held of options.held) for (const seed of options.seeds) for (const start of options.starts) {
-    const common = { model, held, seed, start, balance: options.balance, gusts: options.gusts, target: false, sub: options.sub };
+    const common = { model, held, seed, start, balance: options.balance, grit: 0, gusts: options.gusts, target: false, sub: options.sub,
+      ...(options.techniques ? { techniques: options.techniques } : {}),
+      ...(options.technique ? { technique: options.technique, after: options.after } : {}) };
     if (start === "shoved") for (let direction = 0; direction < 8; direction++) jobs.push({ ...common, degrees: direction * 45 });
     else if (start === "placed") for (const posture of groundPostures(modelSpec(model))) jobs.push({ ...common, posture });
     else jobs.push(common);
@@ -71,31 +89,47 @@ export function risingReport(rows, target = false) {
   const time = row => row.stood ? (target ? row.verified : row.handback) : null;
   const successful = (row, within = Infinity) => time(row) !== null && time(row) <= within;
   const groups = [...grouped].map(([key, cases]) => ({ key, all: cases.length, stood: cases.filter(row => successful(row)).length,
+    reached: cases.filter(row => row.reached).length,
     within6: cases.filter(row => successful(row, 6)).length, within12: cases.filter(row => successful(row, 12)).length,
-    median: median(cases.map(row => time(row) ?? 30)), rejected: cases.filter(row => row.status === "rejected start").length,
+    median: median(cases.map(row => time(row) ?? row.cap ?? 30)), rejected: cases.filter(row => row.status === "rejected start").length,
+    noTakeover: cases.filter(row => row.start === "shoved" && row.takeover === null).length,
     landedStanding: cases.filter(row => row.status === "landed standing").length,
     phaseSeconds: Object.fromEntries([...new Set(cases.flatMap(row => Object.keys(row.phases)))].map(phase => [phase,
       cases.reduce((sum, row) => sum + (row.phases[phase] ?? 0), 0) / cases.length])) }));
+  const attempts = new Map();
+  for (const row of rows) for (const attempt of row.attempts ?? []) {
+    const name = attempt.technique ?? attempt.controller;
+    if (name !== "flatten" && !Object.hasOwn(TECHNIQUES, name)) continue;
+    const key = `${name}/${attempt.side ?? "unspecified"}`, stats = attempts.get(key) ?? { technique: name, side: attempt.side ?? null, begun: 0, done: 0, seconds: 0 };
+    stats.begun++; stats.done += Number(attempt.end === "done"); stats.seconds += attempt.seconds; attempts.set(key, stats);
+  }
   let gates = null;
   if (target) {
     const expected = risingJobs({ target: true, sub: "support-recovery" }).map(row => `${row.model}/${row.held}/${row.degrees}`).sort();
     const actual = rows.map(row => `${row.model}/${row.held}/${row.degrees}`).sort();
     const complete = JSON.stringify(actual) === JSON.stringify(expected);
-    gates = { completeUniqueDirections: complete, balanceZero: rows.every(row => row.balance === 0),
+    gates = { completeUniqueDirections: complete, balanceZero: rows.every(row => row.balance === 0), gritZero: rows.every(row => row.grit === 0),
       eachGroup15of16: complete && groups.every(group => group.within6 >= 15),
       total61of64: complete && rows.filter(row => successful(row, 6)).length >= 61,
       allCardinals: complete && rows.filter(row => row.degrees % 90 === 0).every(row => successful(row, 6)),
       median4: complete && median(rows.map(row => time(row) ?? 30)) <= 4 };
   }
-  return { harness: "Node stand, core World, Rapier, 120 Hz", mode: target ? "owner target" : "everyday bed", cap: 30,
-    groups, gates, claims: { beatsSupportRecovery: "requires comparison with the saved reference on identical cases",
+  const standalone = rows.length > 0 && rows.every(row => row.technique);
+  return { harness: "Node stand, core World, Rapier, 120 Hz", mode: target ? "owner target" : standalone ? "standalone technique" : "everyday bed", cap: standalone ? 8 : 30,
+    groups, gates, techniques: [...attempts.values()].map(({ seconds, ...stats }) => ({ ...stats, meanSeconds: seconds / stats.begun })),
+    claims: { beatsSupportRecovery: "requires comparison with the saved reference on identical cases",
       meetsOwnerTarget: gates === null ? "not evaluated by the everyday bed" : Object.values(gates).every(Boolean),
-      assist: { balances: [...new Set(rows.map(row => row.balance))], forceImpulse: rows.reduce((sum, row) => sum + (row.assist?.forceImpulse ?? 0), 0),
+      assist: { balances: [...new Set(rows.map(row => row.balance))], grits: [...new Set(rows.map(row => row.grit))], forceImpulse: rows.reduce((sum, row) => sum + (row.assist?.forceImpulse ?? 0), 0),
         momentImpulse: rows.reduce((sum, row) => sum + (row.assist?.momentImpulse ?? 0), 0) } }, rows };
 }
 
 async function run(options) {
   const jobs = risingJobs(options), rows = [], workers = [], queue = [...jobs];
+  const provenance = { options, mind: risingMind(options.sub, options.techniques ?? undefined), implementation: await risingImplementation(["research/rising-bed.mjs", "research/rising-worker.mjs"]) };
+  if (options.out) {
+    await writeFile(`${options.out}.meta.json`, JSON.stringify(provenance));
+    await writeFile(`${options.out}.jsonl`, "");
+  }
   try {
     await Promise.all(Array.from({ length: Math.min(options.workers, jobs.length) }, async () => {
       const worker = new Worker(new URL("./rising-worker.mjs", import.meta.url)); workers.push(worker);
@@ -108,12 +142,14 @@ async function run(options) {
           const clean = () => { worker.off("message", message); worker.off("error", failure); worker.off("exit", ended); };
           worker.once("message", message); worker.once("error", failure); worker.once("exit", ended); worker.postMessage(job);
         });
-        rows.push(row); process.stderr.write(`${rows.length}/${jobs.length} ${job.model} ${job.held} ${job.start} ${row.status}\n`);
+        rows.push(row);
+        if (options.out) await appendFile(`${options.out}.jsonl`, JSON.stringify(row) + "\n");
+        process.stderr.write(`${rows.length}/${jobs.length} ${job.model} ${job.held} ${job.start} ${row.status}\n`);
       }
     }));
   } finally { await Promise.all(workers.map(worker => worker.terminate())); }
   rows.sort((a, b) => a.id - b.id);
-  const report = risingReport(rows, options.target), json = JSON.stringify(report, null, 2) + "\n";
+  const report = { ...risingReport(rows, options.target), provenance }, json = JSON.stringify(report, null, 2) + "\n";
   if (options.out) await writeFile(options.out, json);
   process.stdout.write(json);
 }

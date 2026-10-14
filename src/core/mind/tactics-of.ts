@@ -1,82 +1,40 @@
 import { commandable } from "../body.ts";
-import { behaviourOf, behavioursTactics } from "./behaviours.ts";
-import { standIntent } from "./intent.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
-import { BEHAVIOURS, OPENINGS, SEEK, type BehavioursConfig, type OpeningsConfig, type SeekConfig, type TacticsConfig } from "./config.ts";
-import { choice, number, type PartField } from "./fields.ts";
-import { validOpeningTuning } from "./openings.ts";
-import { STRAFE } from "./ordered.ts";
+import { actionTactics, type ActionEstimates } from "./action-tactics.ts";
+import { behaviourFaults } from "./behaviours.ts";
+import { FIGHTING, type ActionConfig, type BehavioursConfig, type TacticsConfig } from "./config.ts";
+import { standIntent } from "./intent.ts";
 import type { Orders } from "./orders.ts";
 import { slotList, type Part } from "./parts.ts";
-import { openingsOf, pathTactics } from "./path-tactics.ts";
-import { validRangeLearning } from "./range-learning.ts";
-import { recipeTactics, seekFoe } from "./recipe-tactics.ts";
-import type { Abilities, Sight, Tactics } from "./tactics.ts";
+import type { Sight, Tactics } from "./tactics.ts";
 
-/** The seeking tactics' settings: how a hand that does not attack guards, what it aims at and how near it comes. */
-const SEEK_FIELDS: readonly PartField<SeekConfig>[] = Object.freeze([
-  choice<SeekConfig, "guard">("guard", "Guard", [["pose", "Hold the pose"], ["cover", "Cover the threat"]]),
-  choice<SeekConfig, "aim">("aim", "Aim", [["head", "The head"], ["body", "The body"], ["pays", "What pays"]]),
-  choice<SeekConfig, "range">("range", "Range", [["close", "Walk in"], ["edge", "Hold at the edge"]]),
-]);
-
-/**
- * The opening tactics' settings. The spacing's bounds are a numeric setting, the most a panel
- * offers: what a fighter can do with them is `validRangeLearning`'s.
- */
-const OPENINGS_FIELDS: readonly PartField<OpeningsConfig>[] = Object.freeze([
-  choice<OpeningsConfig, "hands">("hands", "Hands", [["alternate", "Both in turn"], ["right", "Right"], ["left", "Left"]]),
-  choice<OpeningsConfig, "strikes">("strikes", "Blows", [["linear", "Straight"], ["mixed", "Straight and hooks"], ["vertical", "With overhands"], ["boxing", "With uppercuts"]]),
-  choice<OpeningsConfig, "prefers">("prefers", "Target", [["head", "The head"], ["body", "The body"]]),
-  choice<OpeningsConfig, "defence">("defence", "Defence", [["cover", "Cover"], ["predictive", "Predictive cover"]]),
-  choice<OpeningsConfig, "combinations">("combinations", "Combinations", [["none", "None"], ["follow-up", "Follow-up"], ["overlap", "Overlap"]]),
-  number<OpeningsConfig, "spacing">("spacing", "Spacing", 0, 1, .05, "m"),
-  number<OpeningsConfig, "spacingStep">("spacingStep", "Spacing learnt", 0, .2, .01, "m"),
-]);
-
-/** What is wrong with seeking tactics of `config`, each a sentence. */
-function seekFaults(config: SeekConfig): readonly string[] {
-  const edge = config.tuning?.edge;
-  return edge && ![edge.band, edge.patience, edge.clinch].every((x) => Number.isFinite(x) && x >= 0)
-    ? ["the edge needs a finite nonnegative band, patience and clinch"] : [];
-}
-
-/** What is wrong with opening tactics of `config`, each a sentence. */
-function openingsFaults(config: OpeningsConfig): readonly string[] {
-  const faults: string[] = [];
-  if (config.combinations !== "none" && config.hands !== "alternate") faults.push("combat combinations require alternate hands");
-  if (!validRangeLearning(config.spacing, config.spacingStep)) faults.push("invalid combat range learning settings");
-  if (!validOpeningTuning(openingsOf(config) ?? {})) faults.push("opening preferences must be finite and headLateral must be in [0,1]");
+/** The tactics' bounded decisions and condition numbers must be finite before execution. */
+function tacticsFaults(config: BehavioursConfig): readonly string[] {
+  const faults = config.list.flatMap(behaviourFaults);
+  if (!Number.isFinite(config.choose.rethink) || config.choose.rethink < 0 || !Number.isFinite(config.choose.patience) || config.choose.patience <= 0)
+    faults.push("selection needs finite nonnegative rethink and positive patience");
+  if (config.choose.kind === "rules") for (const rule of config.choose.rules) {
+    if (rule.when.kind === "when-distance" && (!Number.isFinite(rule.when.metres) || rule.when.metres < 0)) faults.push("rule distance must be finite and nonnegative");
+    if (rule.when.kind === "follow-up" && (!Number.isFinite(rule.when.seconds) || rule.when.seconds < 0)) faults.push("follow-up duration must be finite and nonnegative");
+  }
   return faults;
 }
 
-/** **Every kind of tactics** (`Part`): what a fighter's `tactics` slot may hold. */
+/** The tactics registry exposes one shared behaviour engine, scripts and standing guard. */
 export const TACTICS_PARTS: { readonly [K in TacticsConfig["kind"]]: Part<Extract<TacticsConfig, { kind: K }>> } = deepFreeze({
-  seek: { role: "tactics", label: "Seek the foe", stage: "game", fields: SEEK_FIELDS, slots: [], defaults: SEEK, tuning: ["threat", "edge"], fits: commandable, faults: seekFaults },
-  openings: { role: "tactics", label: "Choose openings", stage: "experimental", fields: OPENINGS_FIELDS, slots: [], defaults: OPENINGS, tuning: ["openings"], fits: commandable, faults: openingsFaults },
-  script: { role: "tactics", label: "Follow the script", stage: "game", fields: [], slots: [], defaults: { kind: "script" }, needs: "script", fits: commandable, faults: () => [] },
+  script: { role: "tactics", label: "Follow script", stage: "game", fields: [], slots: [], defaults: { kind: "script" }, needs: "script", fits: commandable, faults: () => [] },
   stand: { role: "tactics", label: "Stand in guard", stage: "game", fields: [], slots: [], defaults: { kind: "stand" }, fits: commandable, faults: () => [] },
-  behaviours: { role: "tactics", label: "Behaviours", stage: "game", fields: [], slots: [slotList("list", "Behaviours", "behaviour")], defaults: BEHAVIOURS.tactics as BehavioursConfig,
-    fits: commandable, faults: () => [] },
+  behaviours: { role: "tactics", label: "Behaviours", stage: "game", fields: [], slots: [slotList("list", "Behaviours", "behaviour")], defaults: FIGHTING, fits: commandable, faults: tacticsFaults },
 });
 
-/**
- * **The tactics `config` names**, for a body of `spec`, planning by what its skills can do
- * (`abilities`) and carrying out `orders` when it has them. Seeking tactics left to themselves
- * seek the foe (`seekFoe`); scripted tactics are the screen's `script`, as written; behaviours
- * are each made for the body (`behaviourOf`).
- */
-export function tacticsOf(config: TacticsConfig, spec: BodySpec, name: string, abilities: Abilities, orders: (sight: Sight) => Orders | null,
-  script?: Tactics): Tactics {
+/** Compile the shared decisions over this body's named actions, or carry out a supplied script. */
+export function tacticsOf(config: TacticsConfig, spec: BodySpec, _name: string, actions: readonly ActionConfig[], orders: (sight: Sight) => Orders | null,
+  script?: Tactics, estimates: ActionEstimates = {}): Tactics {
   switch (config.kind) {
-    case "seek": return recipeTactics(name, (sight) => orders(sight) ?? seekFoe(sight, config.aim, config.range, config.tuning?.edge), STRAFE, config.guard, config.tuning?.threat);
-    case "openings": return pathTactics(spec, name, config, abilities, orders);
-    case "script":
-      if (!script) throw new Error("tactics of kind \"script\" need the screen's script");
-      return script;
+    case "behaviours": return actionTactics(spec, actions, config, orders, estimates);
     case "stand": return { name: "guard", decide: ({ report }) => standIntent(report.heading) };
-    case "behaviours": return behavioursTactics(name, config.list.map((behaviour) => behaviourOf(behaviour, spec, name, abilities, orders)));
-    default: { const never: never = config; throw new Error(`no tactics of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
+    case "script": if (!script) throw new Error("script tactics require a supplied script"); return script;
+    default: { const never: never = config; throw new Error(`unknown tactics ${JSON.stringify(never)}`); }
   }
 }

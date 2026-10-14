@@ -64,7 +64,7 @@ async function fall(model, shove) {
   world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
   const built = buildBody(spec, world, { position: [0, 0, 0] });
   const assist = balanceCeiling(built.spec.attributes.balance.value, balancePercent(rules));
-  const { body } = createMind(built, world, RECIPE_FIGHTER, { name: "probe", assist, orders: () => ({ move: null, face: null, attack: null }) });
+  const { body } = createMind(built, world, RECIPE_FIGHTER, { name: "probe", assist, orders: () => ({ move: null, face: null, actions: [] }) });
   const segments = [...built.segments.values()], root = body.muscles.dynamics.root.segment, at = new Vector3(), v = new Vector3();
   const weight = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0) * -built.physics.gravity[1];
   const push = shove && new Vector3(shove[1], 0, shove[2]).scaleInPlace(weight * world.dt);

@@ -3,12 +3,7 @@ import type { Pose, MusclePush, EffectorGoal } from "../control/motor.ts";
 import type { Side, HandPose } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { Around, LegsAsk, Skill } from "./skill.ts";
-import type { Intent } from "../mind/intent.ts";
 
-/** Continuous movement and cover accompany the full list of requested commitments. */
-export interface ActionIntent extends Omit<Intent, "attack"> {
-  readonly actions: readonly ActionRequest[];
-}
 
 /** A sensed body's region, or a particular segment of that body. */
 export type Region = { readonly kind: "mark"; readonly mark: "high" | "middle" | "legs" | "any" }

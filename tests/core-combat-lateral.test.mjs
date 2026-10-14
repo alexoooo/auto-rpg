@@ -42,17 +42,17 @@ test('both real guard hands can select a lateral collider surface while zero pre
 });
 
 test('lateral Arena selection carries through the shared physical strike and fresh-world replay',async()=>{
- const candidate=withParts(SCRAPPER,{tactics:{spacing:.1,tuning:{openings:{head:-.6,upperTrunk:0,middleTrunk:0,headLateral:.5}}},blow:{tuning:{paths:{elbowExtension:1}}}});
+ const candidate={...SCRAPPER,actions:SCRAPPER.actions.filter(action=>action.family!=='downward').map(action=>({...action,regions:[{kind:'segment',segment:'head'}],aim:{kind:'surface',tuning:{head:-.6,upperTrunk:0,middleTrunk:0,headLateral:.5}}})),executors:SCRAPPER.executors.map(executor=>({...executor,tuning:{paths:{elbowExtension:1}}}))};
  const r={...recipe,minds:{left:candidate,right:COMBAT},gap:2};
  const a=await buildBout(r,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(r,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
   const d=a.duel.duelists.left,skills=d.minded.skills;
-  while(a.duel.clock<20&&!(skills.report.strike.phase==='swing'&&skills.state.tactics.surface==='head'))a.world.step();
-  assert.equal(skills.report.strike.phase,'swing');assert.equal(skills.state.tactics.surface,'head');assert.ok(skills.state.blow.hands[skills.state.blow.hand]?.action);
+  while(a.duel.clock<20&&!(skills.report.actions.some(action=>action.phase==='commit'&&action.target.region.segment==='head')))a.world.step();
+  assert.ok(skills.report.actions.some(action=>action.phase==='commit'&&action.target.region.segment==='head'));
   b.duel.load(a.duel.save());const trace=s=>traceOf(Object.values(s.duel.duelists).map(d=>d.built)),ta=trace(a),tb=trace(b);
   for(let i=0;i<240;i++){a.world.step();b.world.step();ta.take();tb.take();}
   assert.deepEqual(a.duel.save().state,b.duel.save().state);assert.equal(ta.digest(),tb.digest());
-  assert.ok(skills.report.strike.thrown.left+skills.report.strike.thrown.right>=1);
+  assert.ok(skills.report.ledger.some(record=>record.committed)||skills.report.actions.some(action=>action.phase==='commit'));
   assert.equal(d.body.down,false);
  }finally{a.dispose();b.dispose();}
 });

@@ -9,7 +9,8 @@ import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
 import { BEHAVIOURS, CLASSIC, PUNCHER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type DirectMindConfig, type MindConfig } from "./config.ts";
 import { createDirectBody, directFaults } from "./direct.ts";
-import { createFighter, drivesLegs, fighterFaults } from "./fighter.ts";
+import { createFighter, fighterFaults } from "./fighter.ts";
+import { actionConfigFaults } from "./action-config.ts";
 import type { Minded, MindWiring } from "./minds.ts";
 import { slotList, slotOne, type Part, type Slot } from "./parts.ts";
 
@@ -41,15 +42,9 @@ const REFERENCE: Pose = Object.freeze({});
  */
 const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
   slotOne("tactics", "Tactics", "tactics"), slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"),
-  slotOne("blow", "Blow", "blow", true), slotOne("kick", "Kick", "kick", true), slotOne("support", "Low support", "support", true),
+  slotList("executors", "Executors", "executor"), slotOne("support", "Low support", "support", true),
   slotList("subs", "When down", "sub-mind"),
 ]);
-
-/** A fighter's slots under behaviours, which carry its blow and its kick themselves (`StrikeConfig`, `KickConfig`). */
-const BEHAVING_SLOTS: readonly Slot[] = Object.freeze(FIGHTER_SLOTS.filter((slot) => !["blow", "kick", "support"].includes(slot.key)));
-
-/** A fighter's slots beside a walk that drives its legs (`drivesLegs`), which leaves no stance for low support. */
-const DRIVING_SLOTS: readonly Slot[] = Object.freeze(FIGHTER_SLOTS.filter((slot) => slot.key !== "support"));
 
 /**
  * **Every controller, by its mind's kind**: the one place a kind is made, matched to a body and
@@ -58,8 +53,7 @@ const DRIVING_SLOTS: readonly Slot[] = Object.freeze(FIGHTER_SLOTS.filter((slot)
 export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extract<MindConfig, { kind: K }>> } = Object.freeze({
   fighter: {
     role: "mind", label: "Fighter", stage: "game", fields: [], slots: FIGHTER_SLOTS, defaults: RECIPE_FIGHTER,
-    slotsFor: (config) => config.tactics?.kind === "behaviours" ? BEHAVING_SLOTS : config.locomotion && drivesLegs(config.locomotion) ? DRIVING_SLOTS : FIGHTER_SLOTS,
-    fits: commandable,
+    fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0,
     faults: fighterFaults,
     presets: deepFreeze({
       classic: { label: "Classic fighter", config: CLASSIC },

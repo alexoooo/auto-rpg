@@ -7,7 +7,12 @@ import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import {footStatesOf,readSupport} from '../src/core/control/support.ts';
 import { NO_COVER } from '../src/core/mind/intent.ts';
-import { combatSkills } from '../src/core/skills/combat.ts';
+import { pathExecutor } from '../src/core/skills/combat.ts';
+import { skillSet } from '../src/core/skills/arbiter.ts';
+import { locomotion } from '../src/core/skills/locomotion.ts';
+import { guardSkill } from '../src/core/skills/guard.ts';
+import { supportFold } from '../src/core/skills/support-fold.ts';
+import { actionCycles } from './action-cycles.mjs';
 import { ATTACK_PATH } from '../src/core/skills/attack-path.ts';
 import { STANCE_LOWER } from '../src/core/skills/locomotion.ts';
 import { motionAtToRef } from '../src/core/control/support.ts';
@@ -21,7 +26,9 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
  const s = await coreStand(modelSpec('workshop-fighter'), { engine: DEFAULT_ENGINE });
  const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true });
  const sharedSupport = support?.shared === true;
- const skills = combatSkills(body, {}, {paths: {...ATTACK_PATH, ...tuning}, ground: sharedSupport}), target = [across*(hand==='right'?1:-1), 1.63+up, ahead];
+ const actions = [{name:'strike',executor:'paths',effectors:[`hand.${hand}`],family,armExtension,...(sharedSupport?{lower:support.lower}:{})}];
+ const skills = skillSet(body, {}, {legs:locomotion(body.envelope),guard:guardSkill(body.built.spec),support:sharedSupport?supportFold(body):null,
+  executors:[{name:'paths',executor:pathExecutor(body,actions,{paths:{...ATTACK_PATH,...tuning}})}],actions}), cycles=actionCycles(skills), target = [across*(hand==='right'?1:-1), 1.63+up, ahead];
  if(!['front','top','bottom'].includes(surface))throw new Error('unknown stand surface');
  const obstacle = mode==='hit' ? surface!=='front' ? s.world.physics.addFixedBox([target[0],target[1]+(surface==='bottom'?.04:-.04),target[2]],[.2,.08,.2])
   : s.world.physics.addFixedBox([target[0],target[1],target[2]+.04], [.2,.2,.08]) : null;
@@ -34,7 +41,7 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
   velocity.subtractInPlace(body.view.stance.velocity);
   const memory = body.state.mind.host.motor.effectors[`hand.${hand}`];
   intoFrameToRef(body.view.root,point.asArray(),local);
-  witness = {phase:skills.report.strike.phase, closing:support&&!sharedSupport?Vector3.Dot(velocity,new Vector3(...target).subtract(point).normalize()):surface==='top'?-velocity.y:surface==='bottom'?velocity.y:velocity.z, speed:velocity.length(), velocity:velocity.asArray(),
+  witness = {phase:cycles.phase(`hand.${hand}`), closing:support&&!sharedSupport?Vector3.Dot(velocity,new Vector3(...target).subtract(point).normalize()):surface==='top'?-velocity.y:surface==='bottom'?velocity.y:velocity.z, speed:velocity.length(), velocity:velocity.asArray(),
    pathError:memory.goal?Vector3.Distance(local,memory.point):null,
    saturated:body.muscles.activation.filter(a=>a>=.999).length, channels:body.muscles.channels.length};
  });
@@ -43,13 +50,12 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
  body.drive((view,dt)=>{
   if(view.resumed) skills.resume(view);
   const command=skills.command(view, {move:null,face:0,guard:NO_COVER,
-   ...(sharedSupport?{lower:view.time>=2&&view.time<(support?.riseAt??Infinity)?support.lower:STANCE_LOWER}:{}),
-   attack:view.time>=(support?.attackAt??2)&&view.time<(support?.riseAt??Infinity)?{kind:'blow',hand,target,path:{family,...(direction?{direction}:{}),...(armExtension===undefined?{}:{armExtension})}}:null},dt);
+   actions:cycles.requests(view,'strike',`hand.${hand}`,{kind:'point',at:target,...(direction?{direction}:{})},view.time>=(support?.attackAt??2)&&view.time<(support?.riseAt??Infinity))},dt);
   return support&&!sharedSupport? supportedStrikeCommand(view,command,support):command;
  });
  try {
   for(let step=0;step<seconds*s.world.hz;step++) {
-   const report=skills.report.strike;
+   const report={ get phase(){return cycles.phase(`hand.${hand}`);} };
    s.step(); fell ||= body.down;
    if(support&&['head','upperTrunk','middleTrunk','lowerTrunk'].some(n=>s.world.physics.contactsOf(s.built.segments.get(n).body).some(c=>c.fixed===s.floor.id&&c.impulse>0)))floorContacts++;
    if(sharedSupport){const status=skills.report.support,key=status.stage+':'+status.ready;if(key!==lastSupport){supportPhases.push({time:s.world.time,...structuredClone(status)});lastSupport=key;}}
@@ -74,7 +80,7 @@ export async function combatStrike({ hand = 'right', family = 'straight', mode =
   const feet=footStatesOf(s.built); readSupport(feet,feet,new Vector3());
   return {...(sharedSupport?{supportConfig:support,supportState:structuredClone(skills.report.support),supportPhases}:{}),...(support?{support,floorContacts,feet:feet.map(f=>({side:f.side,corners:f.corners.map(p=>p.asArray())}))}:{}),harness:{kind:'Node unpinned core stand',engine:DEFAULT_ENGINE,hz:s.world.hz,balance:0,model:'workshop-fighter',held:'empty'},
    hand,family,mode,surface,...(direction?{direction}:{}),...(armExtension===undefined?{}:{armExtension}),tuning:{...ATTACK_PATH,...tuning},target,fell,phases,contacts,peaks,
-   cycles:structuredClone(skills.report.strike.pointCycle),thrown:structuredClone(skills.report.strike.thrown),
+   cycles:structuredClone(cycles.reading()),thrown:structuredClone(cycles.reading().thrown),
    finalHand:body.view.fists[hand].position.asArray(),head:body.view.head.asArray(),support:body.view.stance.phase,
    meanTargetDistance:errors.length?errors.reduce((a,b)=>a+b,0)/errors.length:null,
    pathError:{mean:paths.length?paths.reduce((a,b)=>a+b,0)/paths.length:null,maximum:paths.length?Math.max(...paths):null},

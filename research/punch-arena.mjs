@@ -7,7 +7,7 @@ import {SCRAPPER} from '../src/core/mind/config.ts';
 import {PUNCH_EXECUTION} from '../src/core/skills/combat.ts';
 import {withParts} from '../tests/fixtures/minds.mjs';
 const search=JSON.parse(gunzipSync(readFileSync('docs/reference/punch-foundation-search.json.gz')));
-const candidate=withParts(SCRAPPER,{blow:{tuning:{paths:search.rows[search.selected].settings,execution:PUNCH_EXECUTION}}});
+const candidate=withParts(SCRAPPER,{executors:SCRAPPER.executors.map(executor=>({...executor,tuning:{...executor.tuning,paths:search.rows[search.selected].settings,execution:PUNCH_EXECUTION}}))});
 if(!isMainThread)parentPort.on('message',async job=>{try{parentPort.postMessage({...job,result:await(job.task==='ground'?groundFight(job.config):combatTrial(job.config))});}catch(e){parentPort.postMessage({...job,error:e.stack});}});
 else{
  const fingerprint=combatFingerprint(),jobs=[];

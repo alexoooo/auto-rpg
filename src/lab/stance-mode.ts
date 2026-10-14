@@ -95,7 +95,7 @@ function stanceTactics(orders: StanceOrders): Tactics {
         move: walking ? [orders.forward, orders.right] : null,
         face: report.heading + orders.turn * LAB_TURN_RATE * dt,
         guard: NO_COVER,
-        attack: null,
+        actions: [],
         lower: orders.lower,
       };
     },

@@ -1,3 +1,4 @@
+import { actionCycles } from "./action-cycles.mjs";
 /** Shared physical tasks, measured without changing the commands their controllers produce. */
 import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
@@ -277,15 +278,15 @@ async function strikeTrial(job) {
       readings ??= meter([body.built], [body]);
       readings.take(1 / job.hz); steps++;
       first ??= blow.time;
-      if (blow.report.strike.phase === "chamber" || blow.report.strike.phase === "swing") commit ??= blow.time;
-      if (blow.report.strike.thrown[job.hand] > 0) thrown ??= blow.time;
+      if (blow.report.actions.some(action => action.phase === "commit")) commit ??= blow.time;
+      if (blow.report.ledger.some(record => record.committed && record.effector === `hand.${job.hand}`)) thrown ??= blow.time;
     } });
   return { status: "measured", outcome: { ...outcome, preparedSeconds: commit === null ? null : commit - first,
     threwAt: thrown, usefulHit: outcome.done > 0, watchedSeconds: steps / job.hz }, ...readings.row(),
     limits: ["offset is a fixed target disclosed at commitment, not a moving target", "no per-step cost in the blow adapter"] };
 }
 
-/** Track preparation from the first active phase to chamber/swing; count each commitment once. */
+/** Track preparation from the first active phase to commitment; count each commitment once. */
 export function attackAccounting() {
   let active = null;
   const preparations = [];
@@ -293,7 +294,7 @@ export function attackAccounting() {
     take(phase, time) {
       if (!phase) { active = null; return; }
       active ??= { start: time, committed: false };
-      if (!active.committed && (phase === "chamber" || phase === "swing")) {
+      if (!active.committed && (phase === "commit")) {
         active.committed = true;
         preparations.push(time - active.start);
       }
@@ -303,25 +304,25 @@ export function attackAccounting() {
 }
 
 async function boutTrial(job) {
-  const cover = withParts(RECIPE_FIGHTER, { tactics: { guard: "cover" } });
+  const cover = withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover" } : behaviour) } });
   const recipe = { left: job.model, right: job.model, gap: job.gap, cap: job.cap,
     held: { left: job.held, right: job.held },
     minds: { left: job.guard === "left-cover" ? cover : RECIPE_FIGHTER, right: job.guard === "right-cover" ? cover : RECIPE_FIGHTER } };
   const bout = await buildBout(recipe, { hz: job.hz, actuation: job.actuation });
   const sides = [bout.duel.duelists.left, bout.duel.duelists.right];
   const readings = meter(sides.map((s) => s.built), sides.map((s) => s.body));
-  const attacks = sides.map(() => attackAccounting());
+  const attacks = sides.map(() => attackAccounting()), cycles = sides.map(side => actionCycles(side.minded.skills));
   instrument(bout.world, readings);
   try {
     while (!bout.duel.verdict && bout.world.time < job.cap) {
       bout.world.step();
-      sides.forEach((s, i) => attacks[i].take(s.minded.skills.report.strike.phase, bout.world.time));
+      sides.forEach((s, i) => { cycles[i].sample(); attacks[i].take(s.minded.skills.report.actions[0]?.phase ?? null, bout.world.time); });
     }
     const outcome = { seconds: bout.duel.clock, ending: bout.duel.verdict?.ending ?? "time-limit",
       sides: sides.map((s, i) => {
         const contacts = bout.duel.blows.map((b) => b.sides.find((p) => p.fighter === s.id)).filter(Boolean);
         return { fallen: s.body.view.down, preparations: attacks[i].preparations,
-          thrown: { ...s.minded.skills.report.strike.thrown },
+          thrown: cycles[i].reading().thrown,
           headDamage: contacts.filter((p) => p.segment === "head").reduce((sum, p) => sum + p.damage, 0),
           damage: contacts.reduce((sum, p) => sum + p.damage, 0) };
       }) };

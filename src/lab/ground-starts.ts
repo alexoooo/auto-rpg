@@ -117,14 +117,14 @@ export function groundPlacementFaults(spec: BodySpec, placement: Placement): str
 }
 
 /** A deterministic legal draw, raised by its own lowest shape rather than a guessed pelvis height. */
-export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed" | "ground">): Placement {
+export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed" | "ground">, waypoint?: Placement): Placement {
   const options = address.ground;
   if (options.start === "shoved") return { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) };
-  if (!groundPostures(spec).includes(options.posture)) throw new Error(`${spec.model} has no installed ${options.posture} start`);
+  if (!waypoint && !groundPostures(spec).includes(options.posture)) throw new Error(`${spec.model} has no installed ${options.posture} start`);
   const installed = options.start === "placed" ? poses.find(p => p.id === options.posture && p.model === spec.model) : undefined;
   for (let attempt = 0; attempt < 5; attempt++) {
     const random = mulberry32((address.seed + Math.imul(attempt, 0x9e3779b9)) >>> 0);
-    const base = installed?.placement.joints as Readonly<Record<string, readonly number[]>> | undefined ?? poseAngles(spec, guardPosture(spec));
+    const base = waypoint?.joints ?? installed?.placement.joints as Readonly<Record<string, readonly number[]>> | undefined ?? poseAngles(spec, guardPosture(spec));
     const spread = options.start === "dropped" ? .3 : .1;
     const joints = Object.fromEntries(spec.joints.map(j => [j.name, j.dofs.map((d, k) => Math.max(d.min.value,
       Math.min(d.max.value, (base[j.name]?.[k] ?? 0) + (random() * 2 - 1) * spread * (d.max.value - d.min.value))))]));
@@ -132,7 +132,8 @@ export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed"
     if (options.start === "dropped") {
       const u = random(), a = random() * 2 * Math.PI, b = random() * 2 * Math.PI;
       rotation = [Math.sqrt(1 - u) * Math.sin(a), Math.sqrt(1 - u) * Math.cos(a), Math.sqrt(u) * Math.sin(b), Math.sqrt(u) * Math.cos(b)];
-    } else if (installed) rotation = installed.placement.rotation as [number, number, number, number];
+    } else if (waypoint) rotation = waypoint.rotation ?? [0, 0, 0, 1];
+    else if (installed) rotation = installed.placement.rotation as [number, number, number, number];
     else {
       const half = Math.sqrt(.5);
       switch (options.posture) {

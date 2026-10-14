@@ -31,8 +31,10 @@ test("selected physical targets reach the ordinary fighter through senses and or
     const selected = initial.targets.find(target => target.id !== initial.selected);
     attack.select(selected.id);
     stand.step();
-    assert.deepEqual(intent.attack, { kind: "blow", hand: "right", target: selected.centre });
-    assert.equal(attack.skills.report.strike.phase, "approach");
+    assert.equal(attack.skills.report.engagement.focus, selected.id);
+    assert.ok(attack.skills.report.engagement.candidates.every(candidate => candidate.target.body === selected.id));
+    assert.ok(["guard", "approach"].includes(attack.skills.report.engagement.phase));
+    assert.deepEqual(intent.actions, [], "approach does not issue a premature request");
     assert.equal(actor.body.view.senses.others.length, 3);
     stand.step(10);
     assert.equal(attack.frame().hits, 0);
@@ -44,7 +46,8 @@ test("selected physical targets reach the ordinary fighter through senses and or
     const moved = attack.frame().targets.find(target => target.id === selected.id);
     assert.ok(Vector3.Distance(Vector3.FromArray(moved.centre), Vector3.FromArray(still.centre)) > 0.03);
     const seen = actor.body.view.senses.others.find(target => target.id === selected.id);
-    assert.deepEqual(intent.attack.target, seen.segments.get(seen.spec.marks.high).centre.asArray());
+    assert.equal(attack.skills.report.engagement.focus, seen.id);
+    assert.ok(attack.skills.report.engagement.candidates.every(candidate => candidate.target.body === seen.id));
     assert.ok(attack.wind.state.count > 0);
     attack.select("missing");
     assert.equal(attack.frame().selected, selected.id);
@@ -73,6 +76,7 @@ test("a physical impact releases a target, then removes its collider and senses 
     for (let step = 0; step < 360 && !attack.frame().hits; step++) stand.step();
     incoming.dispose();
     assert.equal(attack.frame().hits, 1);
+    assert.deepEqual(attack.frame().ledger, [], "a torso impact without a requested action earns no action contact");
     assert.equal(attack.frame().selected, null);
     assert.equal(attack.frame().targets[0].hit, true);
     const when = stand.world.time;
@@ -85,7 +89,7 @@ test("a physical impact releases a target, then removes its collider and senses 
     assert.equal(hung.length, 2);
     assert.equal(attack.frame().targets.length, 1);
     assert.notEqual(attack.frame().targets[0].id, original);
-    assert.deepEqual(actor.body.view.senses.others.map(target => target.id), [attack.frame().selected]);
+    assert.deepEqual(actor.body.view.senses.others.map(target => target.id), [attack.frame().targets[0].id]);
     stand.step(2);
   } finally { incoming.dispose(); attack.dispose(); stand.dispose(); }
 });
@@ -97,10 +101,11 @@ test("a game attack order approaches and physically hits a seeded target", async
   try {
     const phases = new Set();
     for (let step = 0; step < 1800 && !attack.state.hits && !actor.body.view.down; step++) {
-      stand.step(); phases.add(attack.skills.report.strike.phase);
+      stand.step(); phases.add(attack.skills.report.engagement?.phase);
+      for (const action of attack.skills.report.actions) phases.add(action.phase);
     }
     assert.ok(phases.has("approach"), [...phases].join(", "));
-    assert.ok(phases.has("swing"), [...phases].join(", "));
+    assert.ok(phases.has("commit"), [...phases].join(", "));
     assert.equal(attack.state.hits, 1, JSON.stringify(attack.frame()));
     assert.equal(attack.frame().targets[0].hit, true);
   } finally { attack.dispose(); stand.dispose(); }

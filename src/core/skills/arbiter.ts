@@ -1,171 +1,192 @@
-import type { Body, BodyCommand } from "../body.ts";
-import type { EffectorGoal, MusclePush, Pose } from "../control/motor.ts";
-import type { StanceGoal } from "../control/stance.ts";
-import type { BlowAttack, KickAttack } from "../mind/intent.ts";
+import type { Intent } from "../mind/intent.ts";
 import type { Tactics } from "../mind/tactics.ts";
+import type { Body, BodyCommand, BodyView } from "../body.ts";
+import { bodyEffectors } from "../control/effectors.ts";
+import type { EffectorGoal, MusclePush } from "../control/motor.ts";
+import type { StanceGoal } from "../control/stance.ts";
+import { footStatesOf } from "../control/support.ts";
 import type { HandPose, Side } from "../spec/body.ts";
+import type { ActionAround, ActionClaim, CommandPatch } from "./action.ts";
+import { actionInstances, type ActionBinding, type ActionContact, type ExecutorBinding } from "./action-instances.ts";
+import { actionResources } from "./action-resources.ts";
 import { guardPosture, type GuardSkill } from "./guard.ts";
-import type { KickSkill } from "./kick.ts";
-import { STANCE_LOWER, type LegsDrive, type Locomotion } from "./locomotion.ts";
-import type { Around, BlowSkill, LegsAsk, Skill } from "./skill.ts";
-import type { SkillReport, Skills } from "./skills.ts";
-import { closesToStrike } from "./strikes.ts";
+import { STANCE_LOWER, type Locomotion } from "./locomotion.ts";
 import type { SupportSkill } from "./support-fold.ts";
 
-/** **The skills a set is made of**, one a role: the legs, the guard and a blow, and a kick and a support skill if it has them. */
+/** Continuous services surround the independently owned action instances. */
 export interface SkillParts {
+  readonly executors: readonly ExecutorBinding[];
+  readonly actions: readonly ActionBinding[];
   readonly legs: Locomotion;
   readonly guard: GuardSkill;
-  readonly blow: BlowSkill;
-  readonly kick?: KickSkill | null;
   readonly support?: SupportSkill | null;
 }
 
-/** What decides what a part of the body does: the tactics, or the skill of a role. */
-type Holder = "tactics" | "guard" | "blow" | "kick" | "support";
+/** One owner per concrete control, with defaults named and actions identified by instance id. */
+export type Holders = Record<string, number | "default">;
 
-/** Which skill had each part of the body, the last command made. */
-export interface Holders {
-  readonly legs: Holder;
-  readonly trunk: Holder;
-  readonly left: Holder;
-  readonly right: Holder;
-}
-
-const FREE: LegsAsk = Object.freeze({ kind: "free" });
-const NO_HANDS: Readonly<Record<Side, EffectorGoal | null>> = Object.freeze({ left: null, right: null });
-
-/**
- * **A skill set**: the skills of `parts` under one arbiter, which gives each part of the body to
- * one of them each step. In order:
- *
- * 1. the support skill moves toward the stance the blow under way keeps, or the tactics ask;
- * 2. a kick asked for, or under way, leaves the blow none to begin;
- * 3. the blow claims what it uses; a blow that drives every freedom itself (`Claim.whole`) is
- *    given the body whole, and the steps after this one stand aside;
- * 4. the guard covers with each hand the blow does not hold;
- * 5. the legs carry out the blow's `LegsAsk`, or the tactics' walk while it asks none; a kick, or
- *    the support lowering, rising or low, holds the walk; a walk that drives the legs itself
- *    (`Locomotion.drive`) leaves the stance no goal, its pushes laid after the blow's and its
- *    posture over the rest;
- * 6. a walk that swings the arms (`Locomotion.arms`) swings each arm no blow, cover or kick holds,
- *    while no blow drives the posture and the support stands; the support skill lays its stance and
- *    trunk over the command;
- * 7. the kick's stance and foot goals are laid over it last, a kick beginning only while no blow
- *    is under way, the body stands and no walk drives the legs: a kick asked holds the walk, so a
- *    walk that drives them stops and gives them back to the stance first.
- *
- * Every skill answers `Skill.resume`, from one list: a skill added to it cannot be left out.
- * `tactics` will hand the set its intent; their memory (`Tactics.state`) is kept with the skills'.
- */
-export function skillSet(body: Body, { state: tactics, engagement }: Pick<Tactics, "state" | "engagement">, parts: SkillParts): Skills {
-  const { legs, guard, blow } = parts, kick = parts.kick ?? null, support = parts.support ?? null;
-  const spec = body.built.spec, guarding = guardPosture(spec);
-  const closes = { left: closesToStrike(spec, "left"), right: closesToStrike(spec, "right") }, closing = closes.left || closes.right;
-  const none: readonly MusclePush[] = Object.freeze([]);
-  const holders: { -readonly [K in keyof Holders]: Holder } = { legs: "tactics", trunk: "guard", left: "guard", right: "guard" };
-  const state = {
-    command: { posture: guarding, pushes: none, stance: null } as BodyCommand, holders,
-    legs: legs.state, blow: blow.state, ...(kick ? { kick: kick.state } : {}), ...(support ? { support: support.state } : {}), tactics: tactics ?? null,
+/** Admit, update and compose all commitments through the same anatomical ownership map. */
+export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelope" | "afterPhysics">, tactics: Pick<Tactics, "state" | "engagement">, services: SkillParts) {
+  const { executors, actions } = services;
+  const { legs, guard } = services, support = services.support ?? null;
+  const models = bodyEffectors(body.built).map(e => e.model), feet = footStatesOf(body.built).map(f => f.segment.spec.name);
+  const resources = actionResources(body.muscles.channels.map(c => c.name), models, feet);
+  const allControls = resources.controls(Object.keys(resources.footprints)), supportControls = resources.controls(["legs", "trunk"]);
+  const instances = actionInstances(executors, actions, resources), guarding = guardPosture(body.built.spec);
+  const state = { actions: instances.state, legs: legs.state, support: support?.state ?? null, tactics: tactics.state ?? null,
+    command: { posture: guarding, pushes: [], stance: null } as BodyCommand, owners: {} as Holders,
+    reservations: {} as Record<string, number> };
+  const claims: { id: number; claim: ActionClaim; controls: readonly string[]; delegated: readonly string[] }[] = [];
+  const contacts: ActionContact[] = [];
+  const around: ActionAround = { get heading() { return legs.heading; }, get placed() { return legs.placed; },
+    support: support?.report ?? null, walk: null, lower: STANCE_LOWER };
+  const context = (intent: Intent): ActionAround => ({ ...around, walk: intent.move, lower: intent.lower ?? STANCE_LOWER });
+  const free = (slot: string): boolean => state.reservations[slot] === undefined;
+  const available = (slot: string): boolean => {
+    if (free(slot)) return true;
+    for (const item of claims) if (item.id === state.reservations[slot] && item.delegated.includes(slot)) return true;
+    return false;
   };
-  const all: readonly Skill[] = [blow, legs, guard, ...(support ? [support] : []), ...(kick ? [kick] : [])];
-  const around: Around = { get heading() { return legs.heading; }, get placed() { return legs.placed; }, support: support?.report ?? null };
-  const report: SkillReport = {
-    get heading() { return legs.heading; },
-    get pace() { return legs.pace; },
-    get reference() { return legs.reference; },
-    strike: blow.report, holders,
-    ...(support ? { support: support.report } : {}), ...(kick ? { kick: kick.report } : {}), ...(engagement ? { engagement } : {}),
+  const stopObserving = body.afterPhysics((step, time) => {
+    contacts.length = 0;
+    for (const [effector, observation] of Object.entries(body.view.effectors)) for (const pair of observation.feedback?.pairs ?? []) {
+      contacts.push({ effector, target: pair.target, loaded: pair.loaded, onset: pair.onset });
+    }
+    instances.observe(step, time, contacts);
+  });
+  const report = {
+    get heading() { return legs.heading; }, get pace() { return legs.pace; }, get reference() { return legs.reference; },
+    get actions() { return instances.live; }, get ledger() { return instances.ledger; }, holders: state.owners, reservations: state.reservations,
+    get engagement() { return tactics.engagement; },
+    ...(support ? { support: support.report } : {}),
   };
-  const resume = (view: Parameters<Skill["resume"]>[0]) => { for (const skill of all) skill.resume(view); };
+  const resume = (view: BodyView): void => {
+    instances.resume(view); legs.resume(view); guard.resume(view); support?.resume(view);
+  };
   return {
-    report, state, resume,
+    state, report, resume, instance: instances.instance, readiness: instances.readiness,
     get envelope() { return legs.envelope; },
-    ...(blow.releases ? { release: resume } : {}),
-    command(view, intent, dt) {
-      const attack = intent.attack;
-      let asked: BlowAttack | null = null, kicked: KickAttack | null = null;
-      if (attack) switch (attack.kind) {
-        case "blow": asked = attack; break;
-        case "kick":
-          if (!kick) throw new Error("these skills carry out no kick");
-          kicked = attack; break;
-        default: { const never: never = attack; throw new Error(`unknown attack ${JSON.stringify(never)}`); }
+    release(view: BodyView, reason: "takeover" | "idle" | "replaced" = "takeover") {
+      instances.interrupt(view, reason); legs.resume(view); guard.resume(view); support?.resume(view);
+      if (reason === "replaced") stopObserving();
+      for (const key in state.reservations) delete state.reservations[key];
+      for (const control of allControls) state.owners[control] = "default";
+    },
+    command(view: BodyView, intent: Intent, dt: number): BodyCommand {
+      const near = context(intent);
+      instances.step(view, intent.actions, near, dt);
+      for (const key in state.owners) delete state.owners[key];
+      for (const key in state.reservations) delete state.reservations[key];
+      claims.length = 0;
+      for (const item of instances.live) {
+        const claim = instances.executor(item.id).command(view, item.id, near);
+        resources.validate(item.holds, claim);
+        const controls = resources.controls(item.holds), delegated = resources.controls(claim.delegate ?? []);
+        for (const control of controls) {
+          if (!free(control)) throw new Error(`two instances own ${control}`);
+          state.owners[control] = item.id;
+          state.reservations[control] = item.id;
+        }
+        claims.push({ id: item.id, claim, controls, delegated });
       }
-      const kicking = kick !== null && (kicked !== null || kick.report.foot !== null);
-      support?.tick(view, blow.lower ?? intent.lower ?? STANCE_LOWER, !!intent.move, dt);
-      const claim = blow.command(view, kicking ? null : asked, intent, around, dt);
-      const covers = guard.command(view, intent.guard, blow.holds);
-      if (claim?.whole) {
-        // A blow that drives every freedom by its pushes (`Claim.whole`) leaves the stance, the guard and the posture nothing.
-        const whole: BodyCommand = { posture: guarding, pushes: claim.pushes, effectors: { "hand.left": null, "hand.right": null }, stance: null,
-          ...(closing ? { handPoses: poses(closes, claim.closed) } : {}) };
-        holders.legs = "blow"; holders.trunk = "blow"; holders.left = "blow"; holders.right = "blow";
-        state.command = whole;
-        return whole;
+      const posture: Record<string, number> = {}, pushes: MusclePush[] = [], effectors: Record<string, EffectorGoal | null> = {};
+      const handPoses: Partial<Record<Side, HandPose>> = {};
+      for (const [channel, angle] of Object.entries(guarding)) if (available(`channel:${channel}`)) posture[channel] = angle;
+      const covers = guard.command(view, intent.guard, null);
+      for (const side of ["left", "right"] as const) {
+        if (available(`effector:hand.${side}`)) effectors[`hand.${side}`] = covers[side];
+        if (available(`pose:${side}`) && body.built.spec.segments.find(s => s.name === `hand.${side}`)?.handPoses) handPoses[side] = "open";
       }
-      const lower = support ? STANCE_LOWER : intent.lower;
-      const supporting = support !== null && support.report.stage !== "stand" && support.report.stage !== "wait";
-      const ask = kicking || supporting ? null : claim?.legs ?? FREE;
-      let moving: { readonly walk: readonly [number, number] | null; readonly face: number } | null = null, goal: StanceGoal | null = null;
-      if (!ask) moving = { walk: null, face: intent.face };
-      else switch (ask.kind) {
+      const legOwner = claims.find(item => item.controls.includes("stance"));
+      const supportOwner = claims.find(item => item.claim.support !== undefined);
+      const supportFree = supportControls.every(free);
+      const supporting = support && (supportOwner || supportFree);
+      const ask = legOwner?.claim.legs ?? (available("stance") ? { kind: "free" as const } : null);
+      const lower = supporting ? STANCE_LOWER : legOwner?.claim.lower ?? intent.lower;
+      let stance: StanceGoal | null = null;
+      let moving: { walk: readonly [number, number] | null; face: number } | null = null;
+      if (ask) switch (ask.kind) {
         case "free": moving = { walk: intent.move, face: intent.face }; break;
         case "hold": moving = { walk: null, face: intent.face }; break;
         case "walk": moving = { walk: ask.walk, face: ask.face }; break;
-        case "place": goal = legs.place(view, ask.footing, lower); break;
+        case "place": stance = legs.place(view, ask.footing, lower); break;
         default: { const never: never = ask; throw new Error(`unknown legs ask ${JSON.stringify(never)}`); }
       }
-      // A walk that drives the legs (`Locomotion.drive`) is asked in place of its goal.
-      let driven: Extract<LegsDrive, { kind: "drive" }> | null = null;
-      if (moving && !legs.drive) goal = legs.goal(view, moving.walk, moving.face, dt, lower, intent.destination);
-      else if (moving) {
-        const drive = legs.drive!(view, moving.walk, moving.face, dt, lower, intent.destination);
+      if (moving) {
+        const drive = legs.drive?.(view, moving.walk, moving.face, dt, lower, intent.destination)
+          ?? { kind: "stance" as const, goal: legs.goal(view, moving.walk, moving.face, dt, lower, intent.destination) };
         switch (drive.kind) {
-          case "stance": goal = drive.goal; break;
-          case "drive": driven = drive; break;
-          default: { const never: never = drive; throw new Error(`unknown legs drive ${JSON.stringify(never)}`); }
+          case "stance": stance = drive.goal; break;
+          case "drive": {
+            for (const [channel, angle] of Object.entries(drive.posture)) {
+              if (!allControls.includes(`channel:${channel}`)) throw new Error(`unknown locomotion channel ${channel}`);
+              if (available(`channel:${channel}`)) posture[channel] = angle;
+            }
+            resources.validatePatch(["legs"], { pushes: drive.pushes });
+            pushes.push(...drive.pushes);
+            break;
+          }
+          default: { const never: never = drive; throw new Error(`unknown locomotion command ${JSON.stringify(never)}`); }
         }
       }
-      // A blow under way turns the heading to follow its target.
-      const stance = goal && claim?.steer ? { ...goal, heading: goal.heading + claim.steer } : goal;
-      const pushed = driven ? [...claim?.pushes ?? none, ...driven.pushes] : claim?.pushes ?? none;
-      const hands = claim?.hands ?? NO_HANDS;
-      const swung = legs.arms && !claim?.posture && !kicking && !supporting ? legs.arms(view) : null;
-      const armed = claim?.posture ?? (swung ? swingArms(guarding, swung, {
-        left: !hands.left && !covers.left && blow.holds !== "left", right: !hands.right && !covers.right && blow.holds !== "right" }) : guarding);
-      const posture = driven ? { ...armed, ...driven.posture } : armed;
-      const laid = support?.apply(stance, posture) ?? null;
-      let command: BodyCommand = {
-        posture: laid ? laid.posture : posture, pushes: pushed,
-        effectors: { "hand.left": hands.left ?? covers.left, "hand.right": hands.right ?? covers.right }, stance: laid ? laid.stance : stance,
-        ...(closing ? { handPoses: poses(closes, claim?.closed ?? null) } : {}),
-      };
-      const motion = kick?.command(view, kicked, command.stance, !blow.busy && !view.down && !driven && (!support || support.report.stage === "stand"), dt);
-      if (motion) command = { ...command, ...motion, effectors: { ...command.effectors, ...motion.effectors } };
-      holders.legs = motion ? "kick" : laid && laid.stance !== stance ? "support" : !claim || claim.legs.kind === "free" ? "tactics" : "blow";
-      holders.trunk = laid && laid.posture !== posture ? "support" : claim?.posture ? "blow" : "guard";
-      // A blow has a hand it moves by its goal, or by its posture where the guard leaves that hand alone (`BlowSkill.holds`).
-      holders.left = hands.left || blow.holds === "left" ? "blow" : "guard";
-      holders.right = hands.right || blow.holds === "right" ? "blow" : "guard";
-      state.command = command;
-      return command;
+      if (stance && legOwner?.claim.steer) stance = { ...stance, heading: stance.heading + legOwner.claim.steer };
+      const swung = legs.arms?.(view);
+      if (swung) for (const model of models) {
+        if (!model.segment.startsWith("hand.") || !available(`effector:${model.segment}`) || effectors[model.segment]) continue;
+        for (const channel of model.channels) if (swung[channel] !== undefined && available(`channel:${channel}`)) posture[channel] = swung[channel]!;
+      }
+      for (const { claim } of claims) {
+        Object.assign(posture, claim.posture);
+        pushes.push(...claim.pushes ?? []);
+        Object.assign(effectors, claim.effectors);
+        Object.assign(handPoses, claim.handPoses);
+      }
+      if (support && supporting) {
+        support.tick(view, supportOwner?.claim.support ?? intent.lower ?? STANCE_LOWER, supportOwner ? false : !!intent.move, dt);
+        const supportedPosture = Object.fromEntries(Object.entries(posture).filter(([channel]) => supportControls.includes(`channel:${channel}`)));
+        const laid = support.apply(stance, supportedPosture);
+        resources.validatePatch(["legs", "trunk"], laid);
+        stance = laid.stance; Object.assign(posture, laid.posture);
+      }
+      let base: Readonly<BodyCommand> | null = null;
+      const overlays: { id: number; patch: CommandPatch }[] = [];
+      for (const item of instances.live) {
+        const executor = instances.executor(item.id);
+        if (!executor.overlay) continue;
+        base ??= immutableCommand({ posture, pushes, effectors, handPoses, stance });
+        const patch = executor.overlay(view, item.id, base, near);
+        if (patch) { resources.validatePatch(item.holds, patch); overlays.push({ id: item.id, patch }); }
+      }
+      const command: BodyCommand = { posture, pushes, effectors, handPoses, stance };
+      for (const { id, patch } of overlays) {
+        Object.assign(command.posture, patch.posture); Object.assign(command.effectors!, patch.effectors); Object.assign(command.handPoses!, patch.handPoses);
+        if (patch.pushes) {
+          const replaced = new Set(patch.pushes.map(p => p.channel));
+          (command as { pushes: readonly MusclePush[] }).pushes = [...command.pushes.filter(p => !replaced.has(p.channel)), ...patch.pushes];
+        }
+        if (patch.stance !== undefined) (command as { stance: StanceGoal | null }).stance = patch.stance;
+        if (!instances.live.some(item => item.id === id)) throw new Error("composition ended an action");
+      }
+      if (command.stance) for (const side of command.stance.feet) if (command.effectors?.[`foot.${side}`]) throw new Error(`two controllers own foot.${side}`);
+      for (const control of allControls) if (available(control)) state.owners[control] = "default";
+      state.command = immutableCommand(command);
+      instances.snapshot();
+      return state.command;
     },
   };
 }
 
-/** `guarding` with the freedoms of each arm `free` names taken from `swung`. */
-function swingArms(guarding: Pose, swung: Pose, free: Readonly<Record<Side, boolean>>): Pose {
-  if (!free.left && !free.right) return guarding;
-  const posture: Record<string, number> = { ...guarding };
-  for (const [name, angle] of Object.entries(swung)) if (free[name.includes(".left ") ? "left" : "right"]) posture[name] = angle;
-  return posture;
-}
-
-/** Each hand that closes to strike, closed as `closed` holds it, or open. */
-function poses(closes: Readonly<Record<Side, boolean>>, closed: Readonly<Record<Side, boolean>> | null): Partial<Record<Side, HandPose>> {
-  return {
-    ...(closes.left ? { left: closed?.left ? "fist" : "open" } : {}),
-    ...(closes.right ? { right: closed?.right ? "fist" : "open" } : {}),
+/** Overlay readers share immutable values without freezing an executor's own motion state. */
+function immutableCommand(command: BodyCommand): Readonly<BodyCommand> {
+  const copy = <T>(value: T): T => {
+    if (typeof value === "number" && !Number.isFinite(value)) throw new Error("an action command needs finite numbers");
+    if (Array.isArray(value)) return Object.freeze(value.map(item => copy(item))) as T;
+    if (value !== null && typeof value === "object") {
+      const result: Record<string, unknown> = {};
+      for (const key in value) if (Object.hasOwn(value, key)) result[key] = copy(value[key]);
+      return Object.freeze(result) as T;
+    }
+    return value;
   };
+  return copy(command);
 }

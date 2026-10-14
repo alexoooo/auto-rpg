@@ -18,7 +18,7 @@ const RUNNING = { ...LAB_PRESETS.script.config, locomotion: { kind: "run", ...RU
 test("a_warrior_with_the_run_runs_on_the_spot_each_step_a_flight_that_lands", async () => {
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
   const actor = labActor(stand.built, stand.world, { mind: RUNNING });
-  actor.drive({ name: "on-the-spot", decide: ({ view }) => ({ move: view.time < 1 ? null : [0, 0], face: 0, guard: NO_COVER, attack: null }) });
+  actor.drive({ name: "on-the-spot", decide: ({ view }) => ({ move: view.time < 1 ? null : [0, 0], face: 0, guard: NO_COVER, actions: [] }) });
   const phases = { stand: 0, shift: 0, swing: 0, flight: 0 };
   let landed = 0, last = null;
   try {

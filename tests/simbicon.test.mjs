@@ -31,7 +31,7 @@ test("a_warrior_with_the_simbicon_walk_drives_its_legs_five_metres_forward_and_s
   const start = actor.body.view.stance.centre.z, m = actor.body.muscles;
   const knee = { left: m.channel("knee.left flexion"), right: m.channel("knee.right flexion") };
   // Forward at 1 m/s, facing +z, until the centre of mass is 5 m on; then stand.
-  actor.drive({ name: "five-metres", decide: ({ view }) => ({ move: view.stance.centre.z - start < 5 ? [1, 0] : null, face: 0, guard: NO_COVER, attack: null }) });
+  actor.drive({ name: "five-metres", decide: ({ view }) => ({ move: view.stance.centre.z - start < 5 ? [1, 0] : null, face: 0, guard: NO_COVER, actions: [] }) });
   const gait = actor.skills.state.legs.gait;
   let stopped = null, handed = null, driven = 0, steps = 0, last = null;
   const angles = [], least = Math.min(SIMBICON.stanceKnee, SIMBICON.stanceKneeLate, 0) - KNEE_SLACK, most = Math.max(SIMBICON.stanceKnee, SIMBICON.stanceKneeLate) + KNEE_SLACK;
@@ -66,7 +66,7 @@ test("a_warrior_with_the_simbicon_walk_drives_its_legs_five_metres_forward_and_s
 test("asked_to_hold_a_warrior_with_the_simbicon_walk_stands_on_the_stance", async () => {
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
   const actor = labActor(stand.built, stand.world, { mind: WALKING });
-  actor.drive({ name: "hold", decide: () => ({ move: null, face: 0, guard: NO_COVER, attack: null }) });
+  actor.drive({ name: "hold", decide: () => ({ move: null, face: 0, guard: NO_COVER, actions: [] }) });
   try {
     stand.step(stand.seconds(10));
     const s = actor.body.view.stance;
@@ -81,7 +81,7 @@ test("a_warrior_with_the_simbicon_walk_sets_off_to_its_right_and_walks_there", a
   // At 0.5 m/s on this ground, where a first step by the trailing foot falls the body the other way into a walk that keeps going there.
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true, groundSize: 200 });
   const actor = labActor(stand.built, stand.world, { mind: WALKING });
-  actor.drive({ name: "right", decide: () => ({ move: [0, 0.5], face: 0, guard: NO_COVER, attack: null }) });
+  actor.drive({ name: "right", decide: () => ({ move: [0, 0.5], face: 0, guard: NO_COVER, actions: [] }) });
   const gait = actor.skills.state.legs.gait;
   try {
     let first = null;
@@ -99,7 +99,7 @@ for (const [way, move] of [["back", [-0.5, 0]], ["left", [0, -0.5]]]) test(`a_wa
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true, groundSize: 200 });
   const actor = labActor(stand.built, stand.world, { mind: WALKING });
   let walking = true;
-  actor.drive({ name: way, decide: () => ({ move: walking ? move : null, face: 0, guard: NO_COVER, attack: null }) });
+  actor.drive({ name: way, decide: () => ({ move: walking ? move : null, face: 0, guard: NO_COVER, actions: [] }) });
   const gait = actor.skills.state.legs.gait;
   try {
     // Set off and come up to the pace; then the walk over 3 s, along the way asked and across it.
@@ -124,7 +124,7 @@ test("asked_past_its_walk_a_warrior_with_the_simbicon_walk_runs_ten_metres_and_s
   const actor = labActor(stand.built, stand.world, { mind: WALKING, measuring: true });
   // Forward at 2 m/s, facing +z, until it has run 10 m; then stand.
   let from = null, ran = 0;
-  actor.drive({ name: "run", decide: () => ({ move: ran < 10 ? [2, 0] : null, face: 0, guard: NO_COVER, attack: null }) });
+  actor.drive({ name: "run", decide: () => ({ move: ran < 10 ? [2, 0] : null, face: 0, guard: NO_COVER, actions: [] }) });
   const gait = actor.skills.state.legs.gait;
   let began = null, stopped = null, handed = null, running = 0;
   try {
@@ -158,7 +158,7 @@ test("a_run_told_it_may_not_run_walks_again_within_two_seconds_though_it_goes_fa
   const locomotion = { kind: "move", rules: [{ kind: "when-distance", of: "destination", than: "over", metres: 6, gait: "run" }], otherwise: "walk" };
   const actor = labActor(stand.built, stand.world, { mind: { ...WALKING, locomotion }, measuring: true });
   let near = false;
-  actor.drive({ name: "run", decide: () => ({ move: [2, 0], face: 0, guard: NO_COVER, attack: null, destination: near ? 3 : 20 }) });
+  actor.drive({ name: "run", decide: () => ({ move: [2, 0], face: 0, guard: NO_COVER, actions: [], destination: near ? 3 : 20 }) });
   const gait = actor.skills.state.legs.gaits[0].gait;
   try {
     stand.step(stand.seconds(8));
@@ -198,7 +198,7 @@ test("the_simbicon_walk_is_a_fighters_locomotion_and_refuses_what_it_cannot_carr
     assert.ok(faults.some((f) => f.toLowerCase().includes("simbicon")), `${JSON.stringify(bad)}: ${JSON.stringify(faults)}`);
   }
   // Low support steps from the stance, which a walk that drives the legs leaves; a kick waits for the legs.
-  const kicking = treeFaults({ ...WALKING, kick: { kind: "front-kick" }, support: { kind: "support-fold" } }, ["script"]);
-  assert.ok(!kicking.some((f) => f.includes("a walk that drives the legs leaves no stance to kick")) && kicking.some((f) => f.includes("support: a walk that drives the legs")), JSON.stringify(kicking));
-  assert.deepEqual(slotsOf(CONTROLLERS.fighter, WALKING).map((slot) => slot.key).filter((key) => key === "kick" || key === "support"), ["kick"]);
+  const kicking = treeFaults({ ...WALKING, executors: [{ name: "kick", kind: "front-kick" }], actions: [{ name: "kick", executor: "kick", effectors: ["foot.left", "foot.right"], regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "leg-height", height: .4 } }], support: { kind: "support-fold" } }, ["script"]);
+  assert.ok(kicking.length > 0 && kicking.every((f) => f.includes("support: a walk that drives the legs")), JSON.stringify(kicking));
+  assert.deepEqual(slotsOf(CONTROLLERS.fighter, WALKING).map((slot) => slot.key).filter((key) => key === "executors" || key === "support"), ["executors", "support"]);
 });

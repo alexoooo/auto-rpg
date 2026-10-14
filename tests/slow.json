@@ -14,7 +14,6 @@
  "character-motion.test.mjs",
  "core-assist.test.mjs",
  "core-bar.test.mjs",
- "core-choose.test.mjs",
  "core-combat-arm.test.mjs",
  "core-combat-combinations.test.mjs",
  "core-combat-defense.test.mjs",

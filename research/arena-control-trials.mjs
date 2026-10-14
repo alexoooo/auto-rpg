@@ -1,3 +1,8 @@
+import { driveFighter } from "../src/core/mind/fighter.ts";
+import { actionProducer } from "../src/core/mind/action-producer.ts";
+import { approachActionWindow } from "../src/core/mind/action-window.ts";
+import { standIntent } from "../src/core/mind/intent.ts";
+import { actionCycles } from "./action-cycles.mjs";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -10,7 +15,7 @@ import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
-import { COMBAT, withParts } from "../tests/fixtures/minds.mjs";
+import { COMBAT } from "../tests/fixtures/minds.mjs";
 
 /** Actual arena lifecycle, isolated by standing the other contestant out of reach. */
 export async function controlArena({ held = "empty", hand = "right", model = "workshop-fighter", seconds = 120,
@@ -18,7 +23,7 @@ export async function controlArena({ held = "empty", hand = "right", model = "wo
   const rendering = new NullEngine(), scene = new Scene(rendering), engine = await freshEngine(engineName), world = createWorld(scene, engine);
   addArenaSolids(world.physics);
   const duel = new Duel(world, { left: model, right: "workshop-rogue", gap: 8, capSeconds: seconds, recoverySeconds,
-    held: { left: held, right: "empty" }, minds: { left: withParts(COMBAT, { tactics: { hands: hand } }), right: RECIPE_FIGHTER } });
+    held: { left: held, right: "empty" }, minds: { left: { ...COMBAT, actions: COMBAT.actions.map(action => ({ ...action, effectors: hand === "alternate" ? action.effectors : ["hand." + hand] })) }, right: RECIPE_FIGHTER } });
   duel.order("left", STAND_ORDERS); duel.order("right", STAND_ORDERS);
   return { world, duel, fighter: duel.duelists.left,
     harness: { kind: "Node arena Duel", engine: engine.name, revision: engine.revision, hz: world.hz,
@@ -43,13 +48,13 @@ export function walkAfterRecovery(stand) {
   const { world, duel, fighter } = stand;
   world.step(2);
   const heading = fighter.minded.skills.report.heading, from = fighter.body.view.stance.centre.clone();
-  duel.order("left", { move: { x: Math.sin(heading), z: Math.cos(heading) }, face: null, attack: null });
+  duel.order("left", { move: { x: Math.sin(heading), z: Math.cos(heading) }, face: null });
   // A step is landed when the stance's swing, or a run's flight, gives way to bearing: whichever walk takes it.
   const swinging = () => ["swing", "flight"].includes(fighter.body.view.stance.phase);
   let fell = false, steps = 0, was = swinging();
   for (let step = 0; step < 480 && !duel.verdict; step++) {
     if (step === 240) duel.order("left", STAND_ORDERS);
-    world.step(); fell ||= fighter.body.down;
+    world.step(); cycles.sample(); fell ||= fighter.body.down;
     const is = swinging();
     if (was && !is) steps += 1;
     was = is;
@@ -60,18 +65,29 @@ export function walkAfterRecovery(stand) {
 
 /** Repeat placed attacks against a real collider, or against the same point in empty space. */
 export function attackCycles(stand, { mode = "hit", seconds = 20, cancel = false } = {}) {
-  const { world, duel, fighter, harness } = stand, report = fighter.minded.skills.report.strike;
+  const { world, duel, fighter, harness } = stand;
   const heading = fighter.minded.skills.report.heading, forward = [Math.sin(heading), Math.cos(heading)];
   const head = fighter.body.view.head, reach = harness.held === "club" ? 1 : .65;
   const target = [head.x + reach * forward[0], head.y, head.z + reach * forward[1]];
   const obstacle = mode === "hit" ? world.physics.addFixedBox([target[0] + .04 * forward[0], target[1], target[2] + .04 * forward[1]], [.2, .2, .08], heading) : null;
-  const initial = structuredClone(report.pointCycle), thrown = { ...report.thrown }, start = world.time;
-  let fell = false, contactSteps = 0, swingContactSteps = 0, cancelled = false, previousPhase = null, contactedThisSwing = false;
+  let cancelled = false;
+  const producer = actionProducer(), action = fighter.mind.actions[0];
+  const script = { name: "point-cycles", state: producer.state, decide(sight) {
+    const around = { heading: sight.report.heading, placed: sight.view.stance.phase === "stand", support: sight.report.support ?? null, walk: null, lower: .03 };
+    const retained = sight.report.actions.find(item => item.id === producer.state.current?.id);
+    const effector = retained?.effector ?? (harness.hand === "alternate" ? action.effectors[cycles.state.sequence % action.effectors.length] : "hand." + harness.hand);
+    const ask = producer.request(sight, cancelled ? null : { action: action.name, effector, target: { kind: "point", at: target } }, around);
+    const position = ask.readiness?.kind === "position" ? approachActionWindow(sight.view, ask.readiness.window, sight.report.heading, sight.envelope?.walk.value ?? 0, .4) : {};
+    return { ...standIntent(sight.report.heading), ...position, actions: ask.requests };
+  } };
+  const skills = driveFighter(fighter.body, world, { ...fighter.mind, tactics: { kind: "script" } }, { name: "point-cycles", orders: () => null, script });
+  const cycles = actionCycles(skills), report = skills.report, active = () => report.actions[0], start = world.time;
+  let fell = false, contactSteps = 0, swingContactSteps = 0, previousPhase = null, contactedThisSwing = false;
   const transitions = [], contactHands = new Set(), impacts = [], touchingBefore = { left: false, right: false };
   const point = new Vector3(), velocity = new Vector3(), spin = new Vector3();
   const aims = Object.fromEntries(["left", "right"].map((hand) => [hand,
     rigidPoints(fighter.built.spec, fighter.built.segments.get(`hand.${hand}`).spec).get(aimOf(fighter.built.spec, hand)).value]));
-  duel.order("left", { move: null, face: null, attack: target });
+
   while (world.time - start < seconds && !duel.verdict) {
     const closing = {};
     for (const hand of ["left", "right"]) {
@@ -80,17 +96,17 @@ export function attackCycles(stand, { mode = "hit", seconds = 20, cancel = false
       const distance = Math.hypot(target[0] - point.x, target[1] - point.y, target[2] - point.z);
       closing[hand] = distance > 0 ? ((target[0] - point.x) * velocity.x + (target[1] - point.y) * velocity.y + (target[2] - point.z) * velocity.z) / distance : 0;
     }
-    world.step(); fell ||= fighter.body.down;
-    if (report.phase !== previousPhase) {
-      if (report.phase === "swing") contactedThisSwing = false;
-      transitions.push({ phase: report.phase, hand: report.hand, time: world.time - start }); previousPhase = report.phase;
+    world.step(); cycles.sample(); fell ||= fighter.body.down;
+    if ((active()?.stage ?? null) !== previousPhase) {
+      if (active()?.stage === "swing") contactedThisSwing = false;
+      transitions.push({ phase: active()?.stage ?? null, hand: active()?.effector.slice(5), time: world.time - start }); previousPhase = active()?.stage ?? null;
     }
-    if (cancel && !cancelled && report.phase === "swing" && report.since >= .1) { duel.order("left", STAND_ORDERS); cancelled = true; }
+    if (cancel && !cancelled && active()?.stage === "swing" && world.time - (active()?.began ?? world.time) >= .1) { duel.order("left", STAND_ORDERS); cancelled = true; }
     for (const hand of ["left", "right"]) {
       const touching = obstacle && world.physics.contactsOf(fighter.built.segments.get(`hand.${hand}`).body).some((c) => c.fixed === obstacle.id && c.impulse > 0);
       if (touching) {
         contactSteps++;
-        if (report.phase === "swing" && report.hand === hand && !fighter.body.down) {
+        if (active()?.stage === "swing" && active()?.effector.slice(5) === hand && !fighter.body.down) {
           swingContactSteps++; contactHands.add(hand);
           if (!contactedThisSwing && !touchingBefore[hand] && closing[hand] > 0) impacts.push({ hand, time: world.time - start, closing: closing[hand] });
           contactedThisSwing = true;
@@ -101,9 +117,7 @@ export function attackCycles(stand, { mode = "hit", seconds = 20, cancel = false
   }
   duel.order("left", STAND_ORDERS);
   return { mode, fell, contactSteps, swingContactSteps, impacts, contactHands: [...contactHands], transitions, cancelled,
-    thrown: Object.fromEntries(["left", "right"].map((h) => [h, report.thrown[h] - thrown[h]])),
-    returned: Object.fromEntries(["left", "right"].map((h) => [h, report.pointCycle.returned[h] - initial.returned[h]])),
-    failed: report.pointCycle.failed - initial.failed, interrupted: report.pointCycle.interrupted - initial.interrupted };
+    thrown: cycles.reading().thrown, returned: cycles.reading().returned, failed: cycles.reading().failed, interrupted: cycles.reading().aborted };
 }
 
 /** Recovery is accepted only after a real fall, quiet handover and a subsequent commanded walk. */

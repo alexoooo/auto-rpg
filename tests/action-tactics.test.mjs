@@ -84,7 +84,7 @@ test("edge holds the focus's reach before patience yields to the shared approach
 });
 
 test("moving orders withdraw all live commitments and the shared window drives an unreserved approach", () => {
-  const body = sight(); let orders = null;
+  const body = sight(); let orders = null; body.envelope = { walk: { value: .4 }, ways: { forward: { value: .5 } } };
   body.readiness = position;
   const tactics = actionTactics(spec, [action()], config(), () => orders);
   const entering = tactics.decide(body, 1 / 120);
@@ -93,7 +93,7 @@ test("moving orders withdraw all live commitments and the shared window drives a
   orders = { move: { x: 1, z: 0 }, face: null, destination: 4 };
   const moving = tactics.decide(body, 1 / 120);
   assert.deepEqual(moving.actions, []); assert.equal(moving.destination, 4);
-  assert.ok(moving.move[1] > 0); assert.equal(moving.move[0], 0);
+  assert.ok(moving.move[0] > 0); assert.equal(moving.move[1], 0); assert.equal(moving.face, Math.PI / 2);
 });
 
 test("estimate selection uses declared units and recipe net providers without executor inspection", () => {
@@ -143,4 +143,18 @@ test("shared rule conditions separate proximity from focus and follow exact live
   const tactics = actionTactics(spec, [action("kick", "foot.right"), action()], settings);
   body.report.actions = [];
   assert.equal(tactics.decide(body, 1 / 120).actions[0].action, "punch");
+});
+
+test("conditional pending choices expire with their condition and an out body stops requesting",()=>{
+  const body=sight(),settings=config();body.view.time=1;
+  settings.choose={kind:'rules',rethink:1,patience:2,rules:[{when:{kind:'follow-up',seconds:.2},actions:['follow']}],otherwise:['punch']};
+  body.report.ledger=[{sequence:1,action:'punch',committed:true,ending:{kind:'completed'},target:{kind:'body',body:'near'},contacts:{lastTarget:.9,loadedInCommit:true,counts:{commit:{target:1}}}}];
+  body.readiness=(_view,name)=>name==='follow'?position():{kind:'ready'};
+  const tactics=actionTactics(spec,[action('follow'),action()],settings);
+  assert.deepEqual(tactics.decide(body,1/120).actions,[]);
+  assert.equal(tactics.state.candidates.find(candidate=>candidate.key===tactics.state.pending.key).action,'follow');
+  body.view.time=1.11;
+  assert.equal(tactics.decide(body,1/120).actions[0].action,'punch');
+  body.view.senses.out=true;
+  assert.deepEqual(tactics.decide(body,1/120).actions,[]);assert.equal(tactics.state.phase,'out');assert.equal(tactics.state.pending,null);
 });

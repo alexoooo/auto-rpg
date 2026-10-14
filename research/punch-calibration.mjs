@@ -12,7 +12,8 @@ import { combatSkills } from '../src/core/skills/combat.ts';
 import { skillSet } from '../src/core/skills/arbiter.ts';
 import { locomotion } from '../src/core/skills/locomotion.ts';
 import { guardSkill } from '../src/core/skills/guard.ts';
-import { blowOf } from '../src/core/mind/fighter.ts';
+import { configuredExecutors } from '../src/core/mind/action-config.ts';
+import { actionCycles } from './action-cycles.mjs';
 import { guardPosture } from '../src/core/skills/guard.ts';
 import { aimOf } from '../src/core/skills/strikes.ts';
 import { ATTACK_PATH } from '../src/core/skills/attack-path.ts';
@@ -47,7 +48,7 @@ export function approachSpeed(history, distance = HUMAN_PUNCH.speedDistance) {
 
 /**
  * The real unassisted executor of `model` (a workshop body, empty handed, with `physique` if given), with a detached target and an independent impulse sensor.
- * Its blow is the path strike's, or with `blow` the blow part that config names (`blowOf`), beside the walk and the guard.
+ * Its blow is the path strike's, or with `blow` the blow part that config names (`configuredExecutors`), beside the walk and the guard.
  */
 export async function punchStand({model='workshop-fighter',hand='right',family='straight',hz=120,seconds=6,ahead=.6,height=1.63,across=0,
   contactSpeed=5,armExtension=0,mode='hit',pad={},paths={},execution,matchedFeedback=false,actuation,physique,blow} = {}) {
@@ -61,21 +62,25 @@ export async function punchStand({model='workshop-fighter',hand='right',family='
     ...(matchedFeedback?{contactIdentity:other=>other===sensor?.body?{kind:'object',id:'punch-pad'}:other?null:{kind:'world'},
       contacts:segment=>(sensor?.state.materialContacts??[]).filter(c=>c.segment===segment).map(c=>({target:{kind:'object',id:'punch-pad'},
         point:c.point,normal:[0,0,1],impulse:c.force*s.world.dt}))}: {})});
-  const skills=blow?skillSet(body,{},{legs:locomotion(body.envelope),guard:guardSkill(spec),blow:blowOf(body,s.world,blow)})
-    :combatSkills(body,{},{paths:{...ATTACK_PATH,...paths,contactSpeed},execution});
+  const executor = { name: 'motion', ...(blow ?? { kind: 'path-strike', overlap: false, tuning: { paths: { ...paths, contactSpeed }, execution } }) };
+  const action = { name: 'strike', executor: executor.name, effectors: [`hand.${hand}`], regions: [{ kind: 'mark', mark: 'high' }], aim: { kind: 'centre', lead: 0 },
+    ...(['path-strike','driven-strike'].includes(executor.kind) ? { family, armExtension } : {}) };
+  const skills=skillSet(body,{}, { legs:locomotion(body.envelope), guard:guardSkill(spec),
+    executors:configuredExecutors(body,s.world,[executor],[action]), actions:[action] });
+  const cycles=actionCycles(skills);
   const target=[(hand==='right'?.1:-.1)+across,height,ahead];
   sensor=punchPad(s.world,[target[0]+(mode==='miss'?1:0),target[1],target[2]],pad);
   const limb=s.built.segments.get(`hand.${hand}`),knuckles=rigidPoints(s.built.spec,limb.spec).get(aimOf(s.built.spec,hand)).value;
   const names=new Map([...s.built.segments.values()].map(segment=>[segment.body,segment.spec.name]));
   const effort=strikeEffort(body.muscles);
   const masses=contactMass(s.built),point=new Vector3(),velocity=new Vector3(),spin=new Vector3();
-  const state={history:[],samples:[],impacts:[],active:null,phase:'guard',launch:0,launchTime:0,previousPhase:null,
+  const state={cycles:cycles.state,history:[],samples:[],impacts:[],active:null,phase:'guard',launch:0,launchTime:0,previousPhase:null,
     witness:null,fell:false,floorContacts:0,unassignedImpulse:0,preContactTorquePeaks:{},seenLaunch:0,effort:effort.state};
   body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,
-    attack:view.time>=2?{kind:'blow',hand,target,targetId:'punch-pad',path:{family,armExtension}}:null},dt));
+    actions:cycles.requests(view,'strike',`hand.${hand}`,{kind:'point',at:target,body:'punch-pad'},view.time>=2)},dt));
   const before=s.world.beforeStep(()=>{
     pointOfToRef(limb,knuckles,point);motionAtToRef(limb,point,velocity,spin);
-    const phase=skills.report.strike.phase;
+    const phase=cycles.phase(`hand.${hand}`);
     if(phase==='swing'&&state.previousPhase!=='swing'){state.launch++;state.launchTime=s.world.time;}
     state.previousPhase=phase;state.phase=phase;
     state.history.push({time:s.world.time,point:point.asArray()});
@@ -91,6 +96,7 @@ export async function punchStand({model='workshop-fighter',hand='right',family='
     for(const segment of s.built.segments.values())sensor.load(segment);
   });
   const after=s.world.afterStep(()=>{
+    cycles.sample();
     const reading=sensor.read(),segments=[...new Set([...reading.contacts.map(c=>names.get(c.other)??'other'),
       ...reading.materialContacts.map(c=>c.segment)])];
     const sample={...reading,contacts:segments,phase:state.phase,launch:state.launch};
@@ -127,7 +133,7 @@ export async function punchStand({model='workshop-fighter',hand='right',family='
     });
   });
   const effortHook=s.world.afterStep(()=>effort.sample(s.world.time,state.phase,state.phase==='swing'&&state.launch!==state.seenLaunch));
-  return {...s,body,skills,sensor,state,config,target,
+  return {...s,body,skills,sensor,state,config,target,cycles,executorState:skills.state.actions.executors[0],
     reading() {
       const impacts=[...state.impacts,...(state.active?[{...state.active,truncated:true}]:[])].map(event=>{
         const duration=event.lastPush-event.time+s.world.dt;
@@ -140,9 +146,9 @@ export async function punchStand({model='workshop-fighter',hand='right',family='
         maximumFaceCompression=Math.max(0,...state.samples.flatMap(s=>s.materialContacts.map(c=>c.penetration)));
       const clean=impacts.filter(e=>e.eligible&&e.last10cmSpeed!==null),faults=[];
       if(state.fell)faults.push('fall');if(state.floorContacts)faults.push('trunk-floor contact');
-      if(skills.report.strike.pointCycle.failed)faults.push('failed strike/return cycle');
+      if(cycles.reading().failed)faults.push('failed strike/return cycle');
       if(clean.length<3)faults.push('fewer than three complete measured hand impacts');
-      if(skills.report.strike.pointCycle.returned[hand]<3)faults.push('fewer than three verified returns');
+      if(cycles.reading().returned[hand]<3)faults.push('fewer than three verified returns');
       if(maximumCompression>sensor.config.size[2]||maximumFaceCompression>sensor.config.size[2])faults.push('pad stroke exceeded');
       if(body.assist.meter.force||body.assist.meter.moment)faults.push('assistance');
       const best=clean.length>=3?clean.slice(0,3).reduce((a,b)=>a.impulse>=b.impulse?a:b):null;
@@ -150,11 +156,11 @@ export async function punchStand({model='workshop-fighter',hand='right',family='
         hz,actuation:s.world.actuation,model,held:'empty',balance:0},
         apparatus:{...sensor.config,damping:sensor.damping,normal:[0,0,1],gravity:false,rotation:'locked',translation:'normal only'},
         human:HUMAN_PUNCH,impacts,samples:structuredClone(state.samples),fell:state.fell,floorContacts:state.floorContacts,
-        cycles:structuredClone(skills.report.strike.pointCycle),head:body.view.head.asArray(),
+        cycles:structuredClone(cycles.reading()),head:body.view.head.asArray(),
         maximumCompression,maximumFaceCompression,qualification:{accepted:faults.length===0,faults},
         bestOfThree:best?{time:best.time,speed:best.last10cmSpeed,impulse:best.impulse,peakStepForce:best.peakStepForce,effectiveMass:best.effectiveMass}:null,
         unassignedImpulse:state.unassignedImpulse,preContactTorquePeaks:state.preContactTorquePeaks,
-        impactResponse:{admitted:skills.state.blow.hands?.[hand].cycle.admitted??null,aborted:skills.state.blow.hands?.[hand].cycle.aborted??null},
+        impactResponse:{admitted:cycles.reading().admitted,aborted:cycles.reading().aborted},
         effort:structuredClone(effort.state),
         assist:{force:body.assist.meter.force,moment:body.assist.meter.moment}};
     },

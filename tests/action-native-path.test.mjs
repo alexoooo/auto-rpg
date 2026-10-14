@@ -5,7 +5,7 @@ import { humanSpec } from "../src/core/human/spec.ts";
 import { createBody } from "../src/core/body.ts";
 import { guardPosture, guardSkill } from "../src/core/skills/guard.ts";
 import { locomotion } from "../src/core/skills/locomotion.ts";
-import { actionSkillSet } from "../src/core/skills/action-skill-set.ts";
+import { skillSet } from "../src/core/skills/arbiter.ts";
 import { pathExecutor } from "../src/core/skills/combat.ts";
 import { placedReach } from "../src/core/skills/strike.ts";
 import { armedWith } from "../src/core/items/held.ts";
@@ -16,8 +16,7 @@ for (const side of ["left", "right"]) for (const held of ["empty", "club"]) test
   const other = side === "right" ? "left" : "right", effector = `hand.${side}`;
   const body = createBody(stand.built, stand.world, { servoSeconds: .1, feedback: true });
   const executor = pathExecutor(body, [{ name: "jab", family: "straight" }]);
-  const skills = actionSkillSet(body, { legs: locomotion(body.envelope), guard: guardSkill(spec) }, [{ name: "punch", executor }],
-    [{ name: "jab", executor: "punch", effectors: [effector] }]);
+  const skills = skillSet(body, {}, {...{ legs: locomotion(body.envelope), guard: guardSkill(spec) }, executors:[{ name: "punch", executor }], actions:[{ name: "jab", executor: "punch", effectors: [effector] }]});
   const at = [body.view.head.x, body.view.head.y, body.view.head.z + placedReach(spec, side, 0)];
   const request = { id: skills.instance(), action: "jab", effector, target: { kind: "point", at } };
   const intent = { face: 0, move: null, guard: { [other]: { guarded: [body.view.head.x, body.view.head.y, body.view.head.z], threat: at }, [side]: null }, actions: [] };

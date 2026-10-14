@@ -1,6 +1,6 @@
 /**
  * What a body's blow does a body that stands: an arena bout (`bout.mjs`) in which the right side is
- * ordered to stand, bare-handed, and the left is ordered to attack one point of it, where the
+ * ordered to stand, bare-handed, and the left is ordered to attack a sensed segment of it, where the
  * part of a height band is (`BANDS`) once both have stood a second. The strike skill walks the
  * left to its blow and throws it: its recipe whose window holds that height, or a placed blow.
  *
@@ -43,15 +43,15 @@ async function thrownAt(model, held, band, foe, gap) {
     while (duel.clock < SETTLE) world.step();
     const part = right.built.segments.get(BANDS[band]) ?? right.built.segments.get("head");
     centreOfToRef(part, at);
-    const up = at.y - left.body.view.head.y, from = duel.blows.length, strike = () => left.minded.skills.report.strike;
-    duel.order("left", { move: null, face: null, attack: at.asArray() });
+    const up = at.y - left.body.view.head.y, from = duel.blows.length, report = left.minded.skills.report;
+    duel.order("left", { ...STAND_ORDERS, foe: "right", region: { kind: "segment", segment: part.spec.name } });
     let thrown = null;
-    while (duel.clock < SETTLE + WAIT && strike().thrown.right === 0) {
+    while (duel.clock < SETTLE + WAIT && !report.ledger.some(record => record.committed)) {
       world.step();
-      const { blow, chosen } = strike();
-      if (blow) thrown = blow === "placed" ? "placed" : chosen.recipe.band;
+      const live = report.actions.find(action => action.phase === "commit");
+      if (live) thrown = live.action;
     }
-    const threw = strike().thrown.right > 0;
+    const threw = report.ledger.some(record => record.committed);
     duel.order("left", STAND_ORDERS);
     for (const until = duel.clock + AFTER; duel.clock < until;) world.step();
     const blows = duel.blows.slice(from), lost = (side) => blows.reduce((sum, blow) => sum + (woundedIn(blow).find((one) => one.fighter === side)?.damage ?? 0), 0);

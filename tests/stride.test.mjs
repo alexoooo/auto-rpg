@@ -26,7 +26,7 @@ test("a_warrior_with_the_stride_walks_forward_five_metres_and_stops", async () =
   // Forward at 0.5 m/s, facing +z, until the centre of mass is 5 m on; then stand.
   const tactics = {
     name: "five-metres",
-    decide: ({ view }) => ({ move: view.stance.centre.z - start < 5 ? [0.5, 0] : null, face: 0, guard: NO_COVER, attack: null }),
+    decide: ({ view }) => ({ move: view.stance.centre.z - start < 5 ? [0.5, 0] : null, face: 0, guard: NO_COVER, actions: [] }),
   };
   actor.drive(tactics);
   let stopped = null, strides = 0, own = 0;
@@ -63,7 +63,7 @@ test("a_stride_that_swings_the_arms_swings_each_with_the_other_sides_leg_and_one
   for (const arms of [0, 2]) {
     const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
     const actor = labActor(stand.built, stand.world, { mind: { ...STRIDING, locomotion: { ...STRIDING.locomotion, arms } } });
-    actor.drive({ name: "forward", decide: () => ({ move: [0.6, 0], face: 0, guard: NO_COVER, attack: null }) });
+    actor.drive({ name: "forward", decide: () => ({ move: [0.6, 0], face: 0, guard: NO_COVER, actions: [] }) });
     const m = actor.body.muscles, shoulder = (side) => m.channels.findIndex((c) => c.name.startsWith(`shoulder.${side} flexion`));
     const left = shoulder("left"), right = shoulder("right"), angles = { left: [], right: [] }, leads = { left: [], right: [] };
     try {

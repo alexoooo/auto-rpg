@@ -237,7 +237,7 @@ export function trackTactics(track: Track, { top, pace: most, turn, facing }: Tr
           move = [pace * Math.cos(off), pace * Math.sin(off)];
         }
       }
-      return { move: facing === undefined ? [pace, 0] : move, face, guard: NO_COVER, attack: null };
+      return { move: facing === undefined ? [pace, 0] : move, face, guard: NO_COVER, actions: [] };
     },
     frame(time, x, z) {
       const running = setOff === null ? 0 : time - setOff, on = track.at(along);
@@ -262,7 +262,7 @@ function radiusTo(lag: number, reach: number): number {
 function commandsTactics(commands: Commands, { top }: { readonly top?: number } = {}): CourseTactics {
   let index = 0, reached = 0, lastLeg: number | null = null, legFrom = 0, done = 0, walked = 0, last: number | null = null;
   let pace = 0, bending = false, face = 0, standUntil: number | null = null, from: [number, number] = [0, 0], progress = 0;
-  const stand = (): Intent => ({ move: null, face, guard: NO_COVER, attack: null });
+  const stand = (): Intent => ({ move: null, face, guard: NO_COVER, actions: [] });
   return {
     name: "commands",
     decide({ view, report, envelope }): Intent {
@@ -298,7 +298,7 @@ function commandsTactics(commands: Commands, { top }: { readonly top?: number } 
       bending = Math.min(arrive, turning) < fastest;
       pace = Math.min(fastest, arrive, turning);
       face = toward;
-      return { move: [pace, 0], face, guard: NO_COVER, attack: null, destination: d };
+      return { move: [pace, 0], face, guard: NO_COVER, actions: [], destination: d };
     },
     frame(_time, x, z) {
       const to = commands.at(index);

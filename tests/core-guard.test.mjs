@@ -46,7 +46,7 @@ async function covering(spec, hands) {
   const held = { threat: null };
   driveBy(body, { name: "covers", decide: ({ view }) => {
     const cover = (hand) => held.threat && hands.includes(hand) ? { threat: held.threat, guarded: view.head.asArray() } : null;
-    return { move: null, face: 0, guard: { left: cover("left"), right: cover("right") }, attack: null };
+    return { move: null, face: 0, guard: { left: cover("left"), right: cover("right") }, actions: [] };
   } });
   const { view } = body;
   return {
@@ -351,7 +351,7 @@ test("a_club_held_in_the_guard_bears_on_none_of_its_holder", async () => {
     const stand = await coreStand(spec, { ground: true });
     const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
     const skills = recipeSkills(body);
-    body.drive((view, dt) => skills.command(view, { move: null, face: 0, guard: { left: null, right: null }, attack: null }, dt));
+    body.drive((view, dt) => skills.command(view, { move: null, face: 0, guard: { left: null, right: null }, actions: [] }, dt));
     try {
       stand.step(stand.seconds(2));
       const hand = stand.built.segments.get("hand.right"), own = new Map([...stand.built.segments.values()].map((s) => [s.body, s.spec.name]));

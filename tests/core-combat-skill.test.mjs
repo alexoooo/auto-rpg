@@ -73,20 +73,20 @@ test('a fresh-world fork inside a curved strike preserves the whole motion and r
  const make=async()=>{
   const stand=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
   const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body);
-  body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,
-   attack:view.time>=2?{kind:'blow',hand:'right',target:[.1,1.63,.5],path:{family:'hook'}}:null},dt));
+  const request={id:skills.instance(),action:'hook',effector:'hand.right',target:{kind:'point',at:[.1,1.63,.5]}};
+  body.drive((view,dt)=>skills.command(view,{move:null,face:0,guard:NO_COVER,actions:view.time>=2?[request]:[]},dt),skills.release);
   return {...stand,body,skills};
  };
  const a=await make(),b=await make();
  try {
-  while(a.skills.report.strike.phase!=='swing'&&a.world.time<5)a.step();
-  a.step(8);assert.equal(a.skills.report.strike.phase,'swing');
+  while(a.skills.report.actions[0]?.phase!=='commit'&&a.world.time<5)a.step();
+  a.step(8);assert.equal(a.skills.report.actions[0]?.phase,'commit');
   const states=s=>({body:s.body.state,skills:s.skills.state});
   loadStand(b.world,states(b),saveStand(a.world,states(a)));
   const ta=traceOf([a.built]),tb=traceOf([b.built]);
   for(let i=0;i<160;i++){a.step();b.step();ta.take();tb.take();}
   assert.deepEqual(saveStand(a.world,states(a)).state,saveStand(b.world,states(b)).state);
-  assert.equal(ta.digest(),tb.digest());assert.ok(a.skills.report.strike.pointCycle.returned.right>=1);
+  assert.equal(ta.digest(),tb.digest());assert.ok(a.skills.report.ledger.some(record=>record.ending.kind==='completed'));
  } finally {a.body.dispose();b.body.dispose();a.dispose();b.dispose();}
 });
 
@@ -136,11 +136,11 @@ test('explicit orders suppress pursuit and a fresh-world combat fork preserves t
  const b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try {
   a.duel.order('left',STAND_ORDERS);a.world.step(360);
-  assert.equal(a.duel.duelists.left.minded.skills.report.strike.hand,null);
+  assert.equal(a.duel.duelists.left.minded.skills.report.actions.length,0);
   assert.equal(a.duel.duelists.left.minded.skills.report.engagement.phase,'guard');
   a.duel.order('left',null);
-  while(a.duel.duelists.left.minded.skills.report.strike.phase!=='swing'&&a.duel.clock<20)a.world.step();
-  assert.equal(a.duel.duelists.left.minded.skills.report.strike.phase,'swing');
+  while(a.duel.duelists.left.minded.skills.report.actions[0]?.phase!=='commit'&&a.duel.clock<20)a.world.step();
+  assert.equal(a.duel.duelists.left.minded.skills.report.actions[0]?.phase,'commit');
   b.duel.load(a.duel.save());
   const traced=stand=>traceOf(Object.values(stand.duel.duelists).map(d=>d.built));
   const ta=traced(a),tb=traced(b);
@@ -148,7 +148,7 @@ test('explicit orders suppress pursuit and a fresh-world combat fork preserves t
   assert.deepEqual(b.duel.save().state,a.duel.save().state);
   assert.equal(tb.digest(),ta.digest());
   a.duel.order('left',STAND_ORDERS);a.world.step(180);
-  assert.equal(a.duel.duelists.left.minded.skills.report.strike.hand,null);
+  assert.equal(a.duel.duelists.left.minded.skills.report.actions.length,0);
   assert.equal(a.duel.duelists.left.minded.skills.report.engagement.phase,'guard');
  } finally {a.dispose();b.dispose();}
 });
@@ -187,12 +187,12 @@ test('every skill set closes a bare hand for its blow and opens it in the guard'
    while(bout.duel.verdict===null&&bout.duel.clock<30&&!seen()) {
     bout.world.step();
     for(const side of ['left','right']) {
-     const d=bout.duel.duelists[side],strike=d.minded.skills.report.strike,poses=d.built.handPoses.state;
+     const d=bout.duel.duelists[side],actions=d.minded.skills.report.actions,poses=d.built.handPoses.state;
      // A step after its last blow has ended, a hand is asked open; one held shut is only an opening blocked until it is clear.
-     free[side]=strike.hand===null&&!strike.returning&&!d.body.view.down?free[side]+1:0;
+     free[side]=actions.length===0&&!d.body.view.down?free[side]+1:0;
      for(const hand of ['left','right']) {
       const t=tally[`${mind.kind} ${side}.${hand}`]??={swing:0,swingOpen:0,guard:0,guardAsked:0,guardOpen:0,guardBlocked:0};
-      if(strike.hand===hand&&strike.phase==='swing'){t.swing++;if(poses[hand].applied!=='fist')t.swingOpen++;}
+      if(actions.some(action=>action.effector===`hand.${hand}`&&action.phase==='commit')){t.swing++;if(poses[hand].applied!=='fist')t.swingOpen++;}
       if(free[side]>=2){t.guard++;if(poses[hand].requested==='open')t.guardAsked++;if(poses[hand].applied==='open')t.guardOpen++;else if(blocked[`${side}.${hand}`])t.guardBlocked++;}
      }
     }

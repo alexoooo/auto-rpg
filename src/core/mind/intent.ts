@@ -1,3 +1,4 @@
+import type { ActionRequest } from "../skills/action.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { Side } from "../spec/body.ts";
 
@@ -24,8 +25,8 @@ export interface Intent {
   readonly guard: Readonly<Record<Side, Cover | null>>;
   /** How far under its standing height to hold the centre of mass, m; `STANCE_LOWER` when not given. */
   readonly lower?: number;
-  /** The one attack asked for (`Attack`), or null. */
-  readonly attack: Attack | null;
+  /** Discrete commitments requested on this control step. */
+  readonly actions: readonly ActionRequest[];
   /** How far the body is from where its walk is taking it, m; absent where it is taking it nowhere. Its locomotion may choose its gait by it (`move`). */
   readonly destination?: number;
 }
@@ -60,7 +61,7 @@ export interface BlowAttack {
 }
 
 /** The path a blow takes: its family, and optionally its world direction at contact and its arm's style. */
-export interface BlowPath {
+interface BlowPath {
   readonly family: BlowFamily;
   /** World direction at contact; the path skill applies its measured speed. */
   readonly direction?: Vec3;
@@ -71,7 +72,7 @@ export interface BlowPath {
 export type BlowFamily = "straight" | "cross" | "hook" | "downward" | "overhand" | "uppercut";
 
 /** A named foot and an observed world point; no joint or engine prescription. */
-export interface KickAttack {
+interface KickAttack {
   readonly kind: "kick";
   readonly foot: Side;
   readonly target: Vec3;
@@ -79,16 +80,7 @@ export interface KickAttack {
 }
 
 /** Standing in guard, facing `face`. */
-export const standIntent = (face = 0): Intent => ({ move: null, face, guard: NO_COVER, attack: null });
-
-/** **The hand a fighter attacks with next**, by `mode`: the one it names, or each in turn, the right first, by the blows begun so far (`cycles`). */
-export function nextHand(mode: Side | "alternate", cycles: number): Side {
-  switch (mode) {
-    case "left": case "right": return mode;
-    case "alternate": return cycles % 2 === 0 ? "right" : "left";
-    default: { const never: never = mode; throw new Error(`no hand ${JSON.stringify(never)}`); }
-  }
-}
+export const standIntent = (face = 0): Intent => ({ move: null, face, guard: NO_COVER, actions: [] });
 
 /** The optional arm style is finite and bounded; omitted inherits the executor preference. */
 export function validArmExtension(extension = 0): boolean {

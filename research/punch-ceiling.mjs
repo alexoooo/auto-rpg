@@ -137,7 +137,7 @@ export async function ceilingTrial(x, { model, physique, hand, cell, deadline, c
   const spec = modelSpec(model, physique), s = await coreStand(spec, { engine: DEFAULT_ENGINE, hz, posture: guardPosture(spec) });
   const body = createBody(s.built, s.world, { servoSeconds: SERVO_SECONDS, feedback: true }), skills = combatSkills(body, {});
   body.drive((view, dt) => {
-    const command = skills.command(view, { move: null, face: 0, guard: NO_COVER, attack: null }, dt), t = view.time - ORDERED;
+    const command = skills.command(view, { move: null, face: 0, guard: NO_COVER, actions: [] }, dt), t = view.time - ORDERED;
     const live = schedule.filter((p) => t >= p.from && t < p.to).map((p) => ({ channel: p.channel, sense: p.level > 0 ? 1 : -1, level: Math.min(1, Math.abs(p.level)) }));
     return live.length ? { ...command, pushes: [...command.pushes, ...live] } : command;
   });

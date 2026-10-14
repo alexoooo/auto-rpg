@@ -15,7 +15,7 @@
  */
 import { parseArgs } from "node:util";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
-import { NO_COVER } from "../src/core/mind/intent.ts";
+import { pointScript } from "../tests/fixtures/point-script.mjs";
 import { rulebook } from "../src/core/rules/rulebook.ts";
 import { recipeFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { labActor } from "../src/lab/actor.ts";
@@ -38,15 +38,14 @@ const STOOD = 1.5;
 async function one(loadout, up, repertoire) {
   const stand = await coreStand(loadoutSpec(loadout), { ground: true });
   const actor = labActor(stand.built, stand.world);
-  let target = null, open = null, reading = null, thrown = 0, time = 0;
-  actor.drive({ name: "attack", decide: ({ view }) => {
+  let target = null, open = null, reading = null, time = 0;
+  actor.drive(pointScript(({ view }) => {
     if (!target && time >= STOOD) target = { at: [0, view.head.y + up, 1.3], stratum: "control" };
-    return { move: null, face: 0, guard: NO_COVER, attack: target && !thrown ? { kind: "blow", hand: "right", target: target.at } : null };
-  } }, { skills: { repertoire }, watch(sight, dt) {
+    return target ? { key: 0, action: "strike", effector: "hand.right", target: { kind: "point", at: target.at, body: "dummy" } } : null;
+  }), { skills: { repertoire }, contactIdentity: other => open?.identify(other) ?? null, watch(sight, dt) {
     time += dt;
-    thrown = sight.report.strike.thrown.right;
     if (!target || reading) return;
-    open ??= readTarget(actor, target, "right", RULES);
+    open ??= readTarget(actor, target, "right", RULES, undefined, { repertoire });
     reading = open.step(sight);
   } });
   try {

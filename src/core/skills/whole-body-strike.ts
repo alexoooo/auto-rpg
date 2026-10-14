@@ -14,7 +14,6 @@ import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
 import { ATTACK_PATH } from "./attack-path.ts";
 import { guardPosture } from "./guard.ts";
-import type { BlowSkill, LegsAsk } from "./skill.ts";
 import { placedHeightFits, placedReach, type StrikeReport } from "./strike.ts";
 import { aimOf, closesToStrike } from "./strikes.ts";
 import type { BlowAttack } from "../mind/intent.ts";
@@ -133,13 +132,11 @@ export function wholeBodyFits(spec: BodySpec): boolean {
   return ["lowerTrunk", "upperTrunk", "foot.left", "foot.right", "hand.left", "hand.right"].every((name) => names.has(name));
 }
 
-const HOLD: LegsAsk = Object.freeze({ kind: "hold" });
-const NO_HANDS = Object.freeze({ left: null, right: null });
 
 /**
  * **The whole-body strike**: one bounded torque solve over the coupled dynamics, the ground's
  * contacts and the joints' stops (`wholeBodyTracking`), drives every freedom of `body` from the
- * blow's start to its return, given to the muscles as pushes (`Claim.whole`): the stance, the guard
+ * blow's start to its return, given to the muscles as owned pushes: the stance, the guard
  * and the posture stand aside, and the strike holds the legs, the trunk and both hands. Its goals
  * hold the mass centre over the soles' middle, the pelvis `lower` under its height in the reference
  * pose over where the feet stand and at its turn as the blow began, and every joint toward the
@@ -319,28 +316,6 @@ function wholeBodyTechnique(body: Body, world: World, drive: WholeBodyDrive, ret
   return { state, report, resume, begin, advance, command, fist, aimAt };
 }
 
-/** A whole-body strike solves the active motion once per control interval. */
-export function wholeBodyStrike(body: Body, world: World, drive: WholeBodyDrive): BlowSkill {
-  const { state, report, resume, begin, advance, command } = wholeBodyTechnique(body, world, drive);
-  return {
-    report, state, releases: true,
-    get holds() { return state.hand; },
-    get busy() { return state.phase !== null; },
-    lower: null, accepts: () => true, resume,
-    command(view, attack, _intent, _around, dt) {
-      const t = view.time;
-      state.now = t; state.still += dt;
-      if (state.phase === null) {
-        if (!attack || view.down || t < ATTACK_PATH.startup || state.still < ATTACK_PATH.hold) return null;
-        begin(view, attack);
-      } else advance(t, state.hand!, (view.effectors[`hand.${state.hand!}`]?.feedback?.impulse ?? 0) > 0);
-      const hand = state.hand;
-      if (state.phase === null || hand === null) return null;
-      return { hands: NO_HANDS, posture: null, pushes: command(t, hand), closed: { left: hand === "left", right: hand === "right" }, legs: HOLD, steer: 0, whole: true };
-    },
-  };
-}
-
 /** Whole-body action commands are the result of one solve during admission or elapsed update. */
 export function wholeBodyExecutor(body: Body, world: World, actions: readonly string[], drive: WholeBodyDrive,
   resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null = (_view, target) => target.kind === "point" ? target.at : null): Executor {
@@ -374,8 +349,8 @@ export function wholeBodyExecutor(body: Body, world: World, actions: readonly st
       const dx = view.head.x - view.stance.centre.x, dz = view.head.z - view.stance.centre.z;
       const ahead = dx * sin(around.heading) + dz * cos(around.heading), across = dx * cos(around.heading) - dz * sin(around.heading);
       // The solve admits a slow approach and a modest facing error before its preparation.
-      const window = { at, along: [reach + ahead - ATTACK_PATH.near, reach + ahead + ATTACK_PATH.near] as const,
-        across: [across - ATTACK_PATH.near, across + ATTACK_PATH.near] as const, facing: .4, speed: .3 };
+      const window = { at, along: [reach + ahead - .15, reach + ahead + .15] as const,
+        across: [across - .2, across + .2] as const, facing: .4, speed: .3 };
       if (!withinActionWindow(view, window, around.heading)) return { kind: "position", window };
       return { kind: "ready" };
     },

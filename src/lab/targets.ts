@@ -2,8 +2,11 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { cos, sin } from "../core/math/real.ts";
 import type { Sight } from "../core/mind/tactics.ts";
-import type { StrikeReport } from "../core/skills/strike.ts";
-import type { Band } from "../core/skills/strikes.ts";
+import { rangeOf } from "../core/skills/strike.ts";
+import type { RecipeOptions } from "../core/skills/skills.ts";
+import type { ContactIdentity } from "../core/control/effector-feedback.ts";
+import type { Ended } from "../core/skills/action.ts";
+import { recipeFor, REPERTOIRE, type Band } from "../core/skills/strikes.ts";
 import { watchBlows, woundedIn, type BlowSide, type BlowWatch, type Fighter, type LandedBlow } from "../core/rules/blows.ts";
 import { createPool } from "../core/rules/pool.ts";
 import type { Rulebook } from "../core/rules/rulebook.ts";
@@ -153,8 +156,8 @@ export function hangDummy(world: World, spec: BodySpec, at: Vec3, rules: Ruleboo
 
 /** The strike thrown at a target. */
 interface ThrownStrike {
-  /** How it was carried out (`StrikeReport.blow`): with a recipe, or placed. */
-  readonly kind: NonNullable<StrikeReport["blow"]>;
+  /** The configured recipe at admission, or a placed motion where none fits. */
+  readonly kind: "recipe" | "placed";
   /** The recipe's strike's name; a placed blow's is its kind. */
   readonly name: string;
   /** The recipe's height band (`Recipe.band`); null for a placed blow. */
@@ -173,6 +176,8 @@ interface ThrownStrike {
 /** What one target read. */
 export interface TargetReading {
   readonly target: Target;
+  /** The exact action ending, including refusal and interruption. */
+  readonly ending: Ended | null;
   readonly hand: Side;
   /** The strike thrown at it; null if none began. */
   readonly strike: ThrownStrike | null;
@@ -225,6 +230,7 @@ export const TARGET_CLEAR = 0.02;
 
 /** One target's reading under way. */
 interface TargetRead {
+  readonly identify: ContactIdentity;
   /** The target's ball, for whatever draws it: where its dummy is (world, m), or where it will hang, and its radius, m. */
   readonly ball: { readonly centre: Vec3; readonly radius: number };
   /** Called from the actor's watch each control step; returns the reading once, when it closes. */
@@ -244,38 +250,54 @@ interface TargetRead {
  * stepped by its tactics, so whatever steps the world closes the reading then (`fall`). `hung` is
  * told the dummy's body as it is hung, and what it returns is disposed with the dummy.
  */
-export function readTarget(actor: Actor, target: Target, hand: Side, rules: Rulebook, hung?: (built: BuiltBody) => { dispose(): void }): TargetRead {
+export function readTarget(actor: Actor, target: Target, hand: Side, rules: Rulebook, hung?: (built: BuiltBody) => { dispose(): void }, options?: RecipeOptions): TargetRead {
   const { world, body } = actor, built = body.built;
   const spec = dummySpec(built.spec), radius = ballOf(spec).ball.radius.value;
   const striking = built.segments.get(`hand.${hand}`);
   if (!striking) throw new Error(`${built.spec.model} has no ${hand} hand`);
   const segments = [...built.segments.values()];
   const asked = world.time;
+  // A watch sees the preceding decision, including an admission refused in that same step.
+  const earliest = (world.steps - 1) / world.hz;
   let up: { readonly dummy: Dummy; readonly watch: BlowWatch; readonly told: { dispose(): void } | null } | null = null;
   const fist = body.view.fists[hand];
   let strike: { -readonly [K in keyof ThrownStrike]: ThrownStrike[K] } | null = null, nearest: number | null = null;
-  /** The hand's strikes thrown before this one, once it has begun; and when its pushes ended. */
-  let thrown: number | null = null, ended: number | null = null;
+  /** The admitted instance and the physical interval when it ceased committing. */
+  let instance: number | null = null, ended: number | null = null, ending: Ended | null = null;
   const reading = (fell: boolean): TargetReading => {
     const dummy = up?.dummy.fighter.id, blow = up ? hardestOn(up.watch.blows, up.dummy.fighter.id) : null;
     const took = blow?.sides.find((side) => side.fighter === dummy) ?? null, gave = blow?.sides.find((side) => side.fighter !== dummy) ?? null;
     const touched = gave?.segment === striking.spec.name;
-    return { target, hand, strike: strike && { ...strike }, seconds: world.time - asked, hung: up !== null, nearest: touched ? 0 : nearest, blow, took, gave, fell };
+    return { target, hand, ending, strike: strike && { ...strike }, seconds: world.time - asked, hung: up !== null, nearest: touched ? 0 : nearest, blow, took, gave, fell };
   };
   /** Where the ball is: its dummy's centre, or its place while none hangs. */
   const centre = (): Vec3 => up ? [up.dummy.centre.x, up.dummy.centre.y, up.dummy.centre.z] : target.at;
   return {
+    identify(other) {
+      for (const segment of up?.dummy.fighter.built.segments.values() ?? []) if (segment.body === other)
+        return { kind: "body", body: "dummy", segment: segment.spec.name, guard: false };
+      return null;
+    },
     get ball() { return { centre: centre(), radius }; },
     step({ view, report }) {
-      if (thrown === null || !strike) {
-        if (report.strike.hand !== hand || (report.strike.phase !== "chamber" && report.strike.phase !== "swing")) return null;
-        thrown = report.strike.thrown[hand];
-        const { blow, chosen, distance } = report.strike, h = report.heading, dx = target.at[0] - view.head.x, dz = target.at[2] - view.head.z;
+      const live = report.actions.find(action => action.effector === `hand.${hand}` && action.target.body === "dummy");
+      const terminal = report.ledger.find(record => instance === null
+        ? record.effector === `hand.${hand}` && record.target.body === "dummy" && record.began >= earliest
+          && record.target.kind === "point" && record.target.at.every((coordinate, axis) => coordinate === target.at[axis])
+        : record.id === instance);
+      if (terminal) { ending = terminal; ended ??= world.time; }
+      if (instance === null && live && (live.stage === "chamber" || live.phase === "commit")) {
+        instance = live.id;
+        const up = target.at[1] - view.head.y, chosen = recipeFor(options?.repertoire ?? REPERTOIRE, built.spec, hand, up);
+        const distance = rangeOf(built.spec, hand, up, options?.repertoire, options?.placed).reach;
+        const h = report.heading, dx = target.at[0] - view.head.x, dz = target.at[2] - view.head.z;
         strike = {
-          kind: blow!, name: chosen?.strike.name ?? blow!, band: chosen?.recipe.band ?? null, up: target.at[1] - view.head.y, peak: 0,
-          off: { along: dx * sin(h) + dz * cos(h) - distance!, across: dx * cos(h) - dz * sin(h) },
+          kind: chosen ? "recipe" : "placed", name: chosen?.strike.name ?? "placed", band: chosen?.recipe.band ?? null, up, peak: 0,
+          off: { along: dx * sin(h) + dz * cos(h) - distance, across: dx * cos(h) - dz * sin(h) },
         };
       }
+      if (!strike) return ended !== null && world.time - ended >= TARGET_WATCH ? reading(false) : null;
+      if (live?.phase === "release") ended ??= world.time;
       if (ended === null) {
         strike.peak = Math.max(strike.peak, fist.velocity.length());
         if (!up && segments.every((segment) => segment.body.gapTo(target.at) - radius > TARGET_CLEAR)) {
@@ -286,8 +308,7 @@ export function readTarget(actor: Actor, target: Target, hand: Side, rules: Rule
       }
       const gap = Math.max(0, striking.body.gapTo(centre()) - radius);
       nearest = nearest === null ? gap : Math.min(nearest, gap);
-      if (ended === null && report.strike.thrown[hand] > thrown) ended = world.time;
-      return ended !== null && world.time - ended >= TARGET_WATCH ? reading(false) : null;
+      return ending !== null && ended !== null && world.time - ended >= TARGET_WATCH ? reading(false) : null;
     },
     fall: () => reading(true),
     dispose() {

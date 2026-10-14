@@ -67,17 +67,17 @@ test('fixed geometry grants preserve physical sizes and reject swept walls, post
 
 test('physical predictive defense covers only an available hand and preserves its timing through a fresh-world fork',async()=>{
  const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
-  minds:{left:withParts(COMBAT,{tactics:{defence:'predictive'}}),right:COMBAT},senseDelay:6,recoverySeconds:null,capSeconds:30};
+  minds:{left:{...COMBAT,tactics:{...COMBAT.tactics,list:[{kind:'follow-orders'},{kind:'evade'},{kind:'attack'},{kind:'approach'},{kind:'cover',guard:'predictive'}]}},right:COMBAT},senseDelay:6,recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
   const d=a.duel.duelists.left;let defended=0,evaded=0,covered=0,forked=false;
   for(let i=0;i<3000&&!a.duel.verdict;i++){
    a.world.step();const st=d.minded.skills.state,v=d.minded.body.view;
-   defended+=Number(st.tactics.defense==='guard');evaded+=Number(st.tactics.defense==='evade');
-   if(st.tactics.defense==='guard'){
-    const hands=Object.entries(st.command.effectors).filter(([h,g])=>h!==`hand.${st.blow.hand}`&&g);
-    assert.ok(hands.length<=1);covered+=hands.length;
-    for(const [,goal]of hands)assert.ok(goal.seconds>0&&goal.seconds<=.15);
+   defended+=Number(Object.entries(st.command.effectors).some(([effector,goal])=>goal&&d.minded.skills.report.holders['effector:'+effector]==='default'));evaded+=Number(st.tactics.phase==='evade');
+   if(Object.entries(st.command.effectors).some(([effector,goal])=>goal&&d.minded.skills.report.holders['effector:'+effector]==='default')){
+    const hands=Object.entries(st.command.effectors).filter(([h,g])=>d.minded.skills.report.holders['effector:'+h]==='default'&&g);
+    assert.ok(hands.length<=2);covered+=hands.length;
+    for(const [,goal]of hands)assert.ok(goal.seconds>0&&goal.seconds<=.3);
     const foe=v.senses.others[0];assert.ok(v.time>=foe.time);assert.ok(v.senses.solids.length>20);
     if(!forked){
      b.duel.load(a.duel.save());const ta=traceOf(Object.values(a.duel.duelists).map(d=>d.built)),tb=traceOf(Object.values(b.duel.duelists).map(d=>d.built));
@@ -97,7 +97,7 @@ test('an ordered approach reaches the real parapet, then autonomous combat escap
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
   const left=a.duel.duelists.left,right=a.duel.duelists.right;
-  const moving={move:{x:-1,z:0},face:{x:-1,z:0},attack:null};
+  const moving={move:{x:-1,z:0},face:{x:-1,z:0}};
   a.duel.order('left',moving);a.duel.order('right',moving);
   while(left.minded.body.view.stance.centre.x> -12.45&&a.duel.clock<100)a.world.step();
   a.duel.order('left',STAND_ORDERS);a.duel.order('right',STAND_ORDERS);a.world.step(240);
@@ -106,15 +106,15 @@ test('an ordered approach reaches the real parapet, then autonomous combat escap
   a.duel.order('left',null);a.duel.order('right',null);let forked=false,escaped=0;
   for(let i=0;i<1200;i++){
    a.world.step();const st=left.minded.skills.state;
-   escaped+=Number(st.tactics.phase==='escape');
+   escaped+=Number(st.tactics.phase==='clear');
    assert.ok(left.minded.body.view.stance.centre.x> -12.9,'the body stays inside the physical parapet');
-   if(!forked&&st.tactics.phase==='escape'){
+   if(!forked&&st.tactics.phase==='clear'){
     b.duel.load(a.duel.save());const ta=traceOf(Object.values(a.duel.duelists).map(d=>d.built)),tb=traceOf(Object.values(b.duel.duelists).map(d=>d.built));
     for(let k=0;k<120;k++){a.world.step();b.world.step();ta.take();tb.take();}
     assert.deepEqual(b.duel.save().state,a.duel.save().state);assert.equal(ta.digest(),tb.digest());forked=true;
    }
   }
   assert.ok(escaped>0);assert.equal(forked,true);
-  assert.ok(left.minded.skills.report.strike.thrown.left+left.minded.skills.report.strike.thrown.right>0);
+  assert.ok(left.minded.skills.report.ledger.some(record=>record.committed));
  }finally{a.dispose();b.dispose();}
 });

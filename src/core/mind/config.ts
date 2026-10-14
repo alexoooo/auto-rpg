@@ -1,3 +1,4 @@
+import type { TechniqueName } from "./ground/techniques.ts";
 import type { REPTILE_BITE } from "../reptile/tuning.ts";
 import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
 import type { AttackTuning } from "../skills/attack-path.ts";
@@ -7,7 +8,6 @@ import { STRAIGHT_PUNCH, type StraightPunch } from "../skills/straight-punch.ts"
 import type { StrideSettings } from "../skills/stride.ts";
 import type { RunSettings } from "../skills/run.ts";
 import type { SimbiconRun, SimbiconSettings, SimbiconWay } from "../skills/simbicon.ts";
-import type { ChoosePolicy } from "../skills/choose.ts";
 import type { GaitName } from "../skills/gaits.ts";
 import type { Placed } from "../skills/strike.ts";
 import type { Repertoire } from "../skills/strikes.ts";
@@ -15,8 +15,6 @@ import type { WholeBodyDrive } from "../skills/whole-body-strike.ts";
 import type { OpeningTuning } from "./openings.ts";
 import type { Covering } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
-import type { Threat } from "./threat.ts";
-import type { Edge } from "./recipe-tactics.ts";
 import type { AimRule } from "./action-aim.ts";
 import type { Region } from "../skills/action.ts";
 
@@ -29,111 +27,48 @@ interface SupportRecoveryConfig { readonly kind: "support-recovery" }
 /** Experimental reference-motion feedback through ordinary muscles. */
 interface ResearchRiseConfig { readonly kind: "research-rise" }
 
+/** Preferred contracts for recovering the feet, in player order. */
+export interface StandUpConfig { readonly kind: "stand-up"; readonly techniques: readonly TechniqueName[] }
+
+/** Roll away from a nearby foe before handing over. */
+export interface GetAwayConfig { readonly kind: "get-away"; readonly metres: number }
+/** Cover and kick while lying within reach of a foe. */
+export interface GroundFightConfig { readonly kind: "ground-fight"; readonly reach: number; readonly kicks: "either" | "left" | "right" | "none" }
+
 /** **A sub-mind's config**, by kind: what a host's slot holds, whole, so a sub-mind is configured where it is chosen. */
-export type SubMindConfig = LieConfig | SupportRecoveryConfig | ResearchRiseConfig;
+export type SubMindConfig = LieConfig | SupportRecoveryConfig | ResearchRiseConfig | StandUpConfig | GetAwayConfig | GroundFightConfig;
 
-/**
- * **Tactics that seek the foe** (`seekFoe`, `recipeTactics`): walk at the nearest foe and attack
- * it with the right hand. Its fields are a player's; `tuning` is research's, and never travels in
- * a link.
- */
-export interface SeekConfig {
-  readonly kind: "seek";
-  /** How a hand that does not attack guards: the pose, or a cover of what threatens (`threatOf`, `threat.ts`). */
-  readonly guard: "pose" | "cover";
-  /** What of a foe a fighter attacks: its head; its upper trunk; or, of its head and upper trunk, the one its hand's recipe nets more on (`seekFoe`, `recipe-tactics.ts`). */
-  readonly aim: "head" | "body" | "pays";
-  /**
-   * How near a foe a fighter comes to attack it: walking in to `ATTACK_METRES`; or held at the
-   * edge of the foe's reach, attacking when the foe stands in its own blow's window (`seekFoe`, `EDGE`).
-   */
-  readonly range: "close" | "edge";
-  /** An experiment's settings in place of the ones set: a sweep's cell. */
-  readonly tuning?: {
-    /** The threat in place of `THREAT`. */
-    readonly threat?: Threat;
-    /** The edge in place of `EDGE`. */
-    readonly edge?: Edge;
-  };
+/** Focus is selected once for all behaviours in a control step. */
+export type FocusRuleConfig = { readonly kind: "ordered" | "current" } | { readonly kind: "nearest"; readonly prefer: "standing" | "standing-first" };
+
+/** Shared conditions read detached tactical facts. */
+export type ConditionConfig = { readonly kind: "always" | "when-standing" | "target-down" }
+  | { readonly kind: "when-distance"; readonly of: "foe" | "destination"; readonly than: "under" | "over"; readonly metres: number }
+  | { readonly kind: "follow-up"; readonly seconds: number };
+
+/** A selector chooses configured action names and retains a choice within bounded patience. */
+export type SelectorConfig = ({ readonly kind: "first-ready" | "rotate" | "scored" | "estimate" }
+  | { readonly kind: "rules"; readonly rules: readonly { readonly when: ConditionConfig; readonly actions: readonly string[] }[]; readonly otherwise: readonly string[] })
+  & { readonly rethink: number; readonly patience: number };
+
+/** A behaviour requests one part of the shared tactical intent. */
+export type BehaviourConfig = { [K in "attack" | "follow-orders" | "clear-of-walls" | "clear-of-fallen" | "evade" | "flee"]: { readonly kind: K } }["attack" | "follow-orders" | "clear-of-walls" | "clear-of-fallen" | "evade" | "flee"]
+  | { readonly kind: "approach"; readonly spacing?: number; readonly spacingStep?: number }
+  | { [K in "close-in" | "keep-distance" | "break-clinch"]: { readonly kind: K; readonly metres: number } }["close-in" | "keep-distance" | "break-clinch"]
+  | { readonly kind: "edge"; readonly band: number; readonly patience: number }
+  | { readonly kind: "ground" }
+  | { readonly kind: "cover"; readonly guard: "pose" | "cover" | "predictive" };
+
+/** Ranked behaviours share focus, selection and action instances. */
+export interface BehavioursConfig {
+  readonly kind: "behaviours";
+  readonly target: readonly FocusRuleConfig[];
+  readonly choose: SelectorConfig;
+  readonly list: readonly BehaviourConfig[];
 }
 
-/**
- * **Tactics that choose openings** (`pathTactics`): a hand path chosen against the foe's surfaces,
- * approached to its working distance and attacked when ready, with covers or evasions. Its fields
- * are a player's; `tuning` is research's, and never travels in a link.
- */
-export interface OpeningsConfig {
-  readonly kind: "openings";
-  /** The hand that attacks, or both in turn. */
-  readonly hands: "left" | "right" | "alternate";
-  /** Straight blows; straight blows and close hooks ranked together; with measured overhands; or with uppercuts too. */
-  readonly strikes: "linear" | "mixed" | "vertical" | "boxing";
-  /** The surface the openings favour: the head, or the trunk (`BODY_OPENINGS`). */
-  readonly prefers: "head" | "body";
-  /** The reference cover, or a cover placed by measured relative-motion prediction (`docs/reference/combat-defense.md`). */
-  readonly defence: "cover" | "predictive";
-  /**
-   * None; one opposite-hand follow-up after a target hit and verified return, with fresh lane and
-   * footing checks; or that follow-up thrown while the contact-free hand still moves home, each
-   * return still verified (`docs/reference/combat-overlap.md`). Both need alternate hands.
-   */
-  readonly combinations: "none" | "follow-up" | "overlap";
-  /** Extra distance kept from the foe, m. */
-  readonly spacing: number;
-  /** How much a clean verified miss takes off the extra spacing, m: `docs/reference/combat-range-learning.md`. */
-  readonly spacingStep: number;
-  /** An experiment's settings in place of the ones set. */
-  readonly tuning?: {
-    /** Over the openings `prefers` sets. */
-    readonly openings?: OpeningTuning;
-  };
-}
-
-/** **Tactics that carry out the screen's script** (`MindWiring.script`): the Lab's scenario, as its mode writes it. */
-interface ScriptConfig { readonly kind: "script" }
-
-/** **Tactics that stand in guard** the way the body faces, whatever is about. */
-interface StandConfig { readonly kind: "stand" }
-
-/** Carry out a person's orders while there are any (`Orders`). */
-interface FollowOrdersConfig { readonly kind: "follow-orders" }
-
-/** Walk away from the nearest foe, around what is in the way. */
-interface FleeConfig { readonly kind: "flee" }
-
-/** Walk to the nearest foe until the centres of mass are within `metres` across the ground. */
-interface CloseInConfig { readonly kind: "close-in"; readonly metres: number }
-
-/** Hold `metres` from the nearest foe: walk in from further, back away from nearer. */
-interface KeepDistanceConfig { readonly kind: "keep-distance"; readonly metres: number }
-
-/** Strike the nearest foe with `blow`, by `hands`, at what `aim` names, walking in to it. */
-interface StrikeConfig {
-  readonly kind: "strike";
-  readonly hands: "left" | "right" | "alternate";
-  readonly aim: SeekConfig["aim"];
-  readonly blow: BlowConfig;
-}
-
-/** Kick the nearest standing foe's legs with `kick`, by `feet`, walking in to it. */
-interface KickConfig { readonly kind: "kick"; readonly feet: "left" | "right" | "alternate"; readonly kick: FrontKickConfig }
-
-/** Guard with the hands that do not attack, as `guard` says. */
-interface CoverConfig { readonly kind: "cover"; readonly guard: SeekConfig["guard"] }
-
-/** **A behaviour's config**, by kind: one thing a fighter may want of its body (`behaviours.ts`). */
-export type BehaviourConfig = FollowOrdersConfig | FleeConfig | CloseInConfig | KeepDistanceConfig | StrikeConfig | KickConfig | CoverConfig;
-
-/**
- * **Tactics made of behaviours**, in rank order: each step the first behaviour that wants the legs,
- * the attack or a hand's guard has it, and what none wants stands in guard (`behavioursTactics`).
- * What the body can do is what its behaviours carry: a strike its blow, a kick its kick
- * (`fighterSkills`).
- */
-export interface BehavioursConfig { readonly kind: "behaviours"; readonly list: readonly BehaviourConfig[] }
-
-/** **Tactics' config**, by kind: what turns what a body sees into its intent. */
-export type TacticsConfig = SeekConfig | OpeningsConfig | ScriptConfig | StandConfig | BehavioursConfig;
+/** Tactics either compose behaviours, hold guard, or execute a supplied script. */
+export type TacticsConfig = { readonly kind: "script" } | { readonly kind: "stand" } | BehavioursConfig;
 
 /** **The walk** within the body's stance envelope (`locomotion`). */
 export interface StanceWalkConfig {
@@ -208,7 +143,7 @@ interface CoverGuardConfig {
   };
 }
 
-/** **The recipe strike**: the searched recipe blows for what a hand holds (`recipeStrike`, `skills/strike.ts`). */
+/** **The recipe strike**: the searched recipe blows for what a hand holds (`recipeExecutor`, `skills/strike.ts`). */
 interface RecipeStrikeConfig {
   readonly kind: "recipe-strike";
   readonly tuning?: {
@@ -221,8 +156,8 @@ interface RecipeStrikeConfig {
   };
 }
 
-/** **The path strike**: a hand path carried out on the strike cycle (`pathStrike`, `skills/combat.ts`). */
-export interface PathStrikeConfig {
+/** **The path strike**: a hand path carried out on the strike cycle (`pathExecutor`, `skills/combat.ts`). */
+interface PathStrikeConfig {
   readonly kind: "path-strike";
   /** Whether a hand may begin while the other is still returning. */
   readonly overlap: boolean;
@@ -234,40 +169,30 @@ export interface PathStrikeConfig {
 }
 
 /** **The driven strike** (`DrivenStrike`, `skills/combat.ts`): the path strike with its trunk driven into the swing. */
-export interface DrivenStrikeConfig extends DrivenStrike {
+interface DrivenStrikeConfig extends DrivenStrike {
   readonly kind: "driven-strike";
   readonly tuning?: PathStrikeConfig["tuning"];
 }
 
-/** **The whole-body strike** (`wholeBodyStrike`, `skills/whole-body-strike.ts`): one torque solve over the whole body under a blow, its fist driven by `drive`. */
-export interface WholeBodyStrikeConfig {
+/** **The whole-body strike** (`wholeBodyExecutor`, `skills/whole-body-strike.ts`): one torque solve over the whole body under a blow, its fist driven by `drive`. */
+interface WholeBodyStrikeConfig {
   readonly kind: "whole-body-strike";
   readonly drive: WholeBodyDrive;
 }
 
-/** **The straight punch** (`straightPunch`, `skills/straight-punch.ts`): the arm driven flat out at a lined-up contact pose, its settings these. */
-export interface StraightPunchConfig extends StraightPunch {
+/** **The straight punch** (`straightPunchExecutor`, `skills/straight-punch.ts`): the arm driven flat out at a lined-up contact pose, its settings these. */
+interface StraightPunchConfig extends StraightPunch {
   readonly kind: "straight-punch";
 }
 
-/** **A choice of blows**: each blow begun given to one of `options` by `policy` (`chooseSkill`, `skills/choose.ts`). */
-export interface ChooseBlowConfig {
-  readonly kind: "choose-blow";
-  readonly options: readonly BlowConfig[];
-  readonly policy: ChoosePolicy;
-}
-
-/** **A blow skill's config**, by kind: what carries out a hand's attack. */
-export type BlowConfig = RecipeStrikeConfig | PathStrikeConfig | DrivenStrikeConfig | WholeBodyStrikeConfig | StraightPunchConfig | ChooseBlowConfig;
-
-/** **The front kick** with either foot (`kickSkill`), its swing over `ARENA_KICKS`. */
-export interface FrontKickConfig {
+/** **The front kick** with either foot (`kickExecutor`), its configured swing tuning. */
+interface FrontKickConfig {
   readonly kind: "front-kick";
   readonly tuning?: Partial<KickTuning>;
 }
 
 /** Named execution state shared only by actions that explicitly refer to it. */
-export type ExecutorConfig = (Exclude<BlowConfig, ChooseBlowConfig> | FrontKickConfig) & { readonly name: string };
+export type ExecutorConfig = (RecipeStrikeConfig | PathStrikeConfig | DrivenStrikeConfig | WholeBodyStrikeConfig | StraightPunchConfig | FrontKickConfig) & { readonly name: string };
 
 /** A configured attack's identity, anatomical choices and its executor-specific motion settings. */
 export interface ActionConfig {
@@ -285,21 +210,16 @@ export interface ActionConfig {
 interface SupportFoldConfig { readonly kind: "support-fold" }
 
 /** **A skill's config**, by kind, across the fighter's skill slots. */
-export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | MoveConfig | CoverGuardConfig | BlowConfig | FrontKickConfig | SupportFoldConfig;
+export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | MoveConfig | CoverGuardConfig | SupportFoldConfig;
 
-/**
- * **The fighter**: tactics over a skill of each role, under one arbiter (`skillSet`), handing its
- * body to its sub-minds while down (`fighter.ts`). An empty `blow`, `kick` or `support` is a fighter
- * that throws no blow, does not kick, or does not fight from low support. Under behaviours its blow
- * and kick are its behaviours' own, and these three slots are not its (`fighterSkills`).
- */
+/** A fighter shares named executors across its configured actions. */
 export interface FighterConfig {
   readonly kind: "fighter";
   readonly tactics: TacticsConfig;
   readonly locomotion: LocomotionConfig;
   readonly guard: CoverGuardConfig;
-  readonly blow: BlowConfig | null;
-  readonly kick: FrontKickConfig | null;
+  readonly executors: readonly ExecutorConfig[];
+  readonly actions: readonly ActionConfig[];
   readonly support: SupportFoldConfig | null;
   /** The sub-minds it hands its body to, in rank order: the first that wants the body has it. */
   readonly subs: readonly SubMindConfig[];
@@ -329,12 +249,11 @@ export interface DirectMindConfig {
   readonly activation: number;
 }
 
-/** The seeking tactics as they start: the guard's pose, the head, walking in. */
-export const SEEK: SeekConfig = deepFreeze({ kind: "seek", guard: "pose", aim: "head", range: "close" });
-
-/** The opening tactics as they start: both hands in turn, straight blows at the head under the reference cover, no combinations, no spacing. */
-export const OPENINGS: OpeningsConfig = deepFreeze({ kind: "openings", hands: "alternate", strikes: "linear", prefers: "head", defence: "cover",
-  combinations: "none", spacing: 0, spacingStep: 0 });
+/** Shared defaults keep ordered focus before the current and nearest standing foe. */
+export const FIGHTING: BehavioursConfig = deepFreeze({ kind: "behaviours",
+  target: [{ kind: "ordered" }, { kind: "current" }, { kind: "nearest", prefer: "standing-first" }],
+  choose: { kind: "first-ready", rethink: .2, patience: 2 },
+  list: [{ kind: "follow-orders" }, { kind: "clear-of-fallen" }, { kind: "attack" }, { kind: "approach" }, { kind: "cover", guard: "pose" }] });
 
 /**
  * The legs a body gets about by (`move`): braced while it stands or a standing foe is within 5 m;
@@ -349,8 +268,9 @@ export const MOVE: MoveConfig = deepFreeze({ kind: "move",
   otherwise: "walk" });
 
 /** The recipe fighter: seeking tactics over the recipe strike, walking in the stance, lying still once down. The Lab's minds are made from it. */
-export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tactics: SEEK, locomotion: { kind: "stance-walk" }, guard: { kind: "cover-guard" },
-  blow: { kind: "recipe-strike" }, kick: null, support: null, subs: [{ kind: "lie" }] });
+export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tactics: FIGHTING, locomotion: { kind: "stance-walk" }, guard: { kind: "cover-guard" },
+  executors: [{ name: "recipe", kind: "recipe-strike" }],
+  actions: [{ name: "strike", executor: "recipe", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "high" }], aim: { kind: "centre", lead: 0 } }], support: null, subs: [{ kind: "lie" }] });
 
 /** The mind every humanoid has unless its fight says otherwise: the recipe fighter, getting about by `MOVE`. */
 export const GAME_FIGHTER: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, locomotion: MOVE });
@@ -359,10 +279,12 @@ export const GAME_FIGHTER: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, locom
 export const CLASSIC: FighterConfig = deepFreeze({ ...GAME_FIGHTER, subs: [{ kind: "support-recovery" }] });
 
 /** Classic throwing the straight punch, its fist lined up behind the arm (searched in Arena bouts, `research/punch-in-bout.mjs`), held at the edge of its foe's reach. */
-export const PUNCHER: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...SEEK, range: "edge" }, blow: { kind: "straight-punch", ...STRAIGHT_PUNCH } });
+export const PUNCHER: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...FIGHTING, list: [
+  { kind: "follow-orders" }, { kind: "clear-of-fallen" }, { kind: "break-clinch", metres: .65 }, { kind: "attack" }, { kind: "edge", band: .25, patience: 4 }, { kind: "approach" }, { kind: "cover", guard: "pose" }] }, executors: [{ name: "punch", kind: "straight-punch", ...STRAIGHT_PUNCH }],
+  actions: RECIPE_FIGHTER.actions.map(action => ({ ...action, executor: "punch" })) });
 
 /** Opening scores that favour the trunk over the head: `docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`. */
-export const BODY_OPENINGS: OpeningTuning = deepFreeze({ head: .3, upperTrunk: 0, middleTrunk: 0 });
+const BODY_OPENINGS: OpeningTuning = deepFreeze({ head: .3, upperTrunk: 0, middleTrunk: 0 });
 
 /** The Arena's low kick: `docs/reference/front-kicks.md#arena-selection`. */
 export const ARENA_KICKS: KickTuning = deepFreeze({ ...KICK_PATH, swingSeconds: .3, contactSpeed: 3 });
@@ -374,12 +296,16 @@ export const ARENA_KICKS: KickTuning = deepFreeze({ ...KICK_PATH, swingSeconds: 
  * (`docs/reference/ground-combat.md#arena-integration`), and rising, then steadying, once down. It
  * travels by the stride, which leaves the stance its low support steps from (`drivesLegs`).
  */
-export const SCRAPPER: FighterConfig = deepFreeze({ ...GAME_FIGHTER, locomotion: { ...MOVE, rules: MOVE.rules.filter((rule) => rule.gait === "braced"), otherwise: "stride" }, tactics: { ...OPENINGS, strikes: "mixed", prefers: "body" },
-  blow: { kind: "path-strike", overlap: false }, support: { kind: "support-fold" }, subs: [{ kind: "support-recovery" }] });
+export const SCRAPPER: FighterConfig = deepFreeze({ ...GAME_FIGHTER,
+  locomotion: { ...MOVE, rules: MOVE.rules.filter(rule => rule.gait === "braced"), otherwise: "stride" },
+  tactics: { ...FIGHTING, choose: { kind: "estimate", rethink: .2, patience: 2 }, list: [
+    { kind: "follow-orders" }, { kind: "clear-of-walls" }, { kind: "ground" }, { kind: "attack" },
+    { kind: "approach", spacing: 0, spacingStep: 0 }, { kind: "cover", guard: "predictive" }] },
+  executors: [{ name: "paths", kind: "path-strike", overlap: false }],
+  actions: (["straight", "cross", "hook", "downward"] as const).map(family => ({ name: family, executor: "paths", family, ...(family === "downward" ? { lower: .5 } : {}),
+    effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark" as const, mark: "middle" as const }], aim: { kind: "surface" as const, tuning: BODY_OPENINGS } })),
+  support: { kind: "support-fold" }, subs: [{ kind: "support-recovery" }] });
 
-/** A fighter of behaviours (`BehavioursConfig`): orders followed first, then `list`, then the hands covering; rising and steadying on its feet once down. */
-const behaving = (list: readonly BehaviourConfig[]): FighterConfig => deepFreeze({ ...CLASSIC, blow: null,
-  tactics: { kind: "behaviours", list: [{ kind: "follow-orders" }, ...list, { kind: "cover", guard: "cover" }] } });
-
-/** Behaviours as they start: the foe struck with either hand by the recipe strike. */
-export const BEHAVIOURS: FighterConfig = behaving([{ kind: "strike", hands: "alternate", aim: "head", blow: { kind: "recipe-strike" } }]);
+/** The configurable behaviour fighter starts from the shared recipe actions. */
+export const BEHAVIOURS: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...FIGHTING, choose: { kind: "rotate", rethink: .2, patience: 2 }, list: [
+  { kind: "follow-orders" }, { kind: "attack" }, { kind: "approach" }, { kind: "cover", guard: "cover" }] } });

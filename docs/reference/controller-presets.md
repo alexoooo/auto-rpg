@@ -2,12 +2,10 @@
 
 How four fighters of the opening tactics over the path strike (Combat, Brawler, Scrapper, Kicker)
 fare against Classic, the seeking tactics over the recipe strike, on the Warrior against itself,
-bare-handed and with the wooden club. Scrapper's are the README's figures; the run sets no bar.
-Scrapper is the Arena's preset (`SCRAPPER`, `src/core/mind/config.ts`); the other three are the
-tests' fighters (`tests/fixtures/minds.mjs`).
+bare-handed and with the wooden club. These are historical measurements; the run sets no bar. The current presets use the discrete
+action pipeline and have not been reranked.
 
-The measured configurations were these fighter trees (`FighterConfig`); current Classic uses
-`support-recovery`, so this table describes the recorded comparison, not today's preset:
+The measured configurations were these fighter trees (`FighterConfig`); this table describes the recorded comparison, not today's preset:
 
 | preset | tactics | blow | kick | low support | when down |
 |---|---|---|---|---|---|

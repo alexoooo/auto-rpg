@@ -120,7 +120,7 @@ test("cancelling a committed strike finishes its swing and returns its hand, and
   assert.deepEqual(result.thrown, { left: 0, right: 1 });
   assert.deepEqual(result.returned, { left: 0, right: 1 });
   assert.equal(result.failed, 0); assert.equal(result.interrupted, 0);
-  assert.deepEqual(result.transitions.map((s) => s.phase), ["chamber", "swing", "return", null]);
+  assert.deepEqual(result.transitions.map((s) => s.phase), ["admitting", "chamber", "swing", "return", null]);
 });
 
 test("a strike's return and its measured completion survive a fresh-world fork", async () => {

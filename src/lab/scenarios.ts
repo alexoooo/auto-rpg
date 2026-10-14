@@ -12,6 +12,7 @@ import type { BodySpec } from "../core/spec/body.ts";
 import { deepFreeze } from "../core/state.ts";
 import { mindFaults, mindText, readMind } from "../ui/mind-link.ts";
 import { groundMind } from "./ground-config.ts";
+import { TECHNIQUES, type TechniqueName } from "../core/mind/ground/techniques.ts";
 
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
@@ -99,6 +100,8 @@ const LAB_TARGETS = { most: 30, count: 10, seed: 1 } as const;
 
 export interface LabAddress extends LabLoadout, ViewSettings {
   readonly ground: {
+    readonly drive: "mind" | TechniqueName;
+    readonly waypoint: "none" | "brace" | "plant" | "transfer" | "rise";
     readonly start: "shoved" | "dropped" | "placed";
     readonly posture: "back" | "front" | "left" | "right" | "fours" | "half-kneel" | "squat";
     /** Null draws the shove from the seed. */
@@ -148,6 +151,8 @@ export function labAddress(search: string): LabAddress {
   };
   return {
     ground: {
+      drive: (Object.keys(TECHNIQUES) as TechniqueName[]).find(v => v === query.get("groundDrive")) ?? "mind",
+      waypoint: (["none", "brace", "plant", "transfer", "rise"] as const).find(v => v === query.get("groundWaypoint")) ?? "none",
       start: (["shoved", "dropped", "placed"] as const).find(v => v === query.get("groundStart")) ?? "shoved",
       posture: (["back", "front", "left", "right", "fours", "half-kneel", "squat"] as const).find(v => v === query.get("groundPosture")) ?? "back",
       degrees: query.has("groundDegrees") ? bounded("groundDegrees", 0, 360, 0) : null,
@@ -186,6 +191,10 @@ export function labAddress(search: string): LabAddress {
 export function labHref(address: LabAddress, search = ""): string {
   const query = new URLSearchParams(playHref("lab", search));
   for (const key of KEYS) query.delete(key);
+  query.delete("groundDrive");
+  query.delete("groundWaypoint");
+  if (address.ground.drive !== "mind") query.set("groundDrive", address.ground.drive);
+  if (address.ground.waypoint !== "none") query.set("groundWaypoint", address.ground.waypoint);
   if (address.ground.start !== "shoved") query.set("groundStart", address.ground.start);
   if (address.ground.posture !== "back") query.set("groundPosture", address.ground.posture);
   if (address.ground.degrees !== null) query.set("groundDegrees", String(address.ground.degrees));

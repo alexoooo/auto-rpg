@@ -4,6 +4,8 @@ import type { LabScenario, LabShell } from "./lab-scenario.ts";
 import { labAddress, type LabAddress } from "./scenarios.ts";
 import { groundShove, startGround } from "./ground-mode.ts";
 import { groundPlacement, groundPostures } from "./ground-starts.ts";
+import { groundTechnique, plantWaypoint } from "./ground-technique.ts";
+import { TECHNIQUES } from "../core/mind/ground/techniques.ts";
 import { recordHistory } from "./history.ts";
 import { createPlayer } from "./player.ts";
 import { shoveSound } from "./sound-log.ts";
@@ -20,16 +22,20 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
   const attempts = note(() => shown?.attempts.map(a => `${a.controller}: ${a.end}, ${a.seconds.toFixed(2)} s`).join("\n") ?? "");
   const phases = note(() => shown ? Object.entries(shown.phases).map(([phase, seconds]) => `${phase}: ${seconds.toFixed(2)} s`).join("; ") : "");
   const change = (ground: Partial<LabAddress["ground"]>) => shell.load({ ...address, ground: { ...address.ground, ...ground } });
-  const meter = readings({ position: { name: "Position" }, doing: { name: "Sub-mind / mode / phase" },
-    seconds: { name: "Time down", unit: "s" }, handback: { name: "Time to hand-back", unit: "s" },
+  const meter = readings({ position: { name: "Position" }, doing: { name: "Sub-mind / mode / phase" }, reached: { name: "Technique reached" },
+    seconds: { name: "Time down", unit: "s" }, handback: { name: "Time to hand-back", unit: "s" }, handbackRule: { name: "Hand-back rule" },
     hands: { name: "Hand loads", unit: "body weight" }, feet: { name: "Foot loads", unit: "body weight" },
     balance: { name: "Balance", unit: "%" }, assist: { name: "Peak help", unit: "N / N m" },
     impulse: { name: "Total help", unit: "N s / N m s" }, totals: { name: "Falls / stood / median / worst" }, status: { name: "Run" } });
   return {
     keys: new Set(),
+    subs(next) {
+      const name = next.ground.drive;
+      return name === "mind" ? undefined : [(own, view, world) => groundTechnique(name, own, view, world, next.ground.start !== "shoved")];
+    },
     placement(spec, next) {
       address = next; shown = null; fault = "";
-      try { return groundPlacement(spec, next); }
+      try { return groundPlacement(spec, next, next.ground.start === "placed" && next.ground.drive === "plant-up" && next.ground.waypoint !== "none" ? plantWaypoint(spec, next.ground.waypoint) : undefined); }
       catch (error) { fault = String(error instanceof Error ? error.message : error); throw error; }
     },
     panels: {
@@ -42,7 +48,12 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
         when(() => address.ground.start === "shoved", slider("Shove direction", 0, 360, 5, () => groundShove(address).degrees, degrees => change({ degrees }), value => value.toFixed(1))),
         when(() => address.ground.start === "shoved", slider("Shove impulse, N s", 40, 90, 1, () => groundShove(address).impulse, impulse => change({ impulse }), value => value.toFixed(1))),
         when(() => address.ground.start === "shoved", action("Draw shove from seed", () => change({ degrees: null, impulse: null }))),
-        note(() => "Driven by: As the mind does. Choose its recovery under Character → Mind → When down."),
+        following(() => address.model, () => choice("Driven by", [{ value: "mind", name: "As the mind does" },
+          ...Object.entries(TECHNIQUES).filter(([, technique]) => technique.fits(loadoutSpec(address))).map(([value, spec]) => ({ value, name: `${spec.label} (experimental)` }))],
+        () => address.ground.drive, value => change({ drive: value as LabAddress["ground"]["drive"] }))),
+        when(() => address.ground.start === "placed" && address.ground.drive === "plant-up", choice("Technique waypoint",
+          (["none", "brace", "plant", "transfer", "rise"] as const).map(value => ({ value, name: value === "none" ? "Selected posture" : value })),
+          () => address.ground.waypoint, waypoint => change({ waypoint }))),
         choice("Foe", ([0, 1, 2, 4] as const).map(value => ({ value, name: value === 0 ? "None" : `${value} m` })), () => address.ground.foe, foe => change({ foe })),
         toggle("Gusts", () => address.ground.gusts, () => change({ gusts: !address.ground.gusts })),
         note(() => fault),
@@ -70,8 +81,8 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
           const loads = shown.loads, summary = shown.summary;
           const seconds = (v: number | null) => v === null ? "—" : v.toFixed(2);
           const load = (name: string) => loads[name]?.toFixed(2) ?? "—";
-          meter.write({ position: shown.position, doing: `${shown.controller} / ${shown.mode} / ${shown.phase} ${shown.stage ?? ""}`,
-            seconds: shown.seconds.toFixed(2), handback: seconds(shown.handback),
+          meter.write({ position: shown.position, doing: `${shown.controller} / ${shown.mode} / ${shown.phase} ${shown.stage ?? ""}`, reached: shown.techniqueReached === null ? "—" : shown.techniqueReached ? "yes" : "no",
+            seconds: shown.seconds.toFixed(2), handback: seconds(shown.handback), handbackRule: shown.handBackReason ?? "—",
             hands: `${load("hand.left")} / ${load("hand.right")}`,
             feet: `${load("foot.left")} / ${load("foot.right")}`,
             balance: String(shown.balance), assist: `${shown.assist.forcePeak.toFixed(2)} / ${shown.assist.momentPeak.toFixed(2)}`,

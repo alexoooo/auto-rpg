@@ -7,7 +7,8 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { effectorFeedback } from "../src/core/control/effector-feedback.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
-import { coreStand } from "./harness/core-stand.mjs";
+import { coreStand, saveStand, loadStand } from "./harness/core-stand.mjs";
+import { traceOf } from "./harness/trace.mjs";
 import { lone } from "./fixtures/lone.mjs";
 
 const around = { heading: 0, placed: true, support: null, walk: null, lower: 0 };
@@ -216,4 +217,94 @@ test("a real hand interval is recorded before an earlier after-step takeover and
     stand.step(2);
     assert.deepEqual(set.ledger, [expected]);
   } finally { target.dispose(); stand.dispose(); }
+});
+
+test("every executor ending copies the whole interval ledger record", () => {
+  for (const kind of ["completed", "cancelled", "lost", "stalled", "interrupted"]) {
+    const { set, motion, request, step } = fixture(), first = request();
+    step(0, [first]);
+    if (kind !== "lost") step(1, [first]);
+    set.snapshot();
+    const target = { kind: "body", body: "foe", segment: "head", guard: false };
+    set.observe(1, 1, [{ effector: first.effector, target, loaded: true, onset: true }]);
+    const ending = kind === "completed" || kind === "cancelled" ? { kind } : { kind, reason: "fixture ending" };
+    motion.update = () => [{ id: first.id, ending }];
+    step(2, [first]);
+    const committed = kind !== "lost", phase = committed ? "commit" : "prepare";
+    const expected = { ...first, sequence: 1, began: 0, ended: 2, ending, committed,
+      contacts: { counts: { prepare: { target: committed ? 0 : 1, block: 0, incidental: 0, world: 0 }, commit: { target: committed ? 1 : 0, block: 0, incidental: 0, world: 0 }, release: { target: 0, block: 0, incidental: 0, world: 0 } }, loadedInCommit: committed, blockedSegments: [], lastTarget: committed ? 1 : null },
+      observations: [{ step: 1, time: 1, phase, kind: "target", by: "hand.right", struck: { body: "foe", segment: "head" } }], observed: 1 };
+    assert.deepEqual(set.ledger, [expected], kind);
+    assert.deepEqual(set.live, []);
+  }
+});
+
+async function contactAction() {
+  const base = lone("attacker", "hand.right", 1, { held: .3, stiffness: null });
+  const spec = { ...base, segments: base.segments.map(segment => ({ ...segment,
+    points: { tip: sourced([.3, 0, 0], "m", "de-leva-1996", "the held contact fixture's endpoint") } })) };
+  const stand = await coreStand(spec, { gravity: false, ground: false });
+  const target = buildBody(lone("target", "trunk", 1, { stiffness: null }), stand.world, { position: [.39, 0, 0] });
+  const hand = stand.built.segments.get("hand.right").body, other = target.segments.get("trunk").body;
+  other.setFixed(true);
+  const sampler = effectorFeedback(stand.built, ["hand.right"], body => body === other
+    ? { kind: "body", body: "foe", segment: "trunk", guard: false } : null, undefined, { "hand.right": { point: "tip" } });
+  const state = { live: null };
+  const motion = { state, needs: () => ["hand.right"], readiness: () => ({ kind: "ready" }),
+    start(_view, request) { state.live = { id: request.id, age: 0 }; },
+    update() {
+      if (!state.live) return [];
+      const live = state.live; live.age++;
+      if (live.age >= 8) { state.live = null; return [{ id: live.id, ending: { kind: "completed" } }]; }
+      const phase = live.age >= 6 ? "release" : "commit";
+      return [{ id: live.id, phase, stage: phase, holds: ["hand.right"] }];
+    }, command: () => ({}), resume() { state.live = null; } };
+  const resources = actionResources([], [{ segment: "hand.right", channels: [] }], []);
+  const actions = actionInstances([{ name: "hit", executor: motion }], [{ name: "hit", executor: "hit", effectors: ["hand.right"] }], resources);
+  const request = { id: actions.instance(), action: "hit", effector: "hand.right", target: point };
+  stand.world.beforeStep(() => {
+    actions.step({ time: stand.world.time }, [request], around, stand.world.dt); actions.snapshot();
+    if (stand.world.steps > 0) hand.applyForce(new Vector3(120, 0, 0), new Vector3(.3, 0, 0));
+  });
+  stand.world.afterPhysics(() => {
+    sampler.read(stand.world.steps);
+    actions.observe(stand.world.steps, stand.world.time, sampler.state["hand.right"].pairs.map(pair => ({ ...pair, effector: "hand.right" })));
+  });
+  const states = { actions: actions.state, feedback: sampler.state };
+  return { stand, actions, sampler, states, save: () => saveStand(stand.world, states),
+    load: saved => loadStand(stand.world, states, saved),
+    finish() {
+      const trace = traceOf([stand.built, target]), intervals = [];
+      while (stand.world.steps < 10) {
+        stand.step(); trace.take();
+        intervals.push(saveState({ live: actions.live, attribution: actions.state.attribution, feedback: sampler.state }));
+      }
+      return { trace: trace.digest(), intervals, state: this.save().state, ledger: structuredClone(actions.ledger) };
+    }, dispose() { target.dispose(); stand.dispose(); } };
+}
+
+test("a loaded hand and live action fork together, and forgetting episodes or exact summaries changes the ledger", async () => {
+  const one = await contactAction(), twin = await contactAction(), noEpisode = await contactAction(), noSummary = await contactAction();
+  try {
+    one.stand.step(3);
+    assert.equal(one.actions.live[0].phase, "commit");
+    assert.equal(one.actions.live[0].contacts.counts.commit.target, 1);
+    assert.equal(one.sampler.state["hand.right"].pairs[0].loaded, true);
+    const saved = one.save(); twin.load(saved);
+    const forgottenEpisode = structuredClone(saved);
+    forgottenEpisode.state.feedback["hand.right"].episodes.clear(); noEpisode.load(forgottenEpisode);
+    const forgottenSummary = structuredClone(saved);
+    forgottenSummary.state.actions.live[0].contacts.counts.commit.target = 0; noSummary.load(forgottenSummary);
+    const expected = one.finish(), replay = twin.finish(), episode = noEpisode.finish(), summary = noSummary.finish();
+    assert.deepEqual(replay, expected);
+    assert.equal(expected.ledger[0].contacts.counts.commit.target, 1);
+    assert.equal(expected.ledger[0].observed, 1);
+    assert.equal(expected.ledger[0].ending.kind, "completed");
+    assert.equal(episode.trace, expected.trace); assert.equal(summary.trace, expected.trace);
+    assert.equal(episode.ledger[0].contacts.counts.commit.target, 2, "forgetting a loaded episode invents another committed onset");
+    assert.equal(summary.ledger[0].contacts.counts.commit.target, 0, "inspection history cannot reconstruct a forgotten exact summary");
+    assert.notDeepEqual(episode.ledger, expected.ledger); assert.notDeepEqual(summary.ledger, expected.ledger);
+    assert.ok(expected.intervals.some(interval => interval.attribution.some(snapshot => snapshot.phase === "release")));
+    assert.deepEqual(expected.intervals.at(-1).attribution, [], "the completed instance retains no attribution");
+  } finally { one.dispose(); twin.dispose(); noEpisode.dispose(); noSummary.dispose(); }
 });

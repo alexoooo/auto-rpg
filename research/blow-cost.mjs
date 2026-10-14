@@ -25,7 +25,7 @@ async function play(model, blow, hz) {
       const start = performance.now();
       s.world.step();
       const took = performance.now() - start;
-      if (s.world.time >= 2) (s.skills.report.strike.phase !== null ? striking : guarding).push(took);
+      if (s.world.time >= 2) (s.skills.report.actions.length > 0 ? striking : guarding).push(took);
     }
     return { striking, guarding };
   } finally { s.dispose(); }

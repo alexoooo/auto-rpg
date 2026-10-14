@@ -5,7 +5,7 @@ import { humanSpec } from "../src/core/human/spec.ts";
 import { createBody } from "../src/core/body.ts";
 import { guardPosture, guardSkill } from "../src/core/skills/guard.ts";
 import { locomotion } from "../src/core/skills/locomotion.ts";
-import { actionSkillSet } from "../src/core/skills/action-skill-set.ts";
+import { skillSet } from "../src/core/skills/arbiter.ts";
 
 const spec = humanSpec("workshop-fighter");
 const guard = guardPosture(spec);
@@ -56,8 +56,7 @@ async function fixture(reverse = false, overlay = false) {
   const body = createBody(stand.built, stand.world, { servoSeconds: 0.1, feedback: true });
   const left = arm("left", overlay), right = arm("right", overlay), entries = [{ name: "left", executor: left }, { name: "right", executor: right }];
   if (reverse) entries.reverse();
-  const skills = actionSkillSet(body, { legs: locomotion(body.envelope), guard: guardSkill(spec) }, entries,
-    [{ name: "left", executor: "left", effectors: ["hand.left"] }, { name: "right", executor: "right", effectors: ["hand.right"] }]);
+  const skills = skillSet(body, {}, {...{ legs: locomotion(body.envelope), guard: guardSkill(spec) }, executors:entries, actions:[{ name: "left", executor: "left", effectors: ["hand.left"] }, { name: "right", executor: "right", effectors: ["hand.right"] }]});
   const requests = ["left", "right"].map(side => ({ id: skills.instance(), action: side, effector: `hand.${side}`, target: { kind: "point", at: [0, 1, 1] } }));
   const intent = { face: 0, move: null, guard: { left: null, right: null }, actions: requests };
   body.drive((view, dt) => skills.command(view, intent, dt), skills.release);

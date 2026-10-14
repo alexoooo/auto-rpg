@@ -4,14 +4,16 @@ import { NO_COVER, type Intent } from "../core/mind/intent.ts";
 import type { Sight, Tactics } from "../core/mind/tactics.ts";
 import { rulebook, type Rulebook } from "../core/rules/rulebook.ts";
 import type { RecipeOptions, SkillReport } from "../core/skills/skills.ts";
-import { APPROACH } from "../core/skills/strike.ts";
+import { APPROACH, rangeOf } from "../core/skills/strike.ts";
 import type { Actor } from "./actor.ts";
 import { trackTactics } from "./locomotion-mode.ts";
 import { LAB_TURN_RATE } from "./stance-mode.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import { drawTargets, readTarget, type Target, type TargetReading } from "./targets.ts";
 import { SHUTTLE_TURN_RADIUS, TURN_PACE, trackOf, type Piece, type Track } from "./track.ts";
-import type { Side } from "../core/spec/body.ts";
+import type { Side, BodySpec } from "../core/spec/body.ts";
+import { actionProducer } from "../core/mind/action-producer.ts";
+import { approachActionWindow } from "../core/mind/action-window.ts";
 
 /**
  * **The scripted research routine**: a human walks out, strikes at each of its targets in turn, turns, walks
@@ -91,22 +93,22 @@ interface RoutineTactics extends Tactics {
 /**
  * **The Routine's tactics**: round `track` as the Locomotion scenario goes (`trackTactics`), and at its targets,
  * the hands of `hands` that have a blow attack them in turn, a target each. They hand their walk
- * to the attack once the first target is within the hand's reach (`StrikeReport.rangeAt`) and the
+ * to the attack once the first target is within the hand's reach (`rangeOf`) and the
  * distance the strike skill closes at its own fastest (`APPROACH`'s pace over its seconds); they
  * stand in guard from the end of a strike's pushes until the instrument closes its target's
  * reading (`done`), and take the walk back after the last; with no blow in either hand, or no
  * target, they walk out and back.
  */
-function routineTactics(track: Track, drawing: Drawing, hands: readonly Side[]): RoutineTactics {
+function routineTactics(track: Track, drawing: Drawing, hands: readonly Side[], spec: BodySpec, options?: RecipeOptions): RoutineTactics {
   const walk = trackTactics(track, ROUTINE_GAIT);
   let leg: Leg = "out", loops = 0, next = drawing.from;
-  /** The strikes thrown so far, and as the target that is up took its turn. */
-  let thrown = 0, counted = 0;
+  const producer = actionProducer();
+  const state = { producer: producer.state, finished: false };
   let targets: readonly Target[] | null = null;
   const closing = APPROACH.pace * APPROACH.seconds;
   const handOf = (index: number): Side | null => hands.length > 0 ? hands[index % hands.length]! : null;
   return {
-    name: "routine",
+    name: "routine", state,
     get leg() { return leg; },
     get loops() { return loops; },
     get targets() { return targets; },
@@ -114,7 +116,7 @@ function routineTactics(track: Track, drawing: Drawing, hands: readonly Side[]):
       const hand = handOf(next);
       return leg === "post" && hand && targets && next < targets.length ? { index: next, hand } : null;
     },
-    done() { next += 1; counted = thrown; },
+    done() { next += 1; state.finished = false; producer.state.current = null; },
     decide(sight: Sight, dt: number): Intent {
       const { view, report } = sight;
       const walked = walk.decide(sight, dt);
@@ -123,25 +125,34 @@ function routineTactics(track: Track, drawing: Drawing, hands: readonly Side[]):
       const place: Vec3 = [end.x + POST_BEYOND * Math.sin(end.heading), 0, end.z + POST_BEYOND * Math.cos(end.heading)];
       targets ??= drawTargets(drawing.seed, drawing.count, { place, heading: end.heading, stature: drawing.stature, head: view.head.y });
       if (laps > loops) { loops = laps; leg = "out"; next = drawing.from; }
-      thrown = report.strike.thrown.left + report.strike.thrown.right;
       const hand = handOf(next), first = targets[drawing.from]?.at ?? place;
       if (leg === "out") {
         // It walks out to where its first blow reaches its first target; with none to throw, to the targets' place.
-        const reach = hand ? report.strike.rangeAt(hand, 0).reach : 0;
-        if (Math.hypot(first[0] - view.head.x, first[2] - view.head.z) <= reach + closing) { leg = "post"; counted = thrown; }
+        const reach = hand ? rangeOf(spec, hand, 0, options?.repertoire, options?.placed).reach : 0;
+        if (Math.hypot(first[0] - view.head.x, first[2] - view.head.z) <= reach + closing) { leg = "post"; state.finished = false; }
       }
       if (leg === "post" && (!hand || next >= targets.length)) leg = "back";
       // Out, it faces its first target: the straight's own line, and not the turn beyond it the walk would face.
       if (leg === "out") return { ...walked, face: Math.atan2(first[0] - view.stance.centre.x, first[2] - view.stance.centre.z) };
       if (leg !== "post") return walked;
       const target = targets[next]!.at;
-      // A target's strike thrown, it stands in guard until the reading closes; the next target's turn counts afresh.
-      const guarding = thrown > counted;
+      if (producer.state.current && report.ledger.some(record => record.id === producer.state.current!.id)) state.finished = true;
+      const aimed = { kind: "point" as const, at: target, body: "dummy" };
+      const choice = { action: "strike", effector: `hand.${hand!}`, target: aimed };
+      const around = { heading: report.heading, placed: view.stance.phase === "stand", support: report.support ?? null, walk: null, lower: 0 };
+      const produced = producer.request(sight, state.finished ? null : choice, around);
+      const position = produced.readiness?.kind === "position"
+        ? approachActionWindow(view, produced.readiness.window, report.heading, APPROACH.pace, spec.stature.value / 6) : null;
+      // An impossible scripted target ends explicitly so the instrument can close its reading.
+      if (!state.finished && produced.readiness?.kind === "blocked") {
+        producer.state.current = { ...choice, id: sight.instance() };
+        return { move: null, face: report.heading, guard: NO_COVER, actions: [producer.state.current] };
+      }
       return {
-        move: null,
-        face: Math.atan2(target[0] - view.head.x, target[2] - view.head.z),
+        move: position?.move ?? null,
+        face: position?.face ?? Math.atan2(target[0] - view.head.x, target[2] - view.head.z),
         guard: NO_COVER,
-        attack: guarding ? null : { kind: "blow", hand: hand!, target },
+        actions: produced.requests,
       };
     },
   };
@@ -192,11 +203,10 @@ export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routin
   if (!built.segments.has("lowerTrunk")) throw new Error(`${built.spec.model} is not a human the routine knows`);
   const { targets: count = ROUTINE_TARGETS.count, seed = ROUTINE_TARGETS.seed, from = 0, hands = ROUTINE_HANDS, rules = rulebook("arena"), skills, hung } = options;
   const tactics = routineTactics(trackOf(ROUTINE_TRACK), { count, seed, from, stature: built.spec.stature.value },
-    hands.filter((hand) => actor.strikes[hand]));
+    hands.filter((hand) => actor.strikes[hand]), built.spec, skills);
   const fists = body.view.fists;
   const speed = { left: 0, right: 0 };
   const readings: TargetReading[] = [];
-  let thrown = 0;
   /** The target being read, and the hand striking; and the hand whose strike is under way. */
   let open: ReturnType<typeof readTarget> | null = null, striker: Side | null = null;
   const close = (reading: TargetReading): void => {
@@ -210,21 +220,15 @@ export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routin
   const read = (sight: Sight): void => {
     const { report } = sight;
     for (const side of ["left", "right"] as const) speed[side] = fists[side].velocity.length();
-    const { strike } = report;
-    if (!striker && strike.hand !== null && (strike.phase === "chamber" || strike.phase === "swing")) {
-      striker = strike.hand;
-    }
-    if (strike.thrown.left + strike.thrown.right > thrown) {
-      thrown = strike.thrown.left + strike.thrown.right;
-      striker = null;
-    }
+    const live = report.actions.find(action => action.effector === "hand.left" || action.effector === "hand.right");
+    striker = live ? live.effector === "hand.left" ? "left" : "right" : null;
     // One target is up at a time: the next is read from when the tactics turn to it.
     const up = tactics.up;
-    if (!open && up) open = readTarget(actor, tactics.targets![up.index]!, up.hand, rules, hung);
+    if (!open && up) open = readTarget(actor, tactics.targets![up.index]!, up.hand, rules, hung, skills);
     const reading = open?.step(sight);
     if (reading) close(reading);
   };
-  const { report } = actor.drive(tactics, { skills, watch: read });
+  const { report } = actor.drive(tactics, { skills, watch: read, contactIdentity: other => open?.identify(other) ?? null });
   // Down, the body is not its tactics' to step: the target that is up is closed as it stands.
   const fall = world.afterStep(() => { if (open && body.view.down) close(open.fall()); });
 
@@ -242,15 +246,13 @@ export function startRoutine(actor: Actor, options: RoutineOptions = {}): Routin
         case "out": return "Walking out";
         case "back": return "Walking back";
         case "post": {
-          const name = report.strike.chosen?.strike.name ?? "placed";
-          switch (report.strike.phase) {
-            case "approach": return "Closing on its target";
-            case "place": return "Setting its feet";
-            case "chamber": return `Chambering: ${name}`;
-            case "swing": return `Striking: ${name}`;
-            case "return": return "Returning to guard";
-            case "settle": case null: return "Standing in guard";
-            default: { const never: never = report.strike.phase; return String(never); }
+          const live = report.actions[0];
+          if (!live) return "Standing in guard";
+          switch (live.phase) {
+            case "prepare": return `Preparing ${live.action}: ${live.stage}`;
+            case "commit": return `Striking: ${live.action}`;
+            case "release": return "Returning to guard";
+            default: { const never: never = live.phase; return String(never); }
           }
         }
         default: { const never: never = tactics.leg; return String(never); }

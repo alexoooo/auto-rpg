@@ -1,10 +1,8 @@
 import { atan2, cos, hypot, sin } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
-import type { SeekConfig } from "./config.ts";
-import type { Cover, Intent } from "./intent.ts";
+import type { Intent } from "./intent.ts";
 import type { Orders } from "./orders.ts";
 import type { Sight } from "./tactics.ts";
-import { THREAT, threatReader, type Threat } from "./threat.ts";
 
 /**
  * Walking one way while facing another (`orderedIntent`): the share of the fastest walk held
@@ -12,22 +10,6 @@ import { THREAT, threatReader, type Threat } from "./threat.ts";
  * it walks any faster. Measured with the club in hand: `docs/reference/orders.md#the-rule`.
  */
 export const STRAFE = { share: 0.5, turned: 0.3 } as const;
-
-/**
- * **What a hand that does not attack covers**, as `guard` says: nothing, holding the pose, or
- * what threatens the head (`threatOf`, by `threat`) while anything does.
- */
-export function guarding(guard: SeekConfig["guard"], threat: Threat = THREAT): (sight: Sight) => Cover | null {
-  const { threatOf } = threatReader();
-  switch (guard) {
-    case "pose": return () => null;
-    case "cover": return ({ view }) => threatOf(view, threat);
-    default: {
-      const never: never = guard;
-      throw new Error(`a fighter guards in the pose or by a cover, not by ${JSON.stringify(never)}`);
-    }
-  }
-}
 
 /**
  * **Orders to walk and to face, carried out**, the hands covering as `guard` says and attacking
@@ -39,18 +21,18 @@ export function guarding(guard: SeekConfig["guard"], threat: Threat = THREAT): (
  * turns only while it walks (`locomotion`), so a standing body ordered to face does not turn.
  * How far it is from where it is ordered to go (`Orders.destination`) goes on to its locomotion.
  */
-export function orderedIntent({ report, envelope }: Sight, { move, face, pace = Infinity, destination }: Pick<Orders, "move" | "face" | "pace" | "destination">,
+export function orderedIntent({ report, envelope }: { readonly report: Pick<Sight["report"], "heading">; readonly envelope: Sight["envelope"] }, { move, face, pace = Infinity, destination }: Pick<Orders, "move" | "face" | "pace" | "destination">,
   guard: Intent["guard"], strafe: typeof STRAFE = STRAFE): Intent {
   const going = destination === undefined ? {} : { destination };
   // A facing under 8 cm long names no direction: the point to face is over the body itself.
   const facing = face && hypot(face.x, face.z) > 0.08 ? atan2(face.x, face.z) : null;
-  if (!move || !envelope) return { move: null, face: facing ?? report.heading, guard, attack: null, ...going };
+  if (!move || !envelope) return { move: null, face: facing ?? report.heading, guard, actions: [], ...going };
   const bearing = atan2(move.x, move.z), walk = Math.min(envelope.walk.value, pace);
   // Facing its walk: the walk the envelope measured, forward where it is sent somewhere, turning to it.
-  if (facing === null) return { move: [destination === undefined ? walk : Math.min(envelope.ways.forward.value, pace), 0], face: bearing, guard, attack: null, ...going };
+  if (facing === null) return { move: [destination === undefined ? walk : Math.min(envelope.ways.forward.value, pace), 0], face: bearing, guard, actions: [], ...going };
   // Facing elsewhere: the walk's direction in the heading's frame, at the pace that holds.
   const off = bearing - report.heading;
   const share = Math.abs(wrap(facing - report.heading)) < strafe.turned
     ? strafe.share + (1 - strafe.share) * Math.max(0, cos(off)) : strafe.share;
-  return { move: [walk * share * cos(off), walk * share * sin(off)], face: facing, guard, attack: null, ...going };
+  return { move: [walk * share * cos(off), walk * share * sin(off)], face: facing, guard, actions: [], ...going };
 }

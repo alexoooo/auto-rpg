@@ -7,10 +7,11 @@
  * (`Locomotion.place`). What each is struck with is the repertoire's to say (`recipeFor`), by how
  * high the target stood over the head as its strike began: a recipe whose window holds that
  * height, thrown with the head inside its window along the heading and across it, or a blow
- * placed from within the approach's reach of its place. A loop has both. The control, the high
- * and the middle targets are struck by the arm that was sent, the two surfaces sharing the blow
- * by their compliance, and a recipe's blow is harder than any placed one. The low one is under
- * the arm's reach from where the toes stop: the hand passes it farther off than a hand that lands. The
+ * placed from within the approach's reach of its place. The control and high targets are struck
+ * by the arm that was sent, the two surfaces sharing the blow by their compliance. The middle
+ * target exhausts preparation before the feet and height window agree, and its explicit ending
+ * lets the routine continue. The low one is under
+ * the arm's reach and is explicitly refused before a dummy is hung. The
  * targets are a seed's on which each human stands through both loops: how often one falls is the
  * battery's to say (`docs/reference/blows.md#baseline`).
  */
@@ -45,9 +46,9 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
       for (let i = 0; i < stand.seconds(SECONDS) && routine.tactics.loops < LOOPS && !routine.body.view.down; i++) {
         stand.step(1);
         if (routine.tactics.leg !== legs.at(-1)) legs.push(routine.tactics.leg);
-        const { thrown, phase } = routine.report.strike, up = routine.tactics.up?.index ?? null;
-        if (up !== at) { at = up; thrownAt = thrown.left + thrown.right; }
-        else if (up !== null && thrown.left + thrown.right > thrownAt) after.add(phase);
+        const thrown = routine.report.ledger.length, phase = routine.report.actions[0]?.phase ?? null, up = routine.tactics.up?.index ?? null;
+        if (up !== at) { at = up; thrownAt = thrown; }
+        else if (up !== null && thrown > thrownAt) after.add(phase);
       }
       assert.equal(routine.body.view.down, false, routine.doing());
       assert.equal(routine.tactics.loops, LOOPS, `${routine.doing()} at ${routine.time().toFixed(1)} s`);
@@ -58,21 +59,17 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
       assert.deepEqual(readings.map((r) => r.target), [...targets, ...targets]);
       assert.deepEqual(readings.map((r) => r.hand), Array.from({ length: LOOPS * TARGETS }, (_, k) => ROUTINE_HANDS[(k % TARGETS) % ROUTINE_HANDS.length]));
       assert.deepEqual(readings.map((r) => r.fell), readings.map(() => false));
-      // The blow at each is the one the repertoire has for its height; a loop has a recipe and a placed blow.
-      for (const r of readings) {
+      // Each admitted target uses the repertoire entry for its actual launch height.
+      for (const r of readings.filter(r => r.strike !== null)) {
         const { along, across } = r.strike.off, what = `${r.target.stratum}, ${r.strike.name}, ${r.strike.up} m over the head: off ${JSON.stringify(r.strike.off)}`;
         const chosen = recipeFor(REPERTOIRE, spec, r.hand, r.strike.up);
         assert.deepEqual([r.strike.kind, r.strike.band, r.strike.name], chosen ? ["recipe", chosen.recipe.band, chosen.strike.name] : ["placed", null, "placed"], what);
         const window = chosen?.window ?? { along: [-APPROACH.reach, APPROACH.reach], across: [-APPROACH.reach, APPROACH.reach] };
         assert.ok(window.along[0] <= along && along <= window.along[1] && window.across[0] <= across && across <= window.across[1] && r.strike.peak > 0, `${what}, window ${JSON.stringify(window)}`);
       }
-      for (let loop = 0; loop < LOOPS; loop++) {
-        assert.deepEqual([...new Set(readings.slice(loop * TARGETS, (loop + 1) * TARGETS).map((r) => r.strike.kind))].sort(), ["placed", "recipe"]);
-      }
-      // Every target but the low one is struck by the arm that was sent, each loop, the two
-      // surfaces sharing the blow by their compliance; a recipe's blow is harder than any placed one.
+      // Reachable recipe targets are struck by the arm that was sent in each loop.
       const stiffness = (name) => spec.segments.find((segment) => segment.name === name).surface.stiffness.value;
-      for (const reading of readings.filter((r) => r.target.stratum !== "low")) {
+      for (const reading of readings.filter((r) => r.target.stratum === "control" || r.target.stratum === "high")) {
         const { blow, took, gave, nearest, hand, hung } = reading;
         assert.ok(hung && blow && took.damage > 0, `the ${reading.target.stratum} one read ${JSON.stringify(reading)}`);
         // The hand's own blow, or the forearm's behind it: a hand that landed one read within `LANDS_WITHIN`.
@@ -82,11 +79,21 @@ for (const model of ["workshop-fighter", "workshop-rogue"]) {
         assert.deepEqual(blow.sides, [gave, took]);
       }
       const energies = (kind) => readings.filter((r) => r.blow && r.strike.kind === kind).map((r) => r.blow.energy);
-      assert.ok(Math.min(...energies("recipe")) > Math.max(...energies("placed")), `recipes ${energies("recipe")} J, placed ${energies("placed")} J`);
-      for (const k of [TARGETS - 1, 2 * TARGETS - 1]) assert.ok(readings[k].blow === null && readings[k].nearest > LANDS_WITHIN, `the low one read ${JSON.stringify(readings[k])}`);
+      assert.ok(energies("recipe").length > 0 && (!energies("placed").length || Math.min(...energies("recipe")) > Math.max(...energies("placed"))), `recipes ${energies("recipe")} J, placed ${energies("placed")} J`);
+      for (const k of [TARGETS - 1, 2 * TARGETS - 1]) {
+        const low = readings[k];
+        assert.equal(low.ending?.ending.kind, "refused", JSON.stringify(low));
+        assert.deepEqual([low.strike, low.hung, low.blow, low.nearest], [null, false, null, null]);
+      }
+      assert.deepEqual(readings.map(r => r.ending?.ending.kind), ["completed", "completed", "stalled", "refused", "completed", "completed", "stalled", "refused"]);
+      for (const middle of readings.filter(r => r.target.stratum === "middle")) {
+        assert.deepEqual(middle.ending.ending, { kind: "stalled", reason: "preparation deadline" });
+        assert.deepEqual([middle.strike, middle.hung, middle.blow, middle.nearest, middle.ending.committed], [null, false, null, null, false]);
+        assert.ok(middle.ending.ended - middle.ending.began <= 7.3);
+      }
       // Its strike thrown, a target is watched from the guard: the next attack is the next target's.
       assert.deepEqual([...after], [null]);
-      assert.equal(routine.report.strike.thrown.left + routine.report.strike.thrown.right, LOOPS * TARGETS);
+      assert.equal(routine.report.ledger.length, LOOPS * TARGETS);
       // Nothing is up once the loop has gone on.
       assert.equal(routine.ball(), null);
     } finally { routine.dispose(); stand.dispose(); }
@@ -113,7 +120,8 @@ test("a_fall_closes_the_reading_of_the_target_that_is_up", async () => {
     }
     assert.ok(downs > 0 && routine.body.view.down && routine.doing() === "Fallen", `${downs} steps down, ${routine.doing()}`);
     // The reading closed as it stood: no strike had begun, so nothing was hung and nothing read.
-    const { seconds, ...read } = routine.readings[0];
+    const { seconds, ending, ...read } = routine.readings[0];
+    assert.ok(ending === null || !ending.committed);
     assert.deepEqual(read, { target: routine.tactics.targets[0], hand: "right", strike: null, hung: false, nearest: null, blow: null, took: null, gave: null, fell: true });
     assert.ok(seconds > 0, `${seconds} s`);
   } finally { routine.dispose(); stand.dispose(); }

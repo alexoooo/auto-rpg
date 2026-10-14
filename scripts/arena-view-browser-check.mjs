@@ -104,7 +104,10 @@ try {
   assert.ok(movement.move && Math.abs(movement.move.x - movement.x) < .02 && Math.abs(movement.move.z - movement.z) < .02);
   const bounds = await panel.getByRole("button", { name: "World", exact: true }).boundingBox();
   await page.mouse.click(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
-  assert.ok(await page.evaluate(() => __arena.duel.tape.filter(entry => entry.side === "right").at(-1)?.orders.attack === null));
+  assert.ok(await page.evaluate(() => {
+    const orders = __arena.duel.tape.filter(entry => entry.side === "right").at(-1)?.orders;
+    return orders !== undefined && orders.foe === undefined;
+  }));
   checks.push("Camera-relative walking follows Isometric; panel clicks do not attack");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(url.replace("gap=4", "gap=4&cap=1"));

@@ -113,7 +113,7 @@ export async function evaluateBlow({ model = "workshop-fighter", held = FIST, ha
       stand.step(1);
       trace?.(blow.body, blow);
       if (view.down) { fell = true; break; }
-      if (ended === null && blow.report.strike.thrown[hand] > 0) ended = blow.time;
+      if (ended === null && blow.report.ledger.some(record => record.effector === `hand.${hand}`)) ended = blow.time;
       if (ended !== null && blow.time - ended >= recover) break;
     }
     const { done, cost, nearest, blows } = watch.reading;
@@ -136,7 +136,7 @@ export async function evaluateBlow({ model = "workshop-fighter", held = FIST, ha
  * in the body's weights.
  *
  * The reading: the most of each over the blow; the first time, s from the pushes' beginning
- * (`report.strike.since`), that the capture point left the inner outline, null if it never did
+ * (the first committed action interval), that the capture point left the inner outline, null if it never did
  * after them; the stance's own steps to catch the body (`StanceReading.recoveries`); and whether
  * it ever lifted a foot.
  */
@@ -158,8 +158,8 @@ export function balanceTrace(body) {
       const { stance } = body.view;
       for (const foot of feet) soleMiddleToRef(foot, scratch);
       const { centre, velocity, support } = stance, rate = Math.sqrt(g / (centre.y - support.y));
-      const x = centre.x + velocity.x / rate, z = centre.z + velocity.z / rate, { since } = blow.report.strike;
-      if (began === null && since >= 0) { began = blow.time - since; home[0] = support.x; home[1] = support.z; }
+      const x = centre.x + velocity.x / rate, z = centre.z + velocity.z / rate;
+      if (began === null && blow.report.actions.some(action => action.phase === "commit")) { began = blow.time; home[0] = support.x; home[1] = support.z; }
       if (began === null) return;
       const inner = outside(x, z, SUPPORT_INSET);
       reading.out = Math.max(reading.out, outside(x, z, 0));

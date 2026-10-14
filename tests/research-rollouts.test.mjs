@@ -14,7 +14,7 @@ import { chooseResponse, responsesAt, rollout, valueOf } from "../research/rollo
 import { centreOfToRef } from "../src/core/control/support.ts";
 
 const recipe = { left: "workshop-fighter", right: "workshop-rogue" };
-const back = { move: { x: -1, z: 0 }, face: null, attack: null };
+const back = { move: { x: -1, z: 0 }, face: null };
 
 test("a_fork_with_no_branch_is_the_bout", async () => {
   const whole = await rollout({ recipe, from: 0, steps: 720 }), bout = await playBout(recipe, 6);
@@ -113,14 +113,14 @@ test("the_responses_are_made_from_where_the_two_stand", async () => {
     assert.equal(named.own, null, "its own tactics come first, and are no orders");
     const toward = named.close.move;
     assert.ok(toward.x > 0.999 && Math.abs(Math.hypot(toward.x, toward.z) - 1) < 1e-12, `toward its foe: ${JSON.stringify(toward)}`);
-    assert.deepEqual(named.close, { move: toward, face: null, attack: null });
-    assert.deepEqual(named.hold, { move: null, face: toward, attack: null });
-    assert.deepEqual(named.back, { move: { x: -toward.x, z: -toward.z }, face: toward, attack: null });
-    assert.deepEqual(named.right, { move: { x: toward.z, z: -toward.x }, face: toward, attack: null });
+    assert.deepEqual(named.close, { move: toward, face: null });
+    assert.deepEqual(named.hold, { move: null, face: toward });
+    assert.deepEqual(named.back, { move: { x: -toward.x, z: -toward.z }, face: toward });
+    assert.deepEqual(named.right, { move: { x: toward.z, z: -toward.x }, face: toward });
     assert.ok(named.right.move.z < -0.999, "facing +x, its right is -z");
-    assert.deepEqual(named.left, { move: { x: -named.right.move.x, z: -named.right.move.z }, face: toward, attack: null });
+    assert.deepEqual(named.left, { move: { x: -named.right.move.x, z: -named.right.move.z }, face: toward });
     const head = centreOfToRef(duel.duelists.right.built.segments.get("head"), new Vector3());
-    assert.deepEqual(named.attack, { move: null, face: toward, attack: [head.x, head.y, head.z] });
+    assert.deepEqual(named.attack, { move: null, face: toward, foe: "right" });
     assert.ok(head.x > 1.8 && head.y > 1.4, `its foe's head, at ${head}`);
     // The right side's are the mirror: toward its foe is -x.
     assert.ok(responsesAt(duel, "right")[3].orders.move.x < -0.999);

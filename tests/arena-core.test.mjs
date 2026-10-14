@@ -52,8 +52,8 @@ test("an_arena_link_names_its_matchup_and_a_malformed_one_falls_back", () => {
 test("a_tape_rides_in_a_link's_fragment", () => {
   const toward = { x: 0.6, z: -0.8 };
   const tape = [
-    { step: 0, side: "left", orders: { move: toward, face: null, attack: null } },
-    { step: 60, side: "right", orders: { move: null, face: { x: 1 / 3, z: 2e-17 }, attack: [1.9, 1.6180339887, -0.25] } },
+    { step: 0, side: "left", orders: { move: toward, face: null } },
+    { step: 60, side: "right", orders: { move: null, face: { x: 1 / 3, z: 2e-17 }, foe: "left", region: "head" } },
     { step: 120, side: "left", orders: null },
   ];
   const hash = tapeHash(tape);
@@ -65,16 +65,16 @@ test("a_tape_rides_in_a_link's_fragment", () => {
   const wrong = [
     { step: 1.5, side: "left", orders: null }, { step: -1, side: "left", orders: null }, { side: "left", orders: null },
     { step: 1, side: "top", orders: null }, { step: 1, side: "left" }, { step: 1, side: "left", orders: 3 }, null,
-    { step: 1, side: "left", orders: { move: { x: "1", z: 0 }, face: null, attack: null } },
-    { step: 1, side: "left", orders: { move: null, face: { x: 1 }, attack: null } },
+    { step: 1, side: "left", orders: { move: { x: "1", z: 0 }, face: null } },
+    { step: 1, side: "left", orders: { move: null, face: { x: 1 } } },
     { step: 1, side: "left", orders: { move: null, face: null, attack: [1, 2] } },
     { step: 1, side: "left", orders: { move: null, face: null, attack: [1, 2, null] } },
-    { step: 1, side: "left", orders: { move: null, face: null } },
+    { step: 1, side: "left", orders: { move: null, face: null, region: "head" } },
   ];
   for (const entry of wrong) assert.deepEqual(readTape(tapeHash([tape[0], entry])), [], JSON.stringify(entry));
   assert.deepEqual([STAND_ORDERS, tape[1].orders, null, [], { move: null, face: null, attack: "head" }].map(isOrders), [true, true, false, false, false]);
   // A pace is a ceiling, m/s: a number, finite and not below zero, or none.
-  assert.deepEqual([0.4, 0, -0.1, Infinity, "slow"].map((pace) => isOrders({ move: { x: 0, z: 1 }, pace, face: null, attack: null })), [true, true, false, false, false]);
+  assert.deepEqual([0.4, 0, -0.1, Infinity, "slow"].map((pace) => isOrders({ move: { x: 0, z: 1 }, pace, face: null })), [true, true, false, false, false]);
   // The gap and the cap a link asks for, each within its range or not at all.
   // What each side's right hand holds: left then right, one word for both, or the club.
   assert.deepEqual(["?held=empty,club", "?play=arena&held=empty", "?held=club", "?held=%20club%20,empty"].map(readHeld),
@@ -224,28 +224,26 @@ test("a_bout's_minds_are_its_recipe's", async () => {
   assert.deepEqual(await felled("right", { minds: { left: RECIPE_FIGHTER, right: bare } }), ["command", "command"]);
 });
 
-test("a_fighters_aim_rides_in_its_minds_config", async () => {
-  // A Warrior with the club against one ordered to stand: the band of the recipe its first blow is thrown with.
-  const thrown = async (aim) => {
+test("a_fighters_aim_rides_in_its_named_actions", async () => {
+  const thrown = async (mark) => {
     const { world, dispose } = await arena();
-    const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds: { left: withParts(RECIPE_FIGHTER, { tactics: { aim } }), right: RECIPE_FIGHTER } });
+    const config = { ...RECIPE_FIGHTER, actions: RECIPE_FIGHTER.actions.map(action => ({ ...action, regions: [{ kind: "mark", mark }] })) };
+    const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds: { left: config, right: RECIPE_FIGHTER } });
     try {
       duel.play([{ step: 0, side: "right", orders: STAND_ORDERS }]);
-      const report = () => duel.duelists.left.minded.skills.report.strike;
-      let band = null;
-      while (report().thrown.right === 0 && duel.clock < 20) {
+      const report = () => duel.duelists.left.minded.skills.report;
+      let committed;
+      while (!committed && duel.clock < 20) {
         world.step();
-        band = report().chosen?.recipe.band ?? band;
+        committed = report().actions.find(action => action.phase === "commit") ?? report().ledger.find(record => record.committed);
       }
-      return { thrown: report().thrown.right, band, nets: report().nets.right };
+      assert.ok(committed, `${mark} action physically committed`);
+      return committed.target;
     } finally { duel.dispose(); dispose(); }
   };
-  const head = await thrown("head"), pays = await thrown("pays");
-  // The fixture: its club's recipe nets more on an upper trunk than on a head, so the two aims differ.
-  assert.ok(head.nets.middle > head.nets.high, JSON.stringify(head.nets));
-  assert.deepEqual([head.thrown, head.band, pays.thrown, pays.band], [1, "high", 1, "middle"]);
+  assert.deepEqual(await thrown("high"), { kind: "body", body: "right", region: { kind: "mark", mark: "high" } });
+  assert.deepEqual(await thrown("middle"), { kind: "body", body: "right", region: { kind: "mark", mark: "middle" } });
 });
-
 test("a_bout_capped_before_a_blow_lands_is_a_draw", async () => {
   // Every pairing: each side's bar is of its own parts, and two whole bodies are even whatever they are.
   for (const [left, right] of [["workshop-fighter", "workshop-rogue"], ["workshop-rogue", "crypt-skeleton"], ["crypt-skeleton", "workshop-fighter"]]) {
@@ -373,9 +371,9 @@ test("a_side_under_orders_does_what_it_is_told_and_the_other_fights_on", async (
     assert.ok(Math.abs(x(left) - start) < 0.05, `ordered to stand, it stands: ${start} to ${x(left)}`);
     assert.ok(x(right) < there - 0.6, `while the other side walks at it: ${there} to ${x(right)}`);
     assert.equal(left.minded.kind, "fighter");
-    assert.equal(left.minded.skills.report.strike.thrown.right, 0, "and it throws nothing unasked");
+    assert.deepEqual([left.minded.skills.report.actions, left.minded.skills.report.ledger], [[], []], "and it throws nothing unasked");
     assert.deepEqual(duel.tape, [{ step: 0, side: "left", orders: STAND_ORDERS }]);
-    duel.order("left", { move: null, face: null, attack: null });
+    duel.order("left", { move: null, face: null });
     assert.equal(duel.tape.length, 1, "an order repeated is not recorded again");
     duel.order("left", null);
     assert.deepEqual(duel.tape[1], { step: 480, side: "left", orders: null });
@@ -396,10 +394,10 @@ test("a_side_under_orders_does_what_it_is_told_and_the_other_fights_on", async (
 
 test("a_bout_plays_again_from_its_recipe_and_its_tape", async () => {
   const recipe = { left: "workshop-fighter", right: "workshop-rogue" };
-  const back = { move: { x: -1, z: 0 }, face: null, attack: null };
+  const back = { move: { x: -1, z: 0 }, face: null };
   // The left side is ordered back once its walk is under way, then left to itself; the right is ordered to face it.
   const tape = [{ step: 200, side: "left", orders: back }, { step: 360, side: "left", orders: null },
-    { step: 480, side: "right", orders: { move: null, face: { x: -1, z: -0 }, attack: null } }];
+    { step: 480, side: "right", orders: { move: null, face: { x: -1, z: -0 } } }];
   const first = await playBout(recipe, 8, tape), second = await playBout(recipe, 8, first.tape);
   // A side is given its orders as JSON carries them, a negative zero as zero: the tape that has been
   // through a link's fragment is the bout's tape, and plays the bout.
@@ -421,7 +419,7 @@ test("a_side_out_of_the_fight_is_no_longer_under_its_orders", async () => {
   const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 1 });
   try {
     // Ordered to walk away, the left side walks until the bell; then it stands, as the right does.
-    duel.order("left", { move: { x: -1, z: 0 }, face: null, attack: null });
+    duel.order("left", { move: { x: -1, z: 0 }, face: null });
     const { left } = duel.duelists;
     assert.notEqual(duel.run(), null);
     assert.equal(duel.verdict.ending, "time");
@@ -490,7 +488,7 @@ test("keys_and_a_pointer_make_orders_in_the_world's_frame", () => {
   assert.deepEqual(aimPoint([1, 3, 2], [0.5, -1, -0.25], 1), [2, 1, 1.5]);
   assert.equal(aimPoint([0, 5, -4], [0, 0.1, 1], 1), null, "a ray going up meets no plane below it");
   assert.equal(aimPoint([0, 0.5, -4], [0, -0.8, 0.6], 1), null, "nor one that starts under the plane");
-  assert.deepEqual(personOrders({ x: 1, z: 0 }, [2, 1, 3], false, { x: 1, z: 1 }), { move: { x: 1, z: 0 }, face: { x: 1, z: 2 }, attack: null });
-  assert.deepEqual(personOrders(null, [2, 1, 3], true, { x: 1, z: 1 }), { move: null, face: { x: 1, z: 2 }, attack: [2, 1, 3] });
-  assert.deepEqual(personOrders(null, null, true, { x: 1, z: 1 }), { move: null, face: null, attack: null });
+  assert.deepEqual(personOrders({ x: 1, z: 0 }, [2, 1, 3], null, { x: 1, z: 1 }), { move: { x: 1, z: 0 }, face: { x: 1, z: 2 } });
+  assert.deepEqual(personOrders(null, [2, 1, 3], { foe: "right", region: "head" }, { x: 1, z: 1 }), { move: null, face: { x: 1, z: 2 }, foe: "right", region: "head" });
+  assert.deepEqual(personOrders(null, null, null, { x: 1, z: 1 }), { move: null, face: null });
 });

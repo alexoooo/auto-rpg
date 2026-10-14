@@ -52,7 +52,7 @@ test('a fresh-world fork during the supported fold reproduces low strikes and th
 test('a supported fold does not hide an actual fall from the host recovery reading',async()=>{
  const s=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
  const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body);
- body.drive((view,dt)=>supportedStrikeCommand(view,skills.command(view,{move:null,face:0,guard:NO_COVER,attack:null},dt),{...support,lower:.7}));
+ body.drive((view,dt)=>supportedStrikeCommand(view,skills.command(view,{move:null,face:0,guard:NO_COVER,actions:[]},dt),{...support,lower:.7}));
  try {
   s.step(840);
   assert.equal(body.down,false);

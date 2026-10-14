@@ -75,7 +75,7 @@ test("travelling_by_a_walk_that_drives_the_legs_it_changes_walk_only_once_the_le
   const mind = { ...LAB_PRESETS.script.config, locomotion: MOVING };
   const actor = labActor(stand.built, stand.world, { mind });
   // With no foe, a walk asked is the SIMBICON walk and a stand braced: walk, stand, walk again.
-  actor.drive({ name: "walk-stand-walk", decide: ({ view }) => ({ move: view.time < 5 || view.time >= 10 ? [0.8, 0] : null, face: 0, guard: NO_COVER, attack: null }) });
+  actor.drive({ name: "walk-stand-walk", decide: ({ view }) => ({ move: view.time < 5 || view.time >= 10 ? [0.8, 0] : null, face: 0, guard: NO_COVER, actions: [] }) });
   const choice = choiceOf(actor.skills.state), gait = actor.skills.state.legs.gaits[1].gait;
   try {
     assert.ok(choice, "Move's choice is in the skills' state");

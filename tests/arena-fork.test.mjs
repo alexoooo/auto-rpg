@@ -6,7 +6,7 @@
  *
  * The bout is the fighter against the rogue from 3.25 m apart, each with a balance of 25 %, each
  * seeing the other a step late, under a tape that orders the left side back before step 300
- * and hands it back to itself before step 420. It crosses blows thrown by a recipe and one placed.
+ * and hands it back to itself before step 420. It crosses the named action's whole lifecycle.
  *
  * Each field of the bout's own state is sorted as a body's are (`tests/core-fork.test.mjs`): one
  * a fork is shown to need (`NEEDED`).
@@ -24,6 +24,7 @@ import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { threatReader } from "../src/core/mind/threat.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
 import { REPERTOIRE } from "../src/core/skills/strikes.ts";
+import { sourced } from "../src/core/spec/quantity.ts";
 import { deepFreeze, loadState, saveState } from "../src/core/state.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
@@ -33,10 +34,13 @@ import { withParts } from "./fixtures/minds.mjs";
 
 const { threatOf } = threatReader();
 
-const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.25, balance: { left: 25, right: 25 }, senseDelay: 1 });
-/** The same bout with both sides covering what threatens them (`SeekConfig.guard`). */
-const COVERING = deepFreeze({ ...RECIPE, minds: { left: withParts(RECIPE_FIGHTER, { tactics: { guard: "cover" } }), right: withParts(RECIPE_FIGHTER, { tactics: { guard: "cover" } }) } });
-const BACK = { move: { x: -1, z: 0 }, face: null, attack: null };
+// Severing at empty makes the fatal physical blow exercise attachment memory as well as damage.
+const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.25, balance: { left: 25, right: 25 }, senseDelay: 1,
+  rules: { severMargin: sourced(0, "1", "owner-hp-pool", "fork fixture: a part severs at empty") } });
+/** The same bout with both sides covering what threatens them. */
+const cover = withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover" } : behaviour) } });
+const COVERING = deepFreeze({ ...RECIPE, minds: { left: cover, right: cover } });
+const BACK = { move: { x: -1, z: 0 }, face: null };
 const TAPE = deepFreeze([{ step: 300, side: "left", orders: BACK }, { step: 420, side: "left", orders: null }]);
 /** Steps a twin's world has taken when its bout is built: a bout begins at whatever step its world is at. */
 const LATE = 7;
@@ -84,8 +88,8 @@ async function bout(which = "trunk", recipe = RECIPE, tape = TAPE) {
         else seen.landed.push(duel.steps);
         for (const side of woundedIn(blow)) if (side.wound.severed.length) seen.severed.push(side.fighter);
       }
-      for (const { minded } of sides) if (minded.skills.report.strike.phase === "swing") seen.swung.add(minded.skills.report.strike.blow);
-      for (const { side, body, minded } of sides) if (minded.kind === "fighter" && recipe.minds?.[side].tactics.guard === "cover" && threatOf(body.view)) seen.covered.add(side);
+      for (const { minded } of sides) for (const action of minded.skills.report.actions) seen.swung.add(action.phase);
+      for (const { side, body, minded } of sides) if (minded.kind === "fighter" && recipe.minds?.[side]?.tactics.list.some(behaviour => behaviour.kind === "cover" && behaviour.guard === "cover") && threatOf(body.view)) seen.covered.add(side);
       seen.orders = duel.tape.map(({ step, orders }) => [step, orders !== null]);
       seen.withdrawn = sides.every(({ body }) => body.assist.withdrawn);
       seen.verdict = duel.verdict;
@@ -119,28 +123,28 @@ const NEEDED = {
     "start", "startStep", "verdict", "given", "tape", "queued",
     "senses > left > frames", "senses > right > frames",
     "watch > blows",
-    ...["hp", "attached", "ending"].map((field) => `right > pool > ${field}`),
+    ...["hp", "attached", "ending"].map((field) => `left > pool > ${field}`),
   ],
   // Saved at every step about its first blow: what one step leaves the next.
   blow: ["senses > left > at", "senses > right > at", "watch > touches > touching", "watch > touches > last"],
 };
 /**
  * What of a bout's state is sorted elsewhere: the world's, and each body's and its mind's, a
- * fighter's skills' (`tests/core-fork.test.mjs`); and the left side's pool, which is the right's,
+ * fighter's skills' (`tests/core-fork.test.mjs`); and the right side's pool, which is the left's,
  * where the part comes off.
  */
-const SORTED_ELSEWHERE = ["world", "left > body", "left > mind", "right > body", "right > mind", "left > pool"];
+const SORTED_ELSEWHERE = ["world", "left > body", "left > mind", "right > body", "right > mind", "right > pool"];
 
 test("a_bout_forks_at_any_step", async () => {
   const controls = { physics: PHYSICS_ALONE, state: STATE_ALONE, unshown: UNSHOWN, ...forgetting(NEEDED.bout) };
   const run = await forks(bout, 60, 240, (trunk) => trunk.duel.verdict !== null, controls);
   assertForks(run, ["physics", "state", "unshown", ...NEEDED.bout]);
-  // The fixture reaches a bout's whole course: both orders given, blows of both kinds thrown, landed and clashed, a part taken off, the verdict, and the assists withdrawn at it.
+  // The fixture reaches a bout's whole course: both orders given, the action's phases, landed and clashed blows, a part taken off, the verdict, and the assists withdrawn at it.
   const { landed, clashes, severed, swung, orders, withdrawn, verdict, heard } = run.seen;
   assert.deepEqual(orders, [[300, true], [420, false]]);
-  assert.deepEqual([...swung].sort(), ["placed", "recipe"]);
+  assert.deepEqual([...swung].sort(), ["commit", "prepare", "release"]);
   assert.ok(landed.length > 0 && clashes > 0 && heard.length === landed.length + clashes, `${landed.length} blows, ${clashes} clashes, ${heard.length} heard`);
-  assert.deepEqual(severed, ["right"], "the right side loses a part: `NEEDED.bout` shows a pool's fields on that side");
+  assert.deepEqual(severed, ["left"], "the left side loses a part: `NEEDED.bout` shows a pool's fields on that side");
   assert.ok(verdict !== null && withdrawn && run.steps.at(-1) > verdict.time * 120, `forked past the verdict at ${verdict?.time} s: from ${run.steps.at(-1)}`);
   assert.ok(Object.isFrozen(verdict), "a verdict is a record: a load puts another in its place");
   assert.ok(run.steps.length >= 20, `${run.steps.length} forks`);
@@ -214,7 +218,7 @@ test("a_load_is_of_the_same_recipe", async () => {
       assert.throws(() => from.duel.load(minds.duel.save()), /another bout's recipe/);
     } finally { minds.dispose(); }
     // And a bout of the same recipe takes it whatever the order its recipe's keys were written in.
-    const again = await bout("twin", { senseDelay: RECIPE.senseDelay, balance: { right: 25, left: 25 }, gap: RECIPE.gap, right: RECIPE.right, left: RECIPE.left });
+    const again = await bout("twin", { rules: RECIPE.rules, senseDelay: RECIPE.senseDelay, balance: { right: 25, left: 25 }, gap: RECIPE.gap, right: RECIPE.right, left: RECIPE.left });
     try {
       again.duel.load(saved);
       assert.equal(stepped(again, 300), stepped(from, 300));

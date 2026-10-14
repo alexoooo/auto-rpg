@@ -329,15 +329,19 @@ export function commandable(spec: BodySpec): boolean {
 /** `built` in `world`, holding its reference pose until something drives it. */
 export function createBody(built: BuiltBody, world: World, options: BodyOptions): Body {
   let command!: CommandMind;
+  const listeners = new Set<(step: number, time: number) => void>();
+  const afterPhysics: Body["afterPhysics"] = listener => {
+    listeners.add(listener);
+    return () => { listeners.delete(listener); };
+  };
   const body = hostedBody(built, world, options, (own, sense) => {
     command = commandMind(own, options, world.dt);
-    const subs = (options.subs ?? []).map((make) => make(own, command.view, world));
+    const subs = (options.subs ?? []).map((make) => make(own, command.view, world, afterPhysics));
     // Before its first step the view is the body as built, where a driver or a run first finds it.
     command.sample(world.steps);
     command.look(sense());
     return { host: command, subs, down: () => command.view.down };
   });
-  const listeners = new Set<(step: number, time: number) => void>();
   const sampled = world.afterPhysics(() => {
     command.sample(world.steps);
     for (const listener of listeners) listener(world.steps, world.time);
@@ -347,10 +351,7 @@ export function createBody(built: BuiltBody, world: World, options: BodyOptions)
     view: command.view,
     envelope: !options.measuring && Object.keys(options.stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null,
     drive: (next: BodyDriver | null, released?: (view: BodyView, reason: "takeover" | "idle" | "replaced") => void) => command.drive(next, released),
-    afterPhysics(listener: (step: number, time: number) => void): () => void {
-      listeners.add(listener);
-      return () => { listeners.delete(listener); };
-    },
+    afterPhysics,
     dispose() { command.drive(null); sampled.dispose(); listeners.clear(); disposeBody(); },
   });
 }

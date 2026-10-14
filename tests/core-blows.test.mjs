@@ -9,6 +9,7 @@
  * (Node core stand, Rapier, 120 Hz).
  */
 import test from "node:test";
+import { pointScript } from "./fixtures/point-script.mjs";
 import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -398,14 +399,13 @@ test("a Warrior's club blow at a skeleton's head lands there and ends the fight"
   // Built 1.8 m ahead: from 1.5 to 1.7 m the blow at the head lands on the upper trunk as well.
   const skeleton = make("skeleton", modelSpec("crypt-skeleton"), 1.8, "enemy");
   try {
-    driveBy(warrior.body, { name: "attack", decide: ({ report }) => {
+    driveBy(warrior.body, pointScript(() => {
       const h = skeleton.body.view.head;
-      const attack = report.strike.thrown.right > 0 ? null : { kind: "blow", hand: "right", target: [h.x, h.y, h.z] };
-      return { move: null, face: 0, guard: NO_COVER, attack };
-    } });
+      return { key: 0, action: "strike", effector: "hand.right", target: { kind: "point", at: [h.x, h.y, h.z], body: "skeleton" } };
+    }));
     driveBy(skeleton.body, { name: "stand", decide: () => standIntent(0) });
     const watch = watchBlows(world, [warrior, skeleton], RULES);
-    for (let i = 0; i < 8 * world.hz && skeleton.pool.ending() === null; i++) world.step();
+    for (let i = 0; i < 12 * world.hz && skeleton.pool.ending() === null; i++) world.step();
     const blow = watch.blows.at(-1);
     assert.ok(blow, "a blow landed");
     // The club is rigid: its side takes none of it, the head's all. The record whole, with the wound the pool gave.

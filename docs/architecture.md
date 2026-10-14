@@ -50,8 +50,8 @@ runs `stagedRise`, then uses locomotion's gradual height restoration and foot sq
 stabilize. `recoveryReady` independently requires loaded feet, no other fixed support, a centre
 of mass inside their support polygon, low segment speed and the host's upright reading for a
 continuous interval. A stabilization timeout retries from the actual body. The host releases
-pending commands on takeover; the opening tactics also clear pending skill cycles through its driver
-release callback, and resumes after this handover. Recovery and
+pending commands on takeover and interrupts every live action through its driver release callback;
+the host resumes after this handover. Recovery and
 trajectory memory are plain data under the body/bout state, including the standing reference.
 See [recovery measurements](reference/recovery-cycle.md) for the tested envelope and failures.
 The independent `supportEntryPolicy` remains available to the research task; it ends at hand/shin
@@ -71,16 +71,18 @@ the centre of mass inside the inset sole polygon, and the host's upright reading
 and the label's memory save with the body's state.
 
 
-The opening tactics select collider-derived target surfaces, and the path strike commits a hand trajectory through
-`pathStrike`. Terminal hand velocity and segment identity extend the common IK/muscle path; an optional, range-bounded elbow preference composes with trunk rotation and returns to guard. Optional lateral head-surface samples expand the same collider-based lane search; zero preserves the retained selector.
-Optional bounded combinations can overlap an opposite-hand strike with a contact-free, physically
-returning hand. Each hand is a strike of its own (`effectorStrike`), so the returning one keeps its
-motion sequence and completion checks; both arms share the ordinary body command, muscles and
-locomotion. Recovery interrupts both.
+Shared surface aim rules select collider-derived target surfaces, and the path executor commits
+a hand trajectory through `pathExecutor`. Terminal hand velocity and segment identity extend the
+common IK/muscle path; an optional, range-bounded elbow preference composes with trunk rotation
+and returns to guard. Optional lateral head-surface samples expand the same collider-based lane search.
+A new opposite-hand action can overlap a physically returning hand when their resources and the
+shared executor permit it. Each hand has its own `effectorStrike`, so the returning instance keeps
+its motion sequence and completion checks; both arms share ordinary body commands, muscles and
+locomotion. Recovery interrupts both instances.
 The overlap admission screen does not establish stronger combat; see [measurements](reference/combat-overlap.md).
-Classic retains its own execution. Chamber and return permit locomotion. Actual
-contact feedback optionally carries trusted detached body/segment labels, point, normal and
-impulse; repeated guard blocks request a lateral escape. These labels affect tactics, not damage.
+Classic uses the recipe executor. Released resources return to the continuous defaults. Contact
+feedback carries trusted detached body/segment labels, point, normal and impulse; committed guard
+contacts penalise blocked target surfaces in the aim rule. These labels affect tactics, not damage.
 The builder optionally grants detached fixed geometry from the same definitions it installs
 in physics. Combat checks conservative retreat sweeps against those boxes and hull bounds.
 Body senses carry their actual sample time in the saved delay frames. An experimental
@@ -337,44 +339,26 @@ and driven afresh to change what it costs.
 
 ### Skills
 
-A controller's skills are the only place an `Intent` becomes a `BodyCommand`, and they report
-back (`SkillReport`: heading, pace, where a strike is, and which skill had each part of the body,
-`holders`). A skill set is one skill a role under one arbiter (`skillSet`,
-`src/core/skills/arbiter.ts`): the legs (`Locomotion`), the guard, a blow (`BlowSkill`,
-`skill.ts`), and a kick and a support skill if it has them. A blow skill is given the blow asked,
-or none while a kick is asked or under way, and claims what it uses (`Claim`): each hand's goal,
-the posture, pushes, the hands it holds closed, a turn of the heading, and what it asks of the
-legs (`LegsAsk`: the tactics' walk, no walk, its own walk, or a footing). A blow may instead
-claim the body whole (`Claim.whole`): it drives every freedom by its pushes, the stance, the guard
-and the posture stand aside, and it holds the legs, the trunk and both hands. The arbiter moves the
-support skill first, by the stance the blow under way keeps; takes the blow's claim; has the
-guard cover with each hand the blow does not hold; carries out the legs' ask, a kick or the
-support lowering, low or rising holding the walk, and a walk that drives the legs itself
-(`Locomotion.drive`) giving the stance no goal, its pushes laid after the blow's; lays the support's stance and trunk over the
-command; and lays a kick's stance and foot goals over it last, a kick beginning only while no
-blow is under way and the body stands. A blow skill of one kind is swapped for another without
-touching the rest. A fighter's set is the skills its slots name (`skillPartsOf`,
-`src/core/mind/fighter.ts`, `blowOf`): the walk, the guard, the recipe strike (`recipeStrike`), the path
-strike (`pathStrike`), the driven strike (`pathStrike` with its `driven` setting), the whole-body
-strike (`wholeBodyStrike`, `whole-body-strike.ts`), the straight punch (`straightPunch`,
-`straight-punch.ts`) or a choice of blows (`chooseSkill`), and a kick
-and a support fold where it has them. A blow skill says whether it carries out an attack
-(`BlowSkill.accepts`): the recipe strike, the whole-body strike and the straight punch every blow,
-the path strikes one with a path. The driven strike turns the trunk flat out in the swing, by a push on its rotation,
-until it is turned as far as asked; aims the arm from where the trunk is, its goal's held freedoms
-read from the body (`EffectorGoal.carried`); winds up deeper; and times the swing as an evenly
-accelerating fist from where it is at launch to the contact speed at the target. The whole-body
-strike runs one bounded torque solve over the body, its contacts and its stops
-(`wholeBodyTracking`) from the blow's start to its return, the fist on a timed path behind the
-pelvis's and chest's turns or driven flat out along the line, and needs the world it is in for its
-physics and gravity (`driveFighter` takes it). The straight punch walks to where the target is a set share of the arm's straight length from its punching shoulder, as the drive's turn of the hips and chest will carry it, so the two bodies stand an arm apart, walking no slower than `LEAST_PACE` while it is short of there; it sets its
-fist on the line from the shoulder to the target, and drives every channel of the hips, the chest
-and the arm flat out at a contact pose solved each step by the arm's inverse kinematics
-(`solveReach`): the arm straight through the target and the wrist on the line, so the fist meets
-it with the arm behind it; its settings were searched in Arena bouts (`research/punch-in-bout.mjs`). With `landed` (off) it drives only with both feet bearing. For a stand,
-`recipeParts` (`src/core/skills/skills.ts`) and `pathParts` (`combat.ts`) make each blow's usual
-set and `recipeSkills` and `combatSkills` put it under the arbiter; `driveBy` hands a body to
-tactics over the skills it is given.
+A controller's skills turn an `Intent` into a `BodyCommand`. The continuous base is locomotion,
+guard and optional low support. Named executors perform discrete actions over it (`skillSet`,
+`src/core/skills/arbiter.ts`). Each request has a stable id, an action name, an effector and a
+sensed body/region target or an explicit research point. Admission reads executor readiness and
+reserves its declared resources before preparation begins. An executor moves through prepare,
+commit and release, ending once with a reason in the bounded ledger. It never closes distance by
+itself: tactics approach its entry window; preparation may make bounded local foot placement.
+
+Resources distinguish joints, effectors, hand pose, legs and support. Independent actions can
+overlap where their full reservations permit it. Active holders and future reservations are
+reported separately. The arbiter validates sparse claims, composes them against the same base,
+and releases every instance on host takeover or idling. Runtime memory is plain state, including
+request ids, lifecycle phases, ownership, observation cursors and terminal records.
+
+Contacts are observed after physics from the surfaces admitted for each action. Intended hits,
+blocks and incidental contacts stay separate from physical damage; a torso collision cannot
+become a punch's hit. `Ended` records retain the exact request and ending, commitment and contact
+summary. Recent records expire at the capacity limit, with omitted history counted explicitly.
+Recipe, path, driven, whole-body, straight-punch and front-kick executors share this contract.
+Their actuator methods and their readiness/footprints remain their own.
 
 - **Locomotion** (`locomotion.ts`) walks at no more than the body's measured fastest walk, turns
   only while walking and no faster than its envelope and optional `turnLimit` allow, and can
@@ -444,8 +428,8 @@ tactics over the skills it is given.
   slowed to 1.32. Told it may not run (`Locomotion.runs`, `SimbiconConfig.runs`), it walks no faster
   than 1.32, and a run under way walks again from a landing once the walk asked has come down to 1.32. Its
   envelope is the walk's (`simbiconEnvelope`), or the run's (`simbiconRunEnvelope`) while it may run. Low support folds the stance, so a fighter does not
-  offer it beside this walk; a kick asked holds the walk, which stops and gives the legs back to the
-  stance before the kick begins (`drivesLegs`, `fighter.ts`; `skillSet`, `arbiter.ts`). A push whose level or speed is not
+  offer it beside this walk. An admitted kick reserves the legs, stops the gait and establishes
+  quiet support in bounded preparation (`skillSet`, `arbiter.ts`). A push whose level or speed is not
   a number is refused (`obey`, `body.ts`): Rapier disables the island of a body given one, which
   then hangs in the air.
 - **Move** (`move.ts`, "Move") walks by one of the gaits (`GAITS`, `gaits.ts`: Braced, the
@@ -486,14 +470,14 @@ tactics over the skills it is given.
   ([reference/blows.md](reference/blows.md#another-bodys-recipe)). Of its body's recipes for
   what the hand holds (`recipesFor`: the left hand's mirrored) the skill chooses the one whose
   window holds the target's height over the head, the nearest its place where two do
-  (`recipeAt`), and a placed blow where none does; walks the body to where the target sits in
-  the blow's window, sets the feet, stands `STAND` seconds, chooses again by the head as it
+  (`recipeAt`), and a placed blow where none does. Shared tactics approach its entry window; the
+  executor makes bounded local foot placement, stands `STAND` seconds, and chooses again as it
   stands, once for a point attacked and keeping a recipe whose window still holds the target
   (`holdsAt`), and throws. From the commit to the end of its pushes a
   recipe turns the stance's heading by as much as its target's bearing has turned, read from
   where the feet stood at the commit, up to `STEER`, so a target that moves across under the
   blow stays where its window had it ([reference/blows.md](reference/blows.md#steered)). It
-  reports what each hand's recipes net by band (`StrikeReport.nets`).
+  exposes recipe estimates through its registered action descriptions.
   While a strike runs it owns the legs and trunk, and the other hand guards.
 - **Guard** (`guard.ts`) is a skill in the one list, and has the hands the strike has not. Its
   pose is the arms' posture when nothing else owns them (`guardPosture`): `GUARD`, with a hand
@@ -507,18 +491,9 @@ tactics over the skills it is given.
   nearest how it lies. There is no block and no parry: a club across a blow's line, a hand before
   the face and a shield raised are this one skill placing different points, and what a cover
   costs is the blows' rule's.
-- **A choice of blows** (`chooseSkill`, `choose.ts`) is a blow skill over other blow skills. As a
-  blow begins it gives it to one option by its policy (`ChoosePolicy`), none of which draws a
-  random number: the first that accepts it (`first-able`), the next after the one that began the
-  last blow (`rotate`), or the one with the most (landed + 1) / (thrown + 2) of its own blows, ties
-  to the earlier (`scored`). The option keeps the body until it is no longer busy; the others are
-  given nothing, and each is resumed when the body is its own again. A blow has landed when the
-  hand that threw it touched a foe while it was under way, read from the body's effector feedback,
-  which a fighter with a choice reads. Which option has the body, the one that began the last blow
-  and the counts are in its state with each option's own (`tests/core-choose.test.mjs` forks a bout
-  in the middle of a blow). Its report is the option's that has the body, with the blows thrown
-  summed over every option, a hand's range the first option's, and `choice`: the option and the
-  counts, which the mind inspector shows.
+Action selection belongs to shared tactics, not an executor wrapper. Ranked or rotating actions
+and conditional rules choose among the configured named actions. A live request keeps its id;
+changing or withdrawing an order ends the old request and a later attempt gets a fresh id.
 
 ### Minds
 
@@ -673,35 +648,19 @@ every config kind, including optional settings, and rejects extra keys at compil
 fault predicates validate values; slots validate nested parts. Hiding an editor field does not
 remove that setting from saved configs, links or research overrides.
 
-**The fighter's slots** (`FighterConfig`) are its tactics, a skill of each role and its
-sub-minds. Its tactics (`tacticsOf`, `tactics-of.ts`) are `seek` (`recipeTactics`, with `guard`,
-`aim` and `range`) or `openings` (`pathTactics`, with the hand that attacks, its blows, the
-surface it favours, its defence, its combinations and its spacing), `script` (the screen's own,
-carried out as written: the Lab's modes write one), `stand` (in guard the way the body faces) or `behaviours`
-(`behavioursTactics`, `behaviours.ts`): a ranked list of behaviours, each of which may want the legs, the
-attack or a hand's guard, the first that wants one having it and what none wants standing in guard
-(`follow-orders`, `flee`, `close-in`, `keep-distance`, `strike` with the hand or hands named and
-its blow, `kick` with the foot or feet named and its kick, walking in and kicking the nearest
-standing leg within reach, and `cover`); under them the fighter's blow and kick are the ones its
-behaviours name and it has no low support (`fighterSkills`), its own slots for them not offered
-(`slotsFor`), and two strikes that name different blows are a fault. Its skills are its walk
-(`stance-walk`, `travel`, `simbicon`, or the experimental `stride` and `run`), its guard (`cover-guard`), optionally a blow (`recipe-strike`, or `path-strike`, which may
-begin a hand while the other returns, the experimental `driven-strike` and `whole-body-strike`
-from the punch's research, or `choose-blow`, which gives each blow to one of a list of
-blows; `noBlow` stands in for none), and, optionally, a kick (`front-kick`) and low support
-(`support-fold`): an empty slot is a fighter that does not do that. The tactics plan by what the
-skills can do (`Abilities`, `abilitiesOf`: the blow's hand paths, the kick, whether it fights from
-low support), never by a setting of their own; and a hand's contacts are read where the opening
-tactics or the path strike read them (`readsContact`). A skill the tactics never ask of, or a blow
-that cannot carry out what they ask, is a fault at its slot (`fighterFaults`: `blow: the path
-strike carries out a blow only along a path, and these tactics name none`). The presets are
-`CLASSIC` (seek over the recipe strike, rising by stages), `PUNCHER` (Classic holding at the edge
-and throwing the straight punch), `SCRAPPER` (openings over the path strike, aimed at the body,
-with low support) and, of behaviours, `BEHAVIOURS` (strikes with either hand in turn). A preset changed in the Arena's
-panel is named `Custom (from` its preset`)` (`controlName`, `src/arena/matchup.ts`).
+**The fighter's configuration** (`FighterConfig`) holds tactics, locomotion, guard, optional
+support, named executor instances, named action descriptions and ranked sub-minds. Each action
+references an executor, allowed effectors, a path where required, aim and eligibility. The shared
+selector supports ranked and rotating choices and ordered conditional rules. Configuration faults
+reject duplicate names, missing references, incompatible effectors and executor options. The
+editor exposes these lists and preserves valid links without experiment tuning.
+
+Classic uses recipe actions, Puncher uses straight punches and edge spacing, Scrapper uses path
+actions with low support, and Behaviours rotates its actions. Preset edits are named Custom in the
+Arena. Script tactics accept explicit research requests through the same admission protocol.
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`,
-`sub-mind`, `tactics`, `behaviour`, or a skill's: `locomotion`, `guard`, `blow`, `kick`, `support`), a label, a stage (`game`, or `experimental` for research offered beside the
+`sub-mind`, `tactics`, `behaviour`, or a skill's: `locomotion`, `guard`, `executor`, `support`), a label, a stage (`game`, or `experimental` for research offered beside the
 game's), the settings a person may change (`fields`, built from `fields.ts`'s `choice`, `toggle`
 and `number`: only what a player can reason about, such as how fast a walk turns or how far a punch
 stands off; a controller's searched constants stay in its config, not offered), its slots (`slotsOf`: those `slotsFor` keeps for a config, where a part has it), the config it starts from (`defaults`), the bodies it fits (`fits`) and
@@ -732,25 +691,37 @@ fault, or one that does not fit its body, plays the preset whole while the panel
 A bout's HUD names the preset, `(edited)` where the link changes it (`controllerLabel`). A tape's
 link carries its minds, so a replay drives the same minds.
 
-**The mind inspector** (`mindInspector`, `src/ui/mind-inspector.ts`) shows a body's mind as it
-goes: its tree read-only, who has the body (`PhysicalBody.has`), and the part of the tree that holds
-the legs, the trunk and each hand (`SkillReport.holders`; a blow holds the hand it moves, by its
-goal or by its posture, `BlowSkill.holds`), whose slot it marks live. Each side's bar in the Arena's
-HUD has one, the Lab's thinking section one, and the Crypt's HUD one, for the enemy under the
-pointer, else the enemy the party is locked on, else the first selected member.
+**The mind inspector** (`mindInspector`, `src/ui/mind-inspector.ts`) shows the mind tree, who has
+the body, active actions and stages, current holders and reserved resources. It shows candidate
+readiness and the recent terminal ledger, including explicit omitted history counts. The Arena,
+Lab and Crypt use the same neutral action readout.
 
 When a sub-mind takes over, the host releases its stance and clears the previous leg torques
 used by the compliant-sole damping filter. On return, filtering starts with the current torque
 request; it does not average in a request from before the takeover.
 
-There are three sub-minds. Each reads its host's down state (`BodyView.down`) and receives
+The baseline sub-minds each read its host's down state (`BodyView.down`) and receives
 the body's world (`SubMindMaker`): `lie` (`lying`, `lie.ts`) asks the muscles for nothing;
 `support-recovery` (`supportRecovery`) plays the staged recipe and verifies quiet standing
 before handover; `research-rise` (`researchRise`) tracks experimental reference motions with
 live feedback through ordinary muscles. Classic, Puncher, Scrapper and Behaviours use
 `support-recovery`. The staged riser is an internal component of that baseline, not a separate
 editor choice.
-`RECIPE_FIGHTER` is the seeking fighter over the recipe strike, walking in the stance, with `lie`;
+
+Experimental ground recovery reads one shared `BodyView.ground` after contact sampling. Physical
+loads, sole flatness, trunk orientation and velocity remain immediate; only the named position
+has six-step hysteresis. `standReady` requires quiet, loaded flat feet and the mass within support.
+
+`ground/techniques.ts` declares physical admission and completion contracts. The graph chooses a
+simple route to standing in player order and retains its purpose across successful transitions.
+Stand up executes contracts, braces during tumbling, steadies on feet, repositions deliberately,
+and backs off when stuck. Failures belong to a technique, side and starting position and survive
+successful rolls. Its bounded log names attempts and distinguishes verified hand-back from the
+steadying timeout. These techniques remain experimental: software contracts and repeatable
+failures do not establish successful recovery. `SubMind.holds` preserves a wanted body through a
+critical phase and lets ranked higher sub-minds take it at the first yielding boundary.
+
+`RECIPE_FIGHTER` uses shared action tactics over the recipe executor, walking in the stance, with `lie`;
 the Lab's minds are made from it. `GAME_FIGHTER` is it getting about by `MOVE`: the mind every
 humanoid has unless its fight says otherwise (`modelInfo`), so a body that falls lies still ([reference/rising.md](reference/rising.md#lying)). An arena
 recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives an enemy its model's (`modelInfo`) and a party member the
@@ -817,67 +788,25 @@ completion predicate. Deadline and trunk-contact aborts still apply. A recipe's 
 can set the joint response independently of the bearing response. The supported-rise tests
 exercise support acquisition, a retained free-wrist movement, expiry and exact continuation.
 
-`Tactics` (`tactics.ts`) are `decide(sight, dt)`: from their `Sight` (the body's view, the
-skills' report and the envelope of the locomotion they drive) they return an `Intent` (`intent.ts`): a velocity forward
-and to the right of the body's heading, or none; a way to face; how low to stand; what each hand
-covers (`Cover`), or none, holding the guard's pose; and the one attack (`Attack`), or none: a
-blow of a hand at a point, which the recipe skill chooses for what the hand holds unless it names
-its path (`BlowPath`), or a kick of a foot. A skill refuses a kind it does not carry out. It
-names no joint, pose or push. `driveBy(body, tactics)` hands the body
-to them through the skills.
+`Tactics` (`tactics.ts`) read `Sight`: the body's view, senses, reports, readiness and locomotion
+envelope. They return continuous walking, facing, lowering and cover, plus discrete action
+requests. Shared action tactics combine follow-orders, attacking, approach, spacing, retreat,
+clinch breaking and cover. Ground positioning preserves the route to a low target while the
+chosen executor owns its own lowering, strike and return to standing. A tactics rule never
+writes a joint, posture or push.
 
-Each fighter's tactics carry out `Orders` (`orders.ts`): a direction to walk, a direction to
-face and a point to attack, each or none, in the world's frame, as plain data naming no joint
-or camera, and a pace only as a ceiling (`Orders.pace`, as a walk coming to a stop asks); or, in place of the point, a sensed foe by its id (`Orders.foe`), on which the
-mind finds its own point as it senses it (`aimedOrders`, `targets.ts`): a fighter the foe's
-high mark (`highMark`), the reptile a nearest surface point carried in the sensed segment frame (`nearestSurface`). Each step the tactics ask for the orders, with what the body sees. Walking and
-facing are one part both fighters share (`orderedIntent`, `ordered.ts`), as are the hand that
-does not attack (`guarding`) and whom and where they aim (`targets.ts`: the nearest foe,
-`nearestFoe`; the nearest surface, `nearestSurface`; how a fallen foe lies, `lyingAxis`), read by
-the foe's marks (`BodySpec.marks`: its high mark, its middle, its base, its legs and what it
-guards with, where a contact is a block, `contactResponse`) and never by a human segment's name. Ordered to walk, the body walks that way at its fastest
-walk, its fastest forward where it is sent somewhere (`Orders.destination`), or the pace ordered if that is less, turning to it. Ordered to face another way as it walks, it walks at half that pace until
-it has turned to its facing, and from then at half plus the other half times the cosine of the
-angle between its heading and its walk (`STRAFE`, [reference/orders.md](reference/orders.md)).
-Given a point the seeking tactics (`recipeTactics`, `recipe-tactics.ts`) attack it with the
-right hand, the strike skill closing the distance, while the left guards: it holds the point while the strike skill walks and sets the feet for it, and aims
-at the ordered point itself once a blow is committed. A skill that reads its target afresh each
-step (`StrikeReport.follows`, the straight punch) is given the ordered point as it is throughout,
-so it stands off from where the foe is, not from where it was. The stance turns only while it walks or
-follows a blow's target, so a standing body ordered to face does not turn.
+`Orders` name walking/facing, a sensed foe id and optional segment region; they do not carry a
+camera point. Arena pointer selection casts against sensed collision geometry and sends that
+identity. The mind chooses a point from its current sensed body. The Crypt sends the same foe
+identity from its map-aware plan. Autonomous tactics select their own foe; a directly controlled
+body acts on the person's orders. Scripted Lab experiments may deliberately request a point.
 
-A hand that does not attack guards as the tactics' config says (`SeekConfig.guard`): in the
-pose, or by a cover of what threatens its head. The threat is read from the senses (`threatOf`,
-`threat.ts`): of the other sides' bodies still in the fight, the point each hand strikes with
-(its knuckles, or its club's swell) that closes fastest on the head, within `THREAT`'s distance
-and over its speed. What is sensed is as old as the senses' delay, and nothing corrects for it.
-Every body's fighter guards in the pose (`GAME_FIGHTER`); an Arena side whose tactics' `guard` is
-set to cover covers ([reference/blows.md](reference/blows.md#covering-searched)).
-
-Orders come from three places. An arena side nobody has taken makes its own (`seekFoe`): from
-its senses it picks the nearest body of another side still in the fight, walks at it, and attacks
-it once their centres are within `ATTACK_METRES` (1.8 m): at its head, at its upper trunk where its config says `body`, or, where its config says
-to aim at what pays (`SeekConfig.aim`, `bandAimed`), at the part of the band its hand's
-recipe nets most on (`StrikeReport.nets`, `markOf`). Every body's fighter aims at the head
-(`GAME_FIGHTER`; [reference/blows.md](reference/blows.md#aim)). Where its config says to hold at the
-edge (`SeekConfig.range`, `EDGE`), it reads the foe's reach from what it sees of the foe
-(`rangeOf`, by `BodySense.spec`, the rule its own strike skill throws by, `StrikeReport.rangeAt`):
-it stands just outside it, backing out from inside it, and attacks when the part it aims at
-stands in its own blow's window from where it stands, or when it has stood there its patience;
-a foe that comes within its clinch (`EDGE.clinch`, 0.65 m between the centres of mass) it backs
-out from, unless its blow is already thrown.
-While the foe is down it attacks nothing and lets it rise, facing it and backing off from it while
-any part of it lies within `CLEAR_OF_DOWN` (0.9 m), so it does not walk onto it. Every body's fighter walks in (`GAME_FIGHTER.tactics.range`); the Puncher holds at the edge (`PUNCHER`). A side a person has taken is
-given the person's (`Duel.order`) and does only what it is ordered, until it is handed back or is
-out of the fight. In the crypt the run plans for its fighters with the map (`DungeonRun`) and
-hands each its plan as orders, its target as the foe; its bodies sense each other, with no delay. Each
-body's level is the levels' rule's (`levelsOf`, the run's `LEVELS`): one out of the fight goes
-limp, its assist withdrawn; an enemy waiting at its home with the party far off is held, fixed
-where it stands with nothing driving it, until the party nears; and the dead are held where they
-lie once their fall is over and nobody walks near.
-The Lab uses `stanceTactics` for the keys and `trackTactics` and `commandsTactics` for
-Locomotion. Attack supplies game orders to the selected mind. `routineTactics` and `attackOnce`
-are scripted research fixtures.
+The selector reports candidate readiness, retains a pending attempt only while its rule remains
+eligible, and reads bounded terminal history for follow-ups and spacing adaptation. A clean miss
+requires commitment and completion without intended or blocking contact; refusals and interrupted
+preparation are distinct outcomes. Approach stops while an action owns the required controls.
+The Lab's Attack mode uses the selected mind autonomously, with clicks issuing target orders;
+Routine and individual blows use explicit scripted requests.
 
 ## Experimental separate equipment
 
@@ -1224,10 +1153,11 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   distances (`LevelRule`). The crypt is its one caller today.
 
 A body that is down (`BodyView.down`, by its spec's rule: a human's centre of mass a quarter metre
-under the height it is asked to hold, over its lowest point, `src/core/control/ground.ts`) is out of the fight, and lies still (`lie`): the
-riser is the lab's alone, and no fight gives its bodies one. The arena's verdict (`Duel.judge`, `src/arena/duel.ts`): a side is out when its
-pool ends or its body is down; both out on one step is a draw; at 120 s the fuller bar wins.
-
+under the height it is asked to hold, over its lowest point, `src/core/control/ground.ts`) follows
+its configured sub-minds while the fight allows recovery. The Arena's verdict (`Duel.judge`,
+`src/arena/duel.ts`) ends a side when its pool ends or its continuous-down allowance expires;
+null allows recovery until injury or the bout cap. Both sides out on one step is a draw; at the
+cap, the fuller bar wins.
 A bout is built from a recipe (`DuelRecipe`): the two bodies, how far apart they start, the
 cap, and a side's mind where it names one (`minds`, each a `MindConfig`), as plain data, so the same bout can be built again in another world or on another thread;
 what a page hears of it (`DuelHooks`) is beside the recipe, not in it. Nothing in a bout is
@@ -1272,9 +1202,9 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
   `src/arena/room.ts`), each driven by its side's mind under a `Duel`, to a verdict, each
 side's mind inspected under its bar. A person
   may take a side (`&you=left`): each frame the page turns the walking keys, as the camera sees
-  the ground, and the pointer's ray, where it crosses the level of the body's centre of mass,
-  into world directions (`src/arena/orders-input.ts`) and gives them as orders (`Duel.order`),
-  so nothing of the camera reaches a mind. The room's
+  the ground, into a walking direction. The pointer supplies facing from a level plane and,
+  while pressed over sensed collision geometry, a foe and segment identity (`src/arena/orders-input.ts`).
+  These become orders (`Duel.order`), so nothing of the camera reaches a mind. The room's
   solids (`arenaSolids`) are a floor slab, twenty-four rotated parapet boxes and eight brazier
   pedestals enclosing a circular floor. Setup uses two unstepped character previews
   (`src/render/character-preview.ts`) and an overview camera; Fight switches explicitly to the
@@ -1306,13 +1236,14 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   page chose: its balance, its mind and the strikes it may throw. The mind is a fighter
   (`labMind`): a preset or an edited tree carried by `&mind=`, including its recovery sub-mind.
   Attack defaults to Puncher and also offers Classic and Guard; scripted scenarios default to
-  Script. Attack (`attack-mode.ts`) issues `Orders.foe`, the same body-target order the Crypt
+  Script. A click in Attack (`attack-mode.ts`) issues `Orders.foe`, the same body-target order the Crypt
   issues after navigation. `createSenses` carries the physical targets to the mind, which owns
   approach, aim and striking. Seeded targets are dynamic balls of the attacker's head
   (`targets.ts`), floated against gravity and moved by impulses at the chosen speed until impact.
   Solver contact with the actor marks a hit; after 0.6 s the target's collider and senses are
-  removed and a new target spawns. Automatic selection chooses the nearest unhit target; a click
-  overrides it. Wind uses the same gust model as Locomotion. This exercises combat in an open field;
+  removed and a new target spawns. The fighter's focus rules choose its target when no click
+  orders one. The ledger counts committed effector contacts separately from these physical impacts.
+  Wind uses the same gust model as Locomotion. This exercises combat in an open field;
   Crypt pathfinding remains the dungeon's responsibility. The Locomotion scenario goes round its
   tracks (`track.ts`), or from one random destination to the next (`commands.ts`),
   at the pace asked, its feet metered from the ground's contacts (`gait-meter.ts`), and the
@@ -1385,14 +1316,12 @@ physical loadouts, duel recipes and tapes. They do not change collisions, sounds
 
 ## What the seams are for
 
-An attack is a function of its target: the tactics say what to attack (`Attack`: a blow of a
-hand, with whatever it holds, or a kick of a foot, at a point) and, for the opening tactics, along
-which family of path (`BlowPath`); the recipe strike chooses how, a searched
-recipe or a placed blow. No technique is a kind in the code: a recipe is data a search found. Defence
-is the guard placing what a hand holds, or the hand. A blow is whatever two surfaces of two
-sides met with. Each seam is where one kind of addition goes; none of these is built
-([roadmap](roadmap.md#strikes)).
-
+Tactics choose a named action, an effector and a target body and region. The action names its
+executor and aim rule; path families are action settings, and the recipe executor chooses a
+searched recipe or a placed blow. Scripts may instead request explicit world points. Continuous
+defence is the guard placing a hand or what it holds; a deliberate defensive commitment can use
+the same action protocol. A blow is whatever two surfaces of two sides met with. These seams
+keep control choices separate from the contact and damage rules ([roadmap](roadmap.md#strikes)).
 | Added | Where it goes | What it leaves alone |
 |---|---|---|
 | **A sword, a spear**: an edge, a point | An item's shape states its mechanism where it cuts or pierces; a blow whose surface is that shape is priced by it (`MECHANISM_PRICE`), after a breach cost under which it is a blunt blow. The item states its `aim` and its points; a search finds its recipes; the guard places its two ends. | The shares, the pool, the skill, the targets. |
@@ -1449,13 +1378,10 @@ include held items; foot sweeps use exact round-collider distance and conservati
 bounds. A body inside a fixed boundary margin backs away at its current heading before
 turning to fight. Existing margin penetration permits parallel or outward motion.
 
-Scrapper fights from low support as well as standing. Its `groundCombat`
-policy observes head height, trunk motion and collider geometry, admits a close approach by
-foot clearance, and otherwise uses a wider route. `pathTactics` resolves the resulting neutral
-intent through the common executor. It retains a committed hand/aim, refreshes only between
-strokes, and requests standing return on movement, target displacement or a deadline. Its
-nested state forks with the bout. Ordinary orders and recovery resumption reset selection.
-The supported executor remains available to other policies independently of this heuristic.
+Scrapper can position for a downed foe (`groundPosition`) and send a downward action through
+the native path executor. Positioning chooses and retains the near or wide route; the executor
+owns support lowering, chamber, commitment and bounded rise. Losing or withdrawing the target
+ends the request explicitly, and a host takeover clears its ownership before recovery commands.
 
 Hands expose coarse open, fist and grip contact configurations to goal-based and direct
 controllers. The body owns pending/applied pose state; its builder checks unloaded contact and

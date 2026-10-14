@@ -32,7 +32,7 @@ export async function biteTrial({ bite = REPTILE_BITE, point = [0, .1925, .485],
   const contactIdentity = other => enemyParts.has(other) ? { kind: "body", body: "target", segment: enemyParts.get(other), guard: false } : { kind: "world" };
   let cancelled = false;
   const mind = createQuadrupedMind(stand.built, stand.world,
-    { orders: () => cancelled ? STAND_ORDERS : autonomous ? null : { ...STAND_ORDERS, attack: point }, senses: see, contactIdentity },
+    { orders: () => cancelled ? STAND_ORDERS : autonomous ? null : STAND_ORDERS, ...(autonomous ? {} : { biteTarget: () => cancelled ? null : point }), senses: see, contactIdentity },
     { crawl: REPTILE_CRAWL, trot: REPTILE_TROT, motor: REPTILE_MOTOR, travel: REPTILE_TRAVEL, bite });
   const rules = rulebook("arena"), mine = createPool(stand.built.spec, rules), theirs = enemy && createPool(enemy.spec, rules);
   const jaw = mind.body.muscles.channel("jaw axis0"), state = mind.body.state.mind.host.bite;

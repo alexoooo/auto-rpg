@@ -8,8 +8,10 @@ import {armed} from '../src/core/human/grip.ts';
 import {woodenClub} from '../src/core/items/club.ts';
 import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
 import {DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
-import {combatSkills} from '../src/core/skills/combat.ts';
+import {skillSet} from '../src/core/skills/arbiter.ts';
+import {pathParts} from '../src/core/skills/combat.ts';
 import {guardPosture} from '../src/core/skills/guard.ts';
+import {actionCycles} from './action-cycles.mjs';
 import {KICK_PATH} from '../src/core/skills/kick.ts';
 import {NO_COVER} from '../src/core/mind/intent.ts';
 import {pointOfToRef,motionAtToRef} from '../src/core/control/support.ts';
@@ -35,27 +37,28 @@ export async function frontKickStand({model='workshop-fighter',held='empty',foot
     contacts:segment=>(sensor?.state.materialContacts??[]).filter(c=>c.segment===segment)
       .map(c=>({target:identity,point:c.point,normal:[0,0,1],impulse:c.force*s.world.dt})),
     ...(recovery?{subs:[(own,view)=>supportRecovery(own,view,s.world)]}:{})});
-  const skills=combatSkills(body,{},{kick:{...KICK_PATH,...tuning}});
+  const parts=pathParts(body,{kick:{...KICK_PATH,...tuning}}), skills=skillSet(body,{},parts), cycles=actionCycles(skills);
+  const kickState=parts.executors.find(entry=>entry.name==='kicks').executor.state;
   const target=[foot==='right'?.1:-.1,height,ahead];
   sensor=punchPad(s.world,[target[0]+(mode==='miss'?1:0),height,ahead],{face:'compliant',size:[.2,.08,.11],...pad});
   body.drive((view,dt)=>{
     if(view.resumed)skills.resume(view);
     return skills.command(view,{move:null,face:0,guard:NO_COVER,
-      attack:view.time>=2&&view.time<cancelAt?{kind:'kick',foot,target,targetId:'kick-pad'}:null},dt);
-  },view=>skills.resume(view));
+      actions:cycles.requests(view,'kick',`foot.${foot}`,{kind:'point',at:target,body:'kick-pad'},view.time>=2&&view.time<cancelAt&&state.requesting)},dt);
+  },skills.release);
   const limb=s.built.segments.get(`foot.${foot}`),point=new Vector3(),velocity=new Vector3(),spin=new Vector3();
   const names=new Map([...s.built.segments.values()].map(p=>[p.body,p.spec.name]));
   const effort=strikeEffort(body.muscles);
-  const state={phases:[],samples:[],impacts:[],active:null,last:'',previousPhase:null,launch:0,seen:0,
+  const state={cycles:cycles.state,requesting:true,phases:[],samples:[],impacts:[],active:null,last:'',previousPhase:null,launch:0,seen:0,
     fell:false,floorContacts:0,drivenPeak:0,witness:null,unloadedLaunches:0,loadedLaunches:0,effort:effort.state};
   const before=s.world.beforeStep(()=>{
-    const kick=skills.report.kick,phase=kick.phase,key=`${kick.stage}:${phase}`;
+    const kick=skills.report.actions.find(action=>action.effector===`foot.${foot}`),phase=cycles.phase(`foot.${foot}`),key=`${kick?.stage??'idle'}:${phase}`;
     pointOfToRef(limb,limb.spec.points.strike.value,point);motionAtToRef(limb,point,velocity,spin);
-    if(key!==state.last){state.phases.push({time:s.world.time,stage:kick.stage,phase,
-      point:point.asArray(),centre:body.view.stance.centre.asArray(),support:structuredClone(skills.state.kick.support)});state.last=key;}
+    if(key!==state.last){state.phases.push({time:s.world.time,stage:kick?.stage??'idle',phase,
+      point:point.asArray(),centre:body.view.stance.centre.asArray(),support:structuredClone(kickState.support)});state.last=key;}
     if(phase==='swing'&&state.previousPhase!=='swing'){
       state.launch++;
-      if(skills.state.kick.support.loads[foot]===0)state.unloadedLaunches++;else state.loadedLaunches++;
+      if(kickState.support.loads[foot]===0)state.unloadedLaunches++;else state.loadedLaunches++;
     }
     state.previousPhase=phase;
     state.witness={time:s.world.time,phase,launch:state.launch,point:point.asArray(),velocity:velocity.asArray(),
@@ -64,6 +67,7 @@ export async function frontKickStand({model='workshop-fighter',held='empty',foot
     sensor.prepare();for(const segment of s.built.segments.values())sensor.load(segment);
   });
   const after=s.world.afterStep(()=>{
+    cycles.sample();
     const reading=sensor.read(),contacts=[...new Set([...reading.contacts.map(c=>names.get(c.other)??'other'),
       ...reading.materialContacts.map(c=>c.segment)])];
     const sample={...reading,contacts,phase:state.witness.phase,launch:state.launch};state.samples.push(sample);
@@ -88,23 +92,23 @@ export async function frontKickStand({model='workshop-fighter',held='empty',foot
       state.drivenPeak=Math.max(state.drivenPeak,state.witness.speed);
   });
   const effortHook=s.world.afterStep(()=>effort.sample(s.world.time,state.witness.phase,state.witness.phase==='swing'&&state.launch!==state.seen));
-  return {...s,body,skills,sensor,state,config,target,reading(){
+  return {...s,body,skills,sensor,state,config,target,cycles,executorState:kickState,reading(){
     const impacts=[...state.impacts,...(state.active?[{...state.active,truncated:true}]:[])].map(e=>({...structuredClone(e),
       eligible:!e.truncated&&!e.preImpact.down&&e.contacts.length>0&&e.contacts.every(n=>n===`foot.${foot}`),
       waveform120:coarseForces(e.samples,hz,120)}));
     const faults=[];
     if(state.fell)faults.push('fall');if(state.floorContacts)faults.push('trunk-floor contact');
-    if(skills.report.kick.failed)faults.push('failed cycle');
+    if(cycles.reading().failed)faults.push('failed cycle');
     if(state.loadedLaunches)faults.push('loaded launch');
-    if(skills.report.kick.returned[foot]<3)faults.push('fewer than three verified returns');
+    if(cycles.reading().returned[foot]<3)faults.push('fewer than three verified returns');
     if(mode==='hit'&&impacts.filter(e=>e.eligible).length<3)faults.push('fewer than three clean impacts');
     if(mode==='miss'&&impacts.length)faults.push('miss contacted apparatus');
     if(body.assist.meter.force||body.assist.meter.moment)faults.push('assistance');
     if(state.samples.some(s=>s.displacement>sensor.config.size[2]||s.materialContacts.some(c=>c.penetration>sensor.config.size[2])))faults.push('pad stroke exceeded');
     return {config,harness:{kind:'Node unpinned core stand',engine:DEFAULT_ENGINE,revision:s.world.physics.revision,
       hz,model,held,balance:0,actuation:s.world.actuation},target,
-      apparatus:{...sensor.config,damping:sensor.damping,normal:[0,0,1]},report:structuredClone({...skills.report.kick}),
-      cycle:structuredClone(skills.state.kick),fell:state.fell,floorContacts:state.floorContacts,
+      apparatus:{...sensor.config,damping:sensor.damping,normal:[0,0,1]},report:cycles.reading(),
+      cycle:structuredClone(kickState),fell:state.fell,floorContacts:state.floorContacts,
       drivenPeak:state.drivenPeak,unloadedLaunches:state.unloadedLaunches,loadedLaunches:state.loadedLaunches,
       impacts,phases:structuredClone(state.phases),samples:structuredClone(state.samples),
       effort:structuredClone(effort.state),
