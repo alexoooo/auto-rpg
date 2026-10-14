@@ -20,7 +20,8 @@ import { deepFreeze } from "../src/core/state.ts";
 const state = { starts: new Map() };
 
 /** A research-only immutable override: source anatomy and installed gameplay defaults remain untouched. */
-function strengthSpec(spec, factor) {
+/** `spec` with every muscle's peak torques scaled by `factor`: the search's raised ceilings. */
+export function strengthSpec(spec, factor) {
   if (factor === 1) return spec;
   return { ...spec, joints: spec.joints.map(joint => ({ ...joint, dofs: joint.dofs.map(dof => ({ ...dof,
     muscle: { ...dof.muscle, peakPositive: { ...dof.muscle.peakPositive, value: dof.muscle.peakPositive.value * factor },

@@ -10,7 +10,7 @@ import { labAddress, labHref, LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { CLASSIC } from "../src/core/mind/config.ts";
 import { risingOptions, risingJobs, risingReport } from "../research/rising-bed.mjs";
-import { risingTrial } from "../research/rising-worker.mjs";
+import { risingTrial } from "../research/rising-trial.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 import { groundTechnique } from "../src/lab/ground-technique.ts";
 

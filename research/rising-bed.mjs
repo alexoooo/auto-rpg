@@ -125,7 +125,7 @@ export function risingReport(rows, target = false) {
 
 async function run(options) {
   const jobs = risingJobs(options), rows = [], workers = [], queue = [...jobs];
-  const provenance = { options, mind: risingMind(options.sub, options.techniques ?? undefined), implementation: await risingImplementation(["research/rising-bed.mjs", "research/rising-worker.mjs"]) };
+  const provenance = { options, mind: risingMind(options.sub, options.techniques ?? undefined), implementation: await risingImplementation(["research/rising-bed.mjs", "research/rising-worker.mjs", "research/rising-trial.mjs"]) };
   if (options.out) {
     await writeFile(`${options.out}.meta.json`, JSON.stringify(provenance));
     await writeFile(`${options.out}.jsonl`, "");
