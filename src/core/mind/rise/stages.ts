@@ -75,6 +75,8 @@ export interface BearStage {
   readonly postureSeconds?: number;
   /** The longest it may take, s: past it the attempt is over. */
   readonly limit: number;
+  /** How near its aims, and how slow, the body is for this stage to be done; absent, the recipe's. */
+  readonly progress?: { readonly speed?: number; readonly near?: number; readonly turn?: number };
 }
 
 /** A stage of a rise, by kind. */
@@ -508,6 +510,9 @@ export function stageFaults(recipe: Recipe, spec: BodySpec): string[] {
   const faults = limbFaults(recipe, spec);
   for (const [name, value] of Object.entries(recipe.progress ?? {})) {
     if (!(value > 0) || !Number.isFinite(value)) faults.push(`recovery progress ${name} must be finite and positive`);
+  }
+  for (const stage of stagesOf(recipe)) if (stage.kind === "bear") for (const [name, value] of Object.entries(stage.progress ?? {})) {
+    if (!(value > 0) || !Number.isFinite(value)) faults.push(`${stage.name}'s progress ${name} must be finite and positive`);
   }
   if (recipe.trunk.length === 0) faults.push("the trunk has no segment");
   for (const segment of recipe.trunk) if (!spec.segments.some((other) => other.name === segment)) faults.push(`the trunk has ${segment}, which ${spec.model} lacks`);

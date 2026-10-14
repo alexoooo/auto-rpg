@@ -96,6 +96,7 @@ export function lieOf(root: BuiltSegment, work = { turn: new Quaternion(), way: 
  * level, and where its limbs are.
  */
 export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE): SubMind & {
+  readonly state: { readonly phase: "idle" | "settle" | "roll" | "rise"; readonly tries: number };
   beginSupported(posture?: Readonly<Record<string, number>>, options?: { readonly hold?: boolean }): void;
 } {
   const faults = stageFaults(recipe, own.spec);
@@ -281,8 +282,10 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
     bearLimbs(solve, muscles, asked, lever, true);
     const dx = place.x - c.x, dy = target.y - c.y, dz = place.z - c.z;
     // `spin` closes the pelvis's turn in the stage's time constant: the turn left is the two's product.
-    const turned = (spin.x * spin.x + spin.y * spin.y + spin.z * spin.z) * stage.seconds * stage.seconds < turnTolerance * turnTolerance;
-    return down && (keeps || state.lifted) && turned && v.x * v.x + v.y * v.y + v.z * v.z < speed * speed && dx * dx + dy * dy + dz * dz < near * near;
+    const tolerance = stage.progress?.turn ?? turnTolerance;
+    const turned = (spin.x * spin.x + spin.y * spin.y + spin.z * spin.z) * stage.seconds * stage.seconds < tolerance * tolerance;
+    const slow = stage.progress?.speed ?? speed, close = stage.progress?.near ?? near;
+    return down && (keeps || state.lifted) && turned && v.x * v.x + v.y * v.y + v.z * v.z < slow * slow && dx * dx + dy * dy + dz * dz < close * close;
   };
 
   return {
