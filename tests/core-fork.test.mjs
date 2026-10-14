@@ -507,6 +507,7 @@ test("every_field_of_a_bodys_state_is_sorted", async () => {
     // Pose memory is exercised by physical opening/closure and fresh-world continuation in core-hand-poses.test.mjs.
     // Loaded contact-work memory and its negative control are exercised in core-contact-episodes.test.mjs.
     // Ground reading replay and host ownership are exercised in ground-reading and core-sub-mind.
-    assert.deepEqual(unsorted(fields, [...Object.values(NEEDED).flat(), "body > handPoses", "world > contactWork", "body > mind > host > ground", "body > mind > host > subOwned", ...effectors, ...rotations], Object.keys(NOT_MEMORY)), []);
+    // A body's own start, written at its first view, is exercised on a world that has run in arena-fresh-start.test.mjs.
+    assert.deepEqual(unsorted(fields, [...Object.values(NEEDED).flat(), "body > handPoses", "world > contactWork", "body > mind > host > ground", "body > mind > host > subOwned", "body > mind > host > born", ...effectors, ...rotations], Object.keys(NOT_MEMORY)), []);
   } finally { stand.dispose(); struck.dispose(); }
 });

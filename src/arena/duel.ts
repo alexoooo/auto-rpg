@@ -188,6 +188,17 @@ interface DuelHooks {
   readonly onBuilt?: (duelist: Duelist, built: BuiltBody) => void;
 }
 
+/**
+ * `world` as it stands before any bout, to go back to: what this returns, called with no bout in
+ * the world, puts its physics and its clock back where they were, so a bout begun after another
+ * plays as the same bout in a fresh world does. A disposed bout's bodies leave their slots in the
+ * solver, and a later bout's bodies take them in another order.
+ */
+export function boutStart(world: World): () => void {
+  const physics = world.physics.save(), state = saveState(world.state);
+  return () => { world.physics.load(physics); loadState(world.state, state); };
+}
+
 export class Duel {
   readonly world: World;
   /** The bout's recipe, as it was given. */

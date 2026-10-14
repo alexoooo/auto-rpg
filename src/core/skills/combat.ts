@@ -171,7 +171,7 @@ export function pathExecutor(body: Body, actions: readonly PathAction[], setting
       if (effector !== "hand.left" && effector !== "hand.right") return { kind: "blocked", reason: "unsupported effector" };
       const hand = sideOf(effector), other = hand === "left" ? "right" : "left";
       if (view.down) return { kind: "blocked", reason: "body is down" };
-      if (view.time < tuning.startup || state.cooldown < tuning.hold) return { kind: "waiting", reason: "startup or cooldown" };
+      if (view.time - view.born < tuning.startup || state.cooldown < tuning.hold) return { kind: "waiting", reason: "startup or cooldown" };
       if (state.lives[hand] || state.lives[other] && (!overlap || state.cycles[other].phase !== "return"))
         return { kind: "waiting", reason: "shared executor is striking" };
       const at = resolve(view, requested, action, effector);

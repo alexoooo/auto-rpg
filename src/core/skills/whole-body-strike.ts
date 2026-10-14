@@ -150,7 +150,7 @@ export function wholeBodyFits(spec: BodySpec): boolean {
  * The fist is driven until `follow` s after its hand first touches something, or its time is up;
  * then the solve brings it back toward where it began, and gives the body back once it is within
  * `returned` m of there or the blow's `cycle` is up. A blow begins as the path strike's does, not
- * before `startup` s on the clock and `hold` s after the last ended (`ATTACK_PATH`).
+ * before `startup` s of the body's time (`BodyView.born`) and `hold` s after the last ended (`ATTACK_PATH`).
  */
 function wholeBodyTechnique(body: Body, world: World, drive: WholeBodyDrive, returnsHome = false) {
   const built = body.built, spec = built.spec, muscles = body.muscles, guard = guardPosture(spec), { punch } = WHOLE_BODY;
@@ -340,7 +340,7 @@ export function wholeBodyExecutor(body: Body, world: World, actions: readonly st
       if (!actions.includes(action)) return { kind: "blocked", reason: "unknown action" };
       if (effector !== "hand.left" && effector !== "hand.right") return { kind: "blocked", reason: "unsupported effector" };
       if (view.down) return { kind: "blocked", reason: "body is down" };
-      if (state.live || view.time < ATTACK_PATH.startup || state.cooldown < ATTACK_PATH.hold) return { kind: "waiting", reason: "whole-body startup or return" };
+      if (state.live || view.time - view.born < ATTACK_PATH.startup || state.cooldown < ATTACK_PATH.hold) return { kind: "waiting", reason: "whole-body startup or return" };
       const at = resolve(view, target, action, effector);
       if (!at) return { kind: "blocked", reason: "target has no aim" };
       const hand = sideOf(effector);

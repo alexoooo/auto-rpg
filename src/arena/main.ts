@@ -21,7 +21,7 @@ import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
-import { Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
+import { boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
 import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, controllerLabel, controlName, controlsFor, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
 import { PRESETS } from "../core/mind/controllers.ts";
 import { partOf } from "../core/mind/catalog.ts";
@@ -79,6 +79,8 @@ export async function bootArena(): Promise<void> {
   const world = made as World | null;
   if (!world) throw new Error("the arena made no world");
   const { scene, camera, shadows } = arena;
+  // Every bout begins in the world as the arena left it, as a bout in a fresh world does.
+  const toStart = boutStart(world);
 
   // Setup: a contender panel on each side, each with its model.
   let matchup: Matchup = readMatchup(location.search), you: Side | null = readYou(location.search);
@@ -302,6 +304,7 @@ export async function bootArena(): Promise<void> {
       history.replaceState(null, "", arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view) + (replaying ? linked.hash : ""));
       const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
       end();
+      toStart();
       audio.reset();
       const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search) ?? null;
       controllers = { left: controllerLabel(location.search, "left"), right: controllerLabel(location.search, "right") };

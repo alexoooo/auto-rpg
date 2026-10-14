@@ -20,7 +20,7 @@ const DT = 1 / 120;
 const envelope = stanceEnvelope(humanSpec("workshop-rogue"));
 /** A body standing as built: its centre 0.9 m over its soles, which stand 0.2 m apart across +x. */
 const SOLES = { left: new Vector3(-0.1, 0, 0), right: new Vector3(0.1, 0, 0) };
-const viewAt = (time) => ({ time, standing: 0.9, stance: { centre: new Vector3(0, 0.9, 0), support: new Vector3(0, 0, 0), soles: SOLES } });
+const viewAt = (time) => ({ time, born: 0, standing: 0.9, stance: { centre: new Vector3(0, 0.9, 0), support: new Vector3(0, 0, 0), soles: SOLES } });
 
 test("a_walk_is_capped_at_the_envelopes_fastest_and_keeps_its_direction", () => {
   const legs = locomotion(envelope), most = envelope.walk.value;
@@ -99,7 +99,7 @@ test("resumed from a crouch, the asked height rises from the body's to the stanc
   assert.ok(Math.abs(wrap(facing - 1 - Math.PI)) < 1e-9, `its forward reads ${facing}`);
   // Its feet square to that heading, at the stance's width: neither steps.
   const right = new Vector3(Math.cos(1), 0, -Math.sin(1)), soles = { left: right.scale(-0.1), right: right.scale(0.1) };
-  const at = 5, crouch = { time: at, stance: { centre: new Vector3(0, 0.6, 0), support: new Vector3(0, 0.02, 0), soles, facing }, root: { rotation: pelvis } };
+  const at = 5, crouch = { time: at, born: 0, stance: { centre: new Vector3(0, 0.6, 0), support: new Vector3(0, 0.02, 0), soles, facing }, root: { rotation: pelvis } };
   legs.resume(crouch);
   assert.ok(Math.abs(legs.heading - 1) < 1e-12, `heading ${legs.heading}`);
   assert.equal(legs.state.squaring, null);
@@ -123,7 +123,7 @@ test("resumed with its feet out of its stance's width, the farther foot steps to
   const left = right.scale(-0.1), xz = (v) => [v.x, v.z];
   const resumed = (across) => {
     const soles = { left, right: left.add(right.scale(across)).add(forward.scale(-0.3)) };
-    const view = { time: 5, stance: { centre: new Vector3(0, 0.6, 0), support: new Vector3(0, 0.02, 0), soles, phase: "stand" }, root: { rotation: pelvis } };
+    const view = { time: 5, born: 0, stance: { centre: new Vector3(0, 0.6, 0), support: new Vector3(0, 0.02, 0), soles, phase: "stand" }, root: { rotation: pelvis } };
     legs.resume(view);
     return view;
   };

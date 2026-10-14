@@ -96,7 +96,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       if (!actions.includes(action)) return { kind: "blocked", reason: "unknown action" };
       if (effector !== "foot.left" && effector !== "foot.right") return { kind: "blocked", reason: "unsupported effector" };
       if (view.down) return { kind: "blocked", reason: "body is down" };
-      if (state.live || view.time < tuning.startup || state.cooldown < tuning.cooldown) return { kind: "waiting", reason: "kick startup, cooldown or return" };
+      if (state.live || view.time - view.born < tuning.startup || state.cooldown < tuning.cooldown) return { kind: "waiting", reason: "kick startup, cooldown or return" };
       const at = resolve(view, target, action, effector);
       if (!at) return { kind: "blocked", reason: "target has no aim" };
       const foot = sideOf(effector), hip = body.built.spec.joints.find(j => j.name === `hip.${foot}`)!.centre.value;

@@ -1,19 +1,26 @@
-// One arena bout in a world of its own (Node, core world, Rapier, 120 Hz), and its row.
+// One arena bout in a world of its own (Node, core world, the arena's Rapier, 120 Hz), and its row.
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { addArenaSolids, arenaSolids } from "../src/arena/room.ts";
 import { Duel, SIDES } from "../src/arena/duel.ts";
 import { isClash, woundedIn } from "../src/core/rules/blows.ts";
+import { DEFAULT_ENGINE, isEngineName, loadEngine } from "../src/core/engine/engines.ts";
 import { createWorld } from "../src/core/world.ts";
-import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { traceOf } from "../tests/harness/trace.mjs";
 
-export const BOUT_HARNESS = "Node, core world (src/core/world.ts), Rapier, 120 Hz";
+/**
+ * The engine a bout runs on unless given one: the arena's (`DEFAULT_ENGINE`, which the page loads),
+ * or the one `CORE_ENGINE` names when it is set. The stand's own default is another profile.
+ */
+const BOUT_ENGINE = process.env.CORE_ENGINE || DEFAULT_ENGINE;
+if (!isEngineName(BOUT_ENGINE)) throw new Error(`CORE_ENGINE names no engine: ${BOUT_ENGINE}`);
+
+export const BOUT_HARNESS = `Node, core world (src/core/world.ts), ${BOUT_ENGINE}, 120 Hz`;
 
 /** A world with the arena's solids and `recipe`'s bout in it. */
 export async function buildBout(recipe, { hz = 120, physicsEngine, actuation } = {}) {
   const engine = new NullEngine(), scene = new Scene(engine);
-  const world = createWorld(scene, physicsEngine ?? await freshEngine(), { hz, actuation });
+  const world = createWorld(scene, physicsEngine ?? await loadEngine(BOUT_ENGINE), { hz, actuation });
   const solids = arenaSolids();
   addArenaSolids(world.physics, solids);
   const duel = new Duel(world, recipe, { solids });

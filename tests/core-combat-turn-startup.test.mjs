@@ -10,7 +10,7 @@ import {traceOf} from './harness/trace.mjs';
 import {withParts} from './fixtures/minds.mjs';
 
 const dt=1/120,startup={seconds:.6,limit:2};
-const view={time:dt,standing:.9,root:{rotation:Quaternion.Identity()},stance:{phase:'stand',centre:new Vector3(0,.9,0),support:new Vector3(),
+const view={time:dt,born:0,standing:.9,root:{rotation:Quaternion.Identity()},stance:{phase:'stand',centre:new Vector3(0,.9,0),support:new Vector3(),
  soles:{left:new Vector3(-.1,0,0),right:new Vector3(.1,0,0)}}};
 
 test('startup turn scheduling bounds inputs, preserves the whole-walk ceiling and restarts after standing, placement and resume',()=>{

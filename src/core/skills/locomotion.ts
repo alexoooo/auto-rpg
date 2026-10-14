@@ -55,7 +55,7 @@ function stanceLegs(state: LegsMemory): StanceLegs {
       const s = view.stance;
       // The reference height is the body's (`BodyView.standing`), taken with the stance's width at the first view after a step.
       if (state.reference === null) {
-        if (view.time <= 0) return null;
+        if (view.time <= view.born) return null;
         state.reference = view.standing;
         state.width = hypot(s.soles.left.x - s.soles.right.x, s.soles.left.z - s.soles.right.z);
       }
@@ -279,7 +279,7 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
       state.placing = null;
       state.placed = false;
       if (!walk) { state.pace = 0; if (turnStartup) state.walkTime = 0; }
-      else if (view.time > 0) {
+      else if (view.time > view.born) {
         const turn = wrap(face - state.heading);
         const startupLimit = turnStartup && state.walkTime! < turnStartup.seconds ? turnStartup.limit : Infinity;
         if (envelope || turnLimit !== undefined || turnStartup) {

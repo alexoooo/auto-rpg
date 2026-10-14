@@ -1164,7 +1164,10 @@ cap, and a side's mind where it names one (`minds`, each a `MindConfig`), as pla
 what a page hears of it (`DuelHooks`) is beside the recipe, not in it. Nothing in a bout is
 random, so a recipe played twice is the same bout to the bit (`playBout`, `research/bout.mjs`;
 `traceOf`, `tests/harness/trace.mjs`), in Node and on the page alike
-([reference/real-functions.md](reference/real-functions.md), In Chrome). How the bouts end today
+([reference/real-functions.md](reference/real-functions.md), In Chrome): Node builds it on the
+arena's engine (`loadEngine`), the page puts its world back as the arena left it before every
+bout (`boutStart`), and a body's own time starts at its first view (`BodyView.born`), so a bout
+begins the same after another (`tests/arena-fresh-start.test.mjs`). How the bouts end today
 is `docs/reference/bouts.md`.
 
 Every order a side is given is kept with the step it was given before (`Duel.tape`), an order

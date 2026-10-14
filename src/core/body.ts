@@ -123,6 +123,11 @@ export interface BodyView {
   readonly handPoses: Readonly<Record<string, { readonly applied: HandPose; readonly requested: HandPose }>>;
   /** Seconds of the world's clock. */
   readonly time: number;
+  /**
+   * Seconds of the world's clock at the body's first view, as it was built: where its own time
+   * starts, so a body behaves the same in a world that has run before it.
+   */
+  readonly born: number;
   /** What the body senses of the world this step (`Senses`): the clock, its side, and every other body. */
   readonly senses: Senses;
   /** Each freedom's angle, rad, by channel name (`jointAngles`). */
@@ -225,7 +230,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
   const inverse = new Quaternion(), segmentTurn = new Quaternion(), rootTurn = new Quaternion();
   // The view's own fields are the state's: between steps a view shows the step its state is of.
   const state = {
-    goals, effectors, time: 0, angles,
+    goals, effectors, time: 0, born: null as number | null, angles,
     fists: { left: fists.left.fist, right: fists.right.fist },
     root: { position: new Vector3(), rotation: new Quaternion() },
     head: head.centre,
@@ -239,6 +244,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
   const view = {
     handPoses: built.handPoses.state, effectors,
     get time() { return state.time; },
+    get born() { return state.born ?? state.time; },
     senses: NOTHING_SENSED,
     angles,
     fists: state.fists,
@@ -275,6 +281,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
 
   const look = (senses: Senses): void => {
     state.time = senses.time;
+    state.born ??= senses.time;
     view.senses = senses;
     muscles.channels.forEach((c, i) => { angles[c.name] = muscles.angle(i); });
     fists.left.update();
