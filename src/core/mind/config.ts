@@ -283,6 +283,15 @@ export const PUNCHER: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...FIG
   { kind: "follow-orders" }, { kind: "clear-of-fallen" }, { kind: "break-clinch", metres: .65 }, { kind: "attack" }, { kind: "edge", band: .25, patience: 4 }, { kind: "approach" }, { kind: "cover", guard: "pose" }] }, executors: [{ name: "punch", kind: "straight-punch", ...STRAIGHT_PUNCH }],
   actions: RECIPE_FIGHTER.actions.map(action => ({ ...action, executor: "punch" })) });
 
+/**
+ * The Puncher waiting for its foe to come to it: it holds the edge of its foe's reach for as long
+ * as an Arena bout lasts, and drives from up to 0.4 m past its stand-off, so a foe walking in
+ * meets the punch of a body already settled before it can settle for its own.
+ */
+export const COUNTER_PUNCHER: FighterConfig = deepFreeze({ ...PUNCHER, tactics: { ...PUNCHER.tactics, list: [
+  { kind: "follow-orders" }, { kind: "clear-of-fallen" }, { kind: "break-clinch", metres: .65 }, { kind: "attack" }, { kind: "edge", band: .25, patience: 120 }, { kind: "approach" }, { kind: "cover", guard: "pose" }] },
+  executors: [{ name: "punch", kind: "straight-punch", ...STRAIGHT_PUNCH, band: .4 }] });
+
 /** Opening scores that favour the trunk over the head: `docs/reference/arena-combat-evaluation.md#body-targeting-held-out-evaluation`. */
 const BODY_OPENINGS: OpeningTuning = deepFreeze({ head: .3, upperTrunk: 0, middleTrunk: 0 });
 

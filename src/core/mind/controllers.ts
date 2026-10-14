@@ -7,7 +7,7 @@ import { guardPosture } from "../skills/guard.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { BEHAVIOURS, CLASSIC, PUNCHER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type DirectMindConfig, type MindConfig } from "./config.ts";
+import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, PUNCHER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type DirectMindConfig, type MindConfig } from "./config.ts";
 import { createDirectBody, directFaults } from "./direct.ts";
 import { createFighter, fighterFaults } from "./fighter.ts";
 import { actionConfigFaults } from "./action-config.ts";
@@ -58,6 +58,7 @@ export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extra
     presets: deepFreeze({
       classic: { label: "Classic fighter", config: CLASSIC },
       puncher: { label: "Puncher", config: PUNCHER },
+      counter: { label: "Counter-puncher", config: COUNTER_PUNCHER },
       scrapper: { label: "Scrapper", config: SCRAPPER },
       behaviours: { label: "Behaviours", config: BEHAVIOURS },
     }),

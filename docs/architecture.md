@@ -655,8 +655,9 @@ selector supports ranked and rotating choices and ordered conditional rules. Con
 reject duplicate names, missing references, incompatible effectors and executor options. The
 editor exposes these lists and preserves valid links without experiment tuning.
 
-Classic uses recipe actions, Puncher uses straight punches and edge spacing, Scrapper uses path
-actions with low support, and Behaviours rotates its actions. Preset edits are named Custom in the
+Classic uses recipe actions, Puncher uses straight punches and edge spacing, Counter-puncher holds
+the edge for the whole bout and drives from further out so that a foe walking in meets its punch,
+Scrapper uses path actions with low support, and Behaviours rotates its actions. Preset edits are named Custom in the
 Arena. Script tactics accept explicit research requests through the same admission protocol.
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`,
@@ -704,8 +705,8 @@ The baseline sub-minds each read its host's down state (`BodyView.down`) and rec
 the body's world (`SubMindMaker`): `lie` (`lying`, `lie.ts`) asks the muscles for nothing;
 `support-recovery` (`supportRecovery`) plays the staged recipe and verifies quiet standing
 before handover; `research-rise` (`researchRise`) tracks experimental reference motions with
-live feedback through ordinary muscles. Classic, Puncher, Scrapper and Behaviours use
-`support-recovery`. The staged riser is an internal component of that baseline, not a separate
+live feedback through ordinary muscles. Classic, Puncher, Counter-puncher, Scrapper and Behaviours
+use `support-recovery`. The staged riser is an internal component of that baseline, not a separate
 editor choice.
 
 Experimental ground recovery reads one shared `BodyView.ground` after contact sampling. Physical

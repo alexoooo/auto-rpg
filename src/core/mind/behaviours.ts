@@ -29,7 +29,7 @@ export const BEHAVIOUR_PARTS: { readonly [K in BehaviourConfig["kind"]]: Part<Of
   "keep-distance": behaviour<Of<"keep-distance">>("Keep distance", { kind: "keep-distance", metres: 2.5 }, [number<Of<"keep-distance">, "metres">("metres", "Distance", 0, 10, .1, "m")]),
   "break-clinch": behaviour<Of<"break-clinch">>("Break clinch", { kind: "break-clinch", metres: .65 }, [number<Of<"break-clinch">, "metres">("metres", "Clearance", 0, 2, .05, "m")]),
   edge: behaviour<Of<"edge">>("Hold reach edge", { kind: "edge", band: .25, patience: 4 }, [
-    number<Of<"edge">, "band">("band", "Reach margin", 0, 1, .05, "m"), number<Of<"edge">, "patience">("patience", "Patience", 0, 10, .1, "s"),
+    number<Of<"edge">, "band">("band", "Reach margin", 0, 1, .05, "m"), number<Of<"edge">, "patience">("patience", "Patience", 0, 120, .1, "s"),
   ]),
   evade: behaviour<Of<"evade">>("Evade incoming contact", { kind: "evade" }),
   "clear-of-walls": behaviour<Of<"clear-of-walls">>("Clear walls", { kind: "clear-of-walls" }),
