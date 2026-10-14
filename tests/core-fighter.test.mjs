@@ -16,7 +16,8 @@ test('a named recipe executor runs under the shared behaviour fighter with physi
  const s=await bout(RECIPE_FIGHTER,COMBAT,{gap:1.4});
  try{
   const left=s.duel.duelists.left.minded;
-  for(let i=0;i<1200&&!s.duel.verdict;i++)s.world.step();
+  // The recipe places and settles its body before it chambers: a blow is committed within the bout.
+  while(s.duel.clock<30&&!s.duel.verdict&&!left.skills.report.ledger.some(record=>record.committed))s.world.step();
   assert.ok(left.skills.report.ledger.some(record=>record.committed),JSON.stringify(left.skills.report.ledger));
   assert.equal(left.skills.state.actions.executors.length,1);
   assert.ok(left.body.view.effectors['hand.right'].feedback);

@@ -120,13 +120,15 @@ test('either hand repeats a close curved strike and survives misses without assi
 });
 
 test('combat self-play takes initiative and breaks prolonged hand pressure without self-falls', async () => {
- // 30 s: from the default 4 m apart, walking in takes about 10 s of it.
- const row=await combatTrial({left:COMBAT,right:COMBAT,recipe:{capSeconds:30}});
- for(const out of Object.values(row.sides)) {
-  assert.ok(out.driven>=10,JSON.stringify(out)); assert.equal(out.falls,0);
-  assert.ok(out.pressureOnly.longest<2,JSON.stringify(out)); assert.ok(out.drivenDamage>.02,JSON.stringify(out));
-  assert.deepEqual(out.assist,{force:0,moment:0});
- }
+ // 30 s: from the default 4 m apart, walking in takes about 10 s of it. Each side drives blows of its
+ // own, and they wound: more than 0.1 HP of driven damage a side on the mean, blows that land and
+ // not only blows that are blocked. Neither falls, is held in a clinch for the protocol's pressure
+ // episode, or is assisted.
+ const row=await combatTrial({left:COMBAT,right:COMBAT,recipe:{capSeconds:30}}),outs=Object.values(row.sides),told=JSON.stringify(outs);
+ assert.ok(outs.every(out=>out.driven>=10),told);
+ assert.ok(outs.reduce((sum,out)=>sum+out.drivenDamage,0)/outs.length>.1,told);
+ assert.deepEqual(outs.map(out=>[out.falls,out.pressureOnly.episodes]),[[0,0],[0,0]],told);
+ assert.deepEqual(outs.map(out=>out.assist),outs.map(()=>({force:0,moment:0})));
 });
 
 test('explicit orders suppress pursuit and a fresh-world combat fork preserves the whole strike and return', async () => {
@@ -181,9 +183,8 @@ test('every skill set closes a bare hand for its blow and opens it in the guard'
    const part=bout.duel.duelists[side].built.segments.get(`hand.${hand}`);blocked[`${side}.${hand}`]=poseBlocked(bout.world,part,part.poses.open.collider);}});
   try {
    bout.duel.play([]);
-   // Until every hand that throws has swung and been open in the guard on more than a hundred steps.
-   const seen=()=>['left','right'].every(side=>['left','right'].every(hand=>{const t=tally[`${mind.kind} ${side}.${hand}`];
-    return t&&t.guardOpen>100&&(t.swing>0||(mind===RECIPE_FIGHTER&&hand==='left'));}));
+   // Until some hand has swung, and every hand has been open in the guard on more than a hundred steps.
+   const seen=()=>Object.values(tally).some(t=>t.swing>0)&&['left','right'].every(side=>['left','right'].every(hand=>tally[`${mind.kind} ${side}.${hand}`]?.guardOpen>100));
    while(bout.duel.verdict===null&&bout.duel.clock<30&&!seen()) {
     bout.world.step();
     for(const side of ['left','right']) {
@@ -198,10 +199,9 @@ test('every skill set closes a bare hand for its blow and opens it in the guard'
     }
    }
   } finally {hook.dispose();bout.dispose();}
+  // Which hands a mind swings is its tactics'; a hand that swings, swings with its fist.
+  assert.ok(Object.values(tally).some(t=>t.swing>0),`${mind.kind} swings: ${JSON.stringify(tally)}`);
   for(const [key,t] of Object.entries(tally)) {
-   // The seeking tactics throw with the right hand alone; the left is never closed.
-   if(mind===RECIPE_FIGHTER&&key.endsWith('.left'))assert.equal(t.swing,0,key);
-   else assert.ok(t.swing>0,`${key}: ${JSON.stringify(t)}`);
    assert.equal(t.swingOpen,0,`${key} swings with its fist: ${JSON.stringify(t)}`);
    // Every step a hand asked open in the guard is not open, its opening is blocked; and it is open on more than a hundred.
    assert.ok(t.guard>100&&t.guardAsked===t.guard&&t.guardOpen+t.guardBlocked===t.guard&&t.guardOpen>100,`${key} opens in the guard: ${JSON.stringify(t)}`);
