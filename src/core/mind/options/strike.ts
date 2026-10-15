@@ -17,19 +17,6 @@ export const around = (sight: Sight): ActionAround => ({ heading: sight.report.h
   support: sight.report.support ?? null, walk: null, lower: STANCE_LOWER });
 
 /**
- * The blows an action of `throws` blows lands, its record landing `lands` of them: a record counts
- * an action landed where any blow of it did, so each blow is taken to land alike and alone, as
- * often as at least one of them lands `lands` of the time.
- */
-function landing(lands: number, throws: number): number {
-  switch (throws) {
-    case 1: return lands;
-    case 2: return 2 * (1 - Math.sqrt(1 - lands));
-    default: throw new Error(`no landing for ${throws} blows`);
-  }
-}
-
-/**
  * **Strike**: `action` at the focus, a standing foe, with the first of its limbs that is ready; or,
  * where it `closes`, else the first its executor would admit from a place to walk to (its window),
  * walking there. It asks for the blow once the limb is ready, and goes on asking until the blow is
@@ -37,8 +24,9 @@ function landing(lands: number, throws: number): number {
  * A blow asked for and refused, every limb refused, or `PATIENCE` s without a blow also end it. It
  * yields until its blow is committed. The region struck is what the orders name on the focus, else
  * the first of the action's regions the focus has. Its model: walking, where it closes, until the
- * focus is in its reach, then `throws` blows of its record (`record`, `landing`) from its stronger
- * hand, within the focus's reach from where it stands or the focus would reach it, and through the blow coming.
+ * focus is in its reach, then `throws` blows from its stronger hand, each landing as often as its
+ * record says (`record`, which is of the hand it is asked for), within the focus's reach from
+ * where it stands or the focus would reach it, and through the blow coming.
  */
 export function strike(action: ActionConfig, walk: Walker, closes: boolean, throws = 1): StandingOption {
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false };
@@ -78,7 +66,7 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
       const { lands, seconds } = record(now.sight.report.ledger, action.name), { apart, theirs, mine } = now.reach, pace = walk.pace(now);
       const blow = Math.max(...action.effectors.map((limb) => limb.startsWith("hand.") ? now.blows[limb.slice(5) as Side] : 0));
       const walking = closes ? Math.max(0, apart - mine) / pace : 0, inReach = seconds + (closes ? Math.max(0, Math.min(apart, theirs) - mine) / pace : 0);
-      const dealt = landing(lands, throws) * blow, duration = walking + seconds;
+      const dealt = throws * lands * blow, duration = walking + seconds;
       return { duration, dealt, taken: now.danger + exposed(now, inReach, Math.min(apart, mine)), orders: orderedDealt(now, dealt), fall: clinched(now, duration) };
     } },
     step(now) {
