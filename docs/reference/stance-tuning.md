@@ -214,7 +214,8 @@ Above 0.4 m/s the swinging hip runs out of strength without a pre-swing. The Rog
 forward, 2-6 s in, asked its swing for more torque than the muscles hold (`boundedLeastSquares`
 clipping) on none of 481 ticks at 0.3 and 0.4 m/s, 78 at 0.5 and 141 at 0.7, the hip's flexion
 every time: asked 150-160 N m where it held 26-46 of its 105, its speed near the 9 rad/s where
-Anderson 2007's curve gives none. The leg lifted still extending: the hip turning back at
+the curve through Anderson 2007's two points gives none; the body's hip takes
+Thelen's curvature instead (`speed.ts`). The leg lifted still extending: the hip turning back at
 0.46 rad/s as the foot left the ground at 0.3 m/s, 1.8 at 0.5 and 3.1 at 0.7 (7.3 the worst), the
 swing then peaking at 4.7 and 5.8 rad/s (9.2); the knee 0.2 rad bent. People flex the hip and knee
 before the toe leaves the ground: the knee is at about 35 degrees at toe-off (Simoneau,

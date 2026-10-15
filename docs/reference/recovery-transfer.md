@@ -13,7 +13,11 @@ the bearing solve and original muscle ceilings still limit the resulting motion.
 resets at every stage entry. Completion measures the physical stage target, without its bias.
 
 Node toppled Warrior stand, symmetric muscles, 120 Hz, empty hands, zero balance; a 3 s
-stage following `fours`, pitch 0.9 rad, shin shares 0.4 each and retained hand 0.2.
+stage following `fours`, pitch 0.9 rad, shin shares 0.4 each and retained hand 0.2. The probe
+must start with the center of mass outside the three supports it keeps. On Rapier's own joints
+the Warrior reaches all fours over them on the recipe's shares, so there `fours` bears 0.28 of
+the weight on each hand and 0.22 on each shin, and the body leans over its hands; on the
+coordinate joints `fours` keeps the recipe's shares, and leaning that far flings the body.
 The original controller leaves the left hand loaded throughout the stage. At 2.75 s its
 center of mass remains 15.4 mm outside the retained supports. Relaxing posture alone leaves
 6.8 mm error. With the bounded integral and relaxed posture, the real center enters the
@@ -21,10 +25,10 @@ supports and the departing hand's bearing task turns off.
 
 | Engine | Departing hand | Initial support gap (mm) | Release (s) | Support gap at release (mm) | Peak segment speed during transfer (m/s) | Assist force / moment sums |
 |---|---|---:|---:|---:|---:|---|
-| rapier | left | 52.43 | 1.6833 | 0 | 1.1790 | 0 / 0 |
-| rapier | right | 37.52 | 0.6917 | 0 | 0.7509 | 0 / 0 |
-| rapier-coordinate | left | 40.99 | 1.8917 | 0 | 0.9392 | 0 / 0 |
-| rapier-coordinate | right | 46.88 | 1.7417 | 0 | 1.0598 | 0 / 0 |
+| rapier | left | 4.38 | 0.4583 | 0 | 0.7716 | 0 / 0 |
+| rapier | right | 1.62 | 0.3417 | 0 | 0.7502 | 0 / 0 |
+| rapier-coordinate | left | 44.63 | 0.7083 | 0 | 0.6012 | 0 / 0 |
+| rapier-coordinate | right | 62.74 | 2.5333 | 0 | 0.9665 | 0 / 0 |
 
 Reproduce with `node research/recovery-transfer.mjs`, and with `CORE_ENGINE=rapier-coordinate`.
 The probe reads the support gap before physics advances, at the controller's release step.

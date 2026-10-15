@@ -4,152 +4,111 @@
   "recipes": [
     {
       "model": "crypt-skeleton",
-      "held": "wooden club",
+      "held": "fist",
       "band": "high",
       "strike": {
-        "name": "searched right club blow",
+        "name": "searched right straight",
         "hand": "right",
-        "chamber": {
-          "seconds": 0.5349077070508585,
-          "pose": {
-            "thoracic rotation right": -0.09055493214554727,
-            "shoulder.right flexion": 2.908569085934345,
-            "shoulder.right abduction": 1.916346894743964,
-            "shoulder.right internal rotation": 0.18498528966282213,
-            "elbow.right flexion": 0.7159885227029776,
-            "wrist.right flexion": -0.05350375970599597,
-            "wrist.right radial deviation": -0.4614029113539767,
-            "wrist.right pronation": 0.012505547119438853
-          }
-        },
         "pushes": [
           {
             "channel": "thoracic rotation right",
             "sense": -1,
-            "from": 0.04674227425290082,
-            "to": 0.2823574106342479,
-            "level": 0.44793784805310705
+            "from": 0.19922860083065771,
+            "to": 0.3770987508291353,
+            "level": 0.5895994259900302
           },
           {
             "channel": "lumbar rotation right",
             "sense": -1,
-            "from": 0.016061177124758696,
-            "to": 0.19345175593727015,
-            "level": 0.5688794110721361
+            "from": 0.14666165377278462,
+            "to": 0.37847003291703923,
+            "level": 0.2558269368162911
           },
           {
             "channel": "thoracic flexion",
-            "sense": 1,
-            "from": 0.07989935293220916,
-            "to": 0.11828032050448568,
-            "level": 0.5533383998418813
-          },
-          {
-            "channel": "thoracic lateral flexion right",
-            "sense": 1,
-            "from": 0.17327793376900402,
-            "to": 0.34941636037762225,
-            "level": 0.5037521070564972
-          },
-          {
-            "channel": "lumbar flexion",
-            "sense": 1,
-            "from": 0.018712616572933376,
-            "to": 0.26110830293770376,
-            "level": 0.7078419935124206
+            "sense": -1,
+            "from": 0.16661660987842133,
+            "to": 0.2019331934859721,
+            "level": 0.47402654650564746
           },
           {
             "channel": "shoulder.right flexion",
-            "sense": -1,
-            "from": 0.0028153282049696916,
-            "to": 0.15117109878359214,
-            "level": 0.49678376372771516
+            "sense": 1,
+            "from": 0.013014735846323367,
+            "to": 0.2197976063406664,
+            "level": 0.9388846077212332
           },
           {
             "channel": "shoulder.right abduction",
             "sense": -1,
-            "from": 0.192133819107659,
-            "to": 0.38062401814719327,
-            "level": 0.5924355428712119
+            "from": 0.29953530953008156,
+            "to": 0.3951064213449673,
+            "level": 0.660814426486393
           },
           {
             "channel": "shoulder.right internal rotation",
-            "sense": -1,
-            "from": 0.22124383652422858,
-            "to": 0.29113799430924714,
-            "level": 0.279559703044336
+            "sense": 1,
+            "from": 0.08857577240009273,
+            "to": 0.17405042505548018,
+            "level": 0.13427560643179964
           },
           {
             "channel": "elbow.right flexion",
             "sense": -1,
-            "from": 0.19090267130467467,
-            "to": 0.3754340256449618,
-            "level": 0.9553015505847328
-          },
-          {
-            "channel": "wrist.right flexion",
-            "sense": 1,
-            "from": 0.25178294996816364,
-            "to": 0.2626543333972652,
-            "level": 0.3102240939683429
-          },
-          {
-            "channel": "wrist.right radial deviation",
-            "sense": -1,
-            "from": 0.031908306170639146,
-            "to": 0.2873848317559697,
-            "level": 0.6935606551021675
+            "from": 0.2396688493188031,
+            "to": 0.4396658956024907,
+            "level": 0.9243837708484609
           }
         ]
       },
       "place": {
-        "ahead": 0.8221783828541924,
+        "ahead": 0.5713877920833308,
         "up": 0
       },
-      "found": "research/core-strike-search.mjs --model crypt-skeleton --held \"wooden club\" --band high --seed 2 --hz 120 --from crypt-skeleton:high of assets/core/strikes.json@7601bd36 --sigma 0.4, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.842 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
+      "found": "research/core-strike-search.mjs --model crypt-skeleton --held \"fist\" --band high --guard --seed 3 --hz 120 --from crypt-skeleton:high of assets/core/strikes.json@95c3cad2 --sigma 0.6, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.152 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
       "readings": {
         "at120": {
-          "net": 0.787,
-          "done": 0.787,
-          "cost": 0,
+          "net": 0.1274,
+          "done": 0.2225,
+          "cost": 0.0951,
           "runs": [
-            0.839,
-            0.835,
-            0.846,
-            0.753,
-            0.704,
-            0.793,
-            0.793,
-            0.732
+            0.156,
+            0.145,
+            0.135,
+            0.155,
+            0.087,
+            0.144,
+            0.14,
+            0.057
           ],
           "noise": [
-            0.839,
-            0.827,
-            0.816
+            0.156,
+            0.147,
+            0.15
           ],
           "landed": 8,
           "stood": 8,
           "stoodAtNothing": true,
-          "stepsAtNothing": 2
+          "stepsAtNothing": 4
         },
         "at480": {
-          "net": 0.8116,
-          "done": 0.8116,
-          "cost": 0,
+          "net": 0.1008,
+          "done": 0.1104,
+          "cost": 0.0096,
           "runs": [
-            0.825,
-            0.836,
-            0.812,
-            0.804,
-            0.814,
-            0.815,
-            0.804,
-            0.782
+            0.11,
+            0.109,
+            0.1,
+            0.097,
+            0.098,
+            0.108,
+            0.089,
+            0.096
           ],
           "noise": [
-            0.825,
-            0.815,
-            0.813
+            0.11,
+            0.111,
+            0.109
           ],
           "landed": 8,
           "stood": 8,
@@ -157,23 +116,185 @@
           "stepsAtNothing": 2
         },
         "at1920": {
-          "net": 0.8062,
-          "done": 0.8062,
-          "cost": 0,
+          "net": 0.1153,
+          "done": 0.12,
+          "cost": 0.0046,
           "runs": [
-            0.823,
-            0.827,
-            0.8,
-            0.779,
-            0.81,
-            0.824,
-            0.781,
-            0.805
+            0.111,
+            0.118,
+            0.118,
+            0.11,
+            0.122,
+            0.116,
+            0.112,
+            0.115
           ],
           "noise": [
-            0.823,
-            0.829,
-            0.832
+            0.111,
+            0.111,
+            0.116
+          ],
+          "landed": 8,
+          "stood": 8,
+          "stoodAtNothing": true,
+          "stepsAtNothing": 1
+        }
+      },
+      "net": 0.1274,
+      "placed": {
+        "net": 0.0002,
+        "runs": [
+          0,
+          0.001,
+          0
+        ]
+      },
+      "window": {
+        "along": [
+          -0.02,
+          0.04
+        ],
+        "across": [
+          -0.06,
+          0
+        ],
+        "up": [
+          -0.06,
+          0.08
+        ]
+      }
+    },
+    {
+      "model": "crypt-skeleton",
+      "held": "fist",
+      "band": "middle",
+      "strike": {
+        "name": "searched right straight",
+        "hand": "right",
+        "pushes": [
+          {
+            "channel": "thoracic rotation right",
+            "sense": -1,
+            "from": 0.11541617369187471,
+            "to": 0.24159065021756754,
+            "level": 0.5562124002668646
+          },
+          {
+            "channel": "lumbar rotation right",
+            "sense": -1,
+            "from": 0.23593965318720497,
+            "to": 0.40982447455712123,
+            "level": 0.3794490150969018
+          },
+          {
+            "channel": "thoracic flexion",
+            "sense": -1,
+            "from": 0.10226451928702217,
+            "to": 0.15824185878602548,
+            "level": 0.9010081652444096
+          },
+          {
+            "channel": "shoulder.right flexion",
+            "sense": 1,
+            "from": 0.016837121710761876,
+            "to": 0.23704736555280537,
+            "level": 0.9239878060867901
+          },
+          {
+            "channel": "shoulder.right abduction",
+            "sense": -1,
+            "from": 0.27149530682702516,
+            "to": 0.42582672958888335,
+            "level": 0.9350953403567778
+          },
+          {
+            "channel": "shoulder.right internal rotation",
+            "sense": 1,
+            "from": 0.028213063885712278,
+            "to": 0.2256798785141953,
+            "level": 0.3006789386375002
+          },
+          {
+            "channel": "elbow.right flexion",
+            "sense": -1,
+            "from": 0.2235478467852621,
+            "to": 0.4244690815780296,
+            "level": 0.8570045900232868
+          }
+        ]
+      },
+      "place": {
+        "ahead": 0.6656439652534359,
+        "up": -0.24752158925907497
+      },
+      "found": "research/core-strike-search.mjs --model crypt-skeleton --held \"fist\" --band middle --guard --seed 3 --hz 120 --from crypt-skeleton:middle of assets/core/strikes.json@95c3cad2 --sigma 0.6, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.807 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
+      "readings": {
+        "at120": {
+          "net": 0.7016,
+          "done": 0.7273,
+          "cost": 0.0257,
+          "runs": [
+            0.818,
+            0.402,
+            0.772,
+            0.812,
+            0.779,
+            0.849,
+            0.738,
+            0.442
+          ],
+          "noise": [
+            0.818,
+            0.793,
+            0.823
+          ],
+          "landed": 8,
+          "stood": 8,
+          "stoodAtNothing": true,
+          "stepsAtNothing": 0
+        },
+        "at480": {
+          "net": 0.5777,
+          "done": 0.6023,
+          "cost": 0.0247,
+          "runs": [
+            0.624,
+            0.453,
+            0.458,
+            0.448,
+            0.71,
+            0.746,
+            0.711,
+            0.472
+          ],
+          "noise": [
+            0.624,
+            0.614,
+            0.454
+          ],
+          "landed": 8,
+          "stood": 8,
+          "stoodAtNothing": true,
+          "stepsAtNothing": 0
+        },
+        "at1920": {
+          "net": 0.4113,
+          "done": 0.4366,
+          "cost": 0.0252,
+          "runs": [
+            0.412,
+            0.408,
+            0.417,
+            0.411,
+            0.404,
+            0.414,
+            0.418,
+            0.408
+          ],
+          "noise": [
+            0.412,
+            0.415,
+            0.415
           ],
           "landed": 8,
           "stood": 8,
@@ -181,7 +302,210 @@
           "stepsAtNothing": 0
         }
       },
-      "net": 0.787,
+      "net": 0.7016,
+      "placed": {
+        "net": 0.0297,
+        "runs": [
+          0.029,
+          0.029,
+          0.031
+        ]
+      },
+      "window": {
+        "along": [
+          -0.02,
+          0.02
+        ],
+        "across": [
+          -0.06,
+          0.02
+        ],
+        "up": [
+          -0.2,
+          0.18
+        ]
+      }
+    },
+    {
+      "model": "crypt-skeleton",
+      "held": "wooden club",
+      "band": "high",
+      "strike": {
+        "name": "searched right club blow",
+        "hand": "right",
+        "chamber": {
+          "seconds": 0.5687457572130522,
+          "pose": {
+            "thoracic rotation right": -0.35732303669637444,
+            "shoulder.right flexion": 2.9425971756572102,
+            "shoulder.right abduction": 1.9384610303166137,
+            "shoulder.right internal rotation": 0.7324426121003886,
+            "elbow.right flexion": 0.7908520612521404,
+            "wrist.right flexion": -0.07826018370204335,
+            "wrist.right radial deviation": -0.19235882921602687,
+            "wrist.right pronation": -0.18042204266443207
+          }
+        },
+        "pushes": [
+          {
+            "channel": "thoracic rotation right",
+            "sense": -1,
+            "from": 0.01756443448840591,
+            "to": 0.28505911968547953,
+            "level": 0.22930226229249429
+          },
+          {
+            "channel": "lumbar rotation right",
+            "sense": -1,
+            "from": 0.0751304370657641,
+            "to": 0.23376849832549101,
+            "level": 0.35950415914503137
+          },
+          {
+            "channel": "thoracic flexion",
+            "sense": 1,
+            "from": 0.11815249995762989,
+            "to": 0.12437389724993822,
+            "level": 0.4906345916557183
+          },
+          {
+            "channel": "thoracic lateral flexion right",
+            "sense": 1,
+            "from": 0.18745665878163106,
+            "to": 0.26630069462070066,
+            "level": 0.6778193451818905
+          },
+          {
+            "channel": "lumbar flexion",
+            "sense": 1,
+            "from": 0.038947263544195136,
+            "to": 0.24688590611651465,
+            "level": 0.8460416502252949
+          },
+          {
+            "channel": "shoulder.right flexion",
+            "sense": -1,
+            "from": 0.0638485404537904,
+            "to": 0.27103475494104345,
+            "level": 0.6323554399496657
+          },
+          {
+            "channel": "shoulder.right abduction",
+            "sense": -1,
+            "from": 0.1648787822123252,
+            "to": 0.33304216723307806,
+            "level": 0.7571235123420328
+          },
+          {
+            "channel": "shoulder.right internal rotation",
+            "sense": -1,
+            "from": 0.18989297002676206,
+            "to": 0.27097944651858896,
+            "level": 0.44506829365495343
+          },
+          {
+            "channel": "elbow.right flexion",
+            "sense": -1,
+            "from": 0.1129930378103298,
+            "to": 0.3208362595547913,
+            "level": 0.9158619211738247
+          },
+          {
+            "channel": "wrist.right radial deviation",
+            "sense": -1,
+            "from": 0.05073011853194688,
+            "to": 0.30821000748219485,
+            "level": 0.819151428250058
+          },
+          {
+            "channel": "wrist.right pronation",
+            "sense": 1,
+            "from": 0.16193064986032815,
+            "to": 0.22020473032929175,
+            "level": 0.12110845384584316
+          }
+        ]
+      },
+      "place": {
+        "ahead": 0.7823383682119618,
+        "up": 0
+      },
+      "found": "research/core-strike-search.mjs --model crypt-skeleton --held \"wooden club\" --band high --seed 5 --hz 120 --jitter 0.03,0.03,0 --from <the best of the search before it> --sigma 0.3, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.842 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook); the search before it: research/core-strike-search.mjs --model crypt-skeleton --held \"wooden club\" --band high --seed 4 --hz 120 --from <the best of the search before it> --sigma 0.2, 30 generations of 64; the search before it: research/core-strike-search.mjs --model crypt-skeleton --held \"wooden club\" --band high --seed 2 --hz 120 --from crypt-skeleton:high of assets/core/strikes.json@95c3cad2 --sigma 0.4, 30 generations of 64",
+      "readings": {
+        "at120": {
+          "net": 0.8214,
+          "done": 0.8214,
+          "cost": 0,
+          "runs": [
+            0.852,
+            0.836,
+            0.899,
+            0.785,
+            0.842,
+            0.773,
+            0.834,
+            0.749
+          ],
+          "noise": [
+            0.852,
+            0.84,
+            0.861
+          ],
+          "landed": 8,
+          "stood": 8,
+          "stoodAtNothing": true,
+          "stepsAtNothing": 0
+        },
+        "at480": {
+          "net": 0.7058,
+          "done": 0.7058,
+          "cost": 0,
+          "runs": [
+            0.685,
+            0.692,
+            0.723,
+            0.706,
+            0.689,
+            0.692,
+            0.657,
+            0.803
+          ],
+          "noise": [
+            0.685,
+            0.619,
+            0.616
+          ],
+          "landed": 8,
+          "stood": 8,
+          "stoodAtNothing": true,
+          "stepsAtNothing": 2
+        },
+        "at1920": {
+          "net": 0.7134,
+          "done": 0.7134,
+          "cost": 0,
+          "runs": [
+            0.678,
+            0.698,
+            0.828,
+            0.759,
+            0.653,
+            0.699,
+            0.663,
+            0.729
+          ],
+          "noise": [
+            0.678,
+            0.813,
+            0.699
+          ],
+          "landed": 8,
+          "stood": 8,
+          "stoodAtNothing": true,
+          "stepsAtNothing": 2
+        }
+      },
+      "net": 0.8214,
       "placed": {
         "net": 0,
         "runs": [
@@ -192,16 +516,16 @@
       },
       "window": {
         "along": [
-          -0.02,
-          0.06
+          -0.06,
+          0.04
         ],
         "across": [
-          -0.02,
+          -0.06,
           0.02
         ],
         "up": [
-          -0.26,
-          0.26
+          -0.16,
+          0.1
         ]
       }
     },
@@ -213,536 +537,198 @@
         "name": "searched right club blow",
         "hand": "right",
         "chamber": {
-          "seconds": 0.5669015330915865,
+          "seconds": 0.5710854028657155,
           "pose": {
-            "thoracic rotation right": -0.03544352664258882,
-            "shoulder.right flexion": 3.1368147788244274,
-            "shoulder.right abduction": 0.8728635049551424,
-            "shoulder.right internal rotation": -0.19444762947737138,
-            "elbow.right flexion": 0.508318395542815,
-            "wrist.right flexion": 0.26821884859462153,
-            "wrist.right radial deviation": -0.09760700576094827,
-            "wrist.right pronation": -0.09437538052278316
+            "thoracic rotation right": -0.05755041747521433,
+            "shoulder.right flexion": 3.0466885150164256,
+            "shoulder.right abduction": 1.5731364895677236,
+            "shoulder.right internal rotation": -0.18615704994383675,
+            "elbow.right flexion": 0.3105960745334704,
+            "wrist.right flexion": -0.09470919395093924,
+            "wrist.right radial deviation": 0.18936638711131182,
+            "wrist.right pronation": 0.0009636122665537261
           }
         },
         "pushes": [
           {
             "channel": "thoracic rotation right",
             "sense": -1,
-            "from": 0.02003218856544871,
-            "to": 0.1599137423108978,
-            "level": 0.4909080275056066
-          },
-          {
-            "channel": "lumbar rotation right",
-            "sense": -1,
-            "from": 0.14340398478328362,
-            "to": 0.34984178714009756,
-            "level": 0.30767712552576254
+            "from": 0.014976591894766472,
+            "to": 0.2382837327067002,
+            "level": 0.7168713078401614
           },
           {
             "channel": "thoracic flexion",
             "sense": 1,
-            "from": 0.08943277077970478,
-            "to": 0.17679085563346048,
-            "level": 0.22185274173270483
+            "from": 0.07147890006073626,
+            "to": 0.1890542911628883,
+            "level": 0.5872473630241252
           },
           {
             "channel": "thoracic lateral flexion right",
             "sense": 1,
-            "from": 0.1404543593297348,
-            "to": 0.3081897221959826,
-            "level": 0.365508526907396
+            "from": 0.1498842967904093,
+            "to": 0.2896169899955462,
+            "level": 0.14353481613023072
           },
           {
             "channel": "lumbar flexion",
             "sense": 1,
-            "from": 0.048602096287221515,
-            "to": 0.23901919423507886,
-            "level": 0.9077243661425122
+            "from": 0.12184809065420348,
+            "to": 0.25854489290761995,
+            "level": 0.7846760065314156
           },
           {
             "channel": "shoulder.right flexion",
             "sense": -1,
-            "from": 0.016564930341439937,
-            "to": 0.16380029184200096,
-            "level": 0.6706316506145348
+            "from": 0.032825110626063456,
+            "to": 0.3028841751618538,
+            "level": 0.9008221109005937
           },
           {
             "channel": "shoulder.right abduction",
             "sense": -1,
-            "from": 0.14207238956777926,
-            "to": 0.2961614307341611,
-            "level": 0.5376544555181696
+            "from": 0.13124537277334253,
+            "to": 0.3029224388142916,
+            "level": 0.312230546311779
           },
           {
             "channel": "shoulder.right internal rotation",
             "sense": 1,
-            "from": 0.19470420567002683,
-            "to": 0.351777217190968,
-            "level": 0.789905576546066
+            "from": 0.18205522852685288,
+            "to": 0.4134822232304579,
+            "level": 0.7514347940944007
           },
           {
             "channel": "elbow.right flexion",
             "sense": -1,
-            "from": 0.0398099244760304,
-            "to": 0.3362458262788336,
-            "level": 0.8768773281819964
+            "from": 0.07731156020131662,
+            "to": 0.33731227533888436,
+            "level": 0.9943673916149551
           },
           {
             "channel": "wrist.right flexion",
             "sense": 1,
-            "from": 0.17047270726719402,
-            "to": 0.35173214568873923,
-            "level": 0.7833650157492585
+            "from": 0.14515569511787318,
+            "to": 0.32543423095059687,
+            "level": 0.8759018995875973
           },
           {
             "channel": "wrist.right radial deviation",
             "sense": -1,
-            "from": 0.12518699475336673,
-            "to": 0.3981551398743993,
-            "level": 0.266738837875025
+            "from": 0.19582286739962604,
+            "to": 0.4299045795713844,
+            "level": 0.28365183485164336
           },
           {
             "channel": "wrist.right pronation",
             "sense": -1,
-            "from": 0.2542594483902862,
-            "to": 0.4872152870821149,
-            "level": 0.575522323425359
+            "from": 0.196564738409158,
+            "to": 0.37312776359482325,
+            "level": 0.8180717336866471
           }
         ]
       },
       "place": {
-        "ahead": 1.041884904968962,
+        "ahead": 1.0154606100944472,
         "up": -0.24752158925907497
       },
-      "found": "research/core-strike-search.mjs --model crypt-skeleton --held \"wooden club\" --band middle --seed 2 --hz 120 --from crypt-skeleton:middle of assets/core/strikes.json@7601bd36 --sigma 0.4, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 1.327 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
+      "found": "research/core-strike-search.mjs --model crypt-skeleton --held \"wooden club\" --band middle --seed 4 --hz 120 --from <the best of the search before it> --sigma 0.2, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 1.192 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook); the search before it: research/core-strike-search.mjs --model crypt-skeleton --held \"wooden club\" --band middle --seed 2 --hz 120 --from crypt-skeleton:middle of assets/core/strikes.json@95c3cad2 --sigma 0.4, 30 generations of 64",
       "readings": {
         "at120": {
-          "net": 1.3011,
-          "done": 1.3011,
+          "net": 1.1888,
+          "done": 1.1888,
           "cost": 0,
           "runs": [
-            1.37,
-            1.163,
-            1.299,
-            1.234,
-            1.326,
-            1.374,
-            1.34,
-            1.303
+            1.219,
+            1.188,
+            1.174,
+            1.186,
+            1.217,
+            1.195,
+            1.147,
+            1.184
           ],
           "noise": [
-            1.37,
-            1.291,
-            1.366
-          ],
-          "landed": 8,
-          "stood": 8,
-          "stoodAtNothing": true,
-          "stepsAtNothing": 1
-        },
-        "at480": {
-          "net": 1.3177,
-          "done": 1.3177,
-          "cost": 0,
-          "runs": [
-            1.328,
-            1.281,
-            1.271,
-            1.333,
-            1.325,
-            1.361,
-            1.309,
-            1.334
-          ],
-          "noise": [
-            1.328,
-            1.311,
-            1.319
-          ],
-          "landed": 8,
-          "stood": 8,
-          "stoodAtNothing": true,
-          "stepsAtNothing": 1
-        },
-        "at1920": {
-          "net": 1.305,
-          "done": 1.305,
-          "cost": 0,
-          "runs": [
-            1.315,
-            1.331,
-            1.288,
-            1.29,
-            1.315,
-            1.324,
-            1.269,
-            1.308
-          ],
-          "noise": [
-            1.315,
-            1.272,
-            1.282
+            1.219,
+            1.222,
+            1.22
           ],
           "landed": 8,
           "stood": 8,
           "stoodAtNothing": true,
           "stepsAtNothing": 0
-        }
-      },
-      "net": 1.3011,
-      "placed": {
-        "net": 0.0299,
-        "runs": [
-          0.052,
-          0.021,
-          0.017
-        ]
-      },
-      "window": {
-        "along": [
-          -0.12,
-          0.16
-        ],
-        "across": [
-          -0.06,
-          0.04
-        ],
-        "up": [
-          -0.36,
-          0.12
-        ]
-      }
-    },
-    {
-      "model": "crypt-skeleton",
-      "held": "fist",
-      "band": "high",
-      "strike": {
-        "name": "searched right straight",
-        "hand": "right",
-        "pushes": [
-          {
-            "channel": "thoracic rotation right",
-            "sense": -1,
-            "from": 0.20394221111525335,
-            "to": 0.3732734871776018,
-            "level": 0.6404555493716971
-          },
-          {
-            "channel": "lumbar rotation right",
-            "sense": -1,
-            "from": 0.12327321855668498,
-            "to": 0.3087878192954641,
-            "level": 0.27917547322544506
-          },
-          {
-            "channel": "thoracic flexion",
-            "sense": -1,
-            "from": 0.1387027643569208,
-            "to": 0.17039774874382213,
-            "level": 0.7925903917384216
-          },
-          {
-            "channel": "thoracic lateral flexion right",
-            "sense": -1,
-            "from": 0.03900717662775818,
-            "to": 0.19805161755155284,
-            "level": 0.19992348320535758
-          },
-          {
-            "channel": "shoulder.right flexion",
-            "sense": 1,
-            "from": 0.004020494628992488,
-            "to": 0.23189120283590167,
-            "level": 0.908409406718864
-          },
-          {
-            "channel": "shoulder.right abduction",
-            "sense": -1,
-            "from": 0.29717362902545963,
-            "to": 0.44201798735498204,
-            "level": 0.792102317275024
-          },
-          {
-            "channel": "shoulder.right internal rotation",
-            "sense": 1,
-            "from": 0.13839616355921633,
-            "to": 0.2929783801249145,
-            "level": 0.4584157394019699
-          },
-          {
-            "channel": "elbow.right flexion",
-            "sense": -1,
-            "from": 0.22077667808671267,
-            "to": 0.4304282987609552,
-            "level": 0.9114171411169449
-          }
-        ]
-      },
-      "place": {
-        "ahead": 0.5451079136583538,
-        "up": 0
-      },
-      "found": "research/core-strike-search.mjs --model crypt-skeleton --held \"fist\" --band high --guard --seed 3 --hz 120 --from crypt-skeleton:high of assets/core/strikes.json@7601bd36 --sigma 0.6, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.037 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
-      "readings": {
-        "at120": {
-          "net": 0.0365,
-          "done": 0.1958,
-          "cost": 0.1593,
-          "runs": [
-            0.037,
-            0.036,
-            0.036,
-            0.037,
-            0.036,
-            0.037,
-            0.036,
-            0.036
-          ],
-          "noise": [
-            0.037,
-            0.036,
-            0.037
-          ],
-          "landed": 8,
-          "stood": 8,
-          "stoodAtNothing": true,
-          "stepsAtNothing": 1
         },
         "at480": {
-          "net": 0.0325,
-          "done": 0.1744,
-          "cost": 0.1419,
+          "net": 1.1037,
+          "done": 1.1037,
+          "cost": 0,
           "runs": [
-            0.033,
-            0.032,
-            0.032,
-            0.033,
-            0.032,
-            0.033,
-            0.033,
-            0.033
+            1.12,
+            1.11,
+            1.1,
+            1.093,
+            1.097,
+            1.097,
+            1.099,
+            1.114
           ],
           "noise": [
-            0.033,
-            0.033,
-            0.032
+            1.12,
+            1.115,
+            1.12
           ],
           "landed": 8,
           "stood": 8,
-          "stoodAtNothing": true,
-          "stepsAtNothing": 1
+          "stoodAtNothing": false,
+          "stepsAtNothing": 8
         },
         "at1920": {
-          "net": 0.0318,
-          "done": 0.1703,
-          "cost": 0.1385,
+          "net": 1.1088,
+          "done": 1.1088,
+          "cost": 0,
           "runs": [
-            0.032,
-            0.032,
-            0.032,
-            0.034,
-            0.03,
-            0.031,
-            0.033,
-            0.031
+            1.107,
+            1.103,
+            1.101,
+            1.104,
+            1.135,
+            1.107,
+            1.109,
+            1.104
           ],
           "noise": [
-            0.032,
-            0.032,
-            0.031
+            1.107,
+            1.133,
+            1.134
           ],
           "landed": 8,
           "stood": 8,
-          "stoodAtNothing": true,
-          "stepsAtNothing": 0
+          "stoodAtNothing": false,
+          "stepsAtNothing": 5
         }
       },
-      "net": 0.0365,
+      "net": 1.1888,
       "placed": {
-        "net": -0.0005,
+        "net": 0,
         "runs": [
-          -0.002,
+          0,
           0,
           0
         ]
       },
       "window": {
         "along": [
-          -0.04,
-          0.06
+          -0.08,
+          0.1
         ],
         "across": [
-          -0.06,
-          0.02
+          -0.08,
+          0.04
         ],
         "up": [
           -0.24,
-          0.12
-        ]
-      }
-    },
-    {
-      "model": "crypt-skeleton",
-      "held": "fist",
-      "band": "middle",
-      "strike": {
-        "name": "searched right straight",
-        "hand": "right",
-        "pushes": [
-          {
-            "channel": "thoracic rotation right",
-            "sense": -1,
-            "from": 0.1114327469057671,
-            "to": 0.25263167628139516,
-            "level": 0.5217246817117487
-          },
-          {
-            "channel": "lumbar rotation right",
-            "sense": -1,
-            "from": 0.22233631741419763,
-            "to": 0.385446742425981,
-            "level": 0.3306367852992213
-          },
-          {
-            "channel": "thoracic flexion",
-            "sense": -1,
-            "from": 0.10879479303001623,
-            "to": 0.1540086322438085,
-            "level": 0.8330346184379558
-          },
-          {
-            "channel": "shoulder.right flexion",
-            "sense": 1,
-            "from": 0.011220103961720861,
-            "to": 0.2395429967288902,
-            "level": 0.906150929744807
-          },
-          {
-            "channel": "shoulder.right abduction",
-            "sense": -1,
-            "from": 0.27820598918035133,
-            "to": 0.43393110493418174,
-            "level": 0.8730704726641755
-          },
-          {
-            "channel": "shoulder.right internal rotation",
-            "sense": 1,
-            "from": 0.03067394727478487,
-            "to": 0.22500003587429387,
-            "level": 0.28842027607384213
-          },
-          {
-            "channel": "elbow.right flexion",
-            "sense": -1,
-            "from": 0.2286464023166062,
-            "to": 0.4223065044145339,
-            "level": 0.8075444949950433
-          }
-        ]
-      },
-      "place": {
-        "ahead": 0.6445935205523194,
-        "up": -0.24752158925907497
-      },
-      "found": "research/core-strike-search.mjs --model crypt-skeleton --held \"fist\" --band middle --guard --seed 3 --hz 120 --from crypt-skeleton:middle of assets/core/strikes.json@7601bd36 --sigma 0.6, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.748 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
-      "readings": {
-        "at120": {
-          "net": 0.6835,
-          "done": 0.7644,
-          "cost": 0.0808,
-          "runs": [
-            0.738,
-            0.727,
-            0.742,
-            0.717,
-            0.739,
-            0.732,
-            0.737,
-            0.338
-          ],
-          "noise": [
-            0.738,
-            0.731,
-            0.747
-          ],
-          "landed": 8,
-          "stood": 7,
-          "stoodAtNothing": true,
-          "stepsAtNothing": 1
-        },
-        "at480": {
-          "net": 0.4413,
-          "done": 0.484,
-          "cost": 0.0426,
-          "runs": [
-            0.446,
-            0.438,
-            0.425,
-            0.453,
-            0.468,
-            0.431,
-            0.431,
-            0.439
-          ],
-          "noise": [
-            0.446,
-            0.452,
-            0.452
-          ],
-          "landed": 8,
-          "stood": 8,
-          "stoodAtNothing": true,
-          "stepsAtNothing": 0
-        },
-        "at1920": {
-          "net": 0.4544,
-          "done": 0.4974,
-          "cost": 0.043,
-          "runs": [
-            0.453,
-            0.464,
-            0.451,
-            0.451,
-            0.452,
-            0.449,
-            0.452,
-            0.464
-          ],
-          "noise": [
-            0.453,
-            0.456,
-            0.454
-          ],
-          "landed": 8,
-          "stood": 8,
-          "stoodAtNothing": true,
-          "stepsAtNothing": 0
-        }
-      },
-      "net": 0.6835,
-      "placed": {
-        "net": 0.0196,
-        "runs": [
-          0.019,
-          0.02,
-          0.02
-        ]
-      },
-      "window": {
-        "along": [
-          -0.04,
-          0.02
-        ],
-        "across": [
-          -0.04,
-          0.06
-        ],
-        "up": [
-          -0.18,
-          0.02
+          0.26
         ]
       }
     },
@@ -754,173 +740,187 @@
         "name": "searched right club blow",
         "hand": "right",
         "chamber": {
-          "seconds": 0.5949221769348021,
+          "seconds": 0.5577014409027559,
           "pose": {
-            "thoracic rotation right": -0.2600059665340788,
-            "shoulder.right flexion": 2.9168108261909227,
-            "shoulder.right abduction": 1.6024908962330375,
-            "shoulder.right internal rotation": 0.6381346930212395,
-            "elbow.right flexion": 1.422913939857174,
-            "wrist.right flexion": 0.7997185423784092,
-            "wrist.right radial deviation": -0.5635068436028469,
-            "wrist.right pronation": 0.5425655979513422
+            "thoracic rotation right": -0.27478927971571426,
+            "shoulder.right flexion": 2.784364185684038,
+            "shoulder.right abduction": 1.7781406438069003,
+            "shoulder.right internal rotation": 0.42234299386304075,
+            "elbow.right flexion": 1.4323574602763587,
+            "wrist.right flexion": 0.7650533039874476,
+            "wrist.right radial deviation": -0.8502840108439242,
+            "wrist.right pronation": 0.4009185967387101
           }
         },
         "pushes": [
           {
             "channel": "thoracic rotation right",
             "sense": -1,
-            "from": 0.06068254224649926,
-            "to": 0.21695288308112737,
-            "level": 0.470577715448601
+            "from": 0.09552622885103983,
+            "to": 0.2084618659640941,
+            "level": 0.3933278305305193
+          },
+          {
+            "channel": "lumbar rotation right",
+            "sense": 1,
+            "from": 0.14286486559566597,
+            "to": 0.21306439249967693,
+            "level": 0.5643876325215665
+          },
+          {
+            "channel": "thoracic flexion",
+            "sense": 1,
+            "from": 0.1494594135944524,
+            "to": 0.30229952334097254,
+            "level": 0.6497714730249785
           },
           {
             "channel": "thoracic lateral flexion right",
             "sense": 1,
-            "from": 0.10102898129993736,
-            "to": 0.28758278047401503,
-            "level": 0.5423239789922121
+            "from": 0.11887225707229786,
+            "to": 0.3323619188921701,
+            "level": 0.5571253985217188
           },
           {
             "channel": "lumbar flexion",
             "sense": 1,
-            "from": 0.021962551174336712,
-            "to": 0.2574727287354418,
-            "level": 0.9744320488288706
+            "from": 0.017561064690048638,
+            "to": 0.17368121053033897,
+            "level": 0.9334716746720813
           },
           {
             "channel": "shoulder.right flexion",
-            "sense": -1,
-            "from": 0.041587268139940646,
-            "to": 0.1263099269700288,
-            "level": 0.24951676122360175
+            "sense": 1,
+            "from": 0.06832601416111575,
+            "to": 0.1205213957209079,
+            "level": 0.5484652294373121
           },
           {
             "channel": "shoulder.right abduction",
             "sense": -1,
-            "from": 0.09443634574744074,
-            "to": 0.23028525093363922,
-            "level": 0.9670725870034204
+            "from": 0.11176089651677217,
+            "to": 0.26505791908294735,
+            "level": 0.9927858863270882
           },
           {
             "channel": "shoulder.right internal rotation",
             "sense": 1,
-            "from": 0.20583682988720386,
-            "to": 0.2773266866485308,
-            "level": 0.6004574502836315
+            "from": 0.16283630078317454,
+            "to": 0.24173123306001687,
+            "level": 0.8442744852674584
           },
           {
             "channel": "elbow.right flexion",
             "sense": -1,
-            "from": 0.08563601638092662,
-            "to": 0.3379578702017839,
-            "level": 1
+            "from": 0.06887626336995291,
+            "to": 0.35491382750317346,
+            "level": 0.8829833882702882
           },
           {
             "channel": "wrist.right flexion",
             "sense": 1,
-            "from": 0.13461043994026173,
-            "to": 0.24058010363037208,
-            "level": 0.6225823636463921
+            "from": 0.12579993043124293,
+            "to": 0.17808007112537025,
+            "level": 0.3936309827446441
           },
           {
             "channel": "wrist.right radial deviation",
             "sense": -1,
-            "from": 0.0851512724854636,
-            "to": 0.3441656440947782,
-            "level": 0.6381155681738738
+            "from": 0.04269272698674964,
+            "to": 0.2898847046697317,
+            "level": 0.8101284110130516
           },
           {
             "channel": "wrist.right pronation",
             "sense": -1,
-            "from": 0.23529270523203943,
-            "to": 0.4747092393818204,
-            "level": 0.5261180779011158
+            "from": 0.05274959836821782,
+            "to": 0.30292247684520157,
+            "level": 0.7822250599899508
           }
         ]
       },
       "place": {
-        "ahead": 0.9620042566219486,
+        "ahead": 0.8783429498831434,
         "up": 0
       },
-      "found": "research/core-strike-search.mjs --model workshop-fighter --held \"wooden club\" --band high --seed 2 --hz 120 --from workshop-fighter:high of assets/core/strikes.json@7601bd36 --sigma 0.4, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 1.16 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
+      "found": "research/core-strike-search.mjs --model workshop-fighter --held \"wooden club\" --band high --seed 6 --hz 120 --jitter 0.02,0.02,0.15 --from <the best of the search before it> --sigma 0.3, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 1.105 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook); the search before it: research/core-strike-search.mjs --model workshop-fighter --held \"wooden club\" --band high --seed 4 --hz 120 --from <the best of the search before it> --sigma 0.2, 30 generations of 64; the search before it: research/core-strike-search.mjs --model workshop-fighter --held \"wooden club\" --band high --seed 2 --hz 120 --from workshop-fighter:high of assets/core/strikes.json@95c3cad2 --sigma 0.4, 30 generations of 64",
       "readings": {
         "at120": {
-          "net": 1.1013,
-          "done": 1.1013,
+          "net": 1.1117,
+          "done": 1.1117,
           "cost": 0,
           "runs": [
-            1.147,
-            1.065,
-            1.106,
-            0.961,
+            1.133,
             1.137,
-            1.172,
-            1.085,
-            1.137
+            1.087,
+            1.129,
+            1.106,
+            1.067,
+            1.124,
+            1.11
           ],
           "noise": [
-            1.147,
-            1.177,
-            0.788
+            1.133,
+            1.11,
+            1.089
           ],
           "landed": 8,
-          "stood": 7,
+          "stood": 8,
           "stoodAtNothing": true,
-          "stepsAtNothing": 2
+          "stepsAtNothing": 0
         },
         "at480": {
-          "net": 1.0833,
-          "done": 1.0833,
+          "net": 1.0642,
+          "done": 1.0642,
           "cost": 0,
           "runs": [
-            1.096,
-            1.083,
-            1.12,
-            1.041,
             1.071,
-            1.129,
-            1.053,
-            1.074
+            1.067,
+            1.035,
+            1.089,
+            1.082,
+            1.055,
+            1.049,
+            1.064
           ],
           "noise": [
-            1.096,
-            1.103,
-            1.049
+            1.071,
+            1.06,
+            1.069
           ],
           "landed": 8,
           "stood": 8,
           "stoodAtNothing": true,
-          "stepsAtNothing": 0
+          "stepsAtNothing": 1
         },
         "at1920": {
-          "net": 1.1062,
-          "done": 1.1062,
+          "net": 1.0632,
+          "done": 1.0632,
           "cost": 0,
           "runs": [
-            1.113,
-            1.11,
-            1.13,
-            1.098,
-            1.103,
-            1.103,
-            1.094,
-            1.099
+            1.068,
+            1.064,
+            1.045,
+            1.064,
+            1.077,
+            1.061,
+            1.063,
+            1.065
           ],
           "noise": [
-            1.113,
-            1.099,
-            1.072
+            1.068,
+            1.052,
+            1.063
           ],
           "landed": 8,
           "stood": 8,
           "stoodAtNothing": true,
-          "stepsAtNothing": 0
+          "stepsAtNothing": 1
         }
       },
-      "net": 1.1013,
+      "net": 1.1117,
       "placed": {
-        "net": 0.062,
+        "net": 0.0619,
         "runs": [
           0.062,
           0.062,
@@ -929,16 +929,16 @@
       },
       "window": {
         "along": [
-          -0.08,
-          0.02
+          -0.02,
+          0.04
         ],
         "across": [
           -0.02,
           0.02
         ],
         "up": [
-          -0.54,
-          0.14
+          -0.24,
+          0.08
         ]
       }
     },
@@ -950,115 +950,129 @@
         "name": "searched right club blow",
         "hand": "right",
         "chamber": {
-          "seconds": 0.4780280125664499,
+          "seconds": 0.5798704373023685,
           "pose": {
-            "thoracic rotation right": -0.3478258227269897,
-            "shoulder.right flexion": 2.6689244359692452,
-            "shoulder.right abduction": 1.0247061385175724,
-            "shoulder.right internal rotation": 0.5892868923010002,
-            "elbow.right flexion": 1.362222646709988,
-            "wrist.right flexion": 1.2398584495231022,
-            "wrist.right radial deviation": -0.4699503554242053,
-            "wrist.right pronation": 0.41568067274540277
+            "thoracic rotation right": -0.3743189146327433,
+            "shoulder.right flexion": 2.883752880690727,
+            "shoulder.right abduction": 1.339604327537796,
+            "shoulder.right internal rotation": 0.13146873548236693,
+            "elbow.right flexion": 0.9774065317989404,
+            "wrist.right flexion": 0.8698544523759302,
+            "wrist.right radial deviation": -0.6474540448318036,
+            "wrist.right pronation": 0.48909380279207926
           }
         },
         "pushes": [
           {
             "channel": "thoracic rotation right",
             "sense": -1,
-            "from": 0.049663001750952195,
-            "to": 0.2431566157875834,
-            "level": 0.29106114826511287
+            "from": 0.004459399094525529,
+            "to": 0.14327647814208583,
+            "level": 0.1736890121468375
+          },
+          {
+            "channel": "lumbar rotation right",
+            "sense": 1,
+            "from": 0.1442485314439179,
+            "to": 0.177156718051278,
+            "level": 0.40844357192429726
           },
           {
             "channel": "thoracic flexion",
             "sense": 1,
-            "from": 0.044201034239718696,
-            "to": 0.14590100128215558,
-            "level": 0.2106664132794421
+            "from": 0.11281115249323218,
+            "to": 0.2082837978104672,
+            "level": 0.3094612023630055
           },
           {
             "channel": "thoracic lateral flexion right",
             "sense": 1,
-            "from": 0.1082298303651055,
-            "to": 0.2692784589578845,
-            "level": 0.4638880199354545
+            "from": 0.03659850001103211,
+            "to": 0.23197237791269765,
+            "level": 0.5813085791556547
           },
           {
             "channel": "lumbar flexion",
             "sense": 1,
-            "from": 0.008723950012057962,
-            "to": 0.29566873177664704,
-            "level": 0.7622816782003724
+            "from": 0.01647372723073164,
+            "to": 0.13607459444351852,
+            "level": 0.6565013869158012
+          },
+          {
+            "channel": "shoulder.right flexion",
+            "sense": -1,
+            "from": 0.07429759062708932,
+            "to": 0.11930298529967735,
+            "level": 0.3103412243734477
           },
           {
             "channel": "shoulder.right abduction",
             "sense": -1,
-            "from": 0.13992028786327798,
-            "to": 0.26749677990098597,
-            "level": 0.864369599950576
+            "from": 0.10839520132437522,
+            "to": 0.2132758520318451,
+            "level": 0.6590792708425888
           },
           {
             "channel": "shoulder.right internal rotation",
             "sense": 1,
-            "from": 0.23818363817822613,
-            "to": 0.31962253530674684,
-            "level": 0.6059373660308541
+            "from": 0.19603596731436793,
+            "to": 0.3270714317456983,
+            "level": 0.23421387054901005
           },
           {
             "channel": "elbow.right flexion",
             "sense": -1,
-            "from": 0.0925756881921441,
-            "to": 0.3431964613370725,
-            "level": 0.7382268053006711
+            "from": 0.08477519707310693,
+            "to": 0.3058247290958885,
+            "level": 0.9842005655579684
           },
           {
             "channel": "wrist.right flexion",
             "sense": 1,
-            "from": 0.15734938532440393,
-            "to": 0.3269424216851572,
-            "level": 0.8610460377322134
+            "from": 0.12490090377560711,
+            "to": 0.279957859549122,
+            "level": 0.7901100497410648
           },
           {
             "channel": "wrist.right radial deviation",
             "sense": -1,
-            "from": 0.1783296534194233,
-            "to": 0.4783296534194233,
-            "level": 0.7750006217108416
+            "from": 0.0813875831184147,
+            "to": 0.3413057324831206,
+            "level": 0.5583038818488243
           },
           {
             "channel": "wrist.right pronation",
             "sense": -1,
-            "from": 0.21495247805174642,
-            "to": 0.45293901976778295,
-            "level": 0.3505276717842189
+            "from": 0.20868257450191208,
+            "to": 0.3991357915474235,
+            "level": 0.46427587824120503
           }
         ]
       },
       "place": {
-        "ahead": 1.0674973966453494,
+        "ahead": 0.9353086243678037,
         "up": -0.2402031186807858
       },
-      "found": "research/core-strike-search.mjs --model workshop-fighter --held \"wooden club\" --band middle --still --seed 2 --hz 120 --from workshop-fighter:middle of assets/core/strikes.json@7601bd36 --sigma 0.4, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 1.195 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
+      "found": "research/core-strike-search.mjs --model workshop-fighter --held \"wooden club\" --band middle --still --seed 4 --hz 120 --from <the best of the search before it> --sigma 0.2, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.913 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook); the search before it: research/core-strike-search.mjs --model workshop-fighter --held \"wooden club\" --band middle --still --seed 2 --hz 120 --from workshop-fighter:middle of assets/core/strikes.json@95c3cad2 --sigma 0.4, 30 generations of 64",
       "readings": {
         "at120": {
-          "net": 1.1634,
-          "done": 1.1634,
+          "net": 0.8978,
+          "done": 0.8978,
           "cost": 0,
           "runs": [
-            1.161,
-            1.149,
-            1.13,
-            1.084,
-            1.216,
-            1.222,
-            1.137,
-            1.21
+            0.926,
+            0.898,
+            0.889,
+            0.878,
+            0.915,
+            0.925,
+            0.885,
+            0.867
           ],
           "noise": [
-            1.161,
-            0.717,
-            1.138
+            0.926,
+            0.92,
+            0.857
           ],
           "landed": 8,
           "stood": 8,
@@ -1066,23 +1080,23 @@
           "stepsAtNothing": 0
         },
         "at480": {
-          "net": 1.0161,
-          "done": 1.0161,
+          "net": 0.7901,
+          "done": 0.7901,
           "cost": 0,
           "runs": [
-            1.029,
-            1.007,
-            0.996,
-            1.01,
-            1.015,
-            1.023,
-            1.037,
-            1.012
+            0.81,
+            0.777,
+            0.781,
+            0.791,
+            0.818,
+            0.812,
+            0.77,
+            0.762
           ],
           "noise": [
-            1.029,
-            1.063,
-            1.05
+            0.81,
+            0.79,
+            0.78
           ],
           "landed": 8,
           "stood": 8,
@@ -1090,23 +1104,23 @@
           "stepsAtNothing": 0
         },
         "at1920": {
-          "net": 0.9354,
-          "done": 0.9354,
+          "net": 0.7963,
+          "done": 0.7963,
           "cost": 0,
           "runs": [
-            0.93,
-            0.926,
-            0.922,
-            0.936,
-            0.937,
-            0.936,
-            0.951,
-            0.945
+            0.803,
+            0.779,
+            0.793,
+            0.798,
+            0.824,
+            0.849,
+            0.778,
+            0.747
           ],
           "noise": [
-            0.93,
-            1.07,
-            0.976
+            0.803,
+            0.795,
+            0.777
           ],
           "landed": 8,
           "stood": 8,
@@ -1114,27 +1128,27 @@
           "stepsAtNothing": 0
         }
       },
-      "net": 1.1634,
+      "net": 0.8978,
       "placed": {
-        "net": 0.0842,
+        "net": 0.0823,
         "runs": [
-          0.083,
-          0.086,
-          0.084
+          0.082,
+          0.082,
+          0.082
         ]
       },
       "window": {
         "along": [
-          -0.14,
-          0.04
+          -0.12,
+          0.14
         ],
         "across": [
           -0.04,
           0.04
         ],
         "up": [
-          -0.32,
-          0.18
+          -0.36,
+          0
         ]
       }
     },
@@ -1149,78 +1163,78 @@
           {
             "channel": "thoracic rotation right",
             "sense": -1,
-            "from": 0.016699101452182074,
-            "to": 0.19434905343360026,
-            "level": 0.6557827907127902
+            "from": 0.020088749561091766,
+            "to": 0.2196320394195564,
+            "level": 0.4189894624929019
           },
           {
             "channel": "thoracic flexion",
             "sense": -1,
-            "from": 0.18100199951186335,
-            "to": 0.20673466250789846,
-            "level": 0.5570198817898305
+            "from": 0.23482547680144772,
+            "to": 0.23890460489151527,
+            "level": 0.6133611376648438
           },
           {
             "channel": "thoracic lateral flexion right",
             "sense": -1,
-            "from": 0.01339565954909358,
-            "to": 0.1532480386691004,
-            "level": 0.40854889937766115
+            "from": 0.013565025643183315,
+            "to": 0.0883917396386109,
+            "level": 0.4353894842443843
           },
           {
             "channel": "shoulder.right flexion",
             "sense": 1,
-            "from": 0.10908097679685198,
-            "to": 0.32551440052630226,
-            "level": 0.9815491403832292
+            "from": 0.07027835247647655,
+            "to": 0.29145628965172493,
+            "level": 0.9484806027168855
           },
           {
             "channel": "shoulder.right abduction",
             "sense": -1,
-            "from": 0.3,
-            "to": 0.4718011403406561,
-            "level": 1
+            "from": 0.2955745707311311,
+            "to": 0.49059664254633895,
+            "level": 0.7419963141638805
           },
           {
             "channel": "shoulder.right internal rotation",
             "sense": 1,
-            "from": 0.08509693336135289,
-            "to": 0.3697136274543323,
-            "level": 0.13854781938372143
+            "from": 0.05451957777605022,
+            "to": 0.31476968531975497,
+            "level": 0.2207985913910552
           },
           {
             "channel": "elbow.right flexion",
             "sense": -1,
-            "from": 0.277623977913424,
-            "to": 0.4690547444809201,
-            "level": 0.8554499284564914
+            "from": 0.2541889772074559,
+            "to": 0.47178465511870726,
+            "level": 0.49339469542471714
           }
         ]
       },
       "place": {
-        "ahead": 0.38740630721723746,
+        "ahead": 0.5075307313976695,
         "up": 0
       },
-      "found": "research/core-strike-search.mjs --model workshop-fighter --held \"fist\" --band high --guard --still --seed 1 --hz 120 --from workshop-fighter:high of assets/core/strikes.json@7601bd36 --sigma 0.2, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.03 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
+      "found": "research/core-strike-search.mjs --model workshop-fighter --held \"fist\" --band high --guard --still --seed 5 --hz 120 --jitter 0.03,0.03,0 --from <the best of the search before it> --sigma 0.3, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.118 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook); the search before it: research/core-strike-search.mjs --model workshop-fighter --held \"fist\" --band high --guard --still --seed 1 --hz 120 --from workshop-fighter:high of assets/core/strikes.json@95c3cad2 --sigma 0.2, 30 generations of 64",
       "readings": {
         "at120": {
-          "net": 0.0292,
-          "done": 0.1597,
-          "cost": 0.1305,
+          "net": 0.0948,
+          "done": 0.1747,
+          "cost": 0.0799,
           "runs": [
-            0.031,
-            0.031,
-            0.027,
-            0.03,
-            0.031,
-            0.03,
-            0.028,
-            0.025
+            0.108,
+            0.111,
+            0.131,
+            0.067,
+            0.089,
+            0.104,
+            0.072,
+            0.076
           ],
           "noise": [
-            0.031,
-            0.031,
-            0.031
+            0.108,
+            0.105,
+            0.119
           ],
           "landed": 8,
           "stood": 8,
@@ -1228,23 +1242,23 @@
           "stepsAtNothing": 0
         },
         "at480": {
-          "net": 0.0298,
-          "done": 0.1613,
-          "cost": 0.1315,
+          "net": 0.1178,
+          "done": 0.16,
+          "cost": 0.0422,
           "runs": [
-            0.029,
-            0.03,
-            0.031,
-            0.03,
-            0.03,
-            0.03,
-            0.03,
-            0.029
+            0.109,
+            0.095,
+            0.121,
+            0.122,
+            0.138,
+            0.128,
+            0.116,
+            0.112
           ],
           "noise": [
-            0.029,
-            0.029,
-            0.029
+            0.109,
+            0.101,
+            0.101
           ],
           "landed": 8,
           "stood": 8,
@@ -1252,23 +1266,23 @@
           "stepsAtNothing": 0
         },
         "at1920": {
-          "net": 0.0308,
-          "done": 0.1654,
-          "cost": 0.1346,
+          "net": 0.1066,
+          "done": 0.1096,
+          "cost": 0.003,
           "runs": [
-            0.031,
-            0.031,
-            0.029,
-            0.031,
-            0.031,
-            0.031,
-            0.031,
-            0.032
+            0.111,
+            0.09,
+            0.114,
+            0.126,
+            0.092,
+            0.104,
+            0.105,
+            0.11
           ],
           "noise": [
-            0.031,
-            0.03,
-            0.03
+            0.111,
+            0.108,
+            0.109
           ],
           "landed": 8,
           "stood": 8,
@@ -1276,27 +1290,27 @@
           "stepsAtNothing": 0
         }
       },
-      "net": 0.0292,
+      "net": 0.0948,
       "placed": {
-        "net": -0.0038,
+        "net": 0.0058,
         "runs": [
-          -0.004,
-          -0.004,
-          -0.004
+          0.006,
+          0.006,
+          0.006
         ]
       },
       "window": {
         "along": [
-          -0.06,
-          0.06
+          -0.14,
+          0
         ],
         "across": [
-          -0.14,
-          0.04
+          0,
+          0.08
         ],
         "up": [
           -0.06,
-          0.08
+          0.06
         ]
       }
     },
@@ -1311,102 +1325,102 @@
           {
             "channel": "thoracic rotation right",
             "sense": -1,
-            "from": 0.10474436474300958,
-            "to": 0.25285489353212776,
-            "level": 0.4679549798154155
+            "from": 0.11735204883408967,
+            "to": 0.24424938353190662,
+            "level": 0.5561743184050489
           },
           {
             "channel": "lumbar rotation right",
             "sense": -1,
-            "from": 0.1560824750901032,
-            "to": 0.3897456937184894,
-            "level": 0.5724534225452035
+            "from": 0.17586144955979702,
+            "to": 0.43681071587531495,
+            "level": 0.538761521892575
           },
           {
             "channel": "thoracic flexion",
             "sense": -1,
-            "from": 0.07608676232013167,
-            "to": 0.15997852564012982,
-            "level": 0.6944467696338553
+            "from": 0.09037801472769362,
+            "to": 0.15958302177561176,
+            "level": 0.6215146028801413
           },
           {
             "channel": "thoracic lateral flexion right",
             "sense": 1,
-            "from": 0.1296315310544889,
-            "to": 0.4256818111775511,
-            "level": 0.5009443441581906
+            "from": 0.12997950835703653,
+            "to": 0.4263664896914376,
+            "level": 0.3555734531628566
           },
           {
             "channel": "shoulder.right flexion",
             "sense": 1,
-            "from": 0.004802681831350531,
-            "to": 0.28379659932285883,
-            "level": 0.9218788129642966
+            "from": 0.009148446745796934,
+            "to": 0.28730272655019634,
+            "level": 0.9354780531717812
           },
           {
             "channel": "shoulder.right abduction",
             "sense": -1,
-            "from": 0.23252928996304587,
-            "to": 0.4585021378996853,
-            "level": 0.4255816517264951
+            "from": 0.22453609051651977,
+            "to": 0.42887342453984245,
+            "level": 0.6438662939288067
           },
           {
             "channel": "elbow.right flexion",
             "sense": -1,
-            "from": 0.27699634365133363,
-            "to": 0.4973907797907861,
-            "level": 1
+            "from": 0.2959894003475666,
+            "to": 0.5049519560059756,
+            "level": 0.8892675522689616
           }
         ]
       },
       "place": {
-        "ahead": 0.5964618316696606,
+        "ahead": 0.6026977236378375,
         "up": -0.2402031186807858
       },
-      "found": "research/core-strike-search.mjs --model workshop-fighter --held \"fist\" --band middle --guard --seed 2 --hz 120 --from workshop-fighter:middle of assets/core/strikes.json@7601bd36 --sigma 0.4, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.637 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
+      "found": "research/core-strike-search.mjs --model workshop-fighter --held \"fist\" --band middle --guard --seed 2 --hz 120 --from workshop-fighter:middle of assets/core/strikes.json@95c3cad2 --sigma 0.4, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.69 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
       "readings": {
         "at120": {
-          "net": 0.5819,
-          "done": 0.6533,
-          "cost": 0.0714,
+          "net": 0.5578,
+          "done": 0.5754,
+          "cost": 0.0177,
           "runs": [
-            0.626,
+            0.731,
+            0.67,
+            0.482,
+            0.76,
+            0.441,
             0.564,
-            0.596,
-            0.563,
-            0.558,
-            0.593,
-            0.596,
-            0.56
+            0.197,
+            0.617
           ],
           "noise": [
-            0.626,
-            0.594,
-            0.618
+            0.731,
+            0.343,
+            0.59
           ],
           "landed": 8,
-          "stood": 5,
+          "stood": 8,
           "stoodAtNothing": true,
           "stepsAtNothing": 0
         },
         "at480": {
-          "net": 0.3876,
-          "done": 0.4299,
-          "cost": 0.0423,
+          "net": 0.3707,
+          "done": 0.383,
+          "cost": 0.0124,
           "runs": [
-            0.407,
-            0.426,
-            0.451,
-            0.233,
-            0.502,
-            0.252,
-            0.432,
-            0.397
+            0.473,
+            0.511,
+            0.469,
+            0.283,
+            0.266,
+            0.241,
+            0.244,
+            0.477
           ],
           "noise": [
-            0.407,
-            0.492,
-            0.388
+            0.473,
+            0.23,
+            0.463
           ],
           "landed": 8,
           "stood": 8,
@@ -1414,23 +1428,23 @@
           "stepsAtNothing": 0
         },
         "at1920": {
-          "net": 0.293,
-          "done": 0.3301,
-          "cost": 0.0371,
+          "net": 0.327,
+          "done": 0.3354,
+          "cost": 0.0084,
           "runs": [
-            0.253,
-            0.477,
-            0.235,
-            0.244,
-            0.271,
-            0.359,
+            0.28,
+            0.443,
+            0.439,
             0.269,
-            0.237
+            0.321,
+            0.27,
+            0.293,
+            0.302
           ],
           "noise": [
-            0.253,
-            0.425,
-            0.421
+            0.28,
+            0.285,
+            0.266
           ],
           "landed": 8,
           "stood": 8,
@@ -1438,27 +1452,189 @@
           "stepsAtNothing": 0
         }
       },
-      "net": 0.5819,
+      "net": 0.5578,
       "placed": {
-        "net": 0.0153,
+        "net": 0.0178,
         "runs": [
-          0.015,
-          0.015,
-          0.015
+          0.018,
+          0.018,
+          0.018
         ]
       },
       "window": {
         "along": [
-          0,
-          0.04
+          -0.06,
+          0
         ],
         "across": [
-          -0.02,
-          0.06
+          -0.04,
+          0.04
         ],
         "up": [
-          -0.34,
-          0.18
+          -0.24,
+          0.16
+        ]
+      }
+    },
+    {
+      "model": "workshop-rogue",
+      "held": "fist",
+      "band": "middle",
+      "strike": {
+        "name": "searched right straight",
+        "hand": "right",
+        "pushes": [
+          {
+            "channel": "thoracic rotation right",
+            "sense": -1,
+            "from": 0.22653835582145204,
+            "to": 0.321196882046466,
+            "level": 0.14981681193861035
+          },
+          {
+            "channel": "lumbar rotation right",
+            "sense": -1,
+            "from": 0.15066758621358667,
+            "to": 0.35319533884070564,
+            "level": 0.7011262911453789
+          },
+          {
+            "channel": "thoracic flexion",
+            "sense": -1,
+            "from": 0.12171215262169964,
+            "to": 0.1941853014063573,
+            "level": 0.6661083476720027
+          },
+          {
+            "channel": "thoracic lateral flexion right",
+            "sense": 1,
+            "from": 0.2349677095751615,
+            "to": 0.4410211700751355,
+            "level": 0.6162827616864686
+          },
+          {
+            "channel": "shoulder.right flexion",
+            "sense": 1,
+            "from": 0.047554862166078515,
+            "to": 0.30648283137235977,
+            "level": 0.9309420259733481
+          },
+          {
+            "channel": "shoulder.right abduction",
+            "sense": -1,
+            "from": 0.2867441437995527,
+            "to": 0.48643072476682486,
+            "level": 0.9391351282649284
+          },
+          {
+            "channel": "elbow.right flexion",
+            "sense": -1,
+            "from": 0.2771324943811694,
+            "to": 0.5065802050660765,
+            "level": 0.9397859550318833
+          }
+        ]
+      },
+      "place": {
+        "ahead": 0.5305478602747074,
+        "up": -0.23140315522490673
+      },
+      "found": "research/core-strike-search.mjs --model workshop-rogue --held \"fist\" --band middle --guard --seed 1 --hz 120 --from workshop-rogue:middle of assets/core/strikes.json@95c3cad2 --sigma 0.2, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.353 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
+      "readings": {
+        "at120": {
+          "net": 0.3036,
+          "done": 0.3149,
+          "cost": 0.0113,
+          "runs": [
+            0.361,
+            0.376,
+            0.333,
+            0.353,
+            0.313,
+            0.303,
+            0.2,
+            0.189
+          ],
+          "noise": [
+            0.361,
+            0.361,
+            0.336
+          ],
+          "landed": 8,
+          "stood": 8,
+          "stoodAtNothing": true,
+          "stepsAtNothing": 0
+        },
+        "at480": {
+          "net": 0.2089,
+          "done": 0.2198,
+          "cost": 0.0109,
+          "runs": [
+            0.22,
+            0.162,
+            0.19,
+            0.257,
+            0.205,
+            0.219,
+            0.201,
+            0.218
+          ],
+          "noise": [
+            0.22,
+            0.208,
+            0.202
+          ],
+          "landed": 8,
+          "stood": 8,
+          "stoodAtNothing": true,
+          "stepsAtNothing": 0
+        },
+        "at1920": {
+          "net": 0.1689,
+          "done": 0.1795,
+          "cost": 0.0106,
+          "runs": [
+            0.157,
+            0.18,
+            0.173,
+            0.172,
+            0.154,
+            0.171,
+            0.172,
+            0.173
+          ],
+          "noise": [
+            0.157,
+            0.178,
+            0.172
+          ],
+          "landed": 8,
+          "stood": 8,
+          "stoodAtNothing": true,
+          "stepsAtNothing": 0
+        }
+      },
+      "net": 0.3036,
+      "placed": {
+        "net": 0.0076,
+        "runs": [
+          0.008,
+          0.008,
+          0.008
+        ]
+      },
+      "window": {
+        "along": [
+          -0.02,
+          0.02
+        ],
+        "across": [
+          -0.06,
+          0.02
+        ],
+        "up": [
+          -0.24,
+          0.08
         ]
       }
     },
@@ -1470,178 +1646,185 @@
         "name": "searched right club blow",
         "hand": "right",
         "chamber": {
-          "seconds": 0.5515869918140459,
+          "seconds": 0.5720293949379427,
           "pose": {
-            "thoracic rotation right": -0.1229565647068187,
-            "shoulder.right flexion": 2.9573401047775185,
-            "shoulder.right abduction": 0.9838298003260254,
-            "shoulder.right internal rotation": 0.12401543743918908,
-            "elbow.right flexion": 0.5388999298640808,
-            "wrist.right flexion": 1.149300260487738,
-            "wrist.right radial deviation": -0.7763571270490813,
-            "wrist.right pronation": 0.31738304314065346
+            "thoracic rotation right": -0.34172345660041187,
+            "shoulder.right flexion": 2.971846602124473,
+            "shoulder.right abduction": 1.177510631692972,
+            "shoulder.right internal rotation": 0.11151433860520488,
+            "elbow.right flexion": 0.47788572186431344,
+            "wrist.right flexion": 1.465623062498577,
+            "wrist.right radial deviation": -0.8104355024603068,
+            "wrist.right pronation": 0.32323372677720097
           }
         },
         "pushes": [
           {
             "channel": "thoracic rotation right",
             "sense": -1,
-            "from": 0.18410065899798125,
-            "to": 0.3179044072199605,
-            "level": 0.12410047393376802
+            "from": 0.19165235280300352,
+            "to": 0.36399565549459467,
+            "level": 0.26668700996502603
           },
           {
             "channel": "lumbar rotation right",
-            "sense": 1,
-            "from": 0.2585309319627418,
-            "to": 0.4242606872674327,
-            "level": 0.155835248330879
+            "sense": -1,
+            "from": 0.259015330357551,
+            "to": 0.4522476328855545,
+            "level": 0.29540471304917937
           },
           {
             "channel": "thoracic flexion",
             "sense": 1,
-            "from": 0.07068837991070666,
-            "to": 0.12924120576164733,
-            "level": 0.10075999119927834
+            "from": 0.11719764639236016,
+            "to": 0.15169807165047164,
+            "level": 0.5648657138100435
           },
           {
             "channel": "thoracic lateral flexion right",
             "sense": 1,
-            "from": 0.11075978133705845,
-            "to": 0.2288976155764838,
-            "level": 0.29403857027406916
+            "from": 0.11209834884668793,
+            "to": 0.24016227083121083,
+            "level": 0.35783349275677356
           },
           {
             "channel": "lumbar flexion",
             "sense": 1,
-            "from": 0.009047970008341798,
-            "to": 0.2615353086333623,
-            "level": 0.9406152703911785
+            "from": 0,
+            "to": 0.2459631001807141,
+            "level": 1
           },
           {
             "channel": "shoulder.right flexion",
             "sense": -1,
-            "from": 0.06320551999885436,
-            "to": 0.15471637085875456,
-            "level": 0.4853242909567708
+            "from": 0.06909145461104747,
+            "to": 0.12689057058751146,
+            "level": 0.35820837631184227
           },
           {
             "channel": "shoulder.right abduction",
             "sense": -1,
-            "from": 0.17213110331418943,
-            "to": 0.33317421658098717,
-            "level": 0.7721223560560032
+            "from": 0.15996151946285128,
+            "to": 0.3024130886842551,
+            "level": 0.7393640926906427
+          },
+          {
+            "channel": "shoulder.right internal rotation",
+            "sense": -1,
+            "from": 0.127243629490875,
+            "to": 0.28888818064858457,
+            "level": 0.15965937982744377
           },
           {
             "channel": "elbow.right flexion",
             "sense": -1,
-            "from": 0.06492834309647409,
-            "to": 0.35824283486768915,
-            "level": 0.8177125400607288
+            "from": 0.05831369446144269,
+            "to": 0.3271548876647769,
+            "level": 0.8063870011874172
           },
           {
             "channel": "wrist.right flexion",
             "sense": 1,
-            "from": 0.18862787973556497,
-            "to": 0.34914700774412516,
-            "level": 0.48628021493539914
+            "from": 0.17782698149839007,
+            "to": 0.3411180709802505,
+            "level": 0.45077840749898707
           },
           {
             "channel": "wrist.right radial deviation",
             "sense": -1,
-            "from": 0.12776894222296878,
-            "to": 0.3507487784060526,
-            "level": 0.6096305145709565
+            "from": 0.1019484132551224,
+            "to": 0.31202330300286196,
+            "level": 0.5706000885424495
           },
           {
             "channel": "wrist.right pronation",
             "sense": 1,
-            "from": 0.19990740117024702,
-            "to": 0.3820870332605256,
-            "level": 0.2528736191813645
+            "from": 0.22450419683939585,
+            "to": 0.3798637386043586,
+            "level": 0.24554977722260285
           }
         ]
       },
       "place": {
-        "ahead": 0.8585258351512759,
+        "ahead": 0.9214675391031132,
         "up": 0
       },
-      "found": "research/core-strike-search.mjs --model workshop-rogue --held \"wooden club\" --band high --seed 1 --hz 120 --from workshop-rogue:high of assets/core/strikes.json@7601bd36 --sigma 0.2, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.413 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
+      "found": "research/core-strike-search.mjs --model workshop-rogue --held \"wooden club\" --band high --seed 1 --hz 120 --from workshop-rogue:high of assets/core/strikes.json@95c3cad2 --sigma 0.2, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.406 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
       "readings": {
         "at120": {
-          "net": 0.4018,
-          "done": 0.4018,
+          "net": 0.3933,
+          "done": 0.3933,
           "cost": 0,
           "runs": [
-            0.403,
+            0.398,
+            0.412,
+            0.385,
+            0.395,
             0.396,
-            0.414,
-            0.397,
-            0.418,
-            0.413,
-            0.388,
-            0.385
+            0.368,
+            0.395,
+            0.398
           ],
           "noise": [
-            0.403,
-            0.342,
-            0.041
+            0.398,
+            0,
+            0
           ],
           "landed": 8,
           "stood": 8,
           "stoodAtNothing": true,
-          "stepsAtNothing": 1
+          "stepsAtNothing": 2
         },
         "at480": {
-          "net": 0.3185,
-          "done": 0.3185,
+          "net": 0.3489,
+          "done": 0.3489,
           "cost": 0,
           "runs": [
-            0.3,
-            0.285,
+            0.351,
+            0.331,
+            0.366,
+            0.347,
+            0.324,
+            0.372,
             0.358,
-            0.295,
-            0.3,
-            0.336,
-            0.342,
-            0.332
+            0.343
           ],
           "noise": [
-            0.3,
-            0.196,
-            0.043
+            0.351,
+            0.277,
+            0.292
           ],
           "landed": 8,
           "stood": 8,
           "stoodAtNothing": true,
-          "stepsAtNothing": 0
+          "stepsAtNothing": 4
         },
         "at1920": {
-          "net": 0.2733,
-          "done": 0.2733,
+          "net": 0,
+          "done": 0,
           "cost": 0,
           "runs": [
-            0.27,
-            0.268,
-            0.302,
-            0.266,
-            0.27,
-            0.288,
-            0.256,
-            0.266
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
           ],
           "noise": [
-            0.27,
-            0.111,
-            0.268
+            0,
+            0.241,
+            0
           ],
-          "landed": 8,
+          "landed": 0,
           "stood": 8,
           "stoodAtNothing": true,
           "stepsAtNothing": 0
         }
       },
-      "net": 0.4018,
+      "net": 0.3933,
       "placed": {
         "net": 0.052,
         "runs": [
@@ -1652,16 +1835,16 @@
       },
       "window": {
         "along": [
-          -0.02,
-          0.08
+          -0.04,
+          0.02
         ],
         "across": [
-          -0.06,
+          -0.04,
           0.02
         ],
         "up": [
-          -0.18,
-          0.06
+          -0.12,
+          0.1
         ]
       }
     },
@@ -1673,529 +1856,215 @@
         "name": "searched right club blow",
         "hand": "right",
         "chamber": {
-          "seconds": 0.5901894690128923,
+          "seconds": 0.578080680281382,
           "pose": {
-            "thoracic rotation right": -0.27759182295994134,
-            "shoulder.right flexion": 2.6566981849195663,
-            "shoulder.right abduction": 0.6364812431509618,
-            "shoulder.right internal rotation": -1.1529400173321527,
-            "elbow.right flexion": 1.0459153438658175,
-            "wrist.right flexion": 0.536172707817619,
-            "wrist.right radial deviation": -0.4470585584021777,
-            "wrist.right pronation": -0.05913463830757193
+            "thoracic rotation right": -0.34458781315384435,
+            "shoulder.right flexion": 2.750494464554068,
+            "shoulder.right abduction": 0.727411465593714,
+            "shoulder.right internal rotation": -1.3059318031238218,
+            "elbow.right flexion": 1.0581907160490882,
+            "wrist.right flexion": 0.7014459899289618,
+            "wrist.right radial deviation": -0.4133419916177684,
+            "wrist.right pronation": 0.039539449560787476
           }
         },
         "pushes": [
           {
             "channel": "thoracic rotation right",
             "sense": -1,
-            "from": 0.06766643153925228,
-            "to": 0.133110986445463,
-            "level": 0.7900854663547126
+            "from": 0.06737699668311505,
+            "to": 0.14978622937062325,
+            "level": 0.927836921136207
+          },
+          {
+            "channel": "lumbar rotation right",
+            "sense": 1,
+            "from": 0.2181990618094475,
+            "to": 0.3577532538967997,
+            "level": 0.11747182232414029
           },
           {
             "channel": "thoracic flexion",
             "sense": 1,
-            "from": 0.08327553602292206,
-            "to": 0.16838718614583148,
-            "level": 0.452379440643925
+            "from": 0.08169424313079125,
+            "to": 0.15320181458789509,
+            "level": 0.3673008667390384
           },
           {
             "channel": "thoracic lateral flexion right",
             "sense": 1,
-            "from": 0.11579666850791409,
-            "to": 0.19607405894383123,
-            "level": 0.707988736782963
+            "from": 0.12590540807697576,
+            "to": 0.23563072822511721,
+            "level": 0.8446637261961342
           },
           {
             "channel": "lumbar flexion",
             "sense": 1,
-            "from": 0.021980586760101718,
-            "to": 0.27073662943957516,
-            "level": 0.9830038127250622
+            "from": 0.043975707809766784,
+            "to": 0.28835700543507203,
+            "level": 1
           },
           {
             "channel": "shoulder.right flexion",
             "sense": -1,
-            "from": 0.05974464251162434,
-            "to": 0.20027662643424532,
-            "level": 0.4426317108139646
+            "from": 0.047154046290532686,
+            "to": 0.1997223756124109,
+            "level": 0.5631377750234455
           },
           {
             "channel": "shoulder.right abduction",
             "sense": -1,
-            "from": 0.14421818470523196,
-            "to": 0.25462498625794716,
-            "level": 0.8233026456860348
+            "from": 0.16309719749829654,
+            "to": 0.27904439419835586,
+            "level": 0.9143828926220608
           },
           {
             "channel": "shoulder.right internal rotation",
             "sense": 1,
-            "from": 0.22953926210299172,
-            "to": 0.3461385093798917,
-            "level": 0.7534894717009755
+            "from": 0.24956915013822742,
+            "to": 0.33892659366565675,
+            "level": 0.7510947965966752
           },
           {
             "channel": "elbow.right flexion",
             "sense": -1,
-            "from": 0.14919353873152802,
-            "to": 0.35262547632773866,
-            "level": 0.915026282268175
+            "from": 0.16135840058704878,
+            "to": 0.34575529644846525,
+            "level": 0.9493975176046511
           },
           {
             "channel": "wrist.right flexion",
             "sense": 1,
-            "from": 0.06856044725467954,
-            "to": 0.34357363203153135,
-            "level": 0.7248607151608314
+            "from": 0.0719443619320933,
+            "to": 0.33972839197412547,
+            "level": 0.6843895269719947
           },
           {
             "channel": "wrist.right radial deviation",
             "sense": -1,
-            "from": 0.05138276655428042,
-            "to": 0.33207108225481413,
-            "level": 0.6145740086710014
+            "from": 0.03894240728030079,
+            "to": 0.31920341025812615,
+            "level": 0.5467823414948298
           },
           {
             "channel": "wrist.right pronation",
             "sense": -1,
-            "from": 0.2196509942423499,
-            "to": 0.3474921349034795,
-            "level": 0.5843970332891022
+            "from": 0.21908569878892606,
+            "to": 0.361576877676543,
+            "level": 0.711793917263883
           }
         ]
       },
       "place": {
-        "ahead": 0.8364028015045252,
+        "ahead": 0.8584851228678899,
         "up": -0.23140315522490673
       },
-      "found": "research/core-strike-search.mjs --model workshop-rogue --held \"wooden club\" --band middle --seed 2 --hz 120 --from workshop-rogue:middle of assets/core/strikes.json@7601bd36 --sigma 0.4, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.501 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
+      "found": "research/core-strike-search.mjs --model workshop-rogue --held \"wooden club\" --band middle --seed 2 --hz 120 --from workshop-rogue:middle of assets/core/strikes.json@95c3cad2 --sigma 0.4, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.567 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
       "readings": {
         "at120": {
-          "net": 0.4244,
-          "done": 0.4244,
+          "net": 0.5373,
+          "done": 0.5373,
           "cost": 0,
           "runs": [
+            0.552,
+            0.499,
+            0.595,
+            0.391,
+            0.592,
+            0.566,
             0.51,
-            0.463,
-            0.377,
-            0.403,
-            0.436,
-            0.34,
-            0.447,
-            0.421
+            0.594
           ],
           "noise": [
-            0.51,
-            0.408,
-            0.453
+            0.552,
+            0.515,
+            0.542
           ],
           "landed": 8,
-          "stood": 8,
+          "stood": 7,
           "stoodAtNothing": true,
-          "stepsAtNothing": 2
+          "stepsAtNothing": 4
         },
         "at480": {
-          "net": 0.4758,
-          "done": 0.4758,
+          "net": 0.5482,
+          "done": 0.5482,
           "cost": 0,
           "runs": [
-            0.471,
-            0.491,
-            0.459,
-            0.495,
-            0.486,
-            0.475,
-            0.455,
-            0.475
-          ],
-          "noise": [
-            0.471,
+            0.557,
+            0.569,
             0.473,
-            0.462
+            0.559,
+            0.568,
+            0.563,
+            0.54,
+            0.557
+          ],
+          "noise": [
+            0.557,
+            0.57,
+            0.552
+          ],
+          "landed": 8,
+          "stood": 8,
+          "stoodAtNothing": true,
+          "stepsAtNothing": 3
+        },
+        "at1920": {
+          "net": 0.4889,
+          "done": 0.4889,
+          "cost": 0,
+          "runs": [
+            0.485,
+            0.494,
+            0.388,
+            0.538,
+            0.488,
+            0.486,
+            0.549,
+            0.483
+          ],
+          "noise": [
+            0.485,
+            0.449,
+            0.485
           ],
           "landed": 8,
           "stood": 8,
           "stoodAtNothing": true,
           "stepsAtNothing": 2
-        },
-        "at1920": {
-          "net": 0.4906,
-          "done": 0.4906,
-          "cost": 0,
-          "runs": [
-            0.494,
-            0.493,
-            0.495,
-            0.481,
-            0.496,
-            0.476,
-            0.494,
-            0.495
-          ],
-          "noise": [
-            0.494,
-            0.491,
-            0.498
-          ],
-          "landed": 8,
-          "stood": 8,
-          "stoodAtNothing": true,
-          "stepsAtNothing": 0
         }
       },
-      "net": 0.4244,
+      "net": 0.5373,
       "placed": {
-        "net": 0.0771,
+        "net": 0.0761,
         "runs": [
-          0.077,
           0.076,
-          0.078
-        ]
-      },
-      "window": {
-        "along": [
-          -0.16,
-          0.04
-        ],
-        "across": [
-          -0.04,
-          0.04
-        ],
-        "up": [
-          -0.22,
-          0.26
-        ]
-      }
-    },
-    {
-      "model": "workshop-rogue",
-      "held": "fist",
-      "band": "high",
-      "strike": {
-        "name": "searched right straight",
-        "hand": "right",
-        "pushes": [
-          {
-            "channel": "lumbar rotation right",
-            "sense": -1,
-            "from": 0.13071478035365447,
-            "to": 0.33334529436143034,
-            "level": 0.5415324396345831
-          },
-          {
-            "channel": "thoracic flexion",
-            "sense": -1,
-            "from": 0.15916004642888062,
-            "to": 0.2809074094650897,
-            "level": 0.12566112701514534
-          },
-          {
-            "channel": "thoracic lateral flexion right",
-            "sense": 1,
-            "from": 0.22040814583497728,
-            "to": 0.32073830169673184,
-            "level": 0.46695872865569904
-          },
-          {
-            "channel": "shoulder.right flexion",
-            "sense": 1,
-            "from": 0.02833933454507461,
-            "to": 0.3118371630262168,
-            "level": 1
-          },
-          {
-            "channel": "shoulder.right abduction",
-            "sense": -1,
-            "from": 0.2458662914425271,
-            "to": 0.3304406430304161,
-            "level": 0.6240208279262462
-          },
-          {
-            "channel": "shoulder.right internal rotation",
-            "sense": -1,
-            "from": 0.23994006008732438,
-            "to": 0.4235744127393024,
-            "level": 0.41364597410436965
-          },
-          {
-            "channel": "elbow.right flexion",
-            "sense": -1,
-            "from": 0.2566355751623077,
-            "to": 0.43506426033950735,
-            "level": 0.9587893823503963
-          }
-        ]
-      },
-      "place": {
-        "ahead": 0.40730298570218765,
-        "up": 0
-      },
-      "found": "research/core-strike-search.mjs --model workshop-rogue --held \"fist\" --band high --guard --seed 2 --hz 120 --from workshop-rogue:high of assets/core/strikes.json@7601bd36 --sigma 0.4, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.011 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
-      "readings": {
-        "at120": {
-          "net": 0.0097,
-          "done": 0.0552,
-          "cost": 0.0455,
-          "runs": [
-            0.01,
-            0.01,
-            0.009,
-            0.009,
-            0.011,
-            0.011,
-            0.008,
-            0.01
-          ],
-          "noise": [
-            0.01,
-            0.011,
-            0.01
-          ],
-          "landed": 8,
-          "stood": 8,
-          "stoodAtNothing": true,
-          "stepsAtNothing": 0
-        },
-        "at480": {
-          "net": 0.0102,
-          "done": 0.055,
-          "cost": 0.0448,
-          "runs": [
-            0.011,
-            0.01,
-            0.01,
-            0.011,
-            0.01,
-            0.01,
-            0.011,
-            0.01
-          ],
-          "noise": [
-            0.011,
-            0.01,
-            0.01
-          ],
-          "landed": 8,
-          "stood": 8,
-          "stoodAtNothing": true,
-          "stepsAtNothing": 0
-        },
-        "at1920": {
-          "net": 0.0102,
-          "done": 0.0546,
-          "cost": 0.0444,
-          "runs": [
-            0.01,
-            0.011,
-            0.01,
-            0.01,
-            0.01,
-            0.011,
-            0.01,
-            0.01
-          ],
-          "noise": [
-            0.01,
-            0.01,
-            0.011
-          ],
-          "landed": 8,
-          "stood": 8,
-          "stoodAtNothing": true,
-          "stepsAtNothing": 0
-        }
-      },
-      "net": 0.0097,
-      "placed": {
-        "net": -0.0021,
-        "runs": [
-          -0.002,
-          -0.002,
-          -0.002
+          0.076,
+          0.076
         ]
       },
       "window": {
         "along": [
           -0.04,
-          0.04
-        ],
-        "across": [
-          -0.02,
-          0.04
-        ],
-        "up": [
-          -0.14,
           0.08
-        ]
-      }
-    },
-    {
-      "model": "workshop-rogue",
-      "held": "fist",
-      "band": "middle",
-      "strike": {
-        "name": "searched right straight",
-        "hand": "right",
-        "pushes": [
-          {
-            "channel": "thoracic rotation right",
-            "sense": -1,
-            "from": 0.2346825682048538,
-            "to": 0.33588779458076445,
-            "level": 0.13036957452614562
-          },
-          {
-            "channel": "lumbar rotation right",
-            "sense": -1,
-            "from": 0.14551892429099839,
-            "to": 0.3359676333648275,
-            "level": 0.7267934171336983
-          },
-          {
-            "channel": "thoracic flexion",
-            "sense": -1,
-            "from": 0.11941485431688054,
-            "to": 0.19364216659482075,
-            "level": 0.6678182824487672
-          },
-          {
-            "channel": "thoracic lateral flexion right",
-            "sense": 1,
-            "from": 0.21077026832764972,
-            "to": 0.40147887249527936,
-            "level": 0.5619559412571853
-          },
-          {
-            "channel": "shoulder.right flexion",
-            "sense": 1,
-            "from": 0.040002203058335115,
-            "to": 0.3092078858120109,
-            "level": 0.977282419773575
-          },
-          {
-            "channel": "shoulder.right abduction",
-            "sense": -1,
-            "from": 0.2777700854144748,
-            "to": 0.44687572808457365,
-            "level": 1
-          },
-          {
-            "channel": "elbow.right flexion",
-            "sense": -1,
-            "from": 0.2949887108189128,
-            "to": 0.5165826043367681,
-            "level": 0.8970858317199801
-          }
-        ]
-      },
-      "place": {
-        "ahead": 0.5394779561772262,
-        "up": -0.23140315522490673
-      },
-      "found": "research/core-strike-search.mjs --model workshop-rogue --held \"fist\" --band middle --guard --seed 1 --hz 120 --from workshop-rogue:middle of assets/core/strikes.json@7601bd36 --sigma 0.2, 30 generations of 64, 4 trials a candidate and one at nothing; searched mean 0.325 HP (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
-      "readings": {
-        "at120": {
-          "net": 0.2596,
-          "done": 0.2881,
-          "cost": 0.0284,
-          "runs": [
-            0.339,
-            0.197,
-            0.28,
-            0.27,
-            0.155,
-            0.242,
-            0.322,
-            0.272
-          ],
-          "noise": [
-            0.339,
-            0.306,
-            0.312
-          ],
-          "landed": 8,
-          "stood": 8,
-          "stoodAtNothing": true,
-          "stepsAtNothing": 0
-        },
-        "at480": {
-          "net": 0.2155,
-          "done": 0.237,
-          "cost": 0.0215,
-          "runs": [
-            0.212,
-            0.22,
-            0.204,
-            0.213,
-            0.22,
-            0.224,
-            0.212,
-            0.219
-          ],
-          "noise": [
-            0.212,
-            0.205,
-            0.216
-          ],
-          "landed": 8,
-          "stood": 8,
-          "stoodAtNothing": true,
-          "stepsAtNothing": 0
-        },
-        "at1920": {
-          "net": 0.2155,
-          "done": 0.2367,
-          "cost": 0.0212,
-          "runs": [
-            0.215,
-            0.212,
-            0.218,
-            0.223,
-            0.219,
-            0.208,
-            0.214,
-            0.216
-          ],
-          "noise": [
-            0.215,
-            0.214,
-            0.215
-          ],
-          "landed": 8,
-          "stood": 8,
-          "stoodAtNothing": true,
-          "stepsAtNothing": 0
-        }
-      },
-      "net": 0.2596,
-      "placed": {
-        "net": 0.0069,
-        "runs": [
-          0.007,
-          0.007,
-          0.008
-        ]
-      },
-      "window": {
-        "along": [
-          -0.04,
-          0.02
         ],
         "across": [
-          -0.02,
-          0.04
+          -0.04,
+          0.06
         ],
         "up": [
-          -0.24,
-          0.24
+          0,
+          0
         ]
       }
     }
   ],
-  "placed": [],
+  "placed": [
+    "workshop-rogue/fist/high: its recipe (seed 2), netting 0.0471 HP, has a window 0 cm along and 2 cm across, narrower than the 4 cm the feet are set to",
+    "workshop-rogue/fist/high: its recipe (seed 5), netting 0.0436 HP, has a window 8 cm along and 2 cm across, narrower than the 4 cm the feet are set to"
+  ],
   "windows": "research/core-strike-window.mjs --hz 120,480 --step 0.02 --most 0.6 --keep 0.8 --keep-up 0.5 --trials 4: each recipe's window, landing, up 3 s after its pushes, with 0.8 of the hit points it does at its place or more along and across, and 0.5 up, at every rate (Node core stand, Rapier, built in its guard and standing on its feet, ground on, no assist; a blow thrown through the strike skill at a target body of its band's part hung at its place, read by the arena's rulebook)",
   "passed": [
-    "workshop-rogue/wooden club/middle: its recipe (seed 1), netting 0.5323 HP, has a window 0 cm along and 0 cm across, narrower than the 4 cm the feet are set to"
+    "workshop-fighter/fist/high: its recipe (seed 1), netting 0.1194 HP, has a window 6 cm along and 2 cm across, narrower than the 4 cm the feet are set to"
   ]
 }

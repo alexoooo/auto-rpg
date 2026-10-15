@@ -7,14 +7,29 @@ import { RISE } from '../src/core/mind/rise/stages.ts';
 import { uprightness } from '../src/core/control/ground.ts';
 import { centreOfToRef, withinSupport } from '../src/core/control/support.ts';
 import { patchCorners } from '../src/core/control/contact-wrench.ts';
+import { CORE_ENGINE } from '../tests/harness/core-stand.mjs';
 
-/** A real hand release after acquiring four supports; no pose or velocity edits. */
-export async function transferTrial({ hand = 'left' } = {}) {
-  const at = RISE.rise.findIndex(s => s.name === 'fours'), fours = RISE.rise[at];
+/**
+ * Each hand's share of the weight on all fours in the probe, by engine (null, the recipe's): the
+ * probe starts with the centre of mass outside the three supports a release keeps. On Rapier's
+ * own joints the Warrior reaches all fours on the recipe's shares over them, and leans over its
+ * hands to reach it outside; on the coordinate joints it reaches it outside on the recipe's, and
+ * leaning that much flings it.
+ */
+const LEANING = { rapier: .28, 'rapier-coordinate': null };
+
+/**
+ * A real hand release after acquiring four supports; no pose or velocity edits. `hands` is each
+ * hand's share of the weight on all fours (null, the recipe's).
+ */
+export async function transferTrial({ hand = 'left', hands = LEANING[CORE_ENGINE] ?? null } = {}) {
+  const at = RISE.rise.findIndex(s => s.name === 'fours'), recipeFours = RISE.rise[at];
+  const fours = hands === null ? recipeFours
+    : { ...recipeFours, on: recipeFours.on.map(on => ({ ...on, share: on.limb.startsWith('hand.') ? hands : .5 - hands })) };
   const stage = { ...fours, name: 'transfer', pitch: .9,
     on: [{ limb: 'shin.left', share: .4 }, { limb: 'shin.right', share: .4 },
       { limb: `hand.${hand === 'left' ? 'right' : 'left'}`, share: .2 }], leave: [`hand.${hand}`], limit: 3 };
-  const recipe = { ...RISE, rise: [...RISE.rise.slice(0, at + 1), stage] };
+  const recipe = { ...RISE, rise: [...RISE.rise.slice(0, at), fours, stage] };
   const { world, built, body, dispose } = await toppled({ model: 'workshop-fighter', held: 'empty', degrees: 0 },
     [(own, view) => stagedRise(own, view, recipe)]);
   const made = riseLimbs({ spec: built.spec, built, muscles: body.muscles, assist: body.assist }, recipe);

@@ -6,8 +6,9 @@ import type { Sex } from "./de-leva-1996.ts";
  *
  * - **Anderson 2007** fitted each direction of the hip, knee and ankle, 18-25 y, 7 men and 7
  *   women, on a Biodex System 3. C4 is the speed at which torque is 75 % of isometric and C5 the
- *   speed at which it is 50 % (Table 1); Table 3 prints both for each sex. Plantar flexion's C5 is
- *   more than three times its C4, so its fitted curve never reaches zero; it is left out.
+ *   speed at which it is 50 % (Table 1); Table 3 prints both for each sex. The ankle was tested
+ *   seated, the hip at 80 deg and the knee at 50 deg of flexion, so plantar flexion is read with its
+ *   gastrocnemius slack.
  * - **Frey-Law 2012** measured the elbow isometrically and at 60-300 deg/s, 30 men and 24 women,
  *   gravity and passive torque subtracted. The columns taken are those at 65 deg of flexion, where
  *   both directions are near their isometric peak. The caption marks the sexes by shading, which
@@ -16,7 +17,7 @@ import type { Sex } from "./de-leva-1996.ts";
  *   of a young adult (F-len), and the eccentric slope at rest against the concentric.
  */
 
-export type AndersonDirection = "hipExtension" | "hipFlexion" | "kneeExtension" | "kneeFlexion" | "ankleDorsiflexion";
+export type AndersonDirection = "hipExtension" | "hipFlexion" | "kneeExtension" | "kneeFlexion" | "ankleDorsiflexion" | "anklePlantarflexion";
 
 /** Table 3's C4 and C5 for the 18-25 y groups, as the paper prints them (`anderson-2007`), rad/s. */
 const ANDERSON_TABLE_3: Readonly<Record<AndersonDirection, { readonly row: string } & Readonly<Record<Sex, readonly [number, number]>>>> = {
@@ -25,6 +26,7 @@ const ANDERSON_TABLE_3: Readonly<Record<AndersonDirection, { readonly row: strin
   kneeExtension: { row: "KE", male: [1.517, 3.952], female: [1.393, 3.623] },
   kneeFlexion: { row: "KF", male: [2.008, 5.233], female: [1.698, 4.412] },
   ankleDorsiflexion: { row: "DF", male: [0.699, 1.940], female: [0.864, 2.399] },
+  anklePlantarflexion: { row: "PF", male: [0.987, 3.558], female: [0.862, 3.109] },
 };
 
 /** Anderson's two points on a direction's curve: the speeds at three quarters and at half of isometric. */

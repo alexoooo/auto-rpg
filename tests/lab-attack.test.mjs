@@ -97,7 +97,7 @@ test("a physical impact releases a target, then removes its collider and senses 
 test("a game attack order approaches and physically hits a seeded target", async () => {
   const stand = await coreStand(spec, { posture: guardPosture(spec) });
   const actor = labActor(stand.built, stand.world, { mind: PUNCHER });
-  const attack = startAttack(actor, { count: 1, seed: 4037 });
+  const attack = startAttack(actor, { count: 1, seed: 42 });
   try {
     const phases = new Set();
     for (let step = 0; step < 1800 && !attack.state.hits && !actor.body.view.down; step++) {

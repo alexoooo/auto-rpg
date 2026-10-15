@@ -16,8 +16,15 @@ import type { Exertion } from "./tables/joint-torques.ts";
  *
  *     (1 - f) w0 - f w (1/k) = w
  *
- * - **Hip and knee, both ways, and the ankle's dorsiflexion:** Anderson 2007 prints two points on
+ * - **The knee, both ways, and the ankle's dorsiflexion:** Anderson 2007 prints two points on
  *   each curve for each sex, so the two equations give w0 and k.
+ * - **The hip, both ways, and the ankle's plantar flexion:** Anderson's two points on the hip's
+ *   curves lie all but on a line (C5 is 2.02 to 2.04 times C4, where a line's is 2), so the curve
+ *   through them is near straight (k about 13 to 23) and its end, w0, is that line's run past the
+ *   speeds measured. Plantar flexion's C5 is 3.6 times its C4, past the 3 of a curve that bends
+ *   without limit, so no Hill curve passes through both. A muscle's curve bends: Thelen's curvature
+ *   is taken, as for the elbow, and w0 is fitted by least squares on the linear form to the two
+ *   points.
  * - **The elbow, both ways:** Frey-Law 2012 prints five speeds for each sex. They fix the curve's
  *   bend near rest but hardly its end: fitted freely, curvatures from 0.05 to 0.8 fit about as
  *   well, with w0 from 80 down to 11 rad/s. Thelen's curvature is taken, and w0 is fitted by least
@@ -51,7 +58,7 @@ type Measured = AndersonDirection | FreyLawDirection;
 function measuredFor(exertion: Exertion): Measured {
   switch (exertion) {
     case "hipExtension": case "hipFlexion": case "kneeExtension": case "kneeFlexion": case "ankleDorsiflexion":
-    case "elbowFlexion": case "elbowExtension":
+    case "anklePlantarflexion": case "elbowFlexion": case "elbowExtension":
       return exertion;
     default:
       return BORROWED[exertion];
@@ -60,8 +67,10 @@ function measuredFor(exertion: Exertion): Measured {
 
 function shortening(direction: Measured, sex: Sex): Pick<ForceVelocitySpec, "unloadedSpeed" | "curvature"> {
   switch (direction) {
-    case "hipExtension": case "hipFlexion": case "kneeExtension": case "kneeFlexion": case "ankleDorsiflexion":
+    case "kneeExtension": case "kneeFlexion": case "ankleDorsiflexion":
       return throughTwoPoints(direction, sex);
+    case "hipExtension": case "hipFlexion": case "anklePlantarflexion":
+      return atCurvatureThroughTwoPoints(direction, sex);
     case "elbowFlexion": case "elbowExtension":
       return fittedAtCurvature(direction, sex);
     default: { const never: never = direction; throw new Error(`no curve for ${String(never)}`); }
@@ -83,6 +92,18 @@ function throughTwoPoints(direction: AndersonDirection, sex: Sex): Pick<ForceVel
         const det = (1 - f1) * (-f2 * w2) - (1 - f2) * (-f1 * w1);
         return det / ((1 - f1) * w2 - (1 - f2) * w1);
       }),
+  };
+}
+
+/** Hill's curve of Thelen's curvature, its unloaded speed fitted to Anderson's two points by least squares. */
+function atCurvatureThroughTwoPoints(direction: AndersonDirection, sex: Sex): Pick<ForceVelocitySpec, "unloadedSpeed" | "curvature"> {
+  const { threeQuarters, half } = andersonPoints(direction, sex);
+  const inputs = [THELEN_CURVATURE, threeQuarters, si(ANDERSON_C4_SHARE), half, si(ANDERSON_C5_SHARE)] as const;
+  return {
+    unloadedSpeed: derive("rad/s", "Hill's curve of a given curvature: its unloaded speed, fitted by least squares on "
+      + "the linear form to points of it, each a speed and its share of isometric", inputs,
+    (k, w1, f1, w2, f2) => ((1 - f1) * (w1 + f1 * w1 / k) + (1 - f2) * (w2 + f2 * w2 / k)) / ((1 - f1) * (1 - f1) + (1 - f2) * (1 - f2))),
+    curvature: THELEN_CURVATURE,
   };
 }
 
@@ -119,7 +140,7 @@ const BORROWED: Readonly<Record<Exclude<Exertion, Measured>, Measured>> = Object
   wristFlexion: "elbowFlexion", wristExtension: "elbowFlexion", wristUlnarDeviation: "elbowFlexion",
   wristRadialDeviation: "elbowFlexion",
   hipAbduction: "hipFlexion", hipAdduction: "hipFlexion", hipExternalRotation: "hipFlexion", hipInternalRotation: "hipFlexion",
-  anklePlantarflexion: "ankleDorsiflexion", footInversion: "ankleDorsiflexion", footEversion: "ankleDorsiflexion",
+  footInversion: "ankleDorsiflexion", footEversion: "ankleDorsiflexion",
   trunkFlexion: "hipFlexion", trunkExtension: "hipFlexion", trunkLateralFlexionRight: "hipFlexion",
   trunkLateralFlexionLeft: "hipFlexion", trunkRotationRight: "hipFlexion", trunkRotationLeft: "hipFlexion",
   neckFlexion: "hipFlexion", neckExtension: "hipFlexion", neckLateralFlexion: "hipFlexion", neckRotation: "hipFlexion",

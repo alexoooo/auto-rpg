@@ -215,13 +215,16 @@ test("an_attack_walks_to_its_place_sets_the_feet_stands_asks_the_window_and_is_t
 
 test("a_recipe_whose_window_holds_its_target_where_the_body_stands_is_thrown_from_there", () => {
   const spec = armed(humanSpec("workshop-fighter"), "right", woodenClub());
-  const { strike, recipe, window } = recipeFor(CLUBS, spec, "right", 0);
+  // The club's recipe with the widest window along, so a step of more than the feet are set to stays inside it.
+  const clubs = REPERTOIRE.filter((recipe) => recipe.model === "workshop-fighter" && recipe.held === "wooden club");
+  const { strike, recipe, window } = recipesFor(clubs, spec, "right")
+    .reduce((wide, chosen) => chosen.window.along[1] - chosen.window.along[0] > wide.window.along[1] - wide.window.along[0] ? chosen : wide);
   const middle = [(window.along[0] + window.along[1]) / 2, (window.across[0] + window.across[1]) / 2];
-  const target = [middle[1], 1.6, recipe.place.ahead + middle[0]];
+  const target = [middle[1], 1.6 + recipe.place.up, recipe.place.ahead + middle[0]];
   const attack = ({ kind: "blow", hand: "right", target });
   // From each edge of the window along, inside it and past it, and from across it: the feet not where they would be set.
   const from = (along, across) => {
-    const skill = strikeSkill(spec, CLUBS), { view, moveBy } = standing();
+    const skill = strikeSkill(spec, [recipe]), { view, moveBy } = standing();
     moveBy(across, along);
     const first = skill.command(view, attack, 0, false, DT), phases = [skill.report.phase];
     let steps = 0;

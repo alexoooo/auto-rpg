@@ -323,9 +323,11 @@ test("the Rogue's torques, scaled from the men's by her muscle, land near the wo
 });
 
 /**
- * Each measured curve says what its source says: Anderson's through the two speeds at which his
- * fits keep three quarters and half of isometric; Frey-Law's the least-squares unloaded speed at
- * Thelen's curvature. That curve is within 5 % of isometric from 120 deg/s up, and 7-14 % high at
+ * Each measured curve says what its source says: Anderson's knee and ankle through the two speeds
+ * at which his fits keep three quarters and half of isometric; his hip, whose two points lie all
+ * but on a line, his plantar flexion, through whose two no Hill curve passes, and Frey-Law's elbow
+ * the least-squares unloaded speed at Thelen's curvature, the hip and plantar flexion within 5 % of
+ * isometric at both points and far faster than the line through them. That curve is within 5 % of isometric from 120 deg/s up, and 7-14 % high at
  * 60 deg/s, where the paper says the elbow drops fast and no Hill curve through the rest follows.
  * A borrowed curve is the one it names, and says it is borrowed. The control: the elbow's curve at
  * 0.9 of its unloaded speed fits worse.
@@ -333,8 +335,8 @@ test("the Rogue's torques, scaled from the men's by her muscle, land near the wo
 test("each measured speed curve passes through its source, and a borrowed one names the curve it takes", () => {
   const curveOf = (spec) => Object.fromEntries(Object.entries(spec).map(([k, q]) => [k, q.value]));
   const anderson = {
-    male: { hipExtension: [1.578, 3.190], hipFlexion: [2.095, 4.267], kneeExtension: [1.517, 3.952], kneeFlexion: [2.008, 5.233], ankleDorsiflexion: [0.699, 1.940] },
-    female: { hipExtension: [1.567, 3.164], hipFlexion: [2.136, 4.349], kneeExtension: [1.393, 3.623], kneeFlexion: [1.698, 4.412], ankleDorsiflexion: [0.864, 2.399] },
+    male: { hipExtension: [1.578, 3.190], hipFlexion: [2.095, 4.267], kneeExtension: [1.517, 3.952], kneeFlexion: [2.008, 5.233], ankleDorsiflexion: [0.699, 1.940], anklePlantarflexion: [0.987, 3.558] },
+    female: { hipExtension: [1.567, 3.164], hipFlexion: [2.136, 4.349], kneeExtension: [1.393, 3.623], kneeFlexion: [1.698, 4.412], ankleDorsiflexion: [0.864, 2.399], anklePlantarflexion: [0.862, 3.109] },
   };
   const freyLaw = {
     male: { elbowFlexion: [63.0, 44.7, 38.7, 33.1, 27.9, 25.7], elbowExtension: [52.8, 39.6, 35.6, 31.8, 26.1, 24.6] },
@@ -347,6 +349,17 @@ test("each measured speed curve passes through its source, and a borrowed one na
     const sex = WORKSHOP_SEX[model];
     for (const [exertion, [c4, c5]] of Object.entries(anderson[sex])) {
       const curve = curveOf(jointSpeed(workshopFigure(model), exertion));
+      if (exertion.startsWith("hip") || exertion === "anklePlantarflexion") {
+        assert.equal(curve.curvature, 0.25);
+        const points = [[c4, 0.75], [c5, 0.5]];
+        const residual = (w0) => points.reduce((sum, [w, f]) => sum + ((1 - f) * w0 - w * (1 + f / curve.curvature)) ** 2, 0);
+        for (const nudge of [0.99, 1.01]) assert.ok(residual(curve.unloadedSpeed * nudge) > residual(curve.unloadedSpeed), `${model} ${exertion} least squares`);
+        for (const [w, f] of points) assert.ok(Math.abs(forceVelocityFactor(w, curve) - f) < 0.05, `${model} ${exertion} at ${w} rad/s`);
+        // The line through the hip's two points runs out of torque at 3 C5 - 2 C4.
+        const line = c4 + (c5 - c4) * 0.75 / 0.25;
+        if (exertion.startsWith("hip")) assert.ok(curve.unloadedSpeed > 2.5 * line, `${model} ${exertion}: ${curve.unloadedSpeed} against the line's ${line}`);
+        continue;
+      }
       assert.ok(Math.abs(forceVelocityFactor(c4, curve) - 0.75) < 1e-9, `${model} ${exertion} at C4`);
       assert.ok(Math.abs(forceVelocityFactor(c5, curve) - 0.5) < 1e-9, `${model} ${exertion} at C5`);
     }

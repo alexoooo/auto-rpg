@@ -1979,3 +1979,42 @@ energies, the first as written; the first's landing beside it.
   same speed, with 34 g more of the club side behind it.
 - **At the game's rate it is another blow**: at 120 Hz two throws of the eight do 7 J or less and
   two leave the Warrior down, where from 480 Hz up the readings agree to 1 %.
+
+### Searched again for the hip's and the calf's curves
+
+The humans' and the skeleton's hip extension and flexion and ankle plantar flexion take Thelen's
+curvature, their unloaded speeds fitted to Anderson 2007's two points (`speed.ts`), where the hip's
+curve ran through both points and plantar flexion borrowed dorsiflexion's. A recipe of
+`assets/core/strikes.json@95c3cad2` was searched on the old muscles, and is thrown otherwise on these. Every
+cell was searched again from its recipe at the seed and spread its recipe was found at, 30
+generations of 64; the clubs that came back below their recipes went on from that search's best
+at spread 0.2 (seed 4); the cells whose windows came back narrower than the feet are set to went
+on with each trial's target within 3 cm of its place along and across (seed 5); and the
+Warrior's club at a head, whose window came back holding 8 cm under its place, went on with the
+target within 15 cm up as well (seed 6). Recipes chosen by
+`research/core-strike-repertoire.mjs --write --from-at 95c3cad2 --spare`, windows by
+`research/core-strike-window.mjs --write --spare`; each recipe's `found` gives its searches. Node
+core stand, Rapier, 120 Hz. Windows are along / across / up, cm.
+
+| Body | Held | Band | Net before, HP | Window before | Net, HP | Window | Seed |
+|---|---|---|---|---|---|---|---|
+| skeleton | wooden club | high | 0.787 | -2 to 6 / -2 to 2 / -26 to 26 | 0.8214 | -6 to 4 / -6 to 2 / -16 to 10 | 5, jittered, went on |
+| skeleton | wooden club | middle | 1.3011 | -12 to 16 / -6 to 4 / -36 to 12 | 1.1888 | -8 to 10 / -8 to 4 / -24 to 26 | 4, went on |
+| skeleton | fist | high | 0.0365 | -4 to 6 / -6 to 2 / -24 to 12 | 0.1274 | -2 to 4 / -6 to 0 / -6 to 8 | 3 |
+| skeleton | fist | middle | 0.6835 | -4 to 2 / -4 to 6 / -18 to 2 | 0.7016 | -2 to 2 / -6 to 2 / -20 to 18 | 3 |
+| Warrior | wooden club | high | 1.1013 | -8 to 2 / -2 to 2 / -54 to 14 | 1.1117 | -2 to 4 / -2 to 2 / -24 to 8 | 6, jittered, went on |
+| Warrior | wooden club | middle | 1.1634 | -14 to 4 / -4 to 4 / -32 to 18 | 0.8978 | -12 to 14 / -4 to 4 / -36 to 0 | 4, went on |
+| Warrior | fist | high | 0.0292 | -6 to 6 / -14 to 4 / -6 to 8 | 0.0948 | -14 to 0 / 0 to 8 / -6 to 6 | 5, jittered, went on |
+| Warrior | fist | middle | 0.5819 | 0 to 4 / -2 to 6 / -34 to 18 | 0.5578 | -6 to 0 / -4 to 4 / -24 to 16 | 2 |
+| Rogue | wooden club | high | 0.4018 | -2 to 8 / -6 to 2 / -18 to 6 | 0.3933 | -4 to 2 / -4 to 2 / -12 to 10 | 1 |
+| Rogue | wooden club | middle | 0.4244 | -16 to 4 / -4 to 4 / -22 to 26 | 0.5373 | -4 to 8 / -4 to 6 / 0 to 0 | 2 |
+| Rogue | fist | high | 0.0097 | -4 to 4 / -2 to 4 / -14 to 8 | placed | placed |  |
+| Rogue | fist | middle | 0.2596 | -4 to 2 / -2 to 4 / -24 to 24 | 0.3036 | -2 to 2 / -6 to 2 / -24 to 8 | 1 |
+
+- **The fists gain and the clubs lose**: every fist at a head nets three to four times what it
+  did, but the Rogue's, which no search could give a window the feet can be set to, is placed;
+  the clubs at a trunk net less for the skeleton and the Warrior, more for the Rogue.
+- **A window searched for**: the Warrior's club at a head searched with its target jittered up
+  nets 1.112 HP, more than the 1.083 of the search it went on from, and holds 24 cm under its
+  place where that held 8. A skeleton's head stands under it, so the Warrior's club meets a
+  skeleton's head with its recipe again: 85 to 109 J at 1.6 to 2 m, where the placed blow did 8.
