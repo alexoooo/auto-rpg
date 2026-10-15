@@ -1,4 +1,5 @@
 import type { Body, BodyView } from "../body.ts";
+import { bodyEffectors } from "../control/effectors.ts";
 import type { MusclePush } from "../control/motor.ts";
 import { atan2, hypot } from "../math/real.ts";
 import type { Side } from "../spec/body.ts";
@@ -46,8 +47,10 @@ const other = (hand: Side): Side => hand === "left" ? "right" : "left";
  * is not poised within `wait` s more, the second is given up and the first comes back alone. Each
  * drive ends as a straight punch's does: `follow` s after its hand begins to touch, or `longest`
  * s after it began; then both arms come back to the guard over `recover` s. Its commitment runs
- * from the first drive to the end of the second. It holds both hands, the trunk and the legs
- * throughout, and is ready where the first hand's straight punch is.
+ * from the first drive to the end of the second. It holds both hands, the trunk and the legs until
+ * a hand is on its way back: from the first drive's end it lets go of the first, and coming back of both,
+ * to the guard, which brings each back and may cover with it, while it holds the trunk and legs to
+ * the end. It is ready where the first hand's straight punch is.
  */
 export function combinationExecutor(body: Body, actions: readonly string[], settings: Combination = COMBINATION,
   resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null = (_view, target) => target.kind === "point" ? target.at : null): Executor {
@@ -55,6 +58,18 @@ export function combinationExecutor(body: Body, actions: readonly string[], sett
   const technique = straightTechnique(body, settings), motion = technique.state, guard = guardPosture(body.built.spec);
   technique.read(body.view);
   const holds = ["hand.left", "hand.right", "trunk", "legs"] as const;
+  /** What it holds where it is: both hands, the trunk and the legs; from the first drive's end, the second hand of them; coming back the trunk and legs. */
+  const holding = (stage: Stage, first: Side): readonly string[] => {
+    switch (stage) {
+      case "settle": case "first": return holds;
+      case "between": case "second": return [`hand.${other(first)}`, "trunk", "legs"];
+      case "return": return ["trunk", "legs"];
+      default: { const never: never = stage; throw new Error(`unknown combination stage ${JSON.stringify(never)}`); }
+    }
+  };
+  /** Each arm's channels: what a hand it has let go of leaves to the guard. */
+  const arms = deepFreeze(Object.fromEntries((["left", "right"] as const).map((side) =>
+    [side, bodyEffectors(body.built).find((effector) => effector.model.segment === `hand.${side}`)?.model.channels ?? []])) as Record<Side, readonly string[]>);
   const sideOf = (effector: string): Side => {
     if (effector === "hand.left") return "left";
     if (effector === "hand.right") return "right";
@@ -143,7 +158,7 @@ export function combinationExecutor(body: Body, actions: readonly string[], sett
       } else if (live.time >= settings.recover) {
         const ending = live.ending; state.live = null; technique.end(); return [{ id: live.request.id, ending }];
       }
-      const updates: LifecycleUpdate[] = [{ id: live.request.id, phase: live.phase, stage: live.stage, holds }];
+      const updates: LifecycleUpdate[] = [{ id: live.request.id, phase: live.phase, stage: live.stage, holds: holding(live.stage, live.first) }];
       return updates;
     },
     command(view, id) {
@@ -153,6 +168,12 @@ export function combinationExecutor(body: Body, actions: readonly string[], sett
       const posture = hand !== null ? technique.drive(view, hand, live.drive, pushes)
         : live.phase === "prepare" ? technique.chamber(view, live.first) ?? guard
           : live.stage === "between" ? technique.chamber(view, other(live.first)) ?? guard : guard;
+      const held = holding(live.stage, live.first), free = (["left", "right"] as const).filter((side) => !held.includes(`hand.${side}`));
+      if (free.length) {
+        const own: Record<string, number> = { ...posture }, poses: Partial<Record<Side, "fist">> = { ...fists };
+        for (const side of free) { for (const channel of arms[side]) delete own[channel]; delete poses[side]; }
+        return { posture: own, pushes, handPoses: poses, legs: { kind: "walk", walk: null, face: motion.face }, lower: live.lower, steer: 0 };
+      }
       return { posture, pushes, handPoses: fists, legs: { kind: "walk", walk: null, face: motion.face }, lower: live.lower,
         steer: hand !== null ? technique.sense[hand] * settings.hips : 0 };
     },
