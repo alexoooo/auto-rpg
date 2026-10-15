@@ -357,8 +357,11 @@ After it, each with its own plan, in the order each needs the one before:
     - **Its run** is the same machine past 1.32 m/s, in settings searched on the Warrior, the
       Rogue and the skeleton together, last with its turns at 1.7 and 2.2 m/s (`SIMBICON_RUN`).
       It never leaves the ground. Every structure that pushed off into a flight fell within a
-      second, and two legs pushing flat out from a crouch lift the centre of mass at only
-      0.88 m/s, the crouch held to 5 cm by the ankle's 0.35 rad dorsiflexion stop. Its envelope
+      second. A squat jump from a crouch built balanced, each leg extensor's onset and activation
+      searched (`research/jump-test.mjs`, Node stand, Rapier, 120 Hz), leaves the ground at 0.9 to
+      1.3 m/s for the Warrior and 0.7 to 1 for the Rogue, from knees bent 0.8 to 1.3 rad, against
+      about 2.4 to 2.8 for a person (recalled, not sourced); the hips turn at their curve's end for
+      a third to a half of the push. Its envelope
       (`assets/core/simbicon-run-envelope.json`) is 2.5 m/s forward for the Warrior and the
       skeleton and 2 for the Rogue; running, the Warrior turns at 0.7 rad/s to 2 m/s and 0.5 at
       2.5, the Rogue 0.7 to 2, and the skeleton 0.25 to 1.7 and not at all faster. Asked 2 and
@@ -407,6 +410,16 @@ After it, each with its own plan, in the order each needs the one before:
           without a fall, against 2 falls in 4 at x1, and the Rogue 1.4, against 2 in 4: about
           0.2 m/s more at the top. With the gait's times shortened by the square root of the speed or by the
           speed itself, forward rises and the side and back walks fall apart.
+        - Measured whether a person's run and jump ask for it. A person's run clip carried on the
+          body (`research/run-feasibility.mjs`: CMU clips, planar inverse dynamics, filtered at
+          8 Hz, scaled by Froude; no engine) asks the swinging hip to turn at 7 to 8 rad/s, past
+          its extension's unloaded speed (6.52): at 2.3 to 2.8 m/s the Warrior needs Haste 1.25
+          to 1.5 there and the Rogue 2 to 2.5, and from 3.5 m/s the hip asks more than its peak
+          torque, which no Haste gives. The knee is within its curve to 2.8 m/s. The ankle asks
+          more than its peak even in a walk read the same way, so its reading is the least sure.
+          The jump above (every muscle at `Physique.speed`) leaves at 1.49 to 1.65 m/s at x1.5,
+          2.03 at x2 and 2.29 to 2.53 at x3 for the Warrior, the faster ones leaving backward at
+          0.6 to 1.2 m/s; at x1.5 and over its hips are rarely at their curve's end.
         - So Haste pays only on a gait that asks its muscles for speed. Its rule scales the gait's
           time dimensions (`DIMENSION`, `simbicon.ts`) by the body's muscle speed against the
           reference body's, as `scaledGait` scales them by leg length, with the exponent (0, 1/2
