@@ -42,17 +42,22 @@ const ONE_TWO = (() => {
 
 /**
  * The skills it fights with: the Counter-puncher's (`COUNTER_PUNCHER`), its straight punch with
- * either hand; its one-two (`ONE_TWO`); and the Scrapper's for a low foe, its low blow, the
+ * either hand, thrown as a combination of one drive (`COMBINATION`), which waits for its poise and
+ * leaves its hand to the guard coming back; its one-two (`ONE_TWO`); and the Scrapper's for a low foe, its low blow, the
  * support fold it is thrown from, and its gaits, braced near and striding farther, which leave
  * the stance the fold steps from.
  */
 const SKILLS: FighterConfig = deepFreeze({ ...COUNTER_PUNCHER, locomotion: SCRAPPER.locomotion,
-  executors: [...COUNTER_PUNCHER.executors, { name: "combination", kind: "combination", ...COMBINATION },
+  executors: [...COUNTER_PUNCHER.executors.map((executor) => executor.name === "punch" ? { name: "punch", kind: "combination" as const, ...COMBINATION, drives: 1 } : executor),
+    { name: "combination", kind: "combination", ...COMBINATION },
     ...SCRAPPER.executors.filter((executor) => executor.name === LOW.executor)],
   actions: [...COUNTER_PUNCHER.actions, ONE_TWO, LOW], support: SCRAPPER.support });
 
-/** How many blows an action of its skills throws: two for a combination, else one. */
-const throws = (action: ActionConfig): number => SKILLS.executors.find((executor) => executor.name === action.executor)?.kind === "combination" ? 2 : 1;
+/** How many blows an action of its skills throws: a combination its drives, else one. */
+const throws = (action: ActionConfig): number => {
+  const executor = SKILLS.executors.find((one) => one.name === action.executor);
+  return executor?.kind === "combination" ? executor.drives : 1;
+};
 if (fighterFaults(SKILLS).length) throw new Error(`the options fighter's skills: ${fighterFaults(SKILLS).join("; ")}`);
 
 /** How it holds the edge of its foe's reach: as the Counter-puncher does. */

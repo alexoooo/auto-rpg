@@ -11,11 +11,13 @@ import { PUNCH_PREPARE_LIMIT, punchReadiness, quietToPunch, STRAIGHT_PUNCH, stra
 import { closesToStrike } from "./strikes.ts";
 
 /**
- * **A combination's settings**: a straight punch's; how long after the first drive ends the second
- * may begin, s; how far the centre of mass may stand across the ground from the middle of the
- * feet for it to begin, m; and how long past `gap` it waits for that before the second is given up, s.
+ * **A combination's settings**: a straight punch's; how many drives it is, one or two; how long
+ * after the first drive ends the second may begin, s; how far the centre of mass may stand across
+ * the ground from the middle of the feet for a drive to begin, m; and how long past `gap` it waits
+ * for that before the second is given up, s.
  */
 export interface Combination extends StraightPunch {
+  readonly drives: number;
   readonly gap: number;
   readonly poise: number;
   readonly wait: number;
@@ -27,10 +29,10 @@ export interface Combination extends StraightPunch {
  * feet: sooner, or from a body still carried off its feet by the first, the second lean bends the
  * body over at the hips.
  */
-export const COMBINATION: Combination = deepFreeze({ ...STRAIGHT_PUNCH, band: .4, gap: .3, poise: .1, wait: .4 });
+export const COMBINATION: Combination = deepFreeze({ ...STRAIGHT_PUNCH, band: .4, drives: 2, gap: .3, poise: .1, wait: .4 });
 
-/** Whether `settings` are a combination's: a straight punch's, and a gap, poise and wait each finite and not negative. */
-export const validCombination = (settings: Combination): boolean => validStraightPunch(settings)
+/** Whether `settings` are a combination's: a straight punch's, of one drive or two, and a gap, poise and wait each finite and not negative. */
+export const validCombination = (settings: Combination): boolean => validStraightPunch(settings) && (settings.drives === 1 || settings.drives === 2)
   && [settings.gap, settings.poise, settings.wait].every((v) => Number.isFinite(v) && v >= 0);
 
 /** Where a combination is: settling, driving its first hand, between its drives, driving its second hand, or coming back. */
@@ -40,17 +42,18 @@ const other = (hand: Side): Side => hand === "left" ? "right" : "left";
 
 /**
  * **A combination**: two straight punches as one action, the hand asked for first and the other
- * second (a one-two). It settles as the straight punch does (`straightTechnique`), and further
- * until its centre of mass is within `poise` of the middle of its feet, and drives the first hand.
- * As that drive ends the first arm comes back to the guard and, `gap` s later, once the body is
- * poised again, the second hand is driven, the hips and chest turning back the other way; if it
- * is not poised within `wait` s more, the second is given up and the first comes back alone. Each
- * drive ends as a straight punch's does: `follow` s after its hand begins to touch, or `longest`
- * s after it began; then both arms come back to the guard over `recover` s. Its commitment runs
- * from the first drive to the end of the second. It holds both hands, the trunk and the legs until
- * a hand is on its way back: from the first drive's end it lets go of the first, and coming back of both,
- * to the guard, which brings each back and may cover with it, while it holds the trunk and legs to
- * the end. It is ready where the first hand's straight punch is.
+ * second (a one-two); of one drive, a lone straight punch that waits for its poise and leaves its
+ * hand to the guard coming back. It settles as the straight punch does (`straightTechnique`), and
+ * further until its centre of mass is within `poise` of the middle of its feet, and drives the
+ * first hand. As that drive ends the first arm comes back to the guard and, `gap` s later, once
+ * the body is poised again, the second hand is driven, the hips and chest turning back the other
+ * way; if it is not poised within `wait` s more, the second is given up and the first comes back
+ * alone. Each drive ends as a straight punch's does: `follow` s after its hand begins to touch, or
+ * `longest` s after it began; then both arms come back to the guard over `recover` s. Its
+ * commitment runs from the first drive to the end of the last. It holds the hands it drives, the
+ * trunk and the legs until a hand is on its way back: from the first drive's end it lets go of the
+ * first, and coming back of both, to the guard, which brings each back and may cover with it, while
+ * it holds the trunk and legs to the end. It is ready where the first hand's straight punch is.
  */
 export function combinationExecutor(body: Body, actions: readonly string[], settings: Combination = COMBINATION,
   resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null = (_view, target) => target.kind === "point" ? target.at : null): Executor {
@@ -58,10 +61,10 @@ export function combinationExecutor(body: Body, actions: readonly string[], sett
   const technique = straightTechnique(body, settings), motion = technique.state, guard = guardPosture(body.built.spec);
   technique.read(body.view);
   const holds = ["hand.left", "hand.right", "trunk", "legs"] as const;
-  /** What it holds where it is: both hands, the trunk and the legs; from the first drive's end, the second hand of them; coming back the trunk and legs. */
+  /** What it holds where it is: both hands, the trunk and the legs, of one drive the first hand of them; from the first drive's end, the second hand of them; coming back the trunk and legs. */
   const holding = (stage: Stage, first: Side): readonly string[] => {
     switch (stage) {
-      case "settle": case "first": return holds;
+      case "settle": case "first": return settings.drives === 1 ? [`hand.${first}`, "trunk", "legs"] : holds;
       case "between": case "second": return [`hand.${other(first)}`, "trunk", "legs"];
       case "return": return ["trunk", "legs"];
       default: { const never: never = stage; throw new Error(`unknown combination stage ${JSON.stringify(never)}`); }
@@ -104,7 +107,7 @@ export function combinationExecutor(body: Body, actions: readonly string[], sett
   const fists = deepFreeze(Object.fromEntries((["left", "right"] as const).filter((hand) => closesToStrike(body.built.spec, hand)).map((hand) => [hand, "fist" as const])));
   return {
     state,
-    needs() { return holds; },
+    needs(_action, effector) { return holding("settle", sideOf(effector)); },
     readiness(view, action, effector, target, around) {
       if (!actions.includes(action)) return { kind: "blocked", reason: "unknown action" };
       if (effector !== "hand.left" && effector !== "hand.right") return { kind: "blocked", reason: "unsupported effector" };
@@ -151,7 +154,8 @@ export function combinationExecutor(body: Body, actions: readonly string[], sett
           if (touching && !motion.touching && motion.touched === null) motion.touched = view.time;
           motion.touching = touching;
           if (motion.touched !== null && view.time - motion.touched >= settings.follow || live.drive >= settings.longest) {
-            if (live.stage === "first") { live.stage = "between"; live.drive = 0; live.quiet = 0; motion.phase = "return"; }
+            if (live.stage === "first" && settings.drives === 1) release({ kind: "completed" });
+            else if (live.stage === "first") { live.stage = "between"; live.drive = 0; live.quiet = 0; motion.phase = "return"; }
             else release({ kind: "completed" });
           }
         }

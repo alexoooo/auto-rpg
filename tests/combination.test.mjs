@@ -3,10 +3,11 @@
  * settles (here not at all: it stands quiet), drives the hand asked for, waits, drives the other
  * hand, and brings both back, holding both hands, the trunk and the legs until a hand is on its
  * way back, which it leaves to the guard, and the trunk and legs to the end; each drive pushes only
- * its own arm's channels, and a hand it has let go of it commands nothing of. The second waits for the centre of mass to be over the feet,
- * and is given up when it is not in time. A Warrior pinned at the lower trunk, punching a point
- * ahead of its head: pinned, its stance steps under the first drive and its centre of mass stays
- * well off its feet.
+ * its own arm's channels, and a hand it has let go of it commands nothing of. The second waits for
+ * the centre of mass to be over the feet, and is given up when it is not in time. Of one drive, it
+ * holds only its hand, the trunk and the legs, and comes back after the one. A Warrior pinned at
+ * the lower trunk, punching a point ahead of its head: pinned, its stance steps under the first
+ * drive and its centre of mass stays well off its feet.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -73,4 +74,15 @@ test("a_combination_gives_up_its_second_drive_while_its_centre_of_mass_is_off_it
   assert.deepEqual(run.arms, { first: ["right"], second: [] });
   assert.deepEqual(run.ending, { kind: "completed" });
   assert.equal(run.live, null);
+});
+
+test("a_combination_of_one_drive_holds_only_its_hand_and_leaves_it_to_the_guard_coming_back", async () => {
+  const run = await oneTwo({ ...COMBINATION, poise: 1, drives: 1 });
+  assert.deepEqual(run.needs, ["hand.right", "trunk", "legs"]);
+  assert.deepEqual(run.stages, ["first", "return"]);
+  assert.deepEqual(run.arms, { first: ["right"], second: [] });
+  assert.deepEqual(run.holds, { first: ["hand.right", "trunk", "legs"], return: ["trunk", "legs"] });
+  assert.ok(run.commanded > 0, "the right hand commanded while held");
+  assert.equal(run.strays, 0, "nothing of the right hand once it is let go of");
+  assert.deepEqual(run.ending, { kind: "completed" });
 });

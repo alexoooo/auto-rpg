@@ -68,7 +68,7 @@ export const CONFIG_KEYS = deepFreeze({
   "combination": {
     kind: true, name: true, pace: true, reach: true, band: true, settle: true, through: true, hips: true, turn: true,
     lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
-    recover: true, landed: true, gap: true, poise: true, wait: true,
+    recover: true, landed: true, drives: true, gap: true, poise: true, wait: true,
   },
   "front-kick": { kind: true, name: true, tuning: true },
   "support-fold": { kind: true },
