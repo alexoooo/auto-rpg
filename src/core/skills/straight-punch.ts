@@ -11,7 +11,7 @@ import { deepFreeze } from "../state.ts";
 import { guardPosture } from "./guard.ts";
 import { type StrikeReport } from "./strike.ts";
 import { turnSense } from "./whole-body-strike.ts";
-import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetRef } from "./action.ts";
+import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness, TargetRef } from "./action.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
 import { closesToStrike } from "./strikes.ts";
 
@@ -138,7 +138,7 @@ const HANDS: readonly Side[] = Object.freeze(["left", "right"]);
  * guard and stands. An attack given up before the drive is dropped; a drive begun is thrown to its
  * end. It has the legs from its approach to its return, and the hand is closed throughout.
  */
-function straightTechnique(body: Body, settings: StraightPunch) {
+export function straightTechnique(body: Body, settings: StraightPunch) {
   const built = body.built, spec = built.spec, guard = guardPosture(spec), sense = { left: turnSense("left"), right: turnSense("right") };
   if (!straightPunchFits(spec)) throw new Error(`${spec.model} cannot throw the straight punch`);
   const effectors = bodyEffectors(built), at = new Vector3(), before = new Vector3();
@@ -273,7 +273,28 @@ function straightTechnique(body: Body, settings: StraightPunch) {
 }
 
 /** A stopped approach must establish its local stroke within this many seconds. */
-const PUNCH_PREPARE_LIMIT = 6;
+export const PUNCH_PREPARE_LIMIT = 6;
+
+/** Whether the body stands quiet enough to drive a punch: standing, or shifting its weight no faster than `SHIFTING_PACE`. */
+export const quietToPunch = (view: BodyView): boolean =>
+  view.stance.phase === "stand" || view.stance.phase === "shift" && hypot(view.stance.velocity.x, view.stance.velocity.z) < SHIFTING_PACE;
+
+/**
+ * Whether `hand`'s straight punch at `at` (`technique`'s, with `settings`) can be thrown from where
+ * the body stands, facing `heading`: blocked out of the arm's height band; else ready within its
+ * window, its stand-off on the ground from the target, or the window to walk to.
+ */
+export function punchReadiness(view: BodyView, technique: ReturnType<typeof straightTechnique>, settings: StraightPunch, hand: Side, at: Vec3, heading: number): Readiness {
+  const reach = technique.standOff(hand, at[1] - view.head.y);
+  if (!technique.heightFits(hand, at[1] - view.head.y)) return { kind: "blocked", reason: "target is outside the arm's height band" };
+  const dx = view.head.x - view.stance.centre.x, dz = view.head.z - view.stance.centre.z;
+  const ahead = dx * sin(heading) + dz * cos(heading), across = dx * cos(heading) - dz * sin(heading);
+  // Entry permits the configured approach speed and a modest bearing error before settling.
+  const window = { at, along: [reach + ahead - CROWDED, reach + ahead + settings.band] as const,
+    across: [across - settings.band, across + settings.band] as const, facing: .4, speed: settings.pace };
+  if (!withinActionWindow(view, window, heading)) return { kind: "position", window };
+  return { kind: "ready" };
+}
 
 /** A straight-punch instance owns settling, its committed drive and its bounded guard return. */
 export function straightPunchExecutor(body: Body, actions: readonly string[], settings: StraightPunch = STRAIGHT_PUNCH,
@@ -305,15 +326,7 @@ export function straightPunchExecutor(body: Body, actions: readonly string[], se
       if (state.live) return { kind: "waiting", reason: "straight punch is striking or returning" };
       const at = resolve(view, target, action, effector);
       if (!at) return { kind: "blocked", reason: "target has no aim" };
-      const hand = sideOf(effector), reach = technique.standOff(hand, at[1] - view.head.y);
-      if (!technique.heightFits(hand, at[1] - view.head.y)) return { kind: "blocked", reason: "target is outside the arm's height band" };
-      const dx = view.head.x - view.stance.centre.x, dz = view.head.z - view.stance.centre.z;
-      const ahead = dx * sin(around.heading) + dz * cos(around.heading), across = dx * cos(around.heading) - dz * sin(around.heading);
-      // Entry permits the configured approach speed and a modest bearing error before settling.
-      const window = { at, along: [reach + ahead - CROWDED, reach + ahead + settings.band] as const,
-        across: [across - settings.band, across + settings.band] as const, facing: .4, speed: settings.pace };
-      if (!withinActionWindow(view, window, around.heading)) return { kind: "position", window };
-      return { kind: "ready" };
+      return punchReadiness(view, technique, settings, sideOf(effector), at, around.heading);
     },
     resume() { state.live = null; technique.end(); },
     interrupt(_view, id) { if (state.live?.request.id === id) { state.live = null; technique.end(); } },
@@ -339,7 +352,7 @@ export function straightPunchExecutor(body: Body, actions: readonly string[], se
       live.time += dt;
       if (live.phase === "prepare") {
         live.stage = "settle";
-        const quiet = view.stance.phase === "stand" || view.stance.phase === "shift" && hypot(view.stance.velocity.x, view.stance.velocity.z) < SHIFTING_PACE;
+        const quiet = quietToPunch(view);
         live.quiet = quiet ? live.quiet + dt : 0;
         if (live.time >= PUNCH_PREPARE_LIMIT) release({ kind: "stalled", reason: "settling deadline" });
         else if (quiet && live.quiet >= settings.settle) {

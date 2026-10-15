@@ -65,6 +65,11 @@ export const CONFIG_KEYS = deepFreeze({
     lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
     recover: true, landed: true,
   },
+  "combination": {
+    kind: true, name: true, pace: true, reach: true, band: true, settle: true, through: true, hips: true, turn: true,
+    lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
+    recover: true, landed: true, gap: true, poise: true, wait: true,
+  },
   "front-kick": { kind: true, name: true, tuning: true },
   "support-fold": { kind: true },
 } satisfies { readonly [K in Config["kind"]]: { readonly [P in keyof Extract<Config, { kind: K }>]-?: true } });

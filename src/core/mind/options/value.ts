@@ -28,10 +28,10 @@ export interface Weights {
 
 /**
  * The options fighter's weights: a blow taken weighs as a blow dealt; a metre walked as ordered
- * weighs as 30 J dealt, so that orders are obeyed past a weak blow and not into a heavy one; a
- * fall as a 55 J blow taken.
+ * weighs as 45 J dealt, so that orders are obeyed past a one-two at hand and a weak blow coming,
+ * and not into a heavy one; a fall as a 55 J blow taken.
  */
-export const WEIGHTS: Weights = deepFreeze({ dealt: 1, taken: 1, orders: 30, fall: 100 });
+export const WEIGHTS: Weights = deepFreeze({ dealt: 1, taken: 1, orders: 45, fall: 100 });
 
 /** The terms of every weight, in the order a config's faults name them. */
 export const TERMS: readonly (keyof Weights)[] = Object.freeze(["dealt", "taken", "orders", "fall"]);

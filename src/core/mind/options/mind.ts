@@ -3,7 +3,8 @@ import type { BuiltBody } from "../../build/build-body.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { World } from "../../world.ts";
-import { COUNTER_PUNCHER, SCRAPPER, STAND_UP, type FighterConfig, type OptionsConfig, type SubMindConfig } from "../config.ts";
+import { COMBINATION } from "../../skills/combination.ts";
+import { COUNTER_PUNCHER, SCRAPPER, STAND_UP, type ActionConfig, type FighterConfig, type OptionsConfig, type SubMindConfig } from "../config.ts";
 import { actionConfigFaults } from "../action-config.ts";
 import { fighterBody, fighterFaults, fighterSkills } from "../fighter.ts";
 import { NO_COVER } from "../intent.ts";
@@ -32,14 +33,26 @@ const LOW = (() => {
   return low;
 })();
 
+/** Its one-two: a combination (`COMBINATION`) at the head, either hand first, as the Counter-puncher's punch aims. */
+const ONE_TWO = (() => {
+  const punch = COUNTER_PUNCHER.actions[0];
+  if (!punch) throw new Error("the Counter-puncher has no punch");
+  return deepFreeze({ ...punch, name: "one-two", executor: "combination" });
+})();
+
 /**
  * The skills it fights with: the Counter-puncher's (`COUNTER_PUNCHER`), its straight punch with
- * either hand; and the Scrapper's for a low foe, its low blow, the support fold it is thrown from,
- * and its gaits, braced near and striding farther, which leave the stance the fold steps from.
+ * either hand; its one-two (`ONE_TWO`); and the Scrapper's for a low foe, its low blow, the
+ * support fold it is thrown from, and its gaits, braced near and striding farther, which leave
+ * the stance the fold steps from.
  */
 const SKILLS: FighterConfig = deepFreeze({ ...COUNTER_PUNCHER, locomotion: SCRAPPER.locomotion,
-  executors: [...COUNTER_PUNCHER.executors, ...SCRAPPER.executors.filter((executor) => executor.name === LOW.executor)],
-  actions: [...COUNTER_PUNCHER.actions, LOW], support: SCRAPPER.support });
+  executors: [...COUNTER_PUNCHER.executors, { name: "combination", kind: "combination", ...COMBINATION },
+    ...SCRAPPER.executors.filter((executor) => executor.name === LOW.executor)],
+  actions: [...COUNTER_PUNCHER.actions, ONE_TWO, LOW], support: SCRAPPER.support });
+
+/** How many blows an action of its skills throws: two for a combination, else one. */
+const throws = (action: ActionConfig): number => SKILLS.executors.find((executor) => executor.name === action.executor)?.kind === "combination" ? 2 : 1;
 if (fighterFaults(SKILLS).length) throw new Error(`the options fighter's skills: ${fighterFaults(SKILLS).join("; ")}`);
 
 /** How it holds the edge of its foe's reach: as the Counter-puncher does. */
@@ -96,7 +109,8 @@ export function createOptionsFighter(built: BuiltBody, world: World, config: Opt
     return downHalf(downs, running, decide, half);
   }] });
   if (downs.length !== DOWN.length) throw new Error("the options fighter's body made no down half");
-  const standing = SKILLS.actions.filter((action) => action.lower === undefined), strikeNow = standing.map((action) => strike(action, walk, false));
+  const standing = SKILLS.actions.filter((action) => action.lower === undefined && (config.tuning?.combination !== false || action !== ONE_TWO));
+  const strikeNow = standing.map((action) => strike(action, walk, false, throws(action)));
   const options: readonly Option[] = [
     ...downs,
     followOrders(walk),
@@ -105,7 +119,7 @@ export function createOptionsFighter(built: BuiltBody, world: World, config: Opt
     strikeLow(LOW, built.spec, walk),
     evade(walk),
     holdEdge(EDGE, walk, (now) => strikeNow.some((option) => option.available(now))),
-    ...standing.map((action) => strike(action, walk, true)),
+    ...standing.map((action) => strike(action, walk, true, throws(action))),
     setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false, facing: "foe" }, walk),
   ];
   meta = metaController(options, config.meta === "ranked" ? options.map((_, i) => options.length - i) : valued("hand-built", { ...WEIGHTS, ...config.weights }));

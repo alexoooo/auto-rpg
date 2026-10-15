@@ -5,6 +5,7 @@ import type { AttackTuning } from "../skills/attack-path.ts";
 import type { CombatExecution, DrivenStrike } from "../skills/combat.ts";
 import type { TurnStartup } from "../skills/locomotion.ts";
 import { STRAIGHT_PUNCH, type StraightPunch } from "../skills/straight-punch.ts";
+import type { Combination } from "../skills/combination.ts";
 import type { StrideSettings } from "../skills/stride.ts";
 import type { RunSettings } from "../skills/run.ts";
 import type { SimbiconRun, SimbiconSettings, SimbiconWay } from "../skills/simbicon.ts";
@@ -186,6 +187,11 @@ interface StraightPunchConfig extends StraightPunch {
   readonly kind: "straight-punch";
 }
 
+/** **The combination** (`combinationExecutor`, `skills/combination.ts`): two straight punches, one hand then the other, its settings these. */
+interface CombinationConfig extends Combination {
+  readonly kind: "combination";
+}
+
 /** **The front kick** with either foot (`kickExecutor`), its configured swing tuning. */
 interface FrontKickConfig {
   readonly kind: "front-kick";
@@ -193,7 +199,7 @@ interface FrontKickConfig {
 }
 
 /** Named execution state shared only by actions that explicitly refer to it. */
-export type ExecutorConfig = (RecipeStrikeConfig | PathStrikeConfig | DrivenStrikeConfig | WholeBodyStrikeConfig | StraightPunchConfig | FrontKickConfig) & { readonly name: string };
+export type ExecutorConfig = (RecipeStrikeConfig | PathStrikeConfig | DrivenStrikeConfig | WholeBodyStrikeConfig | StraightPunchConfig | CombinationConfig | FrontKickConfig) & { readonly name: string };
 
 /** A configured attack's identity, anatomical choices and its executor-specific motion settings. */
 export interface ActionConfig {
@@ -239,8 +245,8 @@ export interface OptionsConfig {
   readonly meta?: "valued" | "ranked";
   /** What its valued choice weighs each term by, over the fighter's own (`WEIGHTS`). */
   readonly weights?: Readonly<Partial<Weights>>;
-  /** Whether its cover reflex runs: it does unless `cover` is false. */
-  readonly tuning?: { readonly cover?: boolean };
+  /** Whether its cover reflex runs, and whether it throws its one-two: each does unless false. */
+  readonly tuning?: { readonly cover?: boolean; readonly combination?: boolean };
 }
 
 /** Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. */
