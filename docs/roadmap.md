@@ -400,7 +400,9 @@ After it, each with its own plan, in the order each needs the one before:
       and the skeleton 9 to 10 s after stopping from 1.8 and 2.4. In an Arena bout opened at 8 m
       the Warrior asked 1.4 runs, stops and stays up, but changes gait 3.3 s after the Rogue comes
       near (`tests/move.test.mjs`, a `todo` against 3 s). **Open:** braking faster than the
-      planners' 0.3 m/s².
+      planners' 0.3 m/s². A stop from 3.5 m/s takes 7.6 s and 15 m, at the walk's `slowdown`
+      (0.47 m/s²); at 0.7 the stop takes 5.5 s and 14 of the 96 fall, the skeleton 10, since its
+      guard walk does not take a quicker slowing.
     - **With balance** the gait asks the assist to right the pelvis (`gaitAssist`,
       [assist](reference/assist.md#a-gaits-assist)): on that battery at 25 % the runs that fall go
       from 19 of 150 to 2, the turns from 20 of 60 to 2 and the stops from 18 of 90 to 1. The

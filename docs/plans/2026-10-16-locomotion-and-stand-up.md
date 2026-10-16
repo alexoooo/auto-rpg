@@ -88,8 +88,25 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
   (26 of 45 stops fell, against 16 at the walk's 0.47 m/s²); a lower handover speed; a larger `cv`
   or `leanGain`. The search's walk `slowdown` of 0.68 m/s² throws the skeleton's guard walk as it
   stops from 1.2 m/s.
-- **Next.** The same fix as L1, measured as metres to stop; then raise the planners' brake to what
-  holds.
+- **Searched** (Node stand, Rapier, 120 Hz, balance 0): the run's settings and the walk's
+  `speedup` and `slowdown` together (`run-cycle-search`, 40 generations from L1's). Its best fell
+  41 of the gait battery's 300 against 45, but 10 of the stop battery's 96 against 3 (the
+  skeleton 8), and stopped from 3.5 m/s in 4.5 s and 9.1 m against 7.6 s and 15.0 m. Not kept. The
+  quicker stop is its walk `slowdown`, doubled to 1.0 m/s²: the run's `brake` alone fell 2 of 96
+  and stopped in 7.4 s, and its best with today's brake fell 8. The walk's slowdown alone, on the
+  stop battery:
+
+  | `slowdown`, m/s² | Fell of 96 | From 3.5 m/s |
+  |---|---|---|
+  | 0.473, today's | 3 | 7.6 s, 15.0 m |
+  | 0.7 | 14 | 5.5 s, 10.6 m |
+  | 1.0 | 15 | 4.4 s, 8.4 m |
+  | 1.5 | 25 | 3.6 s, 7.1 m |
+
+  The skeleton falls most: its guard walk does not take a quicker slowing. The planners' 0.3 m/s²
+  stays; today's stop from 3.5 m/s averages 0.46 m/s² and takes 15 m, against 20 m planned.
+- **Next.** A walk that slows faster without felling the skeleton: its stance's placement
+  while slowing, not the rate asked. Then raise the planners' brake to what holds.
 
 ### L3. The Warriors go down at about 7 s in a 12 m bout
 
