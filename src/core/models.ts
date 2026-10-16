@@ -33,14 +33,26 @@ const REPTILE: ModelInfo = deepFreeze({ mind: QUADRUPED, held: "empty" });
 
 /**
  * Anatomical construction dispatches by registered model, without another family's spec as a
- * template. A humanoid takes a physique (`Physique`); the reptile has none.
+ * template. A humanoid takes a physique (`Physique`) and `attributes` in place of its character's: a
+ * haste, per cent (`AttributeSpec.haste`); the reptile takes neither.
  */
-export function modelSpec(model: BodyModel, physique?: Physique): BodySpec {
+export function modelSpec(model: BodyModel, physique?: Physique, attributes: { readonly haste?: number } = {}): BodySpec {
+  const { haste } = attributes;
   switch (model) {
-    case "workshop-fighter": case "workshop-rogue": case "crypt-skeleton": return humanoidSpec(model, physique);
+    case "workshop-fighter": case "workshop-rogue": case "crypt-skeleton": return humanoidSpec(model, physique, haste);
     case "reptile":
       if (physique) throw new Error("the reptile takes no physique");
+      if (haste !== undefined) throw new Error("the reptile takes no haste");
       return reptileSpec();
+    default: { const never: never = model; throw new Error(`unknown model ${never}`); }
+  }
+}
+
+/** Whether `model` takes a haste in place of its character's (`modelSpec`). */
+export function modelHastes(model: BodyModel): boolean {
+  switch (model) {
+    case "workshop-fighter": case "workshop-rogue": case "crypt-skeleton": return true;
+    case "reptile": return false;
     default: { const never: never = model; throw new Error(`unknown model ${never}`); }
   }
 }

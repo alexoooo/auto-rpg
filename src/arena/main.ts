@@ -14,6 +14,7 @@ import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { BODY_MODELS, modelHolds, modelSpec, type BodyModel } from "../core/models.ts";
+import { HUMAN_HASTE } from "../core/human/attributes.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { createWorld, type World } from "../core/world.ts";
 import type { SkinView } from "../render/skin-view.ts";
@@ -22,7 +23,7 @@ import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { ARENA_HELD, boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readGap, CONTROLS, controllerLabel, controlName, controlsFor, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readHaste, readGap, CONTROLS, controllerLabel, controlName, controlsFor, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
 import { PRESETS } from "../core/mind/controllers.ts";
 import { partOf } from "../core/mind/catalog.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
@@ -307,11 +308,11 @@ export async function bootArena(): Promise<void> {
       end();
       toStart();
       audio.reset();
-      const balance = readBalance(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search) ?? null;
+      const balance = readBalance(location.search), haste = readHaste(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search) ?? null;
       controllers = { left: controllerLabel(location.search, "left"), right: controllerLabel(location.search, "right") };
       const bout = duel = new Duel(world, {
         left: matchup.left, right: matchup.right, recoverySeconds,
-        ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(held ? { held } : {}), ...(minds ? { minds } : {}),
+        ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(haste ? { haste } : {}), ...(held ? { held } : {}), ...(minds ? { minds } : {}),
       }, {
         solids: arenaSolids(),
         onBuilt: (duelist, built) => {
@@ -450,7 +451,9 @@ export async function bootArena(): Promise<void> {
     // While either side is helped, each side's balance, per cent of its weight: the link's, or its character's.
     const helped = SIDES.some((side) => duel!.duelists[side].body.assist.on);
     const balance = SIDES.map((side) => duel!.recipe.balance?.[side] ?? duel!.duelists[side].built.spec.attributes.balance.value);
-    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${replaying ? " · replay" : ""}`;
+    // While either side is hasted, each side's haste, per cent of a person's.
+    const haste = SIDES.map((side) => duel!.duelists[side].built.spec.attributes.haste.value), hasted = haste.some((h) => h !== HUMAN_HASTE.value);
+    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${hasted ? ` · haste ${haste.join(" / ")} %` : ""}${replaying ? " · replay" : ""}`;
     if (duel.verdict && shown !== duel.verdict) {
       pauseButton.hidden = true;
       shown = duel.verdict;

@@ -14,7 +14,7 @@ import { labAddress, labHref, recoveryAddress, LAB_PRESETS, LAB_RATES, MODELS, S
 const SCRIPT = LAB_PRESETS.script.config, GUARD = LAB_PRESETS.guard.config;
 /** A mind no preset is: the Guard preset getting up once down. */
 const RISING = { ...GUARD, subs: [{ kind: "support-recovery" }] };
-const DEFAULTS = { ground: {drive:"mind",waypoint:"none",start:"shoved",posture:"back",degrees:null,impulse:null,foe:0,gusts:false}, recoveryMode: "selected", recoveryPush: {degrees:0,impulse:60,separation:.2}, appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, sole: false, balance: null, mind: SCRIPT, barred: [], hz: 120,
+const DEFAULTS = { ground: {drive:"mind",waypoint:"none",start:"shoved",posture:"back",degrees:null,impulse:null,foe:0,gusts:false}, recoveryMode: "selected", recoveryPush: {degrees:0,impulse:60,separation:.2}, appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, sole: false, balance: null, haste: null, mind: SCRIPT, barred: [], hz: 120,
   view: "world", camera: "free", projection: "orthographic", targets: 10, seed: 1 };
 /** The Rogue as the workshop dresses it: boots, no armour. */
 const ROGUE = { model: "workshop-rogue", boots: true, armour: false };
@@ -90,6 +90,13 @@ test("a_balance_in_the_address_is_a_plain_decimal_per_cent_none_or_more_or_the_c
   // The character's own is no parameter at all, and replaces one that was there.
   assert.equal(new URLSearchParams(labHref(DEFAULTS, "?play=lab&balance=3")).has("balance"), false);
   assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, balance: 0 }, "?play=lab&balance=3")).getAll("balance"), ["0"]);
+});
+
+test("a_haste_in_the_address_is_a_plain_decimal_per_cent_over_none_or_the_characters_own", () => {
+  assert.deepEqual(["150", "100", "62.5"].map((text) => labAddress(`?haste=${text}`).haste), [150, 100, 62.5]);
+  for (const text of ["", "0", "-10", "fast", "Infinity"]) assert.equal(labAddress(`?haste=${text}`).haste, null, text);
+  assert.equal(new URLSearchParams(labHref(DEFAULTS, "?play=lab&haste=150")).has("haste"), false);
+  assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, haste: 150 }, "?play=lab")).getAll("haste"), ["150"]);
 });
 
 test("the_attacks_targets_and_their_seed_are_whole_numbers_in_the_address_or_the_attacks_own", () => {

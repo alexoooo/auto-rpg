@@ -15,6 +15,7 @@ import { poseAngles } from "../core/control/kinematics.ts";
 import { guardPosture } from "../core/skills/guard.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../core/rules/rulebook.ts";
+import { HUMAN_HASTE } from "../core/human/attributes.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { labActor } from "./actor.ts";
@@ -152,8 +153,9 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     readonly built: BuiltBody; readonly view: BodyShapes; readonly held: BodyShapes; readonly skin: SkinSlot; appearance: Appearance | null; readonly run: ScenarioRun;
     /** The pelvis's rotation as built, facing +z: the chase camera reads the body's facing from it. */
     readonly rest: Quaternion;
-    /** Its balance, per cent of its weight, if its assist has one: every figure read under it is read beside it. */
+    /** Its balance, per cent of its weight, if its assist has one, and its haste, per cent of a person's, if it is hasted: every figure read under them is read beside them. */
     readonly helped: number | null;
+    readonly hasted: number | null;
     /** What its mind has decided, and the watch that notes in it who has the body. */
     readonly log: MindLog;
     readonly has: Hook;
@@ -252,7 +254,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     // A new body starts live: nothing of the last one's recording is shown.
     const run = scenario.start({ scene, actor, address: to, changed: transport.showPlayhead, clock: () => performance.now(), heard: logging.heard, hears: logging.hears });
     const loaded: Loaded = {
-      built, view, held: heldView, skin: skinSlot(built, showView), appearance: null, run, rest, helped: actor.body.assist.on ? balance : null, log, has: watchHas(world, actor.body, log),
+      built, view, held: heldView, skin: skinSlot(built, showView), appearance: null, run, rest, helped: actor.body.assist.on ? balance : null,
+      hasted: built.spec.attributes.haste.value === HUMAN_HASTE.value ? null : built.spec.attributes.haste.value, log, has: watchHas(world, actor.body, log),
       sounds, logging, heardTo: -Infinity,
     };
     current = loaded;
@@ -261,11 +264,11 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
 
   function readout(): void {
     if (!current) return;
-    const { run, helped, log, sounds } = current;
+    const { run, helped, hasted, log, sounds } = current;
     // Read before the readout, where a scenario may pause its own run: the frame that pauses is still heard.
     const playing = !run.player.isPaused();
     const time = run.readout(run.player.shownFrame());
-    transport.show(run, time, helped);
+    transport.show(run, time, helped, hasted);
     // Before its first step a body's mind has decided nothing.
     thinking.show(log, time ?? -Infinity);
     audio.setActive(playing);

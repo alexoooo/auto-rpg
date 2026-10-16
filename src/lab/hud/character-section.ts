@@ -1,6 +1,7 @@
 import { appearancesFor, wearsClothing } from "../../render/appearance.ts";
 import { isBalance } from "../../core/rules/rulebook.ts";
-import { balanceAddress, loadoutBalance, strikesOf } from "../loadout.ts";
+import { balanceAddress, hasteAddress, loadoutBalance, strikesOf } from "../loadout.ts";
+import { validHaste } from "../../core/human/attributes.ts";
 import { LAB_HANDS, LAB_PRESETS, LAB_PROVIDES, LAB_WORN, MODELS } from "../scenarios.ts";
 import { HELD as HOLDS, type Held } from "../../core/items/held.ts";
 import { choice, entries, following, group, quantity, switches, toggle, when, type Control, type Named } from "../../ui/controls.ts";
@@ -18,6 +19,9 @@ const WORN: Named<(typeof LAB_WORN)[number]> = {
 /** What a press moves the balance by, per cent of the body's weight. */
 const BALANCE_STEP = 5;
 
+/** What a press moves the haste by, per cent of a person's speed in the legs. */
+const HASTE_STEP = 10;
+
 /** The Lab's presets, in their order. */
 const PRESET_IDS = Object.keys(LAB_PRESETS) as (keyof typeof LAB_PRESETS)[];
 
@@ -34,6 +38,7 @@ export function characterSection(page: LabPage): readonly Control[] {
           () => page.shown.appearance, appearance => page.show({ ...page.shown, appearance })))),
       quantity("Balance, %", BALANCE_STEP, isBalance, () => loadoutBalance(page.shown.balance, page.spec),
         (balance) => page.load({ ...page.shown, balance: balanceAddress(balance, page.spec) })),
+      quantity("Haste, %", HASTE_STEP, validHaste, () => page.spec.attributes.haste.value, (haste) => page.load({ ...page.shown, haste: hasteAddress(haste) })),
     ]),
     toggle("Compliant soles", () => page.shown.sole, () => page.load({ ...page.shown, sole: !page.shown.sole })),
     group("Items", [

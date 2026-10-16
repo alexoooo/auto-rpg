@@ -443,7 +443,12 @@ Their actuator methods and their readiness/footprints remain their own.
   than 1.30, and a run under way walks again from a landing once the walk asked has come down to 1.30. Its
   envelope is the walk's (`simbiconEnvelope`), or the run's (`simbiconRunEnvelope`) while it may run, and a
   walk asked faster than the body held that way in a fifth of its trials (`REACH`) is taken at that:
-  what a pace risks is the mind's to weigh. Low support folds the stance, so a fighter does not
+  what a pace risks is the mind's to weigh. Each step it drives the legs it asks the body's assist
+  (`gaitAssist`, `gait-assist.ts`) for the moment that turns the pelvis to the gait's own, as the
+  walk or the run's stance hip holds it, less any that would lean it further forward: a body with
+  balance is righted, never carried. A body's haste (`AttributeSpec.haste`) quickens its legs'
+  muscles and leaves the gait's timing as it is (`SimbiconSettings.hasted`, 0: its times and its
+  envelope go as the haste to that power). Low support folds the stance, so a fighter does not
   offer it beside this walk. An admitted kick reserves the legs, stops the gait and establishes
   quiet support in bounded preparation (`skillSet`, `arbiter.ts`). A push whose level or speed is not
   a number is refused (`obey`, `body.ts`): Rapier disables the island of a body given one, which
@@ -1213,6 +1218,13 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   assist when the body is out of the fight; the lab sets its body's from the character's balance or
   its address's (`&balance=`). Every character's balance is 0, and at 0 there is no
   assist.
+- **Haste**: a character has a haste beside its balance (`AttributeSpec.haste`): how fast its
+  legs' muscles are, a per cent of a person's, multiplying the unloaded speed of the hip's, knee's
+  and ankle's exertions (`jointSpeed`) and nothing else; it gives no force. A humanoid's spec
+  takes one in place of its character's (`modelSpec`); a fight's recipe gives each side one
+  (`DuelRecipe.haste`, `&haste=left,right` in an arena link), and the lab its body
+  (`&haste=`). Every character's haste is 100 (`HUMAN_HASTE`), and a figure on a hasted body
+  names it.
 - **Levels** (`levelsOf`, `levels.ts`): which bodies run themselves, for any fight with more
   bodies than fight at once. A body with nothing to do and nobody near is `held`; any other is
   `full` in the fight and `limp` out of it. A body in the fight has nothing to do when the fight

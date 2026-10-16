@@ -8,8 +8,10 @@ import type { BodySpec, Side } from "../spec/body.ts";
 import { atan2, sin, cos } from "../math/real.ts";
 import { spinBetweenToRef, turnAboutToRef, wrap } from "../math/turn.ts";
 import { armSwing } from "./arm-swing.ts";
-import { paceToward, simbiconEnvelope, simbiconRunEnvelope, type StanceEnvelope } from "../control/stance-envelope.ts";
+import { paceToward, quickened, simbiconEnvelope, simbiconRunEnvelope, type StanceEnvelope } from "../control/stance-envelope.ts";
+import { hasteOver } from "../human/attributes.ts";
 import { locomotion, type LegsDrive, type Locomotion } from "./locomotion.ts";
+import { gaitAssist, type GaitAssistMemory } from "./gait-assist.ts";
 import { RUN_ARMS, RUN_CYCLE, runCycle, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
 
 /**
@@ -140,6 +142,11 @@ export interface SimbiconSettings {
    * (`legOf`). A body whose leg is another length takes them scaled to it (`scaledGait`).
    */
   readonly leg: number;
+  /**
+   * How a hasted body's gait is timed (`AttributeSpec.haste`, `hasteOver`): its times go as one over
+   * its haste over a person's to this power, 0, 1/2 or 1, and its speeds as that power of it.
+   */
+  readonly hasted: number;
 }
 
 /**
@@ -161,7 +168,7 @@ export const SIMBICON: SimbiconSettings = Object.freeze({
   stanceKnee: 0.0197, stanceKneeLate: 0.2298, stanceAnkle: -0.0123, cvAnkle: 0.2434, cvAnkleSide: -0.5131, lean: 0.1583,
   cd: 0.5, cv: 0.141, cdLate: 0.2207, cvLate: 0.2293, cdSide: -0.5, cvSide: 0.0138, landing: 1, lead: 0.0793, leadSide: 0.1406, leadOut: -0.0657, width: 0.2269, vf: 0.5255, vfSide: 0.6894, vfMost: 0.6701, trim: 0.0083, trimSide: 0, trimMost: 0.1, trimLeak: 0.2,
   settle: 0.1, stance: 1, swing: 0.5, ankle: 0.2902, pelvis: 0.1, hold: 1, turn: 2, swerve: 1.6, turnRate: 2, speedup: 1.575, slowdown: 0.473, arms: 0, run: 1.2991,
-  leg: 0.8815024260685317,
+  leg: 0.8815024260685317, hasted: 0,
 });
 
 /**
@@ -214,26 +221,43 @@ const DIMENSION: { readonly [K in keyof SimbiconSettings | keyof RunCycleSetting
   swingHip: "same", swingHipLate: "same", swingSpread: "same", swingKnee: "same", swingKneeLate: "same", swingAnkle: "same", swingAnkleLate: "same",
   stanceKnee: "same", stanceKneeLate: "same", stanceAnkle: "same", lean: "same", landing: "same", stance: "same", swing: "same", ankle: "same",
   hold: "same", elbow: "same", vf: "same", vfSide: "same", trimLeak: "same", swerve: "same", speedup: "same", slowdown: "same",
-  blend: "same", short: "same", leanGain: "per-speed", leanMost: "same", bank: "same", period: "same", accel: "same", brake: "same", late: "same", paceMost: "same", kneeAdd: "same", ankleAdd: "same", hipAdd: "same", early: "same",
+  hasted: "same", blend: "same", short: "same", leanGain: "per-speed", leanMost: "same", bank: "same", period: "same", accel: "same", brake: "same", late: "same", paceMost: "same", kneeAdd: "same", ankleAdd: "same", hipAdd: "same", early: "same",
 });
 
-/** What a setting of `dimension` is multiplied by for a leg `k` times as long, given `root`, √k. */
-function factor(dimension: Dimension, k: number, root: number): number {
+/**
+ * What a setting of `dimension` is multiplied by for a leg `k` times as long, given `root`, √k, on a
+ * body whose gait is `quick` times as quick (`quickness`): its times shortened by it, its lengths kept.
+ */
+function factor(dimension: Dimension, k: number, root: number, quick: number): number {
   switch (dimension) {
-    case "time": case "speed": return root;
+    case "time": return root / quick;
+    case "speed": return root * quick;
     case "length": return k;
-    case "per-length": case "rate-change": return 1 / k;
-    case "per-speed": case "rate": return 1 / root;
+    case "per-length": return 1 / k;
+    case "rate-change": return 1 / k * quick * quick;
+    case "per-speed": return 1 / root / quick;
+    case "rate": return 1 / root * quick;
     case "same": return 1;
     default: { const never: never = dimension; throw new Error(`no dimension ${String(never)}`); }
   }
 }
 
-/** `settings` (a gait's, a way's or the run's) for a leg `k` times as long as the one they were set for; `settings` itself if k is 1. */
-export function scaledGait<T extends Partial<Record<keyof typeof DIMENSION, number>>>(settings: T, k: number): T {
-  if (k === 1) return settings;
+/**
+ * `settings` (a gait's, a way's or the run's) for a leg `k` times as long as the one they were set
+ * for, on a body whose gait is `quick` times as quick; `settings` itself if both are 1.
+ */
+export function scaledGait<T extends Partial<Record<keyof typeof DIMENSION, number>>>(settings: T, k: number, quick = 1): T {
+  if (k === 1 && quick === 1) return settings;
   const root = Math.sqrt(k);
-  return Object.fromEntries(Object.entries(settings).map(([key, value]) => [key, value * factor(DIMENSION[key as keyof typeof DIMENSION], k, root)])) as T;
+  return Object.fromEntries(Object.entries(settings).map(([key, value]) => [key, value * factor(DIMENSION[key as keyof typeof DIMENSION], k, root, quick)])) as T;
+}
+
+/** How many times as quick the gait of a body hasted `haste` times a person (`hasteOver`) is, timed by `hasted` (`SimbiconSettings.hasted`). */
+function quickness(haste: number, hasted: number): number {
+  if (hasted === 0) return 1;
+  if (hasted === 0.5) return Math.sqrt(haste);
+  if (hasted === 1) return haste;
+  throw new Error(`a gait is timed to its haste to the power 0, 1/2 or 1, not ${hasted}`);
 }
 
 /** `spec`'s leg, m: its left hip's centre to its left ankle's in the reference pose. */
@@ -317,7 +341,7 @@ export function validSimbicon(settings: SimbiconSettings): boolean {
   const { seconds, longest, settle, stance, swing, ankle, pelvis, hold, turn, swerve, turnRate, speedup, slowdown, arms, run, leg } = settings;
   return values.length === Object.keys(SIMBICON).length && values.every(Number.isFinite)
     && seconds > 0 && longest > seconds && [settle, pelvis, turn, swerve, turnRate, speedup, slowdown, run, leg].every((x) => x > 0)
-    && [stance, swing, ankle, hold].every((x) => x > 0 && x <= 1) && arms >= 0;
+    && [stance, swing, ankle, hold].every((x) => x > 0 && x <= 1) && arms >= 0 && [0, 0.5, 1].includes(settings.hasted);
 }
 
 /** A leg's channels, by the freedoms the gait drives. */
@@ -353,6 +377,8 @@ interface SimbiconMemory {
   /** The pelvis's turn as the last step found it, for its spin; and whether there was one. */
   root: Quaternion;
   read: boolean;
+  /** The same, for what it asks of the body's assist (`gaitAssist`). */
+  assisted: GaitAssistMemory;
   /** Asked to stand: the walk asked is brought to rest, and the legs go back to the stance as a swinging foot lands once the body is slow. */
   stopping: boolean;
   /** Setting off: the stance shifting the weight onto the first stance foot before it lifts the other. */
@@ -425,7 +451,8 @@ const RIGHT: Readonly<Vector3> = Object.freeze(new Vector3(1, 0, 0));
  * the walk's (`simbiconEnvelope`), and the run's (`simbiconRunEnvelope`) while it may run.
  *
  * The settings, each way's and the run's are taken scaled to the body's leg (`scaledGait`, `legOf`)
- * from the leg they were set for (`SimbiconSettings.leg`).
+ * from the leg they were set for (`SimbiconSettings.leg`), and quickened by its haste (`quickness`),
+ * as its envelopes are (`quickened`).
  *
  * Standing, and asked to place the feet, the legs are the stance's (`locomotion`): it walks from
  * the stance's stand, shifting the weight onto the first stance foot before the other lifts, and
@@ -436,9 +463,12 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
   if (!validSimbicon(given)) throw new Error("a SIMBICON gait needs every setting finite, its times, turn, swerve, turn's change, speed-up, run and leg positive, and its shares of strength within (0, 1]");
   if (!validWays(givenWays)) throw new Error("a SIMBICON gait needs each way to give every setting a way changes, finite");
   if (!validRunCycle(givenRun)) throw new Error("a run cycle needs every setting finite, its times and the cycle's positive and its shares of strength within (0, 1]");
-  const k = legOf(body.built.spec) / given.leg, settings = scaledGait(given, k), cycle = runCycle(body, scaledGait(givenRun, k), legOf(body.built.spec));
-  const ways: SimbiconWays = { side: scaledGait(givenWays.side, k), back: scaledGait(givenWays.back, k) };
-  const walkEnvelope = body.envelope ? simbiconEnvelope(body.built.spec) : null, runEnvelope = body.envelope ? simbiconRunEnvelope(body.built.spec) : null;
+  const k = legOf(body.built.spec) / given.leg, quick = quickness(hasteOver(body.built.spec), given.hasted);
+  const settings = scaledGait(given, k, quick), running = scaledGait(givenRun, k, quick), cycle = runCycle(body, running, legOf(body.built.spec), quick);
+  const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
+  const ways: SimbiconWays = { side: scaledGait(givenWays.side, k, quick), back: scaledGait(givenWays.back, k, quick) };
+  const walkEnvelope = body.envelope ? quickened(simbiconEnvelope(body.built.spec), quick) : null;
+  const runEnvelope = body.envelope ? quickened(simbiconRunEnvelope(body.built.spec), quick) : null;
   const legs = locomotion(walkEnvelope, settings.turn), muscles = body.muscles, dynamics = muscles.dynamics;
   const limbOf = (side: Side): Leg => {
     const names = {
@@ -450,7 +480,7 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
   };
   const leg = { left: limbOf("left"), right: limbOf("right") };
   const memory: SimbiconMemory = { walking: false, may, running: false, carried: false, stance: "left", late: false, time: 0, heading: 0, spin: 0, face: 0, pace: 0, asked: 0, forward: 0, right: 0,
-    root: new Quaternion(), read: false, stopping: false, shifting: false, short: 0, capped: 0, clock: 0, landings: [0, 0, 0, 0, 0, 0], landed: 0, stride: [0, 0], trim: [0, 0], trimAsked: [0, 0, 0, 0] };
+    root: new Quaternion(), read: false, assisted: { root: new Quaternion(), read: false }, stopping: false, shifting: false, short: 0, capped: 0, clock: 0, landings: [0, 0, 0, 0, 0, 0], landed: 0, stride: [0, 0], trim: [0, 0], trimAsked: [0, 0, 0, 0] };
   const state = { legs: legs.state, gait: memory, run: cycle.state };
   // A walk a run gave way to holds the arms as the run does, unswung (`RUN_ARMS`): the guard's, taken up at once, throw a body slowing from a run.
   const carried: Pose = Object.freeze({ "shoulder.left flexion": 0, "shoulder.right flexion": 0, "shoulder.left abduction": RUN_ARMS.abduction,
@@ -518,6 +548,7 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
     return { kind: "stance", goal: goal && { ...goal, centre: [sole.x, sole.z] } };
   };
   const stand = (view: BodyView): void => {
+    steady.rest(memory.assisted);
     memory.walking = false;
     memory.running = false;
     memory.carried = false;
@@ -754,7 +785,15 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
         const shifted = shift(view, dt, lower);
         if (shifted) return shifted;
       }
-      return memory.running ? run(view, dt) : walk(view, dt);
+      const driven = memory.running ? run(view, dt) : walk(view, dt);
+      if (driven.kind === "drive") {
+        // What the body's balance gives a gait that drives the legs (`gaitAssist`): the walk's pelvis, or the run's as its stance hip last held it.
+        aim.heading = memory.heading;
+        aim.lean = memory.running ? cycle.state.lean : current.lean;
+        aim.bank = memory.running ? cycle.state.bank : 0;
+        steady.ask(view, aim, memory.assisted, dt);
+      }
+      return driven;
     },
   };
 }

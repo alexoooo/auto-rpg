@@ -5,7 +5,7 @@ import simbiconRunMeasured from "../../../assets/core/simbicon-run-envelope.json
 import { heldBy } from "../items/held.ts";
 import type { SourceKey } from "../sources.ts";
 import type { BodySpec } from "../spec/body.ts";
-import { sourced, type Quantity } from "../spec/quantity.ts";
+import { derive, sourced, type Quantity } from "../spec/quantity.ts";
 
 /**
  * **What the stance can do with a body**, measured, so that a caller asks for "your fastest walk"
@@ -217,6 +217,23 @@ function envelopeIn(table: EnvelopeTable, source: SourceKey, spec: BodySpec, wha
       speed: sourced(table.speeds[i]!, "m/s", source, `/speeds/${i}`),
       turn: sourced(turn, "rad/s", source, `${at}/turns/${i}`),
     })),
+  };
+}
+
+/**
+ * `envelope` for a gait `quick` times as quick as the one it was measured on (a hasted body's,
+ * `quickness`, `src/core/skills/simbicon.ts`): every speed and turn it holds, and every pace it
+ * tried, that many times as fast; `envelope` itself at 1.
+ */
+export function quickened(envelope: StanceEnvelope, quick: number): StanceEnvelope {
+  if (quick === 1) return envelope;
+  const faster = (q: Quantity<number>): Quantity<number> => derive(q.unit, "quickened as the gait is by the body's haste", [q], (v) => v * quick);
+  const { walk, ways, tried, turns } = envelope;
+  return {
+    walk: faster(walk),
+    ways: { forward: faster(ways.forward), right: faster(ways.right), back: faster(ways.back), left: faster(ways.left) },
+    tried: tried && { ...tried, speeds: tried.speeds.map(faster) },
+    turns: turns.map(({ speed, turn }) => ({ speed: faster(speed), turn: faster(turn) })),
   };
 }
 

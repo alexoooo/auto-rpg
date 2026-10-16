@@ -1,4 +1,5 @@
-import { BODY_MODELS, modelHolds, modelInfo, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHastes, modelHolds, modelInfo, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
+import { validHaste } from "../core/human/attributes.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { PRESETS } from "../core/mind/controllers.ts";
 import { isOrders } from "../core/mind/orders.ts";
@@ -80,6 +81,23 @@ export function readBalance(search: string): Readonly<Record<Side, number>> | un
   return { left: given[0]!, right: given[given.length - 1]! };
 }
 
+/** The arena link's parameter for each side's haste, per cent of a person's speed in its legs: `&haste=left,right`, or one number for both. */
+const HASTE_PARAM = "haste";
+
+/**
+ * The haste an address gives each side (`DuelRecipe.haste`): two positive numbers, left then right,
+ * or one for both, given to a side whose model takes one (`modelHastes`); undefined for anything
+ * else, and each side's is then its character's.
+ */
+export function readHaste(search: string): Readonly<Partial<Record<Side, number>>> | undefined {
+  const text = new URLSearchParams(search).get(HASTE_PARAM);
+  if (text === null) return undefined;
+  const parts = text.split(","), given = parts.map(balanceFrom).filter((p) => p !== null && validHaste(p));
+  if (parts.length > 2 || given.length !== parts.length) return undefined;
+  const models = readMatchup(search);
+  return { ...(modelHastes(models.left) ? { left: given[0]! } : {}), ...(modelHastes(models.right) ? { right: given[given.length - 1]! } : {}) };
+}
+
 /** The arena link's parameter for what each side's right hand holds: `&held=left,right`, or one word for both, each of `HELD`. */
 const HELD_PARAM = "held";
 
@@ -126,7 +144,7 @@ const isEntry = (entry: unknown): entry is OrdersEntry => {
 
 /**
  * The tape `hash` carries; none if it carries none, or one that is not an array of entries. A
- * tape is of one recipe: the link names the matchup, the gap, the cap, each side's balance, what it holds and how it guards with it.
+ * tape is of one recipe: the link names the matchup, the gap, the cap, each side's balance and haste, what it holds and how it guards with it.
  */
 export function readTape(hash: string): OrdersEntry[] {
   const text = new URLSearchParams(hash.replace(/^#/, "")).get(TAPE_KEY);

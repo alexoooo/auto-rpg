@@ -5,6 +5,7 @@ import { CHARACTERS } from "../character-lab/catalog.ts";
 import { HUMANOID_MODELS, type HumanoidModel } from "../core/models.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
+import { validHaste } from "../core/human/attributes.ts";
 import { HELD, type Held } from "../core/items/held.ts";
 import { CLASSIC, PUNCHER, RECIPE_FIGHTER, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
 import type { Provision } from "../core/mind/parts.ts";
@@ -61,7 +62,11 @@ const WORN: Readonly<Record<HumanoidModel, { readonly boots: boolean; readonly a
  * core has no clothing, and the boot is in the foot's shape whatever the skin shows.
  */
 /** A loadout: the model, what each hand holds, the clothing worn, and whether its feet are shod (`withSoles`: a sole that gives against the ground). */
-export type LabLoadout = { readonly model: HumanoidModel; readonly sole: boolean }
+export type LabLoadout = {
+  readonly model: HumanoidModel; readonly sole: boolean;
+  /** The body's haste, per cent of a person's speed in its legs, in place of its character's (`AttributeSpec.haste`); null is the character's. */
+  readonly haste: number | null;
+}
   & Readonly<Record<(typeof LAB_HANDS)[number], Held>> & Readonly<Record<(typeof LAB_WORN)[number], boolean>>;
 
 /**
@@ -128,7 +133,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly seed: number;
 }
 
-const KEYS = ["groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
+const KEYS = ["groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -171,6 +176,7 @@ export function labAddress(search: string): LabAddress {
     armour: flag(query.get("armour"), worn.armour),
     sole: flag(query.get("sole"), false),
     balance: balanceFrom(query.get("balance") ?? ""),
+    haste: hasteFrom(query.get("haste") ?? ""),
     mind: readMind(query.get("mind"), LAB_PRESETS) ?? (query.get("scenario") === "attack" ? PUNCHER
       : query.get("scenario") === "ground" ? groundMind(LAB_PRESETS.script.config) : LAB_PRESETS.script.config),
     barred: HELD.filter((h) => barred.includes(h)),
@@ -215,6 +221,7 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("armour", address.armour ? "1" : "0");
   if (address.sole) query.set("sole", "1");
   if (address.balance !== null) query.set("balance", String(address.balance));
+  if (address.haste !== null) query.set("haste", String(address.haste));
   query.set("mind", mindText(address.mind, LAB_PRESETS));
   if (address.barred.length > 0) query.set("barred", address.barred.join(","));
   query.set("hz", String(address.hz));
@@ -226,12 +233,18 @@ export function labHref(address: LabAddress, search = ""): string {
   return `?${query}`;
 }
 
+/** The haste `text` writes, per cent: a positive number; null for anything else, and the character's. */
+function hasteFrom(text: string): number | null {
+  const haste = balanceFrom(text);
+  return haste !== null && validHaste(haste) ? haste : null;
+}
+
 /** An explicit recovery demonstration; changing it preserves the view preferences. */
 export function recoveryAddress(address: LabAddress, recoveryMode: LabAddress["recoveryMode"] = "selected"): LabAddress {
   if (recoveryMode === "selected") return { ...address, scenario: "recovery", recoveryMode };
   return { ...address, scenario: "recovery", recoveryMode, recoveryPush: {degrees:0,impulse:60,separation:.2},
     model: "workshop-fighter", right: "empty", left: "empty", sole: true,
-    balance: 0, hz: 120, mind: LAB_PRESETS.script.config, barred: [], appearance: "default" };
+    balance: 0, haste: null, hz: 120, mind: LAB_PRESETS.script.config, barred: [], appearance: "default" };
 }
 
 function recoveryModeFrom(value: string | null): LabAddress["recoveryMode"] {

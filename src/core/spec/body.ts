@@ -160,6 +160,13 @@ export interface AttributeSpec {
    * (`Rulebook.balance`, `Assist`). At 0 nothing holds it up that its muscles do not.
    */
   readonly balance: Quantity<number>;
+  /**
+   * How fast its legs' muscles are: the unloaded speed of the hip's, the knee's, the ankle's and
+   * the foot's exertions, per cent of its family's (`jointSpeed`, a human's). A gait that times
+   * itself to its muscles is quicker by it (`hasteOver`, `scaledGait`). At 100 the legs are its
+   * family's own.
+   */
+  readonly haste: Quantity<number>;
 }
 
 /**

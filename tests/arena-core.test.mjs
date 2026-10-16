@@ -11,7 +11,7 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { ARENA_POSTS, addArenaSolids, arenaSolids } from "../src/arena/room.ts";
 import { CAP_SECONDS, Duel } from "../src/arena/duel.ts";
-import { DEFAULT_MATCHUP, matchupSearch, readBalance, readCap, readGap, readHeld, readMatchup, readTape, readYou, tapeHash, youSearch } from "../src/arena/matchup.ts";
+import { DEFAULT_MATCHUP, matchupSearch, readBalance, readCap, readGap, readHaste, readHeld, readMatchup, readTape, readYou, tapeHash, youSearch } from "../src/arena/matchup.ts";
 import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "../src/arena/orders-input.ts";
 import { stanceEnvelope } from "../src/core/control/stance-envelope.ts";
@@ -47,6 +47,10 @@ test("an_arena_link_names_its_matchup_and_a_malformed_one_falls_back", () => {
     [{ left: 5, right: 2 }, { left: 5, right: 5 }, { left: 0, right: 20.5 }, { left: 5, right: 2 }]);
   assert.deepEqual(["", "?balance=", "?balance=5,", "?balance=,5", "?balance=-1", "?balance=5,-1", "?balance=1,2,3", "?balance=many", "?balance=Infinity"].map(readBalance),
     Array(9).fill(undefined));
+  // Each side's haste: left then right, one number for both, a side whose model takes none left its own; nothing over none.
+  assert.deepEqual(["?haste=150,120", "?haste=150", "?matchup=reptile,workshop-rogue&haste=150,130", "?matchup=workshop-rogue,reptile&haste=150"].map(readHaste),
+    [{ left: 150, right: 120 }, { left: 150, right: 150 }, { right: 130 }, { left: 150 }]);
+  assert.deepEqual(["", "?haste=", "?haste=0", "?haste=150,0", "?haste=-5", "?haste=1,2,3", "?haste=fast"].map(readHaste), Array(7).fill(undefined));
 });
 
 test("a_tape_rides_in_a_link's_fragment", () => {

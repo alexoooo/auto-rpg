@@ -154,6 +154,9 @@ interface RunCycleMemory {
   /** The pelvis's turn as the last step found it, for its spin; and the heading, rad, for its rate. */
   root: Quaternion;
   heading: number;
+  /** The pelvis's lean forward and its bank to the right that the stance hip last held it to, rad: the run's own lean as it begins. */
+  lean: number;
+  bank: number;
 }
 
 /**
@@ -170,7 +173,7 @@ interface RunCycleMemory {
  * in the world, the clip's lean taken off, with the pace's feedback late in the swing; across the
  * heading the swinging sole is placed by Raibert's rule.
  */
-export function runCycle(body: Body, settings: RunCycleSettings, leg: number): {
+export function runCycle(body: Body, settings: RunCycleSettings, leg: number, quick = 1): {
   readonly state: RunCycleMemory;
   /** Begins the run from the body as it is, as the sole `landed` lands. */
   begin(view: BodyView, heading: number, landed: Side): void;
@@ -182,8 +185,8 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number): {
   const p = settings, muscles = body.muscles, dynamics = muscles.dynamics, spec = body.built.spec;
   if (CYCLES.length < 2) throw new Error("a run cycle needs two clips' cycles to blend between");
   const scale = (c: Cycle): number => Math.sqrt(leg / c.leg);
-  // Each clip's speed and time taken to the body's leg.
-  const speeds = CYCLES.map((c) => c.speed * scale(c)), periods = CYCLES.map((c) => c.period * scale(c));
+  // Each clip's speed and time taken to the body's leg, and quickened as its gait is.
+  const speeds = CYCLES.map((c) => c.speed * scale(c) * quick), periods = CYCLES.map((c) => c.period * scale(c) / quick);
   const slowSpeed = speeds[0]!, slowPeriod = periods[0]!;
   const terms = CYCLES[0]!.hip.length;
   const series = { hip: new Float64Array(terms), knee: new Float64Array(terms), ankle: new Float64Array(terms) };
@@ -241,7 +244,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number): {
       bind: { hip: bindOf(`hip.${side}`), knee: bindOf(`knee.${side}`), ankle: bindOf(`ankle.${side}`) } };
   };
   const legs = { left: limbOf("left"), right: limbOf("right") };
-  const memory: RunCycleMemory = { phase: 0, waited: 0, pace: 0, trim: 0, touching: { left: true, right: true }, root: new Quaternion(), heading: 0 };
+  const memory: RunCycleMemory = { phase: 0, waited: 0, pace: 0, trim: 0, touching: { left: true, right: true }, root: new Quaternion(), heading: 0, lean: 0, bank: 0 };
   const scratch = { up: new Vector3(), spin: new Vector3(), target: new Quaternion(), pitch: new Quaternion(), roll: new Quaternion(), error: new Vector3(), relative: new Vector3(),
     speeds: [0, 0, 0] as [number, number, number] };
   const runner = armSwing(p.arms, true);
@@ -271,6 +274,8 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number): {
       memory.touching.right = s.touching.right;
       memory.root.copyFrom(view.root.rotation);
       memory.heading = heading;
+      memory.lean = p.lean;
+      memory.bank = 0;
     },
     drive(view, dt, heading, asked) {
       const s = view.stance, c = s.centre, v = s.velocity;
@@ -333,6 +338,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number): {
         const lean = p.lean - Math.max(-p.leanMost, Math.min(p.leanMost, p.leanGain * error));
         // Leaning into the turn: to the right (about forward, negative) as the heading turns right.
         const roll = -p.bank * atan2(along * turning, STANDARD_GRAVITY.value);
+        memory.lean = lean; memory.bank = roll;
         turnAboutToRef(Vector3.UpReadOnly, heading, scratch.target).multiplyInPlace(turnAboutToRef(RIGHT, lean, scratch.pitch))
           .multiplyInPlace(turnAboutToRef(FORWARD, roll, scratch.roll));
         const wanted = spinBetweenToRef(turn, scratch.target, p.pelvis, scratch.error);

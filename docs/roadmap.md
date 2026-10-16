@@ -383,6 +383,11 @@ After it, each with its own plan, in the order each needs the one before:
       (`gainSide`) at 0.086 against 0 or 0.04 trades the Warrior's falls for the skeleton's (1 of
       20 runs against 16), and 0.2 or more throws nearly every Warrior and Rogue. A lateral
       controller of the run that takes up the walk's sway is the open item.
+    - **With balance** the gait asks the assist to right the pelvis (`gaitAssist`,
+      [assist](reference/assist.md#a-gaits-assist)): on that battery at 25 % the runs that fall go
+      from 29 of 120 to 5, the stops from 38 of 90 to 23, and every body is slower asked 3 or 4 m/s
+      (the Warrior 2.81 against 3.17). **Open:** the skeleton's turns fall more with it (5 of 20 to
+      13), and what it costs the pace.
     - **Tried and not kept** (that battery): a search with the club in hand (`--holds empty,club`,
       13 generations) found nothing past its start; a run that begins only while the body goes
       across its heading slower than 0.15 or 0.25 m/s, which never runs for the Warrior and the
@@ -419,11 +424,15 @@ After it, each with its own plan, in the order each needs the one before:
         strength, mass and gravity stay as they are, so a hasted body cannot float or look
         fast-forwarded. A forward force on the root is rejected: it is an assist, and reads as
         sliding.
-        - Not built. Its rule scales the gait's time dimensions (`DIMENSION`, `simbicon.ts`; the
-          run cycle's `period`, `cycle-run.ts`) by the body's muscle speed against the reference
-          body's, as `scaledGait` scales them by leg length, with the exponent (0, 1/2 or 1)
-          measured, and the envelope measured at a few levels of haste. A gait that does not ask
-          its muscles for speed gains nothing from it.
+        - Built as the attribute (`AttributeSpec.haste`, `jointSpeed`; `&haste=` in the Lab and
+          the Arena; [assist](reference/assist.md#haste)). The gait's timing could go with it
+          (`SimbiconSettings.hasted`: the gait's times, its run cycle's, and its envelope's speeds
+          as the haste to a power, `scaledGait`, `quickened`); measured, the power is 0, since a
+          quickened gait steps faster than gravity lets the body fall onto its feet. At 150 % with
+          the gait as it is the Warrior asked 4 m/s makes 3.25 against 3.17 and more runs fall (42
+          of 72 against 28): the run's settings were searched on a person's muscles. **Open:** a
+          run whose settings are searched on a hasted body, and whether a hasted body takes them
+          as a variant of the run.
         - **Decided by the owner:** Haste is the legs' muscles alone (the hip's, knee's and
           ankle's exertions in `jointSpeed`), a per cent of the human baseline, 100 % by default,
           in `AttributeSpec` as `balance` is, with an `owner-haste` source; strength or the upper

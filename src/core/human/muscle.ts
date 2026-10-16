@@ -50,7 +50,7 @@ export function peakTorque(figure: HumanFigure, exertion: Exertion): Quantity<nu
  */
 const HIP_IN_USE = sourced(2.49, "1", "owner-run-body", "the hip's torque in use over its measured peak");
 const KNEE_IN_USE = sourced(1.58, "1", "owner-run-body", "the knee's torque in use over its measured peak");
-const IN_USE: Readonly<Partial<Record<Exertion, Quantity<number>>>> = Object.freeze({
+export const IN_USE: Readonly<Partial<Record<Exertion, Quantity<number>>>> = Object.freeze({
   hipFlexion: HIP_IN_USE, hipExtension: HIP_IN_USE, hipAbduction: HIP_IN_USE, hipAdduction: HIP_IN_USE,
   hipExternalRotation: HIP_IN_USE, hipInternalRotation: HIP_IN_USE, kneeExtension: KNEE_IN_USE, kneeFlexion: KNEE_IN_USE,
   anklePlantarflexion: sourced(2.75, "1", "owner-run-body", "the ankle's plantar flexion in use over its measured peak"),

@@ -3,6 +3,7 @@ import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, distance, midpoint, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extent, Extents, TrunkSegment } from "./envelope.ts";
 import type { HumanFigure, LimbFigure } from "./figure.ts";
+import { HUMAN_HASTE } from "./attributes.ts";
 import { dividedTrunk } from "./landmarks.ts";
 import type { Side } from "../spec/body.ts";
 
@@ -198,6 +199,6 @@ export function skeletonFigure(): HumanFigure {
         (l, r, gap, ...corners) => Math.min(Math.abs(l[0]), Math.abs(r[0])) - Math.max(...corners.map((c) => Math.abs(c[0]))) - gap),
     },
     hp: placeholder(6, "HP", "the Warrior's hit points"),
-    balance: placeholder(0, "%", "the Warrior's balance"),
+    balance: placeholder(0, "%", "the Warrior's balance"), haste: HUMAN_HASTE,
   };
 }

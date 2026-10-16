@@ -6,7 +6,7 @@ import { workshopHands } from "./hands.ts";
 import { limbLandmarks, rigSuffix, trunkLandmarks } from "./landmarks.ts";
 import { bodyMass, FIT_SCALE, stature, WORKSHOP_SEX } from "./model.ts";
 import { rigPoint, type WorkshopModel } from "./rig.ts";
-import { workshopBalance } from "./attributes.ts";
+import { HUMAN_HASTE, workshopBalance } from "./attributes.ts";
 import { workshopHitPoints } from "./wounds.ts";
 import type { Side } from "../spec/body.ts";
 
@@ -25,7 +25,7 @@ export function workshopFigure(model: WorkshopModel): HumanFigure {
   return {
     model, substance: "flesh", sex: WORKSHOP_SEX[model], scale: FIT_SCALE, mass: bodyMass(model), stature: stature(model),
     trunk: trunkLandmarks(model), limbs, hulls: envelope.trunk, feet: envelope.feet, hands: workshopHands(model), hp: workshopHitPoints(model),
-    balance: workshopBalance(model),
+    balance: workshopBalance(model), haste: HUMAN_HASTE,
   };
 }
 

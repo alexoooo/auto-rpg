@@ -13,11 +13,12 @@ import { TRUNK_SEGMENTS, workshopEnvelope } from "../src/core/human/envelope.ts"
 import { SIDES } from "../src/core/human/landmarks.ts";
 import { inventory, sourcesOf } from "../src/core/spec/provenance.ts";
 import { footprint, transcribed, trunkHulls } from "../scripts/core/workshop-envelope.mjs";
-import { humanSpec } from "../src/core/human/spec.ts";
+import { humanSpec, humanoidSpec, HUMANOID_MODELS } from "../src/core/human/spec.ts";
+import { modelSpec } from "../src/core/models.ts";
 import { physiqueFigure } from "../src/core/human/physique.ts";
 import { convexHull } from "../src/core/spec/hull.ts";
-import { peakTorque } from "../src/core/human/muscle.ts";
-import { jointSpeed } from "../src/core/human/speed.ts";
+import { IN_USE as TORQUE_IN_USE, peakTorque } from "../src/core/human/muscle.ts";
+import { IN_USE as SPEED_IN_USE, jointSpeed } from "../src/core/human/speed.ts";
 import { workshopFigure } from "../src/core/human/workshop.ts";
 import { SKELETON_MODEL, skeletonFigure } from "../src/core/human/skeleton.ts";
 import { forceVelocityFactor } from "../src/core/muscle/force-velocity.ts";
@@ -314,7 +315,8 @@ test("the Rogue's torques, scaled from the men's by her muscle, land near the wo
   const mass = bodyMass("workshop-rogue").value;
   const ratios = EXERTIONS.map((exertion) => {
     const measured = measuredTorque(exertion, "female").value * mass / subjectMass(exertion, "female").value;
-    return [exertion, peakTorque(workshopFigure("workshop-rogue"), exertion).value / measured];
+    // The torque as measured, before what the owner has set it to give in use.
+    return [exertion, peakTorque(workshopFigure("workshop-rogue"), exertion).value / (TORQUE_IN_USE[exertion]?.value ?? 1) / measured];
   });
   for (const [exertion, ratio] of ratios) assert.ok(ratio > 0.55 && ratio < 1.5, `${exertion}: ${ratio.toFixed(2)}`);
   const sorted = ratios.map(([, ratio]) => ratio).sort((a, b) => a - b);
@@ -333,7 +335,8 @@ test("the Rogue's torques, scaled from the men's by her muscle, land near the wo
  * 0.9 of its unloaded speed fits worse.
  */
 test("each measured speed curve passes through its source, and a borrowed one names the curve it takes", () => {
-  const curveOf = (spec) => Object.fromEntries(Object.entries(spec).map(([k, q]) => [k, q.value]));
+  // The curve as read, before what the owner has set a leg's joints to turn at in use.
+  const curveOf = (spec, exertion) => ({ ...Object.fromEntries(Object.entries(spec).map(([k, q]) => [k, q.value])), unloadedSpeed: spec.unloadedSpeed.value / (SPEED_IN_USE[exertion]?.value ?? 1) });
   const anderson = {
     male: { hipExtension: [1.578, 3.190], hipFlexion: [2.095, 4.267], kneeExtension: [1.517, 3.952], kneeFlexion: [2.008, 5.233], ankleDorsiflexion: [0.699, 1.940], anklePlantarflexion: [0.987, 3.558] },
     female: { hipExtension: [1.567, 3.164], hipFlexion: [2.136, 4.349], kneeExtension: [1.393, 3.623], kneeFlexion: [1.698, 4.412], ankleDorsiflexion: [0.864, 2.399], anklePlantarflexion: [0.862, 3.109] },
@@ -348,7 +351,7 @@ test("each measured speed curve passes through its source, and a borrowed one na
   for (const model of WORKSHOP_MODELS) {
     const sex = WORKSHOP_SEX[model];
     for (const [exertion, [c4, c5]] of Object.entries(anderson[sex])) {
-      const curve = curveOf(jointSpeed(workshopFigure(model), exertion));
+      const curve = curveOf(jointSpeed(workshopFigure(model), exertion), exertion);
       if (exertion.startsWith("hip") || exertion === "anklePlantarflexion") {
         assert.equal(curve.curvature, 0.25);
         const points = [[c4, 0.75], [c5, 0.5]];
@@ -364,7 +367,7 @@ test("each measured speed curve passes through its source, and a borrowed one na
       assert.ok(Math.abs(forceVelocityFactor(c5, curve) - 0.5) < 1e-9, `${model} ${exertion} at C5`);
     }
     for (const [exertion, torques] of Object.entries(freyLaw[sex])) {
-      const curve = curveOf(jointSpeed(workshopFigure(model), exertion));
+      const curve = curveOf(jointSpeed(workshopFigure(model), exertion), exertion);
       assert.equal(curve.curvature, 0.25);
       const residual = (w0) => speeds.reduce((sum, w, i) => {
         const f = torques[i + 1] / torques[0];
@@ -474,6 +477,31 @@ test("a physique changes what it names and nothing else, and the default physiqu
     assert.deepEqual(valuesOf({ ...quick, joints: quick.joints.map((j) => ({ ...j, dofs: j.dofs.map((d) => ({ ...d, muscle: { ...d.muscle, speedPositive: null, speedNegative: null } })) })) }),
       valuesOf({ ...base, joints: base.joints.map((j) => ({ ...j, dofs: j.dofs.map((d) => ({ ...d, muscle: { ...d.muscle, speedPositive: null, speedNegative: null } })) })) }), `${model}: speed changes unloaded speed alone`);
   }
+});
+
+test("a haste quickens the legs' muscles alone, a person's haste is the model, and only a humanoid takes one", () => {
+  const legs = /^(hip|knee|ankle)./;
+  for (const model of HUMANOID_MODELS) {
+    const base = humanoidSpec(model), hasted = humanoidSpec(model, undefined, 150);
+    assert.deepEqual(valuesOf(humanoidSpec(model, undefined, 100)), valuesOf(base), `${model}: a person's haste`);
+    assert.equal(base.attributes.haste.value, 100, model);
+    assert.equal(hasted.attributes.haste.value, 150, model);
+    assert.deepEqual(specProvenanceFaults(hasted), [], model);
+    let quickened = 0;
+    hasted.joints.forEach((j, i) => j.dofs.forEach((d, k) => {
+      const was = base.joints[i].dofs[k].muscle;
+      for (const sense of ["speedPositive", "speedNegative"]) {
+        if (legs.test(j.name)) { near(d.muscle[sense].unloadedSpeed.value, was[sense].unloadedSpeed.value * 1.5, `${model} ${j.name} ${d.positive}`); quickened++; }
+        else assert.equal(d.muscle[sense].unloadedSpeed.value, was[sense].unloadedSpeed.value, `${model} ${j.name} ${d.positive}`);
+      }
+    }));
+    // Each leg's hip, knee and ankle: six freedoms, each two ways.
+    assert.equal(quickened, 2 * 6 * 2, model);
+    assert.deepEqual(valuesOf({ ...hasted, attributes: null, joints: hasted.joints.map((j) => ({ ...j, dofs: j.dofs.map((d) => ({ ...d, muscle: { ...d.muscle, speedPositive: null, speedNegative: null } })) })) }),
+      valuesOf({ ...base, attributes: null, joints: base.joints.map((j) => ({ ...j, dofs: j.dofs.map((d) => ({ ...d, muscle: { ...d.muscle, speedPositive: null, speedNegative: null } })) })) }), `${model}: haste changes the legs' speeds alone`);
+  }
+  for (const haste of [0, -10, Number.NaN, Infinity]) assert.throws(() => humanSpec("workshop-fighter", undefined, haste), /positive per cent/);
+  assert.throws(() => modelSpec("reptile", undefined, { haste: 150 }), /takes no haste/);
 });
 
 test("a body at the grid's corners and beyond keeps its sourced numbers, its soles on the ground and room between its segments", () => {

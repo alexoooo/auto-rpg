@@ -33,6 +33,84 @@ balance for each side in place of its character's (`DuelRecipe.balance`; in a li
 `&balance=left,right` in per cent, or one number for both), and a force and a moment for a per
 cent in place of the rulebook's (`DuelRecipe.balancePercent`).
 
+## Haste
+
+A character's **haste** is how fast its legs' muscles are, a per cent of a person's, in its spec
+beside its balance (`AttributeSpec.haste`). It multiplies the unloaded speed of shortening of the
+hip's, the knee's and the ankle's exertions (`jointSpeed`, `src/core/human/speed.ts`), and nothing
+else: strength, mass and gravity are as they are, so a hasted body can neither float nor look
+fast-forwarded. It is not an assist: no force or moment is given that the muscles do not give.
+
+All of it is the owner's (`owner-haste` in `SOURCES`):
+
+| What | Value | Where |
+|---|---|---|
+| The attribute's name | haste | `AttributeSpec.haste` |
+| Every character's haste | 100 % | `HUMAN_HASTE` (`src/core/human/attributes.ts`) |
+| What it quickens | the hip's, knee's and ankle's (and the foot's) exertions, each way | `jointSpeed` |
+
+A bout takes a haste for each side in place of its character's (`DuelRecipe.haste`; in a link,
+`&haste=left,right` in per cent, or one number for both), as the Lab does for its body
+(`&haste=`); a humanoid's spec takes one (`modelSpec`), the reptile's none. A figure on a hasted
+body names each side's haste.
+
+A gait could be timed to its muscles (`SimbiconSettings.hasted`): its times shortened, and its
+speeds and its envelope's raised, by the haste to a power of 0, 1/2 or 1. Measured, the power is 0.
+Node stand, Rapier, 120 Hz; the Warrior, the Rogue and the skeleton each empty-handed and holding
+the club, asked 2, 3, 4 and 5 m/s, to stop from 2.4 and to turn at 0.6 rad/s, calm and in two seeds
+of the Lab's 5 N gusts (`research/run-cycle-search.mjs --score --speeds 2,3,4,5 --stops 2.4 --turns
+0.6 --winds 1:5:5,6 --holds empty,club --haste <h> --hasted <power>`), the battery's score and the
+runs that fell, of 72:
+
+| Haste | Power | Score | Runs that fell |
+|---|---|---|---|
+| 100 % | any | 1.71 | 28 |
+| 125 % | 1/2 | 1.55 | 46 |
+| 150 % | 0 | 1.50 | 42 |
+| 150 % | 1/2 | 0.57 | 67 |
+| 150 % | 1 | 0.22 | 71 |
+
+A gait quickened by its muscles alone keeps its strides and steps faster than gravity lets the body
+fall onto them: the times a pendulum's swing and a stance's fall take are not the muscles' to
+change. At 150 % and the gait as it is, the Warrior asked 4 m/s makes 3.25 against 3.17 and more
+of the runs fall: the run's settings were searched on a person's muscles.
+
+## A gait's assist
+
+A gait that drives the legs itself (the SIMBICON walk and its run, `simbicon.ts`) asks the assist
+each step for a moment on the root that turns the pelvis to the gait's own: facing its heading, at
+the walk's lean or the lean and bank the run's stance hip last held, in 0.15 s as a body of 0.3 m
+radius of gyration would be turned, less any part that would lean it further forward
+(`gaitAssist`, `src/core/skills/gait-assist.ts`). The stance's bearing solve asks the assist
+for what the soles miss ("What the soles miss"); a gait has no such solve, and before it asked
+nothing a body's balance did not help it walk or run.
+
+Node stand, Rapier, 120 Hz; the Warrior, the Rogue and the skeleton, each empty-handed and holding
+the club, asked 1.4, 2, 3 and 4 m/s, to stop from 1.5, 2.4 and 3.5 and to turn at ±0.6 rad/s,
+calm and in four seeds of the Lab's 5 N gusts (`research/run-cycle-search.mjs --score --speeds
+1.4,2,3,4 --stops 1.5,2.4,3.5 --turns 0.6,-0.6 --winds 1:5:5,6,7,8 --holds empty,club --balance
+<b>`), the trials that fell, and the speed the Warrior made asked 4 m/s empty-handed:
+
+| Balance | Runs, of 120 | Turns, of 60 | Stops, of 90 | Warrior asked 4, m/s |
+|---|---|---|---|---|
+| 0 % | 29 | 18 | 38 | 3.17 |
+| 10 % | 12 | 20 | 29 | 2.96 |
+| 25 % | 5 | 13 | 23 | 2.81 |
+| 50 % | 6 | 10 | 17 | 2.77 |
+
+At 0 % every trial is the one without it, to the bit. The Warrior's and the Rogue's turns stop
+falling from 25 % (their 13 at none, the Rogue's with the club 8 at 10 %); the skeleton's fall more (5 at none, 12 at 10 %, 13 at 25 %,
+10 at 50 %). Every body is slower asked 3 or 4 m/s, by 0.1 to 0.6 m/s.
+
+What was tried on the Warrior and the Rogue, asked 3 and 4 and to stop from 2.4, calm and in two
+seeds, at 25 %:
+
+- a force across the heading toward the walk asked across it, in 0.25 s, alone: the falls of none;
+- the moment toward the run's settled lean (`RunCycleSettings.lean`) in place of the lean its
+  hip holds: no run falls, and every run held under about 2.4 m/s;
+- the moment's pitch both ways: the Warrior brakes slower and falls in 7 of 12 stops against 1;
+- damping the pelvis's spin alone: the Rogue's falls of none.
+
 ## What the soles miss
 
 Each step a stance works out the wrench the ground must give for the accelerations it asks and

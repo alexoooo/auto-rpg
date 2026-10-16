@@ -207,6 +207,15 @@ export const SOURCES = Object.freeze({
       + "quarter of a weight and 50 N m for the Warrior; and every character starts at 0.",
     record: "docs/reference/assist.md#balance",
   },
+  "owner-haste": {
+    kind: "decision", date: "2026-10-16",
+    decided: "How fast a body's legs are beyond a person's is an attribute of its character, haste, as balance is: "
+      + "the unloaded speed of the legs' muscles alone (the hip's, the knee's and the ankle's exertions), a per cent "
+      + "of the human baseline, 100 by default and every character's 100. A gait times itself to it; a forward force "
+      + "on the root is not haste (it is an assist, and reads as sliding). Its range and each character's value are "
+      + "the owner's; a bout or an experiment may give a body another.",
+    record: "docs/reference/assist.md#haste",
+  },
   "owner-physique": {
     kind: "decision", date: "2026-10-08",
     decided: "A body may differ from its model by a physique of four attributes, each a factor that "

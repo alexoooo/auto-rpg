@@ -1,6 +1,6 @@
 import type { BodySpec } from "../spec/body.ts";
 import { sourced } from "../spec/quantity.ts";
-import { humanAttributes } from "./attributes.ts";
+import { hastedFigure, humanAttributes } from "./attributes.ts";
 import type { HumanFigure } from "./figure.ts";
 import { humanJoints } from "./joints.ts";
 import { physiqueFigure, type Physique } from "./physique.ts";
@@ -14,17 +14,18 @@ import { humanWounds } from "./wounds.ts";
 
 /**
  * **A workshop human, whole**: its segments, the joints and muscle between them, its wounds and its
- * attributes, at x1, or with `physique` (`physique.ts`).
+ * attributes, at x1, or with `physique` (`physique.ts`), and with `haste` per cent in place of its character's.
  */
-export const humanSpec = (model: WorkshopModel, physique?: Physique): BodySpec => figureSpec(physiqueFigure(workshopFigure(model), physique));
+export const humanSpec = (model: WorkshopModel, physique?: Physique, haste?: number): BodySpec =>
+  figureSpec(hastedFigure(physiqueFigure(workshopFigure(model), physique), haste));
 
 /** The core's bodies by model: the workshop humans and the crypt skeleton. */
 export type HumanoidModel = WorkshopModel | typeof SKELETON_MODEL;
 export const HUMANOID_MODELS: readonly HumanoidModel[] = Object.freeze([...WORKSHOP_MODELS, SKELETON_MODEL]);
 
-/** **A core body by model**, whole, with `physique` where one is given. */
-export function humanoidSpec(model: HumanoidModel, physique?: Physique): BodySpec {
-  return model === SKELETON_MODEL ? figureSpec(physiqueFigure(skeletonFigure(), physique)) : humanSpec(model, physique);
+/** **A core body by model**, whole, with `physique` and `haste` where they are given. */
+export function humanoidSpec(model: HumanoidModel, physique?: Physique, haste?: number): BodySpec {
+  return model === SKELETON_MODEL ? figureSpec(hastedFigure(physiqueFigure(skeletonFigure(), physique), haste)) : humanSpec(model, physique, haste);
 }
 /** **A human figure, whole** (`figure.ts`): the human body plan on the figure's own numbers. */
 function figureSpec(figure: HumanFigure): BodySpec {
