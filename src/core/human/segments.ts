@@ -2,7 +2,7 @@ import type { Side, SegmentSpec, ShapeSpec } from "../spec/body.ts";
 import { segmentFrame } from "../spec/body.ts";
 import { square } from "../math/real.ts";
 import { capsuleRadius, massShare } from "../spec/geometry.ts";
-import { derive, si, type Quantity, type Vec3 } from "../spec/quantity.ts";
+import { derive, si, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
 import { add, distance, dot, lerp, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extents } from "./envelope.ts";
 import type { HandFigure, HumanFigure } from "./figure.ts";
@@ -10,6 +10,9 @@ import { SIDES } from "./landmarks.ts";
 import { DE_LEVA_1996, type DeLevaRow, type DeLevaSegment } from "./tables/de-leva-1996.ts";
 import { CONTACT_STIFFNESS } from "./tables/contact-stiffness.ts";
 import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
+
+/** A foot's grip on what it stands on, the coefficient of friction: what the run is fastest and surest at (`docs/reference/run-body.md`). */
+const FOOT_FRICTION = sourced(0.8, "1", "owner-run-body", "the foot's coefficient of friction");
 
 /**
  * **A human figure's sixteen segments** (`figure.ts`), at x1: the head, three trunk segments, and
@@ -29,7 +32,8 @@ import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
  *   model's clothed envelope), not a box on its extents, whose corners stand out of the body where
  *   a driven upper arm passes. A foot is a box on its extents (the boot). A shape carries no mass
  *   (`SegmentSpec.shape`).
- * - **Surface.** How stiff the part is under a blunt load, by its row (`tables/contact-stiffness.ts`).
+ * - **Surface.** How stiff the part is under a blunt load, by its row (`tables/contact-stiffness.ts`),
+ *   and a foot's grip on what it stands on (`FOOT_FRICTION`).
  *
  * A foot runs from the figure's heel to its toe.
  *
@@ -196,7 +200,7 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
         return [m * square(transverse * l), m * square(longitudinal * l), m * square(sagittal * l)];
       });
     const segment: SegmentSpec = { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape: shapeOf(figure, plan, proximal, distal, mass),
-      surface: { stiffness: si(CONTACT_STIFFNESS[plan.row]) } };
+      surface: { stiffness: si(CONTACT_STIFFNESS[plan.row]), ...(plan.row === "foot" ? { friction: FOOT_FRICTION } : {}) } };
     const points = plan.points && Object.fromEntries(Object.entries(plan.points).map(([name, point]) => [name, atFit(point)]));
     if (plan.row === "foot" && segment.shape.kind === "box") {
       const { centre, size } = segment.shape;

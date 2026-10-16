@@ -1,4 +1,4 @@
-import { derive, type Quantity } from "../spec/quantity.ts";
+import { derive, sourced, type Quantity } from "../spec/quantity.ts";
 import type { HumanFigure } from "./figure.ts";
 import { abeBodyMass, abeRegionalMuscle, type MuscleRegion } from "./tables/abe-2003.ts";
 import { measuredTorque, subjectMass, type Exertion } from "./tables/joint-torques.ts";
@@ -16,7 +16,8 @@ import { measuredTorque, subjectMass, type Exertion } from "./tables/joint-torqu
  *     regional muscle = body mass x (the region's muscle per body mass, for the sex)
  *
  * The body mass counted is the figure's muscled mass (`HumanFigure.muscled`), which a physique's
- * weight leaves as it is; the figure's strength, where it has one, multiplies the torque.
+ * weight leaves as it is. What the owner has set an exertion to give in use over its measured peak
+ * (`IN_USE`) multiplies the torque, and so does the figure's strength, where it has one.
  *
  * The regional muscle per body mass is Abe 2003's, for both sexes: the women's share and the men's
  * come from the same people in the same scanner, so their ratio carries no difference of method. A
@@ -36,8 +37,24 @@ export function peakTorque(figure: HumanFigure, exertion: Exertion): Quantity<nu
     subjectMass(exertion, "male"), abeRegionalMuscle("male", region), abeBodyMass("male")],
   (torque, mass, muscle, muscleMass, menMass, menMuscle, menMuscleMass) =>
     torque * (mass * muscle / muscleMass) / (menMass * menMuscle / menMuscleMass));
-  return figure.strength ? derive("N m", "the torque times the figure's strength", [torque, figure.strength], (t, s) => t * s) : torque;
+  const inUse = IN_USE[exertion];
+  const used = inUse ? derive("N m", "the torque times what the exertion gives in use over its measured peak", [torque, inUse], (t, f) => t * f) : torque;
+  return figure.strength ? derive("N m", "the torque times the figure's strength", [used, figure.strength], (t, s) => t * s) : used;
 }
+
+/**
+ * What a leg's exertions give in use over their measured peaks, as the owner has set them: what the
+ * run searched on the body is fastest and surest at (`docs/reference/run-body.md`). A person
+ * running uses the hip at all of its measured capacity and pushes the ankle past a straight-legged
+ * push's peak.
+ */
+const HIP_IN_USE = sourced(2.49, "1", "owner-run-body", "the hip's torque in use over its measured peak");
+const KNEE_IN_USE = sourced(1.58, "1", "owner-run-body", "the knee's torque in use over its measured peak");
+const IN_USE: Readonly<Partial<Record<Exertion, Quantity<number>>>> = Object.freeze({
+  hipFlexion: HIP_IN_USE, hipExtension: HIP_IN_USE, hipAbduction: HIP_IN_USE, hipAdduction: HIP_IN_USE,
+  hipExternalRotation: HIP_IN_USE, hipInternalRotation: HIP_IN_USE, kneeExtension: KNEE_IN_USE, kneeFlexion: KNEE_IN_USE,
+  anklePlantarflexion: sourced(2.75, "1", "owner-run-body", "the ankle's plantar flexion in use over its measured peak"),
+});
 
 /**
  * Which of Abe's regions holds the muscle that turns each joint. The neck, the spine and the

@@ -179,7 +179,8 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
       depth: Math.max(...shape.points.map(p => dot(p.value, direction!))) - Math.min(...shape.points.map(p => dot(p.value, direction!))) } : undefined;
     return { ...(surface?.layer ? { layer: { stiffness: surface.layer.stiffness.value,
       dampingRatio: surface.layer.dampingRatio.value, depth: surface.layer.depth.value } } : {}), ...(piercing ? { point: piercing } : {}),
-      ...(surface?.sole ? { sole: { stiffness: surface.sole.stiffness.value, damping: surface.sole.damping.value, depth: surface.sole.depth.value } } : {}) };
+      ...(surface?.sole ? { sole: { stiffness: surface.sole.stiffness.value, damping: surface.sole.damping.value, depth: surface.sole.depth.value } } : {}),
+      ...(surface?.friction ? { friction: surface.friction.value } : {}) };
   }) });
   const handPose = spec.handPoses ? { applied: initial, requested: initial } : undefined;
   return { spec, frame, node, body: physics, rest, ...(handPose ? { handPose } : {}), ...(poses ? { poses } : {}),

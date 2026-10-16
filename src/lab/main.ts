@@ -45,6 +45,9 @@ import { groundScenario } from "./ground-scenario.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { need } from "../dom.ts";
 
+/** The floor's side, m: a body running 4 m/s along the longest course comes up to its pace and back down on it. */
+const FLOOR = 200;
+
 /**
  * **The lab**: a core human in one scenario (`scenarios.ts`), the page's shell around it. The
  * scenario owns what it does to the body, its panels and its marks; the shell owns the rest.
@@ -127,16 +130,17 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   scene.environmentIntensity = 0.85;
 
   // The ground: a fixed box for the solver (made with each world, in `load`), a plane with a grid
-  // of metre lines for the eye.
-  const floor = MeshBuilder.CreateGround("lab.floor", { width: 40, height: 40 }, scene);
+  // of metre lines for the eye, wide enough for a run's straight (`FLOOR`).
+  const floor = MeshBuilder.CreateGround("lab.floor", { width: FLOOR, height: FLOOR }, scene);
   const floorMaterial = new StandardMaterial("lab.floor", scene);
   floorMaterial.diffuseColor = new Color3(0.16, 0.18, 0.19);
   floorMaterial.specularColor = Color3.Black();
   floor.material = floorMaterial;
   const lineColour = new Color4(0.3, 0.33, 0.35, 1);
   const lines: Vector3[][] = [];
-  for (let i = -10; i <= 10; i++) {
-    lines.push([new Vector3(i, 0.002, -10), new Vector3(i, 0.002, 10)], [new Vector3(-10, 0.002, i), new Vector3(10, 0.002, i)]);
+  const half = FLOOR / 2;
+  for (let i = -half; i <= half; i++) {
+    lines.push([new Vector3(i, 0.002, -half), new Vector3(i, 0.002, half)], [new Vector3(-half, 0.002, i), new Vector3(half, 0.002, i)]);
   }
   MeshBuilder.CreateLineSystem("lab.grid", { lines, colors: lines.map((l) => l.map(() => lineColour)) }, scene);
 
@@ -224,7 +228,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     audio.reset();
     unload();
     world = createWorld(scene, physicsEngine, { hz: to.hz });
-    world.physics.addFixedBox([0, -0.5, 0], [40, 1, 40]);
+    world.physics.addFixedBox([0, -0.5, 0], [FLOOR, 1, FLOOR]);
     // The scenario supplies its initial placement; ordinary starts hold the standing guard.
     const spec = loadoutSpec(to);
     let placement: Parameters<typeof buildBody>[2];

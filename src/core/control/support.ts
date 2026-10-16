@@ -312,8 +312,9 @@ function edgeOf(foot: FootState): void {
 }
 
 /**
- * The friction the stance takes the ground to give, the coefficient: every collider's, which the
- * engine combines by their average (`CONTACT_FRICTION`, `src/core/engine/engine.ts`).
+ * The friction the stance takes the ground to give, the coefficient: the floor's own
+ * (`CONTACT_FRICTION`, `src/core/engine/engine.ts`). A sole that grips better
+ * (`SurfaceSpec.friction`) leaves the stance that much more margin.
  */
 export const GROUND_FRICTION = CONTACT_FRICTION;
 

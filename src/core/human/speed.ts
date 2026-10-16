@@ -1,5 +1,5 @@
 import type { ForceVelocitySpec } from "../spec/body.ts";
-import { derive, si, type Quantity } from "../spec/quantity.ts";
+import { derive, si, sourced, type Quantity } from "../spec/quantity.ts";
 import type { HumanFigure } from "./figure.ts";
 import type { Sex } from "./tables/de-leva-1996.ts";
 import {
@@ -36,7 +36,8 @@ import type { Exertion } from "./tables/joint-torques.ts";
  *   owner chose 1.4 for fighters.
  *
  * The figure's column is its sex's. Speed is not scaled to size: a geometrically similar body turns
- * its joints at the same rate. The figure's speed, where it has one, multiplies the unloaded speed.
+ * its joints at the same rate. What the owner has set a leg's joints to turn at in use over the
+ * curve read (`IN_USE`) multiplies the unloaded speed, and so does the figure's speed, where it has one.
  */
 export function jointSpeed(figure: HumanFigure, exertion: Exertion): ForceVelocitySpec {
   const { sex } = figure;
@@ -44,7 +45,8 @@ export function jointSpeed(figure: HumanFigure, exertion: Exertion): ForceVeloci
   const own = shortening(measured, sex);
   const borrowed = (q: Quantity<number>) => measured === exertion ? q
     : derive(q.unit, `${measured}'s, taken for ${exertion}: a stated assumption (BORROWED, src/core/human/speed.ts)`, [q], (v) => v);
-  const curvature = borrowed(own.curvature), unloaded = borrowed(own.unloadedSpeed);
+  const curvature = borrowed(own.curvature), read = borrowed(own.unloadedSpeed), inUse = IN_USE[exertion];
+  const unloaded = inUse ? derive("rad/s", "the unloaded speed times the joint's in use over the curve read", [read, inUse], (w, f) => w * f) : read;
   const unloadedSpeed = figure.speed
     ? derive("rad/s", "the unloaded speed times the figure's speed", [unloaded, figure.speed], (w, s) => w * s) : unloaded;
   return {
@@ -52,6 +54,16 @@ export function jointSpeed(figure: HumanFigure, exertion: Exertion): ForceVeloci
     eccentricCeiling: THELEN_ECCENTRIC_CEILING, eccentricSlopeRatio: THELEN_ECCENTRIC_SLOPE_RATIO,
   };
 }
+
+/**
+ * How much faster a leg's joints turn in use than the curves read, as the owner has set it: what the
+ * run searched on the body is fastest and surest at (`docs/reference/run-body.md`).
+ */
+const LEG_SPEED_IN_USE = sourced(1.98, "1", "owner-run-body", "a leg joint's unloaded speed in use over the curve read");
+const IN_USE: Readonly<Partial<Record<Exertion, Quantity<number>>>> = Object.freeze(Object.fromEntries(([
+  "hipFlexion", "hipExtension", "hipAbduction", "hipAdduction", "hipExternalRotation", "hipInternalRotation",
+  "kneeExtension", "kneeFlexion", "ankleDorsiflexion", "anklePlantarflexion", "footInversion", "footEversion",
+] as const).map((exertion) => [exertion, LEG_SPEED_IN_USE])));
 
 type Measured = AndersonDirection | FreyLawDirection;
 

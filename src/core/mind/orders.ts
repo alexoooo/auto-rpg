@@ -11,6 +11,8 @@ export interface Orders {
   readonly move: Heading | null;
   /** Walk no faster than this, m/s, as a walk coming to a stop does; absent, the body's own pace is the only bound. */
   readonly pace?: number;
+  /** Run: walk the way it is told facing that way, at its fastest walk forward; the facing told is set aside. */
+  readonly run?: true;
   /** Face this way (its length is not read past 0.08). Null faces the walk, or, standing, as it stands. */
   readonly face: Heading | null;
   /** Attack this sensed body (`BodySense.id`) where the mind chooses on it. */
@@ -29,12 +31,13 @@ const isHeading = (value: unknown): value is Heading => typeof value === "object
 /** Whether `value` is orders: what orders read from outside the program must be before a body is given them. */
 export function isOrders(value: unknown): value is Orders {
   if (typeof value !== "object" || value === null) return false;
-  const { move, pace, face, foe, region, destination } = value as Record<string, unknown>;
+  const { move, pace, run, face, foe, region, destination } = value as Record<string, unknown>;
   return (move === null || isHeading(move)) && (pace === undefined || typeof pace === "number" && Number.isFinite(pace) && pace >= 0) && (face === null || isHeading(face))
+    && (run === undefined || run === true)
     && (foe === undefined || typeof foe === "string" && foe.length > 0)
     && (region === undefined || typeof region === "string" && region.length > 0 && foe !== undefined)
     && (destination === undefined || typeof destination === "number" && Number.isFinite(destination) && destination >= 0)
-    && Object.keys(value).every(key => ["move", "pace", "face", "foe", "region", "destination"].includes(key));
+    && Object.keys(value).every(key => ["move", "pace", "run", "face", "foe", "region", "destination"].includes(key));
 }
 
 /** Whether two orders, or two absences of them, say the same thing. */

@@ -74,7 +74,8 @@ import { fileURLToPath } from "node:url";
 import { cmaSearch } from "./cma.mjs";
 import { STRIDE } from "../src/core/skills/stride.ts";
 import { RUN } from "../src/core/skills/run.ts";
-import { SIMBICON, simbiconRun, simbiconWays } from "../src/core/skills/simbicon.ts";
+import { SIMBICON, simbiconWays } from "../src/core/skills/simbicon.ts";
+import { runCycleSettings } from "../src/core/skills/cycle-run.ts";
 import { TURNED, WENT, wentAsAsked } from "../src/core/control/stance-envelope.ts";
 import { HELD } from "../src/core/items/held.ts";
 
@@ -99,13 +100,13 @@ const WAY_DIMS = {
   cdSide: [-0.5, 0.5], cvSide: [-0.3, 0.5], lead: [-0.2, 0.4], leadSide: [0, 0.5], leadOut: [-0.3, 0.5], width: [0.05, 0.3], vf: [0, 1.5], vfSide: [0, 1.5], vfMost: [0.1, 1], trim: [0, 0.5], trimSide: [0, 0.5],
 };
 
-/** The SIMBICON run's settings searched and their ranges (`SimbiconRun`), and `at`, the walk's `run`: the pace past which it runs. */
+/** The run's settings searched and their ranges (`RunCycleSettings`), and `at`, the walk's `run`: the pace past which it runs. */
 const RUN_WAY_DIMS = {
-  seconds: [0.14, 0.3], longest: [0.5, 0.9], swingHip: [0.4, 1.2], swingHipLate: [-0.3, 0.4], swingSpread: [-0.2, 0.1], swingKnee: [0.8, 1.8],
-  swingKneeLate: [0, 0.6], swingAnkle: [-0.1, 0.4], swingAnkleLate: [-0.1, 0.4], stanceKnee: [0, 0.4], stanceAnkle: [-0.2, 0.4], cvAnkle: [0, 1],
-  lean: [-0.1, 0.35], cd: [-0.4, 0.4], cv: [-0.3, 0.6], cdLate: [-0.4, 0.4], cvLate: [-0.3, 0.6], cdSide: [-0.5, 0.3], cvSide: [-0.3, 0.3],
-  leadSide: [0, 0.4], width: [0.03, 0.15], settle: [0.06, 0.25], stance: [0.5, 1], swing: [0.3, 1], ankle: [0.2, 1], hold: [0.5, 1],
-  push: [0.2, 1], pushKnee: [0.2, 1], pushAnkle: [-0.8, 0], reach: [0, 0.3], trailKnee: [0.2, 1.2], contact: [0.15, 0.4], gain: [0, 0.4], arms: [0, 3], elbow: [0, 1.6], at: [1, 1.6],
+  blend: [0, 1], short: [0, 1], swingGain: [0, 0.4], cadenceGain: [0, 0.3], gainsFrom: [2.2, 3.4], period: [0.8, 1.25], accel: [0.3, 2],
+  lean: [-0.05, 0.45], pelvis: [0.04, 0.2], leanGain: [0, 1], leanMost: [0, 0.6], bank: [-0.5, 1.5], hold: [0.5, 1], settle: [0.02, 0.15], stance: [0.4, 1], swing: [0.3, 1], ankle: [0.2, 1],
+  cv: [-0.1, 0.4], cd: [-0.5, 0.8], late: [0.5, 0.95], paceGain: [0, 0.5], paceMost: [0, 0.4],
+  contact: [0.1, 0.4], gainSide: [0, 0.4], width: [-0.05, 0.2], cvAnkleSide: [-1, 1], cdSide: [-0.5, 1],
+  kneeAdd: [-0.2, 0.4], ankleAdd: [-0.3, 0.2], hipAdd: [-0.3, 0.3], wait: [0.001, 0.2], early: [0.05, 0.3], arms: [0, 3], elbow: [0.3, 1.8], at: [1, 1.6],
 };
 
 /** With `--timing`, the gait's stance timing searched with forward's settings: every way's steps take it. */
@@ -188,7 +189,7 @@ const baseLegs = arg("legs") ? JSON.parse(readFileSync(arg("legs"), "utf8")) : {
 if (arg("speeds")) BATTERY.speeds = list("speeds").map(Number);
 if (arg("turn-speeds")) TURNS.speeds = list("turn-speeds").map(Number);
 const SPACE = running ? RUN_DIMS : way === "run" ? RUN_WAY_DIMS : way === "all" ? ALL_DIMS : way === "forward" ? { ...WAY_DIMS, ...(process.argv.includes("--timing") ? TIMING_DIMS : {}), ...(process.argv.includes("--steer") ? STEER_DIMS : {}) } : way ? WAY_DIMS : DIMS, LADDER = running ? RUN_PACES : PACES;
-const BASE = running ? RUN : way === "run" ? { ...simbiconRun(baseLegs.tuning?.run), at: baseLegs.run } : way === "all" ? allOf(SIMBICON, simbiconWays()) : way === "forward" ? { ...wayOf(SIMBICON), seconds: SIMBICON.seconds, longest: SIMBICON.longest, speedup: SIMBICON.speedup, swerve: SIMBICON.swerve, turn: SIMBICON.turn } : way ? simbiconWays()[way] : STRIDE;
+const BASE = running ? RUN : way === "run" ? { ...runCycleSettings(baseLegs.tuning?.run), at: baseLegs.run } : way === "all" ? allOf(SIMBICON, simbiconWays()) : way === "forward" ? { ...wayOf(SIMBICON), seconds: SIMBICON.seconds, longest: SIMBICON.longest, speedup: SIMBICON.speedup, swerve: SIMBICON.swerve, turn: SIMBICON.turn } : way ? simbiconWays()[way] : STRIDE;
 const models = list("models", way ? "workshop-fighter" : "workshop-fighter,workshop-rogue");
 const lines = list("lines", running || way === "forward" || way === "run" ? "forward" : way === "back" ? "back" : way ? "right,left" : "forward,right,back");
 const seeds = list("seeds", "1,2,3").map(Number), seconds = Number(arg("seconds", "15"));

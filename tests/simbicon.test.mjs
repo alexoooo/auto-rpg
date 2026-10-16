@@ -191,14 +191,14 @@ test("a_simbicon_gait_comes_through_to_the_warrior_as_set_and_to_a_shorter_leg_s
 
 test("the_simbicon_walk_is_a_fighters_locomotion_and_refuses_what_it_cannot_carry_out", () => {
   assert.deepEqual(treeFaults(WALKING, ["script"]), []);
-  assert.deepEqual(treeFaults({ ...WALKING, locomotion: { ...WALKING.locomotion, tuning: { back: { lead: 0.2 }, side: { width: 0.1 }, run: { gain: 0.2 } } } }, ["script"]), []);
+  assert.deepEqual(treeFaults({ ...WALKING, locomotion: { ...WALKING.locomotion, tuning: { back: { lead: 0.2 }, side: { width: 0.1 }, run: { swingGain: 0.2 } } } }, ["script"]), []);
   for (const bad of [{ seconds: 0 }, { longest: 0.1 }, { settle: 0 }, { swing: 1.5 }, { hold: 0 }, { ankle: -0.1 }, { turn: 0 }, { speedup: 0 }, { cd: Number.NaN }, { arms: -1 }, { run: 0 }, { leg: 0 },
-    { tuning: { back: { cv: Number.NaN } } }, { tuning: { side: { settle: 0.2 } } }, { tuning: { run: { contact: 0 } } }, { tuning: { run: { push: 1.5 } } }, { tuning: { run: { lead: 0.1 } } }]) {
+    { tuning: { back: { cv: Number.NaN } } }, { tuning: { side: { settle: 0.2 } } }, { tuning: { run: { contact: 0 } } }, { tuning: { run: { stance: 1.5 } } }, { tuning: { run: { short: 1.5 } } }, { tuning: { run: { gain: 0.1 } } }]) {
     const faults = treeFaults({ ...WALKING, locomotion: { ...WALKING.locomotion, ...bad } }, ["script"]);
     assert.ok(faults.some((f) => f.toLowerCase().includes("simbicon")), `${JSON.stringify(bad)}: ${JSON.stringify(faults)}`);
   }
-  // Low support steps from the stance, which a walk that drives the legs leaves; a kick waits for the legs.
+  // A kick and low support each wait for a walk that drives the legs to give them back to the stance.
   const kicking = treeFaults({ ...WALKING, executors: [{ name: "kick", kind: "front-kick" }], actions: [{ name: "kick", executor: "kick", effectors: ["foot.left", "foot.right"], regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "leg-height", height: .4 } }], support: { kind: "support-fold" } }, ["script"]);
-  assert.ok(kicking.length > 0 && kicking.every((f) => f.includes("support: a walk that drives the legs")), JSON.stringify(kicking));
+  assert.deepEqual(kicking, []);
   assert.deepEqual(slotsOf(CONTROLLERS.fighter, WALKING).map((slot) => slot.key).filter((key) => key === "executors" || key === "support"), ["executors", "support"]);
 });

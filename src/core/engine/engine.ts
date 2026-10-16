@@ -16,8 +16,9 @@ import type { Vec3 } from "../spec/quantity.ts";
  * - **Bodies never sleep**: a sleeping body reads a perfect zero.
  * - **Mass is the spec's.** A body's colliders carry none; its mass properties are set whole.
  * - **Velocities are the centre of mass's**, not the node's.
- * - **Every contact's friction is `CONTACT_FRICTION`**, whichever two colliders meet, and no contact
- *   bounces: what the stance takes the ground to give (`GROUND_FRICTION`,
+ * - **A contact's friction is `CONTACT_FRICTION`**, unless a collider's material names its own
+ *   (`ContactMaterial.friction`), when the contact takes the greater of the two; no contact bounces.
+ *   The stance takes the ground to give the floor's own (`GROUND_FRICTION`,
  *   `src/core/control/support.ts`).
  * - **A joint's freedom k is angular axis k of the joint's frame**, fixed in the parent, its angle
  *   measured as `jointAngles` reads it (`src/core/build/joint-state.ts`) and limited there; every
@@ -33,7 +34,7 @@ import type { Vec3 } from "../spec/quantity.ts";
  *   kept out of the body's numbers.
  */
 /**
- * Every contact's friction coefficient: Rapier's default (`rapier-default-friction`), which every
+ * A contact's friction coefficient where neither collider names its own: Rapier's default (`rapier-default-friction`), which every
  * table of the stance's record was measured on (`docs/reference/stance-tuning.md`).
  */
 export const CONTACT_FRICTION = 0.5;
@@ -116,6 +117,8 @@ export interface ContactMaterial {
    */
   readonly sole?: { readonly stiffness: number; readonly damping: number; readonly depth: number };
   readonly point?: { readonly direction: Vec3; readonly alignment: number; readonly depth: number };
+  /** Its coefficient of friction: a contact it is in takes the greater of this and the other collider's. */
+  readonly friction?: number;
 }
 
 /** A compliant shape pair after one step. Work is signed reaction work at substep motion, J. */

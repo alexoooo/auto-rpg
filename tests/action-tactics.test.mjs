@@ -84,7 +84,7 @@ test("edge holds the focus's reach before patience yields to the shared approach
 });
 
 test("moving orders withdraw all live commitments and the shared window drives an unreserved approach", () => {
-  const body = sight(); let orders = null; body.envelope = { walk: { value: .4 }, ways: { forward: { value: .5 } } };
+  const body = sight(); let orders = null; body.envelope = { walk: { value: .4 }, ways: { forward: { value: .5 }, right: { value: .4 }, back: { value: .4 }, left: { value: .4 } }, turns: [], tried: null };
   body.readiness = position;
   const tactics = actionTactics(spec, [action()], config(), () => orders);
   const entering = tactics.decide(body, 1 / 120);

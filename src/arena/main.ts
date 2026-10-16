@@ -370,10 +370,10 @@ export async function bootArena(): Promise<void> {
   const help = (open: boolean) => show("help", open);
   need("help-open").addEventListener("click", () => help(true));
   need("help-close").addEventListener("click", () => help(false));
-  // What the person's hands are doing: the walking keys held, where the pointer is on the canvas,
-  // px, and whether its left button is down.
+  // What the person's hands are doing: the walking keys held, and whether Shift is, which runs; where the
+  // pointer is on the canvas, px, and whether its left button is down.
   const keys = { up: false, down: false, left: false, right: false };
-  let pointer: { x: number; y: number } | null = null, attacking = false;
+  let pointer: { x: number; y: number } | null = null, attacking = false, running = false;
   const walkKeys: Readonly<Record<string, keyof typeof keys>> = {
     w: "up", arrowup: "up", s: "down", arrowdown: "down", a: "left", arrowleft: "left", d: "right", arrowright: "right",
   };
@@ -386,16 +386,18 @@ export async function bootArena(): Promise<void> {
     return true;
   };
   window.addEventListener("keydown", (event) => {
+    if (event.key === "Shift") { running = true; return; }
     if (event.target instanceof HTMLSelectElement) return;
     if (event.key === "?") { help(need("help").classList.contains("gone")); return; }
     if (!duel || walkKey(event, true)) return;
     if (event.key === " " || event.key === "Escape") { event.preventDefault(); if (!duel.verdict) setPaused(!paused); }
     else if (event.key === "r" || event.key === "R") void begin(matchup);
   });
-  window.addEventListener("keyup", (event) => { walkKey(event, false); });
+  window.addEventListener("keyup", (event) => { if (event.key === "Shift") running = false; walkKey(event, false); });
   // Losing focus pauses the bout, and lets go of every key and button: their releases are not heard.
   window.addEventListener("blur", () => {
     keys.up = keys.down = keys.left = keys.right = false;
+    running = false;
     attacking = false;
     if (duel && !duel.verdict) setPaused(true);
   });
@@ -424,7 +426,7 @@ export async function bootArena(): Promise<void> {
     const ray = pointer ? scene.createPickingRay(pointer.x, pointer.y, null, camera) : null;
     const point = ray ? aimPoint(ray.origin.asArray(), ray.direction.asArray(), centre.y) : null;
     const target = attacking && ray ? rayTarget(duel.duelists[you].senses(), ray.origin.asArray(), ray.direction.asArray(), camera.maxZ) : null;
-    duel.order(you, personOrders(keysToMove(keys, rig.azimuth), point, target, centre));
+    duel.order(you, personOrders(keysToMove(keys, rig.azimuth), point, target, centre, running));
   };
   const airAt = new Vector3();
   const frame = () => {

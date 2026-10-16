@@ -10,7 +10,8 @@ import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
 import { GUARD, guardPosture } from "../src/core/skills/guard.ts";
-import { SIMBICON, simbicon, simbiconRun, simbiconWays } from "../src/core/skills/simbicon.ts";
+import { SIMBICON, simbicon, simbiconWays } from "../src/core/skills/simbicon.ts";
+import { runCycleSettings } from "../src/core/skills/cycle-run.ts";
 import { stride } from "../src/core/skills/stride.ts";
 import { startWind } from "../src/lab/wind.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
@@ -27,8 +28,8 @@ const across = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
  * `actuation` is the world's (`createWorld`), and `physique` the body's (`Physique`,
  * `src/core/human/physique.ts`). Its ground is `GROUND` across, so no trial walks off it.
  */
-/** The trials' ground, m across: the fastest walk of a battery, 2.5 m/s for its 10 s, stays on it. */
-const GROUND = 60;
+/** The trials' ground, m across: the fastest run of a battery, 4.5 m/s, set off, held and stopped (some 70 m), stays on it. */
+const GROUND = 200;
 
 async function body(model, stance, hz, held = null, actuation, physique) {
   const spec = held === "club" ? armed(modelSpec(model, physique), "right", woodenClub()) : modelSpec(model, physique);
@@ -173,11 +174,11 @@ function skillOf(legs, b) {
   switch (legs) {
     case null: case undefined: return null;
     case "stride": return stride(b);
-    case "simbicon": return simbicon(b, SIMBICON, simbiconWays(), simbiconRun(), false);
+    case "simbicon": return simbicon(b, SIMBICON, simbiconWays(), runCycleSettings(), false);
     case "simbicon-run": return simbicon(b);
     default: {
       // A SIMBICON gait of its own: its settings over the defaults, its ways' and its run's tuning, and whether it may run.
-      if (legs?.kind === "simbicon") { const { kind, tuning, runs = true, ...settings } = legs; return simbicon(b, { ...SIMBICON, ...settings }, simbiconWays(tuning), simbiconRun(tuning?.run), runs); }
+      if (legs?.kind === "simbicon") { const { kind, tuning, runs = true, ...settings } = legs; return simbicon(b, { ...SIMBICON, ...settings }, simbiconWays(tuning), runCycleSettings(tuning?.run), runs); }
       throw new Error(`no locomotion skill named ${legs}`);
     }
   }
@@ -197,14 +198,14 @@ function skillCommand(skill, view, walk, face, dt, posture, keep) {
 }
 
 /**
- * Walk at `speed` m/s `degrees` from forward for 8 s after 1 s, then walk nowhere 4 s (`walking` in
- * the tests); as a fight plays the body with `held` (`body`), walking by the stance's own walk or
+ * Walk at `speed` m/s `degrees` from forward for `setOff` s and 3 s measured after 1 s, then walk
+ * nowhere `rest` s (`walking` in the tests); as a fight plays the body with `held` (`body`), walking by the stance's own walk or
  * by the locomotion skill `legs` names (`skillOf`). Given `wind` (`{ rate, strength, seed }`), the
  * lab's gusts blow on it throughout (`startWind`, `src/lab/wind.ts`). `stood` is the soles' distance
  * apart across the way as it sets off, m, and `width` their mean as each lands over the 3 s measured
  * (null if none landed).
  */
-export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique, legs = null, wind = null }) {
+export async function walk({ model, degrees, speed, stance, hz = 120, held = null, actuation, physique, legs = null, wind = null, setOff = 5, rest = 4 }) {
   const { stand, body: b, guard } = await body(model, stance, hz, held, actuation, physique);
   const blowing = wind && startWind(stand.built, stand.world, { rate: wind.rate, strength: wind.strength }, wind.seed);
   const way = degrees * Math.PI / 180, ux = Math.sin(way), uz = Math.cos(way), skill = skillOf(legs, b);
@@ -218,13 +219,15 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
   });
   try {
     stand.step(stand.seconds(1));
-    let low = -Infinity, measuring = false;
+    let low = -Infinity, down = false, measuring = false;
     const was = { left: true, right: true }, widths = [];
     const run = (seconds) => {
       for (let i = 0; i < stand.seconds(seconds); i++) {
         stand.step(1);
         const s = b.view.stance;
-        if (goal) low = Math.max(low, goal.height - (s.centre.y - s.support.y));
+        // The sink is read over the lower sole: the stance's support is raised with a sole that swings high, as a run's does.
+        if (goal) low = Math.max(low, goal.height - (s.centre.y - Math.min(s.soles.left.y, s.soles.right.y)));
+        down ||= b.view.down;
         // The soles' distance apart across the way walked as each lands, over the walk measured.
         for (const side of ["left", "right"]) {
           if (measuring && s.touching[side] && !was[side]) widths.push(Math.abs((s.soles.left.x - s.soles.right.x) * uz - (s.soles.left.z - s.soles.right.z) * ux));
@@ -234,7 +237,7 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
     };
     const soles = b.view.stance.soles, stood = Math.abs((soles.left.x - soles.right.x) * uz - (soles.left.z - soles.right.z) * ux);
     pace = [speed * ux, speed * uz];
-    run(5);
+    run(setOff);
     const from = b.view.stance.centre.clone();
     measuring = true;
     run(3);
@@ -243,11 +246,11 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
     const along = ((to.x - from.x) * ux + (to.z - from.z) * uz) / 3, sideways = ((to.x - from.x) * uz - (to.z - from.z) * ux) / 3;
     const strides = b.view.stance.strides;
     pace = null;
-    run(2);
+    run(rest - 2);
     const settled = b.view.stance.strides;
     run(2);
     const s = b.view.stance;
-    return { strides, fell: low > 0.25 || !Number.isFinite(low), along, across: sideways, speed: s.velocity.length(), phase: s.phase,
+    return { strides, fell: low > 0.25 || down || !Number.isFinite(low), along, across: sideways, speed: s.velocity.length(), phase: s.phase,
       stepped: s.strides - settled, off: across(s.centre, s.place), stood, width: widths.length ? widths.reduce((a, w) => a + w, 0) / widths.length : null };
   } finally { blowing?.dispose(); b.dispose(); stand.dispose(); }
 }
@@ -277,12 +280,14 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120, after 
     return { posture, pushes: [], stance: goal && { ...goal, heading, walk } };
   });
   try {
-    let low = -Infinity;
+    let low = -Infinity, down = false;
     const run = (seconds, each) => {
       for (let i = 0; i < stand.seconds(seconds); i++) {
         stand.step(1);
         const s = b.view.stance;
-        if (goal) low = Math.max(low, goal.height - (s.centre.y - s.support.y));
+        // The sink is read over the lower sole: the stance's support is raised with a sole that swings high, as a run's does.
+        if (goal) low = Math.max(low, goal.height - (s.centre.y - Math.min(s.soles.left.y, s.soles.right.y)));
+        down ||= b.view.down;
         each?.(s);
       }
     };
@@ -298,7 +303,7 @@ export async function turn({ model, speed, rate, sense, stance, hz = 120, after 
     run(1, (s) => { if (s.velocity.length() > 0.05) off = Math.max(off, Math.abs(Math.atan2(Math.sin(Math.atan2(s.velocity.x, s.velocity.z) - heading), Math.cos(Math.atan2(s.velocity.x, s.velocity.z) - heading)))); });
     walking = false;
     run(2);
-    return { fell: low > 0.25 || !Number.isFinite(low), off, lag, speed: b.view.stance.velocity.length(), phase: b.view.stance.phase };
+    return { fell: low > 0.25 || down || !Number.isFinite(low), off, lag, speed: b.view.stance.velocity.length(), phase: b.view.stance.phase };
   } finally { b.dispose(); stand.dispose(); }
 }
 

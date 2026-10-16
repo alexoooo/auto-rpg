@@ -62,8 +62,9 @@ tried lands one (`research/greedy-punch.mjs`, [punch layer](analysis/2026-10-08-
 
 The SIMBICON walk and run plan is closed. It built a locomotion class that vaults over its
 stance leg and balances by where it puts the swing foot, beside the capture-point walks (the
-walking item below). Forward it walks to 1.32 m/s and runs on, on the ground, at about 1.6 to
-2.1, turning as it runs. Every other way it is no faster than the stride. The gaits and
+walking item below). Forward it walks to 1.30 m/s and runs on by a person's run cycle, to about
+3.1 m/s for the Warrior, flying between steps; how fast a body runs is its mind's choice of risk,
+since a few trials fall at every running pace, and with the club most of them do for the Rogue. The gaits and
 Locomotion plan that followed made its walk and its run Move's Walk and Run gaits (`GAITS`),
 chosen by a rule list a player edits, and the Lab's Run the Locomotion scenario: five courses at
 a pace up to the most the walk holds, in gusts, with each body and what it holds, the bed every
@@ -347,34 +348,48 @@ After it, each with its own plan, in the order each needs the one before:
     turns to its stop. A foot landed behind its neutral point, to speed up, falls within about
     2 s. A run at 2 m/s needs the swing's yaw cancelled, or more twist at the sole.
   - **The SIMBICON walk** (`simbicon.ts`, the walk every fighter travels by) drives the legs
-    itself, with no stance goal. Told it may not run, it walks forward to 1.32 m/s. Its envelope
+    itself, with no stance goal. Told it may not run, it walks forward to 1.30 m/s. Its envelope
     (`assets/core/simbicon-envelope.json`: Node stand, Rapier, 120 Hz, calm and in four seeds of
-    5 N gusts, with each thing held) is 1.5 m/s forward for the Warrior, 1.4 for the Rogue, and
-    every way 0.7 for the two of them and 0.4 for the skeleton, whose sides and back hold 0.4 to
-    1. It is measured from 0.3, since slower a step's pendulum carries the body on past the pace
-    asked or short of it. Tactics plan by the walk held every way; a walk asked faster straight
-    ahead takes its turns no faster than it holds them at that pace (`turnRate`).
-    - **Its run** is the same machine past 1.32 m/s, in settings searched on the Warrior, the
-      Rogue and the skeleton together, last with its turns at 1.7 and 2.2 m/s (`SIMBICON_RUN`).
-      It never leaves the ground. Every structure that pushed off into a flight fell within a
-      second. A squat jump from a crouch built balanced, each leg extensor's onset and activation
-      searched (`research/jump-test.mjs`, Node stand, Rapier, 120 Hz), leaves the ground at 1.05 to
-      1.52 m/s for the Warrior and 0.78 to 1.05 for the Rogue, from knees bent 0.8 to 1.3 rad,
-      against about 2.4 for young men (Kozinc 2024, 29.1 cm; Zemková 2025, 30.1 cm); no joint
-      reaches its curve's end, and the knee pushes at its peak torque. Its envelope
-      (`assets/core/simbicon-run-envelope.json`) is 2.5 m/s forward for the Warrior and the
-      skeleton and 2 for the Rogue; running, the Warrior turns at 0.7 rad/s to 2 m/s and 0.5 at
-      2.5, the Rogue 0.7 to 2, and the skeleton 0.25 to 1.7 and not at all faster. Asked 2 and
-      2.4 m/s from a walk, then to stop, on gust seeds the search never saw (trial walk, Node
-      stand, Rapier, 120 Hz, 10 s, in the guard and with the club): the Warrior runs at 1.87 and
-      2.10, the skeleton 1.84 and 1.72, the Rogue 1.75 and 1.62, and none of 144 falls. Told it
-      may not run, a run walks again from a landing once the walk asked has come down to 1.32.
-    - **On the Locomotion scenario at Max** (`research/locomotion-run.mjs --played`, Node,
-      Rapier, 120 Hz, 60 s, the five courses, three bodies empty-handed and with the club, calm
-      and 5 N, seeds 1 to 6) the bodies make 0.83 m/s along the course and 24 of 240 runs fall,
-      against 0.74 and 26 with a run that held no turn: round the circle the Warrior makes 1.69
-      and the Rogue 1.58. Back and forth over 20 m, travelling by Move, they make 1.34 with its
-      run and 1.01 walking, and none falls.
+    5 N gusts, with each thing held) is every way 1.2 m/s for the Warrior, 1 for the Rogue and 0.7
+    for the skeleton, and forward 1.5, 1.2 and 1.5. It is measured from 0.3, since slower a step's
+    pendulum carries the body on past the pace asked or short of it. Each way changes the walk
+    asked at its own rates: forward 1.58 m/s² faster and 0.47 slower, the side and back ways 0.5.
+    - **Its run** tracks a person's run cycle past 1.30 m/s (`runCycle`, `cycle-run.ts`), its
+      settings searched on the three bodies bare-handed in the guard, calm and in gusts
+      (`research/run-cycle-search.mjs`). Asked 4 m/s it makes about 3.1 to 3.2 for the Warrior,
+      2.4 to 2.7 for the Rogue and 2.9 for the skeleton. Its envelope
+      (`assets/core/simbicon-run-envelope.json`, each walk set off 10 s and resting 10 s after)
+      holds forward by the rule only to 1.2 for all three, since a few trials at every pace fall.
+      Forward at 3 m/s the Warrior held 8 of its 10 trials, the skeleton 4 and the Rogue none; at
+      4, 6, 7 and none. So whether a body runs is its mind's choice of risk: the envelope keeps
+      each way's trials (`StanceEnvelope.tried`), the gait takes any pace that held a fifth of
+      them (`REACH`), an order to run or a destination the fastest that held 0.6 (`RUN`,
+      `ordered.ts`), and the options fighter closing on a place 0.8 (`SPACE.share`, `walk.ts`).
+      In an Arena bout opened at 12 m (`research/bout.mjs`), two skeletons close at about 1.8 m/s
+      and stay up, two Rogues walk at about 1, and of two Warriors one runs and the other falls
+      within a second of its run beginning.
+    - **The club is what throws the run.** Scored on gust seeds the search never saw (5 to 8; Node
+      stand, Rapier, 120 Hz, asked 1.4 to 4, three stops and two turns), the trials that fell, of 45
+      each:
+
+      | Body | Empty-handed | With the club |
+      |---|---|---|
+      | Warrior | 1 | 18 |
+      | Rogue | 18 | 33 |
+      | skeleton | 3 | 12 |
+
+      Most fall within a second or two of the run beginning, the body going across its heading at
+      0.5 m/s as its walk hands over. The run's lateral placement is on a knife's edge: its gain
+      (`gainSide`) at 0.086 against 0 or 0.04 trades the Warrior's falls for the skeleton's (1 of
+      20 runs against 16), and 0.2 or more throws nearly every Warrior and Rogue. A lateral
+      controller of the run that takes up the walk's sway is the open item.
+    - **Tried and not kept** (that battery): a search with the club in hand (`--holds empty,club`,
+      13 generations) found nothing past its start; a run that begins only while the body goes
+      across its heading slower than 0.15 or 0.25 m/s, which never runs for the Warrior and the
+      Rogue; the club's arm kept in the guard as the other swings (Warrior 4 run falls of 20
+      against 6, Rogue no better); a jog clip (CMU 141_34, 2.13 m/s) as the slowest of three clips,
+      which scored lower; the run braked at its own rates (`brake`, 1.17 m/s²), which fell 26 of 45
+      stops against 16 at the walk's 0.47; and guard arms in the walk after a run.
     - **Departures from the paper:** the late swing lands by the inverted pendulum (Coros 2010)
       in place of the paper's feedback on distance; there is no gravity term through the stance
       leg; gains are a settling time and shares of strength, not N m/rad.
@@ -404,29 +419,11 @@ After it, each with its own plan, in the order each needs the one before:
         strength, mass and gravity stay as they are, so a hasted body cannot float or look
         fast-forwarded. A forward force on the root is rejected: it is an assist, and reads as
         sliding.
-        - Measured (Node stand, Rapier, 120 Hz, every muscle at x1.25): at walking paces, where a
-          muscle is far from its unloaded speed, the gait as it is gains nothing, and some of its
-          ways fall more. Forward with the run off, the Warrior holds 1.8 m/s asked (1.63 made)
-          without a fall, against 2 falls in 4 at x1, and the Rogue 1.4, against 2 in 4: about
-          0.2 m/s more at the top. With the gait's times shortened by the square root of the speed or by the
-          speed itself, forward rises and the side and back walks fall apart.
-        - Measured whether a person's run and jump ask for it. A person's run clip carried on the
-          body (`research/run-feasibility.mjs`: CMU clips, planar inverse dynamics, filtered at
-          8 Hz, scaled by Froude; no engine) asks the swinging hip to turn at 7 to 8 rad/s, within
-          its curves (unloaded at 20.36 rad/s extending and 27.19 flexing, the Warrior's): at 2.3
-          to 2.8 m/s the Warrior's swinging hip needs Haste 1.25 to 1.5 on a few frames and the
-          Rogue's 2.5 to 3, and at 3.5 m/s each asks about its peak. The knee is within its curve
-          to 2.8 m/s. The stance ankle asks 224 to 359 N m of plantar flexion of the Warrior's 152
-          on a third to four fifths of the frames, and more than its peak even in a walk read the
-          same way: of the body's numbers the calf's is furthest from a person's running. Its peak
-          is a supine dynamometer's with the knee straight (DS2009); a runner's calf pushes about
-          2.5 times that (Kulmala 2016). The jump above (every muscle at `Physique.speed`) leaves
-          at 1.21 to 1.9 m/s at x1.5 for the Warrior and 0.89 to 1.58 for the Rogue, the faster
-          ones leaving backward at 0.6 to 1.2 m/s.
-        - So Haste pays only on a gait that asks its muscles for speed. Its rule scales the gait's
-          time dimensions (`DIMENSION`, `simbicon.ts`) by the body's muscle speed against the
-          reference body's, as `scaledGait` scales them by leg length, with the exponent (0, 1/2
-          or 1) measured, and the envelope measured at a few levels of haste.
+        - Not built. Its rule scales the gait's time dimensions (`DIMENSION`, `simbicon.ts`; the
+          run cycle's `period`, `cycle-run.ts`) by the body's muscle speed against the reference
+          body's, as `scaledGait` scales them by leg length, with the exponent (0, 1/2 or 1)
+          measured, and the envelope measured at a few levels of haste. A gait that does not ask
+          its muscles for speed gains nothing from it.
         - **Decided by the owner:** Haste is the legs' muscles alone (the hip's, knee's and
           ankle's exertions in `jointSpeed`), a per cent of the human baseline, 100 % by default,
           in `AttributeSpec` as `balance` is, with an `owner-haste` source; strength or the upper
@@ -448,23 +445,25 @@ After it, each with its own plan, in the order each needs the one before:
           second; 132_17, 1.83 m/s at 2.03; back 141_31, 0.97 m/s at 1.97; side 141_33, 0.58 m/s
           at 1.6 to 1.9; the run 141_34, 2.05 m/s at 2.42. The side and back walks already match a
           person's speeds; forward a person goes faster by longer steps.
-        - **Left:** the asset of angles by phase per way and speed, read as the joints' limits
-          read them (`jointAngles`) and scaled by Froude as `scaledGait` scales; a `SOURCES` entry
-          per clip; a check that the reference posed on each body keeps the soles off the floor in
-          swing and on it in stance; the tracking gait, its phase running from landing to landing
-          and its clip a blend of the two nearest speeds; its feedback searched with the
-          reference's angles fixed; and a comparison on the bed and in the Lab, after which the
-          owner chooses the default.
+        - **Built for the run:** the run tracks two run clips' cycles (16_35 at 2.75 m/s, 09_02 at
+          3.5; `assets/core/run-cycle.json`, `research/run-cycle.mjs`), its phase running from
+          landing to landing, blended by the pace and scaled by Froude (`runCycle`, `cycle-run.ts`).
+        - **Left:** the walk's ways: an asset of angles by phase per way and speed, read as the
+          joints' limits read them (`jointAngles`); a `SOURCES` entry per clip; a check that the
+          reference posed on each body keeps the soles off the floor in swing and on it in stance;
+          a tracking walk; and a comparison on the bed and in the Lab, after which the owner
+          chooses the default.
   - **Move** (`move.ts`) walks by the first gait whose rule matches (`MOVE`): braced, in the
-    stance's guard, while it stands or a standing foe is within 5 m; walking (the SIMBICON walk
-    told it may not run) while one is within 10 m; running to a destination more than 6 m off,
-    or with none, as in the Arena; walking otherwise. A rule lets go of its gait half a metre
-    past its distance. The Scrapper gets about by the stride. Classic gets about by
-    it (`CLASSIC`); an Arena bout opens at 4 m, so it fights braced from its first step. The
-    Crypt's and the Lab's orders give a destination; none reads a leader's yet, since no body
-    follows one. Running to a destination it is asked its fastest pace forward
-    (`orderedIntent`). The walk and the run are one machine and change at once; a gait that
-    drives the legs is asked to stand before it changes to another.
+    stance's guard, while it stands or a standing foe is within 5 m; otherwise by the SIMBICON
+    walk free to run, which runs where the pace asked is past its walk's. A rule lets go of its
+    gait half a metre past its distance. The Scrapper gets about by the stride. Classic and the
+    options fighter get about by it; an Arena bout opens at 4 m, so it fights braced from its
+    first step. The options fighter closes on a place as fast as held 0.8 of its gait's trials and
+    it stops from before it (`walker`); Classic's tactics close at the walk. The Crypt's and the Lab's orders
+    give a destination, and a person in the Arena runs with Shift (`Orders.run`): each is asked
+    the fastest pace forward that held 0.6 of its trials (`orderedIntent`), the Crypt's slowed for its route's corners
+    (`CORNER`, `src/dungeon/run.ts`). The walk and the run are one machine and change at once; a
+    gait that drives the legs is asked to stand before it changes to another.
   - **The stride does not help a fight**, so a fight is in the stance's walk. In the
     empty-hand league (Node, Rapier, 120 Hz, 66 bouts a striding entrant, at the stride's
     earlier settings: a 0.3 s swing after 0.08 s on both feet), each preset on the stride rates
@@ -521,8 +520,10 @@ After it, each with its own plan, in the order each needs the one before:
   `src/core/human/speed.ts`). Changing it is a body change felt in every walk, rise and kick, with
   its before/after tables. It pays only with a controller that drives the hip and trunk near
   their unloaded speed.
-- **Contact materials**: every contact has one friction, 0.5. `contactMass` reads a blow with the
-  joints free.
+- **Contact materials**: a foot's contacts take 0.8, the run's (`FOOT_FRICTION`,
+  [the run's body](reference/run-body.md)), and every other contact 0.5. What the rise wants of a
+  foot's friction, and a compliant layer under the soles and the open palms, are not measured.
+  `contactMass` reads a blow with the joints free.
 
 ### The Arena
 

@@ -75,7 +75,7 @@ export function setDistance(goal: Goal, walk: Walker): StandingOption {
       const x = focus.centre.x - centre.x, z = focus.centre.z - centre.z, margin = goal.correcting ? BAND : 0;
       const face = facing(goal.facing, x, z);
       if (d < goal.near + margin) return { ...walk.toward(now, -x, -z, face), actions: [] };
-      if (d > goal.far - margin) return { ...walk.toward(now, x, z, face), actions: [] };
+      if (d > goal.far - margin) return { ...walk.approach(now, x, z, face), actions: [] };
       return { move: null, face, actions: [] };
     },
   };

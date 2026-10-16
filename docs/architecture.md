@@ -332,7 +332,9 @@ and driven afresh to change what it costs.
   the SIMBICON walk told it may not run (`assets/core/simbicon-envelope.json`) and free to run
   (`assets/core/simbicon-run-envelope.json`). An asset reads each body over everything a fight puts in
   its right hand, and may read each thing held apart (`holds`), which a body holding it reads
-  (`heldBy`, `held.ts`); the SIMBICON walk's do. Unassisted coordinate-engine turns have a separate
+  (`heldBy`, `held.ts`); the SIMBICON walk's do, and keep each way's trials (`StanceEnvelope.tried`),
+  so that a caller that would go faster than the rule holds asks the fastest pace that held a share of
+  its tries (`paceToward`). Unassisted coordinate-engine turns have a separate
   [combat calibration](reference/combat-locomotion.md); the reference table alone does not
   establish that gameplay capability.
 - **The assist** (`assist.ts`) is a force and a moment on the root that no muscle gives: an ask
@@ -421,16 +423,27 @@ Their actuator methods and their readiness/footprints remain their own.
   body slow. It sets off the way the body faces, and while the way asked is more than 0.35 rad
   from its heading it steps where it stands as the heading turns; under way it walks on through a
   bend of up to a right angle, turning as it goes, and past that it brakes to 0.3 m/s before it
-  turns round (`SET_OFF`, `TURN_ROUND`). Asked faster than `run` (1.32 m/s) it walks at 1.32, the whole walk asked scaled down.
+  turns round (`SET_OFF`, `TURN_ROUND`). Asked faster than `run` (1.30 m/s) it walks at 1.30, the whole walk asked scaled down.
   Once the body has come up to it, or, for a body whose walk makes less, once the walk has been
-  asked 1.32 for 1 s (`RUN_SWITCH`), the same machine runs in `SIMBICON_RUN`'s states from the pace
-  the body goes: each sole lands by Raibert's hopping rule, the stance leg folds as its first state
-  ends, and the arms hang and swing against the legs, elbows bent, whatever the guard. The run is
-  grounded: it never leaves the ground. It goes straight ahead, turning only by its heading, and
-  walks again from a landing once the walk asked has come down 0.2 under 1.32 and the body has
-  slowed to 1.32. Told it may not run (`Locomotion.runs`, `SimbiconConfig.runs`), it walks no faster
-  than 1.32, and a run under way walks again from a landing once the walk asked has come down to 1.32. Its
-  envelope is the walk's (`simbiconEnvelope`), or the run's (`simbiconRunEnvelope`) while it may run. Low support folds the stance, so a fighter does not
+  asked 1.30 for 1 s (`RUN_SWITCH`), it runs from the next landing by a person's run cycle
+  (`runCycle`, `cycle-run.ts`), its phase begun at the sole that landed and its pace at the body's, the pace then coming to the one
+  asked, which changes at each way's own rates (`speedup`, `slowdown`: forward, 1.58 m/s² faster and
+  0.47 slower), at no more than 1.38 m/s² faster and 1.17 slower (`accel`, `brake`).
+  Each leg's hip, knee and ankle track a CMU clip's cycle as a Fourier series in the leg's own phase
+  (`assets/core/run-cycle.json`, written by `research/run-cycle.mjs`), blended by the pace between a
+  jog of 2.75 m/s and a run of 3.5 (taken to the body's leg by Froude), the swing grown and the
+  cycle quickened past `gainsFrom`; a sole landing near its own phase's end sets the phase, and one
+  late holds it a while. The bearing hip turns the pelvis upright, leaning toward the heading; the
+  swinging thigh's reference is set in the world, with the pace's feedback late in its swing;
+  across the heading the swinging sole lands by Raibert's hopping rule; the arms swing against the
+  legs at the sides, elbows bent, whatever the guard (`RUN_ARMS`), and the walk a run gives way to
+  holds them so, unswung, until it stands, its stride measured from the run's landings. It flies between steps. It goes straight ahead, turning
+  only by its heading, and walks again from a landing once the pace asked has come down 0.2 under
+  1.30 and the body has slowed to 1.30. Told it may not run (`Locomotion.runs`, `SimbiconConfig.runs`), it walks no faster
+  than 1.30, and a run under way walks again from a landing once the walk asked has come down to 1.30. Its
+  envelope is the walk's (`simbiconEnvelope`), or the run's (`simbiconRunEnvelope`) while it may run, and a
+  walk asked faster than the body held that way in a fifth of its trials (`REACH`) is taken at that:
+  what a pace risks is the mind's to weigh. Low support folds the stance, so a fighter does not
   offer it beside this walk. An admitted kick reserves the legs, stops the gait and establishes
   quiet support in bounded preparation (`skillSet`, `arbiter.ts`). A push whose level or speed is not
   a number is refused (`obey`, `body.ts`): Rapier disables the island of a body given one, which
@@ -447,12 +460,15 @@ Their actuator methods and their readiness/footprints remain their own.
   legs asked to stand first and changed from once it has given them back; resumes the gait it
   changes to from the body as it is, and gives tactics the envelope of the gait it walks by. Two
   gaits of one walk (`MoveGait`), as Walk and Run are, change at once, the walk told whether it may
-  run. Classic gets about by `MOVE` (`CLASSIC`): braced while it stands or a
-  standing foe is within 5 m; walking while one is within 10 m, so that it comes to a fight at a
-  walk it stops from in a few steps; running to where it goes more than 6 m off, or with nowhere to
-  go; walking otherwise. An Arena bout opens at 4 m, so it fights from its first step. Ordered a
-  way only, as tactics closing on a foe order it, a body walks at the walk that holds every way;
-  sent somewhere (`Orders.destination`), at its fastest forward (`orderedIntent`, `ordered.ts`).
+  run. Classic and the options fighter get about by `MOVE` (`CLASSIC`): braced while it stands or a
+  standing foe is within 5 m, and otherwise by Run, which runs only where the pace asked is past
+  its walk's: whether a body runs is its tactics' or its orders' choice of pace. An Arena bout
+  opens at 4 m, so it fights from its first step. Ordered a way only, as tactics closing on a foe
+  order it, a body walks at the walk that holds every way; sent somewhere
+  (`Orders.destination`) or ordered to run (`Orders.run`, Shift in the Arena), at the fastest forward
+  that held 0.6 of its trials (`RUN`), facing the way it goes (`orderedIntent`, `ordered.ts`). A kick and the support fold
+  wait for a gait that drives the legs to give them back to the stance, and while the fold is
+  under way a walk asked waits for it to rise (`skillSet`).
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
   searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
   and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its
@@ -696,9 +712,10 @@ back from a blow coming in (`evade.ts`), hold at the edge of its foe's reach unt
 or its patience is spent (`edge.ts`, the Counter-puncher's band and patience), close and strike
 (walk to the blow's window and throw it), and hold. Whatever a standing option asks, its walk
 (`walker`, `walk.ts`) keeps out of a solid's clearance and a fallen body's reach, but the reach of
-the body the option means to be near. It fights with the Counter-puncher's skills, hands at the
-guard's pose, and the Scrapper's low blow, support fold and gaits (braced near, striding farther,
-which leave the stance the fold steps from). Its body hands itself to one sub-mind, the down half
+the body the option means to be near. Closing on a place, it goes as fast as held 0.8 of its gait's
+trials that way (`SPACE.share`) and it stops from before the place, so that far from its foe it runs. It fights with the
+Counter-puncher's skills, hands at the guard's pose, the Scrapper's low blow and support fold,
+and Classic's gaits (`MOVE`). Its body hands itself to one sub-mind, the down half
 (`downHalf`), which wants the body when the decision is a down option and hands it to that option's
 sub-mind, ending one and beginning another when the decision changes; so standing and down are one
 decision's. Under the option, reflexes (`reflexLayer`, `reflex.ts`) patch its intent every control
@@ -1403,8 +1420,8 @@ These are the owner's, and the code is built on them.
 - **Rapier is the engine**; MuJoCo stays on the bench; another engine is tried on the bench first.
 - **120 Hz**, and the controllers are made to work there.
 - **Torque sources with the body's real inertia**, and an eccentric ceiling of 1.4 times isometric.
-- **A person never commands muscles.** A person's input is orders (`Orders`): walk this way, face
-  that way, attack that point. The body's own tactics and skills carry them out.
+- **A person never commands muscles.** A person's input is orders (`Orders`): walk or run this
+  way, face that way, attack that point. The body's own tactics and skills carry them out.
 - **Strikes are searched recipes where one lands, and hand goals where none does**: a placed
   blow is a place and a time for the hand, met by the arm alone. Next it is met by arm, trunk and
   legs together, with a speed, and the tactics' intent, attack that, does not change. Nothing is

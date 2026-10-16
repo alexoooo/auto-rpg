@@ -82,7 +82,10 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
           state.id = now.sight.instance();
           return { ...still, actions: [{ id: state.id, action: action.name, effector: chosen.limb, target: structuredClone(state.target) }] };
         }
-        case "position": return { ...approachActionWindow(now.sight.view, chosen.readiness.window, now.sight.report.heading, walk.pace(now), walk.radius), actions: [] };
+        case "position": {
+          const { window } = chosen.readiness, centre = now.sight.view.stance.centre;
+          return { ...approachActionWindow(now.sight.view, window, now.sight.report.heading, walk.paceTo(now, window.at[0] - centre.x, window.at[2] - centre.z), walk.radius), actions: [] };
+        }
         case "waiting": case "blocked": return still;
         default: { const never: never = chosen.readiness; throw new Error(`unknown readiness ${JSON.stringify(never)}`); }
       }

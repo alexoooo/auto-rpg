@@ -44,7 +44,7 @@ export function holdEdge(edge: Edge, walk: Walker, ready: (now: Situation) => bo
       if (apart >= outside && apart <= outside + edge.band) state.since ??= now.time;
       else if (!spent(now)) state.since = null;
       const x = focus.centre.x - centre.x, z = focus.centre.z - centre.z;
-      if (apart > outside + edge.band) return { ...walk.toward(now, x, z, face), actions: [] };
+      if (apart > outside + edge.band) return { ...walk.approach(now, x, z, face), actions: [] };
       if (apart < outside) return { ...walk.toward(now, -x, -z, face), actions: [] };
       return { move: null, face, actions: [] };
     },

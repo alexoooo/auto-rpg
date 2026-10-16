@@ -48,8 +48,14 @@ import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
  * forward right 0.13 along).
  */
 const SIMBICON_SPEEDS = [0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5];
-const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], simbicon: SIMBICON_SPEEDS, "simbicon-run": [...SIMBICON_SPEEDS, 3] };
+const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], simbicon: SIMBICON_SPEEDS, "simbicon-run": [...SIMBICON_SPEEDS, 3, 3.5, 4, 4.5] };
 export const WAYS = [0, 90, 180, 270, 45];
+/**
+ * How long a walk trial sets off before it is measured and rests after, s, by the legs it measures
+ * (`walk`): the run comes up to its pace and down from it at 0.6 m/s² (`RunCycleSettings.accel`,
+ * `brake`), from 0 to 4.5 m/s and back in some 8 s each way.
+ */
+const TIMES_OF = { stance: {}, stride: {}, simbicon: {}, "simbicon-run": { setOff: 10, rest: 10 } };
 export const MODELS = ["workshop-fighter", "workshop-rogue", "crypt-skeleton"];
 /**
  * The turn battery's rates, rad/s, by the legs it measures: the SIMBICON walk's finer, for its turns
@@ -103,7 +109,7 @@ async function runAll(jobs) {
   })));
 }
 
-const walks = MODELS.flatMap((model) => SPEEDS.flatMap((speed) => WAYS.flatMap((degrees) => HOLDS.flatMap((held) => WINDS.map((wind) => ({ trial: "walk", model, speed, degrees, held, hz, stance: {}, legs: walker, physique, wind }))))));
+const walks = MODELS.flatMap((model) => SPEEDS.flatMap((speed) => WAYS.flatMap((degrees) => HOLDS.flatMap((held) => WINDS.map((wind) => ({ trial: "walk", model, speed, degrees, held, hz, stance: {}, legs: walker, physique, wind, ...TIMES_OF[legs] }))))));
 await runAll(walks);
 // A walk held if it did not fall and, calm, went the way asked at the pace asked: a gust throws a slow walk off its way, and is there to throw the body down.
 const went = (j) => !j.result.fell && (j.wind !== null || wentAsAsked(j.result.along, j.result.across, j.speed));
@@ -125,6 +131,7 @@ const turnHeld = (model, holds, speed) => RATES.map((rate) => turns.filter((j) =
 /** `model`'s readings over the things held `holds`. */
 const readings = (model, holds) => ({
   held: walkHeld(model, holds), walk: fastestHeld({ speeds: SPEEDS, ways: WAYS.length * holds.length * WINDS.length, held: walkHeld(model, holds) }),
+  wayTrials: holds.length * WINDS.length,
   wayHeld: WAYS.map((degrees) => wayHeld(model, holds, degrees)),
   byWay: WAYS.map((degrees) => fastestHeld({ speeds: SPEEDS, ways: holds.length * WINDS.length, held: wayHeld(model, holds, degrees) })),
   turnHeld: upTo(model, holds).map((speed) => turnHeld(model, holds, speed)),
@@ -134,7 +141,7 @@ const models = Object.fromEntries(MODELS.map((model) => [model, {
   ...readings(model, HOLDS),
   holds: Object.fromEntries(HOLDS.map((held) => [held, readings(model, [held])])),
 }]));
-const envelope = { harness: CORE_STANCE_HARNESS, played: "each body built in the guard and holding it, under its character's balance (the rulebook's per cent), with each of `holds` in its right hand" + (legs ? `, walking by the ${legs}` : "") + (WINDS.length > 1 ? ", each walk calm and in each of `winds`" : ""), ...(legs ? { legs } : {}), hz, measured: new Date().toISOString().slice(0, 10), speeds: SPEEDS, ways: WAYS, rates: RATES, senses: SENSES, holds: HOLDS, afters: AFTERS, ...(WINDS.length > 1 ? { winds: WINDS.slice(1) } : {}), models };
+const envelope = { harness: CORE_STANCE_HARNESS, played: "each body built in the guard and holding it, under its character's balance (the rulebook's per cent), with each of `holds` in its right hand" + (legs ? `, walking by the ${legs}` : "") + (TIMES_OF[legs]?.setOff ? `, each walk set off ${TIMES_OF[legs].setOff} s before it is measured and resting ${TIMES_OF[legs].rest} s after` : "") + (WINDS.length > 1 ? ", each walk calm and in each of `winds`" : ""), ...(legs ? { legs } : {}), ...TIMES_OF[legs], hz, measured: new Date().toISOString().slice(0, 10), speeds: SPEEDS, ways: WAYS, rates: RATES, senses: SENSES, holds: HOLDS, afters: AFTERS, ...(WINDS.length > 1 ? { winds: WINDS.slice(1) } : {}), models };
 console.log(`${CORE_STANCE_HARNESS}, ${hz} Hz; ${walks.length} walks and ${turns.length} turns in ${((Date.now() - started) / 1000).toFixed(0)} s`);
 // Two-space JSON with each list of numbers on one line.
 const text = `${JSON.stringify(envelope, null, 2).replace(/\[[-\d.,\s]*\]/g, (list) => list.replace(/\s+/g, "").replaceAll(",", ", "))}\n`;

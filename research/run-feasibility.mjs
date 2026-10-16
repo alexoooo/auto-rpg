@@ -44,6 +44,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
+import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { dot, readClip, size, sub } from "./bvh.mjs";
 
@@ -86,10 +87,6 @@ const SOLE = { land: 0.03, speed: 1, clear: 0.12 };
 /** What `steady` reads a stretch by: its speed's span, s; the brisk speed's quantile; the share of it held; the most the way may turn, rad. */
 const STEADY = { span: 0.5, brisk: 0.9, share: 0.8, turn: 0.35 };
 
-const { values: options, positionals } = parseArgs({ allowPositionals: true, options: {
-  models: { type: "string", default: "workshop-fighter,workshop-rogue" }, cutoff: { type: "string", default: "8" }, json: { type: "string" },
-} });
-if (!positionals.length) throw new Error("usage: node research/run-feasibility.mjs <clip.bvh>[@rate] [...] [--models a,b] [--cutoff hz] [--json out]");
 const { modelSpec } = await import("../src/core/models.ts");
 const { forceVelocityFactor } = await import("../src/core/muscle/force-velocity.ts");
 
@@ -135,7 +132,7 @@ function steady(hips, dt) {
   return best;
 }
 
-function clipMotion(file, rate, cutoff) {
+export function clipMotion(file, rate, cutoff) {
   const read = readClip(readFileSync(file, "utf8"), { rate });
   const { frames, dt, zero, index, J, at, rest } = read;
   const mid = (f) => at(f, J.left.hip).map((x, k) => (x + at(f, J.right.hip)[k]) / 2);
@@ -173,7 +170,7 @@ function clipMotion(file, rate, cutoff) {
 
 // -- The body, in the plane: its reference pose seen from its left, forward along +z.
 
-function bodyModel(spec) {
+export function bodyModel(spec) {
   const seg = (name) => { const s = spec.segments.find((x) => x.name === name); if (!s) throw new Error(`no segment ${name}`); return s; };
   const joint = (name) => { const j = spec.joints.find((x) => x.name === name); if (!j) throw new Error(`no joint ${name}`); return j; };
   const flat = (v) => [v[2], v[1]];
@@ -210,7 +207,7 @@ function shares(centre, from, to) {
 }
 const placed = (from, to, s) => { const axis = less(to, from), across = turn(axis, Math.PI / 2); return add(from, [axis[0] * s.along + across[0] * s.across, axis[1] * s.along + across[1] * s.across]); };
 
-function feasibility(motion, body) {
+export function feasibility(motion, body) {
   // The clip's skeleton carries the body's mass, by the body's shares, at the clip's size: lengths
   // by 1/ratio, inertias by its square. Times and accelerations are the clip's, so its forces are
   // the body's; its moments are the body's over ratio and its speeds the body's times the root of ratio.
@@ -307,7 +304,7 @@ function feasibility(motion, body) {
     const aimedAt = (side) => centre[0] - (centre[1] - level(side)) * F[0] / F[1];
     const fits = (side) => { const x = aimedAt(side) - pose.legs[side].A[0]; return x >= sole.heel - MARGIN * small && x <= sole.toe + MARGIN * small; };
     const unexplained = bearing.length === 1 && !fits(bearing[0]);
-    const row = { f, bearing: unexplained ? [] : bearing, unexplained, clear, force: F, legs: {} };
+    const row = { f, bearing: unexplained ? [] : bearing, bore: bearing, unexplained, clear, force: F, trunk: pose.trunk, legs: {} };
     for (const side of ["left", "right"]) {
       const leg = pose.legs[side], on = !unexplained && bearing.length === 1 && bearing[0] === side;
       let ground = [0, 0], cop = null;
@@ -397,25 +394,31 @@ function summarise(result, body) {
   return out;
 }
 
-const cutoff = Number(options.cutoff);
-const report = { harness: `planar inverse dynamics on the clip's skeleton carrying each body's segments, clip filtered at ${cutoff} Hz, Froude-scaled; no engine`, clips: [] };
-const bodies = options.models.split(",").map((m) => bodyModel(modelSpec(m)));
-for (const arg of positionals) {
-  const [file, rate] = arg.split("@");
-  const motion = clipMotion(file, rate ? Number(rate) : undefined, cutoff);
-  const entry = { clip: motion.clip, speed: round(motion.speed), leg: round(motion.legLength, 3), bodies: [] };
-  console.log(`\n${motion.clip}: ${entry.speed} m/s, leg ${entry.leg} m`);
-  for (const body of bodies) {
-    const s = summarise(feasibility(motion, body), body);
-    entry.bodies.push(s);
-    console.log(`  ${s.model} (${s.mass} kg, x${s.scale}): ${s.speed} m/s; frames flight/one/both/unexplained ${s.frames.flight - s.ground.unexplained}/${s.frames.single}/${s.frames.both}/${s.ground.unexplained} (vertical impulse explained ${s.ground.explained});`
-      + ` ${s.seconds} s read; flight residual ${s.ground.flightResidual} BW over ${s.ground.clearFrames} clear frames, peak up ${s.ground.peakUp} BW, friction needed ${s.ground.friction}, centre of pressure off the sole ${s.ground.copOutside} (by the balance of angular momentum ${s.ground.balancedOutside})`);
-    for (const [name, c] of Object.entries(s.channels)) {
-      console.log(`    ${name.padEnd(19)} speed ${c.speed.negative}..${c.speed.positive} rad/s (w0 +${c.peaks.w0Positive}/-${c.peaks.w0Negative}); torque ${c.torque.negative}..${c.torque.positive} N m (peaks +${c.peaks.positive}/-${c.peaks.negative});`
-        + ` reading ${c.reading.low}..${c.reading.high} (limits ${c.reading.min}..${c.reading.max})`);
-      console.log(`    ${"".padEnd(19)} stance: use ${c.stance.use}, ${c.stance.over} of frames over, haste ${c.stance.haste};  swing: use ${c.swing.use}, ${c.swing.over} over, haste ${c.swing.haste}`);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const { values: options, positionals } = parseArgs({ allowPositionals: true, options: {
+    models: { type: "string", default: "workshop-fighter,workshop-rogue" }, cutoff: { type: "string", default: "8" }, json: { type: "string" },
+  } });
+  if (!positionals.length) throw new Error("usage: node research/run-feasibility.mjs <clip.bvh>[@rate] [...] [--models a,b] [--cutoff hz] [--json out]");
+  const cutoff = Number(options.cutoff);
+  const report = { harness: `planar inverse dynamics on the clip's skeleton carrying each body's segments, clip filtered at ${cutoff} Hz, Froude-scaled; no engine`, clips: [] };
+  const bodies = options.models.split(",").map((m) => bodyModel(modelSpec(m)));
+  for (const arg of positionals) {
+    const [file, rate] = arg.split("@");
+    const motion = clipMotion(file, rate ? Number(rate) : undefined, cutoff);
+    const entry = { clip: motion.clip, speed: round(motion.speed), leg: round(motion.legLength, 3), bodies: [] };
+    console.log(`\n${motion.clip}: ${entry.speed} m/s, leg ${entry.leg} m`);
+    for (const body of bodies) {
+      const s = summarise(feasibility(motion, body), body);
+      entry.bodies.push(s);
+      console.log(`  ${s.model} (${s.mass} kg, x${s.scale}): ${s.speed} m/s; frames flight/one/both/unexplained ${s.frames.flight - s.ground.unexplained}/${s.frames.single}/${s.frames.both}/${s.ground.unexplained} (vertical impulse explained ${s.ground.explained});`
+        + ` ${s.seconds} s read; flight residual ${s.ground.flightResidual} BW over ${s.ground.clearFrames} clear frames, peak up ${s.ground.peakUp} BW, friction needed ${s.ground.friction}, centre of pressure off the sole ${s.ground.copOutside} (by the balance of angular momentum ${s.ground.balancedOutside})`);
+      for (const [name, c] of Object.entries(s.channels)) {
+        console.log(`    ${name.padEnd(19)} speed ${c.speed.negative}..${c.speed.positive} rad/s (w0 +${c.peaks.w0Positive}/-${c.peaks.w0Negative}); torque ${c.torque.negative}..${c.torque.positive} N m (peaks +${c.peaks.positive}/-${c.peaks.negative});`
+          + ` reading ${c.reading.low}..${c.reading.high} (limits ${c.reading.min}..${c.reading.max})`);
+        console.log(`    ${"".padEnd(19)} stance: use ${c.stance.use}, ${c.stance.over} of frames over, haste ${c.stance.haste};  swing: use ${c.swing.use}, ${c.swing.over} over, haste ${c.swing.haste}`);
+      }
     }
+    report.clips.push(entry);
   }
-  report.clips.push(entry);
+  if (options.json) writeFileSync(options.json, JSON.stringify(report, null, 2) + "\n");
 }
-if (options.json) writeFileSync(options.json, JSON.stringify(report, null, 2) + "\n");

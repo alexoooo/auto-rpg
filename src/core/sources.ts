@@ -216,6 +216,14 @@ export const SOURCES = Object.freeze({
       + "the run's; the grid's ranges are the owner's and live in research/physiques.mjs.",
     record: "docs/reference/competencies.md#physiques",
   },
+  "owner-run-body": {
+    kind: "decision", date: "2026-10-15",
+    decided: "A body's numbers may be set to what gives a run like a person's, 3-4 m/s (the owner: 'we can "
+      + "set it to the value that helps us achieve the result that we want -- which is better jog/run, "
+      + "ideally comparable to real humans'). Each number set so is the one the run searched on the body "
+      + "is fastest and surest at.",
+    record: "docs/reference/run-body.md",
+  },
   "owner-part-hp-split": {
     kind: "decision", date: "2026-09-29",
     decided: "A core human's hit points are split over its segments by cross-section: each segment's "

@@ -43,6 +43,17 @@ export interface StanceEnvelope {
    * rad/s (`fastestHeld`).
    */
   readonly turns: readonly { readonly speed: Quantity<number>; readonly turn: Quantity<number> }[];
+  /**
+   * Each way's trials, where the asset measured each way by itself: at each speed of the gait
+   * battery, slowest first, how many of that way's walks held of how many it walked. `ways` reads
+   * them by the rule; a caller that would go faster than that reads what it risks (`paceToward`'s
+   * share). Null where the asset did not keep them.
+   */
+  readonly tried: {
+    readonly speeds: readonly Quantity<number>[];
+    readonly trials: Quantity<number>;
+    readonly held: { readonly forward: readonly Quantity<number>[]; readonly right: readonly Quantity<number>[]; readonly back: readonly Quantity<number>[]; readonly left: readonly Quantity<number>[] };
+  } | null;
 }
 
 /**
@@ -99,15 +110,26 @@ export function fastestHeld({ speeds, ways, held }: GaitTable): number {
  * The fastest pace `envelope` holds walking `forward` m/s ahead and `right` m/s to the right, m/s: on
  * the ellipse through the fastest walks of the two ways that walk lies between (`StanceEnvelope.ways`),
  * so a walk asked past it keeps its way at the most that way holds. A way that held no speed holds
- * none, nor does any walk with a share of it.
+ * none, nor does any walk with a share of it. Given a `share` under 1, each way's fastest is the
+ * fastest speed at which at least that share of its trials held (`StanceEnvelope.tried`), where it
+ * is faster than the rule's: the pace a caller asks that accepts the rest falling.
  */
-export function paceToward(envelope: StanceEnvelope, forward: number, right: number): number {
-  const { ways } = envelope, along = (forward >= 0 ? ways.forward : ways.back).value, across = (right >= 0 ? ways.right : ways.left).value;
+export function paceToward(envelope: StanceEnvelope, forward: number, right: number, share = 1): number {
+  const along = risked(envelope, forward >= 0 ? "forward" : "back", share), across = risked(envelope, right >= 0 ? "right" : "left", share);
   if (along === across) return along;
   const speed = Math.sqrt(forward * forward + right * right);
   if (speed === 0) return Math.min(along, across);
   const u = forward / along, v = right / across;
   return speed / Math.sqrt((forward === 0 ? 0 : u * u) + (right === 0 ? 0 : v * v));
+}
+
+/** The fastest walk `way` that held at least `share` of its trials at its speed, or by the rule (`StanceEnvelope.ways`) where that is faster, m/s. */
+function risked({ ways, tried }: StanceEnvelope, way: keyof StanceEnvelope["ways"], share: number): number {
+  let fastest = ways[way].value;
+  if (share >= 1 || !tried) return fastest;
+  const held = tried.held[way], trials = tried.trials.value;
+  for (let i = 0; i < held.length; i++) if (held[i]!.value >= share * trials) fastest = Math.max(fastest, tried.speeds[i]!.value);
+  return fastest;
 }
 
 /**
@@ -140,6 +162,9 @@ export function carried(turn: number, radius: number): number {
 interface EnvelopeEntry {
   readonly walk: number;
   readonly byWay?: readonly number[];
+  /** How many walks each way walked at each speed, and how many of them held (`wayHeld`, in the order of `ways`). */
+  readonly wayTrials?: number;
+  readonly wayHeld?: readonly (readonly number[])[];
   readonly turns: readonly number[];
 }
 
@@ -174,9 +199,20 @@ function envelopeIn(table: EnvelopeTable, source: SourceKey, spec: BodySpec, wha
     if (i < 0) throw new Error(`${what}'s envelope measured no walk ${degrees} degrees round`);
     return sourced(byWay[i]!, "m/s", source, `${at}/byWay/${i}`);
   };
+  const { wayTrials, wayHeld } = entry;
+  const heldWay = (degrees: number): readonly Quantity<number>[] => {
+    const i = table.ways.indexOf(degrees);
+    if (i < 0 || !wayHeld) throw new Error(`${what}'s envelope kept no walks ${degrees} degrees round`);
+    return wayHeld[i]!.map((held, j) => sourced(held, "1", source, `${at}/wayHeld/${i}/${j}`));
+  };
   return {
     walk,
     ways: { forward: way(CARDINAL.forward), right: way(CARDINAL.right), back: way(CARDINAL.back), left: way(CARDINAL.left) },
+    tried: wayTrials === undefined || !wayHeld ? null : {
+      speeds: table.speeds.map((speed, i) => sourced(speed, "m/s", source, `/speeds/${i}`)),
+      trials: sourced(wayTrials, "1", source, `${at}/wayTrials`),
+      held: { forward: heldWay(CARDINAL.forward), right: heldWay(CARDINAL.right), back: heldWay(CARDINAL.back), left: heldWay(CARDINAL.left) },
+    },
     turns: entry.turns.map((turn, i) => ({
       speed: sourced(table.speeds[i]!, "m/s", source, `/speeds/${i}`),
       turn: sourced(turn, "rad/s", source, `${at}/turns/${i}`),

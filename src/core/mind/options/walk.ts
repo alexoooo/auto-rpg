@@ -1,30 +1,43 @@
 import { atan2, cos, hypot, sin } from "../../math/real.ts";
 import type { BodyView } from "../../body.ts";
 import type { BodySpec } from "../../spec/body.ts";
+import { paceToward } from "../../control/stance-envelope.ts";
 import { clearanceExit, clearMove } from "../clear-step.ts";
 import { bodyClearance } from "../sensed-bounds.ts";
 import type { Situation } from "./option.ts";
 
 /**
  * A walk keeps its body `margin` m clear of the solids over the next `ahead` m, and its centre
- * `fallen` m from every segment of a fallen body; with no measured walk it goes at `pace` m/s.
+ * `fallen` m from every segment of a fallen body; with no measured walk it goes at `pace` m/s. Going
+ * toward a place, it goes at the fastest that held `share` of its trials that way, and no faster
+ * than it slows from to its walk before it, at `brake` m/s².
  */
-const SPACE = Object.freeze({ margin: .08, ahead: .5, pace: .3, fallen: .9 });
+const SPACE = Object.freeze({ margin: .08, ahead: .5, pace: .3, fallen: .9, brake: .3, share: .8 });
 
 type Move = readonly [number, number] | null;
 
 /**
- * **How a standing option walks** a body of `spec`: toward a ground direction at its fastest walk,
- * no faster than its orders' pace, facing as asked; and which way its focus is. Whatever an option
+ * **How a standing option walks** a body of `spec`: along a ground direction at its fastest walk,
+ * and to a place at the fastest that held `SPACE.share` of its trials that way (`paceToward`), no slower than that walk and
+ * no faster than it slows from to that walk before the place (`SPACE.brake`), so that a gait that runs runs to what
+ * is far; either no faster than its orders' pace, facing as asked; and which way its focus is. Whatever an option
  * asks, the walk the body is given keeps it out of what it must keep clear of (`constrain`).
  */
 export function walker(spec: BodySpec) {
   const radius = bodyClearance(spec) + SPACE.margin;
   const pace = (now: Situation): number => Math.min(now.sight.envelope?.walk.value ?? SPACE.pace, now.orders?.pace ?? Infinity);
-  /** Along the ground direction (`x`, `z`) at the walk's pace, as (forward, right) in the body's heading; null for no direction. */
-  const along = (now: Situation, x: number, z: number): Move => {
-    const distance = hypot(x, z), h = now.sight.report.heading, speed = pace(now);
+  /** Along the ground direction (`x`, `z`) at `speed`, as (forward, right) in the body's heading; null for no direction. */
+  const along = (now: Situation, x: number, z: number, speed = pace(now)): Move => {
+    const distance = hypot(x, z), h = now.sight.report.heading;
     return distance > 0 ? [(x * sin(h) + z * cos(h)) * speed / distance, (x * cos(h) - z * sin(h)) * speed / distance] : null;
+  };
+  /** The pace toward the place (`x`, `z`) from the body: as fast as its walk holds that way and it slows from to its walk before it, but no slower than its walk. */
+  const going = (now: Situation, x: number, z: number): number => {
+    const envelope = now.sight.envelope, h = now.sight.report.heading, distance = hypot(x, z);
+    if (!envelope || distance === 0) return pace(now);
+    const holds = paceToward(envelope, (x * sin(h) + z * cos(h)) / distance, (x * cos(h) - z * sin(h)) / distance, SPACE.share);
+    const walk = pace(now);
+    return Math.min(Math.max(walk, Math.min(holds, Math.sqrt(walk * walk + 2 * SPACE.brake * distance))), now.orders?.pace ?? Infinity);
   };
   /**
    * The ground direction out of what the body must keep clear of: a solid's clearance it stands
@@ -50,6 +63,8 @@ export function walker(spec: BodySpec) {
   return {
     radius,
     pace,
+    /** The pace it goes to the place (`x`, `z`) from the body: the fastest its walk holds that way and it stops from before it, but no slower than its walk. */
+    paceTo: going,
     clear,
     /**
      * The walk the body is given for `move` (forward, right, m/s): out of a solid's clearance or a
@@ -68,6 +83,10 @@ export function walker(spec: BodySpec) {
     /** A walk along the ground direction (`x`, `z`), facing `face`. */
     toward(now: Situation, x: number, z: number, face: number): { readonly move: Move; readonly face: number } {
       return { move: along(now, x, z), face };
+    },
+    /** A walk to the place (`x`, `z`) from the body, facing `face`, at the pace it goes there (`going`). */
+    approach(now: Situation, x: number, z: number, face: number): { readonly move: Move; readonly face: number } {
+      return { move: along(now, x, z, going(now, x, z)), face };
     },
   };
 }

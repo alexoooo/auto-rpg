@@ -385,11 +385,13 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
           || !(given.layer.dampingRatio >= 0) || !Object.values(given.layer).every(Number.isFinite))) throw new Error("a contact layer needs finite positive stiffness and depth and nonnegative damping");
         if (given?.sole && (!(given.sole.stiffness > 0) || !(given.sole.depth > 0)
           || !(given.sole.damping >= 0) || !Object.values(given.sole).every(Number.isFinite))) throw new Error("a sole needs finite positive stiffness and depth and nonnegative damping");
+        if (given?.friction !== undefined && !(given.friction >= 0 && Number.isFinite(given.friction))) throw new Error("a friction coefficient must be finite and nonnegative");
         const direction = given?.point?.direction;
         const length = direction && Math.sqrt(direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]);
         if (given?.point && (!(length! > 0) || !direction!.every(Number.isFinite) || !(given.point.depth > 0)
           || !Number.isFinite(given.point.depth) || !(given.point.alignment >= 0 && given.point.alignment <= 1))) throw new Error("a contact point needs a finite direction, depth and normal cosine");
         return given && { ...(given.layer ? { layer: Object.freeze({ ...given.layer }) } : {}), ...(given.sole ? { sole: Object.freeze({ ...given.sole }) } : {}),
+          ...(given.friction !== undefined ? { friction: given.friction } : {}),
           ...(given.point ? { point: Object.freeze({ ...given.point, direction: Object.freeze(direction!.map(v => v / length!)) as unknown as Vec3 }) } : {}) };
       });
       const q = node.rotationQuaternion ?? Quaternion.Identity();
@@ -399,9 +401,12 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         .setCcdEnabled(ccd)
         .setCanSleep(false));
       const colliders = shapes.map((shape, k) => {
-        const handle = raw.createCollider(contact(colliderOf(shape)).setDensity(0), rigid).handle;
-        shapeOf.set(handle, k);
         const material = preparedMaterials[k];
+        const desc = contact(colliderOf(shape)).setDensity(0);
+        // Rapier combines two colliders' coefficients by the rule of the higher priority, and Max is the highest.
+        if (material?.friction !== undefined) desc.setFriction(material.friction).setFrictionCombineRule(R.CoefficientCombineRule.Max);
+        const handle = raw.createCollider(desc, rigid).handle;
+        shapeOf.set(handle, k);
         if (material?.layer || material?.point || material?.sole) materials.set(handle, material);
         if (material?.point || material?.sole) raw.getCollider(handle).setActiveHooks(R.ActiveHooks.MODIFY_SOLVER_CONTACTS);
         return handle;

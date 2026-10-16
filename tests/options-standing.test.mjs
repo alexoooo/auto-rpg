@@ -19,6 +19,8 @@ import { SCRAPPER } from "../src/core/mind/config.ts";
 import { walker } from "../src/core/mind/options/walk.ts";
 
 const SPEC = humanSpec("workshop-fighter"), walk = walker(SPEC), PACE = .5, HEAD = 1.6;
+/** A gait's envelope that holds `PACE` every way and `RUN` forward, as a walk that runs does. */
+const RUN = 3, ENVELOPE = { walk: { value: PACE }, ways: { forward: { value: RUN }, back: { value: PACE }, left: { value: PACE }, right: { value: PACE } } };
 /** How far the foe reaches a head level with its own, m head to head: its range's outer bound. */
 const OUTSIDE = (() => { const range = rangeOf(SPEC, "right", 0); return range.reach + range.along[1]; })();
 
@@ -33,7 +35,7 @@ const situation = (others, { time = 0, solids = [], incoming = null, actions = [
   const focus = others[0] ?? null;
   return {
     sight: { view: { time, down: false, head: { x: 0, y: HEAD, z: 0 }, stance: { centre: { x: 0, y: 1, z: 0 }, support: { y: 0 }, phase: "stand" }, senses: { side: "left", others, solids } },
-      report: { heading: 0, actions }, envelope: { walk: { value: PACE } } },
+      report: { heading: 0, actions }, envelope: ENVELOPE },
     time, down: false, orders: null, focus, apart: focus ? Math.abs(focus.centre.z) : Infinity, threat: null, incoming, danger: 0, exposure: 0, blows: { left: 0, right: 0 },
     reach: focus ? { apart: Math.abs(focus.centre.z), theirs: OUTSIDE, mine: OUTSIDE } : { apart: Infinity, theirs: 0, mine: 0 },
   };
@@ -43,6 +45,9 @@ const forward = (intent) => intent.move?.[0] ?? 0;
 test("a_distance_goal_closes_backs_off_or_stands_and_a_flight_faces_away", () => {
   const closeIn = setDistance({ name: "close in", foe: "standing", to: "centre", near: 0, far: 1, correcting: false, facing: "foe" }, walk);
   assert.ok(forward(closeIn.step(situation([foe(3)]))) > 0, "far, it closes");
+  // Closing, it goes as fast as its gait holds forward and it stops from before the foe, and no slower than its walk.
+  const near = forward(closeIn.step(situation([foe(1.05)]))), mid = forward(closeIn.step(situation([foe(3)]))), far = forward(closeIn.step(situation([foe(40)])));
+  assert.ok(near >= PACE && near < mid && mid < far && far === RUN, `closing at ${near}, ${mid} and ${far} m/s from 1.05, 3 and 40 m`);
   assert.equal(closeIn.step(situation([foe(.8)])).move, null, "within, it stands");
   const keep = setDistance({ name: "keep distance", foe: "standing", to: "centre", near: 2, far: 3, correcting: false, facing: "foe" }, walk);
   assert.ok(forward(keep.step(situation([foe(1)]))) < 0, "near, it backs off");

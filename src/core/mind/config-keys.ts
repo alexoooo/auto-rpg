@@ -50,7 +50,7 @@ export const CONFIG_KEYS = deepFreeze({
     cd: true, cv: true, cdLate: true, cvLate: true, cdSide: true, cvSide: true, landing: true, lead: true,
     leadSide: true, leadOut: true, width: true, vf: true, vfSide: true, vfMost: true, trim: true,
     trimSide: true, trimMost: true, trimLeak: true, settle: true, stance: true, swing: true, ankle: true,
-    pelvis: true, hold: true, turn: true, swerve: true, turnRate: true, speedup: true, arms: true, run: true, leg: true,
+    pelvis: true, hold: true, turn: true, swerve: true, turnRate: true, speedup: true, slowdown: true, arms: true, run: true, leg: true,
   },
   "move": { kind: true, rules: true, otherwise: true },
   "when-standing": { kind: true, gait: true },

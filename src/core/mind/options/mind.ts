@@ -4,7 +4,7 @@ import type { BodySpec } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { World } from "../../world.ts";
 import { COMBINATION } from "../../skills/combination.ts";
-import { COUNTER_PUNCHER, SCRAPPER, STAND_UP, type ActionConfig, type FighterConfig, type OptionsConfig, type SubMindConfig } from "../config.ts";
+import { COUNTER_PUNCHER, MOVE, SCRAPPER, STAND_UP, type ActionConfig, type FighterConfig, type OptionsConfig, type SubMindConfig } from "../config.ts";
 import { actionConfigFaults } from "../action-config.ts";
 import { fighterBody, fighterFaults, fighterSkills } from "../fighter.ts";
 import { NO_COVER } from "../intent.ts";
@@ -43,11 +43,10 @@ const ONE_TWO = (() => {
 /**
  * The skills it fights with: the Counter-puncher's (`COUNTER_PUNCHER`), its straight punch with
  * either hand, thrown as a combination of one drive (`COMBINATION`), which waits for its poise and
- * leaves its hand to the guard coming back; its one-two (`ONE_TWO`); and the Scrapper's for a low foe, its low blow, the
- * support fold it is thrown from, and its gaits, braced near and striding farther, which leave
- * the stance the fold steps from.
+ * leaves its hand to the guard coming back; its one-two (`ONE_TWO`); and the Scrapper's for a low foe, its low blow and the
+ * support fold it is thrown from; and its gaits, Classic's (`MOVE`): braced near, and farther the walk that runs where it asks a run's pace.
  */
-const SKILLS: FighterConfig = deepFreeze({ ...COUNTER_PUNCHER, locomotion: SCRAPPER.locomotion,
+const SKILLS: FighterConfig = deepFreeze({ ...COUNTER_PUNCHER, locomotion: MOVE,
   executors: [...COUNTER_PUNCHER.executors.map((executor) => executor.name === "punch" ? { name: "punch", kind: "combination" as const, ...COMBINATION, drives: 1 } : executor),
     { name: "combination", kind: "combination", ...COMBINATION },
     ...SCRAPPER.executors.filter((executor) => executor.name === LOW.executor)],

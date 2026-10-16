@@ -14,17 +14,18 @@ import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { actionTactics } from "../src/core/mind/action-tactics.ts";
 import { FIGHTING } from "../src/core/mind/config.ts";
-import { STRAFE, orderedIntent } from "../src/core/mind/ordered.ts";
+import { RUN, STRAFE, orderedIntent } from "../src/core/mind/ordered.ts";
 import { NO_COVER } from "../src/core/mind/intent.ts";
-import { sameOrders, STAND_ORDERS } from "../src/core/mind/orders.ts";
+import { isOrders, sameOrders, STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { threatReader } from "../src/core/mind/threat.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const { threatOf } = threatReader();
 
-/** A body's walk every way and forward (`StanceEnvelope`), m/s: its fastest walk forward is its own. */
-const QUARTER = Math.PI / 2, WALK = 0.7, FORWARD = 1.2, ENVELOPE = { walk: { value: WALK }, ways: { forward: { value: FORWARD } } };
+/** A body's walk every way and forward (`StanceEnvelope`), m/s: its fastest walk forward is its own, and it kept no trials. */
+const QUARTER = Math.PI / 2, WALK = 0.7, FORWARD = 1.2;
+const ENVELOPE = { walk: { value: WALK }, ways: { forward: { value: FORWARD }, right: { value: WALK }, back: { value: WALK }, left: { value: WALK } }, turns: [], tried: null };
 const EAST = { x: 1, z: 0 }, NORTH = { x: 0, z: 1 }, SOUTH = { x: 0, z: -1 };
 
 test("tactics_turn_orders_into_an_intent", () => {
@@ -43,11 +44,19 @@ test("tactics_turn_orders_into_an_intent", () => {
   const half = STRAFE.share * WALK;
   assert.equal(half, 0.35);
 
-  // Facing its walk, it walks forward at its fastest and turns to it; sent somewhere, at its fastest forward.
+  // Facing its walk, it walks forward at its fastest and turns to it; sent somewhere or run, at its fastest forward.
   is(intent({ move: NORTH, face: null }), [WALK, 0], 0, "walking ahead");
   is(intent({ move: EAST, face: null }), [WALK, 0], QUARTER, "walking to its right");
   const sent = orderedIntent({ report: { heading: 0 }, envelope: ENVELOPE }, { move: EAST, face: null, destination: 9 }, NO_COVER);
   assert.deepEqual([sent.move, sent.destination], [[FORWARD, 0], 9], "sent somewhere");
+  // Ordered to run, it faces the way it goes at its fastest forward, the facing ordered set aside.
+  is(intent({ move: EAST, face: NORTH, run: true }), [FORWARD, 0], QUARTER, "running to its right");
+  // Where it kept its trials, a run goes at the fastest forward that held `RUN.share` of them, past the one every trial held.
+  const count = (...held) => held.map((value) => ({ value })), trials = 10;
+  const tried = { speeds: count(1, 2, 3, 4), trials: { value: trials }, held: { forward: count(10, 8, Math.ceil(RUN.share * trials), Math.ceil(RUN.share * trials) - 1), right: count(0, 0, 0, 0), back: count(0, 0, 0, 0), left: count(0, 0, 0, 0) } };
+  is(intent({ move: EAST, face: null, run: true }, 0, { ...ENVELOPE, tried }), [3, 0], QUARTER, "running at the pace it risks");
+  is(intent({ move: EAST, face: null }, 0, { ...ENVELOPE, tried }), [WALK, 0], QUARTER, "walking at the walk every trial held");
+  assert.deepEqual([true, undefined, false, "yes"].map((run) => isOrders({ move: EAST, run, face: null })), [true, true, false, false], "a run is ordered or not");
   // Facing elsewhere, the walk is in the heading's frame: forward, and to the right.
   is(intent({ move: EAST, face: NORTH }), [0, half], 0, "across its heading");
   is(intent({ move: NORTH, face: NORTH }), [WALK, 0], 0, "ahead, facing ahead");

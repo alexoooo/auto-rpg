@@ -113,6 +113,9 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         case "place": stance = legs.place(view, ask.footing, lower); break;
         default: { const never: never = ask; throw new Error(`unknown legs ask ${JSON.stringify(never)}`); }
       }
+      // A fold under way holds the legs where they stand: a walk asked waits for it to rise.
+      if (moving && support && support.report.stage !== "stand" && support.report.stage !== "wait") moving = { walk: null, face: moving.face };
+      let driven = false;
       if (moving) {
         const drive = legs.drive?.(view, moving.walk, moving.face, dt, lower, intent.destination)
           ?? { kind: "stance" as const, goal: legs.goal(view, moving.walk, moving.face, dt, lower, intent.destination) };
@@ -125,6 +128,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
             }
             resources.validatePatch(["legs"], { pushes: drive.pushes });
             pushes.push(...drive.pushes);
+            driven = true;
             break;
           }
           default: { const never: never = drive; throw new Error(`unknown locomotion command ${JSON.stringify(never)}`); }
@@ -143,7 +147,8 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         Object.assign(handPoses, claim.handPoses);
       }
       if (support && supporting) {
-        support.tick(view, supportOwner?.claim.support ?? intent.lower ?? STANCE_LOWER, supportOwner ? false : !!intent.move, dt);
+        // Legs a walk drives leave no stance to fold from: the fold waits for the walk to give them back.
+        support.tick(view, supportOwner?.claim.support ?? intent.lower ?? STANCE_LOWER, (supportOwner ? false : !!intent.move) || driven, dt);
         const supportedPosture = Object.fromEntries(Object.entries(posture).filter(([channel]) => supportControls.includes(`channel:${channel}`)));
         const laid = support.apply(stance, supportedPosture);
         resources.validatePatch(["legs", "trunk"], laid);

@@ -48,7 +48,7 @@ const MARKS = {
 /** The wind arrow's length per newton, m, and its height over the ground, m. */
 const ARROW_PER_NEWTON = 0.01, ARROW_HEIGHT = 1.35;
 /** The pace slider's range, m/s: its notch past the fastest reads Max, the fastest the body's walk holds. */
-const PACES = { least: 0.2, most: 4, step: 0.1 } as const;
+const PACES = { least: 0.2, most: 4.5, step: 0.1 } as const;
 const MAX = PACES.most + PACES.step;
 /** The wind unless the sliders say: none. */
 const CALM: WindSettings = { rate: 0, strength: 0 };

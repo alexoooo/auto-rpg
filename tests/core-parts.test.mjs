@@ -63,7 +63,7 @@ test("a part that needs what a screen gives is a fault where the screen gives no
   assert.deepEqual(treeFaults(scripted, ["script"]), []);
   assert.deepEqual(treeFaults(standing), []);
   // The screen's fault stands with the part's own, where the part is in the tree.
-  assert.deepEqual(treeFaults({ ...standing, support: { kind: "support-fold" } }), ["support: a walk that drives the legs leaves no stance to fold"]);
+  assert.deepEqual(treeFaults({ ...standing, locomotion: { ...CLASSIC.locomotion, otherwise: "fly" } }), ['locomotion: move: no gait called "fly"']);
 });
 
 test("a tree fits a body where every part does, and every part of a role is offered with why it cannot go", () => {

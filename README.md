@@ -132,6 +132,7 @@ turn; across its heading or backward it walks at half pace.
 | Input | Does |
 | --- | --- |
 | W A S D, or the arrows | walk, as the camera sees the ground |
+| Shift, with a walk | run the way you walk, facing it |
 | Pointer | where your fighter faces while it walks |
 | Left button | attack the sensed body part under the pointer; hold to keep attacking |
 | Middle or right drag | orbit the Free camera |

@@ -230,6 +230,8 @@ interface SurfaceSpec {
   readonly point?: { readonly direction: Quantity<Vec3>; readonly alignment: Quantity<number> };
   /** A layer it gives against the fixed world, as a shoe's sole on a floor (`ContactMaterial.sole`): N/m, N s/m, and m. */
   readonly sole?: { readonly stiffness: Quantity<number>; readonly damping: Quantity<number>; readonly depth: Quantity<number> };
+  /** Its coefficient of friction, where it grips better than the engine's default (`ContactMaterial.friction`). */
+  readonly friction?: Quantity<number>;
 }
 
 /**

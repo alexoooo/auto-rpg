@@ -167,6 +167,14 @@ const ARRIVAL = Object.freeze({ waypoint: 0.3, point: 0.4, post: 0.6, explored: 
  */
 const STOPPING = Object.freeze({ seconds: 1.8, least: 0.3 });
 /**
+ * How a walker that may run takes its route (`DungeonRun.follow`): routed `clear` m wider than its
+ * radius where the floor has room, for the sway of a run; and coming to the point by which the route
+ * has turned more than `turn` rad, or narrows to under that clearance (looked at every `look` m), or
+ * to its end, no faster than it slows from at `brake` m/s² to `pace` m/s there, a walk it turns at.
+ * Numeric settings.
+ */
+const CORNER = Object.freeze({ turn: 0.35, clear: 0.3, look: 0.25, brake: 0.3, pace: 1 });
+/**
  * Where several members sent to one floor point stand, m (`docs/reference/play.md#following`): no two slots nearer
  * than `apart`, on eight bearings of each of these rings about the point.
  */
@@ -411,17 +419,20 @@ export class DungeonRun {
     }
   }
 
-  /** The way `actor` walks this step along its route to `goal`; one that `stops` there slows to come to rest at it (`STOPPING`). */
+  /**
+   * The way `actor` walks this step along its route to `goal`, slowing for its corners (`CORNER`); one
+   * that `stops` there slows to come to rest at it (`STOPPING`).
+   */
   private follow(actor: DungeonActor, goal: Point, stops = false): Point {
     const at = actor.feet();
     if (!actor.route.length || distance(at, actor.progress.at) > STALL_METRES) actor.progress = { at, since: this.clock };
     else if (this.clock - actor.progress.since > cryptModel(actor.model).progressSeconds) {
-      const route = findPath(this.map, at, goal, actor.radius);
+      const route = this.routeOf(actor, at, goal);
       if (route.length) { actor.goal = { x: goal.x, z: goal.z }; actor.route = route; actor.nextPlan = this.clock + RUN_TIMING.replan; }
       actor.progress = { at, since: this.clock };
     }
     if (!actor.goal || distance(goal, actor.goal) > ARRIVAL.goalMoved || this.clock >= actor.nextPlan && !actor.route.length) {
-      actor.goal = { x: goal.x, z: goal.z }; actor.route = findPath(this.map, at, goal, actor.radius);
+      actor.goal = { x: goal.x, z: goal.z }; actor.route = this.routeOf(actor, at, goal);
       actor.nextPlan = this.clock + RUN_TIMING.replan;
     }
     while (actor.route.length && distance(at, actor.route[0]) < ARRIVAL.waypoint) actor.route.shift();
@@ -429,8 +440,35 @@ export class DungeonRun {
     let left = 0;
     for (let i = 0; i < actor.route.length; i++) left += distance(i ? actor.route[i - 1]! : at, actor.route[i]!);
     actor.going = left;
-    if (stops) actor.pace = Math.max(STOPPING.least, left / STOPPING.seconds);
+    const straight = this.straightOf(actor, at);
+    const cornering = Math.sqrt(CORNER.pace * CORNER.pace + 2 * CORNER.brake * straight);
+    actor.pace = stops ? Math.min(cornering, Math.max(STOPPING.least, left / STOPPING.seconds)) : cornering;
     return direction(at, actor.route[0]);
+  }
+
+  /** A route for `actor` from `at` to `goal`, with room for a run's sway where the floor has it (`CORNER.clear`). */
+  private routeOf(actor: DungeonActor, at: Point, goal: Point): Point[] {
+    const roomy = findPath(this.map, at, goal, actor.radius + CORNER.clear);
+    return roomy.length ? roomy : findPath(this.map, at, goal, actor.radius);
+  }
+
+  /** How far `actor`'s route goes on from `at` before it has turned more than `CORNER.turn` all told or narrows under `CORNER.clear`, m. */
+  private straightOf(actor: DungeonActor, at: Point): number {
+    const route = actor.route, room = actor.radius + CORNER.clear;
+    let straight = 0, turned = 0;
+    for (let i = 0; i < route.length; i++) {
+      const from = i ? route[i - 1]! : at, to = route[i]!, length = distance(from, to);
+      if (i) {
+        const a = direction(i > 1 ? route[i - 2]! : at, from), b = direction(from, to);
+        turned += Math.acos(Math.max(-1, Math.min(1, a.x * b.x + a.z * b.z)));
+        if (turned > CORNER.turn) return straight;
+      }
+      for (let u = CORNER.look; u < length; u += CORNER.look) {
+        if (!walkable(this.map, { x: from.x + (to.x - from.x) * u / length, z: from.z + (to.z - from.z) * u / length }, room)) return straight + u - CORNER.look;
+      }
+      straight += length;
+    }
+    return straight;
   }
 
   private perceive(): void {

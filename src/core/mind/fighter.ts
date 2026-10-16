@@ -7,7 +7,8 @@ import type { Skills } from "../skills/skills.ts";
 import type { Ended } from "../skills/action.ts";
 import { STRIDE, stride, validStride } from "../skills/stride.ts";
 import { RUN, run, validRun } from "../skills/run.ts";
-import { SIMBICON, simbicon, simbiconRun, simbiconWays, validSimbicon, validSimbiconRun, validWays, type SimbiconSettings } from "../skills/simbicon.ts";
+import { SIMBICON, simbicon, simbiconWays, validSimbicon, validWays, type SimbiconSettings } from "../skills/simbicon.ts";
+import { runCycleSettings, validRunCycle } from "../skills/cycle-run.ts";
 import { GAIT_NAMES, GAITS, type GaitName } from "../skills/gaits.ts";
 import { distanceRule, move, standingRule, type MoveGait, type MoveRule } from "../skills/move.ts";
 import { supportFold } from "../skills/support-fold.ts";
@@ -82,7 +83,7 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
       (config) => [
         ...validSimbicon(settingsOf(config)) ? [] : ["a SIMBICON gait needs every setting finite, its times, turn, swerve, turn's change, speed-up, run and leg positive, and its shares of strength within (0, 1]"],
         ...validWays(simbiconWays(config.tuning)) ? [] : ["a SIMBICON gait's side and back give only the settings a way changes, each finite"],
-        ...validSimbiconRun(simbiconRun(config.tuning?.run)) ? [] : ["a SIMBICON gait's run gives only the run's settings, each finite, its times positive and its shares of strength within (0, 1]"],
+        ...validRunCycle(runCycleSettings(config.tuning?.run)) ? [] : ["a SIMBICON gait's run gives only the run's settings, each finite, its times and the cycle's positive and its shares of strength within (0, 1]"],
       ]),
     tuning: ["side", "back", "run"],
   },
@@ -94,20 +95,6 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
   "cover-guard": { ...skill("guard", "Guard and cover", "game", { kind: "cover-guard" }), tuning: ["covering"] },
   "support-fold": skill("support", "Fight from low support", "experimental", { kind: "support-fold" }),
 });
-
-/**
- * Whether a locomotion of `config` ever drives the legs itself (`Locomotion.drive`): low support
- * steps from the stance, which such a walk leaves, and is not offered beside it. A kick waits for
- * such a walk to give the legs back (`skillSet`).
- */
-function drivesLegs(config: LocomotionConfig): boolean {
-  switch (config.kind) {
-    case "stance-walk": case "stride": case "run": return false;
-    case "simbicon": return true;
-    case "move": return gaitsOf(config).some((name) => isGait(name) && drivesLegs(GAITS[name].legs));
-    default: { const never: never = config; throw new Error(`no locomotion of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
-  }
-}
 
 /** Cross-part references are checked before any motion state is constructed. */
 export function fighterFaults(config: FighterConfig): readonly string[] {
@@ -127,7 +114,6 @@ export function fighterFaults(config: FighterConfig): readonly string[] {
     names.add(action.name);
     if (!executors.has(action.executor)) faults.push(`${action.name}: missing executor ${action.executor}`);
   }
-  if (drivesLegs(config.locomotion) && config.support) faults.push("support: a walk that drives the legs leaves no stance to fold");
   if (config.tactics.kind === "behaviours" && config.tactics.choose.kind === "rules") {
     const choose = config.tactics.choose;
     for (const name of [...choose.otherwise, ...choose.rules.flatMap(rule => rule.actions)]) if (!names.has(name)) faults.push(`selector: no action ${name}`);
@@ -153,7 +139,7 @@ function legsOf(body: Body, config: LocomotionConfig): Locomotion {
     case "stance-walk": return locomotion(body.envelope, config.tuning?.turnLimit, config.tuning?.turnStartup);
     case "stride": { const { kind: _, ...settings } = config; return stride(body, settings); }
     case "run": { const { kind: _, ...settings } = config; return run(body, settings); }
-    case "simbicon": return simbicon(body, settingsOf(config), simbiconWays(config.tuning), simbiconRun(config.tuning?.run), config.runs ?? true);
+    case "simbicon": return simbicon(body, settingsOf(config), simbiconWays(config.tuning), runCycleSettings(config.tuning?.run), config.runs ?? true);
     case "move": {
       const names = gaitsOf(config), built = new Map<string, Locomotion>();
       // Gaits whose legs differ only in whether they may run share one walk (`MoveGait`).

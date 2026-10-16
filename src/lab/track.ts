@@ -162,12 +162,12 @@ export const TRACKS: Readonly<Record<TrackId, TrackInfo>> = {
   circle: {
     name: "Circle",
     pieces: circle(CIRCLE_RADIUS),
-    size: { name: "Radius", least: 2, most: 20, metres: CIRCLE_RADIUS, of: circle },
+    size: { name: "Radius", least: 2, most: 40, metres: CIRCLE_RADIUS, of: circle },
   },
   shuttle: {
     name: "Back and forth",
     pieces: shuttle(SHUTTLE_METRES),
-    size: { name: "Distance", least: 2, most: 30, metres: SHUTTLE_METRES, of: shuttle },
+    size: { name: "Distance", least: 2, most: 100, metres: SHUTTLE_METRES, of: shuttle },
   },
   square: {
     name: "Square, W D S A",
