@@ -265,6 +265,24 @@ goes, then an assist to fill the gap and to take a character past a person.
   | 50 % | 5 of 6 | 2 of 5 | 6 of 23 | 1 of 18 |
 
   It helps the Rogue empty-handed a little, and nothing else.
+- **What it costs the Warrior.** On the target (`rising-step-search.mjs --score --cap 30
+  --balance <b>`, the S1 searches' tunings, stood of the falls the shove still fells), with the
+  rise's bearing given today's shortfall, nothing, or only a lift (the ceiling's force upward while
+  a stage bears, nothing in the pose stages):
+
+  | Balance | Warrior: today / none / lift | Rogue: today / none / lift |
+  |---|---|---|
+  | 10 % | 13 / 21 / 23 of 30 | 12 / 11 / 10 of 32 |
+  | 25 % | 7 / 18 / 22 of 26 | 7 / 9 / 7 of 32 |
+  | 50 % | 8 / 20 / 2 of 27 | 9 / 4 / 2 of 27 |
+
+  The Warrior's assisted rises reach the last stage and fail there: the even stage's first steps
+  ask the assist for about 100 N across and 50 N m that the patches would not give, and the body
+  leaves the steadying stance off one foot. Without its horizontal part the shortfall stood 11 of
+  26 at 25 %. Any help in the pose stages fells the body: a lift through them stood 0 of 32 Rogue
+  falls, and a damper on the centre of mass's speed and the pelvis's spin 0 of 32. None stands a
+  fall within 6 s. The stages were searched at 0 %; a candidate is not judged until they are
+  searched with it on.
 - **Candidates**, each a force or moment at the root no muscle gives (`Assist`), metered every
   step, and acting where the rise waits:
   - **Lift**: an upward force through the centre of mass while a stage bears, a share of body
