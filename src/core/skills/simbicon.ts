@@ -5,7 +5,7 @@ import type { MusclePush, Pose } from "../control/motor.ts";
 import { LEG_DAMPING } from "../control/stance-tuning.ts";
 import { fixedSolveTo, fixedWork } from "../math/flat.ts";
 import type { BodySpec, Side } from "../spec/body.ts";
-import { atan2, sin, cos } from "../math/real.ts";
+import { acos, atan2, sin, cos } from "../math/real.ts";
 import { spinBetweenToRef, turnAboutToRef, wrap } from "../math/turn.ts";
 import { armSwing } from "./arm-swing.ts";
 import { paceToward, quickened, simbiconEnvelope, simbiconRunEnvelope, type StanceEnvelope } from "../control/stance-envelope.ts";
@@ -266,13 +266,17 @@ function quickness(haste: number, hasted: number): number {
 
 /** `spec`'s leg, m: its left hip's centre to its left ankle's in the reference pose. */
 export function legOf(spec: BodySpec): number {
+  return jointGap(spec, "hip.left", "ankle.left");
+}
+
+/** The distance between two of `spec`'s joints' centres, m. */
+function jointGap(spec: BodySpec, a: string, b: string): number {
   const centre = (name: string): readonly number[] => {
     const joint = spec.joints.find((j) => j.name === name);
     if (!joint) throw new Error(`a SIMBICON gait needs a joint ${name}`);
     return joint.centre.value;
   };
-  const hip = centre("hip.left"), ankle = centre("ankle.left");
-  const x = hip[0]! - ankle[0]!, y = hip[1]! - ankle[1]!, z = hip[2]! - ankle[2]!;
+  const p = centre(a), q = centre(b), x = p[0]! - q[0]!, y = p[1]! - q[1]!, z = p[2]! - q[2]!;
   return Math.sqrt(x * x + y * y + z * z);
 }
 
@@ -401,6 +405,9 @@ interface SimbiconMemory {
   stride: number[];
   /** The landing's trims, forward and to the right of the heading, m (`SimbiconSettings.trim`). */
   trim: number[];
+  /** The height of the ground the stance sole landed on, m, and of an ankle over its sole as the walk set off, m (`LATE_REACH`). */
+  ground: number;
+  ankle: number;
   /** The walk asked forward and to the right at the last two landings, the earlier first, m/s. */
   trimAsked: number[];
 }
@@ -415,13 +422,21 @@ interface SimbiconMemory {
 const SHIFT = { near: 0.03, closing: 0.03, least: 0.1, longest: 1.5 } as const;
 
 /**
- * Stopping, the speeds of the centre of mass under which a landing gives the legs back to the
- * stance, m/s: along the heading, and in all, the walk's sway from side to side being part of it.
+ * Stopping, the speed of the centre of mass under which a landing gives the legs back to the
+ * stance, m/s, the walk's sway from side to side being part of it. Slower, the walk's steps land
+ * ahead of a body too slow to come over them, and its swinging foot does not reach the ground
+ * before its time is out (the skeleton, stopping from a run); the stance steps for itself.
  */
-const SETTLED = { forward: 0.2, all: 0.5 } as const;
+const SETTLED = 0.5;
 
 /** The world's right, +x: the axis a pelvis leans forward about. */
 const RIGHT: Readonly<Vector3> = Object.freeze(new Vector3(1, 0, 0));
+
+/**
+ * The late swing's reach: the most the stance knee bends to bring the hip down to a landing the
+ * straight swinging leg does not reach, rad.
+ */
+const LATE_REACH = { knee: 0.8 } as const;
 
 /**
  * **A SIMBICON walk** (Yin et al. 2007): a locomotion skill (`Locomotion`) that drives the legs
@@ -441,7 +456,8 @@ const RIGHT: Readonly<Vector3> = Object.freeze(new Vector3(1, 0, 0));
  *   its sole would bring the centre of mass to rest over it (the inverted pendulum's landing,
  *   Coros et al. 2010), short of it by the walk asked times its lead and out by `width`; and the
  *   paper's feedback, `cd` times the centre of mass's distance from the stance ankle and `cv` times
- *   its velocity's error from the walk asked.
+ *   its velocity's error from the walk asked; late, no farther ahead than the straight leg reaches
+ *   the ground, the stance knee bending to bring the hip down to a landing farther (`LATE_REACH`).
  * - **The stance leg**: its knee at `stance` of its strength toward its state's angle; its ankle
  *   at `ankle`, a foot that gives, its dorsiflexion raised as the body is slower than the walk
  *   asked; its hip driven at the speeds that turn the pelvis upright and to the heading in the
@@ -485,8 +501,11 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
       knee: muscles.channel(names.knee), ankle: [muscles.channel(names.ankle[0]), muscles.channel(names.ankle[1])] };
   };
   const leg = { left: limbOf("left"), right: limbOf("right") };
+  // The leg's straight length, its thigh's and its shank's, m, for the late swing's reach.
+  const reach = legOf(body.built.spec), thighLength = jointGap(body.built.spec, "hip.left", "knee.left"), shankLength = jointGap(body.built.spec, "knee.left", "ankle.left");
   const memory: SimbiconMemory = { walking: false, may, running: false, carried: false, stance: "left", late: false, time: 0, heading: 0, spin: 0, face: 0, pace: 0, asked: 0, forward: 0, right: 0,
-    root: new Quaternion(), read: false, assisted: { root: new Quaternion(), read: false }, stopping: false, shifting: false, short: 0, capped: 0, ran: 0, clock: 0, landings: [0, 0, 0, 0, 0, 0], landed: 0, stride: [0, 0], trim: [0, 0], trimAsked: [0, 0, 0, 0] };
+    root: new Quaternion(), read: false, assisted: { root: new Quaternion(), read: false }, stopping: false, shifting: false, short: 0, capped: 0, ran: 0, clock: 0, landings: [0, 0, 0, 0, 0, 0], landed: 0, stride: [0, 0], trim: [0, 0], trimAsked: [0, 0, 0, 0],
+    ground: 0, ankle: 0 };
   const state = { legs: legs.state, gait: memory, run: cycle.state };
   // A walk a run gave way to holds the arms as the run does, unswung (`RUN_ARMS`): the guard's, taken up at once, throw a body slowing from a run.
   const carried: Pose = Object.freeze({ "shoulder.left flexion": 0, "shoulder.right flexion": 0, "shoulder.left abduction": RUN_ARMS.abduction,
@@ -535,6 +554,8 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
     memory.landed = 0;
     memory.trim[0] = 0;
     memory.trim[1] = 0;
+    memory.ground = s.soles[memory.stance].y;
+    memory.ankle = dynamics.pivot(leg[memory.stance].ankle[0])[1] - s.soles[memory.stance].y;
   };
   /**
    * The stance's stand with the centre of mass asked over the first stance sole; null once the
@@ -578,7 +599,7 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
     if (!memory.late && memory.time >= settings.seconds) memory.late = true;
     else if (memory.late && (s.touching[swing] || memory.time >= settings.longest)) {
       const along = v.x * sin(h) + v.z * cos(h);
-      if (memory.stopping && memory.forward === 0 && memory.right === 0 && Math.abs(along) <= SETTLED.forward && v.x * v.x + v.z * v.z <= SETTLED.all * SETTLED.all) {
+      if (memory.stopping && memory.forward === 0 && memory.right === 0 && v.x * v.x + v.z * v.z <= SETTLED * SETTLED) {
         stand(view);
         return { kind: "stance", goal: legs.goal(view, null, h, dt) };
       }
@@ -601,6 +622,7 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
       marks[3] = c.x; marks[4] = c.z; marks[5] = memory.clock;
       memory.landed += 1;
       memory.stance = swing;
+      memory.ground = s.soles[swing].y;
       memory.late = false;
       memory.time = 0;
       // The run takes over as a foot lands, taking up the pace the body goes and speeding up from it.
@@ -637,7 +659,22 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
     const landF = atan2(hx * fx + hz * fz + rest(vf) - current.lead * memory.forward - memory.trim[0]!, height);
     const short = memory.right * out > 0 ? current.leadOut : gait.leadSide;
     const landOut = atan2((hx * rx + hz * rz + rest(vr) - short * memory.right - memory.trim[1]!) * out + gait.width, height);
-    const thigh = (late ? gait.swingHipLate + gait.landing * landF : gait.swingHip) + (late ? gait.cdLate : gait.cd) * ahead + (late ? gait.cvLate : gait.cv) * forward;
+    const asks = (late ? gait.swingHipLate + gait.landing * landF : gait.swingHip) + (late ? gait.cdLate : gait.cd) * ahead + (late ? gait.cvLate : gait.cv) * forward;
+    // Late, the swinging thigh leans forward no farther than the straight leg meets the ground from the hip as it is, the ankle
+    // its height over its sole; and a landing it asks farther ahead bends the stance knee, up to `LATE_REACH.knee`, to bring the
+    // hip down by as much as that landing needs: the leg on the stance side shortened to its length less that, by the knee's
+    // triangle of thigh and shank.
+    let thigh = asks, lower = 0;
+    if (late) {
+      const drop = p[1] - memory.ground - memory.ankle, most = drop < reach ? acos(drop / reach) : 0;
+      if (asks > most) {
+        thigh = most;
+        const sp = dynamics.pivot(st.hip[0]), sa = dynamics.pivot(st.ankle[0]), lx = sp[0] - sa[0], ly = sp[1] - sa[1], lz = sp[2] - sa[2];
+        const length = Math.sqrt(lx * lx + ly * ly + lz * lz) - (drop - reach * cos(asks));
+        const bend = (length * length - thighLength * thighLength - shankLength * shankLength) / (2 * thighLength * shankLength);
+        lower = Math.min(LATE_REACH.knee, acos(Math.max(-1, Math.min(1, bend))));
+      }
+    }
     const spread = gait.swingSpread + gait.landing * landOut + gait.cdSide * aside + gait.cvSide * outward;
     // The stance leg's servo, while it bears and does not push off: with the sole planted, the pelvis moves at minus the
     // Jacobian's twist of the leg's speeds, so the speeds that carry the centre of mass on by `on` are the solve's of minus that.
@@ -668,7 +705,7 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
     drive(sw.names.ankle[0], sw.ankle[0], late ? gait.swingAnkleLate : gait.swingAnkle, gait.swing);
     drive(sw.names.ankle[1], sw.ankle[1], 0, gait.swing);
     // The stance knee and ankle, toward their angles under the body's weight.
-    drive(st.names.knee, st.knee, memory.late ? current.stanceKneeLate : current.stanceKnee, gait.stance, extra[3]);
+    drive(st.names.knee, st.knee, memory.late ? Math.max(current.stanceKneeLate, lower) : current.stanceKnee, gait.stance, extra[3]);
     drive(st.names.ankle[0], st.ankle[0], gait.stanceAnkle - gait.cvAnkle * forward, gait.ankle, extra[4]);
     drive(st.names.ankle[1], st.ankle[1], gait.cvAnkleSide * outward, gait.ankle, extra[5]);
 
@@ -712,6 +749,7 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
       memory.carried = true;
       memory.forward = Math.max(memory.forward, along);
       memory.stance = driven.landed;
+      memory.ground = view.stance.soles[driven.landed].y;
       memory.late = false;
       memory.time = 0;
     }
