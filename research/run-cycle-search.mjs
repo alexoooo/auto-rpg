@@ -11,17 +11,17 @@
  * and with `--turns` a trial a model at each rate there: asked `TURN.speed` forward, its face turned
  * at that rate (to the right, or left if negative) through `TURN.angle` from `TURN.at` s, credited the length of its path, and half that
  * if as it ends its way is more than `TURNED` off the face asked; and with `--stops` a trial a model
- * at each pace there, asked it forward and to stop at `STOP.at` s, credited the speed it made until then times
+ * at each pace there, asked it forward and to stop at `STOP.at` s (or at each of `--stop-at`'s), credited the speed it made until then times
  * the share of the time after it stood, and by as much less as it took longer than `STOP.within` s to
  * come under `STOP.under`, and half that if it ends going faster. With `--winds rate:strength:seed,seed`
  * each trial is walked calm and again in the lab's gusts on each seed (`startWind`), so that a
  * candidate is credited for what it holds through a run's chaos, not for one lucky path.
  *
  *   node research/run-cycle-search.mjs --out .snap/run/a [--models workshop-fighter,workshop-rogue,crypt-skeleton]
- *     [--speeds 3,3.5,4] [--turns 0.4,0.8] [--stops 2,3.5] [--seconds 25] [--generations 60] [--lambda 28] [--sigma 0.1] [--workers 28]
+ *     [--speeds 3,3.5,4] [--turns 0.4,0.8] [--stops 2,3.5 [--stop-at 2.5,4,6]] [--seconds 25] [--generations 60] [--lambda 28] [--sigma 0.1] [--workers 28]
  *     [--start '{"cv":0.3}' | file.json] [--dims accel,brake] [--winds 1:5:1,2] [--holds empty,club] [--balance 25] [--haste 100,150 --hasted 0.5] [--score] [--windows]
  *
- * - `--score` scores the start alone and prints each trial; with `--windows` each trial's speed in
+ * - `--score` scores the start alone and prints each trial, with the metres it took to stop; with `--windows` each trial's speed in
  *   each 2 s window.
  * - Otherwise it searches, and writes each generation to `<out>.jsonl` and the best to `<out>-best.json`.
  *
@@ -71,7 +71,7 @@ const STOP = { at: 12, within: 2, under: 0.5 };
  * One trial: `model` asked `speed` m/s forward for `seconds` under the run `run`, its face turned at
  * `turn` rad/s if given (`TURN`), or asked to stop if `stop` (`STOP`), in the gusts of `wind` if given, holding `held` (`empty` or `club`); its credit, and its 2 s windows' speeds.
  */
-async function trial({ model, speed, seconds, turn = 0, stop = false, wind = null, held = "empty", balance = null, haste, hasted = SIMBICON.hasted, run: { at, speedup, slowdown, ...run } }) {
+async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: stopSeconds = STOP.at, wind = null, held = "empty", balance = null, haste, hasted = SIMBICON.hasted, run: { at, speedup, slowdown, ...run } }) {
   const own = modelSpec(model, undefined, { haste }), spec = held === "club" ? armed(own, "right", woodenClub()) : own, guard = guardPosture(spec);
   const stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard });
   const assist = balanceCeiling(balance ?? stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
@@ -90,8 +90,8 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, wind = nul
     const standing = body.view.stance.centre.y - body.view.stance.support.y;
     asked = [speed, 0];
     const steps = stand.seconds(seconds), window = stand.seconds(2), windows = [];
-    const turnFrom = stand.seconds(TURN.at), stopAt = stop ? stand.seconds(STOP.at) : steps;
-    let from = null, at = 0, z = 0, path = 0, fell = null, under = null, mark = body.view.stance.centre.z;
+    const turnFrom = stand.seconds(TURN.at), stopAt = stop ? stand.seconds(stopSeconds) : steps;
+    let from = null, at = 0, z = 0, path = 0, fell = null, under = null, metres = null, asked0 = null, mark = body.view.stance.centre.z;
     for (let i = 1; i <= steps; i++) {
       if (turn !== 0 && i > turnFrom) face = turn > 0 ? Math.min(TURN.angle, face + turn / stand.world.hz) : Math.max(-TURN.angle, face + turn / stand.world.hz);
       if (i === stopAt + 1) asked = null;
@@ -99,18 +99,21 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, wind = nul
       const s = body.view.stance;
       if (from === null && s.velocity.z >= CREDIT_FROM) { from = s.centre.z; at = i; }
       if (from !== null) path += Math.sqrt(s.velocity.x * s.velocity.x + s.velocity.z * s.velocity.z) / stand.world.hz;
-      if (i <= stopAt) z = s.centre.z;
-      else if (under === null && Math.sqrt(s.velocity.x * s.velocity.x + s.velocity.z * s.velocity.z) < STOP.under) under = (i - stopAt) / stand.world.hz;
+      if (i <= stopAt) { z = s.centre.z; asked0 = s.centre.clone(); }
+      else if (under === null && Math.sqrt(s.velocity.x * s.velocity.x + s.velocity.z * s.velocity.z) < STOP.under) {
+        under = (i - stopAt) / stand.world.hz;
+        metres = Math.sqrt((s.centre.x - asked0.x) * (s.centre.x - asked0.x) + (s.centre.z - asked0.z) * (s.centre.z - asked0.z));
+      }
       const height = s.centre.y - Math.min(s.soles.left.y, s.soles.right.y);
       if (!Number.isFinite(height) || height < FALLEN * standing || body.view.down) { fell = i / stand.world.hz; break; }
       if (i % window === 0) { windows.push(+((s.centre.z - mark) / 2).toFixed(2)); mark = s.centre.z; }
     }
     const made = from === null ? 0 : (turn !== 0 ? path : z - from) / ((stopAt - at) / stand.world.hz);
     const v = body.view.stance.velocity, off = Math.abs(Math.atan2(v.x, v.z) - face), turned = turn === 0 || fell !== null || off <= TURNED;
-    const stood = !stop ? 1 : fell === null ? 1 : Math.max(0, fell - STOP.at) / (seconds - STOP.at), stopped = !stop || (fell === null && v.length() < STOP.under);
-    const soon = !stop ? 1 : Math.min(1, STOP.within / (under ?? seconds - STOP.at));
+    const stood = !stop ? 1 : fell === null ? 1 : Math.max(0, fell - stopSeconds) / (seconds - stopSeconds), stopped = !stop || (fell === null && v.length() < STOP.under);
+    const soon = !stop ? 1 : Math.min(1, STOP.within / (under ?? seconds - stopSeconds));
     const credit = (Math.min(made, speed + OVER) - Math.max(0, made - speed - OVER)) * (turned ? 1 : 0.5) * stood * soon * (stopped ? 1 : 0.5);
-    return { model, speed, turn, stop, wind: wind?.seed ?? null, held, credit, made: +made.toFixed(3), fell, turned, under, windows };
+    return { model, speed, turn, stop, stopAt: stop ? stopSeconds : null, wind: wind?.seed ?? null, held, haste: haste ?? null, credit, made: +made.toFixed(3), fell, turned, under, metres: metres === null ? null : +metres.toFixed(2), windows };
   } finally { blowing?.dispose(); body.dispose(); stand.dispose(); }
 }
 
@@ -124,7 +127,7 @@ if (!isMainThread) {
   });
 } else {
   const { values: o } = parseArgs({ options: {
-    out: { type: "string" }, models: { type: "string", default: "workshop-fighter,workshop-rogue,crypt-skeleton" }, speeds: { type: "string", default: "3,3.5,4" }, turns: { type: "string" }, stops: { type: "string" },
+    out: { type: "string" }, models: { type: "string", default: "workshop-fighter,workshop-rogue,crypt-skeleton" }, speeds: { type: "string", default: "3,3.5,4" }, turns: { type: "string" }, stops: { type: "string" }, "stop-at": { type: "string" },
     seconds: { type: "string", default: "25" }, generations: { type: "string", default: "60" }, lambda: { type: "string", default: "28" },
     sigma: { type: "string", default: "0.1" }, workers: { type: "string", default: "28" }, start: { type: "string" }, dims: { type: "string" }, score: { type: "boolean" }, windows: { type: "boolean" }, winds: { type: "string" }, holds: { type: "string", default: "empty" }, balance: { type: "string" }, haste: { type: "string" }, hasted: { type: "string" },
   } });
@@ -133,15 +136,19 @@ if (!isMainThread) {
   for (const key of KEYS) if (!DIMS[key]) throw new Error(`no setting ${key} is searched`);
   const given = o.start ? JSON.parse(o.start.startsWith("{") ? o.start : readFileSync(o.start, "utf8")) : {};
   const start = { ...RUN_CYCLE, at: SIMBICON.run, speedup: SIMBICON.speedup, slowdown: SIMBICON.slowdown, ...Object.fromEntries(Object.entries(given).filter(([key]) => key in RUN_CYCLE || WALK.includes(key))) };
-  const cells = o.models.split(",").flatMap((model) => [...o.speeds.split(",").map((speed) => ({ model, speed: Number(speed), seconds: Number(o.seconds) })),
+  const cells = o.models.split(",").flatMap((model) => [...(o.speeds ? o.speeds.split(",") : []).map((speed) => ({ model, speed: Number(speed), seconds: Number(o.seconds) })),
     ...(o.turns ? o.turns.split(",") : []).map((turn) => ({ model, speed: TURN.speed, turn: Number(turn), seconds: Number(o.seconds) })),
-    ...(o.stops ? o.stops.split(",") : []).map((speed) => ({ model, speed: Number(speed), stop: true, seconds: Number(o.seconds) }))]).flatMap((cell) => WINDS.map((wind) => ({ ...cell, wind }))).flatMap((cell) => o.holds.split(",").map((held) => ({ ...cell, held, balance: o.balance === undefined ? null : Number(o.balance),
+    ...(o.stops ? o.stops.split(",") : []).flatMap((speed) => (o["stop-at"] ? o["stop-at"].split(",").map(Number) : [STOP.at]).map((stopAt) => ({ model, speed: Number(speed), stop: true, stopAt, seconds: Number(o.seconds) })))]).flatMap((cell) => WINDS.map((wind) => ({ ...cell, wind }))).flatMap((cell) => o.holds.split(",").map((held) => ({ ...cell, held, balance: o.balance === undefined ? null : Number(o.balance),
     ...(o.hasted === undefined ? {} : { hasted: Number(o.hasted) }) }))).flatMap((cell) => o.haste === undefined ? [cell] : o.haste.split(",").map((haste) => ({ ...cell, haste: Number(haste) })));
   const toUnit = (p) => KEYS.map((k) => (p[k] - DIMS[k][0]) / (DIMS[k][1] - DIMS[k][0]));
   const fromUnit = (u) => ({ ...start, ...Object.fromEntries(KEYS.map((k, i) => [k, +(DIMS[k][0] + Math.min(1, Math.max(0, u[i])) * (DIMS[k][1] - DIMS[k][0])).toFixed(4)])) });
   if (o.score) {
-    const trials = await Promise.all(cells.map((cell) => trial({ ...cell, run: start })));
-    for (const t of trials) console.log(`${t.model}${t.held === "club" ? " with the club" : ""}${t.wind === null ? "" : ` in gusts ${t.wind}`} asked ${t.speed}${t.turn ? ` turning ${t.turn}${t.turned ? "" : " (not turned)"}` : ""}${t.stop ? ` then to stop (under ${STOP.under} after ${t.under} s)` : ""}: made ${t.made} m/s, fell ${t.fell}${o.windows ? `; windows ${t.windows.join(" ")}` : ""}`);
+    const pool = workerPool(new URL(import.meta.url), null, Math.min(Number(o.workers), cells.length));
+    const trials = (await Promise.all(cells.map((cell) => pool.evaluate({ cells: [cell], run: start })))).flatMap((r) => { if (r.error) throw new Error(r.error); return r.trials; });
+    await pool.terminate().catch(() => {});
+    for (const t of trials) console.log(`${t.model}${t.held === "club" ? " with the club" : ""}${t.haste === null ? "" : ` at haste ${t.haste}`}${t.wind === null ? "" : ` in gusts ${t.wind}`} asked ${t.speed}${t.turn ? ` turning ${t.turn}${t.turned ? "" : " (not turned)"}` : ""}${t.stop ? ` then to stop at ${t.stopAt} s (under ${STOP.under} after ${t.under} s, ${t.metres} m)` : ""}: made ${t.made} m/s, fell ${t.fell}${o.windows ? `; windows ${t.windows.join(" ")}` : ""}`);
+    const fallen = trials.filter((t) => t.fell !== null);
+    console.log(`fallen ${fallen.length} of ${trials.length}${o.models.split(",").map((m) => `; ${m} ${fallen.filter((t) => t.model === m).length}`).join("")}`);
     console.log("score", trials.reduce((s, t) => s + t.credit, 0) / trials.length);
   } else {
     if (!o.out) throw new Error("--out names the search's files");

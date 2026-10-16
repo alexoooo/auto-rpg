@@ -6,7 +6,7 @@
  *   node research/rising-step-search.mjs --out research/runs/rising/step-w --models workshop-fighter
  *     [--held empty,club] [--directions 8] [--offset 11.25] [--cap 14] [--generations 200] [--workers 24]
  *     [--start <tuning.json>] [--sigma .12] [--factor 1]
- *   node research/rising-step-search.mjs --score <tuning.json> [--models ...] [--held ...] [--directions 16] [--offset 0]
+ *   node research/rising-step-search.mjs --score <tuning.json, or "" for the model's own> [--models ...] [--held ...] [--directions 16] [--offset 0]
  *
  * A fall's score is 2 and the share of the cap left when it is verified standing (the target's
  * reading: quiet standing, then 2 s standing and a 1 s walk), else under 1: how far through the
@@ -90,15 +90,15 @@ function options(argv) {
     if (!(key in o)) throw new Error(`unknown option --${key}`);
     o[key] = key === "models" || key === "held" ? value.split(",") : typeof o[key] === "number" ? Number(value) : value;
   }
-  if (o.score && !argv.includes("--offset")) o.offset = 0;
-  if (o.score && !argv.includes("--directions")) o.directions = 16;
+  if (o.score !== null && !argv.includes("--offset")) o.offset = 0;
+  if (o.score !== null && !argv.includes("--directions")) o.directions = 16;
   return o;
 }
 
 async function main() {
   const o = options(process.argv.slice(2)), jobs = stepJobs(o);
   const tuningIn = async file => file ? JSON.parse(await readFile(file, "utf8")).tuning : STEP_UP[o.models[0]];
-  if (o.score) {
+  if (o.score !== null) {
     const tuning = await tuningIn(o.score), pool = workerPool(new URL("./rising-step-worker.mjs", import.meta.url), { tuning }, Math.min(o.workers, jobs.length));
     try {
       const rows = await Promise.all(jobs.map(job => pool.evaluate(job)));
