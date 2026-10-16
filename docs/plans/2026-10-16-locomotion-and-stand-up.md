@@ -117,6 +117,12 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
   where it holds empty-handed (3.2 to 3.4 m/s), reaches 3.9, its hips sink from 0.92 to 0.76 m in
   the last 0.3 s, and its trunk goes over backwards: its legs give way at the pace `ahead` keeps
   asking (L5), and it does not drift across the heading.
+- **In the game** an order to run, or to go somewhere, asks no more than the fastest forward pace
+  that held `RUN.share` (0.6) of its trials in the run envelope (`orderedIntent`,
+  `src/core/mind/ordered.ts`; `assets/core/simbicon-run-envelope.json`, the club among its holds):
+  4.5 m/s for the Warrior and the skeleton, 3 for the Rogue, which held 3.5 in 5 of 10. The
+  Rogue's runaway is asked only by the gait battery, which asks a pace directly; it is a bar on
+  the run, not a fall a bout meets.
 - **Tried and not kept.**
   - `gainSide` is a knife edge: 0.086 against 0 trades the Warrior's falls for the skeleton's, and
     0.2 or more throws everyone.
