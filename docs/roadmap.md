@@ -372,32 +372,31 @@ After it, each with its own plan, in the order each needs the one before:
       them (`REACH`), an order to run or a destination the fastest that held 0.6 (`RUN`,
       `ordered.ts`), and the options fighter closing on a place 0.8 (`SPACE.share`, `walk.ts`).
       In an Arena bout opened at 12 m (`research/bout.mjs`, 8 s), two skeletons close at up to
-      2.1 and 1.25 m/s and two Rogues at 1.9 and 2.0 and stay up; two Warriors close at 1.9 and
-      2.1 and go down at 6.8 and 7.4 s.
+      2.1 and 1.25 m/s and two Rogues at 1.9 and 2.0, and two Warriors run from 5.25 s, stop from
+      about 1.3 m/s and close; all stay up, the Warriors empty-handed and with the club.
     - **The club is what throws the run.** Scored on gust seeds the search never saw (5 to 8; Node
       stand, Rapier, 120 Hz, asked 1.4 to 5, three stops and two turns, balance 0 %), the trials
       that fell, of 50 each:
 
       | Body | Empty-handed | With the club |
       |---|---|---|
-      | Warrior | 1 | 10 |
-      | Rogue | 5 | 26 |
-      | skeleton | 3 | 12 |
+      | Warrior | 0 | 6 |
+      | Rogue | 5 | 25 |
+      | skeleton | 1 | 8 |
 
-      Most fall within a second or two of the run beginning, the body going across its heading
-      as its walk hands over. A lateral controller of the run that takes up the walk's sway is the
-      open item.
-    - **A stop soon after the run begins.** Asked 1.4, 1.8 and 2.4 m/s and to stop at 2.5 to 8 s
-      (Node stand, Rapier, 120 Hz, calm, balance 0 %), 9 of 72 trials fall: the skeleton 7, the
-      Warrior 2, the Rogue none. The Warrior falls as the walk the run gave way to waits on one
-      stance foot while the other does not come down and the body tips forward past 1.5 m/s; the
-      skeleton 2 to 4 s after it is asked to stop, not yet traced. A run that gave
-      way at its first landing felled the Warrior at every pace stopped at 2.5 s; it now runs to its
-      second (`RUN_SWITCH.landings`). Handing back only once the body has slowed 0.2 under 1.31
-      kept the Warrior and the Rogue up and felled the skeleton 12 times. In an Arena bout opened
-      at 8 m the Warrior asked 1.4 runs 0.25 s before the Rogue comes near and falls as it stops
-      (`tests/move.test.mjs`, a `todo`). **Open:** a walk that takes the body back from a run
-      and stops it.
+      The Rogue with the club falls in every trial asked 3.5 m/s or more: it gains speed past what
+      it holds empty-handed, and at about 3.9 m/s its legs give way and its trunk goes over
+      backwards. The Warrior falls in its turns with the club. **Open:** a run that does not ask a
+      body past what its legs hold.
+    - **A stop soon after the run begins.** A run gives way only from its second landing
+      (`RUN_SWITCH.landings`); late in a swing the thigh leans no farther than the straight leg
+      reaches the ground, and a landing asked farther bends the stance knee. Asked 1.4 to 3.5 m/s
+      and to stop at 2.5 to 8 s (Node stand, Rapier, 120 Hz, calm, balance 0 %), empty and with the
+      club, 3 of 96 trials fall, none of a stop asked by 6 s: the Rogue with the club asked 3.5,
+      and the skeleton 9 to 10 s after stopping from 1.8 and 2.4. In an Arena bout opened at 8 m
+      the Warrior asked 1.4 runs, stops and stays up, but changes gait 3.3 s after the Rogue comes
+      near (`tests/move.test.mjs`, a `todo` against 3 s). **Open:** braking faster than the
+      planners' 0.3 m/s².
     - **With balance** the gait asks the assist to right the pelvis (`gaitAssist`,
       [assist](reference/assist.md#a-gaits-assist)): on that battery at 25 % the runs that fall go
       from 19 of 150 to 2, the turns from 20 of 60 to 2 and the stops from 18 of 90 to 1. The

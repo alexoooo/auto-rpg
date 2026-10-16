@@ -59,18 +59,25 @@ The run's legs took the stand-up from 45 of 64 to 14. The foot's friction is not
   carried ahead and up on an arc as the body tips forward past 1.5 m/s. The skeleton falls 2 to
   4 s after it is asked to stop; that is not traced.
 - **Kept.** A run gives way only from its second landing (`RUN_SWITCH.landings`). At its first,
-  the Warrior fell on every stop asked at 2.5 s.
-- **Tried and not kept.** Handing back only once the body has slowed 0.2 under the run's pace kept
-  the Warrior and the Rogue up, but felled the skeleton 12 times, and the Move bout changed gait
-  3.8 s after the foe came near.
-- **Next.**
-  1. A stop battery: stops asked at several times after setting off, in the search's scorer
-     (`STOP.at` is 12 s alone today, long after the run is steady).
-  2. Then a walk that takes a body back from a run and stops it. One way is a late swing that
-     puts the foot down when the centre of mass runs ahead of the stance foot, as the walk's own
-     stops do at a walking pace. Another is a run-to-stop clip tracked by the cycle, if CMU has one.
-- **Done when** the stop battery falls in none of its trials on the three bodies at balance 0, and
-  the Move bout test passes as written.
+  the Warrior fell on every stop asked at 2.5 s. Late in a swing the thigh leans no farther than
+  the straight leg reaches the ground, and a landing asked farther bends the stance knee, up to
+  0.8 rad; stopping, a landing gives the legs back to the stance under 0.5 m/s in all
+  (`90095ac8`).
+- **Measured** (Node stand, Rapier, 120 Hz, balance 0, haste 100). The stop battery
+  (`run-cycle-search --score --stops 1.4,1.8,2.4,3.5 --stop-at 2.5,4,6,8 --holds empty,club
+  --seconds 20`) fell 8 of 96 before and 3 after: none of a stop asked by 6 s. Left: the Rogue
+  with the club asked 3.5 and to stop at 8 s falls at 10.8 s; the skeleton falls 9 to 10 s after
+  stopping from 1.8 with the club and from 2.4 empty-handed. The gait battery fell 57 of 300
+  before and 45 after (stops 18 to 5).
+- **Tried and not kept.**
+  - Handing back only once the body has slowed 0.2 under the run's pace kept the Warrior and the
+    Rogue up, but felled the skeleton 12 times, and the Move bout changed gait 3.8 s after the foe
+    came near.
+  - The run's phase set only by a landing of the foot that is due (a landing gate): the stop
+    battery fell 6 of 96 against 3.
+- **Bar.** The stop battery falls in none of its trials on the three bodies at balance 0, and the
+  Move bout test passes as written. Not met: 3 of 96 fall, and the Move bout changes gait 3.3 s
+  after the foe comes near against the test's 3 s, which is L2's.
 
 ### L2. Braking is slow
 
@@ -102,6 +109,13 @@ The run's legs took the stand-up from 45 of 64 to 14. The foot's friction is not
 
   Most fall within a second or two of the run beginning, drifting across the heading at about
   0.5 m/s as the walk hands over.
+- **Now** (the gait battery after L1, `90095ac8`; Node stand, Rapier, 120 Hz, balance 0): 39 of
+  the 150 trials with the club fall, against 6 of 150 empty-handed. The Warrior falls in 6 (five
+  turns, at 13.7 to 15 s, in the turn), the skeleton in 8, the Rogue in 25. The Rogue falls in
+  every trial asked 3.5 m/s or more, at 9.4 to 10.8 s. Traced asked 4: it gains speed for 4 s past
+  where it holds empty-handed (3.2 to 3.4 m/s), reaches 3.9, its hips sink from 0.92 to 0.76 m in
+  the last 0.3 s, and its trunk goes over backwards: its legs give way at the pace `ahead` keeps
+  asking (L5), and it does not drift across the heading.
 - **Tried and not kept.**
   - `gainSide` is a knife edge: 0.086 against 0 trades the Warrior's falls for the skeleton's, and
     0.2 or more throws everyone.
