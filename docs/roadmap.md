@@ -123,8 +123,12 @@ After it, each with its own plan, in the order each needs the one before:
   the Arena's presets and in the Crypt, where a fall no longer ends a fight:
   - On the owner's 64-fall target (Node stand, Rapier, 120 Hz, Balance 0, Grit 0, 30 s cap,
     `node research/rising-bed.mjs --target --techniques step-up`), step-up stands the Warrior from
-    16 of 16 falls empty-handed and 15 of 16 with the club, medians 14.2 and 14.3 s; the Rogue from
-    10 and 6 of 16, medians 20.6 s and the cap. "Rise, then steady" stands 6, 8, 0 and 1 of the same
+    8 of 16 falls empty-handed and 2 of 16 with the club, median 23.6 s and the cap; the Rogue from
+    3 and 1 of 16. On the legs before the run's (`627ecc3a`) it stood 16, 14, 10 and 5, medians 14.4,
+    14.6, 18.7 s and the cap: step-up's stages were searched on those legs, and the foot's friction
+    is not the cause (at 0.5, 13 of 64). The known issues of the stand-up and of fast locomotion,
+    and the order to take them in, are in `docs/plans/2026-10-16-locomotion-and-stand-up.md`. The
+    rest of this entry was read on the old legs. "Rise, then steady" stands 6, 8, 0 and 1 of the same
     falls, medians 29.5 s and over. On 48 shoves that fell the skeleton, step-up stands 9 and
     "Rise, then steady" none; the skeleton's roll from its back to its front is what fails.
   - None stands within 6 s, and the 4 s median target is not met. The time is the route's, not
