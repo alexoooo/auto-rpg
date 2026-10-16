@@ -258,6 +258,13 @@ settled legs with S5's falls, by a script that the tests name.
   - Searches at twice the Warrior's strength and 1.5 times the Rogue's stood as often and were no
     faster, so Grit is not built.
   - Every stage's seconds scaled by 0.6 or 0.4 broke the rise.
+  - On the run's legs, step-up's stages searched for speed at a 10 s cap
+    (`research/rising-step-search.mjs --cap 10`, 40 generations from S1's tuning): first attempts
+    standing within 10 s went from none to 5 of 16 training falls, at 8.9 to 9.3 s. On the
+    Warrior's 32 target falls at the 30 s cap it stood 24 against S1's 25, median 13.8 s against
+    14.4, fastest 9.4 against 10.1, none within 6 s (Node stand, Rapier, 120 Hz, balance 0). Not
+    kept: a difference within the noise of 32 falls, for one stand fewer. The route's floor is
+    about 9 s: about 1.7 s from the fall to the takeover, and the roll and stages after it.
 - **Next.** A different route, not more strength. The research leads are in
   [stand-up planning](../analysis/2026-10-11-stand-up-planning.md): measured feedback reached
   5.9 s and 5.775 s fresh development recoveries from side falls, and a library completes 3 of 16
