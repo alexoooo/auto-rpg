@@ -10,10 +10,9 @@ import { spinBetweenToRef, turnAboutToRef } from "../math/turn.ts";
  * leaning as the gait holds it and banked as it banks into a turn, in `settle` s, as a body whose
  * radius of gyration about its centre of mass is `gyration` m would be turned, less what would lean
  * it further forward. So it rights a pelvis tipping forward, to a side or round, and never tips it
- * forward to carry the body along: that pitch is the run's and the walk's own (Node stand, Rapier,
- * 120 Hz, balance 25 %: holding the pitch both ways, the Warrior brakes slower and falls in 7 of 12
- * stops, against 1 with the forward pitch left out, as unassisted). It gives no force: one across the
- * heading toward the walk asked across it, in 0.25 s, held nothing more up.
+ * forward to carry the body along: that pitch is the run's and the walk's own, and holding it both
+ * ways the Warrior brakes slower and falls as it stops. It gives no force: one across the heading
+ * toward the walk asked across it held nothing more up (`docs/reference/assist.md`, "A gait's assist").
  * What it asks past the assist's ceiling the assist shortens; a body with no balance is asked nothing.
  */
 const GAIT_ASSIST = Object.freeze({ settle: 0.15, gyration: 0.3 });

@@ -57,41 +57,35 @@ body names each side's haste.
 A gait could be timed to its muscles (`SimbiconSettings.hasted`): its times shortened, and its
 speeds and its envelope's raised, by the haste to a power of 0, 1/2 or 1. Measured, the power is 0.
 Node stand, Rapier, 120 Hz; the Warrior, the Rogue and the skeleton each empty-handed and holding
-the club, asked 2, 3, 4 and 5 m/s, to stop from 2.4 and to turn at 0.6 rad/s, calm and in two seeds
-of the Lab's 5 N gusts (`research/run-cycle-search.mjs --score --speeds 2,3,4,5 --stops 2.4 --turns
-0.6 --winds 1:5:5,6 --holds empty,club --haste <h> --hasted <power>`), the battery's score and the
-runs that fell, of 72:
+the club, asked 1.4, 2, 3, 4 and 5 m/s, to stop from 1.5, 2.4 and 3.5 and to turn at ±0.6 rad/s,
+calm and in four seeds of the Lab's 5 N gusts (`research/run-cycle-search.mjs --score --speeds
+1.4,2,3,4,5 --stops 1.5,2.4,3.5 --turns 0.6,-0.6 --winds 1:5:5,6,7,8 --holds empty,club --seconds 22
+--windows --haste <h> --hasted <power> --balance <b>`), the battery's score and the trials that fell:
 
-| Haste | Power | Score | Runs that fell |
-|---|---|---|---|
-| 100 % | any | 1.71 | 28 |
-| 125 % | 1/2 | 1.55 | 46 |
-| 150 % | 0 | 1.50 | 42 |
-| 150 % | 1/2 | 0.57 | 67 |
-| 150 % | 1 | 0.22 | 71 |
+| Haste | Power | Score | Runs, of 150 | Turns, of 60 | Stops, of 90 |
+|---|---|---|---|---|---|
+| 100 % | any | 1.77 | 19 | 20 | 18 |
+| 150 % | 0 | 1.76 | 26 | 23 | 18 |
+| 150 % | 1/2 | 1.29 | 68 | 53 | 39 |
+| 150 % | 1 | 0.44 | 106 | 60 | 57 |
 
 A gait quickened by its muscles alone keeps its strides and steps faster than gravity lets the body
 fall onto them: the times a pendulum's swing and a stance's fall take are not the muscles' to
-change. At 150 % and the gait as it is, the Warrior asked 4 m/s makes 3.25 against 3.17 and more
-of the runs fall: the run's settings were searched on a person's muscles.
+change.
 
-Searched on a hasted body, the run is steadier and no faster. The search was 30 generations of
-`research/run-cycle-search.mjs --speeds 3,4,5 --stops 3 --winds 1:5:1,2 --holds empty --seconds
-22 --haste 150 --hasted 0`, over the three bodies. Its best on the battery above, the falls in its
-run, turn and stop trials:
+What haste buys is pace. The run's pace goes no more than `ahead` past the body's own
+(`RunCycleSettings`), so a body asked past what it can hold settles where the cycle's stride at
+its pace makes no more speed; faster muscles move that up. On the battery above, the speed held
+over the last 6 s of the empty-handed runs asked 5 m/s, and the trials that fell:
 
-| Run's settings | Haste | Score | Runs, of 72 | Turns, of 18 | Stops, of 18 | The Warrior asked 4 m/s, empty |
+| Haste | Balance | Warrior | Rogue | skeleton | Score | Runs, turns, stops fell |
 |---|---|---|---|---|---|---|
-| `RUN_CYCLE` | 100 % | 1.71 | 28 | 4 | 11 | 3.17 |
-| `RUN_CYCLE` | 150 % | 1.50 | 42 | 5 | 13 | 3.25 |
-| searched at 150 % | 150 % | 1.74 | 23 | 10 | 16 | 3.13 |
-| searched at 150 % | 100 % | 1.74 | 22 | 11 | 12 | 2.99 |
+| 100 % | 0 % | 3.38 | 3.15 | 3.47 | 1.77 | 19, 20, 18 |
+| 150 % | 0 % | 3.67 | falls at 12 to 15 s, past 3.5 | 3.49 | 1.76 | 26, 23, 18 |
+| 100 % | 25 % | 3.59 | 2.83 | 3.09 | 1.87 | 2, 2, 1 |
+| 150 % | 25 % | 3.68 | 2.99 | 3.21 | 1.90 | 4, 6, 5 |
 
-What caps the pace is the run's cycle, not the muscles. The cycle tracks the faster of its two
-clips (`assets/core/run-cycle.json`, 3.51 m/s on its runner's leg). Taken to the Warrior's leg by
-Froude, that is near the 3.1 to 3.3 m/s the body makes, whatever its haste. The searched settings
-are not kept: their run holds where the defaults' falls, but their turns and stops fall more, at
-either haste.
+The run's settings (`RUN_CYCLE`) are searched at both hastes together (`--haste 100,150`).
 
 ## A gait's assist
 
@@ -103,25 +97,23 @@ radius of gyration would be turned, less any part that would lean it further for
 for what the soles miss ("What the soles miss"); a gait has no such solve, and before it asked
 nothing a body's balance did not help it walk or run.
 
-Node stand, Rapier, 120 Hz; the Warrior, the Rogue and the skeleton, each empty-handed and holding
-the club, asked 1.4, 2, 3 and 4 m/s, to stop from 1.5, 2.4 and 3.5 and to turn at ±0.6 rad/s,
-calm and in four seeds of the Lab's 5 N gusts (`research/run-cycle-search.mjs --score --speeds
-1.4,2,3,4 --stops 1.5,2.4,3.5 --turns 0.6,-0.6 --winds 1:5:5,6,7,8 --holds empty,club --balance
-<b>`), the trials that fell, and the speed the Warrior made asked 4 m/s empty-handed:
+On the battery of "Haste" above, at haste 100 %, the trials that fell, and the speed the
+Warrior held asked 5 m/s empty-handed:
 
-| Balance | Runs, of 120 | Turns, of 60 | Stops, of 90 | Warrior asked 4, m/s |
+| Balance | Runs, of 150 | Turns, of 60 | Stops, of 90 | Warrior asked 5, m/s |
 |---|---|---|---|---|
-| 0 % | 29 | 18 | 38 | 3.17 |
-| 10 % | 12 | 20 | 29 | 2.96 |
-| 25 % | 5 | 13 | 23 | 2.81 |
-| 50 % | 6 | 10 | 17 | 2.77 |
+| 0 % | 19 | 20 | 18 | 3.38 |
+| 10 % | 10 | 15 | 8 | 3.72 |
+| 25 % | 2 | 2 | 1 | 3.59 |
+| 50 % | 0 | 1 | 0 | 3.54 |
 
-At 0 % every trial is the one without it, to the bit. The Warrior's and the Rogue's turns stop
-falling from 25 % (their 13 at none, the Rogue's with the club 8 at 10 %); the skeleton's fall more (5 at none, 12 at 10 %, 13 at 25 %,
-10 at 50 %). Every body is slower asked 3 or 4 m/s, by 0.1 to 0.6 m/s.
+At 0 % every trial is the one without it, to the bit. The Rogue's turns fall most without it (13
+of 20) and least from 25 % (2, and 1 at 50 %); the Warrior's 5 none from 10 %; the skeleton's 2 none
+from 25 %. The Rogue and the skeleton are slower for it, asked 4 or 5 m/s: at 25 %, 2.83 against
+3.15 and 3.09 against 3.47.
 
 What was tried on the Warrior and the Rogue, asked 3 and 4 and to stop from 2.4, calm and in two
-seeds, at 25 %:
+seeds, at 25 %, on the run of two clips (`assets/core/run-cycle.json@65e674be`):
 
 - a force across the heading toward the walk asked across it, in 0.25 s, alone: the falls of none;
 - the moment toward the run's settled lean (`RunCycleSettings.lean`) in place of the lean its

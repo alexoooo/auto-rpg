@@ -4,7 +4,7 @@
  * cube (`research/cma.mjs`).
  *
  * Each trial stands the body a second in its guard (`guardPosture`), which holds the arms wherever the gait does not, as a fighter's does, under its
- * character's balance (`balanceCeiling`; `--balance` per cent in its place), at its character's haste (`--haste` per cent in its place, its gait timed by `--hasted`, `SimbiconSettings.hasted`) and with each of `--holds` in its right hand (`empty`, or the `club`) as the stance's envelope plays it, asks it forward at a pace for `--seconds`, and credits the
+ * character's balance (`balanceCeiling`; `--balance` per cent in its place), at its character's haste (each of `--haste` per cents in its place, its gait timed by `--hasted`, `SimbiconSettings.hasted`) and with each of `--holds` in its right hand (`empty`, or the `club`) as the stance's envelope plays it, asks it forward at a pace for `--seconds`, and credits the
  * speed it made along its heading from when it first went `CREDIT_FROM` m/s to the trial's end, a
  * fall (`FALLEN`) ending the distance: no more than `OVER` past the pace asked, and less by as much as it ran
  * faster than that. A candidate's score is the mean of its trials, over `--models` and `--speeds`,
@@ -19,7 +19,7 @@
  *
  *   node research/run-cycle-search.mjs --out .snap/run/a [--models workshop-fighter,workshop-rogue,crypt-skeleton]
  *     [--speeds 3,3.5,4] [--turns 0.4,0.8] [--stops 2,3.5] [--seconds 25] [--generations 60] [--lambda 28] [--sigma 0.1] [--workers 28]
- *     [--start '{"cv":0.3}' | file.json] [--dims accel,brake] [--winds 1:5:1,2] [--holds empty,club] [--balance 25] [--haste 150 --hasted 0.5] [--score] [--windows]
+ *     [--start '{"cv":0.3}' | file.json] [--dims accel,brake] [--winds 1:5:1,2] [--holds empty,club] [--balance 25] [--haste 100,150 --hasted 0.5] [--score] [--windows]
  *
  * - `--score` scores the start alone and prints each trial; with `--windows` each trial's speed in
  *   each 2 s window.
@@ -46,7 +46,7 @@ import { guardPosture } from "../src/core/skills/guard.ts";
 
 /** Each setting searched and its range. */
 const DIMS = {
-  blend: [0, 1], short: [0, 1], swingGain: [0, 0.4], cadenceGain: [0, 0.3], gainsFrom: [2.2, 3.4], period: [0.8, 1.25], accel: [0.3, 2], brake: [0.3, 4],
+  blend: [0, 1], short: [0, 1], swingGain: [0, 0.4], cadenceGain: [0, 0.3], gainsFrom: [2.2, 5], period: [0.8, 1.25], accel: [0.3, 2], brake: [0.3, 4], ahead: [0.1, 1.5],
   lean: [-0.05, 0.45], pelvis: [0.04, 0.2], leanGain: [0, 1], leanMost: [0, 0.6], bank: [-0.5, 1.5], hold: [0.5, 1], settle: [0.02, 0.15], stance: [0.4, 1], swing: [0.3, 1], ankle: [0.2, 1],
   cv: [-0.1, 0.4], cd: [-0.5, 0.8], late: [0.5, 0.95], paceGain: [0, 0.5], paceMost: [0, 0.4],
   contact: [0.1, 0.4], gainSide: [0, 0.4], width: [-0.05, 0.2], cvAnkleSide: [-1, 1], cdSide: [-0.5, 1],
@@ -136,7 +136,7 @@ if (!isMainThread) {
   const cells = o.models.split(",").flatMap((model) => [...o.speeds.split(",").map((speed) => ({ model, speed: Number(speed), seconds: Number(o.seconds) })),
     ...(o.turns ? o.turns.split(",") : []).map((turn) => ({ model, speed: TURN.speed, turn: Number(turn), seconds: Number(o.seconds) })),
     ...(o.stops ? o.stops.split(",") : []).map((speed) => ({ model, speed: Number(speed), stop: true, seconds: Number(o.seconds) }))]).flatMap((cell) => WINDS.map((wind) => ({ ...cell, wind }))).flatMap((cell) => o.holds.split(",").map((held) => ({ ...cell, held, balance: o.balance === undefined ? null : Number(o.balance),
-    ...(o.haste === undefined ? {} : { haste: Number(o.haste) }), ...(o.hasted === undefined ? {} : { hasted: Number(o.hasted) }) })));
+    ...(o.hasted === undefined ? {} : { hasted: Number(o.hasted) }) }))).flatMap((cell) => o.haste === undefined ? [cell] : o.haste.split(",").map((haste) => ({ ...cell, haste: Number(haste) })));
   const toUnit = (p) => KEYS.map((k) => (p[k] - DIMS[k][0]) / (DIMS[k][1] - DIMS[k][0]));
   const fromUnit = (u) => ({ ...start, ...Object.fromEntries(KEYS.map((k, i) => [k, +(DIMS[k][0] + Math.min(1, Math.max(0, u[i])) * (DIMS[k][1] - DIMS[k][0])).toFixed(4)])) });
   if (o.score) {

@@ -29,6 +29,11 @@ export interface RunCycleSettings {
   /** How fast the run's pace comes up to one asked faster, and down to one asked slower, m/s². */
   readonly accel: number;
   readonly brake: number;
+  /**
+   * How far the run's pace may go past the body's own speed along its heading, m/s: a cycle
+   * quickened past what the body has come up to throws the body forward of its feet.
+   */
+  readonly ahead: number;
   /** The pelvis's lean forward, its servo's time and the stance hip's share of strength holding it. */
   readonly lean: number;
   readonly pelvis: number;
@@ -77,15 +82,15 @@ export interface RunCycleSettings {
  * The run as it is taken unless told otherwise, set for the Warrior's leg (`SimbiconSettings.leg`):
  * the best of searches on the Warrior, the Rogue and the skeleton together, each from the one
  * before's best (`research/run-cycle-search.mjs`, Node stand, Rapier, 120 Hz, measuring on), last
- * `--speeds 2,3,4 --turns 0.6,-0.6 --stops 2.4,3.5 --winds 1:5:1,2 --seconds 22 --sigma 0.08` in the guard, with
- * the walk's `run`, `speedup` and `slowdown` (`SIMBICON`).
+ * `--speeds 3,4,5 --turns 0.6 --stops 3 --winds 1:5:1 --seconds 22 --haste 100,150 --hasted 0` in the guard, with
+ * the walk's `run` and `speedup` (`SIMBICON`).
  */
 export const RUN_CYCLE: RunCycleSettings = Object.freeze({
-  blend: 0.0153, gainsFrom: 3.2718, swingGain: 0.3286, cadenceGain: 0.0489, short: 0.2774, period: 1.0648, accel: 1.3849, brake: 1.1703,
-  lean: 0.364, pelvis: 0.1841, leanGain: 0.2985, leanMost: 0.124, bank: 0.262, hold: 0.9949, settle: 0.1201, stance: 0.6045, swing: 1, ankle: 0.7695,
-  cv: 0.2535, cd: -0.1698, late: 0.7749, paceGain: 0.0287, paceMost: 0,
-  contact: 0.1723, gainSide: 0.0856, width: 0.0633, cdSide: 0.2638, cvAnkleSide: -0.6567,
-  kneeAdd: 0.1203, ankleAdd: -0.0459, hipAdd: 0.1911, early: 0.2415, wait: 0.0214, arms: 1.2394, elbow: 1.595,
+  blend: 0.3036, gainsFrom: 4.3006, swingGain: 0.0932, cadenceGain: 0.0777, short: 0.1612, period: 1.0481, accel: 1.0814, brake: 1.3379, ahead: 0.4571,
+  lean: 0.3669, pelvis: 0.1946, leanGain: 0.2483, leanMost: 0.1415, bank: 0.526, hold: 0.9572, settle: 0.1277, stance: 0.761, swing: 0.8845, ankle: 0.7301,
+  cv: 0.2376, cd: 0.0481, late: 0.7804, paceGain: 0.0461, paceMost: 0.0228,
+  contact: 0.1878, gainSide: 0.0428, width: 0.1136, cdSide: 0.2649, cvAnkleSide: -0.203,
+  kneeAdd: -0.0941, ankleAdd: 0.0131, hipAdd: 0.063, early: 0.2654, wait: 0.0184, arms: 0.6842, elbow: 1.5504,
 });
 
 /**
@@ -102,11 +107,11 @@ export function runCycleSettings(tuning: Partial<RunCycleSettings> = {}): RunCyc
   return { ...RUN_CYCLE, ...tuning };
 }
 
-/** Whether a run's settings are each finite and none missing or more, its times and the cycle's positive, and its shares of strength and `short` within (0, 1] and [0, 1]. */
+/** Whether a run's settings are each finite and none missing or more, its times, its pace's rates and lead and the cycle's positive, and its shares of strength and `short` within (0, 1] and [0, 1]. */
 export function validRunCycle(run: RunCycleSettings): boolean {
-  const { settle, pelvis, period, accel, brake, contact, stance, swing, ankle, hold, early, wait, paceMost, leanMost, short } = run;
+  const { settle, pelvis, period, accel, brake, ahead, contact, stance, swing, ankle, hold, early, wait, paceMost, leanMost, short } = run;
   return Object.keys(run).length === Object.keys(RUN_CYCLE).length && (Object.values(run) as number[]).every(Number.isFinite)
-    && [settle, pelvis, period, accel, brake, contact].every((x) => x > 0) && [stance, swing, ankle, hold].every((x) => x > 0 && x <= 1)
+    && [settle, pelvis, period, accel, brake, ahead, contact].every((x) => x > 0) && [stance, swing, ankle, hold].every((x) => x > 0 && x <= 1)
     && early > 0 && early < 0.5 && wait >= 0 && paceMost >= 0 && leanMost >= 0 && short >= 0 && short <= 1;
 }
 
@@ -279,8 +284,8 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
     },
     drive(view, dt, heading, asked) {
       const s = view.stance, c = s.centre, v = s.velocity;
-      const fx = sin(heading), fz = cos(heading), rx = cos(heading), rz = -sin(heading);
-      memory.pace += Math.max(-p.brake * dt, Math.min(p.accel * dt, asked - memory.pace));
+      const fx = sin(heading), fz = cos(heading), rx = cos(heading), rz = -sin(heading), along = v.x * fx + v.z * fz;
+      memory.pace += Math.max(-p.brake * dt, Math.min(p.accel * dt, Math.min(asked, along + p.ahead) - memory.pace));
       blend(memory.pace);
       // The phase: on at the cycle's rate, set to a landing near its own, held a while for one late.
       let next = memory.phase + dt / blended.period, landed: Side | null = null;
@@ -313,7 +318,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
         const u = more + (goal - muscles.angle(i)) / p.settle;
         pushes.push({ channel: name, sense: u >= 0 ? 1 : -1, level, speed: u });
       };
-      const a = dynamics.pivot(st.ankle[0]), along = v.x * fx + v.z * fz, across = v.x * rx + v.z * rz;
+      const a = dynamics.pivot(st.ankle[0]), across = v.x * rx + v.z * rz;
       const error = along - memory.pace, turned = heading - memory.heading, turning = (turned - 2 * Math.PI * Math.round(turned / (2 * Math.PI))) / dt;
       memory.heading = heading;
       memory.trim = Math.max(-p.paceMost, Math.min(p.paceMost, memory.trim + p.paceGain * error * dt));

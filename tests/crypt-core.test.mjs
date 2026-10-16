@@ -232,7 +232,10 @@ test("the_dead_are_held_once_the_party_has_walked_off_and_loose_when_it_is_back"
     assert.deepEqual([enemy.limp, enemy.held], [true, false]);
     const moved = () => Math.max(...[...enemy.fighter.built.segments.values()].map((segment, i) =>
       Math.sqrt((segment.node.position.x - lay[7 * i]) ** 2 + (segment.node.position.y - lay[7 * i + 1]) ** 2 + (segment.node.position.z - lay[7 * i + 2]) ** 2)));
-    assert.ok(walkUntil(run, lies, () => moved() > 0.02, 10), `the hero walking into it moves it: ${moved().toFixed(3)} m`);
+    // Walked to a place past its trunk, the hero's way goes through it, wherever on the way the hero would stop.
+    const hero = run.hero.feet(), way = Math.sqrt((lies.x - hero.x) ** 2 + (lies.z - hero.z) ** 2);
+    const past = { x: lies.x + (lies.x - hero.x) / way * 0.6, z: lies.z + (lies.z - hero.z) / way * 0.6 };
+    assert.ok(walkUntil(run, past, () => moved() > 0.02, 10), `the hero walking into it moves it: ${moved().toFixed(3)} m`);
   } finally { dispose(); }
 });
 

@@ -348,46 +348,57 @@ After it, each with its own plan, in the order each needs the one before:
     turns to its stop. A foot landed behind its neutral point, to speed up, falls within about
     2 s. A run at 2 m/s needs the swing's yaw cancelled, or more twist at the sole.
   - **The SIMBICON walk** (`simbicon.ts`, the walk every fighter travels by) drives the legs
-    itself, with no stance goal. Told it may not run, it walks forward to 1.30 m/s. Its envelope
+    itself, with no stance goal. Told it may not run, it walks forward to 1.31 m/s. Its envelope
     (`assets/core/simbicon-envelope.json`: Node stand, Rapier, 120 Hz, calm and in four seeds of
-    5 N gusts, with each thing held) is every way 1.2 m/s for the Warrior, 1 for the Rogue and 0.7
+    5 N gusts, with each thing held) is every way 1.4 m/s for the Warrior, 1 for the Rogue and 0.7
     for the skeleton, and forward 1.5, 1.2 and 1.5. It is measured from 0.3, since slower a step's
     pendulum carries the body on past the pace asked or short of it. Each way changes the walk
-    asked at its own rates: forward 1.58 m/s² faster and 0.47 slower, the side and back ways 0.5.
-    - **Its run** tracks a person's run cycle past 1.30 m/s (`runCycle`, `cycle-run.ts`), its
-      settings searched on the three bodies bare-handed in the guard, calm and in gusts
-      (`research/run-cycle-search.mjs`). Asked 4 m/s it makes about 3.1 to 3.2 for the Warrior,
-      2.4 to 2.7 for the Rogue and 2.9 for the skeleton. Its envelope
+    asked at its own rates: forward 1.16 m/s² faster and 0.47 slower, the side and back ways 0.5.
+    - **Its run** tracks a person's run cycle past 1.31 m/s (`runCycle`, `cycle-run.ts`), three
+      clips' (2.75, 3.94 and 4.38 m/s), its pace held no more than `ahead` past the body's own,
+      its settings searched on the three bodies bare-handed in the guard, calm and in gusts, at
+      haste 100 and 150 % (`research/run-cycle-search.mjs`). Asked 4 or 5 m/s, each body settles
+      at its own pace: 3.38 m/s for the Warrior, 3.15 for the Rogue and 3.47 for the skeleton
+      ([run's body](reference/run-body.md#the-run-on-it)). Its envelope
       (`assets/core/simbicon-run-envelope.json`, each walk set off 10 s and resting 10 s after)
-      holds forward by the rule only to 1.2 for all three, since a few trials at every pace fall.
-      Forward at 3 m/s the Warrior held 8 of its 10 trials, the skeleton 4 and the Rogue none; at
-      4, 6, 7 and none. So whether a body runs is its mind's choice of risk: the envelope keeps
+      holds forward by the rule only to 1.2 for the Warrior and the skeleton and 1.4 for the
+      Rogue, since a few trials at every pace fall. Forward at 3 m/s the Warrior held 7 of its 10
+      trials, the Rogue 9 and the skeleton 10; at 4, 7, 5 and 8. So whether a body runs is its mind's choice of risk: the envelope keeps
       each way's trials (`StanceEnvelope.tried`), the gait takes any pace that held a fifth of
       them (`REACH`), an order to run or a destination the fastest that held 0.6 (`RUN`,
       `ordered.ts`), and the options fighter closing on a place 0.8 (`SPACE.share`, `walk.ts`).
-      In an Arena bout opened at 12 m (`research/bout.mjs`), two skeletons close at about 1.8 m/s
-      and stay up, two Rogues walk at about 1, and of two Warriors one runs and the other falls
-      within a second of its run beginning.
+      In an Arena bout opened at 12 m (`research/bout.mjs`, 8 s), two skeletons close at up to
+      2.1 and 1.25 m/s and two Rogues at 1.9 and 2.0 and stay up; two Warriors close at 1.9 and
+      2.1 and go down at 6.8 and 7.4 s.
     - **The club is what throws the run.** Scored on gust seeds the search never saw (5 to 8; Node
-      stand, Rapier, 120 Hz, asked 1.4 to 4, three stops and two turns), the trials that fell, of 45
-      each:
+      stand, Rapier, 120 Hz, asked 1.4 to 5, three stops and two turns, balance 0 %), the trials
+      that fell, of 50 each:
 
       | Body | Empty-handed | With the club |
       |---|---|---|
-      | Warrior | 1 | 18 |
-      | Rogue | 18 | 33 |
+      | Warrior | 1 | 10 |
+      | Rogue | 5 | 26 |
       | skeleton | 3 | 12 |
 
-      Most fall within a second or two of the run beginning, the body going across its heading at
-      0.5 m/s as its walk hands over. The run's lateral placement is on a knife's edge: its gain
-      (`gainSide`) at 0.086 against 0 or 0.04 trades the Warrior's falls for the skeleton's (1 of
-      20 runs against 16), and 0.2 or more throws nearly every Warrior and Rogue. A lateral
-      controller of the run that takes up the walk's sway is the open item.
+      Most fall within a second or two of the run beginning, the body going across its heading
+      as its walk hands over. A lateral controller of the run that takes up the walk's sway is the
+      open item.
+    - **A stop soon after the run begins.** Asked 1.4, 1.8 and 2.4 m/s and to stop at 2.5 to 8 s
+      (Node stand, Rapier, 120 Hz, calm, balance 0 %), 9 of 72 trials fall: the skeleton 7, the
+      Warrior 2, the Rogue none. The Warrior falls as the walk the run gave way to waits on one
+      stance foot while the other does not come down and the body tips forward past 1.5 m/s; the
+      skeleton 2 to 4 s after it is asked to stop, not yet traced. A run that gave
+      way at its first landing felled the Warrior at every pace stopped at 2.5 s; it now runs to its
+      second (`RUN_SWITCH.landings`). Handing back only once the body has slowed 0.2 under 1.31
+      kept the Warrior and the Rogue up and felled the skeleton 12 times. In an Arena bout opened
+      at 8 m the Warrior asked 1.4 runs 0.25 s before the Rogue comes near and falls as it stops
+      (`tests/move.test.mjs`, a `todo`). **Open:** a walk that takes the body back from a run
+      and stops it.
     - **With balance** the gait asks the assist to right the pelvis (`gaitAssist`,
       [assist](reference/assist.md#a-gaits-assist)): on that battery at 25 % the runs that fall go
-      from 29 of 120 to 5, the stops from 38 of 90 to 23, and every body is slower asked 3 or 4 m/s
-      (the Warrior 2.81 against 3.17). **Open:** the skeleton's turns fall more with it (5 of 20 to
-      13), and what it costs the pace.
+      from 19 of 150 to 2, the turns from 20 of 60 to 2 and the stops from 18 of 90 to 1. The
+      Warrior runs faster for it (3.59 m/s against 3.38), the Rogue and the skeleton slower (2.83
+      against 3.15, 3.09 against 3.47). **Open:** what it costs the Rogue's and the skeleton's pace.
     - **Tried and not kept** (that battery): a search with the club in hand (`--holds empty,club`,
       13 generations) found nothing past its start; a run that begins only while the body goes
       across its heading slower than 0.15 or 0.25 m/s, which never runs for the Warrior and the
@@ -429,12 +440,11 @@ After it, each with its own plan, in the order each needs the one before:
           (`SimbiconSettings.hasted`: the gait's times, its run cycle's, and its envelope's speeds
           as the haste to a power, `scaledGait`, `quickened`); measured, the power is 0, since a
           quickened gait steps faster than gravity lets the body fall onto its feet. At 150 % with
-          the gait as it is the Warrior asked 4 m/s makes 3.25 against 3.17 and more runs fall (42
-          of 72 against 28): the run's settings were searched on a person's muscles. Searched on
-          a hasted body (150 %), the run falls less (23 of 72) and turns and stops fall more, and
-          it is no faster. The pace is capped by the run's fastest clip (3.51 m/s, about 3.2 on
-          the Warrior's leg), not by the muscles. **Open:** a faster clip in the run cycle, so
-          that the cycle has a pace past 3.5 m/s for a hasted body's muscles to reach.
+          the run as it is, searched at 100 and 150 % together, the Warrior holds 3.67 m/s asked
+          5 against 3.38 and the skeleton 3.49 against 3.47; the Rogue goes past 3.5 and falls.
+          With balance 25 % as well, nothing of that battery falls but 15 of 300 trials, and the
+          three hold 3.68, 2.99 and 3.21. **Open:** a pace past about 3.7 m/s, which no body holds
+          at either haste: past it the cycle's stride makes no more speed.
         - **Decided by the owner:** Haste is the legs' muscles alone (the hip's, knee's and
           ankle's exertions in `jointSpeed`), a per cent of the human baseline, 100 % by default,
           in `AttributeSpec` as `balance` is, with an `owner-haste` source; strength or the upper
@@ -456,8 +466,8 @@ After it, each with its own plan, in the order each needs the one before:
           second; 132_17, 1.83 m/s at 2.03; back 141_31, 0.97 m/s at 1.97; side 141_33, 0.58 m/s
           at 1.6 to 1.9; the run 141_34, 2.05 m/s at 2.42. The side and back walks already match a
           person's speeds; forward a person goes faster by longer steps.
-        - **Built for the run:** the run tracks two run clips' cycles (16_35 at 2.75 m/s, 09_02 at
-          3.5; `assets/core/run-cycle.json`, `research/run-cycle.mjs`), its phase running from
+        - **Built for the run:** the run tracks three run clips' cycles (16_35 at 2.75 m/s, 16_45 at
+          3.94, 102_05 at 4.38; `assets/core/run-cycle.json`, `research/run-cycle.mjs`), its phase running from
           landing to landing, blended by the pace and scaled by Froude (`runCycle`, `cycle-run.ts`).
         - **Left:** the walk's ways: an asset of angles by phase per way and speed, read as the
           joints' limits read them (`jointAngles`); a `SOURCES` entry per clip; a check that the

@@ -423,24 +423,28 @@ Their actuator methods and their readiness/footprints remain their own.
   body slow. It sets off the way the body faces, and while the way asked is more than 0.35 rad
   from its heading it steps where it stands as the heading turns; under way it walks on through a
   bend of up to a right angle, turning as it goes, and past that it brakes to 0.3 m/s before it
-  turns round (`SET_OFF`, `TURN_ROUND`). Asked faster than `run` (1.30 m/s) it walks at 1.30, the whole walk asked scaled down.
+  turns round (`SET_OFF`, `TURN_ROUND`). Asked faster than `run` (1.31 m/s) it walks at 1.31, the whole walk asked scaled down.
   Once the body has come up to it, or, for a body whose walk makes less, once the walk has been
-  asked 1.30 for 1 s (`RUN_SWITCH`), it runs from the next landing by a person's run cycle
+  asked 1.31 for 1 s (`RUN_SWITCH`), it runs from the next landing by a person's run cycle
   (`runCycle`, `cycle-run.ts`), its phase begun at the sole that landed and its pace at the body's, the pace then coming to the one
-  asked, which changes at each way's own rates (`speedup`, `slowdown`: forward, 1.58 m/s² faster and
-  0.47 slower), at no more than 1.38 m/s² faster and 1.17 slower (`accel`, `brake`).
+  asked, which changes at each way's own rates (`speedup`, `slowdown`: forward, 1.16 m/s² faster and
+  0.47 slower), at no more than 1.08 m/s² faster and 1.34 slower (`accel`, `brake`), and never more
+  than 0.46 m/s past the body's own speed along its heading (`ahead`): a cycle quickened past what
+  the body has come up to throws it forward of its feet.
   Each leg's hip, knee and ankle track a CMU clip's cycle as a Fourier series in the leg's own phase
-  (`assets/core/run-cycle.json`, written by `research/run-cycle.mjs`), blended by the pace between a
-  jog of 2.75 m/s and a run of 3.5 (taken to the body's leg by Froude), the swing grown and the
+  (`assets/core/run-cycle.json`, written by `research/run-cycle.mjs`), blended by the pace between
+  the two of three clips that bracket it, a jog of 2.75 m/s and runs of 3.94 and 4.38 (taken to the
+  body's leg by Froude), the swing grown and the
   cycle quickened past `gainsFrom`; a sole landing near its own phase's end sets the phase, and one
   late holds it a while. The bearing hip turns the pelvis upright, leaning toward the heading; the
   swinging thigh's reference is set in the world, with the pace's feedback late in its swing;
   across the heading the swinging sole lands by Raibert's hopping rule; the arms swing against the
   legs at the sides, elbows bent, whatever the guard (`RUN_ARMS`), and the walk a run gives way to
   holds them so, unswung, until it stands, its stride measured from the run's landings. It flies between steps. It goes straight ahead, turning
-  only by its heading, and walks again from a landing once the pace asked has come down 0.2 under
-  1.30 and the body has slowed to 1.30. Told it may not run (`Locomotion.runs`, `SimbiconConfig.runs`), it walks no faster
-  than 1.30, and a run under way walks again from a landing once the walk asked has come down to 1.30. Its
+  only by its heading, and walks again from a landing, its second or later, once the pace asked has come down 0.2 under
+  1.31 and the body has slowed to 1.31: the walk given a body just come down from the run's first flight
+  tips over its stance foot before the swinging one lands. Told it may not run (`Locomotion.runs`, `SimbiconConfig.runs`), it walks no faster
+  than 1.31, and a run under way walks again from a landing once the walk asked has come down to 1.31. Its
   envelope is the walk's (`simbiconEnvelope`), or the run's (`simbiconRunEnvelope`) while it may run, and a
   walk asked faster than the body held that way in a fifth of its trials (`REACH`) is taken at that:
   what a pace risks is the mind's to weigh. Each step it drives the legs it asks the body's assist
