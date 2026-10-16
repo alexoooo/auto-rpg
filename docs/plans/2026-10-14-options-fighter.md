@@ -135,4 +135,4 @@ This is the stage whose question is a measurement.
 
 Learned models, lookahead, the decision rate or thinking time as an attribute (counted in
 simulated budget, never wall-clock), the quadruped, party control, and the stand-up evaluator
-(`stand-up-acceptance-v1`), which nothing here touches.
+(`research/stand-up-acceptance.mjs`), which nothing here touches.

@@ -1,9 +1,4 @@
 import assert from 'node:assert/strict';
-import {readFileSync,writeFileSync} from 'node:fs';
-import {gunzipSync,gzipSync} from 'node:zlib';
-import {createHash} from 'node:crypto';
-import {resolve} from 'node:path';
-import {pathToFileURL} from 'node:url';
 import {ratesToRef,turningToRef} from '../src/core/build/joint-state.ts';
 
 /** Anatomical guidance for a different body is unmeasured until its muscle actions run in that body. */
@@ -62,34 +57,4 @@ export function retargetReference(reference,source,target) {
       parentPhysicalTraceSha256:sourcePhysicalTraceSha256??null,parentSourceSha256:sourceSha256??null,
       parentTransformation:transformation??null,source:structuredClone(source),target:structuredClone(target),heightScale:scale,
       clipped,preservedTorqueJoints,torqueTransfer:'Preserve whole joint commands and activations when any component requests saturated torque.'}};
-}
-
-if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href) {
-  const [file,caseIndex,out]=process.argv.slice(2);assert.ok(file&&caseIndex&&out);
-  const frozen=new URL('../.tools/stand-up-frozen/',import.meta.url);
-  const {acceptanceEnvironment,frozenRevision}=await import(new URL('research/stand-up-acceptance.mjs',frozen));
-  const {uprightness}=await import(new URL('src/core/control/ground.ts',frozen));
-  const {Vector3,Quaternion}=await import('@babylonjs/core/Maths/math.vector.js');
-  const revision=frozenRevision(),manifest=JSON.parse(readFileSync(new URL('research/stand-up-acceptance/cases.json',frozen)));
-  const bytes=readFileSync(file),reference=JSON.parse(gunzipSync(bytes));
-  const original=manifest.cases.find(c=>c.identity.specSha===reference.identity.specSha&&
-    c.configuration.model===reference.identity.model&&c.configuration.held===reference.identity.held);
-  assert.ok(original,'source is a frozen body configuration');
-  const targetCase=manifest.cases[Number(caseIndex)];assert.ok(targetCase);
-  const metadata=async c=>{
-    const e=await acceptanceEnvironment(c.configuration);
-    try {
-      const inverse=Quaternion.Inverse(e.stand.built.segments.get('lowerTrunk').rest);
-      const axis=v=>new Vector3(...v).applyRotationQuaternionToRef(inverse,new Vector3()).asArray();
-      return {identity:e.identity,standingHeight:uprightness(e.stand.built).standing,
-        rootAcross:axis([1,0,0]),rootUp:axis([0,1,0]),rootFront:axis([0,0,1]),
-        joints:[...e.stand.built.joints.values()].map(j=>({dofs:j.dofs.map(d=>({sign:d.sign}))}))};
-    } finally {e.dispose();}
-  };
-  const source=await metadata(original),target=await metadata(targetCase),adapted=retargetReference(reference,source,target);
-  adapted.transformation.revision=revision;
-  adapted.transformation.sourceReferenceSha256=createHash('sha256').update(bytes).digest('hex');
-  writeFileSync(out,gzipSync(JSON.stringify(adapted)));
-  console.log(JSON.stringify({output:out,frames:adapted.frames.length,heightScale:adapted.transformation.heightScale,
-    clipped:adapted.transformation.clipped.length,preservedTorqueJoints:adapted.transformation.preservedTorqueJoints.length}));
 }

@@ -13,7 +13,7 @@ npm run dev      # http://localhost:5180, strictPort
 npm run check    # tsc --noEmit
 npm test         # the fast tier, about 45 s: current-code tests except tests/slow.json's
 npm run test:all # all current-code tests, as CI runs them
-npm run setup:frozen # prepares the immutable evaluator; Node 24.15.0 and full Git history
+npm run setup:frozen # prepares the immutable evaluator; Node 24.19.0 and full Git history
 npm run test:frozen # historical replay tests, a separate CI job
 npm run build    # check, then vite build
 ```
@@ -198,12 +198,12 @@ screens build on it; it never imports them.
 ## Frozen stand-up acceptance
 
 The owner's fast, robust unassisted stand-up goal is unfinished. Assisted recovery is a separate
-experiment and cannot satisfy it. `stand-up-acceptance-v1` pins the evaluator, optimized baseline
-and saved falls on legs the body no longer has, so nothing is screened through it. The owner has
-agreed that the screen is pinned again once the legs are settled, with falls saved on that body,
-and `v1` deleted. Controller experiments then run through the new checkout's
-`node research/stand-up-acceptance.mjs --candidate <module>` action interface. Do not move a
-pinned ref, change its criteria, replace cases, substitute a weaker baseline, or change the
+experiment and cannot satisfy it. `stand-up-acceptance-v2` (its commit pinned in
+`scripts/frozen-evaluator.mjs`) holds sixteen falls saved on the game's body and the run's legs,
+with the game's Stand up (`step-up`) as its baseline and standard support recovery as its other
+built-in controller. Controller experiments run through the frozen checkout's
+`node research/stand-up-acceptance.mjs --candidate <module>` action interface. Do not move the
+pin, change its criteria, replace cases, substitute a weaker baseline, or change the
 body/host configuration without the owner's agreement. The comparison is a development screen,
 not a robustness qualification. Report failures and external-actuation rejections as failures.
 Implementation, passing software checks and improvement on this screen are separate claims;

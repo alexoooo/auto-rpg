@@ -1080,7 +1080,8 @@ Current-code replay tests capture fresh states. Historical stand-up checkpoints 
 immutable evaluator checkout, prepared by `scripts/frozen-evaluator.mjs` with its own lockfile
 and captured Node version. `npm run test:frozen` checks the checkout before and after the
 separate test process; CI runs it in a dedicated job alongside the current-code suite. The
-checkpoint identity guards remain strict, and the saved falls and evaluator are unchanged.
+checkpoint identity guards remain strict; the saved falls (step-up's baseline on today's body) and
+the evaluator change only with the owner's agreement.
 
 `createReachTask` (`tasks/reach.ts`) is the Node/browser builder for a pinned joint reach. It
 supports actuator actions through the detached policy port or posture actions through the

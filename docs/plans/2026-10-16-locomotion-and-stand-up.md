@@ -270,14 +270,20 @@ These are from [rising](../reference/rising.md#where-the-rise-stops), read on th
 
 ### S5. The frozen acceptance
 
-- `stand-up-acceptance-v1` pins its evaluator, baseline, saved falls and body. A candidate runs
-  through that checkout's `node research/stand-up-acceptance.mjs --candidate <module>`.
-- It therefore screens a body the game no longer has.
-- **Decided** (the owner, 2026-10-16): the codebase keeps no dead code. Once the legs are settled
-  (S1), the screen is pinned again on them, with falls saved on that body. Then `v1`, its setup
-  (`npm run setup:frozen`, `npm run test:frozen`) and what only it reads are deleted, and
-  `AGENTS.md`'s "Frozen stand-up acceptance" names the new ref. Until then nothing is screened
-  through `v1`.
+**Done.** The legs are taken as settled: the set that stands (S1) needs the walk and the run
+searched on it first. The screen is pinned again on today's body (`stand-up-acceptance-v2`,
+commit `72c9ccb4`):
+
+- Its sixteen falls are saved on the game's body and the run's legs, with the game's Stand up
+  (`step-up`) as the baseline and standard support recovery as the built-in comparison. Step-up
+  completes 11 of the 16, the fastest in 14.8 s.
+- `npm run setup:frozen` and `npm run test:frozen` now prepare and test that checkout, on Node
+  24.19.0. The frozen tests check that a saved fall keeps its state and clock across controllers,
+  replays its recorded baseline to the bit, and rejects a requested assist.
+- What ran only against `v1`'s checkout is deleted: its saved-fall, rollout, path, response and
+  replay scripts, the saved actions and the trace viewer. Their records stay
+  (`stand-up-path-results.json`, `stand-up-saved-result.json`) as the evidence the
+  [stand-up planning study](../analysis/2026-10-11-stand-up-planning.md) cites.
 
 ### S6. A stand-up assist
 

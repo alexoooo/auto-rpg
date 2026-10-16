@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // The stand-up acceptance evaluator's immutable commit, independent of tags available in a clone.
-const revision = '4ebb4d8ddb9eac1b5c9af9e27c695edf80348a40';
+const revision = '72c9ccb4785810fb80c9c6b9aefd09260db4f8be';
 const root = fileURLToPath(new URL('../', import.meta.url));
 export const frozenEvaluator = new URL('../.tools/stand-up-frozen/', import.meta.url);
 const directory = fileURLToPath(frozenEvaluator);

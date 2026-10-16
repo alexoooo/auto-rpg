@@ -26,28 +26,3 @@ export function recoveryFeet(spec,{width=1,length=1,height=1}={}) {
       points:Object.fromEntries(Object.entries(s.points).map(([name,p])=>[name,point(p)]))};
   })};
 }
-
-/** Both controllers use this same explicitly altered body through the unchanged frozen environment. */
-export async function bodyEnvironment(configuration,{feet={},weight=1}={}) {
-  const frozen=new URL('../.tools/stand-up-frozen/',import.meta.url);
-  const [{recoveryDesign},{recoveryEnvironment},{feedbackRecipe},{default:seed}]=await Promise.all([
-    import(new URL('research/stand-up-design.mjs',frozen)),import(new URL('research/stand-up-environment.mjs',frozen)),
-    import(new URL('src/lab/recovery-recipe.ts',frozen)),import(new URL('research/stand-up-feedback-seed.json',frozen),{with:{type:'json'}})]);
-  const original=recoveryDesign(configuration),weighted=weight===1?original:recoveryDesign({...configuration,weight}),spec=recoveryFeet(weighted,feet);
-  const muscleData=spec=>JSON.parse(JSON.stringify(spec.joints.flatMap(j=>j.dofs.map(d=>({name:j.name+' '+d.positive,muscle:d.muscle}))),
-    (_,v)=>v?.provenance?v.value:v));
-  assert.deepEqual(muscleData(spec),muscleData(original),'body experiments retain every muscle strength and speed parameter');
-  const physical=v=>JSON.parse(JSON.stringify(v,(_,v)=>v?.provenance?v.value:v));
-  assert.deepEqual(physical(spec.joints),physical(original.joints),'joint coordinates and limits remain unchanged');
-  if(weight===1)assert.equal(spec.mass.value,original.mass.value);
-  const compact=s=>s.segments.filter(s=>s.name.startsWith('foot.')).map(s=>({name:s.name,mass:s.mass.value,centreOfMass:s.centreOfMass.value,
-    inertia:s.inertia.value,proximal:s.proximal.value,distal:s.distal.value,box:{centre:s.shape.centre.value,size:s.shape.size.value},sole:s.points.sole.value}));
-  const bodyTable=spec=>spec.segments.map(s=>({name:s.name,mass:s.mass.value,centreOfMass:s.centreOfMass.value,inertia:s.inertia.value,
-    shape:physical(s.shape),...(s.handPoses?{handPoses:physical(s.handPoses)}:{})}));
-  const design={feet,weight,before:compact(original),after:compact(spec),beforeMass:original.mass.value,afterMass:spec.mass.value,
-    ...(weight!==1?{wholeBodyBefore:bodyTable(original),wholeBodyAfter:bodyTable(spec)}:{}),
-    muscles:muscleData(spec),musclesChanged:false,jointsChanged:false};
-  const environment=await recoveryEnvironment({...configuration,spec,baseline:'support-recovery',balance:0,
-    host:'stance',recipe:feedbackRecipe(spec,seed.feedback.u),comparison:true});
-  return {environment,design};
-}

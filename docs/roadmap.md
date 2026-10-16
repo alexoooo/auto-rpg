@@ -145,10 +145,11 @@ After it, each with its own plan, in the order each needs the one before:
   - Eye gates: standing up in the Lab, in Arena bouts and in the Crypt; whether the rise looks
     human. The plan this landed from is `docs/plans/2026-10-13-stand-up.md@ef94828a`.
   - **Fast, robust unassisted recovery remains unsolved.** The optimized compliant-sole recipe
-    produced one 15.5583 s development success and failed the robustness objective. The frozen
-    `stand-up-acceptance-v1` comparison retains that recipe and rejects external actuation.
-    Changes to its evaluator, baseline, cases or criteria require the owner's agreement.
-    Actual-physics search and feedback reach 6.975 s on that saved fall with unchanged muscles
+    produced one 15.5583 s development success and failed the robustness objective. The results in
+    the rest of this item are on the old legs and the old screen's saved falls. The screen is
+    pinned again on today's (`stand-up-acceptance-v2`): step-up completes 11 of its 16 saved falls,
+    the fastest in 14.8 s, and external actuation is rejected. Changes to its evaluator, baseline,
+    cases or criteria require the owner's agreement. Actual-physics search and feedback reach 6.975 s on that saved fall with unchanged muscles
     and zero balance assistance. Measured muscle-response feedback transfers one demonstration
     to three additional fresh starts in 7.075-7.775 s, but ten other selected starts fail. A recorded
     muscle prefix followed by that feedback completes a different saved side fall in 8.6333 s;
