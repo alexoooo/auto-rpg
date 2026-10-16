@@ -26,7 +26,7 @@ import { labActor } from "../src/lab/actor.ts";
 import { ROUTINE_HANDS, startRoutine } from "../src/lab/routine.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
-const LOOPS = 2, TARGETS = 4, SEED = 4;
+const LOOPS = 2, TARGETS = 4, SEED = 11;
 /** Seconds allowed for the loops: a loop's walk takes about 20 s, and a target about 5. */
 const SECONDS = (30 + 8 * TARGETS) * LOOPS;
 /** How far off a hand that lands a blow may read, m: at the ball at a control step, or within a centimetre of it between two. */

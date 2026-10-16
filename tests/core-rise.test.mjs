@@ -396,9 +396,10 @@ test("on a side, a body goes on over that side onto its front", async () => {
   const mirrored = (posture) => Object.fromEntries(Object.entries(posture).map(([name, angle]) => [name.replace(/.(left|right) /, (_, side) => `.${side === "left" ? "right" : "left"} `), angle]));
   assert.deepEqual(RISE.roll.left, RISE.roll.right.map((stage) => ({ ...stage, posture: mirrored(stage.posture) })));
   assert.deepEqual(Object.keys(RISE.roll.right[0].posture).sort(), ["hip.left abduction", "hip.left flexion", "shoulder.right flexion"], "the fixture: the roll's postures are of one side and the other");
-  // Two shoves that leave a body on a side, under Classic rising by "Rise, then steady": it reads the side, rolls, and reads its front.
-  // The club's is one of the battery's sixteen (1.5 N s/kg); none of them leaves the empty-handed Warrior on its right, and 1.8 N s/kg from 90 degrees does.
-  for (const [model, held, degrees, side, impulse] of [["workshop-fighter", "empty", 90, "right", 1.8], ["workshop-fighter", "club", 247.5, "left", 1.5]]) {
+  // Two of the battery's sixteen shoves (1.5 N s/kg) that leave a body on a side, under Classic rising by "Rise, then steady": it
+  // reads the side, rolls, and reads its front. Shoved backward the empty-handed Warrior comes to rest on its left; the Warrior with
+  // the club, shoved to its right and back, on its right.
+  for (const [model, held, degrees, side, impulse] of [["workshop-fighter", "empty", 180, "left", 1.5], ["workshop-fighter", "club", 112.5, "right", 1.5]]) {
     const mind = { ...CLASSIC, subs: [{ kind: "support-recovery" }] };
     const { world, body, dispose } = await felled({ model, held, degrees, impulse }, (made, into) => createMind(made, into, mind, { name: "shoved", orders: () => STAND_ORDERS }).body);
     try {
@@ -629,7 +630,8 @@ test("a shin bears from its knee to where its foot stands, and a hand where it t
     const at = down.length ? down.reduce((sum, c) => sum.add(c), new Vector3()).scale(1 / down.length) : corners.reduce((low, c) => (c.y < low.y ? c : low));
     return { at, near: down.some((c) => along(c) < 0.5), far: down.some((c) => along(c) >= 0.5) };
   };
-  // Its toes tucked under, a body kneels on its feet; pointed, its feet are off the ground.
+  // Its toes tucked under, a body kneels on its feet, or on one of them: the Warrior's right toes end `fours` a few centimetres
+  // up. Pointed, its feet are off the ground. Each shin is read by whether its own sole is down.
   const POINTED = { ...TO_FOURS, rise: TO_FOURS.rise.map((stage) => (stage.name === "prop" || stage.name === "fours"
     ? { ...stage, posture: Object.fromEntries(Object.entries(stage.posture).map(([channel, angle]) => [channel, channel.startsWith("ankle") ? -0.6 : angle])) } : stage)) };
   for (const [model, recipe, propped] of [["workshop-fighter", TO_FOURS, true], ["workshop-fighter", POINTED, false]]) {
@@ -649,13 +651,14 @@ test("a shin bears from its knee to where its foot stands, and a hand where it t
       const level = uprightness(built).lowest(), feet = footStatesOf(built);
       readSupport(feet, feet, new Vector3());
       limbs.read(level, false);
+      const kneels = [];
       for (const [l, side] of [[SHINS[0], "left"], [SHINS[1], "right"]]) {
         const limb = limbs.limbs[l], knee = endsOf(built, `shank.${side}`, `knee.${side}`).first;
         const down = feet.find((foot) => foot.side === side).corners.filter((corner) => corner.y - level < DOWN);
-        assert.equal(down.length > 0, propped, `${model}: ${down.length} corners of its ${side} sole are on the ground`);
+        kneels.push(down.length);
         // The task: the point's three rows and the shank's tilt's, about the level line across it.
         assert.equal(limb.work.rows.length, 4, `${model}, ${side}`);
-        if (!propped) {
+        if (down.length === 0) {
           // No corner of its sole is down: the shin bears at its knee alone.
           assert.deepEqual([limb.work.patch.kind, xyz(limb.work.at), xyz(limbs.over[l])], ["point", xyz(knee), xyz(knee)], `${model}, ${side}`);
           continue;
@@ -669,6 +672,7 @@ test("a shin bears from its knee to where its foot stands, and a hand where it t
         `${model}: its ${side} shin's patch is ${patch.length} m either way of (${xyz(patch.middle)}) along (${xyz(patch.along)}); its knee is at (${xyz(knee)}) and its foot stands at (${xyz(stands)})`);
         assert.deepEqual(limb.work.rows[3], [[0, patch.along.z], [2, -patch.along.x]], `${model}, ${side}`);
       }
+      assert.equal(kneels.some((corners) => corners > 0), propped, `${model}: ${kneels} corners of its left and right soles are on the ground`);
       // On its knees and hands, each hand lies on its palm, either side of its middle.
       for (const [l, side] of [[HANDS[0], "left"], [HANDS[1], "right"]]) {
         const point = handPoint(built, side, level);

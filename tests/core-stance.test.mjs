@@ -314,8 +314,9 @@ async function shovedShifting(impulse, stance) {
 }
 
 test("shoved back as it shifts its weight for a step it was asked, the Warrior catches itself first and stands", async () => {
-  // 40 N s: 30 the shift outlasts, its capture point coming back over the bearing sole.
-  const caught = await shovedShifting(40), free = await shovedShifting(40, { recovery: null });
+  // 35 N s: 32 the shift outlasts, its capture point coming back over the bearing sole, and from 39
+  // the catch takes a second step.
+  const caught = await shovedShifting(35), free = await shovedShifting(35, { recovery: null });
   assert.deepEqual(caught, { phases: ["shift", "swing", "stand", "shift", "swing", "stand"], steps: 1, down: false }, "the catch, then the step asked");
   assert.deepEqual(free, { phases: ["shift"], steps: 0, down: true }, "the control: it falls still shifting");
 });
@@ -363,7 +364,8 @@ test("each human steps each foot 15 cm forward turned half a radian its own way,
 test("asked higher than the legs reach with their knees bent, each human stands at that reach, and held to the height asked wanders", async () => {
   // The Rogue 10 cm higher, the Warrior 5: past the reach of legs bent by STANCE_KNEE_BEND, where a
   // leg is near straight and its Jacobian near singular. Held to the height asked, a human wanders on
-  // its feet (the control).
+  // its feet (the control): they are still travelling over the last 2 s, more than the bent stance's
+  // slide in all.
   for (const [model, rise] of [["workshop-rogue", 0.1], ["workshop-fighter", 0.05]]) {
     const ask = (first) => ({ feet: ["left", "right"], centre: null, height: first.height + rise, heading: 0 });
     const bent = await standing(model, 5, ask), straight = await standing(model, 5, ask, { stance: { kneeBend: null } });
@@ -371,7 +373,7 @@ test("asked higher than the legs reach with their knees bent, each human stands 
     assert.ok(drift(bent) < 0.0005 && bent.after.speed < 0.001 && bent.slide < 0.002,
       `${model}: with the bend, it drifted ${(1000 * drift(bent)).toFixed(2)} mm in 2 s, its feet ${(1000 * bent.slide).toFixed(1)} mm`);
     assert.ok(bent.after.height < bent.goal.height - 0.02, `${model}: with the bend, it rose to within ${(1000 * (bent.goal.height - bent.after.height)).toFixed(1)} mm of a height past the legs' reach`);
-    assert.ok(straight.slide > 0.02, `the control: ${model}, held to the height asked, its feet travelled only ${(1000 * straight.slide).toFixed(1)} mm`);
+    assert.ok(straight.still > 0.002, `the control: ${model}, held to the height asked, its feet travelled only ${(1000 * straight.still).toFixed(1)} mm in the last 2 s`);
   }
 });
 

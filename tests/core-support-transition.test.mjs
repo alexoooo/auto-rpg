@@ -44,7 +44,9 @@ test("every anatomy transfers support, lifts either foot, places it and continue
 test("support mode changes and measured phase gates replay through an equivalent fresh world", () => {
   const a = fixture("crypt-skeleton", "right"), b = fixture("crypt-skeleton", "right"), p = a.probe, q = b.probe;
   try {
-    p.world.step(350);
+    // The fork is half a second into the lift, which lasts about a second: the branch crosses every later phase gate.
+    while (p.observe().task.phase !== "lift" && p.world.steps < 1440) p.world.step();
+    p.world.step(60);
     assert.equal(p.observe().task.phase, "lift");
     const saved = saveStand(p.world, p.state);
     const branch = (probe) => { finish(probe); return { observation: probe.observe(), state: saveStand(probe.world, probe.state).state }; };

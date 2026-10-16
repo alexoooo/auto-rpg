@@ -85,11 +85,10 @@ The run's legs took the stand-up from 45 of 64 to 14. The foot's friction is not
 
 ### L3. The Warriors go down at about 7 s in a 12 m bout
 
-- **Seen.** Two Warriors opened at 12 m close at 1.86 and 2.11 m/s and go down at 7.42 and 6.84 s.
-  Two Rogues (1.86, 2.02) and two skeletons (2.06, 1.25) stay up. The probe is an 8 s bout by
-  `research/bout.mjs`.
-- **Not traced.** The fix of L1's first landing does not change it. Whether it is a stop, a blow
-  or a clinch is the first thing to read.
+- **Seen.** Two Warriors opened at 12 m closed at 1.86 and 2.11 m/s and went down at 7.42 and
+  6.84 s, in an 8 s bout by `research/bout.mjs`.
+- **Gone.** Since L1's stop (`90095ac8`) neither goes down. Each runs from 5.25 s, stops from
+  about 1.3 m/s at a 4.3 m gap and closes standing, empty-handed (9 s) and with the club (12 s).
 
 ### L4. The club throws the run
 
@@ -162,26 +161,37 @@ The run's legs took the stand-up from 45 of 64 to 14. The foot's friction is not
 
 ### S2. The fixtures built on the old body
 
-Since `bf9cbbc0` 33 slow tests fail (34 with the Crypt corpse test this tree mends). Many are
-stand-up and support fixtures whose falls land otherwise on the new legs, or no longer fall:
+**Triaged.** 34 slow tests failed at `90095ac8` (one, the combat checkpoint, only because the
+source changed while it ran). Each was read against `2c524ff9`, `627ecc3a` (the hip's and the
+calf's muscle curves, the blows searched again) and `bf9cbbc0` (the run's legs).
 
-- `core-rise`: a 90° shove no longer rolls the Warrior on over its side; and "0 corners of its
-  right sole are on the ground".
-- `research-rise`: a battery shove's body still moves 7.95 s after the fall.
-- `core-assist`: the pull that felled a body no longer fells it.
-- `core-supported-rise`, `core-support-load`, `core-support-transition`, `lab-research-rise`,
-  `research-recovery-native`, `core-fork` ("down at step 185").
+- **The premise changed, re-seeded or rewritten as a property (20).** The assist's pull is an
+  eighth of the body's weight; the side roll, the shin's support, the limp body, the support
+  transition's fork, the felled and the striking forks, the club's air, the stance's catch and
+  wander, the posture's knee stop and toe, the Crypt hearing's window, the lab routine's seed,
+  the lab targets' club height and the Warrior's balance shove.
+- **A controller broke on the run's legs, set aside as `todo` with the reason (19).**
+  - The rise: the support-recovery baseline stands none of eight Lab falls in 45 s; the research
+    rise's references stand neither lab fall; a clubbed Crypt walker ordered home as it runs falls
+    at the about-turn and does not stand.
+  - The blows: the timed whole-body strike's return fells the body; the left front kick's second
+    miss and the competency kick do not place the foot; the planted punch's sole tips past
+    `STRIKE_SUPPORT.footGap` after an admitted impact; the placed blow's footing leaves the body
+    0.2 m short. From `627ecc3a`: the Combat fighter's lead straights fall short (none of 14
+    touch), and the grounded downward blow is never admitted.
+  - The Rogue: at 25 % balance a backward shove fells it that it stands alone (60 N s).
+  - Three support fixtures load world snapshots (`tests/fixtures/*.bin`) saved on the old legs:
+    loading one restores their foot friction (0.5, averaged) over the body's (0.8, the larger),
+    and no script captures them again.
+- **The engine.** A held body's fixed segment turns by about 7.5e-9 in its quaternion's w each
+  step, on a bare stand after a limp fall, so the Crypt's held dead are not still to the bit.
+- **Seen on the way.** The Lab's first stored club blow (`LAB_BLOWS[0]`) now fells the Warrior
+  before it lands. Shoved back at 39 N s or more as it shifts its weight, the Warrior's catch
+  takes a second step, and the step asked then sometimes ends in a slow fall.
 
-Further `todo`s say why they were set aside:
-
-- "the open hand bears on its palm's measured hull, and this support was tuned on the open
-  capsule" (about seventeen);
-- "the legs are the run's", whose host recovery does not stand the body in 40 s or 26 s (five);
-- "the Combat fighter's second empty-handed rise stalls at stage 3".
-
-**Next.** Triage each into one of two kinds. Either the body changed and the fixture's premise no
-longer holds (re-seed the fall, or rewrite the bar as a property). Or the rise broke, which goes
-under S1. A fixture is not re-tuned until the controller it holds is fixed.
+**Next.** Each `todo` comes back when the controller it names is fixed: the rise's under S1 and
+S3, the blows' under their own searches on today's legs. The snapshots are captured again on the
+settled legs with S5's falls, by a script that the tests name.
 
 ### S3. The stand-up is slow
 

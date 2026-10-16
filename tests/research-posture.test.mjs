@@ -200,7 +200,9 @@ test("the controls: standing and on all fours held, a deep squat at a tenth of i
 });
 
 test("a stop carries what presses on it, and short of it the muscles do", () => {
-  const row = rowNamed("half kneel, knee light"), record = answer(row);
+  // The rear foot on its ball, where the search folds the light knee onto its stop; on its instep
+  // (`half kneel, knee light`) a lunge off the stop asks less of these legs.
+  const row = rowNamed("half kneel on toes, knee light"), record = answer(row);
   const knee = "knee.right flexion", f = body.channel.get(knee);
   assert.ok(record.held, "the rear knee's stop holds the body");
   const stop = record.stops.find((s) => s.channel === knee);
@@ -319,13 +321,19 @@ test("a loaded toe holds a squat on the toes that neither rigid foot holds, at i
       assert.ok(Math.abs(t.ground) > 10 * band, `the toe bears ${t.ground} N m`);
     }
     // Both toes turned 0.2 rad further down, the rest as it was: the ground's push moves about the
-    // hinge to follow the spring, and the body pays for it.
+    // hinge to follow the spring, and the legs pay for it. The lumbar's flexion binds the least share
+    // both ways, the legs paying beneath it, so what is read is the legs' largest share, each posture's
+    // spread over the least sum of shares (`leastShare`).
+    posed(toe, held.posture);
+    const before = leastShare(toe, row, held.posture);
     const turned = { ...held.posture, angles: held.posture.angles.map((a, i) => (toe.toe.sides.some((t) => t.index === i) ? a + 0.2 : a)) };
     posed(toe, turned);
     const following = leastShare(toe, row, turned);
     assert.ok(following.balanced);
     for (const t of following.toes) assert.ok(Math.abs(t.ground - t.spring) <= band + 1e-9, `turned, the ground's moment ${t.ground} N m, the spring's ${t.spring}`);
-    assert.ok(following.share > held.solved.share + 0.02, `turned, the share ${following.share}`);
+    const legs = (solved) => Math.max(...solved.ratios.map((r, f) => (/^(hip|knee|ankle)\./.test(toe.freedoms[f].name) ? Math.abs(r) : 0)));
+    assert.ok(following.share >= held.solved.share - 1e-9 && legs(following) > legs(before) + 0.02,
+      `turned, the share ${following.share} against ${held.solved.share}, the legs' largest ${legs(following)} against ${legs(before)}`);
     // The same posture with the toes rigid: the bare foot cannot balance it, the boots overlap.
     const angles = fixture.posture.angles.slice(0, bare.freedoms.length);
     const rigid = read(bare, angles), booted = read(boot, angles);

@@ -49,7 +49,9 @@ function everyTouch(run, actors, into) {
 }
 
 test("a_run_is_heard_while_the_party_sees_where_a_body_stands_and_at_no_other_time_and_is_the_same_run", async () => {
-  // The enemy starts 1.5 m beyond the party's sight, and 1.4 m short of the cell it is seen in.
+  // The enemy starts 1.5 m beyond the party's sight, and 1.4 m short of the cell it is seen in. It
+  // comes into sight at about 3.4 s and runs at the hero, which it reaches at about 9.6 s: the run is
+  // heard over its first 6 s, before the two meet.
   const heard = await crypt(hall(13.5)), deaf = await crypt(hall(13.5));
   try {
     const { run } = heard, [hero, enemy] = run.actors;
@@ -63,7 +65,7 @@ test("a_run_is_heard_while_the_party_sees_where_a_body_stands_and_at_no_other_ti
     seconds(run, 2);
     assert.ok(!seen(enemy.feet()), "the enemy walks where the party does not see");
     assert.deepEqual(airs().map(({ id }) => id), ["hero"], "and its air is not given");
-    seconds(run, 8);
+    seconds(run, 4);
     assert.ok(seen(enemy.feet()), "then it has come into sight");
     const [, its] = airs();
     assert.deepEqual(its, { id: "enemy-0", speed: air(at), at: { x: at.x, z: at.z } }, "and its air is its fastest point's");
@@ -81,7 +83,7 @@ test("a_run_is_heard_while_the_party_sees_where_a_body_stands_and_at_no_other_ti
     assert.deepEqual(cues, inSight.map(({ cue }) => cue), "what is heard is what a body in sight sounded of");
 
     // Heard twice over, the run is the run nobody hears.
-    seconds(deaf.run, 10);
+    seconds(deaf.run, 6);
     assert.deepEqual(poses(run), poses(deaf.run));
     hearing.dispose(); every.dispose();
     const before = cues.length;

@@ -152,8 +152,8 @@ async function catching() {
 
 const framed = pulled({ frame: 0.011 });
 const helped = pulled({ ceiling: { force: 0.25, moment: 0.065 }, withdraw: 300 });
-/** Pulled at its whole weight for a quarter second, it falls; its mind is the game's, which lies where it fell. Saved at every step from `FELLED.from`, `FELLED.count` times. */
-const FELLED = { from: 180, count: 30 };
+/** Pulled at its whole weight for a quarter second, it falls (down at its world's step 185); its mind is the game's, which lies where it fell. Saved at every step from `FELLED.from`, `FELLED.count` times. */
+const FELLED = { from: 170, count: 30 };
 const felled = pulled({ share: 1, until: 150, subs: subMindsOf(RECIPE_FIGHTER.subs) });
 /** Unpulled, it is let go limp, held where it is, and given its body back; saved every 5 steps from step 80, 26 times. */
 const LEVELLED = { levels: [[100, "limp"], [140, "held"], [180, "full"]], from: 80, count: 26 };
@@ -294,9 +294,10 @@ const launched = going(humanSpec("workshop-fighter"), { kind: "stride", ...STRID
  * How often `striker` is saved, in steps; the steps through which its Warrior's left foot is
  * pushed as it swings, and through which the Warrior is pushed over; and the steps about the one
  * at which its feet are first placed, when it is saved at every step: the skill holds that they
- * are placed for one step.
+ * are placed for one step. The strike settles its stance from step 453, places its feet from 686
+ * to 889, chambers from 1071 and swings from 1138, and the shove fells the Warrior at 1223.
  */
-const STRIKER = { every: 20, nudged: [290, 315], shoved: [1000, 1030], placed: [300, 340] };
+const STRIKER = { every: 20, nudged: [470, 495], shoved: [1142, 1172], placed: [870, 910] };
 
 /**
  * A Warrior with a club and, 1.4 m ahead of it, a skeleton, on a ground in a bare world. The

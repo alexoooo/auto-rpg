@@ -157,7 +157,9 @@ test("a segment sounds as what it holds, and else as what its body is made of", 
 });
 
 test("a body's air is its club's end in a blow", async () => {
-  const stored = LAB_BLOWS[0];
+  // The repertoire's Warrior club recipe at a head, which lands with the body standing: the club's
+  // best (`LAB_BLOWS[0]`) throws the Warrior down before its club reaches the head.
+  const stored = LAB_BLOWS.find((b) => b.id === "workshop-fighter/wooden club/high");
   const spec = loadoutSpec({ model: stored.model, right: "club", left: "empty", boots: true, armour: true });
   const stand = await coreStand(spec, { ground: true, hz: 120 });
   const actor = labActor(stand.built, stand.world);
