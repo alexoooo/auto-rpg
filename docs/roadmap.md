@@ -123,22 +123,25 @@ After it, each with its own plan, in the order each needs the one before:
   the Arena's presets and in the Crypt, where a fall no longer ends a fight:
   - On the owner's 64-fall target (Node stand, Rapier, 120 Hz, Balance 0, Grit 0, 30 s cap,
     `node research/rising-bed.mjs --target --techniques step-up`), step-up stands the Warrior from
-    8 of 16 falls empty-handed and 2 of 16 with the club, median 23.6 s and the cap; the Rogue from
-    3 and 1 of 16. On the legs before the run's (`627ecc3a`) it stood 16, 14, 10 and 5, medians 14.4,
-    14.6, 18.7 s and the cap: step-up's stages were searched on those legs, and the foot's friction
-    is not the cause (at 0.5, 13 of 64). The known issues of the stand-up and of fast locomotion,
+    11 of 16 falls empty-handed and 14 of 16 with the club, medians 13.3 and 14.9 s; the Rogue from
+    9 and 6 of 16, median 26.3 s and the cap: 40 of 64, against the 45 it stood on the legs before
+    the run's (`627ecc3a`: 16, 14, 10 and 5). Its stages are searched again on today's legs. The
+    run's strength is what the rise loses: with the legs' torques at their measured peaks and the
+    run's speed kept, the same settings stand 46 of 64, but the gait battery falls in 249 of its
+    300 trials. On 52 shoves that fell the skeleton (of 96), step-up stands 9; its roll from its
+    back to its front is what fails. The known issues of the stand-up and of fast locomotion,
     and the order to take them in, are in `docs/plans/2026-10-16-locomotion-and-stand-up.md`. The
     rest of this entry was read on the old legs. "Rise, then steady" stands 6, 8, 0 and 1 of the same
-    falls, medians 29.5 s and over. On 48 shoves that fell the skeleton, step-up stands 9 and
-    "Rise, then steady" none; the skeleton's roll from its back to its front is what fails.
+    falls, medians 29.5 s and over; on the skeleton's shoves, none.
   - None stands within 6 s, and the 4 s median target is not met. The time is the route's, not
     the muscles': brace about 0.7 s, settle 0.7, roll 2.7, rise 9, steady 1.4, then the target's
     verification. Searched at twice the Warrior's strength, or 1.5 times the Rogue's, the route
     stood as often and no faster, so the plan's surge assist (Grit) is not built: a joint-torque
     help cannot shorten a route whose stages wait on balance.
-  - The Rogue's tuning is fitted to its eight training directions (13 of 16 there, 14 of 32 on the
-    target's sixteen). Get away, Fight on the ground and the other techniques stay experimental; the
-    mirror and escape patches held in `research/checkpoints/2026-10-13-ground.zip` are not applied.
+  - The Rogue's search stands 10 of its 16 training falls (first attempts, a 24 s cap) and 15 of
+    the target's 32; most of its failures reach the last stage, `even`, out of the lunge onto
+    both feet. Get away, Fight on the ground and the other techniques stay experimental; the mirror
+    and escape patches held in `research/checkpoints/2026-10-13-ground.zip` are not applied.
   - Eye gates: standing up in the Lab, in Arena bouts and in the Crypt; whether the rise looks
     human. The plan this landed from is `docs/plans/2026-10-13-stand-up.md@ef94828a`.
   - **Fast, robust unassisted recovery remains unsolved.** The optimized compliant-sole recipe

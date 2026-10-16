@@ -42,9 +42,10 @@ falls stood of 16, and the median time:
 | `bf9cbbc0`, the run's legs | 8 | 2 | 3 | 1 |
 | `bf9cbbc0` with foot friction 0.5 | 4 | 3 | 6 | 0 |
 | `8ba554c3` | 8, 23.6 s | 2, the cap | 3, the cap | 1, the cap |
+| S1: stages searched again, steadying grace | 11, 13.3 s | 14, 14.9 s | 9, 26.3 s | 6, the cap |
 
-The run's legs took the stand-up from 45 of 64 to 14. The foot's friction is not the cause (13 of
-64 at 0.5): step-up's stages were searched on the old legs. None stands within 6 s on either tree.
+The run's legs took the stand-up from 45 of 64 to 14; S1 brings it back to 40. The foot's friction
+is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
 
 ## The locomotion issues
 
@@ -171,10 +172,36 @@ The run's legs took the stand-up from 45 of 64 to 14. The foot's friction is not
 ### S1. Step-up does not stand the run's legs
 
 - **Seen.** 14 of 64 target falls, from 45 before `bf9cbbc0`; see the table above.
-- **Next.**
-  1. Search step-up's stages again per model on today's legs
-     (`research/rising-step-search.mjs`), and score it on the target.
-  2. Then the skeleton's 48 shoves: step-up stood 9 there on the old legs.
+- **Kept.**
+  - Step-up's stages searched again per model on today's legs (`rising-step-search.mjs`, 16
+    training falls, first attempts). The Warrior's search stood 12 of its 16 at a 14 s cap; the
+    Rogue's plateaued at 10 of 16 at a 24 s cap from its ninth generation, its later best standing
+    one fewer of the target's.
+  - The steadying stance that takes over from the rise failed on the first moment its body was
+    read off two feet: a foot unloaded for 50 ms as the Rogue swayed, upright at 0.96 of its
+    standing height. It now fails after 0.3 s off its feet (`12a4835d`): the Rogue 11 of 32 to 16,
+    the Warrior 27 either way, at the search's full-precision settings.
+- **Measured** (Node stand, Rapier, 120 Hz, balance 0, 30 s cap). The landed settings, rounded to
+  four figures, stand 40 of 64 on the target (`rising-bed.mjs --target --techniques step-up`; the
+  full-precision settings stood 43: a rounding moves two or three falls). On 52 shoves that fell
+  the skeleton, of 96, step-up stands 9, as on the old legs; it spends about 11 s rolling.
+- **Which of the legs.** The search's settings, scored with one of the run's leg changes undone
+  (`rising-step-search.mjs --score`; Warrior / Rogue of 32):
+
+  | Legs | Warrior | Rogue |
+  |---|---|---|
+  | Today's | 27 | 11 |
+  | Leg speed at the curves' (x1) | 26 | 14 |
+  | Torques at their measured peaks (x1), speed kept | 30 | 16 |
+  | Both undone | 28 | 0 |
+
+  The torques at their peaks stand 46 of 64, but the gait battery falls in 249 of its 300 trials
+  on those legs (against 45 on today's), most as the walk sets off: the run's strength is what the
+  rise loses, and the run cannot give it up.
+- **Not met.** 40 of 64 against the bar's 45.
+- **Next.** A set of legs between the two is scored on both batteries only after the walk
+  (`SIMBICON`) and the run (`RUN_CYCLE`) are searched on it, since both were searched on today's
+  legs; the Rogue's last stage, `even`, is where most of its remaining falls fail.
 - **Done when** it stands at least the 45 of 64 it stood before, on the legs the run's battery is
   scored on.
 - **If it cannot**, the legs change to a set that does both. Each candidate set is scored on the
