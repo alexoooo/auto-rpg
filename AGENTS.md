@@ -199,11 +199,13 @@ screens build on it; it never imports them.
 
 The owner's fast, robust unassisted stand-up goal is unfinished. Assisted recovery is a separate
 experiment and cannot satisfy it. `stand-up-acceptance-v1` pins the evaluator, optimized baseline
-and saved falls. Subsequent controller experiments run through that checkout's
-`node research/stand-up-acceptance.mjs --candidate <module>` action interface. Do not move the
-ref, change its criteria, replace cases, substitute a weaker baseline, or change the body/host
-configuration without the owner's agreement. The comparison is a development screen, not a
-robustness qualification. Report failures and external-actuation rejections as failures.
+and saved falls on legs the body no longer has, so nothing is screened through it. The owner has
+agreed that the screen is pinned again once the legs are settled, with falls saved on that body,
+and `v1` deleted. Controller experiments then run through the new checkout's
+`node research/stand-up-acceptance.mjs --candidate <module>` action interface. Do not move a
+pinned ref, change its criteria, replace cases, substitute a weaker baseline, or change the
+body/host configuration without the owner's agreement. The comparison is a development screen,
+not a robustness qualification. Report failures and external-actuation rejections as failures.
 Implementation, passing software checks and improvement on this screen are separate claims;
 none alone establishes completion. Budget exhaustion ends work with an incomplete report.
 
