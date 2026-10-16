@@ -9,6 +9,10 @@ measured on, what has been tried, and what is next. The aims:
   past a person's pace by Haste.
 - **A stand-up that works on the run's legs**, then one that is fast: the owner's target is a
   median verified recovery within 4 s ([rising](../reference/rising.md#dynamic-rise)).
+- **One set of legs for both** (the owner, 2026-10-16). The body stands up reliably and runs
+  reliably on the same legs, cleanly and unassisted, ideally at a person's level. If that is too
+  hard, both work cleanly unassisted below a person's level, and the assists (Balance, Haste and a
+  stand-up assist) bring them to a person's level and past it.
 
 Every figure below is Node stand, Rapier, 120 Hz, at balance 0 % unless it says otherwise, on the
 tree at `8ba554c3`.
@@ -150,7 +154,11 @@ The run's legs took the stand-up from 45 of 64 to 14. The foot's friction is not
   1. Search step-up's stages again per model on today's legs
      (`research/rising-step-search.mjs`), and score it on the target.
   2. Then the skeleton's 48 shoves: step-up stood 9 there on the old legs.
-- **Done when** it stands at least the 45 of 64 it stood before.
+- **Done when** it stands at least the 45 of 64 it stood before, on the legs the run's battery is
+  scored on.
+- **If it cannot**, the legs change to a set that does both. Each candidate set is scored on the
+  stand-up target and on the gait battery together. A slower unassisted run on legs that stand is
+  acceptable; Haste then brings the pace back.
 
 ### S2. The fixtures built on the old body
 
@@ -205,10 +213,52 @@ These are from [rising](../reference/rising.md#where-the-rise-stops), read on th
 
 - `stand-up-acceptance-v1` pins its evaluator, baseline, saved falls and body. A candidate runs
   through that checkout's `node research/stand-up-acceptance.mjs --candidate <module>`.
-- It therefore screens the pinned body, not the run's legs.
-- Its criteria, cases and configuration are not changed without the owner.
+- It therefore screens a body the game no longer has.
+- **Decided** (the owner, 2026-10-16): the codebase keeps no dead code. Once the legs are settled
+  (S1), the screen is pinned again on them, with falls saved on that body. Then `v1`, its setup
+  (`npm run setup:frozen`, `npm run test:frozen`) and what only it reads are deleted, and
+  `AGENTS.md`'s "Frozen stand-up acceptance" names the new ref. Until then nothing is screened
+  through `v1`.
 
-### S6. To apply once a rise meets its bar
+### S6. A stand-up assist
+
+The owner wants one (2026-10-16), on the same terms as the gait's: unassisted first, as far as it
+goes, then an assist to fill the gap and to take a character past a person.
+
+- **Why Grit was not built.** It was a joint-torque surge. Searched at twice the Warrior's strength
+  and 1.5 times the Rogue's, step-up stood as often and no faster: the route's time goes to its
+  stages waiting on balance, and more torque does not shorten a wait on balance.
+- **What Balance gives the rise today.** Step-up's bearing stage asks the body's assist for what
+  its patches cannot give, within Balance's ceiling. On shoves from seeds 1 to 8
+  (`rising-bed.mjs --starts shoved --models workshop-fighter,workshop-rogue --seeds 1-8 --sub
+  stand-up --techniques step-up --balance <b>`; most shoves no longer fell the run's legs), stood
+  of those that fell:
+
+  | Balance | Warrior empty | Warrior club | Rogue empty | Rogue club |
+  |---|---|---|---|---|
+  | 0 % | 3 of 5 | 2 of 5 | 1 of 29 | 1 of 33 |
+  | 25 % | 3 of 4 | 0 of 4 | 7 of 20 | 0 of 17 |
+  | 50 % | 5 of 6 | 2 of 5 | 6 of 23 | 1 of 18 |
+
+  It helps the Rogue empty-handed a little, and nothing else.
+- **Candidates**, each a force or moment at the root no muscle gives (`Assist`), metered every
+  step, and acting where the rise waits:
+  - **Lift**: an upward force through the centre of mass while a stage bears, a share of body
+    weight. It unweights the supports, so a limb lifts sooner and a stage's balance margin grows.
+  - **Over the support**: a horizontal force and a righting moment that carry the centre of mass
+    over the support the next stage stands on, as the gait's assist rights the pelvis toward the
+    gait's.
+  - **Along the route**: the root pulled toward the technique's next waypoint, its root position
+    and attitude, at a capped force.
+- **How it is chosen.** Each candidate is scored on the stand-up target, at a 10, 25 and 50 %
+  ceiling, for falls stood, the median time and the share stood within 4 s and 6 s. The ceiling
+  is an attribute's per cent of body weight: Balance's, or one of its own if the measurement
+  shows the rise wants a different amount from the gait. Whether to give it its own attribute is
+  the owner's choice when that measurement is in.
+- **Done when** a stand-up assist at its ceiling takes the target's median under 4 s, with the
+  unassisted figure reported beside it.
+
+### S7. To apply once a rise meets its bar
 
 The owner decided on 2026-10-01: a body that is down may be struck, and a fall takes nobody out
 unless a context has its own rule.
@@ -225,18 +275,21 @@ unless a context has its own rule.
 3. **Stopping (L1, L2)**, then the planners' brake.
 4. **The club's run (L4).**
 5. **Pace past 3.7 m/s and Haste 200 (L5, L6).**
-6. **A fast stand-up (S3, S4)**, screened through the frozen acceptance (S5).
+6. **A fast stand-up (S3, S4)**, unassisted as far as it goes, screened through the acceptance
+   pinned again on the settled legs (S5).
+7. **The stand-up assist (S6)**, measured against the unassisted figure.
 
 Each step lands in small commits, gated by `npm run check` and `npm test`, with the slow tests it
 touches run by name. A step that fails its bar is reported as failed; a measurement names its
 harness, its bodies and each side's balance.
 
-## The owner's choices
+## Decided
 
-- **The frozen screen.** `stand-up-acceptance-v1` screens a body the game no longer has. Should it
-  stay pinned to the old legs, or be pinned again on the run's legs?
-- **The body's two jobs.** If step-up cannot get back to 45 of 64 on the run's legs, should the
-  legs stay as they are (the run's), or be set between the run's and the rise's?
+The owner's answers, 2026-10-16:
+
+- **The frozen screen** is pinned again on the settled legs, and `v1` is deleted (S5).
+- **One set of legs** stands up and runs; see the aims and S1.
+- **A stand-up assist** is designed (S6).
 
 ## Out of scope
 
