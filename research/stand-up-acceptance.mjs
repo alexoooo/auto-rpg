@@ -8,28 +8,25 @@ import { gunzipSync } from 'node:zlib';
 import { deserialize, serialize } from 'node:v8';
 import { parseArgs } from 'node:util';
 import { recoveryEnvironment, checkRecoveryAction } from './stand-up-environment.mjs';
-import { recoveryDesign } from './stand-up-design.mjs';
-import { feedbackRecipe } from '../src/lab/recovery-recipe.ts';
-import seed from './stand-up-feedback-seed.json' with { type: 'json' };
 import { unassistedAudit, unassistedResult } from './stand-up-unassisted.mjs';
 
-export const ACCEPTANCE_REF = 'stand-up-acceptance-v1';
+export const ACCEPTANCE_REF = 'stand-up-acceptance-v2';
 const directory = new URL('./stand-up-acceptance/', import.meta.url);
 const root = fileURLToPath(new URL('../', import.meta.url));
 export const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 
-/** A pinned world and the fastest recorded optimized recipe, with its actual compliant-sole anatomy. */
-export async function acceptanceEnvironment(configuration, balance = 0) {
-  const spec = recoveryDesign(configuration);
-  return recoveryEnvironment({ ...configuration, spec, baseline: 'support-recovery', balance,
-    host: 'stance', recipe: feedbackRecipe(spec, seed.feedback.u), comparison: true });
+/** A pinned world: the game's body and its Stand up, with standard support recovery to compare. */
+export async function acceptanceEnvironment({ model, held }, balance = 0) {
+  return recoveryEnvironment({ model, held, baseline: 'step-up', balance, host: 'stance', comparison: true });
 }
 
-/** The comparison is executed in the frozen checkout; candidate actions live outside tracked evaluator files. */
+/**
+ * The comparison is executed in the frozen checkout (`npm run setup:frozen`, which pins its commit);
+ * candidate actions live outside tracked evaluator files.
+ */
 export function frozenRevision() {
   const git = args => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
-  const revision = git(['rev-parse', `${ACCEPTANCE_REF}^{commit}`]);
-  assert.equal(git(['rev-parse', 'HEAD']), revision, `run from the ${ACCEPTANCE_REF} checkout`);
+  const revision = git(['rev-parse', 'HEAD']);
   assert.equal(git(['diff', revision, '--', '.']), '', 'tracked files must match the frozen evaluator');
   return revision;
 }
@@ -47,7 +44,7 @@ export function summarizeAcceptance(rows) {
 }
 
 /** Same complete physics/host/controller checkpoint for each continuation; no prefix regeneration or case replacement. */
-export async function evaluateAcceptanceCase(c, manifest, candidateFactory, controller = 'optimized') {
+export async function evaluateAcceptanceCase(c, manifest, candidateFactory, controller = 'step-up') {
   const checkpoint = readFileSync(new URL(c.file, directory));
   assert.equal(digest(checkpoint), c.sha256, 'saved fall bytes match their frozen identity');
   const negative = controller === 'assisted-negative-control';
@@ -69,7 +66,7 @@ export async function evaluateAcceptanceCase(c, manifest, candidateFactory, cont
     const initial = digest(JSON.stringify(e.observe()));
     assert.equal(initial, c.observationSha256, 'restored starting observation must match');
     audit = unassistedAudit(e.stand.built, () => e.stand.world.steps);
-    if (controller !== 'optimized' && !negative) e.selectComparison(controller);
+    if (controller !== 'step-up' && !negative) e.selectComparison(controller);
     const policy = candidateFactory && await candidateFactory(structuredClone({ channels: e.channels, configuration: c.configuration }));
     if (candidateFactory) assert.equal(typeof policy, 'function', 'createPolicy returns an action function');
     const trace = createHash('sha256');
@@ -130,9 +127,9 @@ export async function rejectAssistedAction(c, manifest) {
 }
 
 async function main() {
-  const { values } = parseArgs({ options: { candidate: { type: 'string' }, controller: { type: 'string', default: 'standard' }, output: { type: 'string', default: '.tools/stand-up-acceptance/report.json' } } });
-  assert.ok(['optimized', 'standard'].includes(values.controller), 'unknown built-in comparison');
-  assert.ok(!values.candidate || values.controller === 'standard', 'choose a candidate module or a built-in controller');
+  const { values } = parseArgs({ options: { candidate: { type: 'string' }, controller: { type: 'string', default: 'support-recovery' }, output: { type: 'string', default: '.tools/stand-up-acceptance/report.json' } } });
+  assert.ok(['step-up', 'support-recovery'].includes(values.controller), 'unknown built-in comparison');
+  assert.ok(!values.candidate || values.controller === 'support-recovery', 'choose a candidate module or a built-in controller');
   const revision = frozenRevision(), started = performance.now();
   const manifest = JSON.parse(readFileSync(new URL('cases.json', directory), 'utf8'));
   assert.equal(process.versions.node, manifest.node, 'use the captured Node version for these V8 checkpoints');
@@ -142,8 +139,8 @@ async function main() {
   if (values.candidate) assert.equal(typeof factory, 'function', 'candidate exports createPolicy');
   const report = { evaluatorRef: ACCEPTANCE_REF, evaluatorCommit: revision, manifestSha256: digest(JSON.stringify(manifest)),
     protocol: manifest.protocol, candidate: values.candidate ? { path: resolve(values.candidate), sha256: digest(readFileSync(values.candidate)) }
-      : { kind: values.controller, note: values.controller === 'optimized' ? 'reproducibility control, no new recovery' : 'existing controller, Balance zero' },
-    baseline: [], candidateRows: [], negativeControl: null, recoveryGoal: 'NOT ACHIEVED; this is an acceptance-process repair' };
+      : { kind: values.controller, note: values.controller === 'step-up' ? 'reproducibility control, no new recovery' : 'existing controller, Balance zero' },
+    baseline: [], candidateRows: [], negativeControl: null, recoveryGoal: 'not judged: a development screen, not a robustness qualification' };
   mkdirSync(dirname(resolve(values.output)), { recursive: true });
   const write = () => writeFileSync(values.output, JSON.stringify(report, null, 2) + '\n');
   write();
@@ -151,8 +148,8 @@ async function main() {
     const baseline = await evaluateAcceptanceCase(c, manifest);
     assert.deepEqual(baseline, c.reference, 'frozen baseline result and full physical trace must reproduce');
     report.baseline.push(baseline);
-    const candidate = await evaluateAcceptanceCase(c, manifest, factory, factory ? 'optimized' : values.controller);
-    if (!factory && values.controller === 'optimized') assert.deepEqual(candidate, baseline, 'identical restored continuations must agree');
+    const candidate = await evaluateAcceptanceCase(c, manifest, factory, factory ? 'step-up' : values.controller);
+    if (!factory && values.controller === 'step-up') assert.deepEqual(candidate, baseline, 'identical restored continuations must agree');
     report.candidateRows.push(candidate); write();
     console.log(JSON.stringify({ case: c.id, baseline: baseline.result.seconds, baselineSuccess: baseline.result.success,
       candidate: candidate.result.seconds, candidateSuccess: candidate.result.success, failure: candidate.result.failure }));

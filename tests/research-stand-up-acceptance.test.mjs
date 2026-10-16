@@ -51,12 +51,12 @@ test('failure-inclusive statistics cannot turn a few successful episodes into a 
 });
 
 test('current comparison controllers preserve a newly captured fall and its clock', async () => {
-  const e = await acceptanceEnvironment({ model: 'workshop-fighter', held: 'empty', contact: 'shoe', strength: 1, speed: 1, weight: 1 });
+  const e = await acceptanceEnvironment({ model: 'workshop-fighter', held: 'empty' });
   try {
     await e.fall();
     const saved = e.save(), initial = e.observe(), clock = e.result(), traces = [];
     assert.equal(clock.fell, true);
-    for (const controller of ['standard', 'optimized', 'standard']) {
+    for (const controller of ['support-recovery', 'step-up', 'support-recovery']) {
       e.restore(saved); e.selectComparison(controller);
       assert.deepEqual(e.observe(), initial);
       assert.deepEqual(e.result(), clock);

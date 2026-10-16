@@ -8,7 +8,7 @@ import { trackingPolicy } from '../research/stand-up-tracking-policy.mjs';
 import { unassistedAudit } from '../research/stand-up-unassisted.mjs';
 
 test('detached recovery dynamics reproduces the physical body at standing and moving fallen observations',async()=>{
-  const e=await acceptanceEnvironment({model:'workshop-fighter',held:'empty',contact:'shoe',strength:1,speed:1,weight:1});
+  const e=await acceptanceEnvironment({model:'workshop-fighter',held:'empty'});
   try {
     const detached=detachedDynamics(structuredClone(contactModel(e)));
     const physical=coupledDynamics(e.stand.built,e.stand.world.physics.gravity);
@@ -32,7 +32,7 @@ test('detached recovery dynamics reproduces the physical body at standing and mo
 });
 
 test('rise-only tracking keeps its supporting foot out of the stepping arc',async()=>{
-  const e=await acceptanceEnvironment({model:'workshop-fighter',held:'empty',contact:'shoe',strength:1,speed:1,weight:1});
+  const e=await acceptanceEnvironment({model:'workshop-fighter',held:'empty'});
   const model=contactModel(e),audit=unassistedAudit(e.stand.built,()=>e.stand.world.steps);
   try {
     for(let i=0;i<12;i++)e.step({kind:'host'});

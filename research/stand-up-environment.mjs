@@ -13,6 +13,8 @@ import { startStance } from '../src/lab/stance-mode.ts';
 import { guardPosture } from '../src/core/skills/guard.ts';
 import { SIMBICON } from '../src/core/skills/simbicon.ts';
 import { supportRecovery } from '../src/core/mind/rise/support-recovery.ts';
+import { standUp } from '../src/core/mind/ground/stand-up.ts';
+import { STAND_UP } from '../src/core/mind/config.ts';
 import { observeBody } from '../src/core/observation.ts';
 import { clockSenses } from '../src/core/mind/senses.ts';
 import { recoveryMeasurement } from '../src/core/control/recovery-measurement.ts';
@@ -65,12 +67,17 @@ export function checkRecoveryAction(action, channels) {
   throw new Error('unknown recovery action');
 }
 
-/** A real Lab body and host with a research action override inside the ordinary muscle path. */
+/**
+ * A real Lab body and host with a research action override inside the ordinary muscle path. Its
+ * baseline is the game's Stand up (`step-up`), or support recovery with an optional recipe; a
+ * comparison may switch to the other built-in controller: Stand up against standard support
+ * recovery, or an optimized support recipe against the standard one.
+ */
 export async function recoveryEnvironment({ model = 'workshop-fighter', held = 'empty', baseline = 'support-recovery', spec: suppliedSpec, recipe, balance = 0, host = 'stance', comparison = false } = {}) {
-  if (baseline !== 'support-recovery') throw new Error('unknown recovery baseline');
+  if (!['support-recovery', 'step-up'].includes(baseline)) throw new Error('unknown recovery baseline');
   if (!['stance','simbicon'].includes(host)) throw new Error('unknown recovery host');
   if (recipe && baseline !== 'support-recovery') throw new Error('a recipe belongs to support recovery');
-  if (comparison && (baseline !== 'support-recovery' || !recipe)) throw new Error('comparison requires the optimized support recipe');
+  if (comparison && baseline === 'support-recovery' && !recipe) throw new Error('a support comparison requires the optimized support recipe');
   recipe = recipe ? deepFreeze(structuredClone(recipe)) : undefined;
   const spec = armedWith(suppliedSpec ?? modelSpec(model), 'right', held);
   const stand = await coreStand(spec, { engine: 'rapier-coordinate', groundSize: 40, posture: guardPosture(spec), actuation: 'symmetric' });
@@ -90,12 +97,14 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
   const experiment = freshExperiment();
   let channels, legacy, port;
   const recovery = (own, view, into) => {
-    legacy = supportRecovery(own, view, into, recipe);
+    legacy = baseline === 'step-up' ? standUp(own, view, into, STAND_UP) : supportRecovery(own, view, into, recipe);
     if (comparison) {
-      const policies = { optimized: legacy, standard: supportRecovery(own, view, into) };
-      const state = { selected: 'optimized', policies: Object.fromEntries(Object.entries(policies).map(([key, policy]) => [key, policy.state])) };
+      const policies = baseline === 'step-up' ? { 'step-up': legacy, 'support-recovery': supportRecovery(own, view, into) }
+        : { optimized: legacy, standard: supportRecovery(own, view, into) };
+      const state = { selected: Object.keys(policies)[0], policies: Object.fromEntries(Object.entries(policies).map(([key, policy]) => [key, policy.state])) };
       legacy = { state, get name() { return policies[state.selected].name; },
         wants(senses) { return policies[state.selected].wants(senses); },
+        holds() { return policies[state.selected].holds?.() ?? false; },
         begin() { policies[state.selected].begin(); }, end() { policies[state.selected].end(); },
         step(senses, dt) { policies[state.selected].step(senses, dt); } };
     }
@@ -109,6 +118,7 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
         if (experiment.mode === 'baseline') return legacy.wants(senses);
         return experiment.action !== null && experiment.action.kind !== 'host';
       },
+      holds() { return experiment.mode === 'baseline' && (legacy.holds?.() ?? false); },
       begin() { port.active = true; experiment.takeover ??= into.time; if (experiment.mode === 'baseline') legacy.begin(); },
       end() { port.active = false; if (experiment.mode === 'baseline') legacy.end(); },
       step(senses, dt) {
