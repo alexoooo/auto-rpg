@@ -122,6 +122,11 @@ The run's legs took the stand-up from 45 of 64 to 14. The foot's friction is not
   - A search with the club in hand found nothing in 13 generations.
   - A run that begins only below a sideways drift never runs.
   - The club's arm kept in the guard did not help.
+  - For the Rogue's runaway: the pace held at the body's own speed once it passes its empty-handed
+    pace (`ahead` 0 there) still fell; the stance and ankle at full strength fell sooner; a
+    governor braking the pace when the hips sink below their standing height felled the body
+    within seconds, since the hip's height swings by more within a stride than it sinks before a
+    fall.
 - **Next.** A lateral controller of the run that takes up the walk's sway at the handover:
   Raibert's placement across the heading from the drift the walk leaves, not only the run's own.
 
@@ -137,10 +142,13 @@ The run's legs took the stand-up from 45 of 64 to 14. The foot's friction is not
 
 ### L6. Haste and Balance at the edges
 
-- **Haste 200** falls at the walk-to-run handover, at about 2.9 s; walking at 200 is fine.
 - **The Rogue at Haste 150 without Balance** passes 3.5 m/s and falls at 12 to 15 s.
 - **Balance costs the Rogue and the skeleton pace**: 2.83 m/s against 3.15, and 3.09 against
   3.47, at 25 %. The skeleton's turns fall more at 10 % (5 of 20) than at 0 (2).
+- **Now** (after L1, `90095ac8`; Node stand, Rapier, 120 Hz, balance 0, asked 4 m/s): Haste 200 no
+  longer falls at the handover. It takes the Warrior's pace from 3.3 to 3.7 m/s and the
+  skeleton's by about 0.05. The Rogue at Haste 200 runs away as in L4 and falls at about 11 s; at
+  Haste 100 it is still gaining speed at 16 s (3.24 m/s).
 - **Next.** Search with Haste 200 in the cells. Measure the pace Balance costs, and whether the
   assist's pitch term is what slows them ([assist](../reference/assist.md#a-gaits-assist)).
 
