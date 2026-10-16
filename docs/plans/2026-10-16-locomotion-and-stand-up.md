@@ -324,36 +324,28 @@ goes, then an assist to fill the gap and to take a character past a person.
   and 1.5 times the Rogue's, step-up stood as often and no faster: the route's time goes to its
   stages waiting on balance, and more torque does not shorten a wait on balance.
 - **What Balance gives the rise today.** Step-up's bearing stage asks the body's assist for what
-  its patches cannot give, within Balance's ceiling. On shoves from seeds 1 to 8
-  (`rising-bed.mjs --starts shoved --models workshop-fighter,workshop-rogue --seeds 1-8 --sub
-  stand-up --techniques step-up --balance <b>`; most shoves no longer fell the run's legs), stood
-  of those that fell:
+  its patches cannot give, within Balance's ceiling. On the target (`rising-step-search.mjs
+  --score "" --cap 30 --balance <b>`, S1's tunings; Node stand, Rapier, 120 Hz), stood of the
+  falls the shove still fells, and the median with a fall not stood counted at the cap:
 
-  | Balance | Warrior empty | Warrior club | Rogue empty | Rogue club |
-  |---|---|---|---|---|
-  | 0 % | 3 of 5 | 2 of 5 | 1 of 29 | 1 of 33 |
-  | 25 % | 3 of 4 | 0 of 4 | 7 of 20 | 0 of 17 |
-  | 50 % | 5 of 6 | 2 of 5 | 6 of 23 | 1 of 18 |
-
-  It helps the Rogue empty-handed a little, and nothing else.
-- **What it costs the Warrior.** On the target (`rising-step-search.mjs --score --cap 30
-  --balance <b>`, the S1 searches' tunings, stood of the falls the shove still fells), with the
-  rise's bearing given today's shortfall, nothing, or only a lift (the ceiling's force upward while
-  a stage bears, nothing in the pose stages):
-
-  | Balance | Warrior: today / none / lift | Rogue: today / none / lift |
+  | Balance | Warrior | Rogue |
   |---|---|---|
-  | 10 % | 13 / 21 / 23 of 30 | 12 / 11 / 10 of 32 |
-  | 25 % | 7 / 18 / 22 of 26 | 7 / 9 / 7 of 32 |
-  | 50 % | 8 / 20 / 2 of 27 | 9 / 4 / 2 of 27 |
+  | 0 % | 25 of 32, 14.4 s | 15 of 32, the cap |
+  | 10 % | 26 of 30, 15.2 s | 17 of 32, 27.4 s |
+  | 25 % | 20 of 26, 14.8 s | 15 of 32, the cap |
+  | 50 % | 20 of 27, 14.9 s | 14 of 27, 20.5 s |
 
-  The Warrior's assisted rises reach the last stage and fail there: the even stage's first steps
-  ask the assist for about 100 N across and 50 N m that the patches would not give, and the body
-  leaves the steadying stance off one foot. Without its horizontal part the shortfall stood 11 of
-  26 at 25 %. Any help in the pose stages fells the body: a lift through them stood 0 of 32 Rogue
-  falls, and a damper on the centre of mass's speed and the pelvis's spin 0 of 32. None stands a
-  fall within 6 s. The stages were searched at 0 %; a candidate is not judged until they are
-  searched with it on.
+  It keeps some shoves from felling the body, and stands about as many of the rest. It shortens no
+  rise: none stands within 6 s. Before step-up's steadying stance could lose a foot for 0.3 s, the
+  Warrior's assisted rises failed in that stance, 7 of 26 at 25 %, on the even stage's first steps
+  asking the assist for about 100 N across.
+- **Searched with it on.** Step-up's stages searched for the Warrior at 25 % (40 generations from
+  S1's) stand 23 of 26 at 25 %, median 12.3 s, none within 6 s; the same tuning at 0 % stands 2 of
+  32. A tuning searched with an assist on is one for that assist only. Not kept.
+- **Tried and not kept**, before the steadying grace: the rise's bearing given no assist, or only
+  a lift (the ceiling's force upward while a stage bears), stood 18 and 22 of the Warrior's 26 at
+  25 %. Any help in the pose stages fells the body: a lift through them stood 0 of 32 Rogue falls,
+  and a damper on the centre of mass's speed and the pelvis's spin 0 of 32.
 - **Candidates**, each a force or moment at the root no muscle gives (`Assist`), metered every
   step, and acting where the rise waits:
   - **Lift**: an upward force through the centre of mass while a stage bears, a share of body
@@ -370,6 +362,10 @@ goes, then an assist to fill the gap and to take a character past a person.
   the owner's choice when that measurement is in.
 - **Done when** a stand-up assist at its ceiling takes the target's median under 4 s, with the
   unassisted figure reported beside it.
+- **Not met.** Today's shortfall and a lift were measured, and the stages searched with the
+  former on; the best assisted median is 12.3 s against 14.4 s unassisted (the Warrior, 25 %).
+  The route along its waypoints is not built. The time is the route's (S3), so an assist that
+  waits less needs a quicker route first.
 
 ### S7. To apply once a rise meets its bar
 
