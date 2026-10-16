@@ -157,6 +157,8 @@ const LIMIT = 16, STEADY_LIMIT = 3;
 const LOW = .5;
 /** How long a body read between positions waits for its reading to settle before taking the whole route, s. */
 const JOIN_WAIT = .25;
+/** How long the steadying stance may be read off its two feet, s (a foot unloaded as the body sways), before the attempt has failed. */
+const STEADY_OFF = .3;
 type Entry = "whole" | keyof typeof JOINS;
 type Phase = "rise" | "steady";
 
@@ -172,7 +174,7 @@ export function stepUp(own: OwnBody, view: BodyView, _world: World, tuning: Step
   const rises = { whole: stagedRise(own, view, whole), fours: stagedRise(own, view, from(JOINS.fours)), "half-kneel": stagedRise(own, view, from(JOINS["half-kneel"])) };
   const motor = motorControl(own.built, .1, guardPosture(own.spec));
   const state = { phase: "rise" as Phase, entry: "whole" as Entry, begun: false, rose: false, ended: null as TechniqueEnd | null,
-    elapsed: 0, steady: 0, reached: 0, height: 0, heading: 0,
+    elapsed: 0, steady: 0, off: 0, reached: 0, height: 0, heading: 0,
     rises: { whole: rises.whole.state, fours: rises.fours.state, "half-kneel": rises["half-kneel"].state }, motor: motor.state };
   const work = { turn: new Quaternion(), across: new Vector3() };
   const finish = (end: TechniqueEnd) => { state.ended = end; return end; };
@@ -214,10 +216,11 @@ export function stepUp(own: OwnBody, view: BodyView, _world: World, tuning: Step
         motor.reset(); motor.stance.read();
         const soles = motor.stance.reading.soles;
         state.height = g.centre.y - Math.min(soles.left.y, soles.right.y);
-        state.phase = "steady"; state.steady = 0;
+        state.phase = "steady"; state.steady = 0; state.off = 0;
       }
       state.steady += dt;
-      if (g.position !== "standing" && g.position !== "crouch" && state.steady > .5) return finish("failed");
+      state.off = g.position !== "standing" && g.position !== "crouch" ? state.off + dt : 0;
+      if (state.off > STEADY_OFF && state.steady > .5) return finish("failed");
       if (state.steady > STEADY_LIMIT) return finish("timed-out");
       const w = Math.min(1, state.steady / tuning.climb), smooth = w * w * (3 - 2 * w), top = view.standing - .03;
       motor.stance.read();
