@@ -75,6 +75,24 @@ fall onto them: the times a pendulum's swing and a stance's fall take are not th
 change. At 150 % and the gait as it is, the Warrior asked 4 m/s makes 3.25 against 3.17 and more
 of the runs fall: the run's settings were searched on a person's muscles.
 
+Searched on a hasted body, the run is steadier and no faster. The search was 30 generations of
+`research/run-cycle-search.mjs --speeds 3,4,5 --stops 3 --winds 1:5:1,2 --holds empty --seconds
+22 --haste 150 --hasted 0`, over the three bodies. Its best on the battery above, the falls in its
+run, turn and stop trials:
+
+| Run's settings | Haste | Score | Runs, of 72 | Turns, of 18 | Stops, of 18 | The Warrior asked 4 m/s, empty |
+|---|---|---|---|---|---|---|
+| `RUN_CYCLE` | 100 % | 1.71 | 28 | 4 | 11 | 3.17 |
+| `RUN_CYCLE` | 150 % | 1.50 | 42 | 5 | 13 | 3.25 |
+| searched at 150 % | 150 % | 1.74 | 23 | 10 | 16 | 3.13 |
+| searched at 150 % | 100 % | 1.74 | 22 | 11 | 12 | 2.99 |
+
+What caps the pace is the run's cycle, not the muscles. The cycle tracks the faster of its two
+clips (`assets/core/run-cycle.json`, 3.51 m/s on its runner's leg). Taken to the Warrior's leg by
+Froude, that is near the 3.1 to 3.3 m/s the body makes, whatever its haste. The searched settings
+are not kept: their run holds where the defaults' falls, but their turns and stops fall more, at
+either haste.
+
 ## A gait's assist
 
 A gait that drives the legs itself (the SIMBICON walk and its run, `simbicon.ts`) asks the assist

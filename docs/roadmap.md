@@ -430,9 +430,11 @@ After it, each with its own plan, in the order each needs the one before:
           as the haste to a power, `scaledGait`, `quickened`); measured, the power is 0, since a
           quickened gait steps faster than gravity lets the body fall onto its feet. At 150 % with
           the gait as it is the Warrior asked 4 m/s makes 3.25 against 3.17 and more runs fall (42
-          of 72 against 28): the run's settings were searched on a person's muscles. **Open:** a
-          run whose settings are searched on a hasted body, and whether a hasted body takes them
-          as a variant of the run.
+          of 72 against 28): the run's settings were searched on a person's muscles. Searched on
+          a hasted body (150 %), the run falls less (23 of 72) and turns and stops fall more, and
+          it is no faster. The pace is capped by the run's fastest clip (3.51 m/s, about 3.2 on
+          the Warrior's leg), not by the muscles. **Open:** a faster clip in the run cycle, so
+          that the cycle has a pace past 3.5 m/s for a hasted body's muscles to reach.
         - **Decided by the owner:** Haste is the legs' muscles alone (the hip's, knee's and
           ankle's exertions in `jointSpeed`), a per cent of the human baseline, 100 % by default,
           in `AttributeSpec` as `balance` is, with an `owner-haste` source; strength or the upper
