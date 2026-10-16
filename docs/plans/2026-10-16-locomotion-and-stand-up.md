@@ -160,6 +160,9 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
   pace held `ahead` (0.46 m/s) past the body's own speed. Haste 150 adds 0.2 to 0.3 m/s.
 - **Why it is held.** A cycle quickened past what the body has come up to throws it forward of its
   feet; `ahead` is what let Haste help at all.
+- **Searched.** L2's search, with cells at 3 and 4 m/s, empty and with the club, moved the
+  gait battery's pace asked 4 and 5 m/s from 3.03 to 3.21 m/s for the Warrior and from 2.66 to
+  2.68 for the Rogue, and its falls with the club from 39 to 33; not kept for its stops (L2).
 - **Next.** Make the body come up to the pace, not let the pace run away: the stride's length at
   the clip's (Froude), the push-off at the clip's ankle, and the swing's reach at speed. Read
   stride length and cadence against the clip's at 3, 4 and 5 m/s first.
