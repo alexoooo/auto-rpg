@@ -131,6 +131,21 @@ kind on the hand that holds it. Two hands are two tasks in the same solve. N ite
 
 Every figure is Node stand, Rapier, 120 Hz, balance 0 % and haste 0 unless it says otherwise.
 
+**The solve (stage 0).** `src/core/control/solve.ts` runs beside the bearing solve, chosen per
+body (`BodyOptions.solve`; `DuelRecipe.solve` by side; `research/step-time.mjs --solve`). Under
+the assist reference's pulls (`tests/core-assist.test.mjs`, now run on both) the Warrior falls,
+is held, is held by the force alone and steps under the moment alone as on the bearing solve;
+on the stance test's shoves the Warrior and the Rogue take the same recovery steps (within one)
+and dip within 1 cm of the bearing solve's; the walk at 0.3 m/s is the same. Standing, two
+Warriors' step costs 0.21 ms a body beside the solver on either (`tests/harness/garbage.mjs`'s
+pair), and the whole motor control is 10.2 % of a bout's step on the solve against 10.4 % on the
+bearing solve (`step-time.mjs --profile`); a bout on the solve is another bout, so its step median
+is not the bearing solve's to the millisecond. A standing step allocates 110 KiB a body on either,
+a bout's 311 against 328. The fingerprint is unmoved (no body is on the solve by default). Not
+done in stage 0: `wholeBodyTracking` (`whole-body.ts`) is still in the tree as the experimental
+tracker; a limb's posture beneath its task (`Limb.work.toward`) and the bounded swing are not in
+the solve, since the stance asks neither.
+
 **Locomotion.** On the gait battery (asked 1.4 to 5 m/s, three stops, two turns, gust seeds 5
 to 8, empty and club: 300 trials; `research/run-cycle-search.mjs --score`), and the stop battery
 (96 trials):

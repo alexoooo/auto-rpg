@@ -30,7 +30,7 @@ read (`src/core/skills/skills.ts`).
 | Build | `src/core/build/` | the spec made into engine bodies and joints, and the dynamics read back from them |
 | Muscles | `src/core/muscle/` | torque bounded by strength and by speed |
 | Mind seam | `src/core/mind/mind.ts`, `sub-mind.ts` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask; a host hands its body to a sub-mind that wants it |
-| Motor control | `src/core/control/` | joint goals, hand goals and the stance turned into muscle commands; a body borne on the ground through its limbs (`bearing.ts`) |
+| Motor control | `src/core/control/` | joint goals, hand goals and the stance turned into muscle commands; a body borne on the ground through its limbs (`bearing.ts`), or the whole body solved at once (`solve.ts`) |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, face, strike, guard |
 | Tactics | `src/core/mind/tactics.ts`, `ordered.ts`, `targets.ts`, `recipe-tactics.ts`, `path-tactics.ts` | what the body should do, decided from what it sees |
 | Minds | `src/core/mind/config.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `rise/` | a body's mind made from its config, plain data by kind, by the controller of that kind; a riser that plays a recipe of stages |
@@ -307,6 +307,18 @@ and driven afresh to change what it costs.
   limbs may share and the servo moves (the trunk's, under both arms). The limb's task takes
   their motion as known, and their torques are the solve's, less each bearing limb's share of
   the ground's wrench.
+- **The whole-body solve** (`solve.ts`) is the bearing solve and the servo's in one weighted
+  least-squares problem over the root's acceleration and the freedoms a limb moves or a push
+  holds: the root's aims, each limb's point's motion and the freedoms asked ahead of it, and a
+  pushed freedom's torque are its rows; every other freedom moves as the servo's posture asks it.
+  The wrench the motion found asks of the ground is shared among the bearing patches
+  (`shareGroundWrench`), the shortfall asked of the assist, and the root held to what the two give;
+  a torque past its strength is pinned there and the body solved again, up to four passes. Its
+  rows rank as the bearing solve ranks them (the root and a torque held exactly, a foot by least
+  squares beneath), so a body stands, steps and is pulled the same on either. A body is on it by
+  `BodyOptions.solve` (`MindWiring.solve`, a bout's `DuelRecipe.solve` by side); the stance gives it
+  the same asks it gives the bearing solve (`StanceControl.ask`), and the bearing solve remains the
+  default.
 - **The stance** (`stance.ts`; its records in `stance-state.ts`, its steps in `gait.ts`, its
   soles in `support.ts`, its constants in `stance-tuning.ts`) is the standing plan, and the
   solve's first user: it keeps the body up by the forces the ground can really give. It plans
