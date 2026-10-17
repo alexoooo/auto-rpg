@@ -19,7 +19,7 @@
  *
  *   node research/run-cycle-search.mjs --out .snap/run/a [--models workshop-fighter,workshop-rogue,crypt-skeleton]
  *     [--speeds 3,3.5,4] [--turns 0.4,0.8] [--stops 2,3.5 [--stop-at 2.5,4,6]] [--seconds 25] [--generations 60] [--lambda 28] [--sigma 0.1] [--workers 28]
- *     [--start '{"cv":0.3}' | file.json] [--dims accel,brake] [--winds 1:5:1,2] [--holds empty,club] [--balance 25] [--haste 100,150 --hasted 0.5] [--narrow 0.15] [--score] [--windows]
+ *     [--start '{"cv":0.3}' | file.json] [--dims accel,brake] [--winds 1:5:1,2] [--holds empty,club] [--balance 25] [--haste 0,50 --hasted 0.5] [--narrow 0.15] [--score] [--windows]
  *
  * - `--score` scores the start alone and prints each trial, with the metres it took to stop and the gait its landings show
  *   (`gaitOf`: step width, cadence and step length); with `--windows` each trial's speed in each 2 s window.

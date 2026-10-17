@@ -5,7 +5,7 @@ import { CHARACTERS } from "../character-lab/catalog.ts";
 import { HUMANOID_MODELS, type HumanoidModel } from "../core/models.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
-import { validHaste } from "../core/human/attributes.ts";
+import { hasteFrom } from "../core/human/attributes.ts";
 import { HELD, type Held } from "../core/items/held.ts";
 import { CLASSIC, PUNCHER, RECIPE_FIGHTER, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
 import type { Provision } from "../core/mind/parts.ts";
@@ -64,7 +64,7 @@ const WORN: Readonly<Record<HumanoidModel, { readonly boots: boolean; readonly a
 /** A loadout: the model, what each hand holds, the clothing worn, and whether its feet are shod (`withSoles`: a sole that gives against the ground). */
 export type LabLoadout = {
   readonly model: HumanoidModel; readonly sole: boolean;
-  /** The body's haste, per cent of a person's speed in its legs, in place of its character's (`AttributeSpec.haste`); null is the character's. */
+  /** The body's haste, per cent over a person's speed in its legs, in place of its character's (`AttributeSpec.haste`); null is the character's. */
   readonly haste: number | null;
 }
   & Readonly<Record<(typeof LAB_HANDS)[number], Held>> & Readonly<Record<(typeof LAB_WORN)[number], boolean>>;
@@ -231,12 +231,6 @@ export function labHref(address: LabAddress, search = ""): string {
   if (address.targets !== LAB_TARGETS.count) query.set("targets", String(address.targets));
   if (address.seed !== LAB_TARGETS.seed) query.set("seed", String(address.seed));
   return `?${query}`;
-}
-
-/** The haste `text` writes, per cent: a positive number; null for anything else, and the character's. */
-function hasteFrom(text: string): number | null {
-  const haste = balanceFrom(text);
-  return haste !== null && validHaste(haste) ? haste : null;
 }
 
 /** An explicit recovery demonstration; changing it preserves the view preferences. */

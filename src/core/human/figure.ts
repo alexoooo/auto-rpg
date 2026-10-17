@@ -52,7 +52,7 @@ export interface HumanFigure {
   readonly hp: Quantity<number>;
   /** The body's balance, per cent of its weight (`AttributeSpec`). */
   readonly balance: Quantity<number>;
-  /** The body's haste, per cent of a human's speed in its legs' muscles (`AttributeSpec`, `jointSpeed`). */
+  /** The body's haste, per cent over a human's speed in its legs' muscles (`AttributeSpec`, `jointSpeed`); 0 is a human's. */
   readonly haste: Quantity<number>;
 }
 

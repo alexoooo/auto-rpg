@@ -8,24 +8,35 @@ export function humanAttributes(figure: HumanFigure): AttributeSpec {
   return { balance: figure.balance, haste: figure.haste };
 }
 
-/** A human's haste: its legs' muscles at a person's speed. Every character's, the owner's. */
-export const HUMAN_HASTE = sourced(100, "%", "owner-haste", "every character 100");
+/** A human's haste: its legs' muscles at a person's speed, nothing over it. Every character's, the owner's. */
+export const HUMAN_HASTE = sourced(0, "%", "owner-haste", "every character 0");
 
-/** `figure` with its haste `haste` per cent, a bout's or an experiment's in place of its character's; `figure` itself where none is given. */
+/** `figure` with its haste `haste` per cent over a person's, a bout's or an experiment's in place of its character's; `figure` itself where none is given. */
 export function hastedFigure(figure: HumanFigure, haste?: number): HumanFigure {
   if (haste === undefined) return figure;
-  if (!validHaste(haste)) throw new Error(`a haste is a positive per cent: ${haste}`);
+  if (!validHaste(haste)) throw new Error(`a haste is a finite per cent over a person's, above -100: ${haste}`);
   return { ...figure, haste: sourced(haste, "%", "owner-haste", "a bout's haste") };
 }
 
-/** A haste is a finite per cent over none. */
+/** A haste is a finite per cent over a person's that leaves the legs some speed: above -100. */
 export function validHaste(haste: number): boolean {
-  return Number.isFinite(haste) && haste > 0;
+  return Number.isFinite(haste) && haste > -100;
 }
 
-/** How many times a human's speed the legs of `spec` turn at by its haste: 1 at a human's. */
+/** The haste `text` writes, a per cent over a person's with an optional sign; null for anything else. */
+export function hasteFrom(text: string): number | null {
+  const haste = /^[+-]?\d+(\.\d+)?$/.test(text.trim()) ? Number(text) : NaN;
+  return validHaste(haste) ? haste : null;
+}
+
+/** A haste written for a reader, signed: `+50`, `-20`, `0`. */
+export function hasteText(haste: number): string {
+  return haste > 0 ? `+${haste}` : String(haste);
+}
+
+/** How many times a human's speed the legs of `spec` turn at by its haste: 1 at a human's, 1.5 at +50 %. */
 export function hasteOver(spec: BodySpec): number {
-  return spec.attributes.haste.value / HUMAN_HASTE.value;
+  return 1 + spec.attributes.haste.value / 100;
 }
 
 /** A workshop model's balance, per cent of its weight, the owner's. */

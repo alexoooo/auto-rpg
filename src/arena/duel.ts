@@ -93,7 +93,7 @@ interface DuelRecipe {
   readonly senseDelay?: number;
   /** Each side's balance, per cent of its weight, in place of its character's (`AttributeSpec.balance`): an experiment's, or a link's. */
   readonly balance?: { readonly left: number; readonly right: number };
-  /** Each side's haste, per cent, in place of its character's (`AttributeSpec.haste`), where its model takes one (`modelHastes`): an experiment's, or a link's. */
+  /** Each side's haste, per cent over a person's, in place of its character's (`AttributeSpec.haste`), where its model takes one (`modelHastes`): an experiment's, or a link's. */
   readonly haste?: Readonly<Partial<Record<Side, number>>>;
   /** What a per cent of balance is, in place of the rulebook's (`Rulebook.balance`): a sweep's. */
   readonly balancePercent?: AssistCeiling;

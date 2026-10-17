@@ -14,7 +14,7 @@ import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
 import { BODY_MODELS, modelHolds, modelSpec, type BodyModel } from "../core/models.ts";
-import { HUMAN_HASTE } from "../core/human/attributes.ts";
+import { HUMAN_HASTE, hasteText } from "../core/human/attributes.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { createWorld, type World } from "../core/world.ts";
 import type { SkinView } from "../render/skin-view.ts";
@@ -451,9 +451,9 @@ export async function bootArena(): Promise<void> {
     // While either side is helped, each side's balance, per cent of its weight: the link's, or its character's.
     const helped = SIDES.some((side) => duel!.duelists[side].body.assist.on);
     const balance = SIDES.map((side) => duel!.recipe.balance?.[side] ?? duel!.duelists[side].built.spec.attributes.balance.value);
-    // While either side is hasted, each side's haste, per cent of a person's.
+    // While either side is hasted, each side's haste, per cent over a person's, signed.
     const haste = SIDES.map((side) => duel!.duelists[side].built.spec.attributes.haste.value), hasted = haste.some((h) => h !== HUMAN_HASTE.value);
-    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${hasted ? ` · haste ${haste.join(" / ")} %` : ""}${replaying ? " · replay" : ""}`;
+    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${hasted ? ` · haste ${haste.map(hasteText).join(" / ")} %` : ""}${replaying ? " · replay" : ""}`;
     if (duel.verdict && shown !== duel.verdict) {
       pauseButton.hidden = true;
       shown = duel.verdict;

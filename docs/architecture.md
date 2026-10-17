@@ -1223,12 +1223,13 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   assist when the body is out of the fight; the lab sets its body's from the character's balance or
   its address's (`&balance=`). Every character's balance is 0, and at 0 there is no
   assist.
-- **Haste**: a character has a haste beside its balance (`AttributeSpec.haste`): how fast its
-  legs' muscles are, a per cent of a person's, multiplying the unloaded speed of the hip's, knee's
-  and ankle's exertions (`jointSpeed`) and nothing else; it gives no force. A humanoid's spec
+- **Haste**: a character has a haste beside its balance (`AttributeSpec.haste`): how much faster
+  its legs' muscles are than a person's, a per cent over a person's (0 is a person's, +50 half
+  again as fast), multiplying the unloaded speed of the hip's, knee's and ankle's exertions
+  (`jointSpeed`) and nothing else; it gives no force. A humanoid's spec
   takes one in place of its character's (`modelSpec`); a fight's recipe gives each side one
   (`DuelRecipe.haste`, `&haste=left,right` in an arena link), and the lab its body
-  (`&haste=`). Every character's haste is 100 (`HUMAN_HASTE`), and a figure on a hasted body
+  (`&haste=`). Every character's haste is 0 (`HUMAN_HASTE`), and a figure on a hasted body
   names it.
 - **Levels** (`levelsOf`, `levels.ts`): which bodies run themselves, for any fight with more
   bodies than fight at once. A body with nothing to do and nobody near is `held`; any other is

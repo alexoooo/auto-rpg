@@ -1,6 +1,5 @@
 import type { ForceVelocitySpec } from "../spec/body.ts";
 import { derive, si, sourced, type Quantity } from "../spec/quantity.ts";
-import { HUMAN_HASTE } from "./attributes.ts";
 import type { HumanFigure } from "./figure.ts";
 import type { Sex } from "./tables/de-leva-1996.ts";
 import {
@@ -47,8 +46,8 @@ export function jointSpeed(figure: HumanFigure, exertion: Exertion): ForceVeloci
   const borrowed = (q: Quantity<number>) => measured === exertion ? q
     : derive(q.unit, `${measured}'s, taken for ${exertion}: a stated assumption (BORROWED, src/core/human/speed.ts)`, [q], (v) => v);
   const curvature = borrowed(own.curvature), read = borrowed(own.unloadedSpeed), inUse = IN_USE[exertion];
-  const unloaded = inUse ? derive("rad/s", "the leg's unloaded speed times its in use over the curve read and its haste over a human's", [read, inUse, figure.haste, HUMAN_HASTE],
-    (w, f, h, human) => w * f * (h / human)) : read;
+  const unloaded = inUse ? derive("rad/s", "the leg's unloaded speed times its in use over the curve read, and one plus its haste over a human's", [read, inUse, si(figure.haste)],
+    (w, f, h) => w * f * (1 + h)) : read;
   const unloadedSpeed = figure.speed
     ? derive("rad/s", "the unloaded speed times the figure's speed", [unloaded, figure.speed], (w, s) => w * s) : unloaded;
   return {

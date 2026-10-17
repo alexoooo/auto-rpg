@@ -153,7 +153,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     readonly built: BuiltBody; readonly view: BodyShapes; readonly held: BodyShapes; readonly skin: SkinSlot; appearance: Appearance | null; readonly run: ScenarioRun;
     /** The pelvis's rotation as built, facing +z: the chase camera reads the body's facing from it. */
     readonly rest: Quaternion;
-    /** Its balance, per cent of its weight, if its assist has one, and its haste, per cent of a person's, if it is hasted: every figure read under them is read beside them. */
+    /** Its balance, per cent of its weight, if its assist has one, and its haste, per cent over a person's, if it is hasted: every figure read under them is read beside them. */
     readonly helped: number | null;
     readonly hasted: number | null;
     /** What its mind has decided, and the watch that notes in it who has the body. */

@@ -34,7 +34,7 @@ const REPTILE: ModelInfo = deepFreeze({ mind: QUADRUPED, held: "empty" });
 /**
  * Anatomical construction dispatches by registered model, without another family's spec as a
  * template. A humanoid takes a physique (`Physique`) and `attributes` in place of its character's: a
- * haste, per cent (`AttributeSpec.haste`); the reptile takes neither.
+ * haste, per cent over a person's (`AttributeSpec.haste`); the reptile takes neither.
  */
 export function modelSpec(model: BodyModel, physique?: Physique, attributes: { readonly haste?: number } = {}): BodySpec {
   const { haste } = attributes;

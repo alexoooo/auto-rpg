@@ -365,7 +365,7 @@ After it, each with its own plan, in the order each needs the one before:
     - **Its run** tracks a person's run cycle past 1.31 m/s (`runCycle`, `cycle-run.ts`), three
       clips' (2.75, 3.94 and 4.38 m/s), its pace held no more than `ahead` past the body's own,
       its settings searched on the three bodies bare-handed in the guard, calm and in gusts, at
-      haste 100 and 150 % (`research/run-cycle-search.mjs`). Asked 4 or 5 m/s, each body settles
+      haste 0 and +50 % (`research/run-cycle-search.mjs`). Asked 4 or 5 m/s, each body settles
       at its own pace, cadence times step: 3.50 m/s for the Warrior, 2.65 for the Rogue and 2.98
       for the skeleton (calm, empty-handed and with the club). Its stride falls short of the
       clips' at the cadence it runs, and no leg muscle but the ankles is at its ceiling there. Its envelope
@@ -454,14 +454,14 @@ After it, each with its own plan, in the order each needs the one before:
           the Arena; [assist](reference/assist.md#haste)). The gait's timing could go with it
           (`SimbiconSettings.hasted`: the gait's times, its run cycle's, and its envelope's speeds
           as the haste to a power, `scaledGait`, `quickened`); measured, the power is 0, since a
-          quickened gait steps faster than gravity lets the body fall onto its feet. At 150 % with
-          the run as it is, searched at 100 and 150 % together, the Warrior holds 3.67 m/s asked
+          quickened gait steps faster than gravity lets the body fall onto its feet. At +50 % with
+          the run as it is, searched at 0 and +50 % together, the Warrior holds 3.67 m/s asked
           5 against 3.38 and the skeleton 3.49 against 3.47; the Rogue goes past 3.5 and falls.
           With balance 25 % as well, nothing of that battery falls but 15 of 300 trials, and the
           three hold 3.68, 2.99 and 3.21. **Open:** a pace past about 3.7 m/s, which no body holds
           at either haste: past it the cycle's stride makes no more speed.
         - **Decided by the owner:** Haste is the legs' muscles alone (the hip's, knee's and
-          ankle's exertions in `jointSpeed`), a per cent of the human baseline, 100 % by default,
+          ankle's exertions in `jointSpeed`), a per cent over the human baseline, 0 by default,
           in `AttributeSpec` as `balance` is, with an `owner-haste` source; strength or the upper
           body join it only where they help locomotion. The Lab and the Arena take `&haste=` beside
           `&balance=`, and a figure on a hasted body names each side's haste. Its range and each

@@ -1,6 +1,7 @@
 import type { ScenarioRun } from "../lab-scenario.ts";
 import { isPaused, type Playhead } from "../player.ts";
 import { actions, choice, toggle, type Entry } from "../../ui/controls.ts";
+import { hasteText } from "../../core/human/attributes.ts";
 
 /**
  * **The lab's transport**: the bar that pauses the run, steps it a physics step at a time, scrubs
@@ -25,7 +26,7 @@ interface Transport {
   showPlayhead(playhead: Playhead): void;
   /**
    * Show `run`'s recording, `time`, the shown frame's, s, `balance`, its body's, per cent of its
-   * weight, if its assist has one, and `haste`, per cent of a person's, if it is hasted.
+   * weight, if its assist has one, and `haste`, per cent over a person's, if it is hasted.
    */
   show(run: ScenarioRun, time: number | null, balance: number | null, haste: number | null): void;
 }
@@ -61,7 +62,7 @@ export function labTransport(bar: HTMLElement, label: string, run: () => Scenari
       const recording = under.recording();
       timeline.max = String(Math.max(0, recording.frames - 1));
       if (document.activeElement !== timeline) timeline.value = String(under.player.shownFrame() ?? recording.live);
-      if (time !== null) clock.textContent = `${under.player.playhead.kind === "replaying" ? "replay " : ""}${time.toFixed(3)} s${balance === null ? "" : ` · balance ${balance} %`}${haste === null ? "" : ` · haste ${haste} %`}`;
+      if (time !== null) clock.textContent = `${under.player.playhead.kind === "replaying" ? "replay " : ""}${time.toFixed(3)} s${balance === null ? "" : ` · balance ${balance} %`}${haste === null ? "" : ` · haste ${hasteText(haste)} %`}`;
     },
   };
 }

@@ -1,5 +1,5 @@
 import { BODY_MODELS, modelHastes, modelHolds, modelInfo, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
-import { validHaste } from "../core/human/attributes.ts";
+import { hasteFrom } from "../core/human/attributes.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { PRESETS } from "../core/mind/controllers.ts";
 import { isOrders } from "../core/mind/orders.ts";
@@ -81,18 +81,18 @@ export function readBalance(search: string): Readonly<Record<Side, number>> | un
   return { left: given[0]!, right: given[given.length - 1]! };
 }
 
-/** The arena link's parameter for each side's haste, per cent of a person's speed in its legs: `&haste=left,right`, or one number for both. */
+/** The arena link's parameter for each side's haste, per cent over a person's speed in its legs: `&haste=left,right`, or one number for both. */
 const HASTE_PARAM = "haste";
 
 /**
- * The haste an address gives each side (`DuelRecipe.haste`): two positive numbers, left then right,
+ * The haste an address gives each side (`DuelRecipe.haste`): two per cents over a person's (`hasteFrom`), left then right,
  * or one for both, given to a side whose model takes one (`modelHastes`); undefined for anything
  * else, and each side's is then its character's.
  */
 export function readHaste(search: string): Readonly<Partial<Record<Side, number>>> | undefined {
   const text = new URLSearchParams(search).get(HASTE_PARAM);
   if (text === null) return undefined;
-  const parts = text.split(","), given = parts.map(balanceFrom).filter((p) => p !== null && validHaste(p));
+  const parts = text.split(","), given = parts.map(hasteFrom).filter((p) => p !== null);
   if (parts.length > 2 || given.length !== parts.length) return undefined;
   const models = readMatchup(search);
   return { ...(modelHastes(models.left) ? { left: given[0]! } : {}), ...(modelHastes(models.right) ? { right: given[given.length - 1]! } : {}) };

@@ -92,11 +92,11 @@ test("a_balance_in_the_address_is_a_plain_decimal_per_cent_none_or_more_or_the_c
   assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, balance: 0 }, "?play=lab&balance=3")).getAll("balance"), ["0"]);
 });
 
-test("a_haste_in_the_address_is_a_plain_decimal_per_cent_over_none_or_the_characters_own", () => {
-  assert.deepEqual(["150", "100", "62.5"].map((text) => labAddress(`?haste=${text}`).haste), [150, 100, 62.5]);
-  for (const text of ["", "0", "-10", "fast", "Infinity"]) assert.equal(labAddress(`?haste=${text}`).haste, null, text);
-  assert.equal(new URLSearchParams(labHref(DEFAULTS, "?play=lab&haste=150")).has("haste"), false);
-  assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, haste: 150 }, "?play=lab")).getAll("haste"), ["150"]);
+test("a_haste_in_the_address_is_a_signed_decimal_per_cent_over_a_persons_or_the_characters_own", () => {
+  assert.deepEqual(["50", "+50", "0", "-37.5"].map((text) => labAddress(`?haste=${text}`).haste), [50, 50, 0, -37.5]);
+  for (const text of ["", "-100", "-110", "fast", "Infinity"]) assert.equal(labAddress(`?haste=${text}`).haste, null, text);
+  assert.equal(new URLSearchParams(labHref(DEFAULTS, "?play=lab&haste=50")).has("haste"), false);
+  assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, haste: 50 }, "?play=lab")).getAll("haste"), ["50"]);
 });
 
 test("the_attacks_targets_and_their_seed_are_whole_numbers_in_the_address_or_the_attacks_own", () => {

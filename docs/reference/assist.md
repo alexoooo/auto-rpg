@@ -35,8 +35,9 @@ cent in place of the rulebook's (`DuelRecipe.balancePercent`).
 
 ## Haste
 
-A character's **haste** is how fast its legs' muscles are, a per cent of a person's, in its spec
-beside its balance (`AttributeSpec.haste`). It multiplies the unloaded speed of shortening of the
+A character's **haste** is how much faster its legs' muscles are than a person's, a per cent over
+a person's, in its spec beside its balance (`AttributeSpec.haste`): 0 is a person's, as a balance
+of 0 is no assist, and +50 is legs half again as fast. It multiplies the unloaded speed of shortening of the
 hip's, the knee's and the ankle's exertions (`jointSpeed`, `src/core/human/speed.ts`), and nothing
 else: strength, mass and gravity are as they are, so a hasted body can neither float nor look
 fast-forwarded. It is not an assist: no force or moment is given that the muscles do not give.
@@ -46,11 +47,11 @@ All of it is the owner's (`owner-haste` in `SOURCES`):
 | What | Value | Where |
 |---|---|---|
 | The attribute's name | haste | `AttributeSpec.haste` |
-| Every character's haste | 100 % | `HUMAN_HASTE` (`src/core/human/attributes.ts`) |
+| Every character's haste | 0 % | `HUMAN_HASTE` (`src/core/human/attributes.ts`) |
 | What it quickens | the hip's, knee's and ankle's (and the foot's) exertions, each way | `jointSpeed` |
 
 A bout takes a haste for each side in place of its character's (`DuelRecipe.haste`; in a link,
-`&haste=left,right` in per cent, or one number for both), as the Lab does for its body
+`&haste=left,right` in per cent over a person's, signed, or one number for both), as the Lab does for its body
 (`&haste=`); a humanoid's spec takes one (`modelSpec`), the reptile's none. A figure on a hasted
 body names each side's haste.
 
@@ -64,10 +65,10 @@ calm and in four seeds of the Lab's 5 N gusts (`research/run-cycle-search.mjs --
 
 | Haste | Power | Score | Runs, of 150 | Turns, of 60 | Stops, of 90 |
 |---|---|---|---|---|---|
-| 100 % | any | 1.77 | 19 | 20 | 18 |
-| 150 % | 0 | 1.76 | 26 | 23 | 18 |
-| 150 % | 1/2 | 1.29 | 68 | 53 | 39 |
-| 150 % | 1 | 0.44 | 106 | 60 | 57 |
+| 0 % | any | 1.77 | 19 | 20 | 18 |
+| +50 % | 0 | 1.76 | 26 | 23 | 18 |
+| +50 % | 1/2 | 1.29 | 68 | 53 | 39 |
+| +50 % | 1 | 0.44 | 106 | 60 | 57 |
 
 A gait quickened by its muscles alone keeps its strides and steps faster than gravity lets the body
 fall onto them: the times a pendulum's swing and a stance's fall take are not the muscles' to
@@ -80,12 +81,12 @@ over the last 6 s of the empty-handed runs asked 5 m/s, and the trials that fell
 
 | Haste | Balance | Warrior | Rogue | skeleton | Score | Runs, turns, stops fell |
 |---|---|---|---|---|---|---|
-| 100 % | 0 % | 3.38 | 3.15 | 3.47 | 1.77 | 19, 20, 18 |
-| 150 % | 0 % | 3.67 | falls at 12 to 15 s, past 3.5 | 3.49 | 1.76 | 26, 23, 18 |
-| 100 % | 25 % | 3.59 | 2.83 | 3.09 | 1.87 | 2, 2, 1 |
-| 150 % | 25 % | 3.68 | 2.99 | 3.21 | 1.90 | 4, 6, 5 |
+| 0 % | 0 % | 3.38 | 3.15 | 3.47 | 1.77 | 19, 20, 18 |
+| +50 % | 0 % | 3.67 | falls at 12 to 15 s, past 3.5 | 3.49 | 1.76 | 26, 23, 18 |
+| 0 % | 25 % | 3.59 | 2.83 | 3.09 | 1.87 | 2, 2, 1 |
+| +50 % | 25 % | 3.68 | 2.99 | 3.21 | 1.90 | 4, 6, 5 |
 
-The run's settings (`RUN_CYCLE`) are searched at both hastes together (`--haste 100,150`).
+The run's settings (`RUN_CYCLE`) are searched at both hastes together (`--haste 0,50`).
 
 ## A gait's assist
 
@@ -97,7 +98,7 @@ radius of gyration would be turned, less any part that would lean it further for
 for what the soles miss ("What the soles miss"); a gait has no such solve, and before it asked
 nothing a body's balance did not help it walk or run.
 
-On the battery of "Haste" above, at haste 100 %, the trials that fell, and the speed the
+On the battery of "Haste" above, at haste 0 %, the trials that fell, and the speed the
 Warrior held asked 5 m/s empty-handed:
 
 | Balance | Runs, of 150 | Turns, of 60 | Stops, of 90 | Warrior asked 5, m/s |

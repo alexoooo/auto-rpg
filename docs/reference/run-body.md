@@ -37,7 +37,7 @@ repository; its run is now `runCycle`, searched on these numbers by
 With today's run (`RUN_CYCLE`), empty-handed in the guard, set off from a stand and asked a pace
 for 22 s, calm and on four seeds of the Lab's 5 N gusts the search never saw
 (`research/run-cycle-search.mjs --score --speeds 1.4,2,3,4,5 --winds 1:5:5,6,7,8 --seconds 22
---windows`: Node stand, Rapier, 120 Hz, balance 0 %, haste 100 %), the speed made along the
+--windows`: Node stand, Rapier, 120 Hz, balance 0 %, haste 0 %), the speed made along the
 heading from when it first went 0.7 m/s to the end, setting off included, in the least to the most
 of the five trials, a fall marked:
 

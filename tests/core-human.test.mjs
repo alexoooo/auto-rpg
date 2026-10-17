@@ -479,13 +479,13 @@ test("a physique changes what it names and nothing else, and the default physiqu
   }
 });
 
-test("a haste quickens the legs' muscles alone, a person's haste is the model, and only a humanoid takes one", () => {
+test("a haste quickens the legs' muscles alone, a person's haste is the model at 0, and only a humanoid takes one", () => {
   const legs = /^(hip|knee|ankle)./;
   for (const model of HUMANOID_MODELS) {
-    const base = humanoidSpec(model), hasted = humanoidSpec(model, undefined, 150);
-    assert.deepEqual(valuesOf(humanoidSpec(model, undefined, 100)), valuesOf(base), `${model}: a person's haste`);
-    assert.equal(base.attributes.haste.value, 100, model);
-    assert.equal(hasted.attributes.haste.value, 150, model);
+    const base = humanoidSpec(model), hasted = humanoidSpec(model, undefined, 50);
+    assert.deepEqual(valuesOf(humanoidSpec(model, undefined, 0)), valuesOf(base), `${model}: a person's haste`);
+    assert.equal(base.attributes.haste.value, 0, model);
+    assert.equal(hasted.attributes.haste.value, 50, model);
     assert.deepEqual(specProvenanceFaults(hasted), [], model);
     let quickened = 0;
     hasted.joints.forEach((j, i) => j.dofs.forEach((d, k) => {
@@ -500,8 +500,8 @@ test("a haste quickens the legs' muscles alone, a person's haste is the model, a
     assert.deepEqual(valuesOf({ ...hasted, attributes: null, joints: hasted.joints.map((j) => ({ ...j, dofs: j.dofs.map((d) => ({ ...d, muscle: { ...d.muscle, speedPositive: null, speedNegative: null } })) })) }),
       valuesOf({ ...base, attributes: null, joints: base.joints.map((j) => ({ ...j, dofs: j.dofs.map((d) => ({ ...d, muscle: { ...d.muscle, speedPositive: null, speedNegative: null } })) })) }), `${model}: haste changes the legs' speeds alone`);
   }
-  for (const haste of [0, -10, Number.NaN, Infinity]) assert.throws(() => humanSpec("workshop-fighter", undefined, haste), /positive per cent/);
-  assert.throws(() => modelSpec("reptile", undefined, { haste: 150 }), /takes no haste/);
+  for (const haste of [-100, -150, Number.NaN, Infinity]) assert.throws(() => humanSpec("workshop-fighter", undefined, haste), /above -100/);
+  assert.throws(() => modelSpec("reptile", undefined, { haste: 50 }), /takes no haste/);
 });
 
 test("a body at the grid's corners and beyond keeps its sourced numbers, its soles on the ground and room between its segments", () => {

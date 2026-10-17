@@ -161,10 +161,10 @@ export interface AttributeSpec {
    */
   readonly balance: Quantity<number>;
   /**
-   * How fast its legs' muscles are: the unloaded speed of the hip's, the knee's, the ankle's and
-   * the foot's exertions, per cent of its family's (`jointSpeed`, a human's). A gait that times
-   * itself to its muscles is quicker by it (`hasteOver`, `scaledGait`). At 100 the legs are its
-   * family's own.
+   * How fast its legs' muscles are beyond its family's: the unloaded speed of the hip's, the knee's,
+   * the ankle's and the foot's exertions, per cent over its family's (`jointSpeed`, a human's). A
+   * gait that times itself to its muscles is quicker by it (`hasteOver`, `scaledGait`). At 0 the
+   * legs are its family's own; at +50 they are half again as fast.
    */
   readonly haste: Quantity<number>;
 }

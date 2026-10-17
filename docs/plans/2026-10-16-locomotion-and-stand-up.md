@@ -30,7 +30,7 @@ to 5 m/s, three stops, two turns, gust seeds 5 to 8, empty and club: 300 trials;
 |---|---|---|
 | Balance 0 | 57 | 3.38 / 3.15 / 3.47 |
 | Balance 25 | 5 | 3.59 / 2.83 / 3.09 |
-| Haste 150, Balance 25 | 15 | 3.68 / 2.99 / 3.21 |
+| Haste +50, Balance 25 | 15 | 3.68 / 2.99 / 3.21 |
 
 **The stand-up.** Every humanoid stands up by `step-up` (`src/core/mind/ground/step-up.ts`). On the
 owner's 64-fall target (`node research/rising-bed.mjs --target --techniques step-up`, 30 s cap),
@@ -64,7 +64,7 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
   the straight leg reaches the ground, and a landing asked farther bends the stance knee, up to
   0.8 rad; stopping, a landing gives the legs back to the stance under 0.5 m/s in all
   (`90095ac8`).
-- **Measured** (Node stand, Rapier, 120 Hz, balance 0, haste 100). The stop battery
+- **Measured** (Node stand, Rapier, 120 Hz, balance 0, haste 0). The stop battery
   (`run-cycle-search --score --stops 1.4,1.8,2.4,3.5 --stop-at 2.5,4,6,8 --holds empty,club
   --seconds 20`) fell 8 of 96 before and 3 after: none of a stop asked by 6 s. Left: the Rogue
   with the club asked 3.5 and to stop at 8 s falls at 10.8 s; the skeleton falls 9 to 10 s after
@@ -172,7 +172,7 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
 ### L5. The pace stops at about 3.7 m/s
 
 - **Seen.** Asked 4 or 5 m/s, a body settles at the same pace. That pace is the fixed point of a
-  pace held `ahead` (0.46 m/s) past the body's own speed. Haste 150 adds 0.2 to 0.3 m/s.
+  pace held `ahead` (0.46 m/s) past the body's own speed. Haste +50 adds 0.2 to 0.3 m/s.
 - **Why it is held.** A cycle quickened past what the body has come up to throws it forward of its
   feet; `ahead` is what let Haste help at all.
 - **Searched.** L2's search, with cells at 3 and 4 m/s, empty and with the club, moved the
@@ -205,23 +205,23 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
 
 ### L6. Haste and Balance at the edges
 
-- **The Rogue at Haste 150 without Balance** passes 3.5 m/s and falls at 12 to 15 s.
+- **The Rogue at Haste +50 without Balance** passes 3.5 m/s and falls at 12 to 15 s.
 - **Balance costs the Rogue and the skeleton pace**: 2.83 m/s against 3.15, and 3.09 against
   3.47, at 25 %. The skeleton's turns fall more at 10 % (5 of 20) than at 0 (2).
-- **Now** (after L1, `90095ac8`; Node stand, Rapier, 120 Hz, balance 0, asked 4 m/s): Haste 200 no
+- **Now** (after L1, `90095ac8`; Node stand, Rapier, 120 Hz, balance 0, asked 4 m/s): Haste +100 no
   longer falls at the handover. It takes the Warrior's pace from 3.3 to 3.7 m/s and the
-  skeleton's by about 0.05. The Rogue at Haste 200 runs away as in L4 and falls at about 11 s; at
-  Haste 100 it is still gaining speed at 16 s (3.24 m/s).
+  skeleton's by about 0.05. The Rogue at Haste +100 runs away as in L4 and falls at about 11 s; at
+  Haste 0 it is still gaining speed at 16 s (3.24 m/s).
 - **Since the narrower run** (L8, `8d30a6d9`; asked 4 and 5 m/s, empty and with the club, and
-  turning, calm): Haste 200 takes the steady pace from 3.50 to 3.74 m/s for the Warrior, 2.65 to
+  turning, calm): Haste +100 takes the steady pace from 3.50 to 3.74 m/s for the Warrior, 2.65 to
   3.14 for the Rogue and 2.98 to 3.22 for the skeleton. The Warrior falls in 3 of its 6 trials
-  there, 11 to 16 s in, running away as the Rogue does with the club (L4); at Haste 150 it falls
+  there, 11 to 16 s in, running away as the Rogue does with the club (L4); at Haste +50 it falls
   in 2 of 6.
-- **Searched** with Haste 100 and 200 in the cells (21 lateral, lean, stance and pace settings,
+- **Searched** with Haste 0 and +100 in the cells (21 lateral, lean, stance and pace settings,
   speeds 3 to 5, a turn and a stop, empty and with the club, calm, `--narrow 0.3`, 16
-  generations): its best keeps the Warrior up at Haste 200 (0 of 6) at 3.61 m/s, but the gait
-  battery at Haste 100 fell 30 of 300 against 19, the Rogue 27 against 16. Not kept.
-- **Bar** (Haste 200 adds at least 0.5 m/s to the Warrior, and the Rogue does not run away): not
+  generations): its best keeps the Warrior up at Haste +100 (0 of 6) at 3.61 m/s, but the gait
+  battery at Haste 0 fell 30 of 300 against 19, the Rogue 27 against 16. Not kept.
+- **Bar** (Haste +100 adds at least 0.5 m/s to the Warrior, and the Rogue does not run away): not
   met.
 - **Next.** The pace comes before Haste (L5): Haste quickens a cycle whose stride does not
   lengthen. Measure the pace Balance costs, and whether the assist's pitch term is what slows
@@ -478,7 +478,7 @@ unless a context has its own rule.
 2. **Step-up on today's legs (S1).** It is the largest regression and the game's default rise.
 3. **Stopping (L1, L2)**, then the planners' brake.
 4. **The club's run (L4).**
-5. **Pace past 3.7 m/s and Haste 200 (L5, L6).**
+5. **Pace past 3.7 m/s and Haste +100 (L5, L6).**
 6. **A fast stand-up (S3, S4)**, unassisted as far as it goes, screened through the acceptance
    pinned again on the settled legs (S5).
 7. **The stand-up assist (S6)**, measured against the unassisted figure.
