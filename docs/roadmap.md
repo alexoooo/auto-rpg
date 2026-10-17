@@ -370,9 +370,10 @@ After it, each with its own plan, in the order each needs the one before:
       for the skeleton (calm, empty-handed and with the club). Its stride falls short of the
       clips' at the cadence it runs, and no leg muscle but the ankles is at its ceiling there. Its envelope
       (`assets/core/simbicon-run-envelope.json`, each walk set off 10 s and resting 10 s after)
-      holds forward by the rule only to 1.2 for the Warrior and the skeleton and 1.4 for the
-      Rogue, since a few trials at every pace fall. Forward at 3 m/s the Warrior held 7 of its 10
-      trials, the Rogue 9 and the skeleton 10; at 4, 7, 5 and 8. So whether a body runs is its mind's choice of risk: the envelope keeps
+      holds forward by the rule to 4 m/s for the Warrior, and only to 1.2 for the Rogue and the
+      skeleton, since a few of their trials at every pace fall. Forward at 3 m/s the Warrior held
+      10 of its 10 trials, the Rogue 7 and the skeleton 10; at 4, 10, 3 and 10. So whether a body
+      runs is its mind's choice of risk: the envelope keeps
       each way's trials (`StanceEnvelope.tried`), the gait takes any pace that held a fifth of
       them (`REACH`), an order to run or a destination the fastest that held 0.6 (`RUN`,
       `ordered.ts`), and the options fighter closing on a place 0.8 (`SPACE.share`, `walk.ts`).

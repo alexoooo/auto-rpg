@@ -238,6 +238,12 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
   hip's spin term.
 - The stance's and the stride's turn tables count a turn held where the body stayed up, not where
   it faced round (two `todo` turn tests).
+- The walk's envelope (`assets/core/simbicon-envelope.json`) was measured before the walk's stop
+  (`90095ac8`). Measured again on today's walk (`c54f44aa`), the Warrior with the club walking
+  backwards at 0.4 m/s falls in 1 of its 5 trials, which by the rule takes its walk backwards
+  from 2 to 0.3 m/s and its walk every way from 1.4 to 0.3; every other way and body is within
+  a step of the asset. The asset is kept, and the envelope test holds the walk to it; whether
+  one fall in five at one pace should cap a way is the rule's question.
 - Acceleration is slow. Asked 3.5 m/s, calm (`8d30a6d9`; Node stand, Rapier, 120 Hz, balance 0),
   from 1 to 3 m/s takes the Warrior 6.5 s empty-handed and 5 s with the club, the Rogue 8.25 s
   with the club, and the skeleton 8.5 s. The Rogue empty-handed reaches 2.5 m/s 6 s after 1 m/s
