@@ -10,7 +10,7 @@ import type { BearingPoint } from "../../control/contact-wrench.ts";
 import { lowsOf } from "../../control/ground.ts";
 import { chainTo } from "../../control/kinematics.ts";
 import { SOLE_MARGIN } from "../../control/stance-tuning.ts";
-import { bearingSole, footStatesOf, motionAtToRef, pointOfToRef, readSupport, rolledRows, type FootState } from "../../control/support.ts";
+import { type FootState, bearingSole, footStatesOf, motionAtToRef, pointOfToRef, readSupport, rolledEdge, rolledRows } from "../../control/support.ts";
 import { hypot } from "../../math/real.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { handShapeAt, type HandPose, type ShapeSpec } from "../../spec/body.ts";
@@ -326,8 +326,8 @@ function footLimb(own: OwnBody, spec: FootLimb, foot: FootState): Part {
   return {
     limb, over: at,
     read(ground) {
-      foot.memory.rolled = foot.edge.y + foot.heel - ground >= DOWN;
-      at.copyFrom(foot.memory.rolled ? foot.edge : foot.middle);
+      foot.memory.rolled = foot.ends.front.middle.y + foot.heel - ground >= DOWN ? "front" : null;
+      at.copyFrom(rolledEdge(foot)?.middle ?? foot.middle);
     },
     bear(goal, rate, ground, transfer) {
       hold(limb, rate, ground);

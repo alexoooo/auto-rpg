@@ -8,7 +8,8 @@ import type { Assist } from "./assist.ts";
 import { makeBearing, type Bearing, type Limb, type LimbTask } from "./bearing.ts";
 import type { WholeBodyAsk } from "./solve.ts";
 import type { StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
-import type { SwingShift } from "./swing-leg.ts";
+import { makeLegNow, type LegNow, type SwingShift } from "./swing-leg.ts";
+import type { SwingBow } from "./swing-path.ts";
 import { resolveStance, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
 import { footStatesOf, massOf, restWidth, type FootMemory, type FootState } from "./support.ts";
 import type { Side } from "../spec/body.ts";
@@ -103,6 +104,11 @@ interface StanceScratch {
   readonly wholeAxis: Vector3;
   /** A swing's progress at a time: the share of the way, and its rates per share of the swing's time and per its square (`swingProgressToRef`). */
   readonly progress: Vector3;
+  /** The swinging leg as it is (`legNowToRef`). */
+  readonly legNow: LegNow;
+  /** The swing's path's bow clear of the bearing sole (`swingBowToRef`), and the path's acceleration (`swingPathToRef`). */
+  readonly bow: SwingBow;
+  readonly accel: Vector3;
 }
 
 /**
@@ -175,7 +181,7 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
       path: new Vector3(), along: new Vector3(), sole: new Vector3(), v: new Vector3(),
       target: new Quaternion(), pelvisSpin: new Vector3(), turn: new Vector3(),
       p: new Vector3(), hipAt: new Vector3(), ankleAt: new Vector3(), kneeAt: new Vector3(), shank: new Quaternion(),
-      footTurn: new Quaternion(), level: new Quaternion(), whole: new Quaternion(), wholeAxis: new Vector3(), progress: new Vector3(),
+      footTurn: new Quaternion(), level: new Quaternion(), whole: new Quaternion(), wholeAxis: new Vector3(), progress: new Vector3(), legNow: makeLegNow(), bow: { aside: [0, 0], at: 0.5 }, accel: new Vector3(),
     },
   };
 }

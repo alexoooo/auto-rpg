@@ -19,15 +19,25 @@ import type { Side } from "../spec/body.ts";
 export const groundContact = (contact: Contact, minUp: number): boolean =>
   contact.fixed !== null && contact.impulse > 0 && contact.normal[1] < -minUp;
 
+/** An end of a sole, front or heel. */
+export type SoleEnd = "front" | "heel";
+
+/** An end of a sole: its two corners, their middle, and their line's direction, level, unit; world, as last read. */
+interface SoleEdge {
+  readonly corners: Vector3[];
+  readonly middle: Vector3;
+  readonly axis: Vector3;
+}
+
 /** What of a foot a stance keeps from one step to the next. */
 export interface FootMemory {
   /** The stance leg's channels, the chain's freedoms in order. */
   channels: number[];
   /**
-   * Whether the foot bears on its sole's front edge, its heel lifted: its ankle held short of its
-   * dorsiflexion stop, the leg pivots about that edge.
+   * The end of its sole the foot bears on, the other lifted: its ankle held short of that end's
+   * stop, the leg pivots about that edge. Null, the sole is flat.
    */
-  rolled: boolean;
+  rolled: SoleEnd | null;
 }
 
 /** A foot as the stance reads it. */
@@ -45,7 +55,7 @@ export interface FootState {
   readonly lengths: readonly [number, number];
   /** The knee's flexion, rad, at which the leg is straight: less its bend in the reference pose. */
   readonly straight: number;
-  /** The leg as a pendulum about its hip (`swingShiftToRef`). */
+  /** The leg as a pendulum about its hip (`swingSeconds`, `withinReach`). */
   readonly leg: SwingLeg;
   /** The sole's width across the foot, m. */
   readonly width: number;
@@ -56,11 +66,8 @@ export interface FootState {
    * then the heel's. The foot's own, whichever way it is turned.
    */
   readonly ahead: readonly number[];
-  /** The sole's front edge (`ahead`'s first two corners), world, as last read. */
-  readonly toe: Vector3[];
-  /** The front edge's middle, and its line's direction, level, unit; world, as last read. */
-  readonly edge: Vector3;
-  readonly edgeAxis: Vector3;
+  /** The sole's two ends, world, as last read: the front edge (`ahead`'s first two corners) and the heel's. */
+  readonly ends: { readonly front: SoleEdge; readonly heel: SoleEdge };
   /** How far the heel's edge stands over the front edge, m, as last read. */
   heel: number;
   /** `heel` in the reference pose, the foot flat on the ground, m. */
@@ -74,7 +81,7 @@ export interface FootState {
 
 /**
  * `built`'s two feet as a stance reads them, left then right, each read as the body stands now.
- * What is a foot's own (its sole, its front edge's corners, its heel's height flat) is the
+ * What is a foot's own (its sole, its ends' corners, its heel's height flat) is the
  * reference pose's, whatever pose the body is in.
  */
 export function footStatesOf(built: BuiltBody): FootState[] {
@@ -83,12 +90,12 @@ export function footStatesOf(built: BuiltBody): FootState[] {
     if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
     const corners = soleCorners(segment), sole = soleOf(segment, corners), chain = chainTo(built, segment);
     const ahead = aheadOf(corners, chain[2]!.spec.centre.value);
-    return { turns: turnsOf(chain[0]!), side, segment, chain, sole, memory: { channels: [] as number[], rolled: false }, corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
+    return { turns: turnsOf(chain[0]!), side, segment, chain, sole, memory: { channels: [] as number[], rolled: null }, corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
       straight: -referenceBendOf(chain), leg: swingLegOf(chain),
       width: Math.max(...sole.map((q) => q.x)) - Math.min(...sole.map((q) => q.x)),
       // The rectangle's sides from one corner: the nearer two of the other three.
       reach: [1, 2, 3].map((k) => Vector3.Distance(sole[0]!, sole[k]!)).sort((a, b) => a - b)[1]! / 2,
-      ahead, middle: new Vector3(), toe: [new Vector3(), new Vector3()], edge: new Vector3(), edgeAxis: new Vector3(), heel: 0,
+      ahead, middle: new Vector3(), ends: { front: soleEdge(), heel: soleEdge() }, heel: 0,
       flat: (corners[ahead[2]!]![1] + corners[ahead[3]!]![1]) / 2 - (corners[ahead[0]!]![1] + corners[ahead[1]!]![1]) * 0.5 };
   });
   for (const foot of feet) {
@@ -270,25 +277,50 @@ export function bearingSole(foot: FootState, keep: number): BearingSole {
   // The corner a long side away from the first: the middle of the three distances.
   const other = rest[near[1]![1]]!, along = other.subtract(a!);
   along.y = 0;
-  // Rolled, the centre of pressure is on the front edge: kept within the margin's band of it.
-  if (foot.memory.rolled) return { kind: "sole", middle: foot.edge, along: along.normalize(), length: (1 - keep) * foot.reach, width: keep * foot.width / 2 };
+  // Rolled, the centre of pressure is on the edge the foot bears on: kept within the margin's band of it.
+  const edge = rolledEdge(foot);
+  if (edge) return { kind: "sole", middle: edge.middle, along: along.normalize(), length: (1 - keep) * foot.reach, width: keep * foot.width / 2 };
   return { kind: "sole", middle: foot.middle, along: along.normalize(), length: keep * foot.reach, width: keep * foot.width / 2 };
 }
 
 /**
- * The rows of a task at the front edge of `foot`, rolled (`LimbWork.rows`): of the foot's spin, the
+ * The rows of a task at the edge `foot` bears on, rolled (`LimbWork.rows`): of the foot's spin, the
  * part about the level normal to the edge and the part about up; and the edge's middle's velocity.
  * Its turn about the edge is left free.
  */
 export function rolledRows(foot: FootState): Row[] {
-  const w = Vector3.Cross(foot.edgeAxis, Vector3.UpReadOnly);
+  const w = Vector3.Cross(rolledEdge(foot)!.axis, Vector3.UpReadOnly);
   return [[[0, w.x], [1, w.y], [2, w.z]], [[1, 1]], [[3, 1]], [[4, 1]], [[5, 1]]];
 }
 
-/** The sole a foot bears on, for the region the stance holds: its front edge when rolled. */
+/** The sole a foot bears on, for the region the stance holds: the edge it is rolled onto, if it is. */
 export function bearingOf(foot: FootState): Sole {
-  return foot.memory.rolled ? { corners: foot.toe } : foot;
+  const edge = rolledEdge(foot);
+  return edge ? { corners: edge.corners } : foot;
 }
+
+/** An end of a sole with nothing read into it yet. */
+function soleEdge(): SoleEdge {
+  return { corners: [new Vector3(), new Vector3()], middle: new Vector3(), axis: new Vector3() };
+}
+
+/** The end of its sole `foot` bears on, rolled, or null flat (`FootMemory.rolled`). */
+export function rolledEdge(foot: FootState): SoleEdge | null {
+  return foot.memory.rolled === null ? null : foot.ends[foot.memory.rolled];
+}
+
+/**
+ * The end of `foot`'s sole the point (`x`, `z`), world, is past: beyond its front edge or its heel's
+ * edge, out from the sole's middle; null over the sole.
+ */
+export function endPast(foot: FootState, x: number, z: number): SoleEnd | null {
+  for (const end of ENDS) {
+    const edge = foot.ends[end].middle, ox = edge.x - foot.middle.x, oz = edge.z - foot.middle.z;
+    if ((x - edge.x) * ox + (z - edge.z) * oz >= 0) return end;
+  }
+  return null;
+}
+const ENDS: readonly SoleEnd[] = ["front", "heel"];
 
 /**
  * A sole's `corners` (body frame, reference pose) in order ahead of the `ankle`'s centre (the
@@ -301,17 +333,22 @@ function aheadOf(corners: readonly Vec3[], ankle: Vec3): number[] {
 }
 
 /**
- * `foot`'s front edge, read into it from its corners (`soleMiddleToRef` reads them): its two
- * corners, their middle, their line's direction, level, and how far the heel's two stand over them.
+ * `foot`'s two ends, read into it from its corners (`soleMiddleToRef` reads them): each's two
+ * corners, their middle and their line's direction, level; and how far the heel's stand over the front's.
  */
 function edgeOf(foot: FootState): void {
   const [front, other, back, last] = foot.ahead;
-  const a = foot.corners[front!]!, b = foot.corners[other!]!;
-  foot.toe[0]!.copyFrom(a);
-  foot.toe[1]!.copyFrom(b);
-  foot.edge.copyFrom(a).addInPlace(b).scaleInPlace(0.5);
-  foot.edgeAxis.set(b.x - a.x, 0, b.z - a.z).normalize();
-  foot.heel = (foot.corners[back!]!.y + foot.corners[last!]!.y) / 2 - foot.edge.y;
+  endToRef(foot.corners[front!]!, foot.corners[other!]!, foot.ends.front);
+  endToRef(foot.corners[back!]!, foot.corners[last!]!, foot.ends.heel);
+  foot.heel = foot.ends.heel.middle.y - foot.ends.front.middle.y;
+}
+
+/** The end of a sole whose corners are `a` and `b`, into `out`. */
+function endToRef(a: Vector3, b: Vector3, out: SoleEdge): void {
+  out.corners[0]!.copyFrom(a);
+  out.corners[1]!.copyFrom(b);
+  out.middle.copyFrom(a).addInPlace(b).scaleInPlace(0.5);
+  out.axis.set(b.x - a.x, 0, b.z - a.z).normalize();
 }
 
 /**

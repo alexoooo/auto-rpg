@@ -48,6 +48,8 @@ export interface GaitTuning {
    * bend the plan's straight leg has not, and the strength the hip loses at speed.
    */
   readonly effort: number;
+  /** How far the swinging sole's middle passes from the bearing sole's middle beyond a sole's width, m: the swing's path bows out to it (`swingBowToRef`). */
+  readonly clearance: number;
   /** How fast the walk's pace goes toward the one asked, m/s^2: a body does not reach a walk in one step. */
   readonly accel: number;
   /**
@@ -119,10 +121,11 @@ const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05
  * foot rolls onto its toes and its knee flexes toward `preswing.knee`, the 35 degrees of a
  * person's knee at toe-off (Simoneau, "Kinesiology of Walking", in Neumann, "Kinesiology of the
  * Musculoskeletal System", 2nd ed., 2010, ch. 15): a leg that lifts still extending asks its hip
- * for more than its strength in a fast walk.
+ * for more than its strength in a fast walk. The swing's path bows `clearance` clear of the bearing
+ * sole: the swinging foot met the bearing foot at mid-swing in a 1.4 m/s walk and was thrown up and short.
  * Sweeps: `docs/reference/stance-tuning.md#gait`.
  */
-export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, effort: 0.5, accel: 1, transfer: 0.08,
+export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, effort: 0.5, clearance: 0.03, accel: 1, transfer: 0.08,
   preswing: { knee: 0.61, seconds: 0.04 } };
 
 /**

@@ -117,8 +117,9 @@ test("a walk is a touch a footfall while a touch lasts as long as the contact", 
     assert.ok(heard.contact.every((touch) => touch.on === null && touch.of.segment.spec.name.startsWith("foot.")), `${[...new Set(feet)]}`);
     assert.ok(feet.length >= strides - 2 && feet.length <= strides, `${feet.length} touches in ${strides} strides`);
     assert.ok(feet.every((foot, i) => i === 0 || foot !== feet[i - 1]), `the feet take turns: ${feet.join(" ")}`);
-    // A foot down can be let off within a step, so a touch that lasts only while it is pushed lands again.
-    assert.ok(heard.pushed.length > feet.length, `${heard.pushed.length} touches while pushed, ${feet.length} in contact`);
+    // A foot down may be let off within a step, so a touch that lasts only while it is pushed lands again: never fewer.
+    assert.ok(heard.pushed.length >= feet.length, `${heard.pushed.length} touches while pushed, ${feet.length} in contact`);
+    assert.ok(heard.pushed.every((touch) => touch.on === null && touch.of.segment.spec.name.startsWith("foot.")));
   } finally { stance.dispose(); stand.dispose(); }
 });
 

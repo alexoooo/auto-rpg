@@ -29,11 +29,11 @@ const straight = (more) => evaluateBlow({ model: WARRIOR_STRAIGHT.model, held: F
 const takenBy = (blows, fighter) => blows.reduce((sum, blow) => sum + (woundedIn(blow).find((side) => side.fighter === fighter)?.damage ?? 0), 0);
 const near = (a, b) => Math.abs(a - b) < 1e-9;
 
-/** Every trunk freedom pushed flat out for a second, from the guard: a blow no body stands after. */
+/** Every trunk freedom pushed flat out for two seconds, from the guard: a blow no body stands after; pushed for one, the stance now catches the body. */
 const THROWN_DOWN = {
-  name: "every trunk freedom, flat out", hand: "right",
+  name: "every trunk freedom, flat out, held twice over", hand: "right",
   pushes: ["thoracic rotation right", "lumbar rotation right", "thoracic flexion", "thoracic lateral flexion right", "lumbar flexion"]
-    .map((channel) => ({ channel, sense: 1, from: 0, to: 1, level: 1 })),
+    .map((channel) => ({ channel, sense: 1, from: 0, to: 2, level: 1 })),
 };
 
 test("a_blow_is_scored_by_what_it_does_less_what_it_costs", async () => {
