@@ -71,6 +71,9 @@ screens build on it; it never imports them.
   a source.
   `specProvenanceFaults` (`tests/fixtures/spec.mjs`) enforces this. A record in a file that has
   since been deleted is written `path@<commit>`. A spec never spreads another family's spec.
+  This is bookkeeping, not a bar: the body is inspired by reality, not held to it, and a number the
+  game wants is set to what gets the result, sourced as the owner's decision. Nothing outside a
+  spec (controllers, skills, learned weights) needs a source.
 - **The core's arithmetic is the same in every JavaScript engine.** It computes with IEEE's
   operations (`+`, `-`, `*`, `/`, `Math.sqrt`) and its own functions (`src/core/math/real.ts`,
   `turn.ts`), never `Math.sin` and its kin, `Math.hypot`, `Math.pow` or `**`, which an engine may
