@@ -128,12 +128,14 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   /** What its mind may not strike with: each thing held whose strike is barred. */
   readonly barred: readonly Held[];
   readonly hz: LabRate;
+  /** Whether the body's motor control is the whole-body solve (`MindWiring.solve`) in place of the bearing solve's. */
+  readonly solve: boolean;
   /** Targets maintained in the Attack field, 0 to `LAB_TARGETS.most`. */
   readonly targets: number;
   readonly seed: number;
 }
 
-const KEYS = ["groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
+const KEYS = ["groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "solve", "view", "camera", "projection", "targets", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -181,6 +183,7 @@ export function labAddress(search: string): LabAddress {
       : query.get("scenario") === "ground" ? groundMind(LAB_PRESETS.script.config) : LAB_PRESETS.script.config),
     barred: HELD.filter((h) => barred.includes(h)),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
+    solve: flag(query.get("solve"), false),
     view: VIEW_MODES.find((v) => v === query.get("view")) ?? VIEW_MODES[0],
     camera: CAMERA_MODES.find((c) => c === query.get("camera")) ?? CAMERA_MODES[0],
     projection: PROJECTIONS.find((p) => p === query.get("projection")) ?? PROJECTIONS[0],
@@ -225,6 +228,7 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("mind", mindText(address.mind, LAB_PRESETS));
   if (address.barred.length > 0) query.set("barred", address.barred.join(","));
   query.set("hz", String(address.hz));
+  if (address.solve) query.set("solve", "1");
   query.set("view", address.view);
   query.set("camera", address.camera);
   query.set("projection", address.projection);
@@ -238,7 +242,7 @@ export function recoveryAddress(address: LabAddress, recoveryMode: LabAddress["r
   if (recoveryMode === "selected") return { ...address, scenario: "recovery", recoveryMode };
   return { ...address, scenario: "recovery", recoveryMode, recoveryPush: {degrees:0,impulse:60,separation:.2},
     model: "workshop-fighter", right: "empty", left: "empty", sole: true,
-    balance: 0, haste: null, hz: 120, mind: LAB_PRESETS.script.config, barred: [], appearance: "default" };
+    balance: 0, haste: null, hz: 120, solve: false, mind: LAB_PRESETS.script.config, barred: [], appearance: "default" };
 }
 
 function recoveryModeFrom(value: string | null): LabAddress["recoveryMode"] {

@@ -316,7 +316,8 @@ and driven afresh to change what it costs.
   a torque past its strength is pinned there and the body solved again, up to four passes. Its
   rows rank as the bearing solve ranks them (the root and a torque held exactly, a foot by least
   squares beneath), so a body stands, steps and is pulled the same on either. A body is on it by
-  `BodyOptions.solve` (`MindWiring.solve`, a bout's `DuelRecipe.solve` by side); the stance gives it
+  `BodyOptions.solve` (`MindWiring.solve`, a bout's `DuelRecipe.solve` by side, the Lab's `&solve=` and
+  its Whole-body solve switch); the stance gives it
   the same asks it gives the bearing solve (`StanceControl.ask`), and the bearing solve remains the
   default.
 - **The stance** (`stance.ts`; its records in `stance-state.ts`, its steps in `gait.ts`, its

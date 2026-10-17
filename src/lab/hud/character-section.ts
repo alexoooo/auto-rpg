@@ -41,6 +41,7 @@ export function characterSection(page: LabPage): readonly Control[] {
       quantity("Haste, % over a person's", HASTE_STEP, validHaste, () => page.spec.attributes.haste.value, (haste) => page.load({ ...page.shown, haste: hasteAddress(haste) })),
     ]),
     toggle("Compliant soles", () => page.shown.sole, () => page.load({ ...page.shown, sole: !page.shown.sole })),
+    toggle("Whole-body solve", () => page.shown.solve, () => page.load({ ...page.shown, solve: !page.shown.solve })),
     group("Items", [
       ...LAB_HANDS.map((hand) =>
         choice(HANDS[hand], entries(HOLDS, HELD), () => page.shown[hand], (held) => page.load({ ...page.shown, [hand]: held }))),
