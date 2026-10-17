@@ -175,6 +175,36 @@ step, and a row is `{"recovery": {"margin": 0, "reach": 0.2, "seconds": 0.3, "li
 row for no step was read again. The later battery of the paragraph above, and its commit, were not
 recorded.
 
+### Assisted
+
+`STANCE_RECOVERY.assisted`: how much of what the body's assist holds is counted before it steps
+(`assistReach`, `src/core/control/gait.ts`). With an assist the capture point may be that share of
+the assist's reach outside what the soles hold, a force F at the centre of mass holding F h / (m g)
+and a moment M holding M / (m g), before a step is taken; with none, the reach is nothing and the
+rule is the one above. Against the shove battery (272 shoves), each body on the whole-body solve
+(`--solve`) with an assist at 25 % of its weight (`--balance 25`); "steps" is the recovery steps
+taken a shove held:
+
+        assisted   Rogue held  mean  least  steps    Warrior held  mean  least  steps
+        0          182         61.6  40     1.90     261           86.6  70     1.70
+        0.25       185         62.8  40     0.98     261           86.6  70     0.81
+        0.5        197         66.6  50     0.39     262           86.9  70     0.34
+        0.75       216         72.5  65     0.20     272           90.0  90     0.06
+        1          240         80.0  70     0.11     272           90.0  90     0.00   chosen
+
+The whole of the reach holds most and steps least: a step the assist did not need leaves a wide
+stance whose soles hold a thin band, as above. With no assist nothing moves (the Rogue 163 held
+on the solve and 142 on the bearing solve, the Warrior 238 and 237, before and after). On the
+bearing solve at 25 % the chosen row holds 231 (74.4, 60) and 271 (89.7, 85), from 177 (57.8,
+40) and 251 (82.5, 70) at 0. At 10 % the solve holds 183 (60.9, 45) and 261 (86.6, 65). To 150 N
+s (`--top 150`, 464 shoves) the Warrior at 25 % holds 361, a mean of 117.2 N s and a least of 95.
+
+Chosen: assisted 1.
+
+Command: the sweep at the commit that lands this section, with `--batteries shove --top 90 --solve
+--balance 25`; a row is `{"recovery": {"margin": 0.01, "seconds": 0.3, "lift": 0.05, "reach":
+0.2, "assisted": 0.5}}`.
+
 ## Gait
 
 `STANCE_GAIT`, against the walk battery (25 walks a human). Held is the walks that did not fall;

@@ -31,7 +31,8 @@ function settleStep(feet: readonly FootState[], last: Side, heading: number, wid
 
 /**
  * The step that catches a body whose capture point (Pratt et al. 2006) is more than `tuning.margin`
- * outside the region both soles hold (drawn in by `inset`), or null if it is not. The capture point
+ * and `held` (what its assist holds it through, `assistReach`) outside the region both soles hold
+ * (drawn in by `inset`), or null if it is not. The capture point
  * xi = c + v / w (w = sqrt(g / height)), the body falling about the bearing sole's nearest point p,
  * runs to p + (xi - p) exp(w T) by the swing's end T (Kajita et al. 2001); the foot lands past that
  * by `tuning.reach` of its distance from the bearing sole's middle, and at least a sole's width out
@@ -45,12 +46,13 @@ function settleStep(feet: readonly FootState[], last: Side, heading: number, wid
  * 1997). Not before, since a step out whenever within reach would replace the far foot's short
  * steps, which hold more.
  */
-function recoveryStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, tuning: RecoveryTuning, longest: number, inset: number): SwingGoal | null {
+function recoveryStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, tuning: RecoveryTuning, longest: number, inset: number,
+  held: number): SwingGoal | null {
   const height = centre.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2;
   // The height's floor, 1 mm, is a numeric setting: a centre at its feet has no pendulum.
   const w = Math.sqrt(g / Math.max(height, 1e-3)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
   const [hx, hz] = withinSupport(feet, xi, zi, inset);
-  if (hypot(xi - hx, zi - hz) <= tuning.margin) return null;
+  if (hypot(xi - hx, zi - hz) <= tuning.margin + held) return null;
   const grow = exp(w * tuning.seconds);
   // Where a step of the foot other than `bearer` lands, the capture point run about the bearing sole.
   const landing = (bearer: FootState): [number, number] => {
@@ -91,6 +93,21 @@ function outside(feet: readonly FootState[], centre: Vector3, velocity: Vector3,
   const w = Math.sqrt(g / Math.max(height, 1e-3)), xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
   const [hx, hz] = withinSupport(of, xi, zi, inset);
   return hypot(xi - hx, zi - hz);
+}
+
+/**
+ * How far outside what the soles hold a body's capture point may be and its assist hold it there
+ * with no step, m: the share `RecoveryTuning.assisted` of what the assist's ceiling (`Assist.most`)
+ * holds against the fall of a pendulum of the centre of mass's height h over the soles, a force F
+ * at the centre of mass F h / (m g) and a moment M about it M / (m g), each as the pendulum's pivot
+ * moved against the fall. None with no assist, or none on: the step is the soles' own.
+ */
+function assistReach(s: Stance): number {
+  const { assist, total, feet } = s, { recovery } = s.tuning, c = s.state.reading.centre;
+  if (!assist || !assist.on || !recovery || recovery.assisted <= 0) return 0;
+  // The height's floor, 1 mm, is a numeric setting.
+  const height = Math.max(c.y - (feet[0]!.middle.y + feet[1]!.middle.y) / 2, 1e-3);
+  return recovery.assisted * (assist.most.force * height + assist.most.moment) / (total * gravityOf(s));
 }
 
 /**
@@ -245,8 +262,9 @@ export function catchStep(s: Stance): boolean {
   const g = gravityOf(s), bearer = feet.find((f) => f.side !== swing.foot)!, off = outside(feet, reading.centre, reading.velocity, g, inset, [bearer]);
   const away = off > step.off;
   step.off = off;
-  if (!away || outside(feet, reading.centre, reading.velocity, g, inset) <= recovery.margin) return false;
-  reading.own = recoveryStep(feet, reading.centre, reading.velocity, g, recovery, gait.longest, inset)!;
+  const held = assistReach(s);
+  if (!away || outside(feet, reading.centre, reading.velocity, g, inset) <= recovery.margin + held) return false;
+  reading.own = recoveryStep(feet, reading.centre, reading.velocity, g, recovery, gait.longest, inset, held)!;
   state.stride = state.striding ? reading.own.foot : null;
   reading.recoveries += 1;
   return true;
@@ -261,8 +279,8 @@ export function catchStep(s: Stance): boolean {
 export function ownStep(s: Stance, heading: number): void {
   const { feet, rest, state } = s, { reading, pace, step } = state, { recovery, gait, inset } = s.tuning;
   if (!reading.own && reading.phase === "stand") {
-    const walk = pace[0] !== 0 || pace[1] !== 0 ? pace : null;
-    if (walk || (state.stride && recovery && outside(feet, reading.centre, reading.velocity, gravityOf(s), inset) > recovery.margin)) {
+    const walk = pace[0] !== 0 || pace[1] !== 0 ? pace : null, held = assistReach(s);
+    if (walk || (state.stride && recovery && outside(feet, reading.centre, reading.velocity, gravityOf(s), inset) > recovery.margin + held)) {
       // Walking, or stopping a walk still under way: its steps keep their alternation.
       state.striding = pace;
       reading.own = gait.transfer && state.stride
@@ -276,7 +294,7 @@ export function ownStep(s: Stance, heading: number): void {
       reading.own = settleStep(feet, state.stride, heading, rest, gait);
     } else if (recovery) {
       state.striding = null;
-      reading.own = recoveryStep(feet, reading.centre, reading.velocity, gravityOf(s), recovery, gait.longest, inset);
+      reading.own = recoveryStep(feet, reading.centre, reading.velocity, gravityOf(s), recovery, gait.longest, inset, held);
       if (reading.own) reading.recoveries += 1;
     }
     state.stride = state.striding && reading.own ? reading.own.foot : null;

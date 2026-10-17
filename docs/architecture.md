@@ -1234,8 +1234,11 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   fight sets each body's ceiling from its character's balance,
   or a recipe's (`DuelRecipe.balance`, `&balance=left,right` in an arena link), and withdraws the
   assist when the body is out of the fight; the lab sets its body's from the character's balance or
-  its address's (`&balance=`). Every character's balance is 0, and at 0 there is no
-  assist.
+  its address's (`&balance=`). The stance steps to catch a push only once its capture point is
+  past what the assist holds (`assistReach`, `gait.ts`: a force holds the point its height times
+  the force over the weight out, a moment the moment over the weight), so a body with a balance
+  stands through a shove a body without must step for. Every character's balance is 0, and at 0
+  there is no assist.
 - **Haste**: a character has a haste beside its balance (`AttributeSpec.haste`): how much faster
   its legs' muscles are than a person's, a per cent over a person's (0 is a person's, +50 half
   again as fast), multiplying the unloaded speed of the hip's, knee's and ankle's exertions

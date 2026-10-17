@@ -2,7 +2,10 @@
  * The core stance's batteries over stance tunings (`core-stance-trials.mjs`), each trial on a
  * worker of its own stand: prints, per tuning and human, what the tests read.
  *
- *   node research/core-stance-sweep.mjs --variants '[{}, {"track": 0.15}]' [--batteries stand,edge,step,walk,shove] [--hz 120] [--workers 14]
+ *   node research/core-stance-sweep.mjs --variants '[{}, {"track": 0.15}]' [--batteries stand,edge,step,walk,shove] [--hz 120] [--workers 14] [--solve] [--balance 25]
+ *
+ * `--solve` puts every body on the whole-body solve (`BodyOptions.solve`); `--balance` gives each an
+ * assist at that per cent of its weight, where an unarmed stand has none.
  *
  * - stand: 5 s 3 cm low in the guard; the centre's speed 0.5, 1, 1.5 and 2 s in (`settle`, mm/s), its
  *   stop off the soles' middle, its drift over the last 2 s, the feet's slide and sink, mm.
@@ -28,14 +31,15 @@ const { values } = parseArgs({ options: {
   hz: { type: "string", default: "120" }, workers: { type: "string" }, models: { type: "string", default: "workshop-rogue,workshop-fighter" },
   top: { type: "string", default: "60" }, walked: { type: "string", default: "0" },
   speeds: { type: "string", default: "0.2,0.3,0.4,0.5,0.7" }, ways: { type: "string", default: "0,90,180,270,45" },
+  solve: { type: "boolean", default: false }, balance: { type: "string" },
 } });
 const variants = JSON.parse(values.variants), batteries = values.batteries.split(","), hz = Number(values.hz), models = values.models.split(",");
-const top = Number(values.top);
+const top = Number(values.top), solve = values.solve, balance = values.balance === undefined ? null : Number(values.balance);
 const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
 
 const jobs = [];
 variants.forEach((stance, v) => { for (const model of models) {
-  const add = (trial, extra) => jobs.push({ v, model, trial, stance, hz, ...extra });
+  const add = (trial, extra) => jobs.push({ v, model, trial, stance, hz, solve, balance, ...extra });
   if (batteries.includes("stand")) add("stand", {});
   if (batteries.includes("edge")) for (const degrees of [0, 90, 180, 270]) add("edge", { degrees });
   if (batteries.includes("step")) for (const foot of ["left", "right"]) for (const [dx, dz] of [[0, 0.15], [0, 0.25], [0, -0.15], [foot === "left" ? -0.1 : 0.1, 0]]) add("step", { foot, dx, dz });
@@ -63,7 +67,7 @@ await Promise.all(pool.map((worker) => new Promise((resolve, reject) => {
 })));
 
 const mm = (x) => (1000 * x).toFixed(1);
-console.log(`${CORE_STANCE_HARNESS}, ${hz} Hz; ${jobs.length} trials in ${((Date.now() - started) / 1000).toFixed(0)} s`);
+console.log(`${CORE_STANCE_HARNESS}, ${hz} Hz${solve ? ", on the whole-body solve" : ""}${balance === null ? "" : `, balance ${balance} %`}; ${jobs.length} trials in ${((Date.now() - started) / 1000).toFixed(0)} s`);
 variants.forEach((stance, v) => { for (const model of models) {
   const of = (trial) => jobs.filter((j) => j.v === v && j.model === model && j.trial === trial).map((j) => ({ ...j, speed_: j.speed, ...j.result }));
   const parts = [];
@@ -99,7 +103,9 @@ variants.forEach((stance, v) => { for (const model of models) {
       const first = way.find((r) => r.fell);
       ways.push(first ? first.impulse - 5 : top);
     }
-    parts.push(`shove apart ${mm(shoves.reduce((a, r) => a + r.apart, 0) / shoves.length)} held ${held}/${shoves.length} mean ${(ways.reduce((a, b) => a + b, 0) / 16).toFixed(1)} least ${Math.min(...ways)} by way ${ways.join(",")}`);
+    const kept = shoves.filter((r) => !r.fell);
+    parts.push(`shove apart ${mm(shoves.reduce((a, r) => a + r.apart, 0) / shoves.length)} held ${held}/${shoves.length} mean ${(ways.reduce((a, b) => a + b, 0) / 16).toFixed(1)} least ${Math.min(...ways)} by way ${ways.join(",")}`
+      + ` steps ${(kept.reduce((a, r) => a + r.steps, 0) / Math.max(1, kept.length)).toFixed(2)} a shove held`);
   }
   console.log(`${JSON.stringify(stance)} ${model}: ${parts.join(" | ")}`);
 } });

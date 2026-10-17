@@ -28,7 +28,9 @@ proposed and not yet confirmed. What each buys in bouts is in "What balance does
 | A per cent's moment | 0.0026 of the body's weight times a metre | `RULES.balance.moment` |
 
 The moment is the force at a lever of 0.26 m. It puts a balance of 25 % at a quarter of a weight
-and, for the Warrior's 775 N, 50 N m: the ceiling the pull below was first held at. A bout takes a
+and, for the Warrior's 775 N, 50 N m: the ceiling the pull below was first held at. The stance
+reads the ceiling before it steps (`assistReach`, `src/core/control/gait.ts`): what the shove
+battery holds at 25 % with and without that is in `stance-tuning.md#assisted`. A bout takes a
 balance for each side in place of its character's (`DuelRecipe.balance`; in a link,
 `&balance=left,right` in per cent, or one number for both), and a force and a moment for a per
 cent in place of the rulebook's (`DuelRecipe.balancePercent`).

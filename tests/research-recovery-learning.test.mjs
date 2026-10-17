@@ -23,7 +23,7 @@ for (const mode of ['torque','targets']) test(`${mode} learning resumes physical
 });
 
 test('a prevented shove is recorded before declared fallback falls', async()=>{
-  const e=await learningEnvironment({seed:4,balance:100});
+  const e=await learningEnvironment({seed:4,balance:50});
   try {
     const reset=await e.reset({degrees:180});
     assert.equal(reset.attempts[0].fell,false);

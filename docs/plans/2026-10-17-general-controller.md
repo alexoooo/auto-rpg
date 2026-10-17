@@ -146,6 +146,22 @@ done in stage 0: `wholeBodyTracking` (`whole-body.ts`) is still in the tree as t
 tracker; a limb's posture beneath its task (`Limb.work.toward`) and the bounded swing are not in
 the solve, since the stance asks neither.
 
+**Standing and the shove (stage 1).** The stance was already capture-point stepping
+(`recoveryStep`, `src/core/control/gait.ts`), on both solves. What stage 1 added is Balance as the
+step's bound: the stance steps only once its capture point is past the margin and what its assist
+holds (`assistReach`: a force holds the point its height times the force over the weight out, a
+moment the moment over the weight; `STANCE_RECOVERY.assisted`, swept in
+`docs/reference/stance-tuning.md#assisted`). On the stance trials' shove battery (272 shoves to
+90 N s) at balance 0 the solve holds the Rogue 163 and the Warrior 238, the bearing solve 142 and
+237, with stand, edge, step and walk the same on both; nothing moves at 0 with the bound in. At
+25 % on the solve the Rogue holds 240 (was 182) with 0.11 steps a shove held, the Warrior 272 of
+272 (was 261) with none, and to 150 N s 361 of 464 (mean 117 N s); on the bearing solve 231 and
+271. The gait battery at 25 % is the same 31 of 300 before and after, so no pace is lost. The
+gate is met. `gaitAssist` (`src/core/skills/gait-assist.ts`), SIMBICON's pelvis-righting ask,
+is untouched until stage 3 takes the run. The research stand-up learning environment's
+declared-fallback fixture (`tests/research-recovery-learning.test.mjs`) now runs at 50 %, since at
+100 % the assist holds every shove it escalates to.
+
 **Locomotion.** On the gait battery (asked 1.4 to 5 m/s, three stops, two turns, gust seeds 5
 to 8, empty and club: 300 trials; `research/run-cycle-search.mjs --score`), and the stop battery
 (96 trials):
@@ -153,10 +169,15 @@ to 8, empty and club: 300 trials; `research/run-cycle-search.mjs --score`), and 
 | | Trials fallen | Steady pace, Warrior / Rogue / skeleton (m/s) |
 |---|---|---|
 | Gait battery, Balance 0 | 19 of 300 | 3.50 / 2.65 / 2.98 |
-| Gait battery, Balance 25 (on the run before `8d30a6d9`: 57 unassisted) | 5 of 300 | 3.59 / 2.83 / 3.09 |
+| Gait battery, Balance 25 | 31 of 300 | 3.59 / 2.83 / 3.09 |
 | Gait battery, Haste +50, Balance 25 (same run) | 15 of 300 | 3.68 / 2.99 / 3.21 |
 | Stop battery | 6 of 96 | |
 
+Of the 31 at Balance 25, 30 are the Warrior falling at 3.3 s, before it is under way, in gust
+seeds 6 and 8 in every cell (`node research/run-cycle-search.mjs --score --speeds 1.4 --winds
+1:5:6 --holds empty --models workshop-fighter --balance 25`); it stands at balance 0, and stood
+at 25 on the commit before `8d30a6d9`, which re-searched the run's lateral, lean, stance and swing
+settings at balance 0 (the run before it: 5 of 300 at 25 %). Stage 3 replaces that tracker.
 Haste +100 takes the Warrior to 3.74 m/s and fells it in 3 of 6 fast trials. The Warrior's
 running step width is 0.31 m. Acceleration from 1 to 3 m/s is about 0.3 m/s². The club's run
 falls 18 of 150; the Rogue with the club speeds up until it falls at 3.5 m/s asked and more. The
