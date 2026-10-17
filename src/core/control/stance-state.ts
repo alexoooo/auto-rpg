@@ -6,6 +6,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
 import type { Assist } from "./assist.ts";
 import { makeBearing, type Bearing, type Limb, type LimbTask } from "./bearing.ts";
+import type { WholeBodyAsk } from "./solve.ts";
 import type { StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
 import { resolveStance, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
 import { footStatesOf, massOf, restWidth, type FootMemory, type FootState } from "./support.ts";
@@ -122,6 +123,8 @@ export interface Stance {
   readonly limbs: readonly Limb[];
   /** The solve of `limbs`: the root's acceleration into `state.aim.root`, and `state.helped`, `state.held` and the reading's shortfall. */
   readonly bearing: Bearing;
+  /** The same asks as the whole-body solve takes them (`StanceControl.ask`), leaving what it finds in the same records. */
+  readonly ask: WholeBodyAsk;
   /**
    * How far apart the soles' middles stand as the body was built, m: its own stance, which a walk's
    * end returns to (`settleStep`).
@@ -161,6 +164,8 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
     total: massOf(segments),
     feet, rest: restWidth(feet), limbs,
     bearing: makeBearing(assist, limbs, { root: state.aim.root, helped: state.helped, held: state.held, shortfall: state.reading.shortfall }),
+    ask: { aim: state.aim, limbs, lever: 0, root: state.aim.root, helped: state.helped, shortfall: state.reading.shortfall,
+      asked: feet.map((foot) => state.reading.asked[foot.side]) },
     state,
     scratch: {
       path: new Vector3(), along: new Vector3(), sole: new Vector3(), v: new Vector3(),

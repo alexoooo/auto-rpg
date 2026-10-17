@@ -22,13 +22,13 @@ import { poseAngles } from "../../src/core/control/kinematics.ts";
  * on them (`tests/core-step-cost.test.mjs`, `research/step-garbage.mjs`). With `only`, the world
  * holds that one of them alone, at its place on the grid.
  */
-export async function standBodies(count, model = "crypt-skeleton", { only } = {}) {
+export async function standBodies(count, model = "crypt-skeleton", { only, solve } = {}) {
   const spec = armed(modelSpec(model), "right", woodenClub());
   const scene = new Scene(new NullEngine()), world = createWorld(scene, await freshEngine());
   world.physics.addFixedBox([0, -0.5, 0], [200, 1, 200]);
   const side = Math.ceil(Math.sqrt(count));
   const bodies = Array.from({ length: count }, (_, i) => i).filter((i) => only === undefined || i === only).map((i) => {
-    const body = createBody(buildBody(spec, world, { position: [3 * (i % side), 0, 3 * Math.floor(i / side)] }), world, { servoSeconds: SERVO_SECONDS });
+    const body = createBody(buildBody(spec, world, { position: [3 * (i % side), 0, 3 * Math.floor(i / side)] }), world, { servoSeconds: SERVO_SECONDS, ...(solve ? { solve } : {}) });
     driveBy(body, { name: "stand", decide: () => standIntent(0) });
     return body;
   });

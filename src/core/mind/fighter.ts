@@ -157,7 +157,7 @@ function legsOf(body: Body, config: LocomotionConfig): Locomotion {
 
 /** All action instances share the fighter's physical feedback and body-local ledger. */
 export function fighterBody(config: FighterConfig, wiring: MindWiring): BodyOptions {
-  return { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist,
+  return { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, solve: wiring.solve,
     feedback: true, contactIdentity: wiring.contactIdentity, subs: subMindsOf(config.subs) };
 }
 

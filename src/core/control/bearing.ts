@@ -251,7 +251,7 @@ function nearSolveTo(solve: LimbSolve, rows: Float64Array, y: Float64Array, q: n
 }
 
 /** The rows `asked` of `from` (6 by `width`), into `out` (the rows asked by `width`): each the sum of its weighted rows, in the order written. */
-function keepRows(asked: readonly Row[], from: Float64Array, width: number, out: Float64Array): void {
+export function keepRows(asked: readonly Row[], from: Float64Array, width: number, out: Float64Array): void {
   for (let a = 0; a < asked.length; a++) {
     const row = asked[a]!;
     for (let c = 0; c < width; c++) {
@@ -656,7 +656,7 @@ function inverseTorque(dynamics: BodyDynamics, root: Float64Array, accel: Float6
 }
 
 /** The ground's wrench on `limb` (`share`, at its patch), carried along freedom `i`'s motion. */
-function carried(dynamics: BodyDynamics, i: number, limb: Limb, share: { readonly force: Vector3; readonly moment: Vector3 }): number {
+export function carried(dynamics: BodyDynamics, i: number, limb: Limb, share: { readonly force: Vector3; readonly moment: Vector3 }): number {
   const m = dynamics.axis(i), p = dynamics.pivot(i), x = patchPlace(limb.work.patch!);
   const d0 = x.x - p[0], d1 = x.y - p[1], d2 = x.z - p[2];
   const s0 = m[1] * d2 - m[2] * d1, s1 = m[2] * d0 - m[0] * d2, s2 = m[0] * d1 - m[1] * d0;
@@ -665,7 +665,7 @@ function carried(dynamics: BodyDynamics, i: number, limb: Limb, share: { readonl
 }
 
 /** Freedom `i` given `torque` as a torque source. */
-function give(muscles: MuscleDriver, i: number, torque: number): void {
+export function give(muscles: MuscleDriver, i: number, torque: number): void {
   const sense = torque >= 0 ? 1 : -1, strength = muscles.strength(i, sense);
   muscles.velocity[i] = sense * Infinity;
   muscles.activation[i] = strength > 0 ? Math.min(1, Math.abs(torque) / strength) : 0;
@@ -714,7 +714,7 @@ function limbTorques(b: Bearing, muscles: MuscleDriver, accel: Float64Array, bea
  * meets a torque that turns sign each step, which the lag feeds and the feet rock on. The mean
  * gives a turn each step nothing, and what changes slower nearly all.
  */
-function soleTorque(task: LimbTask, k: number, asked: number): number {
+export function soleTorque(task: LimbTask, k: number, asked: number): number {
   const before = task.given[k]!;
   task.given[k] = asked;
   return Number.isNaN(before) ? asked : (asked + before) / 2;

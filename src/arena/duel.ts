@@ -99,6 +99,8 @@ interface DuelRecipe {
   readonly balancePercent?: AssistCeiling;
   /** Each side's mind, in place of its model's (`modelInfo`): an experiment's, or a table's row. */
   readonly minds?: Readonly<Record<Side, MindConfig>>;
+  /** The sides whose motor control is the whole-body solve (`Enlistment.solve`), the bearing solve's unless named: an experiment's. */
+  readonly solve?: Readonly<Partial<Record<Side, boolean>>>;
   /** Seconds continuously down before a fall ends the bout; null continues until injury or the cap. Zero is the reference fall rule. */
   readonly recoverySeconds?: number | null;
   /** What each side's right hand holds; nothing (`ARENA_HELD`) unless given. */
@@ -257,6 +259,7 @@ export class Duel {
         // A downed side remains in the fight while its recovery allowance lasts.
         out: () => this.verdict !== null || this.eliminated(side),
         mind: config, ...(recipe.balance ? { balance: recipe.balance[side] } : {}), ...(recipe.balancePercent ? { percent: recipe.balancePercent } : {}),
+        ...(recipe.solve?.[side] !== undefined ? { solve: recipe.solve[side] } : {}),
         name: `arena ${side}`,
         contactIdentity: other => other ? contactLabels.get(other) ?? null : { kind: "world" },
         // Out of the fight it is left to itself, as a side nobody orders is.

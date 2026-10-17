@@ -190,6 +190,8 @@ export interface BodyOptions {
   readonly senses?: () => Senses;
   /** The most its assist gives it (`balanceCeiling`, `src/core/rules/rulebook.ts`); none unless given: it stands on its muscles. */
   readonly assist?: AssistCeiling;
+  /** Whether its motor control is the whole-body solve (`solve.ts`) in place of the bearing solve and the servo's. */
+  readonly solve?: boolean;
   /** The sub-minds the command layers hand the body to, in rank order (`hosting`): what its mind's config names (`subMindsOf`). None unless given. */
   readonly subs?: readonly SubMindMaker[];
 }
@@ -211,10 +213,10 @@ interface CommandMind extends HostMind {
 }
 
 /** The command layers over `own`, holding its reference pose until something drives them. */
-export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feedbackEnabled, contactIdentity, contacts }: BodyOptions,
+export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feedbackEnabled, contactIdentity, contacts, solve }: BodyOptions,
   dt = 1 / PHYSICS_HZ.value): CommandMind {
   const { built, muscles } = own;
-  const motor: MotorControl = motorControl(built, servoSeconds, {}, stance, own.assist);
+  const motor: MotorControl = motorControl(built, servoSeconds, {}, stance, own.assist, solve);
   const feedback = feedbackEnabled ? effectorFeedback(built, motor.effectors.map(e => e.segment), contactIdentity,
     segment => contacts?.(segment) ?? []) : null;
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };

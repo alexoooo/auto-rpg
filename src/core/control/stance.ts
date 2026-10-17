@@ -6,6 +6,7 @@ import type { Assist } from "./assist.ts";
 import type { ServoWork } from "./servo.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing, type Bearing, type Limb } from "./bearing.ts";
 import { patchPlace } from "./contact-wrench.ts";
+import type { WholeBodyAsk } from "./solve.ts";
 import { rotationAtToRef } from "./kinematics.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
 import { catchStep, ownStep, paceToward } from "./gait.ts";
@@ -213,6 +214,14 @@ export interface StanceControl {
   carry(driver: MuscleDriver, work: ServoWork): Float64Array | null;
   /** The owned legs' torques, once the servo has solved the rest (`servoSolve`). */
   bear(driver: MuscleDriver, work: ServoWork): void;
+  /**
+   * The last command's asks as the whole-body solve takes them (`solveBody`, `solve.ts`), in place
+   * of `carry` and `bear`: the root's aims, each driven leg's task at its point, and the records
+   * the solve leaves what it finds in; null if the stance asks nothing.
+   */
+  ask(driver: MuscleDriver): WholeBodyAsk | null;
+  /** The push-off as a torque (`SwingGoal.launch`), written over the solve's command once it has run. */
+  launch(driver: MuscleDriver): void;
   /**
    * Forget the stance under way: nothing is driven or asked, no step is being taken, and the next
    * command begins from the body as it is. The steps counted stay.
@@ -785,6 +794,16 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
       const root = carryRoot(bearing, muscles, work, aim, leverOf(s, muscles.dynamics.root.centre[1]));
       if (s.state.pose) limbMotion(bearing, work, s.state.owned);
       return root;
+    },
+    ask(muscles) {
+      const { aim } = s.state;
+      if (!aim.on) return null;
+      s.feet.forEach((foot, f) => { if (s.limbs[f]!.task.on) aimLimb(s, foot, s.limbs[f]!, muscles); });
+      s.ask.lever = leverOf(s, muscles.dynamics.root.centre[1]);
+      return s.ask;
+    },
+    launch(muscles) {
+      if (s.state.aim.on && !s.state.pose) pushOff(s, muscles);
     },
     bear(muscles, work) {
       if (!s.state.aim.on) return;

@@ -32,6 +32,8 @@ interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdenti
   readonly balance?: number;
   /** What a per cent of balance is, in place of the rulebook's (`balancePercent`). */
   readonly percent?: AssistCeiling;
+  /** Whether its motor control is the whole-body solve (`MindWiring.solve`); the bearing solve's unless given. */
+  readonly solve?: boolean;
 }
 
 /** A body in a fight under its mind: what the blows read (`Fighter`), the mind, the config it was made from, and the body it drives. */
@@ -59,7 +61,7 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
     ...(enlisting.solids ? { solids: enlisting.solids } : {}) });
   const assist = balanceCeiling(enlisting.balance ?? spec.attributes.balance.value, enlisting.percent ?? balancePercent(rules));
   minded = createMind(built, world, mind, {
-    name: enlisting.name, senses, assist, orders: enlisting.orders,
+    name: enlisting.name, senses, assist, orders: enlisting.orders, ...(enlisting.solve !== undefined ? { solve: enlisting.solve } : {}),
     ...(enlisting.contactIdentity ? { contactIdentity: enlisting.contactIdentity } : {}),
   });
   return { id, side, built, pool, minded, mind, senses, body: minded.body, muscles: minded.body.muscles };
