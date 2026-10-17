@@ -71,13 +71,17 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
   stopping from 1.8 with the club and from 2.4 empty-handed. The gait battery fell 57 of 300
   before and 45 after (stops 18 to 5).
 - **Tried and not kept.**
+  - Late in a swing, the thigh let lean as asked when the hip is higher over the ground than the
+    straight leg is long, where the walk holds it upright: the stop battery fell 8 of 96 against
+    14 at a walk slowdown of 0.7 m/s², but 4 against 3 at today's, and the Warrior walking
+    backwards with the club fell at 0.4 m/s: its walk envelope backwards went from 2 to 0.3 m/s.
   - Handing back only once the body has slowed 0.2 under the run's pace kept the Warrior and the
     Rogue up, but felled the skeleton 12 times, and the Move bout changed gait 3.8 s after the foe
     came near.
   - The run's phase set only by a landing of the foot that is due (a landing gate): the stop
     battery fell 6 of 96 against 3.
 - **Bar.** The stop battery falls in none of its trials on the three bodies at balance 0, and the
-  Move bout test passes as written. Not met: 3 of 96 fall, 8 since the narrower run (L8), and the Move bout changes gait 3.3 s
+  Move bout test passes as written. Not met: 3 of 96 fall, 6 since the narrower run (L8), and the Move bout changes gait 3.3 s
   after the foe comes near against the test's 3 s, which is L2's.
 
 ### L2. Braking is slow
@@ -260,12 +264,12 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
 
   | | Gait battery fell | Width W / R / S, m | Pace asked 4-5, W / R / S | Stop battery fell |
   |---|---|---|---|---|
-  | Before | 46 | 0.534 / 0.398 / 0.327 | 3.03 / 2.66 / 3.04 | 4 |
-  | After | 19 | 0.307 / 0.207 / 0.222 | 3.01 / 2.38 / 2.63 | 8 |
+  | Before | 45 | 0.534 / 0.398 / 0.327 | 3.03 / 2.66 / 3.04 | 3 |
+  | After | 19 | 0.307 / 0.207 / 0.222 | 3.01 / 2.38 / 2.63 | 6 |
 
-  The pace is the battery's mean speed over a trial, start included. The stop battery's added
-  falls are the Rogue with the club (3) and the skeleton 7 to 11 s after it has slowed under
-  0.5 m/s (5), L2's; 4 against 8 of 96 is within the noise.
+  The pace is the battery's mean speed over a trial, start included. The stop battery's falls
+  are the Rogue with the club (3, against 1) and the skeleton as it slows to a halt (3, as
+  before), L2's; 3 against 6 of 96 is within the noise.
 - **Bar.** The Warrior's width is about 0.3 m, 0.31 of its leg: wider than a runner's, as narrow as
   held in gusts. Eye gate: the owner's look at the Warrior's run in the Lab.
 

@@ -401,8 +401,8 @@ After it, each with its own plan, in the order each needs the one before:
       (`RUN_SWITCH.landings`); late in a swing the thigh leans no farther than the straight leg
       reaches the ground, and a landing asked farther bends the stance knee. Asked 1.4 to 3.5 m/s
       and to stop at 2.5 to 8 s (Node stand, Rapier, 120 Hz, calm, balance 0 %), empty and with the
-      club, 8 of 96 trials fall: the Rogue with the club (3), and the skeleton 7 to 11 s after it
-      has slowed under 0.5 m/s (5), its walk drifting sideways as it comes to a halt. In an
+      club, 6 of 96 trials fall: the Rogue with the club (3), and the skeleton as it slows to a
+      halt (3), its walk drifting sideways. In an
       Arena bout opened at 8 m the Warrior asked 1.4 runs, stops and stays up, but changes gait
       3.3 s after the Rogue comes near (`tests/move.test.mjs`, a `todo` against 3 s). **Open:** braking faster than the
       planners' 0.3 m/s². A stop from 3.5 m/s takes 7.6 s and 15 m, at the walk's `slowdown`
