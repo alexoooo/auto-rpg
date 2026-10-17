@@ -208,8 +208,20 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
   longer falls at the handover. It takes the Warrior's pace from 3.3 to 3.7 m/s and the
   skeleton's by about 0.05. The Rogue at Haste 200 runs away as in L4 and falls at about 11 s; at
   Haste 100 it is still gaining speed at 16 s (3.24 m/s).
-- **Next.** Search with Haste 200 in the cells. Measure the pace Balance costs, and whether the
-  assist's pitch term is what slows them ([assist](../reference/assist.md#a-gaits-assist)).
+- **Since the narrower run** (L8, `8d30a6d9`; asked 4 and 5 m/s, empty and with the club, and
+  turning, calm): Haste 200 takes the steady pace from 3.50 to 3.74 m/s for the Warrior, 2.65 to
+  3.14 for the Rogue and 2.98 to 3.22 for the skeleton. The Warrior falls in 3 of its 6 trials
+  there, 11 to 16 s in, running away as the Rogue does with the club (L4); at Haste 150 it falls
+  in 2 of 6.
+- **Searched** with Haste 100 and 200 in the cells (21 lateral, lean, stance and pace settings,
+  speeds 3 to 5, a turn and a stop, empty and with the club, calm, `--narrow 0.3`, 16
+  generations): its best keeps the Warrior up at Haste 200 (0 of 6) at 3.61 m/s, but the gait
+  battery at Haste 100 fell 30 of 300 against 19, the Rogue 27 against 16. Not kept.
+- **Bar** (Haste 200 adds at least 0.5 m/s to the Warrior, and the Rogue does not run away): not
+  met.
+- **Next.** The pace comes before Haste (L5): Haste quickens a cycle whose stride does not
+  lengthen. Measure the pace Balance costs, and whether the assist's pitch term is what slows
+  them ([assist](../reference/assist.md#a-gaits-assist)).
 
 ### L7. The walk's smaller items
 
