@@ -19,10 +19,11 @@
  *
  *   node research/run-cycle-search.mjs --out .snap/run/a [--models workshop-fighter,workshop-rogue,crypt-skeleton]
  *     [--speeds 3,3.5,4] [--turns 0.4,0.8] [--stops 2,3.5 [--stop-at 2.5,4,6]] [--seconds 25] [--generations 60] [--lambda 28] [--sigma 0.1] [--workers 28]
- *     [--start '{"cv":0.3}' | file.json] [--dims accel,brake] [--winds 1:5:1,2] [--holds empty,club] [--balance 25] [--haste 100,150 --hasted 0.5] [--score] [--windows]
+ *     [--start '{"cv":0.3}' | file.json] [--dims accel,brake] [--winds 1:5:1,2] [--holds empty,club] [--balance 25] [--haste 100,150 --hasted 0.5] [--narrow 0.15] [--score] [--windows]
  *
- * - `--score` scores the start alone and prints each trial, with the metres it took to stop; with `--windows` each trial's speed in
- *   each 2 s window.
+ * - `--score` scores the start alone and prints each trial, with the metres it took to stop and the gait its landings show
+ *   (`gaitOf`: step width, cadence and step length); with `--windows` each trial's speed in each 2 s window.
+ * - `--narrow <share>` scales a trial's credit down by as much as its step width is over that share of the body's leg (`legOf`).
  * - Otherwise it searches, and writes each generation to `<out>.jsonl` and the best to `<out>-best.json`.
  *
  * The settings it moves are `DIMS`, or those of them `--dims` names, the rest the start's over the defaults (`RUN_CYCLE`), and three of the
@@ -37,7 +38,7 @@ import { modelSpec } from "../src/core/models.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
-import { SIMBICON, simbicon, simbiconWays } from "../src/core/skills/simbicon.ts";
+import { SIMBICON, legOf, simbicon, simbiconWays } from "../src/core/skills/simbicon.ts";
 import { RUN_CYCLE, runCycleSettings } from "../src/core/skills/cycle-run.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 import { TURNED } from "../src/core/control/stance-envelope.ts";
@@ -66,12 +67,32 @@ const FALLEN = 0.55;
 const TURN = { speed: 3.5, at: 12, angle: Math.PI / 2 };
 /** When a stopping trial is asked to stop, s, how soon after it is credited in full for coming under `under` m/s, s, and that speed. */
 const STOP = { at: 12, within: 2, under: 0.5 };
+/** The gait is read from landings `after` s past the first `CREDIT_FROM` m/s until the turn or the stop. */
+const GAIT = { after: 4 };
+
+/**
+ * The gait its landings show: the median step width, m (each landing's sole across the heading from
+ * the one before's, of the other foot), the landings a second, and the step's length, m (the centre's
+ * way along the heading from one landing to the next).
+ */
+function gaitOf(landings, hz) {
+  const widths = [], lengths = [];
+  for (let k = 1; k < landings.length; k++) {
+    const a = landings[k - 1], b = landings[k];
+    if (a.side === b.side) continue;
+    widths.push(Math.abs(b.across - a.across));
+    lengths.push(b.along - a.along);
+  }
+  const median = (xs) => { if (!xs.length) return null; const s = [...xs].sort((p, q) => p - q); return +s[s.length >> 1].toFixed(3); };
+  const span = landings.length > 1 ? (landings.at(-1).i - landings[0].i) / hz : 0;
+  return { width: median(widths), cadence: span > 0 ? +((landings.length - 1) / span).toFixed(2) : null, step: median(lengths) };
+}
 
 /**
  * One trial: `model` asked `speed` m/s forward for `seconds` under the run `run`, its face turned at
  * `turn` rad/s if given (`TURN`), or asked to stop if `stop` (`STOP`), in the gusts of `wind` if given, holding `held` (`empty` or `club`); its credit, and its 2 s windows' speeds.
  */
-async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: stopSeconds = STOP.at, wind = null, held = "empty", balance = null, haste, hasted = SIMBICON.hasted, run: { at, speedup, slowdown, ...run } }) {
+async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: stopSeconds = STOP.at, wind = null, held = "empty", balance = null, haste, hasted = SIMBICON.hasted, narrow = null, run: { at, speedup, slowdown, ...run } }) {
   const own = modelSpec(model, undefined, { haste }), spec = held === "club" ? armed(own, "right", woodenClub()) : own, guard = guardPosture(spec);
   const stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard });
   const assist = balanceCeiling(balance ?? stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
@@ -92,11 +113,17 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: st
     const steps = stand.seconds(seconds), window = stand.seconds(2), windows = [];
     const turnFrom = stand.seconds(TURN.at), stopAt = stop ? stand.seconds(stopSeconds) : steps;
     let from = null, at = 0, z = 0, path = 0, fell = null, under = null, metres = null, asked0 = null, mark = body.view.stance.centre.z;
+    const was = { left: true, right: true }, landings = [], gaitTo = turn !== 0 ? turnFrom : stopAt;
     for (let i = 1; i <= steps; i++) {
       if (turn !== 0 && i > turnFrom) face = turn > 0 ? Math.min(TURN.angle, face + turn / stand.world.hz) : Math.max(-TURN.angle, face + turn / stand.world.hz);
       if (i === stopAt + 1) asked = null;
       stand.step(1);
       const s = body.view.stance;
+      for (const side of ["left", "right"]) {
+        if (s.touching[side] && !was[side] && from !== null && i > at + stand.seconds(GAIT.after) && i <= gaitTo)
+          landings.push({ side, i, across: s.soles[side].x * Math.cos(face) - s.soles[side].z * Math.sin(face), along: s.centre.z });
+        was[side] = s.touching[side];
+      }
       if (from === null && s.velocity.z >= CREDIT_FROM) { from = s.centre.z; at = i; }
       if (from !== null) path += Math.sqrt(s.velocity.x * s.velocity.x + s.velocity.z * s.velocity.z) / stand.world.hz;
       if (i <= stopAt) { z = s.centre.z; asked0 = s.centre.clone(); }
@@ -112,8 +139,10 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: st
     const v = body.view.stance.velocity, off = Math.abs(Math.atan2(v.x, v.z) - face), turned = turn === 0 || fell !== null || off <= TURNED;
     const stood = !stop ? 1 : fell === null ? 1 : Math.max(0, fell - stopSeconds) / (seconds - stopSeconds), stopped = !stop || (fell === null && v.length() < STOP.under);
     const soon = !stop ? 1 : Math.min(1, STOP.within / (under ?? seconds - stopSeconds));
-    const credit = (Math.min(made, speed + OVER) - Math.max(0, made - speed - OVER)) * (turned ? 1 : 0.5) * stood * soon * (stopped ? 1 : 0.5);
-    return { model, speed, turn, stop, stopAt: stop ? stopSeconds : null, wind: wind?.seed ?? null, held, haste: haste ?? null, credit, made: +made.toFixed(3), fell, turned, under, metres: metres === null ? null : +metres.toFixed(2), windows };
+    const gait = gaitOf(landings, stand.world.hz);
+    const narrowed = narrow === null || gait.width === null ? 1 : Math.min(1, narrow * legOf(own) / gait.width);
+    const credit = (Math.min(made, speed + OVER) - Math.max(0, made - speed - OVER)) * (turned ? 1 : 0.5) * stood * soon * (stopped ? 1 : 0.5) * narrowed;
+    return { model, speed, turn, stop, stopAt: stop ? stopSeconds : null, wind: wind?.seed ?? null, held, haste: haste ?? null, credit, made: +made.toFixed(3), fell, turned, under, metres: metres === null ? null : +metres.toFixed(2), windows, ...gait };
   } finally { blowing?.dispose(); body.dispose(); stand.dispose(); }
 }
 
@@ -129,7 +158,7 @@ if (!isMainThread) {
   const { values: o } = parseArgs({ options: {
     out: { type: "string" }, models: { type: "string", default: "workshop-fighter,workshop-rogue,crypt-skeleton" }, speeds: { type: "string", default: "3,3.5,4" }, turns: { type: "string" }, stops: { type: "string" }, "stop-at": { type: "string" },
     seconds: { type: "string", default: "25" }, generations: { type: "string", default: "60" }, lambda: { type: "string", default: "28" },
-    sigma: { type: "string", default: "0.1" }, workers: { type: "string", default: "28" }, start: { type: "string" }, dims: { type: "string" }, score: { type: "boolean" }, windows: { type: "boolean" }, winds: { type: "string" }, holds: { type: "string", default: "empty" }, balance: { type: "string" }, haste: { type: "string" }, hasted: { type: "string" },
+    sigma: { type: "string", default: "0.1" }, workers: { type: "string", default: "28" }, start: { type: "string" }, dims: { type: "string" }, score: { type: "boolean" }, windows: { type: "boolean" }, winds: { type: "string" }, holds: { type: "string", default: "empty" }, balance: { type: "string" }, haste: { type: "string" }, hasted: { type: "string" }, narrow: { type: "string" },
   } });
   const KEYS = o.dims ? o.dims.split(",") : Object.keys(DIMS);
   const WINDS = [null, ...(o.winds ? (([rate, strength, seeds]) => seeds.split(",").map((seed) => ({ rate: Number(rate), strength: Number(strength), seed: Number(seed) })))(o.winds.split(":")) : [])];
@@ -139,14 +168,14 @@ if (!isMainThread) {
   const cells = o.models.split(",").flatMap((model) => [...(o.speeds ? o.speeds.split(",") : []).map((speed) => ({ model, speed: Number(speed), seconds: Number(o.seconds) })),
     ...(o.turns ? o.turns.split(",") : []).map((turn) => ({ model, speed: TURN.speed, turn: Number(turn), seconds: Number(o.seconds) })),
     ...(o.stops ? o.stops.split(",") : []).flatMap((speed) => (o["stop-at"] ? o["stop-at"].split(",").map(Number) : [STOP.at]).map((stopAt) => ({ model, speed: Number(speed), stop: true, stopAt, seconds: Number(o.seconds) })))]).flatMap((cell) => WINDS.map((wind) => ({ ...cell, wind }))).flatMap((cell) => o.holds.split(",").map((held) => ({ ...cell, held, balance: o.balance === undefined ? null : Number(o.balance),
-    ...(o.hasted === undefined ? {} : { hasted: Number(o.hasted) }) }))).flatMap((cell) => o.haste === undefined ? [cell] : o.haste.split(",").map((haste) => ({ ...cell, haste: Number(haste) })));
+    ...(o.hasted === undefined ? {} : { hasted: Number(o.hasted) }), ...(o.narrow === undefined ? {} : { narrow: Number(o.narrow) }) }))).flatMap((cell) => o.haste === undefined ? [cell] : o.haste.split(",").map((haste) => ({ ...cell, haste: Number(haste) })));
   const toUnit = (p) => KEYS.map((k) => (p[k] - DIMS[k][0]) / (DIMS[k][1] - DIMS[k][0]));
   const fromUnit = (u) => ({ ...start, ...Object.fromEntries(KEYS.map((k, i) => [k, +(DIMS[k][0] + Math.min(1, Math.max(0, u[i])) * (DIMS[k][1] - DIMS[k][0])).toFixed(4)])) });
   if (o.score) {
     const pool = workerPool(new URL(import.meta.url), null, Math.min(Number(o.workers), cells.length));
     const trials = (await Promise.all(cells.map((cell) => pool.evaluate({ cells: [cell], run: start })))).flatMap((r) => { if (r.error) throw new Error(r.error); return r.trials; });
     await pool.terminate().catch(() => {});
-    for (const t of trials) console.log(`${t.model}${t.held === "club" ? " with the club" : ""}${t.haste === null ? "" : ` at haste ${t.haste}`}${t.wind === null ? "" : ` in gusts ${t.wind}`} asked ${t.speed}${t.turn ? ` turning ${t.turn}${t.turned ? "" : " (not turned)"}` : ""}${t.stop ? ` then to stop at ${t.stopAt} s (under ${STOP.under} after ${t.under} s, ${t.metres} m)` : ""}: made ${t.made} m/s, fell ${t.fell}${o.windows ? `; windows ${t.windows.join(" ")}` : ""}`);
+    for (const t of trials) console.log(`${t.model}${t.held === "club" ? " with the club" : ""}${t.haste === null ? "" : ` at haste ${t.haste}`}${t.wind === null ? "" : ` in gusts ${t.wind}`} asked ${t.speed}${t.turn ? ` turning ${t.turn}${t.turned ? "" : " (not turned)"}` : ""}${t.stop ? ` then to stop at ${t.stopAt} s (under ${STOP.under} after ${t.under} s, ${t.metres} m)` : ""}: made ${t.made} m/s, fell ${t.fell}${t.width === null ? "" : `; width ${t.width} m, cadence ${t.cadence}/s, step ${t.step} m`}${o.windows ? `; windows ${t.windows.join(" ")}` : ""}`);
     const fallen = trials.filter((t) => t.fell !== null);
     console.log(`fallen ${fallen.length} of ${trials.length}${o.models.split(",").map((m) => `; ${m} ${fallen.filter((t) => t.model === m).length}`).join("")}`);
     console.log("score", trials.reduce((s, t) => s + t.credit, 0) / trials.length);
@@ -162,7 +191,7 @@ if (!isMainThread) {
         return { score: trials.reduce((sum, t) => sum + t.credit, 0) / trials.length, trials };
       },
       onGeneration: (entry, { best }) => {
-        const line = { ...entry, bestSoFar: +best.score.toFixed(3), trials: best.r?.trials?.map(({ model, speed, turn, stop, wind, held, made, fell, under }) => ({ model, speed, turn, stop, wind, held, made, fell, under })) };
+        const line = { ...entry, bestSoFar: +best.score.toFixed(3), trials: best.r?.trials?.map(({ model, speed, turn, stop, wind, held, made, fell, under, width, cadence, step }) => ({ model, speed, turn, stop, wind, held, made, fell, under, width, cadence, step })) };
         console.log(JSON.stringify(line));
         appendFileSync(o.out + ".jsonl", JSON.stringify({ ...line, run: fromUnit(best.u) }) + "\n");
         writeFileSync(o.out + "-best.json", JSON.stringify(fromUnit(best.u), null, 1) + "\n");

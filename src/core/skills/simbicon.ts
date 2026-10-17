@@ -663,10 +663,11 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
     // Late, the swinging thigh leans forward no farther than the straight leg meets the ground from the hip as it is, the ankle
     // its height over its sole; and a landing it asks farther ahead bends the stance knee, up to `LATE_REACH.knee`, to bring the
     // hip down by as much as that landing needs: the leg on the stance side shortened to its length less that, by the knee's
-    // triangle of thigh and shank.
+    // triangle of thigh and shank. A hip higher over the ground than the straight leg is long reaches it at no lean, so the thigh
+    // leans as asked and meets the ground as the hip comes down: held upright, it would bring the sole down under the hip.
     let thigh = asks, lower = 0;
     if (late) {
-      const drop = p[1] - memory.ground - memory.ankle, most = drop < reach ? acos(drop / reach) : 0;
+      const drop = p[1] - memory.ground - memory.ankle, most = drop < reach ? acos(drop / reach) : Infinity;
       if (asks > most) {
         thigh = most;
         const sp = dynamics.pivot(st.hip[0]), sa = dynamics.pivot(st.ankle[0]), lx = sp[0] - sa[0], ly = sp[1] - sa[1], lz = sp[2] - sa[2];
