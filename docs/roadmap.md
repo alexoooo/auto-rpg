@@ -366,8 +366,9 @@ After it, each with its own plan, in the order each needs the one before:
       clips' (2.75, 3.94 and 4.38 m/s), its pace held no more than `ahead` past the body's own,
       its settings searched on the three bodies bare-handed in the guard, calm and in gusts, at
       haste 100 and 150 % (`research/run-cycle-search.mjs`). Asked 4 or 5 m/s, each body settles
-      at its own pace: 3.38 m/s for the Warrior, 3.15 for the Rogue and 3.47 for the skeleton
-      ([run's body](reference/run-body.md#the-run-on-it)). Its envelope
+      at its own pace, cadence times step: 3.50 m/s for the Warrior, 2.65 for the Rogue and 2.98
+      for the skeleton (calm, empty-handed and with the club). Its stride falls short of the
+      clips' at the cadence it runs, and no leg muscle but the ankles is at its ceiling there. Its envelope
       (`assets/core/simbicon-run-envelope.json`, each walk set off 10 s and resting 10 s after)
       holds forward by the rule only to 1.2 for the Warrior and the skeleton and 1.4 for the
       Rogue, since a few trials at every pace fall. Forward at 3 m/s the Warrior held 7 of its 10
@@ -378,28 +379,32 @@ After it, each with its own plan, in the order each needs the one before:
       In an Arena bout opened at 12 m (`research/bout.mjs`, 8 s), two skeletons close at up to
       2.1 and 1.25 m/s and two Rogues at 1.9 and 2.0, and two Warriors run from 5.25 s, stop from
       about 1.3 m/s and close; all stay up, the Warriors empty-handed and with the club.
+    - **Its feet land narrow.** The run places each swinging foot across from the hip's
+      abduction in the reference pose, which stands the humans' legs apart, and its lateral
+      settings were searched with a cut past a step width of 0.3 of the leg. Its median step
+      width at 3 to 5 m/s is 0.31 m on the Warrior, 0.21 on the Rogue and 0.22 on the skeleton,
+      against 0.53, 0.40 and 0.33 before. Eye gate: the owner's look at the Warrior's run.
     - **The club is what throws the run.** Scored on gust seeds the search never saw (5 to 8; Node
       stand, Rapier, 120 Hz, asked 1.4 to 5, three stops and two turns, balance 0 %), the trials
       that fell, of 50 each:
 
       | Body | Empty-handed | With the club |
       |---|---|---|
-      | Warrior | 0 | 6 |
-      | Rogue | 5 | 25 |
-      | skeleton | 1 | 8 |
+      | Warrior | 1 | 1 |
+      | Rogue | 0 | 16 |
+      | skeleton | 0 | 1 |
 
-      The Rogue with the club falls in every trial asked 3.5 m/s or more: it gains speed past what
-      it holds empty-handed, and at about 3.9 m/s its legs give way and its trunk goes over
-      backwards. The Warrior falls in its turns with the club. **Open:** a run that does not ask a
-      body past what its legs hold.
+      The Rogue with the club falls in nearly every trial asked 3.5 m/s or more, 15 to 21 s in: it
+      gains speed past what it holds empty-handed, and at about 3.3 m/s its hips sink and its
+      trunk goes over. **Open:** a run that does not ask a body past what its legs hold.
     - **A stop soon after the run begins.** A run gives way only from its second landing
       (`RUN_SWITCH.landings`); late in a swing the thigh leans no farther than the straight leg
       reaches the ground, and a landing asked farther bends the stance knee. Asked 1.4 to 3.5 m/s
       and to stop at 2.5 to 8 s (Node stand, Rapier, 120 Hz, calm, balance 0 %), empty and with the
-      club, 3 of 96 trials fall, none of a stop asked by 6 s: the Rogue with the club asked 3.5,
-      and the skeleton 9 to 10 s after stopping from 1.8 and 2.4. In an Arena bout opened at 8 m
-      the Warrior asked 1.4 runs, stops and stays up, but changes gait 3.3 s after the Rogue comes
-      near (`tests/move.test.mjs`, a `todo` against 3 s). **Open:** braking faster than the
+      club, 8 of 96 trials fall: the Rogue with the club (3), and the skeleton 7 to 11 s after it
+      has slowed under 0.5 m/s (5), its walk drifting sideways as it comes to a halt. In an
+      Arena bout opened at 8 m the Warrior asked 1.4 runs, stops and stays up, but changes gait
+      3.3 s after the Rogue comes near (`tests/move.test.mjs`, a `todo` against 3 s). **Open:** braking faster than the
       planners' 0.3 m/s². A stop from 3.5 m/s takes 7.6 s and 15 m, at the walk's `slowdown`
       (0.47 m/s²); at 0.7 the stop takes 5.5 s and 14 of the 96 fall, the skeleton 10, since its
       guard walk does not take a quicker slowing.
