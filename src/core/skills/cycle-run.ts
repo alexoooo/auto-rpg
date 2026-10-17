@@ -82,15 +82,16 @@ export interface RunCycleSettings {
  * The run as it is taken unless told otherwise, set for the Warrior's leg (`SimbiconSettings.leg`):
  * the best of searches on the Warrior, the Rogue and the skeleton together, each from the one
  * before's best (`research/run-cycle-search.mjs`, Node stand, Rapier, 120 Hz, measuring on), last
- * `--speeds 3,4,5 --turns 0.6 --stops 3 --winds 1:5:1 --seconds 22 --haste 100,150 --hasted 0` in the guard, with
- * the walk's `run` and `speedup` (`SIMBICON`).
+ * `--speeds 3,4,5 --turns 0.6,-0.6 --stops 1.5,2.4,3.5 --holds empty,club --winds 1:5:5 --seconds 22
+ * --narrow 0.3` over the lateral, lean, stance and swing settings, in the guard, with the walk's
+ * `run` and `speedup` (`SIMBICON`).
  */
 export const RUN_CYCLE: RunCycleSettings = Object.freeze({
-  blend: 0.3036, gainsFrom: 4.3006, swingGain: 0.0932, cadenceGain: 0.0777, short: 0.1612, period: 1.0481, accel: 1.0814, brake: 1.3379, ahead: 0.4571,
-  lean: 0.3669, pelvis: 0.1946, leanGain: 0.2483, leanMost: 0.1415, bank: 0.526, hold: 0.9572, settle: 0.1277, stance: 0.761, swing: 0.8845, ankle: 0.7301,
-  cv: 0.2376, cd: 0.0481, late: 0.7804, paceGain: 0.0461, paceMost: 0.0228,
-  contact: 0.1878, gainSide: 0.0428, width: 0.1136, cdSide: 0.2649, cvAnkleSide: -0.203,
-  kneeAdd: -0.0941, ankleAdd: 0.0131, hipAdd: 0.063, early: 0.2654, wait: 0.0184, arms: 0.6842, elbow: 1.5504,
+  blend: 0.3036, gainsFrom: 4.3006, swingGain: 0.0932, cadenceGain: 0.0777, short: 0.1612, period: 1.0481, accel: 1.1428, brake: 1.3379, ahead: 0.4603,
+  lean: 0.3224, pelvis: 0.1946, leanGain: 0.0767, leanMost: 0.1415, bank: 0.526, hold: 0.9465, settle: 0.1277, stance: 0.7509, swing: 0.8715, ankle: 0.6568,
+  cv: 0.3177, cd: 0.1805, late: 0.7804, paceGain: 0.0461, paceMost: 0.0228,
+  contact: 0.1677, gainSide: 0.0257, width: 0.0997, cdSide: 0.4542, cvAnkleSide: -0.2591,
+  kneeAdd: -0.1387, ankleAdd: -0.0395, hipAdd: 0.0364, early: 0.2654, wait: 0.0184, arms: 0.6842, elbow: 1.5504,
 });
 
 /**
@@ -144,6 +145,8 @@ interface Leg {
   readonly ankle: readonly [number, number];
   readonly names: { readonly hip: readonly [string, string, string]; readonly knee: string; readonly ankle: readonly [string, string] };
   readonly bind: { readonly [C in Channel]: number };
+  /** The hip's abduction in the reference pose, rad: what its abduction channel reads 0 at. */
+  readonly spread: number;
 }
 
 /** **What the run remembers.** */
@@ -234,10 +237,10 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
     for (let k = 1; 2 * k < terms; k++) y += 2 * Math.PI * k * (x[2 * k]! * harmonics.cos[k]! - x[2 * k - 1]! * harmonics.sin[k]!);
     return y / blended.period;
   };
-  const bindOf = (joint: string): number => {
+  const bindOf = (joint: string, dof = 0): number => {
     const found = spec.joints.find((j) => j.name === joint);
     if (!found) throw new Error(`a run cycle needs a joint ${joint}`);
-    return found.dofs[0]!.bind.value;
+    return found.dofs[dof]!.bind.value;
   };
   const limbOf = (side: Side): Leg => {
     const names = {
@@ -246,7 +249,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
     };
     return { names, hip: [muscles.channel(names.hip[0]), muscles.channel(names.hip[1]), muscles.channel(names.hip[2])],
       knee: muscles.channel(names.knee), ankle: [muscles.channel(names.ankle[0]), muscles.channel(names.ankle[1])],
-      bind: { hip: bindOf(`hip.${side}`), knee: bindOf(`knee.${side}`), ankle: bindOf(`ankle.${side}`) } };
+      bind: { hip: bindOf(`hip.${side}`), knee: bindOf(`knee.${side}`), ankle: bindOf(`ankle.${side}`) }, spread: bindOf(`hip.${side}`, 1) };
   };
   const legs = { left: limbOf("left"), right: limbOf("right") };
   const memory: RunCycleMemory = { phase: 0, waited: 0, pace: 0, trim: 0, touching: { left: true, right: true }, root: new Quaternion(), heading: 0, lean: 0, bank: 0 };
@@ -329,7 +332,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
       const hp = dynamics.pivot(sw.hip[0]), height = Math.max(0.3, hp[1]! - Math.min(s.soles.left.y, s.soles.right.y));
       const aside = ((c.x - hp[0]!) * rx + (c.z - hp[2]!) * rz + across * (p.contact / 2 + p.gainSide)) * out;
       const landOut = atan2(aside + p.width, height) + p.cdSide * ((c.x - a[0]!) * rx + (c.z - a[2]!) * rz) * out;
-      drive(sw.names.hip[1], sw.hip[1], landOut + out * roll, p.swing);
+      drive(sw.names.hip[1], sw.hip[1], landOut + out * roll - sw.spread, p.swing);
       drive(sw.names.hip[2], sw.hip[2], 0, p.swing);
       drive(sw.names.knee, sw.knee, angle("knee") - sw.bind.knee, p.swing, rate("knee"));
       drive(sw.names.ankle[0], sw.ankle[0], angle("ankle") - sw.bind.ankle + p.ankleAdd, p.swing, rate("ankle"));
@@ -355,7 +358,7 @@ export function runCycle(body: Body, settings: RunCycleSettings, leg: number, qu
         for (let k = 0; k < 3; k++) pushes.push({ channel: st.names.hip[k]!, sense: speeds[k]! >= 0 ? 1 : -1, level: p.hold, speed: speeds[k]! });
       } else {
         drive(st.names.hip[0], st.hip[0], angle("hip") - st.bind.hip - blended.lean + pitch, p.swing, rate("hip"));
-        drive(st.names.hip[1], st.hip[1], 0, p.swing);
+        drive(st.names.hip[1], st.hip[1], -st.spread, p.swing);
         drive(st.names.hip[2], st.hip[2], 0, p.swing);
       }
       // The arms swing at the sides, neither drawn in nor out (`RUN_ARMS`), whatever the guard holds.
