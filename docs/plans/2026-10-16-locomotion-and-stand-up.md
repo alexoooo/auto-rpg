@@ -188,8 +188,16 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
     the Rogue.
   - A search of the pace settings with the push-off (19 settings, cells at 3 to 5 m/s calm and in
     gust seed 5, `--narrow 0.3`) found nothing past its start in 10 generations.
-- **Next.** Find what caps the stride before tuning again: which muscles saturate at 3.5 m/s
-  (the stance knee and hip, the push-off), read in the stand at the run's top.
+  - A knee push, the stance knee straightened from mid-stance by 0.03 to 0.15 rad per m/s:
+    cadence up, step down, the pace no faster; from 0.1 the Warrior falls in every trial.
+- **What saturates** (the Warrior asked 5 m/s, 8 to 16 s, empty-handed, calm; each leg channel's
+  torque against its ceiling at the activation asked and against its full strength at its
+  speed). The ankles are at the share of strength the run gives them (`ankle`, 0.66) in 11 to 14
+  % of steps; no other channel is at its ceiling in more than 3 %. At the 95th percentile the
+  hips use 0.47 to 0.79 of their full strength, against 0.24 to 0.45 at 2.6 m/s, and the knees
+  0.36, as at 2.6. The muscles do not cap the stride; the controller does.
+- **Next.** A run whose stride comes from what the stance leg does to the centre of mass (its
+  flight), not from the clip's angles followed at a quicker cadence.
 
 ### L6. Haste and Balance at the edges
 
