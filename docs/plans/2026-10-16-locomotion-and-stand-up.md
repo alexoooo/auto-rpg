@@ -174,9 +174,22 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
 - **Searched.** L2's search, with cells at 3 and 4 m/s, empty and with the club, moved the
   gait battery's pace asked 4 and 5 m/s from 3.03 to 3.21 m/s for the Warrior and from 2.66 to
   2.68 for the Rogue, and its falls with the club from 39 to 33; not kept for its stops (L2).
-- **Next.** Make the body come up to the pace, not let the pace run away: the stride's length at
-  the clip's (Froude), the push-off at the clip's ankle, and the swing's reach at speed. Read
-  stride length and cadence against the clip's at 3, 4 and 5 m/s first.
+- **Read** (`8d30a6d9`, asked 4 and 5 m/s, empty and with the club, calm). The steady pace,
+  cadence times step from 4 s on, is 3.5 m/s for the Warrior, at 2.84 landings a second and 1.23 m
+  a step; 2.65 for the Rogue and 2.98 for the skeleton. The clips scaled to the Warrior's leg
+  (Froude) run 3.5 m/s at about 2.65 a second and 1.3 m, and 4.05 at 2.82 and 1.44 m. At its top
+  the body has the clip's cadence at 4 m/s and its step at 3: the stride is what falls short.
+- **Tried and not kept.** Each lever traded cadence for step at the same pace:
+  - a push-off, the stance ankle plantar flexed from mid-stance by 0.02 to 0.09 rad per m/s of
+    pace: step 1.23 to 1.30 m, cadence 2.84 to 2.66, pace 3.49 to 3.45;
+  - the cycle's period 0.95 or 1.15 of the clips' (1.15 fells the Warrior and the skeleton);
+  - `ankleAdd` +0.1: 3.86 m/s steady, but the Warrior fell in 3 of 4;
+  - the ankles at full strength fell the Warrior and the Rogue in every trial, and `ahead` 0.8
+    the Rogue.
+  - A search of the pace settings with the push-off (19 settings, cells at 3 to 5 m/s calm and in
+    gust seed 5, `--narrow 0.3`) found nothing past its start in 10 generations.
+- **Next.** Find what caps the stride before tuning again: which muscles saturate at 3.5 m/s
+  (the stance knee and hip, the push-off), read in the stand at the run's top.
 
 ### L6. Haste and Balance at the edges
 
