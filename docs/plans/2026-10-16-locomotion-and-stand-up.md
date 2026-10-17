@@ -105,8 +105,17 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
 
   The skeleton falls most: its guard walk does not take a quicker slowing. The planners' 0.3 m/s²
   stays; today's stop from 3.5 m/s averages 0.46 m/s² and takes 15 m, against 20 m planned.
-- **Next.** A walk that slows faster without felling the skeleton: its stance's placement
-  while slowing, not the rate asked. Then raise the planners' brake to what holds.
+- **Traced** (`8d30a6d9`, the skeleton asked 2.4 m/s and to stop at 8 s, at today's slowdown).
+  The walk slows to nothing while it drifts across the heading: each left foot lands further left,
+  and by 13 s the body goes about 0.4 m/s to its left at no speed forward. The stance takes over
+  at a landing under 0.5 m/s, is handed a body still drifting, and falls 1.3 s later. The
+  skeleton's other stop falls come as late after it has slowed.
+- **Tried and not kept.** The stance taking over only once the last stride's speed is under
+  0.5 m/s too: the walk goes on stepping and falls in place. Each landing trim cleared only when
+  its own axis's ask changes: no change, since the forward walk's `trimSide` is 0.
+- **Next.** A walk that slows faster without felling the skeleton: its placement across the
+  heading at no speed forward, the same weakness as its walk to the side (L7). Then raise the
+  planners' brake to what holds.
 
 ### L3. The Warriors go down at about 7 s in a 12 m bout
 
@@ -192,8 +201,12 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
   hip's spin term.
 - The stance's and the stride's turn tables count a turn held where the body stayed up, not where
   it faced round (two `todo` turn tests).
-- Acceleration took about 6 s from 1 to 3.5 m/s before the run's last search. It is not measured
-  since `speedup` became 1.16 m/s² and `accel` 1.08.
+- Acceleration is slow. Asked 3.5 m/s, calm (`8d30a6d9`; Node stand, Rapier, 120 Hz, balance 0),
+  from 1 to 3 m/s takes the Warrior 6.5 s empty-handed and 5 s with the club, the Rogue 8.25 s
+  with the club, and the skeleton 8.5 s. The Rogue empty-handed reaches 2.5 m/s 6 s after 1 m/s
+  and holds 2.74. That is 0.24 to 0.4 m/s², against the run's `accel` of 1.14 m/s²: `ahead`
+  keeps the run's pace at most 0.46 m/s past the body's own speed, so the run gains speed only as
+  fast as the body follows it.
 
 ### L8. The Warrior runs with its feet wide
 
