@@ -77,7 +77,7 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
   - The run's phase set only by a landing of the foot that is due (a landing gate): the stop
     battery fell 6 of 96 against 3.
 - **Bar.** The stop battery falls in none of its trials on the three bodies at balance 0, and the
-  Move bout test passes as written. Not met: 3 of 96 fall, and the Move bout changes gait 3.3 s
+  Move bout test passes as written. Not met: 3 of 96 fall, 8 since the narrower run (L8), and the Move bout changes gait 3.3 s
   after the foe comes near against the test's 3 s, which is L2's.
 
 ### L2. Braking is slow
@@ -151,6 +151,8 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
     governor braking the pace when the hips sink below their standing height felled the body
     within seconds, since the hip's height swings by more within a stride than it sinks before a
     fall.
+- **Since the narrower run** (L8, `8d30a6d9`): 18 of the gait battery's 150 club trials fall,
+  the Rogue 16 of its 100 trials, against 30.
 - **Next.** A lateral controller of the run that takes up the walk's sway at the handover:
   Raibert's placement across the heading from the drift the walk leaves, not only the run's own.
 
@@ -192,6 +194,34 @@ is not the cause (13 of 64 at 0.5). None stands within 6 s on any tree.
   it faced round (two `todo` turn tests).
 - Acceleration took about 6 s from 1 to 3.5 m/s before the run's last search. It is not measured
   since `speedup` became 1.16 m/s² and `accel` 1.08.
+
+### L8. The Warrior runs with its feet wide
+
+- **Seen** by the owner in the Lab and the Crypt, 2026-10-16: the Warrior's legs run wide, the
+  Rogue's look right. The gait battery measures the median sole separation across the heading
+  between landings, 4 s on: 0.534 m on the Warrior at 3 to 5 m/s, 0.398 on the Rogue, 0.327 on the
+  skeleton. Runners land their feet nearly in line, and stepping out to 15 to 25 % of the leg
+  costs them more (Arellano and Kram 2011, J Biomech 44:1291).
+- **Why.** The swing hip aimed its abduction as if the reference pose stood the legs together; the
+  humans' stands them out by 0.094 rad (Warrior) and 0.111 (Rogue), so each foot landed that much
+  further out than `width` asked. The Warrior is wider than the Rogue also through `cdSide`, which
+  steps out per m the centre of mass is out from the stance ankle: a wide stance asks a wider one.
+- **Kept** (`8d30a6d9`). The swing and the unloaded stance hip subtract the abduction bind, and the
+  lateral, lean, stance and swing settings were searched again with gusts in the cells and the
+  score cut past a width of 0.3 of the leg (`run-cycle-search --narrow 0.3`). The bind alone, or a
+  cut at 0.15 to 0.2 of the leg, ran the Warrior and the Rogue away at 4 to 5 m/s and fell 115 of
+  the gait battery's 300 in gusts.
+
+  | | Gait battery fell | Width W / R / S, m | Pace asked 4-5, W / R / S | Stop battery fell |
+  |---|---|---|---|---|
+  | Before | 46 | 0.534 / 0.398 / 0.327 | 3.03 / 2.66 / 3.04 | 4 |
+  | After | 19 | 0.307 / 0.207 / 0.222 | 3.01 / 2.38 / 2.63 | 8 |
+
+  The pace is the battery's mean speed over a trial, start included. The stop battery's added
+  falls are the Rogue with the club (3) and the skeleton 7 to 11 s after it has slowed under
+  0.5 m/s (5), L2's; 4 against 8 of 96 is within the noise.
+- **Bar.** The Warrior's width is about 0.3 m, 0.31 of its leg: wider than a runner's, as narrow as
+  held in gusts. Eye gate: the owner's look at the Warrior's run in the Lab.
 
 ## The stand-up issues
 
@@ -285,6 +315,12 @@ settled legs with S5's falls, by a script that the tests name.
     14.4, fastest 9.4 against 10.1, none within 6 s (Node stand, Rapier, 120 Hz, balance 0). Not
     kept: a difference within the noise of 32 falls, for one stand fewer. The route's floor is
     about 9 s: about 1.7 s from the fall to the takeover, and the roll and stages after it.
+  - `plant-up`, the shorter fours-to-standing route, searched for the Warrior by backward
+    chaining (`research/rising-search.mjs --model workshop-fighter`, its whole budget of 34 560
+    episodes at an 8 s cap, strength raised to 1.5 times and back): its last stages alone, from the
+    states just before them, stood none of 8; at best 1 of 8 starts reached standing, from the
+    stage before; from the falls, none. Standalone it stood 0 of 108. No second round: its last
+    stage does not finish on these legs.
 - **Next.** A different route, not more strength. The research leads are in
   [stand-up planning](../analysis/2026-10-11-stand-up-planning.md): measured feedback reached
   5.9 s and 5.775 s fresh development recoveries from side falls, and a library completes 3 of 16
