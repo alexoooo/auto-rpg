@@ -130,7 +130,7 @@ After it, each with its own plan, in the order each needs the one before:
     run's speed kept, the same settings stand 46 of 64, but the gait battery falls in 249 of its
     300 trials. On 52 shoves that fell the skeleton (of 96), step-up stands 9; its roll from its
     back to its front is what fails. The known issues of the stand-up and of fast locomotion,
-    and the order to take them in, are in `docs/plans/2026-10-16-locomotion-and-stand-up.md`. The
+    and the order to take them in, are in `docs/plans/2026-10-17-general-controller.md`. The
     rest of this entry was read on the old legs. "Rise, then steady" stands 6, 8, 0 and 1 of the same
     falls, medians 29.5 s and over; on the skeleton's shoves, none.
   - None stands within 6 s, and the 4 s median target is not met. The time is the route's, not
