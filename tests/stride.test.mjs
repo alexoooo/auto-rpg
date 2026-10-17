@@ -11,7 +11,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { NO_COVER } from "../src/core/mind/intent.ts";
 import { treeFaults } from "../src/core/mind/catalog.ts";
-import { swingProgressToRef } from "../src/core/control/stance.ts";
+import { swingProgressToRef } from "../src/core/control/swing-path.ts";
 import { STRIDE } from "../src/core/skills/stride.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { LAB_PRESETS } from "../src/lab/scenarios.ts";

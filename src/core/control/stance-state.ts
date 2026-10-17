@@ -8,6 +8,7 @@ import type { Assist } from "./assist.ts";
 import { makeBearing, type Bearing, type Limb, type LimbTask } from "./bearing.ts";
 import type { WholeBodyAsk } from "./solve.ts";
 import type { StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
+import type { SwingShift } from "./swing-leg.ts";
 import { resolveStance, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
 import { footStatesOf, massOf, restWidth, type FootMemory, type FootState } from "./support.ts";
 import type { Side } from "../spec/body.ts";
@@ -50,6 +51,8 @@ interface StanceState {
     readonly launch: Vector3;
     readonly turn: Quaternion;
     readonly lift: Quaternion;
+    /** The swing leg's reaction on the plan, as the last command found it (`swingShiftToRef`). */
+    readonly shift: SwingShift;
   };
   /**
    * A run's flight (`SwingGoal.flight`): whether one is under way, the centre of mass as the
@@ -139,7 +142,8 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
   const segments = [...built.segments.values()];
   const state: StanceState = {
     pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace: [0, 0],
-    step: { swing: null, lifted: false, time: 0, held: 0, off: Infinity, catching: false, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion() },
+    step: { swing: null, lifted: false, time: 0, held: 0, off: Infinity, catching: false, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion(),
+      shift: { now: [0, 0], capture: [0, 0], centre: [0, 0] } },
     flight: { on: false, left: new Vector3(), from: new Vector3() },
     plan: { on: false, at: new Vector3(), velocity: new Vector3() },
     reading: { centre: new Vector3(), velocity: new Vector3(), support: new Vector3(), place: new Vector3(),

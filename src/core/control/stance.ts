@@ -19,6 +19,8 @@ import { sin, cos, atan2, exp, sinh, cosh, hypot } from "../math/real.ts";
 import type { Side } from "../spec/body.ts";
 import { spinBetweenToRef, turnAboutToRef, turnBetweenToRef } from "../math/turn.ts";
 import { approachToRef, turnToRef } from "./approach.ts";
+import { swingProgressToRef } from "./swing-path.ts";
+import { swingShiftToRef } from "./swing-leg.ts";
 
 /**
  * **What a stance is asked for**: which feet bear the body, where its centre of mass goes, and which
@@ -286,7 +288,7 @@ export interface StanceReading {
  */
 function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], swing: SwingGoal | null, bearer: FootState | undefined,
   pendulum: number, dt: number): [number, number] {
-  const { plan, reading, step } = s.state, { seconds, inset } = s.tuning;
+  const { plan, reading, step } = s.state, { seconds, inset } = s.tuning, { hipAt, progress } = s.scratch;
   const r = plan.at, u = plan.velocity, n = 1 / seconds.across;
   if (reading.phase === "swing") {
     // On one foot the plan falls as an inverted pendulum of its height about a point of the
@@ -296,11 +298,19 @@ function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], s
     // lands (Englsberger et al. 2011, "Bipedal walking control based on Capture Point
     // dynamics", IROS), within what the sole holds: the body falls toward its new stance.
     const w = Math.sqrt(pendulum), grow = exp(w * Math.max(swing!.seconds - step.time, dt));
+    // The swing leg's reaction (`swingShiftToRef`): the pivot the plan falls about is the centre of
+    // pressure shifted by it, now and, folded over the time left, as the foot lands; the centre of
+    // pressure is kept within the sole. Before the foot has lifted, its path is from where it is.
+    const foot = s.feet.find((f) => f.side === swing!.foot)!, hip = foot.chain[0]!;
+    pointOfToRef(hip.parent, hip.spec.centre.value, hipAt);
+    swingShiftToRef(foot.leg, hipAt, reading.centre, swing!, step.lifted ? step.from : foot.middle, step.lifted ? step.time : 0,
+      reading.place, r, u, w, s.total * gravityOf(s), progress, step.shift);
     const [tx, tz] = swing!.capture ?? [(bearer!.middle.x + swing!.to[0]) / 2, (bearer!.middle.z + swing!.to[1]) / 2];
-    const [px, pz] = withinSupport([bearingOf(bearer!)], (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow),
+    const { capture: [cx, cz], now: [nx, nz] } = step.shift;
+    const [px, pz] = withinSupport([bearingOf(bearer!)], (tx + cx - (r.x + u.x / w) * grow) / (1 - grow), (tz + cz - (r.z + u.z / w) * grow) / (1 - grow),
       inset);
     reading.place.set(px, 0, pz);
-    return [pendulum * (r.x - px), pendulum * (r.z - pz)];
+    return [pendulum * (r.x - px - nx), pendulum * (r.z - pz - nz)];
   }
   if (reading.phase === "shift" && swing!.transfer) {
     // A walk's double support: both soles bear, and the plan falls as the pendulum about a
@@ -345,8 +355,9 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
   let landX = r.x, landZ = r.z;
   if (reading.phase === "swing") {
     const w = Math.sqrt(pendulum), left = Math.max(swing!.seconds - step.time, 0), ch = cosh(w * left), sh = sinh(w * left);
-    landX = reading.place.x + (r.x - reading.place.x) * ch + u.x / w * sh;
-    landZ = reading.place.z + (r.z - reading.place.z) * ch + u.z / w * sh;
+    // Where the plan comes to as the foot lands, the swing leg's reaction in it (`swingShiftToRef`).
+    landX = reading.place.x + (r.x - reading.place.x) * ch + u.x / w * sh - step.shift.centre[0];
+    landZ = reading.place.z + (r.z - reading.place.z) * ch + u.z / w * sh - step.shift.centre[1];
   }
   for (const foot of reading.phase === "swing" ? feet : stance) {
     const [hip, knee, ankle] = foot.chain;
@@ -532,31 +543,6 @@ function fly(s: Stance, goal: StanceGoal, swing: SwingGoal, dt: number): void {
   for (const i of trailing.memory.channels) state.owned[i] = 1;
   swingFoot(s, swing, goal.heading, dt);
   if (reading.phase !== "flight") flight.on = false;
-}
-
-/**
- * **A swing's progress** at `tau`, its share of the swing's time, into `out`: x the share of the
- * way, y its rate per share of the time, z that rate's. With no `ramp`, minimum jerk, 10 tau^3 -
- * 15 tau^4 + 6 tau^5 (Flash and Hogan 1985), whose acceleration peaks at 5.77 times the way over
- * the time squared. With one, the acceleration rises over `ramp` of the time, holds, and falls
- * over as much by the half, then the same mirrored: its peak 4 / (1 - 2 ramp), the least a
- * way at rest at both ends can have as `ramp` goes to 0, for a sharper start and stop.
- */
-export function swingProgressToRef(tau: number, ramp: number | undefined, out: Vector3): Vector3 {
-  if (tau >= 1) return out.set(1, 0, 0);
-  if (ramp === undefined) return out.set(tau * tau * tau * (10 - 15 * tau + 6 * tau * tau), 30 * tau * tau * (1 - tau) * (1 - tau), 60 * tau * (1 - tau) * (1 - 2 * tau));
-  const q = ramp, flip = tau > 0.5, u = flip ? 1 - tau : tau, top = 4 / (1 - 2 * q);
-  let share: number, rate: number, accel: number;
-  if (u < q) {
-    accel = top * u / q; rate = top * u * u / (2 * q); share = top * u * u * u / (6 * q);
-  } else if (u <= 0.5 - q) {
-    const d = u - q;
-    accel = top; rate = top * q / 2 + top * d; share = top * q * q / 6 + top * q / 2 * d + top * d * d / 2;
-  } else {
-    const d = 0.5 - 2 * q, r = top * q / 2 + top * d, at = top * q * q / 6 + top * q / 2 * d + top * d * d / 2, e = u - (0.5 - q);
-    accel = top * (1 - e / q); rate = r + top * e - top * e * e / (2 * q); share = at + r * e + top * e * e / 2 - top * e * e * e / (6 * q);
-  }
-  return flip ? out.set(1 - share, rate, -accel) : out.set(share, rate, accel);
 }
 
 /** Each foot's leg's channels, found once the driver's are known. */
@@ -854,7 +840,7 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
         holdPose(s, goal, goal.pose);
         return;
       }
-      paceToward(s, stepsOfItself(goal) ? goal.walk : null, dt);
+      paceToward(s, stepsOfItself(goal) ? goal.walk : null, goal?.heading ?? 0, dt);
       const swing = chooseStep(s, goal);
       const bearing = bearerOf(goal, reading.phase, swing);
       if (!goal || !state.last || bearing.length !== state.last.length || bearing.some((side) => !state.last!.includes(side))) {

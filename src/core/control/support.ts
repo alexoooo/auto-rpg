@@ -8,6 +8,7 @@ import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts
 import type { Row } from "./bearing.ts";
 import type { BearingSole } from "./contact-wrench.ts";
 import { chainTo } from "./kinematics.ts";
+import { swingLegOf, type SwingLeg } from "./swing-leg.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { SUPPORT_INSET } from "./stance-tuning.ts";
 import { acos, atan2, hypot } from "../math/real.ts";
@@ -44,6 +45,8 @@ export interface FootState {
   readonly lengths: readonly [number, number];
   /** The knee's flexion, rad, at which the leg is straight: less its bend in the reference pose. */
   readonly straight: number;
+  /** The leg as a pendulum about its hip (`swingShiftToRef`). */
+  readonly leg: SwingLeg;
   /** The sole's width across the foot, m. */
   readonly width: number;
   /** Half the sole's length, m. */
@@ -81,7 +84,7 @@ export function footStatesOf(built: BuiltBody): FootState[] {
     const corners = soleCorners(segment), sole = soleOf(segment, corners), chain = chainTo(built, segment);
     const ahead = aheadOf(corners, chain[2]!.spec.centre.value);
     return { turns: turnsOf(chain[0]!), side, segment, chain, sole, memory: { channels: [] as number[], rolled: false }, corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
-      straight: -referenceBendOf(chain),
+      straight: -referenceBendOf(chain), leg: swingLegOf(chain),
       width: Math.max(...sole.map((q) => q.x)) - Math.min(...sole.map((q) => q.x)),
       // The rectangle's sides from one corner: the nearer two of the other three.
       reach: [1, 2, 3].map((k) => Vector3.Distance(sole[0]!, sole[k]!)).sort((a, b) => a - b)[1]! / 2,

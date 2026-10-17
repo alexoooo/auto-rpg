@@ -9,6 +9,7 @@ import type { SwingGoal } from "./stance.ts";
 import { gravityOf, type Stance } from "./stance-state.ts";
 import { SUPPORT_INSET, type GaitTuning, type RecoveryTuning } from "./stance-tuning.ts";
 import { bearingOf, landingHeading, withinSupport, type FootState } from "./support.ts";
+import { swingSeconds, withinReach } from "./swing-leg.ts";
 import { sin, cos, exp, hypot } from "../math/real.ts";
 import type { Side } from "../spec/body.ts";
 
@@ -110,6 +111,53 @@ function assistReach(s: Stance): number {
   return recovery.assisted * (assist.most.force * height + assist.most.moment) / (total * gravityOf(s));
 }
 
+/** A step's swing time, s: the gait's, or longer if the swing hip needs it at the walk's `pace`, m/s (`swingSeconds`). */
+function stepSeconds(foot: FootState, pace: number, tuning: GaitTuning): number {
+  return Math.max(tuning.seconds, swingSeconds(foot.leg, pace, tuning.transfer ?? 0, tuning.effort));
+}
+
+/**
+ * The soles' middles' distance apart across the heading in a walk going `across` it, m/s, m: the
+ * gait's width, or a sole's width plus the walk's distance across the heading over `T` if that is
+ * more, so that the feet do not cross.
+ */
+function stepWidth(foot: FootState, across: number, T: number, tuning: GaitTuning): number {
+  return Math.max(tuning.width, foot.width + across * T);
+}
+
+/**
+ * The share of a step of (`dx`, `dz`) from the bearing sole's middle that `foot` can take, 1 if all
+ * of it: no further than `longest` of the leg, and within its hip's reach (`withinReach`).
+ */
+function stepShare(foot: FootState, dx: number, dz: number, rx: number, rz: number, sign: number, tuning: GaitTuning): number {
+  const longest = tuning.longest * (foot.lengths[0] + foot.lengths[1]), far = hypot(dx, dz);
+  return Math.min(far > longest ? longest / far : 1, withinReach(foot.leg, dx, dz, rx, rz, sign));
+}
+
+/** The fastest pace `fastestPace` tries, m/s, and how finely it is found: numeric settings. */
+const PACE_MOST = 10, PACE_STEP = 0.01;
+
+/**
+ * The fastest walk the legs can step the way (`ux`, `uz`), unit, facing `heading`, m/s: the pace
+ * whose steady steps (`transferStep`'s, each the pace over the swing's own time (`stepSeconds`) and
+ * the transfer, the width (`stepWidth`) across) each foot can take whole (`stepShare`); by bisection.
+ */
+function fastestPace(feet: readonly FootState[], ux: number, uz: number, heading: number, tuning: GaitTuning): number {
+  const rx = cos(heading), rz = -sin(heading), Tds = tuning.transfer ?? 0;
+  let low = 0, high = PACE_MOST;
+  while (high - low > PACE_STEP) {
+    const v = (low + high) / 2;
+    let can = true;
+    for (let k = 0; k < feet.length && can; k++) {
+      const foot = feet[k]!, sign = foot.side === "right" ? 1 : -1, T = stepSeconds(foot, v, tuning) + Tds;
+      const W = stepWidth(foot, v * Math.abs(ux * rx + uz * rz), T, tuning);
+      can = stepShare(foot, v * ux * T + sign * W * rx, v * uz * T + sign * W * rz, rx, rz, sign, tuning) >= 1;
+    }
+    if (can) low = v; else high = v;
+  }
+  return low;
+}
+
 /**
  * A walk's next step at the velocity `walk`, world (x, z), m/s: the foot other than `last`'s steps,
  * or, starting, the one on the side the walk goes (the right, going straight).
@@ -122,21 +170,21 @@ function assistReach(s: Stance): number {
  * steady landing wants it, and the foot lands at e less that offset. A pivot fixed at b would let a
  * landing's miss grow by exp(w T) each step, until the feet cannot reach.
  *
- * The width is the gait's, or a sole's width plus the walk's distance across the heading over a
- * swing if that is more; the step is no further from the bearing sole than `longest` of the leg,
- * and at least a sole's width out to its own side. Walking nowhere, the steps stop a walk under
+ * The swing's time is the step's own (`stepSeconds`) and the width the walk's (`stepWidth`); the
+ * step is what the leg can take (`stepShare`), and at least a sole's width out to its own side.
+ * Walking nowhere, the steps stop a walk under
  * way. `under` re-aims a step under way: its foot, the pivot the body falls about, and the swing's
  * time left.
  */
 function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
-  tuning: GaitTuning, last: Side | null, under?: { readonly foot: Side; readonly pivot: Vector3; readonly remaining: number }, inset = SUPPORT_INSET): SwingGoal {
+  tuning: GaitTuning, last: Side | null, under?: Underway, inset = SUPPORT_INSET): SwingGoal {
   const side: Side = under?.foot ?? (last ? (last === "left" ? "right" : "left") : walk[0] * cos(heading) - walk[1] * sin(heading) < 0 ? "left" : "right");
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   // The pelvis's right across the ground at the heading the step lands facing: +x at heading 0.
   const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
   // The height's floor, 1 mm, is a numeric setting.
-  const T = tuning.seconds, w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3)), grow = exp(w * T);
-  const clear = foot.width, W = Math.max(tuning.width, clear + Math.abs(walk[0] * rx + walk[1] * rz) * T);
+  const T = stepSeconds(foot, hypot(walk[0], walk[1]), tuning), w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3)), grow = exp(w * T);
+  const clear = foot.width, W = stepWidth(foot, Math.abs(walk[0] * rx + walk[1] * rz), T, tuning);
   // Under way, the capture point runs from the pivot the body falls about for what is left of the swing.
   const run = under ? exp(w * Math.max(under.remaining, 0)) : grow, xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
   // Ahead of the new foot by the walk's distance over a swing over exp(w T) - 1, and in from it by
@@ -147,16 +195,15 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
   let px = under ? under.pivot.x : b.x, pz = under ? under.pivot.z : b.z;
   // (At the swing's end the capture point is where it is, wherever the pivot; how near the end, 1e-6
   // of the run, is a numeric setting.)
-  if (run > 1 + 1e-6) [px, pz] = withinSupport([bearingOf(bearer)], (sx + nx - xi * run) / (1 - run), (sz + nz - zi * run) / (1 - run), inset);
-  const ex = px + (xi - px) * run, ez = pz + (zi - pz) * run;
+  const shx = under?.shift[0] ?? 0, shz = under?.shift[1] ?? 0;
+  if (run > 1 + 1e-6) [px, pz] = withinSupport([bearingOf(bearer)], (sx + nx + shx - xi * run) / (1 - run), (sz + nz + shz - zi * run) / (1 - run), inset);
+  const ex = px + (xi - px) * run - shx, ez = pz + (zi - pz) * run - shz;
   // Starting from a stand, the weight is shifted first and the foot lands where a steady walk puts it.
   const steady = last || under;
   let tx = steady ? ex - nx : sx, tz = steady ? ez - nz : sz;
-  const longest = tuning.longest * (foot.lengths[0] + foot.lengths[1]), far = hypot(tx - b.x, tz - b.z);
-  if (far > longest) {
-    tx = b.x + (tx - b.x) * longest / far;
-    tz = b.z + (tz - b.z) * longest / far;
-  }
+  const share = stepShare(foot, tx - b.x, tz - b.z, rx, rz, sign, tuning);
+  tx = b.x + (tx - b.x) * share;
+  tz = b.z + (tz - b.z) * share;
   const out = sign * ((tx - b.x) * rx + (tz - b.z) * rz);
   if (out < clear) {
     tx += sign * (clear - out) * rx;
@@ -164,6 +211,12 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
   }
   return { foot: side, to: [tx, tz], seconds: T, lift: tuning.lift, shift: !steady, capture: steady ? [ex, ez] : [tx + nx, tz + nz] };
 }
+
+/**
+ * A walk's step under way, for its re-aim: its foot, the pivot the body falls about, the swing's
+ * time left, and the swing leg's reaction folded over it (`SwingShift.capture`).
+ */
+interface Underway { readonly foot: Side; readonly pivot: Vector3; readonly remaining: number; readonly shift: readonly [number, number] }
 
 /**
  * How many footsteps past the step under way a walk with a double support plans (`transferStep`):
@@ -187,13 +240,13 @@ const PREVIEW_STEPS = 8;
  * share of the landing the reference moves with.
  */
 function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
-  tuning: GaitTuning, last: Side | null, under?: { readonly foot: Side; readonly pivot: Vector3; readonly remaining: number }, inset = SUPPORT_INSET): SwingGoal {
+  tuning: GaitTuning, last: Side | null, under?: Underway, inset = SUPPORT_INSET): SwingGoal {
   const side: Side = under?.foot ?? (last === "left" ? "right" : "left");
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
   // The height's floor, 1 mm, is a numeric setting.
-  const Tss = tuning.seconds, Tds = tuning.transfer!, T = Tss + Tds, w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3));
-  const clear = foot.width, W = Math.max(tuning.width, clear + Math.abs(walk[0] * rx + walk[1] * rz) * T);
+  const Tss = stepSeconds(foot, hypot(walk[0], walk[1]), tuning), Tds = tuning.transfer!, T = Tss + Tds, w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3));
+  const clear = foot.width, W = stepWidth(foot, Math.abs(walk[0] * rx + walk[1] * rz), T, tuning);
   const E = exp(-w * Tss), F = exp(-w * Tds), G = (1 - F) / (w * Tds) - F;
   /** The capture point's reference as the foot lands at (x, z): at the end of the swing, on the bearing sole. */
   const reference = (x: number, z: number): [number, number] => {
@@ -219,16 +272,15 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
     const xi = centre.x + velocity.x / w, zi = centre.z + velocity.z / w;
     let px = under.pivot.x, pz = under.pivot.z;
     // At the swing's end the pivot is kept: how near the end, 1e-6 of the run, is a numeric setting.
-    if (run > 1 + 1e-6) [px, pz] = withinSupport([bearingOf(bearer)], (cx - xi * run) / (1 - run), (cz - zi * run) / (1 - run), inset);
-    const ex = px + (xi - px) * run, ez = pz + (zi - pz) * run;
+    const [shx, shz] = under.shift;
+    if (run > 1 + 1e-6) [px, pz] = withinSupport([bearingOf(bearer)], (cx + shx - xi * run) / (1 - run), (cz + shz - zi * run) / (1 - run), inset);
+    const ex = px + (xi - px) * run - shx, ez = pz + (zi - pz) * run - shz;
     tx += (ex - cx) / (F + G);
     tz += (ez - cz) / (F + G);
   }
-  const longest = tuning.longest * (foot.lengths[0] + foot.lengths[1]), far = hypot(tx - b.x, tz - b.z);
-  if (far > longest) {
-    tx = b.x + (tx - b.x) * longest / far;
-    tz = b.z + (tz - b.z) * longest / far;
-  }
+  const share = stepShare(foot, tx - b.x, tz - b.z, rx, rz, sign, tuning);
+  tx = b.x + (tx - b.x) * share;
+  tz = b.z + (tz - b.z) * share;
   const out = sign * ((tx - b.x) * rx + (tz - b.z) * rz);
   if (out < clear) {
     tx += sign * (clear - out) * rx;
@@ -239,13 +291,25 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
     capture, handover: [b.x + E * (capture[0] - b.x), b.z + E * (capture[1] - b.z)] };
 }
 
-/** The walk's pace toward `walk` (none: toward standing) at the gait's acceleration. */
-export function paceToward(s: Stance, walk: readonly [number, number] | null | undefined, dt: number): void {
+/**
+ * The walk's pace toward `walk` (none: toward standing) at the gait's acceleration, and no faster
+ * than the legs can step its way facing `heading` (`fastestPace`): a pace asked past that is taken
+ * at that, and the steps planned are steps the legs can take.
+ */
+export function paceToward(s: Stance, walk: readonly [number, number] | null | undefined, heading: number, dt: number): void {
   const { pace } = s.state, { gait } = s.tuning;
   const wx = walk?.[0] || 0, wz = walk?.[1] || 0, dx = wx - pace[0], dz = wz - pace[1];
   const most = gait.accel * dt, d = hypot(dx, dz), k = d > most ? most / d : 1;
   pace[0] += dx * k;
   pace[1] += dz * k;
+  const p = hypot(pace[0], pace[1]);
+  if (p > 0) {
+    const fastest = fastestPace(s.feet, pace[0] / p, pace[1] / p, heading, gait);
+    if (p > fastest) {
+      pace[0] *= fastest / p;
+      pace[1] *= fastest / p;
+    }
+  }
 }
 
 /**
@@ -301,7 +365,7 @@ export function ownStep(s: Stance, heading: number): void {
   } else if (reading.own && state.striding && reading.phase === "swing" && step.lifted && step.swing === reading.own) {
     // A walk's step under way lands where the body's capture point, measured, says it must: the
     // body lags its plan, and a landing fixed at lift carries the lag into the next step.
-    const under = { foot: reading.own.foot, pivot: reading.place, remaining: reading.own.seconds - step.time };
+    const under: Underway = { foot: reading.own.foot, pivot: reading.place, remaining: reading.own.seconds - step.time, shift: step.shift.capture };
     // (`state.striding` is the pace, read as it is now.)
     if (reading.own.transfer) {
       const aimed = transferStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, null, under, inset);

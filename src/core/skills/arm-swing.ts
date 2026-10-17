@@ -1,6 +1,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
-import { swingProgressToRef, type SwingGoal } from "../control/stance.ts";
+import type { SwingGoal } from "../control/stance.ts";
+import { swingProgressToRef } from "../control/swing-path.ts";
 import type { Pose } from "../control/motor.ts";
 import type { Side } from "../spec/body.ts";
 import { GUARD } from "./guard.ts";

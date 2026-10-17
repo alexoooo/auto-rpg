@@ -42,6 +42,12 @@ export interface GaitTuning {
   readonly width: number;
   /** The longest step, from the bearing sole's middle, as a fraction of the leg (thigh and shank). */
   readonly longest: number;
+  /**
+   * The share of the swing hip's peak torque a step's swing is planned on (`swingSeconds`): a swing
+   * the gait's `seconds` would ask more of takes longer. Under 1 for the leg's weight, the knee's
+   * bend the plan's straight leg has not, and the strength the hip loses at speed.
+   */
+  readonly effort: number;
   /** How fast the walk's pace goes toward the one asked, m/s^2: a body does not reach a walk in one step. */
   readonly accel: number;
   /**
@@ -105,8 +111,10 @@ export const STANCE_ANKLE_SPARE = 0.01;
 const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05, reach: 0.2, assisted: 1 };
 
 /**
- * A walk's steps: each swings over `seconds` lifted `lift` m, the soles `width` m apart across the
- * heading, none longer than `longest` of the leg, the pace going toward the one asked at `accel`.
+ * A walk's steps: each swings over `seconds`, or longer if its hip needs it within `effort` of its
+ * strength, lifted `lift` m, the soles `width` m apart across the heading, none longer than `longest`
+ * of the leg nor past the hip's range, the pace going toward the one asked at `accel` and no faster
+ * than the legs can step.
  * A double support of `transfer` s precedes each steady step's lift, through which the trailing
  * foot rolls onto its toes and its knee flexes toward `preswing.knee`, the 35 degrees of a
  * person's knee at toe-off (Simoneau, "Kinesiology of Walking", in Neumann, "Kinesiology of the
@@ -114,7 +122,7 @@ const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05
  * for more than its strength in a fast walk.
  * Sweeps: `docs/reference/stance-tuning.md#gait`.
  */
-export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, accel: 1, transfer: 0.08,
+export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, effort: 0.5, accel: 1, transfer: 0.08,
   preswing: { knee: 0.61, seconds: 0.04 } };
 
 /**
