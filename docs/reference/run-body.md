@@ -32,6 +32,33 @@ dynamometer's peak (Kulmala 2016). The search's harness was a research script ou
 repository; its run is now `runCycle`, searched on these numbers by
 `research/run-cycle-search.mjs`.
 
+## The thighs' room
+
+`STRIDE_ROOM` (`src/core/human/segments.ts`): 30 mm. A thigh's capsule is no wider than half the
+distance between the hip joint centres less half of it (`owner-stride-room`): with the legs
+hanging straight the two leave that much between them. The thighs share no joint, so they collide
+at full stiffness, and in a walk the knees come nearer each other than the hips as one leg swings
+past the other.
+
+Each body walking forward asked 1.2 m/s on the whole-body solve, in the guard under its
+character's balance, for 8 s from the order (Node stand, Rapier, 120 Hz; the stance's walk as it
+is), empty-handed: the steps in which the thighs touched, the impulse they passed, N s, and the
+mean pace over the 8 s, setting off included. The first row is each body's thighs without the
+rule: the Warrior's at Dempster's density leave 31 mm, the Rogue's 12, and the skeleton's were held
+to 4 (`skeleton-limbs-clear`).
+
+| Room | Warrior: radius, steps, impulse, pace | Rogue | skeleton |
+| --- | --- | --- | --- |
+| None | 0.095 m, 3, 10, 0.95 | 0.088 m, 73, 263, 0.84 | 0.088 m, 241, 1569, 0.82 |
+| 20 mm | 0.095 m, 3, 10, 0.95 | 0.084 m, 87, 502, falls | 0.080 m, 20, 42, 0.93 |
+| 30 mm | 0.095 m, 3, 10, 0.95 | 0.079 m, 1, 4, 0.85 | 0.075 m, 1, 6, 0.94 |
+| 40 mm | 0.091 m, 0, 0, 0.93 | 0.074 m, 0, 0, 0.85 | 0.070 m, 0, 0, 0.95 |
+
+Holding the club the rows are alike (the Rogue at 20 mm stands, 40 steps). At 30 mm the thighs of
+each body, either way, touch in at most 5 of the 960 steps, at no more than 17 N s over the walk,
+and the Warrior's are its own width; at 40 mm the Warrior's must narrow too, and grow denser to keep
+their mass. The skeleton's other self-contacts, some 700 steps and 120 N s, are not its thighs'.
+
 ## The run on it
 
 With today's run (`RUN_CYCLE`), empty-handed in the guard, set off from a stand and asked a pace

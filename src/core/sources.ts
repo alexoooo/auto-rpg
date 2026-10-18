@@ -234,6 +234,14 @@ export const SOURCES = Object.freeze({
       + "is fastest and surest at.",
     record: "docs/reference/run-body.md",
   },
+  "owner-stride-room": {
+    kind: "decision", date: "2026-10-18",
+    decided: "A thigh's capsule leaves 30 mm between it and the other thigh with the legs hanging straight, "
+      + "set to what gives a walk that does not meet itself (the owner, 2026-10-15: a body's number is set "
+      + "to the value that achieves the result wanted). With less, the rigid thighs meet as one swings past "
+      + "the other, at up to a blow's force; the Warrior's, at their mass and density, leave 31 mm.",
+    record: "docs/reference/run-body.md",
+  },
   "owner-part-hp-split": {
     kind: "decision", date: "2026-09-29",
     decided: "A core human's hit points are split over its segments by cross-section: each segment's "

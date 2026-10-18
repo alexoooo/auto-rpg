@@ -15,6 +15,13 @@ import { SEGMENT_DENSITY, type DensitySegment } from "./tables/densities.ts";
 const FOOT_FRICTION = sourced(0.8, "1", "owner-run-body", "the foot's coefficient of friction");
 
 /**
+ * The room a thigh's capsule leaves between it and the other, the legs hanging straight, m: a
+ * stride brings the knees nearer each other than the hips, and rigid thighs that leave less meet as
+ * one swings past the other (`docs/reference/run-body.md`).
+ */
+export const STRIDE_ROOM = sourced(0.03, "m", "owner-stride-room", "the room between the thighs");
+
+/**
  * **A human figure's sixteen segments** (`figure.ts`), at x1: the head, three trunk segments, and
  * on each side the upper arm, forearm, hand, thigh, shank and foot.
  *
@@ -28,7 +35,8 @@ const FOOT_FRICTION = sourced(0.8, "1", "owner-run-body", "the foot's coefficien
  *   (`HumanFigure.breadth`) has the longitudinal radius broader by as much, since it lies wholly
  *   across the segment; the two transverse radii are his, a stated assumption.
  * - **Shape.** The head and the limbs are capsules as long as the segment that hold its mass at
- *   Dempster's density. A trunk segment is the convex hull of its stretch of the figure (a workshop
+ *   Dempster's density, a thigh's no wider than leaves the stride's room between the two
+ *   (`STRIDE_ROOM`), and a limb no wider than its figure leaves it (`HumanFigure.widest`). A trunk segment is the convex hull of its stretch of the figure (a workshop
  *   model's clothed envelope), not a box on its extents, whose corners stand out of the body where
  *   a driven upper arm passes. A foot is a box on its extents (the boot). A shape carries no mass
  *   (`SegmentSpec.shape`).
@@ -131,11 +139,11 @@ function plans(figure: HumanFigure): Plan[] {
   return out;
 }
 
-function shapeOf(figure: HumanFigure, plan: Plan, proximal: Quantity<Vec3>, distal: Quantity<Vec3>, mass: Quantity<number>): ShapeSpec {
+function shapeOf(figure: HumanFigure, plan: Plan, proximal: Quantity<Vec3>, distal: Quantity<Vec3>, mass: Quantity<number>,
+  widest: Quantity<number> | undefined): ShapeSpec {
   const shape = plan.shape;
   switch (shape.kind) {
     case "capsule": {
-      const widest = figure.widest?.[plan.row];
       const radius = widest
         ? derive("m", "the capsule as long as the segment that holds its mass at its density, no wider than its figure leaves it room",
           [mass, si(SEGMENT_DENSITY[shape.density]), proximal, distal, widest],
@@ -182,6 +190,10 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
   const all = plans(figure);
   const shares = all.map((plan) => table[plan.row].mass);
   const body = figure.mass, atFit = atScale(figure);
+  const thigh = derive("m", "half the distance between the hip joint centres, less half the stride's room",
+    [atFit(figure.limbs.left.HJC), atFit(figure.limbs.right.HJC), STRIDE_ROOM], (l, r, room) => (distance(l, r) - room) / 2);
+  const widestOf = (plan: Plan): Quantity<number> | undefined => plan.row !== "thigh" ? figure.widest?.[plan.row]
+    : figure.widest?.thigh ? derive("m", "the narrower", [thigh, figure.widest.thigh], Math.min) : thigh;
   return all.map((plan, i) => {
     const row: DeLevaRow = table[plan.row];
     const proximal = atFit(plan.proximal), distal = atFit(plan.distal);
@@ -199,7 +211,7 @@ export function humanSegments(figure: HumanFigure): SegmentSpec[] {
         const l = distance(p, d);
         return [m * square(transverse * l), m * square(longitudinal * l), m * square(sagittal * l)];
       });
-    const segment: SegmentSpec = { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape: shapeOf(figure, plan, proximal, distal, mass),
+    const segment: SegmentSpec = { name: plan.name, proximal, distal, mass, centreOfMass, inertia, shape: shapeOf(figure, plan, proximal, distal, mass, widestOf(plan)),
       surface: { stiffness: si(CONTACT_STIFFNESS[plan.row]), ...(plan.row === "foot" ? { friction: FOOT_FRICTION } : {}) } };
     const points = plan.points && Object.fromEntries(Object.entries(plan.points).map(([name, point]) => [name, atFit(point)]));
     if (plan.row === "foot" && segment.shape.kind === "box") {

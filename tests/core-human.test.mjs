@@ -8,7 +8,7 @@ import { FIT_SCALE, bodyMass, stature, WORKSHOP_SEX } from "../src/core/human/mo
 import { rigPoint, WORKSHOP_MODELS } from "../src/core/human/rig.ts";
 import { frameOf, segmentFrame } from "../src/core/spec/body.ts";
 import { cross, dot, length, normalize, scale, sub } from "../src/core/spec/vec.ts";
-import { HUMAN_PARENTS, humanSegments } from "../src/core/human/segments.ts";
+import { HUMAN_PARENTS, STRIDE_ROOM, humanSegments } from "../src/core/human/segments.ts";
 import { TRUNK_SEGMENTS, workshopEnvelope } from "../src/core/human/envelope.ts";
 import { SIDES } from "../src/core/human/landmarks.ts";
 import { inventory, sourcesOf } from "../src/core/spec/provenance.ts";
@@ -462,10 +462,16 @@ test("a physique changes what it names and nothing else, and the default physiqu
     const heavy = humanSpec(model, { weight: 1.2 });
     assert.deepEqual([lengthsOf(heavy), centresOf(heavy), torquesOf(heavy), valuesOf(speedsOf(heavy))],
       [lengthsOf(base), centresOf(base), torques, valuesOf(speeds)], `${model}: weight keeps lengths, joints, torques and speeds`);
+    // A thigh is no wider than leaves the stride's room between the two (`STRIDE_ROOM`): one held
+    // there grows denser with the weight, not wider.
+    const [hipL, hipR] = ["hip.left", "hip.right"].map((name) => heavy.joints.find((j) => j.name === name).centre.value);
     heavy.segments.forEach((s, i) => {
-      const b = base.segments[i];
+      const b = base.segments[i], density = s.mass.value / volumeOf(s.shape), was = b.mass.value / volumeOf(b.shape);
       near(s.mass.value, b.mass.value * 1.2, `${model} weight mass ${s.name}`);
-      near(s.mass.value / volumeOf(s.shape), b.mass.value / volumeOf(b.shape), `${model} weight density ${s.name}`);
+      if (s.name.startsWith("thigh.") && Math.abs(density - was) > 1e-9 * was) {
+        assert.ok(density > was, `${model} weight density ${s.name}: ${density} against ${was}`);
+        near(s.shape.radius.value, (length(sub(hipL, hipR)) - STRIDE_ROOM.value) / 2, `${model} weight ${s.name} held to the stride's room`);
+      } else near(density, was, `${model} weight density ${s.name}`);
       if (s.handPoses && b.handPoses) for (const pose of ["open", "fist"]) near(volumeOf(s.handPoses[pose]), volumeOf(b.handPoses[pose]) * 1.2, `${model} ${s.name} ${pose}`);
     });
     const strong = humanSpec(model, { strength: 1.2 });

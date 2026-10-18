@@ -550,7 +550,11 @@ After it, each with its own plan, in the order each needs the one before:
 - **Shoves.** The least impulse held from any direction is 55 N s on the Warrior and 35 on the
   Rogue ([stance tuning](reference/stance-tuning.md#bounded-swing)). No sourced human reference
   exists for shove impulses.
-- **The stance doesn't model the thighs touching.**
+- **Legs meet as rigid capsules.** A thigh leaves the stride's room to the other (`STRIDE_ROOM`,
+  [the run's body](reference/run-body.md#the-thighs-room)) and a walk's step lands on its own side
+  of the bearing foot (`ownSide`, `src/core/control/gait.ts`), but a catch's crossover and a turn
+  faster than the steps still bring thigh to thigh, and a fall thigh to trunk, at a blow's force:
+  segments with no joint between them collide at full stiffness.
 - **The hip's and the trunk's speed** borrow a two-point extrapolation of hip extension (6.5
   rad/s unloaded) that the elbow's own rule would put near 20 (`BORROWED`,
   `src/core/human/speed.ts`). Changing it is a body change felt in every walk, rise and kick, with

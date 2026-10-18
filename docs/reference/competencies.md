@@ -60,11 +60,13 @@ through the hull's centroid, a foot's box across and up from its sole, and a lim
 holding its mass at its density. The longitudinal radius of gyration broadens with it; de Leva's
 transverse radii are kept, a stated assumption.
 
-Weight has a ceiling in the body plan. Broadened, segments that share no joint come to touch in
-the reference pose, where the engine would fling them apart: the Warrior's upper arms meet its
-middle trunk past x1.30 (5.3 mm of room at x1.25), and the Rogue's thighs meet each other past
-x1.35. The crypt skeleton takes no weight: its limbs are capped by the room its own trunk leaves,
-which it would have to derive again.
+Weight has a ceiling in the body plan. Broadened, segments that share no joint come to touch in the
+reference pose, where the engine would fling them apart: the Warrior's upper arms meet its middle
+trunk past x1.30 (5.3 mm of room at x1.25). A thigh broadens no further than leaves the stride's
+room between the two (`STRIDE_ROOM`, `src/core/human/segments.ts`): the Rogue's are held there at its
+own weight, the Warrior's from just over its own, and a thigh held there grows denser instead. The
+crypt skeleton takes no weight: its limbs are capped by the room its own trunk leaves, which it
+would have to derive again.
 
 The grid's ranges are the owner's: size x0.9 to x1.18, weight x0.85 to x1.25, strength x0.8 to
 x1.25, and speed x0.85 to x1.15, the last an engineering range with no source. They are

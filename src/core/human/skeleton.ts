@@ -1,6 +1,6 @@
 import bind from "../../../assets/skeleton/bind.json" with { type: "json" };
 import { derive, sourced, type Quantity, type Vec3 } from "../spec/quantity.ts";
-import { add, distance, midpoint, normalize, scale, sub } from "../spec/vec.ts";
+import { add, midpoint, normalize, scale, sub } from "../spec/vec.ts";
 import type { Extent, Extents, TrunkSegment } from "./envelope.ts";
 import type { HumanFigure, LimbFigure } from "./figure.ts";
 import { HUMAN_HASTE } from "./attributes.ts";
@@ -28,10 +28,10 @@ import type { Side } from "../spec/body.ts";
  * - **What the art does not give** is a placeholder (`skeleton-placeholders`): a typical man in the
  *   skeleton's shape, with men's tables, the typical man's mass and the Warrior's hit points; and
  *   the fists thumb up, which the bind's guard shows but no number states.
- * - **Its thighs and upper arms are no wider than clears them** (`skeleton-limbs-clear`): the
- *   typical man's at his densities, on the art's narrower hips and beside its trunk, would overlap
- *   each other and the trunk as built. Its thighs hang straight from its hips and its upper arms
- *   from its shoulders, so the room is read across, in x.
+ * - **Its upper arms are no wider than clears them** (`skeleton-limbs-clear`): the typical man's at
+ *   his densities, beside its trunk, would overlap the trunk as built. Its upper arms hang straight
+ *   from its shoulders, so the room is read across, in x. Its thighs, as every human's, leave the
+ *   stride's room between them (`segments.ts`).
  *
  * Posture angles are measured from a body's reference pose, so a posture written for the humans
  * (`GUARD`) bends the skeleton's elbows past its stop from here. A posture written from each
@@ -191,8 +191,6 @@ export function skeletonFigure(): HumanFigure {
     hulls,
     feet: { left: boxExtents(part("legs.footL"), "the left foot"), right: boxExtents(part("legs.footR"), "the right foot") },
     widest: {
-      thigh: derive("m", "half the distance between the hip joint centres, less half the room",
-        [limbs.left.HJC, limbs.right.HJC, room], (l, r, gap) => (distance(l, r) - gap) / 2),
       // The upper arm's parent is the upper trunk; the middle and lower trunks share no joint with it.
       upperArm: derive("m", "the nearer shoulder's distance out from the middle and lower trunks' widest, less the room",
         [limbs.left.SJC, limbs.right.SJC, room, ...hulls.middle, ...hulls.lower],
