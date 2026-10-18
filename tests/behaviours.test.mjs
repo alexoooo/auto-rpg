@@ -29,18 +29,21 @@ async function against(mind, seconds, gap) {
   const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-fighter", minds: { left: mind, right: STANDS }, ...(gap ? { gap } : {}) });
   try {
     const { left, right } = duel.duelists, skills = left.minded.skills, begun = new Set(), effectors = [];
+    const gapOf = () => { const a = left.body.view.stance.centre, b = right.body.view.stance.centre; return Math.hypot(a.x - b.x, a.z - b.z); };
+    world.step();
+    const opened = gapOf();
     while (world.time < seconds) {
       world.step();
       for (const instance of [...skills.report.actions, ...skills.report.ledger]) if (!begun.has(instance.id) && (instance.phase === "commit" || instance.committed)) { begun.add(instance.id); effectors.push(instance.effector); }
     }
-    const a = left.body.view.stance.centre, b = right.body.view.stance.centre;
-    return { gap: Math.hypot(a.x - b.x, a.z - b.z), effectors, down: left.body.view.down };
+    return { opened, gap: gapOf(), effectors, down: left.body.view.down };
   } finally { dispose(); }
 }
 
 test("the Runner opens the gap and the Charger closes it, neither striking", async () => {
+  // Each walks for about 2.5 of its 4 s at the walk's pace, 0.4 m/s and more: the gap opens or closes by over 0.8 m.
   const ran = await against(RUNNER, 4), charged = await against(CHARGER, 4);
-  assert.ok(ran.gap > 5, JSON.stringify(ran)); assert.ok(charged.gap < 3, JSON.stringify(charged));
+  assert.ok(ran.gap - ran.opened > .8, JSON.stringify(ran)); assert.ok(charged.opened - charged.gap > .8, JSON.stringify(charged));
   for (const read of [ran, charged]) assert.deepEqual([read.effectors, read.down], [[], false]);
 });
 

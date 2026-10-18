@@ -53,11 +53,13 @@ export interface GaitTuning {
   /** The longest step, from the bearing sole's middle, as a fraction of the leg (thigh and shank). */
   readonly longest: number;
   /**
-   * The share of the leg's reach (`withinReach`) a step is planned within, the rest left for the
-   * step under way to be re-aimed into when the body misses its plan (`walkStep`, `transferStep`,
-   * and the pace the legs can walk at, `fastestPace`). A step planned at the whole reach lands
-   * short as soon as the body lags its plan, the leg being no longer than it is, and the capture
-   * point runs past the plan by exp(w T) a step; 1 plans at the whole reach.
+   * The share of the leg's reach (`withinReach`) a walk's steady steps take (`stepsWithin`: the
+   * pace the legs can walk at, `fastestPace`, and the height they walk at, `walkHeight`), the rest
+   * left for the corrections a step makes when the body misses its plan: each step lands within
+   * the whole reach (`walkStep`, `transferStep`). A steady walk at the whole reach lands short as
+   * soon as the body lags its plan, the leg being no longer than it is, and the capture point runs
+   * past the plan by exp(w T) a step; a step held to the reserve itself, past it, cuts the pace,
+   * and the step that catches the body then has no double support. 1 walks at the whole reach.
    */
   readonly reserve: number;
   /**

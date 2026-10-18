@@ -54,7 +54,8 @@ function settleStep(feet: readonly FootState[], last: Side, heading: number, wid
  *
  * Pushed sideways past the nearer foot, the far foot can only step in beside it, and stepping in
  * again and again the body falls off that foot's outer edge. So once the far foot has stepped in
- * (its step would move it less than a sole's width), the nearer foot steps out instead, no further
+ * (its step would move it less than a sole's width) and the capture point is past the nearer
+ * sole's middle, away from the far foot, the nearer foot steps out instead, no further
  * from the far sole than `longest` of the leg: the sideways catch people make (Maki and McIlroy
  * 1997). Not before, since a step out whenever within reach would replace the far foot's short
  * steps, which hold more.
@@ -125,8 +126,12 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
   const near = holding.length < 2 || off(holding[0]!) <= off(holding[1]!) ? holding[0]! : holding[1]!, far = feet.find((other) => other !== near)!;
   const [tx, tz, kept] = planned(near, far, tuning.seconds);
   // A landing on the nearer foot's sole, kept off it to within a sole's width of where the far
-  // one stands: the far foot can bear the body there, and the nearer steps out instead.
-  if (kept && hypot(tx - far.middle.x, tz - far.middle.z) < far.width) return stepOf(far, near);
+  // one stands, with the capture point past the nearer sole's middle away from the far one: the
+  // far foot can bear the body there, and the nearer steps out instead. A capture point beside
+  // the nearer sole, ahead or behind, is the far foot's to catch.
+  const ux = near.middle.x - far.middle.x, uz = near.middle.z - far.middle.z;
+  const beyond = (xi - near.middle.x) * ux + (zi - near.middle.z) * uz > 0;
+  if (kept && beyond && hypot(tx - far.middle.x, tz - far.middle.z) < far.width) return stepOf(far, near);
   return stepOf(near, far);
 }
 
@@ -233,6 +238,19 @@ function stepSeconds(foot: FootState, pace: number, tuning: GaitTuning): number 
  */
 function stepWidth(foot: FootState, across: number, T: number, tuning: GaitTuning): number {
   return Math.max(tuning.width, foot.width + tuning.clearance + across * T);
+}
+
+/**
+ * A walk's landing (`x`, `z`) on `foot`'s own side of the bearing sole's middle `b`, across the
+ * heading whose right is (`rx`, `rz`) (`sign` +1 the right): no less than the swing's clearance
+ * out from the bearing sole (`clearAcross`). A walk does not cross its feet: a capture point that
+ * asks it to is caught by the steps after, each foot on its side. Only a catch crosses over
+ * (`clearOfBearer`), and a walk's foot that swings from the far side, as a turn leaves it, lands
+ * on its own.
+ */
+function ownSide(foot: FootState, b: Vector3, x: number, z: number, rx: number, rz: number, sign: number, clearance: number): [number, number] {
+  const out = ((x - b.x) * rx + (z - b.z) * rz) * sign, least = clearAcross(foot, clearance);
+  return out >= least ? [x, z] : [x + (least - out) * sign * rx, z + (least - out) * sign * rz];
 }
 
 /**
@@ -377,10 +395,10 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
   const side: Side = under?.foot ?? (last ? (last === "left" ? "right" : "left") : startingSide(feet, walk, heading));
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   // The pelvis's right across the ground at the heading the step lands facing: +x at heading 0.
-  const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
+  const from = under ? under.from : foot.middle, facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
   // The height's floor, 1 mm, is a numeric setting.
   const T = stepSeconds(foot, hypot(walk[0], walk[1]), tuning), w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3)), grow = exp(w * T);
-  const from = under ? under.from : foot.middle, W = stepWidth(foot, Math.abs(walk[0] * rx + walk[1] * rz), T, tuning);
+  const W = stepWidth(foot, Math.abs(walk[0] * rx + walk[1] * rz), T, tuning);
   // Under way, the capture point runs from the pivot the body falls about for what is left of the
   // swing; the pivot is chosen while no less than the horizon is left, and held after
   // (`GaitTuning.horizon`, as `planAcross` chooses it).
@@ -400,9 +418,10 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
   let tx = steady ? ex - nx : sx, tz = steady ? ez - nz : sz;
   // The body's centre as the foot lands: about the pivot from the body as it is; starting from a stand, midway to the landing, as a steady walk has it.
   const at = (dx: number, dz: number): [number, number] => steady ? centreAtLanding(b, centre, velocity, w, px, pz, 0, px, pz, under ? Math.max(under.remaining, 0) : T) : [dx / 2, dz / 2];
+  [tx, tz] = ownSide(foot, b, tx, tz, rx, rz, sign, tuning.clearance);
   const [cx0, cz0] = at(tx - b.x, tz - b.z);
-  // A step is planned within the gait's reserve of the reach; under way it is re-aimed within the whole.
-  const [wx, wz, within] = reachableStep(foot, tx - b.x, tz - b.z, cx0, cz0, rx, rz, sign, tuning, hip, bend, under ? 1 : tuning.reserve);
+  // A step lands within the whole of the leg's reach: the gait's reserve is the steady walk's (`stepsWithin`), left for this step's corrections.
+  const [wx, wz, within] = reachableStep(foot, tx - b.x, tz - b.z, cx0, cz0, rx, rz, sign, tuning, hip, bend, 1);
   if (plan) plan.within = within;
   [tx, tz] = clearOfBearer(bearer, foot, from.x, from.z, b.x + wx, b.z + wz, tuning.clearance, false);
   const [lx, lz] = at(tx - b.x, tz - b.z);
@@ -440,10 +459,10 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
   tuning: GaitTuning, hip: number, held: number, bend: number | null, last: Side | null, under?: Underway, plan?: StepPlan): SwingGoal {
   const side: Side = under?.foot ?? (last === "left" ? "right" : "left");
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
-  const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
+  const from = under ? under.from : foot.middle, facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
   // The height's floor, 1 mm, is a numeric setting.
   const Tss = stepSeconds(foot, hypot(walk[0], walk[1]), tuning), Tds = tuning.transfer!, T = Tss + Tds, w = Math.sqrt(g / Math.max(centre.y - b.y, 1e-3));
-  const from = under ? under.from : foot.middle, W = stepWidth(foot, Math.abs(walk[0] * rx + walk[1] * rz), T, tuning);
+  const W = stepWidth(foot, Math.abs(walk[0] * rx + walk[1] * rz), T, tuning);
   const E = exp(-w * Tss), F = exp(-w * Tds), G = (1 - F) / (w * Tds) - F;
   /** The capture point's reference as the foot lands at (x, z): at the end of the swing, on the bearing sole. */
   const reference = (x: number, z: number): [number, number] => {
@@ -477,9 +496,10 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
   const ex = px + (xi - px) * run - shx, ez = pz + (zi - pz) * run - shz;
   tx += (ex - cx) / (F + G);
   tz += (ez - cz) / (F + G);
+  [tx, tz] = ownSide(foot, b, tx, tz, rx, rz, sign, tuning.clearance);
   const [cx0, cz0] = centreAtLanding(b, centre, velocity, w, qx, qz, under ? 0 : Tds, px, pz, swing);
-  // A step is planned within the gait's reserve of the reach; under way it is re-aimed within the whole.
-  const [wx, wz, within] = reachableStep(foot, tx - b.x, tz - b.z, cx0, cz0, rx, rz, sign, tuning, hip, bend, under ? 1 : tuning.reserve);
+  // A step lands within the whole of the leg's reach: the gait's reserve is the steady walk's (`stepsWithin`), left for this step's corrections.
+  const [wx, wz, within] = reachableStep(foot, tx - b.x, tz - b.z, cx0, cz0, rx, rz, sign, tuning, hip, bend, 1);
   if (plan) plan.within = within;
   [tx, tz] = clearOfBearer(bearer, foot, from.x, from.z, b.x + wx, b.z + wz, tuning.clearance, false);
   const capture = reference(tx, tz), [lx, lz] = [cx0, cz0];
