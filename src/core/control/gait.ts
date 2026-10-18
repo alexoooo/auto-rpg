@@ -89,7 +89,7 @@ function recoveryStep(feet: readonly FootState[], holding: readonly FootState[],
   const landing = (bearer: FootState, foot: FootState, fx: number, fz: number, px: number, pz: number, seconds: number, reserve: number): [number, number, boolean] => {
     const b = bearer.middle, grow = exp(w * seconds), ex = px + (xi - px) * grow, ez = pz + (zi - pz) * grow, ax = ex + (ex - b.x) * tuning.reach, az = ez + (ez - b.z) * tuning.reach;
     const [cx, cz] = centreAtLanding(b, centre, velocity, w, px, pz, 0, px, pz, seconds), side = foot.side === "right" ? 1 : -1;
-    const reach = (x: number, z: number) => reachableStep(foot, x - b.x, z - b.z, cx, cz, rx, rz, side, gait, hip, null, reserve);
+    const reach = (x: number, z: number) => reachableStep(foot, x - b.x, z - b.z, cx, cz, rx, rz, side, gait, hip, null, reserve, true);
     let [lx, lz] = clearOfBearer(bearer, foot, fx, fz, ax, az, clearance, false);
     const kept = lx !== ax || lz !== az;
     if (kept) {
@@ -258,11 +258,11 @@ function ownSide(foot: FootState, b: Vector3, x: number, z: number, rx: number, 
  * lands it there: within `reserve` of its leg's reach from its hip where the body carries it
  * (`reachableSole`, `FootMemory.hip`, `GaitTuning.reserve`), from the body's centre at (`cx`,
  * `cz`) from that middle as the foot lands, `hip` over the landing sole's middle, its knee bent no
- * less than `bend` (null, straight); and no further than `longest` of the leg, drawn toward the
- * bearing sole for that.
+ * less than `bend` (null, straight) and bending further behind for it if it `bends`; and no
+ * further than `longest` of the leg, drawn toward the bearing sole for that.
  */
-function reachableStep(foot: FootState, dx: number, dz: number, cx: number, cz: number, rx: number, rz: number, sign: number, tuning: GaitTuning, hip: number, bend: number | null, reserve: number): [number, number, boolean] {
-  const [sx, sz, within] = reachableSole(foot.leg, dx, dz, cx, cz, foot.memory.hip, rx, rz, sign, hip - foot.ankle, legLength(foot, bend), foot.back, reserve);
+function reachableStep(foot: FootState, dx: number, dz: number, cx: number, cz: number, rx: number, rz: number, sign: number, tuning: GaitTuning, hip: number, bend: number | null, reserve: number, bends: boolean): [number, number, boolean] {
+  const [sx, sz, within] = reachableSole(foot.leg, dx, dz, cx, cz, foot.memory.hip, rx, rz, sign, hip - foot.ankle, legLength(foot, bend), foot.back, reserve, bends);
   const longest = tuning.longest * (foot.lengths[0] + foot.lengths[1]), far = hypot(sx, sz);
   return far > longest ? [sx * longest / far, sz * longest / far, false] : [sx, sz, within];
 }
@@ -309,15 +309,18 @@ function centreAtLanding(b: Vector3, centre: Vector3, velocity: Vector3, w: numb
  * Whether the legs, their hips `hip` over the soles, can take whole a walk's steady steps at `v`
  * m/s the way (`ux`, `uz`), unit, facing `heading`: `transferStep`'s, each the pace over the swing's
  * own time (`stepSeconds`) and the transfer, the width (`stepWidth`) across, the body midway
- * between the soles as the foot lands; the landing leg reaching the step (`reachableStep`) and the
- * bearing leg keeping its sole (`bearingShare`).
+ * between the soles as the foot lands; the landing leg reaching the step straight (`reachableStep`)
+ * and the bearing leg keeping its sole (`bearingShare`). A steady step back is not taken further by
+ * the knee's bend, which a catch or a stop may take: a swing reaching behind past the hip's range on
+ * a bent knee rides the ankle's dorsiflexion stop with its toes hung under the sole, and at a pace
+ * that needs it they meet the ground short of the landing step after step.
  */
 function stepsWithin(feet: readonly FootState[], v: number, ux: number, uz: number, heading: number, tuning: GaitTuning, hip: number, bend: number | null): boolean {
   const rx = cos(heading), rz = -sin(heading), Tds = tuning.transfer ?? 0;
   for (let k = 0; k < feet.length; k++) {
     const foot = feet[k]!, bearer = feet[1 - k]!, sign = foot.side === "right" ? 1 : -1, T = stepSeconds(foot, v, tuning) + Tds;
     const W = stepWidth(foot, v * Math.abs(ux * rx + uz * rz), T, tuning), dx = v * ux * T + sign * W * rx, dz = v * uz * T + sign * W * rz;
-    if (!reachableStep(foot, dx, dz, dx / 2, dz / 2, rx, rz, sign, tuning, hip, bend, tuning.reserve)[2]) return false;
+    if (!reachableStep(foot, dx, dz, dx / 2, dz / 2, rx, rz, sign, tuning, hip, bend, tuning.reserve, false)[2]) return false;
     if (bearingShare(bearer, dx / 2, dz / 2, rx, rz, -sign, hip, bend, tuning.reserve) < 1) return false;
   }
   return true;
@@ -421,7 +424,7 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
   [tx, tz] = ownSide(foot, b, tx, tz, rx, rz, sign, tuning.clearance);
   const [cx0, cz0] = at(tx - b.x, tz - b.z);
   // A step lands within the whole of the leg's reach: the gait's reserve is the steady walk's (`stepsWithin`), left for this step's corrections.
-  const [wx, wz, within] = reachableStep(foot, tx - b.x, tz - b.z, cx0, cz0, rx, rz, sign, tuning, hip, bend, 1);
+  const [wx, wz, within] = reachableStep(foot, tx - b.x, tz - b.z, cx0, cz0, rx, rz, sign, tuning, hip, bend, 1, true);
   if (plan) plan.within = within;
   [tx, tz] = clearOfBearer(bearer, foot, from.x, from.z, b.x + wx, b.z + wz, tuning.clearance, false);
   const [lx, lz] = at(tx - b.x, tz - b.z);
@@ -499,7 +502,7 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
   [tx, tz] = ownSide(foot, b, tx, tz, rx, rz, sign, tuning.clearance);
   const [cx0, cz0] = centreAtLanding(b, centre, velocity, w, qx, qz, under ? 0 : Tds, px, pz, swing);
   // A step lands within the whole of the leg's reach: the gait's reserve is the steady walk's (`stepsWithin`), left for this step's corrections.
-  const [wx, wz, within] = reachableStep(foot, tx - b.x, tz - b.z, cx0, cz0, rx, rz, sign, tuning, hip, bend, 1);
+  const [wx, wz, within] = reachableStep(foot, tx - b.x, tz - b.z, cx0, cz0, rx, rz, sign, tuning, hip, bend, 1, true);
   if (plan) plan.within = within;
   [tx, tz] = clearOfBearer(bearer, foot, from.x, from.z, b.x + wx, b.z + wz, tuning.clearance, false);
   const capture = reference(tx, tz), [lx, lz] = [cx0, cz0];

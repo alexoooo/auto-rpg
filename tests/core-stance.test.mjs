@@ -478,10 +478,11 @@ test("what a stance remembers is one record of plain data, which lists each foot
     const s = makeStance(stand.built, {}, null);
     assert.deepEqual(faults(s.state, "state"), []);
     assert.deepEqual(Object.keys(s.state).sort(),
-      ["aim", "crouch", "feet", "flight", "held", "helped", "last", "owned", "pace", "plan", "pose", "reading", "step", "stride", "striding", "tasks"]);
+      ["aim", "crouch", "feet", "flight", "helped", "last", "owned", "pace", "plan", "pose", "reading", "step", "stride", "striding", "tasks"]);
     assert.equal(s.state.feet.length, 2);
     assert.ok(s.state.feet.every((memory, k) => memory === s.feet[k].memory), "the state lists each foot's own memory");
-    assert.deepEqual(s.state.feet, [{ channels: [], rolled: null, hip: new Vector3() }, { channels: [], rolled: null, hip: new Vector3() }]);
+    assert.deepEqual(s.state.feet.map(({ ground, ...rest }) => rest), [{ channels: [], rolled: null, hip: new Vector3(), lifted: 0 }, { channels: [], rolled: null, hip: new Vector3(), lifted: 0 }]);
+    assert.ok(s.state.feet.every((memory) => Math.abs(memory.ground) < 1e-9), "each foot's ground is the ground it stands on, at 0");
     assert.ok(s.state.reading.soles.left === s.feet[0].middle && s.state.reading.soles.right === s.feet[1].middle, "the reading's soles are the feet's middles");
     // The controls: a foot holds a segment's node, a turn of the engine's and a function are not data.
     assert.deepEqual(faults({ node: s.feet[0].segment.node }, "state"), ["state.node: a TransformNode"]);

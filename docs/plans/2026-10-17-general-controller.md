@@ -286,13 +286,24 @@ response to the wrench the ground missed (`rigidTurn`), as the bearing solve did
 and run is the stance's walk handing over to the cycle run (`walk-run.ts`, Move's Braced and
 Run), with its own run settings (`WALK_RUN_CYCLE`, searched on that handover; `RUN_CYCLE` stays
 SIMBICON's); SIMBICON's walk and run stay, offered beside it. The Move bout's `todo` passes. The stop
-battery falls 2 of 96, both 1.2 m/s back with the club (the Warrior calm, the Rogue in gust seed 5;
-the bearing solve at the start of the stage fell 13): the swing stepping back bends its knee to
-0.9 rad under a thigh near the vertical, the ankle rides its dorsiflexion stop, and the toe, hung
-7 to 9 cm under the sole's middle, meets the ground 0.1 s early and 8 cm short of the step; the
-walk paces short and runs away sideways. The gait battery (300 trials, Balance 0) falls 51
+battery holds 96 of 96 (Node stand, Rapier, 120 Hz; the bearing solve at the start of the stage fell 13). Its last falls were
+all walks back at 1.2 m/s with the club, and the walk itself, not the stop, gave way: the steady
+walk's pace cap reckoned a step back as far as a knee bending under the thigh at the hip's stop takes
+it, and a swing reaching that far rides the ankle's dorsiflexion stop with its toe hung 7 to 9 cm
+under the sole's middle, which met the ground 0.1 s early and 8 cm short, step after step, with
+the pelvis pitching 0.3 to 0.5 rad forward over each step back. The cap now reckons a steady step
+back on a straight leg (`stepsWithin`), while a catch or a stop still bends the knee for its reach:
+capped on the straight leg for its steps as well, a stop could not brake and ran on back. Walks
+back asked 0.9 to 1.3 m/s three ways, empty and with the club, calm and on gust seeds 5, 6 and 7
+(240 walks) hold 239 (231 before); the five-way gait battery asked 0.7 to 1.8 m/s holds 50 of 50
+(48); the shove battery is unchanged. Walking back asked 1.2 m/s the Warrior goes 0.90 m/s (0.96) and
+the Rogue 0.75 (0.90). Neither lifting the swing's path by the larger of the drop the foot is asked and the
+one it has (the path dipped 4 cm at mid-swing) nor taking the pelvis's lean at the last landing
+from the hip's range moved those 240 walks (229 to 231). The gait battery (300 trials, Balance 0) falls 51
 (Warrior 9, Rogue 36, skeleton 6), against 125 with SIMBICON's run settings on the handover; at
-4 to 5 m/s asked the Warrior runs 3.36 m/s, the Rogue 2.82.
+4 to 5 m/s asked the Warrior runs 3.36 m/s, the Rogue 2.82. Of the gate, forward-right is open: the
+stance's walk goes 0.88 m/s (the Warrior) and 0.74 (the Rogue) that way against SIMBICON's 1.4 and
+1.7, and the walk and run's pace that way is not measured.
 
 **Locomotion.** On the gait battery (asked 1.4 to 5 m/s, three stops, two turns, gust seeds 5
 to 8, empty and club: 300 trials; `research/run-cycle-search.mjs --score`), and the stop battery

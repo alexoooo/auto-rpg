@@ -156,10 +156,10 @@ export function landingLean(leg: SwingLeg, dx: number, dz: number, cx: number, c
  * of it: within the ellipse of its reach (`reachAt`) ahead or behind and out or in, with the hip
  * `hip` over the ankle and the leg no longer than `long` (hip to ankle at the knee's least bend).
  * The leg reaches straight within its hip's range; behind, where the hip's range stops the thigh,
- * its knee bends for the rest.
+ * its knee bends for the rest if it `bends`.
  */
-function shareOfReach(leg: SwingLeg, ahead: number, out: number, hip: number, long: number): number {
-  const ra = ahead >= 0 ? reachAt(leg, leg.range.ahead, false, hip, long) : reachAt(leg, leg.range.behind, true, hip, long);
+function shareOfReach(leg: SwingLeg, ahead: number, out: number, hip: number, long: number, bends: boolean): number {
+  const ra = ahead >= 0 ? reachAt(leg, leg.range.ahead, false, hip, long) : reachAt(leg, leg.range.behind, bends, hip, long);
   const ro = reachAt(leg, out >= 0 ? leg.range.out : leg.range.in, false, hip, long);
   if (ra <= 0 || ro <= 0) return 0;
   const far = (ahead / ra) * (ahead / ra) + (out / ro) * (out / ro);
@@ -178,20 +178,20 @@ function shareOfReach(leg: SwingLeg, ahead: number, out: number, hip: number, lo
  */
 export function withinReach(leg: SwingLeg, dx: number, dz: number, cx: number, cz: number, at: Vector3, rx: number, rz: number, sign: number, hip: number, long: number, back: number): number {
   const [ahead, out] = ankleFromHip(dx, dz, cx, cz, at, rx, rz, sign, back);
-  return shareOfReach(leg, ahead, out, hip, long);
+  return shareOfReach(leg, ahead, out, hip, long, true);
 }
 
 /**
  * Where `leg` lands a sole asked at (`dx`, `dz`) from the bearing sole's middle, world, the rest as
  * `withinReach`, and whether it lands it there: there, if its ankle is within `reserve` of the
- * leg's reach from its hip; else with the ankle drawn in toward the hip along the hip's way to it
+ * leg's reach from its hip, its knee bending behind for it if it `bends`; else with the ankle drawn in toward the hip along the hip's way to it
  * by the share the leg reaches. A step out of reach shortens toward under the hip, where the leg
  * hangs, and keeps its way from it: drawn toward the bearing sole instead, a long step back or
  * ahead lost its width too, and the body it was to catch fell past the landing to the side.
  */
-export function reachableSole(leg: SwingLeg, dx: number, dz: number, cx: number, cz: number, at: Vector3, rx: number, rz: number, sign: number, hip: number, long: number, back: number, reserve: number): [number, number, boolean] {
+export function reachableSole(leg: SwingLeg, dx: number, dz: number, cx: number, cz: number, at: Vector3, rx: number, rz: number, sign: number, hip: number, long: number, back: number, reserve: number, bends: boolean): [number, number, boolean] {
   const [ahead, out] = ankleFromHip(dx, dz, cx, cz, at, rx, rz, sign, back);
-  const share = shareOfReach(leg, ahead / reserve, out / reserve, hip, long);
+  const share = shareOfReach(leg, ahead / reserve, out / reserve, hip, long, bends);
   if (share >= 1) return [dx, dz, true];
   // The hip's way to the ankle, world (`ankleFromHip`), drawn in by the share.
   const hx = dx + back * rz - cx - at.x, hz = dz - back * rx - cz - at.z;

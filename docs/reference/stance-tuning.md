@@ -423,6 +423,28 @@ on the sole's middle, a foot leaving pitched had its toes asked below the path, 
 lifted rolled was asked to jump as it left, which threw the Warrior's catch of its own straight
 into eight steps.
 
+The pace cap reckons a steady step back on a straight leg at the hip's range (`stepsWithin`, the
+`bends` of `reachableStep`); a step's own landing, a catch's and a stop's, still bends the knee
+for its reach behind. Reckoned with the knee bent, the cap let the walk go back so fast that each
+swing rode the ankle's dorsiflexion stop with its toe 7 to 9 cm under the sole's middle, and the
+toe met the ground 0.1 s early and 8 cm short. Walks back asked 0.9, 1.0, 1.1, 1.2 and 1.3 m/s
+back, back-left and back-right, empty and with the club, calm and on gust seeds 5, 6 and 7, each
+walked then stopped (Node stand, Rapier, 120 Hz, balance 0): walks held of 120 a human.
+
+        cap reckons a step back      Rogue held  Warrior held  walked back at 1.2 asked (Rogue, Warrior)
+        knee bent                    113         118           0.90  0.96
+        straight leg                 120         119           0.75  0.90   chosen
+        straight leg, every step     119         120           0.78  0.86
+
+Capped on the straight leg for every step, catch and stop as well, a stop from 1.0 m/s back with
+the club could not brake and ran on back over three steps to a fall. The stop battery (0.7, 1.0
+and 1.2 m/s four ways, empty and with the club, calm and on gust seed 5) holds 48 and 48 of 48
+(47 and 47); the five-way gait battery asked 0.7 to 1.8 m/s 25 and 25 of 25 (23 and 25); the
+shove battery 126 and 176 of 176, as before.
+
+Command: `research/core-stance-sweep.mjs --batteries stop --speeds 0.9,1.0,1.1,1.2,1.3 --ways
+135,180,225 --gusts 1:5:5,6,7`.
+
 On the six-speed five-way gait battery (asked 0.7, 1.0, 1.2, 1.4, 1.6 and 1.8 m/s, 30 walks a
 human, each 8 s then stopped; Node stand, Rapier, 120 Hz, on the whole-body solve, balance 0):
 walks held of 30 (every walk held stopped), and the pace walked forward at 1.2, 1.4, 1.6 and 1.8
