@@ -17,7 +17,7 @@ import { withinActionWindow } from "../mind/action-window.ts";
 /** Engineering experiment inputs and physical qualification: `docs/reference/front-kicks.md#execution-settings`. */
 export const KICK_PATH = Object.freeze({ setupLimit: 8, lower: .05, lean: 0, transferLimit: 6, transferSeconds: .2, transferSlow: .12,
   lift: .45, windup: .15, chamberSeconds: .6, swingSeconds: .4, returnSeconds: .6, contactSpeed: 2, soleTurn: .2,
-  prepareLimit: 4, returnLimit: 2, near: .04, slow: .3, hold: .05, followSeconds: .04,
+  prepareLimit: 4, returnLimit: 2, near: .04, hover: .08, slow: .3, hold: .05, followSeconds: .04,
   impactSeconds: .04, impactTravel: .04, normalAlignment: .5,
   response: .1, placeSeconds: 1, placeLimit: 6, placement: .02, placementSpeed: .1, rotationError: .001,
   recenterLimit: 4, startup: 2, cooldown: 1 });
@@ -215,7 +215,8 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
         }),
         ...(live.stage === "setup" && live.setting ? { swing: { foot: live.setting, to: live.footing[live.setting], seconds: STANCE_GAIT.seconds, lift: STANCE_GAIT.lift } } : {}) };
       let goal: EffectorGoal | null = null;
-      if (live.stage === "unload") goal = place(view, live, [live.initial.sole[0], live.initial.sole[1] + tuning.near, live.initial.sole[2]]);
+      // Held `hover` over where it stood: clear of the ground at the toes with the foot pitched as the trunk leans on one leg.
+      if (live.stage === "unload") goal = place(view, live, [live.initial.sole[0], live.initial.sole[1] + tuning.hover, live.initial.sole[2]]);
       else if (live.stage === "strike") {
         if (strike.state.phase === "swing") turnAboutToRef(axis.set(1, 0, 0), -tuning.soleTurn * Math.PI / 2, turn);
         else Quaternion.InverseToRef(view.root.rotation, inverse).multiplyToRef(rotation.copyFromFloats(...live.initial.rotation), turn).normalize();
@@ -224,7 +225,7 @@ export function kickExecutor(body: Body, actions: readonly string[], tuning: Kic
       } else if (live.stage === "place") {
         const sole = worldPoint(view, view.effectors[live.request.effector]!.points.sole!);
         const over = hypot(sole[0] - live.initial.sole[0], sole[2] - live.initial.sole[2]) <= tuning.placement;
-        goal = place(view, live, over ? live.initial.sole : [live.initial.sole[0], live.initial.sole[1] + tuning.near, live.initial.sole[2]]);
+        goal = place(view, live, over ? live.initial.sole : [live.initial.sole[0], live.initial.sole[1] + tuning.hover, live.initial.sole[2]]);
       }
       return { stance: standing, ...(goal ? { effectors: { [live.request.effector]: goal } } : {}) };
     },

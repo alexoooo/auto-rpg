@@ -246,13 +246,14 @@ export async function walk({ model, degrees, speed, stance, hz = 120, held = nul
     measuring = false;
     const to = b.view.stance.centre;
     const along = ((to.x - from.x) * ux + (to.z - from.z) * uz) / 3, sideways = ((to.x - from.x) * uz - (to.z - from.z) * ux) / 3;
-    const strides = b.view.stance.strides;
+    // The pace the stance walks at, capped by its legs, as measured.
+    const strides = b.view.stance.strides, capped = Math.hypot(b.view.stance.pace[0], b.view.stance.pace[1]);
     pace = null;
     run(rest - 2);
     const settled = b.view.stance.strides;
     run(2);
     const s = b.view.stance;
-    return { strides, fell: low > 0.25 || down || !Number.isFinite(low), along, across: sideways, speed: s.velocity.length(), phase: s.phase,
+    return { strides, capped, fell: low > 0.25 || down || !Number.isFinite(low), along, across: sideways, speed: s.velocity.length(), phase: s.phase,
       stepped: s.strides - settled, off: across(s.centre, s.place), stood, width: widths.length ? widths.reduce((a, w) => a + w, 0) / widths.length : null };
   } finally { blowing?.dispose(); b.dispose(); stand.dispose(); }
 }

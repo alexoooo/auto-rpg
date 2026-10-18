@@ -396,8 +396,9 @@ test("a Warrior's club blow at a skeleton's head lands there and ends the fight"
     return { id, side, built, body: createBody(built, world, { servoSeconds: SERVO_SECONDS }), pool: createPool(spec, RULES) };
   };
   const warrior = make("warrior", armed(modelSpec("workshop-fighter"), "right", woodenClub()), 0, "party");
-  // Built 1.8 m ahead: from 1.5 to 1.7 m the blow at the head lands on the upper trunk as well.
-  const skeleton = make("skeleton", modelSpec("crypt-skeleton"), 1.8, "enemy");
+  // Built within the club's reach, so that the Warrior strikes where it stands: the blow is the
+  // test's, not the walk up to it, whose last step decides where the club meets the skeleton.
+  const skeleton = make("skeleton", modelSpec("crypt-skeleton"), 0.9, "enemy");
   try {
     driveBy(warrior.body, pointScript(() => {
       const h = skeleton.body.view.head;

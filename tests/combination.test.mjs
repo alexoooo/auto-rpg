@@ -5,9 +5,11 @@
  * way back, which it leaves to the guard, and the trunk and legs to the end; each drive pushes only
  * its own arm's channels, and a hand it has let go of it commands nothing of. The second waits for
  * the centre of mass to be over the feet, and is given up when it is not in time. Of one drive, it
- * holds only its hand, the trunk and the legs, and comes back after the one. A Warrior pinned at
- * the lower trunk, punching a point ahead of its head: pinned, its stance steps under the first
- * drive and its centre of mass stays well off its feet.
+ * holds only its hand, the trunk and the legs, and comes back after the one. A Warrior in its
+ * guard with its feet planted (the stance holds a pose), settled a second and then pinned at the
+ * lower trunk, punching a point ahead of its head: settled, its centre of mass is within a
+ * centimetre of the middle of its feet, and the first drive carries it 10 cm ahead, where it
+ * stays past the second's wait.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -22,18 +24,18 @@ const around = { heading: 0, placed: true, support: null, walk: null, lower: .05
 
 /** A one-two of `settings` thrown with the right hand first, 2 s: the stages it went through, the arms each drive pushed, what it held at each stage, whether it commanded a hand it had let go of, and how it ended. */
 async function oneTwo(settings) {
-  const stand = await coreStand(humanSpec("workshop-fighter"), { posture: GUARD, pinned: "lowerTrunk" });
+  const pose = { pitch: 0, seconds: .2 };
+  const stand = await coreStand(humanSpec("workshop-fighter"), { posture: GUARD });
   const body = createBody(stand.built, stand.world, { servoSeconds: .1 });
   const executor = combinationExecutor(body, ["one-two"], settings);
   const request = { id: 1, action: "one-two", effector: "hand.right", target: { kind: "point", at: [0, body.view.head.y, .6] } };
   try {
     const needs = executor.needs("one-two", "hand.right");
-    executor.start(body.view, request, around);
     const stages = [], arms = { first: new Set(), second: new Set() };
-    let ending, strays = 0, commanded = 0;
+    let ending, strays = 0, commanded = 0, started = false;
     const holds = {}, rightArm = bodyEffectors(stand.built).find((e) => e.model.segment === "hand.right").model.channels;
     body.drive((view, dt) => {
-      const result = executor.update(view, [request], around, dt);
+      const result = started ? executor.update(view, [request], around, dt) : [];
       if (result[0]?.ending) ending = result[0].ending;
       if (result[0]?.stage && stages.at(-1) !== result[0].stage) stages.push(result[0].stage);
       if (result[0]?.stage) holds[result[0].stage] ??= result[0].holds;
@@ -46,8 +48,12 @@ async function oneTwo(settings) {
         if (arm) arms[stage].add(arm);
       }
       return { posture: { ...GUARD, ...command.posture }, pushes: command.pushes ?? [], handPoses: command.handPoses,
-        stance: { feet: ["left", "right"], centre: null, height: view.standing - .05, heading: 0 } };
+        stance: { feet: ["left", "right"], centre: null, height: view.standing - .05, heading: 0, pose } };
     });
+    stand.step(stand.seconds(1));
+    stand.built.segments.get("lowerTrunk").body.setFixed(true);
+    started = true;
+    executor.start(body.view, request, around);
     stand.step(stand.seconds(2));
     return { needs, stages, arms: { first: [...arms.first], second: [...arms.second] }, holds, strays, commanded, rightArm, ending, live: executor.state.live };
   } finally { body.dispose(); stand.dispose(); }
@@ -69,7 +75,8 @@ test("a_combination_drives_the_hand_asked_for_then_the_other_and_brings_both_bac
 });
 
 test("a_combination_gives_up_its_second_drive_while_its_centre_of_mass_is_off_its_feet", async () => {
-  const run = await oneTwo(COMBINATION);
+  // Poised within 5 cm of the middle of its feet: settled it is within one, and the drive puts it 10 cm off until after the wait.
+  const run = await oneTwo({ ...COMBINATION, poise: .05 });
   assert.deepEqual(run.stages, ["first", "between", "return"], "the second is never driven");
   assert.deepEqual(run.arms, { first: ["right"], second: [] });
   assert.deepEqual(run.ending, { kind: "completed" });

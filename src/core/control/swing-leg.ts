@@ -88,16 +88,20 @@ export function swingSeconds(leg: SwingLeg, pace: number, transfer: number, effo
 
 /**
  * Whether `leg` reaches a step of (`dx`, `dz`) from the bearing sole's middle, world, facing with
- * right (`rx`, `rz`), `sign` +1 the right leg: the hip, midway between the soles as the foot lands and
- * `out` to its side, within its range's reach each way; and with `scale` the share of the step within
- * it, 1 if all of it.
+ * right (`rx`, `rz`), `sign` +1 the right leg: the hip, `out` to its side of the body's centre, which
+ * is at (`cx`, `cz`) from the bearing sole's middle as the foot lands (midway between the soles in a
+ * steady walk), within its range's reach each way, and the landing ankle within `long` of the hip
+ * (the leg's length, hip to ankle, at the knee's least bend) with the hip `hip` over it, so across
+ * the ground within sqrt(long^2 - hip^2), the less the higher the hip stands. With `scale` the share
+ * of the step within both, 1 if all of it.
  */
-export function withinReach(leg: SwingLeg, dx: number, dz: number, rx: number, rz: number, sign: number): number {
+export function withinReach(leg: SwingLeg, dx: number, dz: number, cx: number, cz: number, rx: number, rz: number, sign: number, hip: number, long: number): number {
   // The foot from the hip, ahead and out.
-  const hx = dx / 2 - sign * leg.out * rx, hz = dz / 2 - sign * leg.out * rz;
+  const hx = dx - cx - sign * leg.out * rx, hz = dz - cz - sign * leg.out * rz;
   const ahead = -hx * rz + hz * rx, out = sign * (hx * rx + hz * rz);
   const ra = ahead >= 0 ? leg.reach.ahead : leg.reach.behind, ro = out >= 0 ? leg.reach.out : leg.reach.in;
-  const far = (ahead / ra) * (ahead / ra) + (out / ro) * (out / ro);
+  const across = long * long - hip * hip;
+  const far = Math.max((ahead / ra) * (ahead / ra) + (out / ro) * (out / ro), across > 0 ? (hx * hx + hz * hz) / across : Infinity);
   return far > 1 ? 1 / Math.sqrt(far) : 1;
 }
 

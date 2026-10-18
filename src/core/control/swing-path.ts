@@ -70,7 +70,11 @@ export function swingBowToRef(from: Vector3, to: readonly [number, number], bear
  * lifted `lift` m by the quartic 16 tau^2 (1 - tau)^2 of `tau`, its share of the swing's `T` s, and
  * bowed `bow` aside, by minimum jerk of the way to the bow's peak and from it: into `point`, with
  * its velocity into `velocity` and its acceleration into `accel` from the way's rates `du` and
- * `ddu`, per second. `work` carries nothing between calls.
+ * `ddu`, per second. `work` carries nothing between calls. The path keeps the height the foot left
+ * at: a foot that leaves from its toes ends its time above the ground, and comes down from there
+ * (a walk's swing presses on until its sole meets the ground); carried down to the ground by its
+ * progress instead, a foot still pitched from its launch meets the ground with its toes before its
+ * time and lands short.
  */
 export function swingPathToRef(from: Vector3, to: readonly [number, number], lift: number, bow: SwingBow, tau: number, T: number, u: number, du: number, ddu: number,
   point: Vector3, velocity: Vector3, accel: Vector3, work: Vector3): void {

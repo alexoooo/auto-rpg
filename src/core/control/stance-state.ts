@@ -36,10 +36,14 @@ interface StanceState {
   last: readonly Side[] | null;
   /** The walk's pace, world (x, z), m/s: toward the goal's at the gait's acceleration, toward none standing. */
   readonly pace: [number, number];
+  /** How far below the goal's height the walk holds the plan, m, so that its legs reach the steps its pace takes (`paceToward`); 0 standing. */
+  crouch: number;
   /** The step under way: its swing, the time since its foot left the ground, where, how and how fast the foot left it, and the turn asked of it now. */
   readonly step: {
     swing: SwingGoal | null;
     lifted: boolean;
+    /** Whether the pivot the plan falls about has been chosen in the step's phase under way (`planAcross`): within the horizon of the phase's end it is held. */
+    pivoted: boolean;
     time: number;
     /** How long a walk's double support has run, s. */
     held: number;
@@ -139,22 +143,27 @@ export interface Stance {
    * end returns to (`settleStep`).
    */
   readonly rest: number;
+  /** The centre of mass's height over the hip joints' centres as the body was built, m: what a goal's height over the soles leaves the hips. */
+  readonly rise: number;
   readonly state: StanceState;
   readonly scratch: StanceScratch;
 }
 
 export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assist | null): Stance {
   const feet = footStatesOf(built);
-  const segments = [...built.segments.values()];
+  const segments = [...built.segments.values()], total = massOf(segments);
+  const rise = segments.reduce((sum, part) => sum + part.spec.mass.value * part.spec.centreOfMass.value[1], 0) / total
+    - feet.reduce((sum, foot) => sum + foot.chain[0]!.spec.centre.value[1], 0) / feet.length;
+  const pace: [number, number] = [0, 0];
   const state: StanceState = {
-    pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace: [0, 0],
-    step: { swing: null, lifted: false, time: 0, held: 0, off: Infinity, catching: false, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion(),
+    pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace, crouch: 0,
+    step: { swing: null, lifted: false, pivoted: false, time: 0, held: 0, off: Infinity, catching: false, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion(),
       shift: { now: [0, 0], capture: [0, 0], centre: [0, 0] } },
     flight: { on: false, left: new Vector3(), from: new Vector3() },
     plan: { on: false, at: new Vector3(), velocity: new Vector3() },
     reading: { centre: new Vector3(), velocity: new Vector3(), support: new Vector3(), place: new Vector3(),
       plan: new Vector3(), planVelocity: new Vector3(),
-      facing: 0, phase: "stand", soles: { left: feet[0]!.middle, right: feet[1]!.middle }, touching: { left: false, right: false }, own: null, recoveries: 0, strides: 0,
+      facing: 0, phase: "stand", soles: { left: feet[0]!.middle, right: feet[1]!.middle }, touching: { left: false, right: false }, own: null, recoveries: 0, strides: 0, pace,
       shortfall: { force: new Vector3(), moment: new Vector3() },
       asked: { left: { at: new Vector3(), force: new Vector3(), moment: new Vector3() }, right: { at: new Vector3(), force: new Vector3(), moment: new Vector3() } } },
     aim: { on: false, spin: new Vector3(), centre: new Vector3(), root: new Float64Array(6) },
@@ -171,8 +180,8 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
   }));
   return {
     built, assist, tuning: resolveStance(tuning), pelvis: feet[0]!.chain[0]!.parent, segments,
-    total: massOf(segments),
-    feet, rest: restWidth(feet), limbs,
+    total,
+    feet, rest: restWidth(feet), rise, limbs,
     bearing: makeBearing(assist, limbs, { root: state.aim.root, helped: state.helped, held: state.held, shortfall: state.reading.shortfall }),
     ask: { aim: state.aim, limbs, lever: 0, root: state.aim.root, helped: state.helped, shortfall: state.reading.shortfall,
       asked: feet.map((foot) => state.reading.asked[foot.side]) },

@@ -25,7 +25,8 @@ required before preparation and after placement.
 | contactSpeed | 2 m/s | Requested terminal speed, not measured force |
 | soleTurn | 0.2 | Fraction of a quarter turn during the stroke |
 | prepareLimit / returnLimit | 4 / 2 s | Measured preparation and withdrawal deadlines |
-| near / slow / hold | 0.04 m / 0.3 m/s / 0.05 s | Endpoint admission; the home's and a set-down's height over the place |
+| near / slow / hold | 0.04 m / 0.3 m/s / 0.05 s | Endpoint admission; the home's height over the strike point |
+| hover | 0.08 m | The lifted foot's height over where it stood, before the chamber and a set-down: clear of the ground at the toes with the foot pitched as the trunk leans on one leg |
 | followSeconds | 0.04 s | Finite ordinary follow-through |
 | impactSeconds / impactTravel / normalAlignment | 0.04 s / 0.04 m / 0.5 | Matched-contact ceilings and directional cosine |
 | response | 0.1 s | Muscle tracking response, separate from path duration |
@@ -36,7 +37,7 @@ required before preparation and after placement.
 | startup / cooldown | 2 / 1 s | Initial settling and inter-cycle rest |
 
 Withdrawal returns to a home `near` over the captured strike point and restores
-ordinary standing height. Placement carries the sole `near` over its captured place
+ordinary standing height. Placement carries the sole `hover` over its captured place
 while it is off it across the ground by more than `placement`, and sets it down from
 there; it then verifies the captured sole position and rotation, positive ground load
 and quiet motion. A foot brought back to the ground itself lands short of its place

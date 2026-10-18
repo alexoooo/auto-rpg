@@ -93,7 +93,10 @@ variants.forEach((stance, v) => { for (const model of models) {
     const stopped = held.filter((r) => r.speed < 0.05 && r.phase === "stand");
     parts.push(`gait held ${held.length}/${gaits.length} on pace ${pace.length} ratio ${(held.reduce((a, r) => a + r.along / r.speed_, 0) / Math.max(1, held.length)).toFixed(2)} stopped ${stopped.length}`
       + ` held by speed ${values.speeds.split(",").map(Number).map((s) => held.filter((r) => r.speed_ === s).length).join(",")}`
-      + ` ratio by speed ${values.speeds.split(",").map(Number).map((s) => { const h = held.filter((r) => r.speed_ === s); return h.length ? (h.reduce((a, r) => a + r.along / r.speed_, 0) / h.length).toFixed(2) : "-"; }).join(",")}`);
+      + ` ratio by speed ${values.speeds.split(",").map(Number).map((s) => { const h = held.filter((r) => r.speed_ === s); return h.length ? (h.reduce((a, r) => a + r.along / r.speed_, 0) / h.length).toFixed(2) : "-"; }).join(",")}`
+      + ` capped ${gaits.filter((r) => r.capped < 0.99 * r.speed_).length} (pace ${gaits.map((r) => r.capped.toFixed(2)).join(",")})`);
+    // Each cell: the speed asked at its way, the pace walked along it (an x where it fell), and the pace the legs capped it at.
+    parts.push(`gait cells ${gaits.map((r) => `${r.speed_}@${r.degrees}:${r.fell ? "x" : r.along.toFixed(2)}/${r.capped.toFixed(2)}`).join(" ")}`);
   }
   const shoves = of("shove");
   if (shoves.length) {

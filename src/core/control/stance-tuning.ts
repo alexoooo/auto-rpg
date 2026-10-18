@@ -52,6 +52,18 @@ export interface GaitTuning {
   readonly clearance: number;
   /** How fast the walk's pace goes toward the one asked, m/s^2: a body does not reach a walk in one step. */
   readonly accel: number;
+  /** The most the walk lowers the hips below the goal's height for its steps, m: a longer step lands further from a lower hip (`walkHeight`). */
+  readonly crouch: number;
+  /**
+   * How long before a step lands, or a double support hands over, s, the pivot the plan falls
+   * about is last chosen to bring the capture point to the step's target (`planAcross`); within
+   * it the pivot is held where it was chosen. Chosen for the time the step has left, the pivot's
+   * response to the capture point's error grows without bound as the step ends, 1 / (exp(w t) - 1)
+   * of it, and flips between the sole's ends; chosen for a longer time than is left instead, it
+   * aims past the landing and lands the capture point short, and a stance catching itself steps
+   * on (`walkStep` under way reads the pivot as it is held).
+   */
+  readonly horizon: number;
   /**
    * A double support before each steady step's lift, s (`transferStep`): both soles bear while the
    * weight goes from the trailing foot to the leading one. None, and a step lifts the tick the last
@@ -125,7 +137,7 @@ const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05
  * sole: the swinging foot met the bearing foot at mid-swing in a 1.4 m/s walk and was thrown up and short.
  * Sweeps: `docs/reference/stance-tuning.md#gait`.
  */
-export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, effort: 0.5, clearance: 0.03, accel: 1, transfer: 0.08,
+export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, effort: 0.5, clearance: 0.03, accel: 1, crouch: 0.1, horizon: 0.1, transfer: 0.08,
   preswing: { knee: 0.61, seconds: 0.04 } };
 
 /**
