@@ -8,7 +8,7 @@ import type { Assist } from "./assist.ts";
 import { makeBearing, type Bearing, type Limb, type LimbTask } from "./bearing.ts";
 import type { WholeBodyAsk } from "./solve.ts";
 import type { StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
-import { makeLegNow, type LegNow, type SwingShift } from "./swing-leg.ts";
+import { makeSwingShiftWork, type SwingShift, type SwingShiftWork } from "./swing-leg.ts";
 import type { SwingBow } from "./swing-path.ts";
 import { resolveStance, SUPPORT_INSET, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
 import { footStatesOf, massOf, restWidth, type FootMemory, type FootState } from "./support.ts";
@@ -122,8 +122,8 @@ interface StanceScratch {
   readonly progress: Vector3;
   /** The body's velocity with what its angular momentum brings it (`carriedVelocity`). */
   readonly carried: Vector3;
-  /** The swinging leg as it is (`legNowToRef`). */
-  readonly legNow: LegNow;
+  /** What the swing's reaction works in (`swingShiftToRef`). */
+  readonly shiftWork: SwingShiftWork;
   /** The swing's path's bow clear of the bearing sole (`swingBowToRef`), and the path's acceleration (`swingPathToRef`). */
   readonly bow: SwingBow;
   readonly accel: Vector3;
@@ -204,7 +204,7 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
       path: new Vector3(), along: new Vector3(), sole: new Vector3(), v: new Vector3(),
       target: new Quaternion(), pelvisSpin: new Vector3(), turn: new Vector3(),
       p: new Vector3(), hipAt: new Vector3(), ankleAt: new Vector3(), kneeAt: new Vector3(), shank: new Quaternion(),
-      footTurn: new Quaternion(), level: new Quaternion(), whole: new Quaternion(), wholeAxis: new Vector3(), ankleHeld: new Quaternion(), ankleRelative: new Quaternion(), ankleInverse: new Quaternion(), progress: new Vector3(), carried: new Vector3(), legNow: makeLegNow(), bow: { aside: [0, 0], at: 0.5 }, accel: new Vector3(),
+      footTurn: new Quaternion(), level: new Quaternion(), whole: new Quaternion(), wholeAxis: new Vector3(), ankleHeld: new Quaternion(), ankleRelative: new Quaternion(), ankleInverse: new Quaternion(), progress: new Vector3(), carried: new Vector3(), shiftWork: makeSwingShiftWork(), bow: { aside: [0, 0], at: 0.5 }, accel: new Vector3(),
     },
   };
 }

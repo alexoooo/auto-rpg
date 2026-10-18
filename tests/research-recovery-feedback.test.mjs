@@ -55,8 +55,8 @@ test('the visible Lab setup applies the search shoves on the same steps and ente
   const reference = await recoveryEnvironment({ spec, recipe });
   try {
     await reference.fall();
-    while (reference.stand.world.steps < 400) reference.step();
-    stand.step(400);
+    while (reference.stand.world.steps < 480) reference.step();
+    stand.step(480);
     assert.deepEqual(shoves, [[240, 60], [264, 60]]);
     assert.match(String(actor.body.has), /recovery/);
     const poses = built => [...built.segments].map(([name, s]) => [name, s.node.position.asArray(), s.node.rotationQuaternion.asArray()]);

@@ -18,7 +18,7 @@ import type { Side } from "../spec/body.ts";
 import { spinBetweenToRef, turnAboutToRef, turnBetweenToRef } from "../math/turn.ts";
 import { approachToRef, turnToRef } from "./approach.ts";
 import { swingBowToRef, swingPathToRef, swingProgressToRef } from "./swing-path.ts";
-import { legNowToRef, swingShiftToRef } from "./swing-leg.ts";
+import { swingShiftToRef } from "./swing-leg.ts";
 
 /**
  * **What a stance is asked for**: which feet bear the body, where its centre of mass goes, and which
@@ -303,7 +303,7 @@ export interface StanceReading {
  */
 function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], swing: SwingGoal | null, bearer: FootState | undefined,
   pendulum: number): [number, number] {
-  const { plan, reading, step } = s.state, { seconds, gait } = s.tuning, { hipAt, progress, legNow, bow, path, along, accel } = s.scratch;
+  const { plan, reading, step } = s.state, { seconds, gait } = s.tuning, { hipAt, progress, shiftWork, bow, path, along, accel } = s.scratch;
   const r = plan.at, u = plan.velocity, n = 1 / seconds.across;
   if (reading.phase === "swing") {
     // On one foot the plan falls as an inverted pendulum of its height about a point of the
@@ -320,10 +320,9 @@ function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], s
     // pressure is kept within what the ankle holds. Before the foot has lifted, its path is from where it is.
     const foot = s.feet.find((f) => f.side === swing!.foot)!, hip = foot.chain[0]!, from = step.lifted ? step.from : foot.middle;
     pointOfToRef(hip.parent, hip.spec.centre.value, hipAt);
-    legNowToRef(foot.chain, legNow);
     swingBowToRef(from, swing!.to, bearer!.middle, bearer!.ends.front.middle, bearer!.ends.heel.middle, clearAlong(bearer!, foot, gait.clearance), clearAcross(foot, gait.clearance), sideOf(foot, goal.heading), bow);
-    swingShiftToRef(legNow, hipAt, reading.centre, swing!, bow, from, step.lifted ? step.time : 0,
-      reading.place, r, u, w, s.total * gravityOf(s), progress, path, along, accel, step.shift);
+    swingShiftToRef(foot.leg, foot.ankle, foot.back, goal.heading, hipAt, reading.centre, swing!, bow, from, step.lifted ? step.time : 0,
+      reading.place, r, u, w, s.total * gravityOf(s), progress, path, along, accel, shiftWork, step.shift);
     const [tx, tz] = swing!.capture ?? [(bearer!.middle.x + swing!.to[0]) / 2, (bearer!.middle.z + swing!.to[1]) / 2];
     const { capture: [cx, cz], now: [nx, nz] } = step.shift;
     if (left >= gait.horizon || !step.pivoted) {

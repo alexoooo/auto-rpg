@@ -1,8 +1,8 @@
 /**
  * **The swing leg**: what a leg is to a walk's plan. Its segments from the hip to the foot as a
  * pendulum about the hip (`SwingLeg`, `swingLegOf`), how long a swing needs for its hip's strength
- * (`swingSeconds`), how far its hip's range lets the foot reach (`withinReach`), the leg in the pose
- * it has now (`LegNow`, `legNowToRef`), and its reaction on the body (`swingShiftToRef`).
+ * (`swingSeconds`), how far its hip's range lets the foot reach (`withinReach`), and its reaction on
+ * the body as a swing carries its links (`swingShiftToRef`).
  *
  * The reaction: gravity gives no moment about the body's centre of mass, so every change of the
  * body's angular momentum about it is a moment the ground gives; a leg carried along a swing's path
@@ -15,11 +15,10 @@
  * of the sole is what the sole can give; the shift over the swing's time left is folded into where
  * the capture point and the centre of mass come to as the foot lands.
  */
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltJoint } from "../build/build-body.ts";
 import { acos, asin, atan2, cos, cosh, exp, hypot, sin, sinh } from "../math/real.ts";
 import type { SwingGoal } from "./stance.ts";
-import { centreOfToRef, turnOfToRef } from "./support.ts";
 import { swingPathToRef, swingPeak, swingProgressToRef, type SwingBow } from "./swing-path.ts";
 
 /** A leg as a pendulum about its hip: the segments from the hip joint to the ankle's child, on the straight leg. */
@@ -38,7 +37,17 @@ export interface SwingLeg {
    * behind by the hip's flexion's range, out and in by its abduction's (`reachAt`).
    */
   readonly range: { readonly ahead: number; readonly behind: number; readonly out: number; readonly in: number };
+  /**
+   * The leg's links, for its reaction (`swingShiftToRef`): the thigh's and the shank's mass, their
+   * mass centres' distance along them from their upper joint, m, and their moment of inertia
+   * across them about that centre, kg m^2; the foot's mass and its centre from the ankle in the
+   * reference pose, ahead and up, m.
+   */
+  readonly links: { readonly thigh: SwingLink; readonly shank: SwingLink; readonly foot: { readonly mass: number; readonly ahead: number; readonly up: number } };
 }
+
+/** A link of a swing leg (`SwingLeg.links`). */
+interface SwingLink { readonly mass: number; readonly centre: number; readonly across: number }
 
 /** `chain`'s leg (hip, knee, ankle) as a swing leg, from its specs in the reference pose. */
 export function swingLegOf(chain: readonly BuiltJoint[]): SwingLeg {
@@ -65,6 +74,11 @@ export function swingLegOf(chain: readonly BuiltJoint[]): SwingLeg {
   // reference pose and the reference pose's angle from the vertical (`DofSpec.bind`).
   const [flexion, abduction] = hip!.spec.dofs;
   const lean = (range: number, bind: number) => Math.min(Math.max(range + bind, 0), Math.PI / 2);
+  const link = (part: (typeof parts)[number], p: readonly number[], q: readonly number[]): SwingLink => {
+    const c = part.spec.centreOfMass.value, i = part.spec.inertia.value, dx = q[0]! - p[0]!, dy = q[1]! - p[1]!, dz = q[2]! - p[2]!;
+    return { mass: part.spec.mass.value, centre: ((c[0] - p[0]!) * dx + (c[1] - p[1]!) * dy + (c[2] - p[2]!) * dz) / hypot(dx, dy, dz), across: Math.max(i[0], i[1], i[2]) };
+  };
+  const foot = parts[2]!.spec, fc = foot.centreOfMass.value;
   return {
     length, thigh: hypot(k[0] - h[0], k[1] - h[1], k[2] - h[2]), shank: hypot(a[0] - k[0], a[1] - k[1], a[2] - k[2]), aboutHip: inertia + mass * centre * centre,
     torque: Math.min(flexion!.muscle.peakPositive.value, flexion!.muscle.peakNegative.value),
@@ -72,6 +86,7 @@ export function swingLegOf(chain: readonly BuiltJoint[]): SwingLeg {
       ahead: lean(flexion!.max.value, flexion!.bind.value), behind: lean(-flexion!.min.value, -flexion!.bind.value),
       out: lean(abduction!.max.value, abduction!.bind.value), in: lean(-abduction!.min.value, -abduction!.bind.value),
     },
+    links: { thigh: link(parts[0]!, h, k), shank: link(parts[1]!, k, a), foot: { mass: foot.mass.value, ahead: fc[2] - a[2], up: fc[1] - a[1] } },
   };
 }
 
@@ -183,65 +198,19 @@ export function reachableSole(leg: SwingLeg, dx: number, dz: number, cx: number,
   return [dx - (1 - share) * hx, dz - (1 - share) * hz, false];
 }
 
-/**
- * **A leg in the pose it has now**: its mass, its mass centre, world, and its inertia about that
- * centre on the world's axes (xx, yy, zz, xy, xz, yz), kg m^2, as its segments are. A swing's
- * reaction is the leg's as it is: bent at the knee the foot is near the hip, and a swing moves far
- * less of the body than the straight leg would. `work` carries nothing between calls.
- */
-export interface LegNow {
-  mass: number;
-  readonly centre: Vector3;
-  readonly tensor: Float64Array;
-  readonly work: { readonly at: Vector3; readonly axis: Vector3; readonly turn: Quaternion; readonly axes: Float64Array };
-}
-
-/** A `LegNow` to read legs into. */
-export const makeLegNow = (): LegNow =>
-  ({ mass: 0, centre: new Vector3(), tensor: new Float64Array(6), work: { at: new Vector3(), axis: new Vector3(), turn: new Quaternion(), axes: new Float64Array(9) } });
-
-/**
- * `chain`'s leg (hip, knee, ankle: its segments their children) as it is now, into `out`: each
- * segment's rigid tensor turned onto the world's axes by the segment's turn, and its mass at its
- * centre's offset from the leg's, m (|d|^2 E - d d').
- */
-export function legNowToRef(chain: readonly BuiltJoint[], out: LegNow): void {
-  const { centre, tensor, work: { at, axis, turn, axes } } = out;
-  let mass = 0;
-  centre.setAll(0);
-  for (const joint of chain) {
-    const part = joint.child, m = part.rigid.mass;
-    mass += m;
-    centre.addInPlace(centreOfToRef(part, at).scaleInPlace(m));
-  }
-  centre.scaleInPlace(1 / mass);
-  out.mass = mass;
-  tensor.fill(0);
-  for (const joint of chain) {
-    const part = joint.child, m = part.rigid.mass, t = part.rigid.tensor, frame = part.frame;
-    turnOfToRef(part, turn);
-    // The segment frame's axes, world: columns of A, so that the tensor on the world's axes is A T A'.
-    for (let k = 0; k < 3; k++) {
-      const a = k === 0 ? frame.x : k === 1 ? frame.y : frame.z;
-      axis.set(a[0], a[1], a[2]).applyRotationQuaternionToRef(turn, axis);
-      axes[k] = axis.x; axes[3 + k] = axis.y; axes[6 + k] = axis.z;
-    }
-    // T's rows, by index into its six.
-    const T = (j: number, k: number): number => j === k ? t[j]! : j + k === 1 ? t[3]! : j + k === 2 ? t[4]! : t[5]!;
-    for (let i = 0; i < 3; i++) for (let j = i; j < 3; j++) {
-      let sum = 0;
-      for (let p = 0; p < 3; p++) for (let q = 0; q < 3; q++) sum += axes[3 * i + p]! * T(p, q) * axes[3 * j + q]!;
-      tensor[i === j ? i : i + j === 1 ? 3 : i + j === 2 ? 4 : 5] += sum;
-    }
-    centreOfToRef(part, at).subtractInPlace(centre);
-    const dd = at.x * at.x + at.y * at.y + at.z * at.z;
-    tensor[0] += m * (dd - at.x * at.x); tensor[1] += m * (dd - at.y * at.y); tensor[2] += m * (dd - at.z * at.z);
-    tensor[3] -= m * at.x * at.y; tensor[4] -= m * at.x * at.z; tensor[5] -= m * at.y * at.z;
-  }
-}
-
 /** How many intervals the swing's time left is integrated over (Simpson's rule): a numeric setting. */
 const INTERVALS = 8;
+/**
+ * The time, s, a leg's pose is differenced over for its links' velocities, and the time its
+ * angular momentum is differenced over for its rate now: numeric settings.
+ */
+const DELTA = 1e-3, NOW = 5e-3;
+
+/** What `swingShiftToRef` works in: a leg's pose at a time and `DELTA` after, and its angular momentum at each of the samples and at `NOW`. Carries nothing between calls. */
+export interface SwingShiftWork { readonly pose: Float64Array; readonly momentum: Float64Array }
+
+/** A `SwingShiftWork`. */
+export const makeSwingShiftWork = (): SwingShiftWork => ({ pose: new Float64Array(18), momentum: new Float64Array(3 * (INTERVALS + 2)) });
 
 /**
  * **The swing's pivot shift**, into `out`: the centroidal moment pivot's offset from the centre of
@@ -251,55 +220,92 @@ const INTERVALS = 8;
  * e^(w T) xi - p (e^(w T) - 1) - capture and the centre of mass at p + (x - p) cosh(w T) + (u / w)
  * sinh(w T) - centre.
  *
- * `leg` is the swinging leg as it is now, held so over the time left, `hip` its hip's place and
- * `centre` the body's centre of mass, world; `swing` the step on its path (`swingPathToRef`, bowed
- * `bow`), with `from` where the foot's sole's middle left the ground and `time` how long it has
- * swung; `place` the pivot the plan last fell about and `plan`, `velocity` the plan's centre of
- * mass; `w` the pendulum's rate, `weight` the body's weight, N. `progress`, `point`, `rate` and
- * `accel` carry nothing between calls.
+ * The leg is its two links and its foot (`SwingLeg.links`) as the swing will carry them: its hip
+ * `hip` where it is, world, carried with the plan's centre of mass falling about `place` from
+ * `plan` at `velocity`; its ankle `ankle` over and `back` behind the sole's middle along the
+ * facing `heading`, the middle on the step's path (`swingPathToRef`, bowed `bow`, from `from`
+ * where it left the ground, `time` s swung); and its knee where the two links meet, bent ahead
+ * along the facing. Its angular momentum about the body's centre of mass, there at `centre`'s
+ * height, is taken at each point of the time left, and the integrals of its rate are those of the
+ * momentum itself by parts: w ∫ e^(w (T - s)) L' ds = w (L(T) - e^(w T) L(0) + w ∫ e^(w (T - s)) L ds),
+ * and w ∫ sinh(w (T - s)) L' ds = w (w ∫ cosh(w (T - s)) L ds - sinh(w T) L(0)). The thigh swings
+ * further than the hip's line to the foot as the knee bends and straightens, and moves the most
+ * of the leg's mass: a leg taken as rigid along that line reacts with about half of it.
+ * `w` is the pendulum's rate, `weight` the body's weight, N. `progress`, `point`, `rate`, `accel`
+ * and `work` carry nothing between calls.
  */
-export function swingShiftToRef(leg: LegNow, hip: Vector3, centre: Vector3, swing: SwingGoal, bow: SwingBow, from: Vector3, time: number,
-  place: Vector3, plan: Vector3, velocity: Vector3, w: number, weight: number, progress: Vector3, point: Vector3, rate: Vector3, accel: Vector3, out: SwingShift): void {
-  const T = swing.seconds, left = Math.max(T - time, 0), h = INTERVALS, dt = left / h;
-  // The leg's mass centre from the hip, and the hip from the body's centre of mass, now; the leg's
-  // inertia about its mass centre.
-  const qx = leg.centre.x - hip.x, qy = leg.centre.y - hip.y, qz = leg.centre.z - hip.z, m = leg.mass;
-  const hx = hip.x - centre.x, hy = hip.y - centre.y, hz = hip.z - centre.z;
-  const Ixx = leg.tensor[0]!, Izz = leg.tensor[2]!, Ixy = leg.tensor[3]!, Ixz = leg.tensor[4]!, Iyz = leg.tensor[5]!;
-  let cx = 0, cz = 0, xx = 0, xz = 0, nowX = 0, nowZ = 0;
-  for (let k = 0; k <= h; k++) {
-    const s = k * dt, t = time + s, tau = Math.min(1, t / T);
-    // The foot's sole's middle on its path, and its acceleration.
+export function swingShiftToRef(leg: SwingLeg, ankle: number, back: number, heading: number, hip: Vector3, centre: Vector3, swing: SwingGoal, bow: SwingBow,
+  from: Vector3, time: number, place: Vector3, plan: Vector3, velocity: Vector3, w: number, weight: number, progress: Vector3, point: Vector3, rate: Vector3,
+  accel: Vector3, work: SwingShiftWork, out: SwingShift): void {
+  const T = swing.seconds, left = Math.max(T - time, 0), h = INTERVALS, dt = left / h, { pose, momentum: L } = work;
+  const fx = sin(heading), fz = cos(heading), { thigh, shank, foot } = leg.links;
+  // The leg's hip, knee and ankle s after now, into pose at o.
+  const poseAt = (s: number, o: number): void => {
+    const tau = Math.min(1, (time + s) / T);
     swingProgressToRef(tau, swing.ramp, progress);
     swingPathToRef(from, swing.to, swing.lift, bow, tau, T, progress.x, progress.y / T, progress.z / (T * T), point, rate, accel, progress);
-    const px = point.x, py = point.y, pz = point.z, afx = accel.x, afy = accel.y, afz = accel.z;
-    // The plan's centre of mass falling about the place for s, and the hip with it.
     const ch = cosh(w * s), sh = sinh(w * s);
-    const ox = place.x + (plan.x - place.x) * ch + velocity.x / w * sh, oz = place.z + (plan.z - place.z) * ch + velocity.z / w * sh;
-    const ahx = w * w * (ox - place.x), ahz = w * w * (oz - place.z);
-    const hipX = hip.x + ox - plan.x, hipZ = hip.z + oz - plan.z;
-    // The foot from the hip, the foot's acceleration relative to the hip, and the leg's angular acceleration r x a / |r|^2.
-    const rx = px - hipX, ry = py - hip.y, rz = pz - hipZ, r2 = rx * rx + ry * ry + rz * rz;
-    const ax = afx - ahx, ay = afy, az = afz - ahz;
-    const alx = (ry * az - rz * ay) / r2, aly = (rz * ax - rx * az) / r2, alz = (rx * ay - ry * ax) / r2;
-    // The leg turning about its hip: its mass centre's acceleration alpha x q, and that centre from the body's.
-    const bx = aly * qz - alz * qy, by = alz * qx - alx * qz, bz = alx * qy - aly * qx;
-    const lx = hx + qx, ly = hy + qy, lz = hz + qz;
-    // L' = I alpha + m (l x b): the leg's angular momentum about the body's centre of mass, its rate.
-    const Lx = Ixx * alx + Ixy * aly + Ixz * alz + m * (ly * bz - lz * by);
-    const Lz = Ixz * alx + Iyz * aly + Izz * alz + m * (lx * by - ly * bx);
-    // The pivot's shift from the centre of pressure: (-L'_z, L'_x) over the weight.
-    const sx = -Lz / weight, sz = Lx / weight;
-    if (k === 0) { nowX = sx; nowZ = sz; }
+    const Hx = hip.x + place.x + (plan.x - place.x) * ch + velocity.x / w * sh - plan.x, Hy = hip.y;
+    const Hz = hip.z + place.z + (plan.z - place.z) * ch + velocity.z / w * sh - plan.z;
+    const Ax = point.x - back * fx, Ay = point.y + ankle, Az = point.z - back * fz;
+    const dx = Ax - Hx, dy = Ay - Hy, dz = Az - Hz, l = Math.sqrt(dx * dx + dy * dy + dz * dz), t = leg.thigh, k = leg.shank;
+    let Kx: number, Ky: number, Kz: number;
+    if (l >= t + k) { Kx = Hx + dx * t / (t + k); Ky = Hy + dy * t / (t + k); Kz = Hz + dz * t / (t + k); }
+    else {
+      // The knee a along the hip's line to the ankle and b off it, toward the facing.
+      const a = (t * t - k * k + l * l) / (2 * l), b = Math.sqrt(Math.max(t * t - a * a, 0));
+      const ux = dx / l, uy = dy / l, uz = dz / l, along = fx * ux + fz * uz;
+      let nx = fx - along * ux, ny = -along * uy, nz = fz - along * uz;
+      const nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
+      if (nl > 0) { nx /= nl; ny /= nl; nz /= nl; }
+      Kx = Hx + ux * a + nx * b; Ky = Hy + uy * a + ny * b; Kz = Hz + uz * a + nz * b;
+    }
+    pose[o] = Hx; pose[o + 1] = Hy; pose[o + 2] = Hz; pose[o + 3] = Kx; pose[o + 4] = Ky; pose[o + 5] = Kz; pose[o + 6] = Ax; pose[o + 7] = Ay; pose[o + 8] = Az;
+  };
+  // The leg's angular momentum about the body's centre of mass s after now, into L at o.
+  const momentumAt = (s: number, o: number): void => {
+    poseAt(s, 0);
+    poseAt(s + DELTA, 9);
+    const ch = cosh(w * s), sh = sinh(w * s);
+    const Cx = place.x + (plan.x - place.x) * ch + velocity.x / w * sh, Cz = place.z + (plan.z - place.z) * ch + velocity.z / w * sh;
+    const Vx = (plan.x - place.x) * w * sh + velocity.x * ch, Vz = (plan.z - place.z) * w * sh + velocity.z * ch;
+    let lx = 0, ly = 0, lz = 0;
+    // A mass m at the share f of the way from pose point i to j and (ox, oy, oz) on, its place
+    // from the centre of mass and its velocity from the centre's.
+    const mass = (m: number, i: number, j: number, f: number, ox: number, oy: number, oz: number): void => {
+      const px = pose[i]! + (pose[j]! - pose[i]!) * f + ox, py = pose[i + 1]! + (pose[j + 1]! - pose[i + 1]!) * f + oy, pz = pose[i + 2]! + (pose[j + 2]! - pose[i + 2]!) * f + oz;
+      const qx = pose[9 + i]! + (pose[9 + j]! - pose[9 + i]!) * f + ox, qy = pose[10 + i]! + (pose[10 + j]! - pose[10 + i]!) * f + oy, qz = pose[11 + i]! + (pose[11 + j]! - pose[11 + i]!) * f + oz;
+      const rx = px - Cx, ry = py - centre.y, rz = pz - Cz, vx = (qx - px) / DELTA - Vx, vy = (qy - py) / DELTA, vz = (qz - pz) / DELTA - Vz;
+      lx += m * (ry * vz - rz * vy); ly += m * (rz * vx - rx * vz); lz += m * (rx * vy - ry * vx);
+    };
+    // A link's spin across it, from pose point i to j: u x u' of its direction u.
+    const spin = (across: number, i: number, j: number): void => {
+      const ax = pose[j]! - pose[i]!, ay = pose[j + 1]! - pose[i + 1]!, az = pose[j + 2]! - pose[i + 2]!, al = Math.sqrt(ax * ax + ay * ay + az * az);
+      const bx = pose[9 + j]! - pose[9 + i]!, by = pose[10 + j]! - pose[10 + i]!, bz = pose[11 + j]! - pose[11 + i]!, bl = Math.sqrt(bx * bx + by * by + bz * bz);
+      const u0 = ax / al, u1 = ay / al, u2 = az / al, d0 = (bx / bl - u0) / DELTA, d1 = (by / bl - u1) / DELTA, d2 = (bz / bl - u2) / DELTA;
+      lx += across * (u1 * d2 - u2 * d1); ly += across * (u2 * d0 - u0 * d2); lz += across * (u0 * d1 - u1 * d0);
+    };
+    mass(thigh.mass, 0, 3, thigh.centre / leg.thigh, 0, 0, 0);
+    mass(shank.mass, 3, 6, shank.centre / leg.shank, 0, 0, 0);
+    mass(foot.mass, 6, 6, 0, fx * foot.ahead, foot.up, fz * foot.ahead);
+    spin(thigh.across, 0, 3);
+    spin(shank.across, 3, 6);
+    L[o] = lx; L[o + 1] = ly; L[o + 2] = lz;
+  };
+  for (let k = 0; k <= h; k++) momentumAt(k * dt, 3 * k);
+  const n = 3 * (h + 1);
+  momentumAt(NOW, n);
+  out.now[0] = -(L[n + 2]! - L[2]!) / NOW / weight; out.now[1] = (L[n]! - L[0]!) / NOW / weight;
+  let ex = 0, ez = 0, cx = 0, cz = 0;
+  for (let k = 0; k <= h; k++) {
     // Simpson's weights 1, 4, 2, 4, ..., 1 over dt / 3.
-    const sw = (k === 0 || k === h ? 1 : k % 2 === 1 ? 4 : 2) * dt / 3;
-    const e = exp(w * (left - s)), g = sinh(w * (left - s));
-    cx += sw * e * sx; cz += sw * e * sz;
-    xx += sw * g * sx; xz += sw * g * sz;
+    const sw = (k === 0 || k === h ? 1 : k % 2 === 1 ? 4 : 2) * dt / 3, e = exp(w * (left - k * dt)), c = cosh(w * (left - k * dt));
+    ex += sw * e * L[3 * k]!; ez += sw * e * L[3 * k + 2]!;
+    cx += sw * c * L[3 * k]!; cz += sw * c * L[3 * k + 2]!;
   }
-  out.now[0] = nowX; out.now[1] = nowZ;
-  out.capture[0] = w * cx; out.capture[1] = w * cz;
-  out.centre[0] = w * xx; out.centre[1] = w * xz;
+  const grow = exp(w * left), sh = sinh(w * left), e = 3 * h;
+  out.capture[0] = -w * (L[e + 2]! - grow * L[2]! + w * ez) / weight; out.capture[1] = w * (L[e]! - grow * L[0]! + w * ex) / weight;
+  out.centre[0] = -w * (w * cz - sh * L[2]!) / weight; out.centre[1] = w * (w * cx - sh * L[0]!) / weight;
 }
 
 /** What `swingShiftToRef` finds, each x then z. */

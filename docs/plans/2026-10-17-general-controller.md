@@ -249,7 +249,22 @@ the ground short of the landing and dragged. The gait battery asked 0.7 to 1.8 m
 30 and 30 of 30 (26 and 27 before), and the stop battery 48 and 48 of 48: the gate's 0 of 96 is
 met on the solve (`docs/reference/stance-tuning.md#time-constants`). The Arena's
 steered club blow (`tests/research-blow.test.mjs`) steps on the blow's contact and staggers to a
-fall. The Move bout's `todo` is not yet run against the generator. SIMBICON's walk and its ways stay the game's
+fall. Since: the swing's reaction is the leg's two links and foot as the swing carries them, the
+knee placed between the hip and the ankle on the path, its angular momentum about the centre of
+mass integrated by parts (`swingShiftToRef`, `SwingLeg.links`): taken as rigid along the hip's line
+to the foot, the leg's reaction was half what the body measured (86 against 170 N m early in a
+Rogue's swing asked 1.4 m/s forward), since the thigh swings further than that line as the knee
+bends and straightens, and the ground was 60 to 230 N m short of the plan's ask in the second half
+of every swing, the body losing 0.25 m/s a step. With it the shortfall is under 20 N m to the last
+0.05 s before the landing, and forward asked 1.0 m/s the Rogue walks 0.95 (0.82 before), the
+Warrior 0.91 (0.86); asked 1.4, 0.94 and 1.19 (0.90, 1.12). Asked 0.7 to 2.2 m/s five ways the
+Warrior's pace over the ask is 0.92, 0.74, 0.62, 0.48 and 0.41 (0.92, 0.69, 0.56, 0.46, 0.37);
+most of those cells now walk at the legs' cap (`fastestPace`; 20 and 16 of 25), so the cap's own
+numbers (`seconds`, `effort`, `longest`, `crouch`) are what hold the envelope sideways: SIMBICON
+sidesteps asked 1.2 m/s in 0.30 s steps 0.71 m apart and walks 0.85, the stance's walk in 0.38 s
+steps capped at 0.62 apart. The experimental stride, which plans on the same reaction, takes the
+skeleton forward-right no faster than 0.8 m/s with the club where its asset has 1
+(`tests/core-stance-envelope.test.mjs`). The Move bout's `todo` is not yet run against the generator. SIMBICON's walk and its ways stay the game's
 walk until the gate is met; the run (stage 3) builds on this generator.
 
 **Locomotion.** On the gait battery (asked 1.4 to 5 m/s, three stops, two turns, gust seeds 5
