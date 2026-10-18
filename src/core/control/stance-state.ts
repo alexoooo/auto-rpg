@@ -5,7 +5,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
 import type { Assist } from "./assist.ts";
-import { makeBearing, type Bearing, type Limb, type LimbTask } from "./bearing.ts";
+import type { Limb, LimbTask } from "./bearing.ts";
 import type { WholeBodyAsk } from "./solve.ts";
 import type { StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
 import { makeSwingShiftWork, type SwingShift, type SwingShiftWork } from "./swing-leg.ts";
@@ -20,8 +20,8 @@ import type { Side } from "../spec/body.ts";
  * and turns, and no segment, joint, body or function -- so the whole of a stance's memory is this
  * one record.
  *
- * With it are five values no later step reads: what `command` leaves for `carry` and `bear` of its
- * own step (`aim`, `helped`, `held`, `tasks`), and the turn a swing asks (`step.turn`).
+ * With it are four values no later step reads: what `command` leaves for the whole-body solve of
+ * its own step (`aim`, `helped`, `tasks`), and the turn a swing asks (`step.turn`).
  */
 interface StanceState {
   /** The supported root pose requested this step; null uses the walking planner. */
@@ -78,18 +78,15 @@ interface StanceState {
   readonly reading: { -readonly [K in Exclude<keyof StanceReading, "touching">]: StanceReading[K] } & { readonly touching: Record<Side, boolean> };
   /**
    * The torque stance's aims for this step (`command`): the root's angular acceleration and the
-   * centre of mass's, and each leg's foot's, its sole's middle's and its spin's; then (`carry`) the
-   * root's acceleration and each leg's freedoms' accelerations.
+   * centre of mass's, and each leg's foot's, its sole's middle's and its spin's; then (`solveBody`) the
+   * root's acceleration.
    */
   readonly aim: { on: boolean; readonly spin: Vector3; readonly centre: Vector3; readonly root: Float64Array };
   /** What the assist is asked this step: the soles' shortfall, within its ceiling. */
   readonly helped: { readonly force: Vector3; readonly moment: Vector3 };
-  /** The freedoms held at a torque as `carry` found them, and their accelerations, z0 + Z a_root. */
-  readonly held: { channels: number[]; z0: number[]; Z: number[][] };
   /**
    * Each foot's leg's task, in the feet's order (`LimbTask`): whether the stance drives the leg, and
-   * whether it bears; its sole's point's asked acceleration and its spin's (`command`), and its
-   * leg's freedoms' (`carry`).
+   * whether it bears; its sole's point's asked acceleration and its spin's (`command`).
    */
   readonly tasks: readonly LimbTask[];
   /** Each foot's memory, in the feet's order: `feet[k]` is `Stance.feet[k].memory`. */
@@ -132,7 +129,7 @@ interface StanceScratch {
 /**
  * **A stance**, as its functions are handed it: what the body and the tuning fix when it is made,
  * its assist, its memory (`state`) and its working values (`scratch`). Its legs are the limbs of
- * the bearing solve (`bearing.ts`), which leaves what it finds in the state's own records.
+ * the whole-body solve (`solve.ts`), which leaves what it finds in the state's own records.
  */
 export interface Stance {
   readonly built: BuiltBody;
@@ -148,9 +145,7 @@ export interface Stance {
   readonly feet: readonly FootState[];
   /** Each foot's leg as the solve takes it, in the feet's order: its task is the state's. */
   readonly limbs: readonly Limb[];
-  /** The solve of `limbs`: the root's acceleration into `state.aim.root`, and `state.helped`, `state.held` and the reading's shortfall. */
-  readonly bearing: Bearing;
-  /** The same asks as the whole-body solve takes them (`StanceControl.ask`), leaving what it finds in the same records. */
+  /** The asks as the whole-body solve takes them (`StanceControl.ask`): the root's acceleration into `state.aim.root`, and `state.helped` and the reading's shortfall. */
   readonly ask: WholeBodyAsk;
   /**
    * How far apart the soles' middles stand as the body was built, m: its own stance, which a walk's
@@ -182,7 +177,6 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
       asked: { left: { at: new Vector3(), force: new Vector3(), moment: new Vector3() }, right: { at: new Vector3(), force: new Vector3(), moment: new Vector3() } } },
     aim: { on: false, spin: new Vector3(), centre: new Vector3(), root: new Float64Array(6) },
     helped: { force: new Vector3(), moment: new Vector3() },
-    held: { channels: [], z0: [], Z: [] },
     tasks: feet.map((foot): LimbTask => ({ on: false, bearing: false, linear: new Vector3(), angular: new Vector3(),
       accel: new Float64Array(foot.chain.reduce((count, joint) => count + joint.dofs.length, 0)),
       given: new Float64Array(foot.chain.reduce((count, joint) => count + joint.dofs.length, 0)).fill(NaN) })),
@@ -196,7 +190,6 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
     built, assist, tuning: resolveStance(tuning), pelvis: feet[0]!.chain[0]!.parent, segments,
     total,
     feet, rest: restWidth(feet), rise, limbs,
-    bearing: makeBearing(assist, limbs, { root: state.aim.root, helped: state.helped, held: state.held, shortfall: state.reading.shortfall }),
     ask: { aim: state.aim, limbs, lever: 0, root: state.aim.root, helped: state.helped, shortfall: state.reading.shortfall,
       asked: feet.map((foot) => state.reading.asked[foot.side]) },
     state,

@@ -99,7 +99,7 @@ test("resumed from a crouch, the asked height rises from the body's to the stanc
   assert.ok(Math.abs(wrap(facing - 1 - Math.PI)) < 1e-9, `its forward reads ${facing}`);
   // Its feet square to that heading, at the stance's width: neither steps.
   const right = new Vector3(Math.cos(1), 0, -Math.sin(1)), soles = { left: right.scale(-0.1), right: right.scale(0.1) };
-  const at = 5, crouch = { time: at, born: 0, stance: { centre: new Vector3(0, 0.6, 0), support: new Vector3(0, 0.02, 0), soles, facing }, root: { rotation: pelvis } };
+  const at = 5, crouch = { time: at, born: 0, stance: { centre: new Vector3(0, 0.6, 0), support: new Vector3(0, 0.02, 0), velocity: new Vector3(), soles, facing }, root: { rotation: pelvis } };
   legs.resume(crouch);
   assert.ok(Math.abs(legs.heading - 1) < 1e-12, `heading ${legs.heading}`);
   assert.equal(legs.state.squaring, null);
@@ -121,9 +121,9 @@ test("resumed with its feet out of its stance's width, the farther foot steps to
   // Facing 1 rad about up, the pelvis level: its right across the ground is (cos 1, -sin 1), its forward (sin 1, cos 1).
   const pelvis = Quaternion.RotationAxis(Vector3.Up(), 1), right = new Vector3(Math.cos(1), 0, -Math.sin(1)), forward = new Vector3(Math.sin(1), 0, Math.cos(1));
   const left = right.scale(-0.1), xz = (v) => [v.x, v.z];
-  const resumed = (across) => {
+  const resumed = (across, velocity = new Vector3()) => {
     const soles = { left, right: left.add(right.scale(across)).add(forward.scale(-0.3)) };
-    const view = { time: 5, born: 0, stance: { centre: new Vector3(0, 0.6, 0), support: new Vector3(0, 0.02, 0), soles, phase: "stand" }, root: { rotation: pelvis } };
+    const view = { time: 5, born: 0, stance: { centre: new Vector3(0, 0.6, 0), support: new Vector3(0, 0.02, 0), velocity, soles, phase: "stand" }, root: { rotation: pelvis } };
     legs.resume(view);
     return view;
   };
@@ -137,5 +137,10 @@ test("resumed with its feet out of its stance's width, the farther foot steps to
   for (const [across, steps] of [[0.09, true], [0.11, false], [0.29, false], [0.31, true]]) {
     resumed(across);
     assert.equal(legs.state.squaring !== null, steps, `${across} m across`);
+  }
+  // Moving, it squares no feet: on either side of SQUARE_STILL (0.3 m/s), the foot 0.05 m across steps going 0.29 m/s and stays going 0.31.
+  for (const [speed, steps] of [[0.29, true], [0.31, false]]) {
+    resumed(0.05, forward.scale(speed));
+    assert.equal(legs.state.squaring !== null, steps, `going ${speed} m/s`);
   }
 });

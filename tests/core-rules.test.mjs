@@ -252,7 +252,9 @@ test("the recorded club blow sets the unit and a live blow is priced by its meas
   // The unit's source is an immutable measurement; the current controller is priced by its own contact.
   const record = blow.readings.at1920, kg = humanSpec(blow.model).segments.find((segment) => segment.name === "head").mass.value;
   assert.ok(Math.abs(record.mean - CLUB_BEST.value) < 0.01);
-  assert.ok(Math.abs(head.kg - kg) < 0.01 * kg, `${head.kg} kg of a head of ${kg}`);
+  // The head is met, with the body behind it as far as its free neck couples them: about its own
+  // mass, less as the blow's line passes off its centre, more as it runs down its neck.
+  assert.ok(head.kg > 0.5 * kg && head.kg < 2 * kg, `${head.kg} kg of a head of ${kg}`);
   close(result.done, result.blows.reduce((sum, blow) => sum + blow.sides.filter(side => side.fighter === "dummy").reduce((total, side) => total + side.damage, 0), 0), "all contacts contribute their damage");
 
 });

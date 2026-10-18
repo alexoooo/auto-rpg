@@ -2,8 +2,9 @@
 
 The measurements behind the stance controller's tuned constants and settings in
 `src/core/control/stance-tuning.ts` (`STANCE_SECONDS`, `STANCE_KNEE_BEND`, `STANCE_ANKLE_SPARE`,
-`STANCE_RECOVERY`, `STANCE_GAIT`, `STANCE_TRACK`, `SOLE_MARGIN`, `SUPPORT_INSET`, `ANKLE_HOLD`,
-the bounded swing `StanceTuning.boundedSwing` and the heel-off `StanceTuning.heelOff`), and behind the ground
+`STANCE_RECOVERY`, `STANCE_GAIT`, `STANCE_TRACK`, `SOLE_MARGIN`, `SUPPORT_INSET`, `ANKLE_HOLD` and
+the heel-off `StanceTuning.heelOff`), behind the bearing solve's bounded free limb (`boundFree`,
+`src/core/control/bearing.ts`), and behind the ground
 wrench's lever (`leverOf`, in `stanceControl`, `src/core/control/stance.ts`). Each constant's doc
 comment links to its section here. Every table was measured on the Node core stand
 (`tests/harness/core-stand.mjs`), Rapier, 120 Hz, each human standing 3 cm under its reference
@@ -91,13 +92,13 @@ of 0.2 lands 3 mm off and holds fewer shoves; 0.2 or 0.05 lets the Rogue fall to
 way. The chosen row's Warrior falls to 50 N s from behind, and holds 55 and more. The pelvis's
 turn (0.15) was not swept.
 
-Chosen: across 0.3, height 0.15, turn 0.15, swing 0.1.
+Chosen on the bearing solve: across 0.3, height 0.15, turn 0.15, swing 0.1.
 
 Command: the sweep at `abfe6153`, a variant a row, each with the four constants written out:
 `{"seconds": {"across": 0.2, "height": 0.15, "turn": 0.15, "swing": 0.1}}` is the first. The first
 row and the chosen one were read again.
 
-On the whole-body solve (`WHOLE_BODY_SECONDS`) the swing alone was swept, against the five-way
+On the whole-body solve the swing alone was swept, against the five-way
 gait battery asked 0.7 to 1.8 m/s (30 walks a body, each 8 s then stopped) and the stop battery
 (0.7, 1.0 and 1.2 m/s four ways, empty and club, calm and in a 1 m/s gust; 48 a body). Node stand,
 Rapier, 120 Hz, balance 0, at `d3b0f048`.
@@ -117,8 +118,7 @@ late under a leg stepping back (the knee bending, the ankle on its dorsiflexion 
 dropping); the Warrior stepping back at 1.6 m/s had its toes on the ground from 0.63 of the swing
 and landed 0.07 m short. At 0.025 the Warrior's club stop in the gust settles only after 6 s. The
 pace walked falls a little as the swing stiffens (the Warrior at 1.0 m/s asked walks 0.81 of it at
-0.1, 0.69 at 0.04). The bearing solve stays at 0.1: pulled at 0.05 it walks the Lab's Rogue off its
-line (`tests/lab-stance.test.mjs`). Command: `node research/core-stance-sweep.mjs --variants
+0.1, 0.69 at 0.04). Command: `node research/core-stance-sweep.mjs --variants
 '[{"seconds": {"across": 0.3, "height": 0.15, "turn": 0.15, "swing": 0.1}}]' --batteries gait
 --speeds 0.7,1.0,1.2,1.4,1.6,1.8 --ways 0,45,90,180,270 --solve`, and `--batteries stop --speeds
 0.7,1,1.2 --ways 0,90,180,270 --gusts 1:5:5 --solve`.
@@ -596,8 +596,9 @@ rows' settings are `{"track": 0.1, "recovery": {"margin": 0.01, "seconds": 0.2, 
 
 ## Bounded swing
 
-`StanceTuning.boundedSwing`: a swinging leg's torques solved within its strength together
-(`boundedLeastSquares`), against each freedom clipped alone. The lab routine from seeded starts
+The bearing solve's free limb (`boundFree`): its torques solved within its strength together
+(`boundedLeastSquares`), against each freedom clipped alone, read as the stance's swinging leg
+while the stance stood on the bearing solve (its setting then `StanceTuning.boundedSwing`). The lab routine from seeded starts
 (`research/core-routine-battery.mjs`: 3 N s at 0.5 s, up to 5 loops; Node core stand, Rapier),
 without the planning of freedoms held at a torque: loops completed of those possible, runs through
 all five, and falls while walking.

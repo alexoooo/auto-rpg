@@ -1,6 +1,7 @@
 import { recoveryFeatures } from '../src/core/control/recovery-features.ts';
 import { serialize, deserialize } from 'node:v8';
 import { recoveryEnvironment } from './stand-up-environment.mjs';
+import { SEARCH_FALL } from '../src/lab/stance-mode.ts';
 import { recoveryDesign } from './stand-up-design.mjs';
 
 /** Full-body observations and bounded actions over the actual game world's recovery port. */
@@ -63,13 +64,13 @@ export async function learningEnvironment(configuration = {}) {
     e.restore(pristine);steps=0;returnValue=0;previous.fill(0);
     const before=e.stand.world.steps;
     const requestedRecipe={degrees:degrees??random()*360,
-      impulse:impulse??(options.randomizeFalls ? 45+30*random() : 60),
-      separation:separation??(options.randomizeFalls ? .1+.25*random() : .2),
+      impulse:impulse??(options.randomizeFalls ? SEARCH_FALL.impulse-15+30*random() : SEARCH_FALL.impulse),
+      separation:separation??(options.randomizeFalls ? .1+.25*random() : SEARCH_FALL.separation),
       settleSteps:settleSteps??(options.randomizeFalls ? Math.floor(60*random()) : 0)};
     let recipe=requestedRecipe;
     const attempts=[];
     await e.fall(recipe);totalSteps+=e.stand.world.steps-before;attempts.push({...recipe,fell:e.result().fell});
-    for (const force of [90,120]) if(!e.result().fell) {
+    for (const force of [90,120,160]) if(!e.result().fell) {
       // Declared fallback recipes are recorded; prevention never becomes a get-up success.
       e.restore(pristine);recipe={...recipe,impulse:force,separation:.2};await e.fall(recipe);totalSteps+=e.stand.world.steps;
       attempts.push({...recipe,fell:e.result().fell});

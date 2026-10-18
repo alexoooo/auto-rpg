@@ -7,7 +7,7 @@ import { recordHistory } from "./history.ts";
 import type { LabScenario, LabShell, ScenarioRun } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
 import { shoveSound } from "./sound-log.ts";
-import { startStance, type StanceFrame } from "./stance-mode.ts";
+import { SEARCH_FALL, startStance, type StanceFrame } from "./stance-mode.ts";
 import { groundDisc } from "./ground-disc.ts";
 import { action, actions, choice, note, keyHints, legend, readings, slider, type Entry } from "../ui/controls.ts";
 
@@ -103,7 +103,7 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
             {value:{model:"workshop-rogue" as const,right:"club" as const,degrees:337.5},name:"Rogue club oblique"},
             {value:{model:"workshop-rogue" as const,right:"club" as const,degrees:202.5},name:"Rogue club late rise"},
             {value:{model:"workshop-fighter" as const,right:"club" as const,degrees:22.5},name:"Warrior club walking check"}],
-            c => experiment.reproduceRecovery(recoveryMode,{model:c.model,right:c.right,recoveryPush:{degrees:c.degrees,impulse:60,separation:.2}}))] : []),
+            c => experiment.reproduceRecovery(recoveryMode,{model:c.model,right:c.right,recoveryPush:{...SEARCH_FALL,degrees:c.degrees}}))] : []),
         keyHints([{ keys: letters(WALK_KEYS), does: "or arrows walk" }, { keys: letters(TURN_KEYS), does: "turn once walking" }]),
         slider("Walk, m/s", 0.2, 8, 0.1, () => walkSpeed, (value) => { walkSpeed = value; }, (value) => value.toFixed(1)),
         choice("Impulse, N s", IMPULSES.map((value) => ({ value, name: String(value) })), () => impulse, (value) => { impulse = value; }),

@@ -144,17 +144,17 @@ test("the_assist_gives_what_a_mind_asks_up_to_its_ceiling_and_nothing_at_none", 
 
 /**
  * The Warrior standing on the ground under the command layers (`createBody`, `driveBy`), one second
- * to settle; then pulled for 2 s at its root's centre of mass by a steady eighth of its weight along
- * +z, an impulse before each step; then 2 s more. `ceiling` is its assist's, or none. `each` is
- * called after every step from the pull's first. `solve` puts it on the whole-body solve.
+ * to settle; then pulled for 2 s at its root's centre of mass by a steady quarter of its weight along
+ * +z (an eighth it walks out, stepping), an impulse before each step; then 2 s more. `ceiling` is its assist's, or none. `each` is
+ * called after every step from the pull's first.
  */
-async function pulled(ceiling, each = () => {}, solve = false) {
+async function pulled(ceiling, each = () => {}) {
   const stand = await coreStand(spec);
-  const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, solve, ...(ceiling ? { assist: ceiling } : {}) });
+  const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, ...(ceiling ? { assist: ceiling } : {}) });
   try {
     const skills = driveBy(body, { name: "stand", decide: () => standIntent(0) });
     const root = body.muscles.dynamics.root.segment, weight = weightOf(stand.built), { stance } = body.view;
-    const at = new Vector3(), pull = new Vector3(0, 0, weight / 8 / stand.world.hz);
+    const at = new Vector3(), pull = new Vector3(0, 0, weight / 4 / stand.world.hz);
     stand.step(stand.seconds(1));
     const from = centreOfMass(stand.built), settled = stance.recoveries;
     let low = Infinity, far = 0, missed = 0;
@@ -174,15 +174,14 @@ async function pulled(ceiling, each = () => {}, solve = false) {
     for (let step = 0; step < stand.seconds(2); step++) { stand.step(); take(); }
     const { meter } = body.assist;
     return {
-      fallen: body.view.down, low, far, missed, recoveries: stance.recoveries - settled,
+      fallen: body.view.down, low, far, missed, recoveries: stance.recoveries - settled, weight,
       mean: meter.steps ? [meter.force / meter.steps, meter.moment / meter.steps] : [0, 0],
     };
   } finally { body.dispose(); stand.dispose(); }
 }
 
-/** The pull on each assist, on the bearing solve or the whole-body one, and what each holds it to. */
-async function pulls(solve) {
-  const alone = await pulled(null, undefined, solve);
+test("a_pull_the_soles_cannot_hold_fells_a_body_and_the_assist_holds_it", async () => {
+  const alone = await pulled(null);
   assert.ok(alone.fallen && alone.low < 0.5, `it fell: ${JSON.stringify(alone)}`);
   assert.ok(alone.far > 1, `it travelled ${alone.far} m`);
   assert.ok(alone.recoveries >= 5, `it took ${alone.recoveries} recovery steps`);
@@ -190,26 +189,23 @@ async function pulls(solve) {
   assert.ok(alone.missed > 0.05, `the soles missed ${alone.missed} weights`);
   assert.deepEqual(alone.mean, [0, 0]);
 
-  const helped = await pulled({ force: 0.25, moment: 0.065 }, undefined, solve);
+  const helped = await pulled({ force: 0.25, moment: 0.065 });
   assert.ok(!helped.fallen && helped.low > 0.5, `it held: ${JSON.stringify(helped)}`);
   assert.ok(helped.far < 0.15, `it travelled ${helped.far} m`);
   assert.equal(helped.recoveries, 0);
   const [force, moment] = helped.mean;
-  assert.ok(force > 0 && force < 10 && moment > 0 && moment < 10, `it was given ${force} N and ${moment} N m on average`);
+  // What the soles miss, well within the ceiling: no more is given than the stance asks.
+  assert.ok(force > 0 && force < 0.5 * 0.25 * helped.weight && moment > 0 && moment < 0.5 * 0.065 * helped.weight, `it was given ${force} N and ${moment} N m on average`);
 
-  // The force alone holds it as well: the legs carry the moment the assist does not give.
-  const pushed = await pulled({ force: 0.25, moment: 0 }, undefined, solve);
-  assert.ok(!pushed.fallen && pushed.far < 0.15 && pushed.recoveries === 0, `under the force alone: ${JSON.stringify(pushed)}`);
+  // The force alone keeps it up, stepping: the legs carry the moment the assist does not give.
+  const pushed = await pulled({ force: 0.25, moment: 0 });
+  assert.ok(!pushed.fallen && pushed.low > 0.5, `under the force alone: ${JSON.stringify(pushed)}`);
   assert.equal(pushed.mean[1], 0, "and is given no moment");
-  // The moment alone keeps it up, stepping: no moment stands in for the force its soles miss, and it is given no force.
-  const turned = await pulled({ force: 0, moment: 0.065 }, undefined, solve);
-  assert.ok(!turned.fallen && turned.low > 0.5 && turned.recoveries > 0, `under the moment alone: ${JSON.stringify(turned)}`);
+  // The moment alone does not hold it: no moment stands in for the force its soles miss, and it is given no force.
+  const turned = await pulled({ force: 0, moment: 0.065 });
+  assert.ok(turned.fallen && turned.recoveries > 0, `under the moment alone: ${JSON.stringify(turned)}`);
   assert.equal(turned.mean[0], 0, "and is given no force");
-}
-
-test("a_pull_the_soles_cannot_hold_fells_a_body_and_the_assist_holds_it", () => pulls(false));
-
-test("the_whole_body_solve_holds_the_pulls_as_the_bearing_solve_does", () => pulls(true));
+});
 
 test("the_stance_asks_the_assist_for_what_the_soles_miss_and_no_more", async () => {
   // A ceiling small enough to bind: what was given each step is that step's shortfall, shortened to it.

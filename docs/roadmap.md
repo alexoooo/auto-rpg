@@ -67,7 +67,8 @@ stance leg and balances by where it puts the swing foot, beside the capture-poin
 walking item below). Forward it walks to 1.30 m/s and runs on by a person's run cycle, to about
 3.1 m/s for the Warrior, flying between steps; how fast a body runs is its mind's choice of risk,
 since a few trials fall at every running pace, and with the club most of them do for the Rogue. The gaits and
-Locomotion plan that followed made its walk and its run Move's Walk and Run gaits (`GAITS`),
+Locomotion plan that followed made its walk and its run Move's gaits (`GAITS`), now offered beside the
+stance's walk and run (`walk-run.ts`), Move's Braced and Run, to be compared with them,
 chosen by a rule list a player edits, and the Lab's Run the Locomotion scenario: five courses at
 a pace up to the most the walk holds, in gusts, with each body and what it holds, the bed every
 gait is measured on (`research/locomotion-run.mjs`).

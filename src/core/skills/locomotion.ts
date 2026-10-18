@@ -94,6 +94,12 @@ export const PLACING = { near: 0.02 } as const;
 const SQUARE_NEAR = 0.1;
 
 /**
+ * The speed, m/s, of the centre of mass across the ground past which a resumed body is not squared:
+ * a body taken up moving, as from a run, sets its feet by the walk's own steps.
+ */
+const SQUARE_STILL = 0.3;
+
+/**
  * **The locomotion skill**: an intent's walk and facing made a stance goal, within what the stance
  * holds with the body (`StanceEnvelope`, `Body.envelope`).
  *
@@ -114,7 +120,8 @@ const SQUARE_NEAR = 0.1;
  * asks the height the centre of mass is at, rising to the stance's over `RISING_SECONDS`; and
  * the foot farther from the centre of mass steps to the other's side, across the way it faces at
  * the width the body was built standing at, unless it is within `SQUARE_NEAR` of there, before
- * it walks or stands (`squaring`). The reference height stays: it is the body's.
+ * it walks or stands (`squaring`), unless it moves faster than `SQUARE_STILL`. The reference
+ * height stays: it is the body's.
  */
 export interface Locomotion extends Skill {
   /**
@@ -239,7 +246,7 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
   // heading by the built stance's width, as far ahead along the heading as it is.
   const squareOf = (view: BodyView): Footing | null => {
     const width = state.width, s = view.stance, c = s.centre;
-    if (width === null) return null;
+    if (width === null || hypot(s.velocity.x, s.velocity.z) > SQUARE_STILL) return null;
     const near = (foot: Side): number => hypot(s.soles[foot].x - c.x, s.soles[foot].z - c.z);
     const stays: Side = near("left") <= near("right") ? "left" : "right", steps: Side = stays === "left" ? "right" : "left";
     const at = s.soles[stays], q = s.soles[steps];

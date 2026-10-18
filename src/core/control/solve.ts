@@ -43,6 +43,7 @@ import { bearsNow, carried, give, jacobianTo, keepRows, soleTorque, type Limb, t
 import { groundWrenchWork, patchPlace, shareGroundWrench, type GroundWrenchWork, type Patch } from "./contact-wrench.ts";
 import type { ServoWork } from "./servo.ts";
 import { GROUND_FRICTION } from "./support.ts";
+import { linearWork, solveLinearTo, type LinearWork } from "../math/flat.ts";
 
 /**
  * **What the solve is asked for a step**, and where it leaves what it finds, each its caller's own
@@ -91,6 +92,11 @@ interface WholeBody {
   /** The wrench the root's rows ask of the ground, and the one they are held to. */
   readonly W: Float64Array;
   readonly given: Float64Array;
+  /** The root's block of the mass matrix (6 by 6), the wrench missed, the root's motion it changes as the body moves rigidly, and a solve's work. */
+  readonly rigid: Float64Array;
+  readonly lost: Float64Array;
+  readonly turn: Float64Array;
+  readonly linear: LinearWork;
   /** A limb's Jacobian at its point (6 by its chain), its stem's, the root's B, the point's asked motion less its drift, and the rows of each the task keeps. */
   readonly J: Float64Array;
   readonly S: Float64Array;
@@ -123,7 +129,7 @@ export function makeWholeBody(count: number, limbs: number): WholeBody {
   return {
     count, size, capacity, A: f(capacity * size), y: f(capacity), w: f(capacity),
     known: f(size), unknown: new Int32Array(size), x: f(size), H: f(size * size), L: f(size * size), g: f(size), z: f(size), xs: f(size),
-    inLimb: new Uint8Array(count), carries: new Uint8Array(count), stopped: new Uint8Array(count), pinned: f(count), contact: f(count), torque: f(count), W: f(6), given: f(6),
+    inLimb: new Uint8Array(count), carries: new Uint8Array(count), stopped: new Uint8Array(count), pinned: f(count), contact: f(count), torque: f(count), W: f(6), given: f(6), rigid: f(36), lost: f(6), turn: f(6), linear: linearWork(6),
     J: f(6 * count), S: f(6 * count), B: f(36), k0: f(6), rowsJ: f(6 * count), rowsS: f(6 * count), rowsB: f(36), rowsK: f(6),
     wrench: groundWrenchWork(limbs, 0), bearing: [], patches: [], parts: [],
     shares: Array.from({ length: limbs }, () => ({ force: new Vector3(), moment: new Vector3() })),
@@ -135,13 +141,27 @@ export function makeWholeBody(count: number, limbs: number): WholeBody {
 /**
  * The rows' weights, each a miss's cost per unit squared, ranked as the bearing solve and the
  * servo rank them. The root's aims (its spin's and the centre of mass's), the root held to a
- * wrench (in the body's weight), a freedom asked ahead of its limb's task and a torque held (in
- * its strength) are what those give exactly: one weight, well above a limb's point's motion
- * (m/s^2 and rad/s^2), which the bearing solve gives by least squares in the limb's own freedoms
- * beneath them. Numeric settings, not anatomy; the ranking was found on the Warrior's stand,
- * shoves, walk and the assist reference's pulls against the bearing solve.
+ * wrench (in the body's weight) and a freedom asked ahead of its limb's task are what those give
+ * exactly: one weight, well above a limb's point's motion (m/s^2 and rad/s^2), which the bearing
+ * solve gives by least squares in the limb's own freedoms beneath them. A torque held (in its
+ * strength: a push's, or a freedom's pinned at its strength) is not an ask but what the muscle
+ * will give, so it ranks above everything: a solve that bends it plans the rest of the body against
+ * a torque that never comes (a strike's chamber, its trunk pinned and then planned 40 % past its
+ * strength, turned the pelvis at twice the rate planned). Numeric settings, not anatomy; the
+ * ranking was found on the Warrior's stand, shoves, walk and the assist reference's pulls against
+ * the bearing solve.
+ *
+ * The root held to the wrench the ground gives aims its spin beneath every task (`spin`) at the
+ * turn that wrench gives the body moving rigidly (`rigidTurn`): the body's momentum is then what
+ * the ground gives, and of the motions that give it, where the limbs leave a choice, the one that
+ * turns the root with the body. Without it the light root takes the whole of what is missed (a
+ * chamber's trunk pinned at its strength rolled the pelvis 0.3 rad, and a guard's arms swung in a
+ * walk); aimed at the spin first asked instead, a shove that turns the body fells it; at the feet's
+ * weight or above, it bends a walk's swing to hold the root, and its stops fall (the stop battery
+ * of `research/core-stance-sweep.mjs`, Node stand, Rapier, 120 Hz: 2 falls of 96 at this weight
+ * and without it, 3 at 1e-5).
  */
-const WEIGHT = { foot: 1e-4, ahead: 1e-2, torque: 1e-2, root: 1, aim: 1 };
+const WEIGHT = { foot: 1e-4, ahead: 1e-2, torque: 1e4, root: 1, aim: 1, spin: 1e-6 };
 /**
  * The damping on the accelerations, (rad/s^2)^-2, against a foot's weight: a straight knee is a
  * singular leg, and without it a root asked to rise over one asks the leg for unbounded
@@ -187,8 +207,10 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
   b.given.fill(0);
   for (let pass = 0; pass < PASSES; pass++) {
     let rows = base;
-    // The root held to a wrench is asked nothing else: its rows stand in for the aims' (the first six).
-    for (let r = 0; r < 6; r++) b.w[r] = held ? 0 : WEIGHT.aim;
+    // The root held to a wrench: its rows stand in for the aims' (the first six), its spin's
+    // aimed at the turn the wrench given makes (`rigidTurn`) beneath every task (`WEIGHT.spin`),
+    // and with nothing bearing, nothing.
+    for (let r = 0; r < 6; r++) b.w[r] = held ? (r < 3 && bearing.length ? WEIGHT.spin : 0) : WEIGHT.aim;
     if (held) rows = rootRows(b, rows, R, ask.lever);
     for (let i = 0; i < n; i++) if (!Number.isNaN(pinned[i]!)) { known[6 + i] = NaN; rows = torqueRow(b, rows, muscles, i, pinned[i]!, b.contact[i]!); }
     solveRows(b, rows);
@@ -204,6 +226,7 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
         const { force, moment } = b.missed, { W, given } = b;
         given[0] = W[0]! + moment.x; given[1] = W[1]! + moment.y; given[2] = W[2]! + moment.z;
         given[3] = W[3]! + force.x; given[4] = W[4]! + force.y; given[5] = W[5]! + force.z;
+        rigidTurn(b, R, x);
         continue;
       }
       asked = true;
@@ -426,6 +449,20 @@ function solveRows(b: WholeBody, rows: number): void {
   for (let i = m - 1; i >= 0; i--) { let sum = z[i]!; for (let k = i + 1; k < m; k++) sum -= L[k * m + i]! * xs[k]!; xs[i] = sum / L[i * m + i]!; }
   for (let c = 0; c < N; c++) x[c] = known[c]!;
   for (let i = 0; i < m; i++) x[unknown[i]!] = xs[i]!;
+}
+
+/**
+ * The root's spin's aim with the ground holding it short, into the first three rows' targets: the
+ * spin found, `x`, turned as the wrench missed (the scratch's `missed`) turns the body moving as a
+ * rigid one, the root's block of the mass matrix the body's inertia.
+ */
+function rigidTurn(b: WholeBody, R: MuscleDriver["dynamics"]["root"], x: Float64Array): void {
+  const { rigid, lost, turn, missed } = b;
+  for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) rigid[r * 6 + c] = R.mass[r]![c]!;
+  lost[0] = missed.moment.x; lost[1] = missed.moment.y; lost[2] = missed.moment.z;
+  lost[3] = missed.force.x; lost[4] = missed.force.y; lost[5] = missed.force.z;
+  solveLinearTo(b.linear, rigid, lost, 6, turn);
+  for (let r = 0; r < 3; r++) b.y[r] = x[r]! + turn[r]!;
 }
 
 /** The wrench the ground must give for the motion found, about the root's centre, into `W`: the root's rows less gravity's. */

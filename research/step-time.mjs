@@ -10,9 +10,7 @@
  * how many steps over `--over` ms had a collection inside; and what each side's hands' solves took
  * (`ReachMeter`, `src/core/control/motor.ts`): how many, their passes, and how many ran to the cap.
  *
- *   node research/step-time.mjs [--left workshop-fighter] [--right workshop-rogue] [--runs 4] [--over 3] [--solve]
- *
- * With `--solve` both sides' motor control is the whole-body solve (`DuelRecipe.solve`).
+ *   node research/step-time.mjs [--left workshop-fighter] [--right workshop-rogue] [--runs 4] [--over 3]
  *
  * With `--profile` it plays the bout once more under V8's CPU profiler and prints the share of
  * each file and of each function with everything it calls.
@@ -29,9 +27,9 @@ import { buildBout } from "./bout.mjs";
 
 const { values } = parseArgs({ options: {
   left: { type: "string", default: "workshop-fighter" }, right: { type: "string", default: "workshop-rogue" },
-  runs: { type: "string", default: "4" }, over: { type: "string", default: "3" }, profile: { type: "boolean", default: false }, solve: { type: "boolean", default: false },
+  runs: { type: "string", default: "4" }, over: { type: "string", default: "3" }, profile: { type: "boolean", default: false },
 } });
-const recipe = { left: values.left, right: values.right, capSeconds: 60, ...(values.solve ? { solve: { left: true, right: true } } : {}) }, over = Number(values.over);
+const recipe = { left: values.left, right: values.right, capSeconds: 60 }, over = Number(values.over);
 // Babylon greets every engine it makes on the console.
 Logger.LogLevels = Logger.NoneLogLevel;
 
@@ -64,7 +62,7 @@ await new Promise((resolve) => setTimeout(resolve, 100));
 const read = played.slice(1), n = read[0].length;
 const least = (of) => Array.from({ length: n }, (_, i) => Math.min(...read.map((rows) => rows[i][of])));
 const all = least("all"), solver = least("solver"), rest = least("rest");
-console.log(`Node, an arena bout in the core world, ${CORE_ENGINE}, 120 Hz; ${values.left} against ${values.right}${values.solve ? " on the whole-body solve" : ""}, ${n} steps to its verdict, played ${values.runs} times and read on the last ${read.length}; ms\n`);
+console.log(`Node, an arena bout in the core world, ${CORE_ENGINE}, 120 Hz; ${values.left} against ${values.right}, ${n} steps to its verdict, played ${values.runs} times and read on the last ${read.length}; ms\n`);
 read.forEach((rows, k) => console.log(`playing ${k + 2}, a step: ${stats(rows.map((r) => r.all))}`));
 console.log(`\nthe least of each step over the playings: ${stats(all)}`);
 console.log(`  the solver: ${stats(solver)}`);

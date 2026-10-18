@@ -190,7 +190,7 @@ The solves a step works are `linalg.ts`'s written into flat arrays made once
 (`src/core/math/flat.ts`): a matrix its rows end to end, the same operations in the same order,
 so the same doubles; `tests/core-flat.test.mjs` holds each to its twin. The step's dear functions
 work so: the arrays a body's control works in (a **work**) are made with it, in the closure of
-what uses them (the stance's bearing solve, `bodyDynamics`, the joint trackers, each hand's
+what uses them (the whole-body solve, `bodyDynamics`, the joint trackers, each hand's
 reach), sized from the body's spec, and a function writes every entry of one before it reads it.
 A work carries nothing from one call to the next, so it is not state and no two bodies share one;
 what a step allocates is held under a ceiling (`tests/core-step-cost.test.mjs`,
@@ -291,7 +291,7 @@ and driven afresh to change what it costs.
   other places may be the same path, its end moved (`follows`). The body frame is the root's
   (`BodyView.root`), which a skill turns a world point into (`intoFrameToRef`).
 - **The bearing solve** (`bearing.ts`) is a body borne on the ground through limbs, and knows no
-  foot. A limb (`Limb`) is the chain of freedoms from the root to a segment, with a task at a
+  foot; the stand-up's stages and the supported motor stand on it. A limb (`Limb`) is the chain of freedoms from the root to a segment, with a task at a
   point of that segment: to bear there on a patch of the ground, or to move free. `carryRoot`
   asks the root's rows for the wrench its caller's aim needs (the centre of mass's acceleration
   and the root's spin's), shares it among the bearing patches within friction, no pull and the
@@ -315,11 +315,9 @@ and driven afresh to change what it costs.
   (`shareGroundWrench`), the shortfall asked of the assist, and the root held to what the two give;
   a torque past its strength is pinned there and the body solved again, up to four passes. Its
   rows rank as the bearing solve ranks them (the root and a torque held exactly, a foot by least
-  squares beneath), so a body stands, steps and is pulled the same on either. A body is on it by
-  `BodyOptions.solve` (`MindWiring.solve`, a bout's `DuelRecipe.solve` by side, the Lab's `&solve=` and
-  its Whole-body solve switch); the stance gives it
-  the same asks it gives the bearing solve (`StanceControl.ask`), and the bearing solve remains the
-  default.
+  squares beneath), but for the root's spin, which a root held to the ground's wrench keeps beneath
+  its rows. Every body's motor control stands on it: the stance gives it its asks
+  (`StanceControl.ask`).
 - **The stance** (`stance.ts`; its records in `stance-state.ts`, its steps in `gait.ts`, its
   soles in `support.ts`, its constants in `stance-tuning.ts`) is the standing plan, and the
   solve's first user: it keeps the body up by the forces the ground can really give. It plans
@@ -341,7 +339,7 @@ and driven afresh to change what it costs.
   and may hold the foot to its path more tightly than the stance's own steps (`SwingGoal.settle`).
   A step that flies (`SwingGoal.flight`) has its bearing leg bounce the centre of mass as a
   spring-mass leg does and leave the ground at the speed asked; in its flight (`"flight"`) no
-  limb bears, the root is left to gravity (the bearing solve gives the wrench no contact makes),
+  limb bears, the root is left to gravity (the solve gives the wrench no contact makes),
   and the trailing foot is carried with the body until the swinging one lands.
   `stanceEnvelope` (`stance-envelope.ts`) reads what each body was measured to
   hold on parent-axis Rapier under its character's balance allowance
@@ -386,7 +384,7 @@ Their actuator methods and their readiness/footprints remain their own.
 - **Locomotion** (`locomotion.ts`) walks at no more than the body's measured fastest walk, turns
   only while walking and no faster than its envelope and optional `turnLimit` allow, and can
   set the feet at a chosen place (`Locomotion.place`).
-- **Stride** (`stride.ts`, "Walk and run", experimental) is a locomotion skill that plans its own
+- **Stride** (`stride.ts`, "Stride", experimental) is a locomotion skill that plans its own
   steps and hands the stance one at a time (`StanceGoal.swing`), never its own walk: each landing
   and the capture point it is to catch are a steady capture-point walk's, re-aimed every control
   step from the measured capture point, and a swing whose landing would be past the longest step
@@ -417,7 +415,22 @@ Their actuator methods and their readiness/footprints remain their own.
   asked. Each step the pelvis yaws some 0.8 rad, the swing's yaw beyond what the bearing sole's
   twist can give at the ground's friction, and the bearing hip turns to its stop; a foot landed
   behind its neutral point, to speed up, falls within seconds.
-- **SIMBICON** (`simbicon.ts`, "SIMBICON walk") is a locomotion skill that drives the
+- **The walk and run** (`walk-run.ts`, "Walk and run") walks by the stance's own walk and runs by
+  SIMBICON's run cycle (`runCycle`, below), with its own settings (`WALK_RUN_CYCLE`, searched on
+  its own handover by `research/run-cycle-search.mjs`). Asked forward past `run` (0.86 m/s for the
+  Warrior, scaled to the body's leg) and told it may run (`Locomotion.runs`), the walk goes on at
+  what its legs and envelope hold, and once the body has come up to that pace, or the walk asked has
+  stood past it 2 s, the run takes over as the stance's swinging sole lands, from that foot, at the
+  pace the body goes (`RUN_SWITCH`). A run landing, its second or later, gives the legs back to the
+  stance's walk once the pace asked has come down 0.2 under `run`, or it is told it may not run,
+  and the body has slowed to `run`; told it may not run, the run brakes at its `brake` until then.
+  Running, it goes straight ahead, turning by its heading (`turn`, `swerve`, `turnRate`), and
+  past a right angle from the face asked it brakes and the walk turns the body round. The stance
+  takes the body up as it is, moving (`Locomotion.resume`). Its envelope is the stance's walk's
+  (`Body.envelope`), and SIMBICON's run's (`simbiconRunEnvelope`) while it may run; its settings
+  and the run's are scaled to the body's leg and quickened by its haste as SIMBICON's are.
+- **SIMBICON** (`simbicon.ts`, "SIMBICON walk") is offered beside the walk and run, to be compared
+  with it. It is a locomotion skill that drives the
   legs itself (`Locomotion.drive`, `LegsDrive`): no stance goal, every leg freedom pushed
   (`MusclePush.speed`) toward its state's angle at its error over `settle`, at up to a share of its
   strength, the paper's PD with its damping held by the solver (Yin, Loken and van de Panne 2007).
@@ -475,8 +488,9 @@ Their actuator methods and their readiness/footprints remain their own.
   quiet support in bounded preparation (`skillSet`, `arbiter.ts`). A push whose level or speed is not
   a number is refused (`obey`, `body.ts`): Rapier disables the island of a body given one, which
   then hangs in the air.
-- **Move** (`move.ts`, "Move") walks by one of the gaits (`GAITS`, `gaits.ts`: Braced, the
-  stance's walk; Walk, the SIMBICON walk told it may not run; Run, the same walk free to run; the
+- **Move** (`move.ts`, "Move") walks by one of the gaits (`GAITS`, `gaits.ts`: Braced, the walk
+  and run told it may not run, which is the stance's walk; Run, the same free to run; SIMBICON walk
+  and SIMBICON run, the SIMBICON walk told it may not run and free to, offered beside them; the
   stride, experimental), each a controller with its
   searched settings and none of them a person's to tune: the gait of the first of its rules that
   holds, or its `otherwise`. A rule (`MoveRuleConfig`) holds while the body is asked to stand, or
@@ -486,7 +500,7 @@ Their actuator methods and their readiness/footprints remain their own.
   it chose only half a metre past it. Move changes gait only between steps, a gait that drives the
   legs asked to stand first and changed from once it has given them back; resumes the gait it
   changes to from the body as it is, and gives tactics the envelope of the gait it walks by. Two
-  gaits of one walk (`MoveGait`), as Walk and Run are, change at once, the walk told whether it may
+  gaits of one walk (`MoveGait`), as Braced and Run are, change at once, the walk told whether it may
   run. Classic and the options fighter get about by `MOVE` (`CLASSIC`): braced while it stands or a
   standing foe is within 5 m, and otherwise by Run, which runs only where the pace asked is past
   its walk's: whether a body runs is its tactics' or its orders' choice of pace. An Arena bout

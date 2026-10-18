@@ -4,9 +4,7 @@ import type { BuiltBody, BuiltDof } from "../build/build-body.ts";
 import { anglesOf, rotationOfToRef } from "../build/joint-state.ts";
 import { channelName, type MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
-import type { ServoWork } from "./servo.ts";
-import { bearLimbs, bearsNow, carryRoot, limbMotion, makeBearing, type Bearing, type Limb } from "./bearing.ts";
-import { patchPlace } from "./contact-wrench.ts";
+import type { Limb } from "./bearing.ts";
 import type { WholeBodyAsk } from "./solve.ts";
 import { rotationAtToRef } from "./kinematics.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
@@ -177,16 +175,14 @@ export type StancePhase = "stand" | "shift" | "swing" | "flight";
  * goal's heading; and each bearing foot's, none, what motion it has damped out.
  *
  * **The legs give those by torque, through the whole body's floating-base dynamics**
- * (`BodyDynamics.root`): the bearing solve's work (`bearing.ts`), with the stance's legs its limbs
- * and their soles its patches (`aimLimb`). The root's six rows say what wrench the ground must give for the body's
- * accelerations; each stance leg's freedoms' accelerations follow from the root's and its foot's
- * (`carry`). The ground's wrench is shared among the bearing soles as nearly as a sole can give it
- * (`shareGroundWrench`: no pull, the centre of pressure on the sole, friction, twist), and where
- * the soles cannot give it all, the root is asked for the acceleration the wrench they can give
- * makes: a body pushed past its feet is not asked to stand. The rest of the body is servoed around
- * that root acceleration (`servoSolve`), and each stance leg's torques are its freedoms' inverse
- * dynamics less the ground's wrench on its foot (`bear`), given to the muscles as torque sources.
- * Every inertia is the body's own (`humanSpec`), and nothing conditions it.
+ * (`BodyDynamics.root`): the whole-body solve (`solve.ts`, given the asks by `ask`), with the
+ * stance's legs its limbs and their soles its patches (`aimLimb`). The root's six rows say what
+ * wrench the ground must give for the body's accelerations. The ground's wrench is shared among
+ * the bearing soles as nearly as a sole can give it (`shareGroundWrench`: no pull, the centre of
+ * pressure on the sole, friction, twist), and where the soles cannot give it all, the root is
+ * asked for the acceleration the wrench they can give makes: a body pushed past its feet is not
+ * asked to stand. Every torque is given to the muscles as a torque source. Every inertia is the
+ * body's own (`humanSpec`), and nothing conditions it.
  *
  * **A step** (`SwingGoal`) shifts the weight onto the other foot until the body's capture point is
  * over that sole, lifts the foot, and carries it on its path while the plan falls as an inverted
@@ -216,17 +212,9 @@ export interface StanceControl {
    */
   command(driver: MuscleDriver, goal: StanceGoal | null, dt: number): void;
   /**
-   * The root's acceleration the last command asks for (angular, then its centre's, world), given
-   * the servo's asked accelerations of the freedoms the stance does not own (`servoAsk`); null if
-   * the stance carries nothing. The servo solves the rest of the body with it.
-   */
-  carry(driver: MuscleDriver, work: ServoWork): Float64Array | null;
-  /** The owned legs' torques, once the servo has solved the rest (`servoSolve`). */
-  bear(driver: MuscleDriver, work: ServoWork): void;
-  /**
-   * The last command's asks as the whole-body solve takes them (`solveBody`, `solve.ts`), in place
-   * of `carry` and `bear`: the root's aims, each driven leg's task at its point, and the records
-   * the solve leaves what it finds in; null if the stance asks nothing.
+   * The last command's asks as the whole-body solve takes them (`solveBody`, `solve.ts`): the
+   * root's aims, each driven leg's task at its point, and the records the solve leaves what it
+   * finds in; null if the stance asks nothing.
    */
   ask(driver: MuscleDriver): WholeBodyAsk | null;
   /** The push-off as a torque (`SwingGoal.launch`), written over the solve's command once it has run. */
@@ -460,13 +448,15 @@ function rollFeet(s: Stance, stance: readonly FootState[], swing: SwingGoal | nu
  * The weight shift before a step ends, and the foot lifts, once the body's capture point (Pratt et
  * al. 2006, "Capture point: a step toward humanoid push recovery", Humanoids) is over the bearing
  * sole: from there the body falls toward that foot, not away from it. A walk's double support ends
- * on its time.
+ * on its time once the bearing sole is on the ground: a step that ended in the air, late, has the
+ * foot it lands on pressed down first, and a foot that lifted with none under the body would drop
+ * the body's weight onto that sole at once.
  */
 function shiftWeight(s: Stance, swing: SwingGoal | null, bearer: FootState | undefined, height: number, dt: number): void {
   const { reading, step } = s.state;
   if (reading.phase === "shift" && swing!.transfer) {
     step.held += dt;
-    if (step.held >= swing!.transfer) reading.phase = "swing";
+    if (step.held >= swing!.transfer && bearer !== undefined && reading.touching[bearer.side]) reading.phase = "swing";
   } else if (reading.phase === "shift") {
     const c = reading.centre, vel = reading.velocity, g = gravityOf(s);
     // The height's floor, 1 mm, is a numeric setting.
@@ -924,7 +914,6 @@ function askNothing(s: Stance): void {
 
 export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assist: Assist | null = null): StanceControl {
   const s = makeStance(built, tuning, assist);
-  let poseBearing: Bearing | null = null;
   return {
     reset() {
       const { state } = s, { reading, step } = state;
@@ -952,15 +941,6 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
     get owned() { return s.state.owned; },
     reading: s.state.reading,
     state: s.state,
-    carry(muscles, work) {
-      const { aim } = s.state;
-      if (!aim.on) return null;
-      s.feet.forEach((foot, f) => { if (s.limbs[f]!.task.on) aimLimb(s, foot, s.limbs[f]!, muscles); });
-      const bearing = s.state.pose ? poseBearing! : s.bearing;
-      const root = carryRoot(bearing, muscles, work, aim, leverOf(s, muscles.dynamics.root.centre[1]));
-      if (s.state.pose) limbMotion(bearing, work, s.state.owned);
-      return root;
-    },
     ask(muscles) {
       const { aim } = s.state;
       if (!aim.on) return null;
@@ -970,26 +950,6 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
     },
     launch(muscles) {
       if (s.state.aim.on && !s.state.pose) pushOff(s, muscles);
-    },
-    bear(muscles, work) {
-      if (!s.state.aim.on) return;
-      const bearing = s.state.pose ? poseBearing! : s.bearing;
-      bearLimbs(bearing, muscles, work, leverOf(s, muscles.dynamics.root.centre[1]), s.tuning.boundedSwing);
-      // The bearing limbs' shares are in the limbs' order, which is the feet's.
-      let k = 0;
-      s.feet.forEach((foot, f) => {
-        const asked = s.state.reading.asked[foot.side];
-        if (bearsNow(s.limbs[f]!)) {
-          const share = bearing.scratch.shares[k++]!;
-          asked.at.copyFrom(patchPlace(s.limbs[f]!.work.patch!));
-          asked.force.copyFrom(share.force);
-          asked.moment.copyFrom(share.moment);
-        } else {
-          asked.force.setAll(0);
-          asked.moment.setAll(0);
-        }
-      });
-      if (!s.state.pose) pushOff(s, muscles);
     },
     read(which) {
       const { feet, segments, total, pelvis } = s, { reading } = s.state, { p, v, turn, target, whole } = s.scratch;
@@ -1020,8 +980,6 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
           if (!goal.feet.includes(side as Side) || !anchor || anchor.position.length !== 3 || anchor.rotation.length !== 4 || !anchor.position.every(Number.isFinite)
             || !anchor.rotation.every(Number.isFinite) || Math.abs(anchor.rotation.reduce((sum, v) => sum + v * v, 0) - 1) > 1e-8)
             throw new Error("a supported sole anchor requires a bearing foot, finite position and unit rotation");
-        // Channel binding precedes allocation: effort rows are sized from the bound limb channels.
-        poseBearing ??= makeBearing(assist, s.limbs, { root: state.aim.root, helped: state.helped, held: state.held, shortfall: reading.shortfall }, { effort: true });
         holdPose(s, goal, goal.pose);
         return;
       }

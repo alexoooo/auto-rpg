@@ -61,8 +61,6 @@ interface ActorOptions {
   readonly stance?: StanceTuning;
   /** A body being measured (`BodyOptions.measuring`): no envelope caps its walk or turn. */
   readonly measuring?: boolean;
-  /** Whether its motor control is the whole-body solve (`MindWiring.solve`); the bearing solve's unless given. */
-  readonly solve?: boolean;
   /**
    * What its mind may strike with, by what a hand holds (`heldIn`); anything unless given. A hand
    * that holds what is barred guards, whatever its mind asks of it.
@@ -111,12 +109,12 @@ function tuned(config: FighterConfig, skills: RecipeOptions | undefined): Fighte
 }
 
 /** `built`, a human in its reference pose on the ground of `world`, as a mode's actor; a mind with a fault in its tree (`treeFaults`, given a script) is refused. */
-export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.script.config, assist, stance, measuring, solve, allows = () => true, around = (tactics) => tactics, recoveryRecipe, subs }: ActorOptions = {}): Actor {
+export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.script.config, assist, stance, measuring, allows = () => true, around = (tactics) => tactics, recoveryRecipe, subs }: ActorOptions = {}): Actor {
   const fault = treeFaults(mind, ["script"])[0];
   if (fault) throw new Error(fault);
   let input: Driving = {};
   const clock = clockSenses(world);
-  const wiring: MindWiring = { name: "lab", orders: (senses) => input.orders?.(senses) ?? null, assist, solve,
+  const wiring: MindWiring = { name: "lab", orders: (senses) => input.orders?.(senses) ?? null, assist,
     senses: () => (input.senses ?? clock)(), contactIdentity: (other) => input.contactIdentity?.(other) ?? null };
   const body = createBody(built, world, { ...fighterBody(mind, wiring), stance, measuring,
     ...(recoveryRecipe ? { subs: [(own, view, into) => supportRecovery(own, view, into, recoveryRecipe)] } : {}), ...(subs ? { subs } : {}) });

@@ -11,7 +11,7 @@ import { observeBody } from "../src/core/observation.ts";
 import { clockSenses } from "../src/core/mind/senses.ts";
 import { LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { labActor } from "../src/lab/actor.ts";
-import { startStance } from "../src/lab/stance-mode.ts";
+import { SEARCH_FALL, startStance } from "../src/lab/stance-mode.ts";
 import { coreStand, saveStand, loadStand } from "../tests/harness/core-stand.mjs";
 
 const digest = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -64,7 +64,7 @@ export async function standUpReplay({ model = "workshop-fighter", held = "empty"
   const metadata = { harness: "Node Stance Lab host", engine: stand.world.physics.engine,
     revision: stand.world.physics.revision, artifact, artifactSha256, controllerSha256, specSha256: digest(JSON.stringify(spec)), hz: 1 / stand.world.dt,
     actuation: stand.world.actuation, balance: 0, model, held, mind: config,
-    shoves: [{ impulse: 60, degrees: 0, step: 240 }, { impulse: 60, degrees: 0, step: 264 }] };
+    shoves: [{ impulse: SEARCH_FALL.impulse, degrees: SEARCH_FALL.degrees, step: 240 }, { impulse: SEARCH_FALL.impulse, degrees: SEARCH_FALL.degrees, step: 264 }] };
   const root = stand.built.segments.get("lowerTrunk"), inverse = Quaternion.Inverse(root.rest);
   let firstDown = null;
   const sample = () => {
@@ -102,7 +102,7 @@ export async function standUpReplay({ model = "workshop-fighter", held = "empty"
   return { stand, actor, stance, observe, metadata, step, sample, save, restore,
     fall() {
       step(240); assert.equal(body.down, false, "the fresh Lab host starts standing");
-      stance.shove(60, 0); step(24); stance.shove(60, 0);
+      stance.shove(SEARCH_FALL.impulse, SEARCH_FALL.degrees); step(24); stance.shove(SEARCH_FALL.impulse, SEARCH_FALL.degrees);
     },
     dispose() { stance.dispose(); stand.dispose(); } };
 }

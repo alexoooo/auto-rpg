@@ -9,12 +9,13 @@ import { STRIDE, stride, validStride } from "../skills/stride.ts";
 import { RUN, run, validRun } from "../skills/run.ts";
 import { SIMBICON, simbicon, simbiconWays, validSimbicon, validWays, type SimbiconSettings } from "../skills/simbicon.ts";
 import { runCycleSettings, validRunCycle } from "../skills/cycle-run.ts";
+import { WALK_RUN, WALK_RUN_CYCLE, validWalkRun, walkRun, type WalkRunSettings } from "../skills/walk-run.ts";
 import { GAIT_NAMES, GAITS, type GaitName } from "../skills/gaits.ts";
 import { distanceRule, move, standingRule, type MoveGait, type MoveRule } from "../skills/move.ts";
 import { supportFold } from "../skills/support-fold.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { MOVE, type ActionConfig, type FighterConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type SimbiconConfig, type MoveConfig, type MoveRuleConfig, type LocomotionConfig } from "./config.ts";
+import { MOVE, type ActionConfig, type FighterConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type SimbiconConfig, type WalkRunConfig, type MoveConfig, type MoveRuleConfig, type LocomotionConfig } from "./config.ts";
 import { actionConfigFaults, configuredActionEstimates, configuredExecutors } from "./action-config.ts";
 import { choice, type PartField } from "./fields.ts";
 import { CONDITIONS } from "./conditions.ts";
@@ -30,6 +31,9 @@ const skill = <C extends SkillConfig>(role: Part["role"], label: string, stage: 
 
 /** A SIMBICON walk's config's settings, its kind taken off. */
 const settingsOf = ({ kind: _, tuning: __, runs: ___, ...settings }: SimbiconConfig): SimbiconSettings => settings;
+
+/** A walk and run's config's settings, its kind taken off. */
+const walkRunOf = ({ kind: _, tuning: __, runs: ___, ...settings }: WalkRunConfig): WalkRunSettings => settings;
 
 /** Whether `name` is a gait's (`GAITS`): a config read from a save or a link may name any. */
 const isGait = (name: string): name is GaitName => Object.hasOwn(GAITS, name);
@@ -71,7 +75,7 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
     tuning: ["turnLimit", "turnStartup"],
   },
   "stride": {
-    ...skill<StrideConfig>("locomotion", "Walk and run", "experimental", { kind: "stride", ...STRIDE },
+    ...skill<StrideConfig>("locomotion", "Stride", "experimental", { kind: "stride", ...STRIDE },
       (config) => validStride(config) ? [] : ["a stride needs every setting finite and positive, its double support not negative"]),
   },
   "run": {
@@ -86,6 +90,14 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
         ...validRunCycle(runCycleSettings(config.tuning?.run)) ? [] : ["a SIMBICON gait's run gives only the run's settings, each finite, its times and the cycle's positive and its shares of strength within (0, 1]"],
       ]),
     tuning: ["side", "back", "run"],
+  },
+  "walk-run": {
+    ...skill<WalkRunConfig>("locomotion", "Walk and run", "game", { kind: "walk-run", ...WALK_RUN },
+      (config) => [
+        ...validWalkRun(walkRunOf(config)) ? [] : ["a walk and run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1"],
+        ...validRunCycle(runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE)) ? [] : ["a walk and run's run gives only the run's settings, each finite, its times and the cycle's positive and its shares of strength within (0, 1]"],
+      ]),
+    tuning: ["run"],
   },
   "move": {
     ...skill<MoveConfig>("locomotion", "Move", "game", MOVE, (config) => isGait(config.otherwise) ? [] : [`move: no gait called ${JSON.stringify(config.otherwise)}`]),
@@ -133,6 +145,15 @@ function moveRule(config: MoveRuleConfig, gait: number): MoveRule {
   }
 }
 
+/** Whether legs of `config` may run (`Locomotion.runs`), undefined for legs that are not told. */
+function runsOf(config: LocomotionConfig): boolean | undefined {
+  switch (config.kind) {
+    case "simbicon": case "walk-run": return config.runs ?? true;
+    case "stance-walk": case "stride": case "run": case "move": return undefined;
+    default: { const never: never = config; throw new Error(`no locomotion of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
+  }
+}
+
 /** The legs' skill of `config` for `body`. */
 function legsOf(body: Body, config: LocomotionConfig): Locomotion {
   switch (config.kind) {
@@ -140,12 +161,13 @@ function legsOf(body: Body, config: LocomotionConfig): Locomotion {
     case "stride": { const { kind: _, ...settings } = config; return stride(body, settings); }
     case "run": { const { kind: _, ...settings } = config; return run(body, settings); }
     case "simbicon": return simbicon(body, settingsOf(config), simbiconWays(config.tuning), runCycleSettings(config.tuning?.run), config.runs ?? true);
+    case "walk-run": return walkRun(body, walkRunOf(config), runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE), config.runs ?? true);
     case "move": {
       const names = gaitsOf(config), built = new Map<string, Locomotion>();
       // Gaits whose legs differ only in whether they may run share one walk (`MoveGait`).
       const gaits = names.map((name): MoveGait => {
-        const legs: LocomotionConfig = GAITS[name].legs, runs = legs.kind === "simbicon" ? legs.runs ?? true : undefined;
-        const key = JSON.stringify(legs.kind === "simbicon" ? { ...legs, runs: undefined } : legs);
+        const legs: LocomotionConfig = GAITS[name].legs, runs = runsOf(legs);
+        const key = JSON.stringify(runs === undefined ? legs : { ...legs, runs: undefined });
         if (!built.has(key)) built.set(key, legsOf(body, legs));
         return { legs: built.get(key)!, ...(runs === undefined ? {} : { runs }) };
       });
@@ -157,7 +179,7 @@ function legsOf(body: Body, config: LocomotionConfig): Locomotion {
 
 /** All action instances share the fighter's physical feedback and body-local ledger. */
 export function fighterBody(config: FighterConfig, wiring: MindWiring): BodyOptions {
-  return { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist, solve: wiring.solve,
+  return { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist,
     feedback: true, contactIdentity: wiring.contactIdentity, subs: subMindsOf(config.subs) };
 }
 

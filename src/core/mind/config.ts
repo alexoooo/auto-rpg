@@ -9,6 +9,7 @@ import type { Combination } from "../skills/combination.ts";
 import type { StrideSettings } from "../skills/stride.ts";
 import type { RunSettings } from "../skills/run.ts";
 import type { SimbiconSettings, SimbiconWay } from "../skills/simbicon.ts";
+import type { WalkRunSettings } from "../skills/walk-run.ts";
 import type { RunCycleSettings } from "../skills/cycle-run.ts";
 import type { GaitName } from "../skills/gaits.ts";
 import type { Placed } from "../skills/strike.ts";
@@ -95,6 +96,16 @@ export interface RunConfig extends RunSettings {
 }
 
 /**
+ * **The walk and the run** (`walkRun`, `skills/walk-run.ts`): the stance's walk, and the run that tracks a person's cycle past
+ * `run`, its settings these and the run's over its own. It runs unless `runs` is false (`Locomotion.runs`).
+ */
+export interface WalkRunConfig extends WalkRunSettings {
+  readonly kind: "walk-run";
+  readonly runs?: boolean;
+  readonly tuning?: { readonly run?: Partial<RunCycleSettings> };
+}
+
+/**
  * **The SIMBICON walk** (`simbicon`, `skills/simbicon.ts`): the legs driven by a state machine with no stance, its settings
  * these, forward's; and the settings it takes walking to a side or back in place of forward's, over its own (`SimbiconWays`),
  * and running, over the run's. It runs unless `runs` is false (`Locomotion.runs`).
@@ -135,7 +146,7 @@ export interface MoveConfig {
 }
 
 /** **The legs' skill**, by kind. */
-export type LocomotionConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | MoveConfig;
+export type LocomotionConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | WalkRunConfig | MoveConfig;
 
 /** **The guard**: the arms' posture, and a guarding hand's cover of what the tactics name (`guardSkill`). */
 interface CoverGuardConfig {
@@ -218,7 +229,7 @@ export interface ActionConfig {
 interface SupportFoldConfig { readonly kind: "support-fold" }
 
 /** **A skill's config**, by kind, across the fighter's skill slots. */
-export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | MoveConfig | CoverGuardConfig | SupportFoldConfig;
+export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | WalkRunConfig | MoveConfig | CoverGuardConfig | SupportFoldConfig;
 
 /** A fighter shares named executors across its configured actions. */
 export interface FighterConfig {
@@ -276,8 +287,8 @@ export const FIGHTING: BehavioursConfig = deepFreeze({ kind: "behaviours",
 
 /**
  * The legs a body gets about by (`move`): braced while it stands or a standing foe is within 5 m;
- * otherwise by the SIMBICON walk free to run, which runs where its tactics or orders ask a pace past
- * its walk's. An Arena bout opens at 4 m, so it fights from its first step.
+ * otherwise by the walk and run free to run, which runs where its tactics or orders ask a pace past
+ * its run's. An Arena bout opens at 4 m, so it fights from its first step.
  */
 export const MOVE: MoveConfig = deepFreeze({ kind: "move",
   rules: [{ kind: "when-standing", gait: "braced" }, { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" }],

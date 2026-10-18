@@ -2,9 +2,9 @@
  * **Move** (`move`, `src/core/skills/move.ts`), in an Arena bout on the Node stand at 120 Hz: the
  * Warrior, 8 m from the Rogue, both with the club, gets about by the stride with its arms swinging until the Rogue is
  * within the foe's rule's distance, then walks braced, in the stance's guard, changing between
- * steps; a Warrior on the stand walking by the SIMBICON walk changes to the braced walk only once
- * that walk has given the legs back to the stance, and back to it from the stance's stand; in a bout
- * it walks by it until the Rogue is near, and fights braced once the legs are given back; a rule
+ * steps; a Warrior on the stand walked and stood by Move changes between braced and the run at once,
+ * walking on the stance's legs throughout; in a bout it runs until the Rogue is near, and fights
+ * braced once the run has given the legs back; a rule
  * of the destination's distance chooses by what the tactics say is left to go; two gaits of one
  * walk change at once, mid-step, the walk told whether it may run; and its faults
  * refuse a distance it cannot read and a gait none is called.
@@ -27,11 +27,11 @@ const MOVING = SKILL_PARTS.move.defaults, NEAR = MOVING.rules.find((rule) => rul
 const TRAVELLING = { ...RECIPE_FIGHTER, locomotion: { ...MOVING, rules: MOVING.rules.filter((rule) => rule.gait === "braced"), otherwise: "stride" } };
 const WALKING = { ...RECIPE_FIGHTER, locomotion: MOVING };
 
-/** The SIMBICON walk's memory in a mind's state. */
-function gaitOf(state, depth = 0) {
+/** The walk and run's memory in a mind's state (`walkRun`). */
+function walkRunOf(state, depth = 0) {
   if (!state || typeof state !== "object" || depth > 6) return null;
-  if (state.gait && "walking" in state.gait) return state.gait;
-  for (const value of Object.values(state)) { const found = gaitOf(value, depth + 1); if (found) return found; }
+  if (state.walkRun && "running" in state.walkRun) return state.walkRun;
+  for (const value of Object.values(state)) { const found = walkRunOf(value, depth + 1); if (found) return found; }
   return null;
 }
 
@@ -71,55 +71,50 @@ test("a_warrior_travels_by_the_stride_until_its_foe_is_near_then_walks_in_the_gu
   } finally { dispose(); }
 });
 
-test("travelling_by_a_walk_that_drives_the_legs_it_changes_walk_only_once_the_legs_are_the_stances_both_ways", async () => {
+test("walked_and_stood_by_move_a_warrior_changes_between_braced_and_the_run_at_once_on_the_stances_legs_throughout", async () => {
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
   const mind = { ...LAB_PRESETS.script.config, locomotion: MOVING };
   const actor = labActor(stand.built, stand.world, { mind });
-  // With no foe, a walk asked is the SIMBICON walk and a stand braced: walk, stand, walk again.
+  // With no foe, a walk asked is the run's gait and a stand braced: walk, stand, walk again, under the run's pace.
   actor.drive({ name: "walk-stand-walk", decide: ({ view }) => ({ move: view.time < 5 || view.time >= 10 ? [0.8, 0] : null, face: 0, guard: NO_COVER, actions: [] }) });
-  const choice = choiceOf(actor.skills.state), gait = actor.skills.state.legs.gaits[1].gait;
+  const choice = choiceOf(actor.skills.state), legs = walkRunOf(actor.skills.state);
   try {
-    assert.ok(choice, "Move's choice is in the skills' state");
-    const changes = [];
-    let last = null, driven = { first: 0, second: 0 };
+    assert.ok(choice && legs, "Move's choice and the walk and run's memory are in the skills' state");
+    const changes = [], driven = [];
+    let last = null;
     for (let k = 0; k < 15 * 120 && !actor.body.view.down; k++) {
       stand.step(1);
-      const t = actor.body.view.time, s = actor.body.view.stance;
-      if (choice.fighting !== last) { changes.push({ fighting: choice.fighting, time: t, walking: gait.walking, phase: s.phase }); last = choice.fighting; }
-      if (gait.walking && actor.skills.state.command.stance === null) driven[t < 10 ? "first" : "second"]++;
+      const t = actor.body.view.time;
+      if (choice.fighting !== last) { changes.push({ fighting: choice.fighting, time: t }); last = choice.fighting; }
+      if (t > 0 && (legs.running || actor.skills.state.command.stance === null)) driven.push(+t.toFixed(3));
     }
     assert.equal(actor.body.view.down, false, `fell at ${actor.body.view.time.toFixed(2)} s`);
     assert.deepEqual(changes.map((c) => c.fighting), [false, true, false], JSON.stringify(changes));
-    // To the stance's walk once the SIMBICON walk has given the legs back; to the SIMBICON walk from the stance's stand, which it begins from.
-    assert.equal(changes[1].walking, false, `changed at ${changes[1].time.toFixed(2)} s with the legs driven`);
-    for (const c of changes.slice(1)) assert.ok(c.phase === "stand" || c.phase === "shift", `changed at ${c.time.toFixed(2)} s in ${c.phase}`);
-    assert.ok(changes[1].time > 5 && changes[2].time >= 10, JSON.stringify(changes));
-    assert.ok(driven.first > 2 * 120 && driven.second > 2 * 120, `driven ${(driven.first / 120).toFixed(1)} s, then ${(driven.second / 120).toFixed(1)} s`);
+    // At once: the stand asked at 5 s and the walk at 10 s each change the gait within the step it is asked.
+    assert.ok(Math.abs(changes[1].time - 5) < 0.02 && Math.abs(changes[2].time - 10) < 0.02, JSON.stringify(changes));
+    assert.deepEqual(driven.slice(0, 5), [], "the stance carries the body throughout");
   } finally { actor.dispose(); stand.dispose(); }
 });
 
-test("a_warrior_travels_by_the_simbicon_walk_until_its_foe_is_near_then_fights_by_the_stances_walk_once_the_legs_are_given_back", {
-  todo: "the walk asked 1.4 m/s hands over to the run 0.25 s before the foe comes near, and stopping from the run at the walk's slowdown takes 3.3 s from there to the stance's walk (braking is slow)",
-}, async () => {
+test("a_warrior_runs_until_its_foe_is_near_then_fights_by_the_stances_walk_once_the_run_has_given_the_legs_back", async () => {
   const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 8, minds: { left: WALKING, right: RECIPE_FIGHTER } });
   try {
-    const me = duel.duelists.left, foe = duel.duelists.right, choice = choiceOf(me.minded.state);
-    const gait = gaitOf(me.minded.state);
-    assert.ok(choice && gait, "Move's choice and the SIMBICON walk's memory are in the mind's state");
+    const me = duel.duelists.left, foe = duel.duelists.right, choice = choiceOf(me.minded.state), legs = walkRunOf(me.minded.state);
+    assert.ok(choice && legs, "Move's choice and the walk and run's memory are in the mind's state");
     const changes = [];
-    let last = null, driven = 0, near = null;
+    let last = null, ran = 0, near = null, back = null;
     while (duel.clock < 9 && !duel.verdict) {
       world.step();
       const a = me.body.view.stance.centre, b = foe.body.view.stance.centre, gap = Math.hypot(a.x - b.x, a.z - b.z);
       if (near === null && gap <= NEAR) near = duel.clock;
-      if (gait.walking) driven++;
-      if (choice.fighting !== last) { changes.push({ fighting: choice.fighting, gap, walking: gait.walking, time: duel.clock }); last = choice.fighting; }
+      if (legs.running) ran++;
+      else if (near !== null && back === null) back = duel.clock;
+      if (choice.fighting !== last) { changes.push({ fighting: choice.fighting, gap, time: duel.clock }); last = choice.fighting; }
     }
     assert.deepEqual(changes.map((c) => c.fighting), [false, true], JSON.stringify(changes));
-    const changed = changes[1];
-    assert.equal(changed.walking, false, "changed with the legs driven");
-    assert.ok(near !== null && changed.time >= near && changed.time - near < 3, `within ${NEAR} m at ${near?.toFixed(2)} s, changed at ${changed.time.toFixed(2)} s`);
-    assert.ok(driven > 3 * 120, `driven ${(driven / 120).toFixed(1)} s`);
+    assert.ok(near !== null && Math.abs(changes[1].time - near) < 0.02, `within ${NEAR} m at ${near?.toFixed(2)} s, braced at ${changes[1].time.toFixed(2)} s`);
+    assert.ok(ran > 0.5 * 120, `ran ${(ran / 120).toFixed(1)} s`);
+    assert.ok(back !== null && back - near < 3, `the legs given back at ${back?.toFixed(2)} s, ${near?.toFixed(2)} s near`);
     assert.equal(me.body.view.down, false);
   } finally { dispose(); }
 });

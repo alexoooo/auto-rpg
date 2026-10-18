@@ -3,13 +3,11 @@
  * (`tests/harness/garbage.mjs`) runs it in a process of its own. Node, the core world, Rapier,
  * 120 Hz.
  *
- *   node tests/harness/step-allocation.mjs standing|standing-array|standing-solve|down|bout|bout-solve
+ *   node tests/harness/step-allocation.mjs standing|standing-array|down|bout
  *
  * - `standing`: two skeletons standing (`standBodies`), 240 steps read from 3 s.
  * - `standing-array`: the same, with one `new Array(4096)` made first in every step.
- * - `standing-solve`: the same, on the whole-body solve (`BodyOptions.solve`).
  * - `bout`: the Warrior against the Rogue with clubs, 480 steps read from 2 s.
- * - `bout-solve`: the same, both on the whole-body solve (`DuelRecipe.solve`).
  * - `down`: the Warrior lying on its back, 240 steps read from 3 s, with the ground reader active.
  */
 import { Logger } from "@babylonjs/core/Misc/logger.js";
@@ -20,8 +18,8 @@ import { allocatedIn, downBody, standBodies } from "./garbage.mjs";
 Logger.LogLevels = Logger.NoneLogLevel;
 
 /** KiB a body's step allocates, two skeletons standing, with `hook`, where given, run first in every step. */
-async function standing(hook, solve = false) {
-  const steps = 240, { world, bodies, dispose } = await standBodies(2, undefined, { solve });
+async function standing(hook) {
+  const steps = 240, { world, bodies, dispose } = await standBodies(2);
   try {
     world.step(3 * world.hz);
     if (hook) world.beforeStep(hook);
@@ -30,8 +28,8 @@ async function standing(hook, solve = false) {
   } finally { dispose(); }
 }
 
-async function bout(solve = false) {
-  const steps = 480, { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-rogue", ...(solve ? { solve: { left: true, right: true } } : {}) });
+async function bout() {
+  const steps = 480, { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-rogue" });
   try {
     world.step(2 * world.hz);
     const { bytes } = await allocatedIn(() => world.step(steps));
@@ -55,7 +53,7 @@ async function down() {
 let kept = null;
 const fixture = process.argv[2];
 const kib = fixture === "standing" ? await standing() : fixture === "standing-array" ? await standing(() => { kept = new Array(4096); })
-  : fixture === "standing-solve" ? await standing(undefined, true) : fixture === "bout" ? await bout() : fixture === "bout-solve" ? await bout(true) : fixture === "down" ? await down() : null;
+  : fixture === "bout" ? await bout() : fixture === "down" ? await down() : null;
 if (kib === null) throw new Error(`no fixture ${fixture}`);
 if (fixture === "standing-array" && !kept) throw new Error("the hook never ran");
 process.stdout.write(String(kib));

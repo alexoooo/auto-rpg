@@ -9,12 +9,13 @@ import { routeFor } from "../src/app-route.ts";
 import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CHARACTERS } from "../src/character-lab/catalog.ts";
 import { HELD } from "../src/core/items/held.ts";
+import { SEARCH_FALL } from "../src/lab/stance-mode.ts";
 import { labAddress, labHref, recoveryAddress, LAB_PRESETS, LAB_RATES, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
 
 const SCRIPT = LAB_PRESETS.script.config, GUARD = LAB_PRESETS.guard.config;
 /** A mind no preset is: the Guard preset getting up once down. */
 const RISING = { ...GUARD, subs: [{ kind: "support-recovery" }] };
-const DEFAULTS = { ground: {drive:"mind",waypoint:"none",start:"shoved",posture:"back",degrees:null,impulse:null,foe:0,gusts:false}, recoveryMode: "selected", recoveryPush: {degrees:0,impulse:60,separation:.2}, appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, sole: false, balance: null, haste: null, mind: SCRIPT, barred: [], hz: 120, solve: false,
+const DEFAULTS = { ground: {drive:"mind",waypoint:"none",start:"shoved",posture:"back",degrees:null,impulse:null,foe:0,gusts:false}, recoveryMode: "selected", recoveryPush: SEARCH_FALL, appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, sole: false, balance: null, haste: null, mind: SCRIPT, barred: [], hz: 120,
   view: "world", camera: "free", projection: "orthographic", targets: 10, seed: 1 };
 /** The Rogue as the workshop dresses it: boots, no armour. */
 const ROGUE = { model: "workshop-rogue", boots: true, armour: false };

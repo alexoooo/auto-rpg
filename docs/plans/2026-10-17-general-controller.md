@@ -264,10 +264,36 @@ Warrior's pace over the ask is 0.92, 0.74, 0.62, 0.48 and 0.41 (0.92, 0.69, 0.56
 most of those cells now walk at the legs' cap (`fastestPace`; 20 and 16 of 25), so the cap's own
 numbers (`seconds`, `effort`, `longest`, `crouch`) are what hold the envelope sideways: SIMBICON
 sidesteps asked 1.2 m/s in 0.30 s steps 0.71 m apart and walks 0.85, the stance's walk in 0.38 s
-steps capped at 0.62 apart. The experimental stride, which plans on the same reaction, takes the
-skeleton forward-right no faster than 0.8 m/s with the club where its asset has 1
-(`tests/core-stance-envelope.test.mjs`). The Move bout's `todo` is not yet run against the generator. SIMBICON's walk and its ways stay the game's
-walk until the gate is met; the run (stage 3) builds on this generator.
+steps capped at 0.62 apart. Since: a phase that begins with less than the horizon left is aimed
+once for the time it has (`PIVOT_FLOOR`), where the floor at the horizon aimed a 0.08 s double
+support for 0.1 s and handed every swing a capture point short of its plan; a swing's time left is
+its whole time until the foot lifts. A step lands within the whole of the leg's reach, the
+`reserve` being the steady walk's (`stepsWithin`), not counted twice. A walk's step lands on its
+own side of the bearing foot (`ownSide`): the Rogue turning crossed its feet, and its thighs, which
+share no joint and meet at full stiffness, threw it. A thigh leaves the stride's room to the other
+(`STRIDE_ROOM`, 30 mm; `docs/reference/run-body.md#the-thighs-room`): the skeleton's thighs met in
+241 of 960 steps walking 1.2 m/s, now 1. A sideways catch steps the nearer foot out only when the
+capture point is past that sole's middle (a club's kick stood on one foot catching a fall that was
+not coming). Forward asked 1.0 and 1.4 m/s (`walk` in `core-stance-trials.mjs`, solve on, in the
+guard under the character's balance; Node stand, Rapier, 120 Hz), empty and with the club, the
+Warrior walks 0.99 and 1.22, 1.06 and 1.14 (0.78 and 1.12, 0.91 and 1.10 before); the Rogue 0.97
+and 0.96, 0.97 and 0.92 (0.61 and 1.01, 0.78 and 0.84; it fell asked 1.5 and 1.7, and no longer);
+the skeleton 0.99 and 1.18, 1.06 and 1.16 (1.01 and 1.07, 0.87 and 1.01). The walk tops out near
+1.2 m/s whatever is asked; the pace past it is the run's (stage 3). The whole-body solve is the only motor solve: its torque rows rank over the
+root's (`WEIGHT.torque`), where ranked under the feet the plan asked more of a pinned hip than it
+has and the pelvis rolled; with the ground short, the root's turn is aimed at the rigid body's
+response to the wrench the ground missed (`rigidTurn`), as the bearing solve did. The game's walk
+and run is the stance's walk handing over to the cycle run (`walk-run.ts`, Move's Braced and
+Run), with its own run settings (`WALK_RUN_CYCLE`, searched on that handover; `RUN_CYCLE` stays
+SIMBICON's); SIMBICON's walk and run are offered beside it, for the owner to compare, and stage 2
+deletes them once the owner judges the new one better. The Move bout's `todo` passes. The stop
+battery falls 2 of 96, both 1.2 m/s back with the club (the Warrior calm, the Rogue in gust seed 5;
+the bearing solve at the start of the stage fell 13): the swing stepping back bends its knee to
+0.9 rad under a thigh near the vertical, the ankle rides its dorsiflexion stop, and the toe, hung
+7 to 9 cm under the sole's middle, meets the ground 0.1 s early and 8 cm short of the step; the
+walk paces short and runs away sideways. The gait battery (300 trials, Balance 0) falls 51
+(Warrior 9, Rogue 36, skeleton 6), against 125 with SIMBICON's run settings on the handover; at
+4 to 5 m/s asked the Warrior runs 3.36 m/s, the Rogue 2.82.
 
 **Locomotion.** On the gait battery (asked 1.4 to 5 m/s, three stops, two turns, gust seeds 5
 to 8, empty and club: 300 trials; `research/run-cycle-search.mjs --score`), and the stop battery
@@ -375,6 +401,12 @@ The owner's answers, 2026-10-17:
 - Haste is a signed per cent over a person's, 0 for every character (`c8a9e93f`).
 - A spec number's source is bookkeeping, not a bar; nothing outside a spec needs one.
 - A stand-up assist is wanted; Grit comes back where a controller can use it.
+
+And 2026-10-18:
+
+- Sideways and back stay a stepping walk at its own pace; forward is fast, up to 5 m/s, by the run.
+- SIMBICON stays selectable beside the walk and run until the owner has seen both and judged the
+  new one a strict improvement; stage 2 deletes it only then.
 
 ## For the owner
 

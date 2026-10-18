@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { feedbackRecipe, feedbackTrial, FEEDBACK_PARAMETERS } from '../research/stand-up-feedback.mjs';
 import witness from '../research/stand-up-feedback-seed.json' with { type: 'json' };
 import { recoveryEnvironment } from '../research/stand-up-environment.mjs';
+import { SEARCH_FALL } from '../src/lab/stance-mode.ts';
 import { modelSpec } from '../src/core/models.ts';
 import { RISE, stageFaults } from '../src/core/mind/rise/stages.ts';
 
@@ -57,7 +58,7 @@ test('the visible Lab setup applies the search shoves on the same steps and ente
     await reference.fall();
     while (reference.stand.world.steps < 480) reference.step();
     stand.step(480);
-    assert.deepEqual(shoves, [[240, 60], [264, 60]]);
+    assert.deepEqual(shoves, [[240, SEARCH_FALL.impulse], [264, SEARCH_FALL.impulse]]);
     assert.match(String(actor.body.has), /recovery/);
     const poses = built => [...built.segments].map(([name, s]) => [name, s.node.position.asArray(), s.node.rotationQuaternion.asArray()]);
     assert.deepEqual(poses(stand.built), poses(reference.stand.built));

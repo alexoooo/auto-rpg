@@ -12,6 +12,7 @@ import { paceToward, quickened, simbiconEnvelope, simbiconRunEnvelope, type Stan
 import { hasteOver } from "../human/attributes.ts";
 import { locomotion, type LegsDrive, type Locomotion } from "./locomotion.ts";
 import { gaitAssist, type GaitAssistMemory } from "./gait-assist.ts";
+import { legOf, quickness } from "./gait-scale.ts";
 import { RUN_ARMS, RUN_CYCLE, runCycle, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
 
 /**
@@ -254,19 +255,6 @@ export function scaledGait<T extends Partial<Record<keyof typeof DIMENSION, numb
   if (k === 1 && quick === 1) return settings;
   const root = Math.sqrt(k);
   return Object.fromEntries(Object.entries(settings).map(([key, value]) => [key, value * factor(DIMENSION[key as keyof typeof DIMENSION], k, root, quick)])) as T;
-}
-
-/** How many times as quick the gait of a body hasted `haste` times a person (`hasteOver`) is, timed by `hasted` (`SimbiconSettings.hasted`). */
-function quickness(haste: number, hasted: number): number {
-  if (hasted === 0) return 1;
-  if (hasted === 0.5) return Math.sqrt(haste);
-  if (hasted === 1) return haste;
-  throw new Error(`a gait is timed to its haste to the power 0, 1/2 or 1, not ${hasted}`);
-}
-
-/** `spec`'s leg, m: its left hip's centre to its left ankle's in the reference pose. */
-export function legOf(spec: BodySpec): number {
-  return jointGap(spec, "hip.left", "ankle.left");
 }
 
 /** The distance between two of `spec`'s joints' centres, m. */

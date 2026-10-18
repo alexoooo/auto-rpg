@@ -14,6 +14,7 @@ import { deepFreeze } from "../core/state.ts";
 import { mindFaults, mindText, readMind } from "../ui/mind-link.ts";
 import { groundMind } from "./ground-config.ts";
 import { TECHNIQUES, type TechniqueName } from "../core/mind/ground/techniques.ts";
+import { SEARCH_FALL } from "./stance-mode.ts";
 
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
@@ -128,14 +129,12 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   /** What its mind may not strike with: each thing held whose strike is barred. */
   readonly barred: readonly Held[];
   readonly hz: LabRate;
-  /** Whether the body's motor control is the whole-body solve (`MindWiring.solve`) in place of the bearing solve's. */
-  readonly solve: boolean;
   /** Targets maintained in the Attack field, 0 to `LAB_TARGETS.most`. */
   readonly targets: number;
   readonly seed: number;
 }
 
-const KEYS = ["groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "solve", "view", "camera", "projection", "targets", "seed"] as const;
+const KEYS = ["groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -168,7 +167,7 @@ export function labAddress(search: string): LabAddress {
       gusts: flag(query.get("groundGusts"), false),
     },
     recoveryMode: recoveryModeFrom(query.get("recoveryMode")),
-    recoveryPush: {degrees:bounded("pushDegrees",0,360,0),impulse:bounded("pushImpulse",10,120,60),separation:bounded("pushSeparation",.05,1,.2)},
+    recoveryPush: {degrees:bounded("pushDegrees",0,360,SEARCH_FALL.degrees),impulse:bounded("pushImpulse",10,120,SEARCH_FALL.impulse),separation:bounded("pushSeparation",.05,1,SEARCH_FALL.separation)},
     scenario: SCENARIOS.find((s) => s.id === query.get("scenario"))?.id ?? null,
     model,
     appearance: appearanceFor(model, query.get("appearance")),
@@ -183,7 +182,6 @@ export function labAddress(search: string): LabAddress {
       : query.get("scenario") === "ground" ? groundMind(LAB_PRESETS.script.config) : LAB_PRESETS.script.config),
     barred: HELD.filter((h) => barred.includes(h)),
     hz: LAB_RATES.find((r) => String(r) === query.get("hz")) ?? LAB_RATES[0],
-    solve: flag(query.get("solve"), false),
     view: VIEW_MODES.find((v) => v === query.get("view")) ?? VIEW_MODES[0],
     camera: CAMERA_MODES.find((c) => c === query.get("camera")) ?? CAMERA_MODES[0],
     projection: PROJECTIONS.find((p) => p === query.get("projection")) ?? PROJECTIONS[0],
@@ -211,9 +209,9 @@ export function labHref(address: LabAddress, search = ""): string {
   if (address.ground.foe !== 0) query.set("groundFoe", String(address.ground.foe));
   if (address.ground.gusts) query.set("groundGusts", "1");
   if (address.recoveryMode !== "selected") query.set("recoveryMode", address.recoveryMode);
-  if (address.recoveryPush.degrees !== 0) query.set("pushDegrees", String(address.recoveryPush.degrees));
-  if (address.recoveryPush.impulse !== 60) query.set("pushImpulse", String(address.recoveryPush.impulse));
-  if (address.recoveryPush.separation !== .2) query.set("pushSeparation", String(address.recoveryPush.separation));
+  if (address.recoveryPush.degrees !== SEARCH_FALL.degrees) query.set("pushDegrees", String(address.recoveryPush.degrees));
+  if (address.recoveryPush.impulse !== SEARCH_FALL.impulse) query.set("pushImpulse", String(address.recoveryPush.impulse));
+  if (address.recoveryPush.separation !== SEARCH_FALL.separation) query.set("pushSeparation", String(address.recoveryPush.separation));
   if (address.scenario) query.set("scenario", address.scenario);
   query.set("model", address.model);
   const appearance = appearanceFor(address.model, address.appearance);
@@ -228,7 +226,6 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("mind", mindText(address.mind, LAB_PRESETS));
   if (address.barred.length > 0) query.set("barred", address.barred.join(","));
   query.set("hz", String(address.hz));
-  if (address.solve) query.set("solve", "1");
   query.set("view", address.view);
   query.set("camera", address.camera);
   query.set("projection", address.projection);
@@ -240,9 +237,9 @@ export function labHref(address: LabAddress, search = ""): string {
 /** An explicit recovery demonstration; changing it preserves the view preferences. */
 export function recoveryAddress(address: LabAddress, recoveryMode: LabAddress["recoveryMode"] = "selected"): LabAddress {
   if (recoveryMode === "selected") return { ...address, scenario: "recovery", recoveryMode };
-  return { ...address, scenario: "recovery", recoveryMode, recoveryPush: {degrees:0,impulse:60,separation:.2},
+  return { ...address, scenario: "recovery", recoveryMode, recoveryPush: SEARCH_FALL,
     model: "workshop-fighter", right: "empty", left: "empty", sole: true,
-    balance: 0, haste: null, hz: 120, solve: false, mind: LAB_PRESETS.script.config, barred: [], appearance: "default" };
+    balance: 0, haste: null, hz: 120, mind: LAB_PRESETS.script.config, barred: [], appearance: "default" };
 }
 
 function recoveryModeFrom(value: string | null): LabAddress["recoveryMode"] {

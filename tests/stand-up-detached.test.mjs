@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { acceptanceEnvironment } from '../research/stand-up-acceptance.mjs';
+import { SEARCH_FALL } from '../src/lab/stance-mode.ts';
 import { contactModel } from '../research/stand-up-contact-model.mjs';
 import { detachedDynamics } from '../research/stand-up-detached-dynamics.mjs';
 import { coupledDynamics } from '../src/core/build/coupled-dynamics.ts';
@@ -25,7 +26,7 @@ test('detached recovery dynamics reproduces the physical body at standing and mo
     };
     for(let i=0;i<5;i++)e.step({kind:'host'});
     assert.equal(compare().down,false);
-    await e.fall({degrees:0,impulse:60,separation:.2});
+    await e.fall(SEARCH_FALL);
     const fallen=compare();assert.equal(fallen.down,true);
     assert.ok(fallen.segments.some(s=>s.spin.some(v=>Math.abs(v)>.1)));
   }finally{e.dispose();}

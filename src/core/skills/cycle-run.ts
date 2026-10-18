@@ -84,10 +84,11 @@ export interface RunCycleSettings {
  * before's best (`research/run-cycle-search.mjs`, Node stand, Rapier, 120 Hz, measuring on), last
  * `--speeds 3,4,5 --turns 0.6,-0.6 --stops 1.5,2.4,3.5 --holds empty,club --winds 1:5:5 --seconds 22
  * --narrow 0.3` over the lateral, lean, stance and swing settings, in the guard, with the walk's
- * `run` and `speedup` (`SIMBICON`).
+ * `run` and `speedup` (`SIMBICON`). Its `brake` is the walk's `slowdown` the search stopped it by:
+ * the run's pace asked came down no faster than that.
  */
 export const RUN_CYCLE: RunCycleSettings = Object.freeze({
-  blend: 0.3036, gainsFrom: 4.3006, swingGain: 0.0932, cadenceGain: 0.0777, short: 0.1612, period: 1.0481, accel: 1.1428, brake: 1.3379, ahead: 0.4603,
+  blend: 0.3036, gainsFrom: 4.3006, swingGain: 0.0932, cadenceGain: 0.0777, short: 0.1612, period: 1.0481, accel: 1.1428, brake: 0.473, ahead: 0.4603,
   lean: 0.3224, pelvis: 0.1946, leanGain: 0.0767, leanMost: 0.1415, bank: 0.526, hold: 0.9465, settle: 0.1277, stance: 0.7509, swing: 0.8715, ankle: 0.6568,
   cv: 0.3177, cd: 0.1805, late: 0.7804, paceGain: 0.0461, paceMost: 0.0228,
   contact: 0.1677, gainSide: 0.0257, width: 0.0997, cdSide: 0.4542, cvAnkleSide: -0.2591,
@@ -103,9 +104,9 @@ export const RUN_CYCLE: RunCycleSettings = Object.freeze({
  */
 export const RUN_ARMS = Object.freeze({ abduction: 0 });
 
-/** The run's settings, `tuning` over the defaults (`RUN_CYCLE`). */
-export function runCycleSettings(tuning: Partial<RunCycleSettings> = {}): RunCycleSettings {
-  return { ...RUN_CYCLE, ...tuning };
+/** The run's settings, `tuning` over `base` (by default `RUN_CYCLE`). */
+export function runCycleSettings(tuning: Partial<RunCycleSettings> = {}, base: RunCycleSettings = RUN_CYCLE): RunCycleSettings {
+  return { ...base, ...tuning };
 }
 
 /** Whether a run's settings are each finite and none missing or more, its times, its pace's rates and lead and the cycle's positive, and its shares of strength and `short` within (0, 1] and [0, 1]. */
@@ -177,7 +178,7 @@ interface RunCycleMemory {
  *
  * The phase runs on at the cycle's rate. A sole landing near its own phase's end sets it to 0, and
  * one not yet down holds it a while. While a leg's sole bears, its hip turns the pelvis upright,
- * leaning `lean`, less as the body goes faster than its pace (`leanGain`), and into a turn (`bank`), toward the heading (SIMBICON's stance hip); the swinging thigh's reference is set
+ * leaning `lean`, less as the body goes faster than its pace (`leanGain`), and into a turn (`bank`), toward the heading, as SIMBICON's stance hip does (Yin, Loken and van de Panne 2007); the swinging thigh's reference is set
  * in the world, the clip's lean taken off, with the pace's feedback late in the swing; across the
  * heading the swinging sole is placed by Raibert's rule.
  */

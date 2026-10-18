@@ -9,7 +9,7 @@ import { armedWith } from '../src/core/items/held.ts';
 import { createBody } from '../src/core/body.ts';
 import { driveFighter, fighterBody } from '../src/core/mind/fighter.ts';
 import { LAB_PRESETS } from '../src/lab/scenarios.ts';
-import { startStance } from '../src/lab/stance-mode.ts';
+import { SEARCH_FALL, startStance } from '../src/lab/stance-mode.ts';
 import { guardPosture } from '../src/core/skills/guard.ts';
 import { SIMBICON } from '../src/core/skills/simbicon.ts';
 import { supportRecovery } from '../src/core/mind/rise/support-recovery.ts';
@@ -252,7 +252,7 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
       Object.assign(experiment,freshExperiment());
       stance.orders.forward=0;stance.orders.right=0;stance.orders.turn=0;
     },
-    async fall({ kind = 'lab', degrees = 0, impulse = 60, separation = .2, settleSteps = 0, passiveSteps = 0 } = {}) {
+    async fall({ kind = 'lab', degrees = SEARCH_FALL.degrees, impulse = SEARCH_FALL.impulse, separation = SEARCH_FALL.separation, settleSteps = 0, passiveSteps = 0 } = {}) {
       if (!(impulse > 0) || !Number.isFinite(impulse) || !(separation > 0) || !Number.isFinite(separation)
         || !Number.isSafeInteger(settleSteps) || settleSteps < 0
         || !Number.isSafeInteger(passiveSteps) || passiveSteps < 0) throw new Error('invalid fall recipe');

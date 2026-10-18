@@ -7,7 +7,7 @@ import type { Assist } from "./assist.ts";
 import { servoAsk, servoSolve } from "./servo.ts";
 import { makeWholeBody, solveBody } from "./solve.ts";
 import { stanceControl, type StanceControl, type StanceGoal } from "./stance.ts";
-import { WHOLE_BODY_SECONDS, type StanceTuning } from "./stance-tuning.ts";
+import type { StanceTuning } from "./stance-tuning.ts";
 
 /** Joint angles, rad, by channel name. */
 export type Pose = Readonly<Record<string, number>>;
@@ -48,10 +48,10 @@ export type { EffectorGoal } from "./effector-tracker.ts";
  * A pushed freedom (`MusclePush`) is left to its muscles, whichever goal would own it, and the
  * servo solves the others around the torque it gives.
  *
- * With a stance (`StanceGoal`), the stance legs carry the body on the ground (`stance.ts`) and the
- * posture and the servo keep the rest; without one, the legs hold the posture from the pelvis, as a
- * body carried or in the air. A body on the whole-body solve (`solve`) is solved as one
- * (`solveBody`, `solve.ts`) from the same asks, in place of the bearing solve and the servo's.
+ * With a stance (`StanceGoal`), the stance's asks and the posture's are one problem, the whole
+ * body solved as one (`solveBody`, `solve.ts`): the stance legs carry the body on the ground
+ * (`stance.ts`) and the rest follows its posture and its effectors' goals; without one, the legs
+ * hold the posture from the pelvis, as a body carried or in the air, and the servo solves it.
  */
 export interface MotorControl {
   /** What it can reach with, in declared order. */
@@ -90,15 +90,13 @@ export interface MotorControl {
 
 /**
  * Motor control of `built`, servoing at a time constant of `seconds`; its stance asks `assist` for
- * what the soles miss. With `solve`, the body is on the whole-body solve, its stance at
- * `WHOLE_BODY_SECONDS` unless `stanceTuning` gives its own.
+ * what the soles miss.
  */
-export function motorControl(built: BuiltBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning, assist: Assist | null = null,
-  solve = false): MotorControl {
-  const stance = stanceControl(built, solve && !stanceTuning?.seconds ? { ...stanceTuning, seconds: WHOLE_BODY_SECONDS } : stanceTuning, assist);
+export function motorControl(built: BuiltBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning, assist: Assist | null = null): MotorControl {
+  const stance = stanceControl(built, stanceTuning, assist);
   const root = rootSegment(built);
   const tracker = effectorTracker(built, root);
-  const whole = solve ? makeWholeBody([...built.joints.values()].reduce((count, joint) => count + joint.dofs.length, 0), 2) : null;
+  const whole = makeWholeBody([...built.joints.values()].reduce((count, joint) => count + joint.dofs.length, 0), 2);
   const state = { pose: posture, pushes: [] as readonly MusclePush[], standing: null as StanceGoal | null,
     effectors: tracker.state.effectors, reach: tracker.state.reach, stance: stance.state };
   const control: MuscleController = (driver: MuscleDriver, dt: number) => {
@@ -121,18 +119,9 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       rate: (i) => owned(i)?.[1] ?? 0,
       acceleration: (i) => owned(i)?.[2] ?? 0,
     });
-    if (whole) {
-      // On the whole-body solve, the stance's asks and the posture's are one problem.
-      const ask = standing ? stance.ask(driver) : null;
-      if (ask) { solveBody(whole, driver, work, ask, assist); stance.launch(driver); }
-      else servoSolve(driver, work, undefined, standing?.pose ? stance.owned : undefined);
-      return;
-    }
-    // Standing by torque, the stance asks the root's acceleration, the servo carries the rest of the
-    // body with it, and the stance legs take what that leaves the ground to give.
-    const carried = standing ? stance.carry(driver, work) : null;
-    servoSolve(driver, work, carried ?? undefined, standing?.pose ? stance.owned : undefined);
-    if (carried) stance.bear(driver, work);
+    const ask = standing ? stance.ask(driver) : null;
+    if (ask) { solveBody(whole, driver, work, ask, assist); stance.launch(driver); }
+    else servoSolve(driver, work, undefined, standing?.pose ? stance.owned : undefined);
   };
 
   return {

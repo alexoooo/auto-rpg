@@ -25,8 +25,6 @@ export interface MindWiring {
   readonly senses?: () => Senses;
   /** The most its assist gives it; none unless given. */
   readonly assist?: AssistCeiling;
-  /** Whether its body's motor control is the whole-body solve (`BodyOptions.solve`); the bearing solve's unless given. */
-  readonly solve?: boolean;
   /** The screen's script, which tactics of kind `script` carry out: the Lab's scenario. None unless given. */
   readonly script?: Tactics;
 }

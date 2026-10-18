@@ -10,7 +10,7 @@
  * the head stood from its recipe's place (least and most, cm, each way). What the strikes did to their targets is
  * `research/core-targets.mjs`'s to tell.
  *
- *   node research/core-routine-battery.mjs --variants '[{}, {"boundedSwing": false}]' [--seeds 12] [--loops 5] [--targets 10] [--hz 120] [--impulse 3] [--workers 14] [--list]
+ *   node research/core-routine-battery.mjs --variants '[{}, {"heelOff": false}]' [--seeds 12] [--loops 5] [--targets 10] [--hz 120] [--impulse 3] [--workers 14] [--list]
  *
  * `--list` prints each run's seed, loops and fall too.
  */

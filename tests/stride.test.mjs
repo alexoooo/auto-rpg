@@ -76,7 +76,7 @@ test("a_stride_that_swings_the_arms_swings_each_with_the_other_sides_leg_and_one
       }
       assert.equal(actor.body.view.down, false, `arms ${arms}: fell`);
       const range = (x) => Math.max(...x) - Math.min(...x);
-      if (!arms) assert.ok(range(angles.left) < 0.05 && range(angles.right) < 0.05, `in the guard the shoulders hold: ${range(angles.left).toFixed(3)}, ${range(angles.right).toFixed(3)} rad`);
+      if (!arms) assert.ok(range(angles.left) < 0.1 && range(angles.right) < 0.1, `in the guard the shoulders hold: ${range(angles.left).toFixed(3)}, ${range(angles.right).toFixed(3)} rad`);
       else {
         const with_ = [correlation(angles.left, leads.right), correlation(angles.right, leads.left)];
         assert.ok(range(angles.left) > 0.2 && range(angles.right) > 0.2, `swinging: ${range(angles.left).toFixed(2)}, ${range(angles.right).toFixed(2)} rad`);

@@ -5,20 +5,13 @@
 
 /**
  * The time constants, s, all critically damped: the centre of mass's pull across the ground and in
- * height, the pelvis's turn, and a swinging foot's pull onto its path.
+ * height, the pelvis's turn, and a swinging foot's pull onto its path. The solve gives a swinging
+ * foot the acceleration it asks; at 0.1 s the foot lags its path, most where the path rises late
+ * under a leg stepping back (its knee bending, its ankle on its stop, its toes dropping), and the
+ * toes meet the ground short of the landing and drag.
  * Sweep: `docs/reference/stance-tuning.md#time-constants`.
  */
-const STANCE_SECONDS = { across: 0.3, height: 0.15, turn: 0.15, swing: 0.1 } as const;
-
-/**
- * The time constants on the whole-body solve (`BodyOptions.solve`): `STANCE_SECONDS`, a swinging
- * foot pulled onto its path faster. The solve gives a swinging foot the acceleration it asks; at
- * 0.1 s the foot lags its path, most where the path rises late under a leg stepping back (its knee
- * bending, its ankle on its stop, its toes dropping), and the toes meet the ground short of the
- * landing and drag. The bearing solve, holding a swinging leg's torques within its strength,
- * walks off its line pulled at 0.05 s. Sweep: `docs/reference/stance-tuning.md#time-constants`.
- */
-export const WHOLE_BODY_SECONDS = { ...STANCE_SECONDS, swing: 0.04 } as const;
+const STANCE_SECONDS = { across: 0.3, height: 0.15, turn: 0.15, swing: 0.04 } as const;
 
 /** What an experiment may set in place of the stance's constants. */
 export interface StanceTuning {
@@ -37,8 +30,6 @@ export interface StanceTuning {
   readonly recovery?: RecoveryTuning | null;
   /** How a stance walks (`STANCE_GAIT`). */
   readonly gait?: GaitTuning;
-  /** A swinging leg's torques solved within its strength together; false clips each freedom alone (the control). */
-  readonly boundedSwing?: boolean;
   /** A bearing foot whose ankle would pass its stop rolls onto its front edge; false holds it flat (the control). */
   readonly heelOff?: boolean;
 }
@@ -212,7 +203,6 @@ export interface ResolvedStance {
   readonly gait: GaitTuning;
   readonly track: number;
   readonly soleMargin: number;
-  readonly boundedSwing: boolean;
   readonly heelOff: boolean;
 }
 
@@ -225,7 +215,6 @@ export function resolveStance(tuning: StanceTuning): ResolvedStance {
     gait: tuning.gait ?? STANCE_GAIT,
     track: tuning.track ?? STANCE_TRACK,
     soleMargin: tuning.soleMargin ?? SOLE_MARGIN,
-    boundedSwing: tuning.boundedSwing ?? true,
     heelOff: tuning.heelOff ?? true,
   };
 }

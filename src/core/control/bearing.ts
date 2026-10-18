@@ -183,7 +183,7 @@ interface BearingScratch {
  * caller's own record: the root's acceleration, what the assist is asked, the freedoms held at a
  * torque, and what of the ground's wrench the patches cannot give.
  */
-export interface Bearing {
+interface Bearing {
   readonly assist: Assist | null;
   readonly damping: number;
   readonly limbs: readonly Limb[];
