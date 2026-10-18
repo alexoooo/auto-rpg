@@ -26,6 +26,11 @@
  *   to `PASSES` times. A bearing limb's is given at its strength and not pinned, as the bearing
  *   solve gives it: a row holding its torque would conflict with the rows holding its foot and the
  *   root, and the foot would go.
+ * - **The ranges.** A freedom a limb moves that stands at a stop of its range and is found
+ *   accelerating into it is held there, its acceleration known and none, and the rest solved again
+ *   around it: the stop refuses the motion, and a solve that counts on it misses its task by what
+ *   the freedom would have given (an ankle on its dorsiflexion stop, asked to lift a swinging
+ *   sole's middle, leaves the sole low and its toes catch the ground short of the landing).
  *
  * It works in arrays made with the solve (`makeWholeBody`), sized from the body and its limbs; a
  * call writes every entry it reads, and keeps nothing: a sole's torque lag is the limb's own
@@ -34,7 +39,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
-import { bearsNow, carried, give, jacobianTo, keepRows, soleTorque, type Limb } from "./bearing.ts";
+import { bearsNow, carried, give, jacobianTo, keepRows, soleTorque, type Limb, type Row } from "./bearing.ts";
 import { groundWrenchWork, patchPlace, shareGroundWrench, type GroundWrenchWork, type Patch } from "./contact-wrench.ts";
 import type { ServoWork } from "./servo.ts";
 import { GROUND_FRICTION } from "./support.ts";
@@ -76,9 +81,10 @@ interface WholeBody {
   readonly g: Float64Array;
   readonly z: Float64Array;
   readonly xs: Float64Array;
-  /** By freedom: whether a driven limb moves it, whether a bearing one does, the torque it is pinned at (NaN, none), the ground's wrench carried through it, and its torque. */
+  /** By freedom: whether a driven limb moves it, whether a bearing one does, whether it is held at a stop, the torque it is pinned at (NaN, none), the ground's wrench carried through it, and its torque. */
   readonly inLimb: Uint8Array;
   readonly carries: Uint8Array;
+  readonly stopped: Uint8Array;
   readonly pinned: Float64Array;
   readonly contact: Float64Array;
   readonly torque: Float64Array;
@@ -117,7 +123,7 @@ export function makeWholeBody(count: number, limbs: number): WholeBody {
   return {
     count, size, capacity, A: f(capacity * size), y: f(capacity), w: f(capacity),
     known: f(size), unknown: new Int32Array(size), x: f(size), H: f(size * size), L: f(size * size), g: f(size), z: f(size), xs: f(size),
-    inLimb: new Uint8Array(count), carries: new Uint8Array(count), pinned: f(count), contact: f(count), torque: f(count), W: f(6), given: f(6),
+    inLimb: new Uint8Array(count), carries: new Uint8Array(count), stopped: new Uint8Array(count), pinned: f(count), contact: f(count), torque: f(count), W: f(6), given: f(6),
     J: f(6 * count), S: f(6 * count), B: f(36), k0: f(6), rowsJ: f(6 * count), rowsS: f(6 * count), rowsB: f(36), rowsK: f(6),
     wrench: groundWrenchWork(limbs, 0), bearing: [], patches: [], parts: [],
     shares: Array.from({ length: limbs }, () => ({ force: new Vector3(), moment: new Vector3() })),
@@ -145,6 +151,11 @@ const WEIGHT = { foot: 1e-4, ahead: 1e-2, torque: 1e-2, root: 1, aim: 1 };
 const DAMPING = 4e-8;
 /** How many times the body is solved again around what the ground gives and the muscles pinned at their strength. */
 const PASSES = 4;
+/**
+ * How near a stop of its range a freedom stands at it, rad: a numeric setting, about the angle a
+ * joint at its limit reads past or short of it.
+ */
+const STOP_NEAR = 5e-3;
 /** A miss of the wrench below this, squared, N^2 and (N m)^2, is none. */
 const MISSED = 1e-12;
 
@@ -163,6 +174,7 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
     for (const i of limb.stem) { inLimb[i] = 1; if (limb.task.bearing) carries[i] = 1; }
   }
   pinned.fill(NaN);
+  b.stopped.fill(0);
   // The unknowns: the root, and every freedom a limb moves or a push holds; the rest move as the
   // posture asks, known.
   known.fill(NaN, 0, 6);
@@ -180,6 +192,7 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
     if (held) rows = rootRows(b, rows, R, ask.lever);
     for (let i = 0; i < n; i++) if (!Number.isNaN(pinned[i]!)) { known[6 + i] = NaN; rows = torqueRow(b, rows, muscles, i, pinned[i]!, b.contact[i]!); }
     solveRows(b, rows);
+    while (holdStops(b, muscles)) solveRows(b, rows);
     groundWrenchTo(b, R);
     const last = pass === PASSES - 1;
     if (bearing.length) {
@@ -205,7 +218,7 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
     torques(b, muscles, bearing);
     let clipped = false;
     for (let i = 0; i < n; i++) {
-      if ((work.fixed[i] && !inLimb[i]) || !Number.isNaN(pinned[i]!) || b.carries[i]) continue;
+      if ((work.fixed[i] && !inLimb[i]) || !Number.isNaN(pinned[i]!) || b.carries[i] || b.stopped[i]) continue;
       const t = b.torque[i]!, sense = t >= 0 ? 1 : -1, strength = muscles.strength(i, sense);
       if (Math.abs(t) > strength) { pinned[i] = sense * strength; clipped = true; }
     }
@@ -229,6 +242,22 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
   for (let r = 0; r < 6; r++) ask.root[r] = x[r]!;
   for (let i = 0; i < n; i++) work.accel[i] = x[6 + i]!;
   if (assist?.on) assist.ask(ask.helped.force, ask.helped.moment);
+}
+
+/**
+ * Each freedom a limb moves, not pinned, found accelerating into a stop of its range
+ * that it stands at (`STOP_NEAR`), held there: its acceleration known, none (`stopped`). Whether
+ * any was.
+ */
+function holdStops(b: WholeBody, muscles: MuscleDriver): boolean {
+  const { inLimb, stopped, pinned, known, x } = b;
+  let held = false;
+  for (let i = 0; i < b.count; i++) {
+    if (!inLimb[i] || stopped[i] || !Number.isNaN(pinned[i]!)) continue;
+    const { min, max } = muscles.channels[i]!.dof.spec, angle = muscles.angle(i), a = x[6 + i]!;
+    if ((a > 0 && angle >= max.value - STOP_NEAR) || (a < 0 && angle <= min.value + STOP_NEAR)) { stopped[i] = 1; known[6 + i] = 0; held = true; }
+  }
+  return held;
 }
 
 /** The driven limbs that bear, in the limbs' order, into the scratch's `bearing`. */
@@ -306,10 +335,11 @@ function limbRows(b: WholeBody, rows: number, muscles: MuscleDriver, R: MuscleDr
     Jr = b.rowsJ; Sr = b.rowsS; Br = b.rowsB; y = b.rowsK;
   }
   for (let r = 0; r < q; r++) {
-    const at = openRow(b, rows++, y[r]!, WEIGHT.foot);
-    for (let c = 0; c < 6; c++) A[at + c] = Br[r * 6 + c]!;
-    for (let c = 0; c < m; c++) A[at + 6 + channels[c]!] = Jr[r * m + c]!;
-    for (let c = 0; c < s; c++) A[at + 6 + stem[c]!] = Sr[r * s + c]!;
+    // A spin's row is weighed at the limb's reach, as the motion it gives a point there.
+    const k = (work.rows ? spinRow(work.rows[r]!) : r < 3) ? limb.reach : 1, at = openRow(b, rows++, y[r]! * k, WEIGHT.foot);
+    for (let c = 0; c < 6; c++) A[at + c] = Br[r * 6 + c]! * k;
+    for (let c = 0; c < m; c++) A[at + 6 + channels[c]!] = Jr[r * m + c]! * k;
+    for (let c = 0; c < s; c++) A[at + 6 + stem[c]!] = Sr[r * s + c]! * k;
   }
   for (let c = 0; c < m; c++) {
     const asked = ahead[c]!;
@@ -318,6 +348,12 @@ function limbRows(b: WholeBody, rows: number, muscles: MuscleDriver, R: MuscleDr
     A[at + 6 + channels[c]!] = 1;
   }
   return rows;
+}
+
+/** Whether a kept row (`keepRows`) is of the spin's rows alone: the first three of the six. */
+function spinRow(row: Row): boolean {
+  for (const [r] of row) if (r >= 3) return false;
+  return true;
 }
 
 /**
