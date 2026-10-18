@@ -10,6 +10,8 @@ Physically simulated bodies as a platform for AI control experiments, built into
 owner's direction, 2026-10-08). Each layer depends only on those below it -- world, body, motor
 control, skills, minds -- and a mind may use as much or as little of the stack as it needs
 ([architecture](architecture.md#minds)).
+The [AI experiments plan](plans/2026-10-18-ai-experiments.md) makes Minds, skills and controllers
+independently replaceable across game modes.
 
 - **Skills and tactics.** A body has an array of skills; tactics, a meta-controller over them,
   choose among the skills it has as the fight goes. Both come in many flavours. A skill may be
@@ -42,8 +44,8 @@ control, skills, minds -- and a mind may use as much or as little of the stack a
 - **The game around them**:
   - the Arena, a bout of two bodies to a verdict, which a person watches or takes a side in;
   - a Ladder of bouts, to be designed;
-  - a Diablo-like Dungeon, where a person commands a party and each member's mind carries the
-    orders out.
+  - a Diablo-like Dungeon with a player character and AI enemies; companion and party-command
+    features are outside the current direction.
 
   Many morphologies, every body a sourced spec: the human is the reference body; the skeleton and
   an authored reptile quadruped are on the core.
@@ -576,7 +578,8 @@ After it, each with its own plan, in the order each needs the one before:
   local steering lacks the locomotion controller's braking response and excludes fallen bodies.
   The [problem and proposal](analysis/2026-10-13-crowd-reversal.md) record the failing regression
   and a physical movement contract to investigate. Movement remains unfixed; its regression
-  runs as a non-blocking TODO while the owner defers party-motion work.
+  runs as a non-blocking TODO. Companion and party-command improvements are outside the current
+  direction; shared locomotion and enemy navigation remain relevant.
 - **Authored set pieces** for generated depths
   (`docs/plans/2026-09-23-depths-06-set-pieces.md@144961d4`).
 - **The skeleton's intent** ([architecture](architecture.md#standing-decisions)): the ribcage and
