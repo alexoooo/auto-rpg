@@ -70,14 +70,11 @@ requires. Keep one path for stepping, applying commands, saving and disposing a 
 
 ## Execution
 
-CPU and GPU implementations are in scope. A trusted host schedules asynchronous work from a
-declared observation step and delivers prepared, checked commands at declared action steps.
-`World.step` keeps synchronous control application and physics. Define late-result handling and
-supported live save/resume of pending work explicitly. Backend support must not change an
-entrant's permitted observations or physical authority.
+Minds run synchronously within `World.step`, as today. Asynchronous or GPU execution is not
+planned; it is built when a concrete experiment needs it.
 
-Deterministic replay is a simulation guarantee. AI decision-making may be nondeterministic on
-CPU or GPU; repeatable inference is not a condition of entry. Record commands losslessly at the
+Deterministic replay is a simulation guarantee. AI decision-making may be nondeterministic;
+repeatable inference is not a condition of entry. Record commands losslessly at the
 final actuation boundary, with their application steps and ordering, plus other external inputs
 that affect the simulation. Include muscle commands, permitted assists, grips and hand poses.
 An orders-only tape cannot reproduce nondeterministic downstream control.
@@ -90,7 +87,7 @@ a separate live-continuation capability. Re-running a Mind can produce a differe
 deterministic physics and existing exact implementations without requiring exact AI computation.
 
 Reuse existing performance targets and experiment-specific work limits. A comparison states its
-computation allowance, hardware/backend and decision periods for each entrant; cadence and
+computation allowance, hardware and decision periods for each entrant; cadence and
 episode duration alone do not bound computation. Add enforcement as an experiment requires,
 without building a separate budget framework in advance.
 
@@ -108,10 +105,10 @@ work. Removing existing party features is a separate task.
 
 An experiment recipe identifies the scenario and seeds, each participant's implementation and
 configuration, bodies, loadouts, attributes, assists, rules, observations, decision periods,
-starting conditions, declared execution allowance/backend, code and engine revisions and any
-learned-weight asset. Use the same control and simulation interfaces headlessly and in the page;
-backend availability is explicit. Distinguish simulation replay checkpoints from live saves
-that also restore supported policy memory and pending work.
+starting conditions, declared computation allowance, code and engine revisions and any
+learned-weight asset. Use the same control and simulation interfaces headlessly and in the page.
+Distinguish simulation replay checkpoints from live saves that also restore supported policy
+memory.
 
 Keep scenario objectives and scoring independent of the controller. For comparisons, state what
 changed and hold the remaining conditions fixed. Report failures and results against individual

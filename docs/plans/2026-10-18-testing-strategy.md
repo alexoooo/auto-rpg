@@ -39,8 +39,8 @@ checks and candidate acceptance are separate questions; neither implies current-
 - **Test the contract.** Check inputs, outputs and observable consequences. Assert internal
   phases or data layout only when those are themselves the contract. Use exact equality for
   exact rules and simulation replay from matching initial state and recorded applied inputs.
-  Replay must work with the participating Minds disabled. CPU and GPU policies can decide
-  differently on another run; test decision repeatability only for an implementation that
+  Replay must work with the participating Minds disabled. A policy can decide differently on
+  another run; test decision repeatability only for an implementation that
   explicitly promises it. Judge physical outcomes with meaningful units and limits from the
   promised task, rather than the last run's trajectory or step count.
 - **Exercise the real path.** Physical capability checks use normal construction, commands,
