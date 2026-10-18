@@ -43,6 +43,14 @@ export interface GaitTuning {
   /** The longest step, from the bearing sole's middle, as a fraction of the leg (thigh and shank). */
   readonly longest: number;
   /**
+   * The share of the leg's reach (`withinReach`) a step is planned within, the rest left for the
+   * step under way to be re-aimed into when the body misses its plan (`walkStep`, `transferStep`,
+   * and the pace the legs can walk at, `fastestPace`). A step planned at the whole reach lands
+   * short as soon as the body lags its plan, the leg being no longer than it is, and the capture
+   * point runs past the plan by exp(w T) a step; 1 plans at the whole reach.
+   */
+  readonly reserve: number;
+  /**
    * The share of the swing hip's peak torque a step's swing is planned on (`swingSeconds`): a swing
    * the gait's `seconds` would ask more of takes longer. Under 1 for the leg's weight, the knee's
    * bend the plan's straight leg has not, and the strength the hip loses at speed.
@@ -137,7 +145,7 @@ const STANCE_RECOVERY: RecoveryTuning = { margin: 0.01, seconds: 0.3, lift: 0.05
  * sole: the swinging foot met the bearing foot at mid-swing in a 1.4 m/s walk and was thrown up and short.
  * Sweeps: `docs/reference/stance-tuning.md#gait`.
  */
-export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, effort: 0.5, clearance: 0.03, accel: 1, crouch: 0.1, horizon: 0.1, transfer: 0.08,
+export const STANCE_GAIT: GaitTuning = { seconds: 0.3, lift: 0.05, width: 0.2, longest: 0.8, reserve: 0.8, effort: 0.5, clearance: 0.03, accel: 1, crouch: 0.1, horizon: 0.1, transfer: 0.08,
   preswing: { knee: 0.61, seconds: 0.04 } };
 
 /**

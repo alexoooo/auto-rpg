@@ -162,40 +162,48 @@ is untouched until stage 3 takes the run. The research stand-up learning environ
 declared-fallback fixture (`tests/research-recovery-learning.test.mjs`) now runs at 50 %, since at
 100 % the assist holds every shove it escalates to.
 
-**Walk, stop and turn (stage 2): the gate is not met, and nothing is deleted.** The stance's
-walk (`walkStep` and `transferStep`, `src/core/control/gait.ts`: capture-point steps on a DCM
-preview) was measured against SIMBICON's envelope on the whole-body solve. Its asset
-(`assets/core/stance-envelope.json`) holds 0.5 m/s forward and 0.4 sideways and back against
-SIMBICON's 1.5, 1.4 and 2.5 for the Warrior; only its turn, 4 rad/s, is above SIMBICON's 1.4. On
-the five-way gait battery at 0.5 to 1.4 m/s the Rogue holds 9 of 25 and the Warrior 13, the same
-on both solves (`research/core-stance-sweep.mjs --batteries gait --speeds 0.5,0.7,1,1.2,1.4
---ways 0,45,90,180,270 --solve`). Forward alone, asked 0.7 to 1.6, both humans stay up (the Warrior
-falls at 1.6) and neither is on pace: the Rogue goes 0.70, 0.64, 0.63, 0.67 and 0.62 of the pace
-asked, the Warrior 0.79, 0.74, 0.70 and 0.69. Sideways at 0.5 to 1.2 the Rogue holds none of four
-and the Warrior the 0.5 alone. The cause, read on the Warrior at 1.2 m/s (a per-step trace of the
-solve's shortfall and the muscles' use): through the second half of every swing the swing hip
-brakes the leg at about 90 N m (190 at the worst), and reacting that through the bearing sole with
-the pelvis upright and the plan's forward push asks the sole for about 100 N forward and 100 N m
-of pitch more than it has, its centre of pressure on the heel's edge and its dorsiflexors at their
-strength; the step under way is re-aimed 0.2 m short every swing and the pace settles at
-0.7 of the ask. Halving the legs' mass takes the pace from 0.85 to 1.05 m/s; four times the
-dorsiflexion and twice the hip's flexion change nothing. So it is the swing leg's inertia against
-the sole's length, not a muscle. Sideways the walk steps out and closes without crossing: an
-out-step of 0.63 m leaves the centre of mass 0.6 m from the bearing foot, which cannot hold the
-height (the body drops 0.1 m), the lateral pivot sits on the sole's edge, the DCM runs 0.3 m past
-the capture target, and the closing step is aimed on the near side while the body is on the far
-one. Every setting of the generator swept moved the forward pace within 0.56 to 0.79 of the ask
-at 1.0 to 1.4 m/s, and none held sideways above 0.5: the list is in the register. The one lever
-that trades is the wrench lever through the swing (`SwingGoal.lever`): at 3 m the Warrior goes
-1.03, 0.85 and 0.83 of the ask to 1.2 m/s by letting its pelvis pitch, and falls at 1.4 and 1.6.
-A pass needs the generator to plan with the swing's reaction in it (the moment the swing leg's
-angular momentum takes from the sole, so the pivot it asks is one the sole has) and a swing shaped
-for it (longer and pendular, the leg folded), and sideways a step that crosses or stays within the
-leg's reach of its height: a generator design, not a setting, and not built in this stage. The
-stop battery and the Move bout's `todo` were not run against the generator, since the envelope
-bar failed first. SIMBICON's walk and its ways stay the game's walk; the stance's walk stays what
-the fight uses within its envelope. The run (stage 3) was to be built on this generator and waits
-on the same design.
+**Walk, stop and turn (stage 2): under way; the gate is not met, and nothing is deleted.** The
+stance's walk (`walkStep` and `transferStep`, `src/core/control/gait.ts`: capture-point steps on a
+DCM preview) is being brought to the gate on the whole-body solve. Landed: the plan's pivot is
+chosen by the deadbeat law while no less than `horizon` is left of the step or the double
+support, and held after (`planAcross`, `step.pivoted`); the floor at the horizon it replaces aimed
+past the landing, landed the capture point short every step, paced the walk at 0.76 of the ask
+and had a stance catching itself step on (eight recoveries in 2 s after a steered club blow,
+never settling; now four, standing). Each step is planned at the pace its leg can take from the
+body's measured capture point (`reachablePace`): the pace nearest the walk's ramp, between it
+and the body's own, whose landing is within reach, which the ramp goes on from, and a step keeps
+the pace it was planned at. A stop from a backward walk asked the capture step at once, further
+back than the hip reaches, and the plan never reconciled with the body: the capture point missed
+it by 0.15 m on the first stop step and 0.24, 0.39 and 0.65 on the next three while the body sped
+up backward from 0.9 to 1.6 m/s. Each step is planned within `reserve` (0.8) of the leg's reach
+and re-aimed under way within the whole of it: planned at the whole reach, a step landed short as
+soon as the body lagged its plan (the leg 0.03 m too short for the landing from where the hip
+was), and the capture point ran past the plan by exp(w T) a step. The swing's reach is read from
+the centre of mass at the landing; a double support places within both soles; the walk asks no
+pace past what its legs can step and crouches only as far as the steps at its pace need
+(`fastestPace`, `walkHeight`, `StanceState.crouch`); a swinging foot keeps its launch height to
+the landing (lowered with its progress, a foot still pitched from its launch touched with its
+toes early and landed 20 mm short). A per-tick reach clamp on the swing path held the same 25 of
+25 with and without it and is gone. On the five-way gait battery asked 0.7, 1.0, 1.2, 1.4 and
+1.6 m/s, each walk 8 s then stopped (Node stand, Rapier, 120 Hz, balance 0;
+`research/core-stance-sweep.mjs --batteries gait --speeds 0.7,1.0,1.2,1.4,1.6 --ways
+0,45,90,180,270 --solve`) both humans hold and stop all 25 walks, against 13 and 9 of 25 asked
+0.5 to 1.4 before the stage. Forward the Warrior walks 0.72, 1.01, 1.15, 1.19 and 1.20 m/s of the
+five asked, its legs' cap 1.41; the Rogue 0.71, 0.96, 1.04, 1.00 and 1.00 (cap 1.22). Forward-right
+both walk at their cap (0.89 of 0.91, 0.78 of 0.77), sideways 0.66 of 0.70 and 0.55 of 0.60, back
+0.85 of 0.94 and 0.67 of 0.74. The reserve's and the horizon's sweeps are in
+`docs/reference/stance-tuning.md#pace-cap-crouch-and-horizon`. The shove battery to 90 N s is
+unchanged (the Rogue 163 of 272, the Warrior 235 against 238). Open: the Warrior asked 1.6 m/s
+forward walks 1.20 for 11.8 s of a 20 s walk and falls on a short step the solve is 750 N and
+900 N m short of, followed by a 0.43 m wide one. Against the gate (SIMBICON Warrior
+1.5/1.4/2.5/1.5/1.4 m/s forward/right/back/left/forward-right, Rogue 1.2/1.2/1.7/1/1.7) the
+forward pace is 0.8 of it on each, and sideways and back the legs' own cap is half of it or
+less: SIMBICON's 1.4 m/s sideways and 2.5 back are at or past a human's preferred forward walk,
+the paces of a tracker that leans and shoves rather than steps, so the every-way gate as written
+measures the old tracker, not a walk. Whether the walk's gate sideways and back is the legs' cap
+or SIMBICON's figure is the owner's call, raised in the checkpoint. The stop battery and the Move
+bout's `todo` are not yet run against the generator. SIMBICON's walk and its ways stay the game's
+walk until the gate is met; the run (stage 3) builds on this generator.
 
 **Locomotion.** On the gait battery (asked 1.4 to 5 m/s, three stops, two turns, gust seeds 5
 to 8, empty and club: 300 trials; `research/run-cycle-search.mjs --score`), and the stop battery
@@ -252,7 +260,8 @@ Not to be tried again on the controllers as they are. Each failed for the reason
   stages searched at a 10 s cap; `plant-up` by backward chaining (0 of 108 standalone); any
   assist in a pose stage (a lift or a damper, 0 of 32); the stages searched with Balance 25 % on
   (2 of 32 without it).
-- **The stance's walk past 0.5 m/s** (stage 2, on the whole-body solve; the figures above). Swing
+- **The stance's walk past 0.5 m/s** (stage 2, on the whole-body solve, before the pivot was
+  held: the forward pace then 0.56 to 0.79 of the ask). Swing
   time 0.35, 0.4 and 0.5 s (0.5 oscillates between 0.6 and 1.0 m/s asked 1.2); double support
   0.1 and 0.12 s; lift 0.08 m (keeps the Warrior up at 1.6 m/s, no faster); the support inset at
   0.3 and 0.15; track 0.35 s; width 0.15 m; knee bend 0.1 rad; the pelvis's turn at 0.3 s (the
@@ -261,6 +270,11 @@ Not to be tried again on the controllers as they are. Each failed for the reason
   m/s; the swing's acceleration ramped at 0.1 and 0.25; the longest step 0.6 of the leg sideways;
   the swing's wrench lever at 0.1, 0.3, 3, 10 and 100 m. Each left the forward pace within 0.56 to
   0.79 of the ask at 1.0 to 1.4 m/s, or fell, and none held sideways above 0.5 m/s.
+  With the pivot held: `horizon` 0.05, 0.15 and 0.2 s (the table in the record; a shorter one
+  paces nearer the ask and falls near the cap, a longer one holds more and paces lower); the swing
+  path lowered to the landing's height with its progress (a pitched foot touches early, lands
+  20 mm short, and a shove runs away); a per-tick clamp of the swing to the leg's reach (the same
+  25 of 25 with and without it).
 - **Balance's shape.** A force across the heading alone; the moment toward the run's settled
   lean (held every run under 2.4 m/s); the moment's pitch both ways (the Warrior brakes slower,
   7 of 12 stops fell); damping the pelvis's spin alone.

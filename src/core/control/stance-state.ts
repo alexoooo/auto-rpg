@@ -28,7 +28,7 @@ interface StanceState {
   pose: StanceGoal["pose"] | null;
   /** The foot of the last step of a walk, while it steps on without standing between. */
   stride: Side | null;
-  /** The walk the stance's step under way is for, if it is a walk's: `pace` itself, read as it is each step. */
+  /** The walk the stance's step under way is for, if it is a walk's: the pace it was planned at (`reachablePace`), which `pace` goes on from. */
   striding: readonly [number, number] | null;
   /** Each channel the last command drove, 1, or 0. */
   owned: Uint8Array;

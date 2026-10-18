@@ -19,6 +19,9 @@ import type { Side } from "../spec/body.ts";
  */
 interface Underway { readonly foot: Side; readonly pivot: Vector3; readonly remaining: number; readonly shift: readonly [number, number] }
 
+/** What planning a step tells besides the step: the share of its landing the leg reaches (`stepShare`), 1 for all of it. */
+interface StepPlan { share: number }
+
 /** The soles' middles' distance apart across `heading` (rad about up, 0 facing +z), m. */
 function across(feet: readonly FootState[], heading: number): number {
   const [a, b] = feet;
@@ -133,13 +136,15 @@ function stepWidth(foot: FootState, across: number, T: number, tuning: GaitTunin
 
 /**
  * The share of a step of (`dx`, `dz`) from the bearing sole's middle that `foot` can take, 1 if all
- * of it: no further than `longest` of the leg, and within its reach (`withinReach`) from the body's
- * centre at (`cx`, `cz`) from that middle as the foot lands, with its hip `hip` over the landing
- * sole's middle and its knee bent no less than `bend` (null, straight).
+ * of it: no further than `longest` of the leg, and within `reserve` of its reach (`withinReach`,
+ * `GaitTuning.reserve`) from the body's centre at (`cx`, `cz`) from that middle as the foot lands,
+ * with its hip `hip` over the landing sole's middle and its knee bent no less than `bend` (null,
+ * straight).
  */
-function stepShare(foot: FootState, dx: number, dz: number, cx: number, cz: number, rx: number, rz: number, sign: number, tuning: GaitTuning, hip: number, bend: number | null): number {
+function stepShare(foot: FootState, dx: number, dz: number, cx: number, cz: number, rx: number, rz: number, sign: number, tuning: GaitTuning, hip: number, bend: number | null, reserve: number): number {
   const longest = tuning.longest * (foot.lengths[0] + foot.lengths[1]), far = hypot(dx, dz);
-  return Math.min(far > longest ? longest / far : 1, withinReach(foot.leg, dx, dz, cx, cz, rx, rz, sign, hip - foot.ankle, legLength(foot, bend)));
+  // Within `reserve` of the reach: the step scaled up by it is within the whole, and its share is the step's own.
+  return Math.min(far > longest ? longest / far : 1, withinReach(foot.leg, dx / reserve, dz / reserve, cx, cz, rx, rz, sign, hip - foot.ankle, legLength(foot, bend)));
 }
 
 /**
@@ -163,7 +168,7 @@ function stepsWithin(feet: readonly FootState[], v: number, ux: number, uz: numb
   for (let k = 0; k < feet.length; k++) {
     const foot = feet[k]!, sign = foot.side === "right" ? 1 : -1, T = stepSeconds(foot, v, tuning) + Tds;
     const W = stepWidth(foot, v * Math.abs(ux * rx + uz * rz), T, tuning), dx = v * ux * T + sign * W * rx, dz = v * uz * T + sign * W * rz;
-    if (stepShare(foot, dx, dz, dx / 2, dz / 2, rx, rz, sign, tuning, hip, bend) < 1) return false;
+    if (stepShare(foot, dx, dz, dx / 2, dz / 2, rx, rz, sign, tuning, hip, bend, tuning.reserve) < 1) return false;
   }
   return true;
 }
@@ -219,7 +224,7 @@ function walkHeight(feet: readonly FootState[], ux: number, uz: number, v: numbe
  * time left.
  */
 function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
-  tuning: GaitTuning, hip: number, bend: number | null, last: Side | null, under?: Underway, inset = SUPPORT_INSET): SwingGoal {
+  tuning: GaitTuning, hip: number, bend: number | null, last: Side | null, under?: Underway, inset = SUPPORT_INSET, plan?: StepPlan): SwingGoal {
   const side: Side = under?.foot ?? (last ? (last === "left" ? "right" : "left") : walk[0] * cos(heading) - walk[1] * sin(heading) < 0 ? "left" : "right");
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   // The pelvis's right across the ground at the heading the step lands facing: +x at heading 0.
@@ -245,7 +250,9 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
   const steady = last || under;
   let tx = steady ? ex - nx : sx, tz = steady ? ez - nz : sz;
   const [cx0, cz0] = centreAtLanding(b, centre, velocity, w, tx - b.x, tz - b.z, under);
-  const share = stepShare(foot, tx - b.x, tz - b.z, cx0, cz0, rx, rz, sign, tuning, hip, bend);
+  // A step is planned within the gait's reserve of the reach; under way it is re-aimed within the whole.
+  const share = stepShare(foot, tx - b.x, tz - b.z, cx0, cz0, rx, rz, sign, tuning, hip, bend, under ? 1 : tuning.reserve);
+  if (plan) plan.share = share;
   tx = b.x + (tx - b.x) * share;
   tz = b.z + (tz - b.z) * share;
   const out = sign * ((tx - b.x) * rx + (tz - b.z) * rz);
@@ -279,7 +286,7 @@ const PREVIEW_STEPS = 8;
  * share of the landing the reference moves with.
  */
 function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
-  tuning: GaitTuning, hip: number, bend: number | null, last: Side | null, under?: Underway, inset = SUPPORT_INSET): SwingGoal {
+  tuning: GaitTuning, hip: number, bend: number | null, last: Side | null, under?: Underway, inset = SUPPORT_INSET, plan?: StepPlan): SwingGoal {
   const side: Side = under?.foot ?? (last === "left" ? "right" : "left");
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
@@ -318,7 +325,9 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
     tz += (ez - cz) / (F + G);
   }
   const [cx0, cz0] = centreAtLanding(b, centre, velocity, w, tx - b.x, tz - b.z, under);
-  const share = stepShare(foot, tx - b.x, tz - b.z, cx0, cz0, rx, rz, sign, tuning, hip, bend);
+  // A step is planned within the gait's reserve of the reach; under way it is re-aimed within the whole.
+  const share = stepShare(foot, tx - b.x, tz - b.z, cx0, cz0, rx, rz, sign, tuning, hip, bend, under ? 1 : tuning.reserve);
+  if (plan) plan.share = share;
   tx = b.x + (tx - b.x) * share;
   tz = b.z + (tz - b.z) * share;
   const out = sign * ((tx - b.x) * rx + (tz - b.z) * rz);
@@ -329,6 +338,33 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
   const capture = reference(tx, tz);
   return { foot: side, to: [tx, tz], seconds: Tss, lift: tuning.lift, transfer: Tds,
     capture, handover: [b.x + E * (capture[0] - b.x), b.z + E * (capture[1] - b.z)] };
+}
+
+/**
+ * The pace a stance on both feet plans its next step at, world (x, z), m/s: the walk's `pace`, if
+ * the step planned at it from the body as it is lands within the leg's reach (`stepShare`); else
+ * the pace nearest it, between it and the body's own (`velocity` over the ground), whose step
+ * does. A step that slows the walk lands further out than a steady step, on the capture point to
+ * stop it, and the leg reaches only so far: planned past that, the step lands short, the body
+ * falls on past its plan by exp(w T) a step and the steps after cannot catch it. So a walk slows
+ * only as fast as its steps can, and goes on from the pace planned. By bisection, to `PACE_STEP`.
+ */
+function reachablePace(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, pace: readonly [number, number], heading: number,
+  tuning: GaitTuning, hip: number, bend: number | null, last: Side | null, inset: number): [number, number] {
+  const plan: StepPlan = { share: 1 };
+  const reaches = (x: number, z: number): boolean => {
+    if (tuning.transfer && last) transferStep(feet, centre, velocity, g, [x, z], heading, tuning, hip, bend, last, undefined, inset, plan);
+    else walkStep(feet, centre, velocity, g, [x, z], heading, tuning, hip, bend, last, undefined, inset, plan);
+    return plan.share >= 1;
+  };
+  if (reaches(pace[0], pace[1])) return [pace[0], pace[1]];
+  const dx = velocity.x - pace[0], dz = velocity.z - pace[1], d = hypot(dx, dz);
+  let low = 0, high = 1;
+  while ((high - low) * d > PACE_STEP) {
+    const k = (low + high) / 2;
+    if (reaches(pace[0] + dx * k, pace[1] + dz * k)) high = k; else low = k;
+  }
+  return [pace[0] + dx * high, pace[1] + dz * high];
 }
 
 /**
@@ -392,8 +428,12 @@ export function ownStep(s: Stance, heading: number, hip: number): void {
   if (!reading.own && reading.phase === "stand") {
     const walk = pace[0] !== 0 || pace[1] !== 0 ? pace : null, held = assistReach(s);
     if (walk || (state.stride && recovery && outside(feet, reading.centre, reading.velocity, gravityOf(s), inset) > recovery.margin + held)) {
-      // Walking, or stopping a walk still under way: its steps keep their alternation.
-      state.striding = pace;
+      // Walking, or stopping a walk still under way: its steps keep their alternation, each at the
+      // pace the leg can take it (`reachablePace`), which the walk's pace goes on from.
+      const [px, pz] = reachablePace(feet, reading.centre, reading.velocity, gravityOf(s), pace, heading, gait, hips, bend, state.stride, inset);
+      pace[0] = px;
+      pace[1] = pz;
+      state.striding = [px, pz];
       reading.own = gait.transfer && state.stride
         ? transferStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, bend, state.stride, undefined, inset)
         : walkStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, bend, state.stride, undefined, inset);
@@ -413,7 +453,7 @@ export function ownStep(s: Stance, heading: number, hip: number): void {
     // A walk's step under way lands where the body's capture point, measured, says it must: the
     // body lags its plan, and a landing fixed at lift carries the lag into the next step.
     const under: Underway = { foot: reading.own.foot, pivot: reading.place, remaining: reading.own.seconds - step.time, shift: step.shift.capture };
-    // (`state.striding` is the pace, read as it is now.)
+    // (`state.striding` is the pace the step was planned at.)
     if (reading.own.transfer) {
       const aimed = transferStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, bend, null, under, inset);
       reading.own = step.swing = { ...reading.own, to: aimed.to, capture: aimed.capture! };

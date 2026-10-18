@@ -325,6 +325,58 @@ Command: the sweep at `1444ce42`, with the two gait commands of the table above;
 0.05 and the chosen one were read again, and the shoves after a walk
 (`--batteries shove --walked 0.3`). The chosen row and those shoves read the same at `e4ec0709`.
 
+### Pace cap, crouch and horizon
+
+The walk goes no faster than its legs can step its way with the hips lowered by `crouch` at most
+(`fastestPace`, `paceToward`), and lowers them no further than the steps at the pace need
+(`walkHeight`, into `StanceState.crouch`), and plans each step within `reserve` of the leg's
+reach (`stepShare`). On the whole-body solve, balance 0, at `reserve` 1 the cap reads for the
+Warrior 1.49 m/s forward, 0.91 forward-right, 0.70 sideways and 1.31 back, for the Rogue 1.24,
+0.77, 0.60 and 1.03; at the chosen 0.8, 1.41, 0.91, 0.70 and 0.94 for the Warrior and 1.22, 0.77,
+0.60 and 0.74 for the Rogue. Every sideways walk at 0.7 m/s and above is the cap's, and goes 0.75
+to 0.95 of it. `crouch` 0.1 m was not swept.
+
+`horizon`, on the five-way gait battery asked 0.7, 1.0, 1.2, 1.4 and 1.6 m/s (25 walks a human,
+on the whole-body solve, at `reserve` 1): walks held of 25, and the pace walked forward at each
+ask (x fell).
+
+        horizon  Rogue held  forward walked                Warrior held  forward walked
+        0.05     21          0.72 1.02 1.13 1.11 1.11      23            0.71 1.03 1.17 x    x
+        0.1      21          0.71 0.95 x    x    x         23            0.72 1.01 1.11 1.28 1.30   chosen
+        0.15     23          0.70 0.90 0.95 x    x         25            0.71 0.97 1.03 1.13 1.14
+        0.2      22          0.70 0.86 0.93 0.93 0.93      24            0.71 0.94 1.00 1.10 1.12
+
+A shorter horizon paces nearer the ask and falls near the legs' cap; a longer one holds more and
+paces lower. Walking back falls in every row (the Rogue at 1.0 m/s in two rows and 1.2 to 1.6 in
+two, the Warrior at 1.0 and 1.2 in two), and is open. The chosen value stays until the falls near
+the cap and walking back are understood: a row two walks apart on one seed a cell is not a
+difference.
+
+Command: the sweep at `09c0a519`, `--batteries gait --speeds 0.7,1.0,1.2,1.4,1.6
+--ways 0,45,90,180,270 --solve`; a row is the whole `STANCE_GAIT` with `horizon` set.
+
+`reserve`, on the same battery, with each step planned at the pace its leg can take from the
+body's measured capture point (`reachablePace`): walks held of 25, the walks that stopped, and
+the pace walked forward at 1.2, 1.4 and 1.6 asked, sideways at 1.0 and back at 1.0 (x fell).
+
+        reserve  Rogue held  stopped  forward         side  back    Warrior held  stopped  forward         side  back
+        0.7      25          25       0.96 0.96 0.96  0.46  0.51    25            25       1.09 1.12 1.12  0.54  0.61
+        0.8      25          25       1.04 1.00 1.00  0.55  0.67    25            25       1.15 1.19 1.20  0.66  0.85   chosen
+        0.85     25          25       1.06 1.10 1.10  0.56  0.71    24            24       1.17 1.23 x     0.67  0.97
+        0.9      22          22       x    x    x     0.59  0.81    24            24       1.17 1.28 x     0.69  0.86
+        1        22          22       x    x    x     0.51  0.93    23            23       1.16 1.26 x     0.62  0.86
+
+A step planned at the whole reach (1) lands short whenever the body lags its plan, and the Rogue
+falls forward from 1.2 m/s asked and the Warrior at 1.6; at 0.8 every walk holds and stops, for
+0.08 m/s of the Warrior's forward pace. The one fall at 0.85 and 0.9 is the Warrior asked 1.6
+forward; at 0.8 it holds the battery's 8 s and falls at 11.8 s of a 20 s walk, a short step with
+the solve 750 N and 900 N m short and the step after it 0.43 m wide. On the shove battery to
+90 N s (272 shoves, `--batteries shove --top 90 --solve`) the Rogue holds 163 at 0.8 as at 1,
+the Warrior 235 against 238.
+
+Command: the sweep at the commit after `09c0a519`, `--batteries gait --speeds 0.7,1.0,1.2,1.4,1.6
+--ways 0,45,90,180,270 --solve`; a row is the whole `STANCE_GAIT` with `reserve` set.
+
 ## Heel-off
 
 `StanceTuning.heelOff`: a walk's bearing foot rolls onto its front edge only while the other
