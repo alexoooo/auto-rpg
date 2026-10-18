@@ -9,52 +9,57 @@ The [whole-body controller plan](2026-10-17-general-controller.md) continues wit
 gates. It develops one reusable execution stack. The options fighter is one client of that stack;
 neither that Mind nor that solver is mandatory for every experiment.
 
-## Replaceable parts
+## Structure
 
-Keep small, explicit contracts at the useful boundaries:
+Four responsibilities describe the usual stack:
 
 | Part | Responsibility |
 |---|---|
 | Mind | Choose intentions from observations, objectives and execution feedback. |
 | Skills and planners | Carry an intention out over time: choose steps, trajectories, contact sequences and other motion goals. |
 | Motor controller | Turn motion goals into bounded muscle and permitted assist commands. |
-| Direct policy | Replace the skills and motor controller through checked actuator commands. |
+| Physics | Apply actuation and determine the actual motion, contacts and collisions. |
 
-A tactical experiment can keep the skills and motor controller fixed. A skill experiment can
-keep the Mind and motor controller fixed. A controller experiment can keep the requested motion
-fixed. A complete replacement can use the direct policy boundary. Record which boundary an
-experiment uses.
+These are conceptual responsibilities, not four mandatory runtime classes. Compose ordinary
+modules behind the existing participant lifecycle and checked actuation boundary. A direct Mind
+can replace skills and motor control together. It still uses the same physical limits, permitted
+actions, world step and state handling.
 
-Each implementation declares the bodies, capabilities and command types it supports; reject an
-incompatible combination clearly. Build reusable parts where they help, without requiring every
-skill to work on every morphology or loadout. Separate defaults from the contracts they use.
+A tactical experiment can hold skills and motor control fixed; a skill experiment can hold its
+Mind and motor control fixed; a controller experiment can hold motion goals fixed. Record
+which boundary changes. Each boundary has its own small typed vocabulary; avoid one command
+object containing every algorithm's settings. Add a shared abstraction when distinct working
+implementations need it.
 
-## Commands and feedback
+## Rules for shared code
 
-- Policies read detached observations and permitted capabilities, and return checked commands.
-  Engine handles stay with trusted body and controller adapters. Another Mind's memory, goals
-  and future commands are never observations.
-- Commands go down; capabilities and execution feedback come back up. Report what is running,
-  progress, completion, interruption and why an ask could not be met. Planners must be able to
-  respond to unavailable force, reach or support instead of continuing an impossible plan.
-- Physical limits and assist ceilings are enforced at actuation. Higher layers can read their
-  effects when planning; stronger or faster actuators alone do not produce a better plan.
-- Define ownership and interruption for competing skills. A task controller defines its
-  priorities and how it scales errors before weighing them. Observed contacts and requested
-  support are separate: requesting a contact cannot create one.
-- Describe motion through physical frames, points, orientations and permitted grips. An item
-  contributes geometry, mass and inertia; coordinated hands and changing grips can add
-  constraints. Reuse those descriptions across loadouts.
-- Each participant owns its state and immutable configuration. Include policy memory, random
-  streams, action lifecycles and any solver history that affects the next command in saved
-  state. Keep scratch work separate.
-- Physics advances only through `World.step`. Decision periods are explicit simulation-step
-  counts; define held commands, interruption and idle/resume behaviour at each boundary.
+- **Keep algorithms local.** Shared orchestration does not choose behaviour through special
+  cases for a model, item, mode, opponent or seed. Describe bodies and items through physical
+  data and capabilities. Hand-authored skills, learned policies and tuned parameters belong to
+  their implementation and explicit configuration. Defaults remain separate from contracts.
+- **Make compatibility explicit.** Each implementation declares what commands and capabilities
+  it needs. Reject unsupported compositions when building them. Report temporary inability
+  during execution. No silent substitution of another controller. A skill can support a limited
+  family of bodies or loadouts without making the framework specific to that family.
+- **Keep authority at the boundary.** Policies read detached observations and return checked
+  commands; engine handles stay with trusted adapters. Physical limits, assist ceilings and grip
+  permissions apply to every implementation. Higher layers can read capability estimates.
+  Describe motion with named frames, points, orientations and units, including coordinated grips.
+- **Return useful feedback.** Commands go down; capabilities, execution status and reasons an ask
+  could not be met come back up. Define skill ownership and interruption, and task priorities
+  and error scaling. Observed contacts differ from requested support. Physical success is judged
+  from the resulting observations, independently of a controller's claimed completion.
+- **Own time and state.** Physics advances only through `World.step`. Define decision periods,
+  held commands and idle/resume behaviour. Each participant owns immutable configuration and
+  explicit saved state, including random streams, policy memory and solver history that affects
+  later commands. Scratch work carries no history. Sense the world before policies act, applying
+  each policy's declared observation restrictions; another Mind's private state is never sensed.
 
 Build on the existing Mind registry (`src/core/mind/controllers.ts`), skill lifecycle and
 ownership (`src/core/skills/arbiter.ts`), motion tasks (`src/core/control/tasks.ts`), detached
 policy host (`src/core/mind/direct.ts`) and seeded environment (`src/core/tasks/environment.ts`).
-Extend these contracts as an experiment needs them, keeping algorithm choices behind them.
+Use explicit factories and configuration; extend these modules only as a concrete experiment
+requires. Keep one path for stepping, applying commands, saving and disposing a participant.
 
 ## Modes and comparisons
 
@@ -66,12 +71,12 @@ made explicit.
 Select each participant's Mind, skills and controller independently, including Dungeon enemies
 and actors with the same body model. A player character and AI enemies are sufficient for the
 Dungeon. Companion following, party selection, formations and group orders are outside this
-work; this plan neither develops nor removes those existing features.
+work. Removing existing party features is a separate task.
 
 An experiment recipe identifies the scenario and seeds, each participant's implementation and
 configuration, bodies, loadouts, attributes, assists, rules, observations, decision periods,
-engine revision and any learned-weight asset. Use the same execution path headlessly and in
-the page. Save/restore includes the scenario and all participants as well as physics.
+code and engine revisions and any learned-weight asset. Use the same execution path headlessly
+and in the page. Save/restore includes the scenario and all participants as well as physics.
 
 Keep scenario objectives and scoring independent of the controller. For comparisons, state what
 changed and hold the remaining conditions fixed. Report failures and results against individual
@@ -80,15 +85,16 @@ an experiment runs correctly; capability and fighting strength require their own
 
 ## Order of work
 
-1. Use two existing Minds to establish the smallest shared observation, command and feedback
-   contracts. Allow each to select compatible skills and motor control without changing the
-   scenario or the other participant. Continue the whole-body controller work alongside this.
-2. Prove the complete path in a short Arena bout and a small Dungeon encounter with independently
-   configured enemies. Check state restoration, feedback, interruption and refusal of unsupported
-   combinations. This does not depend on completing every gait or recovery technique.
-3. Add experiments at the skill, motion-task and direct-actuator boundaries as they are needed.
-   Reuse fixtures and opponents to isolate what each replacement changes. Keep a working default
-   and explicit comparison configurations as implementations evolve.
+1. Establish the common participant boundary with existing implementations that use different
+   execution paths, including a composed fighter and a direct policy. Reuse their lifecycle and
+   validation. Continue the whole-body controller work alongside this.
+2. Exercise independent configuration in a short Arena bout and a small Dungeon encounter.
+   Check restoration, feedback, interruption and rejection of unsupported compositions. This
+   does not depend on completing every gait or recovery technique.
+3. For each skill or motor-control boundary an experiment needs, exercise two distinct
+   implementations against it. Add a compatible implementation through its module, configuration
+   and registration, without changing game modes or unrelated algorithms. Extend the contract
+   only when a real shared requirement is missing. Keep a working default for comparison.
 
 Land small changes under the repository's normal checks. Run the relevant scenario tests when
 changing their paths; use measurements when evaluating a capability, strength or performance
