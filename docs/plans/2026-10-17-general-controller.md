@@ -208,8 +208,10 @@ forward walks 1.20 for 11.8 s of a 20 s walk and falls on a short step the solve
 forward pace is 0.8 of it on each, and sideways and back the legs' own cap is half of it or
 less: SIMBICON's 1.4 m/s sideways and 2.5 back are at or past a human's preferred forward walk,
 the paces of a tracker that leans and shoves rather than steps, so the every-way gate as written
-measures the old tracker, not a walk. Whether the walk's gate sideways and back is the legs' cap
-or SIMBICON's figure is the owner's call, raised in the checkpoint. Since: the swing leg's reach
+measures the old tracker, not a walk. The owner's decision (2026-10-18): sideways and back stay a
+walk, stepping, never a shuffle or a run, so the gate there is the walk's own pace, without
+falls; forward is to be fast, to 5 m/s, a run past the walk's top, which stage 3 builds on this
+generator. Since: the swing leg's reach
 is its two links' with the heel's shortfall (`SwingLeg`, `FootState.back`); a step lands leaning
 as its line from the hip has it, flat where the ankle's range reaches and pitched by the rest
 (`landingLean`, `landingTurnToRef`); and the swing path is the sole's lowest corner's
@@ -352,8 +354,8 @@ duplication.
 |---|---|---|---|
 | 0 | **The solve.** Merge the bearing solve and `wholeBodyTracking` into one production solve with muscle, assist and contact bounds and a posture task; the torque-source command path to the driver. | Standing under the assist reference's pulls (`tests/core-assist.test.mjs`) matches today's stance; ≤ 0.5 ms a body a step (`step-time.mjs`); the bout fingerprint moves only for bodies on the solve. | 2 to 3 weeks; the proof |
 | 1 | **Standing and the shove** on capture-point stepping, Balance as the assist bound. | On the stance trials (`research/core-stance-trials.mjs`) no more falls than today's stance at 0 %, and at 25 % no pace lost on the gait battery. | 1 to 2 weeks |
-| 2 | **Walk, stop and turn** on the same generator; delete SIMBICON's walk and its ways. | Walk envelope at or above today's every way; stop battery 0 of 96; the Move bout's `todo` passes. | 2 weeks |
-| 3 | **The run** with flight, the clip as the posture prior; delete the clip tracker. | Warrior ≥ 4.5 m/s steady; Haste +100 adds ≥ 1 m/s; gait battery ≤ 19 of 300; the club's run ≤ 18 of 150; the owner's eye on the look. | 2 weeks |
+| 2 | **Walk, stop and turn** on the same generator; delete SIMBICON's walk and its ways. | Walk envelope at or above today's forward and forward-right, and sideways and back a walk that steps, at its own pace, without falls; stop battery 0 of 96; the Move bout's `todo` passes. | 2 weeks |
+| 3 | **The run** with flight, the clip as the posture prior; delete the clip tracker. | Forward to 5 m/s (the owner's aim), the Warrior ≥ 4.5 m/s steady; Haste +100 adds ≥ 1 m/s; gait battery ≤ 19 of 300; the club's run ≤ 18 of 150; the owner's eye on the look. | 2 weeks |
 | 4 | **The stand-up** as a contact sequence; then the learned policy with the Grit curriculum where the sequence cannot start; delete step-up's stages. | Unassisted ≥ 40 of 64, median ≤ 9 s; with Grit median < 4 s; the frozen screen run and reported. | 2 to 4 weeks |
 | 5 | **Strikes and holds** as tasks; delete the per-skill drivers. | League Elo at or above today's (`research/arena-combat-league.mjs`); the one-two and the guard keep their windows. | 2 weeks |
 
