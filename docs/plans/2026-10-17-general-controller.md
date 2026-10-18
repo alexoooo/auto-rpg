@@ -240,7 +240,14 @@ centre of pressure no more than a few centimetres behind the ankle (the Rogue's 
 toward the heel against 208.8 toward the toes), so a body falling toward its heels cannot brake
 standing and must step; and the swing hip's reaction pitches the pelvis from 15° forward to 15°
 back within a step back, the ground short of the asked wrench all swing (30 to 230 N m), which
-takes the Rogue's 16° of hip extension, so its steps back land about 0.2 m short. The Arena's
+takes the Rogue's 16° of hip extension, so its steps back land about 0.2 m short. Since: the solve
+holds a limb's freedom at the range's stop it presses and weighs a limb's spin rows at its reach
+(`holdStops`, `spinRow`, `solve.ts`), and on the solve a swinging foot is pulled onto its path at
+0.04 s (`WHOLE_BODY_SECONDS`): at 0.1 s the foot lagged its path where the path rises late under a
+leg stepping back (the knee bending, the ankle on its stop, the toes dropping), and its toes met
+the ground short of the landing and dragged. The gait battery asked 0.7 to 1.8 m/s five ways holds
+30 and 30 of 30 (26 and 27 before), and the stop battery 48 and 48 of 48: the gate's 0 of 96 is
+met on the solve (`docs/reference/stance-tuning.md#time-constants`). The Arena's
 steered club blow (`tests/research-blow.test.mjs`) steps on the blow's contact and staggers to a
 fall. The Move bout's `todo` is not yet run against the generator. SIMBICON's walk and its ways stay the game's
 walk until the gate is met; the run (stage 3) builds on this generator.

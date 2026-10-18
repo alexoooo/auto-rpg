@@ -97,6 +97,32 @@ Command: the sweep at `abfe6153`, a variant a row, each with the four constants 
 `{"seconds": {"across": 0.2, "height": 0.15, "turn": 0.15, "swing": 0.1}}` is the first. The first
 row and the chosen one were read again.
 
+On the whole-body solve (`WHOLE_BODY_SECONDS`) the swing alone was swept, against the five-way
+gait battery asked 0.7 to 1.8 m/s (30 walks a body, each 8 s then stopped) and the stop battery
+(0.7, 1.0 and 1.2 m/s four ways, empty and club, calm and in a 1 m/s gust; 48 a body). Node stand,
+Rapier, 120 Hz, balance 0, at `d3b0f048`.
+
+                     gait held          stop held
+                     Rogue  Warrior     Rogue  Warrior
+        swing 0.1    26     27          43     45
+        swing 0.07   28     27          47     47
+        swing 0.05   30     27          48     48
+        swing 0.04   30     30          48     48      chosen
+        swing 0.035  29     30          48     48
+        swing 0.025  30     30          47     48
+
+Every fall at 0.1 is a walk or stop backward at 1 m/s or more: the solve gives the swinging foot
+the acceleration it asks, but the foot lags its path by the constant, most where the path rises
+late under a leg stepping back (the knee bending, the ankle on its dorsiflexion stop, the toes
+dropping); the Warrior stepping back at 1.6 m/s had its toes on the ground from 0.63 of the swing
+and landed 0.07 m short. At 0.025 the Warrior's club stop in the gust settles only after 6 s. The
+pace walked falls a little as the swing stiffens (the Warrior at 1.0 m/s asked walks 0.81 of it at
+0.1, 0.69 at 0.04). The bearing solve stays at 0.1: pulled at 0.05 it walks the Lab's Rogue off its
+line (`tests/lab-stance.test.mjs`). Command: `node research/core-stance-sweep.mjs --variants
+'[{"seconds": {"across": 0.3, "height": 0.15, "turn": 0.15, "swing": 0.1}}]' --batteries gait
+--speeds 0.7,1.0,1.2,1.4,1.6,1.8 --ways 0,45,90,180,270 --solve`, and `--batteries stop --speeds
+0.7,1,1.2 --ways 0,90,180,270 --gusts 1:5:5 --solve`.
+
 ## Knee bend
 
 `STANCE_KNEE_BEND`. Asked to stand higher than its legs reach, a stance held to the height asked

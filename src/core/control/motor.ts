@@ -7,7 +7,7 @@ import type { Assist } from "./assist.ts";
 import { servoAsk, servoSolve } from "./servo.ts";
 import { makeWholeBody, solveBody } from "./solve.ts";
 import { stanceControl, type StanceControl, type StanceGoal } from "./stance.ts";
-import type { StanceTuning } from "./stance-tuning.ts";
+import { WHOLE_BODY_SECONDS, type StanceTuning } from "./stance-tuning.ts";
 
 /** Joint angles, rad, by channel name. */
 export type Pose = Readonly<Record<string, number>>;
@@ -90,11 +90,12 @@ export interface MotorControl {
 
 /**
  * Motor control of `built`, servoing at a time constant of `seconds`; its stance asks `assist` for
- * what the soles miss. With `solve`, the body is on the whole-body solve.
+ * what the soles miss. With `solve`, the body is on the whole-body solve, its stance at
+ * `WHOLE_BODY_SECONDS` unless `stanceTuning` gives its own.
  */
 export function motorControl(built: BuiltBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning, assist: Assist | null = null,
   solve = false): MotorControl {
-  const stance = stanceControl(built, stanceTuning, assist);
+  const stance = stanceControl(built, solve && !stanceTuning?.seconds ? { ...stanceTuning, seconds: WHOLE_BODY_SECONDS } : stanceTuning, assist);
   const root = rootSegment(built);
   const tracker = effectorTracker(built, root);
   const whole = solve ? makeWholeBody([...built.joints.values()].reduce((count, joint) => count + joint.dofs.length, 0), 2) : null;
