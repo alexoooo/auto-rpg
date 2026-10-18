@@ -321,7 +321,10 @@ proportional placement (Raibert's) leaves a load carried to one side; the skelet
 went too far across to have gone as asked and the Rogue's fell. The sway's error integrated into
 the sole's placement removed that drift where it was seen, but felled the gait battery (41 falls
 to 88 and 132, at gains 0.2 and 0.5 a second, 0.1 m at most, mostly fast runs and turns), and
-integrated a stride at a time it left the skeleton's trials as they were and felled the Rogue's: it is not kept.
+integrated a stride at a time it left the skeleton's trials as they were and felled the Rogue's: it is not kept. Turning the
+run's heading to bring its travel round to the way asked (the travel's error integrated, 1 a second, 0.6
+rad at most) took the drift off too, but fell more on the gait battery, 102 of 600 against 83 over
+gust seeds 5 to 12, mostly in turns: not kept either.
 
 **Locomotion.** On the gait battery (asked 1.4 to 5 m/s, three stops, two turns, gust seeds 5
 to 8, empty and club: 300 trials; `research/run-cycle-search.mjs --score`), and the stop battery
