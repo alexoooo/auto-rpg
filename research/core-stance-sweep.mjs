@@ -17,6 +17,10 @@
  *   then stop: held (not fallen), on pace (0.8 to 1.25 of the speed along over 3 s, under a quarter
  *   of it across), the mean ratio along of those held, those stopped (under 5 cm/s, standing, 4 s
  *   after), and those held at each speed.
+ * - stop: the gait battery's walks, each empty-handed and holding the club, calm and in the lab's
+ *   gusts on each seed of `--gusts rate:strength:seeds` (`startWind`): held (not fallen), still
+ *   (stopped and no step over the last 2 s), the cells that fell and the unsettled ones with their
+ *   steps and how far they stand off their place, m, and the mean of that over those held.
  * - shove: 10 to 60 N s (`--top`) by 5, sixteen ways; the shoves held, and the impulse held each way
  *   (the largest below the first that fell): mean and least. With `--walked 0.3` each shove comes 3 s
  *   after a 3 s walk forward at that pace stops; `apart` is the soles' mean distance across, mm.
@@ -31,9 +35,11 @@ const { values } = parseArgs({ options: {
   hz: { type: "string", default: "120" }, workers: { type: "string" }, models: { type: "string", default: "workshop-rogue,workshop-fighter" },
   top: { type: "string", default: "60" }, walked: { type: "string", default: "0" },
   speeds: { type: "string", default: "0.2,0.3,0.4,0.5,0.7" }, ways: { type: "string", default: "0,90,180,270,45" },
-  solve: { type: "boolean", default: false }, balance: { type: "string" },
+  solve: { type: "boolean", default: false }, balance: { type: "string" }, gusts: { type: "string" },
 } });
 const variants = JSON.parse(values.variants), batteries = values.batteries.split(","), hz = Number(values.hz), models = values.models.split(",");
+/** The winds the stop battery's walks are walked in: calm, and the gusts on each seed of `--gusts rate:strength:seeds`. */
+const winds = [null, ...(values.gusts ? (([rate, strength, seeds]) => seeds.split(",").map((seed) => ({ rate: Number(rate), strength: Number(strength), seed: Number(seed) })))(values.gusts.split(":")) : [])];
 const top = Number(values.top), solve = values.solve, balance = values.balance === undefined ? null : Number(values.balance);
 const lanes = Number(values.workers ?? Math.max(1, availableParallelism() - 2));
 
@@ -45,6 +51,9 @@ variants.forEach((stance, v) => { for (const model of models) {
   if (batteries.includes("step")) for (const foot of ["left", "right"]) for (const [dx, dz] of [[0, 0.15], [0, 0.25], [0, -0.15], [foot === "left" ? -0.1 : 0.1, 0]]) add("step", { foot, dx, dz });
   if (batteries.includes("walk")) for (const degrees of [0, 90, 180]) add("walk", { degrees, speed: 0.3 });
   if (batteries.includes("gait")) for (const speed of values.speeds.split(",").map(Number)) for (const degrees of values.ways.split(",").map(Number)) add("walk", { degrees, speed, gait: true });
+  // stop: the gait battery's walks, each empty-handed and holding the club, calm and in the lab's gusts on each seed of `--gusts`, read for the stop.
+  if (batteries.includes("stop")) for (const speed of values.speeds.split(",").map(Number)) for (const degrees of values.ways.split(",").map(Number))
+    for (const held of [null, "club"]) for (const wind of winds) add("walk", { degrees, speed, held, wind, stop: true });
   if (batteries.includes("shove")) for (let w = 0; w < 16; w++) for (let impulse = 10; impulse <= top; impulse += 5) add("shove", { degrees: 22.5 * w, impulse, walked: Number(values.walked) });
 } });
 
@@ -82,12 +91,12 @@ variants.forEach((stance, v) => { for (const model of models) {
     const fails = steps.filter((r) => r.phases !== "stand shift swing stand" || r.miss > 0.017 || r.turned > 0.05 || r.off > 0.005 || r.low < -0.005 || r.low > 0.05 || r.speed > 0.01 || r.drift > 0.01);
     parts.push(`step fails ${fails.length}/${steps.length} [${fails.map((r) => `${r.foot[0]}${r.dx},${r.dz}`).join(" ")}] worst miss ${mm(Math.max(...steps.map((r) => r.miss)))} drift ${mm(Math.max(...steps.map((r) => r.drift)))}`);
   }
-  const walks = of("walk").filter((r) => !r.gait);
+  const walks = of("walk").filter((r) => !r.gait && !r.stop);
   if (walks.length) {
     const fails = walks.filter((r) => r.fell || r.strides < 8 || r.along < 0.21 || r.along > 0.375 || Math.abs(r.across) > 0.075 || r.phase !== "stand" || r.stepped !== 0 || r.off > 0.05);
     parts.push(`walk fails ${fails.length}/${walks.length} [${fails.map((r) => r.degrees).join(",")}] along ${walks.map((r) => r.along.toFixed(3)).join(",")}`);
   }
-  const gaits = of("walk").filter((r) => r.gait);
+  const gaits = of("walk").filter((r) => r.gait && !r.stop);
   if (gaits.length) {
     const held = gaits.filter((r) => !r.fell), pace = held.filter((r) => r.along > 0.8 * r.speed_ && r.along < 1.25 * r.speed_ && Math.abs(r.across) < 0.25 * r.speed_);
     const stopped = held.filter((r) => r.speed < 0.05 && r.phase === "stand");
@@ -97,6 +106,15 @@ variants.forEach((stance, v) => { for (const model of models) {
       + ` capped ${gaits.filter((r) => r.capped < 0.99 * r.speed_).length} (pace ${gaits.map((r) => r.capped.toFixed(2)).join(",")})`);
     // Each cell: the speed asked at its way, the pace walked along it (an x where it fell), and the pace the legs capped it at.
     parts.push(`gait cells ${gaits.map((r) => `${r.speed_}@${r.degrees}:${r.fell ? "x" : r.along.toFixed(2)}/${r.capped.toFixed(2)}`).join(" ")}`);
+  }
+  const stops = of("walk").filter((r) => r.stop);
+  if (stops.length) {
+    // A stop held if the body did not fall and stands still on both feet 4 s after the walk was taken away; the steps it took over the last 2 s and how far it stands off its place are its settling.
+    const held = stops.filter((r) => !r.fell), still = held.filter((r) => r.speed < 0.05 && r.phase === "stand" && r.stepped === 0);
+    const fell = stops.filter((r) => r.fell), unsettled = held.filter((r) => !still.includes(r));
+    const cell = (r) => `${r.speed_}@${r.degrees}${r.held ? "+" + r.held : ""}${r.wind ? "~" + r.wind.seed : ""}`;
+    parts.push(`stop held ${held.length}/${stops.length} still ${still.length} fell [${fell.map(cell).join(" ")}] unsettled [${unsettled.map((r) => `${cell(r)}:${r.stepped}/${r.off.toFixed(2)}`).join(" ")}]`
+      + ` off ${mm(held.reduce((a, r) => a + r.off, 0) / Math.max(1, held.length))} mean`);
   }
   const shoves = of("shove");
   if (shoves.length) {

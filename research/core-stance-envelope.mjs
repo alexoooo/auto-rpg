@@ -20,7 +20,7 @@
  *
  *   node research/core-stance-envelope.mjs [--legs stride|simbicon|simbicon-run] [--write] [--workers 14]
  *     [--config settings.json] [--physique '{"speed":1.25}'] [--out envelope.json] [--walks]
- *     [--gusts 1:20:1,2]
+ *     [--gusts 1:20:1,2] [--solve]
  *
  * With `--legs simbicon --config` (or `simbicon-run`), the walk is the SIMBICON gait's with the settings in that file
  * (a `SimbiconConfig`, as the Lab's mind takes it) in place of its defaults; `--out` writes the
@@ -28,7 +28,7 @@
  * (`Physique`, `src/core/human/physique.ts`) in place of its own. `--walks` measures the walks alone,
  * with no turns. `--gusts rate:strength:seeds` walks each walk calm and again in the lab's gusts
  * (`startWind`) on each seed, and a speed holds only if every one of them held: calm, as asked;
- * in the gusts, standing.
+ * in the gusts, standing. `--solve` puts every body on the whole-body solve (`BodyOptions.solve`).
  */
 import { readFileSync } from "node:fs";
 import { Worker } from "node:worker_threads";
@@ -48,7 +48,7 @@ import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
  * forward right 0.13 along).
  */
 const SIMBICON_SPEEDS = [0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5];
-const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], simbicon: SIMBICON_SPEEDS, "simbicon-run": [...SIMBICON_SPEEDS, 3, 3.5, 4, 4.5] };
+const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], simbicon: SIMBICON_SPEEDS, "simbicon-run": [...SIMBICON_SPEEDS, 3, 3.5, 4, 4.5] };
 export const WAYS = [0, 90, 180, 270, 45];
 /**
  * How long a walk trial sets off before it is measured and rests after, s, by the legs it measures
@@ -72,7 +72,7 @@ export const HOLDS = HELD;
  */
 export const AFTERS = [...Array.from({ length: 13 }, (_, k) => k / 8), 3];
 
-const { values } = parseArgs({ options: { write: { type: "boolean", default: false }, workers: { type: "string" }, legs: { type: "string" }, config: { type: "string" }, out: { type: "string" }, physique: { type: "string" }, walks: { type: "boolean", default: false }, gusts: { type: "string" } } });
+const { values } = parseArgs({ options: { write: { type: "boolean", default: false }, workers: { type: "string" }, legs: { type: "string" }, config: { type: "string" }, out: { type: "string" }, physique: { type: "string" }, walks: { type: "boolean", default: false }, gusts: { type: "string" }, solve: { type: "boolean", default: false } } });
 /** The winds each walk is walked in: calm, and the gusts on each seed asked. */
 const WINDS = [null, ...(() => {
   if (!values.gusts) return [];
@@ -109,7 +109,7 @@ async function runAll(jobs) {
   })));
 }
 
-const walks = MODELS.flatMap((model) => SPEEDS.flatMap((speed) => WAYS.flatMap((degrees) => HOLDS.flatMap((held) => WINDS.map((wind) => ({ trial: "walk", model, speed, degrees, held, hz, stance: {}, legs: walker, physique, wind, ...TIMES_OF[legs] }))))));
+const walks = MODELS.flatMap((model) => SPEEDS.flatMap((speed) => WAYS.flatMap((degrees) => HOLDS.flatMap((held) => WINDS.map((wind) => ({ trial: "walk", model, speed, degrees, held, hz, stance: {}, legs: walker, physique, wind, solve: values.solve, ...TIMES_OF[legs] }))))));
 await runAll(walks);
 // A walk held if it did not fall and, calm, went the way asked at the pace asked: a gust throws a slow walk off its way, and is there to throw the body down.
 const went = (j) => !j.result.fell && (j.wind !== null || wentAsAsked(j.result.along, j.result.across, j.speed));
@@ -123,7 +123,7 @@ const upTo = (model, holds) => {
   return SPEEDS.filter((speed) => speed <= forward);
 };
 // Each thing held turns at the speeds up to its own fastest walk forward: the least of them, at those up to theirs.
-const turns = values.walks ? [] : MODELS.flatMap((model) => HOLDS.flatMap((held) => upTo(model, [held]).flatMap((speed) => RATES.flatMap((rate) => SENSES.flatMap((sense) => AFTERS.map((after) => ({ trial: "turn", model, speed, rate, sense, held, after, hz, stance: {}, legs: walker, physique })))))));
+const turns = values.walks ? [] : MODELS.flatMap((model) => HOLDS.flatMap((held) => upTo(model, [held]).flatMap((speed) => RATES.flatMap((rate) => SENSES.flatMap((sense) => AFTERS.map((after) => ({ trial: "turn", model, speed, rate, sense, held, after, hz, stance: {}, legs: walker, physique, solve: values.solve })))))));
 await runAll(turns);
 await Promise.all(pool.map((w) => w.terminate()));
 const turnHeld = (model, holds, speed) => RATES.map((rate) => turns.filter((j) => j.model === model && holds.includes(j.held) && j.speed === speed && j.rate === rate && !j.result.fell && turnedAsAsked(j.result.lag)).length);
