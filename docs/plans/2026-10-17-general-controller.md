@@ -306,14 +306,22 @@ stance's walk alone goes 0.88 m/s (the Warrior) and 0.74 (the Rogue). The walk a
 ahead and gave the way's sideways part up, and handed over to the run with the body moving 1 rad
 across the run's heading; now, asked past the run's pace within 60° of the face, the walk turns the
 body to the way asked, the run takes over once the pelvis faces it within 0.15 rad, and asked to
-stand the run brakes along its heading rather than turning back to the face. Forward-right (the
-walk-run envelope, one walk a cell, 0.2 to 4.5 m/s) the Warrior now holds to 2.5 m/s empty and 1.2
-with the club (1.2 and 1.0 before), the Rogue 3.5 and 2 (1 and 0.7), the skeleton 4 and 0.7 (0.7
-and 0.7), against SIMBICON's 1.7/1.7, 1.7/1.7 and 1.5/1.7. The gait battery falls 43 (51). What
-is short of the gate are club cells at 1.0 to 1.4 m/s, forward and forward-right: the Rogue's and
-the skeleton's forward with the club hold 0.7, the skeleton's forward-right with it 0.7, and the
-Warrior's forward-right with it fails at 1.4 alone; those are the run's first strides from a body
-the walk hands it at about 0.8 m/s.
+stand the run brakes along its heading rather than turning back to the face. The run also gave the legs back to the walk
+on a stance sole that bounced off the ground and down again, late in its stance with the body moving
+away from it and the other foot in the air, and the walk fell catching it (the stops from a run
+with the club); a landing is now the other sole's. On the walk-run envelope (one walk a cell, 0.2 to
+4.5 m/s), forward and forward-right, the Warrior holds every cell to 4.5 m/s, empty and with the
+club (forward-right 1.2 and 1.0 before); the Rogue 3.5 and 3.5 empty, and with the club 0.7 forward
+(a fall at 1.0 alone; it holds 1.2 to 3) and 2.5 forward-right (0.7 before); the skeleton 4 and 4
+empty, 0.7 and 0.7 with the club; SIMBICON's are 1.5/1.7 (the Warrior), 1.2/1.7 (the Rogue) and
+1.4/1.5 (the skeleton) empty, and 1.5/1.7, 1.2/1.7, 1.4/1.7 with the club. The gait battery falls
+41 (51). Short of the gate are the club's slow runs: asked 1.0 to 1.4 m/s the run with the club
+drifts across its heading 0.46 to 0.57 m/s, to the Rogue's left and the skeleton's right, as a
+proportional placement (Raibert's) leaves a load carried to one side; the skeleton's cells there
+went too far across to have gone as asked and the Rogue's fell. The sway's error integrated into
+the sole's placement removed that drift where it was seen, but felled the gait battery (41 falls
+to 88 and 132, at gains 0.2 and 0.5 a second, 0.1 m at most, mostly fast runs and turns), and
+integrated a stride at a time it left the skeleton's trials as they were and felled the Rogue's: it is not kept.
 
 **Locomotion.** On the gait battery (asked 1.4 to 5 m/s, three stops, two turns, gust seeds 5
 to 8, empty and club: 300 trials; `research/run-cycle-search.mjs --score`), and the stop battery

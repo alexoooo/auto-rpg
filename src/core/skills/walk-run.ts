@@ -104,8 +104,10 @@ interface WalkRunMemory {
   swinging: Side | null;
   /** How long the walk asked has stood past the run's pace a way it runs (`RUN_WAY`), s (`RUN_SWITCH.top`). */
   capped: number;
-  /** How many times the run has landed since it began (`RUN_SWITCH.landings`). */
+  /** How many times the run has landed since it began (`RUN_SWITCH.landings`), and the sole that landed last: a sole that
+   * touches down again before the other has landed has bounced in its stance, and has not landed. */
   ran: number;
+  landed: Side;
   /** Running: the heading, rad, its turn, rad/s, and the way asked at the last step, rad; and the pace it is asked, m/s. */
   heading: number;
   spin: number;
@@ -142,7 +144,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
   const runEnvelope = body.envelope ? quickened(simbiconRunEnvelope(body.built.spec), quick) : null;
   const legs = locomotion(body.envelope);
-  const memory: WalkRunMemory = { may, running: false, swinging: null, capped: 0, ran: 0, heading: 0, spin: 0, face: 0, pace: 0,
+  const memory: WalkRunMemory = { may, running: false, swinging: null, capped: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
     assisted: { root: new Quaternion(), read: false } };
   const state = { legs: legs.state, walkRun: memory, run: cycle.state };
 
@@ -159,6 +161,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   const runFrom = (view: BodyView, landed: Side, toward: number): void => {
     memory.running = true;
     memory.ran = 0;
+    memory.landed = landed;
     memory.heading = legs.heading;
     memory.spin = 0;
     memory.face = toward;
@@ -239,8 +242,9 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
       else memory.spin = 0;
       const h = memory.heading, along = v.x * sin(h) + v.z * cos(h);
       const driven = cycle.drive(view, dt, h, memory.pace);
-      if (driven.landed) memory.ran += 1;
-      if (driven.landed && memory.ran >= RUN_SWITCH.landings && memory.pace <= settings.run - RUN_SWITCH.below && along <= settings.run) {
+      const landing = driven.landed !== null && driven.landed !== memory.landed;
+      if (landing) { memory.landed = driven.landed!; memory.ran += 1; }
+      if (landing && memory.ran >= RUN_SWITCH.landings && memory.pace <= settings.run - RUN_SWITCH.below && along <= settings.run) {
         walkOn(view);
         return { kind: "stance", goal: legs.goal(view, asked, face, dt, lower, destination) };
       }

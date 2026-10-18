@@ -423,7 +423,8 @@ Their actuator methods and their readiness/footprints remain their own.
   envelope hold, and once the pelvis faces it within 0.15 rad and the body has come up to that pace,
   or the walk asked has stood past it 2 s, the run takes over as the stance's swinging sole lands,
   from that foot, at the pace the body goes (`RUN_SWITCH`): the run goes where its pelvis faces, and
-  a run handed a body moving across its heading falls. A run landing, its second or later, gives the
+  a run handed a body moving across its heading falls. A run landing (the other sole than the last
+  to land: a sole down again before it is a bounce in its stance), its second or later, gives the
   legs back to the stance's walk once the pace asked has come down 0.2 under `run`, or the way asked
   has gone round past `RUN_WAY`, or it is told it may not run, and the body has slowed to `run`;
   told it may not run, the run brakes at its `brake` until then. Running, it goes the way asked,
