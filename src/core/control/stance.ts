@@ -298,6 +298,12 @@ export interface StanceReading {
 }
 
 /**
+ * The least time, s, a pivot is chosen for (`planAcross`): a phase whose time has run out is still
+ * aimed, its pivot at the edge of what the ankles hold. A numeric setting.
+ */
+const PIVOT_FLOOR = 1e-3;
+
+/**
  * The plan's acceleration across the ground (x, z) by the stance's phase, and the place it is
  * held toward, into the reading. `pendulum` is g over the plan's height.
  */
@@ -313,8 +319,9 @@ function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], s
     // lands (Englsberger et al. 2011, "Bipedal walking control based on Capture Point
     // dynamics", IROS), within what the bearing ankle holds (`bearingOf`, `pivotWithin`): the body
     // falls toward its new stance. It is chosen while no less than the horizon is left
-    // (`GaitTuning.horizon`), and held after.
-    const w = Math.sqrt(pendulum), left = swing!.seconds - step.time;
+    // (`GaitTuning.horizon`), and held after; a phase that begins within it is chosen once, for the
+    // time it has (`PIVOT_FLOOR`).
+    const w = Math.sqrt(pendulum), left = swing!.seconds - (step.lifted ? step.time : 0);
     // The swing leg's reaction (`swingShiftToRef`): the pivot the plan falls about is the centre of
     // pressure shifted by it, now and, folded over the time left, as the foot lands; the centre of
     // pressure is kept within what the ankle holds. Before the foot has lifted, its path is from where it is.
@@ -326,7 +333,7 @@ function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], s
     const [tx, tz] = swing!.capture ?? [(bearer!.middle.x + swing!.to[0]) / 2, (bearer!.middle.z + swing!.to[1]) / 2];
     const { capture: [cx, cz], now: [nx, nz] } = step.shift;
     if (left >= gait.horizon || !step.pivoted) {
-      const grow = exp(w * Math.max(left, gait.horizon));
+      const grow = exp(w * Math.max(left, PIVOT_FLOOR));
       const [px, pz] = pivotWithin([bearingOf(bearer!)], r.x + u.x / w, r.z + u.z / w, (tx + cx - (r.x + u.x / w) * grow) / (1 - grow), (tz + cz - (r.z + u.z / w) * grow) / (1 - grow), 0);
       reading.place.set(px, 0, pz);
       step.pivoted = true;
@@ -340,10 +347,11 @@ function planAcross(s: Stance, goal: StanceGoal, stance: readonly FootState[], s
     // based on Divergent Component of Motion", IEEE T-RO): the walk keeps its momentum. The
     // point is within what the two ankles hold together (`bearingOf`): the step's reference has
     // the pivot cross from the trailing sole's middle to the leading one's (`transferStep`). It is
-    // chosen while no less than the horizon is left before the handover, and held after.
+    // chosen while no less than the horizon is left before the handover, and held after: a double
+    // support shorter than the horizon is chosen once, for the time it has.
     const w = Math.sqrt(pendulum), left = swing!.transfer - step.held;
     if (left >= gait.horizon || !step.pivoted) {
-      const grow = exp(w * Math.max(left, gait.horizon));
+      const grow = exp(w * Math.max(left, PIVOT_FLOOR));
       const [tx, tz] = swing!.handover!;
       const [px, pz] = pivotWithin(heldBy(stance), r.x + u.x / w, r.z + u.z / w, (tx - (r.x + u.x / w) * grow) / (1 - grow), (tz - (r.z + u.z / w) * grow) / (1 - grow), 0);
       reading.place.set(px, 0, pz);
