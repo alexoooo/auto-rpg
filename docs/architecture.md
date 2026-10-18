@@ -417,15 +417,18 @@ Their actuator methods and their readiness/footprints remain their own.
   behind its neutral point, to speed up, falls within seconds.
 - **The walk and run** (`walk-run.ts`, "Walk and run") walks by the stance's own walk and runs by
   SIMBICON's run cycle (`runCycle`, below), with its own settings (`WALK_RUN_CYCLE`, searched on
-  its own handover by `research/run-cycle-search.mjs`). Asked forward past `run` (0.86 m/s for the
-  Warrior, scaled to the body's leg) and told it may run (`Locomotion.runs`), the walk goes on at
-  what its legs and envelope hold, and once the body has come up to that pace, or the walk asked has
-  stood past it 2 s, the run takes over as the stance's swinging sole lands, from that foot, at the
-  pace the body goes (`RUN_SWITCH`). A run landing, its second or later, gives the legs back to the
-  stance's walk once the pace asked has come down 0.2 under `run`, or it is told it may not run,
-  and the body has slowed to `run`; told it may not run, the run brakes at its `brake` until then.
-  Running, it goes straight ahead, turning by its heading (`turn`, `swerve`, `turnRate`), and
-  past a right angle from the face asked it brakes and the walk turns the body round. The stance
+  its own handover by `research/run-cycle-search.mjs`). Asked past `run` (0.86 m/s for the
+  Warrior, scaled to the body's leg) a way within 60° of the face asked (`RUN_WAY`) and told it may
+  run (`Locomotion.runs`), the walk turns the body to face that way and goes it at what its legs and
+  envelope hold, and once the pelvis faces it within 0.15 rad and the body has come up to that pace,
+  or the walk asked has stood past it 2 s, the run takes over as the stance's swinging sole lands,
+  from that foot, at the pace the body goes (`RUN_SWITCH`): the run goes where its pelvis faces, and
+  a run handed a body moving across its heading falls. A run landing, its second or later, gives the
+  legs back to the stance's walk once the pace asked has come down 0.2 under `run`, or the way asked
+  has gone round past `RUN_WAY`, or it is told it may not run, and the body has slowed to `run`;
+  told it may not run, the run brakes at its `brake` until then. Running, it goes the way asked,
+  turning by its heading (`turn`, `swerve`, `turnRate`); asked to stand, it brakes along its
+  heading as it is, and past a right angle from the way asked it brakes and the walk turns the body round. The stance
   takes the body up as it is, moving (`Locomotion.resume`). Its envelope is the stance's walk's
   (`Body.envelope`), and SIMBICON's run's (`simbiconRunEnvelope`) while it may run; its settings
   and the run's are scaled to the body's leg and quickened by its haste as SIMBICON's are.

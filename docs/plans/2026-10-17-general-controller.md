@@ -301,9 +301,19 @@ the Rogue 0.75 (0.90). Neither lifting the swing's path by the larger of the dro
 one it has (the path dipped 4 cm at mid-swing) nor taking the pelvis's lean at the last landing
 from the hip's range moved those 240 walks (229 to 231). The gait battery (300 trials, Balance 0) falls 51
 (Warrior 9, Rogue 36, skeleton 6), against 125 with SIMBICON's run settings on the handover; at
-4 to 5 m/s asked the Warrior runs 3.36 m/s, the Rogue 2.82. Of the gate, forward-right is open: the
-stance's walk goes 0.88 m/s (the Warrior) and 0.74 (the Rogue) that way against SIMBICON's 1.4 and
-1.7, and the walk and run's pace that way is not measured.
+4 to 5 m/s asked the Warrior runs 3.36 m/s, the Rogue 2.82. Forward-right, the
+stance's walk alone goes 0.88 m/s (the Warrior) and 0.74 (the Rogue). The walk and run ran straight
+ahead and gave the way's sideways part up, and handed over to the run with the body moving 1 rad
+across the run's heading; now, asked past the run's pace within 60° of the face, the walk turns the
+body to the way asked, the run takes over once the pelvis faces it within 0.15 rad, and asked to
+stand the run brakes along its heading rather than turning back to the face. Forward-right (the
+walk-run envelope, one walk a cell, 0.2 to 4.5 m/s) the Warrior now holds to 2.5 m/s empty and 1.2
+with the club (1.2 and 1.0 before), the Rogue 3.5 and 2 (1 and 0.7), the skeleton 4 and 0.7 (0.7
+and 0.7), against SIMBICON's 1.7/1.7, 1.7/1.7 and 1.5/1.7. The gait battery falls 43 (51). What
+is short of the gate are club cells at 1.0 to 1.4 m/s, forward and forward-right: the Rogue's and
+the skeleton's forward with the club hold 0.7, the skeleton's forward-right with it 0.7, and the
+Warrior's forward-right with it fails at 1.4 alone; those are the run's first strides from a body
+the walk hands it at about 0.8 m/s.
 
 **Locomotion.** On the gait battery (asked 1.4 to 5 m/s, three stops, two turns, gust seeds 5
 to 8, empty and club: 300 trials; `research/run-cycle-search.mjs --score`), and the stop battery

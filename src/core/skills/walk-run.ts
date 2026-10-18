@@ -3,7 +3,7 @@ import type { Body, BodyView } from "../body.ts";
 import { paceToward, quickened, simbiconRunEnvelope, type StanceEnvelope } from "../control/stance-envelope.ts";
 import { hasteOver } from "../human/attributes.ts";
 import type { Side } from "../spec/body.ts";
-import { cos, sin } from "../math/real.ts";
+import { atan2, cos, sin } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
 import { locomotion, type LegsDrive, type Locomotion } from "./locomotion.ts";
 import { gaitAssist, type GaitAssistMemory } from "./gait-assist.ts";
@@ -63,7 +63,8 @@ export function validWalkRun(settings: WalkRunSettings): boolean {
 
 /**
  * Changing between the walk and the run as a foot lands, m/s: the run begins once the walk asked
- * is `past` over the run's pace and the body goes forward no slower than `short` under it, or
+ * is `past` over the run's pace, the body faces the way asked within `facing` rad (a run goes where
+ * its pelvis faces) and goes that way no slower than `short` under the run's pace, or
  * under the walk's own pace where the walk's envelope holds it slower, or the walk asked has stood
  * there `top` s (a walk whose legs cap it under its envelope's pace); and, once it
  * has landed `landings` times, gives way to the walk once the pace asked has come down `below`
@@ -72,7 +73,14 @@ export function validWalkRun(settings: WalkRunSettings): boolean {
  * that gives way at its first landing hands the walk a body just come down from the run's first
  * flight.
  */
-const RUN_SWITCH = { past: 0.05, short: 0.1, below: 0.2, top: 2, landings: 2 } as const;
+const RUN_SWITCH = { past: 0.05, short: 0.1, below: 0.2, top: 2, landings: 2, facing: 0.15 } as const;
+
+/**
+ * The farthest the way asked may be from the face asked for the walk and run to run it, rad: the
+ * walk turns the body to face that way as it comes up to the run, and the run goes it. Farther round,
+ * to the side and back, the body walks at the walk's own pace, facing as it is asked.
+ */
+const RUN_WAY = Math.PI / 3;
 
 /**
  * Running, the farthest the face asked may be from the run's heading for it to run on, rad: past
@@ -94,16 +102,15 @@ interface WalkRunMemory {
   running: boolean;
   /** The foot the stance's walk swung at its last step until that sole is on the ground, its landing; null once it is. */
   swinging: Side | null;
-  /** How long the walk asked forward has stood past the run's pace, s (`RUN_SWITCH.top`). */
+  /** How long the walk asked has stood past the run's pace a way it runs (`RUN_WAY`), s (`RUN_SWITCH.top`). */
   capped: number;
   /** How many times the run has landed since it began (`RUN_SWITCH.landings`). */
   ran: number;
-  /** Running: the heading, rad, its turn, rad/s, and the face asked at the last step, rad; the pace asked and the walk asked forward, m/s. */
+  /** Running: the heading, rad, its turn, rad/s, and the way asked at the last step, rad; and the pace it is asked, m/s. */
   heading: number;
   spin: number;
   face: number;
   pace: number;
-  asked: number;
   /** The pelvis's turn as the last step found it, for what the run asks of the body's assist (`gaitAssist`). */
   assisted: GaitAssistMemory;
 }
@@ -113,12 +120,13 @@ interface WalkRunMemory {
  * (`locomotion`: capture-point steps it plans itself) and runs by a run that tracks a person's
  * cycle (`runCycle`), driving the legs itself (`Locomotion.drive`).
  *
- * Asked forward past `run` (and told it may run, `Locomotion.runs`), the walk goes on at what its
- * legs and its envelope hold, and once the body has come up to that pace or the run's, or the walk asked
- * has stood past it `RUN_SWITCH.top` s, the run takes over as the stance's next step lands, from
- * that foot, at the pace the body goes; running, it goes straight ahead, turning only by its
- * heading, and a run landing gives the legs back to the stance's walk once the pace asked has come
- * down under the run's, or it is told it may not run, and the body has slowed to it (`RUN_SWITCH`).
+ * Asked past `run` a way near enough the face asked (`RUN_WAY`, and told it may run, `Locomotion.runs`),
+ * the walk turns the body to face that way and goes it at what its legs and its envelope hold, and once
+ * the body faces it and has come up to that pace or the run's, or the walk asked has stood past it
+ * `RUN_SWITCH.top` s, the run takes over as the stance's next step lands, from that foot, at the pace
+ * the body goes; running, it goes the way asked, turning only by its heading, and a run landing gives
+ * the legs back to the stance's walk once the pace asked has come down under the run's, or the way
+ * asked has gone round past `RUN_WAY`, or it is told it may not run, and the body has slowed to it (`RUN_SWITCH`).
  * The stance takes the body up as it is, moving (`Locomotion.resume`). Asked to stand while
  * running, the run brakes and the walk stops the body.
  *
@@ -134,7 +142,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
   const runEnvelope = body.envelope ? quickened(simbiconRunEnvelope(body.built.spec), quick) : null;
   const legs = locomotion(body.envelope);
-  const memory: WalkRunMemory = { may, running: false, swinging: null, capped: 0, ran: 0, heading: 0, spin: 0, face: 0, pace: 0, asked: 0,
+  const memory: WalkRunMemory = { may, running: false, swinging: null, capped: 0, ran: 0, heading: 0, spin: 0, face: 0, pace: 0,
     assisted: { root: new Quaternion(), read: false } };
   const state = { legs: legs.state, walkRun: memory, run: cycle.state };
 
@@ -147,29 +155,29 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     memory.pace = 0;
     legs.resume(view);
   };
-  /** The run begins from the body as it is, as the sole `landed` lands, the heading the walk's. */
-  const runFrom = (view: BodyView, landed: Side, face: number): void => {
+  /** The run begins from the body as it is, as the sole `landed` lands, the heading the walk's, asked the way `toward`. */
+  const runFrom = (view: BodyView, landed: Side, toward: number): void => {
     memory.running = true;
     memory.ran = 0;
     memory.heading = legs.heading;
     memory.spin = 0;
-    memory.face = face;
+    memory.face = toward;
     cycle.begin(view, memory.heading, landed);
   };
-  /** The run's heading this step: toward the face asked, at the turn the run takes at the pace it goes (`WalkRunSettings.turn`). */
-  const turnToward = (view: BodyView, face: number, dt: number): void => {
-    const v = view.stance.velocity, going = Math.max(memory.pace, Math.sqrt(v.x * v.x + v.z * v.z)), turn = wrap(face - memory.heading);
-    const turning = wrap(face - memory.face) / dt;
-    memory.face = face;
+  /** The run's heading this step: toward the way asked, at the turn the run takes at the pace it goes (`WalkRunSettings.turn`). */
+  const turnToward = (view: BodyView, toward: number, dt: number): void => {
+    const v = view.stance.velocity, going = Math.max(memory.pace, Math.sqrt(v.x * v.x + v.z * v.z)), turn = wrap(toward - memory.heading);
+    const turning = wrap(toward - memory.face) / dt;
+    memory.face = toward;
     const most = Math.min(settings.turn, going > 0 ? settings.swerve / going : Infinity), closing = Math.sqrt(2 * settings.turnRate * Math.abs(turn));
-    // The turn wanted: the face's own, and on to close on it as fast as a turn slowing at `turnRate` stops on it. A faster turn the
+    // The turn wanted: the way's own, and on to close on it as fast as a turn slowing at `turnRate` stops on it. A faster turn the
     // same way is taken at once; a slower one, or one the other way, is come to at that.
     const wanted = Math.max(-most, Math.min(most, Math.max(-most, Math.min(most, turning)) + (turn < 0 ? -closing : closing)));
     const change = settings.turnRate * dt;
     if (wanted * memory.spin >= 0 && Math.abs(wanted) >= Math.abs(memory.spin)) memory.spin = wanted;
     else memory.spin += Math.max(-change, Math.min(change, wanted - memory.spin));
     const step = memory.spin * dt;
-    // A step that would pass the face asked lands on it.
+    // A step that would pass the way asked lands on it.
     if (turn > 0 ? step >= turn : turn < 0 ? step <= turn : true) { memory.heading += turn; memory.spin = turn / dt; }
     else memory.heading += step;
   };
@@ -179,6 +187,8 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
    */
   const walkable = (asked: readonly [number, number] | null): readonly [number, number] | null =>
     memory.may && asked && asked[0] > settings.run ? [settings.run, asked[1] * settings.run / asked[0]] : asked;
+  /** Whether the way `asked` is one it runs (`RUN_WAY`). */
+  const runsWay = (asked: readonly [number, number] | null): boolean => asked !== null && Math.abs(atan2(asked[1], asked[0])) <= RUN_WAY;
   /** The envelope it walks by now: the run's while it may run. */
   const envelopeNow = (): StanceEnvelope | null => memory.may ? runEnvelope : body.envelope;
 
@@ -206,29 +216,31 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
         return { kind: "stance", goal: legs.goal(view, null, face, dt, lower, destination) };
       }
       if (!memory.running) {
-        const h = legs.heading, along = v.x * sin(h) + v.z * cos(h);
-        memory.capped = memory.may && asked && asked[0] > settings.run + RUN_SWITCH.past ? memory.capped + dt : 0;
+        const h = legs.heading, along = v.x * sin(h) + v.z * cos(h), speed = asked ? Math.sqrt(asked[0] * asked[0] + asked[1] * asked[1]) : 0;
+        memory.capped = memory.may && runsWay(asked) && speed > settings.run + RUN_SWITCH.past ? memory.capped + dt : 0;
         // A step of the stance's walk ends as its foot lands: the run takes over from that foot. A step
         // that ended late, its foot in the air, has not landed until its sole is on the ground.
         let landed: Side | null = null;
         if (s.phase === "swing") memory.swinging = s.own ? s.own.foot : null;
         else if (memory.swinging !== null && s.touching[memory.swinging]) { landed = memory.swinging; memory.swinging = null; }
-        if (landed && memory.capped > 0 && (along >= Math.min(settings.run, legs.pace) - RUN_SWITCH.short || memory.capped >= RUN_SWITCH.top)) runFrom(view, landed, face);
-        else return { kind: "stance", goal: legs.goal(view, walkable(asked), face, dt, lower, destination) };
+        // Heading for the run, the walk turns to face the way asked and walks it forward, as the run will.
+        const way = memory.capped > 0 ? face + atan2(asked![1], asked![0]) : face;
+        if (landed && memory.capped > 0 && Math.abs(wrap(way - s.facing)) <= RUN_SWITCH.facing && (along >= Math.min(settings.run, legs.pace) - RUN_SWITCH.short || memory.capped >= RUN_SWITCH.top)) runFrom(view, landed, way);
+        else return { kind: "stance", goal: legs.goal(view, walkable(memory.capped > 0 ? [speed, 0] : asked), way, dt, lower, destination) };
       }
-      // Running: straight ahead along the heading, at what the run's envelope holds, braking to turn round past `RUN_ROUND`.
+      // Running: along the heading, turning toward the way asked, at what the run's envelope holds; braking to turn round past
+      // `RUN_ROUND`, and, asked to stand or a way it does not run, along the heading as it is.
       const speed = asked ? Math.sqrt(asked[0] * asked[0] + asked[1] * asked[1]) : 0, envelope = envelopeNow();
-      const holds = asked && envelope ? paceToward(envelope, asked[0], asked[1], REACH) : Infinity;
-      const square = Math.abs(wrap(face - memory.heading)) <= RUN_ROUND;
+      const holds = asked && envelope ? paceToward(envelope, asked[0], asked[1], REACH) : Infinity, held = speed > holds ? holds / speed : 1;
+      const toward = runsWay(asked) ? face + atan2(asked![1], asked![0]) : memory.heading, on = runsWay(asked) && Math.abs(wrap(toward - memory.heading)) <= RUN_ROUND;
       // Told it may not run, it brakes to the walk's pace.
-      memory.asked = asked && square ? Math.min(asked[0] * (speed > holds ? holds / speed : 1), memory.may ? Infinity : settings.run - RUN_SWITCH.below) : 0;
-      memory.pace = Math.max(0, memory.asked);
-      if (square) turnToward(view, face, dt);
+      memory.pace = on ? Math.min(speed * held, memory.may ? Infinity : settings.run - RUN_SWITCH.below) : 0;
+      if (on) turnToward(view, toward, dt);
       else memory.spin = 0;
       const h = memory.heading, along = v.x * sin(h) + v.z * cos(h);
       const driven = cycle.drive(view, dt, h, memory.pace);
       if (driven.landed) memory.ran += 1;
-      if (driven.landed && memory.ran >= RUN_SWITCH.landings && memory.asked <= settings.run - RUN_SWITCH.below && along <= settings.run) {
+      if (driven.landed && memory.ran >= RUN_SWITCH.landings && memory.pace <= settings.run - RUN_SWITCH.below && along <= settings.run) {
         walkOn(view);
         return { kind: "stance", goal: legs.goal(view, asked, face, dt, lower, destination) };
       }
