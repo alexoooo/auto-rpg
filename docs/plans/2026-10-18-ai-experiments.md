@@ -71,7 +71,9 @@ requires. Keep one path for stepping, applying commands, saving and disposing a 
 ## Execution
 
 Minds run synchronously within `World.step`, as today. Asynchronous or GPU execution is not
-planned; it is built when a concrete experiment needs it.
+planned; it is built when a concrete experiment needs it. Every Mind in the game today is
+deterministic, and the checks that rely on that stay: a bout played twice, a forked bout, a bout
+replayed from its recipe and orders tape (`Duel.tape`, `src/arena/duel.ts`).
 
 Deterministic replay is a simulation guarantee. AI decision-making may be nondeterministic;
 repeatable inference is not a condition of entry. Record commands losslessly at the

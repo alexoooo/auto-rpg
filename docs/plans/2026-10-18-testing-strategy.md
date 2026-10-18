@@ -14,6 +14,7 @@ Separate checks by purpose before separating them by runtime:
 | Purpose | What it establishes | When it matters |
 |---|---|---|
 | Software contracts | Validation, physical limits, state isolation, lifecycle and action replay. | Small routine gate and focused checks for changed contracts. |
+| Floor | The game still works through its real path, whatever controller runs it. | Routine gate. |
 | Supported gameplay | Agreed outcomes through the real game path, including continued control. | Relevant development checks; the agreed set blocks promotion or release. |
 | Experimental quality | Capability, fighting strength or cost under stated conditions. | Explicit evaluation of a claim or a new default. |
 | Source policy | Required boundaries, provenance and other repository rules. | Separately named checks. |
@@ -21,15 +22,26 @@ Separate checks by purpose before separating them by runtime:
 The routine gate includes type checking and a small whole-path smoke check; build and page-start
 checks cover the browser path when relevant. Keep useful unit tests for rules and algorithms.
 The software smoke check exercises sensing, commands, physics and observations. Wounding both
-opponents or staying upright through a particular bout are gameplay promises, checked separately.
+opponents or staying upright through a particular bout is capability, not software: it is
+measured, or becomes a promise once the owner keeps it.
 Experimental failure does not imply broken infrastructure; research sweeps are separate from
 the routine gate. These groups are selection and reporting labels in the existing runner.
 
-Choose a small set of supported gameplay promises with the owner. Each names its supported
-configurations, conditions and observable outcome: for example, reaching a destination, stopping
-and acting again. Apply the same scoring to every implementation claiming that capability.
-Unsupported configurations are outside that claim, never successful trials. An unfinished goal
-remains visibly unmet; an accepted promise cannot become optional merely because a change breaks it.
+The game is in early development and promises no gameplay yet. Until it does, the routine gate
+holds software contracts and a **floor**: whole-path checks that any controller passes, with bars
+far enough below what the game does now that a controller or body change never needs them
+retuned. A bout runs and ends, with every state finite and no body flung; an unpushed body on its
+default controller is upright after a few seconds; an order changes where the body is, and the
+next order is still answered; each page and Lab scenario loads and steps. Capability (pace, falls,
+wins, a stand-up's time) is measured when the question is a measurement; a lower number is a
+finding to look into, not a red gate.
+
+A capability becomes a supported promise when the owner, having watched it, says to keep it. The
+promise names its supported configurations, conditions and observable outcome: for example,
+reaching a destination, stopping and acting again. Apply the same scoring to every implementation
+claiming that capability. Unsupported configurations are outside that claim, never successful
+trials. An unfinished goal remains visibly unmet; an accepted promise cannot become optional merely
+because a change breaks it.
 
 The frozen stand-up evaluator, pin, cases and agreed criteria remain unchanged. Its integrity
 checks and candidate acceptance are separate questions; neither implies current-game capability.
@@ -90,9 +102,11 @@ a passing group cannot hide failures or untested claims in another.
 
 ## Order of work
 
-1. Review the existing checks and recent costly failures. Identify the contract or promise each
-   protects, its proper group and any duplicate or obsolete assertion. Agree the initial gameplay
-   promises without inventing new capability thresholds or weakening existing acceptance.
+1. Review the existing checks and recent costly failures: what each protects, its group, and any
+   duplicate or obsolete assertion. Start with no gameplay promises. A capability assertion in the
+   gate either becomes a floor check, with a bar any controller passes, or leaves the gate as an
+   experimental measurement that stays runnable. A promise is added when the owner approves a
+   capability by eye. Existing acceptance, the frozen stand-up screen among it, is unchanged.
 2. Migrate one area at a time. Reuse fixtures, replace brittle assertions and demonstrate detection
    of the relevant defect. Keep failures visible; do not delete whole groups to shorten the run.
 3. Update `scripts/test.mjs`, `.github/workflows/pages.yml` and `AGENTS.md` together as each new
