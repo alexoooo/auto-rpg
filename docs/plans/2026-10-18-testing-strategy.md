@@ -13,7 +13,7 @@ Separate checks by purpose before separating them by runtime:
 
 | Purpose | What it establishes | When it matters |
 |---|---|---|
-| Software contracts | Validation, physical limits, state isolation, lifecycle and replay. | Small routine gate and focused checks for changed contracts. |
+| Software contracts | Validation, physical limits, state isolation, lifecycle and action replay. | Small routine gate and focused checks for changed contracts. |
 | Supported gameplay | Agreed outcomes through the real game path, including continued control. | Relevant development checks; the agreed set blocks promotion or release. |
 | Experimental quality | Capability, fighting strength or cost under stated conditions. | Explicit evaluation of a claim or a new default. |
 | Source policy | Required boundaries, provenance and other repository rules. | Separately named checks. |
@@ -38,10 +38,11 @@ checks and candidate acceptance are separate questions; neither implies current-
 
 - **Test the contract.** Check inputs, outputs and observable consequences. Assert internal
   phases or data layout only when those are themselves the contract. Use exact equality for
-  exact rules and same-configuration replay. Judge physical outcomes with meaningful units and
-  limits from the promised task, rather than the last run's trajectory or step count.
-  Replaying recorded actions and re-executing a policy are separate checks; a GPU policy's
-  reproducibility follows its declared backend guarantees, not an assumed cross-device match.
+  exact rules and simulation replay from matching initial state and recorded applied inputs.
+  Replay must work with the participating Minds disabled. CPU and GPU policies can decide
+  differently on another run; test decision repeatability only for an implementation that
+  explicitly promises it. Judge physical outcomes with meaningful units and limits from the
+  promised task, rather than the last run's trajectory or step count.
 - **Exercise the real path.** Physical capability checks use normal construction, commands,
   actuation and world stepping. Fixtures may isolate a task; constraints and assists are
   explicit. Score outcomes independently of a controller's completion flag. Pure logic tests
@@ -69,15 +70,18 @@ Compare candidate controllers under matching scenarios, bodies, physics, permiss
 assists. Keep absolute supported-gameplay requirements alongside baseline comparisons. Report
 results against individual opponents and use fresh cases when confirming an improvement.
 Run broader evaluations when promoting a candidate, rather than requalifying it after every edit.
+A scenario seed identifies conditions; reproducing AI decisions is not assumed. Use repeated
+trials when evaluating candidates whose decision-making varies.
 
 When a check fails, identify whether it exposes a contract violation, a lost supported capability,
 an unmet experimental goal, an invalid fixture or a broken test. Fix the responsible part.
 Retire redundant or implementation-specific assertions while preserving the requirement they
 were meant to protect. Timeouts and invalid runs are failed or inconclusive checks.
 
-A failing physical check reports the recipe and seed, code and engine identity, failed condition,
-and observed result with the expected value or limit. Provide a single-case replay through the
-same execution path so routine diagnosis does not require rerunning a research sweep.
+A failing physical check reports the recipe and seed, code and engine identity, recorded applied
+inputs, failed condition and observed result with the expected value or limit. Provide a
+single-case replay through the same simulation path so diagnosis does not require rerunning
+policy inference or a research sweep.
 
 Do not relax thresholds, select easier seeds, add hidden assistance, regenerate expected results
 or skip a failing promise merely to get green. A change to supported scope is an explicit owner

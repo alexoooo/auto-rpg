@@ -57,9 +57,10 @@ implementations need it.
   from the resulting observations, independently of a controller's claimed completion.
 - **Own time and state.** Physics advances only through `World.step`. Define decision periods,
   held commands and idle/resume behaviour. Each participant owns immutable configuration and
-  explicit saved state, including random streams, policy memory and solver history that affects
-  later commands. Scratch work carries no history. Sense the world before policies act, applying
-  each policy's declared observation restrictions; another Mind's private state is never sensed.
+  explicit memory for supported live save/resume, including policy memory and solver history.
+  Restoring a Mind need not reproduce its future decisions. Scratch work carries no history.
+  Sense the world before policies act, applying each policy's declared observation restrictions;
+  another Mind's private state is never sensed.
 
 Build on the existing Mind registry (`src/core/mind/controllers.ts`), skill lifecycle and
 ownership (`src/core/skills/arbiter.ts`), motion tasks (`src/core/control/tasks.ts`), detached
@@ -72,13 +73,21 @@ requires. Keep one path for stepping, applying commands, saving and disposing a 
 CPU and GPU implementations are in scope. A trusted host schedules asynchronous work from a
 declared observation step and delivers prepared, checked commands at declared action steps.
 `World.step` keeps synchronous control application and physics. Define late-result handling and
-save/restore of pending work explicitly. Backend support must not change an entrant's permitted
-observations or physical authority.
+supported live save/resume of pending work explicitly. Backend support must not change an
+entrant's permitted observations or physical authority.
 
-Record accepted commands with their simulation steps for action replay. Distinguish that replay
-from re-executing the policy: GPU numerical results are not assumed bit-identical across devices.
-Declare the backend and reproducibility guarantees. GPU support requires an explicit host and
-replay path while preserving deterministic physics and the existing exact execution path.
+Deterministic replay is a simulation guarantee. AI decision-making may be nondeterministic on
+CPU or GPU; repeatable inference is not a condition of entry. Record commands losslessly at the
+final actuation boundary, with their application steps and ordering, plus other external inputs
+that affect the simulation. Include muscle commands, permitted assists, grips and hand poses.
+An orders-only tape cannot reproduce nondeterministic downstream control.
+
+Replay uses the recorded inputs and matching initial state, rules and physics configuration,
+without executing the participating Minds. Test that the resulting physical state agrees exactly.
+Simulation rules must not depend on unrecorded private policy state.
+Replay checkpoints need simulation state and the recording position; restoring AI execution is
+a separate live-continuation capability. Re-running a Mind can produce a different bout. Preserve
+deterministic physics and existing exact implementations without requiring exact AI computation.
 
 Reuse existing performance targets and experiment-specific work limits. A comparison states its
 computation allowance, hardware/backend and decision periods for each entrant; cadence and
@@ -101,13 +110,14 @@ An experiment recipe identifies the scenario and seeds, each participant's imple
 configuration, bodies, loadouts, attributes, assists, rules, observations, decision periods,
 starting conditions, declared execution allowance/backend, code and engine revisions and any
 learned-weight asset. Use the same control and simulation interfaces headlessly and in the page;
-backend availability and reproducibility are explicit. Save/restore includes the scenario and
-all participants as well as physics.
+backend availability is explicit. Distinguish simulation replay checkpoints from live saves
+that also restore supported policy memory and pending work.
 
 Keep scenario objectives and scoring independent of the controller. For comparisons, state what
 changed and hold the remaining conditions fixed. Report failures and results against individual
-opponents alongside any aggregate ranking. Reproducibility and software checks establish that
-an experiment runs correctly; capability and fighting strength require their own evaluation.
+opponents alongside any aggregate ranking. Software checks protect execution and recorded-action
+replay; capability and fighting strength require their own evaluation, with repeated trials
+where decision-making varies.
 
 ## Order of work
 
@@ -116,7 +126,8 @@ an experiment runs correctly; capability and fighting strength require their own
    validation. Continue the whole-body controller work alongside this.
 2. Exercise independent configuration in a short Arena bout and a small Dungeon encounter.
    Check restoration, feedback, interruption and rejection of unsupported compositions. This
-   does not depend on completing every gait or recovery technique.
+   includes exact replay of recorded inputs with the participating Minds disabled. It does not
+   depend on completing every gait or recovery technique.
 3. For each skill or motor-control boundary an experiment needs, exercise two distinct
    implementations against it. Add a compatible implementation through its module, configuration
    and registration, without changing game modes or unrelated algorithms. Extend the contract
