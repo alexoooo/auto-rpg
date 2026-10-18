@@ -138,13 +138,13 @@ function stepWidth(foot: FootState, across: number, T: number, tuning: GaitTunin
  * The share of a step of (`dx`, `dz`) from the bearing sole's middle that `foot` can take, 1 if all
  * of it: no further than `longest` of the leg, and within `reserve` of its reach (`withinReach`,
  * `GaitTuning.reserve`) from the body's centre at (`cx`, `cz`) from that middle as the foot lands,
- * with its hip `hip` over the landing sole's middle and its knee bent no less than `bend` (null,
- * straight).
+ * its hip where the body carries it from the centre (`FootMemory.hip`), `hip` over the landing
+ * sole's middle, and its knee bent no less than `bend` (null, straight).
  */
 function stepShare(foot: FootState, dx: number, dz: number, cx: number, cz: number, rx: number, rz: number, sign: number, tuning: GaitTuning, hip: number, bend: number | null, reserve: number): number {
   const longest = tuning.longest * (foot.lengths[0] + foot.lengths[1]), far = hypot(dx, dz);
   // Within `reserve` of the reach: the step scaled up by it is within the whole, and its share is the step's own.
-  return Math.min(far > longest ? longest / far : 1, withinReach(foot.leg, dx / reserve, dz / reserve, cx, cz, rx, rz, sign, hip - foot.ankle, legLength(foot, bend), foot.back, false));
+  return Math.min(far > longest ? longest / far : 1, withinReach(foot.leg, dx / reserve, dz / reserve, cx, cz, foot.memory.hip, rx, rz, sign, hip - foot.ankle, legLength(foot, bend), foot.back, false));
 }
 
 /**
@@ -153,7 +153,7 @@ function stepShare(foot: FootState, dx: number, dz: number, cx: number, cz: numb
  * (`landingLean`): what the foot lands turned by (`SwingGoal.lean`).
  */
 function landingLeanOf(foot: FootState, dx: number, dz: number, cx: number, cz: number, rx: number, rz: number, sign: number, hip: number): [number, number] {
-  return landingLean(foot.leg, dx, dz, cx, cz, rx, rz, sign, hip - foot.ankle, foot.back);
+  return landingLean(foot.leg, dx, dz, cx, cz, foot.memory.hip, rx, rz, sign, hip - foot.ankle, foot.back);
 }
 
 /**
@@ -165,7 +165,7 @@ function landingLeanOf(foot: FootState, dx: number, dz: number, cx: number, cz: 
  * sole's middle.
  */
 function bearingShare(foot: FootState, cx: number, cz: number, rx: number, rz: number, sign: number, hip: number, bend: number | null, reserve: number): number {
-  return withinReach(foot.leg, 0, 0, cx / reserve, cz / reserve, rx, rz, sign, hip - foot.ankle, legLength(foot, bend), foot.back, true);
+  return withinReach(foot.leg, 0, 0, cx / reserve, cz / reserve, foot.memory.hip, rx, rz, sign, hip - foot.ankle, legLength(foot, bend), foot.back, true);
 }
 
 /**

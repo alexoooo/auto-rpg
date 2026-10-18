@@ -894,6 +894,10 @@ export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assis
     read(which) {
       const { feet, segments, total, pelvis } = s, { reading } = s.state, { p, whole } = s.scratch;
       massCentreToRef(segments, total, reading.centre, p, reading.velocity);
+      for (const foot of feet) {
+        const hip = foot.chain[0]!;
+        pointOfToRef(hip.parent, hip.spec.centre.value, foot.memory.hip).subtractInPlace(reading.centre);
+      }
       // The reference pose faces +z: its forward, turned as the pelvis has turned since.
       p.set(0, 0, 1).applyRotationQuaternionToRef(turnOfToRef(pelvis, whole), p);
       reading.facing = atan2(p.x, p.z);

@@ -193,7 +193,15 @@ five asked, its legs' cap 1.41; the Rogue 0.71, 0.96, 1.04, 1.00 and 1.00 (cap 1
 both walk at their cap (0.89 of 0.91, 0.78 of 0.77), sideways 0.66 of 0.70 and 0.55 of 0.60, back
 0.85 of 0.94 and 0.67 of 0.74. The reserve's and the horizon's sweeps are in
 `docs/reference/stance-tuning.md#pace-cap-crouch-and-horizon`. The shove battery to 90 N s is
-unchanged (the Rogue 163 of 272, the Warrior 235 against 238). Open: the Warrior asked 1.6 m/s
+unchanged (the Rogue 163 of 272, the Warrior 235 against 238). The reach is planned from the hip
+where the body carries it from its centre of mass, read each step (`FootMemory.hip`): planned
+under the centre, the Rogue holding the club in the guard (its centre 0.08 m ahead of its hips)
+had every step back clamped to 0.85 of its reach and every club walk back fell on the stop; read,
+the stop battery (0.7, 1.0 and 1.2 m/s four ways, empty and club, calm and in a 1 m/s gust,
+`--batteries stop --gusts 1:5:5 --solve`) holds 41 and 44 of 48 (42 and 41 before), the falls
+left all stops from a backward walk asked 1.0 or 1.2 m/s, and on the gait battery asked to 2 m/s
+(30 of 30 each) the Warrior walks 1.46 forward, 1.21 back, 0.70 sideways and 0.91 forward-right,
+the Rogue 1.20, 0.80, 0.60 and 0.77. Open: the Warrior asked 1.6 m/s
 forward walks 1.20 for 11.8 s of a 20 s walk and falls on a short step the solve is 750 N and
 900 N m short of, followed by a 0.43 m wide one. Against the gate (SIMBICON Warrior
 1.5/1.4/2.5/1.5/1.4 m/s forward/right/back/left/forward-right, Rogue 1.2/1.2/1.7/1/1.7) the

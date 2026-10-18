@@ -382,7 +382,12 @@ Command: the sweep at the commit after `09c0a519`, `--batteries gait --speeds 0.
 The swing leg's reach is its two links' (`SwingLeg`, `reachAt`): the ankle's distance from the
 hip for a knee bent no less than the stance's bend, with the ankle behind the sole's middle by
 the heel's shortfall (`FootState.back`), so a step back reaches less than one forward by the
-heel. A step lands leaning as its line from the hip has it (`landingLean`, `SwingGoal.lean`): the
+heel, and from the hip where the body carries it from its centre of mass, read each step
+(`FootMemory.hip`): planned under the centre, the Rogue holding the club in the guard, its centre
+0.08 m ahead of its hips, had every step back clamped to 0.85 of its reach, landed short of the
+capture point stopping and sped up backward from 0.5 to 1.5 m/s over four steps and fell (every
+club walk back fell on the stop battery); read, it stops in two steps as the empty-handed body
+does. A step lands leaning as its line from the hip has it (`landingLean`, `SwingGoal.lean`): the
 foot lands flat where the ankle's range less its spare reaches the lean, and pitched by the rest
 where it does not (`landingTurnToRef`), on its toes stepping back and on its outer edge stepping
 out; before, every foot was asked flat, and a foot stepping back landed on its toes with the sole

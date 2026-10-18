@@ -38,6 +38,13 @@ export interface FootMemory {
    * stop, the leg pivots about that edge. Null, the sole is flat.
    */
   rolled: SoleEnd | null;
+  /**
+   * The hip joint's centre from the body's centre of mass, world, as last read
+   * (`StanceControl.read`): where the leg hangs from, which a step's reach is planned from
+   * (`withinReach`) as the body carries it, the trunk leaning or a held weight ahead moving the
+   * centre off the hips.
+   */
+  readonly hip: Vector3;
 }
 
 /** A foot as the stance reads it. */
@@ -96,7 +103,7 @@ export function footStatesOf(built: BuiltBody): FootState[] {
     if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
     const corners = soleCorners(segment), sole = soleOf(segment, corners), chain = chainTo(built, segment);
     const ankle = chain[2]!.spec.centre.value, ahead = aheadOf(corners, ankle), [mx, mz] = ankleToMiddle(corners, ankle);
-    return { turns: turnsOf(chain[0]!), side, segment, chain, sole, memory: { channels: [] as number[], rolled: null }, corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
+    return { turns: turnsOf(chain[0]!), side, segment, chain, sole, memory: { channels: [] as number[], rolled: null, hip: new Vector3() }, corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
       straight: -referenceBendOf(chain), leg: swingLegOf(chain),
       width: Math.max(...sole.map((q) => q.x)) - Math.min(...sole.map((q) => q.x)),
       // The rectangle's sides from one corner: the nearer two of the other three.
