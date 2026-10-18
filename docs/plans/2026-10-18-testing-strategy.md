@@ -40,6 +40,8 @@ checks and candidate acceptance are separate questions; neither implies current-
   phases or data layout only when those are themselves the contract. Use exact equality for
   exact rules and same-configuration replay. Judge physical outcomes with meaningful units and
   limits from the promised task, rather than the last run's trajectory or step count.
+  Replaying recorded actions and re-executing a policy are separate checks; a GPU policy's
+  reproducibility follows its declared backend guarantees, not an assumed cross-device match.
 - **Exercise the real path.** Physical capability checks use normal construction, commands,
   actuation and world stepping. Fixtures may isolate a task; constraints and assists are
   explicit. Score outcomes independently of a controller's completion flag. Pure logic tests

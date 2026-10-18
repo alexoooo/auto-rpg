@@ -24,6 +24,9 @@ These are conceptual responsibilities, not four mandatory runtime classes. Compo
 modules behind the existing participant lifecycle and checked actuation boundary. A direct Mind
 can replace skills and motor control together. It still uses the same physical limits, permitted
 actions, world step and state handling.
+An entrant may replace everything above that actuation boundary through an implementation factory
+and explicit configuration. Use the existing Mind registry; registration does not restrict the
+algorithm or require the options fighter, named skills or the whole-body solver.
 
 A tactical experiment can hold skills and motor control fixed; a skill experiment can hold its
 Mind and motor control fixed; a controller experiment can hold motion goals fixed. Record
@@ -43,8 +46,11 @@ implementations need it.
   family of bodies or loadouts without making the framework specific to that family.
 - **Keep authority at the boundary.** Policies read detached observations and return checked
   commands; engine handles stay with trusted adapters. Physical limits, assist ceilings and grip
-  permissions apply to every implementation. Higher layers can read capability estimates.
-  Describe motion with named frames, points, orientations and units, including coordinated grips.
+  permissions apply to every implementation. Inputs include permitted motion and contact readings
+  and immutable physical-model data: geometry, joint structure, masses, inertia and actuator limits.
+  Threat estimates and preferred actions belong to the Mind, not the observation contract.
+  Optional dynamics queries or prediction use only that permitted information, never privileged
+  live-world state. Describe inputs and motion goals with explicit frames and units.
 - **Return useful feedback.** Commands go down; capabilities, execution status and reasons an ask
   could not be met come back up. Define skill ownership and interruption, and task priorities
   and error scaling. Observed contacts differ from requested support. Physical success is judged
@@ -61,6 +67,24 @@ policy host (`src/core/mind/direct.ts`) and seeded environment (`src/core/tasks/
 Use explicit factories and configuration; extend these modules only as a concrete experiment
 requires. Keep one path for stepping, applying commands, saving and disposing a participant.
 
+## Execution
+
+CPU and GPU implementations are in scope. A trusted host schedules asynchronous work from a
+declared observation step and delivers prepared, checked commands at declared action steps.
+`World.step` keeps synchronous control application and physics. Define late-result handling and
+save/restore of pending work explicitly. Backend support must not change an entrant's permitted
+observations or physical authority.
+
+Record accepted commands with their simulation steps for action replay. Distinguish that replay
+from re-executing the policy: GPU numerical results are not assumed bit-identical across devices.
+Declare the backend and reproducibility guarantees. GPU support requires an explicit host and
+replay path while preserving deterministic physics and the existing exact execution path.
+
+Reuse existing performance targets and experiment-specific work limits. A comparison states its
+computation allowance, hardware/backend and decision periods for each entrant; cadence and
+episode duration alone do not bound computation. Add enforcement as an experiment requires,
+without building a separate budget framework in advance.
+
 ## Modes and comparisons
 
 Modes supply the scenario, permitted observations, objectives, participants and rules through
@@ -75,8 +99,10 @@ work. Removing existing party features is a separate task.
 
 An experiment recipe identifies the scenario and seeds, each participant's implementation and
 configuration, bodies, loadouts, attributes, assists, rules, observations, decision periods,
-code and engine revisions and any learned-weight asset. Use the same execution path headlessly
-and in the page. Save/restore includes the scenario and all participants as well as physics.
+starting conditions, declared execution allowance/backend, code and engine revisions and any
+learned-weight asset. Use the same control and simulation interfaces headlessly and in the page;
+backend availability and reproducibility are explicit. Save/restore includes the scenario and
+all participants as well as physics.
 
 Keep scenario objectives and scoring independent of the controller. For comparisons, state what
 changed and hold the remaining conditions fixed. Report failures and results against individual
