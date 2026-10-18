@@ -208,8 +208,9 @@ as its line from the hip has it, flat where the ankle's range reaches and pitche
 (`soleDrop`), which was what threw a body catching its own straight into eight steps. The honest
 reach wants less reserve: 0.9 holds all 30 of 30 walks a human asked to 1.8 m/s and paces the
 Warrior 1.22 forward, 0.69 sideways and 0.80 back, the Rogue 1.04, 0.59 and 0.63
-(`docs/reference/stance-tuning.md#reach-landing-lean-and-the-soles-path`). The walk back is
-bounded by the legs' brake, not their reach: paced nearer the legs' strength (`effort` 0.7) it
+(`docs/reference/stance-tuning.md#reach-landing-lean-and-the-soles-path`). Paced nearer the
+legs' strength (`effort` 0.7) the walk caps higher forward and falls there from 1.4 m/s asked
+(the Rogue) and 1.6 (the Warrior); with the double support shortened to 0.06 s the walk back
 creeps past its cap a step at a time with the pivot and the centre of pressure at the heel's edge
 and falls, and a stance catching a steered club blow staggers four steps or eight by chance
 (`tests/core-strike-skill.test.mjs`, red). The stop battery and the Move

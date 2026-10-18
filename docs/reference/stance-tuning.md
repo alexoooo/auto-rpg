@@ -396,28 +396,32 @@ On the six-speed five-way gait battery (asked 0.7, 1.0, 1.2, 1.4, 1.6 and 1.8 m/
 human, each 8 s then stopped; Node stand, Rapier, 120 Hz, on the whole-body solve, balance 0):
 walks held of 30 (every walk held stopped), and the pace walked forward at 1.2, 1.4, 1.6 and 1.8
 asked, sideways at 1.0 and back at 1.0 (x fell). `effort` 0.7 is the row that paces the legs
-nearer their strength.
+nearer their strength; the last row shortens the double support to 0.06 s with it.
 
-        reserve  effort  Rogue held  forward              side  back    Warrior held  forward              side  back
-        0.8      0.5     30          1.02 1.02 1.02 1.02  0.56  0.47    30            1.15 1.19 1.19 1.19  0.67  0.59
-        0.9      0.5     30          1.06 1.04 1.04 1.04  0.59  0.63    30            1.17 1.19 1.22 1.22  0.69  0.80   chosen
-        1        0.5     26          x    x    x    x     0.60  0.70    25            1.16 x    x    x     0.62  0.86
-        0.8      0.7     27          1.11 x    x    x     0.61  x       30            1.15 1.29 1.34 1.36  0.72  x
-        0.9      0.7     27          1.12 x    x    x     0.62  x       28            1.17 1.31 x    x     0.72  x
-        1        0.7     27          1.12 x    x    x     0.62  x       24            1.16 x    x    x     0.63  x
+        reserve  effort  transfer  Rogue held  forward              side  back    Warrior held  forward              side  back
+        0.8      0.5     0.08      30          1.02 1.02 1.02 1.02  0.56  0.47    30            1.15 1.19 1.19 1.19  0.67  0.59
+        0.9      0.5     0.08      30          1.06 1.04 1.04 1.04  0.59  0.63    30            1.17 1.19 1.22 1.22  0.69  0.80   chosen
+        1        0.5     0.08      26          x    x    x    x     0.60  0.70    25            1.16 x    x    x     0.62  0.86
+        0.8      0.7     0.08      27          1.11 x    x    x     0.56  0.47    30            1.19 1.31 1.26 1.26  0.67  0.59
+        0.9      0.7     0.08      27          1.10 x    x    x     0.59  0.63    28            1.21 1.37 x    x     0.69  0.80
+        1        0.7     0.08      27          1.09 x    x    x     0.51  0.81    24            1.20 1.39 1.46 x     0.62  x
+        0.8      0.7     0.06      21          1.11 x    x    x     0.61  x       25            1.15 1.29 1.34 1.36  0.72  x
 
 The two-link reach is shorter than the straight line it replaces, most of all back, and the
 reserve it needs is less: 0.9 of it holds every walk and paces the Warrior 0.80 m/s back against
-0.59 at 0.8, the Rogue 0.63 against 0.47. `effort` 0.7 caps the walk higher and the walks back
-fall at every reserve: the pace walked back creeps a step at a time past the cap (the Rogue asked
-0.7, 0.57 to 1.77 m/s over nine steps) with the plan's pivot and the measured centre of pressure
-both at the heel's edge and the dorsiflexor at its peak, each landing short of its re-aimed
-place by 0.1 m, until the leg cannot reach; it is the legs' brake, not their reach, that bounds
-a walk back, and it is open. The shove battery to 90 N s is unchanged (the Rogue 160 of 272
-against 163, the Warrior 237 against 235).
+0.59 at 0.8, the Rogue 0.63 against 0.47. `effort` 0.7 caps the walk higher forward and falls
+there from 1.4 m/s asked (the Rogue) and 1.6 (the Warrior), as `reserve` 1 does; with the double
+support shortened to 0.06 s every walk back falls too, the pace creeping a step at a time past
+the cap (the Rogue asked 0.7, 0.57 to 1.77 m/s over nine steps) with the plan's pivot and the
+measured centre of pressure both at the heel's edge and the dorsiflexor at its peak, each
+landing short of its re-aimed place by 0.1 m, until the leg cannot reach. Through a double
+support the body's measured pivot is 0.08 to 0.16 m from the plan's, which models no reaction
+there; through a swing the two agree within 0.02 m but at its first and last 0.03 s. The shove
+battery to 90 N s is unchanged (the Rogue 160 of 272 against 163, the Warrior 237 against 235).
 
-Command: the sweep at this commit, `--batteries gait --speeds 0.7,1.0,1.2,1.4,1.6,1.8 --ways
-0,45,90,180,270 --solve`; a row is the whole `STANCE_GAIT` with `reserve` and `effort` set.
+Command: the sweep at the commit after `76773653`, `--batteries gait --speeds
+0.7,1.0,1.2,1.4,1.6,1.8 --ways 0,45,90,180,270 --solve`; a row is the whole `STANCE_GAIT` with
+`reserve`, `effort` and `transfer` set.
 
 ## Heel-off
 
