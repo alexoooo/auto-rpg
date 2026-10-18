@@ -162,7 +162,7 @@ is untouched until stage 3 takes the run. The research stand-up learning environ
 declared-fallback fixture (`tests/research-recovery-learning.test.mjs`) now runs at 50 %, since at
 100 % the assist holds every shove it escalates to.
 
-**Walk, stop and turn (stage 2): under way; the gate is not met, and nothing is deleted.** The
+**Walk, stop and turn (stage 2): under way; the gate is not met.** The
 stance's walk (`walkStep` and `transferStep`, `src/core/control/gait.ts`: capture-point steps on a
 DCM preview) is being brought to the gate on the whole-body solve. Landed: the plan's pivot is
 chosen by the deadbeat law while no less than `horizon` is left of the step or the double
@@ -285,8 +285,7 @@ has and the pelvis rolled; with the ground short, the root's turn is aimed at th
 response to the wrench the ground missed (`rigidTurn`), as the bearing solve did. The game's walk
 and run is the stance's walk handing over to the cycle run (`walk-run.ts`, Move's Braced and
 Run), with its own run settings (`WALK_RUN_CYCLE`, searched on that handover; `RUN_CYCLE` stays
-SIMBICON's); SIMBICON's walk and run are offered beside it, for the owner to compare, and stage 2
-deletes them once the owner judges the new one better. The Move bout's `todo` passes. The stop
+SIMBICON's); SIMBICON's walk and run stay, offered beside it. The Move bout's `todo` passes. The stop
 battery falls 2 of 96, both 1.2 m/s back with the club (the Warrior calm, the Rogue in gust seed 5;
 the bearing solve at the start of the stage fell 13): the swing stepping back bends its knee to
 0.9 rad under a thigh near the vertical, the ankle rides its dorsiflexion stop, and the toe, hung
@@ -373,14 +372,14 @@ Not to be tried again on the controllers as they are. Each failed for the reason
 
 Each stage replaces one skill with the general stack and **deletes the skill it replaces**, so
 the ad-hoc code drains out as the general code lands. During stages 0 to 2 the solve runs beside
-the old skills, chosen per body, so the owner can watch either in the Lab; stage 2 removes the
-duplication.
+the old skills, chosen per body, so the owner can watch either in the Lab; SIMBICON's walk and
+run stay beside the stance's walk and run.
 
 | Stage | Build | Gate | Rough size |
 |---|---|---|---|
 | 0 | **The solve.** Merge the bearing solve and `wholeBodyTracking` into one production solve with muscle, assist and contact bounds and a posture task; the torque-source command path to the driver. | Standing under the assist reference's pulls (`tests/core-assist.test.mjs`) matches today's stance; ≤ 0.5 ms a body a step (`step-time.mjs`); the bout fingerprint moves only for bodies on the solve. | 2 to 3 weeks; the proof |
 | 1 | **Standing and the shove** on capture-point stepping, Balance as the assist bound. | On the stance trials (`research/core-stance-trials.mjs`) no more falls than today's stance at 0 %, and at 25 % no pace lost on the gait battery. | 1 to 2 weeks |
-| 2 | **Walk, stop and turn** on the same generator; delete SIMBICON's walk and its ways. | Walk envelope at or above today's forward and forward-right, and sideways and back a walk that steps, at its own pace, without falls; stop battery 0 of 96; the Move bout's `todo` passes. | 2 weeks |
+| 2 | **Walk, stop and turn** on the same generator; SIMBICON's walk and run stay beside it. | Walk envelope at or above today's forward and forward-right, and sideways and back a walk that steps, at its own pace, without falls; stop battery 0 of 96; the Move bout's `todo` passes. | 2 weeks |
 | 3 | **The run** with flight, the clip as the posture prior; delete the clip tracker. | Forward to 5 m/s (the owner's aim), the Warrior ≥ 4.5 m/s steady; Haste +100 adds ≥ 1 m/s; gait battery ≤ 19 of 300; the club's run ≤ 18 of 150; the owner's eye on the look. | 2 weeks |
 | 4 | **The stand-up** as a contact sequence; then the learned policy with the Grit curriculum where the sequence cannot start; delete step-up's stages. | Unassisted ≥ 40 of 64, median ≤ 9 s; with Grit median < 4 s; the frozen screen run and reported. | 2 to 4 weeks |
 | 5 | **Strikes and holds** as tasks; delete the per-skill drivers. | League Elo at or above today's (`research/arena-combat-league.mjs`); the one-two and the guard keep their windows. | 2 weeks |
@@ -405,8 +404,7 @@ The owner's answers, 2026-10-17:
 And 2026-10-18:
 
 - Sideways and back stay a stepping walk at its own pace; forward is fast, up to 5 m/s, by the run.
-- SIMBICON stays selectable beside the walk and run until the owner has seen both and judged the
-  new one a strict improvement; stage 2 deletes it only then.
+- SIMBICON's walk and run stay selectable beside the walk and run; they are not deleted.
 
 ## For the owner
 

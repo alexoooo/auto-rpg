@@ -429,8 +429,7 @@ Their actuator methods and their readiness/footprints remain their own.
   takes the body up as it is, moving (`Locomotion.resume`). Its envelope is the stance's walk's
   (`Body.envelope`), and SIMBICON's run's (`simbiconRunEnvelope`) while it may run; its settings
   and the run's are scaled to the body's leg and quickened by its haste as SIMBICON's are.
-- **SIMBICON** (`simbicon.ts`, "SIMBICON walk") is offered beside the walk and run, to be compared
-  with it. It is a locomotion skill that drives the
+- **SIMBICON** (`simbicon.ts`, "SIMBICON walk") is offered beside the walk and run. It is a locomotion skill that drives the
   legs itself (`Locomotion.drive`, `LegsDrive`): no stance goal, every leg freedom pushed
   (`MusclePush.speed`) toward its state's angle at its error over `settle`, at up to a share of its
   strength, the paper's PD with its damping held by the solver (Yin, Loken and van de Panne 2007).
