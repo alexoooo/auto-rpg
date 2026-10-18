@@ -28,7 +28,7 @@ import { labSections, SECTIONS, type LabPage, type SectionName } from "./hud/sec
 import { thinkingSection } from "./hud/thinking-section.ts";
 import { labTransport } from "./hud/transport.ts";
 import { viewSection } from "./hud/view-section.ts";
-import { SCENARIO_PANELS, type LabScenario, type LabShell, type ScenarioRun } from "./lab-scenario.ts";
+import { type LabScenario, type LabShell, type ScenarioRun } from "./lab-scenario.ts";
 import { allowing, loadoutBalance, loadoutSpec } from "./loadout.ts";
 import { createMindLog, logged, watchHas, type MindLog } from "./mind-log.ts";
 import { attackScenario } from "./attack-scenario.ts";
@@ -53,7 +53,8 @@ const FLOOR = 200;
  * **The lab**: a core human in one scenario (`scenarios.ts`), the page's shell around it. The
  * scenario owns what it does to the body, its panels and its marks; the shell owns the rest.
  * The HUD is sections (`hud/sections.ts`): the shell fills them with its own controls, each
- * section's in its module, then with the scenario's panels.
+ * section's in its module, then with the scenario's panels; Restart and the view's choices sit in
+ * the transport's bar.
  *
  * The body is the loadout's (`loadout.ts`): the model, and what each hand holds. Its assist
  * (`actor.ts`) has the ceiling its balance buys (`loadoutBalance`), named by the clock. Its mind (`labMind`, `scenarios.ts`)
@@ -167,18 +168,25 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   let current: Loaded | null = null;
   let shown: LabAddress = address;
   const transport = labTransport(need("transport"), scenario.timelineLabel, () => current?.run ?? null);
-  const audio = new GameAudio(false, need("transport"));
 
-  // The HUD: the shell's controls in their sections, then the scenario's panels in theirs.
+  // The HUD: the shell's controls in their sections and the transport's bar, then the scenario's
+  // panels in theirs, what acts on the run under way beneath what starts it.
   const page: LabPage = { get shown() { return shown; }, get spec() { return current?.built.spec ?? loadoutSpec(shown); }, load, show };
   const sections = labSections(document);
   const thinking = thinkingSection();
   const controls: Readonly<Partial<Record<SectionName, readonly Control[]>>> = {
-    scenario: scenarioSection(page), view: viewSection(page), character: characterSection(page), controls: controlsSection(page),
-    thinking: [thinking],
+    scenario: scenarioSection(page), character: characterSection(page), thinking: [thinking],
   };
+  const restart = controlsSection(page), view = viewSection(page);
   for (const name of SECTIONS) sections[name].append(...(controls[name] ?? []).map((control) => control.element));
-  for (const panel of SCENARIO_PANELS) sections[panel].append(...(scenario.panels[panel] ?? []).map((control) => control.element));
+  need("transport").prepend(...restart.map((control) => control.element));
+  need("transport").append(...view.map((control) => control.element));
+  const underWay = Object.assign(document.createElement("div"), { className: "under-way" });
+  underWay.append(...(scenario.panels.controls ?? []).map((control) => control.element));
+  sections.scenario.append(...(scenario.panels.scenario ?? []).map((control) => control.element), underWay);
+  sections.readout.append(...(scenario.panels.readout ?? []).map((control) => control.element));
+  const shellControls = [...Object.values(controls).flat(), ...restart, ...view];
+  const audio = new GameAudio(false, need("transport"));
 
   /** Draw the body as `shown.view` says; until the skin has loaded, World shows the shapes. */
   function showView(): void {
@@ -204,7 +212,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
         { clothing: to, closure: hand => loaded.run.closure(hand) }).catch(error => console.error(error));
     }
     showView();
-    for (const control of Object.values(controls).flat()) control.refresh();
+    for (const control of shellControls) control.refresh();
     for (const control of Object.values(scenario.panels).flat()) control.refresh();
   }
 

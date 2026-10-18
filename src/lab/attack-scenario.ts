@@ -13,7 +13,7 @@ import { actionReadout } from "../ui/action-readout.ts";
 import { recordHistory } from "./history.ts";
 import type { LabScenario } from "./lab-scenario.ts";
 import { createPlayer } from "./player.ts";
-import type { WindSettings } from "./wind.ts";
+import { gustText, type WindSettings } from "./wind.ts";
 
 /** Seconds held for replay, including target positions, impacts and selection. */
 const HISTORY_SECONDS = 30;
@@ -37,9 +37,8 @@ export function attackScenario(scene: Scene): LabScenario {
     panels: {
       controls: [
         slider("Target speed, m/s", 0, 2, 0.05, () => speed, (value) => { speed = value; if (current) current.state.speed = value; }, (value) => value.toFixed(2)),
-        slider("Gusts a second", 0, 2, 0.1, () => wind.rate, (rate) => setWind({ ...wind, rate }), (rate) => rate.toFixed(1)),
-        slider("Gust, N", 0, 200, 1, () => wind.strength, (strength) => setWind({ ...wind, strength }),
-          (strength) => weight > 0 ? `${strength} (${Math.round(100 * strength / weight)} % of its weight)` : String(strength)),
+        slider("Gusts", 0, 2, 0.1, () => wind.rate, (rate) => setWind({ ...wind, rate }), (rate) => `${rate.toFixed(1)} /s`),
+        slider("Gust force", 0, 200, 1, () => wind.strength, (strength) => setWind({ ...wind, strength }), (strength) => gustText(strength, weight)),
       ],
       readout: [shown, { element: actionDetails.element, refresh() {} }, legend(Object.values(MARKS))],
     },

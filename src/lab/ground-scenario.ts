@@ -11,7 +11,7 @@ import { createPlayer } from "./player.ts";
 import { shoveSound } from "./sound-log.ts";
 import { loadoutSpec } from "./loadout.ts";
 import { drawBody } from "../render/body-shapes.ts";
-import { action, choice, following, note, quantity, readings, slider, toggle, when } from "../ui/controls.ts";
+import { action, choice, following, menu, note, quantity, readings, slider, toggle, when } from "../ui/controls.ts";
 
 /** Ground starts, live recovery evidence, and repeated falls on the same physical body. */
 export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
@@ -43,15 +43,15 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
         choice("Start", (["shoved", "dropped", "placed"] as const).map(value => ({ value, name: value })), () => address.ground.start, start => change({ start })),
         quantity("Seed", 1, value => Number.isSafeInteger(value) && value >= 0 && value <= 4294967295, () => address.seed,
           seed => shell.load({ ...address, seed })),
-        when(() => address.ground.start === "placed", following(() => address.model, () => choice("Posture",
+        when(() => address.ground.start === "placed", following(() => address.model, () => menu("Posture",
           groundPostures(loadoutSpec(address)).map(value => ({ value, name: value })), () => address.ground.posture, posture => change({ posture })))),
         when(() => address.ground.start === "shoved", slider("Shove direction", 0, 360, 5, () => groundShove(address).degrees, degrees => change({ degrees }), value => value.toFixed(1))),
         when(() => address.ground.start === "shoved", slider("Shove impulse, N s", 40, 90, 1, () => groundShove(address).impulse, impulse => change({ impulse }), value => value.toFixed(1))),
         when(() => address.ground.start === "shoved", action("Draw shove from seed", () => change({ degrees: null, impulse: null }))),
-        following(() => address.model, () => choice("Driven by", [{ value: "mind", name: "As the mind does" },
+        following(() => address.model, () => menu("Driven by", [{ value: "mind", name: "As the mind does" },
           ...Object.entries(TECHNIQUES).filter(([, technique]) => technique.fits(loadoutSpec(address))).map(([value, spec]) => ({ value, name: `${spec.label} (experimental)` }))],
         () => address.ground.drive, value => change({ drive: value as LabAddress["ground"]["drive"] }))),
-        when(() => address.ground.start === "placed" && address.ground.drive === "plant-up", choice("Technique waypoint",
+        when(() => address.ground.start === "placed" && address.ground.drive === "plant-up", menu("Waypoint",
           (["none", "brace", "plant", "transfer", "rise"] as const).map(value => ({ value, name: value === "none" ? "Selected posture" : value })),
           () => address.ground.waypoint, waypoint => change({ waypoint }))),
         choice("Foe", ([0, 1, 2, 4] as const).map(value => ({ value, name: value === 0 ? "None" : `${value} m` })), () => address.ground.foe, foe => change({ foe })),

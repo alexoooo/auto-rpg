@@ -90,7 +90,7 @@ export function stanceScenario(scene: Scene, experiment?: LabShell): LabScenario
           note(() => {
             switch (recoveryMode) {
               case "witness": return "Recorded search result replayed as an ordinary recovery recipe, with compliant soles and zero Balance. Slow and unreliable.";
-              case "selected": return "Live controller from Character → Mind → When down. Set Balance to 0 to inspect unassisted recovery.";
+              case "selected": return "Live controller from Character → Mind → Edit the mind → When down. Set Balance to 0 to inspect unassisted recovery.";
               default: { const never: never = recoveryMode; throw new Error(`unknown recovery mode ${never}`); }
             }
           }),

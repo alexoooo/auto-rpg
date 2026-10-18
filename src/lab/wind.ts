@@ -112,3 +112,6 @@ export function startWind(built: BuiltBody, world: World, settings: WindSettings
   });
   return wind;
 }
+
+/** A gust's force, N, as its slider reads it: with its share of a body of `weight`, N, once one is loaded. */
+export const gustText = (strength: number, weight: number): string => weight > 0 ? `${strength} N, ${Math.round(100 * strength / weight)} %` : `${strength} N`;

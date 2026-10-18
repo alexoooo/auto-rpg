@@ -3,11 +3,12 @@ import type { LabAddress } from "../scenarios.ts";
 
 /**
  * **The lab's HUD**: sections over the canvas, each a `<details>` of the screen's markup that the
- * shell and the scenario fill. A section closed stays closed in the next scenario.
+ * shell and the scenario fill. A section closed stays closed in the next scenario; until one is
+ * toggled, the setup and the readout are open and the rest closed.
  */
 
 /** Every section, by the name its `data-section` carries. */
-export const SECTIONS = ["scenario", "view", "character", "readout", "controls", "thinking"] as const;
+export const SECTIONS = ["scenario", "readout", "character", "thinking"] as const;
 export type SectionName = (typeof SECTIONS)[number];
 
 /** What the shell offers a section's controls. */
@@ -23,7 +24,10 @@ export interface LabPage {
 }
 
 /** Where the closed sections are kept. */
-const STORED = "lab.sections";
+const STORED = "lab.closed";
+
+/** The sections closed until a person opens them. */
+const CLOSED_FIRST: readonly SectionName[] = ["character", "thinking"];
 
 /** The sections `text` says are closed, among `names`. */
 export function collapsedFrom(text: string | null, names: readonly string[]): string[] {
@@ -45,7 +49,7 @@ export function labSections(root: ParentNode): Readonly<Record<SectionName, HTML
   })) as Record<SectionName, HTMLDetailsElement>;
   let stored: string | null = null;
   try { stored = localStorage.getItem(STORED); } catch { /* Left open. */ }
-  for (const name of collapsedFrom(stored, SECTIONS)) sections[name as SectionName].open = false;
+  for (const name of collapsedFrom(stored ?? collapsedText(CLOSED_FIRST), SECTIONS)) sections[name as SectionName].open = false;
   for (const section of Object.values(sections)) {
     // A summary clicked gives the keys back to the page, as a button does.
     const summary = section.querySelector("summary");

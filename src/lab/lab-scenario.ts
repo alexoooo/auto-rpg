@@ -20,7 +20,7 @@ import type { BodyOptions } from "../core/body.ts";
  */
 export interface LabScenario {
   /** What it puts in the HUD, built with the lab's controls (`hud/controls.ts`); the shell places each list. */
-  readonly panels: Readonly<Partial<Record<(typeof SCENARIO_PANELS)[number], readonly Control[]>>>;
+  readonly panels: Readonly<Partial<Record<ScenarioPanel, readonly Control[]>>>;
   /** The keys it takes while it runs (`KeyboardEvent.code`); the shell holds them as a level. */
   readonly keys: ReadonlySet<string>;
   /** What the transport bar's slider says it steps through. */
@@ -35,10 +35,10 @@ export interface LabScenario {
 }
 
 /**
- * Where a scenario's panels go: `scenario` holds what starts it again when changed, `controls` what
- * acts on the run under way, `readout` what it reads.
+ * A scenario's panels: `scenario` holds what starts it again when changed, `controls` what acts
+ * on the run under way, shown beneath it, and `readout` what it reads.
  */
-export const SCENARIO_PANELS = ["scenario", "controls", "readout"] as const;
+type ScenarioPanel = "scenario" | "controls" | "readout";
 
 /** What the shell offers a scenario's own controls. */
 export interface LabShell {

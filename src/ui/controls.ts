@@ -68,6 +68,25 @@ export function choice<T>(label: string, options: readonly Entry<T>[], selected:
   return all;
 }
 
+/**
+ * One of `options` in a drop-down, the `selected` one shown; choosing another calls `pick`. It
+ * blurs once chosen, so the keys stay the page's.
+ */
+export function menu<T>(label: string, options: readonly Entry<T>[], selected: () => T, pick: (value: T) => void): Control {
+  const select = document.createElement("select");
+  select.setAttribute("aria-label", label);
+  options.forEach(({ name, title }, i) => select.append(Object.assign(document.createElement("option"), { value: String(i), textContent: name, title: title ?? "" })));
+  const refresh = (): void => { select.value = String(options.findIndex(({ value }) => value === selected())); };
+  select.addEventListener("change", () => {
+    select.blur();
+    const chosen = options[Number(select.value)];
+    if (chosen && chosen.value !== selected()) pick(chosen.value);
+    refresh();
+  });
+  refresh();
+  return field(label, [{ element: select, refresh }]);
+}
+
 /** Any of `options`, each pressed while `on`; pressing one calls `flip`. */
 export function switches<T>(label: string, options: readonly Entry<T>[], on: (value: T) => boolean, flip: (value: T) => void): Control {
   return field(label, options.map(({ value, name, title }) => toggle(name, () => on(value), () => flip(value), title)));
@@ -134,6 +153,15 @@ export function following<K>(key: () => K, build: (key: K) => Control): Control 
 export function group(name: string, parts: readonly Control[]): Control {
   const element = Object.assign(document.createElement("section"), { className: "group" });
   element.append(Object.assign(document.createElement("h2"), { textContent: name }), ...parts.map((part) => part.element));
+  return { element, refresh: () => parts.forEach((part) => part.refresh()) };
+}
+
+/** `parts` folded under `name`, closed until opened. */
+export function fold(name: string, parts: readonly Control[]): Control {
+  const element = Object.assign(document.createElement("details"), { className: "fold" });
+  const summary = Object.assign(document.createElement("summary"), { textContent: name });
+  summary.addEventListener("click", () => summary.blur());
+  element.append(summary, ...parts.map((part) => part.element));
   return { element, refresh: () => parts.forEach((part) => part.refresh()) };
 }
 

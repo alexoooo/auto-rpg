@@ -1,6 +1,6 @@
 import type { ScenarioRun } from "../lab-scenario.ts";
 import { isPaused, type Playhead } from "../player.ts";
-import { actions, choice, toggle, type Entry } from "../../ui/controls.ts";
+import { actions, menu, toggle, type Entry } from "../../ui/controls.ts";
 import { hasteText } from "../../core/human/attributes.ts";
 
 /**
@@ -48,7 +48,7 @@ export function labTransport(bar: HTMLElement, label: string, run: () => Scenari
       if (under) under.player.seek(Math.max(0, (under.player.shownFrame() ?? under.recording().live) + steps));
     }).element,
     timeline,
-    choice("Speed", SPEEDS, () => speed, (value) => { speed = value; }).element,
+    menu("Speed", SPEEDS, () => speed, (value) => { speed = value; }).element,
     clock,
   );
   return {

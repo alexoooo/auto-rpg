@@ -1,5 +1,5 @@
 import { CAMERA_MODES, PROJECTIONS, VIEW_MODES, type CameraMode, type Projection, type ViewMode, type ViewSettings } from "../render/view.ts";
-import { choice, entries, when, type Control, type Named } from "./controls.ts";
+import { choice, entries, menu, when, type Control, type Named } from "./controls.ts";
 
 const VIEWS: Named<ViewMode> = {
   world: { name: "World", title: "The character's skin, carried by the segments" },
@@ -12,12 +12,16 @@ const CAMERAS: Named<CameraMode> = {
 };
 const DRAWN: Named<Projection> = { orthographic: { name: "Orthographic" }, perspective: { name: "Perspective" } };
 
-/** A view panel reads settings and requests edits; its screen owns their application and persistence. */
-export function viewControls(read: () => ViewSettings, change: (patch: Partial<ViewSettings>) => void): readonly Control[] {
+/**
+ * A view panel reads settings and requests edits; its screen owns their application and persistence.
+ * Each choice is a row of buttons, or with `menus` a drop-down.
+ */
+export function viewControls(read: () => ViewSettings, change: (patch: Partial<ViewSettings>) => void, menus = false): readonly Control[] {
+  const pick = menus ? menu : choice;
   return [
-    choice("View", entries(VIEW_MODES, VIEWS), () => read().view, view => change({ view })),
-    choice("Camera", entries(CAMERA_MODES, CAMERAS), () => read().camera, camera => change({ camera })),
+    pick("View", entries(VIEW_MODES, VIEWS), () => read().view, view => change({ view })),
+    pick("Camera", entries(CAMERA_MODES, CAMERAS), () => read().camera, camera => change({ camera })),
     when(() => read().camera === "isometric",
-      choice("Projection", entries(PROJECTIONS, DRAWN), () => read().projection, projection => change({ projection }))),
+      pick("Projection", entries(PROJECTIONS, DRAWN), () => read().projection, projection => change({ projection }))),
   ];
 }

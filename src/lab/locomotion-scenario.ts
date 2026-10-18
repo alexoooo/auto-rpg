@@ -13,9 +13,9 @@ import { createPlayer } from "./player.ts";
 import { startLocomotion, type LocomotionFrame } from "./locomotion-mode.ts";
 import { COMMANDS_AREA, commandsOf } from "./commands.ts";
 import { TRACK_IDS, TRACKS, trackOf, type Track } from "./track.ts";
-import type { WindSettings } from "./wind.ts";
+import { gustText, type WindSettings } from "./wind.ts";
 import { groundDisc } from "./ground-disc.ts";
-import { choice, following, legend, readings, slider, type Control } from "../ui/controls.ts";
+import { following, legend, menu, readings, slider, type Control, type Entry } from "../ui/controls.ts";
 
 /**
  * **The Locomotion scenario**: the human round a course (`locomotion-mode.ts`) at the pace the lab
@@ -23,9 +23,9 @@ import { choice, following, legend, readings, slider, type Control } from "../ui
  * and forth, the square walked facing one way, forward, right, back and left, the diamond walked
  * facing one way along the diagonals (`track.ts`), or random commands, one destination after
  * another (`commands.ts`) -- with the wind blowing on it as the lab sets it (`wind.ts`). Choosing a
- * course, its size or the pace starts the run again; the wind changes the run under way. The
- * readout is the run's: its laps or destinations reached, its speeds, how far it is off its way,
- * what its feet do (`gait-meter.ts`) and the wind. On the ground: the track, or the walk under way
+ * course, its gait, its size or the pace starts the run again; the wind changes the run under way.
+ * The readout is the run's: whether it is up, its speed against the pace asked, its laps or
+ * destinations reached, how far it is off its way and its steps (`gait-meter.ts`). On the ground: the track, or the walk under way
  * to its destination, the centre of mass over it and the point it aims at; at the chest, an arrow
  * along the wind while it blows. The last ten seconds are recorded (`history.ts`).
  */
@@ -40,10 +40,10 @@ const HISTORY_SECONDS = 10;
 /** The track's painted width, m. */
 const LANE = 0.08;
 const MARKS = {
-  track: { colour: new Color3(0.85, 0.64, 0.36), name: "the track, or the walk under way" },
+  track: { colour: new Color3(0.85, 0.64, 0.36), name: "track" },
   centre: { colour: new Color3(0.95, 0.75, 0.4), name: "centre of mass" },
-  aim: { colour: new Color3(0.35, 0.65, 0.9), name: "the point it aims at" },
-  wind: { colour: new Color3(0.55, 0.85, 0.95), name: "the wind" },
+  aim: { colour: new Color3(0.35, 0.65, 0.9), name: "aim" },
+  wind: { colour: new Color3(0.55, 0.85, 0.95), name: "wind" },
 };
 /** The wind arrow's length per newton, m, and its height over the ground, m. */
 const ARROW_PER_NEWTON = 0.01, ARROW_HEIGHT = 1.35;
@@ -66,10 +66,10 @@ const COURSES: Readonly<Record<CourseId, { readonly name: string; readonly size?
  * locomotion of the mind the page chose.
  */
 type Legs = "move" | GaitName | "mind";
-const LEGS: readonly { readonly value: Legs; readonly name: string }[] = [
+const LEGS: readonly Entry<Legs>[] = [
   { value: "move", name: "Move, as the game" },
   ...GAIT_NAMES.map((name) => ({ value: name, name: GAITS[name].stage === "experimental" ? `${GAITS[name].label} (experimental)` : GAITS[name].label })),
-  { value: "mind", name: "The mind's own" },
+  { value: "mind", name: "As its mind says", title: "The locomotion of the mind under Character" },
 ];
 
 /** A flat strip along `track` on the ground, for the eye; it collides with nothing. */
@@ -111,12 +111,8 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
   arrow.rotationQuaternion = new Quaternion();
 
   const shown = readings({
-    state: { name: "State" }, laps: { name: "Laps" }, lap: { name: "Last lap", unit: "s" },
-    pace: { name: "Pace asked", unit: "m/s" }, walking: { name: "Pace walked", unit: "m/s" },
-    speed: { name: "Speed", unit: "m/s" }, mean: { name: "Mean speed", unit: "m/s" }, pieces: { name: "Each side", unit: "m/s" },
-    off: { name: "Off the track", unit: "cm" },
-    step: { name: "Step", unit: "m" }, cadence: { name: "Steps a second" }, support: { name: "Both feet / none", unit: "%" },
-    wind: { name: "Wind", unit: "N" },
+    state: { name: "State" }, speed: { name: "Speed", unit: "m/s" }, mean: { name: "Mean", unit: "m/s" },
+    laps: { name: "Laps" }, off: { name: "Off track", unit: "cm" }, steps: { name: "Steps" },
   });
   // The pace asked: none is Max.
   let chosen: CourseId = COURSE_IDS[0], top: number | undefined = undefined, wind = CALM, legs: Legs = "move";
@@ -136,23 +132,22 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
   // The chosen course's size, if it comes in sizes: made again when another course is chosen.
   const sized = following(() => chosen, (id) => {
     const size = COURSES[id].size;
-    return size ? slider(`${size.name}, m`, size.least, size.most, 0.5, () => sizes.get(id)!, (metres) => { sizes.set(id, metres); shell.restart(); }) : unsized;
+    return size ? slider(size.name, size.least, size.most, 0.5, () => sizes.get(id)!, (metres) => { sizes.set(id, metres); shell.restart(); }, (metres) => `${metres} m`) : unsized;
   });
 
   return {
     keys: new Set(),
     panels: {
       scenario: [
-        choice("Course", COURSE_IDS.map((id) => ({ value: id, name: COURSES[id].name })), () => chosen, (id) => { chosen = id; sized.refresh(); shell.restart(); }),
-        choice("Gait", LEGS, () => legs, (value) => { legs = value; shell.restart(); }),
+        menu("Course", COURSE_IDS.map((id) => ({ value: id, name: COURSES[id].name })), () => chosen, (id) => { chosen = id; sized.refresh(); shell.restart(); }),
+        menu("Gait", LEGS, () => legs, (value) => { legs = value; shell.restart(); }),
         sized,
-        slider("Pace, m/s", PACES.least, MAX, PACES.step, () => top ?? MAX, (pace) => { top = pace > PACES.most ? undefined : pace; shell.restart(); },
-          (pace) => pace > PACES.most ? "Max" : pace.toFixed(1)),
+        slider("Pace", PACES.least, MAX, PACES.step, () => top ?? MAX, (pace) => { top = pace > PACES.most ? undefined : pace; shell.restart(); },
+          (pace) => pace > PACES.most ? "Max" : `${pace.toFixed(1)} m/s`),
       ],
       controls: [
-        slider("Gusts a second", 0, 2, 0.1, () => wind.rate, (rate) => setWind({ ...wind, rate }), (rate) => rate.toFixed(1)),
-        slider("Gust, N", 0, 200, 5, () => wind.strength, (strength) => setWind({ ...wind, strength }),
-          (strength) => weight > 0 ? `${strength} (${Math.round(100 * strength / weight)} % of its weight)` : String(strength)),
+        slider("Gusts", 0, 2, 0.1, () => wind.rate, (rate) => setWind({ ...wind, rate }), (rate) => `${rate.toFixed(1)} /s`),
+        slider("Gust force", 0, 200, 5, () => wind.strength, (strength) => setWind({ ...wind, strength }), (strength) => gustText(strength, weight)),
       ],
       readout: [shown, legend([MARKS.track, MARKS.centre, MARKS.aim, MARKS.wind])],
     },
@@ -190,12 +185,9 @@ export function locomotionScenario(scene: Scene, shell: LabShell): LabScenario {
           const f = moment.frame, g = f.gait, force = Math.hypot(f.wind[0], f.wind[1]);
           shown.write({
             state: f.fallen ? "Fallen: restart" : "On its feet",
-            laps: `${f.laps}${f.leg ? " reached" : ""} (${f.travelled.toFixed(1)} m)`, lap: f.lastLap === null ? "-" : f.lastLap.toFixed(1),
-            pace: f.pace.toFixed(2), walking: f.walking.toFixed(2),
-            speed: f.speed.toFixed(2), mean: f.mean.toFixed(2), pieces: f.pieces.map((v) => v === null ? "-" : v.toFixed(2)).join(" / "),
-            off: (100 * f.off).toFixed(1),
-            step: g.step.toFixed(2), cadence: g.cadence.toFixed(2), support: `${Math.round(100 * g.double)} / ${Math.round(100 * g.flight)}`,
-            wind: `${force.toFixed(0)} (${f.gusts} gusts)`,
+            speed: `${f.speed.toFixed(2)} of ${f.pace.toFixed(2)}`, mean: f.mean.toFixed(2),
+            laps: `${f.laps}${f.lastLap === null ? "" : `, last ${f.lastLap.toFixed(1)} s`}`,
+            off: (100 * f.off).toFixed(0), steps: `${g.step.toFixed(2)} m, ${g.cadence.toFixed(1)} /s`,
           }, f.fallen ? ["state"] : []);
           if (f.leg && leg?.index !== f.leg.index) {
             // The walk under way: a straight from where it set off to its destination.

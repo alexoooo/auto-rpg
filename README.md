@@ -191,7 +191,7 @@ without resuming on its own.
 
 - **Stance**: walk it from the keyboard (W/S or Up/Down forward and back, A/D or Left/Right
   sideways, Q/E turn while walking) at the speed a slider sets, and shove it.
-- **Get-up experiment**: test the live controller selected under Character → Mind → When down.
+- **Get-up experiment**: test the live controller selected under Character → Mind → Edit the mind → When down.
   Choose Lie still, Rise, then steady, or experimental Research rise; use Balance 0 for
   unassisted recovery. Two timed shoves make falls repeatable. Repeat two shoves tests the same
   body again; Walk forward for 1 s checks handover. Stress-case buttons reproduce other falls.
@@ -205,25 +205,29 @@ without resuming on its own.
   and forth over any distance, a square walked facing one way, forward, right, back and left, a
   diamond walked facing one way along the diagonals (W+D, S+D, S+A, W+A), or random commands, one
   destination after another over an area, as the crypt sends a body. Gusts of wind, as often and
-  as strong as two more sliders say, push it as it goes; the readout says its speeds, how far it
-  is off its way, its steps and how much of the time it is on both feet or none.
+  as strong as two more sliders say, push it as it goes. **Gait** picks what it gets about by:
+  Move as the game plays it, one gait alone (Braced and Run, the stance's walk without and with
+  its run; SIMBICON's walk and run; Stride, experimental), or its mind's own. The readout says whether it is up, its speed against the pace asked, its
+  mean speed, laps, how far it is off its way, and its steps.
   `research/locomotion-run.mjs` runs the same courses as a battery.
 
-Its sections, each of which folds away, choose the body and its balance, what each hand holds,
-boots and armour, its mind (**Preset**: Script carries out the scenario, Guard stands in guard;
-any of its parts may be changed, among them what has the body once it is down: the staged rise gets
-the Warrior up from most falls, with the club or without) and the strikes it may throw, the camera
-(Free, Isometric or Chase), the view, and 120 or 480 Hz; one shows the mind as it goes and logs
-what it decides.
-To try the live research get-up controller, open **Stance → Character → Mind → When down**
+The scenario's settings and the readout are open down the left and the right; the other sections
+fold away, closed until opened. **Character** chooses the body and its balance, what each hand
+holds, boots and armour, its mind (**Preset**: Script carries out the scenario, Guard stands in
+guard; under **Edit the mind** any of its parts may be changed, among them what has the body once
+it is down: the staged rise gets the Warrior up from most falls, with the club or without) and the
+strikes it may throw; **Thinking** shows the mind as it goes and logs what it decides. The physics
+rate, 120 or 480 Hz, is the scenario's first setting.
+To try the live research get-up controller, open **Stance → Character → Mind → Edit the mind → When down**
 and replace **Lie still** with **Research rise (experimental)**. Set **Balance** to **0** and
 use the Shove controls. This controller responds to the body's current state through its
 muscles; it uses reference motions as targets and does not play back saved body poses. The
 same choice is available for Warrior and Rogue in the Arena and Dungeon mind editors. In
 the Get-up experiment, editing the mind selects **Selected mind**, which keeps your choice.
 Recovery remains unreliable and has not met the four-second median / six-second goal.
-The transport pauses (Space), steps one physics step at a time, scrubs, and slows time to 1/4 or
-1/10.
+The transport restarts the scenario, pauses (Space), steps one physics step at a time, scrubs,
+slows time to 1/4 or 1/10, and chooses the view (World or Tactical) and the camera (Free,
+Isometric or Chase).
 
 The body is heard: its footfalls, its landing when it falls, a shove, the air of a swing and the
 club on the head. A replay sounds as the run did; paused, scrubbing or seeking, the page is

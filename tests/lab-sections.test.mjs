@@ -17,8 +17,8 @@ test("text_that_names_no_section_closes_none", () => {
   assert.deepEqual(collapsedFrom(null, SECTIONS), []);
   assert.deepEqual(collapsedFrom("", SECTIONS), []);
   // A name is a whole word: one a section's name begins, or one of another page's, closes nothing.
-  assert.deepEqual(collapsedFrom("viewer elsewhere read", SECTIONS), []);
-  assert.deepEqual(collapsedFrom("elsewhere view viewer", SECTIONS), ["view"]);
+  assert.deepEqual(collapsedFrom("thinker elsewhere read", SECTIONS), []);
+  assert.deepEqual(collapsedFrom("elsewhere thinking thinker", SECTIONS), ["thinking"]);
   // In the sections' order, whatever the text's.
   assert.deepEqual(collapsedFrom("readout scenario", SECTIONS), ["scenario", "readout"]);
 });
