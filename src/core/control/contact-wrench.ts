@@ -2,8 +2,8 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { normIn } from "../math/real.ts";
 
 /**
- * A flat sole on level ground (y up), bearing: where its middle is, which way it lies, and how far
- * its centre of pressure may go from its middle each way.
+ * A flat sole on level ground (y up), bearing: where its middle is, which way it lies, how far its
+ * centre of pressure may go from its middle each way, and the ankle its wrench loads.
  */
 export interface BearingSole {
   readonly kind: "sole";
@@ -15,7 +15,25 @@ export interface BearingSole {
   readonly length: number;
   /** How far across, m. */
   readonly width: number;
+  /** The ankle's centre, world: the joint the sole's wrench loads. */
+  readonly ankle: Vector3;
+  /**
+   * The most moment about the ankle the sole's wrench may make, N m: `toe`, the centre of pressure
+   * ahead of the ankle, the plantar flexors'; `heel`, behind it, the dorsiflexors'; `side`, to
+   * either side, the invertors' and evertors'. Infinity, the ankle bounds nothing (`UNHELD`).
+   */
+  readonly hold: AnkleHold;
 }
+
+/** What an ankle holds about itself each way, N m (`BearingSole.hold`). */
+export interface AnkleHold {
+  readonly toe: number;
+  readonly heel: number;
+  readonly side: number;
+}
+
+/** A hold of nothing: a sole whose wrench no ankle bounds. */
+export const UNHELD: AnkleHold = Object.freeze({ toe: Infinity, heel: Infinity, side: Infinity });
 
 /** A point on level ground (y up), bearing: it gives a force at itself and no moment. */
 export interface BearingPoint {
@@ -69,8 +87,9 @@ export interface GroundWrenchWork {
   /** The problem's Hessian and gradient. */
   readonly H: Float64Array;
   readonly g: Float64Array;
-  /** The limits, C x >= 0, a row a limit. */
+  /** The limits, C x + d >= 0, a row of `C` and an entry of `d` a limit. */
   readonly C: Float64Array;
+  readonly d: Float64Array;
   /** The share, as the active set moves it, and its step. */
   readonly x: Float64Array;
   readonly p: Float64Array;
@@ -107,7 +126,7 @@ export function groundWrenchWork(soles: number, points: number): GroundWrenchWor
     unknowns, limits, patches: soles + points,
     first: new Int32Array(soles + points),
     A: new Float64Array(6 * unknowns), b: new Float64Array(6), Q: new Float64Array(6), D: new Float64Array(unknowns),
-    H: new Float64Array(unknowns * unknowns), g: new Float64Array(unknowns), C: new Float64Array(limits * unknowns),
+    H: new Float64Array(unknowns * unknowns), g: new Float64Array(unknowns), C: new Float64Array(limits * unknowns), d: new Float64Array(limits),
     x: new Float64Array(unknowns), p: new Float64Array(unknowns),
     K: new Float64Array(system * (system + 1)), order: new Int32Array(system), solution: new Float64Array(system),
     working: new Int32Array(limits), basis: new Float64Array(limits * unknowns), rest: new Float64Array(unknowns),
@@ -123,7 +142,10 @@ export function groundWrenchWork(soles: number, points: number): GroundWrenchWor
  * - does not press outside itself (its centre of pressure, the point the moment's level part puts
  *   its normal force at, is within `length` along it and `width` across it of its middle),
  * - does not slide (its level force is within a pyramid inscribed in the cone of `friction`, along
- *   and across it), or twist on the ground (see below).
+ *   and across it), or twist on the ground (see below),
+ * - loads its ankle no more than the ankle holds (`BearingSole.hold`): the moment its wrench makes
+ *   about the ankle's centre, about the level line across the sole and about the one along it, is
+ *   within the hold that way.
  *
  * A point gives a force at itself and no moment: it does not pull, and it does not slide, its
  * level force within the same pyramid along the world's x and z.
@@ -136,9 +158,9 @@ export function groundWrenchWork(soles: number, points: number): GroundWrenchWor
  * Q weighs a moment's miss against a force's at `lever` (a moment of `lever` N m counts as a
  * newton), and `e` D, each sole's force weighed against its moment at the sole's own length, is a
  * small regularizer that picks, among the shares that give the wrench, the least: the patches share
- * the weight as their levers do. The limits are homogeneous (x = 0 meets them all), so a share
- * always exists, and one close to zero load meets them strictly; the problem is solved from there
- * by a primal active-set method (Nocedal and Wright 2006, "Numerical optimization", algorithm
+ * the weight as their levers do. x = 0 meets every limit (the ground's are homogeneous, the ankles'
+ * holds are bounds), so a share always exists, and one close to zero load meets them strictly; the
+ * problem is solved from there by a primal active-set method (Nocedal and Wright 2006, "Numerical optimization", algorithm
  * 16.3). Where the patches can give the wrench, the miss is zero to the regularizer's order; where
  * they cannot, the miss is the least they leave. Returns the miss, force and moment, into `miss`.
  *
@@ -161,7 +183,7 @@ export function groundWrenchWork(soles: number, points: number): GroundWrenchWor
  */
 export function shareGroundWrench(work: GroundWrenchWork, patches: readonly Patch[], centre: Vector3, force: Vector3, moment: Vector3,
   friction: number, lever: number, out: PatchWrench[], miss?: { force: Vector3; moment: Vector3 }, parts?: readonly number[], effort?: ShareEffort): void {
-  const { first, A, b, Q, D, H, g, C, x } = work;
+  const { first, A, b, Q, D, H, g, C, d, x } = work;
   // Each patch's first column: the widths before it; and the count of limits.
   let n = 0, limits = 0;
   for (let s = 0; s < patches.length; s++) {
@@ -238,10 +260,11 @@ export function shareGroundWrench(work: GroundWrenchWork, patches: readonly Patc
       }
     }
   }
-  // The limits, C x >= 0, a row each, in the order written. A limit is a sum of a patch's
+  // The limits, C x + d >= 0, a row each, in the order written. A limit is a sum of a patch's
   // components, each a combination of the world ones it is written in, each column's terms
   // summed from 0 in the order they come.
   C.fill(0, 0, limits * n);
+  d.fill(0, 0, limits);
   const mu = friction / Math.SQRT2;
   let row = 0;
   for (let s = 0; s < patches.length; s++) {
@@ -277,6 +300,24 @@ export function shareGroundWrench(work: GroundWrenchWork, patches: readonly Patc
               C[at + 3] += kt2 * uz; C[at + 5] += kt2 * across;
             }
           }
+        }
+        // The ankle's hold: the moment about the ankle's centre, t + r x f, r from the ankle to the
+        // sole's middle, has its part about across (the centre of pressure ahead of the ankle makes
+        // it negative) within -toe and heel, and its part about along within -side and side.
+        // v . (r x f) = (v x r) . f.
+        const { ankle, hold } = patch, r0 = patch.middle.x - ankle.x, r1 = patch.middle.y - ankle.y, r2 = patch.middle.z - ankle.z;
+        for (let k = 0; k < 2; k++) {
+          const a = k === 0 ? 1 : -1;
+          // About across: w = (uz, 0, -ux), w x r = (0 * r2 - (-ux) * r1, (-ux) * r0 - uz * r2, uz * r1 - 0 * r0).
+          at = row++ * n + o;
+          C[at] += a * (ux * r1); C[at + 1] += a * (-ux * r0 - uz * r2); C[at + 2] += a * (uz * r1);
+          C[at + 3] += a * uz; C[at + 5] += a * across;
+          d[row - 1] = a > 0 ? hold.toe : hold.heel;
+          // About along: u = (ux, 0, uz), u x r = (0 * r2 - uz * r1, uz * r0 - ux * r2, ux * r1 - 0 * r0).
+          at = row++ * n + o;
+          C[at] += -a * (-uz * r1); C[at + 1] += -a * (uz * r0 - ux * r2); C[at + 2] += -a * (ux * r1);
+          C[at + 3] += -a * ux; C[at + 5] += -a * uz;
+          d[row - 1] = hold.side;
         }
         break;
       }
@@ -331,7 +372,7 @@ function unknownsOf(kind: Patch["kind"]): number {
 /** How many limits a patch of `kind` has: the rows `shareGroundWrench` writes for it. */
 function limitsOf(kind: Patch["kind"]): number {
   switch (kind) {
-    case "sole": return 17;
+    case "sole": return 21;
     case "point": return 5;
     default: return unknownKind(kind);
   }
@@ -358,12 +399,14 @@ const DEPENDENT = 1e-9;
 const START = 1e-3;
 
 /**
- * Minimize 1/2 x' H x + g' x subject to C x >= 0, from `x`, feasible, into `x`, with `n` unknowns
- * and `limits` limits: a primal active-set method, the working set added to at a blocking limit
- * and dropped from at the most negative multiplier.
+ * Minimize 1/2 x' H x + g' x subject to C x + d >= 0, from `x`, feasible, into `x`, with `n`
+ * unknowns and `limits` limits: a primal active-set method, the working set added to at a blocking
+ * limit and dropped from at the most negative multiplier. A working limit holds with equality, so a
+ * step keeps to its null space whatever its constant, and the constants enter only where a limit
+ * blocks.
  */
 function activeSet(work: GroundWrenchWork, n: number, limits: number): void {
-  const { H, g, C, x, K, order, solution, p, working } = work;
+  const { H, g, C, d, x, K, order, solution, p, working } = work;
   let m = 0;
   // After a full step x is the least in the working set's subspace, and the next solve's step is
   // rounding: its multipliers decide.
@@ -399,7 +442,7 @@ function activeSet(work: GroundWrenchWork, n: number, limits: number): void {
     let step = 1, blocking = -1, based = -1;
     for (let c = 0; c < limits; c++) {
       if (holds(working, m, c)) continue;
-      let along = 0, at = 0;
+      let along = 0, at = d[c]!;
       for (let j = 0; j < n; j++) { along += C[c * n + j]! * p[j]!; at += C[c * n + j]! * x[j]!; }
       if (along >= 0) continue;
       const t = Math.max(0, -at / along);

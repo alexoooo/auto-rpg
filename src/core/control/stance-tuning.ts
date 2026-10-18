@@ -17,12 +17,12 @@ export interface StanceTuning {
   readonly track?: number;
   /** `SOLE_MARGIN`. */
   readonly soleMargin?: number;
-  /** `SUPPORT_INSET`. */
-  readonly supportInset?: number;
   /** The least knee bend the height is held for, rad; null holds the goal's height however far the legs reach. */
   readonly kneeBend?: number | null;
   /** The ankle's dorsiflexion left unused, rad; null holds the goal's height however far the ankles bend. */
   readonly ankleSpare?: number | null;
+  /** `SUPPORT_INSET`. */
+  readonly supportInset?: number;
   /** How a stance on both feet steps to catch a push (`STANCE_RECOVERY`); null never steps unasked. */
   readonly recovery?: RecoveryTuning | null;
   /** How a stance walks (`STANCE_GAIT`). */
@@ -56,7 +56,7 @@ export interface GaitTuning {
    * bend the plan's straight leg has not, and the strength the hip loses at speed.
    */
   readonly effort: number;
-  /** How far the swinging sole's middle passes from the bearing sole's middle beyond a sole's width, m: the swing's path bows out to it (`swingBowToRef`). */
+  /** How far the swinging sole keeps from the bearing sole beyond the two soles' half-extents, m: the swing's path bows round that box (`swingBowToRef`), and a recovery's landing is kept off it (`clearOfBearer`). */
   readonly clearance: number;
   /** How fast the walk's pace goes toward the one asked, m/s^2: a body does not reach a walk in one step. */
   readonly accel: number;
@@ -170,19 +170,29 @@ export const SOLE_MARGIN = 0.1;
 export const LEG_DAMPING = 0.02;
 
 /**
- * The fraction by which the outline of the stance soles' corners (their convex hull, across the
- * ground) is drawn toward its middle to give the region the stance holds its centre of mass in. Not
- * every centre of mass over the soles can be held on both feet: sideways, both feet flat, the ankles
- * turn as far as the hips, and only the ankles' invertors and evertors (a few tens of N m,
- * `humanSpec`) stop the body; and a centre of mass over one foot leaves the other bearing little.
- * Sweep: `docs/reference/stance-tuning.md#support-inset`.
+ * The fraction a sole's edges are drawn in by to give the region a capture point is kept in: for
+ * the stance, each edge toward the ankle, what the ankle holds that way bounding the region
+ * further (`holdOf`, `FootState.hold`); for a reader of bare soles (`withinSupport`'s default: the
+ * rising, a kick's bearing foot, the recovery's readiness), the outline of their corners (their
+ * convex hull, across the ground) toward its middle. A centre of pressure at the sole's edge only
+ * holds the capture point there, the sole about to roll; drawn in, the ankle has the rest to
+ * bring it back. Sweep: `docs/reference/stance-tuning.md#support-inset`.
  */
 export const SUPPORT_INSET = 0.5;
+
+/**
+ * The share of an ankle's isometric strength a stance counts on to hold the centre of pressure off
+ * the ankle (`FootState.hold`): the region of a sole its ankle holds reaches from under the ankle
+ * as far as that share of the strength toward each side over the body's weight, no further than
+ * the sole. The rest is left for what the quasi-static reckoning leaves out: the ground's friction
+ * at the ankle's height, the strength lost as the ankle moves, the foot's own inertia. Set, and
+ * read against the drawn soles: `docs/reference/stance-tuning.md#ankle-hold`.
+ */
+export const ANKLE_HOLD = 0.8;
 
 /** The stance's settings as it reads them: each one `StanceTuning`'s, or the constant it stands in for. */
 export interface ResolvedStance {
   readonly seconds: NonNullable<StanceTuning["seconds"]>;
-  readonly inset: number;
   /** Null where the tuning turns the limit, or the step, off. */
   readonly bend: number | null;
   readonly spare: number | null;
@@ -197,7 +207,6 @@ export interface ResolvedStance {
 export function resolveStance(tuning: StanceTuning): ResolvedStance {
   return {
     seconds: tuning.seconds ?? STANCE_SECONDS,
-    inset: tuning.supportInset ?? SUPPORT_INSET,
     bend: tuning.kneeBend === undefined ? STANCE_KNEE_BEND : tuning.kneeBend,
     spare: tuning.ankleSpare === undefined ? STANCE_ANKLE_SPARE : tuning.ankleSpare,
     recovery: tuning.recovery === undefined ? STANCE_RECOVERY : tuning.recovery,

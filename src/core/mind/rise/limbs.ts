@@ -6,23 +6,17 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody, BuiltSegment } from "../../build/build-body.ts";
 import type { Limb, LimbTask, Row } from "../../control/bearing.ts";
-import type { BearingPoint } from "../../control/contact-wrench.ts";
+import { UNHELD, type BearingPoint } from "../../control/contact-wrench.ts";
 import { lowsOf } from "../../control/ground.ts";
 import { chainTo } from "../../control/kinematics.ts";
 import { SOLE_MARGIN } from "../../control/stance-tuning.ts";
-import { type FootState, bearingSole, footStatesOf, motionAtToRef, pointOfToRef, readSupport, rolledEdge, rolledRows } from "../../control/support.ts";
+import { DOWN, type FootState, bearingSole, footStatesOf, motionAtToRef, pointOfToRef, readSupport, rolledEdge, rolledRows } from "../../control/support.ts";
 import { hypot } from "../../math/real.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { handShapeAt, type HandPose, type ShapeSpec } from "../../spec/body.ts";
 import type { OwnBody } from "../mind.ts";
 import { limbChannels, type EndLimb, type FootLimb, type ProppedLimb, type Recipe } from "./stages.ts";
 
-/**
- * How near the ground a limb's point is, m, for the limb to be down and bear, and a corner of a
- * foot's sole for the foot to prop what it hangs from: a tolerance on a reading
- * (`docs/reference/rising.md#stages`).
- */
-export const DOWN = 0.03;
 
 /**
  * The time constant, s, at which the freedoms of an end's or a propped limb's chain that take its
@@ -260,7 +254,7 @@ function proppedLimb(own: OwnBody, spec: ProppedLimb, prop: FootState): Part {
   const { built } = own, segment = built.segments.get(spec.segment)!;
   const chain = chainOf(own, spec), end = endOf(built, segment, spec.end);
   const at = new Vector3(), over = new Vector3(), along = new Vector3(0, 0, 1), stands = new Vector3();
-  const point: BearingPoint = { kind: "point", at }, sole = { kind: "sole" as const, middle: at, along, length: 0, width: 0 };
+  const point: BearingPoint = { kind: "point", at }, sole = { kind: "sole" as const, middle: at, along, length: 0, width: 0, ankle: at, hold: UNHELD };
   /** How far the foot stands from the end's point across the ground, m, and its sole's lowest corner over the ground, m. */
   const lies = { span: 0, up: 0 };
   // The capsule's spin about the level line across it: its tilt's rate.
@@ -326,6 +320,8 @@ function footLimb(own: OwnBody, spec: FootLimb, foot: FootState): Part {
   return {
     limb, over: at,
     read(ground) {
+      foot.memory.ground = ground;
+      foot.memory.lifted = 0;
       foot.memory.rolled = foot.ends.front.middle.y + foot.heel - ground >= DOWN ? "front" : null;
       at.copyFrom(rolledEdge(foot)?.middle ?? foot.middle);
     },

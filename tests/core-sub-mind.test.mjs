@@ -270,7 +270,7 @@ test("a body taken in the middle of a step forgets the step, steps its feet apar
     // The fixture takes it with a step under way: a foot in the air, a plan, a walk's pace.
     assert.ok(before.plan && before.last.length === 1 && before.stride !== null && before.striding !== null && before.pace[1] > 0.4
       && before.swing !== null && before.lifted && before.time > 0.1 && before.held > 0 && before.phase === "swing" && before.own !== null, JSON.stringify(before));
-    const blank = { plan: false, last: null, stride: null, striding: null, pace: [0, 0], swing: null, lifted: false, time: 0, held: 0, phase: "stand", own: null, rolled: [false, false] };
+    const blank = { plan: false, last: null, stride: null, striding: null, pace: [0, 0], swing: null, lifted: false, time: 0, held: 0, phase: "stand", own: null, rolled: [null, null] };
     assert.deepEqual(memory(), blank);
     stand.step(HELD - 1);
     assert.deepEqual([body.has, memory()], ["hold", blank]);

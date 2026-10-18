@@ -221,8 +221,28 @@ legs' strength (`effort` 0.7) the walk caps higher forward and falls there from 
 (the Rogue) and 1.6 (the Warrior); with the double support shortened to 0.06 s the walk back
 creeps past its cap a step at a time with the pivot and the centre of pressure at the heel's edge
 and falls, and a stance catching a steered club blow staggers four steps or eight by chance
-(`tests/core-strike-skill.test.mjs`, red). The stop battery and the Move
-bout's `todo` are not yet run against the generator. SIMBICON's walk and its ways stay the game's
+(`tests/core-strike-skill.test.mjs`, red). Since: the stance plans within the regions each ankle
+holds of its sole (`FootState.hold`, `ANKLE_HOLD`; `docs/reference/stance-tuning.md#ankle-hold`),
+a sole's end is in the air by its height over the ground (`standingOn`, `DOWN`), a transfer step's
+correction for the measured capture point runs it through the double support about the pivot the
+stance will choose (`transferStep`), a recovery step is re-aimed as it swings (`aimRecovery`), and
+the plan goes on from what the ground gave of its ask (`plan.missed`): a plan that counted the ask
+as taken ran away from a body whose soles could not give it (0.1 m from the body within 0.3 s of a
+club blow, its tracking asking 15 m/s² of ground that gave less), and the Arena's smoke bout fell
+on its seventh recovery step; it stands. A recovery reads its capture point with what the body's
+angular momentum brings it as it returns (`carriedVelocity`; without it the Rogue shoved 35 N s
+back and the Warrior shoved to the side fall) and steps a foot the body has tipped off (`holding`),
+a swing carries its sole's lowest corner to the ground it last stood on, and a walk from a split
+stance starts with the foot behind (`startingSide`). On the stop battery (as above) the Rogue
+holds 43 and the Warrior 46 of 48 (85 of 96 before): all seven falls are stops from a backward
+walk at 1 m/s or more, six with the club. Their common root is read: the dorsiflexors hold the
+centre of pressure no more than a few centimetres behind the ankle (the Rogue's hold 21.5 N m
+toward the heel against 208.8 toward the toes), so a body falling toward its heels cannot brake
+standing and must step; and the swing hip's reaction pitches the pelvis from 15° forward to 15°
+back within a step back, the ground short of the asked wrench all swing (30 to 230 N m), which
+takes the Rogue's 16° of hip extension, so its steps back land about 0.2 m short. The Arena's
+steered club blow (`tests/research-blow.test.mjs`) steps on the blow's contact and staggers to a
+fall. The Move bout's `todo` is not yet run against the generator. SIMBICON's walk and its ways stay the game's
 walk until the gate is met; the run (stage 3) builds on this generator.
 
 **Locomotion.** On the gait battery (asked 1.4 to 5 m/s, three stops, two turns, gust seeds 5

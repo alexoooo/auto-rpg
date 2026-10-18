@@ -34,7 +34,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
-import { carried, give, jacobianTo, keepRows, soleTorque, type Limb } from "./bearing.ts";
+import { bearsNow, carried, give, jacobianTo, keepRows, soleTorque, type Limb } from "./bearing.ts";
 import { groundWrenchWork, patchPlace, shareGroundWrench, type GroundWrenchWork, type Patch } from "./contact-wrench.ts";
 import type { ServoWork } from "./servo.ts";
 import { GROUND_FRICTION } from "./support.ts";
@@ -215,7 +215,7 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
   for (let i = 0; i < n; i++) if (!(work.fixed[i] && !inLimb[i])) give(muscles, i, b.torque[i]!);
   for (let k = 0; k < ask.limbs.length; k++) {
     const limb = ask.limbs[k]!, { task } = limb, channels = limb.memory.channels, out = ask.asked[k]!;
-    const share = task.on && task.bearing ? b.shares[b.bearing.indexOf(limb)]! : null;
+    const share = bearsNow(limb) ? b.shares[b.bearing.indexOf(limb)]! : null;
     const sole = share !== null && limb.segment.spec.surface?.sole !== undefined;
     for (let c = 0; c < channels.length; c++) {
       const i = channels[c]!;
@@ -235,7 +235,7 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
 function bearingLimbs(b: WholeBody, limbs: readonly Limb[]): Limb[] {
   const { bearing } = b;
   let count = 0;
-  for (const limb of limbs) if (limb.task.on && limb.task.bearing) bearing[count++] = limb;
+  for (const limb of limbs) if (bearsNow(limb)) bearing[count++] = limb;
   bearing.length = count;
   return bearing;
 }

@@ -24,7 +24,7 @@ test('the physical Warrior hull and attached club contribute to detached bounds'
    'attached geometry extends beyond the bare hand bounds');
   assert.equal(lowOpponent(view,foe),false);
   const part=b.duel.duelists.right.built.segments.get('upperTrunk');
-  part.body.applyImpulse(new Vector3(0,0,90),centreOfToRef(part,new Vector3()));b.world.step(120);
+  part.body.applyImpulse(new Vector3(0,0,200),centreOfToRef(part,new Vector3()));b.world.step(120);
   const top=upperSurface(left.body.view.senses.others[0],'upperTrunk');
   const torso=sensedBounds(left.body.view.senses.others[0]).find(s=>s.name.includes('/upperTrunk/'));
   const highest=highestSurface(left.body.view.senses.others[0],'upperTrunk',left.body.view.stance.centre.asArray());

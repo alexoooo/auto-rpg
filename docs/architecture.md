@@ -327,8 +327,13 @@ and driven afresh to change what it costs.
   solve (`aimLimb`): the point of its sole, the sole as a patch, a knee past straight asked back
   to its bend, a rolled foot left free to turn about its front edge. The solve's limbs are the
   stance's legs and its records the stance's own state; what the soles miss is published
-  (`StanceReading.shortfall`). Steps (to recover, to walk, to shift weight) are placed from the
-  capture point, and land facing the heading only as far as the bearing foot's hip lets the pelvis
+  (`StanceReading.shortfall`), and the plan goes on from what the ground gave of its ask
+  (`plan.missed`), not from the ask. A bearing sole's wrench loads its ankle no more than a share
+  of its strength (`ANKLE_HOLD`, `BearingSole.hold`), and the stance plans within the regions each
+  ankle so holds of its sole (`FootState.hold`, `heldBy`): the whole sole ahead of the ankle, a few
+  centimetres behind it. A sole whose one end is over the ground bears on the other alone
+  (`standingOn`, `DOWN`). Steps (to recover, to walk, to shift weight) are placed from the
+  capture point, re-aimed as they swing (`ownStep`, `aimRecovery`), and land facing the heading only as far as the bearing foot's hip lets the pelvis
   turn over it (`landingHeading`, `support.ts`): a faster turn is taken step by step. A push
   that carries the capture point out of the soles and away from the bearing one during a weight
   shift is caught by a recovery step, ahead of any step the goal asks (`catchStep`). A goal's step

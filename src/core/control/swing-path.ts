@@ -47,22 +47,71 @@ export interface SwingBow {
 /** How near either end of the way a bow's peak may be: nearer, the way to it is too short to bend smoothly. */
 const BOW_END = 0.1;
 
+/** How many points of the way, from `BOW_END` of it to as near its end, a bow reads against the bearing sole's box. */
+const BOW_SAMPLES = 16;
+
+/** Minimum jerk's share of a way at `s` of its time (`swingProgressToRef`). */
+const eased = (s: number): number => s * s * s * (10 - 15 * s + 6 * s * s);
+
 /**
- * **A swing's bow**, into `out`: the path from `from` to `to` bent aside where it passes nearest the
- * bearing sole's middle `bearer`, so that it is `clear` m from it there. The bend is nothing at
- * either end, where the feet stand as they do, and rises to the pass as minimum jerk, so that the
- * path is as smooth as its way. A path over the sole bends to the swinging foot's own side, `side`
- * (unit, world x and z).
+ * How far a point of a swing's way at (`across`, `along`) from the bearing sole's middle, in the
+ * box's frame, goes along the bow's bend to leave the box of half-width `clear` and half-length
+ * `reach`: out through its side on the swinging foot's own side (`nc` of the bend across), or
+ * through the end face the bend is toward (`end`, `na` of it along) if that is first. 0 outside.
  */
-export function swingBowToRef(from: Vector3, to: readonly [number, number], bearer: Vector3, clear: number, side: readonly [number, number], out: SwingBow): void {
-  const dx = to[0] - from.x, dz = to[1] - from.z, d2 = dx * dx + dz * dz;
+function wayOut(across: number, along: number, clear: number, reach: number, end: number, nc: number, na: number): number {
+  if (across <= -clear || across >= clear || along <= -reach || along >= reach) return 0;
+  const way = (clear - across) / nc;
+  return na === 0 ? way : Math.min(way, (reach - end * along) / (end * na));
+}
+
+/**
+ * **A swing's bow**, into `out`: the path from `from` to `to` bent aside where it passes through
+ * the box about the bearing sole that the swinging sole's middle keeps out of (`clearAcross`,
+ * `clearAlong`): `bearer` its middle, `front` and `heel` its ends' middles, `reach` the box's
+ * half-length along the sole and `clear` its half-width across. The bend is nothing at either end,
+ * where the feet stand as they do, and rises to its peak, at the middle of the way's run through
+ * the box, as minimum jerk, so that the path is as smooth as its way. It bends out across to the
+ * swinging foot's own side, `side` (unit, world x and z), when the landing is out there; else
+ * toward the box's corner on that side at the end the landing is toward, so that a foot crossing
+ * behind the bearing leg rounds its heel: by as much as takes every point of the way read in the
+ * box out of it, each by the bend's share there, less what the way's ends lend the point between
+ * them (`wayOut`). A foot that stands in the box, or lands on the sole's face, is in it by right,
+ * where the bend is nothing: the bow owes only what the way between the ends adds, or a hair of
+ * the landing's in the box asks a bend of metres.
+ */
+export function swingBowToRef(from: Vector3, to: readonly [number, number], bearer: Vector3, front: Vector3, heel: Vector3, reach: number, clear: number,
+  side: readonly [number, number], out: SwingBow): void {
+  const dx = to[0] - from.x, dz = to[1] - from.z, lx = front.x - heel.x, lz = front.z - heel.z, long = hypot(lx, lz);
   out.aside[0] = 0; out.aside[1] = 0; out.at = 0.5;
-  if (d2 < 1e-8) return;
-  const u = Math.min(Math.max(((bearer.x - from.x) * dx + (bearer.z - from.z) * dz) / d2, 0), 1);
-  const qx = from.x + u * dx - bearer.x, qz = from.z + u * dz - bearer.z, dist = hypot(qx, qz), need = clear - dist;
-  if (need <= 0) return;
-  out.at = Math.min(Math.max(u, BOW_END), 1 - BOW_END);
-  if (dist > 1e-3) { out.aside[0] = qx / dist * need; out.aside[1] = qz / dist * need; } else { out.aside[0] = side[0] * need; out.aside[1] = side[1] * need; }
+  if (long < 1e-6) return;
+  const ax = lx / long, az = lz / long;
+  let cx = az, cz = -ax;
+  if (cx * side[0] + cz * side[1] < 0) { cx = -cx; cz = -cz; }
+  const tx = to[0] - bearer.x, tz = to[1] - bearer.z, end = tx * cx + tz * cz >= clear ? 0 : tx * ax + tz * az < 0 ? -1 : 1;
+  const nc = end === 0 ? 1 : clear / hypot(clear, reach), na = end === 0 ? 0 : end * reach / hypot(clear, reach);
+  const fx = from.x - bearer.x, fz = from.z - bearer.z;
+  const lent = wayOut(fx * cx + fz * cz, fx * ax + fz * az, clear, reach, end, nc, na), lands = wayOut(tx * cx + tz * cz, tx * ax + tz * az, clear, reach, end, nc, na);
+  const step = (1 - 2 * BOW_END) / (BOW_SAMPLES - 1);
+  let first = -1, last = -1;
+  for (let k = 0; k < BOW_SAMPLES; k++) {
+    const u = BOW_END + step * k, px = fx + dx * u, pz = fz + dz * u;
+    if (wayOut(px * cx + pz * cz, px * ax + pz * az, clear, reach, end, nc, na) <= lent * (1 - u) + lands * u) continue;
+    if (first < 0) first = k;
+    last = k;
+  }
+  if (first < 0) return;
+  const at = BOW_END + step * (first + last) / 2;
+  let most = 0;
+  for (let k = first; k <= last; k++) {
+    const u = BOW_END + step * k, px = fx + dx * u, pz = fz + dz * u;
+    const owed = wayOut(px * cx + pz * cz, px * ax + pz * az, clear, reach, end, nc, na) - lent * (1 - u) - lands * u;
+    if (owed <= 0) continue;
+    const bend = owed / eased(u <= at ? u / at : (1 - u) / (1 - at));
+    if (bend > most) most = bend;
+  }
+  out.at = at;
+  out.aside[0] = (cx * nc + ax * na) * most; out.aside[1] = (cz * nc + az * na) * most;
 }
 
 /**
@@ -71,10 +120,7 @@ export function swingBowToRef(from: Vector3, to: readonly [number, number], bear
  * bowed `bow` aside, by minimum jerk of the way to the bow's peak and from it: into `point`, with
  * its velocity into `velocity` and its acceleration into `accel` from the way's rates `du` and
  * `ddu`, per second. `work` carries nothing between calls. The path keeps the height the foot left
- * at: a foot that leaves from its toes ends its time above the ground, and comes down from there
- * (a walk's swing presses on until its sole meets the ground); carried down to the ground by its
- * progress instead, a foot still pitched from its launch meets the ground with its toes before its
- * time and lands short.
+ * at; the swing carries its sole's lowest corner from there to the ground (`swingFoot`).
  */
 export function swingPathToRef(from: Vector3, to: readonly [number, number], lift: number, bow: SwingBow, tau: number, T: number, u: number, du: number, ddu: number,
   point: Vector3, velocity: Vector3, accel: Vector3, work: Vector3): void {

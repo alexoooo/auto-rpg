@@ -17,9 +17,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { groundWrenchWork, patchCorners, shareGroundWrench } from "../src/core/control/contact-wrench.ts";
+import { UNHELD, groundWrenchWork, patchCorners, shareGroundWrench } from "../src/core/control/contact-wrench.ts";
 
 const MU = 0.5, PYRAMID = MU / Math.SQRT2;
+/** An ankle at the origin for a sole whose hold is nothing: where it is does not matter. */
+const ORIGIN = new Vector3();
 /** One work for every share below, made for the most patches any asks. */
 const WORK = groundWrenchWork(4, 0);
 const out = (k) => Array.from({ length: k }, () => ({ force: new Vector3(), moment: new Vector3() }));
@@ -49,7 +51,7 @@ test("every wrench a sole's corners can make inside the friction pyramid is give
   let worst = 0, largestTwist = 0;
   for (let trial = 0; trial < 200; trial++) {
     const a = random() * 2 * Math.PI, u = new Vector3(Math.sin(a), 0, Math.cos(a)), w = new Vector3(u.z, 0, -u.x);
-    const sole = { kind: "sole", middle: new Vector3(random() - 0.5, 0, random() - 0.5), along: u, length: 0.12, width: 0.05 };
+    const sole = { kind: "sole", ankle: ORIGIN, hold: UNHELD, middle: new Vector3(random() - 0.5, 0, random() - 0.5), along: u, length: 0.12, width: 0.05 };
     const centre = new Vector3(0, 0.9, 0), force = new Vector3(), moment = new Vector3();
     for (const [i, j] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
       const fz = 100 * random();
@@ -68,7 +70,7 @@ test("every wrench a sole's corners can make inside the friction pyramid is give
 });
 
 test("a twist, a centre of pressure or a pull past the sole is not given, and what is given is inside the limits", () => {
-  const sole = { kind: "sole", middle: new Vector3(0, 0, 0), along: new Vector3(0, 0, 1), length: 0.12, width: 0.05 };
+  const sole = { kind: "sole", ankle: ORIGIN, hold: UNHELD, middle: new Vector3(0, 0, 0), along: new Vector3(0, 0, 1), length: 0.12, width: 0.05 };
   // Straight down 100 N at the middle: the corners' friction twists at most mu (X + Y) f3.
   const most = PYRAMID * (sole.length + sole.width) * 100;
   const cases = [
@@ -90,13 +92,47 @@ test("a twist, a centre of pressure or a pull past the sole is not given, and wh
   }
 });
 
+test("a sole's wrench loads its ankle no more than the ankle holds each way, and an unheld ankle not at all", () => {
+  const hold = { toe: 10, heel: 2, side: 3 };
+  // The ankle at the sole's middle: the moment about it is the wrench's own; 3 cm behind, the force
+  // at the middle alone makes one. Each case is the moment about the ankle it makes, and whether
+  // the hold gives it (the sole's own limits would give them all).
+  const cases = [
+    ["5 cm toward the toes", new Vector3(0, 0, 0), new Vector3(-5, 0, 0), -5, true],
+    ["11 cm toward the toes", new Vector3(0, 0, 0), new Vector3(-11, 0, 0), -10, false],
+    ["1.5 cm toward the heel", new Vector3(0, 0, 0), new Vector3(1.5, 0, 0), 1.5, true],
+    ["5 cm toward the heel", new Vector3(0, 0, 0), new Vector3(5, 0, 0), 2, false],
+    ["2 cm to a side", new Vector3(0, 0, 0), new Vector3(0, 0, 2), 2, true],
+    ["4 cm to a side", new Vector3(0, 0, 0), new Vector3(0, 0, 4), 3, false],
+    ["the middle, 3 cm ahead of the ankle", new Vector3(0, 0, -0.03), new Vector3(0, 0, 0), -3, true],
+    ["the middle, 3 cm ahead of an ankle that holds 2 N m toward the toes", new Vector3(0, 0, -0.03), new Vector3(0, 0, 0), -2, false, { ...hold, toe: 2 }],
+  ];
+  const force = new Vector3(0, 100, 0);
+  for (const [what, ankle, moment, about, given, held = hold] of cases) {
+    for (const bound of [held, UNHELD]) {
+      const sole = { kind: "sole", ankle, hold: bound, middle: new Vector3(0, 0, 0), along: new Vector3(0, 0, 1), length: 0.12, width: 0.05 };
+      const shares = out(1), miss = missOf();
+      shareGroundWrench(WORK, [sole], sole.middle, force, moment, MU, 0.9, shares, miss);
+      const missed = miss.force.length() + miss.moment.length() / 0.9, over = outside(sole, shares[0]);
+      // The share's moment about the ankle: its own and its force's lever from the ankle.
+      const m = shares[0].moment.add(Vector3.Cross(sole.middle.subtract(ankle), shares[0].force));
+      assert.ok(over < 1e-6 * (1 + force.length()), `${what}: the share is outside the sole's limits by ${over}`);
+      if (bound === UNHELD || given) assert.ok(missed < 1e-3, `${what}, ${bound === UNHELD ? "unheld" : "held"}: missed by ${missed}`);
+      else {
+        assert.ok(missed > 0.5, `${what}: given, missed by only ${missed}`);
+        assert.ok(Math.abs((about < 0 ? -1 : 1) * (moment.z !== 0 ? m.z : m.x) - Math.abs(about)) < 1e-3, `${what}: the ankle is loaded ${moment.z !== 0 ? m.z : m.x} N m, its hold ${about}`);
+      }
+    }
+  }
+});
+
 test("a sole that bears nothing gives nothing, twist included; a recorded share at a light sole's friction limits is finite", () => {
   // Recorded from a Rogue shoved 15 N s at 315 degrees, 0.1 s after (Node stand, Rapier, 120 Hz):
   // more level force than friction gives, the friction limits of a light sole meeting at once.
   const soles = [
     { middle: new Vector3(-0.16885133114635587, -0.006462237483764022, 0.06559793217555063), along: new Vector3(0.0002746066032038252, 0, 0.999999962295606) },
     { middle: new Vector3(0.1700979549712681, -0.0035022077774349678, 0.06669322717143379), along: new Vector3(-0.0199250429646959, 0, 0.9998014766256624) },
-  ].map((s) => ({ kind: "sole", ...s, length: 0.12283175088321414, width: 0.06353366424993835 }));
+  ].map((s) => ({ kind: "sole", ankle: ORIGIN, hold: UNHELD, ...s, length: 0.12283175088321414, width: 0.06353366424993835 }));
   const centre = new Vector3(-0.0033824566134876615, 0.8845580465087064, 0.05188870879901126);
   const force = new Vector3(176.1958980324399, 521.7417948696399, -191.1676020859362), moment = new Vector3(29.989128553603337, -3.051744522216977, -8.73631347122803);
   const shares = out(2), miss = missOf();
@@ -116,7 +152,7 @@ test("a share whose last step is rounding comes back finite, as do 20000 two-sol
   const soles = [
     { middle: new Vector3(-0.093511201539401, -0.005475106883502039, 1.9189550655586372), along: new Vector3(-0.01792728309757968, 0, 0.9998392933470555) },
     { middle: new Vector3(0.19453189860768572, -0.005219573794148877, 1.7896073784288162), along: new Vector3(-0.021872588459735602, 0, 0.9997607663206588) },
-  ].map((s) => ({ kind: "sole", ...s, length: 0.12283175088321414, width: 0.06353366424993835 }));
+  ].map((s) => ({ kind: "sole", ankle: ORIGIN, hold: UNHELD, ...s, length: 0.12283175088321414, width: 0.06353366424993835 }));
   const centre = new Vector3(0.03070985993772695, 0.882219516156343, 1.827376574952522);
   const force = new Vector3(89.19496503463537, 559.2146823551765, -92.52064792619704), moment = new Vector3(-14.566345399287933, -26.90184635293252, 19.225789044201118);
   const shares = out(2), miss = missOf();
@@ -129,7 +165,7 @@ test("a share whose last step is rounding comes back finite, as do 20000 two-sol
   for (let trial = 0; trial < 20000; trial++) {
     const pair = [-1, 1].map((side) => {
       const a = 0.6 * (random() - 0.5);
-      return { kind: "sole", middle: new Vector3(0.15 * side + 0.1 * (random() - 0.5), -0.005 * random(), 0.4 * (random() - 0.5)), along: new Vector3(Math.sin(a), 0, Math.cos(a)), length: 0.1228, width: 0.0635 };
+      return { kind: "sole", ankle: ORIGIN, hold: UNHELD, middle: new Vector3(0.15 * side + 0.1 * (random() - 0.5), -0.005 * random(), 0.4 * (random() - 0.5)), along: new Vector3(Math.sin(a), 0, Math.cos(a)), length: 0.1228, width: 0.0635 };
     });
     const at = new Vector3(0.1 * (random() - 0.5), 0.88, 0.1 * (random() - 0.5));
     const f = new Vector3(300 * (random() - 0.5), 600 * random(), 300 * (random() - 0.5)), m = new Vector3(80 * (random() - 0.5), 60 * (random() - 0.5), 80 * (random() - 0.5));
@@ -192,7 +228,7 @@ test("three points give every wrench whose pressure falls inside them, and no mo
 test("a sole and two points share as their levers do", () => {
   // A point, a sole behind, a point: a weight over the middle of the three is a third on each,
   // which gives it with no moment from the sole, and is the least share that does.
-  const sole = { kind: "sole", middle: new Vector3(0, 0, -0.3), along: new Vector3(0, 0, 1), length: 0.12, width: 0.05 };
+  const sole = { kind: "sole", ankle: ORIGIN, hold: UNHELD, middle: new Vector3(0, 0, -0.3), along: new Vector3(0, 0, 1), length: 0.12, width: 0.05 };
   const patches = [{ kind: "point", at: new Vector3(-0.2, 0, 0.25) }, sole, { kind: "point", at: new Vector3(0.2, 0, 0.25) }];
   const middle = new Vector3(0, 0, (0.25 - 0.3 + 0.25) / 3), centre = new Vector3(0.01, 0.6, 0.02), weight = 600;
   const force = new Vector3(0, weight, 0), moment = Vector3.Cross(middle.subtract(centre), force);
@@ -243,7 +279,7 @@ test("patches given parts bear by them where the wrench leaves the split open, a
   // A sole among points takes its part too: a sole and two points, each a third without parts
   // (the least that gives the wrench with no moment of the sole's); pressing where the parts'
   // middle is, they bear by the parts, the sole still giving no moment.
-  const sole = { kind: "sole", middle: new Vector3(0, 0, -0.3), along: new Vector3(0, 0, 1), length: 0.12, width: 0.05 };
+  const sole = { kind: "sole", ankle: ORIGIN, hold: UNHELD, middle: new Vector3(0, 0, -0.3), along: new Vector3(0, 0, 1), length: 0.12, width: 0.05 };
   const patches = [{ kind: "point", at: new Vector3(-0.2, 0, 0.25) }, sole, { kind: "point", at: new Vector3(0.2, 0, 0.25) }], thirds = [0.25, 0.5, 0.25];
   const middle = new Vector3(0, 0, 0.25 * 0.25 - 0.5 * 0.3 + 0.25 * 0.25), shares = out(3), miss = missOf();
   shareGroundWrench(WORK, patches, centre, force, Vector3.Cross(middle.subtract(centre), force), MU, 0.35, shares, miss, thirds);
@@ -270,7 +306,7 @@ test("a_work_used_for_fewer_patches_answers_as_one_made_for_them", () => {
   const soles = [
     { middle: new Vector3(-0.093511201539401, -0.005475106883502039, 1.9189550655586372), along: new Vector3(-0.01792728309757968, 0, 0.9998392933470555) },
     { middle: new Vector3(0.19453189860768572, -0.005219573794148877, 1.7896073784288162), along: new Vector3(-0.021872588459735602, 0, 0.9997607663206588) },
-  ].map((s) => ({ kind: "sole", ...s, length: 0.12283175088321414, width: 0.06353366424993835 }));
+  ].map((s) => ({ kind: "sole", ankle: ORIGIN, hold: UNHELD, ...s, length: 0.12283175088321414, width: 0.06353366424993835 }));
   const centre = new Vector3(0.03070985993772695, 0.882219516156343, 1.827376574952522);
   const force = new Vector3(89.19496503463537, 559.2146823551765, -92.52064792619704), moment = new Vector3(-14.566345399287933, -26.90184635293252, 19.225789044201118);
   const answer = (work, patches, parts) => {
@@ -293,7 +329,7 @@ test("a patch's corners are where its centre of pressure may go", () => {
   assert.deepEqual(patchCorners({ kind: "point", at }).map((corner) => corner.asArray()), [[0.3, 0, -0.2]]);
   const xz = (corners) => corners.map((corner) => [corner.x, corner.y, corner.z].map((v) => Math.round(v * 1e9) / 1e9));
   // A sole along +z: its length's two ends, and across it (up x along, +x) its width's.
-  const sole = { kind: "sole", middle: new Vector3(0.1, 0.02, -0.3), along: new Vector3(0, 0, 1), length: 0.12, width: 0.05 };
+  const sole = { kind: "sole", ankle: ORIGIN, hold: UNHELD, middle: new Vector3(0.1, 0.02, -0.3), along: new Vector3(0, 0, 1), length: 0.12, width: 0.05 };
   assert.deepEqual(xz(patchCorners(sole)), [[0.15, 0.02, -0.18], [0.05, 0.02, -0.18], [0.05, 0.02, -0.42], [0.15, 0.02, -0.42]]);
   // Along +x, across it is -z.
   assert.deepEqual(xz(patchCorners({ ...sole, along: new Vector3(1, 0, 0) })), [[0.22, 0.02, -0.35], [0.22, 0.02, -0.25], [-0.02, 0.02, -0.25], [-0.02, 0.02, -0.35]]);

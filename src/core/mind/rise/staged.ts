@@ -6,12 +6,12 @@ import { bearLimbs, carryRoot, limbMotion, makeBearing } from "../../control/bea
 import { patchCorners } from "../../control/contact-wrench.ts";
 import { uprightness } from "../../control/ground.ts";
 import { servoAsk, servoSolve } from "../../control/servo.ts";
-import { footStatesOf, readSupport, turnOfToRef, withinSupport } from "../../control/support.ts";
+import { DOWN, footStatesOf, readSupport, turnOfToRef, withinSupport } from "../../control/support.ts";
 import { atan2 } from "../../math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../math/turn.ts";
 import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
-import { DOWN, riseLimbs } from "./limbs.ts";
+import { riseLimbs } from "./limbs.ts";
 import { RISE, stageFaults, stagesOf, type BearStage, type Lie, type PoseStage, type Recipe, type Stage } from "./stages.ts";
 
 /**

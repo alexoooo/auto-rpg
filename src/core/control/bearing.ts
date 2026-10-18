@@ -62,7 +62,7 @@ interface LimbWork {
    * one nearest these (`nearSolveTo`). Null, the least motion.
    */
   toward: number[] | null;
-  /** Where it bears, while it bears. */
+  /** Where it bears, while it bears (`bearsNow`); null, it takes no share of the ground's wrench. */
   patch: Patch | null;
   /**
    * Its part of the load against the other bearing limbs', where the ground's wrench can be shared
@@ -400,11 +400,19 @@ function rootAim(b: Bearing, aim: { readonly spin: Vector3; readonly centre: Vec
   return root;
 }
 
+/**
+ * Whether `limb` takes a share of the ground's wrench: driven and bearing. A bearing sole the
+ * ground is not pressing takes its share too: a landing sole is a step from its contact, and a
+ * walk whose landing foot bore nothing until the ground pressed it ran away; what the sole does
+ * not give is the solve's shortfall until it does, and its own leg brings it down (`holdStance`).
+ */
+export const bearsNow = (limb: Limb): boolean => limb.task.on && limb.task.bearing;
+
 /** The driven limbs that bear, in the limbs' order, into the scratch's `bearing`. */
 function bearingLimbs(b: Bearing): Limb[] {
   const { bearing } = b.scratch;
   let count = 0;
-  for (const limb of b.limbs) if (limb.task.on && limb.task.bearing) bearing[count++] = limb;
+  for (const limb of b.limbs) if (bearsNow(limb)) bearing[count++] = limb;
   bearing.length = count;
   return bearing;
 }
@@ -684,7 +692,7 @@ function limbTorques(b: Bearing, muscles: MuscleDriver, accel: Float64Array, bea
   for (const limb of limbs) {
     const { task } = limb;
     if (!task.on) { task.given.fill(NaN); continue; }
-    const share = task.bearing ? shares[bearingAt++]! : null, sole = share !== null && limb.segment.spec.surface?.sole !== undefined;
+    const share = bearsNow(limb) ? shares[bearingAt++]! : null, sole = share !== null && limb.segment.spec.surface?.sole !== undefined;
     const channels = limb.memory.channels;
     for (let k = 0; k < channels.length; k++) {
       const i = channels[k]!;

@@ -10,7 +10,7 @@ import type { WholeBodyAsk } from "./solve.ts";
 import type { StanceGoal, StanceReading, SwingGoal } from "./stance.ts";
 import { makeLegNow, type LegNow, type SwingShift } from "./swing-leg.ts";
 import type { SwingBow } from "./swing-path.ts";
-import { resolveStance, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
+import { resolveStance, SUPPORT_INSET, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
 import { footStatesOf, massOf, restWidth, type FootMemory, type FootState } from "./support.ts";
 import type { Side } from "../spec/body.ts";
 
@@ -51,11 +51,15 @@ interface StanceState {
     off: number;
     /** Whether the step under way catches a push (`catchStep`): it runs to its landing before any step the goal asks. */
     catching: boolean;
+    /** Whether the stance's own step under way is a recovery step (`recoveryStep`), re-aimed as one (`aimRecovery`). */
+    recovering: boolean;
     readonly from: Vector3;
     /** The sole's middle's velocity as the foot left the ground, world, m/s (`SwingGoal.momentum`). */
     readonly launch: Vector3;
     readonly turn: Quaternion;
     readonly lift: Quaternion;
+    /** How far the sole's lowest corner lay below its middle under the turn asked at the last command, m (`soleDrop`), for the path's rate (`swingFoot`). */
+    drop: number;
     /** The swing leg's reaction on the plan, as the last command found it (`swingShiftToRef`). */
     readonly shift: SwingShift;
   };
@@ -64,8 +68,12 @@ interface StanceState {
    * bearing foot left the ground, and that foot's sole's middle from it then, world.
    */
   readonly flight: { on: boolean; readonly left: Vector3; readonly from: Vector3 };
-  /** The centre of mass's planned place (x, height over the soles, z) and velocity, since the stance began. */
-  readonly plan: { on: boolean; readonly at: Vector3; readonly velocity: Vector3 };
+  /**
+   * The centre of mass's planned place (x, height over the soles, z) and velocity, since the stance
+   * began, and what the ground missed of the force the last command asked of it, N, less what the
+   * assist gave (the last solve's shortfall and help): the plan goes on from what the body could get.
+   */
+  readonly plan: { on: boolean; readonly at: Vector3; readonly velocity: Vector3; readonly missed: Vector3 };
   /** What the last reading and command found and asked (`StanceControl.reading`); its `soles` are the feet's `middle`s. */
   readonly reading: { -readonly [K in Exclude<keyof StanceReading, "touching">]: StanceReading[K] } & { readonly touching: Record<Side, boolean> };
   /**
@@ -106,8 +114,14 @@ interface StanceScratch {
   readonly level: Quaternion;
   readonly whole: Quaternion;
   readonly wholeAxis: Vector3;
+  /** A swing foot's turn held within its ankle's range from the shank as it is, its turn relative to the shank, body frame, and an inverse's work (`ankleTurnToRef`). */
+  readonly ankleHeld: Quaternion;
+  readonly ankleRelative: Quaternion;
+  readonly ankleInverse: Quaternion;
   /** A swing's progress at a time: the share of the way, and its rates per share of the swing's time and per its square (`swingProgressToRef`). */
   readonly progress: Vector3;
+  /** The body's velocity with what its angular momentum brings it (`carriedVelocity`). */
+  readonly carried: Vector3;
   /** The swinging leg as it is (`legNowToRef`). */
   readonly legNow: LegNow;
   /** The swing's path's bow clear of the bearing sole (`swingBowToRef`), and the path's acceleration (`swingPathToRef`). */
@@ -150,18 +164,18 @@ export interface Stance {
 }
 
 export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assist | null): Stance {
-  const feet = footStatesOf(built);
+  const feet = footStatesOf(built, tuning.supportInset ?? SUPPORT_INSET);
   const segments = [...built.segments.values()], total = massOf(segments);
   const rise = segments.reduce((sum, part) => sum + part.spec.mass.value * part.spec.centreOfMass.value[1], 0) / total
     - feet.reduce((sum, foot) => sum + foot.chain[0]!.spec.centre.value[1], 0) / feet.length;
   const pace: [number, number] = [0, 0];
   const state: StanceState = {
     pose: null, stride: null, striding: null, owned: new Uint8Array(0), last: null, pace, crouch: 0,
-    step: { swing: null, lifted: false, pivoted: false, time: 0, held: 0, off: Infinity, catching: false, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion(),
+    step: { swing: null, lifted: false, pivoted: false, time: 0, held: 0, off: Infinity, catching: false, recovering: false, from: new Vector3(), launch: new Vector3(), turn: new Quaternion(), lift: new Quaternion(), drop: 0,
       shift: { now: [0, 0], capture: [0, 0], centre: [0, 0] } },
     flight: { on: false, left: new Vector3(), from: new Vector3() },
-    plan: { on: false, at: new Vector3(), velocity: new Vector3() },
-    reading: { centre: new Vector3(), velocity: new Vector3(), support: new Vector3(), place: new Vector3(),
+    plan: { on: false, at: new Vector3(), velocity: new Vector3(), missed: new Vector3() },
+    reading: { centre: new Vector3(), velocity: new Vector3(), momentum: new Vector3(), support: new Vector3(), place: new Vector3(),
       plan: new Vector3(), planVelocity: new Vector3(),
       facing: 0, phase: "stand", soles: { left: feet[0]!.middle, right: feet[1]!.middle }, touching: { left: false, right: false }, own: null, recoveries: 0, strides: 0, pace,
       shortfall: { force: new Vector3(), moment: new Vector3() },
@@ -190,7 +204,7 @@ export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assis
       path: new Vector3(), along: new Vector3(), sole: new Vector3(), v: new Vector3(),
       target: new Quaternion(), pelvisSpin: new Vector3(), turn: new Vector3(),
       p: new Vector3(), hipAt: new Vector3(), ankleAt: new Vector3(), kneeAt: new Vector3(), shank: new Quaternion(),
-      footTurn: new Quaternion(), level: new Quaternion(), whole: new Quaternion(), wholeAxis: new Vector3(), progress: new Vector3(), legNow: makeLegNow(), bow: { aside: [0, 0], at: 0.5 }, accel: new Vector3(),
+      footTurn: new Quaternion(), level: new Quaternion(), whole: new Quaternion(), wholeAxis: new Vector3(), ankleHeld: new Quaternion(), ankleRelative: new Quaternion(), ankleInverse: new Quaternion(), progress: new Vector3(), carried: new Vector3(), legNow: makeLegNow(), bow: { aside: [0, 0], at: 0.5 }, accel: new Vector3(),
     },
   };
 }

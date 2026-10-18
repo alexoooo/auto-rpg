@@ -5,6 +5,7 @@ import { frameOf } from "../spec/body.ts";
 import { lowsOf } from "./ground.ts";
 import { chainTo } from "./kinematics.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing, type Limb } from "./bearing.ts";
+import { UNHELD } from "./contact-wrench.ts";
 import { groundContact, massCentreToRef, massOf, motionAtToRef, pointOfToRef } from "./support.ts";
 import { servoAsk, servoSolve } from "./servo.ts";
 import { approachToRef, turnToRef } from "./approach.ts";
@@ -55,7 +56,7 @@ export function supportedMotor(own: OwnBody, endpoints: readonly SupportEndpoint
     helped: { force: new Vector3(), moment: new Vector3() }, held: { channels: [] as number[], z0: [] as number[], Z: [] as number[][] },
     shortfall: { force: new Vector3(), moment: new Vector3() },
   };
-  const soles = definitions.map((d, i) => d.sole ? { kind: "sole" as const, middle: state.endpoints[i]!.at, along: new Vector3(), ...d.sole } : null);
+  const soles = definitions.map((d, i) => d.sole ? { kind: "sole" as const, middle: state.endpoints[i]!.at, along: new Vector3(), ankle: state.endpoints[i]!.at, hold: UNHELD, ...d.sole } : null);
   const points = definitions.map((_d, i) => ({ kind: "point" as const, at: state.endpoints[i]!.contactAt }));
   const positionRows: Limb["work"]["rows"] = [[[3, 1]], [[4, 1]], [[5, 1]]];
   const toward = definitions.map(d => d.channels.map(() => 0));

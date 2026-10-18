@@ -18,7 +18,7 @@ import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
 import { RISE, type Recipe } from "./stages.ts";
 import { stagedRise } from "./staged.ts";
-import { DOWN } from "./limbs.ts";
+import { DOWN } from "../../control/support.ts";
 
 /** Hand/shin acquisition settings from `docs/reference/support-entry.md#fixture-and-acceptance`. */
 export const SUPPORT_ENTRY = deepFreeze({ root: "lowerTrunk", facing: .5,

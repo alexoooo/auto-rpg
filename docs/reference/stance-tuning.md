@@ -2,8 +2,8 @@
 
 The measurements behind the stance controller's tuned constants and settings in
 `src/core/control/stance-tuning.ts` (`STANCE_SECONDS`, `STANCE_KNEE_BEND`, `STANCE_ANKLE_SPARE`,
-`STANCE_RECOVERY`, `STANCE_GAIT`, `STANCE_TRACK`, `SOLE_MARGIN`, `SUPPORT_INSET`, the bounded
-swing `StanceTuning.boundedSwing` and the heel-off `StanceTuning.heelOff`), and behind the ground
+`STANCE_RECOVERY`, `STANCE_GAIT`, `STANCE_TRACK`, `SOLE_MARGIN`, `SUPPORT_INSET`, `ANKLE_HOLD`,
+the bounded swing `StanceTuning.boundedSwing` and the heel-off `StanceTuning.heelOff`), and behind the ground
 wrench's lever (`leverOf`, in `stanceControl`, `src/core/control/stance.ts`). Each constant's doc
 comment links to its section here. Every table was measured on the Node core stand
 (`tests/harness/core-stand.mjs`), Rapier, 120 Hz, each human standing 3 cm under its reference
@@ -330,7 +330,7 @@ Command: the sweep at `1444ce42`, with the two gait commands of the table above;
 The walk goes no faster than its legs can step its way with the hips lowered by `crouch` at most
 (`fastestPace`, `paceToward`), and lowers them no further than the steps at the pace need
 (`walkHeight`, into `StanceState.crouch`), and plans each step within `reserve` of the leg's
-reach (`stepShare`). On the whole-body solve, balance 0, at `reserve` 1 the cap reads for the
+reach (`reachableStep`). On the whole-body solve, balance 0, at `reserve` 1 the cap reads for the
 Warrior 1.49 m/s forward, 0.91 forward-right, 0.70 sideways and 1.31 back, for the Rogue 1.24,
 0.77, 0.60 and 1.03; at the chosen 0.8, 1.41, 0.91, 0.70 and 0.94 for the Warrior and 1.22, 0.77,
 0.60 and 0.74 for the Rogue. Every sideways walk at 0.7 m/s and above is the cap's, and goes 0.75
@@ -509,6 +509,39 @@ Chosen: 0.5; 0.4 reads alike.
 
 Command: the sweep at `abfe6153`; `{"supportInset": 0.3}` is the first row. The row at 0.6 was
 read again.
+
+The table was read when the inset drew in the outline of the soles the stance placed in
+(`withinSupport`), which it still does for a reader of bare soles. For the stance it now draws
+each sole's edges toward its ankle, and what the ankle holds bounds the region further (`holdOf`,
+`FootState.hold`; see Ankle hold).
+
+## Ankle hold
+
+`ANKLE_HOLD`: the share of an ankle's isometric strength each way the stance counts on to hold the
+centre of pressure off the ankle. A bearing sole's wrench loads its ankle no more than that share
+of its strength that way (`BearingSole.hold`, `shareGroundWrench`), and the regions the stance
+plans in (`FootState.hold`, `heldBy`) reach from under the ankle as far as the share holds at the
+load on the foot, no further than the sole drawn in by `SUPPORT_INSET`: toward the toes the
+plantar flexors hold the whole sole, toward the heel the dorsiflexors a few centimetres at the
+whole weight (the Rogue's hold reads 208.8 N m toward the toes, 21.5 toward the heel and 17.1 to a
+side), so that a body falling toward its heels cannot brake standing and steps.
+
+Against the stop battery (0.7, 1.0 and 1.2 m/s four ways, empty and club, calm and in a 1 m/s
+gust, 96 trials, on the whole-body solve), the plan's regions as the ankles hold them against the
+bare soles drawn in by the inset at every site the plan places, the hold uncut by the sole and
+drawn in at the pivots alone:
+
+                                  Rogue held   Warrior held
+        the ankles' hold, 0.8     34           42
+        the drawn soles           26           40
+
+Chosen: 0.8, set to leave the rest for what the quasi-static reckoning leaves out; the share was
+not swept.
+
+Command: `node research/core-stance-sweep.mjs --batteries stop --speeds 0.7,1,1.2 --ways
+0,90,180,270 --solve --gusts 1:5:5`, each row read with the regions written for it, on the
+controller as it stood before the double support's pivot was predicted in the transfer step's
+correction, which was not committed. The table does not read again from any commit.
 
 ## Wrench lever
 
