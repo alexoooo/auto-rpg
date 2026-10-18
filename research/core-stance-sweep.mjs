@@ -56,7 +56,7 @@ await Promise.all(pool.map((worker) => new Promise((resolve, reject) => {
     if (next >= jobs.length) { worker.terminate(); resolve(); return; }
     const id = next++;
     worker.once("message", ({ result, error }) => {
-      if (error) { reject(new Error(error)); return; }
+      if (error) { const { v, model, trial, degrees, speed, impulse } = jobs[id]; reject(new Error(`variant ${v} ${model} ${trial}${degrees === undefined ? "" : ` ${degrees} deg`}${speed === undefined ? "" : ` ${speed} m/s`}${impulse === undefined ? "" : ` ${impulse} N s`}: ${error}`)); return; }
       jobs[id].result = result;
       if (++done % 50 === 0) process.stderr.write(`${done}/${jobs.length} in ${((Date.now() - started) / 1000).toFixed(0)} s\n`);
       feed();

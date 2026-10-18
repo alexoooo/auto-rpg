@@ -1,6 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { BuiltBody } from "../build/build-body.ts";
+import type { BuiltBody, BuiltDof } from "../build/build-body.ts";
+import { rotationOfToRef } from "../build/joint-state.ts";
 import { channelName, type MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
 import type { ServoWork } from "./servo.ts";
@@ -91,6 +92,12 @@ export interface SwingGoal {
    * the stance's (`StanceTuning.seconds.swing`). A shorter one lands a fast step nearer its place.
    */
   readonly settle?: number;
+  /**
+   * How the leg leans from the vertical as the foot lands, rad, ahead and out along the landing's
+   * facing (`landingLean`): the foot lands as flat as its ankle's range lets it from there
+   * (`landingTurnToRef`). None, flat.
+   */
+  readonly lean?: readonly [number, number];
   /**
    * Whether the swing ends as its sole meets the ground (`LANDS_FROM`): one that meets it early ends
    * there, and one still off the ground at its time goes on down past its place's height
@@ -462,11 +469,46 @@ function sideOf(foot: FootState, heading: number): readonly [number, number] {
 }
 
 /**
+ * The turn `foot` lands with, world, into `out`: its reference-pose turn, turned about up by
+ * `heading`, flat; and, with its leg leaning `lean` from the vertical as it lands (`SwingGoal.lean`,
+ * ahead and out), turned from flat about its ankle's axes by what the ankle's range less `spare`
+ * falls short of flat there (`rotationOfToRef`, `work` a scratch): a flat sole wants the ankle at
+ * the lean's angles, plantar flexion with the ankle ahead of the hip and eversion with it out,
+ * each from the reference pose by its bind. A foot stepping back lands on its toes, the heel as
+ * high as the dorsiflexion stop leaves it; one stepping out, on its outer edge.
+ */
+function landingTurnToRef(foot: FootState, heading: number, lean: readonly [number, number] | undefined, spare: number, work: Quaternion, out: Quaternion): Quaternion {
+  turnAboutToRef(Vector3.UpReadOnly, heading, out);
+  if (lean) {
+    const ankle = foot.chain[2]!, [pitch, roll] = ankle.dofs;
+    // What the range refuses of the angle a flat sole wants, in the constraint's measure.
+    const refused = (dof: BuiltDof, wants: number): number => {
+      const low = dof.spec.min.value + spare, high = dof.spec.max.value - spare;
+      return dof.sign * (wants - (low > high ? (low + high) / 2 : wants < low ? low : wants > high ? high : wants));
+    };
+    const a = refused(pitch!, -lean[0] - pitch!.spec.bind.value), b = roll ? refused(roll, -lean[1] - roll.spec.bind.value) : 0;
+    if (a !== 0 || b !== 0) out.multiplyInPlace(rotationOfToRef(ankle.axes, -a, -b, 0, work));
+  }
+  return out.multiplyInPlace(foot.segment.rest);
+}
+
+/** How far `foot`'s sole's lowest corner lies below the corners' middle, m, the foot turned by `turn` (world); `work` a scratch. */
+function soleDrop(foot: FootState, turn: Quaternion, work: Vector3): number {
+  let middle = 0, lowest = Infinity;
+  for (const corner of foot.sole) {
+    const y = corner.applyRotationQuaternionToRef(turn, work).y;
+    middle += y / foot.sole.length;
+    if (y < lowest) lowest = y;
+  }
+  return middle - lowest;
+}
+
+/**
  * The swing: `swing`'s foot's sole carried along its path (`swingPathToRef`), its turn carried from
  * the one it left the ground with to flat and facing `heading` as it lands; the step ends as it lands.
  */
 function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): void {
-  const { feet } = s, { step, tasks, reading } = s.state, { seconds, gait } = s.tuning;
+  const { feet } = s, { step, tasks, reading } = s.state, { seconds, gait, spare } = s.tuning;
   const { sole, level, path, along, accel, turn, wholeAxis, progress, v, bow } = s.scratch;
   const foot = feet.find((f) => f.side === swing.foot)!, bearer = feet.find((f) => f.side !== swing.foot)!;
   soleMiddleToRef(foot, sole);
@@ -479,10 +521,9 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
     step.lift.copyFrom(foot.segment.node.rotationQuaternion!);
     motionAtToRef(foot.segment, sole, step.launch, v);
   }
-  // It lands flat, facing the heading: its reference-pose turn, turned about up by the heading.
-  // (Held at the turn it left with, a foot's yaw drifts step by step.)
-  turnAboutToRef(Vector3.UpReadOnly, heading, level);
-  level.multiplyInPlace(foot.segment.rest);
+  // It lands facing the heading, as flat as its ankle lets it (`landingTurnToRef`). (Held at the
+  // turn it left with, a foot's yaw drifts step by step.)
+  landingTurnToRef(foot, heading, swing.lean, spare ?? 0, s.scratch.footTurn, level);
   step.time += dt;
   if (swing.flight !== undefined && reading.phase === "swing" && step.time >= swing.seconds - 2 * swing.flight / gravityOf(s)) {
     reading.phase = "flight";
@@ -505,6 +546,11 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   const dh = 1 - 18 * tau * tau + 32 * tau * tau * tau - 15 * tau * tau * tau * tau, ddh = -36 * tau + 96 * tau * tau - 60 * tau * tau * tau;
   if (launch) path.addInPlaceFromFloats(launch.x * T * h, launch.y * T * h, launch.z * T * h);
   turnBetweenToRef(step.lift, level, eased, step.turn);
+  // The path is the sole's lowest corner's, from where it left the ground to the ground where it
+  // lands: its middle goes higher by what its turn drops a corner below it, over the blend from
+  // what the turn it left with dropped to what a flat sole does (`FootState.stand`, in the
+  // landing's height already), so a foot leaving or landing pitched neither jumps nor digs in.
+  path.y += soleDrop(foot, step.turn, v) - (1 - eased) * soleDrop(foot, step.lift, v) - eased * foot.stand;
   if (launch) along.addInPlaceFromFloats(launch.x * dh, launch.y * dh, launch.z * dh);
   const settle = swing.settle ?? seconds.swing;
   spinBetweenToRef(foot.segment.node.rotationQuaternion!, step.turn, settle, turn);

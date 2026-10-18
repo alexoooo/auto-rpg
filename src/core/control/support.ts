@@ -76,6 +76,8 @@ export interface FootState {
   readonly stand: number;
   /** The ankle's centre's height over the sole's middle in the reference pose, m. */
   readonly ankle: number;
+  /** The ankle's centre behind the sole's middle along the foot in the reference pose, m: the heel is shorter than the toes. */
+  readonly back: number;
   /**
    * The pelvis's heading less the way the foot faces (`facingOf`), rad, at its hip's rotation
    * stops, least then most: the headings the pelvis can face over the foot where it is planted.
@@ -93,7 +95,7 @@ export function footStatesOf(built: BuiltBody): FootState[] {
     const segment = built.segments.get(`foot.${side}`);
     if (!segment) throw new Error(`${built.spec.model} has no ${side} foot`);
     const corners = soleCorners(segment), sole = soleOf(segment, corners), chain = chainTo(built, segment);
-    const ahead = aheadOf(corners, chain[2]!.spec.centre.value);
+    const ankle = chain[2]!.spec.centre.value, ahead = aheadOf(corners, ankle), [mx, mz] = ankleToMiddle(corners, ankle);
     return { turns: turnsOf(chain[0]!), side, segment, chain, sole, memory: { channels: [] as number[], rolled: null }, corners: sole.map(() => new Vector3()), lengths: lengthsOf(chain),
       straight: -referenceBendOf(chain), leg: swingLegOf(chain),
       width: Math.max(...sole.map((q) => q.x)) - Math.min(...sole.map((q) => q.x)),
@@ -102,7 +104,7 @@ export function footStatesOf(built: BuiltBody): FootState[] {
       ahead, middle: new Vector3(), ends: { front: soleEdge(), heel: soleEdge() }, heel: 0,
       flat: (corners[ahead[2]!]![1] + corners[ahead[3]!]![1]) / 2 - (corners[ahead[0]!]![1] + corners[ahead[1]!]![1]) * 0.5,
       stand: corners.reduce((sum, q) => sum + q[1], 0) / corners.length - Math.min(...corners.map((q) => q[1])),
-      ankle: chain[2]!.spec.centre.value[1] - corners.reduce((sum, q) => sum + q[1], 0) / corners.length };
+      ankle: ankle[1] - corners.reduce((sum, q) => sum + q[1], 0) / corners.length, back: hypot(mx, mz) };
   });
   for (const foot of feet) {
     soleMiddleToRef(foot, foot.middle);
@@ -361,13 +363,18 @@ export function endPast(foot: FootState, x: number, z: number): SoleEnd | null {
 }
 const ENDS: readonly SoleEnd[] = ["front", "heel"];
 
+/** From the `ankle`'s centre to a sole's `corners`' middle across the ground (body frame, reference pose), (x, z), m. */
+function ankleToMiddle(corners: readonly Vec3[], ankle: Vec3): [number, number] {
+  const middle = (k: 0 | 2) => corners.reduce((sum, q) => sum + q[k], 0) / corners.length;
+  return [middle(0) - ankle[0], middle(2) - ankle[2]];
+}
+
 /**
  * A sole's `corners` (body frame, reference pose) in order ahead of the `ankle`'s centre (the
  * same) across the ground, farthest first: ahead is from the ankle to the corners' middle.
  */
 function aheadOf(corners: readonly Vec3[], ankle: Vec3): number[] {
-  const middle = (k: 0 | 2) => corners.reduce((sum, q) => sum + q[k], 0) / corners.length;
-  const fx = middle(0) - ankle[0], fz = middle(2) - ankle[2];
+  const [fx, fz] = ankleToMiddle(corners, ankle);
   return corners.map((q, k) => [(q[0] - ankle[0]) * fx + (q[2] - ankle[2]) * fz, k] as const).sort((a, b) => b[0] - a[0]).map(([, k]) => k);
 }
 

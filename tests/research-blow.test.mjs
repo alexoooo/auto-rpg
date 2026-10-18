@@ -29,12 +29,16 @@ const straight = (more) => evaluateBlow({ model: WARRIOR_STRAIGHT.model, held: F
 const takenBy = (blows, fighter) => blows.reduce((sum, blow) => sum + (woundedIn(blow).find((side) => side.fighter === fighter)?.damage ?? 0), 0);
 const near = (a, b) => Math.abs(a - b) < 1e-9;
 
-/** Every trunk freedom pushed flat out for two seconds, from the guard: a blow no body stands after; pushed for one, the stance now catches the body. */
+/**
+ * Every trunk freedom pushed flat out for two seconds, from the guard, on a ground a metre square
+ * (`THROWN_GROUND`): the stance catches the push by stepping, and the steps go off the ground.
+ */
 const THROWN_DOWN = {
   name: "every trunk freedom, flat out, held twice over", hand: "right",
   pushes: ["thoracic rotation right", "lumbar rotation right", "thoracic flexion", "thoracic lateral flexion right", "lumbar flexion"]
     .map((channel) => ({ channel, sense: 1, from: 0, to: 2, level: 1 })),
 };
+const THROWN_GROUND = 1;
 
 test("a_blow_is_scored_by_what_it_does_less_what_it_costs", async () => {
   // The Warrior's club recipe at its place: the club is rigid and takes none of it.
@@ -70,7 +74,7 @@ test("a_blow_thrown_at_nothing_does_nothing_and_is_read", async () => {
 });
 
 test("a_blow_that_leaves_the_body_down_scores_a_fall", async () => {
-  const thrown = { model: "workshop-fighter", held: FIST, band: "high", strike: THROWN_DOWN, ahead: WARRIOR_STRAIGHT.place.ahead };
+  const thrown = { model: "workshop-fighter", held: FIST, band: "high", strike: THROWN_DOWN, ahead: WARRIOR_STRAIGHT.place.ahead, ground: THROWN_GROUND };
   const [at, atNothing] = [await evaluateBlow(thrown), await evaluateBlow({ ...thrown, dummy: false })];
   assert.deepEqual([scoreOf(at), scoreOf(atNothing)], [FELL, FELL]);
   assert.equal(atNothing.fell || !atNothing.stood, true);

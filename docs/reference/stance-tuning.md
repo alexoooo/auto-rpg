@@ -361,7 +361,7 @@ the pace walked forward at 1.2, 1.4 and 1.6 asked, sideways at 1.0 and back at 1
 
         reserve  Rogue held  stopped  forward         side  back    Warrior held  stopped  forward         side  back
         0.7      25          25       0.96 0.96 0.96  0.46  0.51    25            25       1.09 1.12 1.12  0.54  0.61
-        0.8      25          25       1.04 1.00 1.00  0.55  0.67    25            25       1.15 1.19 1.20  0.66  0.85   chosen
+        0.8      25          25       1.04 1.00 1.00  0.55  0.67    25            25       1.15 1.19 1.20  0.66  0.85   chosen then
         0.85     25          25       1.06 1.10 1.10  0.56  0.71    24            24       1.17 1.23 x     0.67  0.97
         0.9      22          22       x    x    x     0.59  0.81    24            24       1.17 1.28 x     0.69  0.86
         1        22          22       x    x    x     0.51  0.93    23            23       1.16 1.26 x     0.62  0.86
@@ -376,6 +376,48 @@ the Warrior 235 against 238.
 
 Command: the sweep at the commit after `09c0a519`, `--batteries gait --speeds 0.7,1.0,1.2,1.4,1.6
 --ways 0,45,90,180,270 --solve`; a row is the whole `STANCE_GAIT` with `reserve` set.
+
+### Reach, landing lean and the sole's path
+
+The swing leg's reach is its two links' (`SwingLeg`, `reachAt`): the ankle's distance from the
+hip for a knee bent no less than the stance's bend, with the ankle behind the sole's middle by
+the heel's shortfall (`FootState.back`), so a step back reaches less than one forward by the
+heel. A step lands leaning as its line from the hip has it (`landingLean`, `SwingGoal.lean`): the
+foot lands flat where the ankle's range less its spare reaches the lean, and pitched by the rest
+where it does not (`landingTurnToRef`), on its toes stepping back and on its outer edge stepping
+out; before, every foot was asked flat, and a foot stepping back landed on its toes with the sole
+asked below the ground, flattened within two ticks and bounced. The swing path is the sole's
+lowest corner's, from where it left the ground to the ground where it lands (`soleDrop`): asked
+on the sole's middle, a foot leaving pitched had its toes asked below the path, and a foot that
+lifted rolled was asked to jump as it left, which threw the Warrior's catch of its own straight
+into eight steps.
+
+On the six-speed five-way gait battery (asked 0.7, 1.0, 1.2, 1.4, 1.6 and 1.8 m/s, 30 walks a
+human, each 8 s then stopped; Node stand, Rapier, 120 Hz, on the whole-body solve, balance 0):
+walks held of 30 (every walk held stopped), and the pace walked forward at 1.2, 1.4, 1.6 and 1.8
+asked, sideways at 1.0 and back at 1.0 (x fell). `effort` 0.7 is the row that paces the legs
+nearer their strength.
+
+        reserve  effort  Rogue held  forward              side  back    Warrior held  forward              side  back
+        0.8      0.5     30          1.02 1.02 1.02 1.02  0.56  0.47    30            1.15 1.19 1.19 1.19  0.67  0.59
+        0.9      0.5     30          1.06 1.04 1.04 1.04  0.59  0.63    30            1.17 1.19 1.22 1.22  0.69  0.80   chosen
+        1        0.5     26          x    x    x    x     0.60  0.70    25            1.16 x    x    x     0.62  0.86
+        0.8      0.7     27          1.11 x    x    x     0.61  x       30            1.15 1.29 1.34 1.36  0.72  x
+        0.9      0.7     27          1.12 x    x    x     0.62  x       28            1.17 1.31 x    x     0.72  x
+        1        0.7     27          1.12 x    x    x     0.62  x       24            1.16 x    x    x     0.63  x
+
+The two-link reach is shorter than the straight line it replaces, most of all back, and the
+reserve it needs is less: 0.9 of it holds every walk and paces the Warrior 0.80 m/s back against
+0.59 at 0.8, the Rogue 0.63 against 0.47. `effort` 0.7 caps the walk higher and the walks back
+fall at every reserve: the pace walked back creeps a step at a time past the cap (the Rogue asked
+0.7, 0.57 to 1.77 m/s over nine steps) with the plan's pivot and the measured centre of pressure
+both at the heel's edge and the dorsiflexor at its peak, each landing short of its re-aimed
+place by 0.1 m, until the leg cannot reach; it is the legs' brake, not their reach, that bounds
+a walk back, and it is open. The shove battery to 90 N s is unchanged (the Rogue 160 of 272
+against 163, the Warrior 237 against 235).
+
+Command: the sweep at this commit, `--batteries gait --speeds 0.7,1.0,1.2,1.4,1.6,1.8 --ways
+0,45,90,180,270 --solve`; a row is the whole `STANCE_GAIT` with `reserve` and `effort` set.
 
 ## Heel-off
 

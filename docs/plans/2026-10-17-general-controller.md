@@ -201,7 +201,18 @@ forward pace is 0.8 of it on each, and sideways and back the legs' own cap is ha
 less: SIMBICON's 1.4 m/s sideways and 2.5 back are at or past a human's preferred forward walk,
 the paces of a tracker that leans and shoves rather than steps, so the every-way gate as written
 measures the old tracker, not a walk. Whether the walk's gate sideways and back is the legs' cap
-or SIMBICON's figure is the owner's call, raised in the checkpoint. The stop battery and the Move
+or SIMBICON's figure is the owner's call, raised in the checkpoint. Since: the swing leg's reach
+is its two links' with the heel's shortfall (`SwingLeg`, `FootState.back`); a step lands leaning
+as its line from the hip has it, flat where the ankle's range reaches and pitched by the rest
+(`landingLean`, `landingTurnToRef`); and the swing path is the sole's lowest corner's
+(`soleDrop`), which was what threw a body catching its own straight into eight steps. The honest
+reach wants less reserve: 0.9 holds all 30 of 30 walks a human asked to 1.8 m/s and paces the
+Warrior 1.22 forward, 0.69 sideways and 0.80 back, the Rogue 1.04, 0.59 and 0.63
+(`docs/reference/stance-tuning.md#reach-landing-lean-and-the-soles-path`). The walk back is
+bounded by the legs' brake, not their reach: paced nearer the legs' strength (`effort` 0.7) it
+creeps past its cap a step at a time with the pivot and the centre of pressure at the heel's edge
+and falls, and a stance catching a steered club blow staggers four steps or eight by chance
+(`tests/core-strike-skill.test.mjs`, red). The stop battery and the Move
 bout's `todo` are not yet run against the generator. SIMBICON's walk and its ways stay the game's
 walk until the gate is met; the run (stage 3) builds on this generator.
 

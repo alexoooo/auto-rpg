@@ -9,7 +9,7 @@ import type { SwingGoal } from "./stance.ts";
 import { gravityOf, type Stance } from "./stance-state.ts";
 import { SUPPORT_INSET, type GaitTuning, type RecoveryTuning } from "./stance-tuning.ts";
 import { bearingOf, landingHeading, legLength, withinSupport, type FootState } from "./support.ts";
-import { swingSeconds, withinReach } from "./swing-leg.ts";
+import { swingSeconds, withinReach, landingLean } from "./swing-leg.ts";
 import { sin, cos, cosh, exp, hypot, sinh } from "../math/real.ts";
 import type { Side } from "../spec/body.ts";
 
@@ -144,7 +144,28 @@ function stepWidth(foot: FootState, across: number, T: number, tuning: GaitTunin
 function stepShare(foot: FootState, dx: number, dz: number, cx: number, cz: number, rx: number, rz: number, sign: number, tuning: GaitTuning, hip: number, bend: number | null, reserve: number): number {
   const longest = tuning.longest * (foot.lengths[0] + foot.lengths[1]), far = hypot(dx, dz);
   // Within `reserve` of the reach: the step scaled up by it is within the whole, and its share is the step's own.
-  return Math.min(far > longest ? longest / far : 1, withinReach(foot.leg, dx / reserve, dz / reserve, cx, cz, rx, rz, sign, hip - foot.ankle, legLength(foot, bend)));
+  return Math.min(far > longest ? longest / far : 1, withinReach(foot.leg, dx / reserve, dz / reserve, cx, cz, rx, rz, sign, hip - foot.ankle, legLength(foot, bend), foot.back, false));
+}
+
+/**
+ * How `foot`'s leg leans as it lands a step of (`dx`, `dz`) from the bearing sole's middle, the
+ * body's centre at (`cx`, `cz`) from it then and the hips `hip` over the soles, rad, ahead and out
+ * (`landingLean`): what the foot lands turned by (`SwingGoal.lean`).
+ */
+function landingLeanOf(foot: FootState, dx: number, dz: number, cx: number, cz: number, rx: number, rz: number, sign: number, hip: number): [number, number] {
+  return landingLean(foot.leg, dx, dz, cx, cz, rx, rz, sign, hip - foot.ankle, foot.back);
+}
+
+/**
+ * The share of the body's centre's way to (`cx`, `cz`) from the bearing sole's middle, as the other
+ * foot lands, that the bearing leg of `foot` (`sign` +1 the right) keeps its sole over, 1 if all
+ * of it: its hip `hip` over the sole and its knee bent no less than `bend`, within `reserve` of its
+ * reach (`withinReach`), the knee bending for it. At the end of a step the trailing leg is the one
+ * stretched: its hip has gone ahead of its ankle by the body's way and the ankle's set behind the
+ * sole's middle.
+ */
+function bearingShare(foot: FootState, cx: number, cz: number, rx: number, rz: number, sign: number, hip: number, bend: number | null, reserve: number): number {
+  return withinReach(foot.leg, 0, 0, cx / reserve, cz / reserve, rx, rz, sign, hip - foot.ankle, legLength(foot, bend), foot.back, true);
 }
 
 /**
@@ -159,16 +180,19 @@ function centreAtLanding(b: Vector3, centre: Vector3, velocity: Vector3, w: numb
 }
 
 /**
- * Whether the legs, their hips `hip` over the soles, can take whole (`stepShare`) a walk's steady
- * steps at `v` m/s the way (`ux`, `uz`), unit, facing `heading`: `transferStep`'s, each the pace
- * over the swing's own time (`stepSeconds`) and the transfer, the width (`stepWidth`) across.
+ * Whether the legs, their hips `hip` over the soles, can take whole a walk's steady steps at `v`
+ * m/s the way (`ux`, `uz`), unit, facing `heading`: `transferStep`'s, each the pace over the swing's
+ * own time (`stepSeconds`) and the transfer, the width (`stepWidth`) across, the body midway
+ * between the soles as the foot lands; the landing leg reaching the step (`stepShare`) and the
+ * bearing leg keeping its sole (`bearingShare`).
  */
 function stepsWithin(feet: readonly FootState[], v: number, ux: number, uz: number, heading: number, tuning: GaitTuning, hip: number, bend: number | null): boolean {
   const rx = cos(heading), rz = -sin(heading), Tds = tuning.transfer ?? 0;
   for (let k = 0; k < feet.length; k++) {
-    const foot = feet[k]!, sign = foot.side === "right" ? 1 : -1, T = stepSeconds(foot, v, tuning) + Tds;
+    const foot = feet[k]!, bearer = feet[1 - k]!, sign = foot.side === "right" ? 1 : -1, T = stepSeconds(foot, v, tuning) + Tds;
     const W = stepWidth(foot, v * Math.abs(ux * rx + uz * rz), T, tuning), dx = v * ux * T + sign * W * rx, dz = v * uz * T + sign * W * rz;
     if (stepShare(foot, dx, dz, dx / 2, dz / 2, rx, rz, sign, tuning, hip, bend, tuning.reserve) < 1) return false;
+    if (bearingShare(bearer, dx / 2, dz / 2, rx, rz, -sign, hip, bend, tuning.reserve) < 1) return false;
   }
   return true;
 }
@@ -221,10 +245,11 @@ function walkHeight(feet: readonly FootState[], ux: number, uz: number, v: numbe
  * out to its own side.
  * Walking nowhere, the steps stop a walk under
  * way. `under` re-aims a step under way: its foot, the pivot the body falls about, and the swing's
- * time left.
+ * time left. The step is planned with the hips `hip` over the soles, the walk's crouch; the foot
+ * lands leaning from `held`, the height the plan holds them at (`landingLeanOf`).
  */
 function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
-  tuning: GaitTuning, hip: number, bend: number | null, last: Side | null, under?: Underway, inset = SUPPORT_INSET, plan?: StepPlan): SwingGoal {
+  tuning: GaitTuning, hip: number, held: number, bend: number | null, last: Side | null, under?: Underway, inset = SUPPORT_INSET, plan?: StepPlan): SwingGoal {
   const side: Side = under?.foot ?? (last ? (last === "left" ? "right" : "left") : walk[0] * cos(heading) - walk[1] * sin(heading) < 0 ? "left" : "right");
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   // The pelvis's right across the ground at the heading the step lands facing: +x at heading 0.
@@ -260,7 +285,9 @@ function walkStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3
     tx += sign * (clear - out) * rx;
     tz += sign * (clear - out) * rz;
   }
-  return { foot: side, to: [tx, tz], seconds: T, lift: tuning.lift, shift: !steady, capture: steady ? [ex, ez] : [tx + nx, tz + nz] };
+  const [lx, lz] = centreAtLanding(b, centre, velocity, w, tx - b.x, tz - b.z, under);
+  return { foot: side, to: [tx, tz], seconds: T, lift: tuning.lift, shift: !steady, capture: steady ? [ex, ez] : [tx + nx, tz + nz],
+    lean: landingLeanOf(foot, tx - b.x, tz - b.z, lx, lz, rx, rz, sign, held) };
 }
 
 
@@ -283,10 +310,10 @@ const PREVIEW_STEPS = 8;
  * sole's middle to the leading one's. `capture` is where it is as the foot lands and `handover`
  * where it is as the foot lifts. Under way, the landing moves by what the body's measured capture
  * point, falling about the pivot for the swing's time left, misses the reference by, over the
- * share of the landing the reference moves with.
+ * share of the landing the reference moves with. `hip` and `held` are as `walkStep`'s.
  */
 function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vector3, g: number, walk: readonly [number, number], heading: number,
-  tuning: GaitTuning, hip: number, bend: number | null, last: Side | null, under?: Underway, inset = SUPPORT_INSET, plan?: StepPlan): SwingGoal {
+  tuning: GaitTuning, hip: number, held: number, bend: number | null, last: Side | null, under?: Underway, inset = SUPPORT_INSET, plan?: StepPlan): SwingGoal {
   const side: Side = under?.foot ?? (last === "left" ? "right" : "left");
   const foot = feet.find((f) => f.side === side)!, bearer = feet.find((f) => f !== foot)!, b = bearer.middle, sign = side === "right" ? 1 : -1;
   const facing = landingHeading(bearer, heading), rx = cos(facing), rz = -sin(facing);
@@ -335,9 +362,9 @@ function transferStep(feet: readonly FootState[], centre: Vector3, velocity: Vec
     tx += sign * (clear - out) * rx;
     tz += sign * (clear - out) * rz;
   }
-  const capture = reference(tx, tz);
+  const capture = reference(tx, tz), [lx, lz] = centreAtLanding(b, centre, velocity, w, tx - b.x, tz - b.z, under);
   return { foot: side, to: [tx, tz], seconds: Tss, lift: tuning.lift, transfer: Tds,
-    capture, handover: [b.x + E * (capture[0] - b.x), b.z + E * (capture[1] - b.z)] };
+    capture, handover: [b.x + E * (capture[0] - b.x), b.z + E * (capture[1] - b.z)], lean: landingLeanOf(foot, tx - b.x, tz - b.z, lx, lz, rx, rz, sign, held) };
 }
 
 /**
@@ -353,8 +380,8 @@ function reachablePace(feet: readonly FootState[], centre: Vector3, velocity: Ve
   tuning: GaitTuning, hip: number, bend: number | null, last: Side | null, inset: number): [number, number] {
   const plan: StepPlan = { share: 1 };
   const reaches = (x: number, z: number): boolean => {
-    if (tuning.transfer && last) transferStep(feet, centre, velocity, g, [x, z], heading, tuning, hip, bend, last, undefined, inset, plan);
-    else walkStep(feet, centre, velocity, g, [x, z], heading, tuning, hip, bend, last, undefined, inset, plan);
+    if (tuning.transfer && last) transferStep(feet, centre, velocity, g, [x, z], heading, tuning, hip, hip, bend, last, undefined, inset, plan);
+    else walkStep(feet, centre, velocity, g, [x, z], heading, tuning, hip, hip, bend, last, undefined, inset, plan);
     return plan.share >= 1;
   };
   if (reaches(pace[0], pace[1])) return [pace[0], pace[1]];
@@ -425,6 +452,8 @@ export function catchStep(s: Stance): boolean {
  */
 export function ownStep(s: Stance, heading: number, hip: number): void {
   const { feet, rest, state } = s, { reading, pace, step } = state, { recovery, gait, inset, bend } = s.tuning, hips = hip - state.crouch;
+  // The height the plan holds the hips at: its own less the centre of mass's rise over them, or the goal's before it has one.
+  const hipHeld = state.plan.on ? state.plan.at.y - s.rise : hip;
   if (!reading.own && reading.phase === "stand") {
     const walk = pace[0] !== 0 || pace[1] !== 0 ? pace : null, held = assistReach(s);
     if (walk || (state.stride && recovery && outside(feet, reading.centre, reading.velocity, gravityOf(s), inset) > recovery.margin + held)) {
@@ -435,8 +464,8 @@ export function ownStep(s: Stance, heading: number, hip: number): void {
       pace[1] = pz;
       state.striding = [px, pz];
       reading.own = gait.transfer && state.stride
-        ? transferStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, bend, state.stride, undefined, inset)
-        : walkStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, bend, state.stride, undefined, inset);
+        ? transferStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, hipHeld, bend, state.stride, undefined, inset)
+        : walkStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, hipHeld, bend, state.stride, undefined, inset);
       reading.strides += 1;
     } else if (state.stride && across(feet, heading) < rest) {
       // A walk has ended on the gait's width, narrower than the body's own stance: one step
@@ -455,11 +484,11 @@ export function ownStep(s: Stance, heading: number, hip: number): void {
     const under: Underway = { foot: reading.own.foot, pivot: reading.place, remaining: reading.own.seconds - step.time, shift: step.shift.capture };
     // (`state.striding` is the pace the step was planned at.)
     if (reading.own.transfer) {
-      const aimed = transferStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, bend, null, under, inset);
-      reading.own = step.swing = { ...reading.own, to: aimed.to, capture: aimed.capture! };
+      const aimed = transferStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, hipHeld, bend, null, under, inset);
+      reading.own = step.swing = { ...reading.own, to: aimed.to, capture: aimed.capture!, lean: aimed.lean };
     } else {
-      const aimed = walkStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, bend, null, under, inset);
-      reading.own = step.swing = { ...reading.own, to: aimed.to };
+      const aimed = walkStep(feet, reading.centre, reading.velocity, gravityOf(s), state.striding, heading, gait, hips, hipHeld, bend, null, under, inset);
+      reading.own = step.swing = { ...reading.own, to: aimed.to, lean: aimed.lean };
     }
   }
 }

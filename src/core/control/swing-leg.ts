@@ -17,7 +17,7 @@
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltJoint } from "../build/build-body.ts";
-import { cosh, exp, hypot, sin, sinh } from "../math/real.ts";
+import { acos, asin, atan2, cos, cosh, exp, hypot, sin, sinh } from "../math/real.ts";
 import type { SwingGoal } from "./stance.ts";
 import { centreOfToRef, turnOfToRef } from "./support.ts";
 import { swingPathToRef, swingPeak, swingProgressToRef, type SwingBow } from "./swing-path.ts";
@@ -26,6 +26,9 @@ import { swingPathToRef, swingPeak, swingProgressToRef, type SwingBow } from "./
 export interface SwingLeg {
   /** The hip to the ankle, straight, m. */
   readonly length: number;
+  /** The hip to the knee, and the knee to the ankle, m. */
+  readonly thigh: number;
+  readonly shank: number;
   /** The leg's moment of inertia about its hip across the leg, kg m^2. */
   readonly aboutHip: number;
   /** The hip's peak torque, N m: the lesser of flexion's and extension's. */
@@ -33,16 +36,16 @@ export interface SwingLeg {
   /** The hip's centre from the body's midline, m, to its own side. */
   readonly out: number;
   /**
-   * How far the foot reaches from under the hip, m, by the hip's range from the vertical each way:
-   * ahead and behind by its flexion's, out and in by its abduction's; the leg straight.
+   * How far the thigh may lean from the vertical each way, rad, no more than level: ahead and
+   * behind by the hip's flexion's range, out and in by its abduction's (`reachAt`).
    */
-  readonly reach: { readonly ahead: number; readonly behind: number; readonly out: number; readonly in: number };
+  readonly range: { readonly ahead: number; readonly behind: number; readonly out: number; readonly in: number };
 }
 
 /** `chain`'s leg (hip, knee, ankle) as a swing leg, from its specs in the reference pose. */
 export function swingLegOf(chain: readonly BuiltJoint[]): SwingLeg {
-  const [hip, , ankle] = chain;
-  const h = hip!.spec.centre.value, a = ankle!.spec.centre.value;
+  const [hip, knee, ankle] = chain;
+  const h = hip!.spec.centre.value, k = knee!.spec.centre.value, a = ankle!.spec.centre.value;
   const ux = a[0] - h[0], uy = a[1] - h[1], uz = a[2] - h[2], length = hypot(ux, uy, uz);
   const along = (p: readonly number[]) => ((p[0]! - h[0]) * ux + (p[1]! - h[1]) * uy + (p[2]! - h[2]) * uz) / length;
   const parts = chain.map((joint) => joint.child);
@@ -63,16 +66,32 @@ export function swingLegOf(chain: readonly BuiltJoint[]): SwingLeg {
   // The hip's freedoms: flexion then abduction, each positive toward its name, its range from the
   // reference pose and the reference pose's angle from the vertical (`DofSpec.bind`).
   const [flexion, abduction] = hip!.spec.dofs;
-  const span = (range: number, bind: number) => length * sin(Math.min(Math.max(range + bind, 0), Math.PI / 2));
+  const lean = (range: number, bind: number) => Math.min(Math.max(range + bind, 0), Math.PI / 2);
   return {
-    length, aboutHip: inertia + mass * centre * centre,
+    length, thigh: hypot(k[0] - h[0], k[1] - h[1], k[2] - h[2]), shank: hypot(a[0] - k[0], a[1] - k[1], a[2] - k[2]), aboutHip: inertia + mass * centre * centre,
     torque: Math.min(flexion!.muscle.peakPositive.value, flexion!.muscle.peakNegative.value),
     out: Math.abs(h[0]),
-    reach: {
-      ahead: span(flexion!.max.value, flexion!.bind.value), behind: span(-flexion!.min.value, -flexion!.bind.value),
-      out: span(abduction!.max.value, abduction!.bind.value), in: span(-abduction!.min.value, -abduction!.bind.value),
+    range: {
+      ahead: lean(flexion!.max.value, flexion!.bind.value), behind: lean(-flexion!.min.value, -flexion!.bind.value),
+      out: lean(abduction!.max.value, abduction!.bind.value), in: lean(-abduction!.min.value, -abduction!.bind.value),
     },
   };
+}
+
+/**
+ * How far `leg`'s ankle reaches across the ground from under its hip one way, m, the hip `hip` over
+ * the ankle, the leg no longer than `long` and its thigh leaning no more than `range` from the
+ * vertical that way: the leg straight, sqrt(long^2 - hip^2), where that leans within the range;
+ * else the leg straight at the range, or, where the knee `bends` (a trailing leg behind, at the
+ * end of its step), the thigh at the range and the shank down from the knee to the ankle's depth,
+ * which the knee's bend takes further back. 0 where the hip stands higher than the leg is long.
+ */
+function reachAt(leg: SwingLeg, range: number, bends: boolean, hip: number, long: number): number {
+  if (hip >= long) return 0;
+  if (acos(hip / long) <= range) return Math.sqrt(long * long - hip * hip);
+  if (!bends) return long * sin(range);
+  const drop = hip - leg.thigh * cos(range), span = leg.shank * leg.shank - drop * drop;
+  return leg.thigh * sin(range) + Math.sqrt(Math.max(span, 0));
 }
 
 /**
@@ -87,21 +106,51 @@ export function swingSeconds(leg: SwingLeg, pace: number, transfer: number, effo
 }
 
 /**
- * Whether `leg` reaches a step of (`dx`, `dz`) from the bearing sole's middle, world, facing with
+ * The ankle from the hip, ahead and out along the facing (right (`rx`, `rz`)), m, of a leg whose
+ * sole is at (`dx`, `dz`) from the bearing sole's middle, world, the body's centre at (`cx`, `cz`)
+ * from it, `sign` +1 the right leg: the ankle `back` behind the sole's middle, the hip `out` from
+ * the centre.
+ */
+function ankleFromHip(leg: SwingLeg, dx: number, dz: number, cx: number, cz: number, rx: number, rz: number, sign: number, back: number): [number, number] {
+  const hx = dx + back * rz - cx - sign * leg.out * rx, hz = dz - back * rx - cz - sign * leg.out * rz;
+  return [-hx * rz + hz * rx, sign * (hx * rx + hz * rz)];
+}
+
+/**
+ * How a landing leg's shank leans from the vertical as its foot lands, rad, ahead and out, the hip
+ * `hip` over the ankle and the ankle where `ankleFromHip` (the same arguments) puts it: out, the
+ * angle of the leg's line; ahead, the line's less the shank's angle from it, since the knee bends
+ * ahead by what the line falls short of the leg's length (the sine rule on the thigh, the shank and
+ * the line). What the foot lands turned by (`SwingGoal.lean`). With the hip above the ankle the
+ * lean is within a half turn, which the landing's turn asks (`rotationOfToRef`); below it, none.
+ */
+export function landingLean(leg: SwingLeg, dx: number, dz: number, cx: number, cz: number, rx: number, rz: number, sign: number, hip: number, back: number): [number, number] {
+  // Hips not above the ankle (the body down, or no plan) lean nothing: the foot lands flat.
+  if (!(hip > 0)) return [0, 0];
+  const [ahead, out] = ankleFromHip(leg, dx, dz, cx, cz, rx, rz, sign, back), line = hypot(hip, ahead, out), t = leg.thigh, s = leg.shank;
+  const knee = line < t + s && line > Math.abs(t - s) ? acos((t * t + s * s - line * line) / (2 * t * s)) : Math.PI;
+  const bent = knee < Math.PI ? asin(Math.min(t * sin(knee) / line, 1)) : 0;
+  return [atan2(ahead, hip) - bent, atan2(out, hip)];
+}
+
+/**
+ * Whether `leg` reaches a sole at (`dx`, `dz`) from the bearing sole's middle, world, facing with
  * right (`rx`, `rz`), `sign` +1 the right leg: the hip, `out` to its side of the body's centre, which
  * is at (`cx`, `cz`) from the bearing sole's middle as the foot lands (midway between the soles in a
- * steady walk), within its range's reach each way, and the landing ankle within `long` of the hip
- * (the leg's length, hip to ankle, at the knee's least bend) with the hip `hip` over it, so across
- * the ground within sqrt(long^2 - hip^2), the less the higher the hip stands. With `scale` the share
- * of the step within both, 1 if all of it.
+ * steady walk), with its ankle, `back` behind that sole's middle along the facing, within the
+ * leg's reach (`reachAt`) with the hip `hip` over it and the leg no longer than `long` (hip to
+ * ankle at the knee's least bend): within the ellipse of its reach ahead or behind and out or in.
+ * The share of the hip's way to the ankle within it, 1 if all of it. A landing foot's sole is the
+ * step, and the leg lands straight within its range; the bearing leg's is its own, at (0, 0),
+ * where the body's centre has gone ahead of it by the landing, and its knee `bends` for the reach
+ * behind.
  */
-export function withinReach(leg: SwingLeg, dx: number, dz: number, cx: number, cz: number, rx: number, rz: number, sign: number, hip: number, long: number): number {
-  // The foot from the hip, ahead and out.
-  const hx = dx - cx - sign * leg.out * rx, hz = dz - cz - sign * leg.out * rz;
-  const ahead = -hx * rz + hz * rx, out = sign * (hx * rx + hz * rz);
-  const ra = ahead >= 0 ? leg.reach.ahead : leg.reach.behind, ro = out >= 0 ? leg.reach.out : leg.reach.in;
-  const across = long * long - hip * hip;
-  const far = Math.max((ahead / ra) * (ahead / ra) + (out / ro) * (out / ro), across > 0 ? (hx * hx + hz * hz) / across : Infinity);
+export function withinReach(leg: SwingLeg, dx: number, dz: number, cx: number, cz: number, rx: number, rz: number, sign: number, hip: number, long: number, back: number, bends: boolean): number {
+  const [ahead, out] = ankleFromHip(leg, dx, dz, cx, cz, rx, rz, sign, back);
+  const ra = ahead >= 0 ? reachAt(leg, leg.range.ahead, false, hip, long) : reachAt(leg, leg.range.behind, bends, hip, long);
+  const ro = reachAt(leg, out >= 0 ? leg.range.out : leg.range.in, false, hip, long);
+  if (ra <= 0 || ro <= 0) return 0;
+  const far = (ahead / ra) * (ahead / ra) + (out / ro) * (out / ro);
   return far > 1 ? 1 / Math.sqrt(far) : 1;
 }
 
