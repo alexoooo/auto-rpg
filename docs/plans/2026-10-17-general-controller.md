@@ -262,7 +262,8 @@ Not to be tried again on the controllers as they are. Each failed for the reason
 - **Top speed.** On the cycle run unsteered (the Warrior asked 6 m/s, Node stand, Rapier, 120 Hz):
   the swing's and the cadence's growth from 3 or 3.5 m/s (slower: 3.2 to 3.5), `blend` 1 or 1.5,
   `ahead` 1 with a stronger lean, `lean` 0.45 or 0.55, the steer's effort +0.5 or pace +1.5 (fell),
-  Haste +100, and CMU 127_08 (4.78 m/s) beside the three clips: each holds 3.7 to 3.9 m/s at
+  Haste +100, every muscle 1.5 or 2 times as strong (both fell) or the hips', knees' or ankles'
+  twice, and CMU 127_08 (4.78 m/s) beside the three clips: each holds 3.6 to 3.9 m/s at
   about 3 steps a second. The pace runs `ahead` of the body and the body makes about 0.89 of it,
   so the pace stays near 4.2 m/s and never reaches the fastest clip.
 - **Haste.** The gait timed to the muscles at a power of 1/2 or 1. A search with Haste +100 in
