@@ -321,7 +321,10 @@ and driven afresh to change what it costs.
   (`PointTask`, `BodyCommand.points`): the effector's chain is a limb that does not bear, its stem
   moved as the posture moves it, its other freedoms drawn toward the posture's asks
   (`LimbWork.toward`) beneath the point's three rows, and a torque past its strength pinned, so a
-  point asked more than the body can give gets what the muscles give.
+  point asked more than the body can give gets what the muscles give: the chain's torques past
+  strength are pinned before the ground is asked for the motion. The options fighter's straight
+  drives may drive the fist so (`tuning.driven`, `StraightPunch.driven`); its default pushes the
+  arm's joints.
 - **The stance** (`stance.ts`; its records in `stance-state.ts`, its steps in `gait.ts`, its
   soles in `support.ts`, its constants in `stance-tuning.ts`) is the standing plan, and the
   solve's first user: it keeps the body up by the forces the ground can really give. It plans

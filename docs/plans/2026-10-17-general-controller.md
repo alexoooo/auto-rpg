@@ -259,6 +259,22 @@ commands are torques: the contact sequence on the solve, not built. The frozen s
 targets from an observation; the learned rise steers step-up's recipe inside the game, so it
 cannot enter without a new action kind, which changes the evaluator and is the owner's call.
 
+**Stage 5, strikes and holds: open; the strike's gate unmet.** A command drives an effector's
+point at an acceleration through the solve (`PointTask`), and the options fighter's straight
+drives may drive the fist that way (`tuning.driven`, `StraightPunch.driven`: up to 600 m/s^2, at
+the speed that gives over 0.3 m at the least, so it lands moving). Against a Warrior that only
+stands (three gaps, 30 s, Node, Rapier, 120 Hz, Balance 0) it lands 679 J where the pushed drive
+lands 547, without a fall. Against the Puncher over 40 gaps from 3.0125 m from both sides it wins
+none of 80, falling 0.06 a bout, where the pushed drive wins 0.800. The pushed fist sags under
+the foe's guard onto the upper trunk (1092 J of its damage over six gaps, 51 of its blows there at
+3 m/s or more); the driven fist goes where it is aimed, at the head, and meets the guard. Aimed at
+the upper trunk it lands 580 J on the trunk, wins 0.075 and falls 0.41 a bout; driven flat out,
+at 1000 m/s^2, or closed at 15 or 60 per second, the same: the ask is past what the arm gives, and
+the solve's arm gives a third of the pushed arm's blows at 3 m/s or more on the trunk. So the
+pushed drive stays the default and the driven one is selectable. What is open: the solve's arm
+short of the pushed arm's speed under a block, and the holds (the club's guard, a blade up) as
+tasks, which need a hand's turn among a point's rows.
+
 ## The register: tried and not kept
 
 Not to be tried again on the controllers as they are. Each failed for the reason in "Why".
@@ -280,7 +296,8 @@ Not to be tried again on the controllers as they are. Each failed for the reason
   with its gait timed to the square root of its haste (`hasted` 0.5, to 42.7M decisions): Haste
   +100 adds 0.6 to 0.7 m/s (the Warrior 4.52 to 5.14, the Rogue 4.1 to 4.7, the skeleton 3.9 to 4.6)
   and the battery falls 8 of 300, but its forward envelope with the club breaks (the Warrior 3.5,
-  the Rogue 1 m/s), as it does in each of its snapshots from 39M to 42M.
+  the Rogue 1 m/s), as it does in each of its snapshots from 39M to 42M. A second such run, to
+  46.7M, makes 5.5 m/s at Haste +100 and falls 15 of 300, its club envelope the Rogue's 0.7 m/s.
 - **Stopping.** A pace floor under the body's speed; the run braking at its own rate; a lower
   handover speed; larger `cv` or `leanGain`; the walk's slowdown at 0.68 or 1.0 m/s²; the walk's
   late thigh let lean (threw the Warrior walking back with the club); a landing gate on the

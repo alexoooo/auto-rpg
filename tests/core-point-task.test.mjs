@@ -1,12 +1,15 @@
 /**
  * A point driven (`PointTask`, `src/core/control/motor.ts`): a standing body's whole-body solve asks
- * an effector's point an acceleration beside the stance, and the fist goes where it is asked.
+ * an effector's point an acceleration beside the stance, and the fist goes where it is asked; a
+ * straight drive driven so (`StraightPunch.driven`) lands its blow.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { guardPosture } from "../src/core/skills/guard.ts";
+import { CLASSIC } from "../src/core/mind/config.ts";
+import { buildBout } from "../research/bout.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 
 /**
@@ -42,4 +45,19 @@ test("a point driven refuses a push on its chain, an unknown point and a second 
   const knuckles = { segment: "hand.right", point: "knuckles", accel: [0, 0, 1] };
   await assert.rejects(driven([0, 0, 60], 0.05, { points: [{ ...knuckles, point: "nowhere" }] }), /no effector point hand\.right\/nowhere/);
   await assert.rejects(driven([0, 0, 60], 0.05, { points: [knuckles, knuckles] }), /two points driven on hand\.right/);
+});
+
+test("an options fighter whose drives drive the fist lands a blow on a foe that stands, and stays up", async () => {
+  const stands = { ...CLASSIC, tactics: { kind: "stand" }, executors: [], actions: [] };
+  const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-fighter",
+    minds: { left: { kind: "options", tuning: { driven: true } }, right: stands }, held: { left: "empty", right: "empty" }, gap: 1.4 });
+  try {
+    const left = duel.duelists.left;
+    let driven = 0;
+    while (world.time < 3.4) { world.step(); if (left.minded.skills.state.command.points?.length) driven++; }
+    const blows = duel.blows.filter((blow) => blow.sides.some((side) => side.fighter === "left" && /^hand\./.test(side.segment)));
+    assert.ok(driven > 0, "its drive drives a point");
+    assert.ok(blows.some((blow) => blow.closing >= 2), `a hand blow at 2 m/s or more: ${blows.map((blow) => blow.closing.toFixed(1))}`);
+    assert.deepEqual([left.body.view.down, duel.verdict ?? null], [false, null]);
+  } finally { dispose(); }
 });

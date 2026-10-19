@@ -2,7 +2,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../body.ts";
 import { bodyEffectors } from "../control/effectors.ts";
 import { intoFrameToRef, pointAtToRef, reachWork, solveReach } from "../control/kinematics.ts";
-import type { MusclePush, Pose } from "../control/motor.ts";
+import type { MusclePush, PointTask, Pose } from "../control/motor.ts";
 import { atan2, cos, hypot, sin } from "../math/real.ts";
 import { channelName } from "../muscle/driver.ts";
 import type { BodySpec, Side } from "../spec/body.ts";
@@ -31,7 +31,12 @@ import { closesToStrike } from "./strikes.ts";
  * rad of its goal, then held there by the posture. The drive ends `follow` s after the hand begins
  * to touch something, or `longest` s after it began; the arm comes back to the guard over
  * `recover` s. With `landed`, the drive also waits for both feet to bear: a step under way lands
- * first, as a boxer's lead foot lands with the jab.
+ * first, as a boxer's lead foot lands with the jab. With `driven`, the arm is not pushed joint by
+ * joint: from `lead` its striking point is driven (`PointTask`) to where the contact pose puts it,
+ * at the speed `accel` m/s^2 gives it over what is left of the way, and no less than it gives over
+ * `arrive` m, so the fist meets the target moving and the arm's range stops it; the velocity that
+ * asks closed at `steer` per second and the ask no more than `accel`. The arm is drawn toward its
+ * contact pose beneath it, and the whole-body solve gives what the muscles can.
  */
 export interface StraightPunch {
   readonly pace: number;
@@ -50,6 +55,7 @@ export interface StraightPunch {
   readonly longest: number;
   readonly recover: number;
   readonly landed?: boolean;
+  readonly driven?: { readonly accel: number; readonly steer: number; readonly arrive: number };
 }
 
 /**
@@ -73,7 +79,8 @@ export function validStraightPunch(settings: StraightPunch): boolean {
   const values = [settings.pace, settings.reach, settings.band, settings.settle, settings.through, settings.hips, settings.turn, settings.lean,
     settings.chamber, settings.lead, settings.elbow, settings.brake, settings.follow, settings.longest, settings.recover];
   return values.every((v) => Number.isFinite(v) && v >= 0) && settings.pace > 0 && settings.reach > 0 && settings.band > 0 && settings.longest > 0
-    && (settings.landed === undefined || typeof settings.landed === "boolean");
+    && (settings.landed === undefined || typeof settings.landed === "boolean")
+    && (settings.driven === undefined || [settings.driven.accel, settings.driven.steer, settings.driven.arrive].every((v) => Number.isFinite(v) && v >= 0) && settings.driven.accel > 0);
 }
 
 /** Whether a body of `spec` can throw the straight punch: a hand effector each side, below a chest, and a thoracic joint that turns it. */
@@ -88,8 +95,9 @@ interface Limb {
   /** The arm's freedoms (`solveReach`), each drawn toward the contact pose's preferred angle. */
   readonly free: { joint: number; k: number; min: number; max: number; preferred: number; name: string }[];
   readonly work: ReturnType<typeof reachWork>;
-  /** The striking point, body frame, reference pose. */
+  /** The striking point, body frame, reference pose, and its name. */
   readonly point: Vec3;
+  readonly aim: string;
   /** The chain's joints before the arm's, and the shoulder's centre on the last of their segments. */
   readonly trunk: number;
   readonly shoulder: Vec3;
@@ -168,7 +176,7 @@ export function straightTechnique(body: Body, settings: StraightPunch) {
     pointAtToRef(chain, angles, effector.points.get(aim)!, at);
     for (const f of effector.free) angles[f.joint]![f.k] = 0;
     const arm = hypot(at.x - shoulder[0], at.y - shoulder[1], at.z - shoulder[2]);
-    return { chain, free: effector.free.map((f) => ({ ...f })), work: reachWork(effector.free.length), point: effector.points.get(aim)!,
+    return { chain, free: effector.free.map((f) => ({ ...f })), work: reachWork(effector.free.length), point: effector.points.get(aim)!, aim,
       trunk, shoulder, arm, goals, angles, trunkChain: chain.slice(0, trunk),
       trunkNames: chain.slice(0, trunk).map((joint) => joint.dofs.map((_, k) => channelName(joint, k))), trunkAngles: angles.slice(0, trunk) };
   };
@@ -207,7 +215,7 @@ export function straightTechnique(body: Body, settings: StraightPunch) {
     rangeAt: (hand, up) => ({ reach: standOff(hand, up), along: [-CROWDED, settings.band] }),
   };
   const end = () => { state.hand = null; state.phase = null; state.touched = null; state.stood = 0; state.still = 0; };
-  const target = new Vector3(), shoulder = new Vector3(), head = new Vector3(), headAt: [number, number, number] = [0, 0, 0];
+  const target = new Vector3(), shoulder = new Vector3(), head = new Vector3(), goal = new Vector3(), headAt: [number, number, number] = [0, 0, 0];
   /**
    * The arm's angles that put its striking point `out` m from the shoulder on the line to the
    * target, into the limb's `angles`: the trunk as it stands, or at its contact goals with
@@ -232,11 +240,13 @@ export function straightTechnique(body: Body, settings: StraightPunch) {
     return posture;
   };
   /**
-   * The posture and pushes of a drive `since` s old: the trunk's goals from its start; from `lead`
-   * the arm's contact pose, the striking point `through` m past the target on the line from the
-   * shoulder, the elbow straight and the wrist on the line, the elbow from `elbow` s later.
+   * The posture, pushes and point driven of a drive `since` s old: the trunk's goals from its
+   * start; from `lead` the arm's contact pose, the striking point `through` m past the target on
+   * the line from the shoulder, the elbow straight and the wrist on the line, the elbow from
+   * `elbow` s later; or with `driven`, the arm drawn to that pose and its striking point driven
+   * (`drivenPoint`).
    */
-  const drive = (view: BodyView, hand: Side, since: number, pushes: MusclePush[]): Pose => {
+  const drive = (view: BodyView, hand: Side, since: number, pushes: MusclePush[], points: PointTask[]): Pose => {
     const limb = limbs[hand], posture: Record<string, number> = { ...(chamber(view, hand) ?? guard) };
     solve(view, limb, true, (apart) => apart + settings.through, null);
     const push = (channel: string, goal: number) => {
@@ -245,10 +255,28 @@ export function straightTechnique(body: Body, settings: StraightPunch) {
       posture[channel] = goal;
     };
     for (const g of limb.goals) push(g.channel, g.angle);
-    if (since >= settings.lead) {
+    if (since >= settings.lead && settings.driven) {
+      for (const f of limb.free) posture[f.name] = limb.angles[f.joint]![f.k]!;
+      points.push(drivenPoint(view, hand, limb, settings.driven));
+    } else if (since >= settings.lead) {
       for (const f of limb.free) if (!/^elbow/.test(f.name) || since >= settings.lead + settings.elbow) push(f.name, limb.angles[f.joint]![f.k]!);
     }
     return posture;
+  };
+  /**
+   * The striking point driven to where the limb's contact pose, as last solved, puts it: toward it at
+   * the speed `accel` gives over the way left, or over `arrive` where that is longer, that velocity
+   * closed at `steer` and the ask no more than `accel`.
+   */
+  const drivenPoint = (view: BodyView, hand: Side, limb: Limb, { accel, steer, arrive }: NonNullable<StraightPunch["driven"]>): PointTask => {
+    pointAtToRef(limb.chain, limb.angles, limb.point, goal);
+    goal.applyRotationQuaternionToRef(view.root.rotation, goal).addInPlace(view.root.position);
+    const fist = view.fists[hand], v = fist.velocity;
+    const dx = goal.x - fist.position.x, dy = goal.y - fist.position.y, dz = goal.z - fist.position.z, apart = hypot(dx, dy, dz);
+    const speed = apart > 0 ? Math.sqrt(2 * accel * Math.max(apart, arrive)) / apart : 0;
+    const ax = steer * (dx * speed - v.x), ay = steer * (dy * speed - v.y), az = steer * (dz * speed - v.z), size = hypot(ax, ay, az);
+    const scale = size > accel ? accel / size : 1;
+    return { segment: `hand.${hand}`, point: limb.aim, accel: [ax * scale, ay * scale, az * scale] };
   };
   const read = (view: BodyView) => {
       headAt[0] = view.head.x; headAt[1] = view.head.y; headAt[2] = view.head.z;
@@ -374,10 +402,10 @@ export function straightPunchExecutor(body: Body, actions: readonly string[], se
     command(view, id) {
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`straight punch has no instance ${id}`);
-      const pushes: MusclePush[] = [];
-      const posture = live.phase === "commit" ? technique.drive(view, live.hand, live.time, pushes)
+      const pushes: MusclePush[] = [], points: PointTask[] = [];
+      const posture = live.phase === "commit" ? technique.drive(view, live.hand, live.time, pushes, points)
         : live.phase === "prepare" ? technique.chamber(view, live.hand) ?? guard : guard;
-      return { posture: sparse(posture, live.hand), pushes, ...(closesToStrike(body.built.spec, live.hand) ? { handPoses: { [live.hand]: "fist" as const } } : {}),
+      return { posture: sparse(posture, live.hand), pushes, points, ...(closesToStrike(body.built.spec, live.hand) ? { handPoses: { [live.hand]: "fist" as const } } : {}),
         legs: { kind: "walk", walk: null, face: motion.face }, lower: live.lower,
         steer: live.phase === "commit" ? technique.sense[live.hand] * settings.hips : 0 };
     },

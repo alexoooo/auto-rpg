@@ -1,6 +1,6 @@
 import type { Body, BodyView } from "../body.ts";
 import { bodyEffectors } from "../control/effectors.ts";
-import type { MusclePush } from "../control/motor.ts";
+import type { MusclePush, PointTask } from "../control/motor.ts";
 import { atan2, hypot } from "../math/real.ts";
 import type { Side } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
@@ -170,17 +170,17 @@ export function combinationExecutor(body: Body, actions: readonly string[], sett
     command(view, id) {
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`combination has no instance ${id}`);
-      const pushes: MusclePush[] = [], hand = live.phase === "commit" ? driving(live.stage, live.first) : null;
-      const posture = hand !== null ? technique.drive(view, hand, live.drive, pushes)
+      const pushes: MusclePush[] = [], points: PointTask[] = [], hand = live.phase === "commit" ? driving(live.stage, live.first) : null;
+      const posture = hand !== null ? technique.drive(view, hand, live.drive, pushes, points)
         : live.phase === "prepare" ? technique.chamber(view, live.first) ?? guard
           : live.stage === "between" ? technique.chamber(view, other(live.first)) ?? guard : guard;
       const held = holding(live.stage, live.first), free = (["left", "right"] as const).filter((side) => !held.includes(`hand.${side}`));
       if (free.length) {
         const own: Record<string, number> = { ...posture }, poses: Partial<Record<Side, "fist">> = { ...fists };
         for (const side of free) { for (const channel of arms[side]) delete own[channel]; delete poses[side]; }
-        return { posture: own, pushes, handPoses: poses, legs: { kind: "walk", walk: null, face: motion.face }, lower: live.lower, steer: 0 };
+        return { posture: own, pushes, points, handPoses: poses, legs: { kind: "walk", walk: null, face: motion.face }, lower: live.lower, steer: 0 };
       }
-      return { posture, pushes, handPoses: fists, legs: { kind: "walk", walk: null, face: motion.face }, lower: live.lower,
+      return { posture, pushes, points, handPoses: fists, legs: { kind: "walk", walk: null, face: motion.face }, lower: live.lower,
         steer: hand !== null ? technique.sense[hand] * settings.hips : 0 };
     },
   };

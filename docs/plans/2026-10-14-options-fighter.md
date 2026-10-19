@@ -39,6 +39,11 @@ This is the stage whose question is a measurement.
   Rapier, 120 Hz, Balance 0) it wins 0.759 against 0.824, dealing 0.440 a bout against 0.394 and
   taking 0.220 against 0.196. Circling at the edge has nothing to run on: against the Puncher the
   fighter never holds the edge, its time going to the one-two.
+- Measured and not kept as the default: drives that drive the fist through the whole-body solve
+  (`tuning.driven`). Over 40 gaps from 3.0125 m from both sides against the Puncher (Node,
+  Rapier, 120 Hz, Balance 0) it wins none of 80 against 0.800: the driven fist goes to the head,
+  where the guard is, and the pushed one sags under it onto the upper trunk
+  (`2026-10-17-general-controller.md`, stage 5).
 - Each improvement lands on its own with its league reading before and after.
 - The league measures a fighter on today's motor control, which the whole-body controller plan
   (`2026-10-17-general-controller.md`) is changing: the run and the stand-up (its stages 3 and 4)

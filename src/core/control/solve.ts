@@ -86,8 +86,13 @@ interface WholeBody {
   readonly g: Float64Array;
   readonly z: Float64Array;
   readonly xs: Float64Array;
-  /** By freedom: whether a driven limb moves it, whether a bearing one does, whether it is held at a stop, the torque it is pinned at (NaN, none), the ground's wrench carried through it, and its torque. */
+  /**
+   * By freedom: whether a driven limb moves it, whether a bearing one does, whether a driven point's
+   * limb does (`pinFree`), whether it is held at a stop, the torque it is pinned at (NaN, none), the
+   * ground's wrench carried through it, and its torque.
+   */
   readonly inLimb: Uint8Array;
+  readonly free: Uint8Array;
   readonly carries: Uint8Array;
   readonly stopped: Uint8Array;
   readonly pinned: Float64Array;
@@ -133,7 +138,7 @@ export function makeWholeBody(count: number, limbs: number, free = 0): WholeBody
   return {
     count, size, capacity, A: f(capacity * size), y: f(capacity), w: f(capacity),
     known: f(size), unknown: new Int32Array(size), x: f(size), H: f(size * size), L: f(size * size), g: f(size), z: f(size), xs: f(size),
-    inLimb: new Uint8Array(count), carries: new Uint8Array(count), stopped: new Uint8Array(count), pinned: f(count), contact: f(count), torque: f(count), W: f(6), given: f(6), rigid: f(36), lost: f(6), turn: f(6), linear: linearWork(6),
+    inLimb: new Uint8Array(count), free: new Uint8Array(count), carries: new Uint8Array(count), stopped: new Uint8Array(count), pinned: f(count), contact: f(count), torque: f(count), W: f(6), given: f(6), rigid: f(36), lost: f(6), turn: f(6), linear: linearWork(6),
     J: f(6 * count), S: f(6 * count), B: f(36), k0: f(6), rowsJ: f(6 * count), rowsS: f(6 * count), rowsB: f(36), rowsK: f(6),
     wrench: groundWrenchWork(limbs, 0), bearing: [], patches: [], parts: [],
     shares: Array.from({ length: limbs }, () => ({ force: new Vector3(), moment: new Vector3() })),
@@ -180,6 +185,10 @@ const WEIGHT = { foot: 1e-4, ahead: 1e-2, torque: 1e4, root: 1, aim: 1, spin: 1e
 const DAMPING = 4e-8;
 /** How many times the body is solved again around what the ground gives and the muscles pinned at their strength. */
 const PASSES = 4;
+/** How many more it may be solved, a point driven, around its limb's freedoms pinned before the ground is asked (`pinFree`). */
+const FREE_PASSES = 3;
+/** No limb bearing: a torque read with no share of the ground's wrench. */
+const NONE: readonly Limb[] = Object.freeze([]);
 /**
  * How near a stop of its range a freedom stands at it, rad: a numeric setting, about the angle a
  * joint at its limit reads past or short of it.
@@ -194,13 +203,19 @@ const MISSED = 1e-12;
  * no push holds given its torque. `assist` is asked for what the ground misses.
  */
 export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, ask: WholeBodyAsk, assist: Assist | null): void {
-  const dynamics = muscles.dynamics, R = dynamics.root, n = b.count, { inLimb, carries, pinned, known, x } = b;
+  const dynamics = muscles.dynamics, R = dynamics.root, n = b.count, { inLimb, free, carries, pinned, known, x } = b;
   inLimb.fill(0);
+  free.fill(0);
   carries.fill(0);
+  let freed = false;
   for (const limb of ask.limbs) {
     if (!limb.task.on) continue;
     for (const i of limb.memory.channels) { inLimb[i] = 1; if (limb.task.bearing) carries[i] = 1; }
     if (limb.task.bearing) for (const i of limb.stem) { inLimb[i] = 1; carries[i] = 1; }
+    if (!limb.task.bearing && limb.work.toward) {
+      freed = true;
+      for (const i of limb.memory.channels) free[i] = 1;
+    }
   }
   pinned.fill(NaN);
   b.stopped.fill(0);
@@ -214,7 +229,8 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
   // and the limbs have it: its rows are held to none from the first pass.
   let held = bearing.length === 0, asked = false;
   b.given.fill(0);
-  for (let pass = 0; pass < PASSES; pass++) {
+  const passes = PASSES + (freed ? FREE_PASSES : 0);
+  for (let pass = 0; pass < passes; pass++) {
     let rows = base;
     // The root held to a wrench: its rows stand in for the aims' (the first six), its spin's
     // aimed at the turn the wrench given makes (`rigidTurn`) beneath every task (`WEIGHT.spin`),
@@ -225,7 +241,8 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
     solveRows(b, rows);
     while (holdStops(b, muscles)) solveRows(b, rows);
     groundWrenchTo(b, R);
-    const last = pass === PASSES - 1;
+    const last = pass === passes - 1;
+    if (!asked && freed && !last && pinFree(b, muscles, work)) continue;
     if (bearing.length) {
       // What the asks need of the ground is read once, from the body solved for them; a pass
       // around what the ground gives or a pinned torque shares only for the torques.
@@ -290,6 +307,26 @@ function holdStops(b: WholeBody, muscles: MuscleDriver): boolean {
     if ((a > 0 && angle >= max.value - STOP_NEAR) || (a < 0 && angle <= min.value + STOP_NEAR)) { stopped[i] = 1; known[6 + i] = 0; held = true; }
   }
   return held;
+}
+
+/**
+ * Each freedom of a driven point's chain (`free`, which carries no share of the ground's wrench)
+ * whose torque for the motion found is past its strength, pinned there, before the ground is asked
+ * for the motion: a point asked more than the muscles give (a fist driven flat out) would otherwise
+ * ask the ground for the wrench of a motion the arm never makes, and the root be held short of it.
+ * Its stem is not pinned: a pinned freedom is an unknown, and a trunk of unknowns lets the root
+ * spin to give the point what the arm does not. Whether any was.
+ */
+function pinFree(b: WholeBody, muscles: MuscleDriver, work: ServoWork): boolean {
+  const { free, inLimb, pinned, stopped, torque } = b;
+  torques(b, muscles, NONE);
+  let clipped = false;
+  for (let i = 0; i < b.count; i++) {
+    if (!free[i] || (work.fixed[i] && !inLimb[i]) || !Number.isNaN(pinned[i]!) || stopped[i]) continue;
+    const t = torque[i]!, sense = t >= 0 ? 1 : -1, strength = muscles.strength(i, sense);
+    if (Math.abs(t) > strength) { pinned[i] = sense * strength; clipped = true; }
+  }
+  return clipped;
 }
 
 /** The driven limbs that bear, in the limbs' order, into the scratch's `bearing`. */
