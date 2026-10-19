@@ -1,7 +1,8 @@
 /**
  * **The run's settings searched** (`RunCycleSettings`, `src/core/skills/cycle-run.ts`) through the
  * walk and run that hands over to it (`walkRun`, `src/core/skills/walk-run.ts`), or with `--legs simbicon` through the
- * SIMBICON gait's (`simbicon`, `src/core/skills/simbicon.ts`), Node stand, Rapier, 120 Hz, by diagonal CMA-ES in the unit
+ * SIMBICON gait's (`simbicon`, `src/core/skills/simbicon.ts`), or with `--legs learned-run --policy <policy.json>` through the walk and
+ * run whose run that policy steers (`learnedRun`, `src/core/skills/learned-run.ts`), Node stand, Rapier, 120 Hz, by diagonal CMA-ES in the unit
  * cube (`research/cma.mjs`).
  *
  * Each trial stands the body a second in its guard (`guardPosture`), which holds the arms wherever the gait does not, as a fighter's does, under its
@@ -20,7 +21,7 @@
  *
  *   node research/run-cycle-search.mjs --out .snap/run/a [--models workshop-fighter,workshop-rogue,crypt-skeleton]
  *     [--speeds 3,3.5,4] [--turns 0.4,0.8] [--stops 2,3.5 [--stop-at 2.5,4,6]] [--seconds 25] [--generations 60] [--lambda 28] [--sigma 0.1] [--workers 28]
- *     [--start '{"cv":0.3}' | file.json] [--dims accel,brake] [--winds 1:5:1,2] [--holds empty,club] [--balance 25] [--haste 0,50 --hasted 0.5] [--narrow 0.15] [--fallen 0.5] [--legs simbicon] [--score] [--windows]
+ *     [--start '{"cv":0.3}' | file.json] [--dims accel,brake] [--winds 1:5:1,2] [--holds empty,club] [--balance 25] [--haste 0,50 --hasted 0.5] [--narrow 0.15] [--fallen 0.5] [--legs simbicon | learned-run --policy file.json] [--score] [--windows]
  *
  * - `--score` scores the start alone and prints each trial, with the metres it took to stop and the gait its landings show
  *   (`gaitOf`: step width, cadence and step length); with `--windows` each trial's speed in each 2 s window.
@@ -45,6 +46,7 @@ import { legOf } from "../src/core/skills/gait-scale.ts";
 import { WALK_RUN, WALK_RUN_CYCLE, walkRun } from "../src/core/skills/walk-run.ts";
 import { RUN_CYCLE, runCycleSettings } from "../src/core/skills/cycle-run.ts";
 import { SIMBICON, simbicon, simbiconWays } from "../src/core/skills/simbicon.ts";
+import { learnedRun } from "../src/core/skills/learned-run.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 import { TURNED } from "../src/core/control/stance-envelope.ts";
 import { startWind } from "../src/lab/wind.ts";
@@ -60,7 +62,7 @@ const DIMS = {
   at: [0.8, 1.6], speedup: [0.3, 3], slowdown: [0.3, 3],
 };
 /** The walk's settings it moves, by the names it gives them, by the legs it searches through. */
-const WALKS = { "walk-run": ["at"], simbicon: ["at", "speedup", "slowdown"] };
+const WALKS = { "walk-run": ["at"], simbicon: ["at", "speedup", "slowdown"], "learned-run": ["at"] };
 
 /** The speed from which a trial's distance counts, m/s: under the walk's top, so a body that runs from a slow walk is credited. */
 const CREDIT_FROM = 0.7;
@@ -97,13 +99,14 @@ function gaitOf(landings, hz) {
  * One trial: `model` asked `speed` m/s forward for `seconds` under the run `run`, its face turned at
  * `turn` rad/s if given (`TURN`), or asked to stop if `stop` (`STOP`), in the gusts of `wind` if given, holding `held` (`empty` or `club`); its credit, and its 2 s windows' speeds.
  */
-async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: stopSeconds = STOP.at, wind = null, held = "empty", balance = null, haste, hasted, narrow = null, fallen = 1, legs = "walk-run", run: { at, speedup, slowdown, ...run } }) {
+async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: stopSeconds = STOP.at, wind = null, held = "empty", balance = null, haste, hasted, narrow = null, fallen = 1, legs = "walk-run", policy = null, run: { at, speedup, slowdown, ...run } }) {
   const own = modelSpec(model, undefined, { haste }), spec = held === "club" ? armed(own, "right", woodenClub()) : own, guard = guardPosture(spec);
   const stand = await coreStand(spec, { ground: true, groundSize: 400, posture: guard });
   const assist = balanceCeiling(balance ?? stand.built.spec.attributes.balance.value, balancePercent(rulebook("arena")));
   const body = createBody(stand.built, stand.world, { servoSeconds: 0.1, measuring: true, assist });
   const blowing = wind && startWind(stand.built, stand.world, { rate: wind.rate, strength: wind.strength }, wind.seed);
   const skill = legs === "simbicon" ? simbicon(body, { ...SIMBICON, run: at, speedup, slowdown, hasted: hasted ?? SIMBICON.hasted }, simbiconWays(), runCycleSettings(run))
+    : legs === "learned-run" ? learnedRun(body, policy, { ...WALK_RUN, run: at, hasted: hasted ?? WALK_RUN.hasted }, runCycleSettings(run, WALK_RUN_CYCLE))
     : walkRun(body, { ...WALK_RUN, run: at, hasted: hasted ?? WALK_RUN.hasted }, runCycleSettings(run, WALK_RUN_CYCLE));
   let asked = null, goal = null, face = 0;
   body.drive((view, dt) => {
@@ -164,9 +167,11 @@ if (!isMainThread) {
   const { values: o } = parseArgs({ options: {
     out: { type: "string" }, models: { type: "string", default: "workshop-fighter,workshop-rogue,crypt-skeleton" }, speeds: { type: "string", default: "3,3.5,4" }, turns: { type: "string" }, stops: { type: "string" }, "stop-at": { type: "string" },
     seconds: { type: "string", default: "25" }, generations: { type: "string", default: "60" }, lambda: { type: "string", default: "28" },
-    sigma: { type: "string", default: "0.1" }, workers: { type: "string", default: "28" }, start: { type: "string" }, dims: { type: "string" }, score: { type: "boolean" }, windows: { type: "boolean" }, winds: { type: "string" }, holds: { type: "string", default: "empty" }, balance: { type: "string" }, haste: { type: "string" }, hasted: { type: "string" }, narrow: { type: "string" }, fallen: { type: "string" }, legs: { type: "string", default: "walk-run" },
+    sigma: { type: "string", default: "0.1" }, workers: { type: "string", default: "28" }, start: { type: "string" }, dims: { type: "string" }, score: { type: "boolean" }, windows: { type: "boolean" }, winds: { type: "string" }, holds: { type: "string", default: "empty" }, balance: { type: "string" }, haste: { type: "string" }, hasted: { type: "string" }, narrow: { type: "string" }, fallen: { type: "string" }, legs: { type: "string", default: "walk-run" }, policy: { type: "string" },
   } });
   if (!Object.hasOwn(WALKS, o.legs)) throw new Error(`no run is searched through legs ${o.legs}`);
+  if ((o.legs === "learned-run") !== (o.policy !== undefined)) throw new Error("--policy names the learned run's policy, and only its");
+  const policy = o.policy === undefined ? null : JSON.parse(readFileSync(o.policy, "utf8"));
   const WALK = WALKS[o.legs], simbiconLegs = o.legs === "simbicon", BASE = simbiconLegs ? RUN_CYCLE : WALK_RUN_CYCLE;
   const KEYS = o.dims ? o.dims.split(",") : Object.keys(DIMS).filter((key) => key in BASE || WALK.includes(key));
   const WINDS = [null, ...(o.winds ? (([rate, strength, seeds]) => seeds.split(",").map((seed) => ({ rate: Number(rate), strength: Number(strength), seed: Number(seed) })))(o.winds.split(":")) : [])];
@@ -177,7 +182,7 @@ if (!isMainThread) {
   const cells = o.models.split(",").flatMap((model) => [...(o.speeds ? o.speeds.split(",") : []).map((speed) => ({ model, speed: Number(speed), seconds: Number(o.seconds) })),
     ...(o.turns ? o.turns.split(",") : []).map((turn) => ({ model, speed: TURN.speed, turn: Number(turn), seconds: Number(o.seconds) })),
     ...(o.stops ? o.stops.split(",") : []).flatMap((speed) => (o["stop-at"] ? o["stop-at"].split(",").map(Number) : [STOP.at]).map((stopAt) => ({ model, speed: Number(speed), stop: true, stopAt, seconds: Number(o.seconds) })))]).flatMap((cell) => WINDS.map((wind) => ({ ...cell, wind }))).flatMap((cell) => o.holds.split(",").map((held) => ({ ...cell, held, balance: o.balance === undefined ? null : Number(o.balance),
-    ...(o.hasted === undefined ? {} : { hasted: Number(o.hasted) }), ...(o.narrow === undefined ? {} : { narrow: Number(o.narrow) }), ...(o.fallen === undefined ? {} : { fallen: Number(o.fallen) }), legs: o.legs }))).flatMap((cell) => o.haste === undefined ? [cell] : o.haste.split(",").map((haste) => ({ ...cell, haste: Number(haste) })));
+    ...(o.hasted === undefined ? {} : { hasted: Number(o.hasted) }), ...(o.narrow === undefined ? {} : { narrow: Number(o.narrow) }), ...(o.fallen === undefined ? {} : { fallen: Number(o.fallen) }), legs: o.legs, policy }))).flatMap((cell) => o.haste === undefined ? [cell] : o.haste.split(",").map((haste) => ({ ...cell, haste: Number(haste) })));
   const toUnit = (p) => KEYS.map((k) => (p[k] - DIMS[k][0]) / (DIMS[k][1] - DIMS[k][0]));
   const fromUnit = (u) => ({ ...start, ...Object.fromEntries(KEYS.map((k, i) => [k, +(DIMS[k][0] + Math.min(1, Math.max(0, u[i])) * (DIMS[k][1] - DIMS[k][0])).toFixed(4)])) });
   if (o.score) {
