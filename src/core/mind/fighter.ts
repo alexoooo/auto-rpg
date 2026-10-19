@@ -2,6 +2,7 @@ import { commandable, createBody, SERVO_SECONDS, type Body, type BodyOptions } f
 import type { BuiltBody } from "../build/build-body.ts";
 import { skillSet } from "../skills/arbiter.ts";
 import { guardSkill } from "../skills/guard.ts";
+import { holdUp } from "../skills/hold.ts";
 import { locomotion, validTurnLimit, validTurnStartup, type Locomotion } from "../skills/locomotion.ts";
 import type { Skills } from "../skills/skills.ts";
 import type { Ended } from "../skills/action.ts";
@@ -115,7 +116,7 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
     fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
     slots: [slotList("rules", "When", "move-rule")],
   },
-  "cover-guard": { ...skill("guard", "Guard and cover", "game", { kind: "cover-guard" }), tuning: ["covering"] },
+  "cover-guard": { ...skill("guard", "Guard and cover", "game", { kind: "cover-guard" }), tuning: ["covering", "hold"] },
   "support-fold": skill("support", "Fight from low support", "experimental", { kind: "support-fold" }),
 });
 
@@ -210,7 +211,7 @@ export function driveFighter(body: Body, world: World, config: FighterConfig, wi
 export function fighterSkills(made: Body, world: World, config: FighterConfig, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[]): Skills {
   return skillSet(made, driving, {
     legs: legsOf(made, config.locomotion), guard: guardSkill(made.built.spec, config.guard.tuning?.covering),
-    support: config.support ? supportFold(made) : null,
+    support: config.support ? supportFold(made) : null, hold: config.guard.tuning?.hold === true ? holdUp(made.built) : null,
     executors: configuredExecutors(made, world, config.executors, config.actions, ledger),
     actions: config.actions,
   });

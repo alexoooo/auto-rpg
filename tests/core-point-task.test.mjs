@@ -1,13 +1,18 @@
 /**
  * A point driven (`PointTask`, `src/core/control/motor.ts`): a standing body's whole-body solve asks
  * an effector's point an acceleration beside the stance, and the fist goes where it is asked; a
- * straight drive driven so (`StraightPunch.driven`) lands its blow.
+ * straight drive driven so (`StraightPunch.driven`) lands its blow; a hand asked a spin holds what
+ * it holds up (`holdUp`).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { guardPosture } from "../src/core/skills/guard.ts";
+import { holdUp } from "../src/core/skills/hold.ts";
+import { armedWith } from "../src/core/items/held.ts";
+import { turnOfToRef } from "../src/core/control/support.ts";
 import { CLASSIC } from "../src/core/mind/config.ts";
 import { buildBout } from "../research/bout.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -59,5 +64,40 @@ test("an options fighter whose drives drive the fist lands a blow on a foe that 
     assert.ok(driven > 0, "its drive drives a point");
     assert.ok(blows.some((blow) => blow.closing >= 2), `a hand blow at 2 m/s or more: ${blows.map((blow) => blow.closing.toFixed(1))}`);
     assert.deepEqual([left.body.view.down, duel.verdict ?? null], [false, null]);
+  } finally { dispose(); }
+});
+
+/**
+ * The Warrior standing in guard with a club in its right hand and its trunk bent `lean` rad, the
+ * hand held up (`holdUp`) or left to the posture: the club's line's angle from up after 2 s, rad.
+ */
+async function held(hold, lean) {
+  const spec = armedWith(humanSpec("workshop-fighter"), "right", "club"), stand = await coreStand(spec);
+  const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS }), posture = { ...guardPosture(spec), "lumbar flexion": lean };
+  const up = holdUp(stand.built), hand = stand.built.segments.get("hand.right");
+  body.drive((view) => ({ posture, pushes: [], stance: { feet: ["left", "right"], centre: null, height: view.standing - .03, heading: 0 }, points: hold ? [up("right")] : [] }));
+  try {
+    for (let k = 0; k < 240; k++) stand.step();
+    const line = new Vector3(...spec.held.find((h) => h.segment === "hand.right").along.value).normalize().applyRotationQuaternionToRef(turnOfToRef(hand, new Quaternion()), new Vector3());
+    return { angle: Math.acos(Math.min(1, line.y)), down: body.view.down };
+  } finally { body.dispose(); stand.dispose(); }
+}
+
+test("a held club is held up through the solve however the trunk leans, where the posture leans it with the trunk", async () => {
+  const [posture, hold] = [await held(false, 0.5), await held(true, 0.5)];
+  assert.ok(posture.angle > 0.3, `the posture alone leans the club with the trunk: ${posture.angle} rad`);
+  assert.ok(hold.angle < 0.05, `held, the club stays up: ${hold.angle} rad`);
+  assert.deepEqual([posture.down, hold.down], [false, false]);
+  assert.equal(holdUp((await coreStand(humanSpec("workshop-fighter"))).built)("right"), null, "an empty hand holds nothing up");
+});
+
+test("an options fighter that holds asks its free club hand's spin, and its punching hand none", async () => {
+  const stands = { ...CLASSIC, tactics: { kind: "stand" }, executors: [], actions: [] };
+  const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-fighter",
+    minds: { left: { kind: "options", tuning: { hold: true } }, right: stands }, held: { left: "club", right: "empty" }, gap: 3 });
+  try {
+    const left = duel.duelists.left, seen = new Set();
+    while (world.time < 1) { world.step(); for (const point of left.minded.skills.state.command.points ?? []) seen.add(`${point.segment}:${point.accel ? "accel" : ""}${point.spin ? "spin" : ""}`); }
+    assert.deepEqual([...seen], ["hand.right:spin"]);
   } finally { dispose(); }
 });

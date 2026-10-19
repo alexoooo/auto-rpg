@@ -296,9 +296,13 @@ flat out; they differ in where they send the fist. So the pushed drive stays the
 driven one is selectable. The trunk's aim falls because the driven arm's torques leave the body
 turning and its rear foot hovering, the fist turns back past its goal at full strength, and the
 second drive waits on where the centre of mass is, not where it is going; neither fix kept (the
-register) moves the driven drive past 0.04 of 80. What is open: a driven blow that is as fast as
-the pushed one's bang-bang, and the holds (the club's guard, a blade up) as tasks, which need a
-hand's turn among a point's rows.
+register) moves the driven drive past 0.04 of 80. A point may be asked a spin as well as, or
+instead of, an acceleration, and a hold is that: `holdUp` asks a hand whose item is free to turn
+the item's line up, and the cover guard and the options fighter take it as a choice
+(`tuning.hold`, off by default, so the guard's and the one-two's windows are as they were). With
+the trunk bent 0.5 rad the Warrior's club stands at 0.00 rad from up, where the posture alone
+leans it 0.49 (Node stand, Rapier, 120 Hz, after 2 s). What is open: a driven blow that is as fast
+as the pushed one's bang-bang, and a club's guard and a blade's line as holds in a fight.
 
 ## The register: tried and not kept
 

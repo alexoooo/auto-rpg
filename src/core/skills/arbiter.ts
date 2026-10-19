@@ -20,6 +20,8 @@ export interface SkillParts {
   readonly legs: Locomotion;
   readonly guard: GuardSkill;
   readonly support?: SupportSkill | null;
+  /** A free hand's hold of what it holds (`holdUp`), asked of each hand neither a cover nor an action drives; absent, the posture's. */
+  readonly hold?: ((side: Side) => PointTask | null) | null;
 }
 
 /** One owner per concrete control, with defaults named and actions identified by instance id. */
@@ -97,6 +99,8 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       for (const side of ["left", "right"] as const) {
         if (available(`effector:hand.${side}`)) effectors[`hand.${side}`] = covers[side];
         if (available(`pose:${side}`) && body.built.spec.segments.find(s => s.name === `hand.${side}`)?.handPoses) handPoses[side] = "open";
+        const held = !effectors[`hand.${side}`] && available(`effector:hand.${side}`) ? services.hold?.(side) : null;
+        if (held) points.push(held);
       }
       const legOwner = claims.find(item => item.controls.includes("stance"));
       const supportOwner = claims.find(item => item.claim.support !== undefined);

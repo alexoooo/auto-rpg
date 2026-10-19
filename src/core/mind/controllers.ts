@@ -54,12 +54,12 @@ const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
  */
 export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extract<MindConfig, { kind: K }>> } = Object.freeze({
   options: {
-    role: "mind", label: "Options fighter", stage: "game", fields: [], slots: [], defaults: OPTIONS, tuning: ["cover", "combination", "body", "opening", "driven"],
+    role: "mind", label: "Options fighter", stage: "game", fields: [], slots: [], defaults: OPTIONS, tuning: ["cover", "combination", "body", "opening", "driven", "hold"],
     fits: optionsFit,
     faults: config => [
       ...[undefined, "valued", "ranked"].includes(config.meta) ? [] : ["meta: valued or ranked"],
       ...Object.entries(config.weights ?? {}).flatMap(([term, weight]) => TERMS.includes(term as typeof TERMS[number]) && Number.isFinite(weight) && weight >= 0 ? [] : [`weights.${term}: a term (${TERMS.join(", ")}) of a finite weight, not negative`]),
-      ...(["cover", "combination", "body", "opening", "driven"] as const).flatMap((name) => ["undefined", "boolean"].includes(typeof config.tuning?.[name]) ? [] : [`tuning.${name}: true or false`]),
+      ...(["cover", "combination", "body", "opening", "driven", "hold"] as const).flatMap((name) => ["undefined", "boolean"].includes(typeof config.tuning?.[name]) ? [] : [`tuning.${name}: true or false`]),
     ],
     presets: deepFreeze({ options: { label: "Options fighter", config: OPTIONS } }),
     builtIn: guardPosture,

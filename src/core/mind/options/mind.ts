@@ -74,7 +74,10 @@ const DRIVEN = deepFreeze({ accel: 600, steer: 30, arrive: 0.3 });
 const drivenKit = (kit: FighterConfig): FighterConfig => deepFreeze({ ...kit,
   executors: kit.executors.map((executor) => executor.kind === "combination" ? { ...executor, driven: DRIVEN } : executor) });
 const DRIVEN_KITS = new Map([SKILLS, BODY_SKILLS, ...OPENED.values()].map((kit) => [kit, drivenKit(kit)] as const));
-for (const kit of [SKILLS, BODY_SKILLS, ...OPENED.values(), ...DRIVEN_KITS.values()]) if (fighterFaults(kit).length) throw new Error(`the options fighter's skills: ${fighterFaults(kit).join("; ")}`);
+/** A kit whose free hands hold what they hold up through the whole-body solve (`holdUp`). */
+const heldKit = (kit: FighterConfig): FighterConfig => deepFreeze({ ...kit, guard: { ...kit.guard, tuning: { ...kit.guard.tuning, hold: true } } });
+const HELD_KITS = new Map([SKILLS, BODY_SKILLS, ...OPENED.values(), ...DRIVEN_KITS.values()].map((kit) => [kit, heldKit(kit)] as const));
+for (const kit of [SKILLS, BODY_SKILLS, ...OPENED.values(), ...DRIVEN_KITS.values(), ...HELD_KITS.values()]) if (fighterFaults(kit).length) throw new Error(`the options fighter's skills: ${fighterFaults(kit).join("; ")}`);
 
 /** How it holds the edge of its foe's reach: as the Counter-puncher does. */
 const EDGE = (() => {
@@ -129,7 +132,7 @@ export function createOptionsFighter(built: BuiltBody, world: World, config: Opt
   const half = { current: false }, downs: ReturnType<typeof downOption>[] = [];
   const running = () => { const chosen = meta && meta.state.running >= 0 ? options[meta.state.running]! : null; return chosen?.posture === "down" ? downs.find((down) => down === chosen) ?? null : null; };
   const aimed = config.tuning?.body === true ? BODY_SKILLS : SKILLS, opening = config.tuning?.opening === false ? aimed : OPENED.get(aimed)!;
-  const kit = config.tuning?.driven === true ? DRIVEN_KITS.get(opening)! : opening;
+  const drives = config.tuning?.driven === true ? DRIVEN_KITS.get(opening)! : opening, kit = config.tuning?.hold === true ? HELD_KITS.get(drives)! : drives;
   const body = createBody(built, world, { ...fighterBody(kit, wiring), subs: [(own, view, w, afterPhysics) => {
     for (const [name, sub, model] of DOWN) downs.push(downOption(name, subMind(own, view, sub, w, afterPhysics), half, model));
     return downHalf(downs, running, decide, half);

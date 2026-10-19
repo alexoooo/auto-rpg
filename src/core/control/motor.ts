@@ -32,16 +32,18 @@ export type { EffectorGoal } from "./effector-tracker.ts";
 
 /**
  * **A point driven**: a named point of an effector's rigid body (`BodySpec.effectors`: a hand's
- * knuckles) asked an acceleration, world, m/s^2. The whole-body solve asks it of the effector's
- * chain beside the stance (`solveBody`), the chain's other freedoms drawn toward the posture and
- * any torque past a muscle's strength held at its strength, so a point asked more than the body
- * can give gets what the muscles give. Only a standing body's solve carries it out: without a
- * stance the chain holds its posture.
+ * knuckles) asked an acceleration, world, m/s^2, its segment a spin's change, world, rad/s^2, or
+ * both; what it is not asked, its place or its turn, is the posture's. The whole-body solve asks
+ * it of the effector's chain beside the stance (`solveBody`), the chain's other freedoms drawn
+ * toward the posture and any torque past a muscle's strength held at its strength, so a point
+ * asked more than the body can give gets what the muscles give. Only a standing body's solve
+ * carries it out: without a stance the chain holds its posture.
  */
 export interface PointTask {
   readonly segment: string;
   readonly point: string;
-  readonly accel: Vec3;
+  readonly accel: Vec3 | null;
+  readonly spin?: Vec3 | null;
 }
 
 /**
@@ -193,8 +195,9 @@ const NO_PUSHES: readonly MusclePush[] = Object.freeze([]);
 /** No point driven. */
 const NO_POINTS: readonly PointTask[] = Object.freeze([]);
 
-/** The three rows of a point's linear motion. */
+/** The three rows of a point's linear motion, and of its segment's spin. */
 const LINEAR: readonly Row[] = Object.freeze([Object.freeze([[3, 1]] as const), Object.freeze([[4, 1]] as const), Object.freeze([[5, 1]] as const)]);
+const ANGULAR: readonly Row[] = Object.freeze([Object.freeze([[0, 1]] as const), Object.freeze([[1, 1]] as const), Object.freeze([[2, 1]] as const)]);
 
 /**
  * **An effector as the solve drives its point**: its limb, its rigid body's named points
@@ -210,7 +213,7 @@ interface PointLimb {
 
 /**
  * Each effector's limb: its chain the freedoms it owns (an arm's), its stem those between the root
- * and them (the trunk's), asked its point's linear motion alone.
+ * and them (the trunk's), asked its point's linear motion, its spin, or both.
  */
 function pointLimbs(built: BuiltBody): PointLimb[] {
   return bodyEffectors(built).map(({ segment, chain, points, free }) => {
@@ -246,7 +249,10 @@ function aimPoint(one: PointLimb, tasks: readonly PointTask[], driver: MuscleDri
     limb.stem.push(...one.stem.map((name) => driver.channel(name)));
   }
   pointNow(limb.segment, one.points.get(task.point)!, limb.work.at);
-  limb.task.linear.set(task.accel[0], task.accel[1], task.accel[2]);
+  const { accel, spin } = task;
+  limb.work.rows = accel && spin ? null : accel ? LINEAR : ANGULAR;
+  if (accel) limb.task.linear.set(accel[0], accel[1], accel[2]);
+  if (spin) limb.task.angular.set(spin[0], spin[1], spin[2]);
   const toward = limb.work.toward!, channels = limb.memory.channels;
   for (let c = 0; c < channels.length; c++) toward[c] = work.accel[channels[c]!]!;
 }

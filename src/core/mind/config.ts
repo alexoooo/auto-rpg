@@ -166,6 +166,8 @@ interface CoverGuardConfig {
   readonly tuning?: {
     /** The cover in place of `GUARD_COVER`. */
     readonly covering?: Covering;
+    /** Whether a free hand holds what it holds up through the whole-body solve (`holdUp`) rather than by its posture alone. */
+    readonly hold?: boolean;
   };
 }
 
@@ -271,11 +273,11 @@ export interface OptionsConfig {
   readonly weights?: Readonly<Partial<Weights>>;
   /**
    * Whether its cover reflex runs, whether it throws its one-two, and whether it aims its blows at an opening in the foe's guard
-   * (else at the centre of what they strike): each does unless false; whether it also aims them at the body, and whether its
-   * straight drives drive the fist through the whole-body solve in place of pushing the arm's joints (`StraightPunch.driven`):
-   * each only if true.
+   * (else at the centre of what they strike): each does unless false; whether it also aims them at the body, whether its
+   * straight drives drive the fist through the whole-body solve in place of pushing the arm's joints (`StraightPunch.driven`),
+   * and whether its free hands hold what they hold up through the solve (`holdUp`): each only if true.
    */
-  readonly tuning?: { readonly cover?: boolean; readonly combination?: boolean; readonly body?: boolean; readonly opening?: boolean; readonly driven?: boolean };
+  readonly tuning?: { readonly cover?: boolean; readonly combination?: boolean; readonly body?: boolean; readonly opening?: boolean; readonly driven?: boolean; readonly hold?: boolean };
 }
 
 /** Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. */

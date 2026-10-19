@@ -106,7 +106,7 @@ export interface BodyCommand {
   /** Freedoms driven by their muscles alone, whatever else would own them. */
   readonly pushes: readonly MusclePush[];
   /**
-   * Effectors' points driven at an acceleration while the body stands (`PointTask`): an effector
+   * Effectors' points driven at an acceleration, or turned, while the body stands (`PointTask`): an effector
    * driven so has no goal and its chain no push.
    */
   readonly points?: readonly PointTask[];
@@ -281,7 +281,8 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
       const chain = motor.effectors.find((model) => model.segment === task.segment)?.channels ?? [];
       if (command.pushes.some((push) => chain.includes(push.channel))) throw new Error(`a push on ${task.segment}'s chain while its point is driven`);
       if (command.stance?.feet.some(side => task.segment === `foot.${side}`)) throw new Error(`two controllers own ${task.segment}`);
-      if (!task.accel.every(Number.isFinite)) throw new Error(`a point driven on ${task.segment} needs a finite acceleration`);
+      if (!task.accel && !task.spin) throw new Error(`a point driven on ${task.segment} needs an acceleration or a spin`);
+      if (![...task.accel ?? [], ...task.spin ?? []].every(Number.isFinite)) throw new Error(`a point driven on ${task.segment} needs a finite acceleration and spin`);
     }
     motor.setPushes(command.pushes);
     motor.setPoints(command.points ?? NO_POINTS);
