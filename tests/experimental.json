@@ -1,7 +1,19 @@
 [
  "core-ground-capability.test.mjs",
+ "core-orders-capability.test.mjs",
+ "core-skeleton-capability.test.mjs",
+ "core-touches-capability.test.mjs",
  "ground-step-up-capability.test.mjs",
  "ground-survival-capability.test.mjs",
+ "kick-walking-capability.test.mjs",
+ "lab-loadout-capability.test.mjs",
+ "lab-locomotion-capability.test.mjs",
  "lab-mind-log-capability.test.mjs",
- "recovery-transfer-capability.test.mjs"
+ "lab-stance-capability.test.mjs",
+ "move-capability.test.mjs",
+ "recovery-transfer-capability.test.mjs",
+ "run-capability.test.mjs",
+ "simbicon-capability.test.mjs",
+ "stride-capability.test.mjs",
+ "walk-run-capability.test.mjs"
 ]

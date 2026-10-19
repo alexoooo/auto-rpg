@@ -1,0 +1,83 @@
+/**
+ * **How well the stride goes** (`stride`, `src/core/skills/stride.ts`), measured on the Node stand
+ * at 120 Hz, and not a gate (`tests/experimental.json`): a Warrior with it walks forward 5 m and
+ * stops, on its feet, its own steps and not the stance's; one that swings its arms swings each with
+ * the other side's leg.
+ */
+import test from "node:test";
+import assert from "node:assert/strict";
+import { humanSpec } from "../src/core/human/spec.ts";
+import { NO_COVER } from "../src/core/mind/intent.ts";
+import { STRIDE } from "../src/core/skills/stride.ts";
+import { labActor } from "../src/lab/actor.ts";
+import { LAB_PRESETS } from "../src/lab/scenarios.ts";
+import { coreStand } from "./harness/core-stand.mjs";
+
+const STRIDING = { ...LAB_PRESETS.script.config, locomotion: { kind: "stride", ...STRIDE } };
+
+test("a_warrior_with_the_stride_walks_forward_five_metres_and_stops", async () => {
+  const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
+  const actor = labActor(stand.built, stand.world, { mind: STRIDING });
+  const start = actor.body.view.stance.centre.z;
+  // Forward at 0.5 m/s, facing +z, until the centre of mass is 5 m on; then stand.
+  const tactics = {
+    name: "five-metres",
+    decide: ({ view }) => ({ move: view.stance.centre.z - start < 5 ? [0.5, 0] : null, face: 0, guard: NO_COVER, actions: [] }),
+  };
+  actor.drive(tactics);
+  let stopped = null, strides = 0, own = 0;
+  try {
+    for (let t = 0; t < 20 && !actor.body.view.down; t += 0.1) {
+      stand.step(stand.seconds(0.1));
+      const s = actor.body.view.stance;
+      if (stopped === null && s.centre.z - start >= 5) stopped = actor.body.view.time;
+      if (s.phase === "swing") strides++;
+      if (s.own) own++;
+      if (stopped !== null && actor.body.view.time > stopped + 4) break;
+    }
+    const s = actor.body.view.stance;
+    assert.equal(actor.body.view.down, false, `fell at ${actor.body.view.time.toFixed(2)} s`);
+    assert.ok(stopped !== null && stopped < 15, `5 m on by ${stopped?.toFixed(2)} s`);
+    assert.ok(s.centre.z - start < 5.6, `stopped within 0.6 m of the mark: ${(s.centre.z - start).toFixed(2)} m`);
+    assert.ok(Math.hypot(s.velocity.x, s.velocity.z) < 0.05, `standing still: ${Math.hypot(s.velocity.x, s.velocity.z).toFixed(3)} m/s`);
+    assert.equal(s.phase, "stand", "no step under way");
+    assert.ok(strides > 20, `its steps: ${strides} readings in a swing`);
+    assert.equal(s.strides, 0, "the stance took no walking step of its own");
+    assert.ok(own < 5, `the stance stepped of itself in ${own} readings`);
+  } finally { actor.dispose(); stand.dispose(); }
+});
+
+/** Pearson's correlation of two series. */
+function correlation(a, b) {
+  const mean = (x) => x.reduce((s, v) => s + v, 0) / x.length, ma = mean(a), mb = mean(b);
+  let ab = 0, aa = 0, bb = 0;
+  for (let i = 0; i < a.length; i++) { ab += (a[i] - ma) * (b[i] - mb); aa += (a[i] - ma) ** 2; bb += (b[i] - mb) ** 2; }
+  return ab / Math.sqrt(aa * bb);
+}
+
+test("a_stride_that_swings_the_arms_swings_each_with_the_other_sides_leg_and_one_that_does_not_keeps_the_guard", async () => {
+  for (const arms of [0, 2]) {
+    const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
+    const actor = labActor(stand.built, stand.world, { mind: { ...STRIDING, locomotion: { ...STRIDING.locomotion, arms } } });
+    actor.drive({ name: "forward", decide: () => ({ move: [0.6, 0], face: 0, guard: NO_COVER, actions: [] }) });
+    const m = actor.body.muscles, shoulder = (side) => m.channels.findIndex((c) => c.name.startsWith(`shoulder.${side} flexion`));
+    const left = shoulder("left"), right = shoulder("right"), angles = { left: [], right: [] }, leads = { left: [], right: [] };
+    try {
+      stand.step(stand.seconds(2));
+      for (let k = 0; k < 360 && !actor.body.view.down; k++) {
+        stand.step(1);
+        const s = actor.body.view.stance;
+        angles.left.push(m.angle(left)); angles.right.push(m.angle(right));
+        for (const side of ["left", "right"]) leads[side].push(s.soles[side].z - s.centre.z);
+      }
+      assert.equal(actor.body.view.down, false, `arms ${arms}: fell`);
+      const range = (x) => Math.max(...x) - Math.min(...x);
+      if (!arms) assert.ok(range(angles.left) < 0.1 && range(angles.right) < 0.1, `in the guard the shoulders hold: ${range(angles.left).toFixed(3)}, ${range(angles.right).toFixed(3)} rad`);
+      else {
+        const with_ = [correlation(angles.left, leads.right), correlation(angles.right, leads.left)];
+        assert.ok(range(angles.left) > 0.2 && range(angles.right) > 0.2, `swinging: ${range(angles.left).toFixed(2)}, ${range(angles.right).toFixed(2)} rad`);
+        assert.ok(with_.every((r) => r > 0.5), `each arm goes with the other side's foot: ${with_.map((r) => r.toFixed(2))}`);
+      }
+    } finally { actor.dispose(); stand.dispose(); }
+  }
+});

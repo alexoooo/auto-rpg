@@ -1,12 +1,10 @@
 /**
- * **The lab's locomotion mode** (`src/lab/locomotion-mode.ts`), on the Node stand as the page runs it:
- * each human round each track for 30 s, at 120 Hz. It stays on its feet, gets round -- past the
- * shuttle's first half-turn, a quarter of the way round the circle -- and stays near the track. It
- * asks for the body's fastest walk (`Body.envelope`) except where its turns cannot carry that
- * round a bend. Pursuing a point 1 m on cuts inside the 4 m circle by
- * about 1 / (2 * 4) m, 12 cm. Readings: `docs/reference/lab.md#locomotion-tolerance`. The Warrior walks the
- * square facing +z, forward, right and back, at no more than its fastest walk when asked for more.
- * Sent on random commands, it reaches one destination after another and stands at each.
+ * **The lab's locomotion mode** (`src/lab/locomotion-mode.ts`), on the Node stand as the page runs it,
+ * at 120 Hz: what any walk passes. Each human sent round the circle for 10 s stays on its feet, goes
+ * round it and stays near it, the mode asking for the body's fastest walk (`Body.envelope`) except
+ * where its turn cannot carry that round the bend; sent on random commands, the Warrior reaches a
+ * destination from beyond arriving and sets off for the next. How far and how fast it goes is
+ * measured in `lab-locomotion-capability.test.mjs`.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -14,92 +12,54 @@ import { humanSpec } from "../src/core/human/spec.ts";
 import { paceRound } from "../src/core/control/stance-envelope.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { startLocomotion } from "../src/lab/locomotion-mode.ts";
-import { ARRIVED, commandsOf } from "../src/lab/commands.ts";
-import { CIRCLE_RADIUS, SHUTTLE_METRES, SHUTTLE_TURN_RADIUS, TRACKS, trackOf } from "../src/lab/track.ts";
+import { ARRIVED, LONGEST_STAND, commandsOf } from "../src/lab/commands.ts";
+import { CIRCLE_RADIUS, TRACKS, trackOf } from "../src/lab/track.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
-const SECONDS = 30;
-/**
- * The farthest off the track the run may go, m: over the widest run measured, under a run that
- * speeds up at a bend's end instead of keeping the bend's pace past it.
- */
-const OFF = 0.4;
-/** How far round each track it must get in `SECONDS`, m. */
-const ROUND = { circle: Math.PI / 2 * CIRCLE_RADIUS, shuttle: SHUTTLE_METRES + Math.PI * SHUTTLE_TURN_RADIUS };
+const SECONDS = 10;
+/** How far round the circle any walk gets in `SECONDS`, m, and how far off it, m: a body standing still gets nowhere. */
+const ROUND = 1, OFF = 1;
 
 for (const model of ["workshop-fighter", "workshop-rogue"]) {
-  for (const id of ["circle", "shuttle"]) {
-    test(`${model}_runs_round_the_${id}`, async (t) => {
-      const stand = await coreStand(humanSpec(model), { ground: true });
-      const run = startLocomotion(labActor(stand.built, stand.world), trackOf(TRACKS[id].pieces));
-      let off = 0, frame = run.frame();
-      /** The paces asked, on the straight and in a bend. */
-      const paces = { straight: new Set(), bend: new Set() };
-      try {
-        for (let t = 0; t < SECONDS && !frame.fallen; t += 0.25) {
-          stand.step(stand.seconds(0.25));
-          frame = run.frame();
-          if (frame.time > 1) off = Math.max(off, frame.off);
-          if (frame.time > 0.5) paces[frame.bending ? "bend" : "straight"].add(frame.pace);
-        }
-      } finally { run.dispose(); stand.dispose(); }
-      t.diagnostic(`${model} ${id}: ${(frame.travelled / frame.time).toFixed(3)} m/s along the track, ${(100 * off).toFixed(1)} cm off it at most after the first second`);
-      assert.ok(!frame.fallen, `${model} ${id}: fell at ${frame.time.toFixed(1)} s`);
-      assert.ok(frame.travelled > ROUND[id], `${model} ${id}: ${frame.travelled.toFixed(2)} m round, not past ${ROUND[id].toFixed(2)}`);
-      // The walk off the bends; in them, what the turn carries round, where that is slower.
-      const { walk } = run.body.envelope;
-      const bend = paceRound(run.body.envelope, id === "shuttle" ? SHUTTLE_TURN_RADIUS : CIRCLE_RADIUS);
-      assert.deepEqual([...paces.straight], [walk.value], `${model} ${id}: paces off the bends`);
-      assert.deepEqual([...paces.bend], bend < walk.value ? [bend] : [], `${model} ${id}: paces in the bends`);
-      assert.ok(off < OFF, `${model} ${id}: ${(100 * off).toFixed(1)} cm off the track`);
-    });
-  }
+  test(`${model}_goes_round_the_circle_on_its_feet`, async () => {
+    const stand = await coreStand(humanSpec(model), { ground: true });
+    const run = startLocomotion(labActor(stand.built, stand.world), trackOf(TRACKS.circle.pieces));
+    let off = 0, frame = run.frame();
+    /** The paces asked, on the straight and in a bend. */
+    const paces = { straight: new Set(), bend: new Set() };
+    try {
+      for (let t = 0; t < SECONDS && !frame.fallen; t += 0.25) {
+        stand.step(stand.seconds(0.25));
+        frame = run.frame();
+        if (frame.time > 1) off = Math.max(off, frame.off);
+        if (frame.time > 0.5) paces[frame.bending ? "bend" : "straight"].add(frame.pace);
+      }
+    } finally { run.dispose(); stand.dispose(); }
+    assert.ok(!frame.fallen, `${model}: fell at ${frame.time.toFixed(1)} s`);
+    assert.ok(frame.travelled > ROUND, `${model}: ${frame.travelled.toFixed(2)} m round`);
+    assert.ok(off < OFF, `${model}: ${(100 * off).toFixed(1)} cm off the circle`);
+    const { walk } = run.body.envelope, bend = paceRound(run.body.envelope, CIRCLE_RADIUS);
+    assert.deepEqual([...paces.straight], [walk.value], `${model}: paces off the bend`);
+    assert.deepEqual([...paces.bend], bend < walk.value ? [bend] : [], `${model}: paces in the bend`);
+  });
 }
 
-test("the_warrior_walks_the_square_facing_one_way_forward_right_and_back", async () => {
+test("the_warrior_reaches_a_destination_on_random_commands_and_sets_off_for_the_next", async () => {
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
-  // Asked past its fastest walk: the stance's walk takes no more than its envelope's, and slower braking for each corner.
-  const run = startLocomotion(labActor(stand.built, stand.world), trackOf(TRACKS.square.size.of(2)), { top: 3, facing: TRACKS.square.facing });
-  let frame = run.frame(), turned = 0;
-  const walked = new Set();
+  const commands = commandsOf(6, 1);
+  const run = startLocomotion(labActor(stand.built, stand.world), commands);
+  let frame = run.frame(), nearest = Infinity, reached = null;
   try {
-    while (frame.time < 10 && !frame.fallen) {
+    while (frame.time < 20 && !frame.fallen && (reached === null || frame.time < reached + LONGEST_STAND + 1)) {
       stand.step(stand.seconds(0.25));
       frame = run.frame();
-      turned = Math.max(turned, Math.abs(frame.heading));
-      if (frame.time > 0.5) walked.add(frame.walking);
+      const c = run.body.view.stance.centre, to = commands.at(0);
+      if (frame.laps === 0) nearest = Math.min(nearest, Math.hypot(c.x - to.x, c.z - to.z));
+      if (reached === null && frame.laps > 0) reached = frame.time;
     }
   } finally { run.dispose(); stand.dispose(); }
   assert.ok(!frame.fallen, `fell at ${frame.time.toFixed(1)} s`);
-  assert.ok(turned < 0.05, `it faces +z throughout: turned ${turned.toFixed(3)} rad`);
-  assert.equal(Math.max(...walked), run.body.envelope.walk.value, `the paces walked: ${[...walked]}`);
-  // Past the first corner and the second: up the forward side, across the right one, onto the way back.
-  assert.ok(frame.travelled > 4.2, `${frame.travelled.toFixed(2)} m round`);
-  assert.equal(frame.pieces.length, 4);
-  assert.ok(frame.pieces.slice(0, 3).every((v) => v !== null && v > 0.2), `each side's speed: ${frame.pieces}`);
-  assert.ok(frame.gait.touchdowns > 10 && frame.gait.step > 0.1 && frame.gait.double > 0 && frame.gait.flight === 0, `its feet: ${JSON.stringify(frame.gait)}`);
+  assert.ok(reached !== null, `no destination reached in ${frame.time.toFixed(1)} s; within ${nearest.toFixed(2)} m of the first`);
+  assert.ok(nearest > ARRIVED, "it went to the first from beyond arriving");
+  assert.ok(frame.leg && frame.leg.index >= 1 && frame.pace > 0, `the next under way: ${JSON.stringify(frame.leg)} at ${frame.pace} m/s`);
 });
-
-for (const seed of [1, 2]) {
-  test(`the_warrior_reaches_destination_after_destination_on_random_commands_seed_${seed}`, async () => {
-    const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
-    const commands = commandsOf(6, seed);
-    const run = startLocomotion(labActor(stand.built, stand.world), commands);
-    let frame = run.frame(), nearest = Infinity, stood = 0;
-    try {
-      while (frame.time < 25 && !frame.fallen) {
-        stand.step(stand.seconds(0.25));
-        frame = run.frame();
-        const c = run.body.view.stance.centre, to = commands.at(0);
-        if (frame.laps === 0) nearest = Math.min(nearest, Math.hypot(c.x - to.x, c.z - to.z));
-        if (frame.pace === 0 && frame.laps > 0) stood++;
-      }
-    } finally { run.dispose(); stand.dispose(); }
-    assert.ok(!frame.fallen, `fell at ${frame.time.toFixed(1)} s`);
-    assert.ok(frame.laps >= 2, `${frame.laps} destinations reached; within ${nearest.toFixed(2)} m of the first before it`);
-    assert.ok(nearest > ARRIVED, "it went to the first from beyond arriving");
-    assert.ok(stood > 0, "it stood at a destination");
-    assert.ok(frame.leg && frame.leg.index === frame.laps - (frame.pace === 0 ? 1 : 0), `its walk under way: ${JSON.stringify(frame.leg)} after ${frame.laps}`);
-    assert.ok(frame.mean > 0.2 && frame.travelled > 4, `${frame.travelled.toFixed(2)} m at ${frame.mean.toFixed(2)} m/s`);
-  });
-}

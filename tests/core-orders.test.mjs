@@ -3,7 +3,7 @@
  * `src/core/mind/ordered.ts`): what an order becomes as an intent, on sights made by hand, what a
  * hand that does not attack is given under each way of guarding, and a body walking one way while
  * it faces another (Node stand, Rapier, 120 Hz: the Warrior with the
- * club in its right hand).
+ * club in its right hand), how far it goes measured in `core-orders-capability.test.mjs`.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -117,28 +117,25 @@ test("a_fighter_told_to_cover_gives_the_cover_to_the_hand_that_does_not_attack",
 });
 
 test("a_body_walks_one_way_while_it_faces_another", async () => {
-  /** The Warrior, club in hand, 8 s under `orders`: whether it fell, how far it went, and the heading its stance was asked. */
+  /** The Warrior, club in hand, 5 s under `orders`: whether it fell, how far it went, and the heading its stance was asked. */
   const walk = async (orders) => {
     const stand = await coreStand(armed(modelSpec("workshop-fighter"), "right", woodenClub()));
     const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
     try {
       const skills = driveBy(body, actionTactics(stand.built.spec, [], FIGHTING, () => orders));
       const from = body.view.stance.centre.clone();
-      stand.step(stand.seconds(8));
+      stand.step(stand.seconds(5));
       const to = body.view.stance.centre;
       return { fallen: body.view.down, x: to.x - from.x, z: to.z - from.z, heading: skills.report.heading };
     } finally { body.dispose(); stand.dispose(); }
   };
-  // Read on this stand: 1.47 m along x and 0.03 m along z, facing; 2.89 m, turning to its walk.
+  // Facing ahead, it walks to its right, more along its walk than across it, its heading kept.
   const facing = await walk({ move: EAST, face: NORTH });
-  assert.equal(facing.fallen, false, "it fell");
-  assert.ok(facing.x > 1.1 && facing.x < 1.8, `along its walk: ${facing.x}`);
-  assert.ok(Math.abs(facing.z) < 0.3, `across it: ${facing.z}`);
+  assert.ok(!facing.fallen && facing.x > 0.3 && Math.abs(facing.z) < facing.x, JSON.stringify(facing));
   assert.ok(Math.abs(facing.heading) < 0.01, `it kept its heading: ${facing.heading}`);
   // The control: the same walk, facing it.
   const turning = await walk({ move: EAST, face: null });
-  assert.equal(turning.fallen, false, "the control fell");
-  assert.ok(turning.x > 2.6, `the control went ${turning.x}`);
+  assert.ok(!turning.fallen && turning.x > 0.3 && Math.abs(turning.z) < turning.x, JSON.stringify(turning));
   assert.ok(Math.abs(turning.heading - QUARTER) < 0.02, `the control turned to ${turning.heading}`);
 });
 

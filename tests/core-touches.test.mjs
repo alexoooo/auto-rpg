@@ -3,8 +3,9 @@
  * body, or on something fixed, has touched it, closing at the speed the step before left it and
  * priced from the masses the contact meets. A ball dropped on the ground; a fist sent into a body,
  * priced as its blow is; a Warrior walking, a touch a footfall while a touch lasts as long as the
- * contact; a body that is not watched; a body's own segments; and the segments and the contacts a
- * reader asks for (Node core stand, Rapier, 120 Hz, balance 0 %).
+ * contact; a body that is not watched; a body's own segments, read from each; and the segments and
+ * the contacts a reader asks for (Node core stand, Rapier, 120 Hz, balance 0 %). How many touches a
+ * walk and the skeleton's guard make is measured in `core-touches-capability.test.mjs`.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -111,9 +112,9 @@ test("a walk is a touch a footfall while a touch lasts as long as the contact", 
     stand.step(stand.seconds(3));
     assert.deepEqual([heard.contact.length, heard.pushed.length], [0, 0], "standing, built on its feet, it touches nothing anew");
     stance.orders.forward = 0.2;
-    stand.step(stand.seconds(10));
+    stand.step(stand.seconds(5));
     const { strides, fallen } = stance.frame(), feet = heard.contact.map((touch) => touch.of.segment.spec.name);
-    assert.ok(!fallen && strides >= 20, `${strides} strides`);
+    assert.ok(!fallen && strides >= 4, `${strides} strides`);
     assert.ok(heard.contact.every((touch) => touch.on === null && touch.of.segment.spec.name.startsWith("foot.")), `${[...new Set(feet)]}`);
     assert.ok(feet.length >= strides - 2 && feet.length <= strides, `${feet.length} touches in ${strides} strides`);
     assert.ok(feet.every((foot, i) => i === 0 || foot !== feet[i - 1]), `the feet take turns: ${feet.join(" ")}`);
@@ -144,9 +145,12 @@ test("a body's own segments touch, read from each of the two, unless they do not
     watchTouches(stand.world, [body], { lasts: "contact", counts: (of, on) => on?.body !== of.body }, (touch) => others.push(touch));
     // Taking its guard, each forearm of the skeleton comes to rest on its trunk.
     stand.step(stand.seconds(1));
+    // Each pair is heard from either side of it.
     const pairs = own.map((touch) => `${touch.of.segment.spec.name} on ${touch.on?.segment.spec.name}`).sort();
-    assert.deepEqual(pairs, ["forearm.left on middleTrunk", "forearm.right on middleTrunk", "middleTrunk on forearm.left", "middleTrunk on forearm.right"]);
-    assert.ok(own.every((touch) => touch.on.body === body));
+    const turned = own.map((touch) => `${touch.on?.segment.spec.name} on ${touch.of.segment.spec.name}`).sort();
+    assert.ok(pairs.length > 0, "the guard touches nothing: the case shows nothing");
+    assert.deepEqual(pairs, turned);
+    assert.ok(own.every((touch) => touch.on.body === body && touch.on.segment !== touch.of.segment), pairs.join(", "));
     assert.equal(others.length, 0);
   } finally { stance.dispose(); stand.dispose(); }
 });

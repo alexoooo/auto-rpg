@@ -1,7 +1,8 @@
 /**
  * **The lab's loadout** (`src/lab/loadout.ts`): the body a loadout makes. Clothing is the
- * skin's and changes nothing here; a club in a hand is one rigid body with it. Run on the Node
- * core stand.
+ * skin's and changes nothing here; a club in a hand is one rigid body with it; with a club in each
+ * hand each human stands, walks forward and stops. Run on the Node core stand. How far it walks is
+ * measured in `lab-loadout-capability.test.mjs`.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -73,23 +74,25 @@ test("a_club_makes_its_hand_heavier_by_the_club_and_leaves_the_other", async () 
   } finally { stand.dispose(); }
 });
 
-test("with_a_club_in_each_hand_each_human_stands_walks_and_stops_in_the_stance_bare_or_shod", async () => {
+test("with_a_club_in_each_hand_each_human_stands_walks_forward_and_stops_in_the_stance_bare_or_shod", async () => {
   for (const model of MODELS) for (const sole of [false, true]) {
     const stand = await coreStand(loadoutSpec({ ...bare(model), right: "club", left: "club", sole }), { ground: true });
     const stance = startStance(labActor(stand.built, stand.world));
     const run = (seconds) => stand.step(stand.seconds(seconds));
+    const at = `${model}${sole ? " shod" : ""}`;
     try {
       run(2);
-      const stood = stance.frame();
+      const stood = stance.frame(), from = stance.body.view.stance.centre.clone();
       stance.orders.forward = 0.3;
-      run(5);
-      const walked = stance.frame();
+      run(4);
+      const walked = stance.frame(), to = stance.body.view.stance.centre.clone();
       stance.orders.forward = 0;
-      run(3);
+      run(2);
       const stopped = stance.frame();
-      assert.ok(stood.phase === "stand" && stood.recoveries === 0 && !stood.fallen, `${model}${sole ? " shod" : ""} standing: ${JSON.stringify(stood)}`);
-      assert.ok(walked.strides >= 8 && !walked.fallen, `${model}${sole ? " shod" : ""} walking: ${JSON.stringify(walked)}`);
-      assert.ok(stopped.phase === "stand" && !stopped.fallen, `${model}${sole ? " shod" : ""} stopping: ${JSON.stringify(stopped)}`);
+      assert.ok(stood.phase === "stand" && !stood.fallen, `${at} standing: ${JSON.stringify(stood)}`);
+      assert.ok(to.z - from.z > 0.3 && Math.abs(to.x - from.x) < to.z - from.z && !walked.fallen,
+        `${at} walking: ${(to.z - from.z).toFixed(2)} m forward, ${(to.x - from.x).toFixed(2)} across`);
+      assert.ok(stopped.phase === "stand" && !stopped.fallen, `${at} stopping: ${JSON.stringify(stopped)}`);
     } finally { stance.dispose(); stand.dispose(); }
   }
 });

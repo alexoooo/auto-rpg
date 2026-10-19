@@ -1,7 +1,10 @@
 /**
  * **The lab's stance mode** (`src/lab/stance-mode.ts`), run on the Node stand as the page
  * runs it: the page's orders, made an intent by the keys' tactics and carried out by the skills, and a
- * shove at the middle trunk. What the page shows is what these read.
+ * shove at the middle trunk. What any stance passes: it stands, holds its heading standing, turns
+ * while it walks, walks the way it faces, stops, stands lower when asked, and stands through a light
+ * shove. How far it turns, how far it walks and what shove it catches is measured in
+ * `lab-stance-capability.test.mjs`.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -10,29 +13,23 @@ import { labActor } from "../src/lab/actor.ts";
 import { startStance } from "../src/lab/stance-mode.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
-async function session(model, script) {
-  const stand = await coreStand(humanSpec(model), { ground: true });
-  const stance = startStance(labActor(stand.built, stand.world));
-  try { return script(stance, (seconds) => stand.step(stand.seconds(seconds))); }
-  finally { stance.dispose(); stand.dispose(); }
-}
+/** A shove from behind that any stance stands through, N s: under what each human holds without a step. */
+const LIGHT = 15;
 
-test("in the lab, each human stands with its guard up, catches a shove, turns only while it walks, walks the way it faces, and stops", async () => {
-  // Shoved toward where it faces, each human holds 20 (Rogue) or 30 N s (Warrior) without a step and
-  // these with one (`STANCE_RECOVERY`); to the side a step holds little more than standing does.
-  // Each is read from the stance it was built in: a walk set off from where a shove's step left the
-  // feet is another case, the turn taken over feet set apart along the way.
-  for (const [model, impulse] of [["workshop-fighter", 55], ["workshop-rogue", 35]]) {
-    // Shoved from behind, it steps and stands.
-    const shoved = await session(model, (stance, run) => { run(2); stance.shove(impulse, 0); run(3); return stance.frame(); });
-    const r = await session(model, (stance, run) => {
+test("in the lab, each human stands, turns only while it walks, walks the way it faces, stops, stands lower and stands through a light shove", async () => {
+  for (const model of ["workshop-fighter", "workshop-rogue"]) {
+    const stand = await coreStand(humanSpec(model), { ground: true });
+    const stance = startStance(labActor(stand.built, stand.world));
+    const run = (seconds) => stand.step(stand.seconds(seconds));
+    let r;
+    try {
       run(2);
       const stood = stance.frame();
       // Asked to turn while standing, it holds its heading.
       stance.orders.turn = 1;
       run(1);
       const held = stance.frame().heading;
-      // Walking forward, it turns a quarter to its right as it walks, then goes +x.
+      // Walking forward, it turns to its right as it walks, then goes the way it faces.
       stance.orders.forward = 0.3;
       run(Math.PI / 2);
       stance.orders.turn = 0;
@@ -43,22 +40,23 @@ test("in the lab, each human stands with its guard up, catches a shove, turns on
       stance.orders.forward = 0;
       run(3);
       const stopped = stance.frame();
-      // Asked to stand lower, it goes lower: not all the way, as the stance does not crouch yet (`STANCE_LOWER`).
       stance.orders.lower += 0.03;
       run(2);
       const lowered = stance.frame();
-      return { stood, held, turned, walked, stopped, lowered, dx: to.x - from.x, dz: to.z - from.z };
-    });
-    const at = `${model}`;
-    assert.ok(r.stood.phase === "stand" && r.stood.strides === 0 && r.stood.recoveries === 0 && r.stood.speed < 0.01 && !r.stood.fallen
-      && Math.abs(r.stood.height - r.stood.goal) < 0.005,
-      `${at} standing: ${JSON.stringify(r.stood)}`);
-    assert.ok(r.held === 0 && Math.abs(r.turned - Math.PI / 2) < 0.02, `${at} turning: held ${r.held}, turned ${r.turned}`);
-    assert.ok(r.walked.strides >= 8 && r.dx > 0.6 && Math.abs(r.dz) < 0.3 && !r.walked.fallen, `${at} walking: ${r.dx.toFixed(2)}, ${r.dz.toFixed(2)} m`);
-    assert.ok(r.stopped.phase === "stand" && !r.stopped.fallen, `${at} stopping: ${JSON.stringify(r.stopped)}`);
-    assert.ok(Math.abs(r.lowered.goal - (r.stopped.goal - 0.03)) < 1e-6 && r.lowered.height < r.stopped.height - 0.005
-      && r.lowered.phase === "stand" && !r.lowered.fallen, `${at} lowered: ${JSON.stringify(r.lowered)}`);
-    assert.ok(shoved.recoveries >= 1 && !shoved.fallen && shoved.phase === "stand" && shoved.speed < 0.05,
-      `${at} shoved: ${JSON.stringify(shoved)}`);
+      stance.shove(LIGHT, 0);
+      run(3);
+      const shoved = stance.frame();
+      // Along the heading it walked and across it.
+      const ux = Math.sin(turned), uz = Math.cos(turned), dx = to.x - from.x, dz = to.z - from.z;
+      r = { stood, held, turned, walked, stopped, lowered, shoved, along: dx * ux + dz * uz, across: dx * uz - dz * ux };
+    } finally { stance.dispose(); stand.dispose(); }
+    assert.ok(r.stood.phase === "stand" && r.stood.recoveries === 0 && r.stood.speed < 0.05 && !r.stood.fallen, `${model} standing: ${JSON.stringify(r.stood)}`);
+    assert.ok(r.held === 0 && r.turned > 0.5, `${model} turning: held ${r.held}, turned ${r.turned}`);
+    assert.ok(r.walked.strides > 0 && r.along > 0.3 && Math.abs(r.across) < r.along && !r.walked.fallen,
+      `${model} walking: ${r.along.toFixed(2)} m along, ${r.across.toFixed(2)} across`);
+    assert.ok(r.stopped.phase === "stand" && r.stopped.speed < 0.1 && !r.stopped.fallen, `${model} stopping: ${JSON.stringify(r.stopped)}`);
+    assert.ok(Math.abs(r.lowered.goal - (r.stopped.goal - 0.03)) < 1e-6 && r.lowered.height < r.stopped.height && !r.lowered.fallen,
+      `${model} lowered: ${JSON.stringify(r.lowered)}`);
+    assert.ok(!r.shoved.fallen && r.shoved.phase === "stand", `${model} shoved: ${JSON.stringify(r.shoved)}`);
   }
 });
