@@ -13,10 +13,11 @@ import { GUARD, guardPosture } from "../src/core/skills/guard.ts";
 import { SIMBICON, simbicon, simbiconWays } from "../src/core/skills/simbicon.ts";
 import { runCycleSettings } from "../src/core/skills/cycle-run.ts";
 import { stride } from "../src/core/skills/stride.ts";
-import { walkRun } from "../src/core/skills/walk-run.ts";
+import { WALK_RUN, walkRun } from "../src/core/skills/walk-run.ts";
 import { RUN_POLICIES, learnedRun } from "../src/core/skills/learned-run.ts";
 import { startWind } from "../src/lab/wind.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
+import { readFileSync } from "node:fs";
 
 export const CORE_STANCE_HARNESS = "Node core stand (tests/harness/core-stand.mjs), Rapier";
 
@@ -167,13 +168,19 @@ export async function shove({ model, impulse, degrees, stance, hz = 120, walked 
   } finally { b.dispose(); stand.dispose(); }
 }
 
+/** The learned run's policies read from their files, by path: each read once a thread. */
+const POLICIES = new Map();
+const policyAt = (path) => { if (!POLICIES.has(path)) POLICIES.set(path, JSON.parse(readFileSync(path, "utf8"))); return POLICIES.get(path); };
+
 /**
  * The locomotion skill `legs` names, driving `b`: null for the stance's own walk, which a trial asks
  * of the stance's goal itself; `"stride"` for the stride (`src/core/skills/stride.ts`);
  * `"walk-run"` for the walk and run (`src/core/skills/walk-run.ts`), free to run; `"learned-run"`
  * for it with its run steered by the trained policy (`learnedRun`, `RUN_POLICIES["all-bodies"]`); `"simbicon"`
  * for the SIMBICON gait (`src/core/skills/simbicon.ts`), which drives the legs itself, told it may
- * not run, and `"simbicon-run"` for it free to run; a `SimbiconConfig` for a SIMBICON gait of its own.
+ * not run, and `"simbicon-run"` for it free to run; a `SimbiconConfig` for a SIMBICON gait of its own;
+ * `{ kind: "learned-run", policy, hasted }` for the learned run steered by the policy in the file
+ * `policy` names, its gait timed to its haste by `hasted` (`WalkRunSettings.hasted`).
  */
 function skillOf(legs, b) {
   switch (legs) {
@@ -185,6 +192,7 @@ function skillOf(legs, b) {
     case "simbicon-run": return simbicon(b);
     default: {
       // A SIMBICON gait of its own: its settings over the defaults, its ways' and its run's tuning, and whether it may run.
+      if (legs?.kind === "learned-run") return learnedRun(b, policyAt(legs.policy), { ...WALK_RUN, hasted: legs.hasted });
       if (legs?.kind === "simbicon") { const { kind, tuning, runs = true, ...settings } = legs; return simbicon(b, { ...SIMBICON, ...settings }, simbiconWays(tuning), runCycleSettings(tuning?.run), runs); }
       throw new Error(`no locomotion skill named ${legs}`);
     }
