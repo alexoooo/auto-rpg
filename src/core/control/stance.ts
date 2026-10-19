@@ -381,7 +381,7 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
   const floors: [FootState, number, SoleEnd][] = [];
   let landX = r.x, landZ = r.z;
   if (reading.phase === "swing") {
-    const w = Math.sqrt(pendulum), left = Math.max(swing!.seconds - step.time, 0), ch = cosh(w * left), sh = sinh(w * left);
+    const w = Math.sqrt(pendulum), left = Math.max(swing!.seconds - (step.lifted ? step.time : 0), 0), ch = cosh(w * left), sh = sinh(w * left);
     // Where the plan comes to as the foot lands, the swing leg's reaction in it (`swingShiftToRef`).
     landX = reading.place.x + (r.x - reading.place.x) * ch + u.x / w * sh - step.shift.centre[0];
     landZ = reading.place.z + (r.z - reading.place.z) * ch + u.z / w * sh - step.shift.centre[1];
@@ -413,7 +413,8 @@ function heightLimits(s: Stance, goal: StanceGoal, stance: readonly FootState[],
 
 /**
  * Which feet bear on an end of their soles. A walk's bearing foot (the stance's own walk's, or a
- * goal's step's with a double support, `SwingGoal.transfer`) whose ankle's floor is over the knees'
+ * goal's step's with a double support, `SwingGoal.transfer`), or a run's (a step that flies,
+ * `SwingGoal.flight`), whose ankle's floor is over the knees'
  * ceiling (`high`) on one foot rolls onto the end its stop is of instead (Perry 1992, "Gait
  * Analysis", terminal stance: the heel rises as the body passes over the forefoot; walking
  * backward, the toes as it passes over the heel), once the plan's centre of mass is past that edge
@@ -435,7 +436,7 @@ function rollFeet(s: Stance, stance: readonly FootState[], swing: SwingGoal | nu
   for (const [foot, floor, end] of floors) {
     if (!stance.includes(foot)) continue;
     const past = endPast(foot, r.x, r.z), going = u.x * (r.x - foot.middle.x) + u.z * (r.z - foot.middle.z) > 0;
-    if (heelOff && going && (s.state.striding || swing?.transfer !== undefined && swing !== reading.own) && past === end && !foot.memory.rolled && floor > high && reading.phase === "swing") foot.memory.rolled = end;
+    if (heelOff && going && (s.state.striding || swing?.flight !== undefined || swing?.transfer !== undefined && swing !== reading.own) && past === end && !foot.memory.rolled && floor > high && reading.phase === "swing") foot.memory.rolled = end;
     else if (foot.memory.rolled && past !== foot.memory.rolled && (foot.memory.rolled === "front" ? foot.heel <= foot.flat : -foot.heel <= -foot.flat)) foot.memory.rolled = null;
   }
   if (gait.preswing !== undefined && reading.phase === "shift" && swing?.transfer) {
