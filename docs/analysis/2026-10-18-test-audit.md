@@ -221,7 +221,10 @@ Built from cases that exist, with bars far below today's capability:
    the 80 m one (the ground box is the only difference), so each case keeps its ground; and the
    skeleton's self-touch case still needs its guard pose to touch.
 2. **The snapshot check**: done (Fixtures, above).
-3. **Fork windows** scouted, with "fixture not reached" reported apart from a fork failure.
+3. **Fork windows**: done. `core-fork`'s felled and taken windows are found by what the trunk
+   saw, and its fixtures assert they reached their case before the fork asserts run;
+   `arena-fork`'s Classic bout is capped at 60 s; `core-combat-range`'s and
+   `core-combat-openings`' forks no longer wait on the capability their neighbours measure.
 4. **The slow tier**: pure cases moved to fast files; measurements moved out of the gate.
 5. **The `todo`s**: each that is a capability becomes an experimental measurement; each contract
    behind one is freed (the list above); the four root causes are tracked as known capability
