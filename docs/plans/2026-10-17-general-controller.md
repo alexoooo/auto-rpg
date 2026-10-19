@@ -282,11 +282,12 @@ the upper trunk it lands 580 J on the trunk, wins 0.075 and falls 0.41 a bout; d
 at 1000 m/s^2, or closed at 15 or 60 per second, the same: the ask is past what the arm gives,
 and through the drive the shoulder's three freedoms are pinned at their strength. Both arms work
 flat out; they differ in where they send the fist. So the pushed drive stays the default and the
-driven one is selectable. What is open: where a driven blow is aimed (an opening the guard leaves
-at the trunk, without the 0.41 falls the trunk's aim costs: late in a bout, the centre of mass
-drifts from the first drive at up to 1 m/s through the wait for the second, and the stance steps
-without stopping it), and the holds (the club's guard, a
-blade up) as tasks, which need a hand's turn among a point's rows.
+driven one is selectable. The trunk's aim falls because the driven arm's torques leave the body
+turning and its rear foot hovering, the fist turns back past its goal at full strength, and the
+second drive waits on where the centre of mass is, not where it is going; neither fix kept (the
+register) moves the driven drive past 0.04 of 80. What is open: a driven blow that is as fast as
+the pushed one's bang-bang, and the holds (the club's guard, a blade up) as tasks, which need a
+hand's turn among a point's rows.
 
 ## The register: tried and not kept
 
@@ -319,6 +320,11 @@ Not to be tried again on the controllers as they are. Each failed for the reason
   drift (never runs); the club's arm in guard; `ahead` 0 past the empty-handed pace; a governor
   on hip height.
 - **Step width.** Targets at 0.15 to 0.2 of the leg: 115 of 300 fell in gusts.
+- **The driven drive's slide** (stage 5, 40 gaps from both sides against the Puncher, Node,
+  Rapier, 120 Hz, Balance 0). No ask once the fist is past its goal: the trunk's aim wins 0.037
+  where it won 0.013, falls 0.31 a bout where it fell 0.38, and the arm's posture then pulls the
+  fist back, so it meets a standing foe at 1.5 m/s. The one-two's poise read at the capture point:
+  the driven drive wins 0.025, and the pushed default 0.700 where it wins 0.800.
 - **The stand-up.** Twice the strength (Grit); every stage's seconds scaled by 0.6 or 0.4; the
   stages searched at a 10 s cap; `plant-up` by backward chaining (0 of 108 standalone); any
   assist in a pose stage (a lift or a damper, 0 of 32); the stages searched with Balance 25 % on
