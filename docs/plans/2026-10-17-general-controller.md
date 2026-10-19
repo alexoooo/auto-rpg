@@ -388,7 +388,7 @@ Each stage builds one skill on the general stack **beside the skill it would rep
 game offers several implementations of a skill, each selectable in the mind editor, so the owner
 can watch and compare them in the Lab, Arena and Crypt. The general one becomes the default when
 it is the better; none is deleted for being superseded. Only the default carries the gameplay
-promises the owner keeps (`2026-10-18-testing-strategy.md`); the others stay runnable under the
+promises the owner keeps (`AGENTS.md`, Tests); the others stay runnable under the
 software checks and are measured when they are compared.
 
 | Stage | Build | Gate | Rough size |

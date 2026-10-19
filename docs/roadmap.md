@@ -635,3 +635,35 @@ After it, each with its own plan, in the order each needs the one before:
 
 - **Another engine** (Box3D, Jolt or another): a bench adapter in `src/physics-bench/engines/`
   first, then `src/core/engine/<name>.ts` and `CORE_ENGINE=<name> npm run test:all`.
+
+### Tests
+
+- **What the measurements find short** (`npm run test:experimental`, red by these causes):
+  - the bare fist's striking surface is about 9 cm short of the open capsule its recipes were
+    tuned on (the strike, blow, punch-calibration, target and ground-combat measurements);
+  - the open hand bears on its palm's measured hull, and the rise, the bar, the posture hold and
+    the support entry were tuned on the capsule;
+  - the run's legs cost the rise and the recovery measurements;
+  - records of an earlier body: `docs/reference/native-posture-control.json` names an anatomy
+    the body no longer has (`research/native-posture-control.mjs` records it again).
+- **Defects a contract shows, `todo` with their cause:**
+  - a held body's fixed segment turns by about 7.5e-9 a step (`crypt-core`);
+  - a felled Warrior's club arm under `lie` twitches for the whole watch and never comes to rest
+    (`research-rise`);
+  - a club at 10 m/s, 0.22 m under the training dummy's ball, ends a step 5.7 cm inside it and no
+    contact is read (`lab-targets-capability`).
+- **Found and not yet looked into:** `gapTo` (`src/core/engine/rapier.ts`) counts disabled
+  colliders; `research/ground-combat.mjs` reads a foe as rising only by the support recovery's
+  name (`recovery: rise`), which the default riser (`stand up: ...`) never reports.
+- **Duplicates to fold into one table over the implementation:** `simbicon` and `walk-run`; the
+  stand, walk and stop of `lab-stance`, `core-stance` and `lab-loadout`; `arena-gameplay-physics`'
+  cycles and `arena-control-cycle`'s; `treeFaults(PRESETS)` in `core-controllers` and
+  `core-parts`; `punch-foundation`, `punch-stability` and `research-punch-calibration`.
+- **Pinned to implementation detail:** the phase strings in `core-environment` and `lab-ground`,
+  the vendored revision in `punch-mass-audit`, `dungeon-dressing`'s collider hashes (compare
+  visuals on with visuals off instead).
+- **Research code read only by its test** retires with its experiment: the stand-up
+  qualification, detached-dynamics, tracking-policy, contact-model, foot-design and beam
+  scripts, `punch-stability.mjs`, `reptile-motion.mjs`; `predictPointContacts`
+  (`src/core/build/contact-step.ts`) has no game reader; `research-posture`'s toe cases test a
+  toe joint the body does not have.

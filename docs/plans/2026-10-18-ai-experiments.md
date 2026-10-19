@@ -213,5 +213,4 @@ behaviour is held to the fingerprint (`scripts/fingerprint.mjs`).
 Land small changes under the repository's normal checks. Run the relevant scenario tests when
 changing their paths; use measurements when evaluating a capability, strength or performance
 claim.
-The [testing strategy plan](2026-10-18-testing-strategy.md) covers verification policy and migration
-of the existing suite; the current repository gates apply until those changes land.
+`AGENTS.md` (Tests) says what the gate holds and how a controller is compared.

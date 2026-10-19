@@ -11,7 +11,7 @@ built; `docs/roadmap.md` says where it is going. This file is the rules for work
 npm ci           # not `install`: the exact lockfile
 npm run dev      # http://localhost:5180, strictPort
 npm run check    # tsc --noEmit
-npm test         # the fast tier, about 45 s: current-code tests except tests/slow.json's
+npm test         # the fast tier, about 75 s: current-code tests except tests/slow.json's
 npm run test:all # all current-code tests, as CI runs them
 npm run test:experimental # how well the controllers do: tests/experimental.json's, in neither tier
 npm run build    # check, then vite build
@@ -187,8 +187,37 @@ screens build on it; it never imports them.
   `scene.materials` is incomplete (reach a material through `mesh.material`); after a hot reload
   the old scene lingers, so navigate rather than reload.
 
-## Node and tests
+## Tests
 
+The game promises no gameplay yet. The gate (`npm test`, and `npm run test:all` in CI) holds
+software contracts (validation, limits, state, lifecycle, replay), the source rules, and a
+**floor**: whole-path checks any controller passes, with bars far enough below what the game does
+now that a controller or body change never needs them retuned. A bout runs and ends, every state
+finite and nobody flung; an unpushed body on its default controller is upright after a few
+seconds; an order moves a body and the next is answered; each page and Lab scenario loads and
+steps. How well a controller does is a measurement (`-capability`, above): a lower number there
+is a finding, not a red gate. A capability becomes a promise when the owner, having watched it,
+says to keep it; a promise names its configurations, conditions and outcome, is scored alike for
+every implementation that claims it, and changes scope only by the owner's decision.
+
+- **Test the contract**: inputs, outputs and what can be observed; internal phases or layout only
+  where they are the contract. Exact rules and replay are held to exact equality, and replay of
+  recorded inputs needs no mind. A physical outcome is judged in units and limits from its task,
+  never against the last run's trajectory or step count.
+- **A fixture that did not reach its case says so** before the contract's asserts run: an invalid
+  fixture is not a regression. A window a fixture forks or waits in is found from what its run
+  saw, and a bout is capped, so no verdict waits on a mind's strength.
+- **A saved world loads only into a world built as it was** (the engine refuses another): a
+  fixture is a recipe or a placed pose, not stored bytes, and a body's change never silently
+  changes what a test expects.
+- **Never green by relaxing.** No threshold eased, easier seed, hidden assist or regenerated
+  expectation to make a check pass. Name what a red check is (a broken contract, a lost promise, an
+  unmet goal, an invalid fixture or a broken test) and fix that part; retire an assertion only
+  with the requirement it protected kept elsewhere. A red physical check says what to replay:
+  the recipe and seed, the condition that failed, and the value seen against its limit.
+- **Compare controllers alike**: the same scenarios, bodies, physics, permissions and assists,
+  the same scoring for each, results by opponent, fresh cases to confirm a gain, and repeated
+  trials for a mind whose decisions vary. A seed names conditions, not a mind's choices.
 - **Node imports `src/` directly.** Relative imports in anything a test loads carry the `.ts`
   extension, and TypeScript parameter properties are forbidden there (Node strips types only).
 - **The headless stand** (`tests/harness/core-stand.mjs`): `coreStand(spec)` builds one body on a
