@@ -11,7 +11,7 @@
  * the Lab's two shoves at a direction drawn on `seed`, and lasts until the host has the body back
  * standing (`handover`), or `seconds` after the takeover, or a failure. The reward each decision:
  * the head's rise toward standing, a share of its standing height; a cost of `hurry` for each
- * second; and on standing, 5 and up to 5 more the sooner it stood (`soon` s or later earns none).
+ * second; and on standing, 5 and up to `swift` more the sooner it stood (`soon` s or later earns none).
  */
 import { recoveryEnvironment } from './stand-up-environment.mjs';
 import { TECHNIQUES } from '../src/core/mind/ground/techniques.ts';
@@ -23,7 +23,7 @@ import { strengthSpec } from './rising-technique.mjs';
 export const RISE_ACTIONS = RISE_STEER_KEYS.length;
 
 export async function riseEnvironment(configuration = {}) {
-  const o = { model: 'workshop-fighter', held: 'empty', balance: 0, seed: 1, falls: 12, seconds: 14, hurry: 0.3, soon: 12, strength: 1, ...configuration };
+  const o = { model: 'workshop-fighter', held: 'empty', balance: 0, seed: 1, falls: 12, seconds: 14, hurry: 0.3, soon: 12, swift: 5, strength: 1, ...configuration };
   if (!Number.isFinite(o.strength) || o.strength < 1 || o.strength > 2) throw new Error("a rise environment's strength stays between 1 and 2");
   let word = (o.seed * 2654435761) >>> 0;
   const random = () => ((word = (Math.imul(word, 1664525) + 1013904223) >>> 0) / 4294967296);
@@ -65,7 +65,7 @@ export async function riseEnvironment(configuration = {}) {
     let reward = (now - ep.head) - o.hurry * (r.elapsed - from) - 0.01 * effort;
     ep.head = now;
     const stood = r.handover !== null, failed = r.failure !== null;
-    if (stood) reward += 5 + 5 * Math.max(0, 1 - r.seconds / o.soon);
+    if (stood) reward += 5 + o.swift * Math.max(0, 1 - r.seconds / o.soon);
     const terminated = stood || failed, truncated = !terminated && r.elapsed >= o.seconds;
     return { observation: observe(), reward, terminated, truncated,
       info: { stood, failed, seconds: r.seconds, elapsed: r.elapsed, decisions: ep.decisions, head: now } };
