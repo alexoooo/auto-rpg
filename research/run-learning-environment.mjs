@@ -2,12 +2,12 @@
  * The learned run's training environment, a trial as the gait battery plays one
  * (`run-cycle-search.mjs`): a body of `model` in its guard (`guardPosture`), the club in its right
  * hand if `held` is `club`, at `haste`, under its character's balance, on the walk and learned run
- * (`learnedRun`, policy null), its run steered from here (`RunCycleMemory.steer`) every `DECIDE`
+ * (`learnedRun`, policy null), its gait timed to its haste at `hasted` (`WalkRunSettings.hasted`), its run steered from here (`RunCycleMemory.steer`) every `DECIDE`
  * control steps, the policy's features read as the skill reads them (`runFeatures`). Node stand,
  * Rapier, 120 Hz.
  *
  * Each episode starts from one of the running states saved as the body sets off from a stand
- * asked each of `warm` m/s (`starts`, s after it was asked, while it runs), is asked a pace drawn
+ * asked each of `warm` m/s (`starts`, s after it was asked, those at which it runs), is asked a pace drawn
  * from `speeds`, m/s, and lasts `seconds` or until it falls (as the battery reads a fall) or its run gives way to
  * the walk. In an episode, each by its chance: the pace asked is drawn again at a random time
  * (`change`); the face turns at `turn` rad/s through a quarter turn, either way, from a random
@@ -18,7 +18,7 @@
  *
  * The reward each decision: the speed along the heading near the pace the walk and run asks (its
  * ramp, so a body setting off is not asked a pace it cannot have yet), within about 1 m/s of it
- * past it and `tolerance` m/s short of it; little drift across it, the heading held, and being up;
+ * past it and `tolerance` m/s short of it, or, with `share`, that share of the pace; little drift across it, the heading held, and being up;
  * a fall, or the walk taking a run asked faster than it, costs 1.
  */
 import { modelSpec } from '../src/core/models.ts';
@@ -51,7 +51,7 @@ export async function runEnvironment(configuration = {}) {
   const stand = await coreStand(spec, { ground: true, groundSize: 4000, posture: guard });
   const assist = balanceCeiling(stand.built.spec.attributes.balance.value, balancePercent(rulebook('arena')));
   const body = createBody(stand.built, stand.world, { servoSeconds: 0.1, measuring: true, assist });
-  const skill = learnedRun(body, null, WALK_RUN, runCycleSettings(undefined, WALK_RUN_CYCLE));
+  const skill = learnedRun(body, null, { ...WALK_RUN, hasted: o.hasted ?? WALK_RUN.hasted }, runCycleSettings(undefined, WALK_RUN_CYCLE));
   const walk = skill.state.walkRun, run = skill.state.run;
   const ask = { pace: 0, running: false, face: 0 };
   let goal = null;
@@ -73,7 +73,8 @@ export async function runEnvironment(configuration = {}) {
     const from = stand.world.time;
     for (const at of [...o.starts].sort((a, b) => a - b)) {
       while (stand.world.time - from < at) stand.step(1);
-      if (!walk.running || body.view.down) break;
+      if (body.view.down) break;
+      if (!walk.running) continue;
       while (run.steps % DECIDE !== 0) stand.step(1);
       saves.push(serialize(saveStand(stand.world, states)));
     }
@@ -95,7 +96,8 @@ export async function runEnvironment(configuration = {}) {
   };
   const reward = (action) => {
     const s = view().stance, h = walk.heading, along = s.velocity.x * sin(h) + s.velocity.z * cos(h), across = s.velocity.x * cos(h) - s.velocity.z * sin(h);
-    const speed = Math.exp(-(((along - walk.pace) / (along < walk.pace ? o.tolerance : 1)) ** 2)), drift = Math.exp(-((across / 0.4) ** 2)), facing = Math.exp(-((wrap(s.facing - h) / 0.3) ** 2));
+    const short = o.share === undefined ? o.tolerance : Math.max(o.share * walk.pace, 0.1);
+    const speed = Math.exp(-(((along - walk.pace) / (along < walk.pace ? short : 1)) ** 2)), drift = Math.exp(-((across / 0.4) ** 2)), facing = Math.exp(-((wrap(s.facing - h) / 0.3) ** 2));
     const effort = action.reduce((sum, a) => sum + a * a, 0) / action.length;
     return { value: 0.6 * speed + 0.15 * drift + 0.15 * facing + 0.1 - 0.02 * effort, along, across };
   };
