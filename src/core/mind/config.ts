@@ -106,6 +106,17 @@ export interface WalkRunConfig extends WalkRunSettings {
 }
 
 /**
+ * **The walk and the learned run** (`learnedRun`, `skills/learned-run.ts`): the walk and run whose run a policy steers, the one
+ * `policy` names (`RUN_POLICIES`), or, null, steered from outside the mind (research's training). Its settings are the walk and run's.
+ */
+export interface LearnedRunConfig extends WalkRunSettings {
+  readonly kind: "learned-run";
+  readonly policy: string | null;
+  readonly runs?: boolean;
+  readonly tuning?: { readonly run?: Partial<RunCycleSettings> };
+}
+
+/**
  * **The SIMBICON walk** (`simbicon`, `skills/simbicon.ts`): the legs driven by a state machine with no stance, its settings
  * these, forward's; and the settings it takes walking to a side or back in place of forward's, over its own (`SimbiconWays`),
  * and running, over the run's. It runs unless `runs` is false (`Locomotion.runs`).
@@ -146,7 +157,7 @@ export interface MoveConfig {
 }
 
 /** **The legs' skill**, by kind. */
-export type LocomotionConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | WalkRunConfig | MoveConfig;
+export type LocomotionConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | WalkRunConfig | LearnedRunConfig | MoveConfig;
 
 /** **The guard**: the arms' posture, and a guarding hand's cover of what the tactics name (`guardSkill`). */
 interface CoverGuardConfig {
@@ -229,7 +240,7 @@ export interface ActionConfig {
 interface SupportFoldConfig { readonly kind: "support-fold" }
 
 /** **A skill's config**, by kind, across the fighter's skill slots. */
-export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | WalkRunConfig | MoveConfig | CoverGuardConfig | SupportFoldConfig;
+export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | WalkRunConfig | LearnedRunConfig | MoveConfig | CoverGuardConfig | SupportFoldConfig;
 
 /** A fighter shares named executors across its configured actions. */
 export interface FighterConfig {

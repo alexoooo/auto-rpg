@@ -7,7 +7,7 @@ import { atan2, cos, sin } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
 import { locomotion, type LegsDrive, type Locomotion } from "./locomotion.ts";
 import { gaitAssist, type GaitAssistMemory } from "./gait-assist.ts";
-import { runCycle, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
+import { runCycle, validRunCycle, type RunCycleMemory, type RunCycleSettings } from "./cycle-run.ts";
 import { legOf, quickness, scaledGait } from "./gait-scale.ts";
 
 /** **The walk and run's settings** (`walkRun`): when it runs, and how its heading turns running. */
@@ -59,6 +59,15 @@ export function validWalkRun(settings: WalkRunSettings): boolean {
   const { run, turn, swerve, turnRate, leg, hasted } = settings;
   return Object.keys(settings).length === Object.keys(WALK_RUN).length && [run, turn, swerve, turnRate, leg].every((x) => Number.isFinite(x) && x > 0)
     && [0, 0.5, 1].includes(hasted);
+}
+
+/** What steers a walk and run's run, before each of its steps: told the heading, the pace asked, m/s, the run's memory, whose steer it sets (`RunSteer`), and the heading's turn, rad/s. */
+type RunSteerer = (view: BodyView, heading: number, asked: number, run: RunCycleMemory, turning: number) => void;
+
+/** What else a walk and run may be given: what steers its run (`RunSteerer`), and the envelope its run is held to in place of the SIMBICON run's, null for none. */
+interface WalkRunOptions {
+  readonly steer?: RunSteerer;
+  readonly runEnvelope?: StanceEnvelope | null;
 }
 
 /**
@@ -136,13 +145,13 @@ interface WalkRunMemory {
  * settings and the run's are taken scaled to the body's leg (`scaledGait`, `legOf`) from the leg
  * they were set for, and quickened by its haste (`quickness`), as the run's envelope is.
  */
-export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE, may = true): Locomotion {
+export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE, may = true, options: WalkRunOptions = {}): Locomotion {
   if (!validWalkRun(given)) throw new Error("a walk and run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1");
   if (!validRunCycle(givenRun)) throw new Error("a run cycle needs every setting finite, its times and the cycle's positive and its shares of strength within (0, 1]");
   const k = legOf(body.built.spec) / given.leg, quick = quickness(hasteOver(body.built.spec), given.hasted);
   const settings = scaledGait(given, k, quick), cycle = runCycle(body, scaledGait(givenRun, k, quick), legOf(body.built.spec), quick);
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
-  const runEnvelope = body.envelope ? quickened(simbiconRunEnvelope(body.built.spec), quick) : null;
+  const runEnvelope = options.runEnvelope !== undefined ? options.runEnvelope : body.envelope ? quickened(simbiconRunEnvelope(body.built.spec), quick) : null;
   const legs = locomotion(body.envelope);
   const memory: WalkRunMemory = { may, running: false, swinging: null, capped: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
     assisted: { root: new Quaternion(), read: false } };
@@ -241,6 +250,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
       if (on) turnToward(view, toward, dt);
       else memory.spin = 0;
       const h = memory.heading, along = v.x * sin(h) + v.z * cos(h);
+      options.steer?.(view, h, memory.pace, cycle.state, memory.spin);
       const driven = cycle.drive(view, dt, h, memory.pace);
       const landing = driven.landed !== null && driven.landed !== memory.landed;
       if (landing) { memory.landed = driven.landed!; memory.ran += 1; }

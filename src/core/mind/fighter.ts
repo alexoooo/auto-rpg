@@ -10,12 +10,13 @@ import { RUN, run, validRun } from "../skills/run.ts";
 import { SIMBICON, simbicon, simbiconWays, validSimbicon, validWays, type SimbiconSettings } from "../skills/simbicon.ts";
 import { runCycleSettings, validRunCycle } from "../skills/cycle-run.ts";
 import { WALK_RUN, WALK_RUN_CYCLE, validWalkRun, walkRun, type WalkRunSettings } from "../skills/walk-run.ts";
+import { learnedRun, RUN_POLICIES } from "../skills/learned-run.ts";
 import { GAIT_NAMES, GAITS, type GaitName } from "../skills/gaits.ts";
 import { distanceRule, move, standingRule, type MoveGait, type MoveRule } from "../skills/move.ts";
 import { supportFold } from "../skills/support-fold.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { MOVE, type ActionConfig, type FighterConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type SimbiconConfig, type WalkRunConfig, type MoveConfig, type MoveRuleConfig, type LocomotionConfig } from "./config.ts";
+import { MOVE, type ActionConfig, type FighterConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type SimbiconConfig, type WalkRunConfig, type LearnedRunConfig, type MoveConfig, type MoveRuleConfig, type LocomotionConfig } from "./config.ts";
 import { actionConfigFaults, configuredActionEstimates, configuredExecutors } from "./action-config.ts";
 import { choice, type PartField } from "./fields.ts";
 import { CONDITIONS } from "./conditions.ts";
@@ -34,6 +35,7 @@ const settingsOf = ({ kind: _, tuning: __, runs: ___, ...settings }: SimbiconCon
 
 /** A walk and run's config's settings, its kind taken off. */
 const walkRunOf = ({ kind: _, tuning: __, runs: ___, ...settings }: WalkRunConfig): WalkRunSettings => settings;
+const learnedRunOf = ({ kind: _, tuning: __, runs: ___, policy: ____, ...settings }: LearnedRunConfig): WalkRunSettings => settings;
 
 /** Whether `name` is a gait's (`GAITS`): a config read from a save or a link may name any. */
 const isGait = (name: string): name is GaitName => Object.hasOwn(GAITS, name);
@@ -99,6 +101,15 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
       ]),
     tuning: ["run"],
   },
+  "learned-run": {
+    ...skill<LearnedRunConfig>("locomotion", "Walk and learned run", "experimental", { kind: "learned-run", ...WALK_RUN, policy: null },
+      (config) => [
+        ...validWalkRun(learnedRunOf(config)) ? [] : ["a walk and learned run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1"],
+        ...validRunCycle(runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE)) ? [] : ["a walk and learned run's run gives only the run's settings, each finite, its times and the cycle's positive and its shares of strength within (0, 1]"],
+        ...config.policy === null || Object.hasOwn(RUN_POLICIES, config.policy) ? [] : [`a learned run has no policy called ${JSON.stringify(config.policy)}`],
+      ]),
+    tuning: ["run"],
+  },
   "move": {
     ...skill<MoveConfig>("locomotion", "Move", "game", MOVE, (config) => isGait(config.otherwise) ? [] : [`move: no gait called ${JSON.stringify(config.otherwise)}`]),
     fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
@@ -148,7 +159,7 @@ function moveRule(config: MoveRuleConfig, gait: number): MoveRule {
 /** Whether legs of `config` may run (`Locomotion.runs`), undefined for legs that are not told. */
 function runsOf(config: LocomotionConfig): boolean | undefined {
   switch (config.kind) {
-    case "simbicon": case "walk-run": return config.runs ?? true;
+    case "simbicon": case "walk-run": case "learned-run": return config.runs ?? true;
     case "stance-walk": case "stride": case "run": case "move": return undefined;
     default: { const never: never = config; throw new Error(`no locomotion of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
   }
@@ -162,6 +173,7 @@ function legsOf(body: Body, config: LocomotionConfig): Locomotion {
     case "run": { const { kind: _, ...settings } = config; return run(body, settings); }
     case "simbicon": return simbicon(body, settingsOf(config), simbiconWays(config.tuning), runCycleSettings(config.tuning?.run), config.runs ?? true);
     case "walk-run": return walkRun(body, walkRunOf(config), runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE), config.runs ?? true);
+    case "learned-run": return learnedRun(body, config.policy === null ? null : RUN_POLICIES[config.policy]!, learnedRunOf(config), runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE), config.runs ?? true);
     case "move": {
       const names = gaitsOf(config), built = new Map<string, Locomotion>();
       // Gaits whose legs differ only in whether they may run share one walk (`MoveGait`).
