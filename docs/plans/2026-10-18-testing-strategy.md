@@ -108,7 +108,7 @@ a passing group cannot hide failures or untested claims in another.
    experimental measurement that stays runnable. A promise is added when the owner approves a
    capability by eye. Existing acceptance, the frozen stand-up screen among it, is unchanged.
    The review is `docs/analysis/2026-10-18-test-audit.md`, with the order step 2 takes.
-2. Migrate one area at a time. Reuse fixtures, replace brittle assertions and demonstrate detection
+2. Migrate one area at a time (the fast tier is done; the audit says what is left). Reuse fixtures, replace brittle assertions and demonstrate detection
    of the relevant defect. Keep failures visible; do not delete whole groups to shorten the run.
 3. Update `scripts/test.mjs`, `.github/workflows/pages.yml` and `AGENTS.md` together as each new
    selection rule lands. Keep local and CI meanings consistent and preserve the frozen evaluator.

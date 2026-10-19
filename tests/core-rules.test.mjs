@@ -1,6 +1,7 @@
 /**
  * **The core's rules** (`src/core/rules/`): the rulebook, and one pool of hit points per body with
- * its overflow, severing and endings, on the real humans' specs.
+ * its overflow, severing and endings, on the real humans' specs. The recorded club blow thrown live
+ * is measured apart (`tests/core-rules-capability.test.mjs`).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -228,7 +229,7 @@ test("a blow is worth its energy in the unit, and every weapon keeps the owner's
   for (const bad of [-1, NaN, Infinity]) assert.throws(() => blowDamage(RULES, "blunt", bad), String(bad));
 });
 
-test("the recorded club blow sets the unit and a live blow is priced by its measured energy", async () => {
+test("the recorded club blow sets the unit, and its record reads the club's best blow", async () => {
   // One hit point is 100 J of blunt blow, and an edge's 100 J is 5.73.
   assert.deepEqual([RULES.unit.value, RULES.unit.unit, RULES.unit.provenance.source], [100, "J/HP", "owner-damage-unit"]);
   assert.equal(blowDamage(RULES, "blunt", 100), 1);
@@ -236,25 +237,8 @@ test("the recorded club blow sets the unit and a live blow is priced by its meas
   // The club's best blow is a measurement beside the unit, and not the unit.
   assert.deepEqual([CLUB_BEST.value, CLUB_BEST.unit, CLUB_BEST.provenance.source], [138.23, "J", "core-club-unit"]);
   close(blowDamage(RULES, "blunt", CLUB_BEST.value), 1.3823, "the club's best blow");
-  // The whole path: that blow on the core stand at a target body, its contact, the masses it meets, its energy, its price.
-  const { evaluateBlow } = await import("../research/core-blow.mjs");
-  const { hardestOn } = await import("../src/lab/targets.ts");
+  // The unit's source is an immutable measurement, and its record reads it.
   const { readFile } = await import("node:fs/promises");
   const blow = JSON.parse(await readFile(new URL("../research/core-club-unit.json", import.meta.url), "utf8"));
-  const result = await evaluateBlow({ model: blow.model, held: "wooden club", hand: blow.hand, band: "high", strike: blow.strike, ahead: blow.distance, hz: 960 });
-  const landed = hardestOn(result.blows, "dummy");
-  assert.ok(landed, "the blow lands");
-  const [club, head] = landed.sides;
-  assert.deepEqual([club.fighter, club.item, club.share, head.fighter, head.segment, head.share], ["attacker", "wooden club", 0, "dummy", "head", 1]);
-  close(landed.energy, impactEnergy(club.kg, head.kg, landed.closing), "its energy is its parts'");
-  close(head.damage, blowDamage(RULES, "blunt", landed.energy), "the head takes the whole of it");
-  assert.deepEqual({ fell: result.fell, stood: result.stood, cost: result.cost }, { fell: false, stood: true, cost: 0 });
-  // The unit's source is an immutable measurement; the current controller is priced by its own contact.
-  const record = blow.readings.at1920, kg = humanSpec(blow.model).segments.find((segment) => segment.name === "head").mass.value;
-  assert.ok(Math.abs(record.mean - CLUB_BEST.value) < 0.01);
-  // The head is met, with the body behind it as far as its free neck couples them: about its own
-  // mass, less as the blow's line passes off its centre, more as it runs down its neck.
-  assert.ok(head.kg > 0.5 * kg && head.kg < 2 * kg, `${head.kg} kg of a head of ${kg}`);
-  close(result.done, result.blows.reduce((sum, blow) => sum + blow.sides.filter(side => side.fighter === "dummy").reduce((total, side) => total + side.damage, 0), 0), "all contacts contribute their damage");
-
+  assert.ok(Math.abs(blow.readings.at1920.mean - CLUB_BEST.value) < 0.01);
 });

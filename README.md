@@ -28,6 +28,7 @@ npm run dev   # http://localhost:5180
 npm run check # tsc, no emit
 npm test      # the fast tests: the core, the rules and a short bout
 npm run test:all # all current-code tests, including slow physical scenarios
+npm run test:experimental # how well the controllers do: measurements outside both tiers
 npm run build # check, then the production bundle
 ```
 

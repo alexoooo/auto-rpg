@@ -2,13 +2,14 @@
  * **The strike skill and its repertoire** (`src/core/skills/strike.ts`, `strikes.ts`), on views
  * built by hand: the left hand's strike is the right's with the arms' channels swapped and the
  * trunk's sided turns reversed; a hand throws the recipe for what it holds whose window holds its
- * target's height, its body's own before another's, with its window turned over for the other
- * hand; every recipe of the repertoire is whole, and reads at its place what its record says; an
- * attack walks toward its place, sets the feet there, stands `STAND` s, asks the window of the
- * head as it stands, chambers, pushes and is counted; and a target out of every recipe's height is
- * struck by a placed blow, a hand goal that carries the hand's point through the target in the
- * body frame. That a blow thrown through the skill reads as its search read it, to the digit, is
- * `tests/lab-blow.test.mjs`'s; that a placed blow lands, `tests/lab-targets.test.mjs`'s.
+ * target's height, its body's own before another's, with its window turned over for the other hand;
+ * every recipe of the repertoire is whole; an attack walks toward its place, sets the feet there,
+ * stands `STAND` s, asks the window of the head as it stands, chambers, pushes and is counted; and
+ * a target out of every recipe's height is struck by a placed blow, a hand goal that carries the
+ * hand's point through the target in the body frame. That a blow thrown through the skill reads as
+ * its search read it, to the digit, is `tests/lab-blow.test.mjs`'s; that a placed blow lands,
+ * `tests/lab-targets.test.mjs`'s; what the club blow does at its place and steered after a head,
+ * `tests/core-strike-skill-capability.test.mjs`'s.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -22,7 +23,7 @@ import { PLACING } from "../src/core/skills/locomotion.ts";
 import { APPROACH, PLACED, rangeOf, STAND, STEER, strikeSkill } from "../src/core/skills/strike.ts";
 import { BAND_NAMES, BANDS, FIST, heldIn, mirrored, mirroredWindow, netsOf, recipeFor, recipesFor, REPERTOIRE } from "../src/core/skills/strikes.ts";
 import { bandRise } from "../src/lab/blow.ts";
-import { CORE_BLOW_HARNESS, evaluateBlow, heldSpec } from "../research/core-blow.mjs";
+import { CORE_BLOW_HARNESS, heldSpec } from "../research/core-blow.mjs";
 import { WARRIOR_STRAIGHT } from "./fixtures/strikes.mjs";
 
 const DT = 1 / 120;
@@ -128,29 +129,6 @@ test("every_recipe_of_the_repertoire_is_whole", () => {
     assert.ok(found.includes(CORE_BLOW_HARNESS), `${cell}: found by ${found}`);
   }
   assert.deepEqual(BANDS, { high: "head", middle: "upperTrunk" });
-});
-
-test("the_repertoires_club_blow_reads_at_its_place_what_its_record_says", {
-  todo: "the repertoire's readings were measured on capsule hands, and the club blow at its place now nets less than its record",
-}, async () => {
-  // As written, on a 20 m ground at the game's rate: the first of the eight its net is the mean of.
-  const { readings, net } = CLUB, read = readings.at120;
-  const blow = await evaluateBlow({ model: CLUB.model, held: CLUB.held, band: CLUB.band, strike: CLUB.strike, ahead: CLUB.place.ahead, hz: 120, ground: 20 });
-  assert.deepEqual({ fell: blow.fell, stood: blow.stood, cost: blow.cost }, { fell: false, stood: true, cost: 0 });
-  assert.equal(+(blow.done - blow.cost).toFixed(3), read.runs[0]);
-  assert.equal(read.runs.length, 8);
-  assert.ok(Math.abs(net - read.runs.reduce((sum, run) => sum + run, 0) / 8) < 1e-3 && net === read.net, `it nets ${net} of ${read.runs}`);
-  assert.ok(net > 0.5, `${net} HP`);
-});
-
-test("the_repertoires_club_blow_follows_a_head_that_moved_across_under_it", async () => {
-  // The Warrior's club at a head, the target 12 cm to the left once the blow is committed: on the
-  // stand, as written, it does 0.09 HP unturned and 0.93 turned (`docs/reference/blows.md#steered`).
-  const thrown = (steer) => evaluateBlow({ model: CLUB.model, held: CLUB.held, band: CLUB.band, strike: CLUB.strike, ahead: CLUB.place.ahead,
-    off: { across: -0.12 }, seen: true, steer });
-  const [turned, unturned] = [await thrown(STEER), await thrown(0)], at = CLUB.readings.at120.runs[0];
-  assert.deepEqual({ fell: turned.fell, stood: turned.stood }, { fell: false, stood: true });
-  assert.ok(turned.done > 0.7 * at && unturned.done < 0.2 * at, `turned ${turned.done}, unturned ${unturned.done}, at its place ${at}`);
 });
 
 test("an_attack_walks_to_its_place_sets_the_feet_stands_asks_the_window_and_is_thrown", () => {

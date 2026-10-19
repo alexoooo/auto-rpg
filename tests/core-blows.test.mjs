@@ -5,22 +5,19 @@
  * met, each with the share of the energy its compliance gives it and the wound that share made;
  * an item that states no surface is rigid and takes none. Two balls, weightless, meet through
  * their centres, so the masses the contact meets are the bodies' own; a ball held beside the hand
- * is named when it is the one that touched; then a Warrior with a club takes a skeleton's head off
- * (Node core stand, Rapier, 120 Hz).
+ * is named when it is the one that touched; then a Warrior's club, sent into a skeleton's head, takes
+ * it off (Node core stand, Rapier, 120 Hz). A Warrior that swings it there itself is measured apart
+ * (`tests/core-blows-capability.test.mjs`).
  */
 import test from "node:test";
-import { pointScript } from "./fixtures/point-script.mjs";
 import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { NO_COVER, standIntent } from "../src/core/mind/intent.ts";
-import { driveBy } from "../src/core/mind/tactics.ts";
 import { impactEnergy, reducedMass } from "../src/core/rules/impact.ts";
 import { isClash, watchBlows, woundedIn } from "../src/core/rules/blows.ts";
 import { createPool } from "../src/core/rules/pool.ts";
@@ -387,34 +384,25 @@ test("a fighter with a segment that states no surface in N/m is refused", async 
   await assert.rejects(() => pair({ fist: { held: 0.3, itemStiffness: NaN } }), /stiffness|finite/);
 });
 
-test("a Warrior's club blow at a skeleton's head lands there and ends the fight", async () => {
+test("a Warrior's club sent into a skeleton's head lands there, takes none of the blow, and ends the fight", async () => {
+  // Weightless and undriven, the Warrior is sent whole at 15 m/s with the club ahead of it, its head
+  // at the skeleton's: the club meets the head first, and the blow is the club's alone.
   const scene = new Scene(new NullEngine());
-  const world = createWorld(scene, await freshEngine());
-  world.physics.addFixedBox([0, -0.5, 0], [20, 1, 20]);
-  const make = (id, spec, z, side) => {
-    const built = buildBody(spec, world, { position: [0, 0, z] });
-    return { id, side, built, body: createBody(built, world, { servoSeconds: SERVO_SECONDS }), pool: createPool(spec, RULES) };
-  };
-  const warrior = make("warrior", armed(modelSpec("workshop-fighter"), "right", woodenClub()), 0, "party");
-  // Built within the club's reach, so that the Warrior strikes where it stands: the blow is the
-  // test's, not the walk up to it, whose last step decides where the club meets the skeleton.
-  const skeleton = make("skeleton", modelSpec("crypt-skeleton"), 0.9, "enemy");
+  const world = createWorld(scene, await freshEngine(), { gravity: false });
+  const make = (id, spec, at, side) => ({ id, side, built: buildBody(spec, world, { position: at }), pool: createPool(spec, RULES) });
+  const warrior = make("warrior", armed(modelSpec("workshop-fighter"), "right", woodenClub()), [0, 0, 0], "party");
+  const skeleton = make("skeleton", modelSpec("crypt-skeleton"), [0.3, -0.1, 1.05], "enemy");
+  const watch = watchBlows(world, [warrior, skeleton], RULES);
   try {
-    driveBy(warrior.body, pointScript(() => {
-      const h = skeleton.body.view.head;
-      return { key: 0, action: "strike", effector: "hand.right", target: { kind: "point", at: [h.x, h.y, h.z], body: "skeleton" } };
-    }));
-    driveBy(skeleton.body, { name: "stand", decide: () => standIntent(0) });
-    const watch = watchBlows(world, [warrior, skeleton], RULES);
-    for (let i = 0; i < 12 * world.hz && skeleton.pool.ending() === null; i++) world.step();
-    const blow = watch.blows.at(-1);
+    for (const { body, rigid } of warrior.built.segments.values()) body.applyImpulse(new Vector3(0, 0, 15 * rigid.mass), new Vector3(...rigid.centre));
+    for (let i = 0; i < world.hz && skeleton.pool.ending() === null; i++) world.step();
+    const [blow] = watch.blows;
     assert.ok(blow, "a blow landed");
     // The club is rigid: its side takes none of it, the head's all. The record whole, with the wound the pool gave.
     assert.deepEqual(blow, recordOf(blow, [["warrior", "hand.right", "wooden club", 0, none], ["skeleton", "head", null, 1, () => blow.sides[1].wound]]));
-    assert.ok(blow.closing > 10 && blow.energy > 50, `${blow.closing} m/s, ${blow.energy} J`);
+    assert.ok(blow.closing > 10 && blow.closing <= 15, `${blow.closing} m/s`);
     assert.equal(skeleton.pool.ending(), blow.sides[1].wound.ending);
     assert.notEqual(skeleton.pool.ending(), null, "the fight ended");
     assert.equal(warrior.pool.bar(), 1, "the club's holder is whole");
-    watch.dispose();
-  } finally { warrior.body.dispose(); skeleton.body.dispose(); world.dispose(); scene.dispose(); }
+  } finally { watch.dispose(); world.dispose(); scene.dispose(); }
 });

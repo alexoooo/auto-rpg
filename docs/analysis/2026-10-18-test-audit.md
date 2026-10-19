@@ -213,8 +213,14 @@ Built from cases that exist, with bars far below today's capability:
 
 ## Step 2, in order
 
-1. **The fast tier** (the table above), one area a commit: locomotion, then strikes, then rise,
-   then the rest. This alone stops ordinary controller work turning `npm test` red.
+1. **The fast tier** (the table above): done. Each capability bar is now a
+   `<stem>-capability.test.mjs` in `tests/experimental.json`, beside a floor check in its old
+   file; `options-bout` is the second recipe of `smoke`. The locomotion files went from 59.6 to
+   35.7 s, the strike and bout files from 47.3 to 31.4 s. Under `npm run test:experimental`,
+   `core-strike-skill-capability`'s steer case is red as it was in the gate. Two things it found:
+   SIMBICON's run under Move, asked 2 m/s, falls at about 3 s on the 200 m ground and stands on
+   the 80 m one (the ground box is the only difference), so each case keeps its ground; and the
+   skeleton's self-touch case still needs its guard pose to touch.
 2. **The snapshot check** (a saved world names its configuration and refuses another), then the
    saved worlds regenerated.
 3. **Fork windows** scouted, with "fixture not reached" reported apart from a fork failure.
@@ -223,7 +229,7 @@ Built from cases that exist, with bars far below today's capability:
    behind one is freed (the list above); the four root causes are tracked as known capability
    gaps, not as tests.
 
-Measurements leaving the gate need a home that keeps them runnable: a list beside
-`tests/slow.json` (say `tests/experimental.json`) that `npm test` and `npm run test:all` skip and
+Measurements leaving the gate have a home that keeps them runnable: `tests/experimental.json`,
+beside `tests/slow.json`, which `npm test` and `npm run test:all` skip and
 `npm run test:experimental` runs. CI keeps running `test:all`, which then holds contracts and the
 floor.

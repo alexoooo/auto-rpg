@@ -13,6 +13,7 @@ npm run dev      # http://localhost:5180, strictPort
 npm run check    # tsc --noEmit
 npm test         # the fast tier, about 45 s: current-code tests except tests/slow.json's
 npm run test:all # all current-code tests, as CI runs them
+npm run test:experimental # how well the controllers do: tests/experimental.json's, in neither tier
 npm run setup:frozen # prepares the immutable evaluator; Node 24.19.0 and full Git history
 npm run test:frozen # historical replay tests, a separate CI job
 npm run build    # check, then vite build
@@ -21,12 +22,17 @@ npm run build    # check, then vite build
 **Speed comes first.** A change is checked for whether it broke the core, not re-qualified:
 
 - **Every code change**: `npm run check` and `npm test`. That is the whole gate. `npm test` holds
-  the core's contracts, the source rules (boundary, exports, comments, provenance) and a short
-  Arena bout that must wound both sides and play the same twice (`tests/smoke.test.mjs`). Add
+  the core's contracts, the source rules (boundary, exports, comments, provenance) and two short
+  Arena bouts that must run, stay finite, fling nobody and play the same twice
+  (`tests/smoke.test.mjs`). Add
   `npm run build` when browser code, assets, dependencies or build configuration change.
 - **Run a slow test by name** when the change is about what it covers (`node --test
   tests/<file>`); `npm run test:all` only when asked, or before merging a large change of the
   world step, the engine or the body. CI runs it on every push (`.github/workflows/pages.yml`).
+- **A capability bar** (how far, how fast, how often a controller does something) goes in a
+  `<stem>-capability.test.mjs` listed in `tests/experimental.json`, beside a floor check in the
+  gate that any working controller passes. Run it by name, or `npm run test:experimental`, when
+  the change is about that capability; a red one is a measurement, not a broken gate.
 - **Documents only**: check the files and names they cite, `git diff --check`, and the
   line-ending gate below.
 - **No measurement unless the question is a measurement.** A feature lands without a battery, a
