@@ -259,6 +259,12 @@ Not to be tried again on the controllers as they are. Each failed for the reason
 - **Pace.** A push-off at the stance ankle, a knee push, the cycle's period at 0.95 or 1.15, the
   ankles at full strength, `ahead` 0.8, a search of the pace settings with the push-off: each
   traded cadence for step at the same pace, or fell.
+- **Top speed.** On the cycle run unsteered (the Warrior asked 6 m/s, Node stand, Rapier, 120 Hz):
+  the swing's and the cadence's growth from 3 or 3.5 m/s (slower: 3.2 to 3.5), `blend` 1 or 1.5,
+  `ahead` 1 with a stronger lean, `lean` 0.45 or 0.55, the steer's effort +0.5 or pace +1.5 (fell),
+  Haste +100, and CMU 127_08 (4.78 m/s) beside the three clips: each holds 3.7 to 3.9 m/s at
+  about 3 steps a second. The pace runs `ahead` of the body and the body makes about 0.89 of it,
+  so the pace stays near 4.2 m/s and never reaches the fastest clip.
 - **Haste.** The gait timed to the muscles at a power of 1/2 or 1. A search with Haste +100 in
   its cells: kept the Warrior up at +100, but cost 11 Rogue falls at 0.
 - **Stopping.** A pace floor under the body's speed; the run braking at its own rate; a lower
