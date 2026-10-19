@@ -1,5 +1,5 @@
 import type { BodyCommand, BodyView } from "../body.ts";
-import type { Pose, MusclePush, EffectorGoal } from "../control/motor.ts";
+import type { Pose, MusclePush, EffectorGoal, PointTask } from "../control/motor.ts";
 import type { Side, HandPose } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { Around, LegsAsk, Skill } from "./skill.ts";
@@ -108,6 +108,7 @@ export type LifecycleUpdate = { readonly id: number; readonly phase: Phase; read
 export interface ActionClaim {
   readonly posture?: Pose;
   readonly pushes?: readonly MusclePush[];
+  readonly points?: readonly PointTask[];
   readonly effectors?: Readonly<Record<string, EffectorGoal | null>>;
   readonly handPoses?: Readonly<Partial<Record<Side, HandPose>>>;
   readonly legs?: LegsAsk;

@@ -4,7 +4,7 @@ import type { Assist, AssistCeiling } from "./control/assist.ts";
 import { uprightness } from "./control/ground.ts";
 import { standingHeight } from "./control/support.ts";
 import { rootFrameToRef, type Frame } from "./control/kinematics.ts";
-import { motorControl, type EffectorGoal, type MotorControl, type MusclePush, type Pose } from "./control/motor.ts";
+import { motorControl, type EffectorGoal, type MotorControl, type MusclePush, type PointTask, type Pose } from "./control/motor.ts";
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
 import type { StanceTuning } from "./control/stance-tuning.ts";
 import { stanceEnvelope, type StanceEnvelope } from "./control/stance-envelope.ts";
@@ -105,9 +105,17 @@ export interface BodyCommand {
   readonly effectors?: Readonly<Record<string, EffectorGoal | null>>;
   /** Freedoms driven by their muscles alone, whatever else would own them. */
   readonly pushes: readonly MusclePush[];
+  /**
+   * Effectors' points driven at an acceleration while the body stands (`PointTask`): an effector
+   * driven so has no goal and its chain no push.
+   */
+  readonly points?: readonly PointTask[];
   /** Stand on the ground so (`stance.ts`), or null to leave the legs to the posture. */
   readonly stance: StanceGoal | null;
 }
+
+/** No point driven. */
+const NO_POINTS: readonly PointTask[] = Object.freeze([]);
 
 /** A command that holds the reference pose. */
 const restCommand = (): BodyCommand => ({ posture: {}, pushes: [], stance: null });
@@ -268,7 +276,15 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
     for (const push of command.pushes) if (!Number.isFinite(push.level) || (push.speed !== undefined && !Number.isFinite(push.speed))) throw new Error(`a push on ${push.channel} needs a finite level and speed`);
     if (command.handPoses) built.handPoses.request(Object.entries(command.handPoses).map(([hand, pose]) => ({ hand: hand as Side, pose: pose! })));
     motor.setPosture(command.posture);
+    for (const task of command.points ?? []) {
+      if (command.effectors?.[task.segment]) throw new Error(`two controllers own ${task.segment}`);
+      const chain = motor.effectors.find((model) => model.segment === task.segment)?.channels ?? [];
+      if (command.pushes.some((push) => chain.includes(push.channel))) throw new Error(`a push on ${task.segment}'s chain while its point is driven`);
+      if (command.stance?.feet.some(side => task.segment === `foot.${side}`)) throw new Error(`two controllers own ${task.segment}`);
+      if (!task.accel.every(Number.isFinite)) throw new Error(`a point driven on ${task.segment} needs a finite acceleration`);
+    }
     motor.setPushes(command.pushes);
+    motor.setPoints(command.points ?? NO_POINTS);
     motor.setStance(command.stance);
     for (const segment in goals) {
       const goal = command.effectors?.[segment] ?? null, was = goals[segment];

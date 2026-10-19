@@ -1,11 +1,13 @@
 import { effectorTracker, type EffectorGoal } from "./effector-tracker.ts";
-import type { EffectorModel } from "./effectors.ts";
-import { type Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { bodyEffectors, type EffectorModel } from "./effectors.ts";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { rootSegment, type BuiltBody, type BuiltSegment } from "../build/build-body.ts";
-import type { MuscleController, MuscleDriver } from "../muscle/driver.ts";
+import { channelName, type MuscleController, type MuscleDriver } from "../muscle/driver.ts";
+import type { Vec3 } from "../spec/quantity.ts";
 import type { Assist } from "./assist.ts";
-import { servoAsk, servoSolve } from "./servo.ts";
-import { makeWholeBody, solveBody } from "./solve.ts";
+import type { Limb, Row } from "./bearing.ts";
+import { servoAsk, servoSolve, type ServoWork } from "./servo.ts";
+import { makeWholeBody, solveBody, type WholeBodyAsk } from "./solve.ts";
 import { stanceControl, type StanceControl, type StanceGoal } from "./stance.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
 
@@ -27,6 +29,20 @@ export interface MusclePush {
 }
 
 export type { EffectorGoal } from "./effector-tracker.ts";
+
+/**
+ * **A point driven**: a named point of an effector's rigid body (`BodySpec.effectors`: a hand's
+ * knuckles) asked an acceleration, world, m/s^2. The whole-body solve asks it of the effector's
+ * chain beside the stance (`solveBody`), the chain's other freedoms drawn toward the posture and
+ * any torque past a muscle's strength held at its strength, so a point asked more than the body
+ * can give gets what the muscles give. Only a standing body's solve carries it out: without a
+ * stance the chain holds its posture.
+ */
+export interface PointTask {
+  readonly segment: string;
+  readonly point: string;
+  readonly accel: Vec3;
+}
 
 /**
  * **Motor control: goals in, muscle commands out.** A body is given a posture (angles for the
@@ -70,11 +86,16 @@ export interface MotorControl {
   release(segment: string): void;
   /** Drive `pushes` flat out from `control`'s next call, in place of those before. */
   setPushes(pushes: readonly MusclePush[]): void;
+  /**
+   * Drive `tasks`' points from `control`'s next call, in place of those before (`PointTask`). It
+   * refuses a segment with no effector, a point its rigid body has not, and two tasks on one segment.
+   */
+  setPoints(tasks: readonly PointTask[]): void;
   /** Stand on the ground as `goal` asks, or with null leave the legs to the posture, from `control`'s next call. */
   setStance(goal: StanceGoal | null): void;
   /** The stance goal it was last given, or null: what the legs are asked to hold. */
   readonly standing: StanceGoal | null;
-  /** Forget what was under way: no pushes, no stance, no effector's goal, and the stance's own memory (`StanceControl.reset`). The posture stays. */
+  /** Forget what was under way: no pushes, no points driven, no stance, no effector's goal, and the stance's own memory (`StanceControl.reset`). The posture stays. */
   reset(): void;
   /** The stance's readings, as its last step left them. */
   readonly stance: StanceControl;
@@ -96,8 +117,10 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
   const stance = stanceControl(built, stanceTuning, assist);
   const root = rootSegment(built);
   const tracker = effectorTracker(built, root);
-  const whole = makeWholeBody([...built.joints.values()].reduce((count, joint) => count + joint.dofs.length, 0), 2);
-  const state = { pose: posture, pushes: [] as readonly MusclePush[], standing: null as StanceGoal | null,
+  const points = pointLimbs(built);
+  const whole = makeWholeBody([...built.joints.values()].reduce((count, joint) => count + joint.dofs.length, 0), 2, points.length);
+  let driven: WholeBodyAsk | null = null;
+  const state = { pose: posture, pushes: [] as readonly MusclePush[], points: [] as readonly PointTask[], standing: null as StanceGoal | null,
     effectors: tracker.state.effectors, reach: tracker.state.reach, stance: stance.state };
   const control: MuscleController = (driver: MuscleDriver, dt: number) => {
     const { pose, pushes, standing } = state;
@@ -120,7 +143,17 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
       acceleration: (i) => owned(i)?.[2] ?? 0,
     });
     const ask = standing ? stance.ask(driver) : null;
-    if (ask) { solveBody(whole, driver, work, ask, assist); stance.launch(driver); }
+    if (ask) {
+      let asked = ask;
+      if (state.points.length) {
+        driven ??= drivenAsk(ask, points);
+        driven.lever = ask.lever;
+        for (const one of points) aimPoint(one, state.points, driver, work);
+        asked = driven;
+      }
+      solveBody(whole, driver, work, asked, assist);
+      stance.launch(driver);
+    }
     else servoSolve(driver, work, undefined, standing?.pose ? stance.owned : undefined);
   };
 
@@ -130,10 +163,20 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
     reach: tracker.reach,
     release: tracker.release,
     setPushes(next) { state.pushes = next; },
+    setPoints(next) {
+      for (const [k, task] of next.entries()) {
+        const one = points.find((limb) => limb.limb.segment.spec.name === task.segment);
+        if (!one) throw new Error(`no effector ${task.segment}`);
+        if (!one.points.has(task.point)) throw new Error(`no effector point ${task.segment}/${task.point}`);
+        if (next.findIndex((other) => other.segment === task.segment) !== k) throw new Error(`two points driven on ${task.segment}`);
+      }
+      state.points = next;
+    },
     setStance(next) { state.standing = next; },
     get standing() { return state.standing; },
     reset() {
       state.pushes = NO_PUSHES;
+      state.points = NO_POINTS;
       state.standing = null;
       tracker.reset();
       stance.reset();
@@ -147,6 +190,75 @@ export function motorControl(built: BuiltBody, seconds: number, posture: Pose = 
 
 /** No freedom pushed. */
 const NO_PUSHES: readonly MusclePush[] = Object.freeze([]);
+/** No point driven. */
+const NO_POINTS: readonly PointTask[] = Object.freeze([]);
+
+/** The three rows of a point's linear motion. */
+const LINEAR: readonly Row[] = Object.freeze([Object.freeze([[3, 1]] as const), Object.freeze([[4, 1]] as const), Object.freeze([[5, 1]] as const)]);
+
+/**
+ * **An effector as the solve drives its point**: its limb, its rigid body's named points
+ * (reference pose, body frame), and its chain's and stem's channels by name, which the limb takes
+ * as the driver numbers them at its first task.
+ */
+interface PointLimb {
+  readonly limb: Limb & { readonly memory: { channels: number[] }; readonly stem: number[]; readonly work: { readonly ahead: number[]; toward: number[] | null } };
+  readonly points: ReadonlyMap<string, Vec3>;
+  readonly chain: readonly string[];
+  readonly stem: readonly string[];
+}
+
+/**
+ * Each effector's limb: its chain the freedoms it owns (an arm's), its stem those between the root
+ * and them (the trunk's), asked its point's linear motion alone.
+ */
+function pointLimbs(built: BuiltBody): PointLimb[] {
+  return bodyEffectors(built).map(({ segment, chain, points, free }) => {
+    const m = free.length;
+    return {
+      limb: {
+        segment, memory: { channels: [] }, stem: [], reach: 1,
+        task: { on: false, bearing: false, linear: new Vector3(), angular: new Vector3(), accel: new Float64Array(m), given: new Float64Array(m).fill(NaN) },
+        work: { at: new Vector3(), rows: LINEAR, ahead: new Array<number>(m).fill(NaN), toward: new Array<number>(m).fill(0), patch: null, share: 1 },
+      },
+      points, chain: free.map((f) => f.name),
+      stem: chain.slice(0, free[0]!.joint).flatMap((joint) => joint.dofs.map((_, k) => channelName(joint, k))),
+    };
+  });
+}
+
+/** The stance's ask with the effectors' limbs after its own, sharing its records. */
+function drivenAsk(ask: WholeBodyAsk, points: readonly PointLimb[]): WholeBodyAsk {
+  return { aim: ask.aim, limbs: [...ask.limbs, ...points.map((one) => one.limb)], lever: ask.lever, root: ask.root, helped: ask.helped,
+    shortfall: ask.shortfall, asked: [...ask.asked, ...points.map(() => ({ at: new Vector3(), force: new Vector3(), moment: new Vector3() }))] };
+}
+
+/**
+ * `one`'s task for the step, from the point task on its segment among `tasks`: on, its point where
+ * it is and its acceleration asked, its freedoms drawn toward what the servo asks them; off with none.
+ */
+function aimPoint(one: PointLimb, tasks: readonly PointTask[], driver: MuscleDriver, work: ServoWork): void {
+  const { limb } = one, task = tasks.find((t) => t.segment === limb.segment.spec.name);
+  limb.task.on = task !== undefined;
+  if (!task) return;
+  if (limb.memory.channels.length !== one.chain.length) {
+    limb.memory.channels = one.chain.map((name) => driver.channel(name));
+    limb.stem.push(...one.stem.map((name) => driver.channel(name)));
+  }
+  pointNow(limb.segment, one.points.get(task.point)!, limb.work.at);
+  limb.task.linear.set(task.accel[0], task.accel[1], task.accel[2]);
+  const toward = limb.work.toward!, channels = limb.memory.channels;
+  for (let c = 0; c < channels.length; c++) toward[c] = work.accel[channels[c]!]!;
+}
+
+const turned = new Quaternion();
+/** Where `point` (reference pose, body frame) of `segment` is now, world, into `at`. */
+function pointNow(segment: BuiltSegment, point: Vec3, at: Vector3): void {
+  const origin = segment.frame.origin, node = segment.node;
+  Quaternion.InverseToRef(segment.rest, turned);
+  node.rotationQuaternion!.multiplyToRef(turned, turned);
+  at.set(point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]).applyRotationQuaternionToRef(turned, at).addInPlace(node.position);
+}
 
 /**
  * Rad/s beyond any joint's unloaded speed: a pushed motor's target, which the driver holds to the

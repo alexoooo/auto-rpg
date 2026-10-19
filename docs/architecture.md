@@ -317,7 +317,11 @@ and driven afresh to change what it costs.
   rows rank as the bearing solve ranks them (the root and a torque held exactly, a foot by least
   squares beneath), but for the root's spin, which a root held to the ground's wrench keeps beneath
   its rows. Every body's motor control stands on it: the stance gives it its asks
-  (`StanceControl.ask`).
+  (`StanceControl.ask`), and a command may drive an effector's point at an acceleration beside them
+  (`PointTask`, `BodyCommand.points`): the effector's chain is a limb that does not bear, its stem
+  moved as the posture moves it, its other freedoms drawn toward the posture's asks
+  (`LimbWork.toward`) beneath the point's three rows, and a torque past its strength pinned, so a
+  point asked more than the body can give gets what the muscles give.
 - **The stance** (`stance.ts`; its records in `stance-state.ts`, its steps in `gait.ts`, its
   soles in `support.ts`, its constants in `stance-tuning.ts`) is the standing plan, and the
   solve's first user: it keeps the body up by the forces the ground can really give. It plans

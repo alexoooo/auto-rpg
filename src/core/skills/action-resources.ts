@@ -45,6 +45,7 @@ export function actionResources(channels: readonly string[], effectors: readonly
     for (const channel in patch.posture) owns(`channel:${channel}`);
     for (const push of patch.pushes ?? []) owns(`channel:${push.channel}`);
     for (const segment in patch.effectors) owns(`effector:${segment}`);
+    for (const task of patch.points ?? []) owns(`effector:${task.segment}`);
     for (const segment of support) if (patch.effectors?.[segment] && !held.includes("stance")) throw new Error("a support effector needs legs");
     for (const side in patch.handPoses) owns(`pose:${side}`);
     if (patch.stance !== undefined) owns("stance");

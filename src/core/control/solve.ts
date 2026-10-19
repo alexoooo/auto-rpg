@@ -9,10 +9,14 @@
  *
  * whose rows are the root's spin's aim and the centre of mass's, each driven limb's point's motion
  * (`Limb`, as the stance asks it: its sole held still, its swinging foot on its path, a freedom
- * asked ahead of the task) and a pushed freedom's torque; `d` is a small damping that keeps a
- * straight knee from asking for unbounded accelerations. The unknowns are the root's six and the
- * freedoms a limb moves or a push holds; every other freedom moves as the servo's posture asks it
- * (`ServoWork`), known, as the bearing solve takes the servo's. The bounds:
+ * asked ahead of the task; as a strike asks it, a hand's point driven), a limb's freedoms drawn
+ * beneath its task toward what they are asked (`LimbWork.toward`) and a pushed freedom's torque;
+ * `d` is a small damping that keeps a straight knee from asking for unbounded accelerations. The
+ * unknowns are the root's six and the freedoms a limb moves or a push holds; every other freedom
+ * moves as the servo's posture asks it (`ServoWork`), known, as the bearing solve takes the
+ * servo's. A limb's stem is among the unknowns while it bears, its freedoms carrying the patch's
+ * share of the ground's wrench; a limb that does not bear (a hand driven from the trunk) is moved
+ * on its stem as the posture moves it. The bounds:
  *
  * - **The ground.** The wrench the root's rows ask for the motion found is shared among the bearing
  *   limbs' patches within their contact wrench cones (`shareGroundWrench`); what they cannot give
@@ -120,12 +124,12 @@ interface WholeBody {
   readonly ang: Vector3;
 }
 
-/** The solve of a body of `count` freedoms driven through up to `limbs` limbs. */
-export function makeWholeBody(count: number, limbs: number): WholeBody {
+/** The solve of a body of `count` freedoms driven through up to `limbs` limbs that may bear and `free` more that never do. */
+export function makeWholeBody(count: number, limbs: number, free = 0): WholeBody {
   const size = 6 + count, f = (n: number) => new Float64Array(n);
-  // Six root aims, six a limb and one ahead a freedom of it, a torque row a pushed freedom, six
-  // root rows held, and a pinned row a freedom.
-  const capacity = 6 + 7 * limbs * count + count + 6 + count;
+  // Six root aims, six a limb and one ahead and one toward a freedom of it, a torque row a pushed
+  // freedom, six root rows held, and a pinned row a freedom.
+  const capacity = 6 + 8 * (limbs + free) * count + count + 6 + count;
   return {
     count, size, capacity, A: f(capacity * size), y: f(capacity), w: f(capacity),
     known: f(size), unknown: new Int32Array(size), x: f(size), H: f(size * size), L: f(size * size), g: f(size), z: f(size), xs: f(size),
@@ -160,8 +164,13 @@ export function makeWholeBody(count: number, limbs: number): WholeBody {
  * weight or above, it bends a walk's swing to hold the root, and its stops fall (the stop battery
  * of `research/core-stance-sweep.mjs`, Node stand, Rapier, 120 Hz: 2 falls of 96 at this weight
  * and without it, 3 at 1e-5).
+ *
+ * A limb's freedoms drawn toward what they are asked (`toward`, rad/s^2) rank beneath its point's
+ * motion: where its task leaves them free (a hand's point has three rows and its arm seven
+ * freedoms), they go as the posture asks them, not by the least motion, which leaves an arm
+ * swinging as it was.
  */
-const WEIGHT = { foot: 1e-4, ahead: 1e-2, torque: 1e4, root: 1, aim: 1, spin: 1e-6 };
+const WEIGHT = { foot: 1e-4, ahead: 1e-2, torque: 1e4, root: 1, aim: 1, spin: 1e-6, toward: 1e-6 };
 /**
  * The damping on the accelerations, (rad/s^2)^-2, against a foot's weight: a straight knee is a
  * singular leg, and without it a root asked to rise over one asks the leg for unbounded
@@ -191,7 +200,7 @@ export function solveBody(b: WholeBody, muscles: MuscleDriver, work: ServoWork, 
   for (const limb of ask.limbs) {
     if (!limb.task.on) continue;
     for (const i of limb.memory.channels) { inLimb[i] = 1; if (limb.task.bearing) carries[i] = 1; }
-    for (const i of limb.stem) { inLimb[i] = 1; if (limb.task.bearing) carries[i] = 1; }
+    if (limb.task.bearing) for (const i of limb.stem) { inLimb[i] = 1; carries[i] = 1; }
   }
   pinned.fill(NaN);
   b.stopped.fill(0);
@@ -331,7 +340,8 @@ function baseRows(b: WholeBody, muscles: MuscleDriver, work: ServoWork, ask: Who
 
 /**
  * `limb`'s task's rows: its point's motion, B a_root + S u'_stem + J u'_chain = asked - drift, the
- * rows the task keeps of the six; and each freedom asked ahead of the task held to it.
+ * rows the task keeps of the six; each freedom asked ahead of the task held to it; and with
+ * `toward`, each of the others drawn toward it.
  */
 function limbRows(b: WholeBody, rows: number, muscles: MuscleDriver, R: MuscleDriver["dynamics"]["root"], limb: Limb): number {
   const { task, work } = limb, { at, ahead } = work, channels = limb.memory.channels, stem = limb.stem, m = channels.length, s = stem.length;
@@ -368,6 +378,12 @@ function limbRows(b: WholeBody, rows: number, muscles: MuscleDriver, R: MuscleDr
     const asked = ahead[c]!;
     if (Number.isNaN(asked)) continue;
     const at = openRow(b, rows++, asked, WEIGHT.ahead);
+    A[at + 6 + channels[c]!] = 1;
+  }
+  const toward = work.toward;
+  if (toward) for (let c = 0; c < m; c++) {
+    if (!Number.isNaN(ahead[c] ?? NaN)) continue;
+    const at = openRow(b, rows++, toward[c]!, WEIGHT.toward);
     A[at + 6 + channels[c]!] = 1;
   }
   return rows;
