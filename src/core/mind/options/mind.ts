@@ -66,6 +66,9 @@ const EDGE = (() => {
   return edge;
 })();
 
+/** How far off straight back it breaks a clinch, rad: out of the path of a foe walking in. */
+const CLINCH_SLANT = .8;
+
 /** The longest its cover holds a hand up against one run of blows, s. */
 const COVER_LONGEST = 1;
 
@@ -118,13 +121,13 @@ export function createOptionsFighter(built: BuiltBody, world: World, config: Opt
   const options: readonly Option[] = [
     ...downs,
     followOrders(walk),
-    setDistance({ name: "break the clinch", foe: "standing", to: "centre", near: CLINCH.within, far: Infinity, correcting: true, facing: "foe" }, walk),
+    setDistance({ name: "break the clinch", foe: "standing", to: "centre", near: CLINCH.within, far: Infinity, correcting: true, facing: "foe", slant: CLINCH_SLANT }, walk),
     ...strikeNow,
     strikeLow(LOW, built.spec, walk),
     evade(walk),
     holdEdge(EDGE, walk, (now) => strikeNow.some((option) => option.available(now))),
     ...standing.map((action) => strike(action, walk, true, throws(action))),
-    setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false, facing: "foe" }, walk),
+    setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false, facing: "foe", slant: 0 }, walk),
   ];
   meta = metaController(options, config.meta === "ranked" ? options.map((_, i) => options.length - i) : valued("hand-built", { ...WEIGHTS, ...config.weights }));
   const reflexes = reflexLayer(config.tuning?.cover === false ? [] : [cover(COVER_LONGEST)]);

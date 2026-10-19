@@ -43,15 +43,15 @@ const situation = (others, { time = 0, solids = [], incoming = null, actions = [
 const forward = (intent) => intent.move?.[0] ?? 0;
 
 test("a_distance_goal_closes_backs_off_or_stands_and_a_flight_faces_away", () => {
-  const closeIn = setDistance({ name: "close in", foe: "standing", to: "centre", near: 0, far: 1, correcting: false, facing: "foe" }, walk);
+  const closeIn = setDistance({ name: "close in", foe: "standing", to: "centre", near: 0, far: 1, correcting: false, facing: "foe", slant: 0 }, walk);
   assert.ok(forward(closeIn.step(situation([foe(3)]))) > 0, "far, it closes");
   // Closing, it goes as fast as its gait holds forward and it stops from before the foe, and no slower than its walk.
   const near = forward(closeIn.step(situation([foe(1.05)]))), mid = forward(closeIn.step(situation([foe(3)]))), far = forward(closeIn.step(situation([foe(40)])));
   assert.ok(near >= PACE && near < mid && mid < far && far === RUN, `closing at ${near}, ${mid} and ${far} m/s from 1.05, 3 and 40 m`);
   assert.equal(closeIn.step(situation([foe(.8)])).move, null, "within, it stands");
-  const keep = setDistance({ name: "keep distance", foe: "standing", to: "centre", near: 2, far: 3, correcting: false, facing: "foe" }, walk);
+  const keep = setDistance({ name: "keep distance", foe: "standing", to: "centre", near: 2, far: 3, correcting: false, facing: "foe", slant: 0 }, walk);
   assert.ok(forward(keep.step(situation([foe(1)]))) < 0, "near, it backs off");
-  const flee = setDistance({ name: "flee", foe: "any", to: "centre", near: Infinity, far: Infinity, correcting: false, facing: "away" }, walk);
+  const flee = setDistance({ name: "flee", foe: "any", to: "centre", near: Infinity, far: Infinity, correcting: false, facing: "away", slant: 0 }, walk);
   const fleeing = flee.step(situation([foe(1)]));
   assert.ok(forward(fleeing) < 0 && Math.abs(Math.abs(fleeing.face) - Math.PI) < 1e-9, `it walks off with its back to the foe: ${JSON.stringify(fleeing)}`);
 });
@@ -102,4 +102,11 @@ test("every_walk_keeps_out_of_a_fallen_body's_reach_and_a_solid's_clearance", ()
   const wall = { kind: "box", centre: [0, 1, -.3], size: [4, 2, .2] };
   const out = walk.constrain(situation([], { solids: [wall] }), null, null);
   assert.ok(out && out[0] > 0, `out of the wall's clearance: ${JSON.stringify(out)}`);
+});
+
+test("a_slanted_break_backs_off_turned_out_of_the_foe's_path", () => {
+  const breaking = setDistance({ name: "break", foe: "standing", to: "centre", near: 2, far: Infinity, correcting: false, facing: "foe", slant: .8 }, walk);
+  const ways = [.5, -.5].map((x) => breaking.step(situation([{ ...foe(1), velocity: { x, z: -1 } }])).move);
+  for (const [ahead, across] of ways) assert.ok(ahead < 0 && Math.abs(Math.atan2(Math.abs(across), -ahead) - .8) < 1e-6, `it backs off 0.8 rad off straight back: ${ahead}, ${across}`);
+  assert.ok(ways[0][1] * ways[1][1] < 0, `a foe coming in from the other side turns it the other way: ${ways[0][1]}, ${ways[1][1]}`);
 });

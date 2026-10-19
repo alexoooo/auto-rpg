@@ -45,7 +45,7 @@ test("a_body's_record_of_an_action_moves_its_prior", () => {
 });
 
 test("walking_where_it_is_told_a_valued_mind_walks_through_a_weak_blow_steps_back_from_a_heavy_one_and_walks_on", () => {
-  const hold = setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false, facing: "foe" }, walk);
+  const hold = setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false, facing: "foe", slant: 0 }, walk);
   const meta = metaController([followOrders(walk), evade(walk), hold], valued("hand-built", WEIGHTS));
   const chosen = (now) => meta.decide(now)?.name;
   assert.equal(chosen(walking(0)), "follow orders");

@@ -1,4 +1,4 @@
-import { atan2, hypot } from "../../math/real.ts";
+import { atan2, cos, hypot, sin } from "../../math/real.ts";
 import type { Situation, StandingOption } from "./option.ts";
 import { CLINCH, clinched, exposed, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
@@ -27,6 +27,25 @@ interface Goal {
   readonly correcting: boolean;
   /** Whether it faces the focus, or turns its back on it. */
   readonly facing: "foe" | "away";
+  /** How far off straight away from the focus it backs off, rad, to the side out of the focus's path (`slanted`); 0 straight back. */
+  readonly slant: number;
+}
+
+/** Below this speed across the ground, m/s, a focus has no path to back out of, and the side backed off to is the last one's. */
+const STILL = .2;
+
+/**
+ * The way to back off from a focus (`x`, `z`) away along the ground, moving at `velocity`:
+ * straight away turned by `slant` rad toward the side of the focus's path this body stands on, or
+ * with the focus still, toward `side` (1 to the right of straight back, -1 to the left); and that side.
+ */
+function slanted(x: number, z: number, velocity: { readonly x: number; readonly z: number }, slant: number, side: number): readonly [number, number, number] {
+  const ax = -x, az = -z, speed = hypot(velocity.x, velocity.z);
+  // Off the focus's path: this body's place from the focus, less its part along the focus's way.
+  const along = speed > STILL ? (ax * velocity.x + az * velocity.z) / (speed * speed) : 0, px = ax - along * velocity.x, pz = az - along * velocity.z;
+  const right = az * px - ax * pz; // > 0: the path's free side is to the right of straight back.
+  const way = speed > STILL && right !== 0 ? (right > 0 ? 1 : -1) : side, c = cos(slant), s = sin(way * slant);
+  return [ax * c + az * s, az * c - ax * s, way];
 }
 
 /** The heading `facing` asks for, the focus (`x`, `z`) away along the ground. */
@@ -40,13 +59,14 @@ function facing(how: Goal["facing"], x: number, z: number): number {
 
 /**
  * **Set distance**: keep from the focus as `goal` says, facing it or away: backing off while nearer than
- * its near bound, closing while farther than its far one (a correction, until `BAND` m inside
+ * its near bound (at its slant, `slanted`), closing while farther than its far one (a correction, until `BAND` m inside
  * them), standing still between. It always yields, and asks for no blow. Its model: a correction
  * walks to `BAND` m inside its bounds, a keeping goes on `AHEAD` s, through the blow coming and
  * the focus's reach while it stands in it; a correction that ends out of a clinch (`CLINCH`) leaves
  * its chance of going down behind.
  */
 export function setDistance(goal: Goal, walk: Walker): StandingOption {
+  const state = { side: 1 };
   const apart = (now: Situation): number => {
     const { focus } = now, centre = now.sight.view.stance.centre;
     if (!focus) return Infinity;
@@ -58,7 +78,7 @@ export function setDistance(goal: Goal, walk: Walker): StandingOption {
   const kept = (now: Situation): boolean => !!now.focus && (goal.foe === "any" || (goal.foe === "down") === now.focus.down);
   const outside = (now: Situation, margin: number): boolean => { const d = apart(now); return d < goal.near + margin || d > goal.far - margin; };
   return {
-    name: goal.name, posture: "standing", state: {},
+    name: goal.name, posture: "standing", state,
     available: (now) => !now.down && kept(now) && (!goal.correcting || outside(now, 0)),
     yields: () => true,
     ended: (now) => goal.correcting && !outside(now, BAND),
@@ -74,7 +94,12 @@ export function setDistance(goal: Goal, walk: Walker): StandingOption {
       const d = apart(now), focus = now.focus!, centre = now.sight.view.stance.centre;
       const x = focus.centre.x - centre.x, z = focus.centre.z - centre.z, margin = goal.correcting ? BAND : 0;
       const face = facing(goal.facing, x, z);
-      if (d < goal.near + margin) return { ...walk.toward(now, -x, -z, face), actions: [] };
+      if (d < goal.near + margin) {
+        if (goal.slant === 0) return { ...walk.toward(now, -x, -z, face), actions: [] };
+        const [bx, bz, side] = slanted(x, z, focus.velocity, goal.slant, state.side);
+        state.side = side;
+        return { ...walk.toward(now, bx, bz, face), actions: [] };
+      }
       if (d > goal.far - margin) return { ...walk.approach(now, x, z, face), actions: [] };
       return { move: null, face, actions: [] };
     },

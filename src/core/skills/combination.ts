@@ -45,7 +45,8 @@ const other = (hand: Side): Side => hand === "left" ? "right" : "left";
  * second (a one-two); of one drive, a lone straight punch that waits for its poise and leaves its
  * hand to the guard coming back. It settles as the straight punch does (`straightTechnique`), and
  * further until its centre of mass is within `poise` of the middle of its feet, and drives the
- * first hand. As that drive ends the first arm comes back to the guard and, `gap` s later, once
+ * first hand; settling, and between its drives, it turns to face its target as the target moves.
+ * As that drive ends the first arm comes back to the guard and, `gap` s later, once
  * the body is poised again, the second hand is driven, the hips and chest turning back the other
  * way; if it is not poised within `wait` s more, the second is given up and the first comes back
  * alone. Each drive ends as a straight punch's does: `follow` s after its hand begins to touch, or
@@ -138,6 +139,7 @@ export function combinationExecutor(body: Body, actions: readonly string[], sett
       const source = request ?? live.request, at = resolve(view, source.target, source.action, source.effector);
       if (live.phase === "prepare" && (live.withdrawn || !at)) release(!at ? { kind: "lost", reason: "target is no longer sensed" } : { kind: "cancelled" });
       if (at && !live.withdrawn && live.phase !== "release") motion.target = [...at];
+      if (live.phase === "prepare" || live.stage === "between") motion.face = atan2(motion.target[0] - view.head.x, motion.target[2] - view.head.z);
       live.time += dt; live.drive += dt;
       if (live.phase === "prepare") {
         live.quiet = poised(view) ? live.quiet + dt : 0;
