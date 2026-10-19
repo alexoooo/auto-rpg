@@ -17,8 +17,15 @@ This is the stage whose question is a measurement.
   sides. The owner watches bouts in the Arena.
 - Landed: the one-two (`src/core/skills/combination.ts`), two straight drives as one action, and
   the single punch thrown as a combination of one drive, each poised before it drives.
-- Expected gaps, each an option, a model or a reflex: breaking a clinch, escaping after blocked
-  blows, circling, holding aim through a blow.
+- Landed: breaking the clinch slanted off the foe's path, and a combination facing its target as
+  it settles and between its drives (`research/options-readout.mjs` reads where its bouts go).
+- Measured and not gaps (`research/options-readout.mjs`, five gaps, 120 s cap, Node, Rapier,
+  120 Hz, Balance 0): a blow thrown within 1.5 s of a blocked one is blocked about as often as any
+  blow (against Classic 45 of 82 against 78 of 141 overall; the Puncher 60 of 92 against 79 of
+  128), so escaping after a blocked blow has nothing to answer; and a drive already re-aims its
+  arm at the target every step, its blows that meet nothing (about 12 %) thrown at the edge of
+  reach (0.85 to 0.88 m head to head at the commit, against 0.80 to 0.84 for the rest) while the
+  foe's head moves off 0.2 m. What is left is the block itself (55 to 62 % of blows), and circling.
 - Each improvement lands on its own with its league reading before and after.
 - The league measures a fighter on today's motor control, which the whole-body controller plan
   (`2026-10-17-general-controller.md`) is changing: the run and the stand-up (its stages 3 and 4)
