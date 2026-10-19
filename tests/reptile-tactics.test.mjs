@@ -11,7 +11,8 @@ import { pointOfToRef } from "../src/core/control/support.ts";
 import { surfaceContains } from "../src/core/mind/openings.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { createSenses } from "../src/core/mind/senses.ts";
-import { createQuadrupedMind } from "../src/core/reptile/mind.ts";
+import { quadrupedMind } from "../src/core/reptile/mind.ts";
+import { hostedMind } from "../src/core/mind/host.ts";
 import { reptileSpec } from "../src/core/reptile/spec.ts";
 import { quadrupedTactics } from "../src/core/reptile/tactics.ts";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -23,7 +24,7 @@ test("a changed foe clears an unreachable chamber target and preserves a committ
   const hub = createSenses(stand.world), see = hub.add({ id: "mine", side: "one", built: stand.built, out: () => false });
   hub.add({ id: "first", side: "two", built: first, out: () => false });
   hub.add({ id: "second", side: "two", built: second, out: () => false });
-  const own = createQuadrupedMind(stand.built, stand.world, { orders: () => STAND_ORDERS });
+  const own = hostedMind(stand.built, stand.world, { orders: () => STAND_ORDERS }, (host, wiring) => quadrupedMind(host, wiring));
   let orders = { ...STAND_ORDERS, foe: "first" };
   const tactics = quadrupedTactics(own.body, () => orders);
   try {
@@ -50,7 +51,7 @@ test("a buried mouth creates clearance before an autonomous bite is armed", asyn
   for (const part of target.segments.values()) part.body.setFixed(true);
   const hub = createSenses(stand.world), see = hub.add({ id: "mine", side: "one", built: stand.built, out: () => false });
   hub.add({ id: "target", side: "two", built: target, out: () => false });
-  const own = createQuadrupedMind(stand.built, stand.world, { orders: () => STAND_ORDERS });
+  const own = hostedMind(stand.built, stand.world, { orders: () => STAND_ORDERS }, (host, wiring) => quadrupedMind(host, wiring));
   const tactics = quadrupedTactics(own.body, () => null);
   try {
     const head = stand.built.segments.get("head");

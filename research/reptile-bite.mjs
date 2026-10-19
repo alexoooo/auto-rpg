@@ -2,7 +2,8 @@ import { biteMeter } from "./bite-work.mjs";
 import { pathToFileURL } from "node:url";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 import { reptileSpec } from "../src/core/reptile/spec.ts";
-import { createQuadrupedMind } from "../src/core/reptile/mind.ts";
+import { quadrupedMind } from "../src/core/reptile/mind.ts";
+import { hostedMind } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { modelSpec, modelInfo } from "../src/core/models.ts";
 import { createMind } from "../src/core/mind/minds.ts";
@@ -31,9 +32,7 @@ export async function biteTrial({ bite = REPTILE_BITE, point = [0, .1925, .485],
   const enemyParts = new Map(enemy ? [...enemy.segments.values()].map(s => [s.body, s.spec.name]) : []);
   const contactIdentity = other => enemyParts.has(other) ? { kind: "body", body: "target", segment: enemyParts.get(other), guard: false } : { kind: "world" };
   let cancelled = false;
-  const mind = createQuadrupedMind(stand.built, stand.world,
-    { orders: () => cancelled ? STAND_ORDERS : autonomous ? null : STAND_ORDERS, ...(autonomous ? {} : { biteTarget: () => cancelled ? null : point }), senses: see, contactIdentity },
-    { crawl: REPTILE_CRAWL, trot: REPTILE_TROT, motor: REPTILE_MOTOR, travel: REPTILE_TRAVEL, bite });
+  const mind = hostedMind(stand.built, stand.world, { orders: () => cancelled ? STAND_ORDERS : autonomous ? null : STAND_ORDERS, ...(autonomous ? {} : { biteTarget: () => cancelled ? null : point }), senses: see, contactIdentity }, (host, wiring) => quadrupedMind(host, wiring, { crawl: REPTILE_CRAWL, trot: REPTILE_TROT, motor: REPTILE_MOTOR, travel: REPTILE_TRAVEL, bite }));
   const rules = rulebook("arena"), mine = createPool(stand.built.spec, rules), theirs = enemy && createPool(enemy.spec, rules);
   const jaw = mind.body.muscles.channel("jaw axis0"), state = mind.body.state.mind.host.bite;
   const meter = biteMeter(stand.world, [{ id: "reptile", body: mind.body }], enemy ? { target: enemy } : {});

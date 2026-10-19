@@ -12,7 +12,7 @@ import { SERVO_SECONDS } from "../../body.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { deepFreeze } from "../../state.ts";
 import { observeBody } from "../../observation.ts";
-import type { World } from "../../world.ts";
+import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
 import { RISE, type Recipe } from "./stages.ts";
@@ -50,18 +50,18 @@ export function supportEntryPolicy(built: ReadBody, model: Pick<MotionModel, "ch
 }
 
 /** Rise with the reference policy, then verify quiet foot support before returning control. */
-export function supportRecovery(own: OwnBody, view: BodyView, world: World, recipe: Recipe = RISE): SubMind {
+export function supportRecovery(own: OwnBody, view: BodyView, clock: Clock, recipe: Recipe = RISE): SubMind {
   const { built, muscles } = own;
   const rise = stagedRise(own, view, recipe), feet = footStatesOf(built), legs = locomotion(null);
   const motor = motorControl(built, SERVO_SECONDS, guardPosture(built.spec), undefined, own.assist);
-  const observe = observeBody(built, muscles, world, () => view.senses);
+  const observe = observeBody(built, muscles, clock, () => view.senses);
   const state = { phase: "complete" as "rise" | "stabilize" | "complete", rise: rise.state, motor: motor.state, legs: legs.state,
     time: 0, ready: 0, retries: 0, completed: 0 };
   const middle = new Vector3();
   const beginRise = () => { rise.begin(); motor.reset(); state.phase = "rise"; state.time = 0; state.ready = 0; };
   return { get name() { return `recovery: ${state.phase}`; }, state,
     wants() {
-      if (legs.reference === null) legs.goal(view, null, 0, world.dt);
+      if (legs.reference === null) legs.goal(view, null, 0, clock.dt);
       return state.phase !== "complete" || view.down;
     },
     begin() { beginRise(); state.retries = 0; },

@@ -218,7 +218,7 @@ The eight-pose qualification retains the requirement for no fall after handover.
 `node research/reptile-motion.mjs --sweep` runs the Node stand on rapier-coordinate at 120 Hz,
 with zero balance and fixed anatomy. Each row stands for two seconds, then commands forward
 travel for ten seconds on a 100 m ground. These are driven, unstruck intervals. Overrides are
-passed into `createQuadrupedMind`; no global setting is mutated.
+passed into `quadrupedMind`; no global setting is mutated.
 
 | Commanded speed, m/s | COM height multiplier | Distance in 10 s, m | Mean speed, m/s | Steps down | Counted paws |
 | --- | --- | --- | --- | --- | --- |

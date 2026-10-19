@@ -9,7 +9,8 @@ import { mouthOf } from "../src/core/reptile/bite.ts";
 import { pointAtToRef, rootFrameToRef } from "../src/core/control/kinematics.ts";
 import { biteTrial } from "../research/reptile-bite.mjs";
 import assert from "node:assert/strict";
-import { createQuadrupedMind } from "../src/core/reptile/mind.ts";
+import { quadrupedMind } from "../src/core/reptile/mind.ts";
+import { hostedMind } from "../src/core/mind/host.ts";
 import { reptileSpec } from "../src/core/reptile/spec.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
@@ -20,7 +21,7 @@ import { sourced } from "../src/core/spec/quantity.ts";
 import { REPTILE_BITE } from "../src/core/reptile/tuning.ts";
 
 test("the reptile stands for thirty seconds without an assist", async () => {
-  const s = await coreStand(reptileSpec(), { engine: "rapier-coordinate" }), m = createQuadrupedMind(s.built, s.world);
+  const s = await coreStand(reptileSpec(), { engine: "rapier-coordinate" }), m = hostedMind(s.built, s.world, {}, (host, wiring) => quadrupedMind(host, wiring));
   try {
     for (let i = 0; i < 30 * 120; i++) { s.step(); assert.equal(m.body.down, false); }
     const reading = m.body.observe();
@@ -33,7 +34,7 @@ test("the reptile stands for thirty seconds without an assist", async () => {
 
 test("holding and resuming a moving quadruped retains its bodies and resumes from actual paws", async () => {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate" });
-  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => ({ move: { x: 0, z: 1 }, face: { x: 0, z: 1 } }) });
+  const mind = hostedMind(stand.built, stand.world, { orders: () => ({ move: { x: 0, z: 1 }, face: { x: 0, z: 1 } }) }, (host, wiring) => quadrupedMind(host, wiring));
   try {
     stand.step(480);
     const host = mind.body.state.mind.host, sequence = host.crawl.sequence;
@@ -69,7 +70,7 @@ test("a closing jaw strikes during its fast motion and releases after cancellati
 test("a bite request stops the next paw placement while the jaw prepares", async () => {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", groundSize: 100 });
   let orders = STAND_ORDERS, biteAt = null;
-  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => orders, biteTarget: () => biteAt }), host = mind.body.state.mind.host;
+  const mind = hostedMind(stand.built, stand.world, { orders: () => orders, biteTarget: () => biteAt }, (host, wiring) => quadrupedMind(host, wiring)), host = mind.body.state.mind.host;
   try {
     stand.step(240);
     orders = { move: { x: 0, z: 1 }, face: { x: 0, z: 1 } };
@@ -99,7 +100,7 @@ test("a pending bite retains its material point across physical preparation step
   for (const part of target.segments.values()) part.body.setFixed(true);
   const hub = createSenses(stand.world), see = hub.add({ id: "mine", side: "one", built: stand.built, out: () => false });
   hub.add({ id: "target", side: "two", built: target, out: () => false });
-  const own = createQuadrupedMind(stand.built, stand.world, { orders: () => STAND_ORDERS });
+  const own = hostedMind(stand.built, stand.world, { orders: () => STAND_ORDERS }, (host, wiring) => quadrupedMind(host, wiring));
   const tactics = quadrupedTactics(own.body, () => STAND_ORDERS);
   try {
     stand.step();
@@ -139,7 +140,7 @@ test("a mechanically stopped jaw ends a missed stroke on the snap clock", async 
   const base = reptileSpec(), spec = { ...base, joints: base.joints.map(joint => joint.name === "jaw"
     ? { ...joint, dofs: joint.dofs.map(dof => ({ ...dof, min: sourced(.3, "rad", "reptile-contact-sweep", "jaw-stop witness") })) } : joint) };
   const stand = await coreStand(spec, { engine: "rapier-coordinate", joints: { jaw: [REPTILE_BITE.open] } });
-  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => STAND_ORDERS, biteTarget: () => [0, .1925, .485] });
+  const mind = hostedMind(stand.built, stand.world, { orders: () => STAND_ORDERS, biteTarget: () => [0, .1925, .485] }, (host, wiring) => quadrupedMind(host, wiring));
   const bite = mind.body.state.mind.host.bite, jaw = mind.body.muscles.channel("jaw axis0");
   let launched = null, admitted = false;
   try {
@@ -162,7 +163,7 @@ test("the trot lands its paws in physics and stops", async () => {
   // How fast and how far it travels, reverses and turns is `core-reptile-capability`'s.
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", groundSize: 100 });
   let orders = STAND_ORDERS;
-  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => orders });
+  const mind = hostedMind(stand.built, stand.world, { orders: () => orders }, (host, wiring) => quadrupedMind(host, wiring));
   const host = mind.body.state.mind.host, crawl = host.crawl;
   const groups = [[0, 1], [2, 3]];
   const run = seconds => {

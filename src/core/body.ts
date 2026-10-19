@@ -14,6 +14,7 @@ import type { HostMind } from "./mind/sub-mind.ts";
 import type { SubMindMaker } from "./mind/sub-minds.ts";
 import type { BodyLevel, MuscleDriver } from "./muscle/driver.ts";
 import type { World } from "./world.ts";
+import { clockOf } from "./clock.ts";
 import { PHYSICS_HZ } from "./world.ts";
 import type { PhysicalBody } from "./physical-body.ts";
 import { centreReading } from "./observation.ts";
@@ -369,7 +370,7 @@ export function createBody(built: BuiltBody, world: World, options: BodyOptions)
   };
   const body = hostedBody(built, world, options, (own, sense) => {
     command = commandMind(own, options, world.dt);
-    const subs = (options.subs ?? []).map((make) => make(own, command.view, world, afterPhysics));
+    const clock = clockOf(world), subs = (options.subs ?? []).map((make) => make(own, command.view, clock, afterPhysics));
     // Before its first step the view is the body as built, where a driver or a run first finds it.
     command.sample(world.steps);
     command.look(sense());

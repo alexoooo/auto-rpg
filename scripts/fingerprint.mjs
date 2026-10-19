@@ -42,7 +42,8 @@ import { humanSpec } from "../src/core/human/spec.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
-import { createQuadrupedMind } from "../src/core/reptile/mind.ts";
+import { quadrupedMind } from "../src/core/reptile/mind.ts";
+import { hostedMind } from "../src/core/mind/host.ts";
 import { generateCryptDungeon } from "../src/dungeon/crypt-dungeon.ts";
 import { CryptWeathering } from "../src/dungeon/crypt-weathering.ts";
 import { generateLevel } from "../src/dungeon/level.ts";
@@ -126,7 +127,7 @@ async function arena(recipe) {
  */
 async function stand(model) {
   const stand = await coreStand(modelSpec(model));
-  const body = model === "reptile" ? createQuadrupedMind(stand.built, stand.world).body : createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+  const body = model === "reptile" ? hostedMind(stand.built, stand.world, {}, (host, wiring) => quadrupedMind(host, wiring)).body : createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
   try {
     if (model !== "reptile") driveBy(body, { name: "stand", decide: () => standIntent(0) });
     const trace = traceOf([stand.built]);

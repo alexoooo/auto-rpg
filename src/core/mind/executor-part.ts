@@ -1,5 +1,5 @@
 import type { Body } from "../body.ts";
-import type { World } from "../world.ts";
+import type { Clock } from "../clock.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Executor } from "../skills/action.ts";
 import type { AttackTuning } from "../skills/attack-path.ts";
@@ -16,7 +16,7 @@ export interface ExecutorPart<C extends ExecutorConfig = ExecutorConfig> extends
   actionFaults(action: ActionConfig): readonly string[];
   paths?(config: C): AttackTuning;
   estimate?(spec: BodySpec, config: C, action: ActionConfig, aim: ReturnType<typeof actionAim>): ActionEstimates[string] | null;
-  make(body: Body, world: World, config: C, actions: readonly ActionConfig[],
+  make(body: Body, clock: Clock, config: C, actions: readonly ActionConfig[],
     resolve: NonNullable<Parameters<typeof kickExecutor>[3]>, direction: NonNullable<Parameters<typeof pathExecutor>[2]>["direction"]): Executor;
 }
 

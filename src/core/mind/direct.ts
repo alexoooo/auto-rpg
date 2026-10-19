@@ -13,7 +13,7 @@ import { embody } from "./mind.ts";
 import { clockSenses, type Senses } from "./senses.ts";
 
 /** Immutable actuator description; no object here can change the live body. */
-interface ActuatorModel {
+export interface ActuatorModel {
   readonly effectors: readonly EffectorModel[];
   readonly handPoses: BuiltBody["handPoses"]["model"];
   readonly equipment?: EquipmentPort["model"];
@@ -24,7 +24,7 @@ interface ActuatorModel {
 }
 
 /** An observation/action policy owns only its own explicit memory. */
-interface Policy {
+export interface Policy {
   readonly name: string;
   readonly state: object;
   step(observation: BodyObservation, dt: number): BodyAction;
@@ -56,12 +56,12 @@ export function directFaults(config: DirectMindConfig): readonly string[] {
     || !Number.isFinite(config.activation) || config.activation < 0 || config.activation > 1 ? ["invalid direct controller gains"] : [];
 }
 
-/** Joint feedback is an independent reference policy, with every gain supplied by its experiment. */
-export function createDirectBody(built: BuiltBody, world: World, config: DirectMindConfig, options: PolicyOptions = {}): PhysicalBody {
+/** Joint feedback, an independent reference policy with every gain supplied by its experiment: the policy `config` names; a config with a fault is refused. */
+export function directPolicy(config: DirectMindConfig): (model: ActuatorModel) => Policy {
   const fault = directFaults(config)[0];
   if (fault) throw new Error(fault);
   const settings = deepFreeze({ ...config, targets: { ...config.targets } });
-  return createPolicyBody(built, world, (model) => {
+  return (model) => {
     for (const [name, target] of Object.entries(settings.targets)) {
       const channel = model.channels.find((c) => c.name === name);
       if (!channel || !Number.isFinite(target) || target < channel.min || target > channel.max) throw new Error(`invalid joint target ${name}`);
@@ -76,5 +76,10 @@ export function createDirectBody(built: BuiltBody, world: World, config: DirectM
       }
       return { kind: "velocity", activation, velocity };
     } };
-  }, options);
+  };
+}
+
+/** `built` under the joint feedback `config` names (`directPolicy`). */
+export function createDirectBody(built: BuiltBody, world: World, config: DirectMindConfig, options: PolicyOptions = {}): PhysicalBody {
+  return createPolicyBody(built, world, directPolicy(config), options);
 }

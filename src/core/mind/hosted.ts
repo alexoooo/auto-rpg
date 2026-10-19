@@ -10,7 +10,7 @@ import { hosting, type HostMind, type SubMind } from "./sub-mind.ts";
  * **A hosted mind as its maker makes it**: the host, the sub-minds it hands the body to in rank
  * order (`hosting`), and how the body reads whether it is down.
  */
-interface Hosted {
+export interface Hosted {
   readonly host: HostMind;
   readonly subs: readonly SubMind[];
   readonly down: () => boolean;

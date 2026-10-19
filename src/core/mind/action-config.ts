@@ -1,6 +1,6 @@
 import type { Body } from "../body.ts";
 import type { BodySpec } from "../spec/body.ts";
-import type { World } from "../world.ts";
+import type { Clock } from "../clock.ts";
 import type { Ended } from "../skills/action.ts";
 import type { ExecutorBinding } from "../skills/action-instances.ts";
 import { actionAim } from "./action-aim.ts";
@@ -62,14 +62,14 @@ export function actionConfigFaults(spec: BodySpec, executors: readonly ExecutorC
 }
 
 /** Build each named motion state once and resolve every action through its own shared aiming rule. */
-export function configuredExecutors(body: Body, world: World, executors: readonly ExecutorConfig[], actions: readonly ActionConfig[], ledger: () => readonly Ended[] = () => []): readonly ExecutorBinding[] {
+export function configuredExecutors(body: Body, clock: Clock, executors: readonly ExecutorConfig[], actions: readonly ActionConfig[], ledger: () => readonly Ended[] = () => []): readonly ExecutorBinding[] {
   const faults = actionConfigFaults(body.built.spec, executors, actions);
   if (faults.length) throw new Error(faults.join("; "));
   const aims = new Map(actions.map(action => {
     const config = executors.find(executor => executor.name === action.executor)!;
     return [action.name, actionAim(body.built.spec, action.aim, action.family, executorPart(config).paths?.(config))] as const;
   }));
-  return executors.map(config => ({ name: config.name, executor: executorPart(config).make(body, world, config,
+  return executors.map(config => ({ name: config.name, executor: executorPart(config).make(body, clock, config,
     actions.filter(action => action.executor === config.name),
     (view, target, action, effector) => aims.get(action)?.(view, target, effector, ledger())?.at ?? null,
     (view, target, action, effector) => aims.get(action)?.(view, target, effector, ledger())?.direction ?? null) }));

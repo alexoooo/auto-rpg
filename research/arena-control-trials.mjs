@@ -79,7 +79,7 @@ function pointAttacks(stand, target, hand = stand.harness.hand) {
     const position = ask.readiness?.kind === "position" ? approachActionWindow(sight.view, ask.readiness.window, sight.report.heading, sight.envelope?.walk.value ?? 0, .4) : {};
     return { ...standIntent(sight.report.heading), ...position, actions: ask.requests };
   } };
-  const skills = driveFighter(fighter.body, world, { ...fighter.mind, tactics: { kind: "script" } }, { name: "point-cycles", orders: () => null, script });
+  const skills = driveFighter(fighter.body.driver, world, { ...fighter.mind, tactics: { kind: "script" } }, { name: "point-cycles", orders: () => null, script });
   const cycles = actionCycles(skills);
   return { skills, cycles, state: { own, skills: skills.state, cycles: cycles.state } };
 }

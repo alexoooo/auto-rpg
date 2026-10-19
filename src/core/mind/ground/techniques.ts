@@ -1,7 +1,7 @@
 import type { BodyView } from "../../body.ts";
 import type { MuscleDriver } from "../../muscle/driver.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
-import type { World } from "../../world.ts";
+import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../mind.ts";
 import type { Senses } from "../senses.ts";
 import type { Recipe } from "../rise/stages.ts";
@@ -33,7 +33,7 @@ export interface TechniqueSpec {
   readonly sides: readonly Side[];
   readonly edges: readonly { readonly from: Position; readonly to: Position }[];
   fits(spec: BodySpec): boolean;
-  make(own: OwnBody, view: BodyView, world: World): TechniqueRun;
+  make(own: OwnBody, view: BodyView, clock: Clock): TechniqueRun;
 }
 
 /** A reached physical predicate must remain true this long; search settings cannot change it. */

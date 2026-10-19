@@ -9,7 +9,7 @@ import type { ObjectSense } from "./mind/object-senses.ts";
 import type { EquipmentObservation } from "./mind/equipment-port.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import { deepFreeze } from "./state.ts";
-import type { World } from "./world.ts";
+import type { Clock } from "./clock.ts";
 import type { ReadBody } from "./read-body.ts";
 
 interface SegmentObservation {
@@ -87,7 +87,7 @@ export function centreReading(built: ReadBody, name: string): { centre: Vector3;
 const tuple = (v: { readonly x: number; readonly y: number; readonly z: number }): Vec3 => [v.x, v.y, v.z];
 
 /** Snapshot on demand, including current joint motion even while the muscles are idle. */
-export function observeBody(built: ReadBody, muscles: MuscleDriver, world: World, senses: () => Senses,
+export function observeBody(built: ReadBody, muscles: MuscleDriver, clock: Clock, senses: () => Senses,
   equipment?: () => readonly EquipmentObservation[], down?: () => boolean, contactPatches = false): () => BodyObservation {
   const read = physicalReading(built, down), p = new Vector3(), v = new Vector3();
   const spins = new Map([...built.segments.values()].map((part) => [part, new Vector3()]));
@@ -119,7 +119,7 @@ export function observeBody(built: ReadBody, muscles: MuscleDriver, world: World
           .flatMap(m => m.points.map(p => ({ point: [...p.point] as Vec3, normal: [...m.normal] as Vec3, distance: p.distance }))) } : {}),
       }));
     });
-    return deepFreeze({ time: world.time, level: muscles.level, model: built.spec.model,
+    return deepFreeze({ time: clock.time, level: muscles.level, model: built.spec.model,
       handPoses: structuredClone(built.handPoses.state),
       ...(equipment ? { equipment: equipment() } : {}),
       centre: tuple(physical.centre), head: built.segments.has("head") ? tuple(physical.head) : null,

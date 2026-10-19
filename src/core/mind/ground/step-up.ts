@@ -6,7 +6,7 @@ import { atan2 } from "../../math/real.ts";
 import { guardPosture } from "../../skills/guard.ts";
 import { deepFreeze } from "../../state.ts";
 import type { HumanoidModel } from "../../human/spec.ts";
-import type { World } from "../../world.ts";
+import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../mind.ts";
 import { stagedRise } from "../rise/staged.ts";
 import { RISE, type BearStage, type Recipe, type Stage } from "../rise/stages.ts";
@@ -172,7 +172,7 @@ export type StepUpRise = ReturnType<typeof stagedRise>;
  * on its hands and knees, or half kneeling, joins the route there when its supports bear. An
  * attempt the rise gives up, or one that falls from the stance, fails back to the supervisor.
  */
-export function stepUp(own: OwnBody, view: BodyView, _world: World, tuning: StepUpTuning = STEP_UP[own.spec.model as HumanoidModel],
+export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, tuning: StepUpTuning = STEP_UP[own.spec.model as HumanoidModel],
   base: Recipe = RISE): TechniqueRun & {
   /** Its rises, whole and joined part-way; the one it plays; and whether the rise is over and the stance steadies the body. */
   readonly rises: readonly StepUpRise[]; readonly rise: StepUpRise; readonly steadying: boolean;

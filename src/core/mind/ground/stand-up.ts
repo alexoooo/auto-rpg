@@ -4,7 +4,7 @@ import { guardPosture } from "../../skills/guard.ts";
 import { locomotion } from "../../skills/locomotion.ts";
 import type { Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
-import type { World } from "../../world.ts";
+import type { Clock } from "../../clock.ts";
 import type { StandUpConfig } from "../config.ts";
 import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
@@ -24,11 +24,11 @@ interface Attempt { technique: string; side: Side; from: Position; to: Position;
 interface Entry extends Attempt { end: TechniqueEnd | "ready" | "steady-limit" }
 
 /** A supervisor retries contracts from the body as read; no successful reposition clears a failure. */
-export function standUp(own: OwnBody, view: BodyView, world: World, config: StandUpConfig,
+export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: StandUpConfig,
   registry: Readonly<Record<string, TechniqueSpec>> = TECHNIQUES): SubMind {
   const runs: Record<string, TechniqueRun> = {}, graph: Record<string, GraphTechnique> = {};
   for (const [name, spec] of Object.entries(registry)) if (spec.fits(own.spec)) {
-    const run = spec.make(own, view, world); runs[name] = run;
+    const run = spec.make(own, view, clock); runs[name] = run;
     graph[name] = { sides: spec.sides, edges: spec.edges, admits: (g, side) => run.admits(g, side) };
   }
   runs.flatten = flatten(own, view);

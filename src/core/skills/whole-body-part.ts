@@ -11,5 +11,5 @@ export const WHOLE_BODY_PART: ExecutorPart<Config> = {
   fields: [text("name", "Name"), choice("drive", "Drive", [["timed", "Timed path"], ["flat-out", "Flat out"]])], slots: [],
   fits: spec => commandable(spec) && wholeBodyFits(spec), faults: config => ["timed", "flat-out"].includes(config.drive) ? [] : ["invalid whole-body drive"],
   effectors: ["hand.left", "hand.right"], actionFaults: noPathSettings,
-  make: (body, world, config, actions, resolve) => wholeBodyExecutor(body, world, actions.map(a => a.name), config.drive, resolve),
+  make: (body, clock, config, actions, resolve) => wholeBodyExecutor(body, clock, actions.map(a => a.name), config.drive, resolve),
 };

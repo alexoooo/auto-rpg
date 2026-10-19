@@ -693,7 +693,7 @@ has the body is one number in the mind's state, and `Body.has` names it. A hoste
 way for every body (`hostedBody`, `hosted.ts`): its maker gives the host, its sub-minds in rank
 order and how the body reads whether it is down, and the body is embodied, hosted and handed to the
 fight as a `PhysicalBody`. The humanoid's command mind (`createBody`) and the quadruped's
-(`createQuadrupedMind`) are both made so.
+(`quadrupedMind`) are both made so.
 
 A mind whose body leaves `full` is told (`Mind.idle`), and is not stepped until its body is at
 `full` again; it then goes on from the body as it is. Under `hosting` this is the hand-over to a
@@ -705,7 +705,14 @@ What a mind is made of is its config, plain data tagged by kind (`MindConfig`, `
 sub-minds nested configs in it (`SubMindConfig`), so a sub-mind is configured where it is chosen.
 `createMind(built, world, config, wiring)` (`minds.ts`) makes a body's mind from one, wired to
 its fight (its orders, its senses, its assist's ceiling), and gives back a `Minded`: the body and
-the mind's memory, which is all a fight reads; a reader that knows the kind narrows on it (a
+the mind's memory, which is all a fight reads. The mind's maker never has the world or the built
+body: it is given a host (`BodyHost`, `host.ts`), which holds the body's description, the world's
+clock (`Clock`, `src/core/clock.ts`) and the three ways to take the body, once: under the command
+layers (`command`, which gives back the body its drivers have, reading the built body through its
+read view), under a host mind of its own (`hosted`) or under a policy (`policy`). Each takes the
+fight's grants, its senses, its assist's ceiling and how it labels a contact, from the wiring, so
+no maker can widen them; the fight holds the body the mind took (`bodyHost`), and a test or a
+study makes one mind of its own the same way (`hostedMind`); a reader that knows the kind narrows on it (a
 fighter's skills and their report). A fight enlists each of its bodies the one way (`enlist`,
 `src/core/combatant.ts`): built where it stands with what it holds, its pool under the fight's
 rules, carried by the fight's senses with whatever fixed geometry they are granted, and under the
@@ -833,7 +840,7 @@ used by the compliant-sole damping filter. On return, filtering starts with the 
 request; it does not average in a request from before the takeover.
 
 The baseline sub-minds each read its host's down state (`BodyView.down`) and receives
-the body's world (`SubMindMaker`): `lie` (`lying`, `lie.ts`) asks the muscles for nothing;
+the world's clock (`SubMindMaker`): `lie` (`lying`, `lie.ts`) asks the muscles for nothing;
 `support-recovery` (`supportRecovery`) plays the staged recipe and verifies quiet standing
 before handover; `research-rise` (`researchRise`) tracks experimental reference motions with
 live feedback through ordinary muscles. The staged riser is an internal component of that

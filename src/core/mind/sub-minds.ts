@@ -13,13 +13,13 @@ import { supportRecovery } from "./rise/support-recovery.ts";
 import { researchRise, researchRiseFits } from "./rise/research.ts";
 import type { Part } from "./parts.ts";
 import type { SubMind } from "./sub-mind.ts";
-import type { World } from "../world.ts";
+import type { Clock } from "../clock.ts";
 
 /**
  * What makes a sub-mind for a body: its own body, its host's view of it, read each step before the
  * sub-mind is asked anything, and the world the body is in.
  */
-export type SubMindMaker = (own: OwnBody, view: BodyView, world: World, afterPhysics: Body["afterPhysics"]) => SubMind;
+export type SubMindMaker = (own: OwnBody, view: BodyView, clock: Clock, afterPhysics: Body["afterPhysics"]) => SubMind;
 
 /** A sub-mind of no settings and no slots: what it is called, and which bodies it fits. */
 const plain = <K extends SubMindConfig["kind"]>(kind: K, label: string, fits: Part["fits"]): Part<Extract<SubMindConfig, { kind: K }>> =>
@@ -55,21 +55,21 @@ export const SUB_MIND_PARTS: { readonly [K in SubMindConfig["kind"]]: Part<Extra
 });
 
 /** The sub-mind `config` names. */
-export function subMind(own: OwnBody, view: BodyView, config: SubMindConfig, world: World, afterPhysics?: Body["afterPhysics"]): SubMind {
+export function subMind(own: OwnBody, view: BodyView, config: SubMindConfig, clock: Clock, afterPhysics?: Body["afterPhysics"]): SubMind {
   switch (config.kind) {
     case "get-away": return getAway(own, view, config);
-    case "ground-fight": if (!afterPhysics) throw new Error("ground fighting needs completed body observations"); return groundFight(own, view, world, config, afterPhysics);
-    case "stand-up": return standUp(own, view, world, config);
+    case "ground-fight": if (!afterPhysics) throw new Error("ground fighting needs completed body observations"); return groundFight(own, view, clock, config, afterPhysics);
+    case "stand-up": return standUp(own, view, clock, config);
     case "lie": return lying(own, view);
-    case "support-recovery": return supportRecovery(own, view, world);
-    case "research-rise": return researchRise(own, view, world);
+    case "support-recovery": return supportRecovery(own, view, clock);
+    case "research-rise": return researchRise(own, view, clock);
     default: return unknownKind(config);
   }
 }
 
 /** `configs`' sub-minds as a body takes them (`BodyOptions.subs`). */
 export const subMindsOf = (configs: readonly SubMindConfig[]): readonly SubMindMaker[] =>
-  configs.map((config) => (own: OwnBody, view: BodyView, world: World, afterPhysics: Body["afterPhysics"]) => subMind(own, view, config, world, afterPhysics));
+  configs.map((config) => (own: OwnBody, view: BodyView, clock: Clock, afterPhysics: Body["afterPhysics"]) => subMind(own, view, config, clock, afterPhysics));
 
 /** A config's kind no maker knows: a compile error where the union is known, and a thrown one for a config read from a save or a link. */
 function unknownKind(config: never): never {

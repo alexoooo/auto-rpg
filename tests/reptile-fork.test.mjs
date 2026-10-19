@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createQuadrupedMind } from "../src/core/reptile/mind.ts";
+import { quadrupedMind } from "../src/core/reptile/mind.ts";
+import { hostedMind } from "../src/core/mind/host.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { watchBlows } from "../src/core/rules/blows.ts";
 import { createPool } from "../src/core/rules/pool.ts";
@@ -15,9 +16,9 @@ import { assertForks, forks, PHYSICS_ALONE, STATE_ALONE } from "./harness/fork.m
 async function rig(mode) {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", joints: mode === "bite" ? { jaw: [.3] } : undefined,
     ...(mode === "recover" ? { rotation: [0, 0, 1, 0], position: [0, .34, 0] } : {}) });
-  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => mode === "bite"
+  const mind = hostedMind(stand.built, stand.world, { orders: () => mode === "bite"
     ? STAND_ORDERS
-    : mode === "recover" ? STAND_ORDERS : stand.world.time < 10 ? { move: { x: 0, z: 1 }, face: { x: 0, z: 1 } } : STAND_ORDERS, ...(mode === "bite" ? { biteTarget: () => stand.world.time < 1 ? [0, .215, .495] : null } : {}) });
+    : mode === "recover" ? STAND_ORDERS : stand.world.time < 10 ? { move: { x: 0, z: 1 }, face: { x: 0, z: 1 } } : STAND_ORDERS, ...(mode === "bite" ? { biteTarget: () => stand.world.time < 1 ? [0, .215, .495] : null } : {}) }, (host, wiring) => quadrupedMind(host, wiring));
   const body = mind.body, host = body.state.mind.host;
   const seen = new Set();
   return { world: stand.world, builts: [stand.built], states: { body: body.state }, seen,
@@ -54,8 +55,8 @@ async function sensedBite() {
   const hub = createSenses(stand.world), see = hub.add({ id: "mine", side: "one", built: stand.built, out: () => false });
   hub.add({ id: "target", side: "two", built: target, out: () => false });
   const parts = new Map([...target.segments.values()].map(segment => [segment.body, segment.spec.name]));
-  const mind = createQuadrupedMind(stand.built, stand.world, { senses: see,
-    contactIdentity: other => parts.has(other) ? { kind: "body", body: "target", segment: parts.get(other), guard: false } : { kind: "world" } }),
+  const mind = hostedMind(stand.built, stand.world, { senses: see,
+    contactIdentity: other => parts.has(other) ? { kind: "body", body: "target", segment: parts.get(other), guard: false } : { kind: "world" } }, (host, wiring) => quadrupedMind(host, wiring)),
     body = mind.body, host = body.state.mind.host, seen = new Set();
   const rules = rulebook("arena"), mine = createPool(stand.built.spec, rules), theirs = createPool(target.spec, rules);
   const blows = watchBlows(stand.world, [{ id: "mine", side: "one", built: stand.built, pool: mine },

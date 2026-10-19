@@ -4,12 +4,11 @@ import { uprightness } from "../control/ground.ts";
 import { effectorTracker } from "../control/effector-tracker.ts";
 import { rootFrameToRef, intoFrameToRef } from "../control/kinematics.ts";
 import { motionAtToRef, turnOfToRef } from "../control/support.ts";
-import { hostedBody } from "../mind/hosted.ts";
+import type { BodyHost } from "../mind/host.ts";
 import type { MindWiring } from "../mind/minds.ts";
 import type { HostMind } from "../mind/sub-mind.ts";
 import type { Senses } from "../mind/senses.ts";
 import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
-import type { World } from "../world.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import { crawl, soleGoal, type QuadrupedView } from "./crawl.ts";
@@ -19,7 +18,6 @@ import { recover } from "./recover.ts";
 import { bite } from "./bite.ts";
 import { quadrupedTactics } from "./tactics.ts";
 import { effectorFeedback } from "../control/effector-feedback.ts";
-import type { BuiltBody } from "../build/build-body.ts";
 
 /**
  * Whether the quadruped mind can drive a body of `spec`: three or more effectors it stands on, so
@@ -37,12 +35,12 @@ export function quadrupedFits(spec: BodySpec): boolean {
 }
 
 /** A quadruped mind drives its own support chains through the common floating-base solve. */
-export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Partial<MindWiring> & { readonly biteTarget?: Parameters<typeof quadrupedTactics>[3] } = {}, tuning: { crawl: typeof REPTILE_CRAWL; trot: typeof REPTILE_TROT; motor: typeof REPTILE_MOTOR; travel: typeof REPTILE_TRAVEL; bite?: typeof REPTILE_BITE } = { crawl: REPTILE_CRAWL, trot: REPTILE_TROT, motor: REPTILE_MOTOR, travel: REPTILE_TRAVEL }) {
+export function quadrupedMind(host: BodyHost, wiring: Partial<MindWiring> & { readonly biteTarget?: Parameters<typeof quadrupedTactics>[3] } = {}, tuning: { crawl: typeof REPTILE_CRAWL; trot: typeof REPTILE_TROT; motor: typeof REPTILE_MOTOR; travel: typeof REPTILE_TRAVEL; bite?: typeof REPTILE_BITE } = { crawl: REPTILE_CRAWL, trot: REPTILE_TROT, motor: REPTILE_MOTOR, travel: REPTILE_TRAVEL }) {
   const orders = wiring.orders ?? ((): null => null);
-  const upright = uprightness(built), down = (): boolean => upright.down();
   // The paws, in the order the crawl lifts them: the effectors the spec says it stands on.
-  const paws: readonly SupportEndpoint[] = (built.spec.effectors ?? []).filter(e => e.support).map(e => ({ segment: e.segment, point: e.point, sole: e.support === "sole" }));
-  const body = hostedBody(built, world, wiring, (own, senses) => {
+  const paws: readonly SupportEndpoint[] = (host.spec.effectors ?? []).filter(e => e.support).map(e => ({ segment: e.segment, point: e.point, sole: e.support === "sole" }));
+  host.hosted((own, senses) => {
+    const built = own.built, upright = uprightness(built), down = (): boolean => upright.down();
     const motor = supportedMotor(own, paws, tuning.motor), skill = trot(own, motor, paws.map(p => p.segment), tuning.trot);
     const creep = crawl(own, motor, paws.map(p => p.segment), tuning.crawl);
     const gait = { kind: "trot" as "trot" | "crawl", reacquire: false, homeAt: 0, stable: 0 };
@@ -126,5 +124,5 @@ export function createQuadrupedMind(built: BuiltBody, world: World, wiring: Part
     // Down as the mind read it at its look, as every body answers: `docs/reference/down-timing.md`.
     return { host, subs: [recover(own, motor, tracker, paws, view)], down: () => look.down };
   });
-  return { kind: "quadruped" as const, body, state: {} };
+  return { kind: "quadruped" as const, state: {} };
 }

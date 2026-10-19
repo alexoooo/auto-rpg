@@ -10,7 +10,7 @@ import { turnAboutToRef } from "../math/turn.ts";
 import type { BodySpec, Side } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
-import type { World } from "../world.ts";
+import type { Clock } from "../clock.ts";
 import { ATTACK_PATH } from "./attack-path.ts";
 import { guardPosture } from "./guard.ts";
 import { placedHeightFits, placedReach, type StrikeReport } from "./strike.ts";
@@ -152,11 +152,11 @@ export function wholeBodyFits(spec: BodySpec): boolean {
  * `returned` m of there or the blow's `cycle` is up. A blow begins as the path strike's does, not
  * before `startup` s of the body's time (`BodyView.born`) and `hold` s after the last ended (`ATTACK_PATH`).
  */
-function wholeBodyTechnique(body: Body, world: World, drive: WholeBodyDrive, returnsHome = false) {
+function wholeBodyTechnique(body: Body, clock: Clock, drive: WholeBodyDrive, returnsHome = false) {
   const built = body.built, spec = built.spec, muscles = body.muscles, guard = guardPosture(spec), { punch } = WHOLE_BODY;
   if (!wholeBodyFits(spec)) throw new Error(`${spec.model} cannot take the whole-body strike`);
   const tracking = wholeBodyTracking(built, muscles, built.physics.gravity, [], [], { capacity: WHOLE_BODY.capacity, effortCost: WHOLE_BODY.effortCost,
-    contact: { physics: built.physics, settings: WHOLE_BODY.contact, dt: world.dt } });
+    contact: { physics: built.physics, settings: WHOLE_BODY.contact, dt: clock.dt } });
   const model = deepFreeze({ channels: muscles.channels.map((c) => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value })),
     frames: [...built.segments.keys()].map((name) => ({ kind: "segment" as const, name })) });
   const segments = model.frames, pelvis = built.segments.get("lowerTrunk")!, chest = built.segments.get("upperTrunk")!;
@@ -317,9 +317,9 @@ function wholeBodyTechnique(body: Body, world: World, drive: WholeBodyDrive, ret
 }
 
 /** Whole-body action commands are the result of one solve during admission or elapsed update. */
-export function wholeBodyExecutor(body: Body, world: World, actions: readonly string[], drive: WholeBodyDrive,
+export function wholeBodyExecutor(body: Body, clock: Clock, actions: readonly string[], drive: WholeBodyDrive,
   resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null = (_view, target) => target.kind === "point" ? target.at : null): Executor {
-  const technique = wholeBodyTechnique(body, world, drive, true), motion = technique.state;
+  const technique = wholeBodyTechnique(body, clock, drive, true), motion = technique.state;
   const footprint = Object.freeze(["hand.left", "hand.right", "trunk", "legs"]);
   const state = { motion, pushes: [] as readonly MusclePush[], cooldown: 0,
     live: null as null | { request: ActionRequest; hand: Side; phase: "prepare" | "commit" | "release"; stage: string; elapsed: number;

@@ -12,7 +12,7 @@ import { humanSpec } from "../../human/spec.ts";
 import { guardPosture } from "../../skills/guard.ts";
 import { deepFreeze } from "../../state.ts";
 import type { BodySpec } from "../../spec/body.ts";
-import type { World } from "../../world.ts";
+import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../mind.ts";
 import { riseLimbs, type RiseLimbs } from "../rise/limbs.ts";
 import { RISE } from "../rise/stages.ts";
@@ -47,7 +47,7 @@ export function plantPostures(spec: BodySpec) {
 }
 
 /** One route with retained hand support, a flat lead foot, weight transfer, extension and quiet standing. */
-export function plantUp(own: OwnBody, view: BodyView, _world: World, tuning: PlantUpTuning = PLANT_UP): TechniqueRun {
+export function plantUp(own: OwnBody, view: BodyView, _clock: Clock, tuning: PlantUpTuning = PLANT_UP): TechniqueRun {
   const muscles = own.muscles, postures = plantPostures(own.spec), drive = poseDrive(muscles), clock = phaseClock();
   const phases: readonly Phase[] = ["brace", "plant", "transfer", "rise", "steady"];
   const goals = Object.fromEntries(phases.map(phase => [phase, deepFreeze({ ...postures[phase], ...Object.fromEntries(

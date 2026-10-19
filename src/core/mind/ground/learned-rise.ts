@@ -3,7 +3,7 @@ import type { BodyView } from "../../body.ts";
 import { recoveryNetwork } from "../../control/recovery-network.ts";
 import { cos, sin } from "../../math/real.ts";
 import { deepFreeze } from "../../state.ts";
-import type { World } from "../../world.ts";
+import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../mind.ts";
 import { RISE_STEER_KEYS, type RiseSteer } from "../rise/staged.ts";
 import { stepUp, type StepUpRise } from "./step-up.ts";
@@ -84,12 +84,12 @@ export function riseSteerFrom(actions: readonly number[], steer: RiseSteer): Ris
  * given to each of step up's rises. With no policy what is asked is set from outside, as a
  * policy's training sets it; nought, it is step up.
  */
-export function learnedRise(own: OwnBody, view: BodyView, world: World, policy: RisePolicy | null = RISE_POLICIES[own.spec.model] ?? null): TechniqueRun & {
+export function learnedRise(own: OwnBody, view: BodyView, clock: Clock, policy: RisePolicy | null = RISE_POLICIES[own.spec.model] ?? null): TechniqueRun & {
   readonly state: { readonly asked: RiseSteer; readonly steer: RiseSteer; readonly steps: number };
   readonly up: ReturnType<typeof stepUp>;
 } {
   if (policy !== null && policy.actions !== RISE_STEER_KEYS.length) throw new Error(`a learned rise's policy gives ${RISE_STEER_KEYS.length} actions`);
-  const up = stepUp(own, view, world), act = policy === null ? null : recoveryNetwork(policy), features: number[] = [];
+  const up = stepUp(own, view, clock), act = policy === null ? null : recoveryNetwork(policy), features: number[] = [];
   const nought = () => Object.fromEntries(RISE_STEER_KEYS.map((key) => [key, 0])) as unknown as RiseSteer;
   const state = { up: up.state, asked: nought(), steer: nought(), steps: 0 };
   return {

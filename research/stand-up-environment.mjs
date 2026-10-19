@@ -154,7 +154,7 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
   };
   const body = createBody(built, world, { ...fighterBody(config, wiring), subs: [recovery] });
   let skills;
-  const actor = { body, world, drive(script) { return skills = driveFighter(body, world, config, { ...wiring, script }); }, dispose() { body.dispose(); } };
+  const actor = { body, world, drive(script) { return skills = driveFighter(body.driver, world, config, { ...wiring, script }); }, dispose() { body.dispose(); } };
   const stance = startStance(actor);
   const observe = observeBody(built, body.muscles, world, clockSenses(world), undefined, () => body.down, true);
   const root = built.segments.get('lowerTrunk');

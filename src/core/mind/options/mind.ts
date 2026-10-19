@@ -1,7 +1,7 @@
-import { commandable, createBody } from "../../body.ts";
+import { commandable } from "../../body.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
-import type { World } from "../../world.ts";
+import type { BodyHost } from "../host.ts";
 import { COMBINATION } from "../../skills/combination.ts";
 import { COUNTER_PUNCHER, MOVE, SCRAPPER, STAND_UP, type ActionConfig, type FighterConfig, type OptionsConfig, type SubMindConfig } from "../config.ts";
 import { actionConfigFaults } from "../action-config.ts";
@@ -24,7 +24,6 @@ import { situationReader } from "./situation.ts";
 import { strike } from "./strike.ts";
 import { CLINCH, WEIGHTS } from "./value.ts";
 import { walker } from "./walk.ts";
-import type { BuiltBody } from "../../build/build-body.ts";
 
 /** Its blow at a low foe: the Scrapper's, thrown from low support. */
 const LOW = (() => {
@@ -122,8 +121,8 @@ export const optionsFit = (spec: BodySpec): boolean => commandable(spec) && acti
  * body asks whether it wants the body each step once it has looked and before its command layers act
  * (`hosting`), else the tactics. So what the body does, down or standing, is the one decision's.
  */
-export function createOptionsFighter(built: BuiltBody, world: World, config: OptionsConfig, wiring: MindWiring) {
-  const walk = walker(built.spec), reader = situationReader(built.spec, (sight) => wiring.orders(sight.view.senses));
+export function createOptionsFighter(host: BodyHost, config: OptionsConfig, wiring: MindWiring) {
+  const walk = walker(host.spec), reader = situationReader(host.spec, (sight) => wiring.orders(sight.view.senses));
   let sight: Sight | null = null, meta: ReturnType<typeof metaController> | null = null;
   // The situation is read once a step, by whichever asks first; it is of the step's view, so nothing of it outlives the step.
   let read: Situation | null = null;
@@ -133,7 +132,7 @@ export function createOptionsFighter(built: BuiltBody, world: World, config: Opt
   const running = () => { const chosen = meta && meta.state.running >= 0 ? options[meta.state.running]! : null; return chosen?.posture === "down" ? downs.find((down) => down === chosen) ?? null : null; };
   const aimed = config.tuning?.body === true ? BODY_SKILLS : SKILLS, opening = config.tuning?.opening === false ? aimed : OPENED.get(aimed)!;
   const drives = config.tuning?.driven === true ? DRIVEN_KITS.get(opening)! : opening, kit = config.tuning?.hold === true ? HELD_KITS.get(drives)! : drives;
-  const body = createBody(built, world, { ...fighterBody(kit, wiring), subs: [(own, view, w, afterPhysics) => {
+  const body = host.command({ ...fighterBody(kit, wiring), subs: [(own, view, w, afterPhysics) => {
     for (const [name, sub, model] of DOWN) downs.push(downOption(name, subMind(own, view, sub, w, afterPhysics), half, model));
     return downHalf(downs, running, decide, half);
   }] });
@@ -145,7 +144,7 @@ export function createOptionsFighter(built: BuiltBody, world: World, config: Opt
     followOrders(walk),
     setDistance({ name: "break the clinch", foe: "standing", to: "centre", near: CLINCH.within, far: Infinity, correcting: true, facing: "foe", slant: CLINCH_SLANT }, walk),
     ...strikeNow,
-    strikeLow(LOW, built.spec, walk),
+    strikeLow(LOW, host.spec, walk),
     evade(walk),
     holdEdge(EDGE, walk, (now) => strikeNow.some((option) => option.available(now))),
     ...standing.map((action) => strike(action, walk, true, throws(action))),
@@ -163,7 +162,7 @@ export function createOptionsFighter(built: BuiltBody, world: World, config: Opt
       return reflexes.apply(now, { ...asked, move: walk.constrain(now, asked.move, near), guard: NO_COVER });
     } };
   let skills: Skills;
-  skills = driveBy(body.driver, tactics, (made, driving) => fighterSkills(made, world, kit, driving, () => skills?.report.ledger ?? []));
+  skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, host.clock, kit, driving, () => skills?.report.ledger ?? []));
   sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, instance: skills.instance, readiness: skills.readiness };
-  return { kind: "fighter" as const, body, skills, state: skills.state };
+  return { kind: "fighter" as const, skills, state: skills.state };
 }

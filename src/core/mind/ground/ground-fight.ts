@@ -5,7 +5,7 @@ import { skillSet } from "../../skills/arbiter.ts";
 import { guardSkill } from "../../skills/guard.ts";
 import type { Locomotion } from "../../skills/locomotion.ts";
 import type { Side } from "../../spec/body.ts";
-import type { World } from "../../world.ts";
+import type { Clock } from "../../clock.ts";
 import { actionProducer } from "../action-producer.ts";
 import type { GroundFightConfig } from "../config.ts";
 import { standIntent } from "../intent.ts";
@@ -18,7 +18,7 @@ import { GROUND_LEGS, groundKick } from "./ground-kick.ts";
 import { rootSegment } from "../../read-body.ts";
 
 /** Cover and ground footwork surround a named supine kick on the body's shared action compositor. */
-export function groundFight(own: OwnBody, view: BodyView, _world: World, config: GroundFightConfig, afterPhysics: Body["afterPhysics"]): SubMind {
+export function groundFight(own: OwnBody, view: BodyView, _clock: Clock, config: GroundFightConfig, afterPhysics: Body["afterPhysics"]): SubMind {
   const tracker = effectorTracker(own.built, rootSegment(own.built)), posture: Record<string, number> = {};
   const legs: Locomotion = { state: {}, heading: 0, pace: 0, reference: null, placed: true, envelope: null,
     resume() {}, goal() { return null; }, place() { return null; }, drive() { return { kind: "drive", posture: config.kicks === "none" ? {} : GROUND_LEGS, pushes: [] }; } };

@@ -1,4 +1,4 @@
-import { commandable, createBody, SERVO_SECONDS, type Body, type BodyOptions } from "../body.ts";
+import { commandable, SERVO_SECONDS, type Body, type BodyOptions } from "../body.ts";
 import { skillSet } from "../skills/arbiter.ts";
 import { guardSkill } from "../skills/guard.ts";
 import { holdUp } from "../skills/hold.ts";
@@ -15,7 +15,8 @@ import { GAIT_NAMES, GAITS, type GaitName } from "../skills/gaits.ts";
 import { distanceRule, move, standingRule, type MoveGait, type MoveRule } from "../skills/move.ts";
 import { supportFold } from "../skills/support-fold.ts";
 import { deepFreeze } from "../state.ts";
-import type { World } from "../world.ts";
+import type { Clock } from "../clock.ts";
+import type { BodyHost } from "./host.ts";
 import { MOVE, type ActionConfig, type FighterConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type SimbiconConfig, type WalkRunConfig, type LearnedRunConfig, type MoveConfig, type MoveRuleConfig, type LocomotionConfig } from "./config.ts";
 import { actionConfigFaults, configuredActionEstimates, configuredExecutors } from "./action-config.ts";
 import { choice, type PartField } from "./fields.ts";
@@ -25,7 +26,6 @@ import { slotList, type Part } from "./parts.ts";
 import { subMindsOf } from "./sub-minds.ts";
 import { tacticsOf } from "./tactics-of.ts";
 import { driveBy, type Tactics } from "./tactics.ts";
-import type { BuiltBody } from "../build/build-body.ts";
 
 /** A skill part of no settings: its role, what it is called, its stage, its config and what is wrong with one. */
 const skill = <C extends SkillConfig>(role: Part["role"], label: string, stage: Part["stage"], defaults: C, faults: (config: C) => readonly string[] = () => []): Part<C> =>
@@ -197,29 +197,29 @@ export function fighterBody(config: FighterConfig, wiring: MindWiring): BodyOpti
 }
 
 /** Named executors are built once; behaviours select actions without rebuilding motion state. */
-export function driveFighter(body: Body, world: World, config: FighterConfig, wiring: MindWiring, around: (tactics: Tactics) => Tactics = tactics => tactics): Skills {
+export function driveFighter(body: Body, clock: Clock, config: FighterConfig, wiring: MindWiring, around: (tactics: Tactics) => Tactics = tactics => tactics): Skills {
   const faults = actionConfigFaults(body.built.spec, config.executors, config.actions);
   if (faults.length) throw new Error(faults.join("; "));
   const tactics = tacticsOf(config.tactics, body.built.spec, wiring.name, config.actions,
     sight => wiring.orders(sight.view.senses), wiring.script, configuredActionEstimates(body.built.spec, config.executors, config.actions));
   let skills: Skills;
-  skills = driveBy(body, around(tactics), (made, driving) => fighterSkills(made, world, config, driving, () => skills?.report.ledger ?? []));
+  skills = driveBy(body, around(tactics), (made, driving) => fighterSkills(made, clock, config, driving, () => skills?.report.ledger ?? []));
   return skills;
 }
 
 /** The skills `config` names for `made`, under `driving`: its legs, guard, low support and executors, its actions read through `ledger`. */
-export function fighterSkills(made: Body, world: World, config: FighterConfig, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[]): Skills {
+export function fighterSkills(made: Body, clock: Clock, config: FighterConfig, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[]): Skills {
   return skillSet(made, driving, {
     legs: legsOf(made, config.locomotion), guard: guardSkill(made.built.spec, config.guard.tuning?.covering),
     support: config.support ? supportFold(made) : null, hold: config.guard.tuning?.hold === true ? holdUp(made.built) : null,
-    executors: configuredExecutors(made, world, config.executors, config.actions, ledger),
+    executors: configuredExecutors(made, clock, config.executors, config.actions, ledger),
     actions: config.actions,
   });
 }
 
 /** **A fighter**: its body and sub-minds (`fighterBody`), driven by its tactics over its skills (`driveFighter`). */
-export function createFighter(built: BuiltBody, world: World, config: FighterConfig, wiring: MindWiring) {
-  const body = createBody(built, world, fighterBody(config, wiring));
-  const skills = driveFighter(body.driver, world, config, wiring);
-  return { kind: "fighter" as const, body, skills, state: skills.state };
+export function createFighter(host: BodyHost, config: FighterConfig, wiring: MindWiring) {
+  const body = host.command(fighterBody(config, wiring));
+  const skills = driveFighter(body, host.clock, config, wiring);
+  return { kind: "fighter" as const, skills, state: skills.state };
 }

@@ -1,7 +1,8 @@
 import { pathToFileURL } from "node:url";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import { reptileSpec } from "../src/core/reptile/spec.ts";
-import { createQuadrupedMind } from "../src/core/reptile/mind.ts";
+import { quadrupedMind } from "../src/core/reptile/mind.ts";
+import { hostedMind } from "../src/core/mind/host.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { coreStand } from "../tests/harness/core-stand.mjs";
 
@@ -20,7 +21,7 @@ export async function recoveryTrial(pose, yaw = 0) {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", groundSize: 100, ...fixture,
     rotation: heading.multiply(new Quaternion(...fixture.rotation)).asArray() });
   let orders = STAND_ORDERS, handoff = null, start = null, support = null, falls = 0;
-  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => orders }), host = mind.body.state.mind.host, recovery = mind.body.state.mind.subs[0];
+  const mind = hostedMind(stand.built, stand.world, { orders: () => orders }, (host, wiring) => quadrupedMind(host, wiring)), host = mind.body.state.mind.host, recovery = mind.body.state.mind.subs[0];
   try {
     for (let step = 0; step < 160 * stand.world.hz; step++) {
       stand.step();

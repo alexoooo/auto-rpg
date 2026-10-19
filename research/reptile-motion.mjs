@@ -2,7 +2,8 @@ import { biteMeter } from "./bite-work.mjs";
 import { pathToFileURL } from "node:url";
 import { coreStand, freshEngine } from "../tests/harness/core-stand.mjs";
 import { reptileSpec } from "../src/core/reptile/spec.ts";
-import { createQuadrupedMind } from "../src/core/reptile/mind.ts";
+import { quadrupedMind } from "../src/core/reptile/mind.ts";
+import { hostedMind } from "../src/core/mind/host.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { buildBout } from "./bout.mjs";
 import { REPTILE_CRAWL, REPTILE_TROT, REPTILE_MOTOR, REPTILE_TRAVEL } from "../src/core/reptile/tuning.ts";
@@ -11,7 +12,7 @@ import { REPTILE_CRAWL, REPTILE_TROT, REPTILE_MOTOR, REPTILE_TRAVEL } from "../s
 export async function motionTrial(tuning, direction = [0, 1], seconds = 10, yaw = 0) {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", groundSize: 100, rotation: [0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)] });
   let orders = STAND_ORDERS;
-  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => orders }, tuning);
+  const mind = hostedMind(stand.built, stand.world, { orders: () => orders }, (host, wiring) => quadrupedMind(host, wiring, tuning));
   try {
     stand.step(240);
     const start = mind.body.observe().centre;

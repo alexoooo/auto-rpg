@@ -1,17 +1,16 @@
 import { commandable } from "../body.ts";
-import type { BuiltBody } from "../build/build-body.ts";
 import type { Pose } from "../control/motor.ts";
 import { REPTILE_BITE, REPTILE_CRAWL, REPTILE_TROT, REPTILE_MOTOR, REPTILE_TRAVEL } from "../reptile/tuning.ts";
-import { createQuadrupedMind, quadrupedFits } from "../reptile/mind.ts";
+import { quadrupedMind, quadrupedFits } from "../reptile/mind.ts";
 import { guardPosture } from "../skills/guard.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
-import type { World } from "../world.ts";
 import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, OPTIONS, PUNCHER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type DirectMindConfig, type MindConfig, type OptionsConfig } from "./config.ts";
-import { createDirectBody, directFaults } from "./direct.ts";
+import { directFaults, directPolicy } from "./direct.ts";
 import { createFighter, fighterFaults } from "./fighter.ts";
 import { actionConfigFaults } from "./action-config.ts";
-import type { Minded, MindWiring } from "./minds.ts";
+import type { MindMade, MindWiring } from "./minds.ts";
+import type { BodyHost } from "./host.ts";
 import { slotList, slotOne, type Part, type Slot } from "./parts.ts";
 import { createOptionsFighter, optionsFit } from "./options/mind.ts";
 import { OBEDIENCE, TERMS, WEIGHTS } from "./options/value.ts";
@@ -19,7 +18,8 @@ import type { PartField } from "./fields.ts";
 
 /**
  * **A controller**: a kind of mind, as a part (`Part`) of role `mind`, with its named configs, the
- * posture its body is built in and how it is made.
+ * posture its body is built in and how it is made: from a host of its body (`BodyHost`), never the
+ * world or the built body, its config and the fight's wiring.
  */
 interface Controller<C extends MindConfig> extends Part<C> {
   /** Its named configs, by the id the Arena's picker and a link's `control=` use; ids are unique across controllers. */
@@ -30,7 +30,7 @@ interface Controller<C extends MindConfig> extends Part<C> {
    * spec's reference pose.
    */
   builtIn(spec: BodySpec, config: C): Pose;
-  create(built: BuiltBody, world: World, config: C, wiring: MindWiring): Minded;
+  create(host: BodyHost, config: C, wiring: MindWiring): MindMade;
 }
 
 /** The joint-feedback mind as it starts, a numeric setting: no target named, so every joint is driven to zero, within its range. */
@@ -106,7 +106,7 @@ export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extra
         ? [`invalid bite setting ${key}`] : []),
     presets: deepFreeze({ crawl: { label: "Crawl and bite", config: QUADRUPED } }),
     builtIn: () => REFERENCE,
-    create: (built, world, config, wiring) => createQuadrupedMind(built, world, wiring,
+    create: (host, config, wiring) => quadrupedMind(host, wiring,
       { crawl: REPTILE_CRAWL, trot: REPTILE_TROT, motor: REPTILE_MOTOR, travel: REPTILE_TRAVEL,
         bite: deepFreeze({ ...REPTILE_BITE, ...config.tuning?.bite }) }),
   },
@@ -116,7 +116,7 @@ export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extra
     faults: directFaults,
     presets: {},
     builtIn: () => REFERENCE,
-    create: (built, world, config, wiring) => ({ kind: "direct", body: createDirectBody(built, world, config, wiring), state: {} }),
+    create: (host, config) => { host.policy(directPolicy(config)); return { kind: "direct", state: {} }; },
   },
 });
 

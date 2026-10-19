@@ -7,7 +7,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { biteTrial } from "../research/reptile-bite.mjs";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
-import { createQuadrupedMind } from "../src/core/reptile/mind.ts";
+import { quadrupedMind } from "../src/core/reptile/mind.ts";
+import { hostedMind } from "../src/core/mind/host.ts";
 import { reptileSpec } from "../src/core/reptile/spec.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -42,7 +43,7 @@ test("a closing jaw strikes during its fast motion and releases after cancellati
 test("the trot travels quickly, stops, reverses and turns on physical paw landings", async () => {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", groundSize: 100 });
   let orders = STAND_ORDERS, biteAt = null;
-  const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => orders });
+  const mind = hostedMind(stand.built, stand.world, { orders: () => orders }, (host, wiring) => quadrupedMind(host, wiring));
   const host = mind.body.state.mind.host, crawl = host.crawl;
   const groups = [[0, 1], [2, 3]];
   const run = seconds => {

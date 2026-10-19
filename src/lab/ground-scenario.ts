@@ -57,7 +57,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
     mind: (chosen) => risingBy(chosen, address.ground.rise),
     subs(next) {
       const name = next.ground.drive;
-      return name === "mind" ? undefined : [(own, view, world) => groundTechnique(name, own, view, world, next.ground.start !== "shoved")];
+      return name === "mind" ? undefined : [(own, view, clock) => groundTechnique(name, own, view, clock, next.ground.start !== "shoved")];
     },
     placement(spec, next) {
       address = next; shown = null; fault = "";
