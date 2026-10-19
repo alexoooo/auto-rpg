@@ -7,9 +7,10 @@
  *
  *   node research/run-learning-server.mjs <configuration.json>
  *
- * The configuration is the environment's (`runEnvironment`) with `workers`, `each`, and `models`,
- * `holds` and `hastes`, whose every combination the environments take in turn; environment i is
- * seeded `seed + i`.
+ * The configuration is the environment's (`runEnvironment`, or the learned rise's
+ * `riseEnvironment` with `"environment": "rise"`) with `workers`, `each`, and `models`, `holds`
+ * and `hastes`, whose every combination the environments take in turn; environment i is seeded
+ * `seed + i`.
  */
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { createInterface } from 'node:readline';
@@ -17,9 +18,9 @@ import { readFileSync } from 'node:fs';
 
 if (!isMainThread) {
   console.log = (...args) => process.stderr.write(args.join(' ') + '\n');
-  const { runEnvironment } = await import('./run-learning-environment.mjs');
+  const make = workerData[0].environment === 'rise' ? (await import('./rise-learning-environment.mjs')).riseEnvironment : (await import('./run-learning-environment.mjs')).runEnvironment;
   const envs = [];
-  for (const configuration of workerData) envs.push(await runEnvironment(configuration));
+  for (const { environment: _, ...configuration } of workerData) envs.push(await make(configuration));
   parentPort.postMessage({ ready: true, observationSize: envs[0].observationSize, actionSize: envs[0].actionSize });
   parentPort.on('message', ({ op, actions }) => {
     try {
@@ -36,10 +37,10 @@ if (!isMainThread) {
   });
 } else {
   const configuration = JSON.parse(readFileSync(process.argv[2], 'utf8'));
-  const { workers: count = 8, each = 1, hastes = [0], models = ['workshop-fighter'], holds = ['empty'], seed = 1, ...rest } = configuration;
+  const { workers: count = 8, each = 1, hastes = [0], environment = 'run', models = ['workshop-fighter'], holds = ['empty'], seed = 1, ...rest } = configuration;
   const kinds = models.flatMap((model) => holds.flatMap((held) => hastes.map((haste) => ({ model, held, haste }))));
   const workers = Array.from({ length: count }, (_, w) => {
-    const configurations = Array.from({ length: each }, (_, k) => { const i = w * each + k; return { ...rest, seed: seed + i, ...kinds[i % kinds.length] }; });
+    const configurations = Array.from({ length: each }, (_, k) => { const i = w * each + k; return { ...rest, environment, seed: seed + i, ...kinds[i % kinds.length] }; });
     const worker = new Worker(new URL(import.meta.url), { workerData: configurations });
     let waiting = null;
     worker.on('message', (m) => { const w = waiting; waiting = null; w?.(m); });

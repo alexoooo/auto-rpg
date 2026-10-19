@@ -162,6 +162,9 @@ const STEADY_OFF = .3;
 type Entry = "whole" | keyof typeof JOINS;
 type Phase = "rise" | "steady";
 
+/** A rise step up plays, as its steer and progress are read from outside (`learnedRise`). */
+export type StepUpRise = ReturnType<typeof stagedRise>;
+
 /**
  * **Step up**: the staged recipe's route, its stages searched for speed. It lies still and reads its
  * lie, rolls onto its front, comes up onto hands and knees, kneels up, steps the left foot through
@@ -169,7 +172,10 @@ type Phase = "rise" | "steady";
  * on its hands and knees, or half kneeling, joins the route there when its supports bear. An
  * attempt the rise gives up, or one that falls from the stance, fails back to the supervisor.
  */
-export function stepUp(own: OwnBody, view: BodyView, _world: World, tuning: StepUpTuning = STEP_UP[own.spec.model as HumanoidModel]): TechniqueRun {
+export function stepUp(own: OwnBody, view: BodyView, _world: World, tuning: StepUpTuning = STEP_UP[own.spec.model as HumanoidModel]): TechniqueRun & {
+  /** Its rises, whole and joined part-way; the one it plays; and whether the rise is over and the stance steadies the body. */
+  readonly rises: readonly StepUpRise[]; readonly rise: StepUpRise; readonly steadying: boolean;
+} {
   const whole = stepUpRecipe(tuning), from = (stage: string): Recipe => ({ ...whole, rise: whole.rise.slice(whole.rise.findIndex(s => s.name === stage)) });
   const rises = { whole: stagedRise(own, view, whole), fours: stagedRise(own, view, from(JOINS.fours)), "half-kneel": stagedRise(own, view, from(JOINS["half-kneel"])) };
   const motor = motorControl(own.built, .1, guardPosture(own.spec));
@@ -188,6 +194,7 @@ export function stepUp(own: OwnBody, view: BodyView, _world: World, tuning: Step
   };
   return {
     state, get phase() { return state.phase === "steady" ? "steady" : `${rises[state.entry].state.phase}`; },
+    rises: [rises.whole, rises.fours, rises["half-kneel"]], get rise() { return rises[state.entry]; }, get steadying() { return state.phase === "steady"; },
     get yields() { return state.ended !== null || state.phase === "steady" || rises[state.entry].state.phase === "settle"; },
     admits(g, side) { return side === "left" && g.spin < 8 && g.velocity.lengthSquared() < 9 && g.position !== "standing" && g.position !== "crouch"; },
     reached,

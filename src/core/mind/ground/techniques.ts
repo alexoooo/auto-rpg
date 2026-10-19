@@ -12,10 +12,11 @@ import { rollBack } from "./roll-back.ts";
 import { sitUp } from "./sit-up.ts";
 import { postUp } from "./post-up.ts";
 import { stepUp } from "./step-up.ts";
+import { learnedRise } from "./learned-rise.ts";
 
 /** A physical event completes a technique; other ends remain failures in the bed. */
 export type TechniqueEnd = "done" | "failed" | "stalled" | "timed-out" | "interrupted";
-export type TechniqueName = "step-up" | "plant-up" | "roll" | "roll-back" | "sit-up" | "post-up";
+export type TechniqueName = "step-up" | "learned-rise" | "plant-up" | "roll" | "roll-back" | "sit-up" | "post-up";
 export interface TechniqueRun {
   readonly state: object;
   readonly phase: string;
@@ -110,6 +111,10 @@ export const TECHNIQUES: Readonly<Record<TechniqueName, TechniqueSpec>> = Object
     edges: Object.freeze((["front", "back", "left", "right", "fours", "half-kneel", "kneeling", "sitting", "between"] as const)
       .map(from => Object.freeze({ from, to: "standing" as const }))),
     fits: humanoid, make: stepUp }),
+  "learned-rise": Object.freeze({ label: "Learned rise", stage: "experimental", sides: Object.freeze(["left"] as const),
+    edges: Object.freeze((["front", "back", "left", "right", "fours", "half-kneel", "kneeling", "sitting", "between"] as const)
+      .map(from => Object.freeze({ from, to: "standing" as const }))),
+    fits: humanoid, make: learnedRise }),
   "plant-up": Object.freeze({ label: "Plant up", stage: "experimental", sides: Object.freeze(["left"] as const),
     edges: Object.freeze((["front", "fours", "half-kneel", "crouch"] as const).map(from => Object.freeze({ from, to: "standing" as const }))),
     fits: humanoid,

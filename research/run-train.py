@@ -1,9 +1,11 @@
-"""Train the learned run's policy with PPO (Stable-Baselines3) against the run's environments on
-Node worker threads (research/run-learning-server.mjs), and export it as the core reads it
-(src/core/skills/learned-run.ts, RunPolicy): ReLU layers, the observation's normalisation folded
-into the first, tanh on the outputs.
+"""Train a learned skill's policy with PPO (Stable-Baselines3) against its environments on Node
+worker threads (research/run-learning-server.mjs: the learned run's, or the learned rise's with
+"environment": "rise"), and export it as the core reads it (src/core/skills/learned-run.ts,
+RunPolicy; src/core/mind/ground/learned-rise.ts, RisePolicy): ReLU layers, the observation's
+normalisation folded into the first, tanh on the outputs. Each line of train.log has the mean of
+each of `--keywords` over the episodes lately ended, of those that have it.
 
-  .tools/ai-lab-venv/Scripts/python.exe research/run-train.py --config <configuration.json> --output <dir> [--steps N] [--resume]
+  .tools/ai-lab-venv/Scripts/python.exe research/run-train.py --config <configuration.json> --output <dir> [--steps N] [--resume] [--keywords stood,seconds]
 """
 import argparse
 import json
@@ -27,6 +29,7 @@ parser.add_argument('--resume', action='store_true')
 parser.add_argument('--threads', type=int, default=4)
 parser.add_argument('--log-std', type=float, default=-1.0)
 parser.add_argument('--lr', type=float, default=3e-4)
+parser.add_argument('--keywords', default='along,command,down', help='the episode infos train.log averages')
 options = parser.parse_args()
 output = Path(options.output); output.mkdir(parents=True, exist_ok=True)
 torch.set_num_threads(options.threads)
@@ -94,7 +97,8 @@ def export(model, normalize, path):
     path.write_text(json.dumps({'actions': int(model.action_space.shape[0]), 'layers': layers}))
 
 
-monitored = VecMonitor(RunEnvs(options.config), info_keywords=('along', 'command', 'down'))
+keywords = tuple(options.keywords.split(','))
+monitored = VecMonitor(RunEnvs(options.config), info_keywords=keywords)
 envs = VecNormalize(monitored, norm_obs=True, norm_reward=True, clip_obs=10.0, gamma=0.99)
 saved = output / 'model.zip'
 if options.resume and saved.exists():
@@ -116,7 +120,7 @@ while done < options.steps:
     model.save(str(saved)); envs.save(str(output / 'normalize.pkl')); export(model, envs, output / 'policy.json')
     line = {'steps': int(model.num_timesteps), 'minutes': round((time.monotonic() - started) / 60, 1),
             'return': round(float(np.mean([i['r'] for i in infos])), 2) if infos else None, 'length': round(float(np.mean([i['l'] for i in infos])), 1) if infos else None,
-            'short': round(float(np.mean([i['command'] - i['along'] for i in infos])), 2) if infos else None, 'down': round(float(np.mean([i['down'] for i in infos])), 3) if infos else None,
+            **{k: (round(float(np.mean([float(i[k]) for i in infos if i.get(k) is not None])), 3) if any(i.get(k) is not None for i in infos) else None) for k in keywords},
             'std': round(float(torch.exp(model.policy.log_std).mean()), 3)}
     log.write(json.dumps(line) + '\n'); log.flush(); print(json.dumps(line), flush=True)
 envs.close()

@@ -69,11 +69,12 @@ export function checkRecoveryAction(action, channels) {
 
 /**
  * A real Lab body and host with a research action override inside the ordinary muscle path. Its
- * baseline is the game's Stand up (`step-up`), or support recovery with an optional recipe; a
+ * baseline is the game's Stand up (`step-up`; `techniques`, of `registry` if given, in its place), or support recovery with an optional recipe; a
  * comparison may switch to the other built-in controller: Stand up against standard support
  * recovery, or an optimized support recipe against the standard one.
  */
-export async function recoveryEnvironment({ model = 'workshop-fighter', held = 'empty', baseline = 'support-recovery', spec: suppliedSpec, recipe, balance = 0, host = 'stance', comparison = false } = {}) {
+export async function recoveryEnvironment({ model = 'workshop-fighter', held = 'empty', baseline = 'support-recovery', spec: suppliedSpec, recipe, balance = 0, host = 'stance', comparison = false, techniques, registry } = {}) {
+  if ((techniques || registry) && baseline !== 'step-up') throw new Error('techniques belong to the stand-up');
   if (!['support-recovery', 'step-up'].includes(baseline)) throw new Error('unknown recovery baseline');
   if (!['stance','simbicon'].includes(host)) throw new Error('unknown recovery host');
   if (recipe && baseline !== 'support-recovery') throw new Error('a recipe belongs to support recovery');
@@ -97,7 +98,7 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
   const experiment = freshExperiment();
   let channels, legacy, port;
   const recovery = (own, view, into) => {
-    legacy = baseline === 'step-up' ? standUp(own, view, into, STAND_UP) : supportRecovery(own, view, into, recipe);
+    legacy = baseline === 'step-up' ? standUp(own, view, into, techniques ? { ...STAND_UP, techniques } : STAND_UP, registry) : supportRecovery(own, view, into, recipe);
     if (comparison) {
       const policies = baseline === 'step-up' ? { 'step-up': legacy, 'support-recovery': supportRecovery(own, view, into) }
         : { optimized: legacy, standard: supportRecovery(own, view, into) };
