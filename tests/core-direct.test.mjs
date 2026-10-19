@@ -111,6 +111,27 @@ test("a direct torque policy saturates at the same muscle bounds", async () => {
   } finally { body.dispose(); stand.dispose(); }
 });
 
+test("a policy asks its assist in its order sheet, given within the ceiling it is told, and a malformed ask is refused", async () => {
+  const stand = await coreStand(humanSpec("workshop-fighter"), { actuation: "directional" });
+  let told, ask = { force: [0, 1e6, 0], moment: [0, 0, -1e6] };
+  const body = createPolicyBody(stand.built, stand.world, (model) => {
+    told = model.assist;
+    return { name: "assisted", state: {}, step: () => ({ kind: "body", grips: [], assist: ask,
+      actuators: { kind: "velocity", activation: model.channels.map(() => 0), velocity: model.channels.map(() => 0) } }) };
+  }, { assist: { force: .1, moment: .05 } });
+  try {
+    assert.deepEqual(told, { force: body.assist.most.force, moment: body.assist.most.moment });
+    assert.ok(told.force > 0 && told.moment > 0);
+    stand.step();
+    const given = body.assist.given;
+    assert.deepEqual([given.force.x, given.force.z, given.moment.x, given.moment.y], [0, 0, 0, 0]);
+    assert.ok(Math.abs(given.force.y - told.force) < 1e-9 && Math.abs(given.moment.z + told.moment) < 1e-9, JSON.stringify({ given, told }));
+    assert.equal(body.assist.meter.steps, 1);
+    ask = { force: [0, NaN, 0], moment: [0, 0, 0] };
+    assert.throws(() => stand.step(), /invalid assist ask/);
+  } finally { body.dispose(); stand.dispose(); }
+});
+
 test("a game hosts a direct mind alongside its fighter and restores both", async () => {
   const stand = await coreStand(humanSpec("workshop-fighter"), { position: [100, 0, 0] });
   const duel = new Duel(stand.world, { left: "workshop-fighter", right: "workshop-rogue", minds: { left: config }, balance: { left: 0, right: 0 } });

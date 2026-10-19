@@ -1008,7 +1008,9 @@ geometry checks; the staged riser's predicted support model still needs replacem
 
 An independent policy can control separate equipment through an explicitly granted
 `mind/equipment-port.ts` capability. It receives immutable item/grip descriptions and detached
-observations. `BodyAction` combines actuator commands with capture/release requests; the host
+observations. `BodyAction` combines actuator commands with capture/release requests, hand poses
+and an ask of the body's assist (`AssistAsk`: a force and a moment about the root's centre of mass,
+shortened to the ceiling its model states); the host
 validates and copies the whole request before applying any component. Unknown or ungranted grips
 cannot partially apply an action, and capture still requires geometric reachability. Physics
 snapshots own attachment state, while the body's saved policy state owns its decisions. The
