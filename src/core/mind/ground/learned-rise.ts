@@ -1,3 +1,4 @@
+import trained from "../../../../assets/core/learned-rise.json" with { type: "json" };
 import type { BodyView } from "../../body.ts";
 import { recoveryNetwork } from "../../control/recovery-network.ts";
 import { cos, sin } from "../../math/real.ts";
@@ -39,7 +40,7 @@ interface RisePolicy {
 }
 
 /** The rise's trained policies, by the model whose body each was trained on. */
-const RISE_POLICIES: Readonly<Record<string, RisePolicy>> = deepFreeze({});
+const RISE_POLICIES: Readonly<Record<string, RisePolicy>> = deepFreeze({ "workshop-fighter": trained, "workshop-rogue": trained });
 
 /**
  * **What a rise's policy reads**, into `out`: how high the pelvis's left, up and forward point,
