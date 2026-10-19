@@ -3,9 +3,11 @@ worker threads (research/run-learning-server.mjs: the learned run's, or the lear
 "environment": "rise"), and export it as the core reads it (src/core/skills/learned-run.ts,
 RunPolicy; src/core/mind/ground/learned-rise.ts, RisePolicy): ReLU layers, the observation's
 normalisation folded into the first, tanh on the outputs. Each line of train.log has the mean of
-each of `--keywords` over the episodes lately ended, of those that have it.
+each of `--keywords` over the episodes lately ended, of those that have it. The latest policy is
+policy.json, and every `--keep` steps a copy stays as policy-<steps>.json: the training return
+does not choose a policy (a run's return can go on rising as its battery falls), its battery does.
 
-  .tools/ai-lab-venv/Scripts/python.exe research/run-train.py --config <configuration.json> --output <dir> [--steps N] [--resume] [--keywords stood,seconds]
+  .tools/ai-lab-venv/Scripts/python.exe research/run-train.py --config <configuration.json> --output <dir> [--steps N] [--keep N] [--resume] [--keywords stood,seconds]
 """
 import argparse
 import json
@@ -23,6 +25,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--config', required=True)
 parser.add_argument('--output', required=True)
 parser.add_argument('--steps', type=int, default=20_000_000)
+parser.add_argument('--keep', type=int, default=1_000_000, help='steps between the policies kept')
 parser.add_argument('--hidden', type=int, default=256)
 parser.add_argument('--rollout', type=int, default=256, help='decisions each environment gathers per update')
 parser.add_argument('--resume', action='store_true')
@@ -118,6 +121,8 @@ while done < options.steps:
     done += chunk
     infos = model.ep_info_buffer
     model.save(str(saved)); envs.save(str(output / 'normalize.pkl')); export(model, envs, output / 'policy.json')
+    if model.num_timesteps // options.keep > (model.num_timesteps - chunk) // options.keep:
+        export(model, envs, output / f'policy-{model.num_timesteps}.json')
     line = {'steps': int(model.num_timesteps), 'minutes': round((time.monotonic() - started) / 60, 1),
             'return': round(float(np.mean([i['r'] for i in infos])), 2) if infos else None, 'length': round(float(np.mean([i['l'] for i in infos])), 1) if infos else None,
             **{k: (round(float(np.mean([float(i[k]) for i in infos if i.get(k) is not None])), 3) if any(i.get(k) is not None for i in infos) else None) for k in keywords},
