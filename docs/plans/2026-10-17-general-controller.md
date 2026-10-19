@@ -238,9 +238,11 @@ momentum-planned run with flight the stage describes; the clip's stride cannot c
 step-up steered by a trained policy (`RISE_POLICIES`, the Warrior's and the Rogue's,
 `assets/core/learned-rise.json`): its stages' pace, their tolerances, the centre's place and
 height, the pelvis's pitch and the posture, eased over 0.2 s. Trained with a bonus for standing
-soon, on the target it stands 58 of 64 (the Warrior with the club 16 and empty 15, medians 9.1
-and 8.7 s; the Rogue 13 and 14, 14.9 and 12.2 s; all 64 at a median of 10.9 s, a failure counted
-at the 30 s cap): the 40 is met, the 9 s median only by the Warrior empty. Step-up's own time is about 2.4 s of rolling, 7.6 s of its 25
+soon, on the target it stands 62 of 64 (the Warrior with the club 16 and empty 15, medians 8.1
+and 8.1 s; the Rogue 15 and 16, 12.2 and 10.4 s; all 64 at a median of 10.3 s, a failure counted
+at the 30 s cap): the 40 is met, the 9 s median by the Warrior alone. Placed half kneeling, it
+stands in 2.5 s from one of the three placements and fails from another, where 5.5M of its
+training stood both: the training starts only from falls. Step-up's own time is about 2.4 s of rolling, 7.6 s of its 25
 stages and 2.5 s of steadying and handover, of which 1.3 to 1.8 s is the host's squaring step
 (the feet end 0.2 to 0.26 m apart against the body's 0.39 m), so the route's floor stays near
 9 s; the faster routes are closed by the body's stops (`docs/reference/postures.md`). Grit's
