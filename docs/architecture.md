@@ -36,7 +36,7 @@ read (`src/core/skills/skills.ts`).
 | Motor control | `src/core/control/` | joint goals, hand goals and the stance turned into muscle commands; a body borne on the ground through its limbs (`bearing.ts`), or the whole body solved at once (`solve.ts`) |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, face, strike, guard |
 | Tactics | `src/core/mind/tactics.ts`, `ordered.ts`, `targets.ts`, `recipe-tactics.ts`, `path-tactics.ts` | what the body should do, decided from what it sees |
-| Minds | `src/core/mind/config.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `rise/` | a body's mind made from its config, plain data by kind, by the controller of that kind; a riser that plays a recipe of stages |
+| Minds | `src/core/mind/config.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `rise/`; `src/core/entrants/` | a body's mind made from its config, plain data by kind, by the controller of that kind; a riser that plays a recipe of stages; a Mind of its own folder |
 
 `createBody` (`src/core/body.ts`) gives a built body the command layers as its mind
 (`commandMind`, hosting the sub-minds it is given, under `embody`): its muscles and motor control. Each step it
@@ -653,7 +653,7 @@ Actions (`mind/actions.ts`) are whole arrays in declared channel order: activati
 or signed requested torque. Validation rejects malformed arrays before applying any channel.
 Torque requests are converted to one-way commands within the same muscle envelope; saturation
 does not raise strength. Action representations and the world's actuator law belong in experiment
-manifests. `DirectMindConfig` supplies explicit joint targets, time constant, maximum speed and
+manifests. `DirectMindConfig` (`src/core/entrants/direct/mind.ts`) supplies explicit joint targets, time constant, maximum speed and
 activation to an independent joint-feedback policy. It shares the game's construction, level,
 disposal and replay paths, and has no fighter view. Its pinned reach/hold test is a replacement
 proof, not a standing or fighting claim. On the workshop hands' hulls the same independent
@@ -714,31 +714,49 @@ fight's grants, its senses, its assist's ceiling and how it labels a contact, fr
 no maker can widen them; the fight holds the body the mind took (`bodyHost`), and a test or a
 study makes one mind of its own the same way (`hostedMind`). The mind's folders, beside the
 adapters that make the report and carry out the order sheet, import no engine, world, builder or
-read-view maker (`tests/core-boundary.test.mjs`); a reader that knows the kind narrows on it (a
-fighter's skills and their report). A fight enlists each of its bodies the one way (`enlist`,
+read-view maker (`tests/core-boundary.test.mjs`). No reader asks which kind a mind is: a mind
+that runs the game's skills gives them (`MindMade.skills`), whose report a screen or a test reads
+of what it is doing and what holds each part of the body; a screen that drives a fighter's tactics,
+the Lab, asks whether the config is a fighter's (`isFighter`). A fight enlists each of its bodies the one way (`enlist`,
 `src/core/combatant.ts`): built where it stands with what it holds, its pool under the fight's
 rules, carried by the fight's senses with whatever fixed geometry they are granted, and under the
 mind its config makes with the assist its balance gives. The Arena and the Crypt both do; the Lab
 drives a fighter through game orders in Attack or a scenario's script elsewhere.
 
-**A kind of mind is a controller** (`CONTROLLERS`, `controllers.ts`), a mapped type over the
-kinds, so a kind without one does not compile: it says which bodies it fits (`fits`), names
+**A kind of mind is a controller** (`Controller`, `controller.ts`), registered by a line in the
+one list (`CONTROLLERS`, `controllers.ts`), keyed by its defaults' kind, a kind twice or a kind a
+part below a mind has refused: it lists the keys its config may hold (`keys`), says which bodies it fits (`fits`), names
 its presets (`PRESETS` merges them; the Arena's picker and a link's `control=` read them, ids
 unique across controllers) and makes the mind (`create`). Each controller composes its own
 tactics and skills; what they share is shared code (the orders, the targets, the guard, the
 sub-minds, locomotion and the strike cycle), not a flag that chooses a stack. There are four: the
 **fighter** (`createFighter`, `fighter.ts`), whose tactics and skills are parts in its slots;
 the **options fighter** (`createOptionsFighter`, `src/core/mind/options/`), every humanoid's own
-mind, with nothing yet to configure; the **quadruped** (crawl and bite); and **direct** joint control. A config read from a save or a link whose kind none has is refused
+mind, with nothing yet to configure; the **quadruped** (crawl and bite); and **direct** joint control, the first
+entrant (`src/core/entrants/direct/`). A config read from a save or a link whose kind none has is refused
 (`partOf`), and so is a tree any part of which names a fault (`treeFaults`, which `createMind`
 reads). A part's config holds a player's fields, plain choices, and under `tuning` an
 experiment's settings, which never travel in a link. A key its part does not read, or a tuning it
 does not name (`Part.tuning`), is a fault, so a setting put in the wrong place is refused, never
-silently dropped. `CONFIG_KEYS` (`src/core/mind/config-keys.ts`) enumerates the accepted keys
-independently of editor fields and default values. Its mapped type requires every property of
-every config kind, including optional settings, and rejects extra keys at compile time. Parts'
+silently dropped. A controller's `keys` and, for the parts below a mind, `CONFIG_KEYS`
+(`src/core/mind/config-keys.ts`) enumerate the accepted keys independently of editor fields and
+default values. Their mapped types require every property of the config, including optional
+settings, and reject extra keys at compile time. Parts'
 fault predicates validate values; slots validate nested parts. Hiding an editor field does not
 remove that setting from saved configs, links or research overrides.
+
+**Adding a Mind** is a folder under `src/core/entrants/` and a line in `CONTROLLERS`; the
+joint-feedback Mind (`entrants/direct/mind.ts`) is the example. The folder holds the config's
+type, `{ kind, ... }` with a kind of its own, its defaults, its faults and its maker, written as
+one controller (`controller<C>({ ... })`). The maker takes its body once through the host: a
+policy (`host.policy`) reads the report (`BodyObservation`) and returns the order sheet
+(`BodyAction`: muscles, its assist's ask, grips and hand poses); `host.command` and `host.hosted`
+build on the game's command layers or on a host and sub-minds of its own. It returns its memory
+(`state`), which a fight saves and loads with the body, and its skills if it runs the game's. It
+may use any of the toolkit (`src/core/mind/`, `skills/`, `control/`) and imports no engine, world
+or builder. Once registered it is offered by its presets and its fields, and
+`tests/mind-contract.test.mjs` runs it on the first body it fits against itself, forks it and
+replays it from its order sheets; how well it fights is a measurement, not a gate.
 
 **The fighter's configuration** (`FighterConfig`) holds tactics, locomotion, guard, optional
 support, named executor instances, named action descriptions and ranked sub-minds. Each action
@@ -797,8 +815,8 @@ step, in rank order: each, set off by its trigger, takes the hands it may that n
 has, for at most its longest hold, then lets go until its trigger has gone; a hand a blow holds or
 the option asks for it takes only where it seizes, ending that blow (`Intent.interrupt`). The one
 reflex is cover: the hand on the side a blow closes on the head from, where it is free, between the
-two, for at most 1 s; the other hand stays the option's. Its `Minded` is a fighter's, so what
-reads a fighter's report reads it.
+two, for at most 1 s; the other hand stays the option's. It gives its skills
+(`MindMade.skills`), so what reads a fighter's report reads it.
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`,
 `sub-mind`, `tactics`, `behaviour`, or a skill's: `locomotion`, `guard`, `executor`, `support`), a label, a stage (`game`, or `experimental` for research offered beside the
@@ -1509,7 +1527,7 @@ keep control choices separate from the contact and damage rules ([roadmap](roadm
 | **A knee** | A point on the shank struck as the kick strikes the foot (`effectorStrike` over the leg's chain, the stance bearing the other leg); the rule already wounds by any segment. | The rule, the targets, the cycle. |
 | **A crouch, a low target** | The stance lowers the body beyond `STANCE_LOWER`, and a band under the middle one (`BANDS`) names it. The targets' low stratum is the row that turns from missed to hit. | The search, the skill's choice by window. |
 | **Another body**: four legs, a tail | Its spec, with its effectors, marks and down rule; the controllers that fit it (`Controller.fits`), and a search on it for recipe blows, which are per model. Its surfaces are its spec's. | Everything else. |
-| **A learned or a planning mind** | It asks the same `Attack`s; or, at the muscles, it is a controller of its own (`CONTROLLERS`, a `MindConfig` kind) and the targets score it as a row. | The rule, the targets. |
+| **A learned or a planning mind** | It asks the same `Attack`s; or, at the muscles, it is an entrant of its own (`src/core/entrants/`, a line in `CONTROLLERS`) and the targets score it as a row. | The rule, the targets. |
 
 ## Standing decisions
 

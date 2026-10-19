@@ -1,4 +1,3 @@
-import type { HostedBody } from "../body.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import type { ContactIdentity } from "../control/effector-feedback.ts";
 import type { AssistCeiling } from "../control/assist.ts";
@@ -31,28 +30,26 @@ export interface MindWiring {
   readonly script?: Tactics;
 }
 
-/** What every kind of mind gives the fight that made it. */
-interface MindedBody {
-  readonly body: PhysicalBody;
+/** **A mind as its controller makes it** (`Controller.create`): what every kind gives the fight that made it, but the body, which the fight holds from its host (`bodyHost`). */
+export interface MindMade {
   /** The mind's memory above its body's (`src/core/state.ts`), saved and loaded with it. */
   readonly state: object;
-}
-
-/** A body under a fighter's mind: its skills, for whoever knows it is a fighter and reads their report. */
-interface FighterMind extends MindedBody {
-  readonly kind: "fighter";
-  readonly body: HostedBody;
-  readonly skills: Skills;
+  /**
+   * Its skills, where it runs the game's (`Skills`): their report is what a screen or a test reads
+   * of what it is doing and what holds each part of the body, and the rules never read it.
+   */
+  readonly skills?: Skills;
 }
 
 /**
- * **A body under a mind, by the mind's kind.** A fight holds one and reads what every kind gives,
- * the body and the memory; a reader that needs a kind's own narrows on `kind`.
+ * **A body under a mind.** A fight holds one and reads what every kind gives, the body and the
+ * memory, and never which kind it is: `kind` is its config's (`MindConfig.kind`), or `replay`
+ * for a body played from its order sheets with no mind (`replayedBody`), for a screen to name.
  */
-export type Minded = FighterMind | (MindedBody & { readonly kind: "direct" }) | (MindedBody & { readonly kind: "quadruped" }) | (MindedBody & { readonly kind: "replay" });
-
-/** A mind as its controller makes it (`Controller.create`): all a `Minded` is but the body, which the fight holds from its host (`bodyHost`). */
-export type MindMade = Exclude<Minded, { readonly kind: "replay" }> extends infer M ? M extends unknown ? Omit<M, "body"> : never : never;
+export interface Minded extends MindMade {
+  readonly kind: string;
+  readonly body: PhysicalBody;
+}
 
 /** The posture a body of `spec` is built in under the mind `config` names (`Controller.builtIn`), as a placement's angles (`poseAngles`). */
 export function builtAngles(spec: BodySpec, config: MindConfig): Record<string, number[]> {
@@ -69,8 +66,6 @@ export function createMind(built: BuiltBody, world: World, config: MindConfig, w
   const fault = treeFaults(config, wiring.script ? ["script"] : [])[0];
   if (fault) throw new Error(fault);
   const { host, made } = bodyHost(built, world, wiring, log);
-  const mind = controllerOf(config).create(host, config, wiring), { body, commanded } = made();
-  if (mind.kind !== "fighter") return { ...mind, body };
-  if (!commanded) throw new Error("a fighter's body is under its command layers");
-  return { ...mind, body: commanded };
+  const mind = controllerOf(config).create(host, config, wiring);
+  return { ...mind, kind: config.kind, body: made() };
 }

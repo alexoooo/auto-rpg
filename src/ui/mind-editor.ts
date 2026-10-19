@@ -1,7 +1,7 @@
 import { techniqueEditor } from "./mind-ground.ts";
 import { kindsFor, partOf, PARTS } from "../core/mind/catalog.ts";
 import { actionEditor, selectionEditor } from "./mind-actions.ts";
-import type { BehavioursConfig, FighterConfig, MindConfig, StandUpConfig } from "../core/mind/config.ts";
+import { isFighter, type BehavioursConfig, type FighterConfig, type MindConfig, type StandUpConfig } from "../core/mind/config.ts";
 import type { PartField } from "../core/mind/fields.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Slot } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -120,7 +120,7 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], onCh
     }
     if (config.kind === "behaviours") block.append(selectionEditor(config as BehavioursConfig, write, readOnly));
     if (config.kind === "stand-up") block.append(techniqueEditor(config as StandUpConfig, spec, write, readOnly));
-    if (config.kind === "fighter") block.append(actionEditor(config as FighterConfig, write, readOnly));
+    if (isFighter(config)) block.append(actionEditor(config, write, readOnly));
     for (const slot of slotsOf(part, config)) block.append(drawSlot(config, slot, write));
     return block;
   };

@@ -1,16 +1,13 @@
-import type { BehaviourConfig, ExecutorConfig, MindConfig, MoveRuleConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
+import type { BehaviourConfig, ExecutorConfig, MoveRuleConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { deepFreeze } from "../state.ts";
 
-type Config = MindConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ExecutorConfig;
+type Config = SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ExecutorConfig;
 
-/** Every accepted top-level key, including optional settings. The mapped type requires every config
- * property and rejects extras; editor fields and default values carry no validation authority.
- * Each part's faults predicate validates values, and its slots validate nested parts. */
+/** Every accepted top-level key of a part below a mind, including optional settings; a mind's are
+ * its controller's (`Controller.keys`). The mapped type requires every config property and
+ * rejects extras; editor fields and default values carry no validation authority. Each part's
+ * faults predicate validates values, and its slots validate nested parts. */
 export const CONFIG_KEYS = deepFreeze({
-  "fighter": { kind: true, tactics: true, locomotion: true, guard: true, executors: true, actions: true, support: true, subs: true },
-  "options": { kind: true, meta: true, weights: true, tuning: true },
-  "direct": { kind: true, targets: true, seconds: true, speed: true, activation: true },
-  "quadruped": { kind: true, tuning: true },
   "get-away": { kind: true, metres: true },
   "ground-fight": { kind: true, reach: true, kicks: true },
   "stand-up": { kind: true, techniques: true },

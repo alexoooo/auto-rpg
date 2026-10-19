@@ -37,13 +37,12 @@ export function createSupportEntryProbe(scene: Scene, engine: PhysicsEngine, con
   world.physics.addFixedBox(SETTINGS.floor.centre, SETTINGS.floor.size);
   const spec = modelSpec(config.model), built = buildBody(spec, world, { position: [0, 0, 0] });
   const boot = createMind(built, world, RECIPE_FIGHTER, { name: "fall-start", orders: () => STAND_ORDERS }).body;
-  if (!("view" in boot)) throw new Error("fall bootstrap requires a fighter view");
   world.step(SETTINGS.standSeconds * config.hz);
   const direction = [[0, 0, 1], [1, 0, 0], [0, 0, -1], [-1, 0, 0]][config.direction]!;
   const mass = [...built.segments.values()].reduce((sum, s) => sum + s.rigid.mass, 0), trunk = built.segments.get("middleTrunk")!;
   trunk.body.applyImpulse(new Vector3(direction[0], direction[1], direction[2]).scaleInPlace(mass * SETTINGS.impulsePerMass), centreOfToRef(trunk, new Vector3()));
-  for (let step = 0; step < SETTINGS.fallSeconds * config.hz && !boot.view.down; step++) world.step();
-  const fell = boot.view.down;
+  for (let step = 0; step < SETTINGS.fallSeconds * config.hz && !boot.down; step++) world.step();
+  const fell = boot.down;
   boot.dispose();
   const reference = built.segments.get(SETTINGS.root)!.rest;
   const reading = { ...SETTINGS, reference: [reference.x, reference.y, reference.z, reference.w] as const };

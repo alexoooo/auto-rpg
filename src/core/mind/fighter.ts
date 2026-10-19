@@ -221,5 +221,5 @@ export function fighterSkills(made: Body, clock: Clock, config: FighterConfig, d
 export function createFighter(host: BodyHost, config: FighterConfig, wiring: MindWiring) {
   const body = host.command(fighterBody(config, wiring));
   const skills = driveFighter(body, host.clock, config, wiring);
-  return { kind: "fighter" as const, skills, state: skills.state };
+  return { skills, state: skills.state };
 }

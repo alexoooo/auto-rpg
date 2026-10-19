@@ -5,7 +5,8 @@ import type { PhysicsEngine } from "../engine/engine.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { checkedAction, type ActuatorAction } from "../mind/actions.ts";
-import { createDirectBody, createPolicyBody } from "../mind/direct.ts";
+import { createPolicyBody } from "../mind/direct.ts";
+import { directPolicy } from "../entrants/direct/mind.ts";
 import { deepFreeze } from "../state.ts";
 import { createWorld } from "../world.ts";
 
@@ -52,7 +53,7 @@ export function createPostureHoldProbe(scene: Scene, engine: PhysicsEngine, conf
   let actuators: Parameters<Parameters<typeof createPolicyBody>[2]>[0] | null = null;
   const body = (() => {
     switch (controller) {
-      case "direct": return createDirectBody(built, world, { kind: "direct", targets, seconds: config.servoSeconds, speed: config.speed, activation: config.activation });
+      case "direct": return createPolicyBody(built, world, directPolicy({ kind: "direct", targets, seconds: config.servoSeconds, speed: config.speed, activation: config.activation }));
       case "actuator": return createPolicyBody(built, world, (model) => {
         actuators = model;
         return { name: "external-posture", state: command, step: () => command.action };

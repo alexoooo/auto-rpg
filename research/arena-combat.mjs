@@ -80,7 +80,7 @@ export async function combatTrial(config) {
   const before = world.beforeStep(() => {
     for (const side of ['left', 'right']) {
       const d = duel.duelists[side], out = sides[side], other = duel.duelists[side === 'left' ? 'right' : 'left'];
-      const actions = d.minded.kind === 'direct' ? [] : d.minded.skills.report.actions;
+      const actions = d.minded.skills ? d.minded.skills.report.actions : [];
       const report = actions.find(action => action.effector.startsWith('hand.'));
       const relativeSpeed = {}, relativeVelocity = {};
       for (const hand of ['left', 'right']) {
@@ -107,7 +107,7 @@ export async function combatTrial(config) {
     while (!duel.verdict) {
       world.step();
       for (const side of ['left', 'right']) {
-        const d = duel.duelists[side], out = sides[side], report = d.minded.kind === 'direct' ? null : d.minded.skills.report;
+        const d = duel.duelists[side], out = sides[side], report = d.minded.skills ? d.minded.skills.report : null;
         if (d.body.down && !out.wasDown) out.falls++;
         if (!d.body.down && out.wasDown) out.recoveries++;
         out.wasDown = d.body.down;

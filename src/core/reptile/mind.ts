@@ -124,5 +124,5 @@ export function quadrupedMind(host: BodyHost, wiring: Partial<MindWiring> & { re
     // Down as the mind read it at its look, as every body answers: `docs/reference/down-timing.md`.
     return { host, subs: [recover(own, motor, tracker, paws, view)], down: () => look.down };
   });
-  return { kind: "quadruped" as const, state: {} };
+  return { state: {} };
 }

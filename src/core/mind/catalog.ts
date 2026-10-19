@@ -1,6 +1,6 @@
 import type { BodySpec } from "../spec/body.ts";
 import { BEHAVIOUR_PARTS } from "./behaviours.ts";
-import type { BehaviourConfig, ExecutorConfig, MindConfig, MoveRuleConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
+import type { BehaviourConfig, ExecutorConfig, MoveRuleConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { CONTROLLERS } from "./controllers.ts";
 import { EXECUTOR_PARTS } from "./executor-parts.ts";
 import { CONFIG_KEYS } from "./config-keys.ts";
@@ -9,18 +9,24 @@ import { slotsOf, type Part, type PartConfig, type Provision, type Role } from "
 import { SUB_MIND_PARTS } from "./sub-minds.ts";
 import { TACTICS_PARTS } from "./tactics-of.ts";
 
-/** Every part's config, by kind. */
-type AnyPart = MindConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ExecutorConfig;
+/** Every part's config below a mind, by kind. */
+type AnyPart = SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ExecutorConfig;
+
+/** Every part below a mind, by its kind. A kind without an entry does not compile. */
+const BELOW: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...MOVE_RULE_PARTS, ...SKILL_PARTS, ...EXECUTOR_PARTS };
 
 /**
- * **Every part, by its kind**, across roles: the one list a screen offers a slot's choices from.
- * A kind without an entry does not compile.
+ * **Every part, by its kind**, across roles: the minds (`CONTROLLERS`) and the parts below them,
+ * the one list a screen offers a slot's choices from. A mind of a kind a part below has is refused.
  */
-export const PARTS: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = Object.freeze({ ...CONTROLLERS, ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...MOVE_RULE_PARTS, ...SKILL_PARTS, ...EXECUTOR_PARTS });
+export const PARTS: Readonly<Record<string, Part>> = Object.freeze(Object.assign({}, BELOW, ...Object.keys(CONTROLLERS).map((kind) => {
+  if (Object.hasOwn(BELOW, kind)) throw new Error(`a mind of kind ${JSON.stringify(kind)} is a part's`);
+  return { [kind]: CONTROLLERS[kind] };
+})));
 
 /** The part of `config`'s kind; a thrown error for a kind no part has, read from a save or a link. */
 export function partOf<C extends PartConfig>(config: C): Part<C> {
-  const part = Object.hasOwn(PARTS, config.kind) ? (PARTS as Readonly<Record<string, unknown>>)[config.kind] : undefined;
+  const part = Object.hasOwn(PARTS, config.kind) ? PARTS[config.kind] : undefined;
   if (!part) throw new Error(`no part of kind ${JSON.stringify(config.kind)}`);
   return part as Part<C>;
 }
@@ -77,7 +83,7 @@ export function treeFaults(config: PartConfig, provides: readonly Provision[] = 
  */
 function unknownSettings(config: PartConfig): readonly string[] {
   const part = partOf(config), tuning = part.tuning ?? [];
-  const known = CONFIG_KEYS[config.kind as keyof typeof CONFIG_KEYS];
+  const known = part.keys ?? CONFIG_KEYS[config.kind as keyof typeof CONFIG_KEYS];
   const given = (config as { tuning?: unknown }).tuning;
   return [
     ...Object.keys(config).filter((key) => !Object.hasOwn(known, key)).map((key) => `${part.label} has no setting ${key}`),
@@ -114,6 +120,6 @@ interface Offered {
  * `spec` on a screen that `provides` what it does, or null. None is left out.
  */
 export function kindsFor(role: Role, spec: BodySpec, provides: readonly Provision[] = NOTHING): readonly Offered[] {
-  return Object.entries(PARTS as Readonly<Record<string, Part>>).filter(([, part]) => part.role === role)
+  return Object.entries(PARTS).filter(([, part]) => part.role === role)
     .map(([kind, part]) => ({ kind, part, reason: treeFits(spec, part.defaults) ? unprovided(part.needs, provides) : "does not fit this body" }));
 }

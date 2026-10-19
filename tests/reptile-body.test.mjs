@@ -4,7 +4,8 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createDirectBody } from "../src/core/mind/direct.ts";
+import { createPolicyBody } from "../src/core/mind/direct.ts";
+import { directPolicy } from "../src/core/entrants/direct/mind.ts";
 import { reptileSpec } from "../src/core/reptile/spec.ts";
 import { specProvenanceFaults } from "./fixtures/spec.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -37,7 +38,7 @@ test("a reptile is down by its own rule under any mind", async () => {
   // A mind that knows nothing of reptiles reads the spec's rule: on its back it is down, built on its paws it is not.
   const read = async (rotation, position) => {
     const s = await coreStand(reptileSpec(), { engine: "rapier-coordinate", rotation, position });
-    const body = createDirectBody(s.built, s.world, { kind: "direct", targets: {}, seconds: 0.05, speed: 1, activation: 0 });
+    const body = createPolicyBody(s.built, s.world, directPolicy({ kind: "direct", targets: {}, seconds: 0.05, speed: 1, activation: 0 }));
     try { s.step(); return [body.down, body.observe().down]; } finally { body.dispose(); s.dispose(); }
   };
   assert.deepEqual(await read(undefined, [0, 0, 0]), [false, false]);

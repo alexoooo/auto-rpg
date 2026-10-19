@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { kindsFor, partOf, PARTS, treeFaults, treeFits, withoutTuning } from "../src/core/mind/catalog.ts";
 import { CLASSIC, QUADRUPED } from "../src/core/mind/config.ts";
-import { PRESETS } from "../src/core/mind/controllers.ts";
+import { CONTROLLERS, PRESETS } from "../src/core/mind/controllers.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { COMBAT, KICKER, withParts } from "./fixtures/minds.mjs";
 import { CONFIG_KEYS } from "../src/core/mind/config-keys.ts";
@@ -20,11 +20,13 @@ test("every part has a role, a stage, frozen defaults of its own kind, and every
     assert.ok(Object.isFrozen(part.defaults), kind);
     assert.deepEqual(treeFaults(part.defaults, part.needs ? [part.needs] : []), [], kind);
     for (const key of [...part.fields.map(field => field.key), ...part.slots.map(slot => slot.key), ...Object.keys(part.defaults)]) {
-      assert.ok(Object.hasOwn(CONFIG_KEYS[kind], key), `${kind}.${key} belongs to the configuration`);
+      assert.ok(Object.hasOwn(part.keys ?? CONFIG_KEYS[kind], key), `${kind}.${key} belongs to the configuration`);
     }
     for (const slot of part.slots) assert.ok(Object.values(PARTS).some((other) => other.role === slot.role), `${kind}.${slot.key}`);
   }
-  assert.deepEqual(new Set(Object.keys(PARTS)), new Set(Object.keys(CONFIG_KEYS)));
+  // A mind's keys are its controller's; every other part's are the catalog's.
+  assert.deepEqual(Object.entries(PARTS).filter(([, part]) => part.role === "mind").map(([kind, part]) => [kind, typeof part.keys]), Object.keys(CONTROLLERS).map((kind) => [kind, "object"]));
+  assert.deepEqual(new Set(Object.keys(PARTS).filter((kind) => PARTS[kind].role !== "mind")), new Set(Object.keys(CONFIG_KEYS)));
   assert.equal(partOf(CLASSIC), PARTS.fighter);
   assert.deepEqual(new Set(Object.values(PARTS).map((part) => part.role)), new Set(ROLES));
   for (const kind of ["point-fighter", "constructor", "toString", "staged-rise", "assisted-rise", "dynamic-rise"]) assert.throws(() => partOf({ kind }), /no part of kind/, kind);

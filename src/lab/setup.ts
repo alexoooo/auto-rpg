@@ -1,6 +1,7 @@
 import { labHref, LAB_PRESETS, recoveryAddress, SCENARIOS, type LabAddress } from "./scenarios.ts";
 import { need } from "../dom.ts";
 import { groundMind } from "./ground-config.ts";
+import { isFighter, type FighterConfig } from "../core/mind/config.ts";
 
 /**
  * **The lab's scenario menu** (`?play=lab`): a card for each scenario, and a click opens it. The
@@ -12,11 +13,13 @@ export function showScenarios(address: LabAddress): void {
   const cards = SCENARIOS.map((scenario) => {
     const card = document.createElement("a");
     let mind = address.mind;
-    if (mind.kind === "fighter") {
-      if (scenario.id === "attack" && mind.tactics.kind === "script") mind = LAB_PRESETS.puncher.config;
-      else if (scenario.id !== "attack" && mind.tactics.kind !== "script" && mind.tactics.kind !== "stand")
-        mind = { ...mind, tactics: { kind: "script" } };
-      if (scenario.id === "ground") mind = groundMind(mind);
+    if (isFighter(mind)) {
+      let fighter: FighterConfig = mind;
+      if (scenario.id === "attack" && fighter.tactics.kind === "script") fighter = LAB_PRESETS.puncher.config;
+      else if (scenario.id !== "attack" && fighter.tactics.kind !== "script" && fighter.tactics.kind !== "stand")
+        fighter = { ...fighter, tactics: { kind: "script" } };
+      if (scenario.id === "ground") fighter = groundMind(fighter);
+      mind = fighter;
     }
     const chosen = { ...address, mind, scenario: scenario.id };
     card.href = labHref(scenario.id === "recovery" ? recoveryAddress(chosen) : chosen, window.location.search);

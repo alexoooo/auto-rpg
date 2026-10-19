@@ -259,10 +259,14 @@ export interface FighterConfig {
 }
 
 /**
- * **A mind's config**, by kind: plain data, so it rides in a recipe, a save and a link. Each kind
- * of mind declares its own; a fight passes one through and reads nothing in it.
+ * **A mind's config**: plain data, so it rides in a recipe, a save and a link, its kind naming
+ * its controller (`CONTROLLERS`). Each kind of mind declares its own type in its own module; a
+ * fight passes one through and reads nothing in it.
  */
-export type MindConfig = FighterConfig | OptionsConfig | DirectMindConfig | QuadrupedConfig;
+export interface MindConfig { readonly kind: string }
+
+/** Whether `config` is a fighter's (`FighterConfig`): what a screen that drives a fighter's tactics asks. */
+export const isFighter = (config: MindConfig): config is FighterConfig => config.kind === "fighter";
 
 /**
  * **The options fighter** (`createOptionsFighter`, `options/mind.ts`): a meta-controller over
@@ -285,22 +289,13 @@ export interface OptionsConfig {
 }
 
 /** Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. */
-interface QuadrupedConfig {
+export interface QuadrupedConfig {
   readonly kind: "quadruped";
   /** Immutable bite cells for physical qualification; retained by recipes and replay. */
   readonly tuning?: { readonly bite?: Partial<typeof REPTILE_BITE> };
 }
 
 export const QUADRUPED: QuadrupedConfig = deepFreeze({ kind: "quadruped" });
-
-/** Joint-feedback experiment: targets in radians and explicit time, speed and activation bounds. */
-export interface DirectMindConfig {
-  readonly kind: "direct";
-  readonly targets: Readonly<Record<string, number>>;
-  readonly seconds: number;
-  readonly speed: number;
-  readonly activation: number;
-}
 
 /** Shared defaults keep ordered focus before the current and nearest standing foe. */
 export const FIGHTING: BehavioursConfig = deepFreeze({ kind: "behaviours",

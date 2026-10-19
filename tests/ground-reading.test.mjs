@@ -9,7 +9,8 @@ import { lowsOf, uprightness } from "../src/core/control/ground.ts";
 import { footStatesOf, pointOfToRef } from "../src/core/control/support.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
 import { createBody } from "../src/core/body.ts";
-import { createDirectBody } from "../src/core/mind/direct.ts";
+import { createPolicyBody } from "../src/core/mind/direct.ts";
+import { directPolicy } from "../src/core/entrants/direct/mind.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import poses from "../assets/research/posture-holds.json" with { type: "json" };
@@ -54,7 +55,7 @@ test("installed loaded postures classify their actual support", async () => {
     const stand = await coreStand(modelSpec("workshop-fighter"), pose.placement);
     const targets = Object.fromEntries([...stand.built.joints].flatMap(([name, joint]) => joint.dofs.map((dof, i) =>
       [`${name} ${dof.spec.positive}`, pose.placement.joints[name][i]])));
-    const body = createDirectBody(stand.built, stand.world, { kind: "direct", targets, seconds: .01, speed: 10, activation: 1 });
+    const body = createPolicyBody(stand.built, stand.world, directPolicy({ kind: "direct", targets, seconds: .01, speed: 10, activation: 1 }));
     const reader = groundReading(stand.built, stand.world.dt);
     try {
       for (let step = 0; step < 30; step++) { stand.step(); reader.read(); }

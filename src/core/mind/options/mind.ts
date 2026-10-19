@@ -164,5 +164,5 @@ export function createOptionsFighter(host: BodyHost, config: OptionsConfig, wiri
   let skills: Skills;
   skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, host.clock, kit, driving, () => skills?.report.ledger ?? []));
   sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, instance: skills.instance, readiness: skills.readiness };
-  return { kind: "fighter" as const, skills, state: skills.state };
+  return { skills, state: skills.state };
 }

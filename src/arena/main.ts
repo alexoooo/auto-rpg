@@ -341,7 +341,7 @@ export async function bootArena(): Promise<void> {
         row.label.textContent = `${MODEL_DISPLAY[matchup[row.side]].label} (${row.side === you && !replaying ? "you" : row.side})`;
         const duelist = bout.duelists[row.side], minded = duelist.minded;
         row.inspector = mindInspector(duelist.mind, duelist.built.spec, () => duel === bout
-          ? { body: duelist.body, skills: minded.kind === "fighter" ? minded.skills : null } : null);
+          ? { body: duelist.body, skills: minded.skills ?? null } : null);
         row.mind.replaceChildren(row.mind.firstElementChild!, row.inspector.element);
       }
       show("curtain", false); show("bout-end", false); setPaused(false); screen = "fight"; viewPanel.hidden = false;
@@ -441,7 +441,7 @@ export async function bootArena(): Promise<void> {
       const fighter = duel.duelists[row.side];
       row.bar.value = fighter.pool.bar();
       const mind = fighter.minded, controller = controllers[row.side];
-      const phase = "skills" in mind ? mind.skills.report.actions[0]?.stage ?? mind.skills.report.engagement?.phase ?? "guard / move" : mind.body.has;
+      const phase = mind.skills ? mind.skills.report.actions[0]?.stage ?? mind.skills.report.engagement?.phase ?? "guard / move" : mind.body.has;
       const down = duel.state.recovery?.[row.side];
       row.status.textContent = fighter.body.down
         ? `${fighter.body.has}${duel.recipe.recoverySeconds === null ? " - getting up" : down !== undefined ? ` - ${Math.max(0, duel.recipe.recoverySeconds! - down).toFixed(1)} s recovery left` : " - down"}`

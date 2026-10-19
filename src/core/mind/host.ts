@@ -1,4 +1,4 @@
-import { createBody, type Body, type BodyOptions, type HostedBody } from "../body.ts";
+import { createBody, type Body, type BodyOptions } from "../body.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import { clockOf, type Clock } from "../clock.ts";
 import type { PhysicalBody } from "../physical-body.ts";
@@ -33,15 +33,16 @@ export interface BodyHost {
 }
 
 /** A host for `built` in `world` under `grants`, its sheets written in `log` if given, and the body its mind took through it (`made`), which the fight holds. */
-export function bodyHost(built: BuiltBody, world: World, grants: Grants, log?: SheetLog): { readonly host: BodyHost; made(): { readonly body: PhysicalBody; readonly commanded: HostedBody | null } } {
-  let body: PhysicalBody | null = null, commanded: HostedBody | null = null;
+export function bodyHost(built: BuiltBody, world: World, grants: Grants, log?: SheetLog): { readonly host: BodyHost; made(): PhysicalBody } {
+  let body: PhysicalBody | null = null;
   const take = () => { if (body) throw new Error("a mind takes its body once"); };
   const given = { senses: grants.senses, assist: grants.assist, log };
   const host: BodyHost = Object.freeze({
     spec: built.spec, clock: clockOf(world),
     command(options: Omit<BodyOptions, keyof Grants | keyof Trusted>) {
       take();
-      body = commanded = createBody(built, world, { ...options, ...given, contactIdentity: grants.contactIdentity });
+      const commanded = createBody(built, world, { ...options, ...given, contactIdentity: grants.contactIdentity });
+      body = commanded;
       return commanded.driver;
     },
     hosted(make: (own: OwnBody, senses: () => Senses) => Hosted) { take(); body = hostedBody(built, world, given, make); },
@@ -49,12 +50,12 @@ export function bodyHost(built: BuiltBody, world: World, grants: Grants, log?: S
   });
   return { host, made() {
     if (!body) throw new Error("the mind took no body");
-    return { body, commanded };
+    return body;
   } };
 }
 
 /** A mind `make` makes through a host of `built` (`bodyHost`) under `wiring`'s grants, with the body it took: how a test or a study makes one mind of its own. */
 export function hostedMind<W extends Grants, M extends object>(built: BuiltBody, world: World, wiring: W, make: (host: BodyHost, wiring: W) => M): M & { readonly body: PhysicalBody } {
   const { host, made } = bodyHost(built, world, wiring), mind = make(host, wiring);
-  return { ...mind, body: made().body };
+  return { ...mind, body: made() };
 }

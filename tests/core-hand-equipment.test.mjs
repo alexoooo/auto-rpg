@@ -6,7 +6,8 @@ import { armed } from "../src/core/human/grip.ts";
 import { equipHands } from "../src/core/human/equipment.ts";
 import { heldPoint } from "../src/core/build/rigid.ts";
 import { woodenClub } from "../src/core/items/club.ts";
-import { createDirectBody } from "../src/core/mind/direct.ts";
+import { createPolicyBody } from "../src/core/mind/direct.ts";
+import { directPolicy } from "../src/core/entrants/direct/mind.ts";
 import { coreStand, saveStand, loadStand } from "./harness/core-stand.mjs";
 
 const definition = (side) => ({ id: `club.${side}`, item: woodenClub(), primary: side,
@@ -65,8 +66,8 @@ test("independent actuator feedback moves two anatomical items against gravity",
   for (const model of ["workshop-fighter", "workshop-rogue", "crypt-skeleton"]) {
     const stand = await coreStand(humanSpec(model), { ground: false, pinned: "lowerTrunk", actuation: "directional" });
     const items = ["left", "right"].map((side) => equipHands(stand.world, stand.built, definition(side)));
-    const body = createDirectBody(stand.built, stand.world, { kind: "direct", seconds: 0.05, speed: 3, activation: 1,
-      targets: { "elbow.left flexion": 0.6, "elbow.right flexion": 0.4 } });
+    const body = createPolicyBody(stand.built, stand.world, directPolicy({ kind: "direct", seconds: 0.05, speed: 3, activation: 1,
+      targets: { "elbow.left flexion": 0.6, "elbow.right flexion": 0.4 } }));
     try {
       const start = items.map((item) => item.observe().position);
       stand.step(240);

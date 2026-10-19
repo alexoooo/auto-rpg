@@ -169,14 +169,17 @@ The code against the contract above:
   through its own body (`OwnBody`); a policy reads the report and returns the order sheet
   (`BodyAction`, which carries the assist's ask). The source rule
   (`tests/core-boundary.test.mjs`) holds the mind's folders to it, beside their adapters.
-- Adding a kind of Mind means editing `MindConfig` and `Minded` (`src/core/mind/config.ts`,
-  `minds.ts`); the Arena, the Dungeon and the Lab read a fighter's skills through
-  `kind === "fighter"`.
 - Stage 2 has landed. A bout asked to record writes each body's order sheets at the seam
   (`SheetLog`, `src/core/mind/sheets.ts`), and plays again from its recipe and those sheets with
   no Mind made, to the bit; `tests/mind-contract.test.mjs` holds every registered Mind to a short
   bout that runs, forks and replays. A hosted Mind still reports whether its body is down, which
   the fight reads for its verdict and the others' senses; a rule of the fight's own is open.
+- Stage 3 has landed. A Mind's config type, defaults, faults, keys and maker are one controller
+  (`controller`, `src/core/mind/controller.ts`) registered by a line in `CONTROLLERS`; `MindConfig`
+  and `Minded` name no kind, and screens read a Mind's skills where it gives them
+  (`MindMade.skills`). The joint-feedback Mind is the first entrant (`src/core/entrants/direct/`),
+  and `docs/architecture.md` (Minds) has the guide for authors. The game's three other Minds stay
+  beside the toolkit in `src/core/mind/`.
 - Within the stack, the options fighter chooses its skills by boolean tuning flags, not by
   composition (`tuning` in `OptionsConfig`, one memoised kit map a flag in
   `src/core/mind/options/mind.ts`); motor control is one `motorControl` made inside `commandMind`

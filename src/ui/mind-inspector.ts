@@ -1,6 +1,6 @@
 import { partOf } from "../core/mind/catalog.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import type { Provision } from "../core/mind/parts.ts";
+import type { PartConfig, Provision } from "../core/mind/parts.ts";
 import type { SkillReport } from "../core/skills/skills.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { mindEditor } from "./mind-editor.ts";
@@ -34,17 +34,17 @@ export function mindInspector(config: MindConfig, spec: BodySpec, inspected: () 
     const holding = new Set<string>();
     for (const [key, value] of held) {
       const holder = report?.holders?.[key];
-      if (holder === undefined || config.kind !== "fighter") { value.textContent = "—"; continue; }
+      if (holder === undefined) { value.textContent = "—"; continue; }
       if (typeof holder === "number") {
         const action = report?.actions?.find(action => action.id === holder);
         value.textContent = action ? `${action.action} #${holder} · ${action.phase}` : `instance #${holder}`;
         holding.add("executors");
       } else {
-        const slot = key === "stance" ? "locomotion" : "guard";
-        value.textContent = partOf(config[slot]).label; holding.add(slot);
+        const slot = key === "stance" ? "locomotion" : "guard", part = (config as unknown as Readonly<Record<string, PartConfig | undefined>>)[slot];
+        value.textContent = part ? partOf(part).label : holder; holding.add(slot);
       }
     }
-    if (now && config.kind === "fighter" && now.body.has !== "command" && now.body.has !== "nobody") holding.add("subs");
+    if (now && now.body.has !== "command" && now.body.has !== "nobody") holding.add("subs");
     for (const holder of tree.element.querySelectorAll<HTMLElement>(".mind-slot[data-slot]")) holder.classList.remove("live");
     for (const key of holding) for (const holder of slots(key)) holder.classList.add("live");
     actions.refresh(report ?? null);
