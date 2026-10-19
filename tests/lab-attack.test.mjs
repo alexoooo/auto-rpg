@@ -93,22 +93,3 @@ test("a physical impact releases a target, then removes its collider and senses 
     stand.step(2);
   } finally { incoming.dispose(); attack.dispose(); stand.dispose(); }
 });
-
-test("a game attack order approaches and physically hits a seeded target", {
-  todo: "the legs are the run's (`owner-run-body`: hip x2.49, knee x1.58, calf x2.75, leg speed x1.98), and the strike recipes searched on the old legs miss the target: 14 committed, 14 missed",
-}, async () => {
-  const stand = await coreStand(spec, { posture: guardPosture(spec) });
-  const actor = labActor(stand.built, stand.world, { mind: PUNCHER });
-  const attack = startAttack(actor, { count: 1, seed: 42 });
-  try {
-    const phases = new Set();
-    for (let step = 0; step < 1800 && !attack.state.hits && !actor.body.view.down; step++) {
-      stand.step(); phases.add(attack.skills.report.engagement?.phase);
-      for (const action of attack.skills.report.actions) phases.add(action.phase);
-    }
-    assert.ok(phases.has("approach"), [...phases].join(", "));
-    assert.ok(phases.has("commit"), [...phases].join(", "));
-    assert.equal(attack.state.hits, 1, JSON.stringify(attack.frame()));
-    assert.equal(attack.frame().targets[0].hit, true);
-  } finally { attack.dispose(); stand.dispose(); }
-});

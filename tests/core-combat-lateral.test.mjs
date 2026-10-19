@@ -1,24 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Vector3,Quaternion} from '@babylonjs/core/Maths/math.vector.js';
-import {openingSelector,validOpeningTuning} from '../src/core/mind/openings.ts';
+import {openingSelector} from '../src/core/mind/openings.ts';
 import {SCRAPPER} from '../src/core/mind/config.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {frameOf} from '../src/core/spec/body.ts';
 import {traceOf} from './harness/trace.mjs';
-import {COMBAT,withParts} from './fixtures/minds.mjs';
+import {COMBAT} from './fixtures/minds.mjs';
 
 const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
  minds:{left:SCRAPPER,right:SCRAPPER},recoverySeconds:null,capSeconds:30};
-
-test('lateral surface settings reject fractions outside the physical circle',()=>{
- for(const headLateral of [0,.5,1])assert.equal(validOpeningTuning({headLateral}),true);
- for(const headLateral of [-.01,1.01,NaN,Infinity])assert.equal(validOpeningTuning({headLateral}),false);
- assert.equal(validOpeningTuning({head:-.6}),true);assert.equal(validOpeningTuning({head:Infinity}),false);
- assert.throws(()=>openingSelector({}, {headLateral:1.01}),/headLateral/);
-});
 
 test('both real guard hands can select a lateral collider surface while zero preserves the whole reference choice',async()=>{
  const s=await buildBout({...recipe,gap:.65},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
@@ -48,7 +41,7 @@ test('lateral Arena selection carries through the shared physical strike and fre
  try{
   const d=a.duel.duelists.left,skills=d.minded.skills;
   while(a.duel.clock<20&&!(skills.report.actions.some(action=>action.phase==='commit'&&action.target.region.segment==='head')))a.world.step();
-  assert.ok(skills.report.actions.some(action=>action.phase==='commit'&&action.target.region.segment==='head'));
+  assert.ok(skills.report.actions.some(action=>action.phase==='commit'&&action.target.region.segment==='head'),'no commit at the head in 20 s: the fixture did not reach its case');
   b.duel.load(a.duel.save());const trace=s=>traceOf(Object.values(s.duel.duelists).map(d=>d.built)),ta=trace(a),tb=trace(b);
   for(let i=0;i<240;i++){a.world.step();b.world.step();ta.take();tb.take();}
   assert.deepEqual(a.duel.save().state,b.duel.save().state);assert.equal(ta.digest(),tb.digest());

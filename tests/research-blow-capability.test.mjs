@@ -88,9 +88,7 @@ test("a_blow_that_leaves_the_body_down_scores_a_fall", async () => {
   assert.ok(candidateScore([{ ...lands, done: 0.1 }], [still], true) > candidateScore([{ ...lands, done: 5 }], [{ ...still, recoveries: 1 }], true));
 });
 
-test("a_blow_traced_reads_the_same_and_says_how_its_body_kept_its_feet", {
-  todo: "a bare hand strikes with its fist's measured surface (`closesToStrike`), about 9 cm short of the open capsule's fingers that its blows' spacing, aim and recipes were tuned to",
-}, async () => {
+test("a_blow_traced_reads_the_same_and_says_how_its_body_kept_its_feet", async () => {
   const traced = (thrown) => {
     let trace = null;
     return evaluateBlow({ ...thrown, dummy: false, trace: (body, blow) => (trace ??= balanceTrace(body)).take(body, blow) }).then((result) => ({ result, balance: trace.reading }));

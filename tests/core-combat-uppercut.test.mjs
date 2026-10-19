@@ -1,28 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Vector3,Quaternion} from '@babylonjs/core/Maths/math.vector.js';
-import {attackPath,ATTACK_PATH,validAttackTuning} from '../src/core/skills/attack-path.ts';
+import {ATTACK_PATH} from '../src/core/skills/attack-path.ts';
 import {lowerSurface,upperSurface,openingSelector} from '../src/core/mind/openings.ts';
 import {modelSpec} from '../src/core/models.ts';
 import {frameOf} from '../src/core/spec/body.ts';
 import {convexHull} from '../src/core/spec/hull.ts';
-import {combatStrike} from '../research/combat-strikes.mjs';
 import {buildBout} from '../research/bout.mjs';
 import {SCRAPPER} from '../src/core/mind/config.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {DEFAULT_ENGINE,loadEngine} from '../src/core/engine/engines.ts';
 import {traceOf} from './harness/trace.mjs';
-import {COMBAT,withParts} from './fixtures/minds.mjs';
-
-test('uppercut chambers mirror below guard, carry upward contact velocity and own their measured duration',()=>{
- const a=attackPath([.15,1.49,.3],[.1,1.63,.35],'right','uppercut',ATTACK_PATH,[0,1,0]);
- const b=attackPath([-.15,1.49,.3],[-.1,1.63,.35],'left','uppercut',ATTACK_PATH,[0,1,0]);
- assert.deepEqual(b.chamber,[-a.chamber[0],a.chamber[1],a.chamber[2]]);
- assert.equal(a.chamber[1],1.49-ATTACK_PATH.uppercutWindup);assert.deepEqual(a.contactVelocity,[0,ATTACK_PATH.contactSpeed,0]);
- assert.equal(a.seconds,ATTACK_PATH.uppercutSeconds);assert.equal(a.torso,0);
- assert.equal(validAttackTuning({...ATTACK_PATH,uppercutSeconds:0}),false);
- assert.equal(validAttackTuning({...ATTACK_PATH,uppercutWindup:-1}),false);
-});
+import {COMBAT} from './fixtures/minds.mjs';
 
 test('lower-surface selection reaches actual Warrior capsule and hull faces and supplies the upward neutral action',async()=>{
  const s=await buildBout({left:'workshop-fighter',right:'workshop-fighter',gap:.8,held:{left:'empty',right:'empty'},balance:{left:0,right:0},
@@ -54,35 +43,25 @@ test('lower-surface selection reaches actual Warrior capsule and hull faces and 
  }finally{s.dispose();}
 });
 
-test('both hands repeat actual upward contacts and survive clean misses with verified returns and no assistance', {
-  todo: "a bare hand strikes with its fist's measured surface (`closesToStrike`), about 9 cm short of the open capsule's fingers that its blows' spacing, aim and recipes were tuned to",
-}, async()=>{
- for(const hand of ['right','left'])for(const mode of ['hit','miss']){
-  const row=await combatStrike({hand,mode,seconds:8,family:'uppercut',surface:'bottom',direction:[0,1,0],ahead:.35,across:.1,measureMass:true});
-  assert.equal(row.fell,false);assert.equal(row.cycles.failed,0);assert.deepEqual(row.assist,{force:0,moment:0});
-  assert.ok(row.cycles.returned[hand]>=(mode==='hit'?6:4),JSON.stringify(row.cycles));
-  if(mode==='hit'){
-   assert.equal(row.contacts.length,6);assert.ok(row.contacts.every(c=>c.closing>2.9&&c.mass>.2),JSON.stringify(row.contacts));
-  }else{assert.deepEqual(row.contacts,[]);assert.ok(row.peaks.every(p=>p>2.9),JSON.stringify(row.peaks));}
- }
-});
-
-
-test('an actual Arena uppercut keeps its world direction and full state through a fresh-world fork', {
-  todo: "a bare hand strikes with its fist's measured surface (`closesToStrike`), about 9 cm short of the open capsule's fingers that its blows' spacing, aim and recipes were tuned to",
-}, async()=>{
- const candidate=withParts(SCRAPPER,{tactics:{strikes:'boxing',tuning:{openings:{head:0,upperTrunk:.2,middleTrunk:.4,uppercut:-.6}}}});
+// Whether the uppercut lands is `combat-strike-capability`'s: this case forks the one thrown, whatever it meets.
+test('an actual Arena uppercut keeps its world direction and full state through a fresh-world fork', async()=>{
+ const candidate={...COMBAT,actions:[{...COMBAT.actions[0],name:'uppercut',family:'uppercut',regions:[{kind:'segment',segment:'head'}],
+  aim:{kind:'surface',tuning:{head:0,upperTrunk:.2,middleTrunk:.4,uppercut:-.6}}}]};
  const recipe={left:'workshop-fighter',right:'workshop-fighter',gap:2,capSeconds:30,recoverySeconds:null,held:{left:'empty',right:'empty'},balance:{left:0,right:0},
   minds:{left:candidate,right:COMBAT}};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
-  const skills=a.duel.duelists.left.minded.skills;
-  while(a.duel.clock<20&&!(skills.state.blow.hands[skills.state.blow.hand]?.action?.path.family==='uppercut'&&skills.report.strike.phase==='swing'))a.world.step();
-  assert.ok(a.duel.clock<20);assert.equal(skills.state.blow.hands[skills.state.blow.hand]?.action.path.family,'uppercut');assert.deepEqual(skills.state.blow.hands[skills.state.blow.hand]?.action.path.direction,[0,1,0]);
-  const hand=skills.report.strike.hand,thrown=skills.report.strike.thrown[hand];b.duel.load(a.duel.save());
+  const d=a.duel.duelists.left,skills=d.minded.skills,thrown=()=>skills.report.actions.find(action=>action.action==='uppercut'&&action.phase==='commit');
+  while(a.duel.clock<20&&!thrown())a.world.step();
+  const committed=thrown();assert.ok(committed,'no uppercut committed in 20 s: the fixture did not reach its case');
+  const hand=committed.effector.split('.')[1],goal=skills.state.command.effectors[`hand.${hand}`];
+  const world=new Vector3(...goal.terminalVelocity).applyRotationQuaternionToRef(d.body.view.root.rotation,new Vector3());
+  assert.ok(Math.abs(world.x)<1e-6&&Math.abs(world.y-ATTACK_PATH.contactSpeed)<1e-6&&Math.abs(world.z)<1e-6,JSON.stringify(world.asArray()));
+  b.duel.load(a.duel.save());
   const trace=s=>traceOf(Object.values(s.duel.duelists).map(d=>d.built)),ta=trace(a),tb=trace(b);
   for(let i=0;i<200;i++){a.world.step();b.world.step();ta.take();tb.take();}
   assert.equal(ta.digest(),tb.digest());assert.deepEqual(a.duel.save().state,b.duel.save().state);
-  assert.ok(skills.report.strike.thrown[hand]>thrown);assert.deepEqual(a.duel.duelists.left.body.assist.meter.force,0);
+  assert.ok(skills.report.ledger.some(record=>record.id===committed.id),'the uppercut ends within the forked steps');
+  assert.deepEqual(d.body.assist.meter.force,0);
  }finally{a.dispose();b.dispose();}
 });

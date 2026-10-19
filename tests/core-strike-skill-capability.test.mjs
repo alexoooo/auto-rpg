@@ -11,9 +11,7 @@ import { evaluateBlow } from "../research/core-blow.mjs";
 
 const CLUB = REPERTOIRE.find((recipe) => recipe.model === "workshop-fighter" && recipe.held === "wooden club" && recipe.band === "high");
 
-test("the_repertoires_club_blow_reads_at_its_place_what_its_record_says", {
-  todo: "the repertoire's readings were measured on capsule hands, and the club blow at its place now nets less than its record",
-}, async () => {
+test("the_repertoires_club_blow_reads_at_its_place_what_its_record_says", async () => {
   // As written, on a 20 m ground at the game's rate: the first of the eight its net is the mean of.
   const { readings, net } = CLUB, read = readings.at120;
   const blow = await evaluateBlow({ model: CLUB.model, held: CLUB.held, band: CLUB.band, strike: CLUB.strike, ahead: CLUB.place.ahead, hz: 120, ground: 20 });

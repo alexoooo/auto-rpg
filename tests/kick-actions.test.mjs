@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createBody } from "../src/core/body.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { GUARD } from "../src/core/skills/guard.ts";
-import { kickExecutor, KICK_PATH } from "../src/core/skills/kick.ts";
+import { kickExecutor, KICK_PATH, validKickTuning } from "../src/core/skills/kick.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const around = { heading: 0, placed: false, support: null, walk: [.3, 0], lower: .05 };
@@ -66,4 +66,15 @@ test("withdrawal during kick setup remains a return when its id is listed again"
     assert.deepEqual(result, [{ id: 1, phase: "release", stage: "recenter", holds: ["foot.right", "legs", "trunk"] }]);
     assert.deepEqual(executor.state.live.ending, { kind: "cancelled" });
   } finally { f.dispose(); }
+});
+
+test("kick durations and bounded execution are validated before a physical body is driven", () => {
+  assert.equal(validKickTuning(KICK_PATH),true);
+  for(const key of ["setupLimit","transferLimit","transferSeconds","chamberSeconds","swingSeconds","returnSeconds",
+    "prepareLimit","returnLimit","hold","placeSeconds","placeLimit","recenterLimit","contactSpeed","response"])
+    assert.equal(validKickTuning({...KICK_PATH,[key]:0}),false,key);
+  assert.equal(validKickTuning({...KICK_PATH,rotationError:1.1}),false);
+  assert.equal(validKickTuning({...KICK_PATH,normalAlignment:1.1}),false);
+  assert.equal(validKickTuning({...KICK_PATH,soleTurn:1.1}),false);
+  assert.equal(validKickTuning({...KICK_PATH,lift:NaN}),false);
 });

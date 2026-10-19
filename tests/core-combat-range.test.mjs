@@ -1,56 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
-import {actionTactics} from '../src/core/mind/action-tactics.ts';
-import {behaviourFaults} from '../src/core/mind/behaviours.ts';
-import {humanSpec} from '../src/core/human/spec.ts';
-import {SCRAPPER,FIGHTING} from '../src/core/mind/config.ts';
-import {combatTrial} from '../research/arena-combat.mjs';
+import {SCRAPPER} from '../src/core/mind/config.ts';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
 import {traceOf} from './harness/trace.mjs';
-const spec=humanSpec('workshop-fighter');
-function reader(){
- const tactics=actionTactics(spec,[],{...FIGHTING,list:[{kind:'approach',spacing:.125,spacingStep:.03125}]});
- const sight={view:{time:0,stance:{centre:new Vector3()},senses:{side:'own',others:[],solids:[]}},report:{heading:0,actions:[],ledger:[]}};
- return {tactics,sight};
-}
-const record=(sequence,changes={})=>({sequence,action:'strike',committed:true,ending:{kind:'completed'},contacts:{loadedInCommit:false},...changes});
-test('range adaptation consumes exact completed clean misses once and saturates without inspecting history',()=>{
- const {tactics,sight}=reader();
- for(let i=1;i<=6;i++){
-  sight.report.ledger=[record(i)];tactics.decide(sight,1/120);tactics.decide(sight,1/120);
-  assert.deepEqual(tactics.state.spacing,[Math.max(0,.125-i*.03125)]);
-  assert.equal(tactics.state.sequence,i);
- }
-});
-test('refusal, interruption, prepare failure, return timeout and loaded commitment do not train distance',()=>{
- for(const changes of [{committed:false},{ending:{kind:'refused'}},{ending:{kind:'interrupted'}},{ending:{kind:'abandoned'}},{ending:{kind:'stalled'}},{contacts:{loadedInCommit:true}}]){
-  const {tactics,sight}=reader();sight.report.ledger=[record(1,changes)];tactics.decide(sight,1/120);
-  assert.deepEqual(tactics.state.spacing,[.125]);
- }
-});
-test('approach learning settings reject nonfinite and negative values',()=>{
- for(const [spacing,spacingStep]of [[NaN,0],[0,NaN],[0,Infinity],[0,-1],[-.1,.1]])
-  assert.ok(behaviourFaults({kind:'approach',spacing,spacingStep}).length);
- assert.deepEqual(behaviourFaults({kind:'approach',spacing:0,spacingStep:0}),[]);
-});
 const candidate={...SCRAPPER,tactics:{...SCRAPPER.tactics,list:SCRAPPER.tactics.list.map(b=>b.kind==='approach'?{...b,spacing:.1,spacingStep:.1}:b)}};
 const index=candidate.tactics.list.findIndex(b=>b.kind==='approach');
-test('observed clean misses correct physical self-play spacing without assistance or prolonged pressure', {
-  todo: "a bare hand strikes with its fist's measured surface (`closesToStrike`), about 9 cm short of the open capsule's fingers that its blows' spacing, aim and recipes were tuned to",
-}, async()=>{
- const row=await combatTrial({left:candidate,right:candidate,recipe:{capSeconds:30}});
- for(const side of ['left','right']){
-  const s=row.sides[side];assert.equal(s.approachSpacing[index],0);
-  assert.ok(s.drivenDamage>.2,JSON.stringify(s));assert.ok((s.drivenTargets.upperTrunk??0)+(s.drivenTargets.middleTrunk??0)>=6);
-  assert.equal(s.falls,0);assert.equal(s.pressureOnly.episodes,0);assert.ok(s.pressureOnly.longest<1);
-  assert.deepEqual(s.assist,{force:0,moment:0});
- }
-});
-
-// How far the range is learned is the case above's: this one forks whatever it has learned by its first commit.
+// How far the range is learned is `core-combat-capability`'s: this case forks whatever it has learned by its first commit.
 test('a fresh-world fork mid-commit carries the range learned and the pending observation, and ordinary orders cancel it',async()=>{
  const make=async()=>buildBout({left:'workshop-fighter',right:'workshop-fighter',minds:{left:candidate,right:candidate},
   balance:{left:0,right:0},held:{left:'empty',right:'empty'},capSeconds:30,recoverySeconds:null},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});

@@ -14,9 +14,7 @@ test("the Runner opens the gap and the Charger closes it by over 0.8 m in 4 s", 
   assert.ok(ran.gap - ran.opened > .8, JSON.stringify(ran)); assert.ok(charged.opened - charged.gap > .8, JSON.stringify(charged));
 });
 
-test("a configured left-hand fighter admits only its named effector", {
-  todo: "the recipe jab's placed footing settles 7 to 8 cm short of its window, which is 6 cm either way, and it places again until its preparation deadline",
-}, async () => {
+test("a configured left-hand fighter admits only its named effector", async () => {
   const jabbed = await againstStanding(LEFT_HAND, 8, .8);
   assert.ok(jabbed.effectors.length > 0, JSON.stringify(jabbed)); assert.ok(jabbed.effectors.every(effector => effector === "hand.left"));
 });

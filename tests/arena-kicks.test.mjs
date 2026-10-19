@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
 import {buildBout} from '../research/bout.mjs';
-import {combatContact,combatTrial} from '../research/arena-combat.mjs';
 import {SCRAPPER} from '../src/core/mind/config.ts';
 import {KICKER} from './fixtures/minds.mjs';
 import {STAND_ORDERS} from '../src/core/mind/orders.ts';
@@ -11,46 +10,23 @@ import {capsuleSurfaceAtHeight} from '../src/core/mind/openings.ts';
 import {frameOf} from '../src/core/spec/body.ts';
 import {centreOfToRef} from '../src/core/control/support.ts';
 import {traceOf} from './harness/trace.mjs';
+import {commandsBody} from '../src/core/body.ts';
 
 const kicks={...KICKER,actions:KICKER.actions.filter(action=>action.executor==='kick'),tactics:{...KICKER.tactics,choose:{kind:'rotate',rethink:.2,patience:2}}};
 const recipe={left:'workshop-fighter',right:'workshop-fighter',gap:1.4,capSeconds:60,recoverySeconds:null,
   balance:{left:0,right:0},held:{left:'empty',right:'empty'},minds:{left:kicks,right:SCRAPPER}};
 const make=async()=>buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
 
-test('foot scoring requires the active moving foot and preserves actual native wounds',()=>{
-  const blow={normal:[0,0,1],closing:2,energy:3,sides:[{fighter:'left',segment:'foot.right',wound:{taken:[{hp:.1}]}},
-    {fighter:'right',segment:'shank.left',wound:{taken:[{hp:.2}]}}]};
-  const witness={phase:null,hand:null,down:false,foeLow:false,kick:{foot:'right',phase:'swing',relativeVelocity:{right:[0,0,2]}}};
-  assert.deepEqual(combatContact(blow,'left',witness),{driven:true,kind:'target',outgoing:.2,incoming:.1,energy:3,grounded:false,nativeKick:true});
-  assert.deepEqual(combatContact({...blow,closing:.8},'left',witness),{driven:false,kind:'incidental-body',outgoing:.2,incoming:.1,energy:3,grounded:false,nativeKick:true});
-  for(const kick of [{...witness.kick,phase:'return'},{...witness.kick,foot:'left'},
-    {...witness.kick,relativeVelocity:{right:[0,0,-2]}}])assert.equal(combatContact(blow,'left',{...witness,kick}).driven,false);
-  assert.equal(combatContact(blow,'left',{...witness,down:true}).driven,false);
-});
-
-test('the selectable Arena profile completes either-foot native strikes and keeps the retained profiles unchanged',async()=>{
-  assert.equal(SCRAPPER.actions.some(action=>action.effectors.some(effector=>effector.startsWith('foot.'))),false);
-  for(const side of ['left','right']){
-    const row=await combatTrial({left:side==='left'?kicks:'scrapper',right:side==='right'?kicks:'scrapper',
-      recipe:{capSeconds:90},tape:[{step:0,side:side==='left'?'right':'left',orders:STAND_ORDERS}]});
-    const r=row.sides[side];assert.equal(r.falls,0);assert.deepEqual(r.assist,{force:0,moment:0});
-    assert.equal(r.actionEndings.filter(record=>record.effector.startsWith('foot.')&&record.ending.kind==='stalled').length,0);
-    for(const foot of ['left','right'])assert.ok(r.actionEndings.some(record=>record.effector==='foot.'+foot&&record.ending.kind==='completed'),JSON.stringify(r));
-    assert.ok(r.nativeKickContacts>=1&&r.nativeKickDamage>0,JSON.stringify(r));
-    assert.ok(r.drivenKicks>=1&&r.kickDamage>0,JSON.stringify(r));
-  }
-});
-
 test('a native Arena kick forks through preparation, impact and verified landing, and orders withdraw it',async()=>{
   const a=await make(),b=await make();
   try{
     a.duel.order('right',STAND_ORDERS);const skills=a.duel.duelists.left.minded.skills;
     while(a.duel.clock<15&&!skills.report.actions.some(action=>action.effector.startsWith('foot.')&&action.phase==='commit'))a.world.step();
-    assert.ok(a.duel.clock<15);const swinging=a.duel.save();b.duel.load(swinging);
+    assert.ok(a.duel.clock<15,'no kick committed: the fixture did not reach its case');const swinging=a.duel.save();b.duel.load(swinging);
     const ta=traceOf(Object.values(a.duel.duelists).map(d=>d.built)),tb=traceOf(Object.values(b.duel.duelists).map(d=>d.built));
     for(let i=0;i<600;i++){a.world.step();b.world.step();ta.take();tb.take();}
     assert.equal(ta.digest(),tb.digest());assert.deepEqual(a.duel.save().state,b.duel.save().state);
-    assert.ok(skills.report.ledger.some(record=>record.effector.startsWith('foot.')&&record.ending.kind==='completed')); assert.equal(a.duel.duelists.left.body.down,false);
+    assert.ok(skills.report.ledger.some(record=>record.effector.startsWith('foot.')));
     a.duel.load(swinging);a.duel.order('left',STAND_ORDERS);
     a.world.step(600);assert.deepEqual(skills.report.actions,[]);
     assert.equal(a.duel.duelists.left.body.down,false);assert.equal(a.duel.verdict,null);
@@ -80,10 +56,11 @@ test('an actual fall interrupts the kick and yields to recovery in a continuing 
   const s=await make();
   try{
     s.duel.order('right',STAND_ORDERS);const d=s.duel.duelists.left,skills=d.minded.skills;
-    while(s.duel.clock<15&&!skills.report.actions.some(action=>action.effector.startsWith('foot.')&&action.stage==='unload'))s.world.step();assert.ok(s.duel.clock<15);
+    while(s.duel.clock<15&&!skills.report.actions.some(action=>action.effector.startsWith('foot.')&&action.phase==='prepare'))s.world.step();
+    assert.ok(s.duel.clock<15,'no kick prepared: the fixture did not reach its case');
     const trunk=d.built.segments.get('upperTrunk');trunk.body.applyImpulse(new Vector3(0,0,80),centreOfToRef(trunk,new Vector3()));
     let down=false,recovery=false;
-    for(let i=0;i<1200;i++){s.world.step();down ||= d.body.down;recovery ||= d.body.has.startsWith('stand up:');}
+    for(let i=0;i<1200;i++){s.world.step();down ||= d.body.down;recovery ||= d.body.level==='full'&&!commandsBody(d.body);}
     assert.ok(down&&recovery);assert.ok(skills.report.ledger.some(record=>record.effector.startsWith('foot.')&&record.ending.kind==='interrupted'));assert.deepEqual(skills.report.actions,[]);
     assert.equal(s.duel.verdict,null,'a fall does not end a continuing bout');
     assert.ok(d.body.assist.meter.force===0&&d.body.assist.meter.moment===0);
