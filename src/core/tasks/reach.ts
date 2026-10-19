@@ -1,5 +1,5 @@
 import type { Scene } from "@babylonjs/core/scene.js";
-import { createBody, type Body } from "../body.ts";
+import { createBody, type HostedBody } from "../body.ts";
 import { buildBody } from "../build/build-body.ts";
 import type { PhysicsEngine } from "../engine/engine.ts";
 import { modelSpec, type HumanoidModel } from "../models.ts";
@@ -52,7 +52,7 @@ export function createReachTask(scene: Scene, engine: PhysicsEngine, config: Rea
     switch (settings.controller) {
       case "actuator": body = createPolicyBody(built, world, () => ({ name: "external", state: {}, step: () => state.actuator })); break;
       case "layered": {
-        const commanded: Body = createBody(built, world, { servoSeconds: settings.servoSeconds });
+        const commanded: HostedBody = createBody(built, world, { servoSeconds: settings.servoSeconds });
         commanded.drive(() => ({ posture: state.posture, pushes: [], stance: null }));
         body = commanded; break;
       }

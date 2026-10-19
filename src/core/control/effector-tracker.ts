@@ -1,5 +1,4 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
 import { channelName, type MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { distance } from "../spec/vec.ts";
@@ -8,6 +7,7 @@ import { pointPath } from "./point-path.ts";
 import { pointNowToRef, reachWork, solveReach, type ReachEnd, type ReachWork, type ReachOrientation } from "./kinematics.ts";
 import { turnBetweenToRef } from "../math/turn.ts";
 import { hypot } from "../math/real.ts";
+import type { ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
 /** A segment's named rigid point and its goal in the root frame, m. */
 interface Place {
   readonly point: string;
@@ -59,8 +59,8 @@ interface Free { readonly joint: number; readonly k: number; readonly min: numbe
 /** A declared chain and the endpoint path the tracker remembers. */
 interface Effector {
   readonly orientation: ReachOrientation;
-  readonly chain: BuiltJoint[];
-  readonly segment: BuiltSegment;
+  readonly chain: ReadJoint[];
+  readonly segment: ReadSegment;
   /** The endpoint's named rigid-body points in the reference root frame. */
   readonly points: ReadonlyMap<string, Vec3>;
   /** The declared chain's free joint coordinates. */
@@ -90,8 +90,8 @@ interface EffectorMemory {
 interface ReachMeter { solves: number; passes: number; capped: number }
 
 /** Named physical endpoint paths and bounded IK, independent of a body's support controller. */
-export function effectorTracker(built: BuiltBody, root: BuiltSegment) {
-  const names = (joint: BuiltJoint) => joint.dofs.map((_, k) => channelName(joint, k));
+export function effectorTracker(built: ReadBody, root: ReadSegment) {
+  const names = (joint: ReadJoint) => joint.dofs.map((_, k) => channelName(joint, k));
   const descriptions = bodyEffectors(built);
   const limbOf = (description: typeof descriptions[number]): Effector => {
     const { segment, chain, free, points } = description;

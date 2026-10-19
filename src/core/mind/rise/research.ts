@@ -80,7 +80,7 @@ export function researchRise(own: OwnBody, view: BodyView, world: World): SubMin
         const v = action.velocity[i];
         own.muscles.velocity[i] = v === "+inf" ? Infinity : v === "-inf" ? -Infinity : v;
       }
-      own.built.handPoses.request(SIDES.filter(hand => action.handPoses[hand] !== undefined)
+      own.requestHandPoses(SIDES.filter(hand => action.handPoses[hand] !== undefined)
         .map(hand => ({ hand, pose: action.handPoses[hand] })));
       own.assist.ask(zero, zero);
     } };

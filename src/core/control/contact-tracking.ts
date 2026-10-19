@@ -2,11 +2,12 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { planarContactAcceleration } from "../build/contact-curvature.ts";
 import type { coupledDynamics } from "../build/coupled-dynamics.ts";
 import { constraintBasis, type MotionConstraint } from "../build/constrained-mass.ts";
-import { CONTACT_FRICTION, type PhysicsWorld, type SegmentBody } from "../engine/engine.ts";
+import { CONTACT_FRICTION } from "../engine/engine.ts";
 import { activeQuadratic } from "../math/active-quadratic.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { checkEffortBounds, type EffortBound } from "./effort-bounds.ts";
 import { checkedSupportEdge, motionFrameKey, supportEdgeIncludes, supportNormalBounds, type MotionCommand } from "./tasks.ts";
+import type { ReadSegmentBody, ReadPhysics } from "../read-body.ts";
 
 export interface ContactTrackingSettings {
   /** Optional local lift-off prediction; tolerance is in m/s2 and supplied by the experiment. */
@@ -29,7 +30,7 @@ export interface ContactTrackingSettings {
 
 interface Point {
   readonly id: string;
-  readonly body: SegmentBody;
+  readonly body: ReadSegmentBody;
   readonly target: number;
   readonly curvature: Vec3;
   readonly frame: string;
@@ -90,7 +91,7 @@ function distributionModes(points: readonly Point[]): number[][] {
  * and a normal end-step bound; it does not choose sliding friction. Its `radius` gives a frame's
  * collider's rounding as the collider is at the read, since a hand's changes with its pose.
  */
-export function contactTracking(physics: PhysicsWorld, frames: ReadonlyMap<string, SegmentBody>, channels: number, settings: ContactTrackingSettings, extraCapacity = 0, motion?: { readonly dt: number; readonly radius: (frame: string, collider: number) => number }) {
+export function contactTracking(physics: ReadPhysics, frames: ReadonlyMap<string, ReadSegmentBody>, channels: number, settings: ContactTrackingSettings, extraCapacity = 0, motion?: { readonly dt: number; readonly radius: (frame: string, collider: number) => number }) {
   if (!Number.isSafeInteger(extraCapacity) || extraCapacity < 0 || !Number.isSafeInteger(settings.maxPoints) || settings.maxPoints < 1 || !(settings.gap >= 0) || !Number.isFinite(settings.gap)
     || !(settings.minUpNormal > 0 && settings.minUpNormal <= 1) || !(settings.forceTolerance > 0) || !Number.isFinite(settings.forceTolerance)
     || !(dot(physics.gravity, physics.gravity) > 0)) throw new Error("invalid sticking contact settings");

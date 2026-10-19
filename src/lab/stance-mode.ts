@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { Body } from "../core/body.ts";
+import type { HostedBody } from "../core/body.ts";
 import type { BuiltSegment } from "../core/build/build-body.ts";
 import type { StancePhase } from "../core/control/stance.ts";
 import { NO_COVER, type Intent } from "../core/mind/intent.ts";
@@ -66,7 +66,7 @@ export interface StanceFrame {
 }
 
 interface StanceSession {
-  readonly body: Body;
+  readonly body: HostedBody;
   readonly orders: StanceOrders;
   /** Shove the middle trunk by `impulse` N s, level, `degrees` about up from the heading (90 to its right). */
   shove(impulse: number, degrees: number): void;
@@ -152,7 +152,7 @@ export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impul
 }
 
 /** Queue a level impulse on the middle trunk before physics, relative to the supplied heading. */
-export function shoveBody(body: Body, world: World, heading: () => number,
+export function shoveBody(body: HostedBody, world: World, heading: () => number,
   pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void) {
   const built = body.built;
   const trunk = built.segments.get("middleTrunk");

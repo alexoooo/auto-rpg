@@ -3,8 +3,7 @@
  * the frame helpers that read a segment where it is now.
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { CONTACT_FRICTION, type Contact } from "../engine/engine.ts";
-import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
+import { CONTACT_FRICTION } from "../engine/engine.ts";
 import type { Row } from "./bearing.ts";
 import type { AnkleHold, BearingSole } from "./contact-wrench.ts";
 import { chainTo } from "./kinematics.ts";
@@ -15,9 +14,10 @@ import { STANDARD_GRAVITY } from "../spec/constants.ts";
 import { acos, asin, atan2, cos, hypot } from "../math/real.ts";
 import { wrap } from "../math/turn.ts";
 import type { Side } from "../spec/body.ts";
+import type { ReadBody, ReadJoint, ReadSegment, ReadContact } from "../read-body.ts";
 
 /** Whether `contact` is the ground bearing a body: a fixed collider that pushed this step, its normal (from the body into it) more than `minUp` down. */
-export const groundContact = (contact: Contact, minUp: number): boolean =>
+export const groundContact = (contact: ReadContact, minUp: number): boolean =>
   contact.fixed !== null && contact.impulse > 0 && contact.normal[1] < -minUp;
 
 /**
@@ -87,8 +87,8 @@ export const soleHeight = (foot: FootState): number => lowestCorner(foot) - foot
 /** A foot as the stance reads it. */
 export interface FootState {
   readonly side: Side;
-  readonly segment: BuiltSegment;
-  readonly chain: BuiltJoint[];
+  readonly segment: ReadSegment;
+  readonly chain: ReadJoint[];
   /** The sole's corners, in the segment's own frame. */
   readonly sole: readonly Vector3[];
   /**
@@ -167,7 +167,7 @@ interface HeldRegions {
  * What is a foot's own (its sole, its ends' corners, its heel's height flat) is the
  * reference pose's, whatever pose the body is in.
  */
-export function footStatesOf(built: BuiltBody, inset = SUPPORT_INSET): FootState[] {
+export function footStatesOf(built: ReadBody, inset = SUPPORT_INSET): FootState[] {
   const weight = massOf([...built.segments.values()]) * STANDARD_GRAVITY.value;
   const feet = (["left", "right"] as const).map((side) => {
     const segment = built.segments.get(`foot.${side}`);
@@ -210,7 +210,7 @@ export function footStatesOf(built: BuiltBody, inset = SUPPORT_INSET): FootState
  * the sole about to roll; drawn in, the ankle has the rest to bring it back. The hold is a
  * share of the ankle's strength (`ANKLE_HOLD`), the rest of it its own margin.
  */
-function holdOf(corners: readonly Vec3[], ahead: readonly number[], ankle: Vec3, joint: BuiltJoint, weight: number, inset: number): { points: Vec3[]; reach: FootState["holdReach"]; hold: AnkleHold } {
+function holdOf(corners: readonly Vec3[], ahead: readonly number[], ankle: Vec3, joint: ReadJoint, weight: number, inset: number): { points: Vec3[]; reach: FootState["holdReach"]; hold: AnkleHold } {
   const mid = (a: Vec3, b: Vec3): Vec3 => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
   const front = mid(corners[ahead[0]!]!, corners[ahead[1]!]!), heel = mid(corners[ahead[2]!]!, corners[ahead[3]!]!);
   const fx = front[0] - heel[0], fz = front[2] - heel[2], along = hypot(fx, fz), ux = fx / along, uz = fz / along;
@@ -239,7 +239,7 @@ function holdOf(corners: readonly Vec3[], ahead: readonly number[], ankle: Vec3,
  * whose axis stands nearest up turns the thigh, and the foot under it, about up by its angle times
  * the axis's upward part, so the pelvis turns the other way over a planted foot.
  */
-function turnsOf(hip: BuiltJoint): [number, number] {
+function turnsOf(hip: ReadJoint): [number, number] {
   const dof = hip.dofs.reduce((best, d) => Math.abs(d.spec.axis.value[1]) > Math.abs(best.spec.axis.value[1]) ? d : best);
   const up = dof.spec.axis.value[1], a = -up * dof.spec.min.value, b = -up * dof.spec.max.value;
   return [Math.min(a, b), Math.max(a, b)];
@@ -267,7 +267,7 @@ export function landingHeading(bearer: FootState, heading: number): number {
  * height a body stands at whatever posture it was built in, from which the stance's height is
  * asked (`STANCE_LOWER`).
  */
-export function standingHeight(built: BuiltBody): number {
+export function standingHeight(built: ReadBody): number {
   let mass = 0, moment = 0;
   for (const segment of built.segments.values()) {
     mass += segment.rigid.mass;
@@ -421,29 +421,29 @@ function outline(points: [number, number][]): [number, number][] {
 const scratch = { a: new Quaternion(), b: new Quaternion(), forward: new Vector3() };
 
 /** `segment`'s turn since its reference pose, node times rest^-1. */
-export function turnOfToRef(segment: BuiltSegment, out: Quaternion): Quaternion {
+export function turnOfToRef(segment: ReadSegment, out: Quaternion): Quaternion {
   Quaternion.InverseToRef(segment.rest, scratch.a);
   return segment.node.rotationQuaternion!.multiplyToRef(scratch.a, out);
 }
 
 /** `point` (body frame, reference pose, on `segment`) where it is now, world. */
-export function pointOfToRef(segment: BuiltSegment, point: Vec3, out: Vector3): Vector3 {
+export function pointOfToRef(segment: ReadSegment, point: Vec3, out: Vector3): Vector3 {
   const origin = segment.frame.origin;
   return out.set(point[0] - origin[0], point[1] - origin[1], point[2] - origin[2])
     .applyRotationQuaternionToRef(turnOfToRef(segment, scratch.b), out).addInPlace(segment.node.position);
 }
 
-export const centreOfToRef = (segment: BuiltSegment, out: Vector3): Vector3 => pointOfToRef(segment, segment.rigid.centre, out);
+export const centreOfToRef = (segment: ReadSegment, out: Vector3): Vector3 => pointOfToRef(segment, segment.rigid.centre, out);
 
 /** The mass of `parts`, kg: their rigid bodies' masses summed in order. */
-export const massOf = (parts: readonly BuiltSegment[]): number => parts.reduce((sum, part) => sum + part.rigid.mass, 0);
+export const massOf = (parts: readonly ReadSegment[]): number => parts.reduce((sum, part) => sum + part.rigid.mass, 0);
 
 /**
  * The centre of mass of `parts`, whose masses sum to `mass` (`massOf`), into `centre`, and its
  * velocity into `velocity` when asked (a body's linear velocity is its centre of mass's); `work`
  * carries nothing between calls.
  */
-export function massCentreToRef(parts: readonly BuiltSegment[], mass: number, centre: Vector3, work: Vector3, velocity?: Vector3): void {
+export function massCentreToRef(parts: readonly ReadSegment[], mass: number, centre: Vector3, work: Vector3, velocity?: Vector3): void {
   centre.setAll(0); velocity?.setAll(0);
   for (const part of parts) {
     centre.addInPlace(centreOfToRef(part, work).scaleInPlace(part.rigid.mass));
@@ -470,7 +470,7 @@ export const clearAlong = (bearer: FootState, foot: FootState, clearance: number
  * now (`Rigid.tensor`, in the segment frame), times its spin. `offset`, `motion`, `local` and
  * `turn` carry nothing between calls.
  */
-export function angularMomentumToRef(parts: readonly BuiltSegment[], centre: Vector3, velocity: Vector3, out: Vector3,
+export function angularMomentumToRef(parts: readonly ReadSegment[], centre: Vector3, velocity: Vector3, out: Vector3,
   offset: Vector3, motion: Vector3, local: Vector3, turn: Quaternion): void {
   out.setAll(0);
   for (const part of parts) {
@@ -489,7 +489,7 @@ export function angularMomentumToRef(parts: readonly BuiltSegment[], centre: Vec
 }
 
 /** `segment`'s point `at` (world): its velocity into `linear`, and the segment's spin into `angular`. */
-export function motionAtToRef(segment: BuiltSegment, at: Vector3, linear: Vector3, angular: Vector3): void {
+export function motionAtToRef(segment: ReadSegment, at: Vector3, linear: Vector3, angular: Vector3): void {
   const body = segment.body, c = centreOfToRef(segment, new Vector3());
   body.linearVelocityToRef(linear);
   body.angularVelocityToRef(angular);
@@ -691,7 +691,7 @@ function endToRef(a: Vector3, b: Vector3, out: SoleEdge): void {
 export const GROUND_FRICTION = CONTACT_FRICTION;
 
 /** The knee's bend in the reference pose, rad: the shank's line (knee to ankle) from the thigh's (hip to knee). */
-function referenceBendOf(chain: readonly BuiltJoint[]): number {
+function referenceBendOf(chain: readonly ReadJoint[]): number {
   const [hip, knee, ankle] = chain.map((joint) => joint.spec.centre.value);
   const t = [knee![0] - hip![0], knee![1] - hip![1], knee![2] - hip![2]], h = [ankle![0] - knee![0], ankle![1] - knee![1], ankle![2] - knee![2]];
   const dot = t[0]! * h[0]! + t[1]! * h[1]! + t[2]! * h[2]!;
@@ -699,14 +699,14 @@ function referenceBendOf(chain: readonly BuiltJoint[]): number {
 }
 
 /** The thigh's and the shank's lengths in the reference pose: hip to knee, and knee to ankle. */
-function lengthsOf(chain: readonly BuiltJoint[]): [number, number] {
+function lengthsOf(chain: readonly ReadJoint[]): [number, number] {
   const [hip, knee, ankle] = chain.map((joint) => joint.spec.centre.value);
   const distance = (p: Vec3, q: Vec3) => hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
   return [distance(hip!, knee!), distance(knee!, ankle!)];
 }
 
 /** The corners of `foot`'s sole, body frame, reference pose: the four corners of its box lowest there. */
-function soleCorners(foot: BuiltSegment): Vec3[] {
+function soleCorners(foot: ReadSegment): Vec3[] {
   const shape = foot.spec.shape;
   if (shape.kind !== "box") throw new Error(`${foot.spec.name} is a ${shape.kind}; a stance reads a box's sole`);
   const { x, y, z } = foot.frame, centre = shape.centre.value, size = shape.size.value;
@@ -720,7 +720,7 @@ function soleCorners(foot: BuiltSegment): Vec3[] {
 }
 
 /** `foot`'s sole's `corners` (`soleCorners`) in the segment's own frame. */
-function soleOf(foot: BuiltSegment, corners: readonly Vec3[]): Vector3[] {
+function soleOf(foot: ReadSegment, corners: readonly Vec3[]): Vector3[] {
   const { origin, x, y, z } = foot.frame;
   const dot = (a: readonly number[], b: readonly number[]) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!;
   return corners.map((q) => {

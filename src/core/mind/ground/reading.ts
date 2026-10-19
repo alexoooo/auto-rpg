@@ -1,10 +1,10 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody } from "../../build/build-body.ts";
 import { uprightness } from "../../control/ground.ts";
 import { centreOfToRef, footStatesOf, massCentreToRef, massOf, soleMiddleToRef, withinSupport } from "../../control/support.ts";
 import type { Side } from "../../spec/body.ts";
 import { lieOf } from "../rise/staged.ts";
 import type { Lie } from "../rise/stages.ts";
+import type { ReadBody } from "../../read-body.ts";
 
 /** The body's contact configuration, named only from its present physical readings. */
 export type Position = "standing" | "crouch" | "half-kneel" | "kneeling" | "fours" | "sitting" | Lie | "between";
@@ -46,7 +46,7 @@ const SETTLE_STEPS = 6;
 const HAND_BACK_LOAD = 0.9, SLOW = 0.3, SPIN = 1;
 
 /** Read fixed support and body geometry once per step. Reset between periods of ground ownership. */
-export function groundReading(built: BuiltBody, dt: number) {
+export function groundReading(built: ReadBody, dt: number) {
   if (!(dt > 0 && Number.isFinite(dt))) throw new Error("a ground reading needs a positive step time");
   const parts = built.spec.segments.map(s => built.segments.get(s.name)!);
   const feet = footStatesOf(built), indices = feet.map(f => parts.indexOf(f.segment));

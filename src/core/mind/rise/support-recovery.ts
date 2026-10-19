@@ -1,6 +1,5 @@
 import poses from "../../../../assets/research/posture-holds.json" with { type: "json" };
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody } from "../../build/build-body.ts";
 import type { MotionModel } from "../../control/tasks.ts";
 import type { BodyView } from "../../body.ts";
 import { supportEntry } from "../../control/support-entry.ts";
@@ -19,6 +18,7 @@ import type { SubMind } from "../sub-mind.ts";
 import { RISE, type Recipe } from "./stages.ts";
 import { stagedRise } from "./staged.ts";
 import { DOWN } from "../../control/support.ts";
+import type { ReadBody } from "../../read-body.ts";
 
 /** Hand/shin acquisition settings from `docs/reference/support-entry.md#fixture-and-acceptance`. */
 export const SUPPORT_ENTRY = deepFreeze({ root: "lowerTrunk", facing: .5,
@@ -30,7 +30,7 @@ export const SUPPORT_ENTRY = deepFreeze({ root: "lowerTrunk", facing: .5,
 const RECOVERY_VERIFY = Object.freeze({ slow: .1, minUpNormal: .9, hold: .5, limit: 6 });
 
 /** Acquisition policy and support-reading settings for the shared research task. */
-export function supportEntryPolicy(built: BuiltBody, model: Pick<MotionModel, "channels">) {
+export function supportEntryPolicy(built: ReadBody, model: Pick<MotionModel, "channels">) {
   const pose = poses.find((p) => p.model === built.spec.model && p.id === "fours");
   if (!pose) return null;
   const reference = built.segments.get(SUPPORT_ENTRY.root)!.rest;

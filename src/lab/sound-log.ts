@@ -1,7 +1,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { airOf, hearTouches } from "../audio/body-sounds.ts";
 import { impactCue, substanceOf, voiceOf, type SoundCue, type SoundPoint } from "../audio/cues.ts";
-import type { Body } from "../core/body.ts";
+import type { HostedBody } from "../core/body.ts";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { contactMass } from "../core/build/contact-mass.ts";
 import type { World } from "../core/world.ts";
@@ -77,7 +77,7 @@ export const LAB_BODY = "body", LAB_OTHER = "other";
  * touches of another body in the world, with the body and with the ground, until what it returns
  * is disposed.
  */
-export function logSounds(world: World, body: Body, log: SoundLog): { heard(cue: SoundCue | null): void; hears(built: BuiltBody): { dispose(): void }; dispose(): void } {
+export function logSounds(world: World, body: HostedBody, log: SoundLog): { heard(cue: SoundCue | null): void; hears(built: BuiltBody): { dispose(): void }; dispose(): void } {
   const heard = (cue: SoundCue | null): void => { if (cue) log.note(body.view.time, cue); };
   const own = { id: LAB_BODY, built: body.built };
   const touches = hearTouches(world, [own], heard);

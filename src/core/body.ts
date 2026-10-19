@@ -1,5 +1,4 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody, BuiltSegment } from "./build/build-body.ts";
 import type { Assist, AssistCeiling } from "./control/assist.ts";
 import { uprightness } from "./control/ground.ts";
 import { standingHeight } from "./control/support.ts";
@@ -21,6 +20,8 @@ import { centreReading } from "./observation.ts";
 import { effectorFeedback, type ContactIdentity, type EffectorContact, type EffectorFeedback } from "./control/effector-feedback.ts";
 import type { BodySpec, Side, HandPose } from "./spec/body.ts";
 import { groundReading, type GroundReading } from "./mind/ground/reading.ts";
+import type { ReadBody, ReadSegment } from "./read-body.ts";
+import type { BuiltBody } from "./build/build-body.ts";
 
 /**
  * **A body, commanded and seen.** One class for every body assembled from a spec: its muscles
@@ -36,8 +37,8 @@ import { groundReading, type GroundReading } from "./mind/ground/reading.ts";
  * them wants the body the view is read all the same, the driver is not asked, and the sub-mind
  * writes the muscles.
  */
-export interface Body extends PhysicalBody {
-  readonly built: BuiltBody;
+export interface Body extends Omit<PhysicalBody, "built"> {
+  readonly built: ReadBody;
   /** The muscles, for readings (a view of the torques); a driver commands through `drive`. */
   readonly muscles: MuscleDriver;
   /** The view as the last step left it, or as built before the first. */
@@ -68,6 +69,9 @@ export interface Body extends PhysicalBody {
   afterPhysics(listener: (step: number, time: number) => void): () => void;
   dispose(): void;
 }
+
+/** A body as the fight that made it holds it: what its drivers have (`Body`), with the built body under it (`PhysicalBody`). */
+export type HostedBody = Omit<Body, "built"> & PhysicalBody;
 
 /** The command layers' ownership label, shared by their host and its readers. */
 const COMMAND = "command";
@@ -274,7 +278,7 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
     }
     // A motor asked a speed or level that is not a number would leave its body's island to the engine, which gives it up.
     for (const push of command.pushes) if (!Number.isFinite(push.level) || (push.speed !== undefined && !Number.isFinite(push.speed))) throw new Error(`a push on ${push.channel} needs a finite level and speed`);
-    if (command.handPoses) built.handPoses.request(Object.entries(command.handPoses).map(([hand, pose]) => ({ hand: hand as Side, pose: pose! })));
+    if (command.handPoses) own.requestHandPoses(Object.entries(command.handPoses).map(([hand, pose]) => ({ hand: hand as Side, pose: pose! })));
     motor.setPosture(command.posture);
     for (const task of command.points ?? []) {
       if (command.effectors?.[task.segment]) throw new Error(`two controllers own ${task.segment}`);
@@ -351,7 +355,7 @@ export function commandable(spec: BodySpec): boolean {
 }
 
 /** `built` in `world`, holding its reference pose until something drives it. */
-export function createBody(built: BuiltBody, world: World, options: BodyOptions): Body {
+export function createBody(built: BuiltBody, world: World, options: BodyOptions): HostedBody {
   let command!: CommandMind;
   const listeners = new Set<(step: number, time: number) => void>();
   const afterPhysics: Body["afterPhysics"] = listener => {
@@ -399,8 +403,8 @@ const sameGoal = (a: EffectorGoal, b: EffectorGoal): boolean =>
  * on to the fingertips, where a whip of the wrist would read as a punch. Not differenced from the
  * nodes: the engine moves a body by more than its velocity when it corrects a constraint's error.
  */
-function fistOf(built: BuiltBody, side: Side): { fist: Fist; update(): void } {
-  const hand: BuiltSegment | undefined = built.segments.get(`hand.${side}`);
+function fistOf(built: ReadBody, side: Side): { fist: Fist; update(): void } {
+  const hand: ReadSegment | undefined = built.segments.get(`hand.${side}`);
   const knuckles = hand?.spec.points?.knuckles;
   if (!hand || !knuckles) throw new Error(`${built.spec.model} has no ${side} hand with knuckles`);
   const { origin, x, y, z } = hand.frame;

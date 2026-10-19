@@ -1,5 +1,5 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { Body } from "../core/body.ts";
+import type { HostedBody } from "../core/body.ts";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { standIntent, type Intent } from "../core/mind/intent.ts";
 import { copyActionTarget, type ActionRequest } from "../core/skills/action.ts";
@@ -93,7 +93,7 @@ interface Throw {
 }
 
 interface ThrownBlow extends Throw {
-  readonly body: Body;
+  readonly body: HostedBody;
   /** What its skills report: whether a blow is being thrown, or has been, is read here and not from the clock. */
   readonly report: SkillReport;
   /** Bind the experiment's target for detached contact attribution. */

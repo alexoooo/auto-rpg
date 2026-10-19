@@ -1,4 +1,4 @@
-import type { Body } from "../core/body.ts";
+import type { HostedBody } from "../core/body.ts";
 import type { World } from "../core/world.ts";
 import type { GroundTechniqueState } from "./ground-technique.ts";
 import type { TechniqueEnd } from "../core/mind/ground/techniques.ts";
@@ -15,24 +15,24 @@ interface StandUpState {
 }
 
 /** The phase actually running inside support recovery, without replacing or restarting its controller. */
-function recoveryState(body: Body): RecoveryState | undefined {
+function recoveryState(body: HostedBody): RecoveryState | undefined {
   return (body.state as { mind?: { subs?: RecoveryState[] } }).mind?.subs?.find(s => s?.rise !== undefined);
 }
 
-function techniqueState(body: Body): GroundTechniqueState | undefined {
+function techniqueState(body: HostedBody): GroundTechniqueState | undefined {
   return (body.state as { mind?: { subs?: GroundTechniqueState[] } }).mind?.subs?.find(s => s?.kind === "ground-technique");
 }
 
-function standUpState(body: Body): StandUpState | undefined {
+function standUpState(body: HostedBody): StandUpState | undefined {
   return (body.state as { mind?: { subs?: StandUpState[] } }).mind?.subs?.find(s => s?.techniques !== undefined && s.log !== undefined);
 }
 
-function standUpPhase(body: Body, stand: StandUpState): string {
+function standUpPhase(body: HostedBody, stand: StandUpState): string {
   return stand.current ? body.has.slice(body.has.indexOf(".") + 1) : stand.mode;
 }
 
 /** A run's ground history and assist meter, shared by the Lab readout and the Node bed. */
-export function groundMeter(body: Body, world: World, balance: number) {
+export function groundMeter(body: HostedBody, world: World, balance: number) {
   const indices = Object.fromEntries(body.built.spec.segments.map((s, i) => [s.name, i]));
   const state = {
     from: null as number | null, takeover: null as number | null, handback: null as number | null,

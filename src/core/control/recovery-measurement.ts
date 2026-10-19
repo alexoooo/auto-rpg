@@ -1,11 +1,11 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody } from "../build/build-body.ts";
 import type { BodyObservation } from "../observation.ts";
 import { footStatesOf } from "./support.ts";
 import { recoveryReady } from "./recovery-ready.ts";
+import type { ReadBody } from "../read-body.ts";
 
 /** Actual loaded contact patches and uprightness, independent of the recovery policy's requests. */
-export function recoveryMeasurement(built: BuiltBody, observe: () => BodyObservation) {
+export function recoveryMeasurement(built: ReadBody, observe: () => BodyObservation) {
   const feet = footStatesOf(built), root = built.segments.get("lowerTrunk")!;
   const inverseRoot = Quaternion.Inverse(root.rest), turn = new Quaternion(), up = new Vector3();
   const footUps = feet.map(f => Vector3.UpReadOnly.applyRotationQuaternionToRef(Quaternion.Inverse(f.segment.rest),new Vector3()));

@@ -319,7 +319,7 @@ export class DungeonRun {
       contactIdentity: other => {
         if (!other) return { kind: "world" };
         for (const candidate of [...this.party, ...this.enemies]) for (const segment of candidate.fighter?.built.segments.values() ?? []) {
-          if (segment.body === other) return { kind: "body", body: candidate.id, segment: segment.spec.name,
+          if (segment.body.id === other.id) return { kind: "body", body: candidate.id, segment: segment.spec.name,
             guard: candidate.fighter!.built.spec.marks.guards.includes(segment.spec.name) };
         }
         return null;

@@ -1,14 +1,13 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { SegmentBody } from "../engine/engine.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { BuiltBody } from "./build-body.ts";
 import { constraintBasis, type MotionConstraint } from "./constrained-mass.ts";
 import { bodyDynamics } from "./dynamics.ts";
 import { jointAngles } from "./joint-state.ts";
+import type { ReadBody, ReadSegmentBody } from "../read-body.ts";
 
-interface AttachedItem { readonly body: SegmentBody; motionConstraints(): readonly MotionConstraint[] }
-interface Load { readonly body: SegmentBody; readonly point: Vec3; readonly force: Vec3; readonly moment: Vec3 }
-interface ImpulseLoad { readonly body: SegmentBody; readonly point: Vec3; readonly impulse: Vec3; readonly angularImpulse: Vec3 }
+interface AttachedItem { readonly body: ReadSegmentBody; motionConstraints(): readonly MotionConstraint[] }
+interface Load { readonly body: ReadSegmentBody; readonly point: Vec3; readonly force: Vec3; readonly moment: Vec3 }
+interface ImpulseLoad { readonly body: ReadSegmentBody; readonly point: Vec3; readonly impulse: Vec3; readonly angularImpulse: Vec3 }
 const XYZ: readonly Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], ZERO: Vec3 = [0, 0, 0];
 /** Relative rank tolerance after mass whitening, a numeric setting (`docs/reference/coupled-dynamics.md`). */
 const RANK_TOLERANCE = 1e-10;
@@ -32,7 +31,7 @@ const tuple = (v: Vector3): Vec3 => [v.x, v.y, v.z];
  * optimized controller. `update` freezes the acceleration model's pose, velocity bias and attachment
  * set. Current-velocity projection reads the bodies and requires that same pose and attachment set.
  */
-export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly AttachedItem[] = [], fixed: readonly SegmentBody[] = []) {
+export function coupledDynamics(built: ReadBody, gravity: Vec3, items: readonly AttachedItem[] = [], fixed: readonly ReadSegmentBody[] = []) {
   if (gravity.length !== 3 || !gravity.every(Number.isFinite)) throw new Error("invalid coupled gravity");
   const segments = [...built.segments.values()], joints = [...built.joints.values()], registered = [...items];
   const accelerationOfGravity: Vec3 = [...gravity], fixedBodies = [...fixed];
@@ -48,8 +47,8 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
     return [s.body, channels.flatMap((j, i) => chain.has(j) ? [i] : [])] as const;
   }));
   const itemIndex = new Map(registered.map((item, i) => [item.body, 6 + count + 6 * i]));
-  const centres = new Map<SegmentBody, Vec3>(), spins = new Map(segments.map((s) => [s, new Vector3()]));
-  const drift = new Map<SegmentBody, { centre: Vec3; angular: Vec3; spin: Vec3 }>();
+  const centres = new Map<ReadSegmentBody, Vec3>(), spins = new Map(segments.map((s) => [s, new Vector3()]));
+  const drift = new Map<ReadSegmentBody, { centre: Vec3; angular: Vec3; spin: Vec3 }>();
   const basis: number[][] = [], targets: number[] = [];
   let reactionFactor: number[][] = [], reactionRows: { length: number; coefficients: number[] }[] = [], reactionConstraints: MotionConstraint[] = [];
   let lower: number[][] = [], force: number[] = [], constraints: { row: number[]; target: number }[] = [], ready = false;
@@ -85,7 +84,7 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
     }
     return row;
   };
-  const driftAt = (body: SegmentBody, at: Vec3): { linear: Vec3; angular: Vec3 } => {
+  const driftAt = (body: ReadSegmentBody, at: Vec3): { linear: Vec3; angular: Vec3 } => {
     const d = drift.get(body);
     if (!d) throw new Error("unknown coupled body");
     const r = sub(at, centres.get(body)!), turn = cross(d.angular, r), swing = cross(d.spin, cross(d.spin, r));
@@ -130,7 +129,7 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
     }
     return backward(response);
   };
-  const pointVelocity = (body: SegmentBody, at: Vec3, velocity: ArrayLike<number>) => {
+  const pointVelocity = (body: ReadSegmentBody, at: Vec3, velocity: ArrayLike<number>) => {
     requireReady();
     if (velocity.length !== size || !Array.from(velocity).every(Number.isFinite)) throw new Error("invalid coupled velocity");
     return { linear: XYZ.map((axis) => dot(rowOf([{ body, point: at, linear: axis, angular: ZERO }]), velocity)),
@@ -298,7 +297,7 @@ export function coupledDynamics(built: BuiltBody, gravity: Vec3, items: readonly
         const d = driftAt(e.body, e.point); return sum + dot(e.linear, d.linear) + dot(e.angular, d.angular);
       }, 0) };
     },
-    pointAcceleration(body: SegmentBody, at: Vec3, acceleration: ArrayLike<number>) {
+    pointAcceleration(body: ReadSegmentBody, at: Vec3, acceleration: ArrayLike<number>) {
       requireReady();
       if (acceleration.length !== size || !Array.from(acceleration).every(Number.isFinite)) throw new Error("invalid coupled acceleration");
       const d = driftAt(body, at);

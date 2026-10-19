@@ -1,5 +1,4 @@
 import { type Body, type BodyView } from "../../body.ts";
-import { rootSegment } from "../../build/build-body.ts";
 import { effectorTracker } from "../../control/effector-tracker.ts";
 import { hypot } from "../../math/real.ts";
 import { skillSet } from "../../skills/arbiter.ts";
@@ -16,6 +15,7 @@ import type { SubMind } from "../sub-mind.ts";
 import { nearestFoe, nearestSurface } from "../targets.ts";
 import { poseDrive } from "./techniques.ts";
 import { GROUND_LEGS, groundKick } from "./ground-kick.ts";
+import { rootSegment } from "../../read-body.ts";
 
 /** Cover and ground footwork surround a named supine kick on the body's shared action compositor. */
 export function groundFight(own: OwnBody, view: BodyView, _world: World, config: GroundFightConfig, afterPhysics: Body["afterPhysics"]): SubMind {

@@ -1,11 +1,11 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
-import type { BuiltBody } from "../build/build-body.ts";
 import { bodyEffectors } from "../control/effectors.ts";
 import type { PointTask } from "../control/motor.ts";
 import { turnOfToRef } from "../control/support.ts";
 import { atan2 } from "../math/real.ts";
 import type { Side } from "../spec/body.ts";
+import type { ReadBody } from "../read-body.ts";
 
 /** The time constant a held item's line is turned up at, s: about the guard's posture's own. */
 const HOLD_SECONDS = 0.1;
@@ -18,7 +18,7 @@ const HOLD_SECONDS = 0.1;
  * line up as the body stands in its reference pose (`guardPosture`); a hold keeps it up however
  * the trunk leans and whatever the item's weight does to the wrist. An empty hand holds nothing.
  */
-export function holdUp(built: BuiltBody): (side: Side) => PointTask | null {
+export function holdUp(built: ReadBody): (side: Side) => PointTask | null {
   const n = 1 / HOLD_SECONDS;
   const hands = Object.fromEntries((["left", "right"] as const).map((side) => {
     const segment = built.segments.get(`hand.${side}`), held = built.spec.held?.find((h) => h.segment === `hand.${side}`);
@@ -26,7 +26,7 @@ export function holdUp(built: BuiltBody): (side: Side) => PointTask | null {
     if (!segment || !held || !effector) return [side, null];
     const [x, y, z] = held.along.value, size = Math.sqrt(x * x + y * y + z * z);
     return [side, { segment, point: effector.model.point, along: new Vector3(x / size, y / size, z / size) }];
-  })) as Record<Side, { segment: NonNullable<ReturnType<BuiltBody["segments"]["get"]>>; point: string; along: Vector3 } | null>;
+  })) as Record<Side, { segment: NonNullable<ReturnType<ReadBody["segments"]["get"]>>; point: string; along: Vector3 } | null>;
   const turn = new Quaternion(), line = new Vector3(), spin = new Vector3();
   return (side) => {
     const hand = hands[side];

@@ -1,12 +1,12 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody } from "../build/build-body.ts";
 import { footStatesOf, groundContact, readSupport, withinSupport } from "./support.ts";
+import type { ReadBody } from "../read-body.ts";
 
 /** Physical readiness limits, independent of anatomy: `docs/reference/punch-stability.md#readiness-settings`. */
 export const STRIKE_SUPPORT = Object.freeze({ normal: .9, footGap: .015, slow: .35, hold: .05 });
 
 /** Trusted physical adapter; its detached readings are shared by strike preparation and transfer. */
-export function supportReadiness(built: BuiltBody) {
+export function supportReadiness(built: ReadBody) {
   const feet = footStatesOf(built), middle = new Vector3();
   const state = { loads: { left: 0, right: 0 }, flat: { left: false, right: false },
     centred: false, speed: 0, otherSupport: false, quiet: 0 };

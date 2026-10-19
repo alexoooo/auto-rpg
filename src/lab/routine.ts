@@ -1,4 +1,4 @@
-import type { Body, Fist } from "../core/body.ts";
+import type { HostedBody, Fist } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { NO_COVER, type Intent } from "../core/mind/intent.ts";
 import type { Sight, Tactics } from "../core/mind/tactics.ts";
@@ -180,7 +180,7 @@ interface RoutineOptions {
 const ROUTINE_TARGETS = { count: 10, seed: 1 } as const;
 
 interface Routine {
-  readonly body: Body;
+  readonly body: HostedBody;
   readonly fists: { readonly left: Fist; readonly right: Fist };
   readonly tactics: RoutineTactics;
   readonly report: SkillReport;

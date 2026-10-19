@@ -1,4 +1,4 @@
-import type { Body } from "../body.ts";
+import type { HostedBody } from "../body.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import type { ContactIdentity } from "../control/effector-feedback.ts";
 import type { AssistCeiling } from "../control/assist.ts";
@@ -39,7 +39,7 @@ interface MindedBody {
 /** A body under a fighter's mind: its skills, for whoever knows it is a fighter and reads their report. */
 interface FighterMind extends MindedBody {
   readonly kind: "fighter";
-  readonly body: Body;
+  readonly body: HostedBody;
   readonly skills: Skills;
 }
 

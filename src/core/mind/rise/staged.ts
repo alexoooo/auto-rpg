@@ -1,7 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
 import type { BodyView } from "../../body.ts";
-import type { BuiltSegment } from "../../build/build-body.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing } from "../../control/bearing.ts";
 import { patchCorners } from "../../control/contact-wrench.ts";
 import { uprightness } from "../../control/ground.ts";
@@ -13,6 +12,7 @@ import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
 import { riseLimbs } from "./limbs.ts";
 import { RISE, stageFaults, stagesOf, type BearStage, type Lie, type PoseStage, type Recipe, type Stage } from "./stages.ts";
+import type { ReadSegment } from "../../read-body.ts";
 
 /**
  * The pose drive: a freedom is asked the speed that would close its error in `POSE_SECONDS`, no
@@ -82,7 +82,7 @@ const STEERED: Readonly<Partial<Record<keyof RiseSteer, readonly string[]>>> = O
  * says back or front, and between them the side its left (the reference pose's -x) is under.
  * `work` carries nothing between calls.
  */
-export function lieOf(root: BuiltSegment, work = { turn: new Quaternion(), way: new Vector3() }): Lie {
+export function lieOf(root: ReadSegment, work = { turn: new Quaternion(), way: new Vector3() }): Lie {
   const turn = turnOfToRef(root, work.turn), way = work.way;
   const forward = way.set(0, 0, 1).applyRotationQuaternionToRef(turn, way).y;
   if (forward > LIE_UP) return "back";
@@ -131,7 +131,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   const settleSpeed = recipe.progress?.settleSpeed ?? SLOW, settleSeconds = recipe.progress?.settleSeconds ?? STILL_SECONDS;
   const muscles = own.muscles, root = muscles.dynamics.root.segment, count = muscles.channels.length;
   const upright = uprightness(own.built), made = riseLimbs(own, recipe);
-  const feet = footStatesOf(own.built), footSegments: ReadonlySet<BuiltSegment> = new Set(feet.map((foot) => foot.segment)), soles = new Vector3();
+  const feet = footStatesOf(own.built), footSegments: ReadonlySet<ReadSegment> = new Set(feet.map((foot) => foot.segment)), soles = new Vector3();
   const lying = { turn: new Quaternion(), way: new Vector3() };
   /**
    * Whether the body stands on its feet alone: every other segment more than `DOWN` over the
@@ -146,7 +146,7 @@ export function stagedRise(own: OwnBody, view: BodyView, recipe: Recipe = RISE):
   /** Whether the body is down and not on its feet alone. */
   const fallen = (): boolean => view.down && !onFeet();
   /** Every segment but the trunk's: the trunk's clearance is the ground's gap under the rest of the body's complement. */
-  const notTrunk: ReadonlySet<BuiltSegment> = new Set([...own.built.segments.entries()].filter(([name]) => !recipe.trunk.includes(name)).map(([, segment]) => segment));
+  const notTrunk: ReadonlySet<ReadSegment> = new Set([...own.built.segments.entries()].filter(([name]) => !recipe.trunk.includes(name)).map(([, segment]) => segment));
   /** A stage's goal by channel, from the reference pose, as the muscles read their angles. */
   const goalsOf = new Map<Stage, Float64Array>();
   const supportedGoals = new Float64Array(count);

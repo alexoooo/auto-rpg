@@ -1,4 +1,6 @@
 import type { BuiltBody } from "../build/build-body.ts";
+import type { HandPoseRequest } from "../build/hand-poses.ts";
+import { rootSegment, type ReadBody } from "../read-body.ts";
 import { createAssist, NO_ASSIST, type Assist, type AssistCeiling } from "../control/assist.ts";
 import { driveMuscles, type MuscleDriver } from "../muscle/driver.ts";
 import type { BodySpec } from "../spec/body.ts";
@@ -38,17 +40,19 @@ export interface Mind {
 }
 
 /**
- * **What a mind is made with: its own body, whole.** The spec with what it holds; the built
- * segments and joints, whose nodes and bodies are its proprioception; its muscles, which read
- * each freedom (angle, rate, speed, strength, the body's dynamics) and take the command; and its
- * assist, which takes an ask.
+ * **What a mind is made with: its own body, whole.** The spec with what it holds; its segments
+ * and joints as read (`ReadBody`), whose poses, motion and contacts are its proprioception; its
+ * muscles, which read each freedom (angle, rate, speed, strength, the body's dynamics) and take
+ * the command; its assist, which takes an ask; and its hands, which take a pose.
  */
 export interface OwnBody {
   readonly spec: BodySpec;
-  readonly built: BuiltBody;
+  readonly built: ReadBody;
   readonly muscles: MuscleDriver;
   /** The force and the moment on its root that it is allowed beyond its muscles (`Assist`): none unless it was given a ceiling. */
   readonly assist: Assist;
+  /** Ask each named hand for a pose, which the body applies when the hand has room (`HandPoses.request`). */
+  requestHandPoses(requests: readonly HandPoseRequest[]): void;
 }
 
 type MindMaker<M extends Mind = Mind> = (own: OwnBody) => M;
@@ -72,8 +76,9 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   sense: () => Senses = clockSenses(world), ceiling: AssistCeiling = NO_ASSIST): Embodied<M> {
   let mind: M | null = null, help: ReturnType<typeof createAssist> | null = null;
   const muscles = driveMuscles(built, world, (_, dt) => { mind!.step(sense(), dt); help!.apply(); }, () => mind!.idle?.());
-  help = createAssist(built, muscles.dynamics.root.segment, ceiling);
-  const own: OwnBody = { spec: built.spec, built, muscles, assist: help.assist };
+  help = createAssist(built, rootSegment(built), ceiling);
+  const own: OwnBody = { spec: built.spec, built, muscles, assist: help.assist,
+    requestHandPoses: (requests) => built.handPoses.request(requests) };
   try { mind = make(own); }
   catch (error) { muscles.dispose(); throw error; }
   return { own, mind, state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, mind: mind.state ?? null }, dispose: () => muscles.dispose() };

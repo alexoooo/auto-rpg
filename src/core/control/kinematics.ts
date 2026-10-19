@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { jointKinematics, type BuiltBody, type BuiltJoint, type BuiltSegment, type JointKinematics } from "../build/build-body.ts";
+import { jointKinematics } from "../build/build-body.ts";
 import { motionAxesToRef, rotationOfToRef, turningToRef } from "../build/joint-state.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
@@ -8,6 +8,7 @@ import { linearWork, solve3To, solveLinearTo, type LinearWork } from "../math/fl
 import { hypot } from "../math/real.ts";
 import { spinBetweenToRef } from "../math/turn.ts";
 import { channelName } from "../muscle/driver.ts";
+import type { JointKinematics, ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
 
 /**
  * **A body's kinematics in its joints' angles**, in the root's frame: where a point on a segment is
@@ -25,9 +26,9 @@ import { channelName } from "../muscle/driver.ts";
  */
 
 /** The joints from the root out to `segment`, root first. */
-export function chainTo(built: BuiltBody, segment: BuiltSegment): BuiltJoint[] {
+export function chainTo(built: ReadBody, segment: ReadSegment): ReadJoint[] {
   const byChild = new Map([...built.joints.values()].map((joint) => [joint.child, joint]));
-  const chain: BuiltJoint[] = [];
+  const chain: ReadJoint[] = [];
   for (let joint = byChild.get(segment); joint; joint = byChild.get(joint.parent)) chain.unshift(joint);
   return chain;
 }
@@ -174,7 +175,7 @@ export function reachJacobianTo(out: number[][], chain: readonly JointKinematics
  * nodes' `position` and `rotationQuaternion` (never the world matrix, which caches per frame): a
  * segment's node carries its reference pose by its turn since then, node times rest^-1.
  */
-export function pointNowToRef(segment: BuiltSegment, root: BuiltSegment, point: Vec3, out: Vector3): Vector3 {
+export function pointNowToRef(segment: ReadSegment, root: ReadSegment, point: Vec3, out: Vector3): Vector3 {
   const origin = segment.frame.origin;
   Quaternion.InverseToRef(segment.rest, scratch.a);
   segment.node.rotationQuaternion!.multiplyToRef(scratch.a, scratch.d);
@@ -197,7 +198,7 @@ export interface Frame {
  * The root's frame in the world, from `root`'s node, into `out`: what `pointNowToRef` undoes, the
  * root's turn since its reference pose about its node.
  */
-export function rootFrameToRef(root: BuiltSegment, out: Frame): Frame {
+export function rootFrameToRef(root: ReadSegment, out: Frame): Frame {
   root.node.rotationQuaternion!.multiplyToRef(Quaternion.InverseToRef(root.rest, scratch.a), out.rotation);
   const origin = root.frame.origin;
   scratch.v.set(origin[0], origin[1], origin[2]).applyRotationQuaternionToRef(out.rotation, scratch.v);

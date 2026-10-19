@@ -25,17 +25,17 @@ export interface PhysicalBody {
 }
 
 /** Adapt an embodied mind without constructing any stance, skill or motion controller. */
-export function physicalBody(own: OwnBody, world: World, senses: () => Senses, has: () => string, state: object, dispose: () => void,
+export function physicalBody(built: BuiltBody, own: OwnBody, world: World, senses: () => Senses, has: () => string, state: object, dispose: () => void,
   down?: () => boolean, equipment?: EquipmentPort): PhysicalBody {
-  const read = physicalReading(own.built, down), physical = read();
+  const read = physicalReading(built, down), physical = read();
   const hook = world.beforeStep(() => { if (own.muscles.level === "full") read(); });
   return {
-    built: own.built, muscles: own.muscles, assist: own.assist, state: { ...state, physical }, physical,
+    built, muscles: own.muscles, assist: own.assist, state: { ...state, physical }, physical,
     get down() { return down ? down() : physical.down; },
     get has() { return own.muscles.level === "full" ? has() : "nobody"; },
     get level() { return own.muscles.level; },
     setLevel: (level) => own.muscles.setLevel(level),
-    observe: observeBody(own.built, own.muscles, world, senses, equipment ? () => equipment.observe() : undefined, down),
+    observe: observeBody(built, own.muscles, world, senses, equipment ? () => equipment.observe() : undefined, down),
     dispose() { hook.dispose(); dispose(); },
   };
 }

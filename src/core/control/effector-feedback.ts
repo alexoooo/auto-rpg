@@ -1,17 +1,16 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { SegmentBody } from "../engine/engine.ts";
-import type { BuiltBody } from "../build/build-body.ts";
 import { rigidPoints } from "../build/rigid.ts";
 import { effectorAim } from "./effectors.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { motionAtToRef, pointOfToRef } from "./support.ts";
+import type { BodyRef, ReadBody } from "../read-body.ts";
 
 /** Permitted contact identity, detached from engine handles: a body's segment says whether its body covers with it (`Marks.guards`). */
 export type ContactTarget = { readonly kind: "body"; readonly body: string; readonly segment: string; readonly guard: boolean }
   | { readonly kind: "object"; readonly id: string } | { readonly kind: "world"; readonly id?: string };
 
 /** Trusted adapter maps physics bodies to permitted identities; only detached results enter a view. */
-export type ContactIdentity = (other: SegmentBody | null) => ContactTarget | null;
+export type ContactIdentity = (other: BodyRef | null) => ContactTarget | null;
 
 export interface EffectorContact {
   readonly target: ContactTarget; readonly point: Vec3; readonly normal: Vec3; readonly impulse: number; readonly compression?: number;
@@ -51,14 +50,14 @@ export interface EffectorFeedback {
 }
 
 /** Trusted contact and motion sampler for any declared physical endpoint and its completed physics interval. */
-export function effectorFeedback(built: BuiltBody, segments: readonly string[], identity?: ContactIdentity,
+export function effectorFeedback(built: ReadBody, segments: readonly string[], identity?: ContactIdentity,
   external?: (segment: string) => readonly EffectorContact[], points?: Readonly<Record<string, { readonly point: string; readonly regions?: readonly string[] }>>) {
   const make = () => ({ point: [0, 0, 0] as [number, number, number], velocity: [0, 0, 0] as [number, number, number],
     pairs: [] as EffectorContactPair[], episodes: new Map<string, boolean>(), completedStep: -1,
     impulse: 0, contactPoint: null as Vec3 | null, ...(identity || external ? { contact: null as EffectorContact | null } : {}),
     ...(points ? { obstructed: false, obstruction: null as EffectorContact | null, contacts: [] as ContactTarget[], compression: 0 } : {}) });
   const state = Object.fromEntries(segments.map(name => [name, make()]));
-  const own = new Set([...built.segments.values()].map(s => s.body));
+  const own = new Set<BodyRef>([...built.segments.values()].map(s => s.body));
   const parts = segments.map(name => {
     const segment = built.segments.get(name);
     if (!segment) throw new Error(`no feedback segment ${name}`);

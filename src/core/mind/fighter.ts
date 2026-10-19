@@ -1,5 +1,4 @@
 import { commandable, createBody, SERVO_SECONDS, type Body, type BodyOptions } from "../body.ts";
-import type { BuiltBody } from "../build/build-body.ts";
 import { skillSet } from "../skills/arbiter.ts";
 import { guardSkill } from "../skills/guard.ts";
 import { holdUp } from "../skills/hold.ts";
@@ -26,6 +25,7 @@ import { slotList, type Part } from "./parts.ts";
 import { subMindsOf } from "./sub-minds.ts";
 import { tacticsOf } from "./tactics-of.ts";
 import { driveBy, type Tactics } from "./tactics.ts";
+import type { BuiltBody } from "../build/build-body.ts";
 
 /** A skill part of no settings: its role, what it is called, its stage, its config and what is wrong with one. */
 const skill = <C extends SkillConfig>(role: Part["role"], label: string, stage: Part["stage"], defaults: C, faults: (config: C) => readonly string[] = () => []): Part<C> =>

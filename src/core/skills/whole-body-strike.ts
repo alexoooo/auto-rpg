@@ -1,6 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../body.ts";
-import type { BuiltSegment } from "../build/build-body.ts";
 import { rigidPoints } from "../build/rigid.ts";
 import type { MusclePush, Pose } from "../control/motor.ts";
 import { centreOfToRef, pointOfToRef } from "../control/support.ts";
@@ -19,6 +18,7 @@ import { aimOf, closesToStrike } from "./strikes.ts";
 import type { BlowAttack } from "../mind/intent.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetRef } from "./action.ts";
 import { withinActionWindow } from "../mind/action-window.ts";
+import type { ReadSegment } from "../read-body.ts";
 
 /**
  * **The whole-body solve's settings** (`wholeBodyTracking`), the spike's own choices
@@ -86,7 +86,7 @@ export function minimumJerk(t: number, span: number): { s: number; v: number; a:
 }
 
 /** `point`, body frame, reference pose, in `segment`'s node frame: where a frame goal's `at` is read. */
-export function localPoint(segment: Pick<BuiltSegment, "frame">, point: Vec3): Vec3 {
+export function localPoint(segment: Pick<ReadSegment, "frame">, point: Vec3): Vec3 {
   const { origin, x, y, z } = segment.frame, d0 = point[0] - origin[0], d1 = point[1] - origin[1], d2 = point[2] - origin[2];
   return [d0 * x[0] + d1 * x[1] + d2 * x[2], d0 * y[0] + d1 * y[1] + d2 * y[2], d0 * z[0] + d1 * z[1] + d2 * z[2]];
 }

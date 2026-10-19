@@ -1,6 +1,5 @@
 import { solidSenses, type SolidSense } from "../core/mind/object-senses.ts";
 import type { ContactTarget } from "../core/control/effector-feedback.ts";
-import type { SegmentBody } from "../core/engine/engine.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import { modelHolds, modelInfo, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
 import { armedWith, type Held } from "../core/items/held.ts";
@@ -244,7 +243,7 @@ export class Duel {
       }
     });
     const solids = hooks.solids ? solidSenses(hooks.solids) : undefined;
-    const contactLabels = new Map<SegmentBody, ContactTarget>();
+    const contactLabels = new Map<number, ContactTarget>();
     const duelists = {} as Record<Side, Duelist>;
     for (const side of SIDES) {
       const model = recipe[side];
@@ -258,11 +257,11 @@ export class Duel {
         out: () => this.verdict !== null || this.eliminated(side),
         mind: config, ...(recipe.balance ? { balance: recipe.balance[side] } : {}), ...(recipe.balancePercent ? { percent: recipe.balancePercent } : {}),
         name: `arena ${side}`,
-        contactIdentity: other => other ? contactLabels.get(other) ?? null : { kind: "world" },
+        contactIdentity: other => other ? contactLabels.get(other.id) ?? null : { kind: "world" },
         // Out of the fight it is left to itself, as a side nobody orders is.
         orders: (sensed) => sensed.out ? null : given[side],
       });
-      for (const [segment, part] of combatant.built.segments) contactLabels.set(part.body, Object.freeze({ kind: "body", body: side, segment, guard: spec.marks.guards.includes(segment) }));
+      for (const [segment, part] of combatant.built.segments) contactLabels.set(part.body.id, Object.freeze({ kind: "body", body: side, segment, guard: spec.marks.guards.includes(segment) }));
       const { pool, body } = combatant;
       duelists[side] = {
         ...combatant, side, model,

@@ -1,5 +1,5 @@
-import type { JointKinematics } from "../../build/build-body.ts";
 import type { HandPose } from "../../spec/body.ts";
+import type { JointKinematics } from "../../read-body.ts";
 
 interface ReferenceChannel { name: string; min: number; max: number }
 export type ReferenceAction = { kind: "host" } | {

@@ -1,10 +1,10 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody, BuiltSegment } from "../../build/build-body.ts";
 import type { ShapeSpec } from "../../spec/body.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
+import type { ReadBody, ReadSegment } from "../../read-body.ts";
 
 /** Conservative anatomical projections: a hand or forearm must clear every trunk footprint. */
-export function armClearance(built: BuiltBody): () => boolean {
+export function armClearance(built: ReadBody): () => boolean {
   const parts = [...built.segments.values()].filter(p => p.spec.name.endsWith("Trunk") || /^(hand|forearm)\./.test(p.spec.name));
   const bounds = parts.map(part => {
     const vertices: { point: Vector3; radius: number }[] = [];
@@ -35,7 +35,7 @@ export function armClearance(built: BuiltBody): () => boolean {
   });
   const trunk = bounds.filter(b => b.part.spec.name.endsWith("Trunk")), arms = bounds.filter(b => !b.part.spec.name.endsWith("Trunk"));
   const point = new Vector3();
-  const update = (b: { part: BuiltSegment; vertices: { point: Vector3; radius: number }[]; low: Vector3; high: Vector3 }) => {
+  const update = (b: { part: ReadSegment; vertices: { point: Vector3; radius: number }[]; low: Vector3; high: Vector3 }) => {
     b.low.setAll(Infinity); b.high.setAll(-Infinity);
     for (const v of b.vertices) {
       v.point.applyRotationQuaternionToRef(b.part.node.rotationQuaternion!, point).addInPlace(b.part.node.position);

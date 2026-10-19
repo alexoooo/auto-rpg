@@ -13,7 +13,6 @@
  * rows end to end; a call writes every entry it reads.
  */
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltSegment } from "../build/build-body.ts";
 import type { BodyDynamics } from "../build/dynamics.ts";
 import { boundedLeastSquaresTo, boundedWork, fixedSolveTo, fixedWork, linearWork, solveLinearTo, type BoundedWork, type FixedWork, type LinearWork } from "../math/flat.ts";
 import { solveLinear } from "../math/linalg.ts";
@@ -23,6 +22,7 @@ import { groundWrenchWork, patchPlace, shareGroundWrench, type GroundWrenchWork,
 import type { ServoWork } from "./servo.ts";
 import { LEG_DAMPING } from "./stance-tuning.ts";
 import { GROUND_FRICTION } from "./support.ts";
+import type { ReadSegment } from "../read-body.ts";
 
 /**
  * A task's row: weights on the six a point's motion has (its segment's spin's three, world, then
@@ -73,7 +73,7 @@ interface LimbWork {
 
 /** **A limb**: the chain of freedoms from the root to `segment`, and the task of a point of it. */
 export interface Limb {
-  readonly segment: BuiltSegment;
+  readonly segment: ReadSegment;
   /** The chain's freedoms as muscle channels, root outward: as many as its task's `accel`. */
   readonly memory: { channels: number[] };
   /**

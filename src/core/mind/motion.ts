@@ -58,6 +58,6 @@ export function createMotionBody(built: BuiltBody, world: World,
       applyAction(own.muscles, { kind: "torque", torque: Array.from(torque) });
     } };
   }, senses);
-  return Object.assign(physicalBody(embodied.own, world, senses, () => embodied.mind.name, embodied.state, embodied.dispose, undefined, port),
+  return Object.assign(physicalBody(built, embodied.own, world, senses, () => embodied.mind.name, embodied.state, embodied.dispose, undefined, port),
     { report: () => tracking.report() });
 }

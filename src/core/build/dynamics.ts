@@ -1,8 +1,8 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Vec3 } from "../spec/quantity.ts";
-import { rootSegment, type BuiltBody, type BuiltSegment } from "./build-body.ts";
 import { motionAxesToRef } from "./joint-state.ts";
 import { hasProducts } from "./rigid.ts";
+import { type ReadBody, type ReadSegment, rootSegment } from "../read-body.ts";
 
 /**
  * **The body's dynamics in its joints' speeds**, with its root held: the mass matrix and the
@@ -81,7 +81,7 @@ export interface BodyDynamics {
    * included, into `linear`, and the segment's angular acceleration into `angular`: the part of
    * its motion that goes as the square of the speeds. Zero unless `update` was given `motion`.
    */
-  driftToRef(segment: BuiltSegment, point: Vector3, linear: Vector3, angular: Vector3): void;
+  driftToRef(segment: ReadSegment, point: Vector3, linear: Vector3, angular: Vector3): void;
 }
 
 /**
@@ -90,7 +90,7 @@ export interface BodyDynamics {
  */
 interface RootDynamics {
   /** The segment no joint carries. */
-  readonly segment: BuiltSegment;
+  readonly segment: ReadSegment;
   /** Its centre of mass, world, as last read. */
   readonly centre: readonly [number, number, number];
   /** 6 x 6: the whole body's inertia in the root's speeds, kg m2, kg m and kg. */
@@ -105,13 +105,13 @@ interface RootDynamics {
 
 /** What `BodyDynamics.update` reads for `bias`. */
 interface BodyMotion {
-  readonly spin: (segment: BuiltSegment) => Vector3;
+  readonly spin: (segment: ReadSegment) => Vector3;
 }
 
-export function bodyDynamics(built: BuiltBody, gravity: Vec3): BodyDynamics {
+export function bodyDynamics(built: ReadBody, gravity: Vec3): BodyDynamics {
   const joints = [...built.joints.values()], segments = [...built.segments.values()];
   const index = new Map(segments.map((segment, i) => [segment, i]));
-  const carried = (root: BuiltSegment): number[] =>
+  const carried = (root: ReadSegment): number[] =>
     [index.get(root)!, ...joints.filter((joint) => joint.parent === root).flatMap((joint) => carried(joint.child))];
   const beyond = joints.map((joint) => carried(joint.child));
   // Which joint's carried segments two joints both move: the deeper one's, or none (-1).
@@ -334,7 +334,7 @@ const X: Vec3 = [1, 0, 0], Y: Vec3 = [0, 1, 0], Z: Vec3 = [0, 0, 1];
 const PRODUCTS = [[0, 1, 3], [0, 2, 4], [1, 2, 5]] as const;
 
 /** `point`, body frame, in `segment`'s own coordinates: its frame at the reference pose. */
-function local(segment: BuiltSegment, point: Vec3): Vec3 {
+function local(segment: ReadSegment, point: Vec3): Vec3 {
   const { origin, x, y, z } = segment.frame;
   const d: Vec3 = [point[0] - origin[0], point[1] - origin[1], point[2] - origin[2]];
   return [dot3(d, x), dot3(d, y), dot3(d, z)];

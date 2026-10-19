@@ -47,7 +47,7 @@ export function createPolicyBody(built: BuiltBody, world: World, make: (model: A
       applyBodyAction(own.muscles, action, equipment, built.handPoses);
     } };
   }, sense, options.assist);
-  return physicalBody(embodied.own, world, sense, () => embodied.mind.name, embodied.state, embodied.dispose, undefined, equipment);
+  return physicalBody(built, embodied.own, world, sense, () => embodied.mind.name, embodied.state, embodied.dispose, undefined, equipment);
 }
 
 /** What is wrong with `config`'s gains; none when its time and speed are positive and its activation within [0, 1]. */

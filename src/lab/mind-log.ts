@@ -1,4 +1,4 @@
-import type { Body } from "../core/body.ts";
+import type { HostedBody } from "../core/body.ts";
 import type { Intent } from "../core/mind/intent.ts";
 import type { Sight, Tactics } from "../core/mind/tactics.ts";
 import type { Hook, World } from "../core/world.ts";
@@ -73,7 +73,7 @@ export function logged<T extends Tactics>(tactics: T, log: MindLog): T {
 }
 
 /** Note in `log` who has `body` (`Body.has`) whenever it is no longer who last had it, after each of `world`'s steps, at the time its mind saw. */
-export function watchHas(world: World, body: Body, log: MindLog): Hook {
+export function watchHas(world: World, body: HostedBody, log: MindLog): Hook {
   let last = body.has;
   return world.afterStep(() => {
     if (body.has === last) return;

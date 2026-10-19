@@ -1,8 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody } from "../build/build-body.ts";
 import { coupledDynamics } from "../build/coupled-dynamics.ts";
 import { rateBiasToRef, ratesToRef } from "../build/joint-state.ts";
-import type { PhysicsWorld, SegmentBody } from "../engine/engine.ts";
+import type { PhysicsWorld } from "../engine/engine.ts";
 import type { createEquipment } from "../equipment.ts";
 import { boundedLeastSquaresTo, boundedWork, linearWork, solveLinearTo } from "../math/flat.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
@@ -12,6 +11,7 @@ import { motionAxes, motionFrameKey, supportNormalBounds, type MotionCommand } f
 import { contactTracking, type ContactTrackingSettings } from "./contact-tracking.ts";
 import { effortBounds, type EffortBound } from "./effort-bounds.ts";
 import { checkedJointStopSettings, nearJointStops, type JointStopSettings } from "./joint-stops.ts";
+import type { ReadBody, ReadSegmentBody } from "../read-body.ts";
 
 interface TrackingSettings {
   readonly capacity: number;
@@ -29,15 +29,15 @@ interface TrackingSettings {
  * Fixed bodies are explicit fixture constraints, never external forces applied by this controller.
  * The coupled model uses its diagnostic allocation path; this is not the game's default controller.
  */
-export function wholeBodyTracking(built: BuiltBody, muscles: MuscleDriver, gravity: Vec3,
-  items: readonly ReturnType<typeof createEquipment>[], fixed: readonly SegmentBody[], settings: TrackingSettings) {
+export function wholeBodyTracking(built: ReadBody, muscles: MuscleDriver, gravity: Vec3,
+  items: readonly ReturnType<typeof createEquipment>[], fixed: readonly ReadSegmentBody[], settings: TrackingSettings) {
   if (!Number.isSafeInteger(settings.capacity) || settings.capacity < 1 || !(settings.effortCost > 0) || !Number.isFinite(settings.effortCost)) throw new Error("invalid motion tracking settings");
   const capacity = settings.capacity, effortCost = settings.effortCost;
   const stopSettings = settings.jointStops ? checkedJointStopSettings(settings.jointStops.settings) : null;
   const stopDt = settings.jointStops?.dt ?? 0;
   if (stopSettings && (!(stopDt > 0) || !Number.isFinite(stopDt))) throw new Error("invalid joint-stop tracking step");
   const dynamics = coupledDynamics(built, gravity, items, fixed), count = muscles.channels.length;
-  const frames = new Map<string, SegmentBody>([...built.segments].map(([name, s]) => [motionFrameKey({ kind: "segment", name }), s.body]));
+  const frames = new Map<string, ReadSegmentBody>([...built.segments].map(([name, s]) => [motionFrameKey({ kind: "segment", name }), s.body]));
   for (const item of items) {
     const key = motionFrameKey({ kind: "item", id: item.id });
     if (frames.has(key)) throw new Error("duplicate motion item");

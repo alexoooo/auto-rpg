@@ -16,10 +16,10 @@
  * the capture point and the centre of mass come to as the foot lands.
  */
 import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltJoint } from "../build/build-body.ts";
 import { acos, asin, atan2, cos, cosh, exp, hypot, sin, sinh } from "../math/real.ts";
 import type { SwingGoal } from "./stance.ts";
 import { swingPathToRef, swingPeak, swingProgressToRef, type SwingBow } from "./swing-path.ts";
+import type { ReadJoint } from "../read-body.ts";
 
 /** A leg as a pendulum about its hip: the segments from the hip joint to the ankle's child, on the straight leg. */
 export interface SwingLeg {
@@ -50,7 +50,7 @@ export interface SwingLeg {
 interface SwingLink { readonly mass: number; readonly centre: number; readonly across: number }
 
 /** `chain`'s leg (hip, knee, ankle) as a swing leg, from its specs in the reference pose. */
-export function swingLegOf(chain: readonly BuiltJoint[]): SwingLeg {
+export function swingLegOf(chain: readonly ReadJoint[]): SwingLeg {
   const [hip, knee, ankle] = chain;
   const h = hip!.spec.centre.value, k = knee!.spec.centre.value, a = ankle!.spec.centre.value;
   const ux = a[0] - h[0], uy = a[1] - h[1], uz = a[2] - h[2], length = hypot(ux, uy, uz);

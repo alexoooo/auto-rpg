@@ -1,5 +1,4 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody } from "./build/build-body.ts";
 import { jointTracker } from "./build/joint-state.ts";
 import { uprightness } from "./control/ground.ts";
 import { centreOfToRef, massCentreToRef, massOf } from "./control/support.ts";
@@ -11,6 +10,7 @@ import type { EquipmentObservation } from "./mind/equipment-port.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import { deepFreeze } from "./state.ts";
 import type { World } from "./world.ts";
+import type { ReadBody } from "./read-body.ts";
 
 interface SegmentObservation {
   readonly handPose?: import("./spec/body.ts").HandPose;
@@ -58,7 +58,7 @@ export interface BodyObservation {
 }
 
 /** Physical readings for trusted game code; all fields are overwritten from physics on each read. */
-export function physicalReading(built: BuiltBody, down?: () => boolean) {
+export function physicalReading(built: ReadBody, down?: () => boolean) {
   const upright = uprightness(built), point = new Vector3();
   const head = built.segments.has("head") ? centreReading(built, "head") : null;
   const reading = { centre: new Vector3(), head: new Vector3(), height: 0, down: false };
@@ -74,7 +74,7 @@ export function physicalReading(built: BuiltBody, down?: () => boolean) {
 }
 
 /** A segment's centre read through its local frame, with the work made once. */
-export function centreReading(built: BuiltBody, name: string): { centre: Vector3; update(): void } {
+export function centreReading(built: ReadBody, name: string): { centre: Vector3; update(): void } {
   const segment = built.segments.get(name);
   if (!segment) throw new Error(`${built.spec.model} has no ${name}`);
   const { origin, x, y, z } = segment.frame, c = segment.rigid.centre;
@@ -87,7 +87,7 @@ export function centreReading(built: BuiltBody, name: string): { centre: Vector3
 const tuple = (v: { readonly x: number; readonly y: number; readonly z: number }): Vec3 => [v.x, v.y, v.z];
 
 /** Snapshot on demand, including current joint motion even while the muscles are idle. */
-export function observeBody(built: BuiltBody, muscles: MuscleDriver, world: World, senses: () => Senses,
+export function observeBody(built: ReadBody, muscles: MuscleDriver, world: World, senses: () => Senses,
   equipment?: () => readonly EquipmentObservation[], down?: () => boolean, contactPatches = false): () => BodyObservation {
   const read = physicalReading(built, down), p = new Vector3(), v = new Vector3();
   const spins = new Map([...built.segments.values()].map((part) => [part, new Vector3()]));

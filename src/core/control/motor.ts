@@ -1,7 +1,6 @@
 import { effectorTracker, type EffectorGoal } from "./effector-tracker.ts";
 import { bodyEffectors, type EffectorModel } from "./effectors.ts";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { rootSegment, type BuiltBody, type BuiltSegment } from "../build/build-body.ts";
 import { channelName, type MuscleController, type MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { Assist } from "./assist.ts";
@@ -10,6 +9,7 @@ import { servoAsk, servoSolve, type ServoWork } from "./servo.ts";
 import { makeWholeBody, solveBody, type WholeBodyAsk } from "./solve.ts";
 import { stanceControl, type StanceControl, type StanceGoal } from "./stance.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
+import { type ReadBody, type ReadSegment, rootSegment } from "../read-body.ts";
 
 /** Joint angles, rad, by channel name. */
 export type Pose = Readonly<Record<string, number>>;
@@ -106,7 +106,7 @@ export interface MotorControl {
   /** Where `point` of `segment`'s rigid body is now, body frame. */
   pointToRef(segment: string, point: string, out: Vector3): Vector3;
   /** The segment whose frame the body frame is carried by. */
-  readonly root: BuiltSegment;
+  readonly root: ReadSegment;
   /** Its memory (`src/core/state.ts`): the goals it was last given, each effector's path, their solves counted (`ReachMeter`), and the stance's. */
   readonly state: object;
 }
@@ -115,7 +115,7 @@ export interface MotorControl {
  * Motor control of `built`, servoing at a time constant of `seconds`; its stance asks `assist` for
  * what the soles miss.
  */
-export function motorControl(built: BuiltBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning, assist: Assist | null = null): MotorControl {
+export function motorControl(built: ReadBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning, assist: Assist | null = null): MotorControl {
   const stance = stanceControl(built, stanceTuning, assist);
   const root = rootSegment(built);
   const tracker = effectorTracker(built, root);
@@ -215,7 +215,7 @@ interface PointLimb {
  * Each effector's limb: its chain the freedoms it owns (an arm's), its stem those between the root
  * and them (the trunk's), asked its point's linear motion, its spin, or both.
  */
-function pointLimbs(built: BuiltBody): PointLimb[] {
+function pointLimbs(built: ReadBody): PointLimb[] {
   return bodyEffectors(built).map(({ segment, chain, points, free }) => {
     const m = free.length;
     return {
@@ -259,7 +259,7 @@ function aimPoint(one: PointLimb, tasks: readonly PointTask[], driver: MuscleDri
 
 const turned = new Quaternion();
 /** Where `point` (reference pose, body frame) of `segment` is now, world, into `at`. */
-function pointNow(segment: BuiltSegment, point: Vec3, at: Vector3): void {
+function pointNow(segment: ReadSegment, point: Vec3, at: Vector3): void {
   const origin = segment.frame.origin, node = segment.node;
   Quaternion.InverseToRef(segment.rest, turned);
   node.rotationQuaternion!.multiplyToRef(turned, turned);

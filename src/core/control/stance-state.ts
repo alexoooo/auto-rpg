@@ -3,7 +3,6 @@
  * next (`StanceState`), and the values its functions work in (`StanceScratch`).
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
 import type { Assist } from "./assist.ts";
 import type { Limb, LimbTask } from "./bearing.ts";
 import type { WholeBodyAsk } from "./solve.ts";
@@ -13,6 +12,7 @@ import type { SwingBow } from "./swing-path.ts";
 import { resolveStance, SUPPORT_INSET, type ResolvedStance, type StanceTuning } from "./stance-tuning.ts";
 import { footStatesOf, massOf, restWidth, type FootMemory, type FootState } from "./support.ts";
 import type { Side } from "../spec/body.ts";
+import type { ReadBody, ReadSegment } from "../read-body.ts";
 
 /**
  * **What a stance remembers**: everything a step writes that a later step, or a reader between
@@ -132,13 +132,13 @@ interface StanceScratch {
  * the whole-body solve (`solve.ts`), which leaves what it finds in the state's own records.
  */
 export interface Stance {
-  readonly built: BuiltBody;
+  readonly built: ReadBody;
   /** What gives the root what the soles miss, within its ceiling (`Assist`); null, nothing does. */
   readonly assist: Assist | null;
   readonly tuning: ResolvedStance;
   /** The segment the legs hang from. */
-  readonly pelvis: BuiltSegment;
-  readonly segments: readonly BuiltSegment[];
+  readonly pelvis: ReadSegment;
+  readonly segments: readonly ReadSegment[];
   /** The body's mass, kg. */
   readonly total: number;
   /** The feet, left then right. */
@@ -158,7 +158,7 @@ export interface Stance {
   readonly scratch: StanceScratch;
 }
 
-export function makeStance(built: BuiltBody, tuning: StanceTuning, assist: Assist | null): Stance {
+export function makeStance(built: ReadBody, tuning: StanceTuning, assist: Assist | null): Stance {
   const feet = footStatesOf(built, tuning.supportInset ?? SUPPORT_INSET);
   const segments = [...built.segments.values()], total = massOf(segments);
   const rise = segments.reduce((sum, part) => sum + part.spec.mass.value * part.spec.centreOfMass.value[1], 0) / total

@@ -3,10 +3,10 @@
  * body is down by, and the reading every fight, page and sub-mind takes of it.
  */
 import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody, BuiltSegment } from "../build/build-body.ts";
 import type { DownSpec, HandPose, SegmentFrame, ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { turnOfToRef } from "./support.ts";
+import type { ReadBody, ReadSegment } from "../read-body.ts";
 
 /**
  * **How upright a body is, as the body itself can tell**: its centre of mass's height over its
@@ -30,11 +30,11 @@ interface Uprightness {
    * How far over the body's lowest point the lowest point of its segments but `except` is, m, now:
    * a body that touches the ground with those alone holds the rest this far clear of it.
    */
-  clearance(except: ReadonlySet<BuiltSegment>): number;
+  clearance(except: ReadonlySet<ReadSegment>): number;
 }
 
 /** `spec`'s rule of when `built` is down, its standing height `standing` and its height read now by `height`. */
-function downRule(built: BuiltBody, spec: DownSpec, standing: number, height: () => number): Uprightness["down"] {
+function downRule(built: ReadBody, spec: DownSpec, standing: number, height: () => number): Uprightness["down"] {
   switch (spec.kind) {
     case "asked": {
       const fallen = spec.fallen.value;
@@ -89,14 +89,14 @@ function unknownShape(shape: never): never {
 
 /** A segment as the reading takes it: its mass, and its centre and its shape's points from its node, in the reference pose's axes. */
 interface Part {
-  readonly segment: BuiltSegment;
+  readonly segment: ReadSegment;
   readonly mass: number;
   readonly centre: Vector3;
   readonly lows: readonly { readonly from: Vector3; readonly radius: number }[];
 }
 
 /** `built`'s uprightness. What a hand holds weighs, and is not a point the body lies on. */
-export function uprightness(built: BuiltBody): Uprightness {
+export function uprightness(built: ReadBody): Uprightness {
   let mass = 0, moment = 0, lowest = Infinity;
   const parts: Part[] = [];
   for (const segment of built.segments.values()) {

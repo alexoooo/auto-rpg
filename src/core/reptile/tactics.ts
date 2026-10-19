@@ -8,6 +8,7 @@ import { surfaceEntry, surfaceContains } from "../mind/openings.ts";
 import { pointOfToRef } from "../control/support.ts";
 import { pointAtToRef, rootFrameToRef } from "../control/kinematics.ts";
 import type { Vec3 } from "../spec/quantity.ts";
+import type { BodyRef } from "../read-body.ts";
 import type { QuadrupedView } from "./crawl.ts";
 import type { StrikeCycleState } from "../skills/strike-cycle.ts";
 import { REPTILE_BITE, REPTILE_TROT } from "./tuning.ts";
@@ -28,7 +29,7 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
   const carried = new Vector3(), inverse = new Quaternion();
   const frame = { position: new Vector3(), rotation: new Quaternion() }, closing = new Vector3(), shiftDirection = new Vector3();
   const jawTurn = new Quaternion(), jawAxis = new Vector3(...hinge.dofs[0]!.spec.axis.value);
-  const ownBodies = new Set([...own.built.segments.values()].map(part => part.body));
+  const ownBodies = new Set<BodyRef>([...own.built.segments.values()].map(part => part.body));
   const loaded = () => [head, lower].some(part => own.built.physics.contactsOf(part.body)
     .some(contact => contact.impulse > 0 && (!contact.other || !ownBodies.has(contact.other))));
   const state = { pending: 0, phase: null as StrikeCycleState["phase"], target: null as { foe: string; part: string; local: Vec3; tooth: string } | null };

@@ -1,6 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { BuiltBody, BuiltDof } from "../build/build-body.ts";
 import { anglesOf, rotationOfToRef } from "../build/joint-state.ts";
 import { channelName, type MuscleDriver } from "../muscle/driver.ts";
 import type { Assist } from "./assist.ts";
@@ -17,6 +16,7 @@ import { spinBetweenToRef, turnAboutToRef, turnBetweenToRef } from "../math/turn
 import { approachToRef, turnToRef } from "./approach.ts";
 import { swingBowToRef, swingPathToRef, swingProgressToRef } from "./swing-path.ts";
 import { swingShiftToRef } from "./swing-leg.ts";
+import type { BuiltDof, ReadBody } from "../read-body.ts";
 
 /**
  * **What a stance is asked for**: which feet bear the body, where its centre of mass goes, and which
@@ -913,7 +913,7 @@ function askNothing(s: Stance): void {
   for (const task of state.tasks) task.on = false;
 }
 
-export function stanceControl(built: BuiltBody, tuning: StanceTuning = {}, assist: Assist | null = null): StanceControl {
+export function stanceControl(built: ReadBody, tuning: StanceTuning = {}, assist: Assist | null = null): StanceControl {
   const s = makeStance(built, tuning, assist);
   return {
     reset() {

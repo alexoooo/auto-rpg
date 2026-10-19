@@ -1,4 +1,4 @@
-import { createBody, type Body, type BodyOptions } from "../core/body.ts";
+import { createBody, type BodyOptions, type HostedBody } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
@@ -37,7 +37,7 @@ interface Driving {
  * actor over: it disposes it with itself.
  */
 export interface Actor {
-  readonly body: Body;
+  readonly body: HostedBody;
   readonly world: World;
   /** Whether each hand may attack: what it holds is not barred (`ActorOptions.allows`). A mode asks no strike of a hand that may not. */
   readonly strikes: Readonly<Record<Side, boolean>>;

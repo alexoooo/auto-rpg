@@ -1,11 +1,12 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import type { ColliderShape, EngineJoint, PhysicsWorld, SegmentBody } from "../engine/engine.ts";
+import type { HandConfiguration, JointKinematics, ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
 import type { World } from "../world.ts";
 import { frameOf, handShapeAt, type BodySpec, type DofSpec, type HandPose, type JointSpec, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { cross, dot, normalize, orthogonalTo, sub } from "../spec/vec.ts";
-import { hasProducts, principalOf, rigidOf, type Rigid } from "./rigid.ts";
+import { hasProducts, principalOf, rigidOf } from "./rigid.ts";
 import { rotationOfToRef } from "./joint-state.ts";
 import { createHandPoses, type HandPoses } from "./hand-poses.ts";
 
@@ -29,73 +30,28 @@ import { createHandPoses, type HandPoses } from "./hand-poses.ts";
  * with everything but its joint partners.
  */
 
-export interface BuiltSegment {
-  readonly spec: SegmentSpec;
-  /** The segment frame in the body frame, reference pose. */
-  readonly frame: SegmentFrame;
+/** A segment as built: as read (`ReadSegment`), with its node and its engine body. */
+export interface BuiltSegment extends ReadSegment {
   readonly node: TransformNode;
   readonly body: SegmentBody;
-  /** The node's rotation in the reference pose, from which a joint reads its angles. */
-  readonly rest: Quaternion;
-  /** Its rigid body: the segment and what it holds (`rigid.ts`), whose mass properties the body has. */
-  readonly rigid: Rigid;
-  /** Applied hand configuration, with pending requests kept in the body's pose state. */
   readonly handPose?: { applied: HandPose; requested: HandPose };
-  /** A posable hand's configurations, made once: each pose's shape (`handShapeAt`), its rigid body and its collider. */
-  readonly poses?: Readonly<Record<HandPose, HandConfiguration>>;
 }
 
-/** A hand in one pose: its first shape the pose's, the rest as held. */
-interface HandConfiguration {
-  readonly shape: ShapeSpec;
-  readonly rigid: Rigid;
-  readonly collider: ColliderShape;
-}
-
-/** A spec freedom as the joint has it: its angular axis is the freedom's index, and its sense may be flipped. */
-export interface BuiltDof {
-  readonly spec: DofSpec;
-  /** +1 when the constraint axis turns the child in the freedom's positive sense, else -1. */
-  readonly sign: 1 | -1;
-}
-
-/**
- * **What turns a joint**, read from its spec alone (`jointKinematics`), so that a pose can be
- * solved for a body before it is built: its freedoms as the constraint has them, and the
- * constraint's axes.
- */
-export interface JointKinematics {
-  readonly spec: JointSpec;
-  readonly dofs: readonly BuiltDof[];
-  /**
-   * The constraint's X, Y and Z, body frame, reference pose: X is the first freedom's axis, and
-   * the engine measures the joint's angles about these (`jointAngles`).
-   */
-  readonly axes: { readonly x: Vec3; readonly y: Vec3; readonly z: Vec3 };
-}
-
-export interface BuiltJoint extends JointKinematics {
+/** A joint as built: as read (`ReadJoint`), with its engine joint. */
+export interface BuiltJoint extends ReadJoint {
   readonly parent: BuiltSegment;
   readonly child: BuiltSegment;
   readonly joint: EngineJoint;
 }
 
-export interface BuiltBody {
-  readonly spec: BodySpec;
+/** A body as built: as read (`ReadBody`), with what acts on it. Its mind is given only the read. */
+export interface BuiltBody extends ReadBody {
   /** The physics it was built in. */
   readonly physics: PhysicsWorld;
   readonly segments: ReadonlyMap<string, BuiltSegment>;
   readonly joints: ReadonlyMap<string, BuiltJoint>;
   readonly handPoses: HandPoses;
   dispose(): void;
-}
-
-/** The segment no joint carries: the root, whose frame is the body frame a goal is set in. */
-export function rootSegment(built: BuiltBody): BuiltSegment {
-  const carried = new Set([...built.joints.values()].map((joint) => joint.child));
-  const roots = [...built.segments.values()].filter((segment) => !carried.has(segment));
-  if (roots.length !== 1) throw new Error(`${built.spec.model} has ${roots.length} segments no joint carries, not one`);
-  return roots[0]!;
 }
 
 interface Placement {

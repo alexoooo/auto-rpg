@@ -1,10 +1,11 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody, BuiltDof, BuiltJoint, BuiltSegment, JointKinematics } from "../build/build-body.ts";
+import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
 import type { MuscleSpec } from "../spec/body.ts";
 import { jointTracker, type JointTracker } from "../build/joint-state.ts";
 import { bodyDynamics, type BodyDynamics } from "../build/dynamics.ts";
 import type { Hook, World } from "../world.ts";
 import { forceVelocityFactor, forceVelocityReach, type ForceVelocityCurve } from "./force-velocity.ts";
+import type { BuiltDof, JointKinematics, ReadJoint, ReadSegment } from "../read-body.ts";
 
 /**
  * **The muscle actuator**: each freedom's muscles as a velocity motor on its joint's axis
@@ -88,7 +89,7 @@ export const channelName = (joint: JointKinematics, index: number): string => `$
 interface MuscleChannel {
   /** `joint.name` and the freedom's positive motion, e.g. "elbow.right flexion". */
   readonly name: string;
-  readonly joint: BuiltJoint;
+  readonly joint: ReadJoint;
   /** The freedom's index in its joint. */
   readonly index: number;
   readonly dof: BuiltDof;
@@ -163,7 +164,7 @@ export type MuscleController = (driver: MuscleDriver, dt: number) => void;
  */
 export function driveMuscles(built: BuiltBody, world: World, control?: MuscleController, idle?: () => void): MuscleDriver {
   const trackers: JointTracker[] = [];
-  const channels: MuscleChannel[] = [];
+  const channels: (MuscleChannel & { readonly joint: BuiltJoint })[] = [];
   const trackerOf: JointTracker[] = [];
   for (const joint of built.joints.values()) {
     const tracker = jointTracker(joint);
@@ -181,7 +182,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
   }
   // Each segment's angular velocity, read once per step: a velocity read allocates.
   const spin = new Map([...built.segments.values()].map((segment) => [segment, new Vector3()]));
-  const angularVelocity = (segment: BuiltSegment): Vector3 => spin.get(segment)!;
+  const angularVelocity = (segment: ReadSegment): Vector3 => spin.get(segment as BuiltSegment)!;
   const byName = new Map(channels.map((c, i) => [c.name, i]));
   const n = channels.length;
   const dt = world.dt;

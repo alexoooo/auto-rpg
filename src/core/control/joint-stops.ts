@@ -1,8 +1,8 @@
-import type { BuiltBody } from "../build/build-body.ts";
 import type { MotionConstraint } from "../build/constrained-mass.ts";
 import { jointCoordinateMotion } from "../build/joint-coordinate.ts";
 import { jointAngles } from "../build/joint-state.ts";
 import type { Vec3 } from "../spec/quantity.ts";
+import type { ReadBody } from "../read-body.ts";
 
 export interface JointStopSettings {
   /** Angular proximity for admitting an existing stop; this does not predict distant impacts. */
@@ -30,7 +30,7 @@ export function checkedJointStopSettings(settings: JointStopSettings): Readonly<
  * This is a local end-step approximation, not an impact model or a constraint installed in physics.
  * A unilateral controller selects reactions and verifies released rows separately.
  */
-export function nearJointStops(built: BuiltBody, margin: number, dt: number) {
+export function nearJointStops(built: ReadBody, margin: number, dt: number) {
   if (!(margin >= 0) || !Number.isFinite(margin) || !(dt > 0) || !Number.isFinite(dt)) throw new Error("invalid joint-stop sampling settings");
   const stops: { id: string; row: MotionConstraint; target: number; gap: number; rate: number }[] = [];
   for (const joint of built.joints.values()) {

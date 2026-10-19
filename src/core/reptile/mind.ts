@@ -1,5 +1,4 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody } from "../build/build-body.ts";
 import { supportedMotor, type SupportEndpoint } from "../control/supported-motor.ts";
 import { uprightness } from "../control/ground.ts";
 import { effectorTracker } from "../control/effector-tracker.ts";
@@ -20,6 +19,7 @@ import { recover } from "./recover.ts";
 import { bite } from "./bite.ts";
 import { quadrupedTactics } from "./tactics.ts";
 import { effectorFeedback } from "../control/effector-feedback.ts";
+import type { BuiltBody } from "../build/build-body.ts";
 
 /**
  * Whether the quadruped mind can drive a body of `spec`: three or more effectors it stands on, so

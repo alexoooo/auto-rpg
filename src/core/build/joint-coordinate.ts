@@ -1,5 +1,5 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltJoint } from "./build-body.ts";
+import type { ReadJoint } from "../read-body.ts";
 import type { MotionConstraint } from "./constrained-mass.ts";
 import { jointAngles, relativeRotationToRef } from "./joint-state.ts";
 import type { Vec3 } from "../spec/quantity.ts";
@@ -19,7 +19,7 @@ const cross = (a: readonly number[], b: readonly number[]): Vec3 => [
  * stops or apply forces. A coordinate undefined at q_axis = q_w = 0 returns null.
  * This diagnostic allocation path uses actual body poses and spins, not reduced joint kinematics.
  */
-export function jointCoordinateMotion(joint: BuiltJoint, axis: number): {
+export function jointCoordinateMotion(joint: ReadJoint, axis: number): {
   readonly angle: number; readonly rate: number; readonly row: MotionConstraint; readonly target: number;
 } | null {
   if (!Number.isInteger(axis) || axis < 0 || axis >= joint.dofs.length) throw new Error("invalid joint coordinate axis");

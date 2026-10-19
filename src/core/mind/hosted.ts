@@ -29,5 +29,5 @@ export function hostedBody(built: BuiltBody, world: World, options: { readonly s
     down = made.down;
     return hosting(made.host, made.subs);
   }, senses, options.assist);
-  return physicalBody(own, world, senses, () => mind.has, state, dispose, down);
+  return physicalBody(built, own, world, senses, () => mind.has, state, dispose, down);
 }

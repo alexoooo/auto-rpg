@@ -1,10 +1,10 @@
-import type { BuiltBody, JointKinematics } from "../build/build-body.ts";
 import { rigidPoints } from "../build/rigid.ts";
 import { chainTo } from "./kinematics.ts";
 import { deepFreeze } from "../state.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { channelName } from "../muscle/driver.ts";
+import type { JointKinematics, ReadBody } from "../read-body.ts";
 
 /** Detached endpoint capability; coordinates are the body's reference frame, not engine handles. */
 export interface EffectorModel {
@@ -40,7 +40,7 @@ export function effectorFreedoms(chain: readonly JointKinematics[], base: string
  * Compile a body's endpoint declarations (`BodySpec.effectors`), in their declared order. Each owns
  * the freedoms of its chain below its base; two that would share one are refused.
  */
-export function bodyEffectors(built: BuiltBody) {
+export function bodyEffectors(built: ReadBody) {
   const seen = new Set<string>(), owned = new Map<string, string>();
   return (built.spec.effectors ?? []).map(description => {
     const segment = built.segments.get(description.segment);

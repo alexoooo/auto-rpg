@@ -1,5 +1,4 @@
 import { commandable, createBody } from "../../body.ts";
-import type { BuiltBody } from "../../build/build-body.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { World } from "../../world.ts";
@@ -25,6 +24,7 @@ import { situationReader } from "./situation.ts";
 import { strike } from "./strike.ts";
 import { CLINCH, WEIGHTS } from "./value.ts";
 import { walker } from "./walk.ts";
+import type { BuiltBody } from "../../build/build-body.ts";
 
 /** Its blow at a low foe: the Scrapper's, thrown from low support. */
 const LOW = (() => {

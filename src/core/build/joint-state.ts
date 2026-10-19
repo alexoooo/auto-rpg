@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { BuiltJoint, BuiltSegment, JointKinematics } from "./build-body.ts";
 import { tan, atan2 } from "../math/real.ts";
+import type { JointKinematics, ReadJoint, ReadSegment } from "../read-body.ts";
 
 /**
  * **Where a joint is, in the engine's own coordinates.**
@@ -35,7 +35,7 @@ const scratch = {
  * rotation that, applied to the child in the reference pose with the parent held there, gives the
  * joint as it stands. Babylon's `a.multiply(b)` applies b, then a.
  */
-export function relativeRotationToRef(joint: BuiltJoint, out: Quaternion): Quaternion {
+export function relativeRotationToRef(joint: ReadJoint, out: Quaternion): Quaternion {
   const { parent, child } = joint;
   Quaternion.InverseToRef(parent.node.rotationQuaternion!, scratch.inverse);
   parent.rest.multiplyToRef(scratch.inverse, scratch.t);
@@ -50,7 +50,7 @@ export function relativeRotationToRef(joint: BuiltJoint, out: Quaternion): Quate
  * axes, w >= 0, each is 2 atan2(q_k, w). A half turn (w = 0) reads as plus or minus a half turn on
  * the axes it turns about.
  */
-export function anglesOf(rotation: Quaternion, axes: BuiltJoint["axes"], out: [number, number, number]): [number, number, number] {
+export function anglesOf(rotation: Quaternion, axes: ReadJoint["axes"], out: [number, number, number]): [number, number, number] {
   const flip = rotation.w < 0 ? -1 : 1, v = scratch.x.set(rotation.x, rotation.y, rotation.z), w = flip * rotation.w;
   out[0] = 2 * atan2(flip * along(v, axes.x), w);
   out[1] = 2 * atan2(flip * along(v, axes.y), w);
@@ -63,7 +63,7 @@ export function anglesOf(rotation: Quaternion, axes: BuiltJoint["axes"], out: [n
  * tan(a_k / 2), q = (1, t) / |(1, t)|. Angles of a half turn or more have no such rotation (the
  * measure reads within a half turn) and are refused.
  */
-export function rotationOfToRef(axes: BuiltJoint["axes"], a: number, b: number, c: number, out: Quaternion): Quaternion {
+export function rotationOfToRef(axes: ReadJoint["axes"], a: number, b: number, c: number, out: Quaternion): Quaternion {
   if (!(Math.abs(a) < Math.PI && Math.abs(b) < Math.PI && Math.abs(c) < Math.PI)) throw new Error(`angles (${a}, ${b}, ${c}) reach a half turn`);
   const tx = tan(a / 2), ty = tan(b / 2), tz = tan(c / 2), w = 1 / Math.sqrt(1 + tx * tx + ty * ty + tz * tz);
   const x = w * tx, y = w * ty, z = w * tz, { x: X, y: Y, z: Z } = axes;
@@ -71,7 +71,7 @@ export function rotationOfToRef(axes: BuiltJoint["axes"], a: number, b: number, 
 }
 
 /** Each freedom's angle, in its own sense, from the reference pose: `out[k]` is `joint.dofs[k]`'s. */
-export function jointAngles(joint: BuiltJoint, out: number[] = []): number[] {
+export function jointAngles(joint: ReadJoint, out: number[] = []): number[] {
   const angles = anglesOf(relativeRotationToRef(joint, scratch.relative), joint.axes, abc);
   const { dofs } = joint;
   for (let k = 0; k < dofs.length; k++) out[k] = dofs[k]!.sign * angles[k]!;
@@ -120,7 +120,7 @@ function halfTan(joint: JointKinematics, angles: readonly number[], k: number): 
  * (1 + t_j^2), which is regular short of a half turn. A joint of fewer freedoms has t zero on its
  * locked axes, and of two turns about Z as its lock asks (`motionAxesToRef`).
  */
-export function ratesToRef(joint: BuiltJoint, angles: readonly number[], speeds: readonly number[], out: number[]): number[] {
+export function ratesToRef(joint: ReadJoint, angles: readonly number[], speeds: readonly number[], out: number[]): number[] {
   const { dofs } = joint, count = dofs.length;
   const x = halfTan(joint, angles, 0), y = halfTan(joint, angles, 1), z = halfTan(joint, angles, 2);
   const u0 = 0 < count ? dofs[0]!.sign * speeds[0]! : 0, u1 = 1 < count ? dofs[1]!.sign * speeds[1]! : 0;
@@ -144,7 +144,7 @@ export function ratesToRef(joint: BuiltJoint, angles: readonly number[], speeds:
  * A two-axis joint also has u_z = t_x u_y - t_y u_x; its derivative belongs to this bias.
  * Thus an angle-acceleration goal subtracts this term as well as G times the dynamics' bias.
  */
-export function rateBiasToRef(joint: BuiltJoint, angles: readonly number[], speeds: readonly number[], out: number[]): number[] {
+export function rateBiasToRef(joint: ReadJoint, angles: readonly number[], speeds: readonly number[], out: number[]): number[] {
   const count = joint.dofs.length; out.length = count;
   if (count < 2) { if (count === 1) out[0] = 0; return out; }
   const x = halfTan(joint, angles, 0), y = halfTan(joint, angles, 1), z = halfTan(joint, angles, 2);
@@ -199,7 +199,7 @@ const along = (v: Vector3, a: Vec3): number => v.x * a[0] + v.y * a[1] + v.z * a
 
 /** A joint's angles and speeds, one entry per freedom in its own sense, kept current by `update`. */
 export interface JointTracker {
-  readonly joint: BuiltJoint;
+  readonly joint: ReadJoint;
   /** Each freedom's angle from the reference pose (rad), in the engine's measure. */
   readonly angles: number[];
   /** Each freedom's speed (rad/s): the relative angular velocity along its parent-fixed axis. */
@@ -209,7 +209,7 @@ export interface JointTracker {
   /** How the joint turns at its angles (`turningToRef`): `turning[k][j]`, freedom k's speed per unit of j's rate. */
   readonly turning: number[][];
   /** Reads the joint as it stands, given each segment's angular velocity (world frame, rad/s). */
-  update(angularVelocity: (segment: BuiltSegment) => Vector3): void;
+  update(angularVelocity: (segment: ReadSegment) => Vector3): void;
   /**
    * `world`, a world-frame vector about the joint (an angular velocity, or an impulse the
    * constraint applied), along each freedom's parent-fixed axis in its own sense, into `out`.
@@ -221,7 +221,7 @@ export interface JointTracker {
  * The relative rotation is `P0 P^-1 C C0^-1` (`relativeRotationToRef`), so its rate is
  * `P0 P^-1 (wc - wp)` applied on the left: the relative angular velocity turned into the body frame.
  */
-export function jointTracker(joint: BuiltJoint): JointTracker {
+export function jointTracker(joint: ReadJoint): JointTracker {
   const angles = jointAngles(joint, []);
   const speeds = joint.dofs.map(() => 0), rates = joint.dofs.map(() => 0);
   const turning = turningToRef(joint, angles, []);

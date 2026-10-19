@@ -1,6 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Vec3 } from "../spec/quantity.ts";
-import type { BuiltBody, BuiltJoint, BuiltSegment } from "./build-body.ts";
+import type { BuiltBody, BuiltSegment } from "./build-body.ts";
+import type { ReadJoint } from "../read-body.ts";
 import { jointAngles, motionAxesToRef } from "./joint-state.ts";
 import { hypot } from "../math/real.ts";
 
@@ -53,7 +54,7 @@ export interface ContactMass {
 
 /** A freedom whose muscles hold through a contact: its joint, its index there, and the torque they can give toward each sense, N m. */
 export interface Hold {
-  readonly joint: BuiltJoint;
+  readonly joint: ReadJoint;
   readonly index: number;
   readonly negative: number;
   readonly positive: number;
@@ -77,7 +78,7 @@ interface Yield {
 export function contactMass(built: BuiltBody): ContactMass {
   const segments = [...built.segments.values()], joints = [...built.joints.values()];
   const index = new Map(segments.map((segment, i) => [segment, i]));
-  const jointIndex = new Map(joints.map((joint, j) => [joint, j]));
+  const jointIndex = new Map<ReadJoint, number>(joints.map((joint, j) => [joint, j]));
   const byChild = new Map(joints.map((joint, j) => [joint.child, j]));
   const roots = segments.filter((segment) => !byChild.has(segment));
   if (roots.length !== 1) throw new Error(`${built.spec.model} has ${roots.length} roots; a contact mass needs one`);

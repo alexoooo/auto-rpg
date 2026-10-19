@@ -4,7 +4,6 @@
  * kinds of limb and no stage; the player (`staged.ts`) knows the stages and no limb's kind.
  */
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody, BuiltSegment } from "../../build/build-body.ts";
 import type { Limb, LimbTask, Row } from "../../control/bearing.ts";
 import { UNHELD, type BearingPoint } from "../../control/contact-wrench.ts";
 import { lowsOf } from "../../control/ground.ts";
@@ -16,6 +15,7 @@ import type { Vec3 } from "../../spec/quantity.ts";
 import { handShapeAt, type HandPose, type ShapeSpec } from "../../spec/body.ts";
 import type { OwnBody } from "../mind.ts";
 import { limbChannels, type EndLimb, type FootLimb, type ProppedLimb, type Recipe } from "./stages.ts";
+import type { ReadBody, ReadSegment } from "../../read-body.ts";
 
 
 /**
@@ -133,7 +133,7 @@ function hold(limb: Limb, rate: number, ground: number): void {
 }
 
 /** A capsule's ends as a limb bears on them, body frame, reference pose: the end nearer the joint that carries it, the other, and its radius. */
-function capsuleEnds(built: BuiltBody, segment: BuiltSegment, shape: ShapeSpec): { readonly near: Vec3; readonly far: Vec3; readonly radius: number } {
+function capsuleEnds(built: ReadBody, segment: ReadSegment, shape: ShapeSpec): { readonly near: Vec3; readonly far: Vec3; readonly radius: number } {
   const joint = chainTo(built, segment).at(-1);
   if (shape.kind !== "capsule" || !joint) throw new Error(`${segment.spec.name} is a ${shape.kind} that ${joint ? joint.spec.name : "no joint"} carries; a limb bears on the end of a capsule a joint carries`);
   const c = joint.spec.centre.value, from = shape.from.value, to = shape.to.value;
@@ -143,7 +143,7 @@ function capsuleEnds(built: BuiltBody, segment: BuiltSegment, shape: ShapeSpec):
 }
 
 /** `read` of a segment's shape and of each of its hand's poses; what it gives is the applied pose's, or the shape's for a segment without poses. */
-function byPose<T>(built: BuiltBody, segment: BuiltSegment, read: (shape: ShapeSpec) => T): () => T {
+function byPose<T>(built: ReadBody, segment: ReadSegment, read: (shape: ShapeSpec) => T): () => T {
   const base = read(segment.spec.shape);
   const poses = segment.spec.handPoses && Object.fromEntries((Object.keys(segment.spec.handPoses) as HandPose[]).map(name =>
     [name, read(handShapeAt(built.spec, segment.spec, name))]));
@@ -151,7 +151,7 @@ function byPose<T>(built: BuiltBody, segment: BuiltSegment, read: (shape: ShapeS
 }
 
 /** A capsule's end as a limb bears on it: the end's centre, body frame, reference pose, and the capsule's radius. */
-function endOf(built: BuiltBody, segment: BuiltSegment, which: ProppedLimb["end"]): { readonly at: Vec3; readonly radius: number } {
+function endOf(built: ReadBody, segment: ReadSegment, which: ProppedLimb["end"]): { readonly at: Vec3; readonly radius: number } {
   const current = byPose(built, segment, (shape) => {
     const ends = capsuleEnds(built, segment, shape);
     return { at: which === "near" ? ends.near : ends.far, radius: ends.radius };

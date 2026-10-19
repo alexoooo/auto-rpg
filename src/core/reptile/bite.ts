@@ -1,5 +1,4 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
 import type { OwnBody } from "../mind/mind.ts";
 import { channelName } from "../muscle/driver.ts";
 import type { effectorTracker } from "../control/effector-tracker.ts";
@@ -15,9 +14,10 @@ import { scalarPathToRef } from "../control/point-path.ts";
 import { unintendedContact, type EffectorFeedback } from "../control/effector-feedback.ts";
 import { lowsOf } from "../control/ground.ts";
 import { atan2 } from "../math/real.ts";
+import type { BodyRef, ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
 
 /** The jaw's physical clearance witnesses in the head's reference frame at a measured gape. */
-function gapePoints(lower: BuiltSegment, hinge: BuiltJoint, angle: number) {
+function gapePoints(lower: ReadSegment, hinge: ReadJoint, angle: number) {
   return lowsOf(lower.spec.shape, lower.frame).map(low => {
     const point = pointAtToRef([hinge], [[angle]], low.at, new Vector3());
     return { at: [point.x, point.y, point.z] as Vec3, radius: low.radius };
@@ -28,7 +28,7 @@ function gapePoints(lower: BuiltSegment, hinge: BuiltJoint, angle: number) {
  * The jaw and what it hangs from: the segment with a `bite` point (`lower`), its joint (`hinge`),
  * the head the hinge hangs it from, which has a `mouth` point, and the joint that carries the head (`neck`).
  */
-export function mouthOf(built: BuiltBody) {
+export function mouthOf(built: ReadBody) {
   const lower = [...built.segments.values()].find(segment => segment.spec.points?.bite);
   const hinge = lower && chainTo(built, lower).at(-1), head = hinge?.parent, neck = head && chainTo(built, head).at(-1);
   if (!lower || !hinge || !head?.spec.points?.mouth || !neck) throw new Error(`${built.spec.model} has no jaw hinged to a head with a mouth`);
@@ -48,7 +48,7 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
   const jawName = channelName(hinge, 0), jaw = own.muscles.channel(jawName), tip = lower.spec.points!.bite!.value;
   const neckName = channelName(neck, 1), retract = Math.max(neck.dofs[1]!.spec.min.value, -T.neckRetract);
   const neckPitch = own.muscles.channel(neckName);
-  const bodies = new Set([...own.built.segments.values()].map(p => p.body));
+  const bodies = new Set<BodyRef>([...own.built.segments.values()].map(p => p.body));
   const cycle: StrikeCycleState = { phase: null, time: 0, ready: 0, sequence: 0, velocity: [0, 0, 0], touching: false, impact: null };
   const state = { cycle, target: [0, 0, 0] as [number, number, number], aim: [0, 0, 0] as [number, number, number], reach: 0, launched: 0, returned: 0, failed: 0, aborted: 0,
     selected: null as { foe: string; part: string; tooth?: string } | null, returnPitch: 0,
