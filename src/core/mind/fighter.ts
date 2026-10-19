@@ -220,6 +220,6 @@ export function fighterSkills(made: Body, world: World, config: FighterConfig, d
 /** **A fighter**: its body and sub-minds (`fighterBody`), driven by its tactics over its skills (`driveFighter`). */
 export function createFighter(built: BuiltBody, world: World, config: FighterConfig, wiring: MindWiring) {
   const body = createBody(built, world, fighterBody(config, wiring));
-  const skills = driveFighter(body, world, config, wiring);
+  const skills = driveFighter(body.driver, world, config, wiring);
   return { kind: "fighter" as const, body, skills, state: skills.state };
 }

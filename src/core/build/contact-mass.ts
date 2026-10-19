@@ -78,7 +78,7 @@ interface Yield {
 export function contactMass(built: BuiltBody): ContactMass {
   const segments = [...built.segments.values()], joints = [...built.joints.values()];
   const index = new Map(segments.map((segment, i) => [segment, i]));
-  const jointIndex = new Map<ReadJoint, number>(joints.map((joint, j) => [joint, j]));
+  const jointIndex = new Map(joints.map((joint, j) => [joint.spec.name, j]));
   const byChild = new Map(joints.map((joint, j) => [joint.child, j]));
   const roots = segments.filter((segment) => !byChild.has(segment));
   if (roots.length !== 1) throw new Error(`${built.spec.model} has ${roots.length} roots; a contact mass needs one`);
@@ -218,7 +218,7 @@ export function contactMass(built: BuiltBody): ContactMass {
       const g = pushRow(segment, point, direction), Ag = solve(g);
       const a = g.reduce((sum, gi, k) => sum + gi * Ag[k]!, 0);
       const held = holds.filter((hold) => hold.negative > 0 || hold.positive > 0).map((hold) => {
-        const j = jointIndex.get(hold.joint);
+        const j = jointIndex.get(hold.joint.spec.name);
         if (j === undefined) throw new Error(`${hold.joint.spec.name} is not a joint of ${built.spec.model}`);
         return { column: firstColumn[j]! + hold.index, low: -hold.negative, high: hold.positive };
       });

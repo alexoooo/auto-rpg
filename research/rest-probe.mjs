@@ -41,6 +41,7 @@ import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rule
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { createWorld } from "../src/core/world.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
+import { rootSegment } from "../src/core/read-body.ts";
 
 const { values } = parseArgs({ options: { bodies: { type: "string", default: "8" } } });
 // Babylon greets every engine it makes on the console.
@@ -65,7 +66,7 @@ async function fall(model, shove) {
   const built = buildBody(spec, world, { position: [0, 0, 0] });
   const assist = balanceCeiling(built.spec.attributes.balance.value, balancePercent(rules));
   const { body } = createMind(built, world, RECIPE_FIGHTER, { name: "probe", assist, orders: () => ({ move: null, face: null, actions: [] }) });
-  const segments = [...built.segments.values()], root = body.muscles.dynamics.root.segment, at = new Vector3(), v = new Vector3();
+  const segments = [...built.segments.values()], root = rootSegment(built), at = new Vector3(), v = new Vector3();
   const weight = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0) * -built.physics.gravity[1];
   const push = shove && new Vector3(shove[1], 0, shove[2]).scaleInPlace(weight * world.dt);
   const mass = segments.reduce((sum, segment) => sum + segment.rigid.mass, 0), momentum = new Vector3();

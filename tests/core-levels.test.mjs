@@ -19,6 +19,7 @@ import { embody } from "../src/core/mind/mind.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { coreStand, loadStand, saveStand } from "./harness/core-stand.mjs";
 import { traceOf } from "./harness/trace.mjs";
+import { rootSegment } from "../src/core/read-body.ts";
 
 const SKELETON = armed(modelSpec("crypt-skeleton"), "right", woodenClub());
 /** A ceiling of the test's own, so that the assist's meter counts the steps it is given. */
@@ -32,7 +33,7 @@ function standing(built, world) {
   const skills = driveBy(body, { name: "stand", decide: ({ view }) => { seen.calls++; seen.resumed.push(view.resumed); return standIntent(0); } });
   return { body, skills, seen };
 }
-const rootOf = (body) => body.muscles.dynamics.root.segment;
+const rootOf = (body) => rootSegment(body.built);
 /** A shove of `size` N s at `body`'s root, along x. */
 const shove = (body, size) => { const root = rootOf(body); root.body.applyImpulse(new Vector3(size, 0, 0), centreOfToRef(root, new Vector3())); };
 /** Every segment's position and rotation, as one record. */

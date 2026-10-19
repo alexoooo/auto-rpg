@@ -6,6 +6,7 @@ import { humanSpec } from "../../src/core/human/spec.ts";
 import { standIntent } from "../../src/core/mind/intent.ts";
 import { driveBy } from "../../src/core/mind/tactics.ts";
 import { coreStand } from "../harness/core-stand.mjs";
+import { rootSegment } from "../../src/core/read-body.ts";
 
 const spec = humanSpec("workshop-fighter");
 export const massOf = (built) => [...built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0);
@@ -28,7 +29,7 @@ export async function pulled(ceiling, each = () => {}) {
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, ...(ceiling ? { assist: ceiling } : {}) });
   try {
     const skills = driveBy(body, { name: "stand", decide: () => standIntent(0) });
-    const root = body.muscles.dynamics.root.segment, weight = weightOf(stand.built), { stance } = body.view;
+    const root = rootSegment(stand.built), weight = weightOf(stand.built), { stance } = body.view;
     const at = new Vector3(), pull = new Vector3(0, 0, weight / 4 / stand.world.hz);
     stand.step(stand.seconds(1));
     const from = centreOfMass(stand.built), settled = stance.recoveries;

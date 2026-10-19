@@ -41,6 +41,7 @@ import { createWorld } from "../src/core/world.ts";
 import { riserOf, toppled } from "../research/core-rise-trials.mjs";
 import { coreStand, freshEngine } from "./harness/core-stand.mjs";
 import { assertForks, fieldsOf, forgetting, forks, PHYSICS_ALONE, shows, STATE_ALONE, unsorted } from "./harness/fork.mjs";
+import { rootSegment } from "../src/core/read-body.ts";
 
 const fighter = armed(humanSpec("workshop-fighter"), "right", woodenClub());
 
@@ -113,7 +114,7 @@ const pulled = ({ ceiling = null, frame = null, withdraw = Infinity, share = 0.1
   const height = body.view.stance.centre.y - body.view.stance.support.y - STANCE_LOWER;
   const command = deepFreeze({ posture: GUARD, pushes: [], stance: { feet: BOTH, centre: null, height, heading: 0, walk: null } });
   body.drive(() => command);
-  const root = body.muscles.dynamics.root.segment, at = new Vector3();
+  const root = rootSegment(body.built), at = new Vector3();
   const weight = [...stand.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0) * -stand.built.physics.gravity[1];
   const pull = new Vector3(0, 0, weight * share * (frame ?? stand.world.dt));
   const seen = { recoveries: 0, given: 0, withdrawn: false, steps: new Set(), has: [], down: null, levels: [] };
@@ -142,7 +143,7 @@ const pulled = ({ ceiling = null, frame = null, withdraw = Infinity, share = 0.1
 async function catching() {
   const stand = await coreStand(humanSpec("workshop-fighter"));
   const body = createBody(stand.built, stand.world, { servoSeconds: .1 });
-  const height = body.view.standing - .03, root = body.muscles.dynamics.root.segment;
+  const height = body.view.standing - .03, root = rootSegment(body.built);
   body.drive(view => ({ posture: GUARD, pushes: [], stance: { feet: BOTH, centre: null, height, heading: 0,
     ...(view.time > .5 ? { swing: { foot: "left", to: [-.15, .3], seconds: .5, lift: .05 } } : {}) } }));
   const seen = { caught: false };
@@ -335,7 +336,7 @@ async function striker() {
     return [head.x, head.y, head.z];
   }));
   const foe = driveBy(skeleton.body, { name: "stand", decide: () => standIntent(0) });
-  const root = warrior.body.muscles.dynamics.root.segment, at = new Vector3();
+  const root = rootSegment(warrior.body.built), at = new Vector3();
   const weight = [...warrior.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0) * -warrior.built.physics.gravity[1];
   const shove = new Vector3(0, 0, weight * world.dt);
   const foot = warrior.built.segments.get("foot.left"), nudge = new Vector3(-10 * world.dt, 0, 0);

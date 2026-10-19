@@ -22,6 +22,7 @@ import type { BodySpec, Side, HandPose } from "./spec/body.ts";
 import { groundReading, type GroundReading } from "./mind/ground/reading.ts";
 import type { ReadBody, ReadSegment } from "./read-body.ts";
 import type { BuiltBody } from "./build/build-body.ts";
+import { readView } from "./build/read-view.ts";
 
 /**
  * **A body, commanded and seen.** One class for every body assembled from a spec: its muscles
@@ -70,8 +71,12 @@ export interface Body extends Omit<PhysicalBody, "built"> {
   dispose(): void;
 }
 
-/** A body as the fight that made it holds it: what its drivers have (`Body`), with the built body under it (`PhysicalBody`). */
-export type HostedBody = Omit<Body, "built"> & PhysicalBody;
+/**
+ * **A body as the fight that made it holds it**: the built body under it (`PhysicalBody`), its
+ * view, its drive, and the body its drivers have (`driver`), which reads the built body through its
+ * read view (`readView`) and is the one to hand a tactics, a skill or a script.
+ */
+export type HostedBody = PhysicalBody & Pick<Body, "view" | "envelope" | "drive" | "afterPhysics"> & { readonly driver: Body };
 
 /** The command layers' ownership label, shared by their host and its readers. */
 const COMMAND = "command";
@@ -375,13 +380,16 @@ export function createBody(built: BuiltBody, world: World, options: BodyOptions)
     for (const listener of listeners) listener(world.steps, world.time);
   });
   const disposeBody = body.dispose;
-  return Object.assign(body, {
-    view: command.view,
-    envelope: !options.measuring && Object.keys(options.stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null,
-    drive: (next: BodyDriver | null, released?: (view: BodyView, reason: "takeover" | "idle" | "replaced") => void) => command.drive(next, released),
-    afterPhysics,
-    dispose() { command.drive(null); sampled.dispose(); listeners.clear(); disposeBody(); },
-  });
+  const view = command.view, envelope = !options.measuring && Object.keys(options.stance ?? {}).length === 0 ? stanceEnvelope(built.spec) : null;
+  const dispose = () => { command.drive(null); sampled.dispose(); listeners.clear(); disposeBody(); };
+  const driver: Body = {
+    built: readView(built), muscles: body.muscles, assist: body.assist, physical: body.physical, state: body.state, view, envelope,
+    get down() { return body.down; }, get has() { return body.has; }, get level() { return body.level; },
+    setLevel: (level) => body.setLevel(level), observe: body.observe,
+    drive: (next, released) => command.drive(next, released),
+    afterPhysics, dispose,
+  };
+  return Object.assign(body, { view, envelope, drive: driver.drive, afterPhysics, driver, dispose });
 }
 
 const sameGoal = (a: EffectorGoal, b: EffectorGoal): boolean =>

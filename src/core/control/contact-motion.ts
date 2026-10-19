@@ -1,4 +1,4 @@
-import type { ContactManifold } from "../engine/engine.ts";
+import type { ReadManifold } from "../read-body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 
 /**
@@ -7,7 +7,7 @@ import type { Vec3 } from "../spec/quantity.ts";
  * closes on the other surface. These are unilateral geometry rows, not friction welds: the
  * controller supplies the other body's point motion and decides sticking, sliding or lift-off.
  */
-export function contactMotionRows(manifold: ContactManifold, reference: Vec3) {
+export function contactMotionRows(manifold: ReadManifold, reference: Vec3) {
   const [nx, ny, nz] = manifold.normal;
   return manifold.points.map(({ point, distance }) => {
     const x = point[0] - reference[0], y = point[1] - reference[1], z = point[2] - reference[2];

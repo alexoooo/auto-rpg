@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { coupledDynamics } from "../build/coupled-dynamics.ts";
 import { rateBiasToRef, ratesToRef } from "../build/joint-state.ts";
-import type { PhysicsWorld } from "../engine/engine.ts";
+import type { ReadPhysics } from "../read-body.ts";
 import type { createEquipment } from "../equipment.ts";
 import { boundedLeastSquaresTo, boundedWork, linearWork, solveLinearTo } from "../math/flat.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
@@ -17,7 +17,7 @@ interface TrackingSettings {
   readonly capacity: number;
   /** Regularization of normalized actuator effort; supplied by the experiment. */
   readonly effortCost: number;
-  readonly contact?: { readonly physics: PhysicsWorld; readonly settings: ContactTrackingSettings; readonly dt?: number };
+  readonly contact?: { readonly physics: ReadPhysics; readonly settings: ContactTrackingSettings; readonly dt?: number };
   readonly jointStops?: { readonly settings: JointStopSettings; readonly dt: number };
 }
 

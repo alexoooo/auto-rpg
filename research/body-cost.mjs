@@ -31,6 +31,7 @@ import { driveBy } from "../src/core/mind/tactics.ts";
 import { createWorld } from "../src/core/world.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
 import { riserOf } from "./core-rise-trials.mjs";
+import { rootSegment } from "../src/core/read-body.ts";
 
 const { values } = parseArgs({ options: { model: { type: "string", default: "crypt-skeleton" }, bodies: { type: "string", default: "1,4,8" }, steps: { type: "string", default: "600" } } });
 const steps = Number(values.steps), spec = armed(modelSpec(values.model), "right", woodenClub());
@@ -68,7 +69,7 @@ async function cost(count) {
   rows.push(read("let go, driven"));
   const at = new Vector3();
   for (const { body } of bodies) {
-    const root = body.muscles.dynamics.root.segment;
+    const root = rootSegment(body.built);
     root.body.applyImpulse(new Vector3(0, 0, 400), centreOfToRef(root, at));
   }
   world.step(3 * world.hz);

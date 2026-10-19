@@ -26,7 +26,7 @@ export function standUpKinematics(f) {
   const centres = new Map(parts.map(part => [part, [...part.body.massProperties.centre]]));
   const indices = new Map(channels.map((c, i) => [c.name, i]));
   const jointIndices = new Map([...built.joints.values()].map(j => [j,
-    j.dofs.map((_, k) => indices.get(channels.find(c => c.joint === j && c.index === k).name))]));
+    j.dofs.map((_, k) => indices.get(channels.find(c => c.joint.spec.name === j.spec.name && c.index === k).name))]));
   const chains = new Map(parts.map(p => [p, chainTo(built, p)]));
   const colliders = new Map(parts.map(part => [part, Array.from({ length: part.body.rigid.numColliders() }, (_, k) => {
     const c = part.body.rigid.collider(k), p = c.translationWrtParent(), q = c.rotationWrtParent();

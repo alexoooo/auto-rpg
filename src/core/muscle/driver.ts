@@ -1,5 +1,7 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import type { BuiltBody, BuiltJoint, BuiltSegment } from "../build/build-body.ts";
+import type { BuiltBody } from "../build/build-body.ts";
+import { readView } from "../build/read-view.ts";
+import type { EngineJoint } from "../engine/engine.ts";
 import type { MuscleSpec } from "../spec/body.ts";
 import { jointTracker, type JointTracker } from "../build/joint-state.ts";
 import { bodyDynamics, type BodyDynamics } from "../build/dynamics.ts";
@@ -163,26 +165,31 @@ export type MuscleController = (driver: MuscleDriver, dt: number) => void;
  * body is at `full`. `idle` is called as it leaves `full`, before its motors are zeroed.
  */
 export function driveMuscles(built: BuiltBody, world: World, control?: MuscleController, idle?: () => void): MuscleDriver {
+  // Its mind reads the body through its view (`readView`): the channels' joints and the dynamics' segments are the view's.
+  const read = readView(built);
   const trackers: JointTracker[] = [];
-  const channels: (MuscleChannel & { readonly joint: BuiltJoint })[] = [];
+  const channels: MuscleChannel[] = [];
+  const motors: EngineJoint[] = [];
   const trackerOf: JointTracker[] = [];
-  for (const joint of built.joints.values()) {
+  for (const [name, joint] of built.joints) {
     const tracker = jointTracker(joint);
     trackers.push(tracker);
     joint.dofs.forEach((dof, index) => {
       const muscle = dof.spec.muscle;
       channels.push({
-        name: channelName(joint, index), joint, index, dof,
+        name: channelName(joint, index), joint: read.joints.get(name)!, index, dof,
         positive: { peak: muscle.peakPositive.value, curve: curveOf(muscle, "positive"), tendon: muscle.tendonPositive?.stiffness.value ?? null },
         negative: { peak: muscle.peakNegative.value, curve: curveOf(muscle, "negative"), tendon: muscle.tendonNegative?.stiffness.value ?? null },
       });
+      motors.push(joint.joint);
       trackerOf.push(tracker);
       joint.joint.setMotor(index, 0, 0);
     });
   }
-  // Each segment's angular velocity, read once per step: a velocity read allocates.
-  const spin = new Map([...built.segments.values()].map((segment) => [segment, new Vector3()]));
-  const angularVelocity = (segment: ReadSegment): Vector3 => spin.get(segment as BuiltSegment)!;
+  // Each segment's angular velocity, read once per step: a velocity read allocates. Found by the built segment or its view.
+  const spins = [...built.segments].map(([name, segment]) => ({ body: segment.body, w: new Vector3(), segment, view: read.segments.get(name)! }));
+  const spin = new Map<ReadSegment, Vector3>(spins.flatMap(({ w, segment, view }) => [[segment, w], [view, w]]));
+  const angularVelocity = (segment: ReadSegment): Vector3 => spin.get(segment)!;
   const byName = new Map(channels.map((c, i) => [c.name, i]));
   const n = channels.length;
   const dt = world.dt;
@@ -194,7 +201,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       default: throw new Error(`unknown actuation ${law satisfies never}`);
     }
   })();
-  const dynamics = bodyDynamics(built, world.physics.gravity);
+  const dynamics = bodyDynamics(read, world.physics.gravity);
   const angles = trackers.map((tracker) => tracker.angles);
   const motion = { spin: angularVelocity };
   let hook: Hook | null = null;
@@ -227,7 +234,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
         state.activation.fill(0); state.velocity.fill(0); state.ceiling.fill(0);
         state.bounds.negative.fill(0); state.bounds.positive.fill(0);
         state.stretch.negative.fill(0); state.stretch.positive.fill(0);
-        for (const c of channels) c.joint.joint.setMotor(c.index, 0, 0);
+        channels.forEach((c, i) => motors[i]!.setMotor(c.index, 0, 0));
       }
       if (fixedAt(next) !== fixedAt(state.level)) for (const segment of built.segments.values()) segment.body.setFixed(fixedAt(next));
       state.level = next;
@@ -246,12 +253,12 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       hook = null;
       after?.dispose();
       after = null;
-      for (const c of channels) c.joint.joint.setMotor(c.index, 0, 0);
+      channels.forEach((c, i) => motors[i]!.setMotor(c.index, 0, 0));
     },
   };
   hook = world.beforeStep(() => {
     if (state.level !== "full") return;
-    for (const [segment, w] of spin) segment.body.angularVelocityToRef(w);
+    for (const { body, w } of spins) body.angularVelocityToRef(w);
     for (const tracker of trackers) tracker.update(angularVelocity);
     dynamics.update(angles, motion);
     control?.(driver, dt);
@@ -270,7 +277,7 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
         state.bounds.positive[i] = positive; state.bounds.negative[i] = negative;
         driver.ceiling[i] = capacity;
         const along = c.dof.sign > 0, fibre = driver.angle(i) + toward * (stretch + v * dt);
-        c.joint.joint.setSpring(c.index, c.dof.sign * fibre, side.tendon, along ? negative : positive, along ? positive : negative);
+        motors[i]!.setSpring(c.index, c.dof.sign * fibre, side.tendon, along ? negative : positive, along ? positive : negative);
         continue;
       }
       // Within a step the muscles turn the joint no further than their curve's tangent reaches.
@@ -284,14 +291,14 @@ export function driveMuscles(built: BuiltBody, world: World, control?: MuscleCon
       // The motor's axis may run against the freedom's positive sense.
       const along = c.dof.sign > 0;
       const commanded = c.dof.sign * (beyond ? toward * reach : target);
-      if (directional) c.joint.joint.setMotorBounds(c.index, commanded, along ? negative : positive, along ? positive : negative);
-      else c.joint.joint.setMotor(c.index, commanded, reference);
+      if (directional) motors[i]!.setMotorBounds(c.index, commanded, along ? negative : positive, along ? positive : negative);
+      else motors[i]!.setMotor(c.index, commanded, reference);
     }
   });
   after = world.afterStep(() => {
     for (let i = 0; i < n; i++) {
       const c = channels[i]!;
-      state.pulled[i] = c.dof.sign * c.joint.joint.motorStepImpulse(c.index) / dt;
+      state.pulled[i] = c.dof.sign * motors[i]!.motorStepImpulse(c.index) / dt;
       if (state.pulled[i] !== 0) state.ceiling[i] = state.pulled[i]! > 0 ? state.bounds.positive[i]! : state.bounds.negative[i]!;
       if (c.positive.tendon !== null) state.stretch.positive[i] = Math.max(0, state.pulled[i]!) / c.positive.tendon;
       if (c.negative.tendon !== null) state.stretch.negative[i] = Math.max(0, -state.pulled[i]!) / c.negative.tendon;

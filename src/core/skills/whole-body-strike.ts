@@ -155,8 +155,8 @@ export function wholeBodyFits(spec: BodySpec): boolean {
 function wholeBodyTechnique(body: Body, world: World, drive: WholeBodyDrive, returnsHome = false) {
   const built = body.built, spec = built.spec, muscles = body.muscles, guard = guardPosture(spec), { punch } = WHOLE_BODY;
   if (!wholeBodyFits(spec)) throw new Error(`${spec.model} cannot take the whole-body strike`);
-  const tracking = wholeBodyTracking(built, muscles, world.physics.gravity, [], [], { capacity: WHOLE_BODY.capacity, effortCost: WHOLE_BODY.effortCost,
-    contact: { physics: world.physics, settings: WHOLE_BODY.contact, dt: world.dt } });
+  const tracking = wholeBodyTracking(built, muscles, built.physics.gravity, [], [], { capacity: WHOLE_BODY.capacity, effortCost: WHOLE_BODY.effortCost,
+    contact: { physics: built.physics, settings: WHOLE_BODY.contact, dt: world.dt } });
   const model = deepFreeze({ channels: muscles.channels.map((c) => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value })),
     frames: [...built.segments.keys()].map((name) => ({ kind: "segment" as const, name })) });
   const segments = model.frames, pelvis = built.segments.get("lowerTrunk")!, chest = built.segments.get("upperTrunk")!;

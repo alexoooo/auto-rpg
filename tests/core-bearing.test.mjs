@@ -12,6 +12,7 @@ import { bearingSole, centreOfToRef, footStatesOf, motionAtToRef, readSupport } 
 import { humanSpec } from "../src/core/human/spec.ts";
 import { embody } from "../src/core/mind/mind.ts";
 import { coreStand } from "./harness/core-stand.mjs";
+import { rootSegment } from "../src/core/read-body.ts";
 
 const spec = humanSpec("workshop-fighter");
 const massOf = (built) => [...built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0);
@@ -120,7 +121,7 @@ async function borne(bears, seconds, each, pull = null, probe = null) {
   const found = records();
   const { own, dispose } = embody(stand.built, stand.world, bearing(bears, found, probe));
   try {
-    const built = stand.built, weight = massOf(built) * Math.hypot(...built.physics.gravity), root = own.muscles.dynamics.root.segment;
+    const built = stand.built, weight = massOf(built) * Math.hypot(...built.physics.gravity), root = rootSegment(built);
     const from = centreOfMassToRef(built, new Vector3()), now = new Vector3(), at = new Vector3();
     const push = new Vector3(0, 0, weight / 10 / stand.world.hz);
     for (let step = 0; step < stand.seconds(seconds); step++) {

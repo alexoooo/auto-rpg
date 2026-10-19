@@ -67,8 +67,8 @@ export async function uprightKneel({ bearingSeconds = .2 } = {}) {
     const view = { get down() { return upright.down(); }, stance: { centre, velocity } };
     body = embody(stand.built, stand.world, own => {
       const bearing = stagedRise(own, view, recipe);
-      const tracker = wholeBodyTracking(stand.built, own.muscles, stand.world.physics.gravity, [], [], {
-        capacity: 12, effortCost: 1e-6, contact: { physics: stand.world.physics, dt: stand.world.dt,
+      const tracker = wholeBodyTracking(own.built, own.muscles, own.built.physics.gravity, [], [], {
+        capacity: 12, effortCost: 1e-6, contact: { physics: own.built.physics, dt: stand.world.dt,
           settings: { normalResponseSeconds: .2, maxPoints: 64, gap: .005, minUpNormal: .9, pointSeparation: .001,
             forceTolerance: 1e-5, redistributionCost: 1e-6, iterations: 2048, absoluteTolerance: 1e-7, relativeTolerance: 1e-6,
             liftOff: { accelerationTolerance: .1 } } }, jointStops: { dt: stand.world.dt, settings: SUPPORT_JOINT_STOPS } });

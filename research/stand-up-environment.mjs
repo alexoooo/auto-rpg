@@ -131,7 +131,7 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
           if (action.kind === 'muscles') {
             muscles.activation.set(action.activation);
             for (let i = 0; i < channels.length; i++) muscles.velocity[i] = decoded(action.velocity[i]);
-            own.built.handPoses.request(Object.entries(action.handPoses).map(([hand, pose]) => ({ hand, pose })));
+            own.requestHandPoses(Object.entries(action.handPoses).map(([hand, pose]) => ({ hand, pose })));
           } else if (action.kind === 'targets') {
             muscles.activation.fill(action.activation);
             for (let i = 0; i < channels.length; i++) {
@@ -141,7 +141,7 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
                 * Math.max(-action.speed, Math.min(action.speed, (action.angles[start + k] - muscles.angle(start + k)) / action.response));
               muscles.velocity[i] = speed;
             }
-            own.built.handPoses.request(['left', 'right'].map(hand => ({ hand, pose: 'open' })));
+            own.requestHandPoses(['left', 'right'].map(hand => ({ hand, pose: 'open' })));
           } else throw new Error('a host action cannot own recovery');
           own.assist.ask(assistForce.set(...(action.assist?.force ?? [0, 0, 0])),
             assistMoment.set(...(action.assist?.moment ?? [0, 0, 0])));

@@ -163,7 +163,7 @@ export function createOptionsFighter(built: BuiltBody, world: World, config: Opt
       return reflexes.apply(now, { ...asked, move: walk.constrain(now, asked.move, near), guard: NO_COVER });
     } };
   let skills: Skills;
-  skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, world, kit, driving, () => skills?.report.ledger ?? []));
+  skills = driveBy(body.driver, tactics, (made, driving) => fighterSkills(made, world, kit, driving, () => skills?.report.ledger ?? []));
   sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, instance: skills.instance, readiness: skills.readiness };
   return { kind: "fighter" as const, body, skills, state: skills.state };
 }

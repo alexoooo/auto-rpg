@@ -25,15 +25,15 @@ test("a bounded contact solve preserves real hands-and-knees support before choo
   try {
     body = embody(stand.built, stand.world, own => {
       const muscles = own.muscles, goals = muscles.channels.map(c => placement.joints[c.joint.spec.name][c.index]);
-      const tracking = wholeBodyTracking(own.built, muscles, stand.world.physics.gravity, [], [], {
-        capacity: 1, effortCost: 1e-6, contact: { physics: stand.world.physics, dt: stand.world.dt,
+      const tracking = wholeBodyTracking(own.built, muscles, own.built.physics.gravity, [], [], {
+        capacity: 1, effortCost: 1e-6, contact: { physics: own.built.physics, dt: stand.world.dt,
           settings: { ...settings, maxPoints: 64, redistributionCost: 1e-6, liftOff: { accelerationTolerance: .1 } } },
       });
       const state = { steps: 0, tracking: tracking.state, first: null };
       const observe = observeBody(own.built, muscles, stand.world, () => ({ time: stand.world.time, others: [] }));
       return { name: "supported controller handoff", state, observe, step() {
         state.steps++;
-        own.built.handPoses.request([{ hand: "left", pose: "open" }, { hand: "right", pose: "open" }]);
+        own.requestHandPoses([{ hand: "left", pose: "open" }, { hand: "right", pose: "open" }]);
         if (state.steps <= 36) {
           const rates = goals.map((goal, i) => (goal - muscles.angle(i)) / .08);
           muscles.channels.forEach((c, i) => {

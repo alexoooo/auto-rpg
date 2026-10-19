@@ -29,7 +29,13 @@ test("a mind moves its body through its muscles' command alone", async () => {
   });
   try {
     assert.equal(own.spec, spec);
-    assert.equal(own.built, s.built);
+    // Its body is a view of the built one: the same segments read live, and no engine handle.
+    assert.ok(own.built !== s.built, "a mind is not given the built body");
+    const forearm = own.built.segments.get("forearm.right"), built = s.built.segments.get("forearm.right");
+    assert.equal(forearm.node.position, built.node.position);
+    assert.deepEqual(Object.keys(forearm.body).sort(), ["angularVelocityToRef", "id", "linearVelocityToRef", "massProperties", "node"]);
+    assert.deepEqual(Object.keys(forearm.node).sort(), ["name", "position", "rotationQuaternion"]);
+    assert.ok(!("joint" in own.built.joints.get("elbow.right")), "a joint has no engine joint");
     s.step(s.seconds(0.5));
     const angle = (name) => own.muscles.angle(own.muscles.channel(name));
     assert.ok(Math.abs(angle("elbow.right flexion") - elbow.max.value) < 0.02, `the driven elbow is at its stop: ${angle("elbow.right flexion")}`);

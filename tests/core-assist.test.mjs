@@ -16,6 +16,7 @@ import { embody } from "../src/core/mind/mind.ts";
 import { createWorld } from "../src/core/world.ts";
 import { centreOfMass, massOf, pulled, weightOf } from "./fixtures/assist-pull.mjs";
 import { freshEngine } from "./harness/core-stand.mjs";
+import { rootSegment } from "../src/core/read-body.ts";
 
 const spec = humanSpec("workshop-fighter");
 /** A body's momentum, and its angular momentum about its centre of mass: each segment's own, in the mass properties the engine holds. */
@@ -55,7 +56,7 @@ async function lifted(ceiling, { ask = (weight) => [new Vector3(0, 2 * weight, 0
   const make = (body) => ({ name: "lift", step() { if (asked++ < asks) body.assist.ask(force, moment); } });
   const { own, dispose } = ceiling ? embody(built, world, make, undefined, ceiling) : embody(built, world, make);
   try {
-    const from = centreOfMass(built), root = own.muscles.dynamics.root.segment, dt = 1 / world.hz;
+    const from = centreOfMass(built), root = rootSegment(built), dt = 1 / world.hz;
     const owed = { linear: new Vector3(), angular: new Vector3() }, at = new Vector3();
     const down = new Vector3(...built.physics.gravity).scale(massOf(built));
     for (let step = 0; step < 60; step++) {

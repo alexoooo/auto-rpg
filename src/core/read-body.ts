@@ -105,7 +105,7 @@ export interface ReadContact extends Omit<Contact, "other"> {
 }
 
 /** A narrow-phase manifold as read: the other body by its identity alone. */
-interface ReadManifold extends Omit<ContactManifold, "other"> {
+export interface ReadManifold extends Omit<ContactManifold, "other"> {
   readonly other: BodyRef | null;
 }
 

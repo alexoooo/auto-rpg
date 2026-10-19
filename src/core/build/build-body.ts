@@ -38,7 +38,7 @@ export interface BuiltSegment extends ReadSegment {
 }
 
 /** A joint as built: as read (`ReadJoint`), with its engine joint. */
-export interface BuiltJoint extends ReadJoint {
+interface BuiltJoint extends ReadJoint {
   readonly parent: BuiltSegment;
   readonly child: BuiltSegment;
   readonly joint: EngineJoint;

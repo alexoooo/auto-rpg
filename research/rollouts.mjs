@@ -7,6 +7,7 @@ import { centreOfToRef } from "../src/core/control/support.ts";
 import { mulberry32 } from "../src/rng.ts";
 import { traceOf } from "../tests/harness/trace.mjs";
 import { buildBout } from "./bout.mjs";
+import { rootSegment } from "../src/core/read-body.ts";
 
 const other = (side) => side === "left" ? "right" : "left";
 
@@ -55,7 +56,7 @@ export async function rollout({ recipe, tape = [], from, branch = [], steps, nud
     }
     const at = poseDigest(builts);
     for (const { side, impulse } of nudges) {
-      const root = duel.duelists[side].body.muscles.dynamics.root.segment;
+      const root = rootSegment(duel.duelists[side].body.built);
       root.body.applyImpulse(new Vector3(...impulse), centreOfToRef(root, new Vector3()));
     }
     const trace = traceOf(builts);

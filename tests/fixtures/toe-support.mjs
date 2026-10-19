@@ -47,8 +47,8 @@ export async function toeSupport({ transfer = false, stabilize = true } = {}) {
     supports: [{ frame: { kind: "segment", name: "hand.left" }, mode: "auto" },
       ...(stabilize ? [{ frame: { kind: "segment", name: "foot.left" }, mode: "auto", normalLoad: { pointMin: 1 } }] : [])], grips: [] };
   const body = embody(stand.built, stand.world, own => {
-    const tracker = wholeBodyTracking(stand.built, own.muscles, stand.world.physics.gravity, [], [], {
-      capacity: 8, effortCost: 1e-6, contact: { physics: stand.world.physics, dt: stand.world.dt,
+    const tracker = wholeBodyTracking(own.built, own.muscles, own.built.physics.gravity, [], [], {
+      capacity: 8, effortCost: 1e-6, contact: { physics: own.built.physics, dt: stand.world.dt,
         settings: { maxPoints: 64, gap: .005, minUpNormal: .9, pointSeparation: .001, forceTolerance: 1e-5,
           redistributionCost: 1e-6, iterations: 2048, absoluteTolerance: 1e-7, relativeTolerance: 1e-6,
           liftOff: { accelerationTolerance: .1 }, ...(stabilize ? { normalResponseSeconds: .2 } : {}) } },

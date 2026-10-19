@@ -1,6 +1,7 @@
 import type { BuiltBody } from "../build/build-body.ts";
 import type { HandPoseRequest } from "../build/hand-poses.ts";
 import { rootSegment, type ReadBody } from "../read-body.ts";
+import { readView } from "../build/read-view.ts";
 import { createAssist, NO_ASSIST, type Assist, type AssistCeiling } from "../control/assist.ts";
 import { driveMuscles, type MuscleDriver } from "../muscle/driver.ts";
 import type { BodySpec } from "../spec/body.ts";
@@ -77,7 +78,7 @@ export function embody<M extends Mind>(built: BuiltBody, world: World, make: Min
   let mind: M | null = null, help: ReturnType<typeof createAssist> | null = null;
   const muscles = driveMuscles(built, world, (_, dt) => { mind!.step(sense(), dt); help!.apply(); }, () => mind!.idle?.());
   help = createAssist(built, rootSegment(built), ceiling);
-  const own: OwnBody = { spec: built.spec, built, muscles, assist: help.assist,
+  const own: OwnBody = { spec: built.spec, built: readView(built), muscles, assist: help.assist,
     requestHandPoses: (requests) => built.handPoses.request(requests) };
   try { mind = make(own); }
   catch (error) { muscles.dispose(); throw error; }
