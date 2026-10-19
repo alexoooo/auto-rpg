@@ -52,12 +52,16 @@ const SKILLS: FighterConfig = deepFreeze({ ...COUNTER_PUNCHER, locomotion: MOVE,
     ...SCRAPPER.executors.filter((executor) => executor.name === LOW.executor)],
   actions: [...COUNTER_PUNCHER.actions, ONE_TWO, LOW], support: SCRAPPER.support });
 
+/** Its skills with blows at the body beside the head's: the punch and the one-two aimed at the trunk's middle. */
+const BODY_SKILLS: FighterConfig = deepFreeze({ ...SKILLS, actions: [...SKILLS.actions,
+  ...[COUNTER_PUNCHER.actions[0]!, ONE_TWO].map((action) => ({ ...action, name: action === ONE_TWO ? "one-two to the body" : "body blow", regions: [{ kind: "mark" as const, mark: "middle" as const }] }))] });
+
 /** How many blows an action of its skills throws: a combination its drives, else one. */
 const throws = (action: ActionConfig): number => {
   const executor = SKILLS.executors.find((one) => one.name === action.executor);
   return executor?.kind === "combination" ? executor.drives : 1;
 };
-if (fighterFaults(SKILLS).length) throw new Error(`the options fighter's skills: ${fighterFaults(SKILLS).join("; ")}`);
+for (const kit of [SKILLS, BODY_SKILLS]) if (fighterFaults(kit).length) throw new Error(`the options fighter's skills: ${fighterFaults(kit).join("; ")}`);
 
 /** How it holds the edge of its foe's reach: as the Counter-puncher does. */
 const EDGE = (() => {
@@ -111,12 +115,13 @@ export function createOptionsFighter(built: BuiltBody, world: World, config: Opt
   const decide = (): Option | null => sight && meta ? meta.decide(situation(sight)) : null;
   const half = { current: false }, downs: ReturnType<typeof downOption>[] = [];
   const running = () => { const chosen = meta && meta.state.running >= 0 ? options[meta.state.running]! : null; return chosen?.posture === "down" ? downs.find((down) => down === chosen) ?? null : null; };
-  const body = createBody(built, world, { ...fighterBody(SKILLS, wiring), subs: [(own, view, w, afterPhysics) => {
+  const kit = config.tuning?.body === true ? BODY_SKILLS : SKILLS;
+  const body = createBody(built, world, { ...fighterBody(kit, wiring), subs: [(own, view, w, afterPhysics) => {
     for (const [name, sub, model] of DOWN) downs.push(downOption(name, subMind(own, view, sub, w, afterPhysics), half, model));
     return downHalf(downs, running, decide, half);
   }] });
   if (downs.length !== DOWN.length) throw new Error("the options fighter's body made no down half");
-  const standing = SKILLS.actions.filter((action) => action.lower === undefined && (config.tuning?.combination !== false || action !== ONE_TWO));
+  const standing = kit.actions.filter((action) => action.lower === undefined && (config.tuning?.combination !== false || action.executor !== ONE_TWO.executor));
   const strikeNow = standing.map((action) => strike(action, walk, false, throws(action)));
   const options: readonly Option[] = [
     ...downs,
@@ -141,7 +146,7 @@ export function createOptionsFighter(built: BuiltBody, world: World, config: Opt
       return reflexes.apply(now, { ...asked, move: walk.constrain(now, asked.move, near), guard: NO_COVER });
     } };
   let skills: Skills;
-  skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, world, SKILLS, driving, () => skills?.report.ledger ?? []));
+  skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, world, kit, driving, () => skills?.report.ledger ?? []));
   sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, instance: skills.instance, readiness: skills.readiness };
   return { kind: "fighter" as const, body, skills, state: skills.state };
 }

@@ -26,6 +26,12 @@ This is the stage whose question is a measurement.
   arm at the target every step, its blows that meet nothing (about 12 %) thrown at the edge of
   reach (0.85 to 0.88 m head to head at the commit, against 0.80 to 0.84 for the rest) while the
   foe's head moves off 0.2 m. What is left is the block itself (55 to 62 % of blows), and circling.
+- Measured and not kept as the default: blows at the body beside the head's (`tuning.body`). Against
+  the Puncher they are blocked less (19 of 52 against 34 of 47 at two gaps), but over 81 gaps
+  from 3 to 5 m from both sides against the Puncher and the Scrapper (324 bouts each, Node,
+  Rapier, 120 Hz, Balance 0) it wins 0.759 against 0.824, dealing 0.440 a bout against 0.394 and
+  taking 0.220 against 0.196. Circling at the edge has nothing to run on: against the Puncher the
+  fighter never holds the edge, its time going to the one-two.
 - Each improvement lands on its own with its league reading before and after.
 - The league measures a fighter on today's motor control, which the whole-body controller plan
   (`2026-10-17-general-controller.md`) is changing: the run and the stand-up (its stages 3 and 4)
