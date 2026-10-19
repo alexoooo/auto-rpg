@@ -211,21 +211,28 @@ at 25 % 19; above 25 % nothing changes, since the stance asks for no more.
 experimental:
 
 - *The run whose steps fly* (`run.ts`, locomotion kind `run`): a Raibert run on the stance, its
-  bearing leg bouncing and letting go (`SwingGoal.flight`). It leaves the ground (0.4 to
-  0.67 m/s up at launch) but does not drive itself past about 1.1 m/s: holding the pivot within
-  the sole gives the centre about 1 m/s² of push, and every foot-placement gain tried fells it.
-  `run-cycle-search.mjs --legs run` searches its settings.
+  bearing leg bouncing and letting go (`SwingGoal.flight`), its bearing foot rolling onto its toes
+  as the body passes. It leaves the ground (0.4 to 0.67 m/s up at launch). Asked 3 m/s, the
+  Warrior with a foot-placement gain of 0.05 comes up to 3.1 m/s and falls at 11.4 s; at higher
+  speed its stance knee bends to 1 rad and its extensors saturate, and the body sinks a step at a
+  time. Searched (`run-cycle-search.mjs --legs run`, the Warrior asked 3 and 4.5 m/s for 16 s, 40
+  generations) it is credited 2.07 m/s. Bearing for less time the faster it goes, its step's time
+  kept and its flight longer, did not help.
 - *The walk and learned run* (`learned-run.ts`): the cycle run steered by a trained policy
   (`RUN_POLICIES["all-bodies"]`, `assets/core/learned-run.json`, which names its run). On the
   gait battery it falls 8 of 300, all with the club (the Rogue 7, the skeleton 1): the gate's 19
   and the club's 18 of 150 are met. The Warrior's top is 3.46 m/s and Haste +100 adds 0.14: the
-  speed gates are not.
+  speed gates are not. Asked 6 m/s it holds 3.85 (Haste +100: 4.09, then a fall at 10 s); its
+  policy slows the cycle (cadence a fifth of its range down) and asks no more pace than the
+  cycle's own, so its steer's range does not cap it. On the walk-run envelope with the club
+  (`core-stance-envelope.mjs --legs learned-run --walks`; a walk holds standing at 0.7 of the
+  pace asked, `WENT`) it holds forward 4.5, 4 and 4.5 m/s, the Warrior, the Rogue and the
+  skeleton, against SIMBICON's run's 4, 2 and 1.2: the club's envelope gate is met.
 
 What caps the cycle run is its stride, about 1.2 m at 3.1 steps a second: asked 5 and 6 m/s run
 the same. Its pace is capped at the ground speed plus `ahead`, and raising `ahead` fells it
 (asked 5 with Haste +100: `ahead` 1.0, 1.65 m/s and a fall). Reaching 4.5 m/s needs the
-momentum-planned run with flight the stage describes; the clip's stride cannot carry it. The
-club's forward envelope against SIMBICON's is not yet measured for the learned run.
+momentum-planned run with flight the stage describes; the clip's stride cannot carry it.
 
 **Stage 4, the stand-up: open; its time gate unmet.** The learned rise (`learned-rise.ts`) is
 step-up steered by a trained policy (`RISE_POLICIES`, the Warrior's and the Rogue's,

@@ -15,12 +15,13 @@
  * place of the stance's own walk, at the stride's speeds, and `--write` writes
  * `assets/core/stride-envelope.json`; with `--legs walk-run`, by the walk and run
  * (`src/core/skills/walk-run.ts`) free to run, at the stance's speeds and the run's, writing
- * `assets/core/walk-run-envelope.json`; with `--legs simbicon`, by the SIMBICON gait
+ * `assets/core/walk-run-envelope.json`; with `--legs learned-run`, by it with its run steered by
+ * the trained policy (`learnedRun`), as the walk and run's, writing `assets/core/learned-run-envelope.json`; with `--legs simbicon`, by the SIMBICON gait
  * (`src/core/skills/simbicon.ts`) told it may not run, at its walk's speeds, writing
  * `assets/core/simbicon-envelope.json`; with `--legs simbicon-run`, by it free to run, at its run's
  * speeds, writing `assets/core/simbicon-run-envelope.json`.
  *
- *   node research/core-stance-envelope.mjs [--legs stride|walk-run|simbicon|simbicon-run] [--write] [--workers 14]
+ *   node research/core-stance-envelope.mjs [--legs stride|walk-run|learned-run|simbicon|simbicon-run] [--write] [--workers 14]
  *     [--config settings.json] [--physique '{"speed":1.25}'] [--out envelope.json] [--walks]
  *     [--gusts 1:20:1,2]
  *
@@ -48,8 +49,9 @@ import { CORE_STANCE_HARNESS } from "./core-stance-trials.mjs";
  * runs from (`SimbiconSettings.run`), where it first runs and is brought down to a walk again, and
  * begin at 0.3: slower, a step's pendulum carries the body on past the pace asked, or short of it.
  */
+const RUN_SPEEDS = [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5, 3, 3.5, 4, 4.5];
 const SIMBICON_SPEEDS = [0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5];
-const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], "walk-run": [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5, 3, 3.5, 4, 4.5],
+const SPEEDS_OF = { stance: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5], stride: [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2], "walk-run": RUN_SPEEDS, "learned-run": RUN_SPEEDS,
   simbicon: SIMBICON_SPEEDS, "simbicon-run": [...SIMBICON_SPEEDS, 3, 3.5, 4, 4.5] };
 export const WAYS = [0, 90, 180, 270, 45];
 /**
@@ -57,14 +59,14 @@ export const WAYS = [0, 90, 180, 270, 45];
  * (`walk`): the run comes up to its pace and down from it at 0.6 m/s² (`RunCycleSettings.accel`,
  * `brake`), from 0 to 4.5 m/s and back in some 8 s each way.
  */
-const TIMES_OF = { stance: {}, stride: {}, "walk-run": { setOff: 10, rest: 10 }, simbicon: {}, "simbicon-run": { setOff: 10, rest: 10 } };
+const TIMES_OF = { stance: {}, stride: {}, "walk-run": { setOff: 10, rest: 10 }, "learned-run": { setOff: 10, rest: 10 }, simbicon: {}, "simbicon-run": { setOff: 10, rest: 10 } };
 export const MODELS = ["workshop-fighter", "workshop-rogue", "crypt-skeleton"];
 /**
  * The turn battery's rates, rad/s, by the legs it measures: the walk and run's and SIMBICON's finer, for their turns
  * set the Run's pace round a bend and a turn read between two rates is the slower's.
  */
 const FINE_RATES = [0.25, 0.35, 0.5, 0.7, 1, 1.4, 2, 4];
-const RATES_OF = { stance: [0.25, 0.5, 1, 2, 4], stride: [0.25, 0.5, 1, 2, 4], "walk-run": FINE_RATES, simbicon: FINE_RATES, "simbicon-run": FINE_RATES };
+const RATES_OF = { stance: [0.25, 0.5, 1, 2, 4], stride: [0.25, 0.5, 1, 2, 4], "walk-run": FINE_RATES, "learned-run": FINE_RATES, simbicon: FINE_RATES, "simbicon-run": FINE_RATES };
 export const SENSES = [1, -1];
 /** What a fight puts in a body's right hand: every way a body is played is a way it must hold. */
 export const HOLDS = HELD;
