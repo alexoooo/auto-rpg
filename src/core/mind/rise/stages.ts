@@ -340,6 +340,8 @@ function between(from: Posture, to: Posture, count: number): Posture[] {
   })));
 }
 
+/** The pelvis's pitch forward tall on the knees, rad: about the turn the tall posture's hips leave it. */
+const KNEEL_PITCH = 0.15;
 /** The pose drive of the step's quick stages (`docs/reference/rising.md#the-step`). */
 const QUICK = { speed: 6, within: 0.1 };
 /** A bearing stage's time constant, s, and the longest it may take, s, from the knees up (`docs/reference/rising.md#the-step`). */
@@ -409,6 +411,33 @@ export const RISE: Recipe = deepFreeze({
     },
   ],
   trunk: ["lowerTrunk", "middleTrunk", "upperTrunk", "head"],
+});
+
+/**
+ * **The contact sequence**: the game's recipe with its kneel-up borne. From hands and knees the
+ * weight is pushed back by the hands, which still bear a part of it, and the body is carried up
+ * tall on its knees by the bearing solve on both shins, the hands let go once the centre of mass
+ * is over the shins and the pelvis brought upright, where the recipe sits back on its heels and
+ * poses its way up at full activation; its torques are the solve's, bounded by the muscles.
+ * An experiment's (`research/rising-step-search.mjs --recipe contact`): the shins bear on their
+ * knees alone, their feet held up off the ground, so the hands are never let go.
+ */
+export const CONTACT_RISE: Recipe = deepFreeze({
+  ...RISE,
+  rise: [
+    ...RISE.rise.slice(0, RISE.rise.findIndex((stage) => stage.name === "fours") + 1),
+    // The weight pushed back toward the knees by the hands, which still bear a part of it.
+    {
+      kind: "bear", name: "back", on: SIDES.flatMap((side) => [{ limb: `shin.${side}`, share: 0.4 }, { limb: `hand.${side}`, share: 0.1 }]), leave: [],
+      overProp: false, height: null, pitch: null, posture: bothSides(FOURS), seconds: BEAR_SECONDS, limit: BEAR_LIMIT,
+    },
+    // Then up, tall on the knees, the hands let go once the weight is over the shins.
+    {
+      kind: "bear", name: "kneel up", on: SIDES.map((side) => ({ limb: `shin.${side}`, share: 0.5 })), leave: SIDES.map((side) => `hand.${side}`),
+      overProp: false, height: null, pitch: KNEEL_PITCH, posture: bothSides(TALL), seconds: BEAR_SECONDS, limit: BEAR_LIMIT,
+    },
+    ...RISE.rise.slice(RISE.rise.findIndex((stage) => stage.name === "shift")),
+  ],
 });
 
 /** Every stage of `recipe`: each roll's, then the rise's. */

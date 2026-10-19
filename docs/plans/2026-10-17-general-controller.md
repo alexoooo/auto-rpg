@@ -256,7 +256,18 @@ curriculum has no strong end on step-up: step-up commands activations tuned to t
 strength, and every muscle stronger overdrives it (unsteered, on the learned rise's twelve
 Warrior falls, 12 stand at its strength, 1 at 1.25 times it, none at 1.5 or 2, steered to its
 fastest pace or not). Grit as the plan has it, raised torque bounds, waits for a stand-up whose
-commands are torques: the contact sequence on the solve, not built. The stand-up screen
+commands are torques. Step-up's pose stages driven by computed torque through the servo instead
+of at full activation stand none of the Warrior's 32 target falls (Node stand, Rapier, 120 Hz,
+Balance 0, 14 s cap; step-up 11): the rolls do not roll, and from hands and knees the pelvis does
+not go back over the shins. The contact sequence (`CONTACT_RISE`, `--recipe contact` in
+`research/rising-step-search.mjs`) bears the kneel-up instead: the weight pushed back with the
+hands still bearing a fifth of it, which completes, then tall on the shins with the hands let go,
+which never does. The shins bear on their knees alone, two points with no outline between them:
+on hands and knees the knee is at 2.0 rad and the feet 0.3 to 0.4 m off the ground, and the
+shin's tilt row does not bring them down (the knee goes to its stop, 2.57 rad, instead). Even
+borne, the kneel-up cannot meet the 4 s: the target's fall shoved at 0 degrees reaches hands and knees 11.8 s
+after the shove. What is open: a shin that bears from knee to toes, and a faster way onto the
+knees than the roll and the tuck. The stand-up screen
 (`research/stand-up-acceptance.mjs`) takes a candidate as actions on the muscles or joint targets
 from an observation; the learned rise steers step-up's recipe inside the game, a technique like
 step-up, so it is read on the target, where any technique runs (`--techniques`).

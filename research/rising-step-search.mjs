@@ -15,13 +15,14 @@
  * reads at 0. A candidate's score is the mean over its falls. A search's fall ends when Step up's
  * first attempt fails; `--score` reads the whole battery as the target does, retries and all.
  * `--factor` scales every muscle's strength: a discover-then-constrain experiment, never the game's.
+ * `--recipe contact` plays the contact sequence (`CONTACT_RISE`) in place of the game's recipe.
  */
 import { readFile, writeFile, appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { availableParallelism } from "node:os";
 import { cmaSearch, workerPool } from "./cma.mjs";
-import { RISE } from "../src/core/mind/rise/stages.ts";
+import { CONTACT_RISE, RISE } from "../src/core/mind/rise/stages.ts";
 import { STEP_UP, stepUp } from "../src/core/mind/ground/step-up.ts";
 import { standUp } from "../src/core/mind/ground/stand-up.ts";
 import { TECHNIQUES } from "../src/core/mind/ground/techniques.ts";
@@ -53,14 +54,17 @@ export function stepUnit(tuning) {
   });
 }
 
+/** The recipes a fall may play, by `--recipe`. */
+const RECIPES = { rise: RISE, contact: CONTACT_RISE };
+
 /** Where in the whole rise a part-way entry begins. */
 const JOINED = { whole: 0, fours: RISE.rise.findIndex(s => s.name === "fours"), "half-kneel": RISE.rise.findIndex(s => s.name === "half kneel") };
 
 /** One target fall under Step up with `tuning`; scored as the header says. */
-export async function stepFall({ tuning, cap = 14, first = true, ...job }) {
+export async function stepFall({ tuning, cap = 14, first = true, recipe = "rise", ...job }) {
   let furthest = -1, steady = 0, failed = false;
   const registry = { ...TECHNIQUES, "step-up": { ...TECHNIQUES["step-up"], make: (own, view, world) => {
-    const run = stepUp(own, view, world, tuning), step = run.step;
+    const run = stepUp(own, view, world, tuning, RECIPES[recipe]), step = run.step;
     return Object.defineProperties({}, { ...Object.getOwnPropertyDescriptors(run), step: { value(g, senses, dt) {
       const end = step(g, senses, dt), s = run.state;
       if (end !== null && end !== "done") failed = true;
@@ -78,12 +82,12 @@ export async function stepFall({ tuning, cap = 14, first = true, ...job }) {
 }
 
 /** The battery's falls: each model, loadout and direction. */
-export function stepJobs({ models, held, directions, offset, cap, factor }) {
-  return models.flatMap(model => held.flatMap(h => Array.from({ length: directions }, (_, d) => ({ model, held: h, degrees: offset + d * 360 / directions, cap, factor }))));
+export function stepJobs({ models, held, directions, offset, cap, factor, recipe }) {
+  return models.flatMap(model => held.flatMap(h => Array.from({ length: directions }, (_, d) => ({ model, held: h, degrees: offset + d * 360 / directions, cap, factor, recipe }))));
 }
 
 function options(argv) {
-  const o = { out: null, score: null, models: ["workshop-fighter"], held: ["empty", "club"], directions: 8, offset: 11.25, cap: 14, factor: 1,
+  const o = { out: null, score: null, models: ["workshop-fighter"], held: ["empty", "club"], directions: 8, offset: 11.25, cap: 14, factor: 1, recipe: "rise",
     generations: 200, workers: Math.max(1, availableParallelism() - 8), start: null, sigma: .12 };
   for (let i = 0; i < argv.length; i += 2) {
     const key = argv[i].replace(/^--/, ""), value = argv[i + 1];

@@ -137,16 +137,16 @@ export const STEP_UP: Readonly<Record<HumanoidModel, StepUpTuning>> = deepFreeze
 });
 
 /** RISE, its stages played as `tuning` says. */
-export function stepUpRecipe(tuning: StepUpTuning): Recipe {
+export function stepUpRecipe(tuning: StepUpTuning, base: Recipe = RISE): Recipe {
   const timed = (prefix: string) => <S extends Stage>(stage: S): S => {
     const timing = tuning.stages[`${prefix}${stage.name}`];
     if (!timing) return stage;
     return stage.kind === "bear" ? { ...stage, seconds: stage.seconds * timing.scale, ...(timing.progress ? { progress: timing.progress } : {}) }
       : { ...stage, seconds: stage.seconds * timing.scale };
   };
-  return deepFreeze({ ...RISE, progress: { settleSpeed: tuning.settle.speed, settleSeconds: tuning.settle.seconds },
-    roll: { back: RISE.roll.back.map(timed("roll ")), left: RISE.roll.left.map(timed("roll ")), right: RISE.roll.right.map(timed("roll ")) },
-    rise: RISE.rise.map(timed("")) });
+  return deepFreeze({ ...base, progress: { settleSpeed: tuning.settle.speed, settleSeconds: tuning.settle.seconds },
+    roll: { back: base.roll.back.map(timed("roll ")), left: base.roll.left.map(timed("roll ")), right: base.roll.right.map(timed("roll ")) },
+    rise: base.rise.map(timed("")) });
 }
 
 /** Where the rise may be joined part-way, by the position the body is read in, and the stage it joins at. */
@@ -172,11 +172,12 @@ export type StepUpRise = ReturnType<typeof stagedRise>;
  * on its hands and knees, or half kneeling, joins the route there when its supports bear. An
  * attempt the rise gives up, or one that falls from the stance, fails back to the supervisor.
  */
-export function stepUp(own: OwnBody, view: BodyView, _world: World, tuning: StepUpTuning = STEP_UP[own.spec.model as HumanoidModel]): TechniqueRun & {
+export function stepUp(own: OwnBody, view: BodyView, _world: World, tuning: StepUpTuning = STEP_UP[own.spec.model as HumanoidModel],
+  base: Recipe = RISE): TechniqueRun & {
   /** Its rises, whole and joined part-way; the one it plays; and whether the rise is over and the stance steadies the body. */
   readonly rises: readonly StepUpRise[]; readonly rise: StepUpRise; readonly steadying: boolean;
 } {
-  const whole = stepUpRecipe(tuning), from = (stage: string): Recipe => ({ ...whole, rise: whole.rise.slice(whole.rise.findIndex(s => s.name === stage)) });
+  const whole = stepUpRecipe(tuning, base), from = (stage: string): Recipe => ({ ...whole, rise: whole.rise.slice(whole.rise.findIndex(s => s.name === stage)) });
   const rises = { whole: stagedRise(own, view, whole), fours: stagedRise(own, view, from(JOINS.fours)), "half-kneel": stagedRise(own, view, from(JOINS["half-kneel"])) };
   const motor = motorControl(own.built, .1, guardPosture(own.spec));
   const state = { phase: "rise" as Phase, entry: "whole" as Entry, begun: false, rose: false, ended: null as TechniqueEnd | null,
