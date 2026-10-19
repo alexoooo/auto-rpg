@@ -1,0 +1,7 @@
+[
+ "core-ground-capability.test.mjs",
+ "ground-step-up-capability.test.mjs",
+ "ground-survival-capability.test.mjs",
+ "lab-mind-log-capability.test.mjs",
+ "recovery-transfer-capability.test.mjs"
+]

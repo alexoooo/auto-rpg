@@ -5,7 +5,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { uprightness } from "../src/core/control/ground.ts";
 import { DOWN, centreOfToRef, footStatesOf } from "../src/core/control/support.ts";
@@ -181,18 +181,31 @@ async function shoved(impulse, seconds, each) {
   } finally { body.dispose(); stand.dispose(); }
 }
 
-test("a shoved body reads down, lying", async () => {
+/** The Warrior under the command layers and a standing goal, laid on its back in guard, its lowest point 2 cm over the ground. */
+async function laid(seconds, each) {
+  const rotation = Quaternion.RotationAxis(Vector3.Right(), -Math.PI / 2).asArray();
+  const probe = await coreStand(warrior, { posture: GUARD, rotation });
+  const height = 0.02 - uprightness(probe.built).lowest(); probe.dispose();
+  const stand = await coreStand(warrior, { posture: GUARD, rotation, position: [0, height, 0] });
+  const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS });
+  try {
+    driveBy(body, { name: "stand", decide: () => standIntent(0) });
+    for (let i = 0; i < stand.seconds(seconds); i++) { stand.step(); each(body, (i + 1) / stand.world.hz); }
+  } finally { body.dispose(); stand.dispose(); }
+}
+
+test("a body laid on its back reads down, lying, and a shove it holds leaves it up", async () => {
   let at = null, up = 0;
-  await shoved(120, 5, (body, time) => {
+  await laid(3, (body, time) => {
     if (body.view.down) at ??= time;
-    else if (at !== null && time < at + 2) up += 1;
+    else if (at !== null) up += 1;
   });
-  assert.ok(at !== null && at < 3, `it was down ${at} s after the shove`);
-  assert.equal(up, 0, "and stayed down the 2 s that followed");
+  assert.ok(at !== null && at < 1, `it read down ${at} s after it was laid`);
+  assert.equal(up, 0, "and stayed down while it lay");
   // The control: a shove it holds leaves it up.
   let held = true;
   await shoved(20, 3, (body) => { held &&= !body.view.down; });
-  assert.ok(held, "a sixth of the shove leaves it standing");
+  assert.ok(held, "a 20 N s shove leaves it standing");
 });
 
 test("a body asked to hold itself low is not down at that height", async () => {

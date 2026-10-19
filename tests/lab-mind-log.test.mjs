@@ -4,11 +4,13 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { uprightness } from "../src/core/control/ground.ts";
 import { paceRound, stanceEnvelope } from "../src/core/control/stance-envelope.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { NO_COVER, standIntent } from "../src/core/mind/intent.ts";
+import { GUARD } from "../src/core/skills/guard.ts";
 import { STAND } from "../src/core/skills/strike.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { throwBlow } from "../src/lab/blow.ts";
@@ -66,15 +68,15 @@ test("logged_tactics_decide_as_their_own_and_note_each_thing_as_it_changes", () 
   ]);
 });
 
-test("the_log_of_a_run_and_of_a_blow_is_what_their_scripts_decide", async () => {
+test("the_log_of_a_run_and_of_a_blow_holds_what_their_scripts_decide", async () => {
   const dt = 1 / 120;
   {
     const spec = humanSpec("workshop-fighter"), stand = await coreStand(spec, { ground: true }), log = createMindLog();
     const run = startLocomotion(labActor(stand.built, stand.world, { around: (script) => logged(script, log) }), trackOf(TRACKS.circle.pieces));
     try {
-      stand.step(stand.seconds(20));
+      stand.step(stand.seconds(2));
       // It sets off on its second step, at the one pace the circle lets it walk (its fastest walk, or
-      // what its turns carry round the circle, whichever is less), and asks nothing else all the way round.
+      // what its turns carry round the circle, whichever is less).
       const { pace } = run.frame(), envelope = stanceEnvelope(spec);
       assert.ok(pace > 0 && pace === Math.min(envelope.walk.value, paceRound(envelope, CIRCLE_RADIUS)), `it walks at ${pace} m/s`);
       assert.deepEqual(log.upTo(Infinity, 100), [
@@ -101,27 +103,38 @@ test("the_log_of_a_run_and_of_a_blow_is_what_their_scripts_decide", async () => 
   }
 });
 
-test("the_log_notes_who_has_the_body_when_it_changes_hands", async () => {
-  /** The Warrior as a lab actor, standing, shoved `impulse` N s forward at its middle trunk a second in: the log's notes, and the time its view first said down. */
-  const shoved = async (impulse) => {
-    const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true }), log = createMindLog();
+test("the_log_notes_who_has_the_body_each_time_it_changes_hands", async () => {
+  /** The Warrior as a lab actor under a standing goal, laid on its back or stood and shoved `impulse` N s forward at its middle trunk a second in: the log's notes, and who had the body each step it changed. */
+  const run = async ({ laid, impulse }) => {
+    const spec = humanSpec("workshop-fighter"), rotation = Quaternion.RotationAxis(Vector3.Right(), -Math.PI / 2).asArray();
+    let place = { ground: true };
+    if (laid) {
+      const probe = await coreStand(spec, { posture: GUARD, rotation });
+      place = { posture: GUARD, rotation, position: [0, 0.02 - uprightness(probe.built).lowest(), 0] };
+      probe.dispose();
+    }
+    const stand = await coreStand(spec, place), log = createMindLog();
     const actor = labActor(stand.built, stand.world), has = watchHas(stand.world, actor.body, log);
     try {
       actor.drive({ name: "stand", decide: () => standIntent(0) });
-      stand.step(stand.seconds(1));
+      const changes = [];
+      let last = actor.body.has;
+      const watch = (steps) => {
+        for (let i = 0; i < steps; i++) {
+          stand.step();
+          if (actor.body.has !== last) changes.push({ time: actor.body.view.time, text: `${last = actor.body.has} has the body` });
+        }
+      };
+      watch(stand.seconds(1));
       const trunk = stand.built.segments.get("middleTrunk");
-      trunk.body.applyImpulse(new Vector3(0, 0, impulse), centreOfToRef(trunk, new Vector3()));
-      let at = null;
-      for (let i = 0; i < stand.seconds(4); i++) {
-        stand.step();
-        if (actor.body.view.down) at ??= actor.body.view.time;
-      }
-      return { notes: log.upTo(Infinity, 100), at };
+      if (impulse) trunk.body.applyImpulse(new Vector3(0, 0, impulse), centreOfToRef(trunk, new Vector3()));
+      watch(stand.seconds(3));
+      return { notes: log.upTo(Infinity, 100), changes };
     } finally { has.dispose(); actor.dispose(); stand.dispose(); }
   };
-  const fell = await shoved(120);
-  assert.ok(fell.at !== null, "the shove fells it");
-  assert.deepEqual(fell.notes, [{ time: fell.at, text: "lie has the body" }], "one note, at the step it went down");
+  const lying = await run({ laid: true });
+  assert.ok(lying.changes.length > 0, "laid on its back, its body changes hands");
+  assert.deepEqual(lying.notes, lying.changes);
   // The control: a body nobody takes is noted nowhere.
-  assert.deepEqual(await shoved(20), { notes: [], at: null });
+  assert.deepEqual(await run({ laid: false, impulse: 20 }), { notes: [], changes: [] });
 });
