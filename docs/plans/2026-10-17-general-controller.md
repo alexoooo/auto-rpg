@@ -269,11 +269,12 @@ none of 80, falling 0.06 a bout, where the pushed drive wins 0.800. The pushed f
 the foe's guard onto the upper trunk (1092 J of its damage over six gaps, 51 of its blows there at
 3 m/s or more); the driven fist goes where it is aimed, at the head, and meets the guard. Aimed at
 the upper trunk it lands 580 J on the trunk, wins 0.075 and falls 0.41 a bout; driven flat out,
-at 1000 m/s^2, or closed at 15 or 60 per second, the same: the ask is past what the arm gives, and
-the solve's arm gives a third of the pushed arm's blows at 3 m/s or more on the trunk. So the
-pushed drive stays the default and the driven one is selectable. What is open: the solve's arm
-short of the pushed arm's speed under a block, and the holds (the club's guard, a blade up) as
-tasks, which need a hand's turn among a point's rows.
+at 1000 m/s^2, or closed at 15 or 60 per second, the same: the ask is past what the arm gives,
+and through the drive the shoulder's three freedoms are pinned at their strength. Both arms work
+flat out; they differ in where they send the fist. So the pushed drive stays the default and the
+driven one is selectable. What is open: where a driven blow is aimed (an opening the guard leaves
+at the trunk, without the 0.41 falls the trunk's aim costs), and the holds (the club's guard, a
+blade up) as tasks, which need a hand's turn among a point's rows.
 
 ## The register: tried and not kept
 
