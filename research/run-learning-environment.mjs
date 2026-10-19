@@ -17,8 +17,9 @@
  * strong), on seeds from `seed` up, never the battery's.
  *
  * The reward each decision: the speed along the heading near the pace the walk and run asks (its
- * ramp, so a body setting off is not asked a pace it cannot have yet), little drift across it, the
- * heading held, and being up; a fall, or the walk taking a run asked faster than it, costs 1.
+ * ramp, so a body setting off is not asked a pace it cannot have yet), within about 1 m/s of it
+ * past it and `tolerance` m/s short of it; little drift across it, the heading held, and being up;
+ * a fall, or the walk taking a run asked faster than it, costs 1.
  */
 import { modelSpec } from '../src/core/models.ts';
 import { armed } from '../src/core/human/grip.ts';
@@ -42,7 +43,7 @@ const FALLEN = 0.55;
 
 export async function runEnvironment(configuration = {}) {
   const o = { model: 'workshop-fighter', held: 'empty', haste: 0, seed: 1, seconds: 8, speeds: [1.4, 6], warm: [3, 4.5], starts: [3, 5, 7, 9],
-    change: 0.3, turn: 0.6, turning: 0.25, stop: 0.2, gust: [1, 5], gusting: 0.6, gustMost: 3, ...configuration };
+    tolerance: 1, change: 0.3, turn: 0.6, turning: 0.25, stop: 0.2, gust: [1, 5], gusting: 0.6, gustMost: 3, ...configuration };
   let word = (o.seed * 2654435761) >>> 0;
   const random = () => ((word = (Math.imul(word, 1664525) + 1013904223) >>> 0) / 4294967296);
   const draw = () => o.speeds[0] + random() * (o.speeds[1] - o.speeds[0]);
@@ -94,7 +95,7 @@ export async function runEnvironment(configuration = {}) {
   };
   const reward = (action) => {
     const s = view().stance, h = walk.heading, along = s.velocity.x * sin(h) + s.velocity.z * cos(h), across = s.velocity.x * cos(h) - s.velocity.z * sin(h);
-    const speed = Math.exp(-(((along - walk.pace) / 1.0) ** 2)), drift = Math.exp(-((across / 0.4) ** 2)), facing = Math.exp(-((wrap(s.facing - h) / 0.3) ** 2));
+    const speed = Math.exp(-(((along - walk.pace) / (along < walk.pace ? o.tolerance : 1)) ** 2)), drift = Math.exp(-((across / 0.4) ** 2)), facing = Math.exp(-((wrap(s.facing - h) / 0.3) ** 2));
     const effort = action.reduce((sum, a) => sum + a * a, 0) / action.length;
     return { value: 0.6 * speed + 0.15 * drift + 0.15 * facing + 0.1 - 0.02 * effort, along, across };
   };
