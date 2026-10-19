@@ -764,7 +764,8 @@ or its patience is spent (`edge.ts`, the Counter-puncher's band and patience), c
 (`walker`, `walk.ts`) keeps out of a solid's clearance and a fallen body's reach, but the reach of
 the body the option means to be near. Closing on a place, it goes as fast as held 0.8 of its gait's
 trials that way (`SPACE.share`) and it stops from before the place, so that far from its foe it runs. It fights with the
-Counter-puncher's skills, hands at the guard's pose, the Scrapper's low blow and support fold,
+Counter-puncher's skills, its blows aimed at an opening in the foe's guard (the surface aim,
+`openingSelector`) and its hands at the guard's pose, the Scrapper's low blow and support fold,
 and Classic's gaits (`MOVE`). Its body hands itself to one sub-mind, the down half
 (`downHalf`), which wants the body when the decision is a down option and hands it to that option's
 sub-mind, ending one and beginning another when the decision changes; so standing and down are one

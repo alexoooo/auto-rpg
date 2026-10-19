@@ -100,7 +100,7 @@ export const optionsFit = (spec: BodySpec): boolean => commandable(spec) && acti
  * foe's reach, as the Counter-puncher does; close and strike; and hold, facing its foe. Whatever a
  * standing option asks, its walk keeps out of a fallen body's reach, but the one it means to be
  * near, and out of a solid's clearance (`Walker.constrain`). Standing options are carried out
- * through its skills (`SKILLS`), the hands holding the guard's pose; a down option is carried out
+ * through its skills (`SKILLS`), its blows aimed at an opening in the foe's guard (`opened`) and the hands holding the guard's pose; a down option is carried out
  * by its sub-mind, which the body's one sub-mind, its down half (`downHalf`), hands the body to.
  * Under the option, its reflexes patch what it asks every control step (`reflexLayer`): its one,
  * cover, puts the hand on the side a blow closes on the head from, where it is free, between the
@@ -119,7 +119,7 @@ export function createOptionsFighter(built: BuiltBody, world: World, config: Opt
   const decide = (): Option | null => sight && meta ? meta.decide(situation(sight)) : null;
   const half = { current: false }, downs: ReturnType<typeof downOption>[] = [];
   const running = () => { const chosen = meta && meta.state.running >= 0 ? options[meta.state.running]! : null; return chosen?.posture === "down" ? downs.find((down) => down === chosen) ?? null : null; };
-  const aimed = config.tuning?.body === true ? BODY_SKILLS : SKILLS, kit = config.tuning?.opening === true ? OPENED.get(aimed)! : aimed;
+  const aimed = config.tuning?.body === true ? BODY_SKILLS : SKILLS, kit = config.tuning?.opening === false ? aimed : OPENED.get(aimed)!;
   const body = createBody(built, world, { ...fighterBody(kit, wiring), subs: [(own, view, w, afterPhysics) => {
     for (const [name, sub, model] of DOWN) downs.push(downOption(name, subMind(own, view, sub, w, afterPhysics), half, model));
     return downHalf(downs, running, decide, half);

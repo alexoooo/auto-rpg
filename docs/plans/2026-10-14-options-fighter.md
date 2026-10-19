@@ -26,6 +26,13 @@ This is the stage whose question is a measurement.
   arm at the target every step, its blows that meet nothing (about 12 %) thrown at the edge of
   reach (0.85 to 0.88 m head to head at the commit, against 0.80 to 0.84 for the rest) while the
   foe's head moves off 0.2 m. What is left is the block itself (55 to 62 % of blows), and circling.
+- Landed: its blows aimed at an opening in the foe's guard (the surface aim), not the head's centre
+  (`tuning.opening: false` keeps the centre). Over 81 gaps from 3 to 5 m from both sides (Node,
+  Rapier, 120 Hz, Balance 0) against the Puncher it wins 117 of 162 against 105, and on 80 other gaps
+  123 of 160 against 112 (paired bouts better 76, worse 53 over both); against the Scrapper both win
+  all, its bar margin 0.019 greater (standard error 0.005). The foe's covering hand is at its guard
+  (0.35 to 0.45 m from its head) at nearly every commit, and the Puncher blocks as often in a blow of
+  its own as out of one, so waiting for an open guard has nothing to run on.
 - Measured and not kept as the default: blows at the body beside the head's (`tuning.body`). Against
   the Puncher they are blocked less (19 of 52 against 34 of 47 at two gaps), but over 81 gaps
   from 3 to 5 m from both sides against the Puncher and the Scrapper (324 bouts each, Node,
