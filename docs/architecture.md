@@ -15,7 +15,10 @@ only the core itself, `@babylonjs/core`, the engine's package and JSON under `as
 `rapier-coordinate` is the gameplay default and selects measured-angle gradients for angular-limit
 rows; `rapier` retains the published reference batteries' parent-axis formulation. Both load the same WASM module and use
 the same interfaces. The choice is immutable per engine instance, identified in experiments,
-and checked when restoring physics snapshots ([limit record](reference/joint-limits.md)).
+and checked when restoring physics snapshots ([limit record](reference/joint-limits.md)). A save
+names the world it was made in by a digest of how each body, joint and fixed collider was made
+(shapes, materials, masses, joint frames), and a world built otherwise refuses it: a snapshot
+carries its own shapes and frictions, so a save of an earlier body would bring that body back.
 
 ## The layers
 

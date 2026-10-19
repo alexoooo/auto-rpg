@@ -589,8 +589,11 @@ test("a save of another world is refused, and the world it was offered to is unt
   const two = await box(), twin = await box();
   // One body where `two` has two; `two`'s count of bodies, the second made, removed and made again;
   // `two`'s bodies and a fixed box more; `two`'s bodies and a joint between them. And `ghost`: `fewer`'s
-  // body and colliders, and a body more that has no shape.
-  const others = { fewer: await box(), reborn: await box(), walled: await box(), jointed: await box() }, ghost = await box();
+  // body and colliders, and a body more that has no shape. `rubbed` and `wider`: `two`'s bodies and
+  // colliders made in the same order, the top's friction or size another, which the snapshot would
+  // bring back with it.
+  const others = { fewer: await box(), reborn: await box(), walled: await box(), jointed: await box(),
+    rubbed: await box(), wider: await box() }, ghost = await box();
   try {
     const tops = [stacked(two), stacked(twin)], above = [0.03, 1.5 * SIDE, 0];
     others.reborn.physics.removeBody(add(others.reborn, "first", above));
@@ -598,6 +601,14 @@ test("a save of another world is refused, and the world it was offered to is unt
     add(others.walled, "top", above);
     others.walled.physics.addFixedBox([5, 0.5, 0], [1, 1, 1]);
     others.jointed.physics.addJoint(others.jointed.body, add(others.jointed, "top", above), FRAMES);
+    const top = (b, size, materials) => {
+      const node = new TransformNode("top", b.node.getScene());
+      node.position.set(...above);
+      node.rotationQuaternion = Quaternion.Identity();
+      b.physics.addBody(node, [{ kind: "box", centre: [0, 0, 0], size: [size, size, size] }], MASS, { materials });
+    };
+    top(others.rubbed, SIDE, [{ friction: 0.9 }]);
+    top(others.wider, 1.1 * SIDE, []);
     for (const [name, other] of Object.entries(others)) {
       other.step(HZ / 2);
       assert.throws(() => two.physics.load(other.physics.save()), /other bodies, joints or colliders/, name);

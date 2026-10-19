@@ -10,7 +10,7 @@ import { centreOfToRef } from "../../src/core/control/support.ts";
 import { observeBody } from "../../src/core/observation.ts";
 import { clockSenses } from "../../src/core/mind/senses.ts";
 
-/** Ordinary muscle boot contact acquisition and a supported bearing handoff after a real two-shove Lab fall. */
+/** Ordinary muscle boot contact acquisition and a supported bearing handoff from all fours (`foursSupport`). */
 export async function uprightKneel({ bearingSeconds = .2 } = {}) {
   const f = await foursSupport(.0001), { stand } = f;
   let body;

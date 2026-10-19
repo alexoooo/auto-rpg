@@ -111,13 +111,12 @@ experimental:
 
 ## Fixtures
 
-- **Raw saved worlds** recorded on an earlier body: `tests/fixtures/actual-fours-world.bin`
-  (`core-support-pivot`, `research-stand-up-planning`, `core-supported-rise` through
-  `fours-support.mjs` and `upright-kneel.mjs`), `actual-rear-sole-world.bin`
-  (`core-supported-rise`), `inactive-contact-world.bin` (`core-active-contact`,
-  `core-support-load` through `toe-support.mjs`). A body change leaves them silently invalid. One
-  shared fix covers them: a snapshot names the configuration it was saved on and loading refuses
-  another, so a stale fixture reports itself; then regenerate each from its recipe.
+- **Raw saved worlds**: done. A save names the world it was made in and a world built otherwise
+  refuses it. `core-active-contact` finds its case in a fall it plays; the fours fixture is a placed
+  pose (`FOURS`, `tests/fixtures/fours-support.mjs`); the kneel of `core-support-load` is placed too,
+  and loses its toe and hand within a few steps, so that file is a measurement
+  (`core-support-load-capability`). `actual-rear-sole-world.bin` (`core-supported-rise`'s two
+  `todo`s) is refused until those cases have a recipe.
 - **Stored records** of an earlier body: `research-native-posture`'s half-kneel tape (the open
   capsule), `research-recovery-feedback`'s witness (the old legs), `CLUB.readings` (capsule hands)
   read by `core-strike-skill`, and the stance and stride turn tables `core-stance-envelope`
@@ -221,8 +220,7 @@ Built from cases that exist, with bars far below today's capability:
    SIMBICON's run under Move, asked 2 m/s, falls at about 3 s on the 200 m ground and stands on
    the 80 m one (the ground box is the only difference), so each case keeps its ground; and the
    skeleton's self-touch case still needs its guard pose to touch.
-2. **The snapshot check** (a saved world names its configuration and refuses another), then the
-   saved worlds regenerated.
+2. **The snapshot check**: done (Fixtures, above).
 3. **Fork windows** scouted, with "fixture not reached" reported apart from a fork failure.
 4. **The slow tier**: pure cases moved to fast files; measurements moved out of the gate.
 5. **The `todo`s**: each that is a capability becomes an experimental measurement; each contract

@@ -37,8 +37,8 @@ test("a supported rise refuses missing support and a pose entry without changing
   } finally { body?.dispose(); stand.dispose(); }
 });
 
-test("a fresh two-shove Lab fall reaches and retains an upright knee support with exact continuation", {
-  todo: "the snapshot `actual-fours-world.bin` was saved on legs the body no longer has, and loading it restores their foot friction (0.5, averaged) over the body's (0.8, the larger), and the supported bearing reaches the handoff at 0.37 m/s, faster than the tracker's hold catches",
+test("from all fours the rise reaches and retains an upright knee support with exact continuation", {
+  todo: "from all fours (`FOURS`) the rise reaches the handoff upright, but the right hand still bears about 90 N on the knees",
 }, async () => {
   const f = await uprightKneel();
   try {
@@ -48,7 +48,7 @@ test("a fresh two-shove Lab fall reaches and retains an upright knee support wit
       assert.deepEqual(sample.assist, { force: 0, moment: 0 });
     };
     for (let step = 0; step < 960 && f.body.mind.state.phase !== "handoff"; step++) { f.stand.step(); bounded(f.sample()); }
-    assert.equal(f.body.mind.state.phase, "handoff", "the actual fall reaches the supported handoff");
+    assert.equal(f.body.mind.state.phase, "handoff", "the rise reaches the supported handoff");
     assert.ok(f.body.mind.state.captured.up > .9);
     assert.deepEqual({ tries: f.body.mind.state.bearing.tries, furthest: f.body.mind.state.bearing.furthest }, { tries: 1, furthest: 0 });
     for (let step = 0; step < 360; step++) { f.stand.step(); bounded(f.sample()); }

@@ -26,7 +26,10 @@ const EMPTY_MATERIAL_CONTACTS: readonly MaterialContact[] = Object.freeze([]);
  * **A save** is each node's pose and Rapier's snapshot. The snapshot restores as a new world, so
  * the module holds handles and finds its objects again on a load (`rebinds`, `joints`). The nodes
  * are in it because Rapier holds a pose in single precision: a node the solver has written is its
- * body's, and a node before its first step is as it was built, in double.
+ * body's, and a node before its first step is as it was built, in double. A save names the world it
+ * was made in by a digest of what the world holds as it was asked for (`worldDigest`): the snapshot
+ * carries its own shapes, frictions and joints, so a save loaded into a world built otherwise would
+ * bring back the other world's, and is refused.
  */
 type Rapier = typeof RAPIER;
 
@@ -71,6 +74,23 @@ const SOLVER = {
 const SHAPES_MOST = 65536;
 /** The numbers of a node's pose in a save: its position and its turn. A numeric setting. */
 const NODE_POSE = 7;
+
+/** A save's header, in doubles: its version (`SAVE_VERSION`), the body count, the grip count and the world's digest. */
+const HEADER = 4;
+const SAVE_VERSION = -4;
+
+/** A 53-bit digest of `text` (cyrb53): exact in a double, and the same in every engine. */
+function digest(text: string): number {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
 
 /** A body of a world's, or a fixed collider by its handle: a contact's other side as `contactsOf` sums it. */
 type Other = RapierBody | number;
@@ -288,11 +308,34 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     }
   };
 
+  /**
+   * What the world holds, each as it was asked for, in the order made: every body's shapes, mass and
+   * materials, every joint's frames and every grip slot by the bodies they join, every fixed
+   * collider. A save names its world by their digest (`worldDigest`). A hand's shape changed, a mass
+   * set or a grip taken after a body is made is state, not how the world was built.
+   */
+  const made = {
+    bodies: new Map<RapierBody, string>(),
+    joints: new Map<object, { readonly parent: RapierBody; readonly child: RapierBody; readonly asked: string }>(),
+    grips: new Map<object, { readonly parent: RapierBody; readonly child: RapierBody }>(),
+    fixed: new Map<number, string>(),
+  };
+  let named: number | null = null;
+  const worldDigest = () => {
+    if (named !== null) return named;
+    const order = [...made.bodies.keys()], at = (body: RapierBody) => order.indexOf(body);
+    return named = digest([revision, ...made.bodies.values(),
+      ...[...made.joints.values()].map(({ parent, child, asked }) => `joint ${at(parent)} ${at(child)} ${asked}`),
+      ...[...made.grips.values()].map(({ parent, child }) => `grip ${at(parent)} ${at(child)}`),
+      ...made.fixed.values()].join("\n"));
+  };
+
   /** A collider with no body: fixed in the world, under the contract's contact. */
-  const fixed = (desc: RAPIER.ColliderDesc): FixedCollider => {
+  const fixed = (desc: RAPIER.ColliderDesc, asked: unknown): FixedCollider => {
     const handle = raw.createCollider(contact(desc)).handle;
+    made.fixed.set(handle, JSON.stringify(["fixed", asked])); named = null;
     let gone = false;
-    return { id: handle, dispose() { if (gone || freed) return; gone = true; raw.removeCollider(raw.getCollider(handle), false); } };
+    return { id: handle, dispose() { if (gone || freed) return; gone = true; made.fixed.delete(handle); named = null; raw.removeCollider(raw.getCollider(handle), false); } };
   };
   /** Every body's node, from its body. */
   const writeNodes = () => {
@@ -308,9 +351,9 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     save() {
       // Rapier's snapshot follows a version, body/grip counts, node poses, grip handles and release exclusions: the solver
       // holds a pose in single precision, and a node before its first step is as it was built.
-      const snapshot = raw.takeSnapshot(), poses = new Float64Array(3 + NODE_POSE * bodies.size + 2 * grips.length);
-      poses[0] = -3; poses[1] = bodies.size; poses[2] = grips.length;
-      let k = 3;
+      const snapshot = raw.takeSnapshot(), poses = new Float64Array(HEADER + NODE_POSE * bodies.size + 2 * grips.length);
+      poses[0] = SAVE_VERSION; poses[1] = bodies.size; poses[2] = grips.length; poses[3] = worldDigest();
+      let k = HEADER;
       for (const { node } of bodies) {
         const p = node.position, q = node.rotationQuaternion ?? Quaternion.Identity();
         poses[k++] = p.x; poses[k++] = p.y; poses[k++] = p.z;
@@ -324,13 +367,15 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       return bytes;
     },
     load(bytes) {
-      const header = bytes.length >= 24 ? new Float64Array(bytes.slice(0, 24).buffer) : [];
+      const header = bytes.length >= 8 * HEADER ? new Float64Array(bytes.slice(0, 8 * HEADER).buffer) : [];
       const count = header[1] ?? NaN, gripCount = header[2] ?? NaN;
-      const head = 8 * (3 + NODE_POSE * count + 2 * gripCount);
-      const next = header[0] === -3 && Number.isInteger(count) && count >= 0
+      if (header[0] === -3) throw new Error("that save is in a format before a save named its world: make it again");
+      if (header[0] === SAVE_VERSION && header[3] !== worldDigest()) throw new Error("that save has other bodies, joints or colliders, or a different physics configuration: it was made in a world built otherwise");
+      const head = 8 * (HEADER + NODE_POSE * count + 2 * gripCount);
+      const next = header[0] === SAVE_VERSION && Number.isInteger(count) && count >= 0
         && Number.isInteger(gripCount) && gripCount >= 0 && head < bytes.length ? R.World.restoreSnapshot(bytes.subarray(head)) : null;
       if (!next) throw new Error("these bytes are not a Rapier world");
-      const gripData = new Float64Array(bytes.slice(8 * (3 + NODE_POSE * count), head).buffer);
+      const gripData = new Float64Array(bytes.slice(8 * (HEADER + NODE_POSE * count), head).buffer);
       const gripHandles = gripData.subarray(0, gripCount), suppressed = gripData.subarray(gripCount);
       const present = new Set(grips.flatMap((g) => g.handle === null ? [] : [g.handle]));
       const restored = new Set([...gripHandles].filter((h) => h !== -1));
@@ -371,7 +416,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       }
       // A save may hold a force asked for its next step; every body's is reset after that step.
       for (const body of bodies) forced.add(body);
-      const poses = new Float64Array(bytes.slice(24, 8 * (3 + NODE_POSE * count)).buffer);
+      const poses = new Float64Array(bytes.slice(8 * HEADER, 8 * (HEADER + NODE_POSE * count)).buffer);
       let k = 0;
       for (const { node } of bodies) {
         node.position.set(poses[k++]!, poses[k++]!, poses[k++]!);
@@ -492,6 +537,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         },
       };
       bodies.add(body);
+      made.bodies.set(body, JSON.stringify(["body", shapes, mass, ccd, preparedMaterials])); named = null;
       for (const collider of colliders) bodyOf.set(collider, body);
       rebinds.set(body, () => { rigid = raw.getRigidBody(handle); });
       colliderHandles.set(body, colliders);
@@ -504,6 +550,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       const locked = M.LinX | M.LinY | M.LinZ | (n < 2 ? M.AngY : 0) | (n < 3 ? M.AngZ : 0);
       const data = R.JointData.generic(xyz(frames.anchorParent), xyz(frames.anchorChild), { x: 1, y: 0, z: 0 }, locked);
       const joint = raw.createImpulseJoint(data, parent.rigid, child.rigid, true);
+      made.joints.set(joint, { parent, child, asked: JSON.stringify(frames) }); named = null;
       joint.setLocalFrame1(xyz(frames.anchorParent), xyzw(frames.frameParent));
       joint.setLocalFrame2(xyz(frames.anchorChild), xyzw(frames.frameChild));
       joint.setContactsEnabled(false);
@@ -557,6 +604,7 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         throw new Error("invalid grip frame");
       }
       const slot = { parent, child, handle: null as number | null, suppressed: false };
+      made.grips.set(slot, { parent, child }); named = null;
       enableFilter(parent); enableFilter(child, true);
       grips.push(slot);
       return {
@@ -594,14 +642,15 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
           slot.suppressed = false;
           const index = grips.indexOf(slot);
           if (index >= 0) grips.splice(index, 1);
+          made.grips.delete(slot); named = null;
         },
       };
     },
     addFixedBox(centre, size, turn = 0) {
       return fixed(R.ColliderDesc.cuboid(size[0] / 2, size[1] / 2, size[2] / 2).setTranslation(...centre)
-        .setRotation({ x: 0, y: sin(turn / 2), z: 0, w: cos(turn / 2) }));
+        .setRotation({ x: 0, y: sin(turn / 2), z: 0, w: cos(turn / 2) }), ["box", centre, size, turn]);
     },
-    addFixedShape(shape) { return fixed(colliderOf(shape)); },
+    addFixedShape(shape) { return fixed(colliderOf(shape), shape); },
     contactManifoldsOf(segment, wanted) {
       const body = own(segment);
       if (scan.body) throw new Error("a body's contacts are read while another's are");
@@ -728,6 +777,10 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       // After the world is freed its bodies went with it.
       const body = segment as RapierBody;
       if (!bodies.delete(body) || freed) return;
+      made.bodies.delete(body);
+      for (const [key, { parent, child }] of made.joints) if (parent === body || child === body) made.joints.delete(key);
+      for (const [key, { parent, child }] of made.grips) if (parent === body || child === body) made.grips.delete(key);
+      named = null;
       for (const handle of colliderHandles.get(body)!) { shapeOf.delete(handle); bodyOf.delete(handle); materials.delete(handle); }
       materialMasses.delete(body);
       colliderHandles.delete(body);

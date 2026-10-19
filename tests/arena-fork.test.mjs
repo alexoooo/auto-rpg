@@ -189,8 +189,8 @@ test("a_load_is_of_the_same_recipe", async () => {
     // Refused, it is untouched: it steps on as its twin does.
     assert.equal(stepped(offered, 300), stepped(twin, 300));
     assert.deepEqual(saveState(offered.duel.state), saveState(twin.duel.state));
-    // The control: the physics alone takes it, the two worlds having the same counts of bodies, joints and colliders.
-    assert.doesNotThrow(() => taken.world.physics.load(saved.physics));
+    // The physics refuses it as well, though the two worlds have the same counts of bodies, joints and colliders: each side's were made otherwise.
+    assert.throws(() => taken.world.physics.load(saved.physics), /built otherwise/);
     // A bout of other minds is of another recipe: a mind's memory is its kind's, and its sub-minds'.
     const minds = await bout("twin", { ...RECIPE, minds: { left: { ...RECIPE_FIGHTER, subs: [] }, right: RECIPE_FIGHTER } });
     try {

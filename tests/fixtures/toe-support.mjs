@@ -1,21 +1,27 @@
-import { readFileSync } from "node:fs";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { modelSpec } from "../../src/core/models.ts";
-import { guardPosture } from "../../src/core/skills/guard.ts";
 import { embody } from "../../src/core/mind/mind.ts";
 import { applyAction } from "../../src/core/mind/actions.ts";
 import { wholeBodyTracking } from "../../src/core/control/whole-body.ts";
 import { observeBody } from "../../src/core/observation.ts";
 import { clockSenses } from "../../src/core/mind/senses.ts";
 import { coreStand } from "../harness/core-stand.mjs";
+import { FOURS } from "./fours-support.mjs";
 
 const zero = [0, 0, 0], names = ["hand.right", "shank.left", "foot.left", "foot.right"];
 
-/** Actual muscle-driven Lab fall checkpoint; no segment is placed in a requested posture. */
+/**
+ * A kneel on the left shin and the right hand, the right foot planted under the body and the left
+ * on its toes behind: all fours (`FOURS`) with the right knee drawn up and the left hand lifted.
+ */
+const KNEEL = Object.freeze({ ...FOURS, joints: { ...FOURS.joints, "hip.right": [2.1, 0, 0], "knee.right": [2.2],
+  "ankle.right": [0, 0], "ankle.left": [-.9, 0], "shoulder.left": [0, 0, 0] } });
+
+/** The body placed in a kneel (`KNEEL`), its first step taken limp, handed to a supported hold. */
 export async function toeSupport({ transfer = false, stabilize = true } = {}) {
   const spec = modelSpec("workshop-fighter"), stand = await coreStand(spec,
-    { engine: "rapier-coordinate", posture: guardPosture(spec), groundSize: 40 });
-  stand.world.physics.load(new Uint8Array(readFileSync(new URL("inactive-contact-world.bin", import.meta.url))));
+    { engine: "rapier-coordinate", groundSize: 40, ...KNEEL });
+  stand.world.step();
   const parts = [...stand.built.segments.values()], mass = parts.reduce((sum, p) => sum + p.rigid.mass, 0);
   const root = stand.built.segments.get("lowerTrunk"), hand = stand.built.segments.get("hand.left").node.position.asArray();
   const load = (name) => stand.world.physics.contactsOf(stand.built.segments.get(name).body, other => other === null)

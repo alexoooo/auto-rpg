@@ -291,7 +291,8 @@ export interface PhysicsWorld {
    * Put the world where `bytes` (a `save`) left one, in place: every body, joint and fixed
    * collider it has stays the object it was, each node is as it was at the save, and the next
    * step is the step that followed the save. It throws, and changes nothing, if `bytes` is not a
-   * save of a world with this one's bodies, joints and colliders. What the core set outside the
+   * save of a world with this one's bodies, joints and colliders, each made as this one's were
+   * (shapes, materials, masses and joint frames as asked when made). What the core set outside the
    * solver (`SegmentBody.massProperties`) is not in a save: a load between two worlds is between
    * two built from the same specs.
    */

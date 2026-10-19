@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { foursSupport } from "./fixtures/fours-support.mjs";
 import { saveStand, loadStand } from "./harness/core-stand.mjs";
 
-test("edge support retains a real Lab knee-weight shift that all-corner sticking rejects", async () => {
+test("edge support retains a knee-weight shift on all fours that all-corner sticking rejects", async () => {
   const baseline = await foursSupport();
   try {
     baseline.stand.step(60);
@@ -30,8 +30,9 @@ test("edge support retains a real Lab knee-weight shift that all-corner sticking
     const o = expected.trace.at(-1), load = name => o.contacts.filter(c => c.segment === name && c.fixed !== null)
       .reduce((sum, c) => sum + c.impulse / f.stand.world.dt, 0);
     assert.ok(load("shank.left") > 100 && load("shank.right") > 100);
-    const target = f.body.mind.state.target, miss = o.centre.reduce((sum, x, k) => sum + (x - target[k]) * (x - target[k]), 0);
-    assert.ok(Math.sqrt(miss) < .06, JSON.stringify({ target, actual: o.centre }));
+    // The shift goes most of the way it was asked: what is left is under a third of it.
+    const { from, target } = f.body.mind.state, apart = (a, b) => Math.sqrt(a.reduce((sum, x, k) => sum + (x - b[k]) * (x - b[k]), 0));
+    assert.ok(apart(o.centre, target) < apart(from, target) / 3, JSON.stringify({ from, target, actual: o.centre }));
     assert.equal(f.body.mind.state.tracking.contact.status, "accepted");
   } finally { f.dispose(); }
 });

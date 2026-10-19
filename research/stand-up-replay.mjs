@@ -53,9 +53,10 @@ export function standUpCheckpoint(bytes) {
 }
 
 /** The actual Lab host and body persist through the shoves, recovery and commanded handover. */
-export async function standUpReplay({ model = "workshop-fighter", held = "empty", mind = { ...LAB_PRESETS.script.config, subs: [{ kind: "support-recovery" }] } } = {}) {
+export async function standUpReplay({ model = "workshop-fighter", held = "empty", mind = { ...LAB_PRESETS.script.config, subs: [{ kind: "support-recovery" }] }, place } = {}) {
   const spec = armedWith(modelSpec(model), "right", held);
-  const stand = await coreStand(spec, { engine: "rapier-coordinate", groundSize: 40, posture: guardPosture(spec) });
+  // `place` builds the body where and how it says (`coreStand`'s position, rotation and joints) in place of standing in its guard.
+  const stand = await coreStand(spec, { engine: "rapier-coordinate", groundSize: 40, ...place ?? { posture: guardPosture(spec) } });
   const config = structuredClone(mind);
   const actor = labActor(stand.built, stand.world, { mind: config });
   const stance = startStance(actor), { body } = stance;

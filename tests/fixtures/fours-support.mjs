@@ -8,7 +8,6 @@ import { startStance } from "../../src/lab/stance-mode.ts";
 import { embody } from "../../src/core/mind/mind.ts";
 import { applyAction } from "../../src/core/mind/actions.ts";
 import { wholeBodyTracking } from "../../src/core/control/whole-body.ts";
-import { readFileSync } from "node:fs";
 import { observeBody } from "../../src/core/observation.ts";
 import { clockSenses } from "../../src/core/mind/senses.ts";
 
@@ -16,16 +15,26 @@ import { clockSenses } from "../../src/core/mind/senses.ts";
 export const SUPPORT_JOINT_STOPS = Object.freeze({ margin: .001, forceTolerance: 1e-5, accelerationTolerance: 1e-4,
   iterations: 2048, absoluteTolerance: 1e-7, relativeTolerance: 1e-6 });
 
-/** A captured physical two-shove fall, handed to a bounded knee-weight shift. */
+/**
+ * The body on all fours: built face down, its hips, knees and shoulders flexed a right angle or so,
+ * hands and shins on the ground, as a fall leaves it there (`FOURS`).
+ */
+export const FOURS = Object.freeze({
+  position: [0, .47, 0], rotation: Quaternion.RotationAxis(new Vector3(1, 0, 0), Math.PI / 2).asArray(),
+  joints: { "hip.left": [1.45, 0, 0], "hip.right": [1.45, 0, 0], "knee.left": [1.6], "knee.right": [1.6],
+    "shoulder.left": [1.6, 0, 0], "shoulder.right": [1.6, 0, 0], "elbow.left": [.1], "elbow.right": [.1],
+    "ankle.left": [.3, 0], "ankle.right": [.3, 0] },
+});
+
+/** The body placed on all fours (`FOURS`), its first step under the Lab's script, handed to a bounded knee-weight shift. */
 export async function foursSupport(supportBand) {
   const spec = modelSpec("workshop-fighter"), stand = await coreStand(spec,
-    { engine: "rapier-coordinate", groundSize: 40, posture: guardPosture(spec) });
+    { engine: "rapier-coordinate", groundSize: 40, ...FOURS });
   const mind = { ...LAB_PRESETS.script.config, subs: [] };
   const stance = startStance(labActor(stand.built, stand.world, { mind }));
   let body;
   try {
-    stand.world.step(240);
-    stand.world.physics.load(new Uint8Array(readFileSync(new URL("actual-fours-world.bin", import.meta.url))));
+    stand.world.step();
     const o = stance.body.observe(), parts = [...stand.built.segments.values()], mass = parts.reduce((sum, part) => sum + part.rigid.mass, 0);
     const root = stand.built.segments.get("lowerTrunk"), zero = Object.freeze([0, 0, 0]);
     const from = parts.reduce((sum, part) => sum.addInPlace(new Vector3(...part.body.massProperties.centre)
@@ -34,7 +43,7 @@ export async function foursSupport(supportBand) {
     const names = ["hand.left", "hand.right", "shank.left", "shank.right"];
     const anchors = names.map(name => {
       const part = stand.built.segments.get(name), contact = o.contacts.find(c => c.segment === name && c.fixed !== null && c.impulse > 0);
-      if (!contact) throw new Error(`actual Lab fall lacks ${name}`);
+      if (!contact) throw new Error(`the placed fours lack ${name}`);
       return { id: name, frame: { kind: "segment", name }, at: new Vector3(...contact.point).subtractInPlace(part.node.position)
         .applyRotationQuaternionToRef(Quaternion.Inverse(part.node.rotationQuaternion), new Vector3()).asArray(),
       translation: { target: [...contact.point], velocity: zero, acceleration: zero, seconds: .2, weight: 1 } };
