@@ -5,7 +5,7 @@ import type { PartField } from "./fields.ts";
  * **What a part does in the mind it is part of**: the interface it carries out. A slot names the
  * role of what it holds, and holds only a part of that role.
  */
-export type Role = "mind" | "sub-mind" | "tactics" | "behaviour" | "move-rule" | "locomotion" | "guard" | "executor" | "support" | "reflex";
+export type Role = "mind" | "sub-mind" | "tactics" | "behaviour" | "move-rule" | "locomotion" | "guard" | "executor" | "support" | "reflex" | "motor";
 
 /** What a screen gives a mind beyond the body and the world: the Lab gives its scenario's script (`MindWiring.script`). */
 export type Provision = "script";
@@ -26,6 +26,8 @@ export interface Slot {
   readonly role: Role;
   readonly many: boolean;
   readonly optional: boolean;
+  /** What a person is shown where an optional slot holds none: "None" unless it says. */
+  readonly absent?: string;
 }
 
 /**
@@ -63,7 +65,8 @@ export interface Part<C extends PartConfig = PartConfig> {
 export const slotList = (key: string, label: string, role: Role): Slot => Object.freeze({ key, label, role, many: true, optional: true });
 
 /** A slot of one part of `role`, or of none where it is `optional`. */
-export const slotOne = (key: string, label: string, role: Role, optional = false): Slot => Object.freeze({ key, label, role, many: false, optional });
+export const slotOne = (key: string, label: string, role: Role, optional = false, absent?: string): Slot =>
+  Object.freeze({ key, label, role, many: false, optional, ...(absent === undefined ? {} : { absent }) });
 
 /** The slots `config` of `part` has: those it says it has by what it holds (`Part.slotsFor`), or all of its slots. */
 export const slotsOf = <C extends PartConfig>(part: Part<C>, config: C): readonly Slot[] => part.slotsFor?.(config) ?? part.slots;

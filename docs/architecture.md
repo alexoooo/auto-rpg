@@ -331,6 +331,11 @@ and driven afresh to change what it costs.
   an options fighter's slot); its default pushes the
   arm's joints. A hold is a spin so asked: `holdUp` (`src/core/skills/hold.ts`) turns a free hand's
   item's line up, the guard's choice (`tuning.hold` of its guard part).
+- **Which motor control a body runs is a part** of role `motor` (`MOTOR_PARTS`, `motorOf`,
+  `src/core/control/motors.ts`), named by its body's options (`BodyOptions.motor`) and, in a
+  fighter's or an options fighter's config, by its `motor` slot; a body that names none runs the
+  whole-body solve (`motorControl`), the one kind there is. Another kind is a maker of the same
+  shape and a line in each.
 - **The stance** (`stance.ts`; its records in `stance-state.ts`, its steps in `gait.ts`, its
   soles in `support.ts`, its constants in `stance-tuning.ts`) is the standing plan, and the
   solve's first user: it keeps the body up by the forces the ground can really give. It plans

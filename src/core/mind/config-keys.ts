@@ -1,7 +1,7 @@
-import type { BehaviourConfig, ExecutorConfig, MoveRuleConfig, ReflexConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
+import type { BehaviourConfig, ExecutorConfig, MotorConfig, MoveRuleConfig, ReflexConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { deepFreeze } from "../state.ts";
 
-type Config = SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ExecutorConfig | ReflexConfig;
+type Config = SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ExecutorConfig | ReflexConfig | MotorConfig;
 
 /** Every accepted top-level key of a part below a mind, including optional settings; a mind's are
  * its controller's (`Controller.keys`). The mapped type requires every config property and
@@ -72,4 +72,5 @@ export const CONFIG_KEYS = deepFreeze({
   "front-kick": { kind: true, name: true, tuning: true },
   "support-fold": { kind: true },
   "cover-reflex": { kind: true },
+  "whole-body": { kind: true },
 } satisfies { readonly [K in Config["kind"]]: { readonly [P in keyof Extract<Config, { kind: K }>]-?: true } });

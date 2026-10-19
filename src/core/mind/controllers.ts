@@ -17,10 +17,13 @@ import type { PartField } from "./fields.ts";
  * A fighter's slots: its tactics, a skill of each role, a kick and low support if it has them,
  * and the sub-minds it hands its body to when down, in rank order (`subs`).
  */
+/** The motor control under a mind's skills: the game's, the whole-body solve, where it holds none. */
+const MOTOR_SLOT = slotOne("motor", "Motor control", "motor", true, "Whole-body solve");
+
 const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
   slotOne("tactics", "Tactics", "tactics"), slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"),
   slotList("executors", "Executors", "executor"), slotOne("support", "Low support", "support", true),
-  slotList("subs", "When down", "sub-mind"),
+  slotList("subs", "When down", "sub-mind"), MOTOR_SLOT,
 ]);
 
 /**
@@ -43,13 +46,13 @@ const OBEDIENCE_FIELD: PartField<OptionsConfig> = {
 /** The options fighter's slots: a skill of each role, as a fighter's, and its reflexes in rank order. */
 const OPTIONS_SLOTS: readonly Slot[] = Object.freeze([
   slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotList("executors", "Executors", "executor"),
-  slotOne("support", "Low support", "support", true), slotList("reflexes", "Reflexes", "reflex"),
+  slotOne("support", "Low support", "support", true), slotList("reflexes", "Reflexes", "reflex"), MOTOR_SLOT,
 ]);
 
 /** **The options fighter** (`createOptionsFighter`): a meta-controller over options, chosen among by their worth. */
 const OPTIONS_MIND = controller<OptionsConfig>({
   role: "mind", label: "Options fighter", stage: "game", fields: [OBEDIENCE_FIELD], slots: OPTIONS_SLOTS, defaults: OPTIONS,
-  keys: { kind: true, meta: true, weights: true, locomotion: true, guard: true, executors: true, actions: true, support: true, reflexes: true },
+  keys: { kind: true, meta: true, weights: true, locomotion: true, guard: true, executors: true, actions: true, support: true, reflexes: true, motor: true },
   fits: optionsFit,
   faults: config => [
     ...[undefined, "valued", "ranked"].includes(config.meta) ? [] : ["meta: valued or ranked"],
@@ -64,7 +67,7 @@ const OPTIONS_MIND = controller<OptionsConfig>({
 /** **The fighter** (`createFighter`): tactics over skills of each role, built from its slots. */
 const FIGHTER_MIND = controller<FighterConfig>({
   role: "mind", label: "Fighter", stage: "game", fields: [], slots: FIGHTER_SLOTS, defaults: RECIPE_FIGHTER,
-  keys: { kind: true, tactics: true, locomotion: true, guard: true, executors: true, actions: true, support: true, subs: true },
+  keys: { kind: true, tactics: true, locomotion: true, guard: true, executors: true, actions: true, support: true, subs: true, motor: true },
   fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0,
   faults: fighterFaults,
   presets: deepFreeze({

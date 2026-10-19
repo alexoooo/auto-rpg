@@ -184,9 +184,12 @@ The code against the contract above:
   guard, low support, executors and actions), and its reflexes a list of parts of role `reflex`;
   a kit whose actions name a missing executor is refused (`kitFaults`). Its tuning flags and kit
   maps are gone: each is a part or a setting in its config.
-- Motor control is one `motorControl` made inside `commandMind` (`src/core/body.ts`), with the
-  whole-body solve a flag beside it; skills ask motor control through one `BodyCommand` holding
-  every kind of goal.
+- Stage 5's seam has landed: the motor control a body runs is a part of role `motor`
+  (`motorOf`, `src/core/control/motors.ts`), chosen in a fighter's and an options fighter's
+  `motor` slot, with the whole-body solve its one kind. Two things are open. The bearing solve is
+  not a second kind: the bearing stance path was taken out of `motorControl` on purpose, and
+  putting it back as a choice is the owner's. `BodyCommand` still holds every kind of goal; it
+  splits by goal when a second motor control needs a vocabulary of its own.
 - The Dungeon chooses a party member's Mind by its body's model and an enemy's from the map.
 
 ## Order of work

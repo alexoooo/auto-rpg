@@ -79,7 +79,7 @@ export function createOptionsFighter(host: BodyHost, config: OptionsConfig, wiri
   const decide = (): Option | null => sight && meta ? meta.decide(situation(sight)) : null;
   const half = { current: false }, downs: ReturnType<typeof downOption>[] = [];
   const running = () => { const chosen = meta && meta.state.running >= 0 ? options[meta.state.running]! : null; return chosen?.posture === "down" ? downs.find((down) => down === chosen) ?? null : null; };
-  const body = host.command({ ...fighterBody({ subs: [] }, wiring), subs: [(own, view, w, afterPhysics) => {
+  const body = host.command({ ...fighterBody({ subs: [], motor: config.motor }, wiring), subs: [(own, view, w, afterPhysics) => {
     for (const [name, sub, model] of DOWN) downs.push(downOption(name, subMind(own, view, sub, w, afterPhysics), half, model));
     return downHalf(downs, running, decide, half);
   }] });

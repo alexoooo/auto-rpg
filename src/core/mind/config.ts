@@ -248,6 +248,12 @@ interface CoverReflexConfig { readonly kind: "cover-reflex" }
 /** **A reflex's config**, by kind (`reflexOf`). */
 export type ReflexConfig = CoverReflexConfig;
 
+/** **The whole-body solve** (`motorControl`, `solveBody`): the stance's asks, the posture's and the points' as one problem. */
+interface WholeBodyMotorConfig { readonly kind: "whole-body" }
+
+/** **A motor control's config**, by kind (`motorOf`, `src/core/control/motors.ts`). */
+export type MotorConfig = WholeBodyMotorConfig;
+
 /** **A skill's config**, by kind, across the fighter's skill slots. */
 export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | WalkRunConfig | LearnedRunConfig | MoveConfig | CoverGuardConfig | SupportFoldConfig;
 
@@ -262,10 +268,12 @@ export interface FighterConfig {
   readonly support: SupportFoldConfig | null;
   /** The sub-minds it hands its body to, in rank order: the first that wants the body has it. */
   readonly subs: readonly SubMindConfig[];
+  /** What turns its skills' goals into its muscles' command; the game's (`motorOf`) where it names none. */
+  readonly motor?: MotorConfig | null;
 }
 
 /** **What a body's skills are made from** (`fighterSkills`): its legs, its guard, its low support, its executors and the actions they carry out. */
-export type SkillKit = Pick<FighterConfig, "locomotion" | "guard" | "support" | "executors" | "actions">;
+export type SkillKit = Pick<FighterConfig, "locomotion" | "guard" | "support" | "executors" | "actions" | "motor">;
 
 /**
  * **A mind's config**: plain data, so it rides in a recipe, a save and a link, its kind naming

@@ -199,9 +199,9 @@ function legsOf(body: Body, config: LocomotionConfig): Locomotion {
 }
 
 /** All action instances share the fighter's physical feedback and body-local ledger. */
-export function fighterBody(config: Pick<FighterConfig, "subs">, wiring: MindWiring): BodyOptions {
+export function fighterBody(config: Pick<FighterConfig, "subs" | "motor">, wiring: MindWiring): BodyOptions {
   return { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist,
-    feedback: true, contactIdentity: wiring.contactIdentity, subs: subMindsOf(config.subs) };
+    feedback: true, contactIdentity: wiring.contactIdentity, subs: subMindsOf(config.subs), motor: config.motor ?? null };
 }
 
 /** Named executors are built once; behaviours select actions without rebuilding motion state. */

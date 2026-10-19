@@ -3,7 +3,7 @@ import type { Assist, AssistCeiling } from "./control/assist.ts";
 import { uprightness } from "./control/ground.ts";
 import { standingHeight } from "./control/support.ts";
 import { rootFrameToRef, type Frame } from "./control/kinematics.ts";
-import { motorControl, type EffectorGoal, type MotorControl, type MusclePush, type PointTask, type Pose } from "./control/motor.ts";
+import { type EffectorGoal, type MotorControl, type MusclePush, type PointTask, type Pose } from "./control/motor.ts";
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
 import type { StanceTuning } from "./control/stance-tuning.ts";
 import { stanceEnvelope, type StanceEnvelope } from "./control/stance-envelope.ts";
@@ -15,6 +15,8 @@ import type { SubMindMaker } from "./mind/sub-minds.ts";
 import type { BodyLevel, MuscleDriver } from "./muscle/driver.ts";
 import type { World } from "./world.ts";
 import { clockOf } from "./clock.ts";
+import { motorOf } from "./control/motors.ts";
+import type { MotorConfig } from "./mind/config.ts";
 import type { SheetLog } from "./mind/sheets.ts";
 import { PHYSICS_HZ } from "./world.ts";
 import type { PhysicalBody } from "./physical-body.ts";
@@ -213,6 +215,8 @@ export interface BodyOptions {
   readonly subs?: readonly SubMindMaker[];
   /** Where its order sheets are written (`SheetLog`); nowhere unless given. */
   readonly log?: SheetLog;
+  /** What turns its goals into its muscles' command (`motorOf`): the whole-body solve unless it names another. */
+  readonly motor?: MotorConfig | null;
 }
 
 /**
@@ -232,10 +236,10 @@ interface CommandMind extends HostMind {
 }
 
 /** The command layers over `own`, holding its reference pose until something drives them. */
-export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feedbackEnabled, contactIdentity, contacts }: BodyOptions,
+export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feedbackEnabled, contactIdentity, contacts, motor: kind }: BodyOptions,
   dt = 1 / PHYSICS_HZ.value): CommandMind {
   const { built, muscles } = own;
-  const motor: MotorControl = motorControl(built, servoSeconds, {}, stance, own.assist);
+  const motor: MotorControl = motorOf(kind)(built, servoSeconds, {}, stance, own.assist);
   const feedback = feedbackEnabled ? effectorFeedback(built, motor.effectors.map(e => e.segment), contactIdentity,
     segment => contacts?.(segment) ?? []) : null;
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };

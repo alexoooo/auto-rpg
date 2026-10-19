@@ -96,7 +96,7 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], onCh
 
   /** Parts the screen supplies, with incompatible bodies explained by disabled choices. */
   const choices = (slot: Slot) => [
-    ...(slot.optional && !slot.many ? [{ value: "", text: "None" }] : []),
+    ...(slot.optional && !slot.many ? [{ value: "", text: slot.absent ?? "None" }] : []),
     ...kindsFor(slot.role, spec, provides).filter(({ part }) => !part.needs || provides.includes(part.needs))
       .map(({ kind, part, reason }) => ({ value: kind, text: reason ? `${named(part)}: ${reason}` : named(part), disabled: reason !== null })),
   ];
