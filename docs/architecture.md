@@ -433,6 +433,12 @@ Their actuator methods and their readiness/footprints remain their own.
   takes the body up as it is, moving (`Locomotion.resume`). Its envelope is the stance's walk's
   (`Body.envelope`), and SIMBICON's run's (`simbiconRunEnvelope`) while it may run; its settings
   and the run's are scaled to the body's leg and quickened by its haste as SIMBICON's are.
+- **The walk and learned run** (`learned-run.ts`, "Walk and learned run", experimental) is the walk
+  and run whose run a trained policy steers (`RunSteer`: the swing's and the stance's joints, lean,
+  bank, cadence, pace and effort), read from the bearing leg with its side mirrored away so one
+  policy runs on either foot. Its policies
+  are assets by name (`RUN_POLICIES`, `assets/core/learned-run.json`, which names the run that
+  made it); with none it is the walk and run.
 - **SIMBICON** (`simbicon.ts`, "SIMBICON walk") is offered beside the walk and run. It is a locomotion skill that drives the
   legs itself (`Locomotion.drive`, `LegsDrive`): no stance goal, every leg freedom pushed
   (`MusclePush.speed`) toward its state's angle at its error over `settle`, at up to a share of its
@@ -831,7 +837,11 @@ steadying timeout. `step-up` (`ground/step-up.ts`) is the game's technique: the 
 route from the front (roll, hands and knees, kneel up, the left foot through, the lunge), each
 stage's time and completion searched per model on target falls
 (`research/rising-step-search.mjs`), joined part-way from hands and knees or a half kneel, then
-the stance climbing to standing height. The others remain experimental. `SubMind.holds` preserves a wanted body through a
+the stance climbing to standing height. The others remain experimental. Among them the learned
+rise (`ground/learned-rise.ts`) is step-up whose stages a trained policy steers (`RiseSteer`: their
+pace and tolerances, the centre's place and height, the pelvis's pitch and the posture), deciding
+30 times a second, its steer easing toward what is asked over 0.2 s; its policies are assets by
+model (`assets/core/learned-rise.json`), and with none it is step-up to the step. `SubMind.holds` preserves a wanted body through a
 critical phase and lets ranked higher sub-minds take it at the first yielding boundary.
 
 `RECIPE_FIGHTER` uses shared action tactics over the recipe executor, walking in the stance, with `lie`;

@@ -198,14 +198,47 @@ trials. The Warrior's running step width is 0.31 m; acceleration from 1 to 3 m/s
 (`assets/core/simbicon-envelope.json`, `simbicon-run-envelope.json`) are as measured on
 `a42d7f2c`.
 
-On the owner's 64-fall target (`node research/rising-bed.mjs --target --techniques step-up`,
-30 s cap), step-up stands 40 of 64 (the Warrior 11 and 14 of 16, medians 13.3 and 14.9 s; the
-Rogue 9 and 6, median 26.3 s and the cap). None stands within 6 s; the route's floor is about
+On the owner's 64-fall target (`node research/rising-bed.mjs --target --sub stand-up
+--techniques step-up`, 30 s cap), step-up stands 47 of 64 (the Warrior 15 and 16 of 16, empty and
+with the club, medians 14.2 and 15.8 s; the Rogue 9 and 7, median 25.2 s and the cap). None stands within 6 s; the route's floor is about
 9 s. The frozen screen (`stand-up-acceptance-v2`) is pinned on these legs. Balance stands no more
 and no faster (the Warrior 20 of 26 at 25 %, 14.8 s).
 
 In bouts (`docs/reference/assist.md`), with no balance 80 of 99 bouts end by a fall; at 10 % 53;
 at 25 % 19; above 25 % nothing changes, since the stance asks for no more.
+
+**Stage 3, the run: open; its speed gates unmet.** Two runs stand beside the cycle run, both
+experimental:
+
+- *The run whose steps fly* (`run.ts`, locomotion kind `run`): a Raibert run on the stance, its
+  bearing leg bouncing and letting go (`SwingGoal.flight`). It leaves the ground (0.4 to
+  0.67 m/s up at launch) but does not drive itself past about 1.1 m/s: holding the pivot within
+  the sole gives the centre about 1 m/s² of push, and every foot-placement gain tried fells it.
+  `run-cycle-search.mjs --legs run` searches its settings.
+- *The walk and learned run* (`learned-run.ts`): the cycle run steered by a trained policy
+  (`RUN_POLICIES["all-bodies"]`, `assets/core/learned-run.json`, which names its run). On the
+  gait battery it falls 8 of 300, all with the club (the Rogue 7, the skeleton 1): the gate's 19
+  and the club's 18 of 150 are met. The Warrior's top is 3.46 m/s and Haste +100 adds 0.14: the
+  speed gates are not.
+
+What caps the cycle run is its stride, about 1.2 m at 3.1 steps a second: asked 5 and 6 m/s run
+the same. Its pace is capped at the ground speed plus `ahead`, and raising `ahead` fells it
+(asked 5 with Haste +100: `ahead` 1.0, 1.65 m/s and a fall). Reaching 4.5 m/s needs the
+momentum-planned run with flight the stage describes; the clip's stride cannot carry it. The
+club's forward envelope against SIMBICON's is not yet measured for the learned run.
+
+**Stage 4, the stand-up: open; its time gate unmet.** The learned rise (`learned-rise.ts`) is
+step-up steered by a trained policy (`RISE_POLICIES`, the Warrior's and the Rogue's,
+`assets/core/learned-rise.json`): its stages' pace, their tolerances, the centre's place and
+height, the pelvis's pitch and the posture, eased over 0.2 s. On the target it stands 53 of 64
+(the Warrior 15 and 15, medians 13.4 and 13.5 s; the Rogue 8 and 15, 27.5 and 15.8 s): the 40
+is met, the 9 s median is not. Step-up's own time is about 2.4 s of rolling, 7.6 s of its 25
+stages and 2.5 s of steadying and handover, of which 1.3 to 1.8 s is the host's squaring step
+(the feet end 0.2 to 0.26 m apart against the body's 0.39 m), so the route's floor stays near
+9 s; the faster routes are closed by the body's stops (`docs/reference/postures.md`). Grit's
+curriculum is not run. The frozen screen takes a candidate as actions on the muscles or joint
+targets from an observation; the learned rise steers step-up's recipe inside the game, so it
+cannot enter without a new action kind, which changes the evaluator and is the owner's call.
 
 ## The register: tried and not kept
 
@@ -253,6 +286,11 @@ Not to be tried again on the controllers as they are. Each failed for the reason
   felled the Rogue's trials; the run's heading turned to bring its travel round to the way asked
   (the travel's error integrated, 1 a second, 0.6 rad at most) took the drift off too but fell
   more, 102 of 600 against 83 over gust seeds 5 to 12, mostly in turns.
+- **The run's speed** (stage 3). The cycle run's `ahead` at 1.0 and 1.5 (falls); the flying
+  run's foot-placement gains (falls); the learned run trained on to 11M decisions (95 of 300 fell,
+  against 8 of 300 at 4.5M).
+- **The learned rise's steer unsmoothed** (stage 4): a policy's exploration noise applied each
+  decision broke step-up's stages (0 of 12 stood under full noise; 5 of 12 eased).
 - **Balance's shape.** A force across the heading alone; the moment toward the run's settled
   lean (held every run under 2.4 m/s); the moment's pitch both ways (the Warrior brakes slower,
   7 of 12 stops fell); damping the pelvis's spin alone.
