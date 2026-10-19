@@ -438,7 +438,8 @@ Their actuator methods and their readiness/footprints remain their own.
   bank, cadence, pace and effort), read from the bearing leg with its side mirrored away so one
   policy runs on either foot. Its policies
   are assets by name (`RUN_POLICIES`, `assets/core/learned-run.json`, which names the run that
-  made it); with none it is the walk and run.
+  made it and how its gait was timed to its haste there, `RunPolicy.hasted`, which its config
+  takes by default); with none it is the walk and run.
 - **SIMBICON** (`simbicon.ts`, "SIMBICON walk") is offered beside the walk and run. It is a locomotion skill that drives the
   legs itself (`Locomotion.drive`, `LegsDrive`): no stance goal, every leg freedom pushed
   (`MusclePush.speed`) toward its state's angle at its error over `settle`, at up to a share of its

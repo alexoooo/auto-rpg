@@ -36,6 +36,8 @@ export const RUN_POLICIES: Readonly<Record<string, RunPolicy>> = Object.freeze({
 
 /** **A learned run's network**: a ReLU network whose outputs are the steer's (`STEER_KEYS`), its inputs the features (`runFeatures`), normalised in its first layer. */
 interface RunPolicy {
+  /** How the gait it steered in training was timed to its haste (`WalkRunSettings.hasted`): a learned run's config takes it (`LearnedRunConfig`). */
+  readonly hasted: number;
   readonly actions: number;
   readonly layers: readonly { readonly weights: readonly (readonly number[])[]; readonly bias: readonly number[] }[];
 }
@@ -90,9 +92,10 @@ export function steerFrom(actions: readonly number[], steer: RunSteer): RunSteer
  * (`RunSteer`): every `DECIDE` control steps it reads the run (`runFeatures`) and sets the
  * cycle's offsets from its network's outputs (`steerFrom`). Its run is held to no envelope: the
  * policy is trained to the paces it is asked. With no policy the run is steered from outside: its
- * steer (`RunCycleMemory.steer`) is left as it is set, as a policy's training sets it.
+ * steer (`RunCycleMemory.steer`) is left as it is set, as a policy's training sets it. Its settings
+ * are by default the walk and run's, timed to its haste as its policy's training was (`RunPolicy.hasted`).
  */
-export function learnedRun(body: Body, policy: RunPolicy | null, given: WalkRunSettings = WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE, may = true): Locomotion {
+export function learnedRun(body: Body, policy: RunPolicy | null, given: WalkRunSettings = policy ? { ...WALK_RUN, hasted: policy.hasted } : WALK_RUN, givenRun: RunCycleSettings = WALK_RUN_CYCLE, may = true): Locomotion {
   if (policy === null) return walkRun(body, given, givenRun, may, { runEnvelope: null });
   if (policy.actions !== STEER_KEYS.length) throw new Error(`a learned run's policy gives ${STEER_KEYS.length} actions`);
   const act = recoveryNetwork(policy), features: number[] = [];

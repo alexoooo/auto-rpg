@@ -207,7 +207,7 @@ and no faster (the Warrior 20 of 26 at 25 %, 14.8 s).
 In bouts (`docs/reference/assist.md`), with no balance 80 of 99 bouts end by a fall; at 10 % 53;
 at 25 % 19; above 25 % nothing changes, since the stance asks for no more.
 
-**Stage 3, the run: open; its speed gates unmet.** Two runs stand beside the cycle run, both
+**Stage 3, the run: open; its Haste gate unmet.** Two runs stand beside the cycle run, both
 experimental:
 
 - *The run whose steps fly* (`run.ts`, locomotion kind `run`): a Raibert run on the stance, its
@@ -219,20 +219,25 @@ experimental:
   generations) it is credited 2.07 m/s. Bearing for less time the faster it goes, its step's time
   kept and its flight longer, did not help.
 - *The walk and learned run* (`learned-run.ts`): the cycle run steered by a trained policy
-  (`RUN_POLICIES["all-bodies"]`, `assets/core/learned-run.json`, which names its run). On the
-  gait battery it falls 8 of 300, all with the club (the Rogue 7, the skeleton 1): the gate's 19
-  and the club's 18 of 150 are met. The Warrior's top is 3.46 m/s and Haste +100 adds 0.14: the
-  speed gates are not. Asked 6 m/s it holds 3.85 (Haste +100: 4.09, then a fall at 10 s); its
-  policy slows the cycle (cadence a fifth of its range down) and asks no more pace than the
-  cycle's own, so its steer's range does not cap it. On the walk-run envelope with the club
-  (`core-stance-envelope.mjs --legs learned-run --walks`; a walk holds standing at 0.7 of the
-  pace asked, `WENT`) it holds forward 4.5, 4 and 4.5 m/s, the Warrior, the Rogue and the
-  skeleton, against SIMBICON's run's 4, 2 and 1.2: the club's envelope gate is met.
+  (`RUN_POLICIES["all-bodies"]`, `assets/core/learned-run.json`, which names its run), its gait
+  timed to its haste as in training (`RunPolicy.hasted`, 0 for this one). On the gait battery
+  it falls 14 of 300, 9 with the club (the Rogue 11, the Warrior 2, the skeleton 1), and 14 on
+  fresh gust seeds (9 to 12): the gate's 19 and the club's 18 of 150 are met. Asked 6 m/s (Node
+  stand, Rapier, 120 Hz, the last 3 of 15 s) the Warrior holds 4.64 m/s, the Rogue 4.1 to 4.3 and
+  the skeleton 4.0: the Warrior's 4.5 is met. Haste +100 adds nothing: the Haste gate is not. On
+  the walk-run envelope with the club (`core-stance-envelope.mjs --legs learned-run --walks`; a
+  walk holds standing at 0.7 of the pace asked, `WENT`) it holds forward 4.5, 4 and 4.5 m/s, the
+  Warrior, the Rogue and the skeleton, against SIMBICON's run's 4, 2 and 1.2: the club's envelope
+  gate is met. Asked 1 m/s, just over where the walk hands over to the run, the Warrior makes
+  0.73.
 
-What caps the cycle run is its stride, about 1.2 m at 3.1 steps a second: asked 5 and 6 m/s run
-the same. Its pace is capped at the ground speed plus `ahead`, and raising `ahead` fells it
-(asked 5 with Haste +100: `ahead` 1.0, 1.65 m/s and a fall). Reaching 4.5 m/s needs the
-momentum-planned run with flight the stage describes; the clip's stride cannot carry it.
+Unsteered, the cycle run is capped by its stride, about 1.2 m at 3.1 steps a second: asked 5 and 6
+m/s it runs the same. Its pace is capped at the ground speed plus `ahead`, and raising `ahead`
+fells it (asked 5 with Haste +100: `ahead` 1.0, 1.65 m/s and a fall). Steered, it is not: what
+held the policies at 3.85 m/s was their training. Trained on runs whose new pace is asked 2 to 9 s
+after setting off at 1.5 to 4.5 m/s, short of it by up to 0.4 of it forgiven
+(`research/run-learning-environment.mjs`, `starts` and `share`), they hold 4.6 to 4.8 m/s.
+Trained only from 1.4 m/s, the Warrior fell asked 1 m/s; trained from 0.9 m/s, it runs.
 
 **Stage 4, the stand-up: open; its time gate unmet.** The learned rise (`learned-rise.ts`) is
 step-up steered by a trained policy (`RISE_POLICIES`, the Warrior's and the Rogue's,
@@ -271,7 +276,11 @@ Not to be tried again on the controllers as they are. Each failed for the reason
   decisions on a reward that forgives being up to 2.5 m/s short of a pace to 6.5 m/s
   (`tolerance` in `research/run-learning-environment.mjs`) holds 3.8 to 3.9 m/s too.
 - **Haste.** The gait timed to the muscles at a power of 1/2 or 1. A search with Haste +100 in
-  its cells: kept the Warrior up at +100, but cost 11 Rogue falls at 0.
+  its cells: kept the Warrior up at +100, but cost 11 Rogue falls at 0. The learned run trained
+  with its gait timed to the square root of its haste (`hasted` 0.5, to 42.7M decisions): Haste
+  +100 adds 0.6 to 0.7 m/s (the Warrior 4.52 to 5.14, the Rogue 4.1 to 4.7, the skeleton 3.9 to 4.6)
+  and the battery falls 8 of 300, but its forward envelope with the club breaks (the Warrior 3.5,
+  the Rogue 1 m/s), as it does in each of its snapshots from 39M to 42M.
 - **Stopping.** A pace floor under the body's speed; the run braking at its own rate; a lower
   handover speed; larger `cv` or `leanGain`; the walk's slowdown at 0.68 or 1.0 m/s²; the walk's
   late thigh let lean (threw the Warrior walking back with the club); a landing gate on the

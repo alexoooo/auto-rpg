@@ -6,7 +6,7 @@
  * cube (`research/cma.mjs`).
  *
  * Each trial stands the body a second in its guard (`guardPosture`), which holds the arms wherever the gait does not, as a fighter's does, under its
- * character's balance (`balanceCeiling`; `--balance` per cent in its place), at its character's haste (each of `--haste` per cents in its place, its gait timed by `--hasted`, `WalkRunSettings.hasted`) and with each of `--holds` in its right hand (`empty`, or the `club`) as the stance's envelope plays it, asks it forward at a pace for `--seconds`, and credits the
+ * character's balance (`balanceCeiling`; `--balance` per cent in its place), at its character's haste (each of `--haste` per cents in its place, its gait timed by `--hasted`, `WalkRunSettings.hasted`, else as the learned run's policy names) and with each of `--holds` in its right hand (`empty`, or the `club`) as the stance's envelope plays it, asks it forward at a pace for `--seconds`, and credits the
  * speed it made along its heading from when it first went `CREDIT_FROM` m/s to the trial's end, a
  * fall (`FALLEN`) ending the distance: no more than `OVER` past the pace asked, and less by as much as it ran
  * faster than that. A candidate's score is the mean of its trials, over `--models` and `--speeds`,
@@ -114,7 +114,7 @@ async function trial({ model, speed, seconds, turn = 0, stop = false, stopAt: st
   const body = createBody(stand.built, stand.world, { servoSeconds: 0.1, measuring: true, assist });
   const blowing = wind && startWind(stand.built, stand.world, { rate: wind.rate, strength: wind.strength }, wind.seed);
   const skill = legs === "simbicon" ? simbicon(body, { ...SIMBICON, run: at, speedup, slowdown, hasted: hasted ?? SIMBICON.hasted }, simbiconWays(), runCycleSettings(run))
-    : legs === "learned-run" ? learnedRun(body, policy, { ...WALK_RUN, run: at, hasted: hasted ?? WALK_RUN.hasted }, runCycleSettings(run, WALK_RUN_CYCLE))
+    : legs === "learned-run" ? learnedRun(body, policy, { ...WALK_RUN, run: at, hasted: hasted ?? policy?.hasted ?? WALK_RUN.hasted }, runCycleSettings(run, WALK_RUN_CYCLE))
     : legs === "run" ? flightRun(flyingRun(body, run))
     : walkRun(body, { ...WALK_RUN, run: at, hasted: hasted ?? WALK_RUN.hasted }, runCycleSettings(run, WALK_RUN_CYCLE));
   let asked = null, goal = null, face = 0;
