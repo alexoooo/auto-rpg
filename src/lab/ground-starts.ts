@@ -119,7 +119,7 @@ export function groundPlacementFaults(spec: BodySpec, placement: Placement): str
 /** A deterministic legal draw, raised by its own lowest shape rather than a guessed pelvis height. */
 export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed" | "ground">, waypoint?: Placement): Placement {
   const options = address.ground;
-  if (options.start === "shoved") return { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) };
+  if (options.start === "shoved" || options.start === "round") return { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) };
   if (!waypoint && !groundPostures(spec).includes(options.posture)) throw new Error(`${spec.model} has no installed ${options.posture} start`);
   const installed = options.start === "placed" ? poses.find(p => p.id === options.posture && p.model === spec.model) : undefined;
   for (let attempt = 0; attempt < 5; attempt++) {

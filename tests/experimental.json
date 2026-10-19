@@ -13,6 +13,7 @@
  "kick-walking-capability.test.mjs",
  "lab-loadout-capability.test.mjs",
  "lab-locomotion-capability.test.mjs",
+ "lab-stand-up-capability.test.mjs",
  "lab-mind-log-capability.test.mjs",
  "lab-stance-capability.test.mjs",
  "move-capability.test.mjs",

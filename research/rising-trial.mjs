@@ -4,23 +4,20 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { createWorld } from "../src/core/world.ts";
 import { loadEngine } from "../src/core/engine/engines.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
-import { observeBody } from "../src/core/observation.ts";
-import { recoveryMeasurement } from "../src/core/control/recovery-measurement.ts";
-import { clockSenses } from "../src/core/mind/senses.ts";
-import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { balanceCeiling, balancePercent, rulebook } from "../src/core/rules/rulebook.ts";
 import { addArenaSolids } from "../src/arena/room.ts";
 import { labAddress } from "../src/lab/scenarios.ts";
 import { loadoutSpec } from "../src/lab/loadout.ts";
 import { labActor } from "../src/lab/actor.ts";
 import { groundPlacement } from "../src/lab/ground-starts.ts";
-import { startGround } from "../src/lab/ground-mode.ts";
+import { startGround, targetImpulse } from "../src/lab/ground-mode.ts";
 import { strengthSpec, techniqueTrial } from "./rising-technique.mjs";
 import { risingMind } from "./rising-config.mjs";
 import { TECHNIQUES } from "../src/core/mind/ground/techniques.ts";
 
 /**
- * The same starts and instrumentation as the Lab; target verification is independent of hand-back.
+ * The same starts, instrumentation and stand verification as the Lab (`startGround`); the target
+ * counts a verified stand, independent of hand-back.
  * `subs`, an experiment's sub-minds in place of the config's, lets a search pass its settings in;
  * `stop`, asked each step with the world, the body and its actor, ends the fall early once the
  * search has what it scores.
@@ -56,39 +53,19 @@ export async function risingTrial(job, { subs, stop } = {}) {
   const world = createWorld(scene, await loadEngine("rapier"));
   addArenaSolids(world.physics);
   const built = buildBody(spec, world, placement);
-  if (job.target) address.ground.impulse = 1.5 * [...built.segments.values()].reduce((sum, part) => sum + part.rigid.mass, 0);
+  if (job.target) address.ground.impulse = targetImpulse(built);
   const actor = labActor(built, world, { mind: risingMind(job.sub ?? "support-recovery", job.techniques), ...(subs ? { subs } : {}),
     assist: balanceCeiling(balance, balancePercent(rulebook("arena"))) });
-  let orders = STAND_ORDERS;
-  const run = startGround(actor, address, { orders: () => orders });
-  const measure = job.target ? recoveryMeasurement(built, observeBody(built, actor.body.muscles, world, clockSenses(world), undefined, undefined, true)) : null;
-  let takeover = null, verified = null, quiet = 0, verifiedAt = null, stood = false, failedAfter = false, walked = null, walkFrom = null;
   const cap = Math.min(30, job.cap ?? 30);
+  const run = startGround(actor, address, { cap }), check = run.check.state;
+  let stood = false;
   try {
     while (world.time < cap + 4) {
       world.step();
       if (stop?.(world, built, actor)) break;
-      if (actor.body.has !== "command" && actor.body.has !== "nobody") takeover ??= world.time;
       if (job.target) {
-        const reading = measure();
-        if (takeover !== null && verifiedAt === null) {
-          quiet = reading.ready ? quiet + world.dt : 0;
-          if (quiet + 1e-9 >= .5) { verifiedAt = world.time; verified = world.time - takeover; }
-        } else if (verifiedAt !== null) {
-          if (reading.observation.down) { failedAfter = true; break; }
-          if (world.time - verifiedAt + 1e-9 >= 2) {
-            if (!walkFrom) walkFrom = [...reading.observation.centre];
-            orders = { ...STAND_ORDERS, move: { x: 0, z: 1 }, pace: .3 };
-          }
-          if (world.time - verifiedAt + 1e-9 >= 3) {
-            const centre = reading.observation.centre;
-            walked = Math.hypot(centre[0] - walkFrom[0], centre[2] - walkFrom[2]);
-            stood = actor.body.has === "command";
-            break;
-          }
-        }
-        if (takeover !== null && verifiedAt === null && world.time - takeover >= cap) break;
-        if (takeover === null && world.time >= 4) break;
+        if (run.check.done()) { stood = check.stage === "stood"; break; }
+        if (check.takeover === null && world.time >= 4) break;
       } else {
         if (run.meter.state.handback !== null) { stood = true; break; }
         if (run.state.status !== "running") break;
@@ -99,8 +76,8 @@ export async function risingTrial(job, { subs, stop } = {}) {
     if (!stood) run.meter.cap();
     const frame = run.frame();
     return { ...job, balance, cap, status: stood ? "stood" : run.state.status === "landed standing" ? "landed standing"
-      : takeover === null && job.start === "shoved" ? "no takeover" : failedAfter ? "fell after verification" : "failed",
-      stood, handback: frame.handback, handBackReason: frame.handBackReason, takeover, verified, walked, trail: frame.trail, attempts: frame.attempts,
+      : check.takeover === null && job.start === "shoved" ? "no takeover" : check.stage === "fell after verification" ? "fell after verification" : "failed",
+      stood, handback: frame.handback, handBackReason: frame.handBackReason, takeover: check.takeover, verified: check.verified, walked: check.walked, trail: frame.trail, attempts: frame.attempts,
       phases: frame.phases, assist: frame.assist };
   } finally { run.dispose(); built.dispose(); world.dispose(); scene.dispose(); engine.dispose(); }
 }

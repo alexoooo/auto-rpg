@@ -1376,7 +1376,7 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   where nothing need be read (`SightIndex`), made again when a door opens. The
   page hears every built body where the party sees (`hearRun`, `hearing.ts`), its listener made
   again when a body is built.
-- **The lab** (`src/lab/`): one body at a time in the Stance, Get-up experiment, On the ground, Attack and Locomotion
+- **The lab** (`src/lab/`): one body at a time in the Stance, Get-up experiment, Stand-up, Attack and Locomotion
   scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
   Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
   page chose: its balance, its mind and the strikes it may throw. The mind is a fighter
@@ -1407,14 +1407,19 @@ the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspe
   checks handover. The Mind editor selects the recovery controller. Stress cases reproduce
   named directional falls. The history records the owning controller, recovery control time,
   force/moment with their ceilings, and release to the host.
-  **On the ground** supplies seeded placed, dropped and shoved starts (`ground-starts.ts`).
-  Joint kinematics reject nonadjacent shape overlap before physics starts; a draw that cannot
-  clear in five attempts is reported. Its selected mind runs immediately, with recovery supplied
-  in the default tree, and an optional hanging foe enters the same senses as combat targets.
-  Ground classifications, support loads, recovery phases, attempts and assist impulses are
-  recorded with the body and foe. `research/rising-bed.mjs` runs these starts in worker threads;
-  its separate target mode fixes the 64 directional falls and verifies quiet standing and the
-  host's subsequent stand and walk independently of the controller's hand-back.
+  **Stand-up** (`ground-scenario.ts`, `ground-mode.ts`) supplies seeded placed, dropped and
+  shoved starts (`ground-starts.ts`), and a round of the owner's target's falls: 1.5 N s a kg at
+  the chest, sixteen ways round one after another on the one body, each once it is back on its
+  feet, the round ending where it is still down 30 s after a verdict. Joint kinematics reject
+  nonadjacent shape overlap before physics starts; a draw that cannot clear in five attempts is
+  reported. The body gets up by the game's Stand up (step-up), the learned rise, support
+  recovery or its mind's own sub-minds, or a technique runs alone; an optional hanging foe
+  enters the same senses as combat targets. Every stand is verified (`STAND_CHECK`): from the
+  recovery's takeover, upright and loaded on both feet and quiet 0.5 s, then holding 2 s and
+  walking 1 s with the host in command, independently of the controller's hand-back. Ground
+  classifications, support loads, recovery phases, attempts and assist impulses are recorded
+  with the body and foe. `research/rising-bed.mjs` runs the same mode in worker threads, a fresh
+  body a fall; its target mode is the 64 falls, the round's on four loadouts.
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
   with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).
 - **The physics bench** (`/physics-bench.html`, `src/physics-bench/`): the bake-off's cases on

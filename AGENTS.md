@@ -207,8 +207,9 @@ screens build on it; it never imports them.
 The owner's fast, robust unassisted stand-up goal is unfinished. Assisted recovery is a separate
 experiment and cannot satisfy it. A stand-up is read on the owner's 64-fall target
 (`node research/rising-bed.mjs --target`: the Warrior and the Rogue, empty-handed and with the
-club, shoved sixteen ways, through the Lab's ground mode), the game's Stand up (`step-up`) as the
-baseline. A controller that acts on the muscles from an observation runs on the stand-up screen's
+club, shoved sixteen ways, through the Lab's Stand-up mode, `src/lab/ground-mode.ts`), the game's
+Stand up (`step-up`) as the baseline; the Lab's Stand-up scenario plays the same falls as a round
+on one body. A controller that acts on the muscles from an observation runs on the stand-up screen's
 sixteen falls, made afresh each run (`node research/stand-up-acceptance.mjs --candidate <module>`).
 Nothing in either is fixed: a protocol changes when a controller needs it to, and a figure read
 on an earlier protocol is read again before it is compared. Report failures and

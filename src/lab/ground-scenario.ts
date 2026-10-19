@@ -1,11 +1,12 @@
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import type { LabScenario, LabShell } from "./lab-scenario.ts";
-import { labAddress, type LabAddress } from "./scenarios.ts";
-import { groundShove, startGround } from "./ground-mode.ts";
+import { GROUND_RISES, labAddress, type GroundRise, type LabAddress } from "./scenarios.ts";
+import { groundShove, ROUND_FALLS, startGround, STAND_CHECK } from "./ground-mode.ts";
 import { groundPlacement, groundPostures } from "./ground-starts.ts";
 import { groundTechnique, plantWaypoint } from "./ground-technique.ts";
-import { TECHNIQUES } from "../core/mind/ground/techniques.ts";
+import { TECHNIQUES, type TechniqueName } from "../core/mind/ground/techniques.ts";
+import { STAND_UP, type FighterConfig } from "../core/mind/config.ts";
 import { recordHistory } from "./history.ts";
 import { createPlayer } from "./player.ts";
 import { shoveSound } from "./sound-log.ts";
@@ -13,7 +14,30 @@ import { loadoutSpec } from "./loadout.ts";
 import { drawBody } from "../render/body-shapes.ts";
 import { action, choice, following, menu, note, quantity, readings, slider, toggle, when } from "../ui/controls.ts";
 
-/** Ground starts, live recovery evidence, and repeated falls on the same physical body. */
+/** What each way of getting up is called in the menu. */
+const RISES: Readonly<Record<GroundRise, string>> = { "step-up": "Stand up: step up, as the game", "learned-rise": "Stand up: learned rise (experimental)",
+  "support-recovery": "Support recovery (experimental)", mind: "As its mind says" };
+
+/** The mind `chosen` with its sub-minds those `rise` names: the game's Stand up by one technique, support recovery, or its own. */
+function risingBy(chosen: FighterConfig, rise: GroundRise): FighterConfig {
+  switch (rise) {
+    case "step-up": return { ...chosen, subs: [STAND_UP] };
+    case "learned-rise": return { ...chosen, subs: [{ ...STAND_UP, techniques: ["learned-rise"] }] };
+    case "support-recovery": return { ...chosen, subs: [{ kind: "support-recovery" }] };
+    case "mind": return chosen;
+    default: { const never: never = rise; throw new Error(`unknown rise ${String(never)}`); }
+  }
+}
+
+/**
+ * **The Stand-up scenario**: a body shoved, dropped or placed on the ground, or put through a round
+ * of the owner's target's falls (sixteen ways round, one after another, each once it stands
+ * again), getting up by the game's Stand up or another way, or a technique alone. Every stand is
+ * verified as the target verifies it (`STAND_CHECK`: quiet, upright and on both feet, then holding
+ * and a short walk); the readout is the time from its recovery's takeover to that, the round's
+ * totals, and the ground history (`ground-meter.ts`). The rising bed runs the same mode
+ * (`research/rising-bed.mjs`).
+ */
 export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
   let address = labAddress("?scenario=ground"), fault = "";
   let current: { shove(): void } | null = null;
@@ -23,12 +47,14 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
   const phases = note(() => shown ? Object.entries(shown.phases).map(([phase, seconds]) => `${phase}: ${seconds.toFixed(2)} s`).join("; ") : "");
   const change = (ground: Partial<LabAddress["ground"]>) => shell.load({ ...address, ground: { ...address.ground, ...ground } });
   const meter = readings({ position: { name: "Position" }, doing: { name: "Sub-mind / mode / phase" }, reached: { name: "Technique reached" },
-    seconds: { name: "Time down", unit: "s" }, handback: { name: "Time to hand-back", unit: "s" }, handbackRule: { name: "Hand-back rule" },
+    seconds: { name: "Time down", unit: "s" }, check: { name: "Stand check" }, verified: { name: "Up and quiet", unit: "s from takeover" },
+    round: { name: "Round" }, handback: { name: "Time to hand-back", unit: "s" }, handbackRule: { name: "Hand-back rule" },
     hands: { name: "Hand loads", unit: "body weight" }, feet: { name: "Foot loads", unit: "body weight" },
     balance: { name: "Balance", unit: "%" }, assist: { name: "Peak help", unit: "N / N m" },
     impulse: { name: "Total help", unit: "N s / N m s" }, totals: { name: "Falls / stood / median / worst" }, status: { name: "Run" } });
   return {
     keys: new Set(),
+    mind: (chosen) => risingBy(chosen, address.ground.rise),
     subs(next) {
       const name = next.ground.drive;
       return name === "mind" ? undefined : [(own, view, world) => groundTechnique(name, own, view, world, next.ground.start !== "shoved")];
@@ -40,7 +66,8 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
     },
     panels: {
       scenario: [
-        choice("Start", (["shoved", "dropped", "placed"] as const).map(value => ({ value, name: value })), () => address.ground.start, start => change({ start })),
+        choice("Start", (["shoved", "dropped", "placed", "round"] as const).map(value => ({ value, name: value === "round" ? `round of ${ROUND_FALLS}` : value })),
+          () => address.ground.start, start => change({ start })),
         quantity("Seed", 1, value => Number.isSafeInteger(value) && value >= 0 && value <= 4294967295, () => address.seed,
           seed => shell.load({ ...address, seed })),
         when(() => address.ground.start === "placed", following(() => address.model, () => menu("Posture",
@@ -48,9 +75,11 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
         when(() => address.ground.start === "shoved", slider("Shove direction", 0, 360, 5, () => groundShove(address).degrees, degrees => change({ degrees }), value => value.toFixed(1))),
         when(() => address.ground.start === "shoved", slider("Shove impulse, N s", 40, 90, 1, () => groundShove(address).impulse, impulse => change({ impulse }), value => value.toFixed(1))),
         when(() => address.ground.start === "shoved", action("Draw shove from seed", () => change({ degrees: null, impulse: null }))),
-        following(() => address.model, () => menu("Driven by", [{ value: "mind", name: "As the mind does" },
-          ...Object.entries(TECHNIQUES).filter(([, technique]) => technique.fits(loadoutSpec(address))).map(([value, spec]) => ({ value, name: `${spec.label} (experimental)` }))],
-        () => address.ground.drive, value => change({ drive: value as LabAddress["ground"]["drive"] }))),
+        following(() => address.model, () => menu("Gets up by", [
+          ...GROUND_RISES.map((rise) => ({ value: `rise:${rise}`, name: RISES[rise] })),
+          ...Object.entries(TECHNIQUES).filter(([, technique]) => technique.fits(loadoutSpec(address))).map(([value, spec]) => ({ value: `alone:${value}`, name: `${spec.label} alone (experimental)` }))],
+        () => address.ground.drive === "mind" ? `rise:${address.ground.rise}` : `alone:${address.ground.drive}`,
+        value => value.startsWith("rise:") ? change({ drive: "mind", rise: value.slice(5) as GroundRise }) : change({ drive: value.slice(6) as TechniqueName }))),
         when(() => address.ground.start === "placed" && address.ground.drive === "plant-up", menu("Waypoint",
           (["none", "brace", "plant", "transfer", "rise"] as const).map(value => ({ value, name: value === "none" ? "Selected posture" : value })),
           () => address.ground.waypoint, waypoint => change({ waypoint }))),
@@ -59,7 +88,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
         note(() => fault),
       ],
       controls: [action("Next seed", () => shell.load({ ...address, seed: (address.seed + 1) >>> 0 })),
-        action("Shove again", () => current?.shove())],
+        when(() => address.ground.start !== "round", action("Shove again", () => current?.shove()))],
       readout: [meter, trail, attempts, phases],
     },
     timelineLabel: "The last 35 seconds, one physics step per notch.",
@@ -82,7 +111,9 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
           const seconds = (v: number | null) => v === null ? "—" : v.toFixed(2);
           const load = (name: string) => loads[name]?.toFixed(2) ?? "—";
           meter.write({ position: shown.position, doing: `${shown.controller} / ${shown.mode} / ${shown.phase} ${shown.stage ?? ""}`, reached: shown.techniqueReached === null ? "—" : shown.techniqueReached ? "yes" : "no",
-            seconds: shown.seconds.toFixed(2), handback: seconds(shown.handback), handbackRule: shown.handBackReason ?? "—",
+            seconds: shown.seconds.toFixed(2), check: shown.check.stage, verified: seconds(shown.check.verified),
+            round: shown.round ? `${shown.round.falls} of ${shown.round.of}: stood ${shown.round.stood}, within 6 s ${shown.round.within6}, median ${seconds(shown.round.median)} s (a failure at ${STAND_CHECK.cap} s)` : "—",
+            handback: seconds(shown.handback), handbackRule: shown.handBackReason ?? "—",
             hands: `${load("hand.left")} / ${load("hand.right")}`,
             feet: `${load("foot.left")} / ${load("foot.right")}`,
             balance: String(shown.balance), assist: `${shown.assist.forcePeak.toFixed(2)} / ${shown.assist.momentPeak.toFixed(2)}`,

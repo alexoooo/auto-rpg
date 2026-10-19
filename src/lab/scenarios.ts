@@ -38,7 +38,7 @@ interface ScenarioInfo {
 export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "stance", name: "Stance" },
   { id: "recovery", name: "Get-up experiment" },
-  { id: "ground", name: "On the ground" },
+  { id: "ground", name: "Stand-up" },
   { id: "attack", name: "Attack" },
   { id: "locomotion", name: "Locomotion" },
 ];
@@ -101,14 +101,22 @@ export function labMind(config: MindConfig, spec: BodySpec, scenario: ScenarioId
   return { plays: config.kind === "fighter" && faults.length === 0 ? config : scenario === "attack" ? PUNCHER : LAB_PRESETS.script.config, faults };
 }
 
+/** What a Stand-up body gets up by (`LabAddress.ground.rise`): the first is the game's. */
+export const GROUND_RISES = ["step-up", "learned-rise", "support-recovery", "mind"] as const;
+export type GroundRise = (typeof GROUND_RISES)[number];
+
 /** The Attack field's target count and random seed unless the address supplies them. */
 const LAB_TARGETS = { most: 30, count: 10, seed: 1 } as const;
 
 export interface LabAddress extends LabLoadout, ViewSettings {
   readonly ground: {
+    /** A technique run alone in place of the mind's sub-minds; "mind" runs the mind's. */
     readonly drive: "mind" | TechniqueName;
+    /** What the mind gets up by: the game's Stand up by one of its techniques, support recovery, or the mind's own sub-minds. */
+    readonly rise: GroundRise;
     readonly waypoint: "none" | "brace" | "plant" | "transfer" | "rise";
-    readonly start: "shoved" | "dropped" | "placed";
+    /** Shoved once, dropped, placed on the ground, or a round of the owner's target's falls (`startGround`). */
+    readonly start: "shoved" | "dropped" | "placed" | "round";
     readonly posture: "back" | "front" | "left" | "right" | "fours" | "half-kneel" | "squat";
     /** Null draws the shove from the seed. */
     readonly degrees: number | null;
@@ -134,7 +142,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly seed: number;
 }
 
-const KEYS = ["groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
+const KEYS = ["groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -159,7 +167,8 @@ export function labAddress(search: string): LabAddress {
     ground: {
       drive: (Object.keys(TECHNIQUES) as TechniqueName[]).find(v => v === query.get("groundDrive")) ?? "mind",
       waypoint: (["none", "brace", "plant", "transfer", "rise"] as const).find(v => v === query.get("groundWaypoint")) ?? "none",
-      start: (["shoved", "dropped", "placed"] as const).find(v => v === query.get("groundStart")) ?? "shoved",
+      rise: GROUND_RISES.find(v => v === query.get("groundRise")) ?? "step-up",
+      start: (["shoved", "dropped", "placed", "round"] as const).find(v => v === query.get("groundStart")) ?? "shoved",
       posture: (["back", "front", "left", "right", "fours", "half-kneel", "squat"] as const).find(v => v === query.get("groundPosture")) ?? "back",
       degrees: query.has("groundDegrees") ? bounded("groundDegrees", 0, 360, 0) : null,
       impulse: query.has("groundImpulse") ? bounded("groundImpulse", 40, 90, 60) : null,
@@ -202,6 +211,7 @@ export function labHref(address: LabAddress, search = ""): string {
   query.delete("groundWaypoint");
   if (address.ground.drive !== "mind") query.set("groundDrive", address.ground.drive);
   if (address.ground.waypoint !== "none") query.set("groundWaypoint", address.ground.waypoint);
+  if (address.ground.rise !== "step-up") query.set("groundRise", address.ground.rise);
   if (address.ground.start !== "shoved") query.set("groundStart", address.ground.start);
   if (address.ground.posture !== "back") query.set("groundPosture", address.ground.posture);
   if (address.ground.degrees !== null) query.set("groundDegrees", String(address.ground.degrees));

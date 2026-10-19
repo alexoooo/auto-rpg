@@ -4,11 +4,11 @@ import assert from "node:assert/strict";
 import { modelSpec } from "../src/core/models.ts";
 import { uprightness } from "../src/core/control/ground.ts";
 import { groundPlacement, groundPlacementFaults, groundPostures, GROUND_POSTURES } from "../src/lab/ground-starts.ts";
-import { groundShove, startGround } from "../src/lab/ground-mode.ts";
+import { groundShove, ROUND_FALLS, startGround, STAND_CHECK, targetImpulse } from "../src/lab/ground-mode.ts";
 import { groundMind } from "../src/lab/ground-config.ts";
 import { labAddress, labHref, LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { labActor } from "../src/lab/actor.ts";
-import { CLASSIC } from "../src/core/mind/config.ts";
+import { CLASSIC, PUNCHER, STAND_UP } from "../src/core/mind/config.ts";
 import { risingOptions, risingJobs, risingReport } from "../research/rising-bed.mjs";
 import { risingTrial } from "../research/rising-trial.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
@@ -20,7 +20,7 @@ const address = (start, seed = 4, posture = "back") => {
 };
 
 test("ground address preserves each restart control and selects only installed postures", () => {
-  const input = { ...address("placed", 12, "fours"), ground: { ...address("placed").ground, drive: "plant-up", waypoint: "plant", posture: "fours", degrees: 172, impulse: 83, foe: 2, gusts: true } };
+  const input = { ...address("placed", 12, "fours"), ground: { ...address("placed").ground, drive: "plant-up", rise: "learned-rise", waypoint: "plant", posture: "fours", degrees: 172, impulse: 83, foe: 2, gusts: true } };
   assert.deepEqual(labAddress(labHref(input)), input);
   assert.deepEqual(groundPostures(modelSpec("workshop-fighter")), GROUND_POSTURES);
   assert.deepEqual(groundPostures(modelSpec("workshop-rogue")), ["back", "front", "left", "right"]);
@@ -160,5 +160,31 @@ test("a standalone Lab technique retains its terminal attempt until restart", as
     assert.equal(run.frame().techniqueReached, attempts[0].end === "done");
     run.shove(); stand.step(2 * 120);
     assert.deepEqual(run.frame().attempts, attempts);
+  } finally { run.dispose(); stand.dispose(); }
+});
+
+test("a round shoves at the target's impulse, and shoves again only once its stand is verified and the body is back on its feet", async () => {
+  const spec = modelSpec("workshop-fighter"), at = address("round"), pushed = [];
+  const stand = await coreStand(spec, groundPlacement(spec, at));
+  const run = startGround(labActor(stand.built, stand.world, { mind: { ...PUNCHER, subs: [STAND_UP] } }), at,
+    { pushed: (segment, impulse) => pushed.push({ step: stand.world.steps, impulse: impulse.asArray(), falls: run.state.falls.length }) });
+  try {
+    stand.step(121);
+    assert.equal(pushed.length, 1); assert.equal(pushed[0].step, 120);
+    assert.ok(Math.abs(Math.hypot(...pushed[0].impulse) - targetImpulse(stand.built)) < 1e-9, "the target's 1.5 N s a kg");
+    let verified = null;
+    while (pushed.length < 2 && stand.world.time < 40) {
+      stand.step();
+      if (verified === null && run.check.state.stage === "holding") verified = stand.world.time;
+    }
+    const [fall] = run.state.falls;
+    assert.ok(verified !== null, "its stand was verified");
+    assert.equal(fall.end, "stood"); assert.equal(fall.degrees, 0);
+    assert.ok(fall.verified > 0 && fall.verified < STAND_CHECK.cap);
+    // The next shove: after the hold and the walk, the next way round, and the check begun afresh.
+    assert.equal(pushed.length, 2); assert.equal(pushed[1].falls, 1);
+    assert.ok(pushed[1].step / stand.world.hz >= verified + STAND_CHECK.standing + STAND_CHECK.walking);
+    assert.equal(run.check.state.takeover, null);
+    assert.deepEqual(run.frame().round, { falls: 1, of: ROUND_FALLS, stood: 1, within6: Number(fall.verified <= 6), median: fall.verified });
   } finally { run.dispose(); stand.dispose(); }
 });

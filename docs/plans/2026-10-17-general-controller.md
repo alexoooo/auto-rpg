@@ -199,8 +199,9 @@ trials. The Warrior's running step width is 0.31 m; acceleration from 1 to 3 m/s
 `a42d7f2c`.
 
 On the owner's 64-fall target (`node research/rising-bed.mjs --target --sub stand-up
---techniques step-up`, 30 s cap), step-up stands 47 of 64 (the Warrior 15 and 16 of 16, empty and
-with the club, medians 14.2 and 15.8 s; the Rogue 9 and 7, median 25.2 s and the cap). None stands within 6 s; the route's floor is about
+--techniques step-up`, 30 s cap), step-up stands 46 of 64 (the Warrior 15 and 15 of 16, empty and
+with the club, medians 13.6 and 14.4 s; the Rogue 12 and 4, medians 18.1 s and the cap), a
+failure-inclusive median of 16.2 s. None stands within 6 s; the route's floor is about
 9 s. Balance stands no more
 and no faster (the Warrior 20 of 26 at 25 %, 14.8 s).
 
@@ -259,6 +260,14 @@ commands are torques: the contact sequence on the solve, not built. The stand-up
 (`research/stand-up-acceptance.mjs`) takes a candidate as actions on the muscles or joint targets
 from an observation; the learned rise steers step-up's recipe inside the game, a technique like
 step-up, so it is read on the target, where any technique runs (`--techniques`).
+
+The Lab's Stand-up scenario plays the target's falls as a round on one body (Node stand, Rapier,
+120 Hz, Balance 0, the Lab's 200 m floor; `tests/lab-stand-up-capability.test.mjs`). The Warrior
+empty-handed stands 14 of 16 by step-up (median 14.6 s, a failure at 30 s) and 15 of 16 by the
+learned rise (8.4 s); with the club 14 and 16 (13.2 and 8.2 s). The Rogue's rounds end down:
+by step-up after 9 falls (empty) and 5 (club), by the learned rise after 2 (empty), its rise
+reaching a crouch and falling back from it; by the learned rise with the club it stands 16 of
+16 (12.0 s).
 
 **Stage 5, strikes and holds: open; the strike's gate unmet.** A command drives an effector's
 point at an acceleration through the solve (`PointTask`), and the options fighter's straight
