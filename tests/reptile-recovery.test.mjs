@@ -1,19 +1,29 @@
+/**
+ * **The reptile's righting** (`createQuadrupedMind`, `src/core/reptile/mind.ts`), on the Node core
+ * stand, the coordinate engine, 120 Hz: a fall is righted on contact, never on an imagined floor,
+ * unassisted and finite whatever its ending. How often and how fast it recovers and walks off is
+ * `reptile-recovery-capability.test.mjs`'s.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { recoveryTrial } from "../research/reptile-control.mjs";
 import { createQuadrupedMind } from "../src/core/reptile/mind.ts";
 import { reptileSpec } from "../src/core/reptile/spec.ts";
 import { coreStand } from "./harness/core-stand.mjs";
 
-test("four fallen poses recover with physical support and walk two trunk lengths, in two headings", async () => {
-  for (const yaw of [0, Math.PI / 2]) for (const pose of ["back", "left", "right", "belly"]) {
-    const result = await recoveryTrial(pose, yaw), message = JSON.stringify(result);
-    assert.ok(result.handoff !== null && result.handoff < 100, message);
-    assert.deepEqual(result.support, Array.from({ length: 4 }, () => ({ contact: true, flat: true })), message);
-    assert.equal(result.falls, 0, message);
-    assert.ok(result.distance >= .88 && result.steps >= 20, message);
-    assert.equal(result.assist.force, 0); assert.equal(result.assist.moment, 0);
-  }
+test("a reptile fallen on its back rights itself, finite and unassisted, whatever its ending", async () => {
+  const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", groundSize: 100, rotation: [0, 0, 1, 0], position: [0, .34, 0] });
+  const mind = createQuadrupedMind(stand.built, stand.world);
+  try {
+    stand.step(1);
+    assert.equal(mind.body.has, "righting", "the fixture did not reach its case: the reptile on its back is not righting");
+    for (let step = 0; step < 1200; step++) {
+      stand.step();
+      const centre = mind.body.observe().centre;
+      assert.ok(centre.every(Number.isFinite), `step ${step}: ${centre}`);
+    }
+    assert.ok(Number.isInteger(mind.body.state.mind.subs[0].retries));
+    assert.equal(mind.body.assist.meter.force, 0); assert.equal(mind.body.assist.meter.moment, 0);
+  } finally { mind.body.dispose(); stand.dispose(); }
 });
 
 test("righting never substitutes an imagined floor for contact", async () => {

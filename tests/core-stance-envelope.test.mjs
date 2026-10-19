@@ -2,14 +2,13 @@
  * **The stance's, the stride's and the SIMBICON walk's envelopes**
  * (`src/core/control/stance-envelope.ts`, `assets/core/stance-envelope.json`,
  * `assets/core/stride-envelope.json`, `assets/core/simbicon-envelope.json`, `assets/core/simbicon-run-envelope.json`): each asset was measured
- * on the parent-axis Rapier reference harness at the game's rate; this battery does not establish
- * coordinate-engine or reduced-balance capability. Each body's fastest walk and its turn at each
- * speed are the rule's reading of its own tables, by each walk; the rules, sampled both sides; a
- * body carries its envelope, and none under another stance tuning or while it is measured, and the
- * stride and the SIMBICON walk their own where the body has one, the run's while it may run; the lab's turn rate is inside every body's at the
- * Routine's pace; and at its fastest walk each body, as a fight plays it with each thing it holds,
- * holds all five ways again, and at the fastest walk forward it turns at, its fastest turn there
- * both ways, begun as the walk sets off and under way, by each walk (Node core stand, Rapier, 120 Hz).
+ * on the parent-axis Rapier reference harness at the game's rate; each body's fastest walk and its
+ * turn at each speed are the rule's reading of its own tables, by each walk; the rules, sampled both
+ * sides; a body carries its envelope, and none under another stance tuning or while it is measured,
+ * and the stride and the SIMBICON walk their own where the body has one, the run's while it may run;
+ * the lab's turn rate is inside every body's at the Routine's pace; a turn trial refuses a rate that
+ * cannot finish (Node core stand, Rapier, 120 Hz). Whether each body holds its tables again is
+ * `core-stance-envelope-capability.test.mjs`'s.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -24,7 +23,7 @@ import { simbicon } from "../src/core/skills/simbicon.ts";
 import { stride } from "../src/core/skills/stride.ts";
 import { LAB_TURN_RATE } from "../src/lab/stance-mode.ts";
 import { TURN_PACE } from "../src/lab/track.ts";
-import { CORE_STANCE_HARNESS, turn, walk } from "../research/core-stance-trials.mjs";
+import { CORE_STANCE_HARNESS, turn } from "../research/core-stance-trials.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 
 const read = async (file) => JSON.parse(await readFile(new URL(`../assets/core/${file}`, import.meta.url), "utf8"));
@@ -203,51 +202,6 @@ test("a_body_carries_its_envelope_and_none_under_another_tuning_and_the_stride_a
   } finally { stand.dispose(); }
 });
 
-// A body that held no speed every way has no walk to hold again.
-for (const { name, asset, legs } of WALKS) for (const model of Object.keys(asset.models).filter((m) => asset.models[m].walk > 0)) {
-  test(`${model}_holds_every_way_at_its_fastest_${name}_walk`, async () => {
-    const speed = asset.models[model].walk;
-    const fell = [];
-    for (const held of asset.holds) for (const degrees of asset.ways) if ((await walk({ model, degrees, speed, held, stance: {}, hz: asset.hz, legs, setOff: asset.setOff, rest: asset.rest })).fell) fell.push(`${held} ${degrees}`);
-    assert.deepEqual(fell, [], `${model} at ${speed} m/s`);
-  });
-}
-
 test("a_turn_trial_rejects_rates_that_cannot_finish_a_half_turn", async () => {
   for (const rate of [0, -1, Infinity, NaN]) await assert.rejects(turn({ rate }), /finite and positive/);
 });
-
-/**
- * Why a walk's turns do not hold again: the stance's and the stride's tables count a turn held
- * where the body stayed up, not where it faced round (`turnedAsAsked`). Read under that rule, the
- * stance walk's turns are 1 rad/s where its table says 2 to 4, and each way read alone gives it
- * caps of its own; under both, the Warrior walking the Lab's shuttle swings 46 cm off it and the
- * Puncher's fist meets 1 kg, a change to how a fight walks that is the owner's to make.
- */
-const STALE_TURNS = "the stance's and the stride's tables count a turn held where the body stayed up, not where it faced round";
-// A body that turned at no speed has no turn to hold again.
-for (const { name, asset, legs } of WALKS) for (const model of Object.keys(asset.models).filter((m) => asset.models[m].turns.some((t) => t > 0))) {
-  test(`${model}_turns_both_ways_at_its_fastest_turn_at_the_fastest_${name}_walk_forward_it_turns_at_from_setting_off_and_under_way`, { todo: name.startsWith("simbicon") ? false : STALE_TURNS }, async () => {
-    const { turns } = asset.models[model], i = turns.findLastIndex((t) => t > 0), speed = asset.speeds[i], rate = turns[i];
-    const fell = [];
-    for (const held of asset.holds) for (const after of [asset.afters[0], asset.afters.at(-1)]) for (const sense of asset.senses) {
-      const r = await turn({ model, speed, rate, sense, held, after, stance: {}, hz: asset.hz, legs });
-      if (r.fell || !turnedAsAsked(r.lag)) fell.push(`${held} ${after} ${sense}${r.fell ? "" : ` lagging ${r.lag.toFixed(2)} rad`}`);
-    }
-    assert.deepEqual(fell, [], `${model} walking ${speed} m/s, turning ${rate} rad/s`);
-  });
-}
-
-// Where an asset measured each way, each body holds each way at its fastest that way, with each thing held at its own where the asset measured it.
-for (const { name, asset, legs } of WALKS) for (const model of Object.keys(asset.models).filter((m) => asset.models[m].byWay)) {
-  test(`${model}_holds_each_way_at_its_fastest_${name}_walk_that_way`, async () => {
-    const entry = asset.models[model], trials = [];
-    for (const held of asset.holds) {
-      const { byWay } = entry.holds?.[held] ?? entry;
-      asset.ways.forEach((degrees, i) => { if (byWay[i] > 0) trials.push({ held, degrees, speed: byWay[i] }); });
-    }
-    const falls = [];
-    for (const trial of trials) if ((await walk({ model, ...trial, stance: {}, hz: asset.hz, legs, setOff: asset.setOff, rest: asset.rest })).fell) falls.push(`${trial.held} ${trial.degrees} at ${trial.speed}`);
-    assert.deepEqual(falls, [], model);
-  });
-}

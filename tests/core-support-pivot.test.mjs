@@ -1,3 +1,10 @@
+/**
+ * **Edge support on all fours** (`foursSupport`, `tests/fixtures/fours-support.mjs`), on the Node core
+ * stand, the coordinate engine, 120 Hz: a knee-weight shift that all-corner sticking lets collapse is
+ * retained on the shins' edges, nothing else of the body touching, within every joint's effort and
+ * unassisted, and a fork of it plays the same. How far the shift goes is
+ * `core-support-pivot-capability.test.mjs`'s.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { foursSupport } from "./fixtures/fours-support.mjs";
@@ -30,9 +37,6 @@ test("edge support retains a knee-weight shift on all fours that all-corner stic
     const o = expected.trace.at(-1), load = name => o.contacts.filter(c => c.segment === name && c.fixed !== null)
       .reduce((sum, c) => sum + c.impulse / f.stand.world.dt, 0);
     assert.ok(load("shank.left") > 100 && load("shank.right") > 100);
-    // The shift goes most of the way it was asked: what is left is under a third of it.
-    const { from, target } = f.body.mind.state, apart = (a, b) => Math.sqrt(a.reduce((sum, x, k) => sum + (x - b[k]) * (x - b[k]), 0));
-    assert.ok(apart(o.centre, target) < apart(from, target) / 3, JSON.stringify({ from, target, actual: o.centre }));
     assert.equal(f.body.mind.state.tracking.contact.status, "accepted");
   } finally { f.dispose(); }
 });

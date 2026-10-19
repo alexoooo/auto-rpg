@@ -6,9 +6,7 @@ import { RISE } from '../src/core/mind/rise/stages.ts';
 const bearingLimbs = bearing => RISE.limbs.filter((_, i) => bearing[i]).map(limb => limb.name).sort();
 
 for (const hand of ['left', 'right']) {
-  test(`${hand} hand unloads only over three real supports without external assistance`, {
-    todo: hand === "right" && "the legs are the run's (`owner-run-body`: hip x2.49, knee x1.58, calf x2.75, leg speed x1.98), and the right hand's fixture no longer starts outside the retained supports",
-  }, async () => {
+  test(`${hand} hand unloads only over three real supports without external assistance`, async () => {
     const row = await transferTrial({ hand });
     assert.ok(Number.isFinite(row.gapBefore) && row.gapBefore > 0, 'the fixture starts outside the retained supports');
     assert.ok(row.released && row.released.seconds > 0 && row.released.seconds < 3, JSON.stringify(row));

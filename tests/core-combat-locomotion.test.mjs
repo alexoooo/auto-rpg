@@ -1,23 +1,21 @@
+/**
+ * **Locomotion in a fight** (`src/core/skills/locomotion.ts`), on the Node core stand and a Rapier
+ * Arena bout, 120 Hz: the heading a fast turn asks never turns faster than its ceiling, and no assist
+ * acts; a configured ceiling holds through an Arena approach and a fork of it plays the same. Whether
+ * the turn stands is `core-combat-locomotion-capability.test.mjs`'s.
+ */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {combatTurn} from '../research/combat-locomotion.mjs';
-import {locomotion,validTurnLimit} from '../src/core/skills/locomotion.ts';
 import {SCRAPPER} from '../src/core/mind/config.ts';
 import {buildBout} from '../research/bout.mjs';
 import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {traceOf} from './harness/trace.mjs';
 
-test('heading ceilings reject invalid values and an omitted ceiling retains the envelope',()=>{
- for(const value of [-1,0,Infinity,NaN,null]){assert.equal(validTurnLimit(value),false);assert.throws(()=>locomotion(null,value),/finite and positive/);}
- assert.equal(validTurnLimit(),true);assert.equal(validTurnLimit(2),true);
-});
-
-test('an unassisted Warrior starting a fast left turn stands, at the asked rate or under the shared ceiling',async()=>{
- // A step lands no further round than the bearing hip lets the pelvis turn (`landingHeading`); without it these three fell.
+test('an unassisted Warrior starting a fast left turn turns at the asked rate or under the shared ceiling, unassisted',async()=>{
  for(const speed of [.18,.35,.5]){
   const config={speed,rate:4,sense:-1,after:0};
   for(const [run,most] of [[await combatTurn(config),4],[await combatTurn({...config,turnLimit:2}),2]]){
-   assert.equal(run.firstDown,null,JSON.stringify(run));assert.equal(run.phase,'stand');assert.ok(run.strides>4);
    assert.ok(Math.abs(run.maximumTurn-most)<1e-9,JSON.stringify(run));assert.deepEqual(run.assist,{steps:0,force:0,moment:0});
   }
  }

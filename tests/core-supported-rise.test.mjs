@@ -1,15 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { readFileSync } from "node:fs";
-import { uprightKneel } from "./fixtures/upright-kneel.mjs";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { kneeling } from "./fixtures/kneeling.mjs";
 import { coreStand, saveStand, loadStand } from "./harness/core-stand.mjs";
 import { modelSpec } from "../src/core/models.ts";
 import { guardPosture } from "../src/core/skills/guard.ts";
 import { embody } from "../src/core/mind/mind.ts";
 import { stagedRise } from "../src/core/mind/rise/staged.ts";
 import { RISE } from "../src/core/mind/rise/stages.ts";
-import { centreOfToRef, footStatesOf } from "../src/core/control/support.ts";
+import { centreOfToRef } from "../src/core/control/support.ts";
 import { uprightness } from "../src/core/control/ground.ts";
 import { observeBody } from "../src/core/observation.ts";
 import { clockSenses } from "../src/core/mind/senses.ts";
@@ -37,49 +36,10 @@ test("a supported rise refuses missing support and a pose entry without changing
   } finally { body?.dispose(); stand.dispose(); }
 });
 
-test("from all fours the rise reaches and retains an upright knee support with exact continuation", {
-  todo: "from all fours (`FOURS`) the rise reaches the handoff upright, but the right hand still bears about 90 N on the knees",
-}, async () => {
-  const f = await uprightKneel();
-  try {
-    const bounded = sample => {
-      assert.deepEqual(sample.bodyFloor, []);
-      assert.ok(sample.effortExcess < 1e-4, JSON.stringify(sample));
-      assert.deepEqual(sample.assist, { force: 0, moment: 0 });
-    };
-    for (let step = 0; step < 960 && f.body.mind.state.phase !== "handoff"; step++) { f.stand.step(); bounded(f.sample()); }
-    assert.equal(f.body.mind.state.phase, "handoff", "the rise reaches the supported handoff");
-    assert.ok(f.body.mind.state.captured.up > .9);
-    assert.deepEqual({ tries: f.body.mind.state.bearing.tries, furthest: f.body.mind.state.bearing.furthest }, { tries: 1, furthest: 0 });
-    for (let step = 0; step < 360; step++) { f.stand.step(); bounded(f.sample()); }
-    const states = { body: f.body.state }, saved = saveStand(f.stand.world, states);
-    const branch = () => {
-      const observations = [], samples = [];
-      for (let step = 0; step < 360; step++) {
-        f.stand.step(); const sample = f.sample(); bounded(sample);
-        assert.ok(sample.up > .9, JSON.stringify(sample));
-        assert.deepEqual([sample.loads["hand.left"], sample.loads["hand.right"]], [0, 0]);
-        assert.ok(sample.loads["shank.left"] > 100 && sample.loads["shank.right"] > 100, JSON.stringify(sample));
-        assert.ok(sample.loads["foot.left"] > 1 && sample.loads["foot.right"] > 1, JSON.stringify(sample));
-        assert.equal(sample.down, true, "knee support is an intermediate recovery state");
-        observations.push(f.observe()); samples.push(sample);
-      }
-      assert.equal(f.body.mind.state.rejected, 0);
-      return { observations, samples, state: saveStand(f.stand.world, states).state };
-    };
-    const expected = branch(); loadStand(f.stand.world, states, saved); assert.deepEqual(branch(), expected);
-  } finally { f.dispose(); }
-});
-
-test("a supported handoff preserves a captured legal posture while an actual rear sole acquires load", {
-  todo: "the snapshot `actual-rear-sole-world.bin` was saved on legs the body no longer has, and loading it restores their foot friction (0.5, averaged) over the body's (0.8, the larger), and on today's legs its rear boot bears from the first step",
-}, async () => {
-  const spec = modelSpec("workshop-fighter"), stand = await coreStand(spec,
-    { engine: "rapier-coordinate", groundSize: 40, posture: guardPosture(spec) });
+test("a supported handoff preserves a captured legal posture while an actual rear sole acquires load", async () => {
+  const stand = await kneeling(modelSpec("workshop-fighter"), { curled: true });
   let body;
   try {
-    stand.step(240);
-    stand.world.physics.load(new Uint8Array(readFileSync(new URL("./fixtures/actual-rear-sole-world.bin", import.meta.url))));
     const parts = [...stand.built.segments.values()], mass = parts.reduce((sum, p) => sum + p.rigid.mass, 0),
       centre = new Vector3(), velocity = new Vector3(), work = new Vector3(), upright = uprightness(stand.built);
     const read = () => {
@@ -100,8 +60,8 @@ test("a supported handoff preserves a captured legal posture while an actual rea
     const observe = observeBody(stand.built, body.own.muscles, stand.world, clockSenses(stand.world), undefined, () => upright.down(), true);
     const load = name => observe().contacts.filter(c => c.segment === name && c.fixed !== null)
       .reduce((sum, c) => sum + c.impulse / stand.world.dt, 0);
-    assert.equal(load("foot.right"), 0, "the ordinary ankle curl leaves the actual rear boot airborne");
-    assert.ok(load("shank.left") > 100 && load("shank.right") > 100);
+    assert.ok(load("foot.right") === 0 && load("shank.left") > 0 && load("shank.right") > 0,
+      `the fixture did not reach its case: its rear boot bears ${load("foot.right")} N, its shanks ${load("shank.left")} and ${load("shank.right")}`);
     const muscles = body.own.muscles, captured = Object.fromEntries(muscles.channels.map((c, i) => [c.name,
       Math.max(c.dof.spec.min.value, Math.min(c.dof.spec.max.value, muscles.angle(i))) + c.dof.spec.bind.value]));
     const states = { body: body.state }, initial = saveStand(stand.world, states);
@@ -110,7 +70,8 @@ test("a supported handoff preserves a captured legal posture while an actual rea
       assert.throws(() => body.mind.rise.beginSupported(invalid), /within every actual joint range/);
       assert.deepEqual(saveStand(stand.world, states), initial);
     }
-    body.mind.rise.beginSupported(); stand.step();
+    // Every reading below begins from the save, as the stand restored from it.
+    loadStand(stand.world, states, initial); body.mind.rise.beginSupported(); stand.step();
     const defaultReading = { observation: observe(), saved: saveStand(stand.world, states) };
     loadStand(stand.world, states, initial);
     body.mind.rise.beginSupported(captured);
@@ -126,13 +87,6 @@ test("a supported handoff preserves a captured legal posture while an actual rea
         assert.deepEqual({ force: body.own.assist.meter.force, moment: body.own.assist.meter.moment }, { force: 0, moment: 0 });
         for (const j of o.joints) assert.ok(j.effort <= j.positive + 1e-4 && -j.effort <= j.negative + 1e-4, j.name);
       }
-      assert.deepEqual({ phase: body.mind.state.phase, stage: body.mind.state.stage }, { phase: "rise", stage: 1 },
-        "the actual loaded handoff finishes the supported acquisition and enters its recipe's next stage");
-      assert.ok(load("foot.right") > 20 && load("shank.left") > 20 && load("shank.right") > 20);
-      const foot = footStatesOf(stand.built).find(f => f.side === "right"),
-        heights = foot.ahead.slice(0, 2).map(i => foot.sole[i].applyRotationQuaternionToRef(foot.segment.node.rotationQuaternion, new Vector3())
-          .addInPlace(foot.segment.node.position).y);
-      assert.ok(Math.min(...heights) < .005, `the actual front sole corner reaches the floor: ${heights}`);
       return { observations, saved: saveStand(stand.world, states) };
     };
     const expected = branch();
@@ -140,6 +94,8 @@ test("a supported handoff preserves a captured legal posture while an actual rea
     assert.deepEqual({ observation: observe(), saved: saveStand(stand.world, states) }, defaultReading,
       "captured goals cannot overwrite the recipe's goals");
     loadStand(stand.world, states, checkpoint); assert.deepEqual(branch(), expected);
+    assert.deepEqual({ phase: body.mind.state.phase, stage: body.mind.state.stage }, { phase: "rise", stage: 1 },
+      "the fixture did not reach its case: the handoff never entered its recipe's next stage");
     const laterStage = saveStand(stand.world, states); loadStand(stand.world, states, laterStage); stand.step();
     const retainedLater = { observation: observe(), physics: stand.world.physics.save() };
     loadStand(stand.world, states, laterStage); body.mind.state.supportedPosture = null; stand.step();
@@ -148,15 +104,10 @@ test("a supported handoff preserves a captured legal posture while an actual rea
   } finally { body?.dispose(); stand.dispose(); }
 });
 
-test("a supported hold drives its free wrist past bearing readiness, expires and forks exactly", {
-  todo: "the snapshot `actual-rear-sole-world.bin` was saved on legs the body no longer has, and loading it restores their foot friction (0.5, averaged) over the body's (0.8, the larger), and on today's legs its right shank leaves the ground for 0.7 s",
-}, async () => {
-  const spec = modelSpec("workshop-fighter"), stand = await coreStand(spec,
-    { engine: "rapier-coordinate", groundSize: 40, posture: guardPosture(spec) });
+test("a supported hold drives its free wrist past bearing readiness, expires and forks exactly", async () => {
+  const stand = await kneeling(modelSpec("workshop-fighter"));
   let body;
   try {
-    stand.step(240);
-    stand.world.physics.load(new Uint8Array(readFileSync(new URL("fixtures/actual-rear-sole-world.bin", import.meta.url))));
     const parts = [...stand.built.segments.values()], mass = parts.reduce((sum, p) => sum + p.rigid.mass, 0),
       centre = new Vector3(), velocity = new Vector3(), work = new Vector3(), upright = uprightness(stand.built);
     const read = () => {

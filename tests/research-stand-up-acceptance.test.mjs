@@ -2,13 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { recoveryEnvironment } from '../research/stand-up-environment.mjs';
-import { acceptanceEnvironment, rejectAssistedAction, summarizeAcceptance } from '../research/stand-up-acceptance.mjs';
+import { acceptanceEnvironment, rejectAssistedAction, SCREEN_CASES, screenFall, summarizeAcceptance } from '../research/stand-up-acceptance.mjs';
 import { unassistedAudit, unassistedResult } from '../research/stand-up-unassisted.mjs';
 
-test('unassisted gate rejects an assisted action through real force and moment calls', {
-  todo: "the legs are the run's (`owner-run-body`: hip x2.49, knee x1.58, calf x2.75, leg speed x1.98), and under Balance 100 the fixture's push no longer fells the body (`rejectAssistedAction`)",
-}, async () => {
-  const negative = await rejectAssistedAction();
+test('unassisted gate rejects an assisted action through real force and moment calls', async () => {
+  // The screen's own fall, made afresh, continued under Balance 100 with every step asking the assist for help.
+  const c = SCREEN_CASES[0], negative = await rejectAssistedAction(c, await screenFall(c));
   assert.equal(negative.identity.balance, 100);
   assert.equal(negative.result.success, false);
   assert.equal(negative.result.failure, 'external actuation');

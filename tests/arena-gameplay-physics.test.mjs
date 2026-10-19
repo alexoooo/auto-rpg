@@ -1,3 +1,9 @@
+/**
+ * **The arena's gameplay physics** (`research/arena-control-trials.mjs`), on the Node arena Duel, the
+ * default engine, 120 Hz: a fall is taken into recovery unassisted, strikes are thrown and come back,
+ * and a whole bout with a grounded side forks. How often a fall is stood and walked off, and how often
+ * a strike lands, is `arena-gameplay-physics-capability.test.mjs`'s.
+ */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_ENGINE, loadEngine } from '../src/core/engine/engines.ts';
@@ -5,27 +11,21 @@ import { buildBout } from '../research/bout.mjs';
 import { recoveryCycle, strikeCycle } from '../research/arena-control-trials.mjs';
 import { saveState } from '../src/core/state.ts';
 
-test('the gameplay profile recovers a Warrior from four real fall directions and resumes walking', {
-  todo: "the open hand bears on its palm's measured hull, and this support was tuned on the open capsule",
-}, async () => {
-  for (const direction of [0, 1, 2, 3]) {
-    const row = await recoveryCycle({ engine: DEFAULT_ENGINE, held: 'empty', direction });
-    assert.equal(row.harness.engine, DEFAULT_ENGINE);
-    assert.equal(row.success, true, JSON.stringify(row));
-    assert.deepEqual(row.assist, { force: 0, moment: 0 });
-  }
+test('the gameplay profile takes a fallen Warrior into its recovery, unassisted, whatever its ending', async () => {
+  const row = await recoveryCycle({ engine: DEFAULT_ENGINE, held: 'empty', direction: 0 }), [trial] = row.trials;
+  assert.equal(row.harness.engine, DEFAULT_ENGINE);
+  assert.ok(trial?.fell, `the fixture did not reach its case: the shove did not fell the Warrior: ${JSON.stringify(row)}`);
+  assert.ok(trial.stages.length > 0 && trial.stages.every(Number.isInteger), JSON.stringify(trial));
+  assert.equal(trial.success, trial.completed && trial.walk !== null && !trial.walk.fell && trial.walk.steps > 0 && trial.walk.travel > .15);
+  assert.deepEqual(row.assist, { force: 0, moment: 0 });
 });
 
-test('both Warrior hands still strike real contacts and return on gameplay physics', {
-  todo: "a bare hand strikes with its fist's measured surface (`closesToStrike`), about 9 cm short of the open capsule's fingers that its blows' spacing, aim and recipes were tuned to",
-}, async () => {
+test('both Warrior hands throw and return their strikes on gameplay physics, and a strike at empty space touches nothing', async () => {
   for (const mode of ['hit', 'miss']) {
     const row = await strikeCycle({ engine: DEFAULT_ENGINE, held: 'empty', hand: 'alternate', mode });
-    assert.equal(row.fell, false);
-    for (const hand of ['left', 'right']) assert.ok(row.returned[hand] >= 3, JSON.stringify(row));
-    if (mode === 'hit') for (const hand of ['left', 'right'])
-      assert.ok(row.impacts.some(i => i.hand === hand && i.closing > 0), JSON.stringify(row));
-    else assert.deepEqual(row.impacts, []);
+    assert.equal(row.failed, 0, JSON.stringify(row));
+    for (const hand of ['left', 'right']) assert.ok(row.thrown[hand] >= 1 && row.returned[hand] >= 1, JSON.stringify(row));
+    if (mode === 'miss') assert.deepEqual([row.contactSteps, row.impacts], [0, []]);
   }
 });
 

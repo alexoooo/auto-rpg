@@ -13,23 +13,28 @@ import { traceOf } from './harness/trace.mjs';
 
 const support=Object.freeze({lower:.5,pitch:.9,seconds:.5,transition:4,lumbar:.89,thoracic:.368,attackAt:7,riseAt:16});
 
-test('a fresh-world fork during the supported fold reproduces low strikes and the standing return', {
-  todo: "the open hand bears on its palm's measured hull, and this support was tuned on the open capsule",
-}, async()=>{
+test('a fresh-world fork during the supported fold reproduces low strikes and the standing return',async()=>{
  const make=async()=>{
   const stand=await coreStand(modelSpec('workshop-fighter'),{engine:DEFAULT_ENGINE});
   const body=createBody(stand.built,stand.world,{servoSeconds:SERVO_SECONDS,feedback:true}),skills=combatSkills(body);
+  // One strike, asked from the fold's seventh second to its sixteenth, at a point low in front.
+  const id=skills.instance(),strike={id,action:'strike',effector:'hand.right',target:{kind:'point',at:[.2,.3,.15]}};
   body.drive((view,dt)=>supportedStrikeCommand(view,skills.command(view,{move:null,face:0,
-   guard:NO_COVER,attack:view.time>=7&&view.time<16?{kind:'blow',hand:'right',target:[.2,.3,.15],path:{family:'downward'}}:null},dt),support));
-  return {...stand,body,skills};
+   guard:NO_COVER,actions:view.time>=support.attackAt&&view.time<support.riseAt?[strike]:[]},dt),support));
+  return {...stand,body,skills,id};
  };
  const a=await make(),b=await make();
  try {
   a.step(480);loadStand(b.world,{body:b.body.state,skills:b.skills.state},saveStand(a.world,{body:a.body.state,skills:a.skills.state}));
   const ta=traceOf([a.built]),tb=traceOf([b.built]);
-  for(let i=0;i<2400;i++){a.step();b.step();ta.take();tb.take();}
+  let struck=false,low=Infinity;
+  for(let i=0;i<2400;i++){
+   a.step();b.step();ta.take();tb.take();
+   struck||=[...a.skills.report.actions,...a.skills.report.ledger].some(action=>action.id===a.id);low=Math.min(low,a.body.view.head.y);
+  }
+  assert.ok(struck&&low<1.4,`the fixture did not reach its case: ${struck?'':'no strike was taken up, '}its head came down to ${low.toFixed(3)} m`);
   assert.deepEqual(saveStand(b.world,{body:b.body.state,skills:b.skills.state}).state,saveStand(a.world,{body:a.body.state,skills:a.skills.state}).state);
-  assert.equal(tb.digest(),ta.digest());assert.ok(a.body.view.head.y>1.6);
+  assert.equal(tb.digest(),ta.digest());
  }finally{a.body.dispose();b.body.dispose();a.dispose();b.dispose();}
 });
 

@@ -91,9 +91,7 @@ test("a_warrior_with_the_simbicon_walk_sets_off_to_its_right_and_walks_there", a
   } finally { actor.dispose(); stand.dispose(); }
 });
 
-for (const [way, move] of [["back", [-0.5, 0]], ["left", [0, -0.5]]]) test(`a_warrior_with_the_simbicon_walk_walks_${way}_at_the_pace_asked_and_stops_on_the_stance`, {
-  todo: way === "back" && "set off from the whole-body solve's stand, the walk back at 0.5 m/s drifts left and falls at 5 s; at 0.4, 0.45, 0.55 and 0.6 it holds",
-}, async () => {
+for (const [way, move] of [["back", [-0.5, 0]], ["left", [0, -0.5]]]) test(`a_warrior_with_the_simbicon_walk_walks_${way}_at_the_pace_asked_and_stops_on_the_stance`, async () => {
   const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true, groundSize: 200 });
   const actor = labActor(stand.built, stand.world, { mind: WALKING });
   let walking = true;

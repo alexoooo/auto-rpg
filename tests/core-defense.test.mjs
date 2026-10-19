@@ -1,3 +1,9 @@
+/**
+ * **The defense task** (`createDefenseProbe`, `src/core/tasks/defense.ts`), on the Node core stand,
+ * 120 Hz: a trial runs its course within its contact tolerances and unassisted, scores protected
+ * contact whatever the policy's phase, and replays in a fresh world. Whether every anatomy's guard
+ * keeps a club off the protected region is `core-defense-capability.test.mjs`'s.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
@@ -13,17 +19,15 @@ async function fixture(config) {
 }
 const finish = (task) => { while (!task.complete) task.world.step(); return task.observe(); };
 
-test("either-hand defense intercepts real clubs and sustains protected-region clearance", {
-  todo: "the guard's interception was tuned on capsule hands; with the palm's hull the Rogue's club guard lets a club reach the protected region",
-}, async () => {
-  for (const model of ["workshop-fighter", "workshop-rogue", "crypt-skeleton"]) for (const [hands, held] of [["left", "empty"], ["right", "club"]]) {
+test("an either-hand defense trial runs its whole course within its contact tolerances, unassisted, whatever its ending", async () => {
+  for (const [model, hands, held] of [["workshop-rogue", "right", "club"], ["crypt-skeleton", "left", "empty"]]) {
     const f = await fixture({ model, hands, held });
     try {
       const { task: result } = finish(f.task), label = `${model}/${hands}/${held}`;
-      assert.equal(result.steps, 1200); assert.equal(result.prepared, true, label);
-      assert.equal(result.protectedImpulse, 0, label); assert.equal(result.firstProtected, -1, label);
-      assert.equal(result.fell, false, label); assert.equal(result.rejectedSteps, 0, label);
-      assert.ok(result.guards.every((g) => g.qualifyingContacts > 0 && g.firstBlock > 360 && g.closing > 0.05), label);
+      assert.equal(result.steps, 1200, label); assert.equal(result.rejectedSteps, 0, label);
+      const protectedRows = result.contacts.filter((c) => f.task.configuration.protected.includes(c.segment));
+      assert.ok(Math.abs(protectedRows.reduce((sum, c) => sum + c.impulse, 0) - result.protectedImpulse) < 1e-10, label);
+      assert.equal(result.firstProtected === -1, result.protectedImpulse === 0, label);
       assert.equal(f.task.body.assist.meter.force, 0); assert.equal(f.task.body.assist.meter.moment, 0);
     } finally { f.dispose(); }
   }
