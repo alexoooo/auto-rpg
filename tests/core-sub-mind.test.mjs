@@ -243,6 +243,8 @@ test("a body taken in the middle of a step forgets the step, steps its feet apar
   const stand = await coreStand(warrior);
   /** How long the body is held, in steps: stiff on one foot for four times this, it falls. */
   const HELD = 6;
+  /** The walk's pace ordered, m/s: under the speed past which a resumed walk does not square its feet (`locomotion`'s `SQUARE_STILL`). */
+  const PACE = 0.2;
   let from = null;
   /** A sub-mind that holds every freedom where it is for `HELD` steps, from the first step after 2 s at which a foot has swung a tenth of a second. */
   const hold = (own, view) => ({
@@ -257,7 +259,7 @@ test("a body taken in the middle of a step forgets the step, steps its feet apar
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [hold] });
   const stance = body.state.mind.host.motor.stance;
   try {
-    const skills = driveBy(body, walkingTactics(stand.built.spec, () => ({ move: { x: 0, z: 1 }, face: null })));
+    const skills = driveBy(body, walkingTactics(stand.built.spec, () => ({ move: { x: 0, z: 1 }, face: null, pace: PACE })));
     /** The stance's memory of the step under way. */
     const memory = () => ({
       plan: stance.plan.on, last: stance.last, stride: stance.stride, striding: stance.striding, pace: [...stance.pace],
@@ -268,7 +270,7 @@ test("a body taken in the middle of a step forgets the step, steps its feet apar
     while (body.has === "command" && stand.world.steps < stand.seconds(5)) { before = memory(); stand.step(); }
     assert.equal(body.has, "hold");
     // The fixture takes it with a step under way: a foot in the air, a plan, a walk's pace.
-    assert.ok(before.plan && before.last.length === 1 && before.stride !== null && before.striding !== null && before.pace[1] > 0.4
+    assert.ok(before.plan && before.last.length === 1 && before.stride !== null && before.striding !== null && before.pace[1] === PACE
       && before.swing !== null && before.lifted && before.time > 0.1 && before.held > 0 && before.phase === "swing" && before.own !== null, JSON.stringify(before));
     const blank = { plan: false, last: null, stride: null, striding: null, pace: [0, 0], swing: null, lifted: false, time: 0, held: 0, phase: "stand", own: null, rolled: [null, null] };
     assert.deepEqual(memory(), blank);
@@ -281,11 +283,11 @@ test("a body taken in the middle of a step forgets the step, steps its feet apar
     let down = false;
     while (skills.state.legs.squaring !== null && stand.world.steps < stand.seconds(8)) { stand.step(); down ||= body.view.down; }
     assert.equal(skills.state.legs.squaring, null, "its feet were placed");
-    // Then it walks on from where it stands: 3 s later it has not gone down, and has gone on 0.7 m or more.
+    // Then it walks on from where it stands: 3 s later it has not gone down, and has gone on half the way its pace takes it or more.
     const { strides, centre } = body.view.stance, at = centre.z;
     for (let i = 0; i < stand.seconds(3); i++) { stand.step(); down ||= body.view.down; }
     assert.equal(body.has, "command");
-    assert.ok(!down && body.view.stance.strides >= strides + 6 && body.view.stance.centre.z > at + 0.7,
+    assert.ok(!down && body.view.stance.strides >= strides + 6 && body.view.stance.centre.z > at + 0.5 * PACE * 3,
       `down ${down}, ${body.view.stance.strides - strides} strides, ${body.view.stance.centre.z - at} m on`);
   } finally { body.dispose(); stand.dispose(); }
 });

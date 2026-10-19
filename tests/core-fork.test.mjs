@@ -48,6 +48,8 @@ const BOTH = Object.freeze(["left", "right"]);
 const NO_PUSHES = Object.freeze([]);
 const WRIST = deepFreeze([{ channel: "wrist.left flexion", sense: 1, level: 0.5 }]);
 const BENT = Object.freeze({ ...GUARD, "wrist.left flexion": 0.3 });
+const NO_POINTS = Object.freeze([]);
+const LIFT = deepFreeze([{ segment: "hand.left", point: "knuckles", accel: [0, 1, 0] }]);
 
 /**
  * The Warrior, club in hand, under a command that is a function of the view's time alone, given
@@ -55,8 +57,8 @@ const BENT = Object.freeze({ ...GUARD, "wrist.left flexion": 0.3 });
  * pace; walks 2.5 s more as its heading turns a quarter to its right, at the rate its envelope
  * holds; and stands, but for the two commands from 6.81 s, which leave its legs to its posture. Meanwhile
  * its left hand reaches from 1.5 s to 4 s and its right, with the club, from 3 s to 5 s, each
- * given another place 0.3 s into its reach of 0.4 s; its posture bends a wrist from 3.5 s; and
- * that wrist is pushed from 4.5 s to 5 s.
+ * given another place 0.3 s into its reach of 0.4 s; its posture bends a wrist from 3.5 s;
+ * that wrist is pushed from 4.5 s to 5 s; and its left knuckles are driven up from 5.5 s to 6.5 s.
  */
 async function walker() {
   const stand = await coreStand(fighter);
@@ -75,6 +77,7 @@ async function walker() {
       posture: time < 3.5 ? GUARD : BENT,
       effectors: { "hand.left": hand(left, time, 1.5, 4), "hand.right": hand(right, time, 3, 5) },
       pushes: time >= 4.5 && time < 5 ? WRIST : NO_PUSHES,
+      points: time >= 5.5 && time < 6.5 ? LIFT : NO_POINTS,
       stance: time >= 6.81 && time < 6.875 ? null : { feet: BOTH, centre: null, height, heading, walk },
     };
   });
@@ -152,9 +155,14 @@ async function catching() {
 
 const framed = pulled({ frame: 0.011 });
 const helped = pulled({ ceiling: { force: 0.25, moment: 0.065 }, withdraw: 300 });
-/** Pulled at its whole weight for a quarter second, it falls (down at its world's step 185); its mind is the game's, which lies where it fell. Saved at every step from `FELLED.from`, `FELLED.count` times. */
-const FELLED = { from: 170, count: 30 };
-const felled = pulled({ share: 1, until: 150, subs: subMindsOf(RECIPE_FIGHTER.subs) });
+/**
+ * Pulled at its whole weight for a quarter second, to its world's step `FELLED.until`, it falls; its
+ * mind is the game's, which lies where it fell. Saved at every step from the pull's end until
+ * `FELLED.after` steps after it is down, or until its world's step `FELLED.cap` if it never is.
+ */
+const FELLED = { until: 150, after: 10, cap: 400 };
+const felled = pulled({ share: 1, until: FELLED.until, subs: subMindsOf(RECIPE_FIGHTER.subs) });
+const fellen = ({ seen, world }) => seen.down !== null ? world.steps >= seen.down + FELLED.after : world.steps >= FELLED.cap;
 /** Unpulled, it is let go limp, held where it is, and given its body back; saved every 5 steps from step 80, 26 times. */
 const LEVELLED = { levels: [[100, "limp"], [140, "held"], [180, "full"]], from: 80, count: 26 };
 const levelled = pulled({ until: 0, levels: LEVELLED.levels });
@@ -189,14 +197,16 @@ async function rising() {
 }
 
 /**
- * The world's steps through which `taken`'s sub-mind holds its body, a foot in the air; and how
- * often it is saved, from when, and how many times: through the step its feet are squared by and
- * the rise to the stance's height.
+ * The world's steps through which `taken`'s sub-mind holds its body, a foot in the air; its walk's
+ * pace ordered, m/s, under the speed past which a resumed walk does not square its feet
+ * (`locomotion`'s `SQUARE_STILL`); and how often it is saved, from when: until its feet are
+ * squared and its rise is over, or until its world's step `cap` if they never are.
  */
-const TAKEN = { held: [249, 255], every: 10, from: 230, count: 20 };
+const TAKEN = { held: [249, 255], pace: 0.2, every: 10, from: 230, cap: 700 };
+const squared = ({ seen, world, states }) => seen.squared > 0 && !states.skills.legs.squaring && !states.skills.legs.rising || world.steps >= TAKEN.cap;
 
 /**
- * The Warrior, unarmed, walking forward under a fighter's tactics, whose body a sub-mind holds
+ * The Warrior, unarmed, walking forward at `TAKEN.pace` under a fighter's tactics, whose body a sub-mind holds
  * stiff where it is for the steps `TAKEN.held`, mid-step; handed back with its feet closer than
  * its stance's width, it steps them apart and walks on (`locomotion`'s resume).
  */
@@ -210,7 +220,7 @@ async function taken() {
     step() { own.muscles.activation.fill(1); own.muscles.velocity.fill(0); },
   });
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [hold] });
-  const skills = driveBy(body, walkingTactics(stand.built.spec, () => ({ move: { x: 0, z: 1 }, face: null })));
+  const skills = driveBy(body, walkingTactics(stand.built.spec, () => ({ move: { x: 0, z: 1 }, face: null, pace: TAKEN.pace })));
   const seen = { has: [], squared: 0, rose: 0, fallen: false };
   return {
     world: stand.world, builts: [stand.built], states: { body: body.state, skills: skills.state }, seen,
@@ -363,10 +373,11 @@ const NEEDED = {
     "body > physical",
     ...["activation", "velocity", "ceiling", "pulled", "bounds", "trackers"].map((field) => `body > muscles > ${field}`),
     ...["goals", "time", "angles", "fists", "root > position", "root > rotation", "head"].map((field) => `body > mind > host > ${field}`),
-    ...["pose", "pushes", "standing", "reach"].map((field) => `body > mind > host > motor > ${field}`),
+    ...["pose", "pushes", "points", "standing", "reach"].map((field) => `body > mind > host > motor > ${field}`),
     ...["left", "right"].flatMap((hand) => HAND.map((field) => `body > mind > host > motor > effectors > hand.${hand} > ${field}`)),
     ...["stride", "striding", "owned", "last", "pace", "reading", "feet"].map((field) => `${STANCE} > ${field}`),
-    ...["swing", "lifted", "time", "held", "off", "from", "lift"].map((field) => `${STANCE} > step > ${field}`),
+    ...["swing", "lifted", "pivoted", "time", "held", "off", "recovering", "from", "lift", "drop"].map((field) => `${STANCE} > step > ${field}`),
+    ...["now", "capture", "centre"].map((field) => `${STANCE} > step > shift > ${field}`),
     ...["on", "at", "velocity"].map((field) => `${STANCE} > plan > ${field}`),
   ],
   framed: ["world > owed"],
@@ -393,8 +404,10 @@ const NOT_MEMORY = {
     [`body > mind > host > motor > effectors > hand.${hand} > point`, "each step with a goal writes it; `MotorControl.path` shows it, and a body does not"],
   ])),
   [`${STANCE} > step > turn`]: "each step of a swing writes it before reading it",
-  ...Object.fromEntries(["aim", "helped", "held", "tasks", "pose"].map((field) =>
+  ...Object.fromEntries(["aim", "helped", "tasks", "pose"].map((field) =>
     [`${STANCE} > ${field}`, "the stance's `command` writes it each step, for `carry` and `bear` of that step"])),
+  [`${STANCE} > crouch`]: "each command sets it from the walk's pace before it plans a height or a step",
+  [`${STANCE} > plan > missed`]: "each command sets it from the last command's shortfall before the plan reads it",
   "skills > command": "each step the skills write its posture, effectors, pushes and stance before the body reads them: it is in the state for what the body's shares with it",
   "skills > owners": "every composition names the effective owners from current claims",
   "skills > reservations": "every composition rebuilds reservations from admitted resources",
@@ -429,12 +442,13 @@ test("a_pushed_body_forks_through_its_recovery_steps", async () => {
 });
 
 test("a_body_forks_as_it_goes_down_and_lying", async () => {
-  const run = await forks(felled, 1, 5, FELLED.count, forgetting(NEEDED.felled), FELLED.from);
-  assertForks(run, NEEDED.felled);
+  const run = await forks(felled, 1, 5, fellen, forgetting(NEEDED.felled), FELLED.until);
   // The fixture reaches the hand-over: the command layers had the body, then the mind that lies, and it is saved on both sides of the step between.
   const { has, down } = run.seen;
+  assert.ok(down !== null, `the fixture never went down, by step ${FELLED.cap}`);
   assert.deepEqual(has, ["command", "lie"]);
   assert.ok(down > run.steps[0] + 5 && down < run.steps.at(-1) - 5, `down at step ${down}, forked from ${run.steps[0]} to ${run.steps.at(-1)}`);
+  assertForks(run, NEEDED.felled);
 });
 
 test("a_body_forks_as_its_level_changes", async () => {
@@ -456,12 +470,12 @@ test("a_body_forks_as_it_rises", async () => {
 });
 
 test("a_body_handed_back_mid_step_forks_as_it_squares_its_feet_and_rises", async () => {
-  const run = await forks(taken, TAKEN.every, 20, TAKEN.count, forgetting(NEEDED.taken), TAKEN.from);
-  assertForks(run, NEEDED.taken);
+  const run = await forks(taken, TAKEN.every, 20, squared, forgetting(NEEDED.taken), TAKEN.from);
   // The fixture is saved before the hold, through the step that squares its feet, and through its rise, and stays up.
-  const { has, squared, rose, fallen } = run.seen;
+  const { has, squared: squaring, rose, fallen } = run.seen;
   assert.deepEqual(has, ["command", "hold", "command"]);
-  assert.ok(squared > 30 && rose > 100 && !fallen, `squaring ${squared} steps, rising ${rose}`);
+  assert.ok(squaring > 30 && rose > 100 && !fallen, `squaring ${squaring} steps, rising ${rose}: the fixture did not reach its case`);
+  assertForks(run, NEEDED.taken);
 });
 
 test("a_body_under_orders_forks_through_its_turns", async () => {
