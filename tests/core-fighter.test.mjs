@@ -1,4 +1,5 @@
-// The fighter's tactics and skills as parts, on the Node arena stand, vendored Rapier, 120 Hz.
+// The fighter's tactics and skills as parts, on the Node arena stand, vendored Rapier, 120 Hz. What
+// its blows commit is `core-fighter-capability`'s.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {RECIPE_FIGHTER,SCRAPPER} from '../src/core/mind/config.ts';
@@ -15,24 +16,29 @@ const bout=async(left,right,recipe={})=>buildBout({left:'workshop-fighter',right
 test('a named recipe executor runs under the shared behaviour fighter with physical contact feedback',async()=>{
  const s=await bout(RECIPE_FIGHTER,COMBAT,{gap:1.4});
  try{
-  const left=s.duel.duelists.left.minded;
-  // The recipe places and settles its body before it chambers: a blow is committed within the bout.
-  while(s.duel.clock<30&&!s.duel.verdict&&!left.skills.report.ledger.some(record=>record.committed))s.world.step();
-  assert.ok(left.skills.report.ledger.some(record=>record.committed),JSON.stringify(left.skills.report.ledger));
+  const left=s.duel.duelists.left.minded,ledger=left.skills.report.ledger;
+  // Whether its blow commits within the bout is `core-fighter-capability`'s; its first action's record, ended any way, is enough here.
+  while(s.duel.clock<30&&!s.duel.verdict&&ledger.length===0)s.world.step();
+  const [ended]=ledger;
+  assert.ok(ended,'the fixture did not reach its case: no action ended');
   assert.equal(left.skills.state.actions.executors.length,1);
   assert.ok(left.body.view.effectors['hand.right'].feedback);
+  // Each contact the hand felt is counted once, in the phase it came in.
+  const counted=Object.values(ended.contacts.counts).reduce((n,c)=>n+c.target+c.block+c.incidental+c.world,0);
+  assert.equal(counted,ended.observed,JSON.stringify(ended));
  }finally{s.dispose();}
 });
 
-test('a fighter can request only the configured kick action and records its committed interval',async()=>{
+test('a fighter can request only the configured kick action',async()=>{
  const onlyKick={...KICKER,actions:KICKER.actions.filter(action=>action.name==='kick'),tactics:{...KICKER.tactics,
   choose:{kind:'first-ready',rethink:.2,patience:2},list:[{kind:'attack'},{kind:'approach'},{kind:'cover',guard:'pose'}]}};
  const s=await bout(onlyKick,SCRAPPER,{gap:1.4,capSeconds:60});
  try{
   s.duel.order('right',STAND_ORDERS);const skills=s.duel.duelists.left.minded.skills;
+  // Whether a kick commits within 15 s is `core-fighter-capability`'s.
   while(s.duel.clock<15&&!s.duel.verdict&&!skills.report.ledger.some(record=>record.committed))s.world.step();
-  assert.ok(skills.report.ledger.some(record=>record.action==='kick'&&record.committed),JSON.stringify(skills.report.ledger));
-  assert.ok(skills.report.ledger.every(record=>record.action==='kick'));
+  assert.ok(skills.report.ledger.length>0,'the fixture did not reach its case: no action was requested');
+  assert.deepEqual(skills.report.ledger.filter(record=>record.action!=='kick'),[]);
  }finally{s.dispose();}
 });
 

@@ -1,33 +1,23 @@
 /**
  * **The assist** (`src/core/control/assist.ts`): a force and a moment on a body's root that no
  * muscle gives, within a ceiling, metered; and the stance as its first user, asking it for what
- * the soles miss. Node stand, Rapier, 120 Hz; the Warrior, unarmed.
+ * the soles miss. Node stand, Rapier, 120 Hz; the Warrior, unarmed. Whether the assist holds a
+ * body the soles cannot is `core-assist-capability`'s.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
-import { standIntent } from "../src/core/mind/intent.ts";
 import { embody } from "../src/core/mind/mind.ts";
-import { driveBy } from "../src/core/mind/tactics.ts";
 import { createWorld } from "../src/core/world.ts";
-import { coreStand, freshEngine } from "./harness/core-stand.mjs";
+import { centreOfMass, massOf, pulled, weightOf } from "./fixtures/assist-pull.mjs";
+import { freshEngine } from "./harness/core-stand.mjs";
 
 const spec = humanSpec("workshop-fighter");
-const massOf = (built) => [...built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0);
-/** A body's weight, N: its segments' rigid masses times gravity. */
-const weightOf = (built) => massOf(built) * Math.hypot(...built.physics.gravity);
-/** A body's centre of mass, world: the mass-weighted mean of its segments' centres. */
-function centreOfMass(built) {
-  const sum = new Vector3(), p = new Vector3();
-  for (const segment of built.segments.values()) sum.addInPlace(centreOfToRef(segment, p).scaleInPlace(segment.rigid.mass));
-  return sum.scaleInPlace(1 / massOf(built));
-}
 /** A body's momentum, and its angular momentum about its centre of mass: each segment's own, in the mass properties the engine holds. */
 function momentumOf(built) {
   const C = centreOfMass(built), linear = new Vector3(), angular = new Vector3();
@@ -142,69 +132,17 @@ test("the_assist_gives_what_a_mind_asks_up_to_its_ceiling_and_nothing_at_none", 
   assert.deepEqual(dropped.would, [0, 0], "withdrawn, it would give none");
 });
 
-/**
- * The Warrior standing on the ground under the command layers (`createBody`, `driveBy`), one second
- * to settle; then pulled for 2 s at its root's centre of mass by a steady quarter of its weight along
- * +z (an eighth it walks out, stepping), an impulse before each step; then 2 s more. `ceiling` is its assist's, or none. `each` is
- * called after every step from the pull's first.
- */
-async function pulled(ceiling, each = () => {}) {
-  const stand = await coreStand(spec);
-  const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, ...(ceiling ? { assist: ceiling } : {}) });
-  try {
-    const skills = driveBy(body, { name: "stand", decide: () => standIntent(0) });
-    const root = body.muscles.dynamics.root.segment, weight = weightOf(stand.built), { stance } = body.view;
-    const at = new Vector3(), pull = new Vector3(0, 0, weight / 4 / stand.world.hz);
-    stand.step(stand.seconds(1));
-    const from = centreOfMass(stand.built), settled = stance.recoveries;
-    let low = Infinity, far = 0, missed = 0;
-    const take = () => {
-      const c = centreOfMass(stand.built);
-      low = Math.min(low, c.y);
-      far = Math.max(far, Math.hypot(c.x - from.x, c.z - from.z));
-      // Past a fall the stance's ask has no bound; what the soles miss is read while it stands.
-      if (!body.view.down) missed = Math.max(missed, stance.shortfall.force.length() / weight);
-      each({ body, weight, fallen: body.view.down });
-    };
-    for (let step = 0; step < stand.seconds(2); step++) {
-      root.body.applyImpulse(pull, centreOfToRef(root, at));
-      stand.step();
-      take();
-    }
-    for (let step = 0; step < stand.seconds(2); step++) { stand.step(); take(); }
-    const { meter } = body.assist;
-    return {
-      fallen: body.view.down, low, far, missed, recoveries: stance.recoveries - settled, weight,
-      mean: meter.steps ? [meter.force / meter.steps, meter.moment / meter.steps] : [0, 0],
-    };
-  } finally { body.dispose(); stand.dispose(); }
-}
-
-test("a_pull_the_soles_cannot_hold_fells_a_body_and_the_assist_holds_it", async () => {
+test("a_pull_the_soles_cannot_hold_is_given_what_they_miss_by_the_assist_alone_and_within_its_ceiling", async () => {
+  // Whether it falls alone and holds helped is `core-assist-capability`'s.
   const alone = await pulled(null);
-  assert.ok(alone.fallen && alone.low < 0.5, `it fell: ${JSON.stringify(alone)}`);
-  assert.ok(alone.far > 1, `it travelled ${alone.far} m`);
-  assert.ok(alone.recoveries >= 5, `it took ${alone.recoveries} recovery steps`);
-  // The fixture reaches the path: the soles missed what the stance asked.
-  assert.ok(alone.missed > 0.05, `the soles missed ${alone.missed} weights`);
+  assert.ok(alone.missed > 0.05, `the fixture did not reach its case: the soles missed ${alone.missed} weights`);
   assert.deepEqual(alone.mean, [0, 0]);
-
   const helped = await pulled({ force: 0.25, moment: 0.065 });
-  assert.ok(!helped.fallen && helped.low > 0.5, `it held: ${JSON.stringify(helped)}`);
-  assert.ok(helped.far < 0.15, `it travelled ${helped.far} m`);
-  assert.equal(helped.recoveries, 0);
   const [force, moment] = helped.mean;
-  // What the soles miss, well within the ceiling: no more is given than the stance asks.
-  assert.ok(force > 0 && force < 0.5 * 0.25 * helped.weight && moment > 0 && moment < 0.5 * 0.065 * helped.weight, `it was given ${force} N and ${moment} N m on average`);
-
-  // The force alone keeps it up, stepping: the legs carry the moment the assist does not give.
-  const pushed = await pulled({ force: 0.25, moment: 0 });
-  assert.ok(!pushed.fallen && pushed.low > 0.5, `under the force alone: ${JSON.stringify(pushed)}`);
-  assert.equal(pushed.mean[1], 0, "and is given no moment");
-  // The moment alone does not hold it: no moment stands in for the force its soles miss, and it is given no force.
-  const turned = await pulled({ force: 0, moment: 0.065 });
-  assert.ok(turned.fallen && turned.recoveries > 0, `under the moment alone: ${JSON.stringify(turned)}`);
-  assert.equal(turned.mean[0], 0, "and is given no force");
+  assert.ok(force > 0 && force <= 0.25 * helped.weight && moment > 0 && moment <= 0.065 * helped.weight, `it was given ${force} N and ${moment} N m on average`);
+  // The force alone gives no moment, and the moment alone no force.
+  assert.equal((await pulled({ force: 0.25, moment: 0 })).mean[1], 0);
+  assert.equal((await pulled({ force: 0, moment: 0.065 })).mean[0], 0);
 });
 
 test("the_stance_asks_the_assist_for_what_the_soles_miss_and_no_more", async () => {

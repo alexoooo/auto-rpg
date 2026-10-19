@@ -1,14 +1,14 @@
 // One person orders a party in the dungeon. The hero and its companions are
 // bodies on one side (`src/dungeon/run.ts`); a mouse order goes to the selected members only,
 // a companion with none holds where it was sent or walks after the hero, and enemies go for
-// whichever member they see nearest (Node, core world, Rapier, 120 Hz).
+// whichever member they see nearest (Node, core world, Rapier, 120 Hz). How a companion walks is
+// `dungeon-party-capability`'s, and what an order reads as `dungeon-commands`'s.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { companionSpawn } from "../src/dungeon/party-placement.ts";
 import { DungeonRun } from "../src/dungeon/run.ts";
-import { orderLabel } from "../src/dungeon/commands.ts";
 import { clearSegment, distance, walkable } from "../src/dungeon/map.ts";
 import { CLASSIC, OPTIONS } from "../src/core/mind/config.ts";
 import { classicDungeon } from "./fixtures/classic-dungeon.mjs";
@@ -49,17 +49,8 @@ test("a_party_member_plays_the_mind_the_run_is_given_for_its_model_and_an_enemy_
   try { assert.deepEqual(plain.run.party.map((member) => member.fighter.mind), [OPTIONS, OPTIONS]); } finally { plain.dispose(); }
 });
 
-test("a_dungeon_order_reads_as_its_label", () => {
-  // Every kind, so a missing or swapped case fails, and `never` makes a new kind a compile error.
-  assert.equal(orderLabel({ kind: "idle" }, null, true), "standing");
-  assert.equal(orderLabel({ kind: "idle" }, null, false), "with you");
-  assert.equal(orderLabel({ kind: "idle" }, { x: 1, z: 1 }, false), "holding");
-  assert.equal(orderLabel({ kind: "lock", target: "enemy-0" }, null, false), "fighting");
-  assert.equal(orderLabel({ kind: "attack-move", destination: { x: 1, z: 1 } }, null, false), "attack-moving");
-  assert.equal(orderLabel({ kind: "force", points: [{ x: 1, z: 1 }], drawing: false }, null, false), "force-moving");
-});
-
-test("a_party_order_goes_to_the_selected_member_and_a_companion_regroups_on_call", async () => {
+test("a_party_order_goes_to_the_selected_member_and_a_call_back_drops_its_order_and_post", async () => {
+  // Whether the companion walks there and back is `dungeon-party-capability`'s.
   const map = classicDungeon(42); map.spawns = [];
   const { run, dispose } = await crypt(map, { companions: ["workshop-rogue", "workshop-rogue"] });
   try {
@@ -68,23 +59,18 @@ test("a_party_order_goes_to_the_selected_member_and_a_companion_regroups_on_call
     assert.deepEqual([...run.selected], ["hero", "ally-0", "ally-1"], "everybody is selected until the person picks");
     assert.equal(run.actors[0].id, "hero", "the hero is the first actor");
     seconds(run, 1);
-    const heroStart = run.hero.feet(), ally1Start = run.party[2].feet();
     const post = floorAway(map, 3);
     run.select(["ally-0"]);
     run.commands.order = { kind: "attack-move", destination: post }; run.commands.revision++;
-    // About 4.5 m of route round the hero at a Rogue's 0.4 m/s: there by 12.5 s (Node, core world, Rapier, 120 Hz).
-    seconds(run, 16);
-    const ally0 = run.party[1], ally1 = run.party[2];
-    assert.ok(distance(ally0.feet(), post) < 0.6, `ally-0 is at the post: ${distance(ally0.feet(), post)}`);
-    assert.equal(ally0.order.kind, "idle", "arriving ends the order");
-    assert.deepEqual(ally0.post, post, "and leaves the companion holding where it was sent");
-    assert.ok(distance(run.hero.feet(), heroStart) < 0.3, "the unselected hero stayed where it was");
-    assert.ok(distance(ally1.feet(), ally1Start) < 0.3, "and so did the unselected companion, already beside the hero");
-    run.select(["ally-0"]); run.regroup();
-    seconds(run, 10);
-    assert.equal(ally0.post, null);
-    assert.ok(distance(ally0.feet(), run.hero.feet()) < 3.2, `called back, ally-0 walks to the hero: ${distance(ally0.feet(), run.hero.feet())}`);
-    assert.ok(run.party.every(m => m.alive), "nobody fell");
+    run.step();
+    const [hero, ally0, ally1] = run.party;
+    assert.deepEqual(run.party.map(m => m.order.kind), ["idle", "attack-move", "idle"], "only the selected member takes the order");
+    assert.ok(distance(ally0.order.destination, post) < 1, `sent to the post: ${JSON.stringify(ally0.order.destination)}`);
+    // Called back holding a post, as arriving would leave it.
+    ally0.post = { ...post };
+    run.select(["ally-0", "hero"]); run.regroup();
+    assert.deepEqual([ally0.order.kind, ally0.post], ["idle", null]);
+    assert.deepEqual([hero.order.kind, ally1.order.kind], ["idle", "idle"]);
   } finally { dispose(); }
 });
 

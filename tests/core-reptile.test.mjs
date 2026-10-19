@@ -1,57 +1,23 @@
+/**
+ * **The reptile** (`src/core/reptile/`) on the Node core stand, Rapier, 120 Hz: it stands, is held
+ * and resumes, bites and releases, and trots on paws that land. Its body is `reptile-body`'s, its
+ * choice of target `reptile-tactics`'s, and how well it bites and trots `core-reptile-capability`'s.
+ */
 import test from "node:test";
 import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
-import { pointOfToRef } from "../src/core/control/support.ts";
-import { surfaceContains } from "../src/core/mind/openings.ts";
 import { mouthOf } from "../src/core/reptile/bite.ts";
 import { pointAtToRef, rootFrameToRef } from "../src/core/control/kinematics.ts";
 import { biteTrial } from "../research/reptile-bite.mjs";
 import assert from "node:assert/strict";
 import { createQuadrupedMind } from "../src/core/reptile/mind.ts";
 import { reptileSpec } from "../src/core/reptile/spec.ts";
-import { specProvenanceFaults } from "./fixtures/spec.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { createSenses } from "../src/core/mind/senses.ts";
 import { quadrupedTactics } from "../src/core/reptile/tactics.ts";
-import { createDirectBody } from "../src/core/mind/direct.ts";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { REPTILE_BITE } from "../src/core/reptile/tuning.ts";
-
-test("the reptile has its own complete sourced anatomy", () => {
-  const spec = reptileSpec();
-  assert.deepEqual(specProvenanceFaults(spec), []);
-  assert.equal(spec.mass.value, 8);
-  assert.equal(spec.wounds.hp.value, 1);
-  assert.equal(spec.attributes.balance.value, 0);
-  assert.ok(Math.abs(spec.segments.reduce((n, s) => n + s.mass.value, 0) - 8) < 1e-12);
-  assert.equal(spec.segments.filter(s => s.name.startsWith("paw.")).length, 4);
-  assert.ok(spec.segments.every(s => s.mass.value > 0 && s.inertia.value.every(n => n > 0)));
-  assert.equal(spec.joints.length, spec.segments.length - 1);
-  assert.ok(spec.joints.every(j => j.dofs.every(d => d.min.value <= 0 && d.max.value >= 0)));
-});
-
-test("the reptile constructs in its declared joint pose without a corrective impulse", async () => {
-  const stand = await coreStand(reptileSpec(), { gravity: false, ground: false });
-  try {
-    stand.step(8);
-    for (const s of stand.built.segments.values()) {
-      const v = s.body.linearVelocityToRef(s.node.position.clone());
-      assert.ok(v.length() < 1e-5, `${s.spec.name}: ${v.length()}`);
-    }
-  } finally { stand.dispose(); }
-});
-
-test("a reptile is down by its own rule under any mind", async () => {
-  // A mind that knows nothing of reptiles reads the spec's rule: on its back it is down, built on its paws it is not.
-  const read = async (rotation, position) => {
-    const s = await coreStand(reptileSpec(), { engine: "rapier-coordinate", rotation, position });
-    const body = createDirectBody(s.built, s.world, { kind: "direct", targets: {}, seconds: 0.05, speed: 1, activation: 0 });
-    try { s.step(); return [body.down, body.observe().down]; } finally { body.dispose(); s.dispose(); }
-  };
-  assert.deepEqual(await read(undefined, [0, 0, 0]), [false, false]);
-  assert.deepEqual(await read([0, 0, 1, 0], [0, 0.5, 0]), [true, true]);
-});
 
 test("the reptile stands for thirty seconds without an assist", async () => {
   const s = await coreStand(reptileSpec(), { engine: "rapier-coordinate" }), m = createQuadrupedMind(s.built, s.world);
@@ -63,17 +29,6 @@ test("the reptile stands for thirty seconds without an assist", async () => {
     assert.ok(Math.sqrt(reading.centre[0] * reading.centre[0] + reading.centre[2] * reading.centre[2]) < .05);
     assert.ok(Array.from(m.body.muscles.pulled).every(Number.isFinite));
   } finally { m.body.dispose(); s.dispose(); }
-});
-
-test("autonomous tactics capture a sensed surface, snap and verify release", async () => {
-  const row = await biteTrial({ autonomous: true });
-  const hit = row.hits.find(h => h.blow.work > 0 && h.blow.sides.some(side => side.mechanism === "point"));
-  assert.ok(hit && hit.before.phase === "swing" && hit.before.rate < -2 && hit.before.elapsed < .12
-    && hit.blow.closing > 0 && hit.blow.energy > .005, JSON.stringify(row));
-  assert.ok(hit.blow.sides.every(side => side.damage > 0));
-  assert.deepEqual(row.cycle, { launched: 1, returned: 1, failed: 0, phase: null });
-  assert.equal(row.clear, true); assert.equal(row.down, false);
-  assert.deepEqual(row.assist, { steps: 0, force: 0, moment: 0 });
 });
 
 test("holding and resuming a moving quadruped retains its bodies and resumes from actual paws", async () => {
@@ -96,48 +51,19 @@ test("holding and resuming a moving quadruped retains its bodies and resumes fro
 });
 
 test("a closing jaw strikes during its fast motion and releases after cancellation", async () => {
+  // How fast it closes and how much the bite gives is `core-reptile-capability`'s.
   const row = await biteTrial();
   const hit = row.hits.find(h => h.blow.work > 0 && h.blow.sides.some(side => side.mechanism === "point"));
-  assert.ok(hit && hit.before.rate < -2 && hit.before.elapsed < .12, JSON.stringify(row));
-  assert.ok(hit.blow.closing > 0 && hit.blow.energy > .005);
-  assert.ok(row.cycles.some(cycle => cycle.support === 4 && cycle.energy > .005 && cycle.damage > .002 && cycle.release !== null));
+  assert.ok(hit, `the fixture did not reach its case: no tooth met the foe (${JSON.stringify(row)})`);
+  assert.ok(hit.blow.closing > 0);
   assert.deepEqual(hit.blow.sides.map(side => side.segment), ["jaw", "jaw"]);
   assert.ok(hit.blow.sides.every(side => side.damage > 0 && side.wound !== null));
   assert.ok(row.bars.every(bar => bar < 1));
   assert.ok(hit.blow.sides[0].region?.startsWith("tooth."));
   assert.equal(hit.blow.sides[1].mechanism, "point");
-  assert.ok(hit.blow.sides[1].damage > .002, JSON.stringify(hit.blow));
   assert.deepEqual(row.cycle, { launched: 1, returned: 1, failed: 0, phase: null });
-  assert.equal(row.clear, true); assert.equal(row.down, false);
+  assert.equal(row.clear, true);
   assert.deepEqual(row.assist, { steps: 0, force: 0, moment: 0 });
-});
-
-test("a changed foe clears an unreachable chamber target and preserves a committed stroke", async () => {
-  const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate" });
-  const first = buildBody(reptileSpec(), stand.world, { position: [0, 0, .97], rotation: [0, 1, 0, 0] });
-  const second = buildBody(reptileSpec(), stand.world, { position: [.7, 0, .97], rotation: [0, 1, 0, 0] });
-  const hub = createSenses(stand.world), see = hub.add({ id: "mine", side: "one", built: stand.built, out: () => false });
-  hub.add({ id: "first", side: "two", built: first, out: () => false });
-  hub.add({ id: "second", side: "two", built: second, out: () => false });
-  const own = createQuadrupedMind(stand.built, stand.world, { orders: () => STAND_ORDERS });
-  let orders = { ...STAND_ORDERS, foe: "first" };
-  const tactics = quadrupedTactics(own.body, () => orders);
-  try {
-    stand.step();
-    const sight = { view: { senses: see(), feet: own.body.state.mind.host.motor.endpoints }, bite: { phase: null } };
-    const original = tactics.decide(sight, stand.world.dt);
-    assert.equal(tactics.state.target.foe, "first");
-    assert.ok(original.biteAt);
-    sight.bite.phase = "swing";
-    orders = { ...STAND_ORDERS, foe: "second" };
-    const committed = tactics.decide(sight, stand.world.dt);
-    assert.equal(tactics.state.target.foe, "first");
-    assert.deepEqual(committed.biteAt, original.biteAt);
-    sight.bite.phase = "chamber";
-    const changed = tactics.decide(sight, stand.world.dt);
-    assert.equal(tactics.state.target, null);
-    assert.equal(changed.biteAt, null);
-  } finally { own.body.dispose(); hub.dispose(); first.dispose(); second.dispose(); stand.dispose(); }
 });
 
 test("a bite request stops the next paw placement while the jaw prepares", async () => {
@@ -191,34 +117,12 @@ test("a pending bite retains its material point across physical preparation step
   } finally { own.body.dispose(); hub.dispose(); target.dispose(); stand.dispose(); }
 });
 
-test("a buried mouth creates clearance before an autonomous bite is armed", async () => {
-  const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate" });
-  const target = buildBody(reptileSpec(), stand.world, { position: [0, 0, .9], rotation: [0, 1, 0, 0] });
-  for (const part of target.segments.values()) part.body.setFixed(true);
-  const hub = createSenses(stand.world), see = hub.add({ id: "mine", side: "one", built: stand.built, out: () => false });
-  hub.add({ id: "target", side: "two", built: target, out: () => false });
-  const own = createQuadrupedMind(stand.built, stand.world, { orders: () => STAND_ORDERS });
-  const tactics = quadrupedTactics(own.body, () => null);
-  try {
-    const head = stand.built.segments.get("head");
-    const at = pointOfToRef(head, head.spec.points.mouth.value, new Vector3());
-    assert.equal(surfaceContains(see().others[0], "head", at.asArray()), true);
-    assert.equal(stand.world.physics.contactsOf(head.body).some(contact => contact.impulse > 0), false);
-    const intent = tactics.decide({ view: { senses: see(), centre: own.body.state.mind.host.motor.centre,
-      yaw: 0, feet: own.body.state.mind.host.motor.endpoints }, bite: { phase: null } });
-    assert.equal(tactics.state.target, null);
-    assert.equal(intent.biteAt, null);
-    assert.ok(intent.move.x * intent.face.x + intent.move.z * intent.face.z < 0);
-    assert.equal(intent.creep, true);
-  } finally { own.body.dispose(); hub.dispose(); target.dispose(); stand.dispose(); }
-});
-
 test("an unloaded snap cannot invent a wound", async () => {
   const row = await biteTrial({ target: false });
+  assert.ok(row.peak.rate < -3, `the fixture did not reach its case: the jaw closed at ${row.peak.rate} rad/s`);
   assert.deepEqual(row.hits, []);
   assert.deepEqual(row.bars, [1, null]);
   assert.ok(row.cycles.every(cycle => cycle.energy === 0 && cycle.damage === 0));
-  assert.ok(row.peak.rate < -3);
   assert.equal(row.down, false);
 });
 
@@ -254,9 +158,10 @@ test("a mechanically stopped jaw ends a missed stroke on the snap clock", async 
   } finally { mind.body.dispose(); stand.dispose(); }
 });
 
-test("the trot travels quickly, stops, reverses and turns on physical paw landings", async () => {
+test("the trot lands its paws in physics and stops", async () => {
+  // How fast and how far it travels, reverses and turns is `core-reptile-capability`'s.
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", groundSize: 100 });
-  let orders = STAND_ORDERS, biteAt = null;
+  let orders = STAND_ORDERS;
   const mind = createQuadrupedMind(stand.built, stand.world, { orders: () => orders });
   const host = mind.body.state.mind.host, crawl = host.crawl;
   const groups = [[0, 1], [2, 3]];
@@ -264,7 +169,7 @@ test("the trot travels quickly, stops, reverses and turns on physical paw landin
     for (let i = 0; i < seconds * stand.world.hz; i++) {
       const steps = crawl.steps, paw = crawl.paw;
       stand.step();
-      assert.equal(mind.body.down, false);
+      assert.equal(mind.body.down, false, "the fixture did not reach its case: it fell");
       assert.ok(crawl.command.endpoints.filter(endpoint => !endpoint.bearing).length <= 2);
       if (crawl.steps !== steps) {
         assert.equal(crawl.steps, steps + 2);
@@ -278,26 +183,17 @@ test("the trot travels quickly, stops, reverses and turns on physical paw landin
     return mind.body.observe().centre;
   };
   try {
-    const start = run(2);
+    run(2);
     orders = { move: { x: 0, z: 1 }, face: { x: 0, z: 1 } };
-    const forward = run(10);
-    assert.ok(forward[2] - start[2] >= 2, "at least .2 m/s including acceleration");
-    assert.ok(crawl.steps >= 60);
+    const steps = crawl.steps;
+    run(3);
+    assert.ok(crawl.steps > steps, "the fixture did not reach its case: it never stepped");
     orders = STAND_ORDERS; run(5);
-    assert.equal(crawl.phase, "settle");
     const stopped = mind.body.observe().centre, stoppedSteps = crawl.steps;
-    run(5);
+    run(2);
     assert.equal(crawl.steps, stoppedSteps);
     const quiet = mind.body.observe().centre;
     assert.ok(Math.hypot(quiet[0] - stopped[0], quiet[2] - stopped[2]) < .02);
-    orders = { move: { x: 0, z: -1 }, face: { x: 0, z: 1 } };
-    const backward = run(10);
-    assert.ok(quiet[2] - backward[2] >= 1.8);
-    orders = { move: null, face: { x: 1, z: 0 } }; run(20);
-    assert.ok(Math.abs(crawl.yaw - Math.PI / 2) < .1);
-    orders = { move: { x: 1, z: 0 }, face: { x: 1, z: 0 } };
-    const turning = mind.body.observe().centre, right = run(10);
-    assert.ok(right[0] - turning[0] >= 2);
     assert.equal(mind.body.assist.meter.force, 0);
     assert.equal(mind.body.assist.meter.moment, 0);
   } finally { mind.body.dispose(); stand.dispose(); }

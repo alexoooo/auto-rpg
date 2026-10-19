@@ -63,17 +63,17 @@ test("a_run_is_heard_while_the_party_sees_where_a_body_stands_and_at_no_other_ti
     const air = airOf(enemy.fighter.built), at = new Vector3();
 
     seconds(run, 2);
-    assert.ok(!seen(enemy.feet()), "the enemy walks where the party does not see");
+    assert.ok(!seen(enemy.feet()), "the fixture did not reach its case: the enemy is in sight at 2 s");
     assert.deepEqual(airs().map(({ id }) => id), ["hero"], "and its air is not given");
     seconds(run, 4);
-    assert.ok(seen(enemy.feet()), "then it has come into sight");
+    assert.ok(seen(enemy.feet()), "the fixture did not reach its case: the enemy is not in sight at 6 s");
     const [, its] = airs();
     assert.deepEqual(its, { id: "enemy-0", speed: air(at), at: { x: at.x, z: at.z } }, "and its air is its fastest point's");
 
     const footfalls = all.filter(({ touch }) => touch.of.body.actor === enemy);
     const unseen = footfalls.filter((one) => !one.seen), visibleFootfalls = footfalls.filter((one) => one.seen);
     const inSight = all.filter((one) => one.seen);
-    assert.ok(unseen.length > 0 && visibleFootfalls.length > 0, `${unseen.length} enemy touches out of sight and ${visibleFootfalls.length} in it`);
+    assert.ok(unseen.length > 0 && visibleFootfalls.length > 0, `the fixture did not reach its case: ${unseen.length} enemy touches out of sight and ${visibleFootfalls.length} in it`);
     assert.deepEqual(new Set(footfalls.map(({ cue }) => `${cue.key} ${cue.kind}`)), new Set(["enemy-0:ground bone"]), "the skeleton's ground contacts use its bone voice");
     const heroTouches = all.filter(({ touch }) => touch.of.body.actor === hero);
     assert.equal(all.length, footfalls.length + heroTouches.length, "every touch belongs to one of the two bodies");
@@ -106,7 +106,7 @@ test("a_body_thrown_at_a_wall_in_sight_is_heard_on_the_wall", async () => {
     seconds(run, 3);
     // A side wall's face is square to z, and a touch's normal runs from the body into it.
     const walls = all.filter(({ touch }) => touch.on === null && touch.normal[2] > 0.9);
-    assert.ok(walls.length > 0, `${walls.length} touches on the wall`);
+    assert.ok(walls.length > 0, `the fixture did not reach its case: ${walls.length} touches on the wall`);
     assert.ok(walls.every(({ touch }) => touch.of.body.actor === enemy), "all of them the thrown body's");
     // The wall's face is the edge of the floor's cells, z 21.5: a touch's point is within the solver's
     // overlap of it, a millimetre or so, and the hall's other wall is 3 m off.
@@ -128,10 +128,10 @@ test("a_body_built_on_the_way_is_heard_from_then_on_once_and_the_run_is_the_same
     for (const { commands } of [run, deaf.run]) { commands.order = { kind: "attack-move", destination: { x: 11, z: 20 } }; commands.revision++; }
     // It is built at 2.6 s, sees the hero at 14 m and walks at it: in sight, and heard, by 10.1 s.
     seconds(run, 12);
-    assert.ok(enemy.fighter !== null && distance(hero.feet(), enemy.feet()) < 12, `the enemy is built, and ${distance(hero.feet(), enemy.feet())} m off`);
+    assert.ok(enemy.fighter !== null && distance(hero.feet(), enemy.feet()) < 12, `the fixture did not reach its case: the enemy is ${enemy.fighter === null ? "not built" : `${distance(hero.feet(), enemy.feet())} m off`}`);
     const by = (key) => cues.filter((cue) => cue.key === key);
-    assert.ok(by("hero:ground").length > 0, `${by("hero:ground").length} of the hero's footfalls`);
-    assert.ok(by("enemy-0:ground").length > 0, `${by("enemy-0:ground").length} of the enemy's`);
+    assert.ok(by("hero:ground").length > 0 && by("enemy-0:ground").length > 0,
+      `the fixture did not reach its case: ${by("hero:ground").length} of the hero's footfalls and ${by("enemy-0:ground").length} of the enemy's`);
     assert.ok(by("enemy-0:ground").every((cue) => cue.kind === "bone"));
     // A listener left behind when the next is made would give each of its touches a second time.
     assert.equal(new Set(cues.map((cue) => JSON.stringify(cue))).size, cues.length, "no touch is heard twice");

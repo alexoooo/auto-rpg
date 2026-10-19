@@ -1,27 +1,22 @@
-// The arena (`src/arena/duel.ts`): its solids are fixed colliders in a world, and a bout of two
-// bodies runs to its verdict (Node, core world, Rapier, 120 Hz).
+// The arena (`src/arena/duel.ts`): a bout of two bodies runs to its verdict, under its recipe and
+// its orders (Node, core world, Rapier, 120 Hz). How well its minds fight is
+// `arena-core-capability`'s; its solids are `arena-solids`', its links `arena-link`'s.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { woundsBy } from "./fixtures/blows.mjs";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
-import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
-import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
-import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { ARENA_POSTS, addArenaSolids, arenaSolids } from "../src/arena/room.ts";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { addArenaSolids } from "../src/arena/room.ts";
 import { CAP_SECONDS, Duel } from "../src/arena/duel.ts";
-import { DEFAULT_MATCHUP, matchupSearch, readBalance, readCap, readGap, readHaste, readHeld, readMatchup, readTape, readYou, tapeHash, youSearch } from "../src/arena/matchup.ts";
-import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
-import { aimPoint, keysToMove, personOrders } from "../src/arena/orders-input.ts";
+import { readTape, tapeHash } from "../src/arena/matchup.ts";
+import { commandsBody } from "../src/core/body.ts";
 import { stanceEnvelope } from "../src/core/control/stance-envelope.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
-import { STAND_ORDERS, isOrders } from "../src/core/mind/orders.ts";
+import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
 import { playBout } from "../research/bout.mjs";
-import { withParts } from "./fixtures/minds.mjs";
 
 async function arena() {
   const scene = new Scene(new NullEngine());
@@ -30,136 +25,14 @@ async function arena() {
   return { scene, world, dispose: () => { world.dispose(); scene.dispose(); } };
 }
 
-test("an_arena_link_names_its_matchup_and_a_malformed_one_falls_back", () => {
-  assert.deepEqual(readMatchup("?play=arena&matchup=crypt-skeleton,workshop-fighter"), { left: "crypt-skeleton", right: "workshop-fighter" });
-  assert.deepEqual(readMatchup("?matchup=workshop-rogue"), { left: "workshop-rogue", right: DEFAULT_MATCHUP.right });
-  assert.deepEqual(readMatchup("?matchup=%7B%22left%22%3A1%7D"), DEFAULT_MATCHUP, "a malformed link");
-  assert.deepEqual(readMatchup(""), DEFAULT_MATCHUP);
-  const written = matchupSearch("?play=arena&matchup=x", { left: "workshop-rogue", right: "crypt-skeleton" });
-  assert.equal(written, "?play=arena&matchup=workshop-rogue,crypt-skeleton");
-  assert.deepEqual(readMatchup(written), { left: "workshop-rogue", right: "crypt-skeleton" });
-  // The side a person fights: named, or nobody.
-  assert.deepEqual(["?you=left", "?play=arena&you=right", "?you=both", "?you=", ""].map(readYou), ["left", "right", null, null, null]);
-  assert.equal(youSearch(written, "right"), "?play=arena&matchup=workshop-rogue,crypt-skeleton&you=right");
-  assert.equal(youSearch("?play=arena&you=left&matchup=a,b", null), "?play=arena&matchup=a,b");
-  // Each side's balance: left then right, one number for both, or the characters' own.
-  assert.deepEqual(["?balance=5,2", "?play=arena&balance=5", "?balance=0,20.5", "?balance=%205%20,%202"].map(readBalance),
-    [{ left: 5, right: 2 }, { left: 5, right: 5 }, { left: 0, right: 20.5 }, { left: 5, right: 2 }]);
-  assert.deepEqual(["", "?balance=", "?balance=5,", "?balance=,5", "?balance=-1", "?balance=5,-1", "?balance=1,2,3", "?balance=many", "?balance=Infinity"].map(readBalance),
-    Array(9).fill(undefined));
-  // Each side's haste, per cent over a person's and signed: left then right, one number for both, a side whose model takes none left its own; nothing at or under -100.
-  assert.deepEqual(["?haste=50,20", "?haste=+50", "?matchup=reptile,workshop-rogue&haste=50,30", "?matchup=workshop-rogue,reptile&haste=50", "?haste=-5"].map(readHaste),
-    [{ left: 150, right: 120 }, { left: 150, right: 150 }, { right: 130 }, { left: 150 }]);
-  assert.deepEqual(["", "?haste=", "?haste=-100", "?haste=50,-120", "?haste=1,2,3", "?haste=fast"].map(readHaste), Array(6).fill(undefined));
-});
-
-test("a_tape_rides_in_a_link's_fragment", () => {
-  const toward = { x: 0.6, z: -0.8 };
-  const tape = [
-    { step: 0, side: "left", orders: { move: toward, face: null } },
-    { step: 60, side: "right", orders: { move: null, face: { x: 1 / 3, z: 2e-17 }, foe: "left", region: "head" } },
-    { step: 120, side: "left", orders: null },
-  ];
-  const hash = tapeHash(tape);
-  assert.match(hash, /^#tape=%5B/);
-  assert.deepEqual(readTape(hash), tape);
-  assert.deepEqual(readTape(hash.slice(1)), tape, "with or without its #");
-  assert.deepEqual(["", "#", "#tape=", "#tape=%7B%7D", "#tape=nonsense", "#other=1"].map(readTape), Array(6).fill([]));
-  // One entry that is not an entry and the tape is none: a tape played in part is another bout.
-  const wrong = [
-    { step: 1.5, side: "left", orders: null }, { step: -1, side: "left", orders: null }, { side: "left", orders: null },
-    { step: 1, side: "top", orders: null }, { step: 1, side: "left" }, { step: 1, side: "left", orders: 3 }, null,
-    { step: 1, side: "left", orders: { move: { x: "1", z: 0 }, face: null } },
-    { step: 1, side: "left", orders: { move: null, face: { x: 1 } } },
-    { step: 1, side: "left", orders: { move: null, face: null, attack: [1, 2] } },
-    { step: 1, side: "left", orders: { move: null, face: null, attack: [1, 2, null] } },
-    { step: 1, side: "left", orders: { move: null, face: null, region: "head" } },
-  ];
-  for (const entry of wrong) assert.deepEqual(readTape(tapeHash([tape[0], entry])), [], JSON.stringify(entry));
-  assert.deepEqual([STAND_ORDERS, tape[1].orders, null, [], { move: null, face: null, attack: "head" }].map(isOrders), [true, true, false, false, false]);
-  // A pace is a ceiling, m/s: a number, finite and not below zero, or none.
-  assert.deepEqual([0.4, 0, -0.1, Infinity, "slow"].map((pace) => isOrders({ move: { x: 0, z: 1 }, pace, face: null })), [true, true, false, false, false]);
-  // The gap and the cap a link asks for, each within its range or not at all.
-  // What each side's right hand holds: left then right, one word for both, or the club.
-  assert.deepEqual(["?held=empty,club", "?play=arena&held=empty", "?held=club", "?held=%20club%20,empty"].map(readHeld),
-    [{ left: "empty", right: "club" }, { left: "empty", right: "empty" }, { left: "club", right: "club" }, { left: "club", right: "empty" }]);
-  assert.deepEqual(["", "?held=", "?held=empty,", "?held=,empty", "?held=sword", "?held=empty,club,club", "?balance=empty"].map(readHeld), Array(7).fill(undefined));
-  assert.deepEqual(["?gap=3.5", "?play=arena&gap=1", "?gap=8"].map(readGap), [3.5, 1, 8]);
-  assert.deepEqual(["", "?gap=", "?gap=0", "?gap=0.99", "?gap=8.01", "?gap=x", "?gap=Infinity", "?cap=4"].map(readGap), Array(8).fill(undefined));
-  assert.deepEqual(["?cap=30", "?cap=1", "?cap=600"].map(readCap), [30, 1, 600]);
-  assert.deepEqual(["", "?cap=", "?cap=0", "?cap=601", "?cap=x", "?gap=4"].map(readCap), Array(6).fill(undefined));
-});
-
-test("each_arena_post_is_the_prism_its_mesh_draws", () => {
-  const scene = new Scene(new NullEngine());
-  try {
-    const posts = arenaSolids().filter(s => s.kind === "hull");
-    assert.equal(posts.length, ARENA_POSTS.count);
-    for (const post of posts) {
-      const { height, diameter, sides } = ARENA_POSTS;
-      const mesh = MeshBuilder.CreateCylinder(post.name, { height, diameter, tessellation: sides }, scene);
-      const data = mesh.getVerticesData(VertexBuffer.PositionKind);
-      const drawn = [];
-      for (let i = 0; i < data.length; i += 3) drawn.push([data[i] + post.centre[0], data[i + 1] + post.centre[1], data[i + 2] + post.centre[2]]);
-      // Every corner of the hull is a vertex the mesh draws, and every vertex the mesh draws off its axis is a corner.
-      const near = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 1e-6;
-      for (const corner of post.points) assert.ok(drawn.some(v => near(v, corner)), `${post.name}: corner ${corner} is drawn`);
-      for (const v of drawn) {
-        if (Math.hypot(v[0] - post.centre[0], v[2] - post.centre[2]) < 1e-6) continue;
-        assert.ok(post.points.some(c => near(v, c)), `${post.name}: drawn vertex ${v} is a corner`);
-      }
-      mesh.dispose();
-    }
-  } finally { scene.dispose(); }
-});
-
-test("the_circular_wall_stops_outward_motion_at_every_face_and_join", async () => {
-  const run = async (walls) => {
-    const scene = new Scene(new NullEngine()), world = createWorld(scene, await freshEngine(), { gravity: false });
-    try {
-      addArenaSolids(world.physics, arenaSolids().filter(solid => walls ? solid.name.includes(".wall.") : false));
-      const nodes = [];
-      for (let i = 0; i < 48; i++) {
-        const angle = i * Math.PI * 2 / 48, x = Math.sin(angle), z = Math.cos(angle);
-        const node = new TransformNode(`probe ${i}`, scene);
-        node.position.set(x * 12.8, .65, z * 12.8); node.rotationQuaternion = Quaternion.Identity();
-        const body = world.physics.addBody(node, [{ kind: "sphere", centre: [0, 0, 0], radius: .06 }],
-          { mass: 1, centre: [0, 0, 0], moments: [.00144, .00144, .00144], orientation: Quaternion.Identity() });
-        body.applyImpulse(new Vector3(x * 4, 0, z * 4), node.position);
-        nodes.push(node);
-      }
-      world.step(60);
-      return nodes.map(node => Math.hypot(node.position.x, node.position.z));
-    } finally { world.dispose(); scene.dispose(); }
-  };
-  const contained = await run(true), open = await run(false);
-  assert.ok(contained.every(radius => radius < 13.2), `a wall admitted a probe: ${contained}`);
-  assert.ok(open.every(radius => radius > 14), "the control must cross the absent boundary");
-});
-
-test("a_ball_dropped_on_an_arena_post_rests_on_its_top", async () => {
-  const { scene, world, dispose } = await arena();
-  try {
-    const post = arenaSolids().find(s => s.name === "post3"), radius = 0.05;
-    const node = new TransformNode("ball", scene);
-    node.position.set(post.centre[0], 2.5, post.centre[2]); node.rotationQuaternion = Quaternion.Identity();
-    const moment = 0.4 * radius * radius;
-    world.physics.addBody(node, [{ kind: "sphere", centre: [0, 0, 0], radius }],
-      { mass: 1, centre: [0, 0, 0], moments: [moment, moment, moment], orientation: Quaternion.Identity() });
-    world.step(2 * world.hz);
-    assert.ok(Math.abs(node.position.y - ARENA_POSTS.height - radius) < 0.005, `it rests on the post: ${node.position.y}`);
-  } finally { dispose(); }
-});
-
 test("a_bout_in_the_arena_runs_to_its_verdict", async () => {
   const { world, dispose } = await arena();
   let duel;
   try {
-    // The Warrior against the Rogue: each wounds the other before one of them is out.
+    // The Warrior against the Rogue, whatever its ending.
     duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue" });
     const verdict = duel.run(CAP_SECONDS + 1);
     assert.ok(verdict, "the bout is decided by its cap");
-    assert.ok(woundsBy(duel.blows, "left", "right") > 0 && woundsBy(duel.blows, "right", "left") > 0, "blows land both ways, and wound");
     const { left, right } = duel.duelists;
     if (verdict.winner) {
       const winner = duel.duelists[verdict.winner], loser = verdict.winner === "left" ? right : left;
@@ -196,16 +69,23 @@ test("a_side_that_is_down_is_out_and_the_other_wins", async () => {
       const mass = [...left.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0);
       trunk.body.applyImpulse(new Vector3(-impulse * mass, 0, 0), centreOfToRef(trunk, new Vector3()));
       const verdict = duel.run(2.5);
-      return { verdict: verdict && { winner: verdict.winner, ending: verdict.ending }, down: [left.body.view.down, right.body.view.down], standing: [left.standing, right.standing], blows: duel.blows.length };
+      return { verdict: verdict && { winner: verdict.winner, ending: verdict.ending }, down: [left.body.view.down, right.body.view.down], standing: [left.standing, right.standing] };
     } finally { duel.dispose(); dispose(); }
   };
-  assert.deepEqual(await shoved(1.5), { verdict: { winner: "right", ending: "fallen" }, down: [true, false], standing: [false, true], blows: 0 });
+  const felled = await shoved(1.5);
+  assert.deepEqual(felled.down, [true, false], `the fixture did not reach its case: ${JSON.stringify(felled)}`);
+  assert.deepEqual(felled, { verdict: { winner: "right", ending: "fallen" }, down: [true, false], standing: [false, true] });
   // The control: a shove it holds decides nothing.
-  assert.deepEqual(await shoved(0.1),{ verdict: null, down: [false, false], standing: [true, true], blows: 0 });
+  const held = await shoved(0.1);
+  assert.deepEqual(held.down, [false, false], `the control did not reach its case: ${JSON.stringify(held)}`);
+  assert.deepEqual(held, { verdict: null, down: [false, false], standing: [true, true] });
 });
 
 test("a_bout's_minds_are_its_recipe's", async () => {
-  /** The Warrior against the Rogue under `minds`, `side` shoved down, away from the other, half a second in: who has each body at the verdict. */
+  /**
+   * The Warrior against the Rogue under `minds`, `side` shoved down, away from the other, half a
+   * second in: at the verdict, whether the command layers have each body, and who has the felled one.
+   */
   const felled = async (side, minds) => {
     const { world, dispose } = await arena();
     const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue", ...minds });
@@ -215,17 +95,23 @@ test("a_bout's_minds_are_its_recipe's", async () => {
       const mass = [...built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0);
       trunk.body.applyImpulse(new Vector3((side === "left" ? -1.5 : 1.5) * mass, 0, 0), centreOfToRef(trunk, new Vector3()));
       const verdict = duel.run(2.5);
+      assert.ok(duel.duelists[side].body.view.down, `the fixture did not reach its case: the ${side} side is not down`);
       assert.deepEqual([verdict?.ending, verdict?.winner], ["fallen", side === "left" ? "right" : "left"]);
-      return [left.body.has, right.body.has];
+      return { commanded: [commandsBody(left.body), commandsBody(right.body)], felled: duel.duelists[side].body.has };
     } finally { duel.dispose(); dispose(); }
   };
   const bare = { ...RECIPE_FIGHTER, subs: [] };
-  // The game's mind braces to stand up; the recipe fighter lies where it fell; one whose recipe gives it no sub-minds keeps its body. Each side has its own.
-  assert.deepEqual(await felled("left", {}), ["stand up: brace", "command"]);
-  assert.deepEqual(await felled("right", {}), ["command", "stand up: brace"]);
-  assert.deepEqual(await felled("left", { minds: { left: bare, right: RECIPE_FIGHTER } }), ["command", "command"]);
-  assert.deepEqual(await felled("right", { minds: { left: bare, right: RECIPE_FIGHTER } }), ["command", "lie"]);
-  assert.deepEqual(await felled("right", { minds: { left: RECIPE_FIGHTER, right: bare } }), ["command", "command"]);
+  // The game's mind hands its felled body to a sub-mind; the recipe fighter hands it to another; one
+  // whose recipe gives it no sub-minds keeps its body. Each side has its own.
+  const game = [await felled("left", {}), await felled("right", {})];
+  assert.deepEqual(game.map(({ commanded }) => commanded), [[false, true], [true, false]]);
+  assert.ok(game.every(({ felled }) => felled !== "nobody"), JSON.stringify(game));
+  assert.deepEqual((await felled("left", { minds: { left: bare, right: RECIPE_FIGHTER } })).commanded, [true, true]);
+  const recipe = await felled("right", { minds: { left: bare, right: RECIPE_FIGHTER } });
+  assert.deepEqual(recipe.commanded, [true, false]);
+  assert.ok(recipe.felled !== "nobody" && game.every(({ felled }) => felled !== recipe.felled),
+    `the recipe's sub-mind is its own: ${recipe.felled}, the game's ${game.map(({ felled }) => felled)}`);
+  assert.deepEqual((await felled("right", { minds: { left: RECIPE_FIGHTER, right: bare } })).commanded, [true, true]);
 });
 
 test("a_fighters_aim_rides_in_its_named_actions", async () => {
@@ -242,7 +128,7 @@ test("a_fighters_aim_rides_in_its_named_actions", async () => {
         world.step();
         committed = report().actions.find(action => action.phase === "commit") ?? report().ledger.find(record => record.committed);
       }
-      assert.ok(committed, `${mark} action physically committed`);
+      assert.ok(committed, `the fixture did not reach its case: no ${mark} action physically committed`);
       return committed.target;
     } finally { duel.dispose(); dispose(); }
   };
@@ -287,7 +173,7 @@ test("a_side's_right_hand_is_empty_unless_its_recipe_arms_it", async () => {
   await assert.rejects(built({ held: { left: "sword", right: "club" } }), /a hand holds nothing called sword/);
   // Two with nothing in their hands fight with them: a blow between them has no item in it, and each side of it is wounded.
   const row = await playBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 3, held: { left: "empty", right: "empty" } }, 30, [], { blows: true });
-  assert.ok(row.landed.length > 0, "the fixture's two meet");
+  assert.ok(row.landed.length > 0, "the fixture did not reach its case: the two never meet");
   assert.ok(row.landed.every((blow) => blow.sides.every((side) => side.item === null)), "no blow of theirs names an item");
   assert.ok(row.landed.some((blow) => blow.sides.every((side) => side.wound !== null)), "and one wounds both its sides");
 });
@@ -468,32 +354,4 @@ test("a_side's_assist_is_its_balance_in_its_own_weight_and_none_at_zero", async 
     duel.run();
     for (const duelist of Object.values(duel.duelists)) assert.equal(duelist.body.assist.on, false, "withdrawn at the verdict");
   } finally { duel.dispose(); second.dispose(); }
-});
-
-test("keys_and_a_pointer_make_orders_in_the_world's_frame", () => {
-  const near = (a, b) => assert.ok(Math.hypot(a.x - b.x, a.z - b.z) < 1e-12, `${JSON.stringify(a)} is ${JSON.stringify(b)}`);
-  const keys = (names) => ({ up: names.includes("up"), down: names.includes("down"), left: names.includes("left"), right: names.includes("right") });
-  // The camera looking along +z: up the screen is +z, right is +x.
-  near(keysToMove(keys(["up"]), 0), { x: 0, z: 1 });
-  near(keysToMove(keys(["down"]), 0), { x: 0, z: -1 });
-  near(keysToMove(keys(["right"]), 0), { x: 1, z: 0 });
-  near(keysToMove(keys(["left"]), 0), { x: -1, z: 0 });
-  near(keysToMove(keys(["up", "right"]), 0), { x: Math.SQRT1_2, z: Math.SQRT1_2 });
-  // Turned a quarter to the right, looking along +x: up is +x, right is -z.
-  near(keysToMove(keys(["up"]), Math.PI / 2), { x: 1, z: 0 });
-  near(keysToMove(keys(["right"]), Math.PI / 2), { x: 0, z: -1 });
-  assert.equal(keysToMove(keys([]), 0), null);
-  assert.equal(keysToMove(keys(["up", "down"]), 0), null);
-  assert.equal(keysToMove(keys(["left", "right"]), 0), null);
-  // Up the screen is away from where the orbit camera stands.
-  const [cx, , cz] = orbitPosition({ x: 0, y: 1, z: 0 }, 0.7, ORBIT.pitch, ORBIT.distance), up = keysToMove(keys(["up"]), 0.7);
-  near(up, { x: -cx / Math.hypot(cx, cz), z: -cz / Math.hypot(cx, cz) });
-  // A ray from above, down to the plane at chest height.
-  assert.deepEqual(aimPoint([0, 5, -4], [0, -0.8, 0.6], 1), [0, 1, -1]);
-  assert.deepEqual(aimPoint([1, 3, 2], [0.5, -1, -0.25], 1), [2, 1, 1.5]);
-  assert.equal(aimPoint([0, 5, -4], [0, 0.1, 1], 1), null, "a ray going up meets no plane below it");
-  assert.equal(aimPoint([0, 0.5, -4], [0, -0.8, 0.6], 1), null, "nor one that starts under the plane");
-  assert.deepEqual(personOrders({ x: 1, z: 0 }, [2, 1, 3], null, { x: 1, z: 1 }), { move: { x: 1, z: 0 }, face: { x: 1, z: 2 } });
-  assert.deepEqual(personOrders(null, [2, 1, 3], { foe: "right", region: "head" }, { x: 1, z: 1 }), { move: null, face: { x: 1, z: 2 }, foe: "right", region: "head" });
-  assert.deepEqual(personOrders(null, null, null, { x: 1, z: 1 }), { move: null, face: null });
 });

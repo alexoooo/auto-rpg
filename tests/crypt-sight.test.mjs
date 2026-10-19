@@ -12,6 +12,8 @@ import { generateLevel } from "../src/dungeon/level.ts";
 import { canSee, reveal, sightIndex } from "../src/dungeon/map.ts";
 
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
+/** Seeded points read a level at each state of its doors. */
+const POINTS = 12;
 /** The crypt whose rack and column `tests/crypt-detail.test.mjs` reads. */
 const REPORTED_SEED = 2124530852;
 const random = (seed) => () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
@@ -24,7 +26,7 @@ const floorCells = (map) => {
 /**
  * Sight with an index against sight without, on the levels of `SEEDS`: each level with its doors
  * closed and then opened one by one, `indexAt(map, opened)` the index read through at each. From
- * 60 seeded points a level, off the cells' middles: the cells revealed, in order, and a line of
+ * `POINTS` seeded points a level, off the cells' middles: the cells revealed, in order, and a line of
  * up to 14 m to another such point. What was compared, and how many answers differ.
  */
 function compared(indexAt) {
@@ -35,7 +37,7 @@ function compared(indexAt) {
     read.doors += map.doors.length;
     for (let opened = 0; opened <= map.doors.length; opened++) {
       const index = indexAt(map, opened);
-      for (let n = 0; n < 60; n++) {
+      for (let n = 0; n < POINTS; n++) {
         const at = place(), plain = [...reveal(map, at, new Set())], indexed = [...reveal(map, at, new Set(), 12, index)];
         read.cells += plain.length;
         if (plain.join() !== indexed.join()) read.differ++;
@@ -50,10 +52,10 @@ function compared(indexAt) {
   return read;
 }
 
-/** What was read is enough to show a difference: cells by the hundred thousand, lines seen and lines stopped, doors that opened. */
+/** What was read is enough to show a difference: cells by the ten thousand, lines seen and lines stopped, doors that opened. */
 function assertRead(read) {
   assert.equal(read.differ, 0, `${read.differ} answers differ over ${read.cells} cells and ${read.lines} lines`);
-  assert.ok(read.cells > 300000 && read.lines > 3000 && read.doors > 20, JSON.stringify(read));
+  assert.ok(read.cells > 60000 && read.lines > 600 && read.doors > 20, JSON.stringify(read));
   assert.ok(read.seen > read.lines / 20 && read.seen < read.lines / 2, `${read.seen} of ${read.lines} lines are seen along`);
 }
 

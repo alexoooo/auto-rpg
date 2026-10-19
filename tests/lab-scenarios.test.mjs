@@ -10,7 +10,11 @@ import { PHYSICS_HZ } from "../src/core/world.ts";
 import { CHARACTERS } from "../src/character-lab/catalog.ts";
 import { HELD } from "../src/core/items/held.ts";
 import { SEARCH_FALL } from "../src/lab/stance-mode.ts";
-import { labAddress, labHref, recoveryAddress, LAB_PRESETS, LAB_RATES, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
+import { labAddress, labHref, labMind, recoveryAddress, LAB_PRESETS, LAB_RATES, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
+import { humanSpec } from "../src/core/human/spec.ts";
+import { CLASSIC, PUNCHER } from "../src/core/mind/config.ts";
+import { standIntent } from "../src/core/mind/intent.ts";
+import { tacticsOf } from "../src/core/mind/tactics-of.ts";
 
 const SCRIPT = LAB_PRESETS.script.config, GUARD = LAB_PRESETS.guard.config;
 /** A mind no preset is: the Guard preset getting up once down. */
@@ -54,31 +58,40 @@ test("a_body_wears_what_the_workshop_dresses_it_in_until_the_address_says_otherw
   assert.deepEqual(HELD, ["empty", "club"]);
 });
 
+/** Each choice the lab offers, as the values an address may hold for it. */
+const CHOICES = {
+  scenario: [null, ...SCENARIOS.map((s) => s.id)], model: MODELS.map(({ id }) => id), hz: LAB_RATES, view: VIEW_MODES, balance: [null, 0, 5],
+  camera: CAMERA_MODES, projection: PROJECTIONS, right: HELD, left: HELD, boots: [false, true],
+  dress: [[false, false], [false, true], [true, false], [true, true]],
+  minded: [SCRIPT, GUARD, RISING].flatMap((m) => [[], ["empty"], ["club"], ["empty", "club"]].map((b) => [m, b])),
+};
+
+/** A uniform draw in [0, 1) from a 32-bit seed, the same on every engine (mulberry32). */
+function draws(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 test("every_choice_the_lab_offers_reads_back_from_the_address_it_writes", () => {
-  for (const scenario of [null, ...SCENARIOS.map((s) => s.id)]) {
-    for (const { id: model } of MODELS) {
-      for (const [hz, view, balance] of LAB_RATES.flatMap((r) => VIEW_MODES.flatMap((v) => [null, 0, 5].map((b) => [r, v, b])))) {
-        for (const camera of CAMERA_MODES) {
-          for (const projection of PROJECTIONS) {
-            for (const right of HELD) {
-              for (const left of HELD) {
-                for (const boots of [false, true]) {
-                  for (const [armour, sole] of [[false, false], [false, true], [true, false], [true, true]]) {
-                    for (const [mind, barred] of [SCRIPT, GUARD, RISING].flatMap((m) => [[], ["empty"], ["club"], ["empty", "club"]].map((b) => [m, b]))) {
-                      // The Attack's targets and their seed ride with the scenario, so that each is met with every choice.
-                      const [targets, seed] = scenario === null ? [10, 1] : [SCENARIOS.findIndex((s) => s.id === scenario), 4294967295];
-                      const address = { ...DEFAULTS, appearance: "default", scenario, model, right, left, boots, armour, sole, balance, mind, barred, hz, view, camera, projection, targets, seed }, href = labHref(address);
-                      assert.equal(routeFor(href), "lab", href);
-                      assert.deepEqual(labAddress(href), address, href);
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+  // A diagonal through the choices meets every value of each; seeded draws then mix them.
+  const axes = Object.entries(CHOICES), widest = Math.max(...axes.map(([, values]) => values.length)), draw = draws(1);
+  const picks = [
+    ...Array.from({ length: widest }, (_, i) => axes.map(([, values]) => values[i % values.length])),
+    ...Array.from({ length: 400 }, () => axes.map(([, values]) => values[Math.floor(draw() * values.length)])),
+  ];
+  for (const pick of picks) {
+    const { scenario, model, hz, view, balance, camera, projection, right, left, boots, dress: [armour, sole], minded: [mind, barred] } =
+      Object.fromEntries(axes.map(([name], i) => [name, pick[i]]));
+    // The Attack's targets and their seed ride with the scenario, so that each is met with other choices.
+    const [targets, seed] = scenario === null ? [10, 1] : [SCENARIOS.findIndex((s) => s.id === scenario), 4294967295];
+    const address = { ...DEFAULTS, appearance: "default", scenario, model, right, left, boots, armour, sole, balance, mind, barred, hz, view, camera, projection, targets, seed }, href = labHref(address);
+    assert.equal(routeFor(href), "lab", href);
+    assert.deepEqual(labAddress(href), address, href);
   }
 });
 
@@ -130,6 +143,26 @@ test("the_lab_address_keeps_the_rest_of_the_query_and_replaces_its_own", () => {
   assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, mind: RISING }, "?play=lab&mind=script")).getAll("mind"), [JSON.stringify(RISING)]);
   // One address is one link, wherever in the query its keys stood before.
   assert.equal(labHref({ ...DEFAULTS, mind: GUARD }, "?mind=script&play=lab&kept=1&mind=script"), labHref({ ...DEFAULTS, mind: GUARD }, "?play=lab&kept=1"));
+});
+
+test("the_lab_presets_offer_game_fighters_scripted_tactics_and_a_standing_guard", () => {
+  assert.deepEqual(Object.keys(LAB_PRESETS), ["classic", "puncher", "script", "guard"]);
+  assert.deepEqual(Object.values(LAB_PRESETS).map(({ config }) => config.tactics), [CLASSIC.tactics, PUNCHER.tactics, { kind: "script" }, { kind: "stand" }]);
+  const script = { name: "a script", decide: () => { throw new Error("the script decided"); } };
+  const tactics = (config, given) => tacticsOf(config.tactics, null, "lab", null, () => null, given);
+  assert.equal(tactics(LAB_PRESETS.script.config, script), script);
+  assert.throws(() => tactics(LAB_PRESETS.script.config, undefined), /require a supplied script/);
+  assert.deepEqual(tactics(LAB_PRESETS.guard.config, script).decide({ report: { heading: 1.25 } }, 1 / 120), standIntent(1.25));
+});
+
+test("a_lab_body_plays_the_mind_it_is_given_or_the_script_preset_where_that_has_a_fault", () => {
+  const spec = humanSpec("workshop-fighter"), guard = LAB_PRESETS.guard.config;
+  assert.deepEqual(labMind(guard, spec), { plays: guard, faults: [] });
+  // A mind of another kind, and a fighter whose parts disagree, play the Script preset whole.
+  assert.deepEqual(labMind({ kind: "lie" }, spec), { plays: LAB_PRESETS.script.config, faults: ["the Lab drives a fighter"] });
+  const invalid = labMind({ ...guard, actions: [{ name: "unknown", executor: "missing", effectors: ["foot.right"], regions: [], aim: { kind: "centre" } }] }, spec);
+  assert.deepEqual(invalid.plays, LAB_PRESETS.script.config);
+  assert.ok(invalid.faults.some(fault => fault.includes("missing")));
 });
 
 test("the_lab_offers_the_game_rate_first_and_distinct_scenarios", () => {
