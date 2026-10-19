@@ -273,7 +273,9 @@ at 1000 m/s^2, or closed at 15 or 60 per second, the same: the ask is past what 
 and through the drive the shoulder's three freedoms are pinned at their strength. Both arms work
 flat out; they differ in where they send the fist. So the pushed drive stays the default and the
 driven one is selectable. What is open: where a driven blow is aimed (an opening the guard leaves
-at the trunk, without the 0.41 falls the trunk's aim costs), and the holds (the club's guard, a
+at the trunk, without the 0.41 falls the trunk's aim costs: late in a bout, the centre of mass
+drifts from the first drive at up to 1 m/s through the wait for the second, and the stance steps
+without stopping it), and the holds (the club's guard, a
 blade up) as tasks, which need a hand's turn among a point's rows.
 
 ## The register: tried and not kept
