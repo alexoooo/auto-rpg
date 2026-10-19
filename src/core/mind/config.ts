@@ -268,8 +268,11 @@ export interface OptionsConfig {
   readonly meta?: "valued" | "ranked";
   /** What its valued choice weighs each term by, over the fighter's own (`WEIGHTS`). */
   readonly weights?: Readonly<Partial<Weights>>;
-  /** Whether its cover reflex runs, and whether it throws its one-two: each does unless false; whether it also aims them at the body: only if true. */
-  readonly tuning?: { readonly cover?: boolean; readonly combination?: boolean; readonly body?: boolean };
+  /**
+   * Whether its cover reflex runs, and whether it throws its one-two: each does unless false; whether it also aims them at the body,
+   * and whether it aims its blows at an opening in the foe's guard: each only if true.
+   */
+  readonly tuning?: { readonly cover?: boolean; readonly combination?: boolean; readonly body?: boolean; readonly opening?: boolean };
 }
 
 /** Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. */

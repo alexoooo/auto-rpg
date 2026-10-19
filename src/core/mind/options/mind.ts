@@ -61,7 +61,11 @@ const throws = (action: ActionConfig): number => {
   const executor = SKILLS.executors.find((one) => one.name === action.executor);
   return executor?.kind === "combination" ? executor.drives : 1;
 };
-for (const kit of [SKILLS, BODY_SKILLS]) if (fighterFaults(kit).length) throw new Error(`the options fighter's skills: ${fighterFaults(kit).join("; ")}`);
+/** A kit with its standing blows aimed at an opening in the foe's guard (`openingSelector`), in place of the centre of what they strike. */
+const opened = (kit: FighterConfig): FighterConfig => deepFreeze({ ...kit,
+  actions: kit.actions.map((action) => action.lower === undefined ? { ...action, aim: { kind: "surface" as const, tuning: {} } } : action) });
+const OPENED = new Map([SKILLS, BODY_SKILLS].map((kit) => [kit, opened(kit)] as const));
+for (const kit of [SKILLS, BODY_SKILLS, ...OPENED.values()]) if (fighterFaults(kit).length) throw new Error(`the options fighter's skills: ${fighterFaults(kit).join("; ")}`);
 
 /** How it holds the edge of its foe's reach: as the Counter-puncher does. */
 const EDGE = (() => {
@@ -115,7 +119,7 @@ export function createOptionsFighter(built: BuiltBody, world: World, config: Opt
   const decide = (): Option | null => sight && meta ? meta.decide(situation(sight)) : null;
   const half = { current: false }, downs: ReturnType<typeof downOption>[] = [];
   const running = () => { const chosen = meta && meta.state.running >= 0 ? options[meta.state.running]! : null; return chosen?.posture === "down" ? downs.find((down) => down === chosen) ?? null : null; };
-  const kit = config.tuning?.body === true ? BODY_SKILLS : SKILLS;
+  const aimed = config.tuning?.body === true ? BODY_SKILLS : SKILLS, kit = config.tuning?.opening === true ? OPENED.get(aimed)! : aimed;
   const body = createBody(built, world, { ...fighterBody(kit, wiring), subs: [(own, view, w, afterPhysics) => {
     for (const [name, sub, model] of DOWN) downs.push(downOption(name, subMind(own, view, sub, w, afterPhysics), half, model));
     return downHalf(downs, running, decide, half);
