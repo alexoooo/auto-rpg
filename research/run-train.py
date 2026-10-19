@@ -78,7 +78,8 @@ class RunEnvs(VecEnv):
     def close(self):
         try: self._call({'op': 'close'})
         except Exception: pass
-        self.server.wait(timeout=60)
+        try: self.server.wait(timeout=60)
+        except subprocess.TimeoutExpired: self.server.kill()
 
     def get_attr(self, name, indices=None): return [None] * self.num_envs
     def set_attr(self, name, value, indices=None): pass

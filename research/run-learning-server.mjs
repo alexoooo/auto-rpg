@@ -3,7 +3,7 @@
  * stdin and stdout as JSON lines (`research/run-train.py`): `{"op":"reset"}` answers every
  * environment's observation; `{"op":"step","actions":[[...],...]}` steps each with its action and
  * answers the observations, rewards, ends and infos, an ended environment reset at once and its
- * last observation in its info (`terminal`). `{"op":"close"}` ends it.
+ * last observation in its info (`terminal`). `{"op":"close"}` answers and ends it, its workers with it.
  *
  *   node research/run-learning-server.mjs <configuration.json>
  *
@@ -64,7 +64,7 @@ if (!isMainThread) {
       else if (op === 'step') {
         const answers = await all((i) => ({ op, actions: actions.slice(i * each, (i + 1) * each) }));
         send({ observations: answers.map((a) => a.observation), rewards: answers.map((a) => a.reward), dones: answers.map((a) => a.done), infos: answers.map((a) => a.info) });
-      } else if (op === 'close') { await all(() => ({ op })); break; }
+      } else if (op === 'close') { send({ closed: true }); process.exit(0); }
       else throw new Error(`no operation ${op}`);
     } catch (error) { send({ error: String(error.stack ?? error) }); break; }
   }
