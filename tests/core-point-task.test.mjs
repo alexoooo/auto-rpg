@@ -13,7 +13,7 @@ import { guardPosture } from "../src/core/skills/guard.ts";
 import { holdUp } from "../src/core/skills/hold.ts";
 import { armedWith } from "../src/core/items/held.ts";
 import { turnOfToRef } from "../src/core/control/support.ts";
-import { CLASSIC } from "../src/core/mind/config.ts";
+import { CLASSIC, OPTIONS } from "../src/core/mind/config.ts";
 import { buildBout } from "../research/bout.mjs";
 import { coreStand } from "./harness/core-stand.mjs";
 
@@ -52,10 +52,16 @@ test("a point driven refuses a push on its chain, an unknown point and a second 
   await assert.rejects(driven([0, 0, 60], 0.05, { points: [knuckles, knuckles] }), /two points driven on hand\.right/);
 });
 
+/**
+ * How a driven drive asks its fist (`StraightPunch.driven`): up to 600 m/s^2, at the speed that
+ * gives over 0.3 m at the least so it lands moving, its velocity closed at 30 per second.
+ */
+const DRIVEN = Object.freeze({ accel: 600, steer: 30, arrive: 0.3 });
+
 test("an options fighter whose drives drive the fist lands a blow on a foe that stands, and stays up", async () => {
   const stands = { ...CLASSIC, tactics: { kind: "stand" }, executors: [], actions: [] };
   const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-fighter",
-    minds: { left: { kind: "options", tuning: { driven: true } }, right: stands }, held: { left: "empty", right: "empty" }, gap: 1.4 });
+    minds: { left: { ...OPTIONS, executors: OPTIONS.executors.map((executor) => executor.kind === "combination" ? { ...executor, driven: DRIVEN } : executor) }, right: stands }, held: { left: "empty", right: "empty" }, gap: 1.4 });
   try {
     const left = duel.duelists.left;
     let driven = 0;
@@ -94,7 +100,7 @@ test("a held club is held up through the solve however the trunk leans, where th
 test("an options fighter that holds asks its free club hand's spin, and its punching hand none", async () => {
   const stands = { ...CLASSIC, tactics: { kind: "stand" }, executors: [], actions: [] };
   const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-fighter",
-    minds: { left: { kind: "options", tuning: { hold: true } }, right: stands }, held: { left: "club", right: "empty" }, gap: 3 });
+    minds: { left: { ...OPTIONS, guard: { ...OPTIONS.guard, tuning: { ...OPTIONS.guard.tuning, hold: true } } }, right: stands }, held: { left: "club", right: "empty" }, gap: 3 });
   try {
     const left = duel.duelists.left, seen = new Set();
     while (world.time < 1) { world.step(); for (const point of left.minded.skills.state.command.points ?? []) seen.add(`${point.segment}:${point.accel ? "accel" : ""}${point.spin ? "spin" : ""}`); }

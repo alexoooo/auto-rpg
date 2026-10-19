@@ -5,7 +5,7 @@ import type { AttackTuning } from "../skills/attack-path.ts";
 import type { CombatExecution, DrivenStrike } from "../skills/combat.ts";
 import type { TurnStartup } from "../skills/locomotion.ts";
 import { STRAIGHT_PUNCH, type StraightPunch } from "../skills/straight-punch.ts";
-import type { Combination } from "../skills/combination.ts";
+import { COMBINATION, type Combination } from "../skills/combination.ts";
 import type { StrideSettings } from "../skills/stride.ts";
 import type { RunSettings } from "../skills/run.ts";
 import type { SimbiconSettings, SimbiconWay } from "../skills/simbicon.ts";
@@ -242,6 +242,12 @@ export interface ActionConfig {
 /** **Fighting from low support** (`supportFold`): lowering, folding and rising again. */
 interface SupportFoldConfig { readonly kind: "support-fold" }
 
+/** **Cover** (`cover`, `options/reflex.ts`): a free hand put between a blow coming at the head and the head. */
+interface CoverReflexConfig { readonly kind: "cover-reflex" }
+
+/** **A reflex's config**, by kind (`reflexOf`). */
+export type ReflexConfig = CoverReflexConfig;
+
 /** **A skill's config**, by kind, across the fighter's skill slots. */
 export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | WalkRunConfig | LearnedRunConfig | MoveConfig | CoverGuardConfig | SupportFoldConfig;
 
@@ -258,6 +264,9 @@ export interface FighterConfig {
   readonly subs: readonly SubMindConfig[];
 }
 
+/** **What a body's skills are made from** (`fighterSkills`): its legs, its guard, its low support, its executors and the actions they carry out. */
+export type SkillKit = Pick<FighterConfig, "locomotion" | "guard" | "support" | "executors" | "actions">;
+
 /**
  * **A mind's config**: plain data, so it rides in a recipe, a save and a link, its kind naming
  * its controller (`CONTROLLERS`). Each kind of mind declares its own type in its own module; a
@@ -270,22 +279,17 @@ export const isFighter = (config: MindConfig): config is FighterConfig => config
 
 /**
  * **The options fighter** (`createOptionsFighter`, `options/mind.ts`): a meta-controller over
- * options. A person sets its obedience (`OBEDIENCE`, the weight of its orders); the rest is an
- * experiment's.
+ * options, carried out through its skills (`SkillKit`), under its reflexes. A person sets its
+ * obedience (`OBEDIENCE`, the weight of its orders) and its parts.
  */
-export interface OptionsConfig {
+export interface OptionsConfig extends SkillKit {
   readonly kind: "options";
   /** How it chooses among its options: by what each is expected to bring, weighed (`valued`, unless absent), or by a fixed rank. */
   readonly meta?: "valued" | "ranked";
   /** What its valued choice weighs each term by, over the fighter's own (`WEIGHTS`). */
   readonly weights?: Readonly<Partial<Weights>>;
-  /**
-   * Whether its cover reflex runs, whether it throws its one-two, and whether it aims its blows at an opening in the foe's guard
-   * (else at the centre of what they strike): each does unless false; whether it also aims them at the body, whether its
-   * straight drives drive the fist through the whole-body solve in place of pushing the arm's joints (`StraightPunch.driven`),
-   * and whether its free hands hold what they hold up through the solve (`holdUp`): each only if true.
-   */
-  readonly tuning?: { readonly cover?: boolean; readonly combination?: boolean; readonly body?: boolean; readonly opening?: boolean; readonly driven?: boolean; readonly hold?: boolean };
+  /** Its reflexes, in rank order (`reflexLayer`). */
+  readonly reflexes: readonly ReflexConfig[];
 }
 
 /** Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. */
@@ -323,9 +327,6 @@ export const STAND_UP: StandUpConfig = deepFreeze({ kind: "stand-up", techniques
 /** The Classic fighter: the recipe fighter, getting about by `MOVE` and standing up once down. */
 export const CLASSIC: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, locomotion: MOVE, subs: [STAND_UP] });
 
-/** The options fighter's config (`createOptionsFighter`), the mind every humanoid has unless its fight says otherwise: its kind, and nothing to set yet. */
-export const OPTIONS: OptionsConfig = deepFreeze({ kind: "options" });
-
 /** Classic throwing the straight punch, its fist lined up behind the arm (searched in Arena bouts, `research/punch-in-bout.mjs`), held at the edge of its foe's reach. */
 export const PUNCHER: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...FIGHTING, list: [
   { kind: "follow-orders" }, { kind: "clear-of-fallen" }, { kind: "break-clinch", metres: .65 }, { kind: "attack" }, { kind: "edge", band: .25, patience: 4 }, { kind: "approach" }, { kind: "cover", guard: "pose" }] }, executors: [{ name: "punch", kind: "straight-punch", ...STRAIGHT_PUNCH }],
@@ -362,6 +363,36 @@ export const SCRAPPER: FighterConfig = deepFreeze({ ...CLASSIC,
   actions: (["straight", "cross", "hook", "downward"] as const).map(family => ({ name: family, executor: "paths", family, ...(family === "downward" ? { lower: .5 } : {}),
     effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark" as const, mark: "middle" as const }], aim: { kind: "surface" as const, tuning: BODY_OPENINGS } })),
   support: { kind: "support-fold" } });
+
+/** The Scrapper's low blow, thrown from low support. */
+const LOW = (() => {
+  const low = SCRAPPER.actions.find((action) => action.lower !== undefined);
+  if (!low) throw new Error("the Scrapper has no low blow");
+  return low;
+})();
+
+/** A one-two: a combination (`COMBINATION`) at the head, either hand first, as the Counter-puncher's punch aims. */
+const ONE_TWO: ActionConfig = (() => {
+  const punch = COUNTER_PUNCHER.actions[0];
+  if (!punch) throw new Error("the Counter-puncher has no punch");
+  return { ...punch, name: "one-two", executor: "combination" };
+})();
+
+/**
+ * **The options fighter's config** (`createOptionsFighter`), the mind every humanoid has unless
+ * its fight says otherwise. Its skills are the Counter-puncher's (`COUNTER_PUNCHER`), its straight
+ * punch with either hand thrown as a combination of one drive (`COMBINATION`), which waits for its
+ * poise and leaves its hand to the guard coming back; its one-two (`ONE_TWO`); the Scrapper's for a
+ * low foe, its low blow and the support fold it is thrown from; and Classic's gaits (`MOVE`):
+ * braced near, and farther the walk that runs where it asks a run's pace. Its standing blows aim
+ * at an opening in the foe's guard (`surface`), and its one reflex is cover.
+ */
+export const OPTIONS: OptionsConfig = deepFreeze({ kind: "options", locomotion: MOVE, guard: COUNTER_PUNCHER.guard,
+  executors: [...COUNTER_PUNCHER.executors.map((executor) => executor.name === "punch" ? { name: "punch", kind: "combination" as const, ...COMBINATION, drives: 1 } : executor),
+    { name: "combination", kind: "combination" as const, ...COMBINATION },
+    ...SCRAPPER.executors.filter((executor) => executor.name === LOW.executor)],
+  actions: [...COUNTER_PUNCHER.actions, ONE_TWO, LOW].map((action) => action.lower === undefined ? { ...action, aim: { kind: "surface" as const, tuning: {} } } : action),
+  support: SCRAPPER.support, reflexes: [{ kind: "cover-reflex" }] });
 
 /** The configurable behaviour fighter starts from the shared recipe actions. */
 export const BEHAVIOURS: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...FIGHTING, choose: { kind: "rotate", rethink: .2, patience: 2 }, list: [

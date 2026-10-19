@@ -17,7 +17,7 @@ import { supportFold } from "../skills/support-fold.ts";
 import { deepFreeze } from "../state.ts";
 import type { Clock } from "../clock.ts";
 import type { BodyHost } from "./host.ts";
-import { MOVE, type ActionConfig, type FighterConfig, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type SimbiconConfig, type WalkRunConfig, type LearnedRunConfig, type MoveConfig, type MoveRuleConfig, type LocomotionConfig } from "./config.ts";
+import { MOVE, type ActionConfig, type FighterConfig, type SkillKit, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type SimbiconConfig, type WalkRunConfig, type LearnedRunConfig, type MoveConfig, type MoveRuleConfig, type LocomotionConfig } from "./config.ts";
 import { actionConfigFaults, configuredActionEstimates, configuredExecutors } from "./action-config.ts";
 import { choice, type PartField } from "./fields.ts";
 import { CONDITIONS } from "./conditions.ts";
@@ -120,8 +120,20 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
   "support-fold": skill("support", "Fight from low support", "experimental", { kind: "support-fold" }),
 });
 
-/** Cross-part references are checked before any motion state is constructed. */
+/** Cross-part references are checked before any motion state is constructed: its kit's (`kitFaults`), and the actions its selector names. */
 export function fighterFaults(config: FighterConfig): readonly string[] {
+  const faults = [...kitFaults(config)];
+  if (!Array.isArray(config.actions)) return faults;
+  const names = new Set(config.actions.map((action) => action?.name));
+  if (config.tactics.kind === "behaviours" && config.tactics.choose.kind === "rules") {
+    const choose = config.tactics.choose;
+    for (const name of [...choose.otherwise, ...choose.rules.flatMap(rule => rule.actions)]) if (!names.has(name)) faults.push(`selector: no action ${name}`);
+  }
+  return faults;
+}
+
+/** What is wrong with how a kit's actions name its executors and their own settings, each a sentence. */
+export function kitFaults(config: SkillKit): readonly string[] {
   const faults: string[] = [];
   if (!Array.isArray(config.actions)) return ["actions must be a list"];
   const executors = new Set(config.executors.map(e => e.name)), names = new Set<string>();
@@ -137,10 +149,6 @@ export function fighterFaults(config: FighterConfig): readonly string[] {
     if (!action.name || names.has(action.name)) faults.push("actions need distinct nonempty names");
     names.add(action.name);
     if (!executors.has(action.executor)) faults.push(`${action.name}: missing executor ${action.executor}`);
-  }
-  if (config.tactics.kind === "behaviours" && config.tactics.choose.kind === "rules") {
-    const choose = config.tactics.choose;
-    for (const name of [...choose.otherwise, ...choose.rules.flatMap(rule => rule.actions)]) if (!names.has(name)) faults.push(`selector: no action ${name}`);
   }
   return faults;
 }
@@ -191,7 +199,7 @@ function legsOf(body: Body, config: LocomotionConfig): Locomotion {
 }
 
 /** All action instances share the fighter's physical feedback and body-local ledger. */
-export function fighterBody(config: FighterConfig, wiring: MindWiring): BodyOptions {
+export function fighterBody(config: Pick<FighterConfig, "subs">, wiring: MindWiring): BodyOptions {
   return { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist,
     feedback: true, contactIdentity: wiring.contactIdentity, subs: subMindsOf(config.subs) };
 }
@@ -208,7 +216,7 @@ export function driveFighter(body: Body, clock: Clock, config: FighterConfig, wi
 }
 
 /** The skills `config` names for `made`, under `driving`: its legs, guard, low support and executors, its actions read through `ledger`. */
-export function fighterSkills(made: Body, clock: Clock, config: FighterConfig, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[]): Skills {
+export function fighterSkills(made: Body, clock: Clock, config: SkillKit, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[]): Skills {
   return skillSet(made, driving, {
     legs: legsOf(made, config.locomotion), guard: guardSkill(made.built.spec, config.guard.tuning?.covering),
     support: config.support ? supportFold(made) : null, hold: config.guard.tuning?.hold === true ? holdUp(made.built) : null,

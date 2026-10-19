@@ -1,5 +1,8 @@
 import { cos, sin } from "../../math/real.ts";
 import type { Side } from "../../spec/body.ts";
+import { deepFreeze } from "../../state.ts";
+import type { ReflexConfig } from "../config.ts";
+import type { Part } from "../parts.ts";
 import type { Cover, Intent } from "../intent.ts";
 import type { Situation } from "./option.ts";
 
@@ -74,4 +77,20 @@ export function cover(longest: number): Reflex {
       return { guard: dx * cos(h) - dz * sin(h) >= 0 ? { right: threat } : { left: threat } };
     },
   };
+}
+
+/** The longest its cover holds a hand up against one run of blows, s. */
+const COVER_LONGEST = 1;
+
+/** **Every reflex, by its kind**, as a part (`Part`) of role `reflex`. A kind without an entry does not compile. */
+export const REFLEX_PARTS: { readonly [K in ReflexConfig["kind"]]: Part<Extract<ReflexConfig, { kind: K }>> } = deepFreeze({
+  "cover-reflex": { role: "reflex", label: "Cover", stage: "game", fields: [], slots: [], defaults: { kind: "cover-reflex" }, fits: () => true, faults: () => [] },
+});
+
+/** The reflex `config` names. */
+export function reflexOf(config: ReflexConfig): Reflex {
+  switch (config.kind) {
+    case "cover-reflex": return cover(COVER_LONGEST);
+    default: { const never: never = config.kind; throw new Error(`no reflex of kind ${JSON.stringify(never)}`); }
+  }
 }

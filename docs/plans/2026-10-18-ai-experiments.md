@@ -180,11 +180,13 @@ The code against the contract above:
   (`MindMade.skills`). The joint-feedback Mind is the first entrant (`src/core/entrants/direct/`),
   and `docs/architecture.md` (Minds) has the guide for authors. The game's three other Minds stay
   beside the toolkit in `src/core/mind/`.
-- Within the stack, the options fighter chooses its skills by boolean tuning flags, not by
-  composition (`tuning` in `OptionsConfig`, one memoised kit map a flag in
-  `src/core/mind/options/mind.ts`); motor control is one `motorControl` made inside `commandMind`
-  (`src/core/body.ts`), with the whole-body solve a flag beside it; skills ask motor control through
-  one `BodyCommand` holding every kind of goal.
+- Stage 4 has landed. The options fighter's skills are slots, as a fighter's (`SkillKit`: legs,
+  guard, low support, executors and actions), and its reflexes a list of parts of role `reflex`;
+  a kit whose actions name a missing executor is refused (`kitFaults`). Its tuning flags and kit
+  maps are gone: each is a part or a setting in its config.
+- Motor control is one `motorControl` made inside `commandMind` (`src/core/body.ts`), with the
+  whole-body solve a flag beside it; skills ask motor control through one `BodyCommand` holding
+  every kind of goal.
 - The Dungeon chooses a party member's Mind by its body's model and an enemy's from the map.
 
 ## Order of work

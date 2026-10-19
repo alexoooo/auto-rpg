@@ -326,10 +326,11 @@ and driven afresh to change what it costs.
   moved as the posture moves it, its other freedoms drawn toward the posture's asks
   (`LimbWork.toward`) beneath the point's rows, and a torque past its strength pinned, so a
   point asked more than the body can give gets what the muscles give: the chain's torques past
-  strength are pinned before the ground is asked for the motion. The options fighter's straight
-  drives may drive the fist so (`tuning.driven`, `StraightPunch.driven`); its default pushes the
+  strength are pinned before the ground is asked for the motion. A combination executor's straight
+  drives may drive the fist so (`StraightPunch.driven`, a setting of the executor in a fighter's or
+  an options fighter's slot); its default pushes the
   arm's joints. A hold is a spin so asked: `holdUp` (`src/core/skills/hold.ts`) turns a free hand's
-  item's line up, the guard's or the options fighter's choice (`tuning.hold`).
+  item's line up, the guard's choice (`tuning.hold` of its guard part).
 - **The stance** (`stance.ts`; its records in `stance-state.ts`, its steps in `gait.ts`, its
   soles in `support.ts`, its constants in `stance-tuning.ts`) is the standing plan, and the
   solve's first user: it keeps the body up by the forces the ground can really give. It plans
@@ -732,7 +733,7 @@ tactics and skills; what they share is shared code (the orders, the targets, the
 sub-minds, locomotion and the strike cycle), not a flag that chooses a stack. There are four: the
 **fighter** (`createFighter`, `fighter.ts`), whose tactics and skills are parts in its slots;
 the **options fighter** (`createOptionsFighter`, `src/core/mind/options/`), every humanoid's own
-mind, with nothing yet to configure; the **quadruped** (crawl and bite); and **direct** joint control, the first
+mind, whose skills and reflexes are parts in its slots; the **quadruped** (crawl and bite); and **direct** joint control, the first
 entrant (`src/core/entrants/direct/`). A config read from a save or a link whose kind none has is refused
 (`partOf`), and so is a tree any part of which names a fault (`treeFaults`, which `createMind`
 reads). A part's config holds a player's fields, plain choices, and under `tuning` an
@@ -804,17 +805,20 @@ or its patience is spent (`edge.ts`, the Counter-puncher's band and patience), c
 (walk to the blow's window and throw it), and hold. Whatever a standing option asks, its walk
 (`walker`, `walk.ts`) keeps out of a solid's clearance and a fallen body's reach, but the reach of
 the body the option means to be near. Closing on a place, it goes as fast as held 0.8 of its gait's
-trials that way (`SPACE.share`) and it stops from before the place, so that far from its foe it runs. It fights with the
-Counter-puncher's skills, its blows aimed at an opening in the foe's guard (the surface aim,
-`openingSelector`) and its hands at the guard's pose, the Scrapper's low blow and support fold,
-and Classic's gaits (`MOVE`). Its body hands itself to one sub-mind, the down half
+trials that way (`SPACE.share`) and it stops from before the place, so that far from its foe it runs. It fights with
+the skills its config names, as a fighter's are named (`SkillKit`: legs, guard, low support,
+executors and actions), a strike for each standing action and a low strike by the first action
+thrown from low support; a kit whose actions name a missing executor is refused (`kitFaults`). Its
+defaults (`OPTIONS`) are the Counter-puncher's skills, its blows aimed at an opening in the foe's
+guard (the surface aim, `openingSelector`) and its hands at the guard's pose, a one-two, the
+Scrapper's low blow and support fold, and Classic's gaits (`MOVE`). Its body hands itself to one sub-mind, the down half
 (`downHalf`), which wants the body when the decision is a down option and hands it to that option's
 sub-mind, ending one and beginning another when the decision changes; so standing and down are one
-decision's. Under the option, reflexes (`reflexLayer`, `reflex.ts`) patch its intent every control
-step, in rank order: each, set off by its trigger, takes the hands it may that no reflex before it
+decision's. Under the option, the reflexes its config names (`reflexOf`, parts of role `reflex`,
+in `reflexLayer`, `reflex.ts`) patch its intent every control step, in rank order: each, set off by its trigger, takes the hands it may that no reflex before it
 has, for at most its longest hold, then lets go until its trigger has gone; a hand a blow holds or
 the option asks for it takes only where it seizes, ending that blow (`Intent.interrupt`). The one
-reflex is cover: the hand on the side a blow closes on the head from, where it is free, between the
+reflex, and its default, is cover (`cover-reflex`): the hand on the side a blow closes on the head from, where it is free, between the
 two, for at most 1 s; the other hand stays the option's. It gives its skills
 (`MindMade.skills`), so what reads a fighter's report reads it.
 

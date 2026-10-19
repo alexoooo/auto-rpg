@@ -1,19 +1,20 @@
 import type { BodySpec } from "../spec/body.ts";
 import { BEHAVIOUR_PARTS } from "./behaviours.ts";
-import type { BehaviourConfig, ExecutorConfig, MoveRuleConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
+import type { BehaviourConfig, ExecutorConfig, MoveRuleConfig, ReflexConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { CONTROLLERS } from "./controllers.ts";
 import { EXECUTOR_PARTS } from "./executor-parts.ts";
 import { CONFIG_KEYS } from "./config-keys.ts";
 import { MOVE_RULE_PARTS, SKILL_PARTS } from "./fighter.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Role } from "./parts.ts";
 import { SUB_MIND_PARTS } from "./sub-minds.ts";
+import { REFLEX_PARTS } from "./options/reflex.ts";
 import { TACTICS_PARTS } from "./tactics-of.ts";
 
 /** Every part's config below a mind, by kind. */
-type AnyPart = SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ExecutorConfig;
+type AnyPart = ReflexConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ExecutorConfig;
 
 /** Every part below a mind, by its kind. A kind without an entry does not compile. */
-const BELOW: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...MOVE_RULE_PARTS, ...SKILL_PARTS, ...EXECUTOR_PARTS };
+const BELOW: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...MOVE_RULE_PARTS, ...SKILL_PARTS, ...EXECUTOR_PARTS, ...REFLEX_PARTS };
 
 /**
  * **Every part, by its kind**, across roles: the minds (`CONTROLLERS`) and the parts below them,

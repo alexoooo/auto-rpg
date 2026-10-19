@@ -6,7 +6,7 @@ import { deepFreeze } from "../state.ts";
 import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, OPTIONS, PUNCHER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type FighterConfig, type MindConfig, type OptionsConfig, type QuadrupedConfig } from "./config.ts";
 import { controller, NO_POSTURE, type Controller } from "./controller.ts";
 import { DIRECT_MIND } from "../entrants/direct/mind.ts";
-import { createFighter, fighterFaults } from "./fighter.ts";
+import { createFighter, fighterFaults, kitFaults } from "./fighter.ts";
 import { actionConfigFaults } from "./action-config.ts";
 import { slotList, slotOne, type Slot } from "./parts.ts";
 import { createOptionsFighter, optionsFit } from "./options/mind.ts";
@@ -40,15 +40,21 @@ const OBEDIENCE_FIELD: PartField<OptionsConfig> = {
   },
 };
 
+/** The options fighter's slots: a skill of each role, as a fighter's, and its reflexes in rank order. */
+const OPTIONS_SLOTS: readonly Slot[] = Object.freeze([
+  slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotList("executors", "Executors", "executor"),
+  slotOne("support", "Low support", "support", true), slotList("reflexes", "Reflexes", "reflex"),
+]);
+
 /** **The options fighter** (`createOptionsFighter`): a meta-controller over options, chosen among by their worth. */
 const OPTIONS_MIND = controller<OptionsConfig>({
-  role: "mind", label: "Options fighter", stage: "game", fields: [OBEDIENCE_FIELD], slots: [], defaults: OPTIONS, tuning: ["cover", "combination", "body", "opening", "driven", "hold"],
-  keys: { kind: true, meta: true, weights: true, tuning: true },
+  role: "mind", label: "Options fighter", stage: "game", fields: [OBEDIENCE_FIELD], slots: OPTIONS_SLOTS, defaults: OPTIONS,
+  keys: { kind: true, meta: true, weights: true, locomotion: true, guard: true, executors: true, actions: true, support: true, reflexes: true },
   fits: optionsFit,
   faults: config => [
     ...[undefined, "valued", "ranked"].includes(config.meta) ? [] : ["meta: valued or ranked"],
     ...Object.entries(config.weights ?? {}).flatMap(([term, weight]) => TERMS.includes(term as typeof TERMS[number]) && Number.isFinite(weight) && weight >= 0 ? [] : [`weights.${term}: a term (${TERMS.join(", ")}) of a finite weight, not negative`]),
-    ...(["cover", "combination", "body", "opening", "driven", "hold"] as const).flatMap((name) => ["undefined", "boolean"].includes(typeof config.tuning?.[name]) ? [] : [`tuning.${name}: true or false`]),
+    ...kitFaults(config),
   ],
   presets: deepFreeze({ options: { label: "Options fighter", config: OPTIONS } }),
   builtIn: guardPosture,

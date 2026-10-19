@@ -78,8 +78,8 @@ test("a_person's_obedience_sets_how_heavy_a_blow_coming_turns_the_fighter_from_i
 
 test("a_valued_config's_weights_name_terms_of_finite_weights", () => {
   const faults = CONTROLLERS.options.faults;
-  assert.deepEqual(faults({ kind: "options", meta: "valued", weights: { taken: 2 } }), []);
-  assert.equal(faults({ kind: "options", weights: { bravery: 1 } }).length, 1);
-  assert.equal(faults({ kind: "options", weights: { taken: -1 } }).length, 1);
-  assert.equal(faults({ kind: "options", meta: "random" }).length, 1);
+  assert.deepEqual(faults({ ...CONTROLLERS.options.defaults, meta: "valued", weights: { taken: 2 } }), []);
+  assert.equal(faults({ ...CONTROLLERS.options.defaults, weights: { bravery: 1 } }).length, 1);
+  assert.equal(faults({ ...CONTROLLERS.options.defaults, weights: { taken: -1 } }).length, 1);
+  assert.equal(faults({ ...CONTROLLERS.options.defaults, meta: "random" }).length, 1);
 });
