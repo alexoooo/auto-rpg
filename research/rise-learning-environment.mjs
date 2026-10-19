@@ -1,7 +1,7 @@
 /**
  * The learned rise's training environment: a body of `model`, the club in its right hand if
  * `held` is `club`, under the Lab's stance host with the stand-up sub-mind on the learned rise
- * alone (`learnedRise`, policy null), its rise steered from here (`RiseSteer`) every
+ * alone (`learnedRise`, policy null), its rise's steer asked from here (`RiseSteer`) every
  * `RISE_DECIDE` control steps while the rise has the body, its features read as the skill reads
  * them (`readRise`). The world is the recovery environment's (`stand-up-environment.mjs`): Node,
  * Rapier, 120 Hz, Balance `balance`.
@@ -43,14 +43,14 @@ export async function riseEnvironment(configuration = {}) {
   const zero = Array(RISE_ACTIONS).fill(0);
   const reset = (given = {}) => {
     e.restore(falls[given.start ?? Math.floor(random() * falls.length)]);
-    riseSteerFrom(zero, run.state.steer);
+    riseSteerFrom(zero, run.state.asked); riseSteerFrom(zero, run.state.steer);
     ep.decisions = 0; ep.head = head();
     return observe();
   };
   const step = (action) => {
     if (!Array.isArray(action) || action.length !== RISE_ACTIONS || !action.every(Number.isFinite)) throw new Error('invalid rise action');
     const squashed = action.map(Math.tanh);
-    riseSteerFrom(squashed, run.state.steer);
+    riseSteerFrom(squashed, run.state.asked);
     ep.decisions++;
     const from = e.result().elapsed;
     // The host's own phases between the rise's attempts (bracing, steadying) are not steered: the world goes on to the rise's next decision.
@@ -66,5 +66,7 @@ export async function riseEnvironment(configuration = {}) {
       info: { stood, failed, seconds: r.seconds, elapsed: r.elapsed, decisions: ep.decisions, head: now } };
   };
   if (observe().length !== size) throw new Error('the features are not the policy\'s');
-  return { reset, step, observationSize: size, actionSize: RISE_ACTIONS, dispose: () => e.dispose() };
+  // Where the rise is, for a probe: steadying, else its phase and stage, else the host's.
+  const where = () => run.up.steadying ? 'steady' : run.up.rise.state.phase !== 'idle' ? `${run.up.rise.state.phase}${run.up.rise.state.stage}` : `host-${run.phase}`;
+  return { reset, step, where, inside: () => ({ run, own, view: view(), standing, env: e }), observationSize: size, actionSize: RISE_ACTIONS, dispose: () => e.dispose() };
 }

@@ -10,6 +10,8 @@ import type { TechniqueRun } from "./techniques.ts";
 
 /** How many control steps a policy's steer holds, at 120 Hz: it decides 30 times a second. */
 export const RISE_DECIDE = 4;
+/** How fast the rise's steer follows what a policy asks, s: a first-order lag, at the pace the servo moves the body. */
+const RISE_EASE = .2;
 
 /**
  * How far each of a policy's outputs, -1 to 1, moves the rise's steer (`RiseSteer`): the log of
@@ -76,18 +78,19 @@ export function riseSteerFrom(actions: readonly number[], steer: RiseSteer): Ris
 
 /**
  * **The learned rise**: step up (`stepUp`) whose rise a policy steers (`RiseSteer`): every
- * `RISE_DECIDE` control steps it reads the rise (`readRise`) and sets the steer from its
- * network's outputs (`riseSteerFrom`), and every step gives the steer to each of step up's rises.
- * With no policy the steer is set from outside, as a policy's training sets it; nought, it is
- * step up.
+ * `RISE_DECIDE` control steps it reads the rise (`readRise`) and asks a steer of its network's
+ * outputs (`riseSteerFrom`); every step the steer eases toward what is asked (`RISE_EASE`) and is
+ * given to each of step up's rises. With no policy what is asked is set from outside, as a
+ * policy's training sets it; nought, it is step up.
  */
 export function learnedRise(own: OwnBody, view: BodyView, world: World, policy: RisePolicy | null = RISE_POLICIES[own.spec.model] ?? null): TechniqueRun & {
-  readonly state: { readonly steer: RiseSteer; readonly steps: number };
+  readonly state: { readonly asked: RiseSteer; readonly steer: RiseSteer; readonly steps: number };
   readonly up: ReturnType<typeof stepUp>;
 } {
   if (policy !== null && policy.actions !== RISE_STEER_KEYS.length) throw new Error(`a learned rise's policy gives ${RISE_STEER_KEYS.length} actions`);
   const up = stepUp(own, view, world), act = policy === null ? null : recoveryNetwork(policy), features: number[] = [];
-  const state = { up: up.state, steer: Object.fromEntries(RISE_STEER_KEYS.map((key) => [key, 0])) as unknown as RiseSteer, steps: 0 };
+  const nought = () => Object.fromEntries(RISE_STEER_KEYS.map((key) => [key, 0])) as unknown as RiseSteer;
+  const state = { up: up.state, asked: nought(), steer: nought(), steps: 0 };
   return {
     state, up,
     get phase() { return up.phase; },
@@ -97,8 +100,10 @@ export function learnedRise(own: OwnBody, view: BodyView, world: World, policy: 
     begin(side) { state.steps = 0; up.begin(side); },
     end() { up.end(); },
     step(g, senses, dt) {
-      if (act !== null && state.steps % RISE_DECIDE === 0) riseSteerFrom(act(readRise(own, view, up.rise, up.rise === up.rises[0], up.steadying, features)), state.steer);
+      if (act !== null && state.steps % RISE_DECIDE === 0) riseSteerFrom(act(readRise(own, view, up.rise, up.rise === up.rises[0], up.steadying, features)), state.asked);
       state.steps++;
+      const ease = Math.min(1, dt / RISE_EASE);
+      for (const key of RISE_STEER_KEYS) state.steer[key] += (state.asked[key] - state.steer[key]) * ease;
       for (const rise of up.rises) Object.assign(rise.state.steer, state.steer);
       return up.step(g, senses, dt);
     },
