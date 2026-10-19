@@ -1,13 +1,53 @@
 # AI experiments on shared bodies
 
-Make it easy to run different Minds, skills and motor controllers on the game's physical bodies,
-against one another in the Arena, the Dungeon and future modes. An experiment can replace one
-part or the whole control stack. Hand-built rules, search and learned policies are all valid
-implementations. What runs in the game runs in the browser; training can happen offline.
+A testbed where many authors, people or AI agents, develop competing Minds over time and run
+them on the game's physical bodies against one another, in the Arena, the Dungeon and future
+modes. Adding a Mind is a folder and a line in the registry, and touches no game mode and no
+other Mind. An experiment can replace one part or the whole control stack. Hand-built rules,
+search and learned policies are all valid implementations. What runs in the game runs in the
+browser; training can happen offline.
 
 The [whole-body controller plan](2026-10-17-general-controller.md) continues with its existing
 gates. It develops one reusable execution stack. The options fighter is one client of that stack;
 neither that Mind nor that solver is mandatory for every experiment.
+
+## The contract
+
+Every Mind, the game's own included, meets the world through one boundary, on the same terms.
+
+- **What it is given once**: its body's fixed description (segments and joints, masses and
+  inertia, joint ranges, muscle strengths and speeds, what it holds), its own config, and what its
+  fight grants it (its assist's ceiling, grip and hand-pose ports, a script).
+- **What it reads each step: the report.** A detached copy, made by the game: its own body whole
+  (every joint's angle, rate and effort, every segment's position, turn, velocity and spin, every
+  contact it makes with its impulse, its hand poses, its assist's meter); other bodies as anyone
+  watching would see them (each segment's pose and motion, the centre and its velocity, whether
+  down or out, what it is built from and holds); the solids and objects its fight grants; the
+  clock; its orders. Never another Mind's memory, orders or command, nor anyone's hit points.
+- **What it returns each step: the order sheet.** Muscle activations and speeds, its assist's
+  ask, grips and hand poses. The game checks it (muscle bounds, the assist's ceiling, geometric
+  capture for a grip) and applies it. Nothing else a Mind does reaches the physics.
+- **What it may report back**: a status for screens and tests (what it is doing, an ask it
+  cannot meet, whether it holds the body), never read by the rules.
+- **How that is held**: a Mind's factory is never given the world, the built body or an engine
+  handle, and a source rule in `npm test` refuses an import of the engine, the build, the world or
+  Rapier, and `globalThis`, from a Mind's folder or the shared toolkit. That stops drift and
+  copied code, not a determined cheat: every Mind runs in one JavaScript process. A Mind in its own
+  worker is built only if deliberate exploitation appears.
+- **What is open by choice**: other bodies are seen exactly, all the way round and through walls,
+  with the senses' delay (`createSenses`) the one handicap. A field of view, noise or a longer
+  delay is one change in the senses layer, for every Mind at once, made when a comparison needs it.
+  Computation per step is not capped; a comparison states each entrant's allowance.
+
+The game's skills, motor control, sub-minds and the options fighter are a **toolkit** under the
+same rule: they read the report and write the order sheet, so a Mind may use any of them or none,
+and a learned or searched skill stands in for a hand-built one on equal terms.
+
+**Adding a Mind**: a folder of its own under `src/core/entrants/`, holding its factory, its config
+type with its faults, and its presets; one entry in the registry. Its config is plain data the
+registry validates through the entrant's own faults; no shared union names it. Every registered
+Mind passes one contract test in `npm test` (below); a league or capability reading is a
+measurement, not a gate.
 
 ## Structure
 
@@ -118,19 +158,57 @@ opponents alongside any aggregate ranking. Software checks protect execution and
 replay; capability and fighting strength require their own evaluation, with repeated trials
 where decision-making varies.
 
+## Where things stand
+
+The contract above is not yet the code's:
+
+- Only the joint-feedback Mind (`createPolicyBody`, `src/core/mind/direct.ts`) meets the world
+  through the report and the order sheet. Every game Mind is made by `embody`
+  (`src/core/mind/mind.ts`) with the whole `BuiltBody` and the `World`, and its skills, sub-minds
+  and motor control read live engine bodies (for example `skills/hold.ts`, `whole-body-strike.ts`,
+  `ground/plant-up.ts`, `rise/staged.ts`, `ground/reading.ts`); the engine body also takes
+  impulses, forces and mass changes. The order sheet (`BodyAction`) has no assist ask: the toolkit
+  asks `Assist` directly.
+- Adding a kind of Mind means editing `MindConfig` and `Minded` (`src/core/mind/config.ts`,
+  `minds.ts`); the Arena, the Dungeon and the Lab read a fighter's skills through
+  `kind === "fighter"`.
+- Recorded replay is of orders (`Duel.tape`) and re-runs the Minds; nothing records the order
+  sheets.
+- Within the stack, the options fighter chooses its skills by boolean tuning flags, not by
+  composition (`tuning` in `OptionsConfig`, one memoised kit map a flag in
+  `src/core/mind/options/mind.ts`); motor control is one `motorControl` made inside `commandMind`
+  (`src/core/body.ts`), with the whole-body solve a flag beside it; skills ask motor control through
+  one `BodyCommand` holding every kind of goal.
+- The Dungeon chooses a party member's Mind by its body's model and an enemy's from the map.
+
 ## Order of work
 
-1. Establish the common participant boundary with existing implementations that use different
-   execution paths, including a composed fighter and a direct policy. Reuse their lifecycle and
-   validation. Continue the whole-body controller work alongside this.
-2. Exercise independent configuration in a short Arena bout and a small Dungeon encounter.
-   Check restoration, feedback, interruption and rejection of unsupported compositions. This
-   includes exact replay of recorded inputs with the participating Minds disabled. It does not
-   depend on completing every gait or recovery technique.
-3. For each skill or motor-control boundary an experiment needs, exercise two distinct
-   implementations against it. Add a compatible implementation through its module, configuration
-   and registration, without changing game modes or unrelated algorithms. Extend the contract
-   only when a real shared requirement is missing. Keep a working default for comparison.
+Each stage lands in small commits under the normal checks; a stage that claims to change no
+behaviour is held to the fingerprint (`scripts/fingerprint.mjs`).
+
+1. **One boundary.** The report gains what the toolkit reads (segment poses and motion already
+   there; the fixed description with masses and inertia; the dynamics a controller asks, computed
+   from the report and the description); the order sheet gains the assist's ask. Every
+   controller's factory is given the description, config and fight's grants, never the world or
+   the built body. The toolkit reads the report; `embody`'s raw path stays inside the adapter. The
+   source rule lands with it, over the toolkit and `src/core/entrants/`.
+2. **Recorded order sheets.** Every body's checked order sheet is recorded at the boundary with
+   its step; a bout replays from its recipe and that record with every Mind disabled, its
+   physical state equal to the bit. One contract test runs over every registered Mind: a short
+   bout runs and stays finite, flings nobody, replays exactly from its record, and forks and
+   resumes.
+3. **The registry by folder.** A Mind's kind, config and faults live in its folder; `MindConfig`
+   and `Minded` stop naming kinds; a common status replaces the `kind === "fighter"` reads; the
+   joint-feedback Mind moves to `src/core/entrants/` as the first entrant written that way, with a
+   short guide for authors in `docs/architecture.md`.
+4. **Composition in the stack.** The options fighter's skills become slots filled from
+   registered implementations, each declaring what it needs, a composition that cannot work refused
+   when built; the tuning flags and their kit maps go, each flag an implementation.
+5. **Motor control as a part.** `BodyCommand` splits into each kind of goal's own vocabulary, and
+   the motor controller is chosen as a part: the bearing solve and the whole-body solve are its
+   first two implementations.
+6. **The Dungeon by participant.** Each participant's Mind is chosen on its own, enemies
+   included.
 
 Land small changes under the repository's normal checks. Run the relevant scenario tests when
 changing their paths; use measurements when evaluating a capability, strength or performance
