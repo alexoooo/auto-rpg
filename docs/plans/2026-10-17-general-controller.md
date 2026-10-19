@@ -327,6 +327,10 @@ Not to be tried again on the controllers as they are. Each failed for the reason
   and the battery falls 8 of 300, but its forward envelope with the club breaks (the Warrior 3.5,
   the Rogue 1 m/s), as it does in each of its snapshots from 39M to 42M. A second such run, to
   46.7M, makes 5.5 m/s at Haste +100 and falls 15 of 300, its club envelope the Rogue's 0.7 m/s.
+  A third, from 42.8M to 50.8M with Haste in its training, passes in none of its eight snapshots:
+  Haste +100 adds at most 0.64 m/s (46M: the Warrior 4.89 to 5.53), fells the Warrior at its top
+  speed in four, the battery falls 10 to 45 of 300, and the Rogue's forward envelope is under 2 m/s
+  empty or with the club in every one (`research/runs/run-learning/score-run.sh`, Node stand).
 - **Stopping.** A pace floor under the body's speed; the run braking at its own rate; a lower
   handover speed; larger `cv` or `leanGain`; the walk's slowdown at 0.68 or 1.0 m/s²; the walk's
   late thigh let lean (threw the Warrior walking back with the club); a landing gate on the
