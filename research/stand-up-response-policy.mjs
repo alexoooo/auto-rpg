@@ -63,7 +63,7 @@ export function responsePolicy({channels,reference,parameters:p={}}) {
   policy.state=state;return policy;
 }
 
-/** The frozen action interface supplies only detached observations and channel metadata. */
+/** The screen's action interface supplies only detached observations and channel metadata. */
 export function createPolicy({channels}) {
   const c=JSON.parse(readFileSync(process.env.STAND_UP_RESPONSE_CONFIG));
   return responsePolicy({channels,reference:JSON.parse(gunzipSync(readFileSync(c.reference))),parameters:c.parameters});

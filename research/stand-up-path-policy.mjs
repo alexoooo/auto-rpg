@@ -91,7 +91,7 @@ export function pathPolicy({ channels, reference, parameters }) {
   return policy;
 }
 
-/** The CLI-selected immutable reference and parameters are separate from the frozen evaluator. */
+/** The CLI-selected reference and parameters are separate from the screen. */
 export function createPolicy({ channels }) {
   const configuration = JSON.parse(readFileSync(process.env.STAND_UP_PATH_CONFIG,'utf8'));
   const reference = JSON.parse(gunzipSync(readFileSync(configuration.reference)));

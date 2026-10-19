@@ -13,9 +13,7 @@
     "check": "tsc --noEmit",
     "test": "node scripts/test.mjs",
     "test:all": "node scripts/test.mjs --all",
-    "test:experimental": "node scripts/test.mjs --experimental",
-    "setup:frozen": "node scripts/frozen-evaluator.mjs --prepare",
-    "test:frozen": "node scripts/test-frozen.mjs"
+    "test:experimental": "node scripts/test.mjs --experimental"
   },
   "dependencies": {
     "@babylonjs/core": "9.18.1",

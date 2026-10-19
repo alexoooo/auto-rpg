@@ -1130,12 +1130,9 @@ can load directly; a rejected load leaves the current episode intact. The identi
 resolved anatomy, task/controller settings, rate, actuation, gravity and solver artifact/adapter
 revision. The snapshot is structured data and bytes, not a JSON-only serialization format.
 
-Current-code replay tests capture fresh states. Historical stand-up checkpoints run only in the
-immutable evaluator checkout, prepared by `scripts/frozen-evaluator.mjs` with its own lockfile
-and captured Node version. `npm run test:frozen` checks the checkout before and after the
-separate test process; CI runs it in a dedicated job alongside the current-code suite. The
-checkpoint identity guards remain strict; the saved falls (step-up's baseline on today's body) and
-the evaluator change only with the owner's agreement.
+Replay tests capture fresh states; a checkpoint's identity guards stay strict, so a state saved
+by other code is refused rather than loaded. The stand-up screen (`research/stand-up-acceptance.mjs`)
+makes its sixteen falls afresh each run and restores each for step-up and the controller compared.
 
 `createReachTask` (`tasks/reach.ts`) is the Node/browser builder for a pinned joint reach. It
 supports actuator actions through the detached policy port or posture actions through the

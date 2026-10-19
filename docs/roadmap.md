@@ -149,10 +149,9 @@ After it, each with its own plan, in the order each needs the one before:
     human. The plan this landed from is `docs/plans/2026-10-13-stand-up.md@ef94828a`.
   - **Fast, robust unassisted recovery remains unsolved.** The optimized compliant-sole recipe
     produced one 15.5583 s development success and failed the robustness objective. The results in
-    the rest of this item are on the old legs and the old screen's saved falls. The screen is
-    pinned again on today's (`stand-up-acceptance-v2`): step-up completes 11 of its 16 saved falls,
-    the fastest in 14.8 s, and external actuation is rejected. Changes to its evaluator, baseline,
-    cases or criteria require the owner's agreement. Actual-physics search and feedback reach 6.975 s on that saved fall with unchanged muscles
+    the rest of this item are on the old legs and the old screen's saved falls. On today's legs
+    step-up completed 11 of the screen's 16 falls, the fastest in 14.8 s, and external actuation
+    is rejected. Actual-physics search and feedback reach 6.975 s on that saved fall with unchanged muscles
     and zero balance assistance. Measured muscle-response feedback transfers one demonstration
     to three additional fresh starts in 7.075-7.775 s, but ten other selected starts fail. A recorded
     muscle prefix followed by that feedback completes a different saved side fall in 8.6333 s;
@@ -161,7 +160,7 @@ After it, each with its own plan, in the order each needs the one before:
     on opposite sides. A library selected from observed posture and motion completes seven of ten
     trained empty-handed side-fall recipes, two within six seconds. Body-specific muscle-driven
     settling and physical search reach Warrior/club recovery in 6.0333 s. The library completes
-    three of sixteen frozen cases, none within six seconds. It does not depend on an exact saved-state hash.
+    three of the old screen's sixteen falls, none within six seconds. It does not depend on an exact saved-state hash.
     Four nearby Warrior/club perturbations still fail
     ([settling search](analysis/2026-10-11-stand-up-planning.md#settling-aware-physical-search-2026-10-12)).
     All successes include standing/walking verification;

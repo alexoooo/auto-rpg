@@ -43,8 +43,8 @@ claiming that capability. Unsupported configurations are outside that claim, nev
 trials. An unfinished goal remains visibly unmet; an accepted promise cannot become optional merely
 because a change breaks it.
 
-The frozen stand-up evaluator, pin, cases and agreed criteria remain unchanged. Its integrity
-checks and candidate acceptance are separate questions; neither implies current-game capability.
+A stand-up battery's protocol and a candidate's showing on it are separate questions; neither
+implies current-game capability.
 
 ## How tests stay general
 
@@ -65,8 +65,7 @@ checks and candidate acceptance are separate questions; neither implies current-
   shared interfaces. Avoid copied fixtures and per-controller exceptions in the evaluator.
 - **Keep fixtures valid.** Generate current-code physical scenarios on their stated body and
   engine. Raw saved worlds require matching configuration; reject incompatible snapshots.
-  Historical replay belongs in its frozen environment. Updating a body does not silently update
-  the expected result or make an invalid fixture evidence of a regression.
+  Updating a body does not silently update the expected result or make an invalid fixture evidence of a regression.
 - **Check the checks.** When adding an important check, use a negative case or representative
   defect to verify it detects the intended failure. Use small seeded sequences for lifecycle
   and state invariants where helpful. Keep this verification inside ordinary tests.
@@ -106,10 +105,10 @@ a passing group cannot hide failures or untested claims in another.
    duplicate or obsolete assertion. Start with no gameplay promises. A capability assertion in the
    gate either becomes a floor check, with a bar any controller passes, or leaves the gate as an
    experimental measurement that stays runnable. A promise is added when the owner approves a
-   capability by eye. Existing acceptance, the frozen stand-up screen among it, is unchanged.
+   capability by eye.
    The review is `docs/analysis/2026-10-18-test-audit.md`, with the order step 2 takes.
 2. Migrate one area at a time (the fast tier is done; the audit says what is left). Reuse fixtures, replace brittle assertions and demonstrate detection
    of the relevant defect. Keep failures visible; do not delete whole groups to shorten the run.
 3. Update `scripts/test.mjs`, `.github/workflows/pages.yml` and `AGENTS.md` together as each new
-   selection rule lands. Keep local and CI meanings consistent and preserve the frozen evaluator.
+   selection rule lands. Keep local and CI meanings consistent.
    Move the lasting rules into `AGENTS.md` and `docs/architecture.md`, then remove this plan.

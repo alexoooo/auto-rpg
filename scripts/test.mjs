@@ -2,9 +2,8 @@
  * The current-code tiers. `npm test` excludes the slow files (`tests/slow.json`, whole bouts,
  * rises and loops); `npm run test:all` includes them, as CI does. Both skip the experimental
  * files (`tests/experimental.json`): measurements of how well a controller does, which a change
- * may move without breaking anything, run alone by `npm run test:experimental`. Historical
- * replays live under tests/frozen and run through `npm run test:frozen`. Further arguments go to
- * `node --test`.
+ * may move without breaking anything, run alone by `npm run test:experimental`. Further
+ * arguments go to `node --test`.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";

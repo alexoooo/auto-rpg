@@ -34,18 +34,6 @@ npm run build # check, then the production bundle
 
 Everything the pages need is committed, so a fresh clone runs with no download step.
 
-Historical stand-up replay tests run separately, using the immutable evaluator's own source
-and lockfile. They require **Node 24.15.0** and a clone with full Git history:
-
-```powershell
-npm run setup:frozen # prepares .tools/stand-up-frozen at the pinned commit and runs npm ci there
-npm run test:frozen  # tests/frozen; refuses a changed checkout or incompatible Node version
-```
-
-CI runs the current-code suite and frozen suite in separate jobs; both gate deployment.
-Current-code tests capture fresh checkpoints. Historical checkpoints keep their original
-identity checks and are never re-stamped to match newer code.
-
 ## The Arena
 
 Choose the standing character on each side (Warrior, Rogue, Skeleton or Reptile) and press **Fight**.

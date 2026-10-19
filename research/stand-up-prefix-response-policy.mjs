@@ -28,7 +28,7 @@ export function prefixPolicy({channels,prefix,continuation,fallback}) {
   policy.state=state;return policy;
 }
 
-/** The frozen evaluator supplies detached observations; continuations emit ordinary recovery actions. */
+/** The screen supplies detached observations; continuations emit ordinary recovery actions. */
 export function createPolicy({channels}) {
   const configuration=JSON.parse(readFileSync(process.env.STAND_UP_PREFIX_RESPONSE_CONFIG));
   const load=file=>JSON.parse(gunzipSync(readFileSync(file)));

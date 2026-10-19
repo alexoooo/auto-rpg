@@ -201,7 +201,7 @@ trials. The Warrior's running step width is 0.31 m; acceleration from 1 to 3 m/s
 On the owner's 64-fall target (`node research/rising-bed.mjs --target --sub stand-up
 --techniques step-up`, 30 s cap), step-up stands 47 of 64 (the Warrior 15 and 16 of 16, empty and
 with the club, medians 14.2 and 15.8 s; the Rogue 9 and 7, median 25.2 s and the cap). None stands within 6 s; the route's floor is about
-9 s. The frozen screen (`stand-up-acceptance-v2`) is pinned on these legs. Balance stands no more
+9 s. Balance stands no more
 and no faster (the Warrior 20 of 26 at 25 %, 14.8 s).
 
 In bouts (`docs/reference/assist.md`), with no balance 80 of 99 bouts end by a fall; at 10 % 53;
@@ -255,10 +255,10 @@ curriculum has no strong end on step-up: step-up commands activations tuned to t
 strength, and every muscle stronger overdrives it (unsteered, on the learned rise's twelve
 Warrior falls, 12 stand at its strength, 1 at 1.25 times it, none at 1.5 or 2, steered to its
 fastest pace or not). Grit as the plan has it, raised torque bounds, waits for a stand-up whose
-commands are torques: the contact sequence on the solve, not built. The frozen screen takes a candidate as actions on the muscles or joint
-targets from an observation; the learned rise steers step-up's recipe inside the game, so it
-cannot enter without a new action kind. The owner allows changing the evaluator: the screen
-takes that action kind and is re-pinned.
+commands are torques: the contact sequence on the solve, not built. The stand-up screen
+(`research/stand-up-acceptance.mjs`) takes a candidate as actions on the muscles or joint targets
+from an observation; the learned rise steers step-up's recipe inside the game, a technique like
+step-up, so it is read on the target, where any technique runs (`--techniques`).
 
 **Stage 5, strikes and holds: open; the strike's gate unmet.** A command drives an effector's
 point at an acceleration through the solve (`PointTask`), and the options fighter's straight
@@ -363,7 +363,7 @@ software checks and are measured when they are compared.
 | 1 | **Standing and the shove** on capture-point stepping, Balance as the assist bound. | On the stance trials (`research/core-stance-trials.mjs`) no more falls than today's stance at 0 %, and at 25 % no pace lost on the gait battery. | 1 to 2 weeks |
 | 2 | **Walk, stop and turn** on the same generator; SIMBICON's walk and run stay beside it. | Walk envelope at or above today's forward and forward-right, and sideways and back a walk that steps, at its own pace, without falls; stop battery 0 of 96; the Move bout's `todo` passes. | 2 weeks |
 | 3 | **The run** with flight, the clip as the posture prior, beside the clip tracker. | Forward to 5 m/s (the owner's aim), the Warrior ≥ 4.5 m/s steady; Haste +100 adds ≥ 1 m/s; gait battery ≤ 19 of 300; the club's run ≤ 18 of 150, and its forward envelope at or above SIMBICON's (the slow run left from stage 2); the owner's eye on the look. | 2 weeks |
-| 4 | **The stand-up** as a contact sequence; then the learned policy with the Grit curriculum where the sequence cannot start, beside step-up. | Unassisted ≥ 40 of 64, median ≤ 9 s; with Grit median < 4 s; the frozen screen run and reported. | 2 to 4 weeks |
+| 4 | **The stand-up** as a contact sequence; then the learned policy with the Grit curriculum where the sequence cannot start, beside step-up. | Unassisted ≥ 40 of 64, median ≤ 9 s; with Grit median < 4 s; the Lab's Stand-up scenario runs the target's falls. | 2 to 4 weeks |
 | 5 | **Strikes and holds** as tasks, beside the per-skill drivers. | League Elo at or above today's (`research/arena-combat-league.mjs`); the one-two and the guard keep their windows. | 2 weeks |
 
 Morphology spikes (foot length, a lower centre of mass, Balance as a momentum store in the torso
@@ -394,8 +394,8 @@ And 2026-10-18:
 
 And 2026-10-19:
 
-- Nothing is fixed while the project is early: the frozen stand-up screen's evaluator may change
-  where a controller needs it to (a new action kind, then a new pin).
+- Nothing is fixed while the project is early. The stand-up screen is no longer pinned: it makes
+  its falls afresh, and the stand-up is a Lab scenario like Locomotion, its target the battery.
 
 ## Out of scope
 

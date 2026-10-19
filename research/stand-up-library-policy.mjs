@@ -61,7 +61,7 @@ export function configuredPolicy({channels,configuration,specification,loadRefer
   }
 }
 
-/** The frozen action interface supplies no scene or engine handles to the policy. */
+/** The screen's action interface supplies no scene or engine handles to the policy. */
 export function createPolicy({channels,configuration}) {
   const specification=JSON.parse(readFileSync(process.env.STAND_UP_LIBRARY_CONFIG));
   return configuredPolicy({channels,configuration,specification,

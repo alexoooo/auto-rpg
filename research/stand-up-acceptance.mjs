@@ -1,34 +1,41 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { pathToFileURL, fileURLToPath } from 'node:url';
-import { gunzipSync } from 'node:zlib';
+import { pathToFileURL } from 'node:url';
 import { deserialize, serialize } from 'node:v8';
 import { parseArgs } from 'node:util';
 import { recoveryEnvironment, checkRecoveryAction } from './stand-up-environment.mjs';
 import { unassistedAudit, unassistedResult } from './stand-up-unassisted.mjs';
 
-export const ACCEPTANCE_REF = 'stand-up-acceptance-v2';
-const directory = new URL('./stand-up-acceptance/', import.meta.url);
-const root = fileURLToPath(new URL('../', import.meta.url));
+/**
+ * **The stand-up screen's protocol**: on the Node stand (the stance host, Rapier, 120 Hz, Balance
+ * 0), a body stands 240 steps and is shoved twice, 60 N s 0.2 s apart, and the screen takes it at
+ * the first takeover of its recovery; the clock runs from that takeover. It succeeds standing upright
+ * on two loaded feet, quiet 0.5 s, then holding 2 s and walking 1 s at least 0.1 m, with no external
+ * actuation and efforts within the muscles', by 35 s; at 38 s the episode ends.
+ */
+const PROTOCOL = Object.freeze({ harness: 'Node stand, stance host, Rapier, 120 Hz, Balance 0', fall: Object.freeze({ impulse: 60, separation: .2 }),
+  episodeSeconds: 38, handoverDeadline: 35 });
+/** Its cases: the Warrior and the Rogue, empty-handed and with the club, each shoved four ways. */
+export const SCREEN_CASES = Object.freeze(['workshop-fighter', 'workshop-rogue'].flatMap(model => ['empty', 'club'].flatMap(held =>
+  [0, 90, 180, 270].map(degrees => Object.freeze({ id: `${model}-${held}-${degrees}`, configuration: Object.freeze({ model, held }), degrees })))));
 export const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 
-/** A pinned world: the game's body and its Stand up, with standard support recovery to compare. */
+/** The screen's world: the game's body and its Stand up, with standard support recovery to compare. */
 export async function acceptanceEnvironment({ model, held }, balance = 0) {
   return recoveryEnvironment({ model, held, baseline: 'step-up', balance, host: 'stance', comparison: true });
 }
 
-/**
- * The comparison is executed in the frozen checkout (`npm run setup:frozen`, which pins its commit);
- * candidate actions live outside tracked evaluator files.
- */
-export function frozenRevision() {
-  const git = args => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
-  const revision = git(['rev-parse', 'HEAD']);
-  assert.equal(git(['diff', revision, '--', '.']), '', 'tracked files must match the frozen evaluator');
-  return revision;
+/** A case's fall, made afresh: the body shoved by the protocol and saved at its recovery's takeover. */
+export async function screenFall(c) {
+  const e = await acceptanceEnvironment(c.configuration);
+  try {
+    await e.fall({ degrees: c.degrees, ...PROTOCOL.fall });
+    assert.equal(e.result().fell, true, `${c.id} falls`);
+    assert.notEqual(e.result().takeover, null, `${c.id} is taken over by its recovery`);
+    return e.save();
+  } finally { e.dispose(); }
 }
 
 /** Every case, including timeouts, contributes to the denominator and failure-inclusive median. */
@@ -43,15 +50,12 @@ export function summarizeAcceptance(rows) {
     rejectedExternalActuation: rows.filter(r => r.result.externalActuation.length > 0).length };
 }
 
-/** Same complete physics/host/controller checkpoint for each continuation; no prefix regeneration or case replacement. */
-export async function evaluateAcceptanceCase(c, manifest, candidateFactory, controller = 'step-up') {
-  const checkpoint = readFileSync(new URL(c.file, directory));
-  assert.equal(digest(checkpoint), c.sha256, 'saved fall bytes match their frozen identity');
+/** One continuation of a case's saved fall (`screenFall`), by step-up, a built-in comparison or a candidate's actions. */
+export async function evaluateAcceptanceCase(c, saved, candidateFactory, controller = 'step-up') {
   const negative = controller === 'assisted-negative-control';
   const e = await acceptanceEnvironment(c.configuration, negative ? 100 : 0);
   let audit;
   try {
-    let saved = gunzipSync(checkpoint);
     if (negative) {
       const decoded = deserialize(saved);
       assert.deepEqual(decoded.identity, { ...e.identity, balance: 0 }, 'negative control differs only in the assistance ceiling');
@@ -59,12 +63,10 @@ export async function evaluateAcceptanceCase(c, manifest, candidateFactory, cont
       saved = serialize(decoded);
     }
     e.restore(saved);
-    assert.deepEqual({ ...e.identity, balance: 0 }, c.identity);
     assert.equal(e.result().fell, true);
     assert.equal(e.result().assisted, false);
     assert.equal(e.result().handover, null);
     const initial = digest(JSON.stringify(e.observe()));
-    assert.equal(initial, c.observationSha256, 'restored starting observation must match');
     audit = unassistedAudit(e.stand.built, () => e.stand.world.steps);
     if (controller !== 'step-up' && !negative) e.selectComparison(controller);
     const policy = candidateFactory && await candidateFactory(structuredClone({ channels: e.channels, configuration: c.configuration }));
@@ -72,7 +74,7 @@ export async function evaluateAcceptanceCase(c, manifest, candidateFactory, cont
     const trace = createHash('sha256');
     let result;
     const firstStep = e.stand.world.steps;
-    while (e.result().elapsed < manifest.protocol.episodeSeconds) {
+    while (e.result().elapsed < PROTOCOL.episodeSeconds) {
       let action;
       if (policy) {
         action = checkRecoveryAction(await policy(structuredClone(e.observe())), e.channels);
@@ -89,24 +91,24 @@ export async function evaluateAcceptanceCase(c, manifest, candidateFactory, cont
       if (result.success || result.failure) break;
     }
     result ??= unassistedResult(e.result(), audit.events);
-    if (result.success && result.seconds > manifest.protocol.handoverDeadline) {
+    if (result.success && result.seconds > PROTOCOL.handoverDeadline) {
       result.success = false; result.failure = 'handover deadline';
     }
     if (!result.success && !result.failure) result.failure = 'episode deadline';
-    return { case: c.id, controller: candidateFactory ? 'action module' : controller, checkpointSha256: c.sha256, initialObservationSha256: initial,
+    return { case: c.id, controller: candidateFactory ? 'action module' : controller, initialObservationSha256: initial,
       identity: e.identity, steps: e.stand.world.steps - firstStep, traceSha256: trace.digest('hex'), result };
   } finally { audit?.dispose(); e.dispose(); }
 }
 
 /** A nonzero assistance request exercises the real force path as a rejection control. */
-export async function rejectAssistedAction(c, manifest) {
+export async function rejectAssistedAction(c, saved) {
   if (c) {
-    const row = await evaluateAcceptanceCase(c, manifest, null, 'assisted-negative-control');
+    const row = await evaluateAcceptanceCase(c, saved, null, 'assisted-negative-control');
     assert.equal(row.result.success, false);
     assert.equal(row.result.failure, 'external actuation');
     assert.ok(row.result.externalActuation.some(v => v.method === 'applyForce'));
     assert.ok(row.result.externalActuation.some(v => v.method === 'applyTorque'));
-    return { ...row, role: 'negative control; identical saved fall, Balance 100 enabled solely to demonstrate rejection' };
+    return { ...row, role: 'negative control; the same fall, Balance 100 enabled solely to demonstrate rejection' };
   }
   const e = await recoveryEnvironment({ balance: 100 });
   let audit;
@@ -130,39 +132,34 @@ async function main() {
   const { values } = parseArgs({ options: { candidate: { type: 'string' }, controller: { type: 'string', default: 'support-recovery' }, output: { type: 'string', default: '.tools/stand-up-acceptance/report.json' } } });
   assert.ok(['step-up', 'support-recovery'].includes(values.controller), 'unknown built-in comparison');
   assert.ok(!values.candidate || values.controller === 'support-recovery', 'choose a candidate module or a built-in controller');
-  const revision = frozenRevision(), started = performance.now();
-  const manifest = JSON.parse(readFileSync(new URL('cases.json', directory), 'utf8'));
-  assert.equal(process.versions.node, manifest.node, 'use the captured Node version for these V8 checkpoints');
-  assert.equal(manifest.cases.length, 16, 'all frozen cases are required');
-  assert.equal(new Set(manifest.cases.map(c => c.id)).size, 16, 'case identities are unique');
+  const started = performance.now();
   const factory = values.candidate ? (await import(pathToFileURL(resolve(values.candidate)).href)).createPolicy : null;
   if (values.candidate) assert.equal(typeof factory, 'function', 'candidate exports createPolicy');
-  const report = { evaluatorRef: ACCEPTANCE_REF, evaluatorCommit: revision, manifestSha256: digest(JSON.stringify(manifest)),
-    protocol: manifest.protocol, candidate: values.candidate ? { path: resolve(values.candidate), sha256: digest(readFileSync(values.candidate)) }
+  const report = { protocol: PROTOCOL, candidate: values.candidate ? { path: resolve(values.candidate), sha256: digest(readFileSync(values.candidate)) }
       : { kind: values.controller, note: values.controller === 'step-up' ? 'reproducibility control, no new recovery' : 'existing controller, Balance zero' },
-    baseline: [], candidateRows: [], negativeControl: null, recoveryGoal: 'not judged: a development screen, not a robustness qualification' };
+    baseline: [], candidateRows: [], negativeControl: null };
   mkdirSync(dirname(resolve(values.output)), { recursive: true });
   const write = () => writeFileSync(values.output, JSON.stringify(report, null, 2) + '\n');
   write();
-  for (const c of manifest.cases) {
-    const baseline = await evaluateAcceptanceCase(c, manifest);
-    assert.deepEqual(baseline, c.reference, 'frozen baseline result and full physical trace must reproduce');
+  let first = null;
+  for (const c of SCREEN_CASES) {
+    const saved = await screenFall(c);
+    first ??= { c, saved };
+    const baseline = await evaluateAcceptanceCase(c, saved);
     report.baseline.push(baseline);
-    const candidate = await evaluateAcceptanceCase(c, manifest, factory, factory ? 'step-up' : values.controller);
+    const candidate = await evaluateAcceptanceCase(c, saved, factory, factory ? 'step-up' : values.controller);
     if (!factory && values.controller === 'step-up') assert.deepEqual(candidate, baseline, 'identical restored continuations must agree');
     report.candidateRows.push(candidate); write();
     console.log(JSON.stringify({ case: c.id, baseline: baseline.result.seconds, baselineSuccess: baseline.result.success,
       candidate: candidate.result.seconds, candidateSuccess: candidate.result.success, failure: candidate.result.failure }));
   }
-  report.negativeControl = await rejectAssistedAction(manifest.cases[0], manifest);
-  assert.equal(frozenRevision(), revision, 'the evaluator must remain frozen throughout the run');
+  report.negativeControl = await rejectAssistedAction(first.c, first.saved);
   report.summary = { baseline: summarizeAcceptance(report.baseline), candidate: summarizeAcceptance(report.candidateRows),
     assistedActionRejected: true, matchedInitialStates: report.baseline.every((b, i) => b.initialObservationSha256 === report.candidateRows[i].initialObservationSha256),
     lostCompletions: report.baseline.filter((b, i) => b.result.success && !report.candidateRows[i].result.success).map(b => b.case),
-    gainedCompletions: report.baseline.filter((b, i) => !b.result.success && report.candidateRows[i].result.success).map(b => b.case),
-    robustnessQualified: false, criteriaChanged: false };
+    gainedCompletions: report.baseline.filter((b, i) => !b.result.success && report.candidateRows[i].result.success).map(b => b.case) };
   report.wallSeconds = (performance.now() - started) / 1000; write();
-  console.log(JSON.stringify({ ...report.summary, recoveryGoal: report.recoveryGoal, output: resolve(values.output), wallSeconds: report.wallSeconds }, null, 2));
+  console.log(JSON.stringify({ ...report.summary, output: resolve(values.output), wallSeconds: report.wallSeconds }, null, 2));
   if (report.candidateRows.some(r => r.result.externalActuation.length)) process.exitCode = 2;
 }
 

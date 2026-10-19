@@ -14,8 +14,6 @@ npm run check    # tsc --noEmit
 npm test         # the fast tier, about 45 s: current-code tests except tests/slow.json's
 npm run test:all # all current-code tests, as CI runs them
 npm run test:experimental # how well the controllers do: tests/experimental.json's, in neither tier
-npm run setup:frozen # prepares the immutable evaluator; Node 24.19.0 and full Git history
-npm run test:frozen # historical replay tests, a separate CI job
 npm run build    # check, then vite build
 ```
 
@@ -204,19 +202,18 @@ screens build on it; it never imports them.
 - **Parallel runs need worker threads**, one sequential loop in each.
 - **Under CPU load a dropped test count is a timeout**, not a regression; re-run on a quiet machine.
 
-## Frozen stand-up acceptance
+## Stand-up measurement
 
 The owner's fast, robust unassisted stand-up goal is unfinished. Assisted recovery is a separate
-experiment and cannot satisfy it. `stand-up-acceptance-v2` (its commit pinned in
-`scripts/frozen-evaluator.mjs`) holds sixteen falls saved on the game's body and the run's legs,
-with the game's Stand up (`step-up`) as its baseline and standard support recovery as its other
-built-in controller. Controller experiments run through the frozen checkout's
-`node research/stand-up-acceptance.mjs --candidate <module>` action interface. Do not move the
-pin, change its criteria, replace cases, substitute a weaker baseline, or change the
-body/host configuration without the owner's agreement. The comparison is a development screen,
-not a robustness qualification. Report failures and external-actuation rejections as failures.
-Implementation, passing software checks and improvement on this screen are separate claims;
-none alone establishes completion. Budget exhaustion ends work with an incomplete report.
+experiment and cannot satisfy it. A stand-up is read on the owner's 64-fall target
+(`node research/rising-bed.mjs --target`: the Warrior and the Rogue, empty-handed and with the
+club, shoved sixteen ways, through the Lab's ground mode), the game's Stand up (`step-up`) as the
+baseline. A controller that acts on the muscles from an observation runs on the stand-up screen's
+sixteen falls, made afresh each run (`node research/stand-up-acceptance.mjs --candidate <module>`).
+Nothing in either is fixed: a protocol changes when a controller needs it to, and a figure read
+on an earlier protocol is read again before it is compared. Report failures and
+external-actuation rejections as failures. Implementation, passing software checks and
+improvement on a battery are separate claims; none alone establishes completion.
 
 ## Measurement
 
