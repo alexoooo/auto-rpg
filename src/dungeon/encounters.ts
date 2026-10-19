@@ -6,6 +6,9 @@ import { levelCandidates } from "./level.ts";
 /** Pack and door clearance choices: `docs/reference/reptile.md#encounters`. */
 const ENCOUNTERS = Object.freeze({ pack: 3, spacing: 2, doorMargin: 1 });
 
+/** The models a generated level's encounters field, by turn: skeleton rooms and reptile packs. */
+export const ENCOUNTER_MODELS: readonly BodyModel[] = Object.freeze(["crypt-skeleton", "reptile"]);
+
 /** The crypt's initial sight separation in `docs/reference/play.md#the-crypt`. */
 export function outsidePartyStart(map: DungeonMap, point: Point): boolean { return distance(point, map.start) > 15; }
 
@@ -27,7 +30,7 @@ export function populateEncounters(map: DungeonMap): void {
   const rooms = map.rooms.filter(room => !contains(room, map.start) && map.spawns.some(point => contains(room, point)));
   const encounters: NonNullable<DungeonMap["encounters"]>[number][] = [];
   rooms.forEach((room, index) => {
-    const model: BodyModel = index % 2 === 0 ? "crypt-skeleton" : "reptile", radius = cryptModel(model).radius;
+    const model = ENCOUNTER_MODELS[index % ENCOUNTER_MODELS.length]!, radius = cryptModel(model).radius;
     const existing = map.spawns.filter(point => contains(room, point));
     if (model === "crypt-skeleton") {
       for (const point of existing) encounters.push({ room: room.id, model, point: { ...point } });

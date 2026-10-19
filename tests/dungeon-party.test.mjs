@@ -10,7 +10,7 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { companionSpawn } from "../src/dungeon/party-placement.ts";
 import { DungeonRun } from "../src/dungeon/run.ts";
 import { clearSegment, distance, walkable } from "../src/dungeon/map.ts";
-import { CLASSIC, OPTIONS } from "../src/core/mind/config.ts";
+import { CLASSIC, OPTIONS, RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { classicDungeon } from "./fixtures/classic-dungeon.mjs";
 import { freshEngine } from "./harness/core-stand.mjs";
 
@@ -33,20 +33,25 @@ function floorAway(map, metres, bearing = 0) {
   throw new Error("no floor");
 }
 
-test("a_party_member_plays_the_mind_the_run_is_given_for_its_model_and_an_enemy_its_models_own", async () => {
+test("each_participant_plays_the_mind_the_run_is_given_for_it_party_and_enemy_alike_and_its_models_own_where_given_none", async () => {
   const map = classicDungeon(42); map.spawns = [floorAway(map, 3)];
-  // The Rogue under Classic where its model's own mind is the options fighter; an enemy Rogue nearby, which the party stirs.
-  const { run, dispose } = await crypt(map, { companions: ["workshop-rogue"], enemy: () => "workshop-rogue", minds: { "workshop-rogue": CLASSIC } });
+  // The Rogue in the party under Classic where its model's own mind is the options fighter; an enemy Rogue nearby, which the
+  // party stirs, under the recipe fighter; the hero given none.
+  const mind = ({ id, side, model }) => side === "party" && model === "workshop-rogue" ? CLASSIC : id === "enemy-0" ? RECIPE_FIGHTER : null;
+  const { run, dispose } = await crypt(map, { companions: ["workshop-rogue"], enemy: () => "workshop-rogue", mind });
   try {
     seconds(run, 1);
     const minds = Object.fromEntries(run.actors.map((actor) => [actor.id, actor.fighter?.mind]));
-    assert.deepEqual(minds, { hero: OPTIONS, "ally-0": CLASSIC, "enemy-0": OPTIONS });
+    assert.deepEqual(minds, { hero: OPTIONS, "ally-0": CLASSIC, "enemy-0": RECIPE_FIGHTER });
     // The mind each plays is the one it names: the options fighter's tactics decide by a meta-controller, Classic's do not.
-    assert.deepEqual(Object.fromEntries(run.actors.map((actor) => [actor.id, "meta" in actor.fighter.minded.skills.state.tactics])), { hero: true, "ally-0": false, "enemy-0": true });
+    assert.deepEqual(Object.fromEntries(run.actors.map((actor) => [actor.id, "meta" in actor.fighter.minded.skills.state.tactics])), { hero: true, "ally-0": false, "enemy-0": false });
   } finally { dispose(); }
-  // The control: given none, the Rogue in the party plays its model's own.
-  const plain = await crypt(map, { companions: ["workshop-rogue"] });
-  try { assert.deepEqual(plain.run.party.map((member) => member.fighter.mind), [OPTIONS, OPTIONS]); } finally { plain.dispose(); }
+  // The control: given none, the Rogue in the party and the enemy play their models' own.
+  const plain = await crypt(map, { companions: ["workshop-rogue"], enemy: () => "workshop-rogue" });
+  try {
+    seconds(plain.run, 1);
+    assert.deepEqual(plain.run.actors.map((actor) => actor.fighter?.mind), [OPTIONS, OPTIONS, OPTIONS]);
+  } finally { plain.dispose(); }
 });
 
 test("a_party_order_goes_to_the_selected_member_and_a_call_back_drops_its_order_and_post", async () => {

@@ -849,8 +849,8 @@ its `subs` slot.
 fields, its research `tuning` read-only, each single slot as a picker of parts its screen supports
 (incompatible bodies disabled with the reason, experimental parts labelled), each
 list slot with add, move up and remove, and the tree's faults by path. It is the Arena's panel
-under each side's controller, the Lab's under its body, and the Crypt's under each hero on the
-start panel (`partyMinds`, `src/dungeon/party-minds.ts`). A screen's link carries a mind as the id
+under each side's controller, the Lab's under its body, and the Crypt's under each hero and each
+enemy model on the start panel (`runMinds`, `src/dungeon/run-minds.ts`). A screen's link carries a mind as the id
 of one of its presets or as the whole tree (`readMind`, `mindText`). A side's mind travels in a link as its preset (`&control=`) or,
 once edited, as its whole config in JSON under `&left.mind=` or `&right.mind=` (`writeMind`,
 `parseMind` in `src/ui/mind-link.ts`; `linkedMind`, `readMinds` and `mindsSearch` in
@@ -1415,9 +1415,11 @@ side's mind inspected under its bar. A person
   piece that names a collider the arena lacks, or one of the wrong role, and a solid-looking piece
   within reach (below `ROOM.maxReachHeight`) that names none.
 - **The Crypt** (`src/dungeon/`): a party in a generated dungeon (`DungeonRun`, `run.ts`). The
-  map's walls, doors and obstacles are fixed boxes in the world (`buildDungeonWorld`); every
-  enemy is driven by its model's mind, and each party member by the mind chosen for its model on
-the start panel (`partyMinds`, carried by `&<model>.mind=`), which the HUD inspects (`inspectMind`); generated rooms alternate skeletons and three-reptile
+  map's walls, doors and obstacles are fixed boxes in the world (`buildDungeonWorld`); the run
+  asks for each participant's mind by its id, side and model (`DungeonRunOptions.mind`,
+  `Participant`), its model's own where it is given none. The start panel chooses one for the
+  party's bodies of each model and one for the enemies' (`runMinds`, carried by `&<model>.mind=`
+  and `&enemy.<model>.mind=`), which the HUD inspects (`inspectMind`); generated rooms alternate skeletons and three-reptile
   packs, with collider clearance and reachable routes checked before choosing a layout.
   Point-only maps retain skeletons. Every built actor receives the run's shared senses;
   a reptile remains alive during recovery and must stand to reach the exit.

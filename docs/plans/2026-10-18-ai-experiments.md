@@ -190,7 +190,10 @@ The code against the contract above:
   not a second kind: the bearing stance path was taken out of `motorControl` on purpose, and
   putting it back as a choice is the owner's. `BodyCommand` still holds every kind of goal; it
   splits by goal when a second motor control needs a vocabulary of its own.
-- The Dungeon chooses a party member's Mind by its body's model and an enemy's from the map.
+- Stage 6 has landed. A run asks for each participant's Mind by its id, side and model
+  (`DungeonRunOptions.mind`, `src/dungeon/run.ts`), enemies included and two bodies of one model
+  apart; the start panel chooses one for the party's bodies of each model and one for the
+  enemies' (`runMinds`, `src/dungeon/run-minds.ts`).
 
 ## Order of work
 

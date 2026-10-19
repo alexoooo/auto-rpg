@@ -61,6 +61,9 @@ export function runModels(map: DungeonMap, options: Pick<DungeonRunOptions, "her
 /** Who stands for each model in the party list and the target panel. */
 const NAMES = (model: BodyModel) => MODEL_DISPLAY[model].label.toLowerCase();
 
+/** Who a body of the run is, by which its mind is chosen (`DungeonRunOptions.mind`): its id, its side and its model. */
+export type Participant = Pick<DungeonActor, "id" | "side" | "model">;
+
 export interface DungeonActor {
   readonly id: string;
   readonly name: string;
@@ -210,8 +213,8 @@ interface DungeonRunOptions {
   readonly companions?: readonly BodyModel[];
   /** Each spawn's model; the skeleton unless given. */
   readonly enemy?: (i: number) => BodyModel;
-  /** The party's minds by model, in place of each model's own (`modelInfo`); an enemy has its model's always. */
-  readonly minds?: Readonly<Partial<Record<BodyModel, MindConfig>>>;
+  /** Each participant's mind, the party's and the enemies' alike; its model's own (`modelInfo`) where this gives none. */
+  readonly mind?: (participant: Participant) => MindConfig | null;
   /** Hears each blow as it lands. */
   readonly onBlow?: (blow: LandedBlow) => void;
   /** The actor and its world, before its first step: presentation can subscribe even during run construction. */
@@ -302,8 +305,8 @@ export class DungeonRun {
   get clock(): number { return this.world.time; }
 
   /**
-   * Build `actor`'s body where it waits, holding what its model holds, under its mind (a party
-   * member's as the run was given it, `DungeonRunOptions.minds`, else its model's) with
+   * Build `actor`'s body where it waits, holding what its model holds, under its mind (the one the run
+   * was given for it, `DungeonRunOptions.mind`, else its model's) with
    * the assist its character's balance gives it, and watch its blows with everybody's. The mind
    * carries out `actor`'s plan, which the run hands it as `Orders`, its target as the foe
    * (`docs/reference/crypt-foe.md`): the
@@ -315,7 +318,7 @@ export class DungeonRun {
     actor.fighter = enlist(this.world, {
       id: actor.id, side: actor.side, spec: armedWith(modelSpec(actor.model), "right", info.held), at: [actor.home.x, 0, actor.home.z],
       rules: this.rules, senses: this.senses, out: () => actor.fighter?.pool.ending() !== null && actor.fighter !== null,
-      mind: actor.side === "party" ? this.options.minds?.[actor.model] ?? info.mind : info.mind, name: `crypt ${actor.side}`,
+      mind: this.options.mind?.(actor) ?? info.mind, name: `crypt ${actor.side}`,
       contactIdentity: other => {
         if (!other) return { kind: "world" };
         for (const candidate of [...this.party, ...this.enemies]) for (const segment of candidate.fighter?.built.segments.values() ?? []) {
