@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { coreStand, saveStand, loadStand } from "../tests/harness/core-stand.mjs";
 import { sourced } from "../src/core/spec/quantity.ts";
-import { CONTACT_FRICTION } from "../src/core/engine/engine.ts";
+import { CONTACT_FRICTION } from "../src/core/read-body.ts";
 import { planarSupportPoints } from "../src/core/build/planar-support.ts";
 import { coupledDynamics } from "../src/core/build/coupled-dynamics.ts";
 import { predictPointContacts } from "../src/core/build/contact-step.ts";

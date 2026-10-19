@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { planarContactAcceleration } from "../build/contact-curvature.ts";
 import type { coupledDynamics } from "../build/coupled-dynamics.ts";
 import { constraintBasis, type MotionConstraint } from "../build/constrained-mass.ts";
-import { CONTACT_FRICTION } from "../engine/engine.ts";
+import { CONTACT_FRICTION } from "../read-body.ts";
 import { activeQuadratic } from "../math/active-quadratic.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { checkEffortBounds, type EffortBound } from "./effort-bounds.ts";

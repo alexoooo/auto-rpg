@@ -3,7 +3,7 @@
  * the frame helpers that read a segment where it is now.
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { CONTACT_FRICTION } from "../engine/engine.ts";
+import { CONTACT_FRICTION } from "../read-body.ts";
 import type { Row } from "./bearing.ts";
 import type { AnkleHold, BearingSole } from "./contact-wrench.ts";
 import { chainTo } from "./kinematics.ts";

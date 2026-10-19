@@ -3,7 +3,8 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { STANDARD_GRAVITY } from "../spec/constants.ts";
 import { sourced, type Vec3 } from "../spec/quantity.ts";
-import { CONTACT_FRICTION, type ColliderShape, type Contact, type ContactMaterial, type MaterialContact, type ContactManifold, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
+import { CONTACT_FRICTION } from "../read-body.ts";
+import { type ColliderShape, type Contact, type ContactMaterial, type MaterialContact, type ContactManifold, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
   type PhysicsEngine, type PhysicsOptions, type PhysicsWorld, type SegmentBody } from "./engine.ts";
 import { sin, cos, hypot } from "../math/real.ts";
 import { turnAboutToRef } from "../math/turn.ts";

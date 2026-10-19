@@ -25,7 +25,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import { CONTACT_FRICTION } from "../src/core/engine/engine.ts";
+import { CONTACT_FRICTION } from "../src/core/read-body.ts";
 import { STANDARD_GRAVITY } from "../src/core/spec/constants.ts";
 import { CORE_ENGINE, freshEngine } from "./harness/core-stand.mjs";
 

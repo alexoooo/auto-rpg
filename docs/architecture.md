@@ -712,7 +712,9 @@ layers (`command`, which gives back the body its drivers have, reading the built
 read view), under a host mind of its own (`hosted`) or under a policy (`policy`). Each takes the
 fight's grants, its senses, its assist's ceiling and how it labels a contact, from the wiring, so
 no maker can widen them; the fight holds the body the mind took (`bodyHost`), and a test or a
-study makes one mind of its own the same way (`hostedMind`); a reader that knows the kind narrows on it (a
+study makes one mind of its own the same way (`hostedMind`). The mind's folders, beside the
+adapters that make the report and carry out the order sheet, import no engine, world, builder or
+read-view maker (`tests/core-boundary.test.mjs`); a reader that knows the kind narrows on it (a
 fighter's skills and their report). A fight enlists each of its bodies the one way (`enlist`,
 `src/core/combatant.ts`): built where it stands with what it holds, its pool under the fight's
 rules, carried by the fight's senses with whatever fixed geometry they are granted, and under the

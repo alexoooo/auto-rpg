@@ -110,7 +110,10 @@ screens build on it; it never imports them.
   `src/core/mind/equipment-port.ts`). A grip request changes no pose or velocity and must pass
   geometric capture; policies receive no engine handles. Camera state never
   reaches a mind. A person gives orders (`Orders`); a body's own mind carries them out while it
-  defends itself.
+  defends itself. A mind's maker is given a host (`BodyHost`, `src/core/mind/host.ts`), never the
+  world or the built body, and the mind's folders (`mind`, `skills`, `control`, `reptile`,
+  `entrants`) import no engine, world, builder or read-view maker and read no `globalThis`, beside
+  the adapters `tests/core-boundary.test.mjs` names.
 - **A mind may hand its body to a sub-mind.** A sub-mind (`SubMind`, `src/core/mind/sub-mind.ts`)
   is a mind that says when it wants the body; its host reads the body every step, acts when the
   body is its own, gives up what it had asked when a sub-mind takes it (`HostMind.release`), and

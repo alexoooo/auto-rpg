@@ -1,5 +1,5 @@
 import { Quaternion } from '@babylonjs/core/Maths/math.vector.js';
-import { CONTACT_FRICTION } from '../src/core/engine/engine.ts';
+import { CONTACT_FRICTION } from '../src/core/read-body.ts';
 import { RISE } from '../src/core/mind/rise/stages.ts';
 
 /** Static physical data for a detached policy; no engine or scene objects cross this boundary. */

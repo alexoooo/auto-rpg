@@ -160,15 +160,15 @@ where decision-making varies.
 
 ## Where things stand
 
-The contract above is not yet the code's:
+The code against the contract above:
 
-- Only the joint-feedback Mind (`createPolicyBody`, `src/core/mind/direct.ts`) meets the world
-  through the report and the order sheet. Every game Mind is made by `embody`
-  (`src/core/mind/mind.ts`) with the whole `BuiltBody` and the `World`, and its skills, sub-minds
-  and motor control read live engine bodies (for example `skills/hold.ts`, `whole-body-strike.ts`,
-  `ground/plant-up.ts`, `rise/staged.ts`, `ground/reading.ts`); the engine body also takes
-  impulses, forces and mass changes. The order sheet (`BodyAction`) has no assist ask: the toolkit
-  asks `Assist` directly.
+- Stage 1 has landed. Every controller's maker is given a host (`BodyHost`,
+  `src/core/mind/host.ts`): the description, the world's clock and the fight's grants, never the
+  world or the built body. A game Mind reads its body through a read view that holds no engine
+  handle (`readView`, `src/core/build/read-view.ts`) and asks its muscles, its assist and its hands
+  through its own body (`OwnBody`); a policy reads the report and returns the order sheet
+  (`BodyAction`, which carries the assist's ask). The source rule
+  (`tests/core-boundary.test.mjs`) holds the mind's folders to it, beside their adapters.
 - Adding a kind of Mind means editing `MindConfig` and `Minded` (`src/core/mind/config.ts`,
   `minds.ts`); the Arena, the Dungeon and the Lab read a fighter's skills through
   `kind === "fighter"`.

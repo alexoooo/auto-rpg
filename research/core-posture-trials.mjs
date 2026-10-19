@@ -26,7 +26,7 @@ import { jointAngles, ratesToRef } from "../src/core/build/joint-state.ts";
 import { lowsOf } from "../src/core/control/ground.ts";
 import { chainTo, pointAtToRef, rotationAtToRef } from "../src/core/control/kinematics.ts";
 import { pointOfToRef } from "../src/core/control/support.ts";
-import { CONTACT_FRICTION } from "../src/core/engine/engine.ts";
+import { CONTACT_FRICTION } from "../src/core/read-body.ts";
 import { FIT_SCALE } from "../src/core/human/model.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { driveMuscles } from "../src/core/muscle/driver.ts";

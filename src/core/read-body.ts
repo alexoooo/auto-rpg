@@ -5,6 +5,12 @@ import type { BodySpec, DofSpec, HandPose, JointSpec, SegmentFrame, SegmentSpec,
 import type { Vec3 } from "./spec/quantity.ts";
 
 /**
+ * A contact's friction coefficient where neither collider names its own: Rapier's default (`rapier-default-friction`), which every
+ * table of the stance's record was measured on (`docs/reference/stance-tuning.md`).
+ */
+export const CONTACT_FRICTION = 0.5;
+
+/**
  * **A built body as its mind reads it**: the spec it was built from, each segment's pose and
  * motion, its joints' frames, what it touches and what its hands are set to. Every member reads;
  * none moves a body, sets a motor or reaches the engine. A mind, the skills and motor control

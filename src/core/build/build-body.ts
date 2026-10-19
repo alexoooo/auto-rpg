@@ -1,11 +1,12 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import type { ColliderShape, EngineJoint, PhysicsWorld, SegmentBody } from "../engine/engine.ts";
-import type { HandConfiguration, JointKinematics, ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
+import type { HandConfiguration, ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
+import { jointKinematics } from "./joint-kinematics.ts";
 import type { World } from "../world.ts";
-import { frameOf, handShapeAt, type BodySpec, type DofSpec, type HandPose, type JointSpec, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
+import { frameOf, handShapeAt, type BodySpec, type HandPose, type JointSpec, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { cross, dot, normalize, orthogonalTo, sub } from "../spec/vec.ts";
+import { dot, normalize, sub } from "../spec/vec.ts";
 import { hasProducts, principalOf, rigidOf } from "./rigid.ts";
 import { rotationOfToRef } from "./joint-state.ts";
 import { createHandPoses, type HandPoses } from "./hand-poses.ts";
@@ -143,36 +144,10 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
     get rigid() { return poses && handPose ? poses[handPose.applied].rigid : rigid; } };
 }
 
-/**
- * The constraint frame for a joint's freedoms: X is the first freedom's axis, Y the second's (or
- * any square to X), and Z whatever the engine completes them with. `sign` says whether each
- * freedom's axis runs with its constraint axis or against it.
- *
- * The engine's Z is X cross Y in Babylon's components; `tests/core-build.test.mjs` drives each
- * axis both ways round and reads the turn back.
- */
-function constraintAxes(dofs: readonly DofSpec[]): { readonly x: Vec3; readonly y: Vec3; readonly z: Vec3; readonly signs: readonly (1 | -1)[] } {
-  if (dofs.length < 1 || dofs.length > 3) throw new Error(`a joint has one to three freedoms, not ${dofs.length}`);
-  const x = normalize(dofs[0]!.axis.value);
-  const y = dofs[1] ? normalize(dofs[1].axis.value) : orthogonalTo(Math.abs(x[1]) < Math.abs(x[0]) ? [0, 1, 0] : [1, 0, 0], x);
-  const z = cross(x, y);
-  const along = [x, y, z];
-  const signs = dofs.map((dof, k) => {
-    const alignment = dot(normalize(dof.axis.value), along[k]!);
-    if (Math.abs(Math.abs(alignment) - 1) > 1e-9) throw new Error(`freedom ${dof.positive}'s axis is not square to the others`);
-    return alignment > 0 ? 1 : -1;
-  });
-  return { x, y, z, signs };
-}
 
 /** The rotation taking a frame's own x, y and z onto `x`, `y` and `z`, given in that frame. */
 const frameRotation = (x: Vec3, y: Vec3, z: Vec3): Quaternion => Quaternion.RotationQuaternionFromAxis(v3(x), v3(y), v3(z));
 
-/** `spec`'s kinematics: its constraint's axes (`constraintAxes`), and each freedom's sense about its axis. */
-export function jointKinematics(spec: JointSpec): JointKinematics {
-  const { x, y, z, signs } = constraintAxes(spec.dofs);
-  return { spec, dofs: spec.dofs.map((dof, k) => ({ spec: dof, sign: signs[k]! })), axes: { x, y, z } };
-}
 
 function buildJoint(spec: JointSpec, parent: BuiltSegment, child: BuiltSegment, world: World): BuiltJoint {
   const { dofs, axes } = jointKinematics(spec), { x, y, z } = axes;
@@ -222,8 +197,8 @@ function initialPoses(spec: BodySpec, placement: Placement): ReadonlyMap<string,
     } else {
       const above = poseOf(joint.parent), parentFrame = frames.get(joint.parent)!;
       const carry = above.rotation.multiply(Quaternion.Inverse(frameRotation(parentFrame.x, parentFrame.y, parentFrame.z)));
-      const axes = constraintAxes(joint.dofs), angles = placement.joints?.[joint.name] ?? joint.dofs.map(() => 0);
-      const native = [0, 1, 2].map((i) => i < angles.length ? axes.signs[i]! * angles[i]! : 0);
+      const { axes, dofs } = jointKinematics(joint), angles = placement.joints?.[joint.name] ?? joint.dofs.map(() => 0);
+      const native = [0, 1, 2].map((i) => i < angles.length ? dofs[i]!.sign * angles[i]! : 0);
       turn = carry.multiply(rotationOfToRef(axes, native[0]!, native[1]!, native[2]!, new Quaternion())).multiply(rest);
       position = v3(local(parentFrame, joint.centre.value)).applyRotationQuaternionToRef(above.rotation, new Vector3()).addInPlace(above.position);
       position.subtractInPlace(v3(local(frame, joint.centre.value)).applyRotationQuaternionToRef(turn, new Vector3()));

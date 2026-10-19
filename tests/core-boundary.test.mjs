@@ -347,3 +347,51 @@ test("in the game's source only the mind seam drives muscles", () => {
     "src/lab/reader.ts": `import type { MuscleDriver } from "../core/muscle/driver.ts";\nexport const ceiling = (d: MuscleDriver): number => d.ceiling[0]!;\n`,
   }), ["src/core/mind/mind.ts", "src/lab/renamed.ts", "src/lab/spaced.ts"]);
 });
+
+/** The folders a mind and its toolkit are written in, which meet the world through the report and the order sheet alone. */
+const MIND_FOLDERS = ["src/core/mind/", "src/core/skills/", "src/core/control/", "src/core/reptile/", "src/core/entrants/"];
+
+/** The adapters in those folders, which make the report and carry out the order sheet, and so hold the world. */
+const MIND_ADAPTERS = new Set([
+  "src/core/mind/mind.ts", "src/core/mind/hosted.ts", "src/core/mind/host.ts", "src/core/mind/senses.ts",
+  "src/core/mind/object-senses.ts", "src/core/mind/direct.ts", "src/core/mind/motion.ts", "src/core/mind/minds.ts",
+  "src/core/mind/body-actions.ts", "src/core/control/assist.ts",
+]);
+
+/** What a mind's source never imports: the engine, the world, the builder, the read view's maker and the hands' port. */
+const MIND_BARRED = ["src/core/engine/", "src/core/world.ts", "src/core/build/build-body.ts", "src/core/build/read-view.ts", "src/core/build/hand-poses.ts"];
+
+/** Each of `files` (path and source) under a mind's folders, beside the adapters, that imports what a mind may not, or reads `globalThis`. */
+function mindCrossings(files) {
+  const crossings = [];
+  for (const [file, source] of files) {
+    if (!MIND_FOLDERS.some((folder) => file.startsWith(folder)) || MIND_ADAPTERS.has(file)) continue;
+    for (const { fileName: specifier } of ts.preProcessFile(source, true, true).importedFiles) {
+      if (specifier.startsWith("@dimforge/rapier")) crossings.push(`${file} imports the engine package "${specifier}"`);
+      if (!specifier.startsWith(".")) continue;
+      const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier));
+      if (MIND_BARRED.some((barred) => target === barred || barred.endsWith("/") && target.startsWith(barred))) crossings.push(`${file} imports ${target}`);
+    }
+    if (/\bglobalThis\b/.test(source)) crossings.push(`${file} reads globalThis`);
+  }
+  return crossings;
+}
+
+test("a mind and its toolkit reach no engine, world, builder or global: only the report and the order sheet", () => {
+  const files = MIND_FOLDERS.flatMap(filesUnder).filter((file) => file.endsWith(".ts")).map((file) => [file, fs.readFileSync(path.join(ROOT, file), "utf8")]);
+  assert.ok(files.length > 50, "no mind's source, so this test would pass on nothing");
+  for (const adapter of MIND_ADAPTERS) assert.ok(fs.existsSync(path.join(ROOT, adapter)), `${adapter} is no file: an adapter exempted that is not there`);
+  assert.deepEqual(mindCrossings(files), []);
+  // The control: an entrant and a skill reaching past the boundary are found, and an adapter is not held to it.
+  assert.deepEqual(mindCrossings([
+    ["src/core/entrants/sly/mind.ts", `import type { World } from "../../world.ts";\nimport { readView } from "../../build/read-view.ts";\nexport const w = globalThis;\n`],
+    ["src/core/skills/sly.ts", `import type { SegmentBody } from "../engine/engine.ts";\nimport RAPIER from "@dimforge/rapier3d-simd-compat";\n`],
+    ["src/core/mind/host.ts", `import type { World } from "../world.ts";\n`],
+  ]), [
+    "src/core/entrants/sly/mind.ts imports src/core/world.ts",
+    "src/core/entrants/sly/mind.ts imports src/core/build/read-view.ts",
+    "src/core/entrants/sly/mind.ts reads globalThis",
+    "src/core/skills/sly.ts imports src/core/engine/engine.ts",
+    `src/core/skills/sly.ts imports the engine package "@dimforge/rapier3d-simd-compat"`,
+  ]);
+});

@@ -8,7 +8,7 @@ import { sourced } from "../src/core/spec/quantity.ts";
 import { createEquipment } from "../src/core/equipment.ts";
 import { coupledDynamics } from "../src/core/build/coupled-dynamics.ts";
 import { predictPointContacts } from "../src/core/build/contact-step.ts";
-import { CONTACT_FRICTION } from "../src/core/engine/engine.ts";
+import { CONTACT_FRICTION } from "../src/core/read-body.ts";
 
 const q = (path, unit = "m") => sourced(path.split("/").reduce((v, key) => v[key], fixture), unit, "contact-projection-fixture", "/" + path);
 const zero = [0, 0, 0], identity = [0, 0, 0, 1];

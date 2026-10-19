@@ -33,11 +33,6 @@ import type { Vec3 } from "../spec/quantity.ts";
  * - Solver settings that exist for the solver are the engine module's, named and sourced there, and
  *   kept out of the body's numbers.
  */
-/**
- * A contact's friction coefficient where neither collider names its own: Rapier's default (`rapier-default-friction`), which every
- * table of the stance's record was measured on (`docs/reference/stance-tuning.md`).
- */
-export const CONTACT_FRICTION = 0.5;
 
 export interface PhysicsEngine {
   /** The engine's name, as `engines.ts` lists it. */
