@@ -230,8 +230,8 @@ club's forward envelope against SIMBICON's is not yet measured for the learned r
 **Stage 4, the stand-up: open; its time gate unmet.** The learned rise (`learned-rise.ts`) is
 step-up steered by a trained policy (`RISE_POLICIES`, the Warrior's and the Rogue's,
 `assets/core/learned-rise.json`): its stages' pace, their tolerances, the centre's place and
-height, the pelvis's pitch and the posture, eased over 0.2 s. On the target it stands 53 of 64
-(the Warrior 15 and 15, medians 13.4 and 13.5 s; the Rogue 8 and 15, 27.5 and 15.8 s): the 40
+height, the pelvis's pitch and the posture, eased over 0.2 s. On the target it stands 57 of 64
+(the Warrior 16 and 16, medians 11.4 and 11.6 s; the Rogue 10 and 15, 19.0 and 14.4 s): the 40
 is met, the 9 s median is not. Step-up's own time is about 2.4 s of rolling, 7.6 s of its 25
 stages and 2.5 s of steadying and handover, of which 1.3 to 1.8 s is the host's squaring step
 (the feet end 0.2 to 0.26 m apart against the body's 0.39 m), so the route's floor stays near
