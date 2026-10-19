@@ -257,7 +257,8 @@ Warrior falls, 12 stand at its strength, 1 at 1.25 times it, none at 1.5 or 2, s
 fastest pace or not). Grit as the plan has it, raised torque bounds, waits for a stand-up whose
 commands are torques: the contact sequence on the solve, not built. The frozen screen takes a candidate as actions on the muscles or joint
 targets from an observation; the learned rise steers step-up's recipe inside the game, so it
-cannot enter without a new action kind, which changes the evaluator and is the owner's call.
+cannot enter without a new action kind. The owner allows changing the evaluator: the screen
+takes that action kind and is re-pinned.
 
 **Stage 5, strikes and holds: open; the strike's gate unmet.** A command drives an effector's
 point at an acceleration through the solve (`PointTask`), and the options fighter's straight
@@ -365,9 +366,9 @@ software checks and are measured when they are compared.
 | 4 | **The stand-up** as a contact sequence; then the learned policy with the Grit curriculum where the sequence cannot start, beside step-up. | Unassisted ≥ 40 of 64, median ≤ 9 s; with Grit median < 4 s; the frozen screen run and reported. | 2 to 4 weeks |
 | 5 | **Strikes and holds** as tasks, beside the per-skill drivers. | League Elo at or above today's (`research/arena-combat-league.mjs`); the one-two and the guard keep their windows. | 2 weeks |
 
-Morphology spikes (foot length, a lower centre of mass, a momentum store in the torso as the
-in-fiction Balance that drains as it saturates) go in anywhere after stage 1, since from then a
-body change is measured through one controller.
+Morphology spikes (foot length, a lower centre of mass, Balance as a momentum store in the torso
+that saturates, in place of a per-step cap) go in anywhere after stage 1, since from then a body
+change is measured through one controller.
 
 Each stage lands in small commits, gated by `npm run check` and `npm test`, with the slow tests it
 touches run by name. A stage that fails its gate is reported as failed; a measurement names its
@@ -391,10 +392,10 @@ And 2026-10-18:
 - A learned behaviour is acceptable in the core, its weights an asset: the AI experiments plan
   counts learned policies among the valid implementations.
 
-## For the owner
+And 2026-10-19:
 
-- **Balance's fiction**, once a momentum store is tried: a gyroscope, a flywheel that saturates,
-  or nothing said.
+- Nothing is fixed while the project is early: the frozen stand-up screen's evaluator may change
+  where a controller needs it to (a new action kind, then a new pin).
 
 ## Out of scope
 
