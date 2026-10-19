@@ -50,16 +50,15 @@ test('observed clean misses correct physical self-play spacing without assistanc
  }
 });
 
-test('fresh-world replay retains learned range and ordinary orders cancel the pending observation',async()=>{
+// How far the range is learned is the case above's: this one forks whatever it has learned by its first commit.
+test('a fresh-world fork mid-commit carries the range learned and the pending observation, and ordinary orders cancel it',async()=>{
  const make=async()=>buildBout({left:'workshop-fighter',right:'workshop-fighter',minds:{left:candidate,right:candidate},
   balance:{left:0,right:0},held:{left:'empty',right:'empty'},capSeconds:30,recoverySeconds:null},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  const a=await make(),b=await make();
  try{
   a.duel.play([]);b.duel.play([]);const skills=a.duel.duelists.left.minded.skills;
-  while(a.duel.clock<20&&skills.state.tactics.spacing[index]===.1)a.world.step();
-  assert.equal(skills.state.tactics.spacing[index],0);
   while(a.duel.clock<20&&!skills.report.actions.some(action=>action.phase==='commit'))a.world.step();
-  assert.ok(skills.report.actions.some(action=>action.phase==='commit'));
+  assert.ok(skills.report.actions.some(action=>action.phase==='commit'),'no commit in 20 s: the fixture did not reach its case');
   b.duel.load(a.duel.save());
   const x=traceOf(Object.values(a.duel.duelists).map(d=>d.built)),y=traceOf(Object.values(b.duel.duelists).map(d=>d.built));
   for(let i=0;i<240;i++){a.world.step();b.world.step();x.take();y.take();}

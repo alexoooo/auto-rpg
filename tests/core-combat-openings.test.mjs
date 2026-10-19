@@ -101,12 +101,11 @@ test('the real Warrior trunk hull supplies a surface opening and a fresh-world s
   assert.ok(Math.max(...distances)<.005&&Math.abs(Math.max(...distances))<.005,'target lies on the physical hull within its short prediction');
   a.duel.order('left',null);a.duel.order('right',null);
   while(a.world.time<15&&!(a.duel.duelists.left.minded.skills.report.actions.some(action=>action.phase==='commit'&&action.target.region.segment==='middleTrunk')))a.world.step();
-  assert.equal(a.duel.duelists.left.minded.skills.report.actions.find(action=>action.phase==='commit')?.target.region.segment,'middleTrunk');
-  assert.ok(a.duel.duelists.left.minded.skills.report.actions.some(action=>action.phase==='commit'));
+  assert.equal(a.duel.duelists.left.minded.skills.report.actions.find(action=>action.phase==='commit')?.target.region.segment,'middleTrunk','no commit on the trunk in 15 s: the fixture did not reach its case');
   b.duel.load(a.duel.save());const trace=s=>traceOf(Object.values(s.duel.duelists).map(d=>d.built)),ta=trace(a),tb=trace(b);
   for(let k=0;k<200;k++){a.world.step();b.world.step();ta.take();tb.take();}
+  // Whether the blow lands on the trunk is the next case's: this one forks the selection.
   assert.deepEqual(a.duel.save().state,b.duel.save().state);assert.equal(ta.digest(),tb.digest());
-  assert.ok(a.duel.blows.some(blow=>blow.sides.some(s=>s.fighter==='right'&&s.segment==='middleTrunk')));
  }finally{a.dispose();b.dispose();}
 });
 

@@ -40,8 +40,11 @@ const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", g
 /** The same bout with both sides covering what threatens them. */
 const cover = withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover" } : behaviour) } });
 const COVERING = deepFreeze({ ...RECIPE, minds: { left: cover, right: cover } });
-/** The same bout under Classic, which fells its foe with the club within a minute. */
-const CLUBBING = deepFreeze({ ...RECIPE, minds: { left: CLASSIC, right: CLASSIC } });
+/**
+ * The same bout under Classic, capped at a minute: its blows land from about 8 s, and it severs a
+ * part, or the bars decide it at the cap, whatever Classic's strength.
+ */
+const CLUBBING = deepFreeze({ ...RECIPE, minds: { left: CLASSIC, right: CLASSIC }, capSeconds: 60 });
 const BACK = { move: { x: -1, z: 0 }, face: null };
 const TAPE = deepFreeze([{ step: 300, side: "left", orders: BACK }, { step: 420, side: "left", orders: null }]);
 /** Steps a twin's world has taken when its bout is built: a bout begins at whatever step its world is at. */
@@ -162,10 +165,11 @@ test("a_bout_rewinds", async () => {
     assert.equal(stepped(stand, 360), first);
     assert.deepEqual(saveState(duel.state), was);
     // And in the middle, between its orders and before its first blow, across its blows to its verdict.
-    const saved = duel.save(), { steps, digest: on } = toVerdict(stand, 120 * 60), then = saveState(duel.state), blows = [...duel.blows], [blow] = blows;
+    const saved = duel.save(), { steps, digest: on } = toVerdict(stand, Math.ceil(CLUBBING.capSeconds * stand.world.hz) + 1), then = saveState(duel.state), blows = [...duel.blows], [blow] = blows;
     const told = JSON.stringify(blows), verdict = duel.verdict;
     assert.ok(verdict !== null, `no verdict by step ${duel.steps}`);
-    assert.ok(blows.length > 0 && Object.isFrozen(blow) && Object.isFrozen(blow.point) && blow.sides.every((side) => Object.isFrozen(side) && Object.isFrozen(side.wound ?? side)),
+    assert.ok(blows.length > 0, "no blow landed before the verdict: the fixture did not reach its case");
+    assert.ok(Object.isFrozen(blow) && Object.isFrozen(blow.point) && blow.sides.every((side) => Object.isFrozen(side) && Object.isFrozen(side.wound ?? side)),
       "a blow landed, and is frozen as it landed");
     duel.load(saved);
     assert.deepEqual([duel.steps, duel.blows.length], [360, 0]);
