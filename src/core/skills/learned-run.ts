@@ -1,3 +1,4 @@
+import allBodies from "../../../assets/core/learned-run.json" with { type: "json" };
 import type { Body, BodyView } from "../body.ts";
 import { recoveryNetwork } from "../control/recovery-network.ts";
 import { hasteOver } from "../human/attributes.ts";
@@ -26,8 +27,12 @@ const LEG_CHANNELS = ["hip.%s flexion", "hip.%s abduction", "hip.%s internal rot
 /** How many features a policy reads (`runFeatures`). */
 export const RUN_FEATURES = 23 + 4 * LEG_CHANNELS.length;
 
-/** The run's trained policies, by name: what a learned run's config names (`LearnedRunConfig.policy`). */
-export const RUN_POLICIES: Readonly<Record<string, RunPolicy>> = Object.freeze({});
+/**
+ * The run's trained policies, by name: what a learned run's config names (`LearnedRunConfig.policy`).
+ * `all-bodies` is trained on the Warrior, the Rogue and the skeleton, empty-handed and with the club,
+ * at Haste 0 and 100 (its asset's `made` says how).
+ */
+export const RUN_POLICIES: Readonly<Record<string, RunPolicy>> = Object.freeze({ "all-bodies": allBodies });
 
 /** **A learned run's network**: a ReLU network whose outputs are the steer's (`STEER_KEYS`), its inputs the features (`runFeatures`), normalised in its first layer. */
 interface RunPolicy {

@@ -102,7 +102,7 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
     tuning: ["run"],
   },
   "learned-run": {
-    ...skill<LearnedRunConfig>("locomotion", "Walk and learned run", "experimental", { kind: "learned-run", ...WALK_RUN, policy: null },
+    ...skill<LearnedRunConfig>("locomotion", "Walk and learned run", "experimental", { kind: "learned-run", ...WALK_RUN, policy: "all-bodies" },
       (config) => [
         ...validWalkRun(learnedRunOf(config)) ? [] : ["a walk and learned run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1"],
         ...validRunCycle(runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE)) ? [] : ["a walk and learned run's run gives only the run's settings, each finite, its times and the cycle's positive and its shares of strength within (0, 1]"],
