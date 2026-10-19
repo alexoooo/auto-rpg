@@ -14,6 +14,7 @@ import { bodyHost } from "./host.ts";
 import type { Orders } from "./orders.ts";
 import type { Senses } from "./senses.ts";
 import type { PhysicalBody } from "../physical-body.ts";
+import type { SheetLog } from "./sheets.ts";
 
 /** **What a fight gives the mind it makes**, beside the body and the config. */
 export interface MindWiring {
@@ -48,10 +49,10 @@ interface FighterMind extends MindedBody {
  * **A body under a mind, by the mind's kind.** A fight holds one and reads what every kind gives,
  * the body and the memory; a reader that needs a kind's own narrows on `kind`.
  */
-export type Minded = FighterMind | (MindedBody & { readonly kind: "direct" }) | (MindedBody & { readonly kind: "quadruped" });
+export type Minded = FighterMind | (MindedBody & { readonly kind: "direct" }) | (MindedBody & { readonly kind: "quadruped" }) | (MindedBody & { readonly kind: "replay" });
 
 /** A mind as its controller makes it (`Controller.create`): all a `Minded` is but the body, which the fight holds from its host (`bodyHost`). */
-export type MindMade = Minded extends infer M ? M extends unknown ? Omit<M, "body"> : never : never;
+export type MindMade = Exclude<Minded, { readonly kind: "replay" }> extends infer M ? M extends unknown ? Omit<M, "body"> : never : never;
 
 /** The posture a body of `spec` is built in under the mind `config` names (`Controller.builtIn`), as a placement's angles (`poseAngles`). */
 export function builtAngles(spec: BodySpec, config: MindConfig): Record<string, number[]> {
@@ -61,12 +62,13 @@ export function builtAngles(spec: BodySpec, config: MindConfig): Record<string, 
 /**
  * `built` under the mind `config` names, wired to its fight, made by its controller
  * (`CONTROLLERS`) through a host of the body (`bodyHost`); a config with a fault anywhere in its
- * tree (`treeFaults`, with the script if the wiring gives one) is refused.
+ * tree (`treeFaults`, with the script if the wiring gives one) is refused. Given a `log`, its order
+ * sheets are written in it (`SheetLog`).
  */
-export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring): Minded {
+export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring, log?: SheetLog): Minded {
   const fault = treeFaults(config, wiring.script ? ["script"] : [])[0];
   if (fault) throw new Error(fault);
-  const { host, made } = bodyHost(built, world, wiring);
+  const { host, made } = bodyHost(built, world, wiring, log);
   const mind = controllerOf(config).create(host, config, wiring), { body, commanded } = made();
   if (mind.kind !== "fighter") return { ...mind, body };
   if (!commanded) throw new Error("a fighter's body is under its command layers");

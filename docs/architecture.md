@@ -1338,6 +1338,14 @@ which changes as the body moves, so a side fought with the pointer over the aren
 order a frame. A side is given its orders as JSON carries them, so a tape that has been through a
 file or a link gives the orders the bout gave.
 
+A bout asked to record (`DuelHooks.record`) writes each side's **order sheets** at the mind's seam
+(`embody`): each step its mind stepped, its muscles' command, its assist's ask, the hand poses it
+asked and, for a hosted body, whether its mind read it down, which the fight reads (`Sheet`,
+`SheetLog`, `src/core/mind/sheets.ts`). The recipe and the sheets are the whole of what the minds
+did: a bout given them (`DuelHooks.replay`) makes no mind, plays each side's sheets in its place
+(`replayedBody`) and is the same bout to the bit. A load that goes back drops the sheets after it
+as the steps are taken again. `tests/mind-contract.test.mjs` holds every registered Mind to it.
+
 A tape rides in a link's fragment, which no server is sent (`#tape=`, `readTape` and `tapeHash`
 in `src/arena/matchup.ts`), with the rest of its recipe in the link's query (`&gap=`, `&cap=`,
 `&balance=`, each side's mind). The arena plays a bout whose link carries a tape with nobody at the keys, and a

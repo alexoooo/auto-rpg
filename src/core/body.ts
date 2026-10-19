@@ -15,6 +15,7 @@ import type { SubMindMaker } from "./mind/sub-minds.ts";
 import type { BodyLevel, MuscleDriver } from "./muscle/driver.ts";
 import type { World } from "./world.ts";
 import { clockOf } from "./clock.ts";
+import type { SheetLog } from "./mind/sheets.ts";
 import { PHYSICS_HZ } from "./world.ts";
 import type { PhysicalBody } from "./physical-body.ts";
 import { centreReading } from "./observation.ts";
@@ -210,6 +211,8 @@ export interface BodyOptions {
   readonly assist?: AssistCeiling;
   /** The sub-minds the command layers hand the body to, in rank order (`hosting`): what its mind's config names (`subMindsOf`). None unless given. */
   readonly subs?: readonly SubMindMaker[];
+  /** Where its order sheets are written (`SheetLog`); nowhere unless given. */
+  readonly log?: SheetLog;
 }
 
 /**

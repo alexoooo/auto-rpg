@@ -22,7 +22,8 @@ npm run build    # check, then vite build
 - **Every code change**: `npm run check` and `npm test`. That is the whole gate. `npm test` holds
   the core's contracts, the source rules (boundary, exports, comments, provenance) and two short
   Arena bouts that must run, stay finite, fling nobody and play the same twice
-  (`tests/smoke.test.mjs`). Add
+  (`tests/smoke.test.mjs`), and every registered Mind's contract: a short bout of it that runs,
+  forks and plays again from its order sheets alone (`tests/mind-contract.test.mjs`). Add
   `npm run build` when browser code, assets, dependencies or build configuration change.
 - **Run a slow test by name** when the change is about what it covers (`node --test
   tests/<file>`); `npm run test:all` only when asked, or before merging a large change of the

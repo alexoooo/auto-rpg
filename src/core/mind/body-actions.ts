@@ -47,7 +47,7 @@ export function checkedBodyAction(action: BodyAction, count: number, equipment?:
 }
 
 /** Apply a checked action, its assist's ask through `assist`; a failed geometric capture remains detached in the next observation. */
-export function applyBodyAction(muscles: MuscleDriver, action: BodyAction, equipment?: EquipmentPort, hands?: HandPoses, assist?: (ask: AssistAsk) => void): void {
+export function applyBodyAction(muscles: MuscleDriver, action: BodyAction, equipment?: EquipmentPort, hands?: Pick<HandPoses, "request">, assist?: (ask: AssistAsk) => void): void {
   switch (action.kind) {
     case "velocity": case "torque": applyAction(muscles, action); return;
     case "body": {

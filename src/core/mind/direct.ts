@@ -12,6 +12,7 @@ import type { EquipmentPort } from "./equipment-port.ts";
 import type { DirectMindConfig } from "./config.ts";
 import { embody } from "./mind.ts";
 import { clockSenses, type Senses } from "./senses.ts";
+import type { SheetLog } from "./sheets.ts";
 
 /** Immutable actuator description; no object here can change the live body. */
 export interface ActuatorModel {
@@ -34,7 +35,7 @@ export interface Policy {
   idle?(): void;
 }
 
-interface PolicyOptions { readonly senses?: () => Senses; readonly assist?: AssistCeiling; readonly equipment?: EquipmentPort }
+interface PolicyOptions { readonly senses?: () => Senses; readonly assist?: AssistCeiling; readonly equipment?: EquipmentPort; readonly log?: SheetLog }
 
 /** Host a replacement controller through detached observations and checked actions alone. */
 export function createPolicyBody(built: BuiltBody, world: World, make: (model: ActuatorModel) => Policy, options: PolicyOptions = {}): PhysicalBody {
@@ -50,9 +51,9 @@ export function createPolicyBody(built: BuiltBody, world: World, make: (model: A
     const policy = make(model);
     return { name: policy.name, state: policy.state, idle: () => policy.idle?.(), step() {
       const action = checkedBodyAction(policy.step(observe(), world.dt), model.channels.length, equipment, built.handPoses);
-      applyBodyAction(own.muscles, action, equipment, built.handPoses, ask);
+      applyBodyAction(own.muscles, action, equipment, { request: own.requestHandPoses }, ask);
     } };
-  }, sense, options.assist);
+  }, sense, options.assist, options.log);
   return physicalBody(built, embodied.own, world, sense, () => embodied.mind.name, embodied.state, embodied.dispose, undefined, equipment);
 }
 

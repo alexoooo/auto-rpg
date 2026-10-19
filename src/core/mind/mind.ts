@@ -1,3 +1,4 @@
+import type { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody } from "../build/build-body.ts";
 import type { HandPoseRequest } from "../build/hand-poses.ts";
 import { rootSegment, type ReadBody } from "../read-body.ts";
@@ -7,6 +8,7 @@ import { driveMuscles, type MuscleDriver } from "../muscle/driver.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
 import { clockSenses, type Senses } from "./senses.ts";
+import type { SheetLog } from "./sheets.ts";
 
 /**
  * **A mind**: a stateful function from what its body senses to what its muscles are asked. It is
@@ -71,16 +73,35 @@ interface Embodied<M extends Mind = Mind> {
  * Give `built` a mind: `make` is called once with the body, and the mind steps before every solver
  * step of `world`, after the muscles have read the joints, on `sense`'s senses (the clock alone
  * unless given). What the mind asked of its assist is given after its step, within `ceiling` (none
- * unless given), so the solver's step takes it with the muscles' torques.
+ * unless given), so the solver's step takes it with the muscles' torques. Given a `log`, each
+ * step's order sheet is written in it as the mind leaves it (`SheetLog`).
  */
 export function embody<M extends Mind>(built: BuiltBody, world: World, make: MindMaker<M>,
-  sense: () => Senses = clockSenses(world), ceiling: AssistCeiling = NO_ASSIST): Embodied<M> {
+  sense: () => Senses = clockSenses(world), ceiling: AssistCeiling = NO_ASSIST, log?: SheetLog): Embodied<M> {
   let mind: M | null = null, help: ReturnType<typeof createAssist> | null = null;
-  const muscles = driveMuscles(built, world, (_, dt) => { mind!.step(sense(), dt); help!.apply(); }, () => mind!.idle?.());
+  // The hand poses asked since the last sheet, which the next sheet carries.
+  const hands: HandPoseRequest[] = [];
+  const muscles = driveMuscles(built, world, (driver, dt) => {
+    mind!.step(sense(), dt);
+    if (log) record(log, world.steps, driver, help!.asked, hands);
+    help!.apply();
+  }, () => mind!.idle?.());
   help = createAssist(built, rootSegment(built), ceiling);
   const own: OwnBody = { spec: built.spec, built: readView(built), muscles, assist: help.assist,
-    requestHandPoses: (requests) => built.handPoses.request(requests) };
+    requestHandPoses: (requests) => {
+      built.handPoses.request(requests);
+      if (log) for (const { hand, pose } of requests) hands.push({ hand, pose });
+    } };
   try { mind = make(own); }
   catch (error) { muscles.dispose(); throw error; }
   return { own, mind, state: { muscles: muscles.state, assist: help.state, handPoses: built.handPoses.state, mind: mind.state ?? null }, dispose: () => muscles.dispose() };
+}
+
+/** Write `driver`'s command, the assist's ask and the hand poses asked since the last sheet into `log` as the sheet of `step`, in place of any it held from that step on. */
+function record(log: SheetLog, step: number, driver: MuscleDriver, asked: { readonly force: Vector3; readonly moment: Vector3 }, hands: HandPoseRequest[]): void {
+  const sheets = log.sheets;
+  while (sheets.length > 0 && sheets[sheets.length - 1]!.step >= step) sheets.pop();
+  sheets.push({ step, activation: driver.activation.slice(), velocity: driver.velocity.slice(),
+    force: [asked.force.x, asked.force.y, asked.force.z], moment: [asked.moment.x, asked.moment.y, asked.moment.z],
+    hands: hands.splice(0), down: log.status ? log.status() : null });
 }

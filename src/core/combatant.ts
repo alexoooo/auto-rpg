@@ -4,6 +4,7 @@ import type { MindConfig } from "./mind/config.ts";
 import { builtAngles, createMind, type Minded, type MindWiring } from "./mind/minds.ts";
 import type { SolidSense } from "./mind/object-senses.ts";
 import type { Senses, SensesHub } from "./mind/senses.ts";
+import { replayedBody, sheetLog, type SheetLog } from "./mind/sheets.ts";
 import type { PhysicalBody } from "./physical-body.ts";
 import type { Fighter } from "./rules/blows.ts";
 import { createPool } from "./rules/pool.ts";
@@ -30,6 +31,10 @@ interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdenti
   readonly mind: MindConfig;
   /** Its balance, per cent of its weight, in place of its character's (`AttributeSpec.balance`). */
   readonly balance?: number;
+  /** Whether its mind's order sheets are written down (`SheetLog`); not unless asked. */
+  readonly record?: boolean;
+  /** Order sheets to play in place of its mind (`replayedBody`): its mind is not made. */
+  readonly replay?: SheetLog;
   /** What a per cent of balance is, in place of the rulebook's (`balancePercent`). */
   readonly percent?: AssistCeiling;
 }
@@ -42,12 +47,15 @@ export interface Combatant extends Fighter {
   /** The config its mind was made from: what an inspector shows of it (`mindInspector`). */
   readonly mind: MindConfig;
   readonly body: PhysicalBody;
+  /** Its order sheets, as written or as played; null unless it was asked to record or replay. */
+  readonly sheets: SheetLog | null;
 }
 
 /**
  * **One combatant**: its body built where it stands, in the posture its mind holds (`builtAngles`),
  * its pool under the fight's rules, carried by the fight's senses, and under the mind its config
- * makes, with the assist its balance gives. Every fight enlists its bodies here, in this order.
+ * makes, with the assist its balance gives, or played from its order sheets with no mind
+ * (`replayedBody`). Every fight enlists its bodies here, in this order.
  */
 export function enlist(world: World, enlisting: Enlistment): Combatant {
   const { id, side, spec, rules, mind } = enlisting;
@@ -58,9 +66,10 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
   const senses = enlisting.senses.add({ id, side, built, out: enlisting.out, down: () => minded?.body.down ?? false,
     ...(enlisting.solids ? { solids: enlisting.solids } : {}) });
   const assist = balanceCeiling(enlisting.balance ?? spec.attributes.balance.value, enlisting.percent ?? balancePercent(rules));
-  minded = createMind(built, world, mind, {
+  const sheets = enlisting.replay ?? (enlisting.record ? sheetLog() : null);
+  minded = enlisting.replay ? { kind: "replay", body: replayedBody(built, world, enlisting.replay, { senses, assist }), state: {} } : createMind(built, world, mind, {
     name: enlisting.name, senses, assist, orders: enlisting.orders,
     ...(enlisting.contactIdentity ? { contactIdentity: enlisting.contactIdentity } : {}),
-  });
-  return { id, side, built, pool, minded, mind, senses, body: minded.body, muscles: minded.body.muscles };
+  }, sheets ?? undefined);
+  return { id, side, built, pool, minded, mind, senses, body: minded.body, muscles: minded.body.muscles, sheets };
 }

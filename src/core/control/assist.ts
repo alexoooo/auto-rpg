@@ -40,7 +40,11 @@ export interface Assist {
 }
 
 /** `built`'s assist under `ceiling`, on `root`; `apply` gives the step's ask, and is the seam's to call (`embody`). */
-export function createAssist(built: BuiltBody, root: BuiltSegment, ceiling: AssistCeiling): { assist: Assist; apply(): void; state: object } {
+export function createAssist(built: BuiltBody, root: BuiltSegment, ceiling: AssistCeiling): {
+  assist: Assist; apply(): void; state: object;
+  /** What this step's ask is so far, before `apply` gives it and clears it. */
+  readonly asked: { readonly force: Vector3; readonly moment: Vector3 };
+} {
   const weight = [...built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0) * norm(built.physics.gravity);
   const most = { force: ceiling.force * weight, moment: ceiling.moment * weight };
   const asked = { force: new Vector3(), moment: new Vector3() }, given = { force: new Vector3(), moment: new Vector3() };
@@ -65,7 +69,7 @@ export function createAssist(built: BuiltBody, root: BuiltSegment, ceiling: Assi
     withdraw() { state.withdrawn = true; },
   };
   return {
-    assist, state,
+    assist, state, asked,
     apply() {
       if (!on()) { given.force.setAll(0); given.moment.setAll(0); return; }
       assist.clipToRef(asked.force, asked.moment, given.force, given.moment);

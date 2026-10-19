@@ -4,6 +4,7 @@ import type { AssistCeiling } from "../core/control/assist.ts";
 import { modelHolds, modelInfo, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
 import { armedWith, type Held } from "../core/items/held.ts";
 import { enlist, type Combatant } from "../core/combatant.ts";
+import type { SheetLog } from "../core/mind/sheets.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { sameOrders, type Orders } from "../core/mind/orders.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
@@ -190,6 +191,10 @@ interface DuelHooks {
   readonly onBlow?: (blow: LandedBlow) => void;
   /** Called with each side as its body is built, before it first steps: the page dresses it. */
   readonly onBuilt?: (duelist: Duelist, built: BuiltBody) => void;
+  /** Write each side's order sheets (`Combatant.sheets`); not unless asked. */
+  readonly record?: boolean;
+  /** Each side's order sheets, played in place of its mind: the recipe's bout again with no mind made. */
+  readonly replay?: Readonly<Record<Side, SheetLog>>;
 }
 
 /**
@@ -256,6 +261,7 @@ export class Duel {
         // A downed side remains in the fight while its recovery allowance lasts.
         out: () => this.verdict !== null || this.eliminated(side),
         mind: config, ...(recipe.balance ? { balance: recipe.balance[side] } : {}), ...(recipe.balancePercent ? { percent: recipe.balancePercent } : {}),
+        ...(hooks.record ? { record: true } : {}), ...(hooks.replay ? { replay: hooks.replay[side] } : {}),
         name: `arena ${side}`,
         contactIdentity: other => other ? contactLabels.get(other.id) ?? null : { kind: "world" },
         // Out of the fight it is left to itself, as a side nobody orders is.
