@@ -236,7 +236,11 @@ is met, the 9 s median is not. Step-up's own time is about 2.4 s of rolling, 7.6
 stages and 2.5 s of steadying and handover, of which 1.3 to 1.8 s is the host's squaring step
 (the feet end 0.2 to 0.26 m apart against the body's 0.39 m), so the route's floor stays near
 9 s; the faster routes are closed by the body's stops (`docs/reference/postures.md`). Grit's
-curriculum is not run. The frozen screen takes a candidate as actions on the muscles or joint
+curriculum has no strong end on step-up: step-up commands activations tuned to the body's own
+strength, and every muscle stronger overdrives it (unsteered, on the learned rise's twelve
+Warrior falls, 12 stand at its strength, 1 at 1.25 times it, none at 1.5 or 2, steered to its
+fastest pace or not). Grit as the plan has it, raised torque bounds, waits for a stand-up whose
+commands are torques: the contact sequence on the solve, not built. The frozen screen takes a candidate as actions on the muscles or joint
 targets from an observation; the learned rise steers step-up's recipe inside the game, so it
 cannot enter without a new action kind, which changes the evaluator and is the owner's call.
 

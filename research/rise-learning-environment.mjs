@@ -4,7 +4,8 @@
  * alone (`learnedRise`, policy null), its rise's steer asked from here (`RiseSteer`) every
  * `RISE_DECIDE` control steps while the rise has the body, its features read as the skill reads
  * them (`readRise`). The world is the recovery environment's (`stand-up-environment.mjs`): Node,
- * Rapier, 120 Hz, Balance `balance`.
+ * Rapier, 120 Hz, Balance `balance`, every muscle `strength` times its strength (`strengthSpec`, 1 to 2:
+ * a curriculum's strong end, never the game's).
  *
  * Each episode starts from one of `falls` falls saved as the stand-up takes the body, each from
  * the Lab's two shoves at a direction drawn on `seed`, and lasts until the host has the body back
@@ -16,17 +17,21 @@ import { recoveryEnvironment } from './stand-up-environment.mjs';
 import { TECHNIQUES } from '../src/core/mind/ground/techniques.ts';
 import { RISE_DECIDE, learnedRise, readRise, riseFeatures, riseSteerFrom } from '../src/core/mind/ground/learned-rise.ts';
 import { RISE_STEER_KEYS } from '../src/core/mind/rise/staged.ts';
+import { modelSpec } from '../src/core/models.ts';
+import { strengthSpec } from './rising-technique.mjs';
 
 export const RISE_ACTIONS = RISE_STEER_KEYS.length;
 
 export async function riseEnvironment(configuration = {}) {
-  const o = { model: 'workshop-fighter', held: 'empty', balance: 0, seed: 1, falls: 12, seconds: 14, hurry: 0.3, soon: 12, ...configuration };
+  const o = { model: 'workshop-fighter', held: 'empty', balance: 0, seed: 1, falls: 12, seconds: 14, hurry: 0.3, soon: 12, strength: 1, ...configuration };
+  if (!Number.isFinite(o.strength) || o.strength < 1 || o.strength > 2) throw new Error("a rise environment's strength stays between 1 and 2");
   let word = (o.seed * 2654435761) >>> 0;
   const random = () => ((word = (Math.imul(word, 1664525) + 1013904223) >>> 0) / 4294967296);
   let held = null;
   const registry = { ...TECHNIQUES, 'learned-rise': { ...TECHNIQUES['learned-rise'],
     make(own, view, world) { const run = learnedRise(own, view, world, null); held = { own, view, run }; return run; } } };
-  const e = await recoveryEnvironment({ model: o.model, held: o.held, baseline: 'step-up', balance: o.balance, techniques: ['learned-rise'], registry });
+  const e = await recoveryEnvironment({ model: o.model, held: o.held, baseline: 'step-up', balance: o.balance,
+    ...(o.strength === 1 ? {} : { spec: strengthSpec(modelSpec(o.model), o.strength) }), techniques: ['learned-rise'], registry });
   if (!held) throw new Error('the stand-up made no learned rise');
   const { own, run } = held, view = () => e.body.view, rising = () => run.up.rise.state.phase !== 'idle' || run.up.steadying;
   const standing = e.measure().observation.head[1];
