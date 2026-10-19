@@ -33,6 +33,16 @@ export interface Weights {
  */
 export const WEIGHTS: Weights = deepFreeze({ dealt: 1, taken: 1, orders: 45, fall: 100 });
 
+/**
+ * **How far a person's orders are carried out through blows coming**, a player's choice: the weight
+ * of the orders (`Weights.orders`) at each level, by its value and name. Walking as told, its own
+ * judgement steps aside from a blow of about 30 J coming (most punches), steady from about 60 J (a
+ * full punch) and orders first from about 120 J (a club's heavy blow). Without orders it changes
+ * nothing.
+ */
+export const OBEDIENCE: readonly (readonly [value: string, name: string, orders: number])[] = deepFreeze([
+  ["own", "Own judgement", 10], ["steady", "Steady", WEIGHTS.orders], ["orders", "Orders first", 200]]);
+
 /** The terms of every weight, in the order a config's faults name them. */
 export const TERMS: readonly (keyof Weights)[] = Object.freeze(["dealt", "taken", "orders", "fall"]);
 

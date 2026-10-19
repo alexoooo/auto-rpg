@@ -44,6 +44,10 @@ This is the stage whose question is a measurement.
   Rapier, 120 Hz, Balance 0) it wins none of 80 against 0.800: the driven fist goes to the head,
   where the guard is, and the pushed one sags under it onto the upper trunk
   (`2026-10-17-general-controller.md`, stage 5).
+- Measured and not kept: the weights of what it deals and takes. Over 40 gaps from 3.0125 m from
+  both sides against the Puncher (Node, Rapier, 120 Hz, Balance 0, 80 bouts each) the fighter's
+  own (dealt 1, taken 1) wins 0.800; dealt 3 wins 0.787, taken 0.3 0.713, and taken 3 none, dealing
+  0.076 a bout and taking 0.438. None is a trade-off: each does as well or worse.
 - Each improvement lands on its own with its league reading before and after.
 - The league measures a fighter on today's motor control, which the whole-body controller plan
   (`2026-10-17-general-controller.md`) is changing: the run and the stand-up (its stages 3 and 4)
@@ -53,6 +57,10 @@ This is the stage whose question is a measurement.
 
 ## 6. The config
 
+- Landed: its obedience (`OBEDIENCE`), the weight of its orders at three levels, the first field a
+  person sets. Told to walk, its own judgement steps aside from a blow of about 30 J coming, steady
+  from about 60 J and orders first from about 120 J; without orders it changes nothing, so a
+  league cannot read it. The weights of what it deals and takes are not a trade-off (stage 5).
 - From the finished fighter, list the decisions that are real trade-offs; candidates: the reward
   weights (obedience, caution, aggression), which options it has, its blows, its preferred
   distance, rising against rolling away against fighting from the ground, its reflexes.

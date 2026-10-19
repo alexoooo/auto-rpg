@@ -51,7 +51,9 @@ These controls work while paused and after the verdict. Links retain the view wi
 Each contender has a **Controller** choice: the **Options fighter** (every humanoid's own mind, in
 the Arena and the Crypt), Classic fighter, **Puncher**, **Counter-puncher**, **Scrapper**, or
 **Behaviours**, a fighter made of behaviours. A preset you change in the panel reads
-**Custom (from** its preset**)**.
+**Custom (from** its preset**)**. The Options fighter's **Obedience** says how far it carries out
+your orders through a blow coming: **Own judgement** steps aside from most punches, **Steady**
+from a full punch, **Orders first** only from a club's heavy blow.
 Humanoids choose a wooden club or empty hands.
 The Reptile uses **Crawl and bite**, carries no equipment and has 1 HP at 8 kg. It trots toward
 opponents, slows for contact, and shifts its weight before placing one paw during close fighting

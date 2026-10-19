@@ -763,7 +763,8 @@ or 5 m/s for one not under way; a blow's chance of landing and its length are th
 of the action (`record`, from the ledger, with a prior), and a foe within reach lands as often as
 the body does. Orders are a term, not a rank: walking where it is told, it walks through a weak blow
 and steps back from a heavy one. The offers a decision chose from are kept (`Offer`) and shown by
-the Arena's readout. Ranked, each option is worth more than the next. Its options, by rank: down, get
+the Arena's readout. A person sets how far orders are carried out (`OBEDIENCE`, the editor's
+Obedience): its levels are weights of the orders. Ranked, each option is worth more than the next. Its options, by rank: down, get
 up, roll away from a foe near, fight from the ground and lie still, each carried out by its sub-mind
 (`downOption`, `down.ts`); standing, follow orders (`orders.ts`), break a clinch (`distance.ts`),
 strike with each action from where it stands (`strike.ts`), strike a foe down or low from beside it,

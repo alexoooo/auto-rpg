@@ -3,7 +3,8 @@
  * is its weighted terms over its run; a blow taken costs as its square, so a jab little and a heavy
  * blow a lot; a body's record of an action moves its prior; and a valued meta-controller, walking
  * to where it is told, walks through a weak blow, steps back from a heavy one and walks on, and
- * keeps the offers it chose from. A config's weights must name terms. Built situations, the
+ * keeps the offers it chose from; a person's obedience moves the blow it steps aside from when
+ * ordered, and nothing unordered. A config's weights must name terms. Built situations, the
  * Warrior's spec, no physics.
  */
 import test from "node:test";
@@ -54,6 +55,25 @@ test("walking_where_it_is_told_a_valued_mind_walks_through_a_weak_blow_steps_bac
   assert.equal(chosen(walking(.6)), "follow orders", "the blow gone: it walks on");
   assert.deepEqual(meta.state.offers.map((offer) => offer.name), ["follow orders", "hold"]);
   assert.ok(meta.state.offers.every((offer) => offer.terms !== null && offer.worth === worth(offer.terms, WEIGHTS)));
+});
+
+test("a_person's_obedience_sets_how_heavy_a_blow_coming_turns_the_fighter_from_its_orders_and_without_orders_nothing", () => {
+  const field = CONTROLLERS.options.fields.find((field) => field.label === "Obedience");
+  const weighed = (level) => ({ ...WEIGHTS, ...field.write(CONTROLLERS.options.defaults, level).weights });
+  const choices = (level, now) => {
+    const hold = setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false, facing: "foe", slant: 0 }, walk);
+    const meta = metaController([followOrders(walk), evade(walk), hold], valued("hand-built", weighed(level)));
+    meta.decide(walking(0));
+    return meta.decide(now)?.name;
+  };
+  assert.deepEqual(["own", "steady", "orders"].map((level) => [40, 90].map((energy) => choices(level, walking(.25, energy)))), [
+    ["evade", "evade"], ["follow orders", "evade"], ["follow orders", "follow orders"]]);
+  const unordered = { ...walking(.25, 40), orders: null };
+  assert.deepEqual(["own", "orders"].map((level) => choices(level, unordered)), [choices("steady", unordered), choices("steady", unordered)]);
+  assert.deepEqual(field.write(CONTROLLERS.options.defaults, "steady"), CONTROLLERS.options.defaults, "the steady level writes nothing");
+  assert.deepEqual(field.write({ kind: "options", weights: { taken: 2, orders: 10 } }, "steady"), { kind: "options", weights: { taken: 2 } });
+  assert.deepEqual(["own", "steady", "orders"].map((level) => field.read(field.write(CONTROLLERS.options.defaults, level))), ["own", "steady", "orders"]);
+  assert.equal(field.write(CONTROLLERS.options.defaults, "obey"), null);
 });
 
 test("a_valued_config's_weights_name_terms_of_finite_weights", () => {

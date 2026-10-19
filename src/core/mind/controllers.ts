@@ -7,14 +7,15 @@ import { guardPosture } from "../skills/guard.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import type { World } from "../world.ts";
-import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, OPTIONS, PUNCHER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type DirectMindConfig, type MindConfig } from "./config.ts";
+import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, OPTIONS, PUNCHER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type DirectMindConfig, type MindConfig, type OptionsConfig } from "./config.ts";
 import { createDirectBody, directFaults } from "./direct.ts";
 import { createFighter, fighterFaults } from "./fighter.ts";
 import { actionConfigFaults } from "./action-config.ts";
 import type { Minded, MindWiring } from "./minds.ts";
 import { slotList, slotOne, type Part, type Slot } from "./parts.ts";
 import { createOptionsFighter, optionsFit } from "./options/mind.ts";
-import { TERMS } from "./options/value.ts";
+import { OBEDIENCE, TERMS, WEIGHTS } from "./options/value.ts";
+import type { PartField } from "./fields.ts";
 
 /**
  * **A controller**: a kind of mind, as a part (`Part`) of role `mind`, with its named configs, the
@@ -49,12 +50,29 @@ const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
 ]);
 
 /**
+ * The options fighter's obedience (`OBEDIENCE`): a choice written as the weight of its orders, the
+ * steady level as no weight written, so the preset is unchanged; a weight that is no level reads
+ * as none of them.
+ */
+const OBEDIENCE_FIELD: PartField<OptionsConfig> = {
+  kind: "choice", key: "weights", label: "Obedience", options: OBEDIENCE.map(([value, name]) => [value, name] as const),
+  read: (config) => OBEDIENCE.find(([, , orders]) => orders === (config.weights?.orders ?? WEIGHTS.orders))?.[0] ?? "",
+  write: (config, text) => {
+    const level = OBEDIENCE.find(([value]) => value === text);
+    if (!level) return null;
+    const { orders: _, ...others } = config.weights ?? {}, weights = level[2] === WEIGHTS.orders ? others : { ...others, orders: level[2] };
+    const { weights: __, ...rest } = config;
+    return Object.keys(weights).length > 0 ? { ...rest, weights } : rest;
+  },
+};
+
+/**
  * **Every controller, by its mind's kind**: the one place a kind is made, matched to a body and
  * offered by name. A kind without an entry does not compile.
  */
 export const CONTROLLERS: { readonly [K in MindConfig["kind"]]: Controller<Extract<MindConfig, { kind: K }>> } = Object.freeze({
   options: {
-    role: "mind", label: "Options fighter", stage: "game", fields: [], slots: [], defaults: OPTIONS, tuning: ["cover", "combination", "body", "opening", "driven", "hold"],
+    role: "mind", label: "Options fighter", stage: "game", fields: [OBEDIENCE_FIELD], slots: [], defaults: OPTIONS, tuning: ["cover", "combination", "body", "opening", "driven", "hold"],
     fits: optionsFit,
     faults: config => [
       ...[undefined, "valued", "ranked"].includes(config.meta) ? [] : ["meta: valued or ranked"],

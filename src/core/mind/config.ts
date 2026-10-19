@@ -264,7 +264,11 @@ export interface FighterConfig {
  */
 export type MindConfig = FighterConfig | OptionsConfig | DirectMindConfig | QuadrupedConfig;
 
-/** **The options fighter** (`createOptionsFighter`, `options/mind.ts`): a meta-controller over options; nothing in it is set yet but an experiment's tuning. */
+/**
+ * **The options fighter** (`createOptionsFighter`, `options/mind.ts`): a meta-controller over
+ * options. A person sets its obedience (`OBEDIENCE`, the weight of its orders); the rest is an
+ * experiment's.
+ */
 export interface OptionsConfig {
   readonly kind: "options";
   /** How it chooses among its options: by what each is expected to bring, weighed (`valued`, unless absent), or by a fixed rank. */
