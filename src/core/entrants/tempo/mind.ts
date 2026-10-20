@@ -1,5 +1,5 @@
 import { commandable } from "../../body.ts";
-import { actionConfigFaults } from "../../mind/action-config.ts";
+import { actionConfigFaults, armedActions, strikesWithAll } from "../../mind/action-config.ts";
 import { OPTIONS, SCRAPPER, STAND_UP, type ActionConfig, type ExecutorConfig, type ReflexConfig, type SkillKit, type SubMindConfig } from "../../mind/config.ts";
 import { controller } from "../../mind/controller.ts";
 import { fighterBody, fighterSkills, kitFaults } from "../../mind/fighter.ts";
@@ -81,8 +81,9 @@ const SLOTS: readonly Slot[] = Object.freeze([
   slotOne("motor", "Motor control", "motor", true, "Whole-body solve"),
 ]);
 
-/** **A tempo fighter**: its body and sub-minds (`fighterBody`), driven by its rhythm (`tempoTactics`) over its skills. */
-function createTempo(host: BodyHost, config: TempoConfig, wiring: MindWiring) {
+/** **A tempo fighter**: its body and sub-minds (`fighterBody`), driven by its rhythm (`tempoTactics`) over its skills, its blows those its body throws as armed (`armedActions`). */
+function createTempo(host: BodyHost, given: TempoConfig, wiring: MindWiring) {
+  const config = { ...given, actions: armedActions(host.spec, given.executors, given.actions) };
   const body = host.command(fighterBody(config, wiring));
   let skills: Skills;
   skills = driveBy(body, tempoTactics(host.spec, config, wiring), (made, driving) => fighterSkills(made, host.clock, config, driving, () => skills?.report.ledger ?? []));
@@ -96,7 +97,9 @@ export const TEMPO_MIND = controller<TempoConfig>({
     number("margin", "Beyond reach", ...BOUNDS.margin, .05, "m"), number("commit", "Longest in reach", ...BOUNDS.commit, .1, "s")],
   keys: { kind: true, locomotion: true, guard: true, executors: true, actions: true, support: true, reflexes: true, subs: true, motor: true,
     burst: true, rest: true, margin: true, commit: true },
-  fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0,
+  // It fits a body it can strike with as armed, with whatever it holds and with a blow thrown standing.
+  fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0 && strikesWithAll(spec, config.executors, config.actions)
+    && armedActions(spec, config.executors, config.actions).some((action) => action.lower === undefined),
   faults: tempoFaults,
   presets: deepFreeze({ tempo: { label: "Tempo fighter", config: TEMPO } }),
   builtIn: guardPosture,
