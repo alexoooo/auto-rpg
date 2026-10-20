@@ -48,6 +48,24 @@ the migration preserves the old cost. The copying change preserves the sampled A
 standing fingerprints exactly (`scripts/fingerprint.mjs`): Arena pose `31a56675fae9fb65`, its
 continuation `b7e015073e408c8f`, and standing skeleton `b853520385722a06`.
 
+### The options fighter's bout
+
+The options fighter weighs every option each control step, and that is its feature: the bout's
+ceiling is the highest of five readings with it, 314 KiB, and a quarter, **393**. Its opening
+selector (`openingSelector`, `src/core/mind/openings.ts`) is asked through each strike's readiness
+many times a step, and is written to allocate only its result: segment distances in numbers, a
+path's samples and a candidate's points in work arrays of the selector's own, a body's guards and
+targets read once a spec. The same harness, five readings of the bout:
+
+| Fixture | KiB per body per step | Ceiling |
+|---|---|---|
+| Bout | 367.46, 369.48, 367.61, 368.14, 366.96 | 393 |
+
+Before the selector's arrays were made once, the bout read 2370 KiB. Its step, read by
+`research/step-time.mjs` on the same bout one after the other (the least of each step over three
+playings, Node 24, Rapier, 120 Hz), went from a mean of 4.06 ms and a median of 3.23 to 2.99 and
+1.62, with a scavenge every 90 steps against every 20; every case of the fingerprint is as it was.
+
 ## Bodies in a step
 
 `research/step-garbage.mjs`. Skeletons with the club, 3 m apart on a ground, each under the command

@@ -33,10 +33,11 @@ export function actionResources(channels: readonly string[], effectors: readonly
   deepFreeze(footprints);
   const controls = (resources: readonly Resource[]): readonly string[] => {
     const result: string[] = [];
-    for (const resource of resources) {
-      const footprint = footprints[resource];
+    // Indexed: it runs for each action's readiness many times a step, and an iterator is garbage.
+    for (let r = 0; r < resources.length; r++) {
+      const resource = resources[r]!, footprint = footprints[resource];
       if (!footprint) throw new Error(`unknown resource ${resource}`);
-      for (const control of footprint) if (!result.includes(control)) result.push(control);
+      for (let c = 0; c < footprint.length; c++) { const control = footprint[c]!; if (!result.includes(control)) result.push(control); }
     }
     return result;
   };

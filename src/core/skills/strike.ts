@@ -111,12 +111,22 @@ function placedDistance({ length, shoulder, toes }: Arm, stretch: number, up: nu
  * placed blow, m (`PLACED`, unless an experiment passes another).
  */
 export function placedReach(spec: BodySpec, hand: Side, up: number, placing: Placed = PLACED): number {
-  return placedDistance(armOf(spec, hand, aimOf(spec, hand)), placing.stretch, up);
+  return placedDistance(aimedArm(spec, hand), placing.stretch, up);
+}
+
+/** Each spec's arms with the points they strike with (`aimOf`), read once: a spec does not change, and a mind asks of it for every candidate blow. */
+const AIMED = new WeakMap<BodySpec, Partial<Record<Side, Arm>>>();
+
+/** `hand`'s arm of `spec` with the point it strikes with (`armOf`, `aimOf`), read once a spec. */
+function aimedArm(spec: BodySpec, hand: Side): Arm {
+  let arms = AIMED.get(spec);
+  if (!arms) AIMED.set(spec, arms = {});
+  return arms[hand] ??= armOf(spec, hand, aimOf(spec, hand));
 }
 
 /** Whether a level approach can put the hand's striking point at this height above the head. */
 export function placedHeightFits(spec: BodySpec, hand: Side, up: number, placing: Placed = PLACED): boolean {
-  const arm = armOf(spec, hand, aimOf(spec, hand));
+  const arm = aimedArm(spec, hand);
   return Math.abs(up - arm.shoulder[1]) <= arm.length * placing.stretch;
 }
 
