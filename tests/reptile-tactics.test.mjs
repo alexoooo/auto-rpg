@@ -19,8 +19,8 @@ import { coreStand } from "./harness/core-stand.mjs";
 
 test("a changed foe clears an unreachable chamber target and preserves a committed stroke", async () => {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate" });
-  const first = buildBody(reptileSpec(), stand.world, { position: [0, 0, .97], rotation: [0, 1, 0, 0] });
-  const second = buildBody(reptileSpec(), stand.world, { position: [.7, 0, .97], rotation: [0, 1, 0, 0] });
+  const first = buildBody(reptileSpec(), stand.world, { position: [0, 0, 1], rotation: [0, 1, 0, 0] });
+  const second = buildBody(reptileSpec(), stand.world, { position: [.7, 0, 1], rotation: [0, 1, 0, 0] });
   const hub = createSenses(stand.world), see = hub.add({ id: "mine", side: "one", built: stand.built, out: () => false });
   hub.add({ id: "first", side: "two", built: first, out: () => false });
   hub.add({ id: "second", side: "two", built: second, out: () => false });

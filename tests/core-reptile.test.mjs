@@ -96,7 +96,7 @@ test("a bite request stops the next paw placement while the jaw prepares", async
 
 test("a pending bite retains its material point across physical preparation steps", async () => {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate" });
-  const target = buildBody(reptileSpec(), stand.world, { position: [0, 0, .97], rotation: [0, 1, 0, 0] });
+  const target = buildBody(reptileSpec(), stand.world, { position: [0, 0, 1], rotation: [0, 1, 0, 0] });
   for (const part of target.segments.values()) part.body.setFixed(true);
   const hub = createSenses(stand.world), see = hub.add({ id: "mine", side: "one", built: stand.built, out: () => false });
   hub.add({ id: "target", side: "two", built: target, out: () => false });

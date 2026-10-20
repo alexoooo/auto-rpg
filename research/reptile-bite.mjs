@@ -14,9 +14,9 @@ import { createPool } from "../src/core/rules/pool.ts";
 import { watchBlows } from "../src/core/rules/blows.ts";
 import { REPTILE_CRAWL, REPTILE_TROT, REPTILE_MOTOR, REPTILE_TRAVEL, REPTILE_BITE } from "../src/core/reptile/tuning.ts";
 
-/** Node core stand, Rapier coordinates, 120 Hz, zero balance: a real jaw against an opposing fixed body. */
-export async function biteTrial({ bite = REPTILE_BITE, point = [0, .1925, .485], autonomous = false, target = true, seconds = 10, hz = 120, fixed = true, repeats = 1,
-  targetPosition = [0, 0, .97], targetModel = "reptile", targetRotation = [0, 1, 0, 0], obstacle } = {}) {
+/** Node core stand, Rapier coordinates, 120 Hz, zero balance: a real jaw closes on an exposed fixed jaw corner. */
+export async function biteTrial({ bite = REPTILE_BITE, point = [-.028, .1925, .503], autonomous = false, target = true, seconds = 10, hz = 120, fixed = true, repeats = 1,
+  targetPosition = [-.38, 0, .55], targetModel = "reptile", targetRotation = [0, Math.SQRT1_2, 0, Math.SQRT1_2], obstacle } = {}) {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", hz, joints: { jaw: [bite.open] } });
   const enemy = target ? buildBody(modelSpec(targetModel), stand.world, { position: targetPosition, rotation: targetRotation }) : null;
   if (obstacle) stand.world.physics.addFixedBox(obstacle.position, obstacle.size);

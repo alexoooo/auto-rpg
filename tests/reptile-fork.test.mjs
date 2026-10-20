@@ -50,7 +50,7 @@ test("a chambered jaw, its snap and cancellation return fork through the shared 
 
 async function sensedBite() {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", joints: { jaw: [REPTILE_BITE.open] } });
-  const target = buildBody(reptileSpec(), stand.world, { position: [0, 0, .97], rotation: [0, 1, 0, 0] });
+  const target = buildBody(reptileSpec(), stand.world, { position: [-.38, 0, .55], rotation: [0, Math.SQRT1_2, 0, Math.SQRT1_2] });
   for (const segment of target.segments.values()) segment.body.setFixed(true);
   const hub = createSenses(stand.world), see = hub.add({ id: "mine", side: "one", built: stand.built, out: () => false });
   hub.add({ id: "target", side: "two", built: target, out: () => false });

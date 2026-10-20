@@ -87,7 +87,7 @@ const RULES: Omit<Rulebook, "mode"> = Object.freeze({
   )) as Record<Mechanism, Quantity<number>>),
   pointLoad: Object.freeze({
     threshold: sourced(1, "N", "owner-point-load", "the shared minimum piercing load"),
-    rate: sourced(6.4, "HP/(N s)", "owner-point-load", "shared calibration for the 30 s reptile injury target"),
+    rate: sourced(.2, "HP/(N s)", "owner-point-load", "shared calibration for the 30 s reptile injury target"),
   }),
   balance: Object.freeze({
     force: sourced(0.01, "1", "owner-balance", "a per cent of the body's weight"),

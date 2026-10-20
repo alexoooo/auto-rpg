@@ -625,7 +625,9 @@ After it, each with its own plan, in the order each needs the one before:
 ### New bodies
 
 - **The reptile** is an 8 kg, 1 HP quadruped on the core, selectable in the arena
-  ([reptile](reference/reptile.md)). Open:
+  ([reptile](reference/reptile.md)). Its forward-leaning teeth use the general load rule;
+  all eight tested mirrors end by injury within 30 s. The mixed-opponent target passes
+  14 of 24 development bouts ([conditions](reference/reptile-bites.md)). Open:
   - richer surface response beyond the general pointed-contact load rule;
   - broader recovery;
   - practical combat against the humans;

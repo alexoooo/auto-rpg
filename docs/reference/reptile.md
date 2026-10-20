@@ -26,7 +26,9 @@ and its full end-to-end extent. Collision geometry does not change those masses.
 Ordinary surfaces have an explicit 17,000 N/m estimate, not a borrowed human
 anatomical table. Three lower-jaw tooth pyramids are separate anatomical colliders,
 each with its own authored 10,000,000 N/m surface. Their tips rise 8 mm from their
-bases, at reference y .2255 m and z .485 m.
+bases, at reference y .2255 m and z .503 m. The bases span z .481-.489 m;
+the tips lean 18 mm forward from their base centres and lead the blunt jaw front by 8 mm.
+The piercing direction is the normalized base-to-tip axis `[0, .008, .018]`.
 Their reference points, directions and .5 contact-normal cosine are in the asset.
 These are game estimates, not measured enamel stiffness or species bite forces.
 The lower middle tooth tip is the jaw's `bite` point. Teeth belong to the existing

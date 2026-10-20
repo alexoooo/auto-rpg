@@ -10,7 +10,7 @@ For each pointed rigid body, opposing physical segment and completed interval:
 HP = rate * max(0, aligned normal impulse - threshold * seconds)
 ```
 
-`Rulebook.pointLoad` sets the shared threshold to **1 N** and rate to **6.4 HP/(N s)**.
+`Rulebook.pointLoad` sets the shared threshold to **1 N** and rate to **.2 HP/(N s)**.
 These are authored game values (`owner-point-load`), not measured tissue properties.
 All aligned tooth/collider contributions are summed before applying the threshold once.
 Splitting the same force over more teeth or solver points creates no extra injury.
@@ -49,7 +49,9 @@ keeps the fixture alive throughout settling and measurement.
 `tests/core-points.test.mjs` covers anatomical regions, held-item frames, rigid mass
 invariance, ordinary recoil and the absence of duplicate point energy damage.
 `tests/core-reptile.test.mjs` runs the physical jaw, loaded-paw preparation, cancellation,
-obstruction, misses and release. No anatomy, torque ceiling or unloaded speed is raised.
+obstruction, misses and release. Torque ceilings and unloaded speeds are unchanged.
+The fixed-jaw witness presents an exposed corner to the forward-leaning teeth; it
+retains fast closure, actual load injury, cancellation and verified release.
 
 ## Calibration and combat conditions
 
@@ -65,27 +67,44 @@ with actual pointed-load HP loss and can begin again only after the jaw clears e
 contact with that opponent. Damage includes actual pool loss, not requested damage or
 incidental blunt injury. The harness reports each opponent and side separately.
 
-The shared rate search starts at .05 HP/(N s) and doubles. The 3 m development mirror
-rejects every cell through 3.2: .05, .1, .2, .4, .8, 1.6 and 3.2 all reach the 30 s cap.
-Some higher cells disable a jaw without yet emptying a vital part, so an individual
-stronger bite does not guarantee a shorter bout. The next cell, **6.4**, ends that
-mirror by injury and is the first cell to pass the development mirror target.
+The tooth bases stay attached at reference y .2175 m and z .481-.489 m. The
+owner-authorized geometry experiment moves only the tips and the named bite point
+18 mm forward, to z .503 m at the same y .2255 m. The tips lead the blunt jaw front
+by 8 mm. Their declared piercing direction follows the base-to-tip axis
+`[0, .008, .018]`, normalized. Mass, inertia, HP, joint limits and muscles are unchanged.
 The measured neck pose is retained through the snap instead of continually re-aiming
-an arc that is already under way. Preparation and withdrawal retain their existing
-muscle-driven placement and physical release rules.
+an arc already under way. Preparation and withdrawal retain their muscle-driven
+placement and physical release rules.
 
-Current Node Arena Duel results, rapier-coordinate at 120 Hz, with both balances zero:
+A comparison in the Node Arena Duel, rapier-coordinate at 120 Hz, zero balance,
+2 m gap and Reptile on the left uses the same 6.4 HP/(N s) rate for both geometries:
+
+| Opponent | Upright teeth, actual pool loss, HP | Forward teeth, actual pool loss, HP |
+| --- | --- | --- |
+| Rogue | 0.000 | 1.362 |
+| Warrior | 0.000 | 1.895 |
+| Skeleton | 0.000 | 1.162 |
+
+The upright-tooth reference is the implementation at `4d587509`. The forward geometry
+allows a much lower common rate. A .05 HP/(N s) 4 m mirror reaches the 30 s cap;
+.1 ends it at 27.625 s. The selected **.2** gives more margin against the deadline and
+material repeated damage in the 2 m humanoid bouts. Raising the rate excessively
+can sever a contacted limb early; repeated contact with that detached pool then
+adds no injury. A stronger rate does not guarantee a better bout.
+
+Current Node Arena Duel results, rapier-coordinate at 120 Hz, both balances zero,
+at the selected .2 HP/(N s):
 
 | Mirror gap, m | Injury time, s | Ending | Falls |
 | --- | --- | --- | --- |
-| 1.5 | 7.300 | fatal | 0 |
-| 2 | 7.592 | fatal | 0 |
-| 3 | 11.158 | fatal | 0 |
-| 4 | 11.050 | fatal | 0 |
-| 1.75 | 7.008 | fatal | 0 |
-| 2.5 | 8.417 | fatal | 0 |
-| 3.5 | 9.942 | fatal | 0 |
-| 4.5 | 19.908 | severed | 0 |
+| 1.5 | 6.767 | fatal | 0 |
+| 2 | 8.383 | fatal | 0 |
+| 3 | 10.333 | fatal | 0 |
+| 4 | 16.942 | fatal | 0 |
+| 1.75 | 7.308 | fatal | 0 |
+| 2.5 | 9.392 | fatal | 0 |
+| 3.5 | 11.008 | fatal | 0 |
+| 4.5 | 11.592 | fatal | 0 |
 
 All eight mirrors pass. A vital part can empty before the body's entire 1 HP pool is spent.
 The following ranges cover eight development bouts per opponent: four gaps, both side
@@ -93,15 +112,22 @@ assignments, in the same Node harness, engine, rate and zero-balance conditions 
 
 | Opponent | Actual pointed-load pool loss, HP | Separate damaging engagements | Passing bouts |
 | --- | --- | --- | --- |
-| Rogue | 0.000-0.406 | 0-1 | 0/8 |
-| Warrior | 0.000-0.000 | 0-0 | 0/8 |
-| Skeleton | 0.000-0.248 | 0-1 | 0/8 |
+| Rogue | 0.000-2.864 | 0-13 | 4/8 |
+| Warrior | 0.336-1.974 | 3-7 | 5/8 |
+| Skeleton | 0.175-1.274 | 1-20 | 5/8 |
 
-Fresh humanoid confirmation is conditional on passing development and is not run for these failures.
+At 2 m with the Reptile on the left, actual load injury is 2.052 HP against Rogue,
+1.310 HP against Warrior and 1.274 HP against Skeleton, with 13, 5 and 20 separate
+damaging engagements respectively, in the same Node Arena conditions.
+Fresh humanoid confirmation is conditional on passing development and is not run
+for these failures.
 
-The complete humanoid target remains unmet. More damage does not correct missed tooth
-contact against low legs and feet; ordinary jaw contact can obstruct the tooth path.
-The experimental capability check keeps this failure visible, separately from software
+The complete humanoid target remains unmet. In particular, the Reptile on the
+right falls during approach at 6.767 s against Rogue at 4 m, before any bite.
+Other cases land insufficient load or do not fully clear jaw/opponent contact
+between damaging intervals. These are control and placement limitations rather
+than missing receiving materials or per-character damage exceptions. The
+experimental capability check keeps the failures visible separately from software
 contracts and the mirror deadline.
 
 Commands:
