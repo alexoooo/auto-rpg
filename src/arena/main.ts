@@ -95,7 +95,7 @@ const levelName = (level: NoteLevel, model: BodyModel, loadout: Loadout): string
 /** **The last tournament's table** (`RATINGS`), its best first, into the ratings panel. */
 function showRatings(root: ParentNode): void {
   const need = <T extends HTMLElement>(id: string): T => find<T>(id, root);
-  const { entrants, date, commit, harness, unavailable } = RATINGS;
+  const { entrants, unseen, date, commit, harness, unavailable } = RATINGS;
   need("ratings-about").textContent = unavailable ? `Ratings unavailable: ${unavailable}.` : entrants.length === 0 ? "No tournament has been played yet (scripts/tournament.mjs)."
     : `Each mind on each character with each loadout against every other, both sides, Bradley-Terry on the Elo scale (the field's mean 1500), with its 95 % interval. ${date} at ${commit?.slice(0, 8)}; ${harness}.`;
   const cell = (tag: "td" | "th", text: string) => Object.assign(document.createElement(tag), { textContent: text });
@@ -109,6 +109,14 @@ function showRatings(root: ParentNode): void {
     return row;
   });
   need("ratings-table").replaceChildren(head, ...rows);
+  need("unseen-about").textContent = unseen.length === 0 ? "" : `Unseen loadouts, rated on none: each mind against ${MINDS[unseen[0]!.against]?.label ?? unseen[0]!.against} with sword and buckler, both sides.`;
+  const unseenHead = document.createElement("tr");
+  unseenHead.append(...["Mind", "Character", "Hands", "Won", "Drawn", "Lost"].map(text => cell("th", text)));
+  need("unseen-table").replaceChildren(...unseen.length === 0 ? [] : [unseenHead, ...unseen.map((entrant) => {
+    const row = document.createElement("tr");
+    row.append(...[MINDS[entrant.mind]?.label ?? entrant.mind, MODEL_DISPLAY[entrant.model].label, loadoutName(entrant.loadout), `${entrant.wins}`, `${entrant.draws}`, `${entrant.losses}`].map(text => cell("td", text)));
+    return row;
+  })]);
 }
 
 export async function bootArena(context: ScreenContext): Promise<void> {

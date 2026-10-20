@@ -114,6 +114,21 @@ test("the bed fixes target directions and counts failures, duplicates and assist
   assert.equal(everyday.length, 18);
 });
 
+test("the bed plays the target's shoves on named loadouts, apart from the target", () => {
+  const jobs = risingJobs(risingOptions(["--loadouts", "buckler,sword;empty,club"]));
+  assert.equal(jobs.length, 2 * 2 * 16);
+  const target = risingJobs(risingOptions(["--target"])).filter(job => job.held === "club");
+  assert.deepEqual(jobs.filter(job => job.loadout.right === "club").map(({ model, degrees, start, seed }) => [model, degrees, start, seed]),
+    target.map(({ model, degrees, start, seed }) => [model, degrees, start, seed]), "the same falls as the target's club group");
+  assert.ok(jobs.every(job => job.equipped && !job.target && job.balance === 0));
+  for (const args of [["--loadouts", "buckler,sword", "--target"], ["--loadouts", "buckler,axe"], ["--loadouts", "buckler,sword", "--held", "club"], ["--loadouts", "empty,club;empty,club"]])
+    assert.throws(() => risingOptions(args), /loadouts/, args.join(" "));
+  const rows = jobs.map(job => ({ ...job, stood: true, status: "stood", handback: 1, verified: 3, phases: {}, assist: null }));
+  const report = risingReport(rows);
+  assert.deepEqual([report.mode, report.claims.meetsOwnerTarget, report.groups.length], ["equipped falls", "not evaluated by the equipped falls", 4]);
+  assert.equal(report.groups[0].median, 3, "a stand is read verified, as the target reads it");
+});
+
 test("the bed executes a physical episode and returns an honest capped failure with phase and assist readings", async () => {
   const row = await risingTrial({ id: 0, model: "workshop-fighter", held: "empty", seed: 1, start: "placed", posture: "fours", sub: "support-recovery", balance: 0, cap: .1 });
   assert.equal(row.status, "failed"); assert.equal(row.stood, false); assert.equal(row.handback, null);

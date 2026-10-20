@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { CONTROLLERS, controllerOf, MINDS, PRESETS } from "../src/core/mind/controllers.ts";
 import { CLASSIC, RECIPE_FIGHTER, SCRAPPER, STAND_UP } from "../src/core/mind/config.ts";
-import { equipmentSupported, treeFaults, treeFits } from "../src/core/mind/catalog.ts";
+import { canAttack, equipmentSupported, treeFaults, treeFits } from "../src/core/mind/catalog.ts";
 import { armedActions } from "../src/core/mind/action-config.ts";
 import { armedWith, heldBy, HELD } from "../src/core/items/held.ts";
 import { createMind } from "../src/core/mind/minds.ts";
@@ -79,6 +79,21 @@ test("a mind fits a loadout its parts support, and throws only the blows its arm
   const unsupported = { ...left, held: left.held.map((held) => ({ ...held, item: { ...held.item, cover: undefined } })) };
   assert.equal(equipmentSupported(unsupported, puncher), false, "neither the punch nor the guard declares use of an uncovered item");
   assert.equal(treeFits(unsupported, puncher), false);
+});
+
+test("a fighting mind fits only a loadout it can attack with, and a mind with no blow of its own is not held to it", () => {
+  const bare = modelSpec("workshop-fighter"), both = (left, right) => armedWith(armedWith(bare, "left", left), "right", right);
+  const puncher = MINDS.puncher.config, direct = MINDS.direct.config;
+  // Club and buckler, sword and buckler: no hand is free to punch, though the guard covers with every item.
+  for (const [left, right] of [["buckler", "club"], ["buckler", "sword"]]) {
+    const spec = both(left, right);
+    assert.deepEqual([equipmentSupported(spec, puncher), canAttack(spec, puncher), treeFits(spec, puncher)], [true, false, false], `${left},${right}`);
+    assert.deepEqual([canAttack(spec, MINDS.classic.config), treeFits(spec, MINDS.classic.config)], [true, true], `${left},${right}: Classic swings`);
+  }
+  assert.equal(canAttack(both("empty", "sword"), puncher), true, "a free hand punches beside the sword");
+  assert.equal(canAttack(both("buckler", "sword"), MINDS.scrapper.config), false, "the Scrapper swings nothing it cannot swing blunt");
+  assert.equal(canAttack(both("buckler", "sword"), { ...puncher, actions: [], executors: [] }), true, "a fighter given no actions is not a fighting mind");
+  assert.equal(canAttack(both("buckler", "sword"), direct), true, "direct control strikes with nothing of its own");
 });
 
 test("presets bind actions to explicitly named execution state", () => {

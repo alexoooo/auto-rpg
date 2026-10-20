@@ -16,7 +16,8 @@ the open component, task, equipment and evaluation work. Within it,
 on one stack, and the [options fighter](plans/2026-10-14-options-fighter.md) develops one Mind's
 tactics and player choices. Their implemented contracts are in the architecture.
 The Arena supplies selectable levels, shared navigation, explicit per-hand loadouts, a buckler
-and a cutting short sword as a testbed for that work.
+and a cutting short sword as a testbed for that work; its next milestone is a
+[reference sword-and-buckler fighter](plans/2026-10-20-sword-and-buckler.md).
 
 - **Skills and tactics.** A body has an array of skills; tactics, a meta-controller over them,
   choose among the skills it has as the fight goes. Both come in many flavours. A skill may be

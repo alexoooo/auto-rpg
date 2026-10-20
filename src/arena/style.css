@@ -477,6 +477,8 @@
 :where(#screen-root[data-screen="arena"]) #ratings th, :where(#screen-root[data-screen="arena"]) #ratings td { padding: 3px 8px; text-align: left; white-space: nowrap; border-bottom: 1px solid rgba(201, 181, 150, 0.15); }
 :where(#screen-root[data-screen="arena"]) #ratings th { color: #f1dfbc; font-weight: 400; position: sticky; top: 0; background: rgba(12, 13, 16, 0.98); }
 :where(#screen-root[data-screen="arena"]) #ratings td:nth-child(n+5) { text-align: right; font-variant-numeric: tabular-nums; }
+:where(#screen-root[data-screen="arena"]) #unseen-table td:nth-child(n+4) { text-align: right; font-variant-numeric: tabular-nums; }
+:where(#screen-root[data-screen="arena"]) #unseen-about { margin-top: 14px; }
 
 /* The chosen mind's notes, its most particular first. */
 :where(#screen-root[data-screen="arena"]) #curtain .mind-notes { display: flex; flex-direction: column; gap: 2px; margin: 0; font-size: 11px; color: #b7a790; }
