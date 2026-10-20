@@ -14,7 +14,7 @@ import { loadForgeStyle, paveForge } from "./forge-style.ts";
 import { postPipeline } from "../render/post.ts";
 import { buildArenaWorld, type ArenaAudit, type RoomMaterials, type RoomOcclusionTarget } from "./room.ts";
 import type { PhysicsWorld } from "../core/engine/engine.ts";
-import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
+import { sceneModel } from "../render/asset-cache.ts";
 import { levelDefinition, type ArenaLevel } from "./levels.ts";
 import { ROOM_GROUPS } from "./room.ts";
 
@@ -114,7 +114,7 @@ export async function buildArena(engine: Engine, physicsFor: (scene: Scene) => P
   // The floor slab and the posts are colliders; the visible floor and the room's dressing are
   // separate meshes with no body, so the art can change without touching the physics.
   const kit = levelDefinition(level).furniture.length
-    ? await LoadAssetContainerAsync(publicAssetUrl("/assets/crypt-kit/kit.glb"), scene) : undefined;
+    ? await sceneModel(publicAssetUrl("/assets/crypt-kit/kit.glb"), scene) : undefined;
   if (signal?.aborted) { kit?.dispose(); signal.throwIfAborted(); }
   kit?.addAllToScene();
   const world = buildArenaWorld(scene, physics, materials, {

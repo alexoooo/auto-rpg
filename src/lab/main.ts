@@ -1,3 +1,4 @@
+import { warmScene } from "../render/ready.ts";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera.js";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight.js";
@@ -172,6 +173,9 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     heardTo: number;
   }
   let current: Loaded | null = null;
+  let skinReady: Promise<void> = Promise.resolve(), loading = false, firstFrame = true;
+  const loadError = document.createElement("p"); loadError.className = "alert"; loadError.hidden = true; loadError.setAttribute("role", "alert");
+  need("sections").append(loadError);
   let shown: LabAddress = address;
   const transport = labTransport(need("transport"), scenario.timelineLabel, () => current?.run ?? null);
 
@@ -221,8 +225,9 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     if (current && current.appearance !== to.appearance) {
       const loaded = current;
       loaded.appearance = to.appearance;
-      void loaded.skin.replace(dresserFor(to.model, scene, { appearance: to.appearance }),
-        { clothing: to, closure: hand => loaded.run.closure(hand) }).catch(error => console.error(error));
+      skinReady = loaded.skin.replace(dresserFor(to.model, scene, { appearance: to.appearance }),
+        { clothing: to, closure: hand => loaded.run.closure(hand) });
+      void skinReady.catch(error => { if (!disposed) { loadError.hidden = false; loadError.textContent = String(error); } });
     }
     showView();
     for (const control of shellControls) control.refresh();
@@ -244,7 +249,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   }
 
   /** Load `to`'s loadout at `to`'s rate, in a new world, and start the scenario on it. */
-  function load(to: LabAddress): void {
+  function loadWorld(to: LabAddress): void {
     if (disposed) return;
     let spec: ReturnType<typeof loadoutSpec>;
     try { spec = loadoutSpec(to); }
@@ -290,6 +295,28 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     show(to);
   }
 
+  async function prepare(to: LabAddress): Promise<void> {
+    if (disposed || loading) return;
+    loading = true; loadError.hidden = true;
+    try {
+      await context.loading("Preparing the scenario", async stage => {
+        loadWorld(to);
+        await skinReady;
+        context.signal.throwIfAborted();
+        await stage("Preparing lighting");
+        await warmScene(scene, context.signal);
+        firstFrame = true;
+      });
+    } finally { loading = false; }
+  }
+
+  function load(to: LabAddress): void {
+    void prepare(to).catch(error => {
+      if (disposed) return;
+      loadError.hidden = false; loadError.textContent = `Could not load scenario: ${String(error)}`;
+    });
+  }
+
   function readout(): void {
     if (!current) return;
     const { run, helped, hasted, log, sounds } = current;
@@ -333,11 +360,12 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   // The HUD is filled before the wait for the physics engine, so it never shows empty.
   physicsEngine = await loadEngine();
   context.signal.throwIfAborted();
-  load(shown);
+  await prepare(shown);
   engine.runRenderLoop(() => {
-    if (context.busy) { scene.render(); return; }
+    if (context.busy) { firstFrame = true; return; }
+    const seconds = firstFrame ? 0 : engine.getDeltaTime(); firstFrame = false;
     current?.run.drive(held);
-    current?.run.player.tick(engine.getDeltaTime() * transport.speed(), performance.now() + SEEK_BUDGET_MS);
+    current?.run.player.tick(seconds * transport.speed(), performance.now() + SEEK_BUDGET_MS);
     readout();
     scene.render();
     if (current) {
@@ -353,4 +381,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   (window as unknown as { __lab: unknown }).__lab = {
     scene, engine, readout, drive: () => current?.run.drive(held), current: () => current, world: () => world, held,
   };
+  context.own(() => {
+    if ((window as unknown as { __lab?: { engine: Engine } }).__lab?.engine === engine) Reflect.deleteProperty(window, "__lab");
+  });
 }

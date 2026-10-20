@@ -1,3 +1,4 @@
+import { warmScene } from "../render/ready.ts";
 import { arenaMeasurement } from "./measure.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 // `scene.createPickingRay` is this module's patch: without it the build compiles and the ray is missing.
@@ -437,6 +438,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     } catch (error) { need("boot-note").textContent = error instanceof Error ? error.message : String(error); return; }
     beginButton.disabled = true;
     try {
+      await context.loading("Preparing fighters", async stage => {
       appearances = { left: appearanceFor(next.left, appearances.left), right: appearanceFor(next.right, appearances.right) };
       matchup = next;
       const query = new URLSearchParams(location.search);
@@ -503,7 +505,12 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         row.mind.replaceChildren(row.mind.firstElementChild!, row.inspector.element);
       }
       show("curtain", false); show("bout-end", false); setPaused(false); screen = "fight"; viewPanel.hidden = false;
-      canvas.focus();
+      frame();
+      await stage("Preparing lighting");
+      await warmScene(scene, context.signal);
+      firstFrame = true;
+      });
+      if (!context.signal.aborted) canvas.focus();
     } catch (error) {
       if (context.signal.aborted) return;
       setup();
@@ -631,10 +638,12 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   };
 
   const measurement = new URLSearchParams(location.search).get("measure") === "1" ? arenaMeasurement(document.body) : null;
+  let firstFrame = true;
   engine.runRenderLoop(() => {
+    if (context.busy) { firstFrame = true; return; }
     const began = measurement ? performance.now() : 0, clockBefore = world.time;
     let physicsMs = 0;
-    const seconds = engine.getDeltaTime() / 1000;
+    const seconds = firstFrame ? 0 : engine.getDeltaTime() / 1000; firstFrame = false;
     if (!context.busy) giveOrders();
     if (duel && !paused && !context.busy) {
       const beforePhysics = measurement ? performance.now() : 0;
@@ -654,8 +663,13 @@ export async function bootArena(context: ScreenContext): Promise<void> {
 
   await Promise.all(previewLoads);
   context.signal.throwIfAborted();
+  frame();
+  await warmScene(scene, context.signal);
   need("boot-note").textContent = "";
   beginButton.disabled = false;
   // A link that names its matchup opens the bout directly.
   if (context.autostart && new URLSearchParams(location.search).has(MATCHUP_PARAM)) await begin(matchup);
+  context.own(() => {
+    if ((window as unknown as { __arena?: { engine: Engine } }).__arena?.engine === engine) Reflect.deleteProperty(window, "__arena");
+  });
 }

@@ -54,3 +54,14 @@ export function paintLoading(signal: AbortSignal): Promise<void> {
     else frame = requestAnimationFrame(() => { frame = requestAnimationFrame(finish); });
   });
 }
+
+/** Navigation releases the caller immediately while late results remain owned by their screen. */
+export function screenTask<T>(pending: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const cancel = () => { signal.removeEventListener("abort", cancel); reject(signal.reason); };
+    signal.addEventListener("abort", cancel, { once: true });
+    pending.then(value => { signal.removeEventListener("abort", cancel); resolve(value); },
+      error => { signal.removeEventListener("abort", cancel); reject(error); });
+    if (signal.aborted) cancel();
+  });
+}

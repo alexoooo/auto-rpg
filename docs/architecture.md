@@ -1518,6 +1518,12 @@ arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, 
 previous screen, including pending loads, worlds, scenes, previews, listeners and audio. Setup
 choices remain in memory for the current tab; leaving a run ends it. Styles belong to their
 screen root, so revisiting a mode reuses its module without leaking its DOM or styles.
+The shell's loading overlay keeps the screen inert while it prepares characters and scenes.
+Required textures, drawable materials, shadows and post-processing must produce two consecutive
+complete frames beneath it before play begins; invisible colliders do not gate readiness.
+Preparation advances no physics. Its deadline counts visible-tab time, and navigation cancels
+pending work. Model downloads share immutable bytes across scenes; each scene owns its decoded
+Babylon resources. Failed downloads leave the cache so Retry can request them again.
 
 - **The Arena** (`src/arena/`): two bodies, empty-handed unless armed, in the Forge (`src/arena/scene.ts`,
   `src/arena/room.ts`), each driven by its side's mind under a `Duel`, to a verdict, each

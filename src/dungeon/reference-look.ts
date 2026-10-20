@@ -1,5 +1,5 @@
 import { CryptWeathering } from "./crypt-weathering.ts";
-import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
+import { sceneModel } from "../render/asset-cache.ts";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 import "@babylonjs/loaders/glTF/glTFFileLoader.js";
 import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js";
@@ -122,7 +122,7 @@ class CryptCutaway extends MaterialPluginBase {
 }
 /** Visual-only owner: all solid props have already been built by the level (`buildDungeonWorld`). */
 export async function dressReference(scene: Scene, level: ReturnType<typeof buildDungeonWorld>, quality: ReferenceQuality, azimuth: number, plan?: CryptRoomPlan) {
-  const container=await LoadAssetContainerAsync(publicAssetUrl(plan ? "/assets/crypt-kit/kit.glb" : "/assets/dungeon-reference/chamber.glb"),scene);
+  const container=await sceneModel(publicAssetUrl(plan ? "/assets/crypt-kit/kit.glb" : "/assets/dungeon-reference/chamber.glb"),scene);
   container.addAllToScene();
   if(plan) assembleCryptKit(container,plan.placements);
   const torches=plan?.torches??REFERENCE_TORCHES;
@@ -136,6 +136,7 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
       Texture.TRILINEAR_SAMPLINGMODE, () => resolve(texture), message => { texture.dispose(); reject(new Error(message)); });
     texture.gammaSpace = channel === "albedo"; texture.anisotropicFilteringLevel = 4;
   })));
+  if (scene.isDisposed) throw new DOMException("The screen was closed", "AbortError");
   const textured = (name: string, colour: string) => {
     const material = flatStone(scene, name, colour);
     material.useRoughnessFromMetallicTextureAlpha = false;

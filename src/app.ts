@@ -5,7 +5,7 @@ import "./ui/mind.css";
 import "./ui/attributes.css";
 import { MENU_HREF, playHref, routeFor, type Route } from "./app-route.ts";
 import { need } from "./dom.ts";
-import { paintLoading, screenLifetime, type NavigationOptions, type ScreenContext } from "./ui/screen.ts";
+import { paintLoading, screenLifetime, screenTask, type NavigationOptions, type ScreenContext } from "./ui/screen.ts";
 
 const outlet = need("app-root"), overlay = need("app-loading"), label = need("loading-label");
 overlay.removeAttribute("style");
@@ -94,7 +94,7 @@ function navigate(href: string, options: NavigationOptions = {}): void {
       const stage = async (text: string) => {
         lifetime.signal.throwIfAborted(); label.textContent = text; await paintLoading(lifetime.signal);
       };
-      try { await stage(title); return await task(stage); }
+      try { await stage(title); return await screenTask(task(stage), lifetime.signal); }
       finally {
         state.pending.delete(token);
         if (!lifetime.signal.aborted && state.pending.size === 0) {

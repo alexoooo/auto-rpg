@@ -1,3 +1,4 @@
+import { warmScene } from "../render/ready.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
@@ -218,6 +219,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     paused: boolean;
     /** True while a run is being built: no frame is drawn, and no second build starts. */
     launching: boolean;
+    freshFrame: boolean;
     zoom: number;
     /** When the HUD was last refreshed, by `performance.now()`. */
     lastUi: number;
@@ -244,7 +246,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const page: DungeonPage = {
       physicsEngine, skeletonArt, engine, audio, hover,
       probe: lookProbe(engine, () => page.scene && page.lighting ? { scene: page.scene, lighting: page.lighting } : null),
-      meter: frameMeter(engine, meterElement),
+      meter: frameMeter(engine, meterElement, context.signal),
       meterElement, meterParent: meterElement.parentElement!, diagnostics,
       abort, signal: abort.signal,
       party: null,
@@ -252,7 +254,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       selectedScenario: "generated", selectedQuality: "high", reference: false,
       seed: 0, cryptPlan: undefined, scene: null, run: null, hearing: null, camera: null, lighting: null, referenceLook: null,
       drawn: [], soundTorches: [], route: null, routeSignature: "",
-      paused: false, launching: false, zoom: 10, lastUi: 0, held: new Set(), hoverPointer: null, hovered: null, inspected: null,
+      paused: false, launching: false, freshFrame: true, zoom: 10, lastUi: 0, held: new Set(), hoverPointer: null, hovered: null, inspected: null,
     };
     return page;
   }
@@ -348,7 +350,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   }
 
   /** Replaces the run on show with one of `nextSeed`, in the scenario and with the party the start panel chose. */
-  async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
+  async function buildRun(page: DungeonPage, nextSeed: number, stage: (label: string) => Promise<void>): Promise<void> {
     const { engine, audio, reference } = page;
     const seed = nextSeed >>> 0;
     const cryptPlan = page.selectedScenario === "random-crypt" ? generateCryptDungeon(seed) : undefined;
@@ -396,6 +398,8 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       page.drawn.push(hands, skin, club);
       actor.meshes.push(...skin.meshes, ...club.meshes);
     };
+    await stage("Building the dungeon");
+    stillShown();
     const run = page.run = new DungeonRun(scene, {
       seed, engine: page.physicsEngine,
       visuals: { ...dungeonStone(scene, stone.floor, stone.wall), masonry: reference ? false : stone.masonry },
@@ -418,6 +422,8 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     run.level.sconces(torches);
     if (!reference && stone.dressing) run.level.dress(dressingPlacements(run.map, seed, DRESSING, toward));
     if (reference) {
+      await stage("Preparing the chamber");
+      stillShown();
       page.referenceLook = await dressReference(scene, run.level, page.selectedQuality, azimuth, cryptPlan);
       stillShown();
       if (page.selectedQuality === "reduced") lighting.setLook({ ssao: false });
@@ -428,15 +434,18 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     need("seed-label").textContent = `SEED ${seed}`;
     need("hero-name").textContent = heroLabel(page.selectedHero);
     page.party!.partyRows();
-    setPaused(page, false);
     framing(page);
     run.present();
     lighting.refreshFog(run.explored);
     showScreen("playing");
     engine.resize();
     framing(page);
-    scene.render();
-    canvas.focus();
+    await stage("Preparing lighting");
+    stillShown();
+    await warmScene(scene, page.signal);
+    stillShown();
+    page.freshFrame = true;
+    setPaused(page, false);
     Object.assign(window, { __dungeon: {
       get run() { return page.run; }, get scene() { return page.scene; }, get camera() { return page.camera; },
       get lighting() { return page.lighting; }, look: page.probe, engine,
@@ -458,10 +467,13 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     need("setup-error").hidden = true;
     need("start-panel").inert = true;
     const previous = page.run;
+    let failed = false;
     try {
-      await buildRun(page, nextSeed);
+      await context.loading("Preparing your expedition", async stage => { await buildRun(page, nextSeed, stage); });
+      if (!page.signal.aborted) canvas.focus();
     } catch (error) {
       if (page.signal.aborted) return;
+      failed = true;
       page.audio.setActive(false);
       if (page.run !== previous) teardownRun(page);
       page.paused = true;
@@ -474,7 +486,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     } finally {
       page.launching = false;
       start.disabled = false;
-      start.textContent = "Start";
+      start.textContent = failed ? "Retry" : "Start";
       need("start-panel").inert = false;
     }
   }
@@ -776,11 +788,13 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   function frame(page: DungeonPage, party: Party): void {
     const { scene, run, engine, meter, audio } = page;
     if (!scene || !run || page.launching || context.busy) return;
+    const seconds = page.freshFrame ? 0 : engine.getDeltaTime() / 1000;
+    page.freshFrame = false;
     const playing = () => run.status === "playing";
     if (!page.paused && playing()) {
-      meter.physics(() => run.advance(engine.getDeltaTime() / 1000, Math.ceil(CATCH_UP_SECONDS * run.world.hz)));
+      meter.physics(() => run.advance(seconds, Math.ceil(CATCH_UP_SECONDS * run.world.hz)));
       page.hearing?.airs((id, speed, at) => audio.swish(id, speed, at));
-      page.lighting?.burn(engine.getDeltaTime() / 1000);
+      page.lighting?.burn(seconds);
       // The steps may have ended the run.
       if (!playing()) setPaused(page, true);
     }
@@ -799,6 +813,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
 
   /** Ends the page: its sound, its listeners, its loop, the run on show and the engine. */
   function disposePage(page: DungeonPage): void {
+    if ((window as unknown as { __dungeon?: { engine: Engine } }).__dungeon?.engine === page.engine) Reflect.deleteProperty(window, "__dungeon");
     page.audio.dispose();
     page.abort.abort();
     page.engine.stopRenderLoop();
@@ -813,20 +828,21 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const dispose = () => disposePage(page);
     context.own(dispose);
     const preview = await showHeroLineup(need<HTMLCanvasElement>("hero-preview"), page.physicsEngine, HEROES.map(h => h.model), page.signal);
-    const updatePreview = () => {
+    const updatePreview = async () => {
       try {
         const attributes = attributePanel.read(), hero = choice(heroChoices) as BodyModel;
-        for (const [index, row] of HEROES.entries()) {
+        await Promise.all(HEROES.map((row, index) => {
           const companion = selectedCompanions.indexOf(row.model), id = row.model === hero ? "hero" : companion >= 0 ? `ally-${companion}` : "";
-          void preview.setCharacter(index, { model: row.model, attributes: id ? attributes({ id, model: row.model, side: "party" }) : {} });
-        }
-      } catch { /* Invalid drafts stay visible while the previous preview is retained. */ }
+          return preview.setCharacter(index, { model: row.model, attributes: id ? attributes({ id, model: row.model, side: "party" }) : {} });
+        }));
+      } catch (error) { if (page.signal.aborted) return; throw error; }
     };
-    updatePreview();
-    attributeHolder.addEventListener("input", updatePreview, { signal: page.signal });
-    attributeHolder.addEventListener("click", updatePreview, { signal: page.signal });
-    heroChoices.addEventListener("change", updatePreview, { signal: page.signal });
-    companionCount.addEventListener("change", updatePreview, { signal: page.signal });
+    await updatePreview();
+    const refreshPreview = () => { void updatePreview().catch(error => { if (!page.signal.aborted) { need("setup-error").hidden = false; need("setup-error").textContent = String(error); } }); };
+    attributeHolder.addEventListener("input", refreshPreview, { signal: page.signal });
+    attributeHolder.addEventListener("click", refreshPreview, { signal: page.signal });
+    heroChoices.addEventListener("change", refreshPreview, { signal: page.signal });
+    companionCount.addEventListener("change", refreshPreview, { signal: page.signal });
     if (page.signal.aborted) return;
     context.own(() => {
       const url = new URL(location.href);

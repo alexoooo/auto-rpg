@@ -1,3 +1,4 @@
+import { modelBytes } from "./asset-cache.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
@@ -110,9 +111,8 @@ let loading: Promise<SkeletonArt> | null = null;
 /** The art, fetched once per page. */
 export function loadSkeletonArt(): Promise<SkeletonArt> {
   return loading ??= (async () => {
-    const response = await fetch(publicAssetUrl("/assets/skeleton/skeleton.glb"));
-    if (!response.ok) throw new Error(`the skeleton's art did not load (${response.status})`);
-    return parseSkeletonArt(await response.arrayBuffer());
+    const bytes = await modelBytes(publicAssetUrl("/assets/skeleton/skeleton.glb"));
+    return parseSkeletonArt(bytes.slice().buffer);
   })().catch((error: unknown) => { loading = null; throw error; });
 }
 

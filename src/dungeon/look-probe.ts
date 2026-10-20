@@ -8,15 +8,7 @@ import type { DungeonLighting, LookSwitches } from "./lighting.ts";
  * says only whether a setting drops frames, not what the GPU spent. */
 interface FrameCost { frames: number; gpuMs: number | null; frameMs: number; look: LookSwitches }
 
-/**
- * Whether everything the frame draws has compiled. Not `scene.isReady()`: that also asks the invisible colliders,
- * which carry no material, so it asks for a default material that is never drawn and never compiles, and it stays
- * false for the life of the level.
- */
-function drawnReady(scene: Scene): boolean {
-  return scene.meshes.every(mesh => !mesh.isEnabled() || !mesh.isVisible || mesh.isReady(true))
-    && (scene.activeCamera?._postProcesses ?? []).every(post => !post || post.isReady());
-}
+import { drawnReady } from "../render/ready.ts";
 
 /**
  * `__dungeon.look` on the page: switches that remove render work, and a frame-cost reading, so that what each
