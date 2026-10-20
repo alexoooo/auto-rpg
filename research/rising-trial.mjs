@@ -61,7 +61,7 @@ export async function risingTrial(job, { subs, stop } = {}) {
   const world = createWorld(scene, await loadEngine("rapier"));
   addArenaSolids(world.physics);
   const built = buildBody(spec, world, placement);
-  if (job.target || job.obstacle) address.ground.impulse = targetImpulse(built);
+  if (job.target || job.obstacle || job.equipped) address.ground.impulse = targetImpulse(built);
   const actor = labActor(built, world, { mind: risingMind(job.sub ?? "support-recovery", job.techniques), ...(subs ? { subs } : {}),
     assist: balanceCeiling(balance, balancePercent(rulebook("arena"))) });
   const cap = Math.min(30, job.cap ?? 30);
@@ -71,7 +71,7 @@ export async function risingTrial(job, { subs, stop } = {}) {
     while (world.time < cap + 4) {
       world.step();
       if (stop?.(world, built, actor)) break;
-      if (job.target || job.obstacle) {
+      if (job.target || job.obstacle || job.equipped) {
         if (run.check.done()) { stood = check.stage === "stood"; break; }
         if (check.takeover === null && world.time >= 4) break;
       } else {
