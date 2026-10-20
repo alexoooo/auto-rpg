@@ -194,6 +194,11 @@ The code against the contract above:
   (`DungeonRunOptions.mind`, `src/dungeon/run.ts`), enemies included and two bodies of one model
   apart; the start panel chooses one for the party's bodies of each model and one for the
   enemies' (`runMinds`, `src/dungeon/run-minds.ts`).
+- Working side by side has landed. The standard match (`npm run match`, `scripts/match.mjs`)
+  plays two Minds over one fixed protocol, each on each side, and names its result by the commit,
+  each Mind's digest and a digest of the bouts that is the same on every machine; the fingerprint
+  has a case for each Mind with no preset; `scripts/entrant-check.mjs` tells an entrant's change
+  from the toolkit's; `AGENTS.md` (Competing minds) has the rules.
 
 ## Order of work
 

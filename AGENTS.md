@@ -15,6 +15,7 @@ npm test         # the fast tier, about 75 s: current-code tests except tests/sl
 npm run test:all # all current-code tests, as CI runs them
 npm run test:experimental # how well the controllers do: tests/experimental.json's, in neither tier
 npm run build    # check, then vite build
+npm run match -- <mind> <mind> # the standard match: two minds, each on each side, one digest
 ```
 
 **Speed comes first.** A change is checked for whether it broke the core, not re-qualified:
@@ -234,6 +235,27 @@ every implementation that claims it, and changes scope only by the owner's decis
 - **Test navigation on several seeds**; one generated map proves little.
 - **Parallel runs need worker threads**, one sequential loop in each.
 - **Under CPU load a dropped test count is a timeout**, not a regression; re-run on a quiet machine.
+
+## Competing minds
+
+Agents develop Minds side by side, on more than one machine. Each keeps out of the others' way:
+
+- **A Mind is an entrant**: a folder under `src/core/entrants/<name>/` and a line in
+  `CONTROLLERS` (`src/core/mind/controllers.ts`), with its data, learned weights among them, under
+  `assets/entrants/<name>/` and its own test, if it has one, in `tests/entrant-<name>.test.mjs`.
+  What it may read and do is `docs/architecture.md`'s (Adding a Mind), and the gate holds it to
+  that (`tests/core-boundary.test.mjs`, `tests/mind-contract.test.mjs`).
+- **A branch an agent**, from main. An entrant's change touches its own files and its registry
+  line and nothing else; `node scripts/entrant-check.mjs` names a branch's change an entrant's, the
+  toolkit's or mixed.
+- **The toolkit lands on its own.** A change to what Minds are built on (the core outside an
+  entrant's folder, the screens, the rules) is a toolkit change, on its own branch, read against
+  main with the fingerprint (`scripts/fingerprint.mjs`: a case each preset and each mind with no
+  preset), whose moved cases its message names. It never rides in with an entrant.
+- **A claim is a match.** That one Mind beats another is what `npm run match -- <a> <b>`
+  (`scripts/match.mjs`) reads: its protocol, commit, each mind's digest and the match's digest.
+  Bouts are the same on every machine, so one commit and two minds give one digest anywhere; a
+  figure read at another commit or protocol is read again before it is compared.
 
 ## Stand-up measurement
 

@@ -13,7 +13,8 @@
     "check": "tsc --noEmit",
     "test": "node scripts/test.mjs",
     "test:all": "node scripts/test.mjs --all",
-    "test:experimental": "node scripts/test.mjs --experimental"
+    "test:experimental": "node scripts/test.mjs --experimental",
+    "match": "node scripts/match.mjs"
   },
   "dependencies": {
     "@babylonjs/core": "9.18.1",

@@ -766,7 +766,11 @@ build on the game's command layers or on a host and sub-minds of its own. It ret
 may use any of the toolkit (`src/core/mind/`, `skills/`, `control/`) and imports no engine, world
 or builder. Once registered it is offered by its presets and its fields, and
 `tests/mind-contract.test.mjs` runs it on the first body it fits against itself, forks it and
-replays it from its order sheets; how well it fights is a measurement, not a gate.
+replays it from its order sheets; how well it fights is a measurement, not a gate: the standard
+match (`scripts/match.mjs`, `npm run match -- <a> <b>`) plays two minds over one fixed set of
+bodies, loadouts and gaps, each on each side, and names the result by a digest that is the same on
+every machine. The fingerprint has a case for each mind with no preset, so a toolkit change names
+the minds it moves; `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
 
 **The fighter's configuration** (`FighterConfig`) holds tactics, locomotion, guard, optional
 support, named executor instances, named action descriptions and ranked sub-minds. Each action
