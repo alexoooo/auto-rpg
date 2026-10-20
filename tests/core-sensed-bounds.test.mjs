@@ -11,7 +11,7 @@ import {upperSurface,highestSurface} from '../src/core/mind/openings.ts';
 import {centreOfToRef} from '../src/core/control/support.ts';
 
 test('the physical Warrior hull and attached club contribute to detached bounds',async()=>{
- const b=await buildBout({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'club'},minds:{left:COMBAT,right:COMBAT}},
+ const b=await buildBout({left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'club' } },minds:{left:COMBAT,right:COMBAT}},
   {physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try {
   b.duel.order('left',STAND_ORDERS);b.duel.order('right',STAND_ORDERS);b.world.step(240);

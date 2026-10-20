@@ -82,7 +82,7 @@ function jobOf(seed, held, left, right, pays) {
   const mind = (side) => side === pays ? withParts(RECIPE_FIGHTER, { tactics: { aim: "pays" } }) : RECIPE_FIGHTER;
   return {
     key: { seed, gap: gapOf(seed), held, left, right, pays },
-    recipe: { left, right, gap: gapOf(seed), held: { left: held, right: held }, minds: { left: mind("left"), right: mind("right") } },
+    recipe: { left, right, gap: gapOf(seed), loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } }, minds: { left: mind("left"), right: mind("right") } },
     blows: true,
   };
 }

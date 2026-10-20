@@ -81,7 +81,7 @@ if (isMainThread) {
   parentPort.on("message", async ({ left, right, gap, held, seconds }) => {
     let dispose;
     try {
-      const recipe = { left, right, gap, cap: seconds, ...(held === "empty" ? { held: { left: "empty", right: "empty" } } : {}) };
+      const recipe = { left, right, gap, cap: seconds, ...(held === "empty" ? { loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } } } : {}) };
       const bout = await buildBout(recipe); dispose = bout.dispose;
       const { world, duel } = bout, track = Object.fromEntries(SIDES.map(side => [side, {
         side, model: side === "left" ? left : right, phases: { prepare: 0, commit: 0, release: 0 }, idle: 0, attempts: [], sequence: 0,

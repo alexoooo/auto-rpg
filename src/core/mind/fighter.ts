@@ -116,7 +116,8 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
     fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
     slots: [slotList("rules", "When", "move-rule")],
   },
-  "cover-guard": { ...skill("guard", "Guard and cover", "game", { kind: "cover-guard" }), tuning: ["covering", "hold"] },
+  "cover-guard": { ...skill("guard", "Guard and cover", "game", { kind: "cover-guard" }),
+    supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined).map(({ segment }) => segment), tuning: ["covering", "hold"] },
   "support-fold": skill("support", "Fight from low support", "experimental", { kind: "support-fold" }),
 });
 

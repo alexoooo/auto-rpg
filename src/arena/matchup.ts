@@ -4,8 +4,8 @@ import type { MindConfig } from "../core/mind/config.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
-import { ARENA_HELD, SIDES, type OrdersEntry } from "./duel.ts";
-import { HELD, type Held } from "../core/items/held.ts";
+import { SIDES, type OrdersEntry } from "./duel.ts";
+import { EMPTY_LOADOUT, HELD, type Loadout } from "../core/items/held.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import type { Side } from "../core/spec/body.ts";
 import { parseMind, writeMind, type LinkedMind } from "../ui/mind-link.ts";
@@ -98,20 +98,19 @@ export function readHaste(search: string): Readonly<Partial<Record<Side, number>
   return { ...(modelHastes(models.left) ? { left: given[0]! } : {}), ...(modelHastes(models.right) ? { right: given[given.length - 1]! } : {}) };
 }
 
-/** The arena link's parameter for what each side's right hand holds: `&held=left,right`, or one word for both, each of `HELD`. */
-const HELD_PARAM = "held";
-
-/**
- * What an address has each side's right hand hold (`DuelRecipe.held`): two of `HELD`, left
- * then right, or one for both; undefined for anything else, and each then holds nothing (`ARENA_HELD`).
- */
-export function readHeld(search: string): Readonly<Record<Side, Held>> | undefined {
-  const text = new URLSearchParams(search).get(HELD_PARAM);
-  if (text === null) return undefined;
-  const parts = text.split(","), given = parts.flatMap((part) => HELD.filter((held) => held === part.trim()));
-  if (parts.length > 2 || given.length !== parts.length) return undefined;
-  const models = readMatchup(search);
-  return { left: modelHolds(models.left) ? given[0]! : "empty", right: modelHolds(models.right) ? given[given.length - 1]! : "empty" };
+/** Each fighter's two hands: `left.loadout=leftHand,rightHand`, and `right.loadout` alike. */
+export function readLoadouts(search: string): Readonly<Record<Side, Loadout>> | undefined {
+  const query = new URLSearchParams(search);
+  if (!SIDES.some((side) => query.has(`${side}.loadout`))) return undefined;
+  const models = readMatchup(search), loadouts = {} as Record<Side, Loadout>;
+  for (const side of SIDES) {
+    const text = query.get(`${side}.loadout`);
+    if (text === null) { loadouts[side] = EMPTY_LOADOUT; continue; }
+    const parts = text.split(",").map((part) => part.trim());
+    if (parts.length !== 2 || parts.some((part) => !HELD.includes(part as typeof HELD[number]))) return undefined;
+    loadouts[side] = modelHolds(models[side]) ? { left: parts[0] as typeof HELD[number], right: parts[1] as typeof HELD[number] } : EMPTY_LOADOUT;
+  }
+  return loadouts;
 }
 
 /**
@@ -164,31 +163,31 @@ type Control = string;
 /** The selectable controllers' names on the page, by id. */
 export const CONTROLS: Readonly<Record<Control, string>> = Object.freeze(Object.fromEntries(Object.entries(MINDS).map(([id, mind]) => [id, mind.label])));
 
-/** What each side's right hand holds by `search` (`readHeld`), or the arena's (`ARENA_HELD`). */
-const heldOf = (search: string): Readonly<Record<Side, Held>> => readHeld(search) ?? { left: ARENA_HELD, right: ARENA_HELD };
+/** Both fighters' hands, empty unless the link assigns them. */
+const loadoutsOf = (search: string): Readonly<Record<Side, Loadout>> => readLoadouts(search) ?? { left: EMPTY_LOADOUT, right: EMPTY_LOADOUT };
 
 /** Per-side controller choices in a shareable arena recipe: each one its side's body and loadout are offered (`controlsFor`). */
 export function readControls(search: string): Readonly<Record<Side, Control>> {
   const parts = (new URLSearchParams(search).get("control") ?? "").split(",");
-  const models = readMatchup(search), held = heldOf(search);
+  const models = readMatchup(search), loadouts = loadoutsOf(search);
   const read = (s: string | undefined, side: Side): Control => {
-    const choices = controlsFor(models[side], held[side]);
-    return s !== undefined && choices.includes(s) ? s : defaultControl(models[side], held[side]);
+    const choices = controlsFor(models[side], loadouts[side]);
+    return s !== undefined && choices.includes(s) ? s : defaultControl(models[side], loadouts[side]);
   };
   return { left: read(parts[0], "left"), right: read(parts[1] ?? parts[0], "right") };
 }
 
 /**
- * Pickers and links accept the same choices: the minds a body of `model` holding `held` can carry
+ * Pickers and links accept the same choices: the minds a body of `model` carrying `loadout` can carry
  * out (`modelSupportsMind`), so a mind that works with one loadout is offered with no other.
  */
-export function controlsFor(model: BodyModel, held: Held = ARENA_HELD): readonly Control[] {
-  return Object.keys(MINDS).filter((control) => modelSupportsMind(model, MINDS[control]!.config, held));
+export function controlsFor(model: BodyModel, loadout: Loadout = EMPTY_LOADOUT): readonly Control[] {
+  return Object.keys(MINDS).filter((control) => modelSupportsMind(model, MINDS[control]!.config, loadout));
 }
 
 /** The choice a side starts on: its model's own mind (`modelInfo`) where it is offered, else the first offered. */
-export function defaultControl(model: BodyModel, held: Held = ARENA_HELD): Control {
-  const choices = controlsFor(model, held);
+export function defaultControl(model: BodyModel, loadout: Loadout = EMPTY_LOADOUT): Control {
+  const choices = controlsFor(model, loadout);
   return choices.find((control) => MINDS[control]!.config === modelInfo(model).mind) ?? choices[0]!;
 }
 
@@ -201,7 +200,7 @@ const mindKey = (side: Side): string => `${side}.mind`;
  */
 export function linkedMind(search: string, side: Side): LinkedMind {
   const preset = MINDS[readControls(search)[side]]!.config;
-  return parseMind(new URLSearchParams(search).get(mindKey(side)), modelHolding(readMatchup(search)[side], heldOf(search)[side])) ?? { config: preset, faults: [] };
+  return parseMind(new URLSearchParams(search).get(mindKey(side)), modelHolding(readMatchup(search)[side], loadoutsOf(search)[side])) ?? { config: preset, faults: [] };
 }
 
 /** The sides' minds as `search` carries them (`linkedMind`); a side whose tree has a fault plays its preset whole. */

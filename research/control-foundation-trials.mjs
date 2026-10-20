@@ -306,7 +306,7 @@ export function attackAccounting() {
 async function boutTrial(job) {
   const cover = withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover" } : behaviour) } });
   const recipe = { left: job.model, right: job.model, gap: job.gap, cap: job.cap,
-    held: { left: job.held, right: job.held },
+    loadouts: { left: { left: "empty", right: job.held }, right: { left: "empty", right: job.held } },
     minds: { left: job.guard === "left-cover" ? cover : RECIPE_FIGHTER, right: job.guard === "right-cover" ? cover : RECIPE_FIGHTER } };
   const bout = await buildBout(recipe, { hz: job.hz, actuation: job.actuation });
   const sides = [bout.duel.duelists.left, bout.duel.duelists.right];

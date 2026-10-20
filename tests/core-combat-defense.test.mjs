@@ -7,7 +7,7 @@ import { STAND_ORDERS } from '../src/core/mind/orders.ts';
 import { COMBAT } from "./fixtures/minds.mjs";
 
 test('physical predictive defense covers only an available hand and preserves its timing through a fresh-world fork',async()=>{
- const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
+ const recipe={left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},
   minds:{left:{...COMBAT,tactics:{...COMBAT.tactics,list:[{kind:'follow-orders'},{kind:'evade'},{kind:'attack'},{kind:'approach'},{kind:'cover',guard:'predictive'}]}},right:COMBAT},senseDelay:6,recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
@@ -34,7 +34,7 @@ test('physical predictive defense covers only an available hand and preserves it
 // Whether combat then clears the wall is `core-combat-capability`'s: this case holds the body inside
 // the parapet and forks it beside the wall, at its first clearing or a while into the fight.
 test('an ordered approach reaches the real parapet, then autonomous combat escapes and forks beside it', async()=>{
- const recipe={left:'workshop-fighter',right:'workshop-fighter',gap:1.2,held:{left:'empty',right:'empty'},balance:{left:0,right:0},minds:{left:COMBAT,right:COMBAT},recoverySeconds:null,capSeconds:160};
+ const recipe={left:'workshop-fighter',right:'workshop-fighter',gap:1.2,loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},minds:{left:COMBAT,right:COMBAT},recoverySeconds:null,capSeconds:160};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
   const left=a.duel.duelists.left;

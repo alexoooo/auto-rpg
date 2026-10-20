@@ -61,7 +61,7 @@ Humanoids choose a wooden club or empty hands.
 The Reptile uses **Crawl and bite**, carries no equipment and has 1 HP at 8 kg. It trots toward
 opponents, slows for contact, and shifts its weight before placing one paw during close fighting
 and withdrawal. It bites reachable body surfaces with its physical jaw.
-Try `?play=arena&matchup=workshop-fighter,reptile&held=empty&recovery=continue`.
+Try `?play=arena&matchup=workshop-fighter,reptile&recovery=continue`.
 Its anatomy is an authored estimate. Forward-leaning teeth wound under physical load.
 Mirror bouts end reliably by injury in the tested conditions; bites materially injure humanoids,
 though approach and bite placement remain uneven. [Control checks](docs/reference/reptile.md) cover standing, fast
@@ -90,7 +90,7 @@ it on the chest and the guarding arms.
 Scrapper aims straight blows and hooks at the body, with measured punch paths, guards and
 escapes, and attacks low, from support, a foe who is down or rising. Start with two
 empty-handed Warriors:
-`?play=arena&matchup=workshop-fighter,workshop-fighter&control=scrapper&held=empty&balance=0`.
+`?play=arena&matchup=workshop-fighter,workshop-fighter&control=scrapper&balance=0`.
 It creates room for punches, approaches low targets, acquires foot support and returns to
 standing. The checks cover both hands; unreachable placements time out and retry. Its Kick slot
 takes a low front kick with either foot, qualified against a quiet defender.
@@ -102,8 +102,8 @@ reference pose sequence, then verifies quiet foot support before resuming walkin
 [Development checks](docs/reference/recovery-cycle.md)
 cover Warrior with empty hands and a club; recovery takes about 25-29 seconds in passing cases,
 and one tested club fall direction still fails. Arena Classic also attempts the staged rise. Recovery remains imperfect and may need retries.
-Try `?play=arena&matchup=workshop-fighter,workshop-rogue&control=scrapper,classic&held=empty&recovery=60`.
-These choices travel in links and replays (`control`, `held`, `recovery`).
+Try `?play=arena&matchup=workshop-fighter,workshop-rogue&control=scrapper,classic&recovery=60`.
+These choices travel in links and replays (`control`, `left.loadout`, `right.loadout`, `recovery`).
 
 The circular stone arena is enclosed by a low parapet, with eight braziers around its edge. Each
 humanoid starts empty-handed unless given the wooden club. Its mind walks at the opponent and
@@ -140,8 +140,10 @@ turn; across its heading or backward it walks at half pace.
 A link can name its matchup and open the bout directly:
 `?play=arena&matchup=workshop-fighter,crypt-skeleton` (the bodies are `workshop-fighter`,
 `workshop-rogue` and `crypt-skeleton`). It may also say how far apart the two start (`&gap=3`,
-metres), how long the bout may run (`&cap=30`, seconds) and what each right hand holds
-(`&held=empty` for a bare-handed bout, or `&held=empty,club` left then right) which controller each side
+metres), how long the bout may run (`&cap=30`, seconds), and what each fighter carries
+(`&left.loadout=empty,club` for a club in the left fighter's right hand;
+`&right.loadout=club,empty` for one in the right fighter's left hand). Both hands are empty by
+default. It also names which controller each side
 runs (`&control=classic,scrapper`), each side's mind as edited in the **Mind** panel under its
 controller (`&left.mind=`, written by the panel), and carry a bout's orders after a `#tape=`, which the arena then plays
 again by itself.

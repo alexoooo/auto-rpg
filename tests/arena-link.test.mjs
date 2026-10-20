@@ -5,7 +5,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_MATCHUP, controllerLabel, linkedMind, matchupSearch, mindsSearch, readBalance, readCap, readControls, readGap, readHaste, readHeld, readMatchup, readMinds, readRecovery, readTape, readYou, tapeHash, youSearch } from "../src/arena/matchup.ts";
+import { DEFAULT_MATCHUP, controllerLabel, linkedMind, matchupSearch, mindsSearch, readBalance, readCap, readControls, readGap, readHaste, readLoadouts, readMatchup, readMinds, readRecovery, readTape, readYou, tapeHash, youSearch } from "../src/arena/matchup.ts";
 import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "../src/arena/orders-input.ts";
 import { CLASSIC, PUNCHER, QUADRUPED, SCRAPPER } from "../src/core/mind/config.ts";
@@ -63,10 +63,11 @@ test("a_tape_rides_in_a_link's_fragment", () => {
   // A pace is a ceiling, m/s: a number, finite and not below zero, or none.
   assert.deepEqual([0.4, 0, -0.1, Infinity, "slow"].map((pace) => isOrders({ move: { x: 0, z: 1 }, pace, face: null })), [true, true, false, false, false]);
   // The gap and the cap a link asks for, each within its range or not at all.
-  // What each side's right hand holds: left then right, one word for both, or the club.
-  assert.deepEqual(["?held=empty,club", "?play=arena&held=empty", "?held=club", "?held=%20club%20,empty"].map(readHeld),
-    [{ left: "empty", right: "club" }, { left: "empty", right: "empty" }, { left: "club", right: "club" }, { left: "club", right: "empty" }]);
-  assert.deepEqual(["", "?held=", "?held=empty,", "?held=,empty", "?held=sword", "?held=empty,club,club", "?balance=empty"].map(readHeld), Array(7).fill(undefined));
+  assert.deepEqual(readLoadouts("?left.loadout=club,empty&right.loadout=empty,club"),
+    { left: { left: "club", right: "empty" }, right: { left: "empty", right: "club" } });
+  assert.deepEqual(readLoadouts("?left.loadout=club,club"),
+    { left: { left: "club", right: "club" }, right: { left: "empty", right: "empty" } });
+  assert.deepEqual(["", "?held=club", "?left.loadout=", "?left.loadout=empty,", "?left.loadout=,empty", "?left.loadout=unknown-item,club", "?left.loadout=empty,club,club"].map(readLoadouts), Array(7).fill(undefined));
   assert.deepEqual(["?gap=3.5", "?play=arena&gap=1", "?gap=8"].map(readGap), [3.5, 1, 8]);
   assert.deepEqual(["", "?gap=", "?gap=0", "?gap=0.99", "?gap=8.01", "?gap=x", "?gap=Infinity", "?cap=4"].map(readGap), Array(8).fill(undefined));
   assert.deepEqual(["?cap=30", "?cap=1", "?cap=600"].map(readCap), [30, 1, 600]);

@@ -25,7 +25,7 @@ test('a configured Arena turn ceiling forks during an ordinary approach and reta
  // Move's gaits take no tuning: the stance's walk, which Move fights by, is configured on its own.
  const ceiled={...SCRAPPER,locomotion:{kind:'stance-walk',tuning:{turnLimit:1}}};
  const make=async()=>buildBout({left:'workshop-fighter',right:'workshop-fighter',gap:2,capSeconds:20,recoverySeconds:null,
-  balance:{left:0,right:0},held:{left:'empty',right:'empty'},minds:{left:ceiled,right:ceiled}},
+  balance:{left:0,right:0},loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },minds:{left:ceiled,right:ceiled}},
   {physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  const a=await make(),b=await make();
  try{

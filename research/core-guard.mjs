@@ -85,7 +85,7 @@ function jobOf(seed, held, delay, left, right, variant, covers) {
   const mind = (side) => side === covers ? covering(variants[variant]) : RECIPE_FIGHTER;
   return {
     key: { seed, gap: gapOf(seed), held, delay, left, right, variant, covers },
-    recipe: { left, right, gap: gapOf(seed), senseDelay: delay, held: { left: held, right: held }, minds: { left: mind("left"), right: mind("right") } },
+    recipe: { left, right, gap: gapOf(seed), senseDelay: delay, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } }, minds: { left: mind("left"), right: mind("right") } },
     blows: true,
   };
 }

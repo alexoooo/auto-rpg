@@ -36,7 +36,7 @@ const { values } = parseArgs({ options: {
 const gaps = values.gaps.split(",").map(Number), floors = values.floors?.split(",").map(Number) ?? [];
 if (!HELD.includes(values.held)) throw new Error(`--held is one of ${HELD.join(", ")}, not ${values.held}`);
 const experiment = {
-  ...(values.held !== "club" ? { held: { left: values.held, right: values.held } } : {}),
+  ...(values.held !== "club" ? { loadouts: { left: { left: "empty", right: values.held }, right: { left: "empty", right: values.held } } } : {}),
   ...(values["never-off"] || values.unit ? { rules: {
     ...(values["never-off"] ? { severMargin: sourced(1e9, "1", "owner-hp-pool", "an experiment's: no blow goes this far past empty") } : {}),
     ...(values.unit ? { unit: sourced(Number(values.unit), "J/HP", "owner-damage-unit", "an experiment's") } : {}),

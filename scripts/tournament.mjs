@@ -22,7 +22,7 @@ import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { CAP_SECONDS } from "../src/arena/duel.ts";
-import { HELD } from "../src/core/items/held.ts";
+import { LOADOUTS, loadoutKey } from "../src/core/items/held.ts";
 import { MINDS } from "../src/core/mind/controllers.ts";
 import { BODY_MODELS, modelHolds, modelSupportsMind } from "../src/core/models.ts";
 import { BOUT_HARNESS } from "../research/bout.mjs";
@@ -30,7 +30,7 @@ import { defaultLanes, playBouts } from "../research/bout-pool.mjs";
 import { bradleyTerry, ratingIntervals } from "../research/rating.mjs";
 
 /** How a pair meets: once on each side at each gap, m, to the Arena's time limit, with no limit on lying down. */
-export const TOURNAMENT = Object.freeze({ gaps: Object.freeze([4]), capSeconds: CAP_SECONDS, recoverySeconds: null });
+export const TOURNAMENT = Object.freeze({ loadouts: LOADOUTS, gaps: Object.freeze([4]), capSeconds: CAP_SECONDS, recoverySeconds: null });
 
 const NOTES = "assets/minds/notes.json", RATINGS = "assets/minds/ratings.json";
 
@@ -39,11 +39,11 @@ const canonical = (value) => JSON.stringify(value, (_, v) => typeof v === "objec
   ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) : v);
 const digest = (value) => createHash("sha256").update(canonical(value)).digest("hex").slice(0, 16);
 
-/** Every entrant of `minds` (ids of `MINDS`): `{ id, mind, model, held }` for each character and loadout it fits. */
+/** Every entrant of `minds` (ids of `MINDS`): `{ id, mind, model, loadout }` for each character and loadout it fits. */
 export function tournamentEntrants(minds = Object.keys(MINDS)) {
-  return minds.flatMap((mind) => BODY_MODELS.flatMap((model) => HELD
-    .filter((held) => (held === "empty" || modelHolds(model)) && modelSupportsMind(model, MINDS[mind].config, held))
-    .map((held) => ({ id: `${mind}/${model}/${held}`, mind, model, held }))));
+  return minds.flatMap((mind) => BODY_MODELS.flatMap((model) => LOADOUTS
+    .filter((loadout) => (loadout.left === "empty" && loadout.right === "empty" || modelHolds(model)) && modelSupportsMind(model, MINDS[mind].config, loadout))
+    .map((loadout) => ({ id: `${mind}/${model}/${loadoutKey(loadout)}`, mind, model, loadout }))));
 }
 
 /** Every bout of `entrants`: each pair once with each on the left, at each gap, the pair's indices `i` and `j` and the left's `a`. */
@@ -52,7 +52,7 @@ export function tournamentJobs(entrants) {
   for (let i = 0; i < entrants.length; i++) for (let j = i + 1; j < entrants.length; j++) for (const gap of TOURNAMENT.gaps)
     for (const [left, right] of [[i, j], [j, i]]) {
       const l = entrants[left], r = entrants[right];
-      const recipe = { left: l.model, right: r.model, gap, held: { left: l.held, right: r.held }, minds: { left: MINDS[l.mind].config, right: MINDS[r.mind].config },
+      const recipe = { left: l.model, right: r.model, gap, loadouts: { left: l.loadout, right: r.loadout }, minds: { left: MINDS[l.mind].config, right: MINDS[r.mind].config },
         capSeconds: TOURNAMENT.capSeconds, recoverySeconds: TOURNAMENT.recoverySeconds };
       jobs.push({ i: left, j: right, key: `${l.id}|${r.id}|${gap}|${digest(recipe.minds)}`, recipe });
     }
@@ -70,7 +70,7 @@ export function tournamentTable(entrants, rows) {
       const mine = i === k ? score : 1 - score;
       if (mine === 1) wins++; else if (mine === 0) losses++; else draws++;
     }
-    return { mind: entrant.mind, model: entrant.model, held: entrant.held, rating: ratings[k], interval: intervals[k], bouts: wins + draws + losses, wins, draws, losses };
+    return { mind: entrant.mind, model: entrant.model, loadout: entrant.loadout, rating: ratings[k], interval: intervals[k], bouts: wins + draws + losses, wins, draws, losses };
   }).sort((a, b) => b.rating - a.rating);
 }
 
@@ -81,11 +81,11 @@ export function ratedNotes(notes, table, date) {
   for (const mind of [...new Set(table.map((row) => row.mind))]) {
     const rows = table.filter((row) => row.mind === mind), tree = out[mind] ??= {};
     tree.note = text(rows.map((row) => row.rating));
-    for (const held of [...new Set(rows.map((row) => row.held))]) (tree.held ??= {})[held] = text(rows.filter((row) => row.held === held).map((row) => row.rating));
+    for (const held of [...new Set(rows.map((row) => loadoutKey(row.loadout)))]) (tree.loadouts ??= {})[held] = text(rows.filter((row) => loadoutKey(row.loadout) === held).map((row) => row.rating));
     for (const model of [...new Set(rows.map((row) => row.model))]) {
       const body = (tree.bodies ??= {})[model] ??= {}, mine = rows.filter((row) => row.model === model);
       body.note = text(mine.map((row) => row.rating));
-      for (const row of mine) (body.held ??= {})[row.held] = text([row.rating]);
+      for (const row of mine) (body.loadouts ??= {})[loadoutKey(row.loadout)] = text([row.rating]);
     }
   }
   return out;
@@ -112,8 +112,8 @@ async function main() {
   const rows = jobs.map((job) => ({ i: job.i, j: job.j, winner: kept.get(job.key).winner }));
   const table = tournamentTable(entrants, rows), date = new Date().toISOString().slice(0, 10);
   console.log(`\ncommit ${commit}${dirty ? " with changes" : ""}; protocol ${protocol}; ${date}\n`);
-  console.log("| | Mind | Character | Held | Rating | 95 % | Bouts | Won | Drawn | Lost |\n|---|---|---|---|---|---|---|---|---|---|");
-  table.forEach((row, k) => console.log(`| ${k + 1} | ${row.mind} | ${row.model} | ${row.held} | ${row.rating.toFixed(0)} | ${row.interval.map((x) => x.toFixed(0)).join("-")} | ${row.bouts} | ${row.wins} | ${row.draws} | ${row.losses} |`));
+  console.log("| | Mind | Character | Hands (left,right) | Rating | 95 % | Bouts | Won | Drawn | Lost |\n|---|---|---|---|---|---|---|---|---|---|");
+  table.forEach((row, k) => console.log(`| ${k + 1} | ${row.mind} | ${row.model} | ${loadoutKey(row.loadout)} | ${row.rating.toFixed(0)} | ${row.interval.map((x) => x.toFixed(0)).join("-")} | ${row.bouts} | ${row.wins} | ${row.draws} | ${row.losses} |`));
   if (!values.write) return;
   const rounded = table.map((row) => ({ ...row, rating: Math.round(row.rating), interval: row.interval.map(Math.round) }));
   writeFileSync(RATINGS, JSON.stringify({ date, commit, harness: BOUT_HARNESS, protocol: `${protocol} ${canonical(TOURNAMENT)}`, entrants: rounded }, null, 2) + "\n");

@@ -9,7 +9,7 @@ import { traceOf } from './harness/trace.mjs';
 import { poseBlocked } from '../src/core/build/hand-poses.ts';
 
 test('explicit orders suppress pursuit and a fresh-world combat fork preserves the whole strike and return', async () => {
- const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
+ const recipe={left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},
   minds:{left:COMBAT,right:COMBAT},recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  const b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
@@ -36,7 +36,7 @@ test('explicit orders suppress pursuit and a fresh-world combat fork preserves t
 test('every skill set closes a bare hand for its blow and opens it in the guard', async () => {
  for(const mind of [COMBAT,RECIPE_FIGHTER]) {
   const bout=await buildBout({left:'workshop-fighter',right:'workshop-fighter',gap:2,capSeconds:30,recoverySeconds:null,
-   balance:{left:0,right:0},held:{left:'empty',right:'empty'},minds:{left:mind,right:mind}},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
+   balance:{left:0,right:0},loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },minds:{left:mind,right:mind}},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
   const tally={},free={left:0,right:0},blocked={};
   // Blocked as `createHandPoses` blocks a change, read where it reads it: before the step, after it has had its say.
   const hook=bout.world.beforeStep(()=>{for(const side of ['left','right'])for(const hand of ['left','right']){

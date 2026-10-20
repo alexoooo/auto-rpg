@@ -8,7 +8,7 @@ import { controller, NO_POSTURE, type Controller } from "./controller.ts";
 import { DIRECT_MIND } from "../entrants/direct/mind.ts";
 import { TEMPO_MIND } from "../entrants/tempo/mind.ts";
 import { createFighter, fighterFaults, kitFaults } from "./fighter.ts";
-import { actionConfigFaults, strikesWithAll } from "./action-config.ts";
+import { actionConfigFaults, armedActions } from "./action-config.ts";
 import { slotList, slotOne, type Slot } from "./parts.ts";
 import { createOptionsFighter, optionsFit } from "./options/mind.ts";
 import { OBEDIENCE, TERMS, WEIGHTS } from "./options/value.ts";
@@ -55,6 +55,7 @@ const OPTIONS_MIND = controller<OptionsConfig>({
   role: "mind", label: "Options fighter", stage: "game", fields: [OBEDIENCE_FIELD], slots: OPTIONS_SLOTS, defaults: OPTIONS,
   keys: { kind: true, meta: true, weights: true, locomotion: true, guard: true, executors: true, actions: true, support: true, reflexes: true, motor: true },
   fits: optionsFit,
+  supportedEquipment: (spec, config) => armedActions(spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: config => [
     ...[undefined, "valued", "ranked"].includes(config.meta) ? [] : ["meta: valued or ranked"],
     ...Object.entries(config.weights ?? {}).flatMap(([term, weight]) => TERMS.includes(term as typeof TERMS[number]) && Number.isFinite(weight) && weight >= 0 ? [] : [`weights.${term}: a term (${TERMS.join(", ")}) of a finite weight, not negative`]),
@@ -69,8 +70,8 @@ const OPTIONS_MIND = controller<OptionsConfig>({
 const FIGHTER_MIND = controller<FighterConfig>({
   role: "mind", label: "Fighter", stage: "game", fields: [], slots: FIGHTER_SLOTS, defaults: RECIPE_FIGHTER,
   keys: { kind: true, tactics: true, locomotion: true, guard: true, executors: true, actions: true, support: true, subs: true, motor: true },
-  // It fits a body it can strike with as armed: a blow it can throw, and one with whatever it holds.
-  fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0 && strikesWithAll(spec, config.executors, config.actions),
+  fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0,
+  supportedEquipment: (spec, config) => armedActions(spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: fighterFaults,
   presets: deepFreeze({
     classic: { label: "Classic fighter", config: CLASSIC },

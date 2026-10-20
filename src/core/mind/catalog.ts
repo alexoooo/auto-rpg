@@ -95,7 +95,20 @@ function unknownSettings(config: PartConfig): readonly string[] {
 
 /** Whether a body of `spec` can carry out what every part of the tree `config` roots commands. */
 export function treeFits(spec: BodySpec, config: PartConfig): boolean {
-  return partOf(config).fits(spec, config) && held(config).every(({ parts }) => parts.every((child) => treeFits(spec, child as PartConfig)));
+  const part = partOf(config);
+  return part.fits(spec, config) && (part.role !== "mind" || equipmentSupported(spec, config))
+    && held(config).every(({ parts }) => parts.every((child) => treeFits(spec, child as PartConfig)));
+}
+
+/** Every held item has a declared use somewhere in this mind's assembly. */
+export function equipmentSupported(spec: BodySpec, config: PartConfig): boolean {
+  const supported = new Set<string>();
+  const collect = (one: PartConfig): void => {
+    for (const segment of partOf(one).supportedEquipment?.(spec, one) ?? []) supported.add(segment);
+    for (const slot of held(one)) for (const child of slot.parts) collect(child as PartConfig);
+  };
+  collect(config);
+  return (spec.held ?? []).every(({ segment }) => supported.has(segment));
 }
 
 /** The tree `config` roots with every part's `tuning` left out: what a person's settings are, and what a link carries. */

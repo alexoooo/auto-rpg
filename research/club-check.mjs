@@ -32,7 +32,7 @@ const BAR = { pooled: 0.5, pooledLower: 0.45, cellLower: 0.4, sideSplit: 0.1, z:
 function clubJobs() {
   return MODELS.flatMap((model, m) => combatPairs({ candidate: "scrapper", opponent: "classic", count: PAIRS }).map((job) => ({
     ...job, id: `${model}/${job.id}`, pair: m * PAIRS + job.pair,
-    config: { ...job.config, recipe: { ...job.config.recipe, left: model, right: model, held: { left: "club", right: "club" } } },
+    config: { ...job.config, recipe: { ...job.config.recipe, left: model, right: model, loadouts: { left: { left: "empty", right: "club" }, right: { left: "empty", right: "club" } } } },
   })));
 }
 

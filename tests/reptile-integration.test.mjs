@@ -12,7 +12,7 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
 import { Duel } from "../src/arena/duel.ts";
-import { controlsFor, readControls, readHeld, readMinds } from "../src/arena/matchup.ts";
+import { controlsFor, readControls, readLoadouts, readMinds } from "../src/arena/matchup.ts";
 import { MINDS } from "../src/core/mind/controllers.ts";
 import { companionSpawn } from "../src/dungeon/party-placement.ts";
 import { cryptModel } from "../src/dungeon/actors.ts";
@@ -37,18 +37,18 @@ test("registered models declare compatible default minds and equipment", () => {
 });
 
 test("arena links retain compatible choices and reject invalid recipes before building bodies", async () => {
-  const query = "?matchup=reptile,workshop-fighter&control=scrapper&held=club&guard=pose";
+  const query = "?matchup=reptile,workshop-fighter&control=scrapper&left.loadout=empty,club&right.loadout=empty,club&guard=pose";
   const offered = controlsFor("reptile");
   assert.ok(offered.includes("crawl") && !offered.includes("scrapper"), `the reptile is offered its crawl and no humanoid's fighter: ${offered}`);
-  for (const control of offered) assert.equal(modelSupportsMind("reptile", MINDS[control].config, "empty"), true, control);
+  for (const control of offered) assert.equal(modelSupportsMind("reptile", MINDS[control].config, { left: "empty", right: "empty" }), true, control);
   assert.deepEqual(readControls(query), { left: "crawl", right: "scrapper" });
-  assert.deepEqual(readHeld(query), { left: "empty", right: "club" });
+  assert.deepEqual(readLoadouts(query), { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "club" } });
   assert.deepEqual(readMinds(query), { left: QUADRUPED, right: SCRAPPER });
   const scene = new Scene(new NullEngine()), world = createWorld(scene, await freshEngine("rapier-coordinate"));
   try {
     const before = world.physics.save(), nodes = scene.transformNodes.length;
     const recipe = { left: "workshop-fighter", right: "reptile" };
-    assert.throws(() => new Duel(world, { ...recipe, held: { left: "club", right: "club" } }), /cannot hold a club/);
+    assert.throws(() => new Duel(world, { ...recipe, loadouts: { left: { left: "empty", right: "club" }, right: { left: "empty", right: "club" } } }), /cannot hold club/);
     assert.throws(() => new Duel(world, { ...recipe, minds: { left: RECIPE_FIGHTER, right: KICKER } }), /incompatible controller for reptile/);
     assert.deepEqual(world.physics.save(), before);
     assert.equal(scene.transformNodes.length, nodes);

@@ -14,7 +14,7 @@ import {traceOf} from './harness/trace.mjs';
 import {COMBAT} from './fixtures/minds.mjs';
 
 test('lower-surface selection reaches actual Warrior capsule and hull faces and supplies the upward neutral action',async()=>{
- const s=await buildBout({left:'workshop-fighter',right:'workshop-fighter',gap:.8,held:{left:'empty',right:'empty'},balance:{left:0,right:0},
+ const s=await buildBout({left:'workshop-fighter',right:'workshop-fighter',gap:.8,loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},
   minds:{left:SCRAPPER,right:SCRAPPER}},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
   s.duel.order('left',STAND_ORDERS);s.duel.order('right',STAND_ORDERS);s.world.step(240);
@@ -47,7 +47,7 @@ test('lower-surface selection reaches actual Warrior capsule and hull faces and 
 test('an actual Arena uppercut keeps its world direction and full state through a fresh-world fork', async()=>{
  const candidate={...COMBAT,actions:[{...COMBAT.actions[0],name:'uppercut',family:'uppercut',regions:[{kind:'segment',segment:'head'}],
   aim:{kind:'surface',tuning:{head:0,upperTrunk:.2,middleTrunk:.4,uppercut:-.6}}}]};
- const recipe={left:'workshop-fighter',right:'workshop-fighter',gap:2,capSeconds:30,recoverySeconds:null,held:{left:'empty',right:'empty'},balance:{left:0,right:0},
+ const recipe={left:'workshop-fighter',right:'workshop-fighter',gap:2,capSeconds:30,recoverySeconds:null,loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},
   minds:{left:candidate,right:COMBAT}};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{

@@ -27,8 +27,8 @@ test("a tempo config out of its bounds, with no way up or no blow standing, is r
 });
 
 for (const model of HUMANOID_MODELS) for (const held of HELD) test(`${model} holding ${held}: a short bout against the options fighter runs, finite, in a phase of its rhythm`, async (t) => {
-  if (!modelSupportsMind(model, TEMPO, held)) { t.skip(`the tempo fighter does not fit ${model} holding ${held}`); return; }
-  const recipe = { left: model, right: model, gap: 2, held: { left: held, right: held }, minds: { left: TEMPO, right: OPTIONS } };
+  if (!modelSupportsMind(model, TEMPO, { left: "empty", right: held })) { t.skip(`the tempo fighter does not fit ${model} holding ${held}`); return; }
+  const recipe = { left: model, right: model, gap: 2, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } }, minds: { left: TEMPO, right: OPTIONS } };
   const { world, duel, dispose } = await buildBout(recipe);
   try {
     duel.play([]);

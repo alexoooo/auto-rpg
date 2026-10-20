@@ -35,7 +35,7 @@ import { withParts } from "./fixtures/minds.mjs";
 const { threatOf } = threatReader();
 
 // Severing at empty makes the fatal physical blow exercise attachment memory as well as damage.
-const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.25, held: { left: "club", right: "club" }, balance: { left: 25, right: 25 }, senseDelay: 1,
+const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.25, loadouts: { left: { left: "empty", right: "club" }, right: { left: "empty", right: "club" } }, balance: { left: 25, right: 25 }, senseDelay: 1,
   rules: { severMargin: sourced(0, "1", "owner-hp-pool", "fork fixture: a part severs at empty") } });
 /** The same bout with both sides covering what threatens them. */
 const cover = withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover" } : behaviour) } });

@@ -23,7 +23,7 @@ export async function controlArena({ held = "empty", hand = "right", model = "wo
   const rendering = new NullEngine(), scene = new Scene(rendering), engine = await freshEngine(engineName), world = createWorld(scene, engine);
   addArenaSolids(world.physics);
   const duel = new Duel(world, { left: model, right: "workshop-rogue", gap: 8, capSeconds: seconds, recoverySeconds,
-    held: { left: held, right: "empty" }, minds: { left: { ...COMBAT, actions: COMBAT.actions.map(action => ({ ...action, effectors: hand === "alternate" ? action.effectors : ["hand." + hand] })), subs: [{ kind: "support-recovery" }] }, right: RECIPE_FIGHTER } });
+    loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: "empty" } }, minds: { left: { ...COMBAT, actions: COMBAT.actions.map(action => ({ ...action, effectors: hand === "alternate" ? action.effectors : ["hand." + hand] })), subs: [{ kind: "support-recovery" }] }, right: RECIPE_FIGHTER } });
   duel.order("left", STAND_ORDERS); duel.order("right", STAND_ORDERS);
   return { world, duel, fighter: duel.duelists.left,
     harness: { kind: "Node arena Duel", engine: engine.name, revision: engine.revision, hz: world.hz,

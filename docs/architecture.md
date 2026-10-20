@@ -146,7 +146,10 @@ do not.
 `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the model registry,
 construction, and each model's default mind and what its right hand holds. What a hand may hold is
 one list (`HELD`, `src/core/items/held.ts`: nothing, or the wooden club), and `armedWith` puts it
-in a hand, refusing a hand that cannot close on it; the Arena, the Crypt, the Lab and the control
+in a hand, refusing a hand that cannot close on it. `Loadout` names both hands; `withLoadout`
+replaces their assignments, and `modelHolding` reads that equipped spec. The Arena recipe carries
+each fighter's `loadouts`, shared in `left.loadout=leftHand,rightHand` and `right.loadout` link
+parameters. Match and tournament identities and notes name both hands. The Arena, the Crypt, the Lab and the control
 tasks all read it. How the Crypt walks a model (its footprint, how near it fights, how long it
 waits on a stalled route, whether a fall ends its fight) is the Crypt's (`cryptModel`,
 `src/dungeon/actors.ts`). What a body can do is read from its spec: `modelHolds` (a hand a haft lies across, `canHold`) and `modelSupportsMind`, which asks
@@ -155,10 +158,12 @@ a part that cannot use a loadout drops out of the pickers for it (`Controller.fi
 the quadruped, any body for direct control). Each mind makes that call itself. A skill states
 the facts: an executor says which effectors it strikes with on the armed body
 (`ExecutorPart.strikesWith`; a punch only with a hand that holds nothing). The fighter and the
-options fighter use those facts: each fits a body only when it can throw a blow with every item
-the body holds (`strikesWithAll`), and it throws only the blows that body can (`armedActions`).
-So the Puncher is offered only empty-handed, while the options fighter with a club punches
-with its free hand and swings the club. How a model is shown, its label,
+options fighter declare their usable action effectors through `Part.supportedEquipment`. A
+guard declares the held segments it covers with through the same contract. `equipmentSupported`
+unions those declarations across the mind's tree; `treeFits` refuses a mind unless every held
+item has a declared use. This declaration establishes support, while physical tasks establish
+how well the item is used. Every fighter throws only its usable actions (`armedActions`), so the
+Puncher may cover with a club while punching with its free hand. How a model is shown, its label,
 clothing and shape tint, is the screens' (`MODEL_DISPLAY`, `src/render/models.ts`).
 Humanoid-only tasks use `HUMANOID_MODELS`; they do not fabricate hands on a different body.
 The reptile has 17 segments, 16 joints and 31 muscle freedoms: a trunk, four three-segment legs,

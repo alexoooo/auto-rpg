@@ -12,7 +12,7 @@ import { traceOf } from './harness/trace.mjs';
 test('selectable grounded combat forks its approach and obeys an ordinary stand order', async()=>{
  const preset=readMinds('?control=scrapper').left,candidate={...preset,actions:preset.actions.map(action=>({...action,effectors:['hand.right']}))};
  assert.deepEqual(readMinds('?control=scrapper').left,SCRAPPER);
- const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
+ const recipe={left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},
   minds:{left:candidate,right:RECIPE_FIGHTER},gap:.8,capSeconds:60,recoverySeconds:null};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  const trace=s=>traceOf(Object.values(s.duel.duelists).map(d=>d.built));

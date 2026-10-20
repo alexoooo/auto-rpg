@@ -119,7 +119,7 @@ test("a_fighters_aim_rides_in_its_named_actions", async () => {
     const { world, dispose } = await arena();
     const config = { ...RECIPE_FIGHTER, actions: RECIPE_FIGHTER.actions.map(action => ({ ...action, regions: [{ kind: "mark", mark }] })) };
     // Armed: the recipe's bare hand commits too seldom for this fixture.
-    const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-fighter", gap: 3, held: { left: "club", right: "club" }, minds: { left: config, right: RECIPE_FIGHTER } });
+    const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-fighter", gap: 3, loadouts: { left: { left: "empty", right: "club" }, right: { left: "empty", right: "club" } }, minds: { left: config, right: RECIPE_FIGHTER } });
     try {
       duel.play([{ step: 0, side: "right", orders: STAND_ORDERS }]);
       const report = () => duel.duelists.left.minded.skills.report;
@@ -160,7 +160,7 @@ test("a_bout's_recipe_is_plain_data_that_builds_the_same_bout", async () => {
   } finally { duel?.dispose(); dispose(); }
 });
 
-test("a_side's_right_hand_is_empty_unless_its_recipe_arms_it", async () => {
+test("each_hand_is_empty_unless_its_recipe_arms_it", async () => {
   const names = (duelist) => (duelist.built.spec.held ?? []).map((held) => [held.segment, held.item.name]);
   const built = async (held) => {
     const { world, dispose } = await arena();
@@ -168,11 +168,14 @@ test("a_side's_right_hand_is_empty_unless_its_recipe_arms_it", async () => {
     try { return [names(duel.duelists.left), names(duel.duelists.right)]; } finally { duel.dispose(); dispose(); }
   };
   assert.deepEqual(await built({}), [[], []]);
-  assert.deepEqual(await built({ held: { left: "empty", right: "club" } }), [[], [["hand.right", "wooden club"]]]);
-  assert.deepEqual(await built({ held: { left: "club", right: "empty" } }), [[["hand.right", "wooden club"]], []]);
-  await assert.rejects(built({ held: { left: "sword", right: "club" } }), /a hand holds nothing called sword/);
+  assert.deepEqual(await built({ loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "club" } } }), [[], [["hand.right", "wooden club"]]]);
+  assert.deepEqual(await built({ loadouts: { left: { left: "empty", right: "club" }, right: { left: "empty", right: "empty" } } }), [[["hand.right", "wooden club"]], []]);
+  assert.deepEqual(await built({ loadouts: { left: { left: "club", right: "club" }, right: { left: "club", right: "empty" } } }),
+    [[["hand.left", "wooden club"], ["hand.right", "wooden club"]], [["hand.left", "wooden club"]]]);
+  await assert.rejects(built({ held: { left: "club", right: "club" } }), /obsolete single-held recipe/);
+  await assert.rejects(built({ loadouts: { left: { left: "empty", right: "unknown-item" }, right: { left: "empty", right: "club" } } }), /right hand holds no item called unknown-item/);
   // Two with nothing in their hands fight with them: a blow between them has no item in it, and each side of it is wounded.
-  const row = await playBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 3, held: { left: "empty", right: "empty" } }, 30, [], { blows: true });
+  const row = await playBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 3, loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } } }, 30, [], { blows: true });
   assert.ok(row.landed.length > 0, "the fixture did not reach its case: the two never meet");
   assert.ok(row.landed.every((blow) => blow.sides.every((side) => side.item === null)), "no blow of theirs names an item");
   assert.ok(row.landed.some((blow) => blow.sides.every((side) => side.wound !== null)), "and one wounds both its sides");
@@ -181,7 +184,7 @@ test("a_side's_right_hand_is_empty_unless_its_recipe_arms_it", async () => {
 test("a_warrior_that_turns_to_its_foe_from_standing_keeps_its_feet", async () => {
   // The duel's right side turns to its foe as it sets off; a Warrior turned faster than its walk
   // follows runs away sideways and falls within 3 s (`stanceEnvelope`'s turns, measured from setting off).
-  const row = await playBout({ left: "workshop-rogue", right: "workshop-fighter", gap: 4, held: { left: "empty", right: "empty" } }, 4);
+  const row = await playBout({ left: "workshop-rogue", right: "workshop-fighter", gap: 4, loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } } }, 4);
   assert.deepEqual([row.ending, row.fallen], ["none", []]);
 });
 

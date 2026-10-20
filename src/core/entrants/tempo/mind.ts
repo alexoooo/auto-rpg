@@ -1,5 +1,5 @@
 import { commandable } from "../../body.ts";
-import { actionConfigFaults, armedActions, strikesWithAll } from "../../mind/action-config.ts";
+import { actionConfigFaults, armedActions } from "../../mind/action-config.ts";
 import { OPTIONS, SCRAPPER, STAND_UP, type ActionConfig, type ExecutorConfig, type ReflexConfig, type SkillKit, type SubMindConfig } from "../../mind/config.ts";
 import { controller } from "../../mind/controller.ts";
 import { fighterBody, fighterSkills, kitFaults } from "../../mind/fighter.ts";
@@ -97,9 +97,10 @@ export const TEMPO_MIND = controller<TempoConfig>({
     number("margin", "Beyond reach", ...BOUNDS.margin, .05, "m"), number("commit", "Longest in reach", ...BOUNDS.commit, .1, "s")],
   keys: { kind: true, locomotion: true, guard: true, executors: true, actions: true, support: true, reflexes: true, subs: true, motor: true,
     burst: true, rest: true, margin: true, commit: true },
-  // It fits a body it can strike with as armed, with whatever it holds and with a blow thrown standing.
-  fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0 && strikesWithAll(spec, config.executors, config.actions)
+  // It fits a body with a blow thrown standing among its usable actions.
+  fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0
     && armedActions(spec, config.executors, config.actions).some((action) => action.lower === undefined),
+  supportedEquipment: (spec, config) => armedActions(spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: tempoFaults,
   presets: deepFreeze({ tempo: { label: "Tempo fighter", config: TEMPO } }),
   builtIn: guardPosture,

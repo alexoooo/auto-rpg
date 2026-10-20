@@ -5,7 +5,7 @@ import { labAddress, labHref } from "../src/lab/scenarios.ts";
 import { loadoutSpec } from "../src/lab/loadout.ts";
 
 test("arena appearances round trip per side without changing the recipe parameters", () => {
-  const search = "?play=arena&matchup=workshop-fighter,workshop-fighter&you=left&balance=5,2&held=empty,club";
+  const search = "?play=arena&matchup=workshop-fighter,workshop-fighter&you=left&balance=5,2&left.loadout=empty,empty&right.loadout=empty,club";
   const matchup = readMatchup(search);
   for (const left of ["default", "industrial", "relic", "duelist"]) for (const right of ["default", "industrial", "relic", "duelist"]) {
     const changed = appearanceSearch(search, matchup, { left, right });

@@ -6,7 +6,7 @@ import { HUMANOID_MODELS, type HumanoidModel } from "../core/models.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { hasteFrom } from "../core/human/attributes.ts";
-import { HELD, type Held } from "../core/items/held.ts";
+import { HELD, type Held, type Loadout } from "../core/items/held.ts";
 import { CLASSIC, isFighter, PUNCHER, RECIPE_FIGHTER, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
 import type { Provision } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -68,7 +68,7 @@ export type LabLoadout = {
   /** The body's haste, per cent over a person's speed in its legs, in place of its character's (`AttributeSpec.haste`); null is the character's. */
   readonly haste: number | null;
 }
-  & Readonly<Record<(typeof LAB_HANDS)[number], Held>> & Readonly<Record<(typeof LAB_WORN)[number], boolean>>;
+  & Loadout & Readonly<Record<(typeof LAB_WORN)[number], boolean>>;
 
 /**
  * The physics and control rates on offer, Hz: the game's (`PHYSICS_HZ`, which the test pins

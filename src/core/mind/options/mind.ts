@@ -3,7 +3,7 @@ import type { BodySpec } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { BodyHost } from "../host.ts";
 import { COUNTER_PUNCHER, STAND_UP, type ActionConfig, type OptionsConfig, type SubMindConfig } from "../config.ts";
-import { actionConfigFaults, armedActions, strikesWithAll } from "../action-config.ts";
+import { actionConfigFaults, armedActions } from "../action-config.ts";
 import { fighterBody, fighterSkills } from "../fighter.ts";
 import { NO_COVER } from "../intent.ts";
 import type { MindWiring } from "../minds.ts";
@@ -49,8 +49,7 @@ const DOWN: readonly (readonly [string, SubMindConfig, DownModel])[] = deepFreez
 ]);
 
 /** Whether a body of `spec` takes the options fighter's commands and carries out the actions of `config`'s skills. */
-export const optionsFit = (spec: BodySpec, config: OptionsConfig): boolean => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0
-  && strikesWithAll(spec, config.executors, config.actions);
+export const optionsFit = (spec: BodySpec, config: OptionsConfig): boolean => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0;
 
 /**
  * **The options fighter**: a meta-controller (`metaController`) over options, which takes the one

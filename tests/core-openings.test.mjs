@@ -37,7 +37,7 @@ test('lateral surface settings reject fractions outside the physical circle',()=
 });
 
 test('contact labels select the strongest permitted contact independently of stronger unknown surfaces',async()=>{
- const s=await buildBout({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'}});
+ const s=await buildBout({left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } }});
  try{
   const built=s.duel.duelists.left.built,other=s.duel.duelists.right.built.segments.get('forearm.right').body;
   const contacts=[{other:built.segments.get('middleTrunk').body,impulse:100,point:[0,0,0],normal:[1,0,0]},

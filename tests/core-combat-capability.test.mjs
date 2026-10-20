@@ -38,7 +38,7 @@ test('hull-aware body selection lands driven torso blows against an active Comba
 });
 
 test('a Combat bout labels many guard contacts, meets blocks and has openings its selector passes over',async()=>{
- const a=await make({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},minds:{left:COMBAT,right:COMBAT},recoverySeconds:null,capSeconds:30});
+ const a=await make({left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},minds:{left:COMBAT,right:COMBAT},recoverySeconds:null,capSeconds:30});
  try{
   const select=openingSelector(modelSpec('workshop-fighter'));
   let labeled=0,penalized=0,escaped=0;
@@ -55,7 +55,7 @@ test('a Combat bout labels many guard contacts, meets blocks and has openings it
 });
 
 test('predictive defense covers and evades often in a Combat bout',async()=>{
- const a=await make({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
+ const a=await make({left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},
   minds:{left:{...COMBAT,tactics:{...COMBAT.tactics,list:[{kind:'follow-orders'},{kind:'evade'},{kind:'attack'},{kind:'approach'},{kind:'cover',guard:'predictive'}]}},right:COMBAT},senseDelay:6,recoverySeconds:null,capSeconds:30});
  try{
   const d=a.duel.duelists.left;let defended=0,evaded=0,covered=0;
@@ -69,7 +69,7 @@ test('predictive defense covers and evades often in a Combat bout',async()=>{
 });
 
 test('autonomous combat clears the parapet it was ordered against and commits a blow',async()=>{
- const a=await make({left:'workshop-fighter',right:'workshop-fighter',gap:1.2,held:{left:'empty',right:'empty'},balance:{left:0,right:0},minds:{left:COMBAT,right:COMBAT},recoverySeconds:null,capSeconds:160});
+ const a=await make({left:'workshop-fighter',right:'workshop-fighter',gap:1.2,loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},minds:{left:COMBAT,right:COMBAT},recoverySeconds:null,capSeconds:160});
  try{
   const left=a.duel.duelists.left,moving={move:{x:-1,z:0},face:{x:-1,z:0}};
   a.duel.order('left',moving);a.duel.order('right',moving);
@@ -89,7 +89,7 @@ test('both Arena assignments reach a physical follow-up in a free bout',async()=
   {...COMBAT.actions[0],name:'follow',effectors:['hand.left']}],tactics:{...COMBAT.tactics,
   choose:{kind:'rules',rethink:.1,patience:.5,rules:[{when:{kind:'follow-up',seconds:2},actions:['follow']}],otherwise:['lead']}}};
  for(const side of ['left','right']){
-  const s=await make({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
+  const s=await make({left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},
    minds:{left:side==='left'?candidate:COMBAT,right:side==='right'?candidate:COMBAT},gap:1.4,recoverySeconds:null,capSeconds:30});
   try{
    const skills=s.duel.duelists[side].minded.skills;let followed=false;

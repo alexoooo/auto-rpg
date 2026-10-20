@@ -35,7 +35,7 @@ const SETTLE = 1, WAIT = 20, AFTER = 1;
 
 /** One bout: `model` with `held` ordered to attack the `band` part of `foe`, who stands `gap` m off. */
 async function thrownAt(model, held, band, foe, gap) {
-  const { world, duel, dispose } = await buildBout({ left: model, right: foe, gap, held: { left: held, right: "empty" } });
+  const { world, duel, dispose } = await buildBout({ left: model, right: foe, gap, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: "empty" } } });
   try {
     const { left, right } = duel.duelists, at = new Vector3();
     duel.order("left", STAND_ORDERS);

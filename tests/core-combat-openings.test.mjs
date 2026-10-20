@@ -12,7 +12,7 @@ import { STAND_ORDERS } from '../src/core/mind/orders.ts';
 import {COMBAT} from './fixtures/minds.mjs';
 
 test('physical guard contacts retain anatomical labels and replay preserves the action ledger',async()=>{
- const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},minds:{left:COMBAT,right:COMBAT},recoverySeconds:null,capSeconds:30};
+ const recipe={left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},minds:{left:COMBAT,right:COMBAT},recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
   let labeled=0,snapshot=false;
@@ -36,7 +36,7 @@ test('physical guard contacts retain anatomical labels and replay preserves the 
 
 test('the real Warrior trunk hull supplies a surface opening and a fresh-world selection fork',async()=>{
  const config={...COMBAT,actions:COMBAT.actions.map(action=>({...action,regions:[{kind:'segment',segment:'middleTrunk'}],aim:{kind:'surface',tuning:{head:1,upperTrunk:.2,middleTrunk:0}}}))};
- const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
+ const recipe={left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},
   minds:{left:config,right:COMBAT},recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try {
@@ -65,7 +65,7 @@ test('the real Warrior trunk hull supplies a surface opening and a fresh-world s
 // Whether the overhand lands is `combat-strike-capability`'s: this case forks the one thrown, whatever it meets.
 test('a selected overhand keeps its world contact direction through execution and fresh-world replay', async()=>{
  const candidate={...COMBAT,actions:[{...COMBAT.actions[0],name:'overhand',family:'overhand',regions:[{kind:'segment',segment:'head'}],aim:{kind:'surface',tuning:{overhand:-.6}}}]};
- const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
+ const recipe={left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},
   minds:{left:candidate,right:COMBAT},recoverySeconds:null,capSeconds:30};
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try {
