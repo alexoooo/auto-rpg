@@ -15,8 +15,8 @@ the open component, task, equipment and evaluation work. Within it,
 [whole-body control](plans/2026-10-17-general-controller.md) develops running, recovery and combat
 on one stack, and the [options fighter](plans/2026-10-14-options-fighter.md) develops one Mind's
 tactics and player choices. Their implemented contracts are in the architecture.
-The next implementation milestone is the [Arena testbed](plans/2026-10-20-arena-testbed.md):
-selectable levels, obstacle navigation, explicit loadouts, a buckler and a cutting short sword.
+The Arena supplies selectable levels, shared navigation, explicit per-hand loadouts, a buckler
+and a cutting short sword as a testbed for that work.
 
 - **Skills and tactics.** A body has an array of skills; tactics, a meta-controller over them,
   choose among the skills it has as the fight goes. Both come in many flavours. A skill may be
@@ -83,7 +83,7 @@ player sees and changes in the Arena, the Lab and the Crypt; a mind can hold sev
 choose among them, and the punch's research blows that run in real time are experimental parts
 ([Minds](architecture.md#minds)).
 
-Capability work proceeds alongside the Arena testbed, with dependencies owned by the plans:
+Capability work uses the Arena testbed, with dependencies owned by the plans:
 
 - **Competencies:**
   - guard, on the shared layer;
@@ -100,9 +100,9 @@ Capability work proceeds alongside the Arena testbed, with dependencies owned by
   - the staged rise;
   - the opening preset (Scrapper).
 - **Items**, as columns of the grid, each a new skill where its physical use needs one. The
-  club and centre-grip buckler are available per hand. The shield guard has a physical
-  interception and action-composition fixture; equipped recovery and competitive strength remain
-  open. The next addition is a short sword with cutting and thrusting under the Arena testbed plan. Armor, two-handed items and ranged weapons follow with their own mechanics
+  club, centre-grip buckler and short sword are available per hand. Shield interception,
+  simultaneous guard and attack, and sword cut/thrust/return have physical fixtures; equipped
+  recovery and competitive strength remain open. Armor, two-handed items and ranged weapons follow with their own mechanics
   and tasks; projectiles belong to the core.
 - **Assist kinds** beside stability, each read as a skill's performance against its level.
 
@@ -572,9 +572,10 @@ Capability work proceeds alongside the Arena testbed, with dependencies owned by
 
 ### The Arena
 
-- [The next testbed milestone](plans/2026-10-20-arena-testbed.md): level selection, an obstacle
-  court, reference navigation and short-sword loadouts. Per-hand club/buckler loadouts and a
-  shield guard are available; their fighting strength and equipped recovery remain open.
+- The testbed has open and obstacle levels, reference navigation and per-hand club, buckler and
+  sword loadouts. Wider walking courses, fighting strength and equipped recovery remain open.
+  The shared navigation task scores arrival, contacts, falls and moving-target range independently
+  of geometric route existence; its broader capability cases remain experimental.
 - The Ladder.
 
 ### The Crypt

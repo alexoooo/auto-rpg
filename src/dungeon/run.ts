@@ -24,6 +24,7 @@ import { generateEncounterLevel } from "./encounters.ts";
 import { directMovement, placeMovement, type MovementRequest } from "../core/mind/movement.ts";
 import type { NavigationReport } from "../core/mind/navigation.ts";
 import type { Skills } from "../core/skills/skills.ts";
+import type { Orders } from "../core/mind/orders.ts";
 import { cos, sin } from "../core/math/real.ts";
 import { doorApproach } from "./door-approach.ts";
 
@@ -116,6 +117,14 @@ export interface DungeonActor {
   replan: boolean;
   /** Objectives carried out through the Mind: movement, an independent facing and a sensed foe. */
   plan: { move: MovementRequest | null; face: Point | null; attack: DungeonActor | null };
+}
+
+/** Travel brings a target into engagement range; its Mind chooses the combat footwork within it. */
+export function ordersForActor(actor: DungeonActor): Orders {
+  const { move, face, attack } = actor.plan;
+  const engaged = attack !== null && move?.kind === "range" && move.focus === attack.id
+    && distance(actor.feet(), attack.feet()) <= move.far;
+  return { ...(engaged ? {} : { move }), face, ...(attack ? { foe: attack.id } : {}) };
 }
 
 /** How far behind the hero an unposted companion trails before it walks after it, metres: clear of the hero's reach
@@ -299,11 +308,7 @@ export class DungeonRun {
         }
         return null;
       },
-      orders: () => {
-        const { move, face, attack } = actor.plan;
-        return { move, face,
-          ...(attack ? { foe: attack.id } : {}) };
-      },
+      orders: () => ordersForActor(actor),
     });
     this.watch?.dispose();
     // The party first: a touch is read from the fighter given first (`watchBlows`), and the party's bodies are the fewer.

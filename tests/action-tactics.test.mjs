@@ -114,6 +114,17 @@ test("a movement order and selected opponent keep both travel and ready attacks"
   assert.equal(stopped.actions[0].target.body, "far");
 });
 
+test("target-only orders leave approach free and retain an independent facing", () => {
+  const body = sight(); body.readiness = position;
+  const orders = { face: { x: 1, z: 0 }, foe: "far" };
+  const tactics = actionTactics(spec, [action()], config(), () => orders);
+  const intent = tactics.decide(body, 1 / 120);
+  assert.equal(intent.movement.kind, "place");
+  assert.ok(intent.move[0] > 0);
+  assert.equal(intent.face, Math.PI / 2);
+  assert.deepEqual(intent.actions, []);
+});
+
 test("estimate selection uses declared units and recipe net providers without executor inspection", () => {
   const body = sight(), actions = [action("weak"), action("strong")];
   const estimates = { weak: { unit: "net", read: () => 1 }, strong: { unit: "net", read: () => 3 } };

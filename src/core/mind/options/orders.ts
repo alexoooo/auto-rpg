@@ -14,7 +14,7 @@ const AHEAD = 1;
 /**
  * **Follow orders**: walk or stop and face as ordered (`orderedIntent`), continuing admitted blows
  * and asking for a ready standing action against the explicitly selected foe. On offer while
- * the body stands and has orders. It always yields. Its model: a walk ordered
+ * the body stands and has an explicit movement or stop order. It always yields. Its model: a walk ordered
  * goes on at its pace (`Walker.pace`) for `AHEAD` s, short of where it is told to go, and a stand
  * ordered is kept for as long, worth as much; through the blow coming and the focus's reach where
  * it stands in it.
@@ -22,7 +22,7 @@ const AHEAD = 1;
 export function followOrders(walk: Pick<Walker, "pace">, actions: readonly ActionConfig[] = []): StandingOption {
   return {
     name: "follow orders", posture: "standing", state: {},
-    available: (now) => !now.down && now.orders !== null,
+    available: (now) => !now.down && now.orders?.move !== undefined,
     yields: () => true,
     ended: () => false,
     begin() {},

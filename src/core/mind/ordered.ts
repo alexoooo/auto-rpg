@@ -19,6 +19,9 @@ export const STRAFE = { share: 0.5, turned: 0.3 } as const;
  */
 export const RUN = { share: 0.6 } as const;
 
+/** A facing under 8 cm names no direction: its aim point is over the body itself. */
+export const orderedFacing = (face: Orders["face"]): number | null => face && hypot(face.x, face.z) > .08 ? atan2(face.x, face.z) : null;
+
 /**
  * Orders supply a direct walk or a navigation objective while the hands retain their guard.
  * Facing remains independent of travel; an explicit running preference selects the available
@@ -27,8 +30,7 @@ export const RUN = { share: 0.6 } as const;
  */
 export function orderedIntent({ report, envelope }: { readonly report: Pick<Sight["report"], "heading">; readonly envelope: Sight["envelope"] }, { move: request, face, pace = Infinity, run }: Pick<Orders, "move" | "face" | "pace" | "run">,
   guard: Intent["guard"], strafe: typeof STRAFE = STRAFE): Intent {
-  // A facing under 8 cm long names no direction: the point to face is over the body itself.
-  const facing = face && hypot(face.x, face.z) > 0.08 ? atan2(face.x, face.z) : null;
+  const facing = orderedFacing(face);
   if (!request || !envelope) return { move: null, face: facing ?? report.heading, guard, actions: [] };
   if (request.kind !== "direct") return { move: null, face: facing ?? report.heading, guard, actions: [], movement: request,
     pace: Math.min(run ? paceToward(envelope, 1, 0, RUN.share) : envelope.walk.value, pace), ...(facing === null ? { travelFacing: true as const } : {}) };

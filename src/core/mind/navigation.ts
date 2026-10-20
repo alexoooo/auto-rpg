@@ -3,6 +3,7 @@ import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
+import { heldClearance } from "./held-clearance.ts";
 import { clearanceExit, clearMove, clearStep } from "./clear-step.ts";
 import type { MovementRequest, GroundPoint } from "./movement.ts";
 import type { SolidSense } from "./object-senses.ts";
@@ -27,9 +28,9 @@ const apart = (a: GroundPoint, b: GroundPoint): number => hypot(a.x - b.x, a.z -
 const atHeight = (at: GroundPoint, height: number): Vec3 => [at.x, height, at.z];
 
 interface NavigationSight {
-  readonly view: { readonly time: number; readonly stance: { readonly centre: { readonly x: number; readonly y: number; readonly z: number }; readonly velocity: { readonly x: number; readonly z: number }; readonly support?: { readonly y: number } };
-    readonly senses: Pick<Senses, "solids" | "others">;
-    readonly effectors?: Readonly<Record<string, { readonly points: Readonly<Record<string, { readonly x: number; readonly z: number }>> }>> };
+  readonly view: Parameters<ReturnType<typeof heldClearance>>[0] & {
+    readonly time: number; readonly stance: { readonly centre: { readonly x: number; readonly y: number; readonly z: number }; readonly velocity: { readonly x: number; readonly z: number }; readonly support?: { readonly y: number } };
+    readonly senses: Pick<Senses, "solids" | "others"> };
   readonly report: { readonly heading: number };
 }
 
@@ -112,7 +113,8 @@ export function navigationPath(from: GroundPoint, goal: GroundPoint, solids: rea
 
 /** The navigator owns geometry and progress memory; requesters retain facing and tactical priorities. */
 export function createNavigator(spec: BodySpec, config: NavigationConfig = { kind: "visibility-navigation" }) {
-  const baseRadius = bodyClearance(spec) + NAV.margin;
+  const baseRadius = bodyClearance(spec) + NAV.margin, carriedRadius = heldClearance(spec);
+  const radiusOf = (view: NavigationSight["view"]) => Math.max(baseRadius, carriedRadius(view) + NAV.margin);
   const state = { request: "", solids: "", route: [] as GroundPoint[], waypoint: 0, goal: null as GroundPoint | null,
     focus: null as GroundPoint | null,
     failure: null as { from: GroundPoint; geometry: string; radius: number; focus: GroundPoint | null } | null,
@@ -125,16 +127,13 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
     get goal() { return state.report.goal; }, get route() { return state.route; } };
   return { state, report,
     steer(view: NavigationSight["view"], heading: number, move: readonly [number, number] | null) {
-      return clearMove(view.stance.centre, footprints(view.senses.solids ?? [], view.stance.centre.y, view.stance.support?.y), heading, move, baseRadius, .5);
+      return clearMove(view.stance.centre, footprints(view.senses.solids ?? [], view.stance.centre.y, view.stance.support?.y), heading, move, radiusOf(view), .5);
     },
     resume() { state.route = []; state.failure = null; state.progress = null; state.bestRemaining = null; state.lastTime = null; update("unavailable", null, null); },
     step(sight: NavigationSight, request: MovementRequest | null, pace: number, dt: number, available = true): { readonly move: readonly [number, number] | null; readonly face: number | null; readonly destination?: number } {
       const { view, report } = sight, centre = view.stance.centre, here = { x: centre.x, z: centre.z };
-      let solids = footprints(view.senses.solids ?? [], centre.y, view.stance.support?.y), radius = baseRadius;
-      for (const held of spec.held ?? []) for (const name of Object.keys(held.item.points)) {
-        const point = view.effectors?.[held.segment]?.points[name];
-        if (point) radius = Math.max(radius, hypot(point.x, point.z) + NAV.margin);
-      }
+      let solids = footprints(view.senses.solids ?? [], centre.y, view.stance.support?.y);
+      const radius = radiusOf(view);
       const key = JSON.stringify(request);
       const previous: MovementRequest | null = state.request ? JSON.parse(state.request) as MovementRequest | null : null;
       const following = request?.kind === "place" && previous?.kind === "place" && request.near === previous.near

@@ -25,7 +25,6 @@ LLM during a bout is a separate experiment when there is a concrete need for it.
 | Plan | Open work it owns |
 |---|---|
 | This workshop plan | Shared component contracts, broader task/body/equipment coverage, collaboration and evaluation infrastructure |
-| [Arena testbed](2026-10-20-arena-testbed.md) | The next milestone: level selection, obstacle navigation, explicit loadouts, buckler, cutting short sword and integrated bouts |
 | [Whole-body control](2026-10-17-general-controller.md) | Running/Haste, unassisted recovery, separate assistance experiments, strikes and holds on one execution stack |
 | [Options fighter](2026-10-14-options-fighter.md) | Tactical decisions, option models and player configuration for one Mind |
 
@@ -152,9 +151,9 @@ establish that an algorithm works on it.
 
 ## Equipment and environments
 
-The [Arena testbed plan](2026-10-20-arena-testbed.md) owns the immediate level, navigation,
-loadout, buckler and cutting-sword implementation. Its physical descriptions, shared tasks and
-participant contracts supply reusable inputs to later experiments. Equipment mechanics belong
+The Arena testbed supplies open and obstacle levels, shared navigation, per-hand loadouts, a
+buckler and a cutting short sword ([architecture](../architecture.md#the-screens)). Its physical
+descriptions, shared tasks and participant contracts supply reusable inputs to later experiments. Equipment mechanics belong
 to the shared platform; components choose and execute their use. Anatomy, items and cosmetics
 retain distinct authority.
 
@@ -263,12 +262,12 @@ can begin before formal model comparisons are useful.
 
 ## Next milestone and parallel work
 
-Start with the [Arena testbed](2026-10-20-arena-testbed.md): environment selection/navigation and
-loadouts/buckler/sword work converge on equipped bouts on both levels. Its detailed sequence
-and acceptance criteria live in that plan. Extend component registration as those working
-implementations need it, with authoring examples and contribution checks alongside the change.
+Build on the Arena's equipped bouts and shared navigation task. Improve physical route execution,
+equipped recovery and action composition through their independent tasks. Extend component
+registration as working implementations need it, with authoring examples and contribution
+checks alongside each change.
 
-Alongside that milestone, expose existing recovery and locomotion protocols through shared
+Expose existing recovery and locomotion protocols through shared
 task entry points, preserving the owner's stand-up target and physical hand-back. The
 whole-body and options-fighter plans own their capability and tactical experiments.
 

@@ -12,6 +12,7 @@ import { readTape, tapeHash } from "../src/arena/matchup.ts";
 import { buildBout, BOUT_HARNESS } from "../research/bout.mjs";
 import { MATCH, readMatchMind, readMatchResult } from "../scripts/match.mjs";
 import { TOURNAMENT, readTournamentRows } from "../scripts/tournament.mjs";
+import { Duel } from "../src/arena/duel.ts";
 
 test("build content includes changed source, assets and solver bytes with checkout-independent text", () => {
   const root = mkdtempSync(join(tmpdir(), "auto-rpg-identity-"));
@@ -96,6 +97,33 @@ test("Arena recording identity resolves omitted and explicit stage defaults alik
   }
 });
 
+test("a bad right-side sheet recording is refused before a direct Duel changes an existing world", async () => {
+  const recipe = { left: "workshop-fighter", right: "workshop-rogue", balance: { left: 5, right: 8 },
+    loadouts: { left: { left: "buckler", right: "sword" }, right: { left: "club", right: "empty" } } };
+  const current = await buildBout(recipe, { hooks: { record: true } }), { world, duel } = current;
+  const counts = { bodies: 0, joints: 0, senses: 0, before: 0, observed: 0, after: 0 }, originals = [];
+  try {
+    const replay = Object.fromEntries(["left", "right"].map(side => [side, duel.duelists[side].sheets]));
+    replay.right = { ...replay.right, identity: { ...replay.right.identity, build: `sha256:${"0".repeat(64)}` } };
+    const before = { physics: world.physics.save(), clock: world.steps, nodes: world.scene.transformNodes.length };
+    for (const [object, key, counter] of [[world.physics, "addBody", "bodies"], [world.physics, "addJoint", "joints"],
+      [world, "sense", "senses"], [world, "beforeStep", "before"], [world, "afterPhysics", "observed"], [world, "afterStep", "after"]]) {
+      const original = object[key]; originals.push([object, key, original]);
+      object[key] = (...args) => { counts[counter]++; return original.apply(object, args); };
+    }
+    assert.throws(() => new Duel(world, recipe, { replay }), /different source, assets or solver/);
+    assert.deepEqual(counts, { bodies: 0, joints: 0, senses: 0, before: 0, observed: 0, after: 0 });
+    assert.deepEqual(world.physics.save(), before.physics);
+    assert.equal(world.steps, before.clock);
+    assert.equal(world.scene.transformNodes.length, before.nodes);
+    assert.doesNotThrow(() => world.step());
+    assert.equal(world.steps, before.clock + 1);
+  } finally {
+    for (const [object, key, original] of originals) object[key] = original;
+    current.dispose();
+  }
+});
+
 test("match results and tournament rows reject incompatible builds and protocols before reuse", () => {
   const digest = value => createHash("sha256").update(recordingKey(value)).digest("hex").slice(0, 16);
   const mind = readMatchMind("options"), minds = { a: mind, b: mind };
@@ -107,7 +135,8 @@ test("match results and tournament rows reject incompatible builds and protocols
   assert.throws(() => readMatchResult({ ...result, protocol: { ...MATCH, gaps: [9] } }), /another match protocol/);
   assert.throws(() => readMatchResult({ ...result, identity: { ...identity, protocol: "arena-match/0" } }), /another protocol/);
   const tournament = recordingIdentity(BUILD_IDENTITY, "arena-tournament/1", { harness: BOUT_HARNESS, protocol: TOURNAMENT });
-  const row = { identity: tournament, key: "a|b|4", winner: "left" };
+  const row = { identity: tournament, level: TOURNAMENT.level, key: "a|b|4", winner: "left" };
   assert.deepEqual([...readTournamentRows(JSON.stringify(row), tournament)], [[row.key, row]]);
+  assert.throws(() => readTournamentRows(JSON.stringify({ ...row, level: "obstacle-court" }), tournament), /level/);
   for (const incompatible of [undefined, identity, { ...tournament, build: `sha256:${"0".repeat(64)}` }]) assert.throws(() => readTournamentRows(JSON.stringify({ ...row, identity: incompatible }), tournament), /identity|protocol|different source/);
 });

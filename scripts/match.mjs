@@ -33,6 +33,7 @@ import { recordingIdentity, requireRecordingIdentity } from "../src/core/recordi
  * A change here is a new protocol: its digest changes, and no result read under the old is compared.
  */
 export const MATCH = Object.freeze({
+  level: "open",
   bodies: Object.freeze(["workshop-fighter", "workshop-rogue"]),
   loadouts: Object.freeze([EMPTY_LOADOUT, Object.freeze({ left: "empty", right: "club" })]),
   gaps: Object.freeze([3, 4, 5]),
@@ -50,7 +51,7 @@ const identity = () => recordingIdentity(BUILD_IDENTITY, "arena-match/1", { harn
 export function readMatchResult(record) {
   requireRecordingIdentity(record?.identity, identity());
   if (record.harness !== BOUT_HARNESS || canonical(record.protocol) !== canonical(MATCH) || record.protocolDigest !== digest(MATCH)) throw new Error("the result names another match protocol");
-  if (!record.minds || ![record.minds.a, record.minds.b].every(mind => mind && mind.digest === digest(mind.config)) || !Array.isArray(record.bouts) || !record.score) throw new Error("the match result is incomplete");
+  if (!record.minds || ![record.minds.a, record.minds.b].every(mind => mind && mind.digest === digest(mind.config)) || !Array.isArray(record.bouts) || !record.bouts.every(bout => bout.level === MATCH.level) || !record.score) throw new Error("the match result is incomplete or names another level");
   return record;
 }
 
@@ -76,7 +77,7 @@ export function matchJobs(a, b) {
   if (loadouts.length === 0) throw new Error(`${a.label} holds ${a.loadouts.map(loadoutKey).join("; ")} and ${b.label} ${b.loadouts.map(loadoutKey).join("; ")}: no loadout both fit`);
   for (const [first, second] of [[a, b], [b, a]]) for (const left of MATCH.bodies) for (const right of MATCH.bodies)
     for (const loadout of loadouts) for (const gap of MATCH.gaps) jobs.push({
-      recipe: { left, right, gap, loadouts: { left: loadout, right: loadout }, minds: { left: first.config, right: second.config },
+      recipe: { level: MATCH.level, left, right, gap, loadouts: { left: loadout, right: loadout }, minds: { left: first.config, right: second.config },
         capSeconds: MATCH.capSeconds, recoverySeconds: MATCH.recoverySeconds },
       a: first === a ? "left" : "right",
     });
@@ -131,9 +132,9 @@ async function main() {
     digest: digest(rows.map((row) => row.digest).join()),
     score: matchScore(rows),
     bouts: rows.map(({ recipe, a: side, winner, ending, seconds, blows, bars, digest: trace }) =>
-      ({ left: recipe.left, right: recipe.right, loadout: recipe.loadouts.left, gap: recipe.gap, a: side, winner, ending, seconds, blows, bars, digest: trace })),
+      ({ level: recipe.level, left: recipe.left, right: recipe.right, loadout: recipe.loadouts.left, gap: recipe.gap, a: side, winner, ending, seconds, blows, bars, digest: trace })),
   };
-  console.log(`${BOUT_HARNESS}; ${rows.length} bouts in ${((Date.now() - started) / 1000).toFixed(0)} s`);
+  console.log(`${BOUT_HARNESS}; level ${MATCH.level}; ${rows.length} bouts in ${((Date.now() - started) / 1000).toFixed(0)} s`);
   console.log(`commit ${record.commit ?? "unknown"}${record.dirty ? " with changes" : ""}; protocol ${record.protocolDigest}; match ${record.digest}`);
   console.log(`build ${BUILD_IDENTITY}`);
   console.log(`a: ${a.label} (${a.digest}); b: ${b.label} (${b.digest})`);

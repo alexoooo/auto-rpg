@@ -13,7 +13,7 @@ import type { BodySpec } from "./spec/body.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import type { World } from "./world.ts";
 import { cos, sin } from "./math/real.ts";
-import { recordingIdentity, requireRecordingIdentity } from "./recording.ts";
+import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } from "./recording.ts";
 
 /** **What a fight enlists a body with**: who it is, its body, where it stands, and what drives it. */
 interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdentity"> {
@@ -57,6 +57,20 @@ export interface Combatant extends Fighter {
   readonly sheets: SheetLog | null;
 }
 
+/** The complete recording grant can be checked before a body or a world hook is installed. */
+export function combatantRecordingIdentity(world: Pick<World, "hz" | "actuation"> & {
+  readonly physics: Pick<World["physics"], "engine" | "revision" | "gravity">;
+}, enlisting: Pick<Enlistment, "id" | "side" | "spec" | "at" | "heading" | "rules" | "balance" | "percent" | "recording">): RecordingIdentity {
+  const { id, side, spec, rules } = enlisting, heading = enlisting.heading ?? 0;
+  if (!Number.isFinite(heading)) throw new Error("invalid combatant heading");
+  const assist = balanceCeiling(enlisting.balance ?? spec.attributes.balance.value, enlisting.percent ?? balancePercent(rules));
+  return recordingIdentity(enlisting.recording?.build ?? "", "muscle-sheets/1", {
+    context: enlisting.recording?.context, id, side, at: enlisting.at, heading, assist,
+    body: JSON.parse(JSON.stringify(spec, (key, value: unknown) => key === "provenance" ? undefined : value)) as unknown,
+    engine: world.physics.engine, revision: world.physics.revision, hz: world.hz, gravity: world.physics.gravity, actuation: world.actuation,
+  });
+}
+
 /**
  * **One combatant**: its body built where it stands, in the posture its mind holds (`builtAngles`),
  * its pool under the fight's rules, carried by the fight's senses, and under the mind its config
@@ -68,11 +82,7 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
   const heading = enlisting.heading ?? 0;
   if (!Number.isFinite(heading)) throw new Error("invalid combatant heading");
   const assist = balanceCeiling(enlisting.balance ?? spec.attributes.balance.value, enlisting.percent ?? balancePercent(rules));
-  const identity = enlisting.record || enlisting.replay ? recordingIdentity(enlisting.recording?.build ?? "", "muscle-sheets/1", {
-    context: enlisting.recording?.context, id, side, at: enlisting.at, heading, assist,
-    body: JSON.parse(JSON.stringify(spec, (key, value: unknown) => key === "provenance" ? undefined : value)) as unknown,
-    engine: world.physics.engine, revision: world.physics.revision, hz: world.hz, gravity: world.physics.gravity, actuation: world.actuation,
-  }) : null;
+  const identity = enlisting.record || enlisting.replay ? combatantRecordingIdentity(world, enlisting) : null;
   if (enlisting.replay) requireRecordingIdentity(enlisting.replay.identity, identity!);
   const built = buildBody(spec, world, { position: enlisting.at, joints: builtAngles(spec, mind),
     ...(heading ? { rotation: [0, sin(heading / 2), 0, cos(heading / 2)] as const } : {}) });

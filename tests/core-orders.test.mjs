@@ -20,6 +20,8 @@ import { isOrders, sameOrders, STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { threatReader } from "../src/core/mind/threat.ts";
 import { coreStand } from "./harness/core-stand.mjs";
+import { buildBout } from "../research/bout.mjs";
+import { traceOf } from "./harness/trace.mjs";
 
 const { threatOf } = threatReader();
 
@@ -148,8 +150,40 @@ test("orders_are_the_same_when_they_say_the_same", () => {
   assert.equal(sameOrders(STAND_ORDERS, { move: null, face: null }), true);
   assert.equal(sameOrders(null, STAND_ORDERS), false, "no orders are not orders to stand");
   assert.equal(sameOrders(STAND_ORDERS, null), false);
+  const targetOnly = { face: null, foe: "target" };
+  assert.equal(isOrders(targetOnly), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(targetOnly)), targetOnly);
+  assert.equal(sameOrders(targetOnly, { ...targetOnly, move: null }), false, "a selected target does not imply a stop");
   assert.equal(sameOrders(walk, structuredClone(walk)), true);
   for (const other of [{ ...walk, move: { kind: "direct", direction: { x: 1, z: 1e-9 } } }, { ...walk, face: null }, { ...walk, region: "upperTrunk" }, { ...walk, foe: "other" }]) {
     assert.equal(sameOrders(walk, other), false, JSON.stringify(other));
   }
+});
+
+test("target-only and explicit stop orders retain their distinction through JSON, fork and replay", async () => {
+  const tape = JSON.parse(JSON.stringify([
+    { step: 0, side: "left", orders: { face: null, foe: "right" } },
+    { step: 60, side: "left", orders: { move: null, face: null, foe: "right" } },
+    { step: 90, side: "left", orders: { face: { x: 1, z: 0 }, foe: "right" } },
+    { step: 120, side: "left", orders: null },
+  ]));
+  const recipe = { left: "workshop-fighter", right: "workshop-rogue", gap: 3 };
+  const play = async () => {
+    const bout = await buildBout(recipe);
+    try {
+      bout.duel.play(tape); bout.world.step(75);
+      const saved = bout.duel.save();
+      const tail = () => {
+        const trace = traceOf(Object.values(bout.duel.duelists).map(fighter => fighter.built));
+        for (let step = 0; step < 105; step++) { bout.world.step(); trace.take(); }
+        return { trace: trace.digest(), tape: bout.duel.tape };
+      };
+      const first = tail();
+      assert.deepEqual(first.tape, tape);
+      bout.duel.load(saved);
+      assert.deepEqual(tail(), first);
+      return first;
+    } finally { bout.dispose(); }
+  };
+  assert.deepEqual(await play(), await play());
 });

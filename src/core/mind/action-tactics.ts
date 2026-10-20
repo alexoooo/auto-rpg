@@ -14,7 +14,7 @@ import { conditionMatches } from "./conditions.ts";
 import { coveringHand } from "./cover-hand.ts";
 import type { Cover, Intent } from "./intent.ts";
 import type { Orders } from "./orders.ts";
-import { orderedIntent } from "./ordered.ts";
+import { orderedFacing, orderedIntent } from "./ordered.ts";
 import { bodyClearance, lowOpponent } from "./sensed-bounds.ts";
 import { groundPosition } from "./ground-position.ts";
 import type { BodySense } from "./senses.ts";
@@ -204,12 +204,12 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
     state.phase = state.lost ? "lost" : "guard";
     for (const [i, behaviour] of config.list.entries()) switch (behaviour.kind) {
       case "follow-orders": if (orders) {
-        if (orders.move || orders.foe === undefined) ground?.reset();
-        if (!legs) {
+        if (orders.move !== undefined && (orders.move || orders.foe === undefined)) ground?.reset();
+        if (!legs && orders.move !== undefined) {
           const ordered = orderedIntent(sight, orders, { left: null, right: null });
           legs = { ...ordered, move: clearMove(centre, sight.view.senses.solids, sight.report.heading, ordered.move, radius, SPACE.ahead) };
         }
-        if (orders.foe === undefined) requested ??= [];
+        if (orders.move !== undefined && orders.foe === undefined) requested ??= [];
         if (orders.move) state.phase = "move";
       } break;
       case "attack": if (!requested) {
@@ -291,7 +291,8 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
       } break;
       default: { const never: never = behaviour; throw new Error(`unknown action behaviour ${JSON.stringify(never)}`); }
     }
-    return { move: legs?.move ?? null, face: legs?.face ?? face, guard: { left: left ?? null, right: right ?? null }, actions: requested ?? [],
+    const facing = orders?.move === undefined && orders ? orderedFacing(orders.face) : null;
+    return { move: legs?.move ?? null, face: facing ?? legs?.face ?? face, guard: { left: left ?? null, right: right ?? null }, actions: requested ?? [],
       ...(legs?.lower === undefined ? {} : { lower: legs.lower }), ...(legs?.destination === undefined ? {} : { destination: legs.destination }),
       ...(legs?.movement === undefined ? {} : { movement: legs.movement }), ...(legs?.pace === undefined ? {} : { pace: legs.pace }),
       ...(legs?.travelFacing ? { travelFacing: true } : {}) };
