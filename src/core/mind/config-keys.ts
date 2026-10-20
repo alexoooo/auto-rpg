@@ -74,6 +74,8 @@ export const CONFIG_KEYS = deepFreeze({
     recover: true, landed: true, driven: true, drives: true, gap: true, poise: true, wait: true,
   },
   "front-kick": { kind: true, name: true, tuning: true },
+  "blade-cut": { kind: true, name: true, tuning: true },
+  "blade-thrust": { kind: true, name: true, tuning: true },
   "support-fold": { kind: true },
   "cover-reflex": { kind: true },
   "whole-body": { kind: true },

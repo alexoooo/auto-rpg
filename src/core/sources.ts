@@ -19,7 +19,7 @@ type Source =
 export const SOURCES = Object.freeze({
   "owner-arena-items": {
     kind: "decision", date: "2026-10-20",
-    decided: "The Arena's first buckler and short sword use authored dimensions and masses for their physical tasks; these are game decisions, not measured historical replicas.",
+    decided: "Authored mass properties, geometry and contact cones for the Arena's first equipment. These are game design values, not historical or biomechanical measurements.",
     record: "docs/reference/arena-items.md",
   },
   "owner-point-load": {

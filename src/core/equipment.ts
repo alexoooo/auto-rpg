@@ -68,9 +68,14 @@ export function createEquipment(world: World, definition: EquipmentDefinition) {
   const node = new TransformNode(`item.${id}`, world.scene);
   node.position.copyFrom(pose.at);
   node.rotationQuaternion = pose.turn;
-  const body = world.physics.addBody(node, item.shapes.map(collider), {
+  const shapes = [...item.shapes, ...(item.contacts ?? []).map(region => region.shape)];
+  const surfaces = [...item.shapes.map(() => item.surface), ...(item.contacts ?? []).map(region => region.surface)];
+  const body = world.physics.addBody(node, shapes.map(collider), {
     mass: item.mass.value, centre: item.centreOfMass.value, moments: item.inertia.value, orientation: Quaternion.Identity(),
-  }, { ccd: definition.ccd });
+  }, { ccd: definition.ccd, materials: surfaces.map(surface => ({
+    ...(surface?.sole ? { sole: { stiffness: surface.sole.stiffness.value, damping: surface.sole.damping.value, depth: surface.sole.depth.value } } : {}),
+    ...(surface?.friction ? { friction: surface.friction.value } : {}),
+  })) });
   let disposed = false;
   const dispose = () => {
     if (disposed) return;

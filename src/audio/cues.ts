@@ -3,7 +3,7 @@ import { heldBy } from "../core/build/rigid.ts";
 import { woundedIn, type LandedBlow } from "../core/rules/blows.ts";
 import type { Substance } from "../core/spec/body.ts";
 
-/** The voices a touch has: on bone, on flesh, and on wood. */
+/** The voices a touch has: on bone, on flesh, and on hard equipment. */
 export type SoundKind = "bone" | "body" | "shield";
 export interface SoundPoint { x: number; z: number }
 /**
@@ -48,7 +48,8 @@ export function voiceOf(a: Substance, b: Substance): SoundKind {
   switch (softer) {
     case "flesh": return "body";
     case "bone": return "bone";
-    case "wood": case "metal": return "shield";
+    case "wood":
+    case "metal": return "shield";
     case "stone": throw new Error("stone on stone has no voice: nothing fixed meets something fixed");
     default: { const never: never = softer; throw new Error(`no voice for a thing of ${String(never)}`); }
   }

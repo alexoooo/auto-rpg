@@ -55,7 +55,7 @@ test("a_body_wears_what_the_workshop_dresses_it_in_until_the_address_says_otherw
   assert.deepEqual(labAddress("?model=workshop-rogue&armour=1&boots=0"), { ...DEFAULTS, ...ROGUE, armour: true, boots: false });
   assert.deepEqual(labAddress("?armour=0&boots=1"), { ...DEFAULTS, armour: false });
   // The hands hold nothing unless the address says so; the workshop's weapon is not the lab's.
-  assert.deepEqual(HELD, ["empty", "club", "buckler"]);
+  assert.deepEqual(HELD, ["empty", "club", "buckler", "sword"]);
 });
 
 /** Each choice the lab offers, as the values an address may hold for it. */

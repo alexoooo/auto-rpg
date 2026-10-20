@@ -145,7 +145,7 @@ do not.
 
 `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the model registry,
 construction, and each model's default mind and what its right hand holds. What a hand may hold is
-one list (`HELD`, `src/core/items/held.ts`: empty hands, the wooden club or the buckler), and `armedWith` puts it
+one list (`HELD`, `src/core/items/held.ts`: empty hands, the wooden club, buckler or short sword), and `armedWith` puts it
 in a hand, refusing a hand that cannot close on it. `Loadout` names both hands; `withLoadout`
 replaces their assignments, and `modelHolding` reads that equipped spec. The Arena recipe carries
 each fighter's `loadouts`, shared in `left.loadout=leftHand,rightHand` and `right.loadout` link
@@ -223,7 +223,7 @@ what a step allocates is held under a ceiling (`tests/core-step-cost.test.mjs`,
 
 `buildBody` (`src/core/build/build-body.ts`) makes one engine body per segment, with the spec's
 mass and inertia (a held item's are folded in by `rigidOf`, which says whose each of the rigid
-body's shapes is: the segment's own, or an item it holds), and one joint per spec joint, whose
+  body's shapes is: the segment's own, an anatomical region, an item or an item's region), and one joint per spec joint, whose
 free axes are the spec's freedoms. The body is built in the pose its joints demand: a fighter in
 the posture its mind holds from its first step (`builtAngles`, `Controller.builtIn`; for a
 fighter its guard, `guardPosture`), so that no joint is flung into it.
@@ -587,6 +587,16 @@ Their actuator methods and their readiness/footprints remain their own.
   blow stays where its window had it ([reference/blows.md](reference/blows.md#steered)). It
   exposes recipe estimates through its registered action descriptions.
   While a strike runs it owns the legs and trunk, and the other hand guards.
+- **Blade actions** (`blade.ts`, `blade-part.ts`) select a held item's directed edge or point
+  region, with a same-named physical aiming point and a second named point behind it along the
+  region's direction. They share `effectorStrike`'s preparation, committed stroke, verified
+  return, cancellation and interruption. A cut turns the blade's plane into its contact
+  direction; a thrust uses the two points to aim inside its contact cone while leaving roll
+  free. Both request a short follow-through and release the legs and trunk during return.
+  Recipe and path executors admit bare hands and aimed blunt items; blades use these dedicated
+  parts. The default recipe and options assemblies include both blade actions, filtered to the
+  hands whose equipment supports them. `shortSword` (`src/core/items/sword.ts`) supplies the
+  first such item; its numbers are in [reference/arena-items.md](reference/arena-items.md).
 - **Guard** (`guard.ts`) is a skill in the one list, and has the hands the strike has not. Its
   pose is the arms' posture when nothing else owns them (`guardPosture`): `GUARD`, with a hand
   that holds an item turned at the wrist so that the item stands as near upright as the wrist's
@@ -1605,7 +1615,7 @@ the same action protocol. A blow is whatever two surfaces of two sides met with.
 keep control choices separate from the contact and damage rules ([roadmap](roadmap.md#strikes)).
 | Added | Where it goes | What it leaves alone |
 |---|---|---|
-| **A sword, a spear**: an edge, a point | An item's shape states its edge or pointed surface; an aligned point uses the shared load rule. Edges and their breach costs need implementation. The item states its `aim` and its points; a search finds its recipes; the guard places its two ends. | The shares, the pool, the skill, the targets. |
+| **A sword, a spear**: an edge, a point | Item regions state directed edge or point surfaces, priced on impact. The short sword supplies both; `blade-cut` and `blade-thrust` execute them on the shared lifecycle. A spear needs its own item and execution qualification. | The shares, the pool, the skill, the targets. |
 | **The face and the vault** | Natural contact regions (`SegmentSpec.contacts`) supply separate colliders and surfaces; teeth use this path. Face and vault regions still need anatomical data. | The pool: one head, one share of hit points. |
 | **Armour**: boots, greaves, a cuirass, vambraces, gloves, a helmet | A worn item, rigid with its segments as a held one is: it adds its mass, and its surface is one more layer in series (`energyShares` over the layers), taking its share and wounding nobody; it raises the breach cost of an edge or a point. A glove protects the puncher by the same rule. | The rule's shape; a rigid body's shapes gain a kind of owner. |
 | **A shield** | A held item with a face: its points are what the guard places (`ItemSpec.cover`); a bash is a blow like any other. A third place on one rigid body fixes its roll (`HandGoal.places`). | The guard skill, the rule. |

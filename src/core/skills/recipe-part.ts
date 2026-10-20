@@ -10,8 +10,8 @@ type Config = Extract<ExecutorConfig, { kind: "recipe-strike" }>;
 export const RECIPE_PART: ExecutorPart<Config> = {
   role: "executor", label: "Recipe strike", stage: "game", defaults: { kind: "recipe-strike", name: "recipe" },
   fields: [text("name", "Name")], slots: [], tuning: ["repertoire", "placed", "steer"], fits: commandable,
-  strikesWith: (spec, _config, effector) => strikesWithBlunt(spec, effector),
   faults: () => [], effectors: ["hand.left", "hand.right"], actionFaults: noPathSettings,
+  strikesWith: (spec, _config, effector) => strikesWithBlunt(spec, effector),
   make: (body, _world, config, actions, resolve) => recipeExecutor(body.built.spec, actions.map(a => a.name), { ...config.tuning, resolve }),
   estimate(spec, config, action, aim) {
     if (action.aim.kind === "surface") return null;

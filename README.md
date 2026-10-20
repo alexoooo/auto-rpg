@@ -59,7 +59,8 @@ the Arena and the Crypt), Classic fighter, **Puncher**, **Counter-puncher**, **S
 **Custom (from** its preset**)**. The Options fighter's **Obedience** says how far it carries out
 your orders through a blow coming: **Own judgement** steps aside from most punches, **Steady**
 from a full punch, **Orders first** only from a club's heavy blow.
-Humanoids choose a wooden club or empty hands.
+Each humanoid hand can carry a wooden club, a short sword or nothing. A sword uses separate cut
+and thrust actions, whose aligned edge and tip wound on impact.
 The Reptile uses **Crawl and bite**, carries no equipment and has 1 HP at 8 kg. It trots toward
 opponents, slows for contact, and shifts its weight before placing one paw during close fighting
 and withdrawal. It bites reachable body surfaces with its physical jaw.
@@ -114,8 +115,8 @@ window, when one is selected. At the two-minute bell the fuller bar wins; equal 
 
 A blow costs both who meet in it. Any two parts of the two bodies that come together closing
 have met in a blow, and the two surfaces share its energy: the softer takes the more. A fist
-takes most of its own punch to a head and little of one to a chest. A held weapon is rigid and
-costs its holder nothing: what a club strikes takes the whole blow, a bare hand that meets a
+takes most of its own punch to a head and little of one to a chest. A wooden club is rigid and
+costs its holder nothing: what it strikes takes the whole blow, a bare hand that meets a
 club takes all of it, and two clubs meeting wound nobody.
 
 The bout is heard until its verdict: footfalls, the air of a swing, a club on a body or on the

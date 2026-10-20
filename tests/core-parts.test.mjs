@@ -49,7 +49,7 @@ test("controller settings survive links and validation independently of editor f
 test("a tree's faults say where they are, and every preset has none", () => {
   for (const [id, { config }] of Object.entries(PRESETS)) assert.deepEqual(treeFaults(config), [], id);
   assert.deepEqual(treeFaults({ ...CLASSIC, executors: [CLASSIC] }), ["executors.0: a mind part cannot go where a executor part goes"]);
-  assert.deepEqual(treeFaults({ ...CLASSIC, executors: [] }), ["strike: missing executor recipe"]);
+  assert.deepEqual(treeFaults({ ...CLASSIC, executors: [] }), ["strike: missing executor recipe", "blade-cut: missing executor blade-cut", "blade-thrust: missing executor blade-thrust"]);
   assert.deepEqual(treeFaults({ ...CLASSIC, executors: [], actions: [], tactics: { kind: "stand" } }), []);
   assert.deepEqual(treeFaults({ ...CLASSIC, subs: [{ kind: "lie" }, CLASSIC, { kind: "fly" }, null] }), [
     "subs.1: a mind part cannot go where a sub-mind part goes", 'subs.2: no part of kind "fly"', "subs.3: no part of kind undefined"]);
@@ -78,7 +78,7 @@ test("a tree fits a body where every part does, and every part of a role is offe
   const minds = offered("mind", human);
   assert.deepEqual(minds.slice(0, 3), [["options", null], ["fighter", null], ["quadruped", "does not fit this body"]]);
   assert.deepEqual(minds.map(([kind]) => kind), Object.keys(CONTROLLERS));
-  assert.deepEqual(offered("executor", human), [["recipe-strike", null], ["path-strike", null], ["driven-strike", null], ["front-kick", null], ["straight-punch", null], ["combination", null], ["whole-body-strike", null]]);
+  assert.deepEqual(offered("executor", human), [["recipe-strike", null], ["path-strike", null], ["driven-strike", null], ["front-kick", null], ["straight-punch", null], ["combination", null], ["whole-body-strike", null], ["blade-cut", null], ["blade-thrust", null]]);
   assert.deepEqual(offered("tactics", reptile), [["script", "does not fit this body"], ["stand", "does not fit this body"], ["behaviours", "does not fit this body"]]);
   assert.deepEqual(offered("tactics", human), [["script", "this screen gives no script"], ["stand", null], ["behaviours", null]]);
   assert.deepEqual(kindsFor("tactics", human, ["script"]).map(({ reason }) => reason), [null, null, null]);
