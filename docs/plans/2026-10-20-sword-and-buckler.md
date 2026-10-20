@@ -181,6 +181,12 @@ assembly. Tactics choose the cut or the thrust by the opening the opponent's buc
 (`surface` aims), keep the spacing at the sword's reach, not a fist's, and step round to the
 side the opponent's buckler does not cover.
 
+A recipe fighter, not the options fighter: a reference is read for why it acted, and a ranked
+rule list makes a poor decision and a skill that cannot carry it out tell apart, where the
+options fighter's values, calibrated to punches, confound the two. The options fighter takes up
+the same parts afterwards under [its own plan](2026-10-14-options-fighter.md), and beating this
+reference with them is a test of its valued choices.
+
 Bar: it leads every other mind on the sword-and-buckler protocol, by the match's paired score,
 with each condition played both ways.
 
@@ -195,9 +201,6 @@ it is the reference once the owner accepts how it fights.
 
 - The representative loadout set above, and whether the left-hand sword belongs in it.
 - The proposed bars of stages 1 to 4, or other figures.
-- Whether the reference fighter is a preset of the recipe fighter or of the options fighter. No
-  mind starts clearly ahead; Behaviours and Classic, both recipe fighters, read highest, so the
-  plan starts there. The options fighter may follow as a second reference.
 - Whether a mind with no attack for a loadout (Puncher with a sword) is entered in that
   loadout's ratings, or only where it has one.
 
