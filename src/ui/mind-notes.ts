@@ -81,4 +81,6 @@ interface Ratings {
   readonly entrants: readonly RatedEntrant[];
 }
 
-export const RATINGS: Ratings = ratings as Ratings;
+/** A JSON array is no pair to TypeScript: each interval is read as its low and high, each name as the model or loadout it is (the notes test holds both). */
+export const RATINGS: Ratings = { ...ratings, entrants: ratings.entrants.map((entrant) => ({ ...entrant, model: entrant.model as BodyModel, held: entrant.held as Held,
+  interval: [entrant.interval[0]!, entrant.interval[1]!] as const })) };
