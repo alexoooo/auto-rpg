@@ -12,6 +12,8 @@ control, skills, minds -- and a mind may use as much or as little of the stack a
 ([architecture](architecture.md#minds)).
 The [AI experiments plan](plans/2026-10-18-ai-experiments.md) makes Minds, skills and controllers
 independently replaceable across game modes.
+The [shared controller workshop plan](plans/2026-10-20-shared-controller-workshop.md) organizes
+cooperative component development, capability tasks, equipment extensions and Arena evaluations.
 
 - **Skills and tactics.** A body has an array of skills; tactics, a meta-controller over them,
   choose among the skills it has as the fight goes. Both come in many flavours. A skill may be

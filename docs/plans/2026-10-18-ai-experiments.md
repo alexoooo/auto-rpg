@@ -7,6 +7,10 @@ other Mind. An experiment can replace one part or the whole control stack. Hand-
 search and learned policies are all valid implementations. What runs in the game runs in the
 browser; training can happen offline.
 
+The [shared controller workshop plan](2026-10-20-shared-controller-workshop.md) extends this
+foundation with independently registered reusable components, shared capability tasks,
+multi-item loadouts and cooperative development across the owner's two machines.
+
 The [whole-body controller plan](2026-10-17-general-controller.md) continues with its existing
 gates. It develops one reusable execution stack. The options fighter is one client of that stack;
 neither that Mind nor that solver is mandatory for every experiment.
