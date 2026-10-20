@@ -9,8 +9,8 @@
  *
  *   node scripts/tournament.mjs [--workers N] [--minds a,b,...] [--write]
  *
- * Each bout is kept as it ends in `research/runs/tournament/<commit>-<protocol>.jsonl`, so a run
- * stopped and started again at the same commit plays only what is missing. `--write` puts the table
+ * Each bout is kept as it ends in `research/runs/tournament/<build>-<protocol>.jsonl`, so a run
+ * stopped and started again on the same source content plays only what is missing. `--write` puts the table
  * in `assets/minds/ratings.json` (the Arena's Ratings panel) and each rating in
  * `assets/minds/notes.json` as `"<rating> <yyyy-MM-dd>"`: a character with a loadout its own, and
  * a character, a loadout and the mind the mean of theirs; a note it does not rate is kept.
@@ -28,6 +28,8 @@ import { BODY_MODELS, modelHolds, modelSupportsMind } from "../src/core/models.t
 import { BOUT_HARNESS } from "../research/bout.mjs";
 import { defaultLanes, playBouts } from "../research/bout-pool.mjs";
 import { bradleyTerry, ratingIntervals } from "../research/rating.mjs";
+import { BUILD_IDENTITY } from "../src/build-identity.ts";
+import { recordingIdentity, requireRecordingIdentity } from "../src/core/recording.ts";
 
 /** How a pair meets: once on each side at each gap, m, to the Arena's time limit, with no limit on lying down. */
 export const TOURNAMENT = Object.freeze({ loadouts: LOADOUTS, gaps: Object.freeze([4]), capSeconds: CAP_SECONDS, recoverySeconds: null });
@@ -38,6 +40,16 @@ const NOTES = "assets/minds/notes.json", RATINGS = "assets/minds/ratings.json";
 const canonical = (value) => JSON.stringify(value, (_, v) => typeof v === "object" && v !== null && !Array.isArray(v)
   ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) : v);
 const digest = (value) => createHash("sha256").update(canonical(value)).digest("hex").slice(0, 16);
+
+/** Every cached row must belong to this build and tournament before any result is reused. */
+export function readTournamentRows(text, identity) {
+  return new Map(text.split("\n").filter(Boolean).map(line => {
+    const row = JSON.parse(line);
+    requireRecordingIdentity(row.identity, identity);
+    if (typeof row.key !== "string" || !["left", "right", null].includes(row.winner)) throw new Error("invalid tournament result row");
+    return [row.key, row];
+  }));
+}
 
 /** Every entrant of `minds` (ids of `MINDS`): `{ id, mind, model, loadout }` for each character and loadout it fits. */
 export function tournamentEntrants(minds = Object.keys(MINDS)) {
@@ -97,26 +109,27 @@ async function main() {
   const commit = git("rev-parse", "HEAD"), dirty = git("status", "--porcelain", "--", "src", "research", "scripts", "assets/core").length > 0;
   if (dirty && values.write) throw new Error("the code differs from its commit: commit it before writing a table the commit is to name");
   const entrants = tournamentEntrants(values.minds?.split(",")), jobs = tournamentJobs(entrants), protocol = digest(TOURNAMENT);
-  const store = `research/runs/tournament/${commit.slice(0, 12)}${dirty ? "-dirty" : ""}-${protocol}.jsonl`;
+  const identity = recordingIdentity(BUILD_IDENTITY, "arena-tournament/1", { harness: BOUT_HARNESS, protocol: TOURNAMENT });
+  const store = `research/runs/tournament/${BUILD_IDENTITY.slice(7)}-${protocol}.jsonl`;
   mkdirSync(dirname(store), { recursive: true });
-  const kept = new Map(existsSync(store) ? readFileSync(store, "utf8").split("\n").filter(Boolean).map((line) => { const row = JSON.parse(line); return [row.key, row]; }) : []);
+  const kept = readTournamentRows(existsSync(store) ? readFileSync(store, "utf8") : "", identity);
   const missing = jobs.filter((job) => !kept.has(job.key)), started = Date.now();
   console.log(`${BOUT_HARNESS}; ${entrants.length} entrants, ${jobs.length} bouts, ${jobs.length - missing.length} kept in ${store}`);
   let done = 0;
   await playBouts(missing.map(({ recipe }) => ({ recipe })), Number(values.workers ?? defaultLanes()), (row, k) => {
-    const { key } = missing[k], kept_ = { key, winner: row.winner, ending: row.ending, seconds: row.seconds, blows: row.blows, bars: row.bars, digest: row.digest };
+    const { key } = missing[k], kept_ = { identity, key, winner: row.winner, ending: row.ending, seconds: row.seconds, blows: row.blows, bars: row.bars, digest: row.digest };
     appendFileSync(store, JSON.stringify(kept_) + "\n");
     kept.set(key, kept_);
     if (++done % 50 === 0 || done === missing.length) console.log(`${done} of ${missing.length} in ${((Date.now() - started) / 60000).toFixed(1)} min`);
   });
   const rows = jobs.map((job) => ({ i: job.i, j: job.j, winner: kept.get(job.key).winner }));
   const table = tournamentTable(entrants, rows), date = new Date().toISOString().slice(0, 10);
-  console.log(`\ncommit ${commit}${dirty ? " with changes" : ""}; protocol ${protocol}; ${date}\n`);
+  console.log(`\ncommit ${commit}${dirty ? " with changes" : ""}; build ${BUILD_IDENTITY}; protocol ${protocol}; ${date}\n`);
   console.log("| | Mind | Character | Hands (left,right) | Rating | 95 % | Bouts | Won | Drawn | Lost |\n|---|---|---|---|---|---|---|---|---|---|");
   table.forEach((row, k) => console.log(`| ${k + 1} | ${row.mind} | ${row.model} | ${loadoutKey(row.loadout)} | ${row.rating.toFixed(0)} | ${row.interval.map((x) => x.toFixed(0)).join("-")} | ${row.bouts} | ${row.wins} | ${row.draws} | ${row.losses} |`));
   if (!values.write) return;
   const rounded = table.map((row) => ({ ...row, rating: Math.round(row.rating), interval: row.interval.map(Math.round) }));
-  writeFileSync(RATINGS, JSON.stringify({ date, commit, harness: BOUT_HARNESS, protocol: `${protocol} ${canonical(TOURNAMENT)}`, entrants: rounded }, null, 2) + "\n");
+  writeFileSync(RATINGS, JSON.stringify({ identity, date, commit, harness: BOUT_HARNESS, protocol: `${protocol} ${canonical(TOURNAMENT)}`, entrants: rounded }, null, 2) + "\n");
   writeFileSync(NOTES, JSON.stringify(ratedNotes(JSON.parse(readFileSync(NOTES, "utf8")), rounded, date), null, 2) + "\n");
   console.log(`\nwrote ${RATINGS} and ${NOTES}`);
 }

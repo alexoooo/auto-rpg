@@ -13,6 +13,7 @@ import type { BodySpec } from "./spec/body.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import type { World } from "./world.ts";
 import { cos, sin } from "./math/real.ts";
+import { recordingIdentity, requireRecordingIdentity } from "./recording.ts";
 
 /** **What a fight enlists a body with**: who it is, its body, where it stands, and what drives it. */
 interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdentity"> {
@@ -38,6 +39,8 @@ interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdenti
   readonly record?: boolean;
   /** Order sheets to play in place of its mind (`replayedBody`): its mind is not made. */
   readonly replay?: SheetLog;
+  /** The host's immutable content fingerprint and complete fight recipe, required for persisted sheets. */
+  readonly recording?: { readonly build: string; readonly context: unknown };
   /** What a per cent of balance is, in place of the rulebook's (`balancePercent`). */
   readonly percent?: AssistCeiling;
 }
@@ -64,6 +67,13 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
   const { id, side, spec, rules, mind } = enlisting;
   const heading = enlisting.heading ?? 0;
   if (!Number.isFinite(heading)) throw new Error("invalid combatant heading");
+  const assist = balanceCeiling(enlisting.balance ?? spec.attributes.balance.value, enlisting.percent ?? balancePercent(rules));
+  const identity = enlisting.record || enlisting.replay ? recordingIdentity(enlisting.recording?.build ?? "", "muscle-sheets/1", {
+    context: enlisting.recording?.context, id, side, at: enlisting.at, heading, assist,
+    body: JSON.parse(JSON.stringify(spec, (key, value: unknown) => key === "provenance" ? undefined : value)) as unknown,
+    engine: world.physics.engine, revision: world.physics.revision, hz: world.hz, gravity: world.physics.gravity, actuation: world.actuation,
+  }) : null;
+  if (enlisting.replay) requireRecordingIdentity(enlisting.replay.identity, identity!);
   const built = buildBody(spec, world, { position: enlisting.at, joints: builtAngles(spec, mind),
     ...(heading ? { rotation: [0, sin(heading / 2), 0, cos(heading / 2)] as const } : {}) });
   const pool = createPool(spec, rules);
@@ -77,9 +87,8 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
     return granted;
   } });
   const senses = enlisting.senses.add(sensed);
-  const assist = balanceCeiling(enlisting.balance ?? spec.attributes.balance.value, enlisting.percent ?? balancePercent(rules));
-  const sheets = enlisting.replay ?? (enlisting.record ? sheetLog() : null);
-  minded = enlisting.replay ? { kind: "replay", body: replayedBody(built, world, enlisting.replay, { senses, assist }), state: {} } : createMind(built, world, mind, {
+  const sheets = enlisting.replay ?? (enlisting.record ? sheetLog(identity!) : null);
+  minded = enlisting.replay ? { kind: "replay", body: replayedBody(built, world, enlisting.replay, { identity: identity!, senses, assist }), state: {} } : createMind(built, world, mind, {
     name: enlisting.name, senses, assist, orders: enlisting.orders,
     ...(enlisting.contactIdentity ? { contactIdentity: enlisting.contactIdentity } : {}),
   }, sheets ?? undefined);

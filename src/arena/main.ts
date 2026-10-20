@@ -90,8 +90,8 @@ const levelName = (level: NoteLevel, model: BodyModel, loadout: Loadout): string
 
 /** **The last tournament's table** (`RATINGS`), its best first, into the ratings panel. */
 function showRatings(): void {
-  const { entrants, date, commit, harness } = RATINGS;
-  need("ratings-about").textContent = entrants.length === 0 ? "No tournament has been played yet (scripts/tournament.mjs)."
+  const { entrants, date, commit, harness, unavailable } = RATINGS;
+  need("ratings-about").textContent = unavailable ? `Ratings unavailable: ${unavailable}.` : entrants.length === 0 ? "No tournament has been played yet (scripts/tournament.mjs)."
     : `Each mind on each character with each loadout against every other, both sides, Bradley-Terry on the Elo scale (the field's mean 1500), with its 95 % interval. ${date} at ${commit?.slice(0, 8)}; ${harness}.`;
   const cell = (tag: "td" | "th", text: string) => Object.assign(document.createElement(tag), { textContent: text });
   const head = document.createElement("tr");
@@ -380,8 +380,8 @@ export async function bootArena(): Promise<void> {
       const sameControllers = linkedControl === JSON.stringify(readMinds(search));
       const sameRecovery = (linkedRecovery ?? null) === (readRecovery(search) ?? null);
       const sameLoadouts = linkedLoadouts === JSON.stringify(readLoadouts(search));
-      const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameLoadouts ? linked.tape : [];
-      replaying = tape.length > 0;
+      const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameLoadouts ? linked.tape : null;
+      replaying = tape !== null;
       history.replaceState(null, "", arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view) + (replaying ? linked.hash : ""));
       const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
       end();
@@ -417,7 +417,7 @@ export async function bootArena(): Promise<void> {
       const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
       hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
       airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
-      bout.play(tape);
+      if (tape) bout.playRecording(tape);
       for (const row of rows) {
         row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === you && !replaying ? " (you)" : ""}`;
         const duelist = bout.duelists[row.side], minded = duelist.minded;

@@ -11,6 +11,7 @@ import { navigationPath } from "../src/core/mind/navigation.ts";
 import { bodyClearance } from "../src/core/mind/sensed-bounds.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
+import { BUILD_IDENTITY } from "../src/build-identity.ts";
 
 const physics = await freshEngine();
 const mind = { ...CLASSIC, tactics: { ...FIGHTING, list: [{ kind: "follow-orders" }] } };
@@ -23,7 +24,7 @@ function environment(at, goal, solids) {
   return createEnvironment(config, config => {
     const rendering = new NullEngine(), scene = new Scene(rendering), task = createNavigationTask(scene, physics, config);
     return { ...task, dispose() { task.dispose(); scene.dispose(); rendering.dispose(); } };
-  }, { policyPeriodSteps: 1, maxSteps: 2400 });
+  }, { buildIdentity: BUILD_IDENTITY, policyPeriodSteps: 1, maxSteps: 2400 });
 }
 
 function finish(environment) {

@@ -8,6 +8,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { createEnvironment } from "../src/core/tasks/environment.ts";
+import { BUILD_IDENTITY } from "../src/build-identity.ts";
 import { createReachTask } from "../src/core/tasks/reach.ts";
 import { createCollisionProbe } from "../src/core/tasks/collision.ts";
 import { createBarProbe } from "../src/core/tasks/bar.ts";
@@ -518,7 +519,7 @@ async function reachTrial(job) {
     readings = meter([task.body.built], [task.body]);
     instrument(task.world, readings);
     return task;
-  }, { policyPeriodSteps: job.policyPeriodSteps, maxSteps: job.maxSteps });
+  }, { buildIdentity: BUILD_IDENTITY, policyPeriodSteps: job.policyPeriodSteps, maxSteps: job.maxSteps });
   try {
     let result = environment.reset(job.seed);
     const goal = result.observation.goal, frames = [];

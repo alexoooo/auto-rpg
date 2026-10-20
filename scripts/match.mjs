@@ -24,6 +24,8 @@ import { modelHolding } from "../src/core/models.ts";
 import { mindFaults } from "../src/ui/mind-link.ts";
 import { BOUT_HARNESS } from "../research/bout.mjs";
 import { defaultLanes, playBouts } from "../research/bout-pool.mjs";
+import { BUILD_IDENTITY } from "../src/build-identity.ts";
+import { recordingIdentity, requireRecordingIdentity } from "../src/core/recording.ts";
 
 /**
  * What a match plays: each body a mind may have against each the other may have, each loadout and
@@ -42,6 +44,15 @@ export const MATCH = Object.freeze({
 const canonical = (value) => JSON.stringify(value, (_, v) => typeof v === "object" && v !== null && !Array.isArray(v)
   ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) : v);
 const digest = (value) => createHash("sha256").update(typeof value === "string" ? value : canonical(value)).digest("hex").slice(0, 16);
+const identity = () => recordingIdentity(BUILD_IDENTITY, "arena-match/1", { harness: BOUT_HARNESS, protocol: MATCH });
+
+/** A saved result contributes no claim on another source build, solver profile or match protocol. */
+export function readMatchResult(record) {
+  requireRecordingIdentity(record?.identity, identity());
+  if (record.harness !== BOUT_HARNESS || canonical(record.protocol) !== canonical(MATCH) || record.protocolDigest !== digest(MATCH)) throw new Error("the result names another match protocol");
+  if (!record.minds || ![record.minds.a, record.minds.b].every(mind => mind && mind.digest === digest(mind.config)) || !Array.isArray(record.bouts) || !record.score) throw new Error("the match result is incomplete");
+  return record;
+}
 
 /**
  * The mind `text` names: a mind's id (`MINDS`), a controller's kind (its defaults), a JSON file or
@@ -103,14 +114,19 @@ function commit() {
 }
 
 async function main() {
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: { workers: { type: "string" }, json: { type: "string" } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { workers: { type: "string" }, json: { type: "string" }, read: { type: "string" } } });
+  if (values.read) {
+    if (positionals.length) throw new Error("--read accepts a result file without mind arguments");
+    console.log(JSON.stringify(readMatchResult(JSON.parse(readFileSync(values.read, "utf8"))), null, 2));
+    return;
+  }
   if (positionals.length !== 2) throw new Error("name two minds: npm run match -- <mind> <mind>");
   const [a, b] = positionals.map(readMatchMind), jobs = matchJobs(a, b);
   const started = Date.now();
   const played = await playBouts(jobs.map(({ recipe }) => ({ recipe })), Number(values.workers ?? defaultLanes()));
   const rows = played.map((row, i) => ({ ...row, a: jobs[i].a }));
   const record = {
-    harness: BOUT_HARNESS, ...commit(), protocol: MATCH, protocolDigest: digest(MATCH),
+    identity: identity(), harness: BOUT_HARNESS, ...commit(), protocol: MATCH, protocolDigest: digest(MATCH),
     minds: { a: { label: a.label, digest: a.digest, config: a.config }, b: { label: b.label, digest: b.digest, config: b.config } },
     digest: digest(rows.map((row) => row.digest).join()),
     score: matchScore(rows),
@@ -119,6 +135,7 @@ async function main() {
   };
   console.log(`${BOUT_HARNESS}; ${rows.length} bouts in ${((Date.now() - started) / 1000).toFixed(0)} s`);
   console.log(`commit ${record.commit ?? "unknown"}${record.dirty ? " with changes" : ""}; protocol ${record.protocolDigest}; match ${record.digest}`);
+  console.log(`build ${BUILD_IDENTITY}`);
   console.log(`a: ${a.label} (${a.digest}); b: ${b.label} (${b.digest})`);
   console.log("\n| a's body | b's body | Hands (left,right) | Gap, m | a's side | Winner | Ending | Seconds | Blows | a's bar | b's bar |");
   console.log("|---|---|---|---|---|---|---|---|---|---|---|");

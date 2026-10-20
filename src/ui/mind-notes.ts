@@ -1,5 +1,7 @@
 import notes from "../../assets/minds/notes.json" with { type: "json" };
 import ratings from "../../assets/minds/ratings.json" with { type: "json" };
+import { BUILD_IDENTITY } from "../build-identity.ts";
+import { requireRecordingIdentity, type RecordingIdentity } from "../core/recording.ts";
 import { LOADOUTS, loadoutKey, type Loadout } from "../core/items/held.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { BODY_MODELS, type BodyModel } from "../core/models.ts";
@@ -74,6 +76,7 @@ interface RatedEntrant {
 
 /** **The last tournament's ratings** (`assets/minds/ratings.json`): when, at which commit, how it was played, and each entrant's rating. */
 interface Ratings {
+  readonly unavailable: string | null;
   readonly date: string | null;
   readonly commit: string | null;
   readonly harness: string | null;
@@ -81,6 +84,15 @@ interface Ratings {
   readonly entrants: readonly RatedEntrant[];
 }
 
-/** A JSON array is no pair to TypeScript: each interval is read as its low and high, each name as the model or loadout it is (the notes test holds both). */
-export const RATINGS: Ratings = { ...ratings, entrants: (ratings.entrants as unknown as readonly RatedEntrant[]).map((entrant) => ({ ...entrant, model: entrant.model as BodyModel, loadout: entrant.loadout as Loadout,
-  interval: [entrant.interval[0]!, entrant.interval[1]!] as const })) };
+/** A table made on different inputs cannot describe the available minds and physical recipes. */
+export function readRatings(record: Omit<Ratings, "unavailable"> & { readonly identity?: RecordingIdentity }): Ratings {
+  if (record.entrants.length > 0) {
+    try { requireRecordingIdentity(record.identity, { build: BUILD_IDENTITY, protocol: "arena-tournament/1", configuration: record.identity?.configuration ?? "" }); }
+    catch (error) { return { ...record, entrants: [], unavailable: error instanceof Error ? error.message : String(error) }; }
+  }
+  return { ...record, unavailable: null, entrants: record.entrants.map(entrant => ({ ...entrant,
+    interval: [entrant.interval[0]!, entrant.interval[1]!] as const })) };
+}
+
+/** The shipped table is read by the same compatibility rule as any supplied result. */
+export const RATINGS: Ratings = readRatings(ratings as unknown as Parameters<typeof readRatings>[0]);

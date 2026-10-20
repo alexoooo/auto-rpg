@@ -2,9 +2,10 @@ import { BODY_MODELS, modelHastes, modelHolding, modelHolds, modelInfo, modelSup
 import { hasteFrom } from "../core/human/attributes.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { MINDS } from "../core/mind/controllers.ts";
-import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
-import { SIDES, type OrdersEntry } from "./duel.ts";
+import { isOrdersEntry, ORDERS_PROTOCOL, SIDES, type OrdersRecording } from "./duel.ts";
+import { BUILD_IDENTITY } from "../build-identity.ts";
+import { requireRecordingIdentity } from "../core/recording.ts";
 import { EMPTY_LOADOUT, HELD, type Loadout } from "../core/items/held.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import type { Side } from "../core/spec/body.ts";
@@ -142,27 +143,25 @@ export const readCap = (search: string): number | undefined => readWithin(search
 /** A bout's tape in a link's fragment, which no server is sent: `#tape=<the tape's JSON, URI-encoded>`. */
 const TAPE_KEY = "tape";
 
-const isEntry = (entry: unknown): entry is OrdersEntry => {
-  if (typeof entry !== "object" || entry === null) return false;
-  const { step, side, orders } = entry as Record<string, unknown>;
-  return Number.isInteger(step) && (step as number) >= 0 && (side === "left" || side === "right") && (orders === null || isOrders(orders));
-};
-
 /**
- * The tape `hash` carries; none if it carries none, or one that is not an array of entries. A
- * tape is of one recipe: the link names the matchup, the gap, the cap, each side's balance and haste, what it holds and how it guards with it.
+ * A persisted tape belongs to one build and physical recipe. Absence is an ordinary recipe link;
+ * a malformed or incompatible recording is an error, never permission to play a different bout.
  */
-export function readTape(hash: string): OrdersEntry[] {
+export function readTape(hash: string): OrdersRecording | null {
   const text = new URLSearchParams(hash.replace(/^#/, "")).get(TAPE_KEY);
-  if (!text) return [];
-  try {
-    const tape: unknown = JSON.parse(text);
-    return Array.isArray(tape) && tape.every(isEntry) ? tape : [];
-  } catch { return []; }
+  if (text === null) return null;
+  let recording: Partial<OrdersRecording>;
+  try { recording = JSON.parse(text) as Partial<OrdersRecording>; }
+  catch { throw new Error("the tape recording is not valid JSON"); }
+  if (!recording || typeof recording !== "object" || Array.isArray(recording)) throw new Error("the tape has no build and protocol identity; make a new recording");
+  if (typeof recording.identity?.configuration !== "string") throw new Error("the tape has no physical recipe identity");
+  requireRecordingIdentity(recording.identity, { build: BUILD_IDENTITY, protocol: ORDERS_PROTOCOL, configuration: recording.identity.configuration });
+  if (!Array.isArray(recording.tape) || !recording.tape.every(isOrdersEntry)) throw new Error("the tape recording has invalid orders");
+  return recording as OrdersRecording;
 }
 
 /** The fragment that carries `tape` (`readTape`). */
-export const tapeHash = (tape: readonly OrdersEntry[]): string => `#${TAPE_KEY}=${encodeURIComponent(JSON.stringify(tape))}`;
+export const tapeHash = (recording: OrdersRecording): string => `#${TAPE_KEY}=${encodeURIComponent(JSON.stringify(recording))}`;
 
 /** A side's choice of mind (`MINDS`), separate from anatomy, equipment and appearance. */
 type Control = string;

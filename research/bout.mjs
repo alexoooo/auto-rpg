@@ -117,7 +117,7 @@ export async function playBout(recipe, seconds = Infinity, tape = [], { shortfal
       cost: SIDES.map((side) => costOf(duel.blows, duel.duelists[side])),
       ...(blows ? { landed: duel.blows.map(({ time, energy, closing, sides }) => ({ time, energy, closing, sides })) } : {}),
       fallen: SIDES.filter((side) => duel.duelists[side].body.down),
-      tape: duel.tape, digest: trace.digest(),
+      tape: duel.tape, recording: duel.recording, digest: trace.digest(),
       // Each side's mean assist over its metered steps, [N, N m].
       assist: SIDES.map((side) => meanOf(duel.duelists[side].body.assist.meter)),
       ...(missed ? { shortfall: missed.map((meter) => meter.row()) } : {}),

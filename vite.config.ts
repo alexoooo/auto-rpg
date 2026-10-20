@@ -1,6 +1,21 @@
 import { defineConfig } from "vite";
+import { currentBuildIdentity } from "./scripts/build-identity.mjs";
+
+const identityModule = decodeURIComponent(new URL("./src/build-identity.ts", import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, "$1");
 
 export default defineConfig({
+  plugins: [{ name: "recording-build-identity", enforce: "pre",
+    load(id) {
+      if (id.replaceAll("\\", "/") === identityModule) return `export const BUILD_IDENTITY = ${JSON.stringify(currentBuildIdentity())};`;
+    },
+    handleHotUpdate(context) {
+      const module = [...context.server.moduleGraph.idToModuleMap.values()].find(module => module.file?.replaceAll("\\", "/") === identityModule);
+      if (module) context.server.moduleGraph.invalidateModule(module);
+      // A running world and its recordings belong to one immutable source snapshot.
+      context.server.ws.send({ type: "full-reload" });
+      return [];
+    },
+  }],
   // strictPort: when 5180 is taken, usually by a forgotten dev server, fail rather than move to
   // 5181 and leave the old server's stale build on the address you are reading.
   server: {

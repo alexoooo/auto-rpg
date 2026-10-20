@@ -15,6 +15,7 @@ import { createPostureHoldProbe } from "../src/core/tasks/posture-hold.ts";
 import { saveState, loadState } from "../src/core/state.ts";
 import poses from "../assets/research/posture-holds.json" with { type: "json" };
 import { createEnvironment } from "../src/core/tasks/environment.ts";
+import { BUILD_IDENTITY } from "../src/build-identity.ts";
 import { modelSpec } from "../src/core/models.ts";
 
 const configuration = { model: "workshop-fighter", posture: "fours", hz: 120, actuation: "directional", servoSeconds: .01, speed: 10, activation: 1 };
@@ -109,7 +110,7 @@ test("the actuator posture task runs in the common environment across a held-act
   const env = createEnvironment({ ...configuration, controller: "actuator" }, config => {
     const rendering = new NullEngine(), scene = new Scene(rendering), probe = createPostureHoldProbe(scene, engine, config);
     return { ...probe, dispose() { probe.dispose(); scene.dispose(); rendering.dispose(); } };
-  }, { policyPeriodSteps: 4, maxSteps: 12 });
+  }, { buildIdentity: BUILD_IDENTITY, policyPeriodSteps: 4, maxSteps: 12 });
   try {
     const initial = env.reset(0), count = initial.observation.body.joints.length;
     env.act({ kind: "velocity", activation: Array(count).fill(1), velocity: Array(count).fill(0) });

@@ -6,6 +6,7 @@ import { createNavigationTask } from "../src/core/tasks/navigation.ts";
 import { createEnvironment } from "../src/core/tasks/environment.ts";
 import { CLASSIC, FIGHTING } from "../src/core/mind/config.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
+import { BUILD_IDENTITY } from "../src/build-identity.ts";
 
 test("the shared environment measures range following against a physically moving sensed body", async () => {
   const physics = await freshEngine();
@@ -17,7 +18,7 @@ test("the shared environment measures range following against a physically movin
   const environment = createEnvironment(config, config => {
     const engine = new NullEngine(), scene = new Scene(engine), task = createNavigationTask(scene, physics, config);
     return { ...task, dispose() { task.dispose(); scene.dispose(); engine.dispose(); } };
-  }, { policyPeriodSteps: 1, maxSteps: 1800 });
+  }, { buildIdentity: BUILD_IDENTITY, policyPeriodSteps: 1, maxSteps: 1800 });
   try {
     const initial = environment.reset(9);
     assert.equal(initial.invalid, null);

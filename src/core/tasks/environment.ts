@@ -1,6 +1,7 @@
 import { deepFreeze, loadState, saveState, type Saved } from "../state.ts";
 import { PHYSICS_HZ, type World } from "../world.ts";
 import { randomStream } from "../math/random.ts";
+import { recordingIdentity, recordingKey as configurationKey, requireRecordingIdentity } from "../recording.ts";
 
 /** A shared physical task; controller choice changes its action adapter, not its objective. */
 export interface WorldTask<A, O> {
@@ -19,24 +20,14 @@ export interface WorldTask<A, O> {
   dispose(): void;
 }
 
-interface Options { readonly policyPeriodSteps: number; readonly maxSteps: number }
+interface Options { readonly buildIdentity: string; readonly policyPeriodSteps: number; readonly maxSteps: number }
 interface Snapshot {
-  readonly protocol: 1;
+  readonly protocol: 2;
+  readonly build: string;
   readonly identity: string;
   readonly seed: number;
   readonly physics: Uint8Array;
   readonly state: Saved;
-}
-
-/** Stable configuration identity refuses values JSON would silently discard or turn into null. */
-function configurationKey(value: unknown): string {
-  if (value === null || typeof value === "boolean" || typeof value === "string") return JSON.stringify(value);
-  if (typeof value === "number" && Number.isFinite(value)) return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${Array.from(value, configurationKey).join(",")}]`;
-  if (typeof value === "object" && value !== null && Object.getPrototypeOf(value) === Object.prototype) {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${configurationKey((value as Record<string, unknown>)[key])}`).join(",")}}`;
-  }
-  throw new Error("task configuration must be finite plain JSON");
 }
 
 function finite(value: unknown): boolean {
@@ -53,6 +44,7 @@ function finite(value: unknown): boolean {
 export function createEnvironment<C extends object, A, O>(configuration: C,
   build: (configuration: C, random: () => number) => WorldTask<A, O>, options: Options) {
   const { policyPeriodSteps, maxSteps } = options;
+  const source = recordingIdentity(options.buildIdentity, "task-environment/2", {});
   if (!Number.isSafeInteger(policyPeriodSteps) || policyPeriodSteps < 1 || !Number.isSafeInteger(maxSteps) || maxSteps < 1) {
     throw new Error("policy period and episode limit must be positive whole steps");
   }
@@ -133,12 +125,12 @@ export function createEnvironment<C extends object, A, O>(configuration: C,
     },
     save(): Snapshot {
       const { task, state, identity } = current();
-      return { protocol: 1, identity, seed: state.seed, physics: task.world.physics.save(),
+      return { protocol: 2, build: source.build, identity, seed: state.seed, physics: task.world.physics.save(),
         state: saveState({ environment: state, world: task.world.state, task: task.state }) };
     },
     load(saved: Snapshot) {
       if (disposed) throw new Error("the environment was disposed");
-      if (saved.protocol !== 1) throw new Error("unknown environment snapshot protocol");
+      requireRecordingIdentity({ build: saved.build, protocol: `task-environment/${saved.protocol}`, configuration: source.configuration }, source);
       const next = make(saved.seed);
       try {
         if (next.identity !== saved.identity) throw new Error("snapshot belongs to another task configuration");

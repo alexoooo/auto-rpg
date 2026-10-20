@@ -295,10 +295,10 @@ test("a_bout_plays_again_from_its_recipe_and_its_tape", async () => {
   const first = await playBout(recipe, 8, tape), second = await playBout(recipe, 8, first.tape);
   // A side is given its orders as JSON carries them, a negative zero as zero: the tape that has been
   // through a link's fragment is the bout's tape, and plays the bout.
-  const carried = readTape(tapeHash(tape));
-  assert.equal(carried.length, 3);
-  assert.deepEqual(first.tape, carried);
-  assert.notDeepEqual(tape, carried, "the fixture's negative zero is what the fragment does not carry");
+  const carried = readTape(tapeHash(first.recording));
+  assert.equal(carried.tape.length, 3);
+  assert.deepEqual(first.tape, carried.tape);
+  assert.notDeepEqual(tape, carried.tape, "the fixture's negative zero is what the fragment does not carry");
   assert.deepEqual(second, first);
   // The controls: no tape, and the same orders a step later, are other bouts.
   const untold = await playBout(recipe, 8);

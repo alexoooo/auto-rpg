@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { createEnvironment } from "../src/core/tasks/environment.ts";
+import { BUILD_IDENTITY } from "../src/build-identity.ts";
 import { createReachTask } from "../src/core/tasks/reach.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
 
@@ -30,7 +31,7 @@ function fixture(config = configuration, options = { policyPeriodSteps: 4, maxSt
     catch (error) { scene.dispose(); rendering.dispose(); throw error; }
     counts.built++;
     return { ...task, dispose() { counts.disposed++; task.dispose(); scene.dispose(); rendering.dispose(); } };
-  }, options);
+  }, { ...options, buildIdentity: BUILD_IDENTITY });
   return { environment, counts };
 }
 
@@ -105,7 +106,8 @@ test("loading another configuration is refused without replacing the current epi
     const before = b.environment.observe(), saved = a.environment.save();
     assert.throws(() => b.environment.load(saved), /another task configuration/);
     assert.deepEqual(b.environment.observe(), before);
-    assert.throws(() => b.environment.load({ ...saved, protocol: 2 }), /protocol/);
+    assert.throws(() => b.environment.load({ ...saved, protocol: 3 }), /protocol/);
+    assert.throws(() => b.environment.load({ ...saved, build: `sha256:${"0".repeat(64)}` }), /different source, assets or solver/);
     assert.deepEqual(b.environment.observe(), before);
   } finally { a.environment.dispose(); b.environment.dispose(); }
   assert.equal(a.counts.built, a.counts.disposed);

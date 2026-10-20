@@ -12,6 +12,9 @@ import { CLASSIC, PUNCHER, QUADRUPED, SCRAPPER } from "../src/core/mind/config.t
 import { PRESETS } from "../src/core/mind/controllers.ts";
 import { partOf, treeFaults } from "../src/core/mind/catalog.ts";
 import { STAND_ORDERS, isOrders } from "../src/core/mind/orders.ts";
+import { ORDERS_PROTOCOL } from "../src/arena/duel.ts";
+import { recordingIdentity } from "../src/core/recording.ts";
+import { BUILD_IDENTITY } from "../src/build-identity.ts";
 
 test("an_arena_link_names_its_matchup_and_a_malformed_one_falls_back", () => {
   assert.deepEqual(readMatchup("?play=arena&matchup=crypt-skeleton,workshop-fighter"), { left: "crypt-skeleton", right: "workshop-fighter" });
@@ -43,11 +46,13 @@ test("a_tape_rides_in_a_link's_fragment", () => {
     { step: 60, side: "right", orders: { move: null, face: { x: 1 / 3, z: 2e-17 }, foe: "left", region: "head" } },
     { step: 120, side: "left", orders: null },
   ];
-  const hash = tapeHash(tape);
-  assert.match(hash, /^#tape=%5B/);
-  assert.deepEqual(readTape(hash), tape);
-  assert.deepEqual(readTape(hash.slice(1)), tape, "with or without its #");
-  assert.deepEqual(["", "#", "#tape=", "#tape=%7B%7D", "#tape=nonsense", "#other=1"].map(readTape), Array(6).fill([]));
+  const recording = { identity: recordingIdentity(BUILD_IDENTITY, ORDERS_PROTOCOL, { recipe: DEFAULT_MATCHUP }), tape };
+  const hash = tapeHash(recording);
+  assert.match(hash, /^#tape=%7B/);
+  assert.deepEqual(readTape(hash), recording);
+  assert.deepEqual(readTape(hash.slice(1)), recording, "with or without its #");
+  assert.deepEqual(["", "#", "#other=1"].map(readTape), [null, null, null]);
+  for (const malformed of ["#tape=", "#tape=%7B%7D", "#tape=nonsense", `#tape=${encodeURIComponent(JSON.stringify(tape))}`]) assert.throws(() => readTape(malformed), /recording|identity/);
   // One entry that is not an entry and the tape is none: a tape played in part is another bout.
   const wrong = [
     { step: 1.5, side: "left", orders: null }, { step: -1, side: "left", orders: null }, { side: "left", orders: null },
@@ -58,7 +63,9 @@ test("a_tape_rides_in_a_link's_fragment", () => {
     { step: 1, side: "left", orders: { move: null, face: null, attack: [1, 2, null] } },
     { step: 1, side: "left", orders: { move: null, face: null, region: "head" } },
   ];
-  for (const entry of wrong) assert.deepEqual(readTape(tapeHash([tape[0], entry])), [], JSON.stringify(entry));
+  for (const entry of wrong) assert.throws(() => readTape(tapeHash({ ...recording, tape: [tape[0], entry] })), /invalid orders/, JSON.stringify(entry));
+  assert.throws(() => readTape(tapeHash({ ...recording, identity: { ...recording.identity, build: `sha256:${"0".repeat(64)}` } })), /different source, assets or solver/);
+  assert.throws(() => readTape(tapeHash({ ...recording, identity: { ...recording.identity, protocol: "arena-orders/0" } })), /another protocol/);
   assert.deepEqual([STAND_ORDERS, tape[1].orders, null, [], { move: null, face: null, attack: "head" }].map(isOrders), [true, true, false, false, false]);
   // A pace is a ceiling, m/s: a number, finite and not below zero, or none.
   assert.deepEqual([0.4, 0, -0.1, Infinity, "slow"].map((pace) => isOrders({ move: { kind: "direct", direction: { x: 0, z: 1 } }, pace, face: null })), [true, true, false, false, false]);

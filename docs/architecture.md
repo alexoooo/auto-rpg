@@ -1240,6 +1240,8 @@ configuration identity, restores it and only then replaces the live episode. A f
 can load directly; a rejected load leaves the current episode intact. The identity includes
 resolved anatomy, task/controller settings, rate, actuation, gravity and solver artifact/adapter
 revision. The snapshot is structured data and bytes, not a JSON-only serialization format.
+Its host supplies the content build fingerprint (`Options.buildIdentity`); the versioned snapshot
+refuses another build or protocol before constructing a candidate episode.
 
 Replay tests capture fresh states; a checkpoint's identity guards stay strict, so a state saved
 by other code is refused rather than loaded. The stand-up screen (`research/stand-up-acceptance.mjs`)
@@ -1310,11 +1312,11 @@ and the blow watch.
   played) with the world's, the senses', the blow watch's and each side's body's, skills' and
   pool's.
 
-`Duel.save()` is a bout at a step: its recipe, the physics' bytes and a copy of its state.
+`Duel.save()` is a bout at a step: its build/protocol identity, recipe, the physics' bytes and a copy of its state.
 `Duel.load(saved)` puts a bout of the same recipe there, the bout it was saved from or another
 built in any world: the physics, the state, and each body shown the others again from the
 senses' frames (`SensesHub.show`). The next step is the one that followed the save. A save of
-another recipe is refused.
+another build, protocol, physical configuration or recipe is refused before loading physics.
 
 `tests/arena-fork.test.mjs` forks a bout at every second of its course and at every step about a
 blow, and holds every field of the bout's state to be one a fork needs: loaded with the field
@@ -1430,7 +1432,7 @@ begins the same after another (`tests/arena-fresh-start.test.mjs`). How the bout
 is `docs/reference/bouts.md`.
 
 Every order a side is given is kept with the step it was given before (`Duel.tape`), an order
-that repeats the last left out. For the current deterministic controllers, the recipe and the
+that repeats the last left out. On the same build and physical configuration, the recipe and the
 tape are the whole of what made a bout:
 `Duel.play` gives a tape again as the bout steps, each order in the sensing phase of the step it
 names, before any mind, so a bout a person fought plays again to the bit
@@ -1446,6 +1448,9 @@ rule of the body, read again in the replay. The recipe and the sheets are the wh
 did: a bout given them (`DuelHooks.replay`) makes no mind, plays each side's sheets in its place
 (`replayedBody`) and is the same bout to the bit. A load that goes back drops the sheets after it
 as the steps are taken again. `tests/mind-contract.test.mjs` holds every registered Mind to it.
+Each log identifies the build, sheet protocol, complete bout recipe, body, initial placement,
+assist grant, engine profile/revision, rate, gravity and actuation. A different identity is refused
+before a replay body is built; replaying the same commands under different grants is a different task.
 
 The same contract test checks exact live continuation after restoring each current Mind's
 explicit state. Live continuation executes the controller again; physical replay applies the
@@ -1455,7 +1460,23 @@ poses; separate-equipment grip requests are outside this gameplay recording form
 A tape rides in a link's fragment, which no server is sent (`#tape=`, `readTape` and `tapeHash`
 in `src/arena/matchup.ts`), with the rest of its recipe in the link's query (`&gap=`, `&cap=`,
 `&balance=`, each side's mind). The arena plays a bout whose link carries a tape with nobody at the keys, and a
-tape made in Node plays its bout in a browser.
+tape made in Node plays its bout in a browser on the same build. `Duel.recording` creates its
+versioned envelope; `Duel.playRecording` checks the exact identity before queuing inputs. Missing
+identity, malformed, legacy or incompatible recordings report a reason. An ordinary recipe link, without
+`#tape`, builds with the current code.
+
+The build fingerprint is a content SHA-256 (`scripts/build-identity.mjs`): source and page templates,
+input assets, dependency lock, build configuration, vendored solver inputs and actual installed
+Rapier JavaScript/WASM. Text uses LF for identity regardless of checkout endings. Generated ratings,
+notes and research outputs are excluded. Uncommitted source participates; a Git commit is only a
+human label. Node reads this fingerprint and Vite embeds the same immutable value for the browser;
+development source changes reload the page instead of mixing new code into an existing world's
+identity. The core receives the build identity from its host and owns only plain identity data and
+compatibility checks (`src/core/recording.ts`).
+
+Match results carry the build and protocol identity; `npm run match -- --read <file>` refuses an
+incompatible result. Tournament caches use content identity in their path and verify every row before
+reuse. Written tables name the same input build, and the Arena refuses a stale table with its reason.
 
 **A bout forks** (`rollout`, `research/rollouts.mjs`) by a load: a bout of the recipe, which the
 thread keeps, is loaded with a save of the fork's step (`Duel.save`) and played on under a branch
