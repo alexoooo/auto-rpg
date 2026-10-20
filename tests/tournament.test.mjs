@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
-import { ratedNotes, tournamentEntrants, tournamentJobs, tournamentTable, TOURNAMENT } from "../scripts/tournament.mjs";
+import { ratedNotes, tournamentEntrants, tournamentJobs, tournamentTable, TOURNAMENT, UNSEEN, UNSEEN_OPPONENT, unseenJobs, unseenTable } from "../scripts/tournament.mjs";
+import { LOADOUTS, REPRESENTATIVE, loadoutKey } from "../src/core/items/held.ts";
 import { bradleyTerry, ratingIntervals } from "../research/rating.mjs";
 import { MINDS } from "../src/core/mind/controllers.ts";
 import { modelSupportsMind } from "../src/core/models.ts";
@@ -23,9 +24,11 @@ test("the ratings put a stronger entrant above a weaker one, the field's strengt
   assert.deepEqual(bradleyTerry(3, [...games].reverse()), ratings);
 });
 
-test("every mind on every character and loadout it fits is an entrant, and each pair meets once on each side at each gap", () => {
+test("every mind on every character and representative loadout it fits is an entrant, and each pair meets once on each side at each gap", () => {
   const entrants = tournamentEntrants();
-  for (const { mind, model, loadout } of entrants) assert.ok(modelSupportsMind(model, MINDS[mind].config, loadout), `${mind} ${model} ${JSON.stringify(loadout)}`);
+  for (const { mind, model, loadout } of entrants) assert.ok(modelSupportsMind(model, MINDS[mind].config, loadout) && REPRESENTATIVE.includes(loadout), `${mind} ${model} ${JSON.stringify(loadout)}`);
+  assert.deepEqual(REPRESENTATIVE.map(loadoutKey), ["empty,empty", "empty,club", "buckler,club", "empty,sword", "buckler,sword"]);
+  assert.deepEqual([...REPRESENTATIVE, ...UNSEEN].map(loadoutKey).sort(), LOADOUTS.map(loadoutKey).sort(), "the rated and the unseen are the catalog, once each");
   assert.deepEqual([...new Set(entrants.map((entrant) => entrant.mind))].sort(), Object.keys(MINDS).sort(), "every mind plays");
   const some = entrants.slice(0, 4), jobs = tournamentJobs(some);
   assert.equal(jobs.length, 6 * 2 * TOURNAMENT.gaps.length);
@@ -38,6 +41,21 @@ test("every mind on every character and loadout it fits is an entrant, and each 
   }
   for (const [pair, lefts] of met) assert.deepEqual(lefts.sort(), pair.split(",").map(Number).flatMap((k) => Array(TOURNAMENT.gaps.length).fill(k)).sort(), pair);
   assert.equal(new Set(jobs.map((job) => job.key)).size, jobs.length, "a bout is kept under a key of its own");
+});
+
+test("an unseen entrant meets the opponent once on each side at each gap, and is scored as itself", () => {
+  const entrants = tournamentEntrants(["classic"], UNSEEN);
+  assert.ok(entrants.length > 0 && entrants.every(({ loadout }) => UNSEEN.includes(loadout)));
+  const jobs = unseenJobs(entrants.slice(0, 2));
+  assert.equal(jobs.length, 2 * 2 * TOURNAMENT.gaps.length);
+  for (const job of jobs) {
+    const own = job.left ? "left" : "right", other = job.left ? "right" : "left", entrant = entrants[job.i];
+    assert.deepEqual([job.recipe.loadouts[own], job.recipe.minds[own], job.recipe.loadouts[other], job.recipe.minds[other]],
+      [entrant.loadout, MINDS[entrant.mind].config, UNSEEN_OPPONENT.loadout, MINDS[UNSEEN_OPPONENT.mind].config]);
+  }
+  assert.equal(new Set(jobs.map((job) => job.key)).size, jobs.length);
+  const table = unseenTable(entrants.slice(0, 2), [{ i: 0, left: true, winner: "left" }, { i: 0, left: false, winner: "left" }, { i: 1, left: false, winner: null }]);
+  assert.deepEqual(table.map(({ wins, draws, losses, bouts }) => [wins, draws, losses, bouts]), [[1, 0, 1, 2], [0, 1, 0, 1]]);
 });
 
 test("a table counts each entrant's bouts, and its notes are the rating at a leaf and the mean above it", () => {

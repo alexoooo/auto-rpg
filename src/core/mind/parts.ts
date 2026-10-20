@@ -57,6 +57,13 @@ export interface Part<C extends PartConfig = PartConfig> {
   /** Held segments this part uses safely: striking, covering or another declared equipment use. */
   supportedEquipment?(spec: BodySpec, config: C): readonly string[];
   /**
+   * The effectors its blows strike with on a body of `spec`, as it holds what it holds, or
+   * undefined where `config` names no blow of its own: a part that answers is a fighting mind's,
+   * which fits only a body it can attack with (`canAttack`), and each segment it names is a
+   * declared use of what that segment holds.
+   */
+  strikes?(spec: BodySpec, config: C): readonly string[] | undefined;
+  /**
    * What is wrong with `config` itself, each a sentence, a fault found at a slot prefixed with its
    * key (`blow: `). Its slots' parts answer for their own; it is asked only once each slot holds parts of its role.
    */

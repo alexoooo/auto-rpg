@@ -12,6 +12,7 @@ import { buildBout } from "../research/bout.mjs";
 import { SIDES } from "../src/arena/duel.ts";
 import { CONTROLLERS } from "../src/core/mind/controllers.ts";
 import { BODY_MODELS, modelSupportsMind } from "../src/core/models.ts";
+import { LOADOUTS, loadoutKey } from "../src/core/items/held.ts";
 import { traceOf } from "./harness/trace.mjs";
 import { modelSpec } from "../src/core/models.ts";
 import { replayedBody } from "../src/core/mind/sheets.ts";
@@ -146,4 +147,20 @@ test("both-hand loadouts fork and replay their physical commands", async () => {
   assert.deepEqual(replay.minds, ["replay", "replay"]);
   assert.equal(replay.end.digest, first.end.digest);
   assert.equal(replay.end.physics, first.end.physics);
+});
+
+test("every registered Mind is built on each character and catalog loadout it fits", async () => {
+  // Fitting is the promise that a mind can be built and fight there: two cases a bout, one a side.
+  const cases = MINDS.flatMap(([id, config]) => BODY_MODELS.flatMap((model) => LOADOUTS
+    .filter((loadout) => modelSupportsMind(model, config, loadout)).map((loadout) => ({ id, config, model, loadout }))));
+  assert.ok(cases.some(({ loadout }) => loadout.left === "buckler" && loadout.right === "sword"), "the fixture reaches sword and buckler");
+  const failed = [];
+  for (let k = 0; k < cases.length; k += 2) {
+    const left = cases[k], right = cases[k + 1] ?? cases[k];
+    try {
+      const { dispose } = await buildBout({ left: left.model, right: right.model, gap: 4, loadouts: { left: left.loadout, right: right.loadout }, minds: { left: left.config, right: right.config } });
+      dispose();
+    } catch (error) { failed.push(`${left.id}/${left.model}/${loadoutKey(left.loadout)} or ${right.id}/${right.model}/${loadoutKey(right.loadout)}: ${error.message}`); }
+  }
+  assert.deepEqual(failed, []);
 });

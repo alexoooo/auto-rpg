@@ -97,7 +97,7 @@ function unknownSettings(config: PartConfig): readonly string[] {
 /** Whether a body of `spec` can carry out what every part of the tree `config` roots commands. */
 export function treeFits(spec: BodySpec, config: PartConfig): boolean {
   const part = partOf(config);
-  return part.fits(spec, config) && (part.role !== "mind" || equipmentSupported(spec, config))
+  return part.fits(spec, config) && (part.role !== "mind" || equipmentSupported(spec, config) && canAttack(spec, config))
     && held(config).every(({ parts }) => parts.every((child) => treeFits(spec, child as PartConfig)));
 }
 
@@ -106,10 +106,26 @@ export function equipmentSupported(spec: BodySpec, config: PartConfig): boolean 
   const supported = new Set<string>();
   const collect = (one: PartConfig): void => {
     for (const segment of partOf(one).supportedEquipment?.(spec, one) ?? []) supported.add(segment);
+    for (const segment of partOf(one).strikes?.(spec, one) ?? []) supported.add(segment);
     for (const slot of held(one)) for (const child of slot.parts) collect(child as PartConfig);
   };
   collect(config);
   return (spec.held ?? []).every(({ segment }) => supported.has(segment));
+}
+
+/**
+ * **Whether a body of `spec` can attack under the tree `config` roots**: a part of it strikes with
+ * some effector there (`Part.strikes`). A tree none of whose parts names a blow of its own is no
+ * fighting mind's (direct control, a fighter given no actions), and is not held to it.
+ */
+export function canAttack(spec: BodySpec, config: PartConfig): boolean {
+  let fighting = false;
+  const strikes = (one: PartConfig): boolean => {
+    const own = partOf(one).strikes?.(spec, one);
+    if (own !== undefined) { fighting = true; if (own.length > 0) return true; }
+    return held(one).some((slot) => slot.parts.some((child) => strikes(child as PartConfig)));
+  };
+  return strikes(config) || !fighting;
 }
 
 /** The tree `config` roots with every part's `tuning` left out: what a person's settings are, and what a link carries. */

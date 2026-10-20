@@ -478,6 +478,8 @@ body:has(#pause-menu:not(.gone)) #bout-end {
 #ratings th, #ratings td { padding: 3px 8px; text-align: left; white-space: nowrap; border-bottom: 1px solid rgba(201, 181, 150, 0.15); }
 #ratings th { color: #f1dfbc; font-weight: 400; position: sticky; top: 0; background: rgba(12, 13, 16, 0.98); }
 #ratings td:nth-child(n+5) { text-align: right; font-variant-numeric: tabular-nums; }
+#unseen-table td:nth-child(n+4) { text-align: right; font-variant-numeric: tabular-nums; }
+#unseen-about { margin-top: 14px; }
 
 /* The chosen mind's notes, its most particular first. */
 #curtain .mind-notes { display: flex; flex-direction: column; gap: 2px; margin: 0; font-size: 11px; color: #b7a790; }

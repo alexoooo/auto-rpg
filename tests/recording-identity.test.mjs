@@ -11,7 +11,7 @@ import { recordingIdentity, recordingKey, requireRecordingIdentity } from "../sr
 import { readTape, tapeHash } from "../src/arena/matchup.ts";
 import { buildBout, BOUT_HARNESS } from "../research/bout.mjs";
 import { MATCH, readMatchMind, readMatchResult } from "../scripts/match.mjs";
-import { TOURNAMENT, readTournamentRows } from "../scripts/tournament.mjs";
+import { TOURNAMENT, UNSEEN_OPPONENT, readTournamentRows } from "../scripts/tournament.mjs";
 import { Duel } from "../src/arena/duel.ts";
 
 test("build content includes changed source, assets and solver bytes with checkout-independent text", () => {
@@ -134,7 +134,7 @@ test("match results and tournament rows reject incompatible builds and protocols
   assert.throws(() => readMatchResult({ ...result, identity: { ...identity, build: `sha256:${"0".repeat(64)}` } }), /different source/);
   assert.throws(() => readMatchResult({ ...result, protocol: { ...MATCH, gaps: [9] } }), /another match protocol/);
   assert.throws(() => readMatchResult({ ...result, identity: { ...identity, protocol: "arena-match/0" } }), /another protocol/);
-  const tournament = recordingIdentity(BUILD_IDENTITY, "arena-tournament/1", { harness: BOUT_HARNESS, protocol: TOURNAMENT });
+  const tournament = recordingIdentity(BUILD_IDENTITY, "arena-tournament/1", { harness: BOUT_HARNESS, protocol: TOURNAMENT, unseen: UNSEEN_OPPONENT });
   const row = { identity: tournament, level: TOURNAMENT.level, key: "a|b|4", winner: "left" };
   assert.deepEqual([...readTournamentRows(JSON.stringify(row), tournament)], [[row.key, row]]);
   assert.throws(() => readTournamentRows(JSON.stringify({ ...row, level: "obstacle-court" }), tournament), /level/);

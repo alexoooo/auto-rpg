@@ -179,10 +179,13 @@ a part that cannot use a loadout drops out of the pickers for it (`Controller.fi
 the quadruped, any body for direct control). Each mind makes that call itself. A skill states
 the facts: an executor says which effectors it strikes with on the armed body
 (`ExecutorPart.strikesWith`; a punch only with a hand that holds nothing). The fighter and the
-options fighter declare their usable action effectors through `Part.supportedEquipment`. A
-guard declares the held segments it covers with through the same contract. `equipmentSupported`
-unions those declarations across the mind's tree; `treeFits` refuses a mind unless every held
-item has a declared use. This declaration establishes support, while physical tasks establish
+options fighter declare their usable action effectors through `Part.strikes`, and a guard the
+held segments it covers with through `Part.supportedEquipment`. `equipmentSupported` unions
+both across the mind's tree, and `canAttack` asks that a mind with a part that strikes strike
+with something on the armed body; `treeFits` refuses a mind unless every held item has a
+declared use and, for a fighting mind, it can attack (direct control strikes with nothing and is
+not held to it), so a mind fits exactly the loadouts it can be built on and fight with, which
+`tests/mind-contract.test.mjs` holds by building each on each. This declaration establishes support, while physical tasks establish
 how well the item is used. Every fighter throws only its usable actions (`armedActions`), so the
 Puncher may cover with a club while punching with its free hand. How a model is shown, its label,
 clothing and shape tint, is the screens' (`MODEL_DISPLAY`, `src/render/models.ts`).
@@ -831,11 +834,17 @@ or builder. Once registered it is offered (`MINDS`) by its presets, or by its ki
 `tests/mind-contract.test.mjs` runs it on the first body it fits against itself, forks it and
 replays it from its order sheets; how well it fights is a measurement, not a gate: the standard
 match (`scripts/match.mjs`, `npm run match -- <a> <b>`) plays two minds over one fixed set of
-bodies and gaps, with each of its loadouts both fit, each on each side, and names the result by a digest that is the same on
-every machine; the tournament (`scripts/tournament.mjs`) plays every mind on every character and
-loadout it fits against every other and rates each by Bradley-Terry on the Elo scale
+bodies, levels and gaps, with each of its loadouts both fit, each on each side, and names the result by a digest that is the same on
+every machine; its standard protocol plays the representative loadouts on the open stage, and
+`--protocol sword-and-buckler` that loadout on the open stage and the obstacle court. Minds are
+rated on the representative loadouts (`REPRESENTATIVE`, `src/core/items/held.ts`, the owner's
+choice: bare hands, the club, club and buckler, the sword, sword and buckler); the tournament
+(`scripts/tournament.mjs`) plays every mind on every character and representative loadout it
+fits against every other and rates each by Bradley-Terry on the Elo scale
 (`research/rating.mjs`), which the Arena shows as each mind's notes (`src/ui/mind-notes.ts`: a
-note for the mind, a loadout, a character, and both) and in its Ratings panel. The fingerprint has a case for every mind a person may pick, so a toolkit change names
+note for the mind, a loadout, a character, and both) and in its Ratings panel. The rest of the
+catalog is unseen: each mind on each unseen loadout it fits meets one opponent with sword and
+buckler, and the panel shows how it scored beside the ratings, never in them. The fingerprint has a case for every mind a person may pick, so a toolkit change names
 the minds it moves; `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
 
 **The fighter's configuration** (`FighterConfig`) holds tactics, locomotion, guard, optional

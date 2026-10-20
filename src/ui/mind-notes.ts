@@ -74,6 +74,19 @@ interface RatedEntrant {
   readonly losses: number;
 }
 
+/** One mind on a character with a loadout no mind is rated on, and its score against the tournament's unseen opponent. */
+interface UnseenEntrant {
+  readonly mind: string;
+  readonly model: BodyModel;
+  readonly loadout: Loadout;
+  /** The opponent's mind (`MINDS`), with sword and buckler (`UNSEEN_OPPONENT`, `scripts/tournament.mjs`). */
+  readonly against: string;
+  readonly bouts: number;
+  readonly wins: number;
+  readonly draws: number;
+  readonly losses: number;
+}
+
 /** **The last tournament's ratings** (`assets/minds/ratings.json`): when, at which commit, how it was played, and each entrant's rating. */
 interface Ratings {
   readonly unavailable: string | null;
@@ -82,13 +95,15 @@ interface Ratings {
   readonly harness: string | null;
   readonly protocol: string | null;
   readonly entrants: readonly RatedEntrant[];
+  /** How each mind carried to the loadouts it was not rated on, beside the ratings. */
+  readonly unseen: readonly UnseenEntrant[];
 }
 
 /** A table made on different inputs cannot describe the available minds and physical recipes. */
 export function readRatings(record: Omit<Ratings, "unavailable"> & { readonly identity?: RecordingIdentity }): Ratings {
-  if (record.entrants.length > 0) {
+  if (record.entrants.length > 0 || record.unseen.length > 0) {
     try { requireRecordingIdentity(record.identity, { build: BUILD_IDENTITY, protocol: "arena-tournament/1", configuration: record.identity?.configuration ?? "" }); }
-    catch (error) { return { ...record, entrants: [], unavailable: error instanceof Error ? error.message : String(error) }; }
+    catch (error) { return { ...record, entrants: [], unseen: [], unavailable: error instanceof Error ? error.message : String(error) }; }
   }
   return { ...record, unavailable: null, entrants: record.entrants.map(entrant => ({ ...entrant,
     interval: [entrant.interval[0]!, entrant.interval[1]!] as const })) };
