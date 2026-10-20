@@ -19,7 +19,8 @@ export async function playBouts(jobs, lanes = defaultLanes()) {
       if (next >= jobs.length) { worker.terminate(); resolve(); return; }
       const id = next++;
       worker.once("message", ({ result, error }) => {
-        if (error) { reject(new Error(error)); return; }
+        // A bout that throws ends the run: every worker is let go, or the process waits on them.
+        if (error) { next = jobs.length; for (const each of pool) each.terminate(); reject(new Error(error)); return; }
         rows[id] = result;
         feed();
       });
