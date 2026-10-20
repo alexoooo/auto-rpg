@@ -20,6 +20,7 @@
  "core-ground-capability.test.mjs",
  "core-ground-combat-capability.test.mjs",
  "core-guard-capability.test.mjs",
+ "core-navigation-capability.test.mjs",
  "core-orders-capability.test.mjs",
  "core-point-strike-capability.test.mjs",
  "core-posture-hold-capability.test.mjs",
