@@ -1,437 +1,139 @@
-# One controller for every body: the whole-body solve
+# Whole-body control: running, recovery and combat
 
-A body that stands, walks, runs, stops, recovers from a shove, stands up from a fall, holds what it
-holds and strikes, all through **one solve** under **a few behaviours**, instead of a controller
-built for each skill. The attributes (Balance, Haste, a Grit brought back) become bounds the solve
-uses on its own, so a character helped past a person's level is helped in everything it does.
+## Scope
 
-This plan supersedes the locomotion and stand-up plan of 2026-10-16, whose findings are kept
-below as the baseline and the register of what not to try again.
+Develop one reusable execution stack within the
+[shared controller workshop](2026-10-20-shared-controller-workshop.md): motion and contact goals
+turned into bounded muscle commands by whole-body control. The current solve, stance and skill
+interfaces are described in [Motor control](../architecture.md#motor-control) and
+[Skills](../architecture.md#skills). This plan owns the open running, recovery, strike/hold and
+assistance experiments on that stack.
 
-## Why
+The stack is available to the [options fighter](2026-10-14-options-fighter.md) and other Minds.
+An experiment may use another controller or replace the whole stack through the common
+observation/actuation boundary. Independent component registration and shared task infrastructure
+belong to the workshop plan. Keep existing selectable implementations alongside candidates;
+retirement is a separate owner decision.
 
-**What the owner wants** (2026-10-17): superhuman balance, locomotion and recovery, by assists,
-with everything on the table, morphology and muscles included. One general approach, since today
-"any time any character needs to do anything it takes a lot of ad-hoc custom development", and
-no controller per loadout: two hands and N items would be N² controllers. Whatever runs in the
-game runs in a browser; training offline is fine if what it produces is cheap. A human look is
-preferred, and a strange motion that meets its bar beats a human one that does not.
+## Running and Haste
 
-**Why the assists have mostly failed.** Every controller the game runs is a script that
-reproduces a human-shaped motion at human-shaped numbers, with thin feedback over it. Extra
-capability has nowhere to go, because nothing in the loop asks for more than a person does:
+Develop forward running that uses the body's available strength and speed, supports stopping
+and turning, and carries equipment without uncontrolled drift. Compare contact/flight planning
+and learned steering where useful. Motion references can provide posture preferences without
+fixing the attainable pace or forcing a particular algorithm.
 
-- **Haste** (the legs' muscles faster) adds about 0.3 m/s. The run (`runCycle`,
-  `src/core/skills/cycle-run.ts`) tracks three CMU clips' joint angles at a cadence; faster
-  muscles track the same angles. Its pace is the fixed point of pace = body + `ahead`. At the
-  Warrior's top speed only the ankles reach the strength the run allows them, so the muscles do
-  not cap the stride: the controller does. Timing the gait to the muscles (`hasted`) felled 106
-  of 150 runs: stride and stance times are gravity's.
-- **Grit** (a joint-torque surge) stood the Warrior from no more falls and no faster at twice its
-  strength. The stand-up (`step-up`, `src/core/mind/ground/step-up.ts`) is eight pose stages, each
-  gated on being settled; its joints run well under their strength, and torque does not shorten a
-  wait on balance. Not built.
-- **Balance** (a root wrench no muscle gives) is the one assist that works: it acts on the one
-  thing the scripts cannot do, the pelvis's attitude. It costs the Rogue and the skeleton pace
-  because it rights the pelvis toward the gait's own lean, and a body accelerates by leaning
-  further (`gaitAssist`, `src/core/skills/gait-assist.ts`). It is "spent by 25 %" because the
-  stance asks for no more, not because the body needs no more.
-- **A lift through the stand-up** felled every body: the pose stages are open-loop and assume
-  the ground; lifted, nothing in them notices.
-- **The searches** tune about twenty scalars of a fixed structure. A longer stride and a faster
-  stand-up are not in that class, so no search finds them.
+The running candidate must meet these capability targets together:
 
-The rule that falls out: an assist fails where the controller is feed-forward and works where it
-is feedback. Capability has to be *consumed by something that optimises*.
+- Forward running toward the owner's 5 m/s aim, with the Warrior sustaining at least 4.5 m/s.
+- Haste +100 adds at least 1 m/s under matched conditions, with its effect on falls and other
+  bodies/loadouts reported.
+- At most 19 falls in the 300-trial gait battery and at most 18 in its 150 club trials; the
+  forward club envelope is at or above SIMBICON's on matched cells.
+- Sideways and backward movement remain stepping walks at their own pace. Exercise travel,
+  transitions, stops and turns rather than judging only straight-line top speed.
+- The owner accepts the motion's look in the Lab and game. Human motion is a preference; a
+  different motion that meets the physical objective remains a valid candidate.
 
-**What already exists.** `bodyDynamics` (`src/core/build/dynamics.ts`) gives the mass matrix,
-gravity and the velocity terms. The bearing solve (`src/core/control/bearing.ts`) is a weighted
-bounded least-squares over limbs, ground patches and the assist. `wholeBodyTracking`
-(`src/core/control/whole-body.ts`) is an experimental one-solve acceleration tracker that already
-carries held items' mass and grips, and is not the game's default. A held item is part of the
-body's spec (`armedWith`, `src/core/items/held.ts`), so a model-based solve carries it without
-being told. The muscle driver takes a torque-source command (an infinite-speed command,
-`src/core/muscle/driver.ts`). The game's defaults bypass all of it: the walk and the run drive
-joint targets from SIMBICON and the clips, and the stand-up drives poses.
+These are capability goals, read on the Node stand, Rapier, 120 Hz, using the same resolved
+engine profile, body definitions, loadouts and battery conditions for candidate and reference.
+Declare Balance and Haste in each result; nominal comparisons use Balance 0 and Haste 0, with
+Haste comparisons and assisted trials identified separately. Keep the original battery scope
+when scoring its numerical bars. A changed battery is a new protocol whose references are read
+again before comparison.
 
-## The architecture
+Use the existing course, search and envelope apparatus (`research/locomotion-run.mjs`,
+`research/run-cycle-search.mjs`, `research/core-stance-envelope.mjs`) and the task's physical
+observations. Resolve the current reference implementation and its settings at the checkpoint;
+earlier pace, envelope and fall readings are not current baselines.
 
-Three layers with fixed interfaces. Within this stack a layer reaches the one under it and nothing
-else. The stack is not the only way to drive a body: the boundary every mind keeps is the checked
-actuation boundary (`2026-10-18-ai-experiments.md`), and a mind may drive its muscles without it.
+## Fast, robust unassisted recovery
 
-### Layer 1: the solve
+Develop feedback over physical support transitions and motion, including a faster path onto
+support and a stable hand-back. A planned contact, completed internal stage or briefly raised
+trunk is insufficient: the independent task must verify that the body recovered and can move.
+Compare planners, reference tracking and learned policies through the same permitted actuation.
 
-One per body, every control step. It is given:
+The owner's target is the 64-fall protocol in `research/rising-bed.mjs --target` and
+[the recovery target](../reference/rising.md). On the Node stand, Rapier, 120 Hz,
+Balance 0 and Grit 0, it covers the Warrior and Rogue, empty-handed and with the club, each
+shoved in sixteen directions. The target requires:
 
-- **tasks**: weighted accelerations of points and frames (a sole, a hand, the pelvis, the centre
-  of mass), and a posture (joint angles with a weight);
-- **the contact set**: which patches bear, with their friction cones;
-- **the actuator bounds**: each muscle channel's torque at its speed (the Hill curve as it is
-  today), and the assist's wrench ceiling.
+- The complete set of unique directions.
+- At least 15 of 16 verified recoveries within 6 s in every body/loadout group.
+- At least 61 of 64 verified recoveries within 6 s overall.
+- Every cardinal shove direction passing in every group.
+- A failure-inclusive median verified recovery time at most 4 s.
 
-It finds the joint torques, the contact forces and the assist wrench that best meet the tasks
-within the bounds, with a cost that spends muscles before the assist. It knows no gait, no fall
-and no item: a held item is mass in the model, and what the item wants is a task on the hand.
+`risingReport` owns the checks, including failures in the denominator and capped median. Keep
+step-up as the baseline, make the falls afresh, and distinguish takeover, controller hand-back
+and independently verified recovery. The Lab's Stand-up scenario exercises the target's falls
+as a round on one body; its outcome is reported separately from independent stand trials.
 
-**The attributes live here and nowhere else:**
+A candidate acting on observations through muscle or joint-target actions also runs the
+sixteen-fall screen (`research/stand-up-acceptance.mjs --candidate <module>`). It has its own
+conditions and verification. Passing it does not establish the 64-fall target, and a rejected
+external-actuation request is a failure.
 
-| Attribute | In the solve |
-|---|---|
-| Balance | the bound on the assist wrench (`balanceCeiling`, as today) |
-| Grit | the torque bounds raised |
-| Haste | the Hill velocity bound raised (as today, `jointSpeed`) |
+Vary falls and starting support in development, then confirm on fresh cases. Keep the nominal
+anatomy and muscle limits unchanged when claiming the unassisted goal. An anatomy, solver,
+sole or assistance study is an explicitly different configuration, with its reference read
+under those conditions. An improvement on a battery, passing software checks and completing
+the goal remain separate claims.
 
-The solve uses what it is given exactly when a task needs it, which is why Grit and Haste do
-nothing today and would do everything here.
+## Assistance experiments
 
-**Cost gate.** A body under control costs 0.36 to 0.46 ms a step today (Node, Rapier, 120 Hz,
-`docs/reference/step-cost.md`). The solve's gate is **0.5 ms a body a step**, read with
-`research/step-time.mjs`; a solve of about forty variables warm-started from the last step is in
-that range. The level rule (`levelsOf`) already drops bodies far from the fight. If 120 Hz does
-not fit, the solve runs at 60 Hz over a 120 Hz world, and that is measured before it is chosen.
+Balance, Haste and proposed Grit work must name their physical authority and configuration.
+Balance remains the metered extra wrench; Haste changes the declared muscle-speed capability.
+Grit is a separate proposed torque-assistance experiment whose limits, accounting and
+interaction with the muscles must be defined before it is used. The proposal raises available
+torque bounds; account for the extra effort separately from nominal muscle strength. Assistance
+does not silently change nominal anatomy or raise muscle strength for feel.
 
-### Layer 2: behaviours, as task generators
+The Grit-assisted recovery objective is a median below 4 s under the explicitly declared Grit
+configuration, on matched target cases. It is independent of the unassisted target above. If a
+controller uses assistance in training, evaluate the resulting unassisted controller without it before
+making an unassisted claim. A policy must consume the observed body and its actual available
+actuation; additional authority must not overdrive a motion whose feedback ignores it.
 
-A behaviour says *what to accelerate*, never a torque. Four cover most of the game:
+Morphology or alternative assistance mechanisms can be investigated as separate experiments.
+Record their sourced physical changes, permissions and effect on the same tasks; transfer back
+to nominal gameplay is a further comparison.
 
-1. **Capture-point stepping.** Standing, a shove taken, walking, running, stopping and turning
-   are one question: where the next foot goes and when (the capture point and its 3D form, the
-   divergent component of motion). Ankle, hip and stepping strategies fall out of the solve. The
-   step's reach reads the leg's speed, so Haste lengthens the stride instead of quickening a
-   cycle; the run gets its flight from the centre of mass's launch, not from a clip.
-2. **Contact sequences.** A stand-up is a sequence of support sets (back, side, fours, a knee,
-   two feet), each with a centre-of-mass goal, under feedback: the solve bears on each set and
-   the sequence advances when the centre of mass is over the next. Today's route is kept as
-   data; the stages that wait on being settled go.
-3. **Reach and strike.** The point strike (`src/core/control/point-strike.ts`) already works this
-   way; the hand's task carries the item's mass through the model.
-4. **Learned behaviours**, only where a planner cannot: a small policy (a ReLU network of a few
-   thousand weights, exact arithmetic) that outputs task targets, a footstep, a centre-of-mass
-   goal or a contact switch, trained offline on the harness with the body, the loadout and the
-   attributes randomised, and given the item's mass and centre as inputs rather than its name.
-   The first candidate is the stand-up from an arbitrary pose, trained strong first and weakened
-   in a curriculum, with Grit as the strong end: a character with Grit then plays the strong
-   policy's route (Tao et al. 2022; HumanUP 2025).
+## Strikes and equipment holds
 
-**The human look is one weight.** The mocap clip stops being the controller and becomes the
-posture task's target by phase, inside the solve. The dynamic tasks give the performance; the
-posture's weight gives how much it looks like the clip, and may differ by character.
+Develop point and orientation tasks that deliver useful motion through bounded muscles while
+retaining whole-body support. The open work is a driven strike that sequences the available
+arm, trunk and ground reaction effectively, returns under control and works in combat, together
+with useful physical holds for equipment.
 
-### Layer 3: the mind
+Evaluate the strike on its physical task first: pre-impact driven motion, contact, delivered
+effort, self-injury, balance and return to readiness. Then compare the same fighter assembly
+with only the executor changed, against a frozen opponent field. Competitive strength must be
+at least the reference's under that declared protocol, and the one-two and guard retain their
+measured admission and execution windows. Use the current paired match and tournament paths
+(`scripts/match.mjs`, `scripts/tournament.mjs`); whole-body motion alone does not establish
+stronger combat.
 
-The options fighter (`src/core/mind/options/`) is the stack's first client: an option asks a
-behaviour for what it wants. Another mind may use the stack or drive its body by other means.
+Hold and strike experiments use current action/executor configurations and ordinary ownership,
+interruption and contact feedback. Equipment construction and multi-item loadouts belong to the
+workshop plan. As those mechanics arrive, exercise shield orientation, weapon lines and coupled
+two-hand control through the same solve without adding a separate controller for every loadout.
 
-### Loadouts
+## Resources, comparisons and next work
 
-An item is mass and inertia in the model, carried by the solve without a word. What the item
-wants, the blade up, the shield's face toward the threat, the club's guard, is one task per item
-kind on the hand that holds it. Two hands are two tasks in the same solve. N items are N tasks.
+Choose one capability question and a frozen platform checkpoint. Re-read its reference, develop
+one candidate beside it, evaluate fresh cases and show the motion to the owner. Running,
+recovery and striking work can proceed independently where their interfaces permit it; a needed
+shared platform change lands separately and creates a new comparison checkpoint.
 
-## Where things stand
+Keep the solve's 0.5 ms per body per step performance objective as a hardware-qualified target.
+When cost is the question, use `research/step-time.mjs`, record the machine, engine, rate and
+fixture, and compare candidate/reference on the same machine. Laptop and desktop wall times
+are distinct readings. Physics remains 120 Hz; a different policy cadence is an explicit
+experiment whose held commands, work allowance and replay are specified.
 
-Every figure is Node stand, Rapier, 120 Hz, balance 0 % and haste 0 unless it says otherwise. The
-sweeps behind them are in `docs/reference/stance-tuning.md`; the story of each change is in its
-commit.
-
-**Stage 0, the solve: done.** `src/core/control/solve.ts` is the only motor solve; the bearing
-solve's option is gone. Its torque rows rank over the root's (`WEIGHT.torque`), and with the
-ground short the root's turn is aimed at the rigid body's response to the wrench the ground
-missed (`rigidTurn`). Under the assist reference's pulls (`tests/core-assist.test.mjs`) and the
-stance test's shoves it did what the bearing solve did (the same recovery steps within one, the
-dip within 1 cm). Standing, a body's step costs 0.21 ms (`tests/harness/garbage.mjs`'s pair) and
-the whole motor control is about 10 % of a bout's step (`step-time.mjs --profile`), inside the
-0.5 ms gate. `wholeBodyTracking` (`whole-body.ts`) is still in the tree as the experimental
-tracker.
-
-**Stage 1, standing and the shove: done.** Balance bounds the stance's step: it steps only once
-its capture point is past the margin and what its assist holds (`assistReach`,
-`STANCE_RECOVERY.assisted`; `stance-tuning.md#assisted`). On the shove battery (272 shoves to
-90 N s) at balance 0 the Rogue holds 163 and the Warrior 238 (the bearing solve 142 and 237); at
-25 % 240 and 272; the gait battery at 25 % loses no pace. `gaitAssist`
-(`src/core/skills/gait-assist.ts`) is left to stage 3.
-
-**Stage 2, walk, stop and turn: closed.** The stance's walk is capture-point stepping on a DCM
-preview (`walkStep`, `transferStep`, `src/core/control/gait.ts`), each step planned at the pace
-its leg can take from the measured capture point and re-aimed as it swings, and past its top it
-hands over to the cycle run (`walk-run.ts`, Move's Braced and Run, its own `WALK_RUN_CYCLE`).
-SIMBICON's walk and run stay selectable beside it. Against the gate:
-
-- the stop battery (0.7, 1.0 and 1.2 m/s four ways, empty and club, calm and in a 1 m/s gust;
-  `research/core-stance-sweep.mjs --batteries stop --gusts 1:5:5 --solve`) holds 96 of 96, where
-  the bearing solve at the start of the stage fell 13;
-- the five-way gait battery asked 0.7 to 1.8 m/s holds 50 of 50, and walks back asked 0.9 to
-  1.3 m/s three ways, empty and club, calm and on gust seeds 5 to 7, hold 239 of 240;
-- the Move bout's `todo` passes;
-- forward the walk tops out near 1.2 m/s whatever is asked (asked 1.4,
-  empty-handed in the guard: the Warrior 1.22, the Rogue 0.96, the skeleton 1.18); sideways and
-  back it steps at its legs' own pace (back asked 1.2 m/s: the Warrior 0.90, the Rogue 0.75), as
-  the owner decided;
-- on the walk-run envelope (one walk a cell, 0.2 to 4.5 m/s), forward and forward-right, the
-  Warrior holds every cell to 4.5 m/s, empty and with the club; empty, the Rogue holds 3.5 and
-  3.5 and the skeleton 4 and 4, where SIMBICON's walk and run hold 1.2 to 1.7.
-
-What it leaves unmet is the run's, and goes to stage 3's gate: the club's slow run. Asked 1.0 to
-1.4 m/s with the club, the run drifts across its heading 0.46 to 0.57 m/s, to the Rogue's left
-and the skeleton's right, as a proportional placement (Raibert's) leaves a load carried to one
-side; so with the club the Rogue's forward envelope is 0.7 m/s (2.5 forward-right) and the
-skeleton's 0.7 and 0.7, against SIMBICON's 1.2/1.7 and 1.4/1.7. The two fixes tried for it are
-in the register. On the gait battery below the walk and run falls 41 of 300.
-
-**The baseline stages 3 and 4 measure against.** The cycle run alone (`runCycle`,
-`src/core/skills/cycle-run.ts`), on the gait battery (asked 1.4 to 5 m/s, three stops, two turns,
-gust seeds 5 to 8, empty and club: 300 trials; `research/run-cycle-search.mjs --score`):
-
-| | Trials fallen | Steady pace, Warrior / Rogue / skeleton (m/s) |
-|---|---|---|
-| Balance 0 | 19 of 300 | 3.50 / 2.65 / 2.98 |
-| Balance 25 | 31 of 300 | 3.59 / 2.83 / 3.09 |
-| Haste +50, Balance 25 (same run) | 15 of 300 | 3.68 / 2.99 / 3.21 |
-
-Of the 31 at Balance 25, 30 are the Warrior falling at 3.3 s, before it is under way, in gust
-seeds 6 and 8 in every cell (`--speeds 1.4 --winds 1:5:6 --holds empty --models workshop-fighter
---balance 25`); it stands at balance 0, and stood at 25 before `8d30a6d9` re-searched the run's
-settings at balance 0. Haste +100 takes the Warrior to 3.74 m/s and fells it in 3 of 6 fast
-trials. The Warrior's running step width is 0.31 m; acceleration from 1 to 3 m/s is about
-0.3 m/s². The club's run falls 18 of 150. The walk's and the run's SIMBICON envelopes
-(`assets/core/simbicon-envelope.json`, `simbicon-run-envelope.json`) are as measured on
-`a42d7f2c`.
-
-On the owner's 64-fall target (`node research/rising-bed.mjs --target --sub stand-up
---techniques step-up`, 30 s cap), step-up stands 46 of 64 (the Warrior 15 and 15 of 16, empty and
-with the club, medians 13.6 and 14.4 s; the Rogue 12 and 4, medians 18.1 s and the cap), a
-failure-inclusive median of 16.2 s. None stands within 6 s; the route's floor is about
-9 s. Balance stands no more
-and no faster (the Warrior 20 of 26 at 25 %, 14.8 s).
-
-In bouts (`docs/reference/assist.md`), with no balance 80 of 99 bouts end by a fall; at 10 % 53;
-at 25 % 19; above 25 % nothing changes, since the stance asks for no more.
-
-**Stage 3, the run: open; its Haste gate unmet.** Two runs stand beside the cycle run, both
-experimental:
-
-- *The run whose steps fly* (`run.ts`, locomotion kind `run`): a Raibert run on the stance, its
-  bearing leg bouncing and letting go (`SwingGoal.flight`), its bearing foot rolling onto its toes
-  as the body passes. It leaves the ground (0.4 to 0.67 m/s up at launch). Asked 3 m/s, the
-  Warrior with a foot-placement gain of 0.05 comes up to 3.1 m/s and falls at 11.4 s; at higher
-  speed its stance knee bends to 1 rad and its extensors saturate, and the body sinks a step at a
-  time. Searched (`run-cycle-search.mjs --legs run`, the Warrior asked 3 and 4.5 m/s for 16 s, 40
-  generations) it is credited 2.07 m/s. Bearing for less time the faster it goes, its step's time
-  kept and its flight longer, did not help.
-- *The walk and learned run* (`learned-run.ts`): the cycle run steered by a trained policy
-  (`RUN_POLICIES["all-bodies"]`, `assets/core/learned-run.json`, which names its run), its gait
-  timed to its haste as in training (`RunPolicy.hasted`, 0 for this one). On the gait battery
-  it falls 14 of 300, 9 with the club (the Rogue 11, the Warrior 2, the skeleton 1), and 14 on
-  fresh gust seeds (9 to 12): the gate's 19 and the club's 18 of 150 are met. Asked 6 m/s (Node
-  stand, Rapier, 120 Hz, the last 3 of 15 s) the Warrior holds 4.64 m/s, the Rogue 4.1 to 4.3 and
-  the skeleton 4.0: the Warrior's 4.5 is met. Haste +100 adds nothing: the Haste gate is not. On
-  the walk-run envelope with the club (`core-stance-envelope.mjs --legs learned-run --walks`; a
-  walk holds standing at 0.7 of the pace asked, `WENT`) it holds forward 4.5, 4 and 4.5 m/s, the
-  Warrior, the Rogue and the skeleton, against SIMBICON's run's 4, 2 and 1.2: the club's envelope
-  gate is met. Asked 1 m/s, just over where the walk hands over to the run, the Warrior makes
-  0.73.
-
-Unsteered, the cycle run is capped by its stride, about 1.2 m at 3.1 steps a second: asked 5 and 6
-m/s it runs the same. Its pace is capped at the ground speed plus `ahead`, and raising `ahead`
-fells it (asked 5 with Haste +100: `ahead` 1.0, 1.65 m/s and a fall). Steered, it is not: what
-held the policies at 3.85 m/s was their training. Trained on runs whose new pace is asked 2 to 9 s
-after setting off at 1.5 to 4.5 m/s, short of it by up to 0.4 of it forgiven
-(`research/run-learning-environment.mjs`, `starts` and `share`), they hold 4.6 to 4.8 m/s.
-Trained only from 1.4 m/s, the Warrior fell asked 1 m/s; trained from 0.9 m/s, it runs.
-
-**Stage 4, the stand-up: open; its time gate unmet.** The learned rise (`learned-rise.ts`) is
-step-up steered by a trained policy (`RISE_POLICIES`, the Warrior's and the Rogue's,
-`assets/core/learned-rise.json`): its stages' pace, their tolerances, the centre's place and
-height, the pelvis's pitch and the posture, eased over 0.2 s. Trained with a bonus for standing
-soon, on the target it stands 62 of 64 (the Warrior with the club 16 and empty 15, medians 8.1
-and 8.1 s; the Rogue 15 and 16, 12.2 and 10.4 s; all 64 at a median of 10.3 s, a failure counted
-at the 30 s cap): the 40 is met, the 9 s median by the Warrior alone. Placed half kneeling, it
-stands in 2.5 s from one of the three placements and fails from another, where 5.5M of its
-training stood both: the training starts only from falls. Step-up's own time is about 2.4 s of rolling, 7.6 s of its 25
-stages and 2.5 s of steadying and handover, of which 1.3 to 1.8 s is the host's squaring step
-(the feet end 0.2 to 0.26 m apart against the body's 0.39 m), so the route's floor stays near
-9 s; the faster routes are closed by the body's stops (`docs/reference/postures.md`). Grit's
-curriculum has no strong end on step-up: step-up commands activations tuned to the body's own
-strength, and every muscle stronger overdrives it (unsteered, on the learned rise's twelve
-Warrior falls, 12 stand at its strength, 1 at 1.25 times it, none at 1.5 or 2, steered to its
-fastest pace or not). Grit as the plan has it, raised torque bounds, waits for a stand-up whose
-commands are torques. Step-up's pose stages driven by computed torque through the servo instead
-of at full activation stand none of the Warrior's 32 target falls (Node stand, Rapier, 120 Hz,
-Balance 0, 14 s cap; step-up 11): the rolls do not roll, and from hands and knees the pelvis does
-not go back over the shins. The contact sequence (`CONTACT_RISE`, `--recipe contact` in
-`research/rising-step-search.mjs`) bears the kneel-up instead: the weight pushed back with the
-hands still bearing a fifth of it, which completes, then tall on the shins with the hands let go,
-which never does. The shins bear on their knees alone, two points with no outline between them:
-on hands and knees the knee is at 2.0 rad and the feet 0.3 to 0.4 m off the ground, and the
-shin's tilt row does not bring them down (the knee goes to its stop, 2.57 rad, instead). Even
-borne, the kneel-up cannot meet the 4 s: the target's fall shoved at 0 degrees reaches hands and knees 11.8 s
-after the shove. What is open: a shin that bears from knee to toes, and a faster way onto the
-knees than the roll and the tuck. The stand-up screen
-(`research/stand-up-acceptance.mjs`) takes a candidate as actions on the muscles or joint targets
-from an observation; the learned rise steers step-up's recipe inside the game, a technique like
-step-up, so it is read on the target, where any technique runs (`--techniques`).
-
-The Lab's Stand-up scenario plays the target's falls as a round on one body (Node stand, Rapier,
-120 Hz, Balance 0, the Lab's 200 m floor; `tests/lab-stand-up-capability.test.mjs`). The Warrior
-empty-handed stands 14 of 16 by step-up (median 14.6 s, a failure at 30 s) and 15 of 16 by the
-learned rise (8.4 s); with the club 14 and 16 (13.2 and 8.2 s). The Rogue's rounds end down:
-by step-up after 9 falls (empty) and 5 (club), by the learned rise after 2 (empty), its rise
-reaching a crouch and falling back from it; by the learned rise with the club it stands 16 of
-16 (12.0 s).
-
-**Stage 5, strikes and holds: open; the strike's gate unmet.** A command drives an effector's
-point at an acceleration through the solve (`PointTask`), and the options fighter's straight
-drives may drive the fist that way (`tuning.driven`, `StraightPunch.driven`: up to 600 m/s^2, at
-the speed that gives over 0.3 m at the least, so it lands moving). Against a Warrior that only
-stands (three gaps, 30 s, Node, Rapier, 120 Hz, Balance 0) it lands 679 J where the pushed drive
-lands 547, without a fall. Against the Puncher over 40 gaps from 3.0125 m from both sides it wins
-none of 80, falling 0.06 a bout, where the pushed drive wins 0.800. The pushed fist sags under
-the foe's guard onto the upper trunk (1092 J of its damage over six gaps, 51 of its blows there at
-3 m/s or more); the driven fist goes where it is aimed, at the head, and meets the guard. Aimed at
-the upper trunk it lands 580 J on the trunk, wins 0.075 and falls 0.41 a bout; driven flat out,
-at 1000 m/s^2, or closed at 15 or 60 per second, the same: the ask is past what the arm gives,
-and through the drive the shoulder's three freedoms are pinned at their strength. Both arms work
-flat out; they differ in where they send the fist. So the pushed drive stays the default and the
-driven one is selectable. The trunk's aim falls because the driven arm's torques leave the body
-turning and its rear foot hovering, the fist turns back past its goal at full strength, and the
-second drive waits on where the centre of mass is, not where it is going; neither fix kept (the
-register) moves the driven drive past 0.04 of 80. A point may be asked a spin as well as, or
-instead of, an acceleration, and a hold is that: `holdUp` asks a hand whose item is free to turn
-the item's line up, and the cover guard and the options fighter take it as a choice
-(`tuning.hold`, off by default, so the guard's and the one-two's windows are as they were). With
-the trunk bent 0.5 rad the Warrior's club stands at 0.00 rad from up, where the posture alone
-leans it 0.49 (Node stand, Rapier, 120 Hz, after 2 s). What is open: a driven blow that is as fast
-as the pushed one's bang-bang, and a club's guard and a blade's line as holds in a fight.
-
-## The register: tried and not kept
-
-Not to be tried again on the controllers as they are. Each failed for the reason in "Why".
-
-- **Pace.** A push-off at the stance ankle, a knee push, the cycle's period at 0.95 or 1.15, the
-  ankles at full strength, `ahead` 0.8, a search of the pace settings with the push-off: each
-  traded cadence for step at the same pace, or fell.
-- **Top speed.** On the cycle run unsteered (the Warrior asked 6 m/s, Node stand, Rapier, 120 Hz):
-  the swing's and the cadence's growth from 3 or 3.5 m/s (slower: 3.2 to 3.5), `blend` 1 or 1.5,
-  `ahead` 1 with a stronger lean, `lean` 0.45 or 0.55, the steer's effort +0.5 or pace +1.5 (fell),
-  Haste +100, every muscle 1.5 or 2 times as strong (both fell) or the hips', knees' or ankles'
-  twice, and CMU 127_08 (4.78 m/s) beside the three clips: each holds 3.6 to 3.9 m/s at
-  about 3 steps a second. The pace runs `ahead` of the body and the body makes about 0.89 of it,
-  so the pace stays near 4.2 m/s and never reaches the fastest clip. The learned run trained 9M
-  decisions on a reward that forgives being up to 2.5 m/s short of a pace to 6.5 m/s
-  (`tolerance` in `research/run-learning-environment.mjs`) holds 3.8 to 3.9 m/s too.
-- **Haste.** The gait timed to the muscles at a power of 1/2 or 1. A search with Haste +100 in
-  its cells: kept the Warrior up at +100, but cost 11 Rogue falls at 0. The learned run trained
-  with its gait timed to the square root of its haste (`hasted` 0.5, to 42.7M decisions): Haste
-  +100 adds 0.6 to 0.7 m/s (the Warrior 4.52 to 5.14, the Rogue 4.1 to 4.7, the skeleton 3.9 to 4.6)
-  and the battery falls 8 of 300, but its forward envelope with the club breaks (the Warrior 3.5,
-  the Rogue 1 m/s), as it does in each of its snapshots from 39M to 42M. A second such run, to
-  46.7M, makes 5.5 m/s at Haste +100 and falls 15 of 300, its club envelope the Rogue's 0.7 m/s.
-  A third, from 42.8M to 50.8M with Haste in its training, passes in none of its eight snapshots:
-  Haste +100 adds at most 0.64 m/s (46M: the Warrior 4.89 to 5.53), fells the Warrior at its top
-  speed in four, the battery falls 10 to 45 of 300, and the Rogue's forward envelope is under 2 m/s
-  empty or with the club in every one (`research/runs/run-learning/score-run.sh`, Node stand).
-- **Stopping.** A pace floor under the body's speed; the run braking at its own rate; a lower
-  handover speed; larger `cv` or `leanGain`; the walk's slowdown at 0.68 or 1.0 m/s²; the walk's
-  late thigh let lean (threw the Warrior walking back with the club); a landing gate on the
-  run's phase; the stance taking over only below 0.5 m/s sideways; per-axis landing trims.
-- **The club.** `gainSide` above 0.086; a search with the club; a run gated on low sideways
-  drift (never runs); the club's arm in guard; `ahead` 0 past the empty-handed pace; a governor
-  on hip height.
-- **Step width.** Targets at 0.15 to 0.2 of the leg: 115 of 300 fell in gusts.
-- **The driven drive's slide** (stage 5, 40 gaps from both sides against the Puncher, Node,
-  Rapier, 120 Hz, Balance 0). No ask once the fist is past its goal: the trunk's aim wins 0.037
-  where it won 0.013, falls 0.31 a bout where it fell 0.38, and the arm's posture then pulls the
-  fist back, so it meets a standing foe at 1.5 m/s. The one-two's poise read at the capture point:
-  the driven drive wins 0.025, and the pushed default 0.700 where it wins 0.800.
-- **The stand-up.** Twice the strength (Grit); every stage's seconds scaled by 0.6 or 0.4; the
-  stages searched at a 10 s cap; `plant-up` by backward chaining (0 of 108 standalone); any
-  assist in a pose stage (a lift or a damper, 0 of 32); the stages searched with Balance 25 % on
-  (2 of 32 without it).
-- **The stance's walk past 0.5 m/s** (stage 2, on the whole-body solve, before the pivot was
-  held: the forward pace then 0.56 to 0.79 of the ask). Swing
-  time 0.35, 0.4 and 0.5 s (0.5 oscillates between 0.6 and 1.0 m/s asked 1.2); double support
-  0.1 and 0.12 s; lift 0.08 m (keeps the Warrior up at 1.6 m/s, no faster); the support inset at
-  0.3 and 0.15; track 0.35 s; width 0.15 m; knee bend 0.1 rad; the pelvis's turn at 0.3 s (the
-  Warrior 0.84 of the ask at 1.2, falls at 1.4) and 0.6 (falls everywhere); the pelvis leant
-  toward the walk at 0.1, 0.2 and 0.3 rad for each m/s; the lift raised 0.06 and 0.1 m for each
-  m/s; the swing's acceleration ramped at 0.1 and 0.25; the longest step 0.6 of the leg sideways;
-  the swing's wrench lever at 0.1, 0.3, 3, 10 and 100 m. Each left the forward pace within 0.56 to
-  0.79 of the ask at 1.0 to 1.4 m/s, or fell, and none held sideways above 0.5 m/s.
-  With the pivot held: `horizon` 0.05, 0.15 and 0.2 s (the table in the record; a shorter one
-  paces nearer the ask and falls near the cap, a longer one holds more and paces lower); the swing
-  path lowered to the landing's height with its progress (a pitched foot touches early, lands
-  20 mm short, and a shove runs away); a per-tick clamp of the swing to the leg's reach (the same
-  25 of 25 with and without it); paced nearer the legs' strength (`effort` 0.7: it caps higher
-  forward and falls from 1.4 m/s asked, the Rogue, and 1.6, the Warrior); the double support at
-  0.06 s (the walk back creeps past its cap and falls); the swing's path lifted by the larger of
-  the drop the foot is asked and the one it has, and the pelvis's lean at the last landing taken
-  from the hip's range (neither moved 240 walks back).
-- **The club's slow run** (stage 2, on the walk and run). The sway's error integrated into the
-  sole's placement removed the drift where it was seen but felled the gait battery (41 falls to
-  88 and 132 at gains 0.2 and 0.5 a second, 0.1 m at most), and integrated a stride at a time it
-  felled the Rogue's trials; the run's heading turned to bring its travel round to the way asked
-  (the travel's error integrated, 1 a second, 0.6 rad at most) took the drift off too but fell
-  more, 102 of 600 against 83 over gust seeds 5 to 12, mostly in turns.
-- **The run's speed** (stage 3). The cycle run's `ahead` at 1.0 and 1.5 (falls); the flying
-  run's foot-placement gains (falls); the learned run trained on to 11M decisions (95 of 300 fell,
-  against 8 of 300 at 4.5M).
-- **The learned rise's steer unsmoothed** (stage 4): a policy's exploration noise applied each
-  decision broke step-up's stages (0 of 12 stood under full noise; 5 of 12 eased).
-- **Balance's shape.** A force across the heading alone; the moment toward the run's settled
-  lean (held every run under 2.4 m/s); the moment's pitch both ways (the Warrior brakes slower,
-  7 of 12 stops fell); damping the pelvis's spin alone.
-
-## Order of work
-
-Each stage builds one skill on the general stack **beside the skill it would replace**: the
-game offers several implementations of a skill, each selectable in the mind editor, so the owner
-can watch and compare them in the Lab, Arena and Crypt. The general one becomes the default when
-it is the better; none is deleted for being superseded. Only the default carries the gameplay
-promises the owner keeps (`AGENTS.md`, Tests); the others stay runnable under the
-software checks and are measured when they are compared.
-
-| Stage | Build | Gate | Rough size |
-|---|---|---|---|
-| 0 | **The solve.** Merge the bearing solve and `wholeBodyTracking` into one production solve with muscle, assist and contact bounds and a posture task; the torque-source command path to the driver. | Standing under the assist reference's pulls (`tests/core-assist.test.mjs`) matches today's stance; ≤ 0.5 ms a body a step (`step-time.mjs`); the bout fingerprint moves only for bodies on the solve. | 2 to 3 weeks; the proof |
-| 1 | **Standing and the shove** on capture-point stepping, Balance as the assist bound. | On the stance trials (`research/core-stance-trials.mjs`) no more falls than today's stance at 0 %, and at 25 % no pace lost on the gait battery. | 1 to 2 weeks |
-| 2 | **Walk, stop and turn** on the same generator; SIMBICON's walk and run stay beside it. | Walk envelope at or above today's forward and forward-right, and sideways and back a walk that steps, at its own pace, without falls; stop battery 0 of 96; the Move bout's `todo` passes. | 2 weeks |
-| 3 | **The run** with flight, the clip as the posture prior, beside the clip tracker. | Forward to 5 m/s (the owner's aim), the Warrior ≥ 4.5 m/s steady; Haste +100 adds ≥ 1 m/s; gait battery ≤ 19 of 300; the club's run ≤ 18 of 150, and its forward envelope at or above SIMBICON's (the slow run left from stage 2); the owner's eye on the look. | 2 weeks |
-| 4 | **The stand-up** as a contact sequence; then the learned policy with the Grit curriculum where the sequence cannot start, beside step-up. | Unassisted ≥ 40 of 64, median ≤ 9 s; with Grit median < 4 s; the Lab's Stand-up scenario runs the target's falls. | 2 to 4 weeks |
-| 5 | **Strikes and holds** as tasks, beside the per-skill drivers. | League Elo at or above today's (`research/arena-combat-league.mjs`); the one-two and the guard keep their windows. | 2 weeks |
-
-Morphology spikes (foot length, a lower centre of mass, Balance as a momentum store in the torso
-that saturates, in place of a per-step cap) go in anywhere after stage 1, since from then a body
-change is measured through one controller.
-
-Each stage lands in small commits, gated by `npm run check` and `npm test`, with the slow tests it
-touches run by name. A stage that fails its gate is reported as failed; a measurement names its
-harness, its bodies and each side's balance and haste. Learned weights are an asset under
-`assets/core/` with the run that made them named; numbers in a behaviour are tuned freely.
-
-## Decided
-
-The owner's answers, 2026-10-17:
-
-- Haste is a signed per cent over a person's, 0 for every character (`c8a9e93f`).
-- A spec number's source is bookkeeping, not a bar; nothing outside a spec needs one.
-- A stand-up assist is wanted; Grit comes back where a controller can use it.
-
-And 2026-10-18:
-
-- Sideways and back stay a stepping walk at its own pace; forward is fast, up to 5 m/s, by the run.
-- SIMBICON's walk and run stay selectable beside the walk and run; they are not deleted.
-- Several implementations of a skill stay selectable side by side; a new one is added beside the
-  old, not in its place.
-- A learned behaviour is acceptable in the core, its weights an asset: the AI experiments plan
-  counts learned policies among the valid implementations.
-
-And 2026-10-19:
-
-- Nothing is fixed while the project is early. The stand-up screen is no longer pinned: it makes
-  its falls afresh, and the stand-up is a Lab scenario like Locomotion, its target the battery.
-
-## Out of scope
-
-- The Crypt party's movement (party control is not a priority).
-- Strike recipes on the capsule hands, except where a stage's gate needs a blow.
+Use the normal checks in `AGENTS.md`, and relevant scenario or slow checks by name. Capability
+targets are separate from the software gate. Keep learned weights as immutable versioned assets
+with their producing run identified. Extend goal vocabularies when a working alternative needs
+them, under the workshop's component contract. Motor selection remains independent of the
+particular running, recovery or combat algorithm.

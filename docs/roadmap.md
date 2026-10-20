@@ -10,10 +10,11 @@ Physically simulated bodies as a platform for AI control experiments, built into
 owner's direction, 2026-10-08). Each layer depends only on those below it -- world, body, motor
 control, skills, minds -- and a mind may use as much or as little of the stack as it needs
 ([architecture](architecture.md#minds)).
-The [AI experiments plan](plans/2026-10-18-ai-experiments.md) makes Minds, skills and controllers
-independently replaceable across game modes.
 The [shared controller workshop plan](plans/2026-10-20-shared-controller-workshop.md) organizes
-cooperative component development, capability tasks, equipment extensions and Arena evaluations.
+the open component, task, equipment and evaluation work. Within it,
+[whole-body control](plans/2026-10-17-general-controller.md) develops running, recovery and combat
+on one stack, and the [options fighter](plans/2026-10-14-options-fighter.md) develops one Mind's
+tactics and player choices. Their implemented contracts are in the architecture.
 
 - **Skills and tactics.** A body has an array of skills; tactics, a meta-controller over them,
   choose among the skills it has as the fight goes. Both come in many flavours. A skill may be
@@ -134,8 +135,8 @@ After it, each with its own plan, in the order each needs the one before:
     run's strength is what the rise loses: with the legs' torques at their measured peaks and the
     run's speed kept, the same settings stand 46 of 64, but the gait battery falls in 249 of its
     300 trials. On 52 shoves that fell the skeleton (of 96), step-up stands 9; its roll from its
-    back to its front is what fails. The known issues of the stand-up and of fast locomotion,
-    and the order to take them in, are in `docs/plans/2026-10-17-general-controller.md`. The
+    back to its front is what fails. Open running and recovery experiments are in the
+    [whole-body control plan](plans/2026-10-17-general-controller.md). The
     rest of this entry was read on the old legs. "Rise, then steady" stands 6, 8, 0 and 1 of the same
     falls, medians 29.5 s and over; on the skeleton's shoves, none.
   - None stands within 6 s, and the 4 s median target is not met. The time is the route's, not

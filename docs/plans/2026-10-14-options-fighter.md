@@ -1,78 +1,95 @@
-# The options fighter
+# The options fighter: tactical quality and configuration
 
-A fighter whose fighting is decided top-down: one meta-controller reads the situation and chooses
-what the body is doing (an option), the option carries it out through the skills, and reflexes
-act under it. Stages 1 to 4 have landed: the situation, the option contract, the ranked and
-valued meta-controllers, the whole option set, the reflex layer with cover, hand-built models for
-every option, and the offers kept for the Arena's readout. `docs/architecture.md` describes it
-(the options fighter, `src/core/mind/options/`); it is every humanoid's own mind. What is left is
-to make it good, then to give it a player's config.
+## Scope
 
-## 5. Make it good
+Develop the options fighter as one Mind in the
+[shared controller workshop](2026-10-20-shared-controller-workshop.md). Its current architecture
+and configuration are described in [Minds](../architecture.md#minds). This plan owns its open
+tactical questions and player choices. Independent component registration, common tasks,
+loadouts and experiment infrastructure belong to the workshop plan.
 
-This is the stage whose question is a measurement.
+Learned option-model development, lookahead and decision scheduling are separate workshop
+experiments. This effort uses the current meta-controller architecture and leaves the recovery
+evaluator and physical body/equipment mechanics to their own workstreams.
 
-- Bouts against the game's fighters: `node research/empty-hand-league.mjs --entrants options
-  --against classic,puncher,scrapper`, 384 bouts a pair or more, on fresh seeds and from both
-  sides. The owner watches bouts in the Arena.
-- Landed: the one-two (`src/core/skills/combination.ts`), two straight drives as one action, and
-  the single punch thrown as a combination of one drive, each poised before it drives.
-- Landed: breaking the clinch slanted off the foe's path, and a combination facing its target as
-  it settles and between its drives (`research/options-readout.mjs` reads where its bouts go).
-- Measured and not gaps (`research/options-readout.mjs`, five gaps, 120 s cap, Node, Rapier,
-  120 Hz, Balance 0): a blow thrown within 1.5 s of a blocked one is blocked about as often as any
-  blow (against Classic 45 of 82 against 78 of 141 overall; the Puncher 60 of 92 against 79 of
-  128), so escaping after a blocked blow has nothing to answer; and a drive already re-aims its
-  arm at the target every step, its blows that meet nothing (about 12 %) thrown at the edge of
-  reach (0.85 to 0.88 m head to head at the commit, against 0.80 to 0.84 for the rest) while the
-  foe's head moves off 0.2 m. What is left is the block itself (55 to 62 % of blows), and circling.
-- Landed: its blows aimed at an opening in the foe's guard (the surface aim), not the head's centre
-  (`tuning.opening: false` keeps the centre). Over 81 gaps from 3 to 5 m from both sides (Node,
-  Rapier, 120 Hz, Balance 0) against the Puncher it wins 117 of 162 against 105, and on 80 other gaps
-  123 of 160 against 112 (paired bouts better 76, worse 53 over both); against the Scrapper both win
-  all, its bar margin 0.019 greater (standard error 0.005). The foe's covering hand is at its guard
-  (0.35 to 0.45 m from its head) at nearly every commit, and the Puncher blocks as often in a blow of
-  its own as out of one, so waiting for an open guard has nothing to run on.
-- Measured and not kept as the default: blows at the body beside the head's (`tuning.body`). Against
-  the Puncher they are blocked less (19 of 52 against 34 of 47 at two gaps), but over 81 gaps
-  from 3 to 5 m from both sides against the Puncher and the Scrapper (324 bouts each, Node,
-  Rapier, 120 Hz, Balance 0) it wins 0.759 against 0.824, dealing 0.440 a bout against 0.394 and
-  taking 0.220 against 0.196. Circling at the edge has nothing to run on: against the Puncher the
-  fighter never holds the edge, its time going to the one-two.
-- Measured and not kept as the default: drives that drive the fist through the whole-body solve
-  (`tuning.driven`). Over 40 gaps from 3.0125 m from both sides against the Puncher (Node,
-  Rapier, 120 Hz, Balance 0) it wins none of 80 against 0.800: the driven fist goes to the head,
-  where the guard is, and the pushed one sags under it onto the upper trunk
-  (`2026-10-17-general-controller.md`, stage 5).
-- Measured and not kept: the weights of what it deals and takes. Over 40 gaps from 3.0125 m from
-  both sides against the Puncher (Node, Rapier, 120 Hz, Balance 0, 80 bouts each) the fighter's
-  own (dealt 1, taken 1) wins 0.800; dealt 3 wins 0.787, taken 0.3 0.713, and taken 3 none, dealing
-  0.076 a bout and taking 0.438. None is a trade-off: each does as well or worse.
-- Each improvement lands on its own with its league reading before and after.
-- The league measures a fighter on today's motor control, which the whole-body controller plan
-  (`2026-10-17-general-controller.md`) is changing: the run and the stand-up (its stages 3 and 4)
-  move the models' falls and pace, and its stage 5 moves the strikes. Gaps in what the fighter
-  decides land now; tuning its weights and models to a league reading waits for those stages.
-- Done when the options fighter leads the league and the owner's eye agrees.
+Use the skills and motor implementation named by each experiment. Tactical work can proceed on
+a frozen platform checkpoint while the [whole-body controller](2026-10-17-general-controller.md)
+and other components develop. Re-evaluate references when that platform changes.
 
-## 6. The config
+## Tactical experiments
 
-- Landed: its obedience (`OBEDIENCE`), the weight of its orders at three levels, the first field a
-  person sets. Told to walk, its own judgement steps aside from a blow of about 30 J coming, steady
-  from about 60 J and orders first from about 120 J; without orders it changes nothing, so a
-  league cannot read it. The weights of what it deals and takes are not a trade-off (stage 5).
-- From the finished fighter, list the decisions that are real trade-offs; candidates: the reward
-  weights (obedience, caution, aggression), which options it has, its blows, its preferred
-  distance, rising against rolling away against fighting from the ground, its reflexes.
-- Each option, model, reflex and meta-controller declares its own fields as a `Part`; the editor
-  draws the tree generically, with player labels, choices from lists, and body parts picked from
-  the body. A test refuses a field that takes typed text.
-- Presets rewritten in the new shape.
-- The `fighter` kind's presets stay, as baselines the league measures against, until they stop
-  being useful as such.
+First read the reference fighter's current failures on declared conditions. The questions are:
 
-## Not in this plan
+- **Targets and blocked attacks.** When should a fighter change its target surface, action or
+  approach after meeting a guard? Compare available openings and target regions through the
+  shared aiming and action path, retaining the opponent and contact identity.
+- **Spacing and commitment.** Improve approach, clinch breaking, circling and follow-up timing
+  against moving opponents. Distinguish a poor decision from a skill that cannot execute its
+  request, using readiness, terminal records and actual motion.
+- **Option models.** Calibrate expected attack value, incoming cost, travel time, falls and
+  recovery to the components the fighter actually runs. A model should account for uncertainty
+  and temporary inability without reading hidden opponent state.
+- **Ground choices.** Compare getting up, moving away, fighting from the ground and waiting on
+  the same physical cases. This work selects among recovery components; developing a recovery
+  algorithm and establishing the unassisted stand-up goal belong to their own tasks.
+- **Meta-control and reflexes.** Compare valued and ranked selection, interruption and reflex
+  ownership where a concrete failure suggests them. Preserve ordinary skill admission,
+  resource ownership and hand-back.
+- **Orders.** Evaluate obedience and tactical self-preservation under explicit orders. An
+  autonomous league without orders cannot establish the quality of this trade-off.
 
-Learned models, lookahead, the decision rate or thinking time as an attribute (counted in
-simulated budget, never wall-clock), the quadruped, party control, and the stand-up evaluator
-(`research/stand-up-acceptance.mjs`), which nothing here touches.
+Change one decision or model at a time when attributing an effect. Use current action, executor,
+guard and reflex configurations. Keep option models local to this Mind or its registered
+components; their choice does not alter the shared observation or damage rules.
+
+## Comparison and completion
+
+Each competitive experiment fixes a platform revision, resolved engine profile, bodies,
+loadouts, attributes, assists, observation delay, starting cases, opponent implementations,
+scoring and budgets. Report the Node core-world harness and rate. Play each condition with the
+roles swapped, retain failures, and report results by opponent and condition.
+
+Use `npm run match -- <a> <b>` for the standard paired comparison and `npm run tournament` for a
+declared field. The empty-hand promotion comparison uses Classic, Puncher and Scrapper as its
+reference opponents (`research/empty-hand-league.mjs`), with at least 384 distinct bouts per
+opponent across fresh conditions and both sides. Record that protocol separately from the
+standard match; repeating an identical deterministic bout adds no new cases.
+
+Use `research/options-readout.mjs` to diagnose what choices and outcomes occur, and validate a
+candidate on fresh conditions before promotion. Re-read the reference at the same checkpoint;
+historical standings and measurements are not current baselines.
+
+Competitive completion means leading that declared reference league at its recorded checkpoint,
+with the owner's visual acceptance of the bouts. It does not require remaining first as future
+entrants arrive. A software change can land under the normal gate while the competitive goal
+remains unmet; a claim of improved fighting requires its comparison.
+
+## Player configuration
+
+The remaining configuration work is to expose useful decisions beyond the current obedience,
+skill/action and reflex settings:
+
+1. Establish which option-model weights and decisions represent real choices for a player.
+   Candidates include caution/aggression, preferred spacing, available options, ground choices
+   and the valued/ranked meta-controller. Test trade-offs in the conditions they affect.
+2. Make selected option and model choices explicit configurable parts where the workshop's
+   component interfaces support them. In particular, remove the fixed ground-choice/model
+   list from the Mind when configurable replacements have a working reader and lifecycle.
+3. Give each exposed choice its own labels, validation and fields. Use lists for algorithms,
+   actions and body parts, and bounded numeric controls for meaningful quantities; authored
+   instance names may use text. Internal searched constants remain implementation settings.
+4. Add presets for the useful configurations and verify editor/link/save round trips. Preserve
+   valid configurations and reject unsupported compositions with useful reasons.
+
+Keep existing selectable fighters as comparison references. Changing a gameplay default follows
+the owner's acceptance; retiring an implementation is a separate decision.
+
+## Next work and checks
+
+Choose a concrete tactical failure on a frozen checkpoint, implement and evaluate one candidate,
+then expose a player choice only when its effect is understood. Configuration work and tactical
+experiments can proceed independently where their interfaces permit it.
+
+Use the normal checks in `AGENTS.md` and the relevant option, action, editor and replay tests for
+changed paths. Capability and league comparisons remain separate from software gates. This
+plan does not require the run, recovery or strike research to finish before tactics can improve.

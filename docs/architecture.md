@@ -734,6 +734,13 @@ rules, carried by the fight's senses with whatever fixed geometry they are grant
 mind its config makes with the assist its balance gives. The Arena and the Crypt both do; the Lab
 drives a fighter through game orders in Attack or a scenario's script elsewhere.
 
+The command layers, skills and motor control are reusable implementations above this boundary.
+A Mind can use some or all of them, or supply its own policy. Hand-written, searched and learned
+controllers use the same grants and physical limits. Current registered controllers run
+synchronously within `World.step`; a screen's rendering and wall-clock timing do not schedule
+their decisions. The source boundary prevents accidental coupling; controllers share a
+JavaScript realm within a bout and are not isolated from deliberate manipulation.
+
 **A kind of mind is a controller** (`Controller`, `controller.ts`), registered by a line in the
 one list (`CONTROLLERS`, `controllers.ts`), keyed by its defaults' kind, a kind twice or a kind a
 part below a mind has refused: it lists the keys its config may hold (`keys`), says which bodies it fits (`fits`), names
@@ -743,11 +750,13 @@ under its kind with its defaults; the Arena's picker, a link's `control=`, the C
 and the fingerprint read it, the pickers offering only the minds that fit a side's body and
 loadout. Each controller composes its own
 tactics and skills; what they share is shared code (the orders, the targets, the guard, the
-sub-minds, locomotion and the strike cycle), not a flag that chooses a stack. There are four: the
-**fighter** (`createFighter`, `fighter.ts`), whose tactics and skills are parts in its slots;
+sub-minds, locomotion and the strike cycle), not a flag that chooses a stack. The registered
+kinds are the **fighter** (`createFighter`, `fighter.ts`), whose tactics and skills are parts in its slots;
 the **options fighter** (`createOptionsFighter`, `src/core/mind/options/`), every humanoid's own
-mind, whose skills and reflexes are parts in its slots; the **quadruped** (crawl and bite); and **direct** joint control, the first
-entrant (`src/core/entrants/direct/`). A config read from a save or a link whose kind none has is refused
+mind, whose skills and reflexes are parts in its slots; the **quadruped** (crawl and bite);
+**direct** joint control (`src/core/entrants/direct/`); and the **tempo** fighter
+(`src/core/entrants/tempo/`), which composes shared skills with its own rhythm tactics.
+A config read from a save or a link whose kind none has is refused
 (`partOf`), and so is a tree any part of which names a fault (`treeFaults`, which `createMind`
 reads). A part's config holds a player's fields, plain choices, and under `tuning` an
 experiment's settings, which never travel in a link. A key its part does not read, or a tuning it
@@ -915,10 +924,11 @@ the Lab's minds are made from it. `CLASSIC` is it getting about by `MOVE` and st
 once down (`STAND_UP`, step-up alone); Puncher, Scrapper and Behaviours stand up as it does. The
 mind every humanoid has unless its fight says otherwise (`modelInfo`) is the options fighter
 (`OPTIONS`), and the Arena's picker opens on it. An arena
-recipe may name each side's mind (`DuelRecipe.minds`); the crypt gives an enemy its model's (`modelInfo`) and a party member the
-mind chosen for its model on the start panel (`DungeonRunOptions.minds`), its model's unless one
-was; the lab's actor drives the fighter its page chose (`ActorOptions.mind`), the Script preset
-unless it is given another.
+recipe may name each side's mind (`DuelRecipe.minds`). The crypt's
+`DungeonRunOptions.mind` chooses by participant id, side and model, including enemies and two
+bodies of the same model; a null or absent choice uses the model's default. The start panel
+chooses by side and model (`runMinds`, `src/dungeon/run-minds.ts`). The lab's actor drives the
+fighter its page chose (`ActorOptions.mind`), the Script preset unless it is given another.
 
 **The riser plays a recipe** (`Recipe`, `RISE`, `rise/stages.ts`): plain data that names
 freedoms and limbs, and no body. A recipe can override intermediate motion and settling
@@ -1373,7 +1383,8 @@ begins the same after another (`tests/arena-fresh-start.test.mjs`). How the bout
 is `docs/reference/bouts.md`.
 
 Every order a side is given is kept with the step it was given before (`Duel.tape`), an order
-that repeats the last left out. The recipe and the tape are the whole of what made a bout:
+that repeats the last left out. For the current deterministic controllers, the recipe and the
+tape are the whole of what made a bout:
 `Duel.play` gives a tape again as the bout steps, each order in the sensing phase of the step it
 names, before any mind, so a bout a person fought plays again to the bit
 (`playBout(recipe, seconds, tape)`). A facing is the way from the body to the pointer's point,
@@ -1388,6 +1399,11 @@ rule of the body, read again in the replay. The recipe and the sheets are the wh
 did: a bout given them (`DuelHooks.replay`) makes no mind, plays each side's sheets in its place
 (`replayedBody`) and is the same bout to the bit. A load that goes back drops the sheets after it
 as the steps are taken again. `tests/mind-contract.test.mjs` holds every registered Mind to it.
+
+The same contract test checks exact live continuation after restoring each current Mind's
+explicit state. Live continuation executes the controller again; physical replay applies the
+recorded commands without it. The current sheets carry muscle commands, assist asks and hand
+poses; separate-equipment grip requests are outside this gameplay recording format.
 
 A tape rides in a link's fragment, which no server is sent (`#tape=`, `readTape` and `tapeHash`
 in `src/arena/matchup.ts`), with the rest of its recipe in the link's query (`&gap=`, `&cap=`,

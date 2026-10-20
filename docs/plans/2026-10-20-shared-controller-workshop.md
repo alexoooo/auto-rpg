@@ -14,13 +14,25 @@ other items) and body families, including monsters. A component can specialize i
 loadout; its supported scope is explicit. Improving portability and robustness is useful work
 alongside improving peak performance.
 
-This plan extends [AI experiments on shared bodies](2026-10-18-ai-experiments.md), whose common
-actuation, state and replay boundary remains the foundation. The
-[whole-body controller plan](2026-10-17-general-controller.md) develops one reusable execution
-stack within the workshop. An experiment can use that stack, replace a part, or supply an
-independent policy. What runs in the game runs in the browser; training can happen offline.
-LLMs author code and assets in development sessions. Calling an LLM during a bout is a separate
-experiment when there is a concrete need for it.
+The existing [Mind boundary](../architecture.md#minds), [state model](../architecture.md#state)
+and recorded-actuation replay are the foundation. An experiment can use the command layers,
+replace a part, or supply an independent policy. What runs in the game runs in the browser;
+training can happen offline. LLMs author code and assets in development sessions. Calling an
+LLM during a bout is a separate experiment when there is a concrete need for it.
+
+## Plan ownership
+
+| Plan | Open work it owns |
+|---|---|
+| This workshop plan | Component interfaces/registration, common tasks, loadouts, body compatibility, collaboration and evaluation infrastructure |
+| [Whole-body control](2026-10-17-general-controller.md) | Running/Haste, unassisted recovery, separate assistance experiments, strikes and holds on one execution stack |
+| [Options fighter](2026-10-14-options-fighter.md) | Tactical decisions, option models and player configuration for one Mind |
+
+The implementation efforts are independently useful clients of the workshop. Tactics can be
+compared on a frozen platform while motor and skill research proceeds. A shared interface change
+lands separately, and comparisons name the resulting checkpoint. Existing behavior belongs in
+the architecture, standing contribution rules in `AGENTS.md`, and measured evidence in its
+reference or experiment record. Each plan retains its open work and completion criteria.
 
 ## Units of work
 
@@ -87,11 +99,34 @@ may combine a capture-point walk, contact-based recovery, shield cover, sword cu
 actions, tempo tactics and whole-body motor control. Its body, equipment, attributes, assists
 and opponents are explicit inputs to the task or match recipe.
 
-Experiments can swap one component while retaining the rest of the assembly. Keep useful
-alternative algorithms available together for comparisons; Git retains ordinary edit history.
+Experiments can swap one component while retaining the rest of the assembly. Keep existing
+selectable implementations alongside candidates; retirement is a separate owner decision.
+Git retains ordinary edit history and unsuccessful unregistered candidates.
 A shared improvement can benefit several fighters, and fighters still compete on their
 composition and tactics. A component's value is also read on its own tasks and in other
 assemblies.
+
+## Remaining participant contracts
+
+Extend the existing boundary only as a concrete implementation requires:
+
+- A second motor implementation can introduce the goal vocabulary it needs. Keep each role's
+  interface narrow. Restoring the bearing motor is a separate owner choice, with no requirement
+  to add it to establish independent registration.
+- Extend gameplay actuation recordings for separate equipment with every accepted grip request
+  and other external input that affects physics, its application step and ordering. A recorded
+  bout replays with participating Minds disabled under the same construction and configuration.
+- When a nondeterministic policy is introduced, distinguish exact physical replay from live
+  policy continuation. Keep exact continuation checks for deterministic implementations;
+  require explicit state for supported live saves without requiring all future decisions to
+  repeat. Prove physical replay from recorded commands for every implementation.
+- Specify decision cadence, held actions and work allowance for a slower policy. Introduce
+  asynchronous or GPU execution with its first concrete client; define the simulation steps
+  at which answers apply and wait for late computation so wall-clock timing does not change
+  the bout. Current synchronous controllers need no new scheduling framework.
+
+All implementations retain the same muscle limits, permitted assist ceilings and geometric
+grip admission. Task and combat outcomes are read independently of a component's status report.
 
 ## Bodies and compatibility
 
@@ -248,9 +283,9 @@ can begin before formal model comparisons are useful.
    reusable recipes and headless/visible runners. Exercise recovery-to-locomotion hand-back,
    retain the owner's stand-up target, and start a component development round.
 3. **Explicit multi-item loadouts.** Connect the existing separate-equipment and grip paths to
-   gameplay construction, state and replay. Develop a concrete additional loadout, then expand
-   through shields, swords and two-handed handling as their mechanics are ready. Bow mechanics
-   receive their own task when introduced.
+   gameplay construction, state and recorded-command replay. Develop a concrete additional
+   loadout, then expand through shields, swords and two-handed handling as their mechanics are
+   ready. Bow mechanics receive their own task when introduced.
 4. **Durable experiment results and checkpoints.** Consolidate run identity, compact findings,
    artifact references and fault handling. Evaluate named assemblies under a frozen protocol
    and preserve useful references for later authors.
