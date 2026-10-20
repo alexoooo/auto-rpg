@@ -13,6 +13,7 @@ import { groundPlacement } from "../src/lab/ground-starts.ts";
 import { startGround, targetImpulse } from "../src/lab/ground-mode.ts";
 import { strengthSpec, techniqueTrial } from "./rising-technique.mjs";
 import { risingMind } from "./rising-config.mjs";
+import { loadoutFaults } from "../src/core/items/held.ts";
 import { TECHNIQUES } from "../src/core/mind/ground/techniques.ts";
 
 /**
@@ -23,6 +24,12 @@ import { TECHNIQUES } from "../src/core/mind/ground/techniques.ts";
  * search has what it scores.
  */
 export async function risingTrial(job, { subs, stop } = {}) {
+  if (job.target && job.loadout !== undefined) throw new Error("the owner target fixes its loadouts");
+  if (job.loadout !== undefined) {
+    const faults = loadoutFaults(job.loadout);
+    if (faults.length) throw new Error(faults.join("; "));
+    if (job.technique) throw new Error("standalone technique trials do not accept per-hand loadouts");
+  }
   if (job.grit !== undefined && job.grit !== 0) throw new Error("the unassisted rising bed fixes Grit 0");
   if (job.target && job.level && job.level !== "open") throw new Error("the owner's target fixes the open floor");
   if (job.technique) {
@@ -40,7 +47,7 @@ export async function risingTrial(job, { subs, stop } = {}) {
       phases, attempts };
   }
   const defaults = labAddress("?scenario=ground"), balance = job.balance ?? 0;
-  const address = { ...defaults, model: job.model, right: job.held, left: "empty", balance, seed: job.seed,
+  const address = { ...defaults, model: job.model, right: job.loadout?.right ?? job.held, left: job.loadout?.left ?? "empty", balance, seed: job.seed,
     ground: { ...defaults.ground, level: job.level ?? "open", start: job.start, posture: job.posture ?? "back", degrees: job.degrees ?? null,
       impulse: job.impulse ?? null, gusts: job.gusts ?? false } };
   // A raised strength (`factor`) is a discover-then-constrain experiment's, never the game's.

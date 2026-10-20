@@ -3,6 +3,7 @@ import { Worker } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { pathToFileURL } from "node:url";
 import { writeFile, appendFile } from "node:fs/promises";
+import { loadoutKey } from "../src/core/items/held.ts";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { groundPostures } from "../src/lab/ground-starts.ts";
 import { TECHNIQUES } from "../src/core/mind/ground/techniques.ts";
@@ -89,7 +90,7 @@ export function risingReport(rows, target = false) {
   if (target && rows.some(row => row.obstacle || row.level && row.level !== "open")) throw new Error("obstacle falls cannot satisfy the open-floor target");
   const grouped = new Map();
   for (const row of rows) {
-    const key = `${row.level && row.level !== "open" ? `${row.level}/` : ""}${row.start}/${row.model}/${row.held}`;
+    const key = `${row.level && row.level !== "open" ? `${row.level}/` : ""}${row.start}/${row.model}/${row.loadout ? loadoutKey(row.loadout) : row.held}`;
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key).push(row);
   }
