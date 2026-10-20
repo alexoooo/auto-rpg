@@ -13,6 +13,8 @@ import type { pathExecutor } from "../skills/combat.ts";
 /** Every execution kind supplies its construction, anatomy and config rules together. */
 export interface ExecutorPart<C extends ExecutorConfig = ExecutorConfig> extends Part<C> {
   readonly effectors: readonly string[];
+  /** Whether it strikes with `effector` of `spec`, as it holds what it holds; with each of its `effectors` unless it says. A mind reads it to throw only the blows its body can (`armedActions`). */
+  strikesWith?(spec: BodySpec, config: C, effector: string): boolean;
   actionFaults(action: ActionConfig): readonly string[];
   paths?(config: C): AttackTuning;
   estimate?(spec: BodySpec, config: C, action: ActionConfig, aim: ReturnType<typeof actionAim>): ActionEstimates[string] | null;

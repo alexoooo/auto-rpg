@@ -7,9 +7,9 @@
  *   npm run match -- <mind> <mind> [--workers N] [--json <file>]
  *
  * A mind is one a person may pick, by its id (`MINDS`: a preset's, or a kind's with no preset), a
- * JSON file holding a mind's config, or that JSON itself. Each plays the protocol's bodies, loadouts and
- * gaps (`MATCH`) on the left against the other on the right, then the other way round: a mind that
- * wins only from one side shows it. It prints the harness, the commit, each mind's digest, every
+ * JSON file holding a mind's config, or that JSON itself. Each plays the protocol's bodies and gaps,
+ * with each of its loadouts both minds fit (`MATCH`), on the left against the other on the right,
+ * then the other way round: a mind that wins only from one side shows it. It prints the harness, the commit, each mind's digest, every
  * bout and the score by the conditions it varies; `--json` writes all of it.
  */
 import { createHash } from "node:crypto";
@@ -44,27 +44,27 @@ const digest = (value) => createHash("sha256").update(typeof value === "string" 
 
 /**
  * The mind `text` names: a mind's id (`MINDS`), a controller's kind (its defaults), a JSON file or
- * JSON. Refused, with its faults, where it is no mind or does not fit every body and loadout the
- * protocol gives it (`mindFaults`).
+ * JSON, with the protocol's loadouts it fits on every body (`held`). Refused, with its faults,
+ * where it is no mind or fits a body of the protocol with none of them (`mindFaults`).
  */
 export function readMatchMind(text) {
   const named = Object.hasOwn(MINDS, text) ? { label: MINDS[text].label, config: MINDS[text].config }
     : Object.hasOwn(CONTROLLERS, text) ? { label: CONTROLLERS[text].label, config: CONTROLLERS[text].defaults }
     : { label: text, config: JSON.parse(existsSync(text) ? readFileSync(text, "utf8") : text) };
   if (typeof named.config?.kind !== "string" || !Object.hasOwn(CONTROLLERS, named.config.kind)) throw new Error(`${text} is no mind: name a mind (${Object.keys(MINDS).join(", ")}), a kind (${Object.keys(CONTROLLERS).join(", ")}), or a config`);
-  for (const body of MATCH.bodies) for (const held of MATCH.held) {
-    const faults = mindFaults(named.config, modelHolding(body, held));
-    if (faults.length > 0) throw new Error(`${text} on ${body} holding ${held}: ${faults.join("; ")}`);
-  }
-  return { ...named, digest: digest(named.config) };
+  const faults = (held) => MATCH.bodies.flatMap((body) => mindFaults(named.config, modelHolding(body, held)).map((fault) => `${body} holding ${held}: ${fault}`));
+  const held = MATCH.held.filter((one) => faults(one).length === 0);
+  if (held.length === 0) throw new Error(`${text}: ${MATCH.held.flatMap(faults).join("; ")}`);
+  return { ...named, held, digest: digest(named.config) };
 }
 
-/** Every bout of `a` against `b` (`readMatchMind`'s): each condition of `MATCH` with `a` on the left, then with `b` there. */
+/** Every bout of `a` against `b` (`readMatchMind`'s): each condition of `MATCH`, with a loadout both fit, with `a` on the left, then with `b` there. */
 export function matchJobs(a, b) {
-  const jobs = [];
+  const jobs = [], held = MATCH.held.filter((one) => a.held.includes(one) && b.held.includes(one));
+  if (held.length === 0) throw new Error(`${a.label} holds ${a.held.join(", ")} and ${b.label} ${b.held.join(", ")}: no loadout both fit`);
   for (const [first, second] of [[a, b], [b, a]]) for (const left of MATCH.bodies) for (const right of MATCH.bodies)
-    for (const held of MATCH.held) for (const gap of MATCH.gaps) jobs.push({
-      recipe: { left, right, gap, held: { left: held, right: held }, minds: { left: first.config, right: second.config },
+    for (const hand of held) for (const gap of MATCH.gaps) jobs.push({
+      recipe: { left, right, gap, held: { left: hand, right: hand }, minds: { left: first.config, right: second.config },
         capSeconds: MATCH.capSeconds, recoverySeconds: MATCH.recoverySeconds },
       a: first === a ? "left" : "right",
     });

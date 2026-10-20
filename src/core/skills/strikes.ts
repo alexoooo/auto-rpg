@@ -170,8 +170,11 @@ export const mirroredWindow = (window: StrikeWindow): StrikeWindow =>
  */
 export function closesToStrike(spec: BodySpec, hand: Side): boolean {
   const segment = spec.segments.find((s) => s.name === `hand.${hand}`);
-  return !!segment?.handPoses && !!segment.points?.strike && !spec.held?.some((h) => h.segment === segment.name);
+  return !!segment?.handPoses && !!segment.points?.strike && holdsNothing(spec, segment.name);
 }
+
+/** Whether `segment` of `spec` holds nothing. */
+export const holdsNothing = (spec: BodySpec, segment: string): boolean => !spec.held?.some((h) => h.segment === segment);
 
 /** The point `hand` of `spec` strikes with: a hand that closes to strike, its fist's `strike`; else its effector's (`effectorAim`). */
 export function aimOf(spec: BodySpec, hand: Side): string {
