@@ -197,8 +197,9 @@ The contract comes first. Today tactics and orders ask for a direction (`Orders.
 left on a route the Crypt's run follows. A movement request replaces them, one union for a mind's
 tactics and a person's orders alike:
 
-- **Direct**: a direction and pace in the body's frame, as keyboard movement and footwork ask
-  now; it keeps its meaning and is only steered clear of solids.
+- **Direct**: a world direction, as keyboard movement asks now; it keeps its meaning while the
+  body turns and is only steered clear of solids. Input adapters resolve camera-relative keys
+  before issuing the request; camera state never reaches a mind.
 - **Place**: a point and how near counts as there; a drawn route is a list of them.
 - **Range**: a focus (an opponent, as sensed), a band of distance and a preferred side; the
   navigator seeks a reachable spot in the band and follows it as the focus moves, never routing
@@ -208,6 +209,14 @@ The navigator owns the route, arrival, braking at corners and stopping, and repo
 is unreachable or stalled. The requester owns facing, which passes through, and cancellation,
 which is asking for something else; on a report it decides what next. A route that exists and
 one the body's gait walks are separate readings.
+
+Facing, pace ceilings and a running preference accompany every movement form. The navigator
+turns its world movement into the locomotion's forward/right velocity; the gait limits what the
+body can execute. A stop request brakes to standing; no external orders leaves tactics free to
+choose its own movement. Orders remain active until completed or replaced. The Mind selects
+how it follows them alongside attacks, defense and its configured obedience; the navigator
+does not choose tactical priorities. A temporary action or recovery takeover pauses progress
+timeouts, and hand-back replans from the body's actual position.
 
 `navigation` is a new role between tactics and locomotion. A mind holds it in a slot like its
 other parts, so navigators are swapped and compared like gaits. A navigator reads the solids its
@@ -229,6 +238,11 @@ on a moving target without walking into it, reports a blocked route, and replays
 in a `core-navigation-capability.test.mjs` listed in `tests/experimental.json`.
 
 ### V3: the Crypt on the navigation role
+
+V2 changes the movement API and every producer and reader together, including the Crypt's
+order adapter. V3 moves the Crypt's route-following implementation; it does not introduce a
+second accepted orders format. Route distance becomes internal progress feedback rather than
+an external destination.
 
 The Crypt's route-following moves into the core as navigators: `findPath` (`src/dungeon/map.ts`)
 and the run's following, stopping, corner braking and replan on no progress
