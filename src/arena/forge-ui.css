@@ -1,5 +1,5 @@
 /* The arena's forge theme, loaded after `style.css`: colour, border and type over its layout. */
-:root {
+:where(#screen-root[data-screen="arena"]) {
   color-scheme: dark;
   --ink: #e8e1d2;
   --dim: #afa99b;
@@ -7,28 +7,28 @@
   --panel: #101419ed;
   --hot: #e8bc70;
 }
-.panel, #pause-menu, .hud-col > div {
+:where(#screen-root[data-screen="arena"]) .panel, :where(#screen-root[data-screen="arena"]) #pause-menu, :where(#screen-root[data-screen="arena"]) .hud-col > div {
   border-color: var(--edge);
   border-radius: 3px;
   background: linear-gradient(125deg, #1e2227f5, #101317f5 55%, #181a1cf5);
   box-shadow: inset 0 1px #e4be7320, 0 12px 40px #0006;
 }
-h1, .panel h1 {
+:where(#screen-root[data-screen="arena"]) h1, :where(#screen-root[data-screen="arena"]) .panel h1 {
   font-family: Georgia, "Times New Roman", serif;
   font-weight: 400;
   text-transform: uppercase;
   letter-spacing: .16em;
   color: #f1dfbc;
 }
-.action {
+:where(#screen-root[data-screen="arena"]) .action {
   border: 1px solid #ac824b;
   border-radius: 2px;
   color: #f8e4ba;
   background: linear-gradient(#705029, #48311c);
   box-shadow: inset 0 0 0 2px #221a12, inset 0 3px #d3a25c55;
 }
-.action:hover { color: #fff1cc; background: linear-gradient(#896136, #5b3d20); }
-.action.quiet { color: #d3d2ce; border-color: #777e83; background: linear-gradient(#30373d, #1a2025); }
-.action.quiet:hover { background: #3b4248; }
-.action:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid #f0c97c; outline-offset: 3px; }
-select { border: 1px solid #8e713f70; border-radius: 2px; background-color: #13171b; color: #e7dfd0; }
+:where(#screen-root[data-screen="arena"]) .action:hover { color: #fff1cc; background: linear-gradient(#896136, #5b3d20); }
+:where(#screen-root[data-screen="arena"]) .action.quiet { color: #d3d2ce; border-color: #777e83; background: linear-gradient(#30373d, #1a2025); }
+:where(#screen-root[data-screen="arena"]) .action.quiet:hover { background: #3b4248; }
+:where(#screen-root[data-screen="arena"]) .action:focus-visible, :where(#screen-root[data-screen="arena"]) select:focus-visible, :where(#screen-root[data-screen="arena"]) input:focus-visible { outline: 2px solid #f0c97c; outline-offset: 3px; }
+:where(#screen-root[data-screen="arena"]) select { border: 1px solid #8e713f70; border-radius: 2px; background-color: #13171b; color: #e7dfd0; }

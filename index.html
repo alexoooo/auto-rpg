@@ -4,14 +4,26 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Auto-RPG</title>
-    <!-- Before any stylesheet arrives: every screen change is a page load, and this keeps it dark. -->
+    <!-- The document and loading overlay are dark before any stylesheet arrives. -->
     <style>
       html, body { margin: 0; background: #0a0b0e; color-scheme: dark; }
     </style>
   </head>
   <body>
-    <!-- One document, four screens. src/app.ts mounts exactly one of these per page load, so
-         the arena, the dungeon and the lab may share ids (#help, #resume, #stage) and never meet. -->
+    <div id="app-root"></div>
+    <section id="app-loading" aria-label="Loading" style="position:fixed;inset:0;z-index:10000;background:#100d0d;color:#e8dcc0;display:grid;place-items:center;text-align:center">
+      <div class="loading-content">
+        <h1>Auto-RPG</h1>
+        <p id="loading-label" role="status" aria-live="polite">Preparing the game</p>
+        <div class="loading-track" aria-hidden="true"></div>
+        <p id="loading-error" role="alert" hidden></p>
+        <div class="loading-actions">
+          <button id="loading-retry" type="button" hidden>Retry</button>
+          <button id="loading-menu" type="button">Main menu</button>
+        </div>
+      </div>
+    </section>
+    <!-- The shell mounts one template at a time inside its own screen root. -->
     <template id="menu-screen">
       <main id="title-screen">
         <div class="menu-content">

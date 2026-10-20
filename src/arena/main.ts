@@ -9,7 +9,8 @@ import { arenaSolids } from "./room.ts";
 import { buildArena } from "./scene.ts";
 import { LEVELS, type ArenaLevel } from "./levels.ts";
 import { MENU_HREF } from "../app-route.ts";
-import { need } from "../dom.ts";
+import type { ScreenContext } from "../ui/screen.ts";
+import { need as find } from "../dom.ts";
 import { airOf, hearTouches } from "../audio/body-sounds.ts";
 import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
@@ -76,7 +77,6 @@ const ENDING_TEXT: Readonly<Record<DuelEnding, string>> = Object.freeze({
   time: "on the bar at the bell",
 });
 
-const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
 /** What a hand may hold, by name, as the pickers and the ratings show it. */
 const HELD_NAMES = Object.fromEntries(HELD.map((held) => [held, heldItem(held)?.name ?? "Empty"])) as Readonly<Record<typeof HELD[number], string>>;
 const loadoutName = (loadout: Loadout): string => `Left: ${HELD_NAMES[loadout.left]}, right: ${HELD_NAMES[loadout.right]}`;
@@ -92,7 +92,8 @@ const levelName = (level: NoteLevel, model: BodyModel, loadout: Loadout): string
 };
 
 /** **The last tournament's table** (`RATINGS`), its best first, into the ratings panel. */
-function showRatings(): void {
+function showRatings(root: ParentNode): void {
+  const need = <T extends HTMLElement>(id: string): T => find<T>(id, root);
   const { entrants, date, commit, harness, unavailable } = RATINGS;
   need("ratings-about").textContent = unavailable ? `Ratings unavailable: ${unavailable}.` : entrants.length === 0 ? "No tournament has been played yet (scripts/tournament.mjs)."
     : `Each mind on each character with each loadout against every other, both sides, Bradley-Terry on the Elo scale (the field's mean 1500), with its 95 % interval. ${date} at ${commit?.slice(0, 8)}; ${harness}.`;
@@ -109,15 +110,24 @@ function showRatings(): void {
   need("ratings-table").replaceChildren(head, ...rows);
 }
 
-export async function bootArena(): Promise<void> {
-  const lifetime = new AbortController();
-  window.addEventListener("pagehide", () => lifetime.abort(), { once: true });
+export async function bootArena(context: ScreenContext): Promise<void> {
+  const location = context.address, lifetime = context;
+  const need = <T extends HTMLElement>(id: string): T => find<T>(id, context.root);
+  const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
   const canvas = need<HTMLCanvasElement>("stage");
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
+  context.own(() => { engine.stopRenderLoop(); engine.dispose(); });
   const physicsEngine = await loadEngine();
+  context.signal.throwIfAborted();
   const level = readLevel(location.search);
   let made: World | null = null;
-  const arena = await buildArena(engine, (scene) => (made = createWorld(scene, physicsEngine)).physics, level);
+  const arena = await buildArena(engine, (scene) => {
+    context.own(() => scene.dispose());
+    const world = made = createWorld(scene, physicsEngine);
+    context.own(() => world.dispose());
+    return world.physics;
+  }, level, context.signal);
+  context.signal.throwIfAborted();
   const world = made as World | null;
   if (!world) throw new Error("the arena made no world");
   const { scene, camera, shadows } = arena;
@@ -262,6 +272,7 @@ export async function bootArena(): Promise<void> {
     need("matchup").append(panel);
     pickers[side] = select;
     previewLoads.push(showHeroLineup(preview, physicsEngine, [matchup[side]], lifetime.signal, [appearances[side]]).then(async view => {
+      context.signal.throwIfAborted();
       previews[side] = view; select.disabled = false; appearancePicker.disabled = false;
       try { attributePanel.read(); await view.setCharacter(0, { model: select.value as BodyModel, attributes: attributes[side] }, appearances[side]); } catch { /* The editor displays its draft's error. */ }
       select.addEventListener("change", () => {
@@ -300,9 +311,28 @@ export async function bootArena(): Promise<void> {
     query.set("level", next);
     const gap = readGap(location.search), policy = LEVELS[next].gap;
     if (gap !== undefined && (gap < policy.min || gap > policy.max)) query.delete("gap");
-    location.assign(`?${query}`);
+    const draft = new URL(setupAddress());
+    draft.searchParams.set("level", next);
+    if (!query.has("gap")) draft.searchParams.delete("gap");
+    context.navigate(draft.href, { setup: true });
   });
   levelField.append(levelPicker); recoveryField.before(levelField);
+
+  function setupAddress(): string {
+    const models = { left: pickers.left.value as BodyModel, right: pickers.right.value as BodyModel };
+    const query = new URLSearchParams(location.search);
+    query.delete("balance"); query.delete("haste"); query.delete("held");
+    query.set("control", SIDES.map(side => controlPickers[side].value).join(","));
+    query.set("level", levelPicker.value); query.set("recovery", recoveryPicker.value);
+    for (const side of SIDES) {
+      try { writeAttributes(query, side, attributeEditors[side].read()); } catch { /* The link retains its last valid attributes. */ }
+      query.set(`${side}.loadout`, SIDES.map(hand => loadoutPickers[side][hand].value).join(","));
+    }
+    const search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
+    return new URL(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, models), models, appearances),
+      youPicker.value === "left" || youPicker.value === "right" ? youPicker.value : null), view), location).href;
+  }
+  context.own(() => context.remember(setupAddress()));
 
   // Each model's dresser, loaded once: its skin, or its shapes if the skin does not load.
   let skeletonArt: Promise<SkeletonArt> | null = null;
@@ -318,10 +348,12 @@ export async function bootArena(): Promise<void> {
   };
 
   const audio = new GameAudio();
+  context.own(() => audio.dispose());
   // What each side's controller is called while its bout runs (`controllerLabel`).
   let controllers: Record<Side, string> = { left: "", right: "" };
   let duel: Duel | null = null, drawn: (SkinView | BodyShapes)[] = [], paused = false, shown: Verdict | null = null;
   const highlights = sideHighlights(scene);
+  context.own(() => highlights.dispose());
   let playback: ReturnType<typeof arenaPlayback> | null = null;
   const bodies = new Map<Side, { read: ReturnType<typeof physicalReading>; skin: SkinView; shapes: BodyShapes; hands: ReturnType<typeof fighterHands>; subject: ArenaSubjects[Side] }>();
   let subjects: ArenaSubjects | null = null;
@@ -347,7 +379,7 @@ export async function bootArena(): Promise<void> {
   const chooseView = (patch: Partial<ArenaView>) => {
     view = normalizeArenaView({ ...view, ...patch }, you);
     rig.choose(view); applyView();
-    history.replaceState(null, "", arenaViewSearch(location.search, view) + location.hash);
+    context.replace(arenaViewSearch(location.search, view) + location.hash);
     for (const control of viewFields) control.refresh();
   };
   viewFields.push(...viewControls(() => view, chooseView),
@@ -358,6 +390,8 @@ export async function bootArena(): Promise<void> {
   /** What hears the bout under way: its touches' listener, and each side's air. */
   let hearing: { dispose(): void } | null = null, airs: { readonly side: Side; readonly air: (at: Vector3) => number }[] = [];
   const end = () => { playback?.dispose(); playback = null; undraw(); hearing?.dispose(); hearing = null; airs = []; duel?.dispose(); duel = null; shown = null; };
+
+  context.own(end);
 
   // The readout: each side's name and bar, its mind as it goes (`mindInspector`), and the clock.
   const hud = need("hud");
@@ -424,8 +458,9 @@ export async function bootArena(): Promise<void> {
         for (const side of SIDES) writeAttributes(snapshot, side, resolveCharacter({ model: matchup[side], attributes: attributes[side] }).config.attributes);
         search = `?${snapshot}`;
       }
-      history.replaceState(null, "", arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view) + (replaying ? linked.hash : ""));
+      context.replace(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view) + (replaying ? linked.hash : ""));
       const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
+      context.signal.throwIfAborted();
       end();
       toStart();
       audio.reset();
@@ -470,6 +505,7 @@ export async function bootArena(): Promise<void> {
       show("curtain", false); show("bout-end", false); setPaused(false); screen = "fight"; viewPanel.hidden = false;
       canvas.focus();
     } catch (error) {
+      if (context.signal.aborted) return;
       setup();
       need("boot-note").textContent = error instanceof Error ? error.message : String(error);
     } finally { beginButton.disabled = false; }
@@ -490,11 +526,11 @@ export async function bootArena(): Promise<void> {
   for (const id of ["restart", "bout-end-replay"]) need(id).addEventListener("click", () => void begin(matchup));
   for (const id of ["random-replay", "bout-end-random"]) need(id).addEventListener("click", () => void begin(redrawn()));
   for (const id of ["leave", "bout-end-leave"]) need(id).addEventListener("click", setup);
-  need<HTMLButtonElement>("to-menu").addEventListener("click", () => window.location.assign(MENU_HREF));
+  need<HTMLButtonElement>("to-menu").addEventListener("click", () => context.navigate(MENU_HREF));
   const help = (open: boolean) => show("help", open);
   need("help-open").addEventListener("click", () => help(true));
   need("help-close").addEventListener("click", () => help(false));
-  showRatings();
+  showRatings(context.root);
   need("ratings-open").addEventListener("click", () => show("ratings", true));
   need("ratings-close").addEventListener("click", () => show("ratings", false));
   // What the person's hands are doing: the walking keys held, and whether Shift is, which runs; where the
@@ -519,15 +555,15 @@ export async function bootArena(): Promise<void> {
     if (!duel || walkKey(event, true)) return;
     if (event.key === " " || event.key === "Escape") { event.preventDefault(); if (!duel.verdict) setPaused(!paused); }
     else if (event.key === "r" || event.key === "R") void begin(matchup);
-  });
-  window.addEventListener("keyup", (event) => { if (event.key === "Shift") running = false; walkKey(event, false); });
+  }, { signal: context.signal });
+  window.addEventListener("keyup", (event) => { if (event.key === "Shift") running = false; walkKey(event, false); }, { signal: context.signal });
   // Losing focus pauses the bout, and lets go of every key and button: their releases are not heard.
   window.addEventListener("blur", () => {
     keys.up = keys.down = keys.left = keys.right = false;
     running = false;
     attacking = false;
     if (duel && !duel.verdict) setPaused(true);
-  });
+  }, { signal: context.signal });
   // The left button is a level, read from every pointer event, since a release is not guaranteed.
   for (const type of ["pointerdown", "pointermove", "pointerup"] as const) {
     canvas.addEventListener(type, (event) => {
@@ -599,26 +635,27 @@ export async function bootArena(): Promise<void> {
     const began = measurement ? performance.now() : 0, clockBefore = world.time;
     let physicsMs = 0;
     const seconds = engine.getDeltaTime() / 1000;
-    giveOrders();
-    if (duel && !paused) {
+    if (!context.busy) giveOrders();
+    if (duel && !paused && !context.busy) {
       const beforePhysics = measurement ? performance.now() : 0;
       playback?.advance(seconds);
       if (measurement) physicsMs = performance.now() - beforePhysics;
       for (const { side, air } of airs) audio.swish(side, air(airAt), airAt);
     }
-    if (!paused) arena.fire.burn(seconds);
+    if (!paused && !context.busy) arena.fire.burn(seconds);
     frame(); readout(); audio.update();
     scene.render();
     measurement?.record({ frame: performance.now() - began, interval: seconds * 1000, physics: physicsMs,
       simulated: world.time - clockBefore, time: world.time, hz: world.hz, active: !!duel && !paused && !duel.verdict });
   });
-  window.addEventListener("resize", () => engine.resize());
-  window.addEventListener("pagehide", () => { end(); measurement?.dispose(); audio.dispose(); engine.stopRenderLoop(); world.dispose(); highlights.dispose(); scene.dispose(); engine.dispose(); });
+  window.addEventListener("resize", () => engine.resize(), { signal: context.signal });
+  context.own(() => measurement?.dispose());
   Object.assign(window, { __arena: { get duel() { return duel; }, world, scene, engine } });
 
   await Promise.all(previewLoads);
+  context.signal.throwIfAborted();
   need("boot-note").textContent = "";
   beginButton.disabled = false;
   // A link that names its matchup opens the bout directly.
-  if (new URLSearchParams(location.search).has(MATCHUP_PARAM)) await begin(matchup);
+  if (context.autostart && new URLSearchParams(location.search).has(MATCHUP_PARAM)) await begin(matchup);
 }

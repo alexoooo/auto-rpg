@@ -1,8 +1,8 @@
 /**
  * Which screen an address opens: the main menu, the arena, the dungeon or the lab.
  *
- * Pure and free of the DOM so `tests/app.test.mjs` can argue with it. `src/app.ts` reads it once
- * per document, because every screen change is a navigation.
+ * Pure and free of the DOM so `tests/app.test.mjs` can argue with it. The persistent shell reads
+ * it for direct entry, internal navigation and browser history.
  */
 
 export type Route = "menu" | "arena" | "dungeon" | "lab";

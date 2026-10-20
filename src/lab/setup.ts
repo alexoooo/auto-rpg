@@ -1,5 +1,6 @@
+import type { ScreenContext } from "../ui/screen.ts";
 import { labHref, LAB_PRESETS, recoveryAddress, SCENARIOS, type LabAddress } from "./scenarios.ts";
-import { need } from "../dom.ts";
+import { need as find } from "../dom.ts";
 import { groundMind } from "./ground-config.ts";
 import { isFighter, type FighterConfig } from "../core/mind/config.ts";
 
@@ -9,7 +10,8 @@ import { isFighter, type FighterConfig } from "../core/mind/config.ts";
  * the next scenario keeps them. Built from `scenarios.ts`, so a card offered is a scenario the lab
  * has; it loads neither Babylon nor Rapier.
  */
-export function showScenarios(address: LabAddress): void {
+export function showScenarios(address: LabAddress, context: ScreenContext): void {
+  const need = <T extends HTMLElement>(id: string): T => find<T>(id, context.root);
   const cards = SCENARIOS.map((scenario) => {
     const card = document.createElement("a");
     let mind = address.mind;
@@ -22,10 +24,10 @@ export function showScenarios(address: LabAddress): void {
       mind = fighter;
     }
     const chosen = { ...address, mind, scenario: scenario.id };
-    card.href = labHref(scenario.id === "recovery" ? recoveryAddress(chosen) : chosen, window.location.search);
+    card.href = labHref(scenario.id === "recovery" ? recoveryAddress(chosen) : chosen, context.address.search);
     card.append(Object.assign(document.createElement("strong"), { textContent: scenario.name }));
     return card;
   });
   need("lab-scenarios").replaceChildren(...cards);
-  cards[0]?.focus();
+  context.own(() => context.remember(context.address.href));
 }

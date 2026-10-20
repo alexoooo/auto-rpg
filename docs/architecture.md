@@ -1514,7 +1514,10 @@ bout the best. What it reports is the ceiling of what it searched and of nothing
 
 `index.html` is one document (`src/app.ts`, routed by `src/app-route.ts`): the main menu, and the
 arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, each a
-`<template>` mounted once per page load. Changing screen is a navigation.
+`<template>` mounted in the persistent shell. Internal navigation and browser history dispose the
+previous screen, including pending loads, worlds, scenes, previews, listeners and audio. Setup
+choices remain in memory for the current tab; leaving a run ends it. Styles belong to their
+screen root, so revisiting a mode reuses its module without leaking its DOM or styles.
 
 - **The Arena** (`src/arena/`): two bodies, empty-handed unless armed, in the Forge (`src/arena/scene.ts`,
   `src/arena/room.ts`), each driven by its side's mind under a `Duel`, to a verdict, each
