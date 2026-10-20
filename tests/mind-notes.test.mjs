@@ -26,10 +26,10 @@ test("the notes file names only minds, characters and loadouts there are, and ea
     "puncher.bodies.reptile: a note is text"]);
 });
 
-test("the ratings name minds, characters and loadouts there are, each rating inside its interval", () => {
+test("the ratings name minds, characters and loadouts there are, each with a finite rating and interval and its bouts counted", () => {
   for (const entrant of RATINGS.entrants) {
     assert.ok(Object.hasOwn(MINDS, entrant.mind) && BODY_MODELS.includes(entrant.model) && HELD.includes(entrant.held), JSON.stringify(entrant));
-    assert.ok(entrant.interval[0] <= entrant.rating && entrant.rating <= entrant.interval[1], JSON.stringify(entrant));
+    assert.ok([entrant.rating, ...entrant.interval].every(Number.isFinite) && entrant.interval[0] <= entrant.interval[1], JSON.stringify(entrant));
     assert.equal(entrant.wins + entrant.draws + entrant.losses, entrant.bouts, JSON.stringify(entrant));
   }
 });

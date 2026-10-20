@@ -74,7 +74,10 @@ test("a tree fits a body where every part does, and every part of a role is offe
   assert.equal(treeFits(reptile, CLASSIC), false);
   assert.equal(treeFits(reptile, QUADRUPED), true);
   const offered = (role, spec) => kindsFor(role, spec).map(({ kind, reason }) => [kind, reason]);
-  assert.deepEqual(offered("mind", human), [["options", null], ["fighter", null], ["quadruped", "does not fit this body"], ["direct", null]]);
+  // The game's own kinds, then every entrant's in the registry's order: an entrant registered is offered without an edit here.
+  const minds = offered("mind", human);
+  assert.deepEqual(minds.slice(0, 3), [["options", null], ["fighter", null], ["quadruped", "does not fit this body"]]);
+  assert.deepEqual(minds.map(([kind]) => kind), Object.keys(CONTROLLERS));
   assert.deepEqual(offered("executor", human), [["recipe-strike", null], ["path-strike", null], ["driven-strike", null], ["front-kick", null], ["straight-punch", null], ["combination", null], ["whole-body-strike", null]]);
   assert.deepEqual(offered("tactics", reptile), [["script", "does not fit this body"], ["stand", "does not fit this body"], ["behaviours", "does not fit this body"]]);
   assert.deepEqual(offered("tactics", human), [["script", "this screen gives no script"], ["stand", null], ["behaviours", null]]);

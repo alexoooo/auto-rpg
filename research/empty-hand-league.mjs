@@ -33,6 +33,7 @@ import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isMainThread, parentPort, Worker } from "node:worker_threads";
 import { buildBout } from "./bout.mjs";
+import { bradleyTerry } from "./rating.mjs";
 import { PRESETS } from "../src/core/mind/controllers.ts";
 
 /** Within how far across the ground two centres of mass count as close, m. */
@@ -129,25 +130,7 @@ if (!isMainThread) {
   const byHash = new Map(named.map((n) => [hash[n], n]));
   const games = rows.filter((r) => r.epoch === epoch && byHash.has(r.ha) && byHash.has(r.hb) && r.ha !== r.hb && gaps.includes(r.gap));
   const index = new Map(named.map((n, i) => [n, i]));
-  const fit = (scoreOf) => {
-    // Bradley-Terry by minorisation-maximisation: each strength the scores it took over its expected games.
-    const n = named.length, s = new Array(n).fill(1), wins = new Array(n).fill(0), count = Array.from({ length: n }, () => new Array(n).fill(0));
-    for (const g of games) {
-      const i = index.get(byHash.get(g.ha)), j = index.get(byHash.get(g.hb)), x = scoreOf(g);
-      wins[i] += x; wins[j] += 1 - x; count[i][j]++; count[j][i]++;
-    }
-    for (let k = 0; k < n; k++) { wins[k] += 0.5; for (let m = 0; m < n; m++) if (m !== k) count[k][m] += 0.5 / (n - 1); }
-    for (let it = 0; it < 2000; it++) {
-      for (let i = 0; i < n; i++) {
-        let den = 0;
-        for (let j = 0; j < n; j++) if (j !== i && count[i][j]) den += count[i][j] / (s[i] + s[j]);
-        s[i] = den > 0 ? wins[i] / den : s[i];
-      }
-      const mean = s.reduce((t, x) => t + Math.log(x), 0) / n;
-      for (let i = 0; i < n; i++) s[i] = Math.exp(Math.log(s[i]) - mean);
-    }
-    return s.map((x) => 1000 + 400 * Math.log10(x));
-  };
+  const fit = (scoreOf) => bradleyTerry(named.length, games.map((g) => ({ i: index.get(byHash.get(g.ha)), j: index.get(byHash.get(g.hb)), score: scoreOf(g) })), { mean: 1000 });
   const win = fit((g) => g.winner === 0 ? 1 : g.winner === 1 ? 0 : 0.5);
   const damage = fit((g) => { const da = 1 - g.bars[1], db = 1 - g.bars[0]; return da + db > 1e-9 ? da / (da + db) : 0.5; });
   const table = named.map((n, i) => {

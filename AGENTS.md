@@ -16,6 +16,7 @@ npm run test:all # all current-code tests, as CI runs them
 npm run test:experimental # how well the controllers do: tests/experimental.json's, in neither tier
 npm run build    # check, then vite build
 npm run match -- <mind> <mind> # the standard match: two minds, each on each side, one digest
+npm run tournament -- --write # every mind, character and loadout rated; the Arena's Ratings and notes
 ```
 
 **Speed comes first.** A change is checked for whether it broke the core, not re-qualified:
@@ -254,6 +255,10 @@ Agents develop Minds side by side, on more than one machine. Each keeps out of t
   preset), whose moved cases its message names. It never rides in with an entrant.
 - **A claim is a match.** That one Mind beats another is what `npm run match -- <a> <b>`
   (`scripts/match.mjs`) reads: its protocol, commit, each mind's digest and the match's digest.
+  Where one stands in the whole field is the tournament's (`scripts/tournament.mjs`): every mind
+  on every character and loadout it fits, rated by Bradley-Terry on the Elo scale with an
+  interval, written to `assets/minds/ratings.json` and as each mind's notes
+  (`assets/minds/notes.json`, `src/ui/mind-notes.ts`), at a commit it names.
   Bouts are the same on every machine, so one commit and two minds give one digest anywhere; a
   figure read at another commit or protocol is read again before it is compared.
 

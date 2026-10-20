@@ -773,7 +773,10 @@ or builder. Once registered it is offered (`MINDS`) by its presets, or by its ki
 replays it from its order sheets; how well it fights is a measurement, not a gate: the standard
 match (`scripts/match.mjs`, `npm run match -- <a> <b>`) plays two minds over one fixed set of
 bodies, loadouts and gaps, each on each side, and names the result by a digest that is the same on
-every machine. The fingerprint has a case for every mind a person may pick, so a toolkit change names
+every machine; the tournament (`scripts/tournament.mjs`) plays every mind on every character and
+loadout it fits against every other and rates each by Bradley-Terry on the Elo scale
+(`research/rating.mjs`), which the Arena shows as each mind's notes (`src/ui/mind-notes.ts`: a
+note for the mind, a loadout, a character, and both) and in its Ratings panel. The fingerprint has a case for every mind a person may pick, so a toolkit change names
 the minds it moves; `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
 
 **The fighter's configuration** (`FighterConfig`) holds tactics, locomotion, guard, optional
