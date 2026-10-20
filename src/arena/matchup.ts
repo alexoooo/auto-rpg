@@ -9,6 +9,13 @@ import { EMPTY_LOADOUT, HELD, type Loadout } from "../core/items/held.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import type { Side } from "../core/spec/body.ts";
 import { parseMind, writeMind, type LinkedMind } from "../ui/mind-link.ts";
+import { LEVELS, type ArenaLevel } from "./levels.ts";
+
+/** A link chooses a named stage; malformed UI input starts on the open stage. */
+export function readLevel(search: string): ArenaLevel {
+  const level = new URLSearchParams(search).get("level") ?? "open";
+  return Object.hasOwn(LEVELS, level) ? level as ArenaLevel : "open";
+}
 
 /** The arena link's parameter: `?matchup=left,right`, each a core model. */
 export const MATCHUP_PARAM = "matchup";

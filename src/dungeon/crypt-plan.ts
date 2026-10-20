@@ -1,13 +1,14 @@
 import { CRYPT_ROOM_LOOK, type CryptArchetype } from "./crypt-archetypes.ts";
 import type { DungeonMap, Point } from "./map.ts";
 import type { TorchPlacement } from "./dressing.ts";
+import type { KitPlacement } from "../environment/furniture.ts";
 
 /** Footprints used by deterministic packing and its coverage checks. */
 export const CRYPT_PAVING: Readonly<Record<string, readonly [number,number]>> = {
   paving0:[1,1],paving1:[1,1],paving2:[1,1],paving3:[1,1],
   'slabs-long':[2,1],'slabs-large':[2,2],'slabs-broken':[2,2],'slabs-fractured':[1,1],
 };
-export interface CryptPlacement { piece: string; x: number; z: number; turn: number; obstacleId?: string }
+export type CryptPlacement = KitPlacement;
 export interface CryptRoomPlan {
   map: DungeonMap;
   archetypes: CryptArchetype[];

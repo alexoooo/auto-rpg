@@ -12,6 +12,7 @@ import { balanceCeiling, balancePercent, type Rulebook } from "./rules/rulebook.
 import type { BodySpec } from "./spec/body.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import type { World } from "./world.ts";
+import { cos, sin } from "./math/real.ts";
 
 /** **What a fight enlists a body with**: who it is, its body, where it stands, and what drives it. */
 interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdentity"> {
@@ -21,6 +22,8 @@ interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdenti
   readonly spec: BodySpec;
   /** Where its root stands, world. */
   readonly at: Vec3;
+  /** Initial yaw in world space; zero faces +z. */
+  readonly heading?: number;
   readonly rules: Rulebook;
   /** The fight's senses, which carry it (`SensesHub.add`). */
   readonly senses: SensesHub;
@@ -59,7 +62,10 @@ export interface Combatant extends Fighter {
  */
 export function enlist(world: World, enlisting: Enlistment): Combatant {
   const { id, side, spec, rules, mind } = enlisting;
-  const built = buildBody(spec, world, { position: enlisting.at, joints: builtAngles(spec, mind) });
+  const heading = enlisting.heading ?? 0;
+  if (!Number.isFinite(heading)) throw new Error("invalid combatant heading");
+  const built = buildBody(spec, world, { position: enlisting.at, joints: builtAngles(spec, mind),
+    ...(heading ? { rotation: [0, sin(heading / 2), 0, cos(heading / 2)] as const } : {}) });
   const pool = createPool(spec, rules);
   // The mind is made after the senses carry its body; it is asked whether the body is down from the first step.
   let minded: Minded | null = null;

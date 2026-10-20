@@ -14,12 +14,16 @@ import { loadForgeStyle, paveForge } from "./forge-style.ts";
 import { postPipeline } from "../render/post.ts";
 import { buildArenaWorld, type ArenaAudit, type RoomMaterials, type RoomOcclusionTarget } from "./room.ts";
 import type { PhysicsWorld } from "../core/engine/engine.ts";
+import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
+import { levelDefinition, type ArenaLevel } from "./levels.ts";
+import { ROOM_GROUPS } from "./room.ts";
 
 // Side effects: the PBR pipeline and shadow support register themselves on import.
 import "@babylonjs/core/Materials/Textures/Loaders/hdrTextureLoader.js";
 import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js";
 import "@babylonjs/core/Rendering/depthRendererSceneComponent.js";
 import "@babylonjs/core/PostProcesses/RenderPipeline/postProcessRenderPipelineManagerSceneComponent.js";
+import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 
 interface Arena {
   scene: Scene;
@@ -58,7 +62,7 @@ const ARENA_LIGHT = Object.freeze({
  * The arena's scene: its light, its room and its solids, which are fixed colliders in the physics
  * `physicsFor` makes on the scene (the core's world, `createWorld`).
  */
-export async function buildArena(engine: Engine, physicsFor: (scene: Scene) => PhysicsWorld): Promise<Arena> {
+export async function buildArena(engine: Engine, physicsFor: (scene: Scene) => PhysicsWorld, level: ArenaLevel = "open"): Promise<Arena> {
   const scene = new Scene(engine);
   scene.clearColor = new Color4(...ARENA_LIGHT.clear);
   scene.ambientColor = new Color3(...ARENA_LIGHT.ambient);
@@ -108,10 +112,13 @@ export async function buildArena(engine: Engine, physicsFor: (scene: Scene) => P
 
   // The floor slab and the posts are colliders; the visible floor and the room's dressing are
   // separate meshes with no body, so the art can change without touching the physics.
+  const kit = levelDefinition(level).furniture.length
+    ? await LoadAssetContainerAsync(publicAssetUrl("/assets/crypt-kit/kit.glb"), scene) : undefined;
+  kit?.addAllToScene();
   const world = buildArenaWorld(scene, physics, materials, {
     add: (mesh) => shadows.addShadowCaster(mesh),
     remove: (mesh) => shadows.removeShadowCaster(mesh),
-  });
+  }, ROOM_GROUPS, level, kit);
 
   paveForge(scene, forge.materials.pavement, forge.materials.brazierBronze, forge.materials.lava);
   paintArenaBanners(scene, forge);

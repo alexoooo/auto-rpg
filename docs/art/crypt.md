@@ -113,7 +113,7 @@ three holds two enemies placed away from the doors. The camera follows the leade
   the gameplay `DungeonMap` plus the art's placements, the room bounds, torches and damp regions.
   Layout and decoration draw from separate random streams, so the same seed always gives the same
   crypt.
-- **Furnishings.** `CRYPT_FURNITURE` (`src/dungeon/crypt-archetypes.ts`) gives each solid piece's
+- **Furnishings.** `CRYPT_FURNITURE` (`src/environment/furniture.ts`) gives each solid piece's
   size: tomb, column, altar, bench, rack and root-covered cluster. Placing one (`cryptFurniture`)
   adds an obstacle to the map and an art placement that share an `obstacleId`. `CRYPT_SIGHT` says
   which block sight: columns do, racks do not. Banners and moss are cosmetic.
@@ -123,8 +123,9 @@ three holds two enemies placed away from the doors. The camera follows the leade
 - **Paving and weathering.** `CRYPT_PAVING` packs one-, two- and four-cell paving modules by seed;
   the chapel favours large slabs. `CryptWeathering` (`src/dungeon/crypt-weathering.ts`) stains the
   stone in world space with one soil tint per room kind, cleaner along each room's two centre axes.
-- **Assembly.** `assembleCryptKit` (`src/dungeon/crypt-kit.ts`) clones the kit's pieces for each
-  placement and merges them by material, nine batches in all.
+- **Assembly.** `assembleCryptKit` (`src/environment/crypt-kit.ts`) clones the kit's pieces for each
+  placement and merges them by material, nine batches in the Crypt. The Arena uses the same kit
+  and assembly with individual column meshes retaining their collider identities.
 - **Visibility.** Opaque furnishings are drawn from the visibility of the floor around them, as
   walls and closed doors are. `revealScenery` (`src/dungeon/scenery-visibility.ts`) keeps the
   scenery's own memory of what has been seen, with corner samples and small gaps filled; it never

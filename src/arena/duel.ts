@@ -16,6 +16,9 @@ import { derive } from "../core/spec/quantity.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { loadState, saveState, type Saved } from "../core/state.ts";
 import type { Hook, World } from "../core/world.ts";
+import { sensedBounds } from "../core/mind/sensed-bounds.ts";
+import { arenaSolids } from "./room.ts";
+import { levelSpawn, spawnClearanceFaults, type ArenaLevel } from "./levels.ts";
 
 /**
  * **A bout in the arena**: two bodies, each empty-handed (`EMPTY_LOADOUT`) unless the recipe arms its
@@ -23,7 +26,7 @@ import type { Hook, World } from "../core/world.ts";
  * mind made from its config (`createMind`; its model's, `modelInfo`, unless the recipe names
  * another), wounded by the core's blows under the arena's rulebook, and judged.
  *
- * - **They stand** the recipe's gap apart (`GAP_METRES` unless it says) across the arena's
+ * - **They stand** the recipe's gap apart (the level's default unless it says) across the arena's
  *   centre, both facing +z as every body is built; each turns a quarter to the other, so neither
  *   starts ahead.
  * - **Each side, left to itself** (a fighter's `seekFoe`), walks at the body it sees of the other
@@ -50,8 +53,6 @@ import type { Hook, World } from "../core/world.ts";
  * there, in this world or another, to go on as the saved bout went on.
  */
 
-/** Where the two stand, m apart across the centre, along x (`docs/reference/play.md#the-bout`). */
-const GAP_METRES = 4;
 /** How long a bout runs before the bars decide it, s (`docs/reference/play.md#the-bout`). */
 export const CAP_SECONDS = 120;
 
@@ -82,7 +83,9 @@ interface Duelist extends Combatant {
 interface DuelRecipe {
   readonly left: BodyModel;
   readonly right: BodyModel;
-  /** How far apart the two stand, m; `GAP_METRES` unless given. */
+  /** Physical stage and its spawn policy; the open stage unless given. */
+  readonly level?: ArenaLevel;
+  /** How far apart the two stand, m; the level's default unless given. */
   readonly gap?: number;
   /** `CAP_SECONDS` unless given. */
   readonly capSeconds?: number;
@@ -223,7 +226,8 @@ export class Duel {
     const start = world.time, startStep = world.steps;
     const given: Record<Side, Orders | null> = { left: null, right: null };
     this.cap = recipe.capSeconds ?? CAP_SECONDS;
-    const gap = recipe.gap ?? GAP_METRES;
+    const level = recipe.level ?? "open";
+    const spawns = { left: levelSpawn(level, "left", recipe.gap), right: levelSpawn(level, "right", recipe.gap) };
     this.senses = createSenses(world, recipe.senseDelay ?? 0);
     // In the step's sensing phase, after the senses and before every mind: a taped order is given
     // before the step it names.
@@ -234,7 +238,7 @@ export class Duel {
         this.order(side, orders);
       }
     });
-    const solids = hooks.solids ? solidSenses(hooks.solids) : undefined;
+    const solids = solidSenses(hooks.solids ?? arenaSolids(level));
     const contactLabels = new Map<number, ContactTarget>();
     const duelists = {} as Record<Side, Duelist>;
     for (const side of SIDES) {
@@ -242,9 +246,8 @@ export class Duel {
       const info = modelInfo(model), loadout = recipe.loadouts?.[side] ?? EMPTY_LOADOUT, config = recipe.minds?.[side] ?? info.mind;
       const own = modelSpec(model, undefined, { haste: recipe.haste?.[side] }), original = recipe.surfaces ? stiffened(own, recipe.surfaces) : own;
       const spec = withLoadout(original, loadout);
-      const x = (side === "left" ? -1 : 1) * gap / 2;
       const combatant = enlist(world, {
-        id: side, side, spec, at: [x, 0, 0], rules: this.rules, senses: this.senses, ...(solids ? { solids } : {}),
+        id: side, side, spec, at: spawns[side].position, heading: spawns[side].heading, rules: this.rules, senses: this.senses, solids,
         // A downed side remains in the fight while its recovery allowance lasts.
         out: () => this.verdict !== null || this.eliminated(side),
         mind: config, ...(recipe.balance ? { balance: recipe.balance[side] } : {}), ...(recipe.balancePercent ? { percent: recipe.balancePercent } : {}),
@@ -262,6 +265,16 @@ export class Duel {
       };
     }
     this.duelists = duelists;
+    const spawnFaults = SIDES.flatMap(side => {
+      const observer = duelists[side === "left" ? "right" : "left"];
+      const body = observer.senses().others.find(other => other.id === side)!;
+      return spawnClearanceFaults(sensedBounds(body), arenaSolids(level));
+    });
+    if (spawnFaults.length) {
+      this.feeding.dispose(); this.senses.dispose();
+      for (const side of SIDES) { duelists[side].body.dispose(); duelists[side].built.dispose(); }
+      throw new Error(`invalid ${level} spawn:\n${spawnFaults.join("\n")}`);
+    }
     this.watch = watchBlows(world, SIDES.map((side) => duelists[side]), this.rules, hooks.onBlow);
     const sideState = ({ body, minded, pool }: Duelist): SideState => ({ body: body.state, mind: minded.state, pool: pool.state });
     this.state = {

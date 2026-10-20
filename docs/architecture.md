@@ -1452,7 +1452,14 @@ side's mind inspected under its bar. A person
   while pressed over sensed collision geometry, a foe and segment identity (`src/arena/orders-input.ts`).
   These become orders (`Duel.order`), so nothing of the camera reaches a mind. The room's
   solids (`arenaSolids`) are a floor slab, twenty-four rotated parapet boxes and eight brazier
-  pedestals enclosing a circular floor. Setup uses two unstepped character previews
+  pedestals enclosing a circular floor. `LEVELS` (`src/arena/levels.ts`) selects the open stage or
+  column court; the recipe's `level` is carried by `&level=`. The court adds the Crypt kit's
+  columns from shared furniture definitions (`src/environment/furniture.ts`), including collision
+  sizes, visual placements and sight permissions. Every Mind receives the stage's entire fixed
+  geometry. Opponent visibility keeps its existing policy. Each level owns its spawn pair,
+  headings and allowed gap; admission checks the posed body's collider bounds, held items included,
+  against all above-floor solids before stepping. Page and Node bouts build from `arenaSolids(level)`.
+  Setup uses two unstepped character previews
   (`src/render/character-preview.ts`) and an overview camera; Fight switches explicitly to the
   combat camera and HUD. `camera.ts` follows pose-only subjects with the existing FreeCamera and
   post pipeline, running even while the world is paused. `view.ts` owns presentation URL settings,

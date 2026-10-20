@@ -7,6 +7,7 @@ import { appearanceFor, appearancesFor, type Appearance } from "../render/appear
 import { showHeroLineup } from "../render/character-preview.ts";
 import { arenaSolids } from "./room.ts";
 import { buildArena } from "./scene.ts";
+import { LEVELS, type ArenaLevel } from "./levels.ts";
 import { MENU_HREF } from "../app-route.ts";
 import { need } from "../dom.ts";
 import { airOf, hearTouches } from "../audio/body-sounds.ts";
@@ -24,7 +25,7 @@ import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readHaste, readGap, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readHaste, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { partOf } from "../core/mind/catalog.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
@@ -111,8 +112,9 @@ export async function bootArena(): Promise<void> {
   const canvas = need<HTMLCanvasElement>("stage");
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   const physicsEngine = await loadEngine();
+  const level = readLevel(location.search);
   let made: World | null = null;
-  const arena = await buildArena(engine, (scene) => (made = createWorld(scene, physicsEngine)).physics);
+  const arena = await buildArena(engine, (scene) => (made = createWorld(scene, physicsEngine)).physics, level);
   const world = made as World | null;
   if (!world) throw new Error("the arena made no world");
   const { scene, camera, shadows } = arena;
@@ -261,6 +263,19 @@ export async function bootArena(): Promise<void> {
   recoveryPicker.value = linkedRecovery == null ? "continue" : String(linkedRecovery); recoveryPicker.addEventListener("change", () => recoveryPicker.blur());
   recoveryField.append(recoveryPicker); need("matchup").after(recoveryField);
 
+  const levelField = document.createElement("label"), levelPicker = document.createElement("select");
+  levelField.className = "field"; levelField.textContent = "Level"; levelPicker.setAttribute("aria-label", "Arena level");
+  for (const [value, definition] of Object.entries(LEVELS)) levelPicker.append(Object.assign(document.createElement("option"), { value, textContent: definition.label }));
+  levelPicker.value = level;
+  levelPicker.addEventListener("change", () => {
+    const query = new URLSearchParams(location.search), next = levelPicker.value as ArenaLevel;
+    query.set("level", next);
+    const gap = readGap(location.search), policy = LEVELS[next].gap;
+    if (gap !== undefined && (gap < policy.min || gap > policy.max)) query.delete("gap");
+    location.assign(`?${query}`);
+  });
+  levelField.append(levelPicker); recoveryField.before(levelField);
+
   // Each model's dresser, loaded once: its skin, or its shapes if the skin does not load.
   let skeletonArt: Promise<SkeletonArt> | null = null;
   const dressers = new Map<string, Promise<Dresser>>();
@@ -375,10 +390,10 @@ export async function bootArena(): Promise<void> {
       const balance = readBalance(location.search), haste = readHaste(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), loadouts = readLoadouts(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search) ?? null;
       controllers = { left: controllerLabel(location.search, "left"), right: controllerLabel(location.search, "right") };
       const bout = duel = new Duel(world, {
-        left: matchup.left, right: matchup.right, recoverySeconds,
+        left: matchup.left, right: matchup.right, recoverySeconds, level,
         ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(haste ? { haste } : {}), ...(loadouts ? { loadouts } : {}), ...(minds ? { minds } : {}),
       }, {
-        solids: arenaSolids(),
+        solids: arenaSolids(level),
         onBuilt: (duelist, built) => {
           const hands = fighterHands(duelist);
           const skin = dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true }, closure: hands.closure });

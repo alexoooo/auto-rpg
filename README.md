@@ -37,6 +37,8 @@ Everything the pages need is committed, so a fresh clone runs with no download s
 ## The Arena
 
 Choose the standing character on each side (Warrior, Rogue, Skeleton or Reptile) and press **Fight**.
+Choose **Open stage** or **Column court** with the **Level** selector. The court's columns are solid;
+links retain the stage in `&level=obstacle-court`, and each stage admits only clear starting placements.
 The Warrior also has an **Appearance** selector: Original, Industrial, Steampunk or Futuristic. The three
 robot shells keep the Warrior's physics and abilities. The Lab offers the same choices and can
 switch skins during playback without restarting the scenario. Arena links keep each side's

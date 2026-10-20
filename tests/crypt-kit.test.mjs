@@ -2,13 +2,13 @@
  * The crypt's kit as it is exported (`public/assets/crypt-kit/kit.glb`), and what a generated crypt asks of it.
  *
  * A node of the kit is named `<piece>__<material>`. A plan places a piece whole, where its origin stands
- * (`assembleCryptKit`, `src/dungeon/crypt-kit.ts`), so a node carries no transform of its own, and its geometry
+ * (`assembleCryptKit`, `src/environment/crypt-kit.ts`), so a node carries no transform of its own, and its geometry
  * lies inside what the plan allots its piece: a furnishing's obstacle, a wall's cells, a slab's cells.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { CRYPT_FURNITURE } from "../src/dungeon/crypt-archetypes.ts";
+import { CRYPT_FURNITURE } from "../src/environment/furniture.ts";
 import { generateCryptDungeon } from "../src/dungeon/crypt-dungeon.ts";
 import { CRYPT_PAVING } from "../src/dungeon/crypt-plan.ts";
 

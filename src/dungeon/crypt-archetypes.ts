@@ -1,17 +1,10 @@
 import type { DungeonObstacle, Room } from "./map.ts";
 import type { CryptPlacement } from "./crypt-plan.ts";
+import { CRYPT_FURNITURE, cryptFurnishing } from "../environment/furniture.ts";
 
 export type CryptRoomKind = "guard" | "burial" | "chapel" | "rootbound";
 export interface CryptArchetype { room: number; kind: CryptRoomKind; variant: number; turn: number }
-/** Footprints are shared by exported furnishings and their authoritative colliders: each piece's width, depth and
- * height, m (`docs/reference/look.md#crypt-rooms`). */
-export const CRYPT_FURNITURE = {
-  tomb: [2.5,1.15,1.1], column: [.8,.8,2.65], altar: [2.4,1.1,1.05],
-  bench: [1.7,.55,.65], rack: [1.8,.6,1.9], cluster: [1.8,1.5,.55],
-} as const;
 type Furnishing = keyof typeof CRYPT_FURNITURE;
-/** Open frames obstruct feet, not vision. Keep this independent of collision height. */
-const CRYPT_SIGHT = { tomb:false, column:true, altar:false, bench:false, rack:false, cluster:false } as const;
 
 /**
  * Where each kind of room stands its furniture: offsets from the room's centre, m, before the room's turn mirrors
@@ -78,11 +71,11 @@ export function cryptFurniture(room: Room, type: CryptArchetype): { obstacles: D
   const obstacles: DungeonObstacle[] = [], placements: CryptPlacement[] = [];
   const mirror = type.turn === 0 ? 1 : -1, shift = (type.variant - 1) * CRYPT_ARRANGEMENT.shift;
   const add: Add = (piece, x, z, turn = 0) => {
-    const [width, depth, height] = CRYPT_FURNITURE[piece], rotated = Math.abs(Math.sin(turn)) > .5;
     const at = { x: room.centre.x + x * mirror, z: room.centre.z + z * mirror };
     const id = `crypt.${room.id}.${piece}.${obstacles.length}`;
-    obstacles.push({ id, ...at, width: rotated ? depth : width, depth: rotated ? width : depth, height, blocksSight: CRYPT_SIGHT[piece] });
-    placements.push({ piece, ...at, turn: turn + type.turn, obstacleId: id });
+    const furnishing = cryptFurnishing(piece, id, at.x, at.z, turn + type.turn);
+    obstacles.push(furnishing.obstacle);
+    placements.push(furnishing.placement);
   };
   switch (type.kind) {
     case "guard": arrangeGuard(type.variant, shift, room, add); break;
