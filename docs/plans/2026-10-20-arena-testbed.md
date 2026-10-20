@@ -226,3 +226,154 @@ Use `AGENTS.md`'s gate: `npm run check`, `npm test`, and `npm run build` for bro
 changes. Run touched slow tests by name; keep new tests fast or list them in `tests/slow.json`.
 Look at visible changes briefly and leave motion to the owner. Update the architecture, README
 and roadmap as behavior lands, and delete this plan when the milestone is complete.
+
+## Implementation readiness review
+
+The four plans form a coherent direction and are ready to begin in small slices. The workshop
+owns the shared platform, the Arena supplies a concrete integration target, whole-body control
+develops execution, and the options fighter develops decisions. Keeping those efforts
+independently useful, scoring physical outcomes independently, and extending registration only
+when a working implementation needs it are sound choices.
+
+The main concern is scope: the next Arena milestone includes several projects that could delay
+useful results. The recommendations below identify scope and contract decisions to settle;
+they remain proposals alongside the implementation sequence above.
+
+### Smaller first deliveries
+
+Two useful early deliveries are club-and-buckler fighting on the open stage, and an existing
+fighter navigating around a column. Either gives a useful result independently. Then add the
+sword and combine the equipment with obstacle fighting.
+
+Move the full Crypt navigation migration and low-furniture recovery work into subsequent
+deliveries. They belong in the direction, but neither needs to block demonstrating a useful
+Arena testbed. Keep E2's early blade fixture: resolve the risky contact representation before
+investing in sword actions.
+
+### Navigation requests and ownership
+
+Specify the navigation request before implementing the navigator. Today `Orders`
+(`src/core/mind/orders.ts`) carries a movement direction; its `destination` field is a remaining
+distance, not a position. `Intent` also carries a velocity. Tactics asking for a place therefore
+introduces a new contract.
+
+Distinguish direct movement, travel to a destination and combat positioning. Keyboard strafing
+preserves its meaning; approaching an opponent seeks a suitable fighting position rather than
+routing into the opponent's occupied centre. Define who owns arrival tolerance, facing,
+stopping, cancellation and the response to a stalled route.
+
+A route that exists geometrically and one the selected gait can negotiate are separate
+readings. The Crypt's `DungeonRun.follow` and `straightOf` already handle progress and corner
+braking; a visibility graph alone does not replace those responsibilities. Moving that work
+into the core also requires its arithmetic to satisfy the core's exact-math boundary.
+
+Decide whether the first navigator receives the complete static map. That is a reasonable
+initial permission, but it is explicit and shared across compared implementations. Geometry
+permissions and visibility of opponents are distinct decisions.
+
+### Shield orientation, cover requests and compatibility
+
+The existing guard (`src/core/skills/guard.ts`) positions one or two points. Two points constrain
+a line without fully determining a buckler's face. Use the existing `EffectorGoal.orientation`
+(`src/core/control/effector-tracker.ts`), or sufficient noncollinear points, to specify that face.
+
+Registering a shield guard and supplying it useful cover requests are separate requirements.
+The current cover reflex (`src/core/mind/options/reflex.ts`) chooses a hand by the threat's
+side. With one shield hand, that choice needs equipment awareness.
+
+Include an incoming strike while the opposite hand attacks, followed by interruption and
+recovery hand-back, in the first demonstration. This exercises the composition the equipped
+fighter needs, beyond interception on a fixed rig.
+
+Replace `strikesWithAll`, but describe the static requirement as declared equipment support.
+An assembly's `fits` check establishes that its parts support the loadout and command legal
+effectors; the physical task establishes whether the fighter uses the equipment effectively.
+
+### Sword contact representation
+
+Impact-only cutting is a good first model. Keep drawn cuts, penetration geometry and mesh
+slicing outside this milestone.
+
+There is an implementation trap in E2: the existing `"region"` branch in `surfaceOf`
+(`src/core/rules/blows.ts`) denotes an anatomical region and returns `item: null`. A sword
+region retains both its item identity and its region identity, including the item-frame
+direction transform. It cannot simply become an anatomical region.
+
+Specify what happens when edge, flat and tip shapes contact during the same impact. The current
+impact path selects the strongest contact pair for pricing. Region geometry and selection must
+avoid duplicate energy or accidental classification at seams. Include mixed-region and seam
+cases in the small physical fixture, with representative blade speeds at 120 Hz, to establish
+that the intended surface contacts and is classified correctly.
+
+### Sword thrust pricing
+
+Treat thrust pricing as an explicit gameplay decision. The proposed thrust inherits the
+reptile's sustained-load rule. It does not use the rulebook's point-energy multiplier: the
+current impact path excludes pointed injury, and the load path prices it separately
+(`src/core/rules/blows.ts`, `src/core/rules/rulebook.ts`).
+
+Consequently, the existing weapon energy ratios do not establish the balance between sword
+cuts and thrusts. This may be the intended result. The initial sword demonstration should
+reveal whether sustained tip pressure dominates cutting. Keep the shared rule initially and
+change it if that exposes a concrete problem; the reptile calibration alone does not validate
+the sword model.
+
+### Recovery scope and capability claims
+
+Preserve the canonical 64-fall target exactly. V3 proposes adding an obstacle condition to the
+owner's target, while the whole-body plan preserves the original battery's scope. Keep
+`research/rising-bed.mjs --target` as the existing 64 falls and add a separately named obstacle
+suite. They can share builders and reporting without changing what completing the owner's
+target means.
+
+V3 calls obstacle recovery a supported feature, but its gate permits every recovery to fail
+provided failure is reported correctly. That establishes supported testing and execution.
+Successful obstacle recovery remains a separate capability claim. Keep that distinction
+visible, especially when admitting low furniture.
+
+### Recording identity
+
+Replacing incompatible recordings without migrating them is appropriate. Still, a recording
+from another rules, body or level revision should fail clearly when exact playback is
+unsupported. Carry a protocol/build identity with recordings and evaluation results. A recipe
+link can intentionally rerun a configuration on current code; an exact replay makes a stronger
+promise. Old-build support is unnecessary, but silently interpreting an old recording as
+current is misleading.
+
+### Implications for the other plans
+
+Component interchangeability needs declared limits. A gait, attack and motor can all be
+individually valid yet compose poorly because of different support assumptions, trunk ownership
+or interruption behaviour. The workshop's transition tasks address this. Make the assumptions
+concrete as the first incompatible combination appears, rather than promise that every set of
+individually compatible parts works together.
+
+Keep tactical research matched to execution reliability. The options plan distinguishes poor
+decisions from requests that cannot be executed. Prioritize that diagnosis before richer
+option models or lookahead. If a request routinely cannot be carried out, a more sophisticated
+value model can spend considerable effort predicting unreliable execution.
+
+### Alternatives worth considering
+
+- **An early learned recovery experiment.** The plans already permit learned control; elevate
+  it to an early, bounded competing approach. Start with recovery alone through the existing
+  observation/actuation boundary and independent verifier, with authored navigation and tactics.
+  This tests whether continued investment in hand-built recovery is the best route without
+  committing the whole game to learning.
+- **Separate research and playable defaults.** If near-term playability is a priority, an
+  explicitly assisted preset could target shorter recoveries and more dependable exchanges
+  while the zero-assist goals remain intact. The same core serves both purposes. This is a
+  prioritization change, not evidence that the unassisted problem is solved.
+- **A smaller game-facing configuration surface.** Keep the full component editor for the
+  workshop, but offer one recommended assembly per body/loadout and a few demonstrated player
+  choices in ordinary play. Requiring players to assemble compatible motors, guards and
+  executors could overwhelm the combat experience. Preserving research implementations does
+  not require presenting every one equally in the game.
+
+### Recommended start
+
+Begin E1, the E2 physical fixture and V1. Before V2 and E3, settle the navigation request and
+shield orientation/cover contracts. The overall direction does not need a rewrite.
+
+This review is based on the four plans and the relevant source paths. It adds no simulation
+measurements or claims that the unfinished capabilities are met.
