@@ -15,6 +15,8 @@ the open component, task, equipment and evaluation work. Within it,
 [whole-body control](plans/2026-10-17-general-controller.md) develops running, recovery and combat
 on one stack, and the [options fighter](plans/2026-10-14-options-fighter.md) develops one Mind's
 tactics and player choices. Their implemented contracts are in the architecture.
+The next implementation milestone is the [Arena testbed](plans/2026-10-20-arena-testbed.md):
+selectable levels, obstacle navigation, explicit loadouts, a buckler and a cutting short sword.
 
 - **Skills and tactics.** A body has an array of skills; tactics, a meta-controller over them,
   choose among the skills it has as the fight goes. Both come in many flavours. A skill may be
@@ -81,7 +83,7 @@ player sees and changes in the Arena, the Lab and the Crypt; a mind can hold sev
 choose among them, and the punch's research blows that run in real time are experimental parts
 ([Minds](architecture.md#minds)).
 
-After it, each with its own plan, in the order each needs the one before:
+Capability work proceeds alongside the Arena testbed, with dependencies owned by the plans:
 
 - **Competencies:**
   - guard, on the shared layer;
@@ -97,13 +99,10 @@ After it, each with its own plan, in the order each needs the one before:
   - the strike repertoire;
   - the staged rise;
   - the opening preset (Scrapper).
-- **Items**, as columns of the grid, each a new skill only where one measurably needs it. In
-  this order:
-  1. armour (mass and shape);
-  2. the sword;
-  3. the shield (the guard placing other points);
-  4. an item in two hands;
-  5. ranged weapons, which need projectiles on the core.
+- **Items**, as columns of the grid, each a new skill where its physical use needs one. The
+  next additions are a small buckler, then a short sword with cutting and thrusting, under the
+  Arena testbed plan. Armor, two-handed items and ranged weapons follow with their own mechanics
+  and tasks; projectiles belong to the core.
 - **Assist kinds** beside stability, each read as a skill's performance against its level.
 
 ## Where the control work stands
@@ -572,7 +571,9 @@ After it, each with its own plan, in the order each needs the one before:
 
 ### The Arena
 
-- Loadouts: a body carries one club or nothing.
+- [The next testbed milestone](plans/2026-10-20-arena-testbed.md): level selection, an obstacle
+  court, reference navigation and buckler/short-sword loadouts. Current loadouts remain a club
+  or empty hands until that work lands.
 - The Ladder.
 
 ### The Crypt

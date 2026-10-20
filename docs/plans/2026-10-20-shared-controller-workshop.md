@@ -24,7 +24,8 @@ LLM during a bout is a separate experiment when there is a concrete need for it.
 
 | Plan | Open work it owns |
 |---|---|
-| This workshop plan | Component interfaces/registration, common tasks, loadouts, body compatibility, collaboration and evaluation infrastructure |
+| This workshop plan | Shared component contracts, broader task/body/equipment coverage, collaboration and evaluation infrastructure |
+| [Arena testbed](2026-10-20-arena-testbed.md) | The next milestone: level selection, obstacle navigation, explicit loadouts, buckler, cutting short sword and integrated bouts |
 | [Whole-body control](2026-10-17-general-controller.md) | Running/Haste, unassisted recovery, separate assistance experiments, strikes and holds on one execution stack |
 | [Options fighter](2026-10-14-options-fighter.md) | Tactical decisions, option models and player configuration for one Mind |
 
@@ -149,33 +150,20 @@ bring their own anatomy, effectors, support and down rules, and declared task co
 to a different family is evaluated under those physical conditions. Shared names alone do not
 establish that an algorithm works on it.
 
-## Equipment and loadouts
+## Equipment and environments
 
-The Arena currently selects one item in each side's right hand (`src/arena/duel.ts`,
-`src/core/items/held.ts`, `src/core/models.ts`). Introduce an explicit loadout of item instances
-and attachment or grip assignments. Preserve the distinction between a body's anatomy and its
-equipment.
+The [Arena testbed plan](2026-10-20-arena-testbed.md) owns the immediate level, navigation,
+loadout, buckler and cutting-sword implementation. Its physical descriptions, shared tasks and
+participant contracts supply reusable inputs to later experiments. Equipment mechanics belong
+to the shared platform; components choose and execute their use. Anatomy, items and cosmetics
+retain distinct authority.
 
-Build on `src/core/equipment.ts`, `src/core/mind/equipment-port.ts` and the shared two-hand task
-(`src/core/tasks/bar.ts`). An item has persistent identity, physical geometry, mass, inertia,
-contact properties and the grips or attachments its mechanics permit. Two hands can act on one
-item through coordinated grips. Capture remains geometric, and observed attachments reflect
-what the simulation accepted.
-
-Equipment mechanics belong to the shared platform; their use belongs to components:
-
-- A shield intercepts contact through its physical shape; a guard skill positions it.
-- A sword's contact surfaces and damage rules are physical inputs; skills select and execute
-  cuts, thrusts and parries.
-- A two-handed action owns its required controls together. It coordinates the item's grips,
-  both arms and whatever trunk or support controls its contract requires.
-- A bow introduces draw state, ammunition and projectiles in the equipment/world layer. Skills
-  manage drawing, aiming and release; tactics choose targets and opportunities.
-
-Extend the existing resource ownership, interruption and release path
-(`src/core/skills/action.ts`, `arbiter.ts`) as these cases require. Locomotion, guard and attacks
-must compose without two components commanding the same control. Add abstractions through
-concrete items, with their physical load and handling tested before relying on combat results.
+Later equipment work includes armor, coordinated two-handed items and bows with draw state,
+ammunition and projectiles. Develop those through concrete items and their physical tasks,
+building on `src/core/equipment.ts`, `src/core/mind/equipment-port.ts` and
+`src/core/tasks/bar.ts` where appropriate. Extend resource ownership, interruption and replay
+when their mechanics require it. Broader environments and new body families add declared
+task coverage without changing how implementation quality is compared.
 
 ## Tasks and capability development
 
@@ -273,27 +261,21 @@ supply additional evidence about generality and authoring success. When comparin
 all development attempts and their budgets, including invalid submissions. The friendly league
 can begin before formal model comparisons are useful.
 
-## Order of work
+## Next milestone and parallel work
 
-1. **Independent component registration.** Extend the current part/factory system and add small
-   working authoring examples. Prove that existing and alternative locomotion or recovery
-   implementations can be selected with implementation-local config and validation. Update
-   contribution scopes and registration checks alongside this change.
-2. **Shared recovery and locomotion entry points.** Expose existing physical protocols through
-   reusable recipes and headless/visible runners. Exercise recovery-to-locomotion hand-back,
-   retain the owner's stand-up target, and start a component development round.
-3. **Explicit multi-item loadouts.** Connect the existing separate-equipment and grip paths to
-   gameplay construction, state and recorded-command replay. Develop a concrete additional
-   loadout, then expand through shields, swords and two-handed handling as their mechanics are
-   ready. Bow mechanics receive their own task when introduced.
-4. **Durable experiment results and checkpoints.** Consolidate run identity, compact findings,
-   artifact references and fault handling. Evaluate named assemblies under a frozen protocol
-   and preserve useful references for later authors.
-5. **Broader body and equipment coverage.** Add task cases and family-specific components as
-   content arrives. Reuse successful components where they fit and measure transfer explicitly.
+Start with the [Arena testbed](2026-10-20-arena-testbed.md): environment selection/navigation and
+loadouts/buckler/sword work converge on equipped bouts on both levels. Its detailed sequence
+and acceptance criteria live in that plan. Extend component registration as those working
+implementations need it, with authoring examples and contribution checks alongside the change.
 
-These steps land in small, independently useful changes. Pilot work can start with existing
-bodies, components and tasks while equipment and body extensions proceed.
+Alongside that milestone, expose existing recovery and locomotion protocols through shared
+task entry points, preserving the owner's stand-up target and physical hand-back. The
+whole-body and options-fighter plans own their capability and tactical experiments.
+
+Consolidate durable run identities, compact findings and fault handling as evaluation clients
+need them. At checkpoints, evaluate named assemblies and preserve useful references. Broader
+body, equipment and environment coverage follows in small, independently useful changes;
+learning from earlier agents does not wait for every capability or framework extension.
 
 Use the normal checks in `AGENTS.md`. Software gates protect execution, boundaries, lifecycle
 and replay. Capability and competition claims use their relevant tasks and comparisons; retain
