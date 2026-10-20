@@ -262,7 +262,8 @@ can begin before formal model comparisons are useful.
 
 ## Next milestone and parallel work
 
-Build on the Arena's equipped bouts and shared navigation task. Improve physical route execution,
+The next milestone is a [reference sword-and-buckler fighter](2026-10-20-sword-and-buckler.md),
+built on the Arena's equipped bouts and shared navigation task. Improve physical route execution,
 equipped recovery and action composition through their independent tasks. Extend component
 registration as working implementations need it, with authoring examples and contribution
 checks alongside each change.
