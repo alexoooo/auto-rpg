@@ -150,7 +150,8 @@ in a hand, refusing a hand that cannot close on it; the Arena, the Crypt, the La
 tasks all read it. How the Crypt walks a model (its footprint, how near it fights, how long it
 waits on a stalled route, whether a fall ends its fight) is the Crypt's (`cryptModel`,
 `src/dungeon/actors.ts`). What a body can do is read from its spec: `modelHolds` (a hand a haft lies across, `canHold`) and `modelSupportsMind`, which asks
-the mind's controller (`Controller.fits`: `commandable` and its actions for the fighters, `quadrupedFits` for
+every part of the mind (`treeFits`) of the body as armed with what it holds (`modelHolding`), so
+a part that cannot use a loadout drops out of the pickers for it (`Controller.fits`: `commandable` and its actions for the fighters, `quadrupedFits` for
 the quadruped, any body for direct control). How a model is shown, its label,
 clothing and shape tint, is the screens' (`MODEL_DISPLAY`, `src/render/models.ts`).
 Humanoid-only tasks use `HUMANOID_MODELS`; they do not fabricate hands on a different body.
@@ -736,8 +737,11 @@ drives a fighter through game orders in Attack or a scenario's script elsewhere.
 **A kind of mind is a controller** (`Controller`, `controller.ts`), registered by a line in the
 one list (`CONTROLLERS`, `controllers.ts`), keyed by its defaults' kind, a kind twice or a kind a
 part below a mind has refused: it lists the keys its config may hold (`keys`), says which bodies it fits (`fits`), names
-its presets (`PRESETS` merges them; the Arena's picker and a link's `control=` read them, ids
-unique across controllers) and makes the mind (`create`). Each controller composes its own
+its presets (`PRESETS` merges them, ids unique across controllers) and makes the mind
+(`create`). The minds a person may pick are `MINDS`: every preset, and each controller with none
+under its kind with its defaults; the Arena's picker, a link's `control=`, the Crypt, the match
+and the fingerprint read it, the pickers offering only the minds that fit a side's body and
+loadout. Each controller composes its own
 tactics and skills; what they share is shared code (the orders, the targets, the guard, the
 sub-minds, locomotion and the strike cycle), not a flag that chooses a stack. There are four: the
 **fighter** (`createFighter`, `fighter.ts`), whose tactics and skills are parts in its slots;
@@ -764,12 +768,12 @@ policy (`host.policy`) reads the report (`BodyObservation`) and returns the orde
 build on the game's command layers or on a host and sub-minds of its own. It returns its memory
 (`state`), which a fight saves and loads with the body, and its skills if it runs the game's. It
 may use any of the toolkit (`src/core/mind/`, `skills/`, `control/`) and imports no engine, world
-or builder. Once registered it is offered by its presets and its fields, and
+or builder. Once registered it is offered (`MINDS`) by its presets, or by its kind if it has none, and by its fields, and
 `tests/mind-contract.test.mjs` runs it on the first body it fits against itself, forks it and
 replays it from its order sheets; how well it fights is a measurement, not a gate: the standard
 match (`scripts/match.mjs`, `npm run match -- <a> <b>`) plays two minds over one fixed set of
 bodies, loadouts and gaps, each on each side, and names the result by a digest that is the same on
-every machine. The fingerprint has a case for each mind with no preset, so a toolkit change names
+every machine. The fingerprint has a case for every mind a person may pick, so a toolkit change names
 the minds it moves; `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
 
 **The fighter's configuration** (`FighterConfig`) holds tactics, locomotion, guard, optional

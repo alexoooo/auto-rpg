@@ -41,8 +41,8 @@ import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
-import { CONTROLLERS } from "../src/core/mind/controllers.ts";
-import { BODY_MODELS, HUMANOID_MODELS, modelSpec, modelSupportsMind } from "../src/core/models.ts";
+import { MINDS } from "../src/core/mind/controllers.ts";
+import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { quadrupedMind } from "../src/core/reptile/mind.ts";
 import { hostedMind } from "../src/core/mind/host.ts";
 import { generateCryptDungeon } from "../src/dungeon/crypt-dungeon.ts";
@@ -341,28 +341,32 @@ const controlled = (left, right, controls, held) => ({
   run: () => arena({ left, right, held, minds: readMinds(`?matchup=${left},${right}&control=${controls}`) }),
 });
 const both = (held) => ({ left: held, right: held });
+/** The minds the Warrior is offered (`controlsFor`), with each loadout it is offered with: each a case below. */
+const warriorMinds = () => [...new Set(["club", "empty"].flatMap((held) => controlsFor("workshop-fighter", held)))]
+  .map((control) => [control, ["club", "empty"].filter((held) => controlsFor("workshop-fighter", held).includes(control))]);
 /**
- * A case for each registered mind that has no preset (`CONTROLLERS`, an entrant's among them): its
- * defaults on both sides, on the first body it fits, holding the club where that body holds. A
- * preset's mind is a case of its own above; so every mind a change moves is named by a case.
+ * A case for each mind a person may pick (`MINDS`, an entrant's among them) that the Warrior is not
+ * offered and no case above plays (the quadruped's `crawl`): itself on both sides, on the first body
+ * it fits, holding the club where that body holds and the mind takes it. So every mind a change
+ * moves is named by a case.
  */
-const unpreset = () => Object.entries(CONTROLLERS).filter(([, entry]) => Object.keys(entry.presets).length === 0).map(([kind, entry]) => {
-  const model = BODY_MODELS.find((m) => modelSupportsMind(m, entry.defaults));
-  if (!model) throw new Error(`no body fits the ${kind} mind's defaults`);
-  const held = both(HUMANOID_MODELS.includes(model) ? "club" : "empty");
-  return { name: `arena ${model} v ${model}, ${kind} defaults, ${held.left}`,
-    run: () => arena({ left: model, right: model, held, minds: { left: entry.defaults, right: entry.defaults } }) };
+const elsewhere = () => Object.entries(MINDS).filter(([id]) => id !== "crawl" && warriorMinds().every(([control]) => control !== id)).map(([id, { config }]) => {
+  const model = BODY_MODELS.find((m) => controlsFor(m, "club").includes(id) || controlsFor(m, "empty").includes(id));
+  if (!model) throw new Error(`no body fits the ${id} mind`);
+  const held = both(controlsFor(model, "club").includes(id) ? "club" : "empty");
+  return { name: `arena ${model} v ${model}, ${id},${id}, ${held.left}`,
+    run: () => arena({ left: model, right: model, held, minds: { left: config, right: config } }) };
 });
 /** The cases in the order they print, the long ones first so that the lanes stay full. */
 const CASES = [
   ...[["workshop-fighter", "workshop-rogue"], ["crypt-skeleton", "workshop-fighter"], ["workshop-rogue", "crypt-skeleton"]]
     .map(([left, right]) => ({ name: `arena ${left} v ${right}`, run: () => arena({ left, right }) })),
-  ...controlsFor("workshop-fighter").flatMap((control) =>
-    ["club", "empty"].map((held) => controlled("workshop-fighter", "workshop-rogue", `${control},${control}`, both(held)))),
+  ...warriorMinds().flatMap(([control, helds]) =>
+    helds.map((held) => controlled("workshop-fighter", "workshop-rogue", `${control},${control}`, both(held)))),
   controlled("crypt-skeleton", "workshop-rogue", "classic,classic", both("club")),
   controlled("reptile", "reptile", "crawl,crawl", both("empty")),
   ...["club", "empty"].map((held) => controlled("reptile", "workshop-fighter", "crawl,classic", { left: "empty", right: held })),
-  ...unpreset(),
+  ...elsewhere(),
   ...[...HUMANOID_MODELS, "reptile"].map((model) => ({ name: `stand ${model}`, run: () => stand(model) })),
   ...[1, 2].map((seed) => ({ name: `crypt fight, seed ${seed}`, run: () => cryptFight(seed) })),
   ...["workshop-fighter", "workshop-rogue"].flatMap((model) => [

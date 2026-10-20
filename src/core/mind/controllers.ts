@@ -118,6 +118,21 @@ function registry(controllers: readonly Controller[]): Readonly<Record<string, C
 export const PRESETS: Readonly<Record<string, { readonly label: string; readonly config: MindConfig }>> =
   Object.freeze(Object.assign({}, ...Object.values(CONTROLLERS).map((entry) => entry.presets)));
 
+/**
+ * **Every mind a person may pick**, by id: each preset (`PRESETS`), then each controller that has
+ * none, under its kind with its defaults, so that a Mind registered without a preset is still
+ * played. An id a preset and a kind share is refused.
+ */
+export const MINDS: Readonly<Record<string, { readonly label: string; readonly config: MindConfig }>> = (() => {
+  const minds: Record<string, { readonly label: string; readonly config: MindConfig }> = { ...PRESETS };
+  for (const [kind, entry] of Object.entries(CONTROLLERS)) {
+    if (Object.keys(entry.presets).length > 0) continue;
+    if (Object.hasOwn(minds, kind)) throw new Error(`a preset is called ${JSON.stringify(kind)}, a kind with no preset`);
+    minds[kind] = { label: entry.label, config: entry.defaults };
+  }
+  return Object.freeze(minds);
+})();
+
 /** The controller of `config`'s kind; a thrown error for a kind no controller has, read from a save or a link. */
 export function controllerOf(config: MindConfig): Controller {
   const found = Object.hasOwn(CONTROLLERS, config.kind) ? CONTROLLERS[config.kind] : undefined;

@@ -1,13 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CONTROLLERS, controllerOf, PRESETS } from "../src/core/mind/controllers.ts";
+import { CONTROLLERS, controllerOf, MINDS, PRESETS } from "../src/core/mind/controllers.ts";
 import { CLASSIC, RECIPE_FIGHTER, SCRAPPER, STAND_UP } from "../src/core/mind/config.ts";
-import { treeFaults } from "../src/core/mind/catalog.ts";
+import { treeFaults, treeFits } from "../src/core/mind/catalog.ts";
+import { armedWith, heldBy, HELD } from "../src/core/items/held.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { BODY_MODELS, modelSpec } from "../src/core/models.ts";
 import { CONTROLS, controlsFor } from "../src/arena/matchup.ts";
 import { STRAIGHT_PUNCH } from "../src/core/skills/straight-punch.ts";
 import { COMBAT, withParts } from "./fixtures/minds.mjs";
+
+/** The game's own presets, in the order they are offered: an entrant's mind adds to them, after. */
+const GAME = ["options", "classic", "puncher", "counter", "scrapper", "behaviours", "crawl"];
 
 test("every preset is its controller's kind, under an id no other controller uses", () => {
   const ids = [];
@@ -17,20 +21,36 @@ test("every preset is its controller's kind, under an id no other controller use
     assert.equal(controllerOf(preset.config), controller);
     ids.push(id);
   }
-  assert.deepEqual(ids, ["options", "classic", "puncher", "counter", "scrapper", "behaviours", "crawl"]);
-  assert.deepEqual(Object.keys(CONTROLS), ids);
+  assert.deepEqual(ids.slice(0, GAME.length), GAME);
+  assert.equal(new Set(ids).size, ids.length, "an id twice");
+  assert.deepEqual(Object.keys(PRESETS), ids);
   assert.throws(() => controllerOf({ kind: "point-fighter" }), /no mind of kind "point-fighter"/);
 });
 
-test("each controller says which bodies its presets fit, and the Arena offers just those", () => {
-  const humanoid = ["options", "classic", "puncher", "counter", "scrapper", "behaviours"];
+test("a person may pick every preset and every mind that has none, under its kind with its defaults", () => {
+  const unpreset = Object.entries(CONTROLLERS).filter(([, controller]) => Object.keys(controller.presets).length === 0);
+  assert.ok(unpreset.some(([kind]) => kind === "direct"), "the joint-feedback mind has no preset");
+  assert.deepEqual(Object.keys(MINDS), [...Object.keys(PRESETS), ...unpreset.map(([kind]) => kind)]);
+  for (const [kind, controller] of unpreset) assert.deepEqual(MINDS[kind], { label: controller.label, config: controller.defaults }, kind);
+  assert.deepEqual(Object.keys(CONTROLS), Object.keys(MINDS));
+  for (const [id, { config }] of Object.entries(MINDS)) assert.deepEqual(treeFaults(config), [], id);
+});
+
+test("each controller says which bodies and loadouts its minds fit, and the Arena offers just those", () => {
+  const humanoid = GAME.slice(0, -1);
   for (const model of BODY_MODELS) {
     const spec = modelSpec(model), fitting = [];
     for (const controller of Object.values(CONTROLLERS)) for (const [id, preset] of Object.entries(controller.presets))
-      if (controller.fits(spec, preset.config)) fitting.push(id);
+      if (controller.fits(spec, preset.config) && GAME.includes(id)) fitting.push(id);
     assert.deepEqual(fitting, model === "reptile" ? ["crawl"] : humanoid, model);
-    assert.deepEqual(controlsFor(model), fitting, model);
-    assert.equal(CONTROLLERS.direct.fits(spec, { kind: "direct", targets: {}, seconds: .1, speed: 1, activation: 1 }), true);
+    assert.ok(controlsFor(model, "empty").includes("direct"), model);
+    for (const held of HELD) {
+      // What the hand holds is on the body every part's `fits` reads, so a mind made for one loadout is offered with no other.
+      const holds = model !== "reptile" || held === "empty";
+      const body = holds ? armedWith(spec, "right", held) : null;
+      assert.deepEqual(controlsFor(model, held), body ? Object.keys(MINDS).filter((id) => treeFits(body, MINDS[id].config)) : [], `${model} holding ${held}`);
+      if (body) assert.equal(heldBy(body, "right"), held);
+    }
   }
 });
 

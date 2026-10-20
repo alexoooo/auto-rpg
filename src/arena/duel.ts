@@ -228,7 +228,7 @@ export class Duel {
     for (const side of SIDES) {
       const model = recipe[side], info = modelInfo(model), held = recipe.held?.[side] ?? ARENA_HELD, config = recipe.minds?.[side] ?? info.mind;
       if (held === "club" && !modelHolds(model)) throw new Error(`${model} cannot hold a club`);
-      if (!modelSupportsMind(model, config)) throw new Error(`incompatible controller for ${model}`);
+      if (!modelSupportsMind(model, config, held)) throw new Error(`incompatible controller for ${model} holding ${held}`);
     }
     this.world = world;
     this.recipe = Object.freeze({ ...recipe });
