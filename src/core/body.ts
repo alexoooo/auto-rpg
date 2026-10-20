@@ -381,7 +381,7 @@ export function createBody(built: BuiltBody, world: World, options: BodyOptions)
     // Before its first step the view is the body as built, where a driver or a run first finds it.
     command.sample(world.steps);
     command.look(sense());
-    return { host: command, subs, down: () => command.view.down };
+    return { host: command, subs };
   });
   const sampled = world.afterPhysics(() => {
     command.sample(world.steps);

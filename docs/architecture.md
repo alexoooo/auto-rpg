@@ -644,9 +644,13 @@ that hands it goals, with skills carrying out what tactics decide. `Minded.body`
 recovery controller. Its `physical` reading is sampled before physics at each full control-step
 boundary and saved with the body; below full it retains that last sample. Game positioning reads it; the fighter's predicted supports
 and readiness stay in its own `BodyView`. When a body is down is its spec's rule (`BodySpec.down`,
-read by `uprightness`): a human by its height under the height it is asked, the reptile by its
-trunk's tilt and its height. The fighter's view reads it at the height its stance asks; every other
-mind's `physical.down` and `observe().down` read it at the standing height. A body answers `Body.down` as its mind read it at its look, before physics moves it, so a fight sees every body down at the same point in its step ([reference/down-timing.md](reference/down-timing.md)).
+read by `uprightness`), read from the body alone whatever its mind asks: a human when a part but
+its feet and hands is at the ground (`fallen`), the reptile by its trunk's tilt and its height. A
+mind may read its own body by its own bar: the fighter's view reads a human down by its height
+under the height its stance asks, so a crouch it asks is not a fall to it. A body answers
+`Body.down` (`physical.down`) as the fight's rule read it at the step's first look, before physics
+moves it, so a fight sees every body down at the same point in its step
+([reference/down-timing.md](reference/down-timing.md)), and no mind's report decides it.
 
 Replacement policies use `createPolicyBody` (`mind/direct.ts`). They receive a frozen actuator
 description and detached, frozen `BodyObservation` snapshots (`observation.ts`), including joint
@@ -1339,8 +1343,8 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   never from the machine, so there is no cap on the bodies at `full`; the fight gives the
   distances (`LevelRule`). The crypt is its one caller today.
 
-A body that is down (`BodyView.down`, by its spec's rule: a human's centre of mass a quarter metre
-under the height it is asked to hold, over its lowest point, `src/core/control/ground.ts`) follows
+A body that is down (`Body.down`, by its spec's rule: a human when a part but its feet and hands
+is within 3 cm of its lowest point, `src/core/control/ground.ts`) follows
 its configured sub-minds while the fight allows recovery. The Arena's verdict (`Duel.judge`,
 `src/arena/duel.ts`) ends a side when its pool ends or its continuous-down allowance expires;
 null allows recovery until injury or the bout cap. Both sides out on one step is a draw; at the
@@ -1367,8 +1371,8 @@ file or a link gives the orders the bout gave.
 
 A bout asked to record (`DuelHooks.record`) writes each side's **order sheets** at the mind's seam
 (`embody`): each step its mind stepped, its muscles' command, its assist's ask, the hand poses it
-asked and, for a hosted body, whether its mind read it down, which the fight reads (`Sheet`,
-`SheetLog`, `src/core/mind/sheets.ts`). The recipe and the sheets are the whole of what the minds
+asked (`Sheet`, `SheetLog`, `src/core/mind/sheets.ts`); whether a body is down is the fight's
+rule of the body, read again in the replay. The recipe and the sheets are the whole of what the minds
 did: a bout given them (`DuelHooks.replay`) makes no mind, plays each side's sheets in its place
 (`replayedBody`) and is the same bout to the bit. A load that goes back drops the sheets after it
 as the steps are taken again. `tests/mind-contract.test.mjs` holds every registered Mind to it.

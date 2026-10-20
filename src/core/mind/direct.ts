@@ -53,5 +53,5 @@ export function createPolicyBody(built: BuiltBody, world: World, make: (model: A
       applyBodyAction(own.muscles, action, equipment, { request: own.requestHandPoses }, ask);
     } };
   }, sense, options.assist, options.log);
-  return physicalBody(built, embodied.own, world, sense, () => embodied.mind.name, embodied.state, embodied.dispose, undefined, equipment);
+  return physicalBody(built, embodied.own, world, sense, () => embodied.mind.name, embodied.state, embodied.dispose, equipment);
 }

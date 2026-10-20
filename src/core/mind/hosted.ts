@@ -8,29 +8,25 @@ import { hosting, type HostMind, type SubMind } from "./sub-mind.ts";
 import type { SheetLog } from "./sheets.ts";
 
 /**
- * **A hosted mind as its maker makes it**: the host, the sub-minds it hands the body to in rank
- * order (`hosting`), and how the body reads whether it is down.
+ * **A hosted mind as its maker makes it**: the host and the sub-minds it hands the body to in rank
+ * order (`hosting`). Whether the body is down is the fight's reading (`PhysicalBody.down`), not the mind's.
  */
 export interface Hosted {
   readonly host: HostMind;
   readonly subs: readonly SubMind[];
-  readonly down: () => boolean;
 }
 
 /**
  * **`built` under a host and its sub-minds**: embodied, hosted, and given to the fight as a
  * `PhysicalBody`. `make` builds the mind from the body it owns and what it senses. Given a `log`,
- * its order sheets are written in it, each with whether the mind read the body down.
+ * its order sheets are written in it.
  */
 export function hostedBody(built: BuiltBody, world: World, options: { readonly senses?: () => Senses; readonly assist?: AssistCeiling; readonly log?: SheetLog },
   make: (own: OwnBody, senses: () => Senses) => Hosted): PhysicalBody {
   const senses = options.senses ?? clockSenses(world);
-  let down!: () => boolean;
   const { own, mind, state, dispose } = embody(built, world, (body) => {
     const made = make(body, senses);
-    down = made.down;
     return hosting(made.host, made.subs);
   }, senses, options.assist, options.log);
-  if (options.log) { options.log.status = () => down(); options.log.initial = down(); }
-  return physicalBody(built, own, world, senses, () => mind.has, state, dispose, down);
+  return physicalBody(built, own, world, senses, () => mind.has, state, dispose);
 }

@@ -107,7 +107,8 @@ test("standing, only the feet are near the ground; lying, more than the feet are
 test("a segment alone lies on its own shape, whatever its kind", async () => {
   const kinds = new Set();
   for (const segment of warrior.segments) {
-    const stand = await coreStand({ ...warrior, segments: [segment], joints: [] });
+    // A lone segment has no feet or hands to bear on, so it is down by its height alone.
+    const stand = await coreStand({ ...warrior, segments: [segment], joints: [], down: { kind: "asked", fallen: warrior.down.fallen } });
     try {
       const upright = uprightness(stand.built);
       stand.step(stand.seconds(3));

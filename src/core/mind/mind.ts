@@ -103,5 +103,5 @@ function record(log: SheetLog, step: number, driver: MuscleDriver, asked: { read
   while (sheets.length > 0 && sheets[sheets.length - 1]!.step >= step) sheets.pop();
   sheets.push({ step, activation: driver.activation.slice(), velocity: driver.velocity.slice(),
     force: [asked.force.x, asked.force.y, asked.force.z], moment: [asked.moment.x, asked.moment.y, asked.moment.z],
-    hands: hands.splice(0), down: log.status ? log.status() : null });
+    hands: hands.splice(0) });
 }

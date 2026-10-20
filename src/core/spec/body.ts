@@ -66,13 +66,18 @@ interface Marks {
 /**
  * **When a body is down**, by kind:
  *
- * - `asked`: its centre of mass is more than `fallen`, m, under the height its mind asks it to
- *   hold over its lowest point: a body that stands, and can be asked to crouch or kneel.
+ * - `asked`: its centre of mass is more than `fallen`, m, under its standing height over its
+ *   lowest point, as a fight reads it (`PhysicalBody.down`); a mind of its own may read it under
+ *   the height it asks the body to hold, so that a crouch or a kneel it asks is not a fall to it.
+ * - `touch`: a fight reads it down when a segment but its `bearers` (the feet and hands it may
+ *   crouch on) is within `within`, m, of its lowest point: at the ground, as anyone watching would
+ *   say it is down. A mind of its own reads it as `asked`, by `fallen` under the height it asks.
  * - `low`: `root`'s up has tipped under `up` (the cosine of its tilt), or its centre of mass is
  *   under `height` of its standing height: a body that keeps low to the ground and asks no height.
  */
 export type DownSpec =
   | { readonly kind: "asked"; readonly fallen: Quantity<number> }
+  | { readonly kind: "touch"; readonly fallen: Quantity<number>; readonly bearers: readonly string[]; readonly within: Quantity<number> }
   | { readonly kind: "low"; readonly root: string; readonly height: Quantity<number>; readonly up: Quantity<number> };
 
 /**

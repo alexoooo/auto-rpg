@@ -68,7 +68,7 @@ export function physicalReading(built: ReadBody, down?: () => boolean) {
     if (head) { head.update(); reading.head.copyFrom(head.centre); }
     else reading.head.copyFrom(reading.centre);
     reading.height = upright.height();
-    reading.down = down ? down() : upright.down();
+    reading.down = down ? down() : upright.fallen();
     return reading;
   };
 }

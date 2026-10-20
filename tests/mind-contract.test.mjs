@@ -13,9 +13,16 @@ import { SIDES } from "../src/arena/duel.ts";
 import { CONTROLLERS } from "../src/core/mind/controllers.ts";
 import { BODY_MODELS, modelSupportsMind } from "../src/core/models.ts";
 import { traceOf } from "./harness/trace.mjs";
-import { coreStand } from "./harness/core-stand.mjs";
 import { modelSpec } from "../src/core/models.ts";
-import { replayedBody, sheetLog } from "../src/core/mind/sheets.ts";
+import { replayedBody } from "../src/core/mind/sheets.ts";
+import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
+import { Scene } from "@babylonjs/core/scene.js";
+import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
+import { buildBody } from "../src/core/build/build-body.ts";
+import { poseAngles } from "../src/core/control/kinematics.ts";
+import { GUARD } from "../src/core/skills/guard.ts";
+import { createWorld } from "../src/core/world.ts";
+import { freshEngine } from "./harness/core-stand.mjs";
 
 /** The bout's steps, the step it is forked at, and the gap its sides start at, m: near enough for a blow. */
 const STEPS = 180, FORK = 90, GAP = 0.9;
@@ -101,19 +108,20 @@ test("an assisted bout with blows, fists and assist asks replays from its sheets
   assert.equal(replay.end.physics, first.end.physics);
 });
 
-test("a replayed body is down when its sheets say its mind read it down, and only then", async () => {
-  const stand = await coreStand(modelSpec("workshop-fighter"));
-  const log = sheetLog();
-  log.initial = false;
-  const body = replayedBody(stand.built, stand.world, log, {});
+test("a body is down by the fight's rule of the body alone, whatever height its mind asks it to hold", async () => {
+  // The Warrior on its back, its mind asking its stance for a centre of mass 2 cm over its soles:
+  // under that ask its own view reads it not down, and the fight reads it down all the same.
+  const rendering = new NullEngine(), scene = new Scene(rendering), world = createWorld(scene, await freshEngine());
+  world.physics.addFixedBox([0, -.5, 0], [20, 1, 20]);
+  const spec = modelSpec("workshop-fighter"), half = Math.sqrt(.5);
+  const built = buildBody(spec, world, { position: [0, .4, 0], rotation: [-half, 0, 0, half], joints: poseAngles(spec, GUARD) });
+  const body = createBody(built, world, { servoSeconds: SERVO_SECONDS });
   try {
-    const n = body.muscles.channels.length;
-    for (let k = 0; k < 4; k++) log.sheets.push({ step: stand.world.steps + k, activation: new Float64Array(n), velocity: new Float64Array(n),
-      force: [0, 0, 0], moment: [0, 0, 0], hands: [], down: k === 2 });
-    const downs = [body.down];
-    for (let k = 0; k < 4; k++) { stand.step(); downs.push(body.down); }
-    assert.deepEqual(downs, [false, false, false, true, false]);
-  } finally { body.dispose(); stand.dispose(); }
+    body.drive(() => ({ posture: poseAngles(spec, GUARD), pushes: [], stance: { feet: ["left", "right"], centre: null, height: 0.02, heading: 0 } }));
+    world.step(world.hz);
+    assert.ok(body.physical.height < body.view.standing - 0.5, `the fixture is not lying: its centre of mass is ${body.physical.height.toFixed(2)} m over its lowest point`);
+    assert.deepEqual({ itsMind: body.view.down, theFight: body.down }, { itsMind: false, theFight: true });
+  } finally { body.dispose(); built.dispose(); world.dispose(); scene.dispose(); rendering.dispose(); }
 });
 
 test("a replay refuses a step with no order sheet, so a record that is short is found", async () => {

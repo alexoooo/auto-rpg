@@ -172,8 +172,8 @@ The code against the contract above:
 - Stage 2 has landed. A bout asked to record writes each body's order sheets at the seam
   (`SheetLog`, `src/core/mind/sheets.ts`), and plays again from its recipe and those sheets with
   no Mind made, to the bit; `tests/mind-contract.test.mjs` holds every registered Mind to a short
-  bout that runs, forks and replays. A hosted Mind still reports whether its body is down, which
-  the fight reads for its verdict and the others' senses; a rule of the fight's own is open.
+  bout that runs, forks and replays. Whether a body is down is the fight's rule of the body alone
+  (`Uprightness.fallen`, a human's part but its feet and hands at the ground), never a Mind's report.
 - Stage 3 has landed. A Mind's config type, defaults, faults, keys and maker are one controller
   (`controller`, `src/core/mind/controller.ts`) registered by a line in `CONTROLLERS`; `MindConfig`
   and `Minded` name no kind, and screens read a Mind's skills where it gives them

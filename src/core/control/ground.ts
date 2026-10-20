@@ -1,6 +1,7 @@
 /**
- * How upright a body is over the ground it lies or stands on, read from the body alone: the bar a
- * body is down by, and the reading every fight, page and sub-mind takes of it.
+ * How upright a body is over the ground it lies or stands on, read from the body alone: the rule a
+ * fight reads a body down by (`fallen`), the bar a mind reads its own body by (`down`), and the
+ * readings every page and sub-mind takes of it.
  */
 import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import type { DownSpec, HandPose, SegmentFrame, ShapeSpec } from "../spec/body.ts";
@@ -27,6 +28,11 @@ interface Uprightness {
    */
   down(asked?: number, posed?: boolean): boolean;
   /**
+   * Whether the body is down as a fight reads it, by its spec's rule (`DownSpec`) of the body
+   * alone: `down` at its standing height, or, under `touch`, a segment but its bearers at the ground.
+   */
+  fallen(): boolean;
+  /**
    * How far over the body's lowest point the lowest point of its segments but `except` is, m, now:
    * a body that touches the ground with those alone holds the rest this far clear of it.
    */
@@ -36,7 +42,7 @@ interface Uprightness {
 /** `spec`'s rule of when `built` is down, its standing height `standing` and its height read now by `height`. */
 function downRule(built: ReadBody, spec: DownSpec, standing: number, height: () => number): Uprightness["down"] {
   switch (spec.kind) {
-    case "asked": {
+    case "asked": case "touch": {
       const fallen = spec.fallen.value;
       return (asked = standing, posed = false) => Math.min(posed ? Math.max(asked, standing - fallen) : asked, standing) - height() > fallen;
     }
@@ -50,6 +56,23 @@ function downRule(built: ReadBody, spec: DownSpec, standing: number, height: () 
         vertical.applyRotationQuaternionToRef(turn, up);
         return up.y < least || height() < low;
       };
+    }
+    default: return unknownDown(spec);
+  }
+}
+
+/** `spec`'s rule of when a fight reads `built` down, from its own `down` and its `clearance`. */
+function fallenRule(built: ReadBody, spec: DownSpec, down: Uprightness["down"], clearance: Uprightness["clearance"]): Uprightness["fallen"] {
+  switch (spec.kind) {
+    case "asked": case "low": return () => down();
+    case "touch": {
+      const bearers = new Set(spec.bearers.map((name) => {
+        const segment = built.segments.get(name);
+        if (!segment) throw new Error(`${built.spec.model} has no ${name} to bear on`);
+        return segment;
+      }));
+      const within = spec.within.value;
+      return () => clearance(bearers) < within;
     }
     default: return unknownDown(spec);
   }
@@ -133,22 +156,23 @@ export function uprightness(built: ReadBody): Uprightness {
     const { centre, low } = read();
     return centre - low;
   };
+  const clearance: Uprightness["clearance"] = (except) => {
+    let low = Infinity, rest = Infinity;
+    for (const part of parts) {
+      const node = part.segment.node, others = !except.has(part.segment);
+      turnOfToRef(part.segment, turn);
+      for (const point of part.lows) {
+        const y = point.from.applyRotationQuaternionToRef(turn, at).y + node.position.y - point.radius;
+        low = Math.min(low, y);
+        if (others) rest = Math.min(rest, y);
+      }
+    }
+    return rest - low;
+  };
   return {
     height, standing,
     lowest: () => read().low,
-    down,
-    clearance(except) {
-      let low = Infinity, rest = Infinity;
-      for (const part of parts) {
-        const node = part.segment.node, others = !except.has(part.segment);
-        turnOfToRef(part.segment, turn);
-        for (const point of part.lows) {
-          const y = point.from.applyRotationQuaternionToRef(turn, at).y + node.position.y - point.radius;
-          low = Math.min(low, y);
-          if (others) rest = Math.min(rest, y);
-        }
-      }
-      return rest - low;
-    },
+    down, clearance,
+    fallen: fallenRule(built, built.spec.down, down, clearance),
   };
 }

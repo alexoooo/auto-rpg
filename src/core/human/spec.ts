@@ -40,7 +40,8 @@ function figureSpec(figure: HumanFigure): BodySpec {
     wounds: humanWounds(figure),
     attributes: humanAttributes(figure),
     substance: figure.substance,
-    down: { kind: "asked", fallen: sourced(0.25, "m", "fall-bar", "Fallen") },
+    down: { kind: "touch", fallen: sourced(0.25, "m", "fall-bar", "Fallen"), bearers: ["foot.left", "foot.right", "hand.left", "hand.right"],
+      within: sourced(0.03, "m", "touch-bar", "Touching") },
     marks: { high: "head", middle: ["upperTrunk", "middleTrunk"], base: "lowerTrunk", legs: ["shank.left", "shank.right"],
       guards: ["hand.left", "hand.right", "forearm.left", "forearm.right"] },
   };

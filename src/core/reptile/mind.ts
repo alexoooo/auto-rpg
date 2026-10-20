@@ -121,8 +121,7 @@ export function quadrupedMind(host: BodyHost, wiring: Partial<MindWiring> & { re
       motor.resume(); tracker.reset(); for (const s of skills) s.resume(view);
       gait.kind = "crawl"; gait.reacquire = true; gait.homeAt = creep.state.steps + paws.length; gait.stable = 0;
     } };
-    // Down as the mind read it at its look, as every body answers: `docs/reference/down-timing.md`.
-    return { host, subs: [recover(own, motor, tracker, paws, view)], down: () => look.down };
+    return { host, subs: [recover(own, motor, tracker, paws, view)] };
   });
   return { state: {} };
 }

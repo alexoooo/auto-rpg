@@ -23,6 +23,13 @@ export const SOURCES = Object.freeze({
       + "set, not swept, and the bar a standing body is down by.",
     record: "docs/reference/stance-tuning.md#fallen",
   },
+  "touch-bar": {
+    kind: "decision", date: "2026-10-19",
+    decided: "A body that stands is down, as a fight reads it, when a part but its feet and hands is at the ground, "
+      + "whatever its mind asks: 3 cm, about half the least clearance those parts kept in the preset mirrors while a "
+      + "fighter was up to 0.6 m under its standing height.",
+    record: "docs/reference/down-timing.md#what-touches-the-ground",
+  },
   "reptile-anatomy": {
     kind: "asset", file: "assets/reptile/body.json",
     what: "Authored estimates for the 8 kg sprawling reptile: geometry, tooth contact surfaces, bounded contact material, mass weights, joint limits and muscle ceilings; docs/reference/reptile.md states their uncertainty and derivations.",
