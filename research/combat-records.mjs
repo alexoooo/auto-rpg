@@ -52,7 +52,7 @@ export function combatGroups(rows) {
   if(!row.candidateSide||!Number.isInteger(row.pair)||row.error)throw new Error('league ratings need successful mirrored candidate jobs');
   const side=row.candidateSide,other=side==='left'?'right':'left',r=row.result,p=r.recipe;
   const descriptor={candidate:row.config[side],opponent:row.config[other],body:p[side],opponentBody:p[other],
-   held:p.held?.[side],opponentHeld:p.held?.[other],balance:p.balance?.[side],opponentBalance:p.balance?.[other],
+   loadout:p.loadouts?.[side],opponentLoadout:p.loadouts?.[other],balance:p.balance?.[side],opponentBalance:p.balance?.[other],
    capSeconds:p.capSeconds,recoverySeconds:p.recoverySeconds,harness:r.harness,protocol:r.protocol};
   const key=JSON.stringify(canonical(descriptor));let group=groups.get(key);
   if(!group){group={id:createHash('sha256').update(key).digest('hex'),descriptor,rows:[]};groups.set(key,group);}

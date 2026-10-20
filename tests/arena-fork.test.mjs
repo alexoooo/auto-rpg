@@ -202,7 +202,7 @@ test("a_load_is_of_the_same_recipe", async () => {
       assert.throws(() => from.duel.load(minds.duel.save()), /another bout's recipe/);
     } finally { minds.dispose(); }
     // And a bout of the same recipe takes it whatever the order its recipe's keys were written in.
-    const again = await bout("twin", { rules: RECIPE.rules, senseDelay: RECIPE.senseDelay, balance: { right: 25, left: 25 }, held: { right: "club", left: "club" }, gap: RECIPE.gap, right: RECIPE.right, left: RECIPE.left });
+    const again = await bout("twin", { rules: RECIPE.rules, senseDelay: RECIPE.senseDelay, balance: { right: 25, left: 25 }, loadouts: { right: { right: "club", left: "empty" }, left: { right: "club", left: "empty" } }, gap: RECIPE.gap, right: RECIPE.right, left: RECIPE.left });
     try {
       again.duel.load(saved);
       assert.equal(stepped(again, 300), stepped(from, 300));

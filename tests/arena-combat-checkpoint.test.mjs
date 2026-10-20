@@ -43,14 +43,16 @@ test('the CLI resumes the missing actual bout in a fresh worker and keeps the re
 
 test('league seasons retain engine/body/loadout strata and never count identical deterministic recipes twice',async()=>{
  const rows=await trials(),run={fingerprint:combatFingerprint(),complete:true,rows},groups=combatGroups(rows);
- assert.equal(groups.length,1);assert.deepEqual(groups[0].descriptor.candidate,'scrapper');assert.equal(groups[0].rating.pairs,1);
+ assert.equal(groups.length,1);assert.deepEqual(groups[0].descriptor.candidate,'scrapper');
+ assert.deepEqual(groups[0].descriptor.loadout,{left:'empty',right:'empty'});assert.deepEqual(groups[0].descriptor.opponentLoadout,{left:'empty',right:'empty'});assert.equal(groups[0].rating.pairs,1);
  assert.equal(groups[0].total.seconds,6);assert.equal(groups[0].pairedDamageDelta.standardError,null);assert.equal(groups[0].endings.time.draws,2);
  const repeated=combatLeague([run,structuredClone(run)]);assert.equal(repeated.duplicatePairs,1);assert.equal(repeated.seasons[0].groups[0].rating.bouts,2);
  const different=combatLeague([run,{...run,fingerprint:run.fingerprint+'other'}]);assert.equal(different.seasons.length,2);
  const engines=[];for(const job of jobs){const config={...job.config,engine:'rapier'};engines.push({...job,config,result:await combatTrial(config)});}
  const engineLeague=combatLeague([run,{...run,rows:engines}]);assert.equal(engineLeague.duplicatePairs,0);assert.equal(engineLeague.seasons[0].groups.length,2);
- const strata=[];for(const job of jobs){const side=job.candidateSide,other=side==='left'?'right':'left',config={...job.config,recipe:{...job.config.recipe,held:{[side]:'club',[other]:'empty'}}};strata.push({...job,config,result:await combatTrial(config)});}
- assert.equal(combatGroups([...rows,...strata.map(r=>({...r,pair:1}))]).length,2);
+ const strata=[];for(const job of jobs){const side=job.candidateSide,other=side==='left'?'right':'left',config={...job.config,recipe:{...job.config.recipe,loadouts:{[side]:{left:'empty',right:'club'},[other]:{left:'empty',right:'empty'}}}};strata.push({...job,config,result:await combatTrial(config)});}
+ const loadoutGroups=combatGroups([...rows,...strata.map(r=>({...r,pair:1}))]);assert.equal(loadoutGroups.length,2);
+ assert.deepEqual(loadoutGroups[1].descriptor.loadout,{left:'empty',right:'club'});assert.deepEqual(loadoutGroups[1].descriptor.opponentLoadout,{left:'empty',right:'empty'});
  const partial=structuredClone(run);partial.rows[0].config.tape=[{step:1,side:'left',orders:null}];partial.rows[0].result=await combatTrial(partial.rows[0].config);
  assert.throws(()=>combatLeague([run,partial]),/partially duplicated/);
  assert.throws(()=>combatLeague([{...run,complete:false}]),/complete physical/);
