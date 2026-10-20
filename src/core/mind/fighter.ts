@@ -117,6 +117,8 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
     slots: [slotList("rules", "When", "move-rule")],
   },
   "cover-guard": { ...skill("guard", "Guard and cover", "game", { kind: "cover-guard" }),
+    supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined && item.coverNormal === undefined).map(({ segment }) => segment), tuning: ["covering", "hold"] },
+  "shield-guard": { ...skill("guard", "Guard faces and lines", "game", { kind: "shield-guard" }),
     supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined).map(({ segment }) => segment), tuning: ["covering", "hold"] },
   "support-fold": skill("support", "Fight from low support", "experimental", { kind: "support-fold" }),
 });
@@ -220,7 +222,7 @@ export function driveFighter(body: Body, clock: Clock, given: FighterConfig, wir
 /** The skills `config` names for `made`, under `driving`: its legs, guard, low support and executors, its actions read through `ledger`. */
 export function fighterSkills(made: Body, clock: Clock, config: SkillKit, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[]): Skills {
   return skillSet(made, driving, {
-    legs: legsOf(made, config.locomotion), navigation: config.navigation, guard: guardSkill(made.built.spec, config.guard.tuning?.covering),
+    legs: legsOf(made, config.locomotion), navigation: config.navigation, guard: guardSkill(made.built.spec, config.guard.tuning?.covering, config.guard.kind === "shield-guard"),
     support: config.support ? supportFold(made) : null, hold: config.guard.tuning?.hold === true ? holdUp(made.built) : null,
     executors: configuredExecutors(made, clock, config.executors, config.actions, ledger),
     actions: config.actions,

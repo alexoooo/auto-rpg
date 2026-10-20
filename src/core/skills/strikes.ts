@@ -210,3 +210,10 @@ export function mirrored(strike: Strike): Strike {
     pushes: strike.pushes.map((p) => ({ ...p, channel: otherSide(p.channel), sense: sided(p.channel) ? -p.sense as 1 | -1 : p.sense })),
   };
 }
+
+
+/** A bare effector or an item with a blunt striking aim, excluding directed blade surfaces. */
+export function strikesWithBlunt(spec: BodySpec, effector: string): boolean {
+  const item = spec.held?.find((held) => held.segment === effector)?.item;
+  return !item || item.aim !== undefined && !item.surface?.directed && !(item.contacts ?? []).some((region) => region.surface.directed !== undefined);
+}

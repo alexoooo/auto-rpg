@@ -145,7 +145,9 @@ A link can name its matchup and open the bout directly:
 metres), how long the bout may run (`&cap=30`, seconds), and what each fighter carries
 (`&left.loadout=empty,club` for a club in the left fighter's right hand;
 `&right.loadout=club,empty` for one in the right fighter's left hand). Both hands are empty by
-default. It also names which controller each side
+default. Choose a club and buckler with `&left.loadout=buckler,club`; the shield guard covers
+with the left hand while the right hand attacks. The Lab offers the same items. Equipped
+recovery and fighting strength remain experimental. It also names which controller each side
 runs (`&control=classic,scrapper`), each side's mind as edited in the **Mind** panel under its
 controller (`&left.mind=`, written by the panel), and carry a bout's orders after a `#tape=`, which the arena then plays
 again by itself.

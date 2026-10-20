@@ -100,7 +100,7 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
     setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false, facing: "foe", slant: 0 }, walk),
   ];
   meta = metaController(options, config.meta === "ranked" ? options.map((_, i) => options.length - i) : valued("hand-built", { ...WEIGHTS, ...config.weights }));
-  const reflexes = reflexLayer(config.reflexes.map(reflexOf));
+  const reflexes = reflexLayer(config.reflexes.map((reflex) => reflexOf(reflex, host.spec)));
   const state = { meta: meta.state, situation: reader.state, options: options.map((option) => option.state), reflexes: reflexes.state };
   const engagement = { get phase() { return meta!.state.running < 0 ? "guard" : options[meta!.state.running]!.name; }, get offers() { return meta!.state.offers; } };
   const tactics: Tactics = { name: "options", state, engagement,

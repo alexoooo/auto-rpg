@@ -1,10 +1,11 @@
 import { cos, sin } from "../../math/real.ts";
-import type { Side } from "../../spec/body.ts";
+import type { BodySpec, Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { ReflexConfig } from "../config.ts";
 import type { Part } from "../parts.ts";
 import type { Cover, Intent } from "../intent.ts";
 import type { Situation } from "./option.ts";
+import { coveringHand } from "../cover-hand.ts";
 
 /** What a reflex writes on the command for the limbs it takes: each hand's cover. */
 interface ReflexPatch {
@@ -67,14 +68,15 @@ export function reflexLayer(reflexes: readonly Reflex[]) {
  * **Cover**: the hand on the side a foe's blow closes on the head from (`Situation.threat`), where
  * it is free, between the two, for at most `longest` s at a time.
  */
-export function cover(longest: number): Reflex {
+export function cover(longest: number, spec?: BodySpec): Reflex {
   return {
     name: "cover", limbs: ["left", "right"], seizes: false, longest,
     trigger(now) {
       const threat = now.threat;
       if (!threat) return null;
       const h = now.sight.report.heading, dx = threat.threat[0] - threat.guarded[0], dz = threat.threat[2] - threat.guarded[2];
-      return { guard: dx * cos(h) - dz * sin(h) >= 0 ? { right: threat } : { left: threat } };
+      const preferred = dx * cos(h) - dz * sin(h) >= 0 ? "right" : "left", hand = spec ? coveringHand(spec, preferred) : preferred;
+      return { guard: { [hand]: threat } };
     },
   };
 }
@@ -88,9 +90,9 @@ export const REFLEX_PARTS: { readonly [K in ReflexConfig["kind"]]: Part<Extract<
 });
 
 /** The reflex `config` names. */
-export function reflexOf(config: ReflexConfig): Reflex {
+export function reflexOf(config: ReflexConfig, spec?: BodySpec): Reflex {
   switch (config.kind) {
-    case "cover-reflex": return cover(COVER_LONGEST);
+    case "cover-reflex": return cover(COVER_LONGEST, spec);
     default: { const never: never = config.kind; throw new Error(`no reflex of kind ${JSON.stringify(never)}`); }
   }
 }

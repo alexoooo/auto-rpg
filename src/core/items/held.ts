@@ -1,9 +1,10 @@
 import { armed, canHold } from "../human/grip.ts";
 import type { BodySpec, ItemSpec, Side } from "../spec/body.ts";
 import { woodenClub } from "./club.ts";
+import { buckler } from "./buckler.ts";
 
-/** **What a hand may hold**: nothing, or the wooden club. */
-export const HELD = ["empty", "club"] as const;
+/** **What a hand may hold**, by the item catalog's stable names. */
+export const HELD = ["empty", "club", "buckler"] as const;
 export type Held = (typeof HELD)[number];
 
 /** What each hand carries; hand names are independent of a fighter's side in a bout. */
@@ -30,6 +31,7 @@ export function heldItem(held: Held): ItemSpec | null {
   switch (held) {
     case "empty": return null;
     case "club": return woodenClub();
+    case "buckler": return buckler();
     default: {
       const never: never = held;
       throw new Error(`a hand holds nothing called ${String(never)}`);

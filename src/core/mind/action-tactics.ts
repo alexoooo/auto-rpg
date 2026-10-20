@@ -11,6 +11,7 @@ import { approachActionWindow } from "./action-window.ts";
 import { clearanceExit, clearMove } from "./clear-step.ts";
 import type { ActionConfig, BehavioursConfig, ConditionConfig } from "./config.ts";
 import { conditionMatches } from "./conditions.ts";
+import { coveringHand } from "./cover-hand.ts";
 import type { Cover, Intent } from "./intent.ts";
 import type { Orders } from "./orders.ts";
 import { orderedIntent } from "./ordered.ts";
@@ -233,7 +234,13 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
           case "predictive": cover = threat.threatOf(sight.view, THREAT, PREDICTION); break;
           default: { const never: never = behaviour.guard; throw new Error(`unknown cover ${never}`); }
         }
-        if (left === undefined) left = cover; if (right === undefined) right = cover;
+        const shield = spec.held?.some(({ item }) => item.coverNormal !== undefined);
+        if (cover && shield) {
+          const dx = cover.threat[0] - cover.guarded[0], dz = cover.threat[2] - cover.guarded[2], h = sight.report.heading;
+          const hand = coveringHand(spec, dx * cos(h) - dz * sin(h) >= 0 ? "right" : "left");
+          if (hand === "left" && left === undefined) left = cover;
+          if (hand === "right" && right === undefined) right = cover;
+        } else { if (left === undefined) left = cover; if (right === undefined) right = cover; }
         break;
       }
       case "clear-of-walls": if (!legs) {

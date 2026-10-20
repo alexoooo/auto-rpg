@@ -58,6 +58,7 @@ export const CONFIG_KEYS = deepFreeze({
   "when-standing": { kind: true, gait: true },
   "when-distance": { kind: true, of: true, than: true, metres: true, gait: true },
   "cover-guard": { kind: true, tuning: true },
+  "shield-guard": { kind: true, tuning: true },
   "recipe-strike": { kind: true, name: true, tuning: true },
   "path-strike": { kind: true, name: true, overlap: true, tuning: true },
   "driven-strike": { kind: true, name: true, tuning: true, drive: true, torso: true, windup: true, contact: true },

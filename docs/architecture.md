@@ -145,7 +145,7 @@ do not.
 
 `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the model registry,
 construction, and each model's default mind and what its right hand holds. What a hand may hold is
-one list (`HELD`, `src/core/items/held.ts`: nothing, or the wooden club), and `armedWith` puts it
+one list (`HELD`, `src/core/items/held.ts`: empty hands, the wooden club or the buckler), and `armedWith` puts it
 in a hand, refusing a hand that cannot close on it. `Loadout` names both hands; `withLoadout`
 replaces their assignments, and `modelHolding` reads that equipped spec. The Arena recipe carries
 each fighter's `loadouts`, shared in `left.loadout=leftHand,rightHand` and `right.loadout` link
@@ -171,7 +171,15 @@ head, hinged jaw and two tail segments. Its complete spec carries asset provenan
 explicitly estimated anatomical values ([reference/reptile.md](reference/reptile.md)).
 `armed(spec, side, woodenClub())`
 (`src/core/human/grip.ts`, `src/core/items/club.ts`) puts the club, the only weapon so far, in a
-hand. Families share code, never values: a spec does not spread another family's spec.
+hand. The buckler (`src/core/items/buckler.ts`) is an ordinary rigid disc and grip, with a
+single cover centre and a face normal. The default `shield-guard` part puts its boss between a
+threat and the guarded place and independently orients the face through `EffectorGoal.orientation`.
+`cover-guard` remains a line-cover alternative, supporting items without a face normal. Both
+reuse the existing fist and club goals where appropriate. Tactics and reflexes prefer the hand
+with a covering face, keeping the striking hand available. Blunt executors exclude cover-only
+items without an attack aim, and directed blade surfaces (`strikesWithBlunt`). Item dimensions
+and mass decisions are recorded in [Arena items](reference/arena-items.md).
+Families share code, never values: a spec does not spread another family's spec.
 
 ### Provenance
 

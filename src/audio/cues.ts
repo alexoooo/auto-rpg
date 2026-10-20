@@ -40,7 +40,7 @@ const INBOX = Object.freeze({ coalesce: 60, stale: 200, pending: 64, most: 12 })
 const PLACEMENT = Object.freeze({ panMetres: 10, panMost: .85, reach: 18 });
 
 /** What things are made of, softest first: the softer of two that meet decides the voice. */
-const SOFTNESS: readonly Substance[] = Object.freeze(["flesh", "bone", "wood", "stone"]);
+const SOFTNESS: readonly Substance[] = Object.freeze(["flesh", "bone", "wood", "metal", "stone"]);
 
 /** The voice of `a` meeting `b`: the softer one's. Stone has none of its own, and two stones never meet. */
 export function voiceOf(a: Substance, b: Substance): SoundKind {
@@ -48,7 +48,7 @@ export function voiceOf(a: Substance, b: Substance): SoundKind {
   switch (softer) {
     case "flesh": return "body";
     case "bone": return "bone";
-    case "wood": return "shield";
+    case "wood": case "metal": return "shield";
     case "stone": throw new Error("stone on stone has no voice: nothing fixed meets something fixed");
     default: { const never: never = softer; throw new Error(`no voice for a thing of ${String(never)}`); }
   }

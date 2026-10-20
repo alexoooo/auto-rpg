@@ -52,7 +52,7 @@ export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWi
   const strikes: readonly StandingOption[] = [...ready, ...closing];
   const counts = standing.map((action) => throws(config, action));
   const options: readonly StandingOption[] = [orders, ...low ? [low] : [], ...strikes];
-  const reflexes = reflexLayer(config.reflexes.map(reflexOf));
+  const reflexes = reflexLayer(config.reflexes.map((reflex) => reflexOf(reflex, spec)));
   const state = { phase: "wait" as Phase, since: 0, settled: null as number | null, thrown: 0, running: -1,
     situation: reader.state, options: options.map((option) => option.state), reflexes: reflexes.state };
 

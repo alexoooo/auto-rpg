@@ -172,6 +172,9 @@ interface CoverGuardConfig {
   };
 }
 
+/** A cover guard that also turns an item's declared face toward the threat. */
+interface ShieldGuardConfig extends Omit<CoverGuardConfig, "kind"> { readonly kind: "shield-guard" }
+
 /** **The recipe strike**: the searched recipe blows for what a hand holds (`recipeExecutor`, `skills/strike.ts`). */
 interface RecipeStrikeConfig {
   readonly kind: "recipe-strike";
@@ -256,7 +259,7 @@ interface WholeBodyMotorConfig { readonly kind: "whole-body" }
 export type MotorConfig = WholeBodyMotorConfig;
 
 /** **A skill's config**, by kind, across the fighter's skill slots. */
-export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | WalkRunConfig | LearnedRunConfig | MoveConfig | CoverGuardConfig | SupportFoldConfig;
+export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | WalkRunConfig | LearnedRunConfig | MoveConfig | CoverGuardConfig | ShieldGuardConfig | SupportFoldConfig;
 
 /** A fighter shares named executors across its configured actions. */
 export interface FighterConfig {
@@ -264,7 +267,7 @@ export interface FighterConfig {
   readonly tactics: TacticsConfig;
   readonly locomotion: LocomotionConfig;
   readonly navigation?: NavigationConfig;
-  readonly guard: CoverGuardConfig;
+  readonly guard: CoverGuardConfig | ShieldGuardConfig;
   readonly executors: readonly ExecutorConfig[];
   readonly actions: readonly ActionConfig[];
   readonly support: SupportFoldConfig | null;
@@ -327,7 +330,7 @@ export const MOVE: MoveConfig = deepFreeze({ kind: "move",
   otherwise: "run" });
 
 /** The recipe fighter: seeking tactics over the recipe strike, walking in the stance, lying still once down. The Lab's minds are made from it. */
-export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tactics: FIGHTING, locomotion: { kind: "stance-walk" }, guard: { kind: "cover-guard" },
+export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tactics: FIGHTING, locomotion: { kind: "stance-walk" }, guard: { kind: "shield-guard" },
   executors: [{ name: "recipe", kind: "recipe-strike" }],
   actions: [{ name: "strike", executor: "recipe", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "high" }], aim: { kind: "centre", lead: 0 } }], support: null, subs: [{ kind: "lie" }] });
 

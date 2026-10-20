@@ -92,7 +92,7 @@ interface EffectorSpec {
 }
 
 /** What a thing is made of, where it meets another: a body's flesh or bone, an item's wood, the world's stone. */
-export type Substance = "flesh" | "bone" | "wood" | "stone";
+export type Substance = "flesh" | "bone" | "wood" | "metal" | "stone";
 
 /**
  * **An item held rigidly in a segment**, as a club is in a closed hand: it moves with the segment
@@ -128,8 +128,10 @@ export interface ItemSpec {
   readonly points: { readonly [name: string]: Quantity<Vec3> };
   /** The point of `points` a blow with the item is brought to its target by: where it strikes. */
   readonly aim?: string;
-  /** The two points of `points` between which the item stops a blow: a parry puts a threat's line across them. */
-  readonly cover?: readonly [string, string];
+  /** One point placed before a threat, or two between which a parry lays its line. */
+  readonly cover?: readonly [string] | readonly [string, string];
+  /** Outward face normal in the item frame; a guard turns this face toward the threat. */
+  readonly coverNormal?: Quantity<Vec3>;
   /** Absent, the item is rigid: it takes no share of a blow. */
   readonly surface?: SurfaceSpec;
   /** What it is made of. */
