@@ -6,6 +6,7 @@ import { deepFreeze } from "../state.ts";
 import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, OPTIONS, PUNCHER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type FighterConfig, type MindConfig, type OptionsConfig, type QuadrupedConfig } from "./config.ts";
 import { controller, NO_POSTURE, type Controller } from "./controller.ts";
 import { DIRECT_MIND } from "../entrants/direct/mind.ts";
+import { TEMPO_MIND } from "../entrants/tempo/mind.ts";
 import { createFighter, fighterFaults, kitFaults } from "./fighter.ts";
 import { actionConfigFaults } from "./action-config.ts";
 import { slotList, slotOne, type Slot } from "./parts.ts";
@@ -102,7 +103,7 @@ const QUADRUPED_MIND = controller<QuadrupedConfig>({
  * them: the one place a kind is made, matched to a body and offered by name. A mind's folder
  * writes its controller (`controller`); a line here registers it. A kind twice is refused.
  */
-export const CONTROLLERS: Readonly<Record<string, Controller>> = registry([OPTIONS_MIND, FIGHTER_MIND, QUADRUPED_MIND, DIRECT_MIND]);
+export const CONTROLLERS: Readonly<Record<string, Controller>> = registry([OPTIONS_MIND, FIGHTER_MIND, QUADRUPED_MIND, DIRECT_MIND, TEMPO_MIND]);
 
 /** `controllers` by their kinds; a thrown error for a kind twice. */
 function registry(controllers: readonly Controller[]): Readonly<Record<string, Controller>> {
