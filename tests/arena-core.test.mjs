@@ -15,6 +15,7 @@ import { centreOfToRef } from "../src/core/control/support.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { createWorld } from "../src/core/world.ts";
+import { characterDefaults } from "../src/core/models.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
 import { playBout } from "../research/bout.mjs";
 
@@ -119,7 +120,7 @@ test("a_fighters_aim_rides_in_its_named_actions", async () => {
     const { world, dispose } = await arena();
     const config = { ...RECIPE_FIGHTER, actions: RECIPE_FIGHTER.actions.map(action => ({ ...action, regions: [{ kind: "mark", mark }] })) };
     // Armed: the recipe's bare hand commits too seldom for this fixture.
-    const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-fighter", gap: 3, held: { left: "club", right: "club" }, minds: { left: config, right: RECIPE_FIGHTER } });
+    const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-fighter", gap: 3, loadouts: { left: { left: "empty", right: "club" }, right: { left: "empty", right: "club" } }, minds: { left: config, right: RECIPE_FIGHTER } });
     try {
       duel.play([{ step: 0, side: "right", orders: STAND_ORDERS }]);
       const report = () => duel.duelists.left.minded.skills.report;
@@ -149,7 +150,7 @@ test("a_bout's_recipe_is_plain_data_that_builds_the_same_bout", async () => {
   let duel;
   try {
     duel = new Duel(world, structuredClone(recipe));
-    assert.deepEqual(duel.recipe, recipe);
+    assert.deepEqual(duel.recipe, { ...recipe, attributes: { left: characterDefaults(recipe.left), right: characterDefaults(recipe.right) } });
     assert.ok(Object.isFrozen(duel.recipe));
     const { left, right } = duel.duelists;
     assert.deepEqual([left.model, right.model], ["workshop-rogue", "crypt-skeleton"]);
@@ -160,7 +161,7 @@ test("a_bout's_recipe_is_plain_data_that_builds_the_same_bout", async () => {
   } finally { duel?.dispose(); dispose(); }
 });
 
-test("a_side's_right_hand_is_empty_unless_its_recipe_arms_it", async () => {
+test("each_hand_is_empty_unless_its_recipe_arms_it", async () => {
   const names = (duelist) => (duelist.built.spec.held ?? []).map((held) => [held.segment, held.item.name]);
   const built = async (held) => {
     const { world, dispose } = await arena();
@@ -168,11 +169,14 @@ test("a_side's_right_hand_is_empty_unless_its_recipe_arms_it", async () => {
     try { return [names(duel.duelists.left), names(duel.duelists.right)]; } finally { duel.dispose(); dispose(); }
   };
   assert.deepEqual(await built({}), [[], []]);
-  assert.deepEqual(await built({ held: { left: "empty", right: "club" } }), [[], [["hand.right", "wooden club"]]]);
-  assert.deepEqual(await built({ held: { left: "club", right: "empty" } }), [[["hand.right", "wooden club"]], []]);
-  await assert.rejects(built({ held: { left: "sword", right: "club" } }), /a hand holds nothing called sword/);
+  assert.deepEqual(await built({ loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "club" } } }), [[], [["hand.right", "wooden club"]]]);
+  assert.deepEqual(await built({ loadouts: { left: { left: "empty", right: "club" }, right: { left: "empty", right: "empty" } } }), [[["hand.right", "wooden club"]], []]);
+  assert.deepEqual(await built({ loadouts: { left: { left: "club", right: "club" }, right: { left: "club", right: "empty" } } }),
+    [[["hand.left", "wooden club"], ["hand.right", "wooden club"]], [["hand.left", "wooden club"]]]);
+  await assert.rejects(built({ held: { left: "club", right: "club" } }), /obsolete single-held recipe/);
+  await assert.rejects(built({ loadouts: { left: { left: "empty", right: "unknown-item" }, right: { left: "empty", right: "club" } } }), /right hand holds no item called unknown-item/);
   // Two with nothing in their hands fight with them: a blow between them has no item in it, and each side of it is wounded.
-  const row = await playBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 3, held: { left: "empty", right: "empty" } }, 30, [], { blows: true });
+  const row = await playBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 3, loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } } }, 30, [], { blows: true });
   assert.ok(row.landed.length > 0, "the fixture did not reach its case: the two never meet");
   assert.ok(row.landed.every((blow) => blow.sides.every((side) => side.item === null)), "no blow of theirs names an item");
   assert.ok(row.landed.some((blow) => blow.sides.every((side) => side.wound !== null)), "and one wounds both its sides");
@@ -181,7 +185,7 @@ test("a_side's_right_hand_is_empty_unless_its_recipe_arms_it", async () => {
 test("a_warrior_that_turns_to_its_foe_from_standing_keeps_its_feet", async () => {
   // The duel's right side turns to its foe as it sets off; a Warrior turned faster than its walk
   // follows runs away sideways and falls within 3 s (`stanceEnvelope`'s turns, measured from setting off).
-  const row = await playBout({ left: "workshop-rogue", right: "workshop-fighter", gap: 4, held: { left: "empty", right: "empty" } }, 4);
+  const row = await playBout({ left: "workshop-rogue", right: "workshop-fighter", gap: 4, loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } } }, 4);
   assert.deepEqual([row.ending, row.fallen], ["none", []]);
 });
 
@@ -285,17 +289,17 @@ test("a_side_under_orders_does_what_it_is_told_and_the_other_fights_on", async (
 
 test("a_bout_plays_again_from_its_recipe_and_its_tape", async () => {
   const recipe = { left: "workshop-fighter", right: "workshop-rogue" };
-  const back = { move: { x: -1, z: 0 }, face: null };
+  const back = { move: { kind: "direct", direction: { x: -1, z: 0 } }, face: null };
   // The left side is ordered back once its walk is under way, then left to itself; the right is ordered to face it.
   const tape = [{ step: 200, side: "left", orders: back }, { step: 360, side: "left", orders: null },
     { step: 480, side: "right", orders: { move: null, face: { x: -1, z: -0 } } }];
   const first = await playBout(recipe, 8, tape), second = await playBout(recipe, 8, first.tape);
   // A side is given its orders as JSON carries them, a negative zero as zero: the tape that has been
   // through a link's fragment is the bout's tape, and plays the bout.
-  const carried = readTape(tapeHash(tape));
-  assert.equal(carried.length, 3);
-  assert.deepEqual(first.tape, carried);
-  assert.notDeepEqual(tape, carried, "the fixture's negative zero is what the fragment does not carry");
+  const carried = readTape(tapeHash(first.recording));
+  assert.equal(carried.tape.length, 3);
+  assert.deepEqual(first.tape, carried.tape);
+  assert.notDeepEqual(tape, carried.tape, "the fixture's negative zero is what the fragment does not carry");
   assert.deepEqual(second, first);
   // The controls: no tape, and the same orders a step later, are other bouts.
   const untold = await playBout(recipe, 8);
@@ -310,7 +314,7 @@ test("a_side_out_of_the_fight_is_no_longer_under_its_orders", async () => {
   const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 1 });
   try {
     // Ordered to walk away, the left side walks until the bell; then it stands, as the right does.
-    duel.order("left", { move: { x: -1, z: 0 }, face: null });
+    duel.order("left", { move: { kind: "direct", direction: { x: -1, z: 0 } }, face: null });
     const { left } = duel.duelists;
     assert.notEqual(duel.run(), null);
     assert.equal(duel.verdict.ending, "time");

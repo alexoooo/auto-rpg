@@ -35,7 +35,7 @@ import { withParts } from "./fixtures/minds.mjs";
 const { threatOf } = threatReader();
 
 // Severing at empty makes the fatal physical blow exercise attachment memory as well as damage.
-const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.25, held: { left: "club", right: "club" }, balance: { left: 25, right: 25 }, senseDelay: 1,
+const RECIPE = deepFreeze({ left: "workshop-fighter", right: "workshop-rogue", gap: 3.25, loadouts: { left: { left: "empty", right: "club" }, right: { left: "empty", right: "club" } }, balance: { left: 25, right: 25 }, senseDelay: 1,
   rules: { severMargin: sourced(0, "1", "owner-hp-pool", "fork fixture: a part severs at empty") } });
 /** The same bout with both sides covering what threatens them. */
 const cover = withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover" } : behaviour) } });
@@ -45,7 +45,7 @@ const COVERING = deepFreeze({ ...RECIPE, minds: { left: cover, right: cover } })
  * part, or the bars decide it at the cap, whatever Classic's strength.
  */
 const CLUBBING = deepFreeze({ ...RECIPE, minds: { left: CLASSIC, right: CLASSIC }, capSeconds: 60 });
-const BACK = { move: { x: -1, z: 0 }, face: null };
+const BACK = { move: { kind: "direct", direction: { x: -1, z: 0 } }, face: null };
 const TAPE = deepFreeze([{ step: 300, side: "left", orders: BACK }, { step: 420, side: "left", orders: null }]);
 /** Steps a twin's world has taken when its bout is built: a bout begins at whatever step its world is at. */
 const LATE = 7;
@@ -202,7 +202,7 @@ test("a_load_is_of_the_same_recipe", async () => {
       assert.throws(() => from.duel.load(minds.duel.save()), /another bout's recipe/);
     } finally { minds.dispose(); }
     // And a bout of the same recipe takes it whatever the order its recipe's keys were written in.
-    const again = await bout("twin", { rules: RECIPE.rules, senseDelay: RECIPE.senseDelay, balance: { right: 25, left: 25 }, held: { right: "club", left: "club" }, gap: RECIPE.gap, right: RECIPE.right, left: RECIPE.left });
+    const again = await bout("twin", { rules: RECIPE.rules, senseDelay: RECIPE.senseDelay, balance: { right: 25, left: 25 }, loadouts: { right: { right: "club", left: "empty" }, left: { right: "club", left: "empty" } }, gap: RECIPE.gap, right: RECIPE.right, left: RECIPE.left });
     try {
       again.duel.load(saved);
       assert.equal(stepped(again, 300), stepped(from, 300));

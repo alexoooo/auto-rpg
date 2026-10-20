@@ -33,7 +33,7 @@ const cells = CANDIDATES.flatMap((candidate) => HELD.map((held) => ({ candidate,
 function presetJobs() {
   return cells.flatMap(({ candidate, held }, c) => combatPairs({ candidate, opponent: "classic", count: PAIRS }).map((job) => ({
     ...job, id: `${candidate}/${held}/${job.id}`, pair: c * PAIRS + job.pair,
-    config: { ...job.config, recipe: { ...job.config.recipe, left: MODEL, right: MODEL, held: { left: held, right: held } } },
+    config: { ...job.config, recipe: { ...job.config.recipe, left: MODEL, right: MODEL, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } } } },
   })));
 }
 

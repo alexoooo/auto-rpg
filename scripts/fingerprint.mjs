@@ -39,6 +39,7 @@ import { CHARACTERS, WEAPONS, clipFor } from "../src/character-lab/catalog.ts";
 import { controlsFor, readMinds } from "../src/arena/matchup.ts";
 import { createBody, SERVO_SECONDS } from "../src/core/body.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
+import { loadoutKey } from "../src/core/items/held.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { MINDS } from "../src/core/mind/controllers.ts";
@@ -335,15 +336,17 @@ function sight(seed) {
 }
 
 const range = (n) => Array.from({ length: n }, (_, i) => i);
-/** An arena bout of `left` and `right` under the controllers a link names, holding `held`. */
-const controlled = (left, right, controls, held) => ({
-  name: `arena ${left} v ${right}, ${controls}, ${held.left === held.right ? held.left : `${held.left} v ${held.right}`}`,
-  run: () => arena({ left, right, held, minds: readMinds(`?matchup=${left},${right}&control=${controls}`) }),
+const loadoutName = (loadout) => loadout.left === "empty" ? loadout.right : loadoutKey(loadout);
+/** An arena bout of `left` and `right` under the controllers and per-hand loadouts a link names. */
+const controlled = (left, right, controls, loadouts) => ({
+  name: `arena ${left} v ${right}, ${controls}, ${loadoutKey(loadouts.left) === loadoutKey(loadouts.right) ? loadoutName(loadouts.left) : `${loadoutName(loadouts.left)} v ${loadoutName(loadouts.right)}`}`,
+  run: () => arena({ left, right, loadouts, minds: readMinds(`?matchup=${left},${right}&control=${controls}&left.loadout=${loadoutKey(loadouts.left)}&right.loadout=${loadoutKey(loadouts.right)}`) }),
 });
-const both = (held) => ({ left: held, right: held });
+const rightHand = (right) => ({ left: "empty", right });
+const both = (held) => ({ left: rightHand(held), right: rightHand(held) });
 /** The minds the Warrior is offered (`controlsFor`), with each loadout it is offered with: each a case below. */
-const warriorMinds = () => [...new Set(["club", "empty"].flatMap((held) => controlsFor("workshop-fighter", held)))]
-  .map((control) => [control, ["club", "empty"].filter((held) => controlsFor("workshop-fighter", held).includes(control))]);
+const warriorMinds = () => [...new Set(["club", "empty"].flatMap((held) => controlsFor("workshop-fighter", rightHand(held))))]
+  .map((control) => [control, ["club", "empty"].filter((held) => controlsFor("workshop-fighter", rightHand(held)).includes(control))]);
 /**
  * A case for each mind a person may pick (`MINDS`, an entrant's among them) that the Warrior is not
  * offered and no case above plays (the quadruped's `crawl`): itself on both sides, on the first body
@@ -351,11 +354,11 @@ const warriorMinds = () => [...new Set(["club", "empty"].flatMap((held) => contr
  * moves is named by a case.
  */
 const elsewhere = () => Object.entries(MINDS).filter(([id]) => id !== "crawl" && warriorMinds().every(([control]) => control !== id)).map(([id, { config }]) => {
-  const model = BODY_MODELS.find((m) => controlsFor(m, "club").includes(id) || controlsFor(m, "empty").includes(id));
+  const model = BODY_MODELS.find((m) => controlsFor(m, rightHand("club")).includes(id) || controlsFor(m, rightHand("empty")).includes(id));
   if (!model) throw new Error(`no body fits the ${id} mind`);
-  const held = both(controlsFor(model, "club").includes(id) ? "club" : "empty");
-  return { name: `arena ${model} v ${model}, ${id},${id}, ${held.left}`,
-    run: () => arena({ left: model, right: model, held, minds: { left: config, right: config } }) };
+  const loadouts = both(controlsFor(model, rightHand("club")).includes(id) ? "club" : "empty");
+  return { name: `arena ${model} v ${model}, ${id},${id}, ${loadoutName(loadouts.left)}`,
+    run: () => arena({ left: model, right: model, loadouts, minds: { left: config, right: config } }) };
 });
 /** The cases in the order they print, the long ones first so that the lanes stay full. */
 const CASES = [
@@ -365,7 +368,7 @@ const CASES = [
     helds.map((held) => controlled("workshop-fighter", "workshop-rogue", `${control},${control}`, both(held)))),
   controlled("crypt-skeleton", "workshop-rogue", "classic,classic", both("club")),
   controlled("reptile", "reptile", "crawl,crawl", both("empty")),
-  ...["club", "empty"].map((held) => controlled("reptile", "workshop-fighter", "crawl,classic", { left: "empty", right: held })),
+  ...["club", "empty"].map((held) => controlled("reptile", "workshop-fighter", "crawl,classic", { left: rightHand("empty"), right: rightHand(held) })),
   ...elsewhere(),
   ...[...HUMANOID_MODELS, "reptile"].map((model) => ({ name: `stand ${model}`, run: () => stand(model) })),
   ...[1, 2].map((seed) => ({ name: `crypt fight, seed ${seed}`, run: () => cryptFight(seed) })),

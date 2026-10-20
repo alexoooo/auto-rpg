@@ -1,5 +1,7 @@
+import { isMovement, type MovementRequest, type GroundPoint } from "./movement.ts";
+
 /** A direction on the ground, world. */
-export interface Heading { readonly x: number; readonly z: number }
+export type Heading = GroundPoint;
 
 /**
  * **What a body is told to do**, by a person, a team's plan or its own tactics: plain data, in
@@ -7,11 +9,11 @@ export interface Heading { readonly x: number; readonly z: number }
  * (`actionTactics`); the body defends itself meanwhile.
  */
 export interface Orders {
-  /** Walk this way (its length is not read), at the body's own pace. Null stands. */
-  readonly move: Heading | null;
+  /** A world movement objective. Null requests a controlled stop; absent external orders leaves movement to the Mind. */
+  readonly move: MovementRequest | null;
   /** Walk no faster than this, m/s, as a walk coming to a stop does; absent, the body's own pace is the only bound. */
   readonly pace?: number;
-  /** Run: walk the way it is told facing that way, at its fastest walk forward; the facing told is set aside. */
+  /** Prefer running where the gait and requested facing permit it; pace remains a ceiling. */
   readonly run?: true;
   /** Face this way (its length is not read past 0.08). Null faces the walk, or, standing, as it stands. */
   readonly face: Heading | null;
@@ -19,8 +21,6 @@ export interface Orders {
   readonly foe?: string;
   /** Prefer this anatomical segment on the ordered body; absent, use the configured regions. */
   readonly region?: string;
-  /** How far the body is from where it is told to go, m; absent where it is told to go nowhere. */
-  readonly destination?: number;
 }
 
 export const STAND_ORDERS: Orders = Object.freeze({ move: null, face: null });
@@ -31,13 +31,12 @@ const isHeading = (value: unknown): value is Heading => typeof value === "object
 /** Whether `value` is orders: what orders read from outside the program must be before a body is given them. */
 export function isOrders(value: unknown): value is Orders {
   if (typeof value !== "object" || value === null) return false;
-  const { move, pace, run, face, foe, region, destination } = value as Record<string, unknown>;
-  return (move === null || isHeading(move)) && (pace === undefined || typeof pace === "number" && Number.isFinite(pace) && pace >= 0) && (face === null || isHeading(face))
+  const { move, pace, run, face, foe, region } = value as Record<string, unknown>;
+  return (move === null || isMovement(move)) && (pace === undefined || typeof pace === "number" && Number.isFinite(pace) && pace >= 0) && (face === null || isHeading(face))
     && (run === undefined || run === true)
     && (foe === undefined || typeof foe === "string" && foe.length > 0)
     && (region === undefined || typeof region === "string" && region.length > 0 && foe !== undefined)
-    && (destination === undefined || typeof destination === "number" && Number.isFinite(destination) && destination >= 0)
-    && Object.keys(value).every(key => ["move", "pace", "run", "face", "foe", "region", "destination"].includes(key));
+    && Object.keys(value).every(key => ["move", "pace", "run", "face", "foe", "region"].includes(key));
 }
 
 /** Whether two orders, or two absences of them, say the same thing. */

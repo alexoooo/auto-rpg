@@ -259,7 +259,7 @@ test("a body taken in the middle of a step forgets the step, steps its feet apar
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [hold] });
   const stance = body.state.mind.host.motor.stance;
   try {
-    const skills = driveBy(body, walkingTactics(stand.built.spec, () => ({ move: { x: 0, z: 1 }, face: null, pace: PACE })));
+    const skills = driveBy(body, walkingTactics(stand.built.spec, () => ({ move: { kind: "direct", direction: { x: 0, z: 1 } }, face: null, pace: PACE })));
     /** The stance's memory of the step under way. */
     const memory = () => ({
       plan: stance.plan.on, last: stance.last, stride: stance.stride, striding: stance.striding, pace: [...stance.pace],

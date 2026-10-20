@@ -20,7 +20,7 @@ import { REFERENCE_TORCHES } from "./reference.ts";
 import type { buildDungeonWorld } from "./world.ts";
 
 import type { CryptPlacement, CryptRoomPlan } from "./crypt-plan.ts";
-import { assembleCryptKit } from "./crypt-kit.ts";
+import { assembleCryptKit } from "../environment/crypt-kit.ts";
 import type { TorchPlacement } from "./dressing.ts";
 
 export type ReferenceQuality = "high" | "reduced";
@@ -124,7 +124,7 @@ class CryptCutaway extends MaterialPluginBase {
 export async function dressReference(scene: Scene, level: ReturnType<typeof buildDungeonWorld>, quality: ReferenceQuality, azimuth: number, plan?: CryptRoomPlan) {
   const container=await LoadAssetContainerAsync(publicAssetUrl(plan ? "/assets/crypt-kit/kit.glb" : "/assets/dungeon-reference/chamber.glb"),scene);
   container.addAllToScene();
-  if(plan) assembleCryptKit(container,plan);
+  if(plan) assembleCryptKit(container,plan.placements);
   const torches=plan?.torches??REFERENCE_TORCHES;
   const cutaway=cutawayCondition(azimuth,plan);
   const root=container.meshes.find(m=>m.name==="__root__");

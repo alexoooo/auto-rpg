@@ -1,13 +1,13 @@
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
-import { rigidPoints } from "../build/rigid.ts";
+import { heldFrame, rigidPoints } from "../build/rigid.ts";
 import { effectorFreedoms } from "../control/effectors.ts";
 import { intoFrameToRef, pointAtToRef, solveReach, specChainTo } from "../control/kinematics.ts";
 import type { EffectorGoal, Pose } from "../control/motor.ts";
 import type { Cover, Intent } from "../mind/intent.ts";
 import type { Side, BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { add, distance, dot, length, scale, sub } from "../spec/vec.ts";
+import { add, cross, distance, dot, length, scale, sub } from "../spec/vec.ts";
 import type { Skill } from "./skill.ts";
 
 /**
@@ -72,19 +72,24 @@ export interface Covering {
 interface Covers {
   readonly points: readonly string[];
   readonly span: number;
+  readonly normal: Vec3 | null;
 }
 
 function coversOf(spec: BodySpec, hand: Side): Covers {
   const segment = spec.segments.find((s) => s.name === `hand.${hand}`);
   if (!segment) throw new Error(`${spec.model} has no ${hand} hand`);
-  const points = spec.held?.find((h) => h.segment === segment.name)?.item.cover ?? ["knuckles"];
+  const held = spec.held?.find((h) => h.segment === segment.name), points = held?.item.cover ?? ["knuckles"];
+  const normal = held?.item.coverNormal, frame = held ? heldFrame(held) : null;
   const known = rigidPoints(spec, segment);
   const at = points.map((name) => {
     const point = known.get(name);
     if (!point) throw new Error(`${spec.model}'s ${hand} hand has no point ${name} to cover with`);
     return point.value;
   });
-  return { points, span: at.length === 2 ? distance(at[0]!, at[1]!) : 0 };
+  if (normal && Math.abs(length(normal.value) - 1) > 1e-8) throw new Error(`${spec.model}'s ${hand} covering normal must be unit length`);
+  if (normal && points.length !== 1) throw new Error(`${spec.model}'s ${hand} covering face needs one centre point`);
+  return { points, span: at.length === 2 ? distance(at[0]!, at[1]!) : 0,
+    normal: normal && frame ? add(scale(frame.x, normal.value[0]), add(scale(frame.y, normal.value[1]), scale(frame.z, normal.value[2]))) : null };
 }
 
 /** No hand given a goal. */
@@ -107,6 +112,8 @@ const NO_LINE = 1e-6;
  * - Two points (a club's swell) have their middle there, and their line square to the line from
  *   the place guarded to the threat: of the ways square to it, the one nearest how the item lies
  *   now, so it is not swung end over end. Each point is half their distance to either side.
+ * - A face has one centre point and an independent orientation target, turning its declared
+ *   outward normal toward the threat while preserving its current roll as closely as possible.
  *
  * A hand whose guard names no cover has no goal: its arm is the posture's (`GUARD`). So has the
  * hand a strike has. The skill remembers nothing.
@@ -116,9 +123,10 @@ export interface GuardSkill extends Skill {
   command(view: BodyView, guard: Intent["guard"], taken: Side | null): Readonly<Record<Side, EffectorGoal | null>>;
 }
 
-export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER): GuardSkill {
+export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, faces = false): GuardSkill {
   const covers = { left: coversOf(spec, "left"), right: coversOf(spec, "right") };
   const guarded = new Vector3(), threat = new Vector3();
+  const normalNow = new Vector3(), align = new Quaternion(), oriented = new Quaternion();
   /** `hand`'s goal for `cover`, in the body frame (`BodyView.root`); null where the threat is at the place guarded, and names no line. */
   const goalOf = (view: BodyView, hand: Side, cover: Cover): EffectorGoal | null => {
     intoFrameToRef(view.root, cover.guarded, guarded);
@@ -127,8 +135,21 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER): Gu
     if (far < NO_LINE) return null;
     const toward = scale(way, 1 / far), middle = add(from, scale(toward, Math.min(covering.out, far)));
     const seconds = cover.seconds === undefined ? covering.seconds : Math.min(covering.seconds, cover.seconds);
-    const { points, span } = covers[hand];
-    if (points.length === 1) return { places: [{ point: points[0]!, position: middle }], seconds, follows: true };
+    const { points, span, normal } = covers[hand];
+    if (points.length === 1) {
+      const goal = { places: [{ point: points[0]!, position: middle }], seconds, follows: true };
+      if (!faces || !normal) return goal;
+      const rotation = view.effectors[`hand.${hand}`]!.rotation;
+      normalNow.set(...normal).applyRotationQuaternionToRef(rotation, normalNow).normalize();
+      const current: Vec3 = [normalNow.x, normalNow.y, normalNow.z], axis = cross(current, toward), cosine = dot(current, toward);
+      if (cosine < -1 + NO_LINE) {
+        let across = cross(current, UP);
+        if (length(across) < NO_LINE) across = cross(current, RIGHT);
+        const size = length(across); align.set(across[0] / size, across[1] / size, across[2] / size, 0);
+      } else align.set(axis[0], axis[1], axis[2], 1 + cosine).normalize();
+      align.multiplyToRef(rotation, oriented).normalize();
+      return { ...goal, orientation: { target: [oriented.x, oriented.y, oriented.z, oriented.w], seconds } };
+    }
     // The item's line as it lies, less what of it runs along the threat's line.
     const now = view.effectors[`hand.${hand}`]!.points, a = now[points[0]!]!, b = now[points[1]!]!;
     const square = (line: Vec3): Vec3 => sub(line, scale(toward, dot(line, toward)));

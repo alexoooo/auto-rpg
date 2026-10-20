@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { OwnBody } from "../mind/mind.ts";
-import type { Orders } from "../mind/orders.ts";
+import type { Orders, Heading } from "../mind/orders.ts";
 import type { Senses } from "../mind/senses.ts";
 import type { Skill } from "../skills/skill.ts";
 import type { supportedMotor, SupportedCommand } from "../control/supported-motor.ts";
@@ -9,6 +9,10 @@ import { withinSupport } from "../control/support.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { REPTILE_CRAWL } from "./tuning.ts";
+
+/** Resolved world travel for a quadruped's gait; navigation owns external movement objectives. */
+export interface TravelOrders extends Omit<Orders, "move"> { readonly move: Heading | null }
+export const STAND_TRAVEL: TravelOrders = Object.freeze({ move: null, face: null });
 
 /** A quadruped's proprioception exposes support endpoints rather than fabricated hands. */
 export interface QuadrupedView {
@@ -57,7 +61,7 @@ export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, na
     state.centre[0] = view.centre.x; state.centre[2] = view.centre.z;
     view.feet.forEach((e, i) => { state.anchors[i]![0] = e.at.x; state.anchors[i]![1] = e.ground; state.anchors[i]![2] = e.at.z; });
   };
-  const skill: Skill<QuadrupedView> & { readonly state: typeof state; command(view: QuadrupedView, intent: Orders, dt: number, height?: number): SupportedCommand } = {
+  const skill: Skill<QuadrupedView> & { readonly state: typeof state; command(view: QuadrupedView, intent: TravelOrders, dt: number, height?: number): SupportedCommand } = {
     state, resume,
     command(view, intent, dt, height = T.crawlHeight) {
       const face = intent.face ?? intent.move;

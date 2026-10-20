@@ -46,7 +46,7 @@ function choiceOf(state, depth = 0) {
 
 test("a_warrior_travels_by_the_stride_and_walks_in_the_guard_once_its_foe_is_near_changing_between_steps", async () => {
   // Both armed with the club: empty-handed from 8 m, the Warrior falls in the braced walk three steps after the change.
-  const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 8, held: { left: "club", right: "club" }, minds: { left: TRAVELLING, right: RECIPE_FIGHTER } });
+  const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 8, loadouts: { left: { left: "empty", right: "club" }, right: { left: "empty", right: "club" } }, minds: { left: TRAVELLING, right: RECIPE_FIGHTER } });
   try {
     const me = duel.duelists.left, foe = duel.duelists.right, choice = choiceOf(me.minded.state);
     assert.ok(choice, "Move's choice is in the mind's state");

@@ -25,12 +25,12 @@ test('a configured Arena turn ceiling forks during an ordinary approach and reta
  // Move's gaits take no tuning: the stance's walk, which Move fights by, is configured on its own.
  const ceiled={...SCRAPPER,locomotion:{kind:'stance-walk',tuning:{turnLimit:1}}};
  const make=async()=>buildBout({left:'workshop-fighter',right:'workshop-fighter',gap:2,capSeconds:20,recoverySeconds:null,
-  balance:{left:0,right:0},held:{left:'empty',right:'empty'},minds:{left:ceiled,right:ceiled}},
+  balance:{left:0,right:0},loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },minds:{left:ceiled,right:ceiled}},
   {physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  const a=await make(),b=await make();
  try{
   a.duel.play([]);b.duel.play([]);
-  a.duel.order('left',{move:{x:-1,z:0},face:null,attack:null});
+  a.duel.order('left',{move:{ kind: "direct", direction: {x:-1,z:0} },face:null,attack:null});
   let previous=a.duel.duelists.left.minded.skills.report.heading;
   for(let i=0;i<73;i++){a.world.step();const h=a.duel.duelists.left.minded.skills.report.heading;assert.ok(Math.abs(h-previous)<=a.world.dt+1e-12);previous=h;}
   assert.ok(Math.abs(previous)>.5);assert.ok(a.duel.duelists.left.minded.skills.report.pace>0);

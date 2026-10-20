@@ -8,6 +8,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { createEnvironment } from "../src/core/tasks/environment.ts";
+import { BUILD_IDENTITY } from "../src/build-identity.ts";
 import { createReachTask } from "../src/core/tasks/reach.ts";
 import { createCollisionProbe } from "../src/core/tasks/collision.ts";
 import { createBarProbe } from "../src/core/tasks/bar.ts";
@@ -306,7 +307,7 @@ export function attackAccounting() {
 async function boutTrial(job) {
   const cover = withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover" } : behaviour) } });
   const recipe = { left: job.model, right: job.model, gap: job.gap, cap: job.cap,
-    held: { left: job.held, right: job.held },
+    loadouts: { left: { left: "empty", right: job.held }, right: { left: "empty", right: job.held } },
     minds: { left: job.guard === "left-cover" ? cover : RECIPE_FIGHTER, right: job.guard === "right-cover" ? cover : RECIPE_FIGHTER } };
   const bout = await buildBout(recipe, { hz: job.hz, actuation: job.actuation });
   const sides = [bout.duel.duelists.left, bout.duel.duelists.right];
@@ -518,7 +519,7 @@ async function reachTrial(job) {
     readings = meter([task.body.built], [task.body]);
     instrument(task.world, readings);
     return task;
-  }, { policyPeriodSteps: job.policyPeriodSteps, maxSteps: job.maxSteps });
+  }, { buildIdentity: BUILD_IDENTITY, policyPeriodSteps: job.policyPeriodSteps, maxSteps: job.maxSteps });
   try {
     let result = environment.reset(job.seed);
     const goal = result.observation.goal, frames = [];

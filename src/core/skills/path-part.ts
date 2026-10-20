@@ -5,6 +5,7 @@ import type { ExecutorPart } from "../mind/executor-part.ts";
 import { validArmExtension } from "../mind/intent.ts";
 import { ATTACK_PATH, validAttackTuning } from "./attack-path.ts";
 import { DRIVEN_STRIKE, pathExecutor, validCombatExecution, validDrivenStrike } from "./combat.ts";
+import { strikesWithBlunt } from "./strikes.ts";
 
 type Path = Extract<ExecutorConfig, { kind: "path-strike" }>;
 type Driven = Extract<ExecutorConfig, { kind: "driven-strike" }>;
@@ -23,6 +24,7 @@ export const PATH_PART: ExecutorPart<Path> = {
   role: "executor", label: "Path strike", stage: "experimental", defaults: { kind: "path-strike", name: "paths", overlap: false },
   fields: [text("name", "Name"), toggle("overlap", "Overlap returns")], slots: [], tuning: ["paths", "execution"], fits: commandable,
   faults, effectors: ["hand.left", "hand.right"], actionFaults, paths,
+  strikesWith: (spec, _config, effector) => strikesWithBlunt(spec, effector),
   make: (body, _world, config, actions, resolve, direction) => pathExecutor(body, actions.map(a => ({ ...a, family: a.family! })),
     { ...config.tuning, paths: paths(config), overlap: config.overlap, resolve, direction }),
 };
@@ -33,6 +35,7 @@ export const DRIVEN_PART: ExecutorPart<Driven> = {
     number("windup", "Wind-up", 0, .4, .01, "m"), number("contact", "Contact speed", 1, 12, .5, "m/s")],
   slots: [], tuning: ["paths", "execution"], fits: commandable, faults: config => [...faults(config), ...validDrivenStrike(config) ? [] : ["invalid driven strike settings"]],
   effectors: ["hand.left", "hand.right"], actionFaults, paths,
+  strikesWith: (spec, _config, effector) => strikesWithBlunt(spec, effector),
   make(body, _world, config, actions, resolve, direction) {
     const { kind: _, name: __, tuning, ...driven } = config;
     return pathExecutor(body, actions.map(a => ({ ...a, family: a.family! })), { ...tuning, paths: paths(config), driven, resolve, direction });

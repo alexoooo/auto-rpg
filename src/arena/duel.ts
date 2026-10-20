@@ -1,13 +1,13 @@
 import { solidSenses, type SolidSense } from "../core/mind/object-senses.ts";
 import type { ContactTarget } from "../core/control/effector-feedback.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
-import { modelHolds, modelInfo, resolveCharacter, modelSupportsMind, type BodyModel } from "../core/models.ts";
+import { modelHolding, modelInfo, resolveCharacter, modelSupportsMind, type BodyModel } from "../core/models.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
-import { armedWith, type Held } from "../core/items/held.ts";
+import { EMPTY_LOADOUT, withLoadout, type Loadout } from "../core/items/held.ts";
 import { enlist, type Combatant } from "../core/combatant.ts";
 import type { SheetLog } from "../core/mind/sheets.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import { sameOrders, type Orders } from "../core/mind/orders.ts";
+import { isOrders, sameOrders, type Orders } from "../core/mind/orders.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows.ts";
 import type { Ending } from "../core/rules/pool.ts";
@@ -17,14 +17,19 @@ import { derive } from "../core/spec/quantity.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { loadState, saveState, type Saved } from "../core/state.ts";
 import type { Hook, World } from "../core/world.ts";
+import { sensedBounds } from "../core/mind/sensed-bounds.ts";
+import { arenaSolids } from "./room.ts";
+import { levelDefinition, levelSpawn, spawnClearanceFaults, type ArenaLevel } from "./levels.ts";
+import { BUILD_IDENTITY } from "../build-identity.ts";
+import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } from "../core/recording.ts";
 
 /**
- * **A bout in the arena**: two bodies, each empty-handed (`ARENA_HELD`) unless the recipe arms its
- * right hand (`DuelRecipe.held`), each under a
+ * **A bout in the arena**: two bodies, each empty-handed (`EMPTY_LOADOUT`) unless the recipe arms its
+ * hands (`DuelRecipe.loadouts`), each under a
  * mind made from its config (`createMind`; its model's, `modelInfo`, unless the recipe names
  * another), wounded by the core's blows under the arena's rulebook, and judged.
  *
- * - **They stand** the recipe's gap apart (`GAP_METRES` unless it says) across the arena's
+ * - **They stand** the recipe's gap apart (the level's default unless it says) across the arena's
  *   centre, both facing +z as every body is built; each turns a quarter to the other, so neither
  *   starts ahead.
  * - **Each side, left to itself** (a fighter's `seekFoe`), walks at the body it sees of the other
@@ -51,15 +56,10 @@ import type { Hook, World } from "../core/world.ts";
  * there, in this world or another, to go on as the saved bout went on.
  */
 
-/** Where the two stand, m apart across the centre, along x (`docs/reference/play.md#the-bout`). */
-const GAP_METRES = 4;
 /** How long a bout runs before the bars decide it, s (`docs/reference/play.md#the-bout`). */
 export const CAP_SECONDS = 120;
 
 export const SIDES: readonly Side[] = Object.freeze(["left", "right"]);
-
-/** What a side's right hand holds in a bout whose recipe does not say: nothing. */
-export const ARENA_HELD: Held = "empty";
 
 /** How a bout ended: the loser's pool's ending, its fall, or the clock. */
 export type DuelEnding = Exclude<Ending, "time"> | "fallen" | "time";
@@ -88,7 +88,9 @@ interface DuelRecipe {
   readonly right: BodyModel;
   /** Each character's attributes; a stored recipe carries their resolved values. */
   readonly attributes?: Readonly<Record<Side, AttributeOverrides>>;
-  /** How far apart the two stand, m; `GAP_METRES` unless given. */
+  /** Physical stage and its spawn policy; the open stage unless given. */
+  readonly level?: ArenaLevel;
+  /** How far apart the two stand, m; the level's default unless given. */
   readonly gap?: number;
   /** `CAP_SECONDS` unless given. */
   readonly capSeconds?: number;
@@ -104,8 +106,8 @@ interface DuelRecipe {
   readonly minds?: Readonly<Record<Side, MindConfig>>;
   /** Seconds continuously down before a fall ends the bout; null continues until injury or the cap. Zero is the reference fall rule. */
   readonly recoverySeconds?: number | null;
-  /** What each side's right hand holds; nothing (`ARENA_HELD`) unless given. */
-  readonly held?: Readonly<Record<Side, Held>>;
+  /** What each hand of each fighter holds; empty hands unless given. */
+  readonly loadouts?: Readonly<Record<Side, Loadout>>;
   /** The arena's rules with these in their place (`rulebook`'s override): an experiment's. */
   readonly rules?: RulebookOverride;
   /** For each segment named, what its surface's stiffness is times, on both sides: a sensitivity sweep's. */
@@ -132,14 +134,30 @@ const recipeKey = (recipe: DuelRecipe): string => JSON.stringify(recipe, (_, val
     ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) : value);
 
 /** An order given: before which of the bout's steps, to which side, and what. Null hands the side back to itself. */
-export interface OrdersEntry {
+interface OrdersEntry {
   readonly step: number;
   readonly side: Side;
   readonly orders: Orders | null;
 }
 
+/** External orders carry a reachable step, one side and the complete public order contract. */
+export function isOrdersEntry(entry: unknown): entry is OrdersEntry {
+  if (typeof entry !== "object" || entry === null) return false;
+  const { step, side, orders } = entry as Record<string, unknown>;
+  return Number.isSafeInteger(step) && (step as number) >= 0 && (side === "left" || side === "right") && (orders === null || isOrders(orders));
+}
+
+/** The persisted order format, separate from live orders a caller queues with `Duel.play`. */
+export const ORDERS_PROTOCOL = "arena-orders/1";
+
+export interface OrdersRecording {
+  readonly identity: RecordingIdentity;
+  readonly tape: readonly OrdersEntry[];
+}
+
 /** A bout at a step, whole: whose bout it is, the physics' bytes and every module's memory. Plain data. */
 interface DuelSave {
+  readonly identity: RecordingIdentity;
   readonly recipe: DuelRecipe;
   readonly physics: Uint8Array;
   readonly state: Saved;
@@ -212,8 +230,10 @@ export class Duel {
   private readonly feeding: Hook;
   private readonly watch: BlowWatch;
   private readonly judging: Hook;
+  private readonly identity: RecordingIdentity;
 
   constructor(world: World, recipe: DuelRecipe, hooks: DuelHooks = {}) {
+    if ("held" in recipe) throw new Error("obsolete single-held recipe; name both hands in loadouts");
     if ("contactLayer" in recipe) throw new Error("obsolete contact-layer recipe; rebuild it with the current point-load rules");
     if (recipe.recoverySeconds !== undefined && recipe.recoverySeconds !== null && (!Number.isFinite(recipe.recoverySeconds) || recipe.recoverySeconds < 0))
       throw new Error("invalid recovery window");
@@ -222,17 +242,26 @@ export class Duel {
       ...(recipe.haste?.[side] !== undefined ? { haste: recipe.haste[side] } : {}), ...recipe.attributes?.[side],
     } })])) as Record<Side, ReturnType<typeof resolveCharacter>>;
     for (const side of SIDES) {
-      const model = recipe[side], info = modelInfo(model), held = recipe.held?.[side] ?? ARENA_HELD, config = recipe.minds?.[side] ?? info.mind;
-      if (held === "club" && !modelHolds(model)) throw new Error(`${model} cannot hold a club`);
-      if (!modelSupportsMind(model, config, held, characters[side].config.attributes)) throw new Error(`incompatible controller for ${model} holding ${held}`);
+      const model = recipe[side], info = modelInfo(model), loadout = recipe.loadouts?.[side] ?? EMPTY_LOADOUT, config = recipe.minds?.[side] ?? info.mind;
+      modelHolding(model, loadout, characters[side].config.attributes);
+      if (!modelSupportsMind(model, config, loadout, characters[side].config.attributes)) throw new Error(`incompatible controller for ${model} carrying ${JSON.stringify(loadout)}`);
     }
     this.world = world;
     this.recipe = Object.freeze({ ...recipe, attributes: Object.freeze({ left: characters.left.config.attributes, right: characters.right.config.attributes }) });
+    const level = recipe.level ?? "open", gap = recipe.gap ?? levelDefinition(level).gap.default;
+    const spawns = { left: levelSpawn(level, "left", gap), right: levelSpawn(level, "right", gap) };
+    const solids = solidSenses(hooks.solids ?? arenaSolids(level));
+    const effective = JSON.parse(recipeKey({ ...this.recipe, level, gap, capSeconds: recipe.capSeconds ?? CAP_SECONDS,
+      senseDelay: recipe.senseDelay ?? 0, recoverySeconds: recipe.recoverySeconds === null ? null : recipe.recoverySeconds ?? 0,
+      loadouts: { left: recipe.loadouts?.left ?? EMPTY_LOADOUT, right: recipe.loadouts?.right ?? EMPTY_LOADOUT },
+      minds: { left: recipe.minds?.left ?? modelInfo(recipe.left).mind, right: recipe.minds?.right ?? modelInfo(recipe.right).mind },
+    })) as unknown;
+    this.identity = recordingIdentity(BUILD_IDENTITY, ORDERS_PROTOCOL, { recipe: effective, solids,
+      engine: world.physics.engine, revision: world.physics.revision, hz: world.hz, gravity: world.physics.gravity, actuation: world.actuation });
     this.rules = rulebook("arena", recipe.rules);
     const start = world.time, startStep = world.steps;
     const given: Record<Side, Orders | null> = { left: null, right: null };
     this.cap = recipe.capSeconds ?? CAP_SECONDS;
-    const gap = recipe.gap ?? GAP_METRES;
     this.senses = createSenses(world, recipe.senseDelay ?? 0);
     // In the step's sensing phase, after the senses and before every mind: a taped order is given
     // before the step it names.
@@ -243,21 +272,20 @@ export class Duel {
         this.order(side, orders);
       }
     });
-    const solids = hooks.solids ? solidSenses(hooks.solids) : undefined;
     const contactLabels = new Map<number, ContactTarget>();
     const duelists = {} as Record<Side, Duelist>;
     for (const side of SIDES) {
       const model = recipe[side];
-      const info = modelInfo(model), held = recipe.held?.[side] ?? ARENA_HELD, config = recipe.minds?.[side] ?? info.mind;
+      const info = modelInfo(model), loadout = recipe.loadouts?.[side] ?? EMPTY_LOADOUT, config = recipe.minds?.[side] ?? info.mind;
       const own = characters[side].spec, original = recipe.surfaces ? stiffened(own, recipe.surfaces) : own;
-      const spec = armedWith(original, "right", held);
-      const x = (side === "left" ? -1 : 1) * gap / 2;
+      const spec = withLoadout(original, loadout);
       const combatant = enlist(world, {
-        id: side, side, spec, at: [x, 0, 0], rules: this.rules, senses: this.senses, ...(solids ? { solids } : {}),
+        id: side, side, spec, at: spawns[side].position, heading: spawns[side].heading, rules: this.rules, senses: this.senses, solids,
         // A downed side remains in the fight while its recovery allowance lasts.
         out: () => this.verdict !== null || this.eliminated(side),
         mind: config, ...(recipe.balancePercent ? { percent: recipe.balancePercent } : {}),
         ...(hooks.record ? { record: true } : {}), ...(hooks.replay ? { replay: hooks.replay[side] } : {}),
+        ...((hooks.record || hooks.replay) ? { recording: { build: BUILD_IDENTITY, context: this.identity.configuration } } : {}),
         name: `arena ${side}`,
         contactIdentity: other => other ? contactLabels.get(other.id) ?? null : { kind: "world" },
         // Out of the fight it is left to itself, as a side nobody orders is.
@@ -271,6 +299,16 @@ export class Duel {
       };
     }
     this.duelists = duelists;
+    const spawnFaults = SIDES.flatMap(side => {
+      const observer = duelists[side === "left" ? "right" : "left"];
+      const body = observer.senses().others.find(other => other.id === side)!;
+      return spawnClearanceFaults(sensedBounds(body), arenaSolids(level));
+    });
+    if (spawnFaults.length) {
+      this.feeding.dispose(); this.senses.dispose();
+      for (const side of SIDES) { duelists[side].body.dispose(); duelists[side].built.dispose(); }
+      throw new Error(`invalid ${level} spawn:\n${spawnFaults.join("\n")}`);
+    }
     this.watch = watchBlows(world, SIDES.map((side) => duelists[side]), this.rules, hooks.onBlow);
     const sideState = ({ body, minded, pool }: Duelist): SideState => ({ body: body.state, mind: minded.state, pool: pool.state });
     this.state = {
@@ -291,6 +329,9 @@ export class Duel {
 
   /** Every order given, in the order given: with the recipe, the whole of what made this bout. */
   get tape(): readonly OrdersEntry[] { return this.state.tape; }
+
+  /** A portable recording identifies its immutable build and the physical recipe that gives the orders meaning. */
+  get recording(): OrdersRecording { return { identity: this.identity, tape: JSON.parse(JSON.stringify(this.tape)) as OrdersEntry[] }; }
 
   /** Seconds since the bout began. */
   get clock(): number { return this.world.time - this.state.start; }
@@ -318,8 +359,15 @@ export class Duel {
     queued.splice(0, queued.length, ...tape.map(({ step, side, orders }) => ({ step, side, orders: JSON.parse(JSON.stringify(orders)) as Orders | null })));
   }
 
+  /** Persisted orders are refused before any input is queued when their build or conditions differ. */
+  playRecording(recording: OrdersRecording): void {
+    requireRecordingIdentity(recording.identity, this.identity);
+    if (!Array.isArray(recording.tape) || !recording.tape.every((entry, index, tape) => isOrdersEntry(entry) && (index === 0 || entry.step >= tape[index - 1]!.step))) throw new Error("the tape recording has invalid or unordered orders");
+    this.play(recording.tape);
+  }
+
   /** The bout as the last step left it: what `load` puts back, here or in any bout of this recipe. */
-  save(): DuelSave { return { recipe: this.recipe, physics: this.world.physics.save(), state: saveState(this.state) }; }
+  save(): DuelSave { return { identity: { ...this.identity, protocol: "arena-save/1" }, recipe: this.recipe, physics: this.world.physics.save(), state: saveState(this.state) }; }
 
   /**
    * Put the bout where `saved` left one of this recipe: the next step is the step that followed
@@ -328,6 +376,7 @@ export class Duel {
   load(saved: DuelSave): void {
     // Two bouts of different bodies can have worlds of the same counts, which the physics would take.
     if (recipeKey(saved.recipe) !== recipeKey(this.recipe)) throw new Error("that save is of another bout's recipe");
+    requireRecordingIdentity(saved.identity, { ...this.identity, protocol: "arena-save/1" });
     this.world.physics.load(saved.physics);
     loadState(this.state, saved.state);
     this.senses.show();

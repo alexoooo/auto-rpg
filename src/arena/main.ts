@@ -7,6 +7,7 @@ import { appearanceFor, appearancesFor, type Appearance } from "../render/appear
 import { showHeroLineup } from "../render/character-preview.ts";
 import { arenaSolids } from "./room.ts";
 import { buildArena } from "./scene.ts";
+import { LEVELS, type ArenaLevel } from "./levels.ts";
 import { MENU_HREF } from "../app-route.ts";
 import { need } from "../dom.ts";
 import { airOf, hearTouches } from "../audio/body-sounds.ts";
@@ -17,7 +18,7 @@ import { BODY_MODELS, modelHolding, modelHolds, resolveCharacter, type BodyModel
 import { attributeEditor } from "../ui/attribute-editor.ts";
 import { writeAttributes } from "../ui/attribute-link.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
-import type { Held } from "../core/items/held.ts";
+import { EMPTY_LOADOUT, HELD, heldItem, type Loadout } from "../core/items/held.ts";
 import { HUMAN_HASTE, hasteText } from "../core/human/attributes.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { createWorld, type World } from "../core/world.ts";
@@ -26,8 +27,8 @@ import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
-import { ARENA_HELD, boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readCap, readGap, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
+import { boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
+import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readCap, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { partOf } from "../core/mind/catalog.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
@@ -77,13 +78,14 @@ const ENDING_TEXT: Readonly<Record<DuelEnding, string>> = Object.freeze({
 
 const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
 /** What a hand may hold, by name, as the pickers and the ratings show it. */
-const HELD_NAMES: Readonly<Record<Held, string>> = { club: "Wooden club", empty: "Empty hands" };
+const HELD_NAMES = Object.fromEntries(HELD.map((held) => [held, heldItem(held)?.name ?? "Empty"])) as Readonly<Record<typeof HELD[number], string>>;
+const loadoutName = (loadout: Loadout): string => `Left: ${HELD_NAMES[loadout.left]}, right: ${HELD_NAMES[loadout.right]}`;
 /** A note's level as a person reads it, for a character and loadout. */
-const levelName = (level: NoteLevel, model: BodyModel, held: Held): string => {
+const levelName = (level: NoteLevel, model: BodyModel, loadout: Loadout): string => {
   switch (level) {
-    case "body-held": return `${MODEL_DISPLAY[model].label}, ${HELD_NAMES[held].toLowerCase()}`;
+    case "body-loadout": return `${MODEL_DISPLAY[model].label}, ${loadoutName(loadout).toLowerCase()}`;
     case "body": return MODEL_DISPLAY[model].label;
-    case "held": return HELD_NAMES[held];
+    case "loadout": return loadoutName(loadout);
     case "mind": return "Any";
     default: { const never: never = level; throw new Error(`unknown note level ${never}`); }
   }
@@ -91,15 +93,15 @@ const levelName = (level: NoteLevel, model: BodyModel, held: Held): string => {
 
 /** **The last tournament's table** (`RATINGS`), its best first, into the ratings panel. */
 function showRatings(): void {
-  const { entrants, date, commit, harness } = RATINGS;
-  need("ratings-about").textContent = entrants.length === 0 ? "No tournament has been played yet (scripts/tournament.mjs)."
+  const { entrants, date, commit, harness, unavailable } = RATINGS;
+  need("ratings-about").textContent = unavailable ? `Ratings unavailable: ${unavailable}.` : entrants.length === 0 ? "No tournament has been played yet (scripts/tournament.mjs)."
     : `Each mind on each character with each loadout against every other, both sides, Bradley-Terry on the Elo scale (the field's mean 1500), with its 95 % interval. ${date} at ${commit?.slice(0, 8)}; ${harness}.`;
   const cell = (tag: "td" | "th", text: string) => Object.assign(document.createElement(tag), { textContent: text });
   const head = document.createElement("tr");
-  head.append(...["", "Mind", "Character", "Right hand", "Rating", "95 %", "Won", "Drawn", "Lost"].map(text => cell("th", text)));
+  head.append(...["", "Mind", "Character", "Hands", "Rating", "95 %", "Won", "Drawn", "Lost"].map(text => cell("th", text)));
   const rows = [...entrants].sort((a, b) => b.rating - a.rating).map((entrant, rank) => {
     const row = document.createElement("tr");
-    row.append(...[`${rank + 1}`, MINDS[entrant.mind]?.label ?? entrant.mind, MODEL_DISPLAY[entrant.model].label, HELD_NAMES[entrant.held],
+    row.append(...[`${rank + 1}`, MINDS[entrant.mind]?.label ?? entrant.mind, MODEL_DISPLAY[entrant.model].label, loadoutName(entrant.loadout),
       entrant.rating.toFixed(0), `${entrant.interval[0].toFixed(0)}-${entrant.interval[1].toFixed(0)}`, `${entrant.wins}`, `${entrant.draws}`, `${entrant.losses}`]
       .map(text => cell("td", text)));
     return row;
@@ -113,8 +115,9 @@ export async function bootArena(): Promise<void> {
   const canvas = need<HTMLCanvasElement>("stage");
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   const physicsEngine = await loadEngine();
+  const level = readLevel(location.search);
   let made: World | null = null;
-  const arena = await buildArena(engine, (scene) => (made = createWorld(scene, physicsEngine)).physics);
+  const arena = await buildArena(engine, (scene) => (made = createWorld(scene, physicsEngine)).physics, level);
   const world = made as World | null;
   if (!world) throw new Error("the arena made no world");
   const { scene, camera, shadows } = arena;
@@ -132,12 +135,12 @@ export async function bootArena(): Promise<void> {
   let replaying = false;
   const youPicker = need<HTMLSelectElement>("you");
   youPicker.value = you ?? "";
-  const controlPickers = {} as Record<Side, HTMLSelectElement>, heldPickers = {} as Record<Side, HTMLSelectElement>;
+  const controlPickers = {} as Record<Side, HTMLSelectElement>, loadoutPickers = {} as Record<Side, Record<Side, HTMLSelectElement>>;
   // Each side's mind as its panel shows it (`mindEditor`).
   const mindOf = {} as Record<Side, () => MindConfig>;
-  const controls = readControls(location.search), heldChoices = readHeld(location.search);
+  const controls = readControls(location.search), loadoutChoices = readLoadouts(location.search);
   const linkedControl = JSON.stringify(readMinds(location.search)), linkedRecovery = readRecovery(location.search);
-  const linkedHeld = JSON.stringify(heldChoices ?? { left: ARENA_HELD, right: ARENA_HELD });
+  const linkedLoadouts = JSON.stringify(loadoutChoices ?? { left: EMPTY_LOADOUT, right: EMPTY_LOADOUT });
   const pickers = {} as Record<Side, HTMLSelectElement>;
   const refreshChoices = {} as Record<Side, () => void>;
   const previews = {} as Record<Side, Awaited<ReturnType<typeof showHeroLineup>>>;
@@ -192,11 +195,17 @@ export async function bootArena(): Promise<void> {
     for (const [value, textContent] of Object.entries(CONTROLS)) control.append(Object.assign(document.createElement("option"), { value, textContent }));
     control.value = controls[side];
     controller.append(control); choices.append(controller); controlPickers[side] = control;
-    const equipment = document.createElement("label"), held = document.createElement("select");
-    equipment.className = "field"; equipment.textContent = "Right hand"; held.setAttribute("aria-label", `${side} equipment`);
-    for (const [value, textContent] of Object.entries(HELD_NAMES))
-      held.append(Object.assign(document.createElement("option"), { value, textContent }));
-    held.value = heldChoices?.[side] ?? ARENA_HELD;
+    const hands = {} as Record<Side, HTMLSelectElement>, equipment: HTMLLabelElement[] = [];
+    for (const hand of SIDES) {
+      const field = document.createElement("label"), picker = document.createElement("select");
+      field.className = "field"; field.textContent = `${hand === "left" ? "Left" : "Right"} hand`;
+      picker.setAttribute("aria-label", `${side} fighter's ${hand} hand`);
+      for (const value of HELD) picker.append(Object.assign(document.createElement("option"), { value, textContent: HELD_NAMES[value] }));
+      picker.value = loadoutChoices?.[side][hand] ?? EMPTY_LOADOUT[hand];
+      field.append(picker); controller.before(field); equipment.push(field); hands[hand] = picker;
+    }
+    loadoutPickers[side] = hands;
+    const loadout = (): Loadout => ({ left: hands.left.value as typeof HELD[number], right: hands.right.value as typeof HELD[number] });
     // The mind's tree (`mindEditor`), its preset's until changed; the linked mind as the link carries it, with any fault.
     const settings = document.createElement("details"), summary = document.createElement("summary");
     settings.className = "settings"; summary.textContent = "Mind";
@@ -205,7 +214,7 @@ export async function bootArena(): Promise<void> {
     // The chosen preset is named as the mind now stands (`controlName`): custom once it is changed. Each
     // is followed by its most particular note, and the chosen one's notes are listed under the picker.
     const nameControl = () => {
-      const model = select.value as BodyModel, holds = held.value as Held;
+      const model = select.value as BodyModel, holds = loadout();
       for (const option of control.options) {
         const note = notesOf(option.value, model, holds)[0]?.note;
         option.textContent = `${option.value === control.value ? controlName(option.value, editor.config) : CONTROLS[option.value]!}${note ? ` · ${note}` : ""}`;
@@ -215,8 +224,8 @@ export async function bootArena(): Promise<void> {
       notes.hidden = all.length === 0;
     };
     const editorSpec = () => {
-      try { return modelHolding(select.value as BodyModel, held.value as Held, attributes[side]); }
-      catch { return modelHolding(select.value as BodyModel, held.value as Held); }
+      try { return modelHolding(select.value as BodyModel, loadout(), attributes[side]); }
+      catch { return modelHolding(select.value as BodyModel, loadout()); }
     };
     const editor = mindEditor(linkedMind(location.search, side).config, { spec: editorSpec(), onFault: "the preset is used", onChange: () => nameControl() });
     settings.append(summary, editor.element); choices.append(notes, settings);
@@ -229,15 +238,17 @@ export async function bootArena(): Promise<void> {
     mindOf[side] = () => editor.config;
     control.addEventListener("change", () => { control.blur(); showSettings(MINDS[control.value]!.config); });
     // What it holds before how it thinks: the mind's tree is last, and scrolls in what room is left.
-    equipment.append(held); controller.before(equipment); heldPickers[side] = held;
     // The minds offered are those the body, holding what it holds, can carry out (`controlsFor`).
     const refresh = refreshChoices[side] = () => {
       refreshAppearance();
       const model = select.value as BodyModel, hands = modelHolds(model);
-      equipment.hidden = !hands;
-      for (const option of held.options) option.disabled = !hands && option.value !== "empty";
-      if (!hands) held.value = "empty";
-      const holds = held.value as Held, previous = control.value;
+      for (const field of equipment) field.hidden = !hands;
+      for (const hand of SIDES) {
+        const picker = loadoutPickers[side][hand];
+        for (const option of picker.options) option.disabled = !hands && option.value !== "empty";
+        if (!hands) picker.value = "empty";
+      }
+      const holds = loadout(), previous = control.value;
       let choices: readonly string[];
       try { choices = controlsFor(model, holds, attributes[side]); } catch { choices = controlsFor(model, holds); }
       control.replaceChildren(...choices.map(value => Object.assign(document.createElement("option"), { value, textContent: CONTROLS[value] })));
@@ -246,7 +257,7 @@ export async function bootArena(): Promise<void> {
       control.value = choices.includes(previous) ? previous : preferred;
       showSettings(control.value !== previous ? MINDS[control.value]!.config : editor.config);
     };
-    held.addEventListener("change", () => { held.blur(); refresh(); });
+    for (const hand of SIDES) hands[hand].addEventListener("change", () => { hands[hand].blur(); refresh(); });
     refresh();
     need("matchup").append(panel);
     pickers[side] = select;
@@ -279,6 +290,19 @@ export async function bootArena(): Promise<void> {
     { value: String(seconds), textContent: seconds === 0 ? "Fall ends bout" : `${seconds} seconds down before defeat` }));
   recoveryPicker.value = linkedRecovery == null ? "continue" : String(linkedRecovery); recoveryPicker.addEventListener("change", () => recoveryPicker.blur());
   recoveryField.append(recoveryPicker); need("matchup").after(recoveryField);
+
+  const levelField = document.createElement("label"), levelPicker = document.createElement("select");
+  levelField.className = "field"; levelField.textContent = "Level"; levelPicker.setAttribute("aria-label", "Arena level");
+  for (const [value, definition] of Object.entries(LEVELS)) levelPicker.append(Object.assign(document.createElement("option"), { value, textContent: definition.label }));
+  levelPicker.value = level;
+  levelPicker.addEventListener("change", () => {
+    const query = new URLSearchParams(location.search), next = levelPicker.value as ArenaLevel;
+    query.set("level", next);
+    const gap = readGap(location.search), policy = LEVELS[next].gap;
+    if (gap !== undefined && (gap < policy.min || gap > policy.max)) query.delete("gap");
+    location.assign(`?${query}`);
+  });
+  levelField.append(levelPicker); recoveryField.before(levelField);
 
   // Each model's dresser, loaded once: its skin, or its shapes if the skin does not load.
   let skeletonArt: Promise<SkeletonArt> | null = null;
@@ -386,14 +410,15 @@ export async function bootArena(): Promise<void> {
       for (const side of SIDES) writeAttributes(query, side, attributes[side]);
       query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
       query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
-      query.set("held", SIDES.map((side) => heldPickers[side].value).join(","));
+      query.delete("held");
+      for (const side of SIDES) query.set(`${side}.loadout`, SIDES.map((hand) => loadoutPickers[side][hand].value).join(","));
       query.set("recovery", recoveryPicker.value);
       let search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
       const sameControllers = linkedControl === JSON.stringify(readMinds(search));
       const sameRecovery = (linkedRecovery ?? null) === (readRecovery(search) ?? null);
-      const sameHeld = linkedHeld === JSON.stringify(readHeld(search));
-      const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameHeld && linkedAttributes === attributeKey(matchup, attributes) ? linked.tape : [];
-      replaying = tape.length > 0;
+      const sameLoadouts = linkedLoadouts === JSON.stringify(readLoadouts(search));
+      const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameLoadouts && linkedAttributes === attributeKey(matchup, attributes) ? linked.tape : null;
+      replaying = tape !== null;
       if (replaying) {
         const snapshot = new URLSearchParams(search);
         for (const side of SIDES) writeAttributes(snapshot, side, resolveCharacter({ model: matchup[side], attributes: attributes[side] }).config.attributes);
@@ -404,13 +429,13 @@ export async function bootArena(): Promise<void> {
       end();
       toStart();
       audio.reset();
-      const gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search) ?? null;
+      const gap = readGap(location.search), capSeconds = readCap(location.search), loadouts = readLoadouts(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search) ?? null;
       controllers = { left: controllerLabel(location.search, "left"), right: controllerLabel(location.search, "right") };
       const bout = duel = new Duel(world, {
-        left: matchup.left, right: matchup.right, recoverySeconds, attributes,
-        ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(held ? { held } : {}), ...(minds ? { minds } : {}),
+        left: matchup.left, right: matchup.right, recoverySeconds, attributes, level,
+        ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(loadouts ? { loadouts } : {}), ...(minds ? { minds } : {}),
       }, {
-        solids: arenaSolids(),
+        solids: arenaSolids(level),
         onBuilt: (duelist, built) => {
           const hands = fighterHands(duelist);
           const skin = dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true }, closure: hands.closure });
@@ -434,7 +459,7 @@ export async function bootArena(): Promise<void> {
       const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
       hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
       airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
-      bout.play(tape);
+      if (tape) bout.playRecording(tape);
       for (const row of rows) {
         row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === you && !replaying ? " (you)" : ""}`;
         const duelist = bout.duelists[row.side], minded = duelist.minded;

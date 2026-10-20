@@ -12,7 +12,7 @@ test('the complete autonomous bout path exposes pressure and actual damage witho
   // half second. From 3.6 m apart the bare-handed pair meet and stay pressed together for over a
   // second at a time on both sides, which the reading must find; when a run of it counts as an
   // episode is `arena-combat-scoring`'s.
-  const hug = (side, x) => ({ step: 0, side, orders: { move: { x, z: 0 }, face: null, attack: null } });
+  const hug = (side, x) => ({ step: 0, side, orders: { move: { kind: "direct", direction: { x, z: 0 } }, face: null, attack: null } });
   const row = await combatTrial({ left: 'classic', right: 'classic', recipe: { capSeconds: 12, gap: 3.6 }, tape: [hug('left', 1), hug('right', -1)] });
   assert.equal(row.harness.engine, 'rapier-coordinate');
   assert.equal(row.recipe.recoverySeconds, null);

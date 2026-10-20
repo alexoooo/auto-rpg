@@ -21,7 +21,7 @@ import { createWorld } from "../src/core/world.ts";
 import { buildBout } from "../research/bout.mjs";
 
 const RECIPE = Object.freeze({ left: "workshop-fighter", right: "workshop-fighter", recoverySeconds: null,
-  minds: { left: PRESETS.counter.config, right: PRESETS.puncher.config }, held: { left: "empty", right: "empty" } });
+  minds: { left: PRESETS.counter.config, right: PRESETS.puncher.config }, loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } } });
 /** Long enough for each: a pre-stepped clock moves the first steps, a replay's solver order and its timers later ones. */
 const STEPS = 240, EVERY = 30;
 

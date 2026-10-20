@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { MATCH, matchJobs, matchScore, readMatchMind } from "../scripts/match.mjs";
 import { playBouts } from "../research/bout-pool.mjs";
+import { EMPTY_LOADOUT, loadoutKey } from "../src/core/items/held.ts";
 import { PRESETS } from "../src/core/mind/controllers.ts";
 
 Logger.LogLevels = Logger.NoneLogLevel;
@@ -19,29 +20,30 @@ test("a match mind is named by a preset, a kind or its config, and one that cann
 
 test("a match plays every condition of its protocol with a loadout both minds fit, once with each mind on each side", () => {
   const options = readMatchMind("options"), puncher = readMatchMind("puncher"), scrapper = readMatchMind("scrapper");
-  // The Puncher punches, and a punch is thrown by a hand that holds nothing.
-  assert.deepEqual([options.held, puncher.held], [MATCH.held, ["empty"]]);
+  // The Puncher can cover with the club and punch with its free hand.
+  assert.deepEqual([options.loadouts, puncher.loadouts], [MATCH.loadouts, MATCH.loadouts]);
   for (const [a, b] of [[options, scrapper], [puncher, options]]) {
-    const jobs = matchJobs(a, b), held = MATCH.held.filter((one) => a.held.includes(one) && b.held.includes(one));
-    const conditions = MATCH.bodies.length ** 2 * held.length * MATCH.gaps.length;
+    const jobs = matchJobs(a, b), loadouts = MATCH.loadouts.filter((one) => a.loadouts.some((loadout) => loadoutKey(loadout) === loadoutKey(one)) && b.loadouts.some((loadout) => loadoutKey(loadout) === loadoutKey(one)));
+    const conditions = MATCH.bodies.length ** 2 * loadouts.length * MATCH.gaps.length;
     assert.equal(jobs.length, 2 * conditions);
     const seen = new Map();
     for (const { recipe, a: side } of jobs) {
       const other = side === "left" ? "right" : "left";
       assert.deepEqual([recipe.minds[side], recipe.minds[other]], [a.config, b.config], "a's mind is on the side its job names");
-      assert.ok(held.includes(recipe.held.left) && recipe.held.right === recipe.held.left, `${a.label} v ${b.label}: ${JSON.stringify(recipe.held)}`);
-      const key = [recipe[side], recipe[other], recipe.held.left, recipe.held.right, recipe.gap].join();
+      assert.ok(loadouts.includes(recipe.loadouts.left), `${a.label} v ${b.label}: ${JSON.stringify(recipe.loadouts)}`);
+      assert.deepEqual(recipe.loadouts.right, recipe.loadouts.left);
+      const key = [recipe[side], recipe[other], loadoutKey(recipe.loadouts.left), loadoutKey(recipe.loadouts.right), recipe.gap].join();
       seen.set(key, [...seen.get(key) ?? [], side]);
       assert.deepEqual([recipe.capSeconds, recipe.recoverySeconds], [MATCH.capSeconds, MATCH.recoverySeconds]);
     }
     assert.equal(seen.size, conditions, `${a.label} v ${b.label}`);
     for (const [key, sides] of seen) assert.deepEqual(sides.sort(), ["left", "right"], key);
   }
-  assert.throws(() => matchJobs(puncher, { ...options, held: ["club"] }), /no loadout both fit/);
+  assert.throws(() => matchJobs({ ...puncher, loadouts: [EMPTY_LOADOUT] }, { ...options, loadouts: [{ left: "empty", right: "club" }] }), /no loadout both fit/);
 });
 
 test("a match's score counts a win for the side its mind played, and a draw a half", () => {
-  const row = (a, winner, held) => ({ a, winner, ending: winner ? "fallen" : "time", recipe: { left: "workshop-fighter", right: "workshop-rogue", held: { left: held, right: held }, gap: 4 } });
+  const row = (a, winner, held) => ({ a, winner, ending: winner ? "fallen" : "time", recipe: { left: "workshop-fighter", right: "workshop-rogue", loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } }, gap: 4 } });
   const score = matchScore([row("left", "left", "empty"), row("right", "left", "empty"), row("right", null, "club")]);
   assert.deepEqual(score.all, { bouts: 3, wins: 1, draws: 1, losses: 1, score: .5 });
   assert.deepEqual([score.side.left.score, score.side.right.score], [1, .25]);

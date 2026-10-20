@@ -115,6 +115,6 @@ test("path parts declare named families and optional support and kick execution"
     assert.deepEqual(plain.executors.map(entry => entry.name), ["paths"]);
     assert.deepEqual(plain.actions.map(action => action.name), ["straight", "cross", "hook", "downward", "overhand", "uppercut"]);
     assert.equal(typeof full.support.tick, "function");
-    assert.deepEqual(Object.keys(skillSet(s.body, {}, full).state), ["actions", "legs", "support", "tactics", "command", "owners", "reservations"]);
+    assert.deepEqual(Object.keys(skillSet(s.body, {}, full).state), ["actions", "legs", "navigation", "support", "tactics", "command", "owners", "reservations"]);
   } finally { s.dispose(); }
 });

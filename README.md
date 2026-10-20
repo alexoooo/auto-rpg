@@ -34,6 +34,11 @@ npm run build # check, then the production bundle
 
 Everything the pages need is committed, so a fresh clone runs with no download step.
 
+In the Lab's **Stand-up** scenario, **Fall environment** selects an open floor, a column, a wall,
+a tomb or a bench. Obstacle falls are experiments; a failed rise is reported as a failure.
+Their separate Node suite is `node research/rising-bed.mjs --obstacles`; `--target` keeps the
+original 64 open-floor falls.
+
 ## The Arena
 
 Choose the standing character on each side (Warrior, Rogue, Skeleton or Reptile) and press **Fight**.
@@ -48,6 +53,9 @@ to the setup and its link. Invalid values or a body that cannot fit are shown as
 Links use named character fields, such as `&left.strength=1.5&right.balance=10` in Arena,
 `&body.size=1.1` in Lab, and `&hero.hp=8&ally-0.speed=1.2&enemy.reptile.haste=50` in Crypt.
 Existing `balance=` and `haste=` links remain readable; named fields take precedence.
+
+Choose **Open stage** or **Obstacle court** with the **Level** selector. The court's columns, tomb and bench are solid;
+links retain the stage in `&level=obstacle-court`, and each stage admits only clear starting placements.
 
 The Warrior also has an **Appearance** selector: Original, Industrial, Steampunk or Futuristic. The three
 robot shells keep the Warrior's physics and abilities. The Lab offers the same choices and can
@@ -69,11 +77,12 @@ the Arena and the Crypt), Classic fighter, **Puncher**, **Counter-puncher**, **S
 **Custom (from** its preset**)**. The Options fighter's **Obedience** says how far it carries out
 your orders through a blow coming: **Own judgement** steps aside from most punches, **Steady**
 from a full punch, **Orders first** only from a club's heavy blow.
-Humanoids choose a wooden club or empty hands.
+Each humanoid hand can carry a wooden club, a short sword or nothing. A sword uses separate cut
+and thrust actions, whose aligned edge and tip wound on impact.
 The Reptile uses **Crawl and bite**, carries no equipment and has 1 HP at 8 kg. It trots toward
 opponents, slows for contact, and shifts its weight before placing one paw during close fighting
 and withdrawal. It bites reachable body surfaces with its physical jaw.
-Try `?play=arena&matchup=workshop-fighter,reptile&held=empty&recovery=continue`.
+Try `?play=arena&matchup=workshop-fighter,reptile&recovery=continue`.
 Its anatomy is an authored estimate. Forward-leaning teeth wound under physical load.
 Mirror bouts end reliably by injury in the tested conditions; bites materially injure humanoids,
 though approach and bite placement remain uneven. [Control checks](docs/reference/reptile.md) cover standing, fast
@@ -102,7 +111,7 @@ it on the chest and the guarding arms.
 Scrapper aims straight blows and hooks at the body, with measured punch paths, guards and
 escapes, and attacks low, from support, a foe who is down or rising. Start with two
 empty-handed Warriors:
-`?play=arena&matchup=workshop-fighter,workshop-fighter&control=scrapper&held=empty&balance=0`.
+`?play=arena&matchup=workshop-fighter,workshop-fighter&control=scrapper&balance=0`.
 It creates room for punches, approaches low targets, acquires foot support and returns to
 standing. The checks cover both hands; unreachable placements time out and retry. Its Kick slot
 takes a low front kick with either foot, qualified against a quiet defender.
@@ -114,8 +123,8 @@ reference pose sequence, then verifies quiet foot support before resuming walkin
 [Development checks](docs/reference/recovery-cycle.md)
 cover Warrior with empty hands and a club; recovery takes about 25-29 seconds in passing cases,
 and one tested club fall direction still fails. Arena Classic also attempts the staged rise. Recovery remains imperfect and may need retries.
-Try `?play=arena&matchup=workshop-fighter,workshop-rogue&control=scrapper,classic&held=empty&recovery=60`.
-These choices travel in links and replays (`control`, `held`, `recovery`).
+Try `?play=arena&matchup=workshop-fighter,workshop-rogue&control=scrapper,classic&recovery=60`.
+These choices travel in links and replays (`control`, `left.loadout`, `right.loadout`, `recovery`).
 
 The circular stone arena is enclosed by a low parapet, with eight braziers around its edge. Each
 humanoid starts empty-handed unless given the wooden club. Its mind walks at the opponent and
@@ -124,8 +133,8 @@ window, when one is selected. At the two-minute bell the fuller bar wins; equal 
 
 A blow costs both who meet in it. Any two parts of the two bodies that come together closing
 have met in a blow, and the two surfaces share its energy: the softer takes the more. A fist
-takes most of its own punch to a head and little of one to a chest. A held weapon is rigid and
-costs its holder nothing: what a club strikes takes the whole blow, a bare hand that meets a
+takes most of its own punch to a head and little of one to a chest. A wooden club is rigid and
+costs its holder nothing: what it strikes takes the whole blow, a bare hand that meets a
 club takes all of it, and two clubs meeting wound nobody.
 
 The bout is heard until its verdict: footfalls, the air of a swing, a club on a body or on the
@@ -152,8 +161,12 @@ turn; across its heading or backward it walks at half pace.
 A link can name its matchup and open the bout directly:
 `?play=arena&matchup=workshop-fighter,crypt-skeleton` (the bodies are `workshop-fighter`,
 `workshop-rogue` and `crypt-skeleton`). It may also say how far apart the two start (`&gap=3`,
-metres), how long the bout may run (`&cap=30`, seconds) and what each right hand holds
-(`&held=empty` for a bare-handed bout, or `&held=empty,club` left then right) which controller each side
+metres), how long the bout may run (`&cap=30`, seconds), and what each fighter carries
+(`&left.loadout=empty,club` for a club in the left fighter's right hand;
+`&right.loadout=club,empty` for one in the right fighter's left hand). Both hands are empty by
+default. Choose a club and buckler with `&left.loadout=buckler,club`; the shield guard covers
+with the left hand while the right hand attacks. The Lab offers the same items. Equipped
+recovery and fighting strength remain experimental. It also names which controller each side
 runs (`&control=classic,scrapper`), each side's mind as edited in the **Mind** panel under its
 controller (`&left.mind=`, written by the panel), and carry a bout's orders after a `#tape=`, which the arena then plays
 again by itself.

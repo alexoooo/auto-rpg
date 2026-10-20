@@ -6,7 +6,7 @@ import { treeFits } from "./mind/catalog.ts";
 import { reptileSpec } from "./reptile/spec.ts";
 import { deepFreeze } from "./state.ts";
 import { canHold } from "./human/grip.ts";
-import { armedWith, type Held } from "./items/held.ts";
+import { EMPTY_LOADOUT, loadoutFaults, withLoadout, type Held, type Loadout } from "./items/held.ts";
 import { validateAttributes, type AttributeOverrides, type CharacterAttributes } from "./character-attributes.ts";
 import { sourced } from "./spec/quantity.ts";
 import { bodyIntersections } from "./spec/clearance.ts";
@@ -119,28 +119,30 @@ function specOf(model: BodyModel): BodySpec {
 /** Whether `model`'s right hand can close on a haft (`canHold`). */
 export const modelHolds = (model: BodyModel): boolean => canHold(specOf(model), "right");
 
-/** Each model's spec with each item in its right hand, read once. */
+/** Each model's spec with each per-hand loadout, read once. */
 const holding = new Map<string, BodySpec>();
 /**
- * `model`'s spec with `held` in its right hand (`armedWith`), read once: the body a mind of a
- * fight that hands it `held` must fit. A model that cannot hold `held` is refused.
+ * `model`'s spec carrying `loadout` (`withLoadout`), read once: the body a mind must fit.
+ * A model that cannot hold an assigned item is refused.
  */
-export function modelHolding(model: BodyModel, held: Held, attributes?: AttributeOverrides): BodySpec {
+export function modelHolding(model: BodyModel, loadout: Loadout, attributes?: AttributeOverrides): BodySpec {
+  const faults = loadoutFaults(loadout);
+  if (faults.length) throw new Error(faults.join("; "));
   if (attributes && Object.keys(attributes).length) {
     const own = resolveCharacter({ model, attributes }).spec;
-    return held === "empty" ? own : armedWith(own, "right", held);
+    return withLoadout(own, loadout);
   }
-  if (held === "empty") return specOf(model);
-  const key = `${model}/${held}`;
+  if (loadout.left === "empty" && loadout.right === "empty") return specOf(model);
+  const key = `${model}/${loadout.left},${loadout.right}`;
   let spec = holding.get(key);
-  if (!spec) holding.set(key, spec = armedWith(specOf(model), "right", held));
+  if (!spec) holding.set(key, spec = withLoadout(specOf(model), loadout));
   return spec;
 }
 
 /**
- * Whether `model`'s body, holding `held` in its right hand, can carry out what every part of
+ * Whether `model`'s body, carrying `loadout`, can carry out what every part of
  * `mind` commands (`treeFits`): a mind that works only with one loadout says so in a part's `fits`,
- * and is offered with no other. A body that cannot hold `held` supports no mind with it.
+ * and is offered with no other. A body that cannot carry the loadout supports no mind with it.
  */
-export const modelSupportsMind = (model: BodyModel, mind: MindConfig, held: Held = "empty", attributes?: AttributeOverrides): boolean =>
-  (held === "empty" || modelHolds(model)) && treeFits(modelHolding(model, held, attributes), mind);
+export const modelSupportsMind = (model: BodyModel, mind: MindConfig, loadout: Loadout = EMPTY_LOADOUT, attributes?: AttributeOverrides): boolean =>
+  ([loadout.left, loadout.right].every((item) => item === "empty") || modelHolds(model)) && treeFits(modelHolding(model, loadout, attributes), mind);

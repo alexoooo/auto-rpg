@@ -8,6 +8,7 @@ import { STRAIGHT_PUNCH, type StraightPunch } from "../skills/straight-punch.ts"
 import { COMBINATION, type Combination } from "../skills/combination.ts";
 import type { StrideSettings } from "../skills/stride.ts";
 import type { RunSettings } from "../skills/run.ts";
+import type { NavigationConfig } from "./navigation.ts";
 import type { SimbiconSettings, SimbiconWay } from "../skills/simbicon.ts";
 import type { WalkRunSettings } from "../skills/walk-run.ts";
 import type { RunCycleSettings } from "../skills/cycle-run.ts";
@@ -171,6 +172,9 @@ interface CoverGuardConfig {
   };
 }
 
+/** A cover guard that also turns an item's declared face toward the threat. */
+interface ShieldGuardConfig extends Omit<CoverGuardConfig, "kind"> { readonly kind: "shield-guard" }
+
 /** **The recipe strike**: the searched recipe blows for what a hand holds (`recipeExecutor`, `skills/strike.ts`). */
 interface RecipeStrikeConfig {
   readonly kind: "recipe-strike";
@@ -225,7 +229,9 @@ interface FrontKickConfig {
 }
 
 /** Named execution state shared only by actions that explicitly refer to it. */
-export type ExecutorConfig = (RecipeStrikeConfig | PathStrikeConfig | DrivenStrikeConfig | WholeBodyStrikeConfig | StraightPunchConfig | CombinationConfig | FrontKickConfig) & { readonly name: string };
+type BladeStrikeConfig = { [K in "blade-cut" | "blade-thrust"]: { readonly kind: K; readonly tuning?: Partial<import("../skills/blade.ts").BladeSettings> } }["blade-cut" | "blade-thrust"];
+
+export type ExecutorConfig = (RecipeStrikeConfig | PathStrikeConfig | DrivenStrikeConfig | WholeBodyStrikeConfig | StraightPunchConfig | CombinationConfig | FrontKickConfig | BladeStrikeConfig) & { readonly name: string };
 
 /** A configured attack's identity, anatomical choices and its executor-specific motion settings. */
 export interface ActionConfig {
@@ -255,14 +261,15 @@ interface WholeBodyMotorConfig { readonly kind: "whole-body" }
 export type MotorConfig = WholeBodyMotorConfig;
 
 /** **A skill's config**, by kind, across the fighter's skill slots. */
-export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | WalkRunConfig | LearnedRunConfig | MoveConfig | CoverGuardConfig | SupportFoldConfig;
+export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | WalkRunConfig | LearnedRunConfig | MoveConfig | CoverGuardConfig | ShieldGuardConfig | SupportFoldConfig;
 
 /** A fighter shares named executors across its configured actions. */
 export interface FighterConfig {
   readonly kind: "fighter";
   readonly tactics: TacticsConfig;
   readonly locomotion: LocomotionConfig;
-  readonly guard: CoverGuardConfig;
+  readonly navigation?: NavigationConfig;
+  readonly guard: CoverGuardConfig | ShieldGuardConfig;
   readonly executors: readonly ExecutorConfig[];
   readonly actions: readonly ActionConfig[];
   readonly support: SupportFoldConfig | null;
@@ -273,7 +280,7 @@ export interface FighterConfig {
 }
 
 /** **What a body's skills are made from** (`fighterSkills`): its legs, its guard, its low support, its executors and the actions they carry out. */
-export type SkillKit = Pick<FighterConfig, "locomotion" | "guard" | "support" | "executors" | "actions" | "motor">;
+export type SkillKit = Pick<FighterConfig, "locomotion" | "navigation" | "guard" | "support" | "executors" | "actions" | "motor">;
 
 /**
  * **A mind's config**: plain data, so it rides in a recipe, a save and a link, its kind naming
@@ -324,10 +331,14 @@ export const MOVE: MoveConfig = deepFreeze({ kind: "move",
   rules: [{ kind: "when-standing", gait: "braced" }, { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" }],
   otherwise: "run" });
 
-/** The recipe fighter: seeking tactics over the recipe strike, walking in the stance, lying still once down. The Lab's minds are made from it. */
-export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tactics: FIGHTING, locomotion: { kind: "stance-walk" }, guard: { kind: "cover-guard" },
-  executors: [{ name: "recipe", kind: "recipe-strike" }],
-  actions: [{ name: "strike", executor: "recipe", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "high" }], aim: { kind: "centre", lead: 0 } }], support: null, subs: [{ kind: "lie" }] });
+const BLADE_EXECUTORS: readonly ExecutorConfig[] = [{ kind: "blade-cut", name: "blade-cut" }, { kind: "blade-thrust", name: "blade-thrust" }];
+const BLADE_ACTIONS: readonly ActionConfig[] = BLADE_EXECUTORS.map(executor => ({ name: executor.name, executor: executor.name,
+  effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: {} } }));
+
+/** The recipe fighter: seeking tactics over its supported weapon actions, walking in the stance and lying still once down. */
+export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tactics: FIGHTING, locomotion: { kind: "stance-walk" }, guard: { kind: "shield-guard" },
+  executors: [{ name: "recipe", kind: "recipe-strike" }, ...BLADE_EXECUTORS],
+  actions: [{ name: "strike", executor: "recipe", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "high" }], aim: { kind: "centre", lead: 0 } }, ...BLADE_ACTIONS], support: null, subs: [{ kind: "lie" }] });
 
 /** Standing up by stepping up (`stepUp`), the way the game's fighters rise once down. */
 export const STAND_UP: StandUpConfig = deepFreeze({ kind: "stand-up", techniques: ["step-up"] });
@@ -338,7 +349,7 @@ export const CLASSIC: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, locomotion
 /** Classic throwing the straight punch, its fist lined up behind the arm (searched in Arena bouts, `research/punch-in-bout.mjs`), held at the edge of its foe's reach. */
 export const PUNCHER: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...FIGHTING, list: [
   { kind: "follow-orders" }, { kind: "clear-of-fallen" }, { kind: "break-clinch", metres: .65 }, { kind: "attack" }, { kind: "edge", band: .25, patience: 4 }, { kind: "approach" }, { kind: "cover", guard: "pose" }] }, executors: [{ name: "punch", kind: "straight-punch", ...STRAIGHT_PUNCH }],
-  actions: RECIPE_FIGHTER.actions.map(action => ({ ...action, executor: "punch" })) });
+  actions: RECIPE_FIGHTER.actions.filter(action => action.executor === "recipe").map(action => ({ ...action, executor: "punch" })) });
 
 /**
  * The Puncher waiting for its foe to come to it: it holds the edge of its foe's reach for as long
@@ -398,8 +409,8 @@ const ONE_TWO: ActionConfig = (() => {
 export const OPTIONS: OptionsConfig = deepFreeze({ kind: "options", locomotion: MOVE, guard: COUNTER_PUNCHER.guard,
   executors: [...COUNTER_PUNCHER.executors.map((executor) => executor.name === "punch" ? { name: "punch", kind: "combination" as const, ...COMBINATION, drives: 1 } : executor),
     { name: "combination", kind: "combination" as const, ...COMBINATION },
-    ...SCRAPPER.executors.filter((executor) => executor.name === LOW.executor)],
-  actions: [...COUNTER_PUNCHER.actions, ONE_TWO, LOW].map((action) => action.lower === undefined ? { ...action, aim: { kind: "surface" as const, tuning: {} } } : action),
+    ...SCRAPPER.executors.filter((executor) => executor.name === LOW.executor), ...BLADE_EXECUTORS],
+  actions: [...COUNTER_PUNCHER.actions, ONE_TWO, LOW].map((action) => action.lower === undefined ? { ...action, aim: { kind: "surface" as const, tuning: {} } } : action).concat(BLADE_ACTIONS),
   support: SCRAPPER.support, reflexes: [{ kind: "cover-reflex" }] });
 
 /** The configurable behaviour fighter starts from the shared recipe actions. */

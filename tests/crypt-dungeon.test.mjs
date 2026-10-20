@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { isDeepStrictEqual } from "node:util";
-import { CRYPT_FURNITURE } from "../src/dungeon/crypt-archetypes.ts";
+import { CRYPT_FURNITURE } from "../src/environment/furniture.ts";
 import { generateCryptDungeon } from "../src/dungeon/crypt-dungeon.ts";
 import { LEVEL } from "../src/dungeon/level.ts";
 import { distance, findPath, walkable } from "../src/dungeon/map.ts";

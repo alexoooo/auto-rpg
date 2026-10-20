@@ -100,8 +100,9 @@ Capability work proceeds alongside the Arena testbed, with dependencies owned by
   - the staged rise;
   - the opening preset (Scrapper).
 - **Items**, as columns of the grid, each a new skill where its physical use needs one. The
-  next additions are a small buckler, then a short sword with cutting and thrusting, under the
-  Arena testbed plan. Armor, two-handed items and ranged weapons follow with their own mechanics
+  club and centre-grip buckler are available per hand. The shield guard has a physical
+  interception and action-composition fixture; equipped recovery and competitive strength remain
+  open. The next addition is a short sword with cutting and thrusting under the Arena testbed plan. Armor, two-handed items and ranged weapons follow with their own mechanics
   and tasks; projectiles belong to the core.
 - **Assist kinds** beside stability, each read as a skill's performance against its level.
 
@@ -572,8 +573,8 @@ Capability work proceeds alongside the Arena testbed, with dependencies owned by
 ### The Arena
 
 - [The next testbed milestone](plans/2026-10-20-arena-testbed.md): level selection, an obstacle
-  court, reference navigation and buckler/short-sword loadouts. Current loadouts remain a club
-  or empty hands until that work lands.
+  court, reference navigation and short-sword loadouts. Per-hand club/buckler loadouts and a
+  shield guard are available; their fighting strength and equipped recovery remain open.
 - The Ladder.
 
 ### The Crypt

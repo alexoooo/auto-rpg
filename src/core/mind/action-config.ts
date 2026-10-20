@@ -25,7 +25,7 @@ export function configuredActionEstimates(spec: BodySpec, executors: readonly Ex
 /**
  * **The blows of `actions` a body of `spec` throws**, as it holds what it holds: each on the
  * effectors its executor strikes with there (`ExecutorPart.strikesWith`), and one with none left
- * out. A mind throws these; which it needs to fit a body is its own call (`strikesWithAll`).
+ * out. A mind declares these effectors as the equipment its actions support.
  */
 export function armedActions(spec: BodySpec, executors: readonly ExecutorConfig[], actions: readonly ActionConfig[]): readonly ActionConfig[] {
   return actions.flatMap((action) => {
@@ -34,13 +34,6 @@ export function armedActions(spec: BodySpec, executors: readonly ExecutorConfig[
     const part = executorPart(executor), effectors = action.effectors.filter((effector) => part.strikesWith?.(spec, executor, effector) ?? true);
     return effectors.length === action.effectors.length ? [action] : effectors.length > 0 ? [{ ...action, effectors }] : [];
   });
-}
-
-/** Whether a body of `spec` throws a blow of `actions` (`armedActions`), and one with each item it holds; a list of no blows asks nothing of what it holds. */
-export function strikesWithAll(spec: BodySpec, executors: readonly ExecutorConfig[], actions: readonly ActionConfig[]): boolean {
-  if (actions.length === 0) return true;
-  const armed = armedActions(spec, executors, actions);
-  return armed.length > 0 && (spec.held ?? []).every((held) => armed.some((action) => action.effectors.includes(held.segment)));
 }
 
 /** Validate named sharing, anatomical choices and settings before constructing any executor. */

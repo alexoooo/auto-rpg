@@ -188,3 +188,19 @@ test("a round shoves at the target's impulse, and shoves again only once its sta
     assert.deepEqual(run.frame().round, { falls: 1, of: ROUND_FALLS, stood: 1, within6: Number(fall.verified <= 6), median: fall.verified });
   } finally { run.dispose(); stand.dispose(); }
 });
+
+
+test("an equipped rising trial builds both named hands and keeps them distinct from the owner target", async () => {
+  const loadout = { left: "buckler", right: "club" }, job = { id: 0, model: "workshop-fighter", held: "empty", loadout,
+    seed: 1, start: "shoved", degrees: 0, balance: 0, grit: 0, gusts: false, target: false, sub: "stand-up" };
+  let items;
+  const row = await risingTrial(job, { stop: (_world, built) => {
+    items = built.spec.held.map(({ segment, item }) => [segment, item.name]).sort(); return true;
+  } });
+  assert.deepEqual(items, [["hand.left", "buckler"], ["hand.right", "wooden club"]]);
+  assert.deepEqual(row.loadout, loadout);
+  assert.equal(risingReport([row]).groups[0].key, "shoved/workshop-fighter/buckler,club");
+  await assert.rejects(risingTrial({ ...job, target: true }), /owner target fixes its loadouts/);
+  await assert.rejects(risingTrial({ ...job, loadout: { left: "unknown", right: "club" } }), /left hand/);
+  assert.ok(risingJobs(risingOptions(["--target"])).every((one) => !Object.hasOwn(one, "loadout")), "the canonical target's jobs are unchanged");
+});

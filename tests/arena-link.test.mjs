@@ -5,13 +5,16 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_MATCHUP, controllerLabel, linkedMind, matchupSearch, mindsSearch, readBalance, readCap, readControls, readGap, readHaste, readHeld, readMatchup, readMinds, readRecovery, readTape, readYou, tapeHash, youSearch } from "../src/arena/matchup.ts";
+import { DEFAULT_MATCHUP, controllerLabel, linkedMind, matchupSearch, mindsSearch, readBalance, readCap, readControls, readGap, readHaste, readLoadouts, readMatchup, readMinds, readRecovery, readTape, readYou, tapeHash, youSearch } from "../src/arena/matchup.ts";
 import { ORBIT, orbitPosition } from "../src/arena/orbit.ts";
 import { aimPoint, keysToMove, personOrders } from "../src/arena/orders-input.ts";
 import { CLASSIC, PUNCHER, QUADRUPED, SCRAPPER } from "../src/core/mind/config.ts";
 import { PRESETS } from "../src/core/mind/controllers.ts";
 import { partOf, treeFaults } from "../src/core/mind/catalog.ts";
 import { STAND_ORDERS, isOrders } from "../src/core/mind/orders.ts";
+import { ORDERS_PROTOCOL } from "../src/arena/duel.ts";
+import { recordingIdentity } from "../src/core/recording.ts";
+import { BUILD_IDENTITY } from "../src/build-identity.ts";
 
 test("an_arena_link_names_its_matchup_and_a_malformed_one_falls_back", () => {
   assert.deepEqual(readMatchup("?play=arena&matchup=crypt-skeleton,workshop-fighter"), { left: "crypt-skeleton", right: "workshop-fighter" });
@@ -39,34 +42,39 @@ test("an_arena_link_names_its_matchup_and_a_malformed_one_falls_back", () => {
 test("a_tape_rides_in_a_link's_fragment", () => {
   const toward = { x: 0.6, z: -0.8 };
   const tape = [
-    { step: 0, side: "left", orders: { move: toward, face: null } },
+    { step: 0, side: "left", orders: { move: { kind: "direct", direction: toward }, face: null } },
     { step: 60, side: "right", orders: { move: null, face: { x: 1 / 3, z: 2e-17 }, foe: "left", region: "head" } },
     { step: 120, side: "left", orders: null },
   ];
-  const hash = tapeHash(tape);
-  assert.match(hash, /^#tape=%5B/);
-  assert.deepEqual(readTape(hash), tape);
-  assert.deepEqual(readTape(hash.slice(1)), tape, "with or without its #");
-  assert.deepEqual(["", "#", "#tape=", "#tape=%7B%7D", "#tape=nonsense", "#other=1"].map(readTape), Array(6).fill([]));
+  const recording = { identity: recordingIdentity(BUILD_IDENTITY, ORDERS_PROTOCOL, { recipe: DEFAULT_MATCHUP }), tape };
+  const hash = tapeHash(recording);
+  assert.match(hash, /^#tape=%7B/);
+  assert.deepEqual(readTape(hash), recording);
+  assert.deepEqual(readTape(hash.slice(1)), recording, "with or without its #");
+  assert.deepEqual(["", "#", "#other=1"].map(readTape), [null, null, null]);
+  for (const malformed of ["#tape=", "#tape=%7B%7D", "#tape=nonsense", `#tape=${encodeURIComponent(JSON.stringify(tape))}`]) assert.throws(() => readTape(malformed), /recording|identity/);
   // One entry that is not an entry and the tape is none: a tape played in part is another bout.
   const wrong = [
     { step: 1.5, side: "left", orders: null }, { step: -1, side: "left", orders: null }, { side: "left", orders: null },
     { step: 1, side: "top", orders: null }, { step: 1, side: "left" }, { step: 1, side: "left", orders: 3 }, null,
-    { step: 1, side: "left", orders: { move: { x: "1", z: 0 }, face: null } },
+    { step: 1, side: "left", orders: { move: { kind: "direct", direction: { x: "1", z: 0 } }, face: null } },
     { step: 1, side: "left", orders: { move: null, face: { x: 1 } } },
     { step: 1, side: "left", orders: { move: null, face: null, attack: [1, 2] } },
     { step: 1, side: "left", orders: { move: null, face: null, attack: [1, 2, null] } },
     { step: 1, side: "left", orders: { move: null, face: null, region: "head" } },
   ];
-  for (const entry of wrong) assert.deepEqual(readTape(tapeHash([tape[0], entry])), [], JSON.stringify(entry));
+  for (const entry of wrong) assert.throws(() => readTape(tapeHash({ ...recording, tape: [tape[0], entry] })), /invalid orders/, JSON.stringify(entry));
+  assert.throws(() => readTape(tapeHash({ ...recording, identity: { ...recording.identity, build: `sha256:${"0".repeat(64)}` } })), /different source, assets or solver/);
+  assert.throws(() => readTape(tapeHash({ ...recording, identity: { ...recording.identity, protocol: "arena-orders/0" } })), /another protocol/);
   assert.deepEqual([STAND_ORDERS, tape[1].orders, null, [], { move: null, face: null, attack: "head" }].map(isOrders), [true, true, false, false, false]);
   // A pace is a ceiling, m/s: a number, finite and not below zero, or none.
-  assert.deepEqual([0.4, 0, -0.1, Infinity, "slow"].map((pace) => isOrders({ move: { x: 0, z: 1 }, pace, face: null })), [true, true, false, false, false]);
+  assert.deepEqual([0.4, 0, -0.1, Infinity, "slow"].map((pace) => isOrders({ move: { kind: "direct", direction: { x: 0, z: 1 } }, pace, face: null })), [true, true, false, false, false]);
   // The gap and the cap a link asks for, each within its range or not at all.
-  // What each side's right hand holds: left then right, one word for both, or the club.
-  assert.deepEqual(["?held=empty,club", "?play=arena&held=empty", "?held=club", "?held=%20club%20,empty"].map(readHeld),
-    [{ left: "empty", right: "club" }, { left: "empty", right: "empty" }, { left: "club", right: "club" }, { left: "club", right: "empty" }]);
-  assert.deepEqual(["", "?held=", "?held=empty,", "?held=,empty", "?held=sword", "?held=empty,club,club", "?balance=empty"].map(readHeld), Array(7).fill(undefined));
+  assert.deepEqual(readLoadouts("?left.loadout=club,empty&right.loadout=empty,club"),
+    { left: { left: "club", right: "empty" }, right: { left: "empty", right: "club" } });
+  assert.deepEqual(readLoadouts("?left.loadout=club,club"),
+    { left: { left: "club", right: "club" }, right: { left: "empty", right: "empty" } });
+  assert.deepEqual(["", "?held=club", "?left.loadout=", "?left.loadout=empty,", "?left.loadout=,empty", "?left.loadout=unknown-item,club", "?left.loadout=empty,club,club"].map(readLoadouts), Array(7).fill(undefined));
   assert.deepEqual(["?gap=3.5", "?play=arena&gap=1", "?gap=8"].map(readGap), [3.5, 1, 8]);
   assert.deepEqual(["", "?gap=", "?gap=0", "?gap=0.99", "?gap=8.01", "?gap=x", "?gap=Infinity", "?cap=4"].map(readGap), Array(8).fill(undefined));
   assert.deepEqual(["?cap=30", "?cap=1", "?cap=600"].map(readCap), [30, 1, 600]);
@@ -169,7 +177,7 @@ test("keys_and_a_pointer_make_orders_in_the_world's_frame", () => {
   assert.deepEqual(aimPoint([1, 3, 2], [0.5, -1, -0.25], 1), [2, 1, 1.5]);
   assert.equal(aimPoint([0, 5, -4], [0, 0.1, 1], 1), null, "a ray going up meets no plane below it");
   assert.equal(aimPoint([0, 0.5, -4], [0, -0.8, 0.6], 1), null, "nor one that starts under the plane");
-  assert.deepEqual(personOrders({ x: 1, z: 0 }, [2, 1, 3], null, { x: 1, z: 1 }), { move: { x: 1, z: 0 }, face: { x: 1, z: 2 } });
+  assert.deepEqual(personOrders({ x: 1, z: 0 }, [2, 1, 3], null, { x: 1, z: 1 }), { move: { kind: "direct", direction: { x: 1, z: 0 } }, face: { x: 1, z: 2 } });
   assert.deepEqual(personOrders(null, [2, 1, 3], { foe: "right", region: "head" }, { x: 1, z: 1 }), { move: null, face: { x: 1, z: 2 }, foe: "right", region: "head" });
   assert.deepEqual(personOrders(null, null, null, { x: 1, z: 1 }), { move: null, face: null });
 });

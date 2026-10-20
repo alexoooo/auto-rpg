@@ -1,6 +1,7 @@
 import type { ActionRequest } from "../skills/action.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { Side } from "../spec/body.ts";
+import type { MovementRequest } from "./movement.ts";
 
 /**
  * **What tactics ask of their body**, each control step: how to move, which way to face, and what
@@ -15,6 +16,12 @@ export interface Intent {
    * capped at the body's fastest walk (`Body.envelope`). Null stands.
    */
   readonly move: readonly [forward: number, right: number] | null;
+  /** A tactical movement objective, resolved by navigation before the skills read `move`. */
+  readonly movement?: MovementRequest;
+  /** A movement objective's speed ceiling, m/s; absent, the navigator uses the requested walk's speed. */
+  readonly pace?: number;
+  /** With no explicit facing, navigation faces travel along its route. */
+  readonly travelFacing?: true;
   /** Face this way, rad about up (0 faces +z, growing to the right); the body turns toward it as its walk allows. */
   readonly face: number;
   /**

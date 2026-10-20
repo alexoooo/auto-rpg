@@ -31,13 +31,13 @@ test("a_body_walks_one_way_while_it_faces_another", async () => {
     } finally { body.dispose(); stand.dispose(); }
   };
   // Read on this stand: 1.47 m along x and 0.03 m along z, facing; 2.89 m, turning to its walk.
-  const facing = await walk({ move: EAST, face: NORTH });
+  const facing = await walk({ move: { kind: "direct", direction: EAST }, face: NORTH });
   assert.equal(facing.fallen, false, "it fell");
   assert.ok(facing.x > 1.1 && facing.x < 1.8, `along its walk: ${facing.x}`);
   assert.ok(Math.abs(facing.z) < 0.3, `across it: ${facing.z}`);
   assert.ok(Math.abs(facing.heading) < 0.01, `it kept its heading: ${facing.heading}`);
   // The control: the same walk, facing it.
-  const turning = await walk({ move: EAST, face: null });
+  const turning = await walk({ move: { kind: "direct", direction: EAST }, face: null });
   assert.equal(turning.fallen, false, "the control fell");
   assert.ok(turning.x > 2.6, `the control went ${turning.x}`);
   assert.ok(Math.abs(turning.heading - QUARTER) < 0.02, `the control turned to ${turning.heading}`);

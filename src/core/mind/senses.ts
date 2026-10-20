@@ -226,8 +226,8 @@ export function createSenses(world: World, delay = 0): SensesHub {
         side: sensed.side,
         get out() { return sensed.out(); },
         others: entry.others,
-        ...(sensed.solids ? { solids: sensed.solids } : {}),
       };
+      if (sensed.solids) Object.defineProperty(senses, "solids", { enumerable: true, get: () => sensed.solids });
       return () => senses;
     },
     dispose() { hook.dispose(); carried.length = 0; },

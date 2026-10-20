@@ -5,6 +5,7 @@ import type { AssistCeiling } from "../control/assist.ts";
 import { physicalBody, type PhysicalBody } from "../physical-body.ts";
 import type { World } from "../world.ts";
 import { embody } from "./mind.ts";
+import { requireRecordingIdentity, type RecordingIdentity } from "../recording.ts";
 import { clockSenses, type Senses } from "./senses.ts";
 
 /**
@@ -27,12 +28,13 @@ interface Sheet {
  * goes back drops the sheets after it as the steps are taken again.
  */
 export interface SheetLog {
+  readonly identity: RecordingIdentity;
   readonly sheets: Sheet[];
 }
 
 /** An empty log, to record a body's sheets into. */
-export function sheetLog(): SheetLog {
-  return { sheets: [] };
+export function sheetLog(identity: RecordingIdentity): SheetLog {
+  return { identity, sheets: [] };
 }
 
 /** The index of the sheet of `step` in `sheets`, by their steps; -1 if there is none. */
@@ -51,7 +53,8 @@ function sheetAt(sheets: readonly Sheet[], step: number): number {
  * written again, before the solver's step as the mind wrote it, under the same grants; its down is
  * the fight's reading, as every body's is. With the bout's recipe, the same bout again to the bit. A step with no sheet is refused.
  */
-export function replayedBody(built: BuiltBody, world: World, log: SheetLog, grants: { readonly senses?: () => Senses; readonly assist?: AssistCeiling }): PhysicalBody {
+export function replayedBody(built: BuiltBody, world: World, log: SheetLog, grants: { readonly identity: RecordingIdentity; readonly senses?: () => Senses; readonly assist?: AssistCeiling }): PhysicalBody {
+  requireRecordingIdentity(log.identity, grants.identity);
   const senses = grants.senses ?? clockSenses(world), force = new Vector3(), moment = new Vector3();
   const state = { steps: 0 };
   const embodied = embody(built, world, (own) => ({ name: "replay", state, step() {

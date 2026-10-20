@@ -10,7 +10,7 @@ const index=candidate.tactics.list.findIndex(b=>b.kind==='approach');
 // How far the range is learned is `core-combat-capability`'s: this case forks whatever it has learned by its first commit.
 test('a fresh-world fork mid-commit carries the range learned and the pending observation, and ordinary orders cancel it',async()=>{
  const make=async()=>buildBout({left:'workshop-fighter',right:'workshop-fighter',minds:{left:candidate,right:candidate},
-  balance:{left:0,right:0},held:{left:'empty',right:'empty'},capSeconds:30,recoverySeconds:null},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
+  balance:{left:0,right:0},loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },capSeconds:30,recoverySeconds:null},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  const a=await make(),b=await make();
  try{
   a.duel.play([]);b.duel.play([]);const skills=a.duel.duelists.left.minded.skills;
@@ -27,7 +27,7 @@ test('a fresh-world fork mid-commit carries the range learned and the pending ob
 test('physical timed-out returns cannot train a shorter Arena working distance',async()=>{
  const timed={...candidate,executors:candidate.executors.map(executor=>({...executor,tuning:{paths:{returnLimit:.05}}}))};
  const s=await buildBout({left:'workshop-fighter',right:'workshop-fighter',minds:{left:timed,right:timed},
-  balance:{left:0,right:0},held:{left:'empty',right:'empty'},capSeconds:20,recoverySeconds:null},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
+  balance:{left:0,right:0},loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },capSeconds:20,recoverySeconds:null},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
   s.duel.play([]);let clean=0;
   for(let i=0;i<1800;i++){

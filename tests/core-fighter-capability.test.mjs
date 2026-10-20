@@ -8,7 +8,7 @@ import {loadEngine,DEFAULT_ENGINE} from '../src/core/engine/engines.ts';
 import {buildBout} from '../research/bout.mjs';
 import {COMBAT,KICKER} from './fixtures/minds.mjs';
 
-const bout=async(left,right,recipe={})=>buildBout({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
+const bout=async(left,right,recipe={})=>buildBout({left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},
  minds:{left,right},recoverySeconds:null,capSeconds:30,...recipe},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
 
 test('a named recipe executor commits a blow within the bout',async()=>{

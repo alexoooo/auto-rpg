@@ -181,6 +181,12 @@ export function aimOf(spec: BodySpec, hand: Side): string {
   return closesToStrike(spec, hand) ? "strike" : effectorAim(spec, `hand.${hand}`);
 }
 
+/** Ordinary strike paths use bare hands or aimed blunt items; directed blades have their own executors. */
+export function strikesWithBlunt(spec: BodySpec, effector: string): boolean {
+  const held = spec.held?.find(held => held.segment === effector);
+  return !held || !!held.item.aim && !held.item.surface?.directed && !(held.item.contacts ?? []).some(region => region.surface.directed);
+}
+
 /** The trunk's freedoms whose positive way is to one side: mirrored, their sense and angle turn over. */
 const SIDED = [" rotation right", " lateral flexion right"];
 

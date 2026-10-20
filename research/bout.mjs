@@ -21,10 +21,12 @@ export const BOUT_HARNESS = `Node, core world (src/core/world.ts), ${BOUT_ENGINE
 export async function buildBout(recipe, { hz = 120, physicsEngine, actuation, hooks = {} } = {}) {
   const engine = new NullEngine(), scene = new Scene(engine);
   const world = createWorld(scene, physicsEngine ?? await loadEngine(BOUT_ENGINE), { hz, actuation });
-  const solids = arenaSolids();
+  const solids = arenaSolids(recipe.level);
   addArenaSolids(world.physics, solids);
-  const duel = new Duel(world, recipe, { solids, ...hooks });
-  return { world, duel, dispose() { duel.dispose(); world.dispose(); scene.dispose(); engine.dispose(); } };
+  try {
+    const duel = new Duel(world, recipe, { solids, ...hooks });
+    return { world, duel, dispose() { duel.dispose(); world.dispose(); scene.dispose(); engine.dispose(); } };
+  } catch (error) { world.dispose(); scene.dispose(); engine.dispose(); throw error; }
 }
 
 /** A built body's weight in `world`, N: its segments' rigid masses, what they hold included, times gravity. */
@@ -115,7 +117,7 @@ export async function playBout(recipe, seconds = Infinity, tape = [], { shortfal
       cost: SIDES.map((side) => costOf(duel.blows, duel.duelists[side])),
       ...(blows ? { landed: duel.blows.map(({ time, energy, closing, sides }) => ({ time, energy, closing, sides })) } : {}),
       fallen: SIDES.filter((side) => duel.duelists[side].body.down),
-      tape: duel.tape, digest: trace.digest(),
+      tape: duel.tape, recording: duel.recording, digest: trace.digest(),
       // Each side's mean assist over its metered steps, [N, N m].
       assist: SIDES.map((side) => meanOf(duel.duelists[side].body.assist.meter)),
       ...(missed ? { shortfall: missed.map((meter) => meter.row()) } : {}),

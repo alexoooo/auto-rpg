@@ -8,6 +8,9 @@ import { guardPosture } from "../core/skills/guard.ts";
 import { frameOf, handShapeAt, type BodySpec } from "../core/spec/body.ts";
 import { mulberry32 } from "../rng.ts";
 import type { LabAddress } from "./scenarios.ts";
+import { groundEnvironment } from "./ground-environment.ts";
+import type { SolidSense } from "../core/mind/object-senses.ts";
+import { cos, sin } from "../core/math/real.ts";
 
 type Placement = Parameters<typeof buildBody>[2];
 type Point = readonly [number, number, number];
@@ -105,7 +108,7 @@ function geometry(spec: BodySpec, placement: Placement): Convex[] {
 }
 
 /** Nonadjacent shape pairs that penetrate geometrically before the world takes a step. */
-export function groundPlacementFaults(spec: BodySpec, placement: Placement): string[] {
+export function groundPlacementFaults(spec: BodySpec, placement: Placement, solids: readonly SolidSense[] = []): string[] {
   const shapes = geometry(spec, placement), faults: string[] = [];
   for (let a = 0; a < shapes.length; a++) for (let b = a + 1; b < shapes.length; b++) {
     const first = shapes[a]!, second = shapes[b]!;
@@ -113,13 +116,46 @@ export function groundPlacementFaults(spec: BodySpec, placement: Placement): str
       || j.parent === second.segment && j.child === first.segment)) continue;
     if (overlaps(first, second)) faults.push(`${first.segment} overlaps ${second.segment}`);
   }
+  for (const solid of solids) {
+    let points: readonly Point[];
+    switch (solid.kind) {
+      case "hull": points = solid.points; break;
+      case "box": {
+        const c = cos(solid.turn ?? 0), s = sin(solid.turn ?? 0), corners: Point[] = [];
+        for (const x of [-.5, .5]) for (const y of [-.5, .5]) for (const z of [-.5, .5]) {
+          const dx = x * solid.size[0], dz = z * solid.size[2];
+          corners.push([solid.centre[0] + c * dx + s * dz, solid.centre[1] + y * solid.size[1], solid.centre[2] - s * dx + c * dz]);
+        }
+        points = corners; break;
+      }
+      default: { const never: never = solid; throw new Error(`unknown ground solid ${never}`); }
+    }
+    for (const shape of shapes) if (overlaps(shape, { segment: solid.name, points, radius: 0 })) faults.push(`${shape.segment} overlaps ${solid.name}`);
+  }
   return [...new Set(faults)];
+}
+
+/** Drops onto low furniture start above its top; shoves begin with a small geometric gap behind. */
+function inEnvironment(spec: BodySpec, placement: Placement, options: LabAddress["ground"]): Placement {
+  const level = groundEnvironment(options.level);
+  if (!level.solids.length) return placement;
+  const solid = level.solids[0]!;
+  if (solid.kind !== "box") throw new Error("ground environments require a box footprint");
+  const onTop = level.dropOnTop && (options.start === "dropped" || options.start === "placed");
+  const [x, y, z] = placement.position;
+  const rear = Math.min(...geometry(spec, placement).flatMap(shape => shape.points.map(point => point[2] - shape.radius)));
+  // Eight centimetres avoids initial penetration while keeping a backward step against the obstacle.
+  const result: Placement = { ...placement, position: onTop ? [x, y + solid.centre[1] + solid.size[1] / 2, solid.centre[2]]
+    : [x, y, z + solid.centre[2] + solid.size[2] / 2 + .08 - rear] };
+  const faults = groundPlacementFaults(spec, result, level.solids);
+  if (faults.length) throw new Error(`invalid ${options.level} ground start: ${faults.join(", ")}`);
+  return result;
 }
 
 /** A deterministic legal draw, raised by its own lowest shape rather than a guessed pelvis height. */
 export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed" | "ground">, waypoint?: Placement): Placement {
   const options = address.ground;
-  if (options.start === "shoved" || options.start === "round") return { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) };
+  if (options.start === "shoved" || options.start === "round") return inEnvironment(spec, { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) }, options);
   if (!waypoint && !groundPostures(spec).includes(options.posture)) throw new Error(`${spec.model} has no installed ${options.posture} start`);
   const installed = options.start === "placed" ? poses.find(p => p.id === options.posture && p.model === spec.model) : undefined;
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -148,7 +184,7 @@ export function groundPlacement(spec: BodySpec, address: Pick<LabAddress, "seed"
     const zero: Placement = { position: [0, 0, 0], rotation, joints };
     const lowest = Math.min(...geometry(spec, zero).flatMap(shape => shape.points.map(p => p[1] - shape.radius)));
     const placement: Placement = { ...zero, position: [0, (options.start === "dropped" ? .3 : .02) - lowest, 0] };
-    if (!groundPlacementFaults(spec, placement).length) return placement;
+    if (!groundPlacementFaults(spec, placement).length) return inEnvironment(spec, placement, options);
   }
   throw new Error(`no clear ${options.start} start for seed ${address.seed} in five draws`);
 }

@@ -10,7 +10,7 @@ import {buildBout} from '../research/bout.mjs';
 import {traceOf} from './harness/trace.mjs';
 import {COMBAT,KICKER,withParts} from './fixtures/minds.mjs';
 
-const bout=async(left,right,recipe={})=>buildBout({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
+const bout=async(left,right,recipe={})=>buildBout({left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},
  minds:{left,right},recoverySeconds:null,capSeconds:30,...recipe},{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
 
 test('a named recipe executor runs under the shared behaviour fighter with physical contact feedback',async()=>{
@@ -21,7 +21,8 @@ test('a named recipe executor runs under the shared behaviour fighter with physi
   while(s.duel.clock<30&&!s.duel.verdict&&ledger.length===0)s.world.step();
   const [ended]=ledger;
   assert.ok(ended,'the fixture did not reach its case: no action ended');
-  assert.equal(left.skills.state.actions.executors.length,1);
+  assert.equal(left.skills.state.actions.executors.length,RECIPE_FIGHTER.executors.length);
+  assert.equal(ended.action,'strike');
   assert.ok(left.body.view.effectors['hand.right'].feedback);
   // Each contact the hand felt is counted once, in the phase it came in.
   const counted=Object.values(ended.contacts.counts).reduce((n,c)=>n+c.target+c.block+c.incidental+c.world,0);

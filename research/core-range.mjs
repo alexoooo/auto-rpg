@@ -69,7 +69,7 @@ function jobOf(seed, held, left, right, at, edge) {
   const mind = (side) => side === at ? withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "approach" ? { ...behaviour, range: "edge", tuning: { edge } } : behaviour) } }) : RECIPE_FIGHTER;
   return {
     key: { seed, gap: gapOf(seed), held, left, right, at, edge },
-    recipe: { left, right, gap: gapOf(seed), held: { left: held, right: held }, minds: { left: mind("left"), right: mind("right") } },
+    recipe: { left, right, gap: gapOf(seed), loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } }, minds: { left: mind("left"), right: mind("right") } },
     blows: true,
   };
 }

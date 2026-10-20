@@ -221,7 +221,7 @@ async function taken() {
     step() { own.muscles.activation.fill(1); own.muscles.velocity.fill(0); },
   });
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [hold] });
-  const skills = driveBy(body, walkingTactics(stand.built.spec, () => ({ move: { x: 0, z: 1 }, face: null, pace: TAKEN.pace })));
+  const skills = driveBy(body, walkingTactics(stand.built.spec, () => ({ move: { kind: "direct", direction: { x: 0, z: 1 } }, face: null, pace: TAKEN.pace })));
   const seen = { has: [], squared: 0, rose: 0, fallen: false };
   return {
     world: stand.world, builts: [stand.built], states: { body: body.state, skills: skills.state }, seen,
@@ -237,7 +237,7 @@ async function taken() {
 }
 
 const EAST = Object.freeze({ x: 1, z: 0 }), NORTH = Object.freeze({ x: 0, z: 1 }), WEST = Object.freeze({ x: -1, z: 0 });
-const walking = (move, face = null) => deepFreeze({ move, face });
+const walking = (direction, face = null) => deepFreeze({ move: { kind: "direct", direction }, face });
 const ORDERS = { east: walking(EAST), eastFacingNorth: walking(EAST, NORTH), west: walking(WEST) };
 
 /**
@@ -523,6 +523,7 @@ test("every_field_of_a_bodys_state_is_sorted", async () => {
     // Pose memory is exercised by physical opening/closure and fresh-world continuation in core-hand-poses.test.mjs.
     // Ground reading replay and host ownership are exercised in ground-reading and core-sub-mind.
     // A body's own start, written at its first view, is exercised on a world that has run in arena-fresh-start.test.mjs.
-    assert.deepEqual(unsorted(fields, [...Object.values(NEEDED).flat(), "body > handPoses", "body > mind > host > ground", "body > mind > host > subOwned", "body > mind > host > born", ...effectors, ...rotations], Object.keys(NOT_MEMORY)), []);
+    // Navigation memory is exercised by the physical route fork in core-navigation.test.mjs.
+    assert.deepEqual(unsorted(fields, [...Object.values(NEEDED).flat(), "body > handPoses", "body > mind > host > ground", "body > mind > host > subOwned", "body > mind > host > born", "skills > navigation", ...effectors, ...rotations], Object.keys(NOT_MEMORY)), []);
   } finally { stand.dispose(); struck.dispose(); }
 });

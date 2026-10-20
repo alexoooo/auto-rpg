@@ -84,7 +84,7 @@ async function oracleBout(recipe, side, pool) {
       for (let step = 0; step < every && !duel.verdict; step++) world.step();
     }
     const { winner, ending } = duel.verdict, bars = SIDES.map((each) => duel.duelists[each].pool.bar());
-    return { winner, ending, seconds: duel.clock, bars, value: valueOf({ bars, out: outOf(duel.verdict) }, side), tape: [...duel.tape], decisions, cost };
+    return { winner, ending, seconds: duel.clock, bars, value: valueOf({ bars, out: outOf(duel.verdict) }, side), tape: [...duel.tape], recording: duel.recording, decisions, cost };
   } finally { dispose(); }
 }
 
@@ -127,7 +127,7 @@ if (values.out) {
   console.log("");
   for (const { recipe, side, oracle } of results) {
     const file = `${values.out}/${recipe.left}-${recipe.right}-${side}.json`;
-    writeFileSync(file, JSON.stringify({ recipe, tape: oracle.tape }));
-    console.log(`${file}: ?play=arena&matchup=${recipe.left},${recipe.right}&gap=${recipe.gap}&cap=${recipe.capSeconds}${recipe.balance ? `&balance=${recipe.balance.left},${recipe.balance.right}` : ""}${tapeHash(oracle.tape)}`);
+    writeFileSync(file, JSON.stringify({ recipe, recording: oracle.recording }));
+    console.log(`${file}: ?play=arena&matchup=${recipe.left},${recipe.right}&gap=${recipe.gap}&cap=${recipe.capSeconds}&recovery=0${recipe.balance ? `&balance=${recipe.balance.left},${recipe.balance.right}` : ""}${tapeHash(oracle.recording)}`);
   }
 }

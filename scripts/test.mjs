@@ -7,6 +7,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { BUILD_IDENTITY } from "./build-identity.mjs";
 
 const all = process.argv.includes("--all");
 const experimentalOnly = process.argv.includes("--experimental");
@@ -24,5 +25,5 @@ const chosen = (file) => experimentalOnly ? experimental.includes(file)
   : !experimental.includes(file) && (all || !slow.includes(file));
 const files = readdirSync("tests").filter((file) => file.endsWith(".test.mjs") && chosen(file)).map((file) => `tests/${file}`);
 const passed = process.argv.slice(2).filter((arg) => arg !== "--all" && arg !== "--experimental");
-const run = spawnSync(process.execPath, ["--test", ...passed, ...files], { stdio: "inherit" });
+const run = spawnSync(process.execPath, ["--test", ...passed, ...files], { stdio: "inherit", env: { ...process.env, AUTO_RPG_BUILD_IDENTITY: BUILD_IDENTITY } });
 process.exit(run.status ?? 1);

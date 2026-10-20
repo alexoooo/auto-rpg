@@ -6,7 +6,7 @@ import type { supportedMotor, SupportedCommand } from "../control/supported-moto
 import { atan2, cos, sin } from "../math/real.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { REPTILE_TROT } from "./tuning.ts";
-import type { QuadrupedView } from "./crawl.ts";
+import type { QuadrupedView, TravelOrders } from "./crawl.ts";
 
 /** Travel admission reads the body's actual heading against the requested direction. */
 export function headingAligned(yaw: number, face: Orders["face"], maximum: number): boolean {
@@ -53,7 +53,7 @@ export function trot(own: OwnBody, motor: ReturnType<typeof supportedMotor>, nam
     state.command.velocity.fill(0);
     view.feet.forEach((e, i) => { state.anchors[i]![0] = e.at.x; state.anchors[i]![1] = e.ground; state.anchors[i]![2] = e.at.z; });
   };
-  const skill: Skill<QuadrupedView> & { readonly state: typeof state; command(view: QuadrupedView, intent: Orders, dt: number): SupportedCommand } = {
+  const skill: Skill<QuadrupedView> & { readonly state: typeof state; command(view: QuadrupedView, intent: TravelOrders, dt: number): SupportedCommand } = {
     state, resume,
     command(view, intent, dt) {
       const face = intent.face ?? intent.move;

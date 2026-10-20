@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { CONTROLLERS, controllerOf, MINDS, PRESETS } from "../src/core/mind/controllers.ts";
 import { CLASSIC, RECIPE_FIGHTER, SCRAPPER, STAND_UP } from "../src/core/mind/config.ts";
-import { treeFaults, treeFits } from "../src/core/mind/catalog.ts";
-import { armedActions, strikesWithAll } from "../src/core/mind/action-config.ts";
+import { equipmentSupported, treeFaults, treeFits } from "../src/core/mind/catalog.ts";
+import { armedActions } from "../src/core/mind/action-config.ts";
 import { armedWith, heldBy, HELD } from "../src/core/items/held.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { BODY_MODELS, modelSpec } from "../src/core/models.ts";
@@ -44,34 +44,41 @@ test("each controller says which bodies and loadouts its minds fit, and the Aren
     for (const controller of Object.values(CONTROLLERS)) for (const [id, preset] of Object.entries(controller.presets))
       if (controller.fits(spec, preset.config) && GAME.includes(id)) fitting.push(id);
     assert.deepEqual(fitting, model === "reptile" ? ["crawl"] : humanoid, model);
-    assert.ok(controlsFor(model, "empty").includes("direct"), model);
+    assert.ok(controlsFor(model, { left: "empty", right: "empty" }).includes("direct"), model);
     for (const held of HELD) {
       // What the hand holds is on the body every part's `fits` reads, so a mind made for one loadout is offered with no other.
       const holds = model !== "reptile" || held === "empty";
       const body = holds ? armedWith(spec, "right", held) : null;
-      assert.deepEqual(controlsFor(model, held), body ? Object.keys(MINDS).filter((id) => treeFits(body, MINDS[id].config)) : [], `${model} holding ${held}`);
+      assert.deepEqual(controlsFor(model, { left: "empty", right: held }), body ? Object.keys(MINDS).filter((id) => treeFits(body, MINDS[id].config)) : [], `${model} holding ${held}`);
       if (body) assert.equal(heldBy(body, "right"), held);
     }
   }
 });
 
-test("a mind fits a loadout it strikes with, and throws only the blows its armed body can: a punch with a hand that holds nothing", () => {
+test("a mind fits a loadout its parts support, and throws only the blows its armed body can: a punch with a hand that holds nothing", () => {
   const minds = ["options", "classic", "puncher", "counter", "scrapper", "behaviours"];
   for (const model of BODY_MODELS.filter((model) => model !== "reptile")) {
     const club = armedWith(modelSpec(model), "right", "club");
     assert.deepEqual(minds.map((id) => [id, treeFits(modelSpec(model), MINDS[id].config), treeFits(club, MINDS[id].config)]), [
-      ["options", true, true], ["classic", true, true], ["puncher", true, false], ["counter", true, false], ["scrapper", true, true], ["behaviours", true, true]], model);
+      ["options", true, true], ["classic", true, true], ["puncher", true, true], ["counter", true, true], ["scrapper", true, true], ["behaviours", true, true]], model);
   }
   const { executors, actions } = MINDS.options.config, bare = modelSpec("workshop-fighter");
-  assert.deepEqual(armedActions(bare, executors, actions), actions, "an empty-handed body throws every blow as it is");
+  const unarmed = armedActions(bare, executors, actions);
+  assert.deepEqual(unarmed.map(action => [action.name, action.effectors]),
+    [["strike", ["hand.right", "hand.left"]], ["one-two", ["hand.right", "hand.left"]], ["downward", ["hand.right", "hand.left"]]]);
+  assert.ok(unarmed.every(action => actions.includes(action)), "accepted empty-hand actions retain their entire configuration");
   // The club in the right hand: its punch is the left's, its one-two (a drive of each hand) is not thrown, its swung blow is either hand's.
   assert.deepEqual(armedActions(armedWith(bare, "right", "club"), executors, actions).map((action) => [action.name, action.effectors]),
     [["strike", ["hand.left"]], ["downward", ["hand.right", "hand.left"]]]);
   // In the left, the Puncher's punch is the right's, and it still has none with the club.
   const puncher = MINDS.puncher.config, left = armedWith(bare, "left", "club");
   assert.deepEqual(armedActions(left, puncher.executors, puncher.actions).map((action) => action.effectors), [["hand.right"]]);
-  assert.equal(strikesWithAll(left, puncher.executors, puncher.actions), false);
-  assert.equal(strikesWithAll(left, [], []), true, "a mind of no blows asks nothing of what its body holds");
+  assert.equal(equipmentSupported(left, puncher), true, "the guard covers with the club, while the free hand punches");
+  assert.equal(equipmentSupported(left, { ...puncher, actions: [], executors: [] }), true, "guarding is a declared use even without attacks");
+  assert.equal(equipmentSupported(left, { kind: "direct", targets: {}, seconds: .1, speed: 1, activation: 1 }), false, "a mind with no declared item use is refused");
+  const unsupported = { ...left, held: left.held.map((held) => ({ ...held, item: { ...held.item, cover: undefined } })) };
+  assert.equal(equipmentSupported(unsupported, puncher), false, "neither the punch nor the guard declares use of an uncovered item");
+  assert.equal(treeFits(unsupported, puncher), false);
 });
 
 test("presets bind actions to explicitly named execution state", () => {
@@ -91,7 +98,7 @@ test("presets bind actions to explicitly named execution state", () => {
 test("invalid names and executor settings are rejected before making a mind", () => {
   const replace = (config, patch) => ({ ...config, executors: config.executors.map((executor, i) => i ? executor : { ...executor, ...patch }) });
   for (const [id, { config }] of Object.entries(PRESETS)) assert.deepEqual(treeFaults(config), [], id);
-  assert.deepEqual(treeFaults({ ...CLASSIC, executors: [] }), ["strike: missing executor recipe"]);
+  assert.deepEqual(treeFaults({ ...CLASSIC, executors: [] }), ["strike: missing executor recipe", "blade-cut: missing executor blade-cut", "blade-thrust: missing executor blade-thrust"]);
   assert.deepEqual(treeFaults({ ...CLASSIC, executors: [...CLASSIC.executors, ...CLASSIC.executors] }), ["executors need distinct nonempty names"]);
   assert.deepEqual(treeFaults(replace(CLASSIC, { reach: 1 })), ["executors.0: Recipe strike has no setting reach"]);
   assert.match(treeFaults(replace(COMBAT, { tuning: { paths: { elbowExtension: 2 } } }))[0], /invalid path settings/);

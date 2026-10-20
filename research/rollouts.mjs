@@ -101,10 +101,10 @@ export function responsesAt(duel, side) {
     { name: "own", orders: null },
     { name: "attack", orders: { move: null, face: toward, foe: foe.id } },
     { name: "hold", orders: { move: null, face: toward } },
-    { name: "close", orders: { move: toward, face: null } },
-    { name: "back", orders: { move: { x: -toward.x, z: -toward.z }, face: toward } },
-    { name: "left", orders: { move: { x: -right.x, z: -right.z }, face: toward } },
-    { name: "right", orders: { move: right, face: toward } },
+    { name: "close", orders: { move: { kind: "direct", direction: toward }, face: null } },
+    { name: "back", orders: { move: { kind: "direct", direction: { x: -toward.x, z: -toward.z } }, face: toward } },
+    { name: "left", orders: { move: { kind: "direct", direction: { x: -right.x, z: -right.z } }, face: toward } },
+    { name: "right", orders: { move: { kind: "direct", direction: right }, face: toward } },
   ];
 }
 

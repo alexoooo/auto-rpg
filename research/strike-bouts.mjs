@@ -15,8 +15,8 @@ import { parseArgs } from "node:util";
 const AFTER = .25;
 /** Falls are read for two seconds from commitment; stance recovery continues one second past ending. */
 const DOWN = 2, RECOVERY = 1;
-/** Saved results describe the neutral action protocol and cannot mix with executor-private records. */
-const SCHEMA = 2;
+/** Saved results use explicit per-hand equipment and the neutral action protocol. */
+const SCHEMA = 3;
 
 if (isMainThread) {
   const { values } = parseArgs({ options: {
@@ -81,7 +81,7 @@ if (isMainThread) {
   parentPort.on("message", async ({ left, right, gap, held, seconds }) => {
     let dispose;
     try {
-      const recipe = { left, right, gap, cap: seconds, ...(held === "empty" ? { held: { left: "empty", right: "empty" } } : {}) };
+      const recipe = { left, right, gap, capSeconds: seconds, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } } };
       const bout = await buildBout(recipe); dispose = bout.dispose;
       const { world, duel } = bout, track = Object.fromEntries(SIDES.map(side => [side, {
         side, model: side === "left" ? left : right, phases: { prepare: 0, commit: 0, release: 0 }, idle: 0, attempts: [], sequence: 0,

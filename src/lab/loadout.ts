@@ -1,7 +1,7 @@
 import { withSoles } from "../core/human/sole.ts";
 import { resolveCharacter } from "../core/models.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
-import { armedWith, HELD, heldItem, type Held } from "../core/items/held.ts";
+import { withLoadout, HELD, heldItem, type Held } from "../core/items/held.ts";
 import { FIST, heldIn } from "../core/skills/strikes.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { LAB_HANDS, type LabLoadout } from "./scenarios.ts";
@@ -18,9 +18,7 @@ export function loadoutAttributes(loadout: LabLoadout & { readonly balance?: num
 /** Construct the Lab's character through the shared resolver, then fit soles and equipment. */
 export function loadoutSpec(loadout: LabLoadout): BodySpec {
   const own = resolveCharacter({ model: loadout.model, attributes: loadoutAttributes(loadout) }).spec;
-  let spec = loadout.sole ? withSoles(own) : own;
-  for (const side of LAB_HANDS) spec = armedWith(spec, side, loadout[side]);
-  return spec;
+  return withLoadout(loadout.sole ? withSoles(own) : own, { left: loadout.left, right: loadout.right });
 }
 
 /** The balance the body of `spec` has, per cent of its weight: `balance`, the address's, or its character's own. */

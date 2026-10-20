@@ -10,6 +10,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { heldFrame, heldPoint, principalOf, rigidOf, rigidPoints } from "../src/core/build/rigid.ts";
 import { armed } from "../src/core/human/grip.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
+import { armedWith, heldBy, loadoutFaults, withLoadout } from "../src/core/items/held.ts";
 import { woodenClub } from "../src/core/items/club.ts";
 import { aimOf } from "../src/core/skills/strikes.ts";
 import { frameOf } from "../src/core/spec/body.ts";
@@ -189,4 +190,25 @@ test("a hand strikes with the point its item says, a bare hand with its fist's, 
 test("a body refuses to hold an item in a segment it does not have", async () => {
   const spec = holder();
   await assert.rejects(coreStand({ ...spec, held: [{ ...spec.held[0], segment: "tail" }] }, { gravity: false, ground: false }), /no tail/);
+});
+
+
+test("each hand carries its own rigid load and contact ownership", () => {
+  const bare = humanSpec("workshop-fighter"), club = woodenClub();
+  const other = { ...club, name: "fixture club", mass: q(2, "kg") };
+  const spec = armed(armed(bare, "left", other), "right", club);
+  for (const hand of ["left", "right"]) {
+    const segment = spec.segments.find((part) => part.name === `hand.${hand}`), held = spec.held.find((item) => item.segment === segment.name);
+    const rigid = rigidOf(spec, segment);
+    close(rigid.mass, segment.mass.value + held.item.mass.value, 1e-12, `${hand} carries its own mass`);
+    assert.ok(rigid.owners.filter((owner) => owner.kind === "held").every((owner) => owner.held === held), `${hand} contacts name its own item`);
+  }
+  const both = withLoadout(bare, { left: "club", right: "club" });
+  assert.deepEqual([heldBy(both, "left"), heldBy(both, "right")], ["club", "club"]);
+  const changed = withLoadout(both, { left: "empty", right: "club" });
+  assert.deepEqual(changed.held.map((held) => held.segment), ["hand.right"], "assignment replaces the old holding");
+  assert.equal(armedWith(both, "right", "empty").held.length, 1);
+  assert.deepEqual(loadoutFaults({ left: "club", right: "club" }), []);
+  assert.deepEqual(loadoutFaults({ left: "spear" }), ["left hand holds no item called spear", "right hand holds no item called undefined"]);
+  assert.throws(() => withLoadout(bare, { left: "club" }), /right hand/);
 });

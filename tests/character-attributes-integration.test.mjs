@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import { BODY_MODELS, resolveCharacter } from "../src/core/models.ts";
+import { BODY_MODELS, modelHolding, resolveCharacter } from "../src/core/models.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
 import { Duel } from "../src/arena/duel.ts";
@@ -64,4 +64,32 @@ test("canonical and existing links build the same capabilities and resetting rem
   assert.equal(attributeScope({ id: "hero", side: "party", model: "workshop-fighter" }), "hero");
   assert.equal(attributeScope({ id: "ally-0", side: "party", model: "workshop-fighter" }), "ally-0");
   assert.equal(attributeScope({ id: "enemy-5", side: "enemy", model: "reptile" }), "enemy.reptile");
+});
+
+test("equipped court recipes retain attributes in construction, compatibility and recording identity", async () => {
+  const rendering = new NullEngine(), scene = new Scene(rendering), engine = await freshEngine();
+  const worlds = [], bouts = [];
+  const recipe = { left: "workshop-fighter", right: "workshop-rogue", level: "obstacle-court",
+    loadouts: { left: { left: "buckler", right: "sword" }, right: { left: "club", right: "empty" } },
+    attributes: { left: { strength: 1.3, speed: 1.1, hp: 9, balance: 5, haste: 25 }, right: {} } };
+  const make = recipe => {
+    const world = createWorld(scene, engine); worlds.push(world);
+    const bout = new Duel(world, recipe); bouts.push(bout); return bout;
+  };
+  try {
+    const bout = make(recipe), spec = bout.duelists.left.built.spec;
+    const lab = loadoutSpec({ model: recipe.left, ...recipe.loadouts.left, attributes: recipe.attributes.left, sole: false });
+    assert.deepEqual(values(spec), values(lab));
+    assert.deepEqual(values(spec), values(modelHolding(recipe.left, recipe.loadouts.left, recipe.attributes.left)));
+    assert.equal(bout.duelists.left.pool.total, 9);
+    const explicit = make({ ...recipe, attributes: bout.recipe.attributes });
+    assert.deepEqual(explicit.recording.identity, bout.recording.identity);
+    assert.doesNotThrow(() => explicit.playRecording(bout.recording));
+    const changed = make({ ...recipe, attributes: { ...recipe.attributes, left: { ...recipe.attributes.left, strength: 1.4 } } });
+    const initial = changed.save();
+    assert.throws(() => changed.playRecording(bout.recording), /physical conditions/);
+    assert.deepEqual(changed.save(), initial);
+  } finally {
+    bouts.forEach(bout => bout.dispose()); worlds.forEach(world => world.dispose()); scene.dispose(); rendering.dispose();
+  }
 });

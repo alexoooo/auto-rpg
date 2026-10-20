@@ -10,6 +10,7 @@ import type { Skill } from "./skill.ts";
 import { recipeExecutor, type Placed } from "./strike.ts";
 import { REPERTOIRE, type Repertoire } from "./strikes.ts";
 import type { SupportReport } from "./support-fold.ts";
+import type { NavigationReport } from "../mind/navigation.ts";
 
 /** The body's sole action runtime composes discrete commitments with continuous services. */
 export interface Skills extends Skill {
@@ -33,6 +34,7 @@ export interface SkillReport {
   readonly support?: SupportReport;
   readonly holders: Holders;
   readonly reservations: Readonly<Record<string, number>>;
+  readonly navigation?: NavigationReport;
 }
 
 /** Immutable experiment settings for the recipe executor and continuous guard. */

@@ -140,14 +140,16 @@ export function drawBody(built: BuiltBody, scene: Scene, tint: Color3): BodyShap
 
 /** Wood, for what a hand holds (`docs/reference/look.md#bodies`). */
 const WOOD = new Color3(0.45, 0.3, 0.17);
+/** Neutral steel keeps equipment legible against either character's skin. */
+const METAL = new Color3(.62, .67, .72);
 
 /** One visual item follows its physical node through capture and release; meshes carry no authority. */
 export function drawEquipment(item: ReturnType<typeof createEquipment>, scene: Scene): BodyShapes {
   const material = new StandardMaterial(`${item.id}.view`, scene);
-  material.diffuseColor = WOOD;
+  material.diffuseColor = item.spec.substance === "metal" ? METAL : WOOD;
   material.specularColor = new Color3(SHAPE_TINT.sheen, SHAPE_TINT.sheen, SHAPE_TINT.sheen);
   const frame = segmentFrame([0, 0, 0], [0, 1, 0]);
-  const meshes = item.spec.shapes.map((shape, i) => {
+  const meshes = [...item.spec.shapes, ...(item.spec.contacts ?? []).map(region => region.shape)].map((shape, i) => {
     const mesh = shapeMesh(`${item.id}.view.${i}`, frame, shape, scene);
     mesh.parent = item.node; mesh.material = material;
     return mesh;
@@ -157,20 +159,27 @@ export function drawEquipment(item: ReturnType<typeof createEquipment>, scene: S
 
 /**
  * Draw what `built`'s hands hold, as the solver has it: each segment's rigid body is its own shape
- * with its natural regions and held items (`rigidOf`); only the held owners are drawn here.
+ * with its natural regions and held items (`rigidOf`); held items and their regions are drawn here.
  * The skin has no mesh for a held item, so World shows these too.
  */
 export function drawHeld(built: BuiltBody, scene: Scene): BodyShapes {
-  const wood = new StandardMaterial(`${built.spec.model}.view.held`, scene);
-  wood.diffuseColor = WOOD;
-  wood.specularColor = new Color3(SHAPE_TINT.sheen, SHAPE_TINT.sheen, SHAPE_TINT.sheen);
+  const materials = new Map<string, StandardMaterial>();
   const meshes: Mesh[] = [];
   for (const segment of built.segments.values()) {
     segment.rigid.shapes.slice(1).forEach((shape, i) => {
-      if (segment.rigid.owners[i + 1]!.kind !== "held") return;
+      const owner = segment.rigid.owners[i + 1]!;
+      if (owner.kind !== "held" && owner.kind !== "held-region") return;
+      const substance = owner.held.item.substance;
+      let material = materials.get(substance);
+      if (!material) {
+        material = new StandardMaterial(`${built.spec.model}.view.held.${substance}`, scene);
+        material.diffuseColor = substance === "metal" ? METAL : WOOD;
+        material.specularColor = new Color3(SHAPE_TINT.sheen, SHAPE_TINT.sheen, SHAPE_TINT.sheen);
+        materials.set(substance, material);
+      }
       const mesh = shapeMesh(`${segment.node.name}.held.${i}`, segment.frame, shape, scene);
       mesh.parent = segment.node;
-      mesh.material = wood;
+      mesh.material = material;
       meshes.push(mesh);
     });
   }
@@ -178,7 +187,7 @@ export function drawHeld(built: BuiltBody, scene: Scene): BodyShapes {
     meshes,
     dispose() {
       for (const mesh of meshes) mesh.dispose(false, false);
-      wood.dispose();
+      for (const material of materials.values()) material.dispose();
     },
   };
 }

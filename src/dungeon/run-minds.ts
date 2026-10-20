@@ -17,11 +17,11 @@ interface Row { readonly side: Participant["side"]; readonly model: BodyModel }
 /** The minds the start panel offers a body of `model`, by id: its model's own first, then each that fits it holding what its model holds (`MINDS`). */
 function presetsFor(model: BodyModel): Readonly<Record<string, { readonly label: string; readonly config: MindConfig }>> {
   return { [OWN]: { label: "Its own", config: modelInfo(model).mind },
-    ...Object.fromEntries(Object.entries(MINDS).filter(([, mind]) => modelSupportsMind(model, mind.config, modelInfo(model).held))) };
+    ...Object.fromEntries(Object.entries(MINDS).filter(([, mind]) => modelSupportsMind(model, mind.config, { left: "empty", right: modelInfo(model).held }))) };
 }
 
 /** A body of `model`, holding what its model holds (`DungeonRun`): what its mind must fit. */
-const bodySpec = (model: BodyModel, attributes?: AttributeOverrides): BodySpec => modelHolding(model, modelInfo(model).held, attributes);
+const bodySpec = (model: BodyModel, attributes?: AttributeOverrides): BodySpec => modelHolding(model, { left: "empty", right: modelInfo(model).held }, attributes);
 
 /** The address's key for the mind of `row`: `<model>.mind` for the party's, `enemy.<model>.mind` for the enemies'. */
 const mindKey = (row: Row): string => `${row.side === "enemy" ? "enemy." : ""}${row.model}.mind`;

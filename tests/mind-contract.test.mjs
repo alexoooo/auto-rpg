@@ -132,3 +132,18 @@ test("a replay refuses a step with no order sheet, so a record that is short is 
   const short = Object.fromEntries(SIDES.map((side) => [side, { ...first.sheets[side], sheets: first.sheets[side].sheets.slice(0, FORK) }]));
   await assert.rejects(played(recipe, { replay: short }, false), /no order sheet for step/);
 });
+
+
+test("both-hand loadouts fork and replay their physical commands", async () => {
+  const config = CONTROLLERS.options.presets.options.config;
+  const recipe = { left: "workshop-fighter", right: "workshop-rogue", gap: 3,
+    loadouts: { left: { left: "club", right: "club" }, right: { left: "club", right: "empty" } },
+    minds: { left: config, right: config } };
+  const first = await played(recipe, { record: true }, true);
+  assert.deepEqual(first.peak.unfinite, []);
+  assert.equal(first.resumed, first.end.tail);
+  const replay = await played(recipe, { replay: first.sheets }, false);
+  assert.deepEqual(replay.minds, ["replay", "replay"]);
+  assert.equal(replay.end.digest, first.end.digest);
+  assert.equal(replay.end.physics, first.end.physics);
+});

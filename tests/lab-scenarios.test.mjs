@@ -20,7 +20,7 @@ import { tacticsOf } from "../src/core/mind/tactics-of.ts";
 const SCRIPT = LAB_PRESETS.script.config, GUARD = LAB_PRESETS.guard.config;
 /** A mind no preset is: the Guard preset getting up once down. */
 const RISING = { ...GUARD, subs: [{ kind: "support-recovery" }] };
-const DEFAULTS = { ground: {drive:"mind",rise:"step-up",waypoint:"none",start:"shoved",posture:"back",degrees:null,impulse:null,foe:0,gusts:false}, recoveryMode: "selected", recoveryPush: SEARCH_FALL, appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, sole: false, attributes: {}, balance: null, haste: null, mind: SCRIPT, barred: [], hz: 120,
+const DEFAULTS = { ground: {level:"open",drive:"mind",rise:"step-up",waypoint:"none",start:"shoved",posture:"back",degrees:null,impulse:null,foe:0,gusts:false}, recoveryMode: "selected", recoveryPush: SEARCH_FALL, appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, sole: false, attributes: {}, balance: null, haste: null, mind: SCRIPT, barred: [], hz: 120,
   view: "world", camera: "free", projection: "orthographic", targets: 10, seed: 1 };
 /** The Rogue as the workshop dresses it: boots, no armour. */
 const ROGUE = { model: "workshop-rogue", boots: true, armour: false };
@@ -32,7 +32,7 @@ test("the_lab_address_names_a_scenario_a_character_a_rate_a_view_and_a_camera_or
       barred: ["empty", "club"], hz: 480, view: "tactical",
       camera: "chase", projection: "perspective", targets: 4, seed: 7 });
   // Each field falls back alone; a known value beside an unknown one is kept.
-  assert.deepEqual(labAddress("?scenario=elsewhere&model=workshop-rogue&right=sword&left=club&boots=yes&mind=fighter&down=stand&barred=sword,club,club&hz=60&view=x-ray&camera=isometric&projection=fisheye&targets=31&seed=-1"),
+  assert.deepEqual(labAddress("?scenario=elsewhere&model=workshop-rogue&right=unknown-item&left=club&boots=yes&mind=fighter&down=stand&barred=unknown-item,club,club&hz=60&view=x-ray&camera=isometric&projection=fisheye&targets=31&seed=-1"),
     { ...DEFAULTS, ...ROGUE, left: "club", barred: ["club"], camera: "isometric" });
   // A mind is a preset's id or a whole tree as JSON, whose research tuning is dropped.
   assert.deepEqual(labAddress(`?mind=${encodeURIComponent(JSON.stringify(RISING))}`), { ...DEFAULTS, mind: RISING });
@@ -56,7 +56,7 @@ test("a_body_wears_what_the_workshop_dresses_it_in_until_the_address_says_otherw
   assert.deepEqual(labAddress("?model=workshop-rogue&armour=1&boots=0"), { ...DEFAULTS, ...ROGUE, armour: true, boots: false });
   assert.deepEqual(labAddress("?armour=0&boots=1"), { ...DEFAULTS, armour: false });
   // The hands hold nothing unless the address says so; the workshop's weapon is not the lab's.
-  assert.deepEqual(HELD, ["empty", "club"]);
+  assert.deepEqual(HELD, ["empty", "club", "buckler", "sword"]);
 });
 
 /** Each choice the lab offers, as the values an address may hold for it. */

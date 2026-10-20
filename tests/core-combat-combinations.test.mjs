@@ -13,7 +13,7 @@ const candidate=(region={kind:'mark',mark:'high'})=>({...COMBAT,actions:[{...COM
 // `core-combat-capability`'s.
 const still={...COMBAT,tactics:{...COMBAT.tactics,list:[{kind:'follow-orders'}]}};
 async function make(side='left',{gap=.9,region}={}){
- const s=await buildBout({left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
+ const s=await buildBout({left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},
  minds:{left:side==='left'?candidate(region):still,right:side==='right'?candidate(region):still},gap,recoverySeconds:null,capSeconds:30},
  {physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  s.duel.order(side==='left'?'right':'left',STAND_ORDERS);

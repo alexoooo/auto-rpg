@@ -2,14 +2,14 @@ import { appearancesFor, wearsClothing } from "../../render/appearance.ts";
 import { loadoutAttributes, strikesOf } from "../loadout.ts";
 import { attributeEditor } from "../../ui/attribute-editor.ts";
 import { LAB_HANDS, LAB_PRESETS, LAB_PROVIDES, LAB_WORN, MODELS } from "../scenarios.ts";
-import { HELD as HOLDS, type Held } from "../../core/items/held.ts";
+import { HELD as HOLDS, heldItem, type Held } from "../../core/items/held.ts";
 import { choice, entries, fold, following, group, menu, switches, toggle, when, type Control, type Named } from "../../ui/controls.ts";
 import { mindEditor } from "../../ui/mind-editor.ts";
 import { writeMind } from "../../ui/mind-link.ts";
 import type { LabPage } from "./sections.ts";
 
 const HANDS: Readonly<Record<(typeof LAB_HANDS)[number], string>> = { right: "Right hand", left: "Left hand" };
-const HELD: Named<Held> = { empty: { name: "Empty" }, club: { name: "Club" } };
+const HELD = Object.fromEntries(HOLDS.map((held) => [held, { name: heldItem(held)?.name ?? "Empty" }])) as Named<Held>;
 const WORN: Named<(typeof LAB_WORN)[number]> = {
   boots: { name: "Boots", title: "Appearance only" },
   armour: { name: "Armour", title: "Appearance only" },

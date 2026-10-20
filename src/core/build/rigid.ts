@@ -14,11 +14,12 @@ import { add, cross, dot, scale, sub } from "../spec/vec.ts";
 /** A symmetric inertia's entries, kg m2: xx, yy, zz, xy, xz, yz. */
 type Tensor = readonly [number, number, number, number, number, number];
 
-/** Whose a rigid body's shape is: its segment, a natural contact region or an item it holds. */
+/** Whose a rigid body's shape is: its segment, an anatomical region, an item or an item's region. */
 type ShapeOwner =
   | { readonly kind: "segment" }
   | { readonly kind: "region"; readonly region: ContactRegionSpec }
-  | { readonly kind: "held"; readonly held: HeldSpec };
+  | { readonly kind: "held"; readonly held: HeldSpec }
+  | { readonly kind: "held-region"; readonly held: HeldSpec; readonly region: ContactRegionSpec<ItemShape> };
 
 export interface Rigid {
   readonly mass: number;
@@ -109,8 +110,10 @@ export function rigidOf(spec: BodySpec, segment: SegmentSpec): Rigid {
   }
   return {
     mass, centre, tensor: t as unknown as Tensor,
-    shapes: [segment.shape, ...(segment.contacts ?? []).map(c => c.shape), ...holding.flatMap((held) => held.item.shapes.map((shape) => placedShape(held, shape)))],
-    owners: [{ kind: "segment" }, ...(segment.contacts ?? []).map(region => ({ kind: "region" as const, region })), ...holding.flatMap((held) => held.item.shapes.map((): ShapeOwner => ({ kind: "held", held })))],
+    shapes: [segment.shape, ...(segment.contacts ?? []).map(c => c.shape), ...holding.flatMap((held) =>
+      [...held.item.shapes, ...(held.item.contacts ?? []).map(region => region.shape)].map(shape => placedShape(held, shape)))],
+    owners: [{ kind: "segment" }, ...(segment.contacts ?? []).map(region => ({ kind: "region" as const, region })), ...holding.flatMap((held): ShapeOwner[] =>
+      [...held.item.shapes.map((): ShapeOwner => ({ kind: "held", held })), ...(held.item.contacts ?? []).map(region => ({ kind: "held-region" as const, held, region }))])],
   };
 }
 

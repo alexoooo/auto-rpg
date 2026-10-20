@@ -23,7 +23,7 @@ const FOE = { id: "foe", side: "right", out: false, down: false, spec: SPEC, cen
 /** Told to walk 5 m on, a foe 3 m off and out of reach, at `time` s, with a blow of `energy` J predicted to land, or none. */
 const walking = (time, energy = null, ledger = []) => ({
   sight: { view: { time, stance: { centre: { x: 0, y: 1, z: 0 } } }, report: { heading: 0, actions: [], ledger }, envelope: { walk: { value: PACE } } },
-  time, down: false, orders: { move: { x: 0, z: 1 }, face: null, destination: 5 }, focus: FOE, apart: 3, threat: null,
+  time, down: false, orders: { move: { kind: "direct", direction: { x: 0, z: 1 } }, face: null, destination: 5 }, focus: FOE, apart: 3, threat: null,
   incoming: energy === null ? null : { threat: [0, 1.6, .4], guarded: [0, 1.6, 0] }, danger: energy === null ? 0 : .3 * cost(energy),
   reach: { apart: 3, theirs: .8, mine: .8 }, exposure: 0, blows: { left: 0, right: 0 },
 });

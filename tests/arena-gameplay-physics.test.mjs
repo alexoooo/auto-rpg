@@ -33,7 +33,7 @@ test('unlimited recovery keeps a grounded opponent sensed and forks the whole bo
   const physicsEngine = await loadEngine();
   const slack = { kind: 'direct', targets: {}, seconds: .1, speed: 3, activation: 0 };
   const recipe = { left: 'workshop-fighter', right: 'workshop-fighter', gap: 8, capSeconds: 70,
-    held: { left: 'empty', right: 'empty' }, recoverySeconds: null, minds: { left: slack, right: slack } };
+    loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } }, recoverySeconds: null, minds: { left: slack, right: slack } };
   const a = await buildBout(recipe, { physicsEngine }), b = await buildBout(recipe, { physicsEngine });
   try {
     a.world.step(65 * 120);

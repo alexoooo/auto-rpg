@@ -2,7 +2,7 @@ import { buildBody } from "./build/build-body.ts";
 import type { AssistCeiling } from "./control/assist.ts";
 import type { MindConfig } from "./mind/config.ts";
 import { builtAngles, createMind, type Minded, type MindWiring } from "./mind/minds.ts";
-import type { SolidSense } from "./mind/object-senses.ts";
+import { solidSenses, type SolidSense } from "./mind/object-senses.ts";
 import type { Senses, SensesHub } from "./mind/senses.ts";
 import { replayedBody, sheetLog, type SheetLog } from "./mind/sheets.ts";
 import type { PhysicalBody } from "./physical-body.ts";
@@ -12,6 +12,8 @@ import { balanceCeiling, balancePercent, type Rulebook } from "./rules/rulebook.
 import type { BodySpec } from "./spec/body.ts";
 import type { Vec3 } from "./spec/quantity.ts";
 import type { World } from "./world.ts";
+import { cos, sin } from "./math/real.ts";
+import { recordingIdentity, requireRecordingIdentity } from "./recording.ts";
 
 /** **What a fight enlists a body with**: who it is, its body, where it stands, and what drives it. */
 interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdentity"> {
@@ -21,11 +23,13 @@ interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdenti
   readonly spec: BodySpec;
   /** Where its root stands, world. */
   readonly at: Vec3;
+  /** Initial yaw in world space; zero faces +z. */
+  readonly heading?: number;
   readonly rules: Rulebook;
   /** The fight's senses, which carry it (`SensesHub.add`). */
   readonly senses: SensesHub;
-  /** Fixed collision geometry its senses are granted (`Senses.solids`). */
-  readonly solids?: readonly SolidSense[];
+  /** Detached collision geometry its senses are granted; a provider refreshes doors or other changing solids. */
+  readonly solids?: readonly SolidSense[] | (() => readonly SolidSense[]);
   /** Whether it is out of the fight, asked once a step for what it and the others sense. */
   out(): boolean;
   readonly mind: MindConfig;
@@ -35,6 +39,8 @@ interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdenti
   readonly record?: boolean;
   /** Order sheets to play in place of its mind (`replayedBody`): its mind is not made. */
   readonly replay?: SheetLog;
+  /** The host's immutable content fingerprint and complete fight recipe, required for persisted sheets. */
+  readonly recording?: { readonly build: string; readonly context: unknown };
   /** What a per cent of balance is, in place of the rulebook's (`balancePercent`). */
   readonly percent?: AssistCeiling;
 }
@@ -59,15 +65,30 @@ export interface Combatant extends Fighter {
  */
 export function enlist(world: World, enlisting: Enlistment): Combatant {
   const { id, side, spec, rules, mind } = enlisting;
-  const built = buildBody(spec, world, { position: enlisting.at, joints: builtAngles(spec, mind) });
+  const heading = enlisting.heading ?? 0;
+  if (!Number.isFinite(heading)) throw new Error("invalid combatant heading");
+  const assist = balanceCeiling(enlisting.balance ?? spec.attributes.balance.value, enlisting.percent ?? balancePercent(rules));
+  const identity = enlisting.record || enlisting.replay ? recordingIdentity(enlisting.recording?.build ?? "", "muscle-sheets/1", {
+    context: enlisting.recording?.context, id, side, at: enlisting.at, heading, assist,
+    body: JSON.parse(JSON.stringify(spec, (key, value: unknown) => key === "provenance" ? undefined : value)) as unknown,
+    engine: world.physics.engine, revision: world.physics.revision, hz: world.hz, gravity: world.physics.gravity, actuation: world.actuation,
+  }) : null;
+  if (enlisting.replay) requireRecordingIdentity(enlisting.replay.identity, identity!);
+  const built = buildBody(spec, world, { position: enlisting.at, joints: builtAngles(spec, mind),
+    ...(heading ? { rotation: [0, sin(heading / 2), 0, cos(heading / 2)] as const } : {}) });
   const pool = createPool(spec, rules);
   // The mind is made after the senses carry its body; it is asked whether the body is down from the first step.
   let minded: Minded | null = null;
-  const senses = enlisting.senses.add({ id, side, built, out: enlisting.out, down: () => minded?.body.down ?? false,
-    ...(enlisting.solids ? { solids: enlisting.solids } : {}) });
-  const assist = balanceCeiling(enlisting.balance ?? spec.attributes.balance.value, enlisting.percent ?? balancePercent(rules));
-  const sheets = enlisting.replay ?? (enlisting.record ? sheetLog() : null);
-  minded = enlisting.replay ? { kind: "replay", body: replayedBody(built, world, enlisting.replay, { senses, assist }), state: {} } : createMind(built, world, mind, {
+  const sensed = { id, side, built, out: enlisting.out, down: () => minded?.body.down ?? false };
+  let source: readonly SolidSense[] | undefined, granted: readonly SolidSense[] | undefined;
+  if (enlisting.solids) Object.defineProperty(sensed, "solids", { enumerable: true, get() {
+    const current = typeof enlisting.solids === "function" ? enlisting.solids() : enlisting.solids;
+    if (current !== source) { source = current; granted = current ? solidSenses(current) : undefined; }
+    return granted;
+  } });
+  const senses = enlisting.senses.add(sensed);
+  const sheets = enlisting.replay ?? (enlisting.record ? sheetLog(identity!) : null);
+  minded = enlisting.replay ? { kind: "replay", body: replayedBody(built, world, enlisting.replay, { identity: identity!, senses, assist }), state: {} } : createMind(built, world, mind, {
     name: enlisting.name, senses, assist, orders: enlisting.orders,
     ...(enlisting.contactIdentity ? { contactIdentity: enlisting.contactIdentity } : {}),
   }, sheets ?? undefined);

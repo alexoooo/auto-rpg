@@ -166,20 +166,25 @@ do not.
 
 `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the model registry,
 construction, and each model's default mind and what its right hand holds. What a hand may hold is
-one list (`HELD`, `src/core/items/held.ts`: nothing, or the wooden club), and `armedWith` puts it
-in a hand, refusing a hand that cannot close on it; the Arena, the Crypt, the Lab and the control
-tasks all read it. How the Crypt walks a model (its footprint, how near it fights, how long it
-waits on a stalled route, whether a fall ends its fight) is the Crypt's (`cryptModel`,
+one list (`HELD`, `src/core/items/held.ts`: empty hands, the wooden club, buckler or short sword), and `armedWith` puts it
+in a hand, refusing a hand that cannot close on it. `Loadout` names both hands; `withLoadout`
+replaces their assignments, and `modelHolding` reads that equipped spec. The Arena recipe carries
+each fighter's `loadouts`, shared in `left.loadout=leftHand,rightHand` and `right.loadout` link
+parameters. Match and tournament identities and notes name both hands. The Arena, the Crypt, the Lab and the control
+tasks all read it. The Crypt's placement footprint, combat spacing and whether a fall ends its
+fight are the Crypt's (`cryptModel`,
 `src/dungeon/actors.ts`). What a body can do is read from its spec: `modelHolds` (a hand a haft lies across, `canHold`) and `modelSupportsMind`, which asks
 every part of the mind (`treeFits`) of the body as armed with what it holds (`modelHolding`), so
 a part that cannot use a loadout drops out of the pickers for it (`Controller.fits`: `commandable` and its actions for the fighters, `quadrupedFits` for
 the quadruped, any body for direct control). Each mind makes that call itself. A skill states
 the facts: an executor says which effectors it strikes with on the armed body
 (`ExecutorPart.strikesWith`; a punch only with a hand that holds nothing). The fighter and the
-options fighter use those facts: each fits a body only when it can throw a blow with every item
-the body holds (`strikesWithAll`), and it throws only the blows that body can (`armedActions`).
-So the Puncher is offered only empty-handed, while the options fighter with a club punches
-with its free hand and swings the club. How a model is shown, its label,
+options fighter declare their usable action effectors through `Part.supportedEquipment`. A
+guard declares the held segments it covers with through the same contract. `equipmentSupported`
+unions those declarations across the mind's tree; `treeFits` refuses a mind unless every held
+item has a declared use. This declaration establishes support, while physical tasks establish
+how well the item is used. Every fighter throws only its usable actions (`armedActions`), so the
+Puncher may cover with a club while punching with its free hand. How a model is shown, its label,
 clothing and shape tint, is the screens' (`MODEL_DISPLAY`, `src/render/models.ts`).
 Humanoid-only tasks use `HUMANOID_MODELS`; they do not fabricate hands on a different body.
 The reptile has 17 segments, 16 joints and 31 muscle freedoms: a trunk, four three-segment legs,
@@ -187,7 +192,15 @@ head, hinged jaw and two tail segments. Its complete spec carries asset provenan
 explicitly estimated anatomical values ([reference/reptile.md](reference/reptile.md)).
 `armed(spec, side, woodenClub())`
 (`src/core/human/grip.ts`, `src/core/items/club.ts`) puts the club, the only weapon so far, in a
-hand. Families share code, never values: a spec does not spread another family's spec.
+hand. The buckler (`src/core/items/buckler.ts`) is an ordinary rigid disc and grip, with a
+single cover centre and a face normal. The default `shield-guard` part puts its boss between a
+threat and the guarded place and independently orients the face through `EffectorGoal.orientation`.
+`cover-guard` remains a line-cover alternative, supporting items without a face normal. Both
+reuse the existing fist and club goals where appropriate. Tactics and reflexes prefer the hand
+with a covering face, keeping the striking hand available. Blunt executors exclude cover-only
+items without an attack aim, and directed blade surfaces (`strikesWithBlunt`). Item dimensions
+and mass decisions are recorded in [Arena items](reference/arena-items.md).
+Families share code, never values: a spec does not spread another family's spec.
 
 ### Provenance
 
@@ -231,7 +244,7 @@ what a step allocates is held under a ceiling (`tests/core-step-cost.test.mjs`,
 
 `buildBody` (`src/core/build/build-body.ts`) makes one engine body per segment, with the spec's
 mass and inertia (a held item's are folded in by `rigidOf`, which says whose each of the rigid
-body's shapes is: the segment's own, or an item it holds), and one joint per spec joint, whose
+  body's shapes is: the segment's own, an anatomical region, an item or an item's region), and one joint per spec joint, whose
 free axes are the spec's freedoms. The body is built in the pose its joints demand: a fighter in
 the posture its mind holds from its first step (`builtAngles`, `Controller.builtIn`; for a
 fighter its guard, `guardPosture`), so that no joint is flung into it.
@@ -551,8 +564,8 @@ Their actuator methods and their readiness/footprints remain their own.
   searched settings and none of them a person's to tune: the gait of the first of its rules that
   holds, or its `otherwise`. A rule (`MoveRuleConfig`) holds while the body is asked to stand, or
   while a distance is under or over so many metres: the nearest standing foe's, or the
-  destination's, how far the tactics say the walk has left to go (`Intent.destination`, from
-  `Orders.destination`), infinitely far where there is none. A distance's rule lets go of the gait
+  destination's, how far navigation reports the walk has left to go (`Intent.destination`),
+  infinitely far where there is none. A distance's rule lets go of the gait
   it chose only half a metre past it. Move changes gait only between steps, a gait that drives the
   legs asked to stand first and changed from once it has given them back; resumes the gait it
   changes to from the body as it is, and gives tactics the envelope of the gait it walks by. Two
@@ -561,9 +574,9 @@ Their actuator methods and their readiness/footprints remain their own.
   standing foe is within 5 m, and otherwise by Run, which runs only where the pace asked is past
   its walk's: whether a body runs is its tactics' or its orders' choice of pace. An Arena bout
   opens at 4 m, so it fights from its first step. Ordered a way only, as tactics closing on a foe
-  order it, a body walks at the walk that holds every way; sent somewhere
-  (`Orders.destination`) or ordered to run (`Orders.run`, Shift in the Arena), at the fastest forward
-  that held 0.6 of its trials (`RUN`), facing the way it goes (`orderedIntent`, `ordered.ts`). A kick and the support fold
+  order it, a body walks at the walk that holds every way; ordered to run (`Orders.run`, Shift
+  in the Arena), it asks the fastest forward that held 0.6 of its trials (`RUN`). Explicit facing
+  remains authoritative and limits sideways or backward travel (`orderedIntent`, `ordered.ts`). A kick and the support fold
   wait for a gait that drives the legs to give them back to the stance, and while the fold is
   under way a walk asked waits for it to rise (`skillSet`).
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
@@ -595,6 +608,16 @@ Their actuator methods and their readiness/footprints remain their own.
   blow stays where its window had it ([reference/blows.md](reference/blows.md#steered)). It
   exposes recipe estimates through its registered action descriptions.
   While a strike runs it owns the legs and trunk, and the other hand guards.
+- **Blade actions** (`blade.ts`, `blade-part.ts`) select a held item's directed edge or point
+  region, with a same-named physical aiming point and a second named point behind it along the
+  region's direction. They share `effectorStrike`'s preparation, committed stroke, verified
+  return, cancellation and interruption. A cut turns the blade's plane into its contact
+  direction; a thrust uses the two points to aim inside its contact cone while leaving roll
+  free. Both request a short follow-through and release the legs and trunk during return.
+  Recipe and path executors admit bare hands and aimed blunt items; blades use these dedicated
+  parts. The default recipe and options assemblies include both blade actions, filtered to the
+  hands whose equipment supports them. `shortSword` (`src/core/items/sword.ts`) supplies the
+  first such item; its numbers are in [reference/arena-items.md](reference/arena-items.md).
 - **Guard** (`guard.ts`) is a skill in the one list, and has the hands the strike has not. Its
   pose is the arms' posture when nothing else owns them (`guardPosture`): `GUARD`, with a hand
   that holds an item turned at the wrist so that the item stands as near upright as the wrist's
@@ -1023,11 +1046,24 @@ clinch breaking and cover. Ground positioning preserves the route to a low targe
 chosen executor owns its own lowering, strike and return to standing. A tactics rule never
 writes a joint, posture or push.
 
-`Orders` name walking/facing, a sensed foe id and optional segment region; they do not carry a
+`Orders` name a world movement objective and independent facing, a sensed foe id and optional segment region; they do not carry a
 camera point. Arena pointer selection casts against sensed collision geometry and sends that
 identity. The mind chooses a point from its current sensed body. The Crypt sends the same foe
 identity from its map-aware plan. Autonomous tactics select their own foe; a directly controlled
 body acts on the person's orders. Scripted Lab experiments may deliberately request a point.
+
+Movement requests (`src/core/mind/movement.ts`) are Direct world directions, Place waypoint lists
+with an arrival tolerance, or Range bands around sensed body identities. Null requests a controlled
+stop; no external orders leaves movement to tactics. Navigation is a selectable role between
+tactics and locomotion, configured on a fighter's `navigation` slot. The visibility navigator
+routes round inflated fixed footprints, retains an obstacle side, brakes before corners and
+arrival, and accounts for low furniture and carried item points. Local clearance is an alternative.
+Tactics retain facing, attack and obedience decisions. The navigator reports its unconsumed
+route, remaining distance, physical arrival, unreachable geometry, stalls and lost focus; action
+ownership and recovery hand-back pause or reset its progress clock. Its route and progress memory
+belong to the body's saved skill state. Locomotion continues to consume forward/right velocity.
+`src/core/tasks/navigation.ts` supplies shared physical conditions and independent arrival,
+range-holding, contact and fall scoring through the common task environment.
 
 The selector reports candidate readiness, retains a pending attempt only while its rule remains
 eligible, and reads bounded terminal history for follow-ups and spacing adaptation. A clean miss
@@ -1225,6 +1261,8 @@ configuration identity, restores it and only then replaces the live episode. A f
 can load directly; a rejected load leaves the current episode intact. The identity includes
 resolved anatomy, task/controller settings, rate, actuation, gravity and solver artifact/adapter
 revision. The snapshot is structured data and bytes, not a JSON-only serialization format.
+Its host supplies the content build fingerprint (`Options.buildIdentity`); the versioned snapshot
+refuses another build or protocol before constructing a candidate episode.
 
 Replay tests capture fresh states; a checkpoint's identity guards stay strict, so a state saved
 by other code is refused rather than loaded. The stand-up screen (`research/stand-up-acceptance.mjs`)
@@ -1295,11 +1333,11 @@ and the blow watch.
   played) with the world's, the senses', the blow watch's and each side's body's, skills' and
   pool's.
 
-`Duel.save()` is a bout at a step: its recipe, the physics' bytes and a copy of its state.
+`Duel.save()` is a bout at a step: its build/protocol identity, recipe, the physics' bytes and a copy of its state.
 `Duel.load(saved)` puts a bout of the same recipe there, the bout it was saved from or another
 built in any world: the physics, the state, and each body shown the others again from the
 senses' frames (`SensesHub.show`). The next step is the one that followed the save. A save of
-another recipe is refused.
+another build, protocol, physical configuration or recipe is refused before loading physics.
 
 `tests/arena-fork.test.mjs` forks a bout at every second of its course and at every step about a
 blow, and holds every field of the bout's state to be one a fork needs: loaded with the field
@@ -1327,7 +1365,9 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   stiffness in series, pi sqrt(mu / k); mu and the time are solved together (`contactGive`). So a
   braced arm meets a blow with the trunk behind it, and a limp one with the hand alone; two rigid
   surfaces meet for no time, with every joint free. Ordinary rigid impacts use the strongest loaded shape pair. A shape belongs
-  to its segment, a natural contact region (`ContactRegionSpec`), or a held item.
+  to its segment, a natural contact region (`ContactRegionSpec`), a held item, or an item's
+  named region (`ItemSpec.contacts`). Item regions retain their item identity and their own
+  surface, with geometry and directed mechanisms placed from the item frame by its holding.
   `LandedBlow.kind` distinguishes an impact's energy and closing speed from a load's
   normal impulses and interval. Each side records its surface, damage and actual pool wound.
 - **The two surfaces share the energy by their compliance** (`energyShares`, `share.ts`): springs
@@ -1339,14 +1379,17 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   rulebook's threshold (`Rulebook.fist`, a knuckle's injury). The values, their gaps and what a part holds beside the literature:
   [reference/wounds.md](reference/wounds.md).
 - **Damage** (`rulebook.ts`): ordinary impact damage is energy times the mechanism's worth
-  over the unit, 100 J of blunt blow per HP (`owner-damage-unit`). An aligned physical point
-  instead wounds by `pointLoad.rate * max(0, impulse - pointLoad.threshold * dt)`.
-  Its direction is anatomical body frame or held-item frame, tested against the contact normal
-  (`pointsInto`). Sides and reverse contacts remain blunt. `watchBlows` sums all qualifying
+  over the unit, 100 J of blunt blow per HP (`owner-damage-unit`). A surface's `directed`
+  property names an edge or point, its direction and its admitted normal cosine. An aligned
+  item edge or point prices the impact by that mechanism; side and reverse contacts are blunt.
+  A touch spanning several regions is classified by its strongest loaded shape pair and paid
+  once, with no sliding-contact damage. Anatomical points instead wound by
+  `pointLoad.rate * max(0, impulse - pointLoad.threshold * dt)`. Their direction is in the
+  anatomical body frame, tested against the contact normal (`pointsInto`). `watchBlows` sums all qualifying
   collider contributions once per pointed rigid body, victim segment and interval, applying
   the shared threshold once. Opposing points can wound both sides. A held item intercepts
-  load injury; impact recoil still follows compliance. Aligned point injury receives no
-  second energy payment. The rule needs no tissue layer, penetration estimate, release ledger,
+  load injury; impact recoil still follows compliance. Anatomical point injury receives no
+  second energy payment, and held items receive no sustained-load payment. The rule needs no tissue layer, penetration estimate, release ledger,
   character identity or attack intent. Sustained pressure can wound without motion.
   [Pointed contact](reference/reptile-bites.md) records the game calibration, separate from anatomy.
   The Warrior's strongest one-handed club blow (`CLUB_BEST`, `research/core-club-unit.json`)
@@ -1407,7 +1450,7 @@ begins the same after another (`tests/arena-fresh-start.test.mjs`). How the bout
 is `docs/reference/bouts.md`.
 
 Every order a side is given is kept with the step it was given before (`Duel.tape`), an order
-that repeats the last left out. For the current deterministic controllers, the recipe and the
+that repeats the last left out. On the same build and physical configuration, the recipe and the
 tape are the whole of what made a bout:
 `Duel.play` gives a tape again as the bout steps, each order in the sensing phase of the step it
 names, before any mind, so a bout a person fought plays again to the bit
@@ -1423,6 +1466,9 @@ rule of the body, read again in the replay. The recipe and the sheets are the wh
 did: a bout given them (`DuelHooks.replay`) makes no mind, plays each side's sheets in its place
 (`replayedBody`) and is the same bout to the bit. A load that goes back drops the sheets after it
 as the steps are taken again. `tests/mind-contract.test.mjs` holds every registered Mind to it.
+Each log identifies the build, sheet protocol, complete bout recipe, body, initial placement,
+assist grant, engine profile/revision, rate, gravity and actuation. A different identity is refused
+before a replay body is built; replaying the same commands under different grants is a different task.
 
 The same contract test checks exact live continuation after restoring each current Mind's
 explicit state. Live continuation executes the controller again; physical replay applies the
@@ -1432,7 +1478,23 @@ poses; separate-equipment grip requests are outside this gameplay recording form
 A tape rides in a link's fragment, which no server is sent (`#tape=`, `readTape` and `tapeHash`
 in `src/arena/matchup.ts`), with the rest of its recipe in the link's query (`&gap=`, `&cap=`,
 `&balance=`, each side's mind). The arena plays a bout whose link carries a tape with nobody at the keys, and a
-tape made in Node plays its bout in a browser.
+tape made in Node plays its bout in a browser on the same build. `Duel.recording` creates its
+versioned envelope; `Duel.playRecording` checks the exact identity before queuing inputs. Missing
+identity, malformed, legacy or incompatible recordings report a reason. An ordinary recipe link, without
+`#tape`, builds with the current code.
+
+The build fingerprint is a content SHA-256 (`scripts/build-identity.mjs`): source and page templates,
+input assets, dependency lock, build configuration, vendored solver inputs and actual installed
+Rapier JavaScript/WASM. Text uses LF for identity regardless of checkout endings. Generated ratings,
+notes and research outputs are excluded. Uncommitted source participates; a Git commit is only a
+human label. Node reads this fingerprint and Vite embeds the same immutable value for the browser;
+development source changes reload the page instead of mixing new code into an existing world's
+identity. The core receives the build identity from its host and owns only plain identity data and
+compatibility checks (`src/core/recording.ts`).
+
+Match results carry the build and protocol identity; `npm run match -- --read <file>` refuses an
+incompatible result. Tournament caches use content identity in their path and verify every row before
+reuse. Written tables name the same input build, and the Arena refuses a stale table with its reason.
 
 **A bout forks** (`rollout`, `research/rollouts.mjs`) by a load: a bout of the recipe, which the
 thread keeps, is loaded with a save of the fork's step (`Duel.save`) and played on under a branch
@@ -1460,7 +1522,14 @@ side's mind inspected under its bar. A person
   while pressed over sensed collision geometry, a foe and segment identity (`src/arena/orders-input.ts`).
   These become orders (`Duel.order`), so nothing of the camera reaches a mind. The room's
   solids (`arenaSolids`) are a floor slab, twenty-four rotated parapet boxes and eight brazier
-  pedestals enclosing a circular floor. Setup uses two unstepped character previews
+  pedestals enclosing a circular floor. `LEVELS` (`src/arena/levels.ts`) selects the open stage or
+  obstacle court; the recipe's `level` is carried by `&level=`. The court adds the Crypt kit's
+  columns, tomb and bench from shared furniture definitions (`src/environment/furniture.ts`), including collision
+  sizes, visual placements and sight permissions. Every Mind receives the stage's entire fixed
+  geometry. Opponent visibility keeps its existing policy. Each level owns its spawn pair,
+  headings and allowed gap; admission checks the posed body's collider bounds, held items included,
+  against all above-floor solids before stepping. Page and Node bouts build from `arenaSolids(level)`.
+  Setup uses two unstepped character previews
   (`src/render/character-preview.ts`) and an overview camera; Fight switches explicitly to the
   combat camera and HUD. `camera.ts` follows pose-only subjects with the existing FreeCamera and
   post pipeline, running even while the world is paused. `view.ts` owns presentation URL settings,
@@ -1481,6 +1550,15 @@ side's mind inspected under its bar. A person
   a reptile remains alive during recovery and must stand to reach the exit.
   A person's orders reach the party only through the run's
   plan (`DungeonCommands`), and each member's mind carries them out while it defends itself.
+  The run issues world directions, destination lists and sensed-target range bands through
+  `MovementRequest`. Each Mind's navigation role owns its geometric route, braking, arrival and
+  progress; the page draws that role's reported route. The world builder grants detached frozen
+  copies of the actual collision boxes, refreshing them when a door opens. A distant blocked
+  goal may first select an openable door (`door-approach.ts`): map search identifies which door
+  connects the objective, then the shared navigator reaches its near-side interaction point.
+  The map's search and request planning use the core's exact arithmetic.
+  The world's existing proximity rule opens it before the original objective resumes. The run
+  preserves the unconsumed explicit points of a drawn order across that interaction.
   Enemies are built when the party comes near; its art is in [art/crypt.md](art/crypt.md). Sight
   is the map's (`canSee`, `reveal`, `src/dungeon/map.ts`), read through an index of the cells
   where nothing need be read (`SightIndex`), made again when a door opens. The
@@ -1530,6 +1608,14 @@ side's mind inspected under its bar. A person
   classifications, support loads, recovery phases, attempts and assist impulses are recorded
   with the body and foe. `research/rising-bed.mjs` runs the same mode in worker threads, a fresh
   body a fall; its target mode is the 64 falls, the round's on four loadouts.
+  The Fall environment selector (`groundLevel` in links) adds a column, wall, tomb or bench from
+  `ground-environment.ts`, using the same furniture dimensions and kit as the Arena and Crypt.
+  Shoved starts leave a measured geometric gap behind the body; the tomb condition orders a
+  backward step before its shove. Placed and dropped starts on low furniture begin above its top.
+  Obstacle geometry is granted through senses, and static scenery stays in place during history
+  playback. `research/rising-bed.mjs --obstacles` runs a separate 256-fall suite, the 64 direction
+  cases in each environment; its failures remain in the reports and establish no recovery promise.
+  `--target` retains the original 64 open-floor cases and rejects obstacle conditions.
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
   with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).
 - **The physics bench** (`/physics-bench.html`, `src/physics-bench/`): the bake-off's cases on
@@ -1585,7 +1671,7 @@ the same action protocol. A blow is whatever two surfaces of two sides met with.
 keep control choices separate from the contact and damage rules ([roadmap](roadmap.md#strikes)).
 | Added | Where it goes | What it leaves alone |
 |---|---|---|
-| **A sword, a spear**: an edge, a point | An item's shape states its edge or pointed surface; an aligned point uses the shared load rule. Edges and their breach costs need implementation. The item states its `aim` and its points; a search finds its recipes; the guard places its two ends. | The shares, the pool, the skill, the targets. |
+| **A sword, a spear**: an edge, a point | Item regions state directed edge or point surfaces, priced on impact. The short sword supplies both; `blade-cut` and `blade-thrust` execute them on the shared lifecycle. A spear needs its own item and execution qualification. | The shares, the pool, the skill, the targets. |
 | **The face and the vault** | Natural contact regions (`SegmentSpec.contacts`) supply separate colliders and surfaces; teeth use this path. Face and vault regions still need anatomical data. | The pool: one head, one share of hit points. |
 | **Armour**: boots, greaves, a cuirass, vambraces, gloves, a helmet | A worn item, rigid with its segments as a held one is: it adds its mass, and its surface is one more layer in series (`energyShares` over the layers), taking its share and wounding nobody; it raises the breach cost of an edge or a point. A glove protects the puncher by the same rule. | The rule's shape; a rigid body's shapes gain a kind of owner. |
 | **A shield** | A held item with a face: its points are what the guard places (`ItemSpec.cover`); a bash is a blow like any other. A third place on one rigid body fixes its roll (`HandGoal.places`). | The guard skill, the rule. |

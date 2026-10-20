@@ -48,10 +48,10 @@ test("a_body_has_a_strike_for_each_thing_its_hands_hold", () => {
 test("each_hand_holds_what_the_loadout_says_and_nothing_else", () => {
   const club = woodenClub();
   for (const model of MODELS) {
-    const holding = (loadout) => (loadoutSpec(loadout).held ?? []).map((held) => [held.segment, held.item.name]);
+    const holding = (loadout) => (loadoutSpec(loadout).held ?? []).map((held) => [held.segment, held.item.name]).sort();
     assert.deepEqual(holding({ ...bare(model), right: "club" }), [["hand.right", club.name]]);
     assert.deepEqual(holding({ ...bare(model), left: "club" }), [["hand.left", club.name]]);
-    assert.deepEqual(holding({ ...bare(model), right: "club", left: "club" }), [["hand.right", club.name], ["hand.left", club.name]]);
+    assert.deepEqual(holding({ ...bare(model), right: "club", left: "club" }), [["hand.left", club.name], ["hand.right", club.name]]);
     const both = loadoutSpec({ ...bare(model), right: "club", left: "club" });
     assert.deepEqual(specProvenanceFaults(both), []);
     // Holding changes no segment: the club is the hand's rigid body's, not its segment's.

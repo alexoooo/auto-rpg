@@ -14,7 +14,7 @@ import {commandsBody} from '../src/core/body.ts';
 
 const kicks={...KICKER,actions:KICKER.actions.filter(action=>action.executor==='kick'),tactics:{...KICKER.tactics,choose:{kind:'rotate',rethink:.2,patience:2}}};
 const recipe={left:'workshop-fighter',right:'workshop-fighter',gap:1.4,capSeconds:60,recoverySeconds:null,
-  balance:{left:0,right:0},held:{left:'empty',right:'empty'},minds:{left:kicks,right:SCRAPPER}};
+  balance:{left:0,right:0},loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },minds:{left:kicks,right:SCRAPPER}};
 const make=async()=>buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
 
 test('a native Arena kick forks through preparation, impact and verified landing, and orders withdraw it',async()=>{

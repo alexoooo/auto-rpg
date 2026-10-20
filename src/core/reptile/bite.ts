@@ -33,8 +33,8 @@ export function mouthOf(built: ReadBody) {
   const hinge = lower && chainTo(built, lower).at(-1), head = hinge?.parent, neck = head && chainTo(built, head).at(-1);
   if (!lower || !hinge || !head?.spec.points?.mouth || !neck) throw new Error(`${built.spec.model} has no jaw hinged to a head with a mouth`);
   const teeth = (lower.spec.contacts ?? []).flatMap(contact => {
-    if (!contact.surface.point || contact.shape.kind !== "hull") return [];
-    const direction = contact.surface.point.direction.value;
+    if (contact.surface.directed?.mechanism !== "point" || contact.shape.kind !== "hull") return [];
+    const direction = contact.surface.directed.direction.value;
     const projection = (point: Vec3) => point[0] * direction[0] + point[1] * direction[1] + point[2] * direction[2];
     const tip = contact.shape.points.reduce((best, point) => projection(point.value) > projection(best.value) ? point : best).value;
     return [{ name: contact.name, tip }];
@@ -60,9 +60,9 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
   const gape = gapePoints(lower, hinge, T.open);
   const chamber: [number, number, number] = [chamberPoint.x, chamberPoint.y, chamberPoint.z];
   const strikePoint = pointAtToRef([hinge], [[T.open * T.contactAt]], tip, new Vector3());
-  const tooth = lower.spec.contacts!.find(c => c.surface.point)!;
+  const tooth = lower.spec.contacts!.find(c => c.surface.directed?.mechanism === "point")!;
   const toothDepth = tooth.shape.kind === "hull" ? Math.max(...tooth.shape.points.map(p => p.value[1])) - Math.min(...tooth.shape.points.map(p => p.value[1])) : 0;
-  const teeth = lower.spec.contacts!.flatMap(c => c.shape.kind === "hull" && c.surface.point ? c.shape.points.map(p => p.value) : []);
+  const teeth = lower.spec.contacts!.flatMap(c => c.shape.kind === "hull" && c.surface.directed?.mechanism === "point" ? c.shape.points.map(p => p.value) : []);
   const halfWidth = Math.max(...teeth.map(p => Math.abs(p[0] - tip[0])));
   const aim = new Vector3(), offset = new Vector3(), mouth = head.spec.points!.mouth!.value;
   const support = (own.spec.effectors ?? []).filter(e => e.support).map(() => ({ corners: [new Vector3()] }));
@@ -134,8 +134,8 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
         || !!obstruction && !(obstruction.kind === "body" && obstruction.body === state.selected?.foe);
       const intended = !blocked && (contact ? identity?.kind === "body" && identity.body === state.selected?.foe : !feedback?.impulse);
       if (contact) { velocity.set(...contact.normal).applyRotationQuaternionToRef(Quaternion.InverseToRef(turnOfToRef(lower, inverse), inverse), velocity); }
-      const direction = tooth.surface.point!.direction.value;
-      const aligned = !contact || velocity.x * direction[0] + velocity.y * direction[1] + velocity.z * direction[2] >= tooth.surface.point!.alignment.value;
+      const direction = tooth.surface.directed!.direction.value;
+      const aligned = !contact || velocity.x * direction[0] + velocity.y * direction[1] + velocity.z * direction[2] >= tooth.surface.directed!.alignment.value;
       const phase = cycle.phase;
       const event = advanceStrike(cycle, { at: measured, velocity: rate, home: chamber, chamber: prepared ? measured : chamber,
         requested: !!target && !blocked, complete, down: view.down, supported: ready, prepared, released: clear && cycle.time >= T.release && angle >= T.open - T.jawError

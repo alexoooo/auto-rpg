@@ -33,7 +33,7 @@ export function equipHands(world: World, built: BuiltBody, definition: HandEquip
     }
     names.add(side);
     const held = handHolding(built.spec, side, definition.item), hand = built.segments.get(held.segment)!;
-    if (hand.rigid.owners.some((owner) => owner.kind === "held")) throw new Error("a separately equipped hand must not also contain compound equipment");
+    if (hand.rigid.owners.some((owner) => owner.kind === "held" || owner.kind === "held-region")) throw new Error("a separately equipped hand must not also contain compound equipment");
     if (hand.body.linearVelocityToRef(vector).lengthSquared() !== 0 || hand.body.angularVelocityToRef(vector).lengthSquared() !== 0) {
       throw new Error("initial hand equipment requires stationary hands");
     }

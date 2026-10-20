@@ -1,7 +1,7 @@
 /**
  * **The straight punch in the game**: Arena bouts (`buildBout`) of a Puncher (`PUNCHER`) throwing the
  * straight punch (`straightPunch`, `src/core/skills/straight-punch.ts`) bare-handed at what `--aim`
- * names (the head unless asked), come to as `--range` says (the edge unless asked), of a bare-handed Warrior, priced by the arena's
+ * names (the head unless asked) of a bare-handed Warrior, priced by the arena's
  * rulebook as its blows land (`Duel.blows`). A bout's
  * score is the hit points the foe lost less those the puncher lost, with `FELL` taken off for each
  * second the puncher spent down and `LOST` for a bout it lost; with `--head`, also that many hit points for
@@ -15,8 +15,8 @@
  * punch under two, and `SHORT` a kilogram under 1.5 that the heaviest wounding fist met.
  *
  * Usage:
- *   node research/punch-in-bout.mjs [--settings '<json>'] [--gaps 1.2,1.6] [--seconds 8] [--foes stands] [--aim head] [--range edge]  one setting, its blows printed
- *   node research/punch-in-bout.mjs --search [--foes stands,classic] [--aim head] [--range edge] [--gaps 1,1.4] [--seconds 8] [--settings '<json>'] [--fixed '<json>'] [--rival '<json>'] [--scene] [--head 2] [--sigma 0.2] [--generations 30] [--lambda 16] [--workers 15] [--seed 1] [--hz 120]
+ *   node research/punch-in-bout.mjs [--settings '<json>'] [--gaps 1.2,1.6] [--seconds 8] [--foes stands] [--aim head]  one setting, its blows printed
+ *   node research/punch-in-bout.mjs --search [--foes stands,classic] [--aim head] [--gaps 1,1.4] [--seconds 8] [--settings '<json>'] [--fixed '<json>'] [--rival '<json>'] [--scene] [--head 2] [--sigma 0.2] [--generations 30] [--lambda 16] [--workers 15] [--seed 1] [--hz 120]
  *
  * `--fixed` holds the settings it names where it puts them and searches the rest.
  *
@@ -30,13 +30,14 @@ import { buildBout } from "./bout.mjs";
 import { cmaSearch, workerPool } from "./cma.mjs";
 import { CLASSIC, PUNCHER, SCRAPPER } from "../src/core/mind/config.ts";
 import { BRAWLER, COMBAT, KICKER } from "../tests/fixtures/minds.mjs";
+import { EMPTY_LOADOUT } from "../src/core/items/held.ts";
 import { STRAIGHT_PUNCH } from "../src/core/skills/straight-punch.ts";
 
 /** A Warrior standing in guard, throwing nothing. */
 const STANDS = Object.freeze({ ...CLASSIC, tactics: { kind: "stand" }, executors: [], actions: [] });
 
-/** Both sides bare-handed: the Warrior's own loadout is a club. */
-const BARE = Object.freeze({ left: "empty", right: "empty" });
+/** Both hands of both sides are bare. */
+const BARE = Object.freeze({ left: EMPTY_LOADOUT, right: EMPTY_LOADOUT });
 
 /** Hit points a second down costs the puncher in the score, and a bout lost. */
 const FELL = 0.5, LOST = 1;
@@ -64,12 +65,12 @@ const toUnit = (settings) => KEYS.map((key) => (settings[key] - RANGES[key][0]) 
 
 /**
  * One Arena bout of `mind` (on the left) against `foe` `gap` m away for `seconds`, each side holding
- * what `held` says, bare-handed unless asked: every blow the
+ * what `loadouts` says, bare-handed unless asked: every blow the
  * left's hands landed on the foe, what each side lost, how many blows the left threw, and the
  * seconds it spent down.
  */
-export async function boutOf(mind, { foe = STANDS, gap = 1.4, seconds = 8, hz = 120, held = BARE } = {}) {
-  const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-fighter", minds: { left: mind, right: foe }, held, gap }, { hz });
+export async function boutOf(mind, { foe = STANDS, gap = 1.4, seconds = 8, hz = 120, loadouts = BARE } = {}) {
+  const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-fighter", minds: { left: mind, right: foe }, loadouts, gap }, { hz });
   try {
     const left = duel.duelists.left, cycles = actionCycles(left.minded.skills);
     let down = 0;
@@ -95,9 +96,9 @@ export async function boutOf(mind, { foe = STANDS, gap = 1.4, seconds = 8, hz = 
   } finally { dispose(); }
 }
 
-/** One bout of the straight punch with `settings` (`boutOf`), aimed at what `aim` names (the action's region) and come to as `range` says (the approach behaviour's range), the rest of it the Puncher's. */
-export const punchBout = (settings, { aim = "head", range = "close", ...options } = {}) =>
-  boutOf({ ...PUNCHER, tactics: { ...PUNCHER.tactics, list: PUNCHER.tactics.list.map(behaviour => behaviour.kind === "approach" ? { ...behaviour, range } : behaviour) },
+/** One bout of the straight punch with `settings` (`boutOf`), aimed at what `aim` names, with the Puncher's approach behaviour. */
+export const punchBout = (settings, { aim = "head", ...options } = {}) =>
+  boutOf({ ...PUNCHER,
     actions: PUNCHER.actions.map(action => ({ ...action, regions: [{ kind: "mark", mark: aim === "head" ? "high" : "any" }] })),
     executors: [{ name: "punch", kind: "straight-punch", ...STRAIGHT_PUNCH, ...settings }] }, options);
 
@@ -106,14 +107,14 @@ const GAPS = [1.0, 1.4, 1.8, 2.2];
 
 /** What `settings` fall short of in the punch test's bout: wounding punches under two, and kilograms under 1.5 that the heaviest wounding fist met. */
 async function sceneShortOf(settings, hz) {
-  const bout = await punchBout(settings, { foe: STANDS, gap: 1.2, seconds: 5, hz, range: "close" });
+  const bout = await punchBout(settings, { foe: STANDS, gap: 1.2, seconds: 5, hz });
   const wounding = bout.punches.filter((p) => p.hp[0] > 0.01);
   return Math.max(0, 2 - wounding.length) + Math.max(0, 1.5 - Math.max(0, ...wounding.map((p) => p.kg[0])));
 }
 
-async function scoreOf(settings, { hz, foes, aim, range, gaps, seconds, scene, head }) {
+async function scoreOf(settings, { hz, foes, aim, gaps, seconds, scene, head }) {
   const bouts = [];
-  for (const foe of foes) for (const gap of gaps) bouts.push(await punchBout(settings, { foe: FOES[foe], gap, hz, aim, range, seconds }));
+  for (const foe of foes) for (const gap of gaps) bouts.push(await punchBout(settings, { foe: FOES[foe], gap, hz, aim, seconds }));
   const mean = (key) => bouts.reduce((sum, b) => sum + b[key], 0) / bouts.length;
   const short = scene ? await sceneShortOf(settings, hz) : 0, heads = bouts.reduce((sum, b) => sum + b.heads[0] - b.heads[1], 0) / bouts.length;
   return { score: mean("score") + head * heads - SHORT * short, short, heads, given: mean("given"), taken: mean("taken"), down: mean("down"), thrown: mean("thrown"),
@@ -127,11 +128,11 @@ if (!isMainThread && workerData?.punchInBout) {
   });
 } else if (isMainThread && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2), arg = (name, fallback) => { const i = argv.indexOf(`--${name}`); return i < 0 ? fallback : argv[i + 1]; };
-  const hz = Number(arg("hz", 120)), foes = arg("foes", "stands").split(","), aim = arg("aim", "head"), range = arg("range", "close");
+  const hz = Number(arg("hz", 120)), foes = arg("foes", "stands").split(","), aim = arg("aim", "head");
   const gaps = arg("gaps", GAPS.join(",")).split(",").map(Number), seconds = Number(arg("seconds", 8)), scene = argv.includes("--scene"), head = Number(arg("head", 0));
   for (const foe of foes) if (!FOES[foe]) throw new Error(`no foe ${foe}: ${Object.keys(FOES).join(", ")}`);
   if (argv.includes("--search")) {
-    const workers = Number(arg("workers", Math.max(1, availableParallelism() - 1))), pool = workerPool(new URL(import.meta.url), { hz, foes, aim, range, gaps, seconds, scene, head, fixed: FIXED, rival: RIVAL, punchInBout: true }, workers);
+    const workers = Number(arg("workers", Math.max(1, availableParallelism() - 1))), pool = workerPool(new URL(import.meta.url), { hz, foes, aim, gaps, seconds, scene, head, fixed: FIXED, rival: RIVAL, punchInBout: true }, workers);
     const start = toUnit({ ...STRAIGHT_PUNCH, ...JSON.parse(arg("settings", "{}")) }).map((v) => Math.min(1, Math.max(0, v)));
     try {
       const { best } = await cmaSearch({ n: KEYS.length, start, sigma: Number(arg("sigma", 0.2)), lambda: Number(arg("lambda", 16)), generations: Number(arg("generations", 30)),
@@ -141,6 +142,6 @@ if (!isMainThread && workerData?.punchInBout) {
     } finally { pool.terminate(); }
   } else {
     const settings = JSON.parse(arg("settings", "{}"));
-    for (const foe of foes) for (const gap of gaps) console.log(JSON.stringify(await punchBout(settings, { foe: FOES[foe], gap, seconds, hz, aim, range })));
+    for (const foe of foes) for (const gap of gaps) console.log(JSON.stringify(await punchBout(settings, { foe: FOES[foe], gap, seconds, hz, aim })));
   }
 }

@@ -10,7 +10,7 @@ import {frameOf} from '../src/core/spec/body.ts';
 import {traceOf} from './harness/trace.mjs';
 import {COMBAT} from './fixtures/minds.mjs';
 
-const recipe={left:'workshop-fighter',right:'workshop-fighter',held:{left:'empty',right:'empty'},balance:{left:0,right:0},
+const recipe={left:'workshop-fighter',right:'workshop-fighter',loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},
  minds:{left:SCRAPPER,right:SCRAPPER},recoverySeconds:null,capSeconds:30};
 
 test('both real guard hands can select a lateral collider surface while zero preserves the whole reference choice',async()=>{

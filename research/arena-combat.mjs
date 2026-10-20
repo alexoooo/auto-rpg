@@ -62,7 +62,7 @@ export function combatPressure(state, touching, driven, dt, protocol = COMBAT_PR
 export async function combatTrial(config) {
   const recipe = { left: 'workshop-fighter', right: 'workshop-fighter', gap: 4,
     capSeconds: COMBAT_PROTOCOL.capSeconds, recoverySeconds: null, balance: { left: 0, right: 0 },
-    held: { left: 'empty', right: 'empty' }, ...config.recipe,
+    loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } }, ...config.recipe,
     minds: { left: combatMind(config.left), right: combatMind(config.right) } };
   const physicsEngine = await loadEngine(config.engine ?? DEFAULT_ENGINE);
   const stand = await buildBout(recipe, { physicsEngine }), { world, duel } = stand;

@@ -21,7 +21,7 @@ async function bout(overrides = {}) {
   const engine = new NullEngine(), scene = new Scene(engine), world = createWorld(scene, await freshEngine());
   addArenaSolids(world.physics);
   const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 20,
-    held: { left: "empty", right: "empty" }, minds: { left: COMBAT, right: RECIPE_FIGHTER }, recoverySeconds: 15, ...overrides });
+    loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } }, minds: { left: COMBAT, right: RECIPE_FIGHTER }, recoverySeconds: 15, ...overrides });
   return { world, duel, dispose() { duel.dispose(); world.dispose(); scene.dispose(); engine.dispose(); } };
 }
 

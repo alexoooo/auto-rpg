@@ -23,7 +23,7 @@ export async function controlArena({ held = "empty", hand = "right", model = "wo
   const rendering = new NullEngine(), scene = new Scene(rendering), engine = await freshEngine(engineName), world = createWorld(scene, engine);
   addArenaSolids(world.physics);
   const duel = new Duel(world, { left: model, right: "workshop-rogue", gap: 8, capSeconds: seconds, recoverySeconds,
-    held: { left: held, right: "empty" }, minds: { left: { ...COMBAT, actions: COMBAT.actions.map(action => ({ ...action, effectors: hand === "alternate" ? action.effectors : ["hand." + hand] })), subs: [{ kind: "support-recovery" }] }, right: RECIPE_FIGHTER } });
+    loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: "empty" } }, minds: { left: { ...COMBAT, actions: COMBAT.actions.map(action => ({ ...action, effectors: hand === "alternate" ? action.effectors : ["hand." + hand] })), subs: [{ kind: "support-recovery" }] }, right: RECIPE_FIGHTER } });
   duel.order("left", STAND_ORDERS); duel.order("right", STAND_ORDERS);
   return { world, duel, fighter: duel.duelists.left,
     harness: { kind: "Node arena Duel", engine: engine.name, revision: engine.revision, hz: world.hz,
@@ -48,7 +48,7 @@ export function walkAfterRecovery(stand) {
   const { world, duel, fighter } = stand;
   world.step(2);
   const heading = fighter.minded.skills.report.heading, from = fighter.body.view.stance.centre.clone();
-  duel.order("left", { move: { x: Math.sin(heading), z: Math.cos(heading) }, face: null });
+  duel.order("left", { move: { kind: "direct", direction: { x: Math.sin(heading), z: Math.cos(heading) } }, face: null });
   // A step is landed when the stance's swing, or a run's flight, gives way to bearing: whichever walk takes it.
   const swinging = () => ["swing", "flight"].includes(fighter.body.view.stance.phase);
   let fell = false, steps = 0, was = swinging();

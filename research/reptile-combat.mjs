@@ -13,7 +13,7 @@ export const HUMANOIDS = Object.freeze(["workshop-rogue", "workshop-fighter", "c
 export async function combatTrial({ opponent = "reptile", gap = 2, side = "left", rate = rulebook("arena").pointLoad.rate.value } = {}) {
   const enemy = side === "left" ? "right" : "left", sides = ["left", "right"];
   const recipe = { left: side === "left" ? "reptile" : opponent, right: side === "right" ? "reptile" : opponent,
-    gap, capSeconds: 30, recoverySeconds: null, held: { left: "empty", right: "empty" }, balance: { left: 0, right: 0 },
+    gap, capSeconds: 30, recoverySeconds: null, loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } }, balance: { left: 0, right: 0 },
     rules: { pointLoad: { threshold: sourced(1, "N", "owner-point-load", "shared threshold"),
       rate: sourced(rate, "HP/(N s)", "owner-point-load", "shared calibration") } } };
   const bout = await buildBout(recipe), { world, duel } = bout;

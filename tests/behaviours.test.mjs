@@ -11,7 +11,7 @@ import { withParts } from "./fixtures/minds.mjs";
 test("ranked leg and action channels remain independent and empty behaviours stand in guard", () => {
   const spec = humanSpec("workshop-fighter"), body = { view: { time: 0, stance: { centre: new Vector3(), phase: "stand" }, senses: { side: "own", others: [], solids: [] } },
     report: { heading: .25, actions: [], ledger: [] }, envelope: { walk: { value: .4 }, ways: { forward: { value: .6 }, right: { value: .4 }, back: { value: .4 }, left: { value: .4 } }, turns: [], tried: null } };
-  const orders = { move: { x: 1, z: 0 }, face: null };
+  const orders = { move: { kind: "direct", direction: { x: 1, z: 0 } }, face: null };
   const tactics = actionTactics(spec, [], { ...FIGHTING, list: [{ kind: "follow-orders" }, { kind: "close-in", metres: 0 }, { kind: "attack" }] }, () => orders);
   assert.deepEqual(tactics.decide(body, 1 / 120), { move: [.4, 0], face: Math.PI / 2, guard: { left: null, right: null }, actions: [] });
   assert.deepEqual(actionTactics(spec, [], { ...FIGHTING, list: [] }).decide(body, 1 / 120), { move: null, face: .25, guard: { left: null, right: null }, actions: [] });

@@ -12,8 +12,8 @@ import { coreStand } from "./harness/core-stand.mjs";
 import { lone } from "./fixtures/lone.mjs";
 
 const q = (value, unit) => sourced(value, unit, "reptile-anatomy", "contact-rule fixture");
-const point = direction => ({ direction: q(direction, "1"), alignment: q(.8, "1") });
-const surface = direction => ({ stiffness: q(10e6, "N/m"), point: point(direction) });
+const point = direction => ({ mechanism: "point", direction: q(direction, "1"), alignment: q(.8, "1") });
+const surface = direction => ({ stiffness: q(10e6, "N/m"), directed: point(direction) });
 const rules = rulebook("arena");
 
 test("a point's cone accepts its forward normal, including scaled vectors and its boundary", () => {
@@ -85,9 +85,14 @@ test("a tooth's side and reverse contacts stay blunt; an ordinary surface still 
 
 test("a point follows its segment's world rotation and a held point follows the item's declared frame", async () => {
   for (const options of [{ rotation: [0, Math.SQRT1_2, 0, Math.SQRT1_2] }, { held: true }]) {
-    const blow = (await impact(options)).find(b => b.kind === "load"), target = blow.sides.find(s => s.fighter === "target");
+    const blows = await impact(options), blow = blows.find(b => b.kind === (options.held ? "impact" : "load"));
+    const target = blow.sides.find(s => s.fighter === "target");
     assert.equal(target.mechanism, "point", JSON.stringify(blow));
     assert.ok(target.damage > 0);
-    if (options.held) assert.equal(blow.sides[0].item, "pointed item");
+    if (options.held) {
+      assert.equal(blow.sides[0].item, "pointed item");
+      assert.equal(target.damage, blowDamage(rules, "point", target.share * blow.energy));
+      assert.ok(blows.every(b => b.kind !== "load"));
+    }
   }
 });

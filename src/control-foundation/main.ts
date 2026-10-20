@@ -10,6 +10,7 @@ import { createEnvironment } from "../core/tasks/environment.ts";
 import { createReachTask, type ReachTaskConfig } from "../core/tasks/reach.ts";
 import { reachAction, reachFrame } from "../core/tasks/reach-policy.ts";
 import { drawBody } from "../render/body-shapes.ts";
+import { BUILD_IDENTITY } from "../build-identity.ts";
 
 const element = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const canvas = element<HTMLCanvasElement>("view"), renderer = new Engine(canvas, true), scene = new Scene(renderer);
@@ -32,7 +33,7 @@ function configuration(): ReachTaskConfig {
 const makeEnvironment = (config: ReachTaskConfig) => createEnvironment(config, (settings, random) => {
   const task = createReachTask(scene, engine, settings, random), shapes = drawBody(task.body.built, scene, new Color3(0.42, 0.68, 0.72));
   return { ...task, dispose() { shapes.dispose(); task.dispose(); } };
-}, { policyPeriodSteps: 4, maxSteps: 360 });
+}, { buildIdentity: BUILD_IDENTITY, policyPeriodSteps: 4, maxSteps: 360 });
 
 let environment = makeEnvironment(configuration());
 let result = environment.reset(Number(seed.value)), frames: string[] = [];

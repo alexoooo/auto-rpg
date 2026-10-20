@@ -2,15 +2,23 @@ import { BODY_MODELS, modelHastes, modelHolding, modelHolds, modelInfo, modelSup
 import { hasteFrom } from "../core/human/attributes.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { MINDS } from "../core/mind/controllers.ts";
-import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
-import { ARENA_HELD, SIDES, type OrdersEntry } from "./duel.ts";
-import { HELD, type Held } from "../core/items/held.ts";
+import { isOrdersEntry, ORDERS_PROTOCOL, SIDES, type OrdersRecording } from "./duel.ts";
+import { BUILD_IDENTITY } from "../build-identity.ts";
+import { requireRecordingIdentity } from "../core/recording.ts";
+import { EMPTY_LOADOUT, HELD, type Loadout } from "../core/items/held.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import type { Side } from "../core/spec/body.ts";
 import { parseMind, writeMind, type LinkedMind } from "../ui/mind-link.ts";
 import { legacyAttributes, readAttributes } from "../ui/attribute-link.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
+import { LEVELS, type ArenaLevel } from "./levels.ts";
+
+/** A link chooses a named stage; malformed UI input starts on the open stage. */
+export function readLevel(search: string): ArenaLevel {
+  const level = new URLSearchParams(search).get("level") ?? "open";
+  return Object.hasOwn(LEVELS, level) ? level as ArenaLevel : "open";
+}
 
 /** The arena link's parameter: `?matchup=left,right`, each a core model. */
 export const MATCHUP_PARAM = "matchup";
@@ -106,20 +114,19 @@ export function readHaste(search: string): Readonly<Partial<Record<Side, number>
   return { ...(modelHastes(models.left) ? { left: given[0]! } : {}), ...(modelHastes(models.right) ? { right: given[given.length - 1]! } : {}) };
 }
 
-/** The arena link's parameter for what each side's right hand holds: `&held=left,right`, or one word for both, each of `HELD`. */
-const HELD_PARAM = "held";
-
-/**
- * What an address has each side's right hand hold (`DuelRecipe.held`): two of `HELD`, left
- * then right, or one for both; undefined for anything else, and each then holds nothing (`ARENA_HELD`).
- */
-export function readHeld(search: string): Readonly<Record<Side, Held>> | undefined {
-  const text = new URLSearchParams(search).get(HELD_PARAM);
-  if (text === null) return undefined;
-  const parts = text.split(","), given = parts.flatMap((part) => HELD.filter((held) => held === part.trim()));
-  if (parts.length > 2 || given.length !== parts.length) return undefined;
-  const models = readMatchup(search);
-  return { left: modelHolds(models.left) ? given[0]! : "empty", right: modelHolds(models.right) ? given[given.length - 1]! : "empty" };
+/** Each fighter's two hands: `left.loadout=leftHand,rightHand`, and `right.loadout` alike. */
+export function readLoadouts(search: string): Readonly<Record<Side, Loadout>> | undefined {
+  const query = new URLSearchParams(search);
+  if (!SIDES.some((side) => query.has(`${side}.loadout`))) return undefined;
+  const models = readMatchup(search), loadouts = {} as Record<Side, Loadout>;
+  for (const side of SIDES) {
+    const text = query.get(`${side}.loadout`);
+    if (text === null) { loadouts[side] = EMPTY_LOADOUT; continue; }
+    const parts = text.split(",").map((part) => part.trim());
+    if (parts.length !== 2 || parts.some((part) => !HELD.includes(part as typeof HELD[number]))) return undefined;
+    loadouts[side] = modelHolds(models[side]) ? { left: parts[0] as typeof HELD[number], right: parts[1] as typeof HELD[number] } : EMPTY_LOADOUT;
+  }
+  return loadouts;
 }
 
 /**
@@ -144,27 +151,25 @@ export const readCap = (search: string): number | undefined => readWithin(search
 /** A bout's tape in a link's fragment, which no server is sent: `#tape=<the tape's JSON, URI-encoded>`. */
 const TAPE_KEY = "tape";
 
-const isEntry = (entry: unknown): entry is OrdersEntry => {
-  if (typeof entry !== "object" || entry === null) return false;
-  const { step, side, orders } = entry as Record<string, unknown>;
-  return Number.isInteger(step) && (step as number) >= 0 && (side === "left" || side === "right") && (orders === null || isOrders(orders));
-};
-
 /**
- * The tape `hash` carries; none if it carries none, or one that is not an array of entries. A
- * tape is of one recipe: the link names the matchup, the gap, the cap, each side's balance and haste, what it holds and how it guards with it.
+ * A persisted tape belongs to one build and physical recipe. Absence is an ordinary recipe link;
+ * a malformed or incompatible recording is an error, never permission to play a different bout.
  */
-export function readTape(hash: string): OrdersEntry[] {
+export function readTape(hash: string): OrdersRecording | null {
   const text = new URLSearchParams(hash.replace(/^#/, "")).get(TAPE_KEY);
-  if (!text) return [];
-  try {
-    const tape: unknown = JSON.parse(text);
-    return Array.isArray(tape) && tape.every(isEntry) ? tape : [];
-  } catch { return []; }
+  if (text === null) return null;
+  let recording: Partial<OrdersRecording>;
+  try { recording = JSON.parse(text) as Partial<OrdersRecording>; }
+  catch { throw new Error("the tape recording is not valid JSON"); }
+  if (!recording || typeof recording !== "object" || Array.isArray(recording)) throw new Error("the tape has no build and protocol identity; make a new recording");
+  if (typeof recording.identity?.configuration !== "string") throw new Error("the tape has no physical recipe identity");
+  requireRecordingIdentity(recording.identity, { build: BUILD_IDENTITY, protocol: ORDERS_PROTOCOL, configuration: recording.identity.configuration });
+  if (!Array.isArray(recording.tape) || !recording.tape.every(isOrdersEntry)) throw new Error("the tape recording has invalid orders");
+  return recording as OrdersRecording;
 }
 
 /** The fragment that carries `tape` (`readTape`). */
-export const tapeHash = (tape: readonly OrdersEntry[]): string => `#${TAPE_KEY}=${encodeURIComponent(JSON.stringify(tape))}`;
+export const tapeHash = (recording: OrdersRecording): string => `#${TAPE_KEY}=${encodeURIComponent(JSON.stringify(recording))}`;
 
 /** A side's choice of mind (`MINDS`), separate from anatomy, equipment and appearance. */
 type Control = string;
@@ -172,33 +177,33 @@ type Control = string;
 /** The selectable controllers' names on the page, by id. */
 export const CONTROLS: Readonly<Record<Control, string>> = Object.freeze(Object.fromEntries(Object.entries(MINDS).map(([id, mind]) => [id, mind.label])));
 
-/** What each side's right hand holds by `search` (`readHeld`), or the arena's (`ARENA_HELD`). */
-const heldOf = (search: string): Readonly<Record<Side, Held>> => readHeld(search) ?? { left: ARENA_HELD, right: ARENA_HELD };
+/** Both fighters' hands, empty unless the link assigns them. */
+const loadoutsOf = (search: string): Readonly<Record<Side, Loadout>> => readLoadouts(search) ?? { left: EMPTY_LOADOUT, right: EMPTY_LOADOUT };
 
 /** Per-side controller choices in a shareable arena recipe: each one its side's body and loadout are offered (`controlsFor`). */
 export function readControls(search: string): Readonly<Record<Side, Control>> {
   const parts = (new URLSearchParams(search).get("control") ?? "").split(",");
-  const models = readMatchup(search), held = heldOf(search), attributes = arenaAttributes(search);
+  const models = readMatchup(search), loadouts = loadoutsOf(search), attributes = arenaAttributes(search);
   const read = (s: string | undefined, side: Side): Control => {
     let choices: readonly Control[];
-    try { choices = controlsFor(models[side], held[side], attributes[side]); }
-    catch { choices = controlsFor(models[side], held[side]); }
+    try { choices = controlsFor(models[side], loadouts[side], attributes[side]); }
+    catch { choices = controlsFor(models[side], loadouts[side]); }
     return s !== undefined && choices.includes(s) ? s : choices.find(c => MINDS[c]!.config === modelInfo(models[side]).mind) ?? choices[0]!;
   };
   return { left: read(parts[0], "left"), right: read(parts[1] ?? parts[0], "right") };
 }
 
 /**
- * Pickers and links accept the same choices: the minds a body of `model` holding `held` can carry
+ * Pickers and links accept the same choices: the minds a body of `model` carrying `loadout` can carry
  * out (`modelSupportsMind`), so a mind that works with one loadout is offered with no other.
  */
-export function controlsFor(model: BodyModel, held: Held = ARENA_HELD, attributes?: AttributeOverrides): readonly Control[] {
-  return Object.keys(MINDS).filter((control) => modelSupportsMind(model, MINDS[control]!.config, held, attributes));
+export function controlsFor(model: BodyModel, loadout: Loadout = EMPTY_LOADOUT, attributes?: AttributeOverrides): readonly Control[] {
+  return Object.keys(MINDS).filter((control) => modelSupportsMind(model, MINDS[control]!.config, loadout, attributes));
 }
 
 /** The choice a side starts on: its model's own mind (`modelInfo`) where it is offered, else the first offered. */
-export function defaultControl(model: BodyModel, held: Held = ARENA_HELD): Control {
-  const choices = controlsFor(model, held);
+export function defaultControl(model: BodyModel, loadout: Loadout = EMPTY_LOADOUT): Control {
+  const choices = controlsFor(model, loadout);
   return choices.find((control) => MINDS[control]!.config === modelInfo(model).mind) ?? choices[0]!;
 }
 
@@ -211,10 +216,10 @@ const mindKey = (side: Side): string => `${side}.mind`;
  */
 export function linkedMind(search: string, side: Side): LinkedMind {
   const preset = MINDS[readControls(search)[side]]!.config;
-  const model = readMatchup(search)[side], held = heldOf(search)[side];
+  const model = readMatchup(search)[side], loadout = loadoutsOf(search)[side];
   let spec;
-  try { spec = modelHolding(model, held, arenaAttributes(search)[side]); }
-  catch { spec = modelHolding(model, held); }
+  try { spec = modelHolding(model, loadout, arenaAttributes(search)[side]); }
+  catch { spec = modelHolding(model, loadout); }
   return parseMind(new URLSearchParams(search).get(mindKey(side)), spec) ?? { config: preset, faults: [] };
 }
 

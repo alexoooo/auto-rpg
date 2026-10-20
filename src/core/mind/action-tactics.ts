@@ -11,6 +11,7 @@ import { approachActionWindow } from "./action-window.ts";
 import { clearanceExit, clearMove } from "./clear-step.ts";
 import type { ActionConfig, BehavioursConfig, ConditionConfig } from "./config.ts";
 import { conditionMatches } from "./conditions.ts";
+import { coveringHand } from "./cover-hand.ts";
 import type { Cover, Intent } from "./intent.ts";
 import type { Orders } from "./orders.ts";
 import { orderedIntent } from "./ordered.ts";
@@ -60,7 +61,7 @@ export function actionCondition(condition: ConditionConfig, sight: Sight, orders
     const since = sight.view.time - record.contacts.lastTarget;
     if (since >= 0) sinceTarget = Math.min(sinceTarget, since);
   }
-  return conditionMatches(condition, { walking: !!orders?.move, foe, destination: orders?.destination ?? Infinity, targetDown: focus?.down ?? false, sinceTarget });
+  return conditionMatches(condition, { walking: !!orders?.move, foe, destination: sight.report.navigation?.remaining ?? Infinity, targetDown: focus?.down ?? false, sinceTarget });
 }
 /** Shared focus and candidate selection give every behaviour the same opponent and admission facts. */
 export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[], settings: Omit<BehavioursConfig, "kind">,
@@ -196,7 +197,7 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
       pending ??= position ?? waiting;
       if (pending && state.pending?.key !== pending.key) state.pending = { key: pending.key, since: sight.view.time };
     }
-    let legs: Pick<Intent, "move" | "face" | "lower" | "destination"> | undefined, requested: readonly ActionRequest[] | undefined;
+    let legs: Pick<Intent, "move" | "face" | "lower" | "destination" | "movement" | "pace" | "travelFacing"> | undefined, requested: readonly ActionRequest[] | undefined;
     let left: Cover | null | undefined, right: Cover | null | undefined;
     const centre = sight.view.stance.centre, dx = focus ? focus.centre.x - centre.x : 0, dz = focus ? focus.centre.z - centre.z : 0;
     const face = focus ? atan2(dx, dz) : sight.report.heading, pace = Math.min(sight.envelope?.walk.value ?? SPACE.fallbackPace, orders?.pace ?? Infinity);
@@ -208,7 +209,7 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
           const ordered = orderedIntent(sight, orders, { left: null, right: null });
           legs = { ...ordered, move: clearMove(centre, sight.view.senses.solids, sight.report.heading, ordered.move, radius, SPACE.ahead) };
         }
-        if (orders.move || orders.foe === undefined) requested ??= [];
+        if (orders.foe === undefined) requested ??= [];
         if (orders.move) state.phase = "move";
       } break;
       case "attack": if (!requested) {
@@ -233,7 +234,13 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
           case "predictive": cover = threat.threatOf(sight.view, THREAT, PREDICTION); break;
           default: { const never: never = behaviour.guard; throw new Error(`unknown cover ${never}`); }
         }
-        if (left === undefined) left = cover; if (right === undefined) right = cover;
+        const shield = spec.held?.some(({ item }) => item.coverNormal !== undefined);
+        if (cover && shield) {
+          const dx = cover.threat[0] - cover.guarded[0], dz = cover.threat[2] - cover.guarded[2], h = sight.report.heading;
+          const hand = coveringHand(spec, dx * cos(h) - dz * sin(h) >= 0 ? "right" : "left");
+          if (hand === "left" && left === undefined) left = cover;
+          if (hand === "right" && right === undefined) right = cover;
+        } else { if (left === undefined) left = cover; if (right === undefined) right = cover; }
         break;
       }
       case "clear-of-walls": if (!legs) {
@@ -265,7 +272,8 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
         if (apart >= outside && apart <= outside + behaviour.band) state.edgeSince[i] ??= sight.view.time;
         else if (state.edgeSince[i] === null || sight.view.time - state.edgeSince[i]! < behaviour.patience) state.edgeSince[i] = null;
         if (state.edgeSince[i] !== null && sight.view.time - state.edgeSince[i]! >= behaviour.patience) break;
-        legs = apart > outside + behaviour.band ? walking(sight, dx, dz, face, pace)
+        const near = Math.max(0, outside + hypot(dx, dz) - apart);
+        legs = apart > outside + behaviour.band ? { ...walking(sight, dx, dz, face, pace), movement: { kind: "range", focus: focus.id, near, far: near + behaviour.band }, pace }
           : apart < outside ? walking(sight, -dx, -dz, face, pace) : { move: null, face };
         state.phase = "edge";
       } break;
@@ -274,13 +282,19 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
         const apart = hypot(dx, dz), delta = apart - behaviour.metres;
         const retreat = delta < -SPACE.band && behaviour.kind !== "close-in";
         const advance = delta > SPACE.band && behaviour.kind !== "break-clinch";
-        if (retreat || advance) { legs = walking(sight, retreat ? -dx : dx, retreat ? -dz : dz, face, pace); state.phase = behaviour.kind; }
+        if (retreat || advance) {
+          legs = { ...walking(sight, retreat ? -dx : dx, retreat ? -dz : dz, face, pace),
+            ...(advance ? { movement: { kind: "range" as const, focus: focus.id, near: Math.max(0, behaviour.metres - SPACE.band), far: behaviour.metres + SPACE.band }, pace } : {}) };
+          state.phase = behaviour.kind;
+        }
         else if (behaviour.kind !== "break-clinch") legs = { move: null, face };
       } break;
       default: { const never: never = behaviour; throw new Error(`unknown action behaviour ${JSON.stringify(never)}`); }
     }
     return { move: legs?.move ?? null, face: legs?.face ?? face, guard: { left: left ?? null, right: right ?? null }, actions: requested ?? [],
-      ...(legs?.lower === undefined ? {} : { lower: legs.lower }), ...(legs?.destination === undefined ? {} : { destination: legs.destination }) };
+      ...(legs?.lower === undefined ? {} : { lower: legs.lower }), ...(legs?.destination === undefined ? {} : { destination: legs.destination }),
+      ...(legs?.movement === undefined ? {} : { movement: legs.movement }), ...(legs?.pace === undefined ? {} : { pace: legs.pace }),
+      ...(legs?.travelFacing ? { travelFacing: true } : {}) };
   } };
 }
 

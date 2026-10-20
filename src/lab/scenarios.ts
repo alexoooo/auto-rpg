@@ -6,7 +6,7 @@ import { HUMANOID_MODELS, type HumanoidModel } from "../core/models.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { hasteFrom } from "../core/human/attributes.ts";
-import { HELD, type Held } from "../core/items/held.ts";
+import { HELD, type Held, type Loadout } from "../core/items/held.ts";
 import { CLASSIC, isFighter, PUNCHER, RECIPE_FIGHTER, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
 import type { Provision } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -18,6 +18,7 @@ import { SEARCH_FALL } from "./stance-mode.ts";
 import { readAttributes, writeAttributes, legacyAttributes } from "../ui/attribute-link.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { loadoutAttributes } from "./loadout.ts";
+import { GROUND_LEVELS, type GroundLevel } from "./ground-environment.ts";
 
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
@@ -72,7 +73,7 @@ export type LabLoadout = {
   /** The body's haste, per cent over a person's speed in its legs, in place of its character's (`AttributeSpec.haste`); null is the character's. */
   readonly haste: number | null;
 }
-  & Readonly<Record<(typeof LAB_HANDS)[number], Held>> & Readonly<Record<(typeof LAB_WORN)[number], boolean>>;
+  & Loadout & Readonly<Record<(typeof LAB_WORN)[number], boolean>>;
 
 /**
  * The physics and control rates on offer, Hz: the game's (`PHYSICS_HZ`, which the test pins
@@ -114,6 +115,8 @@ const LAB_TARGETS = { most: 30, count: 10, seed: 1 } as const;
 
 export interface LabAddress extends LabLoadout, ViewSettings {
   readonly ground: {
+    /** A named fall environment; obstacle outcomes remain outside the open-floor target. */
+    readonly level: GroundLevel;
     /** A technique run alone in place of the mind's sub-minds; "mind" runs the mind's. */
     readonly drive: "mind" | TechniqueName;
     /** What the mind gets up by: the game's Stand up by one of its techniques, support recovery, or the mind's own sub-minds. */
@@ -146,7 +149,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly seed: number;
 }
 
-const KEYS = ["groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
+const KEYS = ["groundLevel", "groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -170,6 +173,7 @@ export function labAddress(search: string): LabAddress {
   };
   return {
     ground: {
+      level: (Object.keys(GROUND_LEVELS) as GroundLevel[]).find(v => v === query.get("groundLevel")) ?? "open",
       drive: (Object.keys(TECHNIQUES) as TechniqueName[]).find(v => v === query.get("groundDrive")) ?? "mind",
       waypoint: (["none", "brace", "plant", "transfer", "rise"] as const).find(v => v === query.get("groundWaypoint")) ?? "none",
       rise: GROUND_RISES.find(v => v === query.get("groundRise")) ?? "step-up",
@@ -213,6 +217,7 @@ export function labAddress(search: string): LabAddress {
 export function labHref(address: LabAddress, search = ""): string {
   const query = new URLSearchParams(playHref("lab", search));
   for (const key of KEYS) query.delete(key);
+  if (address.ground.level !== "open") query.set("groundLevel", address.ground.level);
   query.delete("groundDrive");
   query.delete("groundWaypoint");
   if (address.ground.drive !== "mind") query.set("groundDrive", address.ground.drive);

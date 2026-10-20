@@ -5,7 +5,7 @@ import type { PartField } from "./fields.ts";
  * **What a part does in the mind it is part of**: the interface it carries out. A slot names the
  * role of what it holds, and holds only a part of that role.
  */
-export type Role = "mind" | "sub-mind" | "tactics" | "behaviour" | "move-rule" | "locomotion" | "guard" | "executor" | "support" | "reflex" | "motor";
+export type Role = "mind" | "sub-mind" | "tactics" | "behaviour" | "move-rule" | "navigation" | "locomotion" | "guard" | "executor" | "support" | "reflex" | "motor";
 
 /** What a screen gives a mind beyond the body and the world: the Lab gives its scenario's script (`MindWiring.script`). */
 export type Provision = "script";
@@ -54,6 +54,8 @@ export interface Part<C extends PartConfig = PartConfig> {
   readonly needs?: Provision;
   /** Whether a body of `spec` can carry out what a part of `config` commands. */
   fits(spec: BodySpec, config: C): boolean;
+  /** Held segments this part uses safely: striking, covering or another declared equipment use. */
+  supportedEquipment?(spec: BodySpec, config: C): readonly string[];
   /**
    * What is wrong with `config` itself, each a sentence, a fault found at a slot prefixed with its
    * key (`blow: `). Its slots' parts answer for their own; it is asked only once each slot holds parts of its role.

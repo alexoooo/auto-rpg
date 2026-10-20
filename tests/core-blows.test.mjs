@@ -12,7 +12,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { buildBody } from "../src/core/build/build-body.ts";
 import { armed } from "../src/core/human/grip.ts";
@@ -25,6 +25,10 @@ import { blowDamage, rulebook } from "../src/core/rules/rulebook.ts";
 import { createWorld } from "../src/core/world.ts";
 import { ITEM, ITEM_KG, lone } from "./fixtures/lone.mjs";
 import { freshEngine } from "./harness/core-stand.mjs";
+import { sourced } from "../src/core/spec/quantity.ts";
+import { pointsInto } from "../src/core/rules/points.ts";
+import { heldFrame } from "../src/core/build/rigid.ts";
+import { effectorFeedback } from "../src/core/control/effector-feedback.ts";
 
 const RULES = rulebook("dungeon");
 /** The fist's surface and the struck body's, N/m: the fist the softer, so the more of a blow is its own. */
@@ -405,4 +409,129 @@ test("a Warrior's club sent into a skeleton's head lands there, takes none of th
     assert.notEqual(skeleton.pool.ending(), null, "the fight ended");
     assert.equal(warrior.pool.bar(), 1, "the club's holder is whole");
   } finally { watch.dispose(); world.dispose(); scene.dispose(); }
+});
+
+const bladeQ = (value, unit = "m") => sourced(value, unit, "owner-damage-unit", "physical blade contact fixture");
+const bladeHull = (low, high) => ({ kind: "hull", points: [0, 1].flatMap(x => [0, 1].flatMap(y => [0, 1].map(z =>
+  bladeQ([x ? high[0] : low[0], y ? high[1] : low[1], z ? high[2] : low[2]])))) });
+
+/** A rigid blade on a translating rig meets a fixed body, at 120 Hz, with its item frame turned from its holder's. */
+async function bladeRig({ at = [.13, .25, 0], velocity = [6, 0, 0], rotation = [0, 0, 0, 1], targetFirst = false, pressure = 0, edit = item => item } = {}) {
+  const surface = (mechanism, direction) => ({ stiffness: bladeQ(10e6, "N/m"),
+    ...(mechanism ? { directed: { mechanism, direction: bladeQ(direction, "1"), alignment: bladeQ(.8, "1") } } : {}) });
+  const item = edit({ name: "rig blade", mass: bladeQ(.6, "kg"), centreOfMass: bladeQ([0, .25, 0]),
+    inertia: bladeQ([.0125, .0001, .0125], "kg m2"), shapes: [], points: { contact: bladeQ([.03, .25, 0]) }, substance: "bone",
+    contacts: [
+      { name: "flat", shape: bladeHull([-.025, .05, -.004], [.02, .45, .004]), surface: surface() },
+      { name: "edge", shape: bladeHull([.02, .05, -.004], [.03, .45, .004]), surface: surface("edge", [1, 0, 0]) },
+      { name: "tip", shape: bladeHull([-.025, .45, -.004], [.03, .5, .004]), surface: surface("point", [0, 1, 0]) },
+      { name: "hilt", shape: bladeHull([-.06, -.03, -.012], [.06, .05, .012]), surface: surface() },
+    ] });
+  const held = { segment: "rig", origin: bladeQ([0, 0, .3]), along: bladeQ([0, 0, 1], "1"), across: bladeQ([0, 1, 0], "1"), item };
+  const base = lone("blade rig", "rig", 5, { hp: 1000 });
+  const spec = { ...base, held: [held], segments: base.segments.map(s => ({ ...s, inertia: bladeQ([100, 100, 100], "kg m2") })) };
+  const frame = heldFrame(held), turn = new Quaternion(...rotation), place = new Vector3(0, 1, 0);
+  const direction = v => new Vector3(...[0, 1, 2].map(k => frame.x[k] * v[0] + frame.y[k] * v[1] + frame.z[k] * v[2]))
+    .applyRotationQuaternionToRef(turn, new Vector3());
+  const targetAt = direction(at).addInPlace(new Vector3(...held.origin.value).applyRotationQuaternionToRef(turn, new Vector3())).addInPlace(place);
+  const scene = new Scene(new NullEngine()), world = createWorld(scene, await freshEngine(), { gravity: false });
+  const targetSpec = lone("blade target", "trunk", 3, { hp: 1000, stiffness: STRUCK_K });
+  const source = { id: "rig", side: "one", built: buildBody(spec, world, { position: place.asArray(), rotation }), pool: createPool(spec, RULES) };
+  const target = { id: "target", side: "two", built: buildBody(targetSpec, world, { position: targetAt.asArray() }), pool: createPool(targetSpec, RULES) };
+  const moving = source.built.segments.get("rig");
+  target.built.segments.get("trunk").body.setFixed(true);
+  let watch;
+  try { watch = watchBlows(world, targetFirst ? [target, source] : [source, target], RULES); }
+  catch (error) { source.built.dispose(); target.built.dispose(); world.dispose(); scene.dispose(); throw error; }
+  moving.body.applyImpulse(direction(velocity).scaleInPlace(moving.rigid.mass), new Vector3(...moving.rigid.centre).applyRotationQuaternionToRef(turn, new Vector3()).addInPlace(place));
+  const force = pressure ? world.beforeStep(() => moving.body.applyForce(direction([0, pressure, 0]),
+    new Vector3(...moving.rigid.centre).applyRotationQuaternionToRef(turn, new Vector3()).addInPlace(place))) : null;
+  return { world, source, target, moving, watch, item, direction,
+    dispose() { force?.dispose(); watch.dispose(); source.built.dispose(); target.built.dispose(); world.dispose(); scene.dispose(); } };
+}
+
+test("an item's edge, flat, tip and hilt retain their regions and price only aligned impact", async () => {
+  for (const rotation of [[0, 0, 0, 1], [0, 0, Math.SQRT1_2, Math.SQRT1_2]]) for (const targetFirst of [false, true]) {
+    for (const [region, mechanism, at, velocity] of [
+      ["edge", "edge", [.13, .25, 0], [6, 0, 0]],
+      ["flat", "blunt", [0, .25, .1], [0, 0, 6]],
+      ["tip", "point", [0, .6, 0], [0, 6, 0]],
+      ["hilt", "blunt", [0, 0, .1], [0, 0, 6]],
+    ]) {
+      const rig = await bladeRig({ rotation, at, velocity, targetFirst });
+      const feedback = effectorFeedback(rig.source.built, ["rig"], () => ({ kind: "body", body: "target", segment: "trunk", guard: false }),
+        undefined, { rig: { point: "contact", regions: [region] } });
+      try {
+        for (let i = 0; i < 60 && !rig.watch.blows.length; i++) rig.world.step();
+        assert.equal(rig.world.hz, 120);
+        assert.ok(rig.watch.blows.length, `fixture did not reach ${region} at 6 m/s`);
+        assert.equal(rig.watch.blows.length, 1, `${region}: a single contact is charged once`);
+        const [blow] = rig.watch.blows, source = blow.sides.find(side => side.fighter === "rig"), target = blow.sides.find(side => side.fighter === "target");
+        assert.equal(blow.kind, "impact");
+        assert.deepEqual([source.item, source.region, target.item, target.region], ["rig blade", region, null, undefined]);
+        assert.equal(target.mechanism ?? "blunt", mechanism);
+        assert.equal(target.damage, blowDamage(RULES, mechanism, target.share * blow.energy));
+        assert.equal(source.damage, blowDamage(RULES, "blunt", source.share * blow.energy));
+        assert.ok(target.wound && target.damage > 0);
+        assert.deepEqual(target.wound, took("trunk", target.damage));
+        feedback.read();
+        assert.ok(feedback.state.rig.impulse > 0, `the effector did not observe its selected item region ${region}`);
+        assert.equal(feedback.state.rig.obstructed, false);
+      } finally { rig.dispose(); }
+    }
+  }
+});
+
+test("a blade seam uses its strongest loaded region once, including edge and tip together", async () => {
+  for (const [seam, at, velocity, regions] of [
+    ["edge-flat", [.02, .25, .1], [0, 0, 12], ["flat", "edge"]],
+    ["edge-tip", [.13, .45, 0], [12, 0, 0], ["edge", "tip"]],
+  ]) {
+    const rig = await bladeRig({ at, velocity });
+    try {
+      let contacts = [];
+      for (let i = 0; i < 60 && !rig.watch.blows.length; i++) {
+        rig.world.step(); contacts = rig.world.physics.contactsOf(rig.moving.body);
+      }
+      assert.ok(rig.watch.blows.length, `fixture did not reach ${seam}`);
+      const pairs = contacts.flatMap(c => c.pairs), owners = rig.moving.rigid.owners;
+      assert.deepEqual(pairs.map(p => owners[p.mine].region?.name).sort(), [...regions].sort(), `fixture did not touch both ${seam} regions`);
+      const strongest = pairs.reduce((best, pair) => pair.impulse > best.impulse ? pair : best);
+      const owner = owners[strongest.mine], directed = owner.region.surface.directed;
+      const normal = new Vector3(...strongest.normal), aligned = directed && pointsInto(rig.direction(directed.direction.value).asArray(), normal.asArray(), directed.alignment.value);
+      const mechanism = aligned ? directed.mechanism : "blunt";
+      const [blow] = rig.watch.blows, [source, target] = blow.sides;
+      assert.equal(source.region, owner.region.name);
+      assert.equal(source.item, "rig blade");
+      assert.equal(target.mechanism ?? "blunt", mechanism);
+      assert.equal(target.damage, blowDamage(RULES, mechanism, target.share * blow.energy));
+      assert.equal(rig.watch.blows.length, 1, `${seam}: the two colliders cause one impact`);
+    } finally { rig.dispose(); }
+  }
+});
+
+test("a missed or resting blade wounds nothing, and held points never collect sustained-load injury", async () => {
+  for (const options of [{ at: [.13, .25, .2] }, { at: [0, .55, 0], velocity: [0, 0, 0] }]) {
+    const rig = await bladeRig(options);
+    try { rig.world.step(120); assert.deepEqual(rig.watch.blows, []); assert.equal(rig.target.pool.bar(), 1); }
+    finally { rig.dispose(); }
+  }
+  const rig = await bladeRig({ at: [0, .55, 0], velocity: [0, 0, 0], pressure: 10 });
+  try {
+    rig.world.step(120);
+    assert.ok(rig.world.physics.contactsOf(rig.moving.body).some(c => c.impulse > 0), "fixture did not press its tip into the target");
+    const hp = rig.target.pool.attachedHp();
+    rig.world.step(120);
+    assert.equal(rig.target.pool.attachedHp(), hp);
+    assert.ok(rig.watch.blows.every(blow => blow.kind === "impact"));
+  } finally { rig.dispose(); }
+});
+
+test("item regions refuse an invalid directed mechanism or cone", async () => {
+  for (const directed of [
+    { mechanism: "axe", direction: bladeQ([1, 0, 0], "1"), alignment: bladeQ(.8, "1") },
+    { mechanism: "edge", direction: bladeQ([0, 0, 0], "1"), alignment: bladeQ(.8, "1") },
+    { mechanism: "point", direction: bladeQ([0, 1, 0], "m"), alignment: bladeQ(.8, "1") },
+    { mechanism: "edge", direction: bladeQ([1, 0, 0], "1"), alignment: bladeQ(1.1, "1") },
+  ]) await assert.rejects(() => bladeRig({ edit: item => ({ ...item, contacts: item.contacts.map(region => ({ ...region, surface: { ...region.surface, directed } })) }) }), /directed surface/);
 });

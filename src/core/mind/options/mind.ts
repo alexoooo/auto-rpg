@@ -3,7 +3,7 @@ import type { BodySpec } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { BodyHost } from "../host.ts";
 import { COUNTER_PUNCHER, STAND_UP, type ActionConfig, type OptionsConfig, type SubMindConfig } from "../config.ts";
-import { actionConfigFaults, armedActions, strikesWithAll } from "../action-config.ts";
+import { actionConfigFaults, armedActions } from "../action-config.ts";
 import { fighterBody, fighterSkills } from "../fighter.ts";
 import { NO_COVER } from "../intent.ts";
 import type { MindWiring } from "../minds.ts";
@@ -49,8 +49,7 @@ const DOWN: readonly (readonly [string, SubMindConfig, DownModel])[] = deepFreez
 ]);
 
 /** Whether a body of `spec` takes the options fighter's commands and carries out the actions of `config`'s skills. */
-export const optionsFit = (spec: BodySpec, config: OptionsConfig): boolean => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0
-  && strikesWithAll(spec, config.executors, config.actions);
+export const optionsFit = (spec: BodySpec, config: OptionsConfig): boolean => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0;
 
 /**
  * **The options fighter**: a meta-controller (`metaController`) over options, which takes the one
@@ -91,7 +90,7 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
   const strikeNow = standing.map((action) => strike(action, walk, false, throws(config, action)));
   const options: readonly Option[] = [
     ...downs,
-    followOrders(walk),
+    followOrders(walk, standing),
     setDistance({ name: "break the clinch", foe: "standing", to: "centre", near: CLINCH.within, far: Infinity, correcting: true, facing: "foe", slant: CLINCH_SLANT }, walk),
     ...strikeNow,
     ...low ? [strikeLow(low, host.spec, walk)] : [],
@@ -101,7 +100,7 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
     setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false, facing: "foe", slant: 0 }, walk),
   ];
   meta = metaController(options, config.meta === "ranked" ? options.map((_, i) => options.length - i) : valued("hand-built", { ...WEIGHTS, ...config.weights }));
-  const reflexes = reflexLayer(config.reflexes.map(reflexOf));
+  const reflexes = reflexLayer(config.reflexes.map((reflex) => reflexOf(reflex, host.spec)));
   const state = { meta: meta.state, situation: reader.state, options: options.map((option) => option.state), reflexes: reflexes.state };
   const engagement = { get phase() { return meta!.state.running < 0 ? "guard" : options[meta!.state.running]!.name; }, get offers() { return meta!.state.offers; } };
   const tactics: Tactics = { name: "options", state, engagement,
@@ -109,7 +108,9 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
       const now = situation(seen), chosen = meta!.decide(now);
       const asked = chosen?.posture === "standing" ? chosen.step(now, dt) : { move: null, face: seen.report.heading, actions: [] };
       const near = chosen?.posture === "standing" ? chosen.near?.(now) ?? null : null;
-      return reflexes.apply(now, { ...asked, move: walk.constrain(now, asked.move, near), guard: NO_COVER });
+      const move = walk.constrain(now, asked.move, near);
+      const { movement, pace, travelFacing, ...direct } = asked;
+      return reflexes.apply(now, { ...(move === asked.move ? asked : direct), move, guard: NO_COVER });
     } };
   let skills: Skills;
   skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, host.clock, config, driving, () => skills?.report.ledger ?? []));

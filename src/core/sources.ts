@@ -17,6 +17,11 @@ type Source =
   | { readonly kind: "measurement"; readonly how: string; readonly record: string };
 
 export const SOURCES = Object.freeze({
+  "owner-arena-items": {
+    kind: "decision", date: "2026-10-20",
+    decided: "Authored mass properties, geometry and contact cones for the Arena's first equipment. These are game design values, not historical or biomechanical measurements.",
+    record: "docs/reference/arena-items.md",
+  },
   "owner-point-load": {
     kind: "decision", date: "2026-10-19",
     decided: "General piercing injury grows with aligned normal impulse above a shared 1 N load threshold. The game calibration targets unassisted reptile injury endings within 30 s and repeated material damage against humanoids; it is not measured tissue behaviour.",

@@ -1,13 +1,16 @@
 import type { BehaviourConfig, ExecutorConfig, MotorConfig, MoveRuleConfig, ReflexConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { deepFreeze } from "../state.ts";
+import type { NavigationConfig } from "./navigation.ts";
 
-type Config = SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ExecutorConfig | ReflexConfig | MotorConfig;
+type Config = SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ExecutorConfig | ReflexConfig | MotorConfig | NavigationConfig;
 
 /** Every accepted top-level key of a part below a mind, including optional settings; a mind's are
  * its controller's (`Controller.keys`). The mapped type requires every config property and
  * rejects extras; editor fields and default values carry no validation authority. Each part's
  * faults predicate validates values, and its slots validate nested parts. */
 export const CONFIG_KEYS = deepFreeze({
+  "visibility-navigation": { kind: true },
+  "local-navigation": { kind: true },
   "get-away": { kind: true, metres: true },
   "ground-fight": { kind: true, reach: true, kicks: true },
   "stand-up": { kind: true, techniques: true },
@@ -55,6 +58,7 @@ export const CONFIG_KEYS = deepFreeze({
   "when-standing": { kind: true, gait: true },
   "when-distance": { kind: true, of: true, than: true, metres: true, gait: true },
   "cover-guard": { kind: true, tuning: true },
+  "shield-guard": { kind: true, tuning: true },
   "recipe-strike": { kind: true, name: true, tuning: true },
   "path-strike": { kind: true, name: true, overlap: true, tuning: true },
   "driven-strike": { kind: true, name: true, tuning: true, drive: true, torso: true, windup: true, contact: true },
@@ -70,6 +74,8 @@ export const CONFIG_KEYS = deepFreeze({
     recover: true, landed: true, driven: true, drives: true, gap: true, poise: true, wait: true,
   },
   "front-kick": { kind: true, name: true, tuning: true },
+  "blade-cut": { kind: true, name: true, tuning: true },
+  "blade-thrust": { kind: true, name: true, tuning: true },
   "support-fold": { kind: true },
   "cover-reflex": { kind: true },
   "whole-body": { kind: true },

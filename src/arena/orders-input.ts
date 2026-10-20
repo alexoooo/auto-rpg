@@ -2,6 +2,7 @@ import type { Heading, Orders } from "../core/mind/orders.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
 import type { Senses } from "../core/mind/senses.ts";
 import { surfaceEntry } from "../core/mind/openings.ts";
+import { directMovement } from "../core/mind/movement.ts";
 
 /** Which of the four walking keys are down. */
 interface MoveKeys { readonly up: boolean; readonly down: boolean; readonly left: boolean; readonly right: boolean }
@@ -48,7 +49,7 @@ export function rayTarget(senses: Senses, origin: Vec3, direction: Vec3, length:
 export function personOrders(move: Heading | null, point: Vec3 | null, target: { readonly foe: string; readonly region: string } | null, at: { readonly x: number; readonly z: number },
   run = false): Orders {
   return {
-    move,
+    move: move ? directMovement(move.x, move.z) : null,
     ...(run && move ? { run: true as const } : {}),
     face: point ? { x: point[0] - at.x, z: point[2] - at.z } : null,
     ...(target ?? {}),

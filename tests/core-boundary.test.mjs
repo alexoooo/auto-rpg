@@ -177,7 +177,8 @@ export const probe = (mesh: ProbeMesh, hand: { right: number }): unknown[] =>
 const EXACT_MATH = new Set(["PI", "SQRT2", "abs", "max", "min", "sqrt", "ceil", "floor", "trunc", "round", "sign", "fround", "imul"]);
 
 /** The modules beside the core whose numbers go into a bout's world: the arena's bout and its solids. */
-const WORLD_BUILDERS = ["src/arena/duel.ts", "src/arena/room.ts"];
+const WORLD_BUILDERS = ["src/arena/duel.ts", "src/arena/room.ts", "src/arena/levels.ts", "src/environment/furniture.ts", "src/lab/ground-environment.ts",
+  "src/dungeon/run.ts", "src/dungeon/map.ts", "src/dungeon/door-approach.ts"];
 
 /**
  * Each use in `text` of arithmetic an engine rounds its own way, as `"file what"`: a member of

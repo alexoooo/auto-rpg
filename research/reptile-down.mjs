@@ -20,7 +20,7 @@ const grid = OPPONENTS.flatMap((opponent) => GAPS.map((gap) => ({ ...opponent, g
 for (const [index, { right, control, held, gap }] of grid.entries()) {
   if (index % of !== shard) continue;
   const minds = readMinds(`?matchup=reptile,${right}&control=crawl,${control}`);
-  const { world, duel, dispose } = await buildBout({ left: "reptile", right, gap, capSeconds: 60, held: { left: "empty", right: held }, minds });
+  const { world, duel, dispose } = await buildBout({ left: "reptile", right, gap, capSeconds: 60, loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: held } }, minds });
   try {
     let down = null;
     while (!duel.verdict) {

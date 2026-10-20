@@ -45,8 +45,8 @@ export function reptilePhysique(spec: BodySpec, physique: Physique = {}, haste =
       shape: collision,
       ...(segment.points && { points: Object.fromEntries(Object.entries(segment.points).map(([key, p]) => [key, point(p)])) }),
       ...(segment.contacts && { contacts: segment.contacts.map(c => ({ ...c, shape: shape(c.shape), surface: { ...c.surface,
-        ...(c.surface.point && { point: { ...c.surface.point, direction: derive("1", "the piercing direction under transverse breadth",
-          [c.surface.point.direction, axis, breadth], (d, y, b) => {
+        ...(c.surface.directed && { directed: { ...c.surface.directed, direction: derive("1", "the contact mechanism's direction under transverse breadth",
+          [c.surface.directed.direction, axis, breadth], (d, y, b) => {
             const along = scale(y, dot(d, y)); return normalize(add(along, scale(sub(d, along), b)));
           }) } }),
       } })) }),
