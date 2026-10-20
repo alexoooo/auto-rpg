@@ -30,7 +30,7 @@ too few to rank, enough to see the shape.
 - **No mind leads.** Score shares, with a draw as half: Behaviours 0.59, Classic 0.54, Options
   0.51, Puncher 0.45, Counter-puncher 0.41, all within the noise of four bouts a pair.
 - **Puncher and Counter-puncher never swing the sword.** Their only action is the punch, which
-  needs an empty hand. They fit the loadout because the line guard declares the sword a covering
+  needs an empty hand. They fit the loadout because the shield guard declares the sword a covering
   item, so they fight as two shields. Against each other they land nothing but buckler contacts.
 - **The court fells bodies; the open stage does not.** 15 bodies were down at the end of the
   100 court bouts, none at the end of the 100 open bouts.
@@ -113,6 +113,13 @@ Each stage lands in small commits under the normal gate, and is useful alone.
   smaller).
 - `tests/mind-contract.test.mjs` constructs every registered mind on each character and catalog
   loadout it claims to fit, so a gap like this is a red gate. Construction only, so it stays fast.
+- A fighting mind fits a loadout only if it can attack with it (the owner's rule): every held
+  item still needs a declared use, and at least one of its actions must be throwable on the armed
+  body (`armedActions`). One predicate beside `equipmentSupported` (`src/core/mind/catalog.ts`),
+  read by every fit, so pickers, the match and the tournament agree. On the representative set,
+  Puncher and Counter-puncher leave club and buckler and sword and buckler, where no hand is free
+  to punch, and keep the rest. A mind with no actions of its own (direct control) is not a
+  fighting mind and is unchanged.
 - `REPRESENTATIVE`, the tournament's and the match's loadouts, and the unseen report.
 - `research/rising-bed.mjs` takes `--loadouts left,right;...` beside `--held`, without changing
   `--target`.
@@ -131,7 +138,7 @@ the step the recipe strike already makes (`recipe-strike`, `effector-strike.ts`)
 same way along its line. This is the whole-body plan's strike work applied to an item; it uses
 that plan's solve where it helps.
 
-Proposed bar: on every cell, the median cut on the trunk or head empties at least a third of the
+Bar: on every cell, the median cut on the trunk or head empties at least a third of the
 Warrior's head (2.6 J of edge), no striker falls, and the blade returns within 1 s.
 
 ### 2. The buckler against a blade
@@ -144,7 +151,7 @@ Then the composition: the same incoming blade while the fighter's own cut is und
 buckler's cover and the sword's action hold their hands at once and hand the trunk and legs over
 cleanly.
 
-Proposed bar: the buckler meets at least four of five blade attacks it can reach from guard,
+Bar: the buckler meets at least four of five blade attacks it can reach from guard,
 with or without its own cut under way.
 
 ### 3. Up again, holding both
@@ -159,7 +166,7 @@ adds the equipped group and fixes what the items alone break (a buckler on the g
 hand, a blade levering the wrist). The owner's 64-fall target is unchanged and remains its own
 goal.
 
-Proposed bar: at least as many recoveries with sword and buckler as with the club on the same
+Bar: at least as many recoveries with sword and buckler as with the club on the same
 falls, with every item held.
 
 ### 4. The court
@@ -171,7 +178,7 @@ window, collisions with furniture, time taken, and falls.
 Work: the six failing travel cases of `tests/core-navigation-capability.test.mjs` where the
 loadout makes them matter, and the hand-over from navigation to the blade's approach window.
 
-Proposed bar: the fighter reaches its window behind the column in every case within 15 s,
+Bar: the fighter reaches its window behind the column in every case within 15 s,
 without a fall.
 
 ### 5. The assembly and its tactics
@@ -197,12 +204,6 @@ Freeze the platform, run the tournament on the representative set and the unseen
 `assets/minds/ratings.json` and the notes, and record the capability results of stages 1 to 4
 with the commit they were read at. The owner watches the fighter on both levels in the browser;
 it is the reference once the owner accepts how it fights.
-
-## Owner's choices
-
-- The proposed bars of stages 1 to 4, or other figures.
-- Whether a mind with no attack for a loadout (Puncher with a sword) is entered in that
-  loadout's ratings, or only where it has one.
 
 ## Checks
 
