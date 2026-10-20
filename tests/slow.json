@@ -9,6 +9,7 @@
  "attack-force.test.mjs",
  "audio-bodies.test.mjs",
  "character-motion.test.mjs",
+ "character-geometry.test.mjs",
  "core-bar.test.mjs",
  "core-combat-arm.test.mjs",
  "core-combat-combinations.test.mjs",

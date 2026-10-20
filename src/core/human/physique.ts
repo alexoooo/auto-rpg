@@ -16,9 +16,9 @@ import { SIDES } from "./landmarks.ts";
  * - `strength`: every peak torque.
  * - `speed`: every muscle's unloaded speed of shortening.
  *
- * Any positive factor builds a body; which factors a character or a run takes is theirs. Past
- * about x1.3 of weight, segments that share no joint meet in the reference pose
- * (`docs/reference/competencies.md#physiques`).
+ * Factors are positive; geometric clearance limits which combinations fit a body. Past about
+ * x1.3 of weight, the workshop models' nonadjacent segments meet in the reference pose
+ * (`docs/reference/competencies.md#physiques`); the shared character resolver refuses intersections.
  */
 export interface Physique {
   readonly size?: number;
@@ -45,14 +45,12 @@ function factor(physique: Physique, attribute: keyof Physique): Quantity<number>
  * Weight broadens each segment about the line along it through its surface's centroid: a trunk
  * segment's hull, each hand's two hulls (with the points on them where a palm bears and a fist
  * strikes), and a foot's box across and up from its sole. A limb's capsule holds its mass at its
- * density already (`segments.ts`). A figure whose limbs are capped by the room beside its trunk
- * (`HumanFigure.widest`, the crypt skeleton's) takes no weight: that room is derived from the
- * trunk the weight would broaden, and the figure would have to derive it again.
+ * density already (`segments.ts`). A capped upper arm keeps the clearance beside the broadened
+ * trunk (`HumanFigure.widest`), and refuses a breadth that leaves no room for the arm.
  */
 export function physiqueFigure(figure: HumanFigure, physique?: Physique): HumanFigure {
   if (!physique) return figure;
   const size = factor(physique, "size"), weight = factor(physique, "weight");
-  if (weight && figure.widest) throw new Error(`${figure.model} takes no weight: its limbs are capped by the room beside its trunk`);
   const strength = factor(physique, "strength"), speed = factor(physique, "speed");
   const breadth = weight && derive("1", "the square root of the weight: the breadth of a segment as long and as dense", [weight],
     (w) => Math.sqrt(w));
@@ -60,11 +58,18 @@ export function physiqueFigure(figure: HumanFigure, physique?: Physique): HumanF
   const muscled = size ? derive("kg", "the muscled mass times the size cubed", [sized, size], (m, s) => m * s * s * s) : sized;
   const mass = size || weight ? derive("kg", "the mass times the size cubed and the weight", [figure.mass, size ?? one, weight ?? one],
     (m, s, w) => m * s * s * s * w) : figure.mass;
-  const widest = figure.widest && Object.fromEntries(Object.entries(figure.widest).map(([row, room]) => [row,
-    size ? derive("m", "the widest room times the size", [room!, size], (r, s) => r * s) : room]));
   const { CERV, XYPH, OMPH, MIDH } = figure.trunk;
   const trunkAxis: Record<TrunkSegment, readonly [Quantity<Vec3>, Quantity<Vec3>]> = { upper: [CERV, XYPH], middle: [XYPH, OMPH], lower: [OMPH, MIDH] };
   const trunkHull = (segment: TrunkSegment) => broadHull(figure.hulls[segment], trunkAxis[segment], breadth!).corners;
+  const hulls = breadth ? { upper: trunkHull("upper"), middle: trunkHull("middle"), lower: trunkHull("lower") } : figure.hulls;
+  const extent = (points: readonly Quantity<Vec3>[]) => derive("m", "the trunk's widest distance from its midline", points,
+    (...p: Vec3[]) => Math.max(...p.map(v => Math.abs(v[0]))));
+  const widest = figure.widest && Object.fromEntries(Object.entries(figure.widest).map(([row, original]) => {
+    const room = breadth && row === "upperArm" ? derive("m", "the arm's room less the trunk's added breadth",
+      [original!, extent([...figure.hulls.middle, ...figure.hulls.lower]), extent([...hulls.middle, ...hulls.lower])], (r, before, after) => r + before - after) : original!;
+    if (!(room.value > 0)) throw new Error(`${figure.model}: Weight leaves no clearance beside the trunk for ${row}`);
+    return [row, size ? derive("m", "the widest room times the size", [room, size], (r, s) => r * s) : room];
+  }));
   return {
     ...figure,
     ...(size && { scale: figure.scale ? derive("1", "the fit scale times the size", [figure.scale, size], (f, s) => f * s) : size,
@@ -72,12 +77,12 @@ export function physiqueFigure(figure: HumanFigure, physique?: Physique): HumanF
     mass, ...((size || weight) && { muscled }),
     ...(breadth && {
       breadth: figure.breadth ? derive("1", "the breadth times the weight's", [figure.breadth, breadth], (a, b) => a * b) : breadth,
-      hulls: { upper: trunkHull("upper"), middle: trunkHull("middle"), lower: trunkHull("lower") },
+      hulls,
       feet: Object.fromEntries(SIDES.map((side) => [side, broadFoot(figure.feet[side], breadth)])) as HumanFigure["feet"],
       ...(figure.hands && { hands: Object.fromEntries(SIDES.map((side) =>
         [side, broadHand(figure.hands![side], [figure.limbs[side].WJC, figure.limbs[side].DAC3], breadth)])) as HumanFigure["hands"] }),
     }),
-    ...(widest && { widest }),
+    ...(widest && { widest: { ...widest, ...(breadth && widest.upperArm && !widest.forearm ? { forearm: widest.upperArm } : {}) } }),
     ...(strength && { strength: figure.strength ? derive("1", "the strength times the physique's", [figure.strength, strength], (a, b) => a * b) : strength }),
     ...(speed && { speed: figure.speed ? derive("1", "the speed times the physique's", [figure.speed, speed], (a, b) => a * b) : speed }),
   };

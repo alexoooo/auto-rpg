@@ -2,6 +2,7 @@ import type { AttributeSpec, BodySpec } from "../spec/body.ts";
 import { sourced, type Quantity } from "../spec/quantity.ts";
 import type { HumanFigure } from "./figure.ts";
 import type { WorkshopModel } from "./rig.ts";
+import { attributeError } from "../character-attributes.ts";
 
 /** A human figure's attributes: the figure's. */
 export function humanAttributes(figure: HumanFigure): AttributeSpec {
@@ -14,19 +15,14 @@ export const HUMAN_HASTE = sourced(0, "%", "owner-haste", "every character 0");
 /** `figure` with its haste `haste` per cent over a person's, a bout's or an experiment's in place of its character's; `figure` itself where none is given. */
 export function hastedFigure(figure: HumanFigure, haste?: number): HumanFigure {
   if (haste === undefined) return figure;
-  if (!validHaste(haste)) throw new Error(`a haste is a finite per cent over a person's, above -100: ${haste}`);
+  if (attributeError("haste", haste)) throw new Error(`a haste is a finite per cent over a person's, above -100: ${haste}`);
   return { ...figure, haste: sourced(haste, "%", "owner-haste", "a bout's haste") };
-}
-
-/** A haste is a finite per cent over a person's that leaves the legs some speed: above -100. */
-export function validHaste(haste: number): boolean {
-  return Number.isFinite(haste) && haste > -100;
 }
 
 /** The haste `text` writes, a per cent over a person's with an optional sign; null for anything else. */
 export function hasteFrom(text: string): number | null {
   const haste = /^[+-]?\d+(\.\d+)?$/.test(text.trim()) ? Number(text) : NaN;
-  return validHaste(haste) ? haste : null;
+  return attributeError("haste", haste) === null ? haste : null;
 }
 
 /** A haste written for a reader, signed: `+50`, `-20`, `0`. */

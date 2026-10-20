@@ -5,6 +5,7 @@ import { sourced } from "../src/core/spec/quantity.ts";
 import { Duel } from "../src/arena/duel.ts";
 import { traceOf } from "./harness/trace.mjs";
 import { freshEngine } from "./harness/core-stand.mjs";
+import { characterDefaults } from "../src/core/models.ts";
 
 // Node arena, rapier-coordinate, 120 Hz: immutable physical qualification recipes replay whole.
 test("a qualification recipe retains its surface, load rule and bite settings through replay", async () => {
@@ -15,7 +16,7 @@ test("a qualification recipe retains its surface, load rule and bite settings th
   try {
     first.world.step(40);
     const saved = first.duel.save();
-    assert.deepEqual(saved.recipe, recipe);
+    assert.deepEqual(saved.recipe, { ...recipe, attributes: { left: characterDefaults("reptile"), right: characterDefaults("reptile") } });
     for (const side of ["left", "right"]) {
       const jaw = first.duel.duelists[side].built.spec.segments.find(s => s.name === "jaw");
       assert.equal(jaw.surface.stiffness.value, 34000);

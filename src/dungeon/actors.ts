@@ -2,6 +2,8 @@ import { lowsOf } from "../core/control/ground.ts";
 import { modelSpec, type BodyModel } from "../core/models.ts";
 import { deepFreeze } from "../core/state.ts";
 import { frameOf } from "../core/spec/body.ts";
+import type { BodySpec } from "../core/spec/body.ts";
+import { shapeBounds } from "../core/spec/shape-bounds.ts";
 
 /** **What the crypt needs of a model** beyond its body and mind: how it walks the map and when it is out. */
 interface CryptModel {
@@ -27,7 +29,15 @@ function readReptile(): CryptModel {
 }
 
 /** What the crypt needs of `model` (`CryptModel`). */
-export function cryptModel(model: BodyModel): CryptModel {
+export function cryptModel(model: BodyModel, spec?: BodySpec): CryptModel {
+  if (spec) {
+    const base = modelSpec(model), own = cryptModel(model);
+    const footprint = (body: BodySpec) => Math.max(...body.segments.map(segment => {
+      const b = shapeBounds(segment), x = Math.max(Math.abs(b.min[0]), Math.abs(b.max[0])), z = Math.max(Math.abs(b.min[2]), Math.abs(b.max[2]));
+      return Math.sqrt(x * x + z * z);
+    }));
+    return { ...own, radius: own.radius * (footprint(spec) / footprint(base)), attackMetres: own.attackMetres * (spec.stature.value / base.stature.value) };
+  }
   switch (model) {
     case "workshop-fighter": case "workshop-rogue": case "crypt-skeleton": return HUMANOID;
     case "reptile": return reptileModel ??= readReptile();

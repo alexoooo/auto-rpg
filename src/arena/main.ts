@@ -13,7 +13,10 @@ import { airOf, hearTouches } from "../audio/body-sounds.ts";
 import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
-import { BODY_MODELS, modelHolding, modelHolds, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHolding, modelHolds, resolveCharacter, type BodyModel } from "../core/models.ts";
+import { attributeEditor } from "../ui/attribute-editor.ts";
+import { writeAttributes } from "../ui/attribute-link.ts";
+import type { AttributeOverrides } from "../core/character-attributes.ts";
 import type { Held } from "../core/items/held.ts";
 import { HUMAN_HASTE, hasteText } from "../core/human/attributes.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
@@ -24,7 +27,7 @@ import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { ARENA_HELD, boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readHaste, readGap, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readCap, readGap, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { partOf } from "../core/mind/catalog.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
@@ -138,6 +141,11 @@ export async function bootArena(): Promise<void> {
   const pickers = {} as Record<Side, HTMLSelectElement>;
   const refreshChoices = {} as Record<Side, () => void>;
   const previews = {} as Record<Side, Awaited<ReturnType<typeof showHeroLineup>>>;
+  const attributeEditors = {} as Record<Side, ReturnType<typeof attributeEditor>>;
+  const attributes = { ...arenaAttributes(location.search) };
+  const attributeKey = (models: Matchup, values: Readonly<Record<Side, AttributeOverrides>>) => JSON.stringify(SIDES.map(side => resolveCharacter({ model: models[side], attributes: values[side] }).config));
+  let linkedAttributes = "";
+  try { linkedAttributes = attributeKey(matchup, attributes); } catch { /* The editor reports invalid linked values. */ }
   const previewLoads: Promise<void>[] = [];
   for (const side of SIDES) {
     const panel = document.createElement("section");
@@ -168,6 +176,16 @@ export async function bootArena(): Promise<void> {
     appearanceField.append(appearanceName, appearancePicker);
     const choices = document.createElement("div"); choices.className = "contender-choices";
     field.append(name, select); choices.append(field, appearanceField); panel.append(head, preview, choices);
+    const attributePanel = attributeEditors[side] = attributeEditor({ model: matchup[side], attributes: attributes[side] }, {
+      change: (draft, resolved) => {
+        attributes[side] = draft;
+        if (resolved) {
+          refreshChoices[side]?.();
+          void previews[side]?.setCharacter(0, { model: select.value as BodyModel, attributes: draft }, appearances[side]);
+        }
+      },
+    });
+    choices.append(attributePanel.element);
     const controller = document.createElement("label"), control = document.createElement("select");
     controller.className = "field"; controller.textContent = "Controller";
     control.setAttribute("aria-label", `${side} controller`);
@@ -196,10 +214,14 @@ export async function bootArena(): Promise<void> {
       notes.replaceChildren(...all.map(({ level, note }) => Object.assign(document.createElement("span"), { textContent: `${levelName(level, model, holds)}: ${note}` })));
       notes.hidden = all.length === 0;
     };
-    const editor = mindEditor(linkedMind(location.search, side).config, { spec: modelHolding(matchup[side], held.value as Held), onFault: "the preset is used", onChange: () => nameControl() });
+    const editorSpec = () => {
+      try { return modelHolding(select.value as BodyModel, held.value as Held, attributes[side]); }
+      catch { return modelHolding(select.value as BodyModel, held.value as Held); }
+    };
+    const editor = mindEditor(linkedMind(location.search, side).config, { spec: editorSpec(), onFault: "the preset is used", onChange: () => nameControl() });
     settings.append(summary, editor.element); choices.append(notes, settings);
     const showSettings = (config: MindConfig) => {
-      editor.set(config, modelHolding(select.value as BodyModel, held.value as Held));
+      editor.set(config, editorSpec());
       settings.hidden = partOf(config).fields.length === 0 && partOf(config).slots.length === 0;
       nameControl();
     };
@@ -215,22 +237,28 @@ export async function bootArena(): Promise<void> {
       equipment.hidden = !hands;
       for (const option of held.options) option.disabled = !hands && option.value !== "empty";
       if (!hands) held.value = "empty";
-      const holds = held.value as Held, choices = controlsFor(model, holds), previous = control.value;
+      const holds = held.value as Held, previous = control.value;
+      let choices: readonly string[];
+      try { choices = controlsFor(model, holds, attributes[side]); } catch { choices = controlsFor(model, holds); }
       control.replaceChildren(...choices.map(value => Object.assign(document.createElement("option"), { value, textContent: CONTROLS[value] })));
-      control.value = choices.includes(previous) ? previous : defaultControl(model, holds);
+      const fallback = defaultControl(model, holds);
+      const preferred = choices.includes(fallback) ? fallback : choices[0]!;
+      control.value = choices.includes(previous) ? previous : preferred;
       showSettings(control.value !== previous ? MINDS[control.value]!.config : editor.config);
     };
     held.addEventListener("change", () => { held.blur(); refresh(); });
     refresh();
     need("matchup").append(panel);
     pickers[side] = select;
-    previewLoads.push(showHeroLineup(preview, physicsEngine, [matchup[side]], lifetime.signal, [appearances[side]]).then(view => {
+    previewLoads.push(showHeroLineup(preview, physicsEngine, [matchup[side]], lifetime.signal, [appearances[side]]).then(async view => {
       previews[side] = view; select.disabled = false; appearancePicker.disabled = false;
+      try { attributePanel.read(); await view.setCharacter(0, { model: select.value as BodyModel, attributes: attributes[side] }, appearances[side]); } catch { /* The editor displays its draft's error. */ }
       select.addEventListener("change", () => {
         appearances = { ...appearances, [side]: "default" };
+        attributePanel.set({ model: select.value as BodyModel, attributes: attributes[side] });
         refresh();
         select.blur();
-        void view.setModel(0, select.value as BodyModel).catch(error => {
+        void view.setCharacter(0, { model: select.value as BodyModel, attributes: attributes[side] }).catch(error => {
           need("boot-note").textContent = `Preview unavailable: ${error.message}`;
         });
       }, { signal: lifetime.signal });
@@ -337,36 +365,50 @@ export async function bootArena(): Promise<void> {
     for (const side of SIDES) {
       pickers[side].value = matchup[side];
       refreshChoices[side]();
-      void previews[side].setModel(0, matchup[side], appearances[side]);
+      attributeEditors[side].set({ model: matchup[side], attributes: attributes[side] });
+      try { attributeEditors[side].read(); void previews[side].setCharacter(0, { model: matchup[side], attributes: attributes[side] }, appearances[side]); } catch { /* Invalid drafts stay in the editor. */ }
     }
   };
   const begin = async (next: Matchup) => {
     if (beginButton.disabled) return;
+    try {
+      for (const side of SIDES) {
+        attributes[side] = attributeEditors[side].read();
+        resolveCharacter({ model: next[side], attributes: attributes[side] });
+      }
+    } catch (error) { need("boot-note").textContent = error instanceof Error ? error.message : String(error); return; }
     beginButton.disabled = true;
     try {
       appearances = { left: appearanceFor(next.left, appearances.left), right: appearanceFor(next.right, appearances.right) };
       matchup = next;
       const query = new URLSearchParams(location.search);
+      query.delete("balance"); query.delete("haste");
+      for (const side of SIDES) writeAttributes(query, side, attributes[side]);
       query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
       query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
       query.set("held", SIDES.map((side) => heldPickers[side].value).join(","));
       query.set("recovery", recoveryPicker.value);
-      const search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
+      let search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
       const sameControllers = linkedControl === JSON.stringify(readMinds(search));
       const sameRecovery = (linkedRecovery ?? null) === (readRecovery(search) ?? null);
       const sameHeld = linkedHeld === JSON.stringify(readHeld(search));
-      const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameHeld ? linked.tape : [];
+      const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameHeld && linkedAttributes === attributeKey(matchup, attributes) ? linked.tape : [];
       replaying = tape.length > 0;
+      if (replaying) {
+        const snapshot = new URLSearchParams(search);
+        for (const side of SIDES) writeAttributes(snapshot, side, resolveCharacter({ model: matchup[side], attributes: attributes[side] }).config.attributes);
+        search = `?${snapshot}`;
+      }
       history.replaceState(null, "", arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view) + (replaying ? linked.hash : ""));
       const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
       end();
       toStart();
       audio.reset();
-      const balance = readBalance(location.search), haste = readHaste(location.search), gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search) ?? null;
+      const gap = readGap(location.search), capSeconds = readCap(location.search), held = readHeld(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search) ?? null;
       controllers = { left: controllerLabel(location.search, "left"), right: controllerLabel(location.search, "right") };
       const bout = duel = new Duel(world, {
-        left: matchup.left, right: matchup.right, recoverySeconds,
-        ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(balance ? { balance } : {}), ...(haste ? { haste } : {}), ...(held ? { held } : {}), ...(minds ? { minds } : {}),
+        left: matchup.left, right: matchup.right, recoverySeconds, attributes,
+        ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(held ? { held } : {}), ...(minds ? { minds } : {}),
       }, {
         solids: arenaSolids(),
         onBuilt: (duelist, built) => {
@@ -447,7 +489,7 @@ export async function bootArena(): Promise<void> {
   };
   window.addEventListener("keydown", (event) => {
     if (event.key === "Shift") { running = true; return; }
-    if (event.target instanceof HTMLSelectElement) return;
+    if (event.target instanceof HTMLElement && event.target.matches("input, select, textarea")) return;
     if (event.key === "?") { help(need("help").classList.contains("gone")); return; }
     if (!duel || walkKey(event, true)) return;
     if (event.key === " " || event.key === "Escape") { event.preventDefault(); if (!duel.verdict) setPaused(!paused); }

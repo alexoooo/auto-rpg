@@ -485,7 +485,7 @@ test("a physique changes what it names and nothing else, and the default physiqu
   }
 });
 
-test("a haste quickens the legs' muscles alone, a person's haste is the model at 0, and only a humanoid takes one", () => {
+test("a humanoid's haste quickens its legs' muscles alone and its baseline is the model at 0", () => {
   const legs = /^(hip|knee|ankle)./;
   for (const model of HUMANOID_MODELS) {
     const base = humanoidSpec(model), hasted = humanoidSpec(model, undefined, 50);
@@ -507,7 +507,7 @@ test("a haste quickens the legs' muscles alone, a person's haste is the model at
       valuesOf({ ...base, attributes: null, joints: base.joints.map((j) => ({ ...j, dofs: j.dofs.map((d) => ({ ...d, muscle: { ...d.muscle, speedPositive: null, speedNegative: null } })) })) }), `${model}: haste changes the legs' speeds alone`);
   }
   for (const haste of [-100, -150, Number.NaN, Infinity]) assert.throws(() => humanSpec("workshop-fighter", undefined, haste), /above -100/);
-  assert.throws(() => modelSpec("reptile", undefined, { haste: 50 }), /takes no haste/);
+  assert.equal(modelSpec("reptile", undefined, { haste: 50 }).attributes.haste.value, 50);
 });
 
 test("a body at the grid's corners and beyond keeps its sourced numbers, its soles on the ground and room between its segments", () => {
@@ -530,8 +530,10 @@ test("a body at the grid's corners and beyond keeps its sourced numbers, its sol
   }
 });
 
-test("a physique refuses a factor that is not positive, and weight on a figure whose limbs are capped by its room", () => {
+test("a physique refuses a factor that is not positive and recomputes a capped arm's room for weight", () => {
   for (const physique of [{ size: 0 }, { weight: -1 }, { strength: Number.NaN }, { speed: Infinity }]) assert.throws(() => humanSpec("workshop-fighter", physique), /positive factor/);
-  assert.throws(() => physiqueFigure(skeletonFigure(), { weight: 1.1 }), /takes no weight/);
+  const base = skeletonFigure(), heavier = physiqueFigure(base, { weight: 1.1 });
+  assert.ok(heavier.widest.upperArm.value > 0 && heavier.widest.upperArm.value < base.widest.upperArm.value);
+  assert.throws(() => physiqueFigure(base, { weight: 100 }), /no clearance/);
   assert.equal(humanSegments(physiqueFigure(skeletonFigure(), { size: 1.1, strength: 1.2, speed: 1.1 })).length, 16);
 });

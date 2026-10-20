@@ -9,6 +9,7 @@ import bind from "../../assets/skeleton/bind.json" with { type: "json" };
 import { publicAssetUrl } from "../asset-url.ts";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import type { SkinView } from "./skin-view.ts";
+import { skinReference } from "./body-deformation.ts";
 
 /**
  * **The crypt skeleton as the world sees it**: the pieces of `public/assets/skeleton/skeleton.glb`
@@ -129,11 +130,7 @@ export function piecesOnSegments(built: BuiltBody): Map<string, { readonly segme
   for (const [key, { part, segment }] of Object.entries(SKELETON_PIECES)) {
     const carrier = built.segments.get(segment);
     if (!carrier) throw new Error(`${built.spec.model} has no segment ${segment} for the piece ${key}`);
-    const { frame } = carrier;
-    const reference = Matrix.Compose(Vector3.One(),
-      Quaternion.RotationQuaternionFromAxis(Vector3.FromArray(frame.x), Vector3.FromArray(frame.y), Vector3.FromArray(frame.z)),
-      Vector3.FromArray(frame.origin));
-    out.set(key, { segment, held: bindMatrix(part).multiply(Matrix.Invert(reference)) });
+    out.set(key, { segment, held: bindMatrix(part).multiply(skinReference(built, segment)) });
   }
   return out;
 }
@@ -193,6 +190,7 @@ export function dressSkeleton(built: BuiltBody, art: SkeletonArt, scene: Scene):
       Matrix.ComposeToRef(Vector3.OneReadOnly, node.rotationQuaternion!, node.position, carried);
       held.multiplyToRef(carried, world);
       world.decompose(unit, turn, place);
+      mesh.scaling.copyFrom(unit);
       mesh.rotationQuaternion!.copyFrom(turn);
       mesh.position.copyFrom(place);
     }

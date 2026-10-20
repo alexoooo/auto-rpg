@@ -11,6 +11,7 @@ import { CHARACTERS } from "../src/character-lab/catalog.ts";
 import { HELD } from "../src/core/items/held.ts";
 import { SEARCH_FALL } from "../src/lab/stance-mode.ts";
 import { labAddress, labHref, labMind, recoveryAddress, LAB_PRESETS, LAB_RATES, MODELS, SCENARIOS } from "../src/lab/scenarios.ts";
+import { loadoutAttributes } from "../src/lab/loadout.ts";
 import { humanSpec } from "../src/core/human/spec.ts";
 import { CLASSIC, PUNCHER } from "../src/core/mind/config.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
@@ -19,7 +20,7 @@ import { tacticsOf } from "../src/core/mind/tactics-of.ts";
 const SCRIPT = LAB_PRESETS.script.config, GUARD = LAB_PRESETS.guard.config;
 /** A mind no preset is: the Guard preset getting up once down. */
 const RISING = { ...GUARD, subs: [{ kind: "support-recovery" }] };
-const DEFAULTS = { ground: {drive:"mind",rise:"step-up",waypoint:"none",start:"shoved",posture:"back",degrees:null,impulse:null,foe:0,gusts:false}, recoveryMode: "selected", recoveryPush: SEARCH_FALL, appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, sole: false, balance: null, haste: null, mind: SCRIPT, barred: [], hz: 120,
+const DEFAULTS = { ground: {drive:"mind",rise:"step-up",waypoint:"none",start:"shoved",posture:"back",degrees:null,impulse:null,foe:0,gusts:false}, recoveryMode: "selected", recoveryPush: SEARCH_FALL, appearance: "default", scenario: null, model: "workshop-fighter", right: "empty", left: "empty", boots: true, armour: true, sole: false, attributes: {}, balance: null, haste: null, mind: SCRIPT, barred: [], hz: 120,
   view: "world", camera: "free", projection: "orthographic", targets: 10, seed: 1 };
 /** The Rogue as the workshop dresses it: boots, no armour. */
 const ROGUE = { model: "workshop-rogue", boots: true, armour: false };
@@ -27,7 +28,7 @@ const ROGUE = { model: "workshop-rogue", boots: true, armour: false };
 test("the_lab_address_names_a_scenario_a_character_a_rate_a_view_and_a_camera_or_falls_back", () => {
   assert.deepEqual(labAddress("?play=lab"), DEFAULTS);
   assert.deepEqual(labAddress("?play=lab&scenario=attack&model=workshop-rogue&right=club&left=club&boots=0&armour=1&sole=1&balance=2.5&mind=guard&barred=club,empty&hz=480&view=tactical&camera=chase&projection=perspective&targets=4&seed=7"),
-    { ...DEFAULTS, appearance: "default", scenario: "attack", model: "workshop-rogue", right: "club", left: "club", boots: false, armour: true, sole: true, balance: 2.5, mind: GUARD,
+    { ...DEFAULTS, appearance: "default", scenario: "attack", model: "workshop-rogue", right: "club", left: "club", boots: false, armour: true, sole: true, attributes: { balance: 2.5 }, balance: 2.5, mind: GUARD,
       barred: ["empty", "club"], hz: 480, view: "tactical",
       camera: "chase", projection: "perspective", targets: 4, seed: 7 });
   // Each field falls back alone; a known value beside an unknown one is kept.
@@ -91,7 +92,7 @@ test("every_choice_the_lab_offers_reads_back_from_the_address_it_writes", () => 
     const [targets, seed] = scenario === null ? [10, 1] : [SCENARIOS.findIndex((s) => s.id === scenario), 4294967295];
     const address = { ...DEFAULTS, appearance: "default", scenario, model, right, left, boots, armour, sole, balance, mind, barred, hz, view, camera, projection, targets, seed }, href = labHref(address);
     assert.equal(routeFor(href), "lab", href);
-    assert.deepEqual(labAddress(href), address, href);
+    assert.deepEqual(labAddress(href), { ...address, attributes: loadoutAttributes(address) }, href);
   }
 });
 
@@ -103,14 +104,14 @@ test("a_balance_in_the_address_is_a_plain_decimal_per_cent_none_or_more_or_the_c
   assert.equal(labAddress("?play=lab").balance, null);
   // The character's own is no parameter at all, and replaces one that was there.
   assert.equal(new URLSearchParams(labHref(DEFAULTS, "?play=lab&balance=3")).has("balance"), false);
-  assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, balance: 0 }, "?play=lab&balance=3")).getAll("balance"), ["0"]);
+  assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, balance: 0 }, "?play=lab&balance=3")).getAll("body.balance"), ["0"]);
 });
 
 test("a_haste_in_the_address_is_a_signed_decimal_per_cent_over_a_persons_or_the_characters_own", () => {
   assert.deepEqual(["50", "+50", "0", "-37.5"].map((text) => labAddress(`?haste=${text}`).haste), [50, 50, 0, -37.5]);
   for (const text of ["", "-100", "-110", "fast", "Infinity"]) assert.equal(labAddress(`?haste=${text}`).haste, null, text);
   assert.equal(new URLSearchParams(labHref(DEFAULTS, "?play=lab&haste=50")).has("haste"), false);
-  assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, haste: 50 }, "?play=lab")).getAll("haste"), ["50"]);
+  assert.deepEqual(new URLSearchParams(labHref({ ...DEFAULTS, haste: 50 }, "?play=lab")).getAll("body.haste"), ["50"]);
 });
 
 test("the_attacks_targets_and_their_seed_are_whole_numbers_in_the_address_or_the_attacks_own", () => {
@@ -187,5 +188,5 @@ test("the selected-mind recovery demonstration preserves the live controller and
     mind: { ...SCRIPT, subs: [{ kind: "research-rise" }] } };
   const selected = recoveryAddress(address, "selected");
   assert.deepEqual(selected, { ...address, scenario: "recovery", recoveryMode: "selected" });
-  assert.deepEqual(labAddress(labHref(selected)), selected);
+  assert.deepEqual(labAddress(labHref(selected)), { ...selected, attributes: loadoutAttributes(selected) });
 });

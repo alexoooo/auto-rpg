@@ -25,7 +25,7 @@ import { coreStand } from "./harness/core-stand.mjs";
 const warrior = modelSpec("workshop-fighter");
 /** How far under its asked height a human is down, m: its spec's bar. */
 const FALLEN = warrior.down.fallen.value;
-const BODIES = [...HUMANOID_MODELS.map(modelSpec), armed(warrior, "right", woodenClub())];
+const BODIES = [...HUMANOID_MODELS.map(model => modelSpec(model)), armed(warrior, "right", woodenClub())];
 
 /** A built body's centre of mass's height over the stand's ground, m: the ground's top is y = 0. */
 function overGround(built) {

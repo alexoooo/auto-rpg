@@ -15,6 +15,9 @@ import { mindFaults, mindText, readMind } from "../ui/mind-link.ts";
 import { groundMind } from "./ground-config.ts";
 import { TECHNIQUES, type TechniqueName } from "../core/mind/ground/techniques.ts";
 import { SEARCH_FALL } from "./stance-mode.ts";
+import { readAttributes, writeAttributes, legacyAttributes } from "../ui/attribute-link.ts";
+import type { AttributeOverrides } from "../core/character-attributes.ts";
+import { loadoutAttributes } from "./loadout.ts";
 
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
@@ -65,6 +68,7 @@ const WORN: Readonly<Record<HumanoidModel, { readonly boots: boolean; readonly a
 /** A loadout: the model, what each hand holds, the clothing worn, and whether its feet are shod (`withSoles`: a sole that gives against the ground). */
 export type LabLoadout = {
   readonly model: HumanoidModel; readonly sole: boolean;
+  readonly attributes?: AttributeOverrides;
   /** The body's haste, per cent over a person's speed in its legs, in place of its character's (`AttributeSpec.haste`); null is the character's. */
   readonly haste: number | null;
 }
@@ -157,6 +161,7 @@ const flag = (value: string | null, fallback: boolean): boolean => value === "1"
 /** Read the lab's address; anything missing or unknown is the default. */
 export function labAddress(search: string): LabAddress {
   const query = new URLSearchParams(search);
+  const attributes = readAttributes(query, "body", legacyAttributes(query));
   const model = MODELS.find((m) => m.id === query.get("model"))?.id ?? MODELS[0].id;
   const worn = WORN[model], barred = (query.get("barred") ?? "").split(",");
   const bounded = (key: string, lo: number, hi: number, fallback: number): number => {
@@ -179,14 +184,15 @@ export function labAddress(search: string): LabAddress {
     recoveryPush: {degrees:bounded("pushDegrees",0,360,SEARCH_FALL.degrees),impulse:bounded("pushImpulse",10,120,SEARCH_FALL.impulse),separation:bounded("pushSeparation",.05,1,SEARCH_FALL.separation)},
     scenario: SCENARIOS.find((s) => s.id === query.get("scenario"))?.id ?? null,
     model,
+    attributes,
     appearance: appearanceFor(model, query.get("appearance")),
     right: HELD.find((h) => h === query.get("right")) ?? "empty",
     left: HELD.find((h) => h === query.get("left")) ?? "empty",
     boots: flag(query.get("boots"), worn.boots),
     armour: flag(query.get("armour"), worn.armour),
     sole: flag(query.get("sole"), false),
-    balance: balanceFrom(query.get("balance") ?? ""),
-    haste: hasteFrom(query.get("haste") ?? ""),
+    balance: query.has("body.balance") ? attributes.balance ?? null : balanceFrom(query.get("balance") ?? ""),
+    haste: query.has("body.haste") ? attributes.haste ?? null : hasteFrom(query.get("haste") ?? ""),
     mind: readMind(query.get("mind"), LAB_PRESETS) ?? (query.get("scenario") === "attack" ? PUNCHER
       : query.get("scenario") === "ground" ? groundMind(LAB_PRESETS.script.config) : LAB_PRESETS.script.config),
     barred: HELD.filter((h) => barred.includes(h)),
@@ -231,8 +237,7 @@ export function labHref(address: LabAddress, search = ""): string {
   query.set("boots", address.boots ? "1" : "0");
   query.set("armour", address.armour ? "1" : "0");
   if (address.sole) query.set("sole", "1");
-  if (address.balance !== null) query.set("balance", String(address.balance));
-  if (address.haste !== null) query.set("haste", String(address.haste));
+  writeAttributes(query, "body", loadoutAttributes(address));
   query.set("mind", mindText(address.mind, LAB_PRESETS));
   if (address.barred.length > 0) query.set("barred", address.barred.join(","));
   query.set("hz", String(address.hz));
@@ -249,7 +254,7 @@ export function recoveryAddress(address: LabAddress, recoveryMode: LabAddress["r
   if (recoveryMode === "selected") return { ...address, scenario: "recovery", recoveryMode };
   return { ...address, scenario: "recovery", recoveryMode, recoveryPush: SEARCH_FALL,
     model: "workshop-fighter", right: "empty", left: "empty", sole: true,
-    balance: 0, haste: null, hz: 120, mind: LAB_PRESETS.script.config, barred: [], appearance: "default" };
+    balance: 0, haste: null, attributes: { balance: 0 }, hz: 120, mind: LAB_PRESETS.script.config, barred: [], appearance: "default" };
 }
 
 function recoveryModeFrom(value: string | null): LabAddress["recoveryMode"] {

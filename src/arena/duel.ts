@@ -1,7 +1,8 @@
 import { solidSenses, type SolidSense } from "../core/mind/object-senses.ts";
 import type { ContactTarget } from "../core/control/effector-feedback.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
-import { modelHolds, modelInfo, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
+import { modelHolds, modelInfo, resolveCharacter, modelSupportsMind, type BodyModel } from "../core/models.ts";
+import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { armedWith, type Held } from "../core/items/held.ts";
 import { enlist, type Combatant } from "../core/combatant.ts";
 import type { SheetLog } from "../core/mind/sheets.ts";
@@ -85,6 +86,8 @@ interface Duelist extends Combatant {
 interface DuelRecipe {
   readonly left: BodyModel;
   readonly right: BodyModel;
+  /** Each character's attributes; a stored recipe carries their resolved values. */
+  readonly attributes?: Readonly<Record<Side, AttributeOverrides>>;
   /** How far apart the two stand, m; `GAP_METRES` unless given. */
   readonly gap?: number;
   /** `CAP_SECONDS` unless given. */
@@ -214,13 +217,17 @@ export class Duel {
     if ("contactLayer" in recipe) throw new Error("obsolete contact-layer recipe; rebuild it with the current point-load rules");
     if (recipe.recoverySeconds !== undefined && recipe.recoverySeconds !== null && (!Number.isFinite(recipe.recoverySeconds) || recipe.recoverySeconds < 0))
       throw new Error("invalid recovery window");
+    const characters = Object.fromEntries(SIDES.map(side => [side, resolveCharacter({ model: recipe[side], attributes: {
+      ...(recipe.balance?.[side] !== undefined ? { balance: recipe.balance[side] } : {}),
+      ...(recipe.haste?.[side] !== undefined ? { haste: recipe.haste[side] } : {}), ...recipe.attributes?.[side],
+    } })])) as Record<Side, ReturnType<typeof resolveCharacter>>;
     for (const side of SIDES) {
       const model = recipe[side], info = modelInfo(model), held = recipe.held?.[side] ?? ARENA_HELD, config = recipe.minds?.[side] ?? info.mind;
       if (held === "club" && !modelHolds(model)) throw new Error(`${model} cannot hold a club`);
-      if (!modelSupportsMind(model, config, held)) throw new Error(`incompatible controller for ${model} holding ${held}`);
+      if (!modelSupportsMind(model, config, held, characters[side].config.attributes)) throw new Error(`incompatible controller for ${model} holding ${held}`);
     }
     this.world = world;
-    this.recipe = Object.freeze({ ...recipe });
+    this.recipe = Object.freeze({ ...recipe, attributes: Object.freeze({ left: characters.left.config.attributes, right: characters.right.config.attributes }) });
     this.rules = rulebook("arena", recipe.rules);
     const start = world.time, startStep = world.steps;
     const given: Record<Side, Orders | null> = { left: null, right: null };
@@ -242,14 +249,14 @@ export class Duel {
     for (const side of SIDES) {
       const model = recipe[side];
       const info = modelInfo(model), held = recipe.held?.[side] ?? ARENA_HELD, config = recipe.minds?.[side] ?? info.mind;
-      const own = modelSpec(model, undefined, { haste: recipe.haste?.[side] }), original = recipe.surfaces ? stiffened(own, recipe.surfaces) : own;
+      const own = characters[side].spec, original = recipe.surfaces ? stiffened(own, recipe.surfaces) : own;
       const spec = armedWith(original, "right", held);
       const x = (side === "left" ? -1 : 1) * gap / 2;
       const combatant = enlist(world, {
         id: side, side, spec, at: [x, 0, 0], rules: this.rules, senses: this.senses, ...(solids ? { solids } : {}),
         // A downed side remains in the fight while its recovery allowance lasts.
         out: () => this.verdict !== null || this.eliminated(side),
-        mind: config, ...(recipe.balance ? { balance: recipe.balance[side] } : {}), ...(recipe.balancePercent ? { percent: recipe.balancePercent } : {}),
+        mind: config, ...(recipe.balancePercent ? { percent: recipe.balancePercent } : {}),
         ...(hooks.record ? { record: true } : {}), ...(hooks.replay ? { replay: hooks.replay[side] } : {}),
         name: `arena ${side}`,
         contactIdentity: other => other ? contactLabels.get(other.id) ?? null : { kind: "world" },

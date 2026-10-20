@@ -37,10 +37,11 @@ cent in place of the rulebook's (`DuelRecipe.balancePercent`).
 
 ## Haste
 
-A character's **haste** is how much faster its legs' muscles are than a person's, a per cent over
-a person's, in its spec beside its balance (`AttributeSpec.haste`): 0 is a person's, as a balance
+A character's **haste** is how much faster its legs' muscles are than its model's baseline, a per cent over
+that baseline, in its spec beside its balance (`AttributeSpec.haste`): 0 is unchanged, as a balance
 of 0 is no assist, and +50 is legs half again as fast. It multiplies the unloaded speed of shortening of the
-hip's, the knee's and the ankle's exertions (`jointSpeed`, `src/core/human/speed.ts`), and nothing
+hip's, the knee's and the ankle's exertions (`jointSpeed`, `src/core/human/speed.ts`), and the
+girdle, bend and ankle joints on all four reptile legs (`reptilePhysique`), and nothing
 else: strength, mass and gravity are as they are, so a hasted body can neither float nor look
 fast-forwarded. It is not an assist: no force or moment is given that the muscles do not give.
 
@@ -52,9 +53,11 @@ All of it is the owner's (`owner-haste` in `SOURCES`):
 | Every character's haste | 0 % | `HUMAN_HASTE` (`src/core/human/attributes.ts`) |
 | What it quickens | the hip's, knee's and ankle's (and the foot's) exertions, each way | `jointSpeed` |
 
-A bout takes a haste for each side in place of its character's (`DuelRecipe.haste`; in a link,
-`&haste=left,right` in per cent over a person's, signed, or one number for both), as the Lab does for its body
-(`&haste=`); a humanoid's spec takes one (`modelSpec`), the reptile's none. A figure on a hasted
+A setup resolves Haste through the shared character configuration, as it resolves the other
+attributes. Arena links use `&left.haste=` and `&right.haste=`, Lab `&body.haste=`, and Crypt a
+party slot or enemy type, such as `&hero.haste=` or `&enemy.reptile.haste=`. Existing flat
+`&haste=left,right` and Lab `&haste=` links remain readable. Every model accepts a Haste override.
+Speed multiplies all muscle speeds; Haste multiplies the leg speeds again. A figure on a hasted
 body names each side's haste.
 
 A gait could be timed to its muscles (`SimbiconSettings.hasted`): its times shortened, and its

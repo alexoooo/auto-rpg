@@ -29,7 +29,8 @@ import { thinkingSection } from "./hud/thinking-section.ts";
 import { labTransport } from "./hud/transport.ts";
 import { viewSection } from "./hud/view-section.ts";
 import { type LabScenario, type LabShell, type ScenarioRun } from "./lab-scenario.ts";
-import { allowing, loadoutBalance, loadoutSpec } from "./loadout.ts";
+import { allowing, loadoutSpec } from "./loadout.ts";
+import { resolveCharacter } from "../core/models.ts";
 import { createMindLog, logged, watchHas, type MindLog } from "./mind-log.ts";
 import { attackScenario } from "./attack-scenario.ts";
 import { locomotionScenario } from "./locomotion-scenario.ts";
@@ -171,7 +172,10 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
 
   // The HUD: the shell's controls in their sections and the transport's bar, then the scenario's
   // panels in theirs, what acts on the run under way beneath what starts it.
-  const page: LabPage = { get shown() { return shown; }, get spec() { return current?.built.spec ?? loadoutSpec(shown); }, load, show };
+  const page: LabPage = { get shown() { return shown; }, get spec() {
+    if (current) return current.built.spec;
+    try { return loadoutSpec(shown); } catch { return resolveCharacter({ model: shown.model }).spec; }
+  }, load, show };
   const sections = labSections(document);
   const thinking = thinkingSection();
   const controls: Readonly<Partial<Record<SectionName, readonly Control[]>>> = {
@@ -200,8 +204,10 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   function show(to: LabAddress): void {
     to = { ...to, appearance: appearanceFor(to.model, to.appearance) };
     shown = to;
-    history.replaceState(null, "", labHref(to, location.search));
-    back.href = labHref({ ...to, scenario: null }, location.search);
+    try {
+      history.replaceState(null, "", labHref(to, location.search));
+      back.href = labHref({ ...to, scenario: null }, location.search);
+    } catch { /* Invalid linked attributes stay visible in their editor. */ }
     rig.choose(to.camera, to.projection);
     // Clothing is the skin's alone: it changes no body, so nothing is rebuilt.
     current?.skin.wear(to);
@@ -233,6 +239,14 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   /** Load `to`'s loadout at `to`'s rate, in a new world, and start the scenario on it. */
   function load(to: LabAddress): void {
     if (disposed) return;
+    let spec: ReturnType<typeof loadoutSpec>;
+    try { spec = loadoutSpec(to); }
+    catch (error) {
+      show(to);
+      const editor = document.querySelector<HTMLDetailsElement>(".attribute-editor");
+      if (editor) editor.open = true;
+      console.error(error); return;
+    }
     // Until the physics engine has loaded there is no world to make: `to` is what is loaded then.
     if (!physicsEngine) { show(to); return; }
     audio.reset();
@@ -240,12 +254,11 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     world = createWorld(scene, physicsEngine, { hz: to.hz });
     world.physics.addFixedBox([0, -0.5, 0], [FLOOR, 1, FLOOR]);
     // The scenario supplies its initial placement; ordinary starts hold the standing guard.
-    const spec = loadoutSpec(to);
     let placement: Parameters<typeof buildBody>[2];
     try { placement = scenario.placement?.(spec, to) ?? { position: [0, 0, 0], joints: poseAngles(spec, guardPosture(spec)) }; }
     catch (error) { console.error(error); show(to); return; }
     const built = buildBody(spec, world, placement);
-    const balance = loadoutBalance(to.balance, built.spec);
+    const balance = built.spec.attributes.balance.value;
     const log = createMindLog();
     const chosen = to.scenario === "recovery" && to.recoveryMode === "witness"
       ? { ...LAB_PRESETS.script.config, subs: [{ kind: "support-recovery" as const }] } : labMind(to.mind, spec, to.scenario).plays;

@@ -17,6 +17,8 @@ import { visiblePart } from "../character-lab/catalog.ts";
 import { CLUB_GRIP } from "./club-grip.ts";
 import { FIST, fistTurns, type RestBone } from "./fist.ts";
 import type { Side } from "../core/spec/body.ts";
+import { skinReference } from "./body-deformation.ts";
+import { modelSpec } from "../core/models.ts";
 
 /**
  * **The body as the world sees it**: the workshop model's skinned mesh, each bone carried by
@@ -155,14 +157,11 @@ export function dressBody(built: BuiltBody, container: AssetContainer, scene: Sc
     const host = HOSTS[rig.bones[name]!.host];
     if (!host) throw new Error(`${model}: bone ${name} has host ${rig.bones[name]!.host}, which names no core segment`);
     const atFit = restOf(node).multiply(fit);
-    const segment = host === "trunk" ? trunkSegment(built, atFit.getTranslation()) : built.segments.get(host);
+    const size = built.spec.stature.value / modelSpec(model).stature.value;
+    const segment = host === "trunk" ? trunkSegment(built, atFit.getTranslation().scale(size)) : built.segments.get(host);
     if (!segment) throw new Error(`${model}: no segment ${host} for bone ${name}`);
-    const { frame } = segment;
-    const reference = Matrix.Compose(Vector3.One(),
-      Quaternion.RotationQuaternionFromAxis(Vector3.FromArray(frame.x), Vector3.FromArray(frame.y), Vector3.FromArray(frame.z)),
-      Vector3.FromArray(frame.origin));
     // The bone at x1 in the segment's reference frame; times the segment as achieved, the bone.
-    return { node, segment, held: atFit.multiply(Matrix.Invert(reference)), finger: null };
+    return { node, segment, held: atFit.multiply(skinReference(built, segment.spec.name)), finger: null };
   });
 
   const meshes = nodes.filter((node): node is Mesh => node instanceof Mesh && node.getTotalVertices() > 0);

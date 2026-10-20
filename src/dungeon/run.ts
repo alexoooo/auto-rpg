@@ -3,7 +3,9 @@ import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { enlist, type Combatant } from "../core/combatant.ts";
 import { armedWith } from "../core/items/held.ts";
-import { modelInfo, modelSpec, type BodyModel } from "../core/models.ts";
+import { modelInfo, resolveCharacter, type BodyModel, type ResolvedCharacter } from "../core/models.ts";
+import type { AttributeOverrides } from "../core/character-attributes.ts";
+import { configuredSpawn } from "./attribute-placement.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
@@ -66,6 +68,8 @@ const NAMES = (model: BodyModel) => MODEL_DISPLAY[model].label.toLowerCase();
 export type Participant = Pick<DungeonActor, "id" | "side" | "model">;
 
 export interface DungeonActor {
+  readonly character: ResolvedCharacter;
+  readonly attackMetres: number;
   readonly id: string;
   readonly name: string;
   readonly model: BodyModel;
@@ -204,6 +208,9 @@ const IDLE: Order = Object.freeze({ kind: "idle" });
 export type RunStatus = "playing" | "won" | "dead";
 
 interface DungeonRunOptions {
+  readonly prepared?: ReturnType<typeof prepareDungeonCharacters>;
+  /** Resolved before placement, including for enemies that wake later. */
+  readonly attributes?: (participant: Participant) => AttributeOverrides | null;
   /** The level's seed (`generateLevel`), unless `layout` is given. */
   readonly seed: number;
   readonly engine: PhysicsEngine;
@@ -222,6 +229,36 @@ interface DungeonRunOptions {
   readonly onBuilt?: (actor: DungeonActor, world: World) => void;
   /** The levels' rule; `LEVELS` unless given. */
   readonly levels?: LevelRule;
+}
+
+/** Resolve every actor and its placement before allocating a world or replacing a running scene. */
+export function prepareDungeonCharacters(map: DungeonMap, options: Pick<DungeonRunOptions, "hero" | "companions" | "enemy" | "attributes">) {
+  const characters = new Map<string, ResolvedCharacter>();
+  const prepare = (id: string, model: BodyModel, side: DungeonActor["side"]) => {
+    const character = resolveCharacter({ model, attributes: options.attributes?.({ id, model, side }) ?? {} });
+    characters.set(id, character); return cryptModel(model, character.spec);
+  };
+  const heroModel = heroOf(options), hero = prepare("hero", heroModel, "party");
+  const geometryChanged = (id: string) => {
+    const a = characters.get(id)!.config.attributes; return a.size !== 1 || a.weight !== 1;
+  };
+  if (geometryChanged("hero") && (!walkable(map, map.start, hero.radius, true) || !findPath(map, map.start, map.exit, hero.radius).length))
+    throw new Error("Configured hero does not fit the dungeon's start or route to the exit.");
+  const homes = new Map<string, Point>(), occupied = [{ ...map.start, radius: hero.radius }];
+  const encounters = map.spawns.map((_, i) => prepare(`enemy-${i}`, enemyAt(map, options, i), "enemy"));
+  map.spawns.forEach((at, i) => {
+    const id = `enemy-${i}`, info = encounters[i]!;
+    const remaining = map.spawns.slice(i + 1).map((point, k) => ({ ...point, radius: encounters[i + 1 + k]!.radius }));
+    const home = geometryChanged(id) ? configuredSpawn(map, at, info.radius, [...occupied, ...remaining]) : at;
+    homes.set(id, home); occupied.push({ ...home, radius: info.radius });
+  });
+  const partyTaken = [{ ...map.start, radius: hero.radius }];
+  (options.companions ?? []).forEach((model, i) => {
+    const id = `ally-${i}`, info = prepare(id, model, "party"), at = companionSpawn(map, partyTaken, info.radius);
+    if (!at) throw new Error(`No floor beside the start for companion ${i + 1}`);
+    partyTaken.push({ ...at, radius: info.radius }); homes.set(id, at);
+  });
+  return { characters, homes };
 }
 
 export class DungeonRun {
@@ -262,14 +299,16 @@ export class DungeonRun {
   constructor(scene: Scene, options: DungeonRunOptions) {
     this.options = options;
     this.map = runMap(options);
+    const { characters, homes } = options.prepared ?? prepareDungeonCharacters(this.map, options);
     this.world = createWorld(scene, options.engine);
     this.senses = createSenses(this.world);
     this.level = buildDungeonWorld(scene, this.map, options.visuals ?? true, this.world.physics);
     // Before any body's own hooks, so each body's tactics read this step's plan.
     this.planning = this.world.beforeStep(() => this.plan());
     const create = (id: string, model: BodyModel, at: Point, side: DungeonActor["side"]): DungeonActor => {
+      const character = characters.get(id)!, info = cryptModel(model, character.spec);
       const actor: DungeonActor = {
-        id, name: NAMES(model), model, side, fighter: null, meshes: [], outAt: null,
+        id, name: NAMES(model), model, character, attackMetres: info.attackMetres, side, fighter: null, meshes: [], outAt: null,
         feet() {
           if (!this.fighter) return { x: this.home.x, z: this.home.z };
           // A limp body's view is of the step its control left at; its root is where it lies now.
@@ -282,19 +321,16 @@ export class DungeonRun {
         get held() { return this.fighter?.body.level === "held"; },
         get vitality() { return this.fighter?.pool.bar() ?? 1; },
         target: null, home: { ...at }, lastSeen: null, alertedUntil: 0, route: [], goal: null, nextPlan: 0,
-        radius: cryptModel(model).radius, progress: { at: { ...at }, since: 0 }, pace: null, going: null,
+        radius: info.radius, progress: { at: { ...at }, since: 0 }, pace: null, going: null,
         order: IDLE, next: 0, post: null, replan: false, plan: { move: null, pace: null, going: null, face: null, attack: null },
       };
       this.actors.push(actor); return actor;
     };
     this.hero = create("hero", heroOf(options), this.map.start, "party");
     this.party.push(this.hero);
-    this.map.spawns.forEach((at, i) => this.enemies.push(create(`enemy-${i}`, enemyAt(this.map, options, i), at, "enemy")));
-    const taken = [{ ...this.map.start, radius: this.hero.radius }];
+    this.map.spawns.forEach((_, i) => this.enemies.push(create(`enemy-${i}`, enemyAt(this.map, options, i), homes.get(`enemy-${i}`)!, "enemy")));
     (options.companions ?? []).forEach((model, i) => {
-      const radius = cryptModel(model).radius, at = companionSpawn(this.map, taken, radius);
-      if (!at) throw new Error(`No floor beside the start for companion ${i + 1}`);
-      taken.push({ ...at, radius }); this.party.push(create(`ally-${i}`, model, at, "party"));
+      this.party.push(create(`ally-${i}`, model, homes.get(`ally-${i}`)!, "party"));
     });
     this.selected = new Set(this.party.map(member => member.id));
     for (const member of this.party) this.build(member);
@@ -317,7 +353,7 @@ export class DungeonRun {
   private build(actor: DungeonActor): void {
     const info = modelInfo(actor.model);
     actor.fighter = enlist(this.world, {
-      id: actor.id, side: actor.side, spec: armedWith(modelSpec(actor.model), "right", info.held), at: [actor.home.x, 0, actor.home.z],
+      id: actor.id, side: actor.side, spec: armedWith(actor.character.spec, "right", info.held), at: [actor.home.x, 0, actor.home.z],
       rules: this.rules, senses: this.senses, out: () => actor.fighter?.pool.ending() !== null && actor.fighter !== null,
       mind: this.options.mind?.(actor) ?? info.mind, name: `crypt ${actor.side}`,
       contactIdentity: other => {
@@ -559,7 +595,7 @@ export class DungeonRun {
     }
     if (actor.target) {
       const targetAt = actor.target.feet();
-      return distance(at, targetAt) > cryptModel(actor.model).attackMetres ? this.follow(actor, targetAt) : null;
+      return distance(at, targetAt) > actor.attackMetres ? this.follow(actor, targetAt) : null;
     }
     if (order.kind === "lock" && actor.lastSeen) return this.follow(actor, actor.lastSeen);
     if (order.kind === "attack-move") {
@@ -593,7 +629,7 @@ export class DungeonRun {
   /** Where an enemy walks this step, or null when it is close enough to its target to fight: after what it saw, else home. */
   private enemyMovement(actor: DungeonActor): Point | null {
     const at = actor.feet();
-    if (actor.target && distance(at, actor.target.feet()) <= cryptModel(actor.model).attackMetres) return null;
+    if (actor.target && distance(at, actor.target.feet()) <= actor.attackMetres) return null;
     const goal = actor.target?.feet() ?? (actor.alertedUntil > this.clock ? actor.lastSeen : actor.home);
     return goal && distance(at, goal) > ARRIVAL.point ? this.follow(actor, goal) : { x: 0, z: 0 };
   }

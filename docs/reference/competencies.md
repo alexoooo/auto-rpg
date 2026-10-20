@@ -65,8 +65,11 @@ reference pose, where the engine would fling them apart: the Warrior's upper arm
 trunk past x1.30 (5.3 mm of room at x1.25). A thigh broadens no further than leaves the stride's
 room between the two (`STRIDE_ROOM`, `src/core/human/segments.ts`): the Rogue's are held there at its
 own weight, the Warrior's from just over its own, and a thigh held there grows denser instead. The
-crypt skeleton takes no weight: its limbs are capped by the room its own trunk leaves, which it
-would have to derive again.
+crypt skeleton recalculates its upper-arm clearance from the broadened trunk and caps its forearms
+to the same lateral room. A configuration that leaves no room or intersects nonadjacent segments
+is refused by the shared character resolver. The reptile applies the same four modifier meanings
+to its own authored anatomy: its mass and peak torque scale with size cubed, Weight broadens
+transversely without adding torque, and its box and capsule moments follow their configured shapes.
 
 The grid's ranges are the owner's: size x0.9 to x1.18, weight x0.85 to x1.25, strength x0.8 to
 x1.25, and speed x0.85 to x1.15, the last an engineering range with no source. They are

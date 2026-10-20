@@ -30,9 +30,9 @@ test("an_arena_link_names_its_matchup_and_a_malformed_one_falls_back", () => {
     [{ left: 5, right: 2 }, { left: 5, right: 5 }, { left: 0, right: 20.5 }, { left: 5, right: 2 }]);
   assert.deepEqual(["", "?balance=", "?balance=5,", "?balance=,5", "?balance=-1", "?balance=5,-1", "?balance=1,2,3", "?balance=many", "?balance=Infinity"].map(readBalance),
     Array(9).fill(undefined));
-  // Each side's haste, per cent over a person's and signed: left then right, one number for both, a side whose model takes none left its own; nothing at or under -100.
+  // Each side's haste, signed: left then right, one number for both; nothing at or under -100.
   assert.deepEqual(["?haste=50,20", "?haste=+50", "?matchup=reptile,workshop-rogue&haste=50,30", "?matchup=workshop-rogue,reptile&haste=50", "?haste=-5"].map(readHaste),
-    [{ left: 50, right: 20 }, { left: 50, right: 50 }, { right: 30 }, { left: 50 }, { left: -5, right: -5 }]);
+    [{ left: 50, right: 20 }, { left: 50, right: 50 }, { left: 50, right: 30 }, { left: 50, right: 50 }, { left: -5, right: -5 }]);
   assert.deepEqual(["", "?haste=", "?haste=-100", "?haste=50,-120", "?haste=1,2,3", "?haste=fast"].map(readHaste), Array(6).fill(undefined));
 });
 

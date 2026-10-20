@@ -1,0 +1,9 @@
+.attribute-editor { margin: .7rem 0; }
+.attribute-editor summary { cursor: pointer; font-weight: 600; }
+.attribute-fields { display: grid; gap: .5rem; margin: .7rem 0; }
+.attribute-field { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; }
+.attribute-field label { display: flex; flex: 1 1 12rem; align-items: center; gap: .5rem; }
+.attribute-field label span { flex: 1; }
+.attribute-field input { width: 5.5rem; min-width: 0; padding: .3rem; color: inherit; background: #171b22; border: 1px solid #64666a; border-radius: .2rem; }
+.attribute-field button { padding: .25rem .45rem; }
+.attribute-error { color: #ffada0; font-size: .85rem; }

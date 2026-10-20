@@ -23,7 +23,9 @@ import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { hearRun, type RunHearing } from "./hearing.ts";
 import { EnemyHover } from "./hover.ts";
-import { DungeonRun, runMap, runModels, type DungeonActor, type Participant, type RunStatus } from "./run.ts";
+import { DungeonRun, prepareDungeonCharacters, runMap, runModels, type DungeonActor, type Participant, type RunStatus } from "./run.ts";
+import { runAttributes } from "./run-attributes.ts";
+import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { orderLabel } from "./commands.ts";
 import { cellKey, type Point } from "./map.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward, frameDungeon, pickingCoordinates } from "./camera.ts";
@@ -96,7 +98,9 @@ let toward = cameraToward(azimuth);
 // `?floor=flat` and `?wall=flat` draw the untextured colours, the control for what the stone's maps cost, and
 // `?masonry=0` the flat wall skin, the control for what the blocks cost; `?dressing=0` leaves the clutter out.
 const stone = stoneQuery(location.search);
-seedInput.value = String(randomSeed());
+const setupQuery = new URLSearchParams(location.search);
+const linkedSeed = setupQuery.get("seed");
+seedInput.value = linkedSeed !== null && /^\d{1,10}$/.test(linkedSeed) && Number(linkedSeed) <= 4294967295 ? linkedSeed : String(randomSeed());
 /** The heroes a person can lead, in the order companions are drawn from: each is a body, and each carries a club. */
 const HEROES: readonly { readonly model: BodyModel; readonly label: string }[] = HUMANOID_MODELS.map((model) => ({ model, label: MODEL_DISPLAY[model].label }));
 /** The companions for a hero: the next heroes on the list after the hero's own, in turn. */
@@ -106,11 +110,26 @@ const companionModels = (hero: BodyModel, count: number): BodyModel[] => {
 };
 for (const hero of HEROES) {
   const label = document.createElement("label"), input = document.createElement("input"), name = document.createElement("span");
-  input.type = "radio"; input.name = "hero"; input.value = hero.model; input.checked = hero.model === "workshop-fighter";
+  input.type = "radio"; input.name = "hero"; input.value = hero.model; input.checked = hero.model === (setupQuery.get("hero") ?? "workshop-fighter");
   name.textContent = hero.label;
   label.append(input, name); heroChoices.append(label);
 }
 const heroLabel = (model: BodyModel) => HEROES.find(h => h.model === model)?.label ?? model;
+if (!heroChoices.querySelector<HTMLInputElement>("input:checked")) heroChoices.querySelector<HTMLInputElement>("input")!.checked = true;
+const linkedCompanions = (setupQuery.get("companions") ?? "").split(",").filter((value): value is BodyModel => HEROES.some(h => h.model === value)).slice(0, 3);
+companionCount.querySelector<HTMLInputElement>(`input[value="${linkedCompanions.length}"]`)!.checked = true;
+let selectedCompanions = linkedCompanions;
+const attributeHolder = document.createElement("div");
+attributeHolder.id = "party-attributes"; need("party-minds").before(attributeHolder);
+const attributePanel = runAttributes(attributeHolder, location.search);
+const updateAttributeParty = (keepRoster = false) => {
+  const hero = choice(heroChoices) as BodyModel;
+  if (!keepRoster) selectedCompanions = companionModels(hero, Number(choice(companionCount)));
+  attributePanel.update(hero, selectedCompanions);
+};
+updateAttributeParty(true);
+heroChoices.addEventListener("change", () => updateAttributeParty());
+companionCount.addEventListener("change", () => updateAttributeParty());
 /** Each hero's mind as a party member, and each enemy model's: chosen on the start panel and carried by the address. */
 const mindPanel = runMinds(need("party-mind-list"), [...HEROES.map(h => ({ side: "party" as const, model: h.model })),
   ...ENCOUNTER_MODELS.map((model) => ({ side: "enemy" as const, model }))], location.search);
@@ -165,6 +184,7 @@ interface DungeonPage {
   selectedHero: BodyModel;
   /** Each participant's mind (`runMinds`). */
   mind: (participant: Participant) => MindConfig | null;
+  attributes: (participant: Participant) => AttributeOverrides;
   companions: BodyModel[];
   clothing: Clothing;
   selectedScenario: DungeonScenario;
@@ -223,7 +243,7 @@ function createPage(physicsEngine: PhysicsEngine, skeletonArt: Promise<SkeletonA
     meterElement, meterParent: meterElement.parentElement!, diagnostics,
     abort, signal: abort.signal,
     party: null,
-    selectedHero: "workshop-fighter", mind: () => null, companions: [], clothing: { boots: true, armour: true },
+    selectedHero: "workshop-fighter", mind: () => null, attributes: () => ({}), companions: [], clothing: { boots: true, armour: true },
     selectedScenario: "generated", selectedQuality: "high", reference: false,
     seed: 0, cryptPlan: undefined, scene: null, run: null, hearing: null, camera: null, lighting: null, referenceLook: null,
     drawn: [], soundTorches: [], route: null, routeSignature: "",
@@ -325,13 +345,16 @@ function cameraFor(page: DungeonPage): { pitch: number; azimuth: number; zoom: n
 /** Replaces the run on show with one of `nextSeed`, in the scenario and with the party the start panel chose. */
 async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
   const { engine, audio, reference } = page;
+  const seed = nextSeed >>> 0;
+  const cryptPlan = page.selectedScenario === "random-crypt" ? generateCryptDungeon(seed) : undefined;
+  const fielded = { seed, layout: cryptPlan?.map ?? (reference ? referenceChamber(seed) : undefined), hero: page.selectedHero, companions: page.companions, attributes: page.attributes };
+  const layout = runMap(fielded), prepared = prepareDungeonCharacters(layout, fielded);
   audio.reset();
   page.soundTorches = [];
   teardownRun(page);
   page.route = null;
   page.routeSignature = "";
-  const seed = page.seed = nextSeed >>> 0;
-  const cryptPlan = page.cryptPlan = page.selectedScenario === "random-crypt" ? generateCryptDungeon(seed) : undefined;
+  page.seed = seed; page.cryptPlan = cryptPlan;
   if (reference) {
     page.meterParent.prepend(page.diagnostics);
     page.diagnostics.append(page.meterElement);
@@ -356,8 +379,6 @@ async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
   camera.mode = Camera.ORTHOGRAPHIC_CAMERA;
   camera.minZ = 0.1;
   camera.maxZ = 160;
-  const fielded = { seed, layout: cryptPlan?.map ?? (reference ? referenceChamber(seed) : undefined), hero: page.selectedHero, companions: page.companions };
-  const layout = runMap(fielded);
   // The skin of each model the run fields, loaded once a scene; a body whose skin did not load is drawn as its shapes.
   const dressers = new Map<BodyModel, Dresser>();
   await Promise.all(runModels(layout, fielded).map((model) =>
@@ -372,7 +393,7 @@ async function buildRun(page: DungeonPage, nextSeed: number): Promise<void> {
   const run = page.run = new DungeonRun(scene, {
     seed, engine: page.physicsEngine,
     visuals: { ...dungeonStone(scene, stone.floor, stone.wall), masonry: reference ? false : stone.masonry },
-    layout, hero: page.selectedHero, companions: page.companions, mind: page.mind, onBuilt: dress,
+    layout, prepared, hero: page.selectedHero, companions: page.companions, mind: page.mind, attributes: page.attributes, onBuilt: dress,
     // A blow is a touch, and is heard as one (`hearRun`); this is what it took off, where the party can see.
     onBlow: (blow) => {
       const heard = page.run;
@@ -430,11 +451,13 @@ async function launch(page: DungeonPage, nextSeed: number): Promise<void> {
   start.textContent = "Loading…";
   need("setup-error").hidden = true;
   need("start-panel").inert = true;
+  const previous = page.run;
   try {
     await buildRun(page, nextSeed);
   } catch (error) {
     page.audio.setActive(false);
-    teardownRun(page);
+    if (page.run !== previous) teardownRun(page);
+    page.paused = true;
     showScreen("setup");
     need("pause-panel").hidden = true;
     need("help").hidden = true;
@@ -469,14 +492,20 @@ function wireControls(page: DungeonPage): void {
       return;
     }
     seedInput.setCustomValidity("");
+    try { page.attributes = attributePanel.read(); }
+    catch (error) { need("setup-error").hidden = false; need("setup-error").textContent = String(error); return; }
     page.selectedHero = choice(heroChoices) as BodyModel;
     page.selectedScenario = scenarioOf(choice(scenario));
     page.reference = usesReferenceLook(page.selectedScenario);
     page.selectedQuality = quality.value === "reduced" ? "reduced" : "high";
-    page.mind = mindPanel.mind();
+    page.mind = mindPanel.mind(page.attributes);
     // The address keeps the scenario and the party's minds, so that a reload opens the same.
     const url = new URL(location.href);
     mindPanel.write(url);
+    attributePanel.write(url);
+    url.searchParams.set("hero", page.selectedHero);
+    url.searchParams.set("companions", selectedCompanions.join(","));
+    url.searchParams.set("seed", seedInput.value);
     if (page.reference) {
       url.searchParams.set("scene", page.selectedScenario);
       url.searchParams.set("quality", page.selectedQuality);
@@ -485,7 +514,7 @@ function wireControls(page: DungeonPage): void {
       url.searchParams.delete("quality");
     }
     history.replaceState(null, "", url);
-    page.companions = companionModels(page.selectedHero, Number(choice(companionCount)));
+    page.companions = [...selectedCompanions];
     void launch(page, Number(seedInput.value));
   }, { signal });
   seedInput.addEventListener("input", () => seedInput.setCustomValidity(""), { signal });
@@ -775,7 +804,21 @@ async function boot(): Promise<void> {
   const dispose = () => disposePage(page);
   window.addEventListener("pagehide", dispose, { once: true, signal: page.signal });
   import.meta.hot?.dispose(dispose);
-  await showHeroLineup(need<HTMLCanvasElement>("hero-preview"), page.physicsEngine, HEROES.map(h => h.model), page.signal);
+  const preview = await showHeroLineup(need<HTMLCanvasElement>("hero-preview"), page.physicsEngine, HEROES.map(h => h.model), page.signal);
+  const updatePreview = () => {
+    try {
+      const attributes = attributePanel.read(), hero = choice(heroChoices) as BodyModel;
+      for (const [index, row] of HEROES.entries()) {
+        const companion = selectedCompanions.indexOf(row.model), id = row.model === hero ? "hero" : companion >= 0 ? `ally-${companion}` : "";
+        void preview.setCharacter(index, { model: row.model, attributes: id ? attributes({ id, model: row.model, side: "party" }) : {} });
+      }
+    } catch { /* Invalid drafts stay visible while the previous preview is retained. */ }
+  };
+  updatePreview();
+  attributeHolder.addEventListener("input", updatePreview, { signal: page.signal });
+  attributeHolder.addEventListener("click", updatePreview, { signal: page.signal });
+  heroChoices.addEventListener("change", updatePreview, { signal: page.signal });
+  companionCount.addEventListener("change", updatePreview, { signal: page.signal });
   if (page.signal.aborted) return;
   wireControls(page);
   const party = page.party = wireParty(page);

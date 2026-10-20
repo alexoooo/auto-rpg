@@ -1,6 +1,6 @@
 import { withSoles } from "../core/human/sole.ts";
-import { modelSpec } from "../core/models.ts";
-import { HUMAN_HASTE } from "../core/human/attributes.ts";
+import { resolveCharacter } from "../core/models.ts";
+import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { armedWith, HELD, heldItem, type Held } from "../core/items/held.ts";
 import { FIST, heldIn } from "../core/skills/strikes.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -11,8 +11,13 @@ import { LAB_HANDS, type LabLoadout } from "./scenarios.ts";
  * A loadout that holds nothing is the model's body itself. Boots and armour are the skin's
  * (`skin.ts`), and make no difference here; a shod loadout's feet give as a shoe's sole (`withSoles`).
  */
+export function loadoutAttributes(loadout: LabLoadout & { readonly balance?: number | null }): AttributeOverrides {
+  return { ...(loadout.balance != null ? { balance: loadout.balance } : {}), ...(loadout.haste != null ? { haste: loadout.haste } : {}), ...loadout.attributes };
+}
+
+/** Construct the Lab's character through the shared resolver, then fit soles and equipment. */
 export function loadoutSpec(loadout: LabLoadout): BodySpec {
-  const own = modelSpec(loadout.model, undefined, { haste: loadout.haste ?? undefined });
+  const own = resolveCharacter({ model: loadout.model, attributes: loadoutAttributes(loadout) }).spec;
   let spec = loadout.sole ? withSoles(own) : own;
   for (const side of LAB_HANDS) spec = armedWith(spec, side, loadout[side]);
   return spec;
@@ -21,11 +26,6 @@ export function loadoutSpec(loadout: LabLoadout): BodySpec {
 /** The balance the body of `spec` has, per cent of its weight: `balance`, the address's, or its character's own. */
 export function loadoutBalance(balance: number | null, spec: BodySpec): number {
   return balance ?? spec.attributes.balance.value;
-}
-
-/** What the address holds for a `haste`: nothing where it is a person's, which every character's is. */
-export function hasteAddress(haste: number): number | null {
-  return haste === HUMAN_HASTE.value ? null : haste;
 }
 
 /** What the address holds for a `balance` on the body of `spec`: nothing where it is its character's own. */

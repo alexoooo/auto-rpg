@@ -222,7 +222,8 @@ export const SOURCES = Object.freeze({
       + "over the human baseline as balance is over none, 0 by default and every character's 0, so that +50 is legs "
       + "half again as fast. A gait times itself to it; a forward force "
       + "on the root is not haste (it is an assist, and reads as sliding). Its range and each character's value are "
-      + "the owner's; a bout or an experiment may give a body another.",
+      + "the owner's; a bout or an experiment may give a body another. The shared character configuration "
+      + "applies the percentage to each model's own baseline, including all four reptile leg chains.",
     record: "docs/reference/assist.md#haste",
   },
   "owner-physique": {

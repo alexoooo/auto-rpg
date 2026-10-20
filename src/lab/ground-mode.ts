@@ -117,7 +117,7 @@ export function startGround(actor: Actor, address: LabAddress, options: {
   const skills = actor.drive({ name: "ground stand", decide: () => standIntent(0) }, { senses, orders: check.orders });
   const shoving = shoveBody(body, world, () => skills.report.heading, options.pushed), shove = groundShove(address);
   const wind = startWind(body.built, world, address.ground.gusts ? { rate: .7, strength: 45 } : { rate: 0, strength: 0 }, address.seed);
-  const meter = groundMeter(body, world, address.balance ?? body.built.spec.attributes.balance.value);
+  const meter = groundMeter(body, world, body.built.spec.attributes.balance.value);
   const round = address.ground.start === "round";
   const state = { status: "running" as "running" | "landed standing" | "cap" | "round done" | "round ended down", shoved: false,
     falls: [] as RoundFall[], next: round ? ROUND_FIRST : null as number | null, shovedAt: null as number | null, verdictAt: 0 };

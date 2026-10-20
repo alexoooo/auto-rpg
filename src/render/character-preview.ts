@@ -11,7 +11,7 @@ import { HDRCubeTexture } from "@babylonjs/core/Materials/Textures/hdrCubeTextur
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
-import { modelSpec, type BodyModel } from "../core/models.ts";
+import { resolveCharacter, type BodyModel, type CharacterConfig } from "../core/models.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { createWorld } from "../core/world.ts";
@@ -32,6 +32,7 @@ const upright = (spec: BodySpec): boolean => {
 export async function showHeroLineup(canvas: HTMLCanvasElement, physics: PhysicsEngine,
   models: readonly BodyModel[], signal: AbortSignal, appearances: readonly Appearance[] = []): Promise<{
     setModel(index: number, model: BodyModel, appearance?: Appearance): Promise<void>;
+    setCharacter(index: number, character: CharacterConfig, appearance?: Appearance): Promise<void>;
     setAppearance(index: number, appearance: Appearance): Promise<void>;
   }> {
   const engine = new Engine(canvas, true, { alpha: true, preserveDrawingBuffer: true });
@@ -60,7 +61,7 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
     // A full body with headroom; narrow columns retain space for the arms (docs/art/menu.md).
     for (let i = 0; i < cameras.length; i++) {
       const camera = cameras[i]!, tall = upright(bodies[i]!.spec);
-      const halfHeight = Math.max(tall ? 1.12 : .4, (tall ? .62 : .7) / aspect);
+      const halfHeight = Math.max(tall ? 1.12 : .4, (tall ? .62 : .7) / aspect) * (framing[i] ?? 1);
       camera.orthoTop = halfHeight; camera.orthoBottom = -halfHeight;
       camera.orthoLeft = -halfHeight * aspect; camera.orthoRight = halfHeight * aspect;
     }
@@ -83,21 +84,26 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
     await scene.whenReadyAsync();
     if (!signal.aborted && revision === revisions[index]) draw();
   };
-  const setModel = async (index: number, model: BodyModel, appearance: Appearance = "default") => {
+  const characterKeys: string[] = [], framing: number[] = [];
+  const setCharacter = async (index: number, character: CharacterConfig, appearance: Appearance = "default") => {
     if (signal.aborted) return;
-    if (!bodies[index] || chosen[index] !== model) {
+    const { model } = character, resolved = resolveCharacter(character), key = JSON.stringify(resolved.config);
+    if (!bodies[index] || characterKeys[index] !== key) {
       skins[index]?.dispose(); bodies[index]?.dispose();
-      chosen[index] = model;
-      const body = bodies[index] = buildBody(modelSpec(model), world, { position: [index * 4, 0, 0] });
+      chosen[index] = model; characterKeys[index] = key;
+      const body = bodies[index] = buildBody(resolved.spec, world, { position: [index * 4, 0, 0] });
+      const scale = framing[index] = Math.max(resolved.config.attributes.size, resolved.config.attributes.size * Math.sqrt(resolved.config.attributes.weight));
       const camera = cameras[index]!, x = index * 4;
-      if (upright(body.spec)) { camera.position.set(x + .2, 1.05, 6); camera.setTarget(new Vector3(x, .95, 0)); }
-      else { camera.position.set(x + 2, .9, 2); camera.setTarget(new Vector3(x, body.spec.stature.value / 2, -.1)); }
+      if (upright(body.spec)) { camera.position.set(x + .2 * scale, 1.05 * scale, 6 * scale); camera.setTarget(new Vector3(x, .95 * scale, 0)); }
+      else { camera.position.set(x + 2 * scale, .9 * scale, 2 * scale); camera.setTarget(new Vector3(x, body.spec.stature.value / 2, -.1 * scale)); }
+      camera.maxZ = 15 * Math.max(1, scale);
       const skin = skins[index] = skinSlot(body, () => {
         for (const mesh of skin.meshes) mesh.layerMask = 1 << index;
       });
     }
     await setAppearance(index, appearance);
   };
+  const setModel = (index: number, model: BodyModel, appearance: Appearance = "default") => setCharacter(index, { model }, appearance);
   try {
     models.forEach((_, index) => {
       const x = index * 4, mask = 1 << index;
@@ -114,7 +120,7 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
     await Promise.all(models.map((model, index) => setModel(index, model, appearances[index])));
     ready = true;
     draw();
-    return { setModel, setAppearance };
+    return { setModel, setCharacter, setAppearance };
   } catch (error) {
     if (!signal.aborted) { signal.removeEventListener("abort", dispose); dispose(); }
     throw error;

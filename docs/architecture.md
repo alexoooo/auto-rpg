@@ -130,13 +130,34 @@ the impact literature for each part's stiffness under a blunt load (`CONTACT_STI
 | `crypt-skeleton` | `skeletonFigure`: its art's bind (`assets/skeleton/bind.json`); mass, strength and hit points are placeholders | 6 |
 | `reptile` | an independently authored 8 kg quadruped (`assets/reptile/body.json`) | 1 |
 
-A humanoid may be built with a physique (`Physique`, `src/core/human/physique.ts`;
-`modelSpec(model, physique)`): factors of size, weight, strength and speed, each changing one
-thing. `physiqueFigure` resizes the figure, broadens each segment at its density for weight, and
-carries strength and speed to the torque and the force-velocity curves; the figure's muscled
-mass (`HumanFigure.muscled`) keeps weight from adding muscle. Without one, a model is its figure.
-The competency suite measures skills across a grid of them
+Every game character is resolved from `CharacterConfig` (`src/core/models.ts`): a model plus
+explicit overrides of Size, Weight, Strength, Speed, HP, Balance and Haste. `resolveCharacter`
+validates finite values, inherits model defaults for omitted fields, and returns an immutable
+resolved configuration and sourced body specification. Identity modifiers keep the unmodified
+specification. The four multipliers default to 1, HP to the model's own pool, and Balance and
+Haste to 0. Geometric modifiers are checked for nonadjacent intersections before world allocation.
+
+The humanoid adapter uses `physiqueFigure`: it resizes the figure, broadens segments for Weight,
+and carries Strength and Speed to torque and force-velocity curves. Its muscled mass excludes
+Weight. The skeleton recalculates its capped arm clearance after broadening its trunk. The reptile
+adapts its own anatomy with the same meanings, including Haste on all four legs. A model's
+positional `modelSpec` API is an adapter into the same resolver for scripts and experiments.
+The competency suite measures skills across a grid of physiques
 ([competencies](reference/competencies.md#physiques)).
+
+The shared Attributes editor is a draft: it shows names, effective values and controls,
+and resets by removing overrides. Arena and Crypt apply drafts to their next bout or run; Lab
+applies them through Apply and restart. Invalid drafts preserve the running world. Previews,
+controller compatibility and construction use the same configured specification. Skins deform
+with configured geometry; equipment keeps its own dimensions. Crypt clearance and engagement
+spacing follow the configured body, and placement is validated before replacing the scene.
+
+One URL codec reads and writes named attributes: `left.*` and `right.*` in Arena, `body.*` in Lab,
+and `hero.*`, companion slots `ally-0.*` through `ally-2.*`, and `enemy.<model>.*` in Crypt.
+Explicit scoped fields override existing flat Balance/Haste parameters; writers remove those
+aliases. Configurations belong to setups and links, not global saved character defaults. Crypt
+links also retain the hero, companion roster and seed. Arena recipes store fully resolved
+attributes, save compatibility includes them, and changing attributes invalidates a linked tape.
 
 A humanoid's feet may wear a running shoe's sole (`withSoles`, `src/core/human/sole.ts`): a
 spring and damper derived from a heel-impact test of a shoe (Hoogkamer et al. 2018), sinking
@@ -1339,21 +1360,18 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   cent of its own weight, the most force its assist gives it, with the moment the rulebook gives
   each per cent (`Rulebook.balance`: 0.0026 of its weight times a metre; `balanceCeiling`). A
   fight sets each body's ceiling from its character's balance,
-  or a recipe's (`DuelRecipe.balance`, `&balance=left,right` in an arena link), and withdraws the
-  assist when the body is out of the fight; the lab sets its body's from the character's balance or
-  its address's (`&balance=`). The stance steps to catch a push only once its capture point is
+  or its resolved setup's (`DuelRecipe.attributes`, `&left.balance=` in an arena link), and withdraws the
+  assist when the body is out of the fight. The Lab reads the same resolved Balance (`&body.balance=`). The stance steps to catch a push only once its capture point is
   past what the assist holds (`assistReach`, `gait.ts`: a force holds the point its height times
   the force over the weight out, a moment the moment over the weight), so a body with a balance
   stands through a shove a body without must step for. Every character's balance is 0, and at 0
   there is no assist.
-- **Haste**: a character has a haste beside its balance (`AttributeSpec.haste`): how much faster
-  its legs' muscles are than a person's, a per cent over a person's (0 is a person's, +50 half
-  again as fast), multiplying the unloaded speed of the hip's, knee's and ankle's exertions
-  (`jointSpeed`) and nothing else; it gives no force. A humanoid's spec
-  takes one in place of its character's (`modelSpec`); a fight's recipe gives each side one
-  (`DuelRecipe.haste`, `&haste=left,right` in an arena link), and the lab its body
-  (`&haste=`). Every character's haste is 0 (`HUMAN_HASTE`), and a figure on a hasted body
-  names it.
+- **Haste**: a character's leg muscle speed increase over its model's baseline, per cent
+  (`AttributeSpec.haste`): 0 is unchanged, +50 half again as fast. It multiplies the unloaded
+  speed of hip, knee, ankle and foot exertions on humanoids, and girdle, bend and ankle joints
+  on all four reptile legs. Speed and Haste multiply together on legs. It changes no peak torque;
+  gait timing remains the controller's choice. Every model defaults to 0. The shared resolver
+  applies overrides from each setup (`&left.haste=`, `&body.haste=`, `&enemy.reptile.haste=`).
 - **Levels** (`levelsOf`, `levels.ts`): which bodies run themselves, for any fight with more
   bodies than fight at once. A body with nothing to do and nobody near is `held`; any other is
   `full` in the fight and `limp` out of it. A body in the fight has nothing to do when the fight

@@ -1,10 +1,9 @@
 import { appearancesFor, wearsClothing } from "../../render/appearance.ts";
-import { isBalance } from "../../core/rules/rulebook.ts";
-import { balanceAddress, hasteAddress, loadoutBalance, strikesOf } from "../loadout.ts";
-import { validHaste } from "../../core/human/attributes.ts";
+import { loadoutAttributes, strikesOf } from "../loadout.ts";
+import { attributeEditor } from "../../ui/attribute-editor.ts";
 import { LAB_HANDS, LAB_PRESETS, LAB_PROVIDES, LAB_WORN, MODELS } from "../scenarios.ts";
 import { HELD as HOLDS, type Held } from "../../core/items/held.ts";
-import { choice, entries, fold, following, group, menu, quantity, switches, toggle, when, type Control, type Named } from "../../ui/controls.ts";
+import { choice, entries, fold, following, group, menu, switches, toggle, when, type Control, type Named } from "../../ui/controls.ts";
 import { mindEditor } from "../../ui/mind-editor.ts";
 import { writeMind } from "../../ui/mind-link.ts";
 import type { LabPage } from "./sections.ts";
@@ -15,12 +14,6 @@ const WORN: Named<(typeof LAB_WORN)[number]> = {
   boots: { name: "Boots", title: "Appearance only" },
   armour: { name: "Armour", title: "Appearance only" },
 };
-
-/** What a press moves the balance by, per cent of the body's weight. */
-const BALANCE_STEP = 5;
-
-/** What a press moves the haste by, per cent over a person's speed in the legs. */
-const HASTE_STEP = 10;
 
 /** The Lab's presets, in their order. */
 const PRESET_IDS = Object.keys(LAB_PRESETS) as (keyof typeof LAB_PRESETS)[];
@@ -33,15 +26,21 @@ const presetOf = (page: LabPage): string => PRESET_IDS.find((id) => writeMind(LA
  * wears, and the mind that drives them, its tree folded away until opened.
  */
 export function characterSection(page: LabPage): readonly Control[] {
+  const attributes = attributeEditor({ model: page.shown.model, attributes: loadoutAttributes(page.shown) }, {
+    apply: values => page.load({ ...page.shown, attributes: values, balance: null, haste: null }),
+  });
+  let key = JSON.stringify([page.shown.model, loadoutAttributes(page.shown)]);
+  const attributeControl: Control = { element: attributes.element, refresh() {
+    const next = JSON.stringify([page.shown.model, loadoutAttributes(page.shown)]);
+    if (next !== key) { key = next; attributes.set({ model: page.shown.model, attributes: loadoutAttributes(page.shown) }); }
+  } };
   return [
     group("Body", [
       choice("Type", MODELS.map(({ id, name }) => ({ value: id, name })), () => page.shown.model, (model) => page.load({ ...page.shown, model, appearance: "default" })),
       when(() => appearancesFor(page.shown.model).length > 1,
         following(() => page.shown.model, model => menu("Appearance", appearancesFor(model).map(row => ({ value: row.id, name: row.name })),
           () => page.shown.appearance, appearance => page.show({ ...page.shown, appearance })))),
-      quantity("Balance, %", BALANCE_STEP, isBalance, () => loadoutBalance(page.shown.balance, page.spec),
-        (balance) => page.load({ ...page.shown, balance: balanceAddress(balance, page.spec) })),
-      quantity("Haste, %", HASTE_STEP, validHaste, () => page.spec.attributes.haste.value, (haste) => page.load({ ...page.shown, haste: hasteAddress(haste) })),
+      attributeControl,
       toggle("Compliant soles", () => page.shown.sole, () => page.load({ ...page.shown, sole: !page.shown.sole })),
     ]),
     group("Items", [

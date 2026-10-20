@@ -1,12 +1,12 @@
-import { armedWith } from "../core/items/held.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { MINDS } from "../core/mind/controllers.ts";
-import { modelInfo, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
+import { modelInfo, modelHolding, modelSupportsMind, type BodyModel } from "../core/models.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
 import { mindFaults, mindText, readMind } from "../ui/mind-link.ts";
 import type { Participant } from "./run.ts";
+import type { AttributeOverrides } from "../core/character-attributes.ts";
 
 /** The id of a body's own mind, its model's (`modelInfo`), among the minds offered it. */
 const OWN = "own";
@@ -21,7 +21,7 @@ function presetsFor(model: BodyModel): Readonly<Record<string, { readonly label:
 }
 
 /** A body of `model`, holding what its model holds (`DungeonRun`): what its mind must fit. */
-const bodySpec = (model: BodyModel): BodySpec => armedWith(modelSpec(model), "right", modelInfo(model).held);
+const bodySpec = (model: BodyModel, attributes?: AttributeOverrides): BodySpec => modelHolding(model, modelInfo(model).held, attributes);
 
 /** The address's key for the mind of `row`: `<model>.mind` for the party's, `enemy.<model>.mind` for the enemies'. */
 const mindKey = (row: Row): string => `${row.side === "enemy" ? "enemy." : ""}${row.model}.mind`;
@@ -33,7 +33,7 @@ const mindKey = (row: Row): string => `${row.side === "enemy" ? "enemy." : ""}${
  */
 export function runMinds(holder: HTMLElement, rows: readonly Row[], search: string): {
   /** The mind a participant plays (`DungeonRunOptions.mind`): its row's, or its model's own where that has a fault (`mindFaults`) or it has no row. */
-  mind(): (participant: Participant) => MindConfig | null;
+  mind(attributes?: (participant: Participant) => AttributeOverrides): (participant: Participant) => MindConfig | null;
   /** `url` with each row's mind (`mindText`), and none where it is its model's own. */
   write(url: URL): void;
 } {
@@ -56,12 +56,15 @@ export function runMinds(holder: HTMLElement, rows: readonly Row[], search: stri
     return section;
   }));
   return {
-    mind() {
+    mind(attributes) {
       const chosen = new Map(rows.map((row) => {
         const config = shown.get(mindKey(row))!;
-        return [mindKey(row), mindFaults(config, bodySpec(row.model)).length > 0 ? null : config] as const;
+        return [mindKey(row), config] as const;
       }));
-      return (participant) => chosen.get(mindKey(participant)) ?? null;
+      return participant => {
+        const config = chosen.get(mindKey(participant));
+        return config && mindFaults(config, bodySpec(participant.model, attributes?.(participant))).length === 0 ? config : null;
+      };
     },
     write(url) {
       for (const row of rows) {

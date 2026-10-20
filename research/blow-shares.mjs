@@ -50,7 +50,7 @@ for (const [row, other] of VARIED) console.log(`| ${row} | ${other} | ${[0.5, 1,
 const unit = rulebook("arena").unit.value;
 console.log(`\nJoules that empty a part, at ${unit} J a hit point:\n`);
 console.log(`| Part | ${HUMANOID_MODELS.map((model) => `${model}: kg | HP | J`).join(" | ")} |\n|---|${HUMANOID_MODELS.map(() => "---|---|---|").join("")}`);
-const specs = HUMANOID_MODELS.map(modelSpec), pools = specs.map(partHitPoints);
+const specs = HUMANOID_MODELS.map(model => modelSpec(model)), pools = specs.map(partHitPoints);
 for (const row of Object.keys(CONTACT_STIFFNESS)) {
   const cells = specs.map((spec, at) => {
     const segment = spec.segments.find((one) => one.name === row || one.name === `${row}.right`);

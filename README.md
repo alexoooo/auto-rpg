@@ -37,6 +37,18 @@ Everything the pages need is committed, so a fresh clone runs with no download s
 ## The Arena
 
 Choose the standing character on each side (Warrior, Rogue, Skeleton or Reptile) and press **Fight**.
+Each character's **Attributes** panel edits Size, Weight, Strength and Speed as multipliers,
+hit points as HP, and Balance and Haste as percentages. Model defaults are inherited until a field
+is edited; **Reset** restores inheritance, and **Reset all** restores every default. Balance 0
+is unassisted. Haste changes leg muscle speed; Speed changes every muscle's speed.
+The Lab and Crypt use the same panel. Arena and Crypt settings apply to the next bout or run;
+the Lab's **Apply and restart** starts its scenario on the edited body. These settings belong
+to the setup and its link. Invalid values or a body that cannot fit are shown as errors.
+
+Links use named character fields, such as `&left.strength=1.5&right.balance=10` in Arena,
+`&body.size=1.1` in Lab, and `&hero.hp=8&ally-0.speed=1.2&enemy.reptile.haste=50` in Crypt.
+Existing `balance=` and `haste=` links remain readable; named fields take precedence.
+
 The Warrior also has an **Appearance** selector: Original, Industrial, Steampunk or Futuristic. The three
 robot shells keep the Warrior's physics and abilities. The Lab offers the same choices and can
 switch skins during playback without restarting the scenario. Arena links keep each side's
