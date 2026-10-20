@@ -14,11 +14,15 @@ import { dungeonStone, flatStone, type DungeonSurfaces } from "./stone.ts";
 import { masonryQuads, type Quad } from "./masonry.ts";
 import { DRESSING, FLOOR_TOP, HUNG_TOP, decalCorners, decalHeight, hungCentre, muralHeight, type Dressing, type TorchPlacement } from "./dressing.ts";
 import { ATLAS, atlasRect, decalAtlas, muralRect } from "./decals.ts";
+import { solidSenses } from "../core/mind/object-senses.ts";
+import { hypot } from "../core/math/real.ts";
 
 /** Visible surfaces are merged into one mesh per square of this many cells a side, so that a level is a few dozen
  * draws rather than one per wall run and a batch of two thousand tile instances. A numeric setting: it changes the
  * count of draws and nothing drawn. */
 export const VISUAL_CHUNK = 16;
+/** A body inside this distance opens a door, m; interaction staging stays inside the same radius. */
+export const DOOR_OPEN_DISTANCE = 2.5;
 /** A floor tile's half-width and height. A flat floor's tiles leave 2 cm gaps, the only grid it has; a textured
  * floor's meet edge to edge, and the texture draws its own joints (`docs/reference/look.md#crypt-stone`). */
 const TILE = Object.freeze({ flatHalf: 0.49, half: 0.5, y: FLOOR_TOP });
@@ -129,7 +133,7 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
   }
   const iron = flatStone(scene, "door and sconce iron", "#3b3734", 0.5); iron.metallic = 0.7;
   const doors = map.doors.map(d => {
-    const collider = box(`door.${d.id}`, d.point.x, 1.25, d.point.z, d.axis === "x" ? 0.35 : 3, 2.5, d.axis === "z" ? 0.35 : 3);
+    const collider = d.open ? null : box(`door.${d.id}`, d.point.x, 1.25, d.point.z, d.axis === "x" ? 0.35 : 3, 2.5, d.axis === "z" ? 0.35 : 3);
     if (visuals === false) return { collider, leaf: [] as Mesh[] };
     const L = DOOR_LEAF, width = (3 - L.gap * (L.planks + 1)) / L.planks, turn = d.axis === "x" ? Math.PI / 2 : 0;
     const planks = Array.from({ length: L.planks }, (_, i) => {
@@ -146,6 +150,7 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
     });
     const leaf = [fitting(`door.${d.id}.leaf`, planks, d.point.x, d.point.z, turn), fitting(`door.${d.id}.iron`, [...bands, ...rings], d.point.x, d.point.z, turn)];
     leaf[0].material = wood; leaf[1].material = iron;
+    for (const mesh of leaf) mesh.isVisible = !d.open;
     return { collider, leaf };
   });
   // Fog is a mask the surfaces read (`fog-plugin.ts`), so nothing here is shown or hidden cell by cell.
@@ -170,18 +175,26 @@ export function buildDungeonWorld(scene: Scene, map: DungeonMap, visuals: boolea
   // exposure, so x3 (0.381 x 3 x 1.15 = 1.32) glows, and anything under about x2.5 would not.
   const exitMaterial = flatStone(scene, "exit light", "#93edcf");
   exitMaterial.emissiveColor = Color3.FromHexString("#42b998").toLinearSpace().scale(3); exit.material = exitMaterial;
+  const senseSolids = () => solidSenses(solids.filter(solid => !solid.name.startsWith("door.") || !map.doors.find(door => solid.name === `door.${door.id}`)?.open)
+    .map(solid => ({ ...solid, kind: "box" as const })));
+  let sensed = senseSolids();
   return {
     fog, surfaces,
     /** Every fixed box the level put in the physics world, in the order it was built; an opened door's stays listed. */
     solids: solids as readonly DungeonSolid[],
+    /** Current detached collision geometry, replaced only when a door opens. */
+    get sensedSolids() { return sensed; },
     /** Materials may be dressed; visibility and collision remain owned by openNearby. */
     doorVisuals: doors.flatMap(door => door.leaf.length ? [{ wood: door.leaf[0], iron: door.leaf[1] }] : []),
     openNearby(actors: readonly Point[]) {
-      for (const door of map.doors) if (!door.open && actors.some(p => Math.hypot(p.x - door.point.x, p.z - door.point.z) < 2.5)) {
+      let changed = false;
+      for (const door of map.doors) if (!door.open && actors.some(p => hypot(p.x - door.point.x, p.z - door.point.z) < DOOR_OPEN_DISTANCE)) {
         door.open = true;
+        changed = true;
         doors[door.id].collider?.dispose();
         for (const mesh of doors[door.id].leaf) mesh.isVisible = false;
       }
+      if (changed) sensed = senseSolids();
     },
     /** An iron sconce under each torch's flame, hidden until the floor it faces is explored, as its flame is. The fog
      * reads a fitting's top and underside from that floor cell and its front from the wall, which shows as soon as a

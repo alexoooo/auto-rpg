@@ -336,32 +336,18 @@ the rule and without, is a measurement to make.
 
 ## Following
 
-`src/dungeon/run.ts`: how a body walks the path the run plans for it.
+`src/dungeon/run.ts` chooses movement objectives. The selected Mind's navigation role owns paths,
+corner braking, arrival and progress feedback against the world's actual solid geometry.
 
-- `FOOTPRINT_METRES`: a path keeps 0.35 m from rock. The tops of the Warrior's upper arms are
-  0.46 m apart and the arm is 0.05 m in radius (Node stand, the body as its spec writes it), so
-  the shoulder's outer face is 0.28 m from the body's middle, and 0.07 m is left for the stance's
-  sway. In that pose the elbows stand 0.38 m out, wider than the footprint.
-- `STALL_METRES`: a body with a route that has not moved 0.05 m during its model's progress
-  interval has its route planned again from where it is. Humanoids use 1 s; the slowest,
-  the Rogue and the skeleton, walk at 0.4 m/s (`assets/core/stance-envelope.json`): eight
-  times that in a second. The reptile uses 8 s ([encounters](reptile.md#encounters)).
-- `TRAIL_METRES`: a companion with no post walks after the hero once it is 2.5 m behind, which
-  is clear of the 1.8 m the hero attacks from.
-- `SLOTS`: several members sent to one floor point take slots about it, no two within 1.3 m: the
-  point, then eight bearings on a ring of 1.4 m, then of 2.8 m.
-- `AVOID`: a walker steps round a body in its way. A body is in the way within the two
-  footprints and 0.15 m of the walker's line, and no more than 1 m beyond that along it. The step
-  aside is the walk turned 1.05 rad away from the body, a body within 0.05 m of the line counting
-  as on one side. It can be taken if the point 0.65 m along it is floor, and that point is no
-  more than 0.05 m nearer the body or, round a body standing still, the line along it passes
-  the body by the two footprints and 0.15 m. The way that can be taken with no other body in
-  the way of it is taken, else the way that can be taken, the side away from the body first.
-  The line's test lets a walker turn while a standing body is still well ahead: the Rogue
-  walking by SIMBICON at 0.8 m/s turns about 1 rad in 0.5 s, 0.4 m on, and meets the hero it
-  passes if it turns only once a step aside gains no nearness. Round a walking body it is not
-  used: four Warriors sent to one point weave into each other when each swerves early.
-- `MOVING`, 0.1, is a numeric setting: a walk is a unit step or none.
+- `cryptModel.radius`: the humanoid's 0.35 m footprint is used for placement, formation slots
+  and map-level door selection. Navigation reads clearance from the actual body and its loadout.
+- `TRAIL_METRES`: a companion with no post requests a range from 2 to 2.5 m around the hero,
+  clear of the 1.8 m the hero attacks from.
+- `SLOTS`: several members sent to one floor point take slots about it, no two within 1.3 m:
+  the point, then eight bearings on a ring of 1.4 m, then of 2.8 m.
+- A blocked destination across an openable door first requests a point 2 m from the door on
+  its near side, inside the world's 2.5 m proximity rule. Physical routing remains the Mind's;
+  opening refreshes the granted collision snapshot and resumes the original objective.
 
 ## Run timing
 
@@ -369,7 +355,6 @@ the rule and without, is a measurement to make.
 
 | Field | Value |
 |---|---|
-| `replan` | a walker with no route plans no sooner than 0.5 after its last plan |
 | `perceive` | who sees whom is read every 0.2 |
 | `alerted` | an enemy goes on to where it last saw the party for 7 after losing sight of it, then goes home |
 
@@ -379,12 +364,10 @@ the rule and without, is a measurement to make.
 
 | Field | Value |
 |---|---|
-| `waypoint` | a route's next point, 0.3 |
 | `point` | a point of an order, or where an enemy is going, 0.4 |
 | `post` | a companion's post, 0.6 |
 | `explored` | the hero's goal while it explores, 0.5 |
 | `lastSeen` | where a locked target was last seen, 0.5 |
-| `goalMoved` | a goal that has moved more than 0.65 is planned for again |
 | `exit` | the run is won within 1.1 of the exit |
 
 ## Companions

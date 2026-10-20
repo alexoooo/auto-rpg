@@ -1,3 +1,5 @@
+import { hypot } from "../core/math/real.ts";
+
 export interface Point { x: number; z: number }
 /** A room's floor, as inclusive fine-cell bounds; `centre` is a cell a body can stand on. */
 export interface Room { id: number; centre: Point; min: Point; max: Point }
@@ -10,7 +12,7 @@ export interface DungeonMap {
   /** Optional authored/generated encounter metadata; point-only maps retain skeleton enemies. */
   encounters?: readonly { readonly room: number; readonly model: BodyModel; readonly point: Point }[];
 }
-export const distance = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.z - b.z);
+export const distance = (a: Point, b: Point): number => hypot(a.x - b.x, a.z - b.z);
 export const cellKey = (map: DungeonMap, p: Point): number => Math.round(p.z) * map.size + Math.round(p.x);
 export function isFloor(map: DungeonMap, x: number, z: number): boolean {
   return x >= 0 && z >= 0 && x < map.size && z < map.size && map.floor[z * map.size + x] === 1;
@@ -22,13 +24,13 @@ const doorHalf = (door: Door, axis: "x" | "z"): number => door.axis === axis ? 0
 /** Clearance is measured against cell rectangles, not an arbitrary number of tile neighbours. */
 export function walkable(map: DungeonMap, p: Point, radius: number, closedDoors = false, sight = false): boolean {
   if (!isFloor(map, Math.round(p.x), Math.round(p.z))) return false;
-  if (map.obstacles?.some(o => (!sight || o.blocksSight) && Math.hypot(
+  if (map.obstacles?.some(o => (!sight || o.blocksSight) && hypot(
     Math.max(0,Math.abs(p.x-o.x)-o.width/2),Math.max(0,Math.abs(p.z-o.z)-o.depth/2)) < radius+.001)) return false;
   const reach = Math.ceil(radius + 0.5);
   for (let z = Math.round(p.z) - reach; z <= Math.round(p.z) + reach; z++)
     for (let x = Math.round(p.x) - reach; x <= Math.round(p.x) + reach; x++) {
       if (isFloor(map, x, z)) continue;
-      if (Math.hypot(Math.max(0, Math.abs(p.x - x) - 0.5), Math.max(0, Math.abs(p.z - z) - 0.5)) < radius + 0.001) return false;
+      if (hypot(Math.max(0, Math.abs(p.x - x) - 0.5), Math.max(0, Math.abs(p.z - z) - 0.5)) < radius + 0.001) return false;
     }
   return !closedDoors || !map.doors.some(d => !d.open &&
     Math.abs(p.x - d.point.x) < doorHalf(d, "x") + radius &&

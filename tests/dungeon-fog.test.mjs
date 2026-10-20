@@ -442,7 +442,7 @@ test("presenting_a_run_writes_its_fog_mask_and_no_body_is_fogged", async () => {
     run.toward = diagonal; run.present();
     assert.deepEqual(run.level.surfaces[0].material.pluginManager.getPlugin("DungeonFog").view.toward, diagonal);
     run.commands.setMode({ keyboard: true, facing: false }); run.commands.right = 1;
-    assert.deepEqual(run.memberMovement(run.hero), screenMovement(1, 0, diagonal));
+    assert.deepEqual(run.memberMovement(run.hero), { kind: "direct", direction: screenMovement(1, 0, diagonal) });
   } finally { run.dispose(); arena.dispose(); }
 });
 

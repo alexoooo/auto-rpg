@@ -25,7 +25,7 @@ import { hearRun, type RunHearing } from "./hearing.ts";
 import { EnemyHover } from "./hover.ts";
 import { DungeonRun, runMap, runModels, type DungeonActor, type Participant, type RunStatus } from "./run.ts";
 import { orderLabel } from "./commands.ts";
-import { cellKey, type Point } from "./map.ts";
+import { cellKey } from "./map.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward, frameDungeon, pickingCoordinates } from "./camera.ts";
 import { DRESSING, dressingPlacements, torchPlacements } from "./dressing.ts";
 import { lightDungeon, REFERENCE_LIGHT, type DungeonLighting } from "./lighting.ts";
@@ -651,7 +651,7 @@ function wirePointer(page: DungeonPage, party: Party): void {
   window.addEventListener("resize", () => engine.resize(), { signal });
 }
 
-/** Draws every standing member's route, from its feet: the rest of a drawn route after the point it is on. The
+/** Draws every standing member's current geometric route from its selected Mind. The
  * lines are made again only when the routes change. */
 function drawRoutes(page: DungeonPage): void {
   const { run, scene } = page;
@@ -660,7 +660,7 @@ function drawRoutes(page: DungeonPage): void {
     const order = member.order;
     return {
       force: order.kind === "force", from: member.feet(),
-      points: (order.kind === "force" ? [...member.route, ...order.points.slice(member.next + 1)] : member.route) as Point[],
+      points: member.navigation?.route ?? [],
     };
   }).filter((walk) => walk.points.length);
   const signature = JSON.stringify(walks.map((walk) => [walk.force, walk.points]));

@@ -150,8 +150,8 @@ in a hand, refusing a hand that cannot close on it. `Loadout` names both hands; 
 replaces their assignments, and `modelHolding` reads that equipped spec. The Arena recipe carries
 each fighter's `loadouts`, shared in `left.loadout=leftHand,rightHand` and `right.loadout` link
 parameters. Match and tournament identities and notes name both hands. The Arena, the Crypt, the Lab and the control
-tasks all read it. How the Crypt walks a model (its footprint, how near it fights, how long it
-waits on a stalled route, whether a fall ends its fight) is the Crypt's (`cryptModel`,
+tasks all read it. The Crypt's placement footprint, combat spacing and whether a fall ends its
+fight are the Crypt's (`cryptModel`,
 `src/dungeon/actors.ts`). What a body can do is read from its spec: `modelHolds` (a hand a haft lies across, `canHold`) and `modelSupportsMind`, which asks
 every part of the mind (`treeFits`) of the body as armed with what it holds (`modelHolding`), so
 a part that cannot use a loadout drops out of the pickers for it (`Controller.fits`: `commandable` and its actions for the fighters, `quadrupedFits` for
@@ -1511,6 +1511,15 @@ side's mind inspected under its bar. A person
   a reptile remains alive during recovery and must stand to reach the exit.
   A person's orders reach the party only through the run's
   plan (`DungeonCommands`), and each member's mind carries them out while it defends itself.
+  The run issues world directions, destination lists and sensed-target range bands through
+  `MovementRequest`. Each Mind's navigation role owns its geometric route, braking, arrival and
+  progress; the page draws that role's reported route. The world builder grants detached frozen
+  copies of the actual collision boxes, refreshing them when a door opens. A distant blocked
+  goal may first select an openable door (`door-approach.ts`): map search identifies which door
+  connects the objective, then the shared navigator reaches its near-side interaction point.
+  The map's search and request planning use the core's exact arithmetic.
+  The world's existing proximity rule opens it before the original objective resumes. The run
+  preserves the unconsumed explicit points of a drawn order across that interaction.
   Enemies are built when the party comes near; its art is in [art/crypt.md](art/crypt.md). Sight
   is the map's (`canSee`, `reveal`, `src/dungeon/map.ts`), read through an index of the cells
   where nothing need be read (`SightIndex`), made again when a door opens. The

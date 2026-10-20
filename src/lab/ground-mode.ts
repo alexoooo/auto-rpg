@@ -6,6 +6,7 @@ import { clockSenses, createSenses } from "../core/mind/senses.ts";
 import { standIntent } from "../core/mind/intent.ts";
 import { STAND_ORDERS } from "../core/mind/orders.ts";
 import type { Orders } from "../core/mind/orders.ts";
+import { directMovement } from "../core/mind/movement.ts";
 import { rulebook } from "../core/rules/rulebook.ts";
 import { deepFreeze } from "../core/state.ts";
 import { mulberry32 } from "../rng.ts";
@@ -121,7 +122,7 @@ export function startGround(actor: Actor, address: LabAddress, options: {
   const check = standCheck(actor, options.cap ?? STAND_CHECK.cap);
   const skills = actor.drive({ name: "ground stand", decide: () => standIntent(0) }, { senses,
     orders: () => environment.approach && address.ground.start === "shoved" && world.time < ROUND_FIRST
-      ? { ...STAND_ORDERS, move: environment.approach, pace: STAND_CHECK.pace } : check.orders() });
+      ? { ...STAND_ORDERS, move: directMovement(environment.approach.x, environment.approach.z), pace: STAND_CHECK.pace } : check.orders() });
   const shoving = shoveBody(body, world, () => skills.report.heading, options.pushed), shove = groundShove(address);
   const wind = startWind(body.built, world, address.ground.gusts ? { rate: .7, strength: 45 } : { rate: 0, strength: 0 }, address.seed);
   const meter = groundMeter(body, world, address.balance ?? body.built.spec.attributes.balance.value);

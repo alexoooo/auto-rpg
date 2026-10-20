@@ -46,6 +46,7 @@
  "crypt-core.test.mjs",
  "crypt-dungeon.test.mjs",
  "crypt-kit.test.mjs",
+ "crypt-navigation.test.mjs",
  "dungeon-dressing.test.mjs",
  "dungeon-hearing.test.mjs",
  "dungeon-masonry.test.mjs",

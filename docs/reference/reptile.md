@@ -141,13 +141,11 @@ Colliders do not change with wounds. Sustained aligned pressure injures even wit
 
 ## Encounters
 
-The Crypt's `HUMANOID` (`cryptModel`, `src/dungeon/actors.ts`) retains the .35 m footprint and one-second progress interval from
+The Crypt's `HUMANOID` (`cryptModel`, `src/dungeon/actors.ts`) retains the .35 m placement footprint from
 [following](play.md#following), and `ATTACK_METRES` from
 [attack distance](human-and-strikes.md#attack-distance). A humanoid that falls stays in the fight and gets up, as the reptile does.
-The reptile has empty hands and a quadruped mind by default (`modelInfo`), and in the Crypt .52 m attack spacing
-and an eight-second progress interval. These are controller choices allowing heading changes
-and careful close crawling as well as the faster trot. `STALL_METRES` retains the 50 mm
-route-progress threshold. The horizontal navigation radius is derived from the full
+The reptile has empty hands and a quadruped mind by default (`modelInfo`), with .52 m attack spacing
+in the Crypt. The selected navigation role handles routing, braking and progress. Its placement radius is derived from the full
 collider envelope, including the tail, rather than copied from humanoid shoulder width.
 Party placement also uses that footprint and the radii of companions already placed.
 

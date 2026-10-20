@@ -2,7 +2,7 @@ import { buildBody } from "./build/build-body.ts";
 import type { AssistCeiling } from "./control/assist.ts";
 import type { MindConfig } from "./mind/config.ts";
 import { builtAngles, createMind, type Minded, type MindWiring } from "./mind/minds.ts";
-import type { SolidSense } from "./mind/object-senses.ts";
+import { solidSenses, type SolidSense } from "./mind/object-senses.ts";
 import type { Senses, SensesHub } from "./mind/senses.ts";
 import { replayedBody, sheetLog, type SheetLog } from "./mind/sheets.ts";
 import type { PhysicalBody } from "./physical-body.ts";
@@ -27,8 +27,8 @@ interface Enlistment extends Pick<MindWiring, "name" | "orders" | "contactIdenti
   readonly rules: Rulebook;
   /** The fight's senses, which carry it (`SensesHub.add`). */
   readonly senses: SensesHub;
-  /** Fixed collision geometry its senses are granted (`Senses.solids`). */
-  readonly solids?: readonly SolidSense[];
+  /** Detached collision geometry its senses are granted; a provider refreshes doors or other changing solids. */
+  readonly solids?: readonly SolidSense[] | (() => readonly SolidSense[]);
   /** Whether it is out of the fight, asked once a step for what it and the others sense. */
   out(): boolean;
   readonly mind: MindConfig;
@@ -69,8 +69,14 @@ export function enlist(world: World, enlisting: Enlistment): Combatant {
   const pool = createPool(spec, rules);
   // The mind is made after the senses carry its body; it is asked whether the body is down from the first step.
   let minded: Minded | null = null;
-  const senses = enlisting.senses.add({ id, side, built, out: enlisting.out, down: () => minded?.body.down ?? false,
-    ...(enlisting.solids ? { solids: enlisting.solids } : {}) });
+  const sensed = { id, side, built, out: enlisting.out, down: () => minded?.body.down ?? false };
+  let source: readonly SolidSense[] | undefined, granted: readonly SolidSense[] | undefined;
+  if (enlisting.solids) Object.defineProperty(sensed, "solids", { enumerable: true, get() {
+    const current = typeof enlisting.solids === "function" ? enlisting.solids() : enlisting.solids;
+    if (current !== source) { source = current; granted = current ? solidSenses(current) : undefined; }
+    return granted;
+  } });
+  const senses = enlisting.senses.add(sensed);
   const assist = balanceCeiling(enlisting.balance ?? spec.attributes.balance.value, enlisting.percent ?? balancePercent(rules));
   const sheets = enlisting.replay ?? (enlisting.record ? sheetLog() : null);
   minded = enlisting.replay ? { kind: "replay", body: replayedBody(built, world, enlisting.replay, { senses, assist }), state: {} } : createMind(built, world, mind, {
