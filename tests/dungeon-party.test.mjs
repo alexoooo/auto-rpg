@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { companionSpawn } from "../src/dungeon/party-placement.ts";
-import { DungeonRun } from "../src/dungeon/run.ts";
+import { DungeonRun, ordersForActor } from "../src/dungeon/run.ts";
 import { clearSegment, distance, walkable } from "../src/dungeon/map.ts";
 import { CLASSIC, OPTIONS, RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { classicDungeon } from "./fixtures/classic-dungeon.mjs";
@@ -32,6 +32,41 @@ function floorAway(map, metres, bearing = 0) {
   }
   throw new Error("no floor");
 }
+
+test("engagement hands footwork to the Mind while travel and explicit keyboard stops retain authority", async () => {
+  const map = classicDungeon(42); map.spawns = [floorAway(map, 1.6)];
+  const { run, dispose } = await crypt(map);
+  try {
+    const actor = run.hero, attack = run.enemies[0], face = { x: 0, z: 1 };
+    assert.ok(attack.fighter, "the nearby opponent is physically built");
+    const gap = distance(actor.feet(), attack.feet());
+    assert.ok(gap > 1.44 && gap < 1.8, `fixture must stand inside the engagement band: ${gap}m`);
+    actor.target = attack;
+    const move = run.memberMovement(actor);
+    assert.deepEqual(move, { kind: "range", focus: attack.id, near: 1.8 * .8, far: 1.8 });
+    actor.plan = { move, face, attack };
+    assert.deepEqual(ordersForActor(actor), { face, foe: attack.id });
+    actor.plan = { move: { ...move, near: 1.7 }, face, attack };
+    assert.deepEqual(ordersForActor(actor), { face, foe: attack.id }, "the Mind also owns combat footwork inside the travel band's near edge");
+    actor.plan = { move: { ...move, near: .8, far: 1.2 }, face, attack };
+    assert.deepEqual(ordersForActor(actor), { move: actor.plan.move, face, foe: attack.id }, "a distant target retains its Range request");
+    actor.plan = { move: { ...move, focus: "somebody-else" }, face, attack };
+    assert.deepEqual(ordersForActor(actor), { move: actor.plan.move, face, foe: attack.id });
+    run.commands.setMode({ keyboard: true, facing: false });
+    actor.plan = { move: run.memberMovement(actor), face, attack };
+    assert.deepEqual(ordersForActor(actor), { move: null, face, foe: attack.id }, "a keyboard stop stays explicit beside a foe");
+    run.commands.right = 1;
+    actor.plan = { move: run.memberMovement(actor), face, attack };
+    assert.equal(actor.plan.move.kind, "direct");
+    assert.deepEqual(ordersForActor(actor), { move: actor.plan.move, face, foe: attack.id });
+    for (const near of [.2, .4]) {
+      actor.plan = { move: { kind: "place", points: [{ x: actor.home.x, z: actor.home.z + 1 }], near }, face, attack };
+      assert.deepEqual(ordersForActor(actor), { move: actor.plan.move, face, foe: attack.id }, "door and force destinations stay explicit beside a foe");
+    }
+    actor.plan = { move, face, attack: null };
+    assert.deepEqual(ordersForActor(actor), { move, face }, "a companion's noncombat Range remains travel");
+  } finally { dispose(); }
+});
 
 test("each_participant_plays_the_mind_the_run_is_given_for_it_party_and_enemy_alike_and_its_models_own_where_given_none", async () => {
   const map = classicDungeon(42); map.spawns = [floorAway(map, 3)];

@@ -4,7 +4,7 @@ import type { AssistCeiling } from "../core/control/assist.ts";
 import { modelHolding, modelInfo, resolveCharacter, modelSupportsMind, type BodyModel } from "../core/models.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { EMPTY_LOADOUT, withLoadout, type Loadout } from "../core/items/held.ts";
-import { enlist, type Combatant } from "../core/combatant.ts";
+import { combatantRecordingIdentity, enlist, type Combatant } from "../core/combatant.ts";
 import type { SheetLog } from "../core/mind/sheets.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { isOrders, sameOrders, type Orders } from "../core/mind/orders.ts";
@@ -259,6 +259,18 @@ export class Duel {
     this.identity = recordingIdentity(BUILD_IDENTITY, ORDERS_PROTOCOL, { recipe: effective, solids,
       engine: world.physics.engine, revision: world.physics.revision, hz: world.hz, gravity: world.physics.gravity, actuation: world.actuation });
     this.rules = rulebook("arena", recipe.rules);
+    const enlistments = SIDES.map(side => {
+      const model = recipe[side], loadout = recipe.loadouts?.[side] ?? EMPTY_LOADOUT, config = recipe.minds?.[side] ?? modelInfo(model).mind;
+      const own = characters[side].spec, original = recipe.surfaces ? stiffened(own, recipe.surfaces) : own;
+      const enlisting = { id: side, side, spec: withLoadout(original, loadout), at: spawns[side].position, heading: spawns[side].heading, rules: this.rules,
+        ...(recipe.balancePercent ? { percent: recipe.balancePercent } : {}),
+        ...((hooks.record || hooks.replay) ? { recording: { build: BUILD_IDENTITY, context: this.identity.configuration } } : {}),
+      };
+      return { side, model, config, enlisting };
+    });
+    if (hooks.replay) for (const { side, enlisting } of enlistments) {
+      requireRecordingIdentity(hooks.replay[side]?.identity, combatantRecordingIdentity(world, enlisting));
+    }
     const start = world.time, startStep = world.steps;
     const given: Record<Side, Orders | null> = { left: null, right: null };
     this.cap = recipe.capSeconds ?? CAP_SECONDS;
@@ -274,18 +286,14 @@ export class Duel {
     });
     const contactLabels = new Map<number, ContactTarget>();
     const duelists = {} as Record<Side, Duelist>;
-    for (const side of SIDES) {
-      const model = recipe[side];
-      const info = modelInfo(model), loadout = recipe.loadouts?.[side] ?? EMPTY_LOADOUT, config = recipe.minds?.[side] ?? info.mind;
-      const own = characters[side].spec, original = recipe.surfaces ? stiffened(own, recipe.surfaces) : own;
-      const spec = withLoadout(original, loadout);
+    for (const { side, model, config, enlisting } of enlistments) {
+      const { spec } = enlisting;
       const combatant = enlist(world, {
-        id: side, side, spec, at: spawns[side].position, heading: spawns[side].heading, rules: this.rules, senses: this.senses, solids,
+        ...enlisting, senses: this.senses, solids,
         // A downed side remains in the fight while its recovery allowance lasts.
         out: () => this.verdict !== null || this.eliminated(side),
-        mind: config, ...(recipe.balancePercent ? { percent: recipe.balancePercent } : {}),
+        mind: config,
         ...(hooks.record ? { record: true } : {}), ...(hooks.replay ? { replay: hooks.replay[side] } : {}),
-        ...((hooks.record || hooks.replay) ? { recording: { build: BUILD_IDENTITY, context: this.identity.configuration } } : {}),
         name: `arena ${side}`,
         contactIdentity: other => other ? contactLabels.get(other.id) ?? null : { kind: "world" },
         // Out of the fight it is left to itself, as a side nobody orders is.

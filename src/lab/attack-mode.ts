@@ -1,7 +1,6 @@
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { createSenses } from "../core/mind/senses.ts";
-import { STAND_ORDERS } from "../core/mind/orders.ts";
 import { landed, blocked, cleanMiss } from "../core/skills/action-instances.ts";
 import { randomStream } from "../core/math/random.ts";
 import { rulebook } from "../core/rules/rulebook.ts";
@@ -82,7 +81,7 @@ export function startAttack(actor: Actor, options: AttackOptions) {
   for (let i = 0; i < options.count; i++) if (!spawn()) break;
   const skills = actor.drive(undefined, {
     senses,
-    orders: () => state.selected === null ? null : { ...STAND_ORDERS, foe: state.selected },
+    orders: () => state.selected === null ? null : { face: null, foe: state.selected },
     contactIdentity: (other) => {
       if (!other) return { kind: "world" };
       for (const [id, { dummy }] of targets) for (const segment of dummy.fighter.built.segments.values())

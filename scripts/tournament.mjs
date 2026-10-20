@@ -32,7 +32,7 @@ import { BUILD_IDENTITY } from "../src/build-identity.ts";
 import { recordingIdentity, requireRecordingIdentity } from "../src/core/recording.ts";
 
 /** How a pair meets: once on each side at each gap, m, to the Arena's time limit, with no limit on lying down. */
-export const TOURNAMENT = Object.freeze({ loadouts: LOADOUTS, gaps: Object.freeze([4]), capSeconds: CAP_SECONDS, recoverySeconds: null });
+export const TOURNAMENT = Object.freeze({ level: "open", loadouts: LOADOUTS, gaps: Object.freeze([4]), capSeconds: CAP_SECONDS, recoverySeconds: null });
 
 const NOTES = "assets/minds/notes.json", RATINGS = "assets/minds/ratings.json";
 
@@ -46,7 +46,7 @@ export function readTournamentRows(text, identity) {
   return new Map(text.split("\n").filter(Boolean).map(line => {
     const row = JSON.parse(line);
     requireRecordingIdentity(row.identity, identity);
-    if (typeof row.key !== "string" || !["left", "right", null].includes(row.winner)) throw new Error("invalid tournament result row");
+    if (typeof row.key !== "string" || row.level !== TOURNAMENT.level || !["left", "right", null].includes(row.winner)) throw new Error("invalid tournament result row or level");
     return [row.key, row];
   }));
 }
@@ -64,7 +64,7 @@ export function tournamentJobs(entrants) {
   for (let i = 0; i < entrants.length; i++) for (let j = i + 1; j < entrants.length; j++) for (const gap of TOURNAMENT.gaps)
     for (const [left, right] of [[i, j], [j, i]]) {
       const l = entrants[left], r = entrants[right];
-      const recipe = { left: l.model, right: r.model, gap, loadouts: { left: l.loadout, right: r.loadout }, minds: { left: MINDS[l.mind].config, right: MINDS[r.mind].config },
+      const recipe = { level: TOURNAMENT.level, left: l.model, right: r.model, gap, loadouts: { left: l.loadout, right: r.loadout }, minds: { left: MINDS[l.mind].config, right: MINDS[r.mind].config },
         capSeconds: TOURNAMENT.capSeconds, recoverySeconds: TOURNAMENT.recoverySeconds };
       jobs.push({ i: left, j: right, key: `${l.id}|${r.id}|${gap}|${digest(recipe.minds)}`, recipe });
     }
@@ -114,10 +114,10 @@ async function main() {
   mkdirSync(dirname(store), { recursive: true });
   const kept = readTournamentRows(existsSync(store) ? readFileSync(store, "utf8") : "", identity);
   const missing = jobs.filter((job) => !kept.has(job.key)), started = Date.now();
-  console.log(`${BOUT_HARNESS}; ${entrants.length} entrants, ${jobs.length} bouts, ${jobs.length - missing.length} kept in ${store}`);
+  console.log(`${BOUT_HARNESS}; level ${TOURNAMENT.level}; ${entrants.length} entrants, ${jobs.length} bouts, ${jobs.length - missing.length} kept in ${store}`);
   let done = 0;
   await playBouts(missing.map(({ recipe }) => ({ recipe })), Number(values.workers ?? defaultLanes()), (row, k) => {
-    const { key } = missing[k], kept_ = { identity, key, winner: row.winner, ending: row.ending, seconds: row.seconds, blows: row.blows, bars: row.bars, digest: row.digest };
+    const { key } = missing[k], kept_ = { identity, level: row.recipe.level, key, winner: row.winner, ending: row.ending, seconds: row.seconds, blows: row.blows, bars: row.bars, digest: row.digest };
     appendFileSync(store, JSON.stringify(kept_) + "\n");
     kept.set(key, kept_);
     if (++done % 50 === 0 || done === missing.length) console.log(`${done} of ${missing.length} in ${((Date.now() - started) / 60000).toFixed(1)} min`);
@@ -129,7 +129,7 @@ async function main() {
   table.forEach((row, k) => console.log(`| ${k + 1} | ${row.mind} | ${row.model} | ${loadoutKey(row.loadout)} | ${row.rating.toFixed(0)} | ${row.interval.map((x) => x.toFixed(0)).join("-")} | ${row.bouts} | ${row.wins} | ${row.draws} | ${row.losses} |`));
   if (!values.write) return;
   const rounded = table.map((row) => ({ ...row, rating: Math.round(row.rating), interval: row.interval.map(Math.round) }));
-  writeFileSync(RATINGS, JSON.stringify({ identity, date, commit, harness: BOUT_HARNESS, protocol: `${protocol} ${canonical(TOURNAMENT)}`, entrants: rounded }, null, 2) + "\n");
+  writeFileSync(RATINGS, JSON.stringify({ identity, level: TOURNAMENT.level, date, commit, harness: BOUT_HARNESS, protocol: `${protocol} ${canonical(TOURNAMENT)}`, entrants: rounded }, null, 2) + "\n");
   writeFileSync(NOTES, JSON.stringify(ratedNotes(JSON.parse(readFileSync(NOTES, "utf8")), rounded, date), null, 2) + "\n");
   console.log(`\nwrote ${RATINGS} and ${NOTES}`);
 }

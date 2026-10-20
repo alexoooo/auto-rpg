@@ -22,8 +22,8 @@ npm run tournament -- --write # every mind, character and loadout rated; the Are
 **Speed comes first.** A change is checked for whether it broke the core, not re-qualified:
 
 - **Every code change**: `npm run check` and `npm test`. That is the whole gate. `npm test` holds
-  the core's contracts, the source rules (boundary, exports, comments, provenance) and two short
-  Arena bouts that must run, stay finite, fling nobody and play the same twice
+  the core's contracts, the source rules (boundary, exports, comments, provenance) and short
+  Arena bouts, including an equipped open-stage bout, that must run, stay finite, fling nobody and play the same twice
   (`tests/smoke.test.mjs`), and every registered Mind's contract: a short bout of it that runs,
   forks and plays again from its order sheets alone (`tests/mind-contract.test.mjs`). Add
   `npm run build` when browser code, assets, dependencies or build configuration change.
@@ -51,7 +51,7 @@ by PID when done.
 works in dev and is absent from `dist`.
 
 - `/` (`index.html`, `src/app.ts`): the main menu; the arena at `?play=arena`
-  (`&matchup=left,right` opens a bout, `&you=left` takes a side, `&gap=`, `&cap=`, `&balance=`,
+  (`&matchup=left,right` opens a bout, `&you=left` takes a side, `&level=open|obstacle-court`, `&gap=`, `&cap=`, `&balance=`,
   `&left.loadout=`, `&right.loadout=` (left hand, right hand), `&recovery=`, `&control=` (a preset a side) and each side's edited mind (`&left.mind=`,
   `&right.mind=`, its whole config as JSON, `src/ui/mind-link.ts`) are its recipe's, `&appearance=` is each side's skin,
   `#tape=` plays a bout's orders again, `src/arena/`); the crypt at `?play=dungeon`

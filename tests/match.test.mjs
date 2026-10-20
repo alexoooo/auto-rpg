@@ -35,6 +35,7 @@ test("a match plays every condition of its protocol with a loadout both minds fi
       const key = [recipe[side], recipe[other], loadoutKey(recipe.loadouts.left), loadoutKey(recipe.loadouts.right), recipe.gap].join();
       seen.set(key, [...seen.get(key) ?? [], side]);
       assert.deepEqual([recipe.capSeconds, recipe.recoverySeconds], [MATCH.capSeconds, MATCH.recoverySeconds]);
+      assert.equal(recipe.level, "open");
     }
     assert.equal(seen.size, conditions, `${a.label} v ${b.label}`);
     for (const [key, sides] of seen) assert.deepEqual(sides.sort(), ["left", "right"], key);
@@ -61,4 +62,23 @@ test("a match's bout is one the arena plays", async () => {
 test("a bout that throws ends the run, and leaves no worker waiting", async () => {
   const [job] = matchJobs(readMatchMind("puncher"), readMatchMind("puncher"));
   await assert.rejects(playBouts([{ recipe: { ...job.recipe, left: "nobody" } }, { recipe: { ...job.recipe, capSeconds: 0.5 } }], 2), /nobody/);
+});
+
+test("a worker on another build is rejected before its row reaches a result consumer", async () => {
+  const [job] = matchJobs(readMatchMind("puncher"), readMatchMind("puncher"));
+  const previous = process.env.AUTO_RPG_BUILD_IDENTITY;
+  let accepted = 0;
+  try {
+    process.env.AUTO_RPG_BUILD_IDENTITY = `sha256:${"0".repeat(64)}`;
+    await assert.rejects(playBouts([{ recipe: { ...job.recipe, capSeconds: .05 } }, { recipe: { ...job.recipe, capSeconds: .05 } }], 2, () => accepted++), /different source, assets or solver/);
+    assert.equal(accepted, 0);
+  } finally {
+    if (previous === undefined) delete process.env.AUTO_RPG_BUILD_IDENTITY;
+    else process.env.AUTO_RPG_BUILD_IDENTITY = previous;
+  }
+});
+
+test("a result consumer that throws rejects the run and leaves no worker waiting", async () => {
+  const [job] = matchJobs(readMatchMind("puncher"), readMatchMind("puncher"));
+  await assert.rejects(playBouts([{ recipe: { ...job.recipe, capSeconds: .05 } }, { recipe: { ...job.recipe, capSeconds: .05 } }], 2, () => { throw new Error("result consumer refused row"); }), /result consumer refused row/);
 });

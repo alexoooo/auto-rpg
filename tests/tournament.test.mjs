@@ -31,6 +31,7 @@ test("every mind on every character and loadout it fits is an entrant, and each 
   assert.equal(jobs.length, 6 * 2 * TOURNAMENT.gaps.length);
   const met = new Map();
   for (const job of jobs) {
+    assert.equal(job.recipe.level, "open");
     const pair = [job.i, job.j].sort().join();
     met.set(pair, [...met.get(pair) ?? [], job.i]);
     assert.deepEqual([job.recipe.left, job.recipe.loadouts.left, job.recipe.minds.left], [some[job.i].model, some[job.i].loadout, MINDS[some[job.i].mind].config]);

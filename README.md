@@ -77,7 +77,7 @@ the Arena and the Crypt), Classic fighter, **Puncher**, **Counter-puncher**, **S
 **Custom (from** its preset**)**. The Options fighter's **Obedience** says how far it carries out
 your orders through a blow coming: **Own judgement** steps aside from most punches, **Steady**
 from a full punch, **Orders first** only from a club's heavy blow.
-Each humanoid hand can carry a wooden club, a short sword or nothing. A sword uses separate cut
+Each humanoid hand can carry a wooden club, a buckler, a short sword or nothing. A sword uses separate cut
 and thrust actions, whose aligned edge and tip wound on impact.
 The Reptile uses **Crawl and bite**, carries no equipment and has 1 HP at 8 kg. It trots toward
 opponents, slows for contact, and shifts its weight before placing one paw during close fighting
@@ -165,7 +165,8 @@ metres), how long the bout may run (`&cap=30`, seconds), and what each fighter c
 (`&left.loadout=empty,club` for a club in the left fighter's right hand;
 `&right.loadout=club,empty` for one in the right fighter's left hand). Both hands are empty by
 default. Choose a club and buckler with `&left.loadout=buckler,club`; the shield guard covers
-with the left hand while the right hand attacks. The Lab offers the same items. Equipped
+with the left hand while the right hand attacks; `&left.loadout=buckler,sword` selects sword and
+buckler. The Lab offers the same items. Equipped
 recovery and fighting strength remain experimental. It also names which controller each side
 runs (`&control=classic,scrapper`), each side's mind as edited in the **Mind** panel under its
 controller (`&left.mind=`, written by the panel), and carry a bout's orders after a `#tape=`, which the arena then plays

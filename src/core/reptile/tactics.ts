@@ -128,7 +128,7 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
     if ((sight.bite.phase === null || sight.bite.phase === "chamber") && target && !accept(target)) { state.target = null; target = null; }
     if (buried && (sight.bite.phase === null || sight.bite.phase === "chamber")) { state.target = null; target = null; }
     const given = biteTarget ? { ...(ordered ?? STAND_TRAVEL), biteAt: biteTarget(view) }
-      : ordered ? { ...ordered, biteAt: ordered.foe === undefined ? null : target } : null;
+      : ordered && external?.move !== undefined ? { ...ordered, biteAt: ordered.foe === undefined ? null : target } : null;
     const approach = given?.biteAt ?? target ?? near?.at;
     const ax = approach ? approach[0] - mouth.x : Infinity, az = approach ? approach[2] - mouth.z : Infinity;
     const nearest = ax * ax + az * az;
@@ -139,9 +139,9 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
     if (given) return { ...given, prepareBite, creep, travel };
     if (!approach) return { ...STAND_TRAVEL, biteAt: null, prepareBite: false, creep: false, travel: true };
     const dx = approach[0] - view.centre.x, dz = approach[2] - view.centre.z, distance = Math.sqrt(dx * dx + dz * dz);
-    const face = distance ? { x: dx / distance, z: dz / distance } : null;
+    const direction = distance ? { x: dx / distance, z: dz / distance } : null, face = external?.face ?? direction;
     const gap = Math.sqrt(nearest) - (target ? capture : entry);
-    const speed = Math.min(1, Math.max(0, gap / T.approach), Math.sqrt(Math.max(0, 2 * T.braking * gap)) / REPTILE_TROT.speed);
+    const speed = Math.min(1, (external?.pace ?? Infinity) / REPTILE_TROT.speed, Math.max(0, gap / T.approach), Math.sqrt(Math.max(0, 2 * T.braking * gap)) / REPTILE_TROT.speed);
     const aligned = headingAligned(view.yaw, face, REPTILE_TROT.turnMoveAngle);
     const attacking = !!target || sight.bite.phase !== null;
     const blocked = !target && (buried || loaded());
@@ -150,7 +150,7 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
       return { move: { x: -x, z: -z }, face: { x, z }, biteAt: null, prepareBite, creep: true, travel: false };
     }
     const retreat = !target && nearest <= entry * entry && aligned;
-    return { move: !face || attacking ? null : retreat ? { x: -face.x, z: -face.z } : { x: face.x * speed, z: face.z * speed },
+    return { move: !direction || attacking ? null : retreat ? { x: -direction.x, z: -direction.z } : { x: direction.x * speed, z: direction.z * speed },
       face, biteAt: attacking ? target : null, prepareBite, creep: creep || retreat, travel };
   } };
 }

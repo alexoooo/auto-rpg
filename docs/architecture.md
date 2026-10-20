@@ -1054,10 +1054,12 @@ body acts on the person's orders. Scripted Lab experiments may deliberately requ
 
 Movement requests (`src/core/mind/movement.ts`) are Direct world directions, Place waypoint lists
 with an arrival tolerance, or Range bands around sensed body identities. Null requests a controlled
-stop; no external orders leaves movement to tactics. Navigation is a selectable role between
+stop; omitting movement, including in a target-only order, leaves it to tactics. Explicit facing
+can accompany that target selection. Navigation is a selectable role between
 tactics and locomotion, configured on a fighter's `navigation` slot. The visibility navigator
 routes round inflated fixed footprints, retains an obstacle side, brakes before corners and
-arrival, and accounts for low furniture and carried item points. Local clearance is an alternative.
+arrival, and accounts for low furniture and the complete colliders of carried items in their
+observed poses. Local clearance is an alternative.
 Tactics retain facing, attack and obedience decisions. The navigator reports its unconsumed
 route, remaining distance, physical arrival, unreachable geometry, stalls and lost focus; action
 ownership and recovery hand-back pause or reset its progress clock. Its route and progress memory
@@ -1552,7 +1554,9 @@ side's mind inspected under its bar. A person
   plan (`DungeonCommands`), and each member's mind carries them out while it defends itself.
   The run issues world directions, destination lists and sensed-target range bands through
   `MovementRequest`. Each Mind's navigation role owns its geometric route, braking, arrival and
-  progress; the page draws that role's reported route. The world builder grants detached frozen
+  progress; the page draws that role's reported route. Reaching a combat approach band hands
+  movement back to the Mind's attack positioning; keyboard stops and forced travel remain
+  explicit movement orders. The world builder grants detached frozen
   copies of the actual collision boxes, refreshing them when a door opens. A distant blocked
   goal may first select an openable door (`door-approach.ts`): map search identifies which door
   connects the objective, then the shared navigator reaches its near-side interaction point.
@@ -1578,7 +1582,7 @@ side's mind inspected under its bar. A person
   removed and a new target spawns. The fighter's focus rules choose its target when no click
   orders one. The ledger counts committed effector contacts separately from these physical impacts.
   Wind uses the same gust model as Locomotion. This exercises combat in an open field;
-  Crypt pathfinding remains the dungeon's responsibility. The Locomotion scenario goes round its
+    The Crypt's request planning uses the same navigation role. The Locomotion scenario goes round its
   tracks (`track.ts`), or from one random destination to the next (`commands.ts`),
   at the pace asked, its feet metered from the ground's contacts (`gait-meter.ts`), and the
   lab's wind (`wind.ts`) blows seeded gusts on its chest: a disturbance from outside, as a shove

@@ -9,8 +9,8 @@ export type Heading = GroundPoint;
  * (`actionTactics`); the body defends itself meanwhile.
  */
 export interface Orders {
-  /** A world movement objective. Null requests a controlled stop; absent external orders leaves movement to the Mind. */
-  readonly move: MovementRequest | null;
+  /** A world movement objective. Null requests a controlled stop; omission leaves movement to the Mind. */
+  readonly move?: MovementRequest | null;
   /** Walk no faster than this, m/s, as a walk coming to a stop does; absent, the body's own pace is the only bound. */
   readonly pace?: number;
   /** Prefer running where the gait and requested facing permit it; pace remains a ceiling. */
@@ -32,7 +32,7 @@ const isHeading = (value: unknown): value is Heading => typeof value === "object
 export function isOrders(value: unknown): value is Orders {
   if (typeof value !== "object" || value === null) return false;
   const { move, pace, run, face, foe, region } = value as Record<string, unknown>;
-  return (move === null || isMovement(move)) && (pace === undefined || typeof pace === "number" && Number.isFinite(pace) && pace >= 0) && (face === null || isHeading(face))
+  return (move === undefined || move === null || isMovement(move)) && (pace === undefined || typeof pace === "number" && Number.isFinite(pace) && pace >= 0) && (face === null || isHeading(face))
     && (run === undefined || run === true)
     && (foe === undefined || typeof foe === "string" && foe.length > 0)
     && (region === undefined || typeof region === "string" && region.length > 0 && foe !== undefined)

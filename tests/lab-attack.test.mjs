@@ -35,6 +35,7 @@ test("selected physical targets reach the ordinary fighter through senses and or
     assert.ok(attack.skills.report.engagement.candidates.every(candidate => candidate.target.body === selected.id));
     assert.ok(["guard", "approach"].includes(attack.skills.report.engagement.phase));
     assert.deepEqual(intent.actions, [], "approach does not issue a premature request");
+    assert.equal(intent.movement.kind, "place", "a target-only order leaves the action's approach to the mind");
     assert.equal(actor.body.view.senses.others.length, 3);
     stand.step(10);
     assert.equal(attack.frame().hits, 0);

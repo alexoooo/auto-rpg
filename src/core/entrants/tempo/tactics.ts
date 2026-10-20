@@ -1,6 +1,7 @@
 import type { BodySpec } from "../../spec/body.ts";
 import type { ActionConfig } from "../../mind/config.ts";
 import { NO_COVER, type Intent } from "../../mind/intent.ts";
+import { orderedFacing } from "../../mind/ordered.ts";
 import type { MindWiring } from "../../mind/minds.ts";
 import type { Situation, StandingOption } from "../../mind/options/option.ts";
 import { strikeLow } from "../../mind/options/low.ts";
@@ -157,7 +158,8 @@ export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWi
       const now = reader.read(sight), asked = decide(now, dt), near = current()?.near?.(now) ?? null;
       const move = walk.constrain(now, asked.move, near);
       const { movement, pace, travelFacing, ...direct } = asked;
-      return reflexes.apply(now, { ...(move === asked.move ? asked : direct), move, guard: NO_COVER });
+      const facing = now.orders?.move === undefined && now.orders ? orderedFacing(now.orders.face) : null;
+      return reflexes.apply(now, { ...(move === asked.move ? asked : direct), move, ...(facing === null ? {} : { face: facing }), guard: NO_COVER });
     },
   };
 }

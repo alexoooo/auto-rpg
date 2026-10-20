@@ -6,6 +6,7 @@ import { COUNTER_PUNCHER, STAND_UP, type ActionConfig, type OptionsConfig, type 
 import { actionConfigFaults, armedActions } from "../action-config.ts";
 import { fighterBody, fighterSkills } from "../fighter.ts";
 import { NO_COVER } from "../intent.ts";
+import { orderedFacing } from "../ordered.ts";
 import type { MindWiring } from "../minds.ts";
 import { SUB_MIND_PARTS, subMind } from "../sub-minds.ts";
 import { driveBy, type Sight, type Tactics } from "../tactics.ts";
@@ -110,7 +111,8 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
       const near = chosen?.posture === "standing" ? chosen.near?.(now) ?? null : null;
       const move = walk.constrain(now, asked.move, near);
       const { movement, pace, travelFacing, ...direct } = asked;
-      return reflexes.apply(now, { ...(move === asked.move ? asked : direct), move, guard: NO_COVER });
+      const facing = now.orders?.move === undefined && now.orders ? orderedFacing(now.orders.face) : null;
+      return reflexes.apply(now, { ...(move === asked.move ? asked : direct), move, ...(facing === null ? {} : { face: facing }), guard: NO_COVER });
     } };
   let skills: Skills;
   skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, host.clock, config, driving, () => skills?.report.ledger ?? []));
