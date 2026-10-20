@@ -6,6 +6,7 @@ import { landed, blocked, cleanMiss } from "../core/skills/action-instances.ts";
 import { randomStream } from "../core/math/random.ts";
 import { rulebook } from "../core/rules/rulebook.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
+import { isBody } from "../core/read-body.ts";
 import type { Actor } from "./actor.ts";
 import { dummySpec, hangDummy, type Dummy } from "./targets.ts";
 import { startWind, type WindSettings } from "./wind.ts";
@@ -85,7 +86,7 @@ export function startAttack(actor: Actor, options: AttackOptions) {
     contactIdentity: (other) => {
       if (!other) return { kind: "world" };
       for (const [id, { dummy }] of targets) for (const segment of dummy.fighter.built.segments.values())
-        if (segment.body === other) return { kind: "body", body: id, segment: segment.spec.name, guard: false };
+        if (isBody(other, segment.body)) return { kind: "body", body: id, segment: segment.spec.name, guard: false };
       return null;
     },
   });

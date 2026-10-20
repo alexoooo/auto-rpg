@@ -5,6 +5,7 @@ import { parseArgs } from 'node:util';
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import { coreStand } from '../tests/harness/core-stand.mjs';
 import { modelSpec } from '../src/core/models.ts';
+import { isBody } from '../src/core/read-body.ts';
 import { createBody, SERVO_SECONDS } from '../src/core/body.ts';
 import { DEFAULT_ENGINE } from '../src/core/engine/engines.ts';
 import { NO_COVER } from '../src/core/mind/intent.ts';
@@ -59,7 +60,7 @@ export async function punchStand({model='workshop-fighter',hand='right',family='
   const spec=modelSpec(model,physique),s=await coreStand(spec,{engine:DEFAULT_ENGINE,hz,actuation,posture:guardPosture(spec)});
   let sensor;
   const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,
-    ...(matchedFeedback?{contactIdentity:other=>other===sensor?.body?{kind:'object',id:'punch-pad'}:other?null:{kind:'world'},
+    ...(matchedFeedback?{contactIdentity:other=>sensor&&isBody(other,sensor.body)?{kind:'object',id:'punch-pad'}:other?null:{kind:'world'},
       contacts:segment=>(sensor?.state.materialContacts??[]).filter(c=>c.segment===segment).map(c=>({target:{kind:'object',id:'punch-pad'},
         point:c.point,normal:[0,0,1],impulse:c.force*s.world.dt}))}: {})});
   const executor = { name: 'motion', ...(blow ?? { kind: 'path-strike', overlap: false, tuning: { paths: { ...paths, contactSpeed }, execution } }) };

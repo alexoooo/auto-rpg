@@ -12,6 +12,7 @@ import { STAND } from "../core/skills/strike.ts";
 import { BANDS, heldIn, type Band, type Repertoire, type StandOff, type Strike, type StrikeWindow } from "../core/skills/strikes.ts";
 import type { Side, BodySpec } from "../core/spec/body.ts";
 import type { Vec3 } from "../core/spec/quantity.ts";
+import { isBody } from "../core/read-body.ts";
 import type { Actor } from "./actor.ts";
 import { ballOf, dummySpec, hangDummy, TARGET_CLEAR, type Dummy } from "./targets.ts";
 
@@ -125,7 +126,7 @@ export function throwBlow(actor: Actor, thrown: Throw): ThrownBlow {
   // The clock counts the step under way, whatever mind decides it.
   const skills = { repertoire: recipe ? [recipe] : [], ...(thrown.steer === undefined ? {} : { steer: thrown.steer }) };
   const { report } = actor.drive(tactics, { skills, watch: (_, dt) => { time += dt; }, contactIdentity(other) {
-    for (const segment of targetBody?.segments.values() ?? []) if (segment.body === other)
+    for (const segment of targetBody?.segments.values() ?? []) if (isBody(other, segment.body))
       return { kind: "body", body: "dummy", segment: segment.spec.name, guard: false };
     return null;
   } });

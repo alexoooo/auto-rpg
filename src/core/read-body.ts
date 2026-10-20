@@ -32,6 +32,12 @@ export interface BodyRef {
   readonly node: { readonly name: string };
 }
 
+/**
+ * Whether `other`, a contact's other side as a mind reads it, is `body`: the same engine body by
+ * its id, which every view of it keeps. A contact never hands a mind the engine body itself.
+ */
+export const isBody = (other: BodyRef | null, body: { readonly id: number }): boolean => other !== null && other.id === body.id;
+
 /** A segment's node as read: its name, and its pose, world, as the last step left it. */
 interface ReadNode {
   readonly name: string;

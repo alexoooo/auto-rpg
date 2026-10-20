@@ -15,6 +15,7 @@ import type { Side, BodySpec, ShapeSpec } from "../core/spec/body.ts";
 import { ballMoment, ballRadius } from "../core/spec/geometry.ts";
 import { derive, si, type Quantity, type Vec3 } from "../core/spec/quantity.ts";
 import type { World } from "../core/world.ts";
+import { isBody } from "../core/read-body.ts";
 import { mulberry32 } from "../rng.ts";
 import type { Actor } from "./actor.ts";
 
@@ -92,7 +93,7 @@ export function dummySpec(attacker: BodySpec, part: string = DUMMY_PART): BodySp
     return derive("m", `the ball that holds the attacker's ${part}'s mass at its density`, [made.mass, si(density)], (m, rho) => ballRadius(m / rho));
   })();
   const centre = derive("m", "the ball's centre, its frame's origin", [], (): Vec3 => [0, 0, 0]);
-  if (attacker.down.kind !== "asked") throw new Error(`a dummy is down by its attacker's fall bar, and ${attacker.model} has none`);
+  if (attacker.down.kind === "low") throw new Error(`a dummy is down by its attacker's fall bar, and ${attacker.model} has none`);
   return {
     model: `${attacker.model}.dummy`, substance: attacker.substance, mass,
     stature: derive("m", "the ball's height, twice its radius", [radius], (r) => 2 * r),
@@ -275,7 +276,7 @@ export function readTarget(actor: Actor, target: Target, hand: Side, rules: Rule
   const centre = (): Vec3 => up ? [up.dummy.centre.x, up.dummy.centre.y, up.dummy.centre.z] : target.at;
   return {
     identify(other) {
-      for (const segment of up?.dummy.fighter.built.segments.values() ?? []) if (segment.body === other)
+      for (const segment of up?.dummy.fighter.built.segments.values() ?? []) if (isBody(other, segment.body))
         return { kind: "body", body: "dummy", segment: segment.spec.name, guard: false };
       return null;
     },

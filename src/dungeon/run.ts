@@ -12,6 +12,7 @@ import { levelsOf, stirs, type LevelAsk, type LevelRule } from "../core/rules/le
 import { rulebook } from "../core/rules/rulebook.ts";
 import { cryptModel } from "./actors.ts";
 import { createWorld, type Hook, type World } from "../core/world.ts";
+import { isBody } from "../core/read-body.ts";
 import { canSee, cellKey, clearSegment, distance, explorationGoal, findPath, reveal, sightIndex, walkable,
   type DungeonMap, type Point, type SightIndex } from "./map.ts";
 import { DungeonCommands, screenMovement, type Order } from "./commands.ts";
@@ -322,7 +323,7 @@ export class DungeonRun {
       contactIdentity: other => {
         if (!other) return { kind: "world" };
         for (const candidate of [...this.party, ...this.enemies]) for (const segment of candidate.fighter?.built.segments.values() ?? []) {
-          if (segment.body.id === other.id) return { kind: "body", body: candidate.id, segment: segment.spec.name,
+          if (isBody(other, segment.body)) return { kind: "body", body: candidate.id, segment: segment.spec.name,
             guard: candidate.fighter!.built.spec.marks.guards.includes(segment.spec.name) };
         }
         return null;

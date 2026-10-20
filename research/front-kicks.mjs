@@ -4,6 +4,7 @@ import {gzipSync} from 'node:zlib';
 import {Vector3} from '@babylonjs/core/Maths/math.vector.js';
 import {coreStand} from '../tests/harness/core-stand.mjs';
 import {modelSpec} from '../src/core/models.ts';
+import {isBody} from '../src/core/read-body.ts';
 import {armed} from '../src/core/human/grip.ts';
 import {woodenClub} from '../src/core/items/club.ts';
 import {createBody,SERVO_SECONDS} from '../src/core/body.ts';
@@ -33,7 +34,7 @@ export async function frontKickStand({model='workshop-fighter',held='empty',foot
   let sensor;
   const identity={kind:'object',id:mode==='block'?'block-pad':'kick-pad'};
   const body=createBody(s.built,s.world,{servoSeconds:SERVO_SECONDS,feedback:true,
-    contactIdentity:other=>other===sensor?.body?identity:other?null:{kind:'world'},
+    contactIdentity:other=>sensor&&isBody(other,sensor.body)?identity:other?null:{kind:'world'},
     contacts:segment=>(sensor?.state.materialContacts??[]).filter(c=>c.segment===segment)
       .map(c=>({target:identity,point:c.point,normal:[0,0,1],impulse:c.force*s.world.dt})),
     ...(recovery?{subs:[(own,view)=>supportRecovery(own,view,s.world)]}:{})});

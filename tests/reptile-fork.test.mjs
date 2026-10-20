@@ -54,9 +54,9 @@ async function sensedBite() {
   for (const segment of target.segments.values()) segment.body.setFixed(true);
   const hub = createSenses(stand.world), see = hub.add({ id: "mine", side: "one", built: stand.built, out: () => false });
   hub.add({ id: "target", side: "two", built: target, out: () => false });
-  const parts = new Map([...target.segments.values()].map(segment => [segment.body, segment.spec.name]));
+  const parts = new Map([...target.segments.values()].map(segment => [segment.body.id, segment.spec.name]));
   const mind = hostedMind(stand.built, stand.world, { senses: see,
-    contactIdentity: other => parts.has(other) ? { kind: "body", body: "target", segment: parts.get(other), guard: false } : { kind: "world" } }, (host, wiring) => quadrupedMind(host, wiring)),
+    contactIdentity: other => parts.has(other?.id) ? { kind: "body", body: "target", segment: parts.get(other.id), guard: false } : { kind: "world" } }, (host, wiring) => quadrupedMind(host, wiring)),
     body = mind.body, host = body.state.mind.host, seen = new Set();
   const rules = rulebook("arena"), mine = createPool(stand.built.spec, rules), theirs = createPool(target.spec, rules);
   const blows = watchBlows(stand.world, [{ id: "mine", side: "one", built: stand.built, pool: mine },

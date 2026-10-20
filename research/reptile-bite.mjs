@@ -29,8 +29,8 @@ export async function biteTrial({ bite = REPTILE_BITE, point = [0, .1925, .485],
   const targetMind = enemy && !fixed ? createMind(enemy, stand.world, modelInfo(targetModel).mind, { orders: () => STAND_ORDERS }) : null;
   const hub = createSenses(stand.world), see = hub.add({ id: "reptile", side: "one", built: stand.built, out: () => false });
   if (enemy) hub.add({ id: "target", side: "two", built: enemy, out: () => false });
-  const enemyParts = new Map(enemy ? [...enemy.segments.values()].map(s => [s.body, s.spec.name]) : []);
-  const contactIdentity = other => enemyParts.has(other) ? { kind: "body", body: "target", segment: enemyParts.get(other), guard: false } : { kind: "world" };
+  const enemyParts = new Map(enemy ? [...enemy.segments.values()].map(s => [s.body.id, s.spec.name]) : []);
+  const contactIdentity = other => enemyParts.has(other?.id) ? { kind: "body", body: "target", segment: enemyParts.get(other.id), guard: false } : { kind: "world" };
   let cancelled = false;
   const mind = hostedMind(stand.built, stand.world, { orders: () => cancelled ? STAND_ORDERS : autonomous ? null : STAND_ORDERS, ...(autonomous ? {} : { biteTarget: () => cancelled ? null : point }), senses: see, contactIdentity }, (host, wiring) => quadrupedMind(host, wiring, { crawl: REPTILE_CRAWL, trot: REPTILE_TROT, motor: REPTILE_MOTOR, travel: REPTILE_TRAVEL, bite }));
   const rules = rulebook("arena"), mine = createPool(stand.built.spec, rules), theirs = enemy && createPool(enemy.spec, rules);
