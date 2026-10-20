@@ -76,7 +76,8 @@ What the code shows:
 
 ## The protocol
 
-A representative set of loadouts replaces every combination in ratings and the tournament:
+A representative set of loadouts (the owner's choice) replaces every combination in ratings and
+the tournament:
 
 | Loadout (left, right) | Name |
 |---|---|
@@ -199,7 +200,6 @@ it is the reference once the owner accepts how it fights.
 
 ## Owner's choices
 
-- The representative loadout set above, and whether the left-hand sword belongs in it.
 - The proposed bars of stages 1 to 4, or other figures.
 - Whether a mind with no attack for a loadout (Puncher with a sword) is entered in that
   loadout's ratings, or only where it has one.
