@@ -3,7 +3,7 @@ import type { BodySpec } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { BodyHost } from "../host.ts";
 import { COUNTER_PUNCHER, STAND_UP, type ActionConfig, type OptionsConfig, type SubMindConfig } from "../config.ts";
-import { actionConfigFaults } from "../action-config.ts";
+import { actionConfigFaults, armedActions, strikesWithAll } from "../action-config.ts";
 import { fighterBody, fighterSkills } from "../fighter.ts";
 import { NO_COVER } from "../intent.ts";
 import type { MindWiring } from "../minds.ts";
@@ -49,7 +49,8 @@ const DOWN: readonly (readonly [string, SubMindConfig, DownModel])[] = deepFreez
 ]);
 
 /** Whether a body of `spec` takes the options fighter's commands and carries out the actions of `config`'s skills. */
-export const optionsFit = (spec: BodySpec, config: OptionsConfig): boolean => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0;
+export const optionsFit = (spec: BodySpec, config: OptionsConfig): boolean => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0
+  && strikesWithAll(spec, config.executors, config.actions);
 
 /**
  * **The options fighter**: a meta-controller (`metaController`) over options, which takes the one
@@ -70,7 +71,9 @@ export const optionsFit = (spec: BodySpec, config: OptionsConfig): boolean => co
  * body asks whether it wants the body each step once it has looked and before its command layers act
  * (`hosting`), else the tactics. So what the body does, down or standing, is the one decision's.
  */
-export function createOptionsFighter(host: BodyHost, config: OptionsConfig, wiring: MindWiring) {
+export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wiring: MindWiring) {
+  // Its blows are those its body throws as armed.
+  const config = { ...given, actions: armedActions(host.spec, given.executors, given.actions) };
   const walk = walker(host.spec), reader = situationReader(host.spec, (sight) => wiring.orders(sight.view.senses));
   let sight: Sight | null = null, meta: ReturnType<typeof metaController> | null = null;
   // The situation is read once a step, by whichever asks first; it is of the step's view, so nothing of it outlives the step.

@@ -152,7 +152,13 @@ waits on a stalled route, whether a fall ends its fight) is the Crypt's (`cryptM
 `src/dungeon/actors.ts`). What a body can do is read from its spec: `modelHolds` (a hand a haft lies across, `canHold`) and `modelSupportsMind`, which asks
 every part of the mind (`treeFits`) of the body as armed with what it holds (`modelHolding`), so
 a part that cannot use a loadout drops out of the pickers for it (`Controller.fits`: `commandable` and its actions for the fighters, `quadrupedFits` for
-the quadruped, any body for direct control). How a model is shown, its label,
+the quadruped, any body for direct control). Each mind makes that call itself. A skill states
+the facts: an executor says which effectors it strikes with on the armed body
+(`ExecutorPart.strikesWith`; a punch only with a hand that holds nothing). The fighter and the
+options fighter use those facts: each fits a body only when it can throw a blow with every item
+the body holds (`strikesWithAll`), and it throws only the blows that body can (`armedActions`).
+So the Puncher is offered only empty-handed, while the options fighter with a club punches
+with its free hand and swings the club. How a model is shown, its label,
 clothing and shape tint, is the screens' (`MODEL_DISPLAY`, `src/render/models.ts`).
 Humanoid-only tasks use `HUMANOID_MODELS`; they do not fabricate hands on a different body.
 The reptile has 17 segments, 16 joints and 31 muscle freedoms: a trunk, four three-segment legs,
@@ -772,7 +778,7 @@ or builder. Once registered it is offered (`MINDS`) by its presets, or by its ki
 `tests/mind-contract.test.mjs` runs it on the first body it fits against itself, forks it and
 replays it from its order sheets; how well it fights is a measurement, not a gate: the standard
 match (`scripts/match.mjs`, `npm run match -- <a> <b>`) plays two minds over one fixed set of
-bodies, loadouts and gaps, each on each side, and names the result by a digest that is the same on
+bodies and gaps, with each of its loadouts both fit, each on each side, and names the result by a digest that is the same on
 every machine; the tournament (`scripts/tournament.mjs`) plays every mind on every character and
 loadout it fits against every other and rates each by Bradley-Terry on the Elo scale
 (`research/rating.mjs`), which the Arena shows as each mind's notes (`src/ui/mind-notes.ts`: a

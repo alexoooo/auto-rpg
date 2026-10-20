@@ -18,7 +18,7 @@ import { deepFreeze } from "../state.ts";
 import type { Clock } from "../clock.ts";
 import type { BodyHost } from "./host.ts";
 import { MOVE, type ActionConfig, type FighterConfig, type SkillKit, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type SimbiconConfig, type WalkRunConfig, type LearnedRunConfig, type MoveConfig, type MoveRuleConfig, type LocomotionConfig } from "./config.ts";
-import { actionConfigFaults, configuredActionEstimates, configuredExecutors } from "./action-config.ts";
+import { actionConfigFaults, armedActions, configuredActionEstimates, configuredExecutors } from "./action-config.ts";
 import { choice, type PartField } from "./fields.ts";
 import { CONDITIONS } from "./conditions.ts";
 import type { MindWiring } from "./minds.ts";
@@ -204,8 +204,9 @@ export function fighterBody(config: Pick<FighterConfig, "subs" | "motor">, wirin
     feedback: true, contactIdentity: wiring.contactIdentity, subs: subMindsOf(config.subs), motor: config.motor ?? null };
 }
 
-/** Named executors are built once; behaviours select actions without rebuilding motion state. */
-export function driveFighter(body: Body, clock: Clock, config: FighterConfig, wiring: MindWiring, around: (tactics: Tactics) => Tactics = tactics => tactics): Skills {
+/** Named executors are built once; behaviours select actions without rebuilding motion state. Its blows are those its body throws as armed (`armedActions`). */
+export function driveFighter(body: Body, clock: Clock, given: FighterConfig, wiring: MindWiring, around: (tactics: Tactics) => Tactics = tactics => tactics): Skills {
+  const config = { ...given, actions: armedActions(body.built.spec, given.executors, given.actions) };
   const faults = actionConfigFaults(body.built.spec, config.executors, config.actions);
   if (faults.length) throw new Error(faults.join("; "));
   const tactics = tacticsOf(config.tactics, body.built.spec, wiring.name, config.actions,

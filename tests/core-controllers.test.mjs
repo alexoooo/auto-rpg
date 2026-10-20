@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { CONTROLLERS, controllerOf, MINDS, PRESETS } from "../src/core/mind/controllers.ts";
 import { CLASSIC, RECIPE_FIGHTER, SCRAPPER, STAND_UP } from "../src/core/mind/config.ts";
 import { treeFaults, treeFits } from "../src/core/mind/catalog.ts";
+import { armedActions, strikesWithAll } from "../src/core/mind/action-config.ts";
 import { armedWith, heldBy, HELD } from "../src/core/items/held.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { BODY_MODELS, modelSpec } from "../src/core/models.ts";
@@ -52,6 +53,25 @@ test("each controller says which bodies and loadouts its minds fit, and the Aren
       if (body) assert.equal(heldBy(body, "right"), held);
     }
   }
+});
+
+test("a mind fits a loadout it strikes with, and throws only the blows its armed body can: a punch with a hand that holds nothing", () => {
+  const minds = ["options", "classic", "puncher", "counter", "scrapper", "behaviours"];
+  for (const model of BODY_MODELS.filter((model) => model !== "reptile")) {
+    const club = armedWith(modelSpec(model), "right", "club");
+    assert.deepEqual(minds.map((id) => [id, treeFits(modelSpec(model), MINDS[id].config), treeFits(club, MINDS[id].config)]), [
+      ["options", true, true], ["classic", true, true], ["puncher", true, false], ["counter", true, false], ["scrapper", true, true], ["behaviours", true, true]], model);
+  }
+  const { executors, actions } = MINDS.options.config, bare = modelSpec("workshop-fighter");
+  assert.deepEqual(armedActions(bare, executors, actions), actions, "an empty-handed body throws every blow as it is");
+  // The club in the right hand: its punch is the left's, its one-two (a drive of each hand) is not thrown, its swung blow is either hand's.
+  assert.deepEqual(armedActions(armedWith(bare, "right", "club"), executors, actions).map((action) => [action.name, action.effectors]),
+    [["strike", ["hand.left"]], ["downward", ["hand.right", "hand.left"]]]);
+  // In the left, the Puncher's punch is the right's, and it still has none with the club.
+  const puncher = MINDS.puncher.config, left = armedWith(bare, "left", "club");
+  assert.deepEqual(armedActions(left, puncher.executors, puncher.actions).map((action) => action.effectors), [["hand.right"]]);
+  assert.equal(strikesWithAll(left, puncher.executors, puncher.actions), false);
+  assert.equal(strikesWithAll(left, [], []), true, "a mind of no blows asks nothing of what its body holds");
 });
 
 test("presets bind actions to explicitly named execution state", () => {
