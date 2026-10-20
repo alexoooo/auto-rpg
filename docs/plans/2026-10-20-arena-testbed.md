@@ -18,197 +18,211 @@ them; a broad framework refactor is not a prerequisite.
 The [whole-body control](2026-10-17-general-controller.md) and
 [options fighter](2026-10-14-options-fighter.md) efforts can use the resulting tasks and content.
 Their running, recovery and competitive goals remain independent and open. Use the Warrior and
-Rogue for the first equipped fighters; preserve existing compatible bodies and controllers.
+Rogue for the first equipped fighters.
+
+## Principles
+
+- **Through the Mind framework.** Route-following, the shield guard and the sword's actions are
+  parts of roles in the part catalog (`src/core/mind/parts.ts`, `catalog.ts`): each owns its
+  config, defaults, faults, `fits` and explicit state, and is selectable beside alternatives.
+  The Arena, the Crypt and the Lab reach them the same way. No mind or screen special-cases a
+  level or an item; a level and an item are data that the general rules read.
+- **The simplest rule that works.** Reuse an existing mechanism before adding one. The reptile's
+  bite grew machinery its result did not need; the sword's rule does not repeat that.
+- **No compatibility layers.** Development is early. Recipes, links, tapes and ratings made before
+  a change are replaced, not translated. A toolkit change still names the fingerprint cases it
+  moves (`AGENTS.md`).
+- **No new art.** The obstacle court is built from the Crypt kit's pieces and footprints.
 
 ## Sequence
 
-| Step | Deliverable | Exit condition |
+Two workstreams, each in order, then their integration. Each step lands in small commits, and
+its gate test is fast-tier unless noted.
+
+| Step | Deliverable | Gate test |
 |---|---|---|
-| 1 | Level definition and selection | Open stage and obstacle court construct consistently in the page, headless runner, links, saves and replays |
-| 2 | Navigation task and reference navigator | Actual fighters reach a target around an obstruction and respond to a blocked or changed route |
-| 3 | Explicit loadouts | Both hands can carry assigned compatible items with correct physical load, appearance and recipe identity |
-| 4 | Buckler and guard | Club-and-buckler fighters physically intercept attacks while moving and retaining the other hand's control |
-| 5 | Cutting fixture, then sword skills | Edge, flat and tip contacts behave distinctly; cut and thrust actions execute and return under control |
-| 6 | Integrated Arena round | Named equipped fighters run on both levels, with results and failures inspectable from reproducible recipes |
+| E1 | Item use in `fits`; both hands loaded in the Arena | `tests/core-held.test.mjs`, `tests/mind-contract.test.mjs` |
+| E2 | Edge contacts in the blow rule, in a physical fixture | `tests/core-blows.test.mjs` |
+| E3 | Buckler and shield guard | `tests/core-buckler.test.mjs` |
+| E4 | Short sword with cut and thrust executors | `tests/core-sword.test.mjs` |
+| V1 | Level definitions; the open stage and a column court | `tests/arena-levels.test.mjs` |
+| V2 | The navigation role, a reference navigator, the Crypt on it | `tests/core-navigation.test.mjs` |
+| V3 | Stand-up beside obstacles; low obstacles in the court | `tests/lab-ground.test.mjs`, `tests/arena-levels.test.mjs` |
+| I | Equipped fighters on both levels | `tests/smoke.test.mjs` |
 
-Environment work (steps 1-2) and equipment work (steps 3-5) are independently useful workstreams.
-Develop navigation first with the existing club, and the initial equipment on the open stage,
-then combine them. Land small changes at each step.
+E2 is pure rules and fast to test, and is the riskiest item: it starts first, beside E1 and V1.
 
-## Environment: level recipes
+## Equipment
 
-Introduce a stable level selection in the bout recipe. The initial proposed ids are `open` and
-`obstacle-court`; keep the current stage as the default for recipes and links that omit a level.
-A level definition owns its physical solids, visible placement descriptions, valid starting
-positions/headings and the geometry granted to senses. Its resolved definition and revision
-participate in construction, save/load, replay and evaluation identity.
+### E1: item use and loadouts
 
-Build on `src/arena/room.ts` (`arenaSolids`, `addArenaSolids`, `validateRoomPlacements`) and
-`src/core/mind/object-senses.ts`. Use one resolved definition for colliders, their corresponding
-visible pieces and sensed geometry. Extend the room's collider/visual checks to the chosen
-level. Reachable solid-looking props have matching colliders; decorative geometry carries no
-collision or hit authority.
+`fits` is wrong for any item that is not struck with. The tempo mind and the options fighter fit
+a body only if they strike with every item it holds (`strikesWithAll`,
+`src/core/mind/action-config.ts`), so every mind refuses a buckler. The rule's purpose is that a
+mind uses what its body carries and misuses nothing (a punch is not thrown from a held club's
+end). State it generally: every part says which of its body's held items it uses and how
+(an executor strikes with one, `ExecutorPart.strikesWith`; a guard covers with one), and a mind
+fits a body when its parts together use every held item and no part commands an effector it
+cannot use. One predicate, exported by the module that owns it, read by every mind's `fits`.
+Land it as its own toolkit change, before the buckler.
 
-Thread the selection through `src/arena/matchup.ts`, `main.ts`, `scene.ts` and `duel.ts`, and
-through `research/bout.mjs`. The browser and Node runner must not independently invent the
-obstacle placements. World-building arithmetic keeps the exact-math boundary, including any
-new module that contributes geometry or spawn poses.
+The Arena's loadout becomes one item per hand, the shape the Lab already has (`LabLoadout`,
+`src/lab/scenarios.ts`): `HELD` (`src/core/items/held.ts`) grows by each new item, and each side
+names its right and left hand's. `armed` (`src/core/human/grip.ts`) already holds in either
+hand. Replace `&held=` with a per-hand parameter, and carry the loadout through the recipe,
+construction, sensing, recorded commands and match identity. Rigid attachment to a hand is
+sufficient for one-handed items; the separate-equipment path (`src/core/equipment.ts`,
+`src/core/mind/equipment-port.ts`) is for an item that needs independent motion. Two-handed
+items and regripping are later work.
 
-The level owns valid spawn pairs and the allowed effect of a starting-gap adjustment. Validate
-body/loadout clearance and refuse invalid configurations before play. Preserve an old recipe's
-meaning; loading a checkpoint still requires matching world construction. Explicitly record
-any placement variant or seed if generated variants are introduced later.
+The first loadouts are empty hands, club, club and buckler, short sword, and short sword and
+buckler. Mass, centre of mass, inertia, shapes and contact ownership follow from what is
+carried; anatomy and muscle limits do not change with it. Rendering and pickers read the same
+item definitions.
 
-The obstacle court is initially an authored, flat-floor layout with columns and a few low stone
-tombs or static barrels. Include clear routes around obstacles, space to fight beside them and
-valid spawns that can require a detour. Keep barrels fixed in this milestone. Retain the current
-sensing policy initially: physical obstacles block motion and weapon contact, while sight
-occlusion is a separate experiment.
+Gate: each hand carries a distinct item with its load and contact attribution, an invalid
+assignment is refused with a reason, a mind that leaves an item unused is refused, and an
+equipped bout forks and replays.
 
-Acceptance covers selected/default level links, safe spawns, physical/visual correspondence,
-headless construction and exact recorded replay. Keep the existing open-stage match as a
-reference condition; results on a new level name that level and protocol.
+### E2: edge contacts
 
-## Environment: navigation
+Give items contact regions as segments have them (`ContactRegionSpec`, `contacts` in
+`src/core/spec/body.ts`): a shape with its own surface. A held item's shapes then report their
+region through the existing `"region"` path in `surfaceOf` (`src/core/rules/blows.ts`) instead
+of the item's one `surface`.
 
-Add a replaceable navigation component between tactical movement objectives and locomotion.
-Tactics chooses the desired position or fighting range; navigation chooses a route;
-locomotion executes movement. Retain immediate clearance steering
-(`src/core/mind/clear-step.ts`) to deal with local obstruction.
+A surface's directed property generalizes from `point` to a mechanism with a direction and an
+alignment cosine:
 
-The navigator reads permitted fixed geometry and current observations, without world or engine
-handles. Start with a small waypoint or visibility graph over collision-derived footprints.
-Use the body's clearance requirements and account for carried equipment where relevant.
-Geometry helpers can be shared with the Crypt when their inputs satisfy this boundary; the
-core does not import a screen's map or planner.
+- **Point**: unchanged. A sustained load along the direction pierces (`pointLoadDamage`).
+- **Edge**: an impact whose normal into the other body lies within the edge's cone is priced as
+  `edge` on the impact path (`blowDamage`, `MECHANISM_PRICE.edge`), sharing its energy by
+  compliance as every blow does.
+- Anything else is blunt.
 
-Save route, waypoint progress, replanning and stuck/retry memory as ordinary participant state.
-Replan when the destination or relevant conditions change, and report unreachable or stalled
-movement explicitly. Avoid an implementation that repeatedly switches sides of a column without
-making progress. Reachability and physical execution are separate observations.
+No drawn cut, no damage accumulated over sliding contact, and no new coefficient: the edge's
+price is the rulebook's, and its cone is the item's spec. Drawn cuts are a later experiment, if
+watching the sword says one is missing.
 
-Build a shared headless/visible task on `src/core/tasks/environment.ts` that exercises detours,
-corners, constrained passages, changed destinations and blocked routes. Include several start
-conditions and both side assignments, and verify that the fixture has a route before judging
-execution. Score the body's actual progress, contacts, falls and arrival independently of the
-planner's path. Use a short execution floor in the software gate and broader navigation
-capability cases separately.
+The fixture is a blade on a fixed rig against a body: an aligned edge strike, a flat strike, a
+thrust, a miss and a resting blade. Gate: an edge strike wounds at the edge price, a flat one at
+the blunt price, a thrust through the point path, a resting blade not at all; blunt contacts and
+the reptile's piercing are unchanged.
 
-Acceptance requires a reference controller to move an actual fighter around an obstruction,
-reach the task's destination and repeat through save/load and replay. Path generation alone
-does not complete this step. The task becomes a development target for alternative navigators
-and locomotion implementations.
+### E3: buckler and shield guard
 
-## Equipment: loadouts
+A small centre-grip buckler: a hull disc whose handle is a haft for the existing grip
+(`handHolding`), with its mass, inertia, cover points and surface in its item spec, sourced as
+the spec rules require. Its look is a simple mesh drawn from its own collider. Durability and
+breakage are later work.
 
-Replace the Arena's one-item-in-the-right-hand selection with explicit item instances and
-attachment/grip assignments. Give instances stable identities and validate compatible mounts,
-grips and occupied hands. Initially expose left/right choices for the supported humanoids;
-keep the underlying description tied to actual body capabilities.
+The buckler protects by occupying space; contacts with it are ordinary contacts. A shield guard
+is a guard part: it places the buckler's centre between the threat and what it protects and faces
+its surface at the threat, through the effector tracker (`src/core/control/effector-tracker.ts`),
+building on `src/core/skills/guard.ts`. It fits a body that holds an item with cover points, and
+declares the buckler used (E1). Its reported state awards nothing.
 
-Build on `src/core/items/held.ts`, `src/core/human/grip.ts`, `src/core/build/rigid.ts` and
-`src/core/models.ts`. Rigid attachment to a hand is sufficient for the first one-handed items.
-Use the separate-equipment/grip path (`src/core/equipment.ts`,
-`src/core/mind/equipment-port.ts`) when an item actually needs independent motion or grip
-changes. Two-handed weapons and dropping/regripping items remain later work, with
-`src/core/tasks/bar.ts` as existing apparatus.
+Check the wrist with the buckler as the club's is checked: the disc's inertia across the wrist
+weld is the case where a held item jiggles.
 
-The first loadouts are empty hands, club alone, club plus buckler, short sword alone, and short
-sword plus buckler. Support assignment to either compatible hand and validate each side's Mind
-against the whole loadout. Existing `held` selections and links resolve to their equivalent
-loadouts; saved-world construction guards remain strict.
+Gate: a buckler held in guard intercepts a strike on a fixed rig and an unguarded one lands; a
+club-and-buckler body walks and strikes with the club while the guard holds; it falls and rises
+as the stand-up suite reads it, with capability failures reported apart from software faults.
+Club-and-buckler bouts are shown on the open stage before the court.
 
-Physical mass, center of mass, inertia, shapes, contact ownership and hand pose must reflect
-what is carried. Rendering and editor labels read the same item definitions. Propagate loadouts
-through recipes, UI/link serialization, construction, sensing, recorded commands and match/job
-identity. Keep each body's anatomy and muscle limits unchanged by equipment selection.
+### E4: short sword
 
-Acceptance includes both hands carrying distinct items, correct attribution of contacts and
-physical load, rejected invalid assignments, legacy links, and fork/replay of equipped bouts.
-If grip changes enter gameplay, record their accepted commands and application steps before
-claiming action-recording replay for that path.
+A one-handed short sword with edge, flat, tip and hilt regions (E2), and cut and thrust actions
+as executor parts on the existing action lifecycle (preparation, commitment, controlled return,
+interruption) and surface-aim machinery. A cut aims an edge region, a thrust the tip. Existing
+injury and severing rules apply; no mesh slicing.
 
-## Equipment: buckler
+Gate: a cut and a thrust against a fixed target reach it with the named region and return under
+control; sword, and sword-and-buckler, bouts run. How well the sword fights is a capability
+measurement; armed fighting is weak today (the options fighter's club bouts lose most of the
+field), so the gate is the fixture and the executors' own tasks, not how the bouts look.
 
-Add a small center-grip buckler with its physical shape, mass, inertia, attachment frame and
-protective face described in the item spec. Source its initial physical values as required by
-the repository's spec rules. Start with a simple visible model whose collider can be inspected.
-Item durability and breakage are outside this milestone.
+## Environment
 
-The buckler blocks by occupying space and transferring physical contact loads. Add a shield
-guard component that positions the protective center and faces its surface toward the threat,
-using the existing effector position/orientation support
-(`src/core/control/effector-tracker.ts`). Build on `src/core/skills/guard.ts`, with explicit
-shield requirements and compatibility. A covering line alone is not the shield-face contract.
+### V1: levels
 
-Start with a usable protective posture, then reactive placement. Guard, locomotion and the
-opposite hand's attack use the normal ownership and interruption paths. The guard does not
-move the item or body outside muscle control, and its reported blocking state cannot award
-protection or damage immunity.
+A level is data: its solids, the visible pieces that draw them, which solids block sight, and
+its valid spawn pairs and headings. `LEVELS` names `open` (the current stage) and
+`obstacle-court`. One resolved definition makes the colliders, the meshes and the geometry granted
+to senses (`SolidSense`, `src/core/mind/object-senses.ts`); the room's checks
+(`validateRoomPlacements`, `src/arena/room.ts`) run on every level. The selection threads through
+`src/arena/matchup.ts`, `main.ts`, `scene.ts`, `duel.ts` and `research/bout.mjs`, and is part of
+the recipe and the bout's identity. World-building arithmetic keeps the exact-math boundary.
 
-Acceptance covers actual intercepted and bypassing attacks, resulting contact/impulse paths,
-movement with the added load, and attacking with the other hand while the shield remains under
-control. Exercise falling and recovery with the loadout, recording existing capability failures
-separately from software faults. Show club-and-buckler bouts on the open stage before judging
-them in the obstacle court.
+The court's furniture is the Crypt's. `CRYPT_FURNITURE` and `CRYPT_SIGHT`
+(`src/dungeon/crypt-archetypes.ts`) and the kit's assembly move to a module both screens read, so
+one footprint makes a column's collider and its mesh in the Crypt and the Arena alike. The first
+court is flat with columns only, with clear routes, room to fight beside a column, and spawns
+that need a detour. Low furniture (tombs, benches) joins it in V3.
 
-## Equipment: cutting rule and short sword
+The level owns what a starting gap may do and refuses a spawn whose bodies or loadouts do not
+clear the solids. Sight occlusion by `CRYPT_SIGHT` is the first tactical experiment the court
+enables; until then senses keep the current policy.
 
-First resolve the cutting rule in a small shared physical fixture. `src/core/rules/rulebook.ts`
-already names `edge` damage and its sourced conversion, while
-`src/core/rules/blows.ts` currently classifies blunt and pointed surfaces. The reptile's
-directional piercing/contact-load path is useful shared infrastructure for the sword tip;
-its coefficient does not define a cutting edge's behavior.
+Gate: each level builds the same colliders and senses in the page and the Node runner, every
+spawn clears, visible and collision pieces correspond, and a court bout replays exactly.
 
-Give equipment contact surfaces enough geometric identity to distinguish cutting edges, blade
-flats, guard/hilt and tip. Extend surface attribution through `src/core/spec/body.ts` and
-`src/core/build/rigid.ts` as needed. Share injury, surface and contact accounting across anatomy
-and equipment. The sword's rules do not import the reptile's bite policy or depend on an
-executor saying that it is attacking.
+### V2: navigation
 
-The cutting prototype must choose and specify:
+A new role, `navigation`, between tactics and locomotion: tactics asks for a place, a navigator
+gives the next heading and pace toward it, locomotion walks. A mind holds it in a slot like its
+other parts, so navigators are swapped and compared like gaits. Local clearance steering
+(`clearMove`, `src/core/mind/clear-step.ts`) stays inside the navigators that want it.
 
-- How contact position and blade orientation distinguish edge, flat and tip.
-- How real contact load and relative motion admit impact cuts and drawn cuts.
-- How injury accumulates during sustained contact without repeated solver points or support
-  impulses creating unintended extra damage.
-- How cutting, piercing and blunt injury combine without charging the same event twice, and
-  how their quantities relate to the existing sourced mechanism conversions.
+A navigator reads the solids its senses are granted and its own body, no world or engine handle.
+Its route, progress and stuck memory are its state. It replans when the destination or the
+solids in its way change, and reports an unreachable or stalled goal through its role's
+feedback; reachability and physical progress are separate readings.
 
-Use a simple, explicitly calibrated game rule. Source new coefficients as physical evidence or
-owner design decisions, and write the rule in terms of quantities available to the shared
-contact path. Its physical fixtures cover an aligned edge strike, a drawing contact, a flat
-strike, a thrust, a miss, and a resting blade. Distinguish rule-contract checks from capability
-measurements. Preserve blunt-contact and reptile-piercing contracts.
+The reference navigator is a visibility graph over the solids' footprints grown by the body's
+clearance (and its carried item's), committing to one side of an obstacle until it is past it,
+so it does not dither round a column. The Crypt's route-following (`findPath`,
+`src/dungeon/map.ts`; replan on no progress and arrival in `src/dungeon/run.ts`) moves into the
+core as the same role: the Crypt grants its solids as `SolidSense`, its run gives a destination,
+and the body's navigator walks it. Its grid search may stay as a second navigator if it does
+better there. A drawn route is a destination list the navigator follows.
 
-Then add a one-handed short sword with the corresponding physical surfaces and a cut and a
-thrust action, including preparation, commitment, controlled return and interruption. Reuse or
-extend registered executors, the action lifecycle and surface-aim machinery. Equip it alone
-first, then with the buckler,
-and exercise reach variation, moving targets, self-injury, balance and simultaneous guard.
-Use existing injury and severing rules; dynamic mesh slicing is outside this milestone.
+The task, on `src/core/tasks/environment.ts`, covers a detour round one column, a corner, a
+narrow passage, a moved destination and a blocked route, from several starts, and checks a route
+exists before judging the walk. It scores the body's progress, contacts, falls and arrival, not
+the navigator's path.
 
-Acceptance requires the fixture's outcomes to depend on actual contacted surfaces and motion,
-followed by muscle-driven cut/thrust actions and inspectable sword-and-buckler bouts. Freeze
-the implemented cutting protocol before making comparative damage or fighting-strength claims.
+Gate: the reference navigator walks a fighter round a column to its destination and replays,
+and the Crypt's fight and run tests pass on it. Wider cases go in a
+`core-navigation-capability.test.mjs` listed in `tests/experimental.json`.
 
-## Integration, checks and completion
+### V3: rising beside obstacles
 
-Use the same level, loadout, rules and participant configuration in the Arena page, task runners
-and Node matches. Include the resolved level definition, item assets, cutting rule, controller
-code and engine configuration in run/cache identity. Keep results by level, loadout and opponent;
-an empty-stage result is not an obstacle-court result.
+Fighters will fall against columns and onto tombs, and every rise controller assumes open, flat
+ground. Rising beside obstacles is a supported feature, not a court-only problem:
 
-The milestone completes when the owner can select either level and the supported loadouts,
-run reference fighters through the normal control/combat path, and inspect shared recipes and
-exact action-recording replays. Demonstrate navigation around obstacles, physical buckler
-interception, and sword cutting/thrusting in integrated bouts. Report software validity,
-individual capabilities and competitive quality as separate outcomes. This does not establish
-the unfinished fast stand-up, running or strongest-fighter goals.
+- The Lab's Stand-up mode (`src/lab/ground-mode.ts`) takes a level, so its falls are made beside
+  a column, against a wall and onto low furniture, the same shoves as on the open floor.
+- The owner's target (`research/rising-bed.mjs --target`) gains an obstacle condition beside its
+  open one; figures name which.
+- Rise and recovery parts read the solids through their senses, as navigators do.
 
-Use `AGENTS.md`'s normal gate for implementation: `npm run check`, `npm test`, and
-`npm run build` for browser/assets changes. Run relevant slow tests by name, keep new tests fast
-or register them in the slow tier, and use capability suites when evaluating those capabilities.
-Inspect visible changes briefly and leave motion acceptance to the owner. A feature does not
-require a broad tournament or a new measurement record. Update the architecture, README and
-roadmap as behavior lands, and remove this plan when the milestone is complete.
+Low furniture enters the court once falls beside it have been read. Stepping back into a tomb is
+one of the falls the Lab makes.
+
+Gate: a body beside each obstacle kind falls, rises or reports its failure, stays finite and
+replays; the share that stands is a capability measurement, not a gate.
+
+## Integration
+
+The Arena page, task runners and Node matches use the same level, loadout, rules and mind
+configuration. Results name their level and loadout; an open-stage result is not a court result.
+The milestone completes when the owner can pick either level and each loadout, and watch and
+replay bouts that show navigation round obstacles, buckler interception, and sword cuts and
+thrusts. Software validity, each capability and fighting strength are reported separately; this
+does not establish the unfinished stand-up, running or strongest-fighter goals.
+
+Use `AGENTS.md`'s gate: `npm run check`, `npm test`, and `npm run build` for browser or asset
+changes. Run touched slow tests by name; keep new tests fast or list them in `tests/slow.json`.
+Look at visible changes briefly and leave motion to the owner. Update the architecture, README
+and roadmap as behavior lands, and delete this plan when the milestone is complete.
