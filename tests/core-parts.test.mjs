@@ -10,7 +10,7 @@ import { STRIDE } from "../src/core/skills/stride.ts";
 import { RUN } from "../src/core/skills/run.ts";
 import { parseMind, writeMind } from "../src/ui/mind-link.ts";
 
-const ROLES = ["mind", "sub-mind", "tactics", "behaviour", "move-rule", "locomotion", "guard", "executor", "support", "reflex", "motor"];
+const ROLES = ["mind", "sub-mind", "tactics", "behaviour", "move-rule", "navigation", "locomotion", "guard", "executor", "support", "reflex", "motor"];
 
 test("every part has a role, a stage, frozen defaults of its own kind, and every slot's role has parts", () => {
   for (const [kind, part] of Object.entries(PARTS)) {

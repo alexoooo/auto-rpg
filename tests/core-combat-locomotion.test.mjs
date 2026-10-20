@@ -30,7 +30,7 @@ test('a configured Arena turn ceiling forks during an ordinary approach and reta
  const a=await make(),b=await make();
  try{
   a.duel.play([]);b.duel.play([]);
-  a.duel.order('left',{move:{x:-1,z:0},face:null,attack:null});
+  a.duel.order('left',{move:{ kind: "direct", direction: {x:-1,z:0} },face:null,attack:null});
   let previous=a.duel.duelists.left.minded.skills.report.heading;
   for(let i=0;i<73;i++){a.world.step();const h=a.duel.duelists.left.minded.skills.report.heading;assert.ok(Math.abs(h-previous)<=a.world.dt+1e-12);previous=h;}
   assert.ok(Math.abs(previous)>.5);assert.ok(a.duel.duelists.left.minded.skills.report.pace>0);

@@ -1,7 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { OwnBody } from "../mind/mind.ts";
 import type { Orders } from "../mind/orders.ts";
-import { STAND_ORDERS } from "../mind/orders.ts";
 import type { Tactics } from "../mind/tactics.ts";
 import { nearestSurface } from "../mind/targets.ts";
 import { surfaceEntry, surfaceContains } from "../mind/openings.ts";
@@ -9,7 +8,9 @@ import { pointOfToRef } from "../control/support.ts";
 import { pointAtToRef, rootFrameToRef } from "../control/kinematics.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { BodyRef } from "../read-body.ts";
-import type { QuadrupedView } from "./crawl.ts";
+import { STAND_TRAVEL, type QuadrupedView, type TravelOrders } from "./crawl.ts";
+import { createNavigator } from "../mind/navigation.ts";
+import { cos, sin } from "../math/real.ts";
 import type { StrikeCycleState } from "../skills/strike-cycle.ts";
 import { REPTILE_BITE, REPTILE_TROT } from "./tuning.ts";
 import { mouthOf } from "./bite.ts";
@@ -17,14 +18,14 @@ import { turnAboutToRef } from "../math/turn.ts";
 import { headingAligned } from "./trot.ts";
 
 /** Bite preparation accompanies approach; the committed stroke waits for loaded paws. */
-interface QuadrupedIntent extends Orders { readonly biteAt: Vec3 | null; readonly prepareBite: boolean; readonly creep: boolean; readonly travel: boolean }
+interface QuadrupedIntent extends TravelOrders { readonly biteAt: Vec3 | null; readonly prepareBite: boolean; readonly creep: boolean; readonly travel: boolean }
 
 /**
  * Each tooth seeks the first exposed sensed surface along its closing arc, with its piercing
  * direction facing the surface. Preparation retains that point in the opponent segment frame.
  */
 export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => Orders | null, T = REPTILE_BITE,
-  biteTarget?: (view: QuadrupedView) => Vec3 | null): Tactics<{ readonly view: QuadrupedView; readonly bite: Pick<StrikeCycleState, "phase"> }, QuadrupedIntent> & { readonly state: { pending: number; phase: StrikeCycleState["phase"]; target: { foe: string; part: string; local: Vec3; tooth: string } | null } } {
+  biteTarget?: (view: QuadrupedView) => Vec3 | null): Tactics<{ readonly view: QuadrupedView; readonly bite: Pick<StrikeCycleState, "phase"> }, QuadrupedIntent> & { readonly state: { pending: number; phase: StrikeCycleState["phase"]; target: { foe: string; part: string; local: Vec3; tooth: string } | null; navigation: ReturnType<typeof createNavigator>["state"] } } {
   const mouth = new Vector3(), { head, lower, hinge, teeth } = mouthOf(own.built);
   const carried = new Vector3(), inverse = new Quaternion();
   const frame = { position: new Vector3(), rotation: new Quaternion() }, closing = new Vector3(), shiftDirection = new Vector3();
@@ -32,7 +33,8 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
   const ownBodies = new Set<BodyRef>([...own.built.segments.values()].map(part => part.body));
   const loaded = () => [head, lower].some(part => own.built.physics.contactsOf(part.body)
     .some(contact => contact.impulse > 0 && (!contact.other || !ownBodies.has(contact.other))));
-  const state = { pending: 0, phase: null as StrikeCycleState["phase"], target: null as { foe: string; part: string; local: Vec3; tooth: string } | null };
+  const navigation = createNavigator(own.built.spec);
+  const state = { pending: 0, phase: null as StrikeCycleState["phase"], target: null as { foe: string; part: string; local: Vec3; tooth: string } | null, navigation: navigation.state };
   const tip = lower.spec.points!.bite!.value, lip = head.spec.points!.mouth!.value;
   const contact = pointAtToRef([hinge], [[T.open * T.contactAt]], tip, new Vector3());
   const arcs = teeth.map(tooth => ({ tooth: tooth.name,
@@ -49,8 +51,19 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
     if (sight.bite.phase === null && state.target) state.pending += dt;
     else state.pending = 0;
     if (returned || state.pending >= T.biteTimeout) { state.target = null; state.pending = 0; }
-    const ordered = orders(view);
-    if (view.senses.out) return { ...STAND_ORDERS, biteAt: null, prepareBite: false, creep: false, travel: false };
+    const external = orders(view);
+    let ordered: TravelOrders | null = null;
+    if (external) {
+      if (!external.move || external.move.kind === "direct") ordered = { ...external, move: external.move?.direction ?? null };
+      else {
+        const pace = external.pace ?? REPTILE_TROT.speed;
+        const resolved = navigation.step({ view: { time: view.senses.time, stance: view, senses: view.senses }, report: { heading: view.yaw } }, external.move, pace, dt, !view.down && sight.bite.phase === null);
+        const move = resolved.move;
+        ordered = { ...external, move: move ? { x: (move[0] * sin(view.yaw) + move[1] * cos(view.yaw)) / REPTILE_TROT.speed,
+          z: (move[0] * cos(view.yaw) - move[1] * sin(view.yaw)) / REPTILE_TROT.speed } : null };
+      }
+    }
+    if (view.senses.out) return { ...STAND_TRAVEL, biteAt: null, prepareBite: false, creep: false, travel: false };
     pointOfToRef(head, head.spec.points!.mouth!.value, mouth);
     const from: Vec3 = [mouth.x, mouth.y, mouth.z];
     const inside = (at: Vec3) => view.senses.others.some(foe => !foe.out && foe.side !== view.senses.side
@@ -114,7 +127,7 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
     }
     if ((sight.bite.phase === null || sight.bite.phase === "chamber") && target && !accept(target)) { state.target = null; target = null; }
     if (buried && (sight.bite.phase === null || sight.bite.phase === "chamber")) { state.target = null; target = null; }
-    const given = biteTarget ? { ...(ordered ?? STAND_ORDERS), biteAt: biteTarget(view) }
+    const given = biteTarget ? { ...(ordered ?? STAND_TRAVEL), biteAt: biteTarget(view) }
       : ordered ? { ...ordered, biteAt: ordered.foe === undefined ? null : target } : null;
     const approach = given?.biteAt ?? target ?? near?.at;
     const ax = approach ? approach[0] - mouth.x : Infinity, az = approach ? approach[2] - mouth.z : Infinity;
@@ -124,7 +137,7 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
     const creep = nearest <= capture * capture || sight.bite.phase !== null;
     const travel = nearest > T.creepNear * T.creepNear && sight.bite.phase === null;
     if (given) return { ...given, prepareBite, creep, travel };
-    if (!approach) return { ...STAND_ORDERS, biteAt: null, prepareBite: false, creep: false, travel: true };
+    if (!approach) return { ...STAND_TRAVEL, biteAt: null, prepareBite: false, creep: false, travel: true };
     const dx = approach[0] - view.centre.x, dz = approach[2] - view.centre.z, distance = Math.sqrt(dx * dx + dz * dz);
     const face = distance ? { x: dx / distance, z: dz / distance } : null;
     const gap = Math.sqrt(nearest) - (target ? capture : entry);

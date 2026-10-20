@@ -10,12 +10,13 @@ import { SUB_MIND_PARTS } from "./sub-minds.ts";
 import { REFLEX_PARTS } from "./options/reflex.ts";
 import { MOTOR_PARTS } from "../control/motors.ts";
 import { TACTICS_PARTS } from "./tactics-of.ts";
+import { NAVIGATION_PARTS, type NavigationConfig } from "./navigation.ts";
 
 /** Every part's config below a mind, by kind. */
-type AnyPart = MotorConfig | ReflexConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ExecutorConfig;
+type AnyPart = MotorConfig | ReflexConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ExecutorConfig | NavigationConfig;
 
 /** Every part below a mind, by its kind. A kind without an entry does not compile. */
-const BELOW: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...MOVE_RULE_PARTS, ...SKILL_PARTS, ...EXECUTOR_PARTS, ...REFLEX_PARTS, ...MOTOR_PARTS };
+const BELOW: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...MOVE_RULE_PARTS, ...SKILL_PARTS, ...EXECUTOR_PARTS, ...REFLEX_PARTS, ...MOTOR_PARTS, ...NAVIGATION_PARTS };
 
 /**
  * **Every part, by its kind**, across roles: the minds (`CONTROLLERS`) and the parts below them,

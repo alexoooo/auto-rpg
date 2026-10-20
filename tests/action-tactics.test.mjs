@@ -90,10 +90,28 @@ test("moving orders withdraw all live commitments and the shared window drives a
   const entering = tactics.decide(body, 1 / 120);
   assert.ok(entering.move[0] > 0); assert.deepEqual(entering.actions, []);
   body.report.actions = [{ id: 1, action: "punch", effector: "hand.right", target: { kind: "body", body: "near", region: high } }];
-  orders = { move: { x: 1, z: 0 }, face: null, destination: 4 };
+  orders = { move: { kind: "place", points: [{ x: 4, z: 0 }], near: .2 }, face: null };
   const moving = tactics.decide(body, 1 / 120);
-  assert.deepEqual(moving.actions, []); assert.equal(moving.destination, 4);
-  assert.ok(moving.move[0] > 0); assert.equal(moving.move[1], 0); assert.equal(moving.face, Math.PI / 2);
+  assert.deepEqual(moving, { move: null, face: 0, guard: { left: null, right: null }, actions: [], movement: orders.move, pace: .4, travelFacing: true });
+  orders = { move: { kind: "direct", direction: { x: 1, z: 0 } }, face: null };
+  const direct = tactics.decide(body, 1 / 120);
+  assert.ok(direct.move[0] > 0); assert.equal(direct.move[1], 0); assert.equal(direct.face, Math.PI / 2);
+});
+
+test("a movement order and selected opponent keep both travel and ready attacks", () => {
+  const body = sight();
+  body.envelope = { walk: { value: .4 }, ways: { forward: { value: .5 }, right: { value: .4 }, back: { value: .4 }, left: { value: .4 } }, turns: [], tried: null };
+  let orders = { move: { kind: "place", points: [{ x: 2, z: 3 }], near: .2 }, face: null, foe: "far", region: "head" };
+  const tactics = actionTactics(spec, [action()], config(), () => orders);
+  const moving = tactics.decide(body, 1 / 120);
+  assert.deepEqual(moving.movement, orders.move);
+  assert.deepEqual(moving.actions, [{ id: 1, action: "punch", effector: "hand.right", target: { kind: "body", body: "far", region: { kind: "segment", segment: "head" } } }]);
+  orders = { ...orders, move: null };
+  body.view.time = .2;
+  const stopped = tactics.decide(body, 1 / 120);
+  assert.equal(stopped.move, null);
+  assert.equal(stopped.movement, undefined);
+  assert.equal(stopped.actions[0].target.body, "far");
 });
 
 test("estimate selection uses declared units and recipe net providers without executor inspection", () => {

@@ -38,7 +38,7 @@ test('an ordered approach reaches the real parapet, then autonomous combat escap
  const a=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)}),b=await buildBout(recipe,{physicsEngine:await loadEngine(DEFAULT_ENGINE)});
  try{
   const left=a.duel.duelists.left;
-  const moving={move:{x:-1,z:0},face:{x:-1,z:0}};
+  const moving={move:{ kind: "direct", direction: {x:-1,z:0} },face:{x:-1,z:0}};
   a.duel.order('left',moving);a.duel.order('right',moving);
   while(left.minded.body.view.stance.centre.x> -12.45&&a.duel.clock<100)a.world.step();
   a.duel.order('left',STAND_ORDERS);a.duel.order('right',STAND_ORDERS);a.world.step(240);

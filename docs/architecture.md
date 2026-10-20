@@ -535,8 +535,8 @@ Their actuator methods and their readiness/footprints remain their own.
   searched settings and none of them a person's to tune: the gait of the first of its rules that
   holds, or its `otherwise`. A rule (`MoveRuleConfig`) holds while the body is asked to stand, or
   while a distance is under or over so many metres: the nearest standing foe's, or the
-  destination's, how far the tactics say the walk has left to go (`Intent.destination`, from
-  `Orders.destination`), infinitely far where there is none. A distance's rule lets go of the gait
+  destination's, how far navigation reports the walk has left to go (`Intent.destination`),
+  infinitely far where there is none. A distance's rule lets go of the gait
   it chose only half a metre past it. Move changes gait only between steps, a gait that drives the
   legs asked to stand first and changed from once it has given them back; resumes the gait it
   changes to from the body as it is, and gives tactics the envelope of the gait it walks by. Two
@@ -545,9 +545,9 @@ Their actuator methods and their readiness/footprints remain their own.
   standing foe is within 5 m, and otherwise by Run, which runs only where the pace asked is past
   its walk's: whether a body runs is its tactics' or its orders' choice of pace. An Arena bout
   opens at 4 m, so it fights from its first step. Ordered a way only, as tactics closing on a foe
-  order it, a body walks at the walk that holds every way; sent somewhere
-  (`Orders.destination`) or ordered to run (`Orders.run`, Shift in the Arena), at the fastest forward
-  that held 0.6 of its trials (`RUN`), facing the way it goes (`orderedIntent`, `ordered.ts`). A kick and the support fold
+  order it, a body walks at the walk that holds every way; ordered to run (`Orders.run`, Shift
+  in the Arena), it asks the fastest forward that held 0.6 of its trials (`RUN`). Explicit facing
+  remains authoritative and limits sideways or backward travel (`orderedIntent`, `ordered.ts`). A kick and the support fold
   wait for a gait that drives the legs to give them back to the stance, and while the fold is
   under way a walk asked waits for it to rise (`skillSet`).
 - **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
@@ -1007,11 +1007,24 @@ clinch breaking and cover. Ground positioning preserves the route to a low targe
 chosen executor owns its own lowering, strike and return to standing. A tactics rule never
 writes a joint, posture or push.
 
-`Orders` name walking/facing, a sensed foe id and optional segment region; they do not carry a
+`Orders` name a world movement objective and independent facing, a sensed foe id and optional segment region; they do not carry a
 camera point. Arena pointer selection casts against sensed collision geometry and sends that
 identity. The mind chooses a point from its current sensed body. The Crypt sends the same foe
 identity from its map-aware plan. Autonomous tactics select their own foe; a directly controlled
 body acts on the person's orders. Scripted Lab experiments may deliberately request a point.
+
+Movement requests (`src/core/mind/movement.ts`) are Direct world directions, Place waypoint lists
+with an arrival tolerance, or Range bands around sensed body identities. Null requests a controlled
+stop; no external orders leaves movement to tactics. Navigation is a selectable role between
+tactics and locomotion, configured on a fighter's `navigation` slot. The visibility navigator
+routes round inflated fixed footprints, retains an obstacle side, brakes before corners and
+arrival, and accounts for low furniture and carried item points. Local clearance is an alternative.
+Tactics retain facing, attack and obedience decisions. The navigator reports its unconsumed
+route, remaining distance, physical arrival, unreachable geometry, stalls and lost focus; action
+ownership and recovery hand-back pause or reset its progress clock. Its route and progress memory
+belong to the body's saved skill state. Locomotion continues to consume forward/right velocity.
+`src/core/tasks/navigation.ts` supplies shared physical conditions and independent arrival,
+range-holding, contact and fall scoring through the common task environment.
 
 The selector reports candidate readiness, retains a pending attempt only while its rule remains
 eligible, and reads bounded terminal history for follow-ups and spacing adaptation. A clean miss

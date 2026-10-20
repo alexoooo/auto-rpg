@@ -39,7 +39,7 @@ test("an_arena_link_names_its_matchup_and_a_malformed_one_falls_back", () => {
 test("a_tape_rides_in_a_link's_fragment", () => {
   const toward = { x: 0.6, z: -0.8 };
   const tape = [
-    { step: 0, side: "left", orders: { move: toward, face: null } },
+    { step: 0, side: "left", orders: { move: { kind: "direct", direction: toward }, face: null } },
     { step: 60, side: "right", orders: { move: null, face: { x: 1 / 3, z: 2e-17 }, foe: "left", region: "head" } },
     { step: 120, side: "left", orders: null },
   ];
@@ -52,7 +52,7 @@ test("a_tape_rides_in_a_link's_fragment", () => {
   const wrong = [
     { step: 1.5, side: "left", orders: null }, { step: -1, side: "left", orders: null }, { side: "left", orders: null },
     { step: 1, side: "top", orders: null }, { step: 1, side: "left" }, { step: 1, side: "left", orders: 3 }, null,
-    { step: 1, side: "left", orders: { move: { x: "1", z: 0 }, face: null } },
+    { step: 1, side: "left", orders: { move: { kind: "direct", direction: { x: "1", z: 0 } }, face: null } },
     { step: 1, side: "left", orders: { move: null, face: { x: 1 } } },
     { step: 1, side: "left", orders: { move: null, face: null, attack: [1, 2] } },
     { step: 1, side: "left", orders: { move: null, face: null, attack: [1, 2, null] } },
@@ -61,7 +61,7 @@ test("a_tape_rides_in_a_link's_fragment", () => {
   for (const entry of wrong) assert.deepEqual(readTape(tapeHash([tape[0], entry])), [], JSON.stringify(entry));
   assert.deepEqual([STAND_ORDERS, tape[1].orders, null, [], { move: null, face: null, attack: "head" }].map(isOrders), [true, true, false, false, false]);
   // A pace is a ceiling, m/s: a number, finite and not below zero, or none.
-  assert.deepEqual([0.4, 0, -0.1, Infinity, "slow"].map((pace) => isOrders({ move: { x: 0, z: 1 }, pace, face: null })), [true, true, false, false, false]);
+  assert.deepEqual([0.4, 0, -0.1, Infinity, "slow"].map((pace) => isOrders({ move: { kind: "direct", direction: { x: 0, z: 1 } }, pace, face: null })), [true, true, false, false, false]);
   // The gap and the cap a link asks for, each within its range or not at all.
   assert.deepEqual(readLoadouts("?left.loadout=club,empty&right.loadout=empty,club"),
     { left: { left: "club", right: "empty" }, right: { left: "empty", right: "club" } });
@@ -170,7 +170,7 @@ test("keys_and_a_pointer_make_orders_in_the_world's_frame", () => {
   assert.deepEqual(aimPoint([1, 3, 2], [0.5, -1, -0.25], 1), [2, 1, 1.5]);
   assert.equal(aimPoint([0, 5, -4], [0, 0.1, 1], 1), null, "a ray going up meets no plane below it");
   assert.equal(aimPoint([0, 0.5, -4], [0, -0.8, 0.6], 1), null, "nor one that starts under the plane");
-  assert.deepEqual(personOrders({ x: 1, z: 0 }, [2, 1, 3], null, { x: 1, z: 1 }), { move: { x: 1, z: 0 }, face: { x: 1, z: 2 } });
+  assert.deepEqual(personOrders({ x: 1, z: 0 }, [2, 1, 3], null, { x: 1, z: 1 }), { move: { kind: "direct", direction: { x: 1, z: 0 } }, face: { x: 1, z: 2 } });
   assert.deepEqual(personOrders(null, [2, 1, 3], { foe: "right", region: "head" }, { x: 1, z: 1 }), { move: null, face: { x: 1, z: 2 }, foe: "right", region: "head" });
   assert.deepEqual(personOrders(null, null, null, { x: 1, z: 1 }), { move: null, face: null });
 });

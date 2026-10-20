@@ -28,7 +28,7 @@ export async function recoveryTrial(pose, yaw = 0) {
       if (handoff === null && stand.world.time > 1 && mind.body.has === "crawl" && recovery.phase === "idle") {
         handoff = stand.world.time; start = mind.body.observe().centre;
         support = host.motor.endpoints.map(endpoint => ({ contact: endpoint.contact, flat: endpoint.flat }));
-        orders = { move: { x: Math.sin(yaw), z: Math.cos(yaw) }, face: { x: Math.sin(yaw), z: Math.cos(yaw) } };
+        orders = { move: { kind: "direct", direction: { x: Math.sin(yaw), z: Math.cos(yaw) } }, face: { x: Math.sin(yaw), z: Math.cos(yaw) } };
       }
       if (handoff !== null && mind.body.down) falls++;
       if (handoff !== null && stand.world.time - handoff >= 60) break;

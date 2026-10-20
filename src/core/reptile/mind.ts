@@ -8,10 +8,9 @@ import type { BodyHost } from "../mind/host.ts";
 import type { MindWiring } from "../mind/minds.ts";
 import type { HostMind } from "../mind/sub-mind.ts";
 import type { Senses } from "../mind/senses.ts";
-import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { atan2, cos, sin } from "../math/real.ts";
-import { crawl, soleGoal, type QuadrupedView } from "./crawl.ts";
+import { crawl, soleGoal, STAND_TRAVEL, type QuadrupedView, type TravelOrders } from "./crawl.ts";
 import { headingAligned, trot } from "./trot.ts";
 import { REPTILE_CRAWL, REPTILE_TROT, REPTILE_MOTOR, REPTILE_TRAVEL, REPTILE_BITE } from "./tuning.ts";
 import { recover } from "./recover.ts";
@@ -78,10 +77,10 @@ export function quadrupedMind(host: BodyHost, wiring: Partial<MindWiring> & { re
         gait.stable = stable ? gait.stable + dt : 0;
         if (gait.stable >= tuning.trot.resumeHold) gait.reacquire = false;
       }
-      let movement: Orders = intent;
-      if (gait.reacquire) movement = placing ? { ...STAND_ORDERS, move: { x: 0, z: 0 }, face: heading } : STAND_ORDERS;
+      let movement: TravelOrders = intent;
+      if (gait.reacquire) movement = placing ? { ...STAND_TRAVEL, move: { x: 0, z: 0 }, face: heading } : STAND_TRAVEL;
       else if (withdrawing) movement = { move: { x: -sin(view.yaw), z: -cos(view.yaw) }, face: { x: sin(view.yaw), z: cos(view.yaw) } };
-      else if (busy || intent.biteAt) movement = STAND_ORDERS;
+      else if (busy || intent.biteAt) movement = STAND_TRAVEL;
       const wanted = gait.reacquire || withdrawing || intent.creep || gait.kind === "crawl" && !intent.travel ? "crawl" : "trot";
       let active = locomotion[gait.kind];
       if (wanted !== gait.kind && active.state.phase === "settle") {
@@ -89,7 +88,7 @@ export function quadrupedMind(host: BodyHost, wiring: Partial<MindWiring> & { re
         active.resume(view); tracker.reset(); motor.resume();
       }
       const T = settings[gait.kind];
-      const walking = wanted !== gait.kind ? STAND_ORDERS : movement;
+      const walking = wanted !== gait.kind ? STAND_TRAVEL : movement;
       const command = gait.kind === "crawl"
         ? creep.command(view, walking, dt, intent.prepareBite || busy ? tuning.trot.crawlHeight : tuning.crawl.crawlHeight)
         : skill.command(view, walking, dt);

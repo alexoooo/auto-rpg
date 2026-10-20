@@ -12,6 +12,9 @@ import { actionResources } from "./action-resources.ts";
 import { guardPosture, type GuardSkill } from "./guard.ts";
 import { STANCE_LOWER, type Locomotion } from "./locomotion.ts";
 import type { SupportSkill } from "./support-fold.ts";
+import { createNavigator, type NavigationConfig } from "../mind/navigation.ts";
+import { directMovement } from "../mind/movement.ts";
+import { cos, hypot, sin } from "../math/real.ts";
 
 /** Continuous services surround the independently owned action instances. */
 export interface SkillParts {
@@ -19,6 +22,7 @@ export interface SkillParts {
   readonly actions: readonly ActionBinding[];
   readonly legs: Locomotion;
   readonly guard: GuardSkill;
+  readonly navigation?: NavigationConfig;
   readonly support?: SupportSkill | null;
   /** A free hand's hold of what it holds (`holdUp`), asked of each hand neither a cover nor an action drives; absent, the posture's. */
   readonly hold?: ((side: Side) => PointTask | null) | null;
@@ -31,11 +35,12 @@ export type Holders = Record<string, number | "default">;
 export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelope" | "afterPhysics">, tactics: Pick<Tactics, "state" | "engagement">, services: SkillParts) {
   const { executors, actions } = services;
   const { legs, guard } = services, support = services.support ?? null;
+  const navigation = createNavigator(body.built.spec, services.navigation);
   const models = bodyEffectors(body.built).map(e => e.model), feet = footStatesOf(body.built).map(f => f.segment.spec.name);
   const resources = actionResources(body.muscles.channels.map(c => c.name), models, feet);
   const allControls = resources.controls(Object.keys(resources.footprints)), supportControls = resources.controls(["legs", "trunk"]);
   const instances = actionInstances(executors, actions, resources), guarding = guardPosture(body.built.spec);
-  const state = { actions: instances.state, legs: legs.state, support: support?.state ?? null, tactics: tactics.state ?? null,
+  const state = { actions: instances.state, legs: legs.state, navigation: navigation.state, support: support?.state ?? null, tactics: tactics.state ?? null,
     command: { posture: guarding, pushes: [], stance: null } as BodyCommand, owners: {} as Holders,
     reservations: {} as Record<string, number> };
   const claims: { id: number; claim: ActionClaim; controls: readonly string[]; delegated: readonly string[] }[] = [];
@@ -60,21 +65,35 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     get heading() { return legs.heading; }, get pace() { return legs.pace; }, get reference() { return legs.reference; },
     get actions() { return instances.live; }, get ledger() { return instances.ledger; }, holders: state.owners, reservations: state.reservations,
     get engagement() { return tactics.engagement; },
+    navigation: navigation.report,
     ...(support ? { support: support.report } : {}),
   };
   const resume = (view: BodyView): void => {
-    instances.resume(view); legs.resume(view); guard.resume(view); support?.resume(view);
+    instances.resume(view); legs.resume(view); guard.resume(view); support?.resume(view); navigation.resume();
   };
   return {
     state, report, resume, instance: instances.instance, readiness: instances.readiness,
     get envelope() { return legs.envelope; },
     release(view: BodyView, reason: "takeover" | "idle" | "replaced" = "takeover") {
       instances.interrupt(view, reason); legs.resume(view); guard.resume(view); support?.resume(view);
+      navigation.resume();
       if (reason === "replaced") stopObserving();
       for (const key in state.reservations) delete state.reservations[key];
       for (const control of allControls) state.owners[control] = "default";
     },
-    command(view: BodyView, intent: Intent, dt: number): BodyCommand {
+    command(view: BodyView, requested: Intent, dt: number): BodyCommand {
+      const h = legs.heading, velocity = requested.move;
+      const request = requested.movement ?? (velocity ? directMovement(velocity[0] * sin(h) + velocity[1] * cos(h), velocity[0] * cos(h) - velocity[1] * sin(h)) : null);
+      const pace = requested.pace ?? (velocity ? hypot(velocity[0], velocity[1]) : legs.envelope?.walk.value ?? .3);
+      const supportAllowsWalk = !support || support.report.stage === "stand" || support.report.stage === "wait";
+      const previousLegs = claims.find(item => item.controls.includes("stance"))?.claim.legs;
+      const ownershipAllowsWalk = previousLegs ? previousLegs.kind === "free" : available("stance");
+      const result = navigation.step({ view, report }, request, pace, dt, ownershipAllowsWalk && supportAllowsWalk);
+      let intent = requested;
+      if (requested.movement) intent = { ...requested, move: requested.travelFacing && result.move ? [hypot(result.move[0], result.move[1]), 0] : result.move,
+        face: requested.travelFacing ? result.face ?? requested.face : requested.face,
+        ...(result.destination === undefined ? {} : { destination: result.destination }) };
+      else if (view.senses.solids?.length && velocity) intent = { ...requested, move: navigation.steer(view, h, velocity) };
       const near = context(intent);
       if (intent.interrupt?.length) instances.stop(view, intent.interrupt, "its mind took what it held");
       instances.step(view, intent.actions, near, dt);

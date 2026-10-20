@@ -76,6 +76,7 @@ function tempoFaults(config: TempoConfig): readonly string[] {
 
 /** Its slots: a skill of each role, as the options fighter's, its reflexes and its sub-minds. */
 const SLOTS: readonly Slot[] = Object.freeze([
+  slotOne("navigation", "Navigation", "navigation", true, "Visibility routes"),
   slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotList("executors", "Executors", "executor"),
   slotOne("support", "Low support", "support", true), slotList("reflexes", "Reflexes", "reflex"), slotList("subs", "When down", "sub-mind"),
   slotOne("motor", "Motor control", "motor", true, "Whole-body solve"),
@@ -95,7 +96,7 @@ export const TEMPO_MIND = controller<TempoConfig>({
   role: "mind", label: "Tempo fighter", stage: "game", slots: SLOTS, defaults: TEMPO,
   fields: [number("burst", "Blows a burst", ...BOUNDS.burst, 1, ""), number("rest", "Rest", ...BOUNDS.rest, .1, "s"),
     number("margin", "Beyond reach", ...BOUNDS.margin, .05, "m"), number("commit", "Longest in reach", ...BOUNDS.commit, .1, "s")],
-  keys: { kind: true, locomotion: true, guard: true, executors: true, actions: true, support: true, reflexes: true, subs: true, motor: true,
+  keys: { kind: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, support: true, reflexes: true, subs: true, motor: true,
     burst: true, rest: true, margin: true, commit: true },
   // It fits a body with a blow thrown standing among its usable actions.
   fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0

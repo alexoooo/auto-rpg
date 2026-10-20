@@ -13,34 +13,35 @@ import type { Sight } from "./tactics.ts";
 export const STRAFE = { share: 0.5, turned: 0.3 } as const;
 
 /**
- * Sent somewhere or ordered to run, the least share of its trials forward a pace must have held to
+ * Ordered to run, the least share of its trials forward a pace must have held to
  * be the one it goes at (`paceToward`): past its fastest walk forward the body risks falling, and
  * an order to run accepts a fall in this many of its tries.
  */
 export const RUN = { share: 0.6 } as const;
 
 /**
- * **Orders to walk and to face, carried out**, the hands covering as `guard` says and attacking
- * nothing. Ordered to walk, a body walks that way at its fastest walk (`StanceEnvelope.walk`), turning to it, and sent
- * somewhere (`Orders.destination`) or ordered to run (`Orders.run`), at the fastest forward that held `RUN.share` of its trials (`paceToward`), facing it: a walk ordered only a way, as
- * tactics closing on a foe order one, is one it stops from in a few steps. Ordered to face
- * another way as it walks, it walks at the pace that holds every way by `strafe` (`STRAFE` unless an
- * experiment passes another); either no faster than the pace ordered (`Orders.pace`); standing, it faces as ordered, or keeps its heading. The stance
- * turns only while it walks (`locomotion`), so a standing body ordered to face does not turn.
- * How far it is from where it is ordered to go (`Orders.destination`) goes on to its locomotion.
+ * Orders supply a direct walk or a navigation objective while the hands retain their guard.
+ * Facing remains independent of travel; an explicit running preference selects the available
+ * forward pace without discarding an explicit facing. Place and range objectives are resolved
+ * by the body's navigator before locomotion reads the intent's velocity.
  */
-export function orderedIntent({ report, envelope }: { readonly report: Pick<Sight["report"], "heading">; readonly envelope: Sight["envelope"] }, { move, face, pace = Infinity, destination, run }: Pick<Orders, "move" | "face" | "pace" | "destination" | "run">,
+export function orderedIntent({ report, envelope }: { readonly report: Pick<Sight["report"], "heading">; readonly envelope: Sight["envelope"] }, { move: request, face, pace = Infinity, run }: Pick<Orders, "move" | "face" | "pace" | "run">,
   guard: Intent["guard"], strafe: typeof STRAFE = STRAFE): Intent {
-  const going = destination === undefined ? {} : { destination };
   // A facing under 8 cm long names no direction: the point to face is over the body itself.
-  const facing = !run && face && hypot(face.x, face.z) > 0.08 ? atan2(face.x, face.z) : null;
-  if (!move || !envelope) return { move: null, face: facing ?? report.heading, guard, actions: [], ...going };
+  const facing = face && hypot(face.x, face.z) > 0.08 ? atan2(face.x, face.z) : null;
+  if (!request || !envelope) return { move: null, face: facing ?? report.heading, guard, actions: [] };
+  if (request.kind !== "direct") return { move: null, face: facing ?? report.heading, guard, actions: [], movement: request,
+    pace: Math.min(run ? paceToward(envelope, 1, 0, RUN.share) : envelope.walk.value, pace), ...(facing === null ? { travelFacing: true as const } : {}) };
+  const move = request.direction;
+  if (hypot(move.x, move.z) === 0) return { move: null, face: facing ?? report.heading, guard, actions: [] };
   const bearing = atan2(move.x, move.z), walk = Math.min(envelope.walk.value, pace);
   // Facing its walk: the walk the envelope measured, forward where it is sent somewhere or runs, turning to it.
-  if (facing === null) return { move: [destination === undefined && !run ? walk : Math.min(paceToward(envelope, 1, 0, RUN.share), pace), 0], face: bearing, guard, actions: [], ...going };
+  if (facing === null) return { move: [!run ? walk : Math.min(paceToward(envelope, 1, 0, RUN.share), pace), 0], face: bearing, guard, actions: [] };
   // Facing elsewhere: the walk's direction in the heading's frame, at the pace that holds.
   const off = bearing - report.heading;
-  const share = Math.abs(wrap(facing - report.heading)) < strafe.turned
+  const turned = Math.abs(wrap(facing - report.heading)) < strafe.turned;
+  const share = turned
     ? strafe.share + (1 - strafe.share) * Math.max(0, cos(off)) : strafe.share;
-  return { move: [walk * share * cos(off), walk * share * sin(off)], face: facing, guard, actions: [], ...going };
+  const speed = run && turned && Math.abs(wrap(off)) < strafe.turned ? Math.min(paceToward(envelope, 1, 0, RUN.share), pace) : walk;
+  return { move: [speed * share * cos(off), speed * share * sin(off)], face: facing, guard, actions: [] };
 }

@@ -5,6 +5,7 @@ import { paceToward } from "../../control/stance-envelope.ts";
 import { clearanceExit, clearMove } from "../clear-step.ts";
 import { bodyClearance } from "../sensed-bounds.ts";
 import type { Situation } from "./option.ts";
+import type { Intent } from "../intent.ts";
 
 /**
  * A walk keeps its body `margin` m clear of the solids over the next `ahead` m, and its centre
@@ -73,7 +74,7 @@ export function walker(spec: BodySpec) {
      */
     constrain(now: Situation, move: Move, exempt: string | null): Move {
       const out = away(now, exempt), { view, report } = now.sight;
-      return clear(view, report.heading, out ? along(now, out[0], out[1]) : move);
+      return out ? clear(view, report.heading, along(now, out[0], out[1])) : move;
     },
     /** The heading to the focus, or the body's own with none. */
     facing(now: Situation): number {
@@ -84,9 +85,12 @@ export function walker(spec: BodySpec) {
     toward(now: Situation, x: number, z: number, face: number): { readonly move: Move; readonly face: number } {
       return { move: along(now, x, z), face };
     },
-    /** A walk to the place (`x`, `z`) from the body, facing `face`, at the pace it goes there (`going`). */
-    approach(now: Situation, x: number, z: number, face: number): { readonly move: Move; readonly face: number } {
-      return { move: along(now, x, z, going(now, x, z)), face };
+    /** Seek a reachable centre-distance band around the sensed focus, keeping tactical facing. */
+    range(now: Situation, near: number, far: number, face: number): Pick<Intent, "move" | "face" | "movement" | "pace"> {
+      const focus = now.focus;
+      if (!focus) return { move: null, face };
+      const centre = now.sight.view.stance.centre, x = focus.centre.x - centre.x, z = focus.centre.z - centre.z, speed = going(now, x, z);
+      return { move: along(now, x, z, speed), face, pace: speed, movement: { kind: "range", focus: focus.id, near, far } };
     },
   };
 }

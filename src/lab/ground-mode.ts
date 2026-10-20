@@ -80,7 +80,7 @@ function standCheck(actor: Actor, cap: number) {
         if (reading.observation.down) { state.stage = "fell after verification"; orders = STAND_ORDERS; return; }
         if (world.time - state.verifiedAt + 1e-9 >= STAND_CHECK.standing) {
           state.walkFrom ??= [...reading.observation.centre];
-          orders = { ...STAND_ORDERS, move: { x: 0, z: 1 }, pace: STAND_CHECK.pace }; state.stage = "walking";
+          orders = { ...STAND_ORDERS, move: { kind: "direct", direction: { x: 0, z: 1 } }, pace: STAND_CHECK.pace }; state.stage = "walking";
         }
         if (world.time - state.verifiedAt + 1e-9 >= STAND_CHECK.standing + STAND_CHECK.walking) {
           const centre = reading.observation.centre, from = state.walkFrom!;

@@ -71,7 +71,7 @@ test('predictive defense covers and evades often in a Combat bout',async()=>{
 test('autonomous combat clears the parapet it was ordered against and commits a blow',async()=>{
  const a=await make({left:'workshop-fighter',right:'workshop-fighter',gap:1.2,loadouts: { left: { left: "empty", right: 'empty' }, right: { left: "empty", right: 'empty' } },balance:{left:0,right:0},minds:{left:COMBAT,right:COMBAT},recoverySeconds:null,capSeconds:160});
  try{
-  const left=a.duel.duelists.left,moving={move:{x:-1,z:0},face:{x:-1,z:0}};
+  const left=a.duel.duelists.left,moving={move:{ kind: "direct", direction: {x:-1,z:0} },face:{x:-1,z:0}};
   a.duel.order('left',moving);a.duel.order('right',moving);
   while(left.minded.body.view.stance.centre.x> -12.45&&a.duel.clock<100)a.world.step();
   a.duel.order('left',STAND_ORDERS);a.duel.order('right',STAND_ORDERS);a.world.step(240);

@@ -22,6 +22,7 @@ import type { PartField } from "./fields.ts";
 const MOTOR_SLOT = slotOne("motor", "Motor control", "motor", true, "Whole-body solve");
 
 const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
+  slotOne("navigation", "Navigation", "navigation", true, "Visibility routes"),
   slotOne("tactics", "Tactics", "tactics"), slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"),
   slotList("executors", "Executors", "executor"), slotOne("support", "Low support", "support", true),
   slotList("subs", "When down", "sub-mind"), MOTOR_SLOT,
@@ -46,6 +47,7 @@ const OBEDIENCE_FIELD: PartField<OptionsConfig> = {
 
 /** The options fighter's slots: a skill of each role, as a fighter's, and its reflexes in rank order. */
 const OPTIONS_SLOTS: readonly Slot[] = Object.freeze([
+  slotOne("navigation", "Navigation", "navigation", true, "Visibility routes"),
   slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotList("executors", "Executors", "executor"),
   slotOne("support", "Low support", "support", true), slotList("reflexes", "Reflexes", "reflex"), MOTOR_SLOT,
 ]);
@@ -53,7 +55,7 @@ const OPTIONS_SLOTS: readonly Slot[] = Object.freeze([
 /** **The options fighter** (`createOptionsFighter`): a meta-controller over options, chosen among by their worth. */
 const OPTIONS_MIND = controller<OptionsConfig>({
   role: "mind", label: "Options fighter", stage: "game", fields: [OBEDIENCE_FIELD], slots: OPTIONS_SLOTS, defaults: OPTIONS,
-  keys: { kind: true, meta: true, weights: true, locomotion: true, guard: true, executors: true, actions: true, support: true, reflexes: true, motor: true },
+  keys: { kind: true, meta: true, weights: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, support: true, reflexes: true, motor: true },
   fits: optionsFit,
   supportedEquipment: (spec, config) => armedActions(spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: config => [
@@ -69,7 +71,7 @@ const OPTIONS_MIND = controller<OptionsConfig>({
 /** **The fighter** (`createFighter`): tactics over skills of each role, built from its slots. */
 const FIGHTER_MIND = controller<FighterConfig>({
   role: "mind", label: "Fighter", stage: "game", fields: [], slots: FIGHTER_SLOTS, defaults: RECIPE_FIGHTER,
-  keys: { kind: true, tactics: true, locomotion: true, guard: true, executors: true, actions: true, support: true, subs: true, motor: true },
+  keys: { kind: true, tactics: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, support: true, subs: true, motor: true },
   fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0,
   supportedEquipment: (spec, config) => armedActions(spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: fighterFaults,

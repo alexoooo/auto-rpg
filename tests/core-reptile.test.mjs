@@ -34,7 +34,7 @@ test("the reptile stands for thirty seconds without an assist", async () => {
 
 test("holding and resuming a moving quadruped retains its bodies and resumes from actual paws", async () => {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate" });
-  const mind = hostedMind(stand.built, stand.world, { orders: () => ({ move: { x: 0, z: 1 }, face: { x: 0, z: 1 } }) }, (host, wiring) => quadrupedMind(host, wiring));
+  const mind = hostedMind(stand.built, stand.world, { orders: () => ({ move: { kind: "direct", direction: { x: 0, z: 1 } }, face: { x: 0, z: 1 } }) }, (host, wiring) => quadrupedMind(host, wiring));
   try {
     stand.step(480);
     const host = mind.body.state.mind.host, sequence = host.crawl.sequence;
@@ -73,7 +73,7 @@ test("a bite request stops the next paw placement while the jaw prepares", async
   const mind = hostedMind(stand.built, stand.world, { orders: () => orders, biteTarget: () => biteAt }, (host, wiring) => quadrupedMind(host, wiring)), host = mind.body.state.mind.host;
   try {
     stand.step(240);
-    orders = { move: { x: 0, z: 1 }, face: { x: 0, z: 1 } };
+    orders = { move: { kind: "direct", direction: { x: 0, z: 1 } }, face: { x: 0, z: 1 } };
     while (stand.world.time < 4 && !(host.crawl.phase === "swing" && host.motor.endpoints.some(foot => !foot.contact))) stand.step();
     assert.equal(host.crawl.phase, "swing");
     assert.ok(host.motor.endpoints.some(foot => !foot.contact));
@@ -184,7 +184,7 @@ test("the trot lands its paws in physics and stops", async () => {
   };
   try {
     run(2);
-    orders = { move: { x: 0, z: 1 }, face: { x: 0, z: 1 } };
+    orders = { move: { kind: "direct", direction: { x: 0, z: 1 } }, face: { x: 0, z: 1 } };
     const steps = crawl.steps;
     run(3);
     assert.ok(crawl.steps > steps, "the fixture did not reach its case: it never stepped");

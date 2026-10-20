@@ -8,6 +8,7 @@ import { STRAIGHT_PUNCH, type StraightPunch } from "../skills/straight-punch.ts"
 import { COMBINATION, type Combination } from "../skills/combination.ts";
 import type { StrideSettings } from "../skills/stride.ts";
 import type { RunSettings } from "../skills/run.ts";
+import type { NavigationConfig } from "./navigation.ts";
 import type { SimbiconSettings, SimbiconWay } from "../skills/simbicon.ts";
 import type { WalkRunSettings } from "../skills/walk-run.ts";
 import type { RunCycleSettings } from "../skills/cycle-run.ts";
@@ -262,6 +263,7 @@ export interface FighterConfig {
   readonly kind: "fighter";
   readonly tactics: TacticsConfig;
   readonly locomotion: LocomotionConfig;
+  readonly navigation?: NavigationConfig;
   readonly guard: CoverGuardConfig;
   readonly executors: readonly ExecutorConfig[];
   readonly actions: readonly ActionConfig[];
@@ -273,7 +275,7 @@ export interface FighterConfig {
 }
 
 /** **What a body's skills are made from** (`fighterSkills`): its legs, its guard, its low support, its executors and the actions they carry out. */
-export type SkillKit = Pick<FighterConfig, "locomotion" | "guard" | "support" | "executors" | "actions" | "motor">;
+export type SkillKit = Pick<FighterConfig, "locomotion" | "navigation" | "guard" | "support" | "executors" | "actions" | "motor">;
 
 /**
  * **A mind's config**: plain data, so it rides in a recipe, a save and a link, its kind naming

@@ -45,7 +45,7 @@ const COVERING = deepFreeze({ ...RECIPE, minds: { left: cover, right: cover } })
  * part, or the bars decide it at the cap, whatever Classic's strength.
  */
 const CLUBBING = deepFreeze({ ...RECIPE, minds: { left: CLASSIC, right: CLASSIC }, capSeconds: 60 });
-const BACK = { move: { x: -1, z: 0 }, face: null };
+const BACK = { move: { kind: "direct", direction: { x: -1, z: 0 } }, face: null };
 const TAPE = deepFreeze([{ step: 300, side: "left", orders: BACK }, { step: 420, side: "left", orders: null }]);
 /** Steps a twin's world has taken when its bout is built: a bout begins at whatever step its world is at. */
 const LATE = 7;

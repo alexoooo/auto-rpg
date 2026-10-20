@@ -96,7 +96,7 @@ export interface DungeonActor {
   progress: { at: Point; since: number };
   /** The most it walks this step, m/s, coming to a stop where it is going (`STOPPING`); null walks at its own pace. */
   pace: number | null;
-  /** How far it has left to walk along its route this step, m (`Orders.destination`); null where it walks along none. */
+  /** How far it has left to walk along its route this step, m; null where it walks along none. */
   going: number | null;
   /**
    * A party member's standing order, and for a drawn route the index of the next point on it. A force
@@ -329,8 +329,8 @@ export class DungeonRun {
         return null;
       },
       orders: () => {
-        const { move, pace, going, face, attack } = actor.plan;
-        return { move, ...(move && pace !== null ? { pace } : {}), ...(move && going !== null ? { destination: going } : {}), face: move ? null : face,
+        const { move, pace, face, attack } = actor.plan;
+        return { move: move ? { kind: "direct" as const, direction: move } : null, ...(move && pace !== null ? { pace } : {}), face: move ? null : face,
           ...(attack ? { foe: attack.id } : {}) };
       },
     });

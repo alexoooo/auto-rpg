@@ -46,7 +46,7 @@ type Asked = Omit<Intent, "guard">;
 export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWiring): Tactics {
   const walk = walker(spec), reader = situationReader(spec, (sight) => wiring.orders(sight.view.senses));
   const standing = config.actions.filter((action) => action.lower === undefined), lowAction = config.actions.find((action) => action.lower !== undefined);
-  const orders = followOrders(walk), low = lowAction ? strikeLow(lowAction, spec, walk) : null;
+  const orders = followOrders(walk, standing), low = lowAction ? strikeLow(lowAction, spec, walk) : null;
   const ready = standing.map((action) => strike(action, walk, false, throws(config, action)));
   const closing = standing.map((action) => strike(action, walk, true, throws(config, action)));
   const strikes: readonly StandingOption[] = [...ready, ...closing];
@@ -97,7 +97,8 @@ export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWi
   /** Toward the focus (`sign` 1) or away from it (-1), facing it. */
   const along = (now: Situation, sign: 1 | -1): Asked => {
     const focus = now.focus!, centre = now.sight.view.stance.centre, x = sign * (focus.centre.x - centre.x), z = sign * (focus.centre.z - centre.z);
-    return { ...sign > 0 ? walk.approach(now, x, z, walk.facing(now)) : walk.toward(now, x, z, walk.facing(now)), actions: [] };
+    const near = Math.max(0, edge(now) + now.apart - now.reach.apart);
+    return { ...sign > 0 ? walk.range(now, near, near + config.margin, walk.facing(now)) : walk.toward(now, x, z, walk.facing(now)), actions: [] };
   };
   /** Stand at the edge, from its bound to `margin` past it, facing the focus. */
   const keepEdge = (now: Situation): Asked => {
@@ -154,7 +155,9 @@ export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWi
     name: "tempo", state, engagement: { get phase() { return state.phase; } },
     decide(sight, dt) {
       const now = reader.read(sight), asked = decide(now, dt), near = current()?.near?.(now) ?? null;
-      return reflexes.apply(now, { ...asked, move: walk.constrain(now, asked.move, near), guard: NO_COVER });
+      const move = walk.constrain(now, asked.move, near);
+      const { movement, pace, travelFacing, ...direct } = asked;
+      return reflexes.apply(now, { ...(move === asked.move ? asked : direct), move, guard: NO_COVER });
     },
   };
 }

@@ -65,7 +65,7 @@ test("the trot travels quickly, stops, reverses and turns on physical paw landin
   };
   try {
     const start = run(2);
-    orders = { move: { x: 0, z: 1 }, face: { x: 0, z: 1 } };
+    orders = { move: { kind: "direct", direction: { x: 0, z: 1 } }, face: { x: 0, z: 1 } };
     const forward = run(10);
     assert.ok(forward[2] - start[2] >= 2, "at least .2 m/s including acceleration");
     assert.ok(crawl.steps >= 60);
@@ -76,12 +76,12 @@ test("the trot travels quickly, stops, reverses and turns on physical paw landin
     assert.equal(crawl.steps, stoppedSteps);
     const quiet = mind.body.observe().centre;
     assert.ok(Math.hypot(quiet[0] - stopped[0], quiet[2] - stopped[2]) < .02);
-    orders = { move: { x: 0, z: -1 }, face: { x: 0, z: 1 } };
+    orders = { move: { kind: "direct", direction: { x: 0, z: -1 } }, face: { x: 0, z: 1 } };
     const backward = run(10);
     assert.ok(quiet[2] - backward[2] >= 1.8);
     orders = { move: null, face: { x: 1, z: 0 } }; run(20);
     assert.ok(Math.abs(crawl.yaw - Math.PI / 2) < .1);
-    orders = { move: { x: 1, z: 0 }, face: { x: 1, z: 0 } };
+    orders = { move: { kind: "direct", direction: { x: 1, z: 0 } }, face: { x: 1, z: 0 } };
     const turning = mind.body.observe().centre, right = run(10);
     assert.ok(right[0] - turning[0] >= 2);
     assert.equal(mind.body.assist.meter.force, 0);

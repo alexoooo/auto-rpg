@@ -53,6 +53,7 @@
  "lab-routine.test.mjs",
  "lab-sound.test.mjs",
  "lab-targets.test.mjs",
+ "navigation-environment.test.mjs",
  "punch-foundation.test.mjs",
  "reptile-combat.test.mjs",
  "reptile-fork.test.mjs",

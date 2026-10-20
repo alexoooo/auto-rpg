@@ -90,7 +90,7 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
   const strikeNow = standing.map((action) => strike(action, walk, false, throws(config, action)));
   const options: readonly Option[] = [
     ...downs,
-    followOrders(walk),
+    followOrders(walk, standing),
     setDistance({ name: "break the clinch", foe: "standing", to: "centre", near: CLINCH.within, far: Infinity, correcting: true, facing: "foe", slant: CLINCH_SLANT }, walk),
     ...strikeNow,
     ...low ? [strikeLow(low, host.spec, walk)] : [],
@@ -108,7 +108,9 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
       const now = situation(seen), chosen = meta!.decide(now);
       const asked = chosen?.posture === "standing" ? chosen.step(now, dt) : { move: null, face: seen.report.heading, actions: [] };
       const near = chosen?.posture === "standing" ? chosen.near?.(now) ?? null : null;
-      return reflexes.apply(now, { ...asked, move: walk.constrain(now, asked.move, near), guard: NO_COVER });
+      const move = walk.constrain(now, asked.move, near);
+      const { movement, pace, travelFacing, ...direct } = asked;
+      return reflexes.apply(now, { ...(move === asked.move ? asked : direct), move, guard: NO_COVER });
     } };
   let skills: Skills;
   skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, host.clock, config, driving, () => skills?.report.ledger ?? []));

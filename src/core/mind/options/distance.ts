@@ -100,7 +100,10 @@ export function setDistance(goal: Goal, walk: Walker): StandingOption {
         state.side = side;
         return { ...walk.toward(now, bx, bz, face), actions: [] };
       }
-      if (d > goal.far - margin) return { ...walk.approach(now, x, z, face), actions: [] };
+      if (d > goal.far - margin) {
+        const offset = now.apart - d, near = Math.max(0, goal.near + offset), far = Math.max(near, goal.far + offset);
+        return { ...walk.range(now, near, far, face), actions: [] };
+      }
       return { move: null, face, actions: [] };
     },
   };

@@ -221,7 +221,7 @@ async function taken() {
     step() { own.muscles.activation.fill(1); own.muscles.velocity.fill(0); },
   });
   const body = createBody(stand.built, stand.world, { servoSeconds: SERVO_SECONDS, subs: [hold] });
-  const skills = driveBy(body, walkingTactics(stand.built.spec, () => ({ move: { x: 0, z: 1 }, face: null, pace: TAKEN.pace })));
+  const skills = driveBy(body, walkingTactics(stand.built.spec, () => ({ move: { kind: "direct", direction: { x: 0, z: 1 } }, face: null, pace: TAKEN.pace })));
   const seen = { has: [], squared: 0, rose: 0, fallen: false };
   return {
     world: stand.world, builts: [stand.built], states: { body: body.state, skills: skills.state }, seen,

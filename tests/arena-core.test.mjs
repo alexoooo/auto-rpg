@@ -288,7 +288,7 @@ test("a_side_under_orders_does_what_it_is_told_and_the_other_fights_on", async (
 
 test("a_bout_plays_again_from_its_recipe_and_its_tape", async () => {
   const recipe = { left: "workshop-fighter", right: "workshop-rogue" };
-  const back = { move: { x: -1, z: 0 }, face: null };
+  const back = { move: { kind: "direct", direction: { x: -1, z: 0 } }, face: null };
   // The left side is ordered back once its walk is under way, then left to itself; the right is ordered to face it.
   const tape = [{ step: 200, side: "left", orders: back }, { step: 360, side: "left", orders: null },
     { step: 480, side: "right", orders: { move: null, face: { x: -1, z: -0 } } }];
@@ -313,7 +313,7 @@ test("a_side_out_of_the_fight_is_no_longer_under_its_orders", async () => {
   const duel = new Duel(world, { left: "workshop-fighter", right: "workshop-rogue", capSeconds: 1 });
   try {
     // Ordered to walk away, the left side walks until the bell; then it stands, as the right does.
-    duel.order("left", { move: { x: -1, z: 0 }, face: null });
+    duel.order("left", { move: { kind: "direct", direction: { x: -1, z: 0 } }, face: null });
     const { left } = duel.duelists;
     assert.notEqual(duel.run(), null);
     assert.equal(duel.verdict.ending, "time");

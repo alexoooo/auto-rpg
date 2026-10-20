@@ -39,7 +39,7 @@ async function trial({ model, bearing, facing, seconds, strafe }) {
     const move = { x: Math.sin(bearing), z: Math.cos(bearing) };
     const point = facing === null ? null : { x: FAR * Math.sin(facing), z: FAR * Math.cos(facing) };
     // The facing is the direction to the point from where the body stands, as a person's pointer gives it.
-    const orders = () => ({ move, face: point && { x: point.x - centre.x, z: point.z - centre.z } });
+    const orders = () => ({ move: { kind: "direct", direction: move }, face: point && { x: point.x - centre.x, z: point.z - centre.z } });
     const skills = driveBy(body, { name: "orders", decide: sight => orderedIntent(sight, orders(), NO_COVER, strafe) });
     const pelvis = stand.built.segments.get("lowerTrunk").node, built = pelvis.rotationQuaternion.clone();
     let fellAt = null;
