@@ -3,6 +3,7 @@
  "arena-combat.test.mjs",
  "arena-control-cycle.test.mjs",
  "arena-core.test.mjs",
+ "arena-equipped-court.test.mjs",
  "arena-fork.test.mjs",
  "arena-gameplay-physics.test.mjs",
  "arena-kicks.test.mjs",
