@@ -15,6 +15,7 @@ import { mindFaults, mindText, readMind } from "../ui/mind-link.ts";
 import { groundMind } from "./ground-config.ts";
 import { TECHNIQUES, type TechniqueName } from "../core/mind/ground/techniques.ts";
 import { SEARCH_FALL } from "./stance-mode.ts";
+import { GROUND_LEVELS, type GroundLevel } from "./ground-environment.ts";
 
 /**
  * **The lab's scenarios, and the address that opens one.** `?play=lab` is the scenario menu
@@ -110,6 +111,8 @@ const LAB_TARGETS = { most: 30, count: 10, seed: 1 } as const;
 
 export interface LabAddress extends LabLoadout, ViewSettings {
   readonly ground: {
+    /** A named fall environment; obstacle outcomes remain outside the open-floor target. */
+    readonly level: GroundLevel;
     /** A technique run alone in place of the mind's sub-minds; "mind" runs the mind's. */
     readonly drive: "mind" | TechniqueName;
     /** What the mind gets up by: the game's Stand up by one of its techniques, support recovery, or the mind's own sub-minds. */
@@ -142,7 +145,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly seed: number;
 }
 
-const KEYS = ["groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
+const KEYS = ["groundLevel", "groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -165,6 +168,7 @@ export function labAddress(search: string): LabAddress {
   };
   return {
     ground: {
+      level: (Object.keys(GROUND_LEVELS) as GroundLevel[]).find(v => v === query.get("groundLevel")) ?? "open",
       drive: (Object.keys(TECHNIQUES) as TechniqueName[]).find(v => v === query.get("groundDrive")) ?? "mind",
       waypoint: (["none", "brace", "plant", "transfer", "rise"] as const).find(v => v === query.get("groundWaypoint")) ?? "none",
       rise: GROUND_RISES.find(v => v === query.get("groundRise")) ?? "step-up",
@@ -207,6 +211,7 @@ export function labAddress(search: string): LabAddress {
 export function labHref(address: LabAddress, search = ""): string {
   const query = new URLSearchParams(playHref("lab", search));
   for (const key of KEYS) query.delete(key);
+  if (address.ground.level !== "open") query.set("groundLevel", address.ground.level);
   query.delete("groundDrive");
   query.delete("groundWaypoint");
   if (address.ground.drive !== "mind") query.set("groundDrive", address.ground.drive);

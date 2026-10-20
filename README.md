@@ -34,10 +34,15 @@ npm run build # check, then the production bundle
 
 Everything the pages need is committed, so a fresh clone runs with no download step.
 
+In the Lab's **Stand-up** scenario, **Fall environment** selects an open floor, a column, a wall,
+a tomb or a bench. Obstacle falls are experiments; a failed rise is reported as a failure.
+Their separate Node suite is `node research/rising-bed.mjs --obstacles`; `--target` keeps the
+original 64 open-floor falls.
+
 ## The Arena
 
 Choose the standing character on each side (Warrior, Rogue, Skeleton or Reptile) and press **Fight**.
-Choose **Open stage** or **Column court** with the **Level** selector. The court's columns are solid;
+Choose **Open stage** or **Obstacle court** with the **Level** selector. The court's columns, tomb and bench are solid;
 links retain the stage in `&level=obstacle-court`, and each stage admits only clear starting placements.
 The Warrior also has an **Appearance** selector: Original, Industrial, Steampunk or Futuristic. The three
 robot shells keep the Warrior's physics and abilities. The Lab offers the same choices and can

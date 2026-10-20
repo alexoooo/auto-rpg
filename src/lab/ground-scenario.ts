@@ -13,6 +13,14 @@ import { shoveSound } from "./sound-log.ts";
 import { loadoutSpec } from "./loadout.ts";
 import { drawBody } from "../render/body-shapes.ts";
 import { action, choice, following, menu, note, quantity, readings, slider, toggle, when } from "../ui/controls.ts";
+import { GROUND_LEVELS } from "./ground-environment.ts";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
+import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
+import { publicAssetUrl } from "../asset-url.ts";
+import { assembleCryptKit } from "../environment/crypt-kit.ts";
+import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 
 /** What each way of getting up is called in the menu. */
 const RISES: Readonly<Record<GroundRise, string>> = { "step-up": "Stand up: step up, as the game", "learned-rise": "Stand up: learned rise (experimental)",
@@ -39,6 +47,7 @@ function risingBy(chosen: FighterConfig, rise: GroundRise): FighterConfig {
  * (`research/rising-bed.mjs`).
  */
 export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
+  let kit: ReturnType<typeof LoadAssetContainerAsync> | null = null;
   let address = labAddress("?scenario=ground"), fault = "";
   let current: { shove(): void } | null = null;
   let shown: ReturnType<ReturnType<typeof startGround>["frame"]> | null = null;
@@ -47,7 +56,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
   const phases = note(() => shown ? Object.entries(shown.phases).map(([phase, seconds]) => `${phase}: ${seconds.toFixed(2)} s`).join("; ") : "");
   const change = (ground: Partial<LabAddress["ground"]>) => shell.load({ ...address, ground: { ...address.ground, ...ground } });
   const meter = readings({ position: { name: "Position" }, doing: { name: "Sub-mind / mode / phase" }, reached: { name: "Technique reached" },
-    seconds: { name: "Time down", unit: "s" }, check: { name: "Stand check" }, verified: { name: "Up and quiet", unit: "s from takeover" },
+    level: { name: "Fall environment" }, seconds: { name: "Time down", unit: "s" }, check: { name: "Stand check" }, verified: { name: "Up and quiet", unit: "s from takeover" },
     round: { name: "Round" }, handback: { name: "Time to hand-back", unit: "s" }, handbackRule: { name: "Hand-back rule" },
     hands: { name: "Hand loads", unit: "body weight" }, feet: { name: "Foot loads", unit: "body weight" },
     balance: { name: "Balance", unit: "%" }, assist: { name: "Peak help", unit: "N / N m" },
@@ -66,6 +75,8 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
     },
     panels: {
       scenario: [
+        choice("Fall environment", Object.entries(GROUND_LEVELS).map(([value, definition]) => ({ value: value as keyof typeof GROUND_LEVELS, name: definition.label })),
+          () => address.ground.level, level => change({ level })),
         choice("Start", (["shoved", "dropped", "placed", "round"] as const).map(value => ({ value, name: value === "round" ? `round of ${ROUND_FALLS}` : value })),
           () => address.ground.start, start => change({ start })),
         quantity("Seed", 1, value => Number.isSafeInteger(value) && value >= 0 && value <= 4294967295, () => address.seed,
@@ -96,6 +107,23 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
       address = next;
       const sound = shoveSound(actor.body.built);
       const session = startGround(actor, next, { pushed: (part, impulse, at) => heard(sound(part, impulse, at)), hears });
+      const obstacles: Mesh[] = [], obstacleMaterial = new StandardMaterial("ground.obstacle", scene);
+      obstacleMaterial.diffuseColor.set(.5, .47, .42);
+      let closed = false;
+      if (session.environment.placements.length) {
+        kit ??= LoadAssetContainerAsync(publicAssetUrl("/assets/crypt-kit/kit.glb"), scene).then(container => {
+          for (const mesh of container.meshes) mesh.setEnabled(false);
+          container.addAllToScene(); return container;
+        });
+        void kit.then(container => {
+          if (closed) return;
+          for (const mesh of assembleCryptKit(container, session.environment.placements, false)) { mesh.material = obstacleMaterial; obstacles.push(mesh); }
+        }).catch(error => { if (!closed) { fault = `Obstacle art unavailable: ${String(error)}`; } });
+      } else for (const solid of session.environment.solids) {
+        if (solid.kind !== "box") throw new Error("ground wall visual requires a box");
+        const mesh = MeshBuilder.CreateBox(solid.name, { width: solid.size[0], height: solid.size[1], depth: solid.size[2] }, scene);
+        mesh.position.set(solid.centre[0], solid.centre[1], solid.centre[2]); mesh.rotation.y = solid.turn ?? 0; mesh.material = obstacleMaterial; obstacles.push(mesh);
+      }
       const dummy = session.dummy ? drawBody(session.dummy.fighter.built, scene, new Color3(.75, .45, .25)) : null;
       const history = recordHistory(actor.body.built, actor.world, 35, () => session.frame());
       const foeHistory = session.dummy ? recordHistory(session.dummy.fighter.built, actor.world, 35, () => null) : null;
@@ -110,7 +138,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
           const loads = shown.loads, summary = shown.summary;
           const seconds = (v: number | null) => v === null ? "—" : v.toFixed(2);
           const load = (name: string) => loads[name]?.toFixed(2) ?? "—";
-          meter.write({ position: shown.position, doing: `${shown.controller} / ${shown.mode} / ${shown.phase} ${shown.stage ?? ""}`, reached: shown.techniqueReached === null ? "—" : shown.techniqueReached ? "yes" : "no",
+          meter.write({ level: GROUND_LEVELS[shown.level].label, position: shown.position, doing: `${shown.controller} / ${shown.mode} / ${shown.phase} ${shown.stage ?? ""}`, reached: shown.techniqueReached === null ? "—" : shown.techniqueReached ? "yes" : "no",
             seconds: shown.seconds.toFixed(2), check: shown.check.stage, verified: seconds(shown.check.verified),
             round: shown.round ? `${shown.round.falls} of ${shown.round.of}: stood ${shown.round.stood}, within 6 s ${shown.round.within6}, median ${seconds(shown.round.median)} s (a failure at ${STAND_CHECK.cap} s)` : "—",
             handback: seconds(shown.handback), handbackRule: shown.handBackReason ?? "—",
@@ -123,7 +151,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
           trail.refresh(); attempts.refresh(); phases.refresh();
           return shown.time;
         },
-        dispose() { if (current === run) current = null; history.dispose(); foeHistory?.dispose(); dummy?.dispose(); session.dispose(); },
+        dispose() { closed = true; for (const mesh of obstacles) mesh.dispose(false, false); obstacleMaterial.dispose(); if (current === run) current = null; history.dispose(); foeHistory?.dispose(); dummy?.dispose(); session.dispose(); },
       };
       current = run;
       return run;

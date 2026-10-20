@@ -1484,8 +1484,8 @@ side's mind inspected under its bar. A person
   These become orders (`Duel.order`), so nothing of the camera reaches a mind. The room's
   solids (`arenaSolids`) are a floor slab, twenty-four rotated parapet boxes and eight brazier
   pedestals enclosing a circular floor. `LEVELS` (`src/arena/levels.ts`) selects the open stage or
-  column court; the recipe's `level` is carried by `&level=`. The court adds the Crypt kit's
-  columns from shared furniture definitions (`src/environment/furniture.ts`), including collision
+  obstacle court; the recipe's `level` is carried by `&level=`. The court adds the Crypt kit's
+  columns, tomb and bench from shared furniture definitions (`src/environment/furniture.ts`), including collision
   sizes, visual placements and sight permissions. Every Mind receives the stage's entire fixed
   geometry. Opponent visibility keeps its existing policy. Each level owns its spawn pair,
   headings and allowed gap; admission checks the posed body's collider bounds, held items included,
@@ -1560,6 +1560,14 @@ side's mind inspected under its bar. A person
   classifications, support loads, recovery phases, attempts and assist impulses are recorded
   with the body and foe. `research/rising-bed.mjs` runs the same mode in worker threads, a fresh
   body a fall; its target mode is the 64 falls, the round's on four loadouts.
+  The Fall environment selector (`groundLevel` in links) adds a column, wall, tomb or bench from
+  `ground-environment.ts`, using the same furniture dimensions and kit as the Arena and Crypt.
+  Shoved starts leave a measured geometric gap behind the body; the tomb condition orders a
+  backward step before its shove. Placed and dropped starts on low furniture begin above its top.
+  Obstacle geometry is granted through senses, and static scenery stays in place during history
+  playback. `research/rising-bed.mjs --obstacles` runs a separate 256-fall suite, the 64 direction
+  cases in each environment; its failures remain in the reports and establish no recovery promise.
+  `--target` retains the original 64 open-floor cases and rejects obstacle conditions.
 - **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
   with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).
 - **The physics bench** (`/physics-bench.html`, `src/physics-bench/`): the bake-off's cases on

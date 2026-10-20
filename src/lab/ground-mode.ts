@@ -15,6 +15,9 @@ import { groundMeter } from "./ground-meter.ts";
 import { shoveBody } from "./stance-mode.ts";
 import { dummySpec, hangDummy } from "./targets.ts";
 import { startWind } from "./wind.ts";
+import { groundEnvironment } from "./ground-environment.ts";
+import { addArenaSolids } from "../arena/room.ts";
+import { solidSenses } from "../core/mind/object-senses.ts";
 
 /**
  * **How a stand is verified**: from its recovery's takeover, upright and loaded on both feet,
@@ -109,12 +112,16 @@ export function startGround(actor: Actor, address: LabAddress, options: {
   readonly cap?: number;
 } = {}) {
   const { body, world } = actor, hub = createSenses(world);
-  const senses = hub.add({ id: "ground-body", side: "ground-body", built: body.built, out: () => false, down: () => body.view.down });
+  const environment = groundEnvironment(address.ground.level), fixed = addArenaSolids(world.physics, environment.solids);
+  const senses = hub.add({ id: "ground-body", side: "ground-body", built: body.built, out: () => false, down: () => body.view.down,
+    ...(environment.solids.length ? { solids: solidSenses(environment.solids) } : {}) });
   const dummy = address.ground.foe ? hangDummy(world, dummySpec(body.built.spec), [0, .5, address.ground.foe], rulebook("arena")) : null;
   const sound = dummy ? options.hears?.(dummy.fighter.built) : null;
   if (dummy) hub.add({ id: "ground-foe", side: "ground-foe", built: dummy.fighter.built, out: () => false });
   const check = standCheck(actor, options.cap ?? STAND_CHECK.cap);
-  const skills = actor.drive({ name: "ground stand", decide: () => standIntent(0) }, { senses, orders: check.orders });
+  const skills = actor.drive({ name: "ground stand", decide: () => standIntent(0) }, { senses,
+    orders: () => environment.approach && address.ground.start === "shoved" && world.time < ROUND_FIRST
+      ? { ...STAND_ORDERS, move: environment.approach, pace: STAND_CHECK.pace } : check.orders() });
   const shoving = shoveBody(body, world, () => skills.report.heading, options.pushed), shove = groundShove(address);
   const wind = startWind(body.built, world, address.ground.gusts ? { rate: .7, strength: 45 } : { rate: 0, strength: 0 }, address.seed);
   const meter = groundMeter(body, world, address.balance ?? body.built.spec.attributes.balance.value);
@@ -161,9 +168,9 @@ export function startGround(actor: Actor, address: LabAddress, options: {
       median: all.length ? (all.length % 2 ? all[middle]! : (all[middle - 1]! + all[middle]!) / 2) : null };
   };
   return {
-    body, meter, dummy, state, check,
-    frame: () => ({ ...meter.frame(), status: state.status, check: { ...check.state }, round: round ? roundSummary() : null }),
+    body, meter, dummy, state, check, environment,
+    frame: () => ({ ...meter.frame(), level: address.ground.level, status: state.status, check: { ...check.state }, round: round ? roundSummary() : null }),
     shove() { meter.beginFall(); check.reset(); state.status = "running"; shoving.shove(shove.impulse, shove.degrees); },
-    dispose() { checking.dispose(); reading.dispose(); disturbance.dispose(); wind.dispose(); shoving.dispose(); sound?.dispose(); dummy?.dispose(); hub.dispose(); actor.dispose(); },
+    dispose() { checking.dispose(); reading.dispose(); disturbance.dispose(); wind.dispose(); shoving.dispose(); sound?.dispose(); dummy?.dispose(); hub.dispose(); actor.dispose(); for (const collider of fixed) collider.dispose(); },
   };
 }

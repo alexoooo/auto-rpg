@@ -24,6 +24,7 @@ export function assembleCryptKit(container: AssetContainer, placements: readonly
     for (const source of pieces) {
       const placed = source.clone(`kit.${index}.${source.name}`, null, true)!;
       placed.parent = null;
+      placed.setEnabled(true);
       placed.position.set(placement.x, 0, placement.z);
       placed.rotationQuaternion = new Quaternion(0, sin(placement.turn / 2), 0, cos(placement.turn / 2));
       placed.scaling.setAll(1);

@@ -8,6 +8,7 @@ import { groundPostures } from "../src/lab/ground-starts.ts";
 import { TECHNIQUES } from "../src/core/mind/ground/techniques.ts";
 import { risingImplementation } from "./rising-provenance.mjs";
 import { risingMind } from "./rising-config.mjs";
+import { GROUND_LEVELS } from "../src/lab/ground-environment.ts";
 
 const median = values => { const sorted = [...values].sort((a, b) => a - b), mid = sorted.length >> 1; return sorted.length ? (sorted[mid] + sorted[(sorted.length - 1) >> 1]) / 2 : null; };
 const list = (text, allowed, name) => {
@@ -19,11 +20,11 @@ const list = (text, allowed, name) => {
 /** Parse only explicit supported controls; the target's physical protocol cannot be overridden. */
 export function risingOptions(args) {
   const options = { starts: ["shoved", "dropped"], models: [...HUMANOID_MODELS], held: ["empty", "club"], seeds: [1, 2, 3, 4, 5, 6],
-    sub: "support-recovery", techniques: null, technique: null, after: null, balance: 0, gusts: false, target: false, workers: Math.max(1, availableParallelism() - 2), out: null };
+    sub: "support-recovery", techniques: null, technique: null, after: null, balance: 0, gusts: false, target: false, obstacles: false, workers: Math.max(1, availableParallelism() - 2), out: null };
   const specified = new Set();
   for (let i = 0; i < args.length; i++) {
     const key = args[i]; specified.add(key);
-    if (key === "--target" || key === "--gusts") { options[key.slice(2)] = true; continue; }
+    if (key === "--target" || key === "--gusts" || key === "--obstacles") { options[key.slice(2)] = true; continue; }
     const value = args[++i];
     if (value === undefined || value.startsWith("--")) throw new Error(`${key} needs a value`);
     switch (key) {
@@ -49,6 +50,8 @@ export function risingOptions(args) {
   }
   if (options.target && (["--starts", "--models", "--held", "--seeds", "--gusts"].some(key => specified.has(key)) || options.balance !== 0))
     throw new Error("--target fixes models, loadouts, directions, calm air and Balance 0");
+  if (options.obstacles && (options.target || options.technique || ["--starts", "--models", "--held", "--seeds", "--gusts"].some(key => specified.has(key)) || options.balance !== 0))
+    throw new Error("--obstacles is separate from --target and fixes models, loadouts, directions, calm air and Balance 0");
   if (options.after && !options.technique) throw new Error("--after requires --technique");
   if (options.techniques) {
     if (options.technique || specified.has("--sub") && options.sub !== "stand-up") throw new Error("--techniques configures the stand-up sub-mind");
@@ -62,6 +65,9 @@ export function risingOptions(args) {
 
 /** Every direction appears once in each target group; everyday shoves span eight directions per seed. */
 export function risingJobs(options) {
+  if (options.obstacles) return Object.keys(GROUND_LEVELS).filter(level => level !== "open")
+    .flatMap(level => risingJobs({ ...options, target: true, obstacles: false }).map(job => ({ ...job, target: false, obstacle: true, level })))
+    .map((job, id) => ({ ...job, id }));
   const jobs = [];
   if (options.target) {
     for (const model of ["workshop-fighter", "workshop-rogue"]) for (const held of ["empty", "club"]) for (let direction = 0; direction < 16; direction++)
@@ -80,13 +86,14 @@ export function risingJobs(options) {
 
 /** Failures remain in denominators and in the capped median; hand-back and verified standing stay separate. */
 export function risingReport(rows, target = false) {
+  if (target && rows.some(row => row.obstacle || row.level && row.level !== "open")) throw new Error("obstacle falls cannot satisfy the open-floor target");
   const grouped = new Map();
   for (const row of rows) {
-    const key = `${row.start}/${row.model}/${row.held}`;
+    const key = `${row.level && row.level !== "open" ? `${row.level}/` : ""}${row.start}/${row.model}/${row.held}`;
     if (!grouped.has(key)) grouped.set(key, []);
     grouped.get(key).push(row);
   }
-  const time = row => row.stood ? (target ? row.verified : row.handback) : null;
+  const time = row => row.stood ? (target || row.obstacle ? row.verified : row.handback) : null;
   const successful = (row, within = Infinity) => time(row) !== null && time(row) <= within;
   const groups = [...grouped].map(([key, cases]) => ({ key, all: cases.length, stood: cases.filter(row => successful(row)).length,
     reached: cases.filter(row => row.reached).length,
@@ -115,10 +122,11 @@ export function risingReport(rows, target = false) {
       median4: complete && median(rows.map(row => time(row) ?? 30)) <= 4 };
   }
   const standalone = rows.length > 0 && rows.every(row => row.technique);
-  return { harness: "Node stand, core World, Rapier, 120 Hz", mode: target ? "owner target" : standalone ? "standalone technique" : "everyday bed", cap: standalone ? 8 : 30,
+  const obstacles = rows.length > 0 && rows.every(row => row.obstacle);
+  return { harness: "Node stand, core World, Rapier, 120 Hz", mode: target ? "owner target" : obstacles ? "obstacle falls" : standalone ? "standalone technique" : "everyday bed", cap: standalone ? 8 : 30,
     groups, gates, techniques: [...attempts.values()].map(({ seconds, ...stats }) => ({ ...stats, meanSeconds: seconds / stats.begun })),
     claims: { beatsSupportRecovery: "requires comparison with the saved reference on identical cases",
-      meetsOwnerTarget: gates === null ? "not evaluated by the everyday bed" : Object.values(gates).every(Boolean),
+      meetsOwnerTarget: gates === null ? obstacles ? "not evaluated by the obstacle suite" : "not evaluated by the everyday bed" : Object.values(gates).every(Boolean),
       assist: { balances: [...new Set(rows.map(row => row.balance))], grits: [...new Set(rows.map(row => row.grit))], forceImpulse: rows.reduce((sum, row) => sum + (row.assist?.forceImpulse ?? 0), 0),
         momentImpulse: rows.reduce((sum, row) => sum + (row.assist?.momentImpulse ?? 0), 0) } }, rows };
 }

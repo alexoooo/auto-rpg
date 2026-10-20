@@ -6,13 +6,16 @@ import type { Vec3 } from "../core/spec/quantity.ts";
 import { cryptFurnishing } from "../environment/furniture.ts";
 
 /** Court columns leave open routes on either side of its central obstruction, m. */
-const court = [[0, 0], [-3, -3], [-3, 3], [3, -3], [3, 3]].map(([x, z], i) => cryptFurnishing("column", `court.column.${i}`, x!, z!));
+const court = [
+  ...[[0, 0], [-3, -3], [-3, 3], [3, -3], [3, 3]].map(([x, z], i) => cryptFurnishing("column", `court.column.${i}`, x!, z!)),
+  cryptFurnishing("tomb", "court.tomb", 0, 5), cryptFurnishing("bench", "court.bench", 0, -5),
+];
 
 /** A stage's content and spawn policy, independent of either renderer or physics engine. */
 export const LEVELS = deepFreeze({
   open: { label: "Open stage", gap: { default: 4, min: 0, max: 24 }, furniture: [] as typeof court,
     spawns: { left: { direction: [-1, 0, 0], heading: 0 }, right: { direction: [1, 0, 0], heading: 0 } } },
-  "obstacle-court": { label: "Column court", gap: { default: 6, min: 4, max: 8 }, furniture: court,
+  "obstacle-court": { label: "Obstacle court", gap: { default: 6, min: 4, max: 8 }, furniture: court,
     spawns: { left: { direction: [-1, 0, 0], heading: 0 }, right: { direction: [1, 0, 0], heading: 0 } } },
 });
 
