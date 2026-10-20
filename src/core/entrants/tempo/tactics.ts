@@ -8,7 +8,7 @@ import { followOrders } from "../../mind/options/orders.ts";
 import { reflexLayer, reflexOf } from "../../mind/options/reflex.ts";
 import { situationReader } from "../../mind/options/situation.ts";
 import { strike } from "../../mind/options/strike.ts";
-import { CLINCH } from "../../mind/options/value.ts";
+import { CLINCH, record } from "../../mind/options/value.ts";
 import { walker } from "../../mind/options/walk.ts";
 import type { Tactics } from "../../mind/tactics.ts";
 import type { TempoConfig } from "./mind.ts";
@@ -34,9 +34,10 @@ type Asked = Omit<Intent, "guard">;
  * **Hit and run on a rhythm**, for a body of `spec` under `config`. It rests just outside its
  * focus's reach (from its outer bound to `margin` m past it, head to head; its own reach where the
  * focus has no hands to measure) for `rest` s, then steps in and throws `burst` blows, each with
- * the first of its standing actions whose limb is ready, else walking to the first one's window;
- * then steps back out, at most `EXIT_LONGEST` s. A foe's blow predicted to reach its head, a
- * clinch, or `commit` s in reach send it out at once, but never out of a blow already committed. A
+ * the standing action its own record rates highest of those whose limb is ready, else of those it
+ * can walk to the window of (`rate`); then steps back out, at most `EXIT_LONGEST` s. A foe's blow
+ * predicted to reach its head, a clinch, or `commit` s in reach since it stepped in or last asked
+ * for a blow send it out at once, but never out of a blow already committed. A
  * focus that is low it strikes from low support, where it has a low blow; orders that walk it it
  * follows (`followOrders`). Under all of it, its reflexes patch what it asks (`reflexLayer`). Down,
  * its sub-minds have the body, and it rests again once it is up. Its memory is its phase, when it
@@ -49,6 +50,7 @@ export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWi
   const ready = standing.map((action) => strike(action, walk, false, throws(config, action)));
   const closing = standing.map((action) => strike(action, walk, true, throws(config, action)));
   const strikes: readonly StandingOption[] = [...ready, ...closing];
+  const counts = standing.map((action) => throws(config, action));
   const options: readonly StandingOption[] = [orders, ...low ? [low] : [], ...strikes];
   const reflexes = reflexLayer(config.reflexes.map(reflexOf));
   const state = { phase: "wait" as Phase, since: 0, settled: null as number | null, thrown: 0, running: -1,
@@ -67,6 +69,25 @@ export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWi
     option?.begin(now);
   };
   const to = (phase: Phase, now: Situation): void => { state.phase = phase; state.since = now.time; state.settled = null; if (phase === "enter") state.thrown = 0; };
+  /**
+   * What its record says the `k`th standing action is worth: the blows it throws, times the share
+   * of its committed blows that landed, a second of its run (`record`). An action not yet tried
+   * has the record's prior, so each is tried before the record ranks them.
+   */
+  const rate = (now: Situation, k: number): number => {
+    const { lands, seconds } = record(now.sight.report.ledger, standing[k]!.name);
+    return counts[k]! * lands / seconds;
+  };
+  /** Of `list` (one option for each standing action, in its order), the one on offer its record rates highest; the first of equals. */
+  const best = (list: readonly StandingOption[], now: Situation): StandingOption | null => {
+    let chosen: StandingOption | null = null, top = -Infinity;
+    for (let k = 0; k < list.length; k++) {
+      if (!list[k]!.available(now)) continue;
+      const value = rate(now, k);
+      if (value > top) { top = value; chosen = list[k]!; }
+    }
+    return chosen;
+  };
   /** Whether the running option holds a blow it may not give up. */
   const committed = (now: Situation): boolean => { const running = current(); return running !== null && !running.yields(now); };
   /** Head to head, the edge it rests at: the focus's reach, or its own where the focus has none measured. */
@@ -88,11 +109,13 @@ export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWi
     const running = current();
     if (running && (running.ended(now) || !running.available(now))) run(null, now);
     if (state.running < 0 && state.thrown >= config.burst) { to("exit", now); return still(now); }
-    if (state.running < 0) run(ready.find((option) => option.available(now)) ?? closing.find((option) => option.available(now)) ?? null, now);
+    if (state.running < 0) run(best(ready, now) ?? best(closing, now), now);
     const chosen = current();
     if (!chosen) return along(now, 1);
-    const asked = chosen.step(now, dt);
+    const asking = threw(chosen), asked = chosen.step(now, dt);
     if (asked.actions.length > 0) state.phase = "burst";
+    // Asking for a blow starts its time in reach again: a blow slow to set up is given it whole.
+    if (!asking && threw(chosen)) state.since = now.time;
     return asked;
   };
 
