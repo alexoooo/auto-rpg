@@ -64,7 +64,8 @@ export function effectorFeedback(built: ReadBody, segments: readonly string[], i
     const declared = rigidPoints(built.spec, segment.spec), point = declared.get(points?.[name]?.point ?? effectorAim(built.spec, name))?.value;
     if (!point) throw new Error(`no feedback point ${name}`);
     const regions = points?.[name]?.regions;
-    const shapes = regions && segment.rigid.owners.flatMap((owner, i) => owner.kind === "region" && regions.includes(owner.region.name) ? [i] : []);
+    const shapes = regions && segment.rigid.owners.flatMap((owner, i) =>
+      (owner.kind === "region" || owner.kind === "held-region") && regions.includes(owner.region.name) ? [i] : []);
     return { name, segment, point, shapes, strike: declared.get("strike")?.value };
   });
   const point = new Vector3(), velocity = new Vector3(), spin = new Vector3();

@@ -122,6 +122,8 @@ export interface ItemSpec {
   readonly inertia: Quantity<Vec3>;
   /** What it collides as, in the item frame. A box is not one: its edges would need a frame of their own. */
   readonly shapes: readonly ItemShape[];
+  /** Named colliders with their own surfaces, in the item frame; their mass is already included above. */
+  readonly contacts?: readonly ContactRegionSpec<ItemShape>[];
   /** Named points, in the item frame: where a reading is taken on it, such as where a club strikes. */
   readonly points: { readonly [name: string]: Quantity<Vec3> };
   /** The point of `points` a blow with the item is brought to its target by: where it strikes. */
@@ -214,10 +216,10 @@ export interface SegmentSpec {
   readonly contacts?: readonly ContactRegionSpec[];
 }
 
-/** A named anatomical collider with its own contact surface, in the body's reference frame. */
-export interface ContactRegionSpec {
+/** A named collider with its own surface, in the body's reference frame or its item's frame. */
+export interface ContactRegionSpec<Shape extends ShapeSpec = ShapeSpec> {
   readonly name: string;
-  readonly shape: ShapeSpec;
+  readonly shape: Shape;
   readonly surface: SurfaceSpec;
 }
 
@@ -236,8 +238,8 @@ export function handShapeAt(body: BodySpec, segment: SegmentSpec, pose: HandPose
  */
 interface SurfaceSpec {
   readonly stiffness: Quantity<number>;
-  /** A piercing direction and admitted normal cosine: body reference frame for anatomy, item frame for equipment. */
-  readonly point?: { readonly direction: Quantity<Vec3>; readonly alignment: Quantity<number> };
+  /** A mechanism's direction and admitted normal cosine: body reference frame for anatomy, item frame for equipment. */
+  readonly directed?: { readonly mechanism: "point" | "edge"; readonly direction: Quantity<Vec3>; readonly alignment: Quantity<number> };
   /** A layer it gives against the fixed world, as a shoe's sole on a floor (`ContactMaterial.sole`): N/m, N s/m, and m. */
   readonly sole?: { readonly stiffness: Quantity<number>; readonly damping: Quantity<number>; readonly depth: Quantity<number> };
   /** Its coefficient of friction, where it grips better than the engine's default (`ContactMaterial.friction`). */

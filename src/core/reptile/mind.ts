@@ -56,7 +56,7 @@ export function quadrupedMind(host: BodyHost, wiring: Partial<MindWiring> & { re
     const lower = [...built.segments.values()].find(segment => segment.spec.points?.bite)!;
     const head = [...built.segments.values()].find(segment => segment.spec.points?.mouth)!;
     const feedback = effectorFeedback(built, [lower.spec.name, head.spec.name], wiring.contactIdentity, undefined,
-      { [lower.spec.name]: { point: "bite", regions: lower.spec.contacts!.filter(c => c.surface.point).map(c => c.name) },
+      { [lower.spec.name]: { point: "bite", regions: lower.spec.contacts!.filter(c => c.surface.directed?.mechanism === "point").map(c => c.name) },
         [head.spec.name]: { point: "mouth" } });
     const read = (s: Senses) => {
       motor.read(); feedback.read(); turnOfToRef(motor.root, turn); forward.applyRotationQuaternionToRef(turn, front);

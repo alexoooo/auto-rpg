@@ -1306,7 +1306,9 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   stiffness in series, pi sqrt(mu / k); mu and the time are solved together (`contactGive`). So a
   braced arm meets a blow with the trunk behind it, and a limp one with the hand alone; two rigid
   surfaces meet for no time, with every joint free. Ordinary rigid impacts use the strongest loaded shape pair. A shape belongs
-  to its segment, a natural contact region (`ContactRegionSpec`), or a held item.
+  to its segment, a natural contact region (`ContactRegionSpec`), a held item, or an item's
+  named region (`ItemSpec.contacts`). Item regions retain their item identity and their own
+  surface, with geometry and directed mechanisms placed from the item frame by its holding.
   `LandedBlow.kind` distinguishes an impact's energy and closing speed from a load's
   normal impulses and interval. Each side records its surface, damage and actual pool wound.
 - **The two surfaces share the energy by their compliance** (`energyShares`, `share.ts`): springs
@@ -1318,14 +1320,17 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   rulebook's threshold (`Rulebook.fist`, a knuckle's injury). The values, their gaps and what a part holds beside the literature:
   [reference/wounds.md](reference/wounds.md).
 - **Damage** (`rulebook.ts`): ordinary impact damage is energy times the mechanism's worth
-  over the unit, 100 J of blunt blow per HP (`owner-damage-unit`). An aligned physical point
-  instead wounds by `pointLoad.rate * max(0, impulse - pointLoad.threshold * dt)`.
-  Its direction is anatomical body frame or held-item frame, tested against the contact normal
-  (`pointsInto`). Sides and reverse contacts remain blunt. `watchBlows` sums all qualifying
+  over the unit, 100 J of blunt blow per HP (`owner-damage-unit`). A surface's `directed`
+  property names an edge or point, its direction and its admitted normal cosine. An aligned
+  item edge or point prices the impact by that mechanism; side and reverse contacts are blunt.
+  A touch spanning several regions is classified by its strongest loaded shape pair and paid
+  once, with no sliding-contact damage. Anatomical points instead wound by
+  `pointLoad.rate * max(0, impulse - pointLoad.threshold * dt)`. Their direction is in the
+  anatomical body frame, tested against the contact normal (`pointsInto`). `watchBlows` sums all qualifying
   collider contributions once per pointed rigid body, victim segment and interval, applying
   the shared threshold once. Opposing points can wound both sides. A held item intercepts
-  load injury; impact recoil still follows compliance. Aligned point injury receives no
-  second energy payment. The rule needs no tissue layer, penetration estimate, release ledger,
+  load injury; impact recoil still follows compliance. Anatomical point injury receives no
+  second energy payment, and held items receive no sustained-load payment. The rule needs no tissue layer, penetration estimate, release ledger,
   character identity or attack intent. Sustained pressure can wound without motion.
   [Pointed contact](reference/reptile-bites.md) records the game calibration, separate from anatomy.
   The Warrior's strongest one-handed club blow (`CLUB_BEST`, `research/core-club-unit.json`)

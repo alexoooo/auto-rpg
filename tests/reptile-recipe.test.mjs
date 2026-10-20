@@ -20,7 +20,7 @@ test("a qualification recipe retains its surface, load rule and bite settings th
       const jaw = first.duel.duelists[side].built.spec.segments.find(s => s.name === "jaw");
       assert.equal(jaw.surface.stiffness.value, 34000);
       assert.equal(jaw.surface.layer, undefined);
-      assert.ok(jaw.contacts.every(c => c.surface.point && c.surface.stiffness.value === 10000000));
+      assert.ok(jaw.contacts.every(c => c.surface.directed?.mechanism === "point" && c.surface.stiffness.value === 10000000));
     }
     twin.duel.load(saved);
     const trace = run => traceOf(["left", "right"].map(side => run.duel.duelists[side].built));

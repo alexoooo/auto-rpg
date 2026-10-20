@@ -51,7 +51,7 @@ export function groundReading(built: ReadBody, dt: number) {
   const parts = built.spec.segments.map(s => built.segments.get(s.name)!);
   const feet = footStatesOf(built), indices = feet.map(f => parts.indexOf(f.segment));
   const mass = massOf(parts), weight = mass * -built.physics.gravity[1];
-  const shapeIsBody = parts.map(p => p.rigid.owners.map(o => o.kind !== "held"));
+  const shapeIsBody = parts.map(p => p.rigid.owners.map(o => o.kind === "segment" || o.kind === "region"));
   const low = uprightness(built), root = built.segments.get("lowerTrunk")!, upper = built.segments.get("upperTrunk")!;
   const feetUp = feet.map(f => Vector3.UpReadOnly.applyRotationQuaternionToRef(Quaternion.Inverse(f.segment.rest), new Vector3()));
   const reading: GroundReading = {

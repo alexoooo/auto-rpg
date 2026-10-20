@@ -39,7 +39,7 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
     arc: Array.from({ length: T.biteSamples + 1 }, (_, i) => pointAtToRef([hinge], [[T.open * (1 - i / T.biteSamples)]], tooth.tip, new Vector3())) }));
   const path = Array.from({ length: T.biteSamples + 1 }, () => new Vector3());
   const shifts = [0, -T.biteShift, T.biteShift];
-  const tooth = lower.spec.contacts!.find(c => c.surface.point)!.surface.point!;
+  const tooth = lower.spec.contacts!.find(c => c.surface.directed?.mechanism === "point")!.surface.directed!;
   const dx = contact.x - lip[0], dz = contact.z - lip[2];
   const entry = Math.sqrt(dx * dx + dz * dz) + T.biteEntry;
   return { name: "reptile", state, decide(sight, dt = 0) {

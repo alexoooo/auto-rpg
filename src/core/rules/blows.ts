@@ -5,6 +5,7 @@ import { pointsInto } from "./points.ts";
 import type { BuiltBody } from "../build/build-body.ts";
 import type { ContactPair } from "../engine/engine.ts";
 import type { Vec3 } from "../spec/quantity.ts";
+import type { ContactRegionSpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import { watchTouches, type Part, type Touch, type TouchWatch } from "../touches.ts";
 import type { World } from "../world.ts";
@@ -16,9 +17,10 @@ import { energyShares } from "./share.ts";
 
 /**
  * Contact injury is physical and has no striker. New closing touches share their impact energy
- * by compliance. Aligned pointed surfaces instead injure the opposing body under sustained
- * normal load, once per rigid-body pair and interval, with every qualifying shape included.
- * Sides and reverse contacts remain blunt. A held item intercepts piercing injury.
+ * by compliance and are priced by the strongest pair's directed mechanism. Anatomical points
+ * instead injure the opposing body under sustained normal load, once per rigid-body pair and
+ * interval, with every qualifying shape included. Held points wound only on impact. Sides and
+ * reverse contacts remain blunt. A held item intercepts sustained piercing injury.
  */
 
 /** A body in the fight: its side, its pool, and what it was built as. */
@@ -50,9 +52,9 @@ export interface BlowSide {
   readonly segment: string;
   /** The held item whose shape was touched, by name; null for the segment's own. */
   readonly item: string | null;
-  /** The anatomical contact region, where the segment states a separate collider. */
+  /** The contact region on the segment or held item, where it states a separate collider. */
   readonly region?: string;
-  /** Absent for blunt contact; a point on the opposing surface prices this wound. */
+  /** Absent for blunt contact; the opposing surface's aligned mechanism prices this wound. */
   readonly mechanism?: Mechanism;
   /** Effective impact mass, or the contacted rigid mass for a load record, kg. */
   readonly kg: number;
@@ -121,30 +123,35 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
   const place = new Map(fighters.map((fighter, at) => [fighter, at]));
   for (const fighter of fighters) {
     for (const segment of fighter.built.segments.values()) {
-      for (const surface of [segment.spec.surface, ...(segment.spec.contacts ?? []).map(c => c.surface), ...segment.rigid.owners.flatMap((owner) => owner.kind === "held" && owner.held.item.surface ? [owner.held.item.surface] : [])]) {
+      for (const surface of [segment.spec.surface, ...(segment.spec.contacts ?? []).map(c => c.surface), ...segment.rigid.owners.flatMap((owner) =>
+        owner.kind === "held-region" ? [owner.region.surface] : owner.kind === "held" && owner.held.item.surface ? [owner.held.item.surface] : [])]) {
         if (surface?.stiffness?.unit !== "N/m") throw new Error(`${fighter.id}'s ${segment.spec.name} states no surface in N/m: a blow has nothing to share by`);
-        if (surface.point && (surface.point.direction.unit !== "1" || surface.point.alignment.unit !== "1"
-          || !surface.point.direction.value.every(Number.isFinite) || !surface.point.direction.value.some(v => v !== 0)
-          || !(surface.point.alignment.value >= 0 && surface.point.alignment.value <= 1))) throw new Error("a piercing point states a finite direction and a normal cosine in 0..1");
+        const directed = surface.directed;
+        if (directed && ((directed.mechanism !== "point" && directed.mechanism !== "edge")
+          || directed.direction.unit !== "1" || directed.alignment.unit !== "1" || directed.direction.value.length !== 3
+          || !directed.direction.value.every(Number.isFinite) || !directed.direction.value.some(v => v !== 0)
+          || !(directed.alignment.value >= 0 && directed.alignment.value <= 1))) throw new Error("a directed surface states point or edge, a finite direction and a normal cosine in 0..1");
       }
     }
   }
   /** Whether `part` can meet in a blow: its fighter's fight has not ended and the part is on. */
   const inFight = ({ body, segment }: Part<Fighter>): boolean => body.pool.ending() === null && body.pool.attached(segment.spec.name);
-  /** The touched shape's owner, stiffness and optional piercing direction, in the body's reference frame. */
-  const surfaceOf = ({ segment }: Part<Fighter>, shape: number): { readonly item: string | null; readonly region?: string; readonly stiffness: number | null; readonly direction?: Vec3; readonly alignment?: number } => {
+  /** The touched shape's owner, stiffness and optional mechanism, in the body's reference frame. */
+  const surfaceOf = ({ segment }: Part<Fighter>, shape: number): { readonly item: string | null; readonly region?: string; readonly stiffness: number | null; readonly directed?: { readonly mechanism: "point" | "edge"; readonly direction: Vec3; readonly alignment: number } } => {
     const owner = segment.rigid.owners[shape]!;
+    const read = (surface: ContactRegionSpec["surface"] | undefined) => ({ stiffness: surface?.stiffness.value ?? null,
+      ...(surface?.directed ? { directed: { mechanism: surface.directed.mechanism, direction: surface.directed.direction.value, alignment: surface.directed.alignment.value } } : {}) });
     switch (owner.kind) {
-      case "segment": return { item: null, stiffness: segment.spec.surface.stiffness.value,
-        ...(segment.spec.surface.point ? { direction: segment.spec.surface.point.direction.value, alignment: segment.spec.surface.point.alignment.value } : {}) };
-      case "region": return { item: null, region: owner.region.name, stiffness: owner.region.surface.stiffness.value,
-        ...(owner.region.surface.point ? { direction: owner.region.surface.point.direction.value, alignment: owner.region.surface.point.alignment.value } : {}) };
-      case "held": {
-        const point = owner.held.item.surface?.point;
-        if (!point) return { item: owner.held.item.name, stiffness: owner.held.item.surface?.stiffness.value ?? null };
-        const frame = heldFrame(owner.held), v = point.direction.value;
+      case "segment": return { item: null, ...read(segment.spec.surface) };
+      case "region": return { item: null, region: owner.region.name, ...read(owner.region.surface) };
+      case "held":
+      case "held-region": {
+        const surface = read(owner.kind === "held" ? owner.held.item.surface : owner.region.surface);
+        const result = { item: owner.held.item.name, ...(owner.kind === "held-region" ? { region: owner.region.name } : {}), ...surface };
+        if (!surface.directed) return result;
+        const frame = heldFrame(owner.held), v = surface.directed.direction;
         const direction = [0, 1, 2].map(k => frame.x[k]! * v[0] + frame.y[k]! * v[1] + frame.z[k]! * v[2]) as unknown as Vec3;
-        return { item: owner.held.item.name, stiffness: owner.held.item.surface!.stiffness.value, direction, alignment: point.alignment.value };
+        return { ...result, directed: { ...surface.directed, direction } };
       }
       default: {
         const never: never = owner;
@@ -154,10 +161,10 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
   };
   const normal = new Vector3(), inverse = new Quaternion();
   const mechanismOf = (part: Part<Fighter>, surface: ReturnType<typeof surfaceOf>, direction: Vec3, sign: number): Mechanism => {
-    if (!surface.direction) return "blunt";
+    if (!surface.directed) return "blunt";
     normal.set(...direction).scaleInPlace(sign)
       .applyRotationQuaternionToRef(Quaternion.InverseToRef(turnOfToRef(part.segment, inverse), inverse), normal);
-    return pointsInto(surface.direction, [normal.x, normal.y, normal.z], surface.alignment!) ? "point" : "blunt";
+    return pointsInto(surface.directed.direction, [normal.x, normal.y, normal.z], surface.directed.alignment) ? surface.directed.mechanism : "blunt";
   };
   const parts = new Map(fighters.flatMap(body => [...body.built.segments.values()].map(segment => [segment.body.id, { body, segment }] as const)));
   const publish = (blow: LandedBlow) => { deepFreeze(blow); blows.push(blow); onBlow?.(blow); };
@@ -169,7 +176,9 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
     const side = (part: Part<Fighter>, k: 0 | 1): BlowSide => {
       const name = part.segment.spec.name, share = shares[k]!, mechanism = mechanisms[k === 0 ? 1 : 0];
       const spared = surfaces[k].item === null && part.segment.spec.handPoses && surfaces[k === 0 ? 1 : 0].item === null ? rules.fist.value : 0;
-      const damage = share > 0 && mechanism !== "point" ? blowDamage(rules, mechanism, Math.max(0, share * energy - spared)) : 0;
+      const opposing = surfaces[k === 0 ? 1 : 0];
+      const loadPoint = mechanism === "point" && opposing.item === null;
+      const damage = share > 0 && !loadPoint ? blowDamage(rules, mechanism, Math.max(0, share * energy - spared)) : 0;
       const wound = share > 0 ? part.body.pool.wound({ part: name, damage, clean: false }) : null;
       return { fighter: part.body.id, segment: name, item: surfaces[k].item, ...(surfaces[k].region ? { region: surfaces[k].region } : {}),
         ...(mechanism === "blunt" ? {} : { mechanism }), kg: kg[k], share, damage, wound };
@@ -177,7 +186,10 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
     publish({ kind: "impact", time: world.time, point: location.point, normal: location.normal, closing, energy,
       sides: [side(first, 0), side(second, 1)] });
   };
-  const pointed = (part: Part<Fighter>) => part.segment.rigid.owners.some((_, shape) => surfaceOf(part, shape).direction);
+  const pointed = (part: Part<Fighter>) => part.segment.rigid.owners.some((_, shape) => {
+    const surface = surfaceOf(part, shape);
+    return surface.item === null && surface.directed?.mechanism === "point";
+  });
   const ordered = [...parts.values()], indices = new Map(ordered.map((part, i) => [part.segment.body, i]));
   const points = new Set(ordered.filter(pointed).map(part => part.segment.body));
   const readLoads = () => {
@@ -194,8 +206,8 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
         let selected: ContactPair | null = null;
         for (const pair of contact.pairs) {
           const surfaces = [surfaceOf(first, pair.mine), surfaceOf(second, pair.theirs)];
-          const pierces = [mechanismOf(first, surfaces[0]!, pair.normal, 1) === "point",
-            mechanismOf(second, surfaces[1]!, pair.normal, -1) === "point"];
+          const pierces = [surfaces[0]!.item === null && mechanismOf(first, surfaces[0]!, pair.normal, 1) === "point",
+            surfaces[1]!.item === null && mechanismOf(second, surfaces[1]!, pair.normal, -1) === "point"];
           for (const k of [0, 1] as const) if (pierces[1 - k] && surfaces[k]!.item === null && surfaces[k]!.stiffness !== null) {
             impulses[k] += pair.impulse;
             if (!selected || pair.impulse > selected.impulse) selected = pair;

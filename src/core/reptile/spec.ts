@@ -44,7 +44,7 @@ export function reptileSpec(): BodySpec {
       ...(s.contacts ? { contacts: s.contacts.map((c, k) => ({ name: c.name,
         shape: { kind: "hull" as const, points: c.points.map((p, n) => q(vector(p), "m", `${at}/contacts/${k}/points/${n}`)) },
         surface: { stiffness: q(c.stiffness, "N/m", `${at}/contacts/${k}/stiffness`),
-          point: { direction: q(vector(c.direction), "1", `${at}/contacts/${k}/direction`), alignment: q(c.alignment, "1", `${at}/contacts/${k}/alignment`) } },
+          directed: { mechanism: "point" as const, direction: q(vector(c.direction), "1", `${at}/contacts/${k}/direction`), alignment: q(c.alignment, "1", `${at}/contacts/${k}/alignment`) } },
       })) } : {}),
       ...(s.points ? { points: Object.fromEntries(Object.entries(s.points).map(([name, p]) => [name, q(vector(p!), "m", `${at}/points/${name}`)])) } : {}),
     };

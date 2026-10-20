@@ -19,13 +19,13 @@ async function rig({ reverse=false, direction=[0,0,1], count=3, force=10, hz=120
  const contacts=Array.from({length:count},(_,i)=>{
   const x=count===1?0:(i/(count-1)-.5)*.036;
   return {name:`point.${i}`,shape:{kind:'box',centre:q([x,0,.059],'m'),size:q([.008,.02,.008],'m')},
-   surface:{stiffness:q(10e6,'N/m'),point:{direction:q(direction,'1'),alignment:q(.8,'1')}}};
+   surface:{stiffness:q(10e6,'N/m'),directed:{mechanism:'point',direction:q(direction,'1'),alignment:q(.8,'1')}}};
  });
  const spec={...base,segments:base.segments.map(s=>({...s,contacts}))};
  const stand=await coreStand(spec,{gravity:false,ground:false,engine:'rapier-coordinate',hz,rotation:rotate?[0,Math.SQRT1_2,0,Math.SQRT1_2]:undefined});
  const slab=lone('arbitrary target','receiver',1,{hp:10000,stiffness:17000});
  const targetSpec={...slab,segments:slab.segments.map(s=>({...s,
-  surface:both?{...s.surface,point:{direction:q([0,0,-1],'1'),alignment:q(.8,'1')}}:s.surface,
+  surface:both?{...s.surface,directed:{mechanism:'point',direction:q([0,0,-1],'1'),alignment:q(.8,'1')}}:s.surface,
   shape:{kind:'box',centre:q([0,0,0],'m'),size:q([.2,.2,.1],'m')}})),
   ...(held?{held:[{segment:'receiver',origin:q([0,0,0],'m'),along:q([0,1,0],'1'),across:q([1,0,0],'1'),
    item:{name:'rigid interceptor',mass:q(1,'kg'),centreOfMass:q([0,0,-.06],'m'),inertia:q([.01,.01,.01],'kg m2'),
