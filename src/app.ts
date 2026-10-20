@@ -11,7 +11,7 @@ const outlet = need("app-root"), overlay = need("app-loading"), label = need("lo
 overlay.removeAttribute("style");
 const errorNote = need("loading-error"), retry = need<HTMLButtonElement>("loading-retry");
 const state = { current: null as { lifetime: ReturnType<typeof screenLifetime>; context: ScreenContext } | null,
-  drafts: new Map<Route, string>(), pending: new Set<symbol>() };
+  drafts: new Map<Route, string>(), pending: new Set<symbol>(), reveal: null as symbol | null };
 const modules = {
   arena: () => import("./arena/main.ts"), dungeon: () => import("./dungeon/main.ts"), lab: () => import("./lab/setup.ts"),
 };
@@ -31,8 +31,9 @@ async function open(route: Route, context: ScreenContext): Promise<void> {
       for (const to of ["dungeon", "arena", "lab"] as const) {
         const button = need(`menu-${to}`, root);
         button.addEventListener("click", () => context.navigate(state.drafts.get(to) ?? playHref(to, context.address.search), { setup: true }));
-        for (const event of ["pointerenter", "focus"])
-          button.addEventListener(event, () => { void modules[to]().catch(() => {}); }, { once: true });
+        const preload = () => { void modules[to]().catch(() => {}); };
+        button.addEventListener("pointerenter", preload, { once: true });
+        button.addEventListener("focus", event => { if (event.relatedTarget) preload(); }, { once: true });
       }
       return;
     }
@@ -68,9 +69,16 @@ async function open(route: Route, context: ScreenContext): Promise<void> {
   }
 }
 
+function focusScreen(root: HTMLElement): void {
+  const targets = root.querySelectorAll<HTMLElement>("[data-initial-focus], canvas, button:not(:disabled), a[href]");
+  const preferred = Array.from(targets).find(element => element.hasAttribute("data-initial-focus") && element.checkVisibility());
+  (preferred ?? Array.from(targets).find(element => element.checkVisibility()))?.focus();
+}
+
 function navigate(href: string, options: NavigationOptions = {}): void {
   const address = new URL(href, location.href), route = routeFor(address.search);
-  state.current?.lifetime.dispose(); state.pending.clear();
+  state.current?.lifetime.dispose(); state.pending.clear(); state.reveal = null;
+  overlay.classList.remove("leaving");
   if (address.href !== location.href) {
     if (options.replace) history.replaceState(null, "", address);
     else history.pushState(null, "", address);
@@ -81,7 +89,7 @@ function navigate(href: string, options: NavigationOptions = {}): void {
   errorNote.hidden = true; retry.hidden = true;
   const context: ScreenContext = {
     root, address, signal: lifetime.signal, autostart: !options.setup,
-    get busy() { return state.pending.size > 0; }, own: lifetime.own, navigate,
+    get busy() { return state.pending.size > 0 || state.reveal !== null; }, own: lifetime.own, navigate,
     replace(href) {
       lifetime.signal.throwIfAborted(); address.href = new URL(href, address).href;
       history.replaceState(null, "", address);
@@ -90,23 +98,42 @@ function navigate(href: string, options: NavigationOptions = {}): void {
     async loading(title, task) {
       lifetime.signal.throwIfAborted();
       const token = Symbol(); state.pending.add(token);
-      overlay.hidden = false; root.inert = true; root.setAttribute("aria-busy", "true");
+      const previousFocus = document.activeElement;
+      overlay.classList.remove("leaving"); overlay.hidden = false; root.inert = true; root.setAttribute("aria-busy", "true");
       const stage = async (text: string) => {
         lifetime.signal.throwIfAborted(); label.textContent = text; await paintLoading(lifetime.signal);
       };
-      try { await stage(title); return await screenTask(task(stage), lifetime.signal); }
+      let failed = true;
+      try { await stage(title); const result = await screenTask(task(stage), lifetime.signal); failed = false; return result; }
       finally {
         state.pending.delete(token);
         if (!lifetime.signal.aborted && state.pending.size === 0) {
-          overlay.hidden = true; root.inert = false; root.removeAttribute("aria-busy");
+          const reveal = Symbol(); state.reveal = reveal;
+          try {
+            if (!failed && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+              overlay.classList.add("leaving");
+              // The scene stays frozen through the overlay's opacity transition, milliseconds.
+              await screenTask(new Promise<void>(resolve => setTimeout(resolve, 140)), lifetime.signal);
+            }
+            if (!lifetime.signal.aborted) {
+              overlay.hidden = true; root.inert = false; root.removeAttribute("aria-busy");
+              if (previousFocus instanceof HTMLElement && root.contains(previousFocus) && previousFocus.checkVisibility()) previousFocus.focus();
+              else focusScreen(root);
+            }
+          } finally { if (state.reveal === reveal) state.reveal = null; }
         }
       }
     },
   };
   state.current = { lifetime, context };
-  void context.loading(route === "menu" ? "Opening the main menu" : `Preparing ${route === "dungeon" ? "the depths" : route}`, async () => open(route, context))
+  if (route === "menu") {
+    overlay.hidden = true; root.inert = false;
+    void open(route, context).then(() => { if (!lifetime.signal.aborted) focusScreen(root); });
+    return;
+  }
+  void context.loading(`Preparing ${route === "dungeon" ? "the depths" : route}`, async () => open(route, context))
     .then(() => {
-      if (!lifetime.signal.aborted) root.querySelector<HTMLElement>("button:not(:disabled), a[href], canvas")?.focus();
+      if (!lifetime.signal.aborted) focusScreen(root);
     }).catch((error: unknown) => {
       if (lifetime.signal.aborted) return;
       console.error(error); lifetime.dispose(); overlay.hidden = false; root.inert = true;
@@ -116,6 +143,11 @@ function navigate(href: string, options: NavigationOptions = {}): void {
     });
 }
 
+document.addEventListener("keydown", event => {
+  if (!overlay.hidden && event.target instanceof Node && !overlay.contains(event.target)) event.stopImmediatePropagation();
+}, { capture: true });
+for (const type of ["keydown", "keyup", "pointerdown", "pointermove"])
+  overlay.addEventListener(type, event => event.stopPropagation());
 retry.addEventListener("click", () => navigate(location.href, { replace: true, setup: true }));
 need("loading-menu").addEventListener("click", () => navigate(MENU_HREF));
 document.addEventListener("click", (event) => {

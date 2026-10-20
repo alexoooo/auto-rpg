@@ -12,7 +12,9 @@ the crypt's skeleton, and a small, sprawling reptile with four legs and a driven
 ## Play online
 
 [Play Auto-RPG](https://alexoooo.github.io/auto-rpg/) in your browser: the link opens the main
-menu, with **Dungeon** (the crypt), **Arena** and **Lab**.
+menu, with **Dungeon** (the crypt), **Arena**, and **Tools**, which holds the **Lab** and development viewers.
+The game stays in one application when changing modes. Loading screens cover preparation until
+the opening view is ready. Returning to the menu ends the run and retains setup choices for the current tab.
 
 GitHub Actions tests and builds each push to `main` and publishes `dist/` to GitHub Pages
 (`.github/workflows/pages.yml`), building with `npm run build -- --base=/auto-rpg/`.
@@ -208,7 +210,7 @@ without resuming on its own.
 
 ## The Lab
 
-**Lab** on the main menu (`?play=lab`) lists scenarios that stand one body and exercise it:
+**Tools → Lab** on the main menu (`?play=lab`) lists scenarios that stand one body and exercise it:
 
 - **Stance**: walk it from the keyboard (W/S or Up/Down forward and back, A/D or Left/Right
   sideways, Q/E turn while walking) at the speed a slider sets, and shove it.

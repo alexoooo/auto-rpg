@@ -7,7 +7,7 @@
   --cut: #7fc98a;
   --flat: #6f8bb5;
   --bad: #d0705e;
-  --font: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --font: system-ui, sans-serif;
 }
 
 :where(#screen-root[data-screen="arena"]) * {

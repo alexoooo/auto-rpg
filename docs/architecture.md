@@ -1524,6 +1524,10 @@ complete frames beneath it before play begins; invisible colliders do not gate r
 Preparation advances no physics. Its deadline counts visible-tab time, and navigation cancels
 pending work. Model downloads share immutable bytes across scenes; each scene owns its decoded
 Babylon resources. Failed downloads leave the cache so Retry can request them again.
+Dungeon and Arena are the main menu's play actions. Tools groups the Lab and separate development
+viewers. Dungeon setup keeps advanced attribute, mind and seed editing in a drawer, and its
+gameplay diagnostics stay collapsed until requested. The shared shell supplies focus states,
+loading errors and reduced-motion-aware transitions; returning to the menu is immediate.
 
 - **The Arena** (`src/arena/`): two bodies, empty-handed unless armed, in the Forge (`src/arena/scene.ts`,
   `src/arena/room.ts`), each driven by its side's mind under a `Duel`, to a verdict, each

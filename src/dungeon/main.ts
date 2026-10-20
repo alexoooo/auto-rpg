@@ -240,7 +240,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const hover = new EnemyHover(), audio = new GameAudio(true, need("dungeon-sound"));
     const meterElement = need("frame-meter");
     const diagnostics = document.createElement("details"), summary = document.createElement("summary");
-    summary.textContent = "Performance";
+    summary.textContent = "Diagnostics"; diagnostics.className = "diagnostics";
     diagnostics.append(summary);
     const abort = new AbortController();
     const page: DungeonPage = {
@@ -362,13 +362,8 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     page.route = null;
     page.routeSignature = "";
     page.seed = seed; page.cryptPlan = cryptPlan;
-    if (reference) {
-      page.meterParent.prepend(page.diagnostics);
-      page.diagnostics.append(page.meterElement);
-    } else {
-      page.meterParent.prepend(page.meterElement);
-      page.diagnostics.remove();
-    }
+    page.meterParent.prepend(page.diagnostics);
+    page.diagnostics.append(page.meterElement);
     const view = cameraFor(page);
     pitch = view.pitch;
     azimuth = view.azimuth;

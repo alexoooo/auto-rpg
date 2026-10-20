@@ -1,6 +1,6 @@
 /* The lab (`?play=lab`): the scenario menu (#lab-select) and a scenario running (#hud over the
    canvas). src/app.ts loads this sheet only on the lab's screen. */
-:where(#screen-root[data-screen="lab"]) { --bg: #15191c; --panel: rgba(21, 25, 28, 0.86); --ink: #e7e3da; --dim: #9aa3a6; --accent: #d9a45b; --line: #2c3337; }
+:where(#screen-root[data-screen="lab"]) { --bg: #111012; --panel: var(--ui-panel); --ink: var(--ui-ink); --dim: var(--ui-dim); --accent: var(--ui-brass); --line: var(--ui-edge); }
 :where(#screen-root[data-screen="lab"]) { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; overflow: hidden; }
 :where(#screen-root[data-screen="lab"]) canvas { width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
 :where(#screen-root[data-screen="lab"]) [hidden] { display: none !important; }

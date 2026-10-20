@@ -128,3 +128,24 @@
 
 :where(#screen-root[data-screen="dungeon"]) .help .keys { display: grid; grid-template-columns: 1fr 1.5fr; gap: 10px 16px; font-size: 12px; line-height: 1.5; }
 :where(#screen-root[data-screen="dungeon"]) .help .keys dd { margin: 0; color: #aab1ba; }
+
+:where(#screen-root[data-screen="dungeon"]) .setup-bottom { display: grid; grid-template-columns: auto minmax(0, 1fr) 230px; align-items: start; }
+:where(#screen-root[data-screen="dungeon"]) #setup-advanced { font-size: 13px; margin-top: 26px; }
+:where(#screen-root[data-screen="dungeon"]) #setup-advanced[open] { grid-column: 1 / -1; grid-row: 2; margin-top: 0; }
+:where(#screen-root[data-screen="dungeon"]) #setup-advanced #party-attributes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; }
+:where(#screen-root[data-screen="dungeon"]) #setup-advanced #setup-options { margin: 0; }
+:where(#screen-root[data-screen="dungeon"]) #start { grid-column: 3; grid-row: 1; margin-top: 26px; }
+@media (max-width: 700px) {
+  :where(#screen-root[data-screen="dungeon"]) .setup-bottom { grid-template-columns: 1fr; gap: 16px; }
+  :where(#screen-root[data-screen="dungeon"]) #setup-advanced,
+  :where(#screen-root[data-screen="dungeon"]) #setup-advanced[open] { grid-column: 1; grid-row: auto; margin-top: 0; }
+  :where(#screen-root[data-screen="dungeon"]) #start { grid-column: 1; grid-row: auto; margin-top: 0; }
+  :where(#screen-root[data-screen="dungeon"]) .topbar { padding: 12px; gap: 10px; grid-template-columns: 1fr auto; }
+  :where(#screen-root[data-screen="dungeon"]) .brand span { display: none; }
+  :where(#screen-root[data-screen="dungeon"]) .topbar-end { grid-column: 2; }
+  :where(#screen-root[data-screen="dungeon"]) #seed-label { display: none; }
+  :where(#screen-root[data-screen="dungeon"]) .bottom-bar { padding: 14px; gap: 16px; flex-wrap: wrap; }
+  :where(#screen-root[data-screen="dungeon"]) .hero-panel,
+  :where(#screen-root[data-screen="dungeon"]) .party-panel { min-width: 0; flex: 1 1 140px; }
+  :where(#screen-root[data-screen="dungeon"]) .control-panel { order: 3; flex-basis: 100%; }
+}

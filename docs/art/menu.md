@@ -1,8 +1,10 @@
 # Main menu art
 
 `public/assets/menu/cathedral.jpg` is the decorative background of `#title-screen`, loaded by
-`src/menu.css`. It is a static painting; the title and three buttons are HTML. The CSS keeps the
+`src/menu.css`. It is a static painting; the title, Dungeon and Arena buttons, and expandable
+Tools group are HTML. The CSS keeps the
 menu in the painting's dark left side on wide screens and darkens the backdrop on narrow screens.
+The shared loading screen uses the painting beneath an opaque charcoal treatment.
 
 The painting is generated with the built-in image-generation tool, using the owner's villain
 concepts as the visual direction: faded crimson cloth, antique ivory, bronze and gothic stone.
@@ -24,11 +26,13 @@ The preview lighting is an art direction choice: the existing environment at 0.6
 hemispheric fill at 0.85, warm ivory key at 2.2, and crimson rim at 1.4. Each stone plinth is
 1.15 m across and 0.06 m tall. The camera holds at least 2.24 m vertically and 1.24 m horizontally
 to leave headroom and keep the arms within narrow columns. It renders after assets load and
-when resized, without a running animation loop. Page teardown disposes its skins, bodies, world,
+when resized, without a running animation loop. Screen teardown disposes its skins, bodies, world,
 scene and engine. This view does not run combat or change the playable bodies.
 
 The setup and gameplay elements occupy separate containers. Gameplay, including sound controls,
-is hidden until a run has loaded; failed launches return to setup with a visible error.
+is covered while a run loads and prepares complete opening frames; failed launches return to
+setup with a visible error and Retry. Advanced setup editors and gameplay diagnostics stay
+collapsed until requested.
 
 ## Generation prompt
 

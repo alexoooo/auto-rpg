@@ -57,7 +57,8 @@ works in dev and is absent from `dist`.
   `#tape=` plays a bout's orders again, `src/arena/`); the crypt at `?play=dungeon`
   (`src/dungeon/`); the lab at `?play=lab` (`&scenario=` runs one, `src/lab/scenarios.ts`).
   The persistent shell mounts one screen template at a time; screen changes use internal navigation
-  with explicit resource disposal and retain setup choices for the current tab.
+  with explicit resource disposal and retain setup choices for the current tab. Loading covers scene
+  preparation with physics suspended; Tools groups the Lab and standalone development viewers.
 - `/character-lab.html`: the character workshop viewer.
 - `/control-foundation.html`: shared pinned-reach task and environment replay (`src/control-foundation/`, `src/core/tasks/`).
 - `/control-tasks.html`: shared support-transition, two-hand bar and point-strike tasks, with playback and replay (`src/control-foundation/tasks.ts`).

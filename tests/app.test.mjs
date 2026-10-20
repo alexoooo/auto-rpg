@@ -39,7 +39,7 @@ test("index_html_is_one_document_holding_four_screens", async () => {
   const dungeon = template(html, "dungeon-screen");
   const labMenu = template(html, "lab-select-screen"), lab = template(html, "lab-screen");
   assert.match(menu, /id="menu-dungeon"/); assert.match(menu, /id="menu-arena"/); assert.match(menu, /id="menu-lab"/);
-  assert.match(arena, /<canvas id="stage">/); assert.match(dungeon, /<canvas id="dungeon"/);
+  assert.match(arena, /<canvas id="stage" tabindex="0" aria-label="Arena game">/); assert.match(dungeon, /<canvas id="dungeon"/);
   assert.match(lab, /<canvas id="stage"/);
   assert.ok(ids(labMenu).includes("lab-scenarios"), "the lab's menu has #lab-scenarios");
   for (const [name, text] of [["menu", menu], ["arena", arena], ["dungeon", dungeon], ["lab menu", labMenu], ["lab", lab]]) {

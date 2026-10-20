@@ -31,13 +31,22 @@
           <nav aria-label="Main menu">
             <button id="menu-dungeon" type="button">Dungeon</button>
             <button id="menu-arena" type="button">Arena</button>
-            <button id="menu-lab" type="button">Lab</button>
+            <details id="menu-tools">
+              <summary>Tools</summary>
+              <nav aria-label="Tools">
+                <button id="menu-lab" type="button">Lab</button>
+                <a href="./character-lab.html">Character workshop</a>
+                <a href="./control-foundation.html">Control foundation</a>
+                <a href="./control-tasks.html">Control tasks</a>
+                <a href="./physics-bench.html">Physics bench</a>
+              </nav>
+            </details>
           </nav>
         </div>
       </main>
     </template>
     <template id="arena-screen">
-      <canvas id="stage"></canvas>
+      <canvas id="stage" tabindex="0" aria-label="Arena game"></canvas>
       <!-- Each side's name and bar, and the bout's clock; filled by src/arena/main.ts. -->
       <div id="hud"></div>
       <details id="arena-view" hidden aria-label="View controls">
@@ -64,7 +73,7 @@
             <option value="right">Right</option>
           </select>
         </label>
-        <button id="begin" class="action" type="button" disabled>Fight</button>
+        <button id="begin" data-initial-focus class="action" type="button" disabled>Fight</button>
         <footer class="duel-footer">
           <button id="help-open" class="link" type="button">How to play</button>
           <button id="ratings-open" class="link" type="button">Ratings</button>
@@ -192,12 +201,14 @@
               <label><input type="radio" name="companions" value="2" /><span>2</span></label>
               <label><input type="radio" name="companions" value="3" /><span>3</span></label>
             </fieldset>
+            <details id="setup-advanced" class="ui-drawer"><summary>Advanced settings</summary>
             <details id="party-minds"><summary>Minds</summary><div id="party-mind-list"></div></details>
             <details id="setup-options"><summary>Options</summary><div class="setup-options-fields">
               <label class="field">Seed <input id="seed" type="text" inputmode="numeric" maxlength="10" /></label>
               <label class="field" hidden>Quality <select id="dungeon-quality"><option value="high">High</option><option value="reduced">Reduced</option></select></label>
             </div></details>
-            <button id="start" type="button" disabled>Loading…</button>
+            </details>
+            <button id="start" data-initial-focus type="button" disabled>Loading…</button>
           </div>
           <p id="setup-error" role="alert" hidden></p>
         </div>

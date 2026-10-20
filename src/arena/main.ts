@@ -439,76 +439,76 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     beginButton.disabled = true;
     try {
       await context.loading("Preparing fighters", async stage => {
-      appearances = { left: appearanceFor(next.left, appearances.left), right: appearanceFor(next.right, appearances.right) };
-      matchup = next;
-      const query = new URLSearchParams(location.search);
-      query.delete("balance"); query.delete("haste");
-      for (const side of SIDES) writeAttributes(query, side, attributes[side]);
-      query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
-      query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
-      query.delete("held");
-      for (const side of SIDES) query.set(`${side}.loadout`, SIDES.map((hand) => loadoutPickers[side][hand].value).join(","));
-      query.set("recovery", recoveryPicker.value);
-      let search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
-      const sameControllers = linkedControl === JSON.stringify(readMinds(search));
-      const sameRecovery = (linkedRecovery ?? null) === (readRecovery(search) ?? null);
-      const sameLoadouts = linkedLoadouts === JSON.stringify(readLoadouts(search));
-      const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameLoadouts && linkedAttributes === attributeKey(matchup, attributes) ? linked.tape : null;
-      replaying = tape !== null;
-      if (replaying) {
-        const snapshot = new URLSearchParams(search);
-        for (const side of SIDES) writeAttributes(snapshot, side, resolveCharacter({ model: matchup[side], attributes: attributes[side] }).config.attributes);
-        search = `?${snapshot}`;
-      }
-      context.replace(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view) + (replaying ? linked.hash : ""));
-      const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
-      context.signal.throwIfAborted();
-      end();
-      toStart();
-      audio.reset();
-      const gap = readGap(location.search), capSeconds = readCap(location.search), loadouts = readLoadouts(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search) ?? null;
-      controllers = { left: controllerLabel(location.search, "left"), right: controllerLabel(location.search, "right") };
-      const bout = duel = new Duel(world, {
-        left: matchup.left, right: matchup.right, recoverySeconds, attributes, level,
-        ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(loadouts ? { loadouts } : {}), ...(minds ? { minds } : {}),
-      }, {
-        solids: arenaSolids(level),
-        onBuilt: (duelist, built) => {
-          const hands = fighterHands(duelist);
-          const skin = dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true }, closure: hands.closure });
-          const shapes = drawBody(built, scene, Color3.FromHexString(ARENA_SIDES[duelist.side].colour));
-          const held = drawHeld(built, scene), pelvis = duelist.body.muscles.dynamics.root.segment.node;
-          const rest = pelvis.rotationQuaternion!.clone(), read = physicalReading(built);
-          highlights.add(duelist.side, [...skin.meshes, ...shapes.meshes, ...held.meshes]);
-          bodies.set(duelist.side, { read, skin, shapes, hands, subject: {
-            get position() { return read().centre; },
-            get rotation() { return pelvis.rotationQuaternion!; }, rest,
-          } });
-          for (const mesh of held.meshes) shadows.addShadowCaster(mesh);
-          drawn.push(skin, shapes, held);
-        },
-        // A blow is a touch, and is heard as one; this is what it took off.
-        onBlow: (blow) => { for (const cue of debrisCues(blow)) audio.cue(cue); },
-      });
-      playback = arenaPlayback(bout, CATCH_UP_SECONDS);
-      subjects = { left: bodies.get("left")!.subject, right: bodies.get("right")!.subject };
-      rig.reset(); applyView();
-      const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
-      hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
-      airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
-      if (tape) bout.playRecording(tape);
-      for (const row of rows) {
-        row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === you && !replaying ? " (you)" : ""}`;
-        const duelist = bout.duelists[row.side], minded = duelist.minded;
-        row.inspector = mindInspector(duelist.mind, duelist.built.spec, () => duel === bout
-          ? { body: duelist.body, skills: minded.skills ?? null } : null);
-        row.mind.replaceChildren(row.mind.firstElementChild!, row.inspector.element);
-      }
-      show("curtain", false); show("bout-end", false); setPaused(false); screen = "fight"; viewPanel.hidden = false;
-      frame();
-      await stage("Preparing lighting");
-      await warmScene(scene, context.signal);
-      firstFrame = true;
+        appearances = { left: appearanceFor(next.left, appearances.left), right: appearanceFor(next.right, appearances.right) };
+        matchup = next;
+        const query = new URLSearchParams(location.search);
+        query.delete("balance"); query.delete("haste");
+        for (const side of SIDES) writeAttributes(query, side, attributes[side]);
+        query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
+        query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
+        query.delete("held");
+        for (const side of SIDES) query.set(`${side}.loadout`, SIDES.map((hand) => loadoutPickers[side][hand].value).join(","));
+        query.set("recovery", recoveryPicker.value);
+        let search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
+        const sameControllers = linkedControl === JSON.stringify(readMinds(search));
+        const sameRecovery = (linkedRecovery ?? null) === (readRecovery(search) ?? null);
+        const sameLoadouts = linkedLoadouts === JSON.stringify(readLoadouts(search));
+        const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameLoadouts && linkedAttributes === attributeKey(matchup, attributes) ? linked.tape : null;
+        replaying = tape !== null;
+        if (replaying) {
+          const snapshot = new URLSearchParams(search);
+          for (const side of SIDES) writeAttributes(snapshot, side, resolveCharacter({ model: matchup[side], attributes: attributes[side] }).config.attributes);
+          search = `?${snapshot}`;
+        }
+        context.replace(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view) + (replaying ? linked.hash : ""));
+        const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
+        context.signal.throwIfAborted();
+        end();
+        toStart();
+        audio.reset();
+        const gap = readGap(location.search), capSeconds = readCap(location.search), loadouts = readLoadouts(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search) ?? null;
+        controllers = { left: controllerLabel(location.search, "left"), right: controllerLabel(location.search, "right") };
+        const bout = duel = new Duel(world, {
+          left: matchup.left, right: matchup.right, recoverySeconds, attributes, level,
+          ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(loadouts ? { loadouts } : {}), ...(minds ? { minds } : {}),
+        }, {
+          solids: arenaSolids(level),
+          onBuilt: (duelist, built) => {
+            const hands = fighterHands(duelist);
+            const skin = dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true }, closure: hands.closure });
+            const shapes = drawBody(built, scene, Color3.FromHexString(ARENA_SIDES[duelist.side].colour));
+            const held = drawHeld(built, scene), pelvis = duelist.body.muscles.dynamics.root.segment.node;
+            const rest = pelvis.rotationQuaternion!.clone(), read = physicalReading(built);
+            highlights.add(duelist.side, [...skin.meshes, ...shapes.meshes, ...held.meshes]);
+            bodies.set(duelist.side, { read, skin, shapes, hands, subject: {
+              get position() { return read().centre; },
+              get rotation() { return pelvis.rotationQuaternion!; }, rest,
+            } });
+            for (const mesh of held.meshes) shadows.addShadowCaster(mesh);
+            drawn.push(skin, shapes, held);
+          },
+          // A blow is a touch, and is heard as one; this is what it took off.
+          onBlow: (blow) => { for (const cue of debrisCues(blow)) audio.cue(cue); },
+        });
+        playback = arenaPlayback(bout, CATCH_UP_SECONDS);
+        subjects = { left: bodies.get("left")!.subject, right: bodies.get("right")!.subject };
+        rig.reset(); applyView();
+        const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
+        hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
+        airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
+        if (tape) bout.playRecording(tape);
+        for (const row of rows) {
+          row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === you && !replaying ? " (you)" : ""}`;
+          const duelist = bout.duelists[row.side], minded = duelist.minded;
+          row.inspector = mindInspector(duelist.mind, duelist.built.spec, () => duel === bout
+            ? { body: duelist.body, skills: minded.skills ?? null } : null);
+          row.mind.replaceChildren(row.mind.firstElementChild!, row.inspector.element);
+        }
+        show("curtain", false); show("bout-end", false); setPaused(false); screen = "fight"; viewPanel.hidden = false;
+        frame();
+        await stage("Preparing lighting");
+        await warmScene(scene, context.signal);
+        firstFrame = true;
       });
       if (!context.signal.aborted) canvas.focus();
     } catch (error) {
