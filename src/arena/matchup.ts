@@ -1,10 +1,10 @@
-import { BODY_MODELS, modelHastes, modelHolds, modelInfo, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHastes, modelHolding, modelHolds, modelInfo, modelSupportsMind, type BodyModel } from "../core/models.ts";
 import { hasteFrom } from "../core/human/attributes.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import { PRESETS } from "../core/mind/controllers.ts";
+import { MINDS } from "../core/mind/controllers.ts";
 import { isOrders } from "../core/mind/orders.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
-import { SIDES, type OrdersEntry } from "./duel.ts";
+import { ARENA_HELD, SIDES, type OrdersEntry } from "./duel.ts";
 import { HELD, type Held } from "../core/items/held.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import type { Side } from "../core/spec/body.ts";
@@ -158,26 +158,38 @@ export function readTape(hash: string): OrdersEntry[] {
 /** The fragment that carries `tape` (`readTape`). */
 export const tapeHash = (tape: readonly OrdersEntry[]): string => `#${TAPE_KEY}=${encodeURIComponent(JSON.stringify(tape))}`;
 
-/** A side's choice of preset (`PRESETS`), separate from anatomy, equipment and appearance. */
+/** A side's choice of mind (`MINDS`), separate from anatomy, equipment and appearance. */
 type Control = string;
 
 /** The selectable controllers' names on the page, by id. */
-export const CONTROLS: Readonly<Record<Control, string>> = Object.freeze(Object.fromEntries(Object.entries(PRESETS).map(([id, preset]) => [id, preset.label])));
+export const CONTROLS: Readonly<Record<Control, string>> = Object.freeze(Object.fromEntries(Object.entries(MINDS).map(([id, mind]) => [id, mind.label])));
 
-/** Per-side controller choices in a shareable arena recipe. */
+/** What each side's right hand holds by `search` (`readHeld`), or the arena's (`ARENA_HELD`). */
+const heldOf = (search: string): Readonly<Record<Side, Held>> => readHeld(search) ?? { left: ARENA_HELD, right: ARENA_HELD };
+
+/** Per-side controller choices in a shareable arena recipe: each one its side's body and loadout are offered (`controlsFor`). */
 export function readControls(search: string): Readonly<Record<Side, Control>> {
   const parts = (new URLSearchParams(search).get("control") ?? "").split(",");
-  const models = readMatchup(search);
-  const read = (s: string | undefined, model: BodyModel): Control => {
-    const choices = controlsFor(model);
-    return s !== undefined && choices.includes(s) ? s : choices.find((control) => PRESETS[control]!.config === modelInfo(model).mind) ?? choices[0]!;
+  const models = readMatchup(search), held = heldOf(search);
+  const read = (s: string | undefined, side: Side): Control => {
+    const choices = controlsFor(models[side], held[side]);
+    return s !== undefined && choices.includes(s) ? s : defaultControl(models[side], held[side]);
   };
-  return { left: read(parts[0], models.left), right: read(parts[1] ?? parts[0], models.right) };
+  return { left: read(parts[0], "left"), right: read(parts[1] ?? parts[0], "right") };
 }
 
-/** Pickers and links accept the same model/controller pairs. */
-export function controlsFor(model: BodyModel): readonly Control[] {
-  return Object.keys(PRESETS).filter((control) => modelSupportsMind(model, PRESETS[control]!.config));
+/**
+ * Pickers and links accept the same choices: the minds a body of `model` holding `held` can carry
+ * out (`modelSupportsMind`), so a mind that works with one loadout is offered with no other.
+ */
+export function controlsFor(model: BodyModel, held: Held = ARENA_HELD): readonly Control[] {
+  return Object.keys(MINDS).filter((control) => modelSupportsMind(model, MINDS[control]!.config, held));
+}
+
+/** The choice a side starts on: its model's own mind (`modelInfo`) where it is offered, else the first offered. */
+export function defaultControl(model: BodyModel, held: Held = ARENA_HELD): Control {
+  const choices = controlsFor(model, held);
+  return choices.find((control) => MINDS[control]!.config === modelInfo(model).mind) ?? choices[0]!;
 }
 
 /** The link's key for `side`'s mind once a person has changed it from its preset: its whole tree (`writeMind`). */
@@ -188,15 +200,15 @@ const mindKey = (side: Side): string => `${side}.mind`;
  * preset `control=` names, unless the link carries the side's own tree.
  */
 export function linkedMind(search: string, side: Side): LinkedMind {
-  const preset = PRESETS[readControls(search)[side]]!.config;
-  return parseMind(new URLSearchParams(search).get(mindKey(side)), modelSpec(readMatchup(search)[side])) ?? { config: preset, faults: [] };
+  const preset = MINDS[readControls(search)[side]]!.config;
+  return parseMind(new URLSearchParams(search).get(mindKey(side)), modelHolding(readMatchup(search)[side], heldOf(search)[side])) ?? { config: preset, faults: [] };
 }
 
 /** The sides' minds as `search` carries them (`linkedMind`); a side whose tree has a fault plays its preset whole. */
 export function readMinds(search: string): Readonly<Record<Side, MindConfig>> {
   const controls = readControls(search), read = (side: Side) => {
     const { config, faults } = linkedMind(search, side);
-    return faults.length > 0 ? PRESETS[controls[side]]!.config : config;
+    return faults.length > 0 ? MINDS[controls[side]]!.config : config;
   };
   return { left: read("left"), right: read("right") };
 }
@@ -207,14 +219,14 @@ export function mindsSearch(search: string, minds: Readonly<Record<Side, MindCon
   for (const side of SIDES) {
     const text = writeMind(minds[side]);
     query.delete(mindKey(side));
-    if (text !== writeMind(PRESETS[controls[side]]!.config)) query.set(mindKey(side), text);
+    if (text !== writeMind(MINDS[controls[side]]!.config)) query.set(mindKey(side), text);
   }
   return `?${query}`;
 }
 
 /** What a mind of `config`, chosen from `control`'s preset, is called: the preset's name, or custom where it is the preset's no longer. */
 export function controlName(control: Control, config: MindConfig): string {
-  return JSON.stringify(config) === JSON.stringify(PRESETS[control]!.config) ? CONTROLS[control] : `Custom (from ${CONTROLS[control]})`;
+  return JSON.stringify(config) === JSON.stringify(MINDS[control]!.config) ? CONTROLS[control] : `Custom (from ${CONTROLS[control]})`;
 }
 
 /** What the bout calls a side's controller (`controlName`), by the mind its address carries. */

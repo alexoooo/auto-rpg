@@ -6,8 +6,8 @@
  *
  *   npm run match -- <mind> <mind> [--workers N] [--json <file>]
  *
- * A mind is a preset's id (`PRESETS`), a controller's kind (`CONTROLLERS`: its defaults), a JSON
- * file holding a mind's config, or that JSON itself. Each plays the protocol's bodies, loadouts and
+ * A mind is one a person may pick, by its id (`MINDS`: a preset's, or a kind's with no preset), a
+ * JSON file holding a mind's config, or that JSON itself. Each plays the protocol's bodies, loadouts and
  * gaps (`MATCH`) on the left against the other on the right, then the other way round: a mind that
  * wins only from one side shows it. It prints the harness, the commit, each mind's digest, every
  * bout and the score by the conditions it varies; `--json` writes all of it.
@@ -18,8 +18,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { CAP_SECONDS } from "../src/arena/duel.ts";
-import { CONTROLLERS, PRESETS } from "../src/core/mind/controllers.ts";
-import { modelSpec } from "../src/core/models.ts";
+import { CONTROLLERS, MINDS } from "../src/core/mind/controllers.ts";
+import { modelHolding } from "../src/core/models.ts";
 import { mindFaults } from "../src/ui/mind-link.ts";
 import { BOUT_HARNESS } from "../research/bout.mjs";
 import { defaultLanes, playBouts } from "../research/bout-pool.mjs";
@@ -43,17 +43,18 @@ const canonical = (value) => JSON.stringify(value, (_, v) => typeof v === "objec
 const digest = (value) => createHash("sha256").update(typeof value === "string" ? value : canonical(value)).digest("hex").slice(0, 16);
 
 /**
- * The mind `text` names: a preset's id, a controller's kind, a JSON file or JSON. Refused, with
- * its faults, where it is no mind or does not fit every body the protocol gives it (`mindFaults`).
+ * The mind `text` names: a mind's id (`MINDS`), a controller's kind (its defaults), a JSON file or
+ * JSON. Refused, with its faults, where it is no mind or does not fit every body and loadout the
+ * protocol gives it (`mindFaults`).
  */
 export function readMatchMind(text) {
-  const named = Object.hasOwn(PRESETS, text) ? { label: PRESETS[text].label, config: PRESETS[text].config }
+  const named = Object.hasOwn(MINDS, text) ? { label: MINDS[text].label, config: MINDS[text].config }
     : Object.hasOwn(CONTROLLERS, text) ? { label: CONTROLLERS[text].label, config: CONTROLLERS[text].defaults }
     : { label: text, config: JSON.parse(existsSync(text) ? readFileSync(text, "utf8") : text) };
-  if (typeof named.config?.kind !== "string" || !Object.hasOwn(CONTROLLERS, named.config.kind)) throw new Error(`${text} is no mind: name a preset (${Object.keys(PRESETS).join(", ")}), a kind (${Object.keys(CONTROLLERS).join(", ")}), or a config`);
-  for (const body of MATCH.bodies) {
-    const faults = mindFaults(named.config, modelSpec(body));
-    if (faults.length > 0) throw new Error(`${text} on ${body}: ${faults.join("; ")}`);
+  if (typeof named.config?.kind !== "string" || !Object.hasOwn(CONTROLLERS, named.config.kind)) throw new Error(`${text} is no mind: name a mind (${Object.keys(MINDS).join(", ")}), a kind (${Object.keys(CONTROLLERS).join(", ")}), or a config`);
+  for (const body of MATCH.bodies) for (const held of MATCH.held) {
+    const faults = mindFaults(named.config, modelHolding(body, held));
+    if (faults.length > 0) throw new Error(`${text} on ${body} holding ${held}: ${faults.join("; ")}`);
   }
   return { ...named, digest: digest(named.config) };
 }

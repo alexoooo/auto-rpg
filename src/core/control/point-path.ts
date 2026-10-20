@@ -30,3 +30,18 @@ export function pointPath(start: { position: Vec3; velocity: Vec3 }, finish: Vec
   }
   return { target: target as unknown as Vec3, velocity: velocity as unknown as Vec3, acceleration: acceleration as unknown as Vec3 };
 }
+
+/**
+ * Where `pointPath` puts its point at `time`, into `out`: its target alone, allocating nothing,
+ * for a reader that samples many paths a step; `work` is the caller's own and carries nothing
+ * between calls. The same arithmetic as `pointPath`'s target.
+ */
+export function pointPathTargetToRef(start: { position: Vec3; velocity: Vec3 }, finish: Vec3, time: number, seconds: number,
+  out: [number, number, number], work: [number, number, number], finishVelocity?: Vec3, curve?: Vec3): void {
+  if (time >= seconds) { out[0] = finish[0]; out[1] = finish[1]; out[2] = finish[2]; return; }
+  const u = time / seconds, v = 1 - u, bump = 64 * u * u * u * v * v * v;
+  for (let k = 0; k < 3; k++) {
+    scalarPathToRef(start.position[k]!, start.velocity[k]!, finish[k]!, time, seconds, work, finishVelocity?.[k]);
+    out[k] = curve ? work[0] + curve[k]! * bump : work[0];
+  }
+}

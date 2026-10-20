@@ -1,6 +1,6 @@
 import { armedWith } from "../core/items/held.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import { PRESETS } from "../core/mind/controllers.ts";
+import { MINDS } from "../core/mind/controllers.ts";
 import { modelInfo, modelSpec, modelSupportsMind, type BodyModel } from "../core/models.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
@@ -14,10 +14,10 @@ const OWN = "own";
 /** A row of the panel: the bodies of one model on one side, which play the mind chosen in it. */
 interface Row { readonly side: Participant["side"]; readonly model: BodyModel }
 
-/** The minds the start panel offers a body of `model`, by id: its model's own first, then each preset that fits it (`PRESETS`). */
+/** The minds the start panel offers a body of `model`, by id: its model's own first, then each that fits it holding what its model holds (`MINDS`). */
 function presetsFor(model: BodyModel): Readonly<Record<string, { readonly label: string; readonly config: MindConfig }>> {
   return { [OWN]: { label: "Its own", config: modelInfo(model).mind },
-    ...Object.fromEntries(Object.entries(PRESETS).filter(([, preset]) => modelSupportsMind(model, preset.config))) };
+    ...Object.fromEntries(Object.entries(MINDS).filter(([, mind]) => modelSupportsMind(model, mind.config, modelInfo(model).held))) };
 }
 
 /** A body of `model`, holding what its model holds (`DungeonRun`): what its mind must fit. */

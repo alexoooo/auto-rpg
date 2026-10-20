@@ -6,7 +6,7 @@ import { treeFits } from "./mind/catalog.ts";
 import { reptileSpec } from "./reptile/spec.ts";
 import { deepFreeze } from "./state.ts";
 import { canHold } from "./human/grip.ts";
-import type { Held } from "./items/held.ts";
+import { armedWith, type Held } from "./items/held.ts";
 
 /** Models available to game builders, independent of a family's anatomical constructor. */
 export type BodyModel = HumanoidModel | "reptile";
@@ -68,5 +68,24 @@ function specOf(model: BodyModel): BodySpec {
 /** Whether `model`'s right hand can close on a haft (`canHold`). */
 export const modelHolds = (model: BodyModel): boolean => canHold(specOf(model), "right");
 
-/** Whether `model`'s body can carry out what every part of `mind` commands (`treeFits`). */
-export const modelSupportsMind = (model: BodyModel, mind: MindConfig): boolean => treeFits(specOf(model), mind);
+/** Each model's spec with each item in its right hand, read once. */
+const holding = new Map<string, BodySpec>();
+/**
+ * `model`'s spec with `held` in its right hand (`armedWith`), read once: the body a mind of a
+ * fight that hands it `held` must fit. A model that cannot hold `held` is refused.
+ */
+export function modelHolding(model: BodyModel, held: Held): BodySpec {
+  if (held === "empty") return specOf(model);
+  const key = `${model}/${held}`;
+  let spec = holding.get(key);
+  if (!spec) holding.set(key, spec = armedWith(specOf(model), "right", held));
+  return spec;
+}
+
+/**
+ * Whether `model`'s body, holding `held` in its right hand, can carry out what every part of
+ * `mind` commands (`treeFits`): a mind that works only with one loadout says so in a part's `fits`,
+ * and is offered with no other. A body that cannot hold `held` supports no mind with it.
+ */
+export const modelSupportsMind = (model: BodyModel, mind: MindConfig, held: Held = "empty"): boolean =>
+  (held === "empty" || modelHolds(model)) && treeFits(modelHolding(model, held), mind);

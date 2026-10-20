@@ -13,6 +13,7 @@ import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "./harness/core-stand.mjs";
 import { Duel } from "../src/arena/duel.ts";
 import { controlsFor, readControls, readHeld, readMinds } from "../src/arena/matchup.ts";
+import { MINDS } from "../src/core/mind/controllers.ts";
 import { companionSpawn } from "../src/dungeon/party-placement.ts";
 import { cryptModel } from "../src/dungeon/actors.ts";
 import { DungeonRun, runMap, runModels } from "../src/dungeon/run.ts";
@@ -37,7 +38,9 @@ test("registered models declare compatible default minds and equipment", () => {
 
 test("arena links retain compatible choices and reject invalid recipes before building bodies", async () => {
   const query = "?matchup=reptile,workshop-fighter&control=scrapper&held=club&guard=pose";
-  assert.deepEqual(controlsFor("reptile"), ["crawl"]);
+  const offered = controlsFor("reptile");
+  assert.ok(offered.includes("crawl") && !offered.includes("scrapper"), `the reptile is offered its crawl and no humanoid's fighter: ${offered}`);
+  for (const control of offered) assert.equal(modelSupportsMind("reptile", MINDS[control].config, "empty"), true, control);
   assert.deepEqual(readControls(query), { left: "crawl", right: "scrapper" });
   assert.deepEqual(readHeld(query), { left: "empty", right: "club" });
   assert.deepEqual(readMinds(query), { left: QUADRUPED, right: SCRAPPER });

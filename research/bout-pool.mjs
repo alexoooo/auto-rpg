@@ -8,9 +8,10 @@ export const defaultLanes = () => Math.max(1, availableParallelism() - 2);
 /**
  * Play every job (`{ recipe, seconds?, shortfall?, blows? }`, as `bout-worker.mjs` reads it) on `lanes`
  * workers, each worker one bout at a time, and give the rows in the jobs' order. A row comes back as
- * a message: no two workers share a file.
+ * a message: no two workers share a file. Each row is handed to `onRow` with its job's index as it
+ * comes, so a long run keeps what it has played.
  */
-export async function playBouts(jobs, lanes = defaultLanes()) {
+export async function playBouts(jobs, lanes = defaultLanes(), onRow = () => {}) {
   const rows = new Array(jobs.length);
   const pool = Array.from({ length: Math.min(lanes, jobs.length) }, () => new Worker(new URL("./bout-worker.mjs", import.meta.url)));
   let next = 0;
@@ -22,6 +23,7 @@ export async function playBouts(jobs, lanes = defaultLanes()) {
         // A bout that throws ends the run: every worker is let go, or the process waits on them.
         if (error) { next = jobs.length; for (const each of pool) each.terminate(); reject(new Error(error)); return; }
         rows[id] = result;
+        onRow(result, id);
         feed();
       });
       worker.postMessage({ ...jobs[id], id });

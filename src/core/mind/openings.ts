@@ -1,7 +1,7 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../body.ts";
 import { attackPath, ATTACK_PATH, type AttackTuning } from "../skills/attack-path.ts";
-import { pointPath } from "../control/point-path.ts";
+import { pointPathTargetToRef } from "../control/point-path.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { BlowFamily } from "./intent.ts";
 import { aimOf } from "../skills/strikes.ts";
@@ -9,6 +9,7 @@ import { placedReach } from "../skills/strike.ts";
 import { type Side, frameOf, type BodySpec, type SegmentSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { add, dot, length, scale, sub } from "../spec/vec.ts";
+import { hypot } from "../math/real.ts";
 import type { BodySense } from "./senses.ts";
 import { convexHull } from "../spec/hull.ts";
 import { hullEntry } from "./hull-entry.ts";
@@ -42,18 +43,34 @@ export function validOpeningTuning(tuning: OpeningTuning): boolean {
     && (tuning.uppercutReserve ?? OPENINGS.uppercutReserve) >= 0;
 }
 
-/** Exact squared distance between two finite segments, including degenerate and parallel ones. */
+/** `x` clipped to [0, 1]. */
+const clip = (x: number): number => Math.max(0, Math.min(1, x));
+
+/** The squared length of `w + u s - v t`, by components: the gap between two segments' points at `s` and `t`. */
+function gapSquared(wx: number, wy: number, wz: number, ux: number, uy: number, uz: number, vx: number, vy: number, vz: number, s: number, t: number): number {
+  const qx = wx + ux * s - vx * t, qy = wy + uy * s - vy * t, qz = wz + uz * s - vz * t;
+  return qx * qx + qy * qy + qz * qz;
+}
+
+/**
+ * Exact squared distance between two finite segments, including degenerate and parallel ones. It
+ * runs for every candidate blow against every guarding limb each control step, so it works in
+ * numbers alone and allocates nothing.
+ */
 export function segmentDistanceSquared(start: Vec3, end: Vec3, otherStart: Vec3, otherEnd: Vec3): number {
-  const u = sub(end, start), v = sub(otherEnd, otherStart), w = sub(start, otherStart);
-  const a = dot(u, u), b = dot(u, v), c = dot(v, v), d = dot(u, w), e = dot(v, w);
-  const clip = (x: number) => Math.max(0, Math.min(1, x));
-  const at = (s: number, t: number) => { const q = sub(add(w, scale(u, s)), scale(v, t)); return dot(q, q); };
-  let best = Math.min(at(0, c ? clip(e / c) : 0), at(1, c ? clip((e + b) / c) : 0),
-    at(a ? clip(-d / a) : 0, 0), at(a ? clip((b - d) / a) : 0, 1));
+  const ux = end[0] - start[0], uy = end[1] - start[1], uz = end[2] - start[2];
+  const vx = otherEnd[0] - otherStart[0], vy = otherEnd[1] - otherStart[1], vz = otherEnd[2] - otherStart[2];
+  const wx = start[0] - otherStart[0], wy = start[1] - otherStart[1], wz = start[2] - otherStart[2];
+  const a = ux * ux + uy * uy + uz * uz, b = ux * vx + uy * vy + uz * vz, c = vx * vx + vy * vy + vz * vz;
+  const d = ux * wx + uy * wy + uz * wz, e = vx * wx + vy * wy + vz * wz;
+  let best = Math.min(gapSquared(wx, wy, wz, ux, uy, uz, vx, vy, vz, 0, c ? clip(e / c) : 0),
+    gapSquared(wx, wy, wz, ux, uy, uz, vx, vy, vz, 1, c ? clip((e + b) / c) : 0),
+    gapSquared(wx, wy, wz, ux, uy, uz, vx, vy, vz, a ? clip(-d / a) : 0, 0),
+    gapSquared(wx, wy, wz, ux, uy, uz, vx, vy, vz, a ? clip((b - d) / a) : 0, 1));
   const determinant = a * c - b * b;
   if (determinant > 0) {
     const s = (b * e - c * d) / determinant, t = (a * e - b * d) / determinant;
-    if (s >= 0 && s <= 1 && t >= 0 && t <= 1) best = Math.min(best, at(s, t));
+    if (s >= 0 && s <= 1 && t >= 0 && t <= 1) best = Math.min(best, gapSquared(wx, wy, wz, ux, uy, uz, vx, vy, vz, s, t));
   }
   return best;
 }
@@ -281,6 +298,44 @@ interface Opening {
   readonly score: number;
 }
 
+/** Whether the segment from `a` to `b` passes within any of `obstacles`' radii of its centre line. */
+function crosses(obstacles: readonly { readonly a: Vec3; readonly b: Vec3; readonly radius: number }[], a: Vec3, b: Vec3): boolean {
+  for (const o of obstacles) if (segmentDistanceSquared(a, b, o.a, o.b) <= o.radius * o.radius) return true;
+  return false;
+}
+
+/** Each repertoire's blow families (`openingSelector`). */
+const LINEAR: readonly BlowFamily[] = Object.freeze(["straight"]), MIXED: readonly BlowFamily[] = Object.freeze(["straight", "hook"]);
+const VERTICAL: readonly BlowFamily[] = Object.freeze(["straight", "hook", "overhand"]), BOXING: readonly BlowFamily[] = Object.freeze(["straight", "hook", "uppercut"]);
+
+/** Each spec's guarding limbs (its hands and forearms with a centre line), read once: what a blow's path must clear. */
+const GUARDS = new WeakMap<BodySpec, readonly { readonly name: string; readonly local: NonNullable<ReturnType<typeof capsule>> }[]>();
+function guardsOf(spec: BodySpec) {
+  let guards = GUARDS.get(spec);
+  if (!guards) GUARDS.set(spec, guards = Object.freeze(spec.segments.filter(s => /^hand\.|^forearm\./.test(s.name)).flatMap(segment => {
+    const local = capsule(segment);
+    return local ? [{ name: segment.name, local }] : [];
+  })));
+  return guards;
+}
+
+/** Each spec's parts a blow is aimed at unless told others: its high mark, then its middle ones, read once. */
+const TARGETS = new WeakMap<BodySpec, readonly string[]>();
+function targetsOf(spec: BodySpec): readonly string[] {
+  let names = TARGETS.get(spec);
+  if (!names) TARGETS.set(spec, names = Object.freeze([spec.marks.high, ...spec.marks.middle]));
+  return names;
+}
+
+/** The heights and sideways offsets a face is aimed at, as fractions of its half-extent (`OPENINGS.elevation`). */
+const ELEVATIONS: readonly number[] = Object.freeze([-OPENINGS.elevation, 0, OPENINGS.elevation]);
+
+/** The lateral offsets of a part other than the head: straight at it. */
+const NO_OFFSET: readonly number[] = Object.freeze([0]);
+
+/** A point path's start velocity: at rest. */
+const AT_REST: Vec3 = Object.freeze([0, 0, 0]) as unknown as Vec3;
+
 /** A replaceable, bounded geometric selector; reads physical shapes and poses, never opponent policy or health. */
 export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, paths: AttackTuning = ATTACK_PATH) {
   if (!validOpeningTuning(tuning)) throw new Error("opening preferences must be finite and headLateral must be in [0,1]");
@@ -289,6 +344,22 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
   const preference: Readonly<Record<string, number | undefined>> = settings;
   const headOffsets = settings.headLateral ? [-settings.headLateral, 0, settings.headLateral] : [0];
   const scratch = new Vector3(), inverse = new Quaternion();
+  // What a family asks of a blow, read once a family: the settings do not change.
+  const terms = new Map<BlowFamily, ReturnType<typeof familyTerms>>();
+  const termsOf = (family: BlowFamily) => { let found = terms.get(family); if (!found) terms.set(family, found = familyTerms(family, settings)); return found; };
+  // A path's samples, in work arrays of this selector's own that carry nothing between calls.
+  const along: [number, number, number] = [0, 0, 0], work: [number, number, number] = [0, 0, 0];
+  const previous: [number, number, number] = [0, 0, 0], next: [number, number, number] = [0, 0, 0];
+  // A candidate's face point, its predicted target and a hull's aim, likewise.
+  const front: [number, number, number] = [0, 0, 0], target: [number, number, number] = [0, 0, 0], toward: [number, number, number] = [0, 0, 0];
+  // A path's ends and contact direction in the body's frame, and where its point path starts, likewise.
+  const home: [number, number, number] = [0, 0, 0], end: [number, number, number] = [0, 0, 0], direction: [number, number, number] = [0, 0, 0];
+  const from: { position: Vec3; readonly velocity: Vec3 } = { position: AT_REST, velocity: AT_REST };
+  /** `at`, in the frame of sensed segment `sensed`, into `out` in the world's. */
+  const pointToRef = (sensed: { readonly position: Vector3; readonly rotation: Quaternion }, at: Vec3, out: [number, number, number]) => {
+    scratch.set(...at).applyRotationQuaternionToRef(sensed.rotation, scratch).addInPlace(sensed.position);
+    out[0] = scratch.x; out[1] = scratch.y; out[2] = scratch.z;
+  };
   const point = (foe: BodySense, name: string, at: Vec3): Vec3 => {
     const sensed = foe.segments.get(name)!;
     scratch.set(...at).applyRotationQuaternionToRef(sensed.rotation, scratch).addInPlace(sensed.position);
@@ -301,88 +372,103 @@ export function openingSelector(spec: BodySpec, tuning: OpeningTuning = {}, path
     const fist = view.fists[hand].position;
     const observed = view.effectors[`hand.${hand}`]!.feedback?.point ?? [fist.x, fist.y, fist.z];
     const start: Vec3 = [observed[0], observed[1], observed[2]];
-    const obstacles = foe.spec.segments.filter(s => /^hand\.|^forearm\./.test(s.name)).flatMap(segment => {
-      const local = capsule(segment);
-      return local && foe.segments.has(segment.name) ? [{ a: point(foe, segment.name, local.a), b: point(foe, segment.name, local.b), radius: local.radius + margin }] : [];
-    });
+    const obstacles = guardsOf(foe.spec).flatMap(({ name, local }) =>
+      foe.segments.has(name) ? [{ a: point(foe, name, local.a), b: point(foe, name, local.b), radius: local.radius + margin }] : []);
     let best: Opening | null = null;
     let families: readonly BlowFamily[];
     switch (repertoire) {
-      case "linear": families = ["straight"]; break;
-      case "mixed": families = ["straight", "hook"]; break;
-      case "vertical": families = ["straight", "hook", "overhand"]; break;
-      case "boxing": families = ["straight", "hook", "uppercut"]; break;
+      case "linear": families = LINEAR; break;
+      case "mixed": families = MIXED; break;
+      case "vertical": families = VERTICAL; break;
+      case "boxing": families = BOXING; break;
       default: { const never: never = repertoire; throw new Error(`unknown repertoire ${never}`); }
     }
     if (selection) families = [selection.family];
-    const { high, middle } = foe.spec.marks;
-    for (const name of selection?.segments ?? [high, ...middle]) {
+    const { high } = foe.spec.marks;
+    const ahead = OPENINGS.prediction + Math.max(0, view.time - (foe.time ?? view.time)), aim = aimOf(spec, hand);
+    /** `at`, in the body's root frame, into `out` in the world's. */
+    const worldToRef = (at: Vec3, out: [number, number, number]) => {
+      scratch.set(at[0], at[1], at[2]).applyRotationQuaternionToRef(view.root.rotation, scratch).addInPlace(view.root.position);
+      out[0] = scratch.x; out[1] = scratch.y; out[2] = scratch.z;
+    };
+    for (const name of selection?.segments ?? targetsOf(foe.spec)) {
       const segment = foe.spec.segments.find(s => s.name === name), sensed = foe.segments.get(name);
       const local = segment && capsule(segment), poly = segment && polyhedron(segment);
       if ((!local&&!poly) || !sensed) continue;
-      const fronts: Vec3[] = [];
+      const top = selection?.family === "overhand" || repertoire === "vertical" ? upperSurface(foe, name, start) : null;
+      const bottom = selection?.family === "uppercut" || repertoire === "boxing" ? lowerSurface(foe, name, start) : null;
+      const spin = sensed.spin, velocity = sensed.velocity, repeated = name === blockedSurface || selection?.blocked?.includes(name);
+      /**
+       * Each blow at `front`, a point on the segment's face (its top or bottom for an overhand or an
+       * uppercut, its side for any other), scored: in the order the faces are found, so that a tie
+       * keeps the first. The target is read into a work array, and copied only into the best.
+       */
+      const consider = (front: Vec3, face: "side" | "top" | "bottom") => {
+        const lx = front[0] - sensed.centre.x, ly = front[1] - sensed.centre.y, lz = front[2] - sensed.centre.z;
+        target[0] = front[0] + (velocity.x + (spin.y * lz - spin.z * ly)) * ahead;
+        target[1] = front[1] + (velocity.y + (spin.z * lx - spin.x * lz)) * ahead;
+        target[2] = front[2] + (velocity.z + (spin.x * ly - spin.y * lx)) * ahead;
+        const armReach = placedReach(spec, hand, target[1] - view.head.y);
+        const flat = hypot(target[0] - view.head.x, target[1] - target[1], target[2] - view.head.z);
+        for (const family of families) {
+          if ((family === "overhand") !== (face === "top")) continue;
+          if ((family === "uppercut") !== (face === "bottom")) continue;
+          const terms = termsOf(family), reach = Math.max(0, armReach - terms.reserve);
+          let blocked: boolean;
+          if (repertoire === "linear") blocked = crosses(obstacles, start, target);
+          else {
+            intoFrameToRef(view.root,target,scratch);end[0] = scratch.x; end[1] = scratch.y; end[2] = scratch.z;
+            const contactDirection = terms.vertical !== 0 ? scratch.set(0, terms.vertical, 0)
+              .applyRotationQuaternionToRef(Quaternion.InverseToRef(view.root.rotation, inverse), scratch) : null;
+            if (contactDirection) { direction[0] = contactDirection.x; direction[1] = contactDirection.y; direction[2] = contactDirection.z; }
+            const p = view.effectors[`hand.${hand}`]!.points[aim]!; home[0] = p.x; home[1] = p.y; home[2] = p.z;
+            const path = attackPath(home,end,hand,family,paths, contactDirection ? direction : undefined);
+            from.position = path.chamber;
+            worldToRef(path.chamber, previous); blocked = false;
+            for(let sample=1;sample<=settings.pathSamples;sample++) {
+              pointPathTargetToRef(from,end,path.seconds*sample/settings.pathSamples,path.seconds,along,work,path.contactVelocity,path.curve);
+              worldToRef(along, next);
+              if(crosses(obstacles,previous,next)){blocked=true;break;}
+              previous[0] = next[0]; previous[1] = next[1]; previous[2] = next[2];
+            }
+          }
+          const score = (preference[name] ?? 0) + (repeated ? settings.repeated : 0) + (blocked ? settings.blocked : 0)
+            + settings.reachPenalty * Math.abs(flat - reach + paths.windup) + terms.cost;
+          if (!best || score < best.score) best = { hand, target: [target[0], target[1], target[2]], segment: name, family, blocked, reach, score,
+            ...(terms.vertical !== 0 ? { direction: [0, terms.vertical, 0] as Vec3 } : {}) };
+        }
+      };
       if(poly) {
         scratch.set(...start).subtractInPlace(sensed.position).applyRotationQuaternionToRef(Quaternion.InverseToRef(sensed.rotation,inverse),scratch);
         const from:Vec3 = [scratch.x,scratch.y,scratch.z];
-        for(const vertical of [-OPENINGS.elevation,0,OPENINGS.elevation])for(const lateral of [-OPENINGS.elevation,0,OPENINGS.elevation]) {
-          const toward=add(poly.middle,[lateral*poly.extent[0]/2,vertical*poly.extent[1]/2,0]);
-          const entry=hullEntry(poly.planes,from,toward);if(entry)fronts.push(point(foe,name,entry));
+        for(const vertical of ELEVATIONS)for(const lateral of ELEVATIONS) {
+          toward[0]=poly.middle[0]+lateral*poly.extent[0]/2; toward[1]=poly.middle[1]+vertical*poly.extent[1]/2; toward[2]=poly.middle[2]+0;
+          const entry=hullEntry(poly.planes,from,toward);if(entry){pointToRef(sensed,entry,front);consider(front,"side");}
         }
       }
       if(local) {
-       const a = point(foe, name, local.a), b = point(foe, name, local.b);
-       for (const part of [a, scale(add(a, b), 1 / 2), b]) for (const elevation of [-OPENINGS.elevation, 0, OPENINGS.elevation])
-         for (const lateral of name === high ? headOffsets : [0]) {
-        const way: Vec3 = [start[0] - part[0], 0, start[2] - part[2]], far = length(way), flatRadius = local.radius * Math.sqrt(1 - elevation * elevation);
+       const a = point(foe, name, local.a), b = point(foe, name, local.b), radius = local.radius;
+       // The centre line's axis, and each candidate in numbers: this runs for every candidate blow each control step.
+       const ax = b[0] - a[0], ay = b[1] - a[1], az = b[2] - a[2], squared = ax * ax + ay * ay + az * az;
+       for (const part of [a, scale(add(a, b), 1 / 2), b]) for (const elevation of ELEVATIONS)
+         for (const lateral of name === high ? headOffsets : NO_OFFSET) {
+        const w0 = start[0] - part[0], w2 = start[2] - part[2], far = hypot(w0, 0, w2), flatRadius = radius * Math.sqrt(1 - elevation * elevation);
         const c = Math.sqrt(1 - lateral * lateral);
-        const candidate = far > 0 ? lateral === 0 ? add(part, [way[0] * flatRadius / far, elevation * local.radius, way[2] * flatRadius / far])
-          : add(part, [(way[0] * c + way[2] * lateral) * flatRadius / far, elevation * local.radius, (way[2] * c - way[0] * lateral) * flatRadius / far]) : part;
-        const axis = sub(b, a), squared = dot(axis, axis);
-        const nearest = add(a, scale(axis, squared ? Math.max(0, Math.min(1, dot(sub(candidate, a), axis) / squared)) : 0));
-        const normal = sub(candidate, nearest), normalLength = length(normal);
-        const front = normalLength > 0 ? add(nearest, scale(normal, local.radius / normalLength)) : candidate;
-        fronts.push(front);
+        let cx = part[0], cy = part[1], cz = part[2];
+        if (far > 0 && lateral === 0) { cx = part[0] + w0 * flatRadius / far; cy = part[1] + elevation * radius; cz = part[2] + w2 * flatRadius / far; }
+        else if (far > 0) { cx = part[0] + (w0 * c + w2 * lateral) * flatRadius / far; cy = part[1] + elevation * radius; cz = part[2] + (w2 * c - w0 * lateral) * flatRadius / far; }
+        const fraction = squared ? Math.max(0, Math.min(1, ((cx - a[0]) * ax + (cy - a[1]) * ay + (cz - a[2]) * az) / squared)) : 0;
+        const nx = a[0] + ax * fraction, ny = a[1] + ay * fraction, nz = a[2] + az * fraction;
+        const mx = cx - nx, my = cy - ny, mz = cz - nz, normalLength = hypot(mx, my, mz);
+        if (normalLength > 0) { const out = radius / normalLength; front[0] = nx + mx * out; front[1] = ny + my * out; front[2] = nz + mz * out; }
+        else { front[0] = cx; front[1] = cy; front[2] = cz; }
+        consider(front, "side");
        }
       }
-      const top = selection?.family === "overhand" || repertoire === "vertical" ? upperSurface(foe, name, start) : null;
-      if (top) fronts.push(top);
-      const bottom = selection?.family === "uppercut" || repertoire === "boxing" ? lowerSurface(foe, name, start) : null;
-      if (bottom) fronts.push(bottom);
-      for(const front of fronts) {
-        const lever = sub(front, [sensed.centre.x, sensed.centre.y, sensed.centre.z]);
-        const spin: Vec3 = [sensed.spin.y * lever[2] - sensed.spin.z * lever[1], sensed.spin.z * lever[0] - sensed.spin.x * lever[2],
-          sensed.spin.x * lever[1] - sensed.spin.y * lever[0]];
-        const target = add(front, scale(add([sensed.velocity.x, sensed.velocity.y, sensed.velocity.z], spin), OPENINGS.prediction + Math.max(0, view.time - (foe.time ?? view.time))));
-        const armReach = placedReach(spec, hand, target[1] - view.head.y);
-        const flat = sub(target, [view.head.x, target[1], view.head.z]);
-        for (const family of families) {
-          if ((family === "overhand") !== (front === top)) continue;
-          if ((family === "uppercut") !== (front === bottom)) continue;
-          const terms = familyTerms(family, settings), reach = Math.max(0, armReach - terms.reserve);
-          let blocked: boolean;
-          if (repertoire === "linear") blocked = obstacles.some(o => segmentDistanceSquared(start, target, o.a, o.b) <= o.radius * o.radius);
-          else {
-            intoFrameToRef(view.root,target,scratch);const end: Vec3 = [scratch.x,scratch.y,scratch.z];
-            const contactDirection = terms.vertical !== 0 ? scratch.set(0, terms.vertical, 0)
-              .applyRotationQuaternionToRef(Quaternion.InverseToRef(view.root.rotation, inverse), scratch) : null;
-            const p = view.effectors[`hand.${hand}`]!.points[aimOf(spec,hand)]!, path = attackPath([p.x,p.y,p.z],end,hand,family,paths,
-              contactDirection ? [contactDirection.x,contactDirection.y,contactDirection.z] : undefined);
-            const world = (at: Vec3): Vec3 => { scratch.set(...at).applyRotationQuaternionToRef(view.root.rotation,scratch).addInPlace(view.root.position);return [scratch.x,scratch.y,scratch.z]; };
-            let previous = world(path.chamber);blocked = false;
-            for(let sample=1;sample<=settings.pathSamples;sample++) {
-              const at = pointPath({position:path.chamber,velocity:[0,0,0]},end,path.seconds*sample/settings.pathSamples,path.seconds,path.contactVelocity,path.curve);
-              const next = world(at.target);
-              if(obstacles.some(o=>segmentDistanceSquared(previous,next,o.a,o.b)<=o.radius*o.radius)){blocked=true;break;}
-              previous = next;
-            }
-          }
-          const score = (preference[name] ?? 0) + (name === blockedSurface || selection?.blocked?.includes(name) ? settings.repeated : 0) + (blocked ? settings.blocked : 0)
-            + settings.reachPenalty * Math.abs(length(flat) - reach + paths.windup) + terms.cost;
-          if (!best || score < best.score) best = { hand, target, segment: name, family, blocked, reach, score,
-            ...(terms.vertical !== 0 ? { direction: [0, terms.vertical, 0] as Vec3 } : {}) };
-        }
-      }
+      if (top) consider(top, "top");
+      if (bottom) consider(bottom, "bottom");
     }
-    return best;
+    // Assigned in `consider`, which the checker does not follow.
+    return best as Opening | null;
   };
 }

@@ -55,6 +55,7 @@
         <button id="begin" class="action" type="button" disabled>Fight</button>
         <footer class="duel-footer">
           <button id="help-open" class="link" type="button">How to play</button>
+          <button id="ratings-open" class="link" type="button">Ratings</button>
           <p class="note" id="boot-note">Loading&hellip;</p>
           <a href="./">&larr; Main menu</a>
         </footer>
@@ -97,6 +98,15 @@
             <dt>?</dt><dd>Controls</dd>
           </dl>
           <button id="help-close" class="action" type="button">Close</button>
+        </div>
+      </div>
+      <!-- The last tournament's ratings, filled by src/arena/main.ts from assets/minds/ratings.json. -->
+      <div id="ratings" class="gone">
+        <div class="panel">
+          <h1>Ratings</h1>
+          <p class="note" id="ratings-about"></p>
+          <div class="ratings-scroll"><table id="ratings-table"></table></div>
+          <button id="ratings-close" class="action" type="button">Close</button>
         </div>
       </div>
     </template>

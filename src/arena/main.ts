@@ -13,7 +13,8 @@ import { airOf, hearTouches } from "../audio/body-sounds.ts";
 import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
-import { BODY_MODELS, modelHolds, modelSpec, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHolding, modelHolds, type BodyModel } from "../core/models.ts";
+import type { Held } from "../core/items/held.ts";
 import { HUMAN_HASTE, hasteText } from "../core/human/attributes.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { createWorld, type World } from "../core/world.ts";
@@ -23,10 +24,11 @@ import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { ARENA_HELD, boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readHaste, readGap, CONTROLS, controllerLabel, controlName, controlsFor, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
-import { PRESETS } from "../core/mind/controllers.ts";
+import { MATCHUP_PARAM, appearanceSearch, readAppearances, matchupSearch, readBalance, readCap, readHaste, readGap, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readHeld, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
+import { MINDS } from "../core/mind/controllers.ts";
 import { partOf } from "../core/mind/catalog.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
+import { notesOf, RATINGS, type NoteLevel } from "../ui/mind-notes.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
@@ -68,6 +70,36 @@ const ENDING_TEXT: Readonly<Record<DuelEnding, string>> = Object.freeze({
 });
 
 const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
+/** What a hand may hold, by name, as the pickers and the ratings show it. */
+const HELD_NAMES: Readonly<Record<Held, string>> = { club: "Wooden club", empty: "Empty hands" };
+/** A note's level as a person reads it, for a character and loadout. */
+const levelName = (level: NoteLevel, model: BodyModel, held: Held): string => {
+  switch (level) {
+    case "body-held": return `${MODEL_DISPLAY[model].label}, ${HELD_NAMES[held].toLowerCase()}`;
+    case "body": return MODEL_DISPLAY[model].label;
+    case "held": return HELD_NAMES[held];
+    case "mind": return "Any";
+    default: { const never: never = level; throw new Error(`unknown note level ${never}`); }
+  }
+};
+
+/** **The last tournament's table** (`RATINGS`), its best first, into the ratings panel. */
+function showRatings(): void {
+  const { entrants, date, commit, harness } = RATINGS;
+  need("ratings-about").textContent = entrants.length === 0 ? "No tournament has been played yet (scripts/tournament.mjs)."
+    : `Each mind on each character with each loadout against every other, both sides, Bradley-Terry on the Elo scale (the field's mean 1500), with its 95 % interval. ${date} at ${commit?.slice(0, 8)}; ${harness}.`;
+  const cell = (tag: "td" | "th", text: string) => Object.assign(document.createElement(tag), { textContent: text });
+  const head = document.createElement("tr");
+  head.append(...["", "Mind", "Character", "Right hand", "Rating", "95 %", "Won", "Drawn", "Lost"].map(text => cell("th", text)));
+  const rows = [...entrants].sort((a, b) => b.rating - a.rating).map((entrant, rank) => {
+    const row = document.createElement("tr");
+    row.append(...[`${rank + 1}`, MINDS[entrant.mind]?.label ?? entrant.mind, MODEL_DISPLAY[entrant.model].label, HELD_NAMES[entrant.held],
+      entrant.rating.toFixed(0), `${entrant.interval[0].toFixed(0)}-${entrant.interval[1].toFixed(0)}`, `${entrant.wins}`, `${entrant.draws}`, `${entrant.losses}`]
+      .map(text => cell("td", text)));
+    return row;
+  });
+  need("ratings-table").replaceChildren(head, ...rows);
+}
 
 export async function bootArena(): Promise<void> {
   const lifetime = new AbortController();
@@ -138,39 +170,53 @@ export async function bootArena(): Promise<void> {
     for (const [value, textContent] of Object.entries(CONTROLS)) control.append(Object.assign(document.createElement("option"), { value, textContent }));
     control.value = controls[side];
     controller.append(control); choices.append(controller); controlPickers[side] = control;
+    const equipment = document.createElement("label"), held = document.createElement("select");
+    equipment.className = "field"; equipment.textContent = "Right hand"; held.setAttribute("aria-label", `${side} equipment`);
+    for (const [value, textContent] of Object.entries(HELD_NAMES))
+      held.append(Object.assign(document.createElement("option"), { value, textContent }));
+    held.value = heldChoices?.[side] ?? ARENA_HELD;
     // The mind's tree (`mindEditor`), its preset's until changed; the linked mind as the link carries it, with any fault.
     const settings = document.createElement("details"), summary = document.createElement("summary");
     settings.className = "settings"; summary.textContent = "Mind";
-    // The chosen preset is named as the mind now stands (`controlName`): custom once it is changed.
-    const nameControl = () => { for (const option of control.options) option.textContent = option.value === control.value ? controlName(option.value, editor.config) : CONTROLS[option.value]!; };
-    const editor = mindEditor(linkedMind(location.search, side).config, { spec: modelSpec(matchup[side]), onFault: "the preset is used", onChange: () => nameControl() });
-    settings.append(summary, editor.element); choices.append(settings);
+    // Each mind's notes for this side's character and loadout (`notesOf`), the most particular first.
+    const notes = document.createElement("p"); notes.className = "mind-notes";
+    // The chosen preset is named as the mind now stands (`controlName`): custom once it is changed. Each
+    // is followed by its most particular note, and the chosen one's notes are listed under the picker.
+    const nameControl = () => {
+      const model = select.value as BodyModel, holds = held.value as Held;
+      for (const option of control.options) {
+        const note = notesOf(option.value, model, holds)[0]?.note;
+        option.textContent = `${option.value === control.value ? controlName(option.value, editor.config) : CONTROLS[option.value]!}${note ? ` · ${note}` : ""}`;
+      }
+      const all = notesOf(control.value, model, holds);
+      notes.replaceChildren(...all.map(({ level, note }) => Object.assign(document.createElement("span"), { textContent: `${levelName(level, model, holds)}: ${note}` })));
+      notes.hidden = all.length === 0;
+    };
+    const editor = mindEditor(linkedMind(location.search, side).config, { spec: modelHolding(matchup[side], held.value as Held), onFault: "the preset is used", onChange: () => nameControl() });
+    settings.append(summary, editor.element); choices.append(notes, settings);
     const showSettings = (config: MindConfig) => {
-      editor.set(config, modelSpec(select.value as BodyModel));
+      editor.set(config, modelHolding(select.value as BodyModel, held.value as Held));
       settings.hidden = partOf(config).fields.length === 0 && partOf(config).slots.length === 0;
       nameControl();
     };
     showSettings(editor.config);
     mindOf[side] = () => editor.config;
-    control.addEventListener("change", () => { control.blur(); showSettings(PRESETS[control.value]!.config); });
-    const equipment = document.createElement("label"), held = document.createElement("select");
-    equipment.className = "field"; equipment.textContent = "Right hand"; held.setAttribute("aria-label", `${side} equipment`);
-    for (const [value, textContent] of [["club", "Wooden club"], ["empty", "Empty hands"]])
-      held.append(Object.assign(document.createElement("option"), { value, textContent }));
-    held.value = heldChoices?.[side] ?? ARENA_HELD; held.addEventListener("change", () => held.blur());
+    control.addEventListener("change", () => { control.blur(); showSettings(MINDS[control.value]!.config); });
     // What it holds before how it thinks: the mind's tree is last, and scrolls in what room is left.
     equipment.append(held); controller.before(equipment); heldPickers[side] = held;
+    // The minds offered are those the body, holding what it holds, can carry out (`controlsFor`).
     const refresh = refreshChoices[side] = () => {
       refreshAppearance();
-      const model = select.value as BodyModel, choices = controlsFor(model), previous = control.value;
-      control.replaceChildren(...choices.map(value => Object.assign(document.createElement("option"), { value, textContent: CONTROLS[value] })));
-      control.value = choices.includes(previous as typeof choices[number]) ? previous : readControls(matchupSearch("", { ...matchup, [side]: model }))[side];
-      showSettings(control.value !== previous ? PRESETS[control.value]!.config : editor.config);
-      const hands = modelHolds(model);
+      const model = select.value as BodyModel, hands = modelHolds(model);
       equipment.hidden = !hands;
       for (const option of held.options) option.disabled = !hands && option.value !== "empty";
       if (!hands) held.value = "empty";
+      const holds = held.value as Held, choices = controlsFor(model, holds), previous = control.value;
+      control.replaceChildren(...choices.map(value => Object.assign(document.createElement("option"), { value, textContent: CONTROLS[value] })));
+      control.value = choices.includes(previous) ? previous : defaultControl(model, holds);
+      showSettings(control.value !== previous ? MINDS[control.value]!.config : editor.config);
     };
+    held.addEventListener("change", () => { held.blur(); refresh(); });
     refresh();
     need("matchup").append(panel);
     pickers[side] = select;
@@ -371,6 +417,9 @@ export async function bootArena(): Promise<void> {
   const help = (open: boolean) => show("help", open);
   need("help-open").addEventListener("click", () => help(true));
   need("help-close").addEventListener("click", () => help(false));
+  showRatings();
+  need("ratings-open").addEventListener("click", () => show("ratings", true));
+  need("ratings-close").addEventListener("click", () => show("ratings", false));
   // What the person's hands are doing: the walking keys held, and whether Shift is, which runs; where the
   // pointer is on the canvas, px, and whether its left button is down.
   const keys = { up: false, down: false, left: false, right: false };

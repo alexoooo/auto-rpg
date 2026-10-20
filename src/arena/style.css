@@ -423,8 +423,8 @@ body:has(#pause-menu:not(.gone)) #bout-end {
 
 /* ---------- the controls, on their own overlay ---------- */
 
-/* Above setup and the pause menu, because `?` opens it over either. */
-#help {
+/* Above setup and the pause menu, because `?` opens it over either; the ratings likewise. */
+#help, #ratings {
   position: fixed;
   inset: 0;
   display: grid;
@@ -435,7 +435,7 @@ body:has(#pause-menu:not(.gone)) #bout-end {
   transition: opacity 160ms ease, visibility 160ms;
 }
 
-#help.gone {
+#help.gone, #ratings.gone {
   opacity: 0;
   visibility: hidden;
 }
@@ -458,6 +458,16 @@ body:has(#pause-menu:not(.gone)) #bout-end {
 #help .keys dt {
   white-space: normal;
 }
+
+#ratings .panel { max-width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+#ratings .ratings-scroll { overflow: auto; min-height: 0; margin: 8px 0 12px; }
+#ratings table { width: 100%; border-collapse: collapse; font-size: 13px; }
+#ratings th, #ratings td { padding: 3px 8px; text-align: left; white-space: nowrap; border-bottom: 1px solid rgba(201, 181, 150, 0.15); }
+#ratings th { color: #f1dfbc; font-weight: 400; position: sticky; top: 0; background: rgba(12, 13, 16, 0.98); }
+#ratings td:nth-child(n+5) { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* The chosen mind's notes, its most particular first. */
+#curtain .mind-notes { display: flex; flex-direction: column; gap: 2px; margin: 0; font-size: 11px; color: #b7a790; }
 
 
 /* Combat choices share the contender panels; recovery belongs to the bout. */
