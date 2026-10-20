@@ -1346,14 +1346,21 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   the fight a foe is within `wake`; once it is loose, the farther `clear` and `rest` keep it so.
   `stirs` is the rule's letting go for a body not yet built. A level is read from the game alone,
   never from the machine, so there is no cap on the bodies at `full`; the fight gives the
-  distances (`LevelRule`). The crypt is its one caller today.
+  distances (`LevelRule`). The Crypt uses it for active and distant bodies; the Arena page
+  uses it for defeated bodies in its aftermath.
 
 A body that is down (`Body.down`, by its spec's rule: a human when a part but its feet and hands
 is within 3 cm of its lowest point, `src/core/control/ground.ts`) follows
 its configured sub-minds while the fight allows recovery. The Arena's verdict (`Duel.judge`,
 `src/arena/duel.ts`) ends a side when its pool ends or its continuous-down allowance expires;
 null allows recovery until injury or the bout cap. Both sides out on one step is a draw; at the
-cap, the fuller bar wins.
+cap, the fuller bar wins. The page announces the verdict immediately and plays three seconds
+of aftermath (`arenaPlayback`, `src/arena/playback.ts`). Defeated sides go limp through
+`levelsOf`; a bell result keeps both live bodies under control. Playback then holds the
+world while the camera remains usable. Presentation reads physical transforms even for
+limp bodies, whose controllers no longer refresh their observations. A stencil highlight
+(`src/arena/side-highlights.ts`) marks left blue and right red on skins, collision shapes
+and held equipment, matching setup, health bars and the winner banner.
 A bout is built from a recipe (`DuelRecipe`): the two bodies, how far apart they start, the
 cap, and a side's mind where it names one (`minds`, each a `MindConfig`), as plain data, so the same bout can be built again in another world or on another thread;
 what a page hears of it (`DuelHooks`) is beside the recipe, not in it. Nothing in a bout is

@@ -45,6 +45,9 @@ appearance in `&appearance=industrial,relic`; Lab links use, for example, `&appe
 The **View** panel switches between the character skins (**World**) and their collision shapes
 (**Tactical**). Choose **Free**, **Isometric** or **Chase**, and focus on both fighters or either
 side. Isometric offers orthographic and perspective projection; Chase follows one fighter.
+Left is blue and right is red, with matching character silhouettes, names and health bars.
+The winner is announced immediately; a three-second aftermath lets a defeated body fall before
+the final view holds. A result decided at the bell does not force either fighter to fall.
 These controls work while paused and after the verdict. Links retain the view with `view`,
 `camera`, `projection` and `focus` parameters.
 

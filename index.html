@@ -76,7 +76,10 @@
       </aside>
       <!-- The end of a bout: the verdict, then the same fight again or the right side redrawn. -->
       <aside id="bout-end" class="gone" aria-label="Bout over">
-        <strong id="bout-verdict"></strong>
+        <div class="bout-result" role="status" aria-live="polite" aria-atomic="true">
+          <strong id="bout-verdict"></strong>
+          <span id="bout-ending"></span>
+        </div>
         <button id="bout-end-replay" class="action" type="button">Replay</button>
         <button id="bout-end-random" class="action" type="button">Random replay</button>
         <button id="bout-end-leave" class="action quiet" type="button">Setup</button>

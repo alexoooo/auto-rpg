@@ -38,6 +38,9 @@ import { choice, following, type Control } from "../ui/controls.ts";
 import { viewControls } from "../ui/view-controls.ts";
 import { aimPoint, keysToMove, personOrders, rayTarget } from "./orders-input.ts";
 import type { Side } from "../core/spec/body.ts";
+import { physicalReading } from "../core/observation.ts";
+import { arenaPlayback } from "./playback.ts";
+import { ARENA_SIDES, sideHighlights } from "./side-highlights.ts";
 
 /**
  * **The arena page**: the arena's scene with its solids in a world (`buildArena`), and a bout
@@ -140,7 +143,8 @@ export async function bootArena(): Promise<void> {
     const panel = document.createElement("section");
     panel.className = "contender"; panel.dataset.side = side;
     const head = document.createElement("header"), title = document.createElement("h2");
-    head.className = "contender-head"; title.textContent = side === "left" ? "Left" : "Right"; head.append(title);
+    head.className = "contender-head"; title.textContent = ARENA_SIDES[side].label; head.append(title);
+    panel.style.setProperty("--side-colour", ARENA_SIDES[side].colour);
     const field = document.createElement("label"), name = document.createElement("span"), select = document.createElement("select");
     field.className = "field"; name.className = "field-name"; name.textContent = "Character";
     for (const model of BODY_MODELS) {
@@ -265,7 +269,9 @@ export async function bootArena(): Promise<void> {
   // What each side's controller is called while its bout runs (`controllerLabel`).
   let controllers: Record<Side, string> = { left: "", right: "" };
   let duel: Duel | null = null, drawn: (SkinView | BodyShapes)[] = [], paused = false, shown: Verdict | null = null;
-  const bodies = new Map<Side, { skin: SkinView; shapes: BodyShapes; hands: ReturnType<typeof fighterHands>; subject: ArenaSubjects[Side] }>();
+  const highlights = sideHighlights(scene);
+  let playback: ReturnType<typeof arenaPlayback> | null = null;
+  const bodies = new Map<Side, { read: ReturnType<typeof physicalReading>; skin: SkinView; shapes: BodyShapes; hands: ReturnType<typeof fighterHands>; subject: ArenaSubjects[Side] }>();
   let subjects: ArenaSubjects | null = null;
   const applyView = () => {
     for (const { skin, shapes } of bodies.values()) {
@@ -276,6 +282,7 @@ export async function bootArena(): Promise<void> {
     }
   };
   const undraw = () => {
+    highlights.clear();
     for (const { hands } of bodies.values()) hands.dispose();
     for (const drawing of drawn) { for (const mesh of drawing.meshes) shadows.removeShadowCaster(mesh); drawing.dispose(); }
     drawn = []; bodies.clear(); subjects = null;
@@ -298,13 +305,14 @@ export async function bootArena(): Promise<void> {
   need("arena-view-controls").append(...viewFields.map(control => control.element));
   /** What hears the bout under way: its touches' listener, and each side's air. */
   let hearing: { dispose(): void } | null = null, airs: { readonly side: Side; readonly air: (at: Vector3) => number }[] = [];
-  const end = () => { undraw(); hearing?.dispose(); hearing = null; airs = []; duel?.dispose(); duel = null; shown = null; };
+  const end = () => { playback?.dispose(); playback = null; undraw(); hearing?.dispose(); hearing = null; airs = []; duel?.dispose(); duel = null; shown = null; };
 
   // The readout: each side's name and bar, its mind as it goes (`mindInspector`), and the clock.
   const hud = need("hud");
   const rows = SIDES.map((side) => {
     const column = document.createElement("div"), label = document.createElement("strong"), bar = document.createElement("progress");
     column.className = "hud-col"; column.dataset.side = side; bar.max = 1; bar.value = 1;
+    column.style.setProperty("--side-colour", ARENA_SIDES[side].colour);
     const status = document.createElement("small"), mind = document.createElement("details"), summary = document.createElement("summary");
     mind.className = "hud-mind"; summary.textContent = "Mind"; mind.append(summary);
     column.append(label, bar, status, mind); hud.append(column);
@@ -364,11 +372,12 @@ export async function bootArena(): Promise<void> {
         onBuilt: (duelist, built) => {
           const hands = fighterHands(duelist);
           const skin = dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true }, closure: hands.closure });
-          const shapes = drawBody(built, scene, Color3.FromHexString(duelist.side === "left" ? "#6f8bb5" : "#d0705e"));
+          const shapes = drawBody(built, scene, Color3.FromHexString(ARENA_SIDES[duelist.side].colour));
           const held = drawHeld(built, scene), pelvis = duelist.body.muscles.dynamics.root.segment.node;
-          const rest = pelvis.rotationQuaternion!.clone();
-          bodies.set(duelist.side, { skin, shapes, hands, subject: {
-            get position() { return duelist.body.physical.centre; },
+          const rest = pelvis.rotationQuaternion!.clone(), read = physicalReading(built);
+          highlights.add(duelist.side, [...skin.meshes, ...shapes.meshes, ...held.meshes]);
+          bodies.set(duelist.side, { read, skin, shapes, hands, subject: {
+            get position() { return read().centre; },
             get rotation() { return pelvis.rotationQuaternion!; }, rest,
           } });
           for (const mesh of held.meshes) shadows.addShadowCaster(mesh);
@@ -377,6 +386,7 @@ export async function bootArena(): Promise<void> {
         // A blow is a touch, and is heard as one; this is what it took off.
         onBlow: (blow) => { for (const cue of debrisCues(blow)) audio.cue(cue); },
       });
+      playback = arenaPlayback(bout, CATCH_UP_SECONDS);
       subjects = { left: bodies.get("left")!.subject, right: bodies.get("right")!.subject };
       rig.reset(); applyView();
       const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
@@ -384,7 +394,7 @@ export async function bootArena(): Promise<void> {
       airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
       bout.play(tape);
       for (const row of rows) {
-        row.label.textContent = `${MODEL_DISPLAY[matchup[row.side]].label} (${row.side === you && !replaying ? "you" : row.side})`;
+        row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === you && !replaying ? " (you)" : ""}`;
         const duelist = bout.duelists[row.side], minded = duelist.minded;
         row.inspector = mindInspector(duelist.mind, duelist.built.spec, () => duel === bout
           ? { body: duelist.body, skills: minded.skills ?? null } : null);
@@ -482,7 +492,7 @@ export async function bootArena(): Promise<void> {
   const frame = () => {
     rig.frame(screen, subjects, engine.getDeltaTime() / 1000, engine.getAspectRatio(camera));
     audio.setView(camera.position, { x: Math.sin(rig.azimuth), z: Math.cos(rig.azimuth) });
-    arena.updateRoomOcclusion(screen === "fight" && duel ? SIDES.map(side => ({ point: duel!.duelists[side].body.physical.head })) : []);
+    arena.updateRoomOcclusion(screen === "fight" && duel ? SIDES.map(side => ({ point: bodies.get(side)!.read().head })) : []);
   };
   const readout = () => {
     if (!duel) return;
@@ -492,7 +502,9 @@ export async function bootArena(): Promise<void> {
       const mind = fighter.minded, controller = controllers[row.side];
       const phase = mind.skills ? mind.skills.report.actions[0]?.stage ?? mind.skills.report.engagement?.phase ?? "guard / move" : mind.body.has;
       const down = duel.state.recovery?.[row.side];
-      row.status.textContent = fighter.body.down
+      row.status.textContent = duel.verdict
+        ? duel.verdict.winner === null ? "Draw" : duel.verdict.winner === row.side ? "Winner" : "Defeated"
+        : fighter.body.down
         ? `${fighter.body.has}${duel.recipe.recoverySeconds === null ? " - getting up" : down !== undefined ? ` - ${Math.max(0, duel.recipe.recoverySeconds! - down).toFixed(1)} s recovery left` : " - down"}`
         : `${controller} - ${phase}`;
       if (row.mind.open) row.inspector?.refresh();
@@ -502,15 +514,15 @@ export async function bootArena(): Promise<void> {
     const balance = SIDES.map((side) => duel!.recipe.balance?.[side] ?? duel!.duelists[side].built.spec.attributes.balance.value);
     // While either side is hasted, each side's haste, per cent over a person's, signed.
     const haste = SIDES.map((side) => duel!.duelists[side].built.spec.attributes.haste.value), hasted = haste.some((h) => h !== HUMAN_HASTE.value);
-    clock.textContent = `${duel.clock.toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${hasted ? ` · haste ${haste.map(hasteText).join(" / ")} %` : ""}${replaying ? " · replay" : ""}`;
+    clock.textContent = `${(duel.verdict?.time ?? duel.clock).toFixed(1)} s${helped ? ` · balance ${balance.join(" / ")} %` : ""}${hasted ? ` · haste ${haste.map(hasteText).join(" / ")} %` : ""}${replaying ? " · replay" : ""}`;
     if (duel.verdict && shown !== duel.verdict) {
       pauseButton.hidden = true;
       shown = duel.verdict;
       const { winner, ending, time } = shown;
       const how = ENDING_TEXT[ending];
-      need("bout-verdict").textContent = winner
-        ? `${MODEL_DISPLAY[matchup[winner]].label} (${winner}) wins ${how}, ${time.toFixed(1)} s`
-        : `A draw ${how}, ${time.toFixed(1)} s`;
+      need("bout-end").style.setProperty("--side-colour", winner ? ARENA_SIDES[winner].colour : "var(--hot)");
+      need("bout-verdict").textContent = winner ? `${ARENA_SIDES[winner].label} wins${winner === you && !replaying ? " (you)" : ""}` : "Draw";
+      need("bout-ending").textContent = `${winner ? `${MODEL_DISPLAY[matchup[winner]].label} ` : ""}${how} · ${time.toFixed(1)} s`;
       show("bout-end", true); audio.setActive(false);
     }
   };
@@ -523,7 +535,7 @@ export async function bootArena(): Promise<void> {
     giveOrders();
     if (duel && !paused) {
       const beforePhysics = measurement ? performance.now() : 0;
-      world.advance(seconds, Math.ceil(CATCH_UP_SECONDS * world.hz));
+      playback?.advance(seconds);
       if (measurement) physicsMs = performance.now() - beforePhysics;
       for (const { side, air } of airs) audio.swish(side, air(airAt), airAt);
     }
@@ -534,7 +546,7 @@ export async function bootArena(): Promise<void> {
       simulated: world.time - clockBefore, time: world.time, hz: world.hz, active: !!duel && !paused && !duel.verdict });
   });
   window.addEventListener("resize", () => engine.resize());
-  window.addEventListener("pagehide", () => { end(); measurement?.dispose(); audio.dispose(); engine.stopRenderLoop(); world.dispose(); scene.dispose(); engine.dispose(); });
+  window.addEventListener("pagehide", () => { end(); measurement?.dispose(); audio.dispose(); engine.stopRenderLoop(); world.dispose(); highlights.dispose(); scene.dispose(); engine.dispose(); });
   Object.assign(window, { __arena: { get duel() { return duel; }, world, scene, engine } });
 
   await Promise.all(previewLoads);
