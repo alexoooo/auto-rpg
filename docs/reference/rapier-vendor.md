@@ -228,8 +228,8 @@ fields survive loaded snapshots. Ordinary contacts keep the original normal row.
 
 The native contact tests pass. The Node two-sphere stand on rapier-coordinate at
 120 Hz agrees with its 960 Hz reference within 10% for all twelve cells in
-[the contact grid](reptile-bites.md). Static pressure, elastic unloading, reverse
-and side contact, momentum and a loaded rotating-point fork have permanent witnesses.
+the contact grid (`docs/reference/reptile-bites.md@4ac44224`). Static pressure, elastic unloading, reverse
+and side contact, momentum and a loaded rotating-point fork are covered by the native package qualification. Gameplay uses ordinary rigid tooth contact and the load rule; the adapter supplies compliant layers only for soles against fixed ground.
 The same current adapter with the `.7` and `.8` packages gives the identical
 `84e3797a45f1d5aa` pose digest and ten blows in a 15 s Warrior/Rogue Node arena bout
 at 120 Hz. This comparison covers ordinary-contact arithmetic; its timings under

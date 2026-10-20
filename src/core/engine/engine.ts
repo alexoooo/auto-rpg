@@ -102,31 +102,16 @@ export type ColliderShape =
   | { readonly kind: "sphere"; readonly centre: Vec3; readonly radius: number }
   | { readonly kind: "hull"; readonly points: readonly Vec3[] };
 
-/** Optional collider material; directions are in the rigid body's local frame. */
+/** Optional collider friction and compliance against fixed ground. */
 export interface ContactMaterial {
-  readonly layer?: { readonly stiffness: number; readonly dampingRatio: number; readonly depth: number };
   /**
    * A layer the collider gives against any fixed collider, as a shoe's sole gives against the
    * floor: the whole pair's spring, N/m, and dashpot, N s/m, and the deepest it compresses before
    * the contact is rigid, m. Against a body, the contact is as it would be without it.
    */
   readonly sole?: { readonly stiffness: number; readonly damping: number; readonly depth: number };
-  readonly point?: { readonly direction: Vec3; readonly alignment: number; readonly depth: number };
   /** Its coefficient of friction: a contact it is in takes the greater of this and the other collider's. */
   readonly friction?: number;
-}
-
-/** A compliant shape pair after one step. Work is signed reaction work at substep motion, J. */
-export interface MaterialContact {
-  readonly key: string;
-  readonly first: SegmentBody;
-  readonly second: SegmentBody;
-  readonly mine: number;
-  readonly theirs: number;
-  readonly point: Vec3;
-  readonly normal: Vec3;
-  readonly work: number;
-  readonly depth: number;
 }
 
 /**
@@ -269,8 +254,6 @@ export interface PhysicsWorld {
   contactsOf(body: SegmentBody, wanted?: (other: SegmentBody | null) => boolean): readonly Contact[];
   /** Unaveraged solver geometry. A predicted point or zero impulse is not proof of load-bearing contact. */
   contactManifoldsOf(body: SegmentBody, wanted?: (other: SegmentBody | null) => boolean): readonly ContactManifold[];
-  /** Active compliant pairs, once per shape pair in creation order; empty for ordinary contacts. */
-  materialContacts(): readonly MaterialContact[];
   /** One solver step of `dt`, then every body's node written from its body. */
   step(dt: number): void;
   /**

@@ -6,7 +6,7 @@ import { jointKinematics } from "./joint-kinematics.ts";
 import type { World } from "../world.ts";
 import { frameOf, handShapeAt, type BodySpec, type HandPose, type JointSpec, type SegmentFrame, type SegmentSpec, type ShapeSpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { dot, normalize, sub } from "../spec/vec.ts";
+import { dot, sub } from "../spec/vec.ts";
 import { hasProducts, principalOf, rigidOf } from "./rigid.ts";
 import { rotationOfToRef } from "./joint-state.ts";
 import { createHandPoses, type HandPoses } from "./hand-poses.ts";
@@ -27,7 +27,7 @@ import { createHandPoses, type HandPoses } from "./hand-poses.ts";
  * frames. A joint that disagrees with its bodies is cleared by flinging the body.
  *
  * Nothing here drives a joint: the muscles do (`src/core/muscle/driver.ts`). A segment has the
- * declared contact layers and point geometry, with the engine's default friction, and collides
+ * declared sole compliance and contact geometry, with the engine's default friction, and collides
  * with everything but its joint partners.
  */
 
@@ -119,7 +119,7 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
     orientation: principal
       ? Quaternion.RotationQuaternionFromAxis(v3(principal.axes[0]), v3(principal.axes[1]), v3(principal.axes[2]))
       : Quaternion.Identity(),
-  }, { materials: rigid.owners.map((owner, i) => {
+  }, { materials: rigid.owners.map((owner) => {
     const surface = (() => {
       switch (owner.kind) {
         case "segment": return spec.surface;
@@ -128,14 +128,7 @@ function buildSegment(body: BodySpec, spec: SegmentSpec, placement: Placement, w
         default: { const never: never = owner; throw new Error(`unknown material owner ${JSON.stringify(never)}`); }
       }
     })();
-    const shape = shapes[i]!, point = surface?.point;
-    const direction = point && normalize(point.direction.value);
-    const piercing = point && shape.kind === "hull" && owner.kind !== "held" ? {
-      direction: [dot(direction!, frame.x), dot(direction!, frame.y), dot(direction!, frame.z)] as Vec3,
-      alignment: point.alignment.value,
-      depth: Math.max(...shape.points.map(p => dot(p.value, direction!))) - Math.min(...shape.points.map(p => dot(p.value, direction!))) } : undefined;
-    return { ...(surface?.layer ? { layer: { stiffness: surface.layer.stiffness.value,
-      dampingRatio: surface.layer.dampingRatio.value, depth: surface.layer.depth.value } } : {}), ...(piercing ? { point: piercing } : {}),
+    return {
       ...(surface?.sole ? { sole: { stiffness: surface.sole.stiffness.value, damping: surface.sole.damping.value, depth: surface.sole.depth.value } } : {}),
       ...(surface?.friction ? { friction: surface.friction.value } : {}) };
   }) });

@@ -626,7 +626,7 @@ After it, each with its own plan, in the order each needs the one before:
 
 - **The reptile** is an 8 kg, 1 HP quadruped on the core, selectable in the arena
   ([reptile](reference/reptile.md)). Open:
-  - broader contact-material coverage and tissue yielding beyond the bounded tooth layer;
+  - richer surface response beyond the general pointed-contact load rule;
   - broader recovery;
   - practical combat against the humans;
   - sustained injury wins across a broader set of opponents.

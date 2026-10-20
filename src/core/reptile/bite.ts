@@ -51,7 +51,7 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
   const bodies = new Set<BodyRef>([...own.built.segments.values()].map(p => p.body));
   const cycle: StrikeCycleState = { phase: null, time: 0, ready: 0, sequence: 0, velocity: [0, 0, 0], touching: false, impact: null };
   const state = { cycle, target: [0, 0, 0] as [number, number, number], aim: [0, 0, 0] as [number, number, number], reach: 0, launched: 0, returned: 0, failed: 0, aborted: 0,
-    selected: null as { foe: string; part: string; tooth?: string } | null, returnPitch: 0,
+    selected: null as { foe: string; part: string; tooth?: string } | null, returnPitch: 0, strikeNeck: neck.dofs.map(() => 0),
     shift: [0, 0] as [number, number],
     jaw: { sequence: -1, opening: false, time: 0, start: 0, rate: 0, sample: [0, 0, 0] as [number, number, number] } };
   const frame = { position: new Vector3(), rotation: new Quaternion() }, root = { position: new Vector3(), rotation: new Quaternion() };
@@ -144,7 +144,10 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
         contactVelocity: rate, closing: own.muscles.rate(jaw) < 0, contactDepth: feedback?.compression, seconds: T.snap },
         { near: T.biteNear, slow: T.biteSlow, hold: T.biteHold, prepareLimit: T.biteTimeout, returnLimit: T.biteReturnLimit, followSeconds: T.snap,
           impact: { impactSeconds: T.contactSeconds, impactTravel: toothDepth } }, dt);
-      if (event & STRIKE_EVENT.launch) { state.launched++; cycle.touching = false; }
+      if (event & STRIKE_EVENT.launch) {
+        state.launched++; cycle.touching = false;
+        neck.dofs.forEach((_, k) => { state.strikeNeck[k] = own.muscles.angle(own.muscles.channel(channelName(neck, k))); });
+      }
       if (event & STRIKE_EVENT.returned) state.returned++;
       if (event & STRIKE_EVENT.failed) state.failed++;
       if (event & STRIKE_EVENT.aborted) state.aborted++;
@@ -159,7 +162,8 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
       posture[jawName] = path.sample[0];
       posture[neckName] = cycle.phase === "return" && !clear
         ? cycle.time >= T.prepare || openingFloor <= ground + T.biteEntry ? retract : state.returnPitch : 0;
-      if (cycle.phase === "chamber" || cycle.phase === "swing") {
+      if (cycle.phase === "swing") neck.dofs.forEach((_, k) => { posture[channelName(neck, k)] = state.strikeNeck[k]!; });
+      if (cycle.phase === "chamber") {
         rootFrameToRef(own.muscles.dynamics.root.segment, root); intoFrameToRef(root, [aim.x, aim.y, aim.z], point);
         tracker.reach(head.spec.name, { places: [{ point: "mouth", position: [point.x, point.y, point.z] }], seconds: T.prepare, follows: true, sequence: state.reach });
       } else tracker.release(head.spec.name);

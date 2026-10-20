@@ -14,10 +14,10 @@ import { coreStand } from "./harness/core-stand.mjs";
 
 test("autonomous tactics capture a sensed surface, snap and verify release", async () => {
   const row = await biteTrial({ autonomous: true });
-  const hit = row.hits.find(h => h.blow.work > 0 && h.blow.sides.some(side => side.mechanism === "point"));
+  const hit = row.hits.find(h => h.blow.kind === "load" && h.blow.sides.some(side => side.mechanism === "point"));
   assert.ok(hit && hit.before.phase === "swing" && hit.before.rate < -2 && hit.before.elapsed < .12
-    && hit.blow.closing > 0 && hit.blow.energy > .005, JSON.stringify(row));
-  assert.ok(hit.blow.sides.every(side => side.damage > 0));
+    && hit.blow.impulse.some(n => n > 0), JSON.stringify(row));
+  assert.ok(hit.blow.sides[1].damage > 0);
   assert.deepEqual(row.cycle, { launched: 1, returned: 1, failed: 0, phase: null });
   assert.equal(row.clear, true); assert.equal(row.down, false);
   assert.deepEqual(row.assist, { steps: 0, force: 0, moment: 0 });
@@ -25,12 +25,12 @@ test("autonomous tactics capture a sensed surface, snap and verify release", asy
 
 test("a closing jaw strikes during its fast motion and releases after cancellation", async () => {
   const row = await biteTrial();
-  const hit = row.hits.find(h => h.blow.work > 0 && h.blow.sides.some(side => side.mechanism === "point"));
+  const hit = row.hits.find(h => h.blow.kind === "load" && h.blow.sides.some(side => side.mechanism === "point"));
   assert.ok(hit && hit.before.rate < -2 && hit.before.elapsed < .12, JSON.stringify(row));
-  assert.ok(hit.blow.closing > 0 && hit.blow.energy > .005);
-  assert.ok(row.cycles.some(cycle => cycle.support === 4 && cycle.energy > .005 && cycle.damage > .002 && cycle.release !== null));
+  assert.ok(hit.blow.impulse.some(n => n > 0));
+  assert.ok(row.cycles.some(cycle => cycle.support === 4 && cycle.damage > .002 && cycle.release !== null));
   assert.deepEqual(hit.blow.sides.map(side => side.segment), ["jaw", "jaw"]);
-  assert.ok(hit.blow.sides.every(side => side.damage > 0 && side.wound !== null));
+  assert.ok(hit.blow.sides[1].damage > 0 && hit.blow.sides[1].wound !== null);
   assert.ok(row.bars.every(bar => bar < 1));
   assert.ok(hit.blow.sides[0].region?.startsWith("tooth."));
   assert.equal(hit.blow.sides[1].mechanism, "point");

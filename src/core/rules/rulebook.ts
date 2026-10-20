@@ -44,6 +44,8 @@ export interface Rulebook {
    * takes no wound from; it is wounded by the rest. Against an item it takes its whole share.
    */
   readonly fist: Quantity<number>;
+  /** Piercing injury from normal impulse above a load threshold, N and HP/(N s), shared by every surface. */
+  readonly pointLoad: { readonly threshold: Quantity<number>; readonly rate: Quantity<number> };
   /**
    * **What a per cent of balance is** (`AttributeSpec.balance`): the most an assist gives a
    * body for each per cent, a force in the body's own weights, which is a hundredth by the
@@ -83,6 +85,10 @@ const RULES: Omit<Rulebook, "mode"> = Object.freeze({
   worth: Object.freeze(Object.fromEntries(MECHANISMS.map((mechanism) => [mechanism,
     derive("1", "the blunt price over this mechanism's", [MECHANISM_PRICE.blunt, MECHANISM_PRICE[mechanism]], (blunt, own) => blunt / own)],
   )) as Record<Mechanism, Quantity<number>>),
+  pointLoad: Object.freeze({
+    threshold: sourced(1, "N", "owner-point-load", "the shared minimum piercing load"),
+    rate: sourced(6.4, "HP/(N s)", "owner-point-load", "shared calibration for the 30 s reptile injury target"),
+  }),
   balance: Object.freeze({
     force: sourced(0.01, "1", "owner-balance", "a per cent of the body's weight"),
     moment: sourced(0.0026, "m", "owner-balance", "and 0.0026 weight-metres with each per cent"),
@@ -97,6 +103,12 @@ const RULES: Omit<Rulebook, "mode"> = Object.freeze({
 export function blowDamage(rules: Rulebook, mechanism: Mechanism, energy: number): number {
   if (!(energy >= 0) || !Number.isFinite(energy)) throw new Error(`a blow's energy is a finite joules >= 0, not ${energy}`);
   return energy * rules.worth[mechanism].value / rules.unit.value;
+}
+
+/** Piercing injury, HP, from the interval's summed aligned normal impulse, N s. */
+export function pointLoadDamage(rules: Rulebook, impulse: number, seconds: number): number {
+  if (!(impulse >= 0) || !Number.isFinite(impulse) || !(seconds > 0) || !Number.isFinite(seconds)) throw new Error("a point load needs finite nonnegative impulse and positive duration");
+  return rules.pointLoad.rate.value * Math.max(0, impulse - rules.pointLoad.threshold.value * seconds);
 }
 
 /** What a per cent of balance is under `rules`, as a ceiling. */
@@ -123,10 +135,15 @@ export function balanceCeiling(balance: number, percent: AssistCeiling): AssistC
 
 /** The rules of `mode`, with `override` in place of any of them. */
 export function rulebook(mode: Mode, override: RulebookOverride = {}): Rulebook {
+  const load = override.pointLoad ?? RULES.pointLoad;
+  if (load.threshold.unit !== "N" || load.rate.unit !== "HP/(N s)"
+    || !Number.isFinite(load.threshold.value) || load.threshold.value < 0
+    || !Number.isFinite(load.rate.value) || load.rate.value < 0) throw new Error("point-load rules need finite nonnegative N and HP/(N s)");
+  const pointLoad = Object.freeze({ threshold: Object.freeze({ ...load.threshold }), rate: Object.freeze({ ...load.rate }) });
   switch (mode) {
     case "arena":
     case "dungeon":
-      return Object.freeze({ ...RULES, ...override, mode });
+      return Object.freeze({ ...RULES, ...override, pointLoad, mode });
     default: {
       const never: never = mode;
       throw new Error(`no rulebook for ${String(never)}`);

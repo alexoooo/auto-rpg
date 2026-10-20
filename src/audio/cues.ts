@@ -87,6 +87,7 @@ export function swishStrength(speed: number): number {
  * it.
  */
 export function debrisCues(blow: LandedBlow): SoundCue[] {
+  if (blow.kind === "load") return [];
   return woundedIn(blow).flatMap((side) => {
     const cue = side.wound.severed.length ? impactCue(`${side.fighter}:debris`, "debris", side.share * blow.energy, { x: blow.point[0], z: blow.point[2] }) : null;
     return cue ? [cue] : [];

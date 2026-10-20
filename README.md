@@ -59,7 +59,7 @@ The Reptile uses **Crawl and bite**, carries no equipment and has 1 HP at 8 kg. 
 opponents, slows for contact, and shifts its weight before placing one paw during close fighting
 and withdrawal. It bites reachable body surfaces with its physical jaw.
 Try `?play=arena&matchup=workshop-fighter,reptile&held=empty&recovery=continue`.
-Its anatomy is an authored estimate; its blunt bite is weak, and fighting effectiveness remains
+Its anatomy is an authored estimate. Aligned tooth contacts wound under physical load; practical combat against humanoids remains
 unqualified against humanoids. [Control checks](docs/reference/reptile.md) cover standing, fast
 travel, biting mirror matches, release and recovery. Recovery may take several retries,
 particularly from awkward leg positions.

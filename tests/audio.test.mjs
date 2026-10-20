@@ -5,7 +5,7 @@ import { CueInbox, debrisCues, impactCue, soundPlacement, swishStrength, voiceOf
 import { GameAudio } from '../src/audio/game-audio.ts';
 const WOUND = { taken: [{ part: 'head', hp: 3 }], severed: [], lost: 0, spent: 3, ending: null };
 // A core blow (`LandedBlow`) of 15 J from the hero's club to the enemy's head: `struck` patches the head's side, `patch` the blow.
-const blow = (struck = {}, patch = {}) => ({ time: 1, point: [1, 1.6, 2], normal: [0, 0, 1], closing: 4, energy: 15, sides: [
+const blow = (struck = {}, patch = {}) => ({ kind: 'impact', time: 1, point: [1, 1.6, 2], normal: [0, 0, 1], closing: 4, energy: 15, sides: [
   { fighter: 'hero', segment: 'hand.right', item: 'club', kg: 1, share: 0, damage: 0, wound: null },
   { fighter: 'enemy', segment: 'head', item: null, kg: 5, share: 1, damage: 3, wound: WOUND, ...struck },
 ], ...patch });
@@ -25,6 +25,8 @@ test('what a blow took off is debris, for each side it took something off, as lo
   // Just under and just over the quietest cue.
   assert.deepEqual(debrisCues({ ...off, energy: 60 * .012 ** 2 }), []);
   assert.equal(debrisCues({ ...off, energy: 60 * .013 ** 2 }).length, 1);
+  const { energy, closing, ...loaded } = off;
+  assert.deepEqual(debrisCues({ ...loaded, kind: 'load', impulse: [0, 1], seconds: 1 / 120 }), []);
   assert.deepEqual(off, before);
 });
 test('impact windows retain the strongest of a pair, keep pairs apart, bound bursts and drop stale events', () => {

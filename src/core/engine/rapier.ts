@@ -4,12 +4,10 @@ import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { STANDARD_GRAVITY } from "../spec/constants.ts";
 import { sourced, type Vec3 } from "../spec/quantity.ts";
 import { CONTACT_FRICTION } from "../read-body.ts";
-import { type ColliderShape, type Contact, type ContactMaterial, type MaterialContact, type ContactManifold, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
+import { type ColliderShape, type Contact, type ContactMaterial, type ContactManifold, type EngineGrip, type EngineJoint, type FixedCollider, type JointFrames, type MassProperties,
   type PhysicsEngine, type PhysicsOptions, type PhysicsWorld, type SegmentBody } from "./engine.ts";
 import { sin, cos, hypot } from "../math/real.ts";
 import { turnAboutToRef } from "../math/turn.ts";
-
-const EMPTY_MATERIAL_CONTACTS: readonly MaterialContact[] = Object.freeze([]);
 
 /**
  * **The core's physics engine: Rapier**, the SIMD build of its WebAssembly (`@dimforge/rapier3d-simd-compat`,
@@ -35,7 +33,7 @@ const EMPTY_MATERIAL_CONTACTS: readonly MaterialContact[] = Object.freeze([]);
 type Rapier = typeof RAPIER;
 
 /** Vendor archive identity (`docs/reference/rapier-vendor.md`) and the adapter's snapshot contract. */
-const REVISION = "rapier/adapter-11/sha256:0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c";
+const REVISION = "rapier/adapter-12/sha256:0bcb12014c0e982ea2bda99a3d1ab8e263bb81f0d2abcb7d2ade2b578b87b77c";
 
 /**
  * Rapier's wasm, loading or loaded: one instance a realm. Rapier's own `init` asked again while
@@ -153,33 +151,13 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
   /** Each body's colliders' handles, in its shapes' order. */
   const colliderHandles = new Map<RapierBody, readonly number[]>();
   const materials = new Map<number, ContactMaterial>();
-  const materialMasses = new Map<RapierBody, number>();
-  // Loaded native manifolds retain their material law until release, including angular unloading.
-  const continuingLayers = new Set<string>();
-  const materialKey = (a: number, b: number) => `${Math.min(a, b)}:${Math.max(a, b)}`;
-  const materialDirection = new Vector3(), materialRotation = new Quaternion();
-  const layerFor = (a: number, b: number, nx: number, ny: number, nz: number): number[] | null => {
-    const first = bodyOf.get(a), second = bodyOf.get(b), one = materials.get(a), two = materials.get(b);
-    // A sole against something fixed: a collider not a body's is a fixed one.
+  const layerFor = (a: number, b: number): number[] | null => {
+    const first = bodyOf.get(a), second = bodyOf.get(b);
     if (!first !== !second) {
-      const sole = first ? one?.sole : two?.sole;
-      return sole ? [sole.stiffness, sole.damping, sole.depth] : null;
+      const sole = materials.get(first ? a : b)?.sole;
+      if (sole) return [sole.stiffness, sole.damping, sole.depth];
     }
-    if (!first || !second) return null;
-    const fits = (body: RapierBody, point: ContactMaterial["point"], sign: number) => {
-      if (!point) return false;
-      materialRotation.copyFrom(body.node.rotationQuaternion!);
-      materialDirection.set(...point.direction).applyRotationQuaternionToRef(materialRotation, materialDirection);
-      return sign * (materialDirection.x * nx + materialDirection.y * ny + materialDirection.z * nz) >= point.alignment;
-    };
-    const continuing = continuingLayers.has(materialKey(a, b));
-    const tooth = one?.point && two?.layer && (continuing || fits(first, one.point, 1)) ? one.point
-      : two?.point && one?.layer && (continuing || fits(second, two.point, -1)) ? two.point : null;
-    const layer = tooth === one?.point ? two?.layer : one?.layer;
-    if (!tooth || !layer) return null;
-    const m = materialMasses.get(first)!, n = materialMasses.get(second)!;
-    const reduced = m + n > 0 ? 1 / (m + n) : 0;
-    return [layer.stiffness, 2 * layer.dampingRatio * Math.sqrt(layer.stiffness * reduced), Math.min(layer.depth, tooth.depth)];
+    return null;
   };
   /** The bodies given a force or a moment for the next step: Rapier keeps one until it is reset. */
   const forced = new Set<RapierBody>();
@@ -427,18 +405,11 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
     addBody(node, shapes, mass, { ccd = false, materials: givenMaterials = [] } = {}) {
       if (typeof ccd !== "boolean") throw new Error("CCD must be a boolean");
       const preparedMaterials = givenMaterials.map(given => {
-        if (given?.layer && (!(given.layer.stiffness > 0) || !(given.layer.depth > 0)
-          || !(given.layer.dampingRatio >= 0) || !Object.values(given.layer).every(Number.isFinite))) throw new Error("a contact layer needs finite positive stiffness and depth and nonnegative damping");
         if (given?.sole && (!(given.sole.stiffness > 0) || !(given.sole.depth > 0)
           || !(given.sole.damping >= 0) || !Object.values(given.sole).every(Number.isFinite))) throw new Error("a sole needs finite positive stiffness and depth and nonnegative damping");
         if (given?.friction !== undefined && !(given.friction >= 0 && Number.isFinite(given.friction))) throw new Error("a friction coefficient must be finite and nonnegative");
-        const direction = given?.point?.direction;
-        const length = direction && Math.sqrt(direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]);
-        if (given?.point && (!(length! > 0) || !direction!.every(Number.isFinite) || !(given.point.depth > 0)
-          || !Number.isFinite(given.point.depth) || !(given.point.alignment >= 0 && given.point.alignment <= 1))) throw new Error("a contact point needs a finite direction, depth and normal cosine");
-        return given && { ...(given.layer ? { layer: Object.freeze({ ...given.layer }) } : {}), ...(given.sole ? { sole: Object.freeze({ ...given.sole }) } : {}),
-          ...(given.friction !== undefined ? { friction: given.friction } : {}),
-          ...(given.point ? { point: Object.freeze({ ...given.point, direction: Object.freeze(direction!.map(v => v / length!)) as unknown as Vec3 }) } : {}) };
+        return given && { ...(given.sole ? { sole: Object.freeze({ ...given.sole }) } : {}),
+          ...(given.friction === undefined ? {} : { friction: given.friction }) };
       });
       const q = node.rotationQuaternion ?? Quaternion.Identity();
       let rigid = raw.createRigidBody(R.RigidBodyDesc.dynamic()
@@ -453,8 +424,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
         if (material?.friction !== undefined) desc.setFriction(material.friction).setFrictionCombineRule(R.CoefficientCombineRule.Max);
         const handle = raw.createCollider(desc, rigid).handle;
         shapeOf.set(handle, k);
-        if (material?.layer || material?.point || material?.sole) materials.set(handle, material);
-        if (material?.point || material?.sole) raw.getCollider(handle).setActiveHooks(R.ActiveHooks.MODIFY_SOLVER_CONTACTS);
+        if (material?.sole) materials.set(handle, material);
+        if (material?.sole) raw.getCollider(handle).setActiveHooks(R.ActiveHooks.MODIFY_SOLVER_CONTACTS);
         return handle;
       });
       let properties = mass;
@@ -726,47 +697,8 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       }
       return out;
     },
-    materialContacts() {
-      if (!materials.size) return EMPTY_MATERIAL_CONTACTS;
-      const out: MaterialContact[] = [], read = new Set<string>();
-      for (const [mine, material] of materials) {
-        if (!material.point) continue;
-        raw.narrowPhase.contactPairsWith(mine, theirs => {
-          const a = Math.min(mine, theirs), b = Math.max(mine, theirs), key = `${a}:${b}`;
-          const first = bodyOf.get(a), second = bodyOf.get(b);
-          if (!first || !second || read.has(key)) return;
-          read.add(key);
-          raw.narrowPhase.contactPair(a, b, raw.bodies, (manifold, flipped) => {
-            if (!(manifold.layerStiffness() > 0)) return;
-            const normal = manifold.normal(), sign = flipped ? -1 : 1;
-            let work = 0, depth = 0;
-            const impulse = manifold.totalSolverContactImpulse();
-            for (let i = 0; i < manifold.numContacts(); i++) {
-              work += manifold.contactLayerWork(i);
-            }
-            for (let i = 0; i < manifold.numSolverContacts(); i++) depth = Math.max(depth, -manifold.solverContactSeparation(i));
-            if (work === 0 && !(impulse > 0) && !(depth > 0)) return;
-            const p = manifold.solverContactPoint(0);
-            if (!p) return;
-            out.push({ key, first, second, mine: shapeOf.get(a)!, theirs: shapeOf.get(b)!,
-              point: [p.x, p.y, p.z], normal: [sign * normal.x, sign * normal.y, sign * normal.z], work, depth });
-          });
-        });
-      }
-      return out;
-    },
     step(dt) {
       raw.timestep = dt;
-      if (materials.size) for (const body of bodies) materialMasses.set(body, body.rigid.isFixed() ? 0 : 1 / body.engineMass());
-      continuingLayers.clear();
-      for (const [mine, material] of materials) if (material.point) raw.narrowPhase.contactPairsWith(mine, theirs => {
-        raw.narrowPhase.contactPair(mine, theirs, raw.bodies, manifold => {
-          if (!(manifold.layerStiffness() > 0)) return;
-          let loaded = manifold.totalSolverContactImpulse() > 0;
-          for (let i = 0; i < manifold.numSolverContacts(); i++) loaded ||= manifold.solverContactSeparation(i) < 0;
-          if (loaded) continuingLayers.add(materialKey(mine, theirs));
-        });
-      });
       for (const grip of grips) if (grip.suppressed && !overlaps(grip.parent, grip.child)) grip.suppressed = false;
       raw.step(events, hooks);
       moment += 1;
@@ -783,7 +715,6 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       for (const [key, { parent, child }] of made.grips) if (parent === body || child === body) made.grips.delete(key);
       named = null;
       for (const handle of colliderHandles.get(body)!) { shapeOf.delete(handle); bodyOf.delete(handle); materials.delete(handle); }
-      materialMasses.delete(body);
       colliderHandles.delete(body);
       forced.delete(body);
       rebinds.delete(body);
@@ -803,8 +734,6 @@ export function createRapierPhysics(R: Rapier, { hz, gravity }: PhysicsOptions, 
       shapeOf.clear();
       colliderHandles.clear();
       materials.clear();
-      materialMasses.clear();
-      continuingLayers.clear();
       forced.clear();
       rebinds.clear();
       for (const grip of grips) { grip.handle = null; grip.suppressed = false; }

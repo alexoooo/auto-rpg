@@ -107,7 +107,7 @@ no fresh entry. A buried mouth withdraws before seeking another surface.
 A pending request retains its material point while an active paw placement finishes,
 with a two-second placement deadline. Preparation retains the material point in the opponent segment's frame and follows
 its sensed motion. A changed foe order replaces a chamber target; the snap freezes
-the last chambered world point and mouth aim. The mouth goal compensates the
+the last chambered world point, mouth aim and measured neck pose. The mouth goal compensates the
 selected tooth's projected contact angle. A bounded horizontal COM shift stays
 inside the actual loaded paw support polygon.
 
@@ -116,20 +116,18 @@ before launch, which waits for four loaded paws; a committed stroke requires at
 least three. Locomotion pauses for a pending request, preparation and the stroke. The angular quintic retains
 closing velocity at its endpoint within the unchanged muscle ceilings. A missed
 stroke ends after the snap and follow-through clocks. An admitted contact has the
-shared finite .25 s / 8 mm budget. Cancellation, lost support, a fall, misalignment
+shared finite .25 s / 8 mm endpoint-travel budget. Cancellation, lost support, a fall, misalignment
 or any loaded contact with the world or an unintended body ends the stroke.
 Contact identities come from the arena or Crypt's trusted adapter, including weak
 contacts beside a stronger intended contact.
 
-The [bounded contact law](reptile-bites.md) admits a compliant layer only when a
-physical tooth faces into the opposing surface. Actual solver reaction work adds
-compression and subtracts unloading. An episode combines all contacting teeth
-against one opposing physical segment and prices its nonnegative net work once
-at physical separation, replacing the kinetic estimate for that episode. The
-world owns this memory across combat-observer replacement and save/load.
-The tooth's stiffness sets the compliance share and the existing point worth prices
-the opposing share. Sides, reverse contacts, heads and ordinary jaws remain blunt.
-No striker or reptile damage multiplier participates.
+The [pointed-contact load rule](reptile-bites.md) wounds any opposing body under aligned
+physical tooth pressure above the common threshold. It integrates normal impulse each
+interval, grouping teeth against the same physical segment. No tissue declaration,
+penetration calculation or contact-work episode participates. The shared game rate sets
+injury strength independently of anatomy. Sides, reverse contacts, heads and ordinary jaws
+remain blunt; impacts retain recoil injury. No character-specific rule or Mind's intent
+participates.
 
 A return opens the jaw for .25 s while retaining the measured neck pitch, then
 retracts a loaded head through its neck muscles. If contact persists after the
@@ -137,7 +135,7 @@ opening path and .2 s release interval, it requests backward crawling while
 retaining the forward heading. Success
 requires an open jaw, a neutral neck, quiet relative jaw motion and no foreign
 loaded head or jaw contact. A timeout reports failure and permits another target.
-Colliders do not change with wounds, and static pressure creates no work over time.
+Colliders do not change with wounds. Sustained aligned pressure injures even without movement.
 
 ## Encounters
 
@@ -180,7 +178,7 @@ unloaded speed is raised during their qualification.
 | Paw accounting | At most two requested swings in the trot, one in the crawl; each counted paw clears the floor and reloads through positive fixed-ground contact |
 | Closing-jaw contact | A fixed opposing Reptile jaw receives a tooth contact during the fast closing stroke; cancellation gives one verified release and no failed return |
 | Autonomous bite | Senses-only approach and closing-jaw contact, followed by verified release after cancellation |
-| Autonomous mirror qualification | Gaps 1.5, 2, 3 and 4 m, 60 s each: five verified damaging bite/release cycles per side or an earlier injury verdict, at least .05 HP combined deliberate bite damage, and no fall before an injury verdict |
+| Autonomous combat target | Injury verdict within 30 s in Reptile mirrors; at least two damaging engagements and .5 HP removed in 30 s against each active humanoid. Results and conditions are in [pointed contact](reptile-bites.md). |
 | Recovery | Back, left, right and lowered-belly poses in two headings, eight handovers within 100 s; each then walks two trunk lengths in 60 s without another fall |
 | No floor | No invented support or completed rise in a gravity-free unsupported inverted body |
 | Lifecycle and replay | Hold/resume retains physical bodies; crawling, jaw cancellation and righting fork exactly, with physics-only and state-only negative controls |
@@ -188,11 +186,12 @@ unloaded speed is raised during their qualification.
 
 ### Bite contact and qualification
 
-[Bounded tooth contact](reptile-bites.md) records the material grid, the 120 Hz / 960 Hz
-kernel comparison and fixed/free grounded jaw trials. The bite meter credits only
-positive work during actual jaw closing in a committed stroke, subtracts subsequent
-unloading and apportions actual point-priced HP taken at release. Approach bumps
-and positive work from preparation or return do not establish deliberate bite damage.
+[Pointed contact](reptile-bites.md) records the physical law, its rate and contact-count
+checks, and Arena bouts against Reptile, Rogue, Warrior and Skeleton. The bite meter
+credits actual load wounds during a launched bite and its loaded withdrawal. A completed
+cycle requires the skill's verified physical release; a timed-out return is a failure.
+The combat harness also counts damaging engagements separated by actual jaw/opponent
+contact clearance, independent of the skill phase.
 
 The eight recovery poses are development witnesses, not a claim about arbitrary falls,
 obstacles or opponents. Some rotated leg positions take repeated retries and about 80 s.
@@ -237,7 +236,7 @@ need not equal the velocity command exactly.
 
 `node research/reptile-motion.mjs` also prints four autonomous arena mirror matches and
 distinguishes jaw blows during a committed closing stroke from incidental body collisions.
-Those matches qualify approach and attacks, not competitive bite power or arbitrary encounters.
+Those matches diagnose attack placement; the 30 s combat target is measured separately by `research/reptile-combat.mjs`.
 
 ## Humanoid regression
 

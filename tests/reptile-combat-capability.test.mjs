@@ -1,28 +1,35 @@
-// How the reptiles fight each other, measured and not a gate (`tests/experimental.json`): Node,
-// core world, Rapier, 120 Hz.
+// Arena combat targets measured on the Node Duel, rapier-coordinate, 120 Hz, zero balance.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mirrorTrial } from "../research/reptile-motion.mjs";
+import { combatTrials, DEVELOPMENT_GAPS, CONFIRMATION_GAPS, HUMANOIDS } from "../research/reptile-combat.mjs";
 
-// How many bites land and how much they wound in one bout swing with its opening: one of these gaps
-// may give two damaging bites a side where the next gives twelve. What the bites come to is read
-// over the four bouts together, each side's damaging bites and the damage they did.
-test("autonomous reptiles repeat damaging bites and verified releases across starting gaps", async t => {
-  const damaging = [0, 0];
-  let damage = 0;
-  for (const gap of [1.5, 2, 3, 4]) {
-    const row = await mirrorTrial(gap), message = JSON.stringify({ ...row, hits: row.hits.length });
-    assert.deepEqual(row.falls, [null, null], message);
-    const injury = ["fatal", "severed", "exhausted"].includes(row.verdict?.ending);
-    assert.ok(injury || row.seconds === 60, message);
-    row.damagingCycles.forEach((count, i) => { damaging[i] += count; });
-    damage += row.biteDamage;
-    assert.ok(row.cycles.every(cycles => cycles.every(cycle => cycle.support === 4)), message);
-    assert.ok(row.hits.some(hit => hit.work > 0 && hit.sides.some(side => side.mechanism === "point")), message);
-    assert.ok(row.compression <= .008, message);
-    for (const assist of row.assist) assert.deepEqual(assist, { steps: 0, force: 0, moment: 0 });
-    t.diagnostic(JSON.stringify({ gap, seconds: row.seconds, damagingCycles: row.damagingCycles,
-      biteDamage: row.biteDamage, compression: row.compression, falls: row.falls, verdict: row.verdict }));
+const gaps = [...DEVELOPMENT_GAPS, ...CONFIRMATION_GAPS];
+const message = row => JSON.stringify(row);
+
+test("reptile mirrors end by injury within thirty seconds across development and fresh gaps", async t => {
+  const rows = await combatTrials(gaps.map(gap => ({ gap })));
+  for (const row of rows) {
+    t.diagnostic(message(row));
+    assert.ok(["fatal", "severed", "exhausted"].includes(row.verdict?.ending) && row.seconds <= 30, message(row));
+    assert.deepEqual(row.falls, [null, null], message(row));
+    assert.ok(row.damage.some(hp => hp > 0), message(row));
+    assert.deepEqual(row.assist, [{ steps: 0, force: 0, moment: 0 }, { steps: 0, force: 0, moment: 0 }]);
   }
-  assert.ok(damaging.every(count => count >= 15) && damage >= .2, JSON.stringify({ damaging, damage }));
+});
+
+test("reptiles make two separate damaging engagements and remove half an HP against each humanoid", async t => {
+  const jobs = (opponent, gaps) => gaps.flatMap(gap => ["left", "right"].map(side => ({ opponent, gap, side })));
+  const development = await combatTrials(HUMANOIDS.flatMap(opponent => jobs(opponent, DEVELOPMENT_GAPS)));
+  for (const opponent of HUMANOIDS) await t.test(opponent, async () => {
+    const check = rows => {
+      rows.forEach(row => t.diagnostic(message(row)));
+      const failed = rows.filter(row => {
+        const i = row.side === "left" ? 0 : 1;
+        return row.engagements[i] < 2 || row.damage[i] < .5;
+      });
+      assert.deepEqual(failed, [], JSON.stringify({ opponent, failed }));
+    };
+    check(development.filter(row => row.opponent === opponent));
+    check(await combatTrials(jobs(opponent, CONFIRMATION_GAPS)));
+  });
 });

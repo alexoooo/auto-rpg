@@ -628,12 +628,12 @@ piercing normal. Primary shapes and natural contact regions both obstruct the pa
 retains the opponent's material point, predicts its motion from sensed velocity and spin,
 finishes the current paw placement and requires four loaded paws. Close crawling retains
 standing height for jaw clearance. A supported centre shift and the neck place the mouth;
-the snap freezes the world aim and can continue with three loaded paws. The shared strike
-cycle bounds admitted contact by time and measured normal compression. Withdrawal opens
+the snap retains the measured neck pose, freezes the world aim and can continue with three loaded paws. The shared strike
+cycle bounds admitted contact by time and tooth travel. Withdrawal opens
 the jaw before retracting a loaded neck; persistent contact after the opening and
 release interval requests backward paw placement. It verifies physical release
-before another bite. Contact wounds
-both surfaces through the common blow rules. Recovery
+before another bite. Generic pointed-contact load wounds the opposing body; ordinary impacts
+retain their compliance shares and recoil injury. Recovery
 supplies grounded joint torques, routes paws clear of the trunk and verifies quiet four-paw support
 before the host resumes.
 Blocked placements try the other end of the trunk; broad combat recovery remains unqualified.
@@ -1207,9 +1207,9 @@ fresh-world replay accompany the [human comparison](reference/punch-calibration.
 
 `createWorld(scene, engine)` (`src/core/world.ts`) makes the world: one fixed step at 120 Hz
 (`PHYSICS_HZ`) that owns physics, control, combat and the clock. A step runs the sensing hooks (a fight's senses, `createSenses`), the before-step hooks
-in the order they were added, one solver step, which writes every node, the world's compliant
-contact-work episodes, the post-physics observations (`afterPhysics`), and the after-step hooks
-(readings, blows). The clock advances before contact work and observations; it is the count of steps.
+in the order they were added, one solver step, which writes every node, the post-physics
+observations (`afterPhysics`), and the after-step hooks (readings, impacts and pointed loads).
+The clock advances before observations; it is the count of steps.
 Post-physics observations finish before any after-step event can end or remove a fighter.
 Each body adds one before-step hook
 (`driveMuscles`), in which the muscles read the joints, the body's mind steps (`embody`), its
@@ -1282,18 +1282,10 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   and turns past it. That time is half the period of the two masses on the two surfaces'
   stiffness in series, pi sqrt(mu / k); mu and the time are solved together (`contactGive`). So a
   braced arm meets a blow with the trunk behind it, and a limp one with the hand alone; two rigid
-  surfaces meet for no time, with every joint free. An admitted
-  point against a declared `SurfaceSpec.layer` uses the solver's reaction work instead:
-  a finite spring and damper with a rigid depth backstop. Compression adds work and unloading
-  subtracts it; static pressure adds none. `World.contactWork` aggregates simultaneous teeth
-  on the same opposing segment and prices the nonnegative net work once at release. The
-  numeric episodes survive combat-observer replacement and restore with the world; native
-  solver memory restores with the physics. An admitted layer persists through angular unloading
-  until physical release. A material episode retains every collider pair's signed work,
-  compliance shares and piercing contributions, including opposing tooth sets. It prices one
-  wound per side. Ordinary rigid impacts use the strongest loaded shape pair. A shape belongs
-  to its segment, a natural contact region (`ContactRegionSpec`), or a held item. Each
-  `BlowSide` records its energy share, damage and wound.
+  surfaces meet for no time, with every joint free. Ordinary rigid impacts use the strongest loaded shape pair. A shape belongs
+  to its segment, a natural contact region (`ContactRegionSpec`), or a held item.
+  `LandedBlow.kind` distinguishes an impact's energy and closing speed from a load's
+  normal impulses and interval. Each side records its surface, damage and actual pool wound.
 - **The two surfaces share the energy by their compliance** (`energyShares`, `share.ts`): springs
   in series under one force, so the softer takes the more. A segment's surface is its spec's; an
   item that states none is rigid and takes none. So a fist takes five eighths of its own punch to
@@ -1302,17 +1294,19 @@ The rules of a fight are `src/core/rules/`, free of any page so they can be argu
   takes any (`isClash`). A bare fist on flesh takes only what its share brings past the
   rulebook's threshold (`Rulebook.fist`, a knuckle's injury). The values, their gaps and what a part holds beside the literature:
   [reference/wounds.md](reference/wounds.md).
-- **Damage** (`rulebook.ts`) is energy times the mechanism's worth over the unit. The unit is
-  100 J of blunt blow a hit point, the owner's round number (`owner-damage-unit`,
-  [reference/wounds.md](reference/wounds.md#unit)), and every mechanism (blunt, edge, axe, point)
-  keeps its ratio to blunt. A declared piercing direction is read in the body reference frame
-  for anatomy and the item frame for equipment: a tooth or point inside its admitted normal
-  cone prices the opposing side's share as `point`; its sides and back remain blunt
-  (`pointsInto`). The strongest loaded shape pair supplies rigid impact surfaces and direction;
-  material work retains each admitted pair's contribution.
-  The Warrior's strongest one-handed blow with the wooden club is a
-  measurement beside it (`CLUB_BEST`, `research/core-club-unit.json`): 138.23 J, 1.38 hit points.
-  The arena's rulebook and the dungeon's are the same rules.
+- **Damage** (`rulebook.ts`): ordinary impact damage is energy times the mechanism's worth
+  over the unit, 100 J of blunt blow per HP (`owner-damage-unit`). An aligned physical point
+  instead wounds by `pointLoad.rate * max(0, impulse - pointLoad.threshold * dt)`.
+  Its direction is anatomical body frame or held-item frame, tested against the contact normal
+  (`pointsInto`). Sides and reverse contacts remain blunt. `watchBlows` sums all qualifying
+  collider contributions once per pointed rigid body, victim segment and interval, applying
+  the shared threshold once. Opposing points can wound both sides. A held item intercepts
+  load injury; impact recoil still follows compliance. Aligned point injury receives no
+  second energy payment. The rule needs no tissue layer, penetration estimate, release ledger,
+  character identity or attack intent. Sustained pressure can wound without motion.
+  [Pointed contact](reference/reptile-bites.md) records the game calibration, separate from anatomy.
+  The Warrior's strongest one-handed club blow (`CLUB_BEST`, `research/core-club-unit.json`)
+  is 138.23 J, 1.38 HP. The Arena and Crypt share the same rulebook.
 - **Wounds** (`pool.ts`): one pool of hit points per body, split over its parts by cross-section
   (mass to the two-thirds, as the square of its cube root). A part's excess damage spreads to its neighbours, nearest first and
   inward first. A part emptied by a clean blow, or hit far enough past empty, comes off, except the
@@ -1537,7 +1531,7 @@ the same action protocol. A blow is whatever two surfaces of two sides met with.
 keep control choices separate from the contact and damage rules ([roadmap](roadmap.md#strikes)).
 | Added | Where it goes | What it leaves alone |
 |---|---|---|
-| **A sword, a spear**: an edge, a point | An item's shape states its mechanism where it cuts or pierces; a blow whose surface is that shape is priced by it (`MECHANISM_PRICE`), after a breach cost under which it is a blunt blow. The item states its `aim` and its points; a search finds its recipes; the guard places its two ends. | The shares, the pool, the skill, the targets. |
+| **A sword, a spear**: an edge, a point | An item's shape states its edge or pointed surface; an aligned point uses the shared load rule. Edges and their breach costs need implementation. The item states its `aim` and its points; a search finds its recipes; the guard places its two ends. | The shares, the pool, the skill, the targets. |
 | **The face and the vault** | Natural contact regions (`SegmentSpec.contacts`) supply separate colliders and surfaces; teeth use this path. Face and vault regions still need anatomical data. | The pool: one head, one share of hit points. |
 | **Armour**: boots, greaves, a cuirass, vambraces, gloves, a helmet | A worn item, rigid with its segments as a held one is: it adds its mass, and its surface is one more layer in series (`energyShares` over the layers), taking its share and wounding nobody; it raises the breach cost of an edge or a point. A glove protects the puncher by the same rule. | The rule's shape; a rigid body's shapes gain a kind of owner. |
 | **A shield** | A held item with a face: its points are what the guard places (`ItemSpec.cover`); a bash is a blow like any other. A third place on one rigid body fixes its roll (`HandGoal.places`). | The guard skill, the rule. |

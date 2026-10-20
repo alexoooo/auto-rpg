@@ -37,7 +37,7 @@ type Unit =
   | "m/s" | "cm/s" | "m/min" | "m/s2"
   | "s" | "Hz"
   | "m s" | "cm min"
-  | "J" | "J/HP"
+  | "J" | "J/HP" | "HP/(N s)"
   /** Hit points: the rulebook's damage unit (`Rulebook.unit`), one 100 J of blunt blow. */
   | "HP";
 

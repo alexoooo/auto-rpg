@@ -11,36 +11,14 @@ import type { World } from "../world.ts";
 import type { Hold } from "../build/contact-mass.ts";
 import type { MuscleDriver } from "../muscle/driver.ts";
 import type { Pool, Wound } from "./pool.ts";
-import { blowDamage, type Mechanism, type Rulebook } from "./rulebook.ts";
+import { pointLoadDamage, blowDamage, type Mechanism, type Rulebook } from "./rulebook.ts";
 import { energyShares } from "./share.ts";
 
 /**
- * **Blows between bodies**: what the Crypt and the Arena wound with. A blow has no striker. It is
- * a new touch (`watchTouches`, `src/core/touches.ts`) of any two segments of two sides' fighters,
- * lasting while the solver pushes on it: a hand pressed against a body lands once. Two bodies
- * that touch are read once, from the one of the fighter the watch was given first, so only a
- * body with a fighter of another side after its own has its contacts read.
- *
- * - **A blow has two sides** (`BlowSide`): the surfaces that met, the first built first, each
- *   with the share of the blow's energy it took. Which surfaces is the engine's reading: of the
- *   pairs of shapes the solver pushed on (`Touch.pairs`), the one it pushed on hardest for a rigid impact, and
- *   whose each shape is (`Rigid.owners`): the segment's own, a natural contact region, or an item it holds, which is one
- *   body with the segment (`BodySpec.held`).
- * - **The two surfaces share the energy by their compliance** (`energyShares`): a segment's
- *   surface is its spec's (`SegmentSpec.surface`), and an item that states none is rigid and takes
- *   none. So a fist takes its part of its own punch, what a club strikes takes the whole blow, and
- *   two items meeting are a clash, in which neither side takes any (`isClash`).
- * - **Its closing speed and its energy** are the touch's (`TouchWatch.priced`) for rigid contacts,
- *   each fighter's muscles holding for the time the two surfaces' stiffness in series gives it.
- *   Admitted point layers instead accumulate signed solver reaction work in the world: teeth on
- *   one opposing segment form one episode, priced once at release, retaining every pair's
- *   compliance and point contribution, with unloading subtracted.
- * - **A side's damage** is `blowDamage` of its share of that energy, less the fist's threshold
- *   (`Rulebook.fist`) where it is a bare hand and the other side a body's own surface, priced by
- *   the opposing surface: a stated point facing into the contact normal pierces; sides and backs stay blunt.
- *   Neither is a clean sever, so it takes a part off only past empty by the rulebook's margin (`src/core/rules/pool.ts`). Both sides are wounded,
- *   the first then the second, even where the first's wound ends its fight: a blow is one event.
- * - A fighter whose pool has ended, and a part that has come off, neither wounds nor is wounded.
+ * Contact injury is physical and has no striker. New closing touches share their impact energy
+ * by compliance. Aligned pointed surfaces instead injure the opposing body under sustained
+ * normal load, once per rigid-body pair and interval, with every qualifying shape included.
+ * Sides and reverse contacts remain blunt. A held item intercepts piercing injury.
  */
 
 /** A body in the fight: its side, its pool, and what it was built as. */
@@ -76,33 +54,31 @@ export interface BlowSide {
   readonly region?: string;
   /** Absent for blunt contact; a point on the opposing surface prices this wound. */
   readonly mechanism?: Mechanism;
-  /** The mass the contact meets on this side, kg. */
+  /** Effective impact mass, or the contacted rigid mass for a load record, kg. */
   readonly kg: number;
-  /** The share of the blow's energy this side took, 0 to 1. */
+  /** The compliance share of the two surfaces, 0 to 1; load injury uses impulse directly. */
   readonly share: number;
-  /** Hit points, in the rulebook's unit: its share's worth. */
+  /** Hit points requested from this physical cause of injury. */
   readonly damage: number;
-  /** The point-priced portion of a material episode's damage, before pool limits. */
-  readonly pointDamage?: number;
-  /** What it did to this side's pool; null where it took no share. */
+  /** What it did to this side's pool; null where no wound is requested. */
   readonly wound: Wound | null;
 }
 
 /** A blow: two surfaces of two sides' bodies that met, the side built first first. */
-export interface LandedBlow {
+interface ContactInjury {
   /** The world's clock when it landed, s. */
   readonly time: number;
   /** Where, world, m, and the normal, out of the first side into the second. */
   readonly point: Vec3;
   readonly normal: Vec3;
-  /** Incoming rigid closing speed, or a material episode's peak post-solver closing speed, m/s. */
-  readonly closing: number;
-  /** J. */
-  readonly energy: number;
-  /** Dissipated compliant contact work, priced instead of an impact estimate. */
-  readonly work?: number;
   readonly sides: readonly [BlowSide, BlowSide];
 }
+
+/** Impact energy and sustained load are separate physical causes of injury. */
+export type LandedBlow = ContactInjury & (
+  | { readonly kind: "impact"; readonly energy: number; readonly closing: number }
+  | { readonly kind: "load"; readonly impulse: readonly [number, number]; readonly seconds: number }
+);
 
 /** Whether `blow` wounded nobody: neither side took a share. */
 export const isClash = (blow: LandedBlow): boolean => blow.sides.every((side) => side.share === 0);
@@ -184,55 +160,61 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
     return pointsInto(surface.direction, [normal.x, normal.y, normal.z], surface.alignment!) ? "point" : "blunt";
   };
   const parts = new Map(fighters.flatMap(body => [...body.built.segments.values()].map(segment => [segment.body.id, { body, segment }] as const)));
+  const publish = (blow: LandedBlow) => { deepFreeze(blow); blows.push(blow); onBlow?.(blow); };
   const land = (first: Part<Fighter>, second: Part<Fighter>, pair: ContactPair, location: Pick<ContactPair, "point" | "normal">, energy: number,
-    kg: readonly [number, number], closing: number, work?: number,
-    material?: { shares: readonly number[]; damage: readonly number[]; pointDamage: readonly number[] }) => {
+    kg: readonly [number, number], closing: number) => {
     const surfaces = [surfaceOf(first, pair.mine), surfaceOf(second, pair.theirs)] as const;
-    const shares = material?.shares ?? energyShares(surfaces.map(surface => surface.stiffness));
-    const mechanisms = work === undefined
-      ? [mechanismOf(first, surfaces[0], pair.normal, 1), mechanismOf(second, surfaces[1], pair.normal, -1)] as const
-      : [surfaces[0].direction ? "point" : "blunt", surfaces[1].direction ? "point" : "blunt"] as const;
+    const shares = energyShares(surfaces.map(surface => surface.stiffness));
+    const mechanisms = [mechanismOf(first, surfaces[0], pair.normal, 1), mechanismOf(second, surfaces[1], pair.normal, -1)] as const;
     const side = (part: Part<Fighter>, k: 0 | 1): BlowSide => {
       const name = part.segment.spec.name, share = shares[k]!, mechanism = mechanisms[k === 0 ? 1 : 0];
       const spared = surfaces[k].item === null && part.segment.spec.handPoses && surfaces[k === 0 ? 1 : 0].item === null ? rules.fist.value : 0;
-      const damage = material?.damage[k] ?? (share > 0 ? blowDamage(rules, mechanism, Math.max(0, share * energy - spared)) : 0);
+      const damage = share > 0 && mechanism !== "point" ? blowDamage(rules, mechanism, Math.max(0, share * energy - spared)) : 0;
       const wound = share > 0 ? part.body.pool.wound({ part: name, damage, clean: false }) : null;
       return { fighter: part.body.id, segment: name, item: surfaces[k].item, ...(surfaces[k].region ? { region: surfaces[k].region } : {}),
-        ...(mechanism === "blunt" ? {} : { mechanism }), kg: kg[k], share, damage,
-        ...(material ? { pointDamage: material.pointDamage[k]! } : {}), wound };
+        ...(mechanism === "blunt" ? {} : { mechanism }), kg: kg[k], share, damage, wound };
     };
-    const blow: LandedBlow = deepFreeze({ time: world.time, point: location.point, normal: location.normal, closing, energy,
-      ...(work === undefined ? {} : { work }), sides: [side(first, 0), side(second, 1)] as const });
-    blows.push(blow); onBlow?.(blow);
+    publish({ kind: "impact", time: world.time, point: location.point, normal: location.normal, closing, energy,
+      sides: [side(first, 0), side(second, 1)] });
   };
-  const physical = world.afterStep(() => {
-    for (const episode of world.contactWork.released) {
-      const first = parts.get(episode.first), second = parts.get(episode.second), energy = Math.max(0, episode.work);
-      if (!first || !second || first.body.side === second.body.side || !inFight(first) || !inFight(second) || !(energy > 0)) continue;
-      const absorbed = [[0, 0], [0, 0]], shapes = [episode.mine, episode.theirs], strongest = [-Infinity, -Infinity];
-      const pointed = [false, false];
-      for (const pair of episode.pairs.values()) {
-        const surfaces = [surfaceOf(first, pair.mine), surfaceOf(second, pair.theirs)], shares = energyShares(surfaces.map(s => s.stiffness));
-        for (const k of [0, 1] as const) {
-          absorbed[k]![surfaces[1 - k]!.direction ? 1 : 0]! += pair.work * shares[k]!;
-          const point = !!surfaces[k]!.direction;
-          if (pair.work > 0 && (point && !pointed[k] || point === pointed[k] && pair.work > strongest[k]!)) {
-            shapes[k] = k === 0 ? pair.mine : pair.theirs; strongest[k] = pair.work; pointed[k] = point;
+  const pointed = (part: Part<Fighter>) => part.segment.rigid.owners.some((_, shape) => surfaceOf(part, shape).direction);
+  const ordered = [...parts.values()], indices = new Map(ordered.map((part, i) => [part.segment.body, i]));
+  const points = new Set(ordered.filter(pointed).map(part => part.segment.body));
+  const readLoads = () => {
+    if (points.size === 0) return;
+    for (let i = 0; i < ordered.length; i++) {
+      const first = ordered[i]!;
+      if (!inFight(first)) continue;
+      const contacts = world.physics.contactsOf(first.segment.body, other => other !== null && (indices.get(other) ?? -1) > i
+        && (points.has(first.segment.body) || points.has(other)));
+      for (const contact of contacts) {
+        const second = ordered[indices.get(contact.other!)!]!;
+        if (first.body.side === second.body.side || !inFight(first) || !inFight(second)) continue;
+        const impulses: [number, number] = [0, 0];
+        let selected: ContactPair | null = null;
+        for (const pair of contact.pairs) {
+          const surfaces = [surfaceOf(first, pair.mine), surfaceOf(second, pair.theirs)];
+          const pierces = [mechanismOf(first, surfaces[0]!, pair.normal, 1) === "point",
+            mechanismOf(second, surfaces[1]!, pair.normal, -1) === "point"];
+          for (const k of [0, 1] as const) if (pierces[1 - k] && surfaces[k]!.item === null && surfaces[k]!.stiffness !== null) {
+            impulses[k] += pair.impulse;
+            if (!selected || pair.impulse > selected.impulse) selected = pair;
           }
         }
+        if (!selected) continue;
+        const damage = impulses.map(impulse => pointLoadDamage(rules, impulse, world.dt));
+        if (!damage.some(value => value > 0)) continue;
+        const pair = selected, surfaces = [surfaceOf(first, pair.mine), surfaceOf(second, pair.theirs)];
+        const shares = energyShares(surfaces.map(surface => surface.stiffness));
+        const side = (part: Part<Fighter>, k: 0 | 1): BlowSide => ({ fighter: part.body.id, segment: part.segment.spec.name,
+          item: surfaces[k]!.item, ...(surfaces[k]!.region ? { region: surfaces[k]!.region } : {}),
+          ...(impulses[k] > 0 ? { mechanism: "point" as const } : {}), kg: part.segment.rigid.mass, share: shares[k]!, damage: damage[k]!,
+          wound: damage[k]! > 0 ? part.body.pool.wound({ part: part.segment.spec.name, damage: damage[k]!, clean: false }) : null });
+        publish({ kind: "load", time: world.time, point: pair.point, normal: pair.normal, impulse: impulses, seconds: world.dt,
+          sides: [side(first, 0), side(second, 1)] });
       }
-      // Unloading credits the episode; clipping cannot increase the energy it prices.
-      for (const bins of absorbed) for (let k = 0; k < bins.length; k++) bins[k] = Math.max(0, bins[k]!);
-      const total = absorbed[0]![0]! + absorbed[0]![1]! + absorbed[1]![0]! + absorbed[1]![1]!;
-      if (!(total > 0)) continue;
-      const scale = energy / total;
-      const pointDamage = absorbed.map(bins => blowDamage(rules, "point", bins[1]! * scale));
-      const damage = absorbed.map((bins, k) => blowDamage(rules, "blunt", bins[0]! * scale) + pointDamage[k]!);
-      land(first, second, { mine: shapes[0]!, theirs: shapes[1]!, point: episode.point, normal: episode.normal, impulse: 0 },
-        episode, energy, [first.segment.rigid.mass, second.segment.rigid.mass], episode.closing, energy,
-        { shares: absorbed.map(bins => (bins[0]! + bins[1]!) / total), damage, pointDamage });
     }
-  });
+  };
   const touches: TouchWatch<Fighter> = watchTouches(world, fighters, {
     // A touch is read from the earlier of its two: only a fighter with one of another side after it has one to read.
     reads: (fighter: Fighter) => fighters.some((other, k) => k > place.get(fighter)! && other.side !== fighter.side),
@@ -243,14 +225,13 @@ export function watchBlows(world: World, fighters: readonly Fighter[], rules: Ru
       && inFight(first) && inFight(second),
   }, (touch: Touch<Fighter>) => {
     const first = touch.of, second = touch.on!;
-    const key = `${first.segment.body.id}:${second.segment.body.id}`, reverse = `${second.segment.body.id}:${first.segment.body.id}`;
-    if (world.contactWork.active.has(key) || world.contactWork.active.has(reverse)) return;
     const pair = strongest(touch.pairs);
     const stiffness = seriesStiffness([surfaceOf(first, pair.mine).stiffness, surfaceOf(second, pair.theirs).stiffness]);
     const { ofKg, onKg, energy } = touches.priced(touch, stiffness), kg = [ofKg, onKg] as const;
     land(first, second, pair, touch, energy, kg, touch.closing);
   });
 
+  const physical = world.afterStep(readLoads);
   const state: BlowState = { touches: touches.state, blows };
   return { state, get blows() { return state.blows; }, dispose() { physical.dispose(); touches.dispose(); } };
 }

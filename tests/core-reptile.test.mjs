@@ -54,11 +54,11 @@ test("holding and resuming a moving quadruped retains its bodies and resumes fro
 test("a closing jaw strikes during its fast motion and releases after cancellation", async () => {
   // How fast it closes and how much the bite gives is `core-reptile-capability`'s.
   const row = await biteTrial();
-  const hit = row.hits.find(h => h.blow.work > 0 && h.blow.sides.some(side => side.mechanism === "point"));
+  const hit = row.hits.find(h => h.blow.kind === "load" && h.blow.sides.some(side => side.mechanism === "point"));
   assert.ok(hit, `the fixture did not reach its case: no tooth met the foe (${JSON.stringify(row)})`);
-  assert.ok(hit.blow.closing > 0);
+  assert.ok(hit.blow.impulse.some(value => value > 0));
   assert.deepEqual(hit.blow.sides.map(side => side.segment), ["jaw", "jaw"]);
-  assert.ok(hit.blow.sides.every(side => side.damage > 0 && side.wound !== null));
+  assert.ok(hit.blow.sides[1].damage > 0 && hit.blow.sides[1].wound !== null);
   assert.ok(row.bars.every(bar => bar < 1));
   assert.ok(hit.blow.sides[0].region?.startsWith("tooth."));
   assert.equal(hit.blow.sides[1].mechanism, "point");
@@ -123,22 +123,21 @@ test("an unloaded snap cannot invent a wound", async () => {
   assert.ok(row.peak.rate < -3, `the fixture did not reach its case: the jaw closed at ${row.peak.rate} rad/s`);
   assert.deepEqual(row.hits, []);
   assert.deepEqual(row.bars, [1, null]);
-  assert.ok(row.cycles.every(cycle => cycle.energy === 0 && cycle.damage === 0));
+  assert.ok(row.cycles.every(cycle => cycle.damage === 0));
   assert.equal(row.down, false);
 });
 
 test("a physical wall interrupts a closing tooth before it damages the opponent", async () => {
   const row = await biteTrial({ obstacle: { position: [0, .125, .485], size: [.3, .15, .015] }, seconds: 5 });
   assert.equal(row.worldContact, true);
-  assert.ok(row.cycles.every(cycle => cycle.aborted && cycle.energy === 0 && cycle.damage === 0));
+  assert.ok(row.cycles.every(cycle => cycle.aborted && cycle.damage === 0));
   assert.ok(row.cycle.returned > 0);
-  assert.equal(row.compression, 0);
   assert.equal(row.down, false);
 });
 
 test("a mechanically stopped jaw ends a missed stroke on the snap clock", async () => {
   const base = reptileSpec(), spec = { ...base, joints: base.joints.map(joint => joint.name === "jaw"
-    ? { ...joint, dofs: joint.dofs.map(dof => ({ ...dof, min: sourced(.3, "rad", "reptile-contact-sweep", "jaw-stop witness") })) } : joint) };
+    ? { ...joint, dofs: joint.dofs.map(dof => ({ ...dof, min: sourced(.3, "rad", "owner-point-load", "jaw-stop witness") })) } : joint) };
   const stand = await coreStand(spec, { engine: "rapier-coordinate", joints: { jaw: [REPTILE_BITE.open] } });
   const mind = hostedMind(stand.built, stand.world, { orders: () => STAND_ORDERS, biteTarget: () => [0, .1925, .485] }, (host, wiring) => quadrupedMind(host, wiring));
   const bite = mind.body.state.mind.host.bite, jaw = mind.body.muscles.channel("jaw axis0");

@@ -70,7 +70,7 @@ const took = (part, hp) => ({ taken: [{ part, hp }], severed: [], lost: 0, spent
 function recordOf(blow, sides) {
   const energy = impactEnergy(blow.sides[0].kg, blow.sides[1].kg, blow.closing);
   return {
-    time: blow.time, point: blow.point, normal: blow.normal, closing: blow.closing, energy,
+    kind: "impact", time: blow.time, point: blow.point, normal: blow.normal, closing: blow.closing, energy,
     sides: sides.map(([fighter, segment, item, share, wound], k) => {
       const damage = share > 0 ? blowDamage(RULES, "blunt", share * energy) : 0;
       return { fighter, segment, item, kg: blow.sides[k].kg, share, damage, wound: wound(damage) };
