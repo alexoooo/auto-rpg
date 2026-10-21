@@ -31,11 +31,16 @@ npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work;
 - **No measurement unless the question is a measurement.** A feature lands without a battery, a
   reference record, a step-cost reading or a fingerprint. Look in a browser, briefly, when the
   change is something to see; the owner judges motion there.
-- **No long run whose result is thrown away.** A measurement states its expected wall time first,
-  from a measured rate. An iteration's reading fits in about 10 minutes and stops when its answer
-  is clear. Nothing runs over an hour without the owner's go-ahead for that run. No full
-  tournament, re-rating or re-calibration for its own sake; nothing measured at length just
-  before a change that moves it. What is played is kept as rows and reused.
+- **A run answers a decision.** Before it starts, name the question and what each likely answer
+  would change; a run whose answers change nothing is not run. No full tournament, re-rating or
+  re-calibration for its own sake; nothing measured at length just before a change that moves it.
+- **A run plays only what its decision rule reads**, not a script's whole grid: it stops a case at
+  the trial that decides it, and searches from the answer's side (the fastest speed down).
+- **Screen small, widen where it is close**: one body, one loadout, calm air first; more only where
+  the answer is near its limit.
+- **Price a run on the pool before it runs**: the first trials' rate projects its wall time; past
+  about 10 minutes it is cut or the owner asked. Nothing runs over an hour without the owner's
+  go-ahead for that run. What is played is kept as rows and reused.
 - **An iteration is one question**: the question and the evaluation that answers it; one
   implementation changed or added beside the others; a paired reading against the version before
   (today `npm run match`); kept, or the reason it was not recorded.

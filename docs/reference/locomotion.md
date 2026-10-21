@@ -123,11 +123,34 @@ searched on the three bodies bare-handed in the guard, calm and in gusts, at has
   (`tests/move.test.mjs@2a1b29ac`, a `todo` against 3 s).
 - **With balance** the gait asks the assist to right the pelvis ([assist](assist.md#a-gaits-assist)).
 
+## The walk and run
+
+The game's Run (`walk-run.ts`): the stance's walk, and past its threshold the SIMBICON run's cycle,
+facing the way asked. Its envelope (`assets/core/walk-run-envelope.json`, `walkRunEnvelope`) holds
+each way's fastest speed at which every one of 20 trials held (`fastestEvery`): calm and in four
+seeds of 5 N gusts, with each of the empty hand, the club, the buckler and the sword; each walk set
+off 10 s and resting 10 s after.
+
+| Body | Forward | Sides | Back |
+|---|---|---|---|
+| Warrior | 4.5 | 0.7 | 1.0 |
+| Rogue | 0.7 (3.5 without the club) | 0.7 | 1.0 |
+| skeleton | 3.5 (4.0 without the club) | 0.5 (0.7) | 1.2 |
+
+To a side the run turns to face the way and runs it, so a caller that accepts a share of falls
+(`REACH`, `RUN`, `SPACE.share`) gets the forward pace there: the Warrior held 16 of 20 to each
+side at every speed from 1 to 4.5 m/s.
+
+**Turns** stay the SIMBICON run's. On the walk-run, the Warrior empty-handed and calm, 28 turns a
+rate and speed (each sense, from 14 moments of setting off): at 1 m/s and faster no rate from
+0.25 rad/s held all 28 (27 at 0.25 rad/s to 3.5 m/s, 21 at 4.5 m/s); slower, 0.7 to 1.4 rad/s
+held. Most that fail fall, turning left, from 0.5 s after setting off.
+
 ## Move
 
 `move.ts` walks by the first gait whose rule matches (`MOVE`): braced, in the stance's guard, while
-it stands or a standing foe is within 5 m; otherwise by the SIMBICON walk free to run, which runs
-where the pace asked is past its walk's. A rule lets go of its gait half a metre past its distance.
+it stands or a standing foe is within 5 m; otherwise by the walk and run
+([above](#the-walk-and-run)), which runs where the pace asked is past its walk's. A rule lets go of its gait half a metre past its distance.
 Classic and the options fighter get about by it (the Scrapper by the stride); an Arena bout opens at
 4 m, so it fights braced from its first step. The options fighter closes on a place as fast as held
 0.8 of its gait's trials and stops before it (`walker`); Classic's tactics close at the walk. The

@@ -1,0 +1,230 @@
+{
+  "harness": "Node core stand (tests/harness/core-stand.mjs), Rapier",
+  "played": "each body built in the guard and holding it, under its character's balance (the rulebook's per cent), with each of `holds` in its right hand, walking by the walk-run, each walk set off 10 s before it is measured and resting 10 s after, each walk calm and in each of `winds`; each way's and speed's fastest is the fastest at which every trial held, searched down from the fastest, and a level not played through is null",
+  "legs": "walk-run",
+  "setOff": 10,
+  "rest": 10,
+  "hz": 120,
+  "measured": "2026-10-21",
+  "speeds": [0.2, 0.3, 0.4, 0.5, 0.7, 1, 1.2, 1.4, 1.5, 1.7, 2, 2.5, 3, 3.5, 4, 4.5],
+  "ways": [0, 90, 180, 270],
+  "rates": [0.25, 0.35, 0.5, 0.7, 1, 1.4, 2, 4],
+  "senses": [1, -1],
+  "holds": [
+    "empty",
+    "club",
+    "buckler",
+    "sword"
+  ],
+  "afters": [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1, 1.125, 1.25, 1.375, 1.5, 3],
+  "winds": [
+    {
+      "rate": 1,
+      "strength": 5,
+      "seed": 1
+    },
+    {
+      "rate": 1,
+      "strength": 5,
+      "seed": 2
+    },
+    {
+      "rate": 1,
+      "strength": 5,
+      "seed": 3
+    },
+    {
+      "rate": 1,
+      "strength": 5,
+      "seed": 4
+    }
+  ],
+  "models": {
+    "workshop-fighter": {
+      "byWay": [4.5, 0.7, 1, 0.7],
+      "wayTrials": 20,
+      "wayHeld": [
+        [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 20],
+        [null, null, null, null, 20, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16],
+        [null, null, null, null, null, 20, 14, 17, 13, 11, 14, 14, 14, 13, 14, 14],
+        [null, null, null, null, 20, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16]
+      ],
+      "turns": [],
+      "turnHeld": [],
+      "holds": {
+        "empty": {
+          "byWay": [4.5, 0.7, 1.4, 0.7],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 5],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, null, null, null, 5, 4, 3, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+          ],
+          "turns": [],
+          "turnHeld": []
+        },
+        "club": {
+          "byWay": [4.5, 0.7, 1.2, 0.7],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 5],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, null, null, 5, 2, 1, 2, 2, 2, 2, 1, 2, 2],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+          ],
+          "turns": [],
+          "turnHeld": []
+        },
+        "buckler": {
+          "byWay": [4.5, 0.7, 1.4, 0.7],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 5],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, null, null, null, 5, 4, 3, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+          ],
+          "turns": [],
+          "turnHeld": []
+        },
+        "sword": {
+          "byWay": [4.5, 0.7, 1.4, 0.7],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 5],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, null, null, null, 5, 4, 3, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+          ],
+          "turns": [],
+          "turnHeld": []
+        }
+      }
+    },
+    "workshop-rogue": {
+      "byWay": [0.7, 0.7, 1, 0.7],
+      "wayTrials": 20,
+      "wayHeld": [
+        [null, null, null, null, 20, 18, 19, 19, 19, null, null, null, 18, 16, 12, 12],
+        [null, null, null, null, 20, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16],
+        [null, null, null, null, null, 20, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16],
+        [null, null, null, null, 20, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16]
+      ],
+      "turns": [],
+      "turnHeld": [],
+      "holds": {
+        "empty": {
+          "byWay": [3.5, 0.7, 1, 0.7],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, null, null, null, null, null, null, null, null, null, 5, 4, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+          ],
+          "turns": [],
+          "turnHeld": []
+        },
+        "club": {
+          "byWay": [0.7, 0.7, 1, 0.7],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, 5, 3, 4, 4, 4, 4, 2, 4, 3, 1, 0, 0],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+          ],
+          "turns": [],
+          "turnHeld": []
+        },
+        "buckler": {
+          "byWay": [3.5, 0.7, 1, 0.7],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, null, null, null, null, null, null, null, null, null, 5, 4, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+          ],
+          "turns": [],
+          "turnHeld": []
+        },
+        "sword": {
+          "byWay": [3.5, 0.7, 1, 0.7],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, null, null, null, null, null, null, null, null, null, 5, 4, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+          ],
+          "turns": [],
+          "turnHeld": []
+        }
+      }
+    },
+    "crypt-skeleton": {
+      "byWay": [3.5, 0.5, 1.2, 0.5],
+      "wayTrials": 20,
+      "wayHeld": [
+        [null, null, null, null, null, null, null, null, null, null, null, null, null, 20, 18, 14],
+        [null, null, null, 20, 16, 14, 14, 13, 14, 15, 14, 14, 15, 14, 15, 13],
+        [null, null, null, null, null, null, 20, 8, 9, 7, 8, 8, 8, 9, 7, 8],
+        [null, null, null, 20, 17, 14, 13, 13, 14, 14, 13, 13, 14, 14, 13, 13]
+      ],
+      "turns": [],
+      "turnHeld": [],
+      "holds": {
+        "empty": {
+          "byWay": [4, 0.7, 1.2, 0.7],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, null, null, null, null, null, null, null, null, null, null, 5, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, null, null, 5, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+          ],
+          "turns": [],
+          "turnHeld": []
+        },
+        "club": {
+          "byWay": [3.5, 0.5, 1.2, 0.5],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, null, null, null, null, null, null, null, null, null, 5, 3, 2],
+            [null, null, null, 5, 1, 2, 2, 1, 2, 3, 2, 2, 3, 2, 3, 1],
+            [null, null, null, null, null, null, 5, 2, 3, 1, 2, 2, 2, 3, 1, 2],
+            [null, null, null, 5, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1]
+          ],
+          "turns": [],
+          "turnHeld": []
+        },
+        "buckler": {
+          "byWay": [4, 0.7, 1.2, 0.7],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, null, null, null, null, null, null, null, null, null, null, 5, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, null, null, 5, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+          ],
+          "turns": [],
+          "turnHeld": []
+        },
+        "sword": {
+          "byWay": [4, 0.7, 1.2, 0.7],
+          "wayTrials": 5,
+          "wayHeld": [
+            [null, null, null, null, null, null, null, null, null, null, null, null, null, null, 5, 4],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [null, null, null, null, null, null, 5, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [null, null, null, null, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+          ],
+          "turns": [],
+          "turnHeld": []
+        }
+      }
+    }
+  }
+}

@@ -142,7 +142,7 @@ const LOOK_STEP = 0.05;
 function paceRoundTo(envelope: StanceEnvelope | null, radius: number, top: number | undefined): number {
   if (!envelope) return Infinity;
   const within = paceRound(envelope, radius);
-  if (top === undefined || top <= envelope.walk.value) return within;
+  if (top === undefined || top <= envelope.ways.forward.value) return within;
   return Math.max(within, Math.min(top, carried(turnAt(envelope, top), radius)));
 }
 

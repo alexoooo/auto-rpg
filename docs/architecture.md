@@ -229,8 +229,9 @@ a stance goal) into muscle commands.
   limits each ankle's load (`ANKLE_HOLD`), places steps from the capture point (`catchStep`,
   `landingHeading`) and flies a step on request (`SwingGoal.flight`).
 - **Envelopes** (`stance-envelope.ts`: `stanceEnvelope`, `strideEnvelope`, `simbiconEnvelope`,
-  `simbiconRunEnvelope`) read what each body was measured to hold, per held item, from
-  `assets/core/*-envelope.json`; `paceToward` picks the fastest pace that held a share of its
+  `simbiconRunEnvelope`, `walkRunEnvelope`) read what each body was measured to hold, per held
+  item, from `assets/core/*-envelope.json`: each way's fastest is the fastest speed at which every
+  trial held (`fastestEvery`), and `paceToward` picks the fastest pace that held a share of its
   trials.
 - **The assist** (`assist.ts`) is a force and moment on the root that no muscle gives: asked by the
   mind (`Assist.ask`), shortened to a ceiling in the body's own weight, applied through the solver

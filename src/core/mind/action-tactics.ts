@@ -202,7 +202,7 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
     let legs: Pick<Intent, "move" | "face" | "lower" | "destination" | "movement" | "pace" | "travelFacing"> | undefined, requested: readonly ActionRequest[] | undefined;
     let left: Cover | null | undefined, right: Cover | null | undefined;
     const centre = sight.view.stance.centre, dx = focus ? focus.centre.x - centre.x : 0, dz = focus ? focus.centre.z - centre.z : 0;
-    const face = focus ? atan2(dx, dz) : sight.report.heading, pace = Math.min(sight.envelope?.walk.value ?? SPACE.fallbackPace, orders?.pace ?? Infinity);
+    const face = focus ? atan2(dx, dz) : sight.report.heading, pace = Math.min(sight.envelope?.ways.forward.value ?? SPACE.fallbackPace, orders?.pace ?? Infinity);
     state.phase = state.lost ? "lost" : "guard";
     for (const [i, behaviour] of config.list.entries()) switch (behaviour.kind) {
       case "follow-orders": if (orders) {

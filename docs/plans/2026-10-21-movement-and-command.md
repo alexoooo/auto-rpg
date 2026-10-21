@@ -43,7 +43,7 @@ against N, are later work outside this plan.
 ## Where it starts
 
 - **Speed is chosen in six places, none of which owns it**: `orderedIntent`
-  (`src/core/mind/ordered.ts`) asks `envelope.walk` (the fastest walk held every way at once) or,
+  (`src/core/mind/ordered.ts`) asks its gait's fastest walk forward (`ways.forward`) or,
   under `Orders.run`, the fastest forward that held 0.6 of its trials (`RUN`), and slows walking
   across or backwards (`STRAFE`); action tactics ask their own pace (`SPACE.fallbackPace`,
   `src/core/mind/action-tactics.ts`); the options' walker, which the Tempo entrant's tactics use,
@@ -57,16 +57,13 @@ against N, are later work outside this plan.
   running) where the walk and run under the same order walks; under its own mind it walks at about
   0.3 m/s and never runs (arena bout, open level, gaps 4 to 18 m). Not looked into; A1 removes
   `Orders.run`'s own pace.
-- **The choice goes round in a circle**: the walk-run (`src/core/skills/walk-run.ts`) runs only when
-  asked a pace past its threshold, but orders work out their pace from that gait's every-way walk,
-  so a body under orders never asks enough to run. The architecture records this as the rule
-  ("whether a body runs is its tactics' or its orders' choice of pace").
-- **One bad reading sets that every-way walk**: in `assets/core/simbicon-run-envelope.json`, the
-  Warrior with the club walked back at 0.4 m/s in 7 of 10 trials, and at every speed from 0.5 to
-  2.0 m/s in 10 of 10. `fastestHeld` stops at the first miss, so `walk` and `back` read 0.3 m/s,
-  against 4.0 m/s forward. In a headless Crypt hall (Node core world, Rapier, 120 Hz) the default
-  hero walks at 0.29 m/s however ordered, and the Crypt cannot ask it to run; in the Arena it
-  crawls at 0.3 m/s or runs with Shift.
+- **Each way's top speed is read per way**: the fastest at which every trial held (`fastestEvery`,
+  `src/core/control/stance-envelope.ts`), and the walk-run (`src/core/skills/walk-run.ts`) has its
+  own envelope (`walkRunEnvelope`): the Warrior forward 4.5 m/s, to the sides 0.7, back 1.0. Its
+  turns are still the SIMBICON run's; measured on the walk-run, the Warrior turns at no rate in
+  every trial at 1 m/s or faster
+  ([locomotion](../reference/locomotion.md#the-walk-and-run)). Whether a body under orders now
+  runs is not read: no fingerprint case enters the run.
 - **The Crypt's Commander is screen code**: `DungeonRun` (`src/dungeon/run.ts`, 672 lines) decides
   each enemy's target (the nearest party member it sees) and movement (`perceive`,
   `enemyMovement`); each party member's target, exploration goal, following the hero, post, slot
@@ -86,35 +83,27 @@ against N, are later work outside this plan.
 
 ## Steps
 
-Part A first, in order: it is the foundation, and A0 and A1 alone fix the 0.29 m/s hero. B0 and B1
+Part A first, in order: it is the foundation. B0 and B1
 can start once A1 has landed; B2 needs A1's ceiling; B3 and B4 follow B1. Each step is its own
 toolkit commits under the normal gate, naming the fingerprint cases it moves; a step that claims no
 change of behaviour shows the fingerprint unmoved.
 
 ### Part A: movement
 
-#### A0. A gait's limits, read per way
-
-- A gait states its limits to the pipeline: its top speed the way the body is going relative to its
-  facing, and its stopping deceleration. Today's gaits answer from their envelope tables; a later
-  gait may answer another way (feedback, a learned estimate) with no change to the pipeline. The
-  limits are a narrow interface of the locomotion role.
-- Each way's fastest speed is read from the existing tables by the share of its trials that held
-  at that speed, not "stop at the first miss"; the share is named where the rule is, chosen by
-  looking at the tables. First, find what the walk-run's 0.4 m/s backward dip is: falls, or walks
-  that did not go as asked. No battery is run again for this.
-- A body that faces its walk is paced by its forward speed. `StanceEnvelope.walk`, the every-way
-  figure, keeps only the readers that mean every way, or goes if none do.
-- A gait's stopping deceleration is its own setting, a controller constant tuned freely, checked by
-  its overshoot at a place goal (Part A's measurement). A gait that changes updates its own limits
-  as part of that change.
-
 #### A1. One speed rule
+
+A gait states its limits to the pipeline, a narrow interface of the locomotion role: its top speed
+the way the body is going relative to its facing (today's gaits from their envelope's ways), its
+turn rate at speed, and its stopping deceleration, its own controller constant tuned freely and
+checked by its overshoot at a place goal (Part A's measurement). A later gait may answer another
+way (feedback, a learned estimate) with no change to the pipeline; a gait that changes updates its
+own limits as part of that change. The walk-run's turns are measured on it first, screened small
+(`research/core-stance-envelope.mjs --legs walk-run --turns`).
 
 `travelSpeed`, in one module, is the least of:
 
 - the chosen gait's top speed the way the body is going, relative to its facing (`paceToward` on
-  A0's envelope);
+  its envelope);
 - the braking speed for the distance left, √(2 · the gait's stopping deceleration · distance);
 - the cornering speed for the turn ahead, from the gait's turn rate at speed;
 - the goal's ceiling, if it gives one.
@@ -208,7 +197,7 @@ The navigator treats moving and fallen bodies of its own side as obstacles, and 
 Commander keeps members spaced:
 
 - one shared snapshot of the party per decision;
-- locomotion's declared limits (A0) bound what a candidate direction can do;
+- locomotion's declared limits (A1) bound what a candidate direction can do;
 - a candidate is judged over the space it sweeps, not its end point;
 - yielding between members is deterministic.
 
@@ -252,7 +241,7 @@ this file is deleted.
 ## Relations
 
 - **Running** (the [roadmap](../roadmap.md#body-and-motor-control)): a faster gait raises every top
-  speed here through the limits it states (A0), with no change to this pipeline.
+  speed here through the limits it states (A1), with no change to this pipeline.
 - **Tactics** (the [roadmap](../roadmap.md#the-ai)): spacing becomes a range or direct goal (A2),
   and a follow-orders model reads A1's rule.
 - **[Component registration](2026-10-21-component-registration.md)** gains the Commander role and
