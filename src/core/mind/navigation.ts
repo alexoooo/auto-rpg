@@ -5,7 +5,7 @@ import { deepFreeze } from "../state.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
 import { heldClearance } from "./held-clearance.ts";
 import { clearanceExit, clearMove, clearStep } from "./clear-step.ts";
-import type { MovementRequest, GroundPoint } from "./movement.ts";
+import { copyMovement, sameMovement, type MovementRequest, type GroundPoint } from "./movement.ts";
 import type { SolidSense } from "./object-senses.ts";
 import type { Part } from "./parts.ts";
 import type { Senses } from "./senses.ts";
@@ -15,6 +15,8 @@ type NavigationStatus = "stopped" | "moving" | "arrived" | "unreachable" | "stal
 
 /** Navigation reports observed progress separately from the existence of a geometric route. */
 export interface NavigationReport {
+  /** The request the rest of the report is of: the last one asked, which may be a tactic's rather than an order's. */
+  readonly request: MovementRequest | null;
   readonly status: NavigationStatus;
   readonly remaining: number | null;
   readonly goal: GroundPoint | null;
@@ -35,22 +37,58 @@ interface NavigationSight {
 }
 
 /** Any solid above the supporting floor can obstruct the feet, even when it is below the trunk. */
-function footprints(solids: readonly SolidSense[], height: number, floor = 0): readonly SolidSense[] {
-  const result: SolidSense[] = [];
-  for (const solid of solids) switch (solid.kind) {
-    case "box":
-      if (solid.centre[1] + solid.size[1] / 2 > floor + .02 && solid.centre[1] - solid.size[1] / 2 < 2 * height - floor)
-        result.push({ ...solid, centre: [solid.centre[0], height, solid.centre[2]], size: [solid.size[0], 2, solid.size[2]] });
-      break;
+function obstructs(solid: SolidSense, height: number, floor: number): boolean {
+  switch (solid.kind) {
+    case "box": return solid.centre[1] + solid.size[1] / 2 > floor + .02 && solid.centre[1] - solid.size[1] / 2 < 2 * height - floor;
     case "hull": {
       let low = Infinity, high = -Infinity;
       for (const point of solid.points) { low = Math.min(low, point[1]); high = Math.max(high, point[1]); }
-      if (high > floor + .02 && low < 2 * height - floor) result.push({ ...solid, points: solid.points.map(p => [p[0], height, p[2]] as Vec3) });
-      break;
+      return high > floor + .02 && low < 2 * height - floor;
     }
     default: { const never: never = solid; throw new Error(`unknown sensed solid ${never}`); }
   }
+}
+
+/** A solid's footprint: the solid at `height`, 2 m tall where it is a box. */
+function footprint(solid: SolidSense, height: number): SolidSense {
+  switch (solid.kind) {
+    case "box": return { ...solid, centre: [solid.centre[0], height, solid.centre[2]], size: [solid.size[0], 2, solid.size[2]] };
+    case "hull": return { ...solid, points: solid.points.map(p => [p[0], height, p[2]] as Vec3) };
+    default: { const never: never = solid; throw new Error(`unknown sensed solid ${never}`); }
+  }
+}
+
+function footprints(solids: readonly SolidSense[], height: number, floor = 0): readonly SolidSense[] {
+  const result: SolidSense[] = [];
+  for (const solid of solids) if (obstructs(solid, height, floor)) result.push(footprint(solid, height));
   return result;
+}
+
+/** No solid sensed. */
+const NO_SOLIDS: readonly SolidSense[] = Object.freeze([]);
+
+/**
+ * `footprints` in objects made once for each solid of the array sensed and moved to each call's
+ * height in place: what it gives is read before the next call, and nothing keeps it.
+ */
+function footprinter() {
+  let source: readonly SolidSense[] | null = null, made: readonly SolidSense[] = [];
+  const result: SolidSense[] = [];
+  return (solids: readonly SolidSense[], height: number, floor = 0): readonly SolidSense[] => {
+    if (solids !== source) { source = solids; made = solids.map(solid => footprint(solid, height)); }
+    result.length = 0;
+    for (let i = 0; i < solids.length; i++) {
+      if (!obstructs(solids[i]!, height, floor)) continue;
+      const print = made[i]!;
+      switch (print.kind) {
+        case "box": (print.centre as [number, number, number])[1] = height; break;
+        case "hull": for (const point of print.points) (point as [number, number, number])[1] = height; break;
+        default: { const never: never = print; throw new Error(`unknown sensed solid ${never}`); }
+      }
+      result.push(print);
+    }
+    return result;
+  };
 }
 
 /** Corners of inflated footprints, with hulls conservatively enclosed by their world bounds. */
@@ -115,7 +153,8 @@ export function navigationPath(from: GroundPoint, goal: GroundPoint, solids: rea
 export function createNavigator(spec: BodySpec, config: NavigationConfig = { kind: "visibility-navigation" }) {
   const baseRadius = bodyClearance(spec) + NAV.margin, carriedRadius = heldClearance(spec);
   const radiusOf = (view: NavigationSight["view"]) => Math.max(baseRadius, carriedRadius(view) + NAV.margin);
-  const state = { request: "", solids: "", route: [] as GroundPoint[], waypoint: 0, goal: null as GroundPoint | null,
+  const printsOf = footprinter();
+  const state = { request: null as MovementRequest | null, solids: "", route: [] as GroundPoint[], waypoint: 0, goal: null as GroundPoint | null,
     focus: null as GroundPoint | null,
     failure: null as { from: GroundPoint; geometry: string; radius: number; focus: GroundPoint | null } | null,
     progress: null as GroundPoint | null, bestRemaining: null as number | null, lastProgress: 0, lastTime: null as number | null, clearance: baseRadius,
@@ -124,23 +163,22 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
     state.report.status = status; state.report.remaining = remaining; state.report.goal = goal;
   };
   const report: NavigationReport = { get status() { return state.report.status; }, get remaining() { return state.report.remaining; },
-    get goal() { return state.report.goal; }, get route() { return state.route; } };
+    get goal() { return state.report.goal; }, get route() { return state.route; }, get request() { return state.request; } };
   return { state, report,
     steer(view: NavigationSight["view"], heading: number, move: readonly [number, number] | null) {
-      return clearMove(view.stance.centre, footprints(view.senses.solids ?? [], view.stance.centre.y, view.stance.support?.y), heading, move, radiusOf(view), .5);
+      return clearMove(view.stance.centre, printsOf(view.senses.solids ?? NO_SOLIDS, view.stance.centre.y, view.stance.support?.y), heading, move, radiusOf(view), .5);
     },
     resume() { state.route = []; state.failure = null; state.progress = null; state.bestRemaining = null; state.lastTime = null; update("unavailable", null, null); },
     step(sight: NavigationSight, request: MovementRequest | null, pace: number, dt: number, available = true): { readonly move: readonly [number, number] | null; readonly face: number | null; readonly destination?: number } {
       const { view, report } = sight, centre = view.stance.centre, here = { x: centre.x, z: centre.z };
-      let solids = footprints(view.senses.solids ?? [], centre.y, view.stance.support?.y);
+      let solids = printsOf(view.senses.solids ?? NO_SOLIDS, centre.y, view.stance.support?.y);
       const radius = radiusOf(view);
-      const key = JSON.stringify(request);
-      const previous: MovementRequest | null = state.request ? JSON.parse(state.request) as MovementRequest | null : null;
+      const previous = state.request, same = sameMovement(request, previous);
       const following = request?.kind === "place" && previous?.kind === "place" && request.near === previous.near
         && request.points.length >= previous.points.length && previous.points.every((p, i) => apart(p, request.points[i]!) < NAV.moved);
-      const changed = key !== state.request && !following;
-      if (changed) { state.request = key; state.route = []; state.failure = null; state.waypoint = 0; state.goal = null; state.focus = null; state.progress = here; state.bestRemaining = null; state.lastProgress = view.time; }
-      else if (following) state.request = key;
+      const changed = !same && !following;
+      if (!same) state.request = request && copyMovement(request);
+      if (changed) { state.route = []; state.failure = null; state.waypoint = 0; state.goal = null; state.focus = null; state.progress = here; state.bestRemaining = null; state.lastProgress = view.time; }
       const elapsed = state.lastTime === null ? dt : view.time - state.lastTime;
       state.lastTime = view.time;
       if (!available) { state.lastProgress += Math.max(0, elapsed); update("unavailable", state.report.remaining, state.goal); return { move: null, face: null }; }

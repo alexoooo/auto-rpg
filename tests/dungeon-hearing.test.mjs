@@ -8,6 +8,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { airOf, hearTouches } from "../src/audio/body-sounds.ts";
+import { substanceOf, voiceOf } from "../src/audio/cues.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { hearRun } from "../src/dungeon/hearing.ts";
 import { cellKey, distance } from "../src/dungeon/map.ts";
@@ -126,19 +127,25 @@ test("a_body_built_on_the_way_is_heard_from_then_on_once_and_the_run_is_the_same
     const hearing = hearRun(run, (cue) => cues.push({ time: run.clock, ...cue }));
     assert.deepEqual((() => { const ids = []; hearing.airs((id) => ids.push(id)); return ids; })(), ["hero"]);
     for (const { commands } of [run, deaf.run]) { commands.order = { kind: "attack-move", destination: { x: 11, z: 20 } }; commands.revision++; }
-    // It is built at 2.6 s, sees the hero at 14 m and walks at it: in sight, and heard, by 10.1 s.
-    seconds(run, 12);
+    // It is built at 2.6 s, waits at its home until it sees the hero at 14 m, and walks at it: the run
+    // is played until the two are within 12 m, in the party's sight, and a footfall of the enemy's is heard, or for 30 s.
+    const near = () => enemy.fighter !== null && distance(hero.feet(), enemy.feet()) < 12 && cues.some((cue) => cue.key === "enemy-0:ground");
+    let steps = 0;
+    for (; steps < 30 * run.world.hz && !near(); steps++) run.step();
     assert.ok(enemy.fighter !== null && distance(hero.feet(), enemy.feet()) < 12, `the fixture did not reach its case: the enemy is ${enemy.fighter === null ? "not built" : `${distance(hero.feet(), enemy.feet())} m off`}`);
     const by = (key) => cues.filter((cue) => cue.key === key);
     assert.ok(by("hero:ground").length > 0 && by("enemy-0:ground").length > 0,
       `the fixture did not reach its case: ${by("hero:ground").length} of the hero's footfalls and ${by("enemy-0:ground").length} of the enemy's`);
-    assert.ok(by("enemy-0:ground").every((cue) => cue.kind === "bone"));
+    // A skeleton's footfalls are bone; what it holds, if it meets the floor, sounds as the item (`substanceOf`).
+    const voices = new Set([...enemy.fighter.built.segments.values()].map((segment) => voiceOf(substanceOf(enemy.fighter.built, segment), "stone")));
+    assert.ok(by("enemy-0:ground").some((cue) => cue.kind === "bone") && by("enemy-0:ground").every((cue) => voices.has(cue.kind)),
+      `the enemy's touches on the floor sound as ${[...new Set(by("enemy-0:ground").map((cue) => cue.kind))]}, its parts as ${[...voices]}`);
     // A listener left behind when the next is made would give each of its touches a second time.
     assert.equal(new Set(cues.map((cue) => JSON.stringify(cue))).size, cues.length, "no touch is heard twice");
     const ids = []; hearing.airs((id) => ids.push(id));
     assert.deepEqual(ids, ["hero", "enemy-0"], "and its air is given with the hero's");
 
-    seconds(deaf.run, 12);
+    for (let i = 0; i < steps; i++) deaf.run.step();
     assert.deepEqual(poses(run), poses(deaf.run), "heard through a listener made again, the run is the run nobody hears");
     hearing.dispose();
   } finally { heard.dispose(); deaf.dispose(); }

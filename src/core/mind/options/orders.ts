@@ -4,6 +4,7 @@ import type { StandingOption } from "./option.ts";
 import { exposed, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 import type { ActionConfig } from "../config.ts";
+import { remainingOf } from "../movement.ts";
 import { regionSegments } from "../action-aim.ts";
 import { around } from "./strike.ts";
 import type { ActionRequest } from "../../skills/action.ts";
@@ -16,8 +17,8 @@ const AHEAD = 1;
  * and asking for a ready standing action against the explicitly selected foe. On offer while
  * the body stands and has an explicit movement or stop order. It always yields. Its model: a walk ordered
  * goes on at its pace (`Walker.pace`) for `AHEAD` s, short of where it is told to go, and a stand
- * ordered is kept for as long, worth as much; through the blow coming and the focus's reach where
- * it stands in it.
+ * ordered, or a place or range it is already in, is kept for as long, worth as much; through the
+ * blow coming and the focus's reach where it stands in it.
  */
 export function followOrders(walk: Pick<Walker, "pace">, actions: readonly ActionConfig[] = []): StandingOption {
   return {
@@ -28,7 +29,9 @@ export function followOrders(walk: Pick<Walker, "pace">, actions: readonly Actio
     begin() {},
     end() {},
     models: { "hand-built": (now): Terms => {
-      const orders = now.orders!, kept = walk.pace(now) * AHEAD, followed = orders.move === null ? kept : Math.min(kept, now.sight.report.navigation?.remaining ?? Infinity);
+      const orders = now.orders!, kept = walk.pace(now) * AHEAD, view = now.sight.view;
+      const left = orders.move ? remainingOf(orders.move, view.stance.centre, view.senses.others) : 0;
+      const followed = left > 0 ? Math.min(kept, left) : kept;
       return { duration: AHEAD, dealt: 0, taken: now.danger + exposed(now, AHEAD), orders: followed, fall: 0 };
     } },
     step(now) {

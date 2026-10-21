@@ -42,7 +42,9 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const instances = actionInstances(executors, actions, resources), guarding = guardPosture(body.built.spec);
   const state = { actions: instances.state, legs: legs.state, navigation: navigation.state, support: support?.state ?? null, tactics: tactics.state ?? null,
     command: { posture: guarding, pushes: [], stance: null } as BodyCommand, owners: {} as Holders,
-    reservations: {} as Record<string, number> };
+    reservations: {} as Record<string, number>,
+    /** Whether the last step's owner of the stance let a walk through: what a route may ask of the legs now. */
+    walkable: true };
   const claims: { id: number; claim: ActionClaim; controls: readonly string[]; delegated: readonly string[] }[] = [];
   const contacts: ActionContact[] = [];
   const around: ActionAround = { get heading() { return legs.heading; }, get placed() { return legs.placed; },
@@ -80,15 +82,14 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       if (reason === "replaced") stopObserving();
       for (const key in state.reservations) delete state.reservations[key];
       for (const control of allControls) state.owners[control] = "default";
+      state.walkable = true;
     },
     command(view: BodyView, requested: Intent, dt: number): BodyCommand {
       const h = legs.heading, velocity = requested.move;
       const request = requested.movement ?? (velocity ? directMovement(velocity[0] * sin(h) + velocity[1] * cos(h), velocity[0] * cos(h) - velocity[1] * sin(h)) : null);
       const pace = requested.pace ?? (velocity ? hypot(velocity[0], velocity[1]) : legs.envelope?.walk.value ?? .3);
       const supportAllowsWalk = !support || support.report.stage === "stand" || support.report.stage === "wait";
-      const previousLegs = claims.find(item => item.controls.includes("stance"))?.claim.legs;
-      const ownershipAllowsWalk = previousLegs ? previousLegs.kind === "free" : available("stance");
-      const result = navigation.step({ view, report }, request, pace, dt, ownershipAllowsWalk && supportAllowsWalk);
+      const result = navigation.step({ view, report }, request, pace, dt, state.walkable && supportAllowsWalk);
       let intent = requested;
       if (requested.movement) intent = { ...requested, move: requested.travelFacing && result.move ? [hypot(result.move[0], result.move[1]), 0] : result.move,
         face: requested.travelFacing ? result.face ?? requested.face : requested.face,
@@ -111,6 +112,8 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         }
         claims.push({ id: item.id, claim, controls, delegated });
       }
+      const legsAsked = claims.find(item => item.controls.includes("stance"))?.claim.legs;
+      state.walkable = legsAsked ? legsAsked.kind === "free" : available("stance");
       const posture: Record<string, number> = {}, pushes: MusclePush[] = [], points: PointTask[] = [], effectors: Record<string, EffectorGoal | null> = {};
       const handPoses: Partial<Record<Side, HandPose>> = {};
       for (const [channel, angle] of Object.entries(guarding)) if (available(`channel:${channel}`)) posture[channel] = angle;
