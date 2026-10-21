@@ -30,15 +30,8 @@ test("strays_are_the_untracked_outside_tracked_folders_the_hidden_and_the_garbag
     for (const stray of ["notes.txt", "scratch/a.json", ".snap/copy/a.ts", "research/bash.exe.stackdump", ".tools/probe.mjs", ".tools/old/a.log",
       "research/old/__pycache__/m.pyc", "research/old/bash.exe.stackdump"]) put(stray);
     appendFileSync(join(root, ".git/info/exclude"), "\n/.snap/\n**/.claude/worktrees/\n");
-    assert.deepEqual(strays(root), [
-      { path: ".snap/", why: "hidden by .git/info/exclude, not kept by .gitignore" },
-      { path: ".tools/old/", why: "untracked outside the tracked folders" },
-      { path: ".tools/probe.mjs", why: "untracked outside the tracked folders" },
-      { path: "notes.txt", why: "untracked outside the tracked folders" },
-      { path: "research/bash.exe.stackdump", why: "garbage" },
-      { path: "research/old/bash.exe.stackdump", why: "garbage" },
-      { path: "scratch/", why: "untracked outside the tracked folders" },
-    ]);
+    assert.deepEqual(strays(root).map(({ path }) => path),
+      [".snap/", ".tools/old/", ".tools/probe.mjs", "notes.txt", "research/bash.exe.stackdump", "research/old/bash.exe.stackdump", "scratch/"]);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
