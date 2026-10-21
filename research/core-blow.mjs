@@ -21,6 +21,7 @@ import { footStatesOf, soleMiddleToRef, withinSupport } from "../src/core/contro
 import { armed } from "../src/core/human/grip.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { woodenClub } from "../src/core/items/club.ts";
+import { shortSword } from "../src/core/items/sword.ts";
 import { SUPPORT_INSET } from "../src/core/control/stance-tuning.ts";
 import { hypot } from "../src/core/math/real.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
@@ -46,6 +47,8 @@ export const CORE_BLOW_HARNESS = "Node core stand, Rapier, built in its guard an
 export const HELD = Object.freeze({
   [FIST]: { item: null, row: STRAIGHT, guard: true },
   "wooden club": { item: woodenClub, row: CLUB_BLOW, guard: false },
+  // A sword is swung as a club is, with the wrist.
+  "short sword": { item: shortSword, row: { ...CLUB_BLOW, name: (hand) => `searched ${hand} sword blow` }, guard: false },
 });
 
 const rowOf = (held) => {

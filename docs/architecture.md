@@ -201,7 +201,8 @@ threat and the guarded place and independently orients the face through `Effecto
 `cover-guard` remains a line-cover alternative, supporting items without a face normal. Both
 reuse the existing fist and club goals where appropriate. Tactics and reflexes prefer the hand
 with a covering face, keeping the striking hand available. Blunt executors exclude cover-only
-items without an attack aim, and directed blade surfaces (`strikesWithBlunt`). Item dimensions
+items without an attack aim, and directed blade surfaces (`strikesWithBlunt`), but the recipe
+strike swings anything its body has a searched recipe for. Item dimensions
 and mass decisions are recorded in [Arena items](reference/arena-items.md).
 Families share code, never values: a spec does not spread another family's spec.
 
@@ -617,8 +618,10 @@ Their actuator methods and their readiness/footprints remain their own.
   return, cancellation and interruption. A cut turns the blade's plane into its contact
   direction; a thrust uses the two points to aim inside its contact cone while leaving roll
   free. Both request a short follow-through and release the legs and trunk during return.
-  Recipe and path executors admit bare hands and aimed blunt items; blades use these dedicated
-  parts. The default recipe and options assemblies include both blade actions, filtered to the
+  Path executors admit bare hands and aimed blunt items; the recipe strike admits those and any
+  item its body has a recipe for, so a sword is also swung by its searched recipe, whose edge
+  cuts where the rules find it square to the surface it meets (`research/blade-task.mjs` reads
+  it). The default recipe and options assemblies include both blade actions, filtered to the
   hands whose equipment supports them. `shortSword` (`src/core/items/sword.ts`) supplies the
   first such item; its numbers are in [reference/arena-items.md](reference/arena-items.md).
 - **Guard** (`guard.ts`) is a skill in the one list, and has the hands the strike has not. Its
