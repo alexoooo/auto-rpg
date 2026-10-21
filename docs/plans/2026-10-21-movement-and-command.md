@@ -81,26 +81,33 @@ and fallen bodies are not avoided.
   and one led by an AI replay alike, with no Commander and no Mind.
 - **Deterministic and forkable.** A Commander steps inside `World.step`, in the sensing phase,
   at its own rate or on an event, and its memory is plain data in `state`.
-- **Roles, not special cases** ([workshop](2026-10-20-shared-controller-workshop.md)). The
+- **Roles, not special cases** ([framework](2026-10-21-framework.md)). The
   Commander is a registered role with its own config, faults and factory, and implementations
   sit side by side.
+- **No long runs.** Every check here follows the framework's compute rule: no battery is
+  measured again for its own sake, and nothing runs over an hour without the owner's go-ahead.
 - **The toolkit lands on its own.** Each stage is its own commits under the normal gate, with the
   fingerprint cases it moves named. A stage that claims no change of behaviour shows the
   fingerprint unmoved.
 
 ## Part A: movement
 
-### A0. The envelope, read per way
+### A0. A gait's limits, read per way
 
-- Read each way's fastest speed by the share of its trials that held at that speed, not "stop
-  at the first miss". The share is named where the rule is, and is chosen by looking at the
-  tables. First, find what the walk-run's 0.4 m/s backward dip is: falls, or walks that did not
-  go as asked.
+- A gait states its limits to the pipeline: its top speed the way the body is going relative to
+  its facing, and its stopping deceleration. Today's gaits answer from their envelope tables; a
+  later gait may answer another way (from feedback, or a learned estimate) with no change to the
+  pipeline. The limits are a narrow interface of the locomotion role
+  ([framework](2026-10-21-framework.md)).
+- Read each way's fastest speed from the existing tables by the share of its trials that held at
+  that speed, not "stop at the first miss". The share is named where the rule is, and is chosen
+  by looking at the tables. First, find what the walk-run's 0.4 m/s backward dip is: falls, or
+  walks that did not go as asked. No battery is run again for this.
 - A body that faces its walk is paced by its forward speed. `StanceEnvelope.walk`, the every-way
   figure, keeps only the readers that mean every way, or goes if none do.
-- Each gait's table gains a measured stopping deceleration, from a stop trial in its envelope
-  battery (`research/core-stance-envelope.mjs` and the walk-run's and SIMBICON's batteries).
-  The assets are measured again.
+- A gait's stopping deceleration is its own setting, a controller constant tuned freely, checked
+  by the capability test's overshoot at a place goal (below). A gait that changes updates its own
+  limits as part of that change.
 
 ### A1. One speed rule
 
@@ -156,8 +163,9 @@ speed it is asked its own way, running once that is past its threshold.
   - overshoot at a place goal;
   - the speed through the obstacle court's corners;
   - for each character and representative loadout.
-- **The fingerprint** moves almost everywhere; the commits name it so. The tournament is not
-  run again (the owner's decision: it is going away).
+- **The fingerprint** moves almost everywhere; the commits name it so. Nothing is rated again:
+  Part A moves every bout, so Ratings' panel and cap are chosen after it lands
+  ([Ratings](2026-10-21-ratings.md), steps 5 and 6).
 - **Eye check:** holding W and clicking to go, in the Arena and the Crypt.
 
 ## Part B: command
@@ -208,6 +216,9 @@ unchanged.
   - WASD steers the one selected body with a direct goal.
 - **Several selected.** They take slots about the destination. Their ceiling is the slowest
   member's top speed (A1), so the group arrives together.
+- **Touch.** The game is to be playable on a phone, so every command has a touch form: tap the
+  ground to go, tap a foe to attack, drag to draw a path, and on-screen controls for what WASD
+  and Q/E do. Pointer events already carry touch; the commands are the same `Command` data.
 - **The Arena.** Its person uses the same Commander for their side, a team of one, so
   click-to-go works there too.
 - **The Crypt's tape.** The Crypt records each body's orders on a tape, as the Arena does, and
@@ -226,18 +237,20 @@ its fixture and assertions as they are.
   bearings round it, instead of each walking at the nearest. It is the Crypt's enemies' default.
 - **A level-clearer.** The whole party is AI. It explores the edge of what it has seen, picks
   fights it can win, regroups, retreats when hurt, and reaches the exit.
-- **A task and a match** (`npm run clear -- <commander>`) score a party Commander over a fixed
-  set of generated levels:
+- **An evaluation** (`crypt-clear`, [Ratings](2026-10-21-ratings.md)'s format, not a script
+  of its own) scores a party Commander over a fixed set of generated levels:
   - the share cleared, the time taken and the members lost;
   - against each enemy Commander;
   - with the same Minds, characters and seeds for every entrant, and repeated trials.
+
+  Its case kind is held to bit equality between engines only once a Crypt run is (today only an
+  Arena bout is); until then the Ratings screen neither opens nor confirms its cases.
 
 ## Decided
 
 - **The Crypt's enemies** are coordinated by B4's mob, kept simple and minimal; it is iterated
   on later. Today's independent approach stays selectable.
 - **Team bouts in the Arena**, N against N, are later work, outside this plan.
-- **The tournament** is not run again.
 
 Eye checks: Part A's movement (A4), and the feel of the mouse controls (B2).
 
@@ -246,11 +259,15 @@ Eye checks: Part A's movement (A4), and the feel of the mouse controls (B2).
 - **Order.** Part A first, in order. It is the foundation, and A0 and A1 alone fix the 0.29 m/s
   hero. Part B's B0 and B1 can start once A1 has landed. B2 needs A1's ceiling. B3 and B4 follow
   B1.
-- **[Whole-body control](2026-10-17-general-controller.md).** A faster gait there raises every
-  top speed here through its envelope, with no change to this pipeline.
-- **[Options fighter](2026-10-14-options-fighter.md).** Its follow-orders model reads A1's rule.
-- **[Workshop](2026-10-20-shared-controller-workshop.md).** It gains the Commander role and the
-  movement role's new interface: the legs take a velocity and a facing, and the envelope has a
-  stopping deceleration.
+- **[Capabilities](2026-10-21-capabilities.md).** A faster gait there raises every top speed
+  here through the limits it states (A0), with no change to this pipeline.
+- **[Tactics](2026-10-21-tactics.md).** Spacing becomes a range or direct goal (A2), and a
+  follow-orders model reads A1's rule.
+- **[Framework](2026-10-21-framework.md).** It gains the Commander role and the locomotion
+  role's new interface: the legs take a velocity and a facing, and a gait states its limits.
+  A2 edits the entrants that ask a pace (`src/core/entrants/tempo/tactics.ts`) as part of its
+  toolkit change.
+- **[Ratings](2026-10-21-ratings.md).** Part A lands before its steps 5 and 6. The Crypt's
+  clearing task is one of its evaluations.
 
 When this plan lands, what it built goes into the architecture, and this file is deleted.

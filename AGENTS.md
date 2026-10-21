@@ -40,6 +40,11 @@ npm run tournament -- --write # every mind, character and loadout rated; the Are
   reference record, a step-cost reading, a fingerprint or a browser check. Look in a browser when
   the change is something to see, briefly; the owner judges motion there themselves. The
   fingerprint (`scripts/fingerprint.mjs`) is for a refactor that claims to change no behaviour.
+- **No long run whose result is thrown away.** A measurement states its expected wall time
+  first, from a measured rate; an iteration's reading fits in about 10 minutes and stops when its
+  answer is clear; nothing runs over an hour without the owner's go-ahead for that run. No full
+  tournament, re-rating or re-calibration is run for its own sake, and nothing is measured at
+  length just before a change that moves it. What is played is kept as rows and reused.
 - **A new test file is fast** (under about 10 s), or it goes in `tests/slow.json`.
 
 Name the checks run and any unresolved failures when landing. Commit each landable change as

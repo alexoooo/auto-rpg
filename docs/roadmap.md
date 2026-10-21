@@ -10,12 +10,16 @@ Physically simulated bodies as a platform for AI control experiments, built into
 owner's direction, 2026-10-08). Each layer depends only on those below it -- world, body, motor
 control, skills, minds -- and a mind may use as much or as little of the stack as it needs
 ([architecture](architecture.md#minds)).
-The [shared controller workshop plan](plans/2026-10-20-shared-controller-workshop.md) organizes
-the open component, task, equipment and evaluation work. Within it,
-[whole-body control](plans/2026-10-17-general-controller.md) develops running, recovery and combat
-on one stack, and the [options fighter](plans/2026-10-14-options-fighter.md) develops one Mind's
-tactics and player choices. [Movement and command](plans/2026-10-21-movement-and-command.md)
-gives movement one pipeline and puts a Commander over a team's Minds, for a person or an AI. Their implemented contracts are in the architecture.
+The plans are by layer, and any implementation may advance a layer. The
+[framework](plans/2026-10-21-framework.md) holds the layers, the component registration, the
+iteration cycle and its compute rule (an evaluation in minutes, nothing long and thrown away);
+[Ratings](plans/2026-10-21-ratings.md) holds evaluation and the paired report;
+[Mind data](plans/2026-10-21-mind-data.md) loads data per use;
+[capabilities](plans/2026-10-21-capabilities.md) holds running, recovery, strikes and holds;
+[movement and command](plans/2026-10-21-movement-and-command.md) gives movement one pipeline and
+puts a Commander over a team's Minds, for a person or an AI; and
+[tactics](plans/2026-10-21-tactics.md) holds what a fighter decides. Their implemented contracts
+are in the architecture.
 The Arena supplies selectable levels, shared navigation, explicit per-hand loadouts, a buckler
 and a cutting short sword as a testbed for that work, and a sword-and-buckler fighter, the
 Duellist, that leads every mind fitting that loadout. Its readings are in the
@@ -142,7 +146,7 @@ Capability work uses the Arena testbed, with dependencies owned by the plans:
     run's speed kept, the same settings stand 46 of 64, but the gait battery falls in 249 of its
     300 trials. On 52 shoves that fell the skeleton (of 96), step-up stands 9; its roll from its
     back to its front is what fails. Open running and recovery experiments are in the
-    [whole-body control plan](plans/2026-10-17-general-controller.md). The
+    [capabilities plan](plans/2026-10-21-capabilities.md). The
     rest of this entry was read on the old legs. "Rise, then steady" stands 6, 8, 0 and 1 of the same
     falls, medians 29.5 s and over; on the skeleton's shoves, none.
   - None stands within 6 s, and the 4 s median target is not met. The time is the route's, not
