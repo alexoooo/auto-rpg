@@ -950,6 +950,15 @@ fault, or one that does not fit its body, plays the preset whole while the panel
 A bout's HUD names the preset, `(edited)` where the link changes it (`controllerLabel`). A tape's
 link carries its minds, so a replay drives the same minds.
 
+**The Arena's fighter readouts** (`src/arena/fighter-hud.ts`) show fixed SVG damage diagrams from
+the actual per-segment pool, including detached descendants. The humanoids share a front view and
+the reptile a top view. `fighter-readout.ts` reads admitted actions, terminal ledger records and
+named behaviour or body-ownership changes after each world step; rendering updates the DOM without
+writing to a report or the world. Terminal entries fade on the bout clock, held at pause and the
+verdict. Contacts are named independently of injury. Each bout owns and disposes its sampling hook;
+controllers and muscle-sheet replays without reports show the diagram with reporting unavailable.
+Arena order-tape links run the minds and retain their named-action feeds.
+
 **The mind inspector** (`mindInspector`, `src/ui/mind-inspector.ts`) shows the mind tree, who has
 the body, active actions and stages, current holders and reserved resources. It shows candidate
 readiness and the recent terminal ledger, including explicit omitted history counts. The Arena,

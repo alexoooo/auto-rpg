@@ -23,7 +23,7 @@ import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { EMPTY_LOADOUT, HELD, heldItem, type Loadout } from "../core/items/held.ts";
 import { HUMAN_HASTE, hasteText } from "../core/human/attributes.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
-import { createWorld, type World } from "../core/world.ts";
+import { createWorld, type Hook, type World } from "../core/world.ts";
 import type { SkinView } from "../render/skin-view.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
@@ -47,6 +47,7 @@ import type { Side } from "../core/spec/body.ts";
 import { physicalReading } from "../core/observation.ts";
 import { arenaPlayback } from "./playback.ts";
 import { ARENA_SIDES, sideHighlights } from "./side-highlights.ts";
+import { fighterHud } from "./fighter-hud.ts";
 
 /**
  * **The arena page**: the arena's scene with its solids in a world (`buildArena`), and a bout
@@ -381,7 +382,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     drawn = []; bodies.clear(); subjects = null;
   };
   const viewPanel = need<HTMLDetailsElement>("arena-view");
-  viewPanel.open = !matchMedia("(max-width: 700px)").matches;
+  viewPanel.open = false;
   viewPanel.querySelector("summary")!.addEventListener("click", event => (event.currentTarget as HTMLElement).blur());
   for (const type of ["pointerdown", "pointermove", "wheel"]) viewPanel.addEventListener(type, event => event.stopPropagation());
   const viewFields: Control[] = [];
@@ -398,27 +399,36 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   need("arena-view-controls").append(...viewFields.map(control => control.element));
   /** What hears the bout under way: its touches' listener, and each side's air. */
   let hearing: { dispose(): void } | null = null, airs: { readonly side: Side; readonly air: (at: Vector3) => number }[] = [];
-  const end = () => { playback?.dispose(); playback = null; undraw(); hearing?.dispose(); hearing = null; airs = []; duel?.dispose(); duel = null; shown = null; };
+  let hudHook: Hook | null = null;
+  const end = () => {
+    hudHook?.dispose(); hudHook = null;
+    for (const row of rows) row.condition.reset();
+    hud.hidden = true;
+    playback?.dispose(); playback = null; undraw(); hearing?.dispose(); hearing = null; airs = []; duel?.dispose(); duel = null; shown = null;
+  };
 
   context.own(end);
 
-  // The readout: each side's name and bar, its mind as it goes (`mindInspector`), and the clock.
+  // Each side's pool, damaged parts and recent actions accompany its detailed mind inspector.
   const hud = need("hud");
+  hud.hidden = true;
   const rows = SIDES.map((side) => {
     const column = document.createElement("div"), label = document.createElement("strong"), bar = document.createElement("progress");
     column.className = "hud-col"; column.dataset.side = side; bar.max = 1; bar.value = 1;
     column.style.setProperty("--side-colour", ARENA_SIDES[side].colour);
     const status = document.createElement("small"), mind = document.createElement("details"), summary = document.createElement("summary");
+    const condition = fighterHud(ARENA_SIDES[side].label);
     mind.className = "hud-mind"; summary.textContent = "Mind"; mind.append(summary);
-    column.append(label, bar, status, mind); hud.append(column);
-    return { side, label, bar, status, mind, inspector: null as ReturnType<typeof mindInspector> | null };
+    bar.setAttribute("aria-label", `${ARENA_SIDES[side].label} fighter health`);
+    column.append(label, bar, condition.element, status, mind); hud.append(column);
+    return { side, label, bar, status, mind, condition, inspector: null as ReturnType<typeof mindInspector> | null };
   });
   const clockColumn = document.createElement("div"), clock = document.createElement("span"), pauseButton = document.createElement("button");
   clockColumn.className = "hud-col hud-clock";
   pauseButton.id = "arena-pause"; pauseButton.type = "button"; pauseButton.className = "action quiet";
   pauseButton.textContent = "Pause"; pauseButton.title = "Pause (Space / Esc)"; pauseButton.hidden = true;
   pauseButton.setAttribute("aria-controls", "pause-menu");
-  clockColumn.append(clock, pauseButton); hud.insertBefore(clockColumn, rows[1].label.parentElement);
+  clockColumn.append(clock, pauseButton, viewPanel); hud.insertBefore(clockColumn, rows[1].label.parentElement);
 
   const setPaused = (value: boolean) => {
     paused = value && duel !== null && !duel.verdict;
@@ -508,10 +518,19 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         for (const row of rows) {
           row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === you && !replaying ? " (you)" : ""}`;
           const duelist = bout.duelists[row.side], minded = duelist.minded;
+          row.condition.bind(duelist);
+          row.condition.sample(world.time); row.condition.render(world.time);
           row.inspector = mindInspector(duelist.mind, duelist.built.spec, () => duel === bout
             ? { body: duelist.body, skills: minded.skills ?? null } : null);
           row.mind.replaceChildren(row.mind.firstElementChild!, row.inspector.element);
         }
+        let feedStopped = false;
+        hudHook = world.afterStep(() => {
+          const time = bout.state.start + (bout.verdict?.time ?? bout.clock);
+          for (const row of rows) row.condition.sample(time, !feedStopped);
+          if (bout.verdict) feedStopped = true;
+        });
+        hud.hidden = false;
         show("curtain", false); show("bout-end", false); setPaused(false); screen = "fight"; viewPanel.hidden = false;
         frame();
         await stage("Preparing lighting");
@@ -617,6 +636,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     for (const row of rows) {
       const fighter = duel.duelists[row.side];
       row.bar.value = fighter.pool.bar();
+      row.condition.render(duel.state.start + (duel.verdict?.time ?? duel.clock));
       const mind = fighter.minded, controller = controllers[row.side];
       const phase = mind.skills ? mind.skills.report.actions[0]?.stage ?? mind.skills.report.engagement?.phase ?? "guard / move" : mind.body.has;
       const down = duel.state.recovery?.[row.side];
