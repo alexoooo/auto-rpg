@@ -1048,3 +1048,48 @@ the 16 at `1f354189`):
   kneel.
 
 What a rising body costs a step is in `play.md#bodies-in-the-step`.
+
+## Step-up on the owner's target
+
+Every humanoid stands up once down by Stand up with `step-up`, in the Arena and in the Crypt, where a
+fall does not end a fight. These readings are the target's (`research/rising-bed.mjs --target`), at
+the commits they name; read them again before comparing against them.
+
+- On the owner's 64-fall target (Node stand, Rapier, 120 Hz, Balance 0, Grit 0, 30 s cap,
+  `node research/rising-bed.mjs --target --techniques step-up`), step-up stands the Warrior from
+  11 of 16 falls empty-handed and 14 of 16 with the club, medians 13.3 and 14.9 s; the Rogue from
+  9 and 6 of 16, median 26.3 s and the cap: 40 of 64, against the 45 it stood on the legs before
+  the run's (`627ecc3a`: 16, 14, 10 and 5). Its stages are searched again on today's legs. The
+  run's strength is what the rise loses: with the legs' torques at their measured peaks and the
+  run's speed kept, the same settings stand 46 of 64, but the gait battery falls in 249 of its
+  300 trials. On 52 shoves that fell the skeleton (of 96), step-up stands 9; its roll from its
+  back to its front is what fails. The rest of this entry was read on the old legs. "Rise, then steady" stands 6, 8, 0 and 1 of the same
+  falls, medians 29.5 s and over; on the skeleton's shoves, none.
+- None stands within 6 s, and the 4 s median target is not met. The time is the route's, not
+  the muscles': brace about 0.7 s, settle 0.7, roll 2.7, rise 9, steady 1.4, then the target's
+  verification. Searched at twice the Warrior's strength, or 1.5 times the Rogue's, the route
+  stood as often and no faster, so the plan's surge assist (Grit) is not built: a joint-torque
+  help cannot shorten a route whose stages wait on balance.
+- The Rogue's search stands 10 of its 16 training falls (first attempts, a 24 s cap) and 15 of
+  the target's 32; most of its failures reach the last stage, `even`, out of the lunge onto
+  both feet. Get away, Fight on the ground and the other techniques stay experimental; the mirror
+  and escape patches held in `research/checkpoints/2026-10-13-ground.zip` are not applied.
+- **Fast, robust unassisted recovery remains unsolved.** The optimized compliant-sole recipe
+  produced one 15.5583 s development success and failed the robustness objective. The results in
+  the rest of this item are on the old legs and the old screen's saved falls. On today's legs
+  step-up completed 11 of the screen's 16 falls, the fastest in 14.8 s, and external actuation
+  is rejected. Actual-physics search and feedback reach 6.975 s on that saved fall with unchanged muscles
+  and zero balance assistance. Measured muscle-response feedback transfers one demonstration
+  to three additional fresh starts in 7.075-7.775 s, but ten other selected starts fail. A recorded
+  muscle prefix followed by that feedback completes a different saved side fall in 8.6333 s;
+  further physical search shortens that side fall to 6.4167 s with ordinary-host continuation.
+  Side-fall measured feedback produces verified 5.9 s and 5.775 s fresh development recoveries
+  on opposite sides. A library selected from observed posture and motion completes seven of ten
+  trained empty-handed side-fall recipes, two within six seconds. Body-specific muscle-driven
+  settling and physical search reach Warrior/club recovery in 6.0333 s. The library completes
+  three of the old screen's sixteen falls, none within six seconds. It does not depend on an exact saved-state hash.
+  Four nearby Warrior/club perturbations still fail
+  ([settling search](../analysis/2026-10-11-stand-up-planning.md#settling-aware-physical-search-2026-10-12)).
+  All successes include standing/walking verification;
+  the four-second median, broad coverage and gameplay integration remain unfinished
+  ([opposite-side feedback](../analysis/2026-10-11-stand-up-planning.md#opposite-side-guidance-and-feedback-2026-10-12)).

@@ -81,10 +81,10 @@ and fallen bodies are not avoided.
   and one led by an AI replay alike, with no Commander and no Mind.
 - **Deterministic and forkable.** A Commander steps inside `World.step`, in the sensing phase,
   at its own rate or on an event, and its memory is plain data in `state`.
-- **Roles, not special cases** ([framework](2026-10-21-framework.md)). The
+- **Roles, not special cases** ([component registration](2026-10-21-component-registration.md)). The
   Commander is a registered role with its own config, faults and factory, and implementations
   sit side by side.
-- **No long runs.** Every check here follows the framework's compute rule: no battery is
+- **No long runs.** Every check here follows `AGENTS.md`'s rule on long runs: no battery is
   measured again for its own sake, and nothing runs over an hour without the owner's go-ahead.
 - **The toolkit lands on its own.** Each stage is its own commits under the normal gate, with the
   fingerprint cases it moves named. A stage that claims no change of behaviour shows the
@@ -98,7 +98,7 @@ and fallen bodies are not avoided.
   its facing, and its stopping deceleration. Today's gaits answer from their envelope tables; a
   later gait may answer another way (from feedback, or a learned estimate) with no change to the
   pipeline. The limits are a narrow interface of the locomotion role
-  ([framework](2026-10-21-framework.md)).
+  ([component registration](2026-10-21-component-registration.md)).
 - Read each way's fastest speed from the existing tables by the share of its trials that held at
   that speed, not "stop at the first miss". The share is named where the rule is, and is chosen
   by looking at the tables. First, find what the walk-run's 0.4 m/s backward dip is: falls, or
@@ -259,12 +259,12 @@ Eye checks: Part A's movement (A4), and the feel of the mouse controls (B2).
 - **Order.** Part A first, in order. It is the foundation, and A0 and A1 alone fix the 0.29 m/s
   hero. Part B's B0 and B1 can start once A1 has landed. B2 needs A1's ceiling. B3 and B4 follow
   B1.
-- **[Capabilities](2026-10-21-capabilities.md).** A faster gait there raises every top speed
-  here through the limits it states (A0), with no change to this pipeline.
-- **[Tactics](2026-10-21-tactics.md).** Spacing becomes a range or direct goal (A2), and a
-  follow-orders model reads A1's rule.
-- **[Framework](2026-10-21-framework.md).** It gains the Commander role and the locomotion
-  role's new interface: the legs take a velocity and a facing, and a gait states its limits.
+- **Running** (the [roadmap](../roadmap.md#body-and-motor-control)). A faster gait raises every
+  top speed here through the limits it states (A0), with no change to this pipeline.
+- **Tactics** (the [roadmap](../roadmap.md#the-ai)). Spacing becomes a range or direct goal
+  (A2), and a follow-orders model reads A1's rule.
+- **[Component registration](2026-10-21-component-registration.md).** It gains the Commander
+  role and the locomotion role's new interface: the legs take a velocity and a facing, and a gait states its limits.
   A2 edits the entrants that ask a pace (`src/core/entrants/tempo/tactics.ts`) as part of its
   toolkit change.
 - **[Ratings](2026-10-21-ratings.md).** Part A lands before its steps 5 and 6. The Crypt's

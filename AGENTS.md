@@ -45,6 +45,9 @@ npm run tournament -- --write # every mind, character and loadout rated; the Are
   answer is clear; nothing runs over an hour without the owner's go-ahead for that run. No full
   tournament, re-rating or re-calibration is run for its own sake, and nothing is measured at
   length just before a change that moves it. What is played is kept as rows and reused.
+- **An iteration is one question.** It names the question and the evaluation that answers it,
+  changes or adds one implementation beside the others, reads it paired against the version
+  before (today `npm run match`), and is kept, or its reason for not being kept is recorded.
 - **A new test file is fast** (under about 10 s), or it goes in `tests/slow.json`.
 
 Name the checks run and any unresolved failures when landing. Commit each landable change as
@@ -336,10 +339,13 @@ When the question is a measurement:
 
 - `README.md`: the game, for people. `AGENTS.md`: this file.
 - `docs/architecture.md`: how the game is built, in the present tense.
-- `docs/roadmap.md`: the direction and the open items.
-- `docs/plans/`: only a plan the owner asks for, for work over several sessions. An ordinary
-  feature is built straight away, in small commits. A plan is deleted when it lands; code and
-  comments never cite a plan.
+- `docs/roadmap.md`: the direction; the order of the plans in flight; what waits on the owner
+  (choices, things to watch); and the open items by layer, one line each. A finding goes to a
+  reference record, not here.
+- `docs/plans/`: only concrete work the owner asks for, over several sessions, in flight. Each
+  plan states its own dependencies; the roadmap orders them. An ordinary feature is built
+  straight away, in small commits. A plan is deleted when it lands; code and comments never cite
+  a plan.
 - `docs/reference/`: records that the body's and the rules' numbers cite, and measurements the
   owner asked for. A feature needs no record.
 - `docs/analysis/`: studies behind a decision still open, named by date: what was tried, measured

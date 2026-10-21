@@ -1714,7 +1714,7 @@ executor and aim rule; path families are action settings, and the recipe executo
 searched recipe or a placed blow. Scripts may instead request explicit world points. Continuous
 defence is the guard placing a hand or what it holds; a deliberate defensive commitment can use
 the same action protocol. A blow is whatever two surfaces of two sides met with. These seams
-keep control choices separate from the contact and damage rules ([roadmap](roadmap.md#strikes)).
+keep control choices separate from the contact and damage rules ([roadmap](roadmap.md#blows-and-wounds)).
 | Added | Where it goes | What it leaves alone |
 |---|---|---|
 | **A sword, a spear**: an edge, a point | Item regions state directed edge or point surfaces, priced on impact. The short sword supplies both; `blade-cut` and `blade-thrust` execute them on the shared lifecycle. A spear needs its own item and execution qualification. | The shares, the pool, the skill, the targets. |

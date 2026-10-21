@@ -85,7 +85,7 @@ walking forward; measured as a fight plays each body they are 0.5, 0.4 and 0.4
   the half turn: 2 of 72. At 0.4 and 0.3 the half turn still drops 2 and 1, so below a half
   nothing more is gained, and the share is 0.5.
 - **What still drops a body is a half turn made while it walks.** Turning on the spot is not
-  something the stance does (`docs/roadmap.md`, Body and motor control).
+  something the stance does ([locomotion](locomotion.md)).
 - **The walk with no facing ordered**, which is every walk a side makes for itself, dropped the
   Warrior once in 8, walking at -135 degrees: it turns more than a quarter while it walks.
 - **The skeleton barely moves on some bearings**: its least distance in 8 s is 0.19 m facing ahead
