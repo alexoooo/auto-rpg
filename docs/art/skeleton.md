@@ -95,9 +95,7 @@ After a rebuild, run `tests/core-skeleton-skin.test.mjs` (every piece shown or n
 each sitting on its segment and following it) and `tests/core-skeleton.test.mjs` (the figure the
 bind gives), then look at the skeleton in the lab and the crypt.
 
-## Known gaps
+## Where the art and the colliders differ
 
-- The hand's collider runs to the fist box's far side, about 7 cm past the drawn knuckles, so a
-  punch lands ahead of the visible fist.
-- An optional costume (a loincloth and belt on the pelvis, bracers, one shoulder plate) is the
-  owner's call after seeing the bare bones in play; see [the roadmap](../roadmap.md).
+The hand's collider runs to the fist box's far side, about 7 cm past the drawn knuckles, so a
+punch lands ahead of the visible fist.

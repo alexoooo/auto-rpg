@@ -1,36 +1,30 @@
 # Warrior robot shells
 
-Industrial, Steampunk and Futuristic are cosmetic appearances of the Warrior. They use his body,
-colliders, joints, muscles, held items and damage rules. Metal-looking plates do not confer metal
-contact behavior, armour or a different sound. The Arena and Lab offer these appearances; the
-Dungeon and authored-animation character workshop keep their existing choices.
+Industrial, Steampunk and Futuristic are cosmetic appearances of the Warrior, offered in the Arena
+and the Lab. They keep his body, colliders, joints, muscles, held items and damage rules: a
+metal-looking plate gives no metal contact, armour or sound. Their appearance IDs are
+`industrial`, `relic` (Steampunk) and `duelist` (Futuristic). Everything is generated in code,
+with no external asset.
 
 ## Construction
 
-`src/render/robot-skin.ts` generates the meshes without external assets. Each rigid piece is
-authored in a core segment's local frame and parented to that segment's node. There is no rig
-retargeting and no transform-copying observer for rigid pieces. A detached segment keeps its
-shell. The renderer creates no physics objects and its meshes are not pickable.
+`src/render/robot-skin.ts` builds each rigid piece in a core segment's local frame and parents it
+to that segment's node: no rig retargeting, no transform copying, no physics objects, nothing
+pickable. A detached segment keeps its shell. Each builder owns its silhouette and palette; the
+shared renderer owns attachment, batching by segment and finish, disposal and the fingers. An
+instance owns its PBR materials and meshes and never disposes another body's.
 
-The fitting measurements are the built body's segment lengths, capsule radii, foot boxes and
-trunk hull bounds. Three separate trunk housings leave room for the spine; a central frame and
-spindles connect their joint locations. Plates narrow towards the distal ends of the limbs.
-Bearings, trim and housings are combined into one mesh per segment and finish. Finger links stay
-separate so they can curl. Each instance owns its PBR materials and its meshes; disposing it
-never disposes another body's materials or the segment nodes.
+- **Fit.** The shells are sized from the built body: segment lengths, capsule radii, foot boxes
+  and the trunk hull's bounds. Three trunk housings leave room for the spine, joined by a central
+  frame and spindles; plates narrow toward the limbs' distal ends.
+- **Fingers.** The hand's knuckle and little-finger landmarks place three equal links a finger,
+  kept as separate meshes. A finger on a held item follows a semicircle about the item's origin,
+  at the grip radius plus a quarter of the hand's capsule radius; a free one goes from relaxed to
+  a fist on the same closure input as the human skin. It is drawn, not a simulated grasp.
 
-The hand's knuckle and little-finger landmarks locate the fingers. Occupied fingers close around
-the held item's actual origin and grip radius. Their three equal links follow a semicircle
-around the handle; their centreline radius is the grip radius plus a quarter of the hand's
-capsule radius. Unoccupied fingers interpolate from a relaxed pose to a fist using the same
-closure input as the human skin. This is visual articulation, not a simulated grasp.
+## The three designs
 
-## Design choices
-
-These are authored art choices for the owner's requested robot shells, not anatomical or solver
-measurements. Independent builders own each silhouette and palette; the shared renderer owns
-attachment, geometry batching, disposal and finger articulation. The stable appearance IDs are
-`industrial`, `relic` (Steampunk) and `duelist` (Futuristic), so existing links retain their choices.
+Every proportion below is an authored art choice, not anatomy or a solver measurement.
 
 ### Industrial
 
@@ -38,8 +32,8 @@ attachment, geometry batching, disposal and finger articulation. The stable appe
 smallest dimension. The distal taper is 0.90, limb coverage 0.84 and corner cut 0.12. Limb housings
 are 1.76 radii wide and 1.65 radii deep; trunk width is 0.86 of its envelope, depth 0.80 and height
 0.84 of segment length. The head has one circular lens, and the abdomen has three straight bars.
-The recorded geometry-and-material fingerprint in `tests/robot-skin.test.mjs` holds this design
-including its palm and finger poses (Node stand, Rapier, unstepped Warrior).
+`tests/robot-skin.test.mjs` holds this design, its palm and finger poses included, to a recorded
+fingerprint (Node stand, Rapier, unstepped Warrior).
 
 | Finish | Color | Metallic | Roughness | Emission |
 |---|---|---:|---:|---:|
@@ -78,8 +72,7 @@ pressure vessels. The body uses satin white ceramic with restrained cyan details
 The chest fills 0.94 of its envelope width, 0.87 of depth and 0.87 of segment length. Limb plates
 reach 1.87 radii at their widest point and taper to 0.39 radii near their distal end. Elliptical
 profiles use 24 sides; spheres use 12 segments. Foot profiles rise along local -z, with local y
-along the foot, so the sole stays under the whole foot. The local profile and trim fractions
-are art proportions, not changes to anatomy.
+along the foot, so the sole stays under the whole foot.
 
 | Finish | Color | Metallic | Roughness | Emission |
 |---|---|---:|---:|---:|
@@ -89,23 +82,16 @@ are art proportions, not changes to anatomy.
 | Glass | `#071b29` | 0.35 | 0.14 | 0 |
 | Light | `#29cfe5` | 0.05 | 0.32 | 0.60 |
 
-## Appearance ownership and checking
+## Checking
 
-`appearance.ts` owns compatibility and labels. `dresserFor` resolves assets and returns a factory
-whose per-instance inputs are body, clothing and hand closure. Human assets are cached per scene;
-clothing and closure are never captured by an asset cache. `skinSlot` owns replacement in the Lab
-and previews, discarding stale requests and applying current clothing and visibility to a newly
-loaded instance. Arena fights use the same factory. Clothing is hidden while a shell is selected,
-and its values are retained for returning to the original skin.
-
-`tests/robot-skin.test.mjs` checks attachment, independent ownership, grip geometry and unchanged
-ordered-bout snapshots (Node stand, Rapier, 120 Hz). Address and replacement tests cover URL
-compatibility, asynchronous loading and disposal. The production browser check exercises the
-selectors, previews, paused playback, Tactical view and replacement without rebuilding a body:
+`tests/robot-skin.test.mjs` checks attachment, independent ownership, grip geometry, unchanged
+ordered-bout snapshots, and a geometry-and-material fingerprint of Industrial (Node stand, Rapier,
+120 Hz). The browser check exercises the selectors, previews, paused playback, Tactical view and
+replacement without rebuilding a body, and writes screenshots under `.review/robots/`:
 
 ```powershell
 npm exec --yes --package=playwright -- node scripts/robot-browser-check.mjs http://127.0.0.1:5188
 ```
 
-It writes screenshots under `.review/robots/`. Review those alongside actual movement; geometric
-attachment tests do not judge silhouette, lighting or panel intersections.
+The geometric tests do not judge silhouette, lighting or panel intersections: look at the
+screenshots and at the shells in motion.

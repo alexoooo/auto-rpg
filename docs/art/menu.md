@@ -1,39 +1,42 @@
-# Main menu art
+# Main menu and setup screens
 
-`public/assets/menu/cathedral.jpg` is the decorative background of `#title-screen`, loaded by
-`src/menu.css`. It is a static painting; the title, Dungeon and Arena buttons, and expandable
-Tools group are HTML. The CSS keeps the
-menu in the painting's dark left side on wide screens and darkens the backdrop on narrow screens.
-The shared loading screen uses the painting beneath an opaque charcoal treatment.
+The title screen's painting, and the character previews on the Dungeon and Arena setup screens.
 
-The painting is generated with the built-in image-generation tool, using the owner's villain
-concepts as the visual direction: faded crimson cloth, antique ivory, bronze and gothic stone.
-The generated PNG is encoded as JPEG at quality 90 with System.Drawing, preserving its dimensions.
-The committed JPEG is sufficient to run and build the game; regeneration is optional.
+## The painting
 
-## Dungeon character selection
+`public/assets/menu/cathedral.jpg` is the background of `#title-screen` (`src/menu.css`) and, under
+an opaque charcoal treatment, of the shared loading screen. The title, the Dungeon and Arena
+buttons and the Tools group are HTML over it. On wide screens the CSS keeps the menu in the
+painting's dark left side; on narrow ones it darkens the backdrop.
 
-The Dungeon setup uses the same painting under dark charcoal overlays, with crimson light,
-ivory type and bronze borders. Its text is limited to the character names, choices and actions.
-`src/dungeon/style.css` draws the niches and the selection marks; no additional raster art is used.
+**Source.** Generated with the built-in image-generation tool from the prompt below, after the
+owner's villain concepts: faded crimson cloth, antique ivory, bronze and gothic stone. The PNG is
+encoded as JPEG at quality 90 with System.Drawing, at its own dimensions. The committed JPEG is
+all the game needs; regenerating it is optional.
 
-`src/render/character-preview.ts` renders the Warrior, Rogue and Skeleton with the game's own skins,
-on bodies built from `modelSpec`. The preview world never steps. Three orthographic cameras
-have separate layer masks and equal-width viewports, aligned with the three native radio labels.
-The models wear their default boots and armour; equipment has no setup control.
-
-The preview lighting is an art direction choice: the existing environment at 0.65 intensity,
-hemispheric fill at 0.85, warm ivory key at 2.2, and crimson rim at 1.4. Each stone plinth is
-1.15 m across and 0.06 m tall. The camera holds at least 2.24 m vertically and 1.24 m horizontally
-to leave headroom and keep the arms within narrow columns. It renders after assets load and
-when resized, without a running animation loop. Screen teardown disposes its skins, bodies, world,
-scene and engine. This view does not run combat or change the playable bodies.
-
-The setup and gameplay elements occupy separate containers. Gameplay, including sound controls,
-is covered while a run loads and prepares complete opening frames; failed launches return to
-setup with a visible error and Retry. Advanced setup editors and gameplay diagnostics stay
-collapsed until requested.
-
-## Generation prompt
-
+```text
 Create a finished widescreen 16:9 atmospheric gothic fantasy background painting for a browser game's main menu, ideally 2560x1440. A quiet ancient cathedral of weathered stone and towering pointed arches, faded burgundy banners, cool light through a tall rose window at the far right. At the right third stands a mysterious antique articulated ivory mannequin in a dusty burgundy hood and tattered medieval robes with tarnished bronze shoulder plates. Its pale porcelain face is still and expressionless, like an abandoned theatrical puppet. Show from the hood through the waist, head around 74% across and 33% down, lower robes fading into shadows. Restrained red reflected light along its right shoulder; dusty atmospheric haze. Sophisticated textured painterly realism, inspired by the supplied concept art's old fabrics, patinated metals, and gothic architecture. Charcoal blacks, antique ivory, faded crimson and bronze. The entire left 48 percent MUST be quiet nearly black negative space with only faint stone arches, to hold the application's live title and three menu buttons. Art only, no writing, no lettering, no logos, no interface, no borders, no watermark. No action or combat; a still atmospheric portrait within architecture.
+```
+
+## The setup screens
+
+The Dungeon setup lays the same painting under dark charcoal overlays, with crimson light, ivory
+type and bronze borders; `src/dungeon/style.css` draws the niches and selection marks, with no
+further raster art. Text on either setup screen is limited to names, choices and actions.
+
+## The character previews
+
+`src/render/character-preview.ts` draws the Warrior, Rogue and Skeleton in their game skins on
+bodies built from `modelSpec`, in their default boots and armour, in a preview world that never
+steps and never enters a fight's world. The Dungeon lineup uses three orthographic cameras with
+their own layer masks in equal-width viewports under the three radio labels; each Arena contender
+canvas has one full-body camera. A canvas renders when its assets are ready, on a selection and on
+resize, with no animation loop; teardown disposes its skins, bodies, world, scene and engine.
+
+The art choices:
+
+- **Light:** the environment at 0.65, a hemispheric fill at 0.85, a warm ivory key at 2.2 and a
+  crimson rim at 1.4.
+- **Plinth:** stone, 1.15 m across and 0.06 m tall.
+- **Framing:** the camera holds at least 2.24 m vertically and 1.24 m horizontally, a full body
+  with headroom and the arms inside narrow columns.

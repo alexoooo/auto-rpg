@@ -21,52 +21,43 @@ uses this vendored package. The package layout remains compatible with the bench
 
 ## What the patch does
 
-- **A motor's force has a lower bound of its own** (`JointMotor::min_force`,
-  `set_motor_force_bounds`), where Rapier bounds it by `-max_force`. `set_motor_max_force` sets
-  both, as before, so a caller that never sets them apart gets Rapier's behaviour to the bit.
-- **The binding reads a joint's impulses** in the last solver substep: a motor's
-  (`jointMotorImpulse`), a limit's (`jointLimitImpulse`) and a locked axis's
-  (`jointLockedImpulse`); and it sets an impulse joint's motor bounds
-  (`jointSetMotorForceBounds`). A multibody joint gains `jointSetLimits`, `jointConfigureMotor` and
-  `jointSetMotorForceBounds`.
-- **Whole-step motor impulse** (`jointMotorStepImpulse`) sums every solver substep, including
-  CCD subdivisions, and resets once per pipeline step even for inactive impulse joints. It is
-  accumulated and returned in double precision, serialized with the joint, and never used as a
-  warm-start seed. Constraint solving remains single precision. Scalar, SIMD (without duplicate
-  padding lanes) and external multibody constraint rows contribute; internal multibody motors
-  have no effort readback. This is signed impulse, not work or an absolute effort integral.
-- A motor's force and impulse are the ones applied to the joint's first body, the parent: a
-  negative force turns the child toward the axis's positive sense.
-- **CCD-only pair filtering** (`ActiveHooks.FILTER_CCD_PAIRS`) calls the pair filter for sweeps
-  without disabling ordinary contact recycling. It lets the adapter apply connected-pair
-  exclusions to continuous collision detection; see [grip clearance](../../docs/reference/grip-clearance.md).
-- **Current-pose contact separation** (`solverContactSeparation`) resolves the solver's two
-  anchors through the current body poses and projects their separation onto its normal.
-  `solverContactDist` retains its upstream meaning: a cached distance from the last full
-  contact update. Neither reading changes contact solving.
-- **Active contact impulse** (`totalSolverContactImpulse`) sums normal impulses only for
-  geometric points referenced by current solver contacts. Discarded points may retain cached
-  impulses; the aggregate excludes them without changing their upstream per-point readings.
-  Each referenced point counts once, in geometric order, with double-precision accumulation.
-- **Pair-local compliant contact** (`PhysicsHooks.contactLayer`) supplies spring stiffness,
-  damping and maximum compression to a manifold. Its implicit normal row has a rigid depth
-  backstop. `contactLayerWork` sums normal reaction times solver-anchor displacement over
-  substeps, including unloading and CCD subdivisions; inactive readings clear at each outer
-  step. Layer parameters and contact readings are serialized. Unconfigured pairs retain the
-  ordinary normal row. The core opts in physical points against a declared material, and a
+Each addition leaves a caller that does not use it with Rapier's behaviour to the bit. Rapier's own
+test of the bounds (`motor_force_bounds_are_signed_and_max_force_keeps_them_symmetric`,
+`generic_joint.rs`) passes.
+
+- **Signed motor bounds.** A motor's force has a lower bound of its own (`JointMotor::min_force`,
+  `set_motor_force_bounds`); `set_motor_max_force` sets both, as upstream. A motor's force and
+  impulse are those applied to the joint's first body, the parent: a negative force turns the
+  child toward the axis's positive sense.
+- **Joint readings and setters.** The binding reads a joint's impulses in the last solver
+  substep: a motor's (`jointMotorImpulse`), a limit's (`jointLimitImpulse`) and a locked axis's
+  (`jointLockedImpulse`); it sets an impulse joint's motor bounds (`jointSetMotorForceBounds`),
+  and a multibody joint's limits, motor and bounds (`jointSetLimits`, `jointConfigureMotor`,
+  `jointSetMotorForceBounds`).
+- **Whole-step motor impulse** (`jointMotorStepImpulse`): the signed sum over every solver
+  substep, CCD subdivisions included, reset once a pipeline step, accumulated in double precision,
+  serialized with the joint and never a warm-start seed. Scalar, SIMD and external multibody rows
+  contribute; internal multibody motors have no readback. It is not work or an absolute effort.
+- **CCD-only pair filtering** (`ActiveHooks.FILTER_CCD_PAIRS`) runs the pair filter for sweeps
+  without disabling contact recycling, so connected-pair exclusions reach continuous collision
+  detection ([grip clearance](../../docs/reference/grip-clearance.md)).
+- **Contact readings.** `solverContactSeparation` projects the separation of the solver's two
+  anchors, resolved through the current poses, on its normal (`solverContactDist` keeps its
+  upstream meaning, a cached distance). `totalSolverContactImpulse` sums the normal impulses of
+  the points current solver contacts reference, each once, in double precision. Neither changes
+  contact solving.
+- **Pair-local compliant contact** (`PhysicsHooks.contactLayer`): spring stiffness, damping and
+  maximum compression for a manifold, an implicit normal row with a rigid depth backstop, and
+  `contactLayerWork`, the reaction times anchor displacement over substeps. Parameters and
+  readings are serialized. The core opts in physical points against a declared material, and a
   declared sole against fixed colliders (`ContactMaterial.sole`).
-- **Optional angular-limit gradients** (`coordinateAngularLimits` on integration parameters)
-  make impulse-joint and generic external limit rows follow the spatial gradient of their
-  reported coordinate. False retains parent-axis rows; motor rows are unchanged. The setting
-  is serialized. The adapter exposes it as `rapier-coordinate`, with migration gates in
-  [the limit record](../../docs/reference/joint-limits.md).
-- **Friction selection** (`pointContactFriction` on integration parameters) exposes the native
-  per-point Coulomb model for rigid bodies. False retains central and twist friction; multibody
-  contacts always use the per-point model. The native serialized setting already exists; the
-  patch adds only Rust/TypeScript accessors. The adapter identifies the configurations separately
-  and refuses cross-configuration snapshots; see [the friction record](../../docs/reference/contact-friction.md).
-- Rapier's own test of the bounds (`motor_force_bounds_are_signed_and_max_force_keeps_them_symmetric`,
-  `generic_joint.rs`) passes.
+- **Angular-limit gradients** (`coordinateAngularLimits`): impulse-joint and external limit rows
+  follow the spatial gradient of their reported coordinate; motor rows are unchanged. Serialized;
+  the adapter's `rapier-coordinate` ([joint limits](../../docs/reference/joint-limits.md)).
+- **Friction selection** (`pointContactFriction`): the native per-point Coulomb model for rigid
+  bodies in place of central and twist friction (multibody contacts always use it). The patch
+  adds only accessors; the adapter refuses snapshots across the two configurations
+  ([contact friction](../../docs/reference/contact-friction.md)).
 
 ## Building
 

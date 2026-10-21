@@ -1,24 +1,12 @@
-# The workshop models: the Warrior and the Rogue
-
-The reptile uses procedural shells (`src/render/reptile-skin.ts`) instead of a workshop rig.
-Each shell follows its physical segment. Shells are olive `#78834d`; two 25 mm eye spheres
-with 12 segments sit at the head's `eye.left` and `eye.right` points (`assets/reptile/body.json`), reference coordinates `(±.055, .285, .34)` m. Their
-diffuse colour is `#171f13`, with `#c3bb65` specular colour. These authored art choices carry
-no colliders or hit authority. The skin owns its materials and disposes its meshes without
-disposing the scene's shared materials. Three ivory `#eadcc2` tooth meshes draw the
-authored anatomical contact hulls once each, on the jaw node. Their
-geometry comes from the physical spec; the colour has no hit authority. Detailed
-reptile art remains open.
+# The characters' art
 
 The game's two humans are the character workshop's models: the fighter, who plays the Warrior,
 and the rogue, who plays the Rogue. The male fighter and female rogue use customized
-MakeHuman/MPFB CC0 anatomy, skin textures, hair, eyes and rig weights. Their clothing, armour,
-boots, weapons, equipment fitting and preview motion are this project's work. They are not wholly
-original anatomical meshes.
-
-The models reach the game in two forms: the workshop's own GLBs with their authored preview
-motion, shown on `/character-lab.html`; and animation-free derivatives that the core measures and
-the pages wear as skins on bodies.
+MakeHuman/MPFB CC0 anatomy, skin textures, hair, eyes and rig weights; their clothing, armour,
+boots, weapons, equipment fitting and preview motion are this project's work. They reach the game
+in two forms: the workshop's GLBs with their authored preview motion, shown on
+`/character-lab.html`, and animation-free derivatives that the core measures and the pages wear
+as skins. The reptile's procedural skin is [at the end](#the-reptile).
 
 ## Where each file comes from
 
@@ -142,8 +130,7 @@ the rogue, both drawing the bow, against a bound of 0.65; the forearm's skin nev
 from its axis than at rest (a greatest ratio of 1.000 on both), against a bound of 1.5; and the
 bow's hands stay outside a torso twice as wide and deep as the one the check uses (Node,
 `NullEngine`, both GLBs, every frame at 60 a second).
-These are sampled surface checks, not proof of clearance between samples, and they do not judge
-anatomy or art: a person looks as well.
+These are sampled surface checks, not proof of clearance between samples; a person looks as well.
 
 ### What the checks read
 
@@ -181,3 +168,12 @@ launches Microsoft Edge (`channel: 'msedge'`):
 - `anatomy-review.mjs` and `grip-review.mjs` (URL argument, default port 5182) and
   `realistic-grips.mjs` (fixed to port 5183): further captures.
   `geometry-report.mjs` and `contact-report.mjs` print measurements from the GLBs in Node.
+
+## The reptile
+
+The reptile has no workshop rig: `src/render/reptile-skin.ts` draws procedural shells, one on each
+physical segment, olive `#78834d`. Two 25 mm eye spheres of 12 segments sit at the head's
+`eye.left` and `eye.right` points (`assets/reptile/body.json`, reference coordinates
+`(±.055, .285, .34)` m), diffuse `#171f13`, specular `#c3bb65`. Three ivory `#eadcc2` tooth meshes
+draw the jaw's anatomical contact hulls, from the physical spec, on the jaw node. None of it
+collides or decides a hit; the skin owns its materials and leaves the scene's shared ones.

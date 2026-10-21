@@ -1,7 +1,6 @@
 # The crypt's art
 
-The crypt (`?play=dungeon`, `src/dungeon/`) offers three dungeons in its setup, each with its own
-art:
+The crypt (`?play=dungeon`, `src/dungeon/`) offers three dungeons, each with its own art:
 
 | Setup label | `?scene=` | Layout | Art |
 |---|---|---|---|
@@ -131,8 +130,7 @@ three holds two enemies placed away from the doors. The camera follows the leade
   scenery's own memory of what has been seen, with corner samples and small gaps filled; it never
   writes the run's explored or visible cells, which the minds read.
 - **Hover.** `EnemyHover` (`src/dungeon/hover.ts`) outlines the enemy under the cursor with a
-  stencil highlight, made on first use and cleared when the cursor leaves, the enemy is hidden or
-  dead, or the run restarts.
+  stencil highlight.
 
 The Random Crypt shares the Rootbound Crypt's presentation: its spot lights, cutaways and damp
 (`dressReference`), and the Quality setting. High renders at a hardware scaling of 1 (CSS pixels)
@@ -167,9 +165,9 @@ merge by material, over seeds 0 to 99 (`generateCryptDungeon`, Node):
 | Most | 415,986 | 30 |
 | Least | 337,140 | |
 
-`TRIANGLE_BUDGET` (`tests/crypt-kit.test.mjs`) is 420,000: the most measured, rounded up. It is
-what the generator places today, not a budget anyone chose; the owner sets the budget from the
-frame rate it holds on a range of hardware, which is not yet measured ([roadmap](../roadmap.md)).
+`TRIANGLE_BUDGET` (`tests/crypt-kit.test.mjs`) is 420,000: the most measured, rounded up, not a
+chosen budget. A budget waits on the frame rate measured on a range of hardware
+([roadmap](../roadmap.md)).
 
 ## Textures
 
