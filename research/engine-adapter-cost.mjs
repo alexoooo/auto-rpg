@@ -15,7 +15,7 @@ const runs = Number(values.runs);
 if (!values.reference || !/^[a-f0-9]{7,40}$/.test(values.reference) || !Number.isSafeInteger(runs) || runs < 1) {
   throw new Error("--reference requires a commit hash and --runs a positive integer");
 }
-const root = fileURLToPath(new URL("../", import.meta.url)), parent = resolve(root, ".tools");
+const root = fileURLToPath(new URL("../", import.meta.url)), parent = resolve(root, ".tmp");
 await mkdir(parent, { recursive: true });
 const temporary = await mkdtemp(resolve(parent, "adapter-cost-")), file = resolve(temporary, "reference.ts");
 try {

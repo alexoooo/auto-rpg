@@ -87,7 +87,7 @@ along the foot, so the sole stays under the whole foot.
 `tests/robot-skin.test.mjs` checks attachment, independent ownership, grip geometry, unchanged
 ordered-bout snapshots, and a geometry-and-material fingerprint of Industrial (Node stand, Rapier,
 120 Hz). The browser check exercises the selectors, previews, paused playback, Tactical view and
-replacement without rebuilding a body, and writes screenshots under `.review/robots/`:
+replacement without rebuilding a body, and writes screenshots under `.tmp/robots/`:
 
 ```powershell
 npm exec --yes --package=playwright -- node scripts/robot-browser-check.mjs http://127.0.0.1:5188

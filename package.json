@@ -15,6 +15,7 @@
     "test:all": "node scripts/test.mjs --all",
     "test:experimental": "node scripts/test.mjs --experimental",
     "match": "node scripts/match.mjs",
+    "clean": "node scripts/clean.mjs",
     "tournament": "node scripts/tournament.mjs"
   },
   "dependencies": {

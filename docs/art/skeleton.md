@@ -75,11 +75,11 @@ skeleton read it. Moving a joint means refitting the art as well.
 Blender 4.5 LTS, from the repository root. The build starts from the checked-in, stripped source:
 
 ```powershell
-blender --background --disable-autoexec assets/skeleton/skeleton-source.blend --python scripts/skeleton/build-assets.py -- assets/skeleton/bind.json public/assets/skeleton/skeleton.glb .review
+blender --background --disable-autoexec assets/skeleton/skeleton-source.blend --python scripts/skeleton/build-assets.py -- assets/skeleton/bind.json public/assets/skeleton/skeleton.glb .tmp/skeleton
 ```
 
 The last argument is optional; with it the script also renders front, side, three-quarter, hand
-and skull previews over the part boxes to `.review/skeleton-*.png`. The part map (which source
+and skull previews over the part boxes to `.tmp/skeleton/skeleton-*.png`. The part map (which source
 bones go on which part), the landmarks each fit uses and the finger curl (`CURL`) are data at the
 top of their sections in `scripts/skeleton/build-assets.py`.
 

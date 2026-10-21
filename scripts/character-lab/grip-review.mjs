@@ -15,7 +15,7 @@ const browser = await playwright.chromium.launch({ channel: 'msedge', headless: 
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 });
 const errors = []; page.on('pageerror', error => errors.push(error.message));
 page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
-const review = resolve('.review/character-lab'); await mkdir(review, { recursive: true });
+const review = resolve('.tmp/character-lab'); await mkdir(review, { recursive: true });
 try {
  await page.goto(process.argv[2] ?? 'http://127.0.0.1:5182/character-lab.html');
  await page.waitForFunction(()=>window.__characterLab?.ready);
@@ -31,7 +31,7 @@ try {
  l.camera.lowerRadiusLimit=.15; l.camera.setTarget(m.getBoundingInfo().boundingBox.centerWorld); l.camera.radius=weapon==='bow'?.65:.45;
  l.camera.alpha=angle*Math.PI/2+.3;l.camera.beta=1.1;l.render();
  },{weapon,angle});
- await page.screenshot({path:`.review/character-lab/${id}-${weapon}-${angle}.png`});
+ await page.screenshot({path:`.tmp/character-lab/${id}-${weapon}-${angle}.png`});
  }
  }
  assert.deepEqual(errors, []); console.log('24 grip views captured; close-up control and browser errors checked.');

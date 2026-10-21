@@ -4,7 +4,7 @@ import {access,mkdir,writeFile}from'node:fs/promises';import{delimiter,resolve}f
 let pw;for(const bin of process.env.PATH.split(delimiter)){try{const p=resolve(bin,'../playwright/index.mjs');await access(p);pw=await import(pathToFileURL(p));break}catch{}}
 if(!pw)throw Error('Run with npm exec --yes --package=playwright -- node ...');
 const browser=await pw.chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:1440,height:1050}});const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
-const output='.review/character-lab/acceptance';await mkdir(output,{recursive:true});
+const output='.tmp/character-lab/acceptance';await mkdir(output,{recursive:true});
 try{
  await page.goto(process.argv[2]??'http://127.0.0.1:5183/character-lab.html');await page.waitForFunction(()=>window.__characterLab?.ready,{timeout:60000});await page.waitForTimeout(1500);
  const result=await page.evaluate(()=>{const l=window.__characterLab;const baseline=[l.scene.meshes.length,l.scene.materials.length,l.scene.skeletons.length];let configurations=0,samples=0;

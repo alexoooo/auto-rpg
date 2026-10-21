@@ -162,7 +162,7 @@ launches Microsoft Edge (`channel: 'msedge'`):
 
 - `npm exec --yes --package=playwright -- node scripts/character-lab/browser-check.mjs URL`: every
   loadout and animation sample, retained loadouts, orbit and zoom, grip framing, mobile overflow,
-  browser errors and resource counts; captures go to `.review/character-lab/`.
+  browser errors and resource counts; captures go to `.tmp/character-lab/`.
 - `visual-review.mjs URL fighter` (or `rogue`, with `armour` to add it): grip close-ups and front,
   side, rear and overhead attack poses. Look at the frames between poses too.
 - `anatomy-review.mjs` and `grip-review.mjs` (URL argument, default port 5182) and

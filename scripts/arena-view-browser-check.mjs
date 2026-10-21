@@ -12,7 +12,7 @@ for (const bin of process.env.PATH.split(delimiter)) {
   } catch { /* npm exec places its package's bin directory on PATH. */ }
 }
 if (!playwright) throw new Error("Run with npm exec --yes --package=playwright -- node ...");
-const base = process.argv[2] ?? "http://127.0.0.1:5188", output = ".review/arena-view";
+const base = process.argv[2] ?? "http://127.0.0.1:5188", output = ".tmp/arena-view";
 await mkdir(output, { recursive: true });
 const browser = await playwright.chromium.launch({ channel: "msedge", headless: true });
 const errors = [], checks = [];

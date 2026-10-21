@@ -7,7 +7,7 @@
  * ladder's speed is the mean speed along the line at the fastest pace held (0 if the first falls).
  * The score is the mean of the ladders' speeds, forward weighted `FORWARD` times another line.
  *
- *   node research/locomotion-search.mjs --out .snap/search/a [--generations 30] [--lambda 12] [--seeds 1,2,3]
+ *   node research/locomotion-search.mjs --out research/runs/locomotion-search/a [--generations 30] [--lambda 12] [--seeds 1,2,3]
  *     [--models workshop-fighter,workshop-rogue] [--lines forward,right,back] [--seconds 15] [--seed 1]
  *     [--start '{"swing":0.34}'] [--dims swing,transfer,...] [--live] [--score '{"swing":0.34}'] [--workers 30] [--kind run]
  *     [--kind simbicon --way forward|back|side|all|run] [--objective battery [--turns] | played | both]

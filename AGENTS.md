@@ -16,6 +16,7 @@ npm run test:all          # every test, as CI runs it
 npm run test:experimental # capability measurements (tests/experimental.json), in neither tier
 npm run build             # check, then vite build
 npm run match -- <a> <b>  # the standard match of two minds: each on each side, one digest
+npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
 ```
 
 ## Checking a change
@@ -48,6 +49,11 @@ npm run match -- <a> <b>  # the standard match of two minds: each on each side, 
 - **Servers**: leave none running. Port 5180 may be the owner's: never restart or kill it; use
   `npm run preview` on another port and kill it by PID. Killing `npx` leaves `vite` running: find
   the PID with `netstat -ano | findstr :<port>`.
+- **Temporary files**: in `.tmp/<task>/`, a worktree in `.tmp/worktrees/<name>/`; nowhere else in
+  the working copy, and never hidden through `.git/info/exclude`. Delete them when the task lands;
+  `npm run clean` deletes what is a day old. What is kept outside Git (a toolchain, research runs)
+  gets its own line in `.gitignore`. `tests/workspace.test.mjs` fails on anything else
+  (`scripts/workspace.mjs`).
 
 ## Pages
 

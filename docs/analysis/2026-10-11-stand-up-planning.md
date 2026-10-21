@@ -220,9 +220,9 @@ A separate experiment, which cannot meet the unassisted target (AGENTS.md):
 ## Reproduction
 
 ```powershell
-node research/stand-up-replay.mjs --out .review/stand-up-replay
-node research/stand-up-ik.mjs --checkpoint .review/stand-up-replay/<identity>.checkpoint --out .review/stand-up-ik.json
-node research/stand-up-feedback.mjs --mode record --seed research/stand-up-feedback-seed.json --output .review/stand-up/feedback-witness.trace --seconds 35
+node research/stand-up-replay.mjs --out .tmp/stand-up-replay
+node research/stand-up-ik.mjs --checkpoint .tmp/stand-up-replay/<identity>.checkpoint --out .tmp/stand-up-ik.json
+node research/stand-up-feedback.mjs --mode record --seed research/stand-up-feedback-seed.json --output .tmp/stand-up/feedback-witness.trace --seconds 35
 node research/stand-up-mirror-reference.mjs <extracted-path.json.gz> <output.json.gz>
 node research/stand-up-retarget-reference.mjs <source-reference.json.gz> <target-case-index> <output.json.gz>
 node research/stand-up-acceptance.mjs --candidate <absolute path to a policy module> --output <report.json>

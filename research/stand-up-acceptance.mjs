@@ -129,7 +129,7 @@ export async function rejectAssistedAction(c, saved) {
 }
 
 async function main() {
-  const { values } = parseArgs({ options: { candidate: { type: 'string' }, controller: { type: 'string', default: 'support-recovery' }, output: { type: 'string', default: '.tools/stand-up-acceptance/report.json' } } });
+  const { values } = parseArgs({ options: { candidate: { type: 'string' }, controller: { type: 'string', default: 'support-recovery' }, output: { type: 'string', default: '.tmp/stand-up-acceptance/report.json' } } });
   assert.ok(['step-up', 'support-recovery'].includes(values.controller), 'unknown built-in comparison');
   assert.ok(!values.candidate || values.controller === 'support-recovery', 'choose a candidate module or a built-in controller');
   const started = performance.now();

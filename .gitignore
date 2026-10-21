@@ -1,26 +1,38 @@
+# What the working copy keeps outside Git, one entry each; anything else untracked outside the
+# tracked folders is a stray (scripts/workspace.mjs, tests/workspace.test.mjs).
+
 # Build output and installed dependencies.
 node_modules/
 dist/
 .vite/
 
-# Downloaded toolchains -- Blender and friends, fetched by the asset scripts. Large, and
-# reproducible from the fetchers rather than from the repository.
-.tools/
+# Disposable work: probes, logs, before-readings, screenshots in .tmp/<task>/, worktrees in
+# .tmp/worktrees/<name>/. `npm run clean` deletes what is a day old.
+.tmp/
+
+# Toolchains, by name: downloaded or built by the scripts and documents that name them, and
+# reproducible from those rather than from the repository.
+.tools/blender-*/
+.tools/mpfb/
+.tools/ai-lab-venv/
+.tools/rapier-build/
+.tools/rapier-rebuild-a/
+.tools/rapier-rebuild-b/
+.tools/effort-v6-reference/
+.tools/get-up-reference/
 
 # Editor and agent state that belongs to one machine.
 .idea/
 .claude/settings.local.json
 .claude/local/
 
-# Python bytecode from the asset extractors.
+# Python bytecode from the asset extractors and research scripts. `npm run clean` deletes it.
 __pycache__/
 *.py[cod]
 
-# MSYS crash artifacts. They appear at whatever directory a shell died in.
+# MSYS crash artifacts. They appear at whatever directory a shell died in; ignored so that none is
+# committed, and garbage wherever they lie: `npm run clean` deletes them.
 *.stackdump
 
-# Scratch review output.
-.review/
-
-# Resumable research runs.
+# Resumable research runs: rows kept and reused.
 /research/runs/

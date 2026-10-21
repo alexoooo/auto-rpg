@@ -4,7 +4,7 @@ import {pathToFileURL} from 'node:url';
 let pw;for(const bin of process.env.PATH.split(delimiter)){try{const file=resolve(bin,'../playwright/index.mjs');await access(file);pw=await import(pathToFileURL(file));break}catch{}}
 const browser=await pw.chromium.launch({channel:'msedge',headless:true});
 const page=await browser.newPage({viewport:{width:1400,height:1000}});
-const out='.review/character-lab/repair';await mkdir(out,{recursive:true});
+const out='.tmp/character-lab/repair';await mkdir(out,{recursive:true});
 try{
  await page.goto(process.argv[2]??'http://127.0.0.1:5183/character-lab.html');await page.waitForFunction(()=>window.__characterLab?.ready);await page.waitForTimeout(1200);
  for(const id of [process.argv[3]??'fighter']){
