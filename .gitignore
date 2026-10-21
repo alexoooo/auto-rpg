@@ -23,6 +23,13 @@ public/assets/generated/
 .tools/rapier-rebuild-b/
 .tools/effort-v6-reference/
 .tools/get-up-reference/
+# Python environments for the published and local stand-up research adapters.
+.tools/get-up-cuda-venv/
+.tools/get-up-python38/
+.tools/get-up-venv/
+# Downloaded authoring references and the Rapier checkout with local engine work.
+.tools/human-base-meshes/
+.tools/rapier-source/
 
 # Editor and agent state that belongs to one machine.
 .idea/
