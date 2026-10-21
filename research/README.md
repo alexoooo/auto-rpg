@@ -16,7 +16,7 @@ reads by.
 | `competencies.mjs` | the competency suite: stand, guard, punch, walk, rise and kick, each workshop body empty-handed and with the club, against each competency's human target | [competencies](../docs/reference/competencies.md) |
 | `physiques.mjs` | the physique grid (`PHYSIQUE_GRID`, `physiqueRanges`, `physiqueGrid`) | the jobs of `--grid` |
 | `competency-passes.mjs` | whether each competency passes at every rate of `RATES` | JSON on stdout |
-| `core-stance-envelope.mjs` | each body's walks five ways at each speed, and turns: the fastest each holds | `assets/core/stance-envelope.json` |
+| `core-stance-envelope.mjs` | each gait's fastest walk each way and turn at each speed at which every trial held, searched down from the fastest | `assets/core/<legs>-envelope.json` |
 | `core-stance-sweep.mjs`, `core-stance-trials.mjs`, `core-stance-worker.mjs` | the stance's batteries (stand, edge, step, walk, gait, shove) over tunings (`--variants`) | |
 | `core-routine-battery.mjs` | the Lab's Routine from seeded pushed starts, a tuning each: loops held, falls, each strike's peak | |
 | `reptile-bite.mjs`, `reptile-motion.mjs` | the reptile's closing-jaw strikes against a fixed body; its travel and mirror matches (`--sweep` for speed and height overrides) | [reptile](../docs/reference/reptile.md) |
@@ -48,7 +48,7 @@ The `control-foundation.mjs` suites are declared in their records:
 and [the solver contract](../docs/reference/solver-contract.md).
 
 ```powershell
-node research/core-stance-envelope.mjs --workers 14
+node research/core-stance-envelope.mjs --legs walk-run --models workshop-fighter --holds empty --walks
 node research/core-strike-search.mjs --model workshop-rogue --held fist --band middle --guard
 node research/core-strike-window.mjs --spare spare.json --save windows.json
 node research/core-routine-battery.mjs --variants '[{}]' --seeds 12
