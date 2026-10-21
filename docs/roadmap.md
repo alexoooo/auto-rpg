@@ -46,7 +46,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Movement and command](plans/2026-10-21-movement-and-command.md) | One movement pipeline; Commanders over teams |
 | [Component registration](plans/2026-10-21-component-registration.md) | Implementations added by their own files and one line |
 
-1. **Now, cheap and independent:** Ratings step 1 (secure the 10-hour rows); Mind data chunks 0
+1. **Now, cheap and independent:** Ratings step 1 (secure the 10-hour rows); Mind data steps 0
    and 1, and the phone step-cost reading; Movement A0.
 2. **Movement A1 to A4**, beside Ratings steps 2 and 3, which change no behaviour.
 3. **Ratings steps 4 to 6**, on bouts played after Movement's Part A, which moves every bout.
@@ -213,7 +213,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 
 - **The Arena:** the Ladder; wider walking courses, fighting strength and equipped recovery.
 - **The Crypt:**
-  - crowd motion and party reversals (Movement B3, [analysis](analysis/2026-10-13-crowd-reversal.md));
+  - crowd motion and party reversals (Movement B3, `docs/analysis/2026-10-13-crowd-reversal.md@f103f3a9`);
   - authored set pieces (`docs/plans/2026-09-23-depths-06-set-pieces.md@144961d4`);
   - the skeleton's intent: ribcage and pelvis fatal, weak joints, blunt blows worth more against
     bone ([architecture](architecture.md#standing-decisions)); today its wounds are the human's;
