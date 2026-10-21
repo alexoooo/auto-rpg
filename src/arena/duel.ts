@@ -134,7 +134,7 @@ const recipeKey = (recipe: DuelRecipe): string => JSON.stringify(recipe, (_, val
     ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) : value);
 
 /** An order given: before which of the bout's steps, to which side, and what. Null hands the side back to itself. */
-interface OrdersEntry {
+export interface OrdersEntry {
   readonly step: number;
   readonly side: Side;
   readonly orders: Orders | null;

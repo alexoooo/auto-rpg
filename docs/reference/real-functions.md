@@ -1,8 +1,8 @@
 # The core's functions of a real number
 
 Why the core computes its own sines, exponentials and lengths (`src/core/math/real.ts`,
-`src/core/math/turn.ts`), what they are, and what was measured of them. `scripts/match.mjs` relies
-on the result: a bout is the same in every engine.
+`src/core/math/turn.ts`), what they are, and what was measured of them. The match
+(`src/evaluation/match/`) relies on the result: a bout is the same in every engine.
 
 ## Why
 

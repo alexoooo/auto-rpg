@@ -14,6 +14,7 @@ npm run check             # tsc --noEmit
 npm test                  # the gate: step cost, the core's boundary, the mind contract, no strays
 npm run build             # check, then vite build
 npm run match -- <a> <b>  # the standard match of two minds: each on each side, one digest
+npm run evaluate -- <id>  # an evaluation's cases, played where no row has them; --write keeps a record
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
 ```
 
@@ -207,7 +208,7 @@ and a working copy with no stray files (`tests/workspace.test.mjs`).
 - **Compare minds alike**: the same scenarios, bodies, physics, permissions, assists and
   scoring; results by opponent; fresh cases to confirm a gain; repeated trials where decisions
   vary. A seed names conditions, not a mind's choices.
-- **A claim is a match**: `npm run match -- <a> <b>` (`scripts/match.mjs`) gives the protocol,
+- **A claim is a match**: `npm run match -- <a> <b>` (`src/evaluation/match/`) gives the protocol,
   commit, each mind's digest and the match's. Bouts are the same on every machine; a figure from
   another commit or protocol is read again before it is compared.
 

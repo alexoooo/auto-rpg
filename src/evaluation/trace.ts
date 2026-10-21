@@ -7,7 +7,7 @@ interface Traced {
 }
 
 /** A running digest of bodies' poses, taken step by step. */
-export interface Trace {
+interface Trace {
   /** Take the bodies as they stand. */
   take(): void;
   /** The digest of what was taken so far, 16 hex digits. */

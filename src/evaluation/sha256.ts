@@ -93,3 +93,6 @@ export class Sha256 {
     h[4] = (h[4] + e) | 0; h[5] = (h[5] + f) | 0; h[6] = (h[6] + g) | 0; h[7] = (h[7] + hh) | 0;
   }
 }
+
+/** The SHA-256 of `text` as UTF-8, 64 hex digits. */
+export const sha256Text = (text: string): string => new Sha256().update(new TextEncoder().encode(text)).hex();
