@@ -42,8 +42,8 @@ export const TOURNAMENT = Object.freeze({ level: "open", loadouts: REPRESENTATIV
 /** Every loadout of the catalog no mind is rated on. */
 export const UNSEEN = Object.freeze(LOADOUTS.filter((loadout) => !TOURNAMENT.loadouts.includes(loadout)));
 
-/** Whom an unseen entrant meets, on its own character: this mind with sword and buckler. */
-export const UNSEEN_OPPONENT = Object.freeze({ mind: "options", loadout: REPRESENTATIVE.find((loadout) => loadoutKey(loadout) === "buckler,sword") });
+/** Whom an unseen entrant meets, on its own character: the sword-and-buckler reference, the Duellist, with sword and buckler. */
+export const UNSEEN_OPPONENT = Object.freeze({ mind: "duellist", loadout: REPRESENTATIVE.find((loadout) => loadoutKey(loadout) === "buckler,sword") });
 
 const NOTES = "assets/minds/notes.json", RATINGS = "assets/minds/ratings.json";
 
