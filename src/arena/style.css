@@ -1,4 +1,4 @@
-:root {
+:where(#screen-root[data-screen="arena"]) {
   --ink: #e8e6e1;
   --dim: #9a958c;
   --edge: rgba(232, 230, 225, 0.14);
@@ -7,15 +7,14 @@
   --cut: #7fc98a;
   --flat: #6f8bb5;
   --bad: #d0705e;
-  --font: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --font: system-ui, sans-serif;
 }
 
-* {
+:where(#screen-root[data-screen="arena"]) * {
   box-sizing: border-box;
 }
 
-html,
-body {
+:where(#screen-root[data-screen="arena"]) {
   margin: 0;
   height: 100%;
   overflow: hidden;
@@ -25,7 +24,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-#stage {
+:where(#screen-root[data-screen="arena"]) #stage {
   /* A drag that starts on the canvas orbits the camera and must not select text too. */
   user-select: none;
   -webkit-user-select: none;
@@ -40,7 +39,7 @@ body {
 
 /* ---------- readout ---------- */
 
-#hud {
+:where(#screen-root[data-screen="arena"]) #hud {
   position: fixed;
   inset: 0;
   pointer-events: none;
@@ -52,58 +51,86 @@ body {
   line-height: 1.45;
   transition: opacity 160ms ease;
 }
+:where(#screen-root[data-screen="arena"]) #hud[hidden] { display: none; }
 
-.hud-col {
+:where(#screen-root[data-screen="arena"]) .hud-col {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  min-width: 210px;
+  gap: 8px;
+  width: 292px;
+  min-width: 0;
 }
+:where(#screen-root[data-screen="arena"]) .hud-col[data-side="right"] { align-items: flex-end; text-align: right; }
 
 /* Names and health bars carry the same colour as each character's silhouette. */
-.hud-col[data-side] > strong { color: var(--side-colour); }
-.hud-col progress { accent-color: var(--side-colour); width: 160px; height: 8px; border: 0; border-radius: 4px; overflow: hidden; background: #171b23; }
-.hud-col progress::-webkit-progress-bar { background: #171b23; }
-.hud-col progress::-webkit-progress-value { background: var(--side-colour); }
-.hud-col progress::-moz-progress-bar { background: var(--side-colour); }
+:where(#screen-root[data-screen="arena"]) .hud-col[data-side] > strong { color: var(--side-colour); }
+:where(#screen-root[data-screen="arena"]) .hud-col progress { accent-color: var(--side-colour); width: 100%; height: 8px; border: 0; border-radius: 4px; overflow: hidden; background: #171b23; }
+:where(#screen-root[data-screen="arena"]) .hud-col progress::-webkit-progress-bar { background: #171b23; }
+:where(#screen-root[data-screen="arena"]) .hud-col progress::-webkit-progress-value { background: var(--side-colour); }
+:where(#screen-root[data-screen="arena"]) .hud-col progress::-moz-progress-bar { background: var(--side-colour); }
 
-.hud-clock { align-items: center; }
-#arena-pause { pointer-events: auto; width: auto; min-height: 44px; padding: 8px 14px; }
-.hud-mind { pointer-events: auto; width: min(300px, calc(50vw - 40px)); max-height: calc(100dvh - 220px); overflow-y: auto; padding: 6px 10px; background: #0a0e16c0; border-radius: 4px; text-align: left; }
-.hud-mind summary { cursor: pointer; color: var(--dim); }
-.hud-mind select { max-width: 100%; }
+:where(#screen-root[data-screen="arena"]) .hud-clock { align-items: center; width: auto; flex: 0 0 auto; position: relative; }
+:where(#screen-root[data-screen="arena"]) #arena-pause { pointer-events: auto; width: auto; min-height: 44px; padding: 8px 14px; }
+:where(#screen-root[data-screen="arena"]) .hud-mind { pointer-events: auto; width: min(300px, calc(50vw - 40px)); max-height: calc(100dvh - 220px); overflow-y: auto; padding: 6px 10px; background: #0a0e16c0; border-radius: 4px; text-align: left; }
+:where(#screen-root[data-screen="arena"]) .hud-mind summary { cursor: pointer; color: var(--dim); }
+:where(#screen-root[data-screen="arena"]) .hud-mind select { max-width: 100%; }
+
+:where(#screen-root[data-screen="arena"]) .fighter-readout { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 12px; width: 100%; min-height: 182px; }
+:where(#screen-root[data-screen="arena"]) .fighter-damage { position: relative; text-align: center; min-width: 0; }
+:where(#screen-root[data-screen="arena"]) .damage-diagram { display: block; width: 72px; height: 146px; margin: 0 auto; pointer-events: auto; border-bottom: 1px solid var(--side-colour); }
+:where(#screen-root[data-screen="arena"]) .damage-diagram path { stroke: #a5b4be; stroke-width: .8; cursor: pointer; }
+:where(#screen-root[data-screen="arena"]) .damage-diagram text { fill: var(--dim); font: 9px var(--font); text-anchor: middle; }
+:where(#screen-root[data-screen="arena"]) .damage-diagram path.is-missing { fill: transparent; stroke: #ee7979; stroke-dasharray: 3 2; stroke-width: 1.4; }
+:where(#screen-root[data-screen="arena"]) .damage-diagram path.is-flashing { stroke: #ffe1a3; stroke-width: 2.5; filter: brightness(1.6); }
+:where(#screen-root[data-screen="arena"]) .damage-diagram path:hover,
+:where(#screen-root[data-screen="arena"]) .damage-diagram path:focus-visible { outline: none; stroke: #fff; stroke-width: 2.5; }
+:where(#screen-root[data-screen="arena"]) .damage-caption { display: block; min-height: 30px; margin-top: 4px; font-size: 10px; line-height: 1.3; color: var(--ink); overflow-wrap: anywhere; }
+:where(#screen-root[data-screen="arena"]) .damage-details { pointer-events: auto; font-size: 10px; text-align: left; }
+:where(#screen-root[data-screen="arena"]) .damage-details summary { cursor: pointer; white-space: nowrap; color: var(--dim); }
+:where(#screen-root[data-screen="arena"]) .damage-details ul { position: absolute; z-index: 12; top: 100%; left: 0; margin: 4px 0 0; padding: 10px; list-style: none; width: 220px; max-height: 220px; overflow: auto; background: var(--panel); border: 1px solid var(--edge); border-radius: 4px; }
+:where(#screen-root[data-screen="arena"]) .hud-col[data-side="right"] .damage-details ul { left: auto; right: 0; }
+:where(#screen-root[data-screen="arena"]) .fighter-feed { list-style: none; margin: 0; padding: 2px 0; min-width: 0; overflow-wrap: anywhere; }
+:where(#screen-root[data-screen="arena"]) .fighter-feed li { margin-bottom: 7px; padding: 3px 6px; border-left: 2px solid var(--side-colour); border-radius: 2px; background: #0a0e16b8; color: var(--ink); font-size: 11px; line-height: 1.4; }
+:where(#screen-root[data-screen="arena"]) .fighter-feed li[data-kind="behaviour"] { color: var(--dim); border-left-color: #59616b; }
+:where(#screen-root[data-screen="arena"]) .feed-unavailable { align-self: start; grid-column: 2; grid-row: 1; padding-top: 4px; font-size: 10px; }
+:where(#screen-root[data-screen="arena"]) .feed-unavailable[hidden] { display: none; }
 
 /* The view panel leaves the centre of a live or paused bout open. */
-#arena-view {
-  position: fixed; top: 108px; right: 22px; z-index: 9;
-  width: min(330px, calc(100vw - 24px)); max-height: calc(100dvh - 240px); overflow-y: auto;
-  padding: 12px 14px; border: 1px solid var(--edge); border-radius: 6px;
+:where(#screen-root[data-screen="arena"]) #arena-view {
+  position: relative; pointer-events: auto; z-index: 9;
+  width: auto; padding: 7px 10px; border: 1px solid var(--edge); border-radius: 6px;
   background: var(--panel); font: 12px/1.4 var(--font);
 }
-#arena-view[hidden] { display: none; }
-#arena-view summary { cursor: pointer; color: var(--ink); font-weight: 600; }
-#arena-view[open] summary { margin-bottom: 12px; }
-#arena-view .field { display: grid; grid-template-columns: 66px minmax(0, 1fr); align-items: baseline; gap: 8px; margin: 8px 0 0; }
-#arena-view .label { color: var(--dim); margin: 0; }
-#arena-view .options { display: flex; flex-wrap: wrap; gap: 5px; }
-#arena-view button { flex: 1; min-width: 0; padding: 7px; border: 1px solid var(--edge); border-radius: 4px;
+:where(#screen-root[data-screen="arena"]) #arena-view[open] { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); width: min(330px, calc(100vw - 24px)); max-height: calc(100dvh - 160px); overflow-y: auto; text-align: left; }
+:where(#screen-root[data-screen="arena"]) #arena-view[hidden] { display: none; }
+:where(#screen-root[data-screen="arena"]) #arena-view summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+:where(#screen-root[data-screen="arena"]) #arena-view[open] summary { margin-bottom: 12px; }
+:where(#screen-root[data-screen="arena"]) #arena-view .field { display: grid; grid-template-columns: 66px minmax(0, 1fr); align-items: baseline; gap: 8px; margin: 8px 0 0; }
+:where(#screen-root[data-screen="arena"]) #arena-view .label { color: var(--dim); margin: 0; }
+:where(#screen-root[data-screen="arena"]) #arena-view .options { display: flex; flex-wrap: wrap; gap: 5px; }
+:where(#screen-root[data-screen="arena"]) #arena-view button { flex: 1; min-width: 0; padding: 7px; border: 1px solid var(--edge); border-radius: 4px;
   background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
-#arena-view button[aria-pressed="true"] { color: var(--hot); border-color: var(--hot); }
-#arena-view button:hover { background: rgba(255, 255, 255, .06); }
-#arena-view [hidden] { display: none; }
+:where(#screen-root[data-screen="arena"]) #arena-view button[aria-pressed="true"] { color: var(--hot); border-color: var(--hot); }
+:where(#screen-root[data-screen="arena"]) #arena-view button:hover { background: rgba(255, 255, 255, .06); }
+:where(#screen-root[data-screen="arena"]) #arena-view [hidden] { display: none; }
 @media (max-width: 700px) {
-  #hud { padding: 16px 12px; gap: 12px; }
-  #hud .hud-col { min-width: 0; flex: 1; }
-  #hud .hud-col:nth-child(2) { flex: 0 1 auto; text-align: center; }
-  #hud .hud-col:last-child { align-items: flex-end; text-align: right; }
-  #hud progress { width: 120px; max-width: 100%; }
-  #arena-view { top: 96px; right: 12px; }
-  #arena-view:not([open]) { width: auto; }
+  :where(#screen-root[data-screen="arena"]) #hud { padding: 16px 12px; gap: 12px; }
+  :where(#screen-root[data-screen="arena"]) #hud .hud-col { min-width: 0; flex: 1; }
+  :where(#screen-root[data-screen="arena"]) #hud .hud-col:nth-child(2) { flex: 0 1 auto; text-align: center; }
+  :where(#screen-root[data-screen="arena"]) #hud .hud-col:last-child { align-items: flex-end; text-align: right; }
+  :where(#screen-root[data-screen="arena"]) #hud progress { width: 120px; max-width: 100%; }
+  :where(#screen-root[data-screen="arena"]) .fighter-readout { display: flex; flex-direction: column; gap: 5px; min-height: 0; }
+  :where(#screen-root[data-screen="arena"]) .damage-diagram { width: 48px; height: 98px; }
+  :where(#screen-root[data-screen="arena"]) .damage-caption { min-height: 26px; }
+  :where(#screen-root[data-screen="arena"]) .damage-details summary { font-size: 9px; }
+  :where(#screen-root[data-screen="arena"]) .fighter-feed { width: 100%; }
+  :where(#screen-root[data-screen="arena"]) .fighter-feed li { font-size: 10px; margin-bottom: 4px; padding: 2px 4px; }
+  :where(#screen-root[data-screen="arena"]) .fighter-feed li:nth-child(n+4) { display: none; }
 }
 
 /* ---------- panels and actions, shared by setup, pause and help ---------- */
 
-.panel {
+:where(#screen-root[data-screen="arena"]) .panel {
   max-width: 470px;
   padding: 30px 34px 26px;
   border: 1px solid var(--edge);
@@ -111,14 +138,14 @@ body {
   background: rgba(12, 13, 16, 0.9);
 }
 
-.panel h1 {
+:where(#screen-root[data-screen="arena"]) .panel h1 {
   margin: 0 0 10px;
   font-size: 21px;
   font-weight: 500;
   letter-spacing: 0.02em;
 }
 
-.keys {
+:where(#screen-root[data-screen="arena"]) .keys {
   display: grid;
   grid-template-columns: 96px 1fr;
   gap: 3px 14px;
@@ -126,18 +153,18 @@ body {
   font-size: 11.5px;
 }
 
-.keys dt {
+:where(#screen-root[data-screen="arena"]) .keys dt {
   color: var(--hot);
   white-space: nowrap;
 }
 
-.keys dd {
+:where(#screen-root[data-screen="arena"]) .keys dd {
   margin: 0;
   color: var(--dim);
 }
 
 /* A button of setup, pause, the bout's end and help; `.quiet` marks a secondary action. */
-.action {
+:where(#screen-root[data-screen="arena"]) .action {
   width: 100%;
   padding: 11px;
   font: inherit;
@@ -151,36 +178,36 @@ body {
   transition: background 140ms ease, transform 90ms ease;
 }
 
-.action + .action {
+:where(#screen-root[data-screen="arena"]) .action + .action {
   margin-top: 8px;
 }
 
-.action:hover {
+:where(#screen-root[data-screen="arena"]) .action:hover {
   background: #fff;
 }
 
-.action:active {
+:where(#screen-root[data-screen="arena"]) .action:active {
   transform: translateY(1px);
 }
 
-.action:disabled {
+:where(#screen-root[data-screen="arena"]) .action:disabled {
   background: #3a3b40;
   color: var(--dim);
   cursor: progress;
 }
 
-.action.quiet {
+:where(#screen-root[data-screen="arena"]) .action.quiet {
   background: transparent;
   color: var(--dim);
   border: 1px solid var(--edge);
 }
 
-.action.quiet:hover {
+:where(#screen-root[data-screen="arena"]) .action.quiet:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--ink);
 }
 
-.note {
+:where(#screen-root[data-screen="arena"]) .note {
   margin: 11px 0 0;
   text-align: center;
   color: var(--dim);
@@ -188,14 +215,14 @@ body {
   min-height: 15px;
 }
 
-.note.error {
+:where(#screen-root[data-screen="arena"]) .note.error {
   color: var(--bad);
 }
 
 /* ---------- the setup screen ---------- */
 
 /* Standing contenders frame the live ring; the setup owns only its choices and actions. */
-#curtain {
+:where(#screen-root[data-screen="arena"]) #curtain {
   --gold: #cfb17d;
   position: fixed;
   inset: 0;
@@ -209,15 +236,15 @@ body {
   background: linear-gradient(90deg, #0a0809cf, transparent 37%, transparent 63%, #0a0809cf),
     linear-gradient(#08080bd9, transparent 23%, transparent 68%, #080609e8);
 }
-#curtain.gone { visibility: hidden; pointer-events: none; }
-body:has(#curtain:not(.gone)) #hud { visibility: hidden; }
-#matchup { display: contents; }
-#curtain .duel-title { grid-column: 1 / -1; grid-row: 1; text-align: center; pointer-events: none; }
-#curtain .duel-title h1 {
+:where(#screen-root[data-screen="arena"]) #curtain.gone { visibility: hidden; pointer-events: none; }
+:where(#screen-root[data-screen="arena"]) body:has(#curtain:not(.gone)) #hud { visibility: hidden; }
+:where(#screen-root[data-screen="arena"]) #matchup { display: contents; }
+:where(#screen-root[data-screen="arena"]) #curtain .duel-title { grid-column: 1 / -1; grid-row: 1; text-align: center; pointer-events: none; }
+:where(#screen-root[data-screen="arena"]) #curtain .duel-title h1 {
   margin: 0; font-size: clamp(26px, 3vw, 42px); font-weight: 400;
   letter-spacing: .24em; color: #eadbc2; text-shadow: 0 3px 16px #000;
 }
-#curtain .contender {
+:where(#screen-root[data-screen="arena"]) #curtain .contender {
   position: relative;
   display: grid;
   /* The choices take the room they need and the preview what is left, down to a strip; past
@@ -231,84 +258,84 @@ body:has(#curtain:not(.gone)) #hud { visibility: hidden; }
     linear-gradient(180deg, #16131600, #110d117d 65%, #140f10db);
   border-bottom: 1px solid #a4814d88;
 }
-#curtain .contender::before {
+:where(#screen-root[data-screen="arena"]) #curtain .contender::before {
   content: ""; position: absolute; inset: 0 12px 0; pointer-events: none;
   border: 1px solid #ad885032; border-bottom: 0;
   border-radius: 48% 48% 0 0 / 22% 22% 0 0;
   mask-image: linear-gradient(#000, transparent 88%);
 }
 /* An open mind takes the panel's whole column. */
-#curtain .contender:has(> .contender-choices > .settings[open]) { align-self: stretch; height: auto; }
-#curtain .contender[data-side="left"] { grid-column: 1; grid-row: 2 / -1; }
-#curtain .contender[data-side="right"] { grid-column: 3; grid-row: 2 / -1; }
-#curtain .contender-head { text-align: center; }
-#curtain .contender-head h2 {
+:where(#screen-root[data-screen="arena"]) #curtain .contender:has(> .contender-choices > .settings[open]) { align-self: stretch; height: auto; }
+:where(#screen-root[data-screen="arena"]) #curtain .contender[data-side="left"] { grid-column: 1; grid-row: 2 / -1; }
+:where(#screen-root[data-screen="arena"]) #curtain .contender[data-side="right"] { grid-column: 3; grid-row: 2 / -1; }
+:where(#screen-root[data-screen="arena"]) #curtain .contender-head { text-align: center; }
+:where(#screen-root[data-screen="arena"]) #curtain .contender-head h2 {
   margin: 4px 0 0; font-size: 13px; font-weight: 400; letter-spacing: .24em;
   text-transform: uppercase; color: var(--side-colour, #bca98c);
 }
-.contender-choices { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
-.contender-choices > * { flex: none; }
-#curtain .contender-choices > .settings[open] { flex: 0 1 auto; min-height: 0; overflow: hidden auto; overscroll-behavior: contain; padding-right: 4px; }
-#curtain .settings[open] > summary { position: sticky; top: 0; z-index: 1; padding: 2px 0; background: #140f10; }
-#curtain .settings summary { cursor: pointer; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #b7a790; }
-#curtain .settings .field { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); align-items: center; margin-top: 6px; font-size: 12px; color: #b7a790; }
-#curtain .settings select, #curtain .settings input { padding: 6px 8px; font: 13px Georgia, serif; letter-spacing: 0; text-transform: none; }
-#curtain .settings input { width: 100%; box-sizing: border-box; color: #ecddc5; background: #141013df; border: 1px solid #8b684861; text-align: center; }
-#curtain .settings-fault { margin: 6px 0 0; color: #d0705e; font-size: 12px; }
-#curtain .mind-slot-name { font-size: 12px; color: #b7a790; }
-#curtain .mind-item-line button { padding: 2px 8px; font: 13px Georgia, serif; }
-#curtain .mind-slot > select { width: 100%; margin-top: 6px; }
-#curtain .mind-tuning { color: #b7a790; background: #141013df; }
-.contender-preview { width: 100%; height: 100%; min-height: 0; display: block; pointer-events: none; }
-#curtain .field { display: grid; gap: 8px; margin: 0; }
-#curtain .contender .field-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-#curtain .field-name { color: #b7a790; font-size: 12px; }
-#curtain select {
+:where(#screen-root[data-screen="arena"]) .contender-choices { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+:where(#screen-root[data-screen="arena"]) .contender-choices > * { flex: none; }
+:where(#screen-root[data-screen="arena"]) #curtain .contender-choices > .settings[open] { flex: 0 1 auto; min-height: 0; overflow: hidden auto; overscroll-behavior: contain; padding-right: 4px; }
+:where(#screen-root[data-screen="arena"]) #curtain .settings[open] > summary { position: sticky; top: 0; z-index: 1; padding: 2px 0; background: #140f10; }
+:where(#screen-root[data-screen="arena"]) #curtain .settings summary { cursor: pointer; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: #b7a790; }
+:where(#screen-root[data-screen="arena"]) #curtain .settings .field { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); align-items: center; margin-top: 6px; font-size: 12px; color: #b7a790; }
+:where(#screen-root[data-screen="arena"]) #curtain .settings select, :where(#screen-root[data-screen="arena"]) #curtain .settings input { padding: 6px 8px; font: 13px Georgia, serif; letter-spacing: 0; text-transform: none; }
+:where(#screen-root[data-screen="arena"]) #curtain .settings input { width: 100%; box-sizing: border-box; color: #ecddc5; background: #141013df; border: 1px solid #8b684861; text-align: center; }
+:where(#screen-root[data-screen="arena"]) #curtain .settings-fault { margin: 6px 0 0; color: #d0705e; font-size: 12px; }
+:where(#screen-root[data-screen="arena"]) #curtain .mind-slot-name { font-size: 12px; color: #b7a790; }
+:where(#screen-root[data-screen="arena"]) #curtain .mind-item-line button { padding: 2px 8px; font: 13px Georgia, serif; }
+:where(#screen-root[data-screen="arena"]) #curtain .mind-slot > select { width: 100%; margin-top: 6px; }
+:where(#screen-root[data-screen="arena"]) #curtain .mind-tuning { color: #b7a790; background: #141013df; }
+:where(#screen-root[data-screen="arena"]) .contender-preview { width: 100%; height: 100%; min-height: 0; display: block; pointer-events: none; }
+:where(#screen-root[data-screen="arena"]) #curtain .field { display: grid; gap: 8px; margin: 0; }
+:where(#screen-root[data-screen="arena"]) #curtain .contender .field-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+:where(#screen-root[data-screen="arena"]) #curtain .field-name { color: #b7a790; font-size: 12px; }
+:where(#screen-root[data-screen="arena"]) #curtain select {
   width: 100%; min-width: 0; padding: 10px 12px; font: 19px Georgia, serif;
   color: #ecddc5; text-align: center; background: #141013df;
   border: 1px solid #8b684861; border-radius: 0; cursor: pointer;
 }
-#curtain .you { grid-column: 2; grid-row: 3; justify-self: center; width: 240px; grid-template-columns: auto 1fr; align-items: center; margin-bottom: 12px; }
-#curtain .you select { padding: 7px 9px; font-size: 14px; }
-#begin {
+:where(#screen-root[data-screen="arena"]) #curtain .you { grid-column: 2; grid-row: 3; justify-self: center; width: 240px; grid-template-columns: auto 1fr; align-items: center; margin-bottom: 12px; }
+:where(#screen-root[data-screen="arena"]) #curtain .you select { padding: 7px 9px; font-size: 14px; }
+:where(#screen-root[data-screen="arena"]) #begin {
   grid-column: 2; grid-row: 4; justify-self: center; width: 240px; margin: 0;
   padding: 14px 30px; font: 23px Georgia, serif; letter-spacing: .2em; text-transform: uppercase;
   color: #f0dfbf; background: linear-gradient(#752c24, #391411); border: 1px solid #b68b57;
   border-radius: 0; box-shadow: inset 0 0 0 3px #1e0f0dcc, 0 5px 30px #0008;
 }
-#begin:hover { background: linear-gradient(#8b382b, #512017); color: #fff0d4; }
-#begin:disabled { color: #a09587; background: #221a19; cursor: progress; }
-#curtain .duel-footer { grid-column: 2; grid-row: 5; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 20px; padding-top: 16px; font-size: 12px; }
-#curtain .duel-footer a, #curtain .link { padding: 0; color: #c9b596; background: none; border: 0; font: inherit; text-decoration: none; cursor: pointer; }
-#curtain .duel-footer a:hover, #curtain .link:hover { color: #ffebc9; text-decoration: underline; }
-#curtain .duel-footer .note { margin: 0; min-height: 0; }
-#curtain .duel-footer .note:empty { display: none; }
-#curtain :focus-visible { outline: 2px solid #efd3a3; outline-offset: 4px; }
+:where(#screen-root[data-screen="arena"]) #begin:hover { background: linear-gradient(#8b382b, #512017); color: #fff0d4; }
+:where(#screen-root[data-screen="arena"]) #begin:disabled { color: #a09587; background: #221a19; cursor: progress; }
+:where(#screen-root[data-screen="arena"]) #curtain .duel-footer { grid-column: 2; grid-row: 5; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 20px; padding-top: 16px; font-size: 12px; }
+:where(#screen-root[data-screen="arena"]) #curtain .duel-footer a, :where(#screen-root[data-screen="arena"]) #curtain .link { padding: 0; color: #c9b596; background: none; border: 0; font: inherit; text-decoration: none; cursor: pointer; }
+:where(#screen-root[data-screen="arena"]) #curtain .duel-footer a:hover, :where(#screen-root[data-screen="arena"]) #curtain .link:hover { color: #ffebc9; text-decoration: underline; }
+:where(#screen-root[data-screen="arena"]) #curtain .duel-footer .note { margin: 0; min-height: 0; }
+:where(#screen-root[data-screen="arena"]) #curtain .duel-footer .note:empty { display: none; }
+:where(#screen-root[data-screen="arena"]) #curtain :focus-visible { outline: 2px solid #efd3a3; outline-offset: 4px; }
 @media (max-width: 820px) {
-  #curtain { grid-template-columns: 1fr 1fr; grid-template-rows: auto minmax(240px, 1fr) auto auto auto; padding: 22px 14px 62px; gap: 12px; overflow-y: auto; }
-  #curtain .contender { height: 100%; padding: 12px 2px; }
-  #curtain .contender[data-side="left"] { grid-column: 1; grid-row: 2; }
-  #curtain .contender[data-side="right"] { grid-column: 2; grid-row: 2; }
-  #curtain .you, #begin, #curtain .duel-footer { grid-column: 1 / -1; }
-  #curtain .you { grid-row: 3; margin: 0; }
-  #begin { grid-row: 4; padding: 10px 30px; }
-  #curtain .duel-footer { grid-row: 5; padding-top: 0; }
-  #curtain select { font-size: 16px; padding: 10px 6px; }
+  :where(#screen-root[data-screen="arena"]) #curtain { grid-template-columns: 1fr 1fr; grid-template-rows: auto minmax(240px, 1fr) auto auto auto; padding: 22px 14px 62px; gap: 12px; overflow-y: auto; }
+  :where(#screen-root[data-screen="arena"]) #curtain .contender { height: 100%; padding: 12px 2px; }
+  :where(#screen-root[data-screen="arena"]) #curtain .contender[data-side="left"] { grid-column: 1; grid-row: 2; }
+  :where(#screen-root[data-screen="arena"]) #curtain .contender[data-side="right"] { grid-column: 2; grid-row: 2; }
+  :where(#screen-root[data-screen="arena"]) #curtain .you, :where(#screen-root[data-screen="arena"]) #begin, :where(#screen-root[data-screen="arena"]) #curtain .duel-footer { grid-column: 1 / -1; }
+  :where(#screen-root[data-screen="arena"]) #curtain .you { grid-row: 3; margin: 0; }
+  :where(#screen-root[data-screen="arena"]) #begin { grid-row: 4; padding: 10px 30px; }
+  :where(#screen-root[data-screen="arena"]) #curtain .duel-footer { grid-row: 5; padding-top: 0; }
+  :where(#screen-root[data-screen="arena"]) #curtain select { font-size: 16px; padding: 10px 6px; }
 }
 @media (max-height: 620px) and (min-width: 821px) {
-  #curtain { padding-top: 12px; padding-bottom: 16px; }
-  #curtain .contender { height: 76vh; padding: 8px; }
+  :where(#screen-root[data-screen="arena"]) #curtain { padding-top: 12px; padding-bottom: 16px; }
+  :where(#screen-root[data-screen="arena"]) #curtain .contender { height: 76vh; padding: 8px; }
 }
 
 /* A panel taller than the window scrolls itself rather than its overlay: a grid with
    `place-items: center` clips a child taller than its cell at the *top*, so scrolling the overlay
    would hide the title. */
-.panel {
+:where(#screen-root[data-screen="arena"]) .panel {
   max-height: calc(100vh - 40px);
   overflow-y: auto;
 }
 
-[hidden] {
+:where(#screen-root[data-screen="arena"]) [hidden] {
   display: none !important;
 }
 
@@ -316,7 +343,7 @@ body:has(#curtain:not(.gone)) #hud { visibility: hidden; }
 
 /* Bottom left, clear of the fighters at the centre and the readout along the top. Not
    `inset: 0`: a paused bout stays in view. */
-#pause-menu {
+:where(#screen-root[data-screen="arena"]) #pause-menu {
   position: fixed;
   left: 18px;
   bottom: 18px;
@@ -331,61 +358,61 @@ body:has(#curtain:not(.gone)) #hud { visibility: hidden; }
   transition: opacity 140ms ease, visibility 140ms;
 }
 
-#pause-menu.gone {
+:where(#screen-root[data-screen="arena"]) #pause-menu.gone {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
 }
 
-.pause-copy {
+:where(#screen-root[data-screen="arena"]) .pause-copy {
   display: flex;
   align-items: baseline;
   gap: 10px;
   margin-bottom: 9px;
 }
 
-.pause-copy strong {
+:where(#screen-root[data-screen="arena"]) .pause-copy strong {
   color: var(--hot);
   font-size: 12px;
   letter-spacing: 0.14em;
 }
 
-.pause-copy span,
-.pause-help {
+:where(#screen-root[data-screen="arena"]) .pause-copy span,
+:where(#screen-root[data-screen="arena"]) .pause-help {
   color: var(--dim);
   font-size: 10.5px;
 }
 
-.pause-actions {
+:where(#screen-root[data-screen="arena"]) .pause-actions {
   display: flex;
   /* Five buttons need about 400 px of the bar: a narrow window wraps whole buttons. */
   flex-wrap: wrap;
   gap: 7px;
 }
 
-#pause-menu .action {
+:where(#screen-root[data-screen="arena"]) #pause-menu .action {
   width: auto;
   padding: 7px 10px;
   font-size: 10.5px;
 }
 
-#pause-menu .action + .action {
+:where(#screen-root[data-screen="arena"]) #pause-menu .action + .action {
   margin-top: 0;
 }
 
-.pause-help {
+:where(#screen-root[data-screen="arena"]) .pause-help {
   display: block;
   margin-top: 8px;
 }
 
-.pause-help b {
+:where(#screen-root[data-screen="arena"]) .pause-help b {
   color: var(--hot);
 }
 
 /* ---------- the end of a bout ---------- */
 
 /* The result and replay controls stay below the fighters, leaving the centre open for the aftermath. */
-#bout-end {
+:where(#screen-root[data-screen="arena"]) #bout-end {
   position: fixed;
   left: 50%;
   bottom: 58px;
@@ -406,21 +433,21 @@ body:has(#curtain:not(.gone)) #hud { visibility: hidden; }
   transition: opacity 140ms ease, visibility 140ms;
 }
 
-.bout-result { flex: 1 0 100%; display: flex; flex-direction: column; gap: 4px; text-align: center; }
-#bout-verdict { color: var(--side-colour, var(--ink)); font-size: 22px; line-height: 1.25; }
-#bout-ending { color: var(--ink); font-size: 12px; }
+:where(#screen-root[data-screen="arena"]) .bout-result { flex: 1 0 100%; display: flex; flex-direction: column; gap: 4px; text-align: center; }
+:where(#screen-root[data-screen="arena"]) #bout-verdict { color: var(--side-colour, var(--ink)); font-size: 22px; line-height: 1.25; }
+:where(#screen-root[data-screen="arena"]) #bout-ending { color: var(--ink); font-size: 12px; }
 
 /* Hidden under setup, and while paused: the pause menu carries the same actions, and on a
    narrow window the two would overlap. */
-#bout-end.gone,
-body:has(#curtain:not(.gone)) #bout-end,
-body:has(#pause-menu:not(.gone)) #bout-end {
+:where(#screen-root[data-screen="arena"]) #bout-end.gone,
+:where(#screen-root[data-screen="arena"]) body:has(#curtain:not(.gone)) #bout-end,
+:where(#screen-root[data-screen="arena"]) body:has(#pause-menu:not(.gone)) #bout-end {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
 }
 
-#bout-end .action {
+:where(#screen-root[data-screen="arena"]) #bout-end .action {
   width: auto;
   margin-top: 0;
   padding: 8px 14px;
@@ -430,14 +457,14 @@ body:has(#pause-menu:not(.gone)) #bout-end {
 }
 
 @media (max-width: 700px) {
-  #bout-end { width: calc(100vw - 24px); max-width: 500px; flex-wrap: wrap; }
-  #bout-end .action { flex: 1; padding: 8px; }
+  :where(#screen-root[data-screen="arena"]) #bout-end { width: calc(100vw - 24px); max-width: 500px; flex-wrap: wrap; }
+  :where(#screen-root[data-screen="arena"]) #bout-end .action { flex: 1; padding: 8px; }
 }
 
 /* ---------- the controls, on their own overlay ---------- */
 
 /* Above setup and the pause menu, because `?` opens it over either; the ratings likewise. */
-#help, #ratings {
+:where(#screen-root[data-screen="arena"]) #help, :where(#screen-root[data-screen="arena"]) #ratings {
   position: fixed;
   inset: 0;
   display: grid;
@@ -448,16 +475,16 @@ body:has(#pause-menu:not(.gone)) #bout-end {
   transition: opacity 160ms ease, visibility 160ms;
 }
 
-#help.gone, #ratings.gone {
+:where(#screen-root[data-screen="arena"]) #help.gone, :where(#screen-root[data-screen="arena"]) #ratings.gone {
   opacity: 0;
   visibility: hidden;
 }
 
-#help .panel {
+:where(#screen-root[data-screen="arena"]) #help .panel {
   max-width: 560px;
 }
 
-#help .panel h2 {
+:where(#screen-root[data-screen="arena"]) #help .panel h2 {
   margin: 4px 0 10px;
   font-family: Georgia, "Times New Roman", serif;
   font-size: 15px;
@@ -468,34 +495,34 @@ body:has(#pause-menu:not(.gone)) #bout-end {
 }
 
 /* A name longer than its column wraps rather than overruns. */
-#help .keys dt {
+:where(#screen-root[data-screen="arena"]) #help .keys dt {
   white-space: normal;
 }
 
-#ratings .panel { max-width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
-#ratings .ratings-scroll { overflow: auto; min-height: 0; margin: 8px 0 12px; }
-#ratings table { width: 100%; border-collapse: collapse; font-size: 13px; }
-#ratings th, #ratings td { padding: 3px 8px; text-align: left; white-space: nowrap; border-bottom: 1px solid rgba(201, 181, 150, 0.15); }
-#ratings th { color: #f1dfbc; font-weight: 400; position: sticky; top: 0; background: rgba(12, 13, 16, 0.98); }
-#ratings td:nth-child(n+5) { text-align: right; font-variant-numeric: tabular-nums; }
-#unseen-table td:nth-child(n+4) { text-align: right; font-variant-numeric: tabular-nums; }
-#unseen-about { margin-top: 14px; }
+:where(#screen-root[data-screen="arena"]) #ratings .panel { max-width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 32px); display: flex; flex-direction: column; }
+:where(#screen-root[data-screen="arena"]) #ratings .ratings-scroll { overflow: auto; min-height: 0; margin: 8px 0 12px; }
+:where(#screen-root[data-screen="arena"]) #ratings table { width: 100%; border-collapse: collapse; font-size: 13px; }
+:where(#screen-root[data-screen="arena"]) #ratings th, :where(#screen-root[data-screen="arena"]) #ratings td { padding: 3px 8px; text-align: left; white-space: nowrap; border-bottom: 1px solid rgba(201, 181, 150, 0.15); }
+:where(#screen-root[data-screen="arena"]) #ratings th { color: #f1dfbc; font-weight: 400; position: sticky; top: 0; background: rgba(12, 13, 16, 0.98); }
+:where(#screen-root[data-screen="arena"]) #ratings td:nth-child(n+5) { text-align: right; font-variant-numeric: tabular-nums; }
+:where(#screen-root[data-screen="arena"]) #unseen-table td:nth-child(n+4) { text-align: right; font-variant-numeric: tabular-nums; }
+:where(#screen-root[data-screen="arena"]) #unseen-about { margin-top: 14px; }
 
 /* The chosen mind's notes, its most particular first. */
-#curtain .mind-notes { display: flex; flex-direction: column; gap: 2px; margin: 0; font-size: 11px; color: #b7a790; }
+:where(#screen-root[data-screen="arena"]) #curtain .mind-notes { display: flex; flex-direction: column; gap: 2px; margin: 0; font-size: 11px; color: #b7a790; }
 
 
 /* Combat choices share the contender panels; recovery belongs to the bout. */
-#curtain .contender-choices { font-size: 12px; color: #b7a790; }
-#curtain .contender-choices select { font-size: 16px; }
-#curtain .recovery { grid-column: 2; grid-row: 2; align-self: end; justify-self: center;
+:where(#screen-root[data-screen="arena"]) #curtain .contender-choices { font-size: 12px; color: #b7a790; }
+:where(#screen-root[data-screen="arena"]) #curtain .contender-choices select { font-size: 16px; }
+:where(#screen-root[data-screen="arena"]) #curtain .recovery { grid-column: 2; grid-row: 2; align-self: end; justify-self: center;
   width: min(320px, 100%); margin-bottom: 16px; font-size: 12px; color: #b7a790; text-align: center; }
-#curtain .recovery select { font-size: 14px; }
-.hud-col small { max-width: 280px; color: var(--dim); }
+:where(#screen-root[data-screen="arena"]) #curtain .recovery select { font-size: 14px; }
+:where(#screen-root[data-screen="arena"]) .hud-col small { max-width: 280px; color: var(--dim); }
 @media (max-width: 820px) {
-  #curtain { grid-template-rows: auto minmax(360px, 1fr) auto auto auto auto; }
-  #curtain .recovery { grid-column: 1 / -1; grid-row: 3; margin: 0; }
-  #curtain .you { grid-row: 4; }
-  #begin { grid-row: 5; }
-  #curtain .duel-footer { grid-row: 6; }
+  :where(#screen-root[data-screen="arena"]) #curtain { grid-template-rows: auto minmax(360px, 1fr) auto auto auto auto; }
+  :where(#screen-root[data-screen="arena"]) #curtain .recovery { grid-column: 1 / -1; grid-row: 3; margin: 0; }
+  :where(#screen-root[data-screen="arena"]) #curtain .you { grid-row: 4; }
+  :where(#screen-root[data-screen="arena"]) #begin { grid-row: 5; }
+  :where(#screen-root[data-screen="arena"]) #curtain .duel-footer { grid-row: 6; }
 }

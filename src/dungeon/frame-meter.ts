@@ -14,7 +14,7 @@ import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine.js";
  * A frame whose drawing costs R ms, while physics takes a share p of every real second, lasts about R / (1 - p),
  * so the physics share multiplies the cost of everything drawn.
  */
-export function frameMeter(engine: AbstractEngine, element: HTMLElement) {
+export function frameMeter(engine: AbstractEngine, element: HTMLElement, signal: AbortSignal) {
   const timed = Boolean(engine.getCaps().timerQuery);
   // The engine's counter is shared with `__dungeon.look.gpuTime`, which reads its own deltas from it.
   if (timed) engine.captureGPUFrameTime(true);
@@ -22,7 +22,7 @@ export function frameMeter(engine: AbstractEngine, element: HTMLElement) {
   let since = performance.now(), frames = 0, cpu = 0, physics = 0, substeps = 0;
   let gpuTotal = gpu?.total ?? 0, gpuCount = gpu?.count ?? 0;
   // A hidden tab renders nothing, and the first window back would otherwise divide its frames by the whole absence.
-  document.addEventListener("visibilitychange", () => { since = performance.now(); frames = cpu = physics = substeps = 0; });
+  document.addEventListener("visibilitychange", () => { since = performance.now(); frames = cpu = physics = substeps = 0; }, { signal });
   const show = (now: number) => {
     const span = now - since;
     if (span < 500 || frames === 0) return;

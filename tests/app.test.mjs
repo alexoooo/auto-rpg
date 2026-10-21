@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { MENU_HREF, playHref, routeFor } from "../src/app-route.ts";
 import { MATCHUP_PARAM } from "../src/arena/matchup.ts";
+import { screenLifetime } from "../src/ui/screen.ts";
 import { SECTIONS } from "../src/lab/hud/sections.ts";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
@@ -38,7 +39,7 @@ test("index_html_is_one_document_holding_four_screens", async () => {
   const dungeon = template(html, "dungeon-screen");
   const labMenu = template(html, "lab-select-screen"), lab = template(html, "lab-screen");
   assert.match(menu, /id="menu-dungeon"/); assert.match(menu, /id="menu-arena"/); assert.match(menu, /id="menu-lab"/);
-  assert.match(arena, /<canvas id="stage">/); assert.match(dungeon, /<canvas id="dungeon"/);
+  assert.match(arena, /<canvas id="stage" tabindex="0" aria-label="Arena game">/); assert.match(dungeon, /<canvas id="dungeon"/);
   assert.match(lab, /<canvas id="stage"/);
   assert.ok(ids(labMenu).includes("lab-scenarios"), "the lab's menu has #lab-scenarios");
   for (const [name, text] of [["menu", menu], ["arena", arena], ["dungeon", dungeon], ["lab menu", labMenu], ["lab", lab]]) {
@@ -64,7 +65,7 @@ test("no_screen_boots_itself_when_it_is_imported", async () => {
   for (const [path, name] of [["../src/arena/main.ts", "bootArena"], ["../src/dungeon/main.ts", "bootDungeon"]]) {
     const source = await read(path);
     assert.doesNotMatch(source, selfBoot, `${path} boots on import`);
-    assert.match(source, new RegExp(`export (?:async )?function ${name}\\(\\): Promise<void>`));
+    assert.match(source, new RegExp(`export async function ${name}\\(context: ScreenContext\\): Promise<void>`));
   }
   // The lab's shell does all its work in `bootLab`: nothing at column 0 but imports, declarations
   // and the function itself.
@@ -77,36 +78,43 @@ test("no_screen_boots_itself_when_it_is_imported", async () => {
   assert.match("void boot();", selfBoot, "the control: the pattern finds a self-boot when there is one");
 });
 
-test("the_app_mounts_the_templates_index_html_holds_and_the_buttons_go_where_they_say", async () => {
+test("the_shell_holds_screen_templates_and_uses_internal_navigation", async () => {
   const [html, app] = await Promise.all([read("../index.html"), read("../src/app.ts")]);
   for (const id of ["menu-screen", "arena-screen", "dungeon-screen", "lab-select-screen", "lab-screen"]) {
-    assert.match(app, new RegExp(`mount\\("${id}"\\)`), `app.ts mounts #${id}`);
-    assert.match(html, new RegExp(`<template id="${id}">`));
+    assert.ok(app.includes(`mount("${id}", root)`), `app mounts #${id}`);
+    assert.ok(html.includes(`<template id="${id}">`));
   }
-  assert.match(app, /need\("menu-dungeon"\)\.addEventListener\("click", go\("dungeon"\)\)/);
-  assert.match(app, /need\("menu-arena"\)\.addEventListener\("click", go\("arena"\)\)/);
-  assert.match(app, /need\("menu-lab"\)\.addEventListener\("click", go\("lab"\)\)/);
-  assert.match(app, /window\.location\.assign\(playHref\(to, window\.location\.search\)\)/, "the menu keeps the address's dials");
-  // Each screen: its sheets, then its markup, then its module. The arena's sheets in cascade order and
-  // one after the other; the dungeon's module finds its elements as it is evaluated.
-  const order = (...marks) => marks.map((mark) => {
-    const at = app.indexOf(mark);
-    assert.ok(at >= 0, `app.ts has ${mark}`);
-    return at;
-  }).every((at, i, all) => i === 0 || at > all[i - 1]);
-  assert.ok(order('await import("./arena/style.css");', 'await import("./arena/forge-ui.css");', 'mount("arena-screen");', 'await import("./arena/main.ts");'),
-    "arena: style.css, forge-ui.css, mount, module");
-  assert.ok(order('await import("./dungeon/style.css");', 'mount("dungeon-screen");', 'await import("./dungeon/main.ts");'),
-    "dungeon: stylesheet, mount, module");
-  assert.ok(order('await import("./lab/style.css");', 'mount("lab-select-screen");', 'await import("./lab/setup.ts");',
-    'mount("lab-screen");', 'await import("./lab/main.ts");'), "lab: stylesheet, then the menu's markup and module, or the scenario's");
+  assert.ok(html.includes('id="app-root"'));
+  assert.ok(html.includes('id="app-loading"'));
+  assert.ok(app.includes('history.pushState'));
+  assert.ok(app.includes('"popstate"'));
+  for (const path of ["../src/app.ts", "../src/arena/main.ts", "../src/dungeon/main.ts", "../src/lab/main.ts"]) {
+    assert.doesNotMatch(await read(path), /location\.(assign|reload|replace)\(/, `${path} navigates the document`);
+  }
+});
+
+test("screen_resources_dispose_once_in_reverse_order_and_release_late_results", async () => {
+  const lifetime = screenLifetime(), events = [];
+  const target = new EventTarget();
+  target.addEventListener("input", () => events.push("input"), { signal: lifetime.signal });
+  lifetime.own(() => events.push("engine"));
+  lifetime.own(() => events.push("world"));
+  lifetime.own(() => events.push("run"));
+  let complete;
+  const loading = new Promise(resolve => { complete = resolve; });
+  const pending = loading.then(() => lifetime.own(() => events.push("late asset")));
+  lifetime.dispose(); lifetime.dispose();
+  target.dispatchEvent(new Event("input"));
+  complete(); await pending;
+  assert.equal(lifetime.signal.aborted, true);
+  assert.deepEqual(events, ["run", "world", "engine", "late asset"]);
 });
 
 test("every_screen_leads_back_to_the_menu", async () => {
   const [html, main] = await Promise.all([read("../index.html"), read("../src/arena/main.ts")]);
   const arena = template(html, "arena-screen"), dungeon = template(html, "dungeon-screen");
   assert.match(arena, /id="to-menu"/);
-  assert.match(main, /need<HTMLButtonElement>\("to-menu"\)\.addEventListener\("click", \(\) => window\.location\.assign\(MENU_HREF\)\)/);
+  assert.ok(main.includes('need<HTMLButtonElement>("to-menu").addEventListener("click", () => context.navigate(MENU_HREF))'));
   assert.match(arena, /<a href="\.\/">&larr; Main menu<\/a>/);
   assert.ok((dungeon.match(/href="\.\/"/g) ?? []).length >= 3, "brand, pause and start panel");
   assert.doesNotMatch(html, /href="\.\/(index|dungeon)\.html"/, "the screens link to the menu, not to another page");

@@ -12,7 +12,9 @@ the crypt's skeleton, and a small, sprawling reptile with four legs and a driven
 ## Play online
 
 [Play Auto-RPG](https://alexoooo.github.io/auto-rpg/) in your browser: the link opens the main
-menu, with **Dungeon** (the crypt), **Arena** and **Lab**.
+menu, with **Dungeon** (the crypt), **Arena**, and **Tools**, which holds the **Lab** and development viewers.
+The game stays in one application when changing modes. Loading screens cover preparation until
+the opening view is ready. Returning to the menu ends the run and retains setup choices for the current tab.
 
 GitHub Actions tests and builds each push to `main` and publishes `dist/` to GitHub Pages
 (`.github/workflows/pages.yml`), building with `npm run build -- --base=/auto-rpg/`.
@@ -66,6 +68,13 @@ The **View** panel switches between the character skins (**World**) and their co
 (**Tactical**). Choose **Free**, **Isometric** or **Chase**, and focus on both fighters or either
 side. Isometric offers orthographic and perspective projection; Chase follows one fighter.
 Left is blue and right is red, with matching character silhouettes, names and health bars.
+Under each bar, a body diagram shows each part's remaining health from grey through amber to red.
+Dashed outlines mark severed parts; hover, focus or tap a part for its health, or open **Damage
+details** for the full list. A short feed beside each diagram names actions and behaviour changes,
+updates action results, and fades old entries. Contact means an action met its target, not that it
+necessarily caused damage. Pausing and the final verdict hold the feed. Controllers without action
+reports show damage with action reporting unavailable. Arena tape links replay orders through the
+normal minds, so their action feeds remain available.
 The winner is announced immediately; a three-second aftermath lets a defeated body fall before
 the final view holds. A result decided at the bell does not force either fighter to fall.
 These controls work while paused and after the verdict. Links retain the view with `view`,
@@ -208,7 +217,7 @@ without resuming on its own.
 
 ## The Lab
 
-**Lab** on the main menu (`?play=lab`) lists scenarios that stand one body and exercise it:
+**Tools → Lab** on the main menu (`?play=lab`) lists scenarios that stand one body and exercise it:
 
 - **Stance**: walk it from the keyboard (W/S or Up/Down forward and back, A/D or Left/Right
   sideways, Q/E turn while walking) at the speed a slider sets, and shove it.

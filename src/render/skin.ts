@@ -1,6 +1,6 @@
 import type { Clothing, SkinView } from "./skin-view.ts";
 import type { AssetContainer } from "@babylonjs/core/assetContainer.js";
-import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
+import { sceneModel } from "./asset-cache.ts";
 // The glTF loader registers itself on import; without it the load finds no plugin for `.glb`.
 import "@babylonjs/loaders/glTF/index.js";
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -67,11 +67,8 @@ export function loadSkin(model: WorkshopModel, scene: Scene): Promise<AssetConta
   if (!byModel) loads.set(scene, byModel = new Map());
   let load = byModel.get(model);
   if (!load) {
-    load = LoadAssetContainerAsync(publicAssetUrl(`/assets/humanoid/${model}.glb`), scene);
-    load.then((container) => {
-      if (scene.isDisposed) container.dispose();
-      else scene.onDisposeObservable.addOnce(() => container.dispose());
-    }, () => byModel.delete(model));
+    load = sceneModel(publicAssetUrl(`/assets/humanoid/${model}.glb`), scene);
+    void load.catch(() => byModel.delete(model));
     byModel.set(model, load);
   }
   return load;

@@ -1,3 +1,4 @@
+import { warmScene } from "../render/ready.ts";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera.js";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight.js";
@@ -45,7 +46,8 @@ import recoverySeed from "../../research/stand-up-feedback-seed.json" with { typ
 import { stanceScenario } from "./stance-scenario.ts";
 import { groundScenario } from "./ground-scenario.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
-import { need } from "../dom.ts";
+import { need as find } from "../dom.ts";
+import type { ScreenContext } from "../ui/screen.ts";
 
 /** The floor's side, m: a body running 4 m/s along the longest course comes up to its pace and back down on it. */
 const FLOOR = 200;
@@ -107,10 +109,14 @@ const forAControl = (event: KeyboardEvent): boolean => event.target instanceof H
 const takesItsOwnSpace = (event: KeyboardEvent): boolean => event.target instanceof HTMLElement && event.target.matches("button, summary");
 
 /** Run the scenario `address` names; the screen's markup (`#lab-screen`) is already mounted. */
-export async function bootLab(address: LabAddress & { readonly scenario: ScenarioId }): Promise<void> {
+export async function bootLab(address: LabAddress & { readonly scenario: ScenarioId }, context: ScreenContext): Promise<void> {
+  const location = context.address;
+  const need = <T extends HTMLElement>(id: string): T => find<T>(id, context.root);
   const canvas = need<HTMLCanvasElement>("stage");
   const engine = new Engine(canvas, true, { stencil: true });
+  context.own(() => engine.dispose());
   const scene = new Scene(engine);
+  context.own(() => scene.dispose());
   let disposed = false;
   scene.clearColor = new Color4(0.082, 0.098, 0.11, 1);
   /** The world a body is loaded into; each load makes a new one, at the chosen rate. */
@@ -167,6 +173,9 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     heardTo: number;
   }
   let current: Loaded | null = null;
+  let skinReady: Promise<void> = Promise.resolve(), loading = false, firstFrame = true;
+  const loadError = document.createElement("p"); loadError.className = "alert"; loadError.hidden = true; loadError.setAttribute("role", "alert");
+  need("sections").append(loadError);
   let shown: LabAddress = address;
   const transport = labTransport(need("transport"), scenario.timelineLabel, () => current?.run ?? null);
 
@@ -176,7 +185,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     if (current) return current.built.spec;
     try { return loadoutSpec(shown); } catch { return resolveCharacter({ model: shown.model }).spec; }
   }, load, show };
-  const sections = labSections(document);
+  const sections = labSections(context.root);
   const thinking = thinkingSection();
   const controls: Readonly<Partial<Record<SectionName, readonly Control[]>>> = {
     scenario: scenarioSection(page), character: characterSection(page), thinking: [thinking],
@@ -191,6 +200,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   sections.readout.append(...(scenario.panels.readout ?? []).map((control) => control.element));
   const shellControls = [...Object.values(controls).flat(), ...restart, ...view];
   const audio = new GameAudio(false, need("transport"));
+  context.own(() => audio.dispose());
+  context.own(() => { disposed = true; engine.stopRenderLoop(); unload(); context.remember(labHref(shown, location.search)); });
 
   /** Draw the body as `shown.view` says; until the skin has loaded, World shows the shapes. */
   function showView(): void {
@@ -205,7 +216,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     to = { ...to, appearance: appearanceFor(to.model, to.appearance) };
     shown = to;
     try {
-      history.replaceState(null, "", labHref(to, location.search));
+      context.replace(labHref(to, location.search));
       back.href = labHref({ ...to, scenario: null }, location.search);
     } catch { /* Invalid linked attributes stay visible in their editor. */ }
     rig.choose(to.camera, to.projection);
@@ -214,8 +225,9 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     if (current && current.appearance !== to.appearance) {
       const loaded = current;
       loaded.appearance = to.appearance;
-      void loaded.skin.replace(dresserFor(to.model, scene, { appearance: to.appearance }),
-        { clothing: to, closure: hand => loaded.run.closure(hand) }).catch(error => console.error(error));
+      skinReady = loaded.skin.replace(dresserFor(to.model, scene, { appearance: to.appearance }),
+        { clothing: to, closure: hand => loaded.run.closure(hand) });
+      void skinReady.catch(error => { if (!disposed) { loadError.hidden = false; loadError.textContent = String(error); } });
     }
     showView();
     for (const control of shellControls) control.refresh();
@@ -237,7 +249,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   }
 
   /** Load `to`'s loadout at `to`'s rate, in a new world, and start the scenario on it. */
-  function load(to: LabAddress): void {
+  function loadWorld(to: LabAddress): void {
     if (disposed) return;
     let spec: ReturnType<typeof loadoutSpec>;
     try { spec = loadoutSpec(to); }
@@ -283,6 +295,28 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     show(to);
   }
 
+  async function prepare(to: LabAddress): Promise<void> {
+    if (disposed || loading) return;
+    loading = true; loadError.hidden = true;
+    try {
+      await context.loading("Preparing the scenario", async stage => {
+        loadWorld(to);
+        await skinReady;
+        context.signal.throwIfAborted();
+        await stage("Preparing lighting");
+        await warmScene(scene, context.signal);
+        firstFrame = true;
+      });
+    } finally { loading = false; }
+  }
+
+  function load(to: LabAddress): void {
+    void prepare(to).catch(error => {
+      if (disposed) return;
+      loadError.hidden = false; loadError.textContent = `Could not load scenario: ${String(error)}`;
+    });
+  }
+
   function readout(): void {
     if (!current) return;
     const { run, helped, hasted, log, sounds } = current;
@@ -317,22 +351,21 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
       event.preventDefault();
       held.add(event.code);
     }
-  });
-  document.addEventListener("keyup", (event) => { held.delete(event.code); });
-  window.addEventListener("blur", () => held.clear());
-  document.addEventListener("visibilitychange", () => held.clear());
+  }, { signal: context.signal });
+  document.addEventListener("keyup", (event) => { held.delete(event.code); }, { signal: context.signal });
+  window.addEventListener("blur", () => held.clear(), { signal: context.signal });
+  document.addEventListener("visibilitychange", () => held.clear(), { signal: context.signal });
 
-  window.addEventListener("pagehide", () => {
-    disposed = true; engine.stopRenderLoop(); unload(); audio.dispose(); scene.dispose(); engine.dispose();
-  }, { once: true });
 
   // The HUD is filled before the wait for the physics engine, so it never shows empty.
   physicsEngine = await loadEngine();
-  if (disposed) return;
-  load(shown);
+  context.signal.throwIfAborted();
+  await prepare(shown);
   engine.runRenderLoop(() => {
+    if (context.busy) { firstFrame = true; return; }
+    const seconds = firstFrame ? 0 : engine.getDeltaTime(); firstFrame = false;
     current?.run.drive(held);
-    current?.run.player.tick(engine.getDeltaTime() * transport.speed(), performance.now() + SEEK_BUDGET_MS);
+    current?.run.player.tick(seconds * transport.speed(), performance.now() + SEEK_BUDGET_MS);
     readout();
     scene.render();
     if (current) {
@@ -342,10 +375,13 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     audio.setView(camera.position, camera.target.subtract(camera.position));
     audio.update();
   });
-  window.addEventListener("resize", () => engine.resize());
+  window.addEventListener("resize", () => engine.resize(), { signal: context.signal });
   // For the console: a hidden tab does not render, so a check steps the world by hand
   // (`__lab.drive()`, `__lab.world().step(n)`, then `scene.render()`).
   (window as unknown as { __lab: unknown }).__lab = {
     scene, engine, readout, drive: () => current?.run.drive(held), current: () => current, world: () => world, held,
   };
+  context.own(() => {
+    if ((window as unknown as { __lab?: { engine: Engine } }).__lab?.engine === engine) Reflect.deleteProperty(window, "__lab");
+  });
 }

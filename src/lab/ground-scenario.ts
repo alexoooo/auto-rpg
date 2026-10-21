@@ -17,7 +17,7 @@ import { GROUND_LEVELS } from "./ground-environment.ts";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
-import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
+import { sceneModel } from "../render/asset-cache.ts";
 import { publicAssetUrl } from "../asset-url.ts";
 import { assembleCryptKit } from "../environment/crypt-kit.ts";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
@@ -47,7 +47,7 @@ function risingBy(chosen: FighterConfig, rise: GroundRise): FighterConfig {
  * (`research/rising-bed.mjs`).
  */
 export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
-  let kit: ReturnType<typeof LoadAssetContainerAsync> | null = null;
+  let kit: ReturnType<typeof sceneModel> | null = null;
   let address = labAddress("?scenario=ground"), fault = "";
   let current: { shove(): void } | null = null;
   let shown: ReturnType<ReturnType<typeof startGround>["frame"]> | null = null;
@@ -111,7 +111,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
       obstacleMaterial.diffuseColor.set(.5, .47, .42);
       let closed = false;
       if (session.environment.placements.length) {
-        kit ??= LoadAssetContainerAsync(publicAssetUrl("/assets/crypt-kit/kit.glb"), scene).then(container => {
+        kit ??= sceneModel(publicAssetUrl("/assets/crypt-kit/kit.glb"), scene).then(container => {
           for (const mesh of container.meshes) mesh.setEnabled(false);
           container.addAllToScene(); return container;
         });

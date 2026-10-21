@@ -1,5 +1,5 @@
 import { publicAssetUrl } from "../asset-url.ts";
-import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
+import { sceneModel } from "../render/asset-cache.ts";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 import "@babylonjs/loaders/glTF/glTFFileLoader.js";
 import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
@@ -24,7 +24,7 @@ function prepareTemplate(mesh: Mesh): void {
   mesh.setEnabled(false); mesh.isPickable = false;
 }
 export async function loadTemplates(scene: Scene, file: string): Promise<Map<string, Mesh>> {
-  const container = await LoadAssetContainerAsync(ASSET_ROOT + file, scene);
+  const container = await sceneModel(ASSET_ROOT + file, scene);
   container.addAllToScene();
   const templates = new Map<string, Mesh>();
   for (const mesh of container.meshes) {

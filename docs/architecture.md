@@ -950,6 +950,15 @@ fault, or one that does not fit its body, plays the preset whole while the panel
 A bout's HUD names the preset, `(edited)` where the link changes it (`controllerLabel`). A tape's
 link carries its minds, so a replay drives the same minds.
 
+**The Arena's fighter readouts** (`src/arena/fighter-hud.ts`) show fixed SVG damage diagrams from
+the actual per-segment pool, including detached descendants. The humanoids share a front view and
+the reptile a top view. `fighter-readout.ts` reads admitted actions, terminal ledger records and
+named behaviour or body-ownership changes after each world step; rendering updates the DOM without
+writing to a report or the world. Terminal entries fade on the bout clock, held at pause and the
+verdict. Contacts are named independently of injury. Each bout owns and disposes its sampling hook;
+controllers and muscle-sheet replays without reports show the diagram with reporting unavailable.
+Arena order-tape links run the minds and retain their named-action feeds.
+
 **The mind inspector** (`mindInspector`, `src/ui/mind-inspector.ts`) shows the mind tree, who has
 the body, active actions and stages, current holders and reserved resources. It shows candidate
 readiness and the recent terminal ledger, including explicit omitted history counts. The Arena,
@@ -1534,7 +1543,20 @@ bout the best. What it reports is the ceiling of what it searched and of nothing
 
 `index.html` is one document (`src/app.ts`, routed by `src/app-route.ts`): the main menu, and the
 arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, each a
-`<template>` mounted once per page load. Changing screen is a navigation.
+`<template>` mounted in the persistent shell. Internal navigation and browser history dispose the
+previous screen, including pending loads, worlds, scenes, previews, listeners and audio. Setup
+choices remain in memory for the current tab; leaving a run ends it. Styles belong to their
+screen root, so revisiting a mode reuses its module without leaking its DOM or styles.
+The shell's loading overlay keeps the screen inert while it prepares characters and scenes.
+Required textures, drawable materials, shadows and post-processing must produce two consecutive
+complete frames beneath it before play begins; invisible colliders do not gate readiness.
+Preparation advances no physics. Its deadline counts visible-tab time, and navigation cancels
+pending work. Model downloads share immutable bytes across scenes; each scene owns its decoded
+Babylon resources. Failed downloads leave the cache so Retry can request them again.
+Dungeon and Arena are the main menu's play actions. Tools groups the Lab and separate development
+viewers. Dungeon setup keeps advanced attribute, mind and seed editing in a drawer, and its
+gameplay diagnostics stay collapsed until requested. The shared shell supplies focus states,
+loading errors and reduced-motion-aware transitions; returning to the menu is immediate.
 
 - **The Arena** (`src/arena/`): two bodies, empty-handed unless armed, in the Forge (`src/arena/scene.ts`,
   `src/arena/room.ts`), each driven by its side's mind under a `Duel`, to a verdict, each

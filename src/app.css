@@ -1,0 +1,32 @@
+/* Shared chrome stays outside the mode-scoped stylesheets. */
+:root { --ui-ink: #e8e1d2; --ui-dim: #afa99b; --ui-brass: #d4b17e; --ui-edge: #8e705066; --ui-panel: #171517ed; color-scheme: dark; font-family: system-ui, sans-serif; color: #e8e1d2; background: #0a0b0e; }
+html, body, #app-root, #screen-root { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+#app-loading { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 28px;
+  background: linear-gradient(#100d0de8, #100d0df5), url("/assets/menu/cathedral.jpg") center / cover;
+  color: var(--ui-ink); text-align: center; opacity: 1; transition: opacity 140ms ease; }
+#app-loading.leaving { opacity: 0; }
+#screen-root { color: var(--ui-ink); }
+:where(#screen-root) :is(button, select, input) { font: inherit; }
+:where(#screen-root) :is(button, a, summary) { -webkit-tap-highlight-color: transparent; }
+:where(#screen-root) :is(button, a, summary, select, input):focus-visible { outline: 2px solid var(--ui-brass); outline-offset: 4px; }
+:where(#screen-root) button { transition: background-color 120ms ease, border-color 120ms ease; }
+:where(#screen-root) .ui-drawer { border: 1px solid var(--ui-edge); border-radius: 3px; background: var(--ui-panel); padding: 12px 16px; }
+:where(#screen-root) .ui-drawer > summary { color: var(--ui-brass); cursor: pointer; }
+:where(#screen-root) .ui-drawer[open] > summary { margin-bottom: 18px; }
+:where(#screen-root) .diagnostics { position: relative; pointer-events: auto; color: var(--ui-dim); font: 12px system-ui; }
+:where(#screen-root) .diagnostics summary { cursor: pointer; }
+:where(#screen-root) .diagnostics[open] { padding: 12px; background: var(--ui-panel); border: 1px solid var(--ui-edge); }
+
+.loading-content { width: min(100%, 420px); }
+.loading-content h1 { font: 38px Georgia, serif; letter-spacing: .1em; font-variant: small-caps; }
+#loading-label { font-size: 15px; color: #d8c6a6; }
+.loading-track { width: 180px; height: 2px; margin: 28px auto; overflow: hidden; background: #594631; }
+.loading-track::after { content: ""; display: block; width: 40%; height: 100%; background: #d6b17a; animation: loading-slide 1.2s ease-in-out infinite alternate; }
+.loading-actions { display: flex; justify-content: center; gap: 12px; margin-top: 24px; }
+.loading-actions button { font: inherit; padding: 10px 18px; color: #e8dcc0; background: #211915; border: 1px solid #8e7050; cursor: pointer; }
+.loading-actions button:focus-visible { outline: 2px solid #d4b17e; outline-offset: 4px; }
+#loading-error { color: #e6a79a; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+@keyframes loading-slide { to { transform: translateX(150%); } }
+@media (prefers-reduced-motion: reduce) { #app-loading, :where(#screen-root) button { transition: none; } .loading-track::after { animation: none; width: 100%; } }

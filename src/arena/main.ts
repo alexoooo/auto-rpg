@@ -1,3 +1,4 @@
+import { warmScene } from "../render/ready.ts";
 import { arenaMeasurement } from "./measure.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 // `scene.createPickingRay` is this module's patch: without it the build compiles and the ray is missing.
@@ -9,7 +10,8 @@ import { arenaSolids } from "./room.ts";
 import { buildArena } from "./scene.ts";
 import { LEVELS, type ArenaLevel } from "./levels.ts";
 import { MENU_HREF } from "../app-route.ts";
-import { need } from "../dom.ts";
+import type { ScreenContext } from "../ui/screen.ts";
+import { need as find } from "../dom.ts";
 import { airOf, hearTouches } from "../audio/body-sounds.ts";
 import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
@@ -21,7 +23,7 @@ import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { EMPTY_LOADOUT, HELD, heldItem, type Loadout } from "../core/items/held.ts";
 import { HUMAN_HASTE, hasteText } from "../core/human/attributes.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
-import { createWorld, type World } from "../core/world.ts";
+import { createWorld, type Hook, type World } from "../core/world.ts";
 import type { SkinView } from "../render/skin-view.ts";
 import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
@@ -45,6 +47,7 @@ import type { Side } from "../core/spec/body.ts";
 import { physicalReading } from "../core/observation.ts";
 import { arenaPlayback } from "./playback.ts";
 import { ARENA_SIDES, sideHighlights } from "./side-highlights.ts";
+import { fighterHud } from "./fighter-hud.ts";
 
 /**
  * **The arena page**: the arena's scene with its solids in a world (`buildArena`), and a bout
@@ -76,7 +79,6 @@ const ENDING_TEXT: Readonly<Record<DuelEnding, string>> = Object.freeze({
   time: "on the bar at the bell",
 });
 
-const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
 /** What a hand may hold, by name, as the pickers and the ratings show it. */
 const HELD_NAMES = Object.fromEntries(HELD.map((held) => [held, heldItem(held)?.name ?? "Empty"])) as Readonly<Record<typeof HELD[number], string>>;
 const loadoutName = (loadout: Loadout): string => `Left: ${HELD_NAMES[loadout.left]}, right: ${HELD_NAMES[loadout.right]}`;
@@ -92,7 +94,8 @@ const levelName = (level: NoteLevel, model: BodyModel, loadout: Loadout): string
 };
 
 /** **The last tournament's table** (`RATINGS`), its best first, into the ratings panel. */
-function showRatings(): void {
+function showRatings(root: ParentNode): void {
+  const need = <T extends HTMLElement>(id: string): T => find<T>(id, root);
   const { entrants, unseen, date, commit, harness, unavailable } = RATINGS;
   need("ratings-about").textContent = unavailable ? `Ratings unavailable: ${unavailable}.` : entrants.length === 0 ? "No tournament has been played yet (scripts/tournament.mjs)."
     : `Each mind on each character with each loadout against every other, both sides, Bradley-Terry on the Elo scale (the field's mean 1500), with its 95 % interval. ${date} at ${commit?.slice(0, 8)}; ${harness}.`;
@@ -117,15 +120,24 @@ function showRatings(): void {
   })]);
 }
 
-export async function bootArena(): Promise<void> {
-  const lifetime = new AbortController();
-  window.addEventListener("pagehide", () => lifetime.abort(), { once: true });
+export async function bootArena(context: ScreenContext): Promise<void> {
+  const location = context.address, lifetime = context;
+  const need = <T extends HTMLElement>(id: string): T => find<T>(id, context.root);
+  const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
   const canvas = need<HTMLCanvasElement>("stage");
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
+  context.own(() => { engine.stopRenderLoop(); engine.dispose(); });
   const physicsEngine = await loadEngine();
+  context.signal.throwIfAborted();
   const level = readLevel(location.search);
   let made: World | null = null;
-  const arena = await buildArena(engine, (scene) => (made = createWorld(scene, physicsEngine)).physics, level);
+  const arena = await buildArena(engine, (scene) => {
+    context.own(() => scene.dispose());
+    const world = made = createWorld(scene, physicsEngine);
+    context.own(() => world.dispose());
+    return world.physics;
+  }, level, context.signal);
+  context.signal.throwIfAborted();
   const world = made as World | null;
   if (!world) throw new Error("the arena made no world");
   const { scene, camera, shadows } = arena;
@@ -270,6 +282,7 @@ export async function bootArena(): Promise<void> {
     need("matchup").append(panel);
     pickers[side] = select;
     previewLoads.push(showHeroLineup(preview, physicsEngine, [matchup[side]], lifetime.signal, [appearances[side]]).then(async view => {
+      context.signal.throwIfAborted();
       previews[side] = view; select.disabled = false; appearancePicker.disabled = false;
       try { attributePanel.read(); await view.setCharacter(0, { model: select.value as BodyModel, attributes: attributes[side] }, appearances[side]); } catch { /* The editor displays its draft's error. */ }
       select.addEventListener("change", () => {
@@ -308,9 +321,28 @@ export async function bootArena(): Promise<void> {
     query.set("level", next);
     const gap = readGap(location.search), policy = LEVELS[next].gap;
     if (gap !== undefined && (gap < policy.min || gap > policy.max)) query.delete("gap");
-    location.assign(`?${query}`);
+    const draft = new URL(setupAddress());
+    draft.searchParams.set("level", next);
+    if (!query.has("gap")) draft.searchParams.delete("gap");
+    context.navigate(draft.href, { setup: true });
   });
   levelField.append(levelPicker); recoveryField.before(levelField);
+
+  function setupAddress(): string {
+    const models = { left: pickers.left.value as BodyModel, right: pickers.right.value as BodyModel };
+    const query = new URLSearchParams(location.search);
+    query.delete("balance"); query.delete("haste"); query.delete("held");
+    query.set("control", SIDES.map(side => controlPickers[side].value).join(","));
+    query.set("level", levelPicker.value); query.set("recovery", recoveryPicker.value);
+    for (const side of SIDES) {
+      try { writeAttributes(query, side, attributeEditors[side].read()); } catch { /* The link retains its last valid attributes. */ }
+      query.set(`${side}.loadout`, SIDES.map(hand => loadoutPickers[side][hand].value).join(","));
+    }
+    const search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
+    return new URL(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, models), models, appearances),
+      youPicker.value === "left" || youPicker.value === "right" ? youPicker.value : null), view), location).href;
+  }
+  context.own(() => context.remember(setupAddress()));
 
   // Each model's dresser, loaded once: its skin, or its shapes if the skin does not load.
   let skeletonArt: Promise<SkeletonArt> | null = null;
@@ -326,10 +358,12 @@ export async function bootArena(): Promise<void> {
   };
 
   const audio = new GameAudio();
+  context.own(() => audio.dispose());
   // What each side's controller is called while its bout runs (`controllerLabel`).
   let controllers: Record<Side, string> = { left: "", right: "" };
   let duel: Duel | null = null, drawn: (SkinView | BodyShapes)[] = [], paused = false, shown: Verdict | null = null;
   const highlights = sideHighlights(scene);
+  context.own(() => highlights.dispose());
   let playback: ReturnType<typeof arenaPlayback> | null = null;
   const bodies = new Map<Side, { read: ReturnType<typeof physicalReading>; skin: SkinView; shapes: BodyShapes; hands: ReturnType<typeof fighterHands>; subject: ArenaSubjects[Side] }>();
   let subjects: ArenaSubjects | null = null;
@@ -348,14 +382,14 @@ export async function bootArena(): Promise<void> {
     drawn = []; bodies.clear(); subjects = null;
   };
   const viewPanel = need<HTMLDetailsElement>("arena-view");
-  viewPanel.open = !matchMedia("(max-width: 700px)").matches;
+  viewPanel.open = false;
   viewPanel.querySelector("summary")!.addEventListener("click", event => (event.currentTarget as HTMLElement).blur());
   for (const type of ["pointerdown", "pointermove", "wheel"]) viewPanel.addEventListener(type, event => event.stopPropagation());
   const viewFields: Control[] = [];
   const chooseView = (patch: Partial<ArenaView>) => {
     view = normalizeArenaView({ ...view, ...patch }, you);
     rig.choose(view); applyView();
-    history.replaceState(null, "", arenaViewSearch(location.search, view) + location.hash);
+    context.replace(arenaViewSearch(location.search, view) + location.hash);
     for (const control of viewFields) control.refresh();
   };
   viewFields.push(...viewControls(() => view, chooseView),
@@ -365,25 +399,36 @@ export async function bootArena(): Promise<void> {
   need("arena-view-controls").append(...viewFields.map(control => control.element));
   /** What hears the bout under way: its touches' listener, and each side's air. */
   let hearing: { dispose(): void } | null = null, airs: { readonly side: Side; readonly air: (at: Vector3) => number }[] = [];
-  const end = () => { playback?.dispose(); playback = null; undraw(); hearing?.dispose(); hearing = null; airs = []; duel?.dispose(); duel = null; shown = null; };
+  let hudHook: Hook | null = null;
+  const end = () => {
+    hudHook?.dispose(); hudHook = null;
+    for (const row of rows) row.condition.reset();
+    hud.hidden = true;
+    playback?.dispose(); playback = null; undraw(); hearing?.dispose(); hearing = null; airs = []; duel?.dispose(); duel = null; shown = null;
+  };
 
-  // The readout: each side's name and bar, its mind as it goes (`mindInspector`), and the clock.
+  context.own(end);
+
+  // Each side's pool, damaged parts and recent actions accompany its detailed mind inspector.
   const hud = need("hud");
+  hud.hidden = true;
   const rows = SIDES.map((side) => {
     const column = document.createElement("div"), label = document.createElement("strong"), bar = document.createElement("progress");
     column.className = "hud-col"; column.dataset.side = side; bar.max = 1; bar.value = 1;
     column.style.setProperty("--side-colour", ARENA_SIDES[side].colour);
     const status = document.createElement("small"), mind = document.createElement("details"), summary = document.createElement("summary");
+    const condition = fighterHud(ARENA_SIDES[side].label);
     mind.className = "hud-mind"; summary.textContent = "Mind"; mind.append(summary);
-    column.append(label, bar, status, mind); hud.append(column);
-    return { side, label, bar, status, mind, inspector: null as ReturnType<typeof mindInspector> | null };
+    bar.setAttribute("aria-label", `${ARENA_SIDES[side].label} fighter health`);
+    column.append(label, bar, condition.element, status, mind); hud.append(column);
+    return { side, label, bar, status, mind, condition, inspector: null as ReturnType<typeof mindInspector> | null };
   });
   const clockColumn = document.createElement("div"), clock = document.createElement("span"), pauseButton = document.createElement("button");
   clockColumn.className = "hud-col hud-clock";
   pauseButton.id = "arena-pause"; pauseButton.type = "button"; pauseButton.className = "action quiet";
   pauseButton.textContent = "Pause"; pauseButton.title = "Pause (Space / Esc)"; pauseButton.hidden = true;
   pauseButton.setAttribute("aria-controls", "pause-menu");
-  clockColumn.append(clock, pauseButton); hud.insertBefore(clockColumn, rows[1].label.parentElement);
+  clockColumn.append(clock, pauseButton, viewPanel); hud.insertBefore(clockColumn, rows[1].label.parentElement);
 
   const setPaused = (value: boolean) => {
     paused = value && duel !== null && !duel.verdict;
@@ -411,73 +456,90 @@ export async function bootArena(): Promise<void> {
     } catch (error) { need("boot-note").textContent = error instanceof Error ? error.message : String(error); return; }
     beginButton.disabled = true;
     try {
-      appearances = { left: appearanceFor(next.left, appearances.left), right: appearanceFor(next.right, appearances.right) };
-      matchup = next;
-      const query = new URLSearchParams(location.search);
-      query.delete("balance"); query.delete("haste");
-      for (const side of SIDES) writeAttributes(query, side, attributes[side]);
-      query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
-      query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
-      query.delete("held");
-      for (const side of SIDES) query.set(`${side}.loadout`, SIDES.map((hand) => loadoutPickers[side][hand].value).join(","));
-      query.set("recovery", recoveryPicker.value);
-      let search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
-      const sameControllers = linkedControl === JSON.stringify(readMinds(search));
-      const sameRecovery = (linkedRecovery ?? null) === (readRecovery(search) ?? null);
-      const sameLoadouts = linkedLoadouts === JSON.stringify(readLoadouts(search));
-      const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameLoadouts && linkedAttributes === attributeKey(matchup, attributes) ? linked.tape : null;
-      replaying = tape !== null;
-      if (replaying) {
-        const snapshot = new URLSearchParams(search);
-        for (const side of SIDES) writeAttributes(snapshot, side, resolveCharacter({ model: matchup[side], attributes: attributes[side] }).config.attributes);
-        search = `?${snapshot}`;
-      }
-      history.replaceState(null, "", arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view) + (replaying ? linked.hash : ""));
-      const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
-      end();
-      toStart();
-      audio.reset();
-      const gap = readGap(location.search), capSeconds = readCap(location.search), loadouts = readLoadouts(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search) ?? null;
-      controllers = { left: controllerLabel(location.search, "left"), right: controllerLabel(location.search, "right") };
-      const bout = duel = new Duel(world, {
-        left: matchup.left, right: matchup.right, recoverySeconds, attributes, level,
-        ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(loadouts ? { loadouts } : {}), ...(minds ? { minds } : {}),
-      }, {
-        solids: arenaSolids(level),
-        onBuilt: (duelist, built) => {
-          const hands = fighterHands(duelist);
-          const skin = dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true }, closure: hands.closure });
-          const shapes = drawBody(built, scene, Color3.FromHexString(ARENA_SIDES[duelist.side].colour));
-          const held = drawHeld(built, scene), pelvis = duelist.body.muscles.dynamics.root.segment.node;
-          const rest = pelvis.rotationQuaternion!.clone(), read = physicalReading(built);
-          highlights.add(duelist.side, [...skin.meshes, ...shapes.meshes, ...held.meshes]);
-          bodies.set(duelist.side, { read, skin, shapes, hands, subject: {
-            get position() { return read().centre; },
-            get rotation() { return pelvis.rotationQuaternion!; }, rest,
-          } });
-          for (const mesh of held.meshes) shadows.addShadowCaster(mesh);
-          drawn.push(skin, shapes, held);
-        },
-        // A blow is a touch, and is heard as one; this is what it took off.
-        onBlow: (blow) => { for (const cue of debrisCues(blow)) audio.cue(cue); },
+      await context.loading("Preparing fighters", async stage => {
+        appearances = { left: appearanceFor(next.left, appearances.left), right: appearanceFor(next.right, appearances.right) };
+        matchup = next;
+        const query = new URLSearchParams(location.search);
+        query.delete("balance"); query.delete("haste");
+        for (const side of SIDES) writeAttributes(query, side, attributes[side]);
+        query.set(MATCHUP_PARAM, `${matchup.left},${matchup.right}`);
+        query.set("control", SIDES.map((side) => controlPickers[side].value).join(","));
+        query.delete("held");
+        for (const side of SIDES) query.set(`${side}.loadout`, SIDES.map((hand) => loadoutPickers[side][hand].value).join(","));
+        query.set("recovery", recoveryPicker.value);
+        let search = mindsSearch(`?${query}`, { left: mindOf.left(), right: mindOf.right() });
+        const sameControllers = linkedControl === JSON.stringify(readMinds(search));
+        const sameRecovery = (linkedRecovery ?? null) === (readRecovery(search) ?? null);
+        const sameLoadouts = linkedLoadouts === JSON.stringify(readLoadouts(search));
+        const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameLoadouts && linkedAttributes === attributeKey(matchup, attributes) ? linked.tape : null;
+        replaying = tape !== null;
+        if (replaying) {
+          const snapshot = new URLSearchParams(search);
+          for (const side of SIDES) writeAttributes(snapshot, side, resolveCharacter({ model: matchup[side], attributes: attributes[side] }).config.attributes);
+          search = `?${snapshot}`;
+        }
+        context.replace(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view) + (replaying ? linked.hash : ""));
+        const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
+        context.signal.throwIfAborted();
+        end();
+        toStart();
+        audio.reset();
+        const gap = readGap(location.search), capSeconds = readCap(location.search), loadouts = readLoadouts(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search) ?? null;
+        controllers = { left: controllerLabel(location.search, "left"), right: controllerLabel(location.search, "right") };
+        const bout = duel = new Duel(world, {
+          left: matchup.left, right: matchup.right, recoverySeconds, attributes, level,
+          ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(loadouts ? { loadouts } : {}), ...(minds ? { minds } : {}),
+        }, {
+          solids: arenaSolids(level),
+          onBuilt: (duelist, built) => {
+            const hands = fighterHands(duelist);
+            const skin = dress.get(duelist.side)!(built, { clothing: { boots: true, armour: true }, closure: hands.closure });
+            const shapes = drawBody(built, scene, Color3.FromHexString(ARENA_SIDES[duelist.side].colour));
+            const held = drawHeld(built, scene), pelvis = duelist.body.muscles.dynamics.root.segment.node;
+            const rest = pelvis.rotationQuaternion!.clone(), read = physicalReading(built);
+            highlights.add(duelist.side, [...skin.meshes, ...shapes.meshes, ...held.meshes]);
+            bodies.set(duelist.side, { read, skin, shapes, hands, subject: {
+              get position() { return read().centre; },
+              get rotation() { return pelvis.rotationQuaternion!; }, rest,
+            } });
+            for (const mesh of held.meshes) shadows.addShadowCaster(mesh);
+            drawn.push(skin, shapes, held);
+          },
+          // A blow is a touch, and is heard as one; this is what it took off.
+          onBlow: (blow) => { for (const cue of debrisCues(blow)) audio.cue(cue); },
+        });
+        playback = arenaPlayback(bout, CATCH_UP_SECONDS);
+        subjects = { left: bodies.get("left")!.subject, right: bodies.get("right")!.subject };
+        rig.reset(); applyView();
+        const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
+        hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
+        airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
+        if (tape) bout.playRecording(tape);
+        for (const row of rows) {
+          row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === you && !replaying ? " (you)" : ""}`;
+          const duelist = bout.duelists[row.side], minded = duelist.minded;
+          row.condition.bind(duelist);
+          row.condition.sample(world.time); row.condition.render(world.time);
+          row.inspector = mindInspector(duelist.mind, duelist.built.spec, () => duel === bout
+            ? { body: duelist.body, skills: minded.skills ?? null } : null);
+          row.mind.replaceChildren(row.mind.firstElementChild!, row.inspector.element);
+        }
+        let feedStopped = false;
+        hudHook = world.afterStep(() => {
+          const time = bout.state.start + (bout.verdict?.time ?? bout.clock);
+          for (const row of rows) row.condition.sample(time, !feedStopped);
+          if (bout.verdict) feedStopped = true;
+        });
+        hud.hidden = false;
+        show("curtain", false); show("bout-end", false); setPaused(false); screen = "fight"; viewPanel.hidden = false;
+        frame();
+        await stage("Preparing lighting");
+        await warmScene(scene, context.signal);
+        firstFrame = true;
       });
-      playback = arenaPlayback(bout, CATCH_UP_SECONDS);
-      subjects = { left: bodies.get("left")!.subject, right: bodies.get("right")!.subject };
-      rig.reset(); applyView();
-      const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
-      hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
-      airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
-      if (tape) bout.playRecording(tape);
-      for (const row of rows) {
-        row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === you && !replaying ? " (you)" : ""}`;
-        const duelist = bout.duelists[row.side], minded = duelist.minded;
-        row.inspector = mindInspector(duelist.mind, duelist.built.spec, () => duel === bout
-          ? { body: duelist.body, skills: minded.skills ?? null } : null);
-        row.mind.replaceChildren(row.mind.firstElementChild!, row.inspector.element);
-      }
-      show("curtain", false); show("bout-end", false); setPaused(false); screen = "fight"; viewPanel.hidden = false;
-      canvas.focus();
+      if (!context.signal.aborted) canvas.focus();
     } catch (error) {
+      if (context.signal.aborted) return;
       setup();
       need("boot-note").textContent = error instanceof Error ? error.message : String(error);
     } finally { beginButton.disabled = false; }
@@ -498,11 +560,11 @@ export async function bootArena(): Promise<void> {
   for (const id of ["restart", "bout-end-replay"]) need(id).addEventListener("click", () => void begin(matchup));
   for (const id of ["random-replay", "bout-end-random"]) need(id).addEventListener("click", () => void begin(redrawn()));
   for (const id of ["leave", "bout-end-leave"]) need(id).addEventListener("click", setup);
-  need<HTMLButtonElement>("to-menu").addEventListener("click", () => window.location.assign(MENU_HREF));
+  need<HTMLButtonElement>("to-menu").addEventListener("click", () => context.navigate(MENU_HREF));
   const help = (open: boolean) => show("help", open);
   need("help-open").addEventListener("click", () => help(true));
   need("help-close").addEventListener("click", () => help(false));
-  showRatings();
+  showRatings(context.root);
   need("ratings-open").addEventListener("click", () => show("ratings", true));
   need("ratings-close").addEventListener("click", () => show("ratings", false));
   // What the person's hands are doing: the walking keys held, and whether Shift is, which runs; where the
@@ -527,15 +589,15 @@ export async function bootArena(): Promise<void> {
     if (!duel || walkKey(event, true)) return;
     if (event.key === " " || event.key === "Escape") { event.preventDefault(); if (!duel.verdict) setPaused(!paused); }
     else if (event.key === "r" || event.key === "R") void begin(matchup);
-  });
-  window.addEventListener("keyup", (event) => { if (event.key === "Shift") running = false; walkKey(event, false); });
+  }, { signal: context.signal });
+  window.addEventListener("keyup", (event) => { if (event.key === "Shift") running = false; walkKey(event, false); }, { signal: context.signal });
   // Losing focus pauses the bout, and lets go of every key and button: their releases are not heard.
   window.addEventListener("blur", () => {
     keys.up = keys.down = keys.left = keys.right = false;
     running = false;
     attacking = false;
     if (duel && !duel.verdict) setPaused(true);
-  });
+  }, { signal: context.signal });
   // The left button is a level, read from every pointer event, since a release is not guaranteed.
   for (const type of ["pointerdown", "pointermove", "pointerup"] as const) {
     canvas.addEventListener(type, (event) => {
@@ -574,6 +636,7 @@ export async function bootArena(): Promise<void> {
     for (const row of rows) {
       const fighter = duel.duelists[row.side];
       row.bar.value = fighter.pool.bar();
+      row.condition.render(duel.state.start + (duel.verdict?.time ?? duel.clock));
       const mind = fighter.minded, controller = controllers[row.side];
       const phase = mind.skills ? mind.skills.report.actions[0]?.stage ?? mind.skills.report.engagement?.phase ?? "guard / move" : mind.body.has;
       const down = duel.state.recovery?.[row.side];
@@ -603,30 +666,38 @@ export async function bootArena(): Promise<void> {
   };
 
   const measurement = new URLSearchParams(location.search).get("measure") === "1" ? arenaMeasurement(document.body) : null;
+  let firstFrame = true;
   engine.runRenderLoop(() => {
+    if (context.busy) { firstFrame = true; return; }
     const began = measurement ? performance.now() : 0, clockBefore = world.time;
     let physicsMs = 0;
-    const seconds = engine.getDeltaTime() / 1000;
-    giveOrders();
-    if (duel && !paused) {
+    const seconds = firstFrame ? 0 : engine.getDeltaTime() / 1000; firstFrame = false;
+    if (!context.busy) giveOrders();
+    if (duel && !paused && !context.busy) {
       const beforePhysics = measurement ? performance.now() : 0;
       playback?.advance(seconds);
       if (measurement) physicsMs = performance.now() - beforePhysics;
       for (const { side, air } of airs) audio.swish(side, air(airAt), airAt);
     }
-    if (!paused) arena.fire.burn(seconds);
+    if (!paused && !context.busy) arena.fire.burn(seconds);
     frame(); readout(); audio.update();
     scene.render();
     measurement?.record({ frame: performance.now() - began, interval: seconds * 1000, physics: physicsMs,
       simulated: world.time - clockBefore, time: world.time, hz: world.hz, active: !!duel && !paused && !duel.verdict });
   });
-  window.addEventListener("resize", () => engine.resize());
-  window.addEventListener("pagehide", () => { end(); measurement?.dispose(); audio.dispose(); engine.stopRenderLoop(); world.dispose(); highlights.dispose(); scene.dispose(); engine.dispose(); });
+  window.addEventListener("resize", () => engine.resize(), { signal: context.signal });
+  context.own(() => measurement?.dispose());
   Object.assign(window, { __arena: { get duel() { return duel; }, world, scene, engine } });
 
   await Promise.all(previewLoads);
+  context.signal.throwIfAborted();
+  frame();
+  await warmScene(scene, context.signal);
   need("boot-note").textContent = "";
   beginButton.disabled = false;
   // A link that names its matchup opens the bout directly.
-  if (new URLSearchParams(location.search).has(MATCHUP_PARAM)) await begin(matchup);
+  if (context.autostart && new URLSearchParams(location.search).has(MATCHUP_PARAM)) await begin(matchup);
+  context.own(() => {
+    if ((window as unknown as { __arena?: { engine: Engine } }).__arena?.engine === engine) Reflect.deleteProperty(window, "__arena");
+  });
 }

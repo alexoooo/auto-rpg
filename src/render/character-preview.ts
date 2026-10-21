@@ -1,3 +1,4 @@
+import { warmScene } from "./ready.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
@@ -35,6 +36,7 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
     setCharacter(index: number, character: CharacterConfig, appearance?: Appearance): Promise<void>;
     setAppearance(index: number, appearance: Appearance): Promise<void>;
   }> {
+  signal.throwIfAborted();
   const engine = new Engine(canvas, true, { alpha: true, preserveDrawingBuffer: true });
   engine.setHardwareScalingLevel(1 / Math.min(devicePixelRatio, 1.5));
   const scene = new Scene(engine), world = createWorld(scene, physics, { gravity: false });
@@ -81,7 +83,7 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
     await skins[index].replace(dresserFor(model, scene, { appearance: appearanceFor(model, appearance) }),
       { clothing: { boots: true, armour: true } });
     if (signal.aborted || revision !== revisions[index]) return;
-    await scene.whenReadyAsync();
+    try { await warmScene(scene, signal); } catch (error) { if (signal.aborted) return; throw error; }
     if (!signal.aborted && revision === revisions[index]) draw();
   };
   const characterKeys: string[] = [], framing: number[] = [];
@@ -118,7 +120,9 @@ export async function showHeroLineup(canvas: HTMLCanvasElement, physics: Physics
     });
     scene.activeCameras = cameras;
     await Promise.all(models.map((model, index) => setModel(index, model, appearances[index])));
+    signal.throwIfAborted();
     ready = true;
+    await warmScene(scene, signal);
     draw();
     return { setModel, setCharacter, setAppearance };
   } catch (error) {

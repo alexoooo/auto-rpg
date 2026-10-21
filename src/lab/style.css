@@ -1,87 +1,87 @@
 /* The lab (`?play=lab`): the scenario menu (#lab-select) and a scenario running (#hud over the
    canvas). src/app.ts loads this sheet only on the lab's screen. */
-:root { --bg: #15191c; --panel: rgba(21, 25, 28, 0.86); --ink: #e7e3da; --dim: #9aa3a6; --accent: #d9a45b; --line: #2c3337; }
-html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; overflow: hidden; }
-canvas { width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
-[hidden] { display: none !important; }
-kbd { border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; font: 11px ui-monospace, monospace; }
+:where(#screen-root[data-screen="lab"]) { --bg: #111012; --panel: var(--ui-panel); --ink: var(--ui-ink); --dim: var(--ui-dim); --accent: var(--ui-brass); --line: var(--ui-edge); }
+:where(#screen-root[data-screen="lab"]) { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; overflow: hidden; }
+:where(#screen-root[data-screen="lab"]) canvas { width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+:where(#screen-root[data-screen="lab"]) [hidden] { display: none !important; }
+:where(#screen-root[data-screen="lab"]) kbd { border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; font: 11px ui-monospace, monospace; }
 
 /* The scenario menu. */
-#lab-select { position: fixed; inset: 0; display: grid; place-content: center; gap: 14px; width: min(460px, calc(100vw - 32px));
+:where(#screen-root[data-screen="lab"]) #lab-select { position: fixed; inset: 0; display: grid; place-content: center; gap: 14px; width: min(460px, calc(100vw - 32px));
   margin: 0 auto; }
-#lab-select h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: 0.08em; }
-#lab-scenarios { display: grid; gap: 8px; }
-#lab-scenarios a { display: grid; gap: 2px; padding: 12px 14px; color: var(--ink); text-decoration: none;
+:where(#screen-root[data-screen="lab"]) #lab-select h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: 0.08em; }
+:where(#screen-root[data-screen="lab"]) #lab-scenarios { display: grid; gap: 8px; }
+:where(#screen-root[data-screen="lab"]) #lab-scenarios a { display: grid; gap: 2px; padding: 12px 14px; color: var(--ink); text-decoration: none;
   border: 1px solid var(--line); border-radius: 6px; }
-#lab-scenarios a:hover, #lab-scenarios a:focus-visible { border-color: var(--accent); outline: none; }
-#lab-scenarios a:hover strong, #lab-scenarios a:focus-visible strong { color: var(--accent); }
-#lab-scenarios strong { font-size: 16px; }
-#lab-select > a, #to-scenarios { color: var(--dim); font-size: 12px; }
+:where(#screen-root[data-screen="lab"]) #lab-scenarios a:hover, :where(#screen-root[data-screen="lab"]) #lab-scenarios a:focus-visible { border-color: var(--accent); outline: none; }
+:where(#screen-root[data-screen="lab"]) #lab-scenarios a:hover strong, :where(#screen-root[data-screen="lab"]) #lab-scenarios a:focus-visible strong { color: var(--accent); }
+:where(#screen-root[data-screen="lab"]) #lab-scenarios strong { font-size: 16px; }
+:where(#screen-root[data-screen="lab"]) #lab-select > a, :where(#screen-root[data-screen="lab"]) #to-scenarios { color: var(--dim); font-size: 12px; }
 
 /* A scenario running: the setup and the character down the left, the readout and the thinking down
    the right, over the transport. Each section is as tall as what it holds and scrolls on its own
    past its share of the column: an open section with another open below it takes at most half,
    and the lowest open one what is left. Only a section or the transport takes the pointer;
    between them it is the canvas's. */
-#hud { --column: 300px; position: absolute; inset: 12px; font-size: 13px; display: flex; flex-direction: column; gap: 12px; pointer-events: none; }
-#sections { flex: 1; min-height: 0; display: flex; justify-content: space-between; gap: 12px; }
-.column { width: var(--column); min-height: 0; display: flex; flex-direction: column; gap: 10px; }
-.column.readings { --column: 270px; }
-.section, #transport { pointer-events: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
-.section { flex: none; box-sizing: border-box; width: 100%; min-height: 0; padding: 0 12px 8px; overflow-y: auto;
+:where(#screen-root[data-screen="lab"]) #hud { --column: 300px; position: absolute; inset: 12px; font-size: 13px; display: flex; flex-direction: column; gap: 12px; pointer-events: none; }
+:where(#screen-root[data-screen="lab"]) #sections { flex: 1; min-height: 0; display: flex; justify-content: space-between; gap: 12px; }
+:where(#screen-root[data-screen="lab"]) .column { width: var(--column); min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+:where(#screen-root[data-screen="lab"]) .column.readings { --column: 270px; }
+:where(#screen-root[data-screen="lab"]) .section, :where(#screen-root[data-screen="lab"]) #transport { pointer-events: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+:where(#screen-root[data-screen="lab"]) .section { flex: none; box-sizing: border-box; width: 100%; min-height: 0; padding: 0 12px 8px; overflow-y: auto;
   scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
-.section[open] { flex-shrink: 1; }
-.section[open]:has(~ .section[open]) { flex-shrink: 0; max-height: 50%; }
-summary { cursor: pointer; font-weight: 600; letter-spacing: 0.04em; outline-offset: 4px; }
+:where(#screen-root[data-screen="lab"]) .section[open] { flex-shrink: 1; }
+:where(#screen-root[data-screen="lab"]) .section[open]:has(~ .section[open]) { flex-shrink: 0; max-height: 50%; }
+:where(#screen-root[data-screen="lab"]) summary { cursor: pointer; font-weight: 600; letter-spacing: 0.04em; outline-offset: 4px; }
 /* A section's name stays at its top while what it holds scrolls under it. */
-.section > summary { position: sticky; top: 0; z-index: 1; padding-top: 8px; padding-bottom: 2px; background: var(--panel); }
-details[open] > summary { margin-bottom: 8px; }
-#to-scenarios { float: right; font-weight: normal; letter-spacing: 0; }
-#hud button, #hud select { background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
+:where(#screen-root[data-screen="lab"]) .section > summary { position: sticky; top: 0; z-index: 1; padding-top: 8px; padding-bottom: 2px; background: var(--panel); }
+:where(#screen-root[data-screen="lab"]) details[open] > summary { margin-bottom: 8px; }
+:where(#screen-root[data-screen="lab"]) #to-scenarios { float: right; font-weight: normal; letter-spacing: 0; }
+:where(#screen-root[data-screen="lab"]) #hud button, :where(#screen-root[data-screen="lab"]) #hud select { background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
   padding: 4px 8px; cursor: pointer; font: inherit; }
-#hud select { width: 100%; min-width: 0; background: var(--bg); }
-#hud button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
-#hud button:disabled { color: var(--dim); cursor: default; }
-.section > button { width: 100%; margin-bottom: 6px; }
+:where(#screen-root[data-screen="lab"]) #hud select { width: 100%; min-width: 0; background: var(--bg); }
+:where(#screen-root[data-screen="lab"]) #hud button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+:where(#screen-root[data-screen="lab"]) #hud button:disabled { color: var(--dim); cursor: default; }
+:where(#screen-root[data-screen="lab"]) .section > button { width: 100%; margin-bottom: 6px; }
 /* A field: its name, then what sets it, on one line. */
-.field { display: grid; grid-template-columns: 5.5em minmax(0, 1fr); gap: 0 8px; align-items: center; margin-bottom: 6px; }
-.label { color: var(--ink); opacity: 0.8; margin: 0; }
-.options { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.options button { flex: 1; }
-.options output { flex: 1; text-align: center; }
-.options input[type="range"] { flex: 3; min-width: 0; accent-color: var(--accent); }
-.options input[type="range"] + output { flex: 2; min-width: 0; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.group + .group, .under-way:not(:empty) { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
-.group h2 { color: var(--accent); font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 6px; }
-.fold > summary { font-weight: normal; color: var(--dim); }
-.fold[open] > summary { color: var(--ink); }
-dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0 0 6px; }
-dt { color: var(--dim); } dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-bottom: 8px; }
-th, td { text-align: left; padding: 2px 0; border-bottom: 1px solid var(--line); } th { color: var(--dim); font-weight: normal; }
-td:last-child, th:last-child { text-align: right; }
+:where(#screen-root[data-screen="lab"]) .field { display: grid; grid-template-columns: 5.5em minmax(0, 1fr); gap: 0 8px; align-items: center; margin-bottom: 6px; }
+:where(#screen-root[data-screen="lab"]) .label { color: var(--ink); opacity: 0.8; margin: 0; }
+:where(#screen-root[data-screen="lab"]) .options { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+:where(#screen-root[data-screen="lab"]) .options button { flex: 1; }
+:where(#screen-root[data-screen="lab"]) .options output { flex: 1; text-align: center; }
+:where(#screen-root[data-screen="lab"]) .options input[type="range"] { flex: 3; min-width: 0; accent-color: var(--accent); }
+:where(#screen-root[data-screen="lab"]) .options input[type="range"] + output { flex: 2; min-width: 0; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+:where(#screen-root[data-screen="lab"]) .group + .group, :where(#screen-root[data-screen="lab"]) .under-way:not(:empty) { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
+:where(#screen-root[data-screen="lab"]) .group h2 { color: var(--accent); font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 6px; }
+:where(#screen-root[data-screen="lab"]) .fold > summary { font-weight: normal; color: var(--dim); }
+:where(#screen-root[data-screen="lab"]) .fold[open] > summary { color: var(--ink); }
+:where(#screen-root[data-screen="lab"]) dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0 0 6px; }
+:where(#screen-root[data-screen="lab"]) dt { color: var(--dim); } :where(#screen-root[data-screen="lab"]) dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+:where(#screen-root[data-screen="lab"]) table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-bottom: 8px; }
+:where(#screen-root[data-screen="lab"]) th, :where(#screen-root[data-screen="lab"]) td { text-align: left; padding: 2px 0; border-bottom: 1px solid var(--line); } :where(#screen-root[data-screen="lab"]) th { color: var(--dim); font-weight: normal; }
+:where(#screen-root[data-screen="lab"]) td:last-child, :where(#screen-root[data-screen="lab"]) th:last-child { text-align: right; }
 /* A log: when, then what. */
-.log { margin-bottom: 0; }
-.log td:first-child { color: var(--dim); width: 4.5em; }
-.log td:last-child { text-align: left; }
-.note { color: var(--dim); font-size: 12px; margin: 6px 0 0; }
-.keys { color: var(--ink); font-size: 12px; margin: 0 0 8px; }
-.alert { color: #e0705a; }
-.swatch { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin: 0 4px 0 6px; }
-.swatch:first-child { margin-left: 0; }
+:where(#screen-root[data-screen="lab"]) .log { margin-bottom: 0; }
+:where(#screen-root[data-screen="lab"]) .log td:first-child { color: var(--dim); width: 4.5em; }
+:where(#screen-root[data-screen="lab"]) .log td:last-child { text-align: left; }
+:where(#screen-root[data-screen="lab"]) .note { color: var(--dim); font-size: 12px; margin: 6px 0 0; }
+:where(#screen-root[data-screen="lab"]) .keys { color: var(--ink); font-size: 12px; margin: 0 0 8px; }
+:where(#screen-root[data-screen="lab"]) .alert { color: #e0705a; }
+:where(#screen-root[data-screen="lab"]) .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin: 0 4px 0 6px; }
+:where(#screen-root[data-screen="lab"]) .swatch:first-child { margin-left: 0; }
 /* The transport: a bar, its controls named to a reader alone. */
-#transport { display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
-#transport .field { display: block; margin: 0; }
-#transport .label { display: none; }
-#transport .options { flex-wrap: nowrap; gap: 4px; }
-#transport button { flex: none; min-width: 36px; padding: 4px 10px; }
-#transport select { width: auto; }
-#timeline { flex: 1; min-width: 0; accent-color: var(--accent); }
-#clock { font-variant-numeric: tabular-nums; min-width: 64px; text-align: right; color: var(--dim); }
+:where(#screen-root[data-screen="lab"]) #transport { display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
+:where(#screen-root[data-screen="lab"]) #transport .field { display: block; margin: 0; }
+:where(#screen-root[data-screen="lab"]) #transport .label { display: none; }
+:where(#screen-root[data-screen="lab"]) #transport .options { flex-wrap: nowrap; gap: 4px; }
+:where(#screen-root[data-screen="lab"]) #transport button { flex: none; min-width: 36px; padding: 4px 10px; }
+:where(#screen-root[data-screen="lab"]) #transport select { width: auto; }
+:where(#screen-root[data-screen="lab"]) #timeline { flex: 1; min-width: 0; accent-color: var(--accent); }
+:where(#screen-root[data-screen="lab"]) #clock { font-variant-numeric: tabular-nums; min-width: 64px; text-align: right; color: var(--dim); }
 /* Narrow: the sections in one column that scrolls under the wheel, over the transport. */
 @media (max-width: 900px) {
-  #sections { flex-direction: column; align-items: stretch; width: min(var(--column), 100%); overflow-y: auto; scrollbar-width: none; }
-  .column { display: contents; }
-  .section, .section[open], .section[open]:has(~ .section[open]) { flex-shrink: 0; max-height: none; overflow-y: visible; }
-  #transport { flex-wrap: wrap; }
+  :where(#screen-root[data-screen="lab"]) #sections { flex-direction: column; align-items: stretch; width: min(var(--column), 100%); overflow-y: auto; scrollbar-width: none; }
+  :where(#screen-root[data-screen="lab"]) .column { display: contents; }
+  :where(#screen-root[data-screen="lab"]) .section, :where(#screen-root[data-screen="lab"]) .section[open], :where(#screen-root[data-screen="lab"]) .section[open]:has(~ .section[open]) { flex-shrink: 0; max-height: none; overflow-y: visible; }
+  :where(#screen-root[data-screen="lab"]) #transport { flex-wrap: wrap; }
 }

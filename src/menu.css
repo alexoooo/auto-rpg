@@ -1,5 +1,4 @@
-/* src/app.ts loads this sheet on every screen. Menu rules stay under #title-screen;
-   .app-error is the app's failure panel and shows over any screen. */
+/* The menu stays mounted only while its route is active. */
 #title-screen {
   position: fixed; inset: 0; overflow: auto; isolation: isolate;
   display: flex; align-items: center; box-sizing: border-box;
@@ -63,8 +62,9 @@
 @media (prefers-reduced-motion: reduce) {
   #title-screen button { transition: none; }
 }
-.app-error {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1000; padding: 18px 24px; text-align: center;
-  color: #f0d6c8; background: #2a1210ee; font: 14px Georgia, serif;
-}
-.app-error a { color: #d9bb80; }
+#menu-tools { margin-top: 6px; width: 100%; color: #bca584; }
+#menu-tools > summary { padding: 12px; cursor: pointer; font: 17px Georgia, serif; letter-spacing: .08em; text-align: center; }
+#menu-tools nav { margin-top: 10px; gap: 8px; width: 100%; }
+#title-screen #menu-tools nav button { padding: 12px; font-size: 17px; background: #211917dd; border-color: #8e705066; }
+#menu-tools a { display: block; padding: 8px 12px; color: #c9b597; font: 14px system-ui; text-decoration: none; }
+#menu-tools a:hover { color: #ffe5b6; }
