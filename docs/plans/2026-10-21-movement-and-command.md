@@ -99,8 +99,8 @@ change of behaviour shows the fingerprint unmoved.
 - A body that faces its walk is paced by its forward speed. `StanceEnvelope.walk`, the every-way
   figure, keeps only the readers that mean every way, or goes if none do.
 - A gait's stopping deceleration is its own setting, a controller constant tuned freely, checked by
-  the capability test's overshoot at a place goal. A gait that changes updates its own limits as
-  part of that change.
+  its overshoot at a place goal (Part A's measurement). A gait that changes updates its own limits
+  as part of that change.
 
 #### A1. One speed rule
 
@@ -141,12 +141,13 @@ through the same pipeline: it goes fast and brakes into its point.
 
 #### Checks for Part A
 
-- **The gate**: a floor test on the stand: the Warrior empty-handed and with the club, holding a
-  direct goal for 5 s, is at least 1 m/s over its last 2 s; a place order 8 m off ends standing
-  within its `near` plus 0.3 m. Both floors sit far below what the gait does.
-- **A capability test** (`tests/movement-capability.test.mjs`), for each character and
-  representative loadout: the share of the measured top speed a direct goal reaches, and how soon;
-  overshoot at a place goal; speed through the obstacle court's corners.
+- **Landing A1 to A4**, once on the stand (`tests/harness/core-stand.mjs`): the Warrior
+  empty-handed and with the club, holding a direct goal for 5 s, is at least 1 m/s over its last
+  2 s; a place order 8 m off ends standing within its `near` plus 0.3 m.
+- **The measurement**, a research script read before and after a step that moves it, and a Ratings
+  evaluation once Ratings has its format: for each character and representative loadout, the share
+  of the measured top speed a direct goal reaches, and how soon; overshoot at a place goal; speed
+  through the obstacle court's corners.
 - **The fingerprint** moves almost everywhere, and the commits say so. Nothing is rated again.
 - **Eye check**: holding W and clicking to go, in the Arena and the Crypt.
 
@@ -162,9 +163,8 @@ through the same pipeline: it goes fast and brakes into its point.
 | What it gives | for each member, orders or no change |
 | When it runs | in `World.step`'s sensing phase, before the Minds, every `rate` seconds and at once on an event (a member down, a foe first seen, a new command) |
 
-Check: `tests/core-boundary.test.mjs` extends to `command/`, and a fast contract test like
-`mind-contract` runs every registered Commander: it must run, fork, and replay from the orders it
-gave alone.
+Check: `tests/core-boundary.test.mjs` extends to `command/`; once, each registered Commander runs
+in a bout, forks, and replays from the orders it gave alone.
 
 #### B1. The Crypt's Commanders, no change of behaviour
 
@@ -224,7 +224,7 @@ well as keep clear.
   engines only once a Crypt run is (today only an Arena bout is); until then the Ratings screen
   neither opens nor confirms its cases.
 
-Check: the gate, with B0's contract test over both Commanders.
+Check: the gate, and B0's check (run, fork, replay from its orders alone) over both Commanders.
 
 ## Checks
 

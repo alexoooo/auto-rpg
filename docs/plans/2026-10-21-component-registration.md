@@ -47,8 +47,9 @@ component scope.
 
 ## Checks
 
-The normal gate, the fingerprint unmoved at each step, and a test that each role's registered
-implementations validate their stored configs through their own registration.
+The normal gate and the fingerprint unmoved at each step; landing a step, every stored config of
+the role (the presets, the entrants' data) is validated once through its implementation's own
+registration.
 
 ## Done when
 
