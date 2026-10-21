@@ -12,7 +12,7 @@ import { STRAIGHT_PUNCH } from "../src/core/skills/straight-punch.ts";
 import { COMBAT, withParts } from "./fixtures/minds.mjs";
 
 /** The game's own presets, in the order they are offered: an entrant's mind adds to them, after. */
-const GAME = ["options", "classic", "puncher", "counter", "scrapper", "behaviours", "crawl"];
+const GAME = ["options", "classic", "puncher", "counter", "scrapper", "behaviours", "duellist", "crawl"];
 
 test("every preset is its controller's kind, under an id no other controller uses", () => {
   const ids = [];

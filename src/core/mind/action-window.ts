@@ -19,19 +19,23 @@ export function withinActionWindow(view: BodyView, window: Window, heading: numb
     && hypot(view.stance.velocity.x, view.stance.velocity.z) <= window.speed;
 }
 
-/** Bring a pending target into its declared entry window without taking an action's controls. */
-export function approachActionWindow(view: BodyView, window: Window, heading: number, pace: number, radius: number): {
-  readonly move: readonly [number, number] | null; readonly face: number; readonly movement?: MovementRequest; readonly pace?: number;
+/**
+ * Bring a pending target into its declared entry window without taking an action's controls;
+ * while its place is more than `travel` m off, the body faces its way there (`travelFacing`) at
+ * `travelPace`, and turns to the target at `pace` within it.
+ */
+export function approachActionWindow(view: BodyView, window: Window, heading: number, pace: number, radius: number, travel = Infinity, travelPace = pace): {
+  readonly move: readonly [number, number] | null; readonly face: number; readonly movement?: MovementRequest; readonly pace?: number; readonly travelFacing?: true;
 } {
   const dx = window.at[0] - view.stance.centre.x, dz = window.at[2] - view.stance.centre.z;
   const along = (window.along[0] + window.along[1]) / 2, across = (window.across[0] + window.across[1]) / 2;
   const face = atan2(dx, dz) - atan2(across, along);
   if (withinActionWindow(view, window, heading)) return { move: null, face };
   const x = dx - along * sin(face) - across * cos(face), z = dz - along * cos(face) + across * sin(face);
-  const distance = hypot(x, z), speed = Math.min(Math.max(0, pace), distance / RESPONSE);
+  const distance = hypot(x, z), speed = Math.min(Math.max(0, distance > travel ? travelPace : pace), distance / RESPONSE);
   if (distance === 0) return { move: null, face };
   const move: readonly [number, number] | null = distance > 0
     ? [(x * sin(heading) + z * cos(heading)) * speed / distance, (x * cos(heading) - z * sin(heading)) * speed / distance] : null;
   return { move: clearMove(view.stance.centre, view.senses.solids, heading, move, radius, AHEAD), face,
-    movement: placeMovement({ x: view.stance.centre.x + x, z: view.stance.centre.z + z }, .04), pace: speed };
+    movement: placeMovement({ x: view.stance.centre.x + x, z: view.stance.centre.z + z }, .04), pace: speed, ...(distance > travel ? { travelFacing: true as const } : {}) };
 }

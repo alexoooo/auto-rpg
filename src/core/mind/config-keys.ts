@@ -28,7 +28,7 @@ export const CONFIG_KEYS = deepFreeze({
   "clear-of-walls": { kind: true },
   "clear-of-fallen": { kind: true },
   "evade": { kind: true },
-  "approach": { kind: true, spacing: true, spacingStep: true },
+  "approach": { kind: true, spacing: true, spacingStep: true, travel: true },
   "break-clinch": { kind: true, metres: true },
   "edge": { kind: true, band: true, patience: true },
   "ground": { kind: true },

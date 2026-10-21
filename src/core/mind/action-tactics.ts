@@ -2,6 +2,7 @@ import type { BodyView } from "../body.ts";
 import { atan2, cos, hypot, sin } from "../math/real.ts";
 import type { ActionAround, ActionRequest, Readiness, Region, TargetRef } from "../skills/action.ts";
 import { cleanMiss, landed } from "../skills/action-instances.ts";
+import { paceToward } from "../control/stance-envelope.ts";
 import { STANCE_LOWER } from "../skills/locomotion.ts";
 import { rangeOf } from "../skills/strike.ts";
 import type { BodySpec } from "../spec/body.ts";
@@ -14,12 +15,12 @@ import { conditionMatches } from "./conditions.ts";
 import { coveringHand } from "./cover-hand.ts";
 import type { Cover, Intent } from "./intent.ts";
 import type { Orders } from "./orders.ts";
-import { orderedFacing, orderedIntent } from "./ordered.ts";
+import { orderedFacing, orderedIntent, RUN } from "./ordered.ts";
 import { bodyClearance, lowOpponent } from "./sensed-bounds.ts";
 import { groundPosition } from "./ground-position.ts";
 import type { BodySense } from "./senses.ts";
 import type { Sight, Tactics } from "./tactics.ts";
-import { PREDICTION, THREAT, threatReader } from "./threat.ts";
+import { PREDICTION, THREAT, threatReader, WARD } from "./threat.ts";
 
 /** An action's own registration supplies measured estimates without exposing its executor kind. */
 interface ActionEstimate {
@@ -223,7 +224,8 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
       } break;
       case "approach": if (!legs && pending?.readiness.kind === "position") {
         const window = pending.readiness.window, spacing = state.spacing[i]!;
-        legs = approachActionWindow(sight.view, { ...window, along: [window.along[0] + spacing, window.along[1] + spacing] }, sight.report.heading, pace, radius);
+        const travelPace = behaviour.travel === undefined || !sight.envelope ? pace : Math.min(paceToward(sight.envelope, 1, 0, RUN.share), orders?.pace ?? Infinity);
+        legs = approachActionWindow(sight.view, { ...window, along: [window.along[0] + spacing, window.along[1] + spacing] }, sight.report.heading, pace, radius, behaviour.travel, travelPace);
         state.phase = "approach";
       } break;
       case "cover": {
@@ -232,6 +234,8 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
           case "pose": cover = null; break;
           case "cover": cover = threat.threatOf(sight.view, THREAT); break;
           case "predictive": cover = threat.threatOf(sight.view, THREAT, PREDICTION); break;
+          case "body": cover = threat.threatOf(sight.view, THREAT, PREDICTION, true); break;
+          case "ward": cover = threat.threatOf(sight.view, WARD, PREDICTION, true, true); break;
           default: { const never: never = behaviour.guard; throw new Error(`unknown cover ${never}`); }
         }
         const shield = spec.held?.some(({ item }) => item.coverNormal !== undefined);

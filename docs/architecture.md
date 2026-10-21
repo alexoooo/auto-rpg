@@ -859,7 +859,12 @@ editor exposes these lists and preserves valid links without experiment tuning.
 
 Classic uses recipe actions, Puncher uses straight punches and edge spacing, Counter-puncher holds
 the edge for the whole bout and drives from further out so that a foe walking in meets its punch,
-Scrapper uses path actions with low support, and Behaviours rotates its actions. Preset edits are named Custom in the
+Scrapper uses path actions with low support, and Behaviours rotates its actions. The Duellist
+(`DUELLIST`) is Behaviours' parts for a weapon in one hand and a cover in the other: it rotates the
+recipe strike at the head and the trunk with the blade's thrust, approaches facing its way at its
+run's pace while its window is far (`approach`'s `travel`), and wards (`cover`'s `ward`: the foe's
+nearest striking point, however slowly it closes, against the nearest point of the body's axis,
+so the buckler stands in the weapon's line before a blow begins). Preset edits are named Custom in the
 Arena. Script tactics accept explicit research requests through the same admission protocol.
 
 **The options fighter** is a meta-controller over options (`metaController`,

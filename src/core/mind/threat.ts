@@ -18,6 +18,13 @@ import { placedReach } from "../skills/strike.ts";
  */
 export const THREAT: Threat = Object.freeze({ within: 1.5, closing: 2 });
 
+/**
+ * **What a ward covers** (`threatOf` with `hold`): a foe's striking point within `within` m of the
+ * body however slowly it closes, so the cover stands between the foe's weapon and the body before
+ * any blow begins: 2 m, an arm and a short blade with a step to spare.
+ */
+export const WARD: Threat = Object.freeze({ within: 2, closing: -Infinity });
+
 /** A blow predicted to land (`threatOf`): a threat's striking point crossing the plane `out` m ahead of the head within `horizon` s. */
 export const PREDICTION = Object.freeze({ out: .2, horizon: .4 });
 
@@ -51,7 +58,8 @@ interface ThreatWork { readonly point: Vector3; readonly velocity: Vector3; read
 export function threatReader() {
   const work: ThreatWork = { point: new Vector3(), velocity: new Vector3(), lever: new Vector3() };
   return {
-    threatOf: (view: BodyView, counts?: Threat, prediction?: { readonly out: number; readonly horizon: number }) => threatOf(view, work, counts, prediction)?.cover ?? null,
+    threatOf: (view: BodyView, counts?: Threat, prediction?: { readonly out: number; readonly horizon: number }, body = false, hold = false) =>
+      threatOf(view, work, counts, prediction, body, hold)?.cover ?? null,
     /** The threat (`threatOf`), with the speed its striking point closes on the head at, m/s, and whose hand it is. */
     blowOf: (view: BodyView, counts?: Threat, prediction?: { readonly out: number; readonly horizon: number }) => threatOf(view, work, counts, prediction),
     incomingThreat: (view: BodyView, ownVelocity: Vec3, counts?: Threat) => incomingThreat(view, ownVelocity, work, counts),
@@ -66,12 +74,15 @@ export function threatReader() {
  * speed is the point's own toward the head as the head stands. What is sensed is as old as the
  * senses' delay, and nothing here corrects for it. With `prediction`, a constant-velocity
  * crossing of the plane ahead of the head replaces the current point; a threat already inside
- * the plane is covered immediately. No crossing in the horizon means no candidate.
+ * the plane is covered immediately. No crossing in the horizon means no candidate. With `body`, what
+ * is guarded against each point is not the head but the point of the body's axis, from its centre
+ * of mass to its head, nearest it, so a blow at the trunk or an arm is read as one at the head is.
+ * With `hold`, a point the prediction finds no crossing for is covered where it is.
  */
 function threatOf(view: BodyView, { point, velocity, lever }: ThreatWork, counts: Threat = THREAT,
-  prediction?: { readonly out: number; readonly horizon: number }): { cover: Cover; closing: number; foe: BodySense; hand: Side } | null {
+  prediction?: { readonly out: number; readonly horizon: number }, body = false, hold = false): { cover: Cover; closing: number; foe: BodySense; hand: Side } | null {
   const { senses, head } = view;
-  let threat: Vec3 | null = null, fastest = counts.closing, by: { foe: BodySense; hand: Side } | null = null;
+  let threat: Vec3 | null = null, guarded: Vec3 | null = null, fastest = counts.closing, by: { foe: BodySense; hand: Side } | null = null;
   for (const other of senses.others) {
     if (other.side === senses.side || other.out) continue;
     let striking = STRIKING.get(other.spec);
@@ -83,7 +94,8 @@ function threatOf(view: BodyView, { point, velocity, lever }: ThreatWork, counts
       // The point moves with the hand's centre of mass, and with its spin about that centre.
       point.subtractToRef(sensed.centre, lever);
       Vector3.CrossToRef(sensed.spin, lever, velocity).addInPlace(sensed.velocity);
-      const dx = point.x - head.x, dy = point.y - head.y, dz = point.z - head.z, far = hypot(dx, dy, dz);
+      const at = body ? axisPoint(view.stance.centre, head, point) : [head.x, head.y, head.z] as const;
+      const dx = point.x - at[0], dy = point.y - at[1], dz = point.z - at[2], far = hypot(dx, dy, dz);
       if (far > counts.within || far === 0) continue;
       const closing = -(dx * velocity.x + dy * velocity.y + dz * velocity.z) / far;
       if (closing <= fastest) continue;
@@ -91,15 +103,22 @@ function threatOf(view: BodyView, { point, velocity, lever }: ThreatWork, counts
       if (prediction && far > prediction.out) {
         const normal: Vec3 = [dx / far, dy / far, dz / far];
         const crossing = predictIntercept({ time: senses.time, position: candidate, velocity: [velocity.x, velocity.y, velocity.z] },
-          [0, 0, 0], { normal, point: [head.x + normal[0] * prediction.out, head.y + normal[1] * prediction.out,
-            head.z + normal[2] * prediction.out] }, senses.time, prediction.horizon);
-        if (!crossing) continue;
-        candidate = crossing.position;
+          [0, 0, 0], { normal, point: [at[0] + normal[0] * prediction.out, at[1] + normal[1] * prediction.out,
+            at[2] + normal[2] * prediction.out] }, senses.time, prediction.horizon);
+        if (crossing) candidate = crossing.position;
+        else if (!hold) continue;
       }
-      fastest = closing; threat = candidate; by = { foe: other, hand };
+      fastest = closing; threat = candidate; guarded = [at[0], at[1], at[2]]; by = { foe: other, hand };
     }
   }
-  return threat && by && { cover: { threat, guarded: [head.x, head.y, head.z] }, closing: fastest, ...by };
+  return threat && guarded && by && { cover: { threat, guarded }, closing: fastest, ...by };
+}
+
+/** The point of the segment from `from` to `to` nearest `point`. */
+function axisPoint(from: { readonly x: number; readonly y: number; readonly z: number }, to: { readonly x: number; readonly y: number; readonly z: number }, point: Vector3): readonly [number, number, number] {
+  const ax = to.x - from.x, ay = to.y - from.y, az = to.z - from.z, length = ax * ax + ay * ay + az * az;
+  const t = length === 0 ? 0 : Math.min(1, Math.max(0, ((point.x - from.x) * ax + (point.y - from.y) * ay + (point.z - from.z) * az) / length));
+  return [from.x + t * ax, from.y + t * ay, from.z + t * az];
 }
 
 /** Predictive defense search cells, the reference cover's plane among them: `docs/reference/combat-defense.md#settings`. */
