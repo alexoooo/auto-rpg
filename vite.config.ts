@@ -20,9 +20,11 @@ export default defineConfig({
   // 5181 and leave the old server's stale build on the address you are reading.
   server: {
     port: 5180, strictPort: true,
-    // Research runs and review archives are not browser source. Watching them costs needless
-    // invalidations, and on Windows an archive being extracted can fail the watcher with EBUSY.
-    watch: { ignored: ["**/research/runs/**", "**/.review/**"] },
+    // Research runs, review archives and local tool and scratch folders are not browser source.
+    // Watching them costs needless invalidations; on Windows an archive being extracted can fail the
+    // watcher with EBUSY, and crawling `.tools` (toolchains, tens of thousands of files) starves the
+    // server for minutes at startup. The watcher does not read `.gitignore`.
+    watch: { ignored: ["**/research/runs/**", "**/.review/**", "**/.tools/**", "**/.scratch/**"] },
     // Transform the browser entry graphs at server startup, before navigation
     // has to discover and wait on each level of their imports.
     warmup: { clientFiles: ["./src/app.ts", "./src/arena/main.ts", "./src/dungeon/main.ts", "./src/lab/main.ts"] },
