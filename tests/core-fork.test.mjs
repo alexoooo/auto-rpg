@@ -389,7 +389,7 @@ const NEEDED = {
   rising: ["body > mind > subs"],
   ordered: ["heading", "pace"].map((field) => `skills > legs > ${field}`),
   taken: ["width", "squaring", "rising"].map((field) => `skills > legs > ${field}`),
-  striker: ["skills > actions", "skills > tactics", "skills > legs > placing"],
+  striker: ["skills > actions", "skills > tactics", "skills > legs > placing", "skills > walkable"],
   placed: ["skills > legs > placed"],
   runner: [...["on", "left", "from"].map((field) => `${STANCE} > flight > ${field}`), "body > muscles > stretch"],
   launched: [`${STANCE} > step > launch`],
