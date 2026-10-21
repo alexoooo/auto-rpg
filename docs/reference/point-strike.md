@@ -64,5 +64,5 @@ the gate proves contact and return, not equal effectiveness. Misses score no con
 
 ```powershell
 node research/control-foundation.mjs --suite point-strike --actuation directional --samples 2 --workers 1 --out research/runs/control-foundation/point-strike
-node --test tests/core-point-strike.test.mjs tests/core-motion.test.mjs
+node --test tests/core-point-strike.test.mjs tests/core-motion.test.mjs   # both @2a1b29ac
 ```

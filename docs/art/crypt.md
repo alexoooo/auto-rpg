@@ -13,9 +13,7 @@ The crypt (`?play=dungeon`, `src/dungeon/`) offers three dungeons, each with its
 The art carries no authority. Collision is the map's: `buildDungeonWorld` (`src/dungeon/world.ts`)
 turns the map's walls, doors and obstacles into fixed boxes in the world and lists them as
 `solids`. Nothing the look adds may add one: after the look is built, `src/dungeon/main.ts`
-compares the count of `solids` and throws if it changed, and the tests build the same colliders
-with visuals on and off (`tests/dungeon-dressing.test.mjs`, `tests/crypt-dungeon.test.mjs`,
-`tests/dungeon-reference.test.mjs`).
+compares the count of `solids` and throws if it changed.
 
 - A wall's art stands inside the rock cells it dresses. A wall-mounted piece (a sconce, roots)
   stands at most 0.08 m proud of its rock face (`SCONCE.proud`, `WALL_ALLOWANCE`).
@@ -93,13 +91,6 @@ transforms and Babylon's clockwise face winding when replacing the export. Two r
 - **World-space projection.** Planar UVs are chosen by each face's world-space normal, so rotated
   arch stones do not collapse to stripes.
 
-`tests/dungeon-reference.test.mjs` checks the exported file itself: grey vertex colours, the maps'
-hashes and the triangle budget; real recess depth in the blind arches and clearance through the
-working portal; UV area on rotated stones; the door's visual meshes; the tomb inside its gameplay
-box and the flagstone crowns within 5 mm of the floor; routes around the tomb, sight over it and
-the exit door; the tomb's box blocking a line below its lid and not above, with and without
-visuals; and the moss patches' normals.
-
 ## Random Crypt
 
 Four chambers on a two-by-two grid, joined by three corridors with a working door at each end.
@@ -148,13 +139,6 @@ blender --background --python scripts/dungeon/build-kit.py
 taken from `chamber.blend`'s sarcophagus. It reuses the chamber's stone maps and does not rewrite
 any of the chamber's files.
 
-`tests/crypt-kit.test.mjs` checks the kit (baked origins, normals, colours, each furnishing and
-paving module inside its footprint and each wall piece inside its wall cells) and the triangles a
-generated crypt places; `tests/crypt-dungeon.test.mjs` generates 100 seeds and checks rooms,
-doors, spawns, torches, obstacles and every arrangement, and that doors open and the look adds no
-collider; `tests/crypt-detail.test.mjs` checks paving coverage, sight through racks and columns,
-scenery memory, the hover layer and the fog's edge.
-
 ### Triangles
 
 The pieces a generated crypt places, summed from `assets/crypt-kit/manifest.json` before the
@@ -165,8 +149,7 @@ merge by material, over seeds 0 to 99 (`generateCryptDungeon`, Node):
 | Most | 415,986 | 30 |
 | Least | 337,140 | |
 
-`TRIANGLE_BUDGET` (`tests/crypt-kit.test.mjs`) is 420,000: the most measured, rounded up, not a
-chosen budget. A budget waits on the frame rate measured on a range of hardware
+No triangle budget is set: one waits on the frame rate measured on a range of hardware
 ([roadmap](../roadmap.md)).
 
 ## Textures

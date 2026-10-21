@@ -20,7 +20,7 @@ committed; there is no download step.
 ```powershell
 npm ci        # the exact lockfile
 npm run dev   # http://localhost:5180
-npm test      # the fast tests
+npm test      # the gate: step cost, the core's boundary, the mind contract, no strays
 npm run build # type-check, then the production bundle
 ```
 
@@ -120,7 +120,7 @@ finishing a fight decisively, and AI above a single fighter. See [the roadmap](d
 | `src/arena/`, `src/dungeon/`, `src/lab/` | the Arena, the Crypt and the Lab |
 | `src/render/`, `src/audio/`, `src/ui/` | drawing, sound and panels the screens share |
 | `src/app.ts`, `index.html` | the main menu and routing |
-| `tests/` | `node --test` suites |
+| `tests/` | the gate's few contract tests (`node --test`) |
 | `research/` | measurement scripts ([README](research/README.md)) |
 | `assets/`, `public/assets/` | data the core reads and Blender sources; what the pages load |
 | `scripts/` | asset builders and match scripts |

@@ -244,32 +244,24 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   [bites](reference/reptile-bites.md)): richer surface response, broader recovery, combat against
   the humans, injury wins across more opponents.
 - **Another engine** (Box3D, Jolt or another): a bench adapter in `src/physics-bench/engines/`
-  first, then `src/core/engine/<name>.ts` and `CORE_ENGINE=<name> npm run test:all`.
+  first, then `src/core/engine/<name>.ts` and `CORE_ENGINE=<name> npm test`.
 
-### Tests
+### Findings
 
-- **What the measurements find short** (`npm run test:experimental`): the bare fist's striking
+- **What the measurements find short:** the bare fist's striking
   surface is about 9 cm short of the capsule its recipes were tuned on; the open hand bears on its
   palm's hull where the rise, the bar, the posture hold and the support entry were tuned on the
   capsule; the run's legs cost the rise; `docs/reference/native-posture-control.json` names an
   anatomy the body no longer has.
-- **Defects a contract shows, `todo` with their cause:** a held body's fixed segment turns by
-  about 7.5e-9 a step (`crypt-core`); a felled Warrior's club arm under `lie` never comes to rest
-  (`research-rise`); a club at 10 m/s under the dummy's ball ends a step inside it unread
-  (`lab-targets-capability`).
+- **Defects found, cause unknown:** a held body's fixed segment turns by about 7.5e-9 a step (the
+  Crypt); a felled Warrior's club arm under `lie` never comes to rest; a club at 10 m/s under the
+  lab dummy's ball ends a step inside it unread.
 - **Found and not yet looked into:** `gapTo` (`src/core/engine/rapier.ts`) counts disabled
   colliders; `research/ground-combat.mjs` reads a foe as rising only by the support recovery's
   name.
-- **To fold into one table:** `simbicon` and `walk-run`; the stand, walk and stop of
-  `lab-stance`, `core-stance` and `lab-loadout`; `arena-gameplay-physics`' cycles and
-  `arena-control-cycle`'s; `treeFaults(PRESETS)` in `core-controllers` and `core-parts`;
-  `punch-foundation`, `punch-stability` and `research-punch-calibration`.
-- **Pinned to implementation detail:** the phase strings in `core-environment` and `lab-ground`,
-  the vendored revision in `punch-mass-audit`, `dungeon-dressing`'s collider hashes.
-- **Research code read only by its test** retires with its experiment: the stand-up
+- **Research code no game path reads** retires with its experiment: the stand-up
   qualification, detached-dynamics, tracking-policy, contact-model, foot-design and beam scripts,
-  `punch-stability.mjs`, `reptile-motion.mjs`; `predictPointContacts` has no game reader;
-  `research-posture`'s toe cases test a toe joint the body does not have.
+  `punch-stability.mjs`, `reptile-motion.mjs`; `predictPointContacts` has no game reader.
 - **Records no script reads again**, measured afresh when their subject changes:
   [servo and muscle](reference/servo-and-muscle.md), [body and engine](reference/body-and-engine.md),
   [stance tuning](reference/stance-tuning.md#wrench-lever).

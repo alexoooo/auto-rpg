@@ -1,19 +1,18 @@
 # Sword and buckler capability readings
 
-What a body with a short sword in its right hand and a buckler in its left does, read by the
-tasks of `research/blade-task.mjs`, `research/buckler-task.mjs`, `research/rising-bed.mjs` and
-`research/court-task.mjs`, each with a capability test in `tests/experimental.json` and a floor in
-the gate. Harness: Node, core world, Rapier, 120 Hz, Balance 0 on every side. Readings 1, 2 and 4
-are at `754999fc`; reading 3 at `69afa0e8`, whose rise no later commit moves (the fingerprint moves
-no pose).
+What a body with a short sword in its right hand and a buckler in its left does, read by the tasks
+of `research/blade-task.mjs`, `research/buckler-task.mjs`, `research/rising-bed.mjs` and
+`research/court-task.mjs`. Harness: Node, core world, Rapier, 120 Hz, Balance 0 on every side.
+Readings 1, 2 and 4 are at `754999fc`; reading 3 at `69afa0e8`, whose rise no later commit moves
+(the fingerprint moves no pose).
 
 ## 1. A cut that wounds
 
-`node --test tests/blade-capability.test.mjs`: the sword hand's recipe strike (the repertoire's
-short-sword recipes, `assets/core/strikes.json`) at a standing Warrior with empty hands, 12 s
-from 1.4 m. Bar: the median swing's edge on the trunk or head carries a third of the Warrior's
-head at the rulebook's price of an edge, 2.59 J; the striker stays up; every swing returns within
-1 s.
+`node --test tests/blade-capability.test.mjs@754999fc`: the sword hand's recipe strike (the
+repertoire's short-sword recipes, `assets/core/strikes.json`) at a standing Warrior with empty
+hands, 12 s from 1.4 m. Bar: the median swing's edge on the trunk or head carries a third of the
+Warrior's head at the rulebook's price of an edge, 2.59 J; the striker stays up; every swing returns
+within 1 s.
 
 | Striker | Mark | Swings | Cut the trunk or head | Median edge, J | Longest return, s | Felled | Bar |
 |---|---|---|---|---|---|---|---|
@@ -29,9 +28,9 @@ which the rules read as blunt (0.36 HP).
 
 ## 2. The buckler against a blade
 
-`node --test tests/buckler-capability.test.mjs`: the Duellist's ward against a sword's recipe
-swing at the head, the trunk and the sword arm, facing its attacker head on and 45 degrees either
-way. Bar: the buckler meets four of five swings that reach the body before the body does.
+`node --test tests/buckler-capability.test.mjs@754999fc`: the Duellist's ward against a sword's
+recipe swing at the head, the trunk and the sword arm, facing its attacker head on and 45 degrees
+either way. Bar: the buckler meets four of five swings that reach the body before the body does.
 
 | Defender | Own swing under way | Met first / touched | Bar |
 |---|---|---|---|

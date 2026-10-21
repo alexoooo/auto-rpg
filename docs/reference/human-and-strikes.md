@@ -89,7 +89,7 @@ guard, with a lead of 1 s, against as played with no lead):
 |---|---|---|---|
 | A Warrior alone, fighter mind and balance, ordered 0.5 to 3.14 rad off its heading, 126 a hand (core world) | falls, club and empty | 10 and 33 | 0 and 0 |
 | `node research/strike-bouts.mjs --gaps 2.5,3,3.5,4,4.5,5,5.5 --held club,empty`, 126 bouts (core world) | bouts with a side down inside 5 s; at all | 24; 89 | 0; 82 |
-| The crypt's hero against one enemy (`tests/crypt-core.test.mjs`' layout), seeds 1 to 24, 3 gaps, 30 s (DungeonRun) | hero down unstruck inside 5 s; at all | 11; 28 of 72 | 2; 14 of 72 |
+| The crypt's hero against one enemy (`tests/crypt-core.test.mjs@2a1b29ac`' layout), seeds 1 to 24, 3 gaps, 30 s (DungeonRun) | hero down unstruck inside 5 s; at all | 11; 28 of 72 | 2; 14 of 72 |
 | The crypt, hero and two Warriors, seeds 1 to 24, 150 s (DungeonRun) | a body down unstruck within 1 s; of them turning 1.5 rad in 3 s | 39 in 2622 s; 9 | 21 in 3215 s; 0 |
 
 A placebo (every turn 0.999 of its rate) read 80 arena bouts with a side down and 28 walking falls
@@ -289,9 +289,9 @@ The knuckles' map is the same either way (13 places held, 11 freed, the two lost
 at the edge of reach).
 
 **Two places lay a line.** The two ends of the club's swell, asked to where a pose of the arm puts
-them (`tests/core-reach.test.mjs`; the Warrior, lower trunk held, gravity on, Node core stand):
-across the body, upright and askew, each ends within 0.3 mm of its place at 120 and 1920 Hz, the
-wrist turned up to 1.07 rad from the posture's. With one place alone the other end lay 0.3 to
+them (`tests/core-reach.test.mjs@2a1b29ac`; the Warrior, lower trunk held, gravity on, Node core
+stand): across the body, upright and askew, each ends within 0.3 mm of its place at 120 and 1920 Hz,
+the wrist turned up to 1.07 rad from the posture's. With one place alone the other end lay 0.3 to
 0.7 m from where the pose had it.
 
 **A freedom at the end of its range has no part in a pass.** Clamped after the step, the others
@@ -309,4 +309,4 @@ stops, has four freedoms left that move the knuckles in a plane: J J' has no inv
 45 bare-handed bouts threw on it. The inverse is taken with `IK_BLIND`, 1e-5 m a radian, squared
 on its diagonal: a way that moves the place less is not seen. For a way an arm moves a place a
 decimetre a radian, that leaks a part in a hundred million. The bout that threw is the fixture of
-`tests/core-reach.test.mjs`.
+`tests/core-reach.test.mjs@2a1b29ac`.

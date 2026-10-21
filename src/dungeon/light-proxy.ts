@@ -21,7 +21,7 @@ export const PROXY_ORTHOGRAPHIC =
  *
  * Only the GLSL shader is patched; the dungeon runs on WebGL. It must run before the container's proxy material
  * compiles, which `lightDungeon` does by calling it first. If a Babylon upgrade changes the anchor, this throws
- * rather than leaving the proxy unpatched, and `tests/dungeon-dressing.test.mjs` says so before the page does.
+ * rather than leaving the proxy unpatched.
  */
 export function orthographicLightProxy(): void {
   const source = ShaderStore.ShadersStore[NAME];

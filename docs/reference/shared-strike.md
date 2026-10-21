@@ -90,7 +90,7 @@ and outcomes exactly.
 ```powershell
 node research/control-foundation.mjs --suite point-strike --shared --centre-control --continue-seconds 10 --actuation directional --samples 2 --workers 3 --out research/runs/control-foundation/shared-strike-static-v1
 node research/control-foundation.mjs --suite moving-strike --shared --centre-control --continue-seconds 10 --actuation directional --samples 2 --workers 3 --out research/runs/control-foundation/shared-strike-moving-v2
-node --test tests/core-shared-strike.test.mjs tests/research-control-foundation.test.mjs
+node --test tests/core-shared-strike.test.mjs tests/research-control-foundation.test.mjs   # both @2a1b29ac
 ```
 
 The page selects `Held: One club in both hands` and `Shared grip after strike`, or

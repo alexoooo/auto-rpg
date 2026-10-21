@@ -9,7 +9,7 @@
     "ground": false,
     "assists": 0,
     "actuation": "symmetric",
-    "test": "tests/core-joint-state.test.mjs"
+    "test": "tests/core-joint-state.test.mjs@2a1b29ac"
   },
   "symmetric": [
     {

@@ -85,5 +85,5 @@ exactly, uses zero assistance and has no rejected solve or fall.
 
 ```powershell
 node research/control-foundation.mjs --suite moving-strike --actuation directional --samples 2 --workers 1 --out research/runs/control-foundation/moving-strike-v1
-node --test tests/core-point-strike.test.mjs tests/core-object-senses.test.mjs
+node --test tests/core-point-strike.test.mjs tests/core-object-senses.test.mjs   # both @2a1b29ac
 ```

@@ -16,7 +16,7 @@ Rogue's 3.85 kg and 7.2 cm), with the attacker's hit points in it. `watchBlows`
 
 **How it is held** (`hangDummy`): by a force equal to its weight each step and nothing else, so
 it gives way to a blow as a head on no neck does. A 1 kg fist sent level at 6 m/s into a dummy
-hung 10 s (`tests/lab-targets.test.mjs`):
+hung 10 s (`tests/lab-targets.test.mjs@2a1b29ac`):
 
 | The dummy is of | drift in 10 s, mm | closing, m/s | masses met, kg | energy, J | fist after, m/s | dummy after, m/s |
 |---|---|---|---|---|---|---|
@@ -582,7 +582,7 @@ bar; 1536 bouts in 1015 s on 28 workers.
 - **The cover is as late**: of 15 blows that met a covering head, 12 had a threat seen 0.13 to
   0.19 s before and 3 none; the knuckles were 29 to 60 cm from their place and the swell 13 to 81.
 - **Against a Warrior that stands, the club blow is met by the pose's club and by the cover's
-  head.** `firstBlow` (`tests/core-guard.test.mjs`), ten gaps from 2.5 to 5 m: in the pose the
+  head.** `firstBlow` (`tests/core-guard.test.mjs@2a1b29ac`), ten gaps from 2.5 to 5 m: in the pose the
   first blow lands on the standing Warrior's club at every gap, 40 to 52 J; covering, from 3.5 to
   4.25 m, on its head, 89 to 112 J.
 

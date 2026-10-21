@@ -65,10 +65,6 @@ above 30 rad/s² spinning.
 
 - Every branch replays exactly. Error maxima are per rate; no difference between rates is read as
   physical.
-- `tests/research-contact-friction.test.mjs` requires patch errors below 0.03 m/s² and 0.25 rad/s²
-  on the patch profile and projected-point errors below 0.05 m/s² and 0.25 rad/s² on the per-point
-  one; dropping the twist moment, or the effective-mass direction, fails it.
-  `tests/core-friction-profile.test.mjs` fails without the snapshot's friction check.
 - On the built task viewer (120 Hz, directional, no assists, development seed 0, left hand
   released), the Warrior on corrected-limit per-point, the Rogue on reference-limit per-point and
   the skeleton on the gameplay profile each return upright from the standing shared bar, touch the
@@ -77,5 +73,4 @@ above 30 rad/s² spinning.
 ```powershell
 node research/contact-friction.mjs
 node research/contact-friction.mjs --engine rapier-coordinate-coulomb
-node --test tests/core-friction-profile.test.mjs tests/research-contact-friction.test.mjs
 ```

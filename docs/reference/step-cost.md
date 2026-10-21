@@ -3,7 +3,7 @@
 What one world step (`World.step`, `src/core/world.ts`) takes in time and memory as bodies are
 added, in a bout and in a crypt run: where the time goes, what a step allocates, what the collector
 takes, and which steps are long and why. `tests/core-step-cost.test.mjs` holds the allocation
-ceilings; `tests/core-reach.test.mjs` holds the reach bed's count.
+ceilings.
 
 Unless a section says otherwise, figures are **Node 24.19, core world, Rapier, 120 Hz, one thread of
 the development host** (a 16-core desktop), nothing else running. A step is 8.33 ms of game time, so
@@ -33,8 +33,19 @@ rounded up: `CEILING` is 140 standing, 393 in the bout, 206 for a down body (KiB
 |---|---|---|
 | Standing | 111.69, 110.86, 110.23, 111.07, 111.05 | 140 |
 | Bout, options fighter | 367.46, 369.48, 367.61, 368.14, 366.96 | 393 |
+| Bout, the Duellist | 353.65, 351.25, 354.07, 352.38, 352.39 | 393 |
 
-The bout's ceiling is the options fighter's, which weighs every option each control step. Its
+The bout plays each model's own mind, the Duellist (Node 24.15.0, readings above). Its reach
+(`effectorTracker`, `src/core/control/effector-tracker.ts`) solves each hand's path three times a
+step, a step either side for its rates, at about 40 passes a solve; the solves work in arrays made
+once a limb, and a pass reads each joint's half tangents once (`halfTansToRef`, `walkTo`). Before
+that the bout read 435 KiB, over the ceiling, and its step (`step-time.mjs`, pinned to three
+performance cores) went from a scavenge every 71 steps, 1.86 ms each, and four mark-compacts, to
+one every 93, 0.89 ms each, and one; the least of each step stayed within the machine's noise
+(2.03 ms against 2.05 and 2.17, the solver's unchanged part reading 0.44 against 0.46 and 0.49),
+with every fingerprint case unchanged.
+
+The ceiling was set on the options fighter, which weighs every option each control step. Its
 opening selector (`openingSelector`, `src/core/mind/openings.ts`), asked through each strike's
 readiness many times a step, allocates only its result, its distances, path samples and candidate
 points in work arrays of its own. Before that the bout read 2370 KiB, and its step (`step-time.mjs`)
@@ -102,7 +113,7 @@ passes and whether it stopped of itself (`ReachEnd`), summed per body (`ReachMet
 
 Its Jacobian is the kinematics' derivative in closed form (`reachJacobianTo`, from `motionAxesToRef`
 and `turningToRef`), one walk of the chain a pass: within 9.9e-11 m/rad of central differences over
-200 poses on the Warrior's arm and leg, and `tests/core-reach.test.mjs` holds it within 1e-8.
+200 poses on the Warrior's arm and leg.
 
 **The bed** (`tests/fixtures/reach-solves.json`, `node research/reach-bed.mjs`): the 144 solves of
 the Warrior–Rogue bout at `889b3c3d`, all the Rogue's right arm, steps 1022 to 1069, each kept as it
@@ -198,7 +209,7 @@ the bout (`step-time.mjs`, read twice), one and eight skeletons standing (`step-
 - **The ground's wrench**: on the bout's 4576 calls answered alone, 57.2 us a call to 12.5, all 68544
   numbers the same; 20.7 % of the bout under the profiler to 5.4.
 - **Bearing on limbs**: `carryRoot` 14.9 % of the bout to 6.1; its solves are `flat.ts`'s, each the
-  twin of one in `linalg.ts` (`tests/core-flat.test.mjs`).
+  twin of one in `linalg.ts`.
 - **The body's dynamics and its joints**: `dynamics.ts` allocates nothing a step (from 280 KiB),
   `joint-state.ts` 16 (from 146); a scavenge every 63 steps against 33.
 - **The hands' reach**: 8.15 us a pass on the bed to 3.26, every answer the same; the bout's 99th per
@@ -238,8 +249,8 @@ obstacle or closed door reaches any point of it. A sight line's sample in such a
 stops sight within 1 mm of itself (`walkable`), so such a sample is at least 0.002 m from every other
 cell. Every other sample is `walkable`'s. The run makes its index as it first looks and again when a
 door opens, and reads its party's sight into one set (`DungeonRun.sight`).
-`tests/crypt-sight.test.mjs` holds every answer to the map's own on seeds 1 to 8, from 60 points a
-level, doors closed and opening, about obstacles, at a cell's edge and through a rock corner.
+Every answer equals the map's own on seeds 1 to 8 (`tests/crypt-sight.test.mjs@2a1b29ac`), from 60
+points a level, doors closed and opening, about obstacles, at a cell's edge and through a rock corner.
 
 The four runs, sight read sample by sample (`src/dungeon/map.ts@24ce4c51`) and through the index,
 one after the other on a quiet machine:

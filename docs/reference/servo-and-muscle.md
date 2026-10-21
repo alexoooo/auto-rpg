@@ -11,7 +11,7 @@ down to two steps.
 
 The whole Rogue, lower trunk held, no ground, gravity on, servoed to the guard and held; read over
 the third second of the hold (Node core stand, Rapier; `135d31fb`, by a script not committed). No
-test reads the hold again; `tests/core-servo.test.mjs` holds the servo on an arm.
+test reads the hold again.
 
 The worst freedom's final error (at a wrist or the neck):
 

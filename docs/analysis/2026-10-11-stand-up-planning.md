@@ -208,7 +208,7 @@ A separate experiment, which cannot meet the unassisted target (AGENTS.md):
 
 - **Stale stance torque at handover.** The compliant-sole filter averaged a leg torque with the
   value left from before the stance was released, reversing four leg commands. The stance reset
-  clears it (`src/core/control/stance.ts`, `tests/core-stance-handover.test.mjs`); the
+  clears it (`src/core/control/stance.ts`); the
   `supportRecovery` witness went from 15.56 to 14.88 s.
 - **Research instruments.** Joint limits had bind angles subtracted twice; a tilted sole's centre
   was placed on the floor with an edge below it and box dimensions rotated twice; the heading was

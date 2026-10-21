@@ -19,8 +19,7 @@ import { impactCue, substanceOf, voiceOf, type SoundCue } from "./cues.ts";
  * - **Air** (`airOf`): how fast the body's fastest extremity moves, which its one air voice
  *   follows (`GameAudio.swish`).
  *
- * This module has no page-only imports, so the Node stand can run it
- * (`tests/audio-bodies.test.mjs`). A listener only reads: a bout with none is the same bout.
+ * This module has no page-only imports, so the Node stand can run it. A listener only reads: a bout with none is the same bout.
  */
 
 /** A body that is heard: its key in a cue, and what it was built as. */

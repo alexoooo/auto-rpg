@@ -1,8 +1,7 @@
 /**
  * Which screen an address opens: the main menu, the arena, the dungeon or the lab.
  *
- * Pure and free of the DOM so `tests/app.test.mjs` can argue with it. The persistent shell reads
- * it for direct entry, internal navigation and browser history.
+ * Pure and free of the DOM. The persistent shell reads it for direct entry, internal navigation and browser history.
  */
 
 export type Route = "menu" | "arena" | "dungeon" | "lab";

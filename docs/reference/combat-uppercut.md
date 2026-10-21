@@ -2,7 +2,7 @@
 
 The optional `uppercut` family and its cells: `ATTACK_PATH.uppercutWindup` and `uppercutSeconds`
 (`src/core/skills/attack-path.ts`), `OPENINGS.uppercut` and `uppercutReserve`
-(`src/core/mind/openings.ts`), and the hull-plane tolerance of `tests/core-combat-uppercut.test.mjs`.
+(`src/core/mind/openings.ts`), and the hull-plane tolerance of `tests/core-combat-uppercut.test.mjs@2a1b29ac`.
 The chamber drops behind the guard; the stroke uses the tracked path, an explicit world contact
 direction, shared IK, muscle limits and verified return. No root force, strength, collision or
 damage rule changes.
@@ -33,8 +33,7 @@ rank cost, 0.1, and `uppercutReserve` the close-range reach kept back, 0.25 m: d
 not validated across bodies or loadouts.
 
 The test's ray geometry allows 1e-6 m of hull-plane error: the native quaternion round trip leaves
-1.0743e-7 m in the central standing fixture, while replay stays bit exact. Swapping the lower ray
-for the upper fails the test.
+1.0743e-7 m in the central standing fixture, while replay stays bit exact.
 
 ## Arena diagnostics
 

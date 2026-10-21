@@ -1,7 +1,7 @@
 /**
  * Dense linear algebra for the small systems motor control solves: a few rows and columns, row
  * arrays. A step's dear loops solve on flat arrays in a work made once (`flat.ts`), each solve
- * there the twin of one here and held to its answers to the bit (`tests/core-flat.test.mjs`). The
+ * there the twin of one here, with its answers to the bit. The
  * servo's per-step Cholesky works in place on flat typed arrays, and stays beside the servo
  * (`src/core/control/servo.ts`).
  */

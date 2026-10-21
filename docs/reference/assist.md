@@ -134,8 +134,8 @@ One bout a matchup places none of these as a rate.
 
 Node stand, Rapier, 120 Hz; the Warrior alone, unarmed, ordered to stand. After 1 s, a steady tenth
 of its weight forward at its root's centre of mass for 2 s, then 2 s more; read over those 4 s. The
-fixture is `pulled` in `tests/core-assist.test.mjs`, which holds the first row and the three at
-25 %; it is given the two ceilings as a row writes them.
+fixture is `pulled` in `tests/core-assist.test.mjs@2a1b29ac`; it is given the two ceilings as a
+row writes them.
 
 | Balance, % | Force ceiling, weights | Moment ceiling, weight-metres | Fell | Centre of mass at its lowest, m | Centre of mass travelled, m | Recovery steps | Most the soles missed while it stood, weights | Mean given, N | Mean given, N m |
 |---|---|---|---|---|---|---|---|---|---|
@@ -230,7 +230,7 @@ force times the step, given before it, is the same momentum and not the same mot
 16 iterations are sub-steps, the impulse is whole at the first and gravity a sixteenth at each, so a
 body given exactly its weight creeps up. Node, a bare core world (gravity, no ground), Rapier,
 120 Hz; the Warrior limp, its assist asked for two weights up under a ceiling of one, 60 steps
-(`lifted` in `tests/core-assist.test.mjs`):
+(`lifted` in `tests/core-assist.test.mjs@2a1b29ac`):
 
 | How the weight of force is given | Centre of mass moved in 60 steps, m | A step, m |
 |---|---|---|

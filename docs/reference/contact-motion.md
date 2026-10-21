@@ -13,9 +13,9 @@ reported. Carrying the wrench to a joint uses the patch reference:
 `jointTorque = axis · (moment + (patchPlace - jointPivot) × force)`.
 
 Muscle torque and effort-weighted load sharing read the patch reference; motion Jacobians read the
-tracked point. `tests/core-bearing.test.mjs` builds the Warrior under directional actuation, both
-soles bearing over 100 N, asks zero acceleration, and requires identical command and load-sharing
-records after moving the motion reference by `[0.12, 0.03, -0.17]` m. With the tracked point as the
+tracked point. `tests/core-bearing.test.mjs@2a1b29ac` builds the Warrior under directional
+actuation, both soles bearing over 100 N, and asks zero acceleration: moving the motion reference
+by `[0.12, 0.03, -0.17]` m leaves the command and load-sharing records identical. With the tracked point as the
 lever, the largest requested activation read 1 instead of 0.1248965.
 
 ## Unaveraged manifold geometry
@@ -30,7 +30,7 @@ nor an impulse-free contact proves support, and the impulse is the narrow phase'
 `[angularVelocity, referenceVelocity]`, positive closing. A controller still subtracts the other
 body's point velocity and handles separation and friction; the rows weld nothing.
 
-`tests/core-contact-motion.test.mjs`: a 1 kg capsule (axis z = ±0.3 m, radius 0.05 m, moments
+`tests/core-contact-motion.test.mjs@2a1b29ac`: a 1 kg capsule (axis z = ±0.3 m, radius 0.05 m, moments
 `[0.04, 0.04, 0.0005]` kg m²) on a level floor, after one gravity step:
 
 - the solver points span more than 0.59 m, which their average loses;
@@ -51,8 +51,8 @@ anchor separation along its normal, not a fresh closest-surface query. The adapt
 
 A sphere of radius 0.05 m starting 0.01 m clear (Node core-engine fixture, 120 Hz): after the first
 gravity step the cached reading is 0.0099999979 m and the geometric clearance 0.0096382134 m. The
-regression requires agreement within 2e-6 m through settling and a later 0.1 N s upward impulse,
-and a retained separated contact must report lift-off.
+two agree within 2e-6 m through settling and a later 0.1 N s upward impulse, and a retained
+separated contact reports lift-off (`tests/core-contact-motion.test.mjs@2a1b29ac`).
 
 ## Measurement
 

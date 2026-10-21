@@ -10,7 +10,7 @@
  * guard, or Classic, the tests' Combat, Brawler and Kicker, Scrapper or the Puncher fighting back
  * (`--foes stands,classic,combat,brawler,kicker,scrapper,puncher`), or a rival: the Puncher throwing
  * the straight punch with the settings `--rival` gives (`--foes rival`).
- * `--scene` also plays the punch test's bout (`tests/straight-punch-capability.test.mjs`: walked in, on a Warrior
+ * `--scene` also plays the punch test's bout (`tests/straight-punch-capability.test.mjs@2a1b29ac`: walked in, on a Warrior
  * standing in guard 1.2 m off, 5 s) and takes off what it falls short of there: `SHORT` a wounding
  * punch under two, and `SHORT` a kilogram under 1.5 that the heaviest wounding fist met.
  *

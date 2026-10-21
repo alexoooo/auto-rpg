@@ -42,7 +42,7 @@ speed-dependent envelope; no strength is raised. Drift and effort acceptance are
 
 ```powershell
 node research/native-posture-control.mjs
-node --test tests/core-posture-hold.test.mjs tests/research-native-posture.test.mjs
+node --test tests/core-posture-hold.test.mjs tests/research-native-posture.test.mjs   # both @2a1b29ac
 ```
 
 Every chosen next-step observation equals its predicted rollout. Replaying the action tape

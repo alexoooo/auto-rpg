@@ -14,7 +14,6 @@ import type { MuscleDriver } from "../muscle/driver.ts";
  * for over the step becomes a change of speed through the joint's turning (`turningToRef`). Asking
  * each motor for its own freedom's change is right only near the reference pose: far from it the
  * motors' axes part from the angles', and a freedom is pushed away from its goal.
- * `tests/core-servo.test.mjs` holds the servo to a shoulder swung 1.9 rad.
  *
  * **As torques.** The servoed freedoms' torques are M a + bias - gravity (`bodyDynamics`), where a
  * is the change of speed asked over the step and bias what the motion under way asks, and each is

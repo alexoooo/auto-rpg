@@ -1,7 +1,6 @@
 /**
  * The core stance's trials, one stand each (Node, the core's stand, 120 Hz unless `hz` is given):
- * the batteries `research/core-stance-sweep.mjs` sweeps a stance tuning over. Each but `orders` mirrors
- * a case of `tests/core-stance.test.mjs`, and each returns plain numbers.
+ * the batteries `research/core-stance-sweep.mjs` sweeps a stance tuning over. Each returns plain numbers.
  */
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { createBody } from "../src/core/body.ts";

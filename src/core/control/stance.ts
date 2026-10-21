@@ -620,7 +620,7 @@ function swingFoot(s: Stance, swing: SwingGoal, heading: number, dt: number): vo
   // The path's acceleration, and its errors in place and speed taken up critically damped at the
   // swing's constant; its turn's likewise, with the turn's own rate and acceleration: damping
   // alone lags a turn by twice its rate times the swing's constant, and a foot turning over a
-  // swing lands off the heading (`tests/core-stance.test.mjs`).
+  // swing lands off the heading.
   const task = tasks[feet.indexOf(foot)]!, w = 1 / settle, kick = launch ? ddh / T : 0;
   motionAtToRef(foot.segment, sole, task.linear, task.angular);
   task.linear.set(accel.x + (launch ? launch.x * kick : 0) + w * w * (path.x - sole.x) + 2 * w * (along.x - task.linear.x),

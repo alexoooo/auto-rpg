@@ -4,12 +4,11 @@ The surfaces through which the humans' hands and feet meet the world, measured f
 skins: what was measured, by which rule, what is approximated, and the numbers.
 
 - Feet and the Warrior's hands: `assets/humanoid/man-contact-geometry.json`
-  (`SOURCES["man-contact-geometry"]`), written by `node scripts/core/man-envelope.mjs --write` and
-  measured again by `tests/man-envelope.test.mjs`.
+  (`SOURCES["man-contact-geometry"]`), written by `node scripts/core/man-envelope.mjs --write`.
 - Both humans' hands (one rig, one skin mesh): `assets/humanoid/workshop-fighter-hands.json` and
   `workshop-rogue-hands.json` (`SOURCES["workshop-fighter-hands"]`, `["workshop-rogue-hands"]`),
-  written by `node scripts/core/hand-envelope.mjs --write` and measured again by
-  `tests/hand-envelope.test.mjs`; `man-envelope.mjs` takes the Warrior's from it.
+  written by `node scripts/core/hand-envelope.mjs --write`; `man-envelope.mjs` takes the Warrior's
+  from it.
 
 Figures are the left side at the authored size; the spec scales them by `FIT_SCALE` (0.9412). The
 right side mirrors the left within 0.5 % (the foot's hull has one corner fewer).
@@ -88,6 +87,6 @@ and 52 mm behind it, toward the wrist and palmar, before `FIT_SCALE`.
 - Rapier merges adjacent triangles within about 1.5° into one face and drops corners inside it (4 to
   7 of a hand hull's 151 to 173, each within 0.005 mm of the rest's hull), so the collider is the
   hull. Its point query (`gapTo`) reads some corners up to 11 mm off a surface a ray meets exactly
-  there, so `tests/core-hand-poses.test.mjs` compares the collider's corners instead.
+  there, so `tests/core-hand-poses.test.mjs@2a1b29ac` compares the collider's corners instead.
 - The bind pose's skin is the unloaded skin; nothing models its compression beyond `PATCH`.
 - The hinge's height is a mid-section estimate (**Hinge**).

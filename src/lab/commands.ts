@@ -4,7 +4,7 @@
  * about the crypt sends a body (`DungeonRun`'s attack-move, `src/dungeon/run.ts`), and stands a
  * while at each before the next.
  *
- * Free of the page, so `tests/lab-track.test.mjs` can argue with it.
+ * Free of the page.
  */
 import { randomStream } from "../core/math/random.ts";
 

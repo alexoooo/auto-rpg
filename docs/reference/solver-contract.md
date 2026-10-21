@@ -33,7 +33,7 @@ Two coincident bodies on an aligned x-axis hinge, the parent fixed; rotor 1 kg, 
 
 ```powershell
 node research/control-foundation.mjs --suite solver --actuation directional --workers 2
-node --test tests/research-solvers.test.mjs
+node --test tests/research-solvers.test.mjs   # @2a1b29ac
 ```
 
 ## Anatomical joint-shape compatibility
@@ -71,5 +71,5 @@ represent the anatomical joint contract unchanged, not that every reduced-coordi
 ```powershell
 node research/control-foundation-joint-shapes.mjs multibody 2
 node research/control-foundation-joint-shapes.mjs multibody 3 1 -1
-node --test tests/research-joint-shapes.test.mjs
+node --test tests/research-joint-shapes.test.mjs   # @2a1b29ac
 ```

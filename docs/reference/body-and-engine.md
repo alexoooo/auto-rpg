@@ -1,7 +1,7 @@
 # The body and the engine
 
 Readings behind two choices: the servo's time constant, `SERVO_SECONDS` in `src/core/body.ts`,
-and the rate and window at which `tests/core-dynamics.test.mjs` reads the body's dynamics against
+and the rate and window at which `tests/core-dynamics.test.mjs@2a1b29ac` reads the body's dynamics against
 Rapier. Both tables are `135d31fb`'s (Node core stand, Rapier); the scripts that printed them were
 not committed, so they do not read again as they stand.
 
@@ -31,7 +31,7 @@ anchors part by under a micrometre). A one-step difference reads it as an accele
 with the rate, so the let-go test runs at 480 Hz, and the free chain's accelerations are read over
 windows of 4 steps with the steps at a stop left out.
 
-The chain of `tests/core-dynamics.test.mjs` (a three-, a two- and a one-freedom joint on tilted
+The chain of `tests/core-dynamics.test.mjs@2a1b29ac` (a three-, a two- and a one-freedom joint on tilted
 axes, hung from a fixed post, no gravity), pushed by its muscles for 0.25 s and let go; each step's
 change of joint speeds against the model's `M u' = -bias`, median error (alike with the steps at a
 stop left out):

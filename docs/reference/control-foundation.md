@@ -97,8 +97,8 @@ manifest are [control-foundation-directional.json](control-foundation-directiona
 in the table above.
 
 A finite velocity command can pull or brake, each within its direction's envelope; an infinite one
-is one-way torque, the opposing bound zero (`core-muscle.test.mjs` checks both forms and signs
-under an external load). Delivered mean torque and both bounds are saved with the muscle state.
+is one-way torque, the opposing bound zero. Delivered mean torque and both bounds are saved with the
+muscle state.
 
 In the Warrior fours diagnostic (Node stand, directional, empty, 120 Hz), `riseLimbs` moves a
 predicted right-shin support from the knee to the knee-foot midpoint as a foot corner enters its
@@ -107,7 +107,7 @@ mass moves about 0.1 mm. That is a discontinuity in a desired support estimate, 
 
 ## Controller replacement
 
-`tests/core-direct.test.mjs` (Node stand, Rapier 0.21.0-auto-rpg.2, 120 Hz, directional, no
+`tests/core-direct.test.mjs@2a1b29ac` (Node stand, Rapier 0.21.0-auto-rpg.2, 120 Hz, directional, no
 assist, no ground, lower trunk pinned): Warrior, Rogue and skeleton each reach 0.6 rad right-elbow
 flexion within 0.025 rad after 2 s and stay in that band another second, under 0.1 s error decay,
 at most 3 rad/s requested and full activation. The policy reads detached observations and acts

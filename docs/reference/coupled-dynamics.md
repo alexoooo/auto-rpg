@@ -44,7 +44,8 @@ holding would need tension, and nothing clamps it.
 
 ## Measurement
 
-`node --test tests/core-coupled-dynamics.test.mjs tests/core-constrained-mass.test.mjs`. No assists.
+`node --test tests/core-coupled-dynamics.test.mjs tests/core-constrained-mass.test.mjs`, both
+@2a1b29ac. No assists.
 
 **Representations.** Node core world, Rapier `0.21.0-auto-rpg.3`, adapter 4: with gravity, all three
 bodies holding a right-hand club, floating and with a declared fixed pelvis, the model with compound

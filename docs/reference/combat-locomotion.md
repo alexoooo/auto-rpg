@@ -26,7 +26,7 @@ All 72 cells (also rates 2/4 at delays 0.3/0.6 s, and 4 rad/s under the 2 rad/s 
 and settle standing with every assist meter at zero. A step lands facing the heading only as far
 as the bearing hip lets the pelvis turn over it (`landingHeading`, `src/core/control/support.ts`),
 so a faster turn is taken step by step. Without that rule three left turns at 4 rad/s begun as the
-walk set off fell, one at each speed; `tests/core-combat-locomotion.test.mjs` repeats those cells.
+walk set off fell, one at each speed.
 
 ## Arena ablation
 

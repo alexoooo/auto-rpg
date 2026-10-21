@@ -13,7 +13,7 @@ import { add, dot, scale, sub } from "../spec/vec.ts";
  * collide, whether simulated as one compound body or joined separate bodies.
  *
  * The palm's side is the hand frame's -z: the rig holds the hands thumb up with the palms toward
- * the body, and z = x cross y points away from it on both hands (`tests/core-club.test.mjs`).
+ * the body, and z = x cross y points away from it on both hands.
  */
 export function handHolding(spec: BodySpec, side: Side, item: ItemSpec): HeldSpec {
   const hand = holdingHand(spec, side);

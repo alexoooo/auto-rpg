@@ -13,8 +13,7 @@
  *
  * `node scripts/core/workshop-envelope.mjs` prints the feet `src/core/human/envelope.ts` states and
  * how many corners each trunk hull has; with `--write` it writes the hulls to
- * `assets/humanoid/workshop-*-trunk-hull.json`. `tests/core-human.test.mjs` measures both again and
- * compares.
+ * `assets/humanoid/workshop-*-trunk-hull.json`.
  */
 import fs from "node:fs";
 import path from "node:path";

@@ -22,7 +22,7 @@ contact stuck. Only bounded muscle torques move the body; no predicted reaction 
 ## Measurement
 
 Node core stand, Rapier `0.21.0-auto-rpg.5`, adapter 6, 120 Hz, directional actuation, ordinary
-ground, no assists; `node --test tests/core-contact-liftoff.test.mjs`. Fixture inputs: a pinned
+ground, no assists; `tests/core-contact-liftoff.test.mjs@2a1b29ac`. Fixture inputs: a pinned
 parent and a 1 kg capsule child (radius 0.1 m) on a hinge, its distal end on the ground; a muscle
 of 10 N m peak, feedback 0.15 s and effort regularization 1e-6 asks +0.3 rad, then -0.15 rad
 (through the floor), for five two-second phases. Contact settings: gap 0.005 m, up-normal 0.9,
@@ -42,7 +42,6 @@ force tolerance 1e-5 N, 2,048 QP iterations, tolerances 1e-7/1e-6; lift-off tole
   reaction and no lifting gradient, so dropping tensile contacts from it is not enough.
 - Active-contact compatibility: a 1 kg 0.6 × 0.1 × 0.4 m slab hinged vertically to a pinned parent
   has a residual below 1.2e-48 m/s² at rest; after a 20 N m torque for one step its contacts cannot
-  all stick, the residual is 5.212564 m/s², and the candidate is rejected. Removing that check
-  fails the test.
+  all stick, the residual is 5.212564 m/s², and the candidate is rejected.
 - With lift-off off, the [withdrawal cases](shared-withdrawal-browser.json) keep their Node
   observation hashes and outcomes.

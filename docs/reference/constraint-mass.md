@@ -25,7 +25,7 @@ allocates; the game's damage path uses the tree model (`contactMass`).
 ## Measurement
 
 Node core world, Rapier `0.21.0-auto-rpg.3`, directional configuration, no gravity, ground, motors
-or assists; `node --test tests/core-constrained-mass.test.mjs`.
+or assists; `tests/core-constrained-mass.test.mjs@2a1b29ac`.
 
 Two 1 kg holders (isotropic inertia 0.001 kg m², centres (-0.1, 1, 0) and (0.1, 1.2, 0) m) are
 joined by a free spherical joint at (0, 1.1, 0); the wooden club's origin is at (0, 0.9, 0), held by
@@ -40,7 +40,7 @@ acts on the item at (0.05, 1.4, 0.08) m; velocity is read after three steps at 3
 | Both | 3 | 0.868048 | (-0.163929, 0.082711, 0.206764) | (-0.163767, 0.082699, 0.206710) |
 
 - Each component is within 1.5 % of the predicted velocity's magnitude; all four branches replay
-  exactly. Making equipment return no constraint rows fails the loop tests.
+  exactly.
 - Against the tree model, on the Warrior, the Rogue and the skeleton with a compounded right-hand
   club, every segment's mobility agrees within 1e-6 × (1 + entry) at construction (largest
   1.4932e-7, the skeleton's left hand) and within 1e-5 after a hand impulse and 12 steps at 120 Hz

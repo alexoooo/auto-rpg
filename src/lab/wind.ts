@@ -18,7 +18,7 @@ import type { World } from "../core/world.ts";
  * What it draws and what blows are plain data in `state`: the generator's word and the gusts under
  * way. A wind made again with the same seed blows the same gusts at the same steps.
  *
- * This module has no page-only imports, so the Node stand can run it (`tests/lab-wind.test.mjs`).
+ * This module has no page-only imports, so the Node stand can run it.
  */
 
 /** How long a gust blows, s: rising and falling as a half-sine. */

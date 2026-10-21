@@ -11,9 +11,7 @@ going.
 npm ci                    # the exact lockfile, never `install`
 npm run dev               # http://localhost:5180, strictPort
 npm run check             # tsc --noEmit
-npm test                  # the fast tier, about 75 s: every test but tests/slow.json's
-npm run test:all          # every test, as CI runs it
-npm run test:experimental # capability measurements (tests/experimental.json), in neither tier
+npm test                  # the gate: step cost, the core's boundary, the mind contract, no strays
 npm run build             # check, then vite build
 npm run match -- <a> <b>  # the standard match of two minds: each on each side, one digest
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
@@ -27,9 +25,6 @@ npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work;
 | --- | --- |
 | code | `npm run check` and `npm test`: the whole gate |
 | browser code, assets, dependencies, build config | also `npm run build` |
-| what a slow test covers | that test by name: `node --test tests/<file>` |
-| a large change of the world step, the engine or the body, before merging | `npm run test:all` (CI runs it on every push) |
-| a capability | its `<stem>-capability.test.mjs` by name; red is a measurement, not a broken gate |
 | a refactor that claims no behaviour change | the fingerprint, `scripts/fingerprint.mjs` |
 | documents only | the files and anchors they cite, `git diff --check`, the line-ending gate |
 
@@ -44,8 +39,9 @@ npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work;
 - **An iteration is one question**: the question and the evaluation that answers it; one
   implementation changed or added beside the others; a paired reading against the version before
   (today `npm run match`); kept, or the reason it was not recorded.
-- **A new test file is fast** (under about 10 s), or it goes in `tests/slow.json`.
+- **A new test answers a specific need** ([Tests](#tests)), and is fast (under about 10 s).
 - **Landing**: name the checks run and any failure left. Commit each landable change as it lands.
+- **Work on main.** A new branch only when the owner asks for one.
 - **Servers**: leave none running. Port 5180 may be the owner's: never restart or kill it; use
   `npm run preview` on another port and kill it by PID. Killing `npx` leaves `vite` running: find
   the PID with `netstat -ano | findstr :<port>`.
@@ -82,7 +78,7 @@ it never imports them.
   `src/core/engine/` (`engine.ts` the contract, `engines.ts` the list).
 - **Every number in a spec says where it came from**: a `Quantity` read from a `SOURCES` entry
   (`src/core/sources.ts`: a paper, an asset, a measurement, the owner's decision) or derived by a
-  named rule that writes no factor (`specProvenanceFaults`). A deleted record is cited
+  named rule that writes no factor. A deleted record is cited
   `path@<commit>`; a spec never spreads another family's. It is bookkeeping, not a bar: a number
   the game wants is set to what gets the result, sourced as the owner's decision.
 - **The same arithmetic in every JavaScript engine.** The core, and whatever builds a bout's world
@@ -160,13 +156,18 @@ it never imports them.
 
 ## Tests
 
-The gate holds software contracts (validation, limits, state, lifecycle, replay), the source rules,
-and a **floor**: whole-path checks any working controller passes, far enough below what the game
-does that a controller or body change never retunes them. How well a controller does is a
-capability measurement. A capability becomes a promise only when the owner, having watched it,
-says to keep it; a promise names its configurations, conditions and outcome, is scored alike
-for every implementation, and changes scope only by the owner's decision.
+The gate (`npm test`, every `tests/*.test.mjs`) holds four contracts: the step's time and
+allocation (`tests/core-step-cost.test.mjs`), the core's imports and arithmetic
+(`tests/core-boundary.test.mjs`), what a Mind may read and do (`tests/mind-contract.test.mjs`)
+and a working copy with no stray files (`tests/workspace.test.mjs`).
 
+- **Tests are a liability; less is more.** A test is added only for a specific need, such as
+  reproducing a bug that has been found, never casually or for coverage.
+- **A test catches a class of problems**, not one instance: it is general enough that the next
+  defect of the kind fails it too.
+- **A test that asserts an ephemeral value is debt**: a tuned number, a trajectory, a default, a
+  count that moves with the next change. How well a mind plays is a match or a rating, never a
+  test.
 - **Test the contract**: inputs, outputs, what can be observed. Rules and replay are held to exact
   equality; replay of recorded inputs needs no mind. A physical outcome is judged in its task's
   units and limits, never against the last run's trajectory.
@@ -175,14 +176,11 @@ for every implementation, and changes scope only by the owner's decision.
 - **A saved world loads only into a world built as it was**: a fixture is a recipe or a placed
   pose, not stored bytes.
 - **Never green by relaxing**: no eased threshold, easier seed, hidden assist or regenerated
-  expectation. Name what is red (a broken contract, a lost promise, an unmet goal, an invalid
-  fixture, a broken test) and fix that; retire an assertion only with its requirement kept
-  elsewhere. A red physical check says the recipe, seed, condition and value against its limit.
-- **Compare controllers alike**: the same scenarios, bodies, physics, permissions, assists and
-  scoring; results by opponent; fresh cases to confirm a gain; repeated trials where decisions
-  vary. A seed names conditions, not a mind's choices.
+  expectation. Name what is red (a broken contract, an unmet goal, an invalid fixture, a broken
+  test) and fix that; retire an assertion only with its requirement kept elsewhere.
+  A red physical check says the recipe, seed, condition and value against its limit.
 - **A green test can assert nothing**: assert whole records; choose a fixture that can show the
-  defect. **Test the whole path**, not its two ends. **Navigation on several seeds.**
+  defect. **Test the whole path**, not its two ends.
 - **Node imports `src/` directly**: relative imports carry `.ts`, and no TypeScript parameter
   properties.
 - **The headless stand** (`tests/harness/core-stand.mjs`): `coreStand(spec)` builds one body on a
@@ -194,13 +192,16 @@ for every implementation, and changes scope only by the owner's decision.
 ## Competing minds
 
 - **A Mind is an entrant**: `src/core/entrants/<name>/`, a line in `CONTROLLERS`
-  (`src/core/mind/controllers.ts`), its data under `assets/entrants/<name>/`, its test in
-  `tests/entrant-<name>.test.mjs`. What it may read and do is the architecture's (Adding a Mind),
-  held by `tests/core-boundary.test.mjs` and `tests/mind-contract.test.mjs`.
-- **One branch an agent**, from main. An entrant's change touches its own files and its registry
-  line; `node scripts/entrant-check.mjs` names a change an entrant's, the toolkit's or mixed.
-- **The toolkit lands on its own**: a change to what Minds are built on is its own branch, read
-  against main with the fingerprint, whose moved cases its message names.
+  (`src/core/mind/controllers.ts`), its data under `assets/entrants/<name>/`. What it may read
+  and do is the architecture's (Adding a Mind), held by `tests/core-boundary.test.mjs` and
+  `tests/mind-contract.test.mjs`.
+- **An entrant's change touches its own files and its registry line**;
+  `node scripts/entrant-check.mjs` names a change an entrant's, the toolkit's or mixed.
+- **A toolkit change** (to what Minds are built on) is read with the fingerprint against the
+  commit before it, and its message names the moved cases.
+- **Compare minds alike**: the same scenarios, bodies, physics, permissions, assists and
+  scoring; results by opponent; fresh cases to confirm a gain; repeated trials where decisions
+  vary. A seed names conditions, not a mind's choices.
 - **A claim is a match**: `npm run match -- <a> <b>` (`scripts/match.mjs`) gives the protocol,
   commit, each mind's digest and the match's. Bouts are the same on every machine; a figure from
   another commit or protocol is read again before it is compared.
@@ -224,19 +225,19 @@ When the question is a measurement:
 
 - **Comments say what the code is**, and why where not obvious, in the present tense. Never work
   sessions, plan stages, commit hashes, dates of change, what the code used to do, or what no
-  longer exists (`tests/comments.test.mjs`). The story goes in the commit message.
+  longer exists. The story goes in the commit message.
 - **A tuned constant of the body or the rules** (`src/core/spec`, `human`, `muscle`, `build`,
-  `items`, `rules`) cites a `SOURCES` entry or a `docs/reference/` section that names it
-  (`tests/constants.test.mjs`). Elsewhere a constant's comment says what it does.
+  `items`, `rules`) cites a `SOURCES` entry or a `docs/reference/` section that names it.
+  Elsewhere a constant's comment says what it does.
 - **Name the construct, not a line number.** A comment about a code path is a hypothesis until
   the path has run.
 - **Switch on a union with a `never` default.**
 - **A module that owns a rule exports its predicate.** A copy that names its fields drops the ones
   added later.
 - **A published field needs a reader**, or a named one that is coming, written down. **An export
-  needs an importer** (`tests/exports.test.mjs`); a test or a script is one.
+  needs an importer**; a test or a script is one.
 - **What changes step to step is plain data in one `state` object** per module
-  (`src/core/state.ts`), hung on the bout's; `tests/arena-fork.test.mjs` forks a bout to prove it.
+  (`src/core/state.ts`), hung on the bout's, so a bout forks by copying its state.
   A body, a node or a function is not state; a constant a state points at is frozen.
 - **The step's dear functions work in arrays made once**, which carry nothing between calls and
   no two bodies share; a speed rewrite does the same operations
@@ -268,8 +269,8 @@ updates the documents it makes wrong.
   provenance and stays.
 - **Status lives in the roadmap**, findings in reference records; code and comments never cite a
   plan or an analysis.
-- **A cited heading is a contract**: code cites `docs/<file>.md#<anchor>`, and the gate checks the
-  anchor exists and that a constant's section names it.
+- **A cited heading is a contract**: code cites `docs/<file>.md#<anchor>`; the anchor exists, and
+  a constant's section names the constant.
 
 ## Line endings
 

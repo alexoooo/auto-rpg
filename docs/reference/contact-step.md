@@ -49,11 +49,8 @@ rises above 0.2 m and returns to rest near 0.05 m. Largest next-step velocity co
 | 120 Hz, ±3 rad/s | 0.003170 | 0.020155 | 0.006930 | 0.039368 | 0 / 0 |
 | 1920 Hz, zero | 0.000092 | 0.000086 | 0.173597 | 0.397777 | 1 / 2 |
 
-The gate for established contact and lift is 0.005 m/s and 0.025 rad/s, with positive support and
-the expected mode changes; the 120 Hz landing, 0.01 m/s and 0.05 rad/s. The fine-step landing is
-not validated: acquisition and substeps differ, and some solves end at the budget unresolved.
-Suppressing friction fails the transition; accepting every finite iterate fails the residual
-checks. [Record](contact-step.json).
+The fine-step landing is not validated: acquisition and substeps differ, and some solves end at the
+budget unresolved. [Record](contact-step.json).
 
 ## Linked supports and velocity consistency
 
@@ -73,10 +70,10 @@ Without the velocity projection, the zero-torque case rejected 240/240 steps at 
 | 1920 Hz | 0 | 0.000358 | 0.000332 | 0 / 0 |
 | 1920 Hz | 0.4 | 0.000455 | 0.000399 | 0 / 1 |
 
-All eight branches replay, slide above 2 m/s and stop within 1 mm of their height. The zero-torque
-gate is no rejection, 0.004 m/s and 0.003 rad/s. The two torque-case rejections come at stopping
-(1.55833 and 1.5625 s), with tangent residuals of 1.54e-9 and 1.97e-10 N s. Replacing the projected
-velocities with raw ones in the regression rejects all 120 driven steps of its first case.
+All eight branches replay, slide above 2 m/s and stop within 1 mm of their height. The two
+torque-case rejections come at stopping (1.55833 and 1.5625 s), with tangent residuals of 1.54e-9
+and 1.97e-10 N s. Replacing the projected velocities with raw ones in
+`tests/core-contact-step.test.mjs@2a1b29ac` rejects all 120 driven steps of its first case.
 [Record](contact-linked.json).
 
 ## Angular stops
@@ -106,17 +103,15 @@ admitted within 0.01 rad; budget and tolerances as above.
 | 1920 Hz | Holding | 0.001028 | 0.002518 | 20 |
 | 1920 Hz | Releasing | 0.000164 | 0.000543 | 20 |
 
-All sixteen branches converge and replay; the gate is 0.005 m/s and 0.015 rad/s. Holding predicts
+All sixteen branches converge and replay. Holding predicts
 positive stop impulse and keeps the angle within 0.0001 rad; releasing predicts zero and moves at
 least 0.004 rad inward. The base slides above 0.05 m/s loaded and stays below 0.001 m/s sticking.
-An analytic case balances 10 N on a point 0.04 m off centre with a stop (normal impulse
-`10 * dt N s`, stop `0.4 * dt N m s`, zero acceleration); suppressing stop reactions or letting them
-pull fails it. The fixture ends before the far limit: hard arrivals and rebounds are not read.
+An analytic case (`tests/core-contact-step.test.mjs@2a1b29ac`) balances 10 N on a point 0.04 m off centre with a stop (normal impulse
+`10 * dt N s`, stop `0.4 * dt N m s`, zero acceleration). The fixture ends before the far limit: hard arrivals and rebounds are not read.
 [Record](contact-stops.json).
 
 ```powershell
 node research/contact-step.mjs
 node research/contact-linked.mjs
 node research/contact-stops.mjs
-node --test tests/core-contact-step.test.mjs
 ```

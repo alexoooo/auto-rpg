@@ -40,7 +40,7 @@ The obstacle is scored by collider identity, so floor contact cannot score a str
 
 ```powershell
 node research/control-foundation.mjs --suite bar --support standing --actuation directional --samples 2 --workers 1 --out research/runs/control-foundation/standing-bar
-node --test tests/core-bar.test.mjs tests/core-motion.test.mjs tests/core-contact-tracking.test.mjs
+node --test tests/core-bar.test.mjs tests/core-motion.test.mjs tests/core-contact-tracking.test.mjs   # all @2a1b29ac
 ```
 
 All three bodies, both release sides, two seeded lateral offsets; Rapier 0.21.0-auto-rpg.4 /

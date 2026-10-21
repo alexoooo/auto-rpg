@@ -78,10 +78,10 @@ against N, are later work outside this plan.
   `src/arena/main.ts`). The bout tapes each side's orders (`Duel.tape`), so it replays with no
   mind.
 - **Bodies of one party collide and fall**: `nobody_in_the_fight_is_held_with_the_party_near`
-  (`tests/crypt-core-capability.test.mjs`) fails; on seed 1 ally-1 falls at 11.59 s, ally-2 at
-  22.86 s, the hero at 23.92 s, ally-0 at 27.28 s. Steering treats a requested direction as one
-  the body can take at once: it reads no velocity or braking (simbicon's `TURN_ROUND` is 0.3 m/s),
-  ignores fallen bodies, and mixes observations taken one after another
+  (`tests/crypt-core-capability.test.mjs@2a1b29ac`) fails: on seed 1 ally-1 falls at 11.59 s,
+  ally-2 at 22.86 s, the hero at 23.92 s, ally-0 at 27.28 s. Steering treats a requested direction
+  as one the body can take at once: it reads no velocity or braking (simbicon's `TURN_ROUND` is
+  0.3 m/s), ignores fallen bodies, and mixes observations taken one after another
   (`docs/analysis/2026-10-13-crowd-reversal.md@f103f3a9`).
 
 ## Steps
@@ -106,8 +106,8 @@ change of behaviour shows the fingerprint unmoved.
 - A body that faces its walk is paced by its forward speed. `StanceEnvelope.walk`, the every-way
   figure, keeps only the readers that mean every way, or goes if none do.
 - A gait's stopping deceleration is its own setting, a controller constant tuned freely, checked by
-  the capability test's overshoot at a place goal. A gait that changes updates its own limits as
-  part of that change.
+  its overshoot at a place goal (Part A's measurement). A gait that changes updates its own limits
+  as part of that change.
 
 #### A1. One speed rule
 
@@ -149,12 +149,13 @@ through the same pipeline: it goes fast and brakes into its point.
 
 #### Checks for Part A
 
-- **The gate**: a floor test on the stand: the Warrior empty-handed and with the club, holding a
-  direct goal for 5 s, is at least 1 m/s over its last 2 s; a place order 8 m off ends standing
-  within its `near` plus 0.3 m. Both floors sit far below what the gait does.
-- **A capability test** (`tests/movement-capability.test.mjs`, in `tests/experimental.json`), for
-  each character and representative loadout: the share of the measured top speed a direct goal
-  reaches, and how soon; overshoot at a place goal; speed through the obstacle court's corners.
+- **Landing A1 to A4**, once on the stand (`tests/harness/core-stand.mjs`): the Warrior
+  empty-handed and with the club, holding a direct goal for 5 s, is at least 1 m/s over its last
+  2 s; a place order 8 m off ends standing within its `near` plus 0.3 m.
+- **The measurement**, a research script read before and after a step that moves it, and a Ratings
+  evaluation once Ratings has its format: for each character and representative loadout, the share
+  of the measured top speed a direct goal reaches, and how soon; overshoot at a place goal; speed
+  through the obstacle court's corners.
 - **The fingerprint** moves almost everywhere, and the commits say so. Nothing is rated again.
 - **Eye check**: holding W and clicking to go, in the Arena and the Crypt.
 
@@ -170,9 +171,8 @@ through the same pipeline: it goes fast and brakes into its point.
 | What it gives | for each member, orders or no change |
 | When it runs | in `World.step`'s sensing phase, before the Minds, every `rate` seconds and at once on an event (a member down, a foe first seen, a new command) |
 
-Check: `tests/core-boundary.test.mjs` extends to `command/`, and a fast contract test like
-`mind-contract` runs every registered Commander: it must run, fork, and replay from the orders it
-gave alone.
+Check: `tests/core-boundary.test.mjs` extends to `command/`; once, each registered Commander runs
+in a bout, forks, and replays from the orders it gave alone.
 
 #### B1. The Crypt's Commanders, no change of behaviour
 
@@ -182,8 +182,7 @@ gave alone.
   destination and the way through doors, with the person's commands as its input.
 - `DungeonRun` keeps the map, levels (`levelsOf`), the run's status, and opening doors physically.
 
-Check: the fingerprint's Crypt cases are unmoved, and `tests/crypt-core.test.mjs` is green and
-unchanged.
+Check: the fingerprint's Crypt cases are unmoved.
 
 #### B2. The person's commands
 
@@ -213,9 +212,11 @@ Commander keeps members spaced:
 - a candidate is judged over the space it sweeps, not its end point;
 - yielding between members is deterministic.
 
-Check: `nobody_in_the_fight_is_held_with_the_party_near` passes, its fixture and assertions as
-they are; and a lone reversal, a following pair, crossing paths, a narrow passage and a fallen
-body, each on several seeds, make progress as well as keep clear.
+Check: on `nobody_in_the_fight_is_held_with_the_party_near`'s fixture
+(`tests/crypt-core-capability.test.mjs@2a1b29ac`: three companions, seeds 1, 2, 4 and 5, the party
+walked away from a resting enemy and back), no member falls; and a lone reversal, a following
+pair, crossing paths, a narrow passage and a fallen body, each on several seeds, make progress as
+well as keep clear.
 
 #### B4. AI Commanders
 
@@ -231,7 +232,7 @@ body, each on several seeds, make progress as well as keep clear.
   engines only once a Crypt run is (today only an Arena bout is); until then the Ratings screen
   neither opens nor confirms its cases.
 
-Check: the gate, with B0's contract test over both Commanders.
+Check: the gate, and B0's check (run, fork, replay from its orders alone) over both Commanders.
 
 ## Checks
 
@@ -244,7 +245,7 @@ Check: the gate, with B0's contract test over both Commanders.
 ## Done when
 
 Part A and Part B have landed: a body given a goal goes there by the one pipeline, the Crypt's
-Commanders are in the core and led by a person's commands, the crowd-reversal test passes, and an
+Commanders are in the core and led by a person's commands, B3's crowd checks pass, and an
 AI party can be scored clearing levels. What the plan built then goes into the architecture, and
 this file is deleted.
 

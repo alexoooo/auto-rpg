@@ -27,7 +27,7 @@ import type { JointKinematics, ReadJoint, ReadSegment } from "../read-body.ts";
 
 const scratch = {
   relative: new Quaternion(), inverse: new Quaternion(), t: new Quaternion(), turning: [] as number[][],
-  x: new Vector3(), w: new Vector3(), relativeSpin: new Vector3(),
+  x: new Vector3(), w: new Vector3(), relativeSpin: new Vector3(), half: [0, 0, 0],
 };
 
 /**
@@ -65,9 +65,34 @@ export function anglesOf(rotation: Quaternion, axes: ReadJoint["axes"], out: [nu
  */
 export function rotationOfToRef(axes: ReadJoint["axes"], a: number, b: number, c: number, out: Quaternion): Quaternion {
   if (!(Math.abs(a) < Math.PI && Math.abs(b) < Math.PI && Math.abs(c) < Math.PI)) throw new Error(`angles (${a}, ${b}, ${c}) reach a half turn`);
-  const tx = tan(a / 2), ty = tan(b / 2), tz = tan(c / 2), w = 1 / Math.sqrt(1 + tx * tx + ty * ty + tz * tz);
+  const half = scratch.half;
+  half[0] = tan(a / 2); half[1] = tan(b / 2); half[2] = tan(c / 2);
+  return rotationOfHalfTansToRef(axes, half, 0, out);
+}
+
+/** `rotationOfToRef` from the angles' half tangents, t_k = tan(a_k / 2), read from `half` at `at` on. */
+export function rotationOfHalfTansToRef(axes: ReadJoint["axes"], half: ArrayLike<number>, at: number, out: Quaternion): Quaternion {
+  const tx = half[at]!, ty = half[at + 1]!, tz = half[at + 2]!, w = 1 / Math.sqrt(1 + tx * tx + ty * ty + tz * tz);
   const x = w * tx, y = w * ty, z = w * tz, { x: X, y: Y, z: Z } = axes;
   return out.copyFromFloats(x * X[0] + y * Y[0] + z * Z[0], x * X[1] + y * Y[1] + z * Z[1], x * X[2] + y * Y[2] + z * Z[2], w);
+}
+
+/**
+ * The half tangents `joint`'s angles at `angles` (own senses) give, into `out` from `at` on:
+ * tan(a_k / 2) of each freedom's angle in the engine's sense, a locked one's at zero. What
+ * `rotationOfToRef`, `turningToRef` and `motionAxesToRef` read of the angles, refused as
+ * `rotationOfToRef` refuses them.
+ */
+export function halfTansToRef(joint: JointKinematics, angles: readonly number[], out: Float64Array, at: number): Float64Array {
+  const a = engineAngle(joint, angles, 0), b = engineAngle(joint, angles, 1), c = engineAngle(joint, angles, 2);
+  if (!(Math.abs(a) < Math.PI && Math.abs(b) < Math.PI && Math.abs(c) < Math.PI)) throw new Error(`angles (${a}, ${b}, ${c}) reach a half turn`);
+  out[at] = tan(a / 2); out[at + 1] = tan(b / 2); out[at + 2] = tan(c / 2);
+  return out;
+}
+
+/** Freedom `k` of `joint` at `angles` (own senses) in the engine's sense, a locked one at zero. */
+function engineAngle(joint: JointKinematics, angles: readonly number[], k: number): number {
+  return k < joint.dofs.length ? joint.dofs[k]!.sign * angles[k]! : 0;
 }
 
 /** Each freedom's angle, in its own sense, from the reference pose: `out[k]` is `joint.dofs[k]`'s. */
@@ -92,8 +117,15 @@ const abc: [number, number, number] = [0, 0, 0];
  * leading rows and columns: of two, the diagonal w^2 (1 + t_k^2). At no angles this is the identity.
  */
 export function turningToRef(joint: JointKinematics, angles: readonly number[], out: number[][]): number[][] {
+  const half = scratch.half;
+  half[0] = halfTan(joint, angles, 0); half[1] = halfTan(joint, angles, 1); half[2] = halfTan(joint, angles, 2);
+  return turningOfHalfTansToRef(joint, half, 0, out);
+}
+
+/** `turningToRef` from the half tangents of the joint's angles (`halfTansToRef`), read from `half` at `at` on. */
+export function turningOfHalfTansToRef(joint: JointKinematics, half: ArrayLike<number>, at: number, out: number[][]): number[][] {
   const { dofs } = joint, count = dofs.length;
-  const x = halfTan(joint, angles, 0), y = halfTan(joint, angles, 1), z = halfTan(joint, angles, 2);
+  const x = half[at]!, y = half[at + 1]!, z = half[at + 2]!;
   const w2 = 1 / (1 + x * x + y * y + z * z);
   out.length = count;
   for (let k = 0; k < count; k++) {
@@ -111,7 +143,7 @@ export function turningToRef(joint: JointKinematics, angles: readonly number[], 
 
 /** tan(a_k / 2) of freedom `k`'s angle in `angles` (own senses) in the engine's sense, a locked freedom's at zero. */
 function halfTan(joint: JointKinematics, angles: readonly number[], k: number): number {
-  return tan((k < joint.dofs.length ? joint.dofs[k]!.sign * angles[k]! : 0) / 2);
+  return tan(engineAngle(joint, angles, k) / 2);
 }
 
 /**
@@ -174,10 +206,17 @@ export function rateBiasToRef(joint: ReadJoint, angles: readonly number[], speed
  * over the speeds cancels, so a joint's axes add nothing to the motion's bias (`dynamics.ts`).
  */
 export function motionAxesToRef(joint: JointKinematics, angles: readonly number[], out: [number, number, number][]): [number, number, number][] {
+  const half = scratch.half;
+  if (joint.dofs.length === 2) { half[0] = halfTan(joint, angles, 0); half[1] = halfTan(joint, angles, 1); }
+  return motionAxesOfHalfTansToRef(joint, half, 0, out);
+}
+
+/** `motionAxesToRef` from the half tangents of the joint's angles (`halfTansToRef`), read from `half` at `at` on. */
+export function motionAxesOfHalfTansToRef(joint: JointKinematics, half: ArrayLike<number>, at: number, out: [number, number, number][]): [number, number, number][] {
   const { dofs, axes } = joint;
   out.length = dofs.length;
   if (dofs.length === 2) {
-    const leanX = -halfTan(joint, angles, 1), leanY = halfTan(joint, angles, 0);
+    const leanX = -half[at + 1]!, leanY = half[at]!;
     const sx = dofs[0]!.sign, sy = dofs[1]!.sign, Z = axes.z;
     setTo(out, 0, sx * (axes.x[0] + leanX * Z[0]), sx * (axes.x[1] + leanX * Z[1]), sx * (axes.x[2] + leanX * Z[2]));
     setTo(out, 1, sy * (axes.y[0] + leanY * Z[0]), sy * (axes.y[1] + leanY * Z[1]), sy * (axes.y[2] + leanY * Z[2]));

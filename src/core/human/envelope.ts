@@ -8,7 +8,6 @@ import type { Side } from "../spec/body.ts";
 /**
  * **The workshop models' clothed envelope**, as `scripts/core/workshop-envelope.mjs` measures it
  * from the GLBs: metres at the authored size, rounded to 0.1 mm, body frame.
- * `tests/core-human.test.mjs` measures it again and compares.
  *
  * - A trunk segment's surface is the corners of a convex hull, read from
  *   `assets/humanoid/workshop-*-trunk-hull.json`, which the script writes.

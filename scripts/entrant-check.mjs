@@ -22,7 +22,8 @@ const REGISTRY = "src/core/mind/controllers.ts";
 
 /**
  * The entrant `path` belongs to, or null: its folder (`src/core/entrants/<name>/`), its learned or
- * authored data (`assets/entrants/<name>/`) and its own test (`tests/entrant-<name>.test.mjs`).
+ * authored data (`assets/entrants/<name>/`) and its own test, if it has one
+ * (`tests/entrant-<name>.test.mjs`).
  */
 export function entrantOf(path) {
   const found = /^src\/core\/entrants\/([^/]+)\//.exec(path) ?? /^assets\/entrants\/([^/]+)\//.exec(path)
