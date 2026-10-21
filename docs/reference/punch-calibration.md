@@ -98,16 +98,16 @@ extension); the rest is the retained `ATTACK_PATH`.
 
 ## Checks and reproduction
 
-`tests/research-punch-calibration.test.mjs` checks both directions at 120 and 960 Hz against the
-analytic inelastic impulse and the striker's momentum loss, and mount-only motion (no contact
-impulse above 1e-5 N s); real Warrior hit and miss cycles for both hands; fresh-world replay of
-controller, pad and measurement history. Removing the mount-load subtraction fails the no-contact
+`tests/research-punch-calibration.test.mjs@2a1b29ac` checks both directions at 120 and 960 Hz
+against the analytic inelastic impulse and the striker's momentum loss, and mount-only motion (no
+contact impulse above 1e-5 N s); real Warrior hit and miss cycles for both hands; fresh-world replay
+of controller, pad and measurement history. Removing the mount-load subtraction fails the no-contact
 check; removing the hand's reaction fails the compression check.
 
 ```powershell
 node research/punch-calibration.mjs --suite --output docs/reference/punch-calibration.json.gz
 node research/punch-calibration.mjs --hand right --face compliant --hz 1920 --speed 8 --extension 1 --output punch.json
-node --test tests/research-punch-calibration.test.mjs
+node --test tests/research-punch-calibration.test.mjs   # @2a1b29ac
 ```
 
 One sequential world a trial; a suite refuses a fingerprint change mid-run. `--face-stiffness`,

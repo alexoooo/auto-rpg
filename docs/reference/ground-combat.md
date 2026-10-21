@@ -78,7 +78,8 @@ the opponent's recovery state; physical Warrior shoves gate the reading.
 
 The shared executor lowers the Warrior, strikes a horizontal face 0.33 m above the floor with
 either fist, verifies each return and restores standing (`support.shared: true` in
-`research/combat-strikes.mjs`, the game's `supportFold`; `tests/core-combat-low-workspace.test.mjs`).
+`research/combat-strikes.mjs`, the game's `supportFold`;
+`tests/core-combat-low-workspace.test.mjs@2a1b29ac`).
 Node core stand (unpinned), lowering at 2 s to `lower: 0.5`, attacks from 4 s, standing at 12 s, 16 s
 a trial; box 0.20 × 0.08 × 0.20 m with its top at the target, ±0.10 m across, 0.35 m ahead, full
 elbow preference (`combat-low-shared-qualify.json.gz`):

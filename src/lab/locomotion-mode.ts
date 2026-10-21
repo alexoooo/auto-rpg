@@ -45,7 +45,7 @@ import { startWind, type WindSettings } from "./wind.ts";
  *
  * Wind may blow on it (`wind.ts`), and its feet are metered (`gait-meter.ts`).
  *
- * This module has no page-only imports, so the Node stand can run it (`tests/lab-locomotion.test.mjs`).
+ * This module has no page-only imports, so the Node stand can run it.
  */
 
 /** What the page shows of a run, as the last control step left it. */

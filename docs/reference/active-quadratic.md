@@ -41,15 +41,13 @@ arithmetic with no runtime package. It needs a strictly positive-definite Hessia
 
 Node, numerical tests only, no world.
 
-- `tests/core-quadratic.test.mjs` (rho 1, sigma 1e-6, tolerances 1e-9, 2000 iterations): a
+- `tests/core-quadratic.test.mjs@2a1b29ac` (rho 1, sigma 1e-6, tolerances 1e-9, 2000 iterations): a
   coupled equality/bound problem reaches `(0.3, 0.7)` with multipliers `(-2.9, 0, 0.2)`; a
   problem built from a known KKT point agrees within 1e-7, with a redundant zero equality too; a
   unilateral force stays at zero when the objective asks it to pull; contradictory constraints
   and an unbounded objective exhaust 100 iterations without claiming convergence; a warm start
-  replays across changed bounds, reset, save/load and a fresh solver. Removing the projection
-  fails it.
-- `tests/core-active-quadratic.test.mjs`: analytic, equality and unconstrained optima, input
+  replays across changed bounds, reset, save/load and a fresh solver.
+- `tests/core-active-quadratic.test.mjs@2a1b29ac`: analytic, equality and unconstrained optima, input
   immutability, reuse after a change of row count, saved-state replay, inconsistent bounds, an
   indefinite objective and a one-unit budget. Twelve constructed mixed-sign KKT optima agree
-  with their construction and with the ADMM solver. Removing the constraints from the kernel
-  call fails it.
+  with their construction and with the ADMM solver.

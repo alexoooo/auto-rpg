@@ -14,8 +14,8 @@
  *
  * Body frame (+x right, +y up, +z front), metres at the authored size, rounded to 0.1 mm; the spec
  * scales by the fit scale. `node scripts/core/hand-envelope.mjs` prints a summary; with `--write`
- * it writes `assets/humanoid/<model>-hands.json` for each model. `tests/hand-envelope.test.mjs`
- * measures them again and compares. The record: `docs/reference/man-anatomy.md`.
+ * it writes `assets/humanoid/<model>-hands.json` for each model.
+ * The record: `docs/reference/man-anatomy.md`.
  */
 import fs from "node:fs";
 import path from "node:path";

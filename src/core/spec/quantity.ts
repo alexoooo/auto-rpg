@@ -7,7 +7,7 @@ import type { SourceKey } from "../sources.ts";
  * an asset, a measurement, the owner's decision; `SOURCES` in `src/core/sources.ts` lists them --
  * or derived from other quantities by a named rule. A derivation keeps its inputs and its rule, so
  * the chain from any built number back to what it rests on can be walked
- * (`src/core/spec/provenance.ts`), and `tests/core-spec.test.mjs` walks it for every spec.
+ * (`src/core/spec/provenance.ts`).
  *
  * **A derivation's constants are inputs.** A rule's code may use the arithmetic of its own
  * formula (a half, a cube, pi) and nothing else; a factor that is a claim about bodies -- a share,

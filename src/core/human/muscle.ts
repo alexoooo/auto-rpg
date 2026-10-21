@@ -23,7 +23,7 @@ import { measuredTorque, subjectMass, type Exertion } from "./tables/joint-torqu
  * come from the same people in the same scanner, so their ratio carries no difference of method. A
  * man's torque is then his body mass over the men's times theirs; a woman's is also scaled by the
  * women's muscle per kilogram over the men's in the region. The women's measured column is never an
- * input: `tests/core-human.test.mjs` holds it against the prediction.
+ * input: it checks the prediction.
  *
  * `docs/reference/human-strike-reference.md` section 9 has the check, the two other rules weighed,
  * and what none of them explains (the trunk).

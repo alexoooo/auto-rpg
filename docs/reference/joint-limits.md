@@ -55,13 +55,13 @@ finite-difference test perturbs world rotations on all three axes with rotated p
 recentred ranges. Parent-axis rows in place of the selection fail both coordinate-limit
 regressions. Full endpoint rows: [joint-limits.json](joint-limits.json).
 
-- `tests/core-limit-profile.test.mjs`: a driven body saved and restored into the same and another
-  corrected world gives the same angles and velocities; cross-configuration loads are refused both
-  ways.
-- `tests/core-joint-state.test.mjs`: the gameplay default selects coordinate rows and passes the
-  stop checks.
-- `tests/arena-gameplay-physics.test.mjs` runs the default explicitly: four shove directions
-  recover and walk, and both hands contact and return in the hit and miss fixtures.
+- `tests/core-limit-profile.test.mjs@2a1b29ac`: a driven body saved and restored into the same and
+  another corrected world gives the same angles and velocities; cross-configuration loads are
+  refused both ways.
+- `tests/core-joint-state.test.mjs@2a1b29ac`: the gameplay default selects coordinate rows and
+  passes the stop checks.
+- `tests/arena-gameplay-physics.test.mjs@2a1b29ac` runs the default explicitly: four shove
+  directions recover and walk, and both hands contact and return in the hit and miss fixtures.
 
 ## Package and browser validation
 
@@ -73,7 +73,7 @@ corrected limits ([joint-limits-browser.json](joint-limits-browser.json)). That 
 0.028904571971773277 m off target at development seed 0, failing its 0.02 m gate.
 
 ```powershell
-node --test tests/core-joint-state.test.mjs tests/core-limit-profile.test.mjs
+node --test tests/core-joint-state.test.mjs tests/core-limit-profile.test.mjs   # both @2a1b29ac
 node research/rapier-package-parity.mjs --reference ../rapier-npm-pkg
 node research/control-foundation.mjs --suite baseline --split development --workers 3
 $env:CORE_ENGINE = "rapier-coordinate"

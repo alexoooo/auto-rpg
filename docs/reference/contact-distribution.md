@@ -26,7 +26,7 @@ loads while keeping the articulated system's acceleration are not. The implement
 
 ## Measurement
 
-`node --test tests/core-contact-tracking.test.mjs` (Node, Rapier, 120 Hz): a box with four measured
+`tests/core-contact-tracking.test.mjs@2a1b29ac` (Node, Rapier, 120 Hz): a box with four measured
 floor contacts and a supplied affine reaction model that puts opposite corners in tension. Without
 redistribution the solve rejects; at cost 1e-6 it accepts zero muscle torque, changes the point
 forces and keeps all six wrench components within 1e-10, with no physics bytes changed and exact

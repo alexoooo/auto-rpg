@@ -2,8 +2,8 @@
 
 How the core reads a fall (`fallen`, `BodyView.down`), the owner's stand-up target, the battery of
 falls a riser is read on, and the staged riser's recipe (`RISE`, `stagedRise`,
-`src/core/mind/rise/`) with the readings behind each of its numbers. Read by the rise's modules,
-`research/core-rise*.mjs` and `tests/core-rise-capability.test.mjs`.
+`src/core/mind/rise/`) with the readings behind each of its numbers. Read by the rise's modules
+and `research/core-rise*.mjs`.
 
 ## Down
 

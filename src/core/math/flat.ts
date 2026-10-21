@@ -1,8 +1,8 @@
 /**
  * **`linalg.ts`'s solves on flat arrays**, for a step's dear loops: a matrix is its rows laid end
  * to end, and a solve works in arrays its caller made once (its work). Each does its `linalg.ts`
- * twin's operations in the same order on the same numbers, so its answers are the same to the bit
- * (`tests/core-flat.test.mjs`). A work carries nothing from one call to the next: a solve writes
+ * twin's operations in the same order on the same numbers, so its answers are the same to the bit.
+ * A work carries nothing from one call to the next: a solve writes
  * every entry it reads.
  */
 import { REGULARIZER } from "./linalg.ts";

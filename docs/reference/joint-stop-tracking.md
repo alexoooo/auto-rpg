@@ -23,8 +23,9 @@ acceleration is `J a + Jdot v`, so the target `-Jdot v` holds the coordinate. `D
 an invalid axis is refused. A lower stop uses the inward row and an upper stop its negative; the
 row is unilateral, and choosing the active set is the controller's.
 
-`node --test tests/core-joint-coordinate.test.mjs`: independently rotating parent and child, tilted
-axes, non-identity rests, both signs, one to three freedoms, central differences at 1e-5 s:
+`node --test tests/core-joint-coordinate.test.mjs@2a1b29ac`: independently rotating parent and
+child, tilted axes, non-identity rests, both signs, one to three freedoms, central differences at
+1e-5 s:
 
 | Reading | Maximum |
 |---|---:|

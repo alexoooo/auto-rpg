@@ -56,7 +56,7 @@ Harness: Node core world, Rapier 0.21.0-auto-rpg.4 / adapter 5, 120 Hz, directio
 ordinary ground, empty hands, no pins, no assists.
 
 ```powershell
-node --test tests/core-support-transition.test.mjs
+node --test tests/core-support-transition.test.mjs   # @2a1b29ac
 node research/control-foundation.mjs --suite support --actuation directional --samples 2 --workers 1 --out research/runs/control-foundation/support-transition
 ```
 

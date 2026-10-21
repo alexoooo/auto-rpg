@@ -1,8 +1,8 @@
 # Geometric support toward a plane
 
 `planarSupportPoints` (`src/core/build/planar-support.ts`) returns a collider's support points
-toward a plane normal in its current world pose, and this records the sliding-sphere check that
-validates it against the engine (`tests/core-planar-support.test.mjs`). It is a model primitive:
+toward a plane normal in its current world pose, and this records the sliding-sphere check of it
+against the engine (`tests/core-planar-support.test.mjs@2a1b29ac`). It is a model primitive:
 the reference controller still reads Rapier's measured contact points.
 
 ## The query

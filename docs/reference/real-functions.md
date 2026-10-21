@@ -1,9 +1,8 @@
 # The core's functions of a real number
 
 Why the core computes its own sines, exponentials and lengths (`src/core/math/real.ts`,
-`src/core/math/turn.ts`), what they are, and what was measured of them. `tests/core-math.test.mjs`
-holds them to this record, and `scripts/match.mjs` relies on the result: a bout is the same in
-every engine.
+`src/core/math/turn.ts`), what they are, and what was measured of them. `scripts/match.mjs` relies
+on the result: a bout is the same in every engine.
 
 ## Why
 
@@ -104,7 +103,7 @@ segment's position and turn on both sides, read every 60 steps and at the verdic
 | Warrior v Rogue, balance 25 % a side | built | 2112 | the Warrior, the Rogue's head off, 17.6 s | 0.9732457233222181, 0.5696885055513037 | 37 of 37 |
 
 No test runs in a browser; to read it again, import `tests/fixtures/real-sweep.mjs` into a served
-page and set its digests beside `RECORD` (`tests/core-math.test.mjs`).
+page and set its digests beside `RECORD` (`tests/core-math.test.mjs@2a1b29ac`).
 
 A step's cost (Node 24.19, the Warrior against the Rogue to its verdict, the least of six bouts' mean
 step, quiet machine): 1.270 ms on the engine's `Math`, 1.296 and 1.334 ms on the core's, 2 to 5 % more.

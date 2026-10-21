@@ -7,7 +7,7 @@
  * browser. These are built from what IEEE 754 fixes in every engine (`+`, `-`, `*`, `/`,
  * `Math.sqrt`, `Math.abs`, `Math.floor`, `Math.trunc`, and a double's bits read through a typed
  * array), so each returns the same double everywhere. `tests/core-boundary.test.mjs` holds the
- * core to them, and `tests/core-math.test.mjs` holds them to their recorded values.
+ * core to them.
  *
  * All but `hypot` are fdlibm's, by way of FreeBSD's msun, kept operation for operation; its notice:
  *

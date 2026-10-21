@@ -22,9 +22,9 @@ internal PGS iterations stay two.
 | 512 | 149.29967880249023 | 149.3000078201294 |
 
 The last column's offset from the cap is the single-precision impulse itself; the middle column's
-larger, nonmonotonic error is the ledger's rounding. `tests/core-rapier-effort.test.mjs` repeats all
-six counts both ways and requires exact equality with the last saturated impulse times the count;
-on `.6` it fails at 32 substeps, negative velocity. The native test
+larger, nonmonotonic error is the ledger's rounding. `tests/core-rapier-effort.test.mjs@2a1b29ac`
+repeats all six counts both ways and requires exact equality with the last saturated impulse times
+the count; on `.6` it fails at 32 substeps, negative velocity. The native test
 `step_motor_impulse_preserves_precision_across_substeps` checks the same on a real rotor.
 
 ## Anatomical comparison

@@ -5,7 +5,7 @@ import { derive, si, sourced, type Quantity } from "../spec/quantity.ts";
 /**
  * **The fight rules, in one immutable object per mode**: what wounds, what severs, what kills and
  * how a fight ends. A rule reads its numbers from here and nowhere else, and every number says
- * where it came from, as a spec's do (`tests/fixtures/spec.mjs`). An experiment passes an override
+ * where it came from, as a spec's do. An experiment passes an override
  * in and gets a new rulebook; nothing mutates one.
  *
  * The arena and the dungeon use the same rules (the owner: "The dungeon and the arena use the same

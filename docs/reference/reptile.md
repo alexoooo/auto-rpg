@@ -129,7 +129,7 @@ eliminate it while it recovers; an upright party body must reach the exit to win
 Node stand, the core world, `rapier-coordinate`, 120 Hz, anatomy fixed: no torque or unloaded speed
 is raised to pass. The witnesses are `tests/core-reptile.test.mjs`,
 `tests/reptile-recovery.test.mjs`, `tests/reptile-fork.test.mjs`, `tests/reptile-combat.test.mjs`
-and `tests/reptile-integration.test.mjs`.
+and `tests/reptile-integration.test.mjs`, all @2a1b29ac.
 
 | Gate | Result |
 | --- | --- |

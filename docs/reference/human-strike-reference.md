@@ -3,7 +3,7 @@
 What the literature measured of human strikes, segments, joint torques and ranges, and what the
 core human is built from: sections 1 to 7 are the literature, section 8 the workshop models'
 stature and volume (`src/core/sources.ts`), section 9 the core human's joint ranges and strengths
-(`src/core/human/muscle.ts`, `tables/`, held by `tests/core-human.test.mjs`).
+(`src/core/human/muscle.ts`, `tables/`).
 
 All units are SI. Angular velocities were converted at 1 deg/s = 0.01745 rad/s; the original deg/s value is given in brackets. "Typical" means an untrained or recreational adult male where such data exist; otherwise the lowest-skill group studied, which is named. Values are mean ± SD unless marked otherwise. **Derived** marks a number computed here from the cited inputs, not reported by the source.
 
@@ -133,8 +133,7 @@ Measurements of this repository's assets for the core's human spec (`src/core/hu
 **Stature** is the top of the skin: the maximum y of `base__skin`'s positions in
 `public/assets/humanoid/workshop-*.glb`, bind pose, soles on 0; hair is not stature. It is the
 GLB's own figure, the maximum its position accessor states (`/accessors/231/max/1` in the
-Warrior's file, `/accessors/220/max/1` in the Rogue's), and `node --test tests/core-human.test.mjs`
-reads both back (`specProvenanceFaults`, `tests/fixtures/spec.mjs`).
+Warrior's file, `/accessors/220/max/1` in the Rogue's).
 
 | Model | Skin top at the authored size | At x1 (x 1.77 / 1.880) |
 |---|---|---|
@@ -165,8 +164,6 @@ For the core's human joints (`src/core/human/joints.ts`, `muscle.ts` and `tables
 here is from Node on the spec alone (no engine), unless it says otherwise. Tables 9.2 and 9.4 were
 printed from `humanSpec` (`src/core/human/spec.ts`) at `1e7bc4f2`, not retyped; the script that
 printed them, and the one that weighed 9.1's three rules, were not committed.
-`node --test tests/core-human.test.mjs` holds what they show: each Rogue ratio and the middle one,
-each range about the reference pose, and each model reading its own sex's column.
 
 ### 9.1 A model's torque comes from its muscle
 
@@ -225,9 +222,8 @@ also fits best was seen after the choice was argued, and is reported, not relied
 - **Two smaller misses:** Anderson's hip flexion and extension (its 7 women's normalised peaks
   exceed its 7 men's) and Peleg's ulnar deviation (20 women, concentric).
 
-`tests/core-human.test.mjs` holds each Rogue ratio between 0.55 and 1.5 and the middle one between
-0.85 and 1.15. It reads 0.97. Scaling by mass alone moves the middle to 1.39. Leaving her mass out
-moves it to 1.25.
+The middle Rogue ratio reads 0.97. Scaling by mass alone moves the middle to 1.39. Leaving her mass
+out moves it to 1.25.
 
 ### 9.2 Torque sources: the men's column read, the women's column checked
 

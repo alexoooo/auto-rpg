@@ -8,8 +8,7 @@ import { cross, dot, normalize, orthogonalTo } from "../spec/vec.ts";
  * any square to X), and Z whatever the engine completes them with. `sign` says whether each
  * freedom's axis runs with its constraint axis or against it.
  *
- * The engine's Z is X cross Y in Babylon's components; `tests/core-build.test.mjs` drives each
- * axis both ways round and reads the turn back.
+ * The engine's Z is X cross Y in Babylon's components.
  */
 function constraintAxes(dofs: readonly DofSpec[]): { readonly x: Vec3; readonly y: Vec3; readonly z: Vec3; readonly signs: readonly (1 | -1)[] } {
   if (dofs.length < 1 || dofs.length > 3) throw new Error(`a joint has one to three freedoms, not ${dofs.length}`);

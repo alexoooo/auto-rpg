@@ -14,9 +14,7 @@ import { derive, sourced, type Quantity } from "../spec/quantity.ts";
  * the gait battery (`research/core-stance-trials.mjs`' walk, five ways at each speed) and the turn
  * battery (its turn: half round each way at each rate, walking at each of the gait battery's speeds
  * up to the fastest walk, from the walk's setting off and through its first strides as well as
- * under way), and which names the harness and rate it was measured on;
- * `tests/core-stance-envelope.test.mjs` holds this parent-axis Rapier reference to that harness
- * and rate. It does not validate another gameplay engine or a reduced balance allowance.
+ * under way), and which names the harness and rate it was measured on. It is a parent-axis Rapier reference at that harness and rate; it does not validate another gameplay engine or a reduced balance allowance.
  *
  * A turn is read at each speed because it depends on it: a body may turn several times faster a
  * little below its fastest walk than at it, so one turn for all speeds would make a run crawl round

@@ -21,7 +21,7 @@ handles its transitions.
 ## Measurement
 
 Node core stand, Rapier `0.21.0-auto-rpg.4`, adapter 5, 1920 Hz, no actuators or assists;
-`tests/core-contact-curvature.test.mjs`. A 1 kg sphere (moments 0.004 kg m²) or horizontal capsule
+`tests/core-contact-curvature.test.mjs@2a1b29ac`. A 1 kg sphere (moments 0.004 kg m²) or horizontal capsule
 (moments [0.04, 0.005, 0.04] kg m², spine along world z), radius 0.1 m, settles 240 steps, is set
 rolling by matched impulses, predicted four steps later and measured over the next 120 steps.
 
@@ -37,7 +37,7 @@ rolling by matched impulses, predicted four steps later and measured over the ne
 | Capsule | 3 | -90.0144 | 0.00254 | -0.00037 |
 
 The zero target predicts the fall of a body pivoting about a fixed material point; rolling replaces
-the contacting material continuously. Replacing the target with zero fails the test.
+the contacting material continuously.
 
 ## The cached contact point
 

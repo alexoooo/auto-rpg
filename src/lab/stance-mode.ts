@@ -23,7 +23,7 @@ import type { World } from "../core/world.ts";
  * A shove is the page's instrument, not a command: an impulse at the middle trunk's centre of
  * mass, level, as the shove sweep gives it (`STANCE_RECOVERY`), applied before the next solver step.
  *
- * This module has no page-only imports, so the Node stand can run it (`tests/lab-stance.test.mjs`).
+ * This module has no page-only imports, so the Node stand can run it.
  */
 
 /**
@@ -82,8 +82,8 @@ const restOrders = (): StanceOrders => ({ forward: 0, right: 0, turn: 0, lower: 
 /**
  * How fast the Stance scenario's Q and E turn the heading while walking, rad/s, and the shuttle's
  * half-turns' radius with the Routine's pace (`track.ts`): a lab setting, not the stance's. It is
- * inside every body's envelope at the Routine's pace (`turnAt`, `Body.envelope`,
- * `tests/core-stance-envelope.test.mjs`); walking faster, Q and E turn no faster than the body held
+ * inside every body's envelope at the Routine's pace (`turnAt`, `Body.envelope`);
+ * walking faster, Q and E turn no faster than the body held
  * at that walk.
  */
 export const LAB_TURN_RATE = 1;

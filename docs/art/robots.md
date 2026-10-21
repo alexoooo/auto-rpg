@@ -32,8 +32,6 @@ Every proportion below is an authored art choice, not anatomy or a solver measur
 smallest dimension. The distal taper is 0.90, limb coverage 0.84 and corner cut 0.12. Limb housings
 are 1.76 radii wide and 1.65 radii deep; trunk width is 0.86 of its envelope, depth 0.80 and height
 0.84 of segment length. The head has one circular lens, and the abdomen has three straight bars.
-`tests/robot-skin.test.mjs` holds this design, its palm and finger poses included, to a recorded
-fingerprint (Node stand, Rapier, unstepped Warrior).
 
 | Finish | Color | Metallic | Roughness | Emission |
 |---|---|---:|---:|---:|
@@ -84,14 +82,12 @@ along the foot, so the sole stays under the whole foot.
 
 ## Checking
 
-`tests/robot-skin.test.mjs` checks attachment, independent ownership, grip geometry, unchanged
-ordered-bout snapshots, and a geometry-and-material fingerprint of Industrial (Node stand, Rapier,
-120 Hz). The browser check exercises the selectors, previews, paused playback, Tactical view and
+The browser check exercises the selectors, previews, paused playback, Tactical view and
 replacement without rebuilding a body, and writes screenshots under `.review/robots/`:
 
 ```powershell
 npm exec --yes --package=playwright -- node scripts/robot-browser-check.mjs http://127.0.0.1:5188
 ```
 
-The geometric tests do not judge silhouette, lighting or panel intersections: look at the
+The browser check does not judge silhouette, lighting or panel intersections: look at the
 screenshots and at the shells in motion.

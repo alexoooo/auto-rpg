@@ -27,8 +27,7 @@ import { GROUND_LEVELS, type GroundLevel } from "./ground-environment.ts";
  * its whole tree (`readMind`). Choosing a scenario, or going back to
  * the menu, is a navigation, as every change of screen in the game is.
  *
- * Pure and free of the DOM, so `tests/lab-scenarios.test.mjs` can argue with it; the menu
- * reads its options from here, so an option offered is one the lab has.
+ * Pure and free of the DOM. The menu reads its options from here, so an option offered is one the lab has.
  */
 
 export type ScenarioId = "stance" | "attack" | "locomotion" | "recovery" | "ground";

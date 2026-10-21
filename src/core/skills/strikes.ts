@@ -198,8 +198,7 @@ const otherSide = (channel: string): string =>
  * **A strike thrown with the other hand**: each arm's freedom is its twin's on the other side (an
  * arm's freedoms are anatomical, so its twin's positive way is the mirror of its own,
  * `src/core/human/joints.ts`), and the trunk's rotation and lateral flexion, whose positive way is
- * to the right, are turned over. The body is taken as its own mirror; how the left's strike reads
- * is measured, not assumed (`tests/lab-routine.test.mjs`).
+ * to the right, are turned over. The body is taken as its own mirror.
  */
 export function mirrored(strike: Strike): Strike {
   const sided = (channel: string): boolean => SIDED.some((s) => channel.endsWith(s));

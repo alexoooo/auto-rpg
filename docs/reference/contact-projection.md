@@ -36,11 +36,8 @@ normalized horizontal impulse vectors ([record](contact-projection.json)):
 | 1920 Hz | -1 | 0.000464 | 0.067547 |
 | 1920 Hz | +1 | 0.000399 | 0.067636 |
 
-All four trials replay and reject no prediction; queries leave the snapshot unchanged. The
-regression requires the rigid-body error below 0.005 and the coupled above 0.04, so the fixture
-tells the laws apart; removing the local metric fails it.
+All four trials replay and reject no prediction; queries leave the snapshot unchanged.
 
 ```powershell
 node research/contact-projection.mjs
-node --test tests/research-contact-projection.test.mjs
 ```

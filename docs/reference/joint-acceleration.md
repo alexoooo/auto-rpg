@@ -46,14 +46,14 @@ No motor saturates. Without the term the controlled accelerations return to the 
 and fail the test's 0.05 rad/s² ceiling.
 
 ```powershell
-node --test --test-name-pattern="angle acceleration" tests/core-joint-state.test.mjs
-node --test tests/core-joint-acceleration.test.mjs
+node --test --test-name-pattern="angle acceleration" tests/core-joint-state.test.mjs   # @2a1b29ac
+node --test tests/core-joint-acceleration.test.mjs   # @2a1b29ac
 ```
 
-The skeleton bar fixture's return readiness is tested with a declared 2 N s push along +x at the
-held item's centre 25 steps before its finish (Node core stand, Rapier `.4`, 120 Hz, directional,
-no assists): it must leave by more than 0.03 m, wait 30 ready steps, and be ready again by 12 s
-without falling.
+In `tests/core-bar.test.mjs@2a1b29ac` the skeleton bar fixture's return readiness takes a declared
+2 N s push along +x at the held item's centre 25 steps before its finish (Node core stand, Rapier
+`.4`, 120 Hz, directional, no assists): it must leave by more than 0.03 m, wait 30 ready steps, and
+be ready again by 12 s without falling.
 
 ## Capability remeasurement
 

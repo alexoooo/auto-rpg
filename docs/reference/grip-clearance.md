@@ -17,8 +17,8 @@ release until they are clear, for discrete contacts and CCD alike; and the vendo
   and strikes as before.
 
 The capsule hand is an open-hand shape while the grasp frame closes the fingers about the haft, so a
-grip overlaps by construction. In the reference pose (`tests/fixtures/shapes.mjs`, the `armed`
-placement):
+grip overlaps by construction. In the reference pose (`tests/fixtures/shapes.mjs@2a1b29ac`, the
+`armed` placement):
 
 | Body | Hand/club minimum gap, either hand, m | Closest other segment | Gap, m |
 |---|---:|---|---:|
@@ -39,7 +39,8 @@ never reenter WASM.
 ## Measurement
 
 Node core world, Rapier `0.21.0-auto-rpg.3`, adapter 3, 120 Hz, no gravity or assists, directional
-configuration; `node --test tests/core-grip-clearance.test.mjs tests/core-equipment.test.mjs`.
+configuration; `node --test tests/core-grip-clearance.test.mjs tests/core-equipment.test.mjs`,
+both @2a1b29ac.
 
 - Two 1 kg spheres (radii 0.1/0.05 m) start 0.02 m apart in a rigid grip at 1 m/s. Release keeps
   their velocities exactly and relative position within 1e-6 m through the next step; a 1 N s

@@ -51,8 +51,8 @@ them. Ordinary contacts and joints solve as upstream's.
 - **Active contact load.** `totalSolverContactImpulse` sums normal impulses only over the geometric
   points the current solver contacts reference, each once, in geometric order, in double precision;
   a discarded point's cached impulse adds nothing. Contact observations and the compliant layer read
-  it. `tests/core-active-contact.test.mjs` loads a Lab fall checkpoint with four separated solver
-  points and a fifth, discarded one holding a cached impulse, and reads zero load.
+  it. `tests/core-active-contact.test.mjs@2a1b29ac` loads a Lab fall checkpoint with four separated
+  solver points and a fifth, discarded one holding a cached impulse, and reads zero load.
 - The adapter also gives stable collider-shape replacement, admitted-pair clearance queries and
   grip observation for coarse hand poses; collider geometry restores through the native snapshot.
 
@@ -64,8 +64,9 @@ and to its change of angular momentum, either way, within `1e-5` (reading one of
 At 120 Hz a rotor of inertia `0.2 * 0.2 / 6 kg m²`, target `0.07 rad/s` and `0.12 N m` ceiling
 reaches its target before the last substep: the accumulated impulse is about `0.000466667 N m s`,
 the last substep's nearly zero. Snapshots restore it; disabled motors clear it; islands with 0, 4
-and 12 extra iterations keep their totals through a CCD collision. Tests: `tests/core-engine.test.mjs`,
-`core-rapier-effort.test.mjs`, the native `step_motor_impulse_includes_every_substep_and_resets`.
+and 12 extra iterations keep their totals through a CCD collision. Tests:
+`tests/core-engine.test.mjs@2a1b29ac`, `tests/core-rapier-effort.test.mjs@2a1b29ac`, the native
+`step_motor_impulse_includes_every_substep_and_resets`.
 
 **Parity with stock** (Node 24.19.0, arena core world, 120 Hz, at most 12 s, balance 0 % a side): the
 stock and vendored packages through the same `createRapierPhysics` and `playBout`, comparing the

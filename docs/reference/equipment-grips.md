@@ -45,7 +45,7 @@ synthetic 1 kg holders (centres `[-0.1, 1, 0]` and `[0.1, 1.2, 0]` m, 0.035 m sp
 kg m²) and the sourced `woodenClub()` at `[0, 0.9, 0]` m, gripped 0.1 and 0.3 m along it; capture
 tolerances 0.002 m and 0.00001. The closed loop joins the holders at their midpoint with three
 limited angular freedoms, fixes the left one, and applies 0.2 N s to the item after either release.
-`node --test tests/core-equipment.test.mjs`:
+`node --test tests/core-equipment.test.mjs@2a1b29ac`:
 
 | Check | Result |
 |---|---|
@@ -60,12 +60,12 @@ limited angular freedoms, fixes the left one, and applies 0.2 N s to the item af
 - Dropping the engine's joint-removal call while keeping the logical release fails the tests.
 - The pose-preserving case (tolerances 0.03 m and 0.001): joining the desired frames instead moves
   the holder's x from 0.1 to 0.107210085 m and fails.
-- `tests/core-equipment-policy.test.mjs`: capture and release through a policy, atomic invalid
-  actions, duplicate identities, exact replay; both hands of all three models capture and the left
-  releases (short, gravity-free, pinned-body fixtures).
-- `tests/core-hand-equipment.test.mjs`: both hands of all three models against the compound club's
-  tip, mass, release continuity and replay. Loaded: two clubs, gravity, pinned pelvis, independent
-  feedback (0.05 s, 3 rad/s cap, full activation); elbow goals 0.6/0.4 rad reached within 0.025 rad
-  at 2 s and held at 3 s, grip errors under 2 mm. The bare reach fixture's 0.1 s constant leaves the
-  Warrior's loaded left elbow 0.027 rad short. The Rogue's clubs meet during the hold; self-collision
-  stays on.
+- `tests/core-equipment-policy.test.mjs@2a1b29ac`: capture and release through a policy, atomic
+  invalid actions, duplicate identities, exact replay; both hands of all three models capture and
+  the left releases (short, gravity-free, pinned-body fixtures).
+- `tests/core-hand-equipment.test.mjs@2a1b29ac`: both hands of all three models against the compound
+  club's tip, mass, release continuity and replay. Loaded: two clubs, gravity, pinned pelvis,
+  independent feedback (0.05 s, 3 rad/s cap, full activation); elbow goals 0.6/0.4 rad reached
+  within 0.025 rad at 2 s and held at 3 s, grip errors under 2 mm. The bare reach fixture's 0.1 s
+  constant leaves the Warrior's loaded left elbow 0.027 rad short. The Rogue's clubs meet during the
+  hold; self-collision stays on.

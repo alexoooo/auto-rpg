@@ -93,9 +93,8 @@ origin.
   decision, an asset (with a JSON pointer) or a measurement (with its record).
 - Anything else is `derive`d by a named rule whose code does only its formula's arithmetic; a
   factor is an input with a source. Unit conversions live in one table in `quantity.ts`.
-- `specProvenanceFaults` (`tests/fixtures/spec.mjs`) holds every spec to this: no bare number,
-  every derivation re-run to its value, every source key known, every asset pointer matching, every
-  decision's record present (a deleted file's record is `path@commit`).
+- So a spec has no bare number, every derivation re-runs to its value, every source key is known,
+  every asset pointer matches and every decision's record is present (a deleted file's record is `path@commit`).
 
 Tuning is immutable: an experiment passes an override in (`RulebookOverride`, a stance tuning) and
 nothing mutates a global.
@@ -110,15 +109,15 @@ The core's arithmetic gives the same doubles in every JavaScript engine.
 - Babylon's two turns built on `Math.sin` are replaced (`turnAboutToRef`, `turnBetweenToRef`,
   `src/core/math/turn.ts`).
 - `tests/core-boundary.test.mjs` holds the core and the arena's world builders to the exact members
-  of `Math` and Babylon's arithmetic-only math; `tests/core-math.test.mjs` holds each function to
+  of `Math` and Babylon's arithmetic-only math; each function's values are
   [its record](reference/real-functions.md).
 
 **Work arrays.** The step's dear solves (`linalg.ts`'s, written into flat arrays by
 `src/core/math/flat.ts`; the whole-body solve, `bodyDynamics`, the joint trackers, each hand's
 reach) work in arrays made once with the body, sized from its spec. A work array is written before
 it is read, carries nothing between calls, is not state and is never shared by two bodies.
-`tests/core-flat.test.mjs` holds each flat solve to its twin; `tests/core-step-cost.test.mjs`
-holds a step's allocation under a ceiling ([step cost](reference/step-cost.md#control-written-into-arrays-made-once)).
+Each flat solve does its twin's operations in order; `tests/core-step-cost.test.mjs` holds a
+step's allocation under a ceiling ([step cost](reference/step-cost.md#control-written-into-arrays-made-once)).
 
 ### Build
 
@@ -166,7 +165,7 @@ Readings back from the built body:
 form) share one WASM module and are fixed per engine instance
 ([joint limits](reference/joint-limits.md)). `engines.ts` lists the engines (`ENGINES`) and is the
 only module that imports one. A new engine is tried on the physics bench (`src/physics-bench/`)
-first, then added to `ENGINES` and run with `CORE_ENGINE=<name> npm run test:all`.
+first, then added to `ENGINES` and run with `CORE_ENGINE=<name> npm test`.
 
 ### Muscles
 
@@ -548,8 +547,7 @@ world for learning and search.
 
 A page advances by real time with `World.advance`, which caps the steps a frame may take;
 `scene.render()` draws and never steps. In Node, `tests/harness/core-stand.mjs` stands one spec on
-a ground (`coreStand`, `freshEngine`) and `tests/harness/scene.mjs` gives a `NullEngine` scene;
-most of `research/` measures on the stand ([research/README.md](../research/README.md)).
+a ground (`coreStand`, `freshEngine`); most of `research/` measures on the stand ([research/README.md](../research/README.md)).
 
 ## State
 
@@ -572,8 +570,7 @@ keeps its own as bytes (`PhysicsWorld.save`, `load`); every other module keeps i
 `Duel.save()` is a bout at a step: its identity, recipe, physics bytes and state. `Duel.load(saved)`
 restores it into any bout of the same recipe, and the next step is the one after the save; another
 build, protocol, physical configuration or recipe is refused before physics loads.
-`tests/arena-fork.test.mjs` and `tests/core-fork.test.mjs` fork bouts and bodies to prove every
-state field is one a fork needs. A Crypt run does not save.
+A bout or a body forks by copying its state. A Crypt run does not save.
 
 ## Bouts, tapes and replay
 
@@ -607,8 +604,7 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
 
 ## Rules and wounds
 
-The rules of a fight are `src/core/rules/`, free of any page (`tests/core-rules.test.mjs`,
-`tests/core-blows.test.mjs`). The Arena and the Crypt share one rulebook (`rulebook.ts`).
+The rules of a fight are `src/core/rules/`, free of any page. The Arena and the Crypt share one rulebook (`rulebook.ts`).
 
 - **A touch** (`watchTouches`, `src/core/touches.ts`) is a watched segment the solver pushed on
   another, or on something fixed, while closing. Its energy is `impactEnergy` (`impact.ts`): half

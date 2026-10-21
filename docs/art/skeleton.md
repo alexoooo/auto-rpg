@@ -91,9 +91,7 @@ from the original download:
 blender --background --disable-autoexec human_base_meshes_bundle.blend --python scripts/skeleton/prepare-source.py -- assets/skeleton/skeleton-source.blend
 ```
 
-After a rebuild, run `tests/core-skeleton-skin.test.mjs` (every piece shown or named as unshown,
-each sitting on its segment and following it) and `tests/core-skeleton.test.mjs` (the figure the
-bind gives), then look at the skeleton in the lab and the crypt.
+After a rebuild, look at the skeleton in the lab and the crypt.
 
 ## Where the art and the colliders differ
 

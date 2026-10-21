@@ -24,8 +24,7 @@ dynamic and kinematic targets (native `src/dynamics/rigid_body.rs`, `enable_ccd`
 motion with either flag, so it cannot test a moving defense.
 
 `PhysicsWorld.addBody` takes `{ ccd: true }` at construction, and separate equipment forwards its
-`ccd` configuration; the default is off. `tests/core-equipment.test.mjs` launches the wooden club
-at a moving defense through that path.
+`ccd` configuration; the default is off.
 
 ## Recorded results
 
@@ -49,8 +48,7 @@ Every trial replays exactly. Trajectories are sampled at 120 Hz; contact onset i
 physics step. CCD clamps motion before the ordinary contact impulse, which may come on the next
 step, so an event's time is not the swept time of impact, and the impulses are the narrow phase's
 normal impulses, not work. This shows detection in these fixtures, not a guarantee against
-tunnelling. `tests/core-collision.test.mjs` requires contact and changed defense momentum with CCD,
-misses without it, and exact replay.
+tunnelling.
 
 ```powershell
 node research/control-foundation.mjs --suite ccd --actuation directional --samples 2 --workers 2 --out research/runs/control-foundation/ccd-120

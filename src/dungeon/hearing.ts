@@ -17,8 +17,8 @@ import type { DungeonActor, DungeonRun } from "./run.ts";
  * made again remembers no touch under way: a segment that is pressing something as it is made
  * sounds once more, if it is still closing on it.
  *
- * This module has no page-only imports, so the Node stand can run it
- * (`tests/dungeon-hearing.test.mjs`). It only reads: a run with it is the same run.
+ * This module has no page-only imports, so the Node stand can run it. It
+ * only reads: a run with it is the same run.
  */
 export interface RunHearing {
   /**

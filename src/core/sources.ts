@@ -1,7 +1,6 @@
 /**
  * **Everything a spec's numbers rest on.** A `Quantity` taken from a source names one of these
- * (`src/core/spec/quantity.ts`); `tests/core-spec.test.mjs` checks that each file a source names
- * exists, and reads an asset's number back from the asset.
+ * (`src/core/spec/quantity.ts`).
  *
  * - `literature`: a published measurement, cited so it can be found.
  * - `decision`: the owner's choice, with the date and the record that holds it. A design target is
@@ -99,7 +98,7 @@ export const SOURCES = Object.freeze({
     kind: "measurement",
     how: "scripts/core/workshop-envelope.mjs on public/assets/humanoid/workshop-*.glb: the extents of the "
       + "clothed envelope's vertices that a foot's bones weigh most on, body frame, authored size, "
-      + "rounded to 0.1 mm. tests/core-human.test.mjs measures them again.",
+      + "rounded to 0.1 mm.",
     record: "scripts/core/workshop-envelope.mjs",
   },
   "workshop-fighter-rig": {
@@ -115,7 +114,7 @@ export const SOURCES = Object.freeze({
     kind: "asset", file: "assets/humanoid/workshop-fighter-trunk-hull.json",
     what: "The Warrior's trunk segments' surfaces: the convex hull corners of the clothed envelope's "
       + "vertices the trunk's bones weigh most on, body frame, authored size, rounded to 0.1 mm; written "
-      + "by scripts/core/workshop-envelope.mjs --write, and measured again by tests/core-human.test.mjs.",
+      + "by scripts/core/workshop-envelope.mjs --write.",
   },
   "workshop-rogue-trunk-hull": {
     kind: "asset", file: "assets/humanoid/workshop-rogue-trunk-hull.json",
@@ -133,8 +132,8 @@ export const SOURCES = Object.freeze({
     kind: "asset", file: "assets/humanoid/workshop-fighter-hands.json",
     what: "The Warrior's hands from its bare skin: each open hand's convex hull with its palm patch and "
       + "the patch's centre, and each fist's convex hull, middle knuckle and strike point; body frame, "
-      + "authored size, rounded to 0.1 mm; written by scripts/core/hand-envelope.mjs --write, measured "
-      + "again by tests/hand-envelope.test.mjs, its rules in docs/reference/man-anatomy.md.",
+      + "authored size, rounded to 0.1 mm; written by scripts/core/hand-envelope.mjs --write, "
+      + "its rules in docs/reference/man-anatomy.md.",
   },
   "workshop-rogue-hands": {
     kind: "asset", file: "assets/humanoid/workshop-rogue-hands.json",
@@ -145,7 +144,7 @@ export const SOURCES = Object.freeze({
     what: "Man's contact surfaces from the Warrior's skin: each open hand's and fist's convex hull with "
       + "its palm patch, and each bare foot cut at the ball into a foot and a toe piece with their "
       + "hinge, sole and toe pad; body frame, authored size, rounded to 0.1 mm; written by "
-      + "scripts/core/man-envelope.mjs --write, measured again by tests/man-envelope.test.mjs, its "
+      + "scripts/core/man-envelope.mjs --write, its "
       + "rules and approximations in docs/reference/man-anatomy.md.",
   },
   "falisse-2022-toes": {
@@ -468,30 +467,27 @@ export const SOURCES = Object.freeze({
       + "speed up to the fastest walk, begun from 0 to 1.5 s after the walk sets off and under way; how many "
       + "held at each, and the fastest held by the rule of "
       + "src/core/control/stance-envelope.ts; written by research/core-stance-envelope.mjs --write, whose "
-      + "harness it names, and held to the rule by tests/core-stance-envelope.test.mjs.",
+      + "harness it names.",
   },
   "stride-envelope": {
     kind: "asset", file: "assets/core/stride-envelope.json",
     what: "What the stride (src/core/skills/stride.ts) held with each body as a fight plays it, by the "
       + "batteries and rule of core-stance-envelope at the stride's speeds, 0.2-1.2 m/s; written by "
-      + "research/core-stance-envelope.mjs --legs stride --write, whose harness it names, and held to the "
-      + "rule by tests/core-stance-envelope.test.mjs.",
+      + "research/core-stance-envelope.mjs --legs stride --write, whose harness it names.",
   },
   "simbicon-envelope": {
     kind: "asset", file: "assets/core/simbicon-envelope.json",
     what: "What the SIMBICON walk (src/core/skills/simbicon.ts) told it may not run held with each body as a fight plays it, by the "
       + "batteries and rule of core-stance-envelope at its walk's speeds, 0.3-2.5 m/s, each walk calm and in "
       + "the lab's 5 N gusts on four seeds; written by research/core-stance-envelope.mjs --legs simbicon "
-      + "--gusts 1:5:1,2,3,4 --write, whose harness it names, and held to the rule by "
-      + "tests/core-stance-envelope.test.mjs.",
+      + "--gusts 1:5:1,2,3,4 --write, whose harness it names.",
   },
   "simbicon-run-envelope": {
     kind: "asset", file: "assets/core/simbicon-run-envelope.json",
     what: "What the SIMBICON walk (src/core/skills/simbicon.ts) free to run held with each body as a fight plays it, by "
       + "the batteries and rule of core-stance-envelope at its run's speeds, 0.3-3 m/s, each walk calm and in the "
       + "lab's 5 N gusts on four seeds; written by research/core-stance-envelope.mjs --legs simbicon-run "
-      + "--gusts 1:5:1,2,3,4 --write, whose harness it names, and held to the rule by "
-      + "tests/core-stance-envelope.test.mjs.",
+      + "--gusts 1:5:1,2,3,4 --write, whose harness it names.",
   },
   "core-strikes": {
     kind: "asset", file: "assets/core/strikes.json",

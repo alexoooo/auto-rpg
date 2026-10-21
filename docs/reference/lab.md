@@ -10,9 +10,8 @@ page hears (`src/lab/sound-log.ts`).
 
 `CLUB_GRIP` is fitted by `scripts/lab/haft-fit.mjs` on each model's skin, CPU-skinned in Node from
 its GLB about the wooden club's haft where the core's grip puts it: each finger as near the haft as
-it lies without sinking in more than 1 mm, the thumb's pad on it. `tests/lab-grip.test.mjs` holds
-the pose to 1.5 mm in and 2 mm off. Each finger's nearest gap to the haft, proximal to end phalanx,
-mm (negative inside); both hands alike:
+it lies without sinking in more than 1 mm, the thumb's pad on it. Each finger's nearest gap to the
+haft, proximal to end phalanx, mm (negative inside); both hands alike:
 
 | Model | Index | Middle | Ring | Pinky | Thumb's pad |
 |---|---|---|---|---|---|
@@ -87,7 +86,8 @@ seed has the same number in each.
 
 - `TARGET_WATCH`: 0.5 s after a strike's pushes end before its target's reading closes. Set: the
   Warrior's club lands within the quarter second before its pushes end
-  (`tests/lab-targets.test.mjs`), and the half second after is for a blow that lands late.
+  (`tests/lab-targets.test.mjs@2a1b29ac`), and the half second after is for a blow that lands
+  late.
 - `TARGET_CLEAR`: 0.02 m between every shape of the body and a dummy's surface as the dummy is
   hung. Set: a body made inside another is thrown out of it by the solver
   ([blows.md](blows.md#targets)), and the margin keeps a dummy from being made in touch.
@@ -172,18 +172,18 @@ same on gust seeds 7–12.
 
 ## Locomotion tolerance
 
-`OFF`, the limit of `tests/lab-locomotion-capability.test.mjs`: **0.4 m**, over every reading here
-and under a walker that does not keep a bend's pace. Each human goes round each track for 30 s
-asked its fastest walk (Warrior 0.5 m/s, Rogue 0.4), which its turn carries round the shuttle's
-0.3 m half-turns (`paceRound`). Node core stand, Rapier, 120 Hz; none fell.
+`OFF`, the limit of `tests/lab-locomotion-capability.test.mjs@2a1b29ac`: **0.4 m**, over every
+reading here and under a walker that does not keep a bend's pace. Each human goes round each track
+for 30 s asked its fastest walk (Warrior 0.5 m/s, Rogue 0.4), which its turn carries round the
+shuttle's 0.3 m half-turns (`paceRound`). Node core stand, Rapier, 120 Hz; none fell.
 
 | Track | Mean speed along it, m/s (Warrior, Rogue) | Farthest off after the first second, cm (Warrior, Rogue) |
 |---|---|---|
 | Circle | 0.463, 0.347 | 11.4, 11.9 |
 | Shuttle | 0.480, 0.364 | 26.5, 28.0 |
 
-`node --test tests/lab-locomotion-capability.test.mjs` reports each run's two readings. Pursuing a
-point 1 m on cuts inside the 4 m circle by about 1 / (2 * 4) m, 12 cm.
+`node --test tests/lab-locomotion-capability.test.mjs@2a1b29ac` reports each run's two readings.
+Pursuing a point 1 m on cuts inside the 4 m circle by about 1 / (2 * 4) m, 12 cm.
 
 ### Tried and not kept
 

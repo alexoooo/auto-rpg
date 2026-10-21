@@ -21,7 +21,7 @@ import { CATCH_UP_MS } from "./player.ts";
  * cue of the lab's one instrument that is no contact: the page's hand shoving the body
  * (`shoveSound`).
  *
- * This module has no page-only imports, so the Node stand can run it (`tests/lab-sound.test.mjs`).
+ * This module has no page-only imports, so the Node stand can run it.
  */
 export interface SoundLog {
   /** `cue` sounded at `time`, s. */

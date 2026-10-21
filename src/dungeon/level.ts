@@ -11,8 +11,7 @@
  *
  * Anything drawn inside a room after carving, such as a dividing wall, is taken back
  * unless every corridor into that room is still a way through (`linksHold`). Carving is connected
- * by construction, and every link holding keeps it so, which `tests/dungeon-level.test.mjs` checks
- * on the finished level with `standingComponents`.
+ * by construction, and every link holding keeps it so.
  */
 import { mulberry32 } from "../rng.ts";
 import { distance, isFloor, walkable, type Door, type DungeonMap, type Point, type Room } from "./map.ts";

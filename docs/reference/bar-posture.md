@@ -7,7 +7,7 @@ primary objective and its orientation is free after release; trunk and legs keep
 This is a policy choice: it stops the arm being asked for a capture location and a reference joint
 pose that may conflict. Anatomy, strength, assistance, tolerances, capture, swing and release are
 unchanged. The pose is replayable state; observations return a detached copy.
-`tests/core-bar.test.mjs` reads the readiness disturbance below.
+`tests/core-bar.test.mjs@2a1b29ac` reads the readiness disturbance below.
 
 ## Development comparison
 
@@ -44,7 +44,7 @@ Remove-Item Env:CORE_ENGINE
 
 ## Readiness disturbance
 
-The synthetic readiness test uses a 4 N s impulse. Same Node stand, reference profile, 120 Hz: the
+The readiness disturbance is a 4 N s impulse. Same Node stand, reference profile, 120 Hz: the
 skeleton's right-release seed-1 trial is struck +x at the item's centre of mass 875 steps after
 capture and inspected at capture + 901 steps. 2 N s stays inside the 3 cm tolerance, so it cannot
 tell measured readiness from a timer.
@@ -56,8 +56,7 @@ tell measured readiness from a timer.
 | 6 | 69.776 | No | Yes, at step 1086 |
 
 At 4 N s the body stays upright and completes after thirty consecutive ready steps at 10.066 mm.
-Replacing measured readiness with time alone fails the test; disabling the captured posture fails
-the physical return check. These impulses test the completion rule, not strength or a shove budget.
+These impulses test the completion rule, not strength or a shove budget.
 
 ## Browser check
 

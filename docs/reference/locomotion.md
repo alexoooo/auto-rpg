@@ -120,7 +120,7 @@ searched on the three bodies bare-handed in the guard, calm and in gusts, at has
   Rogue with the club (3), and the skeleton as it slows to a halt (3). A stop from 3.5 m/s takes
   7.6 s and 15 m at the walk's `slowdown` (0.47 m/s²). In an Arena bout opened at 8 m the Warrior
   asked 1.4 runs, stops and stays up, but changes gait 3.3 s after the Rogue comes near
-  (`tests/move.test.mjs`, a `todo` against 3 s).
+  (`tests/move.test.mjs@2a1b29ac`, a `todo` against 3 s).
 - **With balance** the gait asks the assist to right the pelvis ([assist](assist.md#a-gaits-assist)).
 
 ## Move

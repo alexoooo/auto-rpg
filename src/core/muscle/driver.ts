@@ -44,7 +44,7 @@ import type { BuiltDof, JointKinematics, ReadJoint, ReadSegment } from "../read-
  * gains no more speed in a step than the curve allows, and from rest reaches w0 k / (1 + k). A
  * joint the muscles are braking is held to the reach from rest, since the lengthening branch's
  * tangent reaches far past the unloaded speed. A heavy limb saturates its ceiling long before the
- * tangent's zero. `tests/core-muscle.test.mjs` holds the rates to each other.
+ * tangent's zero.
  *
  * Rejected:
  * - **A ceiling read implicitly at the step's end**, solved with the inertia beyond the joint: it

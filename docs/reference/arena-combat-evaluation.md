@@ -44,7 +44,6 @@ The measurement choices are fixed before any controller tuning:
 ## Measurement
 
 ```powershell
-node --test tests/arena-combat.test.mjs
 node research/arena-combat-run.mjs --candidate point --opponent classic --pairs 8 --split development --workers 2
 node research/arena-combat-run.mjs --candidate scrapper --opponent brawler --pairs 100 --split heldout --workers 2 --output research/runs/scrapper.json --resume
 node research/arena-combat-league.mjs research/runs/scrapper.json --output research/runs/league.json

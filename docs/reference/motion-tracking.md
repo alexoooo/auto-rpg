@@ -22,7 +22,7 @@ Harness: Node core world, vendored Rapier `.3` / adapter 4, 120 Hz, directional 
 (capture tolerances 0.002 m and 0.00001 quaternion error) move by (0, 0.08, 0.08) m and turn
 outward 0.1 rad about world y. Frame feedback 0.15 s, position weight 1, orientation weight 0.2;
 joint rest goals 0.2 s at weight 0.03; effort regularization 1e-6. `node --test
-tests/core-motion.test.mjs` after 360 steps:
+tests/core-motion.test.mjs@2a1b29ac` after 360 steps:
 
 | Body | Left position error, m | Right position error, m |
 |---|---:|---:|
@@ -60,7 +60,7 @@ to the original orientation after a right-hand release presses the Rogue's left 
 misses by about 0.061 m. The trial ends once the item origin has stayed within 0.03 m for 0.25 s,
 no earlier than 7.5 s after capture (the runner's deadline is 12 s); completion is absorbing.
 
-`node --test tests/core-bar.test.mjs`, offset zero, 1100 steps:
+`node --test tests/core-bar.test.mjs@2a1b29ac`, offset zero, 1100 steps:
 
 | Body | Capture step | Shared move error, m | Peak actual grip gap, m | Return error releasing left / right, m | Peak obstacle normal impulse, N s |
 |---|---:|---:|---:|---:|---:|

@@ -33,9 +33,9 @@ The reptile's tooth geometry is in [its anatomy](reptile.md#anatomical-model).
 
 ## Physical contract
 
-`tests/core-contact-episodes.test.mjs`: Node core stand, rapier-coordinate, 120 Hz (960 Hz for its
-fine reference), zero gravity, no assists. Declared point boxes press an ordinary rigid slab under
-an applied 10 N load; a large HP reservoir keeps the fixture alive.
+`tests/core-contact-episodes.test.mjs@2a1b29ac`: Node core stand, rapier-coordinate, 120 Hz (960 Hz
+for its fine reference), zero gravity, no assists. Declared point boxes press an ordinary rigid slab
+under an applied 10 N load; a large HP reservoir keeps the fixture alive.
 
 - The second second's injury matches the force law within 1 %.
 - Reversed fighter registration and a rotated world give the same result.
@@ -45,10 +45,11 @@ an applied 10 N load; a large HP reservoir keeps the fixture alive.
 - Replacing the blow observer causes no payment and no change to the continuation.
 - Opposing points wound both sides under the same law; held geometry intercepts the point.
 
-`tests/core-points.test.mjs` covers anatomical regions, held-item frames, rigid mass invariance,
-ordinary recoil and the absence of duplicate point energy damage. `tests/core-reptile.test.mjs`
-runs the physical jaw: loaded-paw preparation, cancellation, obstruction, misses and release, with
-the fixed jaw presenting an exposed corner to the forward-leaning teeth.
+`tests/core-points.test.mjs@2a1b29ac` covers anatomical regions, held-item frames, rigid mass
+invariance, ordinary recoil and the absence of duplicate point energy damage.
+`tests/core-reptile.test.mjs@2a1b29ac` runs the physical jaw: loaded-paw preparation, cancellation,
+obstruction, misses and release, with the fixed jaw presenting an exposed corner to the
+forward-leaning teeth.
 
 ## Measurement
 
@@ -61,7 +62,7 @@ side assignments.
 node research/reptile-combat.mjs
 node research/reptile-combat.mjs --confirm
 node research/reptile-combat.mjs --rate=0.8
-node --test tests/reptile-combat-capability.test.mjs
+node --test tests/reptile-combat-capability.test.mjs   # @2a1b29ac
 ```
 
 The mirror target is an injury verdict within 30 s without a fall. The humanoid target is two
@@ -103,6 +104,4 @@ development bouts an opponent (four gaps, both sides):
 The humanoid target is not met, so the confirmation gaps are not run for it. The reptile on the
 right falls during its approach to the Rogue at 4 m (6.767 s), before any bite; other cases land too
 little load, or do not clear jaw and opponent contact between damaging intervals. These are
-control and placement limits, not missing receiving materials or per-character exceptions;
-`tests/reptile-combat-capability.test.mjs` keeps them visible apart from the software contracts
-and the mirror deadline.
+control and placement limits, not missing receiving materials or per-character exceptions.
