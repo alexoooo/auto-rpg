@@ -5,8 +5,9 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { SIDES } from "../src/arena/duel.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { mulberry32 } from "../src/rng.ts";
-import { traceOf } from "../tests/harness/trace.mjs";
-import { buildBout } from "./bout.mjs";
+import { traceOf } from "../src/evaluation/trace.ts";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE } from "./bout.mjs";
 import { rootSegment } from "../src/core/read-body.ts";
 
 const other = (side) => side === "left" ? "right" : "left";
@@ -22,7 +23,7 @@ export function poseDigest(builts) {
 const bouts = new Map();
 function boutOf(recipe) {
   const key = JSON.stringify(recipe);
-  if (!bouts.has(key)) bouts.set(key, buildBout(recipe));
+  if (!bouts.has(key)) bouts.set(key, buildBout(recipe, { engine: BOUT_ENGINE }));
   return bouts.get(key);
 }
 
@@ -42,7 +43,7 @@ function boutOf(recipe) {
  */
 export async function rollout({ recipe, tape = [], from, branch = [], steps, nudges = [], save = null }) {
   if (branch.some((entry) => entry.step < from)) throw new Error("a branch cannot order the past");
-  const { world, duel, dispose } = await (save ? boutOf(recipe) : buildBout(recipe));
+  const { world, duel, dispose } = await (save ? boutOf(recipe) : buildBout(recipe, { engine: BOUT_ENGINE }));
   try {
     const builts = SIDES.map((side) => duel.duelists[side].built);
     if (save) {

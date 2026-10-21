@@ -11,7 +11,8 @@
  */
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
-import { buildBout } from "./bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE } from "./bout.mjs";
 import { STANDS } from "./blade-task.mjs";
 import { BEHAVIOURS } from "../src/core/mind/config.ts";
 import { MINDS } from "../src/core/mind/controllers.ts";
@@ -30,7 +31,7 @@ const other = (side) => side === "left" ? "right" : "left";
 export async function courtTask({ mind = MINDS.duellist.config, model = "workshop-fighter", gap = 6, side = "left", target = "still", seconds = 15 } = {}) {
   const foe = other(side), minds = { [side]: mind, [foe]: target === "moving" ? WALKS : STANDS };
   const { world, duel, colliders, dispose } = await buildBout({ level: "obstacle-court", [side]: model, [foe]: "workshop-fighter", gap, capSeconds: seconds + 1, recoverySeconds: null,
-    loadouts: { [side]: { left: "buckler", right: "sword" }, [foe]: { left: "empty", right: "empty" } }, minds });
+    loadouts: { [side]: { left: "buckler", right: "sword" }, [foe]: { left: "empty", right: "empty" } }, minds }, { engine: BOUT_ENGINE });
   try {
     const furniture = new Set(LEVELS["obstacle-court"].furniture.map(({ solid }) => colliders.get(solid.name)));
     const legs = Math.ceil(seconds / LEG);

@@ -20,7 +20,8 @@ import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { woundedIn } from "../src/core/rules/blows.ts";
 import { BAND_NAMES, BANDS } from "../src/core/skills/strikes.ts";
-import { BOUT_HARNESS, buildBout } from "./bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE, BOUT_HARNESS } from "./bout.mjs";
 
 const { values } = parseArgs({ options: {
   models: { type: "string", default: HUMANOID_MODELS.join(",") }, foes: { type: "string", default: "workshop-fighter,workshop-rogue" },
@@ -35,7 +36,7 @@ const SETTLE = 1, WAIT = 20, AFTER = 1;
 
 /** One bout: `model` with `held` ordered to attack the `band` part of `foe`, who stands `gap` m off. */
 async function thrownAt(model, held, band, foe, gap) {
-  const { world, duel, dispose } = await buildBout({ left: model, right: foe, gap, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: "empty" } } });
+  const { world, duel, dispose } = await buildBout({ left: model, right: foe, gap, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: "empty" } } }, { engine: BOUT_ENGINE });
   try {
     const { left, right } = duel.duelists, at = new Vector3();
     duel.order("left", STAND_ORDERS);

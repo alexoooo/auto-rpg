@@ -25,10 +25,11 @@ import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { createMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { REPERTOIRE, recipesFor } from "../src/core/skills/strikes.ts";
-import { traceOf } from "../tests/harness/trace.mjs";
+import { traceOf } from "../src/evaluation/trace.ts";
 import { felled, watchFall } from "./core-rise-trials.mjs";
 import { evaluateBlow, heldSpec } from "./core-blow.mjs";
-import { buildBout } from "./bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE } from "./bout.mjs";
 import { solverTrial } from "./control-foundation-solvers.mjs";
 import { COMPETENCIES, competencyGaps, competencyJobs, competencyTrial } from "./competencies.mjs";
 import { PHYSIQUE_DESIGNS, physiqueGrid, physiqueRanges } from "./physiques.mjs";
@@ -309,7 +310,7 @@ async function boutTrial(job) {
   const recipe = { left: job.model, right: job.model, gap: job.gap, cap: job.cap,
     loadouts: { left: { left: "empty", right: job.held }, right: { left: "empty", right: job.held } },
     minds: { left: job.guard === "left-cover" ? cover : RECIPE_FIGHTER, right: job.guard === "right-cover" ? cover : RECIPE_FIGHTER } };
-  const bout = await buildBout(recipe, { hz: job.hz, actuation: job.actuation });
+  const bout = await buildBout(recipe, { engine: BOUT_ENGINE, hz: job.hz, actuation: job.actuation });
   const sides = [bout.duel.duelists.left, bout.duel.duelists.right];
   const readings = meter(sides.map((s) => s.built), sides.map((s) => s.body));
   const attacks = sides.map(() => attackAccounting()), cycles = sides.map(side => actionCycles(side.minded.skills));

@@ -1,34 +1,19 @@
 // One arena bout in a world of its own (Node, core world, the arena's Rapier, 120 Hz), and its row.
 import "../tests/harness/preload-data.mjs";
-import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { Scene } from "@babylonjs/core/scene.js";
-import { addArenaSolids, arenaSolids } from "../src/arena/room.ts";
-import { Duel, SIDES } from "../src/arena/duel.ts";
+import { SIDES } from "../src/arena/duel.ts";
 import { isClash, woundedIn } from "../src/core/rules/blows.ts";
-import { DEFAULT_ENGINE, isEngineName, loadEngine } from "../src/core/engine/engines.ts";
-import { createWorld } from "../src/core/world.ts";
-import { traceOf } from "../tests/harness/trace.mjs";
+import { DEFAULT_ENGINE, isEngineName } from "../src/core/engine/engines.ts";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { traceOf } from "../src/evaluation/trace.ts";
 
 /**
  * The engine a bout runs on unless given one: the arena's (`DEFAULT_ENGINE`, which the page loads),
  * or the one `CORE_ENGINE` names when it is set. The stand's own default is another profile.
  */
-const BOUT_ENGINE = process.env.CORE_ENGINE || DEFAULT_ENGINE;
+export const BOUT_ENGINE = process.env.CORE_ENGINE || DEFAULT_ENGINE;
 if (!isEngineName(BOUT_ENGINE)) throw new Error(`CORE_ENGINE names no engine: ${BOUT_ENGINE}`);
 
 export const BOUT_HARNESS = `Node, core world (src/core/world.ts), ${BOUT_ENGINE}, 120 Hz`;
-
-/** A world with the arena's solids and `recipe`'s bout in it, and each solid's fixed collider, by name. */
-export async function buildBout(recipe, { hz = 120, physicsEngine, actuation, hooks = {} } = {}) {
-  const engine = new NullEngine(), scene = new Scene(engine);
-  const world = createWorld(scene, physicsEngine ?? await loadEngine(BOUT_ENGINE), { hz, actuation });
-  const solids = arenaSolids(recipe.level);
-  const fixed = addArenaSolids(world.physics, solids), colliders = new Map(solids.map((solid, k) => [solid.name, fixed[k].id]));
-  try {
-    const duel = new Duel(world, recipe, { solids, ...hooks });
-    return { world, duel, colliders, dispose() { duel.dispose(); world.dispose(); scene.dispose(); engine.dispose(); } };
-  } catch (error) { world.dispose(); scene.dispose(); engine.dispose(); throw error; }
-}
 
 /** A built body's weight in `world`, N: its segments' rigid masses, what they hold included, times gravity. */
 function weightOf(built, world) {
@@ -99,7 +84,7 @@ function costOf(blows, duelist) {
  * energy and its two sides.
  */
 export async function playBout(recipe, seconds = Infinity, tape = [], { shortfall = false, blows = false, physicsEngine } = {}) {
-  const { world, duel, dispose } = await buildBout(recipe, { physicsEngine });
+  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE, physicsEngine });
   try {
     duel.play(tape);
     const trace = traceOf(SIDES.map((side) => duel.duelists[side].built));

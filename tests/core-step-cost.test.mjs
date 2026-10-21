@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { standBodies, stepAllocation } from "./harness/garbage.mjs";
-import { traceOf } from "./harness/trace.mjs";
+import { traceOf } from "../src/evaluation/trace.ts";
 
 /**
  * The most a body's step may allocate, KiB, by fixture: the highest of five readings when it was

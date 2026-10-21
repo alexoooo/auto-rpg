@@ -7,8 +7,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { createRapierPhysics, rapierModule } from "../src/core/engine/rapier.ts";
-import { buildBout } from "./bout.mjs";
-import { traceOf } from "../tests/harness/trace.mjs";
+import "../tests/harness/preload-data.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { traceOf } from "../src/evaluation/trace.ts";
 
 const { values } = parseArgs({ options: { reference: { type: "string" }, runs: { type: "string", default: "3" } } });
 const runs = Number(values.runs);

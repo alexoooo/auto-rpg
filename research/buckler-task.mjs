@@ -14,7 +14,8 @@
  */
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
-import { buildBout } from "./bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE } from "./bout.mjs";
 import { bladeStriker } from "./blade-task.mjs";
 import { DUELLIST } from "../src/core/mind/config.ts";
 import { deepFreeze } from "../src/core/state.ts";
@@ -44,7 +45,7 @@ export async function bucklerTask({ model = "workshop-fighter", angle = 0, at = 
     return deepFreeze({ ...striker, actions: striker.actions.map((action) => ({ ...action, regions: [{ kind: "segment", segment: at }] })) });
   })();
   const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: model, gap: GAP, capSeconds: seconds + RETURN + 1, recoverySeconds: null,
-    loadouts: { left: { left: "empty", right: "sword" }, right: { left: "buckler", right: "sword" } }, minds: { left: attacker, right: defender(own, tuning) } });
+    loadouts: { left: { left: "empty", right: "sword" }, right: { left: "buckler", right: "sword" } }, minds: { left: attacker, right: defender(own, tuning) } }, { engine: BOUT_ENGINE });
   try {
     const striking = duel.duelists.left, standing = duel.duelists.right, skills = striking.minded.skills, commits = new Map();
     // Facing `angle` off the line to the attacker, turned to the right for a positive angle; a

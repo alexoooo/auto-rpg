@@ -14,7 +14,8 @@
  */
 import { parseArgs } from "node:util";
 import { pathToFileURL } from "node:url";
-import { buildBout } from "./bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE } from "./bout.mjs";
 import { BEHAVIOURS, CLASSIC, FIGHTING } from "../src/core/mind/config.ts";
 import { deepFreeze } from "../src/core/state.ts";
 
@@ -46,7 +47,7 @@ export function bladeStriker(style, mark, tuning) {
 export async function bladeTask({ model = "workshop-fighter", style = "cut", mark = "middle", seconds = 12, tuning } = {}) {
   const { world, duel, dispose } = await buildBout({ left: model, right: "workshop-fighter", gap: GAP, capSeconds: seconds + 1, recoverySeconds: null,
     loadouts: { left: { left: "buckler", right: "sword" }, right: { left: "empty", right: "empty" } },
-    minds: { left: bladeStriker(style, mark, tuning), right: STANDS } });
+    minds: { left: bladeStriker(style, mark, tuning), right: STANDS } }, { engine: BOUT_ENGINE });
   try {
     duel.play([]);
     const striker = duel.duelists.left, skills = striker.minded.skills, commits = new Map(), releases = new Map(), downs = [];

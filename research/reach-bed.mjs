@@ -11,7 +11,7 @@
  * as they were asked whatever the solve becomes (`docs/reference/step-cost.md` says which bout).
  * To capture a bout's solves again: a first line of `solveReach` that pushes a copy of its
  * `angles`, `free` and `tasks` and its chain's names onto a global list, the bout played to its
- * verdict (`buildBout`, `bout.mjs`), and the list written out.
+ * verdict (`buildBout`, `src/evaluation/bout.ts`), and the list written out.
  *
  *   node research/reach-bed.mjs
  *

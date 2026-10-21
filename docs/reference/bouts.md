@@ -27,7 +27,7 @@ sections stay as they were read. Nothing cites a figure here from code.
 - **The crypt** (`node research/crypt-blows.mjs`, and `--companions 2`): Node, a crypt run with no
   visuals, Rapier, 120 Hz, seeds 1 to 4, the hero exploring to the run's end or 120 s.
 - **Digests** (`research/bout-trace.mjs`): every segment's pose at every step (`traceOf`,
-  `tests/harness/trace.mjs`), on the development host. A change that should change nothing leaves
+  `src/evaluation/trace.ts`), on the development host. A change that should change nothing leaves
   them as they were; on another Node or processor, read them before a change and compare after.
 
 | Tree | The Warrior against the Rogue at 4 m | Skeleton against skeleton at 4 m |

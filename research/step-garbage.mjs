@@ -24,7 +24,8 @@ import v8 from "node:v8";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { CORE_ENGINE } from "../tests/harness/core-stand.mjs";
 import { allocatedIn, standBodies } from "../tests/harness/garbage.mjs";
-import { buildBout } from "./bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE } from "./bout.mjs";
 
 const { values } = parseArgs({ options: {
   model: { type: "string", default: "crypt-skeleton" }, bodies: { type: "string", default: "2,8,16,32,48" }, steps: { type: "string", default: "1200" },
@@ -66,7 +67,7 @@ async function row(count) {
 
 /** Where one bout's steps allocate. */
 async function sites() {
-  const { world, duel, dispose } = await buildBout({ left: values.left, right: values.right, capSeconds: 60 });
+  const { world, duel, dispose } = await buildBout({ left: values.left, right: values.right, capSeconds: 60 }, { engine: BOUT_ENGINE });
   world.step(2 * world.hz);
   let taken = 0;
   const { bytes, self, within, files } = await allocatedIn(() => { while (!duel.verdict) { world.step(); taken++; } });

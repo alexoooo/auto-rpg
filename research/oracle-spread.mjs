@@ -14,7 +14,8 @@
  * Harness: Node, the core world, Rapier, 120 Hz; forks by a load, in this thread.
  */
 import { parseArgs } from "node:util";
-import { BOUT_HARNESS, buildBout } from "./bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE, BOUT_HARNESS } from "./bout.mjs";
 import { nudgesOf, rollout, valueOf } from "./rollouts.mjs";
 
 const { values } = parseArgs({ options: {
@@ -30,7 +31,7 @@ const apart = (row, truth) => Math.max(...row.centres.map((c, side) => Math.sqrt
 
 console.log(`${BOUT_HARNESS}; ${recipe.left} against ${recipe.right}, gap ${recipe.gap} m, under its tactics; at every ${values.every} s the fork under nobody's orders, as it is and in ${trials} forks nudged ${nudge} N s at both roots, each read ${values.horizon} s on; forks by a load`);
 console.log("\n| At, s | True value | Nudged: mean | Range | Another out | Furthest centre, m |\n|---|---|---|---|---|---|");
-const { world, duel, dispose } = await buildBout(recipe);
+const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
 const every = Math.round(Number(values.every) * world.hz), horizon = Math.round(Number(values.horizon) * world.hz);
 const rows = [];
 try {

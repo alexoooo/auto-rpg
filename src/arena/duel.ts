@@ -83,7 +83,7 @@ interface Duelist extends Combatant {
  * **What a bout is, as plain data**: enough to build the same bout again in another world, on
  * another thread. Nothing here is a function or a live object.
  */
-interface DuelRecipe {
+export interface DuelRecipe {
   readonly left: BodyModel;
   readonly right: BodyModel;
   /** Each character's attributes; a stored recipe carries their resolved values. */

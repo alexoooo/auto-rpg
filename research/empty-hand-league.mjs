@@ -32,7 +32,8 @@ import { availableParallelism } from "node:os";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isMainThread, parentPort, Worker } from "node:worker_threads";
-import { buildBout } from "./bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE } from "./bout.mjs";
 import { bradleyTerry } from "./rating.mjs";
 import { PRESETS } from "../src/core/mind/controllers.ts";
 
@@ -46,7 +47,7 @@ const hashOf = (value) => createHash("sha1").update(canonical(value)).digest("he
 /** One bout of `a` (left) against `b` (right) `gap` m apart, to its verdict or `cap` s: its row. */
 async function boutRow({ a, b, gap, cap }) {
   const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-fighter", minds: { left: a, right: b },
-    loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } }, recoverySeconds: null, capSeconds: cap, gap });
+    loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } }, recoverySeconds: null, capSeconds: cap, gap }, { engine: BOUT_ENGINE });
   try {
     const L = duel.duelists.left, R = duel.duelists.right, falls = [0, 0], down = [0, 0], was = [false, false];
     let close = 0, standing = 0;

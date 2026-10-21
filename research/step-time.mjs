@@ -23,7 +23,8 @@ import { parseArgs } from "node:util";
 import { Logger } from "@babylonjs/core/Misc/logger.js";
 import { CORE_ENGINE } from "../tests/harness/core-stand.mjs";
 import { SIDES } from "../src/arena/duel.ts";
-import { buildBout } from "./bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE } from "./bout.mjs";
 
 const { values } = parseArgs({ options: {
   left: { type: "string", default: "workshop-fighter" }, right: { type: "string", default: "workshop-rogue" },
@@ -39,7 +40,7 @@ observer.observe({ entryTypes: ["gc"] });
 
 /** One playing: each step's start, its time, and the solver's part of it; and, as `reach`, each side's hands' solves counted. */
 async function play() {
-  const { world, duel, dispose } = await buildBout(recipe);
+  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
   const solve = world.physics.step.bind(world.physics);
   let solver = 0;
   world.physics.step = (dt) => { const t = performance.now(); solve(dt); solver = performance.now() - t; };
@@ -83,7 +84,7 @@ if (values.profile) {
   session.connect();
   await session.post("Profiler.enable");
   await session.post("Profiler.setSamplingInterval", { interval: 100 });
-  const { world, duel, dispose } = await buildBout(recipe);
+  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
   await session.post("Profiler.start");
   while (!duel.verdict) world.step();
   const { profile } = await session.post("Profiler.stop");

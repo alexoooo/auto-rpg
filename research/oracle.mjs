@@ -34,7 +34,8 @@ import { parseArgs } from "node:util";
 import { CAP_SECONDS, SIDES } from "../src/arena/duel.ts";
 import { tapeHash } from "../src/arena/matchup.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
-import { BOUT_HARNESS, buildBout } from "./bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE, BOUT_HARNESS } from "./bout.mjs";
 import { defaultLanes, playBouts } from "./bout-pool.mjs";
 import { rolloutPool } from "./rollout-pool.mjs";
 import { chooseResponse, nudgesOf, poseDigest, responsesAt, valueOf } from "./rollouts.mjs";
@@ -59,7 +60,7 @@ const outOf = ({ winner, ending }) => ending === "time" || ending === "none" ? [
 
 /** `side`'s oracle bout of `recipe`: its row, its tape and its decisions. */
 async function oracleBout(recipe, side, pool) {
-  const { world, duel, dispose } = await buildBout(recipe);
+  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
   try {
     const builts = SIDES.map((each) => duel.duelists[each].built);
     const every = Math.round(Number(values.every) * world.hz), horizon = Math.round(Number(values.horizon) * world.hz);

@@ -21,7 +21,8 @@ import { lieOf } from "../src/core/mind/rise/staged.ts";
 import { RISE } from "../src/core/mind/rise/stages.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
-import { buildBout } from "./bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE } from "./bout.mjs";
 
 export const RISE_HARNESS = "Node, core world (src/core/world.ts), Rapier, 120 Hz";
 /** How long a fall is watched, s, and how long a body must stay up to have risen, s. */
@@ -171,7 +172,7 @@ export async function shoved({ mind = RECIPE_FIGHTER, watch = WATCH_SECONDS, ...
  * sides have it, in place of the recipe's. Null if nobody falls.
  */
 export async function boutFall({ recipe, mind, watch = WATCH_SECONDS }) {
-  const { world, duel, dispose } = await buildBout(mind ? { ...recipe, minds: { left: mind, right: mind } } : recipe);
+  const { world, duel, dispose } = await buildBout(mind ? { ...recipe, minds: { left: mind, right: mind } } : recipe, { engine: BOUT_ENGINE });
   try {
     const fallen = () => SIDES.find((side) => duel.duelists[side].body.view.down);
     while (!duel.verdict && !fallen()) world.step();

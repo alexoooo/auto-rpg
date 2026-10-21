@@ -600,7 +600,7 @@ A bout is built from a recipe (`DuelRecipe`, `src/arena/duel.ts`): bodies, gap, 
 side's mind (`minds`), loadouts, attributes and recovery allowance (`recoverySeconds`), as plain
 data. What a page hears (`DuelHooks`) is beside it. Nothing in a bout is random, so a recipe plays
 the same to the bit in Node and in the page (`playBout`, `research/bout.mjs`; `traceOf`,
-`tests/harness/trace.mjs`; [real functions](reference/real-functions.md)). The page resets its
+`src/evaluation/trace.ts`; [real functions](reference/real-functions.md)). The page resets its
 world before each bout (`boutStart`) and a body's time starts at its first view (`BodyView.born`).
 
 - **Verdict** (`Duel.judge`): a side is out when its pool ends or its down allowance expires; both

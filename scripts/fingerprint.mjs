@@ -17,7 +17,7 @@
  * lines a change to `scripts/character-lab/validation.mjs` or `contact.mjs` must leave as they were.
  *
  * One line a case, each ending in the first 16 hex digits of a SHA-256. A pose hash is `traceOf`'s
- * digest (`tests/harness/trace.mjs`): every segment's position and rotation after every step of
+ * digest (`src/evaluation/trace.ts`): every segment's position and rotation after every step of
  * the case, so a difference the bodies recover from still shows. Node, core world
  * (`src/core/world.ts`), Rapier, 120 Hz; each case in a world of its own, on a worker thread. It
  * reads no clock and no `Math.random`.
@@ -62,13 +62,14 @@ import { poseAngles } from "../src/core/control/kinematics.ts";
 import { startRoutine } from "../src/lab/routine.ts";
 import { startLocomotion } from "../src/lab/locomotion-mode.ts";
 import { TRACKS, trackOf } from "../src/lab/track.ts";
-import { buildBout } from "../research/bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE } from "../research/bout.mjs";
 import { surface } from "./character-lab/contact.mjs";
 import {
   contactPatch, forearmExpansion, gripDistances, gripGap, skinPart, skinRegions, surfaceIndex, wristAreaRatio,
 } from "./character-lab/validation.mjs";
 import { CORE_ENGINE, coreStand, freshEngine } from "../tests/harness/core-stand.mjs";
-import { traceOf } from "../tests/harness/trace.mjs";
+import { traceOf } from "../src/evaluation/trace.ts";
 import { losslessModelPath } from "./art/paths.mjs";
 
 // An engine announces itself with the time of day, which no two runs share.
@@ -125,7 +126,7 @@ function downMeter(body, hz) {
  * side was down and which minds had its body (`downMeter`), over the whole case.
  */
 async function arena(recipe, { watch } = {}) {
-  const { world, duel, dispose } = await buildBout({ ...recipe, capSeconds: recipe.capSeconds ?? 30 });
+  const { world, duel, dispose } = await buildBout({ ...recipe, capSeconds: recipe.capSeconds ?? 30 }, { engine: BOUT_ENGINE });
   try {
     const trace = traceOf(SIDES.map((side) => duel.duelists[side].built));
     const meter = watch ? downMeter(duel.duelists[watch].body, world.hz) : null;
