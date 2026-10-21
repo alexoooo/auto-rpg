@@ -50,9 +50,20 @@ The plans in flight, and what comes next across them. Each plan names its own de
    and 1, and the phone step-cost reading; Movement A0.
 2. **Movement A1 to A4**, beside Ratings steps 2 and 3, which change no behaviour.
 3. **Ratings steps 4 to 6**, on bouts played after Movement's Part A, which moves every bout.
-4. **Then, in parallel:** Movement B0 to B2; Ratings steps 7 and 8; component registration; and
+4. **Then, in parallel:** Movement B0 to B2; Ratings steps 7 and 8; component registration's
+   stage 1 (locomotion); and
    the open work below, each change read by the paired report.
-5. **As needed:** the remaining steps of each plan.
+5. **When each one's condition holds:**
+   - Movement B3 (crowd motion) and B4 (AI Commanders), once B1 has landed;
+   - Ratings steps 10 (skills' batteries) and 13 (falls) as ordinary work; step 9 when a question
+     about an item, a character or an attribute is asked; step 12 (case identity by code) when
+     the first built-in mind or skill has a folder of its own, or entrants are most of the field;
+     step 11 (the sparse league) only when the owner asks, after step 12; step 14 (run live) once
+     the Ratings screen is in use and a live run would save a trip to the command line;
+   - Mind data step 2 (packed format), then 3 (precision per kind); if the phone reading shows the
+     step's cost binds instead, that work comes first; step 4 only when Research rise is to be
+     fielded on a phone;
+   - component registration's stages 2 to 4 at any time, stage 5 (the Commander) with Movement B0.
 
 ## Waiting on the owner
 
