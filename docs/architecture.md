@@ -998,8 +998,8 @@ critical phase and lets ranked higher sub-minds take it at the first yielding bo
 `RECIPE_FIGHTER` uses shared action tactics over the recipe executor, walking in the stance, with `lie`;
 the Lab's minds are made from it. `CLASSIC` is it getting about by `MOVE` and standing up
 once down (`STAND_UP`, step-up alone); Puncher, Scrapper and Behaviours stand up as it does. The
-mind every humanoid has unless its fight says otherwise (`modelInfo`) is the options fighter
-(`OPTIONS`), and the Arena's picker opens on it. An arena
+mind every humanoid has unless its fight says otherwise (`modelInfo`) is the Duellist
+(`DUELLIST`), the best-rated mind of the tournament at `1bacac44`, and the Arena's picker opens on it. An arena
 recipe may name each side's mind (`DuelRecipe.minds`). The crypt's
 `DungeonRunOptions.mind` chooses by participant id, side and model, including enemies and two
 bodies of the same model; a null or absent choice uses the model's default. The start panel

@@ -398,8 +398,7 @@ const ONE_TWO: ActionConfig = (() => {
 })();
 
 /**
- * **The options fighter's config** (`createOptionsFighter`), the mind every humanoid has unless
- * its fight says otherwise. Its skills are the Counter-puncher's (`COUNTER_PUNCHER`), its straight
+ * **The options fighter's config** (`createOptionsFighter`). Its skills are the Counter-puncher's (`COUNTER_PUNCHER`), its straight
  * punch with either hand thrown as a combination of one drive (`COMBINATION`), which waits for its
  * poise and leaves its hand to the guard coming back; its one-two (`ONE_TWO`); the Scrapper's for a
  * low foe, its low blow and the support fold it is thrown from; and Classic's gaits (`MOVE`):
@@ -424,7 +423,8 @@ const EITHER_HAND = ["hand.right", "hand.left"] as const;
  * **The duellist**: Behaviours' parts for a fighter that swings what one hand holds and covers with
  * what the other holds. It takes in turn the recipe strike at the head and at the trunk and the
  * blade's thrust at the trunk's opening; approaches its window facing its way there, at its run's
- * pace, while the window is over 1.5 m off; covers by prediction; and stands up once down.
+ * pace, while the window is over 1.5 m off; covers by prediction; and stands up once down. It is the
+ * mind every humanoid has unless its fight says otherwise (`modelInfo`).
  */
 export const DUELLIST: FighterConfig = deepFreeze({ ...BEHAVIOURS,
   tactics: { ...BEHAVIOURS.tactics, list: [

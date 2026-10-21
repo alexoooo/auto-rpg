@@ -83,10 +83,10 @@ test("a_tape_rides_in_a_link's_fragment", () => {
 
 test("controller and recovery links preserve independent choices", () => {
   // A side's control is its model's own mind's preset unless the link names another it fits.
-  assert.deepEqual(readControls(""), { left: "options", right: "options" });
-  assert.deepEqual(readControls("?control=unknown,scrapper"), { left: "options", right: "scrapper" });
-  assert.deepEqual(readControls("?control=combat,kicker"), { left: "options", right: "options" });
-  assert.deepEqual(readControls("?control=point-left,point-alternate"), { left: "options", right: "options" });
+  assert.deepEqual(readControls(""), { left: "duellist", right: "duellist" });
+  assert.deepEqual(readControls("?control=unknown,scrapper"), { left: "duellist", right: "scrapper" });
+  assert.deepEqual(readControls("?control=combat,kicker"), { left: "duellist", right: "duellist" });
+  assert.deepEqual(readControls("?control=point-left,point-alternate"), { left: "duellist", right: "duellist" });
   assert.deepEqual(readControls("?matchup=reptile,workshop-fighter&control=classic"), { left: "crawl", right: "classic" });
   assert.deepEqual(readMinds("?control=scrapper,classic&guard=cover&right.guard=cover"), { left: SCRAPPER, right: CLASSIC });
   assert.deepEqual(readMinds("?control=puncher,scrapper"), { left: PUNCHER, right: SCRAPPER });

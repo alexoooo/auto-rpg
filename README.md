@@ -80,9 +80,9 @@ the final view holds. A result decided at the bell does not force either fighter
 These controls work while paused and after the verdict. Links retain the view with `view`,
 `camera`, `projection` and `focus` parameters.
 
-Each contender has a **Controller** choice: the **Options fighter** (every humanoid's own mind, in
-the Arena and the Crypt), Classic fighter, **Puncher**, **Counter-puncher**, **Scrapper**, or
-**Behaviours**, a fighter made of behaviours. A preset you change in the panel reads
+Each contender has a **Controller** choice: the **Duellist** (every humanoid's own mind, in the
+Arena and the Crypt), the **Options fighter**, Classic fighter, **Puncher**, **Counter-puncher**,
+**Scrapper**, or **Behaviours**, a fighter made of behaviours. A preset you change in the panel reads
 **Custom (from** its preset**)**. The Options fighter's **Obedience** says how far it carries out
 your orders through a blow coming: **Own judgement** steps aside from most punches, **Steady**
 from a full punch, **Orders first** only from a club's heavy blow.
