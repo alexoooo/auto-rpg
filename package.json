@@ -7,8 +7,11 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "assets": "node scripts/art/assets.mjs build",
+    "assets:check": "node scripts/art/assets.mjs check",
+    "assets:report": "node scripts/art/assets.mjs report",
+    "dev": "node scripts/art/assets.mjs build && vite",
+    "build": "node scripts/art/assets.mjs build && tsc --noEmit && vite build",
     "preview": "vite preview",
     "check": "tsc --noEmit",
     "test": "node scripts/test.mjs",
@@ -24,6 +27,13 @@
     "@mujoco/mujoco": "3.14.0"
   },
   "devDependencies": {
+    "@babylonjs/ktx2decoder": "9.18.1",
+    "@gltf-transform/core": "4.5.0",
+    "@gltf-transform/extensions": "4.5.0",
+    "@gltf-transform/functions": "4.5.0",
+    "gltf-validator": "2.0.0-dev.3.10",
+    "meshoptimizer": "1.3.0",
+    "sharp": "0.35.5",
     "typescript": "5.9.3",
     "vite": "8.1.5"
   }

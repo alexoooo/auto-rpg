@@ -9,7 +9,7 @@ import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import fighterRig from "../../assets/humanoid/workshop-fighter.json" with { type: "json" };
 import rogueRig from "../../assets/humanoid/workshop-rogue.json" with { type: "json" };
-import { publicAssetUrl } from "../asset-url.ts";
+import { characterAssetUrl } from "./art-assets.ts";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import { FIT_SCALE } from "../core/human/model.ts";
 import type { WorkshopModel } from "../core/human/rig.ts";
@@ -67,7 +67,7 @@ export function loadSkin(model: WorkshopModel, scene: Scene): Promise<AssetConta
   if (!byModel) loads.set(scene, byModel = new Map());
   let load = byModel.get(model);
   if (!load) {
-    load = sceneModel(publicAssetUrl(`/assets/humanoid/${model}.glb`), scene);
+    load = characterAssetUrl(model).then(url => sceneModel(url, scene));
     void load.catch(() => byModel.delete(model));
     byModel.set(model, load);
   }

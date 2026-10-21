@@ -611,7 +611,7 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
   envelopes checked for exact identity.
 - **Build fingerprint** (`scripts/build-identity.mjs`): a content SHA-256 of sources, templates,
   assets, lockfile, build config and installed Rapier, LF-normalised; Node and Vite share it.
-  What runs write (`OUTPUTS`: the tournament's table and notes, `assets/evaluations/`) is not in
+  What runs write (`OUTPUTS`: the tournament's table and notes, `assets/evaluations/`, generated art delivery files) is not in
   it. Match results and tournament caches carry it and refuse a mismatch.
 - **Evaluation records** (`assets/evaluations/`): kept results. `imports/tournament-1bacac44.jsonl`
   is the 10-hour tournament's rows (11,342 bouts and the unseen report's 384) as played, with their
@@ -700,6 +700,10 @@ An actor (`actor.ts`) gives the body its balance, mind (`labMind`, `&mind=`) and
 
 **Shared rendering** (`src/render/`, `src/audio/`):
 
+- Character art uses the [asset pipeline](art/assets.md): LFS masters and shared original images
+  compile into hashed geometry, KTX2 textures and workshop animation buffers. `art-assets.ts`
+  resolves the generated manifest and self-hosted decoders; `asset-cache.ts` decodes scene-owned
+  containers. The core reads exact versioned metadata independently of web compression.
 - `dress.ts` and `dresserFor` draw a body as its skin, or its collision shapes if the skin does not
   load; skins (`skin.ts`, `skeleton-skin.ts`, `reptile-skin.ts`, the robot shells via
   `robot-skin.ts`) read only segment transforms and own no collision. `skinSlot` swaps a view

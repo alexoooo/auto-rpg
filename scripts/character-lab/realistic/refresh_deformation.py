@@ -33,6 +33,8 @@ for kind in (sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else ['fighte
  rig.location=(0,0,0);rig.rotation_euler=(0,0,0)
  for m,visible in modifiers:m.show_viewport=visible
  bpy.context.scene.frame_set(1)
+ build.unpack_images(build.SOURCE/(kind+'.blend'), build.ROOT/'assets/art/textures')
+ bpy.context.preferences.filepaths.save_version=0
  bpy.ops.wm.save_as_mainfile(filepath=str(build.SOURCE/(kind+'.blend')),compress=True)
  bpy.ops.object.select_all(action='DESELECT')
  for o in bpy.context.scene.objects:

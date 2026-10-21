@@ -4,24 +4,25 @@ The game's two humans are the character workshop's models: the fighter, who play
 and the rogue, who plays the Rogue. The male fighter and female rogue use customized
 MakeHuman/MPFB CC0 anatomy, skin textures, hair, eyes and rig weights; their clothing, armour,
 boots, weapons, equipment fitting and preview motion are this project's work. They reach the game
-in two forms: the workshop's GLBs with their authored preview motion, shown on
-`/character-lab.html`, and animation-free derivatives that the core measures and the pages wear
-as skins. The reptile's procedural skin is [at the end](#the-reptile).
+through shared generated geometry and textures. The workshop descriptor adds authored preview
+motion; gameplay moves the same rig through physics. The [asset pipeline](assets.md) owns web
+delivery. The reptile's procedural skin is [at the end](#the-reptile).
 
 ## Where each file comes from
 
 | File | Made by | Read by |
 |---|---|---|
-| `assets/character-lab/fighter.blend`, `rogue.blend` | `scripts/character-lab/realistic/build.py` (saved over on every build) | the export below |
-| `public/assets/character-lab/fighter.glb`, `rogue.glb` | `scripts/character-lab/realistic/build.py` (`refresh_motion.py` and `refresh_deformation.py` rewrite the motion and deformation in place) | the workshop page (`src/character-lab/main.ts`), the workshop's checks (`node scripts/fingerprint.mjs --character`) |
-| `public/assets/humanoid/workshop-fighter.glb`, `workshop-rogue.glb` | `scripts/humanoid/export-workshop.py` | the skins (`src/render/skin.ts`); `SKIN_TOP` in `src/core/human/model.ts` cites an accessor of each |
+| `assets/character-lab/fighter.blend`, `rogue.blend` | the authoring generator and refresh scripts | `npm run assets`, the measurement export below |
+| `assets/art/textures/` | the authoring scripts, original bytes named by SHA-256 | both masters and the web encoder |
+| `public/assets/generated/` | `npm run assets` | the workshop and gameplay skins through the generated manifest |
+| lossless cached GLBs | `npm run assets` | inspection and measurement scripts, `node scripts/fingerprint.mjs --character` |
+| `assets/humanoid/skin-bounds.json` | exact skin tops transcribed from the lossless source accessors | `src/core/human/model.ts` |
 | `assets/humanoid/workshop-fighter.json`, `workshop-rogue.json` | `scripts/humanoid/export-workshop.py` | the core's rig (`src/core/human/rig.ts`), the skins |
 | `assets/humanoid/workshop-*-trunk-hull.json` | `node scripts/core/workshop-envelope.mjs --write`, from the humanoid GLBs | the core's envelope (`src/core/human/envelope.ts`) |
 
-The humanoid GLBs, the rig JSON and the trunk hulls are `SOURCES` entries (`src/core/sources.ts`),
-as is the envelope measurement (`workshop-envelope`), so a number the core takes from a model names
-the file and the place in it. The workshop models themselves are not: the core reads only their
-derivatives.
+The rig JSON, skin bounds and trunk hulls are `SOURCES` entries (`src/core/sources.ts`), as is the
+envelope measurement (`workshop-envelope`). The core reads this exact metadata; compressed web
+assets never supply anatomical measurements.
 
 ## Building the workshop models
 
@@ -41,7 +42,8 @@ and `assets/character-lab/MAKEHUMAN-CC0.txt`). The asset archive is
 downloaded by the wrapper (`makehuman_system_assets_cc0.zip`, saved as `.tools/mpfb/assets.zip`) and checked against SHA256 `B542127A8E25547C7C29C19F2D1D2ADB9A664C80396ECD694095DBC8028A0107`. The
 models use the middle-aged Caucasian male and young Caucasian female skins, low-poly eyes,
 eyebrow001, eyelashes01, teeth_base, and the short02 and ponytail01 hair, all from that CC0 pack.
-The maps are packed into the Blender files and GLBs, so nothing depends on `.tools` at runtime.
+Original maps are shared outside the masters under `assets/art/textures/`; generated web maps
+are self-hosted. Nothing depends on `.tools` at runtime.
 
 The build's helpers, beside it:
 
@@ -62,8 +64,10 @@ Equipped poses refuse unreachable wrist targets while authoring.
 
 ## Exporting the game's derivatives
 
-`scripts/humanoid/export-workshop.py` opens a saved workshop file and writes its derivative
-without saving over the source:
+`npm run assets` builds the shared runtime descriptors and lossless inspection exports without
+saving over the sources or changing physics metadata. An explicit anatomy update uses
+`scripts/humanoid/export-workshop.py`, which writes a lossless measurement GLB under
+`.tmp/art-measurements/` and updates the rig JSON:
 
 ```powershell
 blender --background --disable-autoexec assets/character-lab/fighter.blend --python scripts/humanoid/export-workshop.py
@@ -84,7 +88,7 @@ authored finger poses.
   79 kg: the fighter's skin top at the authored size sets one fit scale (`FIT_SCALE`), and both
   models are built at it, so the Rogue keeps her size against him. Her mass is his times the ratio
   of the two models' measured volumes.
-- **The skin.** `src/render/skin.ts` loads the humanoid GLB once per scene and carries each bone
+- **The skin.** `src/render/skin.ts` loads the shared model once per scene and carries each bone
   rigidly on the core segment it belongs to, reading only the segments' achieved transforms. It
   owns no collision and decides nothing. Boots and armour are shown or hidden by `visiblePart`
   (`src/character-lab/catalog.ts`); a hand that holds the club closes on it (`CLUB_GRIP`,

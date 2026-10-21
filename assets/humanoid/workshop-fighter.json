@@ -3,7 +3,7 @@
   "model": "workshop-fighter",
   "source": {
     "path": "assets/character-lab/fighter.blend",
-    "sha256": "3a969713d1a55fb16166e74684ec11c491361c0a018eb1336f9d40d494231251",
+    "sha256": "3dac8da677b52310de5f322c099efe0cac6d6a23769b73e7f8f6b56b1e20f4a3",
     "anatomy": "MakeHuman/MPFB CC0; workshop-authored clothing, equipment and fitting"
   },
   "upperLength": 0.2748923948186112,

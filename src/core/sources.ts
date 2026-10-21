@@ -96,7 +96,7 @@ export const SOURCES = Object.freeze({
   },
   "workshop-envelope": {
     kind: "measurement",
-    how: "scripts/core/workshop-envelope.mjs on public/assets/humanoid/workshop-*.glb: the extents of the "
+    how: "scripts/core/workshop-envelope.mjs on the lossless character exports: the extents of the "
       + "clothed envelope's vertices that a foot's bones weigh most on, body frame, authored size, "
       + "rounded to 0.1 mm.",
     record: "scripts/core/workshop-envelope.mjs",
@@ -120,13 +120,13 @@ export const SOURCES = Object.freeze({
     kind: "asset", file: "assets/humanoid/workshop-rogue-trunk-hull.json",
     what: "The Rogue's trunk segments' surfaces, as the Warrior's.",
   },
-  "workshop-fighter-glb": {
-    kind: "asset", file: "public/assets/humanoid/workshop-fighter.glb",
-    what: "The Warrior's model; a pointer is into its glTF JSON chunk.",
+  "workshop-fighter-bounds": {
+    kind: "asset", file: "assets/humanoid/skin-bounds.json",
+    what: "The Warrior's exact skin top at the authored size, with the lossless source's hash and accessor.",
   },
-  "workshop-rogue-glb": {
-    kind: "asset", file: "public/assets/humanoid/workshop-rogue.glb",
-    what: "The Rogue's model; a pointer is into its glTF JSON chunk.",
+  "workshop-rogue-bounds": {
+    kind: "asset", file: "assets/humanoid/skin-bounds.json",
+    what: "The Rogue's exact skin top at the authored size, with the lossless source's hash and accessor.",
   },
   "workshop-fighter-hands": {
     kind: "asset", file: "assets/humanoid/workshop-fighter-hands.json",

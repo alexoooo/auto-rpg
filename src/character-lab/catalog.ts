@@ -6,11 +6,11 @@ export interface Loadout { boots: boolean; armour: boolean; weapon: WeaponId }
 /** The workshop's characters, in the order the page counts them. `armour` is what the page calls each one's. */
 export const CHARACTERS = {
   fighter: {
-    name: "The Fighter", asset: "fighter.glb", armour: "Plate armour",
+    name: "The Fighter", armour: "Plate armour",
     defaults: { boots: true, armour: true, weapon: "sword-shield" },
   },
   rogue: {
-    name: "The Rogue", asset: "rogue.glb", armour: "Leather armour",
+    name: "The Rogue", armour: "Leather armour",
     defaults: { boots: true, armour: false, weapon: "bow" },
   },
 } as const;

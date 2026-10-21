@@ -13,7 +13,7 @@ assert model in ('fighter', 'rogue')
 source = ROOT / f'assets/character-lab/{model}.blend'
 rig = bpy.data.objects['WorkshopRig']
 bones = rig.data.bones
-out = ROOT / f'public/assets/humanoid/workshop-{model}.glb'
+out = ROOT / f'.tmp/art-measurements/workshop-{model}.glb'
 profile_path = ROOT / f'assets/humanoid/workshop-{model}.json'
 
 def length(name):

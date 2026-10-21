@@ -1,6 +1,7 @@
+import { losslessModelPath } from "../art/paths.mjs";
 import{readFile}from'node:fs/promises';import{NullEngine}from'@babylonjs/core/Engines/nullEngine.js';import{Scene}from'@babylonjs/core/scene.js';import{LoadAssetContainerAsync}from'@babylonjs/core/Loading/sceneLoader.js';import'@babylonjs/loaders/glTF/index.js';
 import{surface}from'./contact.mjs';import{skinRegions,wristAreaRatio,gripDistances,contactPatch,surfaceIndex,meshCrossesSurface,skinPart}from'./validation.mjs';
-const id=process.argv[2]??'fighter',e=new NullEngine(),s=new Scene(e),a=await LoadAssetContainerAsync(await readFile(`public/assets/character-lab/${id}.glb`),s,{pluginExtension:'.glb'});a.addAllToScene();const skin=a.meshes.find(m=>m.name==='base__skin'),regions={l:skinRegions(skin,'l'),r:skinRegions(skin,'r')};
+const id=process.argv[2]??'fighter',e=new NullEngine(),s=new Scene(e),a=await LoadAssetContainerAsync(await readFile(losslessModelPath(id)),s,{pluginExtension:'.glb'});a.addAllToScene();const skin=a.meshes.find(m=>m.name==='base__skin'),regions={l:skinRegions(skin,'l'),r:skinRegions(skin,'r')};
 const point=name=>a.transformNodes.find(n=>n.name===name).getAbsolutePosition();
 const head=skinPart(skin,n=>n==='head'||n==='neck_01');
 const arms=Object.fromEntries(['l','r'].map(side=>[side,[skin,a.meshes.find(m=>m.name==='base__jacket')].map(m=>skinPart(m,n=>/arm|hand|thumb|index|middle|ring|pinky/.test(n)&&n.endsWith('_'+side)))]));

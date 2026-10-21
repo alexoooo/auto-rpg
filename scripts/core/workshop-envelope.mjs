@@ -19,6 +19,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readGlb, weightedVertices } from "./glb.mjs";
+import { losslessModelPath } from "../art/paths.mjs";
 import { segmentFrame } from "../../src/core/spec/body.ts";
 import { dot, sub } from "../../src/core/spec/vec.ts";
 import { trunkLandmarks } from "../../src/core/human/landmarks.ts";
@@ -43,7 +44,7 @@ const fromGltf = ([x, y, z]) => [-x, y, z];
 const cache = new Map();
 function envelope(model) {
   if (!cache.has(model)) {
-    const glb = readGlb(path.join(ROOT, "public", "assets", "humanoid", `${model}.glb`));
+    const glb = readGlb(losslessModelPath(model));
     cache.set(model, weightedVertices(glb, ENVELOPE_MESHES).map(({ position, bone }) => ({ position: fromGltf(position), bone })));
   }
   return cache.get(model);

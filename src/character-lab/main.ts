@@ -13,6 +13,7 @@ import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js"
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader.js";
 import type { AnimationGroup } from "@babylonjs/core/Animations/animationGroup.js";
 import type { AssetContainer } from "@babylonjs/core/assetContainer.js";
+import { characterAssetUrl } from "../render/art-assets.ts";
 import "@babylonjs/loaders/glTF/index.js";
 import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent.js";
 import {
@@ -358,7 +359,7 @@ import.meta.hot?.dispose(dispose);
 /** Loads `id`'s model into the scene, hidden, with every part of it casting the key's shadow. */
 async function load(id: CharacterId): Promise<boolean> {
   const asset = await LoadAssetContainerAsync(
-    `${import.meta.env.BASE_URL}assets/character-lab/${CHARACTERS[id].asset}`, scene);
+    await characterAssetUrl(id, true), scene);
   if (disposed) {
     asset.dispose();
     return false;

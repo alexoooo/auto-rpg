@@ -2,6 +2,7 @@ import type { SourceKey } from "../sources.ts";
 import { derive, sourced, type Quantity } from "../spec/quantity.ts";
 import type { Sex } from "./tables/de-leva-1996.ts";
 import type { WorkshopModel } from "./rig.ts";
+import skinBounds from "../../../assets/humanoid/skin-bounds.json" with { type: "json" };
 
 /**
  * **What each workshop model is, before its segments**: its sex, its size and its mass.
@@ -24,17 +25,16 @@ export const WORKSHOP_SEX: Readonly<Record<WorkshopModel, Sex>> = Object.freeze(
 
 /**
  * The top of each model's skin at the authored size, bind pose, soles on 0: the maximum height of
- * `base__skin`'s positions, as the glTF's accessor states it (`workshop-fighter-glb`,
- * `workshop-rogue-glb`). Hair is not stature.
+ * `base__skin`'s positions, recorded losslessly in `assets/humanoid/skin-bounds.json`.
+ * Hair is not stature; delivery compression never supplies this measurement.
  */
-const SKIN_TOP: Readonly<Record<WorkshopModel, { readonly source: SourceKey; readonly accessor: number; readonly value: number }>> = Object.freeze({
-  "workshop-fighter": { source: "workshop-fighter-glb", accessor: 231, value: 1.8804991245269775 },
-  "workshop-rogue": { source: "workshop-rogue-glb", accessor: 220, value: 1.7304996252059937 },
+const SKIN_SOURCE: Readonly<Record<WorkshopModel, SourceKey>> = Object.freeze({
+  "workshop-fighter": "workshop-fighter-bounds",
+  "workshop-rogue": "workshop-rogue-bounds",
 });
 
 export const skinTop = (model: WorkshopModel): Quantity<number> => {
-  const { source, accessor, value } = SKIN_TOP[model];
-  return sourced(value, "m", source, `/accessors/${accessor}/max/1`);
+  return sourced(skinBounds[model].skinTop, "m", SKIN_SOURCE[model], `/${model}/skinTop`);
 };
 
 /** x1's stature and mass for a man, each the middle of the owner's range. */

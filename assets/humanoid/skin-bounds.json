@@ -1,0 +1,18 @@
+{
+  "workshop-fighter": {
+    "skinTop": 1.8804991245269775,
+    "source": {
+      "path": "public/assets/humanoid/workshop-fighter.glb@44790a14",
+      "sha256": "b62eba0bf821293995958d2e9e85a6681a87af10fa7fc292ff6a4f1fec3033c0",
+      "accessor": 231
+    }
+  },
+  "workshop-rogue": {
+    "skinTop": 1.7304996252059937,
+    "source": {
+      "path": "public/assets/humanoid/workshop-rogue.glb@44790a14",
+      "sha256": "c97071a8e89808da20614ab2191be641fb552a3940dd8786ef101db4dd1dc37b",
+      "accessor": 220
+    }
+  }
+}

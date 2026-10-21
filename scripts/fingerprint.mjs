@@ -67,6 +67,7 @@ import {
 } from "./character-lab/validation.mjs";
 import { CORE_ENGINE, coreStand, freshEngine } from "../tests/harness/core-stand.mjs";
 import { traceOf } from "../tests/harness/trace.mjs";
+import { losslessModelPath } from "./art/paths.mjs";
 
 // An engine announces itself with the time of day, which no two runs share.
 Logger.LogLevels = Logger.NoneLogLevel;
@@ -300,7 +301,7 @@ const CLEAR = new Vector3(3, 0, 0);
 async function character(id) {
   const engine = new NullEngine(), scene = new Scene(engine);
   try {
-    const bytes = await readFile(new URL(`../public/assets/character-lab/${CHARACTERS[id].asset}`, import.meta.url));
+    const bytes = await readFile(losslessModelPath(id));
     const asset = await LoadAssetContainerAsync(bytes, scene, { pluginExtension: ".glb" });
     asset.addAllToScene();
     const mesh = (name) => asset.meshes.find((m) => m.name === name);

@@ -1,6 +1,6 @@
 // npm exec --yes --package=playwright -- node scripts/robot-browser-check.mjs [URL]
 import assert from "node:assert/strict";
-import { access, mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, writeFile, readFile } from "node:fs/promises";
 import { delimiter, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -100,18 +100,20 @@ try {
   checks.push("Lab switching preserves body, physics bytes, paused recording and Tactical visibility");
 
   let release, requested;
+  const art = JSON.parse(await readFile("public/assets/generated/manifest.json", "utf8"));
+  const fighterUri = art.characters.fighter.model.uri;
   const requestedPromise = new Promise(done => { requested = done; });
   const releasePromise = new Promise(done => { release = done; });
-  await page.route("**/workshop-fighter.glb", async route => { requested(); await releasePromise; await route.continue(); });
+  await page.route(`**/${fighterUri}`, async route => { requested(); await releasePromise; await route.continue(); });
   await appearances.getByRole("button", { name: "Original", exact: true }).click();
   await requestedPromise;
   await choose("Futuristic", "duelist", false);
-  const response = page.waitForResponse(r => r.url().endsWith("/workshop-fighter.glb"));
+  const response = page.waitForResponse(r => r.url().endsWith(`/${fighterUri}`));
   release(); await response;
   await page.evaluate(() => __lab.scene.whenReadyAsync());
   await page.waitForTimeout(100);
   assert.ok(await page.evaluate(() => __lab.current().skin.meshes.every(m => m.name.includes(".duelist."))));
-  await page.unroute("**/workshop-fighter.glb");
+  await page.unroute(`**/${fighterUri}`);
   await choose("Original", "default");
   assert.ok(await page.getByRole("group", { name: "Wears", exact: true }).isVisible());
   await choose("Industrial", "industrial");

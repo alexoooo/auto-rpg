@@ -5,6 +5,9 @@
 node_modules/
 dist/
 .vite/
+# Reproducible art outputs and pinned local encoder toolchains.
+.cache/art/
+public/assets/generated/
 
 # Disposable work: probes, logs, before-readings, screenshots in .tmp/<task>/, worktrees in
 # .tmp/worktrees/<name>/. `npm run clean` deletes what is a day old.

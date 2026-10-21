@@ -14,17 +14,21 @@ driven jaw.
 
 ## Run it locally
 
-Requires Node 22.13.0 or newer (`.npmrc` sets `engine-strict`). Everything the pages load is
-committed; there is no download step.
+Requires Node 22.13.0 or newer (`.npmrc` sets `engine-strict`) and Git LFS for the character
+originals. The first asset build downloads pinned local tools; subsequent builds reuse the cache.
 
 ```powershell
+git lfs install
+git lfs pull  # editable character originals and shared textures
 npm ci        # the exact lockfile
+npm run assets # compressed character delivery files
 npm run dev   # http://localhost:5180
 npm test      # the gate: step cost, the core's boundary, the mind contract, no strays
 npm run build # type-check, then the production bundle
 ```
 
 Each push to `main` is tested, built and published to GitHub Pages (`.github/workflows/pages.yml`).
+The [asset pipeline](docs/art/assets.md) owns sources, compression, caching and size reports.
 
 ## The Arena
 

@@ -7,6 +7,8 @@ from mathutils import Vector, Matrix, Quaternion
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/'.tools/mpfb/mpfb2-master/src'))
 sys.path.insert(0,str(Path(__file__).resolve().parent))
+sys.path.insert(0,str(ROOT/'scripts/art'))
+from source_images import unpack_images
 import mpfb
 bpy.utils.extension_path_user=lambda *a,**k:str(ROOT/'.tools/mpfb/user')
 mpfb.get_preference=lambda k:{'mpfb_user_data':str(ROOT/'.tools/mpfb/user'),'mpfb_second_root':str(ROOT/'.tools/mpfb/assets'),'mpfb_shelf_label':'Workshop'}.get(k)
@@ -14,7 +16,7 @@ mpfb.register()
 from mpfb.services.humanservice import HumanService
 from mpfb.services.targetservice import TargetService
 ASSETS=ROOT/'.tools/mpfb/assets'
-OUT=ROOT/'public/assets/character-lab';OUT.mkdir(parents=True,exist_ok=True)
+OUT=ROOT/'.tmp/art-authoring';OUT.mkdir(parents=True,exist_ok=True)
 SOURCE=ROOT/'assets/character-lab'
 
 def material(name,color,metal=0,rough=.6,texture=True):
@@ -227,6 +229,8 @@ def build(kind):
  rig.animation_data.action=None
  for pb in rig.pose.bones:pb.matrix_basis=Matrix.Identity(4)
  bpy.context.scene.frame_set(1)
+ unpack_images(SOURCE/(kind+'.blend'), ROOT/'assets/art/textures')
+ bpy.context.preferences.filepaths.save_version=0
  bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE/(kind+'.blend')),compress=True)
  bpy.ops.object.select_all(action='DESELECT')
  for o in bpy.context.scene.objects:

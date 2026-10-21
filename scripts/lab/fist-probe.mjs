@@ -4,8 +4,10 @@
 import { readFile } from "node:fs/promises";
 import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 
+import { losslessModelPath } from "../art/paths.mjs";
+
 export async function loadGlb(model) {
-  const b = await readFile(new URL(`../../public/assets/humanoid/${model}.glb`, import.meta.url));
+  const b = await readFile(losslessModelPath(model));
   const jsonLength = b.readUInt32LE(12);
   const json = JSON.parse(b.subarray(20, 20 + jsonLength).toString());
   const bin = b.subarray(20 + jsonLength + 8);

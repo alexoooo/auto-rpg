@@ -22,8 +22,9 @@ export async function sceneModel(url: string, scene: Scene) {
   if (scene.isDisposed) throw new DOMException("The screen was closed", "AbortError");
   const split = url.lastIndexOf("/");
   // Each decoder gets a private buffer so mesh edits cannot mutate the download cache.
-  const container = await LoadAssetContainerAsync(bytes.slice(), scene, {
-    pluginExtension: ".glb", name: url.slice(split + 1), rootUrl: url.slice(0, split + 1),
+  const isJson = url.endsWith(".gltf");
+  const container = await LoadAssetContainerAsync(isJson ? "data:" + new TextDecoder().decode(bytes) : bytes.slice(), scene, {
+    pluginExtension: isJson ? ".gltf" : ".glb", name: url.slice(split + 1), rootUrl: url.slice(0, split + 1),
   });
   if (scene.isDisposed) { container.dispose(); throw new DOMException("The screen was closed", "AbortError"); }
   scene.onDisposeObservable.addOnce(() => container.dispose());

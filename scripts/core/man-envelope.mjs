@@ -24,6 +24,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { accessorRows, readGlb } from "./glb.mjs";
+import { losslessModelPath } from "../art/paths.mjs";
 import { fromGltf, hand, hullOf, PATCH, patchOf, rigBone, round, SUFFIX } from "./hand-envelope.mjs";
 import { convexHull } from "../../src/core/spec/hull.ts";
 import { add, cross, dot, normalize, scale, sub } from "../../src/core/spec/vec.ts";
@@ -68,7 +69,7 @@ const roundSolid = ({ volume, centre, inertia }) => ({
 });
 
 let raw = null;
-const glb = () => (raw ??= readGlb(path.join(ROOT, "public", "assets", "humanoid", `${MODEL}.glb`)));
+const glb = () => (raw ??= readGlb(losslessModelPath(MODEL)));
 
 /** One hand, as the hand artifact has it less the palm patch's centre. */
 async function manHand(side) {

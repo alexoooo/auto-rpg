@@ -3,7 +3,7 @@
   "model": "workshop-rogue",
   "source": {
     "path": "assets/character-lab/rogue.blend",
-    "sha256": "3625f1ec17ea699e5cccf547624d1c63f6c59caadf562e155a6f218b7a926430",
+    "sha256": "94fbc0319ea6565ab286a868044e775c005290a71b755b4ed01805f5e50a6ed8",
     "anatomy": "MakeHuman/MPFB CC0; workshop-authored clothing, equipment and fitting"
   },
   "upperLength": 0.2549786316109852,

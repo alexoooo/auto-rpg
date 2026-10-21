@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
       - name: Install test tools
         run: |
           sudo apt-get update
@@ -26,6 +28,13 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: .cache/art
+          key: art-linux-${{ hashFiles('assets/art/**', 'assets/character-lab/*.blend', 'scripts/art/**', 'scripts/character-lab/realistic/morph_export.py', 'scripts/character-lab/realistic/phases.py', 'package-lock.json') }}
+          restore-keys: art-linux-
+      - run: npm run assets
+      - run: npm run assets:check
       - run: npm test
       - run: npm run check
       - run: npm run build -- --base=/auto-rpg/

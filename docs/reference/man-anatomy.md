@@ -15,8 +15,8 @@ right side mirrors the left within 0.5 % (the foot's hull has one corner fewer).
 
 ## Inputs
 
-- `public/assets/humanoid/workshop-fighter.glb`: the bare hands (the skin's hand mesh) and bare feet
-  (`bare__feet`), skinned in the bind pose; `workshop-rogue.glb` for the Rogue's hands.
+- `public/assets/humanoid/workshop-fighter.glb@44790a14`: the bare hands (the skin's hand mesh) and bare feet
+  (`bare__feet`), skinned in the bind pose; `public/assets/humanoid/workshop-rogue.glb@44790a14` for the Rogue's hands.
 - `assets/humanoid/workshop-fighter.json` (`workshop-rogue.json` for the Rogue's hands): the rig, for
   the wrist, knuckles, the ball head and the relaxed hand (`grips.empty`).
 - `FIST` (`src/render/fist.ts`): the renderer's fitted fist, turned by `fistTurns`.

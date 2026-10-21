@@ -1,7 +1,7 @@
 # The character workshop's models
 
-`fighter.glb` and `rogue.glb` are the workshop models with their authored preview motion and every
-loadout, shown by `/character-lab.html` (`src/character-lab/main.ts`). They are built with their
-Blender sources (`assets/character-lab/`) by `scripts/character-lab/realistic/build.py`, from
-customized MakeHuman/MPFB CC0 anatomy with clothing, equipment and motion authored here. How to
-rebuild them: [docs/art/characters.md](../../../docs/art/characters.md).
+The workshop (`/character-lab.html`) uses the same generated geometry and textures as gameplay,
+plus its animation buffer. `npm run assets` builds these resources from the Blender masters and
+shared original textures. The authoring generator uses customized MakeHuman/MPFB CC0 anatomy
+with clothing, equipment and motion authored here. See
+[characters](../../../docs/art/characters.md) and the [asset pipeline](../../../docs/art/assets.md).
