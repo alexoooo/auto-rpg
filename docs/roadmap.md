@@ -31,7 +31,7 @@ as it needs ([architecture](architecture.md#the-layers)).
   ([control foundation](reference/control-foundation.md)).
 - **The game**: the Arena, a bout to a verdict that a person watches or takes a side in; a Ladder
   of bouts, to be designed; the Crypt, a party commanded by a person or an AI against AI enemies.
-  Playable on a phone.
+  A web app: any browser, with mouse and keyboard or by touch.
 - **Bodies**: many morphologies, each a sourced spec. The human is the reference; the skeleton and
   a reptile quadruped are on the core.
 
@@ -46,7 +46,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Movement and command](plans/2026-10-21-movement-and-command.md) | One movement pipeline; Commanders over teams |
 | [Component registration](plans/2026-10-21-component-registration.md) | Implementations added by their own files and one line |
 
-1. **Now, cheap and independent:** Mind data step 1, and the phone step-cost reading; Movement A0.
+1. **Now:** Mind data step 1, then Movement A0's code (both edit the learned run); A0's reading
+   of the envelope tables beside step 1.
 2. **Movement A1 to A4**, beside Ratings steps 2 and 3, which change no behaviour.
 3. **Ratings steps 4 to 6**, on bouts played after Movement's Part A, which moves every bout.
 4. **Then, in parallel:** Movement B0 to B2; Ratings steps 7 and 8; component registration's
@@ -59,9 +60,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
      the first built-in mind or skill has a folder of its own, or entrants are most of the field;
      step 11 (the sparse league) only when the owner asks, after step 12; step 14 (run live) once
      the Ratings screen is in use and a live run would save a trip to the command line;
-   - Mind data step 2 (packed format), then 3 (precision per kind); if the phone reading shows the
-     step's cost binds instead, that work comes first; step 4 only when Research rise is to be
-     fielded on a phone;
+   - Mind data step 2 (packed format), then 3 (precision per kind), when the next action that
+     carries data arrives; step 4 when the owner asks;
    - component registration's stages 2 to 4 at any time, stage 5 (the Commander) with Movement B0.
 
 ## Waiting on the owner
@@ -233,8 +233,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   - saving a run; a crypt on senses; a hero that walks one way and faces another;
   - a limp body put to sleep through Rapier woke by itself in three of eight cases, not
     understood ([step cost](reference/step-cost.md#a-limp-body-put-to-sleep)).
-- **A phone:** what a step costs there (Mind data, first), data per use, touch commands
-  (Movement B2).
+- **Input:** every command by mouse and keyboard and by touch on any touchscreen (Movement B2).
 - **Art and sound:** a pixel look for the Crypt, behind a switch
   (`docs/plans/2026-09-24-dungeon-look-06-pixel-look.md@144961d4`); a raking-light check that
   `tangentBasis: "babylon-lh"` orients normal maps; the reptile's art; the sound's gaps (unplayed
