@@ -17,8 +17,8 @@ const AHEAD = 1;
  * and asking for a ready standing action against the explicitly selected foe. On offer while
  * the body stands and has an explicit movement or stop order. It always yields. Its model: a walk ordered
  * goes on at its pace (`Walker.pace`) for `AHEAD` s, short of where it is told to go, and a stand
- * ordered is kept for as long, worth as much; through the blow coming and the focus's reach where
- * it stands in it.
+ * ordered, or a place or range it is already in, is kept for as long, worth as much; through the
+ * blow coming and the focus's reach where it stands in it.
  */
 export function followOrders(walk: Pick<Walker, "pace">, actions: readonly ActionConfig[] = []): StandingOption {
   return {
@@ -30,7 +30,8 @@ export function followOrders(walk: Pick<Walker, "pace">, actions: readonly Actio
     end() {},
     models: { "hand-built": (now): Terms => {
       const orders = now.orders!, kept = walk.pace(now) * AHEAD, view = now.sight.view;
-      const followed = orders.move ? Math.min(kept, remainingOf(orders.move, view.stance.centre, view.senses.others)) : kept;
+      const left = orders.move ? remainingOf(orders.move, view.stance.centre, view.senses.others) : 0;
+      const followed = left > 0 ? Math.min(kept, left) : kept;
       return { duration: AHEAD, dealt: 0, taken: now.danger + exposed(now, AHEAD), orders: followed, fall: 0 };
     } },
     step(now) {
