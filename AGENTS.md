@@ -45,6 +45,7 @@ npm run match -- <a> <b>  # the standard match of two minds: each on each side, 
   (today `npm run match`); kept, or the reason it was not recorded.
 - **A new test file is fast** (under about 10 s), or it goes in `tests/slow.json`.
 - **Landing**: name the checks run and any failure left. Commit each landable change as it lands.
+- **Work on main.** A new branch only when the owner asks for one.
 - **Servers**: leave none running. Port 5180 may be the owner's: never restart or kill it; use
   `npm run preview` on another port and kill it by PID. Killing `npx` leaves `vite` running: find
   the PID with `netstat -ano | findstr :<port>`.
@@ -191,10 +192,10 @@ for every implementation, and changes scope only by the owner's decision.
   (`src/core/mind/controllers.ts`), its data under `assets/entrants/<name>/`, its test in
   `tests/entrant-<name>.test.mjs`. What it may read and do is the architecture's (Adding a Mind),
   held by `tests/core-boundary.test.mjs` and `tests/mind-contract.test.mjs`.
-- **One branch an agent**, from main. An entrant's change touches its own files and its registry
-  line; `node scripts/entrant-check.mjs` names a change an entrant's, the toolkit's or mixed.
-- **The toolkit lands on its own**: a change to what Minds are built on is its own branch, read
-  against main with the fingerprint, whose moved cases its message names.
+- **An entrant's change touches its own files and its registry line**;
+  `node scripts/entrant-check.mjs` names a change an entrant's, the toolkit's or mixed.
+- **A toolkit change** (to what Minds are built on) is read with the fingerprint against the
+  commit before it, and its message names the moved cases.
 - **A claim is a match**: `npm run match -- <a> <b>` (`scripts/match.mjs`) gives the protocol,
   commit, each mind's digest and the match's. Bouts are the same on every machine; a figure from
   another commit or protocol is read again before it is compared.
