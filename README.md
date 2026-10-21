@@ -4,341 +4,143 @@ A browser game of physically simulated, AI-driven melee, after *Die by the Sword
 *One Must Fall* (1994).
 
 There is no attack button and no animation. A fighter is a body of jointed segments driven by
-muscles with the strength and speed of their anatomy, and a mind that decides what the body does;
-a blow is a club carried into something by the arm that swings it, and it wounds by the energy it
-brings. The bodies are the Warrior and the Rogue, two humans measured from their workshop models,
-the crypt's skeleton, and a small, sprawling reptile with four legs and a driven jaw.
+muscles with the strength and speed of their anatomy, and a mind decides what the body does. A
+blow is whatever one body carries into another, and it wounds by the energy it brings. The bodies
+are the Warrior and the Rogue (two humans), the crypt's skeleton, and a four-legged reptile with a
+driven jaw.
 
-## Play online
-
-[Play Auto-RPG](https://alexoooo.github.io/auto-rpg/) in your browser: the link opens the main
-menu, with **Dungeon** (the crypt), **Arena**, and **Tools**, which holds the **Lab** and development viewers.
-The game stays in one application when changing modes. Loading screens cover preparation until
-the opening view is ready. Returning to the menu ends the run and retains setup choices for the current tab.
-
-GitHub Actions tests and builds each push to `main` and publishes `dist/` to GitHub Pages
-(`.github/workflows/pages.yml`), building with `npm run build -- --base=/auto-rpg/`.
+**[Play it in your browser](https://alexoooo.github.io/auto-rpg/).** The main menu opens the
+**Dungeon** (the Crypt), the **Arena** and **Tools** (the Lab and development viewers).
 
 ## Run it locally
 
-Requires **Node 22.13.0 or newer**; `.npmrc` sets `engine-strict=true`, so an older Node makes
-`npm ci` refuse rather than warn.
+Requires Node 22.13.0 or newer (`.npmrc` sets `engine-strict`). Everything the pages load is
+committed; there is no download step.
 
 ```powershell
-npm ci        # not `npm install`: the exact lockfile
+npm ci        # the exact lockfile
 npm run dev   # http://localhost:5180
-npm run check # tsc, no emit
-npm test      # the fast tests: the core, the rules and a short bout
-npm run test:all # all current-code tests, including slow physical scenarios
-npm run test:experimental # how well the controllers do: measurements outside both tiers
-npm run build # check, then the production bundle
+npm test      # the fast tests
+npm run build # type-check, then the production bundle
 ```
 
-Everything the pages need is committed, so a fresh clone runs with no download step.
-
-In the Lab's **Stand-up** scenario, **Fall environment** selects an open floor, a column, a wall,
-a tomb or a bench. Obstacle falls are experiments; a failed rise is reported as a failure.
-Their separate Node suite is `node research/rising-bed.mjs --obstacles`; `--target` keeps the
-original 64 open-floor falls.
+Each push to `main` is tested, built and published to GitHub Pages (`.github/workflows/pages.yml`).
 
 ## The Arena
 
-Choose the standing character on each side (Warrior, Rogue, Skeleton or Reptile) and press **Fight**.
-Each character's **Attributes** panel edits Size, Weight, Strength and Speed as multipliers,
-hit points as HP, and Balance and Haste as percentages. Model defaults are inherited until a field
-is edited; **Reset** restores inheritance, and **Reset all** restores every default. Balance 0
-is unassisted. Haste changes leg muscle speed; Speed changes every muscle's speed.
-The Lab and Crypt use the same panel. Arena and Crypt settings apply to the next bout or run;
-the Lab's **Apply and restart** starts its scenario on the edited body. These settings belong
-to the setup and its link. Invalid values or a body that cannot fit are shown as errors.
+Pick a character for each side (Warrior, Rogue, Skeleton or Reptile) and press **Fight**. You
+watch, or take a side under **Play as**: your side then does what you order and nothing else.
+A side is out when its wounds end it, or when it stays down past the chosen recovery window. At the
+two-minute bell the fuller health bar wins.
 
-Links use named character fields, such as `&left.strength=1.5&right.balance=10` in Arena,
-`&body.size=1.1` in Lab, and `&hero.hp=8&ally-0.speed=1.2&enemy.reptile.haste=50` in Crypt.
-Existing `balance=` and `haste=` links remain readable; named fields take precedence.
+| Panel | Chooses |
+| --- | --- |
+| Attributes | Size, Weight, Strength, Speed, HP; Balance (assist, % of body weight; 0 is unassisted) and Haste (leg speed) |
+| Controller | the mind: Duellist (the default), Options fighter, Classic, Puncher, Counter-puncher, Scrapper, Behaviours; the Reptile's Crawl and bite |
+| Mind | any part of the chosen mind; during a bout, a read-only view of the mind as it fights |
+| Loadout | each hand: nothing, a wooden club, a buckler or a short sword |
+| Level | Open stage, or Obstacle court (solid columns, tomb and bench) |
+| After a fall | keep fighting while fallen fighters try to rise (default), or defeat after 15, 30 or 60 s down, or at the first fall |
+| Appearance | the Warrior's skin: Original, Industrial, Steampunk or Futuristic (same body) |
+| View | World or Tactical (collision shapes); Free, Isometric or Chase camera; focus |
 
-Choose **Open stage** or **Obstacle court** with the **Level** selector. The court's columns, tomb and bench are solid;
-links retain the stage in `&level=obstacle-court`, and each stage admits only clear starting placements.
-
-The Warrior also has an **Appearance** selector: Original, Industrial, Steampunk or Futuristic. The three
-robot shells keep the Warrior's physics and abilities. The Lab offers the same choices and can
-switch skins during playback without restarting the scenario. Arena links keep each side's
-appearance in `&appearance=industrial,relic`; Lab links use, for example, `&appearance=duelist`.
-
-The **View** panel switches between the character skins (**World**) and their collision shapes
-(**Tactical**). Choose **Free**, **Isometric** or **Chase**, and focus on both fighters or either
-side. Isometric offers orthographic and perspective projection; Chase follows one fighter.
-Left is blue and right is red, with matching character silhouettes, names and health bars.
-Under each bar, a body diagram shows each part's remaining health from grey through amber to red.
-Dashed outlines mark severed parts; hover, focus or tap a part for its health, or open **Damage
-details** for the full list. A short feed beside each diagram names actions and behaviour changes,
-updates action results, and fades old entries. Contact means an action met its target, not that it
-necessarily caused damage. Pausing and the final verdict hold the feed. Controllers without action
-reports show damage with action reporting unavailable. Arena tape links replay orders through the
-normal minds, so their action feeds remain available.
-The winner is announced immediately; a three-second aftermath lets a defeated body fall before
-the final view holds. A result decided at the bell does not force either fighter to fall.
-These controls work while paused and after the verdict. Links retain the view with `view`,
-`camera`, `projection` and `focus` parameters.
-
-Each contender has a **Controller** choice: the **Duellist** (every humanoid's own mind, in the
-Arena and the Crypt), the **Options fighter**, Classic fighter, **Puncher**, **Counter-puncher**,
-**Scrapper**, or **Behaviours**, a fighter made of behaviours. A preset you change in the panel reads
-**Custom (from** its preset**)**. The Options fighter's **Obedience** says how far it carries out
-your orders through a blow coming: **Own judgement** steps aside from most punches, **Steady**
-from a full punch, **Orders first** only from a club's heavy blow.
-Each humanoid hand can carry a wooden club, a buckler, a short sword or nothing. A sword uses separate cut
-and thrust actions, whose aligned edge and tip wound on impact.
-The Reptile uses **Crawl and bite**, carries no equipment and has 1 HP at 8 kg. It trots toward
-opponents, slows for contact, and shifts its weight before placing one paw during close fighting
-and withdrawal. It bites reachable body surfaces with its physical jaw.
-Try `?play=arena&matchup=workshop-fighter,reptile&recovery=continue`.
-Its anatomy is an authored estimate. Forward-leaning teeth wound under physical load.
-Mirror bouts end reliably by injury in the tested conditions; bites materially injure humanoids,
-though approach and bite placement remain uneven. [Control checks](docs/reference/reptile.md) cover standing, fast
-travel, biting mirror matches, release and recovery. Recovery may take several retries,
-particularly from awkward leg positions.
-Every humanoid preset is one fighter whose tactics, named actions and executors you can change
-in the Arena's panel. Classic uses searched recipe strikes; Puncher holds at the edge and throws
-straight punches; Scrapper uses hand paths and can lower itself to strike a downed foe.
-
-The ranked behaviours combine following orders, attacking, approaching, keeping a distance,
-retreating and guarding. Configure each action's executor, hands or feet, aim and eligibility,
-then choose actions by rank, rotation or conditional rules. The inspector shows what each action
-is doing, which controls it owns, why another is waiting and how recent attempts ended.
-Experimental driven and whole-body executors remain available beside the ordinary ones.
-
-[Earlier preset measurements](docs/reference/controller-presets.md) describe the controllers at
-the revision recorded there. The discrete action controllers have not been reranked.
-**Puncher** is Classic throwing the straight punch: it stands an arm apart, where the foe's head
-is eight tenths of its arm's length from its punching shoulder once the punch turns that shoulder
-forward, sets its fist on the line to the head, and drives its hips and chest and, a moment
-later, its arm at a pose with the arm straight through the target. It holds at the edge of its foe's reach, backing
-out from a foe that walks in and punching once the foe's head comes into its own reach, or
-stepping in after four seconds' wait; a foe that walks chest to chest it backs away from before
-punching again. Bare-handed it wounds a Warrior standing in guard, most of
-it on the chest and the guarding arms.
-Scrapper aims straight blows and hooks at the body, with measured punch paths, guards and
-escapes, and attacks low, from support, a foe who is down or rising. Start with two
-empty-handed Warriors:
-`?play=arena&matchup=workshop-fighter,workshop-fighter&control=scrapper&balance=0`.
-It creates room for punches, approaches low targets, acquires foot support and returns to
-standing. The checks cover both hands; unreachable placements time out and retry. Its Kick slot
-takes a low front kick with either foot, qualified against a quiet defender.
-
-**After a fall** defaults to continuing the fight while players try to get up. It can also
-select defeat after 15, 30 or 60 seconds down, or on the first fall. The HUD names the
-current controller or recovery attempt. Scrapper rises with the
-reference pose sequence, then verifies quiet foot support before resuming walking or attacks.
-[Development checks](docs/reference/recovery-cycle.md)
-cover Warrior with empty hands and a club; recovery takes about 25-29 seconds in passing cases,
-and one tested club fall direction still fails. Arena Classic also attempts the staged rise. Recovery remains imperfect and may need retries.
-Try `?play=arena&matchup=workshop-fighter,workshop-rogue&control=scrapper,classic&recovery=60`.
-These choices travel in links and replays (`control`, `left.loadout`, `right.loadout`, `recovery`).
-
-The circular stone arena is enclosed by a low parapet, with eight braziers around its edge. Each
-humanoid starts empty-handed unless given the wooden club. Its mind walks at the opponent and
-attacks its head; the reptile approaches a surface near its mouth. A side is out when its wounds end it or it stays down for the chosen recovery
-window, when one is selected. At the two-minute bell the fuller bar wins; equal bars draw.
-
-A blow costs both who meet in it. Any two parts of the two bodies that come together closing
-have met in a blow, and the two surfaces share its energy: the softer takes the more. A fist
-takes most of its own punch to a head and little of one to a chest. A wooden club is rigid and
-costs its holder nothing: what it strikes takes the whole blow, a bare hand that meets a
-club takes all of it, and two clubs meeting wound nobody.
-
-The bout is heard until its verdict: footfalls, the air of a swing, a club on a body or on the
-other club, a body against a wall. The verdict silences it, the deciding blow included.
-
-You watch, or you take a side: pick it under **Play as**, or open
-`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`. Your side then does what you
-order and nothing else: it does not attack unasked. It turns only while it walks, so walk to
-turn; across its heading or backward it walks at half pace.
+Under each health bar a body diagram shows each part's health; a short feed names what the
+fighter is doing and whether it connected. The bout is heard: footfalls, swings, blows, falls.
 
 | Input | Does |
 | --- | --- |
-| W A S D, or the arrows | walk, as the camera sees the ground |
-| Shift, with a walk | run the way you walk, facing it |
+| W A S D or arrows | walk, relative to the camera; Shift runs |
 | Pointer | where your fighter faces while it walks |
-| Left button | attack the sensed body part under the pointer; hold to keep attacking |
-| Middle or right drag | orbit the Free camera |
-| Wheel | zoom |
-| Pause / Resume buttons, or Space / Esc | pause and resume a bout (leaving the window pauses too) |
-| R | this bout again |
-| Random replay | at a verdict or in the pause menu: the right side is redrawn |
+| Left button | attack the body part under the pointer; hold to keep attacking |
+| Middle or right drag, wheel | orbit and zoom the Free camera |
+| Space or Esc | pause and resume |
+| R | the same bout again |
 | ? | the controls |
 
-A link can name its matchup and open the bout directly:
-`?play=arena&matchup=workshop-fighter,crypt-skeleton` (the bodies are `workshop-fighter`,
-`workshop-rogue` and `crypt-skeleton`). It may also say how far apart the two start (`&gap=3`,
-metres), how long the bout may run (`&cap=30`, seconds), and what each fighter carries
-(`&left.loadout=empty,club` for a club in the left fighter's right hand;
-`&right.loadout=club,empty` for one in the right fighter's left hand). Both hands are empty by
-default. Choose a club and buckler with `&left.loadout=buckler,club`; the shield guard covers
-with the left hand while the right hand attacks; `&left.loadout=buckler,sword` selects sword and
-buckler. The Lab offers the same items. Equipped
-recovery and fighting strength remain experimental. It also names which controller each side
-runs (`&control=classic,scrapper`), each side's mind as edited in the **Mind** panel under its
-controller (`&left.mind=`, written by the panel), and carry a bout's orders after a `#tape=`, which the arena then plays
-again by itself.
+Every setting travels in the link, so a bout can be shared or opened directly:
 
-During a bout, **Mind** under each side's bar opens that side's mind as it fights: who has the
-body, which of its parts holds the legs, the trunk and each hand, and the whole of it, read-only.
+| Parameter | Example |
+| --- | --- |
+| `matchup` | `?play=arena&matchup=workshop-fighter,crypt-skeleton` (`workshop-fighter`, `workshop-rogue`, `crypt-skeleton`, `reptile`) |
+| `control` | `&control=scrapper,classic` |
+| `left.loadout`, `right.loadout` | `&left.loadout=buckler,sword` (left hand, right hand) |
+| `you` | `&you=left` |
+| `level`, `gap`, `cap`, `recovery` | `&level=obstacle-court&gap=3&cap=30&recovery=60` |
+| `<side>.<attribute>` | `&left.strength=1.5&right.balance=10` |
+| `appearance`, `view`, `camera`, `projection`, `focus` | `&appearance=industrial,relic` |
+| `#tape=` | a bout's orders, played again |
 
 ## The Crypt
 
-Choose **Dungeon**, click a standing character (Warrior, Rogue or Skeleton), choose a **Level**,
-and press **Start**. Companions default to **None**; up to three can join. **Options** holds the seed
-and the crypt levels' rendering quality. **Minds** chooses each hero's mind as a party member: its
-own, a preset, or any of its parts changed. Walk to the exit's green ring. Everybody carries a club; the enemies are
-skeletons, built and woken as the party comes near. The run is won when anybody standing reaches
-the exit and lost when the whole party is down. What the party sees it hears: footfalls, swings,
-blows and falls, nearer ones louder, over the torches and the drips. The **Mind** panel shows the
-mind of the enemy under the pointer, else of the enemy the party fights, else of the first selected
-member: an enemy's mind is its body's own, shown and never changed.
+Choose **Dungeon**, pick a hero (Warrior, Rogue or Skeleton), a level, up to three companions, and
+press **Start**. Reach the exit's green ring; the run is lost when the whole party is down.
+Everybody carries a club; skeletons and reptile packs wake as the party comes near.
 
-The dungeons:
-- **Generated depths** (the default): a floor of rooms and corridors after Diablo's Cathedral.
-- **The Rootbound Crypt**: one authored chamber and three skeletons.
-- **Random Crypt**: four authored-kit chambers, generated from the seed.
+- **Generated depths** (default): rooms and corridors after Diablo's Cathedral.
+- **The Rootbound Crypt**: one authored chamber, three skeletons.
+- **Random Crypt**: four kit-built chambers from the seed.
 
-With both control switches off, click the floor to attack-move, click an enemy to lock on, or drag
-to draw a force-move route. **1**-**4** or a click selects a member, **Shift** adds, **0** selects
-everybody, and **F** calls the selected companions back.
-
-| Keyboard movement | Mouse facing | Controls |
-| --- | --- | --- |
-| Off | Off | Mouse orders; the minds face and fight |
-| On | Off | WASD/arrows move the hero relative to the screen; the mind faces and attacks |
-| Off | On | The cursor sets the hero's facing; the mind explores, moves and attacks |
-| On | On | WASD/arrows move, the cursor faces; attacks are automatic |
-
-The wheel zooms. Space/Esc pauses and resumes, **?** shows the controls, and losing focus pauses
-without resuming on its own.
+Click the floor to attack-move, an enemy to lock on, or drag a route. **1**-**4** select a member,
+**Shift** adds, **0** selects everybody, **F** calls companions back. Two switches hand movement
+to the keyboard (WASD) and facing to the cursor; the minds do the rest. **Minds** sets each hero's
+mind; **Options** holds the seed and rendering quality.
 
 ## The Lab
 
-**Tools → Lab** on the main menu (`?play=lab`) lists scenarios that stand one body and exercise it:
+**Tools → Lab** (`?play=lab`) stands one body and exercises it. Each scenario's settings and
+readout sit at the sides; **Character** picks the body, loadout, balance and mind; the transport
+pauses, single-steps, scrubs and slows time.
 
-- **Stance**: walk it from the keyboard (W/S or Up/Down forward and back, A/D or Left/Right
-  sideways, Q/E turn while walking) at the speed a slider sets, and shove it.
-- **Get-up experiment**: test the live controller selected under Character → Mind → Edit the mind → When down.
-  Choose Lie still, Rise, then steady, or experimental Research rise; use Balance 0 for
-  unassisted recovery. Two timed shoves make falls repeatable. Repeat two shoves tests the same
-  body again; Walk forward for 1 s checks handover. Stress-case buttons reproduce other falls.
-- **Attack**: seeded physical targets, automatically selected for the character's regular game
-  mind to approach and attack. Click another target to switch. Targets disappear shortly after
-  physical impact and are replaced. Target speed defaults to zero; adjust it and the wind gusts
-  live to exercise tracking and balance. Puncher is the default mind; Classic is also available.
-  `&targets=` (0 to 30) and `&seed=` choose the field's population and random sequence.
-- **Locomotion**: it goes round a course as fast as its walk holds (Max), or at the pace a slider
-  asks (0.2 to 4 m/s, past what its walk holds if need be): a circle of any radius, straight back
-  and forth over any distance, a square walked facing one way, forward, right, back and left, a
-  diamond walked facing one way along the diagonals (W+D, S+D, S+A, W+A), or random commands, one
-  destination after another over an area, as the crypt sends a body. Gusts of wind, as often and
-  as strong as two more sliders say, push it as it goes. **Gait** picks what it gets about by:
-  Move as the game plays it, one gait alone (Braced and Run, the stance's walk without and with
-  its run; SIMBICON's walk and run; Stride, experimental), or its mind's own. The readout says whether it is up, its speed against the pace asked, its
-  mean speed, laps, how far it is off its way, and its steps.
-  `research/locomotion-run.mjs` runs the same courses as a battery.
+- **Stance**: walk it from the keyboard and shove it.
+- **Get-up experiment**: shove it down and watch the mind's **When down** part get it up.
+- **Stand-up**: the owner's falls, on an open floor or against a column, wall, tomb or bench.
+- **Attack**: seeded targets for the body's game mind to approach and strike.
+- **Locomotion**: courses (circle, line, square, diamond, random destinations) at a set pace, with
+  wind; **Gait** picks what moves it.
 
-The scenario's settings and the readout are open down the left and the right; the other sections
-fold away, closed until opened. **Character** chooses the body and its balance, what each hand
-holds, boots and armour, its mind (**Preset**: Script carries out the scenario, Guard stands in
-guard; under **Edit the mind** any of its parts may be changed, among them what has the body once
-it is down: the staged rise gets the Warrior up from most falls, with the club or without) and the
-strikes it may throw; **Thinking** shows the mind as it goes and logs what it decides. The physics
-rate, 120 or 480 Hz, is the scenario's first setting.
-To try the live research get-up controller, open **Stance → Character → Mind → Edit the mind → When down**
-and replace **Lie still** with **Research rise (experimental)**. Set **Balance** to **0** and
-use the Shove controls. This controller responds to the body's current state through its
-muscles; it uses reference motions as targets and does not play back saved body poses. The
-same choice is available for Warrior and Rogue in the Arena and Dungeon mind editors. In
-the Get-up experiment, editing the mind selects **Selected mind**, which keeps your choice.
-Recovery remains unreliable and has not met the four-second median / six-second goal.
-The transport restarts the scenario, pauses (Space), steps one physics step at a time, scrubs,
-slows time to 1/4 or 1/10, and chooses the view (World or Tactical) and the camera (Free,
-Isometric or Chase).
+## Other pages
 
-The body is heard: its footfalls, its landing when it falls, a shove, the air of a swing and the
-club on the head. A replay sounds as the run did; paused, scrubbing or seeking, the page is
-silent. The volume is at the end of the transport, and a browser plays nothing until the page has
-had a click or a key.
-
-## The other pages
-
-- **Control foundation** (`/control-foundation.html`, linked from the Lab): compare direct
-  actuator feedback with the layered servo on a pinned reach task. Step, save, restore and
-  verify replay on any of the three bodies. This is a controller/research fixture, not a test
-  of standing or combat.
-- **Physical control tasks** (`/control-tasks.html`, linked from Control foundation): watch any
-  body transfer support between its feet, move one shared bar and release either hand, or
-  strike a fixed target with either hand or independent clubs and return after a hit or miss.
-  Play, step, save and verify replay use the same tasks as the research runner. These controlled
-  experiments do not yet demonstrate getting up or fighting an opponent.
-- **The character workshop** (`/character-lab.html`): the Warrior's and Rogue's workshop models
-  with every loadout and their authored preview motion. Drag to orbit, right-drag to pan, scroll
-  to zoom; **Inspect grip** frames the equipped hand.
-- **The physics bench** (`/physics-bench.html`): MuJoCo and Rapier under one controller, timed on
-  the bake-off's cases ([the report](research/physics-bakeoff/REPORT.md)).
+- **Control foundation** (`/control-foundation.html`): a pinned reach task, comparing controllers.
+- **Physical control tasks** (`/control-tasks.html`): support transfer, a shared bar, point strikes.
+- **Character workshop** (`/character-lab.html`): the human models with every loadout.
+- **Physics bench** (`/physics-bench.html`): MuJoCo and Rapier on the bake-off's cases
+  ([report](research/physics-bakeoff/REPORT.md)).
 
 ## Status
 
-**Working**: the Arena and the Crypt on the core, with the Warrior, the Rogue and the skeleton,
-with empty hands or a club; the reptile with its crawl and jaw; the lab's scenarios; the character
-workshop; the physics bench. Generated crypt rooms mix skeletons and three-reptile packs.
-Arena bouts continue after falls by default: fighters attempt recovery, and Scrapper can
-attack low while an opponent is down or rising. Warrior fists are the measured low-combat scope.
-
-**Not yet**: reliable recovery across every body and fallen pose, decisive finishing by the
-new combat controller, turning on the spot, weapons beyond the club, and the AI above a single
-fighter's mind. See
-[the roadmap](docs/roadmap.md).
+Working: the Arena and the Crypt with the Warrior, Rogue, Skeleton and Reptile; clubs, buckler and
+sword; fighting on after a fall; the Lab's scenarios. Not yet reliable: getting up from every fall,
+finishing a fight decisively, and AI above a single fighter. See [the roadmap](docs/roadmap.md).
 
 ## Where things are
 
-| Path | What it holds |
+| Path | Holds |
 | --- | --- |
-| `src/core/` | the core: specs, bodies, muscles, motor control, skills, minds and the rules of a fight |
+| `src/core/` | bodies, muscles, motor control, skills, minds and the rules of a fight |
 | `src/arena/`, `src/dungeon/`, `src/lab/` | the Arena, the Crypt and the Lab |
-| `src/render/`, `src/audio/` | what the screens share: bodies drawn, surfaces, post-processing; sound |
-| `src/character-lab/`, `src/physics-bench/` | the character workshop and the physics bench |
-| `src/app.ts`, `index.html` | the main menu and the screens' routing |
-| `tests/` | `node --test` suites; `tests/harness/` stands a body headless |
-| `research/` | measurements of the core and the physics bake-off ([README](research/README.md)) |
-| `assets/` | data the core reads (rigs, envelopes, strikes) and the art's Blender sources |
-| `public/assets/` | what the pages load: models, maps, the environment map |
-| `scripts/` | asset builders (Blender) and measurement scripts |
-| `docs/` | [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), [art](docs/art/), plans and reference records |
+| `src/render/`, `src/audio/`, `src/ui/` | drawing, sound and panels the screens share |
+| `src/app.ts`, `index.html` | the main menu and routing |
+| `tests/` | `node --test` suites |
+| `research/` | measurement scripts ([README](research/README.md)) |
+| `assets/`, `public/assets/` | data the core reads and Blender sources; what the pages load |
+| `scripts/` | asset builders and match scripts |
+| `docs/` | [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), plans, reference records, [art](docs/art/) |
 
 [AGENTS.md](AGENTS.md) holds the rules for working in this repository.
 
-## Assets
+## Assets and licence
 
-The environment map is `kloofendal_43d_clear` from [Poly Haven](https://polyhaven.com), CC0,
-committed as `public/assets/env.hdr`. `public/assets/textures/` carries digest-pinned CC0 1K maps,
-registered in `src/render/textures.json`. The humans are customized MakeHuman/MPFB CC0 models
-([docs/art/characters.md](docs/art/characters.md)); the skeleton is Blender Studio's CC0 realistic
-skeleton ([docs/art/skeleton.md](docs/art/skeleton.md)); the crypt's chamber and kit
-([docs/art/crypt.md](docs/art/crypt.md)) and the arena's forge kit
-([assets/forge/README.md](assets/forge/README.md)) are original generated work, each with its
-Blender source under `assets/`.
+MIT ([LICENSE](LICENSE)); third-party assets keep their own licences. The environment map is Poly
+Haven's `kloofendal_43d_clear` (CC0); textures are CC0 maps listed in `src/render/textures.json`;
+the humans are customised MakeHuman/MPFB CC0 models ([characters](docs/art/characters.md)); the
+skeleton is Blender Studio's CC0 skeleton ([skeleton](docs/art/skeleton.md)); the crypt
+([crypt](docs/art/crypt.md)) and the arena's forge kit ([forge](assets/forge/README.md)) are
+original, with Blender sources under `assets/`.
 
 ## Troubleshooting
 
-**`Port 5180 is already in use`**: an earlier dev server is still alive. Stop it rather than using
-another port, or you will edit one server while reading another:
-
-```powershell
-netstat -ano | findstr ":5180"
-taskkill /F /PID <the pid>
-```
-
-**Black screen, but the overlay updates**: Chrome does not paint WebGL in a hidden or backgrounded
-tab, and the DOM overlay keeps compositing, so it looks like a broken renderer. Bring the window to
-the front; `document.visibilityState` in the console tells you which it is.
-
-**`EBADENGINE` during install**: Node is older than 22.13.0.
-
-## Licence
-
-MIT ([LICENSE](LICENSE)). Third-party assets keep their own licences, as above.
+- **Port 5180 in use**: an earlier dev server is alive. Find it with `netstat -ano | findstr :5180`
+  and stop it with `taskkill /F /PID <pid>`.
+- **Black screen while the overlay updates**: the tab is hidden or in the background, and Chrome
+  does not paint WebGL there. Bring it to the front.
+- **`EBADENGINE` on install**: Node is older than 22.13.0.

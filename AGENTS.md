@@ -1,364 +1,272 @@
 # Working on Auto-RPG
 
-This repository is the game: physically simulated, AI-driven melee in the browser, on Babylon.js 9
-and Rapier. Bodies of jointed segments, driven by muscles, fight in an Arena and a generated
-Crypt. `README.md` says what the game is and how to play it; `docs/architecture.md` says how it is
-built; `docs/roadmap.md` says where it is going. This file is the rules for working here.
+The rules for working here. The game is physically simulated, AI-driven melee in the browser
+(Babylon.js 9, vendored Rapier). [README](README.md) says what it is; the
+[architecture](docs/architecture.md) how it is built; the [roadmap](docs/roadmap.md) where it is
+going.
 
 ## Commands
 
 ```powershell
-npm ci           # not `install`: the exact lockfile
-npm run dev      # http://localhost:5180, strictPort
-npm run check    # tsc --noEmit
-npm test         # the fast tier, about 75 s: current-code tests except tests/slow.json's
-npm run test:all # all current-code tests, as CI runs them
-npm run test:experimental # how well the controllers do: tests/experimental.json's, in neither tier
-npm run build    # check, then vite build
-npm run match -- <mind> <mind> # the standard match: two minds, each on each side, one digest
-npm run tournament -- --write # every mind, character and loadout rated; the Arena's Ratings and notes
+npm ci                    # the exact lockfile, never `install`
+npm run dev               # http://localhost:5180, strictPort
+npm run check             # tsc --noEmit
+npm test                  # the fast tier, about 75 s: every test but tests/slow.json's
+npm run test:all          # every test, as CI runs it
+npm run test:experimental # capability measurements (tests/experimental.json), in neither tier
+npm run build             # check, then vite build
+npm run match -- <a> <b>  # the standard match of two minds: each on each side, one digest
 ```
 
-**Speed comes first.** A change is checked for whether it broke the core, not re-qualified:
+## Checking a change
 
-- **Every code change**: `npm run check` and `npm test`. That is the whole gate. `npm test` holds
-  the core's contracts, the source rules (boundary, exports, comments, provenance) and short
-  Arena bouts, including an equipped open-stage bout, that must run, stay finite, fling nobody and play the same twice
-  (`tests/smoke.test.mjs`), and every registered Mind's contract: a short bout of it that runs,
-  forks and plays again from its order sheets alone (`tests/mind-contract.test.mjs`). Add
-  `npm run build` when browser code, assets, dependencies or build configuration change.
-- **Run a slow test by name** when the change is about what it covers (`node --test
-  tests/<file>`); `npm run test:all` only when asked, or before merging a large change of the
-  world step, the engine or the body. CI runs it on every push (`.github/workflows/pages.yml`).
-- **A capability bar** (how far, how fast, how often a controller does something) goes in a
-  `<stem>-capability.test.mjs` listed in `tests/experimental.json`, beside a floor check in the
-  gate that any working controller passes. Run it by name, or `npm run test:experimental`, when
-  the change is about that capability; a red one is a measurement, not a broken gate.
-- **Documents only**: check the files and names they cite, `git diff --check`, and the
-  line-ending gate below.
+**Speed comes first.** A change is checked for whether it broke the core, not re-qualified.
+
+| Change | Checks |
+| --- | --- |
+| code | `npm run check` and `npm test`: the whole gate |
+| browser code, assets, dependencies, build config | also `npm run build` |
+| what a slow test covers | that test by name: `node --test tests/<file>` |
+| a large change of the world step, the engine or the body, before merging | `npm run test:all` (CI runs it on every push) |
+| a capability | its `<stem>-capability.test.mjs` by name; red is a measurement, not a broken gate |
+| a refactor that claims no behaviour change | the fingerprint, `scripts/fingerprint.mjs` |
+| documents only | the files and anchors they cite, `git diff --check`, the line-ending gate |
+
 - **No measurement unless the question is a measurement.** A feature lands without a battery, a
-  reference record, a step-cost reading, a fingerprint or a browser check. Look in a browser when
-  the change is something to see, briefly; the owner judges motion there themselves. The
-  fingerprint (`scripts/fingerprint.mjs`) is for a refactor that claims to change no behaviour.
-- **No long run whose result is thrown away.** A measurement states its expected wall time
-  first, from a measured rate; an iteration's reading fits in about 10 minutes and stops when its
-  answer is clear; nothing runs over an hour without the owner's go-ahead for that run. No full
-  tournament, re-rating or re-calibration is run for its own sake, and nothing is measured at
-  length just before a change that moves it. What is played is kept as rows and reused.
-- **An iteration is one question.** It names the question and the evaluation that answers it,
-  changes or adds one implementation beside the others, reads it paired against the version
-  before (today `npm run match`), and is kept, or its reason for not being kept is recorded.
+  reference record, a step-cost reading or a fingerprint. Look in a browser, briefly, when the
+  change is something to see; the owner judges motion there.
+- **No long run whose result is thrown away.** A measurement states its expected wall time first,
+  from a measured rate. An iteration's reading fits in about 10 minutes and stops when its answer
+  is clear. Nothing runs over an hour without the owner's go-ahead for that run. No full
+  tournament, re-rating or re-calibration for its own sake; nothing measured at length just
+  before a change that moves it. What is played is kept as rows and reused.
+- **An iteration is one question**: the question and the evaluation that answers it; one
+  implementation changed or added beside the others; a paired reading against the version before
+  (today `npm run match`); kept, or the reason it was not recorded.
 - **A new test file is fast** (under about 10 s), or it goes in `tests/slow.json`.
+- **Landing**: name the checks run and any failure left. Commit each landable change as it lands.
+- **Servers**: leave none running. Port 5180 may be the owner's: never restart or kill it; use
+  `npm run preview` on another port and kill it by PID. Killing `npx` leaves `vite` running: find
+  the PID with `netstat -ano | findstr :<port>`.
 
-Name the checks run and any unresolved failures when landing. Commit each landable change as
-it lands. Do not leave a development server running. Port 5180 may be the owner's server: do
-not restart or kill it; if you need your own, use `npm run preview` on another port and kill it
-by PID when done.
+## Pages
 
-**Pages.** Every page is named in `vite.config.ts`'s `rollupOptions.input`; a page missing there
-works in dev and is absent from `dist`.
+Every page is listed in `vite.config.ts`'s `rollupOptions.input`; one missing there works in dev
+and is absent from `dist`.
 
-- `/` (`index.html`, `src/app.ts`): the main menu; the arena at `?play=arena`
-  (`&matchup=left,right` opens a bout, `&you=left` takes a side, `&level=open|obstacle-court`, `&gap=`, `&cap=`, `&balance=`,
-  `&left.loadout=`, `&right.loadout=` (left hand, right hand), `&recovery=`, `&control=` (a preset a side) and each side's edited mind (`&left.mind=`,
-  `&right.mind=`, its whole config as JSON, `src/ui/mind-link.ts`) are its recipe's, `&appearance=` is each side's skin,
-  `#tape=` plays a bout's orders again, `src/arena/`); the crypt at `?play=dungeon`
-  (`src/dungeon/`); the lab at `?play=lab` (`&scenario=` runs one, `src/lab/scenarios.ts`).
-  The persistent shell mounts one screen template at a time; screen changes use internal navigation
-  with explicit resource disposal and retain setup choices for the current tab. Loading covers scene
-  preparation with physics suspended; Tools groups the Lab and standalone development viewers.
-- `/character-lab.html`: the character workshop viewer.
-- `/control-foundation.html`: shared pinned-reach task and environment replay (`src/control-foundation/`, `src/core/tasks/`).
-- `/control-tasks.html`: shared support-transition, two-hand bar and point-strike tasks, with playback and replay (`src/control-foundation/tasks.ts`).
-- `/physics-bench.html`: the physics bake-off's cases on MuJoCo and Rapier (`src/physics-bench/`,
-  `research/physics-bakeoff/`).
+| Page | Source |
+| --- | --- |
+| `/` main menu, `?play=arena`, `?play=dungeon`, `?play=lab&scenario=` | `src/app.ts`, `src/arena/`, `src/dungeon/`, `src/lab/scenarios.ts` |
+| `/character-lab.html` | `src/character-lab/` |
+| `/control-foundation.html` | `src/control-foundation/`, `src/core/tasks/` |
+| `/control-tasks.html` | `src/control-foundation/tasks.ts` |
+| `/physics-bench.html` | `src/physics-bench/`, `research/physics-bakeoff/` |
+
+An Arena link's parameters are its recipe (`src/arena/`); an edited mind travels as its whole
+config (`src/ui/mind-link.ts`). The shell mounts one screen at a time, disposes the last explicitly,
+and keeps setup choices for the tab; loading runs with physics suspended.
 
 ## The core (`src/core/`)
 
-Bodies, muscles, motor control, skills, minds and the rules of a fight live in `src/core/`. The
-screens build on it; it never imports them.
+Bodies, muscles, motor control, skills, minds and the rules of a fight. The screens build on it;
+it never imports them.
 
 - **The core reaches only itself**, `@babylonjs/core`, its engine's package and JSON under
-  `assets/`. `tests/core-boundary.test.mjs` walks the transitive imports and holds the engine's
-  package to its module in `src/core/engine/` (`engine.ts` is the contract, `engines.ts` the list).
-- **Every number in a spec says where it came from.** It is a `Quantity`
-  (`src/core/spec/quantity.ts`) read from an entry of `SOURCES` (`src/core/sources.ts`: a paper,
-  an asset, a measurement -- a sweep's table among them -- or the owner's decision) or derived
-  from other quantities by a named rule. A rule's code writes no factor; a factor is an input with
-  a source.
-  `specProvenanceFaults` (`tests/fixtures/spec.mjs`) enforces this. A record in a file that has
-  since been deleted is written `path@<commit>`. A spec never spreads another family's spec.
-  This is bookkeeping, not a bar: the body is inspired by reality, not held to it, and a number the
-  game wants is set to what gets the result, sourced as the owner's decision. Nothing outside a
-  spec (controllers, skills, learned weights) needs a source.
-- **The core's arithmetic is the same in every JavaScript engine.** It computes with IEEE's
-  operations (`+`, `-`, `*`, `/`, `Math.sqrt`) and its own functions (`src/core/math/real.ts`,
-  `turn.ts`), never `Math.sin` and its kin, `Math.hypot`, `Math.pow` or `**`, which an engine may
-  round its own way: one bit apart is another bout within seconds. The same holds for whatever
-  builds a bout's world (`src/arena/duel.ts`, `room.ts`). The boundary test enforces it
-  (`EXACT_MATH`), and holds the core to the Babylon math that has been read and found to be
-  arithmetic (`EXACT_BABYLON`): read a member's source before adding it.
+  `assets/`. `tests/core-boundary.test.mjs` walks the imports and holds the engine's package to
+  `src/core/engine/` (`engine.ts` the contract, `engines.ts` the list).
+- **Every number in a spec says where it came from**: a `Quantity` read from a `SOURCES` entry
+  (`src/core/sources.ts`: a paper, an asset, a measurement, the owner's decision) or derived by a
+  named rule that writes no factor (`specProvenanceFaults`). A deleted record is cited
+  `path@<commit>`; a spec never spreads another family's. It is bookkeeping, not a bar: a number
+  the game wants is set to what gets the result, sourced as the owner's decision.
+- **The same arithmetic in every JavaScript engine.** The core, and whatever builds a bout's world
+  (`src/arena/duel.ts`, `room.ts`), computes with `+ - * /`, `Math.sqrt` and its own functions
+  (`src/core/math/real.ts`, `turn.ts`); never `Math.sin` and kin, `Math.hypot`, `Math.pow` or
+  `**`, which engines round their own way. The boundary test enforces it (`EXACT_MATH`) and lists
+  the Babylon math read and found exact (`EXACT_BABYLON`): read a member's source before adding it.
 - **Tuning is immutable.** An experiment passes an override in; nothing mutates a global.
-- **How much of itself a body runs is its level** (`BodyLevel`, `src/core/muscle/driver.ts`): data
-  on the body, set by one rule (`levelsOf`, `src/core/rules/levels.ts`) from where the bodies are
-  and never from the machine. A body is not disposed and driven afresh to save a step; a mind is
-  told (`Mind.idle`) and goes on from the body as it is.
-- **One world step** owns physics, control, combat and the clock, at 120 Hz: `World.step`
-  (`src/core/world.ts`). Pages, tests and research all call it; a page advances by real time with
-  `World.advance`. The scene has no physics of its own (the core's engine is not Babylon's
-  plugin), so `scene.render()` never advances the world, and a test never steps by rendering.
-- **Solver conditioning is not anatomy.** An iteration count, inertia floor or damping term that
-  exists for the solver is named as such (`SOLVER` in `src/core/engine/rapier.ts`), measured, and
-  kept out of the body's numbers.
-- **An assist is not anatomy.** A force or moment no muscle gives is an assist (`Assist`,
-  `src/core/control/assist.ts`). Its ceiling is the character's balance (`AttributeSpec`,
-  `src/core/spec/body.ts`), a per cent of the body's own weight, with the moment the rulebook
-  gives a per cent (`Rulebook.balance`); it is metered every step, and kept out of the body's
-  anatomy. A figure measured under an assist names each side's balance.
+- **A body's level** (`levelsOf`, `src/core/rules/levels.ts`) comes from where the bodies are,
+  never from the machine; a body is not rebuilt to save a step.
+- **One world step** owns physics, control, combat and the clock at 120 Hz: `World.step`
+  (`src/core/world.ts`); a page advances by real time with `World.advance`. `scene.render()`
+  never advances the world, and a test never steps by rendering.
+- **Solver conditioning is not anatomy**: an iteration count, inertia floor or damping that exists
+  for the solver is named so (`SOLVER`, `src/core/engine/rapier.ts`), measured, and kept out of
+  the body's numbers.
+- **An assist is not anatomy**: a force or moment no muscle gives (`Assist`,
+  `src/core/control/assist.ts`), capped by the character's balance (a per cent of body weight,
+  `AttributeSpec`, `Rulebook.balance`), metered every step. A figure read under an assist names
+  each side's balance.
 - **No strength is raised for feel.** A muscle's strength and speed come from their source; a
   change to one carries its measured before/after table.
-- **A mind reaches the world only through its body.** It learns of it through its senses
-  (`Senses`, `src/core/mind/senses.ts`) and its own body (`OwnBody`), and moves it through its
-  muscles' command and explicitly granted grip requests (`Mind.step`, `src/core/mind/mind.ts`,
-  `src/core/mind/equipment-port.ts`). A grip request changes no pose or velocity and must pass
-  geometric capture; policies receive no engine handles. Camera state never
-  reaches a mind. A person gives orders (`Orders`); a body's own mind carries them out while it
-  defends itself. A mind's maker is given a host (`BodyHost`, `src/core/mind/host.ts`), never the
-  world or the built body, and the mind's folders (`mind`, `skills`, `control`, `reptile`,
-  `entrants`) import no engine, world, builder or read-view maker and read no `globalThis`, beside
-  the adapters `tests/core-boundary.test.mjs` names.
-- **A mind may hand its body to a sub-mind.** A sub-mind (`SubMind`, `src/core/mind/sub-mind.ts`)
-  is a mind that says when it wants the body; its host reads the body every step, acts when the
-  body is its own, gives up what it had asked when a sub-mind takes it (`HostMind.release`), and
-  is told when it is its own again (`resume`). A sub-mind reads whether its body is down from its
-  host's view, never by a bar of its own. What a mind is made of is its config, plain data by
-  kind (`MindConfig`, `src/core/mind/config.ts`): a fight passes it through, reads nothing in it,
-  and holds what it gets by what every kind gives (`Minded`, `src/core/mind/minds.ts`). A skill
-  answers `Skill.resume` and is in the one list its skill set resumes (`skillSet`,
-  `src/core/skills/arbiter.ts`).
-- **A blow has no striker.** Any two segments of two sides that meet closing have met in a blow,
-  and the two surfaces share its energy by their compliance (`energyShares`,
-  `src/core/rules/share.ts`); an item with no stated surface is rigid. A part's tolerance is the
-  pool's rule, but a bare fist on flesh lets the first of its share go (`Rulebook.fist`).
-- **Cosmetics never carry authority**: nothing decorative collides or decides a hit. The visible
-  room is not the collision arena; `validateRoomPlacements` (`src/arena/room.ts`) refuses a piece
-  naming a collider the arena lacks, and a solid-looking piece within reach that names none.
+- **A mind reaches the world only through its body**: its senses (`Senses`,
+  `src/core/mind/senses.ts`) and `OwnBody` in; muscle commands and granted grip requests out
+  (`Mind.step`, `src/core/mind/equipment-port.ts`). A grip request moves nothing and must pass
+  geometric capture; no engine handles, no camera state. A person gives `Orders`; the body's own
+  mind carries them out. A mind's maker gets a `BodyHost` (`src/core/mind/host.ts`), never the
+  world or the built body; the folders `mind`, `skills`, `control`, `reptile`, `entrants` import
+  no engine, world, builder or read-view maker and read no `globalThis`, beside the adapters the
+  boundary test names.
+- **Cosmetics never carry authority.** The visible room is not the collision arena;
+  `validateRoomPlacements` (`src/arena/room.ts`) refuses a piece naming a missing collider, and a
+  solid-looking piece within reach that names none.
+- **Recovery cannot require the support state it exists to restore.**
 
 ## Babylon and Rapier
 
-- **The core's Rapier is vendored** in `vendor/rapier`, built from its pinned source and patch;
-  `npm ci` installs the committed tarball. Do not replace it with the npm SIMD package. A motor's
-  impulse is applied to its first body (the parent). `jointMotorImpulse` reads the last solver
-  substep; `jointMotorStepImpulse` sums the whole step. The engine contract converts to the
-  child's sign. Neither is a work measurement. The plain bench package remains npm's.
-
-- **Side-effect imports are load-bearing.** The tree-shaken build omits prototype patches, so an
-  "unused" import removed here compiles and breaks at runtime, sometimes silently: the shadow,
-  depth-renderer, post-process and HDR-loader imports in `src/arena/scene.ts` and
-  `src/render/post.ts`, the shader imports in `src/arena/forge-style.ts`, `Culling/ray.js` for
-  `scene.pick`, the glTF loader imports. When a feature works in the playground and not here,
-  suspect this first.
-- **Read world transforms from `mesh.position` and `mesh.rotationQuaternion`.** `getWorldMatrix()`
-  caches per render id and reading it stamps the id, so the first reader in a frame freezes every
-  later one. The core may not use `getWorldMatrix()`, `absolutePosition`,
-  `absoluteRotationQuaternion` or anything else Babylon derives from that matrix (`forward`,
-  `getAbsolutePosition()`, `getDirection()`: `WORLD_MATRIX_READERS`, which the boundary test
-  enforces by type). From a console, call `computeWorldMatrix(true)` on every node you read.
-- **Turn a vector with `applyRotationQuaternionToRef`**, never `rotateByQuaternionToRef`, which
-  goes through a float32 matrix: 1e-8 m of noise in every point it turns, which a solve that
-  stops at 1e-10 rad never gets under. The boundary test refuses it in the core.
-- **A controller of a fast chain asks for the motion under way** (`bias` in `bodyDynamics`,
-  `src/core/build/dynamics.ts`, gyroscopic torque included), or a fast forearm throws the hand it
-  holds.
+- **Rapier is vendored** (`vendor/rapier`, built from its pinned source and patch; `npm ci`
+  installs the tarball). Never swap in the npm SIMD package; the bench keeps npm's plain one.
+- **Rapier's wasm loads once a realm**, only through `rapierModule` (`src/core/engine/rapier.ts`):
+  two `init`s make two instances, and their worlds cross.
+- **Motor impulse**: applied to the joint's first body (the parent); `jointMotorImpulse` reads the
+  last substep, `jointMotorStepImpulse` sums the step; the contract converts to the child's sign.
+  Neither measures work.
+- **Side-effect imports are load-bearing**: the shadow, depth-renderer, post-process and HDR imports
+  (`src/arena/scene.ts`, `src/render/post.ts`), the shaders (`src/arena/forge-style.ts`),
+  `Culling/ray.js` for `scene.pick`, the glTF loader. Removing an "unused" one breaks at runtime.
+- **Read transforms from `mesh.position` and `mesh.rotationQuaternion`.** `getWorldMatrix()` caches
+  per render id, so its first reader freezes the frame for every later one. The core may not use
+  it or what derives from it (`WORLD_MATRIX_READERS`). From a console, `computeWorldMatrix(true)`.
+- **Turn a vector with `applyRotationQuaternionToRef`**, never `rotateByQuaternionToRef` (a float32
+  matrix: 1e-8 m of noise per point).
+- **A fast chain's controller asks for the motion under way** (`bias` in `bodyDynamics`,
+  `src/core/build/dynamics.ts`, gyroscopic torque included).
 - **A joint's angles are the ones its limit reads** (`jointAngles`,
-  `src/core/build/joint-state.ts`). A range or a goal means nothing unless read that way; press a
-  limit before trusting a reading.
-- **Bodies never sleep**: a sleeping body reads a perfect zero. `tests/core-engine.test.mjs` holds
-  the engine to it.
-- **Rapier's wasm loads once a realm**, through `rapierModule` (`src/core/engine/rapier.ts`) and
-  nothing else. Rapier's own `init` asked twice at once makes two instances, and a world made in
-  the first is read out of the second's memory: two worlds that step as one, until one is disposed.
-- **Build a jointed body in the pose its joints demand.** A joint that disagrees at construction is
-  cleared by flinging the body.
-- **An engine's linear velocity is the centre of mass's**, not the node's.
-- **Zero self-contacts proves only that no pair was admitted**, not that there is clearance; measure
-  clearance geometrically. Adjacent capsules overlap at their joints by construction.
-- **Materials belong to the scene.** A body part disposes with `dispose(false, false)`; a skin owns
-  only its own materials.
-- **Use pointer events.** Babylon cancels `pointerdown`, which suppresses every compatibility mouse
-  event of that gesture. Button state is a level: read `event.buttons`, since release events are
-  not guaranteed. A DOM control over the canvas stops `pointerdown` and `pointermove`, lets
-  `pointerup` through, and blurs on click, or a focused button swallows the keys.
+  `src/core/build/joint-state.ts`); press a limit before trusting a reading.
+- **Build a jointed body in the pose its joints demand**, or the solver flings it.
+- **Bodies never sleep** (a sleeping body reads a perfect zero); **linear velocity is the centre of
+  mass's**, not the node's.
+- **Zero self-contacts proves only that no pair was admitted**: measure clearance geometrically.
+  Adjacent capsules overlap at their joints by construction.
+- **Materials belong to the scene**: a body part disposes with `dispose(false, false)`.
+- **Pointer events only.** Read `event.buttons` (release events are not guaranteed). A DOM control
+  over the canvas stops `pointerdown` and `pointermove`, lets `pointerup` through, and blurs on
+  click.
 - **Observers are removed asynchronously**: count the active ones, not the calls to remove.
 
-## Checking in a browser
+## In a browser
 
-- **A hidden tab does not render**: no WebGL paint, no `requestAnimationFrame`, `scene.pick`
-  misses. Check `document.visibilityState`, and that `engine.frameId` moves across a wait. From a
-  background tab, step the world by hand (on the arena, `__arena.world.step()`) and call
-  `scene.render()` yourself.
-- **Killing `npx` leaves `vite` running**: kill a server by the PID that holds its port
-  (`netstat -ano | findstr :<port>`).
-- **Look at it before probing it.** `Material.isReady(mesh)` is false outside a render pass;
-  `scene.materials` is incomplete (reach a material through `mesh.material`); after a hot reload
-  the old scene lingers, so navigate rather than reload.
+- **A hidden tab does not render** (no paint, no `requestAnimationFrame`, `scene.pick` misses).
+  Check `document.visibilityState` and that `engine.frameId` moves; from a background tab step
+  `__arena.world.step()` and call `scene.render()` yourself.
+- **Look before probing.** `Material.isReady(mesh)` is false outside a render pass;
+  `scene.materials` is incomplete (use `mesh.material`); after a hot reload, navigate.
 
 ## Tests
 
-The game promises no gameplay yet. The gate (`npm test`, and `npm run test:all` in CI) holds
-software contracts (validation, limits, state, lifecycle, replay), the source rules, and a
-**floor**: whole-path checks any controller passes, with bars far enough below what the game does
-now that a controller or body change never needs them retuned. A bout runs and ends, every state
-finite and nobody flung; an unpushed body on its default controller is upright after a few
-seconds; an order moves a body and the next is answered; each page and Lab scenario loads and
-steps. How well a controller does is a measurement (`-capability`, above): a lower number there
-is a finding, not a red gate. A capability becomes a promise when the owner, having watched it,
-says to keep it; a promise names its configurations, conditions and outcome, is scored alike for
-every implementation that claims it, and changes scope only by the owner's decision.
+The gate holds software contracts (validation, limits, state, lifecycle, replay), the source rules,
+and a **floor**: whole-path checks any working controller passes, far enough below what the game
+does that a controller or body change never retunes them. How well a controller does is a
+capability measurement. A capability becomes a promise only when the owner, having watched it,
+says to keep it; a promise names its configurations, conditions and outcome, is scored alike
+for every implementation, and changes scope only by the owner's decision.
 
-- **Test the contract**: inputs, outputs and what can be observed; internal phases or layout only
-  where they are the contract. Exact rules and replay are held to exact equality, and replay of
-  recorded inputs needs no mind. A physical outcome is judged in units and limits from its task,
-  never against the last run's trajectory or step count.
-- **A fixture that did not reach its case says so** before the contract's asserts run: an invalid
-  fixture is not a regression. A window a fixture forks or waits in is found from what its run
-  saw, and a bout is capped, so no verdict waits on a mind's strength.
-- **A saved world loads only into a world built as it was** (the engine refuses another): a
-  fixture is a recipe or a placed pose, not stored bytes, and a body's change never silently
-  changes what a test expects.
-- **Never green by relaxing.** No threshold eased, easier seed, hidden assist or regenerated
-  expectation to make a check pass. Name what a red check is (a broken contract, a lost promise, an
-  unmet goal, an invalid fixture or a broken test) and fix that part; retire an assertion only
-  with the requirement it protected kept elsewhere. A red physical check says what to replay:
-  the recipe and seed, the condition that failed, and the value seen against its limit.
-- **Compare controllers alike**: the same scenarios, bodies, physics, permissions and assists,
-  the same scoring for each, results by opponent, fresh cases to confirm a gain, and repeated
-  trials for a mind whose decisions vary. A seed names conditions, not a mind's choices.
-- **Node imports `src/` directly.** Relative imports in anything a test loads carry the `.ts`
-  extension, and TypeScript parameter properties are forbidden there (Node strips types only).
+- **Test the contract**: inputs, outputs, what can be observed. Rules and replay are held to exact
+  equality; replay of recorded inputs needs no mind. A physical outcome is judged in its task's
+  units and limits, never against the last run's trajectory.
+- **A fixture that did not reach its case says so** before the asserts run. Windows are found
+  from what the run saw; bouts are capped.
+- **A saved world loads only into a world built as it was**: a fixture is a recipe or a placed
+  pose, not stored bytes.
+- **Never green by relaxing**: no eased threshold, easier seed, hidden assist or regenerated
+  expectation. Name what is red (a broken contract, a lost promise, an unmet goal, an invalid
+  fixture, a broken test) and fix that; retire an assertion only with its requirement kept
+  elsewhere. A red physical check says the recipe, seed, condition and value against its limit.
+- **Compare controllers alike**: the same scenarios, bodies, physics, permissions, assists and
+  scoring; results by opponent; fresh cases to confirm a gain; repeated trials where decisions
+  vary. A seed names conditions, not a mind's choices.
+- **A green test can assert nothing**: assert whole records; choose a fixture that can show the
+  defect. **Test the whole path**, not its two ends. **Navigation on several seeds.**
+- **Node imports `src/` directly**: relative imports carry `.ts`, and no TypeScript parameter
+  properties.
 - **The headless stand** (`tests/harness/core-stand.mjs`): `coreStand(spec)` builds one body on a
-  ground in a world of its own; `createWorld(scene, await freshEngine())` makes a bare world.
-  `CORE_ENGINE=<name> npm run test:all` runs the stand on another engine.
-- **A green test can assert nothing.** Assert whole records, and choose a fixture that can show
-  the defect.
-- **Test the whole path, not its two ends.** A fixture may simplify the world but not describe one
-  that cannot exist.
-- **Test navigation on several seeds**; one generated map proves little.
-- **Parallel runs need worker threads**, one sequential loop in each.
-- **Under CPU load a dropped test count is a timeout**, not a regression; re-run on a quiet machine.
+  ground; `createWorld(scene, await freshEngine())` a bare world. `CORE_ENGINE=<name>` picks
+  another engine.
+- **Parallel runs need worker threads.** Under CPU load a dropped test count is a timeout, not a
+  regression: re-run on a quiet machine.
 
 ## Competing minds
 
-Agents develop Minds side by side, on more than one machine. Each keeps out of the others' way:
-
-- **A Mind is an entrant**: a folder under `src/core/entrants/<name>/` and a line in
-  `CONTROLLERS` (`src/core/mind/controllers.ts`), with its data, learned weights among them, under
-  `assets/entrants/<name>/` and its own test, if it has one, in `tests/entrant-<name>.test.mjs`.
-  What it may read and do is `docs/architecture.md`'s (Adding a Mind), and the gate holds it to
-  that (`tests/core-boundary.test.mjs`, `tests/mind-contract.test.mjs`).
-- **A branch an agent**, from main. An entrant's change touches its own files and its registry
-  line and nothing else; `node scripts/entrant-check.mjs` names a branch's change an entrant's, the
-  toolkit's or mixed.
-- **The toolkit lands on its own.** A change to what Minds are built on (the core outside an
-  entrant's folder, the screens, the rules) is a toolkit change, on its own branch, read against
-  main with the fingerprint (`scripts/fingerprint.mjs`: a case each preset and each mind with no
-  preset), whose moved cases its message names. It never rides in with an entrant.
-- **A claim is a match.** That one Mind beats another is what `npm run match -- <a> <b>`
-  (`scripts/match.mjs`) reads: its protocol, commit, each mind's digest and the match's digest.
-  Where one stands in the whole field is the tournament's (`scripts/tournament.mjs`): every mind
-  on every character and loadout it fits, rated by Bradley-Terry on the Elo scale with an
-  interval, written to `assets/minds/ratings.json` and as each mind's notes
-  (`assets/minds/notes.json`, `src/ui/mind-notes.ts`), at a commit it names.
-  Bouts are the same on every machine, so one commit and two minds give one digest anywhere; a
-  figure read at another commit or protocol is read again before it is compared.
-
-## Stand-up measurement
-
-The owner's fast, robust unassisted stand-up goal is unfinished. Assisted recovery is a separate
-experiment and cannot satisfy it. A stand-up is read on the owner's 64-fall target
-(`node research/rising-bed.mjs --target`: the Warrior and the Rogue, empty-handed and with the
-club, shoved sixteen ways, through the Lab's Stand-up mode, `src/lab/ground-mode.ts`), the game's
-Stand up (`step-up`) as the baseline; the Lab's Stand-up scenario plays the same falls as a round
-on one body. A controller that acts on the muscles from an observation runs on the stand-up screen's
-sixteen falls, made afresh each run (`node research/stand-up-acceptance.mjs --candidate <module>`).
-Nothing in either is fixed: a protocol changes when a controller needs it to, and a figure read
-on an earlier protocol is read again before it is compared. Report failures and
-external-actuation rejections as failures. Implementation, passing software checks and
-improvement on a battery are separate claims; none alone establishes completion.
+- **A Mind is an entrant**: `src/core/entrants/<name>/`, a line in `CONTROLLERS`
+  (`src/core/mind/controllers.ts`), its data under `assets/entrants/<name>/`, its test in
+  `tests/entrant-<name>.test.mjs`. What it may read and do is the architecture's (Adding a Mind),
+  held by `tests/core-boundary.test.mjs` and `tests/mind-contract.test.mjs`.
+- **One branch an agent**, from main. An entrant's change touches its own files and its registry
+  line; `node scripts/entrant-check.mjs` names a change an entrant's, the toolkit's or mixed.
+- **The toolkit lands on its own**: a change to what Minds are built on is its own branch, read
+  against main with the fingerprint, whose moved cases its message names.
+- **A claim is a match**: `npm run match -- <a> <b>` (`scripts/match.mjs`) gives the protocol,
+  commit, each mind's digest and the match's. Bouts are the same on every machine; a figure from
+  another commit or protocol is read again before it is compared.
 
 ## Measurement
 
 When the question is a measurement:
 
-- **Name the harness in every figure** (Node stand or page, engine, rate). Page and Node readings
-  of the same code have differed. An arena bout is the same in both to the bit
-  (`docs/reference/real-functions.md`); a lab scenario or a crypt run is not yet held to be.
-- **Say whether a peak was driven or struck**, and exclude startup and the time after a contact.
-- **Before calling a difference between two physics rates physical**, read the faster rate at the
-  slower one's spacing.
-- **Believe the stand over the fight**: a flung weapon improves every bout column while the arm
-  has stopped following its command.
-- **A conclusion is void once its reference is corrected**, even if its number was right: keep the
-  argument, and measure again.
-- **Counts over a bout are not scale-free.** Prefer a rate or more bouts; never pin a
-  distributional claim to one seed.
+- **Name the harness** of every figure (Node stand or page, engine, rate). An arena bout is the
+  same in both to the bit; a lab scenario or a crypt run is not yet.
+- **Say whether a peak was driven or struck**; exclude startup and the time after a contact.
+- **Read the faster physics rate at the slower one's spacing** before calling a difference physical.
+- **Believe the stand over the fight**: a flung weapon improves every bout column.
+- **A conclusion is void once its reference is corrected**: keep the argument, measure again.
+- **Counts over a bout are not scale-free**: prefer a rate or more bouts; never one seed.
+- **A stand-up** is read on the owner's target ([rising](docs/reference/rising.md#the-owners-target));
+  assisted recovery cannot satisfy it. Failures and rejected external actuation are reported as
+  failures; passing checks and a better battery are not completion.
 
 ## Code
 
-- **Comments say what the code is**, and why where that is not obvious, in the present tense. Never
-  in a comment: work sessions, plan stages, commit hashes, dates of change, what the code used to
-  do, or code and engines that no longer exist. The story of a change goes in its commit message.
-  `tests/comments.test.mjs` refuses the common markers.
-- **A tuned constant of the body or the rules says where its value came from** (`src/core/spec`,
-  `human`, `muscle`, `build`, `items`, `rules`): a `SOURCES` entry or a record under
-  `docs/reference/`, which `tests/constants.test.mjs` holds it to. Elsewhere (tactics, skills,
-  screens, experiments) a constant's comment says what it does, and it is tuned freely.
-- **Name the construct, not a line number.**
-- **A comment about a code path is a hypothesis until the path has run.**
-- **Switch on a union with a `never` default**; a ternary chain with a default branch silently
-  substitutes.
-- **A module that owns a rule exports its predicate**; a caller's private copy drifts.
-- **A copy that names its fields drops the ones added later.**
-- **A published field needs a reader**, or a named reader that is coming, written down.
-- **An export has an importer.** `tests/exports.test.mjs` refuses a name under `src/` that no other
-  file imports; a test, a research script or a script is a reader.
-- **What changes from step to step is plain data in one `state` object** per module
-  (`src/core/state.ts`), hung on the bout's; `tests/arena-fork.test.mjs` forks a bout to prove
-  it. A body, a node or a function is not state, and a constant a state points at is frozen.
-- **The step's dear functions work in arrays made once**: a rewrite for speed does the same
-  operations in the same order and moves no fingerprint, a work array carries nothing between
-  calls and no two bodies share one, and it lands with its time read before and after
-  (`docs/reference/step-cost.md`). `tests/core-step-cost.test.mjs` holds what a step allocates
-  under a ceiling.
-- **A screen is an explicit argument, never inferred from a state machine.** Pause freezes the
-  world, not the camera, and opens nothing but its own panel.
-- **Two watchers on one body: set a flag in the callback and act on it at the next control step.**
-- **Recovery cannot require the support state it exists to restore.**
+- **Comments say what the code is**, and why where not obvious, in the present tense. Never work
+  sessions, plan stages, commit hashes, dates of change, what the code used to do, or what no
+  longer exists (`tests/comments.test.mjs`). The story goes in the commit message.
+- **A tuned constant of the body or the rules** (`src/core/spec`, `human`, `muscle`, `build`,
+  `items`, `rules`) cites a `SOURCES` entry or a `docs/reference/` section that names it
+  (`tests/constants.test.mjs`). Elsewhere a constant's comment says what it does.
+- **Name the construct, not a line number.** A comment about a code path is a hypothesis until
+  the path has run.
+- **Switch on a union with a `never` default.**
+- **A module that owns a rule exports its predicate.** A copy that names its fields drops the ones
+  added later.
+- **A published field needs a reader**, or a named one that is coming, written down. **An export
+  needs an importer** (`tests/exports.test.mjs`); a test or a script is one.
+- **What changes step to step is plain data in one `state` object** per module
+  (`src/core/state.ts`), hung on the bout's; `tests/arena-fork.test.mjs` forks a bout to prove it.
+  A body, a node or a function is not state; a constant a state points at is frozen.
+- **The step's dear functions work in arrays made once**, which carry nothing between calls and
+  no two bodies share; a speed rewrite does the same operations
+  in the same order, moves no fingerprint, and lands with its time read before and after
+  (`docs/reference/step-cost.md`, `tests/core-step-cost.test.mjs`).
+- **A screen is an explicit argument**, never inferred from a state machine. Pause freezes the
+  world, not the camera, and opens only its own panel.
+- **Two watchers on one body**: set a flag in the callback; act on it at the next control step.
 
 ## Documents
 
-- `README.md`: the game, for people. `AGENTS.md`: this file.
-- `docs/architecture.md`: how the game is built, in the present tense.
-- `docs/roadmap.md`: the direction; the order of the plans in flight; what waits on the owner
-  (choices, things to watch); and the open items by layer, one line each. A finding goes to a
-  reference record, not here.
-- `docs/plans/`: only concrete work the owner asks for, over several sessions, in flight. Each
-  plan states its own dependencies; the roadmap orders them. An ordinary feature is built
-  straight away, in small commits. A plan is deleted when it lands; code and comments never cite
-  a plan.
-- `docs/reference/`: records that the body's and the rules' numbers cite, and measurements the
-  owner asked for. A feature needs no record.
-- `docs/analysis/`: studies behind a decision still open, named by date: what was tried, measured
-  and found. Code never cites one. Once the decision is made, what lasts moves to the
-  architecture, the roadmap or a reference record, and the study is deleted.
-- `docs/art/`: how the art is made and rebuilt: `crypt.md`, `characters.md`, `skeleton.md`.
+Each document has one job. A wrong document is corrected or deleted, not annotated; a change
+updates the documents it makes wrong.
 
-A document that is wrong is corrected or deleted, not annotated. A change updates the documents
-it makes wrong, and writes no new ones.
+| Document | Holds | Shape |
+| --- | --- | --- |
+| `README.md` | the game for people: play, run, where things are | short sections, tables |
+| `AGENTS.md` | rules for working here | one rule a bullet |
+| `docs/architecture.md` | how it is built, now: each layer's job, files, contracts | a section a layer |
+| `docs/roadmap.md` | direction; the order of plans in flight; what waits on the owner; open items by layer | one line an item |
+| `docs/plans/` | only work the owner asks for, over several sessions, in flight; deleted when it lands | Why, steps with checks, Done when |
+| `docs/reference/` | records code cites, and measurements the owner asked for | summary; what is used; measurement; tried and not kept |
+| `docs/analysis/` | the study behind a decision still open, named by date; deleted once decided | question, options, findings, answer |
+| `docs/art/` | how the art is made and rebuilt | source, rebuild, rules |
+
+- **Lead with the answer**; short paragraphs, lists and tables; present tense; say a thing once
+  and link to the document that owns it.
+- **No history in prose** ("first we tried, then"); the commit or harness a figure was read at is
+  provenance and stays.
+- **Status lives in the roadmap**, findings in reference records; code and comments never cite a
+  plan or an analysis.
+- **A cited heading is a contract**: code cites `docs/<file>.md#<anchor>`, and the gate checks the
+  anchor exists and that a constant's section names it.
 
 ## Line endings
 
-This clone has `core.autocrlf = true`, so the working copy is not the committed file. Gate a commit
-on `git diff --numstat` equalling `git diff --ignore-cr-at-eol --numstat`; a file where they differ
-has had its endings rewritten. `.gitattributes` keeps only shell scripts and patches LF in every
-working copy, since bash and `git apply` read their bytes.
+The clone has `core.autocrlf = true`; the repository is LF. Gate a commit on `git diff --numstat`
+equalling `git diff --ignore-cr-at-eol --numstat`: a file where they differ has had its endings
+rewritten. `.gitattributes` keeps shell scripts and patches LF in every working copy.
