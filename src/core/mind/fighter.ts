@@ -10,10 +10,11 @@ import { RUN, run, validRun } from "../skills/run.ts";
 import { SIMBICON, simbicon, simbiconWays, validSimbicon, validWays, type SimbiconSettings } from "../skills/simbicon.ts";
 import { runCycleSettings, validRunCycle } from "../skills/cycle-run.ts";
 import { WALK_RUN, WALK_RUN_CYCLE, validWalkRun, walkRun, type WalkRunSettings } from "../skills/walk-run.ts";
-import { learnedRun, RUN_POLICIES } from "../skills/learned-run.ts";
+import { learnedRun, RUN_POLICY } from "../skills/learned-run.ts";
 import { GAIT_NAMES, GAITS, type GaitName } from "../skills/gaits.ts";
 import { distanceRule, move, standingRule, type MoveGait, type MoveRule } from "../skills/move.ts";
 import { supportFold } from "../skills/support-fold.ts";
+import { dataOf } from "../data/store.ts";
 import { deepFreeze } from "../state.ts";
 import type { Clock } from "../clock.ts";
 import type { BodyHost } from "./host.ts";
@@ -103,12 +104,13 @@ export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<Sk
     tuning: ["run"],
   },
   "learned-run": {
-    ...skill<LearnedRunConfig>("locomotion", "Walk and learned run", "experimental", { kind: "learned-run", ...WALK_RUN, hasted: RUN_POLICIES["all-bodies"]!.hasted, policy: "all-bodies" },
+    ...skill<LearnedRunConfig>("locomotion", "Walk and learned run", "experimental", { kind: "learned-run", ...WALK_RUN, hasted: RUN_POLICY.hasted, policy: RUN_POLICY.policies[0]! },
       (config) => [
         ...validWalkRun(learnedRunOf(config)) ? [] : ["a walk and learned run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1"],
         ...validRunCycle(runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE)) ? [] : ["a walk and learned run's run gives only the run's settings, each finite, its times and the cycle's positive and its shares of strength within (0, 1]"],
-        ...config.policy === null || Object.hasOwn(RUN_POLICIES, config.policy) ? [] : [`a learned run has no policy called ${JSON.stringify(config.policy)}`],
+        ...config.policy === null || RUN_POLICY.policies.includes(config.policy) ? [] : [`a learned run has no policy called ${JSON.stringify(config.policy)}`],
       ]),
+    reads: (config) => config.policy === null ? [] : ["learned-run"],
     tuning: ["run"],
   },
   "move": {
@@ -185,7 +187,7 @@ function legsOf(body: Body, config: LocomotionConfig): Locomotion {
     case "run": { const { kind: _, ...settings } = config; return run(body, settings); }
     case "simbicon": return simbicon(body, settingsOf(config), simbiconWays(config.tuning), runCycleSettings(config.tuning?.run), config.runs ?? true);
     case "walk-run": return walkRun(body, walkRunOf(config), runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE), config.runs ?? true);
-    case "learned-run": return learnedRun(body, config.policy === null ? null : RUN_POLICIES[config.policy]!, learnedRunOf(config), runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE), config.runs ?? true);
+    case "learned-run": return learnedRun(body, config.policy === null ? null : dataOf("learned-run"), learnedRunOf(config), runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE), config.runs ?? true);
     case "move": {
       const names = gaitsOf(config), built = new Map<string, Locomotion>();
       // Gaits whose legs differ only in whether they may run share one walk (`MoveGait`).

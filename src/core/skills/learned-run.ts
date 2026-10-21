@@ -1,8 +1,9 @@
-import allBodies from "../../../assets/core/learned-run.json" with { type: "json" };
+import meta from "../../../assets/core/learned-run.meta.json" with { type: "json" };
 import type { Body, BodyView } from "../body.ts";
 import { recoveryNetwork } from "../control/recovery-network.ts";
 import { hasteOver } from "../human/attributes.ts";
 import { cos, sin } from "../math/real.ts";
+import { deepFreeze } from "../state.ts";
 import { wrap } from "../math/turn.ts";
 import type { Side } from "../spec/body.ts";
 import { STEER_KEYS, type RunCycleMemory, type RunCycleSettings, type RunSteer } from "./cycle-run.ts";
@@ -28,14 +29,16 @@ const LEG_CHANNELS = ["hip.%s flexion", "hip.%s abduction", "hip.%s internal rot
 export const RUN_FEATURES = 23 + 4 * LEG_CHANNELS.length;
 
 /**
- * The run's trained policies, by name: what a learned run's config names (`LearnedRunConfig.policy`).
- * `all-bodies` is trained on the Warrior, the Rogue and the skeleton, empty-handed and with the club,
- * at Haste 0 and 100 (its asset's `made` says how).
+ * **What is known of the run's trained policy before it loads** (`dataOf("learned-run")`): the
+ * names a learned run's config may give it (`LearnedRunConfig.policy`), and how its gait was timed
+ * to its haste in training (`RunPolicy.hasted`), the editor's default. `all-bodies` is trained on
+ * the Warrior, the Rogue and the skeleton, empty-handed and with the club, at Haste 0 and 100 (its
+ * asset's `made` says how).
  */
-export const RUN_POLICIES: Readonly<Record<string, RunPolicy>> = Object.freeze({ "all-bodies": allBodies });
+export const RUN_POLICY: { readonly hasted: number; readonly policies: readonly string[] } = deepFreeze(meta);
 
 /** **A learned run's network**: a ReLU network whose outputs are the steer's (`STEER_KEYS`), its inputs the features (`runFeatures`), normalised in its first layer. */
-interface RunPolicy {
+export interface RunPolicy {
   /** How the gait it steered in training was timed to its haste (`WalkRunSettings.hasted`): a learned run's config takes it (`LearnedRunConfig`). */
   readonly hasted: number;
   readonly actions: number;

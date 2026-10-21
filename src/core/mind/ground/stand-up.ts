@@ -11,7 +11,7 @@ import type { SubMind } from "../sub-mind.ts";
 import { flatten } from "./flatten.ts";
 import { choose, graphWork, type GraphFailure, type GraphTechnique, type RouteStep } from "./graph.ts";
 import { standReady, type Position } from "./reading.ts";
-import { TECHNIQUES, poseDrive, type TechniqueEnd, type TechniqueRun, type TechniqueSpec } from "./techniques.ts";
+import { TECHNIQUES, poseDrive, type TechniqueEnd, type TechniqueName, type TechniqueRun, type TechniqueSpec } from "./techniques.ts";
 
 /** Protective flexion keeps the chin tucked and the forearms before the face while falling. */
 const BRACE = deepFreeze({ "cervical flexion": .3, "shoulder.left flexion": .8, "shoulder.right flexion": .8,
@@ -28,7 +28,7 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
   registry: Readonly<Record<string, TechniqueSpec>> = TECHNIQUES): SubMind {
   const runs: Record<string, TechniqueRun> = {}, graph: Record<string, GraphTechnique> = {};
   for (const [name, spec] of Object.entries(registry)) if (spec.fits(own.spec)) {
-    const run = spec.make(own, view, clock); runs[name] = run;
+    const run = spec.make(own, view, clock, config.techniques.includes(name as TechniqueName)); runs[name] = run;
     graph[name] = { sides: spec.sides, edges: spec.edges, admits: (g, side) => run.admits(g, side) };
   }
   runs.flatten = flatten(own, view);

@@ -32,7 +32,8 @@ import { fighterHands } from "../render/strike-hands.ts";
 import { boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
 import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readCap, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
 import { MINDS } from "../core/mind/controllers.ts";
-import { partOf } from "../core/mind/catalog.ts";
+import { partOf, treeData } from "../core/mind/catalog.ts";
+import { loadData } from "../core/data/store.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
 import { notesOf, RATINGS, type NoteLevel } from "../ui/mind-notes.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
@@ -479,12 +480,16 @@ export async function bootArena(context: ScreenContext): Promise<void> {
           search = `?${snapshot}`;
         }
         context.replace(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view) + (replaying ? linked.hash : ""));
-        const dress = new Map(await Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)));
+        const minds = readMinds(location.search);
+        const [dress] = await Promise.all([
+          Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)).then((dressed) => new Map(dressed)),
+          loadData(SIDES.flatMap((side) => treeData(minds[side]))),
+        ]);
         context.signal.throwIfAborted();
         end();
         toStart();
         audio.reset();
-        const gap = readGap(location.search), capSeconds = readCap(location.search), loadouts = readLoadouts(location.search), minds = readMinds(location.search), recoverySeconds = readRecovery(location.search) ?? null;
+        const gap = readGap(location.search), capSeconds = readCap(location.search), loadouts = readLoadouts(location.search), recoverySeconds = readRecovery(location.search) ?? null;
         controllers = { left: controllerLabel(location.search, "left"), right: controllerLabel(location.search, "right") };
         const bout = duel = new Duel(world, {
           left: matchup.left, right: matchup.right, recoverySeconds, attributes, level,

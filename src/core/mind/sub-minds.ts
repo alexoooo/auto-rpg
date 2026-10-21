@@ -39,7 +39,8 @@ export const SUB_MIND_PARTS: { readonly [K in SubMindConfig["kind"]]: Part<Extra
       if (new Set(config.techniques).size !== config.techniques.length) return ["a technique may appear only once"];
       const graph = Object.fromEntries(Object.entries(TECHNIQUES).map(([name, spec]) => [name, { ...spec, admits: () => true }]));
       return (["back", "front"] as const).filter(from => !reachable(config.techniques, from, graph, graphWork())).map(from => `no route to standing from ${from}`);
-    } }),
+    },
+    reads: config => config.techniques.includes("learned-rise") ? ["learned-rise"] : [] }),
   "get-away": deepFreeze<Part<Extract<SubMindConfig, { kind: "get-away" }>>>({ role: "sub-mind", label: "Get away", stage: "experimental", slots: [],
     fields: [number("metres", "Foe distance", .1, 10, .1, "m")], defaults: { kind: "get-away", metres: 2 }, fits: commandable,
     faults: config => Number.isFinite(config.metres) && config.metres > 0 ? [] : ["distance must be finite and positive"] }),
@@ -51,7 +52,7 @@ export const SUB_MIND_PARTS: { readonly [K in SubMindConfig["kind"]]: Part<Extra
   lie: plain("lie", "Lie still", () => true),
   "support-recovery": plain("support-recovery", "Rise, then steady", (spec) => commandable(spec)),
   "research-rise": deepFreeze({ role: "sub-mind", label: "Research rise", stage: "experimental", fields: [], slots: [],
-    defaults: { kind: "research-rise" }, fits: researchRiseFits, faults: () => [] } as const),
+    defaults: { kind: "research-rise" }, fits: researchRiseFits, faults: () => [], reads: () => ["research-rise" as const] } as const),
 });
 
 /** The sub-mind `config` names. */

@@ -1,3 +1,4 @@
+import type { DataKey } from "../data/store.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { PartField } from "./fields.ts";
 
@@ -68,6 +69,8 @@ export interface Part<C extends PartConfig = PartConfig> {
    * key (`blow: `). Its slots' parts answer for their own; it is asked only once each slot holds parts of its role.
    */
   faults(config: C): readonly string[];
+  /** The mind data a part of `config` reads when built (`dataOf`); none where absent. Its slots' parts answer for their own (`treeData`). */
+  reads?(config: C): readonly DataKey[];
 }
 
 /** A slot of a ranked list of parts of `role`. */

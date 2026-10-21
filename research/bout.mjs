@@ -1,4 +1,5 @@
 // One arena bout in a world of its own (Node, core world, the arena's Rapier, 120 Hz), and its row.
+import "../tests/harness/preload-data.mjs";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { addArenaSolids, arenaSolids } from "../src/arena/room.ts";

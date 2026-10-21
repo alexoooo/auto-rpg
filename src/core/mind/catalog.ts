@@ -1,3 +1,4 @@
+import type { DataKey } from "../data/store.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { BEHAVIOUR_PARTS } from "./behaviours.ts";
 import type { BehaviourConfig, ExecutorConfig, MotorConfig, MoveRuleConfig, ReflexConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
@@ -79,6 +80,17 @@ export function treeFaults(config: PartConfig, provides: readonly Provision[] = 
   }
   const screen = unprovided(partOf(config).needs, provides);
   return [...(screen ? [where(screen)] : []), ...unknownSettings(config).map((fault) => where(fault)), ...(formed ? partOf(config).faults(config).map((fault) => where(fault)) : []), ...slots];
+}
+
+/** **The mind data `config`'s parts read** (`Part.reads`), every key once: what a screen loads (`loadData`) before it builds the mind. */
+export function treeData(config: PartConfig): readonly DataKey[] {
+  const keys = new Set<DataKey>();
+  const visit = (one: PartConfig): void => {
+    for (const key of partOf(one).reads?.(one) ?? []) keys.add(key);
+    for (const { parts } of held(one)) for (const child of parts) if (isPart(child)) visit(child);
+  };
+  visit(config);
+  return [...keys];
 }
 
 /**

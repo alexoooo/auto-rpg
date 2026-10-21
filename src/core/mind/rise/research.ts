@@ -1,27 +1,18 @@
-import data from "../../../../assets/research/research-rise.json" with { type: "json" };
-import unshodData from "../../../../assets/research/research-rise-unshod-warrior.json" with { type: "json" };
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { commandable, type BodyView } from "../../body.ts";
 import { recoveryMeasurement } from "../../control/recovery-measurement.ts";
+import { dataOf } from "../../data/store.ts";
 import { observeBody } from "../../observation.ts";
-import { deepFreeze, loadState, saveState } from "../../state.ts";
+import { loadState, saveState } from "../../state.ts";
 import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import { libraryPolicy } from "./reference-library.ts";
 import { pathPolicy } from "./reference-path.ts";
-import type { ReferenceAction, ReferenceParameters, RiseReference } from "./reference-types.ts";
+import type { ReferenceAction } from "./reference-types.ts";
 
-interface Entry { kind: "library" | "path"; channels: string[]; parameters: ReferenceParameters; reference: RiseReference }
 const SIDES = ["left", "right"] as const;
-const bundle = deepFreeze(JSON.parse(data.payload)) as { default: Entry; bodies: Record<string, Entry> };
-const additions = deepFreeze(JSON.parse(unshodData.payload)).default as Entry;
-const unshodWarrior: Entry = deepFreeze({ ...bundle.default,
-  parameters: { ...bundle.default.parameters,
-    controllers: [...bundle.default.parameters.controllers!, ...additions.parameters.controllers!] },
-  reference: { ...bundle.default.reference,
-    references: [...bundle.default.reference.references, ...additions.reference.references] } });
 
 /** Human rigs with two legs, usable hands and at most one compound held item. */
 export function researchRiseFits(spec: BodySpec): boolean {
@@ -30,14 +21,15 @@ export function researchRiseFits(spec: BodySpec): boolean {
     && (spec.held?.length ?? 0) <= 1 && (spec.held ?? []).every(h => SIDES.some(side => h.segment === `hand.${side}`));
 }
 
-/** Recorded reference motions with feedback, executed through the body's ordinary muscles. */
+/** Recorded reference motions with feedback (`dataOf("research-rise")`, read when made), executed through the body's ordinary muscles. */
 export function researchRise(own: OwnBody, view: BodyView, clock: Clock): SubMind {
   if (!researchRiseFits(own.spec)) throw new Error(`${own.spec.model} cannot take research rise`);
+  const data = dataOf("research-rise");
   const held = own.spec.held ?? [];
   const club = held.length === 1 && held[0].segment === "hand.right" && held[0].item.name === "wooden club";
   const entry = own.spec.model === "workshop-fighter" && held.length === 0
-    && own.spec.segments.every(s => s.surface?.sole === undefined) ? unshodWarrior
-    : bundle.bodies[`${own.spec.model}/${club ? "club" : "empty"}`] ?? bundle.default;
+    && own.spec.segments.every(s => s.surface?.sole === undefined) ? data.unshodWarrior
+    : data.bodies[`${own.spec.model}/${club ? "club" : "empty"}`] ?? data.default;
   const channels = own.muscles.channels.map(c => ({ name: c.name, min: c.dof.spec.min.value, max: c.dof.spec.max.value }));
   if (channels.length !== entry.channels.length || channels.some((c, i) => c.name !== entry.channels[i]))
     throw new Error("research rise reference does not match this body's muscle channels");

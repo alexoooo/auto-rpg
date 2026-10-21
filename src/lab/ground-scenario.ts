@@ -63,11 +63,12 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
     impulse: { name: "Total help", unit: "N s / N m s" }, totals: { name: "Falls / stood / median / worst" }, status: { name: "Run" } });
   return {
     keys: new Set(),
-    mind: (chosen) => risingBy(chosen, address.ground.rise),
+    mind: (chosen, next) => risingBy(chosen, next.ground.rise),
     subs(next) {
       const name = next.ground.drive;
       return name === "mind" ? undefined : [(own, view, clock) => groundTechnique(name, own, view, clock, next.ground.start !== "shoved")];
     },
+    subsData: (next) => next.ground.drive === "learned-rise" ? ["learned-rise"] : [],
     placement(spec, next) {
       address = next; shown = null; fault = "";
       try { return groundPlacement(spec, next, next.ground.start === "placed" && next.ground.drive === "plant-up" && next.ground.waypoint !== "none" ? plantWaypoint(spec, next.ground.waypoint) : undefined); }

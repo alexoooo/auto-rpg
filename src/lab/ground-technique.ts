@@ -32,7 +32,7 @@ export interface GroundTechniqueState {
 export function groundTechnique(name: TechniqueName, own: OwnBody, view: BodyView, clock: Clock, immediate = true): SubMind {
   const spec: TechniqueSpec = TECHNIQUES[name];
   if (!spec.fits(own.spec)) throw new Error(`${spec.label} does not fit ${own.spec.model}`);
-  const run = spec.make(own, view, clock);
+  const run = spec.make(own, view, clock, true);
   const state: GroundTechniqueState = { kind: "ground-technique", technique: name, run: run.state, phase: run.phase,
     ended: null, reached: false, time: 0, active: immediate, waiting: !immediate };
   return { name: `technique: ${name}`, state,

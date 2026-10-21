@@ -36,6 +36,10 @@ import { createMindLog, logged, watchHas, type MindLog } from "./mind-log.ts";
 import { attackScenario } from "./attack-scenario.ts";
 import { locomotionScenario } from "./locomotion-scenario.ts";
 import { createSoundLog, LAB_BODY, logSounds, type SoundLog } from "./sound-log.ts";
+import type { BodySpec } from "../core/spec/body.ts";
+import type { FighterConfig } from "../core/mind/config.ts";
+import { treeData } from "../core/mind/catalog.ts";
+import { loadData, type DataKey } from "../core/data/store.ts";
 import { labHref, labMind, LAB_PRESETS, LAB_PROVIDES, recoveryAddress, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
 import { dresserFor } from "../render/dress.ts";
@@ -249,6 +253,19 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   }
 
   /** Load `to`'s loadout at `to`'s rate, in a new world, and start the scenario on it. */
+  /** The mind a body of `spec` plays at `to`: the page's choice, as the scenario has it. */
+  function mindAt(to: LabAddress, spec: BodySpec): FighterConfig {
+    const chosen = to.scenario === "recovery" && to.recoveryMode === "witness"
+      ? { ...LAB_PRESETS.script.config, subs: [{ kind: "support-recovery" as const }] } : labMind(to.mind, spec, to.scenario).plays;
+    return scenario.mind?.(chosen, to) ?? chosen;
+  }
+
+  /** The mind data a load of `to` reads (`loadData`): its mind's and its scenario's subs'; none where `to` does not load, which `loadWorld` reports. */
+  function dataAt(to: LabAddress): readonly DataKey[] {
+    try { return [...treeData(mindAt(to, loadoutSpec(to))), ...scenario.subsData?.(to) ?? []]; }
+    catch { return []; }
+  }
+
   function loadWorld(to: LabAddress): void {
     if (disposed) return;
     let spec: ReturnType<typeof loadoutSpec>;
@@ -272,9 +289,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const built = buildBody(spec, world, placement);
     const balance = built.spec.attributes.balance.value;
     const log = createMindLog();
-    const chosen = to.scenario === "recovery" && to.recoveryMode === "witness"
-      ? { ...LAB_PRESETS.script.config, subs: [{ kind: "support-recovery" as const }] } : labMind(to.mind, spec, to.scenario).plays;
-    const mind = scenario.mind?.(chosen) ?? chosen;
+    const mind = mindAt(to, spec);
     const actor = labActor(built, world, {
       mind,
       subs: scenario.subs?.(to),
@@ -300,6 +315,8 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     loading = true; loadError.hidden = true;
     try {
       await context.loading("Preparing the scenario", async stage => {
+        await loadData(dataAt(to));
+        context.signal.throwIfAborted();
         loadWorld(to);
         await skinReady;
         context.signal.throwIfAborted();

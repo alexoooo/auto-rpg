@@ -1,4 +1,5 @@
 /** Standalone technique trials: no tactic or combat preset participates in the control path. */
+import "../tests/harness/preload-data.mjs";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
@@ -63,8 +64,8 @@ export async function techniqueTrial(job) {
   const control = { active: start !== "shoved", end: null, from: null, ended: null, predecessor: job.after ? "running" : null,
     predecessorSeconds: 0, candidateFrom: null, shoved: false };
   const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view, into) => {
-    run = technique === "plant-up" ? plantUp(own, view, into, job.tuning ?? PLANT_UP) : TECHNIQUES[technique].make(own, view, into);
-    predecessor = job.after ? TECHNIQUES[job.after]?.make(own, view, into) : null;
+    run = technique === "plant-up" ? plantUp(own, view, into, job.tuning ?? PLANT_UP) : TECHNIQUES[technique].make(own, view, into, true);
+    predecessor = job.after ? TECHNIQUES[job.after]?.make(own, view, into, true) : null;
     if (job.after && !predecessor) throw new Error(`unknown predecessor ${job.after}`);
     return { name: `technique:${technique}`, state: { control, run: run.state, predecessor: predecessor?.state ?? null },
       wants: () => control.active,

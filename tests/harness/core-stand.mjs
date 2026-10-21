@@ -8,6 +8,7 @@
  * engine contract says so (`src/core/engine/engine.ts`), and `tests/core-engine.test.mjs` holds
  * the engine to it.
  */
+import "./preload-data.mjs";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector.js";

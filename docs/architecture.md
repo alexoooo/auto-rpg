@@ -266,7 +266,7 @@ actions over it.
 | Locomotion | `locomotion.ts` | the stance's own walk within its envelope; places feet (`Locomotion.place`) |
 | Walk and run | `walk-run.ts` | the stance's walk, handing over to SIMBICON's run cycle (`runCycle`, `WALK_RUN_CYCLE`) when asked past its walk and allowed (`Locomotion.runs`) |
 | SIMBICON walk | `simbicon.ts` | drives the legs itself (`Locomotion.drive`) by Yin, Loken and van de Panne 2007, running by `runCycle` (`cycle-run.ts`, CMU clips in `assets/core/run-cycle.json`) |
-| Walk and learned run | `learned-run.ts` | the walk and run steered by a trained policy (`RUN_POLICIES`, `assets/core/learned-run.json`); experimental |
+| Walk and learned run | `learned-run.ts` | the walk and run steered by a trained policy (`dataOf("learned-run")`, `assets/core/learned-run.json`; its names and timing before it loads, `RUN_POLICY`); experimental |
 | Stride | `stride.ts` | plans its own capture-point steps; experimental |
 | Run | `run.ts` | Raibert-placed flying steps; experimental |
 | Move | `move.ts` | chooses among the gaits (`GAITS`, `gaits.ts`) by rules (`MoveRuleConfig`) on standing and distance; Classic's is `MOVE` |
@@ -436,6 +436,19 @@ and copies the whole action before applying any of it. A policy receives no engi
 | `support-recovery` | `supportRecovery` | the staged rise (`stagedRise`), then verified quiet standing (`recoveryReady`) before handing back ([recovery](reference/recovery-cycle.md)) |
 | Stand up | `ground/` | techniques with physical admission and completion (`ground/techniques.ts`); `step-up` (`ground/step-up.ts`) is the game's, the learned rise (`ground/learned-rise.ts`) is experimental |
 | `research-rise` | `rise/research.ts` (`researchRise`) | tracks reference motions; experimental |
+
+**Mind data loads per use** (`src/core/data/store.ts`). The learned run's and the learned rise's
+networks and Research rise's recorded get-ups (`assets/core/learned-run.json`,
+`assets/core/learned-rise.json`, `assets/research/research-rise*.json`) are each a module of their
+own in `src/core/data/`, imported only by `loadData`, so each is a chunk of its own that a page
+fetches only when a mind it builds reads it. A mind reads its data when built (`dataOf`), and
+throws, naming the key, where it is not loaded. A part says what it reads (`Part.reads`), and
+`treeData(config)` (`mind/catalog.ts`) collects a tree's: the Arena loads both sides' before the
+bout, the Crypt every participant's before the run, the Lab its mind's and its scenario's subs'
+(`LabScenario.subsData`) before the body. In Node, `tests/harness/preload-data.mjs` loads every key,
+imported by each module that builds a data-reading mind (the stand and the bout among them). Stand
+up makes a learned rise that its config does not list without a network (`TechniqueSpec.make`'s
+`listed`), so it reads no data.
 
 `BodyView.ground` (`mind/ground/reading.ts`) reads each segment's fixed-contact load, sole support
 and trunk motion while the body is down; `standReady` requires quiet flat two-foot support with the

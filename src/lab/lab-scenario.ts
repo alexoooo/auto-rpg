@@ -8,6 +8,7 @@ import type { LabAddress } from "./scenarios.ts";
 import type { BodySpec, Side } from "../core/spec/body.ts";
 import type { FighterConfig } from "../core/mind/config.ts";
 import type { BodyOptions } from "../core/body.ts";
+import type { DataKey } from "../core/data/store.ts";
 
 /**
  * **What the lab's shell (`main.ts`) asks of a scenario.** The shell owns the page: the engine,
@@ -25,12 +26,14 @@ export interface LabScenario {
   readonly keys: ReadonlySet<string>;
   /** What the transport bar's slider says it steps through. */
   readonly timelineLabel: string;
-  /** The mind its body plays, from the one the page chose; absent, that one. */
-  mind?(chosen: FighterConfig): FighterConfig;
+  /** The mind its body plays at `address`, from the one the page chose; absent, that one. */
+  mind?(chosen: FighterConfig, address: LabAddress): FighterConfig;
   /** A physical initial pose in place of the shell's standing guard. */
   placement?(spec: BodySpec, address: LabAddress): Parameters<typeof buildBody>[2];
   /** Explicit standalone experiments may replace the selected fighter's sub-minds. */
   subs?(address: LabAddress): BodyOptions["subs"];
+  /** The mind data its `subs` read when made at `address` (`dataOf`), loaded before they are; none where absent. */
+  subsData?(address: LabAddress): readonly DataKey[];
   start(context: ScenarioContext): ScenarioRun;
 }
 

@@ -11,7 +11,9 @@ import { Plane } from "@babylonjs/core/Maths/math.plane.js";
 import "@babylonjs/core/Culling/ray.js";
 import type { PhysicsEngine } from "../core/engine/engine.ts";
 import { loadEngine } from "../core/engine/engines.ts";
-import { HUMANOID_MODELS, type BodyModel } from "../core/models.ts";
+import { HUMANOID_MODELS, modelInfo, type BodyModel } from "../core/models.ts";
+import { treeData } from "../core/mind/catalog.ts";
+import { loadData } from "../core/data/store.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
@@ -24,7 +26,7 @@ import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { hearRun, type RunHearing } from "./hearing.ts";
 import { EnemyHover } from "./hover.ts";
-import { DungeonRun, prepareDungeonCharacters, runMap, runModels, type DungeonActor, type Participant, type RunStatus } from "./run.ts";
+import { DungeonRun, prepareDungeonCharacters, runMap, runModels, runParticipants, type DungeonActor, type Participant, type RunStatus } from "./run.ts";
 import { runAttributes } from "./run-attributes.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { orderLabel } from "./commands.ts";
@@ -384,8 +386,9 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     camera.maxZ = 160;
     // The skin of each model the run fields, loaded once a scene; a body whose skin did not load is drawn as its shapes.
     const dressers = new Map<BodyModel, Dresser>();
-    await Promise.all(runModels(layout, fielded).map((model) =>
-      dresserFor(model, scene, { skeletonArt: () => page.skeletonArt }).then((dress) => { dressers.set(model, dress); })));
+    await Promise.all([...runModels(layout, fielded).map((model) =>
+      dresserFor(model, scene, { skeletonArt: () => page.skeletonArt }).then((dress) => { dressers.set(model, dress); })),
+      loadData(runParticipants(layout, fielded).flatMap((participant) => treeData(page.mind(participant) ?? modelInfo(participant.model).mind)))]);
     stillShown();
     const dress = (actor: DungeonActor) => {
       const fighter = actor.fighter!, hands = fighterHands(fighter), built = fighter.built;

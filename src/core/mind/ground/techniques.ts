@@ -33,7 +33,8 @@ export interface TechniqueSpec {
   readonly sides: readonly Side[];
   readonly edges: readonly { readonly from: Position; readonly to: Position }[];
   fits(spec: BodySpec): boolean;
-  make(own: OwnBody, view: BodyView, clock: Clock): TechniqueRun;
+  /** A run of it on the body; `listed`, its config names it, and a technique that reads mind data reads it only then (the supervisor routes only through those named). */
+  make(own: OwnBody, view: BodyView, clock: Clock, listed: boolean): TechniqueRun;
 }
 
 /** A reached physical predicate must remain true this long; search settings cannot change it. */
@@ -110,15 +111,15 @@ export const TECHNIQUES: Readonly<Record<TechniqueName, TechniqueSpec>> = Object
   "step-up": Object.freeze({ label: "Step up", stage: "game", sides: Object.freeze(["left"] as const),
     edges: Object.freeze((["front", "back", "left", "right", "fours", "half-kneel", "kneeling", "sitting", "between"] as const)
       .map(from => Object.freeze({ from, to: "standing" as const }))),
-    fits: humanoid, make: stepUp }),
+    fits: humanoid, make: (own: OwnBody, view: BodyView, clock: Clock) => stepUp(own, view, clock) }),
   "learned-rise": Object.freeze({ label: "Learned rise", stage: "experimental", sides: Object.freeze(["left"] as const),
     edges: Object.freeze((["front", "back", "left", "right", "fours", "half-kneel", "kneeling", "sitting", "between"] as const)
       .map(from => Object.freeze({ from, to: "standing" as const }))),
-    fits: humanoid, make: learnedRise }),
+    fits: humanoid, make: (own: OwnBody, view: BodyView, clock: Clock, listed: boolean) => learnedRise(own, view, clock, listed ? undefined : null) }),
   "plant-up": Object.freeze({ label: "Plant up", stage: "experimental", sides: Object.freeze(["left"] as const),
     edges: Object.freeze((["front", "fours", "half-kneel", "crouch"] as const).map(from => Object.freeze({ from, to: "standing" as const }))),
     fits: humanoid,
-    make: plantUp }),
+    make: (own: OwnBody, view: BodyView, clock: Clock) => plantUp(own, view, clock) }),
   roll: Object.freeze({ label: "Roll onto front", stage: "experimental", sides: Object.freeze(["right"] as const),
     edges: Object.freeze((["back", "right"] as const).map(from => Object.freeze({ from, to: "front" as const }))),
     fits: humanoid,

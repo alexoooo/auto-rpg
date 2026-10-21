@@ -108,7 +108,7 @@ export interface WalkRunConfig extends WalkRunSettings {
 
 /**
  * **The walk and the learned run** (`learnedRun`, `skills/learned-run.ts`): the walk and run whose run a policy steers, the one
- * `policy` names (`RUN_POLICIES`), or, null, steered from outside the mind (research's training). Its settings are the walk and run's,
+ * `policy` names (`RUN_POLICY`, its network `dataOf("learned-run")`), or, null, steered from outside the mind (research's training). Its settings are the walk and run's,
  * its gait by default timed to its haste as its policy's was in training (`RunPolicy.hasted`).
  */
 export interface LearnedRunConfig extends WalkRunSettings {

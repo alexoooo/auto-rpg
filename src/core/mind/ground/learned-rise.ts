@@ -1,8 +1,7 @@
-import trained from "../../../../assets/core/learned-rise.json" with { type: "json" };
 import type { BodyView } from "../../body.ts";
 import { recoveryNetwork } from "../../control/recovery-network.ts";
+import { dataOf } from "../../data/store.ts";
 import { cos, sin } from "../../math/real.ts";
-import { deepFreeze } from "../../state.ts";
 import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../mind.ts";
 import { RISE_STEER_KEYS, type RiseSteer } from "../rise/staged.ts";
@@ -34,13 +33,13 @@ const LIES = ["front", "back", "left", "right"] as const;
 export const riseFeatures = (channels: number): number => 22 + HEIGHTS.length + 2 * channels;
 
 /** **A learned rise's network**: a ReLU network whose outputs are the steer's (`RISE_STEER_KEYS`), its inputs the features (`readRise`), normalised in its first layer. */
-interface RisePolicy {
+export interface RisePolicy {
   readonly actions: number;
   readonly layers: readonly { readonly weights: readonly (readonly number[])[]; readonly bias: readonly number[] }[];
 }
 
-/** The rise's trained policies, by the model whose body each was trained on. */
-const RISE_POLICIES: Readonly<Record<string, RisePolicy>> = deepFreeze({ "workshop-fighter": trained, "workshop-rogue": trained });
+/** The models whose bodies the rise's policy (`dataOf("learned-rise")`) was trained on. */
+const TRAINED = new Set(["workshop-fighter", "workshop-rogue"]);
 
 /**
  * **What a rise's policy reads**, into `out`: how high the pelvis's left, up and forward point,
@@ -81,13 +80,15 @@ export function riseSteerFrom(actions: readonly number[], steer: RiseSteer): Ris
  * **The learned rise**: step up (`stepUp`) whose rise a policy steers (`RiseSteer`): every
  * `RISE_DECIDE` control steps it reads the rise (`readRise`) and asks a steer of its network's
  * outputs (`riseSteerFrom`); every step the steer eases toward what is asked (`RISE_EASE`) and is
- * given to each of step up's rises. With no policy what is asked is set from outside, as a
- * policy's training sets it; nought, it is step up.
+ * given to each of step up's rises. Its policy is the model's own where `policy` is undefined
+ * (`TRAINED`, read from the store when made), else none. With no policy what is asked is set from
+ * outside, as a policy's training sets it; nought, it is step up.
  */
-export function learnedRise(own: OwnBody, view: BodyView, clock: Clock, policy: RisePolicy | null = RISE_POLICIES[own.spec.model] ?? null): TechniqueRun & {
+export function learnedRise(own: OwnBody, view: BodyView, clock: Clock, given?: RisePolicy | null): TechniqueRun & {
   readonly state: { readonly asked: RiseSteer; readonly steer: RiseSteer; readonly steps: number };
   readonly up: ReturnType<typeof stepUp>;
 } {
+  const policy = given !== undefined ? given : TRAINED.has(own.spec.model) ? dataOf("learned-rise") : null;
   if (policy !== null && policy.actions !== RISE_STEER_KEYS.length) throw new Error(`a learned rise's policy gives ${RISE_STEER_KEYS.length} actions`);
   const up = stepUp(own, view, clock), act = policy === null ? null : recoveryNetwork(policy), features: number[] = [];
   const nought = () => Object.fromEntries(RISE_STEER_KEYS.map((key) => [key, 0])) as unknown as RiseSteer;

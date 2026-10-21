@@ -62,9 +62,15 @@ export const runMap = (options: Pick<DungeonRunOptions, "seed" | "layout">): Dun
 const heroOf = (options: Pick<DungeonRunOptions, "hero">): BodyModel => options.hero ?? "workshop-fighter";
 const enemyAt = (map: DungeonMap, options: Pick<DungeonRunOptions, "enemy">, i: number): BodyModel =>
   options.enemy?.(i) ?? map.encounters?.[i]?.model ?? "crypt-skeleton";
+/** Every body a run of `options` on `map` fields, as its mind is chosen (`DungeonRunOptions.mind`): the hero, the companions, then the enemies. */
+export function runParticipants(map: DungeonMap, options: Pick<DungeonRunOptions, "hero" | "companions" | "enemy">): Participant[] {
+  return [{ id: "hero", side: "party", model: heroOf(options) },
+    ...(options.companions ?? []).map((model, i): Participant => ({ id: `ally-${i}`, side: "party", model })),
+    ...map.spawns.map((_, i): Participant => ({ id: `enemy-${i}`, side: "enemy", model: enemyAt(map, options, i) }))];
+}
 /** Every model a run of `options` on `map` fields, each once: the party's, then the enemies'. */
 export function runModels(map: DungeonMap, options: Pick<DungeonRunOptions, "hero" | "companions" | "enemy">): BodyModel[] {
-  return [...new Set([heroOf(options), ...(options.companions ?? []), ...map.spawns.map((_, i) => enemyAt(map, options, i))])];
+  return [...new Set(runParticipants(map, options).map((participant) => participant.model))];
 }
 
 /** Who stands for each model in the party list and the target panel. */
