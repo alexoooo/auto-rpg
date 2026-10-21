@@ -8,6 +8,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { airOf, hearTouches } from "../src/audio/body-sounds.ts";
+import { substanceOf, voiceOf } from "../src/audio/cues.ts";
 import { centreOfToRef } from "../src/core/control/support.ts";
 import { hearRun } from "../src/dungeon/hearing.ts";
 import { cellKey, distance } from "../src/dungeon/map.ts";
@@ -132,7 +133,10 @@ test("a_body_built_on_the_way_is_heard_from_then_on_once_and_the_run_is_the_same
     const by = (key) => cues.filter((cue) => cue.key === key);
     assert.ok(by("hero:ground").length > 0 && by("enemy-0:ground").length > 0,
       `the fixture did not reach its case: ${by("hero:ground").length} of the hero's footfalls and ${by("enemy-0:ground").length} of the enemy's`);
-    assert.ok(by("enemy-0:ground").every((cue) => cue.kind === "bone"));
+    // A skeleton's footfalls are bone; what it holds, if it meets the floor, sounds as the item (`substanceOf`).
+    const voices = new Set([...enemy.fighter.built.segments.values()].map((segment) => voiceOf(substanceOf(enemy.fighter.built, segment), "stone")));
+    assert.ok(by("enemy-0:ground").some((cue) => cue.kind === "bone") && by("enemy-0:ground").every((cue) => voices.has(cue.kind)),
+      `the enemy's touches on the floor sound as ${[...new Set(by("enemy-0:ground").map((cue) => cue.kind))]}, its parts as ${[...voices]}`);
     // A listener left behind when the next is made would give each of its touches a second time.
     assert.equal(new Set(cues.map((cue) => JSON.stringify(cue))).size, cues.length, "no touch is heard twice");
     const ids = []; hearing.airs((id) => ids.push(id));

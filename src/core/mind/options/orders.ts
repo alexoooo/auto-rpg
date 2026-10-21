@@ -4,6 +4,7 @@ import type { StandingOption } from "./option.ts";
 import { exposed, type Terms } from "./value.ts";
 import type { Walker } from "./walk.ts";
 import type { ActionConfig } from "../config.ts";
+import { remainingOf } from "../movement.ts";
 import { regionSegments } from "../action-aim.ts";
 import { around } from "./strike.ts";
 import type { ActionRequest } from "../../skills/action.ts";
@@ -28,7 +29,8 @@ export function followOrders(walk: Pick<Walker, "pace">, actions: readonly Actio
     begin() {},
     end() {},
     models: { "hand-built": (now): Terms => {
-      const orders = now.orders!, kept = walk.pace(now) * AHEAD, followed = orders.move === null ? kept : Math.min(kept, now.sight.report.navigation?.remaining ?? Infinity);
+      const orders = now.orders!, kept = walk.pace(now) * AHEAD, view = now.sight.view;
+      const followed = orders.move ? Math.min(kept, remainingOf(orders.move, view.stance.centre, view.senses.others)) : kept;
       return { duration: AHEAD, dealt: 0, taken: now.danger + exposed(now, AHEAD), orders: followed, fall: 0 };
     } },
     step(now) {

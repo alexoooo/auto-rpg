@@ -1080,7 +1080,10 @@ observed poses. Local clearance is an alternative.
 Tactics retain facing, attack and obedience decisions. The navigator reports its unconsumed
 route, remaining distance, physical arrival, unreachable geometry, stalls and lost focus; action
 ownership and recovery hand-back pause or reset its progress clock. Its route and progress memory
-belong to the body's saved skill state. Locomotion continues to consume forward/right velocity.
+belong to the body's saved skill state. Its report is of the request it last walked, which may be
+a tactic's: how far an order has left to go is read from the order itself (`remainingOf`,
+`src/core/mind/movement.ts`), by follow orders' value and by a behaviour's destination condition.
+Locomotion continues to consume forward/right velocity.
 `src/core/tasks/navigation.ts` supplies shared physical conditions and independent arrival,
 range-holding, contact and fall scoring through the common task environment.
 

@@ -14,6 +14,7 @@ import type { ActionConfig, BehavioursConfig, ConditionConfig } from "./config.t
 import { conditionMatches } from "./conditions.ts";
 import { coveringHand } from "./cover-hand.ts";
 import type { Cover, Intent } from "./intent.ts";
+import { remainingOf } from "./movement.ts";
 import type { Orders } from "./orders.ts";
 import { orderedFacing, orderedIntent, RUN } from "./ordered.ts";
 import { bodyClearance, lowOpponent } from "./sensed-bounds.ts";
@@ -62,7 +63,7 @@ export function actionCondition(condition: ConditionConfig, sight: Sight, orders
     const since = sight.view.time - record.contacts.lastTarget;
     if (since >= 0) sinceTarget = Math.min(sinceTarget, since);
   }
-  return conditionMatches(condition, { walking: !!orders?.move, foe, destination: sight.report.navigation?.remaining ?? Infinity, targetDown: focus?.down ?? false, sinceTarget });
+  return conditionMatches(condition, { walking: !!orders?.move, foe, destination: orders?.move ? remainingOf(orders.move, sight.view.stance.centre, sight.view.senses.others) : Infinity, targetDown: focus?.down ?? false, sinceTarget });
 }
 /** Shared focus and candidate selection give every behaviour the same opponent and admission facts. */
 export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[], settings: Omit<BehavioursConfig, "kind">,
