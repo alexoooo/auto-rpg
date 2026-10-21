@@ -110,24 +110,28 @@ function placedDistance({ length, shoulder, toes }: Arm, stretch: number, up: nu
  * How far ahead of its head a body of `spec` stands a target `up` m over the head for `hand`'s
  * placed blow, m (`PLACED`, unless an experiment passes another).
  */
-export function placedReach(spec: BodySpec, hand: Side, up: number, placing: Placed = PLACED, aim = aimOf(spec, hand)): number {
+export function placedReach(spec: BodySpec, hand: Side, up: number, placing: Placed = PLACED, aim?: string): number {
   return placedDistance(aimedArm(spec, hand, aim), placing.stretch, up);
 }
 
-/** Each spec's arms with the points they strike with (`aimOf`), read once: a spec does not change, and a mind asks of it for every candidate blow. */
-const AIMED = new WeakMap<BodySpec, Map<string, Arm>>();
+/**
+ * Each spec's arms by hand and by the point they strike with, read once: a spec does not change,
+ * and a mind asks of it for every candidate blow, so a reading allocates nothing. The arm with
+ * the hand's own point (`aimOf`) is under `undefined`.
+ */
+const AIMED = new WeakMap<BodySpec, Record<Side, Map<string | undefined, Arm>>>();
 
-/** `hand`'s arm of `spec` with the point it strikes with (`armOf`, `aimOf`), read once a spec. */
-function aimedArm(spec: BodySpec, hand: Side, aim: string): Arm {
+/** `hand`'s arm of `spec` with the point `aim`, or the point it strikes with (`armOf`, `aimOf`), read once a spec. */
+function aimedArm(spec: BodySpec, hand: Side, aim: string | undefined): Arm {
   let arms = AIMED.get(spec);
-  if (!arms) AIMED.set(spec, arms = new Map());
-  const key = `${hand}/${aim}`, known = arms.get(key);
+  if (!arms) AIMED.set(spec, arms = { left: new Map(), right: new Map() });
+  const known = arms[hand].get(aim);
   if (known) return known;
-  const arm = armOf(spec, hand, aim); arms.set(key, arm); return arm;
+  const arm = armOf(spec, hand, aim ?? aimOf(spec, hand)); arms[hand].set(aim, arm); return arm;
 }
 
 /** Whether a level approach can put the hand's striking point at this height above the head. */
-export function placedHeightFits(spec: BodySpec, hand: Side, up: number, placing: Placed = PLACED, aim = aimOf(spec, hand)): boolean {
+export function placedHeightFits(spec: BodySpec, hand: Side, up: number, placing: Placed = PLACED, aim?: string): boolean {
   const arm = aimedArm(spec, hand, aim);
   return Math.abs(up - arm.shoulder[1]) <= arm.length * placing.stretch;
 }
