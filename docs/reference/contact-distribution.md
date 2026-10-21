@@ -1,42 +1,34 @@
 # Contact force redistribution
 
-`contactTracking` optionally accepts a positive `redistributionCost`. With it, the same bounded
-torque solve can redistribute ground forces among points on each contacted rigid body. Every
-redistribution preserves that body's total force and moment. These are predictions: the world
-still receives muscle commands only. The option is off in the existing measured tasks.
+What `contactTracking` (`src/core/control/contact-tracking.ts`) does with an optional positive
+`redistributionCost`: the same bounded torque solve may move ground force among the points on each
+contacted rigid body, keeping that body's total force and moment. The option is off in the measured
+tasks. Its rank and residual thresholds are numeric settings recorded here.
 
-For each contacted body, the controller constructs the six-row map from point forces to its
-wrench. Two-pass orthogonal projection produces the map's null space. The relative rank
-tolerance is 1e-10; projected unit vectors with norm at most 1e-10 are discarded before the
-second rank calculation. That absolute test prevents floating-point residue in a full-rank map
-from becoming a spurious force freedom.
+## Thresholds and the solve
 
-Null-space coordinates are normalized by the registered bodies' total weight. Their squared
-norm is penalized by the supplied cost. Muscle effort retains its existing objective and bounds;
-every selected point retains unilateral and inscribed-friction inequalities. The chosen final
-loads are checked against the friction circle. Failed solves command zero torque.
+- For each contacted body, the six-row map from point forces to its wrench; two-pass orthogonal
+  projection gives the map's null space.
+- **Relative wrench rank tolerance**: 1e-10. **Absolute unit-vector residual**: projected unit
+  vectors of norm 1e-10 or less are dropped before the second rank count, so roundoff in a
+  full-rank map does not become a spurious force freedom.
+- Null-space coordinates are normalized by the registered bodies' total weight and their squared
+  norm costs `redistributionCost`. Muscle effort keeps its objective and bounds; every point keeps
+  unilateral and inscribed-friction inequalities, and the final loads are checked against the
+  friction circle. A failed solve commands zero torque.
+- `pointSeparation` merges measured points nearer than the given distance on one body before the
+  prediction rows are built; zero, the default, keeps every point. Dynamic rise uses 1 mm:
+  overlapping colliders otherwise give near-coincident rows that pin rotation through an artificial
+  lever. It changes the prediction's geometry, never the physical contacts.
 
-An optional `pointSeparation` merges measured points closer than the supplied distance on the
-same rigid body before constructing prediction rows. Zero, the default, keeps every point.
-Dynamic rise uses 1 mm: overlapping colliders can otherwise supply almost coincident rows
-that constrain rotation through an artificial lever and make the reaction solve ill-conditioned.
-This changes the prediction's sampled geometry; it never changes physical manifolds or contacts.
-The compound-box regression keeps all four support corners while merging each collider's
-duplicate corner, and verifies that the physics snapshot and manifolds are unchanged.
+Only redistributions within each body's wrench are offered; those that change individual body
+loads while keeping the articulated system's acceleration are not. The implementation allocates.
 
-The independent test in `tests/core-contact-tracking.test.mjs` uses a physical box with four
-measured floor contacts (Node, Rapier, 120 Hz). An explicitly supplied affine reaction model has
-opposite corners in tension despite an admissible distribution with the same wrench. Without
-redistribution it rejects; with cost 1e-6 it accepts zero muscle torque, changes point forces,
-and preserves all six wrench components within 1e-10. No physics bytes change. The saved
-controller result also repeats after removing desired support and restoring the saved state.
-This is an isolated force-allocation test, not a demonstration of standing or recovery.
+## Measurement
 
-The restriction to each body's wrench omits redistributions that change individual body loads
-while preserving the articulated system's acceleration. Joint stops, changing contact modes,
-sliding, and contact acquisition remain unmodeled. A rejected solve is not an infeasibility
-certificate. The implementation allocates while rebuilding contact geometry and is experimental.
-
-```powershell
-node --test tests/core-contact-tracking.test.mjs
-```
+`node --test tests/core-contact-tracking.test.mjs` (Node, Rapier, 120 Hz): a box with four measured
+floor contacts and a supplied affine reaction model that puts opposite corners in tension. Without
+redistribution the solve rejects; at cost 1e-6 it accepts zero muscle torque, changes the point
+forces and keeps all six wrench components within 1e-10, with no physics bytes changed and exact
+controller replay. The compound-box case keeps all four support corners while merging each
+collider's duplicate corner, and leaves the snapshot and manifolds unchanged.

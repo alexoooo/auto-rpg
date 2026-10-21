@@ -1,62 +1,57 @@
 # Acquiring hand-and-shin support after a fall
 
-`control/support-entry.ts` is an optional independent pose-sequence policy hosted by
-`createPolicyBody`. Its configuration supplies joint targets, timed rolling/preparation poses,
-a reference frame, required and forbidden contacts, gains and retry limits. It receives detached
-observations and returns ordinary bounded velocity actions. No physics handle, root force,
-contact solver or fighter state reaches the policy. Other policies need not use its stages.
+The research task that fells a body and has an independent policy acquire and hold hand-and-shin
+support: `tasks/support-entry.ts` (its `SETTINGS`) and the acquisition settings `SUPPORT_ENTRY`
+(`src/core/mind/rise/support-recovery.ts`), both read from [Fixture and
+acceptance](#fixture-and-acceptance). Arena recovery uses the reference riser with a measured
+standing handover instead ([recovery cycle](recovery-cycle.md)).
 
-`tasks/support-entry.ts` supplies a physical fall and scores measured support independently.
-`supportEntryReading` is the shared orientation/contact predicate. It rejects head/trunk support
-even when all desired joint angles or hand/shin contacts have been reached. Entry begins from
-the actual fallen body; it does not require the support it is trying to restore.
+`control/support-entry.ts` is an optional pose-sequence policy hosted by `createPolicyBody`: joint
+targets, timed rolling and preparation poses, a reference frame, required and forbidden contacts,
+gains and retry limits; detached observations in, bounded velocity actions out. The task scores
+support independently through `supportEntryReading`, which rejects head or trunk support whatever
+the joint angles. Entry starts from the fallen body as it lies.
 
 ## Fixture and acceptance
 
-`SUPPORT_ENTRY` in `src/core/mind/rise/support-recovery.ts` owns the shared acquisition
-settings below. `supportEntryPolicy` constructs the research task's acquisition policy;
-fall and acceptance settings remain in the fixture. Arena recovery instead uses the reference
-riser with a measured standing handover ([record](recovery-cycle.md)). Acquiring this research
-pose does not yet provide a reliable transition into standing.
+Harness: Node core world and visible `/control-tasks.html`, 120 Hz, Rapier 0.21.0-auto-rpg.6 /
+adapter 7, corrected angular limits, directional bounds, 16 solver iterations, empty-handed
+Warrior, zero assistance. Patch and per-point friction are separate configurations. These are
+development task choices, not standing or handover criteria.
 
-Harness: Node core world and visible `/control-tasks.html`, 120 Hz, Rapier
-0.21.0-auto-rpg.6 / adapter 7, corrected angular limits, directional muscle bounds, native
-16 solver iterations, empty-handed Warrior, zero root and weapon assistance. Anatomical strength
-is unchanged. Patch and per-point friction are separately identified configurations.
+**The fall** (`SETTINGS`). A 20 by 1 by 20 m floor centred at `(0, -0.5, 0)` m. The fighter stands
+`standSeconds` 1 s, takes a horizontal impulse at the middle trunk of `impulsePerMass` 1.5 N s per
+kg of body mass, and runs until its fall bar is crossed or `fallSeconds` 3 s pass; the task then
+hands the body to the policy. Development directions are exact axes: forward, right, backward,
+left (world +z, +x, -z, -x).
 
-`SETTINGS` defines a 20 by 1 by 20 m floor centred at `(0, -0.5, 0)` m. The existing fighter
-stands for one second, receives a horizontal impulse at the middle trunk of 1.5 N s per kg
-of total body mass, and runs until its fall bar is crossed or three seconds elapse. The task
-then disposes that controller and gives the unchanged body to the independent policy.
-Four fixed development directions are forward, right, backward and left (world +z, +x, -z, -x).
-They are exact axis vectors. This floor and bootstrap differ from the older arena fall study;
-its figures do not transfer to this fixture.
+**The acquisition** (`SUPPORT_ENTRY`, also used by `supportEntryPolicy`):
 
-The policy waits for all segment centre velocities below 0.1 m/s for 0.5 s, with a three-second
-settling timeout. Pelvis forward y below -0.5 identifies front; above 0.5 identifies back;
-the reference left axis identifies the remaining side. Rotations are normalized for this
-reading. The existing `RISE.roll` poses turn a non-front body, followed by another settling
-wait. The first three `RISE.rise` poses (fold, tuck, prop) prepare support. Their anatomical
-targets are converted through each freedom's bind angle and clamped to its limits.
-The final joint targets come from the installed all-fours witness in
-[posture hold](posture-hold.md). All active stages use full activation, a 0.01 s response and
-10 rad/s speed cap, without changing muscle ceilings. An unsupported final pose retries
-after six seconds. These gains are development choices measured here and in the
-recovery study (`docs/analysis/2026-10-05-recovery-support.md@7f3ebcdb`).
+| Field | Value | Meaning |
+|---|---:|---|
+| `slow`, `stillSeconds` | 0.1 m/s, 0.5 s | settled: every segment centre slower than this, for this long |
+| `settleLimit` | 3 s | settling timeout |
+| `facing` | 0.5 | pelvis forward y below -0.5 is front, above 0.5 back; else the reference left axis gives the side |
+| `response`, `speed` | 0.01 s, 10 rad/s | every stage's joint response and speed cap, full activation |
+| `holdLimit` | 6 s | an unsupported final pose retries after this |
+| `required` / `forbidden` | hands and shanks / head and trunk segments | the contacts that count |
 
-Acceptance requires a real initial fall, pelvis facing down, positive fixed-ground contact
-on both hands and both shins, and no positive contact on head or any trunk segment. After
-two continuous seconds of this support with all segment centres slower than 0.1 m/s, the
-task captures segment origins. It then requires ten uninterrupted seconds of support with
-maximum drift no greater than 2 cm, zero assistance and directional delivered-effort excess
-no greater than 0.0001 N m. The forty-second watch begins **after** the physical bootstrap.
-Late acquisition, excess drift and support loss remain failures. These are development
-task criteria, not standing or useful-control handover criteria.
+`RISE.roll` poses turn a non-front body, then it settles again; the first three `RISE.rise` poses
+(fold, tuck, prop) prepare support, converted through each freedom's bind angle and clamped. The
+final targets are the installed all-fours witness of [posture hold](posture-hold.md). The gains
+were chosen in the recovery study (`docs/analysis/2026-10-05-recovery-support.md@7f3ebcdb`).
+
+**Acceptance** (`SETTINGS`). A real fall; pelvis facing down; positive fixed-ground contact on both
+hands and both shins and none on head or trunk. After `acquireSeconds` 2 s of that support with
+every segment slower than 0.1 m/s, segment origins are captured; then `continueSeconds` 10 s of
+unbroken support with drift at most `tolerance` 0.02 m, zero assistance and effort excess at most
+`effortTolerance` 0.0001 N m. The `seconds` 40 s watch starts after the fall; late acquisition,
+drift and lost support fail.
 
 ## Measurements
 
-Node core world, 120 Hz. Acquisition time starts after the fall bootstrap. Drift is measured
-from the first accepted quiet-support frame and includes every subsequent step.
+Node core world, 120 Hz. Acquisition time starts after the fall; drift is from the first accepted
+quiet-support frame through every later step.
 
 | Friction | Shove | Acquisition (s) | Hold observed (s) | Maximum drift (m) | Pass |
 |---|---|---:|---:|---:|---|
@@ -69,15 +64,12 @@ from the first accepted quiet-support frame and includes every subsequent step.
 | Per-point | Backward | 13.5167 | 10 | 0.004385 | Yes |
 | Per-point | Left | 13.3333 | 10 | 0.016067 | Yes |
 
-All eight acquire support and replay exactly from two seconds after bootstrap. Five pass
-the full hold gate. Maximum measured effort excess stays below 0.0001 N m in all eight.
-Each profile also reports eight unsupported Rogue/skeleton cells. These selected directions
-are not a distributional recovery estimate; held-out data remains unused. The skeleton's
-anatomy remains a placeholder. Full manifests, configurations, traces and results are in
-[support-entry.json](support-entry.json).
+All eight acquire support and replay exactly from two seconds after the fall; five pass the hold.
+Effort excess stays below 0.0001 N m. Rogue and skeleton cells are reported unsupported. Manifests,
+configurations, traces and results: [support-entry.json](support-entry.json).
 
-Visible browser trials reproduce the complete Node outcome and replay trace from the
-two-second checkpoint, including the failing cell:
+Visible browser trials reproduce the Node outcome and replay trace from the two-second checkpoint,
+the failing cell included:
 
 | Profile / direction | Observation SHA256 |
 |---|---|
@@ -85,20 +77,17 @@ two-second checkpoint, including the failing cell:
 | Per-point / right | `2670054a185205aa5f8c66e0bb1a560f112b552ac48a2a5bda44bc075f48be04` |
 | Patch / right | `f52683849119f7469c97c368cef3377a9235d703963a9dd9fdba252176f3f8ba` |
 
-The predicate test fails when forbidden head/trunk contacts are ignored. Physical tests
-cover all four per-point directions, a passing patch-friction direction, exact checkpoint
-replay and the failed cell's full forty-second watch through the worker runner.
-
-Reproduce with `CORE_ENGINE=rapier-coordinate` or `rapier-coordinate-coulomb`:
-
 ```powershell
+# CORE_ENGINE=rapier-coordinate or rapier-coordinate-coulomb
 node research/control-foundation.mjs --suite support-entry --split development --actuation directional --workers 2
 ```
 
-The common runner measures its watch relative to the task's initial world clock, preserving
-bootstrap time in observations and snapshots. It refuses joint-stop prediction settings for
-this direct policy. Parallel timings are diagnostic, not a quiet-machine capacity figure.
+The runner times its watch from the task's initial clock, keeping the fall in observations and
+snapshots, and refuses joint-stop prediction for this policy. The predicate test fails if forbidden
+contacts are ignored; physical tests cover the four per-point directions, a passing patch direction,
+checkpoint replay and the failed cell's full watch.
 
-Generalization to other falls, loads and bodies remains open. The next physical gate is moving
-the centre and releasing hand support while retaining balance. Replaying the old timed kneel
-poses after the demonstrated hold still collapses; faster joint feedback alone does not fix it.
+## Tried and not kept
+
+- Replaying the old timed kneel poses after the demonstrated hold: the body still collapses; faster
+  joint feedback alone does not fix it.

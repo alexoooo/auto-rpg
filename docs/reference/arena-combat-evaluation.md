@@ -1,12 +1,16 @@
 # Arena combat evaluation
 
-`research/arena-combat.mjs` runs autonomous bouts through `Duel` and `World.step`, using the
-actual gameplay default (`rapier-coordinate`), at 120 Hz. The initial scope is two unarmed
-Warriors, symmetric sourced muscles, zero balance and unchanged injury rules. Both comparison
-policies receive recovery in continuing bouts: Classic uses staged recovery; Point uses its
-support-verified recovery. The engine revision and full recipe are stored in every row.
+How autonomous Arena bouts are scored against named opponents, and the readings behind the body
+targeting `BODY_OPENINGS` gives the Scrapper (`SCRAPPER`, `src/core/mind/config.ts`). The
+evaluator is `research/arena-combat.mjs`; the runner `research/arena-combat-run.mjs`; the league
+`research/arena-combat-league.mjs`.
 
-The protocol freezes these measurement choices before controller tuning:
+## The protocol
+
+Bouts run through `Duel` and `World.step` on the gameplay engine (`rapier-coordinate`) at 120 Hz:
+unarmed Warriors, symmetric sourced muscles, zero balance, unchanged injury rules, and continuing
+bouts with each policy's own recovery. Every row stores the engine revision and the full recipe.
+The measurement choices are fixed before any controller tuning:
 
 | Choice | Value | Purpose |
 |---|---:|---|
@@ -14,59 +18,56 @@ The protocol freezes these measurement choices before controller tuning:
 | Hand motion relative to own COM along the contact normal | at least 0.5 m/s toward the other surface | Exclude tangential motion, retraction and body translation without a stroke |
 | Pressure-only episode | at least 2 s | Report prolonged touching without a driven blow |
 | Startup exclusion for blow accounting | 2 s | Exclude initial settling |
-| Low-target diagnostic | opposing head below 0.8 m, or opposing body down | Identify contacts against grounded/rising opponents in the Warrior arena |
-| Competitive cap | 60 s | Fixed exposure for initial evaluations |
+| Low-target diagnostic | opposing head below 0.8 m, or opposing body down | Identify contacts against grounded or rising opponents |
+| Competitive cap | 60 s | Fixed exposure |
 
-Driven credit requires the command host to have an active `swing` for the colliding hand,
-while it is not down. The evaluator samples physical point velocity before the physics step.
-It subtracts own COM velocity and tests the signed normal component, independently for each
-side of the core's symmetric blow. Hand/forearm interceptions are reported as blocks.
-All other damage remains visible as incidental damage; every wound received is also recorded.
-Damage sums use actual hit points taken by wound records, not nominal requested damage.
-This classification is evaluation data, never hit authority or an addition of a striker to
-the injury rules. It measures commanded closing contacts, not muscle work or perfect aim.
+- **Driven credit** needs the command host to have an active `swing` for the colliding hand while
+  it is not down. The evaluator samples the point's velocity before the physics step, subtracts
+  its own centre of mass's, and tests the signed normal component, for each side of the core's
+  symmetric blow. Hand and forearm interceptions are blocks; all other damage is incidental, and
+  every wound received is recorded. Damage is actual hit points taken by wound records. The
+  classification is evaluation data, never hit authority: it measures commanded closing contacts,
+  not muscle work or aim.
+- **Exposure** includes host and recovery phases, falls and returns upright, time down, hand
+  pressure, longest continuous pressure, pressure-only episodes, driven and block contacts, driven
+  damage each way, incidental damage and total wounds. Self-contact and fixed-world contact are
+  not opponent pressure.
+- **Conditions** (`combatPairs`) vary starting gap, sense delay and ordinary facing orders with
+  different release times; mirrors exchange policy sides and the ordered side. Development and
+  held-out sets come from separate fixed generators, checked for complete recipe and order
+  uniqueness and split separation. Repeating a deterministic bout adds no evidence.
+- **Ratings**: each mirrored pair is one unit. A rating reports win score (draw 0.5), a Wilson
+  interval on the pair count, and relative Elo `400 log10(score / (1 - score))` against that named
+  opponent; a perfect score has no finite Elo, only its score interval. Injury wins and wins at
+  the cap are counted apart: a small health lead at the cap does not show stronger striking.
 
-Exposure includes host/recovery phases, actual falls and returns upright, time down, hand
-pressure, longest continuous pressure, pressure-only episodes, driven contacts, block contacts,
-driven damage dealt, damage to the striking side, incidental damage and total wounds received.
-The complete bout fixture reproduces Point's sustained pressure without giving it clean-strike
-credit. Self-contact and fixed-world contact do not enter opponent-pressure exposure.
-
-`combatPairs` constructs distinct conditions by varying starting gap, sense delay, and ordinary
-facing orders with different release times. Mirrors exchange policy sides and the ordered side.
-Development and held-out distributions use separate fixed generators. A label alone is not a
-condition; tests check complete recipe/order uniqueness and split separation. Repeating an
-unchanged deterministic bout does not add evidence.
-
-Each mirrored pair is one uncertainty unit. Ratings report win score (draw = 0.5), a Wilson
-interval using the pair count as conservative effective sample size, and relative Elo
-`400 log10(score / (1 - score))` against that named opponent. Perfect scores have no finite
-point Elo; their score interval remains available. These are relative opponent comparisons,
-not an externally calibrated league rating. Injury wins and wins decided at the cap are
-separate counts. A small health advantage at the cap does not establish stronger striking.
-
-`research/arena-combat-run.mjs` uses worker threads, one sequential physics loop in each,
-and checkpoints complete plain trial rows. Failed trials abort rating publication. Source
-fingerprints are checked before/after every trial and before publication; changing implementation
-during a run invalidates it. Results are under ignored `research/runs/` until a measured table
-is selected for a durable reference record.
+## Measurement
 
 ```powershell
 node --test tests/arena-combat.test.mjs
 node research/arena-combat-run.mjs --candidate point --opponent classic --pairs 8 --split development --workers 2
-node research/arena-combat-run.mjs --candidate .tools/candidate.json --opponent point --pairs 100 --split heldout --workers 2 --output research/runs/heldout-point.json
+node research/arena-combat-run.mjs --candidate scrapper --opponent brawler --pairs 100 --split heldout --workers 2 --output research/runs/scrapper.json --resume
+node research/arena-combat-league.mjs research/runs/scrapper.json --output research/runs/league.json
 ```
 
-The short development command is a diagnostic, not a promotion result. Promotion still requires
-the physical strike/return gates, useful autonomous combat, defense checks, and held-out paired
-wins specified by the active combat plan. Broader model/equipment claims require their own rows.
+The runner uses worker threads, one sequential physics loop each, and writes a version-2
+checkpoint (the frozen job manifest, source fingerprint, successful rows and failed-trial history)
+through a temporary file and rename. The source fingerprint is checked around every trial, and a
+change refuses continuation. `--resume` validates source, manifest and job metadata and runs only
+missing trials; a failed simulation is retried, never scored, and a lost worker leaves its job
+pending. The league separates source-fingerprint seasons and policy, body, loadout, assist, rule
+and engine strata, counts identical deterministic mirrors once, refuses a partly duplicated pair,
+and publishes per-opponent paired win score, Wilson interval, pairwise Elo, endings and driven
+damage rates with the mean and standard error of paired damage-rate differences. It never pools
+unlike opponents into one Elo.
+
+Every table below is the Node Arena Duel, `rapier-coordinate`, 120 Hz, Warrior fists, balance
+0/0, continuing recovery.
 
 ## Corrected gameplay baseline
 
-Six autonomous 30 s Node Arena Duel probes, Rapier coordinate-gradient gameplay profile,
-120 Hz, Warrior/Warrior, empty hands, balance 0/0, continuing recovery. These are diagnostic
-fixtures, not six independent rating samples. Counts and damage exclude the first 2 s; pressure
-exposure includes the whole bout. Damage is actual hit points taken.
+Six 30 s diagnostic probes, not rating samples. Counts and damage exclude the first 2 s; pressure
+covers the whole bout.
 
 | Policies (left/right) | Start gap (m) | Driven contacts L/R | Driven damage L/R (hp) | Pressure L/R (s) | Falls L/R |
 |---|---:|---:|---:|---:|---:|
@@ -77,105 +78,50 @@ exposure includes the whole bout. Damage is actual hit points taken.
 | classic/point | 4 | 12/2 | 0.05678/0.00233 | 14.58/17.27 | 0/0 |
 | classic/classic | 4 | 0/0 | 0.00000/0.00000 | 8.45/11.08 | 1/1 |
 
-The three Point self-play probes spend 22?25 s touching. Their few driven blows do little
-damage. Classic produces faster occasional blows in mixed bouts, but Classic self-play falls
-and spends the remainder attempting recovery. Correcting joint limits alone does not solve
-combat. This baseline supports testing chamber space, reliable launch speed and recovery under
-pressure before interpreting any win score as effective fighting.
+Point self-play spends 22-25 s touching, with few, weak driven blows. Classic lands faster
+occasional blows in mixed bouts, but in self-play it falls and spends the rest recovering.
+Corrected joint limits alone do not make combat: chamber space, reliable launch speed and recovery
+under pressure come first.
 
 ## Body-targeting held-out evaluation
 
-Frozen implementation `75e239d2`, Node Arena Duel, `rapier-coordinate`, 120 Hz,
-Warrior/Warrior, empty hands, balance 0/0, continuing recovery and 60 s cap. Each
-opponent has 100 distinct held-out recipes and their mirrors (200 bouts): variable
-gap 1.2?6 m, sense delay 0?12 steps, and a seeded short initial ordinary facing order.
-The source fingerprint, complete recipes/configs and tapes are retained in
-[combat-body-heldout.json](combat-body-heldout.json), with independent per-opponent
-paired ratings in [combat-body-heldout-ratings.json](combat-body-heldout-ratings.json).
-The frozen checkout ran six sequential worker queues in 1,680.254 wall-clock seconds.
+`BODY_OPENINGS` (`head: 0.3, upperTrunk: 0, middleTrunk: 0`) is the opening preference of this
+held-out candidate, frozen at `75e239d2`: `{kind:'arena-fighter', hand:'alternate',
+targeting:'openings', repertoire:'mixed', openings:{head:0.3, upperTrunk:0, middleTrunk:0}}`, with
+no low-combat transition. The Scrapper (`SCRAPPER`) uses it with mixed strikes standing, as does
+the Brawler (`BRAWLER`, `tests/fixtures/minds.mjs`). The comparison Combat is the linear opening
+controller; Classic uses staged recovery and Point tracked engagement.
 
-The candidate is `{kind:'arena-fighter',hand:'alternate',targeting:'openings',
-repertoire:'mixed',openings:{head:0.3,upperTrunk:0,middleTrunk:0}}`. No low-combat
-transition is enabled in this retained candidate. The comparison Combat is the linear
-opening controller; Classic attempts staged recovery and Point uses tracked engagement.
+Each opponent meets 100 distinct held-out recipes and their mirrors (200 bouts): gap 1.2-6 m,
+sense delay 0-12 steps, a seeded short initial facing order, 60 s cap. Recipes, configs, tapes and
+the source fingerprint are [combat-body-heldout.json](combat-body-heldout.json); per-opponent
+paired ratings [combat-body-heldout-ratings.json](combat-body-heldout-ratings.json). Six worker
+queues took 1,680 s.
 
 | Opponent | Wins / 200 | Paired score, 95% interval | Relative Elo, 95% interval | Candidate/opponent falls | Mean driven damage candidate/opponent, hp per 60 s |
 | --- | ---: | --- | --- | ---: | ---: |
 | Classic | 192 | 0.960 [0.902, 0.984] | +552 [+385, +719] | 39 / 44 | 0.514 / 0.091 |
-| Point | 200 | 1.000 [0.963, 1.000] | unbounded point estimate; lower bound +566 | 0 / 0 | 1.004 / 0.040 |
+| Point | 200 | 1.000 [0.963, 1.000] | unbounded; lower bound +566 | 0 / 0 | 1.004 / 0.040 |
 | Linear Combat | 199 | 0.995 [0.954, 0.999] | +920 [+526, +1,313] | 1 / 2 | 0.931 / 0.344 |
 
-All 591 candidate wins end at the cap; none is an ordinary-wound finish. These are
-relative estimates against each named opponent, not calibrated league ratings. The
-Point result establishes substantially better target contact and health advantage;
-finishing power is unresolved. Fall counts include all falls and do not assign their
-cause. The Classic row requires recovery/pressure investigation. These results do
-not establish armed or other-body performance, a browser cost budget, or promotion
-against the decisive-combat proposal.
+All 591 wins come at the cap; none is a wound finish, so the preference buys target contact and a
+health lead, not finishing power. It does not meet the proposed majority-before-cap finishing
+gate, and the scope is Warrior empty hands only.
 
-The Brawler (`BRAWLER`, `tests/fixtures/minds.mjs`) uses this exact target preference
-(`BODY_OPENINGS`) and mixed strikes, as the Arena's Scrapper does standing (`SCRAPPER`). The
-measured scope is Warrior empty hands; this exposure does not meet the proposed
-majority-before-cap finishing gate or validate other equipment and anatomy.
+A 30 s Brawler self-play bout records 16/19 driven blows and 0.269/0.415 driven HP out, guard contacts included, both sides
+standing, and a longest pressure-only interval of 0.467 s. Six 60 s held-out bouts (the first
+mirrored recipe against each opponent) replay with records equal to the retained ones.
 
-## Built Brawler exposure and cost
-
-The Brawler uses the exact body-targeting held-out candidate, while Combat retains its earlier
-configuration. A 30-second Node
-ArenaDuel self-play test at 120 Hz, gameplay Rapier coordinate limits, empty-handed Warriors,
-zero/zero balance and continuing recovery records 16/19 driven blows and 0.269/0.415 driven
-outgoing HP, including guard contacts. Both sides remain standing; the longest pressure-only
-interval is 0.467 seconds. This test checks the selectable recipe through the actual bout.
-
-Six complete 60-second held-out results (the first mirrored recipe against each of Classic,
-Point and linear Combat) are replayed on the exposure revision. Their entire accounting
-records equal the retained records exactly. This is a sample replay check, not a new 600-bout
-measurement or validation of additional body/loadout strata.
-
-The built page at `?play=arena&matchup=workshop-fighter,workshop-fighter&control=brawler&held=empty&balance=0&cap=60&measure=1`
-is inspected with both controller selectors, fists, ordinary attack/return movement and the
-continuing-recovery choice visible. The optional DOM timing output observes 500 active frames,
-5,921 physics steps at 120 Hz and 49.342 simulated seconds after the first two seconds.
-Mean physics cost is 2.487 ms/step; the 95th percentile of per-frame batch means is 3.133 ms/step.
-Whole-frame CPU median/p95 are 31.8/40.3 ms, including physics and the scene render call.
-
-The controlled browser reports visible but delivers frames at roughly 1 Hz (median 1,011.8 ms).
-The page advances at most 12 steps per delivered frame, so simulated/real time is 0.0993.
-These observations do not establish a foreground 60 Hz frame budget or GPU cost; the step
-percentile describes batch means, not individual steps. Foreground cost and optimization remain
-open. Timing is passive screen instrumentation and changes no bout state. The owned preview
-server and browser tab are stopped after inspection.
-
-## Resumable evaluation and retained league
-
-`research/arena-combat-run.mjs` writes a version-2 checkpoint with the entire frozen job
-manifest, source fingerprint, successful rows and separate failed-trial history. Each write
-uses a sibling temporary file and rename. `--resume` validates the source, manifest and whole
-job metadata, then runs only missing trials. A failed simulation is retried and never scored
-as a draw or loss. A worker lost without a returned result leaves its job pending. Source
-changes refuse continuation. Completed records retain actual results across fresh workers.
-
-```powershell
-node research/arena-combat-run.mjs --candidate scrapper --opponent brawler --pairs 100 --split heldout --workers 2 --output research/runs/scrapper.json --resume
-node research/arena-combat-league.mjs research/runs/scrapper.json --output research/runs/league.json
-```
-
-The league separates source-fingerprint seasons and policy/body/loadout/assist/rule/engine
-strata. It publishes paired win score, Wilson interval, pairwise Elo, actual ending counts,
-driven damage rates and the mean/standard error of paired damage-rate differences. It
-counts identical deterministic recipe/tape mirrors once, rejects a partially duplicated pair,
-and does not turn a heterogeneous opponent pool into one uncalibrated Elo rating. Complete
-physical runs from the earlier runner remain readable; they are validated and separated by
-source identity. This is an offline evaluation workflow over the same Arena world, with no
-planning simulation inside the gameplay control step.
+On the built page (`?play=arena&matchup=workshop-fighter,workshop-fighter&control=brawler&held=empty&balance=0&cap=60&measure=1`)
+the DOM timing read 5,921 physics steps over 500 frames at a mean of 2.487 ms a step (p95 of frame
+batch means 3.133 ms) and whole frames at 31.8/40.3 ms median/p95. The browser delivered frames
+at about 1 Hz, 12 steps each, so this is no foreground 60 Hz budget or GPU cost.
 
 ## Spacing and punch-speed development
 
-Node Arena Duel, rapier-coordinate, 120 Hz, unarmed Warriors, balance 0/0 and continuing
-recovery. Each profile receives the same eight distinct development recipes against retained
-Brawler, with both assignments and a 60 s cap. The code is frozen at `b4b3cccf`; full rows and
-source fingerprint are in `combat-spacing-development.json`. All results are cap outcomes.
-No profile in this matrix lands a low driven blow; it tests standing combat.
+Eight development recipes against the Brawler, both assignments, frozen at `b4b3cccf`; rows and
+fingerprint in `combat-spacing-development.json`. Every result is at the cap, and no profile lands
+a low driven blow.
 
 | Scrapper variant | Wins / 16 | Paired score, 95% interval | Pairwise Elo, 95% interval | Driven damage / received driven damage (HP) | Candidate/opponent falls |
 |---|---:|---|---|---:|---:|
@@ -184,24 +130,16 @@ No profile in this matrix lands a low driven blow; it tests standing combat.
 | Additional spacing 0.10 m | 14 | 0.875 [0.529, 0.978] | +338.0 [+20.3, +655.8] | 16.688 / 9.626 | 0/0 |
 | Both changes | 13 | 0.813 [0.467, 0.955] | +254.7 [-23.1, +532.6] | 16.382 / 8.421 | 2/2 |
 
-The spacing-only candidate improves driven damage about 35% over reference Scrapper in this
-small search. Its paired damage advantage over Brawler is 0.007356 HP/s, standard error
-0.002045 HP/s. Larger spacing plausibly improves extension and exposure, but joint/contact
-measurements have not established that mechanism. No strength, muscle speed, damage rule or
-assist ceiling changes. These eight pairs select a candidate; they are not a promotion sample.
-
-The candidate is frozen for 100 fresh held-out recipe pairs per retained Classic, Point and
-Brawler opponent, using held-out indices 100-199, which exclude the earlier 0-99 evaluation.
-The complete results are below. Finishing power and fall safety remain open.
+The 0.10 m spacing raises driven damage about 35 % over the reference, a paired advantage over the
+Brawler of 0.007356 HP/s (standard error 0.002045). That more room improves extension is
+plausible but not measured. No strength, speed, damage rule or assist changes. Eight pairs select
+a candidate; they are not a held-out sample.
 
 ## Spacing candidate held-out evaluation
 
-`combat-spacing-heldout.json` retains all 600 frozen trials at source `b4b3cccf`;
-`combat-spacing-rating.json` retains separate opponent ratings. Node Arena Duel,
-rapier-coordinate, 120 Hz, Warrior fists, balance 0/0, continuing recovery and 60 s caps.
-Each opponent receives 100 distinct recipe pairs, with both assignments, at fresh
-held-out-family indices 100-199. Candidate spacing is +0.10 m; the retained 5 m/s
-request, body targets and ordinary muscles/damage rules are unchanged.
+The +0.10 m candidate (5 m/s request, body targets, muscles and damage rules unchanged) against
+100 fresh held-out pairs an opponent (indices 100-199, apart from the earlier 0-99), at
+`b4b3cccf`: 600 trials in `combat-spacing-heldout.json`, ratings in `combat-spacing-rating.json`.
 
 | Opponent | Wins / 200 | Paired score, 95% interval | Pairwise Elo, 95% interval | Driven / received driven HP per second | Candidate/opponent falls | Low driven blows |
 |---|---:|---|---|---:|---:|---:|
@@ -209,37 +147,24 @@ request, body targets and ordinary muscles/damage rules are unchanged.
 | Point | 196 | 0.980 [0.930,0.994] | +676 [+449,+903] | 0.003333 / 0.000024 | 0/0 | 0 |
 | Brawler | 185 | 0.925 [0.856,0.962] | +436 [+310,+563] | 0.019694 / 0.010044 | 4/5 | 3 |
 
-Every outcome is at the cap; no win establishes ordinary-wound incapacitation. The
-candidate passes the proposed win-score/uncertainty gate against all three opponents.
-Its paired damage-rate advantage over Brawler is 0.009651 HP/s, standard error
-0.000427 HP/s. These are pairwise comparisons, not one rating averaged across unlike
-opponents. The Classic stratum exposes falls and grounded interactions that the
-controlled low fixtures do not cover. A fall count alone does not identify its cause;
-phase/contact audits and matched ground-mode ablations are needed before attributing
-it to the low policy. Earlier held-out indices cannot supply that matched comparison.
-The candidate is not promoted while finishing power and fall safety remain unresolved.
+Every outcome is at the cap. The candidate passes the proposed win-score and interval gate against
+all three, with a paired damage-rate advantage over the Brawler of 0.009651 HP/s (standard error
+0.000427); finishing power and fall safety are not met. The Classic stratum shows falls and
+grounded exchanges the controlled low fixtures do not cover.
 
-The first four passive Node Arena audits replay retained Classic cases 101/right,
-102/left, 105/right and 107/right at 120 Hz, rapier-coordinate, Warrior fists and
-balance 0/0. Their complete event snapshots are in `combat-fall-audit.json`. Falls
-begin at 57.475, 36.308, 36.375 and 50.358 s respectively: a low wait/approach with
-a shank touching the foe's forearm, low approach, return from a supported fold, and
-ordinary escape with low combat inactive. No new blow is recorded in the preceding
-0.20 s of these snapshots. This limited event timing does not establish an unforced
-cause or prove the low controller caused every fall. The four complete snapshot
-records repeat exactly under the current optional-feature code with those features
-disabled. The matched low-enabled/disabled development comparison below tests this
-attribution without classifying every fall as self-caused.
+Four passive audits of Classic cases 101/right, 102/left, 105/right and 107/right
+(`combat-fall-audit.json`) find falls beginning at 57.475, 36.308, 36.375 and 50.358 s: a low
+wait and approach with a shank touching the foe's forearm, a low approach, a return from a
+supported fold, and an ordinary escape with low combat inactive. No blow lands in the 0.20 s
+before any of them, which does not establish an unforced cause. The snapshots replay exactly with
+the optional features disabled.
 
 ## Matched combinations and low-mode development
 
-`combat-combination-development.json` retains 96 frozen bouts at source `8ced3e48`,
-with the whole job manifest, physical rows and separate ratings. Node Arena Duel,
-rapier-coordinate, 120 Hz, Warrior fists, balance 0/0, continuing recovery, 60 s caps.
-Eight mirrored development recipes (indices 8-15) per setting compare optional
-combinations against Brawler and Point. Eight previously evaluated held-out-family
-recipes (100-107) compare low-mode enablement against Classic; these reused cases
-are development ablations, not fresh promotion evidence. All profiles add 0.10 m spacing.
+96 bouts at `8ced3e48` in `combat-combination-development.json` (job manifest, rows, ratings), all
+with the 0.10 m spacing and 60 s caps. Eight mirrored development recipes (indices 8-15) compare
+optional combinations against the Brawler and Point; eight reused held-out-family recipes
+(100-107) compare low mode on and off against Classic, as a development ablation.
 
 | Opponent | Setting | Wins/draws/losses / 16 | Driven/received driven HP per second | Candidate/opponent falls | Low driven blows |
 |---|---|---:|---:|---:|---:|
@@ -250,10 +175,8 @@ are development ablations, not fresh promotion evidence. All profiles add 0.10 m
 | Classic | Low mode enabled | 15/0/1 | 0.003239 / 0.000091 | 5/15 | 9 |
 | Classic | Low mode disabled | 15/0/1 | 0.003012 / 0.000091 | 10/16 | 3 |
 
-All outcomes end at the cap. Combinations change Brawler damage advantage little
-and reduce outgoing Point damage in this sample; they remain optional. Low mode
-reduces candidate falls and adds low blows in these matched recipes. Its disabled
-variant still runs ordinary surface selection against low heads/bodies; it is not
-a passive-wait control. The result rejects attributing all falls to the dedicated
-low policy, but establishes neither universal low-combat safety nor a causal
-classification of individual falls. Finishing power and fall prevention remain open.
+Every outcome is at the cap. Combinations change the Brawler damage advantage little and lower
+outgoing damage against Point, so they stay optional. Low mode halves the candidate's falls and
+adds low blows; its disabled variant still selects surfaces on low heads and bodies, so it is no
+passive-wait control. The falls are not all the low policy's, and neither low-combat safety nor a
+cause for each fall is shown.

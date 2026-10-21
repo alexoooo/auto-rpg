@@ -1,50 +1,38 @@
 # CCD against a moving thin defense
 
-Harness: Node, NullEngine scene, core World, vendored Rapier `.2`, adapter 2, no gravity or
-assists. `src/core/tasks/collision.ts` builds the same fixture for tests and the common runner.
-These are numerical collision probes, not anatomical weapons, controllers or combat scores.
+Whether moving-body continuous collision detection catches a fast bar against a thin moving
+defense. `src/core/tasks/collision.ts` builds the fixture for tests and the common runner; the
+engine contract's CCD option (`src/core/engine/engine.ts`) cites the engine's default behaviour
+recorded here. The numbers are engineering stress inputs, not weapons, controllers or scores.
 
 ## Construction and controls
 
-The free bar has mass 1 kg, centre at its origin, moments `[0.09, 0.0001125, 0.09]` kg m²,
-and one capsule from `[0, -0.5, 0]` to `[0, 0.5, 0]` m with radius 0.015 m. The free defense
-is a 10 kg box, size `[0.01, 0.02, 1]` m, with the uniform box's principal moments. It starts
-at `[0.4, height, 0]` m with velocity `[-1, 0, 0]` m/s. Both start unrotated.
+- **Bar**: 1 kg, centre at its origin, moments `[0.09, 0.0001125, 0.09]` kg m², one capsule from
+  `[0, -0.5, 0]` to `[0, 0.5, 0]` m, radius 0.015 m. Its inertia is supplied apart from the
+  massless collider; it does not claim to be a uniform rod.
+- **Defense**: a free 10 kg box `[0.01, 0.02, 1]` m with the uniform box's moments, at
+  `[0.4, height, 0]` m moving `[-1, 0, 0]` m/s. Its narrow face lets a collision fall between two
+  sampled poses.
+- **Motions**: `linear`, a central impulse giving the bar 120 m/s along x; `rotate`, an angular
+  impulse giving 80 rad/s about z. Nothing acts afterward; a trial watches 5/120 s.
+- The seed moves the defense's height about 0.25 m by at most 0.002 m. The same starts run with
+  the bar's CCD off and on; the defense's stays off, and no collision group excludes the pair.
 
-These dimensions and inertias are engineering stress-fixture inputs. The bar's supplied inertia
-is independent of its massless collider. There is no claim that it describes a solid uniform rod.
-The defense's very narrow face makes a collision possible between consecutive sampled poses.
+The pinned engine sweeps fast dynamic bodies against fixed colliders by default; the CCD flag adds
+dynamic and kinematic targets (native `src/dynamics/rigid_body.rs`, `enable_ccd`,
+`is_ccd_enabled`; `rigid_body_components.rs`, `RigidBodyCcd`). A fixed wall gives the same clamped
+motion with either flag, so it cannot test a moving defense.
 
-In `linear`, an initial central impulse gives the bar 120 m/s along x. In `rotate`, an initial
-angular impulse gives 80 rad/s about z. No force or controller acts afterward. A trial watches
-5/120 s. The seed changes defense height around 0.25 m by at most 0.002 m, using the common
-runner's deterministic fraction. The same starts run with the bar's moving-body CCD false/true;
-the defense's flag remains false. No collision-group exclusion removes their pair.
-
-The pinned engine automatically sweeps sufficiently fast dynamic bodies against fixed colliders.
-Its explicit CCD flag adds dynamic/kinematic targets. This is stated in the pinned native
-`src/dynamics/rigid_body.rs` (`enable_ccd`, `is_ccd_enabled`) and
-`rigid_body_components.rs` (`RigidBodyCcd`), and a fixed-wall probe gives the same clamped
-motion with either flag. A fixed-wall-only experiment cannot validate moving-defense coverage.
-
-`PhysicsWorld.addBody` accepts immutable construction option `{ ccd: true }`, and separate
-equipment forwards its `ccd` configuration. The default remains false for compatibility.
-The equipment test launches a sourced wooden club at a moving defense to check the whole path.
+`PhysicsWorld.addBody` takes `{ ccd: true }` at construction, and separate equipment forwards its
+`ccd` configuration; the default is off. `tests/core-equipment.test.mjs` launches the wooden club
+at a moving defense through that path.
 
 ## Recorded results
 
-Reproduce with:
-
-```powershell
-node research/control-foundation.mjs --suite ccd --actuation directional --samples 2 --workers 2 --out research/runs/control-foundation/ccd-120
-node research/control-foundation.mjs --suite ccd --actuation directional --samples 2 --hz 480 --workers 2 --out research/runs/control-foundation/ccd-480
-```
-
-Both runs use source content hash
+Node, NullEngine scene, core World, vendored Rapier `.2`, adapter 2, no gravity or assists;
+development seeds 0 and 1; source content hash
 `a8dbcbababe7e25be25462745ea0f358e0d944a161e4c59fbc7a5352073e3d3e`.
-[The durable results](collision-ccd.json) contain manifests and every sampled pose/velocity/contact
-row. Each run also archives its source under the manifest's hash. Development seeds 0 and 1
-are used; no held-out seeds were consumed.
+[The records](collision-ccd.json) hold the manifests and every sampled row.
 
 | Physics Hz | Motion | Moving-body CCD | Contact within watch | First positive contact impulse, each seed |
 |---|---|---|---|---|
@@ -57,19 +45,14 @@ are used; no held-out seeds were consumed.
 | 480 | Rotation | false | 0/2 | None |
 | 480 | Rotation | true | 2/2 | Step 14 (29.167 ms) |
 
-Every trial replays exactly from its initial physics/clock save. All trajectories are sampled
-at 120 Hz: the 480 Hz rows are steps 4, 8, 12, 16 and 20. Contact onset is additionally read
-at every physics step. These results establish collision detection in these fixtures, not rate
-convergence of the impulse or a general guarantee against tunnelling.
+Every trial replays exactly. Trajectories are sampled at 120 Hz; contact onset is read every
+physics step. CCD clamps motion before the ordinary contact impulse, which may come on the next
+step, so an event's time is not the swept time of impact, and the impulses are the narrow phase's
+normal impulses, not work. This shows detection in these fixtures, not a guarantee against
+tunnelling. `tests/core-collision.test.mjs` requires contact and changed defense momentum with CCD,
+misses without it, and exact replay.
 
-CCD clamps motion before an ordinary contact impulse may be reported on the following step.
-Thus a collision event's timestamp is not necessarily the swept time of impact, and positional
-motion lost to clamping is not a measured actuator/contact work budget. The force readings are
-the adapter's narrow-phase normal impulses, not an integrated work calculation. Parallel-run
-timings are recorded only as diagnostics; they are not a performance comparison.
-
-`tests/core-collision.test.mjs` requires physical contact and changed defense momentum for both
-motions, exact replay, separate control denominators and the declared sample spacing. The
-discrete controls must miss. `tests/core-equipment.test.mjs` separately checks equipment's
-forwarding of CCD through an actual collision. Character-held weapons, grip exclusions in an
-anatomical closed loop and visible-browser cost remain separate gates.
+```powershell
+node research/control-foundation.mjs --suite ccd --actuation directional --samples 2 --workers 2 --out research/runs/control-foundation/ccd-120
+node research/control-foundation.mjs --suite ccd --actuation directional --samples 2 --hz 480 --workers 2 --out research/runs/control-foundation/ccd-480
+```

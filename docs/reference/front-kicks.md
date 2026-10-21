@@ -1,25 +1,29 @@
 # Shared front kicks
 
+The front kick's settings (`KICK_PATH`, `src/core/skills/kick.ts`), the Arena's faster profile
+and its selector (`ARENA_KICKS`, `KICKER`, `KICK_SELECTION`, `src/core/mind/config.ts`), and how
+both were qualified. The force they deliver against trained adults is
+[trained-attack-force.md](trained-attack-force.md)'s.
+
 ## Execution settings
 
-`KICK_PATH` is immutable engineering data, independent of anatomy. Either foot uses
-the named effector tracker and finite strike cycle shared with punching. Ordinary
-gait places both soles under the hip centres. Both feet settle before their landing
-pose is captured: capturing the first gait contact can preserve transient floor
-penetration and reject a quiet landing by 0.2 mm at the 2 cm gate.
+`KICK_PATH` is engineering data, independent of anatomy. Either foot uses the named effector
+tracker and finite strike cycle shared with punching. Ordinary gait places both soles under the
+hip centres; both feet settle before their landing pose is captured (capturing the first gait
+contact can keep transient floor penetration and reject a quiet landing by 0.2 mm at the 2 cm
+gate).
 
-Transfer requires measured COM support inside the bearing sole. The free foot must
-show zero actual ground load for 0.05 s before chambering. Stance owns the bearing
-leg and corrects its captured sole through muscles; IK owns the free leg. Both arms
-remain available to the ordinary guard. No pose, velocity, strength or assistance
-is added. The bearing sole may rock during a stroke; flat, quiet double support is
-required before preparation and after placement.
+Transfer needs measured centre-of-mass support inside the bearing sole, and the free foot at zero
+ground load for 0.05 s before it chambers. Stance owns the bearing leg and corrects its captured
+sole through muscles; IK owns the free leg; both arms stay in the ordinary guard. No pose,
+velocity, strength or assistance is added. The bearing sole may rock during a stroke; flat, quiet
+double support is required before preparation and after placement.
 
 | Setting | Value | Meaning |
 | --- | ---: | --- |
 | setupLimit / transferLimit | 8 / 6 s | Finite preparation deadlines |
 | lower / lean / transferSeconds | 0.05 m / 0 rad / 0.2 s | Supported lowering, pitch and response |
-| transferSlow | 0.12 m/s | Quiet capture, transfer and recentering |
+| transferSlow | 0.12 m/s | Quiet capture, transfer and recentring |
 | lift / windup | 0.45 / 0.15 m | Chamber offset from the captured strike site |
 | chamberSeconds / swingSeconds / returnSeconds | 0.6 / 0.4 / 0.6 s | Shared tracker paths |
 | contactSpeed | 2 m/s | Requested terminal speed, not measured force |
@@ -36,112 +40,94 @@ required before preparation and after placement.
 | recenterLimit | 4 s | Quiet double-support deadline |
 | startup / cooldown | 2 / 1 s | Initial settling and inter-cycle rest |
 
-Withdrawal returns to a home `near` over the captured strike point and restores
-ordinary standing height. Placement carries the sole `hover` over its captured place
-while it is off it across the ground by more than `placement`, and sets it down from
-there; it then verifies the captured sole position and rotation, positive ground load
-and quiet motion. A foot brought back to the ground itself lands short of its place
-and is held there by its friction, pressed toward a captured sole that lies a few
-millimetres under the surface: it times out its return or its placement (below).
-Recentring requires quiet double support and COM within 2 cm of the actual sole
-midpoint. Only the whole sequence counts a returned kick. Deadlines count failures;
-cancellation before a stroke counts an interruption. Recovery takeover discards the
-foot path through the common skill resume list.
+Withdrawal returns to a home `near` over the captured strike point and restores standing height.
+Placement carries the sole `hover` over its captured place while it is more than `placement`
+off it across the ground, and sets it down from there; it then checks the captured sole position
+and rotation, positive ground load and quiet motion. Recentring needs quiet double support and
+the centre of mass within 2 cm of the soles' midpoint. Only the whole sequence counts a returned
+kick: a deadline counts a failure, cancellation before a stroke an interruption. Recovery takeover
+discards the foot path through the common skill resume list.
 
 ## Harness and qualification
 
-`node research/front-kicks.mjs` records six cases in
-`front-kicks.json.gz`. Harness: Node unpinned Warrior stand built in its guard,
-`rapier-coordinate`, 120 Hz, empty hands, balance 0, symmetric actuation, 24 s per
-case. Both feet target world (+/-0.1, 0.45, 0.45) m. The sliding compliant pad has an
-8 cm high contact window; its mass, mount and material law retain `punchPad`
-assumptions. Every actual body segment can load it. Pad momentum independently measures impulse, and whole
-force histories, point motion, support loads and motor bounds are retained.
+`node research/front-kicks.mjs` records six cases in `front-kicks.json.gz`: Node unpinned Warrior
+stand built in its guard, `rapier-coordinate`, 120 Hz, empty hands, balance 0, symmetric
+actuation, 24 s a case, both feet at world (+/-0.1, 0.45, 0.45) m. The sliding compliant pad has
+an 8 cm contact window (mass, mount and material law `PUNCH_PAD`'s), any body segment can load it,
+and its momentum measures impulse independently; force histories, point motion, support loads and
+motor bounds are kept.
 
-Admission requires three clean impacts and three verified returns per hit case,
-zero loaded launches, falls, trunk-floor contacts, failed cycles or assistance,
-and compression within the 11 cm apparatus stroke. Miss and unrelated-blocker
-cases are independent physical gates. Block feedback cannot authorize the intended
-impact interval. Tests fork fresh worlds through unloading, contact and placement;
-they also cancel committed strokes and check physical standing afterwards.
+A hit case is admitted with three clean impacts and three verified returns, and no loaded launch,
+fall, trunk-floor contact, failed cycle or assistance, compression within the pad's 11 cm stroke.
+The miss and unrelated-blocker cases are independent gates, and block feedback cannot authorize
+the impact interval. Tests fork fresh worlds through unloading, contact and placement, and cancel
+committed strokes and check standing after.
 
-A tall 40 cm pad at nominal height 0.65 m catches the foot around 0.43-0.45 m and
-shortens the stroke. Narrowing that window at 0.65 m exposes falls. Those trials do
-not qualify higher kicks. Full sole rotation and faster settings also expose
-readiness or landing failures. `node research/front-kicks.mjs --search` preserves
-the finite duration/speed search, including failures, in `front-kicks-search.json.gz`.
-Admission includes misses and blockers, so successful hit-only rows cannot select
-a faster profile. This does not establish trained-adult force parity.
+`node research/front-kicks.mjs --search` keeps the finite duration and speed search, failures
+included, in `front-kicks-search.json.gz`. Admission includes misses and blockers, so hit-only
+rows cannot select a faster profile.
 
 | Swing / terminal request | Left hit / miss / block | Right hit / miss / block | Selection |
 | --- | --- | --- | --- |
-| 0.4 s / 2 m/s | pass / pass / pass | pass / pass / pass | stand reference |
-| 0.35 s / 2.5 m/s | pass / pass / pass | pass / pass / pass | qualified, not selected |
-| 0.3 s / 3 m/s | pass / pass / pass | pass / pass / pass | Arena profile |
+| 0.4 s / 2 m/s | pass / pass / pass | pass / pass / pass | stand reference (`KICK_PATH`) |
+| 0.35 s / 2.5 m/s | pass / pass / pass | pass / pass / pass | rejected: built in its reference pose with the foot returned to the ground itself, it fails both hits' returns and the right miss's |
+| 0.3 s / 3 m/s | pass / pass / pass | pass / pass / pass | Arena profile (`ARENA_KICKS`) |
 
-At the conservative setting the four clean left impacts deliver 7.645, 7.775, 7.855
-and 7.966 N s; the right delivers 7.932, 7.714, 7.730 and 7.581 N s. Per-step peak
-forces span 229-241 N on the left and 225-235 N on the right in this apparatus.
-With the foot returned to the ground itself, and the body built in its reference
-pose, the 0.35 s / 2.5 m/s cell failed its left and right hits' returns and its right
-miss's, and was rejected.
-These are low shin-height contacts. The clipped-window meter supplies continuous
-partial-surface loads instead of dropping them when a foremost corner misses the face.
+At 0.4 s / 2 m/s the four clean left impacts deliver 7.645, 7.775, 7.855 and 7.966 N s, the
+right 7.932, 7.714, 7.730 and 7.581 N s; per-step peak forces 229 to 241 N left and 225 to 235 N
+right. These are low shin-height contacts; the clipped-window meter takes partial-surface loads
+where a foremost corner misses the face.
+
+Not kept: **a tall 40 cm pad at 0.65 m** catches the foot at 0.43 to 0.45 m and shortens the
+stroke, and narrowing its window there exposes falls, so neither qualifies a higher kick; **full
+sole rotation and faster settings** expose readiness or landing failures.
 
 ## Arena selection
 
-`KICKER`, selectable as **Kicker (experimental)**, adds an optional kick
-(`ARENA_KICKS`) selector around Scrapper's existing tactics. Both share the same body, muscles,
-damage, hands, supported low attacks and recovery. Brawler and Scrapper retain
-their configurations. Downed or moving foes use the retained ground/punch policy.
+`KICKER`, **Kicker (experimental)**, adds an optional kick (`ARENA_KICKS`) selector around
+Scrapper's tactics, with the same body, muscles, damage, hands, low attacks and recovery; a downed
+or moving foe gets the ground and punch policy. `ARENA_KICKS` is `KICK_PATH` with `swingSeconds`
+0.3 and `contactSpeed` 3: its mean clean stand impulses are 10.112 N s left and 10.300 right,
+against 7.810 and 7.739 for `KICK_PATH`, on the same Node apparatus, 120 Hz, symmetric actuation,
+balance 0, every eligible complete hit in the 24 s trial. A trajectory gain with the anatomy
+unchanged, and no claim of human parity.
 
-`KICK_SELECTION` is an engineering trial over observed shank capsule geometry:
-height 0.4 m above support, foot-to-surface distance 0.45 +/- 0.08 m, lateral band
-0.16 m, facing error 0.12 rad, own speed 0.12 m/s, opponent speed 0.1 m/s, readiness
-0.1 s. Radial and lateral approach components are capped at 0.18 m/s with 0.5 s
-braking. A continuous approach is limited to 30 s, followed by the ordinary policy
-and a 4 s cooldown. A 6 s approach limit changes the admission pose and exposes a
-landing failure in the mirrored development fixture, so it is rejected. An ordered,
-fallen, absent, low or displaced foe cancels the request; displacement here means
-observed COM speed above 0.15 m/s. The executor still withdraws and lands before
-ordinary combat resumes. Either foot can be selected; the reference policy alternates
-after each finished request.
+`KICK_SELECTION` is an engineering trial over the foe's observed shank capsule:
 
-The Arena profile selects the six-cell qualified 0.3 s / 3 m/s candidate; the
-stand's `KICK_PATH` remains the conservative 0.4 s / 2 m/s reference. The
-faster profile's mean clean stand impulses are 10.112 N s left and 10.300 N s
-right, compared with 7.810 and 7.739 N s for the conservative profile, under
-the same Node apparatus, 120 Hz, symmetric actuation and balance 0. This is a
-trajectory improvement, with unchanged anatomy. These means include every
-eligible complete hit in the fixed 24 s trial and do not claim human parity.
+| Setting | Value |
+| --- | --- |
+| height above support | 0.4 m |
+| foot to surface | 0.45 +/- 0.08 m |
+| lateral band | 0.16 m |
+| facing error | 0.12 rad |
+| own speed / foe's speed | 0.12 / 0.1 m/s |
+| readiness | 0.1 s |
+| approach, radial and lateral | capped at 0.18 m/s, 0.5 s braking |
+| approach limit, then cooldown | 30 s, then the ordinary policy for 4 s |
 
-The selector samples the actual collider side or outward rounded cap. An inward
-cap normal is projected onto the cylindrical side, preventing an interior target.
-It ranks surfaces from the attacking foot and corrects lateral approach error.
+An ordered, fallen, absent, low or displaced foe (centre of mass over 0.15 m/s) cancels the
+request; the executor still withdraws and lands before combat resumes. Either foot can be
+selected, alternating after each finished request. The selector samples the collider's side or
+outward rounded cap (an inward cap normal is projected onto the side, so no target is inside),
+ranks surfaces from the attacking foot and corrects lateral approach error. A 6 s approach limit
+changes the admission pose and exposes a landing failure in the mirrored fixture, and is not kept.
 
-`arena-front-kicks.json.gz` records Node Arena Duel, same engine/rate/loadout,
-both sides' balance 0, 90 s, mirrored stationary-defender trials and self-play.
-Stationary trials complete both feet's returns, record native foot wounds and
-remain standing. The retained strong-hit test requires at least 1 m/s native
-closing and 0.5 m/s COM-relative effector motion along the normal. Lower-speed
-native foot contacts are recorded separately and never counted as strong attacks.
-The mirrored faster-profile trials record 5 and 4 strong kicks, respectively,
-with no falls or failed kick cycles. Each returns the left foot once and right
-foot twice; another cycle can remain active at the bout cap. The conservative
-profile's earlier 45 s rows remain in `arena-front-kicks-reference.json.gz` and
-record zero strong kicks; different bout lengths are not a contact-rate comparison.
-Self-play completes zero kick cycles under the quiet-foe gate.
-The quiet-opponent gate rarely admits kicks in self-play. This profile establishes
-integration and a narrow physical capability, not stronger competitive combat.
-Orders, real falls, recovery takeover and bit-exact fresh-world Arena replay have
-separate tests. High kicks, roundhouse kicks, stomps and jumping attacks remain open.
+**In the Arena** (`arena-front-kicks.json.gz`: Node Arena duel, same engine, rate and loadout,
+both sides' balance 0, 90 s, mirrored stationary-defender trials and self-play): a strong kick
+closes at 1 m/s or more natively with 0.5 m/s of centre-of-mass-relative effector motion along
+the normal; slower foot contacts are recorded apart. The mirrored trials land 5 and 4 strong
+kicks with no falls or failed cycles, each returning the left foot once and the right twice.
+Self-play completes no kick cycle: the quiet-foe gate rarely admits one. The profile establishes
+integration and a narrow physical capability, not stronger combat.
+`arena-front-kicks-reference.json.gz` keeps `KICK_PATH`'s 45 s rows (no strong kicks; another
+bout length, not a contact-rate comparison).
 
-Setting the foot down from over its place, rather than bringing it back to the
-ground itself, is measured in Node Arena Duels (`combatTrial`, `research/arena-combat.mjs`),
-`rapier-coordinate`, 120 Hz, empty hands, both sides' balance 0: the Kicker on each side
-against a Scrapper ordered to stand, 90 s, from 20 gaps of 3.5 to 4.5 m, 40 bouts a row. A
-cycle is a returned or a failed kick. The failures it removes are returns and placements
-that time out with the foot on the ground short of its place.
+**The set-down.** Setting the foot down from over its place, not bringing it back to the ground
+itself (which lands short and is held there by friction against a captured sole a few millimetres
+under the surface), removes the returns and placements that time out. `combatTrial`
+(`research/arena-combat.mjs`), `rapier-coordinate`, 120 Hz, empty hands, balance 0: the Kicker on
+each side against a Scrapper ordered to stand, 90 s, 20 gaps of 3.5 to 4.5 m, 40 bouts a row. A
+cycle is a returned or a failed kick.
 
 | Body built in / foot returned | Cycles | Failed | Bouts with a failure | Falls | Native kick contacts | Driven kicks |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -151,19 +137,12 @@ that time out with the foot on the ground short of its place.
 
 The one failure left is a return that timed out at 2 s.
 
-Private production preview browser QA renders the selected empty-hand Kicker and
-Scrapper, shows punching fallback and the ordered standing-defender kick setup,
-and keeps the continuing-recovery option selected. The simulated clock and fighter
-poses advance in a visible tab. This visual check does not establish Node/browser
-kick force parity.
-
 ## Retained hand tracking cost
 
-Node unpinned Warrior stand, `rapier-coordinate`, symmetric actuation, 120 Hz,
-empty hands, balance 0. Both feet bear and one hand reaches 10 cm after two seconds.
-Four alternating playings warm 360 steps and time the next 720; the first is
-excluded. The committed shared punch foundation is the baseline. Milliseconds per
-step on the quiet machine are:
+The kick's foot support and optional response leave the hand's tracking as it was: Node unpinned
+Warrior stand, `rapier-coordinate`, symmetric actuation, 120 Hz, empty hands, balance 0, both feet
+bearing and one hand reaching 10 cm after two seconds; four alternating playings warm 360 steps
+and time the next 720, the first excluded. Milliseconds a step on a quiet machine:
 
 | Playing | Before | With foot support and optional response |
 | --- | ---: | ---: |
@@ -171,6 +150,6 @@ step on the quiet machine are:
 | 3 | 2.207 | 2.181 |
 | 4 | 2.191 | 2.186 |
 
-All eight final pose and velocity digests remain
-`4380b4ec09ffaa07b680311ad51e323ec708eca29619cf151d565475e232e5ed`.
-This holds the retained hand trajectory; it does not measure kick execution cost.
+All eight final pose and velocity digests are
+`4380b4ec09ffaa07b680311ad51e323ec708eca29619cf151d565475e232e5ed`. This holds the hand's
+trajectory; it does not measure a kick's cost.

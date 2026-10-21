@@ -1,15 +1,24 @@
 # Grip clearance and continuous collision filtering
 
-The Rapier adapter applies the same pair exclusions to discrete contacts and CCD. Anatomical
-joint partners and attached grip partners do not collide. On release, the fixed joint is removed
-without modifying either body's pose, mass or velocity. If the two shapes still overlap, their
-collision pair stays excluded until all collider pairs have positive separation. The check uses
-`Collider.contactCollider` with prediction distance zero before each world step; it does not
-infer clearance from the absence of admitted contacts. There is no grace timer or extra force.
+How the Rapier adapter keeps a grip's two shapes from colliding, during the grip and after its
+release until they are clear, for discrete contacts and CCD alike; and the vendored flag
+(`FILTER_CCD_PAIRS`, package `.3`) that makes CCD obey it.
 
-This matters for the current hand representation. It is an open-hand capsule, while the grasp
-frame describes closed fingers around the haft. Geometric clearance in the reference pose,
-using `tests/fixtures/shapes.mjs` and the existing `armed` placement, reads:
+## The rule
+
+- Anatomical joint partners and attached grip partners do not collide. A release removes the fixed
+  joint without touching either body's pose, mass or velocity.
+- If the two shapes still overlap, their pair stays excluded until every collider pair has positive
+  separation, read by `Collider.contactCollider` at prediction distance zero before each step. No
+  timer, no extra force, and absence of admitted contacts is not taken for clearance. Once clear,
+  the former hand can hit the item; other bodies keep their rules throughout.
+- `EngineGrip.collisionSuppressed` and the equipment observation expose it. The snapshot stores
+  release exclusions with grip handles and node poses, so a restored overlapping release separates
+  and strikes as before.
+
+The capsule hand is an open-hand shape while the grasp frame closes the fingers about the haft, so a
+grip overlaps by construction. In the reference pose (`tests/fixtures/shapes.mjs`, the `armed`
+placement):
 
 | Body | Hand/club minimum gap, either hand, m | Closest other segment | Gap, m |
 |---|---:|---|---:|
@@ -17,66 +26,35 @@ using `tests/fixtures/shapes.mjs` and the existing `armed` placement, reads:
 | Rogue | -0.019314 | Same-side forearm | 0.070181 |
 | Skeleton | 0 | Same-side forearm | 0.070920 |
 
-These are reference-pose geometric measurements, not moving-body clearance guarantees. The
-grasping pair's deliberate overlap must not become a depenetration kick when the grip ends.
-The former hand can hit the item again after clearance. Other hands, limbs, opponents and
-obstacles retain their collision rules throughout. Disposing the grip slot removes its exclusion.
+## Pinned Rapier behaviour
 
-`EngineGrip.collisionSuppressed` and the equipment observation expose this condition. The
-adapter-3 snapshot stores release exclusions with grip handles and node poses. Restoring an
-overlapping release restores its exclusion and reproduces the subsequent separation and impact.
-The fixed registered grip slots retain their identity; dynamic exclusions do not invent joints.
+In `.2`'s native `dynamics/ccd/sweeps.rs` the continuous sweep checks collision groups and
+`filter_contact_pair` hooks but not impulse-joint contact exclusions, and the TypeScript
+`PhysicsPipeline.step` supplies hooks only with an event queue, so the adapter owns one auto-cleared
+queue. `FILTER_CCD_PAIRS` (bit 8) enables the contact-pair callback during sweeps alone, keeping
+ordinary contact generation and recycling. Joint partners use it; separate items also enable
+ordinary pair filtering for the release interval. Callbacks read JavaScript pair membership and
+never reenter WASM.
 
-## Pinned Rapier behavior
+## Measurement
 
-In `.2`'s native `dynamics/ccd/sweeps.rs`, the continuous sweep checks collision groups and
-`filter_contact_pair` hooks, but does not check impulse-joint contact exclusions. Its TypeScript
-`PhysicsPipeline.step` supplies hooks only when an event queue is passed. The adapter therefore
-owns one auto-cleared queue. Package `.3` adds `FILTER_CCD_PAIRS` (bit 8): it enables the
-existing contact-pair callback during sweeps without changing ordinary contact generation or
-recycling. Anatomical joint partners use that flag; separate items also enable ordinary pair
-filtering for the release-clearance interval. Enabling ordinary hooks on every body disables
-Rapier's contact recycling and changes existing trajectories, so it is not equivalent.
-Callbacks read
-JavaScript pair membership only; they never reenter mutable WASM state. The queue is disposed
-with the world and carries no authoritative gameplay state.
+Node core world, Rapier `0.21.0-auto-rpg.3`, adapter 3, 120 Hz, no gravity or assists, directional
+configuration; `node --test tests/core-grip-clearance.test.mjs tests/core-equipment.test.mjs`.
 
-## Regression fixtures
+- Two 1 kg spheres (radii 0.1/0.05 m) start 0.02 m apart in a rigid grip at 1 m/s. Release keeps
+  their velocities exactly and relative position within 1e-6 m through the next step; a 1 N s
+  impulse parts them, a later -2 N s brings them back into contact, with CCD on or off, and the
+  branch replays from a saved overlapping release. Without the exclusion the next step resolves the
+  overlap.
+- A bar at 80 rad/s about a fixed parent's hinge sweeps a thin box on that parent: with the pair
+  excluded the five-step trace is bit-identical to no box; the same box as a separate obstacle
+  changes it. Without the flag, the connected box clamps the second step's sweep.
+- The native `ccd_default_vs_fixed` tests: the flag rejects a fast sweep, and a settling box's
+  240-step ordinary-contact trace is identical with it on and off.
 
-Harness: Node core world, Rapier `0.21.0-auto-rpg.3`, adapter 3, 120 Hz, no gravity or assists,
-directional configuration. `tests/core-grip-clearance.test.mjs` contains both failing-before
-fixtures:
-
-- Two 1 kg spheres, radii 0.1/0.05 m, start 0.02 m apart in a rigid grip, moving together at
-  1 m/s. Releasing preserves their velocities exactly and their relative position within 1e-6 m
-  through the next step. A 1 N s impulse separates the item; a later -2 N s impulse sends it
-  back, producing a physical contact. Both moving-body CCD settings pass, and the entire branch
-  replays from a saved overlapping release. Without the clearance exclusion, the very next step
-  changes their relative position to resolve the original overlap.
-- A bar rotates at 80 rad/s about a fixed parent's hinge. A thin box on that parent lies in its
-  swept arc. With the joint's pair excluded, the five-step pose trace is bit-identical to the
-  same parent with no box. Moving that box to a separate obstacle changes the trajectory. Before
-  the hook fix, the connected box incorrectly clamps the second step's sweep.
-
-```powershell
-node --test tests/core-grip-clearance.test.mjs tests/core-equipment.test.mjs
-```
-
-These fixtures establish collision semantics, not anatomical release animation, grip strength,
-standing weapon control or compound splitting. Explicit CCD still needs held-weapon tests through
-the complete controller path.
-
-The native `ccd_default_vs_fixed` tests additionally verify that the new flag rejects a fast
-sweep and that a settling box's 240-step ordinary-contact position/velocity trace is identical
-with the flag on and off. The latter also checks that no ordinary contact calls the CCD-only hook.
-
-## Adapter cost
-
-`node research/engine-adapter-cost.mjs --reference 1ac3dc23 --runs 3` compares the previous
-adapter and this one with the same `.3` artifact. Harness: Node 24.19.0, arena core world,
-Rapier SIMD, 120 Hz, Warrior/Rogue, symmetric actuation, balance 0% on both sides, 12 s cap.
-One warm-up bout per adapter precedes three alternating-order pairs on a quiet machine.
-The pose digest is `e71c657a6924a58c` for all eight bouts, each 1440 steps.
+Adapter cost (`node research/engine-adapter-cost.mjs --reference 1ac3dc23 --runs 3`: Node 24.19.0,
+arena core world, 120 Hz, Warrior/Rogue, symmetric, 12 s cap, alternating pairs on a quiet machine;
+pose digest `e71c657a6924a58c` in all bouts):
 
 | Pair | Previous step, ms | Current step, ms | Previous solver, ms | Current solver, ms |
 |---|---:|---:|---:|---:|
@@ -84,5 +62,9 @@ The pose digest is `e71c657a6924a58c` for all eight bouts, each 1440 steps.
 | 2 | 0.917682 | 0.914777 | 0.523444 | 0.519169 |
 | 3 | 0.940676 | 0.910588 | 0.535209 | 0.520290 |
 
-These paired timings show no consistent slowdown on this fixture; they do not establish browser
-capacity or the cost of many overlapping released grips. Trace hashing is outside timed steps.
+No consistent slowdown.
+
+## Tried and not kept
+
+- Ordinary contact hooks on every body: they disable Rapier's contact recycling and change existing
+  trajectories.

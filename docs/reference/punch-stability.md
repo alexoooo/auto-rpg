@@ -1,26 +1,31 @@
 # Bounded strike stability
 
-The optional planted strike executor freezes locomotion for a committed punch cycle and admits
-preparation only from measured loaded feet, a centre of mass inside their support polygon, low
-centre speed and no other fixed support. Losing this base withdraws the stroke. Recovery can
-cancel all paths immediately and does not wait for a successful return.
+The support gates of the planted strike executor (`STRIKE_SUPPORT`,
+`src/core/control/support-readiness.ts`) and their qualification. The executor freezes locomotion
+for a committed punch and admits preparation only from measured loaded feet, the centre of mass
+inside their support polygon, low centre speed and no other fixed support; losing that base
+withdraws the stroke. Recovery cancels every path at once without waiting for a return. The
+standing cycle qualifies; the combined Arena candidate is rejected.
 
 ## Readiness settings
 
-`STRIKE_SUPPORT` contains engineering controller gates, independent of body strength. Upward support uses a
-normal projection of at least 0.9, and a flat sole permits 15 mm of corner-height variation,
-as in the supported-root qualification. Centre speed is at most 0.35 m/s, the existing Combat
-settling threshold; continuous readiness is 50 ms, the shared stroke preparation hold.
-Physical qualification determines whether these settings can be promoted. No force-improvement
-percentage is part of stability admission.
+`STRIKE_SUPPORT` holds engineering controller gates, independent of body strength:
+
+| Gate | Value | From |
+|---|---|---|
+| upward support normal projection (`normal`) | at least 0.9 | the supported-root qualification |
+| flat sole corner-height variation (`footGap`) | 15 mm | the supported-root qualification |
+| centre speed (`slow`) | at most 0.35 m/s | the combat settling threshold |
+| continuous readiness (`hold`) | 50 ms | the stroke preparation hold |
+
+Physical qualification, not a force gain, decides their promotion.
 
 ## Qualification
 
-`research/punch-stability.mjs` retains every configured hand and task in
-[punch-stability.json.gz](punch-stability.json.gz). It uses the Node unpinned Warrior stand
-for standing impacts and ordinary Node Arena Duel for fallen/recovering targets, on
-`rapier-coordinate`, symmetric actuation, 120 Hz, empty hands and balance 0 on both sides.
-Paths request 5 m/s, 0.12 s strokes, elbow extension 0.5 and torso rotation 0.2 rad.
+`research/punch-stability.mjs`, all hands and tasks in [punch-stability.json.gz](punch-stability.json.gz):
+Node Warrior stand (unpinned) for standing impacts, Node Arena Duel for fallen and recovering
+targets; `rapier-coordinate`, symmetric actuation, 120 Hz, empty hands, balance 0 on both sides;
+paths at 5 m/s, 0.12 s strokes, elbow extension 0.5, torso rotation 0.2 rad.
 
 | Standing hand / family, 8 s | Verified returns | Failed cycles | Falls |
 | --- | ---: | ---: | ---: |
@@ -29,9 +34,7 @@ Paths request 5 m/s, 0.12 s strokes, elbow extension 0.5 and torso rotation 0.2 
 | Right / straight | 6 | 0 | 0 |
 | Right / cross | 6 | 0 | 0 |
 
-Each standing cell supplies at least three complete independently measured hand impacts.
-The straight strokes remain weak; stability acceptance says nothing about human force parity.
-Fixed-obstruction, miss, cancellation and fresh-world replay tests cover the common cycle.
+Each standing cell gives at least three complete measured impacts; the straights stay weak.
 
 | Arena ground hand / opponent, 45 s | Driven low contacts | Verified returns | Failed cycles | Attacker falls |
 | --- | ---: | ---: | ---: | ---: |
@@ -40,30 +43,26 @@ Fixed-obstruction, miss, cancellation and fresh-world replay tests cover the com
 | Right / stationary | 5 | 8 | 0 | 0 |
 | Right / recovering | 2 | 7 | 1 | 1 |
 
-The combined candidate is rejected. Brawler and Scrapper retain their qualified settings.
-The shared cycle passes the retained four Arena ground gates, including standing return and
-fresh-world replay. Closed fists are requested for preparation, stroke and withdrawal, then
-opened when the verified return finishes; no collider mass, body strength or damage rule changes.
-
-A three-second fold instead of two seconds does not solve ground qualification: the stationary
-left hand still falls and produces no driven low contact, while stationary-right low contacts
-drop to two. Waiting for quiet support before reversing the fold also leaves failures. Neither
-experiment is promoted. A conservative final-foot sweep rejects a previously successful close
-approach; simply vetoing that approach produces stalls or repeated fallback misses. Safe close
-routes and measured whole-body withdrawal remain open controller work.
+The shared cycle passes the four retained Arena ground gates, standing return and fresh-world replay
+included. Fists close for preparation, stroke and withdrawal and open when the verified return
+finishes; no collider mass, strength or damage rule changes.
 
 ## Apparatus surfaces
 
-The compliant apparatus reads `BuiltSegment.rigid.shapes`: the body's live collision envelope,
-including the applied fist pose. The recorded qualification uses foremost-point admission;
-its source fingerprint preserves that apparatus version. The current apparatus clips actual
-surfaces to the finite rectangular face, including partial box and capsule-shaft overlaps, as
-specified in [trained-attack-force.md](trained-attack-force.md). It remains a normal-force meter
-without shear, distributed sole pressure or calibrated human padding. Arena collisions and
-damage use native physics and do not depend on the research apparatus.
+The compliant apparatus reads `BuiltSegment.rigid.shapes`, the body's live collision envelope with
+the applied fist pose. The qualification used foremost-point admission (its fingerprint records
+that version); the current meter clips actual surfaces to the finite face as in
+[trained-attack-force.md](trained-attack-force.md), a normal-force meter without shear, sole
+pressure or calibrated padding. Arena collisions and damage do not use it.
 
-A physically closed-hand test places the face between the open and closed envelopes and reads
-zero load; substituting the static open shape makes it fail. A separate weightless boxed-foot
-fixture checks actual surface compression against independently measured pad momentum. Its
-1/6 N s pulse permits 1e-7 N s of Rapier float32 velocity rounding. These tests validate the meter
-and shape selection, not human kicking performance.
+A closed-hand test puts the face between the open and closed envelopes and reads zero load;
+substituting the static open shape fails it. A weightless boxed-foot fixture checks surface
+compression against measured pad momentum, allowing 1e-7 N s of float32 rounding on a 1/6 N s pulse.
+
+## Tried and not kept
+
+- A three-second fold instead of two: the stationary left hand still falls with no low contact,
+  and stationary-right contacts drop to two.
+- Waiting for quiet support before reversing the fold: failures remain.
+- A conservative final-foot sweep rejects a close approach that worked; vetoing that approach
+  stalls or repeats fallback misses.

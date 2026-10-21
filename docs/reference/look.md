@@ -1,15 +1,10 @@
 # The look and the sound
 
-What the screens draw and play, and the numbers they do it with. Each section names its
-constants, where they live, their values, and whose choice they are.
-
-A value is **set by eye** (or by ear): chosen by looking at the page while the thing was built.
-Unless a line says the owner chose it, every value in this record is **kept as found; the owner
-to confirm**. Nothing here was measured but how loud a touch is and how fast a body's air begins
-([Sound](#sound)).
-
-None of it decides a fight, with one exception that each section names where it applies: a wall,
-a post or a door that is drawn is also a collider, and its size is the collider's.
+What the screens draw and play, and the numbers they do it with. Each section names its constants
+and where they live. A value is **set by eye** (or by ear) while the thing was built, and kept as
+found for the owner to confirm, unless the section says the owner chose it; only how loud a touch
+is and how fast a body's air begins are measured ([Sound](#sound)). None of it decides a fight,
+except that a drawn wall, post or door is also a collider of the same size.
 
 ## Arena light
 
@@ -29,39 +24,40 @@ blue from 0 to 1.
 ## Grade
 
 `GRADE` (`src/render/post.ts`), which the arena and the crypt share (`postPipeline`): contrast
-1.12, exposure 1.15, vignette weight 1.35, and a bloom from brightness 1.1 at weight 0.16. With
-it go FXAA and ACES tone mapping, which are switches and not strengths.
+1.12, exposure 1.15, vignette weight 1.35, and a bloom from brightness 1.1 at weight 0.16. FXAA and
+ACES tone mapping go with it, as switches.
 
 ## Arena camera
 
 `ORBIT` (`src/arena/orbit.ts`): the camera starts at bearing 0, raised 0.32 rad, 7 m from what it
-looks at. Setup uses a separate bearing 0, pitch 0.78 rad overview, at distance max(39,
-31 / viewport aspect) m, so the whole ring fits between the previews. A person moves the fight camera between 2.5 m and 16 m away, and between 0.05 rad and 1.35 rad up.
+looks at, and a person moves it between 2.5 m and 16 m away and between 0.05 rad and 1.35 rad up.
+Setup shows an overview at bearing 0, pitch 0.78 rad and distance max(39, 31 / viewport aspect) m,
+so the whole ring fits between the previews.
 
-`CAMERA_INPUT` (`src/arena/camera.ts`) uses 0.006 rad per horizontal pointer pixel and 0.004 rad
-per vertical pixel. Wheel distance scales by exp(deltaY × 0.001). Its overview pitch, distance
-and width are 0.78, 39 and 31 as described above. These are interface choices for the Arena.
+`CAMERA_INPUT` (`src/arena/camera.ts`): 0.006 rad per horizontal pointer pixel and 0.004 rad per
+vertical one; the wheel scales distance by exp(deltaY × 0.001); the overview's pitch, distance and
+width are the 0.78, 39 and 31 above.
 
 ## View cameras
 
-The Arena and Lab share `src/render/camera-math.ts`. `ISO_ALPHA` is −3π/4, behind and to the
-left of a body facing +z; `ISO_BETA` is acos(1/√3), giving equal foreshortening on all three axes.
-`CHASE_BETA` is 1.2 rad from vertical, about 21 degrees above the floor. `VIEW_CAMERA` uses
-`turnSeconds` 0.3 to smooth pelvis twists, `lookHeight` 1 m to look at chest height, and
-`follow` 0.05 of the remaining target displacement per render frame. These are authored
-inspection-camera choices. Orthographic extents match the perspective field at the target.
+The Arena and Lab share `src/render/camera-math.ts`, authored for inspecting a body:
 
-Arena Free orbits with the spare pointer buttons; Isometric and Chase hold their rotation, and
-all three zoom with the wheel. Focus names Both, Left or Right. Chase requires Left or Right,
-selecting the player's side (Left for spectators) when entered from Both. These choices never
-advance the world. The Lab retains its pointer orbit and pan controls and follows one body.
+- `ISO_ALPHA`, −3π/4: behind and to the left of a body facing +z.
+- `ISO_BETA`, acos(1/√3): equal foreshortening on all three axes.
+- `CHASE_BETA`, 1.2 rad from vertical: about 21 degrees above the floor.
+- `VIEW_CAMERA`: `turnSeconds` 0.3 smooths pelvis twists, `lookHeight` 1 m looks at chest height,
+  and `follow` takes 0.05 of the remaining target displacement per render frame.
+
+Orthographic extents match the perspective field at the target. The arena's Free view orbits with
+the spare pointer buttons, Isometric and Chase hold their rotation, and all three zoom with the
+wheel; none advances the world.
 
 ## Arena room
 
-The room `buildArenaWorld` builds (`src/arena/room.ts`) is a circular fighting floor, following
-the owner's arena concepts. The floor slab, twenty-four parapet sections and eight brazier
-pedestals are colliders (`arenaSolids`). Their dimensions affect bouts; the page and headless
-stand use the same solids. These dimensions are an implementation art choice, not anatomy.
+The room `buildArenaWorld` builds (`src/arena/room.ts`) is a circular floor, after the owner's
+arena concepts. The floor slab, twenty-four parapet sections and eight brazier pedestals are
+colliders (`arenaSolids`), the same on the page and the headless stand, so their sizes affect
+bouts.
 
 `ROOM`, m:
 
@@ -73,66 +69,55 @@ stand use the same solids. These dimensions are an implementation art choice, no
 | `wallWidth`, `wallHeight`, `wallThickness` | width is twice 13 times tan(pi/24), plus 0.08 m joint overlap; height 1.25, depth 0.5 |
 | `floorMetresPerRepeat`, `wallMetresPerRepeat`, `bannerMetresPerRepeat` | 2.4, 2.1, 0.4 |
 
-`ARENA_POSTS`: 8 pedestals on a ring of 12.3 m, each 1.7 m tall, 1.1 m across, with 8 sides.
-Their bronze bands and bowls stay within their collision envelopes. `ROOM_GROUPS` places the
-parapet and eight banners. Banners are cloth planes
-on radius 13.55 m, hanging down the outside; they carry no solid authority. Wall placements,
-colliders and visuals share the same rotation. The core's sine and cosine place the solids.
+`ARENA_POSTS`: 8 pedestals on a ring of 12.3 m, each 1.7 m tall, 1.1 m across, with 8 sides; their
+bronze bands and bowls stay within their collision envelopes. `ROOM_GROUPS` places the parapet and
+eight banners, cloth planes on radius 13.55 m hanging down the outside, with no collider. The
+core's sine and cosine place the solids.
 
 ## Forge
 
 `dressForgeRoom` (`src/arena/forge-room.ts`) fills each parapet collider with three courses of
 four masonry blocks, alternating a half-block offset. `FORGE_MASONRY` leaves joints of 0.008 m
-across, 0.006 m up and 0.008 m in depth. A crossing parapet is hidden while it obscures a fighter.
+across, 0.006 m up and 0.008 m in depth. A parapet between the camera and a fighter is hidden.
 
-`FORGE_FIRE` burns on all eight braziers. Each flame is 1.05 by 1.6 m, its centre 1.35 m above
-the pedestal centre. Posts 1 and 5 carry lights of colour (1, 0.42, 0.12), range 16 m and mean
-intensity 13. Flicker varies by 0.8 at 8 rad/s; `burn` caps one frame at 50 ms. Paused frames
-never advance fire. The art geometry, palette and reconstruction are in `docs/art/arena.md`.
+`FORGE_FIRE` burns on all eight braziers. Each flame is 1.05 by 1.6 m, its centre 1.35 m above the
+pedestal centre. Posts 1 and 5 carry lights of colour (1, 0.42, 0.12), range 16 m and mean
+intensity 13. Flicker varies by 0.8 at 8 rad/s; `burn` caps one frame at 50 ms, and a paused frame
+burns nothing. The art is in [the arena's art](../art/arena.md).
 
 ## Sound
 
-Everything a page plays is synthesized by `GameAudio` (`src/audio/game-audio.ts`); nothing is a
-recording.
+Everything a page plays is synthesized by `GameAudio` (`src/audio/game-audio.ts`). What a body
+sounds of is read from the world by two rules (`src/audio/body-sounds.ts`); no stance, strike or
+scenario says when a sound is due.
 
-What a body sounds of is read from the world by two rules (`src/audio/body-sounds.ts`), and no
-stance, strike or scenario says when a sound is due:
+- **A touch** (`hearTouches`): a segment meeting another body, or something fixed, that it was not
+  in contact with, while closing on it (`watchTouches`, `src/core/touches.ts`). It is as loud as
+  the energy it carries (`impactCue`, `CUE`), in the voice of the softer surface. A pair of bodies
+  is heard once, and a body's touch with itself is not heard.
+- **Air** (`airOf`): the speed of the body's fastest point, among the ends and corners of the
+  shapes of its extremities and what they hold. A body has one looping voice that follows it
+  (`GameAudio.swish`, `SWISH`).
 
-- **A touch** (`hearTouches`): a segment meeting another body, or something fixed, that it was
-  not in contact with, while closing on it (`watchTouches`, `src/core/touches.ts`, lasting as long
-  as the contact). It is as loud as the energy it carries (`impactCue`, `CUE`) and in the voice of
-  the softer of the two surfaces. A footfall is a foot meeting the ground; a fall is the trunk,
-  the head and the limbs meeting it. A pair of bodies is heard once, from the earlier of the two,
-  and a body's touch with itself is not heard.
-- **Air** (`airOf`): the speed of the body's fastest point, found each time it is asked among the
-  ends and corners of the shapes of its extremities (the segments that are no joint's parent) and
-  of what they hold. A body has one looping voice that follows it (`GameAudio.swish`, `SWISH`).
+A blow is a touch and is heard as one. What it takes off a side is a cue of its own
+(`debrisCues`): the kind `debris`, as loud as that side's share of the blow's energy, in a pair of
+its own so it plays beside the blow.
 
-Every screen plays both. The lab plays its body's from a log at the mind's time, with the touches
-of the physical targets in Attack, and the cue of its one instrument that is no
-contact, the page's hand shoving the body (`src/lab/sound-log.ts`, [lab.md](lab.md#sound)). The arena plays its two sides'
-as they happen, until the verdict (`src/arena/main.ts`). The crypt plays every built body's
-while the party sees the cell the body stands in (`hearRun`, `src/dungeon/hearing.ts`), fading
-with its distance from the leader (`PLACEMENT.reach`). A screen that stops playing drops the
-cues it has not played yet (`GameAudio.setActive`), and a cue waits 60 ms for a louder one of
-its pair (`INBOX.coalesce`): what decides a bout, or ends a run, is not heard.
+Every screen plays both: the lab from a log at the mind's time ([lab.md](lab.md#sound)); the arena
+as it happens, until the verdict (`src/arena/main.ts`); the crypt every built body's while the party
+sees its cell (`hearRun`, `src/dungeon/hearing.ts`), fading with distance from the leader
+(`PLACEMENT.reach`). A screen that stops playing drops its unplayed cues (`GameAudio.setActive`), and
+a cue waits 60 ms for a louder one of its pair (`INBOX.coalesce`): what decides a bout, or ends a
+run, is not heard.
 
-A blow is a touch, and is heard as one: a part of one body, or what it holds, on a part of
-another, in the softer one's voice. What a blow takes off a side is a cue of its own
-(`debrisCues`): the kind `debris`, as loud as that side's share of the blow's energy makes it,
-of a pair of its own, so it plays beside the blow's touch and is not weighed against it.
+**What things are made of** (`BodySpec.substance`, `ItemSpec.substance`, `src/core/spec/body.ts`):
+the workshop's bodies are flesh, the skeleton bone, the club wood, everything fixed stone. A hand
+sounds as what it holds (`substanceOf`). The softer of the two decides the voice (`voiceOf`),
+softest first: flesh, the thump `body`; bone, the tick `bone`; wood, the knock `shield`; stone has
+no voice. The order is set, not heard; how stiff a surface is under a blow is the spec's `surface`
+([wounds.md](wounds.md)), which a sound does not read.
 
-**What things are made of.** A body and an item say what they are made of (`BodySpec.substance`,
-`ItemSpec.substance`, `src/core/spec/body.ts`): the workshop's bodies are flesh, the skeleton is
-bone, the club is wood, and everything fixed is stone. A hand that holds something sounds as what
-it holds, whichever of the two met, since they are one rigid body (`substanceOf`). The softer of
-the two that meet decides the voice (`voiceOf`), softest first: flesh, the thump `body`; bone,
-the tick `bone`; wood, the knock `shield`; stone has no voice of its own. The order is set, and
-not heard yet. It is a name and no number: how stiff a surface is under a blow is the spec's
-`surface` ([wounds.md](wounds.md)), which a sound does not read.
-
-`MIX`, set by ear but for `swish`, which is set and not heard yet. A gain is a share of full
-scale:
+`MIX`, set by ear but for `swish`, which is set and not heard yet. A gain is a share of full scale:
 
 | Field | Value |
 |---|---|
@@ -155,162 +140,116 @@ is how loud a footfall is beside a blow.
 `SOUND_SECONDS`: a touch in bone's, a body's or wood's voice lasts 0.26 s, as a drip does; debris
 0.4 s; the crypt's air and the fire are loops 6 s long, and a body's air a loop 3 s long.
 
-`CUE` (`src/audio/cues.ts`): a touch's strength is the square root of its energy over 60 J,
-capped at 1, and a touch weaker than 0.0125, which is 0.0094 J, makes no sound. Both are read
-from [the touches measured](#touches-measured):
+`CUE` (`src/audio/cues.ts`): a touch's strength is the square root of its energy over 60 J, capped
+at 1, and a touch weaker than 0.0125 (0.0094 J) makes no sound. Both are read from
+[the touches measured](#touches-measured):
 
-- **60 J** is a hard fall's landing, which comes to the end of the range (to 59 J). A club blow
-  that lands is past it, and as loud as a cue gets: of the 8 touches of one body on another in
-  three bouts 2 are over 60 J (72.1 and 112 J, a club on a head and on a trunk), and the Blow
-  scenario's club blows land 48 to 137 J on their target bodies. A fist on a target of the
-  Routine carries 4.6 to 37 J where a recipe is thrown and 1 J or less where the blow is placed.
-- **0.0125** is between a sole set down and the quietest footfall but two. Of 1061 touches of a
-  foot on the ground by a body on its feet, 7 are under 0.0094 J: five are a sole laid flat at
-  0.06 to 0.08 m/s, a sixth of a footfall's speed, each of 0.0083 J or less; two are a toe's edge
-  set down in the Routine at 0.19 and 0.32 m/s, 0.0040 and 0.0088 J. The quietest of the rest is 0.0099 J,
-  strength 0.0128, so the gap the floor sits in is narrow. A footfall is of two kinds: the sole
-  landing flat meets 2 kg of the body at about 0.5 m/s, 0.2 to 0.3 J; a sole landing on its
-  toe's edge meets 0.2 kg, 0.01 to 0.09 J. The skeleton's walk is the second kind at nearly every
-  step (median 0.023 J).
+- **60 J** is a hard fall's landing, the top of the range (to 59 J). A club blow that lands is past
+  it: the Blow scenario's club blows land 48 to 137 J, and 2 of 8 body-on-body touches in three
+  bouts are over 60 J. A fist on a Routine target carries 4.6 to 37 J where a recipe is thrown and
+  1 J or less where the blow is placed.
+- **0.0125** lies between a sole set down and the quietest footfall but two. Of 1061 footfalls of
+  a body on its feet, 7 are under 0.0094 J: five soles laid flat at 0.06 to 0.08 m/s (0.0083 J or
+  less), two toe edges set down in the Routine. The quietest of the rest is 0.0099 J, strength
+  0.0128, so the gap is narrow. A sole landing flat meets 2 kg at about 0.5 m/s, 0.2 to 0.3 J; one
+  landing on its toe's edge meets 0.2 kg, 0.01 to 0.09 J, as the skeleton's walk does at nearly
+  every step (median 0.023 J).
 
 `SWISH`: a body's air is nothing while its fastest point moves at 5 m/s or slower, all of it at
 20 m/s, and in proportion between (`swishStrength`).
 
-- **5 m/s** is over the fastest point of a body walking (1.0 to 2.5 m/s) or in the Run (to
-  4.38 m/s, a foot, for one step of the shuttle's half turn). A foot catching a hard shove passes
-  it (to 6.3 m/s, for 0.03 s or less), and so does a foot going out from under a body that falls
-  (7.0 to 8.4 m/s) and a hand of a body going down (10 to 16 m/s).
-- **20 m/s** is the Warrior's club's end in the Blow scenario's blows, 19.9 to 20.3 m/s; the
-  Rogue's reaches 12.9 to 13.6 m/s and the skeleton's 14.5 to 18.6. A fist's far point in the
-  Routine's strikes reaches 13.4 to 14.5 m/s, 0.56 to 0.63 of the air; the clubs of three bouts
-  11.8 to 20.7 m/s.
+- **5 m/s** is over the fastest point of a body walking (1.0 to 2.5 m/s) or running (to
+  4.38 m/s). A foot catching a hard shove passes it for 0.03 s or less (to 6.3 m/s); a foot going
+  out from under a falling body (7.0 to 8.4 m/s) and a hand of a body going down (10 to 16 m/s)
+  pass it.
+- **20 m/s** is the Warrior's club's end in the Blow scenario, 19.9 to 20.3 m/s; the Rogue's
+  reaches 12.9 to 13.6 m/s, the skeleton's 14.5 to 18.6, a fist in the Routine 13.4 to 14.5.
 
 `PLACEMENT`: a sound's pan is how far it is to the listener's side over 10 m, held within 0.85
-either way; in the crypt its gain is the square of the share of 18 m it has left to go, and
-nothing from there on. The arena plays every sound at full gain.
+either way; in the crypt its gain is the square of the share of 18 m it has left to go, and nothing
+from there on. The arena plays every sound at full gain.
 
-Each sound's own formula (`GameAudio.buffer`) is written where it is computed: its partials,
-their decays and the noise under them are the sound, and no number of them is shared. The air's
-(`swish`) is noise between two low-passes.
+Each sound's own formula (`GameAudio.buffer`) is written where it is computed; the air's (`swish`)
+is noise between two low-passes. A cue (`SoundCue`) names its pair, and the inbox (`CueInbox`)
+plays the loudest of a pair's cues in 60 ms, which makes one sound of the several parts a landing
+body touches the ground with. The inbox's bounds (`INBOX`) and the 12 one-shot voices (`VOICES`)
+are numeric settings that bound the work; with every voice playing, a louder cue takes the
+quietest voice's place.
 
-A cue (`SoundCue`) names the pair it is of, and the inbox (`CueInbox`) plays the loudest of a
-pair's cues in 60 ms: that is what makes one sound of the several parts a landing body touches
-the ground with at once. The inbox's bounds (`INBOX`) and the 12 one-shot voices at once
-(`VOICES`) are numeric settings: they bound the work, and what they drop is what a person would
-not have heard apart. With every voice playing, a louder cue takes the quietest voice's place.
-
-What the rules do not hear:
-
-- **A step that never leaves the ground's contact margin.** The engine holds two things in
-  contact while they are within 2 cm, and a touch is new only once they have parted. A walking
-  foot lifts clear; a low catching step after a shove may not. Of 24 recoveries caught, 14
-  footfalls were heard.
-- **What a hand holds, set down beside it.** A hand and what it holds are one rigid body, in
-  contact with the ground once.
+Not heard: a step that never leaves the ground's 2 cm contact margin (a low catching step after a
+shove: of 24 recoveries, 14 footfalls were heard), and what a hand holds set down beside it (one
+rigid body, in contact once).
 
 ### Touches measured
 
 `node research/touches.mjs`: Node core stand (`tests/harness/core-stand.mjs`), Rapier, 120 Hz, a
-20 m ground, one body, balance 0 % of its weight; the bouts are the Node core world's, Rapier,
-120 Hz, each side's balance 0 %. Every segment is read, a touch lasting as long as the contact;
-one run a row. A body's air leaves out the first second of its world, in which a body built in
-its reference pose takes its guard (to 5 m/s). The script prints every part's row; these are the
-feet's, the landings' and the bouts'.
+20 m ground, one body, balance 0 %; the bouts are the Node core world's, each side's balance 0 %.
+Every segment is read; a body's air leaves out its first second, in which it takes its guard. The
+script prints every part's row; these are the feet's, the landings' and the bouts'. Standing 10 s,
+no body touches the ground anew and its fastest point moves at 0.02 to 0.03 m/s.
 
-Standing 10 s, no body touches the ground anew, and its fastest point moves at 0.02 to 0.03 m/s.
-The skeleton's forearms come to rest on its trunk as it takes its guard (0.024 and 0.027 J),
-which is a touch with itself.
+A foot on the ground, by a body on its feet (Routine: a loop of 10 targets):
 
-A foot on the ground, by a body on its feet:
+| Model | Case | Footfalls | Energy, J: least / median / most | Under 0.0094 J | Fastest point, m/s |
+|---|---|---:|---|---:|---|
+| workshop-fighter | walk, 0.5 m/s, 10 s | 25 | 0.0241 / 0.294 / 0.318 | 0 | 2.47, a foot |
+| workshop-fighter | Run, shuttle, 30 s | 75 | 0.00403 / 0.277 / 0.32 | 2 | 4.38, a foot |
+| workshop-fighter | Routine, 81.3 s | 95 | 0.0143 / 0.272 / 0.331 | 0 | 14.5, a hand |
+| workshop-rogue | walk, 0.5 m/s, 10 s | 25 | 0.0184 / 0.26 / 0.296 | 0 | 2.48, a foot |
+| workshop-rogue | Run, shuttle, 30 s | 76 | 0.0199 / 0.262 / 0.293 | 0 | 4.00, a foot |
+| workshop-rogue | Routine, 71.2 s | 85 | 0.00878 / 0.234 / 0.325 | 1 | 13.4, a hand |
+| crypt-skeleton | walk, 0.2 m/s, 10 s | 25 | 0.0196 / 0.0229 / 0.084 | 0 | 1.23, a foot |
+| crypt-skeleton | Run, shuttle, 30 s | 78 | 0.0204 / 0.0228 / 0.276 | 0 | 1.87, a foot |
+| crypt-skeleton | Routine, 93.2 s | 135 | 0.00396 / 0.0234 / 0.615 | 1 | 14.3, a hand |
 
-| Model | Case | Strides | Footfalls | Energy, J: least / median / most | Closing, m/s: median | The foot's mass met, kg: least / median / most | Under 0.0094 J | Fastest point, m/s |
-|---|---|---|---|---|---|---|---|---|
-| workshop-fighter | walk, 0.2 m/s, 10 s | 26 | 25 | 0.0244 / 0.0245 / 0.269 | 0.456 | 0.236 / 0.236 / 2.1 | 0 | 1.43, a foot |
-| workshop-fighter | walk, 0.5 m/s, 10 s | 26 | 25 | 0.0241 / 0.294 / 0.318 | 0.505 | 0.227 / 2.31 / 2.39 | 0 | 2.47, a foot |
-| workshop-rogue | walk, 0.2 m/s, 10 s | 26 | 25 | 0.199 / 0.234 / 0.249 | 0.505 | 1.61 / 1.84 / 1.92 | 0 | 1.00, a foot |
-| workshop-rogue | walk, 0.5 m/s, 10 s | 26 | 25 | 0.0184 / 0.26 / 0.296 | 0.506 | 0.171 / 2.04 / 2.27 | 0 | 2.48, a foot |
-| crypt-skeleton | walk, 0.2 m/s, 10 s | 26 | 25 | 0.0196 / 0.0229 / 0.084 | 0.476 | 0.171 / 0.203 / 0.685 | 0 | 1.23, a foot |
-| workshop-fighter | Run, circle, 30 s | 79 | 79 | 0.00453 / 0.284 / 0.324 | 0.49 | 0.225 / 2.36 / 2.43 | 1 | 3.53, a foot |
-| workshop-fighter | Run, shuttle, 30 s | 79 | 75 | 0.00403 / 0.277 / 0.32 | 0.489 | 0.195 / 2.32 / 2.42 | 2 | 4.38, a foot |
-| workshop-rogue | Run, circle, 30 s | 79 | 79 | 0.0199 / 0.26 / 0.297 | 0.506 | 0.17 / 2.03 / 2.3 | 0 | 2.61, a foot |
-| workshop-rogue | Run, shuttle, 30 s | 79 | 76 | 0.0199 / 0.262 / 0.293 | 0.506 | 0.17 / 2.05 / 2.25 | 0 | 4.00, a foot |
-| crypt-skeleton | Run, circle, 30 s | 79 | 78 | 0.02 / 0.0234 / 0.292 | 0.482 | 0.17 / 0.204 / 2.3 | 0 | 1.47, a foot |
-| crypt-skeleton | Run, shuttle, 30 s | 79 | 78 | 0.0204 / 0.0228 / 0.276 | 0.475 | 0.17 / 0.203 / 2.23 | 0 | 1.87, a foot |
-| workshop-fighter | Routine, a loop of 10 targets, 81.3 s | 77 | 95 | 0.0143 / 0.272 / 0.331 | 0.507 | 0.223 / 2.11 / 2.5 | 0 | 14.5, a hand |
-| workshop-rogue | Routine, a loop of 10 targets, 71.2 s | 67 | 85 | 0.00878 / 0.234 / 0.325 | 0.505 | 0.175 / 1.83 / 2.45 | 1 | 13.4, a hand |
-| crypt-skeleton | Routine, a loop of 10 targets, 93.2 s | 116 | 135 | 0.00396 / 0.0234 / 0.615 | 0.478 | 0.167 / 0.204 / 2.41 | 1 | 14.3, a hand |
+The Routine's targets (`src/lab/targets.ts`) touched the striking body 12 times in the Warrior's
+loop (0.19 to 36.9 J), 11 in the Rogue's (0.15 to 15.1 J) and 8 in the skeleton's (0.15 to
+17.6 J), on the hand or the forearm.
 
-The skeleton asked to walk at 0.5 m/s walks as it does at 0.2 m/s, row for row: its stance holds
-it to its envelope (1.64 m in the 10 s).
+The Blow's stored blows (`LAB_BLOWS`), each thrown by its own body at a target body's head (high)
+or upper trunk (middle), to 1.5 s after its pushes begin. Every one lands and its body stays up:
 
-The Routine's targets, each a ball hung as its strike begins (`src/lab/targets.ts`), touched the
-body that struck at them 12 times in the Warrior's loop, 7 its hand and 5 its forearm (0.19 to
-36.9 J, the median 6.02 J); 11 times in the Rogue's, 7 its hand and 4 its forearm (0.15 to
-15.1 J, the median 4.95 J); and 8 times in the skeleton's, 6 its hand and 2 its forearm (0.15 to
-17.6 J, the median 0.48 J).
+| Model | Blow | Its hardest landing, J | Fastest point, m/s |
+|---|---|---:|---|
+| workshop-fighter | the unit club blow | 98.1 | 19.9, the club |
+| workshop-fighter | club, high / middle | 119 / 137 | 20.1 / 20.3, the club |
+| workshop-fighter | fist, high / middle | 21.6 / 36.6 | 10.1 / 13.5, a hand |
+| workshop-rogue | club, high / middle | 47.7 / 56.8 | 12.9 / 13.6, the club |
+| workshop-rogue | fist, high / middle | 7.86 / 15.5 | 10.0 / 11.6, a hand |
+| crypt-skeleton | club, high / middle | 72.0 / 107 | 14.5 / 18.6, the club |
+| crypt-skeleton | fist, high / middle | 32.1 / 47.7 | 12.3 / 14.1, a hand |
 
-The Blow's stored blows (`LAB_BLOWS`), each thrown by its own body with what it was found with
-in its hand, at its target body, a ball of a head (high) or of an upper trunk (middle), to 1.5 s
-after its pushes begin. Every one lands, and its body stays on its feet.
+A shove from the front on a standing body, 20 to 60 N s: 13 of 15 caught, in 24 recoveries with
+14 footfalls heard (0.066 to 1.13 J); a catching foot reaches 6.1 m/s, over 5 m/s for at most
+0.03 s.
 
-| Model | Blow | Its hardest landing, J | Touches of the target on the body, J | Footfalls | Fastest point, m/s |
-|---|---|---|---|---|---|
-| workshop-fighter | the unit club blow | 98.1 | 98.1 | 2 | 19.9, the club |
-| workshop-fighter | club, high | 119 | 119 | 0 | 20.1, the club |
-| workshop-fighter | club, middle | 137 | 137 | 1 | 20.3, the club |
-| workshop-fighter | fist, high | 21.6 | 21.6 | 0 | 10.1, a hand |
-| workshop-fighter | fist, middle | 36.6 | 29.2, 36.6 | 0 | 13.5, a hand |
-| workshop-rogue | club, high | 47.7 | 47.7 | 0 | 12.9, the club |
-| workshop-rogue | club, middle | 56.8 | 56.8 | 0 | 13.6, the club |
-| workshop-rogue | fist, high | 7.86 | 0.383, 7.86 | 1 | 10.0, a hand |
-| workshop-rogue | fist, middle | 15.5 | 15.5, 15.5 | 0 | 11.6, a hand |
-| crypt-skeleton | club, high | 72.0 | 72.0 | 0 | 14.5, the club |
-| crypt-skeleton | club, middle | 107 | 107 | 1 | 18.6, the club |
-| crypt-skeleton | fist, high | 32.1 | 2.22, 32.1 | 0 | 12.3, a hand |
-| crypt-skeleton | fist, middle | 47.7 | 29.6, 47.7 | 1 | 14.1, a hand |
+A fall, 80 N s from the front, read for 6 s:
 
-A club blow is one touch of the target, on the club. A fist's is one or two, on the hand and on
-the forearm.
+| Model | Touches while down | Loudest, J | Fastest point going down / while down, m/s |
+|---|---:|---|---|
+| workshop-fighter | 13 | 32.3, a shank | 6.96, a foot / 10.4, a hand |
+| workshop-rogue | 20 | 26.8, the head | 6.95, a foot / 13.6, a hand |
+| crypt-skeleton | 19 | 59, the lower trunk | 8.41, a foot / 11.8, a hand |
 
-A shove from the front on a standing body, 20 to 60 N s, 4 s each: 13 of the 15 are caught, in 24
-recoveries, with 14 footfalls heard (0.066 to 1.13 J) and none under 0.0094 J. The fastest point
-is a catching foot at up to 6.1 m/s, over 5 m/s for at most 0.03 s. The rogue goes down at 50 and
-at 60 N s.
+Three bouts (`scripts/fingerprint.mjs`'s, both bodies heard; their digests unchanged by hearing):
 
-A fall: 80 N s from the front on a standing body, read for 6 s.
+| Bout | Seconds | Body on body: touches, J least / median / most | Fastest point, m/s: left, right |
+|---|---:|---|---|
+| workshop-fighter v workshop-rogue | 9.54 | 5: 0.22 / 10.2 / 112 | 20.2, the club; 7.66, a hand |
+| crypt-skeleton v workshop-fighter | 13.09 | 1: 72.1 | 2.49, a foot; 20.7, the club |
+| workshop-rogue v crypt-skeleton | 11.82 | 2: 8.35 / 9.79 / 11.2 | 11.8, the club; 3.6, a foot |
 
-| Model | Down at, s | Touches on the ground while down | Loudest, J | Others over 5 J | The last, s | Fastest point going down, m/s | Fastest point while down, m/s |
-|---|---|---|---|---|---|---|---|
-| workshop-fighter | 2.18 | 13 | 32.3, a shank | none | 5.77 (0.006 J); the one before, 3.72 | 6.96, a foot | 10.4, a hand |
-| workshop-rogue | 0.33 | 20 | 26.8, the head | upper trunk 13.2, lower trunk 9.54, a hand 7.45 | 3.75 | 6.95, a foot | 13.6, a hand |
-| crypt-skeleton | 1.10 | 19 | 59, the lower trunk | the head 36.9 and 9.58, an upper arm 13.2, a forearm 10.2, a hand 9.94, the upper trunk 8.25 | 2.25 | 8.41, a foot | 11.8, a hand |
-
-Which part lands hardest turns on how the body goes down. A body that is down lies still: its
-touches come within 1.2 to 3.4 s of its going down, but for the fighter's lower trunk settling at
-5.77 s.
-
-Three bouts (`scripts/fingerprint.mjs`'s: one ends at a death, one at a part taken off and one
-at a fall), with both bodies heard. The bouts' digests are the ones they have unheard.
-
-| Bout | Seconds | Feet on the ground: left, right | Their energy, J: least / median / most | Under 0.0094 J | One body on the other | Energy, J: least / median / most | Closing, m/s: median | Fastest point, m/s: left, right |
-|---|---|---|---|---|---|---|---|---|
-| workshop-fighter v workshop-rogue | 9.54 | 14, 14 | 0.0211 / 0.255 / 0.313; 0.0172 / 0.234 / 0.289 | 0 | 5 | 0.22 / 10.2 / 112 | 12 | 20.2, the club; 7.66, a hand |
-| crypt-skeleton v workshop-fighter | 13.09 | 20, 17 | 0.0194 / 0.0239 / 0.231; 0.00605 / 0.239 / 0.474 | 2 | 1 | 72.1 | 14.8 | 2.49, a foot; 20.7, the club |
-| workshop-rogue v crypt-skeleton | 11.82 | 20, 19 | 0.00988 / 0.233 / 1.46; 0.0172 / 0.0225 / 0.291 | 0 | 2 | 8.35 / 9.79 / 11.2 | 4.99 | 11.8, the club; 3.6, a foot |
-
-Where a club's end is a body's fastest point it is over 5 m/s for 0.18 to 0.5 s of the bout. The
-skeleton's fastest point in its two bouts is a foot, under 5 m/s. The one other touch of the
-ground in the three is the Rogue's club on the floor, 12.3 J.
+A club's end is over 5 m/s for 0.18 to 0.5 s of a bout.
 
 ## Crypt camera
 
-`CAMERA_PITCH` (`src/dungeon/camera.ts`) is pi / 6, 30 degrees above the ground. The concept art
-looks down at about 40 to 45 degrees, and the reference chamber's own camera at 42. The owner
-chose the 30 degrees; `?pitch=` on the page shows another, in degrees.
+`CAMERA_PITCH` (`src/dungeon/camera.ts`) is pi / 6, 30 degrees above the ground: **the owner's
+choice**, where the concept art looks down at about 40 to 45 degrees and the reference chamber's
+camera at 42. `?pitch=` on the page shows another, in degrees.
 
-`CAMERA`: the camera stands sqrt(800) m, 28.3 m, across the ground from the point it looks at,
-which is 1 m above the floor under the hero. The camera is orthographic, so the distance decides
-what is clipped, and not how large anything is drawn.
+`CAMERA`: the camera stands sqrt(800) m, 28.3 m, across the ground from the point it looks at, 1 m
+above the floor under the hero. It is orthographic, so the distance decides what is clipped, not
+how large anything is drawn.
 
 `REFERENCE_CAMERA` (`src/dungeon/reference.ts`), the reference chamber's
 ([the crypt's art](../art/crypt.md#the-rootbound-crypt)): 42 degrees up, at a bearing of 135
@@ -331,16 +270,15 @@ degrees, zoom 6.5.
 | `fallbackLights` | 2 torch lights stay on where clustered lights are not supported |
 | `cutoff` | a light's range is drawn where it adds 0.03, a sixth of the ambient |
 
-`REFERENCE_LIGHT`, the reference chamber's own: a fill of 0.30 in `#9aaecf`, the reflected image
-at 0.58, and a lantern of strength 5 in `#dce5f5`.
+`REFERENCE_LIGHT`, the reference chamber's own: a fill of 0.30 in `#9aaecf`, the reflected image at
+0.58, and a lantern of strength 5 in `#dce5f5`.
 
 `REFERENCE_TORCHES` (`src/dungeon/reference.ts`), the chamber's two torches: one on the wall cell
 (3, 8) facing +x, its flame at (3.65, 2.05, 8) and its light at (4, 2.05, 8); one on (12, 14)
 facing -z, its flame at (12, 2.05, 13.35) and its light at (12, 2.05, 13).
 
-The torches have a time of their own, which only the page moves (`DungeonLighting.burn`), each
-frame the run is not paused: a paused run's flames stand still, as the forge's do and as the
-owner chose. A frame burns them by at most 50 ms.
+The torches burn on a time of their own, which only the page moves (`DungeonLighting.burn`), by at
+most 50 ms a frame; a paused run's flames stand still, as the forge's do, as the owner chose.
 
 ## Crypt fog
 
@@ -360,8 +298,8 @@ coverage of 0.50 and 0.90.
 | `ahead` | the drop rises from none to full over 0.32 m toward the camera |
 | `foot` | a wall is whole below 0.1 m and fully in the cut above 0.5 m |
 
-`SCENERY` (`src/dungeon/scenery-visibility.ts`), what the scenery remembers having been seen, which
-is the look's own memory and never the run's:
+`SCENERY` (`src/dungeon/scenery-visibility.ts`), what the scenery remembers having been seen (the
+look's own memory, never the run's):
 
 | Field | Value |
 |---|---|
@@ -371,8 +309,8 @@ is the look's own memory and never the run's:
 
 ## Crypt cut-away
 
-The Rootbound Crypt and the Random Crypt are drawn with the walls on the camera's side cut down
-to a low sill (`src/dungeon/reference-look.ts`; `cutawayCondition`).
+The Rootbound Crypt and the Random Crypt are drawn with the walls on the camera's side cut down to
+a low sill (`src/dungeon/reference-look.ts`; `cutawayCondition`).
 
 `CUTAWAY`:
 
@@ -386,17 +324,17 @@ to a low sill (`src/dungeon/reference-look.ts`; `cutawayCondition`).
 13.45, m: 0.45 m beyond the middles of the floor's outer cells. The two on the camera's side are
 cut, and a torch whose rock cell lies beyond one is hidden with its wall.
 
-`REFERENCE_DAMP`: the Rootbound Crypt's floor is wet about (6.1, 7), (11.6, 11.3) and
-(13.5, 8.2), m. The Random Crypt's is wet under the torches of its damp chambers (`CRYPT_TORCH`).
+`REFERENCE_DAMP`: the Rootbound Crypt's floor is wet about (6.1, 7), (11.6, 11.3) and (13.5, 8.2),
+m. The Random Crypt's is wet under the torches of its damp chambers (`CRYPT_TORCH`).
 
-A torch's shadow map is 2048 px a side at high quality and 1024 px at reduced
-(`shadowMapSize`; [the crypt's art](../art/crypt.md#random-crypt)).
+A torch's shadow map is 2048 px a side at high quality and 1024 px at reduced (`shadowMapSize`;
+[the crypt's art](../art/crypt.md#random-crypt)).
 
 ## Crypt stone
 
 The crypt's walls, floor and doors. `WALL_HEIGHT` (`src/dungeon/fog.ts`) is 2.8 m, the wall's
-collider and its drawn skin alike; a door's leaf fills its collider. Everything else here is
-drawn inside those colliders ([the crypt's art](../art/crypt.md#the-rule-every-piece-keeps)).
+collider and its drawn skin alike; a door's leaf fills its collider. Everything else here is drawn
+inside those colliders ([the crypt's art](../art/crypt.md#the-rule-every-piece-keeps)).
 
 `MASONRY` (`src/dungeon/masonry.ts`), m:
 
@@ -420,18 +358,18 @@ drawn inside those colliders ([the crypt's art](../art/crypt.md#the-rule-every-p
 | `top`, `topFacing` | a fragment facing more than 0.9 up is 0.6 of its albedo |
 | `copingDepth`, `coping` | the top 0.06 m of a flat wall's face, or the coping's bevel, is lit 1.6 times |
 
-The shader's text (`FRAGMENT`) writes a few numbers of its own: the two spans weigh 0.65 and
-0.35, the second offset by 17; grime's height varies between 0.4 and 1 of `grimeHeight` with the
-same noise, in patches where a third noise, at a span of 1.3 m and offset by 5, passes from 0.35
-to 0.75; a face counts as a bevel above a normal of 0.3 up and as square to an axis above 0.99;
-and the coping's bevel is read from 0.005 m below where it starts.
+The shader's text (`FRAGMENT`) writes a few numbers of its own: the two spans weigh 0.65 and 0.35,
+the second offset by 17; grime's height varies between 0.4 and 1 of `grimeHeight` with the same
+noise, in patches where a third noise, at a span of 1.3 m and offset by 5, passes from 0.35 to
+0.75; a face counts as a bevel above a normal of 0.3 up and as square to an axis above 0.99; and
+the coping's bevel is read from 0.005 m below where it starts.
 
 `TILE` (`src/dungeon/world.ts`): a flat floor's tile is 0.49 m to its edge, leaving 2 cm joints; a
 textured one 0.5 m; both stand `FLOOR_TOP` high.
 
 `DOOR_LEAF`: 6 planks with 0.02 m between them, 2.42 m tall and 0.2 m or 0.24 m deep; two iron
-bands at 0.55 m and 1.85 m up, 0.12 m high, 0.28 m deep and 2.9 m wide; and a ring on each
-face, 0.55 m to one side of the middle and 1.2 m up, 0.18 m across and 0.03 m thick.
+bands at 0.55 m and 1.85 m up, 0.12 m high, 0.28 m deep and 2.9 m wide; and a ring on each face,
+0.55 m to one side of the middle and 1.2 m up, 0.18 m across and 0.03 m thick.
 
 `SCONCE`: nothing of it stands more than 0.08 m off the wall; its plate is 0.12 m by 0.3 m by
 0.02 m, centred 1.82 m up, and its cup is 1.9 m up.
@@ -582,7 +520,7 @@ of its own, one draw against each of these odds where a chamber's kind gives non
 ## Workshop
 
 The character workshop page (`src/character-lab/main.ts`) shows a model in a studio of its own,
-apart from the game's scenes. Its values are kept as they were set with the page; none was swept.
+apart from the game's scenes. Its values were set with the page; none was swept.
 
 `STAGE`:
 
@@ -614,8 +552,8 @@ apart from the game's scenes. Its values are kept as they were set with the page
 | `keys` | an arrow turns the camera 0.12 rad or raises its target 0.08 m, between 0.15 m and 1.9 m; `+` and `-` move it 0.15 m, no nearer than `radius`'s least and no farther by key than 5 m |
 
 `MOTION`: the authored loop is 12 s long, its clips are keyed at 60 frames a second
-(`scripts/character-lab/realistic/motion.py`), and a drawn frame advances it by 100 ms at most,
-so that a stalled page does not jump.
+(`scripts/character-lab/realistic/motion.py`), and a drawn frame advances it by 100 ms at most, so
+that a stalled page does not jump.
 
 ## Materials
 
@@ -630,8 +568,7 @@ metalness:
 | `dungeon.wall` | 0.066, 0.070, 0.090 | 1 | the owner's choice of two candidates |
 
 The dungeon's two are the flat colours shown until their texture maps decode; the owner chose the
-texture each stands for, of two candidates each. Which textures ship is still the owner's to
-judge in play ([roadmap](../roadmap.md)).
+texture each stands for, of two candidates each.
 
 ## Bodies
 

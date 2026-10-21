@@ -1,41 +1,37 @@
 # Limit models in the posture audit
 
-The posture audit uses the selected engine's limit model. `rapier` retains parent-axis reactions;
-`rapier-coordinate` uses the measured-angle rate Jacobian's transpose. A coordinate reaction
-can load several actuator axes at one joint. The corrected programme therefore includes every
-muscle channel and every available stop, including channels that move no ground contact.
-Those channels cannot be solved independently by subtracting a diagonal stop torque.
+How the posture audit reads joint stops under each engine's limit model, and the three development
+witnesses and engine holds `research/posture-limits.mjs` compares. `rapier` keeps parent-axis
+reactions; `rapier-coordinate` uses the transpose of the measured-angle rate Jacobian. The
+witnesses are the installed starts of [posture hold](posture-hold.md).
 
-`postureStopDirections` computes generalized force directions from `ratesToRef`. On static,
-kinematically consistent poses this is the virtual-work dual of coordinate rate. The independent
-world-coordinate reading agrees within 2.815e-8 over asymmetric human joint poses, including
-both two- and three-freedom joints. The fixture accepts 1e-7 to accommodate the posed-node and
-reduced-coordinate arithmetic difference; the largest cross-axis term is 1.21218.
+## Stop directions
 
-A small programme with an otherwise unsupported three-axis joint receives an applied load
-`10 * [1, -0.3466876125, -0.1023245128]` N m at its upper stop. The corrected model supports it
-with zero muscle effort and a -10 N m coordinate reaction. A diagonal stop falsely leaves a
-muscle share of 3.466876 when each muscle is capped at 1 N m. Moving inside the range requires
-a share of 10 again. This is an algebraic equilibrium check, not a human strength estimate.
-Replacing the corrected directions with diagonal directions fails both focused tests.
+`postureStopDirections` computes generalized force directions from `ratesToRef`: on a static,
+kinematically consistent pose, the virtual-work dual of the coordinate rate. A coordinate reaction
+can load several actuator axes of one joint, so the corrected programme carries every muscle channel
+and every stop, including channels that move no ground contact; they cannot be solved apart by
+subtracting a diagonal stop torque.
 
-Audit records include engine name, artifact revision and `limitModel`. In corrected records,
-`stops.torque` is the signed coordinate reaction; its contributions to actuator axes are that
-value times the corresponding direction row. It is not the magnitude of the spatial moment.
+- An independent world-coordinate reading agrees within 2.815e-8 over asymmetric two- and
+  three-freedom poses; the fixture accepts 1e-7. The largest cross-axis term is 1.21218.
+- A three-axis joint loaded `10 * [1, -0.3466876125, -0.1023245128]` N m at its upper stop is held
+  with zero muscle effort and a -10 N m coordinate reaction. A diagonal stop leaves a muscle share
+  of 3.466876 (muscles capped at 1 N m); off the stop the share is 10. Diagonal directions fail
+  both focused tests.
+
+Records carry engine, artifact revision and `limitModel`. In corrected records `stops.torque` is
+the signed coordinate reaction; times a direction row it gives that actuator axis's part. It is
+not the spatial moment's magnitude.
 
 ## Development witnesses and engine holds
 
-Harness: Node 24.19, statics using the core kinematics and dynamics, no world step, Warrior
-with empty hands and no assistance. Both profiles use Rapier 0.21.0-auto-rpg.5 / adapter 6.
-Each row starts from development seed 0 with 300 search evaluations and the existing box
-friction model. These are feasible witnesses, not certified optima or a distributional claim.
-[Complete records](posture-limit-models.json) retain angles, reactions, contacts and outcomes.
-
-The physical hold places each profile's own witness on the engine, 0.5 mm above its support,
-then runs five seconds at 120 Hz with the game solver. It uses the audit's `side` velocity
-motors capped at one anatomical peak on the statically loaded side (the weaker side where
-unloaded). It does not use the whole-body controller or demonstrate reaching that posture.
-The unchanged hold gate is 20 mm maximum segment displacement from the installed pose.
+Harness: Node 24.19 statics (core kinematics and dynamics, no world step), Warrior, empty hands,
+no assistance, Rapier 0.21.0-auto-rpg.5 / adapter 6 on both profiles. Each row: development seed
+0, 300 search evaluations, box friction. The hold places each profile's own witness 0.5 mm above
+its support and runs 5 s at 120 Hz on the game's solver, with the audit's `side` velocity motors
+capped at one anatomical peak on the statically loaded side; the gate is 20 mm largest segment
+displacement. [Complete records](posture-limit-models.json).
 
 | Posture | Reference static share | Corrected static share | Reference hold drift | Corrected hold drift |
 |---|---:|---:|---:|---:|
@@ -43,27 +39,15 @@ The unchanged hold gate is 20 mm maximum segment displacement from the installed
 | Half kneel, knee light | 0.200 | 0.232 | 1,643.8 mm | 146.3 mm |
 | Squat, centre at 0.5 m | 0.644 | 0.644 | 1,356.3 mm | 1,324.7 mm |
 
-All six searches find geometrically admissible, balanced witnesses below full muscle strength.
-All six engine holds miss the displacement gate. Fours retains hand/shank contacts in both
-profiles; the corrected half kneel retains feet/right-shank contacts but also leans the trunk
-on the left thigh. A lower static share does not establish dynamic hold or a recovery route.
-The comparison changes both the engine and its searched witness and motor-side selection;
-the drift differences cannot be attributed to limit directions alone.
-
-Reproduce the six searches and holds:
+All six witnesses are admissible and balanced below full strength; all six holds miss the gate.
+Fours keeps hand and shank contacts on both; the corrected half kneel keeps feet and right shank
+but leans the trunk on the left thigh. Engine, witness and motor side all change between columns,
+so the drift difference is not the limit directions' alone.
 
 ```powershell
 node research/posture-limits.mjs --workers 3 --out research/runs/posture-limits
-```
-
-The wrapper's three rows, 300 evaluations, seed 0, five-second hold and 1x peak ceiling are
-development measurement inputs. The broad posture audit also reports its engine profile:
-
-```powershell
 $env:CORE_ENGINE = 'rapier-coordinate'
 node research/core-posture.mjs --workers 3 --rows 'fours;half kneel, knee light' --variants built
 ```
 
-The broader legacy tables in [postures](postures.md) describe parent-axis limits and are not
-corrected-profile evidence. The full regression run passes 806 tests, zero failures and two
-existing TODOs; type checking and the production build pass. General recovery remains open.
+The broad tables in [postures](postures.md) are parent-axis readings, not corrected-profile ones.

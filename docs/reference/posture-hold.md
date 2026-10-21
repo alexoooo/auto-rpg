@@ -1,40 +1,38 @@
 # Independent feedback on an installed posture
 
-`tasks/posture-hold.ts` initializes a body through `buildBody` and runs the existing independent
-joint-feedback policy through detached observations and bounded muscle actions. The policy has
-no root actuator, contact planner, coupled dynamics model or mutable physics handles. This is
-a hold test; it neither enters the pose nor demonstrates rising.
-
-The same task also accepts external actuator actions through the common environment. Its
-initial pose and scoring are identical. An [offline native-rollout diagnostic](native-posture-control.md)
-now holds half-kneel at the default solver count; that result uses a different controller from
-the direct-feedback measurements below.
-
-Harness: Node core world, 120 Hz, Rapier 0.21.0-auto-rpg.7 / adapter 9, corrected angular
-limits, directional muscle bounds, native 16 solver iterations, ordinary ground, empty hands,
-zero root and weapon assistance; code at `83c3540c`, the workshop hands' measured hulls.
-The two profiles differ only in patch versus per-point friction. Anatomical strength is unchanged.
+`tasks/posture-hold.ts` builds a body in an installed pose and holds it with the independent
+joint-feedback policy (detached observations, bounded muscle actions, no root actuator, contact
+planner or dynamics model). Its `SETTINGS` are read from [Fixture and
+acceptance](#fixture-and-acceptance). It is a hold test: it neither enters the pose nor rises. The
+same task takes external actuator actions; the [native-rollout
+diagnostic](native-posture-control.md) holds half-kneel through that port.
 
 ## Fixture and acceptance
 
-The three Warrior starts in `assets/research/posture-holds.json` come from seed-zero corrected
-development witnesses in [posture-limit-models.json](posture-limit-models.json): fours,
-half kneel with a light knee, and squat. Angles are clamped to anatomical ranges; body-frame
-height includes a 0.5 mm initial clearance. The archived generator in
-[the records](posture-hold.json) writes their quaternions once. The shared builder constructs
-coincident joint anchors in the requested pose before physics exists, retaining anatomical
-zero frames. These measurements supersede teleport-initialized prototypes for this task.
+The three Warrior starts in `assets/research/posture-holds.json` (fours, half kneel with a light
+knee, squat) are the seed-zero corrected development witnesses of
+[posture-limit-models.json](posture-limit-models.json), clamped to anatomical ranges, raised 0.5 mm
+for clearance; [the records](posture-hold.json) keep the generator that wrote their quaternions.
+The builder makes coincident joint anchors in the requested pose before physics exists.
 
-`SETTINGS` defines the development gate: maximum displacement of **every segment origin at every step** no
-greater than 2 cm over ten seconds, positive ground contact, zero assistance and delivered
-effort within its directional bounds to 0.0001 N m. Drift includes startup and the final step.
-The 20 by 1 by 20 m floor is centred at `(0, -0.5, 0)` m. These are experimental task choices,
-not anatomy or game recovery thresholds. Motor speed is capped at 10 rad/s, activation is one,
-and requested speed is angle error divided by the specified response time, then capped.
+`SETTINGS` is the development gate, task choices rather than anatomy or recovery thresholds:
+
+| Setting | Value |
+|---|---:|
+| `seconds`: watch | 10 s |
+| `tolerance`: largest displacement of every segment origin at every step, startup and final step included | 0.02 m |
+| `effortTolerance`: delivered effort beyond its directional bound | 0.0001 N m |
+| `floor`: centre / size | (0, -0.5, 0) / (20, 1, 20) m |
+
+Ground contact must stay positive and assistance zero. The policy asks angle error over the response
+time, capped at 10 rad/s, at activation one.
 
 ## Development screen
 
-Maximum segment drift in metres, Node core world / 120 Hz:
+Harness: Node core world, 120 Hz, Rapier 0.21.0-auto-rpg.7 / adapter 9, corrected angular limits,
+directional bounds, 16 solver iterations, ordinary ground, empty hands, zero assistance, at
+`83c3540c` (the workshop hands' measured hulls). The two profiles differ only in patch against
+per-point friction. Maximum segment drift, m:
 
 | Pose | Response (s) | Patch friction | Per-point friction |
 |---|---:|---:|---:|
@@ -48,29 +46,18 @@ Maximum segment drift in metres, Node core world / 120 Hz:
 | Squat | 0.03 | 1.669865 | 1.675927 |
 | Squat | 0.01 | 1.699437 | 1.676254 |
 
-No cell passes. All fours comes nearest, 2.31 to 3.70 cm, with ground contact on all 1,200
-steps and no effort excess beyond the tolerance. Maximum driven effort, including startup, is
-47.4 to 53.7 N m on all fours; these are not struck peaks. All eighteen measured cells replay
-exactly from the two-second checkpoint. Each engine run additionally reports eighteen
-unsupported Rogue/skeleton cells; it does not silently count them as measured trials. This
-fixed development screen is not a distributional success estimate. Held-out data is unused.
+No cell passes. All fours comes nearest (2.31 to 3.70 cm) with ground contact on all 1,200 steps,
+no effort excess and driven effort 47.4 to 53.7 N m. All eighteen cells replay exactly from the
+two-second checkpoint; Rogue and skeleton cells are reported unsupported.
 
-The hands decide it. The same patch-friction screen at `8c59943b`, the hands capsules, holds
-all fours at 0.01 s within 0.014867 m, ground contact on all 1,200 steps and no effort excess;
-its other cells drift 0.023038 to 1.686939 m. The hulls move that cell to 0.023510 m.
-
-Reproduce with `CORE_ENGINE` set to either profile:
+The hands decide it: at `8c59943b`, with capsule hands, patch friction holds all fours at 0.01 s
+within 0.014867 m (other cells 0.023038 to 1.686939 m); the hulls move that cell to 0.023510 m.
 
 ```powershell
+# CORE_ENGINE set to either profile
 node research/control-foundation.mjs --suite posture-hold --split development --actuation directional --workers 2
 ```
 
-The records contain full manifests, source identities, configurations and outcomes. Parallel
-worker timings are diagnostic, not a quiet-machine capacity measurement. Tests also reject
-limp control, slower feedback and missing fixtures, and verify that requested construction
-angles agree with signed joint readings without an initial constraint impulse.
-
-With the hands' hulls the independent policy holds no grounded anatomical pose within the
-gate. Entry, disturbances, loaded hands, balanced kneeling/squatting and transitions to useful
-standing control remain separate gates. The contact predictor's anatomical mismatch remains
-open; the recovery study that read it is `docs/analysis/2026-10-05-recovery-support.md@7f3ebcdb`.
+Tests also reject limp control, slower feedback and missing fixtures, and check that construction
+angles agree with signed joint readings without an initial constraint impulse. The recovery study
+that read the contact predictor's mismatch is `docs/analysis/2026-10-05-recovery-support.md@7f3ebcdb`.

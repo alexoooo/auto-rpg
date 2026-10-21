@@ -1,27 +1,24 @@
 # Arena equipment specifications
 
-These are authored game dimensions under `owner-arena-items`, following the owner's request for
-a small centre-grip buckler and a one-handed short sword. They establish physical equipment;
-they do not establish historical accuracy or fighting capability. Muscle limits are unchanged.
+The buckler's and short sword's numbers: authored game values (`owner-arena-items`), a small
+centre-grip buckler and a one-handed short sword as the owner asked, not measurements of historical
+equipment. Muscle limits are unchanged.
 
 ## Buckler
 
-The buckler is a rigid octagonal disc of 0.16 m radius, 0.012 m thickness and 0.8 kg mass, with a
-0.12 m long, 0.018 m radius handle of 0.1 kg. Its item frame has y along the grip, x across the
-face and z outward. The disc is centred halfway along the handle and 0.065 m outward from its
-axis, leaving clearance for the fist. The handle and disc use their solid-cylinder moments,
-combined with the parallel-axis rule; the mass is 0.9 kg in total.
+A rigid octagonal disc, 0.16 m radius, 0.012 m thick, 0.8 kg, on a handle 0.12 m long, 0.018 m
+radius, 0.1 kg: 0.9 kg in all. The item frame has y along the grip, x across the face and z outward.
+The disc is centred halfway along the handle and 0.065 m outward from its axis, clearing the fist.
+Handle and disc take their solid-cylinder moments, combined by the parallel-axis rule.
 
-The named boss is the disc's centre. Its outward normal is +z, and the shield guard controls
-both the boss's place and the face's orientation. The collider is the same octagonal prism the
-renderer draws, with an ordinary rigid metal surface. It has no attack aim point, damage bonus,
-durability or breakage rule.
+The boss is the disc's centre, outward normal +z; the shield guard places the boss and turns the
+face. The collider is the octagonal prism the renderer draws, an ordinary rigid metal surface, with
+no attack point, damage bonus, durability or breakage.
+
 ## Short sword
 
-The first short sword's numbers are authored game design values (`owner-arena-items`), not
-measurements of historical equipment. Its item frame has y from the butt toward the tip, x across
-the blade between its two edges, and z through its thickness. Geometry and mass properties are
-independent inputs: collider regions carry no additional mass.
+The item frame has y from butt to tip, x across the blade between its edges, z through its
+thickness. Geometry and mass are independent inputs: colliders carry no mass.
 
 | Quantity | Value |
 |---|---|
@@ -36,12 +33,10 @@ independent inputs: collider regions carry no additional mass.
 | Contact surface stiffness | 10,000,000,000 N/m |
 | Edge and tip cone | Normal cosine at least 0.8 |
 
-The hilt and flat are blunt. The right and left edge directions are +x and −x; the tip direction
-is +y. The normal-cone rule classifies each impact from the strongest loaded shape pair and uses
-the existing rulebook's mechanism price. The sword causes no sustained-load piercing injury.
-
-`edge.right`, `edge.left` and `tip` are both contact-region names and named aiming points; the
-edge points are midway along the blade body. The opposing edge point and the blade base supply
-the collinear rear points used to control an edge direction or a tip direction. `bladeBase`
-and `bladeEnd` define the parry line.
-The item uses the existing hard-equipment sound for metal contact.
+- Hilt and flat are blunt. The right and left edges face +x and −x, the tip +y; the normal cone
+  classifies each impact from the strongest loaded shape pair at the rulebook's mechanism price. No
+  sustained-load piercing.
+- `edge.right`, `edge.left` and `tip` name both contact regions and aiming points; the edge points
+  are midway along the blade body. The opposite edge point and the blade base give the rear points
+  for aiming an edge or the tip; `bladeBase` and `bladeEnd` define the parry line.
+- Metal contact uses the hard-equipment sound.

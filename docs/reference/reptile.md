@@ -1,53 +1,49 @@
 # Reptile anatomy and control
 
+The reptile's authored anatomy (`assets/reptile/body.json`, `reptile-anatomy` in `SOURCES`,
+`src/core/reptile/spec.ts`), its controller's settings (`src/core/reptile/tuning.ts`), its place in
+the crypt's encounters, and the checks that qualify the combination. How its bite wounds is
+[pointed contact](reptile-bites.md).
+
 ## Anatomical model
 
-The reptile is an authored, low, sprawling quadruped, 8 kg with 1 HP and zero
-balance. It is a game creature, not a reconstruction of a particular species.
-`assets/reptile/body.json` is the complete table of reference geometry, relative
-segment masses, joint limits, torque ceilings and unloaded speeds.
+The reptile is an authored, low, sprawling quadruped, 8 kg with 1 HP and zero balance: a game
+creature, not a reconstruction of a species. `assets/reptile/body.json` holds its reference
+geometry, relative segment masses, joint limits, torque ceilings and unloaded speeds. Four legs
+carry a rigid trunk; a two-axis neck carries the head, a hinge opens the lower jaw, and two weakly
+driven tail segments hang behind.
 
-The proportions, mass weights, joint excursions, torque ceilings and speeds are
-explicit estimates authorized for gaps in anatomical evidence. They are not
-measurements from a real specimen. The limits include the declared reference
-pose. Four legs carry a rigid trunk; a two-axis neck carries the head, a hinge
-opens the lower jaw, and two weakly driven tail segments hang behind the trunk.
+Every proportion, mass weight, joint excursion, torque ceiling and speed is an explicit estimate
+for a gap in anatomical evidence, not a measurement of a specimen; the limits include the declared
+reference pose. Monitor-lizard muscle architecture informs the sprawling limbs and the separate
+fore- and hindlimb chains (Dick and Clemente 2016, https://doi.org/10.1186/s12983-016-0141-5;
+Cieri et al. 2020, https://pmc.ncbi.nlm.nih.gov/articles/PMC7704238/); their measurements are not
+transcribed as torque ceilings.
 
-Monitor-lizard muscle architecture informs the choice of sprawling limbs and
-separate forelimb and hindlimb chains. Relevant primary datasets are Dick and
-Clemente (2016), https://doi.org/10.1186/s12983-016-0141-5, and Cieri et al.
-(2020), https://pmc.ncbi.nlm.nih.gov/articles/PMC7704238/. Their measurements are
-not transcribed as the creature's estimated torque ceilings.
-
-Masses are each segment's declared weight divided by the sum of weights, times
-8 kg. The centre of mass is the midpoint. A box has the uniform cuboid's moments;
-a capsule's inertia is approximated by a uniform cylinder of the declared radius
-and its full end-to-end extent. Collision geometry does not change those masses.
-Ordinary surfaces have an explicit 17,000 N/m estimate, not a borrowed human
-anatomical table. Three lower-jaw tooth pyramids are separate anatomical colliders,
-each with its own authored 10,000,000 N/m surface. Their tips rise 8 mm from their
-bases, at reference y .2255 m and z .503 m. The bases span z .481-.489 m;
-the tips lean 18 mm forward from their base centres and lead the blunt jaw front by 8 mm.
-The piercing direction is the normalized base-to-tip axis `[0, .008, .018]`.
-Their reference points, directions and .5 contact-normal cosine are in the asset.
-These are game estimates, not measured enamel stiffness or species bite forces.
-The lower middle tooth tip is the jaw's `bite` point. Teeth belong to the existing
-segment mass and inertia; adding their colliders adds no mass or muscle strength.
-A segment's endpoints define its local longitudinal axis;
-box sizes are along that segment's local frame.
+- **Mass and inertia**: each segment's declared weight over the sum of weights, times 8 kg, its
+  centre of mass at the midpoint. A box has the uniform cuboid's moments; a capsule is a uniform
+  cylinder of its radius and full end-to-end extent. Collision geometry does not change the
+  masses. A segment's endpoints define its longitudinal axis; box sizes are in that frame.
+- **Surfaces**: ordinary surfaces have an estimated 17,000 N/m, not a borrowed human table.
+- **Teeth**: three lower-jaw tooth pyramids are colliders of their own, each with an authored
+  10,000,000 N/m surface. Their bases sit at y .2175 m and z .481-.489 m; their tips rise 8 mm, to
+  y .2255 m, and lean 18 mm forward to z .503 m, leading the blunt jaw front by 8 mm. The piercing
+  direction is the normalized base-to-tip axis `[0, .008, .018]`, with a .5 contact-normal cosine.
+  The lower middle tip is the jaw's `bite` point. Teeth add no mass, inertia or strength. These are
+  game estimates, not enamel stiffness or bite forces.
 
 ## Controller settings
 
-These values are controller choices, held separately from the anatomy in `REPTILE_MOTOR`,
-`REPTILE_TRAVEL`, `REPTILE_TROT`, `REPTILE_CRAWL`, `REPTILE_RECOVERY` and `REPTILE_BITE`
-(`src/core/reptile/tuning.ts`).
-The contact gates and the final fixed-anatomy checks below qualify the combination; they are
-not a measured optimum or evidence of a real animal's locomotion. Response times are seconds,
-lengths metres, angles radians, and height multipliers relative to the spec's reference COM.
+Controller choices, held apart from the anatomy in `REPTILE_MOTOR`, `REPTILE_TRAVEL`,
+`REPTILE_TROT`, `REPTILE_CRAWL`, `REPTILE_RECOVERY` and `REPTILE_BITE`
+(`src/core/reptile/tuning.ts`). The contact gates and fixed-anatomy checks
+([Qualification](#qualification)) qualify the combination; they are not a measured optimum or
+evidence of a real animal's locomotion. Times are seconds, lengths metres, angles radians, heights
+relative to the reference centre of mass.
 
-The reptile is down (`DownSpec` `low`, `assets/reptile/body.json`'s `down`) once its trunk's up
-tips under 0.5 (60 degrees from upright) or its centre of mass sinks under 0.6 of its standing
-height over its lowest point.
+The reptile is down (`DownSpec` `low`, the asset's `down`) once its trunk's up tips under 0.5 (60
+degrees from upright) or its centre of mass sinks under 0.6 of its standing height over its lowest
+point.
 
 | Construct | Values | Purpose |
 | --- | --- | --- |
@@ -84,92 +80,58 @@ height over its lowest point.
 | Supported handover | recoveryPath .5 s, recoveryHeight .8, recoveredSpeed .1 m/s, recovered .5 s, rollUpright .95 | Free-paw reacquisition and quiet four-sole support before resume |
 | Supported rise response | centre .12, endpoint .08, turn .12, posture .15 s | The same physical support solve as ordinary control |
 
-The trot alternates diagonal pairs selected from the reference footprint. It advances the COM
-continuously at a commanded velocity, rather than waiting for a support shift at every paw.
-Its free paws land with world velocity near zero across the ground, compensating translation
-and rotation of the trunk. The crawl respects travel intent magnitude, so approach braking
-also shortens its stride.
-Its centre is shifted into the other three actual contact
-patches before a swing. Its paw placements are relative to the actual COM and reference
-footprint, so a support shift does not progressively widen the stance.
-A path finishing does not establish a landing: a paw must first clear the floor and then carry
-a positive ground impulse. An unsuccessful landing returns toward its saved anchor and retries.
-Gaits switch after the active placement ends. Approach brakes toward the mouth's usable reach;
-close fighting and crowded withdrawal use the crawl until the opponent is clear. A resumed host
-places every paw through the crawl, aligns its actual heading with the order and verifies quiet
-four-sole support before trotting.
-Righting reads all fixed-ground contacts but gives joint pushes only through loaded leg chains.
-Its leg route reads each leg's own hip and knee; blocked routes reverse the chosen trunk end.
-Completion requires actual four-paw sole contact, sufficient height, an upright body and a quiet
-COM for half a second. Recovery does not require that support before it starts.
+What the settings serve:
 
-The bite selects the first exposed surface on a tooth's closing arc, including a
-segment's natural colliders. A path that starts inside a foreign collider supplies
-no fresh entry. A buried mouth withdraws before seeking another surface.
-A pending request retains its material point while an active paw placement finishes,
-with a two-second placement deadline. Preparation retains the material point in the opponent segment's frame and follows
-its sensed motion. A changed foe order replaces a chamber target; the snap freezes
-the last chambered world point, mouth aim and measured neck pose. The mouth goal compensates the
-selected tooth's projected contact angle. A bounded horizontal COM shift stays
-inside the actual loaded paw support polygon.
-
-Preparation and active bites use standing height. The current paw placement finishes
-before launch, which waits for four loaded paws; a committed stroke requires at
-least three. Locomotion pauses for a pending request, preparation and the stroke. The angular quintic retains
-closing velocity at its endpoint within the unchanged muscle ceilings. A missed
-stroke ends after the snap and follow-through clocks. An admitted contact has the
-shared finite .25 s / 8 mm endpoint-travel budget. Cancellation, lost support, a fall, misalignment
-or any loaded contact with the world or an unintended body ends the stroke.
-Contact identities come from the arena or Crypt's trusted adapter, including weak
-contacts beside a stronger intended contact.
-
-The [pointed-contact load rule](reptile-bites.md) wounds any opposing body under aligned
-physical tooth pressure above the common threshold. It integrates normal impulse each
-interval, grouping teeth against the same physical segment. No tissue declaration,
-penetration calculation or contact-work episode participates. The shared game rate sets
-injury strength independently of anatomy. Sides, reverse contacts, heads and ordinary jaws
-remain blunt; impacts retain recoil injury. No character-specific rule or Mind's intent
-participates.
-
-A return opens the jaw for .25 s while retaining the measured neck pitch, then
-retracts a loaded head through its neck muscles. If contact persists after the
-opening path and .2 s release interval, it requests backward crawling while
-retaining the forward heading. Success
-requires an open jaw, a neutral neck, quiet relative jaw motion and no foreign
-loaded head or jaw contact. A timeout reports failure and permits another target.
-Colliders do not change with wounds. Sustained aligned pressure injures even without movement.
+- **The trot** alternates diagonal pairs from the reference footprint, advancing the centre of mass
+  continuously at the commanded velocity; free paws land with near-zero world velocity. **The
+  crawl** shifts the centre into the other three contact patches before each swing, and shortens
+  its stride with travel intent so approach braking slows it. Placements are relative to the actual
+  centre of mass, so the stance does not widen.
+- **A landing** needs a paw that clears the floor and then carries a positive ground impulse; one
+  that does not returns toward its anchor and retries. Gaits switch after the active placement.
+  Close fighting and crowded withdrawal crawl; a resumed host crawls into place, aligns its heading
+  and verifies quiet four-sole support before trotting.
+- **The bite** takes the first exposed surface on a tooth's closing arc, keeps the material point in
+  the foe segment's frame while it prepares, freezes the chambered point, mouth aim and neck pose at
+  the snap, and launches only on four loaded paws (a stroke keeps at least three). A stroke ends on
+  its snap and follow-through clocks if it misses, on its .25 s / 8 mm budget once in contact, and
+  on cancellation, lost support, a fall, misalignment or a loaded contact with anything unintended.
+  Contact identities come from the arena's or crypt's trusted adapter.
+- **The return** opens the jaw for .25 s keeping the neck pitch, retracts a loaded head through the
+  neck muscles, and crawls backward if contact persists past the .2 s release. Success needs an
+  open jaw, a neutral neck, quiet jaw motion and no loaded head or jaw contact; a timeout is a
+  failure and frees the bite for another target.
+- **Righting** reads every fixed-ground contact but pushes only through loaded leg chains, routing a
+  wrapped leg round the trunk end its own hip and knee allow. It completes on four-paw sole contact,
+  enough height, an upright body and a quiet centre of mass for half a second, and does not need
+  that support to start.
 
 ## Encounters
 
-The Crypt's `HUMANOID` (`cryptModel`, `src/dungeon/actors.ts`) retains the .35 m placement footprint from
-[following](play.md#following), and `ATTACK_METRES` from
-[attack distance](human-and-strikes.md#attack-distance). A humanoid that falls stays in the fight and gets up, as the reptile does.
-The reptile has empty hands and a quadruped mind by default (`modelInfo`), with .52 m attack spacing
-in the Crypt. The selected navigation role handles routing, braking and progress. Its placement radius is derived from the full
-collider envelope, including the tail, rather than copied from humanoid shoulder width.
-Party placement also uses that footprint and the radii of companions already placed.
+The Crypt's `HUMANOID` (`cryptModel`, `src/dungeon/actors.ts`) keeps the .35 m placement footprint
+of [following](play.md#following) and `ATTACK_METRES` from
+[attack distance](human-and-strikes.md#attack-distance); a humanoid that falls stays in the fight
+and gets up, as the reptile does. The reptile has empty hands and a quadruped mind by default
+(`modelInfo`), .52 m attack spacing in the Crypt, and a placement radius derived from its whole
+collider envelope, tail included. Party placement uses that footprint and the radii of companions
+already placed.
 
 Generated crypt and generated-depth layouts alternate skeleton rooms and three-reptile packs.
-`ENCOUNTERS` sets three bodies per pack, at least 2 m apart, and one extra metre clear of doors
-beyond their radius. These spacing choices keep bodies clear of their neighbours and doorways.
-Pack points are
-outside the party's initial 15 m separation, walkable with closed doors and reachable from the
-start at the body's radius. A generated candidate with insufficient space is rejected before
-the run is constructed. Point-only and unchanged authored maps retain their skeleton encounters.
-Every built actor receives the run's shared senses. A reptile's fall does not empty its pool or
+`ENCOUNTERS` sets three bodies a pack, at least 2 m apart, and one metre beyond their radius clear
+of doors, so bodies stay clear of neighbours and doorways. Pack points lie outside the party's 15 m
+starting separation, walkable with closed doors and reachable from the start at the body's radius;
+a generated candidate without the space is rejected before the run is built. Point-only and
+authored maps keep their skeleton encounters. A reptile's fall does not empty its pool or
 eliminate it while it recovers; an upright party body must reach the exit to win.
 
 ## Qualification
 
-The Node stand uses the core world, the default `rapier-coordinate` engine and
-120 Hz. Anatomy stays fixed during controller qualification; controller response,
-placement and gait settings are separate from anatomical strength.
+Node stand, the core world, `rapier-coordinate`, 120 Hz, anatomy fixed: no torque or unloaded speed
+is raised to pass. The witnesses are `tests/core-reptile.test.mjs`,
+`tests/reptile-recovery.test.mjs`, `tests/reptile-fork.test.mjs`, `tests/reptile-combat.test.mjs`
+and `tests/reptile-integration.test.mjs`.
 
-The permanent witnesses are `tests/core-reptile.test.mjs`, `tests/reptile-recovery.test.mjs`,
-`tests/reptile-fork.test.mjs`, `tests/reptile-combat.test.mjs` and `tests/reptile-integration.test.mjs`. No anatomical torque or
-unloaded speed is raised during their qualification.
-
-| Node stand, rapier-coordinate, 120 Hz | Gate/result |
+| Gate | Result |
 | --- | --- |
 | Construction with gravity and ground disabled | Eight steps, segment speed below 10 micrometres/s |
 | Standing | Thirty seconds upright, COM above .17 m, horizontal drift below .05 m |
@@ -178,83 +140,45 @@ unloaded speed is raised during their qualification.
 | Paw accounting | At most two requested swings in the trot, one in the crawl; each counted paw clears the floor and reloads through positive fixed-ground contact |
 | Closing-jaw contact | A fixed opposing Reptile jaw receives a tooth contact during the fast closing stroke; cancellation gives one verified release and no failed return |
 | Autonomous bite | Senses-only approach and closing-jaw contact, followed by verified release after cancellation |
-| Autonomous combat target | Injury verdict within 30 s in Reptile mirrors; at least two damaging engagements and .5 HP removed in 30 s against each active humanoid. Results and conditions are in [pointed contact](reptile-bites.md). |
+| Autonomous combat target | Injury verdict within 30 s in Reptile mirrors; at least two damaging engagements and .5 HP removed in 30 s against each active humanoid ([pointed contact](reptile-bites.md)) |
 | Recovery | Back, left, right and lowered-belly poses in two headings, eight handovers within 100 s; each then walks two trunk lengths in 60 s without another fall |
 | No floor | No invented support or completed rise in a gravity-free unsupported inverted body |
 | Lifecycle and replay | Hold/resume retains physical bodies; crawling, jaw cancellation and righting fork exactly, with physics-only and state-only negative controls |
 | Generated packs | Both layout generators, 24 seeds each; complete-map repeatability, physical clearance, reachability and pack separation |
 
-### Bite contact and qualification
+The bite meter credits actual load wounds during a launched bite and its loaded withdrawal; a
+completed cycle needs the verified release. The eight recovery poses are development witnesses,
+not a claim about arbitrary falls, obstacles or opponents; some take repeated retries and about
+80 s.
 
-[Pointed contact](reptile-bites.md) records the physical law, its rate and contact-count
-checks, and Arena bouts against Reptile, Rogue, Warrior and Skeleton. The bite meter
-credits actual load wounds during a launched bite and its loaded withdrawal. A completed
-cycle requires the skill's verified physical release; a timed-out return is a failure.
-The combat harness also counts damaging engagements separated by actual jaw/opponent
-contact clearance, independent of the skill phase.
-
-The eight recovery poses are development witnesses, not a claim about arbitrary falls,
-obstacles or opponents. Some rotated leg positions take repeated retries and about 80 s.
-
-### Travel admission after recovery
-
-The Node stand, rapier-coordinate at 120 Hz, starts the reptile on its left side with a
-quarter-turn heading, then commands forward travel for 60 seconds after physical handover.
-Anatomy and balance are unchanged, with no external blow. Handover occurs at 20.283 s.
+**Travel after recovery.** Started on its left side with a quarter-turn heading and ordered forward
+for 60 s after handover (at 20.283 s), no blow, the reptile must align its actual heading before it
+accelerates: the commanded heading can arrive before the body turns.
 
 | Admission before accelerating | Steps down after handover | Forward distance in 60 s, m |
-| --- | --- | --- |
+| --- | ---: | ---: |
 | Commanded heading within .2 rad | 364 | 12.618 |
 | Crawl aligns the actual heading within .05 rad before trotting | 0 | 13.715 |
 
-The commanded heading can arrive before the body turns. Travel reads the actual heading, and
-a resumed host completes its heading change through the crawl. Quiet paw contact alone does
-not establish that the body is ready to accelerate toward its goal.
-The eight-pose qualification retains the requirement for no fall after handover.
-
-### Travel selection
-
-`node research/reptile-motion.mjs --sweep` runs the Node stand on rapier-coordinate at 120 Hz,
-with zero balance and fixed anatomy. Each row stands for two seconds, then commands forward
-travel for ten seconds on a 100 m ground. These are driven, unstruck intervals. Overrides are
-passed into `quadrupedMind`; no global setting is mutated.
+**Travel speed** (`node research/reptile-motion.mjs --sweep`; two seconds standing, then ten seconds
+of forward travel on a 100 m ground, driven and unstruck; overrides passed into `quadrupedMind`):
 
 | Commanded speed, m/s | COM height multiplier | Distance in 10 s, m | Mean speed, m/s | Steps down | Counted paws |
-| --- | --- | --- | --- | --- | --- |
+| --- | --- | ---: | ---: | ---: | ---: |
 | .25 | 1 | 2.809 | .281 | 0 | 76 |
 | .30 | 1 | 3.243 | .324 | 0 | 76 |
 | .35 | 1 | 3.646 | .365 | 0 | 76 |
 | .40 | 1 | .339 | .034 | 296 | 6 |
 | .30 | .85 | .351 | .035 | 308 | 10 |
 
-The .30 m/s command is the qualified default; this small sweep does not establish a maximum
-speed. The support response and standing height are necessary to this combination. At the
-same Node stand, engine and rate, the crawl in `42cd1e5a` covered .155880 m in ten seconds
-after two seconds standing (.015588 m/s). The default trot is about 20.8 times faster in this
-straight-travel witness. Mean COM speed includes the physical effects of swinging limbs; it
-need not equal the velocity command exactly.
+The .30 m/s command is the qualified default; the sweep does not establish a maximum. The crawl it
+replaced (`42cd1e5a`) covered .156 m in the same ten seconds, about 20.8 times slower. Without a
+`--sweep`, the script plays four autonomous arena mirrors and tells jaw blows in a committed stroke
+from incidental collisions; the 30 s combat target is `research/reptile-combat.mjs`'s.
 
-`node research/reptile-motion.mjs` also prints four autonomous arena mirror matches and
-distinguishes jaw blows during a committed closing stroke from incidental body collisions.
-Those matches diagnose attack placement; the 30 s combat target is measured separately by `research/reptile-combat.mjs`.
-
-## Humanoid regression
-
-`node research/body-plan-regression.mjs CHECKOUT OUTPUT.json` runs the same Node stand and Duel
-on a supplied checkout, rapier-coordinate at 120 Hz. Standing uses 120 warmup steps followed
-by 1,200 measured steps; each Warrior/Rogue bout takes 2,400 steps. All segment poses enter
-the digest after every measured step. Comparison of Reptile qualification commit `cf2c220c`
-against upstream `3f60d702`, before the measured workshop-hand hulls, gives:
-
-| Witness | Upstream digest | Reptile qualification digest (`cf2c220c`) |
-| --- | --- | --- |
-| Warrior standing | `2a08cb82a39d0889` | `2a08cb82a39d0889` |
-| Rogue standing | `ef9201a9062b6c05` | `ef9201a9062b6c05` |
-| Skeleton standing | `ed808209f8b4327c` | `ed808209f8b4327c` |
-| Warrior/Rogue, clubs | `1805f1c3d51d2a5b` | `1805f1c3d51d2a5b` |
-| Warrior/Rogue, empty hands | `78f8e4519b5c8977` | `78f8e4519b5c8977` |
-
-The club verdict is unchanged: left wins by fatal wound at 9.125 s. The empty-hand bout has
-no verdict inside the measured 20 s. These fixtures establish exact retention of the covered
-humanoid paths for that Reptile qualification. Initial timing readings overlapped recovery
-measurements, so they do not support a performance comparison.
+**Humanoids unchanged.** `node research/body-plan-regression.mjs CHECKOUT OUTPUT.json` (120 warmup
+and 1,200 measured standing steps; 2,400-step Warrior/Rogue bouts; every segment pose in the
+digest) gives the same digests at the reptile's qualification `cf2c220c` as at `3f60d702` for the
+Warrior, Rogue and skeleton standing (`2a08cb82a39d0889`, `ef9201a9062b6c05`, `ed808209f8b4327c`)
+and the Warrior/Rogue bouts with clubs (`1805f1c3d51d2a5b`, left wins by a fatal wound at 9.125 s)
+and empty-handed (`78f8e4519b5c8977`, no verdict in 20 s).

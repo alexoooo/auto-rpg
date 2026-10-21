@@ -1,22 +1,23 @@
 # Angular-limit coordinates
 
-The vendored engine offers an explicit `rapier-coordinate` configuration. Its angular limit
-rows use the spatial gradient of the angle the joint reports. The `rapier` configuration keeps
-the parent-axis rows used by the published reference batteries. Gameplay selects
-`rapier-coordinate` through `DEFAULT_ENGINE`. Both use one initialized WASM module, the same body and
-equipment representation, and the same actuator and controller interfaces. Selection belongs
-to the environment, not to a policy. Neither configuration changes anatomy or muscle strength.
+The measured-angle limit rows of the `rapier-coordinate` engine configuration, which gameplay runs
+(`DEFAULT_ENGINE`, `src/core/engine/engines.ts`), against the parent-axis rows of `rapier`, kept as
+the reference. Both share one WASM module, body and equipment representation, actuators and
+controller interfaces; neither changes anatomy or strength.
 
-`loadEngine("rapier-coordinate")` selects the correction. Node stands and the common task runner
-accept `CORE_ENGINE=rapier-coordinate`; the physical-task viewer exposes the choice under
-**Joint limits**, with `engine=rapier-coordinate` in its URL. `coordinateAngularLimits` is an
-integration parameter serialized by Rapier. The adapter includes the choice in the engine
-identity/revision and rejects a snapshot from the other configuration without changing the world.
+## Selection
+
+`loadEngine("rapier-coordinate")` selects it; Node stands and the common runner take
+`CORE_ENGINE=rapier-coordinate`, and the task viewer offers **Joint limits**
+(`engine=rapier-coordinate`). `coordinateAngularLimits` is an integration parameter Rapier
+serializes; the adapter puts the choice in the engine's revision and refuses a snapshot from the
+other configuration without changing the world. Selection belongs to the environment, never to a
+policy.
 
 ## The row and its measurement
 
 For relative joint rotation `q = (w, x, y, z)`, the limited coordinate is
-`theta_i = 2 atan2(q_i, w)`, recentered around the allowed range and wrapped. For cyclic axes
+`theta_i = 2 atan2(q_i, w)`, recentred on the allowed range and wrapped. For cyclic axes
 `j = (i + 1) mod 3`, `k = (i + 2) mod 3`, its gradient in the parent's joint frame is:
 
 ```
@@ -25,26 +26,22 @@ g_j = (q_i q_j + w q_k) / (w^2 + q_i^2)
 g_k = (q_i q_k - w q_j) / (w^2 + q_i^2)
 ```
 
-Rotating `g` through the parent's joint frame gives the world angular Jacobian. A range's
-center does not change this derivative away from the wrap. The parent-axis reference row omits
-the two cross terms, allowing motion along other axes to carry the reported angle through a
-limit that sees no corresponding speed. At exactly `q_i = w = 0` the coordinate is undefined;
-the implementation retains a finite parent-axis row rather than dividing by zero. This does
-not make the coordinate continuous at that singularity.
+Rotated through the parent's joint frame it is the world angular Jacobian; a range's centre does
+not change it away from the wrap. The parent-axis row omits the two cross terms, so motion on other
+axes can carry the reported angle through a limit that sees no speed. At `q_i = w = 0` the
+coordinate is undefined and a finite parent-axis row is kept.
 
-`angular_limit_jacobian` supplies scalar/SIMD impulse-joint rows and generic external joint
-constraints. Two-dimensional limits retain their unit row. Motor rows remain parent-axis
-spatial torque directions, and locked-axis quaternion rows retain their definitions. Internal
-reduced-coordinate multibody limits are a separate path; this work does not validate the
-unfinished multibody comparison.
+`angular_limit_jacobian` supplies the scalar and SIMD impulse-joint rows and generic external joint
+constraints. Two-dimensional limits keep their unit row; motor rows stay parent-axis torque
+directions, and locked-axis rows are unchanged. Internal multibody limits are a separate path
+([solver contract](solver-contract.md#anatomical-joint-shape-compatibility)).
 
 ## Mechanical checks
 
-Harness: Node 24.19, core stand, Rapier `.5`, adapter 6, no gravity, ground or assistance,
-a fixed parent and driven child on the Rogue shoulder's axes, symmetric actuation. The goal
-ramps over 1.5 seconds and holds for one second. Each axis is pressed in both senses while
-the other axes are straight or substantially rotated. Limits and motor strength are identical
-between configurations. These are stop-error measurements, not strike-energy measurements.
+Node 24.19, core stand, Rapier `.5`, adapter 6, no gravity, ground or assistance: a fixed parent and
+a driven child on the Rogue shoulder's axes, symmetric actuation; the goal ramps over 1.5 s and
+holds 1 s, each axis pressed both ways with the others straight or well turned. Limits and motor
+strength are the same in both configurations.
 
 | Check | Parent-axis reference | Coordinate gradient |
 |---|---:|---:|
@@ -53,75 +50,27 @@ between configurations. These are stop-error measurements, not strike-energy mea
 | Maximum asymmetric stop error, 120/480 Hz, 24 cases | 1.181491571508796 rad | 0.00002557814109643841 rad |
 | Asymmetric cases exceeding the existing 0.015 rad tolerance | 4/24 | 0/24 |
 
-The asymmetric ranges have centers -0.4 and +0.4 rad and half-width 0.6 rad. Faster-rate
-results here are independent endpoint checks, not a claim of physical convergence across rates.
-The native finite-difference test independently perturbs world rotations along all three axes,
-with rotated parents and recentered ranges. The native library's 85 tests pass. The Node
-regression also distinguishes the reported coordinates from Euler angles and checks motor
-speed semantics. Replacing the experimental selection with parent-axis rows makes both
-coordinate-limit regressions fail.
-The complete endpoint rows and prototype failure list are preserved in
-[joint-limits.json](joint-limits.json).
+The asymmetric ranges are centred at -0.4 and +0.4 rad with half-width 0.6 rad. The native
+finite-difference test perturbs world rotations on all three axes with rotated parents and
+recentred ranges. Parent-axis rows in place of the selection fail both coordinate-limit
+regressions. Full endpoint rows: [joint-limits.json](joint-limits.json).
 
-`tests/core-limit-profile.test.mjs` drives a complete body, saves it, and compares subsequent
-joint angles and velocities after restoration into the same and another corrected world.
-It checks serialized configuration and transactional rejection in both directions across
-configurations. `tests/core-joint-state.test.mjs` requires the gameplay default to select
-coordinate rows and pass the stop checks. The retained reference profile has an explicit
-measurement of its known error, rather than an outstanding gameplay TODO.
-
-## Controller validation by profile
-
-An unconditional prototype of the same gradient passed the mechanical test but failed 18 of
-789 existing tests (769 pass, two existing TODOs). The failures include changed replay-fixture
-coverage, guard contacts, recovery stages, strike measurements and passive settling. They also
-include actual capability losses: the Rogue's right-club defense admits 12.772056329529732 N s
-of protected-region contact in its test, a skeleton standing-bar move misses its 0.03 m gate
-at 0.03006015268204415 m, and the assisted Warrior falls in the lab shove fixture.
-Changing the expected trajectories would not establish that these capabilities work.
-
-A six-case prototype shared-strike screen, at 120 Hz with directional actuation and zero
-assistance, retains both humans' success but leaves the skeleton's shared return outside the
-0.02 m tolerance: 0.03200585295396584 m after contact and 0.03188770193254128 m after a miss.
-Thus this coordinate fix alone does not solve shared-item return or general recovery.
-
-The existing task tables name their engine configuration. Their success rates do not transfer
-to `rapier-coordinate`. Corrected-limit control, directional-actuator migration, defense,
-recovery and integrated gameplay require measurements on that configuration. The first
-gameplay gate is Warrior with empty hands and zero balance, matching the owner's requested
-initial scope. `tests/arena-gameplay-physics.test.mjs` requests the actual default explicitly:
-four physical shove directions recover and walk, and both hands repeatedly contact and return
-in the hit/miss fixtures. Unlimited-down bouts retain both sides in senses and replay.
-
-The full corrected-profile audit at this point has 22 failures among the 878 existing tests.
-Many are published parent-axis trajectory/measurement expectations; actual remaining losses
-include Rogue club defense, skeleton bar drift, assisted lab standing, and the Warrior's second
-recovery in the 60 s deadline. Removing the deadline allows continued attempts but does not
-establish repeat-recovery reliability. These are controller work, not failures of the mechanical
-stop check, and remain part of the combat/foundation work. Historical Node batteries explicitly
-default to `rapier` to reproduce their cited records; new gameplay gates explicitly use
-`DEFAULT_ENGINE`. A green reference battery is not evidence that those open cases pass under
-corrected limits.
+- `tests/core-limit-profile.test.mjs`: a driven body saved and restored into the same and another
+  corrected world gives the same angles and velocities; cross-configuration loads are refused both
+  ways.
+- `tests/core-joint-state.test.mjs`: the gameplay default selects coordinate rows and passes the
+  stop checks.
+- `tests/arena-gameplay-physics.test.mjs` runs the default explicitly: four shove directions
+  recover and walk, and both hands contact and return in the hit and miss fixtures.
 
 ## Package and browser validation
 
-The `.5` archive rebuilds to identical bytes in two managed directories. Offline installation,
-type checking and production build pass. The package validation suite at archive `.5` read 792 tests: 790 passed, zero
-failures and two outstanding controller checks. All 138 default physical baseline rows equal `.4` after
-excluding timing, and all three stock-package parity bouts retain their hashes. See the
-[engine record](rapier-vendor.md) for artifact and source identities.
-
-Three built-page checks agree with Node in every sampled body observation and the entire task
-outcome: the Warrior shared strike with right-hand release under each configuration, and the
-skeleton shared strike retaining both grips under corrected limits. All three browser replays
-match. The selector preserves the chosen task, equipment and release on navigation. Initial
-and final poses were inspected; browser warning/error logs were empty. The corrected skeleton
-remains upright but visibly bends forward and returns 0.028904571971773277 m off target in
-development seed 0. That is still a failed 0.02 m return gate. The zero-offset prototype above
-and this seeded start are different cases. Full browser outputs are in
-[joint-limits-browser.json](joint-limits-browser.json).
-
-Reproduction:
+The `.5` archive rebuilds to identical bytes in two directories; its 138 default baseline rows
+equal `.4`'s, timing excluded ([engine record](rapier-vendor.md)). Three built-page checks match
+Node in every sampled observation and outcome, and replay: the Warrior's shared strike releasing
+the right hand under each configuration, and the skeleton's shared strike holding both grips under
+corrected limits ([joint-limits-browser.json](joint-limits-browser.json)). That skeleton returns
+0.028904571971773277 m off target at development seed 0, failing its 0.02 m gate.
 
 ```powershell
 node --test tests/core-joint-state.test.mjs tests/core-limit-profile.test.mjs
@@ -132,6 +81,13 @@ node research/control-foundation.mjs --suite bar --support standing --actuation 
 Remove-Item Env:CORE_ENGINE
 ```
 
-The last command sequence is an experimental capability measurement, not a statement that
-every bar case passes. The task viewer uses
+Task viewer:
 `/control-tasks.html?engine=rapier-coordinate&task=point-strike&model=crypt-skeleton&side=both&held=shared&balance=centre&continuation=10&seed=0`.
+
+## Tried and not kept
+
+- The gradient applied unconditionally, with no reference profile: 18 of 789 tests failed, among
+  them real losses (the Rogue's right-club defense admitted 12.772056329529732 N s of protected
+  contact; a skeleton standing-bar move missed its 0.03 m gate at 0.03006015268204415 m; the
+  assisted Warrior fell in the lab shove), and the skeleton's shared return missed 0.02 m at
+  0.03200585295396584 m after contact and 0.03188770193254128 m after a miss.

@@ -1,11 +1,14 @@
 # Control foundation: common tasks
 
+The common task runner (`research/control-foundation.mjs`), its protocol and its baseline readings,
+and the shared environment whose reach settings `src/control-foundation/main.ts` uses. The suites
+built on it (bar, strike, support, posture) have their own records, linked below.
+
 ## Protocol 2
 
-The runner is `research/control-foundation.mjs`, with the fixtures in
-`control-foundation-trials.mjs` and one sequential job stream per worker in
-`control-foundation-worker.mjs`. It calls the existing core stand, blow evaluator, recovery
-watch and arena world. It does not substitute another dynamics model or change control commands.
+`control-foundation.mjs` runs the fixtures in `control-foundation-trials.mjs`, one sequential job
+stream per worker (`control-foundation-worker.mjs`), on the core stand, blow evaluator, recovery
+watch and arena world as they are.
 
 ```powershell
 node research/control-foundation.mjs --suite baseline --split development --workers 4
@@ -13,223 +16,141 @@ node research/control-foundation.mjs --suite recovery --split development --samp
 node research/control-foundation.mjs --suite strike-block --split development --samples 16 --workers 4
 ```
 
-Every run writes an exclusive `manifest.json`, an append-only `rows.jsonl` and a `summary.json`
-under a new directory in `research/runs/control-foundation/`. `--out` selects a directory;
-existing manifests cannot be overwritten. Failed runs leave completed rows and `failure.json`,
-and terminate all workers. Row order on disk is completion order; stable task IDs identify rows.
-
-`--actuation symmetric` preserves the gameplay reference; `--actuation directional` selects
-separate anatomical bounds for each torque direction. Both use the same installed engine.
-The law belongs to immutable world configuration, not to a policy's action. Protocol 2 includes
-it in every task ID, summary cell and guard pairing. Protocol 1 records below predate this field.
-`CORE_ENGINE=rapier-coordinate` selects the experimental measured-angle limit correction;
-the default `rapier` retains parent-axis limit rows. The manifest identifies the selected engine
-and revision. The [limit record](joint-limits.md) distinguishes mechanical correctness from
-the controller migration still required; the historical tables below keep their stated engine.
-Each run also writes `source.json.gz`: normalized source/JSON path-and-content pairs, including
-the package manifests, with its hash in the manifest. Source changes during a run invalidate it.
-The archive preserves dirty experimental code as well as its fingerprint.
-
-For point-strike and moving-strike suites, `--shared` replaces independent hand loadouts with
-one club held by both hands and preserves separate keep-both, release-left and release-right
-cells. The [shared-strike record](shared-strike.md) defines acquisition, attachment-gap,
-shared-impact and release-continuity gates alongside the existing return and replay gates.
-
-The bar, point-strike, moving-strike and defense suites accept experimental `--joint-stops`.
-It selects [near-stop prediction](joint-stop-tracking.md) without changing physics, anatomy or
-task gates. Task IDs, summary cells and defense pairs distinguish the option. Reports include
-selection work and residuals over the whole trial, including the replay checkpoint prefix.
-The meter is restored with the branch and included in replay comparison; timing excludes
-report sampling. Other suites reject the flag.
-
-The manifest carries the actual source/JSON content hash (including dirty and untracked research
-code), Git revision, Node version, package lock identity and installed package entry hash. Body,
-item and controller content share that source hash. Each job declares the model, loadout, initial
-geometry, controller variant, rate and watch. The current fixtures use no root or weapon assist.
-Policy and physics both run every step, at 120 Hz unless `--hz` names a finer multiple of 120.
+- **Output.** A new directory under `research/runs/control-foundation/` (`--out` names one; a
+  manifest is never overwritten): `manifest.json`, append-only `rows.jsonl` (completion order,
+  stable task IDs), `summary.json`, and `source.json.gz`, the normalized source and JSON content
+  with its hash in the manifest. A failed run keeps its rows, writes `failure.json` and stops
+  every worker; a source change during a run invalidates it.
+- **Manifest.** Source hash (dirty and untracked research code included), Git revision, Node
+  version, lockfile identity, installed package entry hash, engine and revision. Each job declares
+  model, loadout, initial geometry, controller variant, rate and watch. No fixture uses a root or
+  weapon assist. Policy and physics both run every step, at 120 Hz unless `--hz` names a multiple.
+- **`--actuation`.** `symmetric` is the gameplay reference; `directional` bounds each torque
+  direction by its own anatomical envelope. It is world configuration, in every task ID, summary
+  cell and guard pairing (protocol 1 records predate it).
+- **`CORE_ENGINE`.** `rapier` keeps parent-axis limit rows; `rapier-coordinate` selects the
+  measured-angle correction ([limit record](joint-limits.md)).
+- **`--shared`** (point-strike, moving-strike): one club in both hands, with keep-both,
+  release-left and release-right cells; gates in [shared strike](shared-strike.md).
+- **`--joint-stops`** (bar, point-strike, moving-strike, defense): [near-stop
+  prediction](joint-stop-tracking.md), in the task IDs; other suites refuse it.
 
 ### Starts and splits
 
-`--samples` defaults to two per cell: a cheap screening battery, not a statistical claim of
-capability. `--from` selects another range within a split. Development uses indices below
-1,000,000; held-out starts at 1,000,000. A range crossing its split's bound is refused. The seed
-is an index into explicit initial-condition parameters, not an unrecorded random state.
-
-The fractional part is `(((seed + 1) * 2654435761) >>> 0) / 4294967296`. It sets the shove's
-heading over 360 degrees, or a bout gap over [3, 5) m. Directions and gaps are not quantized.
-Strike perturbations have the existing robustness battery's bounds: push timing +/-1/240 s,
-activation scale +/-0.02. An offset target lies within +/-0.12 m across the recipe's place.
-These are experiment settings, not anatomical values. Each job stores the resolved values.
-
-Freeze controller/configuration candidates before held-out runs. Do not tune against held-out
-failures and reuse them as independent evidence. Repeated identical seeds prove reproducibility;
-they do not increase the number of independent starts. Rates reported over the deterministic
-sample set describe that set, not all possible falls or encounters.
+`--samples` (default two a cell) is a screening battery, not a capability estimate; `--from` picks
+another range. Development indices are below 1,000,000, held-out from 1,000,000; a range crossing
+the bound is refused. A seed indexes explicit initial conditions: the fraction
+`(((seed + 1) * 2654435761) >>> 0) / 4294967296` sets the shove's heading over 360 degrees or a
+bout gap over [3, 5) m. Strike perturbations use the robustness battery's bounds (push timing
++/-1/240 s, activation scale +/-0.02); an offset target lies within +/-0.12 m. Each job stores
+the resolved values. Candidates are frozen before a held-out run.
 
 ### Tasks and readings
 
 | Task | Fixture | Outcome and denominator |
 |---|---|---|
-| Recovery | Existing `felled` shove: reference body, stand 1 s, impulse 1.5 N s/kg, wait at most 3 s to fall; watch 40 s | Both default lying and rise-then-steady minds; rose means 2 continuous seconds up. Summary success also requires up at the end. Denominator is falls, excluding held shoves. |
-| Strike at place | Existing high-band recipe through `evaluateBlow`, either hand, empty or club | Target damage >0 and no fall; all trials in the cell are the denominator. |
-| Strike offset | Same, with target offset disclosed at commitment | A stationary displaced target, not a moving-target test; same success definition. |
-| Strike at nothing | Same throw without the target | No fall and back in stance phase `stand`; no damage is required for success. |
-| Guard comparison | Mirror arena bouts capped at 20 s, both in pose versus either side covering at the identical gap | Head/total damage, falls, duration and preparation times; guard changes are paired by model, loadout, seed and rate. |
-| Pinned shared bar | `tasks/bar.ts`: one item, both anatomical hands, obstacle, either release | Capture, movement, contact, release continuity and exact replay; each release has its own denominator. See [motion tracking](motion-tracking.md). |
-| Standing shared items / integrated sequence | No completed fixture yet | Explicit unsupported rows in the baseline/integrated suites, never successful trials or excluded cells. |
+| Recovery | `felled` shove: stand 1 s, 1.5 N s/kg, at most 3 s to fall; watch 40 s | Lying and rise-then-steady minds; rose is 2 continuous seconds up, success also up at the end. Denominator: falls. |
+| Strike at place | High-band recipe through `evaluateBlow`, either hand, empty or club | Damage > 0 and no fall, over all trials in the cell. |
+| Strike offset | Same, target offset disclosed at commitment | A displaced stationary target; same success. |
+| Strike at nothing | Same throw, no target | No fall and back in stance phase `stand`. |
+| Guard comparison | Mirror bouts capped at 20 s, both in pose against either side covering, same gap | Head and total damage, falls, duration, preparation; paired by model, loadout, seed and rate. |
+| Pinned shared bar | `tasks/bar.ts` ([motion tracking](motion-tracking.md)) | Capture, movement, contact, release continuity, exact replay; each release its own denominator. |
+| Standing shared items / integrated sequence | none | Explicit unsupported rows, never successes or exclusions. |
 
-Strike follow-through is watched for 3 s after the throw ends, with the evaluator's overall 8 s
-cap and immediate stop on falling. A trace records commitment/preparation and whether a throw
-completed. This prepared stand fixture does not measure approaching a target; the bout fixture
-measures from the first active attack phase to chamber or swing. Repeated swing frames count
-once, and approaches abandoned before committing add no completed preparation time.
-
-Every measured task records a digest of all sampled segment poses, maximum joint-anchor
-separation (both joint frames transformed independently), peak segment-centre speed, summed
-normal impulse on fixed scenery, and integrals of applied assist force and moment magnitudes.
-Peaks include startup and impact and are diagnostic, not driven-strength measurements. The
-ground impulse is accumulated once from each dynamic segment toward fixed scenery, not once
-from each side of an inter-body pair. It is not a penetration-depth reading or damage score.
-
-Recovery and bout fixtures time the original `World.step` separately from diagnostic sampling.
-The resulting mean and p99 are instrumented runs with the declared worker count, not an isolated
-performance benchmark. The blow adapter reports null per-step timing and its reason. No timing
-participates in physical digests or success. Non-finite legacy outcome values serialize as named
-strings instead of silently becoming null; non-finite physical measurements fail the run.
-
-Summary cells retain task, body, loadout, hand, target and controller variant. Rates carry counts
-and Wilson 95% intervals (z = 1.959963984540054); zero eligible trials has no rate or interval.
-Small screening samples have wide intervals. Paired guard rows retain both durations: less
-damage in a shorter bout is not evidence of improved defense by itself.
-
-### Capability gates and missing measurements
-
-The initial battery establishes a baseline and detects changes; it does not certify gameplay.
-Its operational successes are defined above before tuning. Time-to-useful-control, moving-target
-interception, impact-attributed versus unforced falls, contact penetration and actual actuator
-work are not measured yet. Standing for two seconds is not proof that the body can move, defend
-or attack. These limitations are stored with results rather than filled with invented zeros.
-
-The full phase's task thresholds and time budgets must be fixed before searching its new tasks.
-Required loadouts include either hand, independent items and a shared item with release; a missing
-loadout blocks completion even when the aggregate success rate is high. Anatomy remains the
-sourced body model; the skeleton's placeholder mass/strength is declared, not treated as evidence
-about real human or skeletal capability. Fresh held-out evaluation and visible-browser checks
-remain required for the completed controller.
+Strike follow-through is watched 3 s after the throw, within the evaluator's 8 s cap, stopping on
+a fall. Every task records a digest of sampled segment poses, the largest joint-anchor separation,
+peak segment-centre speed (startup and impact included: diagnostic, not driven), summed normal
+impulse on fixed scenery (once per dynamic segment), and integrals of assist force and moment.
+`World.step` is timed apart from sampling; timings are instrumented, never in digests or success.
+Non-finite outcome values serialize as named strings; a non-finite physical reading fails the run.
+Rates carry counts and Wilson 95 % intervals (z = 1.959963984540054); zero eligible trials has none.
 
 ## Stock baseline
 
-Harness: Node 24.19.0, core world and the task fixtures above, Rapier SIMD npm 0.21.0,
-120 Hz, four workers, balance 0%, no weapon assist. Development indices 0 and 1, all three
-bodies, empty hands or a right-hand club in recovery/bouts and either-hand clubs in strike tasks.
-Command: `node research/control-foundation.mjs --suite baseline --split development --workers 4`.
-The source content SHA256 is `2188a9d03283b6207092d6d485a411c34f76ec228760ad9c536978f2bbaaa549`;
-the installed package entry SHA256 is
-`956709f8dccb9cb4d7eb8cd2d7319089fb8864ac7b1a18a605913624c3ec82a1`.
-The full manifest and physical rows, without wall-clock timings, are preserved in
-[control-foundation-stock.json](control-foundation-stock.json). Each row joins its job by ID.
+Harness: Node 24.19.0, core world, Rapier SIMD npm 0.21.0, 120 Hz, four workers, balance 0 %, no
+weapon assist. Development indices 0 and 1, all three bodies, empty or right-hand club in recovery
+and bouts, either-hand clubs in strikes: 138 tasks (24 recovery, 72 strikes, 36 bouts, 6
+unsupported). Source SHA256 `2188a9d03283b6207092d6d485a411c34f76ec228760ad9c536978f2bbaaa549`;
+package entry SHA256 `956709f8dccb9cb4d7eb8cd2d7319089fb8864ac7b1a18a605913624c3ec82a1`. Manifest
+and rows without wall-clock timings: [control-foundation-stock.json](control-foundation-stock.json).
 
-138 tasks: 24 recovery trials (lying and staged), 72 strikes, 36 bouts and 6 unsupported
-shared-item rows. The table aggregates the small screening cells for orientation only; the raw
-records retain both hands, targets, paired guard variants and per-cell uncertainty in the runner.
+Each cell is stock, then [directional](#directional-actuator-screening):
 
 | Model | Held | Staged: rose and remained up / fell | Hit and stayed up / targeted throws | Stood after miss / misses | Fallen sides / 6 guard-comparison bouts |
 |---|---|---|---|---|---|
-| Warrior | empty | 1/2 | 8/8 | 4/4 | 2 |
-| Warrior | club | 2/2 | 8/8 | 4/4 | 3 |
-| Rogue | empty | 0/2 | 8/8 | 4/4 | 2 |
-| Rogue | club | 0/2 | 8/8 | 4/4 | 6 |
-| Skeleton | empty | 0/2 | 8/8 | 4/4 | 0 |
-| Skeleton | club | 0/2 | 8/8 | 4/4 | 1 |
+| Warrior | empty | 1/2, 2/2 | 8/8, 8/8 | 4/4, 4/4 | 2, 4 |
+| Warrior | club | 2/2, 2/2 | 8/8, 8/8 | 4/4, 4/4 | 3, 2 |
+| Rogue | empty | 0/2, 0/2 | 8/8, 8/8 | 4/4, 4/4 | 2, 2 |
+| Rogue | club | 0/2, 0/2 | 8/8, 8/8 | 4/4, 4/4 | 6, 6 |
+| Skeleton | empty | 0/2, 0/2 | 8/8, 8/8 | 4/4, 4/4 | 0, 4 |
+| Skeleton | club | 0/2, 0/2 | 8/8, 8/8 | 4/4, 2/4 | 1, 4 |
 
-The prepared strikes work in these starts while recovery and bouts expose failures. This does
-not establish moving-target accuracy, robust recovery, or effective defense; two seeds are too
-few for those conclusions. The held-out split has not been evaluated or used for tuning.
+Prepared strikes work in these starts; recovery and bouts fail. Two seeds a cell is orientation,
+not a rate.
 
 ## Directional actuator screening
 
-Harness: Node 24.19.0, core world, vendored Rapier 0.21.0-auto-rpg.2, 120 Hz, four
-workers, balance 0%, no weapon assist, the same development starts and watches as stock.
-Run the baseline command with `--actuation symmetric` and `--actuation directional`.
-Both runs used source SHA256
-`8071ac63169f1858129c8065dc5d4f5e2f83da3bef92eb66380ed4329d9cba22`.
-The symmetric run reproduces all 138 stock physical rows exactly, excluding task-ID changes
-and wall-clock timing. [Directional rows and manifest](control-foundation-directional.json)
-preserve the corrected-law comparison.
+Same starts and watches on vendored Rapier 0.21.0-auto-rpg.2, source SHA256
+`8071ac63169f1858129c8065dc5d4f5e2f83da3bef92eb66380ed4329d9cba22`. `--actuation symmetric`
+reproduces all 138 stock rows exactly (task IDs and timing aside); the directional run's rows and
+manifest are [control-foundation-directional.json](control-foundation-directional.json), its cells
+in the table above.
 
-| Model | Held | Staged: rose and remained up / fell | Hit and stayed up / targeted throws | Stood after miss / misses | Fallen sides / 6 bouts |
-|---|---|---|---|---|---|
-| Warrior | empty | 2/2 | 8/8 | 4/4 | 4 |
-| Warrior | club | 2/2 | 8/8 | 4/4 | 2 |
-| Rogue | empty | 0/2 | 8/8 | 4/4 | 2 |
-| Rogue | club | 0/2 | 8/8 | 4/4 | 6 |
-| Skeleton | empty | 0/2 | 8/8 | 4/4 | 4 |
-| Skeleton | club | 0/2 | 8/8 | 2/4 | 4 |
+A finite velocity command can pull or brake, each within its direction's envelope; an infinite one
+is one-way torque, the opposing bound zero (`core-muscle.test.mjs` checks both forms and signs
+under an external load). Delivered mean torque and both bounds are saved with the muscle state.
 
-Finite velocity commands can pull or brake, each under that direction's anatomical envelope.
-Infinite velocity commands mean one-way torque: the opposing bound is zero. Allowing the
-opposing muscles to brake an infinite command changed its meaning under an external load;
-the external-load regression in `core-muscle.test.mjs` checks both command forms and signs.
-The delivered mean torque and both applied bounds are saved with the muscle state.
-
-Corrected actuation does not yet pass the recovery and integrated capability gates. In the
-Warrior fours diagnostic (Node stand, directional law, empty, pinned rate 120 Hz, balance 0%),
-`riseLimbs` changes a predicted right-shin support from the knee to the knee–foot midpoint
-as a foot corner enters its 3 cm proximity band. At consecutive steps 1019/1020 the support's
-z coordinate changes from 1.279402 to 1.059866 m, while COM changes only about 0.1 mm.
-This is a discontinuity in a desired support estimate, not measured contact motion. Together
-with the flat-hand motion mismatch in the rising record, it blocks treating a controller
-residual or a completed stage as proof of a stable handover. The body/contact work precedes
-default migration; no anatomical strength or capability assertion has been relaxed.
+In the Warrior fours diagnostic (Node stand, directional, empty, 120 Hz), `riseLimbs` moves a
+predicted right-shin support from the knee to the knee-foot midpoint as a foot corner enters its
+3 cm band: between steps 1019 and 1020 its z jumps from 1.279402 to 1.059866 m while the centre of
+mass moves about 0.1 mm. That is a discontinuity in a desired support estimate, not contact motion.
 
 ## Controller replacement
 
-`tests/core-direct.test.mjs` uses the Node core stand, Rapier 0.21.0-auto-rpg.2 at 120 Hz,
-directional actuation, zero assist, no ground and a pinned lower trunk. Warrior, Rogue and
-skeleton each reach 0.6 rad right-elbow flexion within 0.025 rad after 2 s and remain within
-that band for another second. Experiment gains are explicit: 0.1 s error decay, maximum
-3 rad/s requested velocity, full activation. This is a bounded joint reach and hold, not free
-standing. The policy uses detached observations and validated actions, without constructing
-the fighter's motor/stance/skill stack. It also passes replay, idle/resume and disposal checks;
-an arena fixture runs this mind alongside the fighter and restores both together.
+`tests/core-direct.test.mjs` (Node stand, Rapier 0.21.0-auto-rpg.2, 120 Hz, directional, no
+assist, no ground, lower trunk pinned): Warrior, Rogue and skeleton each reach 0.6 rad right-elbow
+flexion within 0.025 rad after 2 s and stay in that band another second, under 0.1 s error decay,
+at most 3 rad/s requested and full activation. The policy reads detached observations and acts
+through validated actions, with no motor, stance or skill stack; it passes replay, idle and
+resume, and disposal, and runs beside a fighter in an arena fixture.
 
-The common body adapter retains the game's stance-height fall allowance separately from the
-unconditional physical standing-height reading. Removing that allowance is a rule migration,
-not implicit in replacing a body interface. Under the adapter, all 138 screening rows equal
-stock exactly, excluding timing and task-ID metadata. Harness: Node 24.19.0, core world,
-Rapier 0.21.0-auto-rpg.2, symmetric actuation, 120 Hz, four workers, balance 0%, no weapon
-assist; source SHA256 `f9298bba5c42a69248feeb172eee5100825f65a2559fd0a0b6c2400dfe8f8844`.
+The common body adapter keeps the game's stance-height fall allowance apart from the physical
+standing-height reading. Under it all 138 screening rows equal stock (symmetric, four workers;
+source SHA256 `f9298bba5c42a69248feeb172eee5100825f65a2559fd0a0b6c2400dfe8f8844`).
 
 ## Shared environment and browser parity
 
-`createEnvironment` supplies seeded reset, detached observation, checked actions, fixed 120 Hz
-physics with integer policy periods, save/load and disposal. Actions are held between decisions.
-Termination means the task succeeded or ended by its rules; truncation means the declared step
-budget expired; invalid simulation has a separate reason and is not either success or timeout.
-Replay restores RNG, held actions, decision phase and task/controller/physics state, including
-after a reset to another seed. A snapshot of a different solver artifact, actuator law, anatomy
-or task/controller configuration is refused without replacing the live episode.
+`createEnvironment` gives seeded reset, detached observation, checked actions held between
+decisions, fixed 120 Hz physics with integer policy periods, save, load and disposal. Termination
+is the task ending by its rules; truncation is the step budget running out; an invalid simulation
+has its own reason. Replay restores RNG, held actions, decision phase and task, controller and
+physics state, across a reset to another seed. A snapshot of another solver artifact, actuator
+law, anatomy or configuration is refused without touching the live episode.
 
-The shared `tasks/reach.ts` fixture pins the lower trunk, with gravity and no ground. Its
-goal is right-elbow flexion uniformly selected in [0.5, 0.7) rad by the seeded stream. The
-criterion, fixed before this screening, is error at most 0.025 rad for 120 consecutive steps
-within 360 steps. These are engineering fixture settings, not anatomy or gameplay timing.
-Policy decisions are every 4 steps (30 Hz). Direct feedback asks for at most 3 rad/s with
-0.1 s error decay and full activation. Layered control accepts posture goals and uses the
-0.1 s joint servo. Both use directional actuation and no root/weapon assist. Pin reactions
-are external constraints and are not metered; this fixture makes no standing claim.
+The reach fixture (`tasks/reach.ts`, the page's `configuration`) pins the lower trunk, with gravity
+and no ground:
+
+| Setting | Value |
+|---|---:|
+| Goal: right-elbow flexion, seeded uniform | [0.5, 0.7) rad |
+| Success: error at most, for consecutive steps | 0.025 rad, 120 steps |
+| Step budget (`maxSteps`) | 360 |
+| Policy period (`policyPeriodSteps`) | 4 steps (30 Hz) |
+| Direct feedback: error decay, speed cap, activation | 0.1 s, 3 rad/s, 1 |
+| Layered joint servo (`servoSeconds`) | 0.1 s |
+
+Both controllers use directional actuation and no root or weapon assist; pin reactions are not
+metered. These are fixture settings, not anatomy.
 
 ```powershell
 node research/control-foundation.mjs --suite reach --actuation directional --from 42 --samples 1 --workers 4
 ```
 
-Harness: Node 24.19.0 and Chrome on the visible built `/control-foundation.html` page,
-Rapier 0.21.0-auto-rpg.2, 120 Hz, development seed 42. The target is
-0.6202207503840327 rad. The browser's **Verify replay** saves at step 14, between policy
-decisions, and repeats the rest of the trial from that state. Every cell matches both its
-own replay and Node's full observation SHA256, including negative zero. The page's step,
-save and restore controls also restore a single-step branch. No browser errors or warnings
-were reported. [Manifest and physical rows](control-foundation-reach.json); source SHA256
+Harness: Node 24.19.0 and Chrome on the built `/control-foundation.html`, Rapier
+0.21.0-auto-rpg.2, 120 Hz, development seed 42 (target 0.6202207503840327 rad). **Verify replay**
+saves at step 14, between decisions, and replays from there. Every cell matches its own replay and
+Node's full observation SHA256, negative zero included; no browser errors.
+[Manifest and rows](control-foundation-reach.json); source SHA256
 `bb99d0e76d963a5c7f262fb41c3ab537845ff4b7223795893630317e45b88ae2`.
 
 | Body | Controller | Success step | Full observation SHA256 in Node and Chrome |
@@ -241,9 +162,6 @@ were reported. [Manifest and physical rows](control-foundation-reach.json); sour
 | Skeleton | actuator | 161 | `fdbd3c53ae22119802cc198782658fbc5f1c9fb3de9b30733baf2121b78985c8` |
 | Skeleton | layered | 179 | `a38550ae9268b35035953e7b9c6b0c7fd6d09d85ed23aa5bde0f626acd884c18` |
 
-This is a reproducibility and replaceability check, not a ranking of controllers. The skeleton
-still has placeholder anatomy. Held-out starts remain unused; recovery and integrated gameplay
-gates remain open. The bar suite separates pinned and `--support standing` experiments;
-[standing shared equipment](standing-bar.md) records its support and readiness experiments.
-The [captured-posture comparison](bar-posture.md) retains 12/12 development successes on each
-Rapier profile without claiming recovery or corrected-limit gameplay readiness.
+This checks reproducibility and replaceability; it does not rank controllers. The standing bar is
+in [standing shared equipment](standing-bar.md) and [the captured-posture
+comparison](bar-posture.md); the physical tasks' page is [control tasks](control-tasks-browser.md).

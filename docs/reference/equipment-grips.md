@@ -1,58 +1,51 @@
 # Separate items and persistent grips
 
-`src/core/equipment.ts` supplies a separately simulated item with a caller-assigned identity,
-its sourced mass/inertia and collision shapes, and named rigid grip frames. A task owns the
-identity namespace and registers all permitted grips during construction. Observation contains
-detached pose, velocity, spin, attachment errors and collider-pair contact readings. It contains
-no mutable engine handles. The trusted construction result also carries the body and node.
-
-This is an experimental representation, not the game's equipment default. Existing compound
-holdings remain unchanged. Reference-fighter equipment control, surface damage attribution for
-free items, rendering, compound splitting and the representation comparison remain open.
+What a separately simulated item (`src/core/equipment.ts`) and its grips are, and the mechanical
+fixtures that check them. An item has a caller-assigned identity, sourced mass, inertia and shapes,
+and named rigid grip frames registered at construction. Compound holding stays the game's default.
 
 ## Attachment and replay
 
-The engine registers a grip slot independently of whether its fixed joint exists. Attaching
-creates the joint; releasing removes it. If their shapes overlap, that pair remains excluded
-until a geometric query finds clearance at the beginning of a later step. Otherwise collision
-eligibility returns immediately.
-Neither operation writes pose, velocity or mass. Equipment capture first checks world-space
-anchor distance and orientation error, `1 - abs(dot(q1, q2))`, against explicit task tolerances.
-An out-of-range request returns false. Capturing bodies with different velocities can produce
-a physical constraint impulse on the next step; this is not an energy-free capture guarantee.
-An accepted capture keeps the hand's desired local frame and derives the item's attachment
-frame from the current world pose. The immutable model retains the desired frames; observation
-reports both their error and the actual `attachment` frames (null when detached). Dynamics
-uses the actual anchors. Accepting a tolerance never requests alignment correction.
+- A grip slot is registered whether or not its fixed joint exists; attaching creates the joint,
+  releasing removes it. Neither writes pose, velocity or mass. An overlapping pair stays excluded
+  until clearance ([grip clearance](grip-clearance.md)).
+- Capture checks world anchor distance and orientation error, `1 - abs(dot(q1, q2))`, against the
+  task's tolerances; out of range it returns false. It keeps the hand's desired local frame and
+  derives the item's attachment frame from the current pose, so accepting a tolerance asks no
+  alignment. Bodies captured at different velocities can take a constraint impulse the next step.
+- Observation is detached: pose, velocity, spin, attachment errors, the actual `attachment` frames
+  (null when detached), `collisionSuppressed` and contact readings; no engine handles. Dynamics uses
+  the actual anchors.
+- A grip is ideal and rigid: no break force or disarm rule, and no assist.
+- The adapter (revision 4 onward) saves node poses, grip handles, release exclusions and the
+  solver snapshot, captured frames included; loading checks membership and endpoints first. Adding
+  or deleting a slot changes topology and invalidates an older snapshot.
 
-A grip is ideal and rigid, like the existing compound holding. It has no authored break force
-or disarm rule. It is not an external weapon assist. The observation reports
-`collisionSuppressed`, including the clearance interval after release. It applies to the former
-grip pair only, has no timer, and cannot suppress a later impact after clearance.
+## Policy commands
 
-Rapier adapter revision 4 saves node poses, registered grip handles, release exclusions and the
-solver snapshot, including actual captured frames in its native joints.
-Loading validates body/constraint membership and grip endpoints before replacing the live world.
-The caller retains the same grip objects through release, reattachment and load. A registered
-slot's deletion or addition changes topology and invalidates an older snapshot. Engine/task
-configuration still has to match; the research environment enforces its complete identity.
-The vendor artifact is unchanged. Older adapter environment snapshots are intentionally incompatible.
+`equipmentPort` grants a host's controller named grips on explicit items; its model holds detached
+mass, inertia, grip frames and capture tolerances, and its observations only the granted items.
+Duplicate grants or identities are refused. `createPolicyBody` takes the port at construction and
+gives the policy its description and observations, never the port or handles. A `BodyAction` may
+combine actuation and grip requests; `checkedBodyAction` validates the whole before any command, so
+one ungranted, duplicate or malformed request rejects all of it. Permission does not make an
+unreachable capture succeed.
 
-## Mechanical fixtures
+## Anatomical placement
 
-Harness: Node, NullEngine scene, core World, vendored Rapier `.3`, adapter 4, 120 Hz, directional
-actuation configuration, no assists. The fixtures contain two synthetic 1 kg holders and the
-sourced `woodenClub()`. They do not model anatomical hands or claim actuator feasibility.
+`equipHands` (`human/equipment.ts`) places initial separate equipment with the compound `handHolding`
+frame: the item's origin at the little-finger end of the grasp, an item-local offset for each
+registered hand. Only the primary hand starts attached; registering the other neither moves nor
+captures. Hands must be stationary and hold no compound equipment.
 
-Holder centres are `[-0.1, 1, 0]` and `[0.1, 1.2, 0]` m. Each collider is a 0.035 m sphere;
-principal moments are `[0.001, 0.001, 0.001]` kg m². These are engineering fixture choices,
-not anatomy. The club starts at `[0, 0.9, 0]` m and is gripped 0.1 and 0.3 m along its frame.
-Capture allows 0.002 m anchor error and 0.00001 quaternion error. A 0.5 N s impulse to one
-free holder excites motion before release. The closed-loop case joins the holders at their
-midpoint with three limited angular freedoms, fixes the left holder, enables gravity and
-applies 0.2 N s to the item after releasing either grip.
+## Measurement
 
-`node --test tests/core-equipment.test.mjs` includes these checks:
+Node, NullEngine scene, core World, Rapier `.3`, adapter 4, 120 Hz, directional, no assists. Two
+synthetic 1 kg holders (centres `[-0.1, 1, 0]` and `[0.1, 1.2, 0]` m, 0.035 m spheres, moments 0.001
+kg m²) and the sourced `woodenClub()` at `[0, 0.9, 0]` m, gripped 0.1 and 0.3 m along it; capture
+tolerances 0.002 m and 0.00001. The closed loop joins the holders at their midpoint with three
+limited angular freedoms, fixes the left one, and applies 0.2 N s to the item after either release.
+`node --test tests/core-equipment.test.mjs`:
 
 | Check | Result |
 |---|---|
@@ -64,58 +57,15 @@ applies 0.2 N s to the item after releasing either grip.
 | Closed loop | Both attachments within 1 mm; after either release the remaining attachment stays within 1 mm; exact branch replay |
 | Incompatible topology | Refused without modifying the live snapshot; disposing the extra slot restores compatibility |
 
-Removing the engine's actual joint-removal call while retaining the logical release makes the
-equipment tests fail. This checks physical release, not merely a changed attachment flag.
-The pose-preserving fixture declares 0.03 m and 0.001 quaternion-error capture tolerances.
-Joining the desired frames instead moves the holder's x coordinate from 0.1 to 0.107210085 m;
-the regression fails before reaching the attachment-observation assertions.
-
-These tests do not validate tree-only inverse dynamics for a closed loop, effective contact mass,
-muscle load distribution, CCD, compound release or standing two-handed use. Those are subsequent
-physical gates in the control foundation.
-
-## Policy commands
-
-`equipmentPort` grants a host's controller named grips on explicit items. Its model contains
-detached item mass/inertia, local grip frames and capture tolerances. Its observations include
-only granted items and grip names. Duplicate grants or two different items with the same identity
-are refused. A task owns this identity namespace and gives each grip one command owner.
-
-`createPolicyBody` accepts the trusted port at construction and gives the policy its immutable
-description and observations, not the port or physical handles. Existing actuator actions still
-work. A `BodyAction` can combine an actuator action and grip requests. `checkedBodyAction` copies
-and validates every component before any physical command is applied. An ungranted, duplicate
-or malformed grip request rejects the whole action, including any otherwise valid release or
-actuation. Geometrically unreachable capture leaves the item detached; permission alone does
-not make it reachable. Idle policies issue no grip requests; existing rigid attachments remain.
-
-`tests/core-equipment-policy.test.mjs` checks capture/release through an independent policy,
-detached observations, immutable construction options, invalid-action atomicity, duplicate
-identities, and exact physics/controller replay. It also captures independent items at both
-hands on all three body models and releases only the left. These are short, gravity-free,
-pinned-body port fixtures with synthetic attachment placement. They establish neither a usable
-anatomical grasp nor standing equipment control. Shared-item load dynamics and game integration
-remain open. The separate CCD path is recorded in [collision CCD](collision-ccd.md).
-
-## Anatomical placement
-
-`human/equipment.ts` supplies `equipHands` for initial separate equipment. It uses the same
-`handHolding` frame as compound equipment: the item's origin is the little-finger end of the
-grasp, with explicit item-local offsets for each registered hand. Only the primary hand starts
-attached. Registering the other hand neither moves it nor captures an unreachable item.
-Construction requires stationary hands in the body's initial world and refuses a hand that
-already contains compound equipment. Subsequent capture uses the existing physical grip API.
-
-`tests/core-hand-equipment.test.mjs` checks both hands of all three models against the compound
-club's anatomical tip position, total mass, release continuity and replay. Its loaded fixture
-uses two separate clubs, gravity, a pinned pelvis and independent actuator feedback, under
-directional actuation at 120 Hz. Left/right elbow goals are 0.6/0.4 rad; both reach within
-0.025 rad at 2 s and remain within that tolerance at 3 s, with grip errors below 2 mm. These
-are declared fixture tolerances, not game timing requirements. The feedback time constant is
-0.05 s, speed cap 3 rad/s and full activation; anatomical muscle limits remain unchanged.
-The bare reach fixture's 0.1 s constant leaves Warrior's loaded left elbow 0.027 rad short.
-
-This is not a collision-free trajectory: the Rogue's clubs meet during the hold, and the
-skeleton can have speculative head contact. Meaningful self-collision remains enabled. The
-fixture demonstrates physically loaded independent items, not standing combat, a second-hand
-capture route or a whole-body inverse-dynamics solution.
+- Dropping the engine's joint-removal call while keeping the logical release fails the tests.
+- The pose-preserving case (tolerances 0.03 m and 0.001): joining the desired frames instead moves
+  the holder's x from 0.1 to 0.107210085 m and fails.
+- `tests/core-equipment-policy.test.mjs`: capture and release through a policy, atomic invalid
+  actions, duplicate identities, exact replay; both hands of all three models capture and the left
+  releases (short, gravity-free, pinned-body fixtures).
+- `tests/core-hand-equipment.test.mjs`: both hands of all three models against the compound club's
+  tip, mass, release continuity and replay. Loaded: two clubs, gravity, pinned pelvis, independent
+  feedback (0.05 s, 3 rad/s cap, full activation); elbow goals 0.6/0.4 rad reached within 0.025 rad
+  at 2 s and held at 3 s, grip errors under 2 mm. The bare reach fixture's 0.1 s constant leaves the
+  Warrior's loaded left elbow 0.027 rad short. The Rogue's clubs meet during the hold; self-collision
+  stays on.

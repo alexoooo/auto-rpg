@@ -1,52 +1,42 @@
 # Offline native-rollout posture control
 
-`research/native-posture-control.mjs` uses short rollouts of the actual engine to choose torque
-actions on the shared `tasks/posture-hold.ts` fixture. It is an offline diagnostic with privileged
-whole-world snapshot access. It is not a real-time game controller, a learned policy or a recovery
-route. It tests whether a bounded controller can hold a posture that the approximate contact
-model and simpler joint feedback have not held at the same solver setting.
+`research/native-posture-control.mjs` chooses torque actions on the shared `tasks/posture-hold.ts`
+fixture by short rollouts of the engine itself, with privileged whole-world snapshots. It is an
+offline diagnostic, not a game controller or a recovery route: it asks whether a bounded controller
+can hold a posture the direct joint feedback does not hold on the game's solver. Its search settings
+are `NUMERICS` in that script; the record and action tape are
+[native-posture-control.json](native-posture-control.json).
 
 ## Shared task and access
 
-The posture task accepts `controller: "actuator"` as well as its default `direct` controller.
-Its `check`, `act`, `observe`, `evaluate`, state and disposal methods implement the common
-environment contract. The external policy gets detached observations and immutable actuator
-descriptions. Checked actions are copied, held until replaced, and included in controller state.
-Physics, anatomy, initialization, assistance and the ten-second scoring rule are shared.
-The actuator task's environment identity includes its anatomy data as well as the solver revision.
-The direct controller's measured physical traces are unchanged.
-
-The offline planner additionally owns the task's world and snapshots, as explicitly reported in
-its result. Before each candidate it restores physics, body, held action, clock, task metrics and
-optimizer state. It executes candidates only through the ordinary actuator action port and
-`World.step`. It then restores once more and executes the selected action. Counterfactual steps
-do not advance the episode or enter its measurements. This privileged access is not part of the
-normal policy observation contract.
+The posture task takes `controller: "actuator"` beside its default `direct`, under the common
+environment contract: detached observations, immutable actuator descriptions, checked actions held
+until replaced and saved with the controller. Physics, anatomy, start and scoring are the direct
+hold's. The planner also owns the world and its snapshots, and says so: before each candidate it
+restores physics, body, held action, clock, task metrics and optimizer state, runs the candidate
+through the actuator port and `World.step`, and finally restores and runs the chosen action, so no
+counterfactual step enters the episode.
 
 ## Search settings
 
-These are engineering choices for this diagnostic, not muscle or anatomical parameters.
-Physics runs at 120 Hz on Rapier `.7` / adapter 8, corrected angular limits, native per-point
-friction and the unchanged 16 native solver iterations. The Warrior has empty hands, ordinary
-ground and zero assistance. The legal installed-pose asset is shared with the direct hold.
+Engineering choices, not muscle parameters. Physics: 120 Hz, Rapier `.7` / adapter 8, corrected
+angular limits, per-point friction, the game's 16 solver iterations; the Warrior empty-handed on
+ordinary ground, zero assistance, from the direct hold's installed pose.
 
-Each step targets a critically damped position/orientation response toward the installed pose.
-The half-kneel trial uses a 0.1 s response. Linear velocity residuals have unit weight, angular
-velocity residuals have weight 0.1 m, and the lower trunk's residuals have an additional factor
-of 3. Quaternion error uses twice the signed vector part. These are local control objectives,
-not an energy or feasibility certificate.
+| Setting | Value |
+|---|---|
+| Response toward the installed pose (critically damped) | 0.1 s (half kneel) |
+| Residual weights: linear velocity / angular velocity (`angularWeight`) / lower trunk factor (`rootWeight`) | 1 / 0.1 m / 3 |
+| Orientation error | twice the quaternion's signed vector part |
+| Torque normalization | each channel's larger isometric peak (floor 1 N m, scaling only) |
+| Gauss-Newton updates a step | 3 |
+| Perturbation (`epsilon`) / trust region / regularization | 0.001 / 0.25 / 1e-6 |
+| Line search (`lineSearch`) | 1, 0.5, 0.25, 0.125 |
+| Horizon | one physics step |
 
-Torque is normalized by each channel's larger isometric peak (with a numerical floor of 1 N m
-for scaling only). Requested positive/negative bounds retain their separate anatomical peaks;
-the real muscle path still enforces the speed-dependent envelope. No strength is increased.
-The observed `positive`/`negative` fields are the last applied motor bounds, not a replacement
-for the actuator description's capacities.
-
-Three bounded Gauss–Newton updates use a normalized perturbation of 0.001, trust region 0.25,
-regularization 1e-6, and line-search lengths 1, 0.5, 0.25 and 0.125. Only a candidate with lower
-measured one-step cost replaces the current candidate. The horizon is one physics step. A finite
-budget makes this a local search, not a globally optimal controller. All segment drift and effort
-acceptance come from the shared task, not the optimization objective.
+A candidate replaces the current one only if its measured one-step cost is lower: a local search.
+Positive and negative bounds keep their anatomical peaks and the muscle path still enforces the
+speed-dependent envelope; no strength is raised. Drift and effort acceptance are the task's.
 
 ## Reproduction and replay
 
@@ -55,28 +45,17 @@ node research/native-posture-control.mjs
 node --test tests/core-posture-hold.test.mjs tests/research-native-posture.test.mjs
 ```
 
-Every selected next-step observation must exactly equal its predicted rollout. Replaying the
-complete selected action tape must reproduce every observation, task metric and body/controller
-state. Both resulting states must also reproduce a subsequent sixteen-step zero-torque branch.
-Raw snapshot byte equality is not the replay criterion: the observed serialized blobs can differ
-after different save/load histories even when those physical traces agree. Their byte differences
-have not been assigned a physical cause here.
+Every chosen next-step observation equals its predicted rollout. Replaying the action tape
+reproduces every observation, task metric and body and controller state, and both states reproduce
+a following sixteen-step zero-torque branch. Raw snapshot bytes are not the criterion: they can
+differ after different save/load histories while the physical traces agree. The 1,200-action tape,
+remeasured on adapter 9 with the coarse hand-pose capability, gives the same physical outcome.
 
-The installed 1,200-action tape is remeasured on adapter 9 with the coarse hand-pose capability.
-Its complete physical task outcome is identical; the record's anatomical capability description
-and observation digest include the additional pose data. The tape itself is unchanged.
-
-The short regression replans twice from the same physical start and requires identical chosen
-actions and traces. It also refuses to label thirty steps as a completed ten-second hold. The
-shared task tests compare external joint feedback with the built-in direct controller at every
-step, reject malformed actions without changing state, and restore a held command after another
-command has replaced it. The common environment test crosses a policy boundary and reset.
-Removing the held command from saved policy state makes the physical continuation regression
-fail; restoring it makes the test pass.
+The short regression replans twice from one start and requires identical actions and traces, and
+refuses to call thirty steps a ten-second hold. Removing the held command from saved policy state
+fails the physical continuation regression.
 
 ## Limits
-
-The [full record and selected action tape](native-posture-control.json) reports:
 
 | Metric | Half-kneel, ten seconds |
 |---|---:|
@@ -88,15 +67,8 @@ The [full record and selected action tape](native-posture-control.json) reports:
 | Native candidate evaluations | 106085 |
 | Shared hold gate | Pass |
 
-The observation/task trace digest is
-`3366003045d25a421017757b7ac116c15b5491e5e3c864507dd3d85e4f3463c1`.
-The recorded controls replay without the planner and pass the same physical gate. This establishes
-a bounded installed half-kneel hold at the default solver count. It does not establish that a
-controller can reach it from a fall. The direct feedback baseline at this solver count still
-fails; increasing native iterations is unnecessary for this diagnostic's successful case.
-
-A passing installed hold does not establish entry, support transfer, disturbance rejection,
-standing handover, other bodies or equipped recovery. The diagnostic performs many engine
-steps per executed action and has no real-time performance claim. Runtime samples are recorded
-as diagnostics only. Browser parity and replanning after disturbances remain separate gates.
-No held-out starts are used.
+Observation and task trace digest
+`3366003045d25a421017757b7ac116c15b5491e5e3c864507dd3d85e4f3463c1`. The recorded controls replay
+without the planner and pass the same gate: a bounded installed half-kneel hold exists at the game's
+solver count, where the direct feedback fails. It says nothing of reaching the pose from a fall, of
+disturbances, transfer or other bodies, and makes no real-time claim (many engine steps per action).

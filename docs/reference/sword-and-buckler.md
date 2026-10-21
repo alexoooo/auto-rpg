@@ -1,12 +1,11 @@
-# Sword and buckler: the capability readings
+# Sword and buckler capability readings
 
 What a body with a short sword in its right hand and a buckler in its left does, read by the
 tasks of `research/blade-task.mjs`, `research/buckler-task.mjs`, `research/rising-bed.mjs` and
 `research/court-task.mjs`, each with a capability test in `tests/experimental.json` and a floor in
-the gate. Harness: Node, core world, Rapier, 120 Hz, Balance 0 on every side. Stages 1, 2 and 4
-were read on the source of `754999fc`; stage 3 on `69afa0e8`, whose rise no later commit moves
-(the fingerprint moves no pose). A figure read at another commit is read again before it is
-compared.
+the gate. Harness: Node, core world, Rapier, 120 Hz, Balance 0 on every side. Readings 1, 2 and 4
+are at `754999fc`; reading 3 at `69afa0e8`, whose rise no later commit moves (the fingerprint moves
+no pose).
 
 ## 1. A cut that wounds
 

@@ -1,27 +1,35 @@
 # Recovery weight transfer
 
-`stagedRise` unloads a departing limb only when every retained limb is down and the actual
-center of mass is inside their contracted support outline. It uses bearing patches, not
-airborne limbs whose point tasks are merely active.
+How `stagedRise` moves the weight off a limb a stage leaves (`transfer` in its state,
+`src/core/mind/rise/staged.ts`; `RiseLimbs.bear`, `src/core/mind/rise/limbs.ts`), and the probe that
+shows the weight moves.
 
-During a stage that leaves a limb, the chain's redundant posture follows the stage's time
-constant instead of the 0.1 s posture constant. A bounded integral of horizontal position
-error removes the steady transfer error left by posture tracking and contact constraints.
-The integration rate is the stage's inverse time constant; its position-equivalent magnitude
-is capped at the body's standing height. This is controller conditioning, not extra force:
-the bearing solve and original muscle ceilings still limit the resulting motion. The integral
-resets at every stage entry. Completion measures the physical stage target, without its bias.
+## The rule
 
-Node toppled Warrior stand, symmetric muscles, 120 Hz, empty hands, zero balance; a 3 s
-stage following `fours`, pitch 0.9 rad, shin shares 0.4 each and retained hand 0.2. The probe
-must start with the center of mass outside the three supports it keeps. On Rapier's own joints
-the Warrior reaches all fours over them on the recipe's shares, so there `fours` bears 0.28 of
-the weight on each hand and 0.22 on each shin, and the body leans over its hands; on the
-coordinate joints `fours` keeps the recipe's shares, and leaning that far flings the body.
-The original controller leaves the left hand loaded throughout the stage. At 2.75 s its
-center of mass remains 15.4 mm outside the retained supports. Relaxing posture alone leaves
-6.8 mm error. With the bounded integral and relaxed posture, the real center enters the
-supports and the departing hand's bearing task turns off.
+- **A departing limb is unloaded only when the weight is over the rest**: every retained limb down
+  and the actual centre of mass inside their contracted support outline, read from bearing patches,
+  not from airborne limbs whose point tasks are merely active.
+- **The chain's redundant posture follows the stage's time constant** during such a stage, in place
+  of the 0.1 s posture constant (`TAKES_SECONDS`).
+- **A bounded integral of horizontal position error** removes the steady error posture tracking and
+  contact leave. It integrates at the stage's inverse time constant, its position-equivalent
+  magnitude capped at the body's standing height, and resets at every stage entry; completion
+  measures the stage's target without it. It is controller conditioning, not force: the bearing
+  solve and the muscles' ceilings still bound the motion.
+
+## Measurement
+
+Node stand, the Warrior toppled, symmetric muscles, 120 Hz, empty hands, balance 0; after `fours`, a
+3 s stage pitched 0.9 rad bearing on the shins (0.4 each) and one hand (0.2), leaving the other. The
+probe reads the support gap before physics advances, at the release step, and must start with the
+centre of mass outside the three supports it keeps. On Rapier's own joints `fours` bears 0.28 on each
+hand and 0.22 on each shin and the body leans over its hands; on the coordinate joints it keeps the
+recipe's shares.
+
+```powershell
+node research/recovery-transfer.mjs
+$env:CORE_ENGINE = 'rapier-coordinate'; node research/recovery-transfer.mjs
+```
 
 | Engine | Departing hand | Initial support gap (mm) | Release (s) | Support gap at release (mm) | Peak segment speed during transfer (m/s) | Assist force / moment sums |
 |---|---|---:|---:|---:|---:|---|
@@ -30,7 +38,7 @@ supports and the departing hand's bearing task turns off.
 | rapier-coordinate | left | 44.63 | 0.7083 | 0 | 0.6012 | 0 / 0 |
 | rapier-coordinate | right | 62.74 | 2.5333 | 0 | 0.9665 | 0 / 0 |
 
-Reproduce with `node research/recovery-transfer.mjs`, and with `CORE_ENGINE=rapier-coordinate`.
-The probe reads the support gap before physics advances, at the controller's release step.
-These are support handovers, not completed rises: this deliberately incomplete posture still
-times out. The asymmetric release times are measured outcomes, not a claimed mirror symmetry.
+Without the rule the left hand stays loaded through the stage, the centre of mass 15.4 mm outside
+the retained supports at 2.75 s; relaxing the posture alone leaves 6.8 mm. These are support
+handovers, not rises: the probe's posture is incomplete on purpose and still times out. The
+asymmetric release times are measured, not a claimed mirror symmetry.

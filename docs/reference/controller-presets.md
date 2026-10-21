@@ -2,10 +2,9 @@
 
 How four fighters of the opening tactics over the path strike (Combat, Brawler, Scrapper, Kicker)
 fare against Classic, the seeking tactics over the recipe strike, on the Warrior against itself,
-bare-handed and with the wooden club. These are historical measurements; the run sets no bar. The current presets use the discrete
-action pipeline and have not been reranked.
-
-The measured configurations were these fighter trees (`FighterConfig`); this table describes the recorded comparison, not today's preset:
+bare-handed and with the wooden club. The run sets no bar. The figures are of these fighter trees
+(`FighterConfig`) at `83c3540c`, not of the presets in `CONTROLLERS`, which run the discrete action
+pipeline:
 
 | preset | tactics | blow | kick | low support | when down |
 |---|---|---|---|---|---|
@@ -17,7 +16,7 @@ The measured configurations were these fighter trees (`FighterConfig`); this tab
 
 Each walks in the stance (`stance-walk`) and guards with `cover-guard`. The figures were read
 with each preset as a controller of its own (the recipe and path fighters), whose bouts the
-fighter's trees play to the bit: the behaviour lock (`scripts/fingerprint.mjs`) moves no pose.
+fighter's trees play to the bit (`scripts/fingerprint.mjs` moves no pose).
 
 **Harness:** Node Arena Duel, rapier-coordinate (`rapier/adapter-9/...coordinate-limits`), 120 Hz,
 symmetric actuation; the arena-combat protocol (`COMBAT_PROTOCOL`): 60 s cap, recovery continuing,

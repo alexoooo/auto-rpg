@@ -1,43 +1,46 @@
 # Predictive combat defense
 
-The Combat policy uses sensed striking points and physical shapes. It does not read the
-opponent's intentions, wounds, commands or future world state. Classic and Point retain
-their reference cover. `defenseMode` and `defense: false` retain both ablations as recipe data.
+The search cells of predictive cover (`DEFENSE`, `src/core/mind/threat.ts`) and the boundary
+clearance check (`clearStep`). Both read sensed striking points and physical shapes, never the
+opponent's intentions, wounds, commands or future world state. Actual physics decides blocks and
+damage.
 
 ## Settings
 
-`DEFENSE` contains development search cells: a 0.3 m guard neighbourhood, 0.3 s horizon,
-3 m/s necessary hand travel speed, 0.08 m reach reserve and a 0.05 s minimum tracking
-duration. These are conservative planning inputs, not increases to muscles or certificates
-of attainable joint motion. Sensed hand spin contributes striking-point velocity. Actual
-body observation time corrects sample age, while saved own-head samples supply relative
-velocity. A closing ray must enter the guard neighbourhood. A free hand must satisfy both
-travel time and sourced reach before it receives an intercept. Otherwise the controller
-requests an escape. An unlaunched strike returns on cancellation; a launched strike retains
-its committed path. A passed observed threat opens the bounded 0.2 s counter window in
-`COMBAT` (`combat-strikes.md#tactical-settings`). Actual physics decides blocks and damage.
+`DEFENSE` holds development search cells, conservative planning inputs that raise no muscle:
+
+| Cell | Value |
+|---|---|
+| guard neighbourhood a closing ray must enter (`out`) | 0.3 m |
+| horizon (`horizon`) | 0.3 s |
+| hand travel speed the intercept needs (`speed`) | 3 m/s |
+| reach reserve (`reserve`) | 0.08 m |
+| minimum tracking duration (`minimum`) | 0.05 s |
+
+Sensed hand spin adds to the striking point's velocity; observation time corrects sample age, and
+saved own-head samples give relative velocity. A free hand gets an intercept only if it meets both
+travel time and sourced reach; otherwise the controller asks for an escape. An unlaunched strike
+returns on cancellation; a launched one keeps its committed path.
 
 ## Boundaries
 
-The Arena builder grants detached copies of the same boxes and hulls that it installs as
-collision geometry. Decorative meshes grant nothing. `clearStep` checks a conservative
-sweep against rotated boxes and hull world bounds. The sweep uses trunk collision radius
-plus the recorded margin. Already touching a margin can move out of it. Retreat considers
-the requested side, its mirror and lateral alternatives before asking for no movement.
-This is a necessary clearance check, not full future-physics planning.
+The Arena builder grants detached copies of the boxes and hulls it installs as collision geometry;
+decorative meshes grant nothing. `clearStep` sweeps the trunk's collision radius plus the margin
+against rotated boxes and hull bounds. A body already inside the margin may move out of it; retreat
+tries the asked side, its mirror and lateral alternatives before asking for no movement. It is a
+necessary clearance check, not future-physics planning.
 
-## Validation
+## Measurement
 
-Tests cover mirrored hands, slow pressure, tangential misses, head motion, sample age, spin,
-necessary reach/travel checks, rotated wall/post clearance, physical available-hand guard
-commands and fresh-world replay. A real parapet fixture reaches the boundary through ordinary
-movement orders before autonomous combat; it installs no pose or velocity.
+Nine 30 s Node Arena probes (`combat-defense-probes.json`): rapier-coordinate, 120 Hz, empty
+Warriors, balance 0/0, gap 4 m, six-step sensed delay, continuing recovery; same bodies and attack
+paths.
 
-Nine 30 s Node Arena probes in `combat-defense-probes.json` use rapier-coordinate, 120 Hz,
-empty Warriors, balance 0/0, gap 4 m, six-step sensed delay and continuing recovery. Reference,
-predictive and disabled defense retain the same bodies and attack paths. Reference self-play
-produces 17/16 driven contacts and 0.039/0.032 hp driven damage; predictive self-play gives
-10/8 and 0.046/0.044 hp; disabled gives 18/17 and 0.105/0.083 hp. Thus predictive cancellation
-reduces initiative in this diagnostic. It remains an explicit experimental variant and is not
-the default. Point assignments also show mixed outcomes; these fixtures are not rating samples
-and establish no stronger defense claim.
+| Defense | Self-play driven contacts | Self-play driven damage (HP) |
+|---|---:|---:|
+| reference cover | 17/16 | 0.039/0.032 |
+| predictive | 10/8 | 0.046/0.044 |
+| disabled | 18/17 | 0.105/0.083 |
+
+Predictive cancellation costs initiative in this diagnostic; Point assignments are mixed. A mind
+chooses it as its cover's `guard: "predictive"`.

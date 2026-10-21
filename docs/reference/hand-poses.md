@@ -1,33 +1,29 @@
 # Coarse physical hand poses
 
-A figure with measured hands (`HumanFigure.hands`: the workshop humans) has its open hand on the
-palm's hull and its fist on the fist's hull, and grips with the capsule fist below
-([contact anatomy](man-anatomy.md); their effect on the punch: [man-punch](man-punch.md)). What
-follows is the capsule hand, which a figure without measured hands (the skeleton) keeps whole,
-and which every grip uses.
+The capsule hand: what a figure without measured hands (the skeleton) keeps whole, and what every
+grip uses. `src/core/human/segments.ts` cites it for the closed capsule's end. A figure with measured
+hands (`HumanFigure.hands`: the workshop humans) has its open hand on the palm's hull and its fist on
+the fist's hull ([contact anatomy](man-anatomy.md); their effect on the punch: [man-punch](man-punch.md)).
 
-The hand remains one rigid segment. Its open capsule is the existing de Leva hand length and
-volume/density construction. The closed capsule retains its proximal endpoint and radius, with
-its distal centre at the rig's third metacarpal head. The named `strike` point is that head plus
-the radius along the reference hand. Grip uses the same coarse closed envelope; attachment
-frames continue to come from the rig's knuckles and palm thickness.
+## The capsules
 
-This envelope is an explicit contact approximation, not measured clenched-hand anatomy. Its
-length and thickness derive entirely from existing sourced quantities. The renderer's fitted
-fist and club grip provide the corresponding visual poses. Empty hands start open; compound
-equipment starts in grip. Compound-held items retain their registered hand envelope for
-compatibility with the qualified equipment controller. A separate capture leaves the envelope
-unchanged until closure is requested, at which point it uses the closed grip envelope.
-Character-preview closure overrides remain cosmetic and grant no collision authority.
-Mass, centre of mass and inertia retain the existing sourced rigid-hand approximation in every
-configuration; finger articulation and its internal work are absent.
+- The hand is one rigid segment. Its open capsule is the de Leva hand length with the
+  volume/density construction.
+- The closed capsule keeps the proximal end and radius; its distal centre is the rig's third
+  metacarpal head. The `strike` point is that head plus the radius along the reference hand.
+- Grip uses the closed envelope; attachment frames still come from the rig's knuckles and palm
+  thickness.
+- Length and thickness derive from sourced quantities; mass, centre and inertia keep the rigid-hand
+  approximation in every pose. It is a contact approximation, not a measured clenched hand, and has
+  no finger articulation.
 
-A request waits for an unloaded hand and an unobstructed replacement envelope. Collider
-handles, ownership, filters, CCD settings, body transforms, velocities and mass properties stay
-unchanged. Attached equipment retains its current envelope on an opening request; a closing
-request selects grip, and an authorized release allows the pending opening.
-Pending and applied requests are replay state. An opening request does not release an item or
-attach another, and recovery does not require a pending change to complete.
+## Changing pose
 
-Qualification measurements are added alongside the punch calibration before a combat profile
-using these shapes is promoted.
+- Empty hands start open; compound equipment starts in grip and keeps its registered envelope. A
+  separate capture leaves the envelope until closure is requested, then uses the grip envelope.
+- A request waits for an unloaded hand and an unobstructed replacement envelope. Collider handles,
+  ownership, filters, CCD, transforms, velocities and mass stay unchanged.
+- An attached item keeps its envelope on an opening request; an authorized release lets the pending
+  opening through. An opening request neither releases nor attaches an item.
+- Pending and applied requests are replay state; recovery does not wait on a pending change.
+- Character-preview closures are cosmetic and carry no collision authority.

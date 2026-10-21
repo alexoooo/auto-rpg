@@ -1,5 +1,10 @@
 # Human striking biomechanics: reference values for calibrating a simulated fighter
 
+What the literature measured of human strikes, segments, joint torques and ranges, and what the
+core human is built from: sections 1 to 7 are the literature, section 8 the workshop models'
+stature and volume (`src/core/sources.ts`), section 9 the core human's joint ranges and strengths
+(`src/core/human/muscle.ts`, `tables/`, held by `tests/core-human.test.mjs`).
+
 All units are SI. Angular velocities were converted at 1 deg/s = 0.01745 rad/s; the original deg/s value is given in brackets. "Typical" means an untrained or recreational adult male where such data exist; otherwise the lowest-skill group studied, which is named. Values are mean ± SD unless marked otherwise. **Derived** marks a number computed here from the cited inputs, not reported by the source.
 
 ## 1. Punches (straight jab/cross, hook)
@@ -123,29 +128,27 @@ Useful sums at 80 kg:
 
 ## 8. The workshop models
 
-For the core's human spec (`src/core/human/`). These are measurements of this repository's
-assets, not literature.
+Measurements of this repository's assets for the core's human spec (`src/core/human/`).
 
-**Stature.** Each model's stature is the top of its skin: the maximum y of `base__skin`'s
-positions in `public/assets/humanoid/workshop-*.glb`, bind pose, soles on 0. Hair is not stature.
+**Stature** is the top of the skin: the maximum y of `base__skin`'s positions in
+`public/assets/humanoid/workshop-*.glb`, bind pose, soles on 0; hair is not stature. It is the
+GLB's own figure, the maximum its position accessor states (`/accessors/231/max/1` in the
+Warrior's file, `/accessors/220/max/1` in the Rogue's), and `node --test tests/core-human.test.mjs`
+reads both back (`specProvenanceFaults`, `tests/fixtures/spec.mjs`).
 
 | Model | Skin top at the authored size | At x1 (x 1.77 / 1.880) |
 |---|---|---|
 | Warrior (`workshop-fighter`) | 1.8805 m | 1.770 m |
 | Rogue (`workshop-rogue`) | 1.7305 m | 1.629 m |
 
-x1 is the owner's typical adult: 1.77 m and 79 kg for a man. The Rogue takes the
-Warrior's factor, so she keeps her size against him.
-
-Command: none is needed. A skin top is its GLB's own figure, the maximum the skin's position
-accessor states (`/accessors/231/max/1` in the Warrior's file, `/accessors/220/max/1` in the
-Rogue's), and `node --test tests/core-human.test.mjs` reads both back from the files
-(`specProvenanceFaults`, `tests/fixtures/spec.mjs`).
+x1 is the owner's typical adult: 1.77 m and 79 kg for a man. The Rogue takes the Warrior's
+factor, so she keeps her size against him.
 
 **Volume.** Each model's skin, feet, jacket, trousers, collar and belt were closed by voxel flood
-fill in the bind pose and extrapolated to a zero voxel from grids of 4.5 to 8 mm; a finer grid
-leaks through a seam. What is enclosed, and what is not outside, bracket the volume (litres, at the
-authored size):
+fill in the bind pose and extrapolated to a zero voxel from grids of 4.5 to 8 mm (a finer grid
+leaks through a seam). The flood fill's script was not committed (`f9ff0e90`), and no test
+measures a volume again. What is enclosed, and what is not outside, bracket the volume (litres, at
+the authored size):
 
 | Model | Enclosed | Not outside | Taken |
 |---|---|---|---|
@@ -155,9 +158,6 @@ authored size):
 The ratio is 0.729 on either bound to the third digit, and the clothes are the same garments on
 both. The Rogue's mass is the Warrior's 79 kg times this ratio, 57.6 kg: her own build's mass at
 the same density.
-
-Command: none. The flood fill's script was not committed (`f9ff0e90`), so its grids and its
-extrapolation are known only as this page gives them, and no test measures a volume again.
 
 ## 9. Joint ranges and strengths for the core human
 
@@ -217,17 +217,13 @@ also fits best was seen after the choice was argued, and is reported, not relied
 - **Janssen's upper body cannot be used as it is.** It mixes arms with trunk, and women's arms carry
   less of their muscle than their trunks do. So A over-predicts the Rogue's shoulder by up to 46 %
   (z = 2.0 and 2.1 in the women's SD, for internal rotation and adduction).
-- **What no rule explains: the trunk.** Every rule puts the Rogue's trunk at 0.65-0.87 of Pan's women.
-  Per kilogram of body mass:
-  - Pan's women turn the trunk with 87-99 % of the men's torque;
-  - Abe's women have 63-70 % of the men's muscle cross-section at the xiphoid, lumbar and iliac
-    crest levels.
-
-  A seated trunk test may recruit the hip extensors, and women's moment arms may differ. Neither
-  is established, and the finding stands open.
-- **Two smaller misses:**
-  - Anderson's hip flexion and extension: its 7 women's normalised peaks exceed its 7 men's.
-  - Peleg's ulnar deviation: 20 women, concentric.
+- **What no rule explains: the trunk.** Every rule puts the Rogue's trunk at 0.65-0.87 of Pan's
+  women. Per kilogram of body mass Pan's women turn the trunk with 87-99 % of the men's torque,
+  where Abe's women have 63-70 % of the men's muscle cross-section at the xiphoid, lumbar and
+  iliac crest levels. A seated trunk test may recruit the hip extensors, and women's moment arms
+  may differ; neither is established.
+- **Two smaller misses:** Anderson's hip flexion and extension (its 7 women's normalised peaks
+  exceed its 7 men's) and Peleg's ulnar deviation (20 women, concentric).
 
 `tests/core-human.test.mjs` holds each Rogue ratio between 0.55 and 1.5 and the middle one between
 0.85 and 1.15. It reads 0.97. Scaling by mass alone moves the middle to 1.39. Leaving her mass out
@@ -386,55 +382,53 @@ goniometer's zero.
 - **Shoulder adduction beyond the anatomical position:** none, since the trunk is in the way. No
   source measured it.
 
-### 9.6 Open
+### 9.6 Limits
 
 - **The spine joints sit on the CERV-MIDH line**, at de Leva's trunk boundaries, not on the spine.
-- **The trunk's sex ratio** (9.1).
-- **Unconfirmed source details:**
-  - Fujimori 2012 and 2014 were read in their abstracts only.
-  - Axelsson and da Fonseca give no body mass for the band or sex taken.
-  - Peleg and da Fonseca are concentric.
-  - DS2009 does not say which isometric angle some rows are.
+- **The trunk's sex ratio** is unexplained (9.1).
+- **Source details not confirmed**: Fujimori 2012 and 2014 were read in their abstracts only;
+  Axelsson and da Fonseca give no body mass for the band or sex taken; Peleg and da Fonseca are
+  concentric; DS2009 does not say which isometric angle some rows are.
 
 ## Notes and caveats
 
-1. **Effective mass depends on its definition.**
-   - Walilko uses momentum conservation into an instrumented head.
-   - Adamec uses impulse divided by fist velocity.
-   - Smith & Hamill use bag momentum.
-   - The three methods are not interchangeable. Within one study, SDs reach 70 % of the mean (Walilko: 2.9 ± 2.0 kg), driven mainly by wrist rigidity and weight class. A simulated "punch mass" of 2-4 kg is defensible; 1 kg is a floppy wrist and 5+ kg a super-heavyweight driving through.
-2. **Peak force depends on target stiffness, padding and gloves.**
-   - The same elite straight punch reads 1500 N into a padded pad on a force plate (Front Physiol 2022) and 3400-4800 N into a Hybrid III face or a stiff dynamometer (Walilko; Smith 2000).
-   - Contact duration moves with the target too: ~11 ms on the dummy face against ~27 ms on the padded wall.
-   - Impulse and momentum transfer are more robust than peak force. Calibrate against impulse (~20-25 N s for a hard straight punch) and fist speed, not peak N.
-3. **"Peak" and "at impact" speeds differ.**
-   - Straight punches often decelerate before contact: 7.2 m/s peak vs 5.6 m/s at contact (Front Physiol 2022).
-   - Untrained and elite straight-punch speeds overlap heavily (8.0 vs 8.1-9.1 m/s). Skill shows mainly in effective mass, force and hook/uppercut speed, not raw straight-punch speed.
-4. **Impulse figures are uncertain.**
-   - The Walilko impulse (~25 N s) was read from a misaligned PDF table.
-   - The Front Physiol 2022 impulse is printed as "N·ms", which is physically implausible; it is almost certainly N s.
-5. **Trunk angular-velocity definitions conflict.**
-   - Newer pitching studies report upper-trunk peaks of ~11-14 rad/s.
-   - Older ones report ~19-21 rad/s (1100-1200 deg/s), using a different trunk axis and segment definition.
-   - Boxing trunk peaks are much lower, at 4-5 rad/s, because the punch uses a short, partial rotation (40-75 deg of range).
-   - Do not transfer throwing or swinging trunk speeds to a punch.
-6. **Sword data are mostly not peer-reviewed.**
-   - The only controlled study found is a high-school-journal saber study with n = 3 per group.
-   - The best peer-reviewed proxy is the forensic 1 kg, 0.65 m rod: 24 m/s one-handed for lay men, about 95 J derived.
-   - A cut of ~15-25 m/s at the centre of percussion with 60-130 J is consistent across sources, but carries no statistical weight.
-7. **The bat is a two-handed ceiling, not a one-handed target.**
-   - Bats of 0.8-0.9 kg reach ~30-32 m/s at the sweet spot for college and professional players, and ~36-40 m/s for lighter, longer slow-pitch bats.
-   - Speed depends only weakly on inertia (exponent ~0.1-0.3).
-   - Lay one-handed rod strikes (14-36 m/s depending on rod) are the nearest data for untrained swings.
-8. **Torques are isometric or isokinetic, angle-specific and cohort-specific.**
-   - Isokinetic values fall as test speed rises; the Abdelraouf data at 120 deg/s are lower than the isometric Holzbaur values.
-   - Harbo's cohort spans ages 15-83, so its means understate a young man.
-   - Wrist values vary twofold between studies because posture and fixation differ.
-   - No reliable absolute value was found for shoulder horizontal adduction, elite shoulder internal rotation or trunk rotation in athletes.
-   - A striking motion is a fast concentric action, so usable torque at 10-40 rad/s joint speed is well below these static maxima.
-9. **Contribution percentages are method-dependent.**
-   - Filimonov's 38/37/24 % split is a 1985 Soviet source known only through citations, and its method is unclear.
-   - Velocity-projection methods (Dinu & Louis) credit the distal joints more.
-   - Both agree on the direction: skilled strikers get more from proximal segments and a rigid distal chain.
-10. **Derived values are labelled as derived.** They assume textbook models: a point effective mass for the fist, and a uniform rod about its end for a stick. Treat them as order-of-magnitude checks.
-11. **Gaps not filled:** kendo shinai speed; truly untrained bat speed; elite one-handed club/baton speed; shoulder horizontal adduction torque; elite pronation/supination torque; the numbers behind Filimonov's novice/intermediate leg shares.
+1. **Effective mass depends on its definition**: momentum into an instrumented head (Walilko),
+   impulse over fist velocity (Adamec), bag momentum (Smith & Hamill). Within one study SDs reach
+   70 % of the mean (Walilko: 2.9 ± 2.0 kg), mainly by wrist rigidity and weight class. A punch
+   mass of 2-4 kg is defensible; 1 kg is a floppy wrist, 5+ kg a super-heavyweight driving through.
+2. **Peak force depends on target stiffness, padding and gloves.** The same elite straight punch
+   reads 1500 N into a padded plate (Front Physiol 2022) and 3400-4800 N into a Hybrid III face or
+   a stiff dynamometer (Walilko; Smith 2000); contact lasts ~11 ms on the dummy face, ~27 ms on the
+   padded wall. Impulse (~20-25 N s for a hard straight punch) and fist speed calibrate better
+   than peak N.
+3. **"Peak" and "at impact" speeds differ**: straight punches often slow before contact (7.2 m/s
+   peak, 5.6 at contact; Front Physiol 2022). Untrained and elite straight-punch speeds overlap
+   (8.0 vs 8.1-9.1 m/s); skill shows in effective mass, force and hook and uppercut speed.
+4. **Impulse figures are uncertain**: Walilko's (~25 N s) is read from a misaligned PDF table;
+   Front Physiol 2022 prints "N·ms", almost certainly N s.
+5. **Trunk angular-velocity definitions conflict**: newer pitching studies give upper-trunk peaks
+   of ~11-14 rad/s, older ones ~19-21 rad/s on another axis and segment. Boxing trunk peaks are
+   4-5 rad/s, a short partial rotation (40-75 deg); throwing or swinging trunk speeds do not
+   transfer to a punch.
+6. **Sword data are mostly not peer-reviewed**: the one controlled study is a high-school-journal
+   saber study with n = 3 a group. The best peer-reviewed proxy is the forensic 1 kg, 0.65 m rod:
+   24 m/s one-handed for lay men, about 95 J derived. A cut of ~15-25 m/s at the centre of
+   percussion with 60-130 J is consistent across sources but has no statistical weight.
+7. **The bat is a two-handed ceiling**: 0.8-0.9 kg bats reach ~30-32 m/s at the sweet spot for
+   college and professional players, ~36-40 m/s for lighter, longer slow-pitch bats, and speed
+   depends only weakly on inertia (exponent ~0.1-0.3). Lay one-handed rod strikes (14-36 m/s) are
+   the nearest data for untrained swings.
+8. **Torques are isometric or isokinetic, angle- and cohort-specific.** Isokinetic values fall
+   with test speed (Abdelraouf at 120 deg/s is under Holzbaur's isometric); Harbo's cohort spans
+   ages 15-83; wrist values vary twofold with posture and fixation. A strike is a fast concentric
+   action, so usable torque at 10-40 rad/s is well below these static maxima.
+9. **Contribution percentages are method-dependent**: Filimonov's 38/37/24 % split is a 1985
+   Soviet source known only through citations; velocity-projection methods (Dinu & Louis) credit
+   the distal joints more. Both find skilled strikers get more from proximal segments and a rigid
+   distal chain.
+10. **Derived values** assume textbook models (a point effective mass for the fist, a uniform rod
+    about its end for a stick): order-of-magnitude checks.
+11. **Not found**: kendo shinai speed; truly untrained bat speed; elite one-handed club or baton
+    speed; shoulder horizontal adduction torque; elite shoulder internal rotation, pronation and
+    supination torque; trunk rotation torque in athletes; the numbers behind Filimonov's novice
+    and intermediate leg shares.

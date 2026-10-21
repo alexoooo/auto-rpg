@@ -1,42 +1,34 @@
 # Local per-point contact step
 
-`build/contact-step.ts::predictPointContacts` predicts fixed-plane contact impulses through an
-already updated coupled body/equipment model. The caller supplies bounded actuator torques,
-known external loads, candidate points, inward normals, desired lower normal velocities and
-the step duration. It returns detached data and applies no forces or impulses to physics.
-It is a diagnostic model, not a controller or collision detector.
+What `build/contact-step.ts::predictPointContacts` predicts and how well. Through an updated coupled
+body/equipment model it predicts one step's fixed-plane contact impulses and, optionally, angular
+joint-stop impulses, from the caller's bounded actuator torques, known loads, candidate points,
+inward normals, lower normal velocities and step. It returns detached data and applies nothing to
+physics. It is a diagnostic that allocates, used by no gameplay controller.
 
-The model first mass-projects measured body velocities into the anatomical/grip constraint
-space (`coupledDynamics.projectVelocity`). Raw solver velocities contain small joint errors;
-asking a reduced-coordinate contact solve to remove those independent errors can make its
-equations incompatible. The projection returns detached generalized velocity and before/after
-kinetic energy. It changes no physical body. Call `update` without predicted contacts/stops
-when those should remain free for this solve; every installed model row is homogeneous in
-the velocity projection. Acceleration targets do not become velocity targets.
+## The model
 
-The model freezes contact lever arms during one velocity step. It removes each point's
-centripetal material acceleration when predicting the velocity at that fixed lever arm.
-Unit loads through the coupled model provide the contact mobility, retaining the body's mass,
-joint coupling and declared internal constraints. Normal impulses cannot pull. Each tangent
-pair solves its two-axis stopping impulse and projects it onto the friction disk, matching the
-native per-point [projected law](contact-friction.md). Normal and tangent passes repeat from
-zero impulse up to the caller's finite budget.
-
-The final velocity is reconstructed independently from the mobility and accumulated impulses.
-The report checks normal nonpenetration, complementary support, friction-disk bounds and the
-tangent projection's fixed point. Optional [angular stops](contact-stops.md) share the same
-mobility and iteration, with separate angular impulse and velocity tolerances; they hold or
-release through unilateral impulses. Status distinguishes convergence, iteration limit, residual
-failure and nonfinite results. A failed candidate cannot justify an action. Convergence means
-the local equations passed their checks; it does **not** establish agreement with an engine
-during an impact or changing geometry. There is no implicit warmstart or state across queries.
+- **Velocity projection first.** Measured velocities are mass-projected onto the anatomical and
+  grip constraints (`coupledDynamics.projectVelocity`): raw solver velocities carry small joint
+  errors that can make the reduced contact equations incompatible. Every installed model row is
+  homogeneous in this projection; acceleration targets do not become velocity targets.
+- Lever arms are frozen for the step, each point's centripetal acceleration removed. Unit loads
+  through the coupled model give the contact mobility (mass, joint coupling, declared constraints).
+- Normal impulses cannot pull. Each tangent pair solves its two-axis stopping impulse and projects
+  it onto the friction disk, as native per-point friction does ([projected law](contact-friction.md);
+  the projection's metric: [contact-projection](contact-projection.md)). Passes repeat from zero
+  impulse to the caller's budget; nothing is warmstarted across queries.
+- The final velocity is rebuilt from the mobility and accumulated impulses and checked for
+  nonpenetration, complementary support, the friction disk and the tangent fixed point. Status
+  separates convergence, iteration limit, residual failure and nonfinite results; a failed
+  candidate justifies no action. Convergence means the local equations pass, not that an impact
+  or changing geometry matches the engine.
 
 ## Transition fixture
 
-Harness: Node core stand, `rapier-coordinate-coulomb`, package `.6`, adapter 7, 120 or 1920 Hz.
-A free 1 kg box is 0.6 by 0.1 by 0.4 m, with principal inertia `[.02, .04, .04] kg m²`.
-It settles for one second. The spin variants receive a vertical angular impulse of either sign
-corresponding to 3 rad/s and advance one step. All trials then use known forces at the centre:
+Node core stand, `rapier-coordinate-coulomb`, package `.6`, adapter 7, 120 or 1920 Hz. A free 1 kg
+box 0.6 × 0.1 × 0.4 m, principal inertia `[.02, .04, .04] kg m²`, settles one second (spin variants
+then get ±3 rad/s about the vertical), and takes known centre forces, the same in model and physics:
 
 | Interval | Applied force | Intended physical condition |
 |---|---|---|
@@ -46,24 +38,10 @@ corresponding to 3 rad/s and advance one step. All trials then use known forces 
 | 3–3.25 s | 15 N upward | Unload and lift away |
 | 3.25–4 s | zero | Fall and strike the ground |
 
-These are fixture loads, not a character assist or changed muscle strength. The two horizontal
-magnitudes straddle the coefficient-0.5 gravity load; the upward force exceeds the weight.
-The model receives the same known load that physics receives; its contact reactions are never
-applied. Every query is checked to leave the physical save unchanged.
-
-The fixture selects geometric box vertices within 1 mm of the lowest feature and within 5 mm
-of the known plane. A positive gap allows closing at `-gap / dt`; penetration receives no extra
-position correction. These explicit geometric assumptions are not general contact acquisition.
-The numeric settings are 2,048 passes, impulse tolerance `1e-10 N s`, and velocity tolerance
-`1e-7 m/s`. Friction is the engine contract's 0.5. All are caller inputs rather than anatomy.
-
-Six trials cover both horizontal signs at both rates without initial spin, and both signs at
-120 Hz with initial spin. All physical branches replay exactly. The model predicts sliding,
-then sticking, supports the smaller horizontal load, and releases all support under the upward
-load. In every case the body physically rises above 0.2 m and returns to rest near its 0.05 m
-centre height. This is a free slab's transition, not anatomical recovery.
-
-Maximum component error in **next-step velocity**, aggregated over signs:
+Candidates are box vertices within 1 mm of the lowest feature and 5 mm of the plane; a positive gap
+may close at `-gap / dt`, with no extra correction for penetration. Settings: 2,048 passes, impulse
+tolerance `1e-10 N s`, velocity tolerance `1e-7 m/s`, friction 0.5. Every branch replays; the body
+rises above 0.2 m and returns to rest near 0.05 m. Largest next-step velocity component errors:
 
 | Rate and initial spin | Driven/coast/hold/lift linear, m/s | Angular, rad/s | Landing linear, m/s | Angular, rad/s | Landing rejected steps |
 |---|---:|---:|---:|---:|---:|
@@ -71,41 +49,22 @@ Maximum component error in **next-step velocity**, aggregated over signs:
 | 120 Hz, ±3 rad/s | 0.003170 | 0.020155 | 0.006930 | 0.039368 | 0 / 0 |
 | 1920 Hz, zero | 0.000092 | 0.000086 | 0.173597 | 0.397777 | 1 / 2 |
 
-All pre-landing solves converge. Established-contact and lift validation requires error below
-0.005 m/s and 0.025 rad/s, positive admissible support, the expected mode changes and the
-physical endpoints. The 120 Hz landing checks require 0.01 m/s and 0.05 rad/s. The fine-step
-landing is **not validated**: acquisition and substep differences remain, and some local solves
-reach their budget with an unresolved tangential fixed point. Even a converged local landing
-prediction need not match the engine. No between-rate physical conclusion is inferred from
-these maxima. The runner retains samples at 120 Hz spacing; the durable
-[record](contact-step.json) retains quarter-second samples, phase maxima, failed solves and
-whole-branch observation hashes.
-
-The tests also cover rotated normals/forces on an isotropic body, detached outputs, empty
-contact sets, invalid inputs and singular mobility. Covariance uses known double-precision
-loads rather than rotated impulses rounded separately into the engine's float32 velocity.
-Suppressing friction fails the physical transition checks. Accepting every finite iterate
-fails the reported-residual checks. The tests do not require an unsupported landing to remain
-inaccurate if a future model improves it.
+The gate for established contact and lift is 0.005 m/s and 0.025 rad/s, with positive support and
+the expected mode changes; the 120 Hz landing, 0.01 m/s and 0.05 rad/s. The fine-step landing is
+not validated: acquisition and substeps differ, and some solves end at the budget unresolved.
+Suppressing friction fails the transition; accepting every finite iterate fails the residual
+checks. [Record](contact-step.json).
 
 ## Linked supports and velocity consistency
 
-`research/contact-linked.mjs` uses the same Node stand, engine profile, rates, contact geometry
-selection and numerical settings. Two copies of the slab sit at x = ±0.35 m, joined by a
-z-axis hinge at (0, 0.05, 0), with limits ±1 rad. After one second settling, a ±14 N force acts
-at the left slab's centre for one second, followed by one second coasting. A second variant
-also applies ±0.4 N m about the parent-carried hinge axis, equal and opposite on the two bodies,
-during the driven interval. Both loads enter the model and physics. The prescribed couple
-tests coupled dynamics; it is not a bounded muscle controller or a character assist.
+`research/contact-linked.mjs`, same stand, profile, rates and settings: two slabs at x = ±0.35 m
+joined by a z-axis hinge at (0, 0.05, 0), limits ±1 rad. After a second's settling, ±14 N at the
+left slab's centre for one second, then a second's coast; a second variant adds a ±0.4 N m couple
+about the hinge during the drive (a prescribed load, not a controller or assist).
 
-Before velocity projection, the positive-force, zero-torque prototype rejected 240/240 steps
-at 120 Hz and 1,732/3,840 at 1920 Hz (`contact-step.ts` at `7c1a2cf9`). Its first 120 Hz normal
-residual was 1.93e-6 m/s, exceeding the 1e-7 tolerance despite only tiny joint inconsistency.
-With projection, both signs at both rates converge throughout the zero-torque case. Replacing
-projected initial contact velocities with raw velocities in the current regression test again
-fails: all 120 driven steps of its first case reject. Tolerances are unchanged.
-
-Maximum next-step velocity component errors over both directions:
+Without the velocity projection, the zero-torque case rejected 240/240 steps at 120 Hz and
+1,732/3,840 at 1920 Hz (`contact-step.ts@7c1a2cf9`; first normal residual 1.93e-6 m/s against the
+1e-7 tolerance). With it:
 
 | Rate | Prescribed torque magnitude, N m | Linear, m/s | Angular, rad/s | Rejected steps, negative / positive drive |
 |---|---:|---:|---:|---:|
@@ -114,36 +73,50 @@ Maximum next-step velocity component errors over both directions:
 | 1920 Hz | 0 | 0.000358 | 0.000332 | 0 / 0 |
 | 1920 Hz | 0.4 | 0.000455 | 0.000399 | 0 / 1 |
 
-All eight physical branches replay exactly, slide above 2 m/s in the driven direction and stop
-with both centres within 1 mm of their original height. Queries leave saves unchanged. The
-zero-torque gate requires no rejected solve, linear error below 0.004 m/s and angular error
-below 0.003 rad/s. Accepted results in every case must satisfy the independent certificate.
-The two torque-case failures occur at stopping, at 1.55833 and 1.5625 s: tangent impulse
-residuals are 1.54e-9 and 1.97e-10 N s, respectively. They remain rejected despite small
-velocity errors. The 1920 Hz positive torque case can consume the full budget even on accepted
-steps. This does not establish a general articulated contact controller or acceptable step cost.
+All eight branches replay, slide above 2 m/s and stop within 1 mm of their height. The zero-torque
+gate is no rejection, 0.004 m/s and 0.003 rad/s. The two torque-case rejections come at stopping
+(1.55833 and 1.5625 s), with tangent residuals of 1.54e-9 and 1.97e-10 N s. Replacing the projected
+velocities with raw ones in the regression rejects all 120 driven steps of its first case.
+[Record](contact-linked.json).
 
-The [linked record](contact-linked.json) retains phase maxima, failures, quarter-second samples
-and physical hashes; the runner emits samples at common 120 Hz spacing. No between-rate
-physical conclusion is drawn from error maxima. Repeating the original six slab branches with
-projection preserves their physical hashes exactly; only diagnostic predictions change.
+## Angular stops
+
+Optional inward angular-stop rows share the contact mobility and iteration. A stop gives a lower
+end-step row velocity (rad/s), an impulse tolerance (N m s) and a velocity tolerance (rad/s); its
+row is angular only, and the model must not already constrain it. A stop holds with nonnegative
+impulse or releases with zero; changes are normalized by each column's tolerance, and the
+certificate checks each stop's inward velocity and complementary reaction.
+
+The fixture's rows come from `nearJointStops` ([joint-coordinate rows](joint-stop-tracking.md#joint-coordinate-rows)):
+with acceleration target `target`, raw inward rate `rate` and step `dt`, the end-step bound is
+`rate + dt * target` (equivalently `-gap / dt` plus the coordinate curvature term).
+
+Node core stand, `rapier-coordinate-coulomb`, package `.6`, adapter 7, 120 and 1920 Hz. A free 10 kg
+base at `(0, .1, 0)` m (`1.2 × .2 × .6` m box, inertia `[.4, 1.2, 1.2] kg m²`) and a 1 kg arm at
+`(±.6, .6, 0)` m (`.6 × .1 × .2` m, `[.01, .04, .04] kg m²`), joined by a z hinge at `(±.2, .6, 0)`
+with limits `[0, .4]` rad or the mirror `[-.4, 0]`, gravity pressing the stop. After a second's
+settling, each branch runs 1/30 s: holding applies no joint torque; releasing applies ±6 N m to lift
+the arm; sliding variants add ±80 N at the base, over the system's 0.5 friction load. Stops are
+admitted within 0.01 rad; budget and tolerances as above.
+
+| Rate | Angular condition | Linear, m/s | Angular, rad/s | Maximum passes |
+|---|---|---:|---:|---:|
+| 120 Hz | Holding | 0.004104 | 0.010748 | 23 |
+| 120 Hz | Releasing | 0.000834 | 0.000385 | 23 |
+| 1920 Hz | Holding | 0.001028 | 0.002518 | 20 |
+| 1920 Hz | Releasing | 0.000164 | 0.000543 | 20 |
+
+All sixteen branches converge and replay; the gate is 0.005 m/s and 0.015 rad/s. Holding predicts
+positive stop impulse and keeps the angle within 0.0001 rad; releasing predicts zero and moves at
+least 0.004 rad inward. The base slides above 0.05 m/s loaded and stays below 0.001 m/s sticking.
+An analytic case balances 10 N on a point 0.04 m off centre with a stop (normal impulse
+`10 * dt N s`, stop `0.4 * dt N m s`, zero acceleration); suppressing stop reactions or letting them
+pull fails it. The fixture ends before the far limit: hard arrivals and rebounds are not read.
+[Record](contact-stops.json).
 
 ```powershell
 node research/contact-step.mjs
 node research/contact-linked.mjs
+node research/contact-stops.mjs
 node --test tests/core-contact-step.test.mjs
 ```
-
-## Integration gate
-
-The optional [rigid-body tangent metric](contact-projection.md) reproduces native per-point
-friction direction on a welded sliding load. The default coupled metric remains explicit and
-unchanged. Both propagate impulses through articulated dynamics; choosing the local projection
-metric is a separate physical-law choice from eliminating joint constraints.
-
-The predictor remains allocating and outside `wholeBodyTracking`. It does not select candidate
-surfaces, optimize muscle torques or predict moving-body impacts. Established ground/stop
-support and release are validated in a separate mechanical fixture. Next combine validated
-contact modes and their force variables with bounded actuator objectives and repeat the
-installed all-fours hold. Recovery entry follows that hold;
-general landing and support acquisition remain separate gates.
