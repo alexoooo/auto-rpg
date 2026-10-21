@@ -17,15 +17,15 @@ if (!isEngineName(BOUT_ENGINE)) throw new Error(`CORE_ENGINE names no engine: ${
 
 export const BOUT_HARNESS = `Node, core world (src/core/world.ts), ${BOUT_ENGINE}, 120 Hz`;
 
-/** A world with the arena's solids and `recipe`'s bout in it. */
+/** A world with the arena's solids and `recipe`'s bout in it, and each solid's fixed collider, by name. */
 export async function buildBout(recipe, { hz = 120, physicsEngine, actuation, hooks = {} } = {}) {
   const engine = new NullEngine(), scene = new Scene(engine);
   const world = createWorld(scene, physicsEngine ?? await loadEngine(BOUT_ENGINE), { hz, actuation });
   const solids = arenaSolids(recipe.level);
-  addArenaSolids(world.physics, solids);
+  const fixed = addArenaSolids(world.physics, solids), colliders = new Map(solids.map((solid, k) => [solid.name, fixed[k].id]));
   try {
     const duel = new Duel(world, recipe, { solids, ...hooks });
-    return { world, duel, dispose() { duel.dispose(); world.dispose(); scene.dispose(); engine.dispose(); } };
+    return { world, duel, colliders, dispose() { duel.dispose(); world.dispose(); scene.dispose(); engine.dispose(); } };
   } catch (error) { world.dispose(); scene.dispose(); engine.dispose(); throw error; }
 }
 
