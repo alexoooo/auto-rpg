@@ -156,8 +156,8 @@ speed it is asked its own way, running once that is past its threshold.
   - overshoot at a place goal;
   - the speed through the obstacle court's corners;
   - for each character and representative loadout.
-- **The fingerprint** moves almost everywhere; the commits name it so. Once Part A lands, the
-  tournament ratings are read again (about 11 h on this host), when the owner chooses.
+- **The fingerprint** moves almost everywhere; the commits name it so. The tournament is not
+  run again (the owner's decision: it is going away).
 - **Eye check:** holding W and clicking to go, in the Arena and the Crypt.
 
 ## Part B: command
@@ -221,8 +221,9 @@ its fixture and assertions as they are.
 
 ### B4. AI Commanders
 
-- **A mob.** It allocates targets so attackers spread instead of queueing, surrounds by range
-  goals at bearings about the target, and sends hurt members back.
+- **A mob**, simple and minimal for now (the owner's decision), to be iterated on later: it
+  spreads its attackers over the party's members and about each target, by range goals at
+  bearings round it, instead of each walking at the nearest. It is the Crypt's enemies' default.
 - **A level-clearer.** The whole party is AI. It explores the edge of what it has seen, picks
   fights it can win, regroups, retreats when hurt, and reaches the exit.
 - **A task and a match** (`npm run clear -- <commander>`) score a party Commander over a fixed
@@ -230,16 +231,13 @@ its fixture and assertions as they are.
   - the share cleared, the time taken and the members lost;
   - against each enemy Commander;
   - with the same Minds, characters and seeds for every entrant, and repeated trials.
-- **Ratings.** Commanders are rated like Minds: by a match that names its protocol, commit and
-  digest.
 
-## The owner's choices
+## Decided
 
-1. **The Crypt's enemies by default.** The coordinated mob (harder) or today's independent
-   approach, once both exist. Either stays selectable on the start panel.
-2. **Team bouts in the Arena.** N against N, each side led by a Commander, either inside this
-   plan after B4 or as later work.
-3. **When to read the tournament again** after Part A.
+- **The Crypt's enemies** are coordinated by B4's mob, kept simple and minimal; it is iterated
+  on later. Today's independent approach stays selectable.
+- **Team bouts in the Arena**, N against N, are later work, outside this plan.
+- **The tournament** is not run again.
 
 Eye checks: Part A's movement (A4), and the feel of the mouse controls (B2).
 
