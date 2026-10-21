@@ -600,7 +600,11 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
   envelopes checked for exact identity.
 - **Build fingerprint** (`scripts/build-identity.mjs`): a content SHA-256 of sources, templates,
   assets, lockfile, build config and installed Rapier, LF-normalised; Node and Vite share it.
-  Match results and tournament caches carry it and refuse a mismatch.
+  What runs write (`OUTPUTS`: the tournament's table and notes, `assets/evaluations/`) is not in
+  it. Match results and tournament caches carry it and refuse a mismatch.
+- **Evaluation records** (`assets/evaluations/`): kept results. `imports/tournament-1bacac44.jsonl`
+  is the 10-hour tournament's rows (11,342 bouts and the unseen report's 384) as played, with their
+  provenance beside them in `tournament-1bacac44.json`.
 - **Forks** (`rollout`, `research/rollouts.mjs`): by load or by replay of the tape, which agree.
   The oracle (`research/oracle.mjs`) searches orders over forks; it holds the true world and is an
   instrument, not a mind ([oracle](reference/oracle.md)).

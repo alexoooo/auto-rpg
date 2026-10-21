@@ -3,3 +3,5 @@
 *.sh text eol=lf
 # An empty context line in a unified patch consists of its single-space marker.
 *.patch text eol=lf whitespace=-blank-at-eol
+# An evaluation record is kept byte for byte: its provenance names the SHA-256 of its LF bytes.
+assets/evaluations/** text eol=lf

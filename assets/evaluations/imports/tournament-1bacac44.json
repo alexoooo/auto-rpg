@@ -1,0 +1,13 @@
+{
+  "file": "tournament-1bacac44.jsonl",
+  "sha256": "aed029d611f3d9398fa6d6add8cd32be03b920c1bb96756f6a1535a7b7a007a7",
+  "bytes": 10329390,
+  "source": "research/runs/tournament/d5041a87130be558b0910e4e658abddf3276c46536618c51c221e453c456718d-76b07355f926f9df.jsonl",
+  "commits": { "run": "1bacac44", "table": "d06fb568" },
+  "build": "sha256:d5041a87130be558b0910e4e658abddf3276c46536618c51c221e453c456718d",
+  "protocol": { "name": "arena-tournament/1", "digest": "76b07355f926f9df" },
+  "harness": "Node, core world (src/core/world.ts), rapier-coordinate, 120 Hz",
+  "engine": "rapier-coordinate",
+  "rows": { "tournament": 11342, "unseen": 384, "atCap": 7409 },
+  "entrants": 107
+}

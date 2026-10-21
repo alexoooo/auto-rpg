@@ -4,7 +4,9 @@ import { resolve, relative, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
-const OUTPUTS = new Set(["assets/minds/ratings.json", "assets/minds/notes.json"]);
+/** What runs of a build write, not what makes it: a file by its path, or a folder and all under it by its path and a slash. */
+const OUTPUTS = Object.freeze(["assets/minds/ratings.json", "assets/minds/notes.json", "assets/evaluations/"]);
+const isOutput = path => OUTPUTS.some(output => output.endsWith("/") ? `${path}/`.startsWith(output) : path === output);
 const TEXT = new Set([".ts", ".mts", ".mjs", ".cjs", ".js", ".json", ".css", ".html", ".svg", ".wgsl", ".glsl", ".sh", ".patch"]);
 
 /** Canonical input bytes include untracked source; checkout line endings do not distinguish builds. */
@@ -26,8 +28,8 @@ export function currentBuildIdentity() {
     if (!existsSync(resolve(ROOT, directory))) return;
     for (const entry of readdirSync(resolve(ROOT, directory), { withFileTypes: true })) {
       const file = `${directory}/${entry.name}`;
-      if (entry.isDirectory() && file !== "research/runs") walk(file, codeOnly);
-      else if (entry.isFile() && !OUTPUTS.has(file) && (!codeOnly || [".ts", ".mjs", ".js"].includes(extname(file)))) files.push(file);
+      if (entry.isDirectory() && file !== "research/runs" && !isOutput(file)) walk(file, codeOnly);
+      else if (entry.isFile() && !isOutput(file) &&(!codeOnly || [".ts", ".mjs", ".js"].includes(extname(file)))) files.push(file);
     }
   };
   for (const directory of ["src", "assets", "public", "scripts"]) walk(directory);
