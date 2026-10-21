@@ -23,7 +23,7 @@ import type { DungeonSurfaces } from "./stone.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./camera.ts";
 import { companionSpawn } from "./party-placement.ts";
 import { generateEncounterLevel } from "./encounters.ts";
-import { directMovement, placeMovement, type MovementRequest } from "../core/mind/movement.ts";
+import { directMovement, placeMovement, sameMovement, type MovementRequest } from "../core/mind/movement.ts";
 import type { NavigationReport } from "../core/mind/navigation.ts";
 import type { Skills } from "../core/skills/skills.ts";
 import type { Orders } from "../core/mind/orders.ts";
@@ -504,6 +504,12 @@ export class DungeonRun {
     return !report || report.status === "arrived" && report.goal?.x === point.x && report.goal.z === point.z;
   }
 
+  /** `actor`'s navigation report where it is of `request`, and else none: its Mind may have walked a request of its own since. */
+  private reportOf(actor: DungeonActor, request: MovementRequest | null): NavigationReport | null {
+    const report = actor.navigation;
+    return report && sameMovement(report.request, request) ? report : null;
+  }
+
   /** A sensed opponent is approached to a band; no request routes through its centre. */
   private approach(focus: DungeonActor, far: number): MovementRequest {
     return { kind: "range", focus: focus.id, near: far * .8, far };
@@ -539,7 +545,7 @@ export class DungeonRun {
       return this.hero.alive ? this.approach(this.hero, TRAIL_METRES) : null;
     }
     if (mode.facing) {
-      const status = actor.navigation?.status;
+      const status = actor.goal ? this.reportOf(actor, placeMovement(actor.goal, ARRIVAL.explored))?.status : undefined;
       if (!actor.goal || this.arrived(actor, actor.goal, ARRIVAL.explored) || status === "unreachable" || status === "stalled")
         actor.goal = explorationGoal(this.map, at, this.explored, actor.radius);
       return actor.goal ? placeMovement(actor.goal, ARRIVAL.explored) : null;
@@ -562,8 +568,8 @@ export class DungeonRun {
       if (actor.opening.request !== key || this.map.doors.find(door => door.id === actor.opening!.door)?.open) actor.opening = null;
       else return placeMovement(actor.opening.point);
     }
-    const report = actor.navigation;
-    if (report?.status !== "unreachable" || JSON.stringify(actor.plan.move) !== key) return request;
+    const report = this.reportOf(actor, request);
+    if (report?.status !== "unreachable") return request;
     let goal = report.goal;
     if (!goal && request.kind === "range") { const focus = request.focus; goal = this.actors.find(other => other.id === focus)?.feet() ?? null; }
     if (!goal && request.kind === "place") goal = request.points[0] ?? null;
@@ -621,8 +627,8 @@ export class DungeonRun {
       actor.plan = { move, face, attack: actor.order.kind !== "force" && target?.fighter && target.alive ? target : null };
       if (actor.side === "party" && move?.kind === "place") {
         if (actor.opening) this.notice = "Approaching door";
-        else if (actor.navigation?.status === "unreachable") this.notice = "Destination unreachable";
-        else if (actor.navigation?.status === "stalled") this.notice = "Movement stalled";
+        else if (this.reportOf(actor, move)?.status === "unreachable") this.notice = "Destination unreachable";
+        else if (this.reportOf(actor, move)?.status === "stalled") this.notice = "Movement stalled";
       }
     }
     // A recovering party member keeps the run alive; reaching the exit requires an upright body.

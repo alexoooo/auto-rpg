@@ -15,6 +15,8 @@ type NavigationStatus = "stopped" | "moving" | "arrived" | "unreachable" | "stal
 
 /** Navigation reports observed progress separately from the existence of a geometric route. */
 export interface NavigationReport {
+  /** The request the rest of the report is of: the last one asked, which may be a tactic's rather than an order's. */
+  readonly request: MovementRequest | null;
   readonly status: NavigationStatus;
   readonly remaining: number | null;
   readonly goal: GroundPoint | null;
@@ -161,7 +163,7 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
     state.report.status = status; state.report.remaining = remaining; state.report.goal = goal;
   };
   const report: NavigationReport = { get status() { return state.report.status; }, get remaining() { return state.report.remaining; },
-    get goal() { return state.report.goal; }, get route() { return state.route; } };
+    get goal() { return state.report.goal; }, get route() { return state.route; }, get request() { return state.request; } };
   return { state, report,
     steer(view: NavigationSight["view"], heading: number, move: readonly [number, number] | null) {
       return clearMove(view.stance.centre, printsOf(view.senses.solids ?? NO_SOLIDS, view.stance.centre.y, view.stance.support?.y), heading, move, radiusOf(view), .5);
