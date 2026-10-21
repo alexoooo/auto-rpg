@@ -49,7 +49,7 @@ fighter is doing and whether it connected. The bout is heard: footfalls, swings,
 
 | Input | Does |
 | --- | --- |
-| W A S D or arrows | walk, relative to the camera; Shift runs |
+| W A S D or arrows | go, relative to the camera, as fast as the legs hold; Shift walks |
 | Pointer | where your fighter faces while it walks |
 | Left button | attack the body part under the pointer; hold to keep attacking |
 | Middle or right drag, wheel | orbit and zoom the Free camera |

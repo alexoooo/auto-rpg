@@ -26,6 +26,9 @@ export const STANCE_LOWER = 0.03;
  */
 export const RISING_SECONDS = 1.3;
 
+/** How fast the stance's walk is asked to slow to a stop, m/s² (`Locomotion.stopping`): a controller setting. */
+export const STANCE_STOPPING = 0.5;
+
 /**
  * **A body's legs, under the stance**: both feet bearing, the centre of mass held `lower` under
  * the height it stands at in the reference pose, the pelvis facing a heading, and walking at a
@@ -147,6 +150,12 @@ export interface Locomotion extends Skill {
    * turn and which tactics plan by (`Sight.envelope`); null where the body has none.
    */
   readonly envelope: StanceEnvelope | null;
+  /**
+   * How fast it slows to a stop, m/s²: the deceleration the movement pipeline brakes by before a
+   * place and a corner (`travelSpeed`, `src/core/mind/travel.ts`). A setting of the gait's controller,
+   * read by its overshoot at a place goal.
+   */
+  readonly stopping: number;
   /** Its memory (`src/core/state.ts`). */
   readonly state: object;
   /**
@@ -259,7 +268,7 @@ export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, 
     return stays === "left" ? { left: kept, right: to } : { left: to, right: kept };
   };
   return {
-    state, envelope,
+    state, envelope, stopping: STANCE_STOPPING,
     get heading() { return state.heading; },
     get pace() { return state.pace; },
     get reference() { return state.reference; },

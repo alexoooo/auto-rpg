@@ -57,6 +57,8 @@ import { cutawayCondition } from "../src/dungeon/reference-look.ts";
 import { DungeonRun } from "../src/dungeon/run.ts";
 import { revealScenery } from "../src/dungeon/scenery-visibility.ts";
 import { labActor } from "../src/lab/actor.ts";
+import { GUARD } from "../src/core/skills/guard.ts";
+import { poseAngles } from "../src/core/control/kinematics.ts";
 import { startRoutine } from "../src/lab/routine.ts";
 import { startLocomotion } from "../src/lab/locomotion-mode.ts";
 import { TRACKS, trackOf } from "../src/lab/track.ts";
@@ -415,14 +417,22 @@ const elsewhere = () => Object.entries(MINDS).filter(([id]) => id !== "crawl" &&
  * A bout in which the Warrior under `mind`, otherwise `CLASSIC`, falls: against `counter`, which fells it at
  * about 29 s, a fall not ending the bout, so that what `mind` does down is played.
  */
-const felled = (name, mind) => ({
-  name: `data: ${name}`,
-  run: () => arena({ left: "workshop-fighter", right: "workshop-fighter", level: "open", capSeconds: 45, recoverySeconds: null,
-    minds: { left: mind, right: MINDS.counter.config } }, { watch: "left" }),
-});
+/** The Warrior laid on its back in the guard, minded by `mind`, for 15 s: how long it was down and which minds had it, and the pose. */
+async function laidDown(mind) {
+  const spec = humanSpec("workshop-fighter"), half = Math.sqrt(.5);
+  const stand = await coreStand(spec, { position: [0, .4, 0], rotation: [-half, 0, 0, half], joints: poseAngles(spec, GUARD) });
+  const actor = labActor(stand.built, stand.world, { mind });
+  try {
+    const trace = traceOf([stand.built]), meter = downMeter(actor.body, stand.world.hz);
+    for (let i = 0; i < stand.seconds(15); i++) { stand.step(); trace.take(); meter.take(); }
+    const pose = trace.digest(), down = meter.reading();
+    return { line: `${down}, pose ${pose}`, record: { pose, down } };
+  } finally { actor.dispose(); stand.dispose(); }
+}
+const felled = (name, mind) => ({ name: `data: ${name}`, run: () => laidDown(mind) });
 /**
  * A case for each part that reads mind data, so that a change to how the data is loaded or stored is
- * read by a case that plays it: Research rise and the learned rise when the Warrior is down; the
+ * read by a case that plays it: Research rise and the learned rise, the Warrior laid down; the
  * learned run's policy, which steers only a run and is asked none in a bout, round the lab's circle
  * at 3 m/s.
  */

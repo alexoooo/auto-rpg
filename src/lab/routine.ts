@@ -142,14 +142,15 @@ function routineTactics(track: Track, drawing: Drawing, hands: readonly Side[], 
       const around = { heading: report.heading, placed: view.stance.phase === "stand", support: report.support ?? null, walk: null, lower: 0 };
       const produced = producer.request(sight, state.finished ? null : choice, around);
       const position = produced.readiness?.kind === "position"
-        ? approachActionWindow(view, produced.readiness.window, report.heading, APPROACH.pace, spec.stature.value / 6) : null;
+        ? approachActionWindow(view, produced.readiness.window, report.heading, APPROACH.pace) : null;
       // An impossible scripted target ends explicitly so the instrument can close its reading.
       if (!state.finished && produced.readiness?.kind === "blocked") {
         producer.state.current = { ...choice, id: sight.instance() };
         return { move: null, face: report.heading, guard: NO_COVER, actions: [producer.state.current] };
       }
       return {
-        move: position?.move ?? null,
+        move: null,
+        ...(position?.movement ? { movement: position.movement, ...(position.pace === undefined ? {} : { pace: position.pace }) } : {}),
         face: position?.face ?? Math.atan2(target[0] - view.head.x, target[2] - view.head.z),
         guard: NO_COVER,
         actions: produced.requests,

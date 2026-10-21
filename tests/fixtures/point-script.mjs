@@ -18,7 +18,7 @@ export function pointScript(choiceOf) {
       return { ...stand, actions: [producer.state.current] };
     }
     const position = produced.readiness?.kind === "position"
-      ? approachActionWindow(sight.view, produced.readiness.window, sight.report.heading, .3, .3) : {};
+      ? approachActionWindow(sight.view, produced.readiness.window, sight.report.heading, .3) : {};
     return { ...stand, ...position, actions: produced.requests };
   } };
 }

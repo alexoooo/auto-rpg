@@ -323,9 +323,12 @@ export const FIGHTING: BehavioursConfig = deepFreeze({ kind: "behaviours",
   list: [{ kind: "follow-orders" }, { kind: "clear-of-fallen" }, { kind: "attack" }, { kind: "approach" }, { kind: "cover", guard: "pose" }] });
 
 /**
- * The legs a body gets about by (`move`): braced while it stands or a standing foe is within 5 m;
- * otherwise by the walk and run free to run, which runs where its tactics or orders ask a pace past
- * its run's. An Arena bout opens at 4 m, so it fights from its first step.
+ * The legs a body gets about by (`move`): the fighting step (braced) while it stands or a standing
+ * foe is within 5 m; otherwise the walk and run free to run, which runs once the speed the rule asks
+ * (`travelSpeed`, `src/core/mind/travel.ts`) is past its run's. The run slows at its `brake`
+ * (0.47 m/s²): from the pace it runs from (1.3 m/s) it stops in about 1.8 m, and closing on a foe
+ * that closes too, in twice that, so it is walking by the time a fight's reach is near. At 2 m two
+ * Arena fighters opened 4 m apart run into each other and one falls.
  */
 export const MOVE: MoveConfig = deepFreeze({ kind: "move",
   rules: [{ kind: "when-standing", gait: "braced" }, { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" }],

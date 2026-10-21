@@ -61,10 +61,19 @@ export function validWalkRun(settings: WalkRunSettings): boolean {
     && [0, 0.5, 1].includes(hasted);
 }
 
+/**
+ * How fast the walk and run states it stops while it may run, m/s² (`Locomotion.stopping`): under
+ * its run's `brake`, since the run goes faster than the pace asked and slows from it late. Set by
+ * its overshoot at a place goal 8 m off: at 0.3 and 0.2 the Warrior and the skeleton run past it by
+ * up to 2.7 m and fall; at 0.15 each stops within 0.2 m of it, short of it
+ * (`docs/reference/locomotion.md#the-walk-and-run`).
+ */
+const RUN_STOPPING = 0.15;
+
 /** What steers a walk and run's run, before each of its steps: told the heading, the pace asked, m/s, the run's memory, whose steer it sets (`RunSteer`), and the heading's turn, rad/s. */
 type RunSteerer = (view: BodyView, heading: number, asked: number, run: RunCycleMemory, turning: number) => void;
 
-/** What else a walk and run may be given: what steers its run (`RunSteerer`), and the envelope its run is held to in place of the SIMBICON run's, null for none. */
+/** What else a walk and run may be given: what steers its run (`RunSteerer`), and the envelope its run is held to in place of its own (`walkRunEnvelope`), null for none. */
 interface WalkRunOptions {
   readonly steer?: RunSteerer;
   readonly runEnvelope?: StanceEnvelope | null;
@@ -141,7 +150,9 @@ interface WalkRunMemory {
  * The stance takes the body up as it is, moving (`Locomotion.resume`). Asked to stand while
  * running, the run brakes and the walk stops the body.
  *
- * Its envelope is the stance's walk's (`Body.envelope`), and its own while it may run (`walkRunEnvelope`). Its
+ * Its envelope is the stance's walk's (`Body.envelope`), and its own while it may run (`walkRunEnvelope`, unless
+ * it is given another, `WalkRunOptions.runEnvelope`); it states it stops at its walk's rate, and while it may run
+ * at `RUN_STOPPING`. Its
  * settings and the run's are taken scaled to the body's leg (`scaledGait`, `legOf`) from the leg
  * they were set for, and quickened by its haste (`quickness`), as the run's envelope is.
  */
@@ -149,7 +160,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   if (!validWalkRun(given)) throw new Error("a walk and run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1");
   if (!validRunCycle(givenRun)) throw new Error("a run cycle needs every setting finite, its times and the cycle's positive and its shares of strength within (0, 1]");
   const k = legOf(body.built.spec) / given.leg, quick = quickness(hasteOver(body.built.spec), given.hasted);
-  const settings = scaledGait(given, k, quick), cycle = runCycle(body, scaledGait(givenRun, k, quick), legOf(body.built.spec), quick);
+  const settings = scaledGait(given, k, quick), running = scaledGait(givenRun, k, quick), cycle = runCycle(body, running, legOf(body.built.spec), quick);
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
   const runEnvelope = options.runEnvelope !== undefined ? options.runEnvelope : body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
   const legs = locomotion(body.envelope);
@@ -207,6 +218,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   return {
     state,
     get envelope() { return envelopeNow(); },
+    get stopping() { return memory.may ? RUN_STOPPING : legs.stopping; },
     runs(may) { memory.may = may; },
     get heading() { return memory.running ? memory.heading : legs.heading; },
     get pace() { return memory.running ? memory.pace : legs.pace; },

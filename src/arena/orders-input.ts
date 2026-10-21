@@ -45,12 +45,12 @@ export function rayTarget(senses: Senses, origin: Vec3, direction: Vec3, length:
   return target;
 }
 
-/** Keys give a walk, and whether it runs; the pointer gives facing, and a pressed anatomical hit gives identity. */
+/** Keys give a movement, and whether it only walks; the pointer gives facing, and a pressed anatomical hit gives identity. */
 export function personOrders(move: Heading | null, point: Vec3 | null, target: { readonly foe: string; readonly region: string } | null, at: { readonly x: number; readonly z: number },
-  run = false): Orders {
+  walk = false): Orders {
   return {
     move: move ? directMovement(move.x, move.z) : null,
-    ...(run && move ? { run: true as const } : {}),
+    ...(walk && move ? { walk: true as const } : {}),
     face: point ? { x: point[0] - at.x, z: point[2] - at.z } : null,
     ...(target ?? {}),
   };

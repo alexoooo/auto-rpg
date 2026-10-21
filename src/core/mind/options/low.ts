@@ -1,3 +1,4 @@
+import { walkGoal } from "../movement.ts";
 import type { Side, BodySpec } from "../../spec/body.ts";
 import type { Region, TargetRef } from "../../skills/action.ts";
 import { regionSegments } from "../action-aim.ts";
@@ -47,7 +48,7 @@ export function strikeLow(action: ActionConfig, spec: BodySpec, walk: Walker): S
       const placement = ground.decide(view, report, focus, state.hand, dt);
       if (!placement) return { move: null, face: walk.facing(now), actions: [] };
       state.hand = placement.hand;
-      const asked = { move: placement.move, face: placement.face };
+      const asked = { move: null, face: placement.face, ...walkGoal(report.heading, placement.move) };
       if (!placement.allow) return { ...asked, actions: [] };
       const running = live(now);
       if (running) return { ...asked, actions: [{ id: running.id, action: running.action, effector: running.effector, target: structuredClone(running.target) }] };

@@ -18,8 +18,10 @@ export interface Intent {
   readonly move: readonly [forward: number, right: number] | null;
   /** A tactical movement objective, resolved by navigation before the skills read `move`. */
   readonly movement?: MovementRequest;
-  /** A movement objective's speed ceiling, m/s; absent, the navigator uses the requested walk's speed. */
+  /** A movement objective's ceiling on the speed rule's speed (`travelSpeed`), m/s; absent, none. */
   readonly pace?: number;
+  /** Go no faster than the body's plain walk goes forward (the stance's walk, `Body.envelope`): a ceiling, whatever the gait. */
+  readonly walk?: true;
   /** With no explicit facing, navigation faces travel along its route. */
   readonly travelFacing?: true;
   /** Face this way, rad about up (0 faces +z, growing to the right); the body turns toward it as its walk allows. */

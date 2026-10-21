@@ -465,12 +465,19 @@ posture or push. Shared action tactics combine follow-orders, attack, approach, 
 clinch breaking and cover; the selector supports ranked, rotating and conditional choices.
 
 **Orders** (`Orders`) name a movement objective, an independent facing, and a sensed foe id and
-region; never a camera point. A person gives orders; the body's own mind carries them out
-(`orderedIntent`, `ordered.ts`). **Movement requests** (`src/core/mind/movement.ts`) are Direct
-directions, Place waypoints or Range bands about a sensed body; null asks a controlled stop.
+region, and may cap the speed (`pace`) or ask a walk (`walk`, Shift in the Arena); never a camera
+point. A person gives orders; the body's own mind carries them out (`orderedIntent`, `ordered.ts`).
+**Movement requests** (`src/core/mind/movement.ts`) are Direct directions, Place waypoints or Range
+bands about a sensed body; null asks a controlled stop. Tactics and orders give a movement request,
+a facing and at most a ceiling (`Intent.pace`, `Intent.walk`); none writes a velocity.
 Navigation is a part between tactics and locomotion (a fighter's `navigation` slot): the
 visibility navigator routes round inflated fixed footprints and reports its route, distance,
 arrival and stalls; how far an order has left is read from the order (`remainingOf`).
+**The speed rule** (`travelSpeed`, `src/core/mind/travel.ts`) sets how fast the navigator goes: the
+least of the gait's top speed the way it goes (`paceToward` on its envelope), the speed it stops
+from in the distance left at its stopping rate (`Locomotion.stopping`), the speed it slows to for
+each corner ahead (`cornerSpeed`, from its turn rate at speed), and the goal's ceiling. A direct
+goal has no end and no corner, so it goes at the gait's top speed.
 
 #### Adding a Mind
 
