@@ -1,1 +1,360 @@
-{}
+{
+  "tempo": {
+    "note": "1556 2026-10-21",
+    "loadouts": {
+      "buckler,club": "1827 2026-10-21",
+      "empty,club": "1660 2026-10-21",
+      "empty,sword": "1401 2026-10-21",
+      "empty,empty": "1337 2026-10-21"
+    },
+    "bodies": {
+      "workshop-fighter": {
+        "note": "1614 2026-10-21",
+        "loadouts": {
+          "buckler,club": "2051 2026-10-21",
+          "empty,club": "1792 2026-10-21",
+          "empty,empty": "1319 2026-10-21",
+          "empty,sword": "1293 2026-10-21"
+        }
+      },
+      "workshop-rogue": {
+        "note": "1500 2026-10-21",
+        "loadouts": {
+          "buckler,club": "1887 2026-10-21",
+          "empty,club": "1615 2026-10-21",
+          "empty,sword": "1353 2026-10-21",
+          "empty,empty": "1143 2026-10-21"
+        }
+      },
+      "crypt-skeleton": {
+        "note": "1556 2026-10-21",
+        "loadouts": {
+          "empty,club": "1574 2026-10-21",
+          "empty,sword": "1558 2026-10-21",
+          "empty,empty": "1549 2026-10-21",
+          "buckler,club": "1543 2026-10-21"
+        }
+      }
+    }
+  },
+  "scrapper": {
+    "note": "1490 2026-10-21",
+    "loadouts": {
+      "buckler,club": "1760 2026-10-21",
+      "empty,club": "1643 2026-10-21",
+      "empty,sword": "1356 2026-10-21",
+      "empty,empty": "1201 2026-10-21"
+    },
+    "bodies": {
+      "workshop-fighter": {
+        "note": "1636 2026-10-21",
+        "loadouts": {
+          "buckler,club": "1974 2026-10-21",
+          "empty,club": "1844 2026-10-21",
+          "empty,sword": "1367 2026-10-21",
+          "empty,empty": "1358 2026-10-21"
+        }
+      },
+      "workshop-rogue": {
+        "note": "1413 2026-10-21",
+        "loadouts": {
+          "buckler,club": "1690 2026-10-21",
+          "empty,club": "1593 2026-10-21",
+          "empty,sword": "1316 2026-10-21",
+          "empty,empty": "1054 2026-10-21"
+        }
+      },
+      "crypt-skeleton": {
+        "note": "1422 2026-10-21",
+        "loadouts": {
+          "buckler,club": "1617 2026-10-21",
+          "empty,club": "1492 2026-10-21",
+          "empty,sword": "1386 2026-10-21",
+          "empty,empty": "1191 2026-10-21"
+        }
+      }
+    }
+  },
+  "duellist": {
+    "note": "1588 2026-10-21",
+    "loadouts": {
+      "buckler,sword": "1776 2026-10-21",
+      "buckler,club": "1814 2026-10-21",
+      "empty,sword": "1657 2026-10-21",
+      "empty,club": "1595 2026-10-21",
+      "empty,empty": "1095 2026-10-21"
+    },
+    "bodies": {
+      "workshop-fighter": {
+        "note": "1640 2026-10-21",
+        "loadouts": {
+          "buckler,sword": "1906 2026-10-21",
+          "buckler,club": "1777 2026-10-21",
+          "empty,sword": "1734 2026-10-21",
+          "empty,club": "1587 2026-10-21",
+          "empty,empty": "1198 2026-10-21"
+        }
+      },
+      "crypt-skeleton": {
+        "note": "1586 2026-10-21",
+        "loadouts": {
+          "buckler,club": "1876 2026-10-21",
+          "buckler,sword": "1664 2026-10-21",
+          "empty,club": "1660 2026-10-21",
+          "empty,sword": "1581 2026-10-21",
+          "empty,empty": "1150 2026-10-21"
+        }
+      },
+      "workshop-rogue": {
+        "note": "1536 2026-10-21",
+        "loadouts": {
+          "buckler,club": "1789 2026-10-21",
+          "buckler,sword": "1758 2026-10-21",
+          "empty,sword": "1657 2026-10-21",
+          "empty,club": "1538 2026-10-21",
+          "empty,empty": "938 2026-10-21"
+        }
+      }
+    }
+  },
+  "behaviours": {
+    "note": "1488 2026-10-21",
+    "loadouts": {
+      "buckler,club": "1665 2026-10-21",
+      "buckler,sword": "1724 2026-10-21",
+      "empty,sword": "1511 2026-10-21",
+      "empty,club": "1426 2026-10-21",
+      "empty,empty": "1116 2026-10-21"
+    },
+    "bodies": {
+      "crypt-skeleton": {
+        "note": "1577 2026-10-21",
+        "loadouts": {
+          "buckler,club": "1794 2026-10-21",
+          "buckler,sword": "1722 2026-10-21",
+          "empty,club": "1602 2026-10-21",
+          "empty,sword": "1505 2026-10-21",
+          "empty,empty": "1261 2026-10-21"
+        }
+      },
+      "workshop-fighter": {
+        "note": "1492 2026-10-21",
+        "loadouts": {
+          "buckler,sword": "1766 2026-10-21",
+          "empty,sword": "1628 2026-10-21",
+          "buckler,club": "1574 2026-10-21",
+          "empty,club": "1355 2026-10-21",
+          "empty,empty": "1135 2026-10-21"
+        }
+      },
+      "workshop-rogue": {
+        "note": "1397 2026-10-21",
+        "loadouts": {
+          "buckler,sword": "1685 2026-10-21",
+          "buckler,club": "1628 2026-10-21",
+          "empty,sword": "1399 2026-10-21",
+          "empty,club": "1321 2026-10-21",
+          "empty,empty": "952 2026-10-21"
+        }
+      }
+    }
+  },
+  "crawl": {
+    "note": "1758 2026-10-21",
+    "loadouts": {
+      "empty,empty": "1758 2026-10-21"
+    },
+    "bodies": {
+      "reptile": {
+        "note": "1758 2026-10-21",
+        "loadouts": {
+          "empty,empty": "1758 2026-10-21"
+        }
+      }
+    }
+  },
+  "classic": {
+    "note": "1476 2026-10-21",
+    "loadouts": {
+      "buckler,sword": "1648 2026-10-21",
+      "empty,sword": "1560 2026-10-21",
+      "buckler,club": "1580 2026-10-21",
+      "empty,club": "1477 2026-10-21",
+      "empty,empty": "1117 2026-10-21"
+    },
+    "bodies": {
+      "workshop-rogue": {
+        "note": "1457 2026-10-21",
+        "loadouts": {
+          "buckler,sword": "1729 2026-10-21",
+          "empty,sword": "1608 2026-10-21",
+          "buckler,club": "1568 2026-10-21",
+          "empty,club": "1428 2026-10-21",
+          "empty,empty": "951 2026-10-21"
+        }
+      },
+      "workshop-fighter": {
+        "note": "1495 2026-10-21",
+        "loadouts": {
+          "buckler,sword": "1699 2026-10-21",
+          "empty,sword": "1671 2026-10-21",
+          "buckler,club": "1515 2026-10-21",
+          "empty,club": "1417 2026-10-21",
+          "empty,empty": "1175 2026-10-21"
+        }
+      },
+      "crypt-skeleton": {
+        "note": "1477 2026-10-21",
+        "loadouts": {
+          "buckler,club": "1657 2026-10-21",
+          "empty,club": "1585 2026-10-21",
+          "buckler,sword": "1515 2026-10-21",
+          "empty,sword": "1401 2026-10-21",
+          "empty,empty": "1226 2026-10-21"
+        }
+      }
+    }
+  },
+  "options": {
+    "note": "1508 2026-10-21",
+    "loadouts": {
+      "buckler,sword": "1643 2026-10-21",
+      "empty,empty": "1433 2026-10-21",
+      "buckler,club": "1514 2026-10-21",
+      "empty,sword": "1534 2026-10-21",
+      "empty,club": "1417 2026-10-21"
+    },
+    "bodies": {
+      "crypt-skeleton": {
+        "note": "1576 2026-10-21",
+        "loadouts": {
+          "buckler,sword": "1673 2026-10-21",
+          "empty,empty": "1671 2026-10-21",
+          "empty,sword": "1610 2026-10-21",
+          "empty,club": "1481 2026-10-21",
+          "buckler,club": "1447 2026-10-21"
+        }
+      },
+      "workshop-rogue": {
+        "note": "1478 2026-10-21",
+        "loadouts": {
+          "buckler,sword": "1650 2026-10-21",
+          "buckler,club": "1613 2026-10-21",
+          "empty,sword": "1481 2026-10-21",
+          "empty,club": "1408 2026-10-21",
+          "empty,empty": "1238 2026-10-21"
+        }
+      },
+      "workshop-fighter": {
+        "note": "1470 2026-10-21",
+        "loadouts": {
+          "buckler,sword": "1606 2026-10-21",
+          "empty,sword": "1511 2026-10-21",
+          "buckler,club": "1483 2026-10-21",
+          "empty,empty": "1390 2026-10-21",
+          "empty,club": "1362 2026-10-21"
+        }
+      }
+    }
+  },
+  "puncher": {
+    "note": "1509 2026-10-21",
+    "loadouts": {
+      "empty,sword": "1533 2026-10-21",
+      "empty,club": "1496 2026-10-21",
+      "empty,empty": "1499 2026-10-21"
+    },
+    "bodies": {
+      "crypt-skeleton": {
+        "note": "1573 2026-10-21",
+        "loadouts": {
+          "empty,sword": "1600 2026-10-21",
+          "empty,club": "1570 2026-10-21",
+          "empty,empty": "1549 2026-10-21"
+        }
+      },
+      "workshop-rogue": {
+        "note": "1481 2026-10-21",
+        "loadouts": {
+          "empty,sword": "1532 2026-10-21",
+          "empty,club": "1484 2026-10-21",
+          "empty,empty": "1428 2026-10-21"
+        }
+      },
+      "workshop-fighter": {
+        "note": "1473 2026-10-21",
+        "loadouts": {
+          "empty,empty": "1519 2026-10-21",
+          "empty,sword": "1467 2026-10-21",
+          "empty,club": "1434 2026-10-21"
+        }
+      }
+    }
+  },
+  "counter": {
+    "note": "1448 2026-10-21",
+    "loadouts": {
+      "empty,empty": "1481 2026-10-21",
+      "empty,club": "1422 2026-10-21",
+      "empty,sword": "1440 2026-10-21"
+    },
+    "bodies": {
+      "crypt-skeleton": {
+        "note": "1545 2026-10-21",
+        "loadouts": {
+          "empty,empty": "1549 2026-10-21",
+          "empty,club": "1545 2026-10-21",
+          "empty,sword": "1540 2026-10-21"
+        }
+      },
+      "workshop-fighter": {
+        "note": "1418 2026-10-21",
+        "loadouts": {
+          "empty,empty": "1545 2026-10-21",
+          "empty,sword": "1367 2026-10-21",
+          "empty,club": "1341 2026-10-21"
+        }
+      },
+      "workshop-rogue": {
+        "note": "1381 2026-10-21",
+        "loadouts": {
+          "empty,sword": "1413 2026-10-21",
+          "empty,club": "1381 2026-10-21",
+          "empty,empty": "1348 2026-10-21"
+        }
+      }
+    }
+  },
+  "direct": {
+    "note": "1164 2026-10-21",
+    "loadouts": {
+      "empty,empty": "1164 2026-10-21"
+    },
+    "bodies": {
+      "crypt-skeleton": {
+        "note": "1324 2026-10-21",
+        "loadouts": {
+          "empty,empty": "1324 2026-10-21"
+        }
+      },
+      "reptile": {
+        "note": "1291 2026-10-21",
+        "loadouts": {
+          "empty,empty": "1291 2026-10-21"
+        }
+      },
+      "workshop-fighter": {
+        "note": "1135 2026-10-21",
+        "loadouts": {
+          "empty,empty": "1135 2026-10-21"
+        }
+      },
+      "workshop-rogue": {
+        "note": "907 2026-10-21",
+        "loadouts": {
+          "empty,empty": "907 2026-10-21"
+        }
+      }
+    }
+  }
+}
