@@ -307,7 +307,7 @@ export function stride(body: Body, settings: StrideSettings = STRIDE): Locomotio
   const swungArms = (view: BodyView): Pose => swinger!(view, legs.heading, { step: memory.step, swung: memory.swung, off: view.stance.phase === "swing" });
 
   return {
-    state, envelope,
+    state, envelope, stopping: legs.stopping,
     ...(settings.arms ? { arms: swungArms } : {}),
     get heading() { return legs.heading; },
     get pace() { return legs.pace; },

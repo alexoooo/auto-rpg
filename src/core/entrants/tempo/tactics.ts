@@ -156,10 +156,8 @@ export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWi
     name: "tempo", state, engagement: { get phase() { return state.phase; } },
     decide(sight, dt) {
       const now = reader.read(sight), asked = decide(now, dt), near = current()?.near?.(now) ?? null;
-      const move = walk.constrain(now, asked.move, near);
-      const { movement, pace, travelFacing, ...direct } = asked;
       const facing = now.orders?.move === undefined && now.orders ? orderedFacing(now.orders.face) : null;
-      return reflexes.apply(now, { ...(move === asked.move ? asked : direct), move, ...(facing === null ? {} : { face: facing }), guard: NO_COVER });
+      return reflexes.apply(now, { ...walk.constrain(now, asked, near), ...(facing === null ? {} : { face: facing }), guard: NO_COVER });
     },
   };
 }

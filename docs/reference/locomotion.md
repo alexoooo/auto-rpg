@@ -10,7 +10,7 @@ built is in the [architecture](../architecture.md#skills); what is open is in th
 The walk a fight uses. The fastest walk held every way is 0.5 m/s for the Warrior and 0.4 for the
 Rogue and the skeleton (`assets/core/stance-envelope.json`), where a person's preferred walk is
 near 1.4 m/s (`PERSON_PACE`, `src/core/human/gait.ts`). Asked 1.2 m/s forward it goes 0.80. A dash,
-a roll, a crouch and turning on the spot are not built ([orders](orders.md)).
+a roll, a crouch and turning on the spot are not built.
 
 **What caps it is where the body bears.** Through each swing the realised centre of pressure stays
 about 3 cm ahead of the bearing sole's middle whatever the stance asks, a braking that costs about
@@ -91,13 +91,9 @@ searched on the three bodies bare-handed in the guard, calm and in gusts, at has
   after): forward to 4 m/s for the Warrior by the rule, to 1.2 for the Rogue and the skeleton, since
   a few of their trials at every pace fall. Forward at 3 m/s the Warrior held 10 of 10 trials, the
   Rogue 7, the skeleton 10; at 4, 10, 3 and 10.
-- **Whether a body runs is its mind's choice of risk.** The envelope keeps each way's trials
-  (`StanceEnvelope.tried`); the gait takes any pace that held a fifth of them (`REACH`), an order to
-  run or a destination the fastest that held 0.6 (`RUN`, `ordered.ts`), and the options fighter
-  closing on a place 0.8 (`SPACE.share`, `walk.ts`). In an Arena bout opened at 12 m
-  (`research/bout.mjs`, 8 s) two skeletons close at up to 2.1 and 1.25 m/s, two Rogues at 1.9 and
-  2.0, and two Warriors run from 5.25 s, stop from about 1.3 m/s and close; all stay up, empty-handed
-  and with the club.
+- **How fast a body runs is the speed rule's** (`travelSpeed`, `src/core/mind/travel.ts`): the
+  fastest each way that every trial held, under what it stops from and corners at, and the goal's
+  ceiling. The gait itself takes any pace that held a fifth of its trials (`REACH`).
 - **Its feet land narrow.** Each swinging foot is placed across from the hip's abduction in the
   reference pose, and the lateral settings were searched with a cut past a step width of 0.3 of the
   leg: median step width at 3 to 5 m/s 0.31 m on the Warrior, 0.21 on the Rogue, 0.22 on the
@@ -137,9 +133,23 @@ off 10 s and resting 10 s after.
 | Rogue | 0.7 (3.5 without the club) | 0.7 | 1.0 |
 | skeleton | 3.5 (4.0 without the club) | 0.5 (0.7) | 1.2 |
 
-To a side the run turns to face the way and runs it, so a caller that accepts a share of falls
-(`REACH`, `RUN`, `SPACE.share`) gets the forward pace there: the Warrior held 16 of 20 to each
-side at every speed from 1 to 4.5 m/s.
+To a side the run turns to face the way and runs it: the Warrior held 16 of 20 to each side at every
+speed from 1 to 4.5 m/s. A goal that faces the way it goes (`travelFacing`) is asked the forward
+pace whichever way that is.
+
+**Stopping.** The run slows at about 0.47 m/s² but begins late, going 0.3 to 0.5 m/s past the pace
+asked, so the walk and run states 0.15 m/s² while it may run (`RUN_STOPPING`) and the speed rule
+brakes for it. A place goal 8 m off (Node stand, Rapier, 120 Hz, open stage, ordered 3 s after the
+bout opens, balance 0):
+
+| Body | Held direct goal, last 2 s of 5 | Place goal 8 m off |
+|---|---|---|
+| Warrior, empty-handed | 1.68 m/s | ends 0.19 m short, no overshoot |
+| Warrior, club | 1.85 m/s | ends 0.20 m short |
+| skeleton | 1.33 m/s; 1.26 with the club | ends within its `near` |
+| Rogue | falls turning into the run (goal to its side); 0.38 with the club | with the club, short of it in 20 s |
+
+At 0.3 and 0.2 m/s² the Warrior and the skeleton run up to 2.7 m past the place and fall.
 
 **Turns** stay the SIMBICON run's. On the walk-run, the Warrior empty-handed and calm, 28 turns a
 rate and speed (each sense, from 14 moments of setting off): at 1 m/s and faster no rate from
@@ -150,15 +160,16 @@ held. Most that fail fall, turning left, from 0.5 s after setting off.
 
 `move.ts` walks by the first gait whose rule matches (`MOVE`): braced, in the stance's guard, while
 it stands or a standing foe is within 5 m; otherwise by the walk and run
-([above](#the-walk-and-run)), which runs where the pace asked is past its walk's. A rule lets go of its gait half a metre past its distance.
-Classic and the options fighter get about by it (the Scrapper by the stride); an Arena bout opens at
-4 m, so it fights braced from its first step. The options fighter closes on a place as fast as held
-0.8 of its gait's trials and stops before it (`walker`); Classic's tactics close at the walk. The
-Crypt's and the Lab's orders give a destination, and a person in the Arena runs with Shift
-(`Orders.run`): each is asked the fastest pace forward that held 0.6 of its trials
-(`orderedIntent`), the Crypt's slowed for its route's corners (`CORNER`, `src/dungeon/run.ts`). The
-walk and the run are one machine and change at once; a gait that drives the legs is asked to stand
-before it changes to another.
+([above](#the-walk-and-run)), which runs once the speed rule's speed is past its walk's. A rule lets
+go of its gait half a metre past its distance. Classic and the options fighter get about by it (the
+Scrapper by the stride); an Arena bout opens at 4 m, so it fights braced from its first step. Every
+goal, a tactic's, the Crypt's and the Lab's orders and a person's keys alike, goes at the speed
+rule's speed; Shift in the Arena caps it at the plain walk forward (`Orders.walk`). The walk and the
+run are one machine and change at once; a gait that drives the legs is asked to stand before it
+changes to another.
+
+The braced rule holds at 5 m: at 2 m two Arena fighters opened 4 m apart run into each other and one
+falls.
 
 ## Motion capture
 
@@ -220,6 +231,12 @@ On the SIMBICON run (its battery above):
   walk's 0.47; a `slowdown` of 0.7 stops in 5.5 s and fells 14 of 96, the skeleton 10, whose guard
   walk does not take a quicker slowing;
 - guard arms in the walk after a run.
+
+On the walk and run's speeds:
+
+- a fixed share of the forward pace for a goal to the side (`STRAFE`,
+  `docs/reference/orders.md@aaae9b48`): the speed rule asks what each way held instead;
+- `RUN_STOPPING` 0.3 and 0.2 m/s²: the body runs past a place goal and falls ([above](#the-walk-and-run)).
 
 On the SIMBICON walk (the Lab's three tracks, three bodies, seeds 1 to 6, on the wider gait):
 

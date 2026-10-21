@@ -10,6 +10,7 @@ import type { Vec3 } from "../spec/quantity.ts";
 import type { BodyRef } from "../read-body.ts";
 import { STAND_TRAVEL, type QuadrupedView, type TravelOrders } from "./crawl.ts";
 import { createNavigator } from "../mind/navigation.ts";
+import type { GaitLimits } from "../mind/travel.ts";
 import { cos, sin } from "../math/real.ts";
 import type { StrikeCycleState } from "../skills/strike-cycle.ts";
 import { REPTILE_BITE, REPTILE_TROT } from "./tuning.ts";
@@ -44,6 +45,8 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
   const tooth = lower.spec.contacts!.find(c => c.surface.directed?.mechanism === "point")!.surface.directed!;
   const dx = contact.x - lip[0], dz = contact.z - lip[2];
   const entry = Math.sqrt(dx * dx + dz * dz) + T.biteEntry;
+  /** The trot's limits as the speed rule reads them: no envelope, and it stops at the rate it speeds up. */
+  const trot: GaitLimits = { envelope: null, stopping: REPTILE_TROT.acceleration };
   return { name: "reptile", state, decide(sight, dt = 0) {
     const view = sight.view;
     const returned = state.phase === "return" && sight.bite.phase === null;
@@ -57,7 +60,7 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
       if (!external.move || external.move.kind === "direct") ordered = { ...external, move: external.move?.direction ?? null };
       else {
         const pace = external.pace ?? REPTILE_TROT.speed;
-        const resolved = navigation.step({ view: { time: view.senses.time, stance: view, senses: view.senses }, report: { heading: view.yaw } }, external.move, pace, dt, !view.down && sight.bite.phase === null);
+        const resolved = navigation.step({ view: { time: view.senses.time, stance: view, senses: view.senses }, report: { heading: view.yaw } }, external.move, trot, pace, dt, !view.down && sight.bite.phase === null);
         const move = resolved.move;
         ordered = { ...external, move: move ? { x: (move[0] * sin(view.yaw) + move[1] * cos(view.yaw)) / REPTILE_TROT.speed,
           z: (move[0] * cos(view.yaw) - move[1] * sin(view.yaw)) / REPTILE_TROT.speed } : null };

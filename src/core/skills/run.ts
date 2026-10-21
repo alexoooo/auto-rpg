@@ -119,7 +119,7 @@ export function run(body: Body, settings: RunSettings = RUN): Locomotion {
 
   const swinger = settings.arms ? armSwing(settings.arms, true) : null;
   return {
-    state, envelope: null,
+    state, envelope: null, stopping: settings.accel,
     ...(swinger ? { arms: (view: BodyView) => swinger(view, legs.heading, { step: memory.step, swung: memory.swung, off: view.stance.phase === "swing" || view.stance.phase === "flight" }) } : {}),
     get heading() { return legs.heading; },
     get pace() { return legs.pace; },

@@ -750,6 +750,7 @@ export function simbicon(body: Body, given: SimbiconSettings = SIMBICON, givenWa
   return {
     state,
     get envelope() { return envelopeNow(); },
+    get stopping() { return memory.may ? running.brake : settings.slowdown; },
     runs(may) { memory.may = may; },
     ...(swinger ? { arms: (view: BodyView) => memory.walking ? swinger(view, memory.heading, { step: null, swung: 0, off: false }) : null } : {}),
     get heading() { return memory.walking ? memory.heading : legs.heading; },

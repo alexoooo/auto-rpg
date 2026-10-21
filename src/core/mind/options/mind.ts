@@ -109,10 +109,8 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
       const now = situation(seen), chosen = meta!.decide(now);
       const asked = chosen?.posture === "standing" ? chosen.step(now, dt) : { move: null, face: seen.report.heading, actions: [] };
       const near = chosen?.posture === "standing" ? chosen.near?.(now) ?? null : null;
-      const move = walk.constrain(now, asked.move, near);
-      const { movement, pace, travelFacing, ...direct } = asked;
       const facing = now.orders?.move === undefined && now.orders ? orderedFacing(now.orders.face) : null;
-      return reflexes.apply(now, { ...(move === asked.move ? asked : direct), move, ...(facing === null ? {} : { face: facing }), guard: NO_COVER });
+      return reflexes.apply(now, { ...walk.constrain(now, asked, near), ...(facing === null ? {} : { face: facing }), guard: NO_COVER });
     } };
   let skills: Skills;
   skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, host.clock, config, driving, () => skills?.report.ledger ?? []));

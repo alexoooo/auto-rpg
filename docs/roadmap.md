@@ -46,12 +46,12 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Movement and command](plans/2026-10-21-movement-and-command.md) | One movement pipeline; Commanders over teams |
 | [Component registration](plans/2026-10-21-component-registration.md) | Implementations added by their own files and one line |
 
-1. **Now:** Movement A1 to A4, beside Ratings steps 2 and 3, which change no behaviour.
-2. **Ratings steps 4 to 6**, on bouts played after Movement's Part A, which moves every bout.
-3. **Then, in parallel:** Movement B0 to B2; Ratings steps 7 and 8; component registration's
+1. **Now:** Ratings steps 4 to 6, on bouts played after Movement's Part A, beside Ratings steps 2
+   and 3, which change no behaviour.
+2. **Then, in parallel:** Movement B0 to B2; Ratings steps 7 and 8; component registration's
    stage 1 (locomotion); and
    the open work below, each change read by the paired report.
-4. **When each one's condition holds:**
+3. **When each one's condition holds:**
    - Movement B3 (crowd motion) and B4 (AI Commanders), once B1 has landed;
    - Ratings steps 10 (skills' batteries) and 13 (falls) as ordinary work; step 9 when a question
      about an item, a character or an attribute is asked; step 12 (case identity by code) when
@@ -129,8 +129,11 @@ screened small (one body, one loadout, one group of falls) before its full targe
   what was tried are in [locomotion](reference/locomotion.md). Open there: a run that does not ask
   a body past what its legs hold (the club throws the Rogue's run), braking faster, a pace past
   about 3.7 m/s, the skeleton's sides and back, the walk's motion-capture ways. The game's run
-  turns at no rate in every trial at 1 m/s or faster
-  ([the walk and run](reference/locomotion.md#the-walk-and-run)).
+  turns at no rate in every trial at 1 m/s or faster, and brakes late, so the speed rule plans
+  its stops at 0.15 m/s² and every place goal comes in slow; the Rogue falls turning into the run
+  toward a goal to its side, and is thrown by a run ordered in a bout's first 2 s
+  ([the walk and run](reference/locomotion.md#the-walk-and-run)). The learned run states no
+  envelope, so the speed rule asks it nothing and it stands under orders.
 - **Recovery.** The owner's 64-fall target (`research/rising-bed.mjs --target`,
   [recovery target](reference/rising.md)): at least 15 of 16 verified recoveries within 6 s in
   every group, 61 of 64 overall, every cardinal direction in every group, a failure-inclusive
@@ -206,7 +209,9 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
     falls;
   - selection and reflexes: valued, ranked and behaviour-list selection, interruption, reflex
     ownership;
-  - orders: obedience against self-preservation, read with orders given.
+  - orders: obedience against self-preservation, read with orders given; follow orders values
+    an order without its walk (`Orders.walk`); the options fighter given a held direction slows
+    from 1.3 to about 0.4 m/s within 2 s, where the Duellist holds 1.1.
 - Covering is late: a cover that leads the blow, a cover of another part, a dodge and a counter
   are not built ([blows](reference/blows.md#covering-searched)).
 - The oracle's next spaces: a longer horizon, a response held longer, two decisions ahead, strikes
@@ -234,6 +239,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   - a limp body put to sleep through Rapier woke by itself in three of eight cases, not
     understood ([step cost](reference/step-cost.md#a-limp-body-put-to-sleep)).
 - **Input:** every command by mouse and keyboard and by touch on any touchscreen (Movement B2).
+  The Crypt's keys have no walk: its Shift adds to the selection. The Lab's locomotion courses
+  drive by velocities, not goals.
 - **Art and sound:** a pixel look for the Crypt, behind a switch
   (`docs/plans/2026-09-24-dungeon-look-06-pixel-look.md@144961d4`); a raking-light check that
   `tangentBasis: "babylon-lh"` orients normal maps; the reptile's art; the sound's gaps (unplayed

@@ -2,7 +2,6 @@ import type { BodyView } from "../body.ts";
 import { atan2, cos, hypot, sin } from "../math/real.ts";
 import type { ActionAround, ActionRequest, Readiness, Region, TargetRef } from "../skills/action.ts";
 import { cleanMiss, landed } from "../skills/action-instances.ts";
-import { paceToward } from "../control/stance-envelope.ts";
 import { STANCE_LOWER } from "../skills/locomotion.ts";
 import { rangeOf } from "../skills/strike.ts";
 import type { BodySpec } from "../spec/body.ts";
@@ -14,9 +13,9 @@ import type { ActionConfig, BehavioursConfig, ConditionConfig } from "./config.t
 import { conditionMatches } from "./conditions.ts";
 import { coveringHand } from "./cover-hand.ts";
 import type { Cover, Intent } from "./intent.ts";
-import { remainingOf } from "./movement.ts";
+import { directMovement, remainingOf, walkGoal } from "./movement.ts";
 import type { Orders } from "./orders.ts";
-import { orderedFacing, orderedIntent, RUN } from "./ordered.ts";
+import { orderedFacing, orderedIntent } from "./ordered.ts";
 import { bodyClearance, lowOpponent } from "./sensed-bounds.ts";
 import { groundPosition } from "./ground-position.ts";
 import type { BodySense } from "./senses.ts";
@@ -50,7 +49,7 @@ export interface ActionEngagement {
 }
 
 /** Footwork checks the next half metre and keeps feet clear of each fallen segment. */
-const SPACE = Object.freeze({ margin: .08, ahead: .5, band: .1, fallbackPace: .3, fallen: .9 });
+const SPACE = Object.freeze({ margin: .08, ahead: .5, band: .1, fallen: .9 });
 
 /** Conditions share detached facts; distance reads proximity, while target and follow-up read focus. */
 export function actionCondition(condition: ConditionConfig, sight: Sight, orders: Orders | null, focus: BodySense | null): boolean {
@@ -157,11 +156,9 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
     }
     return candidates;
   };
-  const walking = (sight: Sight, x: number, z: number, face: number, pace: number): Pick<Intent, "move" | "face"> => {
-    const distance = hypot(x, z), h = sight.report.heading;
-    const move: readonly [number, number] | null = distance > 0 ? [(x * sin(h) + z * cos(h)) * pace / distance, (x * cos(h) - z * sin(h)) * pace / distance] : null;
-    return { move: clearMove(sight.view.stance.centre, sight.view.senses.solids, h, move, radius, SPACE.ahead), face };
-  };
+  /** A walk along the ground direction (`x`, `z`), facing `face`, at the speed rule's speed under `ceiling`. */
+  const walking = (x: number, z: number, face: number, ceiling: number | undefined): Pick<Intent, "move" | "face" | "movement" | "pace"> =>
+    ({ move: null, face, ...(x === 0 && z === 0 ? {} : { movement: directMovement(x, z) }), ...(ceiling === undefined ? {} : { pace: ceiling }) });
   return { name: "Actions", state, engagement: state, decide(sight, dt) {
     if (sight.view.senses.out) { ground?.reset(); state.pending = null; state.awaiting = null; state.phase = "out"; return { move: null, face: sight.report.heading, guard: { left: null, right: null }, actions: [] }; }
     const orders = ordersOf(sight), focus = selectFocus(sight, orders), changed = state.focus !== (focus?.id ?? null) || state.orderedRegion !== (orders?.region ?? null);
@@ -199,18 +196,15 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
       pending ??= position ?? waiting;
       if (pending && state.pending?.key !== pending.key) state.pending = { key: pending.key, since: sight.view.time };
     }
-    let legs: Pick<Intent, "move" | "face" | "lower" | "destination" | "movement" | "pace" | "travelFacing"> | undefined, requested: readonly ActionRequest[] | undefined;
+    let legs: Pick<Intent, "move" | "face" | "lower" | "destination" | "movement" | "pace" | "walk" | "travelFacing"> | undefined, requested: readonly ActionRequest[] | undefined;
     let left: Cover | null | undefined, right: Cover | null | undefined;
     const centre = sight.view.stance.centre, dx = focus ? focus.centre.x - centre.x : 0, dz = focus ? focus.centre.z - centre.z : 0;
-    const face = focus ? atan2(dx, dz) : sight.report.heading, pace = Math.min(sight.envelope?.ways.forward.value ?? SPACE.fallbackPace, orders?.pace ?? Infinity);
+    const face = focus ? atan2(dx, dz) : sight.report.heading, pace = orders?.pace;
     state.phase = state.lost ? "lost" : "guard";
     for (const [i, behaviour] of config.list.entries()) switch (behaviour.kind) {
       case "follow-orders": if (orders) {
         if (orders.move !== undefined && (orders.move || orders.foe === undefined)) ground?.reset();
-        if (!legs && orders.move !== undefined) {
-          const ordered = orderedIntent(sight, orders, { left: null, right: null });
-          legs = { ...ordered, move: clearMove(centre, sight.view.senses.solids, sight.report.heading, ordered.move, radius, SPACE.ahead) };
-        }
+        if (!legs && orders.move !== undefined) legs = orderedIntent(sight, orders, { left: null, right: null });
         if (orders.move !== undefined && orders.foe === undefined) requested ??= [];
         if (orders.move) state.phase = "move";
       } break;
@@ -225,8 +219,7 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
       } break;
       case "approach": if (!legs && pending?.readiness.kind === "position") {
         const window = pending.readiness.window, spacing = state.spacing[i]!;
-        const travelPace = behaviour.travel === undefined || !sight.envelope ? pace : Math.min(paceToward(sight.envelope, 1, 0, RUN.share), orders?.pace ?? Infinity);
-        legs = approachActionWindow(sight.view, { ...window, along: [window.along[0] + spacing, window.along[1] + spacing] }, sight.report.heading, pace, radius, behaviour.travel, travelPace);
+        legs = approachActionWindow(sight.view, { ...window, along: [window.along[0] + spacing, window.along[1] + spacing] }, sight.report.heading, pace ?? Infinity, behaviour.travel);
         state.phase = "approach";
       } break;
       case "cover": {
@@ -250,12 +243,12 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
       }
       case "clear-of-walls": if (!legs) {
         const exit = clearanceExit([centre.x, centre.y, centre.z], radius, sight.view.senses.solids ?? []);
-        if (exit) { legs = walking(sight, exit[0], exit[1], face, pace); state.phase = "clear"; }
+        if (exit) { legs = walking(exit[0], exit[1], face, pace); state.phase = "clear"; }
       } break;
-      case "evade": if (!legs && threat.threatOf(sight.view, THREAT, PREDICTION)) { legs = walking(sight, -dx, -dz, face, pace); requested ??= []; state.phase = "evade"; } break;
+      case "evade": if (!legs && threat.threatOf(sight.view, THREAT, PREDICTION)) { legs = walking(-dx, -dz, face, pace); requested ??= []; state.phase = "evade"; } break;
       case "clear-of-fallen": if (!legs && focus?.down) {
         let near = Infinity; for (const segment of focus.segments.values()) near = Math.min(near, hypot(segment.centre.x - centre.x, segment.centre.z - centre.z));
-        legs = near < SPACE.fallen ? walking(sight, -dx, -dz, face, pace) : { move: null, face }; requested ??= []; state.phase = "clear";
+        legs = near < SPACE.fallen ? walking(-dx, -dz, face, pace) : { move: null, face }; requested ??= []; state.phase = "clear";
       } break;
       case "ground": if (!legs && ground && focus && (lowOpponent(sight.view, focus) || ground.state.near.active || ground.state.wide.active)) {
         const candidates = ranked(sight, focus, orders).filter(candidate => candidate.eligible && actions.find(action => action.name === candidate.action)?.lower !== undefined);
@@ -266,7 +259,7 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
         const candidate = candidates.find(candidate => candidate.effector === `hand.${placement.hand}`) ?? selected;
         if (pending?.key !== candidate.key) state.pending = { key: candidate.key, since: sight.view.time };
         pending = candidate; recheck(sight, pending);
-        legs = placement; state.phase = ground.state.phase;
+        legs = { move: null, face: placement.face, ...walkGoal(sight.report.heading, placement.move) }; state.phase = ground.state.phase;
         if (!placement.allow) requested ??= [];
       } break;
       case "edge": if (!legs && focus && !focus.down && focus.spec.effectors?.some(effector => effector.segment === "hand.left")
@@ -278,18 +271,18 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
         else if (state.edgeSince[i] === null || sight.view.time - state.edgeSince[i]! < behaviour.patience) state.edgeSince[i] = null;
         if (state.edgeSince[i] !== null && sight.view.time - state.edgeSince[i]! >= behaviour.patience) break;
         const near = Math.max(0, outside + hypot(dx, dz) - apart);
-        legs = apart > outside + behaviour.band ? { ...walking(sight, dx, dz, face, pace), movement: { kind: "range", focus: focus.id, near, far: near + behaviour.band }, pace }
-          : apart < outside ? walking(sight, -dx, -dz, face, pace) : { move: null, face };
+        legs = apart > outside + behaviour.band ? { move: null, face, movement: { kind: "range", focus: focus.id, near, far: near + behaviour.band }, ...(pace === undefined ? {} : { pace }) }
+          : apart < outside ? walking(-dx, -dz, face, pace) : { move: null, face };
         state.phase = "edge";
       } break;
-      case "flee": if (!legs && focus) { legs = walking(sight, -dx, -dz, atan2(-dx, -dz), pace); state.phase = "flee"; } break;
+      case "flee": if (!legs && focus) { legs = walking(-dx, -dz, atan2(-dx, -dz), pace); state.phase = "flee"; } break;
       case "close-in": case "keep-distance": case "break-clinch": if (!legs && focus) {
         const apart = hypot(dx, dz), delta = apart - behaviour.metres;
         const retreat = delta < -SPACE.band && behaviour.kind !== "close-in";
         const advance = delta > SPACE.band && behaviour.kind !== "break-clinch";
         if (retreat || advance) {
-          legs = { ...walking(sight, retreat ? -dx : dx, retreat ? -dz : dz, face, pace),
-            ...(advance ? { movement: { kind: "range" as const, focus: focus.id, near: Math.max(0, behaviour.metres - SPACE.band), far: behaviour.metres + SPACE.band }, pace } : {}) };
+          legs = advance ? { move: null, face, movement: { kind: "range" as const, focus: focus.id, near: Math.max(0, behaviour.metres - SPACE.band), far: behaviour.metres + SPACE.band }, ...(pace === undefined ? {} : { pace }) }
+            : walking(-dx, -dz, face, pace);
           state.phase = behaviour.kind;
         }
         else if (behaviour.kind !== "break-clinch") legs = { move: null, face };
@@ -300,7 +293,7 @@ export function actionTactics(spec: BodySpec, supplied: readonly ActionConfig[],
     return { move: legs?.move ?? null, face: facing ?? legs?.face ?? face, guard: { left: left ?? null, right: right ?? null }, actions: requested ?? [],
       ...(legs?.lower === undefined ? {} : { lower: legs.lower }), ...(legs?.destination === undefined ? {} : { destination: legs.destination }),
       ...(legs?.movement === undefined ? {} : { movement: legs.movement }), ...(legs?.pace === undefined ? {} : { pace: legs.pace }),
-      ...(legs?.travelFacing ? { travelFacing: true } : {}) };
+      ...(legs?.walk ? { walk: true } : {}), ...(legs?.travelFacing ? { travelFacing: true } : {}) };
   } };
 }
 

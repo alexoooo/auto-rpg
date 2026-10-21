@@ -33,8 +33,8 @@ needed).
 
 Each is a toolkit change of its own, with the fingerprint unmoved:
 
-1. **Locomotion.** The seven kinds register. The gait's limits (top speed by direction, stopping
-   deceleration) join the locomotion role's interface when Movement's A1 needs them.
+1. **Locomotion.** The seven kinds register, each with the limits it states to the speed rule
+   (`Locomotion.envelope`, `Locomotion.stopping`).
 2. **Recovery and the other sub-minds.**
 3. **Executors.**
 4. **Motor control.** A second motor brings the goal vocabulary it needs.
@@ -59,7 +59,7 @@ unrelated changes. The roadmap's Order then drops this plan, and this file is de
 
 ## Relations
 
-- [Movement and command](2026-10-21-movement-and-command.md): its A1 adds the gait's limits to the
-  locomotion role (step 1), and its B0 builds the Commander role (step 5).
+- [Movement and command](2026-10-21-movement-and-command.md): its B0 builds the Commander role
+  (step 5).
 - [Ratings](2026-10-21-ratings.md): an implementation's own folder is what its step 12 cuts out of
   the environment, so its rows outlive unrelated changes.

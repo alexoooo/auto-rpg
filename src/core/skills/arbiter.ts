@@ -87,9 +87,11 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     command(view: BodyView, requested: Intent, dt: number): BodyCommand {
       const h = legs.heading, velocity = requested.move;
       const request = requested.movement ?? (velocity ? directMovement(velocity[0] * sin(h) + velocity[1] * cos(h), velocity[0] * cos(h) - velocity[1] * sin(h)) : null);
-      const pace = requested.pace ?? (velocity ? hypot(velocity[0], velocity[1]) : legs.envelope?.ways.forward.value ?? .3);
+      // The goal's ceiling: its own, or a walk's speed where the tactics asked a walk; asked to walk, no faster than the plain walk forward.
+      const ceiling = Math.min(requested.pace ?? (velocity && !requested.movement ? hypot(velocity[0], velocity[1]) : Infinity),
+        requested.walk && body.envelope ? body.envelope.ways.forward.value : Infinity);
       const supportAllowsWalk = !support || support.report.stage === "stand" || support.report.stage === "wait";
-      const result = navigation.step({ view, report }, request, pace, dt, state.walkable && supportAllowsWalk);
+      const result = navigation.step({ view, report }, request, legs, ceiling, dt, state.walkable && supportAllowsWalk, requested.travelFacing === true);
       let intent = requested;
       if (requested.movement) intent = { ...requested, move: requested.travelFacing && result.move ? [hypot(result.move[0], result.move[1]), 0] : result.move,
         face: requested.travelFacing ? result.face ?? requested.face : requested.face,

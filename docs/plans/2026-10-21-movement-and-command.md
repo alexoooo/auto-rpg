@@ -42,35 +42,17 @@ against N, are later work outside this plan.
 
 ## Where it starts
 
-- **Speed is chosen in six places, none of which owns it**: `orderedIntent`
-  (`src/core/mind/ordered.ts`) asks its gait's fastest walk forward (`ways.forward`) or,
-  under `Orders.run`, the fastest forward that held 0.6 of its trials (`RUN`), and slows walking
-  across or backwards (`STRAFE`); action tactics ask their own pace (`SPACE.fallbackPace`,
-  `src/core/mind/action-tactics.ts`); the options' walker, which the Tempo entrant's tactics use,
-  has its own fallback pace, braking and share held (`SPACE` in `walker`,
-  `src/core/mind/options/walk.ts`); the arbiter falls back to the walk, or 0.3 m/s
-  (`src/core/skills/arbiter.ts`); the navigator brakes and corners by its own constants
-  (`NAV.brake`, `NAV.cornerPace`, `src/core/mind/navigation.ts`); the legs cap the result at the
-  envelope's pace that way (`paceToward`, `locomotion.ts`).
-- **A run order can stop a body**: the Warrior under `CLASSIC` with its locomotion `learned-run`,
-  given a direct goal at the foe with `Orders.run`, stands still (0 m/s, its walk and run never
-  running) where the walk and run under the same order walks; under its own mind it walks at about
-  0.3 m/s and never runs (arena bout, open level, gaps 4 to 18 m). Not looked into; A1 removes
-  `Orders.run`'s own pace.
-- **Each way's top speed is read per way**: the fastest at which every trial held (`fastestEvery`,
-  `src/core/control/stance-envelope.ts`), and the walk-run (`src/core/skills/walk-run.ts`) has its
-  own envelope (`walkRunEnvelope`): the Warrior forward 4.5 m/s, to the sides 0.7, back 1.0. Its
-  turns are still the SIMBICON run's; measured on the walk-run, the Warrior turns at no rate in
-  every trial at 1 m/s or faster
-  ([locomotion](../reference/locomotion.md#the-walk-and-run)). Whether a body under orders now
-  runs is not read: no fingerprint case enters the run.
+- **Movement is one pipeline**: tactics and orders give a goal, a facing and
+  at most a ceiling; the navigator routes it; Move's rules choose the gait; one rule sets the speed
+  (`travelSpeed`, `src/core/mind/travel.ts`) from the limits the gait states (`Locomotion.envelope`,
+  `Locomotion.stopping`); the legs carry it out ([architecture](../architecture.md#minds)).
 - **The Crypt's Commander is screen code**: `DungeonRun` (`src/dungeon/run.ts`, 672 lines) decides
   each enemy's target (the nearest party member it sees) and movement (`perceive`,
   `enemyMovement`); each party member's target, exploration goal, following the hero, post, slot
   about a shared destination and way through doors (`choose`, `memberMovement`, `slot`,
   `throughDoors`); and the person's four mouse orders (`Order`, `src/dungeon/commands.ts`: idle,
   lock, force, attack-move). None of it is in the core or selectable, and no AI can play the party.
-- **The Arena's person steers one body**: WASD a direct move relative to the camera, Shift runs,
+- **The Arena's person steers one body**: WASD a direct goal relative to the camera, Shift walks,
   the pointer sets facing, the left button attacks the segment it points at (`personOrders`,
   `src/arena/main.ts`). The bout tapes each side's orders (`Duel.tape`), so it replays with no
   mind.
@@ -83,70 +65,9 @@ against N, are later work outside this plan.
 
 ## Steps
 
-Part A first, in order: it is the foundation. B0 and B1
-can start once A1 has landed; B2 needs A1's ceiling; B3 and B4 follow B1. Each step is its own
+B0, B1 and B2 can start; B3 and B4 follow B1. Each step is its own
 toolkit commits under the normal gate, naming the fingerprint cases it moves; a step that claims no
 change of behaviour shows the fingerprint unmoved.
-
-### Part A: movement
-
-#### A1. One speed rule
-
-A gait states its limits to the pipeline, a narrow interface of the locomotion role: its top speed
-the way the body is going relative to its facing (today's gaits from their envelope's ways), its
-turn rate at speed, and its stopping deceleration, its own controller constant tuned freely and
-checked by its overshoot at a place goal (Part A's measurement). A later gait may answer another
-way (feedback, a learned estimate) with no change to the pipeline; a gait that changes updates its
-own limits as part of that change. The walk-run's turns are measured on it first, screened small
-(`research/core-stance-envelope.mjs --legs walk-run --turns`).
-
-`travelSpeed`, in one module, is the least of:
-
-- the chosen gait's top speed the way the body is going, relative to its facing (`paceToward` on
-  its envelope);
-- the braking speed for the distance left, √(2 · the gait's stopping deceleration · distance);
-- the cornering speed for the turn ahead, from the gait's turn rate at speed;
-- the goal's ceiling, if it gives one.
-
-The navigator reports the turn ahead from its route and calls the rule. `Intent.pace` becomes a
-ceiling. The other choosers of speed go: `orderedIntent`'s pace, `STRAFE`, `Orders.run`, action
-tactics' fallback, the walker's pace, braking and share, the arbiter's fallback, `NAV.brake` and
-`NAV.cornerPace`. A direct goal has
-infinite distance left and no corner, so it gets the gait's top speed.
-
-#### A2. Tactics give goals, not velocities
-
-Tactics and orders state movement only as a `MovementRequest` (direct, place, range or stand), with
-a facing and an optional ceiling; spacing and footwork become a range or direct goal with a
-ceiling. `Intent.move`, the velocity, becomes the pipeline's output to the legs, which no tactic
-writes. Every tactic and entrant moves to the new form in one toolkit change, the entrants that
-ask a pace (`src/core/entrants/tempo/tactics.ts`) among them. Follow orders values an order by the
-speed this rule will ask, so its value and the motion agree.
-
-#### A3. Gait by situation
-
-Move's rules read conditions only: standing, the nearest standing foe's distance, the distance
-left, and the conditions the Mind's options share. `MOVE` becomes the fighting step (Braced) within
-2 m of a standing foe, and the walk-run free to run otherwise; the walk-run reaches the speed it is
-asked its own way, running once that is past its threshold.
-
-#### A4. The person's movement keys
-
-In the Arena, WASD is a direct goal at the gait's top speed and Shift caps the speed at the plain
-walk's forward speed; the Crypt's keyboard mode is the same. A click in the Crypt is a place goal
-through the same pipeline: it goes fast and brakes into its point.
-
-#### Checks for Part A
-
-- **Landing A1 to A4**, once on the stand (`tests/harness/core-stand.mjs`): the Warrior
-  empty-handed and with the club, holding a direct goal for 5 s, is at least 1 m/s over its last
-  2 s; a place order 8 m off ends standing within its `near` plus 0.3 m.
-- **The measurement**, a research script read before and after a step that moves it, and a Ratings
-  evaluation once Ratings has its format: for each character and representative loadout, the share
-  of the measured top speed a direct goal reaches, and how soon; overshoot at a place goal; speed
-  through the obstacle court's corners.
-- **The fingerprint** moves almost everywhere, and the commits say so. Nothing is rated again.
-- **Eye check**: holding W and clicking to go, in the Arena and the Crypt.
 
 ### Part B: command
 
@@ -180,7 +101,7 @@ Check: the fingerprint's Crypt cases are unmoved.
 - **The mouse leads**: click the ground to go, click an enemy to attack it, drag to draw a path,
   Q/E or the mouse for facing; WASD steers the one selected body with a direct goal.
 - **Several selected** take slots about the destination, their ceiling the slowest member's top
-  speed (A1), so the group arrives together.
+  speed (`travelSpeed`), so the group arrives together.
 - **Touch**: every command also works on any touchscreen, a laptop's or a phone's (tap the ground
   to go, tap a foe to attack, drag to draw a path, on-screen controls for what WASD and Q/E do).
   Pointer events already carry touch; the commands are the same `Command` data.
@@ -197,7 +118,7 @@ The navigator treats moving and fallen bodies of its own side as obstacles, and 
 Commander keeps members spaced:
 
 - one shared snapshot of the party per decision;
-- locomotion's declared limits (A1) bound what a candidate direction can do;
+- locomotion's declared limits (`Locomotion.envelope`, `Locomotion.stopping`) bound what a candidate direction can do;
 - a candidate is judged over the space it sweeps, not its end point;
 - yielding between members is deterministic.
 
@@ -229,11 +150,11 @@ Check: the gate, and B0's check (run, fork, replay from its orders alone) over b
   named, or the fingerprint unmoved where it claims no change of behaviour.
 - No long runs: no battery is measured again for its own sake, and nothing runs over an hour
   without the owner's go-ahead ([AGENTS.md](../../AGENTS.md)).
-- Eye checks: Part A's movement (A4), and the feel of the mouse controls (B2).
+- Eye check: the feel of the mouse controls (B2).
 
 ## Done when
 
-Part A and Part B have landed: a body given a goal goes there by the one pipeline, the Crypt's
+Part B has landed: the Crypt's
 Commanders are in the core and led by a person's commands, B3's crowd checks pass, and an
 AI party can be scored clearing levels. What the plan built then goes into the architecture, and
 this file is deleted.
@@ -241,12 +162,11 @@ this file is deleted.
 ## Relations
 
 - **Running** (the [roadmap](../roadmap.md#body-and-motor-control)): a faster gait raises every top
-  speed here through the limits it states (A1), with no change to this pipeline.
-- **Tactics** (the [roadmap](../roadmap.md#the-ai)): spacing becomes a range or direct goal (A2),
-  and a follow-orders model reads A1's rule.
+  speed here through the limits it states, with no change to the pipeline.
+- **Tactics** (the [roadmap](../roadmap.md#the-ai)): spacing is a range or direct goal, and a
+  follow-orders model reads the speed rule.
 - **[Component registration](2026-10-21-component-registration.md)** gains the Commander role and
   the locomotion role's new interface: the legs take a velocity and a facing, and a gait states its
   limits.
-- **[Ratings](2026-10-21-ratings.md)**: Part A moves every bout, so it lands before Ratings' steps
-  5 and 6, which choose the panel and cap after it. The Crypt's clearing task is one of its
+- **[Ratings](2026-10-21-ratings.md)**: the Crypt's clearing task is one of its
   evaluations.

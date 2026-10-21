@@ -20,7 +20,7 @@ import { rootSegment } from "../../read-body.ts";
 /** Cover and ground footwork surround a named supine kick on the body's shared action compositor. */
 export function groundFight(own: OwnBody, view: BodyView, _clock: Clock, config: GroundFightConfig, afterPhysics: Body["afterPhysics"]): SubMind {
   const tracker = effectorTracker(own.built, rootSegment(own.built)), posture: Record<string, number> = {};
-  const legs: Locomotion = { state: {}, heading: 0, pace: 0, reference: null, placed: true, envelope: null,
+  const legs: Locomotion = { state: {}, heading: 0, pace: 0, reference: null, placed: true, envelope: null, stopping: 0,
     resume() {}, goal() { return null; }, place() { return null; }, drive() { return { kind: "drive", posture: config.kicks === "none" ? {} : GROUND_LEGS, pushes: [] }; } };
   const producer = actionProducer(), executor = groundKick(own), rest = poseDrive(own.muscles);
   const skills = skillSet({ built: own.built, muscles: own.muscles, view, envelope: null, afterPhysics }, {}, {
