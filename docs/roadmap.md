@@ -14,7 +14,8 @@ The [shared controller workshop plan](plans/2026-10-20-shared-controller-worksho
 the open component, task, equipment and evaluation work. Within it,
 [whole-body control](plans/2026-10-17-general-controller.md) develops running, recovery and combat
 on one stack, and the [options fighter](plans/2026-10-14-options-fighter.md) develops one Mind's
-tactics and player choices. Their implemented contracts are in the architecture.
+tactics and player choices. [Movement and command](plans/2026-10-21-movement-and-command.md)
+gives movement one pipeline and puts a Commander over a team's Minds, for a person or an AI. Their implemented contracts are in the architecture.
 The Arena supplies selectable levels, shared navigation, explicit per-hand loadouts, a buckler
 and a cutting short sword as a testbed for that work, and a sword-and-buckler fighter, the
 Duellist, that leads every mind fitting that loadout. Its readings are in the
@@ -54,8 +55,8 @@ once the owner, having watched it on both levels, accepts how it fights.
 - **The game around them**:
   - the Arena, a bout of two bodies to a verdict, which a person watches or takes a side in;
   - a Ladder of bouts, to be designed;
-  - a Diablo-like Dungeon with a player character and AI enemies; companion and party-command
-    features are outside the current direction.
+  - a Diablo-like Dungeon with a player character and AI enemies, a party commanded by a person
+    or by an AI ([movement and command](plans/2026-10-21-movement-and-command.md)).
 
   Many morphologies, every body a sourced spec: the human is the reference body; the skeleton and
   an authored reptile quadruped are on the core.
@@ -589,8 +590,8 @@ Capability work uses the Arena testbed, with dependencies owned by the plans:
   local steering lacks the locomotion controller's braking response and excludes fallen bodies.
   The [problem and proposal](analysis/2026-10-13-crowd-reversal.md) record the failing regression
   and a physical movement contract to investigate. Movement remains unfixed; its regression
-  runs as a non-blocking TODO. Companion and party-command improvements are outside the current
-  direction; shared locomotion and enemy navigation remain relevant.
+  runs as a non-blocking TODO, and [movement and command](plans/2026-10-21-movement-and-command.md)
+  (B3) makes it pass.
 - **Authored set pieces** for generated depths
   (`docs/plans/2026-09-23-depths-06-set-pieces.md@144961d4`).
 - **The skeleton's intent** ([architecture](architecture.md#standing-decisions)): the ribcage and
