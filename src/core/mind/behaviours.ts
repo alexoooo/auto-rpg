@@ -12,7 +12,7 @@ const behaviour = <C extends BehaviourConfig>(label: string, defaults: C, fields
 export function behaviourFaults(config: BehaviourConfig): readonly string[] {
   const faults: string[] = [];
   for (const [key, value] of Object.entries(config)) if (key !== "kind" && typeof value === "number" && (!Number.isFinite(value) || value < 0)) faults.push(`${key} must be finite and nonnegative`);
-  if (config.kind === "cover" && !["pose", "cover", "predictive"].includes(config.guard)) faults.push("guard must name a cover policy");
+  if (config.kind === "cover" && !["pose", "cover", "predictive", "body", "ward"].includes(config.guard)) faults.push("guard must name a cover policy");
   return faults;
 }
 
@@ -35,5 +35,5 @@ export const BEHAVIOUR_PARTS: { readonly [K in BehaviourConfig["kind"]]: Part<Of
   "clear-of-walls": behaviour<Of<"clear-of-walls">>("Clear walls", { kind: "clear-of-walls" }),
   "clear-of-fallen": behaviour<Of<"clear-of-fallen">>("Clear fallen bodies", { kind: "clear-of-fallen" }),
   ground: behaviour<Of<"ground">>("Ground positioning", { kind: "ground" }),
-  cover: behaviour<Of<"cover">>("Guard", { kind: "cover", guard: "cover" }, [choice<Of<"cover">, "guard">("guard", "Guard", [["cover", "Cover threat"], ["predictive", "Predict contact"], ["pose", "Hold pose"]])]),
+  cover: behaviour<Of<"cover">>("Guard", { kind: "cover", guard: "cover" }, [choice<Of<"cover">, "guard">("guard", "Guard", [["cover", "Cover threat"], ["predictive", "Predict contact"], ["body", "Predict contact on the body"], ["ward", "Ward off the weapon"], ["pose", "Hold pose"]])]),
 });

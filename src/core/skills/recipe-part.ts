@@ -11,7 +11,9 @@ export const RECIPE_PART: ExecutorPart<Config> = {
   role: "executor", label: "Recipe strike", stage: "game", defaults: { kind: "recipe-strike", name: "recipe" },
   fields: [text("name", "Name")], slots: [], tuning: ["repertoire", "placed", "steer"], fits: commandable,
   faults: () => [], effectors: ["hand.left", "hand.right"], actionFaults: noPathSettings,
-  strikesWith: (spec, _config, effector) => strikesWithBlunt(spec, effector),
+  // A hand strikes with a blunt item by placement, and with anything its repertoire holds a recipe for.
+  strikesWith: (spec, config, effector) => strikesWithBlunt(spec, effector)
+    || (effector === "hand.left" || effector === "hand.right") && recipesFor(config.tuning?.repertoire ?? REPERTOIRE, spec, effector === "hand.left" ? "left" : "right").length > 0,
   make: (body, _world, config, actions, resolve) => recipeExecutor(body.built.spec, actions.map(a => a.name), { ...config.tuning, resolve }),
   estimate(spec, config, action, aim) {
     if (action.aim.kind === "surface") return null;

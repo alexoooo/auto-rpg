@@ -3,7 +3,7 @@ import { REPTILE_BITE, REPTILE_CRAWL, REPTILE_TROT, REPTILE_MOTOR, REPTILE_TRAVE
 import { quadrupedMind, quadrupedFits } from "../reptile/mind.ts";
 import { guardPosture } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
-import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, OPTIONS, PUNCHER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type FighterConfig, type MindConfig, type OptionsConfig, type QuadrupedConfig } from "./config.ts";
+import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, DUELLIST, OPTIONS, PUNCHER, QUADRUPED, RECIPE_FIGHTER, SCRAPPER, type FighterConfig, type MindConfig, type OptionsConfig, type QuadrupedConfig } from "./config.ts";
 import { controller, NO_POSTURE, type Controller } from "./controller.ts";
 import { DIRECT_MIND } from "../entrants/direct/mind.ts";
 import { TEMPO_MIND } from "../entrants/tempo/mind.ts";
@@ -81,6 +81,7 @@ const FIGHTER_MIND = controller<FighterConfig>({
     counter: { label: "Counter-puncher", config: COUNTER_PUNCHER },
     scrapper: { label: "Scrapper", config: SCRAPPER },
     behaviours: { label: "Behaviours", config: BEHAVIOURS },
+    duellist: { label: "Duellist", config: DUELLIST },
   }),
   builtIn: guardPosture,
   create: createFighter,

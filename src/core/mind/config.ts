@@ -58,11 +58,11 @@ export type SelectorConfig = ({ readonly kind: "first-ready" | "rotate" | "score
 
 /** A behaviour requests one part of the shared tactical intent. */
 export type BehaviourConfig = { [K in "attack" | "follow-orders" | "clear-of-walls" | "clear-of-fallen" | "evade" | "flee"]: { readonly kind: K } }["attack" | "follow-orders" | "clear-of-walls" | "clear-of-fallen" | "evade" | "flee"]
-  | { readonly kind: "approach"; readonly spacing?: number; readonly spacingStep?: number }
+  | { readonly kind: "approach"; readonly spacing?: number; readonly spacingStep?: number; readonly travel?: number }
   | { [K in "close-in" | "keep-distance" | "break-clinch"]: { readonly kind: K; readonly metres: number } }["close-in" | "keep-distance" | "break-clinch"]
   | { readonly kind: "edge"; readonly band: number; readonly patience: number }
   | { readonly kind: "ground" }
-  | { readonly kind: "cover"; readonly guard: "pose" | "cover" | "predictive" };
+  | { readonly kind: "cover"; readonly guard: "pose" | "cover" | "predictive" | "body" | "ward" };
 
 /** Ranked behaviours share focus, selection and action instances. */
 export interface BehavioursConfig {
@@ -416,3 +416,20 @@ export const OPTIONS: OptionsConfig = deepFreeze({ kind: "options", locomotion: 
 /** The configurable behaviour fighter starts from the shared recipe actions. */
 export const BEHAVIOURS: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...FIGHTING, choose: { kind: "rotate", rethink: .2, patience: 2 }, list: [
   { kind: "follow-orders" }, { kind: "attack" }, { kind: "approach" }, { kind: "cover", guard: "cover" }] } });
+
+/** Either hand, as the recipe actions throw. */
+const EITHER_HAND = ["hand.right", "hand.left"] as const;
+
+/**
+ * **The duellist**: Behaviours' parts for a fighter that swings what one hand holds and covers with
+ * what the other holds. It takes in turn the recipe strike at the head and at the trunk and the
+ * blade's thrust at the trunk's opening; approaches its window facing its way there, at its run's
+ * pace, while the window is over 1.5 m off; covers by prediction; and stands up once down.
+ */
+export const DUELLIST: FighterConfig = deepFreeze({ ...BEHAVIOURS,
+  tactics: { ...BEHAVIOURS.tactics, list: [
+    { kind: "follow-orders" }, { kind: "clear-of-fallen" }, { kind: "attack" }, { kind: "approach", travel: 1.5 }, { kind: "cover", guard: "ward" }] },
+  executors: [{ name: "recipe", kind: "recipe-strike" }, { name: "blade-thrust", kind: "blade-thrust" }],
+  actions: [
+    ...(["high", "middle"] as const).map((mark) => ({ name: `swing ${mark}`, executor: "recipe", effectors: EITHER_HAND, regions: [{ kind: "mark" as const, mark }], aim: { kind: "centre" as const, lead: 0 } })),
+    { name: "thrust", executor: "blade-thrust", effectors: EITHER_HAND, regions: [{ kind: "mark", mark: "middle" }], aim: { kind: "surface", tuning: {} } }] });

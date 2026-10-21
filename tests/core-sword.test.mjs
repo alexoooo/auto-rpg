@@ -80,11 +80,13 @@ test("the sword's physical regions, mass properties and aiming points have expli
   assert.ok(sword.inertia.value.every(value => value > 0));
 });
 
-test("default assemblies select blade actions on either equipped hand and leave ordinary actions on bare hands", () => {
+test("default assemblies select blade actions on either equipped hand, a recipe strike where the repertoire swings the sword, and ordinary actions on bare hands", () => {
   for (const model of ["workshop-fighter", "workshop-rogue"]) for (const hand of ["left", "right"]) for (const config of [OPTIONS, RECIPE_FIGHTER]) {
     const spec = armed(modelSpec(model), hand, shortSword()), actions = armedActions(spec, config.executors, config.actions);
     assert.deepEqual(treeFaults(config), []); assert.equal(treeFits(spec, config), true);
-    assert.deepEqual(actions.filter(action => action.effectors.includes(`hand.${hand}`)).map(action => action.name), ["blade-cut", "blade-thrust"]);
+    // The game's repertoire holds a recipe for the short sword in each model's hand, so the recipe fighter swings it as well.
+    assert.deepEqual(actions.filter(action => action.effectors.includes(`hand.${hand}`)).map(action => action.name),
+      [...(config === RECIPE_FIGHTER ? ["strike"] : []), "blade-cut", "blade-thrust"]);
     assert.ok(actions.some(action => action.effectors.includes(`hand.${hand === "left" ? "right" : "left"}`) && !action.name.startsWith("blade-")));
   }
 });
