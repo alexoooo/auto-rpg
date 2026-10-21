@@ -42,14 +42,21 @@ against N, are later work outside this plan.
 
 ## Where it starts
 
-- **Speed is chosen in five places, none of which owns it**: `orderedIntent`
+- **Speed is chosen in six places, none of which owns it**: `orderedIntent`
   (`src/core/mind/ordered.ts`) asks `envelope.walk` (the fastest walk held every way at once) or,
   under `Orders.run`, the fastest forward that held 0.6 of its trials (`RUN`), and slows walking
   across or backwards (`STRAFE`); action tactics ask their own pace (`SPACE.fallbackPace`,
-  `src/core/mind/action-tactics.ts`); the arbiter falls back to the walk, or 0.3 m/s
+  `src/core/mind/action-tactics.ts`); the options' walker, which the Tempo entrant's tactics use,
+  has its own fallback pace, braking and share held (`SPACE` in `walker`,
+  `src/core/mind/options/walk.ts`); the arbiter falls back to the walk, or 0.3 m/s
   (`src/core/skills/arbiter.ts`); the navigator brakes and corners by its own constants
   (`NAV.brake`, `NAV.cornerPace`, `src/core/mind/navigation.ts`); the legs cap the result at the
   envelope's pace that way (`paceToward`, `locomotion.ts`).
+- **A run order can stop a body**: the Warrior under `CLASSIC` with its locomotion `learned-run`,
+  given a direct goal at the foe with `Orders.run`, stands still (0 m/s, its walk and run never
+  running) where the walk and run under the same order walks; under its own mind it walks at about
+  0.3 m/s and never runs (arena bout, open level, gaps 4 to 18 m). Not looked into; A1 removes
+  `Orders.run`'s own pace.
 - **The choice goes round in a circle**: the walk-run (`src/core/skills/walk-run.ts`) runs only when
   asked a pace past its threshold, but orders work out their pace from that gait's every-way walk,
   so a body under orders never asks enough to run. The architecture records this as the rule
@@ -114,7 +121,8 @@ change of behaviour shows the fingerprint unmoved.
 
 The navigator reports the turn ahead from its route and calls the rule. `Intent.pace` becomes a
 ceiling. The other choosers of speed go: `orderedIntent`'s pace, `STRAFE`, `Orders.run`, action
-tactics' fallback, the arbiter's fallback, `NAV.brake` and `NAV.cornerPace`. A direct goal has
+tactics' fallback, the walker's pace, braking and share, the arbiter's fallback, `NAV.brake` and
+`NAV.cornerPace`. A direct goal has
 infinite distance left and no corner, so it gets the gait's top speed.
 
 #### A2. Tactics give goals, not velocities
