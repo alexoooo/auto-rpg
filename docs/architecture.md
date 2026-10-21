@@ -1,1826 +1,748 @@
 # How Auto-RPG is built
 
 Auto-RPG is physically simulated melee in the browser. A fighter is a body of rigid segments and
-joints, driven by muscles with the strength and speed of their anatomy; a blow is whatever the
-body carries into another body, and it wounds by the energy it brings. There is no attack
-animation and no hit box: the pages draw what the physics did.
+joints driven by muscles; a blow is whatever one body carries into another, and it wounds by the
+energy it brings. There is no attack animation and no hit box: the pages draw what the physics did.
 
-Babylon.js 9 draws; Rapier (its SIMD build, WebAssembly) simulates. The SIMD package is built from
-the pinned source and patch in `vendor/rapier` and installed from its committed tarball; ordinary
-installs need no Rust toolchain ([engine record](reference/rapier-vendor.md)). Everything that fights is the
-core's (`src/core/`). The screens (`src/arena/`, `src/dungeon/`, `src/lab/`) build on the core
-and the core never imports them: `tests/core-boundary.test.mjs` walks the core's imports and allows
-only the core itself, `@babylonjs/core`, the engine's package and JSON under `assets/`.
-
-`rapier-coordinate` is the gameplay default and selects measured-angle gradients for angular-limit
-rows; `rapier` retains the published reference batteries' parent-axis formulation. Both load the same WASM module and use
-the same interfaces. The choice is immutable per engine instance, identified in experiments,
-and checked when restoring physics snapshots ([limit record](reference/joint-limits.md)). A save
-names the world it was made in by a digest of how each body, joint and fixed collider was made
-(shapes, materials, masses, joint frames), and a world built otherwise refuses it: a snapshot
-carries its own shapes and frictions, so a save of an earlier body would bring that body back.
+- **Babylon.js 9 draws; Rapier simulates.** The core's Rapier is the SIMD build, built from the
+  pinned source and patch in `vendor/rapier` and installed from its committed tarball
+  ([engine record](reference/rapier-vendor.md)).
+- **Everything that fights is the core's** (`src/core/`). The screens (`src/arena/`,
+  `src/dungeon/`, `src/lab/`) build on it and it never imports them:
+  `tests/core-boundary.test.mjs` allows the core only itself, `@babylonjs/core`, its engine's
+  package and JSON under `assets/`.
+- **One world step** (`World.step`, 120 Hz) owns physics, control, combat and the clock. Pages,
+  tests and research all call it; rendering never advances it.
 
 ## The layers
 
-Each layer imports only the layers listed before it, except that skills and tactics share a
-vocabulary: the `Intent` tactics return (`src/core/mind/intent.ts`) and the `SkillReport` they
-read (`src/core/skills/skills.ts`).
+Each layer imports only the layers above it in this table, except that skills and tactics share a
+vocabulary: the `Intent` tactics return (`src/core/mind/intent.ts`) and the `SkillReport` they read
+(`src/core/skills/skills.ts`).
 
-| Layer | Where | What it does |
+| Layer | Where | Job |
 |---|---|---|
-| Spec | `src/core/spec/`, `src/core/human/`, `src/core/reptile/` | a body as data: segments, joints, muscles, wounds, every number sourced |
+| Spec | `src/core/spec/`, `human/`, `reptile/`, `items/` | a body as data, every number sourced |
 | Engine seam | `src/core/engine/` | the one contract the core needs from a physics engine |
-| Build | `src/core/build/` | the spec made into engine bodies and joints, and the dynamics read back from them |
-| Muscles | `src/core/muscle/` | torque bounded by strength and by speed |
-| Mind seam | `src/core/mind/mind.ts`, `sub-mind.ts` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask; a host hands its body to a sub-mind that wants it |
-| Motor control | `src/core/control/` | joint goals, hand goals and the stance turned into muscle commands; a body borne on the ground through its limbs (`bearing.ts`), or the whole body solved at once (`solve.ts`) |
-| Skills | `src/core/skills/` | an intent turned into the body's command: walk, face, strike, guard |
-| Tactics | `src/core/mind/tactics.ts`, `ordered.ts`, `targets.ts`, `recipe-tactics.ts`, `path-tactics.ts` | what the body should do, decided from what it sees |
-| Minds | `src/core/mind/config.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `rise/`; `src/core/entrants/` | a body's mind made from its config, plain data by kind, by the controller of that kind; a riser that plays a recipe of stages; a Mind of its own folder |
-
-`createBody` (`src/core/body.ts`) gives a built body the command layers as its mind
-(`commandMind`, hosting the sub-minds it is given, under `embody`): its muscles and motor control. Each step it
-reads the body's `BodyView` (time, joint angles, fists, each effector's points, head, stance and ground support), asks its driver,
-and obeys the `BodyCommand` it gets back: a posture, named effector goals, timed pushes and a stance goal.
-Body data declares each effector and its free chain (`BodySpec.effectors`), and a command names
-goals by the effector's segment: a hand, a foot or a paw, on one point tracker, a foot with an
-independent orientation, all on ordinary bounded muscles. No two effectors share a freedom. A
-bearing foot cannot simultaneously receive an effector goal. Detached capabilities, observations, contact
-feedback and path memory share the body/bout replay boundary. See [effector contract](reference/striking-effectors.md).
-
-Scrapper's `supportRecovery` sub-mind takes control from the host's down reading,
-runs `stagedRise`, then uses locomotion's gradual height restoration and foot squaring to
-stabilize. `recoveryReady` independently requires loaded feet, no other fixed support, a centre
-of mass inside their support polygon, low segment speed and the host's upright reading for a
-continuous interval. A stabilization timeout retries from the actual body. The host releases
-pending commands on takeover and interrupts every live action through its driver release callback;
-the host resumes after this handover. Recovery and
-trajectory memory are plain data under the body/bout state, including the standing reference.
-See [recovery measurements](reference/recovery-cycle.md) for the tested envelope and failures.
-The independent `supportEntryPolicy` remains available to the research task; it ends at hand/shin
-support and does not supply the arena's standing transition.
-
-Each effector's optional feedback (`BodyView.effectors`) samples actual point motion and external
-contact impulses after each completed physics interval, before `Body.afterPhysics` listeners run,
-including while idle or under a sub-mind. The next control step reads that sample; no engine
-objects are exposed. Feedback is plain bout state.
-
-`BodyView.ground` (`mind/ground/reading.ts`) reads each segment's signed fixed-contact load,
-sole tilt and loaded heel/toe support, trunk orientation, height and motion while the body is
-down or its host has released it. Otherwise it is null. Held items, walls and overhead contacts
-provide no body support. The position label settles over six steps; loads and geometry update
-immediately. `standReady` requires quiet, flat two-foot support carrying nearly the whole weight,
-the centre of mass inside the inset sole polygon, and the host's upright reading. These facts
-and the label's memory save with the body's state.
-
-
-Shared surface aim rules select collider-derived target surfaces, and the path executor commits
-a hand trajectory through `pathExecutor`. Terminal hand velocity and segment identity extend the
-common IK/muscle path; an optional, range-bounded elbow preference composes with trunk rotation
-and returns to guard. Optional lateral head-surface samples expand the same collider-based lane search.
-A new opposite-hand action can overlap a physically returning hand when their resources and the
-shared executor permit it. Each hand has its own `effectorStrike`, so the returning instance keeps
-its motion sequence and completion checks; both arms share ordinary body commands, muscles and
-locomotion. Recovery interrupts both instances. A mind may end one live action at once by naming it in
-its intent (`Intent.interrupt`): the set records it interrupted and its executor forgets it
-(`Executor.interrupt`, which the straight punch and the path executor have; an action of another
-runs its course), so what it held is free in the same step.
-The overlap admission screen does not establish stronger combat; see [measurements](reference/combat-overlap.md).
-Classic uses the recipe executor. Released resources return to the continuous defaults. Contact
-feedback carries trusted detached body/segment labels, point, normal and impulse; committed guard
-contacts penalise blocked target surfaces in the aim rule. These labels affect tactics, not damage.
-The builder optionally grants detached fixed geometry from the same definitions it installs
-in physics. Combat checks conservative retreat sweeps against those boxes and hull bounds.
-Body senses carry their actual sample time in the saved delay frames. An experimental
-predictive defense variant uses age-corrected relative motion, available-hand reach/travel
-checks, cancellation and a bounded counter window. Its self-play initiative is below the
-reference diagnostic, so reference cover remains the default. See [defense measurements](reference/combat-defense.md).
-All selection, contact-response and trajectory memory belongs to the saved bout. The Arena
-exposes Scrapper, which aims at the body, with Warrior fist primitives measured in
-[combat strikes](reference/combat-strikes.md), and measured physical low support and attacks against grounded or rising enemies; competitive promotion and finishing power remain open.
-
-`DuelRecipe.recoverySeconds` optionally permits a continuous interval down. Its per-side clocks
-are saved only when enabled; null allows unlimited time down until injury or the bout cap. Damage elimination remains immediate, opponents continue sensing
-and attacking a fallen side during its allowance, and standing clears its clock. The Arena page defaults to continuing after falls, and its Classic
-selection uses staged recovery. An omitted recipe field retains the historical fall rule for
-explicit reference experiments. Controller, hand, equipment and recovery choices are explicit
-recipe/link inputs. Changing those choices suppresses a linked orders tape from another recipe.
+| Build | `src/core/build/` | the spec made into engine bodies and joints; dynamics read back |
+| Muscles | `src/core/muscle/` | torque bounded by strength and speed; the body's level |
+| Mind seam | `src/core/mind/mind.ts`, `sub-mind.ts` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask |
+| Motor control | `src/core/control/` | joint, effector and stance goals turned into muscle commands |
+| Skills | `src/core/skills/` | an intent turned into the body's command: walk, guard, strike |
+| Tactics | `src/core/mind/tactics.ts`, `action-tactics.ts`, `ordered.ts`, `targets.ts`, `movement.ts` | what the body should do, from what it senses |
+| Minds | `src/core/mind/config.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `options/`, `rise/`, `ground/`; `src/core/entrants/` | a body's mind made from its config by the controller of its kind |
 
 ### Spec
 
-A `BodySpec` (`src/core/spec/body.ts`) holds a body in its reference pose, in metres, with +x
-right, +y up, +z forward and the soles on y = 0: its segments (mass, centre of mass, principal
-inertia, collision shape, and its surface: how stiff it is under a blunt load, which is what a
-blow is shared by), its joints (a tree; each freedom with its axis, range and muscle), its
-wounds (`hp`, the `vital` parts, the parts that never come off) and anything held. An item
-states a surface or is rigid.
+A `BodySpec` (`src/core/spec/body.ts`) is a body in its reference pose: metres, +x right, +y up,
++z forward, soles on y = 0. It holds:
 
-The humanoid body plan builds the Warrior, Rogue and Skeleton. `figureSpec` (`src/core/human/spec.ts`) takes a
-`HumanFigure` (the sex whose tables apply, the landmarks, the trunk's hulls, the feet, the hands,
-the mass, the stature and the hit points) and lays out 16 segments and 15 joints from published
-tables: de Leva for segment parameters, Dempster via Winter for densities, measured joint ranges
-and torques, Abe for regional muscle, Anderson, Frey-Law and Thelen for force and speed, and
-the impact literature for each part's stiffness under a blunt load (`CONTACT_STIFFNESS`,
-[reference/wounds.md](reference/wounds.md#stiffness)).
+- **segments**: mass, centre of mass, principal inertia, collision shape and surface (stiffness
+  under a blunt load, which shares a blow's energy);
+- **joints**: a tree, each freedom with its axis, range and muscle;
+- **effectors** (`BodySpec.effectors`): each hand, foot or paw and its free chain; no two effectors
+  share a freedom;
+- **wounds**: `hp`, the `vital` parts, the parts that never come off;
+- **down**: the rule that reads the body as down (`BodySpec.down`);
+- anything held. An item states a surface or is rigid.
 
-| Model | Figure | Hit points |
-|---|---|---|
-| `workshop-fighter`, the Warrior | `workshopFigure`: the workshop model's rig and clothed envelope | 6 |
-| `workshop-rogue`, the Rogue | `workshopFigure` | 4 |
-| `crypt-skeleton` | `skeletonFigure`: its art's bind (`assets/skeleton/bind.json`); mass, strength and hit points are placeholders | 6 |
-| `reptile` | an independently authored 8 kg quadruped (`assets/reptile/body.json`) | 1 |
+**Models.** `BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the registry, each
+model's default mind and what its right hand holds.
 
-Every game character is resolved from `CharacterConfig` (`src/core/models.ts`): a model plus
-explicit overrides of Size, Weight, Strength, Speed, HP, Balance and Haste. `resolveCharacter`
-validates finite values, inherits model defaults for omitted fields, and returns an immutable
-resolved configuration and sourced body specification. Identity modifiers keep the unmodified
-specification. The four multipliers default to 1, HP to the model's own pool, and Balance and
-Haste to 0. Geometric modifiers are checked for nonadjacent intersections before world allocation.
+| Model | Built from |
+|---|---|
+| `workshop-fighter` (the Warrior), `workshop-rogue` (the Rogue) | `figureSpec(workshopFigure(...))`, `src/core/human/spec.ts` |
+| `crypt-skeleton` | `skeletonFigure`: its art's bind (`assets/skeleton/bind.json`) |
+| `reptile` | an independently authored quadruped (`assets/reptile/body.json`, [record](reference/reptile.md)) |
 
-The humanoid adapter uses `physiqueFigure`: it resizes the figure, broadens segments for Weight,
-and carries Strength and Speed to torque and force-velocity curves. Its muscled mass excludes
-Weight. The skeleton recalculates its capped arm clearance after broadening its trunk. The reptile
-adapts its own anatomy with the same meanings, including Haste on all four legs. A model's
-positional `modelSpec` API is an adapter into the same resolver for scripts and experiments.
-The competency suite measures skills across a grid of physiques
-([competencies](reference/competencies.md#physiques)).
+`figureSpec` takes a `HumanFigure` and lays out 16 segments and 15 joints from published tables
+(de Leva, Dempster via Winter, Abe, Anderson, Frey-Law, Thelen) and each part's contact stiffness
+(`CONTACT_STIFFNESS`, [wounds](reference/wounds.md#stiffness)). A humanoid's feet may wear a shoe's
+sole (`withSoles`, `src/core/human/sole.ts`); only the Lab's `sole` loadout uses it.
 
-The shared Attributes editor is a draft: it shows names, effective values and controls,
-and resets by removing overrides. Arena and Crypt apply drafts to their next bout or run; Lab
-applies them through Apply and restart. Invalid drafts preserve the running world. Previews,
-controller compatibility and construction use the same configured specification. Skins deform
-with configured geometry; equipment keeps its own dimensions. Crypt clearance and engagement
-spacing follow the configured body, and placement is validated before replacing the scene.
+**Characters.** A game character is a `CharacterConfig` (`src/core/models.ts`): a model plus
+overrides of Size, Weight, Strength, Speed, HP, Balance and Haste. `resolveCharacter` validates
+them, fills defaults (multipliers 1, the model's HP, Balance and Haste 0) and returns an immutable
+resolved config and sourced spec; geometric overrides are checked for nonadjacent intersection
+before a world is built. The humanoid adapter is `physiqueFigure`; the reptile adapts its own
+anatomy with the same meanings. One URL codec reads and writes attributes per scope (`left.*`,
+`right.*` in the Arena, `body.*` in the Lab, `hero.*`, `ally-0.*` to `ally-2.*`, `enemy.<model>.*` in the Crypt).
 
-One URL codec reads and writes named attributes: `left.*` and `right.*` in Arena, `body.*` in Lab,
-and `hero.*`, companion slots `ally-0.*` through `ally-2.*`, and `enemy.<model>.*` in Crypt.
-Explicit scoped fields override existing flat Balance/Haste parameters; writers remove those
-aliases. Configurations belong to setups and links, not global saved character defaults. Crypt
-links also retain the hero, companion roster and seed. Arena recipes store fully resolved
-attributes, save compatibility includes them, and changing attributes invalidates a linked tape.
+**Items and loadouts.** What a hand may hold is one list (`HELD`, `src/core/items/held.ts`: empty,
+the club, the buckler, the short sword). `armedWith` puts an item in a hand and refuses a hand that
+cannot close on it; `Loadout` names both hands, `withLoadout` assigns them and `modelHolding` reads
+the equipped spec. Item numbers are in [Arena items](reference/arena-items.md).
 
-A humanoid's feet may wear a running shoe's sole (`withSoles`, `src/core/human/sole.ts`): a
-spring and damper derived from a heel-impact test of a shoe (Hoogkamer et al. 2018), sinking
-about a millimetre under a standing body. The Lab's `sole` loadout puts it on; the game's bouts
-do not.
+**What a body can do is read from its spec.** `modelSupportsMind` asks every part of a mind
+(`treeFits`) about the body as armed. Executors declare the effectors they strike with
+(`ExecutorPart.strikesWith`), guards the held segments they cover with
+(`Part.supportedEquipment`); `equipmentSupported` unions them and `canAttack` requires a fighting
+mind to strike with something. A mind fits exactly the loadouts it can be built on and fight with;
+`tests/mind-contract.test.mjs` builds each on each.
 
-`BODY_MODELS`, `modelSpec` and `modelInfo` (`src/core/models.ts`) own the model registry,
-construction, and each model's default mind and what its right hand holds. What a hand may hold is
-one list (`HELD`, `src/core/items/held.ts`: empty hands, the wooden club, buckler or short sword), and `armedWith` puts it
-in a hand, refusing a hand that cannot close on it. `Loadout` names both hands; `withLoadout`
-replaces their assignments, and `modelHolding` reads that equipped spec. The Arena recipe carries
-each fighter's `loadouts`, shared in `left.loadout=leftHand,rightHand` and `right.loadout` link
-parameters. Match and tournament identities and notes name both hands. The Arena, the Crypt, the Lab and the control
-tasks all read it. The Crypt's placement footprint, combat spacing and whether a fall ends its
-fight are the Crypt's (`cryptModel`,
-`src/dungeon/actors.ts`). What a body can do is read from its spec: `modelHolds` (a hand a haft lies across, `canHold`) and `modelSupportsMind`, which asks
-every part of the mind (`treeFits`) of the body as armed with what it holds (`modelHolding`), so
-a part that cannot use a loadout drops out of the pickers for it (`Controller.fits`: `commandable` and its actions for the fighters, `quadrupedFits` for
-the quadruped, any body for direct control). Each mind makes that call itself. A skill states
-the facts: an executor says which effectors it strikes with on the armed body
-(`ExecutorPart.strikesWith`; a punch only with a hand that holds nothing). The fighter and the
-options fighter declare their usable action effectors through `Part.strikes`, and a guard the
-held segments it covers with through `Part.supportedEquipment`. `equipmentSupported` unions
-both across the mind's tree, and `canAttack` asks that a mind with a part that strikes strike
-with something on the armed body; `treeFits` refuses a mind unless every held item has a
-declared use and, for a fighting mind, it can attack (direct control strikes with nothing and is
-not held to it), so a mind fits exactly the loadouts it can be built on and fight with, which
-`tests/mind-contract.test.mjs` holds by building each on each. This declaration establishes support, while physical tasks establish
-how well the item is used. Every fighter throws only its usable actions (`armedActions`), so the
-Puncher may cover with a club while punching with its free hand. How a model is shown, its label,
-clothing and shape tint, is the screens' (`MODEL_DISPLAY`, `src/render/models.ts`).
-Humanoid-only tasks use `HUMANOID_MODELS`; they do not fabricate hands on a different body.
-The reptile has 17 segments, 16 joints and 31 muscle freedoms: a trunk, four three-segment legs,
-head, hinged jaw and two tail segments. Its complete spec carries asset provenance, with
-explicitly estimated anatomical values ([reference/reptile.md](reference/reptile.md)).
-`armed(spec, side, woodenClub())`
-(`src/core/human/grip.ts`, `src/core/items/club.ts`) puts the club, the only weapon so far, in a
-hand. The buckler (`src/core/items/buckler.ts`) is an ordinary rigid disc and grip, with a
-single cover centre and a face normal. The default `shield-guard` part puts its boss between a
-threat and the guarded place and independently orients the face through `EffectorGoal.orientation`.
-`cover-guard` remains a line-cover alternative, supporting items without a face normal. Both
-reuse the existing fist and club goals where appropriate. Tactics and reflexes prefer the hand
-with a covering face, keeping the striking hand available. Blunt executors exclude cover-only
-items without an attack aim, and directed blade surfaces (`strikesWithBlunt`), but the recipe
-strike swings anything its body has a searched recipe for. Item dimensions
-and mass decisions are recorded in [Arena items](reference/arena-items.md).
-Families share code, never values: a spec does not spread another family's spec.
+To add a family, write its spec and its adapter in its own folder. **Families share code, never
+values**: a spec never spreads another family's spec. How a model is shown is the screens'
+(`MODEL_DISPLAY`, `src/render/models.ts`).
 
 ### Provenance
 
-Every number in a spec is a `Quantity` (`src/core/spec/quantity.ts`): a value, a unit and where it
-came from. A leaf is `sourced` from an entry of `SOURCES` (`src/core/sources.ts`), which is one of
-four kinds: literature, the owner's decision, an asset (with a JSON pointer into the file) or a
-measurement (with how it was taken and its record). Anything else is `derive`d from other quantities
-by a named rule, whose code does only its formula's arithmetic; a factor is an input with a source,
-and unit conversions live in one table in `quantity.ts`. `specProvenanceFaults`
-(`tests/fixtures/spec.mjs`) holds every spec to this: no bare number, every derivation re-run to its
-stored value, no stray literal in a rule, every source key known, every asset pointer matching its
-file, and every decision's record present (a record in a file since deleted is named `path@commit`).
-Tuning is immutable: an experiment passes an override in (a `RulebookOverride`, a stance tuning) and
+Every number in a spec is a `Quantity` (`src/core/spec/quantity.ts`): a value, a unit and its
+origin.
+
+- A leaf is `sourced` from an entry of `SOURCES` (`src/core/sources.ts`): literature, the owner's
+  decision, an asset (with a JSON pointer) or a measurement (with its record).
+- Anything else is `derive`d by a named rule whose code does only its formula's arithmetic; a
+  factor is an input with a source. Unit conversions live in one table in `quantity.ts`.
+- `specProvenanceFaults` (`tests/fixtures/spec.mjs`) holds every spec to this: no bare number,
+  every derivation re-run to its value, every source key known, every asset pointer matching, every
+  decision's record present (a deleted file's record is `path@commit`).
+
+Tuning is immutable: an experiment passes an override in (`RulebookOverride`, a stance tuning) and
 nothing mutates a global.
 
 ### Arithmetic
 
-The core computes with the operations IEEE 754 fixes (`+`, `-`, `*`, `/`, `Math.sqrt`) and with
-functions of its own (`src/core/math/real.ts`): sine, cosine, tangent, their inverses, the
-exponential, the hyperbolics and the cube root, each fdlibm's kept operation for operation, and a
-vector's length. A JavaScript engine's `Math.sin` and its kin are right only to about the last
-bit and differ from one engine to the next, which a bout amplifies into another bout within
-seconds; the core's own return the same double everywhere. It takes no power: a square is a
-product. The two turns Babylon builds on the engine's sine and cosine are the core's as well
-(`turnAboutToRef`, `turnBetweenToRef`, `src/core/math/turn.ts`). `tests/core-boundary.test.mjs`
-holds the core, and the arena's modules that build a bout's world, to the exact members of `Math`
-and to the members of Babylon's math that are arithmetic alone; `tests/core-math.test.mjs` holds
-each function's values to a record ([reference/real-functions.md](reference/real-functions.md)).
+The core's arithmetic gives the same doubles in every JavaScript engine.
 
-The solves a step works are `linalg.ts`'s written into flat arrays made once
-(`src/core/math/flat.ts`): a matrix its rows end to end, the same operations in the same order,
-so the same doubles; `tests/core-flat.test.mjs` holds each to its twin. The step's dear functions
-work so: the arrays a body's control works in (a **work**) are made with it, in the closure of
-what uses them (the whole-body solve, `bodyDynamics`, the joint trackers, each hand's
-reach), sized from the body's spec, and a function writes every entry of one before it reads it.
-A work carries nothing from one call to the next, so it is not state and no two bodies share one;
-what a step allocates is held under a ceiling (`tests/core-step-cost.test.mjs`,
-[reference/step-cost.md](reference/step-cost.md#control-written-into-arrays-made-once)).
+- It uses only IEEE operations (`+`, `-`, `*`, `/`, `Math.sqrt`) and its own functions
+  (`src/core/math/real.ts`: trigonometric, inverse, exponential, hyperbolic, cube root, length, each
+  fdlibm's kept operation for operation). No power: a square is a product.
+- Babylon's two turns built on `Math.sin` are replaced (`turnAboutToRef`, `turnBetweenToRef`,
+  `src/core/math/turn.ts`).
+- `tests/core-boundary.test.mjs` holds the core and the arena's world builders to the exact members
+  of `Math` and Babylon's arithmetic-only math; `tests/core-math.test.mjs` holds each function to
+  [its record](reference/real-functions.md).
+
+**Work arrays.** The step's dear solves (`linalg.ts`'s, written into flat arrays by
+`src/core/math/flat.ts`; the whole-body solve, `bodyDynamics`, the joint trackers, each hand's
+reach) work in arrays made once with the body, sized from its spec. A work array is written before
+it is read, carries nothing between calls, is not state and is never shared by two bodies.
+`tests/core-flat.test.mjs` holds each flat solve to its twin; `tests/core-step-cost.test.mjs`
+holds a step's allocation under a ceiling ([step cost](reference/step-cost.md#control-written-into-arrays-made-once)).
 
 ### Build
 
-`buildBody` (`src/core/build/build-body.ts`) makes one engine body per segment, with the spec's
-mass and inertia (a held item's are folded in by `rigidOf`, which says whose each of the rigid
-  body's shapes is: the segment's own, an anatomical region, an item or an item's region), and one joint per spec joint, whose
-free axes are the spec's freedoms. The body is built in the pose its joints demand: a fighter in
-the posture its mind holds from its first step (`builtAngles`, `Controller.builtIn`; for a
-fighter its guard, `guardPosture`), so that no joint is flung into it.
-Rapier uses impulse joints. The pinned multibody implementation cannot represent the same
-anatomy unchanged: two-angular-DOF joints trap and three-axis internal limits accumulate
-angular motion rather than reading the current anatomical quaternion coordinates
-([solver contract](reference/solver-contract.md#anatomical-joint-shape-compatibility)).
-The shared body/controller interfaces do not depend on that engine-specific choice.
+`buildBody` (`src/core/build/build-body.ts`) makes one engine body per segment and one joint per
+spec joint, whose free axes are the spec's freedoms.
 
-- `jointAngles` and `jointTracker` (`joint-state.ts`) read each freedom's angle as the engine's
-  limit reads it: about axes fixed in the parent.
-- `bodyDynamics` (`dynamics.ts`) gives the floating-base mass matrix, gravity and bias (the
-  velocity-product terms, gyroscopic torque included) in the joints' speeds, and the root's rows
-  that say what wrench the ground must supply.
-- `contactMass` (`contact-mass.ts`) gives the effective mass a contact meets at a point along a
-  normal, which is what prices a blow: with every joint free, or with the freedoms whose muscles
-  hold through it (`yielding`, `contactGive`).
+- A held item's mass is folded into its segment by `rigidOf`, which names the owner of each shape:
+  the segment, an anatomical region, an item or an item's region.
+- **A body is built in the pose its joints demand**: a fighter in the posture its mind holds from
+  its first step (`builtAngles`, `Controller.builtIn`; for a fighter, `guardPosture`). Optional
+  initial angles and a root quaternion place a task's body; a policy may not reposition a live one.
+- Rapier uses impulse joints; its multibody form cannot hold the same anatomy
+  ([solver contract](reference/solver-contract.md#anatomical-joint-shape-compatibility)).
+
+Readings back from the built body:
+
+| Function | File | Gives |
+|---|---|---|
+| `jointAngles`, `jointTracker` | `joint-state.ts` | each freedom's angle as its limit reads it, about axes fixed in the parent |
+| `bodyDynamics` | `dynamics.ts` | floating-base mass matrix, gravity and bias (gyroscopic torque included), and the root's rows |
+| `contactMass` | `contact-mass.ts` | effective mass a contact meets along a normal, all joints free or held by their muscles (`contactGive`) |
 
 ### Engine seam
 
-`src/core/engine/engine.ts` is the contract, and has no engine's types in it: a fixed step that
-writes each node's `position` and `rotationQuaternion`; bodies that never sleep; the spec's mass,
-whole; velocities of the centre of mass; one friction (`CONTACT_FRICTION`, 0.5) and no bounce on
-every contact, a body's sole (`ContactMaterial.sole`) giving as a spring and damper over its
-depth against a fixed collider and as bare against a body; freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded
-by separately available negative and positive torque ceilings, with its signed whole-step impulse
-on the child (`setMotorBounds`, `motorStepImpulse`); a force and a moment on a body through one step, integrated as gravity is, beside
-the impulse that is whole before it; every body and every fixed collider a body is in contact
-with as the last step left it (`contactsOf`), each with the impulse the solver pushed the two apart
-with, which is 0 for two in contact that it did not push on, and naming the pairs of shapes it
-pushed on by their places in their bodies (`Contact.pairs`); and how far a point is from a body's
-shapes (`SegmentBody.gapTo`). In contact is the engine's narrow
-phase giving the solver a contact point: touching, or within the distance Rapier predicts a contact
-over, 2 cm. A reader may refuse a body, or everything fixed, before the contact between them is
-read: most of what is near a segment is its own body's neighbouring segments, and reading a pair
-is what costs ([reference/play.md](reference/play.md#hearing-in-the-step)). A
-world saves its whole physical state and loads it in place (`PhysicsWorld.save`, `load`); a body,
-joint or collider the core holds survives a load as the object it was, and a save of a world with
-other bodies, joints or colliders is refused. `rapier.ts` implements it,
-with the solver's own settings in `SOLVER`, which are conditioning and not anatomy; it keeps a
-body's velocities as read until the next step, or an impulse, new mass or a hold, since control
-reads each a few times a step and every read through Rapier's binding makes an object. `engines.ts`
-lists the engines and is the only module in `src/core/` or the lab that imports one. A candidate
-is tried on the physics bench (`src/physics-bench/engines/`) first, then added to `ENGINES` and run
-under the core's tests with `CORE_ENGINE=<name> npm run test:all`.
+`src/core/engine/engine.ts` is the contract and names no engine's types. It guarantees:
+
+- a fixed step that writes each node's `position` and `rotationQuaternion`;
+- bodies that never sleep, with the spec's mass, and the centre of mass's velocity;
+- one friction (`CONTACT_FRICTION`) and no bounce on every contact; a sole (`ContactMaterial.sole`)
+  gives as a spring and damper against fixed ground;
+- freedom k as axis k of the joint's frame; a motor as a velocity constraint bounded by separate
+  negative and positive torque ceilings (`setMotorBounds`), with its signed whole-step impulse on
+  the child (`motorStepImpulse`);
+- a force and moment through one step, and an instantaneous impulse;
+- contacts as the last step left them (`contactsOf`), with the solver's impulse and the shape pairs
+  it pushed on (`Contact.pairs`); a reader may skip a body or the fixed world before reading
+  ([play](reference/play.md#hearing-in-the-step));
+- a point's distance from a body's shapes (`SegmentBody.gapTo`);
+- a whole-world save and in-place load (`PhysicsWorld.save`, `load`). Every object survives a load
+  as itself; a save is identified by a digest of how each body, joint and collider was made, and a
+  world built otherwise refuses it.
+
+`rapier.ts` implements it, with solver conditioning in `SOLVER` (not anatomy). Engine profiles
+(`rapier-coordinate`, the gameplay default, and `rapier`, the reference batteries' parent-axis
+form) share one WASM module and are fixed per engine instance
+([joint limits](reference/joint-limits.md)). `engines.ts` lists the engines (`ENGINES`) and is the
+only module that imports one. A new engine is tried on the physics bench (`src/physics-bench/`)
+first, then added to `ENGINES` and run with `CORE_ENGINE=<name> npm run test:all`.
 
 ### Muscles
 
 `driveMuscles` (`src/core/muscle/driver.ts`) turns each freedom's command, an activation and a
-velocity, into a motor target and a torque ceiling: activation times the peak torque of the side
+velocity, into a motor target and torque ceilings: activation times the peak torque of the side
 pushed toward, times the force-velocity factor at the joint's speed (`force-velocity.ts`: Hill's
-curve shortening, and an eccentric branch lengthening that rises toward 1.4 times isometric, for
-braking and blocking). Immutable `World.actuation` selects the symmetric gameplay reference or
-directional research law. The latter bounds each side independently; an infinite-speed torque
-command gives the opposite side zero activation, while a finite-speed command may brake.
-A side may have a tendon in series (`MuscleSpec.tendonPositive`, `tendonNegative`, a stiffness
-about the joint): while its muscles push, under either law, the motor is that spring
-(`EngineJoint.setSpring`), aimed at the fibres' angle and bounded by what the fibres give at their
-own speed, so the tendon stores what a lengthening joint gives it and returns it.
-The symmetric reference can give a reversing motor the wrong side's braking strength. Default
-migration remains gated on corrected contact/control capability. Both directional bounds and
-the command are saved with the muscles. `pulled` records the mean torque actually delivered over the
-last world step, from accumulated motor impulse divided by that step's duration, in the channel's
-positive sense. Rapier accumulates and returns this diagnostic in double precision, while its
-constraint solving remains single precision; see [effort precision](reference/effort-precision.md).
-It is saved state and a diagnostic, not a work measurement.
+curve shortening, an eccentric branch to 1.4 times isometric lengthening).
+
+- `World.actuation`, fixed per world, selects the symmetric gameplay law or the directional
+  research law, which bounds each side independently.
+- A side may have a tendon in series (`MuscleSpec.tendonPositive`, `tendonNegative`): while its
+  muscles push, the motor is that spring (`EngineJoint.setSpring`), so a lengthening joint stores
+  energy and returns it.
+- `pulled` is the mean torque delivered over the last step, a saved diagnostic, not a work
+  measurement ([effort precision](reference/effort-precision.md)).
 
 **A body runs at a level** (`BodyLevel`, `MuscleDriver.level`), data in its muscles' state:
-`full`, its joints read, its mind stepped and its motors driven; `limp`, none of the three, its
-motors released, so the solver alone moves it; `held`, limp and every segment fixed where it is.
-`setLevel` changes it: leaving `full` the mind is told its body is nobody's (`Mind.idle`), and
-the command and every motor are zeroed; back at `full` its first step reads the joints before its
-mind steps. A save holds the level and the engine's save which bodies are fixed. Which level each
-body is at is the levels' rule's ([Rules and wounds](#rules-and-wounds)); a body is never disposed
-and driven afresh to change what it costs.
+
+| Level | Joints read | Mind stepped | Motors |
+|---|---|---|---|
+| `full` | yes | yes | driven |
+| `limp` | no | no | released |
+| `held` | no | no | released, every segment fixed |
+
+`setLevel` changes it. Leaving `full`, the mind is told (`Mind.idle`) and the command and motors are
+zeroed; back at `full`, the joints are read before the mind steps and the mind goes on from the
+body as it is. Which level a body is at is set by one rule (`levelsOf`, [Rules and
+wounds](#rules-and-wounds)) from where the bodies are, never from the machine; a body is never
+disposed and rebuilt to save a step.
 
 ### Motor control
 
+Motor control turns a `BodyCommand` (a posture, named effector goals, timed pushes, point tasks and
+a stance goal) into muscle commands.
+
 - **The servo** (`src/core/control/servo.ts`) asks each joint for a critically damped approach to
-  its goal and computes the torques that produce it through the body's own dynamics (mass matrix,
-  bias and gravity), solved around the freedoms that are being pushed and clipped at strength.
-- **Hand goals** (`motor.ts`, `kinematics.ts`): named points of a hand's rigid body (its
-  knuckles, a point of what it holds: `rigidPoints`, `src/core/build/rigid.ts`) follow
-  minimum-jerk paths to places in the body frame at a time (`HandGoal`), solved for the
-  shoulder, the elbow and the wrist and fed forward to the servo. One place puts a point there;
-  two put two points of the one body, which lays the line between them (`solveReach`: three
-  rows, or five). A path may run on past its place (`through`), and a goal given again with
-  other places may be the same path, its end moved (`follows`). The body frame is the root's
-  (`BodyView.root`), which a skill turns a world point into (`intoFrameToRef`).
-- **The bearing solve** (`bearing.ts`) is a body borne on the ground through limbs, and knows no
-  foot; the stand-up's stages and the supported motor stand on it. A limb (`Limb`) is the chain of freedoms from the root to a segment, with a task at a
-  point of that segment: to bear there on a patch of the ground, or to move free. `carryRoot`
-  asks the root's rows for the wrench its caller's aim needs (the centre of mass's acceleration
-  and the root's spin's), shares it among the bearing patches within friction, no pull and the
-  centre of pressure on the patch (`shareGroundWrench`, `contact-wrench.ts`), and asks the root
-  for less where the patches fall short; the servo solves the rest of the body around that root;
-  `bearLimbs` gives each driven limb its inverse dynamics minus the ground's force at its point,
-  a free limb solved within its strength (`boundedLeastSquares`). What the patches miss it
-  leaves in its caller's record and asks the assist for: the root is asked for what the patches
-  and the assist give together. A task may ask only some rows of its point's motion, and a
-  freedom may be asked ahead of the task or toward a posture beneath it (`Limb.work`). A patch
-  is a sole or a point (`Patch`), and may be given a part of the load (`LimbWork.share`). A
-  limb may hang from a stem (`Limb.stem`): the freedoms between the root and its chain, which
-  limbs may share and the servo moves (the trunk's, under both arms). The limb's task takes
-  their motion as known, and their torques are the solve's, less each bearing limb's share of
-  the ground's wrench.
-- **The whole-body solve** (`solve.ts`) is the bearing solve and the servo's in one weighted
-  least-squares problem over the root's acceleration and the freedoms a limb moves or a push
-  holds: the root's aims, each limb's point's motion and the freedoms asked ahead of it, and a
-  pushed freedom's torque are its rows; every other freedom moves as the servo's posture asks it.
-  The wrench the motion found asks of the ground is shared among the bearing patches
-  (`shareGroundWrench`), the shortfall asked of the assist, and the root held to what the two give;
-  a torque past its strength is pinned there and the body solved again, up to four passes. Its
-  rows rank as the bearing solve ranks them (the root and a torque held exactly, a foot by least
-  squares beneath), but for the root's spin, which a root held to the ground's wrench keeps beneath
-  its rows. Every body's motor control stands on it: the stance gives it its asks
-  (`StanceControl.ask`), and a command may drive an effector's point at an acceleration, a spin or
-  both beside them
-  (`PointTask`, `BodyCommand.points`): the effector's chain is a limb that does not bear, its stem
-  moved as the posture moves it, its other freedoms drawn toward the posture's asks
-  (`LimbWork.toward`) beneath the point's rows, and a torque past its strength pinned, so a
-  point asked more than the body can give gets what the muscles give: the chain's torques past
-  strength are pinned before the ground is asked for the motion. A combination executor's straight
-  drives may drive the fist so (`StraightPunch.driven`, a setting of the executor in a fighter's or
-  an options fighter's slot); its default pushes the
-  arm's joints. A hold is a spin so asked: `holdUp` (`src/core/skills/hold.ts`) turns a free hand's
-  item's line up, the guard's choice (`tuning.hold` of its guard part).
-- **Which motor control a body runs is a part** of role `motor` (`MOTOR_PARTS`, `motorOf`,
-  `src/core/control/motors.ts`), named by its body's options (`BodyOptions.motor`) and, in a
-  fighter's or an options fighter's config, by its `motor` slot; a body that names none runs the
-  whole-body solve (`motorControl`), the one kind there is. Another kind is a maker of the same
-  shape and a line in each.
-- **The stance** (`stance.ts`; its records in `stance-state.ts`, its steps in `gait.ts`, its
-  soles in `support.ts`, its constants in `stance-tuning.ts`) is the standing plan, and the
-  solve's first user: it keeps the body up by the forces the ground can really give. It plans
-  the centre of mass inside the support and each foot's task, and says each leg's part of the
-  solve (`aimLimb`): the point of its sole, the sole as a patch, a knee past straight asked back
-  to its bend, a rolled foot left free to turn about its front edge. The solve's limbs are the
-  stance's legs and its records the stance's own state; what the soles miss is published
-  (`StanceReading.shortfall`), and the plan goes on from what the ground gave of its ask
-  (`plan.missed`), not from the ask. A bearing sole's wrench loads its ankle no more than a share
-  of its strength (`ANKLE_HOLD`, `BearingSole.hold`), and the stance plans within the regions each
-  ankle so holds of its sole (`FootState.hold`, `heldBy`): the whole sole ahead of the ankle, a few
-  centimetres behind it. A sole whose one end is over the ground bears on the other alone
-  (`standingOn`, `DOWN`). Steps (to recover, to walk, to shift weight) are placed from the
-  capture point, re-aimed as they swing (`ownStep`, `aimRecovery`), and land facing the heading only as far as the bearing foot's hip lets the pelvis
-  turn over it (`landingHeading`, `support.ts`): a faster turn is taken step by step. A push
-  that carries the capture point out of the soles and away from the bearing one during a weight
-  shift is caught by a recovery step, ahead of any step the goal asks (`catchStep`). A goal's step
-  that follows the one under way, of the same foot, re-aims it as it swings (`SwingGoal.follows`),
-  and may hold the foot to its path more tightly than the stance's own steps (`SwingGoal.settle`).
-  A step that flies (`SwingGoal.flight`) has its bearing leg bounce the centre of mass as a
-  spring-mass leg does and leave the ground at the speed asked; in its flight (`"flight"`) no
-  limb bears, the root is left to gravity (the solve gives the wrench no contact makes),
-  and the trailing foot is carried with the body until the swinging one lands.
-  `stanceEnvelope` (`stance-envelope.ts`) reads what each body was measured to
-  hold on parent-axis Rapier under its character's balance allowance
-  (`assets/core/stance-envelope.json`), and `strideEnvelope`, `simbiconEnvelope` and
-  `simbiconRunEnvelope` the same, walking by the stride (`assets/core/stride-envelope.json`) and by
-  the SIMBICON walk told it may not run (`assets/core/simbicon-envelope.json`) and free to run
-  (`assets/core/simbicon-run-envelope.json`). An asset reads each body over everything a fight puts in
-  its right hand, and may read each thing held apart (`holds`), which a body holding it reads
-  (`heldBy`, `held.ts`); the SIMBICON walk's do, and keep each way's trials (`StanceEnvelope.tried`),
-  so that a caller that would go faster than the rule holds asks the fastest pace that held a share of
-  its tries (`paceToward`). Unassisted coordinate-engine turns have a separate
-  [combat calibration](reference/combat-locomotion.md); the reference table alone does not
-  establish that gameplay capability.
-- **The assist** (`assist.ts`) is a force and a moment on the root that no muscle gives: an ask
-  shortened to a ceiling in the body's own weight, given through the solver step, and metered. Its
-  ceiling is given with the body from the character's balance, and none unless given
-  ([reference/assist.md](reference/assist.md)).
+  its goal and solves the torques through the body's dynamics, clipped at strength.
+- **Effector goals** (`motor.ts`, `kinematics.ts`): named points of an effector's rigid body
+  (knuckles, a point of what it holds: `rigidPoints`, `src/core/build/rigid.ts`) follow
+  minimum-jerk paths to places in the body frame (`EffectorGoal`). One place puts a point there; two
+  lay a line (`solveReach`); `EffectorGoal.orientation` aims a face. A path may
+  run past its place (`through`) or be the same path with its end moved (`follows`). The body frame
+  is the root's (`BodyView.root`; `intoFrameToRef` turns a world point into it).
+- **The bearing solve** (`bearing.ts`) carries a body on the ground through limbs (`Limb`: a chain
+  from the root to a segment, bearing on a `Patch` or free). `carryRoot` asks the wrench the
+  caller's aim needs, `shareGroundWrench` (`contact-wrench.ts`) shares it among the patches within
+  friction and centre of pressure, `bearLimbs` gives each limb its inverse dynamics, and what the
+  patches miss is asked of the assist. Limbs may share a stem (`Limb.stem`).
+- **The whole-body solve** (`solve.ts`) is the bearing solve and the servo in one weighted
+  least-squares problem: root aims and pushed torques exact, feet beneath, posture last; a torque
+  past strength is pinned and the body solved again. A command may drive an effector point at an
+  acceleration or spin (`PointTask`, `BodyCommand.points`); `holdUp` (`src/core/skills/hold.ts`)
+  is such a spin.
+- **The motor is a part** of role `motor` (`MOTOR_PARTS`, `motorOf`, `src/core/control/motors.ts`),
+  named by `BodyOptions.motor` or a fighter's `motor` slot; the default is the whole-body solve
+  (`motorControl`). Another kind is a maker of the same shape and a line in each list.
+- **The stance** (`stance.ts`; records `stance-state.ts`, steps `gait.ts`, soles `support.ts`,
+  constants `stance-tuning.ts`) is the standing plan and the solve's first user
+  (`StanceControl.ask`). It keeps the centre of mass inside the support by forces the ground can
+  give, plans each leg (`aimLimb`), publishes what the soles missed (`StanceReading.shortfall`),
+  limits each ankle's load (`ANKLE_HOLD`), places steps from the capture point (`catchStep`,
+  `landingHeading`) and flies a step on request (`SwingGoal.flight`).
+- **Envelopes** (`stance-envelope.ts`: `stanceEnvelope`, `strideEnvelope`, `simbiconEnvelope`,
+  `simbiconRunEnvelope`) read what each body was measured to hold, per held item, from
+  `assets/core/*-envelope.json`; `paceToward` picks the fastest pace that held a share of its
+  trials.
+- **The assist** (`assist.ts`) is a force and moment on the root that no muscle gives: asked by the
+  mind (`Assist.ask`), shortened to a ceiling in the body's own weight, applied through the solver
+  step and metered. It gives nothing unless given a ceiling ([assist](reference/assist.md)).
 
 ### Skills
 
-A controller's skills turn an `Intent` into a `BodyCommand`. The continuous base is locomotion,
-guard and optional low support. Named executors perform discrete actions over it (`skillSet`,
-`src/core/skills/arbiter.ts`). Each request has a stable id, an action name, an effector and a
-sensed body/region target or an explicit research point. Admission reads executor readiness and
-reserves its declared resources before preparation begins. An executor moves through prepare,
-commit and release, ending once with a reason in the bounded ledger. It never closes distance by
-itself: tactics approach its entry window; preparation may make bounded local foot placement.
+A skill set turns an `Intent` into a `BodyCommand` (`skillSet`, `src/core/skills/arbiter.ts`). The
+continuous base is locomotion, guard and optional low support; named executors run discrete
+actions over it.
 
-Resources distinguish joints, effectors, hand pose, legs and support. Independent actions can
-overlap where their full reservations permit it. Active holders and future reservations are
-reported separately. The arbiter validates sparse claims, composes them against the same base,
-and releases every instance on host takeover or idling. Runtime memory is plain state, including
-request ids, lifecycle phases, ownership, observation cursors and terminal records.
+**The action contract.**
 
-Contacts are observed after physics from the surfaces admitted for each action. Intended hits,
-blocks and incidental contacts stay separate from physical damage; a torso collision cannot
-become a punch's hit. `Ended` records retain the exact request and ending, commitment and contact
-summary. Recent records expire at the capacity limit, with omitted history counted explicitly.
-Recipe, path, driven, whole-body, straight-punch and front-kick executors share this contract.
-Their actuator methods and their readiness/footprints remain their own.
+- A request has a stable id, an action name, an effector and a sensed body/region target (or an
+  explicit research point). Changing or withdrawing an order ends the request; a later attempt gets
+  a fresh id.
+- Admission reads the executor's readiness and reserves its declared resources (joints, effectors,
+  hand pose, legs, support) before preparation. Actions overlap where their reservations allow.
+- An executor moves through prepare, commit and release, and ends once with a reason in a bounded
+  ledger (`Ended`: the request, ending, commitment and contact summary; omitted history counted).
+- An executor never closes distance: tactics approach its entry window; preparation may place the
+  feet locally.
+- A mind may end a live action at once (`Intent.interrupt`, `Executor.interrupt`).
+- Contacts are observed after physics from each action's admitted surfaces. Intended hits, blocks
+  and incidental contacts are labels for tactics, never damage.
+- Every skill answers `Skill.resume` (`src/core/skills/skill.ts`) and is in the one list its skill
+  set resumes; the arbiter releases every instance on host takeover or idling.
 
-- **Locomotion** (`locomotion.ts`) walks at no more than the body's measured fastest walk, turns
-  only while walking and no faster than its envelope and optional `turnLimit` allow, and can
-  set the feet at a chosen place (`Locomotion.place`).
-- **Stride** (`stride.ts`, "Stride", experimental) is a locomotion skill that plans its own
-  steps and hands the stance one at a time (`StanceGoal.swing`), never its own walk: each landing
-  and the capture point it is to catch are a steady capture-point walk's, re-aimed every control
-  step from the measured capture point, and a swing whose landing would be past the longest step
-  is shortened to one that is not, and one farther behind the centre of mass than the hip
-  reaches back is drawn in. Its swinging foot is held to its path more tightly than the stance's
-  own steps (`SwingGoal.settle`): a step that lands short leaves the capture point ahead of the
-  next, and the walk runs away. A walk ends with steps that bring the capture point between the
-  feet. Its locomotion carries its own envelope (`Locomotion.envelope`), the stance's own walk's
-  being no measure of it. It drives the trailing ankle through the double support (`push`,
-  `SwingGoal.push`), swings each arm out of the guard with the other side's leg (`arms`,
-  `Locomotion.arms`), which the arbiter lays over the guard's posture for the arms no blow, cover
-  or kick holds, ramps its swing's acceleration in place of minimum jerk (`ramp`,
-  `SwingGoal.ramp`), and asks a capture point ahead of the steady walk's while it walks slower
-  than asked (`drive`). Its defaults are the best of a search over its settings
-  (`research/locomotion-search.mjs`), a short double support and a swing of 0.28 s among them.
-  Off by default, it may take a person's step time forward (`paced`, `personStep` in
-  `src/core/human/gait.ts`), end each swing as its sole meets the ground (`lands`,
-  `SwingGoal.lands`), lengthen a swing whose landing falls short (`lengthen`), give the push-off
-  as a torque of the ankle that lifts next (`launch`, `lead`, `SwingGoal.launch`), swing from the
-  sole's velocity as it lifts (`momentum`), and weigh a swing's missed moment at its own lever
-  (`lever`, `SwingGoal.lever`).
-- **Run** (`run.ts`, "Run", experimental) is a locomotion skill whose steps fly: each foot bears
-  for `contact` and throws the body up at `flight`, and the other lands where a hopping machine
-  places it (Raibert 1986), re-aimed until it lands, the capture point asked where a steady run's
-  is as the foot lands (as the stride asks a steady walk's), which is what carries it forward. Its
-  arms swing against each other with the legs (`armSwing`, `arm-swing.ts`, which the stride's
-  arms share). On the spot it runs on its feet; forward it holds at about 1 m/s whatever pace is
-  asked. Each step the pelvis yaws some 0.8 rad, the swing's yaw beyond what the bearing sole's
-  twist can give at the ground's friction, and the bearing hip turns to its stop; a foot landed
-  behind its neutral point, to speed up, falls within seconds.
-- **The walk and run** (`walk-run.ts`, "Walk and run") walks by the stance's own walk and runs by
-  SIMBICON's run cycle (`runCycle`, below), with its own settings (`WALK_RUN_CYCLE`, searched on
-  its own handover by `research/run-cycle-search.mjs`). Asked past `run` (0.86 m/s for the
-  Warrior, scaled to the body's leg) a way within 60° of the face asked (`RUN_WAY`) and told it may
-  run (`Locomotion.runs`), the walk turns the body to face that way and goes it at what its legs and
-  envelope hold, and once the pelvis faces it within 0.15 rad and the body has come up to that pace,
-  or the walk asked has stood past it 2 s, the run takes over as the stance's swinging sole lands,
-  from that foot, at the pace the body goes (`RUN_SWITCH`): the run goes where its pelvis faces, and
-  a run handed a body moving across its heading falls. A run landing (the other sole than the last
-  to land: a sole down again before it is a bounce in its stance), its second or later, gives the
-  legs back to the stance's walk once the pace asked has come down 0.2 under `run`, or the way asked
-  has gone round past `RUN_WAY`, or it is told it may not run, and the body has slowed to `run`;
-  told it may not run, the run brakes at its `brake` until then. Running, it goes the way asked,
-  turning by its heading (`turn`, `swerve`, `turnRate`); asked to stand, it brakes along its
-  heading as it is, and past a right angle from the way asked it brakes and the walk turns the body round. The stance
-  takes the body up as it is, moving (`Locomotion.resume`). Its envelope is the stance's walk's
-  (`Body.envelope`), and SIMBICON's run's (`simbiconRunEnvelope`) while it may run; its settings
-  and the run's are scaled to the body's leg and quickened by its haste as SIMBICON's are.
-- **The walk and learned run** (`learned-run.ts`, "Walk and learned run", experimental) is the walk
-  and run whose run a trained policy steers (`RunSteer`: the swing's and the stance's joints, lean,
-  bank, cadence, pace and effort), read from the bearing leg with its side mirrored away so one
-  policy runs on either foot. Its policies
-  are assets by name (`RUN_POLICIES`, `assets/core/learned-run.json`, which names the run that
-  made it and how its gait was timed to its haste there, `RunPolicy.hasted`, which its config
-  takes by default); with none it is the walk and run.
-- **SIMBICON** (`simbicon.ts`, "SIMBICON walk") is offered beside the walk and run. It is a locomotion skill that drives the
-  legs itself (`Locomotion.drive`, `LegsDrive`): no stance goal, every leg freedom pushed
-  (`MusclePush.speed`) toward its state's angle at its error over `settle`, at up to a share of its
-  strength, the paper's PD with its damping held by the solver (Yin, Loken and van de Panne 2007).
-  Each stance has two states, the second ending as the swinging sole meets the ground
-  (`StanceReading.touching`) or at `longest`. The swinging thigh's lean is set in the world; late in
-  the swing, and out to its side throughout, it reaches toward where the inverted pendulum would
-  bring the centre of mass to rest over the sole (Coros, Beaudoin and van de Panne 2010), short of
-  it by the walk asked times `lead`. These replace the paper's late-swing feedback on distance,
-  which lifted the thigh to 1.57 rad when the foot did not land. The stance ankle gives, raised as
-  the body is slower than asked. The stance hip is driven at the speeds that turn the pelvis upright
-  and to the heading in the world. The stance leg's servo, the velocity form of Coros's virtual
-  force on the centre of mass, drives the stance leg besides at the speeds that carry the centre of
-  mass over the planted foot by the stride's error from the walk asked (`vf`, `vfSide`, at most
-  `vfMost`); the landing's trims (`trim`, `trimSide`) land the swinging sole shorter while the walk
-  is slower than asked, learnt only while the walk asked holds steady (`TRIM_STEADY`). The forward
-  walk's settings use the servo and a small forward trim; the side and back ways' use neither. The
-  walk sets off from the stance's stand with the weight shifted onto the first stance foot (the
-  trailing one when the walk asked goes to a side) until its capture point comes near that foot or
-  stops closing on it (`SHIFT`), and stops by
-  bringing the walk asked to rest and giving the legs back to the stance as a foot lands with the
-  body slow. It sets off the way the body faces, and while the way asked is more than 0.35 rad
-  from its heading it steps where it stands as the heading turns; under way it walks on through a
-  bend of up to a right angle, turning as it goes, and past that it brakes to 0.3 m/s before it
-  turns round (`SET_OFF`, `TURN_ROUND`). Asked faster than `run` (1.31 m/s) it walks at 1.31, the whole walk asked scaled down.
-  Once the body has come up to it, or, for a body whose walk makes less, once the walk has been
-  asked 1.31 for 1 s (`RUN_SWITCH`), it runs from the next landing by a person's run cycle
-  (`runCycle`, `cycle-run.ts`), its phase begun at the sole that landed and its pace at the body's, the pace then coming to the one
-  asked, which changes at each way's own rates (`speedup`, `slowdown`: forward, 1.16 m/s² faster and
-  0.47 slower), at no more than 1.08 m/s² faster and 1.34 slower (`accel`, `brake`), and never more
-  than 0.46 m/s past the body's own speed along its heading (`ahead`): a cycle quickened past what
-  the body has come up to throws it forward of its feet.
-  Each leg's hip, knee and ankle track a CMU clip's cycle as a Fourier series in the leg's own phase
-  (`assets/core/run-cycle.json`, written by `research/run-cycle.mjs`), blended by the pace between
-  the two of three clips that bracket it, a jog of 2.75 m/s and runs of 3.94 and 4.38 (taken to the
-  body's leg by Froude), the swing grown and the
-  cycle quickened past `gainsFrom`; a sole landing near its own phase's end sets the phase, and one
-  late holds it a while. The bearing hip turns the pelvis upright, leaning toward the heading; the
-  swinging thigh's reference is set in the world, with the pace's feedback late in its swing;
-  across the heading the swinging sole lands by Raibert's hopping rule; the arms swing against the
-  legs at the sides, elbows bent, whatever the guard (`RUN_ARMS`), and the walk a run gives way to
-  holds them so, unswung, until it stands, its stride measured from the run's landings. It flies between steps. It goes straight ahead, turning
-  only by its heading, and walks again from a landing, its second or later, once the pace asked has come down 0.2 under
-  1.31 and the body has slowed to 1.31: the walk given a body just come down from the run's first flight
-  tips over its stance foot before the swinging one lands. Told it may not run (`Locomotion.runs`, `SimbiconConfig.runs`), it walks no faster
-  than 1.31, and a run under way walks again from a landing once the walk asked has come down to 1.31. Its
-  envelope is the walk's (`simbiconEnvelope`), or the run's (`simbiconRunEnvelope`) while it may run, and a
-  walk asked faster than the body held that way in a fifth of its trials (`REACH`) is taken at that:
-  what a pace risks is the mind's to weigh. Each step it drives the legs it asks the body's assist
-  (`gaitAssist`, `gait-assist.ts`) for the moment that turns the pelvis to the gait's own, as the
-  walk or the run's stance hip holds it, less any that would lean it further forward: a body with
-  balance is righted, never carried. A body's haste (`AttributeSpec.haste`) quickens its legs'
-  muscles and leaves the gait's timing as it is (`SimbiconSettings.hasted`, 0: its times and its
-  envelope go as the haste to that power). Low support folds the stance, so a fighter does not
-  offer it beside this walk. An admitted kick reserves the legs, stops the gait and establishes
-  quiet support in bounded preparation (`skillSet`, `arbiter.ts`). A push whose level or speed is not
-  a number is refused (`obey`, `body.ts`): Rapier disables the island of a body given one, which
-  then hangs in the air.
-- **Move** (`move.ts`, "Move") walks by one of the gaits (`GAITS`, `gaits.ts`: Braced, the walk
-  and run told it may not run, which is the stance's walk; Run, the same free to run; SIMBICON walk
-  and SIMBICON run, the SIMBICON walk told it may not run and free to, offered beside them; the
-  stride, experimental), each a controller with its
-  searched settings and none of them a person's to tune: the gait of the first of its rules that
-  holds, or its `otherwise`. A rule (`MoveRuleConfig`) holds while the body is asked to stand, or
-  while a distance is under or over so many metres: the nearest standing foe's, or the
-  destination's, how far navigation reports the walk has left to go (`Intent.destination`),
-  infinitely far where there is none. A distance's rule lets go of the gait
-  it chose only half a metre past it. Move changes gait only between steps, a gait that drives the
-  legs asked to stand first and changed from once it has given them back; resumes the gait it
-  changes to from the body as it is, and gives tactics the envelope of the gait it walks by. Two
-  gaits of one walk (`MoveGait`), as Braced and Run are, change at once, the walk told whether it may
-  run. Classic and the options fighter get about by `MOVE` (`CLASSIC`): braced while it stands or a
-  standing foe is within 5 m, and otherwise by Run, which runs only where the pace asked is past
-  its walk's: whether a body runs is its tactics' or its orders' choice of pace. An Arena bout
-  opens at 4 m, so it fights from its first step. Ordered a way only, as tactics closing on a foe
-  order it, a body walks at the walk that holds every way; ordered to run (`Orders.run`, Shift
-  in the Arena), it asks the fastest forward that held 0.6 of its trials (`RUN`). Explicit facing
-  remains authoritative and limits sideways or backward travel (`orderedIntent`, `ordered.ts`). A kick and the support fold
-  wait for a gait that drives the legs to give them back to the stance, and while the fold is
-  under way a walk asked waits for it to rise (`skillSet`).
-- **Strike** (`strike.ts`, `strikes.ts`) carries out a hand's attack by one of two blows. A
-  searched recipe is a chamber pose and timed muscle pushes (`Strike`) for a body, a thing held
-  and a height band (`BANDS`: high, where a foe of its own build has its head; middle, its
-  upper trunk), for the right hand, in `assets/core/strikes.json` (`REPERTOIRE`, written by
-  `research/core-strike-repertoire.mjs` from the searches). A search scores a blow by the rule a
-  fight wounds by: the hit points it takes from a target body of the band's part, less those it
-  costs the body that throws it, standing afterwards whether it lands or misses
-  (`research/core-blow.mjs`). A recipe is thrown from guard at its place (`Recipe.place`:
-  ahead of the head, and above it), lands over a measured window about it (`Recipe.window`:
-  along the heading, across it, and up; `research/core-strike-window.mjs`), and says what it
-  nets there (`Recipe.net`). A cell's recipe is the one of its searches' that nets most among
-  those that net more than a placed blow at the same target and have a window the feet can be
-  set to; a cell with none has no recipe
-  ([reference/human-and-strikes.md](reference/human-and-strikes.md#windows)). A placed blow
-  (`PLACED`) is a hand goal: the point the hand strikes with (`aimOf`: its knuckles, or what
-  its item says, the club's swell) carried through the target, which it follows in the body
-  frame each step. A recipe is its body's own, and no other body throws it
-  ([reference/blows.md](reference/blows.md#another-bodys-recipe)). Of its body's recipes for
-  what the hand holds (`recipesFor`: the left hand's mirrored) the skill chooses the one whose
-  window holds the target's height over the head, the nearest its place where two do
-  (`recipeAt`), and a placed blow where none does. Shared tactics approach its entry window; the
-  executor makes bounded local foot placement, stands `STAND` seconds, and chooses again as it
-  stands, once for a point attacked and keeping a recipe whose window still holds the target
-  (`holdsAt`), and throws. From the commit to the end of its pushes a
-  recipe turns the stance's heading by as much as its target's bearing has turned, read from
-  where the feet stood at the commit, up to `STEER`, so a target that moves across under the
-  blow stays where its window had it ([reference/blows.md](reference/blows.md#steered)). It
-  exposes recipe estimates through its registered action descriptions.
-  While a strike runs it owns the legs and trunk, and the other hand guards.
-- **Blade actions** (`blade.ts`, `blade-part.ts`) select a held item's directed edge or point
-  region, with a same-named physical aiming point and a second named point behind it along the
-  region's direction. They share `effectorStrike`'s preparation, committed stroke, verified
-  return, cancellation and interruption. A cut turns the blade's plane into its contact
-  direction; a thrust uses the two points to aim inside its contact cone while leaving roll
-  free. Both request a short follow-through and release the legs and trunk during return.
-  Path executors admit bare hands and aimed blunt items; the recipe strike admits those and any
-  item its body has a recipe for, so a sword is also swung by its searched recipe, whose edge
-  cuts where the rules find it square to the surface it meets (`research/blade-task.mjs` reads
-  it). The default recipe and options assemblies include both blade actions, filtered to the
-  hands whose equipment supports them. `shortSword` (`src/core/items/sword.ts`) supplies the
-  first such item; its numbers are in [reference/arena-items.md](reference/arena-items.md).
-- **Guard** (`guard.ts`) is a skill in the one list, and has the hands the strike has not. Its
-  pose is the arms' posture when nothing else owns them (`guardPosture`): `GUARD`, with a hand
-  that holds an item turned at the wrist so that the item stands as near upright as the wrist's
-  range allows, since out of a fist held as `GUARD` holds it a haft leans back onto the head.
-  A guarding hand told what to cover (`Cover`: where the threat is, and the place of its own body
-  kept from it) is given a
-  hand goal that follows the two (`GUARD_COVER`): an empty hand's knuckles go between them,
-  `out` from the place guarded; an item that names two points to cover with (`ItemSpec.cover`,
-  the club's swell) has their middle there and their line square to the threat's, the way
-  nearest how it lies. There is no block and no parry: a club across a blow's line, a hand before
-  the face and a shield raised are this one skill placing different points, and what a cover
-  costs is the blows' rule's.
-Action selection belongs to shared tactics, not an executor wrapper. Ranked or rotating actions
-and conditional rules choose among the configured named actions. A live request keeps its id;
-changing or withdrawing an order ends the old request and a later attempt gets a fresh id.
+**Locomotion skills** (`Locomotion`):
+
+| Skill | File | What it is |
+|---|---|---|
+| Locomotion | `locomotion.ts` | the stance's own walk within its envelope; places feet (`Locomotion.place`) |
+| Walk and run | `walk-run.ts` | the stance's walk, handing over to SIMBICON's run cycle (`runCycle`, `WALK_RUN_CYCLE`) when asked past its walk and allowed (`Locomotion.runs`) |
+| SIMBICON walk | `simbicon.ts` | drives the legs itself (`Locomotion.drive`) by Yin, Loken and van de Panne 2007, running by `runCycle` (`cycle-run.ts`, CMU clips in `assets/core/run-cycle.json`) |
+| Walk and learned run | `learned-run.ts` | the walk and run steered by a trained policy (`RUN_POLICIES`, `assets/core/learned-run.json`); experimental |
+| Stride | `stride.ts` | plans its own capture-point steps; experimental |
+| Run | `run.ts` | Raibert-placed flying steps; experimental |
+| Move | `move.ts` | chooses among the gaits (`GAITS`, `gaits.ts`) by rules (`MoveRuleConfig`) on standing and distance; Classic's is `MOVE` |
+
+A gait that drives the legs asks the assist only to right the pelvis (`gaitAssist`,
+`skills/gait-assist.ts`). A push whose level or speed is not a number is refused (`obey`, `body.ts`).
+The gaits' measured speeds are in [locomotion](reference/locomotion.md).
+
+**Combat skills:**
+
+- **Strike** (`strike.ts`, `strikes.ts`): a searched recipe (a chamber pose and timed pushes, per
+  body, item and height band, `BANDS`) from `assets/core/strikes.json` (`REPERTOIRE`), chosen by
+  whose window holds the target (`recipesFor`, `recipeAt`, `holdsAt`), or a placed blow (`PLACED`)
+  where none does. A recipe is its body's own ([blows](reference/blows.md#another-bodys-recipe));
+  it steers by the target's bearing up to `STEER` ([steered](reference/blows.md#steered)). How
+  recipes are searched: [human and strikes](reference/human-and-strikes.md#windows).
+- **Effector strikes** (`strike-cycle.ts`, `effector-strike.ts`): one measured cycle (prepare,
+  stroke, bounded contact, verified return) for each hand of the path executor (`pathExecutor`)
+  and each foot of the kick (`kick.ts`, which adds support transfer). A bare
+  hand closes for its blow and strikes with the fist's point (`closesToStrike`, `aimOf`).
+- **Blade actions** (`blade.ts`, `blade-part.ts`): `blade-cut` and `blade-thrust` aim a held item's
+  directed edge or point region on the same cycle. `shortSword` (`src/core/items/sword.ts`) is the
+  first such item.
+- **Guard** (`guard.ts`) has the hands no action holds. Its pose is `GUARD` (`guardPosture`); a
+  hand told what to cover (`Cover`) places its knuckles, or an item's two cover points
+  (`ItemSpec.cover`), between the threat and the place guarded (`GUARD_COVER`). `shield-guard`
+  also orients a buckler's face; `cover-guard` is the line-cover alternative. There is no block or
+  parry: a cover is a placement, and what it costs is the blow rule's.
+- **Low support** folds the stance onto a planted base for low blows; a kick or fold waits for a
+  gait that drives the legs to give them back.
+
+Action selection belongs to tactics, not to an executor.
 
 ### Minds
 
-A `Mind` (`src/core/mind/mind.ts`) is `step(senses, dt)`: a stateful function from what its body
-senses to what its muscles are asked. `embody(built, world, make)` makes it with its own body
-(`OwnBody`: the spec, the built segments and joints, the muscles, the assist) and steps it before every solver
-step, after the muscles have read the joints. It reads its `Senses` (`senses.ts`) and
-that body, and writes each freedom's activation and the speed asked of it
-(`MuscleDriver.activation`, `.velocity`): a speed beyond the muscles' reach is a torque at the
-ceiling the activation sets, and a speed of zero holds. It may also ask its assist for a force
-and a moment on the root (`Assist.ask`), which gives none unless it was given a ceiling. That
-command and that ask are the whole of what a mind does to the world; camera state never reaches one. The seam names no hand and no foot, so a body of
-another shape takes a mind through the same call. `tests/core-boundary.test.mjs` holds that
-nothing else under `src/` drives muscles. What a mind remembers from step to step is its `state`
-(`Mind.state`; a tactics', `Tactics.state`), saved and loaded with its body's ([State](#state)).
+**The seam.** A `Mind` (`src/core/mind/mind.ts`) is `step(senses, dt)`: a stateful function from
+what its body senses to what its muscles are asked. `embody(built, world, make)` makes it with its
+own body (`OwnBody`: spec, segments, joints, muscles, assist) and steps it before every solver
+step, after the muscles read the joints.
 
-`Senses` are the clock, the body's side, whether it is out of the fight, and every other body the
-senses carry (`BodySense`): its side, its spec with what it holds, whether it is out, whether it
-is down by its own body's rule (what anyone who sees it lying sees), its centre
-of mass and that centre's velocity, and each segment's pose, centre, velocity and spin. Not its hit
-points, and nothing of its mind. A fight owns one sensing layer (`createSenses`), which reads every
-body it carries in the step's sensing phase (`World.sense`), before any mind steps, so every mind
-in a step sees the same moment; it shows each body to the others a whole number of steps late,
-none unless given (`DuelRecipe.senseDelay`). A body alone senses the clock (`clockSenses`). Under
-the command layers the senses are in the view (`BodyView.senses`).
+- It writes each freedom's activation and speed (`MuscleDriver.activation`, `.velocity`): a speed
+  beyond reach is a torque at the ceiling; zero holds.
+- It may ask its assist for a force and moment (`Assist.ask`), and request grips only through an
+  explicitly granted port (`mind/equipment-port.ts`), which changes no pose and must pass
+  geometric capture.
+- That is all a mind does to the world. Camera state never reaches it; nothing else under `src/`
+  drives muscles. Its memory is its `state` (`Mind.state`), saved with its body ([State](#state)).
 
-The quadruped uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. Its
-`Tactics<Sight, Intent>` reads sensed collider surfaces near the mouth and supplies approach,
-facing and bite intent. `Skill<View>` gives every skill the same resume contract without requiring
-a humanoid view. Trot, crawl, bite and righting keep all changing data under the body's state.
-The shared `effectorTracker` drives declared physical points through bounded IK; `supportedMotor`
-uses named support chains and the floating-base bearing solve. Four paw contacts carry the reptile,
-with no balance assist. Shared upstream freedoms form a stem instead of being owned twice.
-A trot alternates diagonal support pairs, waits for the actual trunk heading before accelerating,
-drives continuous COM travel and brakes before close contact. A crawl shifts the centre into the other three contacts before one paw lifts; its
-placements use the body's reference footprint around the actual COM. Both count only measured
-lift followed by a positive fixed-ground impulse. Gaits switch after the active placement lands;
-close fighting retains the crawl until the opponent is clear. After recovery or hold/resume,
-each paw is placed and the actual heading is aligned before quiet four-sole support admits another
-trot. A pending bite retains its sensed material point while an active paw placement
-finishes and pauses further locomotion, with a finite placement deadline. Each tooth
-searches its closing arc for the first exposed collider surface with a valid
-piercing normal. Primary shapes and natural contact regions both obstruct the path. Preparation
-retains the opponent's material point, predicts its motion from sensed velocity and spin,
-finishes the current paw placement and requires four loaded paws. Close crawling retains
-standing height for jaw clearance. A supported centre shift and the neck place the mouth;
-the snap retains the measured neck pose, freezes the world aim and can continue with three loaded paws. The shared strike
-cycle bounds admitted contact by time and tooth travel. Withdrawal opens
-the jaw before retracting a loaded neck; persistent contact after the opening and
-release interval requests backward paw placement. It verifies physical release
-before another bite. Generic pointed-contact load wounds the opposing body; ordinary impacts
-retain their compliance shares and recoil injury. Recovery
-supplies grounded joint torques, routes paws clear of the trunk and verifies quiet four-paw support
-before the host resumes.
-Blocked placements try the other end of the trunk; broad combat recovery remains unqualified.
+**Senses** (`Senses`, `senses.ts`): the clock, the body's side, whether it is out, and every other
+body (`BodySense`): side, spec with what it holds, out, down by its spec's rule, centre of mass and
+its velocity, each segment's pose and motion. Never hit points or another mind. A fight's one
+sensing layer (`createSenses`) reads every body in the step's sensing phase, before any mind, so
+all minds see one moment, each body shown `DuelRecipe.senseDelay` steps late. A lone body senses
+the clock (`clockSenses`).
 
-The default fighter uses `commandMind` (`src/core/body.ts`): motor control under a driver
-that hands it goals, with skills carrying out what tactics decide. `Minded.body` is the common
-`PhysicalBody` lifecycle (`physical-body.ts`), which requires no stance, envelope, skill or
-recovery controller. Its `physical` reading is sampled before physics at each full control-step
-boundary and saved with the body; below full it retains that last sample. Game positioning reads it; the fighter's predicted supports
-and readiness stay in its own `BodyView`. When a body is down is its spec's rule (`BodySpec.down`,
-read by `uprightness`), read from the body alone whatever its mind asks: a human when a part but
-its feet and hands is at the ground (`fallen`), the reptile by its trunk's tilt and its height. A
-mind may read its own body by its own bar: the fighter's view reads a human down by its height
-under the height its stance asks, so a crouch it asks is not a fall to it. A body answers
-`Body.down` (`physical.down`) as the fight's rule read it at the step's first look, before physics
-moves it, so a fight sees every body down at the same point in its step
-([reference/down-timing.md](reference/down-timing.md)), and no mind's report decides it.
+**Down.** When a body is down is its spec's rule (`BodySpec.down`, read by `uprightness`; a human
+when a part but its feet and hands is within 3 cm of its lowest point, `src/core/control/ground.ts`).
+`Body.down` is that rule at the step's first look, before physics, so a fight sees every body down
+at one point in its step ([down timing](reference/down-timing.md)); no mind's report decides it.
 
-Replacement policies use `createPolicyBody` (`mind/direct.ts`). They receive a frozen actuator
-description and detached, frozen `BodyObservation` snapshots (`observation.ts`), including joint
-angles/rates/speeds, delivered effort and bounds, segment motion, actual solver contacts and
-permitted external senses. `observe()` reads current physics even while the muscles are idle;
-it does not expose another controller's goals or memory. The builder and trusted legacy
-model-based controllers retain physical handles; a policy receives none of them.
+**Sub-minds** (`src/core/mind/sub-mind.ts`). A `SubMind` is a mind that says each step whether it
+wants the body (`wants`), and is told when it has it and no longer (`begin`, `end`); `holds` keeps
+a wanted body through a phase that cannot yield. `hosting(host, subs)` makes one mind of a
+`HostMind` and its sub-minds in rank order:
 
-Actions (`mind/actions.ts`) are whole arrays in declared channel order: activation plus velocity,
-or signed requested torque. Validation rejects malformed arrays before applying any channel.
-Torque requests are converted to one-way commands within the same muscle envelope; saturation
-does not raise strength. Action representations and the world's actuator law belong in experiment
-manifests. `DirectMindConfig` (`src/core/entrants/direct/mind.ts`) supplies explicit joint targets, time constant, maximum speed and
-activation to an independent joint-feedback policy. It shares the game's construction, level,
-disposal and replay paths, and has no fighter view. Its pinned reach/hold test is a replacement
-proof, not a standing or fighting claim. On the workshop hands' hulls the same independent
-policy holds no installed Warrior pose on ordinary ground for ten seconds within 2 cm without
-assistance: all fours drifts 2.3 cm, and half-kneel and squat fail further
-([posture hold](reference/posture-hold.md)).
-The posture task also exposes checked external actions, immutable actuator descriptions and
-the common environment interface. Its held command is replayable controller state; the physical
-fixture and scoring are independent of controller choice. An explicitly privileged
-[offline native-rollout controller](reference/native-posture-control.md) holds installed
-half-kneel within 5.59 mm at the default solver count. It searches candidate torque actions
-through snapshots and the normal world step; it is not installed in gameplay.
-`buildBody` accepts optional initial joint angles and a root quaternion, aligns joint anchors
-before creating physics, and preserves anatomical reference frames. Initialization belongs to
-the task; policies receive no authority to reposition a live body.
-The optional `supportEntry` policy (`control/support-entry.ts`) runs configured settling,
-rolling and preparation poses through that same detached observation/action host. Required
-and forbidden contacts are measured independently by `supportEntryReading`; stage completion
-is not task success. The [support-entry fixture](reference/support-entry.md) physically fells
-a Warrior, changes controller without changing the body, and scores acquisition followed by
-ten seconds of quiet support. Some development starts pass and some drift or acquire too late;
-this does not establish kneeling, standing or a gameplay handover.
+1. The host reads its body every step (`HostMind.look`), whoever drives; sub-minds read that view.
+2. The first sub-mind that wants the body steps in the host's place; otherwise the host acts (`act`).
+3. When a sub-mind takes it, the host gives up what it had asked (`HostMind.release`: goals,
+   pushes, stance, the step under way).
+4. When the body is its own again the host is told (`resume`) and the view says so
+   (`BodyView.resumed`): every skill resumes before the tactics decide (`driveBy`).
 
-**A mind may hand its body to a sub-mind** (`sub-mind.ts`). A `SubMind` is a mind that also says
-each step whether it wants the body (`wants`), and is told when it has it and when it has it no
-longer (`begin`, `end`). `hosting(host, subs)` makes one mind of a host and its sub-minds, in
-rank order. Each step the host reads its body (`HostMind.look`), so its view is of this step
-whoever drives, and a sub-mind reads that view too; then the first sub-mind that wants the body
-steps in the host's place, or the host acts (`act`). When a sub-mind takes the body the host
-gives up what it had asked (`release`: the command mind forgets its hand goals, its pushes and
-its stance, the step under way with it, so nothing it began goes on under another mind's hands
-and the view shows no stance asked). When the body is its own again it is told (`resume`), and
-the view says so for that step (`BodyView.resumed`): `driveBy` resumes every skill before the
-tactics decide (`Skills.resume`, each a `Skill`, told from one list), and the fighter's tactics
-aim afresh, so the body goes on from where it is and not from what it was in the middle of. Who
-has the body is one number in the mind's state, and `Body.has` names it. A hosted mind is made one
-way for every body (`hostedBody`, `hosted.ts`): its maker gives the host, its sub-minds in rank
-order and how the body reads whether it is down, and the body is embodied, hosted and handed to the
-fight as a `PhysicalBody`. The humanoid's command mind (`createBody`) and the quadruped's
-(`quadrupedMind`) are both made so.
+A sub-mind reads whether its body is down from its host's view (`BodyView.down`), never by a bar
+of its own. Who has the body is one number in state (`Body.has`, `"nobody"` while idle). A hand-over
+changes only state, so a load mid-hand-over calls none of these. `hostedBody` (`hosted.ts`) makes
+every hosted body one way; the humanoid's `commandMind` (`src/core/body.ts`) and the quadruped's
+`quadrupedMind` are both made so.
 
-A mind whose body leaves `full` is told (`Mind.idle`), and is not stepped until its body is at
-`full` again; it then goes on from the body as it is. Under `hosting` this is the hand-over to a
-sub-mind, made to nobody: the one that had the body ends, or the host is released, and `Body.has`
-reads `"nobody"`; the first step back is the one a sub-mind's end makes, the host resumed or the
-sub-mind that wants the body begun.
+**A mind is its config.** What a mind is made of is plain data tagged by kind (`MindConfig`,
+`config.ts`), sub-minds nested in it (`SubMindConfig`). `createMind(built, world, config, wiring)`
+(`minds.ts`) makes the mind and returns a `Minded`: the body and the mind's memory, which is all a
+fight reads. A fight passes the config through and reads nothing in it.
 
-What a mind is made of is its config, plain data tagged by kind (`MindConfig`, `config.ts`), its
-sub-minds nested configs in it (`SubMindConfig`), so a sub-mind is configured where it is chosen.
-`createMind(built, world, config, wiring)` (`minds.ts`) makes a body's mind from one, wired to
-its fight (its orders, its senses, its assist's ceiling), and gives back a `Minded`: the body and
-the mind's memory, which is all a fight reads. The mind's maker never has the world or the built
-body: it is given a host (`BodyHost`, `host.ts`), which holds the body's description, the world's
-clock (`Clock`, `src/core/clock.ts`) and the three ways to take the body, once: under the command
-layers (`command`, which gives back the body its drivers have, reading the built body through its
-read view), under a host mind of its own (`hosted`) or under a policy (`policy`). Each takes the
-fight's grants, its senses, its assist's ceiling and how it labels a contact, from the wiring, so
-no maker can widen them; the fight holds the body the mind took (`bodyHost`), and a test or a
-study makes one mind of its own the same way (`hostedMind`). The mind's folders, beside the
-adapters that make the report and carry out the order sheet, import no engine, world, builder or
-read-view maker (`tests/core-boundary.test.mjs`). No reader asks which kind a mind is: a mind
-that runs the game's skills gives them (`MindMade.skills`), whose report a screen or a test reads
-of what it is doing and what holds each part of the body; a screen that drives a fighter's tactics,
-the Lab, asks whether the config is a fighter's (`isFighter`). A fight enlists each of its bodies the one way (`enlist`,
-`src/core/combatant.ts`): built where it stands with what it holds, its pool under the fight's
-rules, carried by the fight's senses with whatever fixed geometry they are granted, and under the
-mind its config makes with the assist its balance gives. The Arena and the Crypt both do; the Lab
-drives a fighter through game orders in Attack or a scenario's script elsewhere.
+- The maker never has the world or the built body: it gets a host (`BodyHost`, `host.ts`) with the
+  body's description, the clock (`Clock`) and three ways to take the body, once: `command` (the
+  game's command layers), `hosted` (a host mind of its own) or `policy` (detached observations and
+  actions). The host applies the fight's grants (senses, assist ceiling, contact labels); no maker
+  can widen them.
+- A mind that runs the game's skills gives them (`MindMade.skills`) for reports; a screen that
+  drives a fighter's tactics asks `isFighter`.
+- A fight enlists every body one way (`enlist`, `src/core/combatant.ts`): built with what it holds,
+  its pool, the fight's senses and fixed geometry, and the mind its config makes.
+- The mind's folders (`mind`, `skills`, `control`, `reptile`, `entrants`) import no engine, world,
+  builder or read-view maker, beside the adapters `tests/core-boundary.test.mjs` names.
+- Controllers run synchronously inside `World.step`; frame timing never schedules them.
 
-The command layers, skills and motor control are reusable implementations above this boundary.
-A Mind can use some or all of them, or supply its own policy. Hand-written, searched and learned
-controllers use the same grants and physical limits. Current registered controllers run
-synchronously within `World.step`; a screen's rendering and wall-clock timing do not schedule
-their decisions. The source boundary prevents accidental coupling; controllers share a
-JavaScript realm within a bout and are not isolated from deliberate manipulation.
+**Controllers.** A kind of mind is a `Controller` (`controller.ts`), one line in `CONTROLLERS`
+(`controllers.ts`): its config keys (`keys`), the bodies it fits (`fits`), its presets (merged into
+`PRESETS`) and its maker (`create`). `MINDS` is what a person may pick: every preset, and each
+controller without presets by its defaults; pickers offer only minds that fit the side's body and
+loadout.
 
-**A kind of mind is a controller** (`Controller`, `controller.ts`), registered by a line in the
-one list (`CONTROLLERS`, `controllers.ts`), keyed by its defaults' kind, a kind twice or a kind a
-part below a mind has refused: it lists the keys its config may hold (`keys`), says which bodies it fits (`fits`), names
-its presets (`PRESETS` merges them, ids unique across controllers) and makes the mind
-(`create`). The minds a person may pick are `MINDS`: every preset, and each controller with none
-under its kind with its defaults; the Arena's picker, a link's `control=`, the Crypt, the match
-and the fingerprint read it, the pickers offering only the minds that fit a side's body and
-loadout. Each controller composes its own
-tactics and skills; what they share is shared code (the orders, the targets, the guard, the
-sub-minds, locomotion and the strike cycle), not a flag that chooses a stack. The registered
-kinds are the **fighter** (`createFighter`, `fighter.ts`), whose tactics and skills are parts in its slots;
-the **options fighter** (`createOptionsFighter`, `src/core/mind/options/`), every humanoid's own
-mind, whose skills and reflexes are parts in its slots; the **quadruped** (crawl and bite);
-**direct** joint control (`src/core/entrants/direct/`); and the **tempo** fighter
-(`src/core/entrants/tempo/`), which composes shared skills with its own rhythm tactics.
-A config read from a save or a link whose kind none has is refused
-(`partOf`), and so is a tree any part of which names a fault (`treeFaults`, which `createMind`
-reads). A part's config holds a player's fields, plain choices, and under `tuning` an
-experiment's settings, which never travel in a link. A key its part does not read, or a tuning it
-does not name (`Part.tuning`), is a fault, so a setting put in the wrong place is refused, never
-silently dropped. A controller's `keys` and, for the parts below a mind, `CONFIG_KEYS`
-(`src/core/mind/config-keys.ts`) enumerate the accepted keys independently of editor fields and
-default values. Their mapped types require every property of the config, including optional
-settings, and reject extra keys at compile time. Parts'
-fault predicates validate values; slots validate nested parts. Hiding an editor field does not
-remove that setting from saved configs, links or research overrides.
+| Kind | Maker | What it composes |
+|---|---|---|
+| fighter | `createFighter`, `fighter.ts` | tactics and skills as parts in slots (`FighterConfig`) |
+| options fighter | `createOptionsFighter`, `src/core/mind/options/` | a meta-controller over options, valued by worth |
+| quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
+| direct | `src/core/entrants/direct/` | joint feedback through the policy port |
+| tempo | `src/core/entrants/tempo/` | shared skills under rhythm tactics |
 
-**Adding a Mind** is a folder under `src/core/entrants/` and a line in `CONTROLLERS`; the
-joint-feedback Mind (`entrants/direct/mind.ts`) is the example. The folder holds the config's
-type, `{ kind, ... }` with a kind of its own, its defaults, its faults and its maker, written as
-one controller (`controller<C>({ ... })`). The maker takes its body once through the host: a
-policy (`host.policy`) reads the report (`BodyObservation`) and returns the order sheet
-(`BodyAction`: muscles, its assist's ask, grips and hand poses); `host.command` and `host.hosted`
-build on the game's command layers or on a host and sub-minds of its own. It returns its memory
-(`state`), which a fight saves and loads with the body, and its skills if it runs the game's. It
-may use any of the toolkit (`src/core/mind/`, `skills/`, `control/`) and imports no engine, world
-or builder. Once registered it is offered (`MINDS`) by its presets, or by its kind if it has none, and by its fields, and
-`tests/mind-contract.test.mjs` runs it on the first body it fits against itself, forks it and
-replays it from its order sheets; how well it fights is a measurement, not a gate: the standard
-match (`scripts/match.mjs`, `npm run match -- <a> <b>`) plays two minds over one fixed set of
-bodies, levels and gaps, with each of its loadouts both fit, each on each side, and names the result by a digest that is the same on
-every machine; its standard protocol plays the representative loadouts on the open stage, and
-`--protocol sword-and-buckler` that loadout on the open stage and the obstacle court. Minds are
-rated on the representative loadouts (`REPRESENTATIVE`, `src/core/items/held.ts`, the owner's
-choice: bare hands, the club, club and buckler, the sword, sword and buckler); the tournament
-(`scripts/tournament.mjs`) plays every mind on every character and representative loadout it
-fits against every other and rates each by Bradley-Terry on the Elo scale
-(`research/rating.mjs`), which the Arena shows as each mind's notes (`src/ui/mind-notes.ts`: a
-note for the mind, a loadout, a character, and both) and in its Ratings panel. The rest of the
-catalog is unseen: each mind on each unseen loadout it fits meets the Duellist with sword and
-buckler, and the panel shows how it scored beside the ratings, never in them. The fingerprint has a case for every mind a person may pick, so a toolkit change names
-the minds it moves; `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
+**A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`mind`,
+`sub-mind`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `reflex`, or a skill's:
+`locomotion`, `guard`, `executor`, `support`), a label, a stage (`game` or `experimental`), the `fields` a
+person may change (`fields.ts`: trade-off choices, never a controller's searched constants), its
+slots (`slotOne`, `slotList`, `slotsOf`), `defaults`, `fits`, `faults` and `needs` (a `Provision` a
+screen must give). `PARTS` (`catalog.ts`) is every part by kind. Over the tree:
 
-**The fighter's configuration** (`FighterConfig`) holds tactics, locomotion, guard, optional
-support, named executor instances, named action descriptions and ranked sub-minds. Each action
-references an executor, allowed effectors, a path where required, aim and eligibility. The shared
-selector supports ranked and rotating choices and ordered conditional rules. Configuration faults
-reject duplicate names, missing references, incompatible effectors and executor options. The
-editor exposes these lists and preserves valid links without experiment tuning.
+- `treeFaults` names each fault by path (`subs.0: ...`); `createMind` refuses a tree with any, and
+  `partOf` refuses an unknown kind.
+- `treeFits` asks every part whether it fits a body; `kindsFor` lists every part of a role with the
+  reason it cannot go somewhere.
+- A part's experiment settings live under `tuning`, are named by `Part.tuning`, and never travel in
+  a link (`withoutTuning`). A key a part does not read is a fault, never silently dropped;
+  `CONFIG_KEYS` (`config-keys.ts`) enumerates accepted keys and is checked at compile time.
 
-Classic uses recipe actions, Puncher uses straight punches and edge spacing, Counter-puncher holds
-the edge for the whole bout and drives from further out so that a foe walking in meets its punch,
-Scrapper uses path actions with low support, and Behaviours rotates its actions. The Duellist
-(`DUELLIST`) is Behaviours' parts for a weapon in one hand and a cover in the other: it rotates the
-recipe strike at the head and the trunk with the blade's thrust, approaches facing its way at its
-run's pace while its window is far (`approach`'s `travel`), and wards (`cover`'s `ward`: the foe's
-nearest striking point, however slowly it closes, against the nearest point of the body's axis,
-so the buckler stands in the weapon's line before a blow begins). Preset edits are named Custom in the
-Arena. Script tactics accept explicit research requests through the same admission protocol.
+**Presets.** `RECIPE_FIGHTER` is shared action tactics over the recipe strike; `CLASSIC` adds
+`MOVE` and step-up recovery (`STAND_UP`). Puncher, Counter-puncher, Scrapper and Behaviours vary
+the actions and spacing. The Duellist (`DUELLIST`), a weapon and a cover, is every humanoid's
+default (`modelInfo`). An arena recipe may name each side's mind (`DuelRecipe.minds`); the Crypt
+chooses by participant, side and model (`DungeonRunOptions.mind`); the Lab's actor by
+`ActorOptions.mind`.
 
-**The options fighter** is a meta-controller over options (`metaController`,
-`src/core/mind/options/meta.ts`). An option (`Option`, `option.ts`) is what the body does over time:
-whether it can begin or go on (`available`), whether it may give way (`yields`), whether it has run
-its course (`ended`), and, standing, what it asks of the skills each step; a down option is carried
-out by its sub-mind. Once a control step the fighter reads its situation (`situationReader`,
-`situation.ts`: down or not, its orders, its focus and how far off it is, the threat and whether a
-blow is predicted to land, and what its options are priced from: what the blow coming costs, how
-far each side reaches, what a second in the focus's reach costs, and what each hand's blow at the
-focus is worth), and the meta-controller takes the available option of the highest worth, keeping
-the running one while it does not yield or is not beaten by more than its keep. It decides afresh
-every `DECIDING.rethink` s, at once on an event (down or up, a threat, another focus, other orders),
-and when the running option is over or unavailable. Its worth is valued (`valued`, `value.ts`)
-unless its config says ranked: each option's model (`Option.models`, by kind; each has a hand-built
-one) gives its terms (`Terms`): how long it runs, the energy its blows put into the focus, the cost
-of the blows it takes (a blow's energy squared over 30 J, so a jab costs little and a heavy blow a
-lot), its progress on orders (metres walked as ordered, and blows dealt to a foe the orders name),
-and its chance of ending down; the worth is the terms weighed by the config's weights over
-`WEIGHTS`, a second of its run and one more. A blow's energy is the rules' impact energy
-(`impactEnergy`) of the striking arm and what it holds against the head, at the speed it closes,
-or 5 m/s for one not under way; a blow's chance of landing and its length are the body's own record
-of the action (`record`, from the ledger, with a prior), and a foe within reach lands as often as
-the body does. Orders are a term, not a rank: walking where it is told, it walks through a weak blow
-and steps back from a heavy one. The offers a decision chose from are kept (`Offer`) and shown by
-the Arena's readout. A person sets how far orders are carried out (`OBEDIENCE`, the editor's
-Obedience): its levels are weights of the orders. Ranked, each option is worth more than the next. Its options, by rank: down, get
-up, roll away from a foe near, fight from the ground and lie still, each carried out by its sub-mind
-(`downOption`, `down.ts`); standing, follow orders (`orders.ts`), break a clinch (`distance.ts`),
-strike with each action from where it stands (`strike.ts`), strike a foe down or low from beside it,
-lowering through the support fold (`low.ts`, the Scrapper's ground positioning and low blow), step
-back from a blow coming in (`evade.ts`), hold at the edge of its foe's reach until a blow is ready
-or its patience is spent (`edge.ts`, the Counter-puncher's band and patience), close and strike
-(walk to the blow's window and throw it), and hold. Whatever a standing option asks, its walk
-(`walker`, `walk.ts`) keeps out of a solid's clearance and a fallen body's reach, but the reach of
-the body the option means to be near. Closing on a place, it goes as fast as held 0.8 of its gait's
-trials that way (`SPACE.share`) and it stops from before the place, so that far from its foe it runs. It fights with
-the skills its config names, as a fighter's are named (`SkillKit`: legs, guard, low support,
-executors and actions), a strike for each standing action and a low strike by the first action
-thrown from low support; a kit whose actions name a missing executor is refused (`kitFaults`). Its
-defaults (`OPTIONS`) are the Counter-puncher's skills, its blows aimed at an opening in the foe's
-guard (the surface aim, `openingSelector`) and its hands at the guard's pose, a one-two, the
-Scrapper's low blow and support fold, and Classic's gaits (`MOVE`). Its body hands itself to one sub-mind, the down half
-(`downHalf`), which wants the body when the decision is a down option and hands it to that option's
-sub-mind, ending one and beginning another when the decision changes; so standing and down are one
-decision's. Under the option, the reflexes its config names (`reflexOf`, parts of role `reflex`,
-in `reflexLayer`, `reflex.ts`) patch its intent every control step, in rank order: each, set off by its trigger, takes the hands it may that no reflex before it
-has, for at most its longest hold, then lets go until its trigger has gone; a hand a blow holds or
-the option asks for it takes only where it seizes, ending that blow (`Intent.interrupt`). The one
-reflex, and its default, is cover (`cover-reflex`): the hand on the side a blow closes on the head from, where it is free, between the
-two, for at most 1 s; the other hand stays the option's. It gives its skills
-(`MindMade.skills`), so what reads a fighter's report reads it.
+**The options fighter** (`metaController`, `options/meta.ts`). An `Option` (`option.ts`) says
+whether it is `available`, whether it `yields`, whether it has `ended`, and what it asks of the
+skills; a down option is carried out by its sub-mind (`downOption`, `down.ts`; the `downHalf`
+sub-mind hands the body over). Each control step `situationReader` (`situation.ts`) reads the
+situation, and the meta-controller takes the available option of highest worth, keeping the
+running one within its keep and deciding afresh every `DECIDING.rethink` s or on an event.
 
-**A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). Each part has a role (`mind`,
-`sub-mind`, `tactics`, `behaviour`, or a skill's: `locomotion`, `guard`, `executor`, `support`), a label, a stage (`game`, or `experimental` for research offered beside the
-game's), the settings a person may change (`fields`, built from `fields.ts`'s `choice`, `toggle`
-and `number`: only what a player can reason about, such as how fast a walk turns or how far a punch
-stands off; a controller's searched constants stay in its config, not offered), its slots (`slotsOf`: those `slotsFor` keeps for a config, where a part has it), the config it starts from (`defaults`), the bodies it fits (`fits`) and
-what is wrong with a config of it (`faults`), and what it needs of the screen it runs on (`needs`, a
-`Provision`: the script tactics need a script, which only the Lab gives). A slot is a key of the config that holds another
-part of a stated role, or none where it is optional (`slotOne`), or a ranked list of them
-(`slotList`). The controllers are the parts of role `mind`; the sub-minds are `SUB_MIND_PARTS`;
-the tactics `TACTICS_PARTS`; the behaviours `BEHAVIOUR_PARTS`; the skills `SKILL_PARTS`; `PARTS` (`src/core/mind/catalog.ts`) is every
-part by kind, typed so that a kind without one does not compile. Over it, once for every part:
-`treeFaults` names each fault by its path in the tree (`subs.0: ...`), a part of the wrong role
-in a slot and a part whose need its screen does not provide (`tactics: this screen gives no
-script`) among them, a part's own faults read once each of its slots holds parts of its role; `treeFits` asks every part whether it fits a body; `withoutTuning` leaves
-out every part's `tuning`; and `kindsFor` lists every part of a role, none left out, each with
-the reason it cannot go there for a body or on a screen, or null. The fighter hands its body to the sub-minds in
-its `subs` slot.
+- Worth is valued (`valued`, `value.ts`): each option's model gives `Terms` (duration, energy
+  dealt, cost of blows taken, progress on orders, chance of going down), weighed by the config's
+  `WEIGHTS`; orders are a term whose weight is the person's `OBEDIENCE`. Ranked worth is the
+  alternative.
+- Options: down (get up, roll away, fight from the ground, lie still), follow orders, break a
+  clinch, strike, strike low, evade, hold at the edge, close and strike, hold. Its walk (`walker`,
+  `walk.ts`) keeps clear of solids and fallen bodies.
+- Its skills are a `SkillKit` (`kitFaults` refuses a missing executor); its defaults are `OPTIONS`.
+- Reflexes (`reflexLayer`, `reflex.ts`, parts of role `reflex`) patch the intent each control step
+  in rank order; the one reflex is cover (`cover-reflex`).
 
-**The mind editor** (`mindEditor`, `src/ui/mind-editor.ts`) draws a tree for a body: each part's
-fields, its research `tuning` read-only, each single slot as a picker of parts its screen supports
-(incompatible bodies disabled with the reason, experimental parts labelled), each
-list slot with add, move up and remove, and the tree's faults by path. It is the Arena's panel
-under each side's controller, the Lab's under its body, and the Crypt's under each hero and each
-enemy model on the start panel (`runMinds`, `src/dungeon/run-minds.ts`). A screen's link carries a mind as the id
-of one of its presets or as the whole tree (`readMind`, `mindText`). A side's mind travels in a link as its preset (`&control=`) or,
-once edited, as its whole config in JSON under `&left.mind=` or `&right.mind=` (`writeMind`,
-`parseMind` in `src/ui/mind-link.ts`; `linkedMind`, `readMinds` and `mindsSearch` in
-`src/arena/matchup.ts`), with no part's `tuning`: the reader drops any it finds, and a tree with a
-fault, or one that does not fit its body, plays the preset whole while the panel shows the fault.
-A bout's HUD names the preset, `(edited)` where the link changes it (`controllerLabel`). A tape's
-link carries its minds, so a replay drives the same minds.
+**The quadruped** uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. Its
+`Tactics` give approach, facing and bite; its skills answer the same `Skill` resume contract over
+its own view; `effectorTracker` and `supportedMotor` drive its paws on
+the bearing solve, with no assist. Its bite wounds by pointed load ([bites](reference/reptile-bites.md)).
 
-**The Arena's fighter readouts** (`src/arena/fighter-hud.ts`) show fixed SVG damage diagrams from
-the actual per-segment pool, including detached descendants. The humanoids share a front view and
-the reptile a top view. `fighter-readout.ts` reads admitted actions, terminal ledger records and
-named behaviour or body-ownership changes after each world step; rendering updates the DOM without
-writing to a report or the world. Terminal entries fade on the bout clock, held at pause and the
-verdict. Contacts are named independently of injury. Each bout owns and disposes its sampling hook;
-controllers and muscle-sheet replays without reports show the diagram with reporting unavailable.
-Arena order-tape links run the minds and retain their named-action feeds.
+**Policies** (`createPolicyBody`, `mind/direct.ts`) receive a frozen actuator description and
+detached, frozen `BodyObservation` snapshots (`src/core/observation.ts`) and return a `BodyAction`
+(`mind/actions.ts`): whole arrays in channel order (activation and velocity, or signed torque
+within the same envelope), an assist ask (`AssistAsk`), grips and hand poses. The host validates
+and copies the whole action before applying any of it. A policy receives no engine handle.
 
-**The mind inspector** (`mindInspector`, `src/ui/mind-inspector.ts`) shows the mind tree, who has
-the body, active actions and stages, current holders and reserved resources. It shows candidate
-readiness and the recent terminal ledger, including explicit omitted history counts. The Arena,
-Lab and Crypt use the same neutral action readout.
+**Recovery sub-minds.** Each reads its host's down state and the world's clock (`SubMindMaker`):
 
-When a sub-mind takes over, the host releases its stance and clears the previous leg torques
-used by the compliant-sole damping filter. On return, filtering starts with the current torque
-request; it does not average in a request from before the takeover.
+| Sub-mind | File | What it does |
+|---|---|---|
+| `lie` | `lie.ts` (`lying`) | asks nothing |
+| `support-recovery` | `supportRecovery` | the staged rise (`stagedRise`), then verified quiet standing (`recoveryReady`) before handing back ([recovery](reference/recovery-cycle.md)) |
+| Stand up | `ground/` | techniques with physical admission and completion (`ground/techniques.ts`); `step-up` (`ground/step-up.ts`) is the game's, the learned rise (`ground/learned-rise.ts`) is experimental |
+| `research-rise` | `rise/research.ts` (`researchRise`) | tracks reference motions; experimental |
 
-The baseline sub-minds each read its host's down state (`BodyView.down`) and receives
-the world's clock (`SubMindMaker`): `lie` (`lying`, `lie.ts`) asks the muscles for nothing;
-`support-recovery` (`supportRecovery`) plays the staged recipe and verifies quiet standing
-before handover; `research-rise` (`researchRise`) tracks experimental reference motions with
-live feedback through ordinary muscles. The staged riser is an internal component of that
-baseline, not a separate editor choice.
+`BodyView.ground` (`mind/ground/reading.ts`) reads each segment's fixed-contact load, sole support
+and trunk motion while the body is down; `standReady` requires quiet flat two-foot support with the
+centre of mass inside it. **The riser plays a recipe** (`RISE`, `rise/stages.ts`): plain data of
+pose stages (`PoseStage`, postures from each freedom's own zero, `DofSpec.bind`) and bearing stages
+(`BearStage`, limbs from `riseLimbs`), after reading how the body lies (`lieOf`). `stageFaults` says
+what a body cannot play, and a riser refuses such a recipe. How far it stands each body:
+[rising](reference/rising.md#where-the-rise-stops).
 
-Experimental ground recovery reads one shared `BodyView.ground` after contact sampling. Physical
-loads, sole flatness, trunk orientation and velocity remain immediate; only the named position
-has six-step hysteresis. `standReady` requires quiet, loaded flat feet and the mass within support.
+**Tactics** (`tactics.ts`) read `Sight` (the view, senses, reports, readiness, envelope) and
+return walking, facing, lowering, cover and discrete action requests; they never write a joint,
+posture or push. Shared action tactics combine follow-orders, attack, approach, spacing, retreat,
+clinch breaking and cover; the selector supports ranked, rotating and conditional choices.
 
-`ground/techniques.ts` declares physical admission and completion contracts. The graph chooses a
-simple route to standing in player order and retains its purpose across successful transitions.
-Stand up executes contracts, braces during tumbling, steadies on feet, repositions deliberately,
-and backs off when stuck. Failures belong to a technique, side and starting position and survive
-successful rolls. Its bounded log names attempts and distinguishes verified hand-back from the
-steadying timeout. `step-up` (`ground/step-up.ts`) is the game's technique: the staged recipe's
-route from the front (roll, hands and knees, kneel up, the left foot through, the lunge), each
-stage's time and completion searched per model on target falls
-(`research/rising-step-search.mjs`), joined part-way from hands and knees or a half kneel, then
-the stance climbing to standing height. The others remain experimental. Among them the learned
-rise (`ground/learned-rise.ts`) is step-up whose stages a trained policy steers (`RiseSteer`: their
-pace and tolerances, the centre's place and height, the pelvis's pitch and the posture), deciding
-30 times a second, its steer easing toward what is asked over 0.2 s; its policies are assets by
-model (`assets/core/learned-rise.json`), and with none it is step-up to the step. `SubMind.holds` preserves a wanted body through a
-critical phase and lets ranked higher sub-minds take it at the first yielding boundary.
+**Orders** (`Orders`) name a movement objective, an independent facing, and a sensed foe id and
+region; never a camera point. A person gives orders; the body's own mind carries them out
+(`orderedIntent`, `ordered.ts`). **Movement requests** (`src/core/mind/movement.ts`) are Direct
+directions, Place waypoints or Range bands about a sensed body; null asks a controlled stop.
+Navigation is a part between tactics and locomotion (a fighter's `navigation` slot): the
+visibility navigator routes round inflated fixed footprints and reports its route, distance,
+arrival and stalls; how far an order has left is read from the order (`remainingOf`).
 
-`RECIPE_FIGHTER` uses shared action tactics over the recipe executor, walking in the stance, with `lie`;
-the Lab's minds are made from it. `CLASSIC` is it getting about by `MOVE` and standing up
-once down (`STAND_UP`, step-up alone); Puncher, Scrapper and Behaviours stand up as it does. The
-mind every humanoid has unless its fight says otherwise (`modelInfo`) is the Duellist
-(`DUELLIST`), the best-rated mind of the tournament at `1bacac44`, and the Arena's picker opens on it. An arena
-recipe may name each side's mind (`DuelRecipe.minds`). The crypt's
-`DungeonRunOptions.mind` chooses by participant id, side and model, including enemies and two
-bodies of the same model; a null or absent choice uses the model's default. The start panel
-chooses by side and model (`runMinds`, `src/dungeon/run-minds.ts`). The lab's actor drives the
-fighter its page chose (`ActorOptions.mind`), the Script preset unless it is given another.
+#### Adding a Mind
 
-**The riser plays a recipe** (`Recipe`, `RISE`, `rise/stages.ts`): plain data that names
-freedoms and limbs, and no body. A recipe can override intermediate motion and settling
-tolerances through `progress`; `supportRecovery` accepts a recipe without changing its final
-quiet-standing predicate. Omitted overrides retain the standard recipe's behavior.
-It lies slack until its centre of mass is still, reads how it
-lies (`lieOf`: on its front, its back or a side), and plays stages. A stage is a pose
-(`PoseStage`: every freedom turned toward a posture for a time, the posture written from each
-freedom's own zero, `DofSpec.bind`, so one posture is one shape on every body) or a bearing
-(`BearStage`: the body borne on limbs the recipe names, `riseLimbs`, `rise/limbs.ts`, its
-centre of mass held over them by their shares; a step of motor control's shape on the bearing
-solve). On its back or a side it plays that lie's roll, which turns it onto its front, lies
-slack and reads again; on its front it plays the rise. A bearing stage is done when the body is
-where the stage asks and slow, and is given up at its limit, which ends the attempt, as does the
-trunk back on the ground once the rise has raised it: the riser lies slack and begins again. `stageFaults` says what of a recipe a body's spec cannot play, and
-a riser refuses such a recipe as it is made. What a riser remembers (its phase, how it lies, its
-stage, its attempts and the furthest it got) is its state under its mind's. A recipe
-can also enter its first bearing stage through `beginSupported`, which requires that stage's
-actual loaded floor supports and trunk clearance. This handoff changes controller state without
-placing or accelerating the body; ordinary `begin` still starts with settling. The game's recipe
-goes from the front to the feet: onto knees and hands, a kneel-up, a step to a half kneel and a
-lunge onto both feet, where its host's stance has the body and the locomotion skill, resumed,
-stands it at the stance's height and squares its feet. It stands the Warrior from seven falls of
-eight with nothing in its hands and more than three of four with the club, the Rogue from one
-fall of five and the skeleton from almost none
-([reference/rising.md](reference/rising.md#where-the-rise-stops)).
+A Mind is an entrant: a folder under `src/core/entrants/<name>/` and a line in `CONTROLLERS`. The
+joint-feedback Mind (`entrants/direct/mind.ts`) is the example.
 
-**Research rise** is a shared experimental sub-mind (`rise/research.ts`), selectable in the Lab,
-Arena and Dungeon for the human rigs. Its path, response and library policies read detached
-observations each control step, select and track reference motion, and request only ordinary
-muscle velocities, activations and hand poses. `assets/research/research-rise.json` contains the
-selected research candidate's immutable policy inputs; `scripts/bundle-research-rise.mjs`
-packages an explicit library configuration and records source hashes. No saved physics state
-is loaded. The Warrior's right-hand wooden club selects its dedicated path; other supported
-loadouts use the motion library. Nested policy state participates in saves and Lab scrubbing.
-The empty-handed Warrior without compliant soles adds two measured live Stance motions from
-`assets/research/research-rise-unshod-warrior.json` to that library. Its observed posture, support
-and velocity select among the references; the disturbance direction is not a controller input.
-Quiet, upright loaded-foot support releases the episode to its host. A reference that ends while
-the body remains down gets two seconds to settle before reselection from the actual pose;
-other unsuccessful attempts restart after twenty seconds. Host action requests allow the
-ordinary stance controller to act. The recovery itself requests zero assistance and leaves
-body and muscle limits unchanged. Its experimental status does not claim robust recovery.
-The Get-up experiment's `selected` mode preserves the edited mind and loadout, including when
-repeating its timed shoves, instead of installing the witness recipe.
+1. The folder holds the config's type (`{ kind, ... }` with a kind of its own), its defaults, its
+   faults and its maker, written as one controller (`controller<C>({ ... })`).
+2. The maker takes its body once through the host: `host.policy` reads `BodyObservation` and returns
+   `BodyAction`; `host.command` and `host.hosted` build on the game's command layers or a host and
+   sub-minds of its own.
+3. It returns its memory (`state`), which a fight saves and loads with the body, and its skills if
+   it runs the game's.
+4. It may use any of the toolkit (`src/core/mind/`, `skills/`, `control/`) and imports no engine,
+   world or builder. Data and learned weights go under `assets/entrants/<name>/`.
 
-The whole-body tracker's support controls remain independent of a recovery controller.
-Optional normal gap and velocity feedback stabilizes admitted contacts; support commands can
-bound total compressive load or each point's minimum. These bounds constrain muscle torque,
-not externally applied contact force. A per-step support band selects the deepest solver points
-without welding raised corners of a tilted segment. The physical support fixtures test these
-controls from captured, muscle-produced falls, without a recovery controller preparing the pose.
+Once registered it is offered by its presets (or its kind) in `MINDS`, and
+`tests/mind-contract.test.mjs` runs it against itself on the first body it fits, forks it and
+replays it from its order sheets. How well it fights is a measurement:
 
-`stagedRise.beginSupported` copies a supplied legal anatomical posture into replayable state
-for its first bearing stage and checks actual loaded supports and trunk clearance before entry.
-It can hold the stage while a caller completes a limb transition; `supportedReady` reports its
-completion predicate. Deadline and trunk-contact aborts still apply. A recipe's `postureSeconds`
-can set the joint response independently of the bearing response. The supported-rise tests
-exercise support acquisition, a retained free-wrist movement, expiry and exact continuation.
-
-`Tactics` (`tactics.ts`) read `Sight`: the body's view, senses, reports, readiness and locomotion
-envelope. They return continuous walking, facing, lowering and cover, plus discrete action
-requests. Shared action tactics combine follow-orders, attacking, approach, spacing, retreat,
-clinch breaking and cover. Ground positioning preserves the route to a low target while the
-chosen executor owns its own lowering, strike and return to standing. A tactics rule never
-writes a joint, posture or push.
-
-`Orders` name a world movement objective and independent facing, a sensed foe id and optional segment region; they do not carry a
-camera point. Arena pointer selection casts against sensed collision geometry and sends that
-identity. The mind chooses a point from its current sensed body. The Crypt sends the same foe
-identity from its map-aware plan. Autonomous tactics select their own foe; a directly controlled
-body acts on the person's orders. Scripted Lab experiments may deliberately request a point.
-
-Movement requests (`src/core/mind/movement.ts`) are Direct world directions, Place waypoint lists
-with an arrival tolerance, or Range bands around sensed body identities. Null requests a controlled
-stop; omitting movement, including in a target-only order, leaves it to tactics. Explicit facing
-can accompany that target selection. Navigation is a selectable role between
-tactics and locomotion, configured on a fighter's `navigation` slot. The visibility navigator
-routes round inflated fixed footprints, retains an obstacle side, brakes before corners and
-arrival, and accounts for low furniture and the complete colliders of carried items in their
-observed poses. Local clearance is an alternative.
-Tactics retain facing, attack and obedience decisions. The navigator reports its unconsumed
-route, remaining distance, physical arrival, unreachable geometry, stalls and lost focus; action
-ownership and recovery hand-back pause or reset its progress clock. Its route and progress memory
-belong to the body's saved skill state. Its report is of the request it last walked, which may be
-a tactic's: how far an order has left to go is read from the order itself (`remainingOf`,
-`src/core/mind/movement.ts`), by follow orders' value and by a behaviour's destination condition.
-Locomotion continues to consume forward/right velocity.
-`src/core/tasks/navigation.ts` supplies shared physical conditions and independent arrival,
-range-holding, contact and fall scoring through the common task environment.
-
-The selector reports candidate readiness, retains a pending attempt only while its rule remains
-eligible, and reads bounded terminal history for follow-ups and spacing adaptation. A clean miss
-requires commitment and completion without intended or blocking contact; refusals and interrupted
-preparation are distinct outcomes. Approach stops while an action owns the required controls.
-The Lab's Attack mode uses the selected mind autonomously, with clicks issuing target orders;
-Routine and individual blows use explicit scripted requests.
+- `npm run match -- <a> <b>` (`scripts/match.mjs`) plays two minds over fixed bodies, levels, gaps
+  and loadouts, each on each side, and names the result by a digest that is the same on every
+  machine; `--protocol sword-and-buckler` plays that loadout on both stages.
+- The tournament (`scripts/tournament.mjs`) rates every mind on every character and representative
+  loadout (`REPRESENTATIVE`, `src/core/items/held.ts`) by Bradley-Terry (`research/rating.mjs`),
+  shown as notes (`src/ui/mind-notes.ts`) and the Arena's Ratings panel.
+- The fingerprint (`scripts/fingerprint.mjs`) has a case for every pickable mind;
+  `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
 
 ## Experimental separate equipment
 
-`core/equipment.ts` constructs one separately simulated item with named rigid grip frames.
-It owns no controller. Capture checks current position/orientation error against explicit task
-tolerances; it joins the current pose without alignment correction. The desired frames remain
-in the model, while observation and dynamics read actual captured frames from the saved joint.
-Release preserves body motion. A former grip pair
-that still overlaps stays excluded until its shapes clear; its saved exclusion then ends. The engine's persistent grip slots restore attachments with physics snapshots,
-including after release and regrip. Detached item observations retain identity and collider
-indices. The trusted construction handle carries rendering and physics resources.
+An item may be simulated as its own body, gripped by joints, beside the game's compound held items
+(which are folded into their segment). This path is research; the game's fighters do not use it.
 
-This representation is exercised by mechanical fixtures, including a closed loop, and does not
-replace the game's compound held items. Reference-fighter controls, damage attribution and the comparison
-against compound release are still open. See [the grip record](reference/equipment-grips.md).
-`build/articulated-mass.ts` supplies floating-body impact mobility with separate items and
-active grips. It projects mass-whitened velocity constraints, including redundant loops,
-and recomputes attachment rank after release. [Mechanical checks](reference/constraint-mass.md)
-cover both grips and either release. The game damage path retains the existing tree model.
-`build/coupled-dynamics.ts` extends floating-tree acceleration dynamics with independent item
-coordinates, active grips and item gyroscopic loads. It accepts explicit external wrenches and
-fixed-body constraints and explicit motion rows, reports constraint rank/residual and equivalent
-reaction loads, and changes no physical state. Contact-force signs and friction admissibility
-remain the controller's responsibility; redundant rows return one possible load distribution.
-Supplied motion rows may carry [material-acceleration targets](reference/contact-curvature.md),
-including the centripetal term for rolling on a fixed plane. The optional sticking tracker
-still uses zero targets and measured contact midpoints; general rolling/sliding modes remain open.
-The diagnostic [joint-coordinate model](reference/joint-coordinate.md) reads world angular rows
-and their changing gradients from actual poses and spins. It supplies acceleration targets for
-measured-angle constraints; unilateral stop selection is not part of this primitive.
-The allocating diagnostic model serves the experimental equipment tracker; the game's reference
-fighter retains its existing per-step solve.
-Optional constrained quadratic components include ADMM and a cold-start dual active-set solver.
-They share input validation and report residuals and work exhaustion explicitly. Their choice
-belongs to a controller, independently of the physical observation/action interface.
-Separate equipment can explicitly request moving-body CCD at construction. The default is
-unchanged; [collision probes](reference/collision-ccd.md) exercise linear and rotational sweeps
-against a thin moving defense. The pinned engine's automatic fixed-collider CCD is distinct. Joint and active-grip exclusions
-also pass through the contact hook so continuous sweeps honor them. The pinned JavaScript
-binding invokes hooks only through an event queue, which the adapter owns and disposes.
-The vendor's CCD-only hook flag preserves ordinary contact recycling on anatomical joints;
-separate items also enable discrete filtering for release clearance.
-`human/equipment.ts` places initial separate equipment in the same anatomical frame as
-compound holdings. It attaches only the initial hand; subsequent grips require physical reach.
-
-The engine also exposes unaveraged contact manifolds for model/diagnostic use. Signed gaps are
-reconstructed from current body poses and solver anchors, rather than the narrow phase's cached
-distance. Normal-motion rows distinguish predicted contact, penetration, sliding and separation. The bearing
-controller carries ground wrenches from the patch's force reference independently of the point
-whose motion it tracks. [Contact motion](reference/contact-motion.md) records the invariant and
-geometry checks; the staged riser's predicted support model still needs replacement.
-
-An independent policy can control separate equipment through an explicitly granted
-`mind/equipment-port.ts` capability. It receives immutable item/grip descriptions and detached
-observations. `BodyAction` combines actuator commands with capture/release requests, hand poses
-and an ask of the body's assist (`AssistAsk`: a force and a moment about the root's centre of mass,
-shortened to the ceiling its model states); the host
-validates and copies the whole request before applying any component. Unknown or ungranted grips
-cannot partially apply an action, and capture still requires geometric reachability. Physics
-snapshots own attachment state, while the body's saved policy state owns its decisions. The
-reference fighter's equipment integration is still separate work.
-
-`control/tasks.ts` describes joint trajectories and named segment/item point and orientation
-objectives with velocity and acceleration. Position alone adds no orientation constraint.
-Translations can select world axes. Optional [centre objectives](reference/centre-control.md)
-track the mass-weighted position of explicitly selected segment/item frames through the same
-bounded muscle solve. Each group counts its members once; grip release does not change membership.
-`mind/motion.ts` validates a policy's full request before grip actions and supplies one owner of
-actuator output. It accepts the same external senses provider as the actuator host; policies
-receive detached observations, including the provider's delay. Its optional `wholeBodyTracking` uses the coupled model and bounded weighted
-acceleration tracking, with explicit residual and observed-error reports. Optional measured sticking
-contacts add unilateral and friction constraints through an active-set solve. Desired supports
-are separate from measured contacts; a free support request changes no collider. Rejected solves
-produce zero torque. Optional [near-stop prediction](reference/joint-stop-tracking.md) selects
-unilateral reactions using actual joint-coordinate motion and retains no-crossing effort bounds
-when a stop releases. It works with ground contacts or pinned fixtures and reports rejected modes.
-Sliding contacts and distant stop impacts are not predicted.
-Optional [local contact lift-off](reference/contact-liftoff.md) first predicts motion without
-sticking support, then selects measured contacts. Released contacts retain normal end-step
-bounds in the same torque solve. The bounded contact-force solve, including requested load
-redistribution, runs before tension in an effort guess can release a selected support.
-A desired support can name a finite edge in its body's local frame. Only measured points
-near that edge predict sticking support; the other admitted points retain normal separation
-bounds. This allows a bearing surface to peel away without removing its physical contacts.
-Shape curvature supplies active material-point acceleration;
-rejected force or acceleration predictions produce zero torque. This option is independent of
-joint-stop prediction and disabled by default. Repeated mechanical lift/recontact is measured;
-sliding, general support selection and anatomical recovery remain open.
-The [posture audit](reference/posture-limit-models.md) selects static reaction directions from
-the engine profile. Corrected coordinate stops can load multiple actuator axes, including
-channels with no ground contact; the programme solves those loads together and records the
-engine artifact and limit model with each witness. Static feasibility is separate from the
-engine hold and controller-entry measurements.
-`build/planar-support.ts` separately queries current geometric support features for spheres,
-capsules, boxes and hulls. It neither detects contacts nor applies loads. A
-[sliding-sphere check](reference/planar-support.md) uses those points with the coupled model;
-the reference tracker's integration still uses measured midpoint contacts.
-The installed rigid-body engine uses [patch friction](reference/contact-friction.md): a central
-tangential constraint and independent twist resistance. The reference controller's per-point
-friction model does not reproduce sliding patches. The sliding-slab research fixture measures
-patch, opposing-slip and projected per-point predictions without applying them to physics.
-Optional `rapier-coulomb` and `rapier-coordinate-coulomb` profiles expose native per-point friction
-with reference or corrected limits; snapshots reject crossing these settings. No general
-sliding controller is selected.
-`build/contact-step.ts` adds a diagnostic [per-point impulse predictor](reference/contact-step.md).
-It mass-projects measured velocities into joint/grip-compatible motion, then uses coupled
-mobility, unilateral normal impulses and projected tangent impulses, with a finite budget and
-independent residual checks. Projection changes no physical velocities. A loaded slab slides,
-sticks and unloads under known forces; linked slabs slide and stop. Prescribed joint torque
-still exposes rejected stopping predictions, and fine-step landing remains unvalidated.
-An explicit [friction projection metric](reference/contact-projection.md) distinguishes the
-contacting rigid body's mobility from the articulated mobility. The native per-point law uses
-the former; a welded sliding load validates its impulse direction. Impulse propagation still
-uses the full coupled model. This option does not resolve anatomical first-contact errors.
-It does not yet optimize actuator commands
-or replace the reference tracker's contact model.
-Optional [angular-stop rows](reference/contact-stops.md) exchange unilateral impulses with
-point contacts in that same prediction. A free grounded base and hinged arm hold or release
-either angular limit while the base sticks or slides. Angular tolerances have their own units;
-hard stop arrivals and anatomical controller integration remain unvalidated.
-Optional [contact redistribution](reference/contact-distribution.md) searches point-force
-distributions that preserve each contacted body's wrench; the measured task configurations
-keep this experimental option disabled.
-The [pinned fixtures](reference/motion-tracking.md) exercise independent
-items and a shared bar through capture, motion, obstacle contact and either release. They use no
-assist and replay through the body's ordinary saved state. The [standing shared-bar fixture](reference/standing-bar.md)
-adds ordinary ground and an unpinned pelvis. Its [return posture](reference/bar-posture.md) uses the
-legal arm angles measured at grip capture, stored in replayable state. Support transitions and recovery remain experimental,
-and the allocating model path still needs optimization before game adoption.
-The [point-strike reference](reference/point-strike.md) plans named hand/item point paths and
-measured guard/return readiness. Its standing fixture measures contact and deliberate misses
-with either hand or independent clubs. Its [moving variant](reference/moving-strike.md) tracks
-named points from delayed detached object measurements and can brake each effector on impact.
-`createObjectSenses` keeps permitted engine handles inside a trusted observer; policies receive
-plain measurements with sample times, and delay buffers replay with the world. The swinging
-target fixture scores relative closing contact independently of the policy.
-The optional [shared strike](reference/shared-strike.md) uses one item, physically acquires its
-second grip before starting the point path, and can release either hand for return. It retains
-the measured guard posture for attached arms; a released arm instead returns toward its initial
-reference hand position and joint posture ([withdrawal record](reference/shared-withdrawal.md)).
-It scores actual attachment gaps, shared impact and release continuity through the existing
-equipment grant interface. The runner and viewer expose the same builder. Corrected limits,
-near-stop prediction and withdrawal pass the current development return screen across bodies;
-opponent combat and held-out reliability remain open.
-
-`control/support-transition.ts` is an optional upright reference policy over those motion
-objectives. It waits for measured unloading, foot flight, positive placement contact and a
-return to two-foot support. `tasks/support.ts` scores that sequence and continued standing
-independently of the policy, on either foot and all three bodies. It uses detached observations;
-its phase and readiness history save with the body. The [support record](reference/support-transition.md)
-declares its shallow horizontal-floor workspace and empty-handed scope. It does not recover
-from a fall or replace the game's locomotion and recovery controllers.
-
-The optional [interception reference](reference/point-defense.md) predicts a named point's plane
-crossing from delayed pose/velocity samples and measured acceleration. Explicit reach/time
-filters screen candidates; bounded muscles remain authoritative. Matched closing contact can
-brace an item's measured orientation, while retreat or missing observations starts a return.
-The mechanical defense fixture releases hinged clubs under gravity and independently records
-guard readiness, qualifying blocks and every body contact. Protected-region contact remains a
-failure even after a block. Its pose baseline shares the same body, sensing and actuator limits;
-development failures keep sustained defense open.
-
-Joint-angle acceleration objectives include the [changing speed-to-rate map](reference/joint-acceleration.md).
-The coupled model predicts motor-axis speed derivatives; the tracker converts them to angle
-accelerations and includes the coordinate bias. Independent quaternion and physical-rotor
-tests distinguish this from treating the conversion as constant.
-
-`/control-tasks.html` (`src/control-foundation/tasks.ts`) exposes the same support, bar, strike and defense
-builders as the Node runner, with step, play, snapshot and replay controls. Separate items are
-drawn on their own physical nodes with `drawEquipment`; capture and release do not recreate
-their visuals. [Browser parity](reference/control-tasks-browser.md) checks both tasks on all
-three bodies and either side against the Node observation hashes.
+- `src/core/equipment.ts` builds one item with named rigid grip frames. Capture checks pose error
+  against explicit tolerances and joins the current pose; release preserves motion. The engine's
+  grip slots save and load with physics snapshots ([grips](reference/equipment-grips.md)).
+- `human/equipment.ts` places initial equipment in the hand's anatomical frame; later grips need
+  physical reach.
+- A policy controls it through the granted port (`mind/equipment-port.ts`): immutable item and grip
+  descriptions, detached observations, grip requests inside `BodyAction`. An unknown or ungranted
+  grip refuses the whole action.
+- Models: `build/articulated-mass.ts` (impact mobility with grips), `build/coupled-dynamics.ts`
+  (tree dynamics with item coordinates and constraint rows), `build/contact-step.ts` (a diagnostic
+  per-point impulse predictor), `build/planar-support.ts` (support features of a shape).
+- `control/tasks.ts` describes joint, point, orientation and centre objectives; `mind/motion.ts`
+  validates a policy's request and, with `wholeBodyTracking`, tracks them by bounded acceleration
+  solves with optional sticking contacts, stop prediction and lift-off.
+- Reference policies and fixtures: support transition (`control/support-transition.ts`,
+  `tasks/support.ts`), shared bar, point strike, shared strike and interception, each with its
+  record under `docs/reference/`. `createObjectSenses` gives policies plain delayed measurements of
+  objects.
+- `/control-tasks.html` (`src/control-foundation/tasks.ts`) exposes the same builders as the Node
+  runner, drawing items with `drawEquipment`.
 
 ## Research environments
 
-`createEnvironment` (`src/core/tasks/environment.ts`) wraps a `WorldTask` factory over the
-same core world. Its configuration is copied, frozen finite JSON. `reset(seed)` builds an
-episode with an explicit Mulberry32 word; `observe()` returns measurements and task metrics;
-`act(action)` accepts a copied, validated action only at an integer policy boundary. Physics
-remains 120 Hz. `step()` advances to the next boundary; an explicit step count can stop between
-boundaries or cross them while holding the last action. Rewards belong to consumers.
+`createEnvironment` (`src/core/tasks/environment.ts`) wraps a `WorldTask` factory over the core
+world for learning and search.
 
-Task termination, time-limit truncation and invalid simulation are separate results. Ended
-episodes refuse further actions/steps but still allow observation, save, reset and disposal.
-Snapshots include the task, controller, world clock, RNG, elapsed policy clock and held action,
-plus physics bytes. Load constructs a candidate from the saved seed, verifies the complete
-configuration identity, restores it and only then replaces the live episode. A fresh environment
-can load directly; a rejected load leaves the current episode intact. The identity includes
-resolved anatomy, task/controller settings, rate, actuation, gravity and solver artifact/adapter
-revision. The snapshot is structured data and bytes, not a JSON-only serialization format.
-Its host supplies the content build fingerprint (`Options.buildIdentity`); the versioned snapshot
-refuses another build or protocol before constructing a candidate episode.
-
-Replay tests capture fresh states; a checkpoint's identity guards stay strict, so a state saved
-by other code is refused rather than loaded. The stand-up screen (`research/stand-up-acceptance.mjs`)
-makes its sixteen falls afresh each run and restores each for step-up and the controller compared.
-
-`createReachTask` (`tasks/reach.ts`) is the Node/browser builder for a pinned joint reach. It
-supports actuator actions through the detached policy port or posture actions through the
-layered body, with the same task goal and hold criterion. The optional `reachAction` demonstration
-policy consumes observations alone. `research/control-foundation.mjs --suite reach` and
-`/control-foundation.html` use this builder and the same environment. The page renders task
-bodies through the trusted factory; its policy gets no physical handles. The visible Chrome
-and Node observation traces match for the recorded six fixtures
-([record](reference/control-foundation.md#shared-environment-and-browser-parity)).
-
-`research/punch-calibration.mjs` measures an unpinned Warrior against a sliding research pad
-through the shared combat executor. An independent momentum sensor subtracts the known mount
-load and records contact impulse over the whole world step. Native rigid contact and an
-explicit compliant material are separate apparatus configurations; the material applies
-equal/opposite normal forces without changing gameplay collision or damage. Pre-impact
-speed, delivered motor torque, verified returns, fine/coarse force histories and exact
-fresh-world replay accompany the [human comparison](reference/punch-calibration.md).
+- Its config is copied, frozen finite JSON. `reset(seed)` builds an episode from an explicit
+  Mulberry32 word; `observe()` returns measurements and task metrics; `act(action)` accepts a
+  validated action at a policy boundary; `step()` advances to the next one. Physics stays 120 Hz.
+  Rewards belong to consumers.
+- Termination, time-limit truncation and invalid simulation are separate results; an ended episode
+  refuses actions but still observes, saves, resets and disposes.
+- A snapshot holds the task, controller, clock, RNG, held action and physics bytes. Load builds a
+  candidate, checks its complete identity (anatomy, settings, rate, actuation, gravity, solver,
+  build fingerprint from `Options.buildIdentity`), and only then replaces the live episode.
+- `createReachTask` (`tasks/reach.ts`) is the pinned-reach task shared by
+  `research/control-foundation.mjs` and `/control-foundation.html`
+  ([record](reference/control-foundation.md#shared-environment-and-browser-parity));
+  `src/core/tasks/navigation.ts` scores navigation the same way.
 
 ## One world step
 
 `createWorld(scene, engine)` (`src/core/world.ts`) makes the world: one fixed step at 120 Hz
-(`PHYSICS_HZ`) that owns physics, control, combat and the clock. A step runs the sensing hooks (a fight's senses, `createSenses`), the before-step hooks
-in the order they were added, one solver step, which writes every node, the post-physics
-observations (`afterPhysics`), and the after-step hooks (readings, impacts and pointed loads).
-The clock advances before observations; it is the count of steps.
-Post-physics observations finish before any after-step event can end or remove a fighter.
-Each body adds one before-step hook
-(`driveMuscles`), in which the muscles read the joints, the body's mind steps (`embody`), its
-assist gives what the mind asked of it and the motors are set; for a game body the mind is `commandMind` with its sub-minds (`hosting`): it reads the view (`look`), and then a sub-mind that wants the
-body drives it, or the tactics, the skills and motor control do; a page may add its own (the crypt's
-`DungeonRun.plan`, the lab's shove). The pages, the Node stand and the research all call
-`World.step`; a page advances by real time with `World.advance`, which caps the steps a frame may
-take. `scene.render()` draws what the steps produced and never advances them.
+(`PHYSICS_HZ`). A step runs, in order:
 
-Node imports `src/` directly. `tests/harness/core-stand.mjs` stands one spec on a ground in a world
-of its own (`coreStand`, `freshEngine`), `tests/harness/scene.mjs` gives a `NullEngine` scene for
-tests that need meshes and no physics, `tests/harness/workshop-model.mjs` stands a workshop model
-at a frame of a clip, and most of `research/` measures on the core's stand
-([research/README.md](../research/README.md)).
+1. the sensing hooks (a fight's senses, `createSenses`; a tape's orders);
+2. the before-step hooks in the order added: each body's `driveMuscles` (muscles read the joints,
+   the mind steps, the assist gives, the motors are set), and a page's own (the Crypt's
+   `DungeonRun.plan`, the Lab's shove);
+3. one solver step, which writes every node; the clock advances;
+4. the post-physics observations (`afterPhysics`: effector feedback, contacts);
+5. the after-step hooks (readings, blows, pointed loads). Observations finish before any event can
+   end or remove a fighter.
+
+A page advances by real time with `World.advance`, which caps the steps a frame may take;
+`scene.render()` draws and never steps. In Node, `tests/harness/core-stand.mjs` stands one spec on
+a ground (`coreStand`, `freshEngine`) and `tests/harness/scene.mjs` gives a `NullEngine` scene;
+most of `research/` measures on the stand ([research/README.md](../research/README.md)).
 
 ## State
 
-What a step writes and a later step reads is **state**, and it is plain data
-(`src/core/state.ts`). The physics keeps its own, as bytes (`PhysicsWorld.save`, `load`). Every
-module that remembers anything else keeps it in one object, its `state`: the world its count of
-steps; the muscle driver, the assist, motor control with the stance, and the body's view; the
-skills with the command they write, the legs and the strike; the tactics; the senses, the pool
-and the blow watch.
+What a step writes and a later step reads is **state**, plain data (`src/core/state.ts`). Physics
+keeps its own as bytes (`PhysicsWorld.save`, `load`); every other module keeps its memory in one
+`state` object.
 
 - **State is** numbers, strings, booleans, null, plain objects, arrays, typed arrays, a `Map` or
-  `Set` keyed by strings or numbers, a `Vector3` and a `Quaternion`. A body, a node, a function or
-  an object with a getter is not, and `saveState` refuses one by its path.
-- **`saveState(root)`** copies what is under a root, and the copy crosses a thread.
-  **`loadState(root, saved)`** puts it back in place: whoever holds an object of the state holds
-  it still, with the saved values in it, so no module is told of a load. Two slots that held one
-  object at the save hold one after the load, and two that held two hold two.
-- **A constant a state points at is frozen** (`deepFreeze`: the strike recipes, the guard, the
-  orders to stand). A load never writes into a frozen object; it puts a copy in the slot. A blow
-  and a verdict are frozen as they are made, so one a page was handed is a record no load changes.
-- **The states hang on one root.** A body's is its memory under its mind (`Body.state`: who has
-  the body, the command layers' and each sub-mind's), its
-  skills' is theirs with their tactics' (`Skills.state`), and a bout's (`Duel.state`) is its own
-  (when it began, its verdict, what each side is ordered, its tape and what is still queued of one
-  played) with the world's, the senses', the blow watch's and each side's body's, skills' and
-  pool's.
+  `Set` keyed by strings or numbers, a `Vector3` and a `Quaternion`. A body, node, function or
+  getter is not, and `saveState` refuses one by its path.
+- **`saveState(root)`** copies it (the copy crosses a thread); **`loadState(root, saved)`** puts it
+  back in place, so whoever holds a state object holds it still and no module is told of a load.
+  Shared objects stay shared.
+- **A constant a state points at is frozen** (`deepFreeze`): a load puts a copy in its slot. Blows
+  and verdicts are frozen as made.
+- **The states hang on one root.** A body's is its mind's (`Body.state`), its skills' include their
+  tactics' (`Skills.state`), and a bout's (`Duel.state`) holds its own (start, verdict, orders,
+  tape) with the world's, senses', blow watch's and each side's.
 
-`Duel.save()` is a bout at a step: its build/protocol identity, recipe, the physics' bytes and a copy of its state.
-`Duel.load(saved)` puts a bout of the same recipe there, the bout it was saved from or another
-built in any world: the physics, the state, and each body shown the others again from the
-senses' frames (`SensesHub.show`). The next step is the one that followed the save. A save of
-another build, protocol, physical configuration or recipe is refused before loading physics.
+`Duel.save()` is a bout at a step: its identity, recipe, physics bytes and state. `Duel.load(saved)`
+restores it into any bout of the same recipe, and the next step is the one after the save; another
+build, protocol, physical configuration or recipe is refused before physics loads.
+`tests/arena-fork.test.mjs` and `tests/core-fork.test.mjs` fork bouts and bodies to prove every
+state field is one a fork needs. A Crypt run does not save.
 
-`tests/arena-fork.test.mjs` forks a bout at every second of its course and at every step about a
-blow, and holds every field of the bout's state to be one a fork needs: loaded with the field
-left as another step had it, the bout goes another way. `tests/core-fork.test.mjs` does the same
-for a body under its mind and its skills. A crypt run does not save: its bodies are built as
-they wake.
+## Bouts, tapes and replay
+
+A bout is built from a recipe (`DuelRecipe`, `src/arena/duel.ts`): bodies, gap, cap, level, each
+side's mind (`minds`), loadouts, attributes and recovery allowance (`recoverySeconds`), as plain
+data. What a page hears (`DuelHooks`) is beside it. Nothing in a bout is random, so a recipe plays
+the same to the bit in Node and in the page (`playBout`, `research/bout.mjs`; `traceOf`,
+`tests/harness/trace.mjs`; [real functions](reference/real-functions.md)). The page resets its
+world before each bout (`boutStart`) and a body's time starts at its first view (`BodyView.born`).
+
+- **Verdict** (`Duel.judge`): a side is out when its pool ends or its down allowance expires; both
+  on one step is a draw; at the cap the fuller bar wins. The page plays three seconds of aftermath
+  (`arenaPlayback`, `src/arena/playback.ts`).
+- **Tape** (`Duel.tape`): every order with the step it was given before. Recipe and tape are the
+  whole of a bout on one build; `Duel.play` feeds the tape in the sensing phase. A link carries it
+  in its fragment (`#tape=`, `readTape`, `tapeHash`, `src/arena/matchup.ts`); changing the recipe
+  drops a linked tape.
+- **Order sheets** (`DuelHooks.record`; `Sheet`, `SheetLog`, `src/core/mind/sheets.ts`): each
+  side's muscle commands, assist asks and hand poses at the mind's seam. A bout given them
+  (`DuelHooks.replay`) makes no mind (`replayedBody`) and plays the same. Each log names its build,
+  protocol, recipe, body, placement, grants, engine, rate, gravity and actuation, and another
+  identity is refused.
+- **Recordings** (`Duel.recording`, `Duel.playRecording`, `src/core/recording.ts`) are versioned
+  envelopes checked for exact identity.
+- **Build fingerprint** (`scripts/build-identity.mjs`): a content SHA-256 of sources, templates,
+  assets, lockfile, build config and installed Rapier, LF-normalised; Node and Vite share it.
+  Match results and tournament caches carry it and refuse a mismatch.
+- **Forks** (`rollout`, `research/rollouts.mjs`): by load or by replay of the tape, which agree.
+  The oracle (`research/oracle.mjs`) searches orders over forks; it holds the true world and is an
+  instrument, not a mind ([oracle](reference/oracle.md)).
 
 ## Rules and wounds
 
-The rules of a fight are `src/core/rules/`, free of any page so they can be argued with in tests
-(`tests/core-rules.test.mjs`, `tests/core-blows.test.mjs`).
+The rules of a fight are `src/core/rules/`, free of any page (`tests/core-rules.test.mjs`,
+`tests/core-blows.test.mjs`). The Arena and the Crypt share one rulebook (`rulebook.ts`).
 
-- **A touch** (`watchTouches`, `src/core/touches.ts`) is a watched segment that the solver pushed
-  on another watched segment, or on something fixed, while closing on it, from the step it is
-  first pushed until, as its reader asks, the solver stops pushing or the two part. A body's own
-  segments touch too, read from each of the two, unless the reader refuses them. It names the
-  pairs of shapes the solver pushed on. Its energy is `impactEnergy` (`impact.ts`): half the
-  reduced mass of the two effective masses (`contactMass`; something fixed is a mass nothing
-  moves) times the closing speed squared.
-- **A blow** (`watchBlows`, `blows.ts`) is a touch between any two segments of two sides'
-  bodies: it has no striker. Ordinary contacts use the touch's impact energy, with each fighter's
-  muscles holding through it: a freedom does not turn until the blow asks more angular impulse of
-  it than the ceiling its muscles were last given (`MuscleDriver.bounds`) over the contact's time,
-  and turns past it. That time is half the period of the two masses on the two surfaces'
-  stiffness in series, pi sqrt(mu / k); mu and the time are solved together (`contactGive`). So a
-  braced arm meets a blow with the trunk behind it, and a limp one with the hand alone; two rigid
-  surfaces meet for no time, with every joint free. Ordinary rigid impacts use the strongest loaded shape pair. A shape belongs
-  to its segment, a natural contact region (`ContactRegionSpec`), a held item, or an item's
-  named region (`ItemSpec.contacts`). Item regions retain their item identity and their own
-  surface, with geometry and directed mechanisms placed from the item frame by its holding.
-  `LandedBlow.kind` distinguishes an impact's energy and closing speed from a load's
-  normal impulses and interval. Each side records its surface, damage and actual pool wound.
-- **The two surfaces share the energy by their compliance** (`energyShares`, `share.ts`): springs
-  in series under one force, so the softer takes the more. A segment's surface is its spec's; an
-  item that states none is rigid and takes none. So a fist takes five eighths of its own punch to
-  a head and an eighth of one to a chest, what a club strikes takes the whole blow, a bare hand
-  that meets a club takes all of it, and two clubs meeting are a clash, in which neither side
-  takes any (`isClash`). A bare fist on flesh takes only what its share brings past the
-  rulebook's threshold (`Rulebook.fist`, a knuckle's injury). The values, their gaps and what a part holds beside the literature:
-  [reference/wounds.md](reference/wounds.md).
-- **Damage** (`rulebook.ts`): ordinary impact damage is energy times the mechanism's worth
-  over the unit, 100 J of blunt blow per HP (`owner-damage-unit`). A surface's `directed`
-  property names an edge or point, its direction and its admitted normal cosine. An aligned
-  item edge or point prices the impact by that mechanism; side and reverse contacts are blunt.
-  A touch spanning several regions is classified by its strongest loaded shape pair and paid
-  once, with no sliding-contact damage. Anatomical points instead wound by
-  `pointLoad.rate * max(0, impulse - pointLoad.threshold * dt)`. Their direction is in the
-  anatomical body frame, tested against the contact normal (`pointsInto`). `watchBlows` sums all qualifying
-  collider contributions once per pointed rigid body, victim segment and interval, applying
-  the shared threshold once. Opposing points can wound both sides. A held item intercepts
-  load injury; impact recoil still follows compliance. Anatomical point injury receives no
-  second energy payment, and held items receive no sustained-load payment. The rule needs no tissue layer, penetration estimate, release ledger,
-  character identity or attack intent. Sustained pressure can wound without motion.
-  [Pointed contact](reference/reptile-bites.md) records the game calibration, separate from anatomy.
-  The Warrior's strongest one-handed club blow (`CLUB_BEST`, `research/core-club-unit.json`)
-  is 138.23 J, 1.38 HP. The Arena and Crypt share the same rulebook.
-- **Wounds** (`pool.ts`): one pool of hit points per body, split over its parts by cross-section
-  (mass to the two-thirds, as the square of its cube root). A part's excess damage spreads to its neighbours, nearest first and
-  inward first. A part emptied by a clean blow, or hit far enough past empty, comes off, except the
-  trunk's; no blow is clean today. A body's pool ends when it is empty, or when a vital part (the
-  head, for every body today) is emptied or comes off; which parts are vital is the spec's `wounds`.
-- **Balance**: a character has a balance beside its hit points (`AttributeSpec.balance`): a per
-  cent of its own weight, the most force its assist gives it, with the moment the rulebook gives
-  each per cent (`Rulebook.balance`: 0.0026 of its weight times a metre; `balanceCeiling`). A
-  fight sets each body's ceiling from its character's balance,
-  or its resolved setup's (`DuelRecipe.attributes`, `&left.balance=` in an arena link), and withdraws the
-  assist when the body is out of the fight. The Lab reads the same resolved Balance (`&body.balance=`). The stance steps to catch a push only once its capture point is
-  past what the assist holds (`assistReach`, `gait.ts`: a force holds the point its height times
-  the force over the weight out, a moment the moment over the weight), so a body with a balance
-  stands through a shove a body without must step for. Every character's balance is 0, and at 0
-  there is no assist.
-- **Haste**: a character's leg muscle speed increase over its model's baseline, per cent
-  (`AttributeSpec.haste`): 0 is unchanged, +50 half again as fast. It multiplies the unloaded
-  speed of hip, knee, ankle and foot exertions on humanoids, and girdle, bend and ankle joints
-  on all four reptile legs. Speed and Haste multiply together on legs. It changes no peak torque;
-  gait timing remains the controller's choice. Every model defaults to 0. The shared resolver
-  applies overrides from each setup (`&left.haste=`, `&body.haste=`, `&enemy.reptile.haste=`).
-- **Levels** (`levelsOf`, `levels.ts`): which bodies run themselves, for any fight with more
-  bodies than fight at once. A body with nothing to do and nobody near is `held`; any other is
-  `full` in the fight and `limp` out of it. A body in the fight has nothing to do when the fight
-  says it waits; one out of it, once it has lain `settle` seconds. Somebody is near when a body
-  going somewhere (in the fight, at `full`, not waiting) is within `company`, or for a body in
-  the fight a foe is within `wake`; once it is loose, the farther `clear` and `rest` keep it so.
-  `stirs` is the rule's letting go for a body not yet built. A level is read from the game alone,
-  never from the machine, so there is no cap on the bodies at `full`; the fight gives the
-  distances (`LevelRule`). The Crypt uses it for active and distant bodies; the Arena page
-  uses it for defeated bodies in its aftermath.
-
-A body that is down (`Body.down`, by its spec's rule: a human when a part but its feet and hands
-is within 3 cm of its lowest point, `src/core/control/ground.ts`) follows
-its configured sub-minds while the fight allows recovery. The Arena's verdict (`Duel.judge`,
-`src/arena/duel.ts`) ends a side when its pool ends or its continuous-down allowance expires;
-null allows recovery until injury or the bout cap. Both sides out on one step is a draw; at the
-cap, the fuller bar wins. The page announces the verdict immediately and plays three seconds
-of aftermath (`arenaPlayback`, `src/arena/playback.ts`). Defeated sides go limp through
-`levelsOf`; a bell result keeps both live bodies under control. Playback then holds the
-world while the camera remains usable. Presentation reads physical transforms even for
-limp bodies, whose controllers no longer refresh their observations. A stencil highlight
-(`src/arena/side-highlights.ts`) marks left blue and right red on skins, collision shapes
-and held equipment, matching setup, health bars and the winner banner.
-A bout is built from a recipe (`DuelRecipe`): the two bodies, how far apart they start, the
-cap, and a side's mind where it names one (`minds`, each a `MindConfig`), as plain data, so the same bout can be built again in another world or on another thread;
-what a page hears of it (`DuelHooks`) is beside the recipe, not in it. Nothing in a bout is
-random, so a recipe played twice is the same bout to the bit (`playBout`, `research/bout.mjs`;
-`traceOf`, `tests/harness/trace.mjs`), in Node and on the page alike
-([reference/real-functions.md](reference/real-functions.md), In Chrome): Node builds it on the
-arena's engine (`loadEngine`), the page puts its world back as the arena left it before every
-bout (`boutStart`), and a body's own time starts at its first view (`BodyView.born`), so a bout
-begins the same after another (`tests/arena-fresh-start.test.mjs`). How the bouts end today
-is `docs/reference/bouts.md`.
-
-Every order a side is given is kept with the step it was given before (`Duel.tape`), an order
-that repeats the last left out. On the same build and physical configuration, the recipe and the
-tape are the whole of what made a bout:
-`Duel.play` gives a tape again as the bout steps, each order in the sensing phase of the step it
-names, before any mind, so a bout a person fought plays again to the bit
-(`playBout(recipe, seconds, tape)`). A facing is the way from the body to the pointer's point,
-which changes as the body moves, so a side fought with the pointer over the arena tapes an
-order a frame. A side is given its orders as JSON carries them, so a tape that has been through a
-file or a link gives the orders the bout gave.
-
-A bout asked to record (`DuelHooks.record`) writes each side's **order sheets** at the mind's seam
-(`embody`): each step its mind stepped, its muscles' command, its assist's ask, the hand poses it
-asked (`Sheet`, `SheetLog`, `src/core/mind/sheets.ts`); whether a body is down is the fight's
-rule of the body, read again in the replay. The recipe and the sheets are the whole of what the minds
-did: a bout given them (`DuelHooks.replay`) makes no mind, plays each side's sheets in its place
-(`replayedBody`) and is the same bout to the bit. A load that goes back drops the sheets after it
-as the steps are taken again. `tests/mind-contract.test.mjs` holds every registered Mind to it.
-Each log identifies the build, sheet protocol, complete bout recipe, body, initial placement,
-assist grant, engine profile/revision, rate, gravity and actuation. A different identity is refused
-before a replay body is built; replaying the same commands under different grants is a different task.
-
-The same contract test checks exact live continuation after restoring each current Mind's
-explicit state. Live continuation executes the controller again; physical replay applies the
-recorded commands without it. The current sheets carry muscle commands, assist asks and hand
-poses; separate-equipment grip requests are outside this gameplay recording format.
-
-A tape rides in a link's fragment, which no server is sent (`#tape=`, `readTape` and `tapeHash`
-in `src/arena/matchup.ts`), with the rest of its recipe in the link's query (`&gap=`, `&cap=`,
-`&balance=`, each side's mind). The arena plays a bout whose link carries a tape with nobody at the keys, and a
-tape made in Node plays its bout in a browser on the same build. `Duel.recording` creates its
-versioned envelope; `Duel.playRecording` checks the exact identity before queuing inputs. Missing
-identity, malformed, legacy or incompatible recordings report a reason. An ordinary recipe link, without
-`#tape`, builds with the current code.
-
-The build fingerprint is a content SHA-256 (`scripts/build-identity.mjs`): source and page templates,
-input assets, dependency lock, build configuration, vendored solver inputs and actual installed
-Rapier JavaScript/WASM. Text uses LF for identity regardless of checkout endings. Generated ratings,
-notes and research outputs are excluded. Uncommitted source participates; a Git commit is only a
-human label. Node reads this fingerprint and Vite embeds the same immutable value for the browser;
-development source changes reload the page instead of mixing new code into an existing world's
-identity. The core receives the build identity from its host and owns only plain identity data and
-compatibility checks (`src/core/recording.ts`).
-
-Match results carry the build and protocol identity; `npm run match -- --read <file>` refuses an
-incompatible result. Tournament caches use content identity in their path and verify every row before
-reuse. Written tables name the same input build, and the Arena refuses a stale table with its reason.
-
-**A bout forks** (`rollout`, `research/rollouts.mjs`) by a load: a bout of the recipe, which the
-thread keeps, is loaded with a save of the fork's step (`Duel.save`) and played on under a branch
-of other orders, at the cost of the steps played out. It forks by replay too, which needs the
-recipe and the tape alone: a second bout is built, played under the tape to the fork's step, and
-on under the branch. The two are one fork (`tests/research-rollouts.test.mjs`). Every fork tells
-the digest of its poses at the fork, so two forks of one bout at one step agree in it or one of
-them is not that bout. **The oracle** (`research/oracle.mjs`) is built on forks, and is an
-instrument outside the core, not a mind: it holds the true world, which no mind may. At every
-half second of a bout it tries a handful of orders for one side, each in a fork, and gives the
-bout the best. What it reports is the ceiling of what it searched and of nothing wider
-([reference/oracle.md](reference/oracle.md)).
+- **A touch** (`watchTouches`, `src/core/touches.ts`) is a watched segment the solver pushed on
+  another, or on something fixed, while closing. Its energy is `impactEnergy` (`impact.ts`): half
+  the reduced mass of the two effective masses (`contactMass`) times the closing speed squared.
+- **A blow has no striker** (`watchBlows`, `blows.ts`). Any two segments of two sides that meet
+  closing have met in a blow. Each fighter's muscles hold through it up to the ceilings they were
+  last given (`MuscleDriver.bounds`) over the contact's time (`contactGive`), so a braced arm meets
+  a blow with the trunk behind it. A shape belongs to its segment, a natural contact region
+  (`ContactRegionSpec`), a held item or an item region (`ItemSpec.contacts`); a touch is classified
+  by its strongest loaded shape pair and paid once.
+- **The two surfaces share the energy by their compliance** (`energyShares`, `share.ts`): springs in
+  series, the softer takes more. An item with no stated surface is rigid and takes none; two rigid
+  items meeting are a clash (`isClash`). A part's tolerance is the pool's rule, but a bare fist on
+  flesh lets the first of its share go (`Rulebook.fist`). Values: [wounds](reference/wounds.md).
+- **Damage** (`rulebook.ts`): impact energy times the mechanism's worth, 100 J of blunt blow per HP.
+  A surface's `directed` edge or point, met square, is priced as a cut or thrust; otherwise blunt.
+  Anatomical points wound by sustained load (`pointLoad`, `pointsInto`).
+- **Wounds** (`pool.ts`): one pool of hit points per body, split over its parts by cross-section.
+  Excess spreads to neighbours; an emptied part may come off (never the trunk). A body is out when
+  its pool is empty or a vital part is emptied or off (`BodySpec.wounds`).
+- **Balance** (`AttributeSpec.balance`): a per cent of the body's weight, the most force its assist
+  gives, with the moment `Rulebook.balance` gives each per cent (`balanceCeiling`). A fight sets each
+  ceiling from the character and withdraws it when the body is out. The stance steps for a push only
+  past what the assist holds (`assistReach`, `gait.ts`).
+- **Haste** (`AttributeSpec.haste`): a per cent increase in leg muscle speed; no peak torque change.
+- **Levels** (`levelsOf`, `levels.ts`): which bodies run themselves. A body with nothing to do and
+  nobody near is `held`; any other is `full` in the fight and `limp` out of it. The fight gives the
+  distances (`LevelRule`); `stirs` wakes a body not yet built. There is no cap on bodies at `full`.
 
 ## The screens
 
 `index.html` is one document (`src/app.ts`, routed by `src/app-route.ts`): the main menu, and the
-arena, crypt and lab screens at `?play=arena`, `?play=dungeon` and `?play=lab`, each a
-`<template>` mounted in the persistent shell. Internal navigation and browser history dispose the
-previous screen, including pending loads, worlds, scenes, previews, listeners and audio. Setup
-choices remain in memory for the current tab; leaving a run ends it. Styles belong to their
-screen root, so revisiting a mode reuses its module without leaking its DOM or styles.
-The shell's loading overlay keeps the screen inert while it prepares characters and scenes.
-Required textures, drawable materials, shadows and post-processing must produce two consecutive
-complete frames beneath it before play begins; invisible colliders do not gate readiness.
-Preparation advances no physics. Its deadline counts visible-tab time, and navigation cancels
-pending work. Model downloads share immutable bytes across scenes; each scene owns its decoded
-Babylon resources. Failed downloads leave the cache so Retry can request them again.
-Dungeon and Arena are the main menu's play actions. Tools groups the Lab and separate development
-viewers. Dungeon setup keeps advanced attribute, mind and seed editing in a drawer, and its
-gameplay diagnostics stay collapsed until requested. The shared shell supplies focus states,
-loading errors and reduced-motion-aware transitions; returning to the menu is immediate.
+arena, crypt and lab at `?play=arena`, `?play=dungeon` and `?play=lab`.
 
-- **The Arena** (`src/arena/`): two bodies, empty-handed unless armed, in the Forge (`src/arena/scene.ts`,
-  `src/arena/room.ts`), each driven by its side's mind under a `Duel`, to a verdict, each
-side's mind inspected under its bar. A person
-  may take a side (`&you=left`): each frame the page turns the walking keys, as the camera sees
-  the ground, into a walking direction. The pointer supplies facing from a level plane and,
-  while pressed over sensed collision geometry, a foe and segment identity (`src/arena/orders-input.ts`).
-  These become orders (`Duel.order`), so nothing of the camera reaches a mind. The room's
-  solids (`arenaSolids`) are a floor slab, twenty-four rotated parapet boxes and eight brazier
-  pedestals enclosing a circular floor. `LEVELS` (`src/arena/levels.ts`) selects the open stage or
-  obstacle court; the recipe's `level` is carried by `&level=`. The court adds the Crypt kit's
-  columns, tomb and bench from shared furniture definitions (`src/environment/furniture.ts`), including collision
-  sizes, visual placements and sight permissions. Every Mind receives the stage's entire fixed
-  geometry. Opponent visibility keeps its existing policy. Each level owns its spawn pair,
-  headings and allowed gap; admission checks the posed body's collider bounds, held items included,
-  against all above-floor solids before stepping. Page and Node bouts build from `arenaSolids(level)`.
-  Setup uses two unstepped character previews
-  (`src/render/character-preview.ts`) and an overview camera; Fight switches explicitly to the
-  combat camera and HUD. `camera.ts` follows pose-only subjects with the existing FreeCamera and
-  post pipeline, running even while the world is paused. `view.ts` owns presentation URL settings,
-  including focus on Both, Left or Right; Chase requires one side. World/Tactical toggles existing
-  skin and collision-shape drawings and their shadow casters without rebuilding the duel.
-  The solids are what bodies meet; the visible room is dressed from the forge kit
-  (`src/arena/forge-style.ts`, `src/arena/forge-room.ts`). `validateRoomPlacements` refuses a
-  piece that names a collider the arena lacks, or one of the wrong role, and a solid-looking piece
-  within reach (below `ROOM.maxReachHeight`) that names none.
-- **The Crypt** (`src/dungeon/`): a party in a generated dungeon (`DungeonRun`, `run.ts`). The
-  map's walls, doors and obstacles are fixed boxes in the world (`buildDungeonWorld`); the run
-  asks for each participant's mind by its id, side and model (`DungeonRunOptions.mind`,
-  `Participant`), its model's own where it is given none. The start panel chooses one for the
-  party's bodies of each model and one for the enemies' (`runMinds`, carried by `&<model>.mind=`
-  and `&enemy.<model>.mind=`), which the HUD inspects (`inspectMind`); generated rooms alternate skeletons and three-reptile
-  packs, with collider clearance and reachable routes checked before choosing a layout.
-  Point-only maps retain skeletons. Every built actor receives the run's shared senses;
-  a reptile remains alive during recovery and must stand to reach the exit.
-  A person's orders reach the party only through the run's
-  plan (`DungeonCommands`), and each member's mind carries them out while it defends itself.
-  The run issues world directions, destination lists and sensed-target range bands through
-  `MovementRequest`. Each Mind's navigation role owns its geometric route, braking, arrival and
-  progress; the page draws that role's reported route. Reaching a combat approach band hands
-  movement back to the Mind's attack positioning; keyboard stops and forced travel remain
-  explicit movement orders. The world builder grants detached frozen
-  copies of the actual collision boxes, refreshing them when a door opens. A distant blocked
-  goal may first select an openable door (`door-approach.ts`): map search identifies which door
-  connects the objective, then the shared navigator reaches its near-side interaction point.
-  The map's search and request planning use the core's exact arithmetic.
-  The world's existing proximity rule opens it before the original objective resumes. The run
-  preserves the unconsumed explicit points of a drawn order across that interaction.
-  Enemies are built when the party comes near; its art is in [art/crypt.md](art/crypt.md). Sight
-  is the map's (`canSee`, `reveal`, `src/dungeon/map.ts`), read through an index of the cells
-  where nothing need be read (`SightIndex`), made again when a door opens. The
-  page hears every built body where the party sees (`hearRun`, `hearing.ts`), its listener made
-  again when a body is built.
-- **The lab** (`src/lab/`): one body at a time in the Stance, Get-up experiment, Stand-up, Attack and Locomotion
-  scenarios (`scenarios.ts`), at 120 or 480 Hz, with a transport that steps the world by hand.
-  Every scenario drives its body through an actor (`actor.ts`), which gives the body what the
-  page chose: its balance, its mind and the strikes it may throw. The mind is a fighter
-  (`labMind`): a preset or an edited tree carried by `&mind=`, including its recovery sub-mind.
-  Attack defaults to Puncher and also offers Classic and Guard; scripted scenarios default to
-  Script. A click in Attack (`attack-mode.ts`) issues `Orders.foe`, the same body-target order the Crypt
-  issues after navigation. `createSenses` carries the physical targets to the mind, which owns
-  approach, aim and striking. Seeded targets are dynamic balls of the attacker's head
-  (`targets.ts`), floated against gravity and moved by impulses at the chosen speed until impact.
-  Solver contact with the actor marks a hit; after 0.6 s the target's collider and senses are
-  removed and a new target spawns. The fighter's focus rules choose its target when no click
-  orders one. The ledger counts committed effector contacts separately from these physical impacts.
-  Wind uses the same gust model as Locomotion. This exercises combat in an open field;
-    The Crypt's request planning uses the same navigation role. The Locomotion scenario goes round its
-  tracks (`track.ts`), or from one random destination to the next (`commands.ts`),
-  at the pace asked, its feet metered from the ground's contacts (`gait-meter.ts`), and the
-  lab's wind (`wind.ts`) blows seeded gusts on its chest: a disturbance from outside, as a shove
-  is, and no assist. The page inspects the
-  mind as it goes (`mindInspector`), logs what it decides, and who has the body when it changes hands (`mind-log.ts`), and what the body
-  sounds of (`sound-log.ts`): its touches, its air, the touches of a target that hangs beside it,
-  and the cue of the instrument that is no contact, the shove, each at the
-  mind's time, so the page plays what the frame it shows sounded of, live or replayed. Its HUD is sections (`hud/sections.ts`) that the shell and the scenario fill with controls
-  built from data (`src/ui/controls.ts`).
-  The **Get-up experiment** uses the selected live mind and loadout by default. Its optional
-  slow witness uses the portable searched recipe (`src/lab/recovery-recipe.ts`), compliant soles,
-  zero Balance and the Script host. Reset demonstration queues Front impulses of 60 N s at
-  2 s and 2.2 s; Repeat two shoves acts on the existing body. A one-second walking command
-  checks handover. The Mind editor selects the recovery controller. Stress cases reproduce
-  named directional falls. The history records the owning controller, recovery control time,
-  force/moment with their ceilings, and release to the host.
-  **Stand-up** (`ground-scenario.ts`, `ground-mode.ts`) supplies seeded placed, dropped and
-  shoved starts (`ground-starts.ts`), and a round of the owner's target's falls: 1.5 N s a kg at
-  the chest, sixteen ways round one after another on the one body, each once it is back on its
-  feet, the round ending where it is still down 30 s after a verdict. Joint kinematics reject
-  nonadjacent shape overlap before physics starts; a draw that cannot clear in five attempts is
-  reported. The body gets up by the game's Stand up (step-up), the learned rise, support
-  recovery or its mind's own sub-minds, or a technique runs alone; an optional hanging foe
-  enters the same senses as combat targets. Every stand is verified (`STAND_CHECK`): from the
-  recovery's takeover, upright and loaded on both feet and quiet 0.5 s, then holding 2 s and
-  walking 1 s with the host in command, independently of the controller's hand-back. Ground
-  classifications, support loads, recovery phases, attempts and assist impulses are recorded
-  with the body and foe. `research/rising-bed.mjs` runs the same mode in worker threads, a fresh
-  body a fall; its target mode is the 64 falls, the round's on four loadouts.
-  The Fall environment selector (`groundLevel` in links) adds a column, wall, tomb or bench from
-  `ground-environment.ts`, using the same furniture dimensions and kit as the Arena and Crypt.
-  Shoved starts leave a measured geometric gap behind the body; the tomb condition orders a
-  backward step before its shove. Placed and dropped starts on low furniture begin above its top.
-  Obstacle geometry is granted through senses, and static scenery stays in place during history
-  playback. `research/rising-bed.mjs --obstacles` runs a separate 256-fall suite, the 64 direction
-  cases in each environment; its failures remain in the reports and establish no recovery promise.
-  `--target` retains the original 64 open-floor cases and rejects obstacle conditions.
-- **The character workshop** (`/character-lab.html`, `src/character-lab/`): the workshop models
-  with their authored preview motion. It uses no core. See [art/characters.md](art/characters.md).
-- **The physics bench** (`/physics-bench.html`, `src/physics-bench/`): the bake-off's cases on
-  MuJoCo and Rapier, which chose Rapier (`research/physics-bakeoff/REPORT.md`).
+- **The shell** mounts one screen `<template>` at a time. Changing screen disposes the previous one
+  explicitly (pending loads, worlds, scenes, previews, listeners, audio); setup choices stay for the
+  tab; styles belong to the screen root.
+- **Loading** covers scene preparation with physics suspended: textures, materials, shadows and
+  post-processing must give two complete frames before play. Its deadline counts visible-tab time
+  and navigation cancels it. A failed launch returns to setup with its error and Retry. Model bytes
+  are shared; each scene owns its decoded resources.
 
-The screens share the core and `src/render/`: `dress.ts`, which draws each body as its skin, or as
-its collision shapes if the skin does not load; the skins (`skin.ts` for the humans,
-`skeleton-skin.ts` for the skeleton, see [art/skeleton.md](art/skeleton.md), and procedural
-`reptile-skin.ts`), which read only the
-segments' achieved transforms and own no collision, and the collision shapes drawn
-(`body-shapes.ts`). The arena and the crypt also share the post pipeline (`post.ts`), textured
-surfaces (`surface.ts`, `materials.ts`, `textures.json`) and sound (`src/audio/`): `cues.ts`
-makes a cue of an energy and what the two that met are made of, `game-audio.ts` synthesizes and mixes
-what a page plays, and `body-sounds.ts` reads what a body sounds of from the world: its touches
-(`hearTouches`) and its air (`airOf`). Every screen plays both: the lab from its log, the arena
-of its two sides until the verdict, the crypt of every body the party sees. A blow is a touch,
-and is heard as one; what it takes off a side is a cue of its own (`debrisCues`)
-([reference/look.md](reference/look.md#sound)).
+| Screen | Where | What it is |
+|---|---|---|
+| Arena | `src/arena/` | two bodies under a `Duel`, to a verdict |
+| Crypt | `src/dungeon/` | a party in a generated dungeon (`DungeonRun`) |
+| Lab | `src/lab/` | one body in a scenario (`scenarios.ts`), stepped by hand |
+| Character workshop | `/character-lab.html`, `src/character-lab/` | workshop models with preview motion; no core ([characters](art/characters.md)) |
+| Physics bench | `/physics-bench.html`, `src/physics-bench/` | the bake-off's cases on MuJoCo and Rapier |
+| Control tasks | `/control-foundation.html`, `/control-tasks.html` | research tasks with replay ([equipment](#experimental-separate-equipment)) |
 
-Body identity and appearance are separate. The appearance catalog owns compatible skins and labels;
-`dresserFor` loads assets and returns a factory taking per-body clothing and hand closure. Its
-uniform `SkinView` contract includes collision-shape fallback. The Arena, Dungeon, Lab and
-character previews all use this factory. `skinSlot` replaces a body's view without replacing its
-physics, rejecting stale asynchronous loads and preserving current clothing and visibility.
+**The Arena.** A person may take a side (`&you=left`): keys become a walking direction as the
+camera sees the ground, and the pointer a facing and a sensed foe and segment
+(`src/arena/orders-input.ts`), all sent as `Duel.order`. The room's solids (`arenaSolids(level)`)
+are what bodies meet; `LEVELS` (`src/arena/levels.ts`) selects the open stage or obstacle court,
+whose furniture comes from `src/environment/furniture.ts`. Every Mind gets the stage's fixed
+geometry. The visible room is dressed from the forge kit (`forge-style.ts`, `forge-room.ts`), and
+`validateRoomPlacements` refuses a piece naming a collider the arena lacks, or a solid-looking one
+within reach naming none. `camera.ts` and `view.ts` own the camera and view settings.
 
-`strike-hands.ts` gives skins their fingers' closure. In the Arena and the Crypt a fighter's
-fingers are its body's applied hand poses (`fighterHands`): closed in a fist or a grip, open else,
-since every skill set closes a bare hand for its blow. Lab Attack also reads the physical hand poses and records them with its target history.
-Research strike viewers can adapt the active command owner's strike report with `strikeHands`. Skins only read closure, and held-item grips take precedence.
-Presentation belongs to the character rather than its replaceable skin and owns no physical
-state. Lab history records closure beside the body's transforms for scrubbing and replay;
-paused rendering advances neither. Timing: [fist presentation](reference/lab.md#fist-presentation).
+**The Crypt.** Walls, doors and obstacles are fixed boxes (`buildDungeonWorld`); enemies are built
+as the party comes near. A person's orders reach the party only through the run's plan
+(`DungeonCommands`), as movement requests each member's own navigation carries out; a blocked goal
+may route through a door first (`door-approach.ts`). Sight is the map's (`canSee`, `reveal`,
+`SightIndex`, `src/dungeon/map.ts`). Minds are chosen per model (`runMinds`,
+`src/dungeon/run-minds.ts`). Art: [crypt](art/crypt.md).
 
-Arena and Lab share view types (`src/render/view.ts`), camera math (`camera-math.ts`) and
-controls (`src/ui/view-controls.ts`). Each screen owns its camera rig, input and URL persistence;
-the shared controls only read settings and request changes. Walking and audio use the Arena
-camera's actual horizontal direction in every mode.
+**The Lab.** Stance, Get-up experiment, Stand-up, Attack and Locomotion scenarios at 120 or 480 Hz.
+An actor (`actor.ts`) gives the body its balance, mind (`labMind`, `&mind=`) and strikes. Attack
+(`attack-mode.ts`) issues `Orders.foe` against seeded targets (`targets.ts`); Locomotion runs tracks
+(`track.ts`) or random destinations under seeded wind (`wind.ts`). Stand-up (`ground-scenario.ts`,
+`ground-mode.ts`) plays seeded and target falls and verifies every stand (`STAND_CHECK`);
+`research/rising-bed.mjs` runs the same mode in workers. The HUD is sections
+(`hud/sections.ts`) filled with controls built from data (`src/ui/controls.ts`).
 
-The Warrior's Industrial, Steampunk and Futuristic shells each have an independent procedural
-builder. They share segment-local geometry batching, attachment, materials and finger articulation
-through `robot-geometry.ts` and `robot-skin.ts`. Rigid pieces are parented to the simulated
-segments, with cosmetic finger articulation driven by the same closure input as the human skin
-([robot art](art/robots.md)). Arena and Lab selectors store appearance in the address, outside
-physical loadouts, duel recipes and tapes. They do not change collisions, sounds, damage or control.
+**Shared rendering** (`src/render/`, `src/audio/`):
+
+- `dress.ts` and `dresserFor` draw a body as its skin, or its collision shapes if the skin does not
+  load; skins (`skin.ts`, `skeleton-skin.ts`, `reptile-skin.ts`, the robot shells via
+  `robot-skin.ts`) read only segment transforms and own no collision. `skinSlot` swaps a view
+  without touching physics. Appearance is a link setting outside recipes and tapes.
+- `strike-hands.ts` gives skins finger closure from the body's applied hand poses (`fighterHands`).
+- `post.ts`, `surface.ts`, `materials.ts` are the shared post pipeline and surfaces.
+- Sound: `cues.ts` makes a cue from an energy and two materials, `game-audio.ts` mixes,
+  `body-sounds.ts` hears a body's touches (`hearTouches`) and air (`airOf`)
+  ([look](reference/look.md#sound)).
+- `src/render/view.ts`, `camera-math.ts` and `src/ui/view-controls.ts` are the shared view types and
+  controls; each screen owns its camera rig, input and URL.
+- `mindEditor` (`src/ui/mind-editor.ts`) draws a mind tree's fields, slots and faults for a body;
+  a link carries a preset id or the whole tree without `tuning` (`writeMind`, `parseMind`,
+  `src/ui/mind-link.ts`), and a faulty linked tree plays the preset. `mindInspector` shows who has
+  the body, live actions, reservations and the ledger; the Arena's `fighter-hud.ts` and
+  `fighter-readout.ts` read reports and write nothing back.
 
 ## What the seams are for
 
-Tactics choose a named action, an effector and a target body and region. The action names its
-executor and aim rule; path families are action settings, and the recipe executor chooses a
-searched recipe or a placed blow. Scripts may instead request explicit world points. Continuous
-defence is the guard placing a hand or what it holds; a deliberate defensive commitment can use
-the same action protocol. A blow is whatever two surfaces of two sides met with. These seams
-keep control choices separate from the contact and damage rules ([roadmap](roadmap.md#blows-and-wounds)).
+Tactics choose a named action, an effector and a target body and region; the action names its
+executor and aim; the guard places a hand or what it holds; a blow is whatever two surfaces of two
+sides met with. These seams keep control separate from the contact and damage rules
+([roadmap](roadmap.md#blows-and-wounds)). Where a later addition goes:
+
 | Added | Where it goes | What it leaves alone |
 |---|---|---|
-| **A sword, a spear**: an edge, a point | Item regions state directed edge or point surfaces, priced on impact. The short sword supplies both; `blade-cut` and `blade-thrust` execute them on the shared lifecycle. A spear needs its own item and execution qualification. | The shares, the pool, the skill, the targets. |
-| **The face and the vault** | Natural contact regions (`SegmentSpec.contacts`) supply separate colliders and surfaces; teeth use this path. Face and vault regions still need anatomical data. | The pool: one head, one share of hit points. |
-| **Armour**: boots, greaves, a cuirass, vambraces, gloves, a helmet | A worn item, rigid with its segments as a held one is: it adds its mass, and its surface is one more layer in series (`energyShares` over the layers), taking its share and wounding nobody; it raises the breach cost of an edge or a point. A glove protects the puncher by the same rule. | The rule's shape; a rigid body's shapes gain a kind of owner. |
-| **A shield** | A held item with a face: its points are what the guard places (`ItemSpec.cover`); a bash is a blow like any other. A third place on one rigid body fixes its roll (`HandGoal.places`). | The guard skill, the rule. |
-| **A staff, a spear in two hands** | An item held by two segments: the builder closes the loop with a joint at the second hand, and a placement solves both arms to the item's points. | Recipes, which are per thing held; the rule. |
-| **A bow** | Shooting is a skill beside the strike in the one list (`createSkills`); an arrow is a body, and what it touches is a blow by the same rule, its point's mechanism priced. The draw is a placement. | Every contact rule. |
-| **A knee** | A point on the shank struck as the kick strikes the foot (`effectorStrike` over the leg's chain, the stance bearing the other leg); the rule already wounds by any segment. | The rule, the targets, the cycle. |
-| **A crouch, a low target** | The stance lowers the body beyond `STANCE_LOWER`, and a band under the middle one (`BANDS`) names it. The targets' low stratum is the row that turns from missed to hit. | The search, the skill's choice by window. |
-| **Another body**: four legs, a tail | Its spec, with its effectors, marks and down rule; the controllers that fit it (`Controller.fits`), and a search on it for recipe blows, which are per model. Its surfaces are its spec's. | Everything else. |
-| **A learned or a planning mind** | It asks the same `Attack`s; or, at the muscles, it is an entrant of its own (`src/core/entrants/`, a line in `CONTROLLERS`) and the targets score it as a row. | The rule, the targets. |
+| **A sword, a spear** | Item regions state directed edge or point surfaces, priced on impact; `blade-cut` and `blade-thrust` execute them. A spear needs its own item. | The shares, the pool, the targets. |
+| **The face and the vault** | Natural contact regions (`SegmentSpec.contacts`) give separate colliders and surfaces; teeth use this path. | The pool: one head. |
+| **Armour** | A worn item, rigid with its segment: it adds mass and one more surface in series (`energyShares` over the layers). A glove protects the puncher by the same rule. | The rule's shape. |
+| **A shield** | A held item with a face: the guard places its points (`ItemSpec.cover`) and orients its face; a bash is a blow. | The guard skill, the rule. |
+| **A staff, a spear in two hands** | An item held by two segments: a joint at the second hand, both arms solved to its points (see [separate equipment](#experimental-separate-equipment)). | Recipes, the rule. |
+| **A bow** | A shooting skill in the one list; an arrow is a body, and what it touches is a blow. | Every contact rule. |
+| **A knee** | A shank point struck by `effectorStrike` over the leg's chain. | The rule, the cycle. |
+| **A crouch, a low target** | The stance lowers past `STANCE_LOWER`; a band under the middle one (`BANDS`). | The search, the choice by window. |
+| **Another body** | Its spec with effectors and down rule; the controllers that fit it (`Controller.fits`); its own recipe search. | Everything else. |
+| **A learned or planning mind** | An entrant ([Adding a Mind](#adding-a-mind)). | The rule, the targets. |
 
 ## Standing decisions
 
-These are the owner's, and the code is built on them.
+The owner's decisions the code is built on:
 
-- **Physically based, humans first.** Muscles, standing on real ground forces, emergent falls,
-  damage in joules. The human is the reference body, and every other body is balanced against it.
-- **Locomotion is force-bounded stepping**: the torque stance, with ground forces at the real feet
-  within friction and the legs' strength.
+- **Physically based, humans first.** Muscles, real ground forces, emergent falls, damage in
+  joules. The human is the reference body; every other body is balanced against it.
+- **Locomotion is force-bounded stepping**: ground forces at the real feet within friction and the
+  legs' strength.
 - **Rapier is the engine**; MuJoCo stays on the bench; another engine is tried on the bench first.
 - **120 Hz**, and the controllers are made to work there.
 - **Torque sources with the body's real inertia**, and an eccentric ceiling of 1.4 times isometric.
-- **A person never commands muscles.** A person's input is orders (`Orders`): walk or run this
-  way, face that way, attack that point. The body's own tactics and skills carry them out.
-- **Strikes are searched recipes where one lands, and hand goals where none does**: a placed
-  blow is a place and a time for the hand, met by the arm alone. Next it is met by arm, trunk and
-  legs together, with a speed, and the tactics' intent, attack that, does not change. Nothing is
-  built that the next step throws away, or searched on a path the game will not use.
+- **A person never commands muscles.** A person gives orders (`Orders`); the body's own mind
+  carries them out while it defends itself.
+- **Strikes are searched recipes where one lands, and placed blows where none does.** Nothing is
+  built that the next step throws away.
 - **Sizes and hit points.** x1 is a typical adult, about 1.77 m and 79 kg; the Rogue keeps her own
   proportions. The Warrior has 6 hit points and the Rogue 4.
-- **The skeleton is a family of its own, not a reskin.** It keeps thin colliders though they make it
-  harder to hit; blunt blows beat bone while cuts and thrusts do less; its joints are weak; its
-  ribcage and pelvis are fatal and its skull is not; chipping its bar down works with every weapon.
-  Its art is rigid, shaded by vertex colour. Today it runs on the human's placeholders and wounds;
-  building this intent is on the [roadmap](roadmap.md).
+- **The skeleton is a family of its own, not a reskin.** Thin colliders though harder to hit; blunt
+  blows beat bone while cuts and thrusts do less; weak joints; ribcage and pelvis fatal, skull not;
+  its bar chips down with every weapon; rigid art shaded by vertex colour.
 - **Cosmetics never carry authority.** Nothing decorative collides or decides a hit.
-
-A stance may hold a planted root pose (`StanceGoal.pose`): pitch and response time
-with two feet held still. Its effort-aware bearing solve carries the remaining servo
-solve at the solved leg accelerations. Posture can follow the support response while
-hand paths keep their ordinary tracking response; IK reads the measured held trunk
-angles. Supported poses retain a standing-relative recovery bar. The physical low
-strike and standing-return gates are recorded in
-[the supported root pose reference](reference/supported-root-pose.md).
-
-The optional low-combat executor acquires quiet loaded feet, geometric COM support and head/trunk
-clearance before a planted fold. Its support report exposes acquisition, lowering, readiness and
-standing return to any policy; the ordinary hand-path executor commits strokes only after readiness.
-
-Combat clearance reads hull and box torsos as well as round shapes. Detached collider bounds
-include held items; foot sweeps use exact round-collider distance and conservative polyhedral
-bounds. A body inside a fixed boundary margin backs away at its current heading before
-turning to fight. Existing margin penetration permits parallel or outward motion.
-
-Scrapper can position for a downed foe (`groundPosition`) and send a downward action through
-the native path executor. Positioning chooses and retains the near or wide route; the executor
-owns support lowering, chamber, commitment and bounded rise. Losing or withdrawing the target
-ends the request explicitly, and a host takeover clears its ownership before recovery commands.
-
-Hands expose coarse open, fist and grip contact configurations to goal-based and direct
-controllers. The body owns pending/applied pose state; its builder checks unloaded contact and
-replacement clearance before changing a collider in place. Handles, ownership, filtering,
-velocity and sourced mass properties persist. Separate capture retains the current envelope
-until closure is requested; reopening waits for release. Senses carry the applied configuration
-at their observation time, and physical-pose renderers read that configuration. The geometry and retained
-rigid-hand inertia approximation are recorded in [hand poses](reference/hand-poses.md).
-A workshop human's open hand is its palm's hull and its fist the fist's hull, measured from its
-skin (`src/core/human/hands.ts`, `assets/humanoid/<model>-hands.json`); its grip, and the shape a
-held item seats against, stay the capsule. A figure without measured hands, the skeleton's, has
-capsule poses.
-
-A bare hand closes into its fist for its blow and opens in the guard, in both skill sets
-(`closesToStrike`, `src/core/skills/strikes.ts`), and strikes with the fist's surface point
-(`aimOf`). The optional combat `execution` config admits a finite impact path on identified
-target contact. Native and material contacts
-share detached tactile feedback; world, block, unknown and misaligned contacts withdraw.
-The common `skills/strike-cycle.ts` advances measured preparation, stroke, bounded intended
-contact and verified return. `skills/effector-strike.ts` (`effectorStrike`) runs it for one
-effector, one for each hand of the path skill and each foot of the kick: it owns the point's
-measured velocity, whether a contact is the intended target's and square to the stroke, what each
-stroke comes to, and each phase's goal, a held contact's included. The skills own the geometry
-of the course and, for the kick, the support transfer and placing around it. The
-optional planted punch executor admits actual loaded support and freezes locomotion for the
-whole cycle. Its [stability record](reference/punch-stability.md) passes standing cases and
-rejects the combined low-attack candidate; ordinary Scrapper remains unchanged.
-
-The [bounded punch search](reference/punch-foundation.md) records its failed promotion and
-leaves Scrapper's settings intact. The [mass audit](reference/punch-mass-audit.md) identifies
-the current damage model's free-joint assumption without substituting a new rule.
-
-A kick (`KickAttack`, an `Attack`) passes either foot, a world point and detached target identity
-through the common intent/skill boundary. `skills/kick.ts` shares the measured strike
-cycle with hands and surrounds it with support transfer, verified unloading, placement
-and recentering. Supported stance poses can own one bearing leg with captured sole
-anchors, while the free leg tracks its named strike point and orientation. Effector
-path duration and optional muscle response are independent. All changing execution
-and tactical data forks with the bout. The front kick in a fighter's Kick slot adds low shin
-targeting and alternates feet; its limited qualification and strength gaps are
-recorded in [front kicks](reference/front-kicks.md).
-
-The shared strike apparatus clips live collision surfaces to a finite pad and
-measures whole-step impulse through independent pad momentum. Its
-[trained-adult force battery](reference/trained-attack-force.md) retains both
-limbs, failed trials and full waveforms at four physics/control rates under both
-actuator laws. Same-step torque audits distinguish solver bounds from the sourced
-directional muscle bounds; common-rate bins and separately resolved 2 ms peaks
-prevent a coarse solver spike from becoming a human-force claim.
+- **Several implementations stay selectable.** A new controller is added beside the old as a part
+  or a gait, not in its place.
