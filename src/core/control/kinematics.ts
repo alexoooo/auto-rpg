@@ -1,6 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import { jointKinematics } from "../build/joint-kinematics.ts";
-import { motionAxesToRef, rotationOfToRef, turningToRef } from "../build/joint-state.ts";
+import { halfTansToRef, motionAxesOfHalfTansToRef, rotationOfHalfTansToRef, rotationOfToRef, turningOfHalfTansToRef } from "../build/joint-state.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { Pose } from "./motor.ts";
@@ -87,22 +87,25 @@ export function pointAtToRef(chain: readonly JointKinematics[], angles: readonly
 
 /**
  * What a walk of a chain leaves (`walkTo`): the turn of everything before each joint; each
- * joint's centre as the chain stands; the turn of the chain's last segment; and, for each freedom
- * asked for, its spin: the axis, root's frame, that everything beyond its joint turns about for a
- * unit of its rate. Grown to the longest chain walked in it: a walk writes every entry it or its
+ * joint's centre as the chain stands; the turn of the chain's last segment; each joint's half
+ * tangents, three a joint (`halfTansToRef`); and, for each freedom asked for, its spin: the axis,
+ * root's frame, that everything beyond its joint turns about for a unit of its rate, from its
+ * joint's axes and turning (`motionAxesToRef`, `turningToRef`), kept for each joint so that each
+ * keeps its size. Grown to the longest chain walked in it: a walk writes every entry it or its
  * reader reads.
  */
 interface ChainWalk {
   readonly before: Quaternion[];
   readonly centre: Vector3[];
   readonly last: Quaternion;
+  half: Float64Array;
   readonly spin: Vector3[];
-  readonly axes: [number, number, number][];
-  readonly turning: number[][];
+  readonly axes: [number, number, number][][];
+  readonly turning: number[][][];
 }
 
 function chainWalk(): ChainWalk {
-  return { before: [], centre: [], last: new Quaternion(), spin: [], axes: [], turning: [] };
+  return { before: [], centre: [], last: new Quaternion(), half: new Float64Array(0), spin: [], axes: [], turning: [] };
 }
 
 /**
@@ -112,6 +115,8 @@ function chainWalk(): ChainWalk {
  */
 function walkTo(walk: ChainWalk, chain: readonly JointKinematics[], angles: readonly (readonly number[])[], free: readonly ReachFreedom[]): void {
   const { before, centre, last, spin, axes, turning } = walk;
+  if (walk.half.length < 3 * chain.length) walk.half = new Float64Array(3 * chain.length);
+  const { half } = walk;
   last.copyFromFloats(0, 0, 0, 1);
   for (let j = 0; j < chain.length; j++) {
     const joint = chain[j]!, at = (centre[j] ??= new Vector3()), c = joint.spec.centre.value;
@@ -122,19 +127,20 @@ function walkTo(walk: ChainWalk, chain: readonly JointKinematics[], angles: read
       scratch.v.set(c[0] - from[0], c[1] - from[1], c[2] - from[2]).applyRotationQuaternionToRef(last, scratch.v);
       at.copyFrom(centre[j - 1]!).addInPlace(scratch.v);
     }
-    last.multiplyInPlace(rotationAtToRef(joint, angles[j]!, scratch.b));
+    halfTansToRef(joint, angles[j]!, half, 3 * j);
+    last.multiplyInPlace(rotationOfHalfTansToRef(joint.axes, half, 3 * j, scratch.b));
   }
   let read = -1;
   for (let c = 0; c < free.length; c++) {
-    const f = free[c]!, joint = chain[f.joint]!;
+    const f = free[c]!, joint = chain[f.joint]!, jointAxes = (axes[f.joint] ??= []), jointTurning = (turning[f.joint] ??= []);
     if (f.joint !== read) {
-      motionAxesToRef(joint, angles[f.joint]!, axes);
-      turningToRef(joint, angles[f.joint]!, turning);
+      motionAxesOfHalfTansToRef(joint, half, 3 * f.joint, jointAxes);
+      turningOfHalfTansToRef(joint, half, 3 * f.joint, jointTurning);
       read = f.joint;
     }
     let x = 0, y = 0, z = 0;
     for (let i = 0; i < joint.dofs.length; i++) {
-      const axis = axes[i]!, share = turning[i]![f.k]!;
+      const axis = jointAxes[i]!, share = jointTurning[i]![f.k]!;
       x += axis[0] * share; y += axis[1] * share; z += axis[2] * share;
     }
     (spin[c] ??= new Vector3()).set(x, y, z).applyRotationQuaternionToRef(before[f.joint]!, spin[c]!);

@@ -3,7 +3,7 @@ import { channelName, type MuscleDriver } from "../muscle/driver.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { distance } from "../spec/vec.ts";
 import { bodyEffectors } from "./effectors.ts";
-import { pointPath } from "./point-path.ts";
+import { pointPathTargetToRef } from "./point-path.ts";
 import { pointNowToRef, reachWork, solveReach, type ReachEnd, type ReachWork, type ReachOrientation } from "./kinematics.ts";
 import { turnBetweenToRef } from "../math/turn.ts";
 import { hypot } from "../math/real.ts";
@@ -56,6 +56,12 @@ export interface EffectorGoal {
  */
 interface Free { readonly joint: number; readonly k: number; readonly min: number; readonly max: number; preferred: number; readonly name: string }
 
+/** A place's task as `solveReach` reads it: its point and target, written before each solve. */
+interface Task { point: Vec3; readonly target: [number, number, number] }
+
+/** A held freedom of a chain: its joint's index in the chain, the freedom's, and its channel's name. */
+interface Held { readonly j: number; readonly k: number; readonly name: string }
+
 /** A declared chain and the endpoint path the tracker remembers. */
 interface Effector {
   readonly orientation: ReachOrientation;
@@ -65,8 +71,16 @@ interface Effector {
   readonly points: ReadonlyMap<string, Vec3>;
   /** The declared chain's free joint coordinates. */
   readonly free: Free[];
+  /** The chain's held freedoms, in the chain's order. */
+  readonly held: readonly Held[];
   /** What its reach works in (`solveReach`). */
   readonly work: ReachWork;
+  /** The tasks of a goal of one place and of two. */
+  readonly tasks: readonly [readonly Task[], readonly Task[]];
+  /** The angles solved a step before the path's time, at it and a step after, by chain joint. */
+  readonly solved: readonly [number[][], number[][], number[][]];
+  /** Each free freedom's goal angle, rate and acceleration, in `free`'s order: what `memory.goals` holds. */
+  readonly goals: readonly [number, number, number][];
   readonly memory: EffectorMemory;
 }
 
@@ -95,7 +109,10 @@ export function effectorTracker(built: ReadBody, root: ReadSegment) {
   const descriptions = bodyEffectors(built);
   const limbOf = (description: typeof descriptions[number]): Effector => {
     const { segment, chain, free, points } = description;
-    return { chain, segment, free, points, work: reachWork(free.length),
+    const held = chain.flatMap((joint, j) => free.some((f) => f.joint === j) ? [] : names(joint).map((name, k) => ({ j, k, name })));
+    const task = (): Task => ({ point: [0, 0, 0], target: [0, 0, 0] }), first = task(), angles = () => chain.map((joint) => joint.dofs.map(() => 0));
+    return { chain, segment, free, held, points, work: reachWork(free.length), tasks: [[first], [first, task()]],
+      solved: [angles(), angles(), angles()], goals: free.map(() => [0, 0, 0] as [number, number, number]),
       orientation: { target: new Quaternion(), lever: distance(segment.spec.proximal.value, segment.spec.distal.value) },
       memory: { goal: null, started: false, from: [], time: 0, fromRotation: [0, 0, 0, 1],
         angles: chain.map(joint => joint.dofs.map(() => 0)), point: new Vector3(), goals: new Map() } };
@@ -103,6 +120,9 @@ export function effectorTracker(built: ReadBody, root: ReadSegment) {
   const limbs = new Map(descriptions.map(d => [d.model.segment, limbOf(d)]));
   // In declared order: no two own a freedom (`bodyEffectors`), so the order decides nothing.
   const all = [...limbs.values()];
+  // A measured path's place, start, target and the scalar path's sample (`along`).
+  const finish: [number, number, number] = [0, 0, 0], target: [number, number, number] = [0, 0, 0], sample: [number, number, number] = [0, 0, 0];
+  const start: { position: Vec3; velocity: Vec3 } = { position: STILL, velocity: STILL };
   const state = { effectors: Object.fromEntries([...limbs].map(([name, limb]) => [name, limb.memory])), reach: { solves: 0, passes: 0, capped: 0 } as ReachMeter };
   /**
    * Where the path of place `i` is at `time`: minimum jerk, 10 s^3 - 15 s^4 + 6 s^5 of the way
@@ -114,13 +134,15 @@ export function effectorTracker(built: ReadBody, root: ReadSegment) {
     if (m.goal!.initialVelocity || m.goal!.terminalVelocity || m.goal!.curve) {
       const way = hypot(position[0] - from[0], position[1] - from[1], position[2] - from[2]);
       const scale = way > 0 ? 1 + through / way : 1;
-      const finish = position.map((v, k) => from[k]! + scale * (v - from[k]!)) as unknown as Vec3;
+      for (let k = 0; k < 3; k++) finish[k] = from[k]! + scale * (position[k]! - from[k]!);
       const terminal = m.goal!.terminalVelocity;
-      const path = pointPath({ position: from, velocity: m.goal!.initialVelocity ?? [0, 0, 0] }, finish, Math.max(0, time), length, terminal, m.goal!.curve);
+      start.position = from;
+      start.velocity = m.goal!.initialVelocity ?? STILL;
+      pointPathTargetToRef(start, finish, Math.max(0, time), length, target, sample, terminal, m.goal!.curve);
       // Linear continuation preserves the endpoint rate in the IK finite differences.
       const after = terminal ? Math.max(0, time - length) : 0;
-      return out.set(path.target[0] + after * (terminal?.[0] ?? 0), path.target[1] + after * (terminal?.[1] ?? 0),
-        path.target[2] + after * (terminal?.[2] ?? 0));
+      return out.set(target[0] + after * (terminal?.[0] ?? 0), target[1] + after * (terminal?.[1] ?? 0),
+        target[2] + after * (terminal?.[2] ?? 0));
     }
     const s = Math.max(0, Math.min(1, time / length));
     let f = s * s * s * (10 - 15 * s + 6 * s * s);
@@ -133,16 +155,24 @@ export function effectorTracker(built: ReadBody, root: ReadSegment) {
   };
   const at = new Vector3(), end: ReachEnd = { passes: 0, still: false };
   const fromTurn = new Quaternion(), toTurn = new Quaternion(), turn = new Quaternion(), inverse = new Quaternion();
-  const solveAt = ({ chain, free, points, work, memory, orientation: rotational }: Effector, time: number): number[][] => {
-    const angles = memory.angles.map((row) => [...row]);
-    const tasks = memory.goal!.places.map((place, i) => {
+  /** The angles that put the path's places where they are at `time`, solved from the angles last solved, into `angles`. */
+  const solveAt = ({ chain, free, points, work, memory, orientation: rotational, tasks: lists }: Effector, time: number, angles: number[][]): number[][] => {
+    for (let j = 0; j < angles.length; j++) {
+      const row = angles[j]!, was = memory.angles[j]!;
+      for (let k = 0; k < row.length; k++) row[k] = was[k]!;
+    }
+    const { places } = memory.goal!, tasks = lists[places.length - 1]!;
+    for (let i = 0; i < places.length; i++) {
       along(memory, i, time, at);
-      return { point: points.get(place.point)!, target: [at.x, at.y, at.z] as Vec3 };
-    });
+      const task = tasks[i]!;
+      task.point = points.get(places[i]!.point)!;
+      task.target[0] = at.x; task.target[1] = at.y; task.target[2] = at.z;
+    }
     const orientation = memory.goal!.orientation;
     if (orientation) {
       const u = Math.max(0, Math.min(1, time / orientation.seconds)), amount = u * u * u * (10 - 15 * u + 6 * u * u);
-      fromTurn.set(...memory.fromRotation); toTurn.set(...orientation.target);
+      const was = memory.fromRotation, to = orientation.target;
+      fromTurn.set(was[0], was[1], was[2], was[3]); toTurn.set(to[0], to[1], to[2], to[3]);
       turnBetweenToRef(fromTurn, toTurn, amount, turn);
       rotational.target.copyFrom(turn);
     }
@@ -182,6 +212,14 @@ export function effectorTracker(built: ReadBody, root: ReadSegment) {
       m.goal = goal;
       if (!follows) m.started = false;
   };
+  /** The driver of the step last taken, whose channels `owned` reads by index. */
+  let driving: MuscleDriver | null = null;
+  /** Channel `i`'s goal angle, rate and acceleration this step, if a limb's path owns it. */
+  const owned = (i: number): [number, number, number] | undefined => {
+    const name = driving!.channels[i]!.name;
+    for (const limb of all) { const g = limb.memory.goals.get(name); if (g) return g; }
+    return undefined;
+  };
   return {
     state, models: Object.freeze(descriptions.map(d => d.model)), reach,
     response(channel: string) {
@@ -197,15 +235,17 @@ export function effectorTracker(built: ReadBody, root: ReadSegment) {
       return pointNowToRef(limb.segment, root, at, out);
     },
     step(driver: MuscleDriver, pose: Readonly<Record<string, number>>, dt: number, fromActual = false, seedActual = false) {
+    driving = driver;
     for (const limb of all) {
       const m = limb.memory;
-      m.goals.clear();
-      if (!m.goal) continue;
+      // A limb with a goal sets every free freedom's goal below, so only one without clears them.
+      if (!m.goal) { if (m.goals.size) m.goals.clear(); continue; }
       // The held freedoms at the posture's angles, the free ones drawn toward it.
-      limb.chain.forEach((joint, j) => {
-        if (limb.free.some((f) => f.joint === j)) return;
-        names(joint).forEach((name, k) => { m.angles[j]![k] = fromActual || m.goal!.carried ? driver.angle(driver.channel(name)) : pose[name] ?? 0; });
-      });
+      const actual = fromActual || m.goal.carried;
+      for (let h = 0; h < limb.held.length; h++) {
+        const { j, k, name } = limb.held[h]!;
+        m.angles[j]![k] = actual ? driver.angle(driver.channel(name)) : pose[name] ?? 0;
+      }
       for (const f of limb.free) f.preferred = pose[f.name] ?? 0;
       if (!m.started) {
         if (seedActual) for (const f of limb.free) m.angles[f.joint]![f.k] = driver.angle(driver.channel(f.name));
@@ -222,19 +262,20 @@ export function effectorTracker(built: ReadBody, root: ReadSegment) {
         m.time = 0;
         m.started = true;
       } else m.time += dt;
-      const before = solveAt(limb, m.time - dt), now = solveAt(limb, m.time), after = solveAt(limb, m.time + dt);
-      m.angles = now;
+      const { solved } = limb;
+      const before = solveAt(limb, m.time - dt, solved[0]), now = solveAt(limb, m.time, solved[1]), after = solveAt(limb, m.time + dt, solved[2]);
+      for (let j = 0; j < now.length; j++) {
+        const row = m.angles[j]!, answer = now[j]!;
+        for (let k = 0; k < answer.length; k++) row[k] = answer[k]!;
+      }
       along(m, 0, m.time, m.point);
-      for (const f of limb.free) {
+      for (let c = 0; c < limb.free.length; c++) {
+        const f = limb.free[c]!, goal = limb.goals[c]!;
         const q0 = before[f.joint]![f.k]!, q1 = now[f.joint]![f.k]!, q2 = after[f.joint]![f.k]!;
-        m.goals.set(f.name, [q1, (q2 - q0) / (2 * dt), (q2 - 2 * q1 + q0) / (dt * dt)]);
+        goal[0] = q1; goal[1] = (q2 - q0) / (2 * dt); goal[2] = (q2 - 2 * q1 + q0) / (dt * dt);
+        m.goals.set(f.name, goal);
       }
     }
-    const owned = (i: number) => {
-      const name = driver.channels[i]!.name;
-      for (const limb of all) { const g = limb.memory.goals.get(name); if (g) return g; }
-      return undefined;
-    };
       return owned;
     },
   };
@@ -245,3 +286,6 @@ export function effectorTracker(built: ReadBody, root: ReadSegment) {
  * a centimetre. A numeric setting: places made from the points' own distance miss it by rounding alone.
  */
 const PLACES_SLACK = .01;
+
+/** A point path's start velocity when its goal gives none: at rest. */
+const STILL: Vec3 = Object.freeze([0, 0, 0] as const);

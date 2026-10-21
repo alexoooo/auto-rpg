@@ -90,7 +90,7 @@ test('named effector memory changes the continuation and body observations survi
     assert.notDeepEqual(s.built.segments.get(name).node.position.asArray(),expected,`${name} ${field}`);
    }
    loadStand(s.world,states,saved);r.motor.reach(name,{...t.goal,orientation:undefined});s.step(16);
-   const loose=saveStand(s.world,states);s.step(1);const unaltered=r.motor.state.effectors[name].angles;
+   const loose=saveStand(s.world,states);s.step(1);const unaltered=r.motor.state.effectors[name].angles.map(row=>[...row]);
    loadStand(s.world,states,loose);r.motor.state.effectors[name].angles.at(-1)[0]+=.1;s.step(1);
    assert.notDeepEqual(r.motor.state.effectors[name].angles,unaltered,`${name} solve seed`);
   }finally{r.dispose();s.dispose();}
