@@ -846,7 +846,7 @@ choice: bare hands, the club, club and buckler, the sword, sword and buckler); t
 fits against every other and rates each by Bradley-Terry on the Elo scale
 (`research/rating.mjs`), which the Arena shows as each mind's notes (`src/ui/mind-notes.ts`: a
 note for the mind, a loadout, a character, and both) and in its Ratings panel. The rest of the
-catalog is unseen: each mind on each unseen loadout it fits meets one opponent with sword and
+catalog is unseen: each mind on each unseen loadout it fits meets the Duellist with sword and
 buckler, and the panel shows how it scored beside the ratings, never in them. The fingerprint has a case for every mind a person may pick, so a toolkit change names
 the minds it moves; `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
 

@@ -16,8 +16,12 @@ the open component, task, equipment and evaluation work. Within it,
 on one stack, and the [options fighter](plans/2026-10-14-options-fighter.md) develops one Mind's
 tactics and player choices. Their implemented contracts are in the architecture.
 The Arena supplies selectable levels, shared navigation, explicit per-hand loadouts, a buckler
-and a cutting short sword as a testbed for that work; its next milestone is a
-[reference sword-and-buckler fighter](plans/2026-10-20-sword-and-buckler.md).
+and a cutting short sword as a testbed for that work, and a sword-and-buckler fighter, the
+Duellist, that leads every mind fitting that loadout. Its readings are in the
+[sword-and-buckler record](reference/sword-and-buckler.md); open there are the Warrior's cut on a
+standing body, the Warrior's ward with its own swing under way, the Warrior's rise with the
+buckler, and reaching a walking foe 6 m off behind the court's column. It becomes the reference
+once the owner, having watched it on both levels, accepts how it fights.
 
 - **Skills and tactics.** A body has an array of skills; tactics, a meta-controller over them,
   choose among the skills it has as the fight goes. Both come in many flavours. A skill may be
