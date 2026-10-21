@@ -24,7 +24,8 @@ LLM during a bout is a separate experiment when there is a concrete need for it.
 
 | Plan | Open work it owns |
 |---|---|
-| This workshop plan | Shared component contracts, broader task/body/equipment coverage, collaboration and evaluation infrastructure |
+| This workshop plan | Shared component contracts, broader task/body/equipment coverage, collaboration |
+| [Ratings](2026-10-21-ratings.md) | The evaluation format and runner, run identity and faults, recorded results and the Ratings screen |
 | [Whole-body control](2026-10-17-general-controller.md) | Running/Haste, unassisted recovery, separate assistance experiments, strikes and holds on one execution stack |
 | [Options fighter](2026-10-14-options-fighter.md) | Tactical decisions, option models and player configuration for one Mind |
 
@@ -226,20 +227,12 @@ An experiment recipe and compact result identify:
   also the prompt, model settings, tools, resource allowance and human interventions.
 - Outcomes, supported scope, failures, limitations and representative replay artifacts.
 
-Use versioned machine-readable recipes under `research/experiments/` and compact findings under
-`research/results/` when the corresponding runner and reader are added. Keep large recordings,
-transcripts and temporary outputs under `research/runs/`. That directory is ignored by Git, so
-transfer needed artifacts explicitly between machines and keep their identities in the compact
-record. Update existing architecture and roadmap documents as behavior changes; ordinary
-features do not require a separate prose study or measurement record.
-
-Cache identity includes the actual controller code/assets, resolved environment and protocol.
-A commit plus a generic dirty marker is insufficient. In particular, an engine override or an
-updated learned asset must not reuse incompatible results. The runner preserves completed rows,
-distinguishes controller faults, timeouts, invalid simulations and infrastructure failures, and
-keeps unaffected jobs available to run. Add a watchdog at the worker boundary for evaluations
-that execute candidate code. Keep this focused on reliable local work; stronger execution
-isolation can be introduced if a concrete need arises.
+Evaluations, their runner, cache identity, fault handling and recorded results are the
+[Ratings plan](2026-10-21-ratings.md)'s. Keep large recordings, transcripts and temporary
+outputs under `research/runs/`. That directory is ignored by Git, so transfer needed artifacts
+explicitly between machines and keep their identities in the compact record. Update existing
+architecture and roadmap documents as behavior changes; ordinary features do not require a
+separate prose study or measurement record.
 
 ## Evaluation checkpoints
 
