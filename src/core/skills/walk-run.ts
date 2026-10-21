@@ -1,6 +1,6 @@
 import { Quaternion } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../body.ts";
-import { paceToward, quickened, simbiconRunEnvelope, type StanceEnvelope } from "../control/stance-envelope.ts";
+import { paceToward, quickened, walkRunEnvelope, type StanceEnvelope } from "../control/stance-envelope.ts";
 import { hasteOver } from "../human/attributes.ts";
 import type { Side } from "../spec/body.ts";
 import { atan2, cos, sin } from "../math/real.ts";
@@ -141,7 +141,7 @@ interface WalkRunMemory {
  * The stance takes the body up as it is, moving (`Locomotion.resume`). Asked to stand while
  * running, the run brakes and the walk stops the body.
  *
- * Its envelope is the stance's walk's (`Body.envelope`), and the run's while it may run. Its
+ * Its envelope is the stance's walk's (`Body.envelope`), and its own while it may run (`walkRunEnvelope`). Its
  * settings and the run's are taken scaled to the body's leg (`scaledGait`, `legOf`) from the leg
  * they were set for, and quickened by its haste (`quickness`), as the run's envelope is.
  */
@@ -151,7 +151,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   const k = legOf(body.built.spec) / given.leg, quick = quickness(hasteOver(body.built.spec), given.hasted);
   const settings = scaledGait(given, k, quick), cycle = runCycle(body, scaledGait(givenRun, k, quick), legOf(body.built.spec), quick);
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
-  const runEnvelope = options.runEnvelope !== undefined ? options.runEnvelope : body.envelope ? quickened(simbiconRunEnvelope(body.built.spec), quick) : null;
+  const runEnvelope = options.runEnvelope !== undefined ? options.runEnvelope : body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
   const legs = locomotion(body.envelope);
   const memory: WalkRunMemory = { may, running: false, swinging: null, capped: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
     assisted: { root: new Quaternion(), read: false } };

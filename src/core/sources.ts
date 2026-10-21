@@ -489,6 +489,13 @@ export const SOURCES = Object.freeze({
       + "lab's 5 N gusts on four seeds; written by research/core-stance-envelope.mjs --legs simbicon-run "
       + "--gusts 1:5:1,2,3,4 --write, whose harness it names.",
   },
+  "walk-run-envelope": {
+    kind: "asset", file: "assets/core/walk-run-envelope.json",
+    what: "How fast the walk and run (src/core/skills/walk-run.ts) free to run walked each way with each body as a fight "
+      + "plays it, with each thing held: the fastest speed, 0.2-4.5 m/s, at which every walk held, calm and in the lab's "
+      + "5 N gusts on four seeds; written by research/core-stance-envelope.mjs --legs walk-run --walks "
+      + "--gusts 1:5:1,2,3,4 --write, whose harness it names. It measured no turns.",
+  },
   "core-strikes": {
     kind: "asset", file: "assets/core/strikes.json",
     what: "The strike skill's repertoire (src/core/skills/strikes.ts): for a body, a thing held and a height "

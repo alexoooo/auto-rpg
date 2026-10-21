@@ -33,10 +33,10 @@ export function orderedIntent({ report, envelope }: { readonly report: Pick<Sigh
   const facing = orderedFacing(face);
   if (!request || !envelope) return { move: null, face: facing ?? report.heading, guard, actions: [] };
   if (request.kind !== "direct") return { move: null, face: facing ?? report.heading, guard, actions: [], movement: request,
-    pace: Math.min(run ? paceToward(envelope, 1, 0, RUN.share) : envelope.walk.value, pace), ...(facing === null ? { travelFacing: true as const } : {}) };
+    pace: Math.min(run ? paceToward(envelope, 1, 0, RUN.share) : envelope.ways.forward.value, pace), ...(facing === null ? { travelFacing: true as const } : {}) };
   const move = request.direction;
   if (hypot(move.x, move.z) === 0) return { move: null, face: facing ?? report.heading, guard, actions: [] };
-  const bearing = atan2(move.x, move.z), walk = Math.min(envelope.walk.value, pace);
+  const bearing = atan2(move.x, move.z), walk = Math.min(envelope.ways.forward.value, pace);
   // Facing its walk: the walk the envelope measured, forward where it is sent somewhere or runs, turning to it.
   if (facing === null) return { move: [!run ? walk : Math.min(paceToward(envelope, 1, 0, RUN.share), pace), 0], face: bearing, guard, actions: [] };
   // Facing elsewhere: the walk's direction in the heading's frame, at the pace that holds.

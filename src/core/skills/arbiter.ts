@@ -87,7 +87,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     command(view: BodyView, requested: Intent, dt: number): BodyCommand {
       const h = legs.heading, velocity = requested.move;
       const request = requested.movement ?? (velocity ? directMovement(velocity[0] * sin(h) + velocity[1] * cos(h), velocity[0] * cos(h) - velocity[1] * sin(h)) : null);
-      const pace = requested.pace ?? (velocity ? hypot(velocity[0], velocity[1]) : legs.envelope?.walk.value ?? .3);
+      const pace = requested.pace ?? (velocity ? hypot(velocity[0], velocity[1]) : legs.envelope?.ways.forward.value ?? .3);
       const supportAllowsWalk = !support || support.report.stage === "stand" || support.report.stage === "wait";
       const result = navigation.step({ view, report }, request, pace, dt, state.walkable && supportAllowsWalk);
       let intent = requested;

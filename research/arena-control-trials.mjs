@@ -76,7 +76,7 @@ function pointAttacks(stand, target, hand = stand.harness.hand) {
     const retained = sight.report.actions.find(item => item.id === producer.state.current?.id);
     const effector = retained?.effector ?? (hand === "alternate" ? action.effectors[cycles.state.sequence % action.effectors.length] : "hand." + hand);
     const ask = producer.request(sight, own.cancelled ? null : { action: action.name, effector, target: { kind: "point", at: target } }, around);
-    const position = ask.readiness?.kind === "position" ? approachActionWindow(sight.view, ask.readiness.window, sight.report.heading, sight.envelope?.walk.value ?? 0, .4) : {};
+    const position = ask.readiness?.kind === "position" ? approachActionWindow(sight.view, ask.readiness.window, sight.report.heading, sight.envelope?.ways.forward.value ?? 0, .4) : {};
     return { ...standIntent(sight.report.heading), ...position, actions: ask.requests };
   } };
   const skills = driveFighter(fighter.body.driver, world, { ...fighter.mind, tactics: { kind: "script" } }, { name: "point-cycles", orders: () => null, script });

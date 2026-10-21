@@ -2,6 +2,7 @@ import measured from "../../../assets/core/stance-envelope.json" with { type: "j
 import strideMeasured from "../../../assets/core/stride-envelope.json" with { type: "json" };
 import simbiconMeasured from "../../../assets/core/simbicon-envelope.json" with { type: "json" };
 import simbiconRunMeasured from "../../../assets/core/simbicon-run-envelope.json" with { type: "json" };
+import walkRunMeasured from "../../../assets/core/walk-run-envelope.json" with { type: "json" };
 import { heldBy } from "../items/held.ts";
 import type { SourceKey } from "../sources.ts";
 import type { BodySpec } from "../spec/body.ts";
@@ -27,18 +28,16 @@ import { derive, sourced, type Quantity } from "../spec/quantity.ts";
  * separately measured in `docs/reference/combat-locomotion.md`; callers may apply a lower ceiling.
  */
 export interface StanceEnvelope {
-  /** The fastest walk the stance held, m/s (`fastestHeld`). */
-  readonly walk: Quantity<number>;
   /**
-   * The fastest walk held each way, m/s: forward, to the right, back and to the left, by the same
-   * rule over that way's trials alone (`paceToward` reads between them). Where the asset measured no
-   * way by itself, each is `walk`.
+   * The fastest walk held each way, m/s: forward, to the right, back and to the left, the fastest
+   * speed at which every one of that way's trials held (`fastestEvery`; `paceToward` reads between
+   * them). Where the asset measured no way by itself, each is its one fastest walk.
    */
   readonly ways: { readonly forward: Quantity<number>; readonly right: Quantity<number>; readonly back: Quantity<number>; readonly left: Quantity<number> };
   /**
    * At each speed of the gait battery up to its fastest walk forward (`ways.forward`), slowest
    * first: the fastest the heading turned while the body walked forward at that speed, and held,
-   * rad/s (`fastestHeld`).
+   * rad/s (the asset's, by `fastestHeld`).
    */
   readonly turns: readonly { readonly speed: Quantity<number>; readonly turn: Quantity<number> }[];
   /**
@@ -92,8 +91,19 @@ interface GaitTable {
 }
 
 /**
- * The rule: the fastest speed of the battery at which every way held, as it did at every slower
- * one; 0 if none. A speed that held after a slower one fell does not count.
+ * **The rule**: the fastest speed of a battery at which every one of its `trials` held, whatever a
+ * slower speed did; 0 if none. `held` is how many held at each speed, null where the battery did
+ * not play them all (it gave up on the speed at a trial that did not hold).
+ */
+export function fastestEvery(speeds: readonly number[], trials: number, held: readonly (number | null)[]): number {
+  let fastest = 0;
+  for (let i = 0; i < speeds.length; i++) if (held[i] === trials) fastest = speeds[i]!;
+  return fastest;
+}
+
+/**
+ * The fastest speed of a battery at which every way held, as it did at every slower one; 0 if
+ * none: a speed that held after a slower one fell does not count. An envelope's turns are read so.
  */
 export function fastestHeld({ speeds, ways, held }: GaitTable): number {
   let fastest = 0;
@@ -156,13 +166,12 @@ export function carried(turn: number, radius: number): number {
   return radius === Infinity ? Infinity : turn * radius;
 }
 
-/** A body's readings in an envelope's asset: its fastest walk, its fastest each way where the asset measured them (`byWay`, in the order of `ways`), and its turns. */
+/** A body's readings in an envelope's asset: its one fastest walk where it measured no way by itself, or each way's trials (`wayHeld`, in the order of `ways`), and its turns. */
 interface EnvelopeEntry {
-  readonly walk: number;
-  readonly byWay?: readonly number[];
-  /** How many walks each way walked at each speed, and how many of them held (`wayHeld`, in the order of `ways`). */
+  readonly walk?: number;
+  /** How many walks each way walked at each speed, and how many of them held at each, null where not all were played. */
   readonly wayTrials?: number;
-  readonly wayHeld?: readonly (readonly number[])[];
+  readonly wayHeld?: readonly (readonly (number | null)[])[];
   readonly turns: readonly number[];
 }
 
@@ -190,25 +199,28 @@ function envelopeIn(table: EnvelopeTable, source: SourceKey, spec: BodySpec, wha
   if (!model) throw new Error(`${what}'s envelope was not measured on ${spec.model}`);
   const held = heldBy(spec, "right"), own = held === null ? undefined : model.holds?.[held];
   const entry = own ?? model, at = own ? `/models/${spec.model}/holds/${held}` : `/models/${spec.model}`;
-  const walk = sourced(entry.walk, "m/s", source, `${at}/walk`), byWay = entry.byWay;
-  const way = (degrees: number): Quantity<number> => {
-    if (!byWay) return walk;
-    const i = table.ways.indexOf(degrees);
-    if (i < 0) throw new Error(`${what}'s envelope measured no walk ${degrees} degrees round`);
-    return sourced(byWay[i]!, "m/s", source, `${at}/byWay/${i}`);
-  };
   const { wayTrials, wayHeld } = entry;
+  const speeds = table.speeds.map((speed, i) => sourced(speed, "m/s", source, `/speeds/${i}`));
+  const trials = wayTrials === undefined ? null : sourced(wayTrials, "1", source, `${at}/wayTrials`);
   const heldWay = (degrees: number): readonly Quantity<number>[] => {
     const i = table.ways.indexOf(degrees);
     if (i < 0 || !wayHeld) throw new Error(`${what}'s envelope kept no walks ${degrees} degrees round`);
-    return wayHeld[i]!.map((held, j) => sourced(held, "1", source, `${at}/wayHeld/${i}/${j}`));
+    return wayHeld[i]!.map((held, j) => held === null ? derive("1", "a speed the battery did not play through held none", [], () => 0)
+      : sourced(held, "1", source, `${at}/wayHeld/${i}/${j}`));
+  };
+  const way = (degrees: number): Quantity<number> => {
+    if (trials === null || !wayHeld) {
+      if (entry.walk === undefined) throw new Error(`${what}'s envelope has neither each way's walks nor one fastest walk`);
+      return sourced(entry.walk, "m/s", source, `${at}/walk`);
+    }
+    const held = heldWay(degrees);
+    return derive("m/s", "the fastest speed at which every walk that way held (fastestEvery)", [trials, ...speeds, ...held],
+      (n, ...values) => fastestEvery(values.slice(0, speeds.length), n, values.slice(speeds.length)));
   };
   return {
-    walk,
     ways: { forward: way(CARDINAL.forward), right: way(CARDINAL.right), back: way(CARDINAL.back), left: way(CARDINAL.left) },
-    tried: wayTrials === undefined || !wayHeld ? null : {
-      speeds: table.speeds.map((speed, i) => sourced(speed, "m/s", source, `/speeds/${i}`)),
-      trials: sourced(wayTrials, "1", source, `${at}/wayTrials`),
+    tried: trials === null || !wayHeld ? null : {
+      speeds, trials,
       held: { forward: heldWay(CARDINAL.forward), right: heldWay(CARDINAL.right), back: heldWay(CARDINAL.back), left: heldWay(CARDINAL.left) },
     },
     turns: entry.turns.map((turn, i) => ({
@@ -226,9 +238,8 @@ function envelopeIn(table: EnvelopeTable, source: SourceKey, spec: BodySpec, wha
 export function quickened(envelope: StanceEnvelope, quick: number): StanceEnvelope {
   if (quick === 1) return envelope;
   const faster = (q: Quantity<number>): Quantity<number> => derive(q.unit, "quickened as the gait is by the body's haste", [q], (v) => v * quick);
-  const { walk, ways, tried, turns } = envelope;
+  const { ways, tried, turns } = envelope;
   return {
-    walk: faster(walk),
     ways: { forward: faster(ways.forward), right: faster(ways.right), back: faster(ways.back), left: faster(ways.left) },
     tried: tried && { ...tried, speeds: tried.speeds.map(faster) },
     turns: turns.map(({ speed, turn }) => ({ speed: faster(speed), turn: faster(turn) })),
@@ -265,4 +276,14 @@ export function simbiconEnvelope(spec: BodySpec): StanceEnvelope {
  */
 export function simbiconRunEnvelope(spec: BodySpec): StanceEnvelope {
   return envelopeIn(simbiconRunMeasured, "simbicon-run-envelope", spec, "the SIMBICON run");
+}
+
+/**
+ * The measured envelope of `spec`'s model walking by the walk and run (`src/core/skills/walk-run.ts`)
+ * free to run: `assets/core/walk-run-envelope.json`, each way's walks by the rule
+ * (`research/core-stance-envelope.mjs --legs walk-run --walks`). It measured no turns: its turns are
+ * the SIMBICON run's (`simbiconRunEnvelope`).
+ */
+export function walkRunEnvelope(spec: BodySpec): StanceEnvelope {
+  return { ...envelopeIn(walkRunMeasured, "walk-run-envelope", spec, "the walk and run"), turns: simbiconRunEnvelope(spec).turns };
 }

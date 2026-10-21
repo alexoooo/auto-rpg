@@ -26,7 +26,7 @@ type Move = readonly [number, number] | null;
  */
 export function walker(spec: BodySpec) {
   const radius = bodyClearance(spec) + SPACE.margin;
-  const pace = (now: Situation): number => Math.min(now.sight.envelope?.walk.value ?? SPACE.pace, now.orders?.pace ?? Infinity);
+  const pace = (now: Situation): number => Math.min(now.sight.envelope?.ways.forward.value ?? SPACE.pace, now.orders?.pace ?? Infinity);
   /** Along the ground direction (`x`, `z`) at `speed`, as (forward, right) in the body's heading; null for no direction. */
   const along = (now: Situation, x: number, z: number, speed = pace(now)): Move => {
     const distance = hypot(x, z), h = now.sight.report.heading;

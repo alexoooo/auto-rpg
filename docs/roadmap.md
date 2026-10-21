@@ -46,13 +46,12 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Movement and command](plans/2026-10-21-movement-and-command.md) | One movement pipeline; Commanders over teams |
 | [Component registration](plans/2026-10-21-component-registration.md) | Implementations added by their own files and one line |
 
-1. **Now:** Movement A0.
-2. **Movement A1 to A4**, beside Ratings steps 2 and 3, which change no behaviour.
-3. **Ratings steps 4 to 6**, on bouts played after Movement's Part A, which moves every bout.
-4. **Then, in parallel:** Movement B0 to B2; Ratings steps 7 and 8; component registration's
+1. **Now:** Movement A1 to A4, beside Ratings steps 2 and 3, which change no behaviour.
+2. **Ratings steps 4 to 6**, on bouts played after Movement's Part A, which moves every bout.
+3. **Then, in parallel:** Movement B0 to B2; Ratings steps 7 and 8; component registration's
    stage 1 (locomotion); and
    the open work below, each change read by the paired report.
-5. **When each one's condition holds:**
+4. **When each one's condition holds:**
    - Movement B3 (crowd motion) and B4 (AI Commanders), once B1 has landed;
    - Ratings steps 10 (skills' batteries) and 13 (falls) as ordinary work; step 9 when a question
      about an item, a character or an attribute is asked; step 12 (case identity by code) when
@@ -129,7 +128,9 @@ screened small (one body, one loadout, one group of falls) before its full targe
   and back stay stepping walks at their own pace; the owner accepts the look. Today's gaits and
   what was tried are in [locomotion](reference/locomotion.md). Open there: a run that does not ask
   a body past what its legs hold (the club throws the Rogue's run), braking faster, a pace past
-  about 3.7 m/s, the skeleton's sides and back, the walk's motion-capture ways.
+  about 3.7 m/s, the skeleton's sides and back, the walk's motion-capture ways. The game's run
+  turns at no rate in every trial at 1 m/s or faster
+  ([the walk and run](reference/locomotion.md#the-walk-and-run)).
 - **Recovery.** The owner's 64-fall target (`research/rising-bed.mjs --target`,
   [recovery target](reference/rising.md)): at least 15 of 16 verified recoveries within 6 s in
   every group, 61 of 64 overall, every cardinal direction in every group, a failure-inclusive
