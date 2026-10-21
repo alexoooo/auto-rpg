@@ -46,8 +46,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Movement and command](plans/2026-10-21-movement-and-command.md) | One movement pipeline; Commanders over teams |
 | [Component registration](plans/2026-10-21-component-registration.md) | Implementations added by their own files and one line |
 
-1. **Now, cheap and independent:** Ratings step 1 (secure the 10-hour rows); Mind data steps 0
-   and 1, and the phone step-cost reading; Movement A0.
+1. **Now, cheap and independent:** Mind data step 1, and the phone step-cost reading; Movement A0.
 2. **Movement A1 to A4**, beside Ratings steps 2 and 3, which change no behaviour.
 3. **Ratings steps 4 to 6**, on bouts played after Movement's Part A, which moves every bout.
 4. **Then, in parallel:** Movement B0 to B2; Ratings steps 7 and 8; component registration's

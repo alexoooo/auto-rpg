@@ -43,6 +43,9 @@ import { loadoutKey } from "../src/core/items/held.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { MINDS } from "../src/core/mind/controllers.ts";
+import { CLASSIC, STAND_UP } from "../src/core/mind/config.ts";
+import { SKILL_PARTS } from "../src/core/mind/fighter.ts";
+import { LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { quadrupedMind } from "../src/core/reptile/mind.ts";
 import { hostedMind } from "../src/core/mind/host.ts";
@@ -97,28 +100,48 @@ function stateDigest(value) {
 }
 
 /**
- * A bout of `recipe` capped at 30 s, to its verdict, then 2 s more: a body that fell goes on
- * moving, and so does the stance under it. Its record has the pose, the bout's state and the
- * physics' bytes at the verdict and 2 s on, the verdict and the blows.
+ * How long `body` is down and how long each mind other than its command layers has it (`has`, a
+ * sub-mind's stage and frame left off), s, counted after each step it is taken at `hz`.
  */
-async function arena(recipe) {
-  const { world, duel, dispose } = await buildBout({ ...recipe, capSeconds: 30 });
+function downMeter(body, hz) {
+  let down = 0;
+  const had = new Map();
+  return {
+    take() {
+      if (body.down) down++;
+      if (body.has !== "command") { const name = body.has.replace(/(\.[\w-]+|: \d+)$/, ""); had.set(name, (had.get(name) ?? 0) + 1); }
+    },
+    reading: () => [`down ${(down / hz).toFixed(2)} s`, ...[...had].map(([name, steps]) => `${name} ${(steps / hz).toFixed(2)} s`)].join(", "),
+  };
+}
+
+/**
+ * A bout of `recipe` capped at 30 s unless it says, to its verdict, then 2 s more: a body that fell
+ * goes on moving, and so does the stance under it. Its record has the pose, the bout's state and the
+ * physics' bytes at the verdict and 2 s on, the verdict and the blows; with `watch`, also how long that
+ * side was down and which minds had its body (`downMeter`), over the whole case.
+ */
+async function arena(recipe, { watch } = {}) {
+  const { world, duel, dispose } = await buildBout({ ...recipe, capSeconds: recipe.capSeconds ?? 30 });
   try {
     const trace = traceOf(SIDES.map((side) => duel.duelists[side].built));
+    const meter = watch ? downMeter(duel.duelists[watch].body, world.hz) : null;
+    const step = () => { world.step(); trace.take(); meter?.take(); };
     const taken = () => {
       const { physics, state } = duel.save();
       return { pose: trace.digest(), state: stateDigest(state), physics: digestOf(createHash("sha256").update(physics)) };
     };
-    while (!duel.verdict) { world.step(); trace.take(); }
+    while (!duel.verdict) step();
     const { winner, ending } = duel.verdict;
     const bars = SIDES.map((side) => duel.duelists[side].pool.bar());
     const verdict = `${winner ?? "draw"} by ${ending} at step ${world.steps}, bars ${bars.join(" ")}`, blows = duel.blows.length;
     const then = taken();
-    for (let i = 0; i < 2 * world.hz; i++) { world.step(); trace.take(); }
+    for (let i = 0; i < 2 * world.hz; i++) step();
     const later = taken();
+    const down = meter ? { down: `${watch} ${meter.reading()}` } : {};
     return {
-      line: `${verdict}, blows ${blows}, pose ${then.pose}, 2 s on ${later.pose}`,
-      record: { pose: `${then.pose} ${later.pose}`, state: `${then.state} ${later.state}`, physics: `${then.physics} ${later.physics}`, verdict, blows },
+      line: `${verdict}, blows ${blows}, ${down.down ? `${down.down}, ` : ""}pose ${then.pose}, 2 s on ${later.pose}`,
+      record: { pose: `${then.pose} ${later.pose}`, state: `${then.state} ${later.state}`, physics: `${then.physics} ${later.physics}`, verdict, blows, ...down },
     };
   } finally { dispose(); }
 }
@@ -169,6 +192,34 @@ async function labRun(model) {
     const trace = traceOf([stand.built]);
     for (let i = 0; i < stand.seconds(10); i++) { stand.step(); trace.take(); }
     return `pose ${trace.digest()}`;
+  } finally { run.dispose(); stand.dispose(); }
+}
+
+/** The walk and run's memory in a mind's skills' state (`walkRun`), or null. */
+function walkRunOf(state, depth = 0) {
+  if (!state || typeof state !== "object" || depth > 8) return null;
+  if (state.walkRun && "running" in state.walkRun) return state.walkRun;
+  for (const value of Object.values(state)) { const found = walkRunOf(value, depth + 1); if (found) return found; }
+  return null;
+}
+
+/**
+ * The Warrior round the lab's circle for 10 s under `mind`, asked `top` m/s, past what its walk and
+ * run walks: what the pose was, and how long the walk and run ran and the body was down.
+ */
+async function labDataRun(mind, top) {
+  const stand = await coreStand(humanSpec("workshop-fighter"), { ground: true });
+  const actor = labActor(stand.built, stand.world, { mind });
+  const run = startLocomotion(actor, trackOf(TRACKS.circle.pieces), { top });
+  try {
+    const trace = traceOf([stand.built]), meter = downMeter(actor.body, stand.world.hz);
+    let ran = 0;
+    for (let i = 0; i < stand.seconds(10); i++) {
+      stand.step(); trace.take(); meter.take();
+      if (walkRunOf(actor.skills?.state)?.running) ran++;
+    }
+    const pose = trace.digest(), down = `ran ${(ran / stand.world.hz).toFixed(2)} s, ${meter.reading()}`;
+    return { line: `${down}, pose ${pose}`, record: { pose, down } };
   } finally { run.dispose(); stand.dispose(); }
 }
 
@@ -360,6 +411,26 @@ const elsewhere = () => Object.entries(MINDS).filter(([id]) => id !== "crawl" &&
   return { name: `arena ${model} v ${model}, ${id},${id}, ${loadoutName(loadouts.left)}`,
     run: () => arena({ left: model, right: model, loadouts, minds: { left: config, right: config } }) };
 });
+/**
+ * A bout in which the Warrior under `mind`, otherwise `CLASSIC`, falls: against `counter`, which fells it at
+ * about 29 s, a fall not ending the bout, so that what `mind` does down is played.
+ */
+const felled = (name, mind) => ({
+  name: `data: ${name}`,
+  run: () => arena({ left: "workshop-fighter", right: "workshop-fighter", level: "open", capSeconds: 45, recoverySeconds: null,
+    minds: { left: mind, right: MINDS.counter.config } }, { watch: "left" }),
+});
+/**
+ * A case for each part that reads mind data, so that a change to how the data is loaded or stored is
+ * read by a case that plays it: Research rise and the learned rise when the Warrior is down; the
+ * learned run's policy, which steers only a run and is asked none in a bout, round the lab's circle
+ * at 3 m/s.
+ */
+const DATA_CASES = [
+  felled("research-rise", { ...CLASSIC, subs: [{ kind: "research-rise" }] }),
+  felled("learned-rise", { ...CLASSIC, subs: [{ ...STAND_UP, techniques: ["learned-rise"] }] }),
+  { name: "data: learned-run", run: () => labDataRun({ ...LAB_PRESETS.script.config, locomotion: SKILL_PARTS["learned-run"].defaults }, 3) },
+];
 /** The cases in the order they print, the long ones first so that the lanes stay full. */
 const CASES = [
   ...[["workshop-fighter", "workshop-rogue"], ["crypt-skeleton", "workshop-fighter"], ["workshop-rogue", "crypt-skeleton"]]
@@ -370,6 +441,7 @@ const CASES = [
   controlled("reptile", "reptile", "crawl,crawl", both("empty")),
   ...["club", "empty"].map((held) => controlled("reptile", "workshop-fighter", "crawl,classic", { left: rightHand("empty"), right: rightHand(held) })),
   ...elsewhere(),
+  ...DATA_CASES,
   ...[...HUMANOID_MODELS, "reptile"].map((model) => ({ name: `stand ${model}`, run: () => stand(model) })),
   ...[1, 2].map((seed) => ({ name: `crypt fight, seed ${seed}`, run: () => cryptFight(seed) })),
   ...["workshop-fighter", "workshop-rogue"].flatMap((model) => [

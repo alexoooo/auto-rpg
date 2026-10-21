@@ -484,7 +484,8 @@ replays it from its order sheets. How well it fights is a measurement:
 - The tournament (`scripts/tournament.mjs`) rates every mind on every character and representative
   loadout (`REPRESENTATIVE`, `src/core/items/held.ts`) by Bradley-Terry (`research/rating.mjs`),
   shown as notes (`src/ui/mind-notes.ts`) and the Arena's Ratings panel.
-- The fingerprint (`scripts/fingerprint.mjs`) has a case for every pickable mind;
+- The fingerprint (`scripts/fingerprint.mjs`) has a case for every pickable mind and for every
+  part that reads mind data (`DATA_CASES`: Research rise, the learned rise, the learned run);
   `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
 
 ## Experimental separate equipment
