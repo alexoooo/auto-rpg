@@ -1,17 +1,18 @@
 # Vanguard development panel
 
-The committed-aim punching kit wins 18 of 18 development bouts against the nine existing humanoid
-minds. The supported-low preset wins eight of eight against its four-member panel. These results
-do not establish the requested win rate across opponents and equipment. Widening the current
-preset to the Skeleton exposes two losses against Options; it wins both on the Rogue. The
-punching kit also loses both direct bouts to the original Vanguard.
-The optional contact-driven policy with periodic re-evaluation wins all six of its paired
-development bouts, including both Skeleton sides, but fails fresh unarmed qualification against
-Options: two losses and a draw make the required 10/12 impossible. Equipment is unqualified.
+Vanguard remains unqualified against the requested field. Its calibrated preset combines
+committed point prediction, contact-driven attack/evasion choice and editable motor profiles
+for its own body. The profiles select the stronger development configurations for the Warrior,
+Rogue and Skeleton. The preceding contact-driven configuration fails fresh Options qualification
+with two losses and a draw. Equipment is unqualified.
+
+The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
+do not establish the requested rate across bodies, conditions and equipment. The records below
+name each configuration; they are not pooled into qualification evidence.
 
 ## What is used
 
-The candidate is Vanguard with `commitAim: true` and its punch's `settle: 0.2`. The other kit
+The punching kit is Vanguard with `commitAim: true` and its punch's `settle: 0.2`. The other kit
 settings are the original Vanguard's. A punch follows one segment-local aim through its stroke,
 then frees its hand to the continuous guard during recovery. The records carry both configurations
 whole. They measure the punching kit; the current preset also includes low support and a low-only
@@ -58,7 +59,7 @@ the obstacle court or held-out starting gaps.
 ## Supported low fighting
 
 [The supported-low paired record](../../assets/evaluations/tournament/2026-10-22-e21b930e-4b217807.jsonl)
-names source commit `e21b930e` and the current preset's complete configuration. It compares the
+names source commit `e21b930e` and the supported-low preset's complete configuration. It compares the
 preset against the committed-aim punching kit under the same Node Arena Duel conditions above.
 The Crawl and bite comparison uses the Warrior against the Reptile on its own body, both empty-handed.
 
@@ -79,8 +80,8 @@ cases, with other bodies, stages, starts and equipment still outside this record
 
 With `predictAim: true`, the punch projects its chosen point onto the sensed collider before
 remembering it locally. Each control step predicts that point from the segment's current linear
-and angular velocity, with a 0.12 s lead plus the sensed frame's age. The ordinary preset keeps
-the previous aiming mode; the editor exposes the option separately.
+and angular velocity, with a 0.12 s lead plus the sensed frame's age. The calibrated preset
+enables this option; the editor also exposes it separately.
 
 The [Skeleton record](../../assets/evaluations/tournament/2026-10-22-8047251e-aa0c393a.jsonl)
 and [Warrior record](../../assets/evaluations/tournament/2026-10-22-8047251e-dbfb3163.jsonl)
@@ -178,9 +179,46 @@ not produce damaging strikes in the 30–60 s screens. Their exact rejected sour
 diagnostics are retained in `research/runs/vanguard/rejected/entry-{51,53,54,55}.json`. Those
 low-support revisions are not part of the retained implementation.
 
+## Body motor profiles
+
+The calibrated preset at `9b3fecd0` uses the
+[own-body profiles](../../assets/entrants/vanguard/body-profiles.json). The complete table is an
+editable `bodyProfiles` field carried by a mind link. A matching own model selects conservative
+stance walking and whether to step around repeated blocks; without a matching entry, the
+configured walk and explicit step setting apply.
+
+| Own body | Walk | Step after repeated blocks | Selected development result |
+| --- | --- | --- | --- |
+| Warrior | Configured Move | No | Options 2/2, Counter-puncher 2/2 |
+| Rogue | Conservative stance walk | No | Options 2/2 |
+| Skeleton | Conservative stance walk | Yes | Options 2/2 |
+
+These full development cases use the Node Arena Duel, `rapier-coordinate`, 120 Hz, matched
+bodies, empty hands, Balance 0/0, the open stage and both sides. The starts are 4 m on the
+Warrior, 6.85 m on the Rogue and 4.35 m on the Skeleton. The Warrior wins three by injury and
+one at the cap; the Rogue wins both at the cap; the Skeleton wins by injury at 83.55 s on the
+left and at the cap on the right. None of these selected configurations falls. Their recipes
+and rows remain in `research/runs/vanguard/bouts.jsonl`, played source
+`sha256:8cde59e930cd70e4bcb456a4dfb4bb0259bf35f41eee70ab14c80efcf0c0c423`.
+
+The combined dispatcher reproduces each selected configuration's complete pose digest through
+an eight-second approach and exchange probe on the left side. Those six short cases and their
+digests are retained in `research/runs/vanguard/profile-equivalence.json`; they are equivalence
+checks, not additional full wins or fresh qualification.
+
+The blocked-step policy reads the fighter's completed action ledger. Two blocked committed
+strokes without a target hit request a one-second lateral step at 0.3 m/s, away from the widest
+sensed blocking limb. It waits for live actions to end, preserves user movement, clears its
+interrupted work on sub-mind return and forks its memory. It is useful on the Skeleton, but
+forcing it on every body wins only 2/4 Warrior bouts with conservative walking and 3/4 with
+the native gait, against the no-step reference's 4/4. A four-policy contact learner loses both
+limiting right-side cases where the selected references win. Exact rejected implementations
+are retained in `research/runs/vanguard/rejected/outer-block-step.json` and
+`research/runs/vanguard/rejected/learned-block-step.json`.
+
 ## Tried and not kept
 
-The current preset's additional normal-cap development bouts against Options use the same Node
+The supported-low preset's additional normal-cap development bouts against Options use the same Node
 Arena Duel, engine, rate, empty hands, Balance 0/0, open stage and 4 m gap. On the Rogue it wins
 2/2 (one injury, one time limit); on the Skeleton it loses 2/2 at the time limit. Neither body
 falls. Both Skeleton bouts lead at 30 s, so those short leads do not predict the full result.
@@ -207,7 +245,7 @@ Raw development rows, full recipes and source archives are kept under
 | Standard front kicks, or a smaller lift with proportionate chamber time | Both split the full Reptile bouts. |
 | Faster kick preparation and recovery | Falls interrupt preparation before commitment. |
 | Early low guard without approach, turning steps or a finite return | It stalls outside reach or cannot leave failed low support. |
-| Alternating the current preset's hands on the Skeleton | Weakens one side of the 30 s screen against Options. |
+| Alternating the supported-low preset's hands on the Skeleton | Weakens one side of the 30 s screen against Options. |
 | Closing the upright covering hand on the Skeleton | Loses both full Options bouts, one with a fall; exact source is archived in `research/runs/vanguard/rejected/closed-upright-guard.json`. |
 | Aiming the current standing punch at the Skeleton's head | Loses both full Options bouts, one with a fall. |
 | Point-controlled arm acceleration on the Skeleton | Weakens both 30 s exchanges; no full bout follows. |

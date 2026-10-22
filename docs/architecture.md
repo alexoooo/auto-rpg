@@ -377,7 +377,7 @@ loadout.
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
 | direct | `src/core/entrants/direct/` | joint feedback through the policy port |
 | tempo | `src/core/entrants/tempo/` | shared skills under rhythm tactics |
-| vanguard | `src/core/entrants/vanguard/` | committed body punches, optional prediction, contact-driven policy choice and conservative travel, recovery guard and low cover |
+| vanguard | `src/core/entrants/vanguard/` | committed point prediction, contact-driven tactics, editable own-body walking and blocked-step profiles, recovery guard and low cover |
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`mind`,
 `sub-mind`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `reflex`, or a skill's:
