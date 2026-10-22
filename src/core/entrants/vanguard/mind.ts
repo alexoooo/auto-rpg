@@ -4,7 +4,7 @@ import { configuredActionEstimates, configuredExecutors } from "../../mind/actio
 import { FIGHTING, MOVE, STAND_UP, type FighterConfig } from "../../mind/config.ts";
 import { controller } from "../../mind/controller.ts";
 import { createFighter, fighterBody, fighterFaults, fighterSkills } from "../../mind/fighter.ts";
-import { toggle, type PartField } from "../../mind/fields.ts";
+import { number, toggle, type PartField } from "../../mind/fields.ts";
 import type { BodyHost } from "../../mind/host.ts";
 import type { MindWiring } from "../../mind/minds.ts";
 import { fitsAll, fitsWhen, slotList, slotOne, takesCommands } from "../../mind/parts.ts";
@@ -31,6 +31,10 @@ interface VanguardConfig extends Omit<FighterConfig, "kind"> {
   readonly lowGuard?: boolean;
   readonly predictAim?: boolean;
   readonly anchorAtDrive?: boolean;
+  /** Release the standing punch's remaining controls during recovery. */
+  readonly overlapReturn?: boolean;
+  /** Seconds of recovery that retain the trunk and legs before releasing them. */
+  readonly returnHold?: number;
   readonly slowEvade?: boolean;
   readonly adaptiveEvade?: boolean;
   readonly revisitEvade?: boolean;
@@ -71,6 +75,12 @@ const LOW_ACTIONS: PartField<VanguardConfig> = {
       return Array.isArray(names) && names.every(name => typeof name === "string") ? { ...config, lowActions: names } : null;
     } catch { return null; }
   },
+};
+
+/** An omitted recovery hold is zero, as it is at the executor boundary. */
+const RETURN_HOLD: PartField<VanguardConfig> = {
+  ...number<VanguardConfig, "returnHold">("returnHold", "Body hold during punch recovery", 0, 2, .01, "s"),
+  read: config => String(config.returnHold ?? 0),
 };
 
 /** A restriction names distinct actions, and the committed-aim runtime enforces it. */
@@ -123,7 +133,7 @@ function createVanguard(host: BodyHost, given: VanguardConfig, wiring: MindWirin
   const attacking = given.adaptiveEvade && config.tactics.kind === "behaviours" ? tacticsOf({ ...config.tactics,
     list: config.tactics.list.filter(behaviour => behaviour.kind !== "evade") }, host.spec, wiring.name, config.actions,
     sight => wiring.orders(sight.view.senses), wiring.script, configuredActionEstimates(host.spec, config.executors, config.actions)) : null;
-  const policy = attacking ? adaptiveGuard(attacking, ordinaryTactics, given.revisitEvade) : ordinaryTactics;
+  const policy = attacking ? adaptiveGuard(attacking, ordinaryTactics, given.revisitEvade, given.overlapReturn) : ordinaryTactics;
   const tactics = given.slowEvade ? { ...policy, get engagement() { return policy.engagement; },
     decide(sight: Parameters<typeof policy.decide>[0], dt: number) {
       const intent = policy.decide(sight, dt);
@@ -143,7 +153,8 @@ function createVanguard(host: BodyHost, given: VanguardConfig, wiring: MindWirin
       if (settings.kind !== "straight-punch") return ordinary.find(binding => binding.name === settings.name)!;
       const executor = committedAim(made, config.actions.filter(action => action.executor === settings.name).map(action => action.name), settings,
         (view, target, action, effector) => low?.aim(view, target) ?? aims.get(action)?.(view, target, effector, ledger())?.at ?? null, given.lowGuard, given.predictAim,
-        !config.actions.some(action => action.executor === settings.name && lowActions.has(action.name)) && (profile?.anchorAtDrive ?? given.anchorAtDrive));
+        !config.actions.some(action => action.executor === settings.name && lowActions.has(action.name)) && (profile?.anchorAtDrive ?? given.anchorAtDrive),
+        given.overlapReturn && !config.actions.some(action => action.executor === settings.name && lowActions.has(action.name)), given.returnHold);
       return { name: settings.name, executor: { ...executor,
         readiness(view, action, effector, target, around) {
           if (lowActions.has(action) && !low?.aim(view, target)) return { kind: "blocked" as const, reason: "action needs a low opponent" };
@@ -162,6 +173,7 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
   role: "mind", label: "Vanguard", stage: "experimental", defaults: VANGUARD,
   fields: [toggle("commitAim", "Commit to one aim point"), toggle("lowGuard", "Prepare a low guard"), toggle("predictAim", "Refresh the committed point's motion prediction"),
     toggle("anchorAtDrive", "Refresh the opening until commitment"),
+    toggle("overlapReturn", "Allow another punch during recovery"), RETURN_HOLD,
     toggle("slowEvade", "Limit evasive steps"), toggle("adaptiveEvade", "Learn attack or evasion from target contacts"),
     toggle("revisitEvade", "Revisit an earlier quiet policy"), toggle("steadyWalk", "Limit stance-walk turns"),
     toggle("routeAround", "Find another reachable entry point"), toggle("flankAfterBlocks", "Step around repeated blocks"), BODY_PROFILES, LOW_ACTIONS],
@@ -170,7 +182,7 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
     slotOne("support", "Low support", "support", true), slotList("subs", "When down", "sub-mind"),
     slotOne("motor", "Motor control", "motor", true)],
   keys: { kind: true, tactics: true, locomotion: true, navigation: true, guard: true, executors: true, actions: true,
-    support: true, subs: true, motor: true, commitAim: true, lowGuard: true, predictAim: true, anchorAtDrive: true, slowEvade: true, adaptiveEvade: true, revisitEvade: true, steadyWalk: true, routeAround: true, flankAfterBlocks: true, bodyProfiles: true, lowActions: true },
+    support: true, subs: true, motor: true, commitAim: true, lowGuard: true, predictAim: true, anchorAtDrive: true, overlapReturn: true, returnHold: true, slowEvade: true, adaptiveEvade: true, revisitEvade: true, steadyWalk: true, routeAround: true, flankAfterBlocks: true, bodyProfiles: true, lowActions: true },
   fits: fitsAll<VanguardConfig>(takesCommands, (spec, config) => actionConfigFaults(spec, config.executors, config.actions)[0] ?? null,
     fitsWhen((spec, config) => armedActions(spec, config.executors, config.actions).length > 0, "it throws no usable blow")),
   strikes: (spec, config) => armedActions(spec, config.executors, config.actions).flatMap(action => action.effectors),
@@ -181,6 +193,10 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
     ...config.predictAim && !config.commitAim ? ["predictAim needs committed aim"] : [],
     ...config.anchorAtDrive !== undefined && typeof config.anchorAtDrive !== "boolean" ? ["anchorAtDrive: a boolean"] : [],
     ...config.anchorAtDrive && !config.commitAim ? ["anchorAtDrive needs committed aim"] : [],
+    ...config.overlapReturn !== undefined && typeof config.overlapReturn !== "boolean" ? ["overlapReturn: a boolean"] : [],
+    ...config.overlapReturn && !config.commitAim ? ["overlapReturn needs committed aim"] : [],
+    ...config.returnHold !== undefined && (!Number.isFinite(config.returnHold) || config.returnHold < 0) ? ["returnHold: finite nonnegative seconds"] : [],
+    ...config.returnHold !== undefined && !config.overlapReturn ? ["returnHold needs overlapping recovery"] : [],
     ...config.slowEvade !== undefined && typeof config.slowEvade !== "boolean" ? ["slowEvade: a boolean"] : [],
     ...config.slowEvade && !config.commitAim ? ["slowEvade needs committed aim"] : [],
     ...config.adaptiveEvade !== undefined && typeof config.adaptiveEvade !== "boolean" ? ["adaptiveEvade: a boolean"] : [],

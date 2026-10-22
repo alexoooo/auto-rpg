@@ -14,8 +14,9 @@ interface Anchor { body: string; segment: string; local: Vec3 }
 const LEAD = .12;
 
 /** A punch follows one sensed point through its drive, optionally refreshing the opening while preparing. */
-export function committedAim(body: Body, actions: readonly string[], settings: StraightPunch, resolve: Resolve, lowSupport = false, predict = false, anchorAtDrive = false): Executor {
-  const state = { base: null as object | null, id: null as number | null, anchor: null as Anchor | null, returning: false, committed: false };
+export function committedAim(body: Body, actions: readonly string[], settings: StraightPunch, resolve: Resolve, lowSupport = false, predict = false, anchorAtDrive = false, overlapReturn = false, returnHold = 0): Executor {
+  const state = { base: null as object | null, id: null as number | null, anchor: null as Anchor | null, returning: false, committed: false,
+    releasedAt: null as number | null, freeReturn: false };
   const arms = new Set(bodyEffectors(body.built).filter(e => e.model.segment.startsWith("hand.")).flatMap(e => e.model.channels));
   const point = new Vector3(), inverse = new Quaternion();
   const follow: Resolve = (view, target, action, effector) => {
@@ -53,7 +54,7 @@ export function committedAim(body: Body, actions: readonly string[], settings: S
         }
       }
   };
-  const clear = () => { state.id = null; state.anchor = null; state.returning = false; state.committed = false; };
+  const clear = () => { state.id = null; state.anchor = null; state.returning = false; state.committed = false; state.releasedAt = null; state.freeReturn = false; };
   const base = straightPunchExecutor(body, actions, settings, follow);
   state.base = base.state;
   return {
@@ -80,10 +81,14 @@ export function committedAim(body: Body, actions: readonly string[], settings: S
         if ("ending" in update) { clear(); return update; }
         if (update.phase === "commit") state.committed = true;
         state.returning = update.phase === "release";
-        return state.returning ? { ...update, holds: ["trunk", "legs"] } : update;
+        if (state.returning) state.releasedAt ??= view.time;
+        state.freeReturn = state.returning && overlapReturn && view.time - state.releasedAt! >= returnHold;
+        return state.returning ? { ...update, holds: state.freeReturn ? [] : ["trunk", "legs"] } : update;
       });
     },
     command(view, id, around) {
+      // An independently recovering hand leaves the next punch's body and arm controls free.
+      if (state.freeReturn) return {};
       const ordinary = base.command(view, id, around);
       // A low punch keeps the planted fold while it owns the trunk and legs.
       const claim = lowSupport && ordinary.lower !== undefined && ordinary.lower > STANCE_LOWER

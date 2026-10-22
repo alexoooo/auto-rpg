@@ -117,15 +117,22 @@ test("a quiet policy trial is revisited when the contact conditions change", () 
   assert.ok(revisited, "an earlier zero score does not prevent trying the policy after conditions change");
 });
 
-test("a body-relative punch forks through preparation and commitment", async () => {
-  const config = { ...CONTROLLERS.vanguard.defaults, commitAim: true, predictAim: true, anchorAtDrive: true };
+test("independent body-relative punches fork through preparation, commitment and released recovery", async () => {
+  const base = CONTROLLERS.vanguard.defaults;
+  const config = { ...base, commitAim: true, predictAim: true, anchorAtDrive: true, overlapReturn: true, returnHold: .1,
+    executors: base.executors.flatMap(executor => executor.name === "punch"
+      ? ["left", "right"].map(side => ({ ...executor, name: `punch.${side}` })) : [executor]),
+    actions: base.actions.flatMap(action => action.executor === "punch"
+      ? ["left", "right"].map(side => ({ ...action, name: `strike.${side}`, executor: `punch.${side}`, effectors: [`hand.${side}`] })) : [action]),
+  };
   const built = await buildBout({ left: "workshop-fighter", right: "workshop-fighter", gap: .9,
     minds: { left: config, right: config } }, { engine: BOUT_ENGINE });
   try {
     const { duel, world } = built;
     duel.play([]);
-    for (const phase of ["prepare", "commit"]) {
-      const reached = () => duel.duelists.left.minded.skills.report.actions.some(action => action.phase === phase);
+    for (const phase of ["prepare", "commit", "free-return"]) {
+      const reached = () => duel.duelists.left.minded.skills.report.actions.some(action => phase === "free-return"
+        ? action.phase === "release" && action.holds.length === 0 : action.phase === phase);
       const deadline = duel.clock + 3;
       while (duel.clock < deadline && !reached()) world.step();
       assert.ok(reached(), `the fixture reaches ${phase} before its deadline`);
