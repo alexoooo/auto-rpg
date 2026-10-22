@@ -26,5 +26,5 @@ export const STAND_UP_PART: SubMindPart<StandUpConfig> = deepFreeze({
     return (["back", "front"] as const).filter(from => !reachable(config.techniques, from, graph, graphWork())).map(from => `no route to standing from ${from}`);
   },
   reads: (config) => config.techniques.includes("learned-rise") ? ["learned-rise"] : [],
-  make: (own, view, config, clock) => standUp(own, view, clock, config),
+  make: (own, view, config, kit, clock) => standUp(own, view, clock, config, kit),
 });

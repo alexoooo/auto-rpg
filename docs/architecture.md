@@ -220,12 +220,14 @@ a stance goal) into muscle commands.
   past strength is pinned and the body solved again. A command may drive an effector point at an
   acceleration or spin (`PointTask`, `BodyCommand.points`); `holdUp` (`src/core/skills/hold.ts`)
   is such a spin.
-- **The motor is a part** of role `motor` (`MOTOR_PARTS`, `motorOf`, `src/core/control/motors.ts`),
-  named by `BodyOptions.motor` or a fighter's `motor` slot; the default is the whole-body solve
-  (`motorControl`, registered as `WHOLE_BODY_MOTOR`, `whole-body-motor.ts`). A kind is a registered
-  implementation (`MotorPart`, `motor-part.ts`): a module of its own and a line in `MOTOR_PARTS`,
-  made as `motorControl` is; one that needs goals a `BodyCommand` does not name brings their
-  vocabulary with it.
+- **The motor is a part** of role `motor` (`MOTORS`, `src/core/control/motors.ts`, a role list),
+  named by a fighter's `motor` slot; the game's is the whole-body solve (`motorControl`, registered
+  as `WHOLE_BODY_MOTOR`, `whole-body-motor.ts`; `GAME_MOTOR`, `mind/kit.ts`). A kind is a
+  registered implementation (`MotorPart`, `motor-part.ts`) whose maker gives, for its config, what
+  makes a motor control (`MotorMaker`, made as `motorControl` is). A mind resolves it through its
+  host's lookup (`motorOf`) and hands it to its body (`BodyOptions.motor`, the whole-body solve where
+  none is given) and to its sub-minds; one that needs goals a `BodyCommand` does not name brings
+  their vocabulary with it.
 - **The stance** (`stance.ts`; records `stance-state.ts`, steps `gait.ts`, soles `support.ts`,
   constants `stance-tuning.ts`) is the standing plan and the solve's first user
   (`StanceControl.ask`). It keeps the centre of mass inside the support by forces the ground can
@@ -412,7 +414,8 @@ slots (`slotOne`, `slotList`, `slotsOf`), `defaults`, `fits`, `faults` and `need
 screen must give). `allParts` (`catalog.ts`) is every part by kind: the parts below a mind, each
 mind, and each mind's own parts (`Controller.parts`), read once on first use so that any module may
 load first. A role whose parts make themselves has a list of them that holds its imports and its
-list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `GUARDS`, `SUPPORTS`, in `src/core/mind/`), so a case's code begins each part's own
+list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `GUARDS`, `SUPPORTS`, `SUB_MINDS` in
+`src/core/mind/`; `MOTORS` in `src/core/control/`), so a case's code begins each part's own
 code there; its parts make what they are (`NavigatorPart.make`), and an assembly makes the one a
 config names as the host's lookup finds it. A part whose checks read the parts it names is handed
 the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the registry. Over the tree:
@@ -467,8 +470,10 @@ and copies the whole action before applying any of it. A policy receives no engi
 **Recovery sub-minds.** Each reads its host's down state and the world's clock (`SubMindMaker`).
 Each kind is a registered implementation (`SubMindPart`, `mind/sub-mind-part.ts`): its own module
 beside the sub-mind (`<file>-part.ts`) owns its config's type, keys, defaults, faults, fit, the
-data it reads and its maker, and is a line in `SUB_MIND_PARTS` (`sub-minds.ts`), from which
-`SubMindConfig` and the maker (`subMind`) follow:
+data it reads and its maker, and is a line in `SUB_MINDS` (`sub-minds.ts`, a role list), from which
+`SubMindConfig` follows. Its maker is handed the mind's kit (`MindKit`, `mind/kit.ts`: its motor,
+its guard and the guard's posture), which it and its techniques drive the body with, so a motor or
+guard swapped into the mind is the one recovery uses (`subMindsOf`, `kitOf`):
 
 | Sub-mind | File | What it does |
 |---|---|---|
@@ -556,8 +561,8 @@ joint-feedback Mind (`entrants/direct/mind.ts`) is the example.
    it runs the game's.
 4. It may use any of the toolkit (`src/core/mind/`, `skills/`, `control/`) and imports no engine,
    world or builder. Data and learned weights go under `assets/entrants/<name>/`.
-5. A part of its own of a role whose parts make themselves (navigation, guard, support, executor)
-   is a module in its folder and a line in its controller's `parts` (Vanguard's punch,
+5. A part of its own of a role whose parts make themselves (navigation, guard, support, executor,
+   motor, sub-mind) is a module in its folder and a line in its controller's `parts` (Vanguard's punch,
    `vanguard-punch`); its config chooses it, and its maker finds it with the
    host's lookup (`BodyHost.parts`). Only its own minds' slots offer it. `tests/swap.test.mjs`
    registers a fixture entrant this way from outside `src/` (`tests/fixtures/swap/`) and holds a

@@ -2,13 +2,13 @@ import { type Body, type BodyView } from "../../body.ts";
 import { effectorTracker } from "../../control/effector-tracker.ts";
 import { hypot } from "../../math/real.ts";
 import { skillSet } from "../../skills/arbiter.ts";
-import { guardSkill } from "../../skills/guard.ts";
 import type { Locomotion } from "../../skills/locomotion.ts";
 import type { Side } from "../../spec/body.ts";
 import type { Clock } from "../../clock.ts";
 import { actionProducer } from "../action-producer.ts";
 import { standIntent } from "../intent.ts";
 import type { OwnBody } from "../mind.ts";
+import type { MindKit } from "../kit.ts";
 import type { Senses } from "../senses.ts";
 import type { SubMind } from "../sub-mind.ts";
 import { nearestFoe, nearestSurface } from "../targets.ts";
@@ -20,13 +20,13 @@ import { rootSegment } from "../../read-body.ts";
 export interface GroundFightConfig { readonly kind: "ground-fight"; readonly reach: number; readonly kicks: "either" | "left" | "right" | "none" }
 
 /** Cover and ground footwork surround a named supine kick on the body's shared action compositor. */
-export function groundFight(own: OwnBody, view: BodyView, _clock: Clock, config: GroundFightConfig, afterPhysics: Body["afterPhysics"]): SubMind {
+export function groundFight(own: OwnBody, view: BodyView, _clock: Clock, config: GroundFightConfig, kit: MindKit, afterPhysics: Body["afterPhysics"]): SubMind {
   const tracker = effectorTracker(own.built, rootSegment(own.built)), posture: Record<string, number> = {};
   const legs: Locomotion = { state: {}, heading: 0, pace: 0, reference: null, placed: true, envelope: null, stopping: 0,
     resume() {}, goal() { return null; }, place() { return null; }, drive() { return { kind: "drive", posture: config.kicks === "none" ? {} : GROUND_LEGS, pushes: [] }; } };
   const producer = actionProducer(), executor = groundKick(own), rest = poseDrive(own.muscles);
   const skills = skillSet({ built: own.built, muscles: own.muscles, view, envelope: null, afterPhysics }, {}, {
-    legs, navigation: null, guard: guardSkill(own.spec), executors: [{ name: "ground", executor }],
+    legs, navigation: null, guard: kit.guard(own.built), executors: [{ name: "ground", executor }],
     actions: [{ name: "ground-kick", executor: "ground", effectors: ["foot.left", "foot.right"] }] });
   const state = { active: false, settled: 0, next: "right" as Side, sequence: 0, kicks: 0, tracker: tracker.state, skills: skills.state, producer: producer.state };
   const supported = () => view.ground?.position === "back" || view.ground?.position === "sitting";

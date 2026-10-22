@@ -3,16 +3,16 @@ import poses from "../../../../assets/research/posture-holds.json" with { type: 
 import type { BodyView } from "../../body.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing } from "../../control/bearing.ts";
 import { uprightness } from "../../control/ground.ts";
-import { motorControl } from "../../control/motor.ts";
+import type { MindKit } from "../kit.ts";
 import { servoAsk, servoSolve } from "../../control/servo.ts";
 import { turnOfToRef } from "../../control/support.ts";
 import { atan2 } from "../../math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../math/turn.ts";
 import { humanSpec } from "../../human/spec.ts";
-import { guardPosture } from "../../skills/guard.ts";
 import { deepFreeze } from "../../state.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import type { Clock } from "../../clock.ts";
+import type { Pose } from "../../control/motor.ts";
 import type { OwnBody } from "../mind.ts";
 import { riseLimbs, type RiseLimbs } from "../rise/limbs.ts";
 import { RISE } from "../rise/stages.ts";
@@ -30,8 +30,8 @@ interface PlantUpTuning {
 export const PLANT_UP: PlantUpTuning = deepFreeze({ within: .2, top: 3, response: .35,
   plantLoad: .12, transferLoad: .6, height: .65, pitch: .6, posture: {} });
 
-/** Installed anatomical targets share their channel zero across models, even when their bind differs. */
-export function plantPostures(spec: BodySpec) {
+/** Installed anatomical targets share their channel zero across models, even when their bind differs; the rise and the steady stand end in `guard`, the arms' rest. */
+export function plantPostures(spec: BodySpec, guard: Pose) {
   const reference = humanSpec("workshop-fighter");
   const named = (id: string): Readonly<Record<string, number>> => {
     const pose = poses.find(p => p.model === reference.model && p.id === id)!;
@@ -41,14 +41,14 @@ export function plantPostures(spec: BodySpec) {
   const brace = named("fours"), half = named("half-kneel");
   const plant = { ...brace };
   for (const [channel, angle] of Object.entries(half)) if (channel.startsWith("hip.left ") || channel.startsWith("knee.left ") || channel.startsWith("ankle.left ")) plant[channel] = angle;
-  const guard = Object.fromEntries(spec.joints.flatMap(j => j.dofs.map(d => [`${j.name} ${d.positive}`,
-    (guardPosture(spec)[`${j.name} ${d.positive}`] ?? 0) + d.bind.value])));
-  return deepFreeze({ brace, plant, transfer: named("squat"), rise: guard, steady: guard });
+  const rest = Object.fromEntries(spec.joints.flatMap(j => j.dofs.map(d => [`${j.name} ${d.positive}`,
+    (guard[`${j.name} ${d.positive}`] ?? 0) + d.bind.value])));
+  return deepFreeze({ brace, plant, transfer: named("squat"), rise: rest, steady: rest });
 }
 
 /** One route with retained hand support, a flat lead foot, weight transfer, extension and quiet standing. */
-export function plantUp(own: OwnBody, view: BodyView, _clock: Clock, tuning: PlantUpTuning = PLANT_UP): TechniqueRun {
-  const muscles = own.muscles, postures = plantPostures(own.spec), drive = poseDrive(muscles), clock = phaseClock();
+export function plantUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit, tuning: PlantUpTuning = PLANT_UP): TechniqueRun {
+  const muscles = own.muscles, postures = plantPostures(own.spec, kit.posture), drive = poseDrive(muscles), clock = phaseClock();
   const phases: readonly Phase[] = ["brace", "plant", "transfer", "rise", "steady"];
   const goals = Object.fromEntries(phases.map(phase => [phase, deepFreeze({ ...postures[phase], ...Object.fromEntries(
     Object.entries(tuning.posture[phase] ?? {}).map(([name, offset]) => [name, (postures[phase][name] ?? 0) + offset])) })])) as Record<Phase, Readonly<Record<string, number>>>;
@@ -58,7 +58,7 @@ export function plantUp(own: OwnBody, view: BodyView, _clock: Clock, tuning: Pla
   const hand = [index("hand.left"), index("hand.right")], shin = [index("shank.left"), index("shank.right")];
   const root = muscles.dynamics.root.segment, low = uprightness(own.built);
   const made: RiseLimbs = riseLimbs(own, RISE);
-  const motor = motorControl(own.built, .1, guardPosture(own.spec));
+  const motor = kit.motor(own.built, .1, kit.posture);
   const state = { phase: "brace" as Phase, ended: null as TechniqueEnd | null, begun: false, elapsed: 0, heading: 0,
     initial: Object.fromEntries(muscles.channels.map(c => [c.name, 0])),
     yieldPending: false, clock: clock.state, motor: motor.state,

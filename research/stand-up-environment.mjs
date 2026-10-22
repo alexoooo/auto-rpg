@@ -14,6 +14,8 @@ import { guardPosture } from '../src/core/skills/guard.ts';
 import { SIMBICON } from '../src/core/skills/simbicon.ts';
 import { supportRecovery } from '../src/core/mind/rise/support-recovery.ts';
 import { standUp } from '../src/core/mind/ground/stand-up.ts';
+import { partLookup } from '../src/core/mind/catalog.ts';
+import { kitOf } from '../src/core/mind/kit.ts';
 import { STAND_UP } from '../src/core/mind/config.ts';
 import { observeBody } from '../src/core/observation.ts';
 import { clockSenses } from '../src/core/mind/senses.ts';
@@ -98,10 +100,11 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
   const experiment = freshExperiment();
   let channels, legacy, port;
   const recovery = (own, view, into) => {
-    legacy = baseline === 'step-up' ? standUp(own, view, into, techniques ? { ...STAND_UP, techniques } : STAND_UP, registry) : supportRecovery(own, view, into, recipe);
+    const kit = kitOf(partLookup, own.spec, config);
+    legacy = baseline === 'step-up' ? standUp(own, view, into, techniques ? { ...STAND_UP, techniques } : STAND_UP, kit, registry) : supportRecovery(own, view, into, kit, recipe);
     if (comparison) {
-      const policies = baseline === 'step-up' ? { 'step-up': legacy, 'support-recovery': supportRecovery(own, view, into) }
-        : { optimized: legacy, standard: supportRecovery(own, view, into) };
+      const policies = baseline === 'step-up' ? { 'step-up': legacy, 'support-recovery': supportRecovery(own, view, into, kit) }
+        : { optimized: legacy, standard: supportRecovery(own, view, into, kit) };
       const state = { selected: Object.keys(policies)[0], policies: Object.fromEntries(Object.entries(policies).map(([key, policy]) => [key, policy.state])) };
       legacy = { state, get name() { return policies[state.selected].name; },
         wants(senses) { return policies[state.selected].wants(senses); },
@@ -152,7 +155,7 @@ export async function recoveryEnvironment({ model = 'workshop-fighter', held = '
         experiment.actionStep = into.steps;
       } };
   };
-  const body = createBody(built, world, { ...fighterBody(config, wiring), subs: [recovery] });
+  const body = createBody(built, world, { ...fighterBody(config, wiring, partLookup), subs: [recovery] });
   let skills;
   const actor = { body, world, drive(script) { return skills = driveFighter(body.driver, world, config, { ...wiring, script }); }, dispose() { body.dispose(); } };
   const stance = startStance(actor);

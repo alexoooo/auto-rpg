@@ -26,7 +26,8 @@ import { woodenClub } from "../src/core/items/club.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { RISE } from "../src/core/mind/rise/stages.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
-import { subMindsOf } from "../src/core/mind/sub-minds.ts";
+import { subMindsOf } from "../src/core/mind/kit.ts";
+import { partLookup } from "../src/core/mind/catalog.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { createWorld } from "../src/core/world.ts";
 import { CORE_ENGINE, freshEngine } from "../tests/harness/core-stand.mjs";
@@ -75,7 +76,7 @@ async function cost(count) {
   world.step(3 * world.hz);
   rows.push(read("down, driven"));
   for (const { body } of bodies) body.dispose();
-  bodies.forEach((b, i) => { bodies[i] = driven(b.body.built, subMindsOf(RECIPE_FIGHTER.subs)); });
+  bodies.forEach((b, i) => { bodies[i] = driven(b.body.built, subMindsOf(partLookup, RECIPE_FIGHTER.subs, RECIPE_FIGHTER)); });
   world.step(3 * world.hz);
   rows.push(read("down, lying"));
   level("limp");
@@ -85,7 +86,7 @@ async function cost(count) {
   rows.push(read("down, held"));
   level("limp");
   for (const { body } of bodies) body.dispose();
-  bodies.forEach((b, i) => { bodies[i] = driven(b.body.built, subMindsOf([{ kind: "support-recovery" }])); });
+  bodies.forEach((b, i) => { bodies[i] = driven(b.body.built, subMindsOf(partLookup, [{ kind: "support-recovery" }], RECIPE_FIGHTER)); });
   world.step(3 * world.hz);
   // What each riser is at, counted over the bodies at every step of the reading.
   const doing = { slack: 0, posing: 0, bearing: 0 };

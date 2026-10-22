@@ -3,6 +3,7 @@ import type { MuscleDriver } from "../../muscle/driver.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 import type { Clock } from "../../clock.ts";
 import type { OwnBody } from "../mind.ts";
+import type { MindKit } from "../kit.ts";
 import type { Senses } from "../senses.ts";
 import type { Recipe } from "../rise/stages.ts";
 import type { GroundReading, Position } from "./reading.ts";
@@ -33,8 +34,8 @@ export interface TechniqueSpec {
   readonly sides: readonly Side[];
   readonly edges: readonly { readonly from: Position; readonly to: Position }[];
   fits(spec: BodySpec): boolean;
-  /** A run of it on the body; `listed`, its config names it, and a technique that reads mind data reads it only then (the supervisor routes only through those named). */
-  make(own: OwnBody, view: BodyView, clock: Clock, listed: boolean): TechniqueRun;
+  /** A run of it on the body, driving it with the mind's motor and guard (`kit`); `listed`, its config names it, and a technique that reads mind data reads it only then (the supervisor routes only through those named). */
+  make(own: OwnBody, view: BodyView, clock: Clock, listed: boolean, kit: MindKit): TechniqueRun;
 }
 
 /** A reached physical predicate must remain true this long; search settings cannot change it. */
@@ -111,15 +112,15 @@ export const TECHNIQUES: Readonly<Record<TechniqueName, TechniqueSpec>> = Object
   "step-up": Object.freeze({ label: "Step up", stage: "game", sides: Object.freeze(["left"] as const),
     edges: Object.freeze((["front", "back", "left", "right", "fours", "half-kneel", "kneeling", "sitting", "between"] as const)
       .map(from => Object.freeze({ from, to: "standing" as const }))),
-    fits: humanoid, make: (own: OwnBody, view: BodyView, clock: Clock) => stepUp(own, view, clock) }),
+    fits: humanoid, make: (own: OwnBody, view: BodyView, clock: Clock, _listed: boolean, kit: MindKit) => stepUp(own, view, clock, kit) }),
   "learned-rise": Object.freeze({ label: "Learned rise", stage: "experimental", sides: Object.freeze(["left"] as const),
     edges: Object.freeze((["front", "back", "left", "right", "fours", "half-kneel", "kneeling", "sitting", "between"] as const)
       .map(from => Object.freeze({ from, to: "standing" as const }))),
-    fits: humanoid, make: (own: OwnBody, view: BodyView, clock: Clock, listed: boolean) => learnedRise(own, view, clock, listed ? undefined : null) }),
+    fits: humanoid, make: (own: OwnBody, view: BodyView, clock: Clock, listed: boolean, kit: MindKit) => learnedRise(own, view, clock, kit, listed ? undefined : null) }),
   "plant-up": Object.freeze({ label: "Plant up", stage: "experimental", sides: Object.freeze(["left"] as const),
     edges: Object.freeze((["front", "fours", "half-kneel", "crouch"] as const).map(from => Object.freeze({ from, to: "standing" as const }))),
     fits: humanoid,
-    make: (own: OwnBody, view: BodyView, clock: Clock) => plantUp(own, view, clock) }),
+    make: (own: OwnBody, view: BodyView, clock: Clock, _listed: boolean, kit: MindKit) => plantUp(own, view, clock, kit) }),
   roll: Object.freeze({ label: "Roll onto front", stage: "experimental", sides: Object.freeze(["right"] as const),
     edges: Object.freeze((["back", "right"] as const).map(from => Object.freeze({ from, to: "front" as const }))),
     fits: humanoid,

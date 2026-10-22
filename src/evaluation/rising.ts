@@ -16,6 +16,9 @@ import { humanSpec, humanoidSpec } from "../core/human/spec.ts";
 import { armedWith, loadoutKey, type Held, type Loadout } from "../core/items/held.ts";
 import { PUNCHER, type FighterConfig } from "../core/mind/config.ts";
 import { groundReading } from "../core/mind/ground/reading.ts";
+import type { StandUpConfig } from "../core/mind/ground/stand-up.ts";
+import { partLookup } from "../core/mind/catalog.ts";
+import { kitOf } from "../core/mind/kit.ts";
 import { plantPostures, plantUp, PLANT_UP } from "../core/mind/ground/plant-up.ts";
 import { TECHNIQUES, type TechniqueName, type TechniqueRun } from "../core/mind/ground/techniques.ts";
 import { modelSpec, type HumanoidModel } from "../core/models.ts";
@@ -36,7 +39,7 @@ export type RisingSub = "support-recovery" | "stand-up";
 export function risingMind(sub: RisingSub, techniques: readonly TechniqueName[] = Object.keys(TECHNIQUES) as TechniqueName[]): FighterConfig {
   switch (sub) {
     case "support-recovery": return { ...PUNCHER, subs: [{ kind: "support-recovery" }] };
-    case "stand-up": return { ...PUNCHER, subs: [{ kind: "stand-up", techniques }] };
+    case "stand-up": { const standUp: StandUpConfig = { kind: "stand-up", techniques }; return { ...PUNCHER, subs: [standUp] }; }
     default: {
       const never: never = sub;
       throw new Error(`unknown rising sub-mind ${String(never)}`);
@@ -57,7 +60,7 @@ export type RisingJob = Omit<FallCase, "mind" | "model" | "start"> & {
   readonly techniques?: readonly TechniqueName[];
   readonly technique?: TechniqueName;
   readonly after?: TechniqueName | null;
-  readonly tuning?: Parameters<typeof plantUp>[3];
+  readonly tuning?: Parameters<typeof plantUp>[4];
   readonly waypoint?: "installed" | keyof ReturnType<typeof plantPostures>;
 };
 
@@ -142,7 +145,7 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
     if (!source) throw new Error(`no ${posture} waypoint`);
     const reference = humanSpec("workshop-fighter");
     const targets: Readonly<Record<string, number>> = job.waypoint === "installed" ? Object.fromEntries(reference.joints.flatMap(joint => joint.dofs.map((dof, k) =>
-      [`${joint.name} ${dof.positive}`, (source.placement.joints as Record<string, number[]>)[joint.name]![k]! + dof.bind.value]))) : plantPostures(spec)[job.waypoint!];
+      [`${joint.name} ${dof.positive}`, (source.placement.joints as Record<string, number[]>)[joint.name]![k]! + dof.bind.value]))) : plantPostures(spec, kitOf(partLookup, spec, PUNCHER).posture)[job.waypoint!];
     return { ...source.placement, joints: Object.fromEntries(spec.joints.map(joint => [joint.name,
       joint.dofs.map(dof => (targets[`${joint.name} ${dof.positive}`] ?? 0) - dof.bind.value)])) } as unknown as ReturnType<typeof groundPlacement>;
   })() : undefined;
@@ -163,8 +166,9 @@ export async function techniqueTrial(job: RisingJob): Promise<TechniqueResult> {
   const control = { active: start !== "shoved", end: null as string | null, from: null as number | null, ended: null as number | null,
     predecessor: job.after ? "running" as string | null : null, predecessorSeconds: 0, candidateFrom: null as number | null, shoved: false };
   const body = createBody(built, world, { servoSeconds: .1, subs: [(own, view, into) => {
-    run = technique === "plant-up" ? plantUp(own, view, into, job.tuning ?? PLANT_UP) : TECHNIQUES[technique].make(own, view, into, true);
-    predecessor = job.after ? TECHNIQUES[job.after]?.make(own, view, into, true) ?? null : null;
+    const kit = kitOf(partLookup, own.spec, PUNCHER);
+    run = technique === "plant-up" ? plantUp(own, view, into, kit, job.tuning ?? PLANT_UP) : TECHNIQUES[technique].make(own, view, into, true, kit);
+    predecessor = job.after ? TECHNIQUES[job.after]?.make(own, view, into, true, kit) ?? null : null;
     if (job.after && !predecessor) throw new Error(`unknown predecessor ${job.after}`);
     return { name: `technique:${technique}`, state: { control, run: run.state, predecessor: predecessor?.state ?? null },
       wants: () => control.active,

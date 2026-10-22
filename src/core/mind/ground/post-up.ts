@@ -2,14 +2,14 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../../body.ts";
 import { bearLimbs, carryRoot, limbMotion, makeBearing } from "../../control/bearing.ts";
 import { uprightness } from "../../control/ground.ts";
-import { motorControl } from "../../control/motor.ts";
+import type { MindKit } from "../kit.ts";
 import { servoAsk, servoSolve } from "../../control/servo.ts";
 import { turnOfToRef } from "../../control/support.ts";
 import { atan2 } from "../../math/real.ts";
 import { spinBetweenToRef, turnAboutToRef } from "../../math/turn.ts";
-import { guardPosture } from "../../skills/guard.ts";
 import { deepFreeze } from "../../state.ts";
 import type { OwnBody } from "../mind.ts";
+import type { Clock } from "../../clock.ts";
 import { riseLimbs } from "../rise/limbs.ts";
 import { RISE } from "../rise/stages.ts";
 import { armClearance } from "./clearance.ts";
@@ -27,9 +27,9 @@ const SWEEP = deepFreeze({ ...POST, "hip.right flexion": -.15, "hip.right abduct
   "knee.right flexion": 1.8, "ankle.right dorsiflexion": .3, "hip.left flexion": 1.3, "lumbar flexion": .4 });
 
 /** A technical stand-up on one posted hand; its supports and final standing are measured events. */
-export function postUp(own: OwnBody, view: BodyView): TechniqueRun {
+export function postUp(own: OwnBody, view: BodyView, _clock: Clock, _listed: boolean, kit: MindKit): TechniqueRun {
   const muscles = own.muscles, drive = poseDrive(muscles), clock = phaseClock(), clear = armClearance(own.built);
-  const limbs = riseLimbs(own, RISE), low = uprightness(own.built), motor = motorControl(own.built, .1, guardPosture(own.spec));
+  const limbs = riseLimbs(own, RISE), low = uprightness(own.built), motor = kit.motor(own.built, .1, kit.posture);
   const root = muscles.dynamics.root.segment, hand = own.spec.segments.findIndex(s => s.name === "hand.right");
   const goals = Float64Array.from(muscles.channels, c => Math.max(c.dof.spec.min.value,
     Math.min(c.dof.spec.max.value, (SWEEP[c.name as keyof typeof SWEEP] ?? 0) - c.dof.spec.bind.value)));

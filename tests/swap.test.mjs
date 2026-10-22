@@ -55,7 +55,7 @@ test("each part a bout runs is the one its config names, and the bout forks, res
       run(FORK, [trace]);
       const saved = fork ? duel.save() : null;
       run(STEPS, [trace, tail]);
-      const states = SIDES.map((side) => saveState(duel.duelists[side].minded.state));
+      const states = SIDES.map((side) => ({ mind: saveState(duel.duelists[side].minded.state), body: saveState(duel.duelists[side].minded.body.state) }));
       let resumed = null;
       if (saved) { duel.load(saved); const again = traceOf(builts); run(STEPS, [again]); resumed = again.digest(); }
       return { digest: trace.digest(), tail: tail.digest(), resumed, states, sheets: Object.fromEntries(SIDES.map((side) => [side, duel.duelists[side].sheets])) };
@@ -63,12 +63,16 @@ test("each part a bout runs is the one its config names, and the bout forks, res
   };
   const first = await played({ record: true }, true);
   for (const state of first.states) for (const { part, read } of STUBS) {
-    const kind = part.defaults.kind, own = read(state);
+    const kind = part.defaults.kind, own = read(state.mind, state.body);
     assert.equal(own?.stub, kind, `the ${part.role} the mind runs is its config's stub`);
     assert.ok(own.steps > 0, `the ${kind} stub was asked`);
   }
-  for (const state of first.states)
+  for (const state of first.states) {
     assert.deepEqual(read(STUB_BLOW, state).guard, STUB_POSTURE, "the executor is made with the configured guard's posture, where its blows return");
+    const standUp = state.body.mind.subs[0];
+    assert.equal(standUp.motor.stub, "stub-motor", "the stand-up is made with the configured motor");
+    assert.equal(standUp.techniques["step-up"].motor.stub, "stub-motor", "its technique is made with the configured motor");
+  }
   assert.equal(first.resumed, first.tail, "the bout forked and resumed is the bout");
   const replay = await played({ replay: first.sheets }, false);
   assert.equal(replay.digest, first.digest, "the replay is the bout");
@@ -76,7 +80,7 @@ test("each part a bout runs is the one its config names, and the bout forks, res
   assert.deepEqual(linked, { config, faults: [] }, "the tree goes through a link unchanged");
 });
 
-/** `part`'s stub state in the mind state `state`. */
-function read(part, state) {
-  return STUBS.find((stub) => stub.part === part).read(state);
+/** `part`'s stub state in a side's saved mind and body state. */
+function read(part, { mind, body }) {
+  return STUBS.find((stub) => stub.part === part).read(mind, body);
 }

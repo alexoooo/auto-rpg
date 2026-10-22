@@ -17,6 +17,8 @@ import { recoveryEnvironment } from './stand-up-environment.mjs';
 import { TECHNIQUES } from '../src/core/mind/ground/techniques.ts';
 import { RISE_DECIDE, learnedRise, readRise, riseFeatures, riseSteerFrom } from '../src/core/mind/ground/learned-rise.ts';
 import { RISE_STEER_KEYS } from '../src/core/mind/rise/staged.ts';
+import { partLookup } from '../src/core/mind/catalog.ts';
+import { GAME_GUARD, kitOf } from '../src/core/mind/kit.ts';
 import { modelSpec } from '../src/core/models.ts';
 import '../tests/harness/preload-data.mjs';
 import { strengthSpec } from '../src/evaluation/fall.ts';
@@ -30,7 +32,7 @@ export async function riseEnvironment(configuration = {}) {
   const random = () => ((word = (Math.imul(word, 1664525) + 1013904223) >>> 0) / 4294967296);
   let held = null;
   const registry = { ...TECHNIQUES, 'learned-rise': { ...TECHNIQUES['learned-rise'],
-    make(own, view, world) { const run = learnedRise(own, view, world, null); held = { own, view, run }; return run; } } };
+    make(own, view, world, _listed, kit = kitOf(partLookup, own.spec, { guard: GAME_GUARD })) { const run = learnedRise(own, view, world, kit, null); held = { own, view, run }; return run; } } };
   const e = await recoveryEnvironment({ model: o.model, held: o.held, baseline: 'step-up', balance: o.balance,
     ...(o.strength === 1 ? {} : { spec: strengthSpec(modelSpec(o.model), o.strength) }), techniques: ['learned-rise'], registry });
   if (!held) throw new Error('the stand-up made no learned rise');

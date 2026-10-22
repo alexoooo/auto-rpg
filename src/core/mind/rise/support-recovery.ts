@@ -3,10 +3,9 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { MotionModel } from "../../control/tasks.ts";
 import type { BodyView } from "../../body.ts";
 import { supportEntry } from "../../control/support-entry.ts";
-import { motorControl } from "../../control/motor.ts";
+import type { MindKit } from "../kit.ts";
 import { footStatesOf, readSupport } from "../../control/support.ts";
 import { recoveryReady } from "../../control/recovery-ready.ts";
-import { guardPosture } from "../../skills/guard.ts";
 import { locomotion } from "../../skills/locomotion.ts";
 import { SERVO_SECONDS } from "../../body.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
@@ -50,10 +49,10 @@ export function supportEntryPolicy(built: ReadBody, model: Pick<MotionModel, "ch
 }
 
 /** Rise with the reference policy, then verify quiet foot support before returning control. */
-export function supportRecovery(own: OwnBody, view: BodyView, clock: Clock, recipe: Recipe = RISE): SubMind {
+export function supportRecovery(own: OwnBody, view: BodyView, clock: Clock, kit: MindKit, recipe: Recipe = RISE): SubMind {
   const { built, muscles } = own;
   const rise = stagedRise(own, view, recipe), feet = footStatesOf(built), legs = locomotion(null);
-  const motor = motorControl(built, SERVO_SECONDS, guardPosture(built.spec), undefined, own.assist);
+  const motor = kit.motor(built, SERVO_SECONDS, kit.posture, undefined, own.assist);
   const observe = observeBody(built, muscles, clock, () => view.senses);
   const state = { phase: "complete" as "rise" | "stabilize" | "complete", rise: rise.state, motor: motor.state, legs: legs.state,
     time: 0, ready: 0, retries: 0, completed: 0 };

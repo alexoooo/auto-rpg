@@ -14,6 +14,7 @@ import { heldIn } from "../core/skills/strikes.ts";
 import type { World } from "../core/world.ts";
 import type { Side } from "../core/spec/body.ts";
 import { supportRecovery } from "../core/mind/rise/support-recovery.ts";
+import { kitOf } from "../core/mind/kit.ts";
 import type { Recipe } from "../core/mind/rise/stages.ts";
 import { LAB_PRESETS } from "./scenarios.ts";
 
@@ -126,8 +127,8 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
   const clock = clockSenses(world);
   const wiring: MindWiring = { name: "lab", orders: (senses) => input.orders?.(senses) ?? null, assist,
     senses: () => (input.senses ?? clock)(), contactIdentity: (other) => input.contactIdentity?.(other) ?? null };
-  const body = createBody(built, world, { ...fighterBody(mind, wiring), stance, measuring,
-    ...(recoveryRecipe ? { subs: [(own, view, into) => supportRecovery(own, view, into, recoveryRecipe)] } : {}), ...(subs ? { subs } : {}) });
+  const body = createBody(built, world, { ...fighterBody(mind, wiring, partLookup), stance, measuring,
+    ...(recoveryRecipe ? { subs: [(own, view, into) => supportRecovery(own, view, into, kitOf(partLookup, own.spec, mind), recoveryRecipe)] } : {}), ...(subs ? { subs } : {}) });
   const strikes = { left: allows(heldIn(built.spec, "left")), right: allows(heldIn(built.spec, "right")) };
   let driven: Skills | null = null;
   return {

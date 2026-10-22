@@ -1,9 +1,8 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../../body.ts";
-import { motorControl } from "../../control/motor.ts";
+import type { MindKit } from "../kit.ts";
 import { turnOfToRef } from "../../control/support.ts";
 import { atan2 } from "../../math/real.ts";
-import { guardPosture } from "../../skills/guard.ts";
 import { deepFreeze } from "../../state.ts";
 import type { HumanoidModel } from "../../human/spec.ts";
 import type { Clock } from "../../clock.ts";
@@ -172,14 +171,14 @@ export type StepUpRise = ReturnType<typeof stagedRise>;
  * on its hands and knees, or half kneeling, joins the route there when its supports bear. An
  * attempt the rise gives up, or one that falls from the stance, fails back to the supervisor.
  */
-export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, tuning: StepUpTuning = STEP_UP[own.spec.model as HumanoidModel],
+export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit, tuning: StepUpTuning = STEP_UP[own.spec.model as HumanoidModel],
   base: Recipe = RISE): TechniqueRun & {
   /** Its rises, whole and joined part-way; the one it plays; and whether the rise is over and the stance steadies the body. */
   readonly rises: readonly StepUpRise[]; readonly rise: StepUpRise; readonly steadying: boolean;
 } {
   const whole = stepUpRecipe(tuning, base), from = (stage: string): Recipe => ({ ...whole, rise: whole.rise.slice(whole.rise.findIndex(s => s.name === stage)) });
   const rises = { whole: stagedRise(own, view, whole), fours: stagedRise(own, view, from(JOINS.fours)), "half-kneel": stagedRise(own, view, from(JOINS["half-kneel"])) };
-  const motor = motorControl(own.built, .1, guardPosture(own.spec));
+  const motor = kit.motor(own.built, .1, kit.posture);
   const state = { phase: "rise" as Phase, entry: "whole" as Entry, begun: false, rose: false, ended: null as TechniqueEnd | null,
     elapsed: 0, steady: 0, off: 0, reached: 0, height: 0, heading: 0,
     rises: { whole: rises.whole.state, fours: rises.fours.state, "half-kneel": rises["half-kneel"].state }, motor: motor.state };

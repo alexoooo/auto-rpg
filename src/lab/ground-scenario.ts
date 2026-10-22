@@ -6,6 +6,7 @@ import { groundShove, ROUND_FALLS, startGround, STAND_CHECK } from "./ground-mod
 import { groundPlacement, groundPostures } from "./ground-starts.ts";
 import { groundTechnique, plantWaypoint } from "./ground-technique.ts";
 import { TECHNIQUES, type TechniqueName } from "../core/mind/ground/techniques.ts";
+import type { StandUpConfig } from "../core/mind/ground/stand-up.ts";
 import { STAND_UP, type FighterConfig } from "../core/mind/config.ts";
 import { recordHistory } from "./history.ts";
 import { createPlayer } from "./player.ts";
@@ -30,7 +31,7 @@ const RISES: Readonly<Record<GroundRise, string>> = { "step-up": "Stand up: step
 function risingBy(chosen: FighterConfig, rise: GroundRise): FighterConfig {
   switch (rise) {
     case "step-up": return { ...chosen, subs: [STAND_UP] };
-    case "learned-rise": return { ...chosen, subs: [{ ...STAND_UP, techniques: ["learned-rise"] }] };
+    case "learned-rise": { const learned: StandUpConfig = { ...STAND_UP, techniques: ["learned-rise"] }; return { ...chosen, subs: [learned] }; }
     case "support-recovery": return { ...chosen, subs: [{ kind: "support-recovery" }] };
     case "mind": return chosen;
     default: { const never: never = rise; throw new Error(`unknown rise ${String(never)}`); }

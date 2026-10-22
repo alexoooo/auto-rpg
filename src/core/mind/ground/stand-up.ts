@@ -1,6 +1,5 @@
 import { SERVO_SECONDS, type BodyView } from "../../body.ts";
-import { motorControl } from "../../control/motor.ts";
-import { guardPosture } from "../../skills/guard.ts";
+import type { MindKit } from "../kit.ts";
 import { locomotion } from "../../skills/locomotion.ts";
 import type { Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
@@ -26,16 +25,16 @@ interface Entry extends Attempt { end: TechniqueEnd | "ready" | "steady-limit" }
 export interface StandUpConfig { readonly kind: "stand-up"; readonly techniques: readonly TechniqueName[] }
 
 /** A supervisor retries contracts from the body as read; no successful reposition clears a failure. */
-export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: StandUpConfig,
+export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: StandUpConfig, kit: MindKit,
   registry: Readonly<Record<string, TechniqueSpec>> = TECHNIQUES): SubMind {
   const runs: Record<string, TechniqueRun> = {}, graph: Record<string, GraphTechnique> = {};
   for (const [name, spec] of Object.entries(registry)) if (spec.fits(own.spec)) {
-    const run = spec.make(own, view, clock, config.techniques.includes(name as TechniqueName)); runs[name] = run;
+    const run = spec.make(own, view, clock, config.techniques.includes(name as TechniqueName), kit); runs[name] = run;
     graph[name] = { sides: spec.sides, edges: spec.edges, admits: (g, side) => run.admits(g, side) };
   }
   runs.flatten = flatten(own, view);
   const drive = poseDrive(own.muscles), work = graphWork(), legs = locomotion(null);
-  const motor = motorControl(own.built, SERVO_SECONDS, guardPosture(own.spec), undefined, own.assist);
+  const motor = kit.motor(own.built, SERVO_SECONDS, kit.posture, undefined, own.assist);
   const state = { active: false, mode: "brace" as Mode, time: 0, ready: 0, braceUsed: false,
     current: null as Attempt | null, route: [] as RouteStep[], failures: [] as GraphFailure[],
     reposition: [] as string[], steadyTried: [] as Position[], log: [] as Entry[], omitted: 0,

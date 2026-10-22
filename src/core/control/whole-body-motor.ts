@@ -10,5 +10,5 @@ interface WholeBodyMotorConfig { readonly kind: "whole-body" }
 export const WHOLE_BODY_MOTOR: MotorPart<WholeBodyMotorConfig> = deepFreeze({
   role: "motor", label: "Whole-body solve", stage: "game", fields: [], slots: [], defaults: { kind: "whole-body" }, keys: { kind: true },
   fits: anyBody, faults: () => [],
-  make: motorControl,
+  make: () => motorControl,
 });

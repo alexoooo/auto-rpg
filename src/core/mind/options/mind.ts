@@ -6,7 +6,9 @@ import { fighterBody, fighterSkills } from "../fighter.ts";
 import { NO_COVER } from "../intent.ts";
 import { orderedFacing } from "../ordered.ts";
 import type { MindWiring } from "../minds.ts";
-import { SUB_MIND_PARTS, subMind } from "../sub-minds.ts";
+import { kitOf, subMind } from "../kit.ts";
+import { GET_AWAY_PART } from "../ground/get-away-part.ts";
+import { GROUND_FIGHT_PART } from "../ground/ground-fight-part.ts";
 import { driveBy, type Sight, type Tactics } from "../tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
 import { setDistance } from "./distance.ts";
@@ -40,8 +42,8 @@ const CLINCH_SLANT = .8;
 /** What it does down, by rank: the sub-mind each down option is carried out by, and how it is priced. */
 const DOWN: readonly (readonly [string, SubMindConfig, DownModel])[] = deepFreeze([
   ["get up", STAND_UP, { seconds: 5, stands: .7, shelter: 0 }],
-  ["roll away", SUB_MIND_PARTS["get-away"].defaults, { seconds: 2, stands: 0, shelter: .5 }],
-  ["fight from the ground", SUB_MIND_PARTS["ground-fight"].defaults, { seconds: 2, stands: 0, shelter: .3 }],
+  ["roll away", GET_AWAY_PART.defaults, { seconds: 2, stands: 0, shelter: .5 }],
+  ["fight from the ground", GROUND_FIGHT_PART.defaults, { seconds: 2, stands: 0, shelter: .3 }],
   ["lie still", { kind: "lie" }, { seconds: 2, stands: 0, shelter: 0 }],
 ]);
 
@@ -78,8 +80,9 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
   const decide = (): Option | null => sight && meta ? meta.decide(situation(sight)) : null;
   const half = { current: false }, downs: ReturnType<typeof downOption>[] = [];
   const running = () => { const chosen = meta && meta.state.running >= 0 ? options[meta.state.running]! : null; return chosen?.posture === "down" ? downs.find((down) => down === chosen) ?? null : null; };
-  const body = host.command({ ...fighterBody({ subs: [], motor: config.motor }, wiring), subs: [(own, view, w, afterPhysics) => {
-    for (const [name, sub, model] of DOWN) downs.push(downOption(name, subMind(own, view, sub, w, afterPhysics), half, model));
+  const body = host.command({ ...fighterBody({ subs: [], motor: config.motor, guard: config.guard }, wiring, host.parts), subs: [(own, view, w, afterPhysics) => {
+    const kit = kitOf(host.parts, own.spec, config);
+    for (const [name, sub, model] of DOWN) downs.push(downOption(name, subMind(host.parts, own, view, sub, kit, w, afterPhysics), half, model));
     return downHalf(downs, running, decide, half);
   }] });
   if (downs.length !== DOWN.length) throw new Error("the options fighter's body made no down half");

@@ -25,6 +25,8 @@ import { cmaSearch, workerPool } from "./cma.mjs";
 import { CONTACT_RISE, RISE } from "../src/core/mind/rise/stages.ts";
 import { STEP_UP, stepUp } from "../src/core/mind/ground/step-up.ts";
 import { standUp } from "../src/core/mind/ground/stand-up.ts";
+import { partLookup } from "../src/core/mind/catalog.ts";
+import { GAME_GUARD, kitOf } from "../src/core/mind/kit.ts";
 import { TECHNIQUES } from "../src/core/mind/ground/techniques.ts";
 import "../tests/harness/preload-data.mjs";
 import { risingTrial } from "../src/evaluation/rising.ts";
@@ -64,8 +66,8 @@ const JOINED = { whole: 0, fours: RISE.rise.findIndex(s => s.name === "fours"), 
 /** One target fall under Step up with `tuning`; scored as the header says. */
 export async function stepFall({ tuning, cap = 14, first = true, recipe = "rise", ...job }) {
   let furthest = -1, steady = 0, failed = false;
-  const registry = { ...TECHNIQUES, "step-up": { ...TECHNIQUES["step-up"], make: (own, view, world) => {
-    const run = stepUp(own, view, world, tuning, RECIPES[recipe]), step = run.step;
+  const registry = { ...TECHNIQUES, "step-up": { ...TECHNIQUES["step-up"], make: (own, view, world, _listed, kit) => {
+    const run = stepUp(own, view, world, kit, tuning, RECIPES[recipe]), step = run.step;
     return Object.defineProperties({}, { ...Object.getOwnPropertyDescriptors(run), step: { value(g, senses, dt) {
       const end = step(g, senses, dt), s = run.state;
       if (end !== null && end !== "done") failed = true;
@@ -74,7 +76,7 @@ export async function stepFall({ tuning, cap = 14, first = true, recipe = "rise"
       return end;
     } } });
   } } };
-  const subs = [(own, view, world) => standUp(own, view, world, { kind: "stand-up", techniques: ["step-up"] }, registry)];
+  const subs = [(own, view, world) => standUp(own, view, world, { kind: "stand-up", techniques: ["step-up"] }, kitOf(partLookup, own.spec, { guard: GAME_GUARD }), registry)];
   const r = await risingTrial({ seed: 1, start: "shoved", balance: 0, grit: 0, gusts: false, target: true, sub: "stand-up", techniques: ["step-up"], cap, ...job }, { subs, stop: (world, built, actor) => { job.watch?.(world, built, actor); return first && failed; } });
   const score = r.stood ? 2 + Math.max(0, cap - r.verified) / cap
     : r.takeover === null ? null : .9 * (Math.max(0, furthest) + steady + (r.verified !== null ? 1 : 0)) / (RISE.rise.length + 2);

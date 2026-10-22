@@ -10,5 +10,5 @@ interface SupportRecoveryConfig { readonly kind: "support-recovery" }
 export const SUPPORT_RECOVERY_PART: SubMindPart<SupportRecoveryConfig> = deepFreeze({
   role: "sub-mind", label: "Rise, then steady", stage: "game", fields: [], slots: [], defaults: { kind: "support-recovery" }, keys: { kind: true },
   fits: takesCommands, faults: () => [],
-  make: (own, view, _config, clock) => supportRecovery(own, view, clock),
+  make: (own, view, _config, kit, clock) => supportRecovery(own, view, clock, kit),
 });

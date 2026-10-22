@@ -17,6 +17,8 @@ import {KICK_PATH} from '../src/core/skills/kick.ts';
 import {NO_COVER} from '../src/core/mind/intent.ts';
 import {pointOfToRef,motionAtToRef} from '../src/core/control/support.ts';
 import {supportRecovery} from '../src/core/mind/rise/support-recovery.ts';
+import {partLookup} from '../src/core/mind/catalog.ts';
+import {GAME_GUARD,kitOf} from '../src/core/mind/kit.ts';
 import {coarseForces} from './punch-calibration.mjs';
 import {punchPad} from './punch-pad.mjs';
 import {combatFingerprint} from './arena-combat.mjs';
@@ -37,7 +39,7 @@ export async function frontKickStand({model='workshop-fighter',held='empty',foot
     contactIdentity:other=>sensor&&isBody(other,sensor.body)?identity:other?null:{kind:'world'},
     contacts:segment=>(sensor?.state.materialContacts??[]).filter(c=>c.segment===segment)
       .map(c=>({target:identity,point:c.point,normal:[0,0,1],impulse:c.force*s.world.dt})),
-    ...(recovery?{subs:[(own,view)=>supportRecovery(own,view,s.world)]}:{})});
+    ...(recovery?{subs:[(own,view)=>supportRecovery(own,view,s.world,kitOf(partLookup,own.spec,{guard:GAME_GUARD}))]}:{})});
   const parts=pathParts(body,{kick:{...KICK_PATH,...tuning}}), skills=skillSet(body,{},parts), cycles=actionCycles(skills);
   const kickState=parts.executors.find(entry=>entry.name==='kicks').executor.state;
   const target=[foot==='right'?.1:-.1,height,ahead];

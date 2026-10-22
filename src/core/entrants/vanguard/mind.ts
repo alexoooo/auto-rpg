@@ -92,7 +92,7 @@ function createVanguard(host: BodyHost, given: VanguardConfig, wiring: MindWirin
     executors: given.executors.map(executor => isPunch(executor) && !executor.lowOnly ? { ...executor,
       ...profile?.lead !== undefined ? { lead: profile.lead } : {}, ...profile?.anchorAtDrive !== undefined ? { anchorAtDrive: profile.anchorAtDrive } : {} } : executor),
     locomotion: (profile?.steady ?? given.steadyWalk) ? { kind: "stance-walk" as const, tuning: STEADY_TURN } : given.locomotion };
-  const body = host.command(fighterBody(config, wiring));
+  const body = host.command(fighterBody(config, wiring, host.parts));
   const ordinaryTactics = tacticsOf(config.tactics, host.spec, wiring.name, config.actions,
     sight => wiring.orders(sight.view.senses), wiring.script, configuredActionEstimates(host.parts, host.spec, config.executors, config.actions));
   const attacking = given.adaptiveEvade && config.tactics.kind === "behaviours" ? tacticsOf({ ...config.tactics,

@@ -1,9 +1,9 @@
 import type { StandUpConfig } from "./ground/stand-up.ts";
-import type { SubMindConfig } from "./sub-minds.ts";
+import type { SUB_MINDS } from "./sub-minds.ts";
 import type { EXECUTORS } from "./executors.ts";
 import type { GUARDS } from "./guards.ts";
 import type { SUPPORTS } from "./supports.ts";
-import type { MotorConfig } from "../control/motors.ts";
+import type { MOTORS } from "../control/motors.ts";
 import type { REPTILE_BITE } from "../reptile/tuning.ts";
 import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
 import { STRAIGHT_PUNCH } from "../skills/straight-punch.ts";
@@ -17,8 +17,11 @@ import type { AimRule } from "./action-aim.ts";
 import type { Region } from "../skills/action.ts";
 import type { Weights } from "./options/value.ts";
 
-/** **A sub-mind's config**, by kind (`SUB_MIND_PARTS`, `sub-minds.ts`). */
-export type { SubMindConfig };
+/** **A stock sub-mind's config**, by kind (`SUB_MINDS`). */
+export type SubMindConfig = ConfigOf<typeof SUB_MINDS>;
+
+/** **A stock motor control's config**, by kind (`MOTORS`). */
+export type MotorConfig = ConfigOf<typeof MOTORS>;
 
 /** Focus is selected once for all behaviours in a control step. */
 export type FocusRuleConfig = { readonly kind: "ordered" | "current" } | { readonly kind: "nearest"; readonly prefer: "standing" | "standing-first" };
@@ -96,9 +99,9 @@ export interface FighterConfig {
   /** Its low support, any part of the role (`SupportPart`), or none. */
   readonly support: PartConfig | null;
   /** The sub-minds it hands its body to, in rank order: the first that wants the body has it. */
-  readonly subs: readonly SubMindConfig[];
-  /** What turns its skills' goals into its muscles' command; the game's (`motorOf`) where it names none. */
-  readonly motor?: MotorConfig | null;
+  readonly subs: readonly PartConfig[];
+  /** What turns its skills' goals into its muscles' command, any part of the role; the game's (`motorOf`) where it names none. */
+  readonly motor?: PartConfig | null;
 }
 
 /** **What a body's skills are made from** (`fighterSkills`): its legs, its guard, its low support, its executors and the actions they carry out. */

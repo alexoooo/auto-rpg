@@ -10,7 +10,7 @@ import type { MindWiring } from "./minds.ts";
 import { legsOf } from "./locomotions.ts";
 import type { PartLookup } from "./lookup.ts";
 import { navigatorOf } from "./navigator.ts";
-import { subMindsOf } from "./sub-minds.ts";
+import { motorOf, subMindsOf } from "./kit.ts";
 import { tacticsOf } from "./tactics-of.ts";
 import { driveBy, type Tactics } from "./tactics.ts";
 
@@ -47,10 +47,10 @@ export function kitFaults(config: SkillKit): readonly string[] {
   return faults;
 }
 
-/** All action instances share the fighter's physical feedback and body-local ledger. */
-export function fighterBody(config: Pick<FighterConfig, "subs" | "motor">, wiring: MindWiring): BodyOptions {
+/** All action instances share the fighter's physical feedback and body-local ledger; its motor and its sub-minds are those `parts` finds, the sub-minds made with its kit (`kitOf`). */
+export function fighterBody(config: Pick<FighterConfig, "subs" | "motor" | "guard">, wiring: MindWiring, parts: PartLookup): BodyOptions {
   return { servoSeconds: SERVO_SECONDS, senses: wiring.senses, assist: wiring.assist,
-    feedback: true, contactIdentity: wiring.contactIdentity, subs: subMindsOf(config.subs), motor: config.motor ?? null };
+    feedback: true, contactIdentity: wiring.contactIdentity, subs: subMindsOf(parts, config.subs, config), motor: motorOf(parts, config.motor) };
 }
 
 /**
@@ -70,7 +70,7 @@ export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given:
 
 /** The skills `config` names, each part the one `parts` finds, a mind's own included; action aims read the body's `ledger`. */
 export function fighterSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillKit, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[]): Skills {
-  const guard = parts.of("guard", config.guard).make(made, config.guard);
+  const guard = parts.of("guard", config.guard).make(made.built, config.guard);
   return skillSet(made, driving, {
     legs: legsOf(made, config.locomotion), navigation: navigatorOf(parts, made.built.spec, config.navigation), guard,
     support: config.support ? parts.of("support", config.support).make(made, config.support) : null,
@@ -81,7 +81,7 @@ export function fighterSkills(made: Body, clock: Clock, parts: PartLookup, confi
 
 /** **A fighter**: its body and sub-minds (`fighterBody`), driven by its tactics over its skills (`driveFighter`). */
 export function createFighter(host: BodyHost, config: FighterConfig, wiring: MindWiring) {
-  const body = host.command(fighterBody(config, wiring));
+  const body = host.command(fighterBody(config, wiring, host.parts));
   const skills = driveFighter(body, host.clock, host.parts, config, wiring);
   return { skills, state: skills.state };
 }

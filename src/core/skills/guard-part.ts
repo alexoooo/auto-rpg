@@ -1,6 +1,6 @@
-import type { Body } from "../body.ts";
 import type { Pose } from "../control/motor.ts";
 import { takesCommands, type KeysOf, type Part, type PartConfig } from "../mind/parts.ts";
+import type { ReadBody } from "../read-body.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { guardPosture, guardSkill, type Covering, type GuardSkill } from "./guard.ts";
 import { holdUp } from "./hold.ts";
@@ -15,8 +15,8 @@ export interface GuardPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly keys: KeysOf<C>;
   /** The arms' rest a body of `spec` holds under `config`, before any skill is made: what it is built in. */
   posture(spec: BodySpec, config: C): Pose;
-  /** The guard skill of `config` on `body`; its `posture` is `posture`'s for the body's spec. */
-  make(body: Body, config: C): GuardSkill;
+  /** The guard skill of `config` for the body `built`; its `posture` is `posture`'s for the body's spec. */
+  make(built: ReadBody, config: C): GuardSkill;
 }
 
 /** **The cover guard**: the arms' posture (`guardPosture`), and a guarding hand's cover of what the tactics name (`guardSkill`). */
@@ -34,8 +34,8 @@ export interface CoverGuardConfig {
 export interface ShieldGuardConfig extends Omit<CoverGuardConfig, "kind"> { readonly kind: "shield-guard" }
 
 /** The guard skill of a cover guard's `config`, an item's face turned to the threat where it `faces`. */
-const coverMaker = (faces: boolean) => (body: Body, config: CoverGuardConfig | ShieldGuardConfig): GuardSkill =>
-  guardSkill(body.built.spec, config.tuning?.covering, faces, config.tuning?.hold === true ? holdUp(body.built) : null);
+const coverMaker = (faces: boolean) => (built: ReadBody, config: CoverGuardConfig | ShieldGuardConfig): GuardSkill =>
+  guardSkill(built.spec, config.tuning?.covering, faces, config.tuning?.hold === true ? holdUp(built) : null);
 
 export const COVER_GUARD: GuardPart<CoverGuardConfig> = {
   role: "guard", label: "Guard and cover", stage: "game", fields: [], slots: [], defaults: { kind: "cover-guard" }, keys: { kind: true, tuning: true },

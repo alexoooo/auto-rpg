@@ -4,13 +4,15 @@ import type { SubMind } from "../core/mind/sub-mind.ts";
 import type { Clock } from "../core/clock.ts";
 import { TECHNIQUES, type TechniqueEnd, type TechniqueName, type TechniqueSpec } from "../core/mind/ground/techniques.ts";
 import { plantPostures } from "../core/mind/ground/plant-up.ts";
+import { partLookup } from "../core/mind/catalog.ts";
+import { GAME_GUARD, kitOf } from "../core/mind/kit.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import type { buildBody } from "../core/build/build-body.ts";
 import poses from "../../assets/research/posture-holds.json" with { type: "json" };
 
 /** The technique's own anatomical phase goals, built through joint-consistent placement on either human. */
 export function plantWaypoint(spec: BodySpec, phase: "brace" | "plant" | "transfer" | "rise"): Parameters<typeof buildBody>[2] {
-  const target = plantPostures(spec)[phase], source = poses.find(p => p.model === "workshop-fighter" && p.id === (phase === "transfer" ? "squat" : "fours"))!;
+  const target = plantPostures(spec, kitOf(partLookup, spec, { guard: GAME_GUARD }).posture)[phase], source = poses.find(p => p.model === "workshop-fighter" && p.id === (phase === "transfer" ? "squat" : "fours"))!;
   return { position: [0, 0, 0], rotation: phase === "rise" ? [0, 0, 0, 1] : source.placement.rotation as [number, number, number, number],
     joints: Object.fromEntries(spec.joints.map(j => [j.name, j.dofs.map(d => (target[`${j.name} ${d.positive}`] ?? 0) - d.bind.value)])) };
 }
@@ -32,7 +34,7 @@ export interface GroundTechniqueState {
 export function groundTechnique(name: TechniqueName, own: OwnBody, view: BodyView, clock: Clock, immediate = true): SubMind {
   const spec: TechniqueSpec = TECHNIQUES[name];
   if (!spec.fits(own.spec)) throw new Error(`${spec.label} does not fit ${own.spec.model}`);
-  const run = spec.make(own, view, clock, true);
+  const run = spec.make(own, view, clock, true, kitOf(partLookup, own.spec, { guard: GAME_GUARD }));
   const state: GroundTechniqueState = { kind: "ground-technique", technique: name, run: run.state, phase: run.phase,
     ended: null, reached: false, time: 0, active: immediate, waiting: !immediate };
   return { name: `technique: ${name}`, state,

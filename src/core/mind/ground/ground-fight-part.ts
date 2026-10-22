@@ -12,8 +12,8 @@ export const GROUND_FIGHT_PART: SubMindPart<GroundFightConfig> = deepFreeze({
   fits: takesCommands,
   faults: (config) => [...Number.isFinite(config.reach) && config.reach > 0 ? [] : ["reach must be finite and positive"],
     ...["either", "left", "right", "none"].includes(config.kicks) ? [] : ["unknown kicking foot"]],
-  make(own, view, config, clock, afterPhysics) {
+  make(own, view, config, kit, clock, afterPhysics) {
     if (!afterPhysics) throw new Error("ground fighting needs completed body observations");
-    return groundFight(own, view, clock, config, afterPhysics);
+    return groundFight(own, view, clock, config, kit, afterPhysics);
   },
 });
