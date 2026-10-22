@@ -1,4 +1,5 @@
-import type { TechniqueName } from "./ground/techniques.ts";
+import type { StandUpConfig } from "./ground/stand-up.ts";
+import type { SubMindConfig } from "./sub-minds.ts";
 import type { REPTILE_BITE } from "../reptile/tuning.ts";
 import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
 import type { AttackTuning } from "../skills/attack-path.ts";
@@ -18,25 +19,8 @@ import type { AimRule } from "./action-aim.ts";
 import type { Region } from "../skills/action.ts";
 import type { Weights } from "./options/value.ts";
 
-/** Lie still while down: ask the muscles for nothing (`lying`, `lie.ts`). */
-interface LieConfig { readonly kind: "lie" }
-
-/** Rise by stages, then stand quiet on loaded feet before giving the body back (`supportRecovery`, `rise/support-recovery.ts`). */
-interface SupportRecoveryConfig { readonly kind: "support-recovery" }
-
-/** Experimental reference-motion feedback through ordinary muscles. */
-interface ResearchRiseConfig { readonly kind: "research-rise" }
-
-/** Preferred contracts for recovering the feet, in player order. */
-export interface StandUpConfig { readonly kind: "stand-up"; readonly techniques: readonly TechniqueName[] }
-
-/** Roll away from a nearby foe before handing over. */
-export interface GetAwayConfig { readonly kind: "get-away"; readonly metres: number }
-/** Cover and kick while lying within reach of a foe. */
-export interface GroundFightConfig { readonly kind: "ground-fight"; readonly reach: number; readonly kicks: "either" | "left" | "right" | "none" }
-
-/** **A sub-mind's config**, by kind: what a host's slot holds, whole, so a sub-mind is configured where it is chosen. */
-export type SubMindConfig = LieConfig | SupportRecoveryConfig | ResearchRiseConfig | StandUpConfig | GetAwayConfig | GroundFightConfig;
+/** **A sub-mind's config**, by kind (`SUB_MIND_PARTS`, `sub-minds.ts`). */
+export type { SubMindConfig };
 
 /** Focus is selected once for all behaviours in a control step. */
 export type FocusRuleConfig = { readonly kind: "ordered" | "current" } | { readonly kind: "nearest"; readonly prefer: "standing" | "standing-first" };

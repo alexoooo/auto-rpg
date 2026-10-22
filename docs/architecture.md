@@ -439,7 +439,11 @@ detached, frozen `BodyObservation` snapshots (`src/core/observation.ts`) and ret
 within the same envelope), an assist ask (`AssistAsk`), grips and hand poses. The host validates
 and copies the whole action before applying any of it. A policy receives no engine handle.
 
-**Recovery sub-minds.** Each reads its host's down state and the world's clock (`SubMindMaker`):
+**Recovery sub-minds.** Each reads its host's down state and the world's clock (`SubMindMaker`).
+Each kind is a registered implementation (`SubMindPart`, `mind/sub-mind-part.ts`): its own module
+beside the sub-mind (`<file>-part.ts`) owns its config's type, keys, defaults, faults, fit, the
+data it reads and its maker, and is a line in `SUB_MIND_PARTS` (`sub-minds.ts`), from which
+`SubMindConfig` and the maker (`subMind`) follow:
 
 | Sub-mind | File | What it does |
 |---|---|---|
