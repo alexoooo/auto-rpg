@@ -48,7 +48,7 @@ export type FocusRuleConfig = { readonly kind: "ordered" | "current" } | { reado
 
 /** Shared conditions read detached tactical facts. */
 export type ConditionConfig = { readonly kind: "always" | "when-standing" | "target-down" }
-  | { readonly kind: "when-distance"; readonly of: "foe" | "destination"; readonly than: "under" | "over"; readonly metres: number }
+  | { readonly kind: "when-distance"; readonly of: "foe" | "destination" | "ally"; readonly than: "under" | "over"; readonly metres: number }
   | { readonly kind: "follow-up"; readonly seconds: number };
 
 /** A selector chooses configured action names and retains a choice within bounded patience. */
@@ -134,12 +134,12 @@ interface WhenStandingConfig { readonly kind: "when-standing"; readonly gait: Ga
 
 /**
  * A rule of Move: while what `of` names is `than` `metres` away, `gait`: the nearest standing
- * foe, or where the body's walk is taking it (`Intent.destination`). Where there is none, it is
- * infinitely far.
+ * foe, where the body's walk is taking it (`Intent.destination`), or the nearest standing body of
+ * its own side. Where there is none, it is infinitely far.
  */
 interface WhenDistanceConfig {
   readonly kind: "when-distance";
-  readonly of: "foe" | "destination";
+  readonly of: "foe" | "destination" | "ally";
   readonly than: "under" | "over";
   readonly metres: number;
   readonly gait: GaitName;
@@ -328,10 +328,15 @@ export const FIGHTING: BehavioursConfig = deepFreeze({ kind: "behaviours",
  * (`travelSpeed`, `src/core/mind/travel.ts`) is past its run's. The run slows at its `brake`
  * (0.47 m/s²): from the pace it runs from (1.3 m/s) it stops in about 1.8 m, and closing on a foe
  * that closes too, in twice that, so it is walking by the time a fight's reach is near. At 2 m two
- * Arena fighters opened 4 m apart run into each other and one falls.
+ * Arena fighters opened 4 m apart run into each other and one falls. A standing body of its own side
+ * within 5 m is closed on the same way, and the fighting step keeps clear of it (`crowdWalk`,
+ * `src/core/mind/crowd.ts`) where the run cannot turn or slow in time. The last 5 m to its
+ * destination is walked in the fighting step too, which stops where it is sent where the run carries
+ * past it.
  */
 export const MOVE: MoveConfig = deepFreeze({ kind: "move",
-  rules: [{ kind: "when-standing", gait: "braced" }, { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" }],
+  rules: [{ kind: "when-standing", gait: "braced" }, { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" },
+    { kind: "when-distance", of: "ally", than: "under", metres: 5, gait: "braced" }, { kind: "when-distance", of: "destination", than: "under", metres: 5, gait: "braced" }],
   otherwise: "run" });
 
 const BLADE_EXECUTORS: readonly ExecutorConfig[] = [{ kind: "blade-cut", name: "blade-cut" }, { kind: "blade-thrust", name: "blade-thrust" }];
