@@ -30,7 +30,7 @@ vocabulary: the `Intent` tactics return (`src/core/mind/intent.ts`) and the `Ski
 | Motor control | `src/core/control/` | joint, effector and stance goals turned into muscle commands |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, guard, strike |
 | Tactics | `src/core/mind/tactics.ts`, `action-tactics.ts`, `ordered.ts`, `targets.ts`, `movement.ts` | what the body should do, from what it senses |
-| Minds | `src/core/mind/config.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `options/`, `rise/`, `ground/`; `src/core/entrants/` | a body's mind made from its config by the controller of its kind |
+| Minds | `src/core/mind/config.ts`, `kinds.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `options/`, `rise/`, `ground/`; `src/core/entrants/` | a body's mind made from its config by the controller of its kind |
 | Command | `src/core/command/` | a team's members given orders by its Commander, from what they sense |
 
 ### Spec
@@ -379,11 +379,13 @@ fight reads. A fight passes the config through and reads nothing in it.
   builder or read-view maker, beside the adapters `tests/core-boundary.test.mjs` names.
 - Controllers run synchronously inside `World.step`; frame timing never schedules them.
 
-**Controllers.** A kind of mind is a `Controller` (`controller.ts`), one line in `CONTROLLERS`
-(`controllers.ts`): its config keys (`keys`), the bodies it fits (`fits`), its presets (merged into
-`PRESETS`) and its maker (`create`). `MINDS` is what a person may pick: every preset, and each
-controller without presets by its defaults; pickers offer only minds that fit the side's body and
-loadout.
+**Controllers.** A kind of mind is a `Controller` (`controller.ts`) written in a module of its own
+(`fighter-kind.ts`, `options/kind.ts`, `src/core/reptile/kind.ts`, an entrant's `mind.ts`), and one
+line in `MIND_KINDS` (`kinds.ts`, which holds its imports and that list and nothing else, so a case's
+code can begin each kind's own code there). `CONTROLLERS` (`controllers.ts`) keys them by kind: its
+config keys (`keys`), the bodies it fits (`fits`), its presets (merged into `PRESETS`) and its maker
+(`create`). `MINDS` is what a person may pick: every preset, and each controller without presets
+by its defaults; pickers offer only minds that fit the side's body and loadout.
 
 | Kind | Maker | What it composes |
 |---|---|---|
@@ -502,7 +504,7 @@ goal has no end and no corner, so it goes at the gait's top speed.
 
 #### Adding a Mind
 
-A Mind is an entrant: a folder under `src/core/entrants/<name>/` and a line in `CONTROLLERS`. The
+A Mind is an entrant: a folder under `src/core/entrants/<name>/` and a line in `MIND_KINDS`. The
 joint-feedback Mind (`entrants/direct/mind.ts`) is the example.
 
 1. The folder holds the config's type (`{ kind, ... }` with a kind of its own), its defaults, its
@@ -677,10 +679,17 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
 - **Build fingerprint** (`scripts/build-identity.mjs`): a content SHA-256 of sources, templates,
   assets, lockfile, build config and installed Rapier, LF-normalised; Node and Vite share it.
   What runs write (`OUTPUTS`: the minds' notes, `assets/evaluations/`, generated art delivery files) is not in
-  it. Evaluation records and research bout pools carry it and refuse a mismatch. The environment
-  (`environmentOf`) is the same less what no case plays (scripts, research, the test harness, the
-  pages, the evaluations' descriptions and what reads their rows: keys, lanes, records, figures,
-  ratings, comparisons; `notPlayed`): a case's code.
+  it. Evaluation records and research bout pools carry it and refuse a mismatch.
+- **The file table** (`fileTable`, `scripts/build-identity.mjs`): each build input's hash, and each
+  module's imports read with TypeScript's parser (`importsOf`); Vite emits it beside the
+  fingerprint (`buildFiles`, `src/build-identity.ts`). **A case's code** (`caseCoder`) is drawn
+  from it: the environment, the static import closure (`closureOf`) of `src/evaluation/play.ts` and
+  the case module with the lockfile and the solvers, cut at the kinds list, the build's identity and
+  the mind data store (`CUTS`); then each kind of mind the case plays adds its own code (its
+  module's closure beyond the environment, and `assets/entrants/<kind>/`), and each mind data key
+  its minds read (`treeData`) its module's. A kinds list of more than its imports and its array,
+  and a module in a closure that imports by no literal, are refused. A research run's
+  implementation (`implementationOf`, `research/rising-provenance.mjs`) is the uncut closure.
 - **Evaluation records** (`assets/evaluations/<id>/`): kept results ([Evaluations](#evaluations)).
   `imports/tournament-1bacac44.jsonl`
   is the 10-hour tournament's rows (11,342 bouts and the unseen report's 384) as played, with their
@@ -701,9 +710,11 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   fall) and its reader, and the engine where the protocol fixes one (`Cases.engine`); `CASES` (`cases.ts`) is what a worker plays from. **A description** (`<id>/index.ts`)
   gives the question, subjects, figures and summary; nothing a case plays imports it.
 - **A case's key** is the digest of everything it plays: evaluation, protocol, engine, world (every
-  subject's value whole), seconds and code (the environment). A row (`Row`, `play.ts`) is found
-  again by its key, so a description, script or document edit replays nothing; a case's error or
-  non-finite reading is a fault row, kept like any other.
+  subject's value whole), seconds and code (`caseCoder`: the environment with the own code of the
+  kinds of mind it plays, `caseNames`, `code.ts`). A row (`Row`, `play.ts`) is found again by its
+  key, so a description, script, screen or document edit replays nothing, and an entrant's edit
+  replays only its own cases; a case's error or non-finite reading is a fault row, kept like any
+  other.
 - **A schedule** (`schedule.ts`) pairs a contest's subjects: `all` with each other, `versus` each
   subject with a panel's members only (`--against`), `pairs` the pairs named.
 - **The runner** (`run.ts`): units of evidence (a contest's one condition with each side on the
@@ -714,8 +725,9 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 - **Records** (`record.ts`): `npm run evaluate -- <id> --write` writes
   `assets/evaluations/<id>/<date>-<commit8>-<keys8>.jsonl`, a header (build, harness, engine,
   commit, pool, each subject and part with its version and parent) and a line per case. A version is
-  the digest of its own content, protocol and environment, kept apart so a change from its parent
-  is named by kind; `--previous` names the parent. Working rows are kept in
+  the digest of its own content, protocol, environment and its minds' own code (`code`, absent for
+  a subject with no `mind:` part and in records written before it), kept apart so a change from its
+  parent is named by kind; `--previous` names the parent. A pool is a protocol and an environment. Working rows are kept in
   `research/runs/evaluations/<id>/`. A record holds the run's complete units.
 - **The panel report** (`compare.ts`, `settle.ts`): `--against default --previous <mind>` pairs
   each of the subject's entrants with its baseline's on the same kit, each against the same panel
