@@ -195,6 +195,8 @@ screened small (one body, one loadout, one group of falls) before its full targe
 
 Minds, tactics and command ([Minds](architecture.md#minds)).
 
+- **Vanguard**, an experimental contender: more than 80% wins against every existing opponent,
+  empty-handed first, then equipped, on held-out cases ([its plan](plans/2026-10-21-vanguard.md)).
 - Not built: a learned mind; sight that is blocked (the senses pass every body whatever stands
   between); a library for a body of another shape behind the same seam.
 - **Tactics**, for any fighter, each asked of a concrete failure, one decision at a time, and read
