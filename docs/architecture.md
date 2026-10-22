@@ -709,8 +709,8 @@ Every question of how well something does is an evaluation (`src/evaluation/`, b
 path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists them.
 
 - **A case module** (`<id>/cases.ts`, `Cases` in `evaluation.ts`) gives each protocol's
-  conditions, the world of a case for its subjects (`CaseWorld`: a bout's recipe and tape, or a
-  fall) and its reader, and the engine where the protocol fixes one (`Cases.engine`); `CASES` (`cases.ts`) is what a worker plays from. **A description** (`<id>/index.ts`)
+  conditions, the world of a case for its subjects (`CaseWorld`: a bout's recipe and tape, a
+  fall, or a Crypt run) and its reader, and the engine where the protocol fixes one (`Cases.engine`); `CASES` (`cases.ts`) is what a worker plays from. **A description** (`<id>/index.ts`)
   gives the question, subjects, figures and summary; nothing a case plays imports it.
 - **A case's key** is the digest of everything it plays: evaluation, protocol, engine, world (every
   subject's value whole), seconds and code (`caseCoder`: the environment with the own code of the
@@ -744,7 +744,9 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 - **Batteries** (arity 1): a skill's task, one subject at a time over its conditions. `blade` (the
   striker's executor tuning: a sword's cuts and thrusts at a standing body), `buckler` (the
   defender's cover: whether the buckler meets a sword first) and `court` (the approaching mind:
-  round the obstacle court's column into its window). `--previous` reads a battery's subject
+  round the obstacle court's column into its window) and `crypt-clear` (a party Commander: through
+  generated Crypt levels against each enemy Commander, in trials that move the start a little
+  (`trialMap`, `crypt.ts`): the share cleared, the time and the members lost). `--previous` reads a battery's subject
   against another, each figure's paired difference over the conditions both played
   (`batteryComparison`, `compare.ts`).
 - **Ablations**: `--previous <mind> --ablate <slot>=<JSON>` makes the subject that mind with one slot
@@ -757,7 +759,7 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   across pools.
 - **Falls** (`fall.ts`): a body shoved, dropped or placed on the ground of the Lab's Stand-up mode,
   its stand verified (`STAND_CHECK`), on Rapier; not bit-equal between JavaScript engines, as a bout
-  is. `rising-target` plays the owner's 64 falls and reports the target's gates; `equipped-rise` the
+  is. Nor is a Crypt run (`crypt.ts`); the Ratings screen opens neither. `rising-target` plays the owner's 64 falls and reports the target's gates; `equipped-rise` the
   same shoves with sword and buckler and with the club. A subject is a riser: a mind's recovery on
   the bed's host (`risingMind`, `rising.ts`, which also holds the bed's jobs and report).
 - **History** (`history.ts`): an evaluation's records grouped into pools (`poolsOf`), each case

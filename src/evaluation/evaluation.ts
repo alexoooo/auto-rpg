@@ -7,6 +7,7 @@ import type { DuelRecipe, OrdersEntry } from "../arena/duel.ts";
 import type { EngineName } from "../core/engine/engines.ts";
 import type { Side } from "../core/spec/body.ts";
 import type { BuiltBout } from "./bout.ts";
+import type { BuiltCrypt, CryptCase } from "./crypt.ts";
 import type { BuiltFall, FallCase } from "./fall.ts";
 
 /** Plain finite JSON: what survives a key, a record, a URL and `postMessage`. */
@@ -26,13 +27,14 @@ export interface Subject {
 
 /**
  * What a case plays, as plain data: one builder each in `playCase`. A bout is bit-equal between
- * JavaScript engines; a fall is not (`fall.ts`).
+ * JavaScript engines; a fall (`fall.ts`) and a Crypt run (`crypt.ts`) are not.
  */
 export type CaseWorld = { readonly kind: "bout"; readonly engine: EngineName; readonly recipe: DuelRecipe; readonly tape: readonly OrdersEntry[] }
-  | { readonly kind: "fall"; readonly engine: EngineName; readonly fall: FallCase };
+  | { readonly kind: "fall"; readonly engine: EngineName; readonly fall: FallCase }
+  | { readonly kind: "crypt"; readonly engine: EngineName; readonly crypt: CryptCase };
 
-/** What a case's world gives its reader: a bout's or a fall's. */
-export type BuiltCase = BuiltBout | BuiltFall;
+/** What a case's world gives its reader: a bout's, a fall's or a Crypt run's. */
+export type BuiltCase = BuiltBout | BuiltFall | BuiltCrypt;
 
 /** Reads a case as it plays: after each step, whether it is over, and what it came to. */
 export interface Reader<R extends Json> {
