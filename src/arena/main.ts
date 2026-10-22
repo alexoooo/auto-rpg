@@ -35,7 +35,7 @@ import { MINDS } from "../core/mind/controllers.ts";
 import { partOf, treeData } from "../core/mind/catalog.ts";
 import { loadData } from "../core/data/store.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
-import { notedRatings, notesOf, type NoteLevel } from "../ui/mind-notes.ts";
+import { notesOf, type NoteLevel } from "../ui/mind-notes.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
@@ -80,7 +80,7 @@ const ENDING_TEXT: Readonly<Record<DuelEnding, string>> = Object.freeze({
   time: "on the bar at the bell",
 });
 
-/** What a hand may hold, by name, as the pickers and the ratings show it. */
+/** What a hand may hold, by name, as the pickers show it. */
 const HELD_NAMES = Object.fromEntries(HELD.map((held) => [held, heldItem(held)?.name ?? "Empty"])) as Readonly<Record<typeof HELD[number], string>>;
 const loadoutName = (loadout: Loadout): string => `Left: ${HELD_NAMES[loadout.left]}, right: ${HELD_NAMES[loadout.right]}`;
 /** A note's level as a person reads it, for a character and loadout. */
@@ -93,24 +93,6 @@ const levelName = (level: NoteLevel, model: BodyModel, loadout: Loadout): string
     default: { const never: never = level; throw new Error(`unknown note level ${never}`); }
   }
 };
-
-/** **Each entrant's rating** as the notes give it (`notedRatings`), best first, into the ratings panel. */
-function showRatings(root: ParentNode): void {
-  const need = <T extends HTMLElement>(id: string): T => find<T>(id, root);
-  const rated = notedRatings(), dates = [...new Set(rated.map((one) => one.date))].sort();
-  need("ratings-about").textContent = rated.length === 0 ? "No tournament has been rated yet (npm run evaluate -- tournament --notes)."
-    : `Each mind on each character with each loadout against every other, both sides, Bradley-Terry on the Elo scale (the field's mean 1500), from the newest tournament record (assets/evaluations/tournament/), ${dates.join(", ")}.`;
-  const cell = (tag: "td" | "th", text: string) => Object.assign(document.createElement(tag), { textContent: text });
-  const head = document.createElement("tr");
-  head.append(...["", "Mind", "Character", "Hands", "Rating"].map(text => cell("th", text)));
-  const rows = rated.map((entrant, rank) => {
-    const row = document.createElement("tr");
-    row.append(...[`${rank + 1}`, MINDS[entrant.mind]?.label ?? entrant.mind, MODEL_DISPLAY[entrant.model].label, loadoutName(entrant.loadout), `${entrant.rating}`]
-      .map(text => cell("td", text)));
-    return row;
-  });
-  need("ratings-table").replaceChildren(head, ...rows);
-}
 
 export async function bootArena(context: ScreenContext): Promise<void> {
   const location = context.address, lifetime = context;
@@ -560,9 +542,6 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const help = (open: boolean) => show("help", open);
   need("help-open").addEventListener("click", () => help(true));
   need("help-close").addEventListener("click", () => help(false));
-  showRatings(context.root);
-  need("ratings-open").addEventListener("click", () => show("ratings", true));
-  need("ratings-close").addEventListener("click", () => show("ratings", false));
   // What the person's hands are doing: the walking keys held, and whether Shift is, which walks; where the
   // pointer is on the canvas, px, and whether its left button is down.
   const keys = { up: false, down: false, left: false, right: false };

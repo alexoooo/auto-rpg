@@ -31,6 +31,7 @@
           <nav aria-label="Main menu">
             <button id="menu-dungeon" type="button">Dungeon</button>
             <button id="menu-arena" type="button">Arena</button>
+            <button id="menu-ratings" type="button">Ratings</button>
             <details id="menu-tools">
               <summary>Tools</summary>
               <nav aria-label="Tools">
@@ -76,7 +77,7 @@
         <button id="begin" data-initial-focus class="action" type="button" disabled>Fight</button>
         <footer class="duel-footer">
           <button id="help-open" class="link" type="button">How to play</button>
-          <button id="ratings-open" class="link" type="button">Ratings</button>
+          <a href="?play=ratings&amp;evaluation=tournament">Ratings</a>
           <p class="note" id="boot-note">Loading&hellip;</p>
           <a href="./">&larr; Main menu</a>
         </footer>
@@ -122,15 +123,6 @@
             <dt>?</dt><dd>Controls</dd>
           </dl>
           <button id="help-close" class="action" type="button">Close</button>
-        </div>
-      </div>
-      <!-- Each entrant's rating, filled by src/arena/main.ts from assets/minds/notes.json. -->
-      <div id="ratings" class="gone">
-        <div class="panel">
-          <h1>Ratings</h1>
-          <p class="note" id="ratings-about"></p>
-          <div class="ratings-scroll"><table id="ratings-table"></table></div>
-          <button id="ratings-close" class="action" type="button">Close</button>
         </div>
       </div>
     </template>
@@ -220,7 +212,7 @@
       <main id="lab-select">
         <h1>LAB</h1>
         <nav id="lab-scenarios" aria-label="Scenarios"></nav>
-        <p><a href="./control-foundation.html">Control foundation</a></p>
+        <p><a href="./control-foundation.html">Control foundation</a> · <a href="?play=ratings">Ratings</a></p>
         <a href="./">&larr; Main menu</a>
       </main>
     </template>
@@ -241,6 +233,17 @@
         </div>
         <div id="transport" role="group" aria-label="Timeline"></div>
       </div>
+    </template>
+    <!-- The ratings (`?play=ratings`, src/ratings/main.ts): each evaluation's records, filled by the page. -->
+    <template id="ratings-screen">
+      <main id="ratings">
+        <header class="ratings-head">
+          <a href="./">&larr; Main menu</a>
+          <h1>Ratings</h1>
+          <nav id="ratings-trail" aria-label="Where"></nav>
+        </header>
+        <div id="ratings-body"></div>
+      </main>
     </template>
     <script type="module" src="/src/app.ts"></script>
   </body>

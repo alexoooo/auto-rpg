@@ -102,6 +102,14 @@ pauses, single-steps, scrubs and slows time.
 - **Locomotion**: courses (circle, line, square, diamond, random destinations) at a set pace, with
   wind; **Gait** picks what moves it.
 
+## Ratings
+
+**Ratings** (`?play=ratings`, also from the Arena and the Lab) shows every evaluation's kept records
+(`assets/evaluations/`) in its task's units: a contest's ratings with their intervals, minds compared
+on the kits both have, and the matchup grid; a battery's figures by subject and by any condition.
+A subject opens its history across versions and pools and its cases, worst matchups first. The
+address keeps what is shown: `&evaluation=`, `&pool=`, `&subject=`, `&version=`, `&by=`, `&case=`.
+
 ## Other pages
 
 - **Control foundation** (`/control-foundation.html`): a pinned reach task, comparing controllers.
@@ -121,7 +129,7 @@ finishing a fight decisively, and AI above a single fighter. See [the roadmap](d
 | Path | Holds |
 | --- | --- |
 | `src/core/` | bodies, muscles, motor control, skills, minds and the rules of a fight |
-| `src/arena/`, `src/dungeon/`, `src/lab/` | the Arena, the Crypt and the Lab |
+| `src/arena/`, `src/dungeon/`, `src/lab/`, `src/ratings/` | the Arena, the Crypt, the Lab and the Ratings |
 | `src/render/`, `src/audio/`, `src/ui/` | drawing, sound and panels the screens share |
 | `src/app.ts`, `index.html` | the main menu and routing |
 | `src/evaluation/` | evaluations: the match and every question of how well something does; records in `assets/evaluations/` |

@@ -506,7 +506,8 @@ replays it from its order sheets. How well it fights is a measurement:
   (`REPRESENTATIVE`, `src/core/items/held.ts`) within a pool by Bradley-Terry (`rating.ts`); the
   unseen report (`unseen`) plays each mind on the loadouts none is rated on. `npm run evaluate --
   tournament --notes` writes the newest record's ratings into the notes (`ratedNotes`,
-  `src/ui/mind-notes.ts`), which the Arena's Ratings panel lists.
+  `src/ui/mind-notes.ts`), which the Arena's pickers show beside each mind; the Ratings screen
+  ([The screens](#the-screens)) shows every record.
 - The fingerprint (`scripts/fingerprint.mjs`) has a case for every pickable mind and for every
   part that reads mind data (`DATA_CASES`: Research rise, the learned rise, the learned run);
   `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
@@ -691,6 +692,9 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   is. `rising-target` plays the owner's 64 falls and reports the target's gates; `equipped-rise` the
   same shoves with sword and buckler and with the club. A subject is a riser: a mind's recovery on
   the bed's host (`risingMind`, `rising.ts`, which also holds the bed's jobs and report).
+- **History** (`history.ts`): an evaluation's records grouped into pools (`poolsOf`), each case
+  once by its key, and each subject's versions numbered by first appearance (`versionsOf`). The
+  notes and the Ratings screen read pools through it.
 - `scripts/evaluate.mjs` and `evaluate-worker.mjs` run it in Node.
 
 ## Rules and wounds
@@ -728,7 +732,7 @@ The rules of a fight are `src/core/rules/`, free of any page. The Arena and the 
 ## The screens
 
 `index.html` is one document (`src/app.ts`, routed by `src/app-route.ts`): the main menu, and the
-arena, crypt and lab at `?play=arena`, `?play=dungeon` and `?play=lab`.
+arena, crypt, lab and ratings at `?play=arena`, `?play=dungeon`, `?play=lab` and `?play=ratings`.
 
 - **The shell** mounts one screen `<template>` at a time. Changing screen disposes the previous one
   explicitly (pending loads, worlds, scenes, previews, listeners, audio); setup choices stay for the
@@ -743,6 +747,7 @@ arena, crypt and lab at `?play=arena`, `?play=dungeon` and `?play=lab`.
 | Arena | `src/arena/` | two bodies under a `Duel`, to a verdict |
 | Crypt | `src/dungeon/` | a party in a generated dungeon (`DungeonRun`) |
 | Lab | `src/lab/` | one body in a scenario (`scenarios.ts`), stepped by hand |
+| Ratings | `src/ratings/` | each evaluation's records, derived in the page (`analysis.ts`); nothing played |
 | Character workshop | `/character-lab.html`, `src/character-lab/` | workshop models with preview motion; no core ([characters](art/characters.md)) |
 | Physics bench | `/physics-bench.html`, `src/physics-bench/` | the bake-off's cases on MuJoCo and Rapier |
 | Control tasks | `/control-foundation.html`, `/control-tasks.html` | research tasks with replay ([equipment](#experimental-separate-equipment)) |
@@ -771,6 +776,15 @@ An actor (`actor.ts`) gives the body its balance, mind (`labMind`, `&mind=`) and
 the falls (`src/evaluation/fall.ts`) play the same mode, through `npm run evaluate` and
 `research/rising-bed.mjs`. The HUD is sections
 (`hud/sections.ts`) filled with controls built from data (`src/ui/controls.ts`).
+
+**The Ratings.** Evaluations by group, each with its question (`EVALUATIONS`). Records are fetched
+when an evaluation opens (`src/ratings/records.ts`, `import.meta.glob` of the files' URLs; an
+import's source rows are not records) and read once a tab. A contest's newest pool shows each
+version's rating with its interval, minds on common ground (each pair's rating difference over the
+kits both have, with how many) and the matchup grid; a battery shows each figure by subject and by
+a condition field (`&by=`). A subject shows each version's parent, what changed and its standing in
+each pool, and its cases by opponent (worst first) and condition; a case shows its record line.
+An older pool is listed with what differs from the newest.
 
 **Shared rendering** (`src/render/`, `src/audio/`):
 

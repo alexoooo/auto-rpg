@@ -58,7 +58,7 @@ function pairValue(unit: Unit, subject: string, figure: Figure<BoutReading>, row
 }
 
 /** Whether a bout reached its cap with both bars full: neither side hurt the other. */
-const isStalemate = (reading: BoutReading): boolean => reading.ending === "time" && reading.bars[0] === 1 && reading.bars[1] === 1;
+export const isStalemate = (reading: BoutReading): boolean => reading.ending === "time" && reading.bars[0] === 1 && reading.bars[1] === 1;
 
 /** A figure over the slots read: the subject's mean, the baseline's, and their paired difference, each with its interval. */
 interface Compared {

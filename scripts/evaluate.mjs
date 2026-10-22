@@ -35,6 +35,7 @@ import { DEFAULT_ENGINE, isEngineName } from "../src/core/engine/engines.ts";
 import { recordingKey } from "../src/core/recording.ts";
 import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
 import { CONTROLLERS, MINDS } from "../src/core/mind/controllers.ts";
+import { poolsOf } from "../src/evaluation/history.ts";
 import { readRecord, recordedSubject, recordIdentity, recordName, recordText, rowOf, sameRow } from "../src/evaluation/record.ts";
 import { casesOf, figuresOf, runEvaluation, runOrder, tableOf } from "../src/evaluation/run.ts";
 import { batteryComparison, panelReport, slotsOf, verdictOf } from "../src/evaluation/compare.ts";
@@ -131,22 +132,17 @@ function writeRecord(header, lines) {
 const NOTES = join(ROOT, "assets/minds/notes.json");
 
 /**
- * The ratings of the newest tournament record's pool, every distinct case of its records once and
- * one strength per version, into the notes (`ratedNotes`) at each id's newest version, dated as
- * the newest record.
+ * The ratings of the newest tournament record's pool (`poolsOf`), every distinct case of its
+ * records once and one strength per version, into the notes (`ratedNotes`) at each id's newest
+ * version, dated as the newest record.
  */
 function writeNotes() {
   const records = recordsOf("tournament"), newest = records.at(-1);
   if (!newest) throw new Error("no tournament record");
-  const pool = recordingKey(newest.header.pool), games = new Map(), current = new Map();
-  for (const { header, lines } of records) {
-    if (recordingKey(header.pool) !== pool) continue;
-    const named = new Map(header.subjects.map((subject) => [subject.id, `${subject.id} ${subject.version.version}`]));
-    for (const subject of header.subjects) current.set(subject.id, named.get(subject.id));
-    for (const line of lines) if (!line.fault) games.set(line.key, { ...line, subjects: line.subjects.map((id) => named.get(id)) });
-  }
-  const cases = [...games.values()], versions = [...new Set(cases.flatMap((line) => line.subjects))].sort();
-  const newestOf = new Map([...current].map(([id, version]) => [version, id]));
+  const pool = poolsOf(records).find((one) => one.key === recordingKey(newest.header.pool));
+  const cases = pool.cases.filter(({ line }) => !line.fault).map(({ line, subjects }) => ({ ...line, subjects }));
+  const versions = [...new Set(cases.flatMap((line) => line.subjects))].sort();
+  const newestOf = new Map([...pool.newest].map(([id, version]) => [version, id]));
   const rated = tableRatings({ subjects: versions.map((one) => ({ id: one })), cases }).flatMap((one) => newestOf.has(one.id) ? [{ ...one, id: newestOf.get(one.id), rating: Math.round(one.rating) }] : []);
   const ids = rated.map((one) => one.id);
   writeFileSync(NOTES, JSON.stringify(ratedNotes(JSON.parse(readFileSync(NOTES, "utf8")), rated, newest.header.date, Object.keys(MINDS)), null, 2) + "\n");
