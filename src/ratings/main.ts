@@ -268,6 +268,7 @@ function caseView(found: { record: Kept; line: Kept["lines"][number] } | null, v
     ["Digest", line.digest ?? "none"], ["Key", line.key], ["Code", line.code],
     ["World", line.world === null ? "none kept: an imported run's case, which is not opened"
       : line.world.kind === "fall" ? `a fall on ${line.world.engine}; not opened, as a fall is not yet the same in every JavaScript engine`
+      : line.world.kind === "crypt" ? `a Crypt run on ${line.world.engine}; not opened, as a Crypt run is not yet the same in every JavaScript engine`
       : `${line.world.kind} on ${line.world.engine}`],
   ];
   const watch = watchHref(line, record, back);

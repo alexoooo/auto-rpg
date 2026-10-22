@@ -2,6 +2,7 @@ import { SIDES } from "../arena/duel.ts";
 import { recordingKey } from "../core/recording.ts";
 import { buildBout } from "./bout.ts";
 import type { CaseWorld, Json, Reader, BuiltCase } from "./evaluation.ts";
+import { buildCrypt } from "./crypt.ts";
 import { buildFall } from "./fall.ts";
 import { traceOf } from "./trace.ts";
 
@@ -46,6 +47,19 @@ export async function playCase<R extends Json>(world: CaseWorld, seconds: number
       const built = await buildFall(world.fall, world.engine);
       try {
         const reader = read(built), trace = traceOf([built.body]);
+        while (!reader.ended) {
+          if (built.world.time > seconds + OVERRUN) throw new Error(`the case ran past ${seconds} s without ending`);
+          built.world.step();
+          trace.take();
+          reader.afterStep();
+        }
+        return { reading: reader.reading(), digest: trace.digest() };
+      } finally { built.dispose(); }
+    }
+    case "crypt": {
+      const built = await buildCrypt(world.crypt, world.engine);
+      try {
+        const reader = read(built), trace = traceOf(built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.built] : []));
         while (!reader.ended) {
           if (built.world.time > seconds + OVERRUN) throw new Error(`the case ran past ${seconds} s without ending`);
           built.world.step();
