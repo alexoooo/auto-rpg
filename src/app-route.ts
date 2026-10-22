@@ -1,10 +1,10 @@
 /**
- * Which screen an address opens: the main menu, the arena, the dungeon, the lab or the ratings.
+ * Which screen an address opens: the main menu, the arena, the dungeon, the lab, the ratings or tools.
  *
  * Pure and free of the DOM. The persistent shell reads it for direct entry, internal navigation and browser history.
  */
 
-export type Route = "menu" | "arena" | "dungeon" | "lab" | "ratings";
+export type Route = "menu" | "arena" | "dungeon" | "lab" | "ratings" | "tools";
 
 const PLAY_PARAM = "play";
 
@@ -14,7 +14,7 @@ export const MENU_HREF = "./";
 /** The screen `?play=` names; without one, the menu. */
 export function routeFor(search: string): Route {
   const play = new URLSearchParams(search).get(PLAY_PARAM);
-  return play === "arena" || play === "dungeon" || play === "lab" || play === "ratings" ? play : "menu";
+  return play === "arena" || play === "dungeon" || play === "lab" || play === "ratings" || play === "tools" ? play : "menu";
 }
 
 /**

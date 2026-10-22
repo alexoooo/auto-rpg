@@ -10,6 +10,7 @@
   main { max-width: 1100px; margin: 0 auto; padding: 16px; }
   h1 { font-size: 16px; letter-spacing: 0.04em; margin: 0 0 4px; }
   p { color: var(--dim); margin: 0 0 12px; font-size: 13px; }
+  nav { margin-bottom: 12px; } a { color: var(--accent); }
   button { background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; font: inherit; }
   button:hover { border-color: var(--accent); }
   #status { color: var(--accent); margin: 12px 0; }
@@ -21,6 +22,7 @@
 </head>
 <body>
 <main>
+  <nav><a href="./?play=tools">&larr; Tools</a></nav>
   <h1>PHYSICS BAKE-OFF</h1>
   <p>MuJoCo and Rapier under one controller: the fidelity cases and N humans a step, on this page's main thread.
     Node's numbers are in <code>research/physics-bakeoff/REPORT.md</code>. <code>?auto=1</code> runs everything.</p>

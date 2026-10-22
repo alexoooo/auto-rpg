@@ -67,7 +67,7 @@ and is absent from `dist`.
 
 | Page | Source |
 | --- | --- |
-| `/` main menu, `?play=arena`, `?play=dungeon`, `?play=lab&scenario=`, `?play=ratings` | `src/app.ts`, `src/arena/`, `src/dungeon/`, `src/lab/scenarios.ts`, `src/ratings/` |
+| `/` main menu, `?play=tools`, `?play=arena`, `?play=dungeon`, `?play=lab&scenario=`, `?play=ratings` | `src/app.ts`, `src/arena/`, `src/dungeon/`, `src/lab/scenarios.ts`, `src/ratings/` |
 | `/character-lab.html` | `src/character-lab/` |
 | `/control-foundation.html` | `src/control-foundation/`, `src/core/tasks/` |
 | `/control-tasks.html` | `src/control-foundation/tasks.ts` |

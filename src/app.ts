@@ -36,6 +36,11 @@ async function open(route: Route, context: ScreenContext): Promise<void> {
         button.addEventListener("pointerenter", preload, { once: true });
         button.addEventListener("focus", event => { if (event.relatedTarget) preload(); }, { once: true });
       }
+      need("menu-tools", root).addEventListener("click", () => context.navigate(playHref("tools"), { setup: true }));
+      return;
+    }
+    case "tools": {
+      document.title = "Tools · Auto-RPG"; mount("tools-screen", root);
       return;
     }
     case "arena": {
@@ -133,7 +138,7 @@ function navigate(href: string, options: NavigationOptions = {}): void {
     },
   };
   state.current = { lifetime, context };
-  if (route === "menu") {
+  if (route === "menu" || route === "tools") {
     overlay.hidden = true; root.inert = false;
     void open(route, context).then(() => { if (!lifetime.signal.aborted) focusScreen(root); });
     return;

@@ -1,29 +1,29 @@
 /* The menu stays mounted only while its route is active. */
-#title-screen {
+.directory-screen {
   position: fixed; inset: 0; overflow: auto; isolation: isolate;
   display: flex; align-items: center; box-sizing: border-box;
   margin: 0; padding: 48px 8vw; color: #e8dcc0; font-family: Georgia, serif;
   background: #100d0d;
 }
-#title-screen::before {
+.directory-screen::before {
   content: ""; position: fixed; inset: 0; z-index: -2; pointer-events: none;
   background: #100d0d url("/assets/menu/cathedral.jpg") center / cover no-repeat;
 }
-#title-screen::after {
+.directory-screen::after {
   content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background: linear-gradient(90deg, #090809bb, #09080933 45%, transparent 75%),
     linear-gradient(0deg, #090809bb, transparent 30%, transparent 80%, #09080955);
 }
-#title-screen .menu-content {
+.directory-screen .menu-content {
   display: grid; justify-items: center; gap: 52px; width: min(100%, 560px); margin-block: auto;
 }
-#title-screen h1 {
+.directory-screen h1 {
   margin: 0; font-size: clamp(48px, 5.8vw, 94px); font-weight: 400;
   letter-spacing: .065em; font-variant: small-caps; line-height: 1.2;
   color: #dec7a2; text-shadow: 0 2px 3px #000, 0 0 32px #000;
 }
-#title-screen nav { display: grid; gap: 14px; width: min(100%, 300px); }
-#title-screen button {
+.directory-screen nav { display: grid; gap: 14px; width: min(100%, 300px); }
+.directory-screen :is(button, .menu-entry) {
   position: relative; font: 22px Georgia, serif; letter-spacing: .08em; padding: 16px 24px; cursor: pointer;
   color: #e8dcc0; background: linear-gradient(100deg, #261b19e8, #181313df);
   border: 1px solid #8e70508c; border-radius: 0;
@@ -31,40 +31,37 @@
   text-shadow: 0 1px 4px #000;
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
-#title-screen button::before, #title-screen button::after {
+.directory-screen :is(button, .menu-entry)::before, .directory-screen :is(button, .menu-entry)::after {
   content: ""; position: absolute; top: 50%; width: 4px; height: 4px;
   background: #b29162; transform: translateY(-50%) rotate(45deg);
 }
-#title-screen button::before { left: 12px; }
-#title-screen button::after { right: 12px; }
-#title-screen button:first-child {
+.directory-screen :is(button, .menu-entry)::before { left: 12px; }
+.directory-screen :is(button, .menu-entry)::after { right: 12px; }
+.directory-screen :is(button, .menu-entry):first-child {
   background: linear-gradient(100deg, #542824eb, #2c1817e6); border-color: #aa8059;
 }
-#title-screen button:hover, #title-screen button:focus-visible {
+.directory-screen :is(button, .menu-entry):hover, .directory-screen :is(button, .menu-entry):focus-visible {
   color: #fff0d6; background: linear-gradient(100deg, #65332cef, #3d221dee); border-color: #d4b17e;
   box-shadow: inset 0 1px #e3bc7440, 0 0 24px #ba59361c;
 }
-#title-screen button:focus-visible { outline: 1px solid #d4b17e; outline-offset: 4px; }
-#title-screen button:active { box-shadow: inset 0 2px 8px #0008; }
+.directory-screen :is(button, .menu-entry):focus-visible { outline: 1px solid #d4b17e; outline-offset: 4px; }
+.directory-screen :is(button, .menu-entry):active { box-shadow: inset 0 2px 8px #0008; }
 @media (max-width: 700px) {
-  #title-screen { padding: 40px 24px; }
-  #title-screen::before { background-position: 68% center; }
-  #title-screen::after { background: linear-gradient(90deg, #090809ca, #09080980); }
-  #title-screen .menu-content { margin-inline: auto; gap: 40px; }
-  #title-screen h1 { font-size: clamp(40px, 10vw, 68px); }
+  .directory-screen { padding: 40px 24px; }
+  .directory-screen::before { background-position: 68% center; }
+  .directory-screen::after { background: linear-gradient(90deg, #090809ca, #09080980); }
+  .directory-screen .menu-content { margin-inline: auto; gap: 40px; }
+  .directory-screen h1 { font-size: clamp(40px, 10vw, 68px); }
 }
 @media (max-height: 480px) {
-  #title-screen { padding-block: 24px; }
-  #title-screen .menu-content { gap: 24px; }
-  #title-screen h1 { font-size: 48px; }
-  #title-screen button { padding-block: 12px; }
+  .directory-screen { padding-block: 24px; }
+  .directory-screen .menu-content { gap: 24px; }
+  .directory-screen h1 { font-size: 48px; }
+  .directory-screen :is(button, .menu-entry) { padding-block: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  #title-screen button { transition: none; }
+  .directory-screen :is(button, .menu-entry) { transition: none; }
 }
-#menu-tools { margin-top: 6px; width: 100%; color: #bca584; }
-#menu-tools > summary { padding: 12px; cursor: pointer; font: 17px Georgia, serif; letter-spacing: .08em; text-align: center; }
-#menu-tools nav { margin-top: 10px; gap: 8px; width: 100%; }
-#title-screen #menu-tools nav button { padding: 12px; font-size: 17px; background: #211917dd; border-color: #8e705066; }
-#menu-tools a { display: block; padding: 8px 12px; color: #c9b597; font: 14px system-ui; text-decoration: none; }
-#menu-tools a:hover { color: #ffe5b6; }
+.directory-screen .menu-entry { display: block; text-align: center; text-decoration: none; }
+.directory-screen .menu-back { color: #c9b597; text-decoration: none; padding: 8px 12px; }
+.directory-screen .menu-back:hover { color: #ffe5b6; }

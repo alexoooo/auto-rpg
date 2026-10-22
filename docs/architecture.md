@@ -868,7 +868,8 @@ The rules of a fight are `src/core/rules/`, free of any page. The Arena and the 
 ## The screens
 
 `index.html` is one document (`src/app.ts`, routed by `src/app-route.ts`): the main menu, and the
-arena, crypt, lab and ratings at `?play=arena`, `?play=dungeon`, `?play=lab` and `?play=ratings`.
+arena, crypt, lab, ratings and tools at `?play=arena`, `?play=dungeon`, `?play=lab`, `?play=ratings`
+and `?play=tools`.
 
 - **The shell** mounts one screen `<template>` at a time. Changing screen disposes the previous one
   explicitly (pending loads, worlds, scenes, previews, listeners, audio); setup choices stay for the
@@ -884,6 +885,7 @@ arena, crypt, lab and ratings at `?play=arena`, `?play=dungeon`, `?play=lab` and
 | Crypt | `src/dungeon/` | a party in a generated dungeon (`DungeonRun`) |
 | Lab | `src/lab/` | one body in a scenario (`scenarios.ts`), stepped by hand |
 | Ratings | `src/ratings/` | each evaluation's records, derived in the page (`analysis.ts`); nothing played |
+| Tools | `?play=tools`, `src/app.ts` | a directory of the development viewers, each with a return link |
 | Character workshop | `/character-lab.html`, `src/character-lab/` | workshop models with preview motion; no core ([characters](art/characters.md)) |
 | Physics bench | `/physics-bench.html`, `src/physics-bench/` | the bake-off's cases on MuJoCo and Rapier |
 | Control tasks | `/control-foundation.html`, `/control-tasks.html` | research tasks with replay ([equipment](#experimental-separate-equipment)) |

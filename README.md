@@ -10,7 +10,7 @@ are the Warrior and the Rogue (two humans), the crypt's skeleton, and a four-leg
 driven jaw.
 
 **[Play it in your browser](https://alexoooo.github.io/auto-rpg/).** The main menu opens the
-**Dungeon** (the Crypt), the **Arena** and **Tools** (the Lab and development viewers).
+**Dungeon** (the Crypt), **Arena**, **Lab**, **Ratings** and **Tools** (development viewers).
 
 ## Run it locally
 
@@ -105,7 +105,7 @@ plays it by itself (`&party=clearer`), and the enemies as a mob or each on its o
 
 ## The Lab
 
-**Tools → Lab** (`?play=lab`) stands one body and exercises it. Each scenario's settings and
+**Lab** (`?play=lab`) stands one body and exercises it. Each scenario's settings and
 readout sit at the sides; **Character** picks the body, loadout, balance and mind; the transport
 pauses, single-steps, scrubs and slows time.
 
@@ -118,14 +118,17 @@ pauses, single-steps, scrubs and slows time.
 
 ## Ratings
 
-**Ratings** (`?play=ratings`, also from the Arena and the Lab) shows every evaluation's kept records
+**Ratings** (`?play=ratings`, also from the Arena) shows every evaluation's kept records
 (`assets/evaluations/`) in its task's units: a contest's ratings with their intervals, minds compared
 on the kits both have, and the matchup grid; a battery's figures by subject and by any condition.
 A subject opens its history across versions and pools and its cases, worst matchups first; a
 bout case recorded with its world opens in the Arena to watch. The
 address keeps what is shown: `&evaluation=`, `&pool=`, `&subject=`, `&version=`, `&by=`, `&case=`.
 
-## Other pages
+## Tools
+
+**Tools** (`?play=tools`) opens a separate directory of development viewers. Each page returns
+to it through **← Tools**.
 
 - **Control foundation** (`/control-foundation.html`): a pinned reach task, comparing controllers.
 - **Physical control tasks** (`/control-tasks.html`): support transfer, a shared bar, point strikes.

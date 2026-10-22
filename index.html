@@ -25,24 +25,30 @@
     </section>
     <!-- The shell mounts one template at a time inside its own screen root. -->
     <template id="menu-screen">
-      <main id="title-screen">
+      <main id="title-screen" class="directory-screen">
         <div class="menu-content">
           <h1>Auto-RPG</h1>
           <nav aria-label="Main menu">
             <button id="menu-dungeon" type="button">Dungeon</button>
             <button id="menu-arena" type="button">Arena</button>
+            <button id="menu-lab" type="button">Lab</button>
             <button id="menu-ratings" type="button">Ratings</button>
-            <details id="menu-tools">
-              <summary>Tools</summary>
-              <nav aria-label="Tools">
-                <button id="menu-lab" type="button">Lab</button>
-                <a href="./character-lab.html">Character workshop</a>
-                <a href="./control-foundation.html">Control foundation</a>
-                <a href="./control-tasks.html">Control tasks</a>
-                <a href="./physics-bench.html">Physics bench</a>
-              </nav>
-            </details>
+            <button id="menu-tools" type="button">Tools</button>
           </nav>
+        </div>
+      </main>
+    </template>
+    <template id="tools-screen">
+      <main id="tools" class="directory-screen">
+        <div class="menu-content">
+          <h1>Tools</h1>
+          <nav aria-label="Tools">
+            <a class="menu-entry" href="./character-lab.html">Character workshop</a>
+            <a class="menu-entry" href="./control-foundation.html">Control foundation</a>
+            <a class="menu-entry" href="./control-tasks.html">Control tasks</a>
+            <a class="menu-entry" href="./physics-bench.html">Physics bench</a>
+          </nav>
+          <a class="menu-back" href="./">&larr; Main menu</a>
         </div>
       </main>
     </template>
@@ -223,7 +229,6 @@
       <main id="lab-select">
         <h1>LAB</h1>
         <nav id="lab-scenarios" aria-label="Scenarios"></nav>
-        <p><a href="./control-foundation.html">Control foundation</a> · <a href="?play=ratings">Ratings</a></p>
         <a href="./">&larr; Main menu</a>
       </main>
     </template>
