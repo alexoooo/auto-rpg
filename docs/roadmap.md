@@ -45,8 +45,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data loaded per use, then packed |
 | [Movement and command](plans/2026-10-21-movement-and-command.md) | One movement pipeline; Commanders over teams |
 
-1. **Now, in parallel:** Movement B3 and B4; and the open work below, each change read by the
-   paired report, kept with `--write`.
+1. **Now, in parallel:** Movement B3's remainder (the stance walk's sideways run-away); and the
+   open work below, each change read by the paired report, kept with `--write`.
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
    - Ratings step 10's other research batteries when next worked on; step 9 when a question
@@ -75,6 +75,10 @@ The plans in flight, and what comes next across them. Each plan names its own de
   ([locomotion](reference/locomotion.md)).
 - The Crypt's set values: `SET_UPON`, `AIM_COSINE`, `LEVEL.clearance`, `FOOTPRINT_METRES`
   ([play](reference/play.md)); how the dead disappear in time.
+- How a Crypt fight ends. The duellist's club strike stalls in its preparation chest to chest, so
+  no club blow lands and nothing dies (`crypt-clear`: 0 of 8 levels cleared, foes defeated 0.02 to
+  0.05). Options: another mind for the Crypt's humanoids; the strike stepping back to its stand-off;
+  a fall ending a Crypt fight (`fallEndsFight`, `src/dungeon/actors.ts`); smaller pools.
 - The look's and the sound's values: torch density, which floor and wall textures ship,
   `MIX.swish`, `MIX.impact`, `CUE.joules` ([look](reference/look.md)); an optional skeleton
   costume, after seeing the bones in play.
@@ -89,7 +93,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
   the Crypt's long walks, the Warrior's run, and Move's rules and gaits in the mind editor.
 - Standing up in the Lab, in Arena bouts and in the Crypt, and whether the rise looks human.
 - The skeleton's look in play.
-- Movement's Part A (holding W, clicking to go) and the mouse controls, as they land.
+- The person's commands: in the Crypt H holds, X stops, Q/E turn, a right click faces or follows;
+  in the Arena a click on the floor goes there. The party walking braced within 11 m of a companion.
+  The level-clearer (`?play=dungeon&party=clearer`) and the mob.
 
 ## Open, by layer
 
@@ -224,7 +230,9 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 
 - **The Arena:** the Ladder; wider walking courses, fighting strength and equipped recovery.
 - **The Crypt:**
-  - crowd motion and party reversals (Movement B3, `docs/analysis/2026-10-13-crowd-reversal.md@f103f3a9`);
+  - the stance walk runs away sideways after a half turn (Movement B3);
+  - the level-clearer's policy numbers (`POLICY`, `src/core/command/clearer.ts`) are first guesses;
+    a frontier point too close to a wall for a body with a club stalls the person's party;
   - authored set pieces (`docs/plans/2026-09-23-depths-06-set-pieces.md@144961d4`);
   - the skeleton's intent: ribcage and pelvis fatal, weak joints, blunt blows worth more against
     bone ([architecture](architecture.md#standing-decisions)); today its wounds are the human's;
@@ -234,8 +242,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   - saving a run; a crypt on senses; a hero that walks one way and faces another;
   - a limp body put to sleep through Rapier woke by itself in three of eight cases, not
     understood ([step cost](reference/step-cost.md#a-limp-body-put-to-sleep)).
-- **Input:** the person's commands (Movement B2). The Crypt's keys have no walk: its Shift adds to
-  the selection. The Lab's locomotion courses drive by velocities, not goals.
+- **Input:** the Crypt's keys have no walk: its Shift adds to the selection. The Lab's locomotion
+  courses drive by velocities, not goals.
 - **Art and sound:** a pixel look for the Crypt, behind a switch
   (`docs/plans/2026-09-24-dungeon-look-06-pixel-look.md@144961d4`); a raking-light check that
   `tangentBasis: "babylon-lh"` orients normal maps; the reptile's art; the sound's gaps (unplayed
