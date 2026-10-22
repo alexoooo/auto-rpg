@@ -3,7 +3,7 @@ import type { BodyView } from "../../body.ts";
 import type { OwnBody } from "../mind.ts";
 import { RISE } from "../rise/stages.ts";
 import type { GroundReading, Position } from "./reading.ts";
-import { mirrorPosture, phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "./techniques.ts";
+import { mirrorPosture, phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique } from "./technique.ts";
 
 /** A side roll ends on loaded front support, preserving its real momentum for the next technique. */
 export function rollToFront(own: OwnBody, _view: BodyView): TechniqueRun {
@@ -46,3 +46,7 @@ export function rollToFront(own: OwnBody, _view: BodyView): TechniqueRun {
     },
   };
 }
+
+/** **Roll onto front** (`rollToFront`). */
+export const ROLL = technique("roll", { label: "Roll onto front", stage: "experimental", sides: Object.freeze(["right"] as const),
+  edges: Object.freeze((["back", "right"] as const).map(from => Object.freeze({ from, to: "front" as const }))), make: rollToFront });

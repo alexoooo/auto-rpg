@@ -9,7 +9,7 @@ import type { SubMind } from "../sub-mind.ts";
 import { nearestFoe } from "../targets.ts";
 import { rollToFront } from "./roll.ts";
 import { rollBack } from "./roll-back.ts";
-import { poseDrive, type TechniqueEnd } from "./techniques.ts";
+import { poseDrive, type TechniqueEnd } from "./technique.ts";
 
 /** Roll away from a nearby foe before handing over. */
 export interface GetAwayConfig { readonly kind: "get-away"; readonly metres: number }

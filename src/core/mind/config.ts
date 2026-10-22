@@ -130,6 +130,8 @@ export interface OptionsConfig extends SkillKit {
   readonly weights?: Readonly<Partial<Weights>>;
   /** Its reflexes, in rank order (`reflexLayer`). */
   readonly reflexes: readonly ReflexConfig[];
+  /** What it does down, by rank: each a sub-mind it prices as a down option (`SubMindPart.down`). */
+  readonly subs: readonly SubMindConfig[];
 }
 
 /** Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. */
@@ -178,7 +180,7 @@ export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tacti
   actions: [{ name: "strike", executor: "recipe", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "high" }], aim: { kind: "centre", lead: 0 } }, ...BLADE_ACTIONS], support: null, subs: [{ kind: "lie" }] });
 
 /** Standing up by stepping up (`stepUp`), the way the game's fighters rise once down. */
-export const STAND_UP: StandUpConfig = deepFreeze({ kind: "stand-up", techniques: ["step-up"] });
+export const STAND_UP: StandUpConfig = deepFreeze({ kind: "stand-up", techniques: [{ kind: "step-up" }] });
 
 /** The Classic fighter: the recipe fighter, getting about by `MOVE` and standing up once down. */
 export const CLASSIC: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, locomotion: MOVE, subs: [STAND_UP] });
@@ -247,7 +249,8 @@ export const OPTIONS: OptionsConfig = deepFreeze({ kind: "options", locomotion: 
     { name: "combination", kind: "combination" as const, ...COMBINATION },
     ...SCRAPPER.executors.filter((executor) => executor.name === LOW.executor), ...BLADE_EXECUTORS],
   actions: [...COUNTER_PUNCHER.actions, ONE_TWO, LOW].map((action) => action.lower === undefined ? { ...action, aim: { kind: "surface" as const, tuning: {} } } : action).concat(BLADE_ACTIONS),
-  support: SCRAPPER.support, reflexes: [{ kind: "cover-reflex" }] });
+  support: SCRAPPER.support, reflexes: [{ kind: "cover-reflex" }],
+  subs: [STAND_UP, { kind: "get-away", metres: 2 }, { kind: "ground-fight", reach: 1.2, kicks: "either" }, { kind: "lie" }] });
 
 /** The configurable behaviour fighter starts from the shared recipe actions. */
 export const BEHAVIOURS: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...FIGHTING, choose: { kind: "rotate", rethink: .2, patience: 2 }, list: [

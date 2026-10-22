@@ -1,19 +1,16 @@
-import { deepFreeze } from "../../state.ts";
 import type { BodyHost } from "../host.ts";
-import { COUNTER_PUNCHER, STAND_UP, type ActionConfig, type OptionsConfig, type SubMindConfig } from "../config.ts";
+import { COUNTER_PUNCHER, type ActionConfig, type OptionsConfig } from "../config.ts";
 import { actionConfigFaults, armedActions, blowsOf } from "../action-config.ts";
 import { fighterBody, fighterSkills } from "../fighter.ts";
 import { NO_COVER } from "../intent.ts";
 import { orderedFacing } from "../ordered.ts";
 import type { MindWiring } from "../minds.ts";
 import { kitOf, subMind } from "../kit.ts";
-import { GET_AWAY_PART } from "../ground/get-away-part.ts";
-import { GROUND_FIGHT_PART } from "../ground/ground-fight-part.ts";
 import { driveBy, type Sight, type Tactics } from "../tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
 import { setDistance } from "./distance.ts";
 import { metaController, valued } from "./meta.ts";
-import { downHalf, downOption, type DownModel } from "./down.ts";
+import { downHalf, downOption } from "./down.ts";
 import { holdEdge } from "./edge.ts";
 import { evade } from "./evade.ts";
 import type { Option, Situation } from "./option.ts";
@@ -39,22 +36,15 @@ const EDGE = (() => {
 /** How far off straight back it breaks a clinch, rad: out of the path of a foe walking in. */
 const CLINCH_SLANT = .8;
 
-/** What it does down, by rank: the sub-mind each down option is carried out by, and how it is priced. */
-const DOWN: readonly (readonly [string, SubMindConfig, DownModel])[] = deepFreeze([
-  ["get up", STAND_UP, { seconds: 5, stands: .7, shelter: 0 }],
-  ["roll away", GET_AWAY_PART.defaults, { seconds: 2, stands: 0, shelter: .5 }],
-  ["fight from the ground", GROUND_FIGHT_PART.defaults, { seconds: 2, stands: 0, shelter: .3 }],
-  ["lie still", { kind: "lie" }, { seconds: 2, stands: 0, shelter: 0 }],
-]);
-
 /** Why a body cannot take the options fighter's commands or carry out the actions of `config`'s skills, or null where it can (`Part.fits`). */
 export const optionsFit = fitsAll<OptionsConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null);
 
 /**
  * **The options fighter**: a meta-controller (`metaController`) over options, which takes the one
  * worth most: by what each is expected to bring (`valued`), its hand-built model's terms weighed
- * by the config's weights over `WEIGHTS`; or, ranked, each worth more than the next, in order. Down: get up; roll away from a foe near; fight from the ground; lie
- * still. Standing: follow orders; break a clinch; strike with a hand that is ready; strike a foe
+ * by the config's weights over `WEIGHTS`; or, ranked, each worth more than the next, in order. Down:
+ * its sub-minds (`subs`), each priced by its part (`SubMindPart.down`): by default, get up; roll
+ * away from a foe near; fight from the ground; lie still. Standing: follow orders; break a clinch; strike with a hand that is ready; strike a foe
  * that is down or low, from low support; step back from a blow coming in; hold at the edge of its
  * foe's reach, as the Counter-puncher does; close and strike; and hold, facing its foe. Whatever a
  * standing option asks, its walk keeps out of a fallen body's reach, but the one it means to be
@@ -82,10 +72,13 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
   const running = () => { const chosen = meta && meta.state.running >= 0 ? options[meta.state.running]! : null; return chosen?.posture === "down" ? downs.find((down) => down === chosen) ?? null : null; };
   const body = host.command({ ...fighterBody({ subs: [], motor: config.motor, guard: config.guard }, wiring, host.parts), subs: [(own, view, w, afterPhysics) => {
     const kit = kitOf(host.parts, own.spec, config);
-    for (const [name, sub, model] of DOWN) downs.push(downOption(name, subMind(host.parts, own, view, sub, kit, w, afterPhysics), half, model));
+    for (const sub of config.subs) {
+      const { name, ...model } = host.parts.of("sub-mind", sub).down!;
+      downs.push(downOption(name, subMind(host.parts, own, view, sub, kit, w, afterPhysics), half, model));
+    }
     return downHalf(downs, running, decide, half);
   }] });
-  if (downs.length !== DOWN.length) throw new Error("the options fighter's body made no down half");
+  if (downs.length !== config.subs.length) throw new Error("the options fighter's body made no down half");
   const standing = config.actions.filter((action) => action.lower === undefined), low = config.actions.find((action) => action.lower !== undefined);
   const strikeNow = standing.map((action) => strike(action, walk, false, throws(config, action)));
   const options: readonly Option[] = [

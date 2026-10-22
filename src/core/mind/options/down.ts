@@ -27,10 +27,10 @@ interface Half { current: boolean }
  * `mind` would have the body, giving way while it does not hold it. Its sub-mind is begun when the
  * option is, if the body is the down half's, or else when the down half is handed the body
  * (`start`); and ended when the option is, or when the down half gives the body up (`stop`).
- * Its model is `model`'s (`DownModel`).
+ * Its model is `model`'s (`DownModel`); its memory holds its sub-mind's.
  */
 export function downOption(name: string, mind: SubMind, half: Half, model: DownModel): DownOption & { start(): void; stop(): void } {
-  const state = { begun: false };
+  const state = { begun: false, mind: mind.state };
   const start = (): void => { if (!state.begun) { mind.begin(); state.begun = true; } };
   const stop = (): void => { if (state.begun) { mind.end(); state.begun = false; } };
   return {

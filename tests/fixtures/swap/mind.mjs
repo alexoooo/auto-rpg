@@ -16,6 +16,8 @@ import { STUB_RULE } from "./stub-rule.mjs";
 import { STUB_TACTICS } from "./stub-tactics.mjs";
 import { STUB_BEHAVIOUR } from "./stub-behaviour.mjs";
 import { STUB_REFLEX } from "./stub-reflex.mjs";
+import { STUB_SUB } from "./stub-sub.mjs";
+import { STUB_TECHNIQUE } from "./stub-technique.mjs";
 
 /** Where a stub behaviour goes: after the fighter's own. */
 const BEHAVIOUR_AT = RECIPE_FIGHTER.tactics.list.length;
@@ -37,6 +39,10 @@ export const STUBS = Object.freeze([
   { part: STUB_TACTICS, mind: "swap-stub", at: "tactics", place: (config) => ({ ...config, tactics: { ...config.tactics, kind: STUB_TACTICS.defaults.kind } }), read: (state) => state.tactics },
   { part: STUB_BEHAVIOUR, mind: "swap-stub", at: `tactics.list.${BEHAVIOUR_AT}`, place: (config) => ({ ...config, tactics: { ...config.tactics, list: [...config.tactics.list, STUB_BEHAVIOUR.defaults] } }),
     read: (state) => state.tactics.inner.behaviours[BEHAVIOUR_AT] },
+  { part: STUB_TECHNIQUE, mind: "swap-stub", at: "subs.0.techniques.1", place: (config) => ({ ...config, subs: [{ ...STAND_UP, techniques: [...STAND_UP.techniques, STUB_TECHNIQUE.defaults] }] }),
+    read: (_mind, body) => body.mind.subs[0].techniques["stub-technique"] },
+  { part: STUB_SUB, mind: "swap-options", at: `subs.${OPTIONS.subs.length}`, place: (config) => ({ ...config, subs: [...config.subs, STUB_SUB.defaults] }),
+    read: (state) => state.tactics.options[OPTIONS.subs.length].mind },
   { part: STUB_REFLEX, mind: "swap-options", at: "reflexes.0", place: (config) => ({ ...config, reflexes: [STUB_REFLEX.defaults] }), read: (state) => state.tactics.reflexes.own[0] },
 ].map(Object.freeze));
 
@@ -48,11 +54,10 @@ const withStubs = (kind, base, more) => Object.freeze({ ...STUBS.filter((stub) =
 
 /** The fighter fixture: every stub of its own at once, its one blow the stub executor's, standing up once down. */
 export const SWAP_DEFAULTS = withStubs("swap-stub", RECIPE_FIGHTER, {
-  subs: Object.freeze([STAND_UP]),
   actions: Object.freeze([{ name: "stub-blow", executor: STUB_BLOW.defaults.name, effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "high" }], aim: { kind: "centre", lead: 0 } }]),
 });
 
-/** The options fixture: the options fighter under its reflex stub. */
+/** The options fixture: the options fighter with its reflex and down stubs. */
 export const SWAP_OPTIONS_DEFAULTS = withStubs("swap-options", OPTIONS, {});
 
 /** The stubs a fixture mind owns. */

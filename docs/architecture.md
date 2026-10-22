@@ -409,14 +409,14 @@ by its defaults; pickers offer only minds that fit the side's body and loadout.
 | vanguard | `src/core/entrants/vanguard/` | committed point prediction, contact-driven tactics, editable own-body walking, blocked-step, punch-timing and preparation-aim profiles, recovery guard and low cover |
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`mind`,
-`sub-mind`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `reflex`, or a skill's:
+`sub-mind`, `technique`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `reflex`, or a skill's:
 `locomotion`, `guard`, `executor`, `support`), a label, a stage (`game` or `experimental`), the `fields` a
 person may change (`fields.ts`: trade-off choices, never a controller's searched constants), its
 slots (`slotOne`, `slotList`, `slotsOf`), `defaults`, `fits`, `faults` and `needs` (a `Provision` a
 screen must give). `allParts` (`catalog.ts`) is every part by kind: the parts below a mind, each
 mind, and each mind's own parts (`Controller.parts`), read once on first use so that any module may
 load first. A role whose parts make themselves has a list of them that holds its imports and its
-list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `GUARDS`, `SUPPORTS`, `SUB_MINDS`, `LOCOMOTIONS`, `PLANNERS`, `BEHAVIOURS` in
+list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `TECHNIQUES` in `ground/`, `GUARDS`, `SUPPORTS`, `SUB_MINDS`, `LOCOMOTIONS`, `PLANNERS`, `BEHAVIOURS` in
 `src/core/mind/`; `REFLEXES` in `options/`; `MOTORS` in `src/core/control/`; `MOVE_RULES` in
 `src/core/skills/`), so a case's code begins each part's own
 code there; its parts make what they are (`NavigatorPart.make`), and an assembly makes the one a
@@ -442,8 +442,9 @@ chooses by participant, side and model (`DungeonRunOptions.mind`); the Lab's act
 
 **The options fighter** (`metaController`, `options/meta.ts`). An `Option` (`option.ts`) says
 whether it is `available`, whether it `yields`, whether it has `ended`, and what it asks of the
-skills; a down option is carried out by its sub-mind (`downOption`, `down.ts`; the `downHalf`
-sub-mind hands the body over). Each control step `situationReader` (`situation.ts`) reads the
+skills; a down option is carried out by a sub-mind of its config's `subs` (`downOption`, `down.ts`,
+priced by the sub-mind's part, `SubMindPart.down`, its memory holding the sub-mind's; the
+`downHalf` sub-mind hands the body over). Each control step `situationReader` (`situation.ts`) reads the
 situation, and the meta-controller takes the available option of highest worth, keeping the
 running one within its keep and deciding afresh every `DECIDING.rethink` s or on an event.
 
@@ -475,14 +476,14 @@ Each kind is a registered implementation (`SubMindPart`, `mind/sub-mind-part.ts`
 beside the sub-mind (`<file>-part.ts`) owns its config's type, keys, defaults, faults, fit, the
 data it reads and its maker, and is a line in `SUB_MINDS` (`sub-minds.ts`, a role list), from which
 `SubMindConfig` follows. Its maker is handed the mind's kit (`MindKit`, `mind/kit.ts`: its motor,
-its guard and the guard's posture), which it and its techniques drive the body with, so a motor or
-guard swapped into the mind is the one recovery uses (`subMindsOf`, `kitOf`):
+its guard and the guard's posture, and the lookup), which it and its techniques drive the body
+with, so a motor or guard swapped into the mind is the one recovery uses (`subMindsOf`, `kitOf`):
 
 | Sub-mind | File | What it does |
 |---|---|---|
 | `lie` | `lie.ts` (`lying`) | asks nothing |
 | `support-recovery` | `supportRecovery` | the staged rise (`stagedRise`), then verified quiet standing (`recoveryReady`) before handing back ([recovery](reference/recovery-cycle.md)) |
-| Stand up | `ground/` | techniques with physical admission and completion (`ground/techniques.ts`); `step-up` (`ground/step-up.ts`) is the game's, the learned rise (`ground/learned-rise.ts`) is experimental |
+| Stand up | `ground/` | its list of techniques (`TechniquePart`, `ground/technique.ts`, each in its own module and a line in `TECHNIQUES`, a role list), with physical admission and completion, routed in rank order, rolling to reposition (`techniquesOf`); `step-up` (`ground/step-up.ts`) is the game's, the learned rise (`ground/learned-rise.ts`) is experimental |
 | `research-rise` | `rise/research.ts` (`researchRise`) | tracks reference motions; experimental |
 
 **Mind data loads per use** (`src/core/data/store.ts`). The learned run's and the learned rise's

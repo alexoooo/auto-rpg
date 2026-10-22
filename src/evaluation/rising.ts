@@ -20,7 +20,8 @@ import type { StandUpConfig } from "../core/mind/ground/stand-up.ts";
 import { partLookup } from "../core/mind/catalog.ts";
 import { kitOf } from "../core/mind/kit.ts";
 import { plantPostures, plantUp, PLANT_UP } from "../core/mind/ground/plant-up.ts";
-import { TECHNIQUES, type TechniqueName, type TechniqueRun } from "../core/mind/ground/techniques.ts";
+import { TECHNIQUES } from "../core/mind/ground/techniques.ts";
+import type { TechniqueName, TechniqueRun } from "../core/mind/ground/technique.ts";
 import { modelSpec, type HumanoidModel } from "../core/models.ts";
 import { guardPosture } from "../core/skills/guard.ts";
 import type { Side } from "../core/spec/body.ts";
@@ -39,7 +40,7 @@ export type RisingSub = "support-recovery" | "stand-up";
 export function risingMind(sub: RisingSub, techniques: readonly TechniqueName[] = Object.keys(TECHNIQUES) as TechniqueName[]): FighterConfig {
   switch (sub) {
     case "support-recovery": return { ...PUNCHER, subs: [{ kind: "support-recovery" }] };
-    case "stand-up": { const standUp: StandUpConfig = { kind: "stand-up", techniques }; return { ...PUNCHER, subs: [standUp] }; }
+    case "stand-up": { const standUp: StandUpConfig = { kind: "stand-up", techniques: techniques.map((kind) => ({ kind })) }; return { ...PUNCHER, subs: [standUp] }; }
     default: {
       const never: never = sub;
       throw new Error(`unknown rising sub-mind ${String(never)}`);

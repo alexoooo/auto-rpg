@@ -12,7 +12,7 @@ import type { MindKit } from "../kit.ts";
 import type { Senses } from "../senses.ts";
 import type { SubMind } from "../sub-mind.ts";
 import { nearestFoe, nearestSurface } from "../targets.ts";
-import { poseDrive } from "./techniques.ts";
+import { poseDrive } from "./technique.ts";
 import { GROUND_LEGS, groundKick } from "./ground-kick.ts";
 import { rootSegment } from "../../read-body.ts";
 

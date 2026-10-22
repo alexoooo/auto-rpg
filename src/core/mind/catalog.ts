@@ -12,6 +12,8 @@ import { MOVE_RULES } from "../skills/move-rules.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Role } from "./parts.ts";
 import { SUB_MINDS } from "./sub-minds.ts";
 import { REFLEXES } from "./options/reflexes.ts";
+import { TECHNIQUES } from "./ground/techniques.ts";
+import type { TechniqueConfig } from "./ground/technique.ts";
 import { MOTORS } from "../control/motors.ts";
 import { PLANNERS } from "./planners.ts";
 import { NAVIGATIONS } from "./navigations.ts";
@@ -19,7 +21,7 @@ import type { PartLookup, RoleParts } from "./lookup.ts";
 import type { NavigationConfig } from "./navigator.ts";
 
 /** Every part's config below a mind, by kind. */
-type AnyPart = MotorConfig | ReflexConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | LocomotionConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
+type AnyPart = TechniqueConfig | MotorConfig | ReflexConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | LocomotionConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
 
 /** A role's list by kind (`NAVIGATIONS`), each entry's kind its defaults': a thrown error for one that is not. */
 function listed<L extends Readonly<Record<string, Part>>>(list: L): L {
@@ -42,7 +44,7 @@ let registry: Registry | null = null;
  */
 function registered(): Registry {
   if (registry) return registry;
-  const below: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...listed(SUB_MINDS), ...listed(PLANNERS), ...listed(BEHAVIOURS), ...listed(MOVE_RULES),
+  const below: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...listed(SUB_MINDS), ...listed(TECHNIQUES), ...listed(PLANNERS), ...listed(BEHAVIOURS), ...listed(MOVE_RULES),
     ...listed(LOCOMOTIONS), ...listed(GUARDS), ...listed(SUPPORTS), ...listed(EXECUTORS), ...listed(REFLEXES), ...listed(MOTORS), ...listed(NAVIGATIONS) };
   const parts: Record<string, Part> = { ...below }, owners: Record<string, string> = {};
   const add = (kind: string, part: Part, what: string) => {
@@ -238,7 +240,7 @@ export function withoutTuning<C extends PartConfig>(config: C): C {
 }
 
 /** A kind a slot may be set to, with the reason it cannot go there for this body and screen, or null. */
-interface Offered {
+export interface Offered {
   readonly kind: string;
   readonly part: Part;
   readonly reason: string | null;

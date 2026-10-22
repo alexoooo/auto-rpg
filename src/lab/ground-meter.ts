@@ -1,7 +1,7 @@
 import type { HostedBody } from "../core/body.ts";
 import type { World } from "../core/world.ts";
 import type { GroundTechniqueState } from "./ground-technique.ts";
-import type { TechniqueEnd } from "../core/mind/ground/techniques.ts";
+import type { TechniqueEnd } from "../core/mind/ground/technique.ts";
 
 interface Trail { readonly at: number; readonly position: string; readonly controller: string; readonly mode: string; readonly phase: string }
 interface Attempt { readonly at: number; readonly seconds: number; readonly controller: string; readonly end: "hand-back" | "retry" | "cap" | "ready" | "steady-limit" | TechniqueEnd }

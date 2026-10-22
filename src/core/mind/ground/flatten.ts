@@ -3,7 +3,7 @@ import { deepFreeze } from "../../state.ts";
 import type { OwnBody } from "../mind.ts";
 import type { GroundReading, Position } from "./reading.ts";
 import { armClearance } from "./clearance.ts";
-import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "./techniques.ts";
+import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "./technique.ts";
 
 /** Wide arms arrest rolling while the legs and trunk relax toward a loaded lie. */
 const FLAT = deepFreeze({ "shoulder.left abduction": 1.3, "shoulder.right abduction": 1.3,

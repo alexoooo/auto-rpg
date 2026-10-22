@@ -10,7 +10,7 @@ import type { OwnBody } from "../mind.ts";
 import { stagedRise } from "../rise/staged.ts";
 import { RISE, type BearStage, type Recipe, type Stage } from "../rise/stages.ts";
 import { standReady, type GroundReading, type Position } from "./reading.ts";
-import { REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "./techniques.ts";
+import { REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique, TO_STANDING } from "./technique.ts";
 
 /** How one of the recipe's stages is played: its time scaled, and a bearing stage's completion. */
 interface StageTiming { readonly scale: number; readonly progress?: NonNullable<BearStage["progress"]> }
@@ -238,3 +238,7 @@ export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit
     },
   };
 }
+
+/** **Step up** (`stepUp`): the game's stand-up, from any position. */
+export const STEP_UP_TECHNIQUE = technique("step-up", { label: "Step up", stage: "game", sides: Object.freeze(["left"] as const), edges: TO_STANDING,
+  make: (own, view, clock, _listed, kit) => stepUp(own, view, clock, kit) });

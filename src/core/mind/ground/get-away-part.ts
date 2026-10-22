@@ -8,6 +8,7 @@ import { getAway, type GetAwayConfig } from "./get-away.ts";
 export const GET_AWAY_PART: SubMindPart<GetAwayConfig> = deepFreeze({
   role: "sub-mind", label: "Get away", stage: "experimental", slots: [],
   fields: [number("metres", "Foe distance", .1, 10, .1, "m")], defaults: { kind: "get-away", metres: 2 }, keys: { kind: true, metres: true },
+  down: { name: "roll away", seconds: 2, stands: 0, shelter: .5 },
   fits: takesCommands,
   faults: (config) => Number.isFinite(config.metres) && config.metres > 0 ? [] : ["distance must be finite and positive"],
   make: (own, view, config) => getAway(own, view, config),

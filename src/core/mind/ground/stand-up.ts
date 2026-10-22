@@ -9,7 +9,8 @@ import type { SubMind } from "../sub-mind.ts";
 import { flatten } from "./flatten.ts";
 import { choose, graphWork, type GraphFailure, type GraphTechnique, type RouteStep } from "./graph.ts";
 import { standReady, type Position } from "./reading.ts";
-import { TECHNIQUES, poseDrive, type TechniqueEnd, type TechniqueName, type TechniqueRun, type TechniqueSpec } from "./techniques.ts";
+import { poseDrive, type TechniqueConfig, type TechniqueEnd, type TechniquePart, type TechniqueRun } from "./technique.ts";
+import type { PartLookup } from "../lookup.ts";
 
 /** Protective flexion keeps the chin tucked and the forearms before the face while falling. */
 const BRACE = deepFreeze({ "cervical flexion": .3, "shoulder.left flexion": .8, "shoulder.right flexion": .8,
@@ -22,14 +23,21 @@ interface Attempt { technique: string; side: Side; from: Position; to: Position;
 interface Entry extends Attempt { end: TechniqueEnd | "ready" | "steady-limit" }
 
 /** Preferred contracts for recovering the feet, in player order. */
-export interface StandUpConfig { readonly kind: "stand-up"; readonly techniques: readonly TechniqueName[] }
+export interface StandUpConfig { readonly kind: "stand-up"; readonly techniques: readonly TechniqueConfig[] }
+
+/** The techniques a stand-up repositions the body by where no route stands it up: onto its back from its front, else onto its front. */
+const REPOSITION = deepFreeze([{ kind: "roll" }, { kind: "roll-back" }]);
+
+/** The techniques `config` routes through and those it repositions by, by kind, as `parts` finds them. */
+export const techniquesOf = (parts: PartLookup, config: StandUpConfig): Readonly<Record<string, TechniquePart>> =>
+  Object.fromEntries([...config.techniques, ...REPOSITION].map((technique) => [technique.kind, parts.of("technique", technique)]));
 
 /** A supervisor retries contracts from the body as read; no successful reposition clears a failure. */
 export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: StandUpConfig, kit: MindKit,
-  registry: Readonly<Record<string, TechniqueSpec>> = TECHNIQUES): SubMind {
-  const runs: Record<string, TechniqueRun> = {}, graph: Record<string, GraphTechnique> = {};
-  for (const [name, spec] of Object.entries(registry)) if (spec.fits(own.spec)) {
-    const run = spec.make(own, view, clock, config.techniques.includes(name as TechniqueName), kit); runs[name] = run;
+  registry: Readonly<Record<string, TechniquePart>> = techniquesOf(kit.parts, config)): SubMind {
+  const runs: Record<string, TechniqueRun> = {}, graph: Record<string, GraphTechnique> = {}, order: readonly string[] = config.techniques.map((technique) => technique.kind);
+  for (const [name, spec] of Object.entries(registry)) if (spec.fits(own.spec, spec.defaults, kit.parts) === null) {
+    const run = spec.make(own, view, clock, order.includes(name), kit); runs[name] = run;
     graph[name] = { sides: spec.sides, edges: spec.edges, admits: (g, side) => run.admits(g, side) };
   }
   runs.flatten = flatten(own, view);
@@ -115,7 +123,7 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
         }
         return;
       }
-      const route = choose(config.techniques, g, graph, state.failures, state.route, work, RETRIES);
+      const route = choose(order, g, graph, state.failures, state.route, work, RETRIES);
       if (route) { state.route = route; begin(route[0]!, false); }
       else {
         const candidates = ["flatten", g.lie === "front" ? "roll-back" : "roll"];

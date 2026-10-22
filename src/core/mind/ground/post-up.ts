@@ -14,7 +14,7 @@ import { riseLimbs } from "../rise/limbs.ts";
 import { RISE } from "../rise/stages.ts";
 import { armClearance } from "./clearance.ts";
 import { standReady, type GroundReading, type Position } from "./reading.ts";
-import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "./techniques.ts";
+import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique } from "./technique.ts";
 
 /** A right hand behind the pelvis and two feet form the preparation's support triangle. */
 const POST = deepFreeze({ "hip.left flexion": 1.6, "hip.right flexion": 1.3, "knee.left flexion": 1.8,
@@ -99,3 +99,7 @@ export function postUp(own: OwnBody, view: BodyView, _clock: Clock, _listed: boo
     },
   };
 }
+
+/** **Post up** (`postUp`): from sitting to standing. */
+export const POST_UP = technique("post-up", { label: "Post up", stage: "experimental", sides: Object.freeze(["left"] as const),
+  edges: Object.freeze([Object.freeze({ from: "sitting" as const, to: "standing" as const })]), make: postUp });

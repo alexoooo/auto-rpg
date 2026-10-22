@@ -440,7 +440,7 @@ const felled = (name, mind) => ({ name: `data: ${name}`, run: () => laidDown(min
  */
 const DATA_CASES = [
   felled("research-rise", { ...CLASSIC, subs: [{ kind: "research-rise" }] }),
-  felled("learned-rise", { ...CLASSIC, subs: [{ ...STAND_UP, techniques: ["learned-rise"] }] }),
+  felled("learned-rise", { ...CLASSIC, subs: [{ ...STAND_UP, techniques: [{ kind: "learned-rise" }] }] }),
   { name: "data: learned-run", run: () => labDataRun({ ...LAB_PRESETS.script.config, locomotion: LOCOMOTIONS["learned-run"].defaults }, 3) },
 ];
 /** The cases in the order they print, the long ones first so that the lanes stay full. */

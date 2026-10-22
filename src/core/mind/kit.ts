@@ -45,6 +45,8 @@ export interface MindKit {
   readonly posture: Pose;
   /** The mind's guard, made for `built` (`GuardPart.make`). */
   guard(built: ReadBody): GuardSkill;
+  /** The parts the mind's config may name, for the parts a sub-mind names (a stand-up's techniques). */
+  readonly parts: PartLookup;
 }
 
 /** The parts of a mind a kit is made from: its motor (the game's where none) and its guard. */
@@ -56,7 +58,7 @@ export interface KitParts {
 /** The kit of the mind whose parts are `mind`, for a body of `spec`, each part as `parts` finds it. */
 export function kitOf(parts: PartLookup, spec: BodySpec, mind: KitParts): MindKit {
   const guard = parts.of("guard", mind.guard);
-  return { motor: motorOf(parts, mind.motor), posture: guard.posture(spec, mind.guard), guard: (built) => guard.make(built, mind.guard) };
+  return { motor: motorOf(parts, mind.motor), posture: guard.posture(spec, mind.guard), guard: (built) => guard.make(built, mind.guard), parts };
 }
 
 /**
