@@ -1,5 +1,5 @@
 import { techniqueEditor } from "./mind-ground.ts";
-import { kindsFor, partOf, PARTS } from "../core/mind/catalog.ts";
+import { isKind, kindsFor, partOf } from "../core/mind/catalog.ts";
 import { actionEditor, selectionEditor } from "./mind-actions.ts";
 import { isFighter, type BehavioursConfig, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
 import type { StandUpConfig } from "../core/mind/ground/stand-up.ts";
@@ -98,7 +98,7 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], onCh
   /** Parts the screen supplies, with incompatible bodies explained by disabled choices. */
   const choices = (slot: Slot) => [
     ...(slot.optional && !slot.many ? [{ value: "", text: slot.absent ?? "None" }] : []),
-    ...kindsFor(slot.role, spec, provides).filter(({ part }) => !part.needs || provides.includes(part.needs))
+    ...kindsFor(slot.role, spec, provides, current.kind).filter(({ part }) => !part.needs || provides.includes(part.needs))
       .map(({ kind, part, reason }) => ({ value: kind, text: reason ? `${named(part)}: ${reason}` : named(part), disabled: reason !== null })),
   ];
   const defaultsOf = (kind: string): PartConfig => partOf({ kind }).defaults;
@@ -107,7 +107,7 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], onCh
   const drawPart = (config: PartConfig, write: (config: PartConfig) => void): HTMLElement => {
     const block = document.createElement("div");
     block.className = "mind-part";
-    if (typeof config?.kind !== "string" || !Object.hasOwn(PARTS, config.kind)) {
+    if (!isKind(config?.kind)) {
       block.textContent = `No part of kind ${JSON.stringify((config as { kind?: unknown } | null)?.kind)}`;
       return block;
     }

@@ -48,7 +48,7 @@ import { LOCOMOTION_PARTS } from "../src/core/mind/locomotions.ts";
 import { LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { quadrupedMind } from "../src/core/reptile/mind.ts";
-import { hostedMind } from "../src/core/mind/host.ts";
+import { hostedMind } from "../src/core/mind/minds.ts";
 import { generateCryptDungeon } from "../src/dungeon/crypt-dungeon.ts";
 import { CryptWeathering } from "../src/dungeon/crypt-weathering.ts";
 import { generateLevel } from "../src/dungeon/level.ts";

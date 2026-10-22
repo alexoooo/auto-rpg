@@ -13,28 +13,90 @@ import { SUB_MIND_PARTS } from "./sub-minds.ts";
 import { REFLEX_PARTS } from "./options/reflex.ts";
 import { MOTOR_PARTS, type MotorConfig } from "../control/motors.ts";
 import { TACTICS_PARTS } from "./tactics-of.ts";
-import { NAVIGATION_PARTS, type NavigationConfig } from "./navigation.ts";
+import { NAVIGATIONS } from "./navigations.ts";
+import type { PartMakers } from "./makers.ts";
+import type { NavigationConfig, NavigatorPart } from "./navigator.ts";
 
 /** Every part's config below a mind, by kind. */
 type AnyPart = MotorConfig | ReflexConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | LocomotionConfig | SkillConfig | ExecutorConfig | NavigationConfig;
 
-/** Every part below a mind, by its kind. A kind without an entry does not compile. */
-const BELOW: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...MOVE_RULE_PARTS, ...LOCOMOTION_PARTS, ...SKILL_PARTS, ...EXECUTOR_PARTS, ...REFLEX_PARTS, ...MOTOR_PARTS, ...NAVIGATION_PARTS };
+/** A role's list by kind (`NAVIGATIONS`), each entry's kind its defaults': a thrown error for one that is not. */
+function listed<L extends Readonly<Record<string, Part>>>(list: L): L {
+  for (const [kind, part] of Object.entries(list)) if (part.defaults.kind !== kind) throw new Error(`the list names ${JSON.stringify(part.defaults.kind)} ${JSON.stringify(kind)}`);
+  return list;
+}
+
+/** Every part, by its kind, and each mind's own part's mind (`Controller.parts`), by the part's kind. */
+interface Registry {
+  readonly parts: Readonly<Record<string, Part>>;
+  readonly owners: Readonly<Record<string, string>>;
+}
+
+let registry: Registry | null = null;
 
 /**
- * **Every part, by its kind**, across roles: the minds (`CONTROLLERS`) and the parts below them,
- * the one list a screen offers a slot's choices from. A mind of a kind a part below has is refused.
+ * The registry, read once a realm on first use: the parts below a mind, each mind (`CONTROLLERS`)
+ * and each mind's own parts. Read when first asked, never as the module loads, so a part's module
+ * may use it whatever order the modules load in. A kind twice is refused.
  */
-export const PARTS: Readonly<Record<string, Part>> = Object.freeze(Object.assign({}, BELOW, ...Object.keys(CONTROLLERS).map((kind) => {
-  if (Object.hasOwn(BELOW, kind)) throw new Error(`a mind of kind ${JSON.stringify(kind)} is a part's`);
-  return { [kind]: CONTROLLERS[kind] };
-})));
+function registered(): Registry {
+  if (registry) return registry;
+  const below: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...MOVE_RULE_PARTS,
+    ...LOCOMOTION_PARTS, ...SKILL_PARTS, ...EXECUTOR_PARTS, ...REFLEX_PARTS, ...MOTOR_PARTS, ...listed(NAVIGATIONS) };
+  const parts: Record<string, Part> = { ...below }, owners: Record<string, string> = {};
+  const add = (kind: string, part: Part, what: string) => {
+    if (Object.hasOwn(parts, kind)) throw new Error(`${what} of kind ${JSON.stringify(kind)} is another part's`);
+    parts[kind] = part;
+  };
+  for (const [kind, controller] of Object.entries(CONTROLLERS)) add(kind, controller, "a mind");
+  for (const [kind, controller] of Object.entries(CONTROLLERS)) for (const own of controller.parts ?? []) {
+    if (own.role === "mind") throw new Error(`${kind}'s own part ${JSON.stringify(own.defaults.kind)} is a mind`);
+    add(own.defaults.kind, own, `${kind}'s own part`);
+    owners[own.defaults.kind] = kind;
+  }
+  return registry = { parts: Object.freeze(parts), owners: Object.freeze(owners) };
+}
+
+/**
+ * **Every part, by its kind**, across roles: the minds (`CONTROLLERS`), the parts below them and
+ * each mind's own parts (`Controller.parts`), the one list a screen offers a slot's choices from.
+ */
+export const allParts = (): Readonly<Record<string, Part>> => registered().parts;
+
+/** Whether `kind` names a part (`allParts`). */
+export const isKind = (kind: unknown): kind is string => typeof kind === "string" && Object.hasOwn(registered().parts, kind);
+
+/** The mind whose own part `kind` is (`Controller.parts`), or null for a part any mind may hold. */
+export const ownerOf = (kind: string): string | null => registered().owners[kind] ?? null;
 
 /** The part of `config`'s kind; a thrown error for a kind no part has, read from a save or a link. */
 export function partOf<C extends PartConfig>(config: C): Part<C> {
-  const part = Object.hasOwn(PARTS, config.kind) ? PARTS[config.kind] : undefined;
+  const part = isKind(config.kind) ? registered().parts[config.kind] : undefined;
   if (!part) throw new Error(`no part of kind ${JSON.stringify(config.kind)}`);
   return part as Part<C>;
+}
+
+/** The navigation a mind's tree names, the game's where its slot holds none (`DEFAULT_NAVIGATION`). */
+const DEFAULT_NAVIGATION: NavigationConfig = Object.freeze({ kind: "visibility-navigation" });
+
+/** The part of `config`'s kind, refused unless it is of `role`. */
+function ofRole(config: PartConfig, role: Role): Part {
+  const part = partOf(config);
+  if (part.role !== role) throw new Error(`a ${part.role} part cannot go where a ${role} part goes`);
+  return part;
+}
+
+/**
+ * **What makes a mind's parts for a body of `spec`** (`PartMakers`): each config's part by its
+ * kind (`partOf`), its own parts included, refused where the kind is of another role.
+ */
+export function partMakers(spec: BodySpec): PartMakers {
+  return Object.freeze({
+    navigator: (config: PartConfig | null | undefined) => {
+      const chosen = config ?? DEFAULT_NAVIGATION;
+      return (ofRole(chosen, "navigation") as NavigatorPart).make(spec, chosen);
+    },
+  });
 }
 
 /** What each slot of `config` holds, by the slot, as a list: a single slot's part or none, or a list slot's parts. */
@@ -47,7 +109,7 @@ function held(config: PartConfig): { readonly slot: Part["slots"][number]; reado
 
 /** Whether `value` is a part's config: an object with a kind that names a part. */
 const isPart = (value: unknown): value is PartConfig =>
-  typeof value === "object" && value !== null && typeof (value as { kind?: unknown }).kind === "string" && Object.hasOwn(PARTS, (value as PartConfig).kind);
+  typeof value === "object" && value !== null && isKind((value as { kind?: unknown }).kind);
 
 /** What a screen that gives nothing beyond the body and the world provides. */
 const NOTHING: readonly Provision[] = Object.freeze([]);
@@ -60,13 +122,15 @@ const unprovided = (needs: Provision | undefined, provides: readonly Provision[]
  * **What is wrong with the tree `config` roots** on a screen that `provides` what it does, each a
  * sentence. A part's own faults come first, then each slot's, each prefixed with where it is
  * (`subs.0: `). A part the screen cannot run (`Part.needs`), a slot that holds what is no part, a
- * part of another role, or nothing where it must hold one is a fault; a part's own faults
- * (`Part.faults`) are read only once every slot holds parts of its role.
+ * part of another role, another mind's own part (`Controller.parts`), or nothing where it must
+ * hold one is a fault; a part's own faults (`Part.faults`) are read only once every slot holds
+ * parts of its role. `mind` is the kind of the mind the tree is of: the root's, where it is a mind.
  */
-export function treeFaults(config: PartConfig, provides: readonly Provision[] = NOTHING, at = ""): readonly string[] {
+export function treeFaults(config: PartConfig, provides: readonly Provision[] = NOTHING, at = "", mind: string | null = null): readonly string[] {
   const where = (fault: string, path = at) => path ? `${path}: ${fault}` : fault;
   const kind = (value: unknown) => `no part of kind ${JSON.stringify((value as { kind?: unknown } | null)?.kind)}`;
   if (!isPart(config)) return [where(kind(config))];
+  const of = mind ?? (partOf(config).role === "mind" ? config.kind : null);
   const slots: string[] = [];
   let formed = true;
   for (const { slot, parts } of held(config)) {
@@ -77,11 +141,23 @@ export function treeFaults(config: PartConfig, provides: readonly Provision[] = 
       const here = slot.many ? `${path}.${i}` : path;
       if (!isPart(child)) { formed = false; slots.push(where(kind(child), here)); }
       else if (partOf(child).role !== slot.role) { formed = false; slots.push(where(`a ${partOf(child).role} part cannot go where a ${slot.role} part goes`, here)); }
-      else slots.push(...treeFaults(child, provides, here));
+      else if (ownerOf(child.kind) !== null && ownerOf(child.kind) !== of) { formed = false; slots.push(where(`${partOf(child).label} is ${ownerOf(child.kind)}'s own part`, here)); }
+      else slots.push(...treeFaults(child, provides, here, of));
     });
   }
   const screen = unprovided(partOf(config).needs, provides);
   return [...(screen ? [where(screen)] : []), ...unknownSettings(config).map((fault) => where(fault)), ...(formed ? partOf(config).faults(config).map((fault) => where(fault)) : []), ...slots];
+}
+
+/** **Every kind of part in the tree `config` roots**, the root's included, each once: what a case's code holds the parts' own code of (`caseCoder`). */
+export function treeKinds(config: PartConfig): readonly string[] {
+  const kinds = new Set<string>();
+  const visit = (one: PartConfig): void => {
+    kinds.add(one.kind);
+    for (const { parts } of held(one)) for (const child of parts) if (isPart(child)) visit(child);
+  };
+  visit(config);
+  return [...kinds];
 }
 
 /** **The mind data `config`'s parts read** (`Part.reads`), every key once: what a screen loads (`loadData`) before it builds the mind. */
@@ -179,10 +255,11 @@ interface Offered {
 }
 
 /**
- * **Every part of `role`**, in the list's order, each with why it cannot go in a slot of a body of
- * `spec` on a screen that `provides` what it does, or null. None is left out.
+ * **Every part of `role`** a slot of a mind of kind `mind` may hold, in the list's order, each with
+ * why it cannot go there for a body of `spec` on a screen that `provides` what it does, or null:
+ * the parts any mind may hold and the mind's own (`Controller.parts`). None of those is left out.
  */
-export function kindsFor(role: Role, spec: BodySpec, provides: readonly Provision[] = NOTHING): readonly Offered[] {
-  return Object.entries(PARTS).filter(([, part]) => part.role === role)
+export function kindsFor(role: Role, spec: BodySpec, provides: readonly Provision[] = NOTHING, mind: string | null = null): readonly Offered[] {
+  return Object.entries(allParts()).filter(([kind, part]) => part.role === role && (ownerOf(kind) === null || ownerOf(kind) === mind))
     .map(([kind, part]) => ({ kind, part, reason: treeRefusal(spec, part.defaults) ?? unprovided(part.needs, provides) }));
 }

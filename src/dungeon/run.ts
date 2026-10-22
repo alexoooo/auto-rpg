@@ -23,7 +23,7 @@ import type { DungeonSurfaces } from "./stone.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward } from "./camera.ts";
 import { companionSpawn } from "./party-placement.ts";
 import { generateEncounterLevel } from "./encounters.ts";
-import type { NavigationReport } from "../core/mind/navigation.ts";
+import type { NavigationReport } from "../core/mind/navigator.ts";
 import type { Skills } from "../core/skills/skills.ts";
 import type { Orders } from "../core/mind/orders.ts";
 import { STAND_ORDERS } from "../core/mind/orders.ts";

@@ -367,7 +367,9 @@ every hosted body one way; the humanoid's `commandMind` (`src/core/body.ts`) and
 fight reads. A fight passes the config through and reads nothing in it.
 
 - The maker never has the world or the built body: it gets a host (`BodyHost`, `host.ts`) with the
-  body's description, the clock (`Clock`) and three ways to take the body, once: `command` (the
+  body's description, the clock (`Clock`), what makes its parts from their configs (`PartMakers`,
+  `makers.ts`, the registry's `partMakers`), which it hands every assembly that builds a part,
+  and three ways to take the body, once: `command` (the
   game's command layers), `hosted` (a host mind of its own) or `policy` (detached observations and
   actions). The host applies the fight's grants (senses, assist ceiling, contact labels); no maker
   can widen them.
@@ -383,8 +385,8 @@ fight reads. A fight passes the config through and reads nothing in it.
 (`fighter-kind.ts`, `options/kind.ts`, `src/core/reptile/kind.ts`, an entrant's `mind.ts`), and one
 line in `MIND_KINDS` (`kinds.ts`, which holds its imports and that list and nothing else, so a case's
 code can begin each kind's own code there). `CONTROLLERS` (`controllers.ts`) keys them by kind: its
-config keys (`keys`), the bodies it fits (`fits`), its presets (merged into `PRESETS`) and its maker
-(`create`). `MINDS` is what a person may pick: every preset, and each controller without presets
+config keys (`keys`), the bodies it fits (`fits`), its presets (merged into `PRESETS`), its own
+parts (`parts`) and its maker (`create`). `MINDS` is what a person may pick: every preset, and each controller without presets
 by its defaults; pickers offer only minds that fit the side's body and loadout.
 
 | Kind | Maker | What it composes |
@@ -401,13 +403,19 @@ by its defaults; pickers offer only minds that fit the side's body and loadout.
 `locomotion`, `guard`, `executor`, `support`), a label, a stage (`game` or `experimental`), the `fields` a
 person may change (`fields.ts`: trade-off choices, never a controller's searched constants), its
 slots (`slotOne`, `slotList`, `slotsOf`), `defaults`, `fits`, `faults` and `needs` (a `Provision` a
-screen must give). `PARTS` (`catalog.ts`) is every part by kind. Over the tree:
+screen must give). `allParts` (`catalog.ts`) is every part by kind: the parts below a mind, each
+mind, and each mind's own parts (`Controller.parts`), read once on first use so that any module may
+load first. A role whose parts make themselves has a list of them that holds its imports and its
+list and nothing else (`NAVIGATIONS`, `navigations.ts`), so a case's code begins each part's own
+code there; its parts make what they are (`NavigatorPart.make`), and the host's `PartMakers`
+makes the one a config names. Over the tree:
 
 - `treeFaults` names each fault by path (`subs.0: ...`); `createMind` refuses a tree with any, and
-  `partOf` refuses an unknown kind.
+  `partOf` refuses an unknown kind. A mind's own part in another mind's tree is a fault.
 - A part's `fits` answers why a body cannot carry out what it commands, or null where it can: the one
   source of compatibility. `treeRefusal` gives the first refusal in a tree by path (`treeFits`, that
-  there is none); `kindsFor` lists every part of a role with the reason it cannot go somewhere.
+  there is none); `kindsFor` lists every part of a role a mind's slot may hold, its own parts
+  included, with the reason it cannot go somewhere.
 - A part's experiment settings live under `tuning`, are named by `Part.tuning`, and never travel in
   a link (`withoutTuning`). A key a part does not read is a fault, never silently dropped;
   a registered implementation states its keys (`Part.keys`, `KeysOf`), and `CONFIG_KEYS`
@@ -494,9 +502,13 @@ point. A person gives orders; the body's own mind carries them out (`orderedInte
 **Movement requests** (`src/core/mind/movement.ts`) are Direct directions, Place waypoints or Range
 bands about a sensed body; null asks a controlled stop. Tactics and orders give a movement request,
 a facing and at most a ceiling (`Intent.pace`, `Intent.walk`); none writes a velocity.
-Navigation is a part between tactics and locomotion (a fighter's `navigation` slot): the
-visibility navigator routes round inflated fixed footprints and reports its route, distance,
-arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
+Navigation is a part between tactics and locomotion (a fighter's and the quadruped's `navigation`
+slot), a `Navigator` (`navigator.ts`) that the skills (`SkillParts.navigation`) and the
+quadruped's tactics are handed; a skill set given none refuses a movement request. Both of the
+game's are a walker (`routeWalker`, `navigation.ts`) that differs in how it finds a route to a
+place (`PlaceSearch`): Visibility routes (`visibility-navigation.ts`) by the shortest route round
+inflated fixed footprints (`createRouter`, `route-search.ts`), Local clearance
+(`local-navigation.ts`) only straight. The walker reports its route, distance, arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
 its route and searches again only where the route breaks: the solids sensed change, its own side's
 fallen bodies come to lie across it, its clearance changes by `NAV.margin`, or a goal that moves is
 neither straight ahead nor seen from the route's last corner and has gone `NAV.moved` from the
@@ -537,6 +549,11 @@ joint-feedback Mind (`entrants/direct/mind.ts`) is the example.
    it runs the game's.
 4. It may use any of the toolkit (`src/core/mind/`, `skills/`, `control/`) and imports no engine,
    world or builder. Data and learned weights go under `assets/entrants/<name>/`.
+5. A part of its own of a role whose parts make themselves (navigation) is a module in its folder
+   and a line in its controller's `parts`; its config chooses it, and its maker gets it from the
+   host's makers (`BodyHost.parts`). Only its own minds' slots offer it. `tests/swap.test.mjs`
+   registers a fixture entrant this way from outside `src/` (`tests/fixtures/swap/`) and holds a
+   stub of each such role to it: chosen by config, run, forked, replayed and linked.
 
 Once registered it is offered by its presets (or its kind) in `MINDS`, and
 `tests/mind-contract.test.mjs` runs it against itself on the first body it fits, forks it and
@@ -709,10 +726,12 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
   module's imports read with TypeScript's parser (`importsOf`). **A case's code** (`caseCoder`) is
   drawn from it: the environment, the static import closure (`closureOf`) of `src/evaluation/play.ts` and
   the case module with the lockfile and the solvers, cut at the kinds list, the world kinds list
-  (`WORLD_BUILDERS`, `src/evaluation/worlds.ts`), the build's identity and the mind data store
-  (`CUTS`); then the kind of world the case plays adds its builder's own code (its module's closure
-  beyond the environment), each kind of mind it plays its own (likewise, and
-  `assets/entrants/<kind>/`), and each mind data key its minds read (`treeData`) its module's. So
+  (`WORLD_BUILDERS`, `src/evaluation/worlds.ts`), each role's list of parts (`CUTS.roles`), the
+  build's identity and the mind data store (`CUTS`); then the kind of world the case plays adds its
+  builder's own code (its module's closure beyond the environment), each kind of mind it plays its
+  own (likewise, and `assets/entrants/<kind>/`), each part a role's list holds that its minds'
+  trees name (`treeKinds`) its module's, and each mind data key its minds read (`treeData`) its
+  module's. So
   a Crypt edit keys no bout case anew, nor a bout builder's edit a Crypt run. A kinds list or world
   kinds list of more than its imports and its list, and a module in a closure that imports by no
   literal, are refused. A research run's

@@ -1,6 +1,6 @@
 import { hypot } from "../math/real.ts";
 import { placeMovement, sameMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
-import type { NavigationReport } from "../mind/navigation.ts";
+import type { NavigationReport } from "../mind/navigator.ts";
 import type { TeamOrder } from "./commands.ts";
 import type { MemberView, TeamLevel, TeamView } from "./team.ts";
 

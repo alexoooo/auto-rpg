@@ -3,7 +3,7 @@ import { pathToFileURL } from "node:url";
 import { coreStand, freshEngine } from "../tests/harness/core-stand.mjs";
 import { reptileSpec } from "../src/core/reptile/spec.ts";
 import { quadrupedMind } from "../src/core/reptile/mind.ts";
-import { hostedMind } from "../src/core/mind/host.ts";
+import { hostedMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import "../tests/harness/preload-data.mjs";
 import { buildBout } from "../src/evaluation/bout.ts";

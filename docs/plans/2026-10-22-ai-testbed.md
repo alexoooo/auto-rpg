@@ -48,9 +48,9 @@ Navigation is the smallest role the scan found fully blocked (`decide N1`–`N4`
   then the toolkit's. An entrant's part is offered only in its own minds' slots, reaches only its
   own cases' code (`caseCoder` cuts at the controller as now), and `entrant-check` counts it as
   the entrant's.
-- **The toolkit's role lists take `MIND_KINDS`' shape**: a module that holds its imports and its
-  list and nothing else, read by `caseCoder` as a cut, so one part's edit re-keys only the cases
-  that use it.
+- **The toolkit's role lists take the world kinds list's shape**: a module that holds its imports
+  and its list by kind and nothing else, read by `caseCoder` as a cut (`CUTS.roles`), so one
+  part's edit re-keys only the cases that use it.
 - **The swap test** (`tests/swap.test.mjs`, under 10 s): a fixture entrant outside `src/` holds a
   trivial stub of each converted role, chosen by configuration only. For each, it builds a mind,
   steps a short bout, and asserts that the stub's maker built the part in use, that its state forks

@@ -6,9 +6,9 @@ import type { REPTILE_BITE } from "../reptile/tuning.ts";
 import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
 import { STRAIGHT_PUNCH } from "../skills/straight-punch.ts";
 import { COMBINATION } from "../skills/combination.ts";
-import type { NavigationConfig } from "./navigation.ts";
 import type { LocomotionConfig } from "./locomotions.ts";
 import type { MoveConfig } from "../skills/move-part.ts";
+import type { PartConfig } from "./parts.ts";
 import type { OpeningTuning } from "./openings.ts";
 import type { Covering } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
@@ -97,7 +97,8 @@ export interface FighterConfig {
   readonly kind: "fighter";
   readonly tactics: TacticsConfig;
   readonly locomotion: LocomotionConfig;
-  readonly navigation?: NavigationConfig;
+  /** Its navigation, any part of the role (`navigatorOf`): the game's where it names none. */
+  readonly navigation?: PartConfig;
   readonly guard: CoverGuardConfig | ShieldGuardConfig;
   readonly executors: readonly ExecutorConfig[];
   readonly actions: readonly ActionConfig[];
@@ -139,6 +140,8 @@ export interface OptionsConfig extends SkillKit {
 /** Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. */
 export interface QuadrupedConfig {
   readonly kind: "quadruped";
+  /** Its navigation, any part of the role (`navigatorOf`): the game's where it names none. */
+  readonly navigation?: PartConfig;
   /** Immutable bite cells for physical qualification; retained by recipes and replay. */
   readonly tuning?: { readonly bite?: Partial<typeof REPTILE_BITE> };
 }

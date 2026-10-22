@@ -96,12 +96,15 @@ export function importsOf(file, text) {
 /**
  * **Where a case's code is cut**: the kinds list (each kind's controller begins its own code, which
  * a case holds for the kinds its world names), the world kinds list (each kind's builder begins its
- * own code, which a case holds for the kind of world it plays), the build's identity (its value is
- * the whole tree's, so a case holds no recording identity) and the mind data store (each key's
- * module joins the code of a case whose minds read it, `treeData`).
+ * own code, which a case holds for the kind of world it plays), each role's list of parts (each
+ * part's module begins its own code, which a case holds for the parts its minds' trees name,
+ * `treeKinds`), the build's identity (its value is the whole tree's, so a case holds no recording
+ * identity) and the mind data store (each key's module joins the code of a case whose minds read
+ * it, `treeData`).
  */
 export const CUTS = Object.freeze({
   kinds: "src/core/mind/kinds.ts", worlds: "src/evaluation/worlds.ts", identity: "src/build-identity.ts", store: "src/core/data/store.ts",
+  roles: Object.freeze(["src/core/mind/navigations.ts"]),
 });
 
 /** What every case plays besides its closure: the lockfile, the vendored solver and the installed one. */
@@ -110,11 +113,11 @@ const RUNTIME = (file) => file === "package-lock.json" || file.startsWith("vendo
 /**
  * A list's entries, each entry's module: refused unless `file` holds its imports and one exported
  * literal of what they import, and nothing else. The kinds list is an array (its kinds' modules in
- * its order), the world kinds list an object (each world kind's builder's module by its kind).
+ * its order); the world kinds list and a role's list an object (each kind's module by its kind).
  */
 function listOf(file, { source, ts }) {
   const bound = new Map(), refuse = (why) => { throw new Error(`${file} holds its imports and its list and nothing else: ${why}`); };
-  const object = file === CUTS.worlds, literal = object ? ts.isObjectLiteralExpression : ts.isArrayLiteralExpression;
+  const object = file === CUTS.worlds || CUTS.roles.includes(file), literal = object ? ts.isObjectLiteralExpression : ts.isArrayLiteralExpression;
   const entry = (element) => ts.isIdentifier(element) && bound.has(element.text) ? bound.get(element.text) : refuse(`an entry that is no imported name, ${element.getText(source)}`);
   let list = null;
   for (const statement of source.statements) {
@@ -128,7 +131,7 @@ function listOf(file, { source, ts }) {
     const [declaration, ...more] = exported ? statement.declarationList.declarations : [];
     if (list || !declaration || more.length > 0 || !declaration.initializer || !literal(declaration.initializer)) refuse(statement.getText(source).split("\n")[0]);
     list = !object ? declaration.initializer.elements.map(entry)
-      : Object.fromEntries(declaration.initializer.properties.map((property) => ts.isPropertyAssignment(property) && ts.isIdentifier(property.name)
+      : Object.fromEntries(declaration.initializer.properties.map((property) => ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name))
         ? [property.name.text, entry(property.initializer)] : refuse(`an entry that is no kind and imported name, ${property.getText(source)}`)));
   }
   return list ?? refuse("no list");
@@ -153,7 +156,8 @@ function storeModules(file, { source, ts }) {
 /**
  * **The file table**: every build input by path with the SHA-256 of its content (line endings
  * normalised), and for a module what it imports (`importsOf`); the kinds list names its kinds'
- * modules (`kinds`), the world kinds list its builders' (`worlds`) and the store its data's (`data`). What a case's code is drawn from
+ * modules (`kinds`), the world kinds list its builders' (`worlds`), a role's list its parts'
+ * (`parts`) and the store its data's (`data`). What a case's code is drawn from
  * (`fileTable`, read once a process).
  */
 function readFileTable() {
@@ -165,6 +169,7 @@ function readFileTable() {
       Object.assign(entry, { imports: read.imports, loads: read.loads, computed: read.computed });
       if (file === CUTS.kinds) entry.kinds = listOf(file, read);
       if (file === CUTS.worlds) entry.worlds = listOf(file, read);
+      if (CUTS.roles.includes(file)) entry.parts = listOf(file, read);
       if (file === CUTS.store) entry.data = storeModules(file, read);
     }
     files[file] = entry;
@@ -187,7 +192,7 @@ export function closureOf(files, entries, { cut = true } = {}) {
   const closure = new Set(), stack = [...entries];
   while (stack.length > 0) {
     const file = stack.pop();
-    if (closure.has(file) || cut && (file === CUTS.kinds || file === CUTS.worlds || file === CUTS.identity)) continue;
+    if (closure.has(file) || cut && (file === CUTS.kinds || file === CUTS.worlds || file === CUTS.identity || CUTS.roles.includes(file))) continue;
     const entry = files[file];
     if (!entry) throw new Error(`${file} is in a case's closure and is no build input`);
     if (entry.computed > 0) throw new Error(`${file} imports a module it names by no literal, so its closure cannot be read`);
@@ -212,10 +217,11 @@ const digestOf = (files, paths) => {
  *   the lockfile and the solvers: what every case plays, whatever its world.
  * - `own(kind)`: a kind's own code, its controller's closure less the environment, with
  *   `assets/entrants/<kind>/`; `data(key)` likewise the closure of a mind data key's module.
- * - `code({ world, kinds, data })`: a case's, the environment with the own code of the kind of
- *   world it plays (its builder's closure less the environment, the builder as the world kinds list
- *   names it), of each kind of mind its world names and of each data key their minds read
- *   (`added`): its `digest` is the case key's `code`, its `files` what a record's commit must hold
+ * - `code({ world, kinds, parts, data })`: a case's, the environment with the own code of the kind
+ *   of world it plays (its builder's closure less the environment, the builder as the world kinds
+ *   list names it), of each kind of mind its world names, of each part their trees name that a
+ *   role's list holds (its module's closure less the environment) and of each data key their minds
+ *   read (`added`): its `digest` is the case key's `code`, its `files` what a record's commit must hold
  *   unchanged, and `own` the digest of `added` alone, null where nothing is added (a version's
  *   `code`, `src/evaluation/record.ts`, read of a subject's parts, which name no world).
  */
@@ -225,7 +231,8 @@ export function caseCoder(files, caseModule, kinds) {
   const environment = closureOf(files, ["src/evaluation/play.ts", caseModule]);
   for (const file of Object.keys(files)) if (RUNTIME(file)) environment.add(file);
   const beyond = (entry) => [...closureOf(files, [entry])].filter((file) => !environment.has(file));
-  const owned = new Map(), data = new Map(), built = new Map(), codes = new Map();
+  const owned = new Map(), data = new Map(), built = new Map(), partCode = new Map(), codes = new Map();
+  const listedParts = Object.assign({}, ...CUTS.roles.map((list) => files[list]?.parts ?? {}));
   const own = (kind) => {
     if (!owned.has(kind)) {
       const at = kinds.indexOf(kind);
@@ -246,13 +253,20 @@ export function caseCoder(files, caseModule, kinds) {
     if (!built.has(kind)) built.set(kind, beyond(module));
     return built.get(kind);
   };
+  /** A part's own code where a role's list holds it; none where none does, its code the environment's or its mind's. */
+  const part = (kind) => {
+    if (!Object.hasOwn(listedParts, kind)) return [];
+    if (!partCode.has(kind)) partCode.set(kind, beyond(listedParts[kind]));
+    return partCode.get(kind);
+  };
   return {
     environment: { digest: digestOf(files, environment), files: [...environment].sort() },
     own, data: read,
     code(named) {
-      const id = JSON.stringify([named.world ?? null, [...new Set(named.kinds)].sort(), [...new Set(named.data)].sort()]);
+      const parts = [...new Set(named.parts ?? [])].filter((kind) => Object.hasOwn(listedParts, kind)).sort();
+      const id = JSON.stringify([named.world ?? null, [...new Set(named.kinds)].sort(), parts, [...new Set(named.data)].sort()]);
       if (!codes.has(id)) {
-        const added = new Set([...named.world ? world(named.world) : [], ...named.kinds.flatMap(own), ...named.data.flatMap(read)]);
+        const added = new Set([...named.world ? world(named.world) : [], ...named.kinds.flatMap(own), ...parts.flatMap(part), ...named.data.flatMap(read)]);
         codes.set(id, { digest: digestOf(files, [...environment, ...added]), files: [...environment, ...added].sort(), added: [...added].sort(),
           own: added.size > 0 ? digestOf(files, added) : null });
       }

@@ -20,6 +20,12 @@ export interface Controller<C extends MindConfig = MindConfig> extends Part<C> {
    * the spec's reference pose.
    */
   builtIn(spec: BodySpec, config: C): Pose;
+  /**
+   * Its own parts, each of a role below a mind: offered only in its own minds' slots
+   * (`kindsFor`), a fault in another mind's tree (`treeFaults`), and its own code, which a case
+   * holds only where it plays this mind (`caseCoder`).
+   */
+  readonly parts?: readonly Part[];
   create(host: BodyHost, config: C, wiring: MindWiring): MindMade;
 }
 

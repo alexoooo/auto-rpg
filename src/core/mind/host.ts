@@ -7,6 +7,7 @@ import type { World } from "../world.ts";
 import { createPolicyBody, type ActuatorModel, type Policy } from "./direct.ts";
 import { hostedBody, type Hosted } from "./hosted.ts";
 import type { OwnBody } from "./mind.ts";
+import type { PartMakers } from "./makers.ts";
 import type { MindWiring } from "./minds.ts";
 import type { Senses } from "./senses.ts";
 import type { SheetLog } from "./sheets.ts";
@@ -19,7 +20,7 @@ type Trusted = { readonly log?: SheetLog };
 
 /**
  * **What a mind's maker is given in place of the world and the built body**: the body's
- * description, the world's clock, and the ways to take the body, one of which it uses once:
+ * description, the world's clock, what makes its parts from their configs (`parts`), and the ways to take the body, one of which it uses once:
  * under the command layers (`command`, which gives back the body its drivers have), under a host
  * of its own and its sub-minds (`hosted`), or under a policy of observations and checked actions
  * (`policy`). Each takes the fight's grants as the wiring gives them.
@@ -27,18 +28,22 @@ type Trusted = { readonly log?: SheetLog };
 export interface BodyHost {
   readonly spec: BodySpec;
   readonly clock: Clock;
+  readonly parts: PartMakers;
   command(options: Omit<BodyOptions, keyof Grants | keyof Trusted>): Body;
   hosted(make: (own: OwnBody, senses: () => Senses) => Hosted): void;
   policy(make: (model: ActuatorModel) => Policy): void;
 }
 
-/** A host for `built` in `world` under `grants`, its sheets written in `log` if given, and the body its mind took through it (`made`), which the fight holds. */
-export function bodyHost(built: BuiltBody, world: World, grants: Grants, log?: SheetLog): { readonly host: BodyHost; made(): PhysicalBody } {
+/**
+ * A host for `built` in `world` under `grants`, its parts made by `parts`, its sheets written in
+ * `log` if given, and the body its mind took through it (`made`), which the fight holds.
+ */
+export function bodyHost(built: BuiltBody, world: World, grants: Grants, parts: PartMakers, log?: SheetLog): { readonly host: BodyHost; made(): PhysicalBody } {
   let body: PhysicalBody | null = null;
   const take = () => { if (body) throw new Error("a mind takes its body once"); };
   const given = { senses: grants.senses, assist: grants.assist, log };
   const host: BodyHost = Object.freeze({
-    spec: built.spec, clock: clockOf(world),
+    spec: built.spec, clock: clockOf(world), parts,
     command(options: Omit<BodyOptions, keyof Grants | keyof Trusted>) {
       take();
       const commanded = createBody(built, world, { ...options, ...given, contactIdentity: grants.contactIdentity });
@@ -54,8 +59,5 @@ export function bodyHost(built: BuiltBody, world: World, grants: Grants, log?: S
   } };
 }
 
-/** A mind `make` makes through a host of `built` (`bodyHost`) under `wiring`'s grants, with the body it took: how a test or a study makes one mind of its own. */
-export function hostedMind<W extends Grants, M extends object>(built: BuiltBody, world: World, wiring: W, make: (host: BodyHost, wiring: W) => M): M & { readonly body: PhysicalBody } {
-  const { host, made } = bodyHost(built, world, wiring), mind = make(host, wiring);
-  return { ...mind, body: made() };
-}
+/** What a fight grants a body (`Grants`): what a mind made apart from a fight is given (`hostedMind`). */
+export type HostGrants = Grants;

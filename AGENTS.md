@@ -169,11 +169,12 @@ it never imports them.
 
 ## Tests
 
-The gate (`npm test`, every `tests/*.test.mjs`) holds five contracts: the step's time and
+The gate (`npm test`, every `tests/*.test.mjs`) holds six contracts: the step's time and
 allocation (`tests/core-step-cost.test.mjs`), the core's imports and arithmetic
 (`tests/core-boundary.test.mjs`), what a Mind may read and do (`tests/mind-contract.test.mjs`),
-what a Commander may (`tests/command-contract.test.mjs`) and a working copy with no stray files
-(`tests/workspace.test.mjs`).
+what a Commander may (`tests/command-contract.test.mjs`), a part of each converted role swapped in
+from outside `src/` by configuration alone (`tests/swap.test.mjs`) and a working copy with no
+stray files (`tests/workspace.test.mjs`).
 
 - **Tests are a liability; less is more.** A test is added only for a specific need, such as
   reproducing a bug that has been found, never casually or for coverage.

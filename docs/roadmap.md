@@ -47,8 +47,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [General AI testbed](plans/2026-10-22-ai-testbed.md) | Any part of a mind replaced from its own folder by configuration, carried by every screen and tool |
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
-1. **Now:** the AI testbed, step 1 then step 2 role by role; Vanguard on hold, converted as its
-   parts' roles are. In parallel: Movement B3's remainder (the stance walk's sideways run-away).
+1. **Now:** the AI testbed, step 2 role by role (step 1, navigation, has landed); Vanguard on
+   hold, converted as its parts' roles are. In parallel: Movement B3's remainder (the stance walk's sideways run-away).
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
    - Ratings step 10's other research batteries when next worked on; step 9 when a question

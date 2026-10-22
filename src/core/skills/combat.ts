@@ -85,7 +85,7 @@ const HOLD: LegsAsk = Object.freeze({ kind: "hold" });
 export function pathParts(body: Body, { paths, kick, execution, turnLimit, turnStartup, ground = false, overlap = false }: CombatSettings = {}): SkillParts {
   const actions: PathAction[] = (["straight", "cross", "hook", "downward", "overhand", "uppercut"] as const).map(family => ({ name: family, family }));
   return {
-    legs: locomotion(body.envelope, turnLimit, turnStartup), guard: guardSkill(body.built.spec),
+    legs: locomotion(body.envelope, turnLimit, turnStartup), navigation: null, guard: guardSkill(body.built.spec),
     executors: [{ name: "paths", executor: pathExecutor(body, actions, { paths, execution, overlap }) },
       ...(kick ? [{ name: "kicks", executor: kickExecutor(body, ["kick"], kick) }] : [])],
     actions: [...actions.map(action => ({ name: action.name, executor: "paths", effectors: ["hand.left", "hand.right"] })),

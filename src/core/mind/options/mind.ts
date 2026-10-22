@@ -112,7 +112,7 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
       return reflexes.apply(now, { ...walk.constrain(now, asked, near), ...(facing === null ? {} : { face: facing }), guard: NO_COVER });
     } };
   let skills: Skills;
-  skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, host.clock, config, driving, () => skills?.report.ledger ?? []));
+  skills = driveBy(body, tactics, (made, driving) => fighterSkills(made, host.clock, host.parts, config, driving, () => skills?.report.ledger ?? []));
   sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, instance: skills.instance, readiness: skills.readiness };
   return { skills, state: skills.state };
 }

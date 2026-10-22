@@ -12,7 +12,7 @@ import { actionResources } from "./action-resources.ts";
 import { guardPosture, type GuardSkill } from "./guard.ts";
 import { STANCE_LOWER, type Locomotion } from "./locomotion.ts";
 import type { SupportSkill } from "./support-fold.ts";
-import { createNavigator, type NavigationConfig } from "../mind/navigation.ts";
+import type { Navigator } from "../mind/navigator.ts";
 import { directMovement } from "../mind/movement.ts";
 import { cos, hypot, sin } from "../math/real.ts";
 
@@ -22,7 +22,11 @@ export interface SkillParts {
   readonly actions: readonly ActionBinding[];
   readonly legs: Locomotion;
   readonly guard: GuardSkill;
-  readonly navigation?: NavigationConfig;
+  /**
+   * What turns the tactics' movement requests into walks and keeps a walk asked clear of what is
+   * sensed (`PartMakers.navigator`); none, a movement request is refused and a walk goes as asked.
+   */
+  readonly navigation: Navigator | null;
   readonly support?: SupportSkill | null;
   /** A free hand's hold of what it holds (`holdUp`), asked of each hand neither a cover nor an action drives; absent, the posture's. */
   readonly hold?: ((side: Side) => PointTask | null) | null;
@@ -35,12 +39,12 @@ export type Holders = Record<string, number | "default">;
 export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelope" | "afterPhysics">, tactics: Pick<Tactics, "state" | "engagement">, services: SkillParts) {
   const { executors, actions } = services;
   const { legs, guard } = services, support = services.support ?? null;
-  const navigation = createNavigator(body.built.spec, services.navigation);
+  const navigation = services.navigation;
   const models = bodyEffectors(body.built).map(e => e.model), feet = footStatesOf(body.built).map(f => f.segment.spec.name);
   const resources = actionResources(body.muscles.channels.map(c => c.name), models, feet);
   const allControls = resources.controls(Object.keys(resources.footprints)), supportControls = resources.controls(["legs", "trunk"]);
   const instances = actionInstances(executors, actions, resources), guarding = guardPosture(body.built.spec);
-  const state = { actions: instances.state, legs: legs.state, navigation: navigation.state, support: support?.state ?? null, tactics: tactics.state ?? null,
+  const state = { actions: instances.state, legs: legs.state, navigation: navigation?.state ?? null, support: support?.state ?? null, tactics: tactics.state ?? null,
     command: { posture: guarding, pushes: [], stance: null } as BodyCommand, owners: {} as Holders,
     reservations: {} as Record<string, number>,
     /** Whether the last step's owner of the stance let a walk through: what a route may ask of the legs now. */
@@ -67,11 +71,11 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     get heading() { return legs.heading; }, get pace() { return legs.pace; }, get reference() { return legs.reference; },
     get actions() { return instances.live; }, get ledger() { return instances.ledger; }, holders: state.owners, reservations: state.reservations,
     get engagement() { return tactics.engagement; },
-    navigation: navigation.report,
+    ...(navigation ? { navigation: navigation.report } : {}),
     ...(support ? { support: support.report } : {}),
   };
   const resume = (view: BodyView): void => {
-    instances.resume(view); legs.resume(view); guard.resume(view); support?.resume(view); navigation.resume();
+    instances.resume(view); legs.resume(view); guard.resume(view); support?.resume(view); navigation?.resume();
   };
   return {
     state, report, resume, instance: instances.instance, readiness: instances.readiness,
@@ -79,7 +83,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     gait: { get envelope() { return legs.envelope; }, get stopping() { return legs.stopping; } },
     release(view: BodyView, reason: "takeover" | "idle" | "replaced" = "takeover") {
       instances.interrupt(view, reason); legs.resume(view); guard.resume(view); support?.resume(view);
-      navigation.resume();
+      navigation?.resume();
       if (reason === "replaced") stopObserving();
       for (const key in state.reservations) delete state.reservations[key];
       for (const control of allControls) state.owners[control] = "default";
@@ -92,12 +96,13 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       const ceiling = Math.min(requested.pace ?? (velocity && !requested.movement ? hypot(velocity[0], velocity[1]) : Infinity),
         requested.walk && body.envelope ? body.envelope.ways.forward.value : Infinity);
       const supportAllowsWalk = !support || support.report.stage === "stand" || support.report.stage === "wait";
-      const result = navigation.step({ view, report }, request, legs, ceiling, dt, state.walkable && supportAllowsWalk, requested.travelFacing === true);
+      if (!navigation && requested.movement) throw new Error("a movement request to a skill set with no navigation");
+      const result = navigation?.step({ view, report }, request, legs, ceiling, dt, state.walkable && supportAllowsWalk, requested.travelFacing === true) ?? null;
       let intent = requested;
-      if (requested.movement) intent = { ...requested, move: requested.travelFacing && result.move ? [hypot(result.move[0], result.move[1]), 0] : result.move,
+      if (requested.movement && result) intent = { ...requested, move: requested.travelFacing && result.move ? [hypot(result.move[0], result.move[1]), 0] : result.move,
         face: requested.travelFacing ? result.face ?? requested.face : requested.face,
         ...(result.destination === undefined ? {} : { destination: result.destination }) };
-      else if (view.senses.solids?.length && velocity) intent = { ...requested, move: navigation.steer(view, h, velocity) };
+      else if (navigation && view.senses.solids?.length && velocity) intent = { ...requested, move: navigation.steer(view, h, velocity) };
       const near = context(intent);
       if (intent.interrupt?.length) instances.stop(view, intent.interrupt, "its mind took what it held");
       instances.step(view, intent.actions, near, dt);

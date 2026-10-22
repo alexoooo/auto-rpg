@@ -162,7 +162,7 @@ function createVanguard(host: BodyHost, given: VanguardConfig, wiring: MindWirin
         },
       } };
     });
-    const skills = fighterSkills(made, host.clock, config, driving, ledger, executors);
+    const skills = fighterSkills(made, host.clock, host.parts, config, driving, ledger, executors);
     return low ? low.skills(skills) : skills;
   });
   return { skills, state: skills.state };

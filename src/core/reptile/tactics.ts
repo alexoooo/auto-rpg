@@ -9,7 +9,7 @@ import { pointAtToRef, rootFrameToRef } from "../control/kinematics.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { BodyRef } from "../read-body.ts";
 import { STAND_TRAVEL, type QuadrupedView, type TravelOrders } from "./crawl.ts";
-import { createNavigator } from "../mind/navigation.ts";
+import type { Navigator } from "../mind/navigator.ts";
 import type { GaitLimits } from "../mind/travel.ts";
 import { cos, sin } from "../math/real.ts";
 import type { StrikeCycleState } from "../skills/strike-cycle.ts";
@@ -25,8 +25,8 @@ interface QuadrupedIntent extends TravelOrders { readonly biteAt: Vec3 | null; r
  * Each tooth seeks the first exposed sensed surface along its closing arc, with its piercing
  * direction facing the surface. Preparation retains that point in the opponent segment frame.
  */
-export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => Orders | null, T = REPTILE_BITE,
-  biteTarget?: (view: QuadrupedView) => Vec3 | null): Tactics<{ readonly view: QuadrupedView; readonly bite: Pick<StrikeCycleState, "phase"> }, QuadrupedIntent> & { readonly state: { pending: number; phase: StrikeCycleState["phase"]; target: { foe: string; part: string; local: Vec3; tooth: string } | null; navigation: ReturnType<typeof createNavigator>["state"] } } {
+export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => Orders | null, T: typeof REPTILE_BITE, navigation: Navigator,
+  biteTarget?: (view: QuadrupedView) => Vec3 | null): Tactics<{ readonly view: QuadrupedView; readonly bite: Pick<StrikeCycleState, "phase"> }, QuadrupedIntent> & { readonly state: { pending: number; phase: StrikeCycleState["phase"]; target: { foe: string; part: string; local: Vec3; tooth: string } | null; navigation: object } } {
   const mouth = new Vector3(), { head, lower, hinge, teeth } = mouthOf(own.built);
   const carried = new Vector3(), inverse = new Quaternion();
   const frame = { position: new Vector3(), rotation: new Quaternion() }, closing = new Vector3(), shiftDirection = new Vector3();
@@ -34,7 +34,6 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
   const ownBodies = new Set<BodyRef>([...own.built.segments.values()].map(part => part.body));
   const loaded = () => [head, lower].some(part => own.built.physics.contactsOf(part.body)
     .some(contact => contact.impulse > 0 && (!contact.other || !ownBodies.has(contact.other))));
-  const navigation = createNavigator(own.built.spec);
   const state = { pending: 0, phase: null as StrikeCycleState["phase"], target: null as { foe: string; part: string; local: Vec3; tooth: string } | null, navigation: navigation.state };
   const tip = lower.spec.points!.bite!.value, lip = head.spec.points!.mouth!.value;
   const contact = pointAtToRef([hinge], [[T.open * T.contactAt]], tip, new Vector3());

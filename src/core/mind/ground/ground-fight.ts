@@ -26,7 +26,7 @@ export function groundFight(own: OwnBody, view: BodyView, _clock: Clock, config:
     resume() {}, goal() { return null; }, place() { return null; }, drive() { return { kind: "drive", posture: config.kicks === "none" ? {} : GROUND_LEGS, pushes: [] }; } };
   const producer = actionProducer(), executor = groundKick(own), rest = poseDrive(own.muscles);
   const skills = skillSet({ built: own.built, muscles: own.muscles, view, envelope: null, afterPhysics }, {}, {
-    legs, guard: guardSkill(own.spec), executors: [{ name: "ground", executor }],
+    legs, navigation: null, guard: guardSkill(own.spec), executors: [{ name: "ground", executor }],
     actions: [{ name: "ground-kick", executor: "ground", effectors: ["foot.left", "foot.right"] }] });
   const state = { active: false, settled: 0, next: "right" as Side, sequence: 0, kicks: 0, tracker: tracker.state, skills: skills.state, producer: producer.state };
   const supported = () => view.ground?.position === "back" || view.ground?.position === "sitting";

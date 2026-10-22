@@ -2,7 +2,7 @@ import { createBody, type BodyOptions, type HostedBody } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
-import { treeFaults } from "../core/mind/catalog.ts";
+import { partMakers, treeFaults } from "../core/mind/catalog.ts";
 import type { FighterConfig } from "../core/mind/config.ts";
 import { driveFighter, fighterBody } from "../core/mind/fighter.ts";
 import type { MindWiring } from "../core/mind/minds.ts";
@@ -125,7 +125,7 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
     drive(script, driving = {}) {
       input = driving;
       const { skills, watch } = driving;
-      return driven = driveFighter(body.driver, world, tuned(mind, skills), { ...wiring, script }, (tactics) => {
+      return driven = driveFighter(body.driver, world, partMakers(built.spec), tuned(mind, skills), { ...wiring, script }, (tactics) => {
         const made = barred(around(tactics), strikes);
         return watch ? watched(made, watch) : made;
       });

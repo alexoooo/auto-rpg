@@ -10,7 +10,7 @@ import type { Skill } from "./skill.ts";
 import { recipeExecutor, type Placed } from "./strike.ts";
 import { REPERTOIRE, type Repertoire } from "./strikes.ts";
 import type { SupportReport } from "./support-fold.ts";
-import type { NavigationReport } from "../mind/navigation.ts";
+import type { NavigationReport } from "../mind/navigator.ts";
 import type { GaitLimits } from "../mind/travel.ts";
 
 /** The body's sole action runtime composes discrete commitments with continuous services. */
@@ -51,7 +51,7 @@ export interface RecipeOptions {
 /** A named recipe action, continuous locomotion and the unreserved hands' guard. */
 function recipeParts(body: Body, { repertoire = REPERTOIRE, placed, steer, cover }: RecipeOptions = {}): SkillParts {
   const spec = body.built.spec;
-  return { legs: locomotion(body.envelope), guard: guardSkill(spec, cover),
+  return { legs: locomotion(body.envelope), navigation: null, guard: guardSkill(spec, cover),
     executors: [{ name: "recipe", executor: recipeExecutor(spec, ["strike"], { repertoire, placed, steer, guard: guardPosture(spec) }) }],
     actions: [{ name: "strike", executor: "recipe", effectors: ["hand.left", "hand.right"] }] };
 }

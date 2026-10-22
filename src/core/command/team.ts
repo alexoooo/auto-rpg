@@ -1,5 +1,5 @@
 import type { GroundPoint } from "../mind/movement.ts";
-import type { NavigationReport } from "../mind/navigation.ts";
+import type { NavigationReport } from "../mind/navigator.ts";
 import type { Orders } from "../mind/orders.ts";
 import type { GaitLimits } from "../mind/travel.ts";
 import type { Command } from "./commands.ts";

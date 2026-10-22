@@ -1,4 +1,4 @@
-import { partOf, PARTS, treeFaults, treeRefusal, withoutTuning } from "../core/mind/catalog.ts";
+import { isKind, partOf, treeFaults, treeRefusal, withoutTuning } from "../core/mind/catalog.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { Provision } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -26,7 +26,7 @@ function treeOf(text: string | null): MindConfig | null {
   let value: unknown;
   try { value = JSON.parse(text); } catch { return null; }
   const kind = (value as { kind?: unknown } | null)?.kind;
-  if (typeof kind !== "string" || !Object.hasOwn(PARTS, kind) || partOf({ kind }).role !== "mind") return null;
+  if (!isKind(kind) || partOf({ kind }).role !== "mind") return null;
   return withoutTuning(value as MindConfig);
 }
 
