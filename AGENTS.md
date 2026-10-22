@@ -11,7 +11,7 @@ going.
 npm ci                    # the exact lockfile, never `install`
 npm run dev               # http://localhost:5180, strictPort
 npm run check             # tsc --noEmit
-npm test                  # the gate: step cost, the core's boundary, the mind contract, no strays
+npm test                  # the gate: step cost, the core's boundary, the Mind and Commander contracts, no strays
 npm run build             # check, then vite build
 npm run match -- <a> <b>  # the standard match of two minds: each on each side, one digest
 npm run evaluate -- <id>  # an evaluation's cases, played where no row has them; --write keeps a record
@@ -118,6 +118,10 @@ it never imports them.
   world or the built body; the folders `mind`, `skills`, `control`, `reptile`, `entrants` import
   no engine, world, builder or read-view maker and read no `globalThis`, beside the adapters the
   boundary test names.
+- **A Commander reaches the world only through its team**: its members' pooled view (`TeamView`,
+  `src/core/command/team.ts`) and the level its host answers (`TeamLevel`) in, its members' orders
+  out; its memory in `state`. `src/core/command/` imports no engine, world, body, enlistment, mind
+  host or senses hub, and reads no `globalThis`.
 - **Cosmetics never carry authority.** The visible room is not the collision arena;
   `validateRoomPlacements` (`src/arena/room.ts`) refuses a piece naming a missing collider, and a
   solid-looking piece within reach that names none.
@@ -165,10 +169,11 @@ it never imports them.
 
 ## Tests
 
-The gate (`npm test`, every `tests/*.test.mjs`) holds four contracts: the step's time and
+The gate (`npm test`, every `tests/*.test.mjs`) holds five contracts: the step's time and
 allocation (`tests/core-step-cost.test.mjs`), the core's imports and arithmetic
-(`tests/core-boundary.test.mjs`), what a Mind may read and do (`tests/mind-contract.test.mjs`)
-and a working copy with no stray files (`tests/workspace.test.mjs`).
+(`tests/core-boundary.test.mjs`), what a Mind may read and do (`tests/mind-contract.test.mjs`),
+what a Commander may (`tests/command-contract.test.mjs`) and a working copy with no stray files
+(`tests/workspace.test.mjs`).
 
 - **Tests are a liability; less is more.** A test is added only for a specific need, such as
   reproducing a bug that has been found, never casually or for coverage.

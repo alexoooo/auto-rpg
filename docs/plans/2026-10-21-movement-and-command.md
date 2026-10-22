@@ -46,12 +46,12 @@ against N, are later work outside this plan.
   at most a ceiling; the navigator routes it; Move's rules choose the gait; one rule sets the speed
   (`travelSpeed`, `src/core/mind/travel.ts`) from the limits the gait states (`Locomotion.envelope`,
   `Locomotion.stopping`); the legs carry it out ([architecture](../architecture.md#minds)).
-- **The Crypt's Commander is screen code**: `DungeonRun` (`src/dungeon/run.ts`, 672 lines) decides
-  each enemy's target (the nearest party member it sees) and movement (`perceive`,
-  `enemyMovement`); each party member's target, exploration goal, following the hero, post, slot
+- **The Crypt's party is led by screen code**: its enemies are a team under the `independent`
+  Commander (`src/core/command/independent.ts`), but `DungeonRun` (`src/dungeon/run.ts`) decides
+  each party member's target, exploration goal, following the hero, post, slot
   about a shared destination and way through doors (`choose`, `memberMovement`, `slot`,
   `throughDoors`); and the person's four mouse orders (`Order`, `src/dungeon/commands.ts`: idle,
-  lock, force, attack-move). None of it is in the core or selectable, and no AI can play the party.
+  lock, force, attack-move). None of the party's is in the core or selectable, and no AI can play the party.
 - **The Arena's person steers one body**: WASD a direct goal relative to the camera, Shift walks,
   the pointer sets facing, the left button attacks the segment it points at (`personOrders`,
   `src/arena/main.ts`). The bout tapes each side's orders (`Duel.tape`), so it replays with no
@@ -65,29 +65,15 @@ against N, are later work outside this plan.
 
 ## Steps
 
-B0, B1 and B2 can start; B3 and B4 follow B1. Each step is its own
+B0 has landed: the Commander contract (`src/core/command/`, [architecture](../architecture.md#command)),
+with the Crypt's enemies as its first kind (`independent`). B1 and B2 can start; B3 and B4 follow B1. Each step is its own
 toolkit commits under the normal gate, naming the fingerprint cases it moves; a step that claims no
 change of behaviour shows the fingerprint unmoved.
 
 ### Part B: command
 
-#### B0. The Commander contract
-
-| Aspect | Contract |
-|---|---|
-| Where it lives | `src/core/command/`, a registered list (`COMMANDERS`) beside `CONTROLLERS`; config plain data by kind, with faults and a factory, like a Mind's; its maker gets a host (`TeamHost`), never the world |
-| What it reads (`TeamView`) | each member's id, model, place, heading, whether it is down, vitality and current orders; each member's navigation report, only where it is of that member's own order; every body any member senses, pooled; the level as the team has explored it, given by the level's adapter as data (walkable ground, doors, the exit) |
-| What it keeps | its own memory (last sightings, explored places, plans), in `state` |
-| What it gives | for each member, orders or no change |
-| When it runs | in `World.step`'s sensing phase, before the Minds, every `rate` seconds and at once on an event (a member down, a foe first seen, a new command) |
-
-Check: `tests/core-boundary.test.mjs` extends to `command/`; once, each registered Commander runs
-in a bout, forks, and replays from the orders it gave alone.
-
 #### B1. The Crypt's Commanders, no change of behaviour
 
-- An enemy Commander takes from `DungeonRun` waking, picking the nearest party member seen,
-  approaching, and returning home or to a post.
 - A party Commander takes following the leader, choosing targets, exploring, slots about a shared
   destination and the way through doors, with the person's commands as its input.
 - `DungeonRun` keeps the map, levels (`levelsOf`), the run's status, and opening doors physically.
@@ -142,7 +128,8 @@ well as keep clear.
   engines only once a Crypt run is (today only an Arena bout is); until then the Ratings screen
   neither opens nor confirms its cases.
 
-Check: the gate, and B0's check (run, fork, replay from its orders alone) over both Commanders.
+Check: the gate, and the Commander contract (`tests/command-contract.test.mjs`: run, fork, replay from
+its orders alone) over both Commanders.
 
 ## Checks
 

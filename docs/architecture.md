@@ -31,6 +31,7 @@ vocabulary: the `Intent` tactics return (`src/core/mind/intent.ts`) and the `Ski
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, guard, strike |
 | Tactics | `src/core/mind/tactics.ts`, `action-tactics.ts`, `ordered.ts`, `targets.ts`, `movement.ts` | what the body should do, from what it senses |
 | Minds | `src/core/mind/config.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `options/`, `rise/`, `ground/`; `src/core/entrants/` | a body's mind made from its config by the controller of its kind |
+| Command | `src/core/command/` | a team's members given orders by its Commander, from what they sense |
 
 ### Spec
 
@@ -512,6 +513,31 @@ replays it from its order sheets. How well it fights is a measurement:
   part that reads mind data (`DATA_CASES`: Research rise, the learned rise, the learned run);
   `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
 
+### Command
+
+A **Commander** (`src/core/command/team.ts`) stands to a team as a Mind stands to a body: it knows
+what its members sense, pooled, and its own memory, and acts only by giving them orders (`Orders`),
+which their Minds carry out while they defend themselves.
+
+| Aspect | Contract |
+|---|---|
+| Kinds | `COMMANDERS` (`commanders.ts`), by config kind, each with defaults, faults and a maker; `createCommander(host, config)` |
+| Its maker gets | a `TeamHost`: the level as its adapter answers it (`TeamLevel`: sight, room to stand and pass, routes, the explored edge, doors), never the world |
+| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, its footprint, reach, home and navigation report; every other body the members sense; whether its host has it look this step; a leader's live input (`Lead`) |
+| It keeps | its memory in `state`, plain data |
+| It gives | each member's orders (`TeamDecision`), whether it looked, and on asking, whom each fights, what it does (`MemberReport`), whether it leaves a member idle, and a notice for its leader |
+| It hears | a leader's command (`TeamCommand`, `commands.ts`) at once |
+
+Its host asks it once a step, after the senses and before every Mind. The kinds:
+
+| Kind | File | Leads |
+|---|---|---|
+| `independent` | `independent.ts` | each member at the nearest foe it sees, on to where it last saw one, else home: the Crypt's enemies |
+
+`tests/core-boundary.test.mjs` holds `src/core/command/` to no engine, world, body, enlistment,
+mind host or senses hub; `tests/command-contract.test.mjs` has each kind lead an Arena bout as a
+team of one, fork it with its memory copied and play it again from its orders alone.
+
 ## Experimental separate equipment
 
 An item may be simulated as its own body, gripped by joints, beside the game's compound held items
@@ -565,7 +591,7 @@ world for learning and search.
 1. the sensing hooks (a fight's senses, `createSenses`; a tape's orders);
 2. the before-step hooks in the order added: each body's `driveMuscles` (muscles read the joints,
    the mind steps, the assist gives, the motors are set), and a page's own (the Crypt's
-   `DungeonRun.plan`, the Lab's shove);
+   `DungeonRun.plan`, added first, which asks its Commanders; the Lab's shove);
 3. one solver step, which writes every node; the clock advances;
 4. the post-physics observations (`afterPhysics`: effector feedback, contacts);
 5. the after-step hooks (readings, blows, pointed loads). Observations finish before any event can

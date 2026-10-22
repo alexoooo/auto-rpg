@@ -28,14 +28,22 @@ import type { NavigationReport } from "../core/mind/navigation.ts";
 import type { Skills } from "../core/skills/skills.ts";
 import type { Orders } from "../core/mind/orders.ts";
 import { cos, sin } from "../core/math/real.ts";
+import { STAND_ORDERS } from "../core/mind/orders.ts";
+import { createCommander } from "../core/command/commanders.ts";
+import { SIGHT_METRES } from "../core/command/independent.ts";
+import { ARRIVAL } from "../core/command/goals.ts";
+import type { Commander, MemberView, SensedBody, TeamLevel, TeamView } from "../core/command/team.ts";
 import { doorApproach } from "./door-approach.ts";
 
 /**
  * **A crypt run**: the level's colliders are fixed boxes in a world
  * (`buildDungeonWorld`), and the party and the enemies are bodies (`src/core/`), each driven
- * by tactics that carry out what the run plans for it. The run plans with the map: who sees whom,
- * whom each fights, and each destination; the person's orders reach the party only
+ * by tactics that carry out what the run plans for it. The run plans the party with the map: who
+ * it sees, whom each member fights, and each destination; the person's orders reach the party only
  * through that plan (`DungeonCommands`), and tactics reach their body only through their intent.
+ * The enemies are a team under a Commander (`src/core/command/`), each at the nearest member it
+ * sees (`independentCommander`); the run is its host, answering for the map (`TeamLevel`), looking
+ * when the party looks, and giving each enemy's mind the orders it gave.
  *
  * - **The hero** is the Warrior unless the page picks another, **the companions** whom the page names,
  *   **the enemies** the map's encounters; point-only maps supply skeletons. Model defaults
@@ -106,7 +114,7 @@ export interface DungeonActor {
   readonly vitality: number;
   /** What the page drew for it (its skin), shown while it is in sight, and picked to select or lock it. */
   readonly meshes: AbstractMesh[];
-  target: DungeonActor | null; home: Point; lastSeen: Point | null; alertedUntil: number;
+  target: DungeonActor | null; home: Point; lastSeen: Point | null;
   /** The unexplored place selected by the run; its Mind owns every route to it. */
   goal: Point | null; readonly radius: number;
   /** Navigation feedback and geometric route from its selected Mind, where it exposes the role. */
@@ -140,8 +148,6 @@ export function ordersForActor(actor: DungeonActor): Orders {
 /** How far behind the hero an unposted companion trails before it walks after it, metres: clear of the hero's reach
  * (`docs/reference/play.md#following`). */
 const TRAIL_METRES = 2.5;
-/** How far an enemy sees the party along a clear line (`canSee`), m (`docs/reference/play.md#sight`). */
-const SIGHT_METRES = 14;
 /** How near a standing party member comes before an enemy is built: beyond its sight, so it is standing when it can
  * first see (`docs/reference/play.md#sight`). */
 export const WAKE_METRES = SIGHT_METRES + 2;
@@ -170,16 +176,10 @@ const AIM_COSINE = 0.3;
  * picked, `keep`.
  */
 const PARTY_SIGHT = Object.freeze({ locked: 12, pick: 8, keep: 5 });
-/**
- * Who sees whom is read every `perceive`, s; an enemy pursues its last seen place for `alerted`
- * after losing sight (`docs/reference/play.md#run-timing`).
- */
-const RUN_TIMING = Object.freeze({ perceive: 0.2, alerted: 7 });
-/**
- * Arrival tolerances, m (`docs/reference/play.md#arrival`): an ordered destination, a companion's
- * post, an exploration goal, the last place a target was seen, and the exit.
- */
-const ARRIVAL = Object.freeze({ point: 0.4, post: 0.6, explored: 0.5, lastSeen: 0.5, exit: 1.1 });
+/** Who sees whom is read every `perceive`, s, and at once after a party member's plan is reset (`docs/reference/play.md#run-timing`). */
+const RUN_TIMING = Object.freeze({ perceive: 0.2 });
+/** How near the exit a standing party member wins the run, m (`docs/reference/play.md#arrival`). */
+const EXIT_METRES = 1.1;
 /**
  * Where several members sent to one floor point stand, m (`docs/reference/play.md#following`): no two slots nearer
  * than `apart`, on eight bearings of each of these rings about the point.
@@ -281,6 +281,9 @@ export class DungeonRun {
   private readonly rules = rulebook("dungeon");
   private readonly options: DungeonRunOptions;
   private readonly senses: SensesHub;
+  /** The enemies' Commander, and the orders it last gave each by id: an enemy given none stands. */
+  private readonly foes: Commander;
+  private readonly given = new Map<string, Orders>();
 
   constructor(scene: Scene, options: DungeonRunOptions) {
     this.options = options;
@@ -289,6 +292,7 @@ export class DungeonRun {
     this.world = createWorld(scene, options.engine);
     this.senses = createSenses(this.world);
     this.level = buildDungeonWorld(scene, this.map, options.visuals ?? true, this.world.physics);
+    this.foes = createCommander({ level: this.ground(() => {}) }, { kind: "independent" });
     // Before any body's own hooks, so each body's tactics read this step's plan.
     this.planning = this.world.beforeStep(() => this.plan());
     const create = (id: string, model: BodyModel, at: Point, side: DungeonActor["side"]): DungeonActor => {
@@ -306,7 +310,7 @@ export class DungeonRun {
         get limp() { return !this.alive && this.fighter!.body.level !== "full"; },
         get held() { return this.fighter?.body.level === "held"; },
         get vitality() { return this.fighter?.pool.bar() ?? 1; },
-        target: null, home: { ...at }, lastSeen: null, alertedUntil: 0, goal: null, radius: info.radius,
+        target: null, home: { ...at }, lastSeen: null, goal: null, radius: info.radius,
         get navigation() { return (this.fighter?.minded as { readonly skills?: Skills } | undefined)?.skills?.report.navigation ?? null; },
         order: IDLE, routeStart: 0, opening: null, post: null, replan: false, plan: { move: null, face: null, attack: null },
       };
@@ -350,7 +354,7 @@ export class DungeonRun {
         }
         return null;
       },
-      orders: () => ordersForActor(actor),
+      orders: () => actor.side === "party" ? ordersForActor(actor) : this.delivered(actor),
     });
     this.watch?.dispose();
     // The party first: a touch is read from the fighter given first (`watchBlows`), and the party's bodies are the fewer.
@@ -376,7 +380,7 @@ export class DungeonRun {
 
   /** Whether `actor` waits: an enemy in the fight with no target, not alerted, standing at its home. */
   private waiting(actor: DungeonActor): boolean {
-    return actor.side === "enemy" && actor.alive && !actor.target && actor.alertedUntil <= this.clock &&
+    return actor.side === "enemy" && actor.alive && this.foes.idle(actor.id, this.clock) &&
       distance(actor.feet(), actor.home) < HOME_METRES;
   }
 
@@ -402,11 +406,8 @@ export class DungeonRun {
 
   /** What the party sees from where its members stand: every member's cells, one set, a cell one member sees not looked at for the next. */
   private sight(from: readonly Point[]): Set<number> {
-    let opened = 0;
-    for (const door of this.map.doors) if (door.open) opened++;
-    if (this.seeing?.opened !== opened) this.seeing = { index: sightIndex(this.map), opened };
-    const visible = new Set<number>();
-    for (const at of from) reveal(this.map, at, this.explored, 12, this.seeing.index, visible);
+    const index = this.sightIndex(), visible = new Set<number>();
+    for (const at of from) reveal(this.map, at, this.explored, 12, index, visible);
     return visible;
   }
 
@@ -447,20 +448,6 @@ export class DungeonRun {
     if (!members.length) return;
     const places = members.map(member => member.feet());
     this.visible = this.sight(places);
-    // An enemy goes for the nearest party member it can see.
-    for (const actor of this.enemies) {
-      if (!actor.fighter || !actor.alive || actor.held) { actor.target = null; continue; }
-      const at = actor.feet();
-      let seen = -1, best = Infinity;
-      for (let i = 0; i < members.length; i++) {
-        const d = distance(at, places[i]);
-        if (d < best && canSee(this.map, at, places[i], SIGHT_METRES, this.seeing?.index)) { best = d; seen = i; }
-      }
-      if (seen >= 0) {
-        actor.lastSeen = { x: places[seen].x, z: places[seen].z }; actor.alertedUntil = this.clock + RUN_TIMING.alerted;
-        actor.target = members[seen];
-      } else actor.target = null;
-    }
     members.forEach((member, i) => this.choose(member, places[i]));
   }
 
@@ -559,13 +546,6 @@ export class DungeonRun {
     return null;
   }
 
-  /** An enemy pursues its sensed target, the last place it saw, or its home. */
-  private enemyMovement(actor: DungeonActor): MovementRequest | null {
-    if (actor.target) return this.approach(actor.target, actor.attackMetres);
-    const goal = actor.alertedUntil > this.clock ? actor.lastSeen : actor.home;
-    return goal ? placeMovement(goal, ARRIVAL.point) : null;
-  }
-
   /** A blocked objective can first request opening a door; physical routing stays with the Mind. */
   private throughDoors(actor: DungeonActor, request: MovementRequest | null): MovementRequest | null {
     if (!request || request.kind === "direct") { actor.opening = null; return request; }
@@ -599,6 +579,7 @@ export class DungeonRun {
     this.levels();
     if (this.status !== "playing") {
       for (const actor of this.actors) actor.plan = { move: null, face: null, attack: null };
+      this.given.clear();
       return;
     }
     if (this.commands.revision !== this.commandRevision) {
@@ -620,13 +601,14 @@ export class DungeonRun {
       if (member.order.kind === "idle" && member === this.hero) this.notice = "";
     }
     this.level.openNearby(this.actors.filter(a => a.fighter && a.alive).map(a => a.feet()));
-    if (this.clock >= this.nextPerception) { this.perceive(); this.nextPerception = this.clock + RUN_TIMING.perceive; }
-    for (const actor of this.actors) {
+    const looked = this.clock >= this.nextPerception;
+    if (looked) { this.perceive(); this.nextPerception = this.clock + RUN_TIMING.perceive; }
+    for (const actor of this.party) {
       if (!actor.fighter || !actor.alive || actor.held) {
         actor.plan = { move: null, face: null, attack: null };
         continue;
       }
-      const move = this.throughDoors(actor, actor.side === "party" ? this.memberMovement(actor) : this.enemyMovement(actor));
+      const move = this.throughDoors(actor, this.memberMovement(actor));
       const at = actor.feet(), target = actor.target;
       const face = target ? direction(at, target.feet())
         : actor === this.hero && this.commands.mode.facing && this.commands.cursor ? direction(at, this.commands.cursor) : null;
@@ -637,10 +619,58 @@ export class DungeonRun {
         else if (this.reportOf(actor, move)?.status === "stalled") this.notice = "Movement stalled";
       }
     }
+    for (const [id, orders] of this.foes.decide(this.view(this.enemies, this.party, looked)).orders) this.given.set(id, orders);
     // A recovering party member keeps the run alive; reaching the exit requires an upright body.
     const alive = this.party.filter(member => member.alive);
     if (!alive.length) this.status = "dead";
-    else if (alive.some(member => !member.fighter?.body.down && distance(member.feet(), this.map.exit) < ARRIVAL.exit)) this.status = "won";
+    else if (alive.some(member => !member.fighter?.body.down && distance(member.feet(), this.map.exit) < EXIT_METRES)) this.status = "won";
+  }
+
+  /** The ground as a team of the run knows it (`TeamLevel`): the map's, its doors as they stand; `look` is what the team's look reveals. */
+  private ground(look: TeamLevel["look"]): TeamLevel {
+    const map = this.map;
+    return {
+      sees: (from, to, metres) => canSee(map, from, to, metres, this.sightIndex()),
+      look,
+      fits: (at, radius) => walkable(map, at, radius, true),
+      passes: (from, to, radius) => clearSegment(map, from, to, radius, true),
+      reaches: (from, to, radius) => findPath(map, from, to, radius).length > 0,
+      frontier: (from, radius) => explorationGoal(map, from, this.explored, radius),
+      doorway: (from, to, radius) => doorApproach(map, this.level.sensedSolids, from, to, radius),
+      open: (door) => map.doors.find((d) => d.id === door)?.open ?? false,
+    };
+  }
+
+  /** What a team of `members` senses now: its built members, and every built body of `foes`. */
+  private view(members: readonly DungeonActor[], foes: readonly DungeonActor[], look: boolean): TeamView {
+    const built = (actor: DungeonActor) => actor.fighter !== null;
+    return {
+      time: this.clock, look, lead: null,
+      members: members.filter(built).map((actor): MemberView => ({
+        id: actor.id, at: actor.feet(), fighting: actor.alive, held: actor.held, radius: actor.radius,
+        reach: actor.attackMetres, home: actor.home, navigation: actor.navigation,
+      })),
+      others: foes.filter(built).map((actor): SensedBody => ({ id: actor.id, at: actor.feet(), fighting: actor.alive })),
+    };
+  }
+
+  /**
+   * The orders `actor`'s mind is given now: its Commander's, but with no movement once it stands
+   * within the band of the foe it attacks, where its mind's own footwork takes over.
+   */
+  private delivered(actor: DungeonActor): Orders {
+    const orders = this.given.get(actor.id) ?? STAND_ORDERS, move = orders.move;
+    const foe = orders.foe === undefined ? undefined : this.actors.find((other) => other.id === orders.foe);
+    if (!foe || move?.kind !== "range" || move.focus !== foe.id || distance(actor.feet(), foe.feet()) > move.far) return orders;
+    return Object.fromEntries(Object.entries(orders).filter(([key]) => key !== "move")) as unknown as Orders;
+  }
+
+  /** The map's sight index, made again once another door has opened. */
+  private sightIndex(): SightIndex {
+    let opened = 0;
+    for (const door of this.map.doors) if (door.open) opened++;
+    if (this.seeing?.opened !== opened) this.seeing = { index: sightIndex(this.map), opened };
+    return this.seeing.index;
   }
 
   /** `n` steps of the world, each running the run's plan and then every body. */
