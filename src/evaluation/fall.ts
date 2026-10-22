@@ -14,7 +14,8 @@ import { addArenaSolids } from "../arena/room.ts";
 import { buildBody, type BuiltBody } from "../core/build/build-body.ts";
 import { loadEngine, type EngineName } from "../core/engine/engines.ts";
 import { loadoutFaults, type Held, type Loadout } from "../core/items/held.ts";
-import { isFighter, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
+import { takesScript } from "../core/mind/catalog.ts";
+import type { MindConfig } from "../core/mind/config.ts";
 import { modelHolding, modelSpec, type BodyModel, type HumanoidModel } from "../core/models.ts";
 import { commandable } from "../core/body.ts";
 import { enlist } from "../core/combatant.ts";
@@ -58,8 +59,8 @@ export interface FallCase {
   readonly mind: MindConfig;
 }
 
-/** Whether `fall` is played on the Lab's stand bed: a fighter, whose tactics take the Lab's script, on a body the command layers read; otherwise on the lone-body bed. */
-export const onStandBed = (fall: Pick<FallCase, "model" | "mind">): boolean => isFighter(fall.mind) && commandable(modelSpec(fall.model));
+/** Whether `fall` is played on the Lab's stand bed: a mind that takes the Lab's script (`takesScript`), on a body the command layers read; otherwise on the lone-body bed. */
+export const onStandBed = (fall: Pick<FallCase, "model" | "mind">): boolean => takesScript(fall.mind) && commandable(modelSpec(fall.model));
 
 /** The longest recovery a fall is given, s, and how long past it a fall may run. */
 export const FALL_CAP = 30, FALL_AFTER = 4;
@@ -142,8 +143,8 @@ export async function buildFall(fall: FallCase, engine: EngineName, given: {
   addArenaSolids(world.physics);
   const body = buildBody(spec, world, placement);
   const address = verifying ? { ...start.address, ground: { ...start.address.ground, impulse: targetImpulse(body) } } : start.address;
-  // On the stand bed the mind is a fighter's (`onStandBed`).
-  const actor = labActor(body, world, { mind: fall.mind as FighterConfig, ...(subs ? { subs } : {}),
+  if (!takesScript(fall.mind)) throw new Error("the stand bed drives a mind that takes its script");
+  const actor = labActor(body, world, { mind: fall.mind, ...(subs ? { subs } : {}),
     assist: balanceCeiling(balance, balancePercent(rulebook("arena"))) });
   const cap = Math.min(FALL_CAP, fall.cap ?? FALL_CAP);
   const run = startGround(actor, address, { cap }), check = run.check.state;

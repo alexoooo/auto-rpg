@@ -416,8 +416,10 @@ fight reads. A fight passes the config through and reads nothing in it.
   joints, effectors, contacts, muscles). `createBody` refuses a body they cannot read with what it
   lacks (`commandRefusal`); a mind built on them fits only such a body (`takesCommands`). The host applies the fight's grants (senses, assist ceiling, contact labels); no maker
   can widen them.
-- A mind that runs the game's skills gives them (`MindMade.skills`) for reports; a screen that
-  drives a fighter's tactics asks `isFighter`.
+- A mind that runs the game's skills gives them (`MindMade.skills`) for reports; a scene that
+  drives a mind by a script of its own (the Lab's modes, a fall on the stand bed) asks its
+  controller how (`Controller.scripted`, `takesScript`), whatever its kind. A part names the
+  phases it reports and how a person is shown each (`Part.phases`, `phaseLabels`).
 - A fight enlists every body one way (`enlist`, `src/core/combatant.ts`): built with what it holds,
   its pool, the fight's senses and fixed geometry, and the mind its config makes.
 - The mind's folders (`mind`, `skills`, `control`, `reptile`, `entrants`) import no engine, world,

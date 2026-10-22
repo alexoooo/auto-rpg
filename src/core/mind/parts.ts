@@ -76,6 +76,13 @@ export interface Part<C extends PartConfig = PartConfig> {
   faults(config: C, parts: PartLookup): readonly string[];
   /** The mind data a part of `config` reads when built (`dataOf`); none where absent. Its slots' parts answer for their own (`treeData`). */
   reads?(config: C): readonly DataKey[];
+  /**
+   * What a person is shown for each phase it reports (`Tactics.engagement`'s `phase`, or the
+   * name of a sub-mind that has the body), by the phase's name: a label, or null for a phase a feed
+   * leaves unsaid because what it does shows itself (an attack, as its action). A phase no part
+   * names is shown as its own name (`phaseLabels`).
+   */
+  readonly phases?: Readonly<Record<string, string | null>>;
 }
 
 /** Every key of `C`, each `true`: the keys a config of it may hold, a key missing or extra refused by the compiler. */

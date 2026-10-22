@@ -2,10 +2,9 @@ import { createBody, type BodyOptions, type HostedBody } from "../core/body.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
-import { partLookup, treeFaults } from "../core/mind/catalog.ts";
+import { partLookup, partOf, scriptedBy, treeFaults } from "../core/mind/catalog.ts";
 import type { FighterConfig } from "../core/mind/config.ts";
 import type { PartConfig } from "../core/mind/parts.ts";
-import { driveFighter, fighterBody } from "../core/mind/fighter.ts";
 import type { MindWiring } from "../core/mind/minds.ts";
 import { clockSenses } from "../core/mind/senses.ts";
 import type { Sight, Tactics } from "../core/mind/tactics.ts";
@@ -31,8 +30,8 @@ interface Driving {
 
 /**
  * **A lab body and what drives it.** Every mode stands its body through an actor, so what a page
- * or an experiment gives a body is given here, and a mode knows none of it. Its mind is a fighter's
- * config (`ActorOptions.mind`), carrying out game orders or a mode's script. A mode takes its
+ * or an experiment gives a body is given here, and a mode knows none of it. Its mind is one that
+ * takes a script (`ActorOptions.mind`, `Controller.scripted`), carrying out game orders or a mode's script. A mode takes its
  * actor over: it disposes it with itself.
  */
 export interface Actor {
@@ -48,7 +47,7 @@ export interface Actor {
 }
 
 interface ActorOptions {
-  /** An explicit experiment's pre-created sub-minds, in place of the selected fighter's. */
+  /** An explicit experiment's pre-created sub-minds, in place of the selected mind's. */
   readonly subs?: BodyOptions["subs"];
   /** Its mind: the script on the game's recipe skills, lying still once down (`LAB_PRESETS.script`), unless given. */
   readonly mind?: FighterConfig;
@@ -114,15 +113,17 @@ function tuned(config: FighterConfig, skills: RecipeOptions | undefined): Fighte
   };
 }
 
-/** `built`, a human in its reference pose on the ground of `world`, as a mode's actor; a mind with a fault in its tree (`treeFaults`, given a script) is refused. */
+/** `built`, a human in its reference pose on the ground of `world`, as a mode's actor; a mind that takes no script (`scriptedBy`), or with a fault in its tree (`treeFaults`, given a script), is refused. */
 export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.script.config, assist, stance, measuring, allows = () => true, around = (tactics) => tactics, subs }: ActorOptions = {}): Actor {
+  const scripted = scriptedBy(mind);
+  if (!scripted) throw new Error(`${partOf(mind).label} takes no script, so the Lab cannot drive it`);
   const fault = treeFaults(mind, ["script"])[0];
   if (fault) throw new Error(fault);
   let input: Driving = {};
   const clock = clockSenses(world);
   const wiring: MindWiring = { name: "lab", orders: (senses) => input.orders?.(senses) ?? null, assist,
     senses: () => (input.senses ?? clock)(), contactIdentity: (other) => input.contactIdentity?.(other) ?? null };
-  const body = createBody(built, world, { ...fighterBody(mind, wiring, partLookup), stance, measuring,
+  const body = createBody(built, world, { ...scripted.body(mind, wiring, partLookup), stance, measuring,
     ...(subs ? { subs } : {}) });
   const strikes = { left: allows(heldIn(built.spec, "left")), right: allows(heldIn(built.spec, "right")) };
   let driven: Skills | null = null;
@@ -131,7 +132,7 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
     drive(script, driving = {}) {
       input = driving;
       const { skills, watch } = driving;
-      return driven = driveFighter(body.driver, world, partLookup, tuned(mind, skills), { ...wiring, script }, (tactics) => {
+      return driven = scripted.drive(body.driver, world, partLookup, tuned(mind, skills), { ...wiring, script }, (tactics) => {
         const made = barred(around(tactics), strikes);
         return watch ? watched(made, watch) : made;
       });

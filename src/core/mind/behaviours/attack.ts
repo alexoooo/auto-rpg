@@ -7,7 +7,7 @@ import { anyBody } from "../parts.ts";
 interface AttackConfig { readonly kind: "attack" }
 
 export const ATTACK: BehaviourPart<AttackConfig> = deepFreeze({
-  role: "behaviour", label: "Attack", stage: "game", fields: [], slots: [], defaults: { kind: "attack" },
+  role: "behaviour", label: "Attack", stage: "game", phases: { attack: null }, fields: [], slots: [], defaults: { kind: "attack" },
   keys: { kind: true }, fits: anyBody, faults: () => [],
   make: () => ({ decide(turn) {
     if (turn.requested) return;

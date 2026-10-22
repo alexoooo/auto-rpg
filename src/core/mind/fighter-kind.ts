@@ -2,7 +2,7 @@ import { deepFreeze } from "../state.ts";
 import { actionConfigFaults, armedActions } from "./action-config.ts";
 import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, DUELLIST, PUNCHER, RECIPE_FIGHTER, SCRAPPER, type FighterConfig } from "./config.ts";
 import { controller } from "./controller.ts";
-import { createFighter, fighterFaults } from "./fighter.ts";
+import { createFighter, driveFighter, fighterBody, fighterFaults } from "./fighter.ts";
 import { fitsAll, slotList, slotOne, takesCommands, type Slot } from "./parts.ts";
 
 /**
@@ -33,5 +33,6 @@ export const FIGHTER_MIND = controller<FighterConfig>({
     duellist: { label: "Duellist", config: DUELLIST },
   }),
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
+  scripted: { body: fighterBody, drive: driveFighter },
   create: createFighter,
 });

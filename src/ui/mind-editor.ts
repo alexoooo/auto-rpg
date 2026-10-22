@@ -1,7 +1,7 @@
 import { techniqueEditor } from "./mind-ground.ts";
 import { isKind, kindsFor, partOf } from "../core/mind/catalog.ts";
 import { actionEditor, selectionEditor } from "./mind-actions.ts";
-import { isFighter, type BehavioursConfig, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
+import type { BehavioursConfig, FighterConfig, MindConfig } from "../core/mind/config.ts";
 import type { PartField } from "../core/mind/fields.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Slot } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -122,7 +122,8 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], entr
       block.append(shown);
     }
     if (config.kind === "behaviours") block.append(selectionEditor(config as BehavioursConfig, write, readOnly));
-    if (isFighter(config)) block.append(actionEditor(config, write, readOnly));
+    // A part whose slots hold executors pairs its actions with them (`ActionConfig`): the action editor is the executor role's.
+    if (slotsOf(part, config).some((slot) => slot.role === "executor") && "actions" in config) block.append(actionEditor(config as FighterConfig, write as (config: FighterConfig) => void, readOnly));
     for (const slot of slotsOf(part, config)) block.append(slot.role === "technique" && slot.many
       ? techniqueEditor((config as unknown as Record<string, readonly PartConfig[]>)[slot.key] ?? [], kindsFor(slot.role, spec, provides, current.kind),
         (techniques) => write({ ...config, [slot.key]: techniques } as PartConfig), readOnly)

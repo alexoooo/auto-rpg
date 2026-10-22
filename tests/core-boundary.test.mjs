@@ -176,11 +176,36 @@ export const probe = (mesh: ProbeMesh, hand: { right: number }): unknown[] =>
  */
 const EXACT_MATH = new Set(["PI", "SQRT2", "abs", "max", "min", "sqrt", "ceil", "floor", "trunc", "round", "sign", "fround", "imul"]);
 
-/** The modules beside the core whose numbers go into a bout's world: the arena's bout and its solids, and the batteries' cases. */
-const WORLD_BUILDERS = ["src/arena/duel.ts", "src/arena/room.ts", "src/arena/levels.ts", "src/environment/furniture.ts", "src/lab/ground-environment.ts",
-  "src/dungeon/run.ts", "src/dungeon/map.ts", "src/dungeon/door-approach.ts", "src/evaluation/bout.ts",
-  "src/evaluation/blade/cases.ts", "src/evaluation/buckler/cases.ts", "src/evaluation/court/cases.ts", "src/evaluation/crypt.ts",
-  "src/evaluation/crypt-clear/cases.ts"];
+/** Every module outside the core that `entries` reach through their relative imports, themselves included. */
+function reachedBeside(entries) {
+  const seen = new Set();
+  const visit = (file) => {
+    if (seen.has(file) || !file.endsWith(".ts")) return;
+    seen.add(file);
+    for (const { fileName } of ts.preProcessFile(fs.readFileSync(path.join(ROOT, file), "utf8"), true, true).importedFiles)
+      if (fileName.startsWith(".")) visit(path.posix.normalize(path.posix.join(path.posix.dirname(file), fileName)));
+  };
+  entries.forEach(visit);
+  return [...seen].filter((file) => !inCore(file));
+}
+
+/** The bout's builder (`WORLD_BUILDERS.bout`, `src/evaluation/worlds.ts`) and the list of every evaluation's cases. */
+const BOUT_BUILDER = "src/evaluation/bout.ts", CASE_LISTS = "src/evaluation/cases.ts";
+
+/**
+ * The Crypt run's own world: its map, its run and its approach to a door, held to the bout's
+ * arithmetic ahead of the run's being the same in every JavaScript engine, which its scenery is not yet.
+ */
+const CRYPT_BUILDERS = ["src/dungeon/run.ts", "src/dungeon/map.ts", "src/dungeon/door-approach.ts", "src/evaluation/crypt.ts", "src/lab/ground-environment.ts"];
+
+/**
+ * The modules beside the core whose numbers go into a bout's world: all the bout's builder
+ * reaches, each evaluation's cases (`CASE_LISTS`' imports), which write their recipes, and the Crypt's.
+ */
+const worldBuilders = () => [...new Set([...reachedBeside([BOUT_BUILDER]),
+  ...ts.preProcessFile(fs.readFileSync(path.join(ROOT, CASE_LISTS), "utf8"), true, true).importedFiles
+    .map(({ fileName }) => path.posix.normalize(path.posix.join(path.posix.dirname(CASE_LISTS), fileName))).filter((file) => file.endsWith("/cases.ts")),
+  ...CRYPT_BUILDERS])];
 
 /**
  * Each use in `text` of arithmetic an engine rounds its own way, as `"file what"`: a member of
@@ -204,8 +229,9 @@ function engineArithmetic(text, file) {
 }
 
 test("the core, and what builds a bout's world, compute with IEEE's operations and the core's own functions", () => {
-  const files = [...filesUnder(CORE).filter((name) => name.endsWith(".ts")), ...WORLD_BUILDERS];
-  assert.ok(files.includes("src/core/math/real.ts") && WORLD_BUILDERS.every((name) => fs.existsSync(path.join(ROOT, name))));
+  const builders = worldBuilders(), files = [...filesUnder(CORE).filter((name) => name.endsWith(".ts")), ...builders];
+  assert.ok(files.includes("src/core/math/real.ts") && ["src/arena/duel.ts", "src/arena/room.ts", "src/evaluation/blade/cases.ts"].every((name) => builders.includes(name))
+    && builders.every((name) => fs.existsSync(path.join(ROOT, name))), `the builders found are ${builders.join(", ")}`);
   assert.deepEqual(files.flatMap((file) => engineArithmetic(fs.readFileSync(path.join(ROOT, file), "utf8"), file)), []);
   // The control: each way of reaching the engine's arithmetic is found, and what is exact, or only named, is not.
   const probe = `

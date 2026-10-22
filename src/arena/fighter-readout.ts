@@ -102,20 +102,18 @@ function result(record: Ended): string {
   }
 }
 
-/** Named tactical decisions are quieter than executor stages or per-step control writes. */
-const BEHAVIOURS: Readonly<Record<string, string>> = {
-  guard: "Guarding", approach: "Approaching", move: "Moving", evade: "Evading", clear: "Making room",
-  edge: "Holding distance", flee: "Retreating", lost: "Finding opponent", "close-in": "Closing in",
-  "keep-distance": "Keeping distance", "break-clinch": "Breaking clinch",
-  "stand-up": "Getting up", "support-recovery": "Rising and steadying", lie: "Lying still",
-};
 const title = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 const actionLabel = (action: Pick<ActionStatus, "action" | "effector">) => `${title(action.action)} · ${partLabel(action.effector)}`;
 
-/** A bounded presentation history reads reports after every step and never writes to them. */
+/**
+ * A bounded presentation history reads reports after every step and never writes to them. Named
+ * tactical decisions are quieter than executor stages or per-step control writes, each shown by
+ * the label its part gives it (`labels`, `phaseLabels`), and not at all where that is null.
+ */
 export function actionFeed() {
   const state = { entries: [] as FeedEntry[], sequence: 0, serial: 0, pending: null as string | null,
     since: 0, settled: null as string | null, time: -Infinity };
+  let labels: Readonly<Record<string, string | null>> = {};
   const reset = () => {
     state.entries.length = 0; state.sequence = 0; state.serial = 0;
     state.pending = null; state.settled = null; state.since = 0; state.time = -Infinity;
@@ -127,6 +125,8 @@ export function actionFeed() {
     }
   };
   return { reset,
+    /** Show phases by `next` (`phaseLabels` of the mind being read). */
+    label(next: Readonly<Record<string, string | null>>): void { labels = next; },
     sample(report: SkillReport | undefined, body: Pick<PhysicalBody, "has" | "level">, time: number): void {
       if (time < state.time) reset();
       state.time = time; prune(time);
@@ -155,12 +155,12 @@ export function actionFeed() {
           detail: result(record), time: record.ended, active: false });
       }
       const phase = commandsBody(body) ? report.engagement?.phase ?? null : body.level === "full" && body.has !== "nobody" ? body.has : null;
-      const behaviour = phase === "attack" || phase === "out" ? null : phase;
+      const behaviour = phase === null || labels[phase] === null ? null : phase;
       if (behaviour !== state.pending) { state.pending = behaviour; state.since = time; }
       if (behaviour === null) { state.settled = null; return; }
       if (behaviour !== state.settled && time - state.since >= .3) {
         state.settled = behaviour;
-        state.entries.unshift({ key: `behaviour:${++state.serial}`, kind: "behaviour", label: BEHAVIOURS[behaviour] ?? title(behaviour.replaceAll("-", " ")),
+        state.entries.unshift({ key: `behaviour:${++state.serial}`, kind: "behaviour", label: labels[behaviour] ?? title(behaviour.replaceAll("-", " ")),
           detail: "", active: false, time });
       }
     },

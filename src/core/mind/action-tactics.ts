@@ -215,7 +215,7 @@ function selectionFaults(config: BehavioursConfig): readonly string[] {
 
 /** **Behaviours** (`actionTactics`): a ranked list of behaviours over one focus and one choice of action. */
 export const BEHAVIOUR_TACTICS: TacticsPart<BehavioursConfig> = deepFreeze({
-  role: "tactics", label: "Behaviours", stage: "game", fields: [], slots: [slotList("list", "Behaviours", "behaviour")], defaults: FIGHTING,
+  role: "tactics", label: "Behaviours", stage: "game", phases: { guard: "Guarding", lost: "Finding opponent", out: null }, fields: [], slots: [slotList("list", "Behaviours", "behaviour")], defaults: FIGHTING,
   keys: { kind: true, target: true, choose: true, list: true }, fits: anyBody, faults: selectionFaults,
   actionFaults(config, actions) {
     if (config.choose.kind !== "rules") return [];

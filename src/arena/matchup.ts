@@ -11,7 +11,7 @@ import type { Side } from "../core/spec/body.ts";
 import { parseMind, writeMind, type LinkedMind } from "../ui/mind-link.ts";
 import { legacyAttributes, readAttributes } from "../ui/attribute-link.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
-import { LEVELS, type ArenaLevel } from "./levels.ts";
+import { gapFits, LEVELS, type ArenaLevel } from "./levels.ts";
 
 /** A link chooses a named stage; malformed UI input starts on the open stage. */
 export function readLevel(search: string): ArenaLevel {
@@ -128,11 +128,8 @@ export function readLoadouts(search: string): Readonly<Record<Side, Loadout>> | 
   return loadouts;
 }
 
-/**
- * The gap, m, and the cap, s, a link may ask for (`DuelRecipe.gap`, `.capSeconds`), a numeric setting:
- * from the two all but touching to the arena's floor, and from a second to ten minutes.
- */
-const LINK_RANGE = { gap: [1, 8], cap: [1, 600] } as const;
+/** The cap, s, a link may ask for (`DuelRecipe.capSeconds`): from a second to ten minutes. */
+const CAP_RANGE = [1, 600] as const;
 
 /** The number an address gives `key`, if it is one from `least` to `most`; undefined for anything else. */
 function readWithin(search: string, key: string, [least, most]: readonly [number, number]): number | undefined {
@@ -141,11 +138,14 @@ function readWithin(search: string, key: string, [least, most]: readonly [number
   return Number.isFinite(value) && value >= least && value <= most ? value : undefined;
 }
 
-/** How far apart an address stands the two, m: `&gap=`; undefined, and the bout's own, for anything else. */
-export const readGap = (search: string): number | undefined => readWithin(search, "gap", LINK_RANGE.gap);
+/** How far apart an address stands the two on `level`, m: `&gap=` where the level lets them (`gapFits`); undefined, and the level's own, for anything else. */
+export function readGap(search: string, level: ArenaLevel): number | undefined {
+  const gap = readWithin(search, "gap", [-Infinity, Infinity]);
+  return gap !== undefined && gapFits(level, gap) ? gap : undefined;
+}
 
 /** How long an address lets the bout run, s: `&cap=`; undefined, and the bout's own, for anything else. */
-export const readCap = (search: string): number | undefined => readWithin(search, "cap", LINK_RANGE.cap);
+export const readCap = (search: string): number | undefined => readWithin(search, "cap", CAP_RANGE);
 
 /** A side's choice of mind (`MINDS`), separate from anatomy, equipment and appearance. */
 type Control = string;
@@ -244,7 +244,7 @@ export const readRecovery = (search: string): number | null | undefined =>
 
 /** The bout `search` asks for on `level`, each side's attributes as the page holds them. */
 export function recipeOf(search: string, attributes: Readonly<Record<Side, AttributeOverrides>>, level: ArenaLevel): DuelRecipe {
-  const matchup = readMatchup(search), gap = readGap(search), capSeconds = readCap(search), loadouts = readLoadouts(search);
+  const matchup = readMatchup(search), gap = readGap(search, level), capSeconds = readCap(search), loadouts = readLoadouts(search);
   return {
     left: matchup.left, right: matchup.right, recoverySeconds: readRecovery(search) ?? null, attributes, level, minds: readMinds(search),
     ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(loadouts ? { loadouts } : {}),

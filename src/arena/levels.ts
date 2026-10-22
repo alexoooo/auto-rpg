@@ -27,10 +27,16 @@ export function levelDefinition(level: ArenaLevel = "open") {
   return LEVELS[level];
 }
 
+/** Whether `level` lets its two stand `distance` apart, m: more than nothing, within its gap's range. */
+export function gapFits(level: ArenaLevel, distance: number): boolean {
+  const { min, max } = levelDefinition(level).gap;
+  return Number.isFinite(distance) && distance > 0 && distance >= min && distance <= max;
+}
+
 /** Spawn pairs scale only within their level's allowed gap; geometry is checked after posing. */
 export function levelSpawn(level: ArenaLevel, side: Side, gap?: number): { position: Vec3; heading: number } {
   const definition = levelDefinition(level), distance = gap ?? definition.gap.default;
-  if (!Number.isFinite(distance) || distance <= 0 || distance < definition.gap.min || distance > definition.gap.max)
+  if (!gapFits(level, distance))
     throw new Error(`invalid starting gap ${distance} for ${level}`);
   const spawn = definition.spawns[side];
   return { position: spawn.direction.map(v => v * distance / 2) as unknown as Vec3, heading: spawn.heading };

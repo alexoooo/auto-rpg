@@ -1,10 +1,24 @@
+import type { Body, BodyOptions } from "../body.ts";
+import type { Clock } from "../clock.ts";
 import type { Pose } from "../control/motor.ts";
+import type { Skills } from "../skills/skills.ts";
 import type { BodySpec } from "../spec/body.ts";
-import type { MindConfig } from "./config.ts";
+import type { FighterConfig, MindConfig } from "./config.ts";
 import type { BodyHost } from "./host.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
 import type { KeysOf, Part } from "./parts.ts";
 import type { PartLookup } from "./lookup.ts";
+import type { Tactics } from "./tactics.ts";
+
+/**
+ * How a scene drives a mind by a script of its own in its tactics' place (the Lab's modes, a fall
+ * on the stand bed): the options its body is made with, and the drive that hands the body its
+ * skills under the script (`MindWiring.script`). A mind that takes a script has a fighter's slots.
+ */
+export interface Scripted {
+  body(config: FighterConfig, wiring: MindWiring, parts: PartLookup): BodyOptions;
+  drive(body: Body, clock: Clock, parts: PartLookup, config: FighterConfig, wiring: MindWiring, around?: (tactics: Tactics) => Tactics): Skills;
+}
 
 /**
  * **A controller**: a kind of mind, as a part (`Part`) of role `mind`, with the keys its config
@@ -27,6 +41,8 @@ export interface Controller<C extends MindConfig = MindConfig> extends Part<C> {
    * holds only where it plays this mind (`caseCoder`).
    */
   readonly parts?: readonly Part[];
+  /** How a scene drives it by a script (`Scripted`); absent where it takes none. */
+  readonly scripted?: Scripted;
   create(host: BodyHost, config: C, wiring: MindWiring): MindMade;
 }
 

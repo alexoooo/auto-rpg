@@ -49,9 +49,12 @@ export function readCase(hash: string): LinkedCase | null {
   return { world: world as BoutWorld, commit: fragment.get("commit"), back: back !== null && back.startsWith("?play=ratings") ? back : null };
 }
 
-/** What `recipe` sets that the pickers do not show, by its field's name. */
+/** The recipe's fields the pickers show (`caseSearch`). */
+const SHOWN: ReadonlySet<string> = new Set(["left", "right", "level", "gap", "capSeconds", "recoverySeconds", "loadouts", "attributes", "minds"] satisfies (keyof DuelRecipe)[]);
+
+/** What `recipe` sets that the pickers do not show, by its field's name: every field but those they show. */
 export const unshown = (recipe: DuelRecipe): string[] =>
-  (["balance", "haste", "senseDelay", "balancePercent", "rules", "surfaces", "entry"] as const).filter((field) => recipe[field] !== undefined);
+  Object.entries(recipe).filter(([field, value]) => value !== undefined && !SHOWN.has(field)).map(([field]) => field);
 
 /**
  * The Arena address that shows `recipe`'s choices in the pickers: characters, level, gap, cap,

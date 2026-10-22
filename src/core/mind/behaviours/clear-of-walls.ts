@@ -7,7 +7,7 @@ import { anyBody } from "../parts.ts";
 interface ClearOfWallsConfig { readonly kind: "clear-of-walls" }
 
 export const CLEAR_OF_WALLS: BehaviourPart<ClearOfWallsConfig> = deepFreeze({
-  role: "behaviour", label: "Clear walls", stage: "game", fields: [], slots: [], defaults: { kind: "clear-of-walls" },
+  role: "behaviour", label: "Clear walls", stage: "game", phases: { clear: "Making room" }, fields: [], slots: [], defaults: { kind: "clear-of-walls" },
   keys: { kind: true }, fits: anyBody, faults: () => [],
   make({ spec }) {
     const radius = footRadius(spec);

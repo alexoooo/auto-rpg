@@ -7,7 +7,7 @@ import { PREDICTION, THREAT, threatReader } from "../threat.ts";
 interface EvadeConfig { readonly kind: "evade" }
 
 export const EVADE: BehaviourPart<EvadeConfig> = deepFreeze({
-  role: "behaviour", label: "Evade incoming contact", stage: "game", fields: [], slots: [], defaults: { kind: "evade" },
+  role: "behaviour", label: "Evade incoming contact", stage: "game", phases: { evade: "Evading" }, fields: [], slots: [], defaults: { kind: "evade" },
   keys: { kind: true }, fits: anyBody, faults: () => [],
   make() {
     const threat = threatReader();

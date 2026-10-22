@@ -7,7 +7,7 @@ import { anyBody } from "../parts.ts";
 interface FollowOrdersConfig { readonly kind: "follow-orders" }
 
 export const FOLLOW_ORDERS: BehaviourPart<FollowOrdersConfig> = deepFreeze({
-  role: "behaviour", label: "Follow orders", stage: "game", fields: [], slots: [], defaults: { kind: "follow-orders" },
+  role: "behaviour", label: "Follow orders", stage: "game", phases: { move: "Moving" }, fields: [], slots: [], defaults: { kind: "follow-orders" },
   keys: { kind: true }, fits: anyBody, faults: () => [],
   make: () => ({ decide(turn) {
     const { orders } = turn;

@@ -7,7 +7,7 @@ import { anyBody } from "../parts.ts";
 interface ClearOfFallenConfig { readonly kind: "clear-of-fallen" }
 
 export const CLEAR_OF_FALLEN: BehaviourPart<ClearOfFallenConfig> = deepFreeze({
-  role: "behaviour", label: "Clear fallen bodies", stage: "game", fields: [], slots: [], defaults: { kind: "clear-of-fallen" },
+  role: "behaviour", label: "Clear fallen bodies", stage: "game", phases: { clear: "Making room" }, fields: [], slots: [], defaults: { kind: "clear-of-fallen" },
   keys: { kind: true }, fits: anyBody, faults: () => [],
   make: () => ({ decide(turn) {
     const { focus } = turn;

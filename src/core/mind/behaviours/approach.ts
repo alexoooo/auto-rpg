@@ -12,7 +12,7 @@ import { anyBody } from "../parts.ts";
 interface ApproachConfig { readonly kind: "approach"; readonly spacing?: number; readonly spacingStep?: number; readonly travel?: number }
 
 export const APPROACH: BehaviourPart<ApproachConfig> = deepFreeze({
-  role: "behaviour", label: "Approach action", stage: "game", slots: [], defaults: { kind: "approach", spacing: 0, spacingStep: 0 },
+  role: "behaviour", label: "Approach action", stage: "game", phases: { approach: "Approaching" }, slots: [], defaults: { kind: "approach", spacing: 0, spacingStep: 0 },
   fields: [
     number<ApproachConfig, "spacing">("spacing", "Spacing", 0, 1, .05, "m"),
     number<ApproachConfig, "spacingStep">("spacingStep", "Miss adjustment", 0, .2, .01, "m"),

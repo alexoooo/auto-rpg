@@ -308,8 +308,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   levelPicker.addEventListener("change", () => {
     const query = new URLSearchParams(location.search), next = levelPicker.value as ArenaLevel;
     query.set("level", next);
-    const gap = readGap(location.search), policy = LEVELS[next].gap;
-    if (gap !== undefined && (gap < policy.min || gap > policy.max)) query.delete("gap");
+    if (readGap(location.search, next) === undefined) query.delete("gap");
     const draft = new URL(setupAddress());
     draft.searchParams.set("level", next);
     if (!query.has("gap")) draft.searchParams.delete("gap");

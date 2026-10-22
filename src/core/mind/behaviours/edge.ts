@@ -12,7 +12,7 @@ import { anyBody } from "../parts.ts";
 interface EdgeConfig { readonly kind: "edge"; readonly band: number; readonly patience: number }
 
 export const EDGE: BehaviourPart<EdgeConfig> = deepFreeze({
-  role: "behaviour", label: "Hold reach edge", stage: "game", slots: [], defaults: { kind: "edge", band: .25, patience: 4 },
+  role: "behaviour", label: "Hold reach edge", stage: "game", phases: { edge: "Holding distance" }, slots: [], defaults: { kind: "edge", band: .25, patience: 4 },
   fields: [number<EdgeConfig, "band">("band", "Reach margin", 0, 1, .05, "m"), number<EdgeConfig, "patience">("patience", "Patience", 0, 120, .1, "s")],
   keys: { kind: true, band: true, patience: true }, fits: anyBody, faults: nonnegative,
   make(_making, config) {

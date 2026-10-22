@@ -10,7 +10,7 @@
  * takeover and resumes across its handback. A body the command layers cannot read refuses a mind
  * on them for what they lack, at construction too, and every stock legs for what they stand on.
  * The stub Commander, a line of the Commanders list from outside `src/`, leads a team and is a
- * Crypt subject.
+ * Crypt subject. The Lab opens a fixture mind for what it takes, not for its kind.
  */
 import "./fixtures/swap/hooks.mjs";
 import test from "node:test";
@@ -39,6 +39,7 @@ const { saveState } = await import("../src/core/state.ts");
 const { COMMANDERS } = await import("../src/core/command/commanders.ts");
 const { teamOfOne } = await import("../src/arena/team.ts");
 const { CRYPT_CLEAR } = await import("../src/evaluation/crypt-clear/index.ts");
+const { labMind } = await import("../src/lab/scenarios.ts");
 
 /** The bout's steps and the step it is forked at. */
 const STEPS = 240, FORK = 120;
@@ -49,6 +50,11 @@ test("the fixture entrants are registered from outside src/", () => {
     assert.ok(Object.hasOwn(CONTROLLERS, config.kind), `the hook put ${config.kind}'s line in the kinds list`);
     assert.deepEqual(treeFaults(config), [], `${config.kind} holding every stub of its own has no fault`);
   }
+});
+
+test("the Lab plays the fixture fighter, which takes its script under a kind of its own, and refuses the options fixture, which takes none", () => {
+  assert.deepEqual(labMind(SWAP_DEFAULTS, spec, "stance"), { plays: SWAP_DEFAULTS, faults: [] });
+  assert.deepEqual(labMind(SWAP_OPTIONS_DEFAULTS, spec, "stance").faults, ["the Lab drives a mind that takes its script, as a fighter does"]);
 });
 
 for (const { part, at, mind, place } of STUBS) {

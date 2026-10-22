@@ -1,4 +1,5 @@
 import type { Combatant } from "../core/combatant.ts";
+import { phaseLabels } from "../core/mind/catalog.ts";
 import { actionFeed, damageReadout } from "./fighter-readout.ts";
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -43,7 +44,7 @@ export function fighterHud(side: string) {
   };
   return { element, reset,
     bind(next: Combatant): void {
-      reset(); fighter = next; reading = damageReadout(next.built.spec, next.pool);
+      reset(); fighter = next; reading = damageReadout(next.built.spec, next.pool); history.label(phaseLabels(next.mind));
       unavailable.hidden = !!next.minded.skills;
       for (const [x, label] of [[9, "R"], [91, "L"]] as const) {
         const text = document.createElementNS(SVG, "text");

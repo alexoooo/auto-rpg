@@ -7,7 +7,8 @@ import { MODEL_DISPLAY } from "../render/models.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
 import { hasteFrom } from "../core/human/attributes.ts";
 import { HELD, type Held, type Loadout } from "../core/items/held.ts";
-import { CLASSIC, isFighter, PUNCHER, RECIPE_FIGHTER, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
+import { takesScript } from "../core/mind/catalog.ts";
+import { CLASSIC, PUNCHER, RECIPE_FIGHTER, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
 import type { Provision } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { deepFreeze } from "../core/state.ts";
@@ -108,8 +109,8 @@ export const labStaging = (scenario: ScenarioId | null): Staging => scenario ===
  * (`mindFaults`): a faulty mind plays the scenario's default, Puncher in Attack and Script elsewhere.
  */
 export function labMind(config: MindConfig, spec: BodySpec, scenario: ScenarioId | null = null): { readonly plays: FighterConfig; readonly faults: readonly string[] } {
-  const faults = isFighter(config) ? mindFaults(config, spec, labStaging(scenario)) : ["the Lab drives a fighter"];
-  return { plays: isFighter(config) && faults.length === 0 ? config : scenario === "attack" ? PUNCHER : LAB_PRESETS.script.config, faults };
+  const faults = takesScript(config) ? mindFaults(config, spec, labStaging(scenario)) : ["the Lab drives a mind that takes its script, as a fighter does"];
+  return { plays: takesScript(config) && faults.length === 0 ? config : scenario === "attack" ? PUNCHER : LAB_PRESETS.script.config, faults };
 }
 
 /** What a Stand-up body gets up by (`LabAddress.ground.rise`): the first is the game's. */

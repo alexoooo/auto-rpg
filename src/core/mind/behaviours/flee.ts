@@ -7,7 +7,7 @@ import { anyBody } from "../parts.ts";
 interface FleeConfig { readonly kind: "flee" }
 
 export const FLEE: BehaviourPart<FleeConfig> = deepFreeze({
-  role: "behaviour", label: "Run away", stage: "game", fields: [], slots: [], defaults: { kind: "flee" },
+  role: "behaviour", label: "Run away", stage: "game", phases: { flee: "Retreating" }, fields: [], slots: [], defaults: { kind: "flee" },
   keys: { kind: true }, fits: anyBody, faults: () => [],
   make: () => ({ decide(turn) {
     if (turn.legs || !turn.focus) return;

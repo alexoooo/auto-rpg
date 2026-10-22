@@ -125,9 +125,6 @@ export type SkillKit = Pick<FighterConfig, "locomotion" | "navigation" | "guard"
  */
 export interface MindConfig { readonly kind: string }
 
-/** Whether `config` is a fighter's (`FighterConfig`): what a screen that drives a fighter's tactics asks. */
-export const isFighter = (config: MindConfig): config is FighterConfig => config.kind === "fighter";
-
 /**
  * **The options fighter** (`createOptionsFighter`, `options/mind.ts`): a meta-controller over
  * options, carried out through its skills (`SkillKit`), under its reflexes. A person sets its

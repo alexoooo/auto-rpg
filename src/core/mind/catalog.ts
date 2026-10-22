@@ -1,7 +1,9 @@
 import type { DataKey } from "../data/store.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { BEHAVIOURS } from "./behaviours.ts";
+import type { FighterConfig, MindConfig } from "./config.ts";
 import type { AimConfig, BiteConfig, GaitConfig, QuadrupedTacticsConfig, SupportMotorConfig, BehaviourConfig, ExecutorConfig, LocomotionConfig, GuardConfig, MotorConfig, ReflexConfig, SubMindConfig, SupportConfig, TacticsConfig } from "./config.ts";
+import type { Scripted } from "./controller.ts";
 import { CONTROLLERS } from "./controllers.ts";
 import { EXECUTORS } from "./executors.ts";
 import { GUARDS } from "./guards.ts";
@@ -86,6 +88,15 @@ export function partOf<C extends PartConfig>(config: C): Part<C> {
   return part as Part<C>;
 }
 
+/** How a scene drives `config` by a script (`Controller.scripted`); null where its mind takes none, or no mind is of its kind. */
+export function scriptedBy(config: MindConfig): Scripted | null {
+  const controller = isKind(config.kind) ? CONTROLLERS[config.kind] : undefined;
+  return controller?.scripted ?? null;
+}
+
+/** Whether a scene may drive `config` by a script of its own (`scriptedBy`): a mind with a fighter's slots. */
+export const takesScript = (config: MindConfig): config is FighterConfig => scriptedBy(config) !== null;
+
 /**
  * **Every part by kind, looked up by role** (`PartLookup`): each config's part (`partOf`), a
  * mind's own parts included, refused where the kind is of another role.
@@ -157,6 +168,11 @@ export function treeKinds(config: PartConfig): readonly string[] {
   };
   visit(config);
   return [...kinds];
+}
+
+/** What a person is shown for each phase the parts of `config`'s tree report (`Part.phases`). */
+export function phaseLabels(config: PartConfig): Readonly<Record<string, string | null>> {
+  return Object.assign({}, ...treeKinds(config).map((kind) => partOf({ kind }).phases ?? {}));
 }
 
 /** **The mind data `config`'s parts read** (`Part.reads`), every key once: what a screen loads (`loadData`) before it builds the mind. */

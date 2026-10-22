@@ -2,7 +2,8 @@ import type { ScreenContext } from "../ui/screen.ts";
 import { labHref, LAB_PRESETS, SCENARIOS, type LabAddress } from "./scenarios.ts";
 import { need as find } from "../dom.ts";
 import { groundMind } from "./ground-config.ts";
-import { isFighter, type FighterConfig } from "../core/mind/config.ts";
+import { takesScript } from "../core/mind/catalog.ts";
+import type { FighterConfig } from "../core/mind/config.ts";
 
 /**
  * **The lab's scenario menu** (`?play=lab`): a card for each scenario, and a click opens it. The
@@ -15,7 +16,7 @@ export function showScenarios(address: LabAddress, context: ScreenContext): void
   const cards = SCENARIOS.map((scenario) => {
     const card = document.createElement("a");
     let mind = address.mind;
-    if (isFighter(mind)) {
+    if (takesScript(mind)) {
       let fighter: FighterConfig = mind;
       if (scenario.id === "attack" && fighter.tactics.kind === "script") fighter = LAB_PRESETS.puncher.config;
       else if (scenario.id !== "attack" && fighter.tactics.kind !== "script" && fighter.tactics.kind !== "stand")
