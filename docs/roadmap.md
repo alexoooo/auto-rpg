@@ -44,10 +44,11 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Ratings](plans/2026-10-21-ratings.md) | One format for every evaluation, kept records, the paired report, the Ratings screen |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data loaded per use, then packed |
 | [Movement and command](plans/2026-10-21-movement-and-command.md) | One movement pipeline; Commanders over teams |
-| [General AI testbed](plans/2026-10-22-ai-testbed.md) | Separate component construction, arbitration, controller policy and scenario presentation |
+| [General AI testbed](plans/2026-10-22-ai-testbed.md) | Any part of a mind replaced from its own folder by configuration, carried by every screen and tool |
+| [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
-1. **Now, in parallel:** Movement B3's remainder (the stance walk's sideways run-away); and the
-   open work below, each change read by the paired report, kept with `--write`.
+1. **Now:** the AI testbed, step 1 then step 2 role by role; Vanguard on hold, converted as its
+   parts' roles are. In parallel: Movement B3's remainder (the stance walk's sideways run-away).
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
    - Ratings step 10's other research batteries when next worked on; step 9 when a question
@@ -102,10 +103,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 ### Framework
 
-- An implementation moves into `src/core/components/<role>/<implementation>/`, its data under
-  `assets/components/<implementation>/`, when work on it would gain from durable evaluation rows;
-  with the first move, `AGENTS.md`'s contribution scopes and `scripts/entrant-check.mjs` learn the
-  component scope. A second motor brings the goal vocabulary it needs.
+- Headless runs build a Babylon scene (`buildBout`, `buildCrypt`): physics owning the transforms
+  and no scene in Node comes with a client that needs it, keeping exact arithmetic and the engine
+  contract.
 - One notion of a task: an evaluation plays a core task (`src/core/tasks/`), the Lab shows it, and
   the Ratings screen opens it ([Ratings](plans/2026-10-21-ratings.md)).
 - Participant contracts, each extended with its first client: every accepted grip request and
@@ -117,8 +117,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
   its first client.
 - The same bout in every engine holds for an Arena bout ([real functions](reference/real-functions.md));
   the Lab and the Crypt still place bodies and aim orders with the engine's `Math`.
-- A component declares the structure it needs through `fits`; a new body family or item brings
-  its own tasks, and a shared name does not show an algorithm works on another family.
+- A new body family or item brings its own tasks; a shared name does not show an algorithm works
+  on another family.
 
 ### Body and motor control
 
