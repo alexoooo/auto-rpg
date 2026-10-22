@@ -1,10 +1,8 @@
 import { SIDES } from "../arena/duel.ts";
 import { recordingKey } from "../core/recording.ts";
-import { buildBout } from "./bout.ts";
 import type { CaseWorld, Json, Reader, BuiltCase } from "./evaluation.ts";
-import { buildCrypt } from "./crypt.ts";
-import { buildFall } from "./fall.ts";
 import { traceOf } from "./trace.ts";
+import { WORLD_BUILDERS } from "./worlds.ts";
 
 /** What a case came to: its reading and the digest of every pose it passed through (`traceOf`). */
 interface Played<R extends Json = Json> {
@@ -30,7 +28,7 @@ const OVERRUN = 1;
 export async function playCase<R extends Json>(world: CaseWorld, seconds: number, read: (built: BuiltCase) => Reader<R>): Promise<Played<R>> {
   switch (world.kind) {
     case "bout": {
-      const built = await buildBout(world.recipe, { engine: world.engine });
+      const built = await WORLD_BUILDERS.bout(world.recipe, { engine: world.engine });
       try {
         const { duel } = built, reader = read(built), trace = traceOf(SIDES.map((side) => duel.duelists[side].built));
         duel.play(world.tape);
@@ -44,7 +42,7 @@ export async function playCase<R extends Json>(world: CaseWorld, seconds: number
       } finally { built.dispose(); }
     }
     case "fall": {
-      const built = await buildFall(world.fall, world.engine);
+      const built = await WORLD_BUILDERS.fall(world.fall, world.engine);
       try {
         const reader = read(built), trace = traceOf([built.body]);
         while (!reader.ended) {
@@ -57,7 +55,7 @@ export async function playCase<R extends Json>(world: CaseWorld, seconds: number
       } finally { built.dispose(); }
     }
     case "crypt": {
-      const built = await buildCrypt(world.crypt, world.engine);
+      const built = await WORLD_BUILDERS.crypt(world.crypt, world.engine);
       try {
         const reader = read(built), trace = traceOf(built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.built] : []));
         while (!reader.ended) {

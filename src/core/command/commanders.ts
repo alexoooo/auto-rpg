@@ -1,5 +1,7 @@
 import { deepFreeze } from "../state.ts";
+import { clearerCommander } from "./clearer.ts";
 import { independentCommander } from "./independent.ts";
+import { mobCommander } from "./mob.ts";
 import { partyCommander, type PartyConfig } from "./party.ts";
 import type { Commander, TeamHost } from "./team.ts";
 
@@ -26,6 +28,18 @@ const INDEPENDENT: CommanderEntry = deepFreeze({
   create: (host: TeamHost) => independentCommander(host),
 });
 
+/** **A mob** (`mobCommander`): its members spread over the foes they see, and round each. */
+const MOB: CommanderEntry = deepFreeze({
+  label: "Mob", defaults: { kind: "mob" }, faults: kindOnly,
+  create: (host: TeamHost) => mobCommander(host),
+});
+
+/** **A level-clearer** (`clearerCommander`): a party clearing a level by itself. */
+const CLEARER: CommanderEntry = deepFreeze({
+  label: "Level-clearer", defaults: { kind: "clearer" }, faults: kindOnly,
+  create: (host: TeamHost) => clearerCommander(host),
+});
+
 /** **A person's party** (`partyCommander`): the leader where its person steers, the others after it or where they were sent. */
 const PARTY: CommanderEntry = deepFreeze({
   label: "Party", defaults: { kind: "party" },
@@ -40,7 +54,7 @@ const PARTY: CommanderEntry = deepFreeze({
  */
 export const COMMANDERS: Readonly<Record<string, CommanderEntry>> = (() => {
   const byKind: Record<string, CommanderEntry> = {};
-  for (const entry of [INDEPENDENT, PARTY]) {
+  for (const entry of [MOB, INDEPENDENT, PARTY, CLEARER]) {
     if (Object.hasOwn(byKind, entry.defaults.kind)) throw new Error(`two Commanders of kind ${JSON.stringify(entry.defaults.kind)}`);
     byKind[entry.defaults.kind] = entry;
   }

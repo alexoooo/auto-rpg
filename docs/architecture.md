@@ -557,7 +557,7 @@ which their Minds carry out while they defend themselves.
 |---|---|
 | Kinds | `COMMANDERS` (`commanders.ts`), by config kind, each with defaults, faults and a maker; `createCommander(host, config)` |
 | Its maker gets | a `TeamHost`: the level as its adapter answers it (`TeamLevel`: sight, room to stand and pass, routes, the explored edge, doors), never the world |
-| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, its footprint, reach, home, navigation report, the limits its legs state (`gait`, `Skills.gait`) and the way they face; every other body the members sense; whether its host has it look this step; a leader's live input (`Lead`: the keys, a walk, the pointer's point and the part it strikes, exploring) |
+| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, what is left of its pool, its footprint, reach, home, navigation report, the limits its legs state (`gait`, `Skills.gait`) and the way they face; every other body the members sense; whether its host has it look this step; a leader's live input (`Lead`: the keys, a walk, the pointer's point and the part it strikes, exploring) |
 | It keeps | its memory in `state`, plain data |
 | It gives | each member's orders (`TeamDecision`), whether it looked, and on asking, whom each fights, what it does and whether it is selected (`MemberReport`), whether it leaves a member idle, and a notice for its leader |
 | It hears | a leader's command (`Command`, `commands.ts`) at once |
@@ -566,15 +566,19 @@ Its host asks it once a step, after the senses and before every Mind. **A person
 (`Command`) are plain data: select, go (a point, or a route drawn with its points growing), attack a
 sensed foe, face (a point, or turned by an angle), hold, stop, regroup, follow a member. Each goes to
 the members selected, and the keys and pointer steer one of them: the one selected, or the leader.
-The Crypt's host is `DungeonRun` (its mouse and keys, `src/dungeon/commands.ts`, `main.ts`); an
+The Crypt's host is `DungeonRun` (its mouse and keys, `src/dungeon/commands.ts`, `main.ts`), each
+side's Commander its options' (`party`, `enemies`: the person's party and a mob unless the page's
+Options or the address, `&party=`, `&enemies=`, name another); an
 Arena side a person takes is a team of one (`teamOfOne`, `src/arena/team.ts`) under the party
 Commander with `picks: false`, asked in the step's sensing phase, its orders taped by the bout
 (`Duel.order`). The kinds:
 
 | Kind | File | Leads |
 |---|---|---|
-| `independent` | `independent.ts` | each member at the nearest foe it sees, on to where it last saw one, else home: the Crypt's enemies |
+| `mob` | `mob.ts` | the members that see a foe spread over the foes they see and, several on one, about it (`spread`, `bearings`, `spread.ts`): each makes for its place at its reach on the bearing it is given, by a waypoint halfway round where that is far round, and closes in from there; one that sees none goes on to where it last saw one, else home: the Crypt's enemies |
+| `independent` | `independent.ts` | each member at the nearest foe it sees, on to where it last saw one, else home: the Crypt's enemies where chosen |
 | `party` | `party.ts` | a person's party: the member the keys steer where they steer it, the leader otherwise exploring, the others after it or where they were sent, each at the foe its order locks or (unless `picks: false`) the nearest it sees; several sent together take slots about the destination at the slowest one's top speed (`travelSpeed`), the one nearest it the slot farthest from them all, so that none comes in through a slot stood in; doors on the way: the Crypt's party, and an Arena side a person takes. Its members keep clear of each other by their own navigation (`crowdWalk`), each from the step's one `TeamView` |
+| `clearer` | `clearer.ts` | a party by itself: its leader (the first standing on its feet) explores the edge of what is seen, then makes for the exit (`TeamLevel.frontier`), waiting for the others, who follow it; foes seen near are the fight, taken on while the party's pools add up to the odds it asks (`POLICY`) and foes keep falling, its members spread over the foes and a hurt one pulling back; from one it cannot win it draws back the way it came, a few times; otherwise it pushes on past its foes, striking what is upon it |
 
 `tests/core-boundary.test.mjs` holds `src/core/command/` to no engine, world, body, enlistment,
 mind host or senses hub; `tests/command-contract.test.mjs` has each kind lead an Arena bout as a
@@ -695,11 +699,14 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
 - **The file table** (`fileTable`, `scripts/build-identity.mjs`): each build input's hash, and each
   module's imports read with TypeScript's parser (`importsOf`). **A case's code** (`caseCoder`) is
   drawn from it: the environment, the static import closure (`closureOf`) of `src/evaluation/play.ts` and
-  the case module with the lockfile and the solvers, cut at the kinds list, the build's identity and
-  the mind data store (`CUTS`); then each kind of mind the case plays adds its own code (its
-  module's closure beyond the environment, and `assets/entrants/<kind>/`), and each mind data key
-  its minds read (`treeData`) its module's. A kinds list of more than its imports and its array,
-  and a module in a closure that imports by no literal, are refused. A research run's
+  the case module with the lockfile and the solvers, cut at the kinds list, the world kinds list
+  (`WORLD_BUILDERS`, `src/evaluation/worlds.ts`), the build's identity and the mind data store
+  (`CUTS`); then the kind of world the case plays adds its builder's own code (its module's closure
+  beyond the environment), each kind of mind it plays its own (likewise, and
+  `assets/entrants/<kind>/`), and each mind data key its minds read (`treeData`) its module's. So
+  a Crypt edit keys no bout case anew, nor a bout builder's edit a Crypt run. A kinds list or world
+  kinds list of more than its imports and its list, and a module in a closure that imports by no
+  literal, are refused. A research run's
   implementation (`implementationOf`, `research/rising-provenance.mjs`) is the uncut closure.
 - **Evaluation records** (`assets/evaluations/<id>/`): kept results ([Evaluations](#evaluations)).
   `imports/tournament-1bacac44.jsonl`
@@ -722,7 +729,7 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   gives the question, subjects, figures and summary; nothing a case plays imports it.
 - **A case's key** is the digest of everything it plays: evaluation, protocol, engine, world (every
   subject's value whole), seconds and code (`caseCoder`: the environment with the own code of the
-  kinds of mind it plays, `caseNames`, `code.ts`). A row (`Row`, `play.ts`) is found again by its
+  kind of world and the kinds of mind it plays, `caseNames`, `code.ts`). A row (`Row`, `play.ts`) is found again by its
   key, so a description, script, screen or document edit replays nothing, and an entrant's edit
   replays only its own cases; a case's error or non-finite reading is a fault row, kept like any
   other.
@@ -752,10 +759,12 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 - **Batteries** (arity 1): a skill's task, one subject at a time over its conditions. `blade` (the
   striker's executor tuning: a sword's cuts and thrusts at a standing body), `buckler` (the
   defender's cover: whether the buckler meets a sword first) and `court` (the approaching mind:
-  round the obstacle court's column into its window), and `crowd` (a party's mind among its own side's
+  round the obstacle court's column into its window), `crowd` (a party's mind among its own side's
   bodies: a party reversed, a lone body and a following pair turned back, paths crossing, a gap that
   passes one at a time and a fallen companion, each on several seeds: falls, legs done, members pushed
-  apart). `--previous` reads a battery's subject
+  apart) and `crypt-clear` (a party Commander: through generated Crypt levels against each enemy
+  Commander, in trials that move the start a little (`trialLayout`): the share cleared, the time and
+  the members lost). `--previous` reads a battery's subject
   against another, each figure's paired difference over the conditions both played
   (`batteryComparison`, `compare.ts`).
 - **Ablations**: `--previous <mind> --ablate <slot>=<JSON>` makes the subject that mind with one slot
@@ -771,8 +780,9 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   is. `rising-target` plays the owner's 64 falls and reports the target's gates; `equipped-rise` the
   same shoves with sword and buckler and with the club. A subject is a riser: a mind's recovery on
   the bed's host (`risingMind`, `rising.ts`, which also holds the bed's jobs and report).
-- **Crypt runs** (`crypt.ts`): a laid-out level, the party under one mind and the party Commander, and
-  a script of the person's orders, a leg at a time (`CryptCase`); the game's run (`DungeonRun`) on a
+- **Crypt runs** (`crypt.ts`): a laid-out level, the party under one mind or each member under its
+  model's own, each side's Commander (the party's and a mob unless named), and a script of the
+  person's orders, a leg at a time, or none (`CryptCase`); the game's run (`DungeonRun`) on a
   scene with no canvas. Not bit-equal between JavaScript engines, as a bout is; the Ratings screen
   does not open one.
 - **History** (`history.ts`): an evaluation's records grouped into pools (`poolsOf`), each case

@@ -1,13 +1,15 @@
 /**
  * **A Crypt run as a case**: a laid-out level (`CryptLayout`), the party placed on it, every party
- * member under one mind, and a script of the person's orders (`CryptLeg`), each leg given once the
- * last is done. It is the game's run (`DungeonRun`, `src/dungeon/run.ts`), on its own scene with no
- * canvas, its party under the party Commander. A Crypt run is not yet bit-equal between JavaScript
+ * member under one mind or each under its model's own, and a script of the person's orders
+ * (`CryptLeg`), each leg given once the last is done, or none. It is the game's run (`DungeonRun`,
+ * `src/dungeon/run.ts`), on its own scene with no canvas, each side under the Commander the case
+ * names, the party under the person's and the enemies under a mob unless it names another. A Crypt run is not yet bit-equal between JavaScript
  * engines, as a bout is: the run's placement and the person's commands (`src/dungeon/`) use
  * arithmetic each engine rounds its own way.
  */
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
+import type { CommanderConfig } from "../core/command/commanders.ts";
 import type { Command } from "../core/command/commands.ts";
 import { loadEngine, type EngineName } from "../core/engine/engines.ts";
 import type { MindConfig } from "../core/mind/config.ts";
@@ -18,7 +20,8 @@ import { DungeonRun, prepareDungeonCharacters } from "../dungeon/run.ts";
 
 /**
  * A level as plain data: its floor as rows (row `z`, a character a cell along `x`: `.` floor, any
- * other rock), its doors and obstacles, the party's start, the exit, and where each enemy waits.
+ * other rock), its doors and obstacles, the party's start, the exit, where each enemy waits, and
+ * each one's model (skeletons unless given).
  */
 export interface CryptLayout {
   readonly floor: readonly string[];
@@ -27,6 +30,7 @@ export interface CryptLayout {
   readonly start: Point;
   readonly exit: Point;
   readonly spawns: readonly Point[];
+  readonly enemies?: readonly BodyModel[];
 }
 
 /** What a leg does as it begins: the person's command to party members, by id, or a member struck dead where it stands. */
@@ -52,13 +56,15 @@ export interface CryptLeg {
 
 /**
  * One run, as plain data: the level, the party (the hero first, at the start) and where each stands
- * (null, where the run places a companion, `companionSpawn`), the party's mind, and the script.
+ * (null, where the run places a companion, `companionSpawn`), the party's mind (each member its
+ * model's own, where none is given), the script, and each side's Commander where not the run's own.
  */
 export interface CryptCase {
   readonly layout: CryptLayout;
   readonly party: readonly { readonly model: BodyModel; readonly at: Point | null }[];
-  readonly mind: MindConfig;
+  readonly mind?: MindConfig;
   readonly script: readonly CryptLeg[];
+  readonly commanders?: { readonly party?: CommanderConfig; readonly enemies?: CommanderConfig };
 }
 
 /**
@@ -84,7 +90,8 @@ export function cryptMap(layout: CryptLayout): DungeonMap {
   const size = layout.floor.length, floor = new Uint8Array(size * size);
   layout.floor.forEach((row, z) => { for (let x = 0; x < size; x++) floor[z * size + x] = row[x] === "." ? 1 : 0; });
   return { seed: 0, size, floor, rooms: [{ id: 0, centre: { ...layout.start }, min: { x: 0, z: 0 }, max: { x: size - 1, z: size - 1 } }], doors: layout.doors.map((door) => ({ ...door, point: { ...door.point } })),
-    obstacles: layout.obstacles.map((o) => ({ ...o })), start: { ...layout.start }, exit: { ...layout.exit }, spawns: layout.spawns.map((p) => ({ ...p })) };
+    obstacles: layout.obstacles.map((o) => ({ ...o })), start: { ...layout.start }, exit: { ...layout.exit }, spawns: layout.spawns.map((p) => ({ ...p })),
+    ...(layout.enemies ? { encounters: layout.enemies.map((model, i) => ({ room: 0, model, point: { ...layout.spawns[i]! } })) } : {}) };
 }
 
 /** `map`'s floor as `CryptLayout` rows. */
@@ -111,7 +118,7 @@ export async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<
   companions.forEach((member, i) => { if (member.at) prepared.homes.set(`ally-${i}`, { ...member.at }); });
   const babylon = new NullEngine(), scene = new Scene(babylon);
   const run = new DungeonRun(scene, { ...options, prepared, engine: await loadEngine(engine), visuals: false,
-    mind: (participant) => participant.side === "party" ? crypt.mind : null });
+    mind: (participant) => participant.side === "party" ? crypt.mind ?? null : null, party: crypt.commanders?.party, enemies: crypt.commanders?.enemies });
   const party = run.party, falls: { member: string; time: number }[] = [], down = new Map<string, boolean>(), slain = new Set<string>();
   let leg = -1, began = 0, from: Point | null = null, pending: CryptAct[] = [], done: number | null = null, ended = false, contactSteps = 0, fallenContactSteps = 0;
   const member = (id: string) => {
@@ -179,7 +186,9 @@ export async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<
       if (ended) return;
       if (run.status !== "playing" || run.clock >= CRYPT_CAP) { ended = true; return; }
       if (pending.length) { act(); return; }
-      const current = crypt.script[leg]!;
+      // With no script, the run plays to its end.
+      const current = crypt.script[leg];
+      if (!current) return;
       if (met(current.until)) {
         if (leg + 1 >= crypt.script.length) { done = run.clock; ended = true; return; }
         begin(leg + 1);

@@ -27,7 +27,7 @@ import type { NavigationReport } from "../core/mind/navigation.ts";
 import type { Skills } from "../core/skills/skills.ts";
 import type { Orders } from "../core/mind/orders.ts";
 import { STAND_ORDERS } from "../core/mind/orders.ts";
-import { createCommander } from "../core/command/commanders.ts";
+import { createCommander, type CommanderConfig } from "../core/command/commanders.ts";
 import { SIGHT_METRES } from "../core/command/independent.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamLevel, TeamView } from "../core/command/team.ts";
 import type { Command } from "../core/command/commands.ts";
@@ -38,8 +38,9 @@ import { doorApproach } from "./door-approach.ts";
  * (`buildDungeonWorld`), and the party and the enemies are bodies (`src/core/`), each under a mind
  * that carries out its team's orders. Each side is a team under a Commander (`src/core/command/`):
  * the party under the person's (`partyCommander`), whose commands reach it only as `Command`s
- * and the live input of the keys and pointer (`DungeonCommands`); the enemies each at the nearest
- * member it sees (`independentCommander`). The run is their host: it answers for the map
+ * and the live input of the keys and pointer (`DungeonCommands`), unless the run is given another
+ * (`DungeonRunOptions.party`: the `clearer` plays the party by itself); the enemies under a mob
+ * (`mobCommander`) unless given another (`DungeonRunOptions.enemies`). The run is their host: it answers for the map
  * (`TeamLevel`), asks the party's Commander and then the enemies' once a step, before every mind,
  * has the enemies look when the party looks, and gives each mind the orders its Commander gave.
  * The run keeps the map, who is built, each body's level, the doors that open, and its status.
@@ -167,6 +168,10 @@ interface DungeonRunOptions {
   readonly onBuilt?: (actor: DungeonActor, world: World) => void;
   /** The levels' rule; `LEVELS` unless given. */
   readonly levels?: LevelRule;
+  /** The party's Commander; the person's (`party`) unless given. */
+  readonly party?: CommanderConfig;
+  /** The enemies' Commander; a mob (`mob`) unless given. */
+  readonly enemies?: CommanderConfig;
 }
 
 /** Resolve every actor and its placement before allocating a world or replacing a running scene. */
@@ -242,8 +247,8 @@ export class DungeonRun {
     this.world = createWorld(scene, options.engine);
     this.senses = createSenses(this.world);
     this.level = buildDungeonWorld(scene, this.map, options.visuals ?? true, this.world.physics);
-    this.team = createCommander({ level: this.ground((places) => { this.visible = this.sight(places); }) }, { kind: "party" });
-    this.foes = createCommander({ level: this.ground(() => {}) }, { kind: "independent" });
+    this.team = createCommander({ level: this.ground((places) => { this.visible = this.sight(places); }) }, options.party ?? { kind: "party" });
+    this.foes = createCommander({ level: this.ground(() => {}) }, options.enemies ?? { kind: "mob" });
     // Before any body's own hooks, so each body's mind reads this step's orders.
     this.planning = this.world.beforeStep(() => this.plan());
     const run = this;
@@ -432,7 +437,7 @@ export class DungeonRun {
     return {
       time: this.clock, look, lead,
       members: members.filter(built).map((actor): MemberView => ({
-        id: actor.id, at: actor.feet(), fighting: actor.alive, held: actor.held, radius: actor.radius,
+        id: actor.id, at: actor.feet(), fighting: actor.alive, held: actor.held, vitality: actor.vitality, radius: actor.radius,
         reach: actor.attackMetres, home: actor.home, navigation: actor.navigation,
         gait: actor.skills?.gait ?? null, heading: actor.skills?.report.heading ?? null,
       })),

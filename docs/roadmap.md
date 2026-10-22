@@ -44,21 +44,17 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Ratings](plans/2026-10-21-ratings.md) | One format for every evaluation, kept records, the paired report, the Ratings screen |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data loaded per use, then packed |
 | [Movement and command](plans/2026-10-21-movement-and-command.md) | One movement pipeline; Commanders over teams |
-| [Component registration](plans/2026-10-21-component-registration.md) | Implementations added by their own files and one line |
 
-1. **Now, in parallel:** Movement B2 to B4; component registration's
-   stage 1 (locomotion); and
-   the open work below, each change read by the paired report, kept with `--write`.
+1. **Now, in parallel:** Movement B3 and B4; and the open work below, each change read by the
+   paired report, kept with `--write`.
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
    - Ratings step 10's other research batteries when next worked on; step 9 when a question
-     about an item, a character or an attribute is asked; step 12 (case identity by code) when
-     the first built-in mind or skill has a folder of its own, or entrants are most of the field;
-     step 11 (the sparse league) only when the owner asks, after step 12; step 14 (run live) once
-     the Ratings screen is in use and a live run would save a trip to the command line;
+     about an item, a character or an attribute is asked; step 11 (the sparse league) only when
+     the owner asks; step 14 (run live) once the Ratings screen is in use and a live run would
+     save a trip to the command line;
    - Mind data step 2 (packed format), then 3 (precision per kind), when the next action that
-     carries data arrives; step 4 when the owner asks;
-   - component registration's stages 2 to 4 at any time.
+     carries data arrives; step 4 when the owner asks.
 
 ## Waiting on the owner
 
@@ -99,9 +95,12 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 ### Framework
 
-- Component registration ([its plan](plans/2026-10-21-component-registration.md)), and one notion
-  of a task: an evaluation plays a core task (`src/core/tasks/`), the Lab shows it, and the
-  Ratings screen opens it ([Ratings](plans/2026-10-21-ratings.md)).
+- An implementation moves into `src/core/components/<role>/<implementation>/`, its data under
+  `assets/components/<implementation>/`, when work on it would gain from durable evaluation rows;
+  with the first move, `AGENTS.md`'s contribution scopes and `scripts/entrant-check.mjs` learn the
+  component scope. A second motor brings the goal vocabulary it needs.
+- One notion of a task: an evaluation plays a core task (`src/core/tasks/`), the Lab shows it, and
+  the Ratings screen opens it ([Ratings](plans/2026-10-21-ratings.md)).
 - Participant contracts, each extended with its first client: every accepted grip request and
   external input on the tape; exact physical replay apart from live continuation for a
   nondeterministic policy; a slower policy's cadence, held actions and work allowance.
