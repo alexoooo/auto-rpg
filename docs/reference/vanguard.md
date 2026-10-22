@@ -217,6 +217,25 @@ not produce damaging strikes in the 30–60 s screens. Their exact rejected sour
 diagnostics are retained in `research/runs/vanguard/rejected/entry-{51,53,54,55}.json`. Those
 low-support revisions are not part of the retained implementation.
 
+### Distant native travel
+
+The calibrated preset uses braced walking as its native Move fallback outside the close-combat
+rules. Conservative own-body profiles retain their stance walk. This avoids the Warrior's distant
+run, without changing muscle strength or the common locomotion implementations.
+
+On the failed 6.21 m Warrior open-stage start, the preceding configuration falls at 4.6333 s,
+rises at 15.8583 s and first commits a punch at 21.3167 s. Changing only the fallback gait to
+braced walking keeps it upright and brings the first commitment to 7.05 s. The two 30 s diagnostic
+cases are retained in `research/runs/vanguard/diagnostics/distant-travel-fall.json`.
+
+The full paired comparison wins 2/2 against the previous configuration's 1/2. The left wins at
+120 s and the right by injury at 111.7667 s, with no candidate fall in either. Harness is the
+Node Arena Duel, `rapier-coordinate`, 120 Hz, matched Warriors, empty hands, Balance 0/0 and
+the ordinary 120 s cap, continuing after falls. Exact configurations, readings, digests and row
+keys remain in `research/runs/vanguard/travel-full.json`, played source
+`sha256:f813b1a8cc7cbcbffb6c0646994daf5a658663ec9a6e471ae41c9ff3afdfca23`.
+These failed-campaign conditions are development evidence, not fresh qualification.
+
 ## Body motor profiles
 
 The calibrated preset at `9b3fecd0` uses the
@@ -312,5 +331,7 @@ Raw development rows, full recipes and source archives are kept under
 | Body cover with a shorter arm-drive delay | Weakens both 30 s Skeleton exchanges at 3.85 m; retained in `research/runs/vanguard/rejected/body-cover-and-uppercuts.json`. |
 | Mixed or exclusive uppercuts with a shorter arm-drive delay | Neither configuration records an uppercut target contact in the 30 s Skeleton exchanges; retained with the body-cover configurations. |
 | Shared ground positioning and downward path strikes against a fallen humanoid | Neither side commits a downward strike within 60 s on the Skeleton court at 6.15 m. Both remain upright. Retained in `research/runs/vanguard/rejected/downward-ground-policy.json`. |
+| Closer punch ranges with a 25 ms arm-drive delay | Ranges of 0.75, 0.80 and 0.85 of arm length all lose the left full Skeleton bout by injury at 3.85 m, without falling; the 0.95 reference wins that side. No opposite-side variants follow. Retained in `research/runs/vanguard/rejected/short-lead-punch-range.json`. |
+| Replacing contact learning with a fixed policy | Fixed slow evasion loses both full Skeleton bouts at 4.73 m; fixed attack loses the first. The remaining fixed-attack side stops once neither can win both. Retained in `research/runs/vanguard/rejected/fixed-evasion-policies.json`. |
 
 A short exchange is a development filter, not a win counted toward qualification.
