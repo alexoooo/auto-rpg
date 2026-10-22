@@ -34,7 +34,7 @@ import { pathToFileURL } from "node:url";
 import { isMainThread, parentPort, Worker } from "node:worker_threads";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { BOUT_ENGINE } from "./bout.mjs";
-import { bradleyTerry } from "./rating.mjs";
+import { bradleyTerry } from "../src/evaluation/rating.ts";
 import { PRESETS } from "../src/core/mind/controllers.ts";
 
 /** Within how far across the ground two centres of mass count as close, m. */

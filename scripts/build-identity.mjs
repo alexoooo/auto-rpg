@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 /** What runs of a build write, not what makes it: a file by its path, or a folder and all under it by its path and a slash. */
-const OUTPUTS = Object.freeze(["assets/minds/ratings.json", "assets/minds/notes.json", "assets/evaluations/", "public/assets/generated/"]);
+const OUTPUTS = Object.freeze(["assets/minds/notes.json", "assets/evaluations/", "public/assets/generated/"]);
 const isOutput = path => OUTPUTS.some(output => output.endsWith("/") ? `${path}/`.startsWith(output) : path === output);
 const TEXT = new Set([".ts", ".mts", ".mjs", ".cjs", ".js", ".json", ".css", ".html", ".svg", ".wgsl", ".glsl", ".sh", ".patch"]);
 

@@ -1,0 +1,53 @@
+/**
+ * **Entrants**: a mind on a character with a loadout, the tournament's subjects. A mind, by its id
+ * (`MINDS`) or given whole, enters on each character and representative loadout it fits.
+ */
+import { heldItem, loadoutKey, type Loadout } from "../../core/items/held.ts";
+import { MINDS } from "../../core/mind/controllers.ts";
+import type { MindConfig } from "../../core/mind/config.ts";
+import { BODY_MODELS, modelHolds, modelSpec, modelSupportsMind, type BodyModel } from "../../core/models.ts";
+import type { Json, Subject, SubjectChoice } from "../evaluation.ts";
+import { TOURNAMENT, type Entrant } from "./cases.ts";
+
+/** `value` as plain JSON: what a part's version digests. */
+const plain = (value: unknown): Json => JSON.parse(JSON.stringify(value ?? null)) as Json;
+
+/** Each character's spec as plain JSON, made once. */
+const specs = new Map<BodyModel, Json>();
+const specOf = (model: BodyModel): Json => specs.get(model) ?? specs.set(model, plain(modelSpec(model))).get(model)!;
+
+/** Whether `model` can carry `loadout` and `config` fits it so. */
+const fits = (model: BodyModel, config: Json, loadout: Loadout): boolean =>
+  (loadout.left === "empty" && loadout.right === "empty" || modelHolds(model)) && modelSupportsMind(model, config as unknown as MindConfig, loadout);
+
+/** The entrant of mind `id` (`config`, shown as `label`) on `model` with `loadout`. */
+function entrant(id: string, label: string, config: Json, model: BodyModel, loadout: Loadout): Subject {
+  const value: Entrant = { mind: config, model, loadout };
+  return {
+    id: `${id}/${model}/${loadoutKey(loadout)}`, label: `${label}, ${model}, ${loadoutKey(loadout)}`, value: value as unknown as Json,
+    parts: [{ id: `mind:${id}`, value: config }, { id: `model:${model}`, value: specOf(model) },
+      { id: `left:${loadout.left}`, value: plain(heldItem(loadout.left)) }, { id: `right:${loadout.right}`, value: plain(heldItem(loadout.right)) }],
+  };
+}
+
+/** Mind `id`'s entrants: one for each character and representative loadout it fits. */
+export const entrantsOf = (id: string, label: string, config: Json): Subject[] =>
+  BODY_MODELS.flatMap((model) => TOURNAMENT.loadouts.filter((loadout) => fits(model, config, loadout)).map((loadout) => entrant(id, label, config, model, loadout)));
+
+/**
+ * The entrants `choice` names, in order: a mind's id gives its entrants, an entrant's id
+ * (`mind/character/left,right`) that one, a mind given whole its entrants. None names the field:
+ * every mind a person may pick.
+ */
+export function entrantSubjects(choice: SubjectChoice): Subject[] {
+  const mind = (id: string) => MINDS[id] ?? (() => { throw new Error(`no mind ${id}: ${Object.keys(MINDS).join(", ")}`); })();
+  const named = choice.length > 0 ? choice : Object.keys(MINDS);
+  return named.flatMap((one) => {
+    if (typeof one !== "string") return entrantsOf(one.id, one.label, one.value);
+    if (!one.includes("/")) return entrantsOf(one, mind(one).label, mind(one).config as unknown as Json);
+    const [id, model, held] = one.split("/"), loadout = TOURNAMENT.loadouts.find((each) => loadoutKey(each) === held);
+    const { label, config } = mind(id);
+    if (!BODY_MODELS.includes(model as BodyModel) || !loadout || !fits(model as BodyModel, config as unknown as Json, loadout)) throw new Error(`${one} is no entrant`);
+    return [entrant(id, label, config as unknown as Json, model as BodyModel, loadout)];
+  });
+}

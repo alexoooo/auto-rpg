@@ -128,7 +128,7 @@ finishing a fight decisively, and AI above a single fighter. See [the roadmap](d
 | `tests/` | the gate's few contract tests (`node --test`) |
 | `research/` | measurement scripts ([README](research/README.md)) |
 | `assets/`, `public/assets/` | data the core reads and Blender sources; what the pages load |
-| `scripts/` | asset builders, the evaluation runner and the tournament |
+| `scripts/` | asset builders and the evaluation runner |
 | `docs/` | [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), plans, reference records, [art](docs/art/) |
 
 [AGENTS.md](AGENTS.md) holds the rules for working in this repository.

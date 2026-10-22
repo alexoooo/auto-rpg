@@ -17,8 +17,7 @@
     "test": "node scripts/test.mjs",
     "match": "node scripts/evaluate.mjs match",
     "evaluate": "node scripts/evaluate.mjs",
-    "clean": "node scripts/clean.mjs",
-    "tournament": "node scripts/tournament.mjs"
+    "clean": "node scripts/clean.mjs"
   },
   "dependencies": {
     "@babylonjs/core": "9.18.1",

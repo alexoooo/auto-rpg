@@ -55,7 +55,7 @@ interface RecordedSubject extends Named {
 }
 
 /** A record's first line. */
-interface RecordHeader {
+export interface RecordHeader {
   readonly identity: RecordingIdentity;
   readonly evaluation: string;
   readonly protocol: string;
@@ -67,6 +67,8 @@ interface RecordHeader {
   readonly schedule: string;
   readonly pool: { readonly protocol: string; readonly environment: string };
   readonly subjects: readonly RecordedSubject[];
+  /** Where an imported run's rows came from; its cases have no world, and are never played again. */
+  readonly imported?: Json;
 }
 
 /** A case as a record keeps it: enough to open it again without its definition. */
@@ -78,10 +80,12 @@ export const recordIdentity = (build: string, engine: string, harness: string, p
 
 /**
  * `subject` as recorded in the pool of `play` and `environment`, its parent `parent` (none
- * unless named): each part's parent is the parent's part of the same kind (`mind:`, `model:`).
+ * unless named): its own content its value and its parts' together; each part's parent the
+ * parent's part of the same kind (`mind:`, `model:`).
  */
 export function recordedSubject(subject: Subject, play: Json, environment: string, parent: RecordedSubject | null): RecordedSubject {
-  const version = versionOf(subject.value, play, environment), kind = (id: string) => id.slice(0, id.indexOf(":") + 1);
+  const own = { value: subject.value, parts: subject.parts.map(({ id, value }) => ({ id, value })) };
+  const version = versionOf(own, play, environment), kind = (id: string) => id.slice(0, id.indexOf(":") + 1);
   return {
     id: subject.id, label: subject.label, value: subject.value, version,
     parent: parent && { id: parent.id, version: parent.version },
@@ -92,6 +96,15 @@ export function recordedSubject(subject: Subject, play: Json, environment: strin
     }),
   };
 }
+
+/**
+ * A subject of an imported run, whose content the run did not keep: one version for its id,
+ * named by the run's commit.
+ */
+export const importedSubject = (id: string, commit: string, play: Json, environment: string): RecordedSubject => ({
+  id, label: `${id} (${commit.slice(0, 8)})`, value: null, version: versionOf({ imported: id, commit }, play, environment),
+  parent: null, changes: [], parts: [],
+});
 
 /** A record's file name: `<yyyy-mm-dd>-<commit8>-<keys8>.jsonl`, `keys8` the digest of its case keys. */
 export const recordName = (header: RecordHeader, lines: readonly RecordLine[]): string =>

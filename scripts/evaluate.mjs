@@ -3,11 +3,16 @@
  * on worker threads; then what the complete rows give each subject, and the evaluation's summary.
  *
  *   npm run evaluate -- <evaluation> [subject ...] [--subjects a,b] [--mind <file.json>] [--protocol <name>]
- *     [--previous <id>] [--shard k/n] [--workers N] [--engine <name>] [--case-minutes 30] [--write] [--json <file>]
+ *     [--against default|<id,...>] [--previous <id>] [--shard k/n] [--workers N] [--engine <name>]
+ *     [--case-minutes 30] [--write] [--json <file>]
  *   npm run match -- <mind> <mind> [...]: the same for `match`
+ *   npm run evaluate -- tournament --notes: the newest tournament pool's ratings into assets/minds/notes.json
+ *   npm run evaluate -- --import <provenance.json>: an old tournament run as records (`evaluation-import.mjs`), then its notes
  *
  * A subject is a name the evaluation's catalogue resolves (a mind's id or kind), a JSON file, or
- * JSON; `--mind` names a file to put first. Rows are kept as they come in
+ * JSON; `--mind` names a file to put first. `--against` plays each subject against a panel (the
+ * evaluation's own, `default`, or the ids given) and not the panel among itself; an evaluation
+ * whose schedule is a panel is played no other way. Rows are kept as they come in
  * `research/runs/evaluations/<evaluation>/` (every file there is read, so machines merge by copying)
  * and found again by key, with every record's under `assets/evaluations/<evaluation>/`. `--previous`
  * names the first subject's parent: the newest recorded version of that id, else that subject here.
@@ -24,10 +29,15 @@ import { Worker } from "node:worker_threads";
 import { DEFAULT_ENGINE, isEngineName } from "../src/core/engine/engines.ts";
 import { recordingKey } from "../src/core/recording.ts";
 import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
+import { MINDS } from "../src/core/mind/controllers.ts";
 import { readRecord, recordedSubject, recordIdentity, recordName, recordText, rowOf, sameRow } from "../src/evaluation/record.ts";
 import { casesOf, completePrefix, figuresOf, runEvaluation, runOrder, tableOf } from "../src/evaluation/run.ts";
+import { scheduleName } from "../src/evaluation/schedule.ts";
 import { sha256Text } from "../src/evaluation/sha256.ts";
+import { tableRatings } from "../src/evaluation/tournament/index.ts";
+import { ratedNotes } from "../src/evaluation/tournament/notes.ts";
 import { BUILD_IDENTITY, environmentOf } from "./build-identity.mjs";
+import { importRun } from "./evaluation-import.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 
@@ -67,6 +77,47 @@ function commitOf() {
   try { return git("rev-parse", "HEAD"); } catch { return null; }
 }
 
+/** Every record of evaluation `id`, oldest first by name, read and checked. */
+const recordsOf = (id) => filesIn(join(ROOT, "assets/evaluations", id)).map(({ name, text }) => ({ name, ...readRecord(text, name) }));
+
+/** Keep `header` and `lines` as a record of their evaluation: refused where its name holds other content. */
+function writeRecord(header, lines) {
+  const dir = join(ROOT, "assets/evaluations", header.evaluation), name = join(dir, recordName(header, lines)), text = recordText(header, lines);
+  if (existsSync(name)) {
+    if (readFileSync(name, "utf8") !== text) throw new Error(`${name} exists with other content`);
+    console.log(`${name} holds this record already`);
+    return;
+  }
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(name, text);
+  console.log(`wrote ${name}`);
+}
+
+const NOTES = join(ROOT, "assets/minds/notes.json");
+
+/**
+ * The ratings of the newest tournament record's pool, every distinct case of its records once and
+ * one strength per version, into the notes (`ratedNotes`) at each id's newest version, dated as
+ * the newest record.
+ */
+function writeNotes() {
+  const records = recordsOf("tournament"), newest = records.at(-1);
+  if (!newest) throw new Error("no tournament record");
+  const pool = recordingKey(newest.header.pool), games = new Map(), current = new Map();
+  for (const { header, lines } of records) {
+    if (recordingKey(header.pool) !== pool) continue;
+    const named = new Map(header.subjects.map((subject) => [subject.id, `${subject.id} ${subject.version.version}`]));
+    for (const subject of header.subjects) current.set(subject.id, named.get(subject.id));
+    for (const line of lines) if (!line.fault) games.set(line.key, { ...line, subjects: line.subjects.map((id) => named.get(id)) });
+  }
+  const cases = [...games.values()], versions = [...new Set(cases.flatMap((line) => line.subjects))].sort();
+  const newestOf = new Map([...current].map(([id, version]) => [version, id]));
+  const rated = tableRatings({ subjects: versions.map((one) => ({ id: one })), cases }).flatMap((one) => newestOf.has(one.id) ? [{ ...one, id: newestOf.get(one.id), rating: Math.round(one.rating) }] : []);
+  const ids = rated.map((one) => one.id);
+  writeFileSync(NOTES, JSON.stringify(ratedNotes(JSON.parse(readFileSync(NOTES, "utf8")), rated, newest.header.date, Object.keys(MINDS)), null, 2) + "\n");
+  console.log(`wrote ${NOTES}: ${ids.length} entrants over ${cases.length} bouts of ${basename(newest.name)}'s pool`);
+}
+
 /** A 95 % estimate as text. */
 const estimateText = (estimate) => estimate === null ? "none" : `${estimate.value.toFixed(3)} (${estimate.low.toFixed(3)} to ${estimate.high.toFixed(3)})`;
 
@@ -74,9 +125,19 @@ async function main() {
   const { values, positionals } = parseArgs({ allowPositionals: true, options: {
     subjects: { type: "string" }, mind: { type: "string", multiple: true }, protocol: { type: "string" }, previous: { type: "string" },
     shard: { type: "string" }, workers: { type: "string" }, engine: { type: "string" }, "case-minutes": { type: "string", default: "30" },
-    write: { type: "boolean" }, json: { type: "string" },
+    write: { type: "boolean" }, json: { type: "string" }, against: { type: "string" }, import: { type: "string" }, notes: { type: "boolean" },
   } });
+  if (values.import) {
+    for (const { header, lines } of importRun(values.import, ROOT)) writeRecord(header, lines);
+    writeNotes();
+    return;
+  }
   const [id, ...named] = positionals;
+  if (values.notes) {
+    if (id !== "tournament") throw new Error("--notes reads the tournament's records");
+    writeNotes();
+    return;
+  }
   const evaluation = EVALUATIONS[id];
   if (!evaluation) throw new Error(`name an evaluation: ${Object.keys(EVALUATIONS).join(", ")}`);
   const protocol = values.protocol ?? evaluation.defaultProtocol, cases = evaluation.protocols[protocol];
@@ -88,11 +149,19 @@ async function main() {
   if (!(Number.isInteger(shardAt) && Number.isInteger(shards) && shardAt >= 1 && shardAt <= shards)) throw new Error("--shard is k/n, 1 <= k <= n");
 
   const choice = [...(values.mind ?? []), ...named, ...(values.subjects ? values.subjects.split(",") : [])].map(subjectOf);
-  const subjects = evaluation.subjects(choice);
+  const chosen = evaluation.subjects(choice);
+  let schedule = { kind: "all" }, panel = [];
+  if (values.against) {
+    const members = values.against === "default" ? evaluation.analysis.panel : values.against.split(",");
+    if (!Array.isArray(members) || members.length === 0) throw new Error(`${id} has no default panel`);
+    panel = evaluation.subjects(members);
+    schedule = { kind: "versus", panel: panel.map((member) => member.id) };
+  } else if (evaluation.schedule === "versus") throw new Error(`${id} is played against a panel: --against default, or --against <id,...>`);
+  const subjects = [...chosen.filter((one) => !panel.some((member) => member.id === one.id)), ...panel];
   const environment = environmentOf();
-  const units = casesOf(evaluation, protocol, subjects, { engine, code: environment.digest }), order = runOrder(units);
-  const working = join(ROOT, "research/runs/evaluations", id), recordDir = join(ROOT, "assets/evaluations", id);
-  const records = filesIn(recordDir).map(({ name, text }) => ({ name, ...readRecord(text, name) }));
+  const units = casesOf(evaluation, protocol, subjects, { engine, code: environment.digest, schedule }), order = runOrder(units);
+  const working = join(ROOT, "research/runs/evaluations", id);
+  const records = recordsOf(id);
   const rows = rowsFrom([
     ...records.map(({ name, lines }) => ({ name, rows: lines })),
     ...filesIn(working).map(({ name, text }) => ({ name, rows: text.split("\n").filter(Boolean).map((line) => JSON.parse(line)) })),
@@ -146,7 +215,7 @@ async function main() {
   const date = new Date().toISOString().slice(0, 10);
   const header = {
     identity: recordIdentity(BUILD_IDENTITY, engine, harness, cases.play), evaluation: id, protocol, play: cases.play, engine, harness,
-    commit, date, schedule: "all", pool: { protocol: recorded[0].version.protocol, environment: environment.digest }, subjects: recorded,
+    commit, date, schedule: scheduleName(schedule), pool: { protocol: recorded[0].version.protocol, environment: environment.digest }, subjects: recorded,
   };
   const lines = units.flat().map(({ subjects: seated, condition, key, code, world }) => ({ subjects: seated, condition, key, code, world, ...rowOf(rows.get(key)) }));
   const { table, faults } = tableOf(subjects, units, rows), figures = figuresOf(evaluation, subjects, units, rows);
@@ -164,15 +233,7 @@ async function main() {
     if (!commit) throw new Error("a record needs a commit");
     const changed = git("status", "--porcelain", "--", ...environment.files.filter((one) => !one.startsWith("node_modules/")));
     if (changed) throw new Error(`a record's code is its commit's: these differ or are untracked:\n${changed}`);
-    const name = join(recordDir, recordName(header, lines)), text = recordText(header, lines);
-    if (existsSync(name)) {
-      if (readFileSync(name, "utf8") !== text) throw new Error(`${name} exists with other content`);
-      console.log(`${name} holds this record already`);
-    } else {
-      mkdirSync(recordDir, { recursive: true });
-      writeFileSync(name, text);
-      console.log(`wrote ${name}`);
-    }
+    writeRecord(header, lines);
   }
 }
 

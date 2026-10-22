@@ -8,7 +8,8 @@ import { recordingKey } from "../../core/recording.ts";
 import type { Side } from "../../core/spec/body.ts";
 import type { Evaluation, Json, Subject, Table } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
-import { MATCH_CASES, type BoutReading, type MatchCondition } from "./cases.ts";
+import { CONTEST_FIGURES, type BoutReading } from "../contest.ts";
+import { MATCH_CASES, type MatchCondition } from "./cases.ts";
 
 const digest = (value: Json | string): string => sha256Text(typeof value === "string" ? value : recordingKey(value)).slice(0, 16);
 
@@ -31,6 +32,7 @@ export const MATCH: Evaluation<MatchCondition, BoutReading> = {
   question: "Does one mind beat another, each on each side, over fixed bodies, loadouts, levels and gaps?",
   protocols: MATCH_CASES,
   defaultProtocol: "standard",
+  schedule: "all",
   analysis: {},
   subjects(choice) {
     if (choice.length !== 2) throw new Error("a match is of two minds");
@@ -39,11 +41,7 @@ export const MATCH: Evaluation<MatchCondition, BoutReading> = {
       : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one].label, CONTROLLERS[one].defaults as unknown as Json)
       : (() => { throw new Error(`${one} is no mind: name a mind (${Object.keys(MINDS).join(", ")}), a kind (${Object.keys(CONTROLLERS).join(", ")}), or a config`); })());
   },
-  figures: [
-    { name: "score", unit: "a win 1, a draw a half", kind: "mean", better: "higher", of: (r, side) => side === "left" ? r.score : 1 - r.score },
-    { name: "margin", unit: "own bar less the other's", kind: "mean", better: "higher", of: (r, side) => side === "left" ? r.margin : -r.margin },
-    { name: "won", unit: "share of bouts", kind: "rate", better: "higher", of: (r, side) => r.winner === side },
-  ],
+  figures: CONTEST_FIGURES,
   /**
    * The match's digest over its bouts' digests with the first mind on the left, then the second,
    * each in the conditions' order; each mind's digest; and the first mind's score by what the

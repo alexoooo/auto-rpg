@@ -49,7 +49,7 @@ export interface Cases<C extends Json = Json, R extends Json = Json> {
   /** Why a subject's value cannot play `condition`; none unless given. */
   faults?(value: Json, condition: C): readonly string[];
   world(values: readonly Json[], condition: C, engine: EngineName): CaseWorld;
-  read(built: BuiltCase): Reader<R>;
+  read(built: BuiltCase, condition: C): Reader<R>;
 }
 
 /**
@@ -65,7 +65,7 @@ export interface Figure<R extends Json = Json> {
 }
 
 /** The subjects asked for, in order: each a name a catalogue resolves, or a value given whole (a mind's JSON). */
-type SubjectChoice = readonly (string | { readonly id: string; readonly label: string; readonly value: Json })[];
+export type SubjectChoice = readonly (string | { readonly id: string; readonly label: string; readonly value: Json })[];
 
 /** A contest's reading carries the left's score (1, a half, 0) and margin. */
 export type ContestReading = {
@@ -90,6 +90,8 @@ export interface Evaluation<C extends Json = Json, R extends Json = Json> {
   readonly question: string;
   readonly protocols: Readonly<Record<string, Cases<C, R>>>;
   readonly defaultProtocol: string;
+  /** Whom a contest's subjects meet unless told: every pair, or a panel (`schedule.ts`). */
+  readonly schedule: "all" | "versus";
   readonly analysis: Json;
   subjects(choice: SubjectChoice): readonly Subject[];
   readonly figures: readonly Figure<R>[];

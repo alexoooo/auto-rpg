@@ -1,7 +1,4 @@
 import notes from "../../assets/minds/notes.json" with { type: "json" };
-import ratings from "../../assets/minds/ratings.json" with { type: "json" };
-import { BUILD_IDENTITY } from "../build-identity.ts";
-import { requireRecordingIdentity, type RecordingIdentity } from "../core/recording.ts";
 import { LOADOUTS, loadoutKey, type Loadout } from "../core/items/held.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { BODY_MODELS, type BodyModel } from "../core/models.ts";
@@ -59,55 +56,24 @@ export function noteFaults(tree: unknown): readonly string[] {
   return faults;
 }
 
-/** One rated entrant of the last tournament: a mind on a character with a loadout. */
-interface RatedEntrant {
+/** One entrant's rating as its leaf note says it: a mind on a character with a loadout. */
+export interface NotedRating {
   readonly mind: string;
   readonly model: BodyModel;
   readonly loadout: Loadout;
-  /** On the Elo scale, the field's mean 1500 (`scripts/tournament.mjs`). */
+  /** On the Elo scale, the tournament field's mean 1500 (`ratedNotes`, `src/evaluation/tournament/notes.ts`). */
   readonly rating: number;
-  /** The rating's 95 % interval, low and high, from resampling the pairs. */
-  readonly interval: readonly [number, number];
-  readonly bouts: number;
-  readonly wins: number;
-  readonly draws: number;
-  readonly losses: number;
+  readonly date: string;
 }
 
-/** One mind on a character with a loadout no mind is rated on, and its score against the tournament's unseen opponent. */
-interface UnseenEntrant {
-  readonly mind: string;
-  readonly model: BodyModel;
-  readonly loadout: Loadout;
-  /** The opponent's mind (`MINDS`), with sword and buckler (`UNSEEN_OPPONENT`, `scripts/tournament.mjs`). */
-  readonly against: string;
-  readonly bouts: number;
-  readonly wins: number;
-  readonly draws: number;
-  readonly losses: number;
-}
+/** A rating note, `"<rating> <date>"`. */
+const RATED = /^(\d+) (\d{4}-\d{2}-\d{2})$/;
 
-/** **The last tournament's ratings** (`assets/minds/ratings.json`): when, at which commit, how it was played, and each entrant's rating. */
-interface Ratings {
-  readonly unavailable: string | null;
-  readonly date: string | null;
-  readonly commit: string | null;
-  readonly harness: string | null;
-  readonly protocol: string | null;
-  readonly entrants: readonly RatedEntrant[];
-  /** How each mind carried to the loadouts it was not rated on, beside the ratings. */
-  readonly unseen: readonly UnseenEntrant[];
+/** Every entrant whose leaf note in `tree` is a rating, best first. */
+export function notedRatings(tree: Readonly<Record<string, NoteTree>> = MIND_NOTES): readonly NotedRating[] {
+  return Object.entries(tree).flatMap(([mind, notes]) => Object.entries(notes.bodies ?? {}).flatMap(([model, body]) =>
+    Object.entries(body?.loadouts ?? {}).flatMap(([held, note]) => {
+      const loadout = LOADOUTS.find((one) => loadoutKey(one) === held), rated = RATED.exec(note);
+      return loadout && rated ? [{ mind, model: model as BodyModel, loadout, rating: Number(rated[1]), date: rated[2]! }] : [];
+    }))).sort((a, b) => b.rating - a.rating);
 }
-
-/** A table made on different inputs cannot describe the available minds and physical recipes. */
-export function readRatings(record: Omit<Ratings, "unavailable"> & { readonly identity?: RecordingIdentity }): Ratings {
-  if (record.entrants.length > 0 || record.unseen.length > 0) {
-    try { requireRecordingIdentity(record.identity, { build: BUILD_IDENTITY, protocol: "arena-tournament/1", configuration: record.identity?.configuration ?? "" }); }
-    catch (error) { return { ...record, entrants: [], unseen: [], unavailable: error instanceof Error ? error.message : String(error) }; }
-  }
-  return { ...record, unavailable: null, entrants: record.entrants.map(entrant => ({ ...entrant,
-    interval: [entrant.interval[0]!, entrant.interval[1]!] as const })) };
-}
-
-/** The shipped table is read by the same compatibility rule as any supplied result. */
-export const RATINGS: Ratings = readRatings(ratings as unknown as Parameters<typeof readRatings>[0]);

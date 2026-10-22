@@ -118,8 +118,7 @@ Scripts not listed above, by what they study; each is read by the record named.
 | Minds and options | `options-readout.mjs` (where the options fighter's bouts go), `arena-control-trials.mjs`, `ground-combat.mjs`, `action-cycles.mjs` (their request ledger) | [ground combat](../docs/reference/ground-combat.md) |
 | Other | `jump-test.mjs` (a squat jump's take-off), `pad-surface.mjs` (a pad's support surface) | |
 
-`cma.mjs` is the resumable CMA-ES the searches share; `rating.mjs` fits Bradley-Terry strengths on
-the Elo scale for the tournament; `core-club-unit.mjs` writes `core-club-unit.json` from a search's
+`cma.mjs` is the resumable CMA-ES the searches share; `core-club-unit.mjs` writes `core-club-unit.json` from a search's
 output.
 
 ## The physics bake-off

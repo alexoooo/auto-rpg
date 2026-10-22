@@ -8,6 +8,7 @@ import { recordingKey } from "../core/recording.ts";
 import type { Side } from "../core/spec/body.ts";
 import type { CaseWorld, Evaluation, Json, Subject, Table } from "./evaluation.ts";
 import { runLanes, type Spawn } from "./lanes.ts";
+import { pairsOf, type Schedule } from "./schedule.ts";
 import type { Row } from "./play.ts";
 import { sha256Text } from "./sha256.ts";
 import { mean, median, pairBootstrap, wilson, type Estimate } from "./stats.ts";
@@ -30,6 +31,7 @@ interface CaseJob {
   readonly evaluation: string;
   readonly protocol: string;
   readonly key: string;
+  readonly condition: Json;
   readonly world: CaseWorld;
   readonly seconds: number;
 }
@@ -44,11 +46,11 @@ const keyOf = (fields: { evaluation: string; play: Json; engine: EngineName; wor
 
 /**
  * The cases of `evaluation` on `protocol` for `subjects`, unit by unit, in the definition's order:
- * arity 0 each condition; 1 each subject on each condition it fits; 2 each pair of subjects in
- * their order on each condition both fit, the first on the left then the second. Refused for a
- * subject that fits no condition, or a pair that share none.
+ * arity 0 each condition; 1 each subject on each condition it fits; 2 each pair `schedule` makes
+ * on each condition both fit, the first on the left then the second. Refused for a subject that
+ * fits no condition, or a pair that share none.
  */
-export function casesOf(evaluation: Evaluation, protocol: string, subjects: readonly Subject[], { engine, code }: { engine: EngineName; code: string }): Unit[] {
+export function casesOf(evaluation: Evaluation, protocol: string, subjects: readonly Subject[], { engine, code, schedule }: { engine: EngineName; code: string; schedule: Schedule }): Unit[] {
   const cases = evaluation.protocols[protocol];
   if (!cases) throw new Error(`${evaluation.id} has no protocol ${protocol}: ${Object.keys(evaluation.protocols).join(", ")}`);
   const make = (seated: readonly Subject[], condition: Json): Case => {
@@ -65,8 +67,8 @@ export function casesOf(evaluation: Evaluation, protocol: string, subjects: read
     case 1: return subjects.flatMap((subject) => fitting(subject).map((condition) => [make([subject], condition)]));
     case 2: {
       const units: Unit[] = [];
-      for (let i = 0; i < subjects.length; i++) for (let j = i + 1; j < subjects.length; j++) {
-        const a = subjects[i], b = subjects[j], both = fitting(a, b);
+      for (const [a, b] of pairsOf(subjects, schedule)) {
+        const both = fitting(a, b);
         if (both.length === 0) throw new Error(`${a.label} and ${b.label} share no condition of ${evaluation.id} ${protocol}`);
         for (const condition of both) units.push([make([a, b], condition), make([b, a], condition)]);
       }
@@ -98,7 +100,7 @@ export async function runEvaluation(units: readonly Unit[], rows: ReadonlyMap<st
 }): Promise<void> {
   const jobs: CaseJob[] = [];
   for (const unit of units) for (const one of unit) if (!rows.has(one.key) && !jobs.some((job) => job.key === one.key))
-    jobs.push({ evaluation, protocol, key: one.key, world: one.world, seconds: one.seconds });
+    jobs.push({ evaluation, protocol, key: one.key, condition: one.condition, world: one.world, seconds: one.seconds });
   await runLanes(jobs, { lanes, spawn, minutes, onLost, onAnswer: (job, row) => {
     if (row.key !== job.key) throw new Error(`a worker answered ${job.key} with ${row.key}`);
     onRow(row, job);

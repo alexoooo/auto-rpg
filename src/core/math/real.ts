@@ -1,5 +1,5 @@
 /**
- * **The core's functions of a real number**: `sin`, `cos`, `tan`, `asin`, `acos`, `atan2`, `exp`,
+ * **The core's functions of a real number**: `sin`, `cos`, `tan`, `asin`, `acos`, `atan2`, `exp`, `log`,
  * `sinh`, `cosh`, `cbrt` and `hypot`.
  *
  * A JavaScript engine's own `Math.sin` and its kin are each right to about the last bit and no
@@ -485,6 +485,46 @@ export function exp(x: number): number {
   const y = 1 - ((lo - (x * c) / (2 - c)) - hi);
   if (k >= -1021) return k === 1024 ? y * 2 * TWO1023 : y * fromWords(0x3ff00000 + (k << 20), 0);
   return y * fromWords(0x3ff00000 + ((k + 1000) << 20), 0) * TWOM1000;
+}
+
+/** fdlibm's natural logarithm: its polynomial's coefficients (a subnormal is scaled up by `TWO54`). */
+const LG1 = 6.666666666666735130e-01, LG2 = 3.999999999940941908e-01, LG3 = 2.857142874366239149e-01,
+  LG4 = 2.222219843214978396e-01, LG5 = 1.818357216161805012e-01, LG6 = 1.531383769920937332e-01,
+  LG7 = 1.479819860511658591e-01;
+
+/** The natural logarithm of `x`. */
+export function log(x: number): number {
+  let hx = highOf(x), k = 0;
+  if (hx < 0x00100000) {
+    if (((hx & 0x7fffffff) | lowOf(x)) === 0) return -Infinity;
+    if (hx < 0) return NaN;
+    k -= 54;
+    x *= TWO54;
+    hx = highOf(x);
+  }
+  if (hx >= 0x7ff00000) return x + x;
+  k += (hx >> 20) - 1023;
+  hx &= 0x000fffff;
+  let i = (hx + 0x95f64) & 0x100000;
+  F64[0] = x; U32[HI] = hx | (i ^ 0x3ff00000); x = F64[0]!;
+  k += i >> 20;
+  const f = x - 1, dk = k;
+  if ((0x000fffff & (2 + hx)) < 3) {
+    if (f === 0) return k === 0 ? 0 : dk * LN2_HI + dk * LN2_LO;
+    const r = f * f * (0.5 - 0.33333333333333333 * f);
+    return k === 0 ? f - r : dk * LN2_HI - ((r - dk * LN2_LO) - f);
+  }
+  const s = f / (2 + f), z = s * s, w = z * z;
+  i = hx - 0x6147a;
+  const j = 0x6b851 - hx;
+  const t1 = w * (LG2 + w * (LG4 + w * LG6)), t2 = z * (LG1 + w * (LG3 + w * (LG5 + w * LG7)));
+  i |= j;
+  const r = t2 + t1;
+  if (i > 0) {
+    const hfsq = 0.5 * f * f;
+    return k === 0 ? f - (hfsq - s * (hfsq + r)) : dk * LN2_HI - ((hfsq - (s * (hfsq + r) + dk * LN2_LO)) - f);
+  }
+  return k === 0 ? f - s * (f - r) : dk * LN2_HI - ((s * (f - r) - dk * LN2_LO) - f);
 }
 
 /** fdlibm's e to the x, less one: its rational approximation's coefficients. */

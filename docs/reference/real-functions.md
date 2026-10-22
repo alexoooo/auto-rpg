@@ -24,6 +24,7 @@ one" in [oracle.md](oracle.md) ended at 11.75 s in Chrome and 12.45 s in Node).
 | `asin`, `acos` | `e_asin.c`, `e_acos.c` |
 | `atan2` | `e_atan2.c`, `s_atan.c` |
 | `exp` | `e_exp.c` |
+| `log` | `e_log.c`: equal to Node 24.19's `Math.log` on 2,500,014 arguments (2 million of `exp` over -700 to 700, half a million within 0.0005 of 1, and the edges); ratings read it (`src/evaluation/rating.ts`) |
 | `sinh`, `cosh` | `e_sinh.c`, `e_cosh.c`, `s_expm1.c` |
 | `cbrt` | `s_cbrt.c` |
 | `hypot`, `norm` | each part over the largest, squared, summed with a running compensation; the root, times the largest |

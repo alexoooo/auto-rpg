@@ -2,16 +2,16 @@
  * **The standard match's cases**: two minds over one fixed set of arena bouts, each mind on each
  * side. Bouts are the same to the bit on every machine (`docs/reference/real-functions.md`).
  */
-import { CAP_SECONDS, SIDES, type DuelEnding } from "../../arena/duel.ts";
+import { CAP_SECONDS, SIDES } from "../../arena/duel.ts";
 import type { ArenaLevel } from "../../arena/levels.ts";
 import { REPRESENTATIVE, loadoutKey, type Loadout } from "../../core/items/held.ts";
 import { CONTROLLERS } from "../../core/mind/controllers.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";
-import { isClash } from "../../core/rules/blows.ts";
 import type { Side } from "../../core/spec/body.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
-import type { BuiltCase, Cases, ContestReading, Json, Reader } from "../evaluation.ts";
+import { readBout, type BoutReading } from "../contest.ts";
+import type { Cases, Json } from "../evaluation.ts";
 
 /**
  * What a match plays: each body a mind may have against each the other may have, each loadout, and
@@ -37,43 +37,6 @@ type Protocol = typeof MATCH;
 
 /** One bout's conditions: the left's body, the right's, both sides' loadout, the level and the gap, m. */
 export type MatchCondition = { readonly left: BodyModel; readonly right: BodyModel; readonly loadout: Loadout; readonly level: ArenaLevel; readonly gap: number };
-
-/**
- * What a bout came to: the winner (null a draw) and how, when, how many blows landed (clashes not
- * counted), each side's bar at the end and every 10 s of the bout and at its end; the left's score
- * and margin (its bar less the right's).
- */
-export type BoutReading = ContestReading & {
-  readonly winner: Side | null;
-  readonly ending: DuelEnding;
-  readonly seconds: number;
-  readonly blows: number;
-  readonly bars: readonly [number, number];
-  readonly series: readonly (readonly [number, number])[];
-};
-
-/** How often a bout's bars are read into its series, simulated s. */
-const SERIES_SECONDS = 10;
-
-/** A bout's reader: its bars every `SERIES_SECONDS` and at the verdict. */
-function readBout(built: BuiltCase): Reader<BoutReading> {
-  const { duel } = built, every = SERIES_SECONDS * built.world.hz, series: (readonly [number, number])[] = [];
-  const bars = (): readonly [number, number] => [duel.duelists.left.pool.bar(), duel.duelists.right.pool.bar()];
-  let steps = 0, last = -1;
-  return {
-    afterStep() { if (++steps % every === 0) { series.push(bars()); last = steps; } },
-    get ended() { return duel.verdict !== null; },
-    reading() {
-      const verdict = duel.verdict!, end = bars();
-      if (last !== steps) series.push(end);
-      return {
-        winner: verdict.winner, ending: verdict.ending, seconds: duel.clock,
-        blows: duel.blows.filter((blow) => !isClash(blow)).length, bars: end, series,
-        score: verdict.winner === null ? 0.5 : verdict.winner === "left" ? 1 : 0, margin: end[0] - end[1],
-      };
-    },
-  };
-}
 
 /** Why `value` is no mind, or what keeps it from `loadout` on any of the protocol's bodies (`mindFaults`). */
 function faultsOf(protocol: Protocol, value: Json, loadout: Loadout): readonly string[] {

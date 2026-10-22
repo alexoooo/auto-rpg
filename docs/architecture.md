@@ -502,9 +502,11 @@ replays it from its order sheets. How well it fights is a measurement:
   each side, and names the result by a digest that is the same on every machine;
   `--protocol sword-and-buckler` plays that loadout on both stages. It is an evaluation
   ([Evaluations](#evaluations)), `match`.
-- The tournament (`scripts/tournament.mjs`) rates every mind on every character and representative
-  loadout (`REPRESENTATIVE`, `src/core/items/held.ts`) by Bradley-Terry (`research/rating.mjs`),
-  shown as notes (`src/ui/mind-notes.ts`) and the Arena's Ratings panel.
+- The tournament (`tournament`) rates every mind on every character and representative loadout
+  (`REPRESENTATIVE`, `src/core/items/held.ts`) within a pool by Bradley-Terry (`rating.ts`); the
+  unseen report (`unseen`) plays each mind on the loadouts none is rated on. `npm run evaluate --
+  tournament --notes` writes the newest record's ratings into the notes (`ratedNotes`,
+  `src/ui/mind-notes.ts`), which the Arena's Ratings panel lists.
 - The fingerprint (`scripts/fingerprint.mjs`) has a case for every pickable mind and for every
   part that reads mind data (`DATA_CASES`: Research rise, the learned rise, the learned run);
   `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
@@ -620,14 +622,16 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
   envelopes checked for exact identity.
 - **Build fingerprint** (`scripts/build-identity.mjs`): a content SHA-256 of sources, templates,
   assets, lockfile, build config and installed Rapier, LF-normalised; Node and Vite share it.
-  What runs write (`OUTPUTS`: the tournament's table and notes, `assets/evaluations/`, generated art delivery files) is not in
-  it. Evaluation records and tournament caches carry it and refuse a mismatch. The environment
+  What runs write (`OUTPUTS`: the minds' notes, `assets/evaluations/`, generated art delivery files) is not in
+  it. Evaluation records and research bout pools carry it and refuse a mismatch. The environment
   (`environmentOf`) is the same less what no case plays (scripts, research, the test harness, the
   pages, the evaluations' descriptions): a case's code.
 - **Evaluation records** (`assets/evaluations/<id>/`): kept results ([Evaluations](#evaluations)).
   `imports/tournament-1bacac44.jsonl`
   is the 10-hour tournament's rows (11,342 bouts and the unseen report's 384) as played, with their
-  provenance beside them in `tournament-1bacac44.json`.
+  provenance beside them in `tournament-1bacac44.json`; `--import` makes them the first
+  `tournament` and `unseen` records (`scripts/evaluation-import.mjs`), a pool of their own whose
+  cases have no world: history, never opened or replayed.
 - **Forks** (`rollout`, `research/rollouts.mjs`): by load or by replay of the tape, which agree.
   The oracle (`research/oracle.mjs`) searches orders over forks; it holds the true world and is an
   instrument, not a mind ([oracle](reference/oracle.md)).
@@ -645,6 +649,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   subject's value whole), seconds and code (the environment). A row (`Row`, `play.ts`) is found
   again by its key, so a description, script or document edit replays nothing; a case's error or
   non-finite reading is a fault row, kept like any other.
+- **A schedule** (`schedule.ts`) pairs a contest's subjects: `all` with each other, `versus` each
+  subject with a panel's members only (`--against`).
 - **The runner** (`run.ts`): units of evidence (a contest's one condition with each side on the
   left), run in the order of their keys on lanes (`lanes.ts`: a worker each, behind `spawn`, a
   lost worker or one past its minutes replaced and its case left without a row); a table reads only
@@ -656,6 +662,10 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   the digest of its own content, protocol and environment, kept apart so a change from its parent
   is named by kind; `--previous` names the parent. Working rows are kept in
   `research/runs/evaluations/<id>/`.
+- **Ratings** (`rating.ts`): Bradley-Terry strengths on the Elo scale over a pool's distinct keys,
+  computed with the core's `exp` and `log`, a draw half a win, each entrant given half a game drawn
+  against the field; intervals from refits to the pairs resampled whole. No strength is carried
+  across pools.
 - `scripts/evaluate.mjs` and `evaluate-worker.mjs` run it in Node.
 
 ## Rules and wounds

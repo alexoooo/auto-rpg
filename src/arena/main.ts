@@ -35,7 +35,7 @@ import { MINDS } from "../core/mind/controllers.ts";
 import { partOf, treeData } from "../core/mind/catalog.ts";
 import { loadData } from "../core/data/store.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
-import { notesOf, RATINGS, type NoteLevel } from "../ui/mind-notes.ts";
+import { notedRatings, notesOf, type NoteLevel } from "../ui/mind-notes.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
@@ -94,31 +94,22 @@ const levelName = (level: NoteLevel, model: BodyModel, loadout: Loadout): string
   }
 };
 
-/** **The last tournament's table** (`RATINGS`), its best first, into the ratings panel. */
+/** **Each entrant's rating** as the notes give it (`notedRatings`), best first, into the ratings panel. */
 function showRatings(root: ParentNode): void {
   const need = <T extends HTMLElement>(id: string): T => find<T>(id, root);
-  const { entrants, unseen, date, commit, harness, unavailable } = RATINGS;
-  need("ratings-about").textContent = unavailable ? `Ratings unavailable: ${unavailable}.` : entrants.length === 0 ? "No tournament has been played yet (scripts/tournament.mjs)."
-    : `Each mind on each character with each loadout against every other, both sides, Bradley-Terry on the Elo scale (the field's mean 1500), with its 95 % interval. ${date} at ${commit?.slice(0, 8)}; ${harness}.`;
+  const rated = notedRatings(), dates = [...new Set(rated.map((one) => one.date))].sort();
+  need("ratings-about").textContent = rated.length === 0 ? "No tournament has been rated yet (npm run evaluate -- tournament --notes)."
+    : `Each mind on each character with each loadout against every other, both sides, Bradley-Terry on the Elo scale (the field's mean 1500), from the newest tournament record (assets/evaluations/tournament/), ${dates.join(", ")}.`;
   const cell = (tag: "td" | "th", text: string) => Object.assign(document.createElement(tag), { textContent: text });
   const head = document.createElement("tr");
-  head.append(...["", "Mind", "Character", "Hands", "Rating", "95 %", "Won", "Drawn", "Lost"].map(text => cell("th", text)));
-  const rows = [...entrants].sort((a, b) => b.rating - a.rating).map((entrant, rank) => {
+  head.append(...["", "Mind", "Character", "Hands", "Rating"].map(text => cell("th", text)));
+  const rows = rated.map((entrant, rank) => {
     const row = document.createElement("tr");
-    row.append(...[`${rank + 1}`, MINDS[entrant.mind]?.label ?? entrant.mind, MODEL_DISPLAY[entrant.model].label, loadoutName(entrant.loadout),
-      entrant.rating.toFixed(0), `${entrant.interval[0].toFixed(0)}-${entrant.interval[1].toFixed(0)}`, `${entrant.wins}`, `${entrant.draws}`, `${entrant.losses}`]
+    row.append(...[`${rank + 1}`, MINDS[entrant.mind]?.label ?? entrant.mind, MODEL_DISPLAY[entrant.model].label, loadoutName(entrant.loadout), `${entrant.rating}`]
       .map(text => cell("td", text)));
     return row;
   });
   need("ratings-table").replaceChildren(head, ...rows);
-  need("unseen-about").textContent = unseen.length === 0 ? "" : `Unseen loadouts, rated on none: each mind against ${MINDS[unseen[0]!.against]?.label ?? unseen[0]!.against} with sword and buckler, both sides.`;
-  const unseenHead = document.createElement("tr");
-  unseenHead.append(...["Mind", "Character", "Hands", "Won", "Drawn", "Lost"].map(text => cell("th", text)));
-  need("unseen-table").replaceChildren(...unseen.length === 0 ? [] : [unseenHead, ...unseen.map((entrant) => {
-    const row = document.createElement("tr");
-    row.append(...[MINDS[entrant.mind]?.label ?? entrant.mind, MODEL_DISPLAY[entrant.model].label, loadoutName(entrant.loadout), `${entrant.wins}`, `${entrant.draws}`, `${entrant.losses}`].map(text => cell("td", text)));
-    return row;
-  })]);
 }
 
 export async function bootArena(context: ScreenContext): Promise<void> {

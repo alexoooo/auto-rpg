@@ -8,9 +8,9 @@ import { playRow } from "../src/evaluation/play.ts";
 // A worker's row is its message: Babylon's banner for each case's scene is not.
 Logger.LogLevels = Logger.NoneLogLevel;
 
-parentPort.on("message", async ({ evaluation, protocol, key, world, seconds }) => {
+parentPort.on("message", async ({ evaluation, protocol, key, condition, world, seconds }) => {
   const cases = CASES[evaluation]?.[protocol];
   parentPort.postMessage(cases
-    ? await playRow(key, world, seconds, cases.read)
+    ? await playRow(key, world, seconds, (built) => cases.read(built, condition))
     : { key, reading: null, digest: null, fault: { kind: "error", message: `no cases for ${evaluation} ${protocol}` } });
 });

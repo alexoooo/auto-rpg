@@ -25,8 +25,8 @@ export function median(values: readonly number[]): number {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-/** Uniform numbers in [0, 1) from `seed`: mulberry32. */
-function uniform(seed: number): () => number {
+/** Uniform numbers in [0, 1) from `seed` (mulberry32): the same draws on every machine. */
+export function draws(seed: number): () => number {
   let a = seed | 0;
   return () => {
     a = (a + 0x6d2b79f5) | 0;
@@ -45,7 +45,7 @@ const RESAMPLES = 2000, SEED = 1;
  */
 export function pairBootstrap(values: readonly number[], statistic: (values: readonly number[]) => number): Estimate | null {
   if (values.length === 0) return null;
-  const next = uniform(SEED), sample = new Array<number>(values.length), stats = new Array<number>(RESAMPLES);
+  const next = draws(SEED), sample = new Array<number>(values.length), stats = new Array<number>(RESAMPLES);
   for (let r = 0; r < RESAMPLES; r++) {
     for (let k = 0; k < values.length; k++) sample[k] = values[Math.floor(next() * values.length)];
     stats[r] = statistic(sample);
