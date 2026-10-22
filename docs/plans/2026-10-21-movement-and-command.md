@@ -31,8 +31,7 @@ Principles:
 - **Deterministic and forkable**: a Commander steps inside `World.step`, in the sensing phase, at
   its own rate or on an event, its memory plain data in `state`.
 - **Roles, not special cases**: the Commander is a registered role with its own config, faults and
-  factory, implementations side by side
-  ([Component registration](2026-10-21-component-registration.md)).
+  factory, implementations side by side (`COMMANDERS`, `src/core/command/commanders.ts`).
 
 The owner has decided: the Crypt's enemies are coordinated by B4's mob, kept simple and minimal and
 iterated on later, with today's independent approach still selectable; team bouts in the Arena, N
@@ -45,13 +44,12 @@ against N, are later work outside this plan. No fight is taped for a person to r
   (`travelSpeed`, `src/core/mind/travel.ts`) from the limits the gait states (`Locomotion.envelope`,
   `Locomotion.stopping`); the legs carry it out ([architecture](../architecture.md#minds)).
 - **The Crypt's teams are Commanders**: its enemies `independent`, its party `party`
-  (`src/core/command/`), with `DungeonRun` their host. The person's four mouse orders (`TeamOrder`,
-  `src/core/command/commands.ts`: idle, lock, force, attack-move) reach the party as `TeamCommand`s;
-  the keys and the pointer as its `Lead`. No AI plays the party yet.
-- **The Arena's person steers one body**: WASD a direct goal relative to the camera, Shift walks,
-  the pointer sets facing, the left button attacks the segment it points at (`personOrders`,
-  `src/arena/main.ts`). The bout tapes each side's orders (`Duel.tape`), so it replays with no
-  mind.
+  (`src/core/command/`), with `DungeonRun` their host. The person's commands (`Command`,
+  `src/core/command/commands.ts`) reach the party Commander, the keys and the pointer as its
+  `Lead`. No AI plays the party yet.
+- **The Arena's person leads a team of one** under the same Commander (`teamOfOne`,
+  `src/arena/team.ts`): WASD, Shift, the pointer, the left button, and a click on the floor to go.
+  The bout tapes each side's orders (`Duel.tape`), so it replays with no mind.
 - **Bodies of one party collide and fall**: `nobody_in_the_fight_is_held_with_the_party_near`
   (`tests/crypt-core-capability.test.mjs@2a1b29ac`) fails: on seed 1 ally-1 falls at 11.59 s,
   ally-2 at 22.86 s, the hero at 23.92 s, ally-0 at 27.28 s. Steering treats a requested direction
@@ -61,25 +59,13 @@ against N, are later work outside this plan. No fight is taped for a person to r
 
 ## Steps
 
-B0 and B1 have landed: the Commander contract (`src/core/command/`, [architecture](../architecture.md#command)),
-the Crypt's enemies (`independent`) and party (`party`) as its kinds. B2, B3 and B4 can start. Each step is its own
-toolkit commits under the normal gate, naming the fingerprint cases it moves; a step that claims no
-change of behaviour shows the fingerprint unmoved.
+B0, B1 and B2 have landed: the Commander contract (`src/core/command/`,
+[architecture](../architecture.md#command)), the Crypt's enemies (`independent`) and party
+(`party`) as its kinds, and the person's commands; B2's mouse controls wait on the owner's eye.
+Each step is its own toolkit commits under the normal gate, naming the fingerprint cases it moves;
+a step that claims no change of behaviour shows the fingerprint unmoved.
 
 ### Part B: command
-
-#### B2. The person's commands
-
-- **Vocabulary**: plain data (`Command`): select, go (a point or a drawn path), attack (a sensed
-  foe), face (a point, or turn with Q/E), hold, stop, regroup, follow.
-- **The mouse leads**: click the ground to go, click an enemy to attack it, drag to draw a path,
-  Q/E or the mouse for facing; WASD steers the one selected body with a direct goal.
-- **Several selected** take slots about the destination, their ceiling the slowest member's top
-  speed (`travelSpeed`), so the group arrives together.
-- **The Arena**: its person uses the same Commander for their side, a team of one, so click-to-go
-  works there too.
-
-Check: the gate; the eye check of the mouse controls' feel.
 
 #### B3. Crowd motion
 
@@ -135,8 +121,5 @@ this file is deleted.
   speed here through the limits it states, with no change to the pipeline.
 - **Tactics** (the [roadmap](../roadmap.md#the-ai)): spacing is a range or direct goal, and a
   follow-orders model reads the speed rule.
-- **[Component registration](2026-10-21-component-registration.md)** gains the Commander role and
-  the locomotion role's new interface: the legs take a velocity and a facing, and a gait states its
-  limits.
 - **[Ratings](2026-10-21-ratings.md)**: the Crypt's clearing task is one of its
   evaluations.
