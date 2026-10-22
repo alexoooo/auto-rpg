@@ -184,8 +184,9 @@ export function clearerCommander(host: TeamHost): Commander {
       state.waiting = false;
     }
     const status = state.goal ? reportOf(leader, placeMovement(state.goal, ARRIVAL.explored))?.status : undefined;
-    if (!state.goal || arrived(leader, state.goal, ARRIVAL.explored) || status === "unreachable" || status === "stalled")
-      state.goal = roomy(level.frontier(leader.at, leader.radius), leader.radius);
+    // A goal its navigator gives up on is dropped for a step, so that the one asked next is a new request to it.
+    if (status === "unreachable" || status === "stalled") { state.goal = null; return null; }
+    if (!state.goal || arrived(leader, state.goal, ARRIVAL.explored)) state.goal = roomy(level.frontier(leader.at, leader.radius), leader.radius);
     return state.goal ? placeMovement(state.goal, ARRIVAL.explored) : null;
   };
 
