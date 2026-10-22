@@ -20,9 +20,11 @@ import type { GaitLimits } from "./travel.ts";
  *   sooner the more;
  * - `near`, m: how far past both bodies' reach in the horizon another body is looked at at all;
  * - `reach`, m: how far a fallen body's parts reach past their centres; `grid`, m: the step its
- *   footprint is rounded out to, so a body settling where it lies changes no route.
+ *   footprint is rounded out to; `settled`, m: how far a fallen body's centre goes from where its
+ *   footprint was taken before it is taken afresh, so a body twitching where it lies changes no
+ *   route.
  */
-export const CROWD = Object.freeze({ margin: .15, horizon: 2, samples: 20, turns: 6, left: .05, conflict: 100, near: 1, reach: .15, grid: .1 });
+export const CROWD = Object.freeze({ margin: .15, horizon: 2, samples: 20, turns: 6, left: .05, conflict: 100, near: 1, reach: .15, grid: .1, settled: .3 });
 
 /** What crowd steering reads of a view: its centre and velocity, and what its senses carry. */
 interface CrowdView {
@@ -50,14 +52,27 @@ function reachOf(other: Senses["others"][number]): number {
 }
 
 /**
+ * Where a walker keeps each fallen body of its own side lying (`fallenSolids`), by id: its
+ * footprint's least and most x and z, m, and where its centre of mass was when the footprint was
+ * taken afresh. Its state (`src/core/state.ts`).
+ */
+export type FallenMemory = Map<string, { x0: number; x1: number; z0: number; z1: number; x: number; z: number }>;
+
+/**
  * Each fallen body of the walker's own side but `exempt`, down or out of the fight, as a fixed
  * solid a route keeps clear of: the box about its parts' centres, `CROWD.reach` wider, rounded out
  * to `CROWD.grid`, as high as a lying body. None where none lies.
+ *
+ * A footprint is kept in `memory` from step to step and grows to take in where the parts lie now,
+ * so a body twitching where it lies comes to one footprint that holds; it is taken afresh once the
+ * body's centre is more than `CROWD.settled` from where it was when last taken, and forgotten once
+ * the body is up.
  */
-export function fallenSolids(senses: Pick<Senses, "side" | "others">, exempt: string | null): readonly SolidSense[] {
+export function fallenSolids(senses: Pick<Senses, "side" | "others">, exempt: string | null, memory: FallenMemory): readonly SolidSense[] {
   let solids: SolidSense[] | null = null;
   for (const other of senses.others) {
-    if (other.side !== senses.side || !(other.down || other.out) || other.id === exempt) continue;
+    if (other.side !== senses.side) continue;
+    if (!(other.down || other.out)) { memory.delete(other.id); continue; }
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
     for (const segment of other.segments.values()) {
       minX = Math.min(minX, segment.centre.x); maxX = Math.max(maxX, segment.centre.x);
@@ -65,7 +80,12 @@ export function fallenSolids(senses: Pick<Senses, "side" | "others">, exempt: st
     }
     const g = CROWD.grid, x0 = Math.floor((minX - CROWD.reach) / g) * g, x1 = Math.ceil((maxX + CROWD.reach) / g) * g;
     const z0 = Math.floor((minZ - CROWD.reach) / g) * g, z1 = Math.ceil((maxZ + CROWD.reach) / g) * g;
-    (solids ??= []).push({ name: `fallen:${other.id}`, kind: "box", centre: [(x0 + x1) / 2, .25, (z0 + z1) / 2], size: [x1 - x0, .5, z1 - z0] });
+    let kept = memory.get(other.id);
+    if (kept && hypot(other.centre.x - kept.x, other.centre.z - kept.z) <= CROWD.settled) {
+      kept.x0 = Math.min(kept.x0, x0); kept.x1 = Math.max(kept.x1, x1); kept.z0 = Math.min(kept.z0, z0); kept.z1 = Math.max(kept.z1, z1);
+    } else memory.set(other.id, kept = { x0, x1, z0, z1, x: other.centre.x, z: other.centre.z });
+    if (other.id === exempt) continue;
+    (solids ??= []).push({ name: `fallen:${other.id}`, kind: "box", centre: [(kept.x0 + kept.x1) / 2, .25, (kept.z0 + kept.z1) / 2], size: [kept.x1 - kept.x0, .5, kept.z1 - kept.z0] });
   }
   return solids ?? NONE;
 }

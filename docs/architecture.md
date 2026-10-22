@@ -497,7 +497,9 @@ Navigation is a part between tactics and locomotion (a fighter's `navigation` sl
 visibility navigator routes round inflated fixed footprints and reports its route, distance,
 arrival and stalls; how far an order has left is read from the order (`remainingOf`).
 **Its own side** (`src/core/mind/crowd.ts`): a fallen body of its side is a fixed footprint it
-routes round (`fallenSolids`), and every walk it gives is kept clear of its side's standing
+routes round (`fallenSolids`), kept from step to step and grown to take in where the body's parts
+lie, and taken afresh once its centre has moved `CROWD.settled`, so a body twitching where it lies
+changes no route; and every walk it gives is kept clear of its side's standing
 bodies (`crowdWalk`): of the ways its route asks or turned from it by up to six sixteenths of a
 turn either side, or none, the one nearest the walk asked whose sweep keeps `CROWD.margin` clear of
 each over the next `CROWD.horizon` s or the time it takes to stop, judged from its velocity now

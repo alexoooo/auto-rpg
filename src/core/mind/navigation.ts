@@ -5,7 +5,7 @@ import { deepFreeze } from "../state.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
 import { heldClearance } from "./held-clearance.ts";
 import { blocks, clearanceExit, clearMove, clearStep, occupies, SWEEP } from "./clear-step.ts";
-import { crowdWalk, fallenSolids } from "./crowd.ts";
+import { crowdWalk, fallenSolids, type FallenMemory } from "./crowd.ts";
 import { copyMovement, sameMovement, type MovementRequest, type GroundPoint } from "./movement.ts";
 import type { SolidSense } from "./object-senses.ts";
 import { anyBody, type Part } from "./parts.ts";
@@ -301,13 +301,14 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
   /**
    * `solids` and `fallen` are the geometry its route was found in: the solids sensed and its own
    * side's fallen bodies (`fallenSolids`); `failure` keeps the same of a search that found none.
+   * `lying` is where it keeps its side's fallen bodies (`FallenMemory`).
    */
   const state = { request: null as MovementRequest | null, solids: null as readonly SolidSense[] | null, fallen: NO_SOLIDS, route: [] as GroundPoint[], waypoint: 0, goal: null as GroundPoint | null,
     focus: null as GroundPoint | null,
     failure: null as { from: GroundPoint; solids: readonly SolidSense[]; fallen: readonly SolidSense[]; radius: number; focus: GroundPoint | null } | null,
     progress: null as GroundPoint | null, bestRemaining: null as number | null, lastProgress: 0, lastTime: null as number | null, clearance: baseRadius,
     /** Whether its own side's bodies held its walk back at the last step (`crowdWalk`). */
-    held: false,
+    held: false, lying: new Map() as FallenMemory,
     report: { status: "stopped", remaining: null, goal: null } as { status: NavigationStatus; remaining: number | null; goal: GroundPoint | null } };
   const update = (status: NavigationStatus, remaining: number | null, goal: GroundPoint | null) => {
     state.report.status = status; state.report.remaining = remaining; state.report.goal = goal;
@@ -330,7 +331,7 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
       const sensed = view.senses.solids ?? NO_SOLIDS;
       let solids = printsOf(sensed, centre.y, view.stance.support?.y);
       // Its own side's fallen bodies are fixed solids to route round, but the body it ranges about.
-      const fallen = fallenSolids(view.senses, request?.kind === "range" ? request.focus : null);
+      const fallen = fallenSolids(view.senses, request?.kind === "range" ? request.focus : null, state.lying);
       if (fallen.length) solids = [...solids, ...footprints(fallen, centre.y, view.stance.support?.y)];
       const radius = radiusOf(view);
       // Whether the router is ready from here among this step's solids.
