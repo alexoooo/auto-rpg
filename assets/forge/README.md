@@ -1,8 +1,9 @@
 # The Forge kit
 
 The arena's room, the Forge, is dressed from this kit: pavement, masonry, columns, bowls, cloth and
-outcrops, all original generated work. `public/assets/forge/forge-kit.glb` holds the templates
-and the PNGs beside it their seamless PBR maps. `src/arena/forge-assets.ts` loads both,
+outcrops, all original generated work. `assets/art/environment/forge/forge-kit.glb` holds the templates
+and the PNGs beside it their seamless PBR maps. The art compiler emits compressed delivery from
+both; `src/arena/forge-assets.ts` loads the generated resources,
 `src/arena/forge-style.ts` builds the look from them, and `src/arena/forge-room.ts` fills the
 arena's wall colliders with masonry and decorates its posts with flames.
 
@@ -17,7 +18,8 @@ From the repository root:
 npm run build
 ```
 
-Normal builds use the committed GLB and maps and need no Blender. The Blender binary is a local
+Normal builds compile the lossless GLB and maps to hashed delivery files and reuse their encoder
+cache. The Blender binary is a local
 4.5.12 LTS portable installation under the ignored `.tools`; any Blender 4.5 LTS runs the same
 script. Rebuilding overwrites the kit and the shelf. Colour maps are sRGB; normal and ORM maps are
 linear.

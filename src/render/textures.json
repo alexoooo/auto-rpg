@@ -8,77 +8,77 @@
   ],
   "textures": [
     {
-      "name": "fine-wood-albedo", "file": "fine_grained_wood_col_1k.jpg", "localUrl": "/assets/textures/fine_grained_wood_col_1k.jpg",
+      "name": "fine-wood-albedo", "file": "fine_grained_wood_col_1k.jpg", "asset": "textures/fine_grained_wood_col_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/fine_grained_wood/fine_grained_wood_col_1k.jpg", "sourceUrl": "https://polyhaven.com/a/fine_grained_wood",
       "sha256": "d171f45ef01bc6e239b00dfaa4961bcd27f7d8e93e3962da3bd3d0ce703d802c", "channel": "albedo", "colourSpace": "srgb",
       "family": "fine-grained-wood", "consumers": ["wood"], "scale": 3, "invertY": false
     },
     {
-      "name": "fine-wood-normal", "file": "fine_grained_wood_nor_gl_1k.jpg", "localUrl": "/assets/textures/fine_grained_wood_nor_gl_1k.jpg",
+      "name": "fine-wood-normal", "file": "fine_grained_wood_nor_gl_1k.jpg", "asset": "textures/fine_grained_wood_nor_gl_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/fine_grained_wood/fine_grained_wood_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/fine_grained_wood",
       "sha256": "ba95eadc009818e161d0f753191f1bacc3fc861e593be0bc6d82b437f9ec8044", "channel": "normal", "colourSpace": "linear",
       "family": "fine-grained-wood", "consumers": ["wood"], "scale": 3, "invertY": false,
       "normalConvention": "opengl", "tangentBasis": "babylon-lh"
     },
     {
-      "name": "fine-wood-orm", "file": "fine_grained_wood_arm_1k.jpg", "localUrl": "/assets/textures/fine_grained_wood_arm_1k.jpg",
+      "name": "fine-wood-orm", "file": "fine_grained_wood_arm_1k.jpg", "asset": "textures/fine_grained_wood_arm_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/fine_grained_wood/fine_grained_wood_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/fine_grained_wood",
       "sha256": "3928796cc98b380cd254dc67e9246e60027ef349edb5f75033cc6f3b34572450", "channel": "orm", "colourSpace": "linear",
       "family": "fine-grained-wood", "consumers": ["wood"], "scale": 3, "invertY": false
     },
     {
-      "name": "room-timber-albedo", "file": "wooden_planks_diff_1k.jpg", "localUrl": "/assets/textures/wooden_planks_diff_1k.jpg",
+      "name": "room-timber-albedo", "file": "wooden_planks_diff_1k.jpg", "asset": "textures/wooden_planks_diff_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wooden_planks/wooden_planks_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/wooden_planks",
       "sha256": "1273876d6f92fb1a1d29c1bb28f548a9256154187531e84f993b56e347f1d17b", "channel": "albedo", "colourSpace": "srgb",
       "family": "room-timber", "consumers": ["room.timber"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0
     },
     {
-      "name": "room-timber-normal", "file": "wooden_planks_nor_gl_1k.jpg", "localUrl": "/assets/textures/wooden_planks_nor_gl_1k.jpg",
+      "name": "room-timber-normal", "file": "wooden_planks_nor_gl_1k.jpg", "asset": "textures/wooden_planks_nor_gl_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wooden_planks/wooden_planks_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/wooden_planks",
       "sha256": "6c85ff0a410a2993cc09d25859d7d735bc05e9f15dc51393d2e58aa2ce8a0916", "channel": "normal", "colourSpace": "linear",
       "family": "room-timber", "consumers": ["room.timber"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0,
       "normalConvention": "opengl", "tangentBasis": "babylon-lh"
     },
     {
-      "name": "room-timber-orm", "file": "wooden_planks_arm_1k.jpg", "localUrl": "/assets/textures/wooden_planks_arm_1k.jpg",
+      "name": "room-timber-orm", "file": "wooden_planks_arm_1k.jpg", "asset": "textures/wooden_planks_arm_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/wooden_planks/wooden_planks_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/wooden_planks",
       "sha256": "4f4201d86653299329a8f743b9b4962359cbcc2d5c306e64e6eaab4e27f05c77", "channel": "orm", "colourSpace": "linear",
       "family": "room-timber", "consumers": ["room.timber"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0
     },
     {
-      "name": "large-floor-tiles-02-albedo", "file": "large_floor_tiles_02_diff_1k.jpg", "localUrl": "/assets/textures/large_floor_tiles_02_diff_1k.jpg",
+      "name": "large-floor-tiles-02-albedo", "file": "large_floor_tiles_02_diff_1k.jpg", "asset": "textures/large_floor_tiles_02_diff_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/large_floor_tiles_02/large_floor_tiles_02_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/large_floor_tiles_02",
       "sha256": "3865ed2510bad61c7c62fe9f854d5af57f1bc37e4b6d8931f03b12d033f9e17c", "channel": "albedo", "colourSpace": "srgb",
       "family": "dungeon-floor", "consumers": ["dungeon.floor"], "scale": 1, "invertY": false, "metresPerRepeat": 3.0
     },
     {
-      "name": "large-floor-tiles-02-normal", "file": "large_floor_tiles_02_nor_gl_1k.jpg", "localUrl": "/assets/textures/large_floor_tiles_02_nor_gl_1k.jpg",
+      "name": "large-floor-tiles-02-normal", "file": "large_floor_tiles_02_nor_gl_1k.jpg", "asset": "textures/large_floor_tiles_02_nor_gl_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/large_floor_tiles_02/large_floor_tiles_02_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/large_floor_tiles_02",
       "sha256": "80eed7cdd3eedaf0e348f0388eb47bed183b025165433ba0eef2bf2bd2546e47", "channel": "normal", "colourSpace": "linear",
       "family": "dungeon-floor", "consumers": ["dungeon.floor"], "scale": 1, "invertY": false, "metresPerRepeat": 3.0,
       "normalConvention": "opengl", "tangentBasis": "babylon-lh"
     },
     {
-      "name": "large-floor-tiles-02-orm", "file": "large_floor_tiles_02_arm_1k.jpg", "localUrl": "/assets/textures/large_floor_tiles_02_arm_1k.jpg",
+      "name": "large-floor-tiles-02-orm", "file": "large_floor_tiles_02_arm_1k.jpg", "asset": "textures/large_floor_tiles_02_arm_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/large_floor_tiles_02/large_floor_tiles_02_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/large_floor_tiles_02",
       "sha256": "14951d93859094b979257990b396fe0cb52415461218d6a8749b7bf43de92496", "channel": "orm", "colourSpace": "linear",
       "family": "dungeon-floor", "consumers": ["dungeon.floor"], "scale": 1, "invertY": false, "metresPerRepeat": 3.0
     },
     {
-      "name": "old-stone-wall-albedo", "file": "old_stone_wall_diff_1k.jpg", "localUrl": "/assets/textures/old_stone_wall_diff_1k.jpg",
+      "name": "old-stone-wall-albedo", "file": "old_stone_wall_diff_1k.jpg", "asset": "textures/old_stone_wall_diff_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/old_stone_wall/old_stone_wall_diff_1k.jpg", "sourceUrl": "https://polyhaven.com/a/old_stone_wall",
       "sha256": "76210155ce0a17f006664f602305583e145a8a00be77bea8a0e3341df5148710", "channel": "albedo", "colourSpace": "srgb",
       "family": "dungeon-wall", "consumers": ["dungeon.wall"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0
     },
     {
-      "name": "old-stone-wall-normal", "file": "old_stone_wall_nor_gl_1k.jpg", "localUrl": "/assets/textures/old_stone_wall_nor_gl_1k.jpg",
+      "name": "old-stone-wall-normal", "file": "old_stone_wall_nor_gl_1k.jpg", "asset": "textures/old_stone_wall_nor_gl_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/old_stone_wall/old_stone_wall_nor_gl_1k.jpg", "sourceUrl": "https://polyhaven.com/a/old_stone_wall",
       "sha256": "f847656c8f8e62dd78189ca6ff3ee2f42f9127cfa7834ebd3d313df1699e9c28", "channel": "normal", "colourSpace": "linear",
       "family": "dungeon-wall", "consumers": ["dungeon.wall"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0,
       "normalConvention": "opengl", "tangentBasis": "babylon-lh"
     },
     {
-      "name": "old-stone-wall-orm", "file": "old_stone_wall_arm_1k.jpg", "localUrl": "/assets/textures/old_stone_wall_arm_1k.jpg",
+      "name": "old-stone-wall-orm", "file": "old_stone_wall_arm_1k.jpg", "asset": "textures/old_stone_wall_arm_1k.jpg",
       "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/old_stone_wall/old_stone_wall_arm_1k.jpg", "sourceUrl": "https://polyhaven.com/a/old_stone_wall",
       "sha256": "2527086a398628049e457219658a2f6f4941f7df0664372d5608ee0e6c1bed00", "channel": "orm", "colourSpace": "linear",
       "family": "dungeon-wall", "consumers": ["dungeon.wall"], "scale": 1, "invertY": false, "metresPerRepeat": 2.0

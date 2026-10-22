@@ -4,7 +4,7 @@ export type TextureChannel = "albedo" | "normal" | "orm";
 type TangentBasis = "babylon-lh" | "gltf-rh-imported";
 
 export interface TextureDescriptor {
-  url: string;
+  asset: string;
   channel: TextureChannel;
   colourSpace: "srgb" | "linear";
   invertY: boolean;
@@ -26,7 +26,7 @@ export interface SurfaceDescriptor {
 interface RegistryRow {
   name: string;
   file: string;
-  localUrl: string;
+  asset: string;
   channel: string;
   colourSpace: string;
   consumers: string[];
@@ -64,7 +64,7 @@ function buildTexturedSurfaces(registry: RuntimeRegistry): Record<TexturedSurfac
   const physicalSpans = new Map<string, number>();
 
   for (const row of registry.textures) {
-    if (row.localUrl !== `/assets/textures/${row.file}`) throw new Error(`${row.name} local URL does not name ${row.file}`);
+    if (row.asset !== `textures/${row.file}`) throw new Error(`${row.name} asset does not name ${row.file}`);
     if (!new Set<TextureChannel>(["albedo", "normal", "orm"]).has(row.channel as TextureChannel)) {
       throw new Error(`${row.name} has unsupported runtime channel ${row.channel}`);
     }
@@ -86,7 +86,7 @@ function buildTexturedSurfaces(registry: RuntimeRegistry): Record<TexturedSurfac
         throw new Error(`${row.name} has no supported normal convention and tangent basis`);
       }
       surface.textures[channel] = {
-        url: row.localUrl,
+        asset: row.asset,
         channel,
         colourSpace: row.colourSpace as "srgb" | "linear",
         invertY: row.invertY,

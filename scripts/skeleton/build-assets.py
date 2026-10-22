@@ -1,7 +1,7 @@
 """Fit the CC0 anatomical skeleton onto the physics skeleton's parts and write skeleton.glb.
 
 Run: blender --background --disable-autoexec assets/skeleton/skeleton-source.blend \
-       --python scripts/skeleton/build-assets.py -- assets/skeleton/bind.json public/assets/skeleton/skeleton.glb [.tmp/skeleton]
+       --python scripts/skeleton/build-assets.py -- assets/skeleton/bind.json assets/art/environment/skeleton/skeleton.glb [.tmp/skeleton]
 
 Every piece is rigid: one mesh per physics part, written in that part's host-local frame in the
 game's own left-handed coordinates (+Y up, +Z forward, +X the body's right), so the runtime parents

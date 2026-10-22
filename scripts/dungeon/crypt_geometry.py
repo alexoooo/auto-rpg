@@ -8,7 +8,7 @@ from pathlib import Path
 from mathutils import Matrix
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / 'public/assets/dungeon-reference'
+OUT = ROOT / 'assets/art/environment/dungeon-reference'
 SOURCE = ROOT / 'assets/dungeon-reference'
 OUT.mkdir(parents=True, exist_ok=True)
 SOURCE.mkdir(parents=True, exist_ok=True)

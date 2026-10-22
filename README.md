@@ -14,14 +14,14 @@ driven jaw.
 
 ## Run it locally
 
-Requires Node 22.13.0 or newer (`.npmrc` sets `engine-strict`) and Git LFS for the character
+Requires Node 22.13.0 or newer (`.npmrc` sets `engine-strict`) and Git LFS for the art
 originals. The first asset build downloads pinned local tools; subsequent builds reuse the cache.
 
 ```powershell
 git lfs install
-git lfs pull  # editable character originals and shared textures
+git lfs pull  # full-quality art originals and shared textures
 npm ci        # the exact lockfile
-npm run assets # compressed character delivery files
+npm run assets # compressed art delivery files
 npm run dev   # http://localhost:5180
 npm test      # the gate: step cost, the core's boundary, the mind contract, no strays
 npm run build # type-check, then the production bundle

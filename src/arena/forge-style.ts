@@ -6,6 +6,7 @@ import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js"
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { loadTemplates, forgeMaterials } from "./forge-assets.ts";
+import { loadArtAssets } from "../render/art-assets.ts";
 // These materials are always on screen. Register their shaders with the initial
 // module graph instead of discovering a second import waterfall on first render.
 import "@babylonjs/core/Shaders/pbr.vertex.js";
@@ -30,7 +31,8 @@ export async function loadForgeStyle(scene: Scene) {
   resize();
   window.addEventListener("resize", resize);
   scene.onDisposeObservable.addOnce(() => window.removeEventListener("resize", resize));
-  const [kit, materials] = await Promise.all([loadTemplates(scene, "forge-kit.glb"), forgeMaterials(scene)]);
+  const art = await loadArtAssets();
+  const [kit, materials] = await Promise.all([loadTemplates(scene, "forge-kit.glb", art), forgeMaterials(scene, art)]);
   return { materials, kit };
 }
 export type ForgeStyle = Awaited<ReturnType<typeof loadForgeStyle>>;

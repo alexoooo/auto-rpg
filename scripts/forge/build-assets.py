@@ -1,6 +1,6 @@
 """Blender 4.5 LTS: --background --python scripts/forge/build-assets.py
 
-The Forge's kit (public/assets/forge/forge-kit.glb) and its textures, generated deterministically.
+The Forge's lossless delivery inputs and textures, generated deterministically.
 Babylon (x,y,z) -> Blender (x,z,y); the glTF importer restores left handedness.
 Procedural textures are baked to ordinary images, never exported as Blender shader nodes.
 """
@@ -10,7 +10,7 @@ import numpy as np
 from mathutils import Vector
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / 'public/assets/forge'
+OUT = ROOT / 'assets/art/environment/forge'
 OUT.mkdir(parents=True, exist_ok=True)
 random.seed(713)
 bpy.ops.object.select_all(action='SELECT')

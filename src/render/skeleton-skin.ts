@@ -7,13 +7,14 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 import bind from "../../assets/skeleton/bind.json" with { type: "json" };
-import { publicAssetUrl } from "../asset-url.ts";
+import { loadArtAssets } from "./art-assets.ts";
+import { MeshoptCompression } from "@babylonjs/core/Meshes/Compression/meshoptCompression.js";
 import type { BuiltBody, BuiltSegment } from "../core/build/build-body.ts";
 import type { SkinView } from "./skin-view.ts";
 import { skinReference } from "./body-deformation.ts";
 
 /**
- * **The crypt skeleton as the world sees it**: the pieces of `public/assets/skeleton/skeleton.glb`
+ * **The crypt skeleton as the world sees it**: the pieces of `assets/art/environment/skeleton/skeleton.glb`
  * (Blender Studio's realistic skeleton, CC0; its README), each carried rigidly by the core segment
  * its bone belongs to. Like the humans' skin (`skin.ts`) it reads the segments' achieved transforms
  * and nothing else, owns no collision and decides nothing.
@@ -68,32 +69,51 @@ interface SkeletonPiece {
 }
 export type SkeletonArt = ReadonlyMap<string, SkeletonPiece>;
 
-interface Accessor { bufferView: number; componentType: number; count: number; type: string }
+interface Accessor { bufferView: number; byteOffset?: number; componentType: number; count: number; type: string; normalized?: boolean }
+type DecodeMeshopt = (source: Uint8Array, count: number, stride: number, mode: "ATTRIBUTES" | "TRIANGLES" | "INDICES", filter?: string) => Promise<Uint8Array>;
 interface Primitive { attributes: { POSITION: number; NORMAL: number; TEXCOORD_0: number; COLOR_0: number }; indices: number }
 interface Asset {
   accessors: Accessor[];
-  bufferViews: { byteOffset: number; byteLength: number }[];
+  bufferViews: { buffer: number; byteOffset?: number; byteLength: number; byteStride?: number;
+    extensions?: { EXT_meshopt_compression?: { buffer: number; byteOffset?: number; byteLength: number; byteStride: number; count: number; mode: "ATTRIBUTES" | "TRIANGLES" | "INDICES"; filter?: string } } }[];
   meshes: { name: string; primitives: Primitive[]; extras?: { eyes?: number[][] } }[];
 }
 
 /** The pieces of a `skeleton.glb`'s bytes. */
-export function parseSkeletonArt(buffer: ArrayBuffer): SkeletonArt {
+export async function parseSkeletonArt(buffer: ArrayBuffer, decode: DecodeMeshopt = (...args) => MeshoptCompression.Default.decodeGltfBufferAsync(...args)): Promise<SkeletonArt> {
   const view = new DataView(buffer);
-  if (view.getUint32(0, true) !== 0x46546c67) throw new Error("the skeleton's art is not a GLB");
+  if (buffer.byteLength < 28 || view.getUint32(0, true) !== 0x46546c67 || view.getUint32(4, true) !== 2 || view.getUint32(8, true) !== buffer.byteLength) throw new Error("the skeleton's art is not a complete GLB v2");
   const jsonLength = view.getUint32(12, true), offset = 20 + jsonLength;
-  const doc = JSON.parse(new TextDecoder().decode(buffer.slice(20, offset))) as Asset, bin = buffer.slice(offset + 8);
+  const doc = JSON.parse(new TextDecoder().decode(buffer.slice(20, offset))) as Asset, bin = new Uint8Array(buffer, offset + 8);
+  const views = await Promise.all(doc.bufferViews.map(async value => {
+    const compressed = value.extensions?.EXT_meshopt_compression;
+    if (compressed) {
+      if (compressed.buffer !== 0) throw new Error("the skeleton's compressed data is outside its GLB");
+      return decode(bin.subarray(compressed.byteOffset ?? 0, (compressed.byteOffset ?? 0) + compressed.byteLength), compressed.count, compressed.byteStride, compressed.mode, compressed.filter);
+    }
+    if (value.buffer !== 0) throw new Error("the skeleton's data is outside its GLB");
+    return bin.subarray(value.byteOffset ?? 0, (value.byteOffset ?? 0) + value.byteLength);
+  }));
   const bytes = (index: number) => {
-    const a = doc.accessors[index]!, v = doc.bufferViews[a.bufferView]!;
-    return { type: a.componentType, data: bin.slice(v.byteOffset, v.byteOffset + v.byteLength) };
+    const a = doc.accessors[index]!, v = doc.bufferViews[a.bufferView]!, data = views[a.bufferView]!;
+    const components = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 }[a.type];
+    const width = { 5121: 1, 5123: 2, 5125: 4, 5126: 4 }[a.componentType];
+    if (!components || !width) throw new Error(`the skeleton's art: unsupported accessor ${a.type}/${a.componentType}`);
+    const stride = v.byteStride ?? components * width, start = a.byteOffset ?? 0;
+    if (a.count && start + (a.count - 1) * stride + components * width > data.byteLength) throw new Error("the skeleton's accessor exceeds its buffer view");
+    const packed = new Uint8Array(a.count * components * width);
+    for (let row = 0; row < a.count; row++) packed.set(data.subarray(start + row * stride, start + row * stride + components * width), row * components * width);
+    return { type: a.componentType, data: packed.buffer, normalized: a.normalized };
   };
   const floats = (index: number): Float32Array => {
-    const { type, data } = bytes(index);
+    const { type, data, normalized } = bytes(index);
     if (type === 5126) return new Float32Array(data);
-    if (type === 5121) return Float32Array.from(new Uint8Array(data), (x) => x / 255);
+    if (type === 5121) return Float32Array.from(new Uint8Array(data), (x) => normalized ? x / 255 : x);
     throw new Error(`the skeleton's art: attribute component type ${type}`);
   };
   const art = new Map<string, SkeletonPiece>();
   for (const mesh of doc.meshes) {
+    if (mesh.primitives.length !== 1) throw new Error(`the skeleton piece ${mesh.name} must have one primitive`);
     const primitive = mesh.primitives[0]!, { type, data } = bytes(primitive.indices);
     if (type !== 5123 && type !== 5125) throw new Error(`the skeleton's art: index component type ${type}`);
     const eyes = mesh.extras?.eyes;
@@ -111,7 +131,8 @@ let loading: Promise<SkeletonArt> | null = null;
 /** The art, fetched once per page. */
 export function loadSkeletonArt(): Promise<SkeletonArt> {
   return loading ??= (async () => {
-    const bytes = await modelBytes(publicAssetUrl("/assets/skeleton/skeleton.glb"));
+    const art = await loadArtAssets();
+    const bytes = await modelBytes(art.model("skeleton/skeleton.glb"));
     return parseSkeletonArt(bytes.slice().buffer);
   })().catch((error: unknown) => { loading = null; throw error; });
 }

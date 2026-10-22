@@ -1,4 +1,4 @@
-import { publicAssetUrl } from "../asset-url.ts";
+import type { ArtAssets } from "../render/art-assets.ts";
 import { sceneModel } from "../render/asset-cache.ts";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 import "@babylonjs/loaders/glTF/glTFFileLoader.js";
@@ -9,7 +9,6 @@ import { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
 import type { Scene } from "@babylonjs/core/scene.js";
 
-const ASSET_ROOT = publicAssetUrl("/assets/forge/");
 /** glTF can deduplicate identical limbs. Baking must not transform their shared buffers twice. */
 function prepareTemplate(mesh: Mesh): void {
   mesh.makeGeometryUnique();
@@ -23,8 +22,8 @@ function prepareTemplate(mesh: Mesh): void {
   mesh.hasVertexAlpha = false;
   mesh.setEnabled(false); mesh.isPickable = false;
 }
-export async function loadTemplates(scene: Scene, file: string): Promise<Map<string, Mesh>> {
-  const container = await sceneModel(ASSET_ROOT + file, scene);
+export async function loadTemplates(scene: Scene, file: string, art: ArtAssets): Promise<Map<string, Mesh>> {
+  const container = await sceneModel(art.model(`forge/${file}`), scene);
   container.addAllToScene();
   const templates = new Map<string, Mesh>();
   for (const mesh of container.meshes) {
@@ -36,12 +35,12 @@ export async function loadTemplates(scene: Scene, file: string): Promise<Map<str
 }
 
 /** The forge's materials, textured from the maps beside its kit. */
-export async function forgeMaterials(scene: Scene) {
+export async function forgeMaterials(scene: Scene, art: ArtAssets) {
   const loads: Promise<void>[] = [];
   const map = (name: string, gamma: boolean) => {
     let resolve!: () => void; let reject!: (e: Error) => void;
     loads.push(new Promise<void>((ok, fail) => { resolve=ok; reject=fail; }));
-    const texture = new Texture(ASSET_ROOT+name+".png", scene, false, false,
+    const texture = new Texture(art.texture(`forge/${name}.png`), scene, false, false,
       Texture.TRILINEAR_SAMPLINGMODE, () => resolve(), (message) => reject(new Error(`Texture ${name}: ${message}`)));
     texture.gammaSpace = gamma; texture.anisotropicFilteringLevel = 8;
     return texture;

@@ -8,11 +8,12 @@ drawn ribs still meets the trunk.
 
 ## Source and licence
 
-`public/assets/skeleton/skeleton.glb` is adapted from the "Skeleton - Realistic" collection of
+`assets/art/environment/skeleton/skeleton.glb` is adapted from the "Skeleton - Realistic" collection of
 Blender Studio's Human Base Meshes bundle, v1.4.1 (`human_base_meshes_bundle.blend`, from
 <https://download.blender.org/demo/asset-bundles/human-base-meshes/>), released under CC0 1.0.
 The adaptation groups the bones by part, fits them onto the parts' joints, closes the hands into
-fists, and bakes occlusion and grime into vertex colours. There is no texture. The GLB is served
+fists, and bakes occlusion and grime into vertex colours. There is no texture. The GLB is compiled
+losslessly to web delivery
 from this repository and makes no third-party request; Blender Studio does not endorse the game.
 
 ## What the file holds
@@ -75,7 +76,7 @@ skeleton read it. Moving a joint means refitting the art as well.
 Blender 4.5 LTS, from the repository root. The build starts from the checked-in, stripped source:
 
 ```powershell
-blender --background --disable-autoexec assets/skeleton/skeleton-source.blend --python scripts/skeleton/build-assets.py -- assets/skeleton/bind.json public/assets/skeleton/skeleton.glb .tmp/skeleton
+blender --background --disable-autoexec assets/skeleton/skeleton-source.blend --python scripts/skeleton/build-assets.py -- assets/skeleton/bind.json assets/art/environment/skeleton/skeleton.glb .tmp/skeleton
 ```
 
 The last argument is optional; with it the script also renders front, side, three-quarter, hand
