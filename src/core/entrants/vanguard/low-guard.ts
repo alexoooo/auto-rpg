@@ -1,0 +1,86 @@
+import type { BodyView } from "../../body.ts";
+import type { Orders } from "../../mind/orders.ts";
+import { regionSegments, sensedActionTarget } from "../../mind/action-aim.ts";
+import { highestSurface } from "../../mind/openings.ts";
+import { lowOpponent } from "../../mind/sensed-bounds.ts";
+import { atan2, cos } from "../../math/real.ts";
+import type { Sight, Tactics } from "../../mind/tactics.ts";
+import type { Skills } from "../../skills/skills.ts";
+import { STANCE_LOWER } from "../../skills/locomotion.ts";
+import type { TargetRef } from "../../skills/action.ts";
+import { holdsNothing } from "../../skills/strikes.ts";
+import type { BodySpec } from "../../spec/body.ts";
+import type { Vec3 } from "../../spec/quantity.ts";
+
+/** The support fold's crouch depth, asked before a low opponent reaches the hands. */
+const LOWER = .5;
+/** Begin the planted fold near the target, facing within 0.3 rad; rise before a longer chase. */
+const NEAR = .7, FAR = 1.25, FACING = cos(.3);
+/** A slow backward step lets the stance turn its feet before planting the fold. */
+const TURN_PACE = .2;
+/** Unready support is abandoned within six seconds, including when a fall hides behind the crouch's height. */
+const PREPARE_LIMIT = 6;
+
+/** Prepare low support early and cover a low opponent's head with the free closed hands. */
+export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) => Orders | null) {
+  const state = { base: base.state ?? null, unready: null as number | null, rising: false };
+  const hands = (["left", "right"] as const).filter(hand => holdsNothing(spec, `hand.${hand}`));
+  const focus = (view: BodyView) => view.senses.others.find(foe => foe.id === base.engagement?.focus && !foe.out && lowOpponent(view, foe));
+  const tactics: Tactics = {
+    ...base, state,
+    decide(sight, dt) {
+      const intent = base.decide(sight, dt), foe = focus(sight.view);
+      if (!foe || orders(sight)?.move !== undefined || sight.view.down) {
+        state.unready = null; state.rising = false;
+        return intent;
+      }
+      const head = foe.segments.get(foe.spec.marks.high)!.centre, centre = sight.view.stance.centre;
+      const dx = head.x - centre.x, dz = head.z - centre.z, distance = Math.sqrt(dx * dx + dz * dz);
+      const face = atan2(dx, dz);
+      const stage = sight.report.support?.stage, begun = stage === "lower" || stage === "low" || stage === "rise";
+      if (state.rising) {
+        if (stage === "stand") state.rising = false;
+        return { ...intent, lower: STANCE_LOWER, move: null, movement: undefined, actions: [] };
+      }
+      if (distance > FAR || !begun && distance > NEAR) {
+        state.unready = null;
+        return { ...intent, face, actions: [], movement: { kind: "range", focus: foe.id, near: .5, far: NEAR }, pace: .8 };
+      }
+      if (!begun && cos(face - sight.view.stance.facing) < FACING)
+        return { ...intent, face, move: [-TURN_PACE, 0], movement: undefined, actions: [] };
+      const threat: Vec3 = [head.x, head.y, head.z], guarded: Vec3 = [centre.x, head.y, centre.z];
+      const guard = { ...intent.guard };
+      for (const hand of hands) guard[hand] = { threat, guarded };
+      state.unready = sight.report.support?.ready ? null : state.unready ?? sight.view.time;
+      if (state.unready !== null && sight.view.time - state.unready >= PREPARE_LIMIT) {
+        state.unready = null; state.rising = true;
+        return { ...intent, lower: STANCE_LOWER, move: null, movement: undefined, actions: [] };
+      }
+      return { ...intent, face, lower: LOWER, guard,
+        ...!sight.report.support?.ready ? { move: null, movement: undefined, actions: [] } : {} };
+    },
+  };
+  return { tactics,
+    aim(view: BodyView, target: TargetRef): Vec3 | null {
+      if (target.kind !== "body") return null;
+      const foe = sensedActionTarget(view, target);
+      if (!foe || !lowOpponent(view, foe)) return null;
+      let chosen: Vec3 | null = null;
+      for (const name of regionSegments(foe.spec, target.region)) {
+        const point = highestSurface(foe, name);
+        if (point && (!chosen || point[1] > chosen[1])) chosen = point;
+      }
+      return chosen;
+    },
+    skills(base: Skills): Skills {
+    return { ...base, get envelope() { return base.envelope; }, get report() { return base.report; },
+      command(view, intent, dt) {
+        const command = base.command(view, intent, dt);
+        if (!focus(view) || intent.lower !== LOWER) return command;
+        const handPoses = { ...command.handPoses };
+        for (const hand of hands) if (base.report.reservations[`pose:${hand}`] === undefined && intent.guard[hand]) handPoses[hand] = "fist";
+        return { ...command, handPoses };
+      },
+    };
+  } };
+}

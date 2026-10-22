@@ -4,13 +4,14 @@ import { bodyEffectors } from "../../control/effectors.ts";
 import { regionSegments, sensedActionTarget } from "../../mind/action-aim.ts";
 import type { Executor, TargetRef } from "../../skills/action.ts";
 import { straightPunchExecutor, type StraightPunch } from "../../skills/straight-punch.ts";
+import { STANCE_LOWER } from "../../skills/locomotion.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 
 type Resolve = (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null;
 interface Anchor { body: string; segment: string; local: Vec3 }
 
 /** A punch chooses its aim once and follows the sensed segment's pose until the stroke returns. */
-export function committedAim(body: Body, actions: readonly string[], settings: StraightPunch, resolve: Resolve): Executor {
+export function committedAim(body: Body, actions: readonly string[], settings: StraightPunch, resolve: Resolve, lowSupport = false): Executor {
   const state = { base: null as object | null, id: null as number | null, anchor: null as Anchor | null, returning: false };
   const arms = new Set(bodyEffectors(body.built).filter(e => e.model.segment.startsWith("hand.")).flatMap(e => e.model.channels));
   const point = new Vector3(), inverse = new Quaternion();
@@ -65,7 +66,10 @@ export function committedAim(body: Body, actions: readonly string[], settings: S
       });
     },
     command(view, id, around) {
-      const claim = base.command(view, id, around);
+      const ordinary = base.command(view, id, around);
+      // A low punch keeps the planted fold while it owns the trunk and legs.
+      const claim = lowSupport && ordinary.lower !== undefined && ordinary.lower > STANCE_LOWER
+        ? { ...ordinary, support: ordinary.lower, pushes: ordinary.pushes?.filter(push => push.channel !== "lumbar flexion") } : ordinary;
       // The continuous guard brings the fist back and can cover with it during recovery.
       return state.returning ? { ...claim, posture: Object.fromEntries(Object.entries(claim.posture ?? {}).filter(([name]) => !arms.has(name))), handPoses: {} } : claim;
     },
