@@ -1,15 +1,14 @@
-import type { Body } from "../body.ts";
+import type { Body, BodyView } from "../body.ts";
 import type { Clock } from "../clock.ts";
 import type { BodySpec } from "../spec/body.ts";
-import type { Executor } from "../skills/action.ts";
+import type { Executor, TargetRef } from "../skills/action.ts";
 import type { Pose } from "../control/motor.ts";
 import type { AttackTuning } from "../skills/attack-path.ts";
 import type { ActionConfig } from "./config.ts";
 import type { KeysOf, Part, PartConfig } from "./parts.ts";
-import type { actionAim } from "./action-aim.ts";
+import type { actionAim, Aimed } from "./action-aim.ts";
+import type { Vec3 } from "../spec/quantity.ts";
 import type { ActionEstimates } from "./tactics-part.ts";
-import type { kickExecutor } from "../skills/kick.ts";
-import type { pathExecutor } from "../skills/combat.ts";
 
 /** An executor's config: its kind and the name a fighter's actions call it by. */
 interface NamedConfig extends PartConfig {
@@ -22,11 +21,18 @@ export interface ExecutorMaking {
   readonly clock: Clock;
   /** The arms' rest, the mind's guard's (`GuardSkill.posture`): where its blows return. */
   readonly guard: Pose;
-  /** Where an action's effector aims at its target (`actionAim`), or null where it has none. */
-  readonly resolve: NonNullable<Parameters<typeof kickExecutor>[3]>;
-  /** The way an action's effector drives at its target, or null for its own. */
-  readonly direction: NonNullable<Parameters<typeof pathExecutor>[3]>["direction"];
+  /** Where an action's effector aims at its target this step, by the action's aim (`actionAim`); null where it has none. */
+  readonly aim: ActionAimer;
 }
+
+/** Where `effector` aims at `target` for `action` this step (`Aimed`), or null. */
+export type ActionAimer = (view: BodyView, target: TargetRef, action: string, effector: string) => Aimed | null;
+
+/** The point `aim` aims at, or null: what an executor that drives at a point reads of it. */
+export const aimedPoint = (aim: ActionAimer) => (view: BodyView, target: TargetRef, action: string, effector: string): Vec3 | null => aim(view, target, action, effector)?.at ?? null;
+
+/** The way `aim` drives at its point, or null for the executor's own. */
+export const aimedWay = (aim: ActionAimer) => (view: BodyView, target: TargetRef, action: string, effector: string): Vec3 | null => aim(view, target, action, effector)?.direction ?? null;
 
 /**
  * **A kind of executor**: a part of role `executor` that owns its config's type, keys, defaults,

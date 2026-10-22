@@ -1,4 +1,4 @@
-import { noPathSettings, type ExecutorPart } from "../../mind/executor-part.ts";
+import { aimedPoint, noPathSettings, type ExecutorPart } from "../../mind/executor-part.ts";
 import { number, text, toggle } from "../../mind/fields.ts";
 import { fitsAll, fitsWhen, takesCommands } from "../../mind/parts.ts";
 import { STRAIGHT_PUNCH, straightPunchFits, validStraightPunch, type StraightPunch } from "../../skills/straight-punch.ts";
@@ -54,7 +54,8 @@ export const VANGUARD_PUNCH: ExecutorPart<VanguardPunchConfig> = {
   faults, effectors: ["hand.left", "hand.right"], actionFaults: noPathSettings,
   // A punch is thrown by a hand that holds nothing, as the straight punch's.
   strikesWith: (spec, _config, effector) => holdsNothing(spec, effector),
-  make({ body, guard, resolve }, config, actions) {
+  make({ body, guard, aim }, config, actions) {
+    const resolve = aimedPoint(aim);
     const { kind: _, name: __, low, lowOnly, predict, anchorAtDrive, overlapReturn, returnHold, ...settings } = config;
     const executor = committedAim(body, guard, actions.map(action => action.name), settings,
       low ? (view, target, action, effector) => lowAim(view, target) ?? resolve(view, target, action, effector) : resolve,

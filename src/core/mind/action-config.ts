@@ -91,8 +91,6 @@ export function configuredExecutors(parts: PartLookup, body: Body, clock: Clock,
     const config = executors.find(executor => executor.name === action.executor)!;
     return [action.name, actionAim(body.built.spec, action.aim, action.family, parts.of("executor", config).paths?.(config))] as const;
   }));
-  const making = { body, clock, guard,
-    resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => aims.get(action)?.(view, target, effector, ledger())?.at ?? null,
-    direction: (view: BodyView, target: TargetRef, action: string, effector: string) => aims.get(action)?.(view, target, effector, ledger())?.direction ?? null };
+  const making = { body, clock, guard, aim: (view: BodyView, target: TargetRef, action: string, effector: string) => aims.get(action)?.(view, target, effector, ledger()) ?? null };
   return executors.map(config => ({ name: config.name, executor: parts.of("executor", config).make(making, config, actions.filter(action => action.executor === config.name)) }));
 }

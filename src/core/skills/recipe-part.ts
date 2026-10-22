@@ -1,6 +1,6 @@
 import { takesCommands } from "../mind/parts.ts";
 import { text } from "../mind/fields.ts";
-import { noPathSettings, type ExecutorPart } from "../mind/executor-part.ts";
+import { aimedPoint, noPathSettings, type ExecutorPart } from "../mind/executor-part.ts";
 import { recipeExecutor, type Placed } from "./strike.ts";
 import { REPERTOIRE, recipeAt, recipesFor, strikesWithBlunt, type Repertoire } from "./strikes.ts";
 
@@ -26,7 +26,7 @@ export const RECIPE_PART: ExecutorPart<Config> = {
   // A hand strikes with a blunt item by placement, and with anything its repertoire holds a recipe for.
   strikesWith: (spec, config, effector) => strikesWithBlunt(spec, effector)
     || (effector === "hand.left" || effector === "hand.right") && recipesFor(config.tuning?.repertoire ?? REPERTOIRE, spec, effector === "hand.left" ? "left" : "right").length > 0,
-  make: ({ body, guard, resolve }, config, actions) => recipeExecutor(body.built.spec, actions.map(a => a.name), { ...config.tuning, guard, resolve }),
+  make: ({ body, guard, aim }, config, actions) => recipeExecutor(body.built.spec, actions.map(a => a.name), { ...config.tuning, guard, resolve: aimedPoint(aim) }),
   estimate(spec, config, action, aim) {
     if (action.aim.kind === "surface") return null;
     const repertoire = config.tuning?.repertoire ?? REPERTOIRE;

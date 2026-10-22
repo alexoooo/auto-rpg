@@ -1,6 +1,6 @@
 import { takesCommands, fitsAll, fitsWhen } from "../mind/parts.ts";
 import { text } from "../mind/fields.ts";
-import { noPathSettings, type ExecutorPart } from "../mind/executor-part.ts";
+import { aimedPoint, noPathSettings, type ExecutorPart } from "../mind/executor-part.ts";
 import { STRAIGHT_PUNCH, straightPunchExecutor, straightPunchFits, validStraightPunch, type StraightPunch } from "./straight-punch.ts";
 import { holdsNothing } from "./strikes.ts";
 
@@ -22,8 +22,8 @@ export const PUNCH_PART: ExecutorPart<Config> = {
   faults: config => validStraightPunch(config) ? [] : ["invalid straight punch settings"], effectors: ["hand.left", "hand.right"], actionFaults: noPathSettings,
   // A punch is thrown by a hand that holds nothing: one holding an item would drive the item's end along the punch's line.
   strikesWith: (spec, _config, effector) => holdsNothing(spec, effector),
-  make({ body, guard, resolve }, config, actions) {
+  make({ body, guard, aim }, config, actions) {
     const { kind: _, name: __, ...settings } = config;
-    return straightPunchExecutor(body, guard, actions.map(a => a.name), settings, resolve);
+    return straightPunchExecutor(body, guard, actions.map(a => a.name), settings, aimedPoint(aim));
   },
 };

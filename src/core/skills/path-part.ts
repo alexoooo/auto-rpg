@@ -1,7 +1,7 @@
 import { takesCommands } from "../mind/parts.ts";
 import type { ActionConfig } from "../mind/config.ts";
 import { number, text, toggle } from "../mind/fields.ts";
-import type { ExecutorPart } from "../mind/executor-part.ts";
+import { aimedWay, aimedPoint, type ExecutorPart } from "../mind/executor-part.ts";
 import { validArmExtension } from "../mind/intent.ts";
 import { ATTACK_PATH, validAttackTuning, type AttackTuning } from "./attack-path.ts";
 import { DRIVEN_STRIKE, pathExecutor, validCombatExecution, validDrivenStrike, type CombatExecution, type DrivenStrike } from "./combat.ts";
@@ -43,8 +43,8 @@ export const PATH_PART: ExecutorPart<Path> = {
   fields: [text("name", "Name"), toggle("overlap", "Overlap returns")], slots: [], tuning: ["paths", "execution"], fits: takesCommands,
   faults, effectors: ["hand.left", "hand.right"], actionFaults, paths,
   strikesWith: (spec, _config, effector) => strikesWithBlunt(spec, effector),
-  make: ({ body, guard, resolve, direction }, config, actions) => pathExecutor(body, guard, actions.map(a => ({ ...a, family: a.family! })),
-    { ...config.tuning, paths: paths(config), overlap: config.overlap, resolve, direction }),
+  make: ({ body, guard, aim }, config, actions) => pathExecutor(body, guard, actions.map(a => ({ ...a, family: a.family! })),
+    { ...config.tuning, paths: paths(config), overlap: config.overlap, resolve: aimedPoint(aim), direction: aimedWay(aim) }),
 };
 /** Driven paths expose their additional trunk controls beside the common path fields. */
 export const DRIVEN_PART: ExecutorPart<Driven> = {
@@ -55,8 +55,8 @@ export const DRIVEN_PART: ExecutorPart<Driven> = {
   slots: [], tuning: ["paths", "execution"], fits: takesCommands, faults: config => [...faults(config), ...validDrivenStrike(config) ? [] : ["invalid driven strike settings"]],
   effectors: ["hand.left", "hand.right"], actionFaults, paths,
   strikesWith: (spec, _config, effector) => strikesWithBlunt(spec, effector),
-  make({ body, guard, resolve, direction }, config, actions) {
+  make({ body, guard, aim }, config, actions) {
     const { kind: _, name: __, tuning, ...driven } = config;
-    return pathExecutor(body, guard, actions.map(a => ({ ...a, family: a.family! })), { ...tuning, paths: paths(config), driven, resolve, direction });
+    return pathExecutor(body, guard, actions.map(a => ({ ...a, family: a.family! })), { ...tuning, paths: paths(config), driven, resolve: aimedPoint(aim), direction: aimedWay(aim) });
   },
 };

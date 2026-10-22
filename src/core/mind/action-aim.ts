@@ -14,7 +14,8 @@ export type AimRule = { readonly kind: "centre"; readonly lead: number }
 
 /** Estimates with unlike units are never ranked against one another. */
 interface AimEstimate { readonly unit: "opening" | "net"; readonly value: number }
-interface Aimed { readonly at: Vec3; readonly direction?: Vec3; readonly estimate?: AimEstimate }
+/** **Where an action aims**: a world point, the way it drives at it where its aim says, and how good the aim is where it says. */
+export interface Aimed { readonly at: Vec3; readonly direction?: Vec3; readonly estimate?: AimEstimate }
 
 /** A region expands in the target's anatomical order and never falls back implicitly. */
 export function regionSegments(spec: BodySpec, region: Region): readonly string[] {
