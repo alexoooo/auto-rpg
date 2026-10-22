@@ -7,13 +7,13 @@ import { hostedMind } from "../src/core/mind/minds.ts";
 import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import "../tests/harness/preload-data.mjs";
 import { buildBout } from "../src/evaluation/bout.ts";
-import { REPTILE_CRAWL, REPTILE_TROT, REPTILE_MOTOR, REPTILE_TRAVEL } from "../src/core/reptile/tuning.ts";
+import { QUADRUPED } from "../src/core/mind/config.ts";
 
 /** Node core stand, rapier-coordinate, 120 Hz: locomotion before contact, with fixed anatomy and zero balance. */
-export async function motionTrial(tuning, direction = [0, 1], seconds = 10, yaw = 0) {
+export async function motionTrial(config = QUADRUPED, direction = [0, 1], seconds = 10, yaw = 0) {
   const stand = await coreStand(reptileSpec(), { engine: "rapier-coordinate", groundSize: 100, rotation: [0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)] });
   let orders = STAND_ORDERS;
-  const mind = hostedMind(stand.built, stand.world, { orders: () => orders }, (host, wiring) => quadrupedMind(host, wiring, tuning));
+  const mind = hostedMind(stand.built, stand.world, { orders: () => orders }, (host, wiring) => quadrupedMind(host, wiring, config));
   try {
     stand.step(240);
     const start = mind.body.observe().centre;
@@ -24,13 +24,13 @@ export async function motionTrial(tuning, direction = [0, 1], seconds = 10, yaw 
       stand.step();
       if (mind.body.down) { down++; firstDown ??= step / stand.world.hz; }
       minHeight = Math.min(minHeight, mind.body.observe().centre[1]);
-      const phase = mind.body.state.mind.host.crawl.phase;
+      const phase = mind.body.state.mind.host.travel.phase;
       phases[phase] = (phases[phase] ?? 0) + 1;
     }
     const end = mind.body.observe().centre;
     const host = mind.body.state.mind.host;
     const distance = (end[0] - start[0]) * direction[0] + (end[2] - start[2]) * direction[1];
-    return { yaw, direction, seconds, distance, speed: distance / seconds, down, firstDown, minHeight, steps: host.crawl.steps,
+    return { yaw, direction, seconds, distance, speed: distance / seconds, down, firstDown, minHeight, steps: host.travel.steps,
       phases, end, assist: { ...mind.body.assist.meter } };
   } finally { mind.body.dispose(); stand.dispose(); }
 }
@@ -71,8 +71,8 @@ export async function mirrorTrial(gap = 2, seconds = 60, bite) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   if (process.argv.includes("--sweep")) {
     for (const [speed, crawlHeight] of [[.25, 1], [.3, 1], [.35, 1], [.4, 1], [.3, .85]]) {
-      const tuning = { crawl: REPTILE_CRAWL, trot: { ...REPTILE_TROT, speed, crawlHeight }, motor: REPTILE_MOTOR, travel: REPTILE_TRAVEL };
-      console.log(JSON.stringify({ speed, crawlHeight, result: await motionTrial(tuning) }));
+      const config = { ...QUADRUPED, travel: { kind: "paw-trot", tuning: { speed, crawlHeight } } };
+      console.log(JSON.stringify({ speed, crawlHeight, result: await motionTrial(config) }));
     }
   } else {
     console.log(JSON.stringify(await motionTrial()));

@@ -6,6 +6,8 @@ import type { supportedMotor, SupportedCommand } from "../control/supported-moto
 import { atan2, cos, sin } from "../math/real.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { REPTILE_TROT } from "./tuning.ts";
+import { deepFreeze } from "../state.ts";
+import { fitsPaws, type GaitPart } from "./parts.ts";
 import type { QuadrupedView, TravelOrders } from "./crawl.ts";
 
 /** Travel admission reads the body's actual heading against the requested direction. */
@@ -141,3 +143,17 @@ export function trot(own: OwnBody, motor: ReturnType<typeof supportedMotor>, nam
   };
   return skill;
 }
+
+/** **The trot**'s config: research settings over `REPTILE_TROT`, none in the game. */
+interface TrotConfig { readonly kind: "paw-trot"; readonly tuning?: Partial<typeof REPTILE_TROT> }
+
+/** **The trot** as a gait: the quadruped's travel. */
+export const TROT_PART: GaitPart<TrotConfig> = deepFreeze({
+  role: "gait", label: "Trot", stage: "game", fields: [], slots: [], defaults: { kind: "paw-trot" }, keys: { kind: true, tuning: true },
+  tuning: Object.keys(REPTILE_TROT), fits: fitsPaws,
+  faults: (config: TrotConfig) => Object.values(config.tuning ?? {}).every(Number.isFinite) ? [] : ["invalid trot setting"],
+  make(own: OwnBody, motor: ReturnType<typeof supportedMotor>, paws: readonly string[], config: TrotConfig) {
+    const settings = { ...REPTILE_TROT, ...config.tuning }, skill = trot(own, motor, paws, settings);
+    return { state: skill.state, settings, resume: skill.resume, command: skill.command };
+  },
+});

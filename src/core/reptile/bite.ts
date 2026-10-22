@@ -10,6 +10,8 @@ import type { Vec3 } from "../spec/quantity.ts";
 import type { Skill } from "../skills/skill.ts";
 import type { QuadrupedView } from "./crawl.ts";
 import { REPTILE_BITE } from "./tuning.ts";
+import { deepFreeze } from "../state.ts";
+import { fitsJaw, type BiteTuning, type BitePart } from "./parts.ts";
 import { scalarPathToRef } from "../control/point-path.ts";
 import { unintendedContact, type EffectorFeedback } from "../control/effector-feedback.ts";
 import { lowsOf } from "../control/ground.ts";
@@ -170,3 +172,13 @@ export function bite(own: OwnBody, tracker: ReturnType<typeof effectorTracker>, 
     } };
   return skill;
 }
+
+/** **The jaw's bite**'s config. */
+interface JawConfig { readonly kind: "jaw-bite" }
+
+/** **The jaw's bite** as a part: a stroke of the jaw at a point (`bite`). */
+export const JAW_PART: BitePart<JawConfig> = deepFreeze({
+  role: "bite", label: "Jaw snap", stage: "game", fields: [], slots: [], defaults: { kind: "jaw-bite" }, keys: { kind: true }, fits: fitsJaw, faults: () => [],
+  make: (own: OwnBody, tracker: ReturnType<typeof effectorTracker>, tuning: BiteTuning, feedback: { readonly jaw: EffectorFeedback; readonly head: EffectorFeedback }) =>
+    bite(own, tracker, tuning, feedback.jaw, feedback.head),
+});

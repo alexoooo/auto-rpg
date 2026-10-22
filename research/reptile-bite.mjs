@@ -12,7 +12,8 @@ import { createSenses } from "../src/core/mind/senses.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
 import { createPool } from "../src/core/rules/pool.ts";
 import { watchBlows } from "../src/core/rules/blows.ts";
-import { REPTILE_CRAWL, REPTILE_TROT, REPTILE_MOTOR, REPTILE_TRAVEL, REPTILE_BITE } from "../src/core/reptile/tuning.ts";
+import { REPTILE_BITE } from "../src/core/reptile/tuning.ts";
+import { QUADRUPED } from "../src/core/mind/config.ts";
 
 /** Node core stand, Rapier coordinates, 120 Hz, zero balance: a real jaw closes on an exposed fixed jaw corner. */
 export async function biteTrial({ bite = REPTILE_BITE, point = [-.028, .1925, .503], autonomous = false, target = true, seconds = 10, hz = 120, fixed = true, repeats = 1,
@@ -27,7 +28,7 @@ export async function biteTrial({ bite = REPTILE_BITE, point = [-.028, .1925, .5
   const enemyParts = new Map(enemy ? [...enemy.segments.values()].map(s => [s.body.id, s.spec.name]) : []);
   const contactIdentity = other => enemyParts.has(other?.id) ? { kind: "body", body: "target", segment: enemyParts.get(other.id), guard: false } : { kind: "world" };
   let cancelled = false;
-  const mind = hostedMind(stand.built, stand.world, { orders: () => cancelled ? STAND_ORDERS : autonomous ? null : STAND_ORDERS, ...(autonomous ? {} : { biteTarget: () => cancelled ? null : point }), senses: see, contactIdentity }, (host, wiring) => quadrupedMind(host, wiring, { crawl: REPTILE_CRAWL, trot: REPTILE_TROT, motor: REPTILE_MOTOR, travel: REPTILE_TRAVEL, bite }));
+  const mind = hostedMind(stand.built, stand.world, { orders: () => cancelled ? STAND_ORDERS : autonomous ? null : STAND_ORDERS, ...(autonomous ? {} : { biteTarget: () => cancelled ? null : point }), senses: see, contactIdentity }, (host, wiring) => quadrupedMind(host, wiring, { ...QUADRUPED, tuning: { bite } }));
   const rules = rulebook("arena"), mine = createPool(stand.built.spec, rules), theirs = enemy && createPool(enemy.spec, rules);
   const jaw = mind.body.muscles.channel("jaw axis0"), state = mind.body.state.mind.host.bite;
   const meter = biteMeter(stand.world, [{ id: "reptile", body: mind.body }]);

@@ -491,10 +491,13 @@ running one within its keep and deciding afresh every `DECIDING.rethink` s or on
   through the lookup) patch the intent each control step in rank order; the one reflex is cover
   (`cover-reflex`).
 
-**The quadruped** uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. Its
-`Tactics` give approach, facing and bite; its skills answer the same `Skill` resume contract over
-its own view; `effectorTracker` and `supportedMotor` drive its paws on
-the bearing solve, with no assist. Its bite wounds by pointed load ([bites](reference/reptile-bites.md)).
+**The quadruped** uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. It is
+built of parts (`src/core/reptile/parts.ts`), each slot of its config holding one of its role or,
+where it names none, the stock one (`QUADRUPED_PARTS`): a `support-motor` over the paws
+(`SUPPORT_MOTORS`: `supportedMotor` on the bearing solve, no assist), a `gait` to travel and
+one to crawl (`GAITS`: the trot and the crawl), a `bite` (`BITES`) and `quadruped-tactics`
+(`QUADRUPED_PLANNERS`) that give approach, facing and bite. Each fits a body by what it uses
+(`fitsPaws`, `fitsJaw`); its skills answer the same `Skill` resume contract over its own view. Its bite wounds by pointed load ([bites](reference/reptile-bites.md)).
 
 **Policies** (`createPolicyBody`, `mind/direct.ts`) receive a frozen actuator description and
 detached, frozen `BodyObservation` snapshots (`src/core/observation.ts`) and return a `BodyAction`

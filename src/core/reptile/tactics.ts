@@ -17,16 +17,15 @@ import { REPTILE_BITE, REPTILE_TROT } from "./tuning.ts";
 import { mouthOf } from "./bite.ts";
 import { turnAboutToRef } from "../math/turn.ts";
 import { headingAligned } from "./trot.ts";
-
-/** Bite preparation accompanies approach; the committed stroke waits for loaded paws. */
-interface QuadrupedIntent extends TravelOrders { readonly biteAt: Vec3 | null; readonly prepareBite: boolean; readonly creep: boolean; readonly travel: boolean }
+import { deepFreeze } from "../state.ts";
+import { fitsJaw, type QuadrupedIntent, type QuadrupedSight, type QuadrupedTacticsPart } from "./parts.ts";
 
 /**
  * Each tooth seeks the first exposed sensed surface along its closing arc, with its piercing
  * direction facing the surface. Preparation retains that point in the opponent segment frame.
  */
 export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => Orders | null, T: typeof REPTILE_BITE, navigation: Navigator,
-  biteTarget?: (view: QuadrupedView) => Vec3 | null): Tactics<{ readonly view: QuadrupedView; readonly bite: Pick<StrikeCycleState, "phase"> }, QuadrupedIntent> & { readonly state: { pending: number; phase: StrikeCycleState["phase"]; target: { foe: string; part: string; local: Vec3; tooth: string } | null; navigation: object } } {
+  biteTarget?: (view: QuadrupedView) => Vec3 | null): Tactics<QuadrupedSight, QuadrupedIntent> & { readonly state: { pending: number; phase: StrikeCycleState["phase"]; target: { foe: string; part: string; local: Vec3; tooth: string } | null; navigation: object } } {
   const mouth = new Vector3(), { head, lower, hinge, teeth } = mouthOf(own.built);
   const carried = new Vector3(), inverse = new Quaternion();
   const frame = { position: new Vector3(), rotation: new Quaternion() }, closing = new Vector3(), shiftDirection = new Vector3();
@@ -156,3 +155,12 @@ export function quadrupedTactics(own: OwnBody, orders: (view: QuadrupedView) => 
       face, biteAt: attacking ? target : null, prepareBite, creep: creep || retreat, travel };
   } };
 }
+
+/** **Stalking**'s config. */
+interface StalkConfig { readonly kind: "stalk" }
+
+/** **Stalking** as a quadruped's tactics: approach, creep and bite at the first exposed surface (`quadrupedTactics`). */
+export const STALK_PART: QuadrupedTacticsPart<StalkConfig> = deepFreeze({
+  role: "quadruped-tactics", label: "Stalk and bite", stage: "game", fields: [], slots: [], defaults: { kind: "stalk" }, keys: { kind: true }, fits: fitsJaw, faults: () => [],
+  make: (making) => quadrupedTactics(making.own, making.orders, making.bite, making.navigation, making.biteTarget),
+});

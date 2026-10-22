@@ -9,6 +9,8 @@ import { withinSupport } from "../control/support.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { REPTILE_CRAWL } from "./tuning.ts";
+import { deepFreeze } from "../state.ts";
+import { fitsPaws, type GaitPart } from "./parts.ts";
 
 /** Resolved world travel for a quadruped's gait; navigation owns external movement objectives. */
 export interface TravelOrders extends Omit<Orders, "move"> { readonly move: Heading | null }
@@ -154,3 +156,17 @@ export function crawl(own: OwnBody, motor: ReturnType<typeof supportedMotor>, na
   };
   return skill;
 }
+
+/** **The crawl**'s config: research settings over `REPTILE_CRAWL`, none in the game. */
+interface CrawlConfig { readonly kind: "paw-crawl"; readonly tuning?: Partial<typeof REPTILE_CRAWL> }
+
+/** **The crawl** as a gait: the quadruped's close and careful steps. */
+export const CRAWL_PART: GaitPart<CrawlConfig> = deepFreeze({
+  role: "gait", label: "Crawl", stage: "game", fields: [], slots: [], defaults: { kind: "paw-crawl" }, keys: { kind: true, tuning: true },
+  tuning: Object.keys(REPTILE_CRAWL), fits: fitsPaws,
+  faults: (config: CrawlConfig) => Object.values(config.tuning ?? {}).every(Number.isFinite) ? [] : ["invalid crawl setting"],
+  make(own: OwnBody, motor: ReturnType<typeof supportedMotor>, paws: readonly string[], config: CrawlConfig) {
+    const settings = { ...REPTILE_CRAWL, ...config.tuning }, skill = crawl(own, motor, paws, settings);
+    return { state: skill.state, settings, resume: skill.resume, command: skill.command };
+  },
+});

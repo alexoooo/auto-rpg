@@ -17,6 +17,10 @@ import type { ConfigOf, PartConfig } from "./parts.ts";
 import type { OpeningTuning } from "./openings.ts";
 import { deepFreeze } from "../state.ts";
 import type { AIMS } from "./aims.ts";
+import type { SUPPORT_MOTORS } from "../reptile/support-motors.ts";
+import type { GAITS } from "../reptile/gaits.ts";
+import type { BITES } from "../reptile/bites.ts";
+import type { QUADRUPED_PLANNERS } from "../reptile/planners.ts";
 import type { Region } from "../skills/action.ts";
 import type { Weights } from "./options/value.ts";
 
@@ -141,9 +145,27 @@ export interface OptionsConfig extends SkillKit {
   readonly subs: readonly SubMindConfig[];
 }
 
-/** Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. */
+export type SupportMotorConfig = ConfigOf<typeof SUPPORT_MOTORS>;
+export type GaitConfig = ConfigOf<typeof GAITS>;
+export type BiteConfig = ConfigOf<typeof BITES>;
+export type QuadrupedTacticsConfig = ConfigOf<typeof QUADRUPED_PLANNERS>;
+
+/**
+ * Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. Each part
+ * it is built of is the stock one where it names none (`QUADRUPED_PARTS`, `src/core/reptile/kind.ts`).
+ */
 export interface QuadrupedConfig {
   readonly kind: "quadruped";
+  /** Its motor over the paws: what holds the body up as the gaits ask. */
+  readonly motor?: SupportMotorConfig | PartConfig;
+  /** Its gait to travel: the gait it carries the body with at speed. */
+  readonly travel?: GaitConfig | PartConfig;
+  /** Its gait to crawl: the gait close in, and while it places its paws again. */
+  readonly crawl?: GaitConfig | PartConfig;
+  /** Its bite. */
+  readonly bite?: BiteConfig | PartConfig;
+  /** Its tactics: where it goes and when it bites. */
+  readonly tactics?: QuadrupedTacticsConfig | PartConfig;
   /** Its navigation, any part of the role (`navigatorOf`): the game's where it names none. */
   readonly navigation?: PartConfig;
   /** Immutable bite cells for physical qualification; retained by recipes and replay. */
