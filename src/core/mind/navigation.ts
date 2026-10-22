@@ -301,10 +301,11 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
   /**
    * `solids` and `fallen` are the geometry its route was found in: the solids sensed and its own
    * side's fallen bodies (`fallenSolids`); `failure` keeps the same of a search that found none.
-   * `lying` is where it keeps its side's fallen bodies (`FallenMemory`).
+   * `lying` is where it keeps its side's fallen bodies (`FallenMemory`). `goal` is the goal progress
+   * is reckoned toward; `offset` is a range's spot kept, from the foe.
    */
   const state = { request: null as MovementRequest | null, solids: null as readonly SolidSense[] | null, fallen: NO_SOLIDS, route: [] as GroundPoint[], waypoint: 0, goal: null as GroundPoint | null,
-    focus: null as GroundPoint | null,
+    offset: null as GroundPoint | null,
     failure: null as { from: GroundPoint; solids: readonly SolidSense[]; fallen: readonly SolidSense[]; radius: number; focus: GroundPoint | null } | null,
     progress: null as GroundPoint | null, bestRemaining: null as number | null, lastProgress: 0, lastTime: null as number | null, clearance: baseRadius,
     /** Whether its own side's bodies held its walk back at the last step (`crowdWalk`). */
@@ -332,7 +333,8 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
       let solids = printsOf(sensed, centre.y, view.stance.support?.y);
       // Its own side's fallen bodies are fixed solids to route round, but the body it ranges about.
       const fallen = fallenSolids(view.senses, request?.kind === "range" ? request.focus : null, state.lying);
-      if (fallen.length) solids = [...solids, ...footprints(fallen, centre.y, view.stance.support?.y)];
+      const lying = fallen.length ? footprints(fallen, centre.y, view.stance.support?.y) : NO_SOLIDS;
+      if (lying.length) solids = [...solids, ...lying];
       const radius = radiusOf(view);
       // Whether the router is ready from here among this step's solids.
       let readied = false;
@@ -341,7 +343,7 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
         && request.points.length >= previous.points.length && previous.points.every((p, i) => apart(p, request.points[i]!) < NAV.moved);
       const changed = !same && !following;
       if (!same) state.request = request && copyMovement(request);
-      if (changed) { state.route = []; state.failure = null; state.waypoint = 0; state.goal = null; state.focus = null; state.progress = here; state.bestRemaining = null; state.lastProgress = view.time; }
+      if (changed) { state.route = []; state.failure = null; state.waypoint = 0; state.goal = null; state.offset = null; state.progress = here; state.bestRemaining = null; state.lastProgress = view.time; }
       const elapsed = state.lastTime === null ? dt : view.time - state.lastTime;
       state.lastTime = view.time;
       if (!available) { state.lastProgress += Math.max(0, elapsed); update("unavailable", state.report.remaining, state.goal); return { move: null, face: null }; }
@@ -386,6 +388,42 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
         state.route = []; state.goal = goal; update("unreachable", null, goal);
         return { move: null, face: null };
       };
+      // Whether the solids sensed are not those its route was found among.
+      const reshaped = !state.solids || !sameSolids(state.solids, sensed);
+      if (!reshaped) state.solids = sensed;
+      // Whether its route crosses where its own side's fallen bodies lie now, where they have changed: a route clear of them stands, found among them.
+      let crossed = false;
+      if (!reshaped && !sameSolids(state.fallen, fallen)) {
+        let from = here;
+        for (const point of state.route) {
+          if (!clearStep(atHeight(from, centre.y), atHeight(point, centre.y), radius, lying)) { crossed = true; break; }
+          from = point;
+        }
+        if (!crossed) state.fallen = fallen;
+      }
+      // Whether the route no longer fits: the geometry changed across it, or the body's clearance is not the one it was found for.
+      const refit = reshaped || crossed || Math.abs(radius - state.clearance) > NAV.margin;
+      /**
+       * Whether a route reaches `aim`: the route kept, its end moved there where `aim` moved, while it
+       * still fits; straight from here, as a search would find it; or by the kept route's last leg
+       * from the corner before it. Where that leg is not clear, a route that ends within `NAV.moved`
+       * of `aim` keeps its end and still leads there. Its other legs stand while the geometry does;
+       * the body turns onto the next `NAV.waypoint` m before a corner, so a sweep from here along it
+       * may graze the corner by design.
+       */
+      const reaches = (aim: GroundPoint): boolean => {
+        const route = state.route, n = route.length;
+        if (!refit && n && route[n - 1]!.x === aim.x && route[n - 1]!.z === aim.z) return true;
+        const to = atHeight(aim, centre.y);
+        if (clearStep(atHeight(here, centre.y), to, radius, solids)) {
+          state.route = [{ ...aim }]; state.solids = sensed; state.fallen = fallen; state.clearance = radius; return true;
+        }
+        if (refit) return false;
+        if (n >= 2 && clearStep(atHeight(route[n - 2]!, centre.y), to, radius, solids)) { route[n - 1] = { ...aim }; return true; }
+        return n > 0 && apart(route[n - 1]!, aim) <= NAV.moved;
+      };
+      // A route this step's search has found already.
+      let planned: readonly GroundPoint[] | null = null;
       let goal: GroundPoint, near: number;
       switch (request.kind) {
         case "place": {
@@ -407,10 +445,16 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
           const range = (request.near + request.far) / 2, bearing = atan2(here.x - target.x, here.z - target.z);
           const focusRadius = focus.spec ? bodyClearance(focus.spec) : .2;
           solids = [...solids, { name: `focus:${focus.id}`, kind: "box", centre: [target.x, centre.y, target.z], size: [2 * focusRadius, 2, 2 * focusRadius] }];
-          if (state.focus && state.goal && apart(state.focus, target) < NAV.moved
-            && apart(state.goal, target) >= request.near && apart(state.goal, target) <= request.far) {
-            goal = state.goal; near = Math.min(.15, (request.far - request.near) / 2); break;
+          near = Math.min(.15, (request.far - request.near) / 2);
+          // The nearest spot, where no side is asked and it is open and straight ahead, is the one a search would find.
+          const nearest = { x: target.x + range * sin(bearing), z: target.z + range * cos(bearing) };
+          if (!request.side && clearanceExit(atHeight(nearest, centre.y), radius, solids) === null && clearStep(atHeight(here, centre.y), atHeight(nearest, centre.y), radius, solids)) {
+            state.offset = { x: nearest.x - target.x, z: nearest.z - target.z }; goal = nearest; planned = [nearest]; break;
           }
+          // Else the spot kept goes where the foe goes: it stays at the range, on the side it was chosen on, while it is open and the route still reaches it.
+          const kept = state.offset && { x: target.x + state.offset.x, z: target.z + state.offset.z };
+          if (kept && apart(kept, target) >= request.near && apart(kept, target) <= request.far
+            && clearanceExit(atHeight(kept, centre.y), radius, solids) === null && reaches(kept)) { goal = kept; break; }
           let best: GroundPoint | null = null, bestCost = Infinity;
           router.ready(here, solids, radius, centre.y); readied = true;
           for (let i = 0; i < NAV.rangeSamples; i++) {
@@ -423,11 +467,11 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
             let cost = 0, previous = here;
             for (const point of route) { cost += apart(previous, point); previous = point; }
             cost += preference;
-            if (cost < bestCost) { best = candidate; bestCost = cost; }
+            if (cost < bestCost) { best = candidate; bestCost = cost; planned = route; }
           }
           if (!best) return unreachable(null);
-          state.focus = target;
-          goal = best; near = Math.min(.15, (request.far - request.near) / 2);
+          state.offset = { x: best.x - target.x, z: best.z - target.z };
+          goal = best;
           break;
         }
         default: { const never: never = request; throw new Error(`unknown movement ${JSON.stringify(never)}`); }
@@ -441,18 +485,17 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
           if (clearanceExit(atHeight(at, centre.y), radius, solids) === null) { aim = at; break; }
         }
       }
-      const moved = !state.goal || apart(state.goal, goal) > NAV.moved;
-      const reshaped = !state.solids || !sameSolids(state.solids, sensed) || !sameSolids(state.fallen, fallen);
-      if (!reshaped) state.solids = sensed;
-      if (!state.route.length || moved || reshaped || Math.abs(radius - state.clearance) > NAV.margin) {
-        if (moved || reshaped) { state.bestRemaining = null; state.lastProgress = view.time; }
-        state.solids = sensed; state.fallen = fallen; state.goal = { ...goal }; state.clearance = radius;
-        if (config.kind === "visibility-navigation" && !readied) router.ready(here, solids, radius, centre.y);
-        state.route = config.kind === "visibility-navigation" ? [...router.route(aim)]
-          : clearStep(atHeight(here, centre.y), atHeight(aim, centre.y), radius, solids) ? [{ ...aim }] : [];
-      }
-      else if (state.route.length && clearStep(atHeight(state.route.length > 1 ? state.route[state.route.length - 2]! : here, centre.y), atHeight(aim, centre.y), radius, solids)) {
-        state.route[state.route.length - 1] = { ...aim };
+      // Progress is reckoned toward the goal as it was when it last moved `NAV.moved` or the geometry changed across its route.
+      if (!state.goal || apart(state.goal, goal) > NAV.moved || reshaped || crossed) { state.goal = { ...goal }; state.bestRemaining = null; state.lastProgress = view.time; }
+      // A route is searched for only where none found reaches the goal: a range's spot is kept only where its route reaches it.
+      if (planned || request.kind === "place" && !reaches(aim)) {
+        state.solids = sensed; state.fallen = fallen; state.clearance = radius;
+        if (planned) state.route = [...planned];
+        else {
+          if (config.kind === "visibility-navigation" && !readied) router.ready(here, solids, radius, centre.y);
+          state.route = config.kind === "visibility-navigation" ? [...router.route(aim)]
+            : clearStep(atHeight(here, centre.y), atHeight(aim, centre.y), radius, solids) ? [{ ...aim }] : [];
+        }
       }
       const distance = apart(here, goal), speed = hypot(view.stance.velocity.x, view.stance.velocity.z);
       if (distance <= near) { update(speed <= NAV.quiet ? "arrived" : "moving", distance, goal); return { move: null, face: null, destination: distance }; }

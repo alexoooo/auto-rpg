@@ -495,7 +495,13 @@ bands about a sensed body; null asks a controlled stop. Tactics and orders give 
 a facing and at most a ceiling (`Intent.pace`, `Intent.walk`); none writes a velocity.
 Navigation is a part between tactics and locomotion (a fighter's `navigation` slot): the
 visibility navigator routes round inflated fixed footprints and reports its route, distance,
-arrival and stalls; how far an order has left is read from the order (`remainingOf`).
+arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
+its route and searches again only where the route breaks: the solids sensed change, its own side's
+fallen bodies come to lie across it, its clearance changes by `NAV.margin`, or a goal that moves is
+neither straight ahead nor seen from the route's last corner and has gone `NAV.moved` from the
+route's end. A range goes to the nearest spot in its band where that is open and straight ahead;
+else to the spot it chose last, carried with the body it ranges about while that spot is open and
+its route reaches it; else to the cheapest of `NAV.rangeSamples` spots round that body.
 **Its own side** (`src/core/mind/crowd.ts`): a fallen body of its side is a fixed footprint it
 routes round (`fallenSolids`), kept from step to step and grown to take in where the body's parts
 lie, and taken afresh once its centre has moved `CROWD.settled`, so a body twitching where it lies
