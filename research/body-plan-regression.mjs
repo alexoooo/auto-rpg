@@ -6,7 +6,7 @@ const base=process.argv[2]??'.';
 const module=path=>import(pathToFileURL(resolve(base,path)).href);
 const {coreStand}=await module('tests/harness/core-stand.mjs');
 const {modelSpec}=await module(existsSync(resolve(base,'src/core/models.ts'))?'src/core/models.ts':'src/core/human/spec.ts');
-const {traceOf}=await module('tests/harness/trace.mjs');
+const {traceOf}=await module(existsSync(resolve(base,'src/evaluation/trace.ts'))?'src/evaluation/trace.ts':'tests/harness/trace.mjs');
 const {Duel}=await module('src/arena/duel.ts');
 const {createWorld}=await module('src/core/world.ts');
 const {freshEngine}=await module('tests/harness/core-stand.mjs');

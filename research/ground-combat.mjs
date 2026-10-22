@@ -1,7 +1,8 @@
 import { actionCycles } from "./action-cycles.mjs";
 import { Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector.js';
 import {turnAboutToRef,spinBetweenToRef} from '../src/core/math/turn.ts';
-import { buildBout } from './bout.mjs';
+import '../tests/harness/preload-data.mjs';
+import { buildBout } from '../src/evaluation/bout.ts';
 import { combatContact, combatFingerprint } from './arena-combat.mjs';
 import { SCRAPPER, RECIPE_FIGHTER } from '../src/core/mind/config.ts';
 import { COMBAT } from '../tests/fixtures/minds.mjs';

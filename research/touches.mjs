@@ -4,7 +4,7 @@
  * or on another body, each priced (`TouchWatch.priced`). The Lab's modes on the Node stand as the
  * page runs them (`labActor`, the loadout the address gives by default, the balance the
  * character's own unless `--balance` gives another), each case in a stand of its own, and three
- * arena bouts to their verdicts (`buildBout`, `bout.mjs`).
+ * arena bouts to their verdicts (`buildBout`, `src/evaluation/bout.ts`).
  *
  *   node research/touches.mjs [--case stand,walk,run,shove,fall,routine,blow,bouts] [--model <id>]
  *     [--balance <per cent>] [--floor <J>] [--air <m/s>] [--list]
@@ -64,8 +64,9 @@ import { startStance } from "../src/lab/stance-mode.ts";
 import { hardestOn } from "../src/lab/targets.ts";
 import { TRACK_IDS, TRACKS, trackOf } from "../src/lab/track.ts";
 import { CORE_ENGINE, coreStand } from "../tests/harness/core-stand.mjs";
-import { traceOf } from "../tests/harness/trace.mjs";
-import { BOUT_HARNESS, buildBout } from "./bout.mjs";
+import { traceOf } from "../src/evaluation/trace.ts";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE, BOUT_HARNESS } from "./bout.mjs";
 
 // Each stand's engine prints its banner otherwise, into the table.
 Logger.LogLevels = Logger.ErrorLogLevel;
@@ -301,7 +302,7 @@ const LAB = {
  */
 async function boutRun([left, right]) {
   const recipe = balance === null ? { left, right } : { left, right, balance: { left: balance, right: balance } };
-  const { world, duel, dispose } = await buildBout(recipe);
+  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
   const bodies = SIDES.map((side) => ({ name: side, built: duel.duelists[side].built, body: duel.duelists[side].body }));
   const heard = listen(world, bodies, (of, on) => on === null || bodies.indexOf(on.body) > bodies.indexOf(of.body));
   const breaths = bodies.map((body) => breathe(world, body));

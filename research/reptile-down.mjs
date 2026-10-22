@@ -2,7 +2,8 @@
 // down, and how each bout ends. `node research/reptile-down.mjs [--shard i --of n]` prints one JSON
 // row a bout, the grid below cut into `n` shards by index.
 import { parseArgs } from "node:util";
-import { buildBout } from "./bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE } from "./bout.mjs";
 import { readMinds } from "../src/arena/matchup.ts";
 
 const { values } = parseArgs({ options: { shard: { type: "string", default: "0" }, of: { type: "string", default: "1" } } });
@@ -20,7 +21,7 @@ const grid = OPPONENTS.flatMap((opponent) => GAPS.map((gap) => ({ ...opponent, g
 for (const [index, { right, control, held, gap }] of grid.entries()) {
   if (index % of !== shard) continue;
   const minds = readMinds(`?matchup=reptile,${right}&control=crawl,${control}`);
-  const { world, duel, dispose } = await buildBout({ left: "reptile", right, gap, capSeconds: 60, loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: held } }, minds });
+  const { world, duel, dispose } = await buildBout({ left: "reptile", right, gap, capSeconds: 60, loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: held } }, minds }, { engine: BOUT_ENGINE });
   try {
     let down = null;
     while (!duel.verdict) {

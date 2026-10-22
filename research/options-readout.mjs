@@ -12,7 +12,8 @@
  *
  * Harness: Node, the core's world on Rapier, the Arena's room, 120 Hz.
  */
-import { buildBout } from "./bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE } from "./bout.mjs";
 import { PRESETS } from "../src/core/mind/controllers.ts";
 import { CLINCH } from "../src/core/mind/options/value.ts";
 
@@ -24,7 +25,7 @@ const time = new Map(), between = new Map(), blows = { landed: 0, blocked: 0, no
 let both = 0, clinch = 0, longest = 0, wins = 0, losses = 0, falls = 0;
 for (const gap of gaps) {
   const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-fighter", minds: { left: PRESETS.options.config, right: PRESETS[against].config },
-    loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } }, recoverySeconds: null, capSeconds: cap, gap });
+    loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } }, recoverySeconds: null, capSeconds: cap, gap }, { engine: BOUT_ENGINE });
   try {
     const L = duel.duelists.left, R = duel.duelists.right, mind = L.minded, seen = new Set();
     let run = 0, lastBlocked = -Infinity, since = new Set(), was = false;

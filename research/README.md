@@ -65,7 +65,7 @@ Arena bouts off the page: Node, the core's world, Rapier, 120 Hz. A bout is its 
 
 | Script | What it measures | Writes |
 |---|---|---|
-| `bout.mjs`, `bout-worker.mjs`, `bout-pool.mjs` | one bout from its recipe in a world of its own (how it ended, what landed, each side's assist, the digest of every pose); its worker; many over workers | |
+| `bout.mjs`, `bout-worker.mjs`, `bout-pool.mjs` | one bout played from its recipe (built by `buildBout`, `src/evaluation/bout.ts`) in a world of its own (how it ended, what landed, each side's assist, the digest of every pose); its worker; many over workers | |
 | `bout-trace.mjs` | one bout's row: the digest a change that should change nothing leaves as it was | |
 | `bout-baseline.mjs` | how every matchup ends at each starting gap; with `--held empty`, `--never-off`, `--hand`, `--unit` and `--floors` | [bouts](../docs/reference/bouts.md), [wounds](../docs/reference/wounds.md) |
 | `crypt-blows.mjs` | a crypt run's blows by what met | [bouts](../docs/reference/bouts.md) |

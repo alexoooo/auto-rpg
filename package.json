@@ -15,7 +15,8 @@
     "preview": "vite preview",
     "check": "tsc --noEmit",
     "test": "node scripts/test.mjs",
-    "match": "node scripts/match.mjs",
+    "match": "node scripts/evaluate.mjs match",
+    "evaluate": "node scripts/evaluate.mjs",
     "clean": "node scripts/clean.mjs",
     "tournament": "node scripts/tournament.mjs"
   },

@@ -8,12 +8,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
-import { buildBout } from "../research/bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE } from "../research/bout.mjs";
 import { SIDES } from "../src/arena/duel.ts";
 import { CONTROLLERS } from "../src/core/mind/controllers.ts";
 import { BODY_MODELS, modelSupportsMind } from "../src/core/models.ts";
 import { LOADOUTS, loadoutKey } from "../src/core/items/held.ts";
-import { traceOf } from "./harness/trace.mjs";
+import { traceOf } from "../src/evaluation/trace.ts";
 import { modelSpec } from "../src/core/models.ts";
 import { replayedBody } from "../src/core/mind/sheets.ts";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
@@ -59,7 +60,7 @@ function stepTo(world, duel, until, traces, peak) {
 
 /** The bout of `recipe` under `hooks` played to `STEPS`, forked at `FORK` and played on again from there when asked. */
 async function played(recipe, hooks, fork) {
-  const { world, duel, dispose } = await buildBout(recipe, { hooks });
+  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE, hooks });
   try {
     duel.play([]);
     const builts = SIDES.map((side) => duel.duelists[side].built), trace = traceOf(builts), tail = traceOf(builts);
@@ -158,7 +159,7 @@ test("every registered Mind is built on each character and catalog loadout it fi
   for (let k = 0; k < cases.length; k += 2) {
     const left = cases[k], right = cases[k + 1] ?? cases[k];
     try {
-      const { dispose } = await buildBout({ left: left.model, right: right.model, gap: 4, loadouts: { left: left.loadout, right: right.loadout }, minds: { left: left.config, right: right.config } });
+      const { dispose } = await buildBout({ left: left.model, right: right.model, gap: 4, loadouts: { left: left.loadout, right: right.loadout }, minds: { left: left.config, right: right.config } }, { engine: BOUT_ENGINE });
       dispose();
     } catch (error) { failed.push(`${left.id}/${left.model}/${loadoutKey(left.loadout)} or ${right.id}/${right.model}/${loadoutKey(right.loadout)}: ${error.message}`); }
   }

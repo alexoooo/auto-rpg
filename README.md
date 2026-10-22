@@ -124,10 +124,11 @@ finishing a fight decisively, and AI above a single fighter. See [the roadmap](d
 | `src/arena/`, `src/dungeon/`, `src/lab/` | the Arena, the Crypt and the Lab |
 | `src/render/`, `src/audio/`, `src/ui/` | drawing, sound and panels the screens share |
 | `src/app.ts`, `index.html` | the main menu and routing |
+| `src/evaluation/` | evaluations: the match and every question of how well something does; records in `assets/evaluations/` |
 | `tests/` | the gate's few contract tests (`node --test`) |
 | `research/` | measurement scripts ([README](research/README.md)) |
 | `assets/`, `public/assets/` | data the core reads and Blender sources; what the pages load |
-| `scripts/` | asset builders and match scripts |
+| `scripts/` | asset builders, the evaluation runner and the tournament |
 | `docs/` | [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), plans, reference records, [art](docs/art/) |
 
 [AGENTS.md](AGENTS.md) holds the rules for working in this repository.

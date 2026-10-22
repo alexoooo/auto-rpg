@@ -15,7 +15,7 @@ const ENGINES = {
   "rapier-coordinate-coulomb": () => import("./rapier.ts").then((m) => m.loadRapier(true, true)),
 } as const satisfies Readonly<Record<string, () => Promise<PhysicsEngine>>>;
 
-type EngineName = keyof typeof ENGINES;
+export type EngineName = keyof typeof ENGINES;
 
 /** Gameplay uses measured-angle limit gradients (docs/reference/joint-limits.md). */
 export const DEFAULT_ENGINE: EngineName = "rapier-coordinate";

@@ -11,7 +11,8 @@
  * - `down`: the Warrior lying on its back, 240 steps read from 3 s, with the ground reader active.
  */
 import { Logger } from "@babylonjs/core/Misc/logger.js";
-import { buildBout } from "../../research/bout.mjs";
+import { buildBout } from "../../src/evaluation/bout.ts";
+import { BOUT_ENGINE } from "../../research/bout.mjs";
 import { allocatedIn, downBody, standBodies } from "./garbage.mjs";
 
 // Babylon greets every engine it makes on the console.
@@ -29,7 +30,7 @@ async function standing(hook) {
 }
 
 async function bout() {
-  const steps = 480, { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-rogue" });
+  const steps = 480, { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-rogue" }, { engine: BOUT_ENGINE });
   try {
     world.step(2 * world.hz);
     const { bytes } = await allocatedIn(() => world.step(steps));

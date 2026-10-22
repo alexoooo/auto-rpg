@@ -1,6 +1,7 @@
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { pathToFileURL } from "node:url";
-import { buildBout } from "./bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE } from "./bout.mjs";
 import { sourced } from "../src/core/spec/quantity.ts";
 import { rulebook } from "../src/core/rules/rulebook.ts";
 import { mouthOf } from "../src/core/reptile/bite.ts";
@@ -16,7 +17,7 @@ export async function combatTrial({ opponent = "reptile", gap = 2, side = "left"
     gap, capSeconds: 30, recoverySeconds: null, loadouts: { left: { left: "empty", right: "empty" }, right: { left: "empty", right: "empty" } }, balance: { left: 0, right: 0 },
     rules: { pointLoad: { threshold: sourced(1, "N", "owner-point-load", "shared threshold"),
       rate: sourced(rate, "HP/(N s)", "owner-point-load", "shared calibration") } } };
-  const bout = await buildBout(recipe), { world, duel } = bout;
+  const bout = await buildBout(recipe, { engine: BOUT_ENGINE }), { world, duel } = bout;
   const damage = [0, 0], engagements = [0, 0], engaged = [false, false], falls = [null, null];
   const jaws = sides.map(s => duel.duelists[s].model === "reptile" ? mouthOf(duel.duelists[s].built).lower : null);
   const foreign = sides.map(s => new Set([...duel.duelists[s === "left" ? "right" : "left"].built.segments.values()].map(p => p.body)));

@@ -498,9 +498,10 @@ Once registered it is offered by its presets (or its kind) in `MINDS`, and
 `tests/mind-contract.test.mjs` runs it against itself on the first body it fits, forks it and
 replays it from its order sheets. How well it fights is a measurement:
 
-- `npm run match -- <a> <b>` (`scripts/match.mjs`) plays two minds over fixed bodies, levels, gaps
-  and loadouts, each on each side, and names the result by a digest that is the same on every
-  machine; `--protocol sword-and-buckler` plays that loadout on both stages.
+- `npm run match -- <a> <b>` plays two minds over fixed bodies, levels, gaps and loadouts, each on
+  each side, and names the result by a digest that is the same on every machine;
+  `--protocol sword-and-buckler` plays that loadout on both stages. It is an evaluation
+  ([Evaluations](#evaluations)), `match`.
 - The tournament (`scripts/tournament.mjs`) rates every mind on every character and representative
   loadout (`REPRESENTATIVE`, `src/core/items/held.ts`) by Bradley-Terry (`research/rating.mjs`),
   shown as notes (`src/ui/mind-notes.ts`) and the Arena's Ratings panel.
@@ -600,7 +601,7 @@ A bout is built from a recipe (`DuelRecipe`, `src/arena/duel.ts`): bodies, gap, 
 side's mind (`minds`), loadouts, attributes and recovery allowance (`recoverySeconds`), as plain
 data. What a page hears (`DuelHooks`) is beside it. Nothing in a bout is random, so a recipe plays
 the same to the bit in Node and in the page (`playBout`, `research/bout.mjs`; `traceOf`,
-`tests/harness/trace.mjs`; [real functions](reference/real-functions.md)). The page resets its
+`src/evaluation/trace.ts`; [real functions](reference/real-functions.md)). The page resets its
 world before each bout (`boutStart`) and a body's time starts at its first view (`BodyView.born`).
 
 - **Verdict** (`Duel.judge`): a side is out when its pool ends or its down allowance expires; both
@@ -620,13 +621,42 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
 - **Build fingerprint** (`scripts/build-identity.mjs`): a content SHA-256 of sources, templates,
   assets, lockfile, build config and installed Rapier, LF-normalised; Node and Vite share it.
   What runs write (`OUTPUTS`: the tournament's table and notes, `assets/evaluations/`, generated art delivery files) is not in
-  it. Match results and tournament caches carry it and refuse a mismatch.
-- **Evaluation records** (`assets/evaluations/`): kept results. `imports/tournament-1bacac44.jsonl`
+  it. Evaluation records and tournament caches carry it and refuse a mismatch. The environment
+  (`environmentOf`) is the same less what no case plays (scripts, research, the test harness, the
+  pages, the evaluations' descriptions): a case's code.
+- **Evaluation records** (`assets/evaluations/<id>/`): kept results ([Evaluations](#evaluations)).
+  `imports/tournament-1bacac44.jsonl`
   is the 10-hour tournament's rows (11,342 bouts and the unseen report's 384) as played, with their
   provenance beside them in `tournament-1bacac44.json`.
 - **Forks** (`rollout`, `research/rollouts.mjs`): by load or by replay of the tape, which agree.
   The oracle (`research/oracle.mjs`) searches orders over forks; it holds the true world and is an
   instrument, not a mind ([oracle](reference/oracle.md)).
+
+## Evaluations
+
+Every question of how well something does is an evaluation (`src/evaluation/`, browser-safe), one
+path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists them.
+
+- **A case module** (`<id>/cases.ts`, `Cases` in `evaluation.ts`) gives each protocol's
+  conditions, the world of a case for its subjects (`CaseWorld`: a bout's recipe and tape) and its
+  reader; `CASES` (`cases.ts`) is what a worker plays from. **A description** (`<id>/index.ts`)
+  gives the question, subjects, figures and summary; nothing a case plays imports it.
+- **A case's key** is the digest of everything it plays: evaluation, protocol, engine, world (every
+  subject's value whole), seconds and code (the environment). A row (`Row`, `play.ts`) is found
+  again by its key, so a description, script or document edit replays nothing; a case's error or
+  non-finite reading is a fault row, kept like any other.
+- **The runner** (`run.ts`): units of evidence (a contest's one condition with each side on the
+  left), run in the order of their keys on lanes (`lanes.ts`: a worker each, behind `spawn`, a
+  lost worker or one past its minutes replaced and its case left without a row); a table reads only
+  the complete units from the first. Figures are a rate (Wilson) or a mean or median over units, a
+  pair resampled whole (`stats.ts`).
+- **Records** (`record.ts`): `npm run evaluate -- <id> --write` writes
+  `assets/evaluations/<id>/<date>-<commit8>-<keys8>.jsonl`, a header (build, harness, engine,
+  commit, pool, each subject and part with its version and parent) and a line per case. A version is
+  the digest of its own content, protocol and environment, kept apart so a change from its parent
+  is named by kind; `--previous` names the parent. Working rows are kept in
+  `research/runs/evaluations/<id>/`.
+- `scripts/evaluate.mjs` and `evaluate-worker.mjs` run it in Node.
 
 ## Rules and wounds
 

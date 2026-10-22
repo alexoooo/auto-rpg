@@ -20,7 +20,8 @@ import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { RECIPE_FIGHTER } from "../src/core/mind/config.ts";
 import { THREAT, threatReader } from "../src/core/mind/threat.ts";
 import { GUARD_COVER } from "../src/core/skills/guard.ts";
-import { BOUT_HARNESS, buildBout } from "./bout.mjs";
+import { buildBout } from "../src/evaluation/bout.ts";
+import { BOUT_ENGINE, BOUT_HARNESS } from "./bout.mjs";
 import { withParts } from "../tests/fixtures/minds.mjs";
 
 const { threatOf } = threatReader();
@@ -36,7 +37,7 @@ const threat = values.threat ? JSON.parse(values.threat) : THREAT;
 /** One bout with `covers` covering: its head's blows as the step before each left them, and the bout's counts. */
 async function play(left, right, gap, covers) {
   const mind = (side) => side === covers ? withParts(RECIPE_FIGHTER, { tactics: { list: RECIPE_FIGHTER.tactics.list.map(behaviour => behaviour.kind === "cover" ? { ...behaviour, guard: "cover", tuning: { threat } } : behaviour) } }) : RECIPE_FIGHTER;
-  const { world, duel, dispose } = await buildBout({ left, right, gap, senseDelay: delay, minds: { left: mind("left"), right: mind("right") } });
+  const { world, duel, dispose } = await buildBout({ left, right, gap, senseDelay: delay, minds: { left: mind("left"), right: mind("right") } }, { engine: BOUT_ENGINE });
   try {
     const me = duel.duelists[covers], { view } = me.body;
     const toWorld = (p) => p.clone().applyRotationQuaternion(view.root.rotation).addInPlace(view.root.position);

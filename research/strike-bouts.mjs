@@ -76,13 +76,13 @@ if (isMainThread) {
   }
   console.log(`${jobs.length} bouts, ${played.length} played, in ${((Date.now() - started) / 1000).toFixed(1)} s`);
 } else {
-  const { buildBout } = await import("./bout.mjs");
+  const [{ buildBout }, { BOUT_ENGINE }] = await Promise.all([import("../src/evaluation/bout.ts"), import("./bout.mjs")]);
   const { SIDES } = await import("../src/arena/duel.ts");
   parentPort.on("message", async ({ left, right, gap, held, seconds }) => {
     let dispose;
     try {
       const recipe = { left, right, gap, capSeconds: seconds, loadouts: { left: { left: "empty", right: held }, right: { left: "empty", right: held } } };
-      const bout = await buildBout(recipe); dispose = bout.dispose;
+      const bout = await buildBout(recipe, { engine: BOUT_ENGINE }); dispose = bout.dispose;
       const { world, duel } = bout, track = Object.fromEntries(SIDES.map(side => [side, {
         side, model: side === "left" ? left : right, phases: { prepare: 0, commit: 0, release: 0 }, idle: 0, attempts: [], sequence: 0,
       }]));
