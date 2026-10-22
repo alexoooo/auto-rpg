@@ -1,9 +1,9 @@
 # Vanguard development panel
 
-The committed-aim candidate wins 18 of 18 development bouts against the nine existing humanoid
-minds. This does not establish the requested win rate across opponents and equipment: each
-opponent has only two cases, on one body and stage. The candidate loses both direct bouts to the
-original Vanguard.
+The committed-aim punching kit wins 18 of 18 development bouts against the nine existing humanoid
+minds. The supported-low preset wins eight of eight against its four-member panel. These results
+do not establish the requested win rate across opponents and equipment: each opponent has only
+two cases, on one body and stage. The punching kit loses both direct bouts to the original Vanguard.
 
 ## What is used
 
@@ -51,6 +51,26 @@ against six more humanoid opponents. All 18 are valid wins: 11 by injury and sev
 The Reptile is outside this humanoid field. The results do not test other bodies, equipment,
 the obstacle court or held-out starting gaps.
 
+## Supported low fighting
+
+[The supported-low paired record](../../assets/evaluations/tournament/2026-10-22-e21b930e-4b217807.jsonl)
+names source commit `e21b930e` and the current preset's complete configuration. It compares the
+preset against the committed-aim punching kit under the same Node Arena Duel conditions above.
+The Crawl and bite comparison uses the Warrior against the Reptile on its own body, both empty-handed.
+
+| Opponent | Preset wins | Injury / time-limit wins | Punching kit wins |
+| --- | ---: | ---: | ---: |
+| Crawl and bite | 2/2 | 1 / 1 | 0/2 |
+| Counter-puncher | 2/2 | 2 / 0 | 2/2 |
+| Options | 2/2 | 1 / 1 | 2/2 |
+| Scrapper | 2/2 | 2 / 0 | 2/2 |
+
+All 16 bouts are valid. Each of the six humanoid bouts has the same complete pose digest for the
+preset and the punching kit. Against the Reptile, the preset wins by injury at 21.425 s on the left
+and at the cap on the right. Its ending bars are 0.999276 and 0.999529; the raw step readings record
+zero Warrior falls in either bout. The four-pair panel report is unsettled. These are development
+cases, with other bodies, stages, starts and equipment still outside this record.
+
 ## Tried and not kept
 
 Raw development rows, full recipes and source archives are kept under
@@ -65,5 +85,10 @@ Raw development rows, full recipes and source archives are kept under
 | Alternating hands or aiming only at the head | Weakens one side of the 20 s exchange screen. |
 | Committed aim with active return guard, 0.08 s preparation | Splits full Options bouts. |
 | Preparation of 0, 0.08, 0.2 or 0.35 s, with active return guard | The 0.2 s candidate leads both 20 s exchanges by the largest margins and advances to the paired panel. |
+| Routed downward strikes against the moving Reptile | No strike launches in the 20 s screen. |
+| The downward strike's own approach and fold | It launches, but records no damaging hand contact in the screen. |
+| Standard front kicks, or a smaller lift with proportionate chamber time | Both split the full Reptile bouts. |
+| Faster kick preparation and recovery | Falls interrupt preparation before commitment. |
+| Early low guard without approach, turning steps or a finite return | It stalls outside reach or cannot leave failed low support. |
 
 A short exchange is a development filter, not a win counted toward qualification.
