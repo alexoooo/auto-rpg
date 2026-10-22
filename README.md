@@ -72,7 +72,6 @@ Every setting travels in the link, so a bout can be shared or opened directly:
 | `level`, `gap`, `cap`, `recovery` | `&level=obstacle-court&gap=3&cap=30&recovery=60` |
 | `<side>.<attribute>` | `&left.strength=1.5&right.balance=10` |
 | `appearance`, `view`, `camera`, `projection`, `focus` | `&appearance=industrial,relic` |
-| `#tape=` | a bout's orders, played again |
 | `#case=` | a recorded case from the Ratings: its recipe and orders, with its choices in the pickers |
 
 ## The Crypt

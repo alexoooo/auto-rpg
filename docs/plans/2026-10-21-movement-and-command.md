@@ -28,8 +28,6 @@ Principles:
   to that, as it holds a Mind.
 - **A person and an AI use one interface**: the person's input is a Commander's policy, and the
   automatic layer under it an ordinary Commander.
-- **Orders are the recorded seam**: a tape records each body's orders, so a fight led by a person
-  and one led by an AI replay alike, with no Commander and no Mind.
 - **Deterministic and forkable**: a Commander steps inside `World.step`, in the sensing phase, at
   its own rate or on an event, its memory plain data in `state`.
 - **Roles, not special cases**: the Commander is a registered role with its own config, faults and
@@ -38,7 +36,7 @@ Principles:
 
 The owner has decided: the Crypt's enemies are coordinated by B4's mob, kept simple and minimal and
 iterated on later, with today's independent approach still selectable; team bouts in the Arena, N
-against N, are later work outside this plan.
+against N, are later work outside this plan. No fight is taped for a person to replay.
 
 ## Where it starts
 
@@ -83,8 +81,6 @@ change of behaviour shows the fingerprint unmoved.
   Pointer events already carry touch; the commands are the same `Command` data.
 - **The Arena**: its person uses the same Commander for their side, a team of one, so click-to-go
   works there too.
-- **The Crypt's tape**: the Crypt records each body's orders on a tape, as the Arena does, and
-  replays with no Commander.
 
 Check: the gate; the eye check of the mouse controls' feel.
 

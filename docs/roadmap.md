@@ -88,8 +88,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - The Duellist on both levels; accepted, it becomes the reference
   ([sword-and-buckler](reference/sword-and-buckler.md)).
 - A bout fought with orders (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`);
-  bouts with balance against none (`&balance=25`, `&balance=100`, `&balance=25,0`); an oracle's
-  bout ([oracle](reference/oracle.md)).
+  bouts with balance against none (`&balance=25`, `&balance=100`, `&balance=25,0`).
 - The five Locomotion courses at Max (`?play=lab`), Back and forth at a long distance for the run,
   the Crypt's long walks, the Warrior's run, and Move's rules and gaits in the mind editor.
 - Standing up in the Lab, in Arena bouts and in the Crypt, and whether the rise looks human.

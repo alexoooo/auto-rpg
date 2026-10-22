@@ -31,7 +31,7 @@ import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
 import { caseSearch, readCase, unshown, type LinkedCase } from "./case-link.ts";
-import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readTape, readYou, recipeOf, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { partOf, treeData } from "../core/mind/catalog.ts";
 import { loadData } from "../core/data/store.ts";
@@ -135,9 +135,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   let appearances = readAppearances(location.search, matchup);
   let view = readArenaView(location.search, you);
   const rig = arenaCameraRig(camera, view);
-  // A link's tape is of the link's matchup: a bout of another matchup begun from the page plays none.
-  const linked = { matchup, tape: readTape(location.hash), hash: location.hash };
-  /** Whether the bout under way plays a tape: it then takes no orders from a person. */
+  // A linked case is of the link's matchup: a bout of another matchup begun from the page plays its own recipe.
+  const linked = { matchup, hash: location.hash };
+  /** Whether the bout under way plays the linked case: it then takes no orders from a person. */
   let replaying = false;
   const youPicker = need<HTMLSelectElement>("you");
   youPicker.value = you ?? "";
@@ -458,8 +458,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         const sameRecovery = (linkedRecovery ?? null) === (readRecovery(search) ?? null);
         const sameLoadouts = linkedLoadouts === JSON.stringify(readLoadouts(search));
         const asLinked = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameLoadouts && linkedAttributes === attributeKey(matchup, attributes);
-        const tape = asLinked ? linked.tape : null, played = asLinked && linkedCase ? linkedCase.world : null;
-        replaying = tape !== null || played !== null;
+        const played = asLinked && linkedCase ? linkedCase.world : null;
+        replaying = played !== null;
         if (replaying) {
           const snapshot = new URLSearchParams(search);
           for (const side of SIDES) writeAttributes(snapshot, side, resolveCharacter({ model: matchup[side], attributes: attributes[side] }).config.attributes);
@@ -503,8 +503,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
         hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
         airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
-        if (tape) bout.playRecording(tape);
-        else if (played) bout.play(played.tape);
+        if (played) bout.play(played.tape);
         for (const row of rows) {
           row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === you && !replaying ? " (you)" : ""}`;
           const duelist = bout.duelists[row.side], minded = duelist.minded;

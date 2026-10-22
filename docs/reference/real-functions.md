@@ -13,8 +13,8 @@ differ from Node 24.19's in their last bits; `Math.pow`, `**`, `Math.hypot`, `Ma
 `Math.fround` agree between those two, and nothing holds `pow` or `hypot` to agree in a third.
 
 A bout amplifies a bit: with the core on the engine's `Math`, one recipe and tape gave Node's bout to
-the bit through step 240 on the built page and another bout by step 480 (the link under "Watching
-one" in [oracle.md](oracle.md) ended at 11.75 s in Chrome and 12.45 s in Node).
+the bit through step 240 on the built page and another bout by step 480 (the oracle's bout under
+"Watching one" in [oracle.md](oracle.md) ended at 11.75 s in Chrome and 12.45 s in Node).
 
 ## What the core computes with
 
@@ -114,4 +114,4 @@ step, quiet machine): 1.270 ms on the engine's `Math`, 1.296 and 1.334 ms on the
 The lab and the crypt take the engine's sine, cosine, arctangent and length where they place a body
 or aim an order (`src/lab/`, `src/dungeon/`), so a lab scenario or crypt run is not held to be the
 same in every engine. A person's keys are read with the engine's `Math`
-(`src/arena/orders-input.ts`) but go on the tape as the number they came to, so a replay is the same.
+(`src/arena/orders-input.ts`) but go on the tape as the number they came to.

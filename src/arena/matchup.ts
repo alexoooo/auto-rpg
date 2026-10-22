@@ -3,9 +3,7 @@ import { hasteFrom } from "../core/human/attributes.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
-import { isOrdersEntry, ORDERS_PROTOCOL, SIDES, type DuelRecipe, type OrdersRecording } from "./duel.ts";
-import { BUILD_IDENTITY } from "../build-identity.ts";
-import { requireRecordingIdentity } from "../core/recording.ts";
+import { SIDES, type DuelRecipe } from "./duel.ts";
 import { EMPTY_LOADOUT, HELD, type Loadout } from "../core/items/held.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import type { Side } from "../core/spec/body.ts";
@@ -147,29 +145,6 @@ export const readGap = (search: string): number | undefined => readWithin(search
 
 /** How long an address lets the bout run, s: `&cap=`; undefined, and the bout's own, for anything else. */
 export const readCap = (search: string): number | undefined => readWithin(search, "cap", LINK_RANGE.cap);
-
-/** A bout's tape in a link's fragment, which no server is sent: `#tape=<the tape's JSON, URI-encoded>`. */
-const TAPE_KEY = "tape";
-
-/**
- * A persisted tape belongs to one build and physical recipe. Absence is an ordinary recipe link;
- * a malformed or incompatible recording is an error, never permission to play a different bout.
- */
-export function readTape(hash: string): OrdersRecording | null {
-  const text = new URLSearchParams(hash.replace(/^#/, "")).get(TAPE_KEY);
-  if (text === null) return null;
-  let recording: Partial<OrdersRecording>;
-  try { recording = JSON.parse(text) as Partial<OrdersRecording>; }
-  catch { throw new Error("the tape recording is not valid JSON"); }
-  if (!recording || typeof recording !== "object" || Array.isArray(recording)) throw new Error("the tape has no build and protocol identity; make a new recording");
-  if (typeof recording.identity?.configuration !== "string") throw new Error("the tape has no physical recipe identity");
-  requireRecordingIdentity(recording.identity, { build: BUILD_IDENTITY, protocol: ORDERS_PROTOCOL, configuration: recording.identity.configuration });
-  if (!Array.isArray(recording.tape) || !recording.tape.every(isOrdersEntry)) throw new Error("the tape recording has invalid orders");
-  return recording as OrdersRecording;
-}
-
-/** The fragment that carries `tape` (`readTape`). */
-export const tapeHash = (recording: OrdersRecording): string => `#${TAPE_KEY}=${encodeURIComponent(JSON.stringify(recording))}`;
 
 /** A side's choice of mind (`MINDS`), separate from anatomy, equipment and appearance. */
 type Control = string;
