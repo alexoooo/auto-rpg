@@ -1,7 +1,7 @@
 /**
  * **Random commands**: the Locomotion scenario's course that is no track. A walker is sent to one
  * destination after another, scattered over a square about where it starts, as a person clicking
- * about the crypt sends a body (an attack-move, `TeamOrder`, `src/core/command/commands.ts`), and stands a
+ * about the crypt sends a body (a go to a point, `Command`, `src/core/command/commands.ts`), and stands a
  * while at each before the next.
  *
  * Free of the page.

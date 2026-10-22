@@ -48,6 +48,7 @@ import { dressReference, type ReferenceQuality } from "./reference-look.ts";
 import { need as find } from "../dom.ts";
 import type { ScreenContext } from "../ui/screen.ts";
 import { showHeroLineup } from "../render/character-preview.ts";
+import type { Command } from "../core/command/commands.ts";
 
 type DungeonScenario = "generated" | "reference" | "random-crypt";
 
@@ -563,10 +564,11 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const partyStatus = () => {
       const { run } = page;
       if (!run) return;
+      const selected = run.selected;
       for (const button of partyList.querySelectorAll<HTMLButtonElement>("button[data-member]")) {
         const member = run.party.find((candidate) => candidate.id === button.dataset.member);
         if (!member) continue;
-        button.setAttribute("aria-pressed", String(run.selected.has(member.id)));
+        button.setAttribute("aria-pressed", String(selected.has(member.id)));
         button.classList.toggle("fallen", !member.alive);
         button.querySelector("progress")!.value = member.vitality;
         button.querySelector("small")!.textContent = member.alive ? `· ${run.report(member).task}` : "· fallen";
@@ -589,7 +591,14 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     return { partyRows, partyStatus, selectMember };
   }
 
-  /** The keyboard: pause and help, the digits that select, the regroup key and the movement keys; and the pause a
+  /** The keys that command the members selected: F calls them back, H holds, X stops, and Q and E turn them an eighth
+   * of a turn left and right. */
+  const COMMAND_KEYS: Readonly<Record<string, Command>> = Object.freeze({
+    KeyF: { kind: "regroup" }, KeyH: { kind: "hold" }, KeyX: { kind: "stop" },
+    KeyQ: { kind: "face", turn: -Math.PI / 4 }, KeyE: { kind: "face", turn: Math.PI / 4 },
+  });
+
+  /** The keyboard: pause and help, the digits that select, the command keys and the movement keys; and the pause a
    * page takes when it loses the person's attention. */
   function wireKeys(page: DungeonPage, party: Party): void {
     const { signal, held } = page;
@@ -618,8 +627,9 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
         } else if (run.party[index - 1]) party.selectMember(run.party[index - 1].id, event.shiftKey);
         return;
       }
-      if (event.code === "KeyF" && !event.repeat) {
-        run.regroup();
+      const command = COMMAND_KEYS[event.code];
+      if (command && !event.repeat) {
+        run.command(command);
         party.partyStatus();
         return;
       }
@@ -648,19 +658,25 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     return { x, y, screen: { x: event.clientX, z: event.clientY }, ground: p ? { x: p.x, z: p.z } : null };
   }
 
-  /** The pointer on the canvas: a click selects a member or gives an order, a drag draws a forced route, the wheel
-   * zooms; and the window's size. */
+  /** The pointer on the canvas: a click selects a member or gives an order, a drag draws a forced route, a right
+   * click has the selected follow a member or face the floor, the wheel zooms; and the window's size. */
   function wirePointer(page: DungeonPage, party: Party): void {
     const { signal, hover, engine } = page;
+    canvas.addEventListener("contextmenu", (event) => event.preventDefault(), { signal });
     canvas.addEventListener("pointerdown", (event) => {
       const { run, scene, camera } = page;
-      if (page.paused || !run || !scene || !camera || event.button !== 0) return;
+      if (page.paused || !run || !scene || !camera || (event.button !== 0 && event.button !== 2)) return;
       canvas.focus();
       const p = pointerOn(page, scene, camera, event);
       if (!p.ground) return;
-      // A click on a party member selects it, and is not an order.
       const friend = scene.pick(p.x, p.y, (mesh) => run.memberAt(mesh) !== null, false, camera);
       const member = friend?.pickedMesh ? run.memberAt(friend.pickedMesh) : null;
+      if (event.button === 2) {
+        run.command(member ? { kind: "follow", member: member.id } : { kind: "face", toward: p.ground });
+        party.partyStatus();
+        return;
+      }
+      // A click on a party member selects it, and is not an order.
       if (member) {
         party.selectMember(member.id, event.shiftKey);
         return;
@@ -754,7 +770,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
    */
   function inspectMind(page: DungeonPage, run: DungeonRun): void {
     const target = run.leader.target?.alive ? run.leader.target : null;
-    const actor = page.hovered ?? target ?? run.party.find((member) => run.selected.has(member.id)) ?? run.hero;
+    const selected = run.selected, actor = page.hovered ?? target ?? run.party.find((member) => selected.has(member.id)) ?? run.hero;
     const fighter = actor.fighter;
     if (!fighter) return;
     if (page.inspected?.actor !== actor || page.inspected.fighter !== fighter) {

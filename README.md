@@ -56,6 +56,7 @@ fighter is doing and whether it connected. The bout is heard: footfalls, swings,
 | W A S D or arrows | go, relative to the camera, as fast as the legs hold; Shift walks |
 | Pointer | where your fighter faces while it walks |
 | Left button | attack the body part under the pointer; hold to keep attacking |
+| Left click on the floor | go there |
 | Middle or right drag, wheel | orbit and zoom the Free camera |
 | Space or Esc | pause and resume |
 | R | the same bout again |
@@ -84,10 +85,20 @@ Everybody carries a club; skeletons and reptile packs wake as the party comes ne
 - **The Rootbound Crypt**: one authored chamber, three skeletons.
 - **Random Crypt**: four kit-built chambers from the seed.
 
-Click the floor to attack-move, an enemy to lock on, or drag a route. **1**-**4** select a member,
-**Shift** adds, **0** selects everybody, **F** calls companions back. Two switches hand movement
-to the keyboard (WASD) and facing to the cursor; the minds do the rest. **Minds** sets each hero's
-mind; **Options** holds the seed and rendering quality.
+| Input | Does |
+| --- | --- |
+| Click the floor | the selected go there, fighting what they meet; several take places about it at the slowest one's pace |
+| Click an enemy | the selected attack it |
+| Drag on the floor | the selected walk the drawn route past every foe |
+| Right-click the floor, or an ally | the selected face there, or follow that ally |
+| Q, E | the selected turn an eighth of a turn left, right |
+| H, X | the selected hold where they stand, or stop |
+| F | the selected companions come back to the hero |
+| 1-4 or a click on an ally, 0 | select a member (Shift adds), or everybody |
+
+Two switches hand movement to the keyboard (WASD steers the one selected, or the hero) and facing
+to the cursor; the minds do the rest. **Minds** sets each hero's mind; **Options** holds the seed
+and rendering quality.
 
 ## The Lab
 

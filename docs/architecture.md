@@ -523,21 +523,28 @@ which their Minds carry out while they defend themselves.
 |---|---|
 | Kinds | `COMMANDERS` (`commanders.ts`), by config kind, each with defaults, faults and a maker; `createCommander(host, config)` |
 | Its maker gets | a `TeamHost`: the level as its adapter answers it (`TeamLevel`: sight, room to stand and pass, routes, the explored edge, doors), never the world |
-| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, its footprint, reach, home and navigation report; every other body the members sense; whether its host has it look this step; a leader's live input (`Lead`) |
+| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, its footprint, reach, home, navigation report, the limits its legs state (`gait`, `Skills.gait`) and the way they face; every other body the members sense; whether its host has it look this step; a leader's live input (`Lead`: the keys, a walk, the pointer's point and the part it strikes, exploring) |
 | It keeps | its memory in `state`, plain data |
-| It gives | each member's orders (`TeamDecision`), whether it looked, and on asking, whom each fights, what it does (`MemberReport`), whether it leaves a member idle, and a notice for its leader |
-| It hears | a leader's command (`TeamCommand`, `commands.ts`) at once |
+| It gives | each member's orders (`TeamDecision`), whether it looked, and on asking, whom each fights, what it does and whether it is selected (`MemberReport`), whether it leaves a member idle, and a notice for its leader |
+| It hears | a leader's command (`Command`, `commands.ts`) at once |
 
-Its host asks it once a step, after the senses and before every Mind. The kinds:
+Its host asks it once a step, after the senses and before every Mind. **A person's commands**
+(`Command`) are plain data: select, go (a point, or a route drawn with its points growing), attack a
+sensed foe, face (a point, or turned by an angle), hold, stop, regroup, follow a member. Each goes to
+the members selected, and the keys and pointer steer one of them: the one selected, or the leader.
+The Crypt's host is `DungeonRun` (its mouse and keys, `src/dungeon/commands.ts`, `main.ts`); an
+Arena side a person takes is a team of one (`teamOfOne`, `src/arena/team.ts`) under the party
+Commander with `picks: false`, asked in the step's sensing phase, its orders taped by the bout
+(`Duel.order`). The kinds:
 
 | Kind | File | Leads |
 |---|---|---|
 | `independent` | `independent.ts` | each member at the nearest foe it sees, on to where it last saw one, else home: the Crypt's enemies |
-| `party` | `party.ts` | a person's party: the leader where its person steers or exploring, the others after it or where they were sent, each at the foe its order locks or the nearest it sees, slots about a shared destination, doors on the way: the Crypt's party |
+| `party` | `party.ts` | a person's party: the member the keys steer where they steer it, the leader otherwise exploring, the others after it or where they were sent, each at the foe its order locks or (unless `picks: false`) the nearest it sees; several sent together take slots about the destination at the slowest one's top speed (`travelSpeed`); doors on the way: the Crypt's party, and an Arena side a person takes |
 
 `tests/core-boundary.test.mjs` holds `src/core/command/` to no engine, world, body, enlistment,
 mind host or senses hub; `tests/command-contract.test.mjs` has each kind lead an Arena bout as a
-team of one, fork it with its memory copied and play it again from its orders alone.
+team of one (`teamOfOne`), fork it with its memory copied and play it again from its orders alone.
 
 ## Experimental separate equipment
 
@@ -778,9 +785,10 @@ arena, crypt, lab and ratings at `?play=arena`, `?play=dungeon`, `?play=lab` and
 | Physics bench | `/physics-bench.html`, `src/physics-bench/` | the bake-off's cases on MuJoCo and Rapier |
 | Control tasks | `/control-foundation.html`, `/control-tasks.html` | research tasks with replay ([equipment](#experimental-separate-equipment)) |
 
-**The Arena.** A person may take a side (`&you=left`): keys become a walking direction as the
-camera sees the ground, and the pointer a facing and a sensed foe and segment
-(`src/arena/orders-input.ts`), all sent as `Duel.order`. The room's solids (`arenaSolids(level)`)
+**The Arena.** A person may take a side (`&you=left`), which they lead as a team of one
+([Command](#command)): keys become a walking direction as the camera sees the ground, the pointer a
+facing and a sensed foe and segment (`src/arena/orders-input.ts`), and a click on the floor a go
+there; the Commander's orders reach the side as `Duel.order`. The room's solids (`arenaSolids(level)`)
 are what bodies meet; `LEVELS` (`src/arena/levels.ts`) selects the open stage or obstacle court,
 whose furniture comes from `src/environment/furniture.ts`. Every Mind gets the stage's fixed
 geometry. The visible room is dressed from the forge kit (`forge-style.ts`, `forge-room.ts`), and

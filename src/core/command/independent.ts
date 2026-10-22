@@ -73,7 +73,7 @@ export function independentCommander(host: TeamHost): Commander {
       return !mind || mind.target === null && mind.alertedUntil <= time;
     },
     report(member: string): MemberReport {
-      return { target: state.members[member]?.target ?? null, task: "", forced: false };
+      return { target: state.members[member]?.target ?? null, task: "", forced: false, selected: false };
     },
     get notice() { return ""; },
   };

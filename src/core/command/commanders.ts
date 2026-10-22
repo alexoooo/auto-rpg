@@ -1,11 +1,12 @@
 import { deepFreeze } from "../state.ts";
 import { independentCommander } from "./independent.ts";
-import { partyCommander } from "./party.ts";
+import { partyCommander, type PartyConfig } from "./party.ts";
 import type { Commander, TeamHost } from "./team.ts";
 
-/** **A Commander's config**: plain data naming its kind, as a Mind's does. */
-interface CommanderConfig {
+/** **A Commander's config**: plain data naming its kind and its settings, as a Mind's does. */
+export interface CommanderConfig {
   readonly kind: string;
+  readonly [setting: string]: unknown;
 }
 
 /** **A kind of Commander**: its name, its default config, what is wrong with a config of it, and how one is made from its host. */
@@ -27,8 +28,10 @@ const INDEPENDENT: CommanderEntry = deepFreeze({
 
 /** **A person's party** (`partyCommander`): the leader where its person steers, the others after it or where they were sent. */
 const PARTY: CommanderEntry = deepFreeze({
-  label: "Party", defaults: { kind: "party" }, faults: kindOnly,
-  create: (host: TeamHost) => partyCommander(host),
+  label: "Party", defaults: { kind: "party" },
+  faults: (config: CommanderConfig) => Object.entries(config).flatMap(([key, value]) => key === "kind" ? []
+    : key !== "picks" ? [`${key}: not a setting of ${config.kind}`] : typeof value === "boolean" ? [] : ["picks: true or false"]),
+  create: (host: TeamHost, config: CommanderConfig) => partyCommander(host, config as PartyConfig),
 });
 
 /**
