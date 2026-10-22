@@ -448,7 +448,7 @@ by its defaults; pickers offer only minds that fit the side's body and loadout.
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
 | direct | `src/core/entrants/direct/` | joint feedback through the policy port |
 | tempo | `src/core/entrants/tempo/` | shared skills under rhythm tactics |
-| vanguard | `src/core/entrants/vanguard/` | committed point prediction, contact-driven tactics, editable own-body walking, blocked-step, punch-timing and preparation-aim profiles, recovery guard and low cover |
+| vanguard | `src/core/entrants/vanguard/` | a fighter's slots with parts of its own: its planner (`VANGUARD_PLAN`: contact-driven choice, capped evasion, rerouted entry, a step round blocks and low cover over a plan of any kind) and its committed, predicting punch; own-body profiles of walk, blocked step, punch timing and preparation aim as data |
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`mind`,
 `sub-mind`, `technique`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `reflex`, or a skill's:
@@ -625,8 +625,8 @@ joint-feedback Mind (`entrants/direct/mind.ts`) is the example.
 4. It may use any of the toolkit (`src/core/mind/`, `skills/`, `control/`) and imports no engine,
    world or builder. Data and learned weights go under `assets/entrants/<name>/`.
 5. A part of its own of a role whose parts make themselves (navigation, guard, support, executor,
-   motor, sub-mind) is a module in its folder and a line in its controller's `parts` (Vanguard's punch,
-   `vanguard-punch`); its config chooses it, and its maker finds it with the
+   tactics, motor, sub-mind) is a module in its folder and a line in its controller's `parts` (Vanguard's punch,
+   `vanguard-punch`, and planner, `vanguard-plan`); its config chooses it, an ablation (`--ablate`) replaces it alone, and its maker finds it with the
    host's lookup (`BodyHost.parts`). Only its own minds' slots offer it. `tests/swap.test.mjs`
    registers a fixture entrant this way from outside `src/` (`tests/fixtures/swap/`) and holds a
    stub of each such role to it: chosen by config, run, forked, replayed and linked.

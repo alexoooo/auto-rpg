@@ -108,7 +108,8 @@ are outside these paired records.
 
 ## Contact-driven policy
 
-The optional `adaptiveEvade` compares two ordinary behaviour policies, with and without the
+Vanguard's planner (`VANGUARD_PLAN`, `src/core/entrants/vanguard/plan.ts`) layers its settings
+over a plan of any kind in its own slot. Its optional `adaptiveEvade` compares two ordinary behaviour policies, with and without the
 configured evasion behaviour. `slowEvade` caps an evasive step at 0.2 m/s. Only onset, loaded,
 non-guard contacts on the committed stroke's intended target region contribute: normal impulse
 times preceding relative normal speed ranks those impacts. This is a contact heuristic, not
@@ -216,9 +217,10 @@ These failed conditions are development evidence; a revised fighter needs fresh 
 
 ## Conservative travel
 
-At `bf2bf77e`, `steadyWalk` bounds stance-walk turns to 0.3 rad/s, with 0.2 rad/s for the first
-two moving seconds. The setting is portable through a mind link and requires the stance walk.
-`routeAround` responds to an unreachable exact attack entry by requesting another point in
+At `bf2bf77e`, the steady walk (`STEADY_WALK`, which a body profile's `steady` selects) bounds
+stance-walk turns to 0.3 rad/s, with 0.2 rad/s for the first two moving seconds. Another body
+takes it as its walk: the stance walk with that turn tuning, carried by a mind link.
+The planner's `routeAround` responds to an unreachable exact attack entry by requesting another point in
 the candidate's range, leaving geometric routing to the navigator. Its regression fixture runs
 the actual navigator from an obstructed point through the feasible replacement and a state fork.
 
@@ -263,8 +265,8 @@ These failed-campaign conditions are development evidence, not fresh qualificati
 The calibrated preset at `9b3fecd0` uses the
 [own-body profiles](../../assets/entrants/vanguard/body-profiles.json). The complete table is an
 editable `bodyProfiles` field carried by a mind link. A matching own model selects conservative
-stance walking and whether to step around repeated blocks; without a matching entry, the
-configured walk and explicit step setting apply. An optional `lead` sets the delay in seconds
+stance walking and whether its planner steps around repeated blocks; without a matching entry, the
+configured walk and the planner's `flank` setting apply. An optional `lead` sets the delay in seconds
 between the trunk and arm drive for standing straight-punch executors. Low-only executors retain
 their configured delay.
 
