@@ -4,8 +4,8 @@ import type { Skills } from "../skills/skills.ts";
 import type { Ended } from "../skills/action.ts";
 import type { Clock } from "../clock.ts";
 import type { BodyHost } from "./host.ts";
-import type { ActionConfig, FighterConfig, SkillKit } from "./config.ts";
-import { actionConfigFaults, armedActions, configuredActionEstimates, configuredExecutors } from "./action-config.ts";
+import type { FighterConfig, SkillKit } from "./config.ts";
+import { actionConfigFaults, actionFaults, armedActions, configuredActionEstimates, configuredAims, configuredExecutors } from "./action-config.ts";
 import type { MindWiring } from "./minds.ts";
 import type { PartLookup } from "./lookup.ts";
 import { navigatorOf } from "./navigator.ts";
@@ -15,31 +15,17 @@ import { driveBy, type Tactics } from "./tactics.ts";
 
 /** Cross-part references are checked before any motion state is constructed: its kit's (`kitFaults`), and the actions its tactics name (`TacticsPart.actionFaults`). */
 export function fighterFaults(config: FighterConfig, parts: PartLookup): readonly string[] {
-  const faults = [...kitFaults(config)];
+  const faults = [...kitFaults(config, parts)];
   if (!Array.isArray(config.actions)) return faults;
   const names = config.actions.map((action) => action?.name);
   return [...faults, ...parts.of("tactics", config.tactics).actionFaults?.(config.tactics, names) ?? []];
 }
 
-/** What is wrong with how a kit's actions name its executors and their own settings, each a sentence. */
-export function kitFaults(config: SkillKit): readonly string[] {
-  const faults: string[] = [];
+/** What is wrong with how a kit's actions name its executors and their own settings, each a sentence (`actionFaults`). */
+export function kitFaults(config: SkillKit, parts: PartLookup): readonly string[] {
   if (!Array.isArray(config.actions)) return ["actions must be a list"];
-  const executors = new Set(config.executors.map(e => e.name)), names = new Set<string>();
-  if (executors.size !== config.executors.length || executors.has("")) faults.push("executors need distinct nonempty names");
-  for (const action of config.actions) {
-    if (!action || typeof action !== "object") { faults.push("action must be an object"); continue; }
-    for (const key of Object.keys(action)) if (!["name", "executor", "effectors", "regions", "aim", "family", "armExtension", "lower"].includes(key)) faults.push(`${action.name}: no action setting ${key}`);
-    if (!Array.isArray(action.effectors) || !action.effectors.length || action.effectors.some((e: unknown) => typeof e !== "string") || new Set(action.effectors).size !== action.effectors.length)
-      faults.push(`${action.name}: distinct effectors required`);
-    if (!Array.isArray(action.regions) || !action.regions.length || action.regions.some((region: ActionConfig["regions"][number]) => !region || (region.kind !== "segment" && region.kind !== "mark")
-      || (region.kind === "segment" ? typeof region.segment !== "string" || !region.segment : !["high", "middle", "legs", "any"].includes(region.mark)))) faults.push(`${action.name}: valid target regions required`);
-    if (!action.aim || !["centre", "surface", "leg-height"].includes(action.aim.kind)) faults.push(`${action.name}: valid aiming rule required`);
-    if (!action.name || names.has(action.name)) faults.push("actions need distinct nonempty names");
-    names.add(action.name);
-    if (!executors.has(action.executor)) faults.push(`${action.name}: missing executor ${action.executor}`);
-  }
-  return faults;
+  const executors = new Set(config.executors.map(e => e.name));
+  return [...executors.size !== config.executors.length || executors.has("") ? ["executors need distinct nonempty names"] : [], ...actionFaults(parts, config.executors, config.actions)];
 }
 
 /** All action instances share the fighter's physical feedback and body-local ledger; its motor and its sub-minds are those `parts` finds, the sub-minds made with its kit (`kitOf`). */
@@ -57,6 +43,7 @@ export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given:
   const faults = actionConfigFaults(parts, body.built.spec, config.executors, config.actions);
   if (faults.length) throw new Error(faults.join("; "));
   const tactics = tacticsOf({ spec: body.built.spec, actions: config.actions, estimates: configuredActionEstimates(parts, body.built.spec, config.executors, config.actions),
+    aims: configuredAims(parts, body.built.spec, config.executors, config.actions),
     orders: sight => wiring.orders(sight.view.senses), ...wiring.script ? { script: wiring.script } : {}, parts }, config.tactics);
   let skills: Skills;
   skills = driveBy(body, around(tactics), (made, driving) => fighterSkills(made, clock, parts, config, driving, () => skills?.report.ledger ?? []));

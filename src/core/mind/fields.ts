@@ -69,3 +69,17 @@ export function text<C, K extends keyof C & string>(key: K, label: string): Part
   return { kind: "text", key, label, read: config => String(config[key]),
     write: (config, value) => value.trim() ? { ...config, [key]: value.trim() } : null };
 }
+
+/** The numeric field `key` of a config, from `least` to `most`, or absent: written empty, the key is left out. */
+export function optionalNumber<C, K extends keyof C & string>(key: K, label: string, least: number, most: number, step: number, unit: string): NumberField<C> {
+  const field = number<C, K>(key, label, least, most, step, unit);
+  return {
+    ...field,
+    read: (config) => config[key] === undefined ? "" : String(config[key]),
+    write: (config, text) => {
+      if (text.trim() !== "") return field.write(config, text);
+      const { [key]: _, ...rest } = config;
+      return rest as C;
+    },
+  };
+}

@@ -1,4 +1,4 @@
-import { actionConfigFaults, armedActions, configuredActionEstimates } from "../../mind/action-config.ts";
+import { actionConfigFaults, armedActions, configuredActionEstimates, configuredAims } from "../../mind/action-config.ts";
 import { FIGHTING, MOVE, STAND_UP, type ExecutorEntry, type FighterConfig } from "../../mind/config.ts";
 import { controller } from "../../mind/controller.ts";
 import { fighterBody, fighterFaults, fighterSkills } from "../../mind/fighter.ts";
@@ -94,6 +94,7 @@ function createVanguard(host: BodyHost, given: VanguardConfig, wiring: MindWirin
     locomotion: (profile?.steady ?? given.steadyWalk) ? { kind: "stance-walk" as const, tuning: STEADY_TURN } : given.locomotion };
   const body = host.command(fighterBody(config, wiring, host.parts));
   const making = (): TacticsMaking => ({ spec: host.spec, actions: config.actions, estimates: configuredActionEstimates(host.parts, host.spec, config.executors, config.actions),
+    aims: configuredAims(host.parts, host.spec, config.executors, config.actions),
     orders: sight => wiring.orders(sight.view.senses), ...wiring.script ? { script: wiring.script } : {}, parts: host.parts });
   const ordinaryTactics = tacticsOf(making(), config.tactics);
   const attacking = given.adaptiveEvade && config.tactics.kind === "behaviours" ? tacticsOf(making(), { ...config.tactics,

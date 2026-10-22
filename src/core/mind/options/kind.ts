@@ -43,7 +43,7 @@ export const OPTIONS_MIND = controller<OptionsConfig>({
     ...config.subs.flatMap((sub, i) => parts.of("sub-mind", sub).down ? [] : [`subs.${i}: ${parts.of("sub-mind", sub).label} cannot be a down option`]),
     ...[undefined, "valued", "ranked"].includes(config.meta) ? [] : ["meta: valued or ranked"],
     ...Object.entries(config.weights ?? {}).flatMap(([term, weight]) => TERMS.includes(term as typeof TERMS[number]) && Number.isFinite(weight) && weight >= 0 ? [] : [`weights.${term}: a term (${TERMS.join(", ")}) of a finite weight, not negative`]),
-    ...kitFaults(config),
+    ...kitFaults(config, parts),
   ],
   presets: deepFreeze({ options: { label: "Options fighter", config: OPTIONS } }),
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),

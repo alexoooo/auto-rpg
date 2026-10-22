@@ -2,6 +2,7 @@ import type { BodyView } from "../body.ts";
 import type { TargetRef } from "../skills/action.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { ActionConfig } from "./config.ts";
+import type { Aim } from "./aim-part.ts";
 import type { PartLookup } from "./lookup.ts";
 import type { Orders } from "./orders.ts";
 import type { KeysOf, Part, PartConfig } from "./parts.ts";
@@ -19,6 +20,8 @@ export interface TacticsMaking {
   readonly spec: BodySpec;
   readonly actions: readonly ActionConfig[];
   readonly estimates: ActionEstimates;
+  /** Each aiming action's aim, by the action's name (`configuredAims`): where its blow would land, as its executor aims it. */
+  readonly aims: ReadonlyMap<string, Aim>;
   readonly orders: (sight: Sight) => Orders | null;
   /** The screen's script (`MindWiring.script`), for tactics that need one (`Part.needs`). */
   readonly script?: Tactics;

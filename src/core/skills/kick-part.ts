@@ -1,6 +1,6 @@
 import { takesCommands } from "../mind/parts.ts";
 import { text } from "../mind/fields.ts";
-import { aimedPoint, noPathSettings, type ExecutorPart } from "../mind/executor-part.ts";
+import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../mind/executor-part.ts";
 import { kickExecutor, KICK_PATH, validKickTuning, type KickTuning } from "./kick.ts";
 
 /** **The front kick** with either foot (`kickExecutor`), its configured swing tuning. */
@@ -15,6 +15,6 @@ export const KICK_PART: ExecutorPart<Config> = {
   role: "executor", label: "Front kick", stage: "experimental", defaults: { kind: "front-kick", name: "kick" }, keys: { kind: true, name: true, tuning: true },
   fields: [text("name", "Name")], slots: [], tuning: Object.keys(KICK_PATH), fits: takesCommands,
   faults: config => validKickTuning({ ...KICK_PATH, ...config.tuning }) ? [] : ["invalid kick settings"],
-  effectors: ["foot.left", "foot.right"], actionFaults: action => [...noPathSettings(action), ...action.aim.kind === "surface" ? ["unsupported surface aim"] : []],
+  effectors: ["foot.left", "foot.right"], ...AIMED_ACTIONS,
   make: ({ body, aim }, config, actions) => kickExecutor(body, actions.map(a => a.name), { ...KICK_PATH, ...config.tuning }, aimedPoint(aim)),
 };

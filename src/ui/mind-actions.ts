@@ -1,6 +1,7 @@
 import type { ActionConfig, BehavioursConfig, ConditionConfig, FighterConfig, FocusRuleConfig, SelectorConfig } from "../core/mind/config.ts";
 import { CONDITIONS } from "../core/mind/conditions.ts";
-import { partLookup } from "../core/mind/catalog.ts";
+import { allParts, isKind, ownerOf, partLookup } from "../core/mind/catalog.ts";
+import type { Region } from "../core/skills/action.ts";
 import type { PartField } from "../core/mind/fields.ts";
 
 /** A named action's editor keeps its executor reference distinct from its own identity. */
@@ -26,27 +27,22 @@ export function actionEditor(config: FighterConfig, write: (config: FighterConfi
       box.addEventListener("change", () => { box.blur(); replace({ ...action, effectors: box.checked ? [...action.effectors, effector] : action.effectors.filter(e => e !== effector) }); });
       block.append(row(effector, box));
     }
-    const regions = document.createElement("div");
-    action.regions.forEach((region, i) => {
-      const replaceRegion = (next: ActionConfig["regions"][number]) => replace({ ...action, regions: action.regions.map((other, j) => j === i ? next : other) });
-      regions.append(select("Region", ["high", "middle", "legs", "any", "segment"], region.kind === "mark" ? region.mark : "segment", value =>
-        replaceRegion(value === "segment" ? { kind: "segment", segment: "head" } : { kind: "mark", mark: value as "high" }), readOnly));
-      if (region.kind === "segment") regions.append(input("Segment", region.segment, segment => replaceRegion({ kind: "segment", segment }), readOnly));
-      regions.append(button("Remove region", () => replace({ ...action, regions: action.regions.filter((_, j) => j !== i) }), readOnly));
-    });
-    regions.append(button("Add region", () => replace({ ...action, regions: [...action.regions, { kind: "mark", mark: "high" }] }), readOnly)); block.append(regions);
-    block.append(select("Aim", ["centre", "surface", "leg-height"], action.aim.kind, kind => replace({ ...action,
-      aim: kind === "centre" ? { kind, lead: 0 } : kind === "surface" ? { kind, tuning: { head: 0, upperTrunk: 0, middleTrunk: 0 } } : { kind: "leg-height", height: .4 } }), readOnly));
-    const aim = action.aim;
-    if (aim.kind === "centre") block.append(input("Prediction, s", String(aim.lead), value => replace({ ...action, aim: { ...aim, lead: Number(value) } }), readOnly, true));
-    if (aim.kind === "leg-height") block.append(input("Height, m", String(aim.height), value => replace({ ...action, aim: { ...aim, height: Number(value) } }), readOnly, true));
-    if (aim.kind === "surface") for (const key of Object.keys(aim.tuning) as (keyof typeof aim.tuning)[]) block.append(input(key, String(aim.tuning[key]), value =>
-      replace({ ...action, aim: { ...aim, tuning: { ...aim.tuning, [key]: Number(value) } } }), readOnly, true));
-    if (part?.paths) {
-      block.append(select("Path", ["straight", "cross", "hook", "downward", "overhand", "uppercut"], action.family ?? "straight", family => replace({ ...action, family: family as ActionConfig["family"] }), readOnly));
-      block.append(input("Arm extension", action.armExtension === undefined ? "" : String(action.armExtension), value => replace({ ...action, armExtension: value === "" ? undefined : Number(value) }), readOnly, true));
-      block.append(input("Lower support, m", action.lower === undefined ? "" : String(action.lower), value => replace({ ...action, lower: value === "" ? undefined : Number(value) }), readOnly, true));
+    if (part?.aims) {
+      const regions = document.createElement("div"), held = action.regions ?? [];
+      held.forEach((region, i) => {
+        const replaceRegion = (next: Region) => replace({ ...action, regions: held.map((other, j) => j === i ? next : other) });
+        regions.append(select("Region", ["high", "middle", "legs", "any", "segment"], region.kind === "mark" ? region.mark : "segment", value =>
+          replaceRegion(value === "segment" ? { kind: "segment", segment: "head" } : { kind: "mark", mark: value as "high" }), readOnly));
+        if (region.kind === "segment") regions.append(input("Segment", region.segment, segment => replaceRegion({ kind: "segment", segment }), readOnly));
+        regions.append(button("Remove region", () => replace({ ...action, regions: held.filter((_, j) => j !== i) }), readOnly));
+      });
+      regions.append(button("Add region", () => replace({ ...action, regions: [...held, { kind: "mark", mark: "high" }] }), readOnly)); block.append(regions);
+      const aims = Object.entries(allParts()).filter(([kind, one]) => one.role === "aim" && (ownerOf(kind) === null || ownerOf(kind) === config.kind));
+      const aim = action.aim ?? null, aimPart = aim && isKind(aim.kind) ? partLookup.of("aim", aim) : null;
+      block.append(select("Aim", aims.map(([kind]) => kind), aim?.kind ?? "", kind => replace({ ...action, aim: partLookup.of("aim", { kind }).defaults }), readOnly));
+      for (const field of aimPart?.fields ?? []) block.append(fieldRow(field, aim!, next => replace({ ...action, aim: next }), readOnly));
     }
+    for (const field of part?.actionFields ?? []) block.append(fieldRow(field, action, replace, readOnly));
     block.append(button("Move action up", () => set(config.actions.map((other, i) => i === index - 1 ? action : i === index ? config.actions[index - 1]! : other)), readOnly || index === 0),
       button("Remove action", () => set(config.actions.filter((_, i) => i !== index)), readOnly)); root.append(block);
   });
@@ -54,7 +50,8 @@ export function actionEditor(config: FighterConfig, write: (config: FighterConfi
     const executor = config.executors[0]; if (!executor) return;
     let name = "action", suffix = 2; while (config.actions.some(a => a.name === name)) name = `action-${suffix++}`;
     const part = partLookup.of("executor", executor);
-    set([...config.actions, { name, executor: executor.name, effectors: [...part.effectors], regions: [{ kind: "mark", mark: "high" }], aim: { kind: "centre", lead: 0 }, ...(part.paths ? { family: "straight" as const } : {}) }]);
+    set([...config.actions, { ...part.actionDefaults, name, executor: executor.name, effectors: [...part.effectors],
+      ...part.aims ? { regions: [{ kind: "mark" as const, mark: "high" as const }], aim: { kind: "centre", lead: 0 } } : {} }]);
   }, readOnly || !config.executors.length));
   return root;
 }
@@ -80,10 +77,7 @@ export function selectionEditor(config: BehavioursConfig, write: (config: Behavi
       const replace = (next: typeof rule) => set({ ...choose, rules: choose.rules.map((other, j) => j === i ? next : other) });
       root.append(select("When", Object.keys(CONDITIONS), rule.when.kind, kind => replace({ ...rule, when: kind === "when-distance" ?
         { kind, of: "foe", than: "under", metres: 1 } : kind === "follow-up" ? { kind, seconds: .5 } : { kind: kind as "always" } }), readOnly));
-      for (const field of CONDITIONS[rule.when.kind].fields as readonly PartField<ConditionConfig>[]) {
-        root.append(field.kind === "choice" ? row(field.label, selectInput(field.options.map(([value]) => value), field.read(rule.when), value => replace({ ...rule, when: field.write(rule.when, value) ?? rule.when }), readOnly)) :
-          input(field.label, field.read(rule.when), value => replace({ ...rule, when: field.write(rule.when, value) ?? rule.when }), readOnly, field.kind === "number"));
-      }
+      for (const field of CONDITIONS[rule.when.kind].fields as readonly PartField<ConditionConfig>[]) root.append(fieldRow(field, rule.when, when => replace({ ...rule, when }), readOnly));
       root.append(input("Actions, in order", rule.actions.join(", "), value => replace({ ...rule, actions: names(value) }), readOnly),
         button("Move rule up", () => set({ ...choose, rules: choose.rules.map((other, j) => j === i - 1 ? rule : j === i ? choose.rules[i - 1]! : other) }), readOnly || i === 0),
         button("Remove rule", () => set({ ...choose, rules: choose.rules.filter((_, j) => j !== i) }), readOnly));
@@ -92,6 +86,12 @@ export function selectionEditor(config: BehavioursConfig, write: (config: Behavi
       input("Otherwise actions", choose.otherwise.join(", "), value => set({ ...choose, otherwise: names(value) }), readOnly));
   }
   return root;
+}
+
+/** `field` of `config`, a choice or a box, writing `config` with the value it takes. */
+function fieldRow<C>(field: PartField<C>, config: C, write: (config: C) => void, readOnly: boolean): HTMLElement {
+  return field.kind === "choice" ? row(field.label, selectInput(field.options.map(([value]) => value), field.read(config), value => write(field.write(config, value) ?? config), readOnly))
+    : input(field.label, field.read(config), value => write(field.write(config, value) ?? config), readOnly, field.kind === "number");
 }
 
 const names = (value: string) => value.split(",").map(v => v.trim()).filter(Boolean);

@@ -340,8 +340,17 @@ module (`skills/<kind>-part.ts`) owns its config's type, keys, defaults, faults,
 it strikes with and its maker, and is a line in `EXECUTORS` (`mind/executors.ts`, a role list), from
 which `ExecutorConfig` follows; `configuredExecutors` (`action-config.ts`) makes a fighter's named
 executors once each, each by the part the host's lookup finds for its kind, a mind's own included,
-handed what it is made with (`ExecutorMaking`: the body, the clock, the guard's posture and the
-aim rules). Action selection belongs to tactics, not to an executor.
+handed what it is made with (`ExecutorMaking`: the body, the clock, the guard's posture and each
+action's aim). Action selection belongs to tactics, not to an executor.
+
+An action (`ActionConfig`) is a name, its executor and the effectors it may strike with; where its
+executor aims (`ExecutorPart.aims`), also the regions it strikes and its aim, and neither where not.
+Any other key is its executor's (`ExecutorPart.actionKeys`, `actionFields`): the path strike's
+path and arm extension (`PathActionConfig`, `skills/path-part.ts`), and `lower`, the support height
+a low blow is thrown from. An aim is a part of role `aim` (`AimPart`, `mind/aim-part.ts`; the
+stock ones in `AIMS`, `mind/aims.ts`) made for the blow its executor names (`ExecutorPart.blow`);
+it is held in an action, not a slot, so its code is keyed with the toolkit's. Every resource an
+action may hold is checked as the skill set is built (`actionInstances`).
 
 ### Minds
 

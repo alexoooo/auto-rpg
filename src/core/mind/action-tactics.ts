@@ -3,7 +3,7 @@ import type { ActionAround, Readiness, Region } from "../skills/action.ts";
 import { landed } from "../skills/action-instances.ts";
 import { STANCE_LOWER } from "../skills/locomotion.ts";
 import { deepFreeze } from "../state.ts";
-import { actionAim, regionSegments } from "./action-aim.ts";
+import { regionSegments } from "./action-aim.ts";
 import { structuredConfig, type Behaviour, type Candidate, type Turn } from "./behaviour-part.ts";
 import { FIGHTING, type BehavioursConfig, type ConditionConfig } from "./config.ts";
 import { conditionMatches } from "./conditions.ts";
@@ -53,10 +53,10 @@ export function actionTactics(making: TacticsMaking, settings: BehavioursConfig)
   if (!Number.isFinite(config.choose.rethink) || config.choose.rethink < 0 || !Number.isFinite(config.choose.patience) || config.choose.patience <= 0)
     throw new Error("action selection needs a finite rethink and positive patience");
   if (config.choose.kind === "estimate") {
-    const units = actions.map(action => estimates[action.name]?.unit ?? (action.aim.kind === "surface" ? "opening" : null));
+    const units = actions.map(action => estimates[action.name]?.unit ?? (action.aim ? making.parts.of("aim", action.aim).unit : null));
     if (units.some(unit => unit === null) || new Set(units).size !== 1) throw new Error("estimate selection needs comparable estimates for every action");
   }
-  const aims = new Map(actions.map(action => [action.name, actionAim(spec, action.aim, action.family)]));
+  const aims = making.aims;
   const made: readonly Behaviour[] = config.list.map(behaviour => making.parts.of("behaviour", behaviour).make({ spec, actions }, behaviour));
   const state = {
     phase: "guard", focus: null as string | null, orderedRegion: null as string | null, lost: false, nextTable: 0,
@@ -92,7 +92,8 @@ export function actionTactics(making: TacticsMaking, settings: BehavioursConfig)
     ? sight.readiness(sight.view, candidate.action, candidate.effector, candidate.target, around(sight)) : candidate.readiness;
   const rebuild = (sight: Sight, focus: BodySense | null, orders: Orders | null) => {
     state.candidates.length = 0;
-    if (focus) for (const action of actions) for (const effector of action.effectors) {
+    // An action that aims at nothing is not one the tactics choose a target for.
+    if (focus) for (const action of actions) if (action.regions) for (const effector of action.effectors) {
       let found = false;
       const regions: readonly Region[] = orders?.region && orders.foe === focus.id ? [{ kind: "segment", segment: orders.region }] : action.regions;
       for (const region of regions) {

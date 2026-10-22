@@ -26,7 +26,7 @@ type Phase = "wait" | "enter" | "burst" | "exit" | "low" | "orders";
 const EXIT_LONGEST = 1.5;
 
 /** How many blows an action of `config` throws (`blowsOf`). */
-const throws = (config: TempoConfig, action: ActionConfig): number => blowsOf(config.executors, action);
+const throws = (parts: PartLookup, config: TempoConfig, action: ActionConfig): number => blowsOf(parts, config.executors, action);
 
 type Asked = Omit<Intent, "guard">;
 
@@ -47,10 +47,10 @@ export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWi
   const walk = walker(spec), reader = situationReader(spec, (sight) => wiring.orders(sight.view.senses));
   const standing = config.actions.filter((action) => action.lower === undefined), lowAction = config.actions.find((action) => action.lower !== undefined);
   const orders = followOrders(walk, standing), low = lowAction ? strikeLow(lowAction, spec, walk) : null;
-  const ready = standing.map((action) => strike(action, walk, false, throws(config, action)));
-  const closing = standing.map((action) => strike(action, walk, true, throws(config, action)));
+  const ready = standing.map((action) => strike(action, walk, false, throws(parts, config, action)));
+  const closing = standing.map((action) => strike(action, walk, true, throws(parts, config, action)));
   const strikes: readonly StandingOption[] = [...ready, ...closing];
-  const counts = standing.map((action) => throws(config, action));
+  const counts = standing.map((action) => throws(parts, config, action));
   const options: readonly StandingOption[] = [orders, ...low ? [low] : [], ...strikes];
   const reflexes = reflexLayer(config.reflexes.map((reflex) => reflexOf(parts, reflex, spec)));
   const state = { phase: "wait" as Phase, since: 0, settled: null as number | null, thrown: 0, running: -1,

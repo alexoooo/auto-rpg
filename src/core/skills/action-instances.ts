@@ -57,9 +57,18 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
     if (!entry.name || registered.has(entry.name)) throw new Error(`duplicate executor ${entry.name}`);
     registered.set(entry.name, i);
   });
+  /** What `action` holds with `effector` (`Executor.needs`): a thrown error where it names a resource the body has not, leaves out its effector, or moves a support effector without the legs. */
+  const needsOf = (executor: Executor, action: string, effector: string): readonly Resource[] => {
+    const needs = executor.needs(action, effector);
+    resources.controls(needs);
+    if (!needs.includes(effector)) throw new Error(`action ${action} does not reserve its effector`);
+    if (resources.controls(["legs"]).includes(`effector:${effector}`) && !needs.includes("legs")) throw new Error(`action ${action} needs legs for its support effector`);
+    return needs;
+  };
   for (const action of actions) {
     if (!action.name || bindings.has(action.name) || !registered.has(action.executor)) throw new Error(`invalid action ${action.name}`);
-    for (const effector of action.effectors) resources.controls([effector]);
+    // Every resource an action may hold is checked as the skill set is built, before any motion.
+    for (const effector of action.effectors) { resources.controls([effector]); needsOf(executors[registered.get(action.executor)!]!.executor, action.name, effector); }
     bindings.set(action.name, deepFreeze({ ...action, effectors: [...action.effectors] }));
   }
   const state = { issued: 0, seen: 0, sequence: 0, observedStep: -1, observedTime: 0, live: [] as Live[], ledger: [] as Ended[],
@@ -82,10 +91,7 @@ export function actionInstances(executors: readonly ExecutorBinding[], actions: 
   const readiness = (view: BodyView, action: string, effector: string, target: TargetRef, around: ActionAround): Readiness => {
     const binding = bindings.get(action);
     if (!binding || !binding.effectors.includes(effector)) return { kind: "blocked", reason: "unknown action or effector" };
-    const executor = executors[registered.get(binding.executor)!]!.executor, needs = executor.needs(action, effector);
-    resources.controls(needs);
-    if (!needs.includes(effector)) throw new Error(`action ${action} does not reserve its effector`);
-    if (resources.controls(["legs"]).includes(`effector:${effector}`) && !needs.includes("legs")) throw new Error(`action ${action} needs legs for its support effector`);
+    const executor = executors[registered.get(binding.executor)!]!.executor, needs = needsOf(executor, action, effector);
     const own = executor.readiness(view, action, effector, target, around);
     if (own.kind === "blocked") return own;
     if (state.live.some(item => resources.overlap(needs, item.holds))) return { kind: "waiting", reason: "resources held" };

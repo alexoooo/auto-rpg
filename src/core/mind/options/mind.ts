@@ -1,3 +1,4 @@
+import type { PartLookup } from "../lookup.ts";
 import type { BodyHost } from "../host.ts";
 import { COUNTER_PUNCHER, type ActionConfig, type OptionsConfig } from "../config.ts";
 import { actionConfigFaults, armedActions, blowsOf } from "../action-config.ts";
@@ -24,7 +25,7 @@ import { CLINCH, WEIGHTS } from "./value.ts";
 import { walker } from "./walk.ts";
 
 /** How many blows an action of `config` throws (`blowsOf`). */
-const throws = (config: OptionsConfig, action: ActionConfig): number => blowsOf(config.executors, action);
+const throws = (parts: PartLookup, config: OptionsConfig, action: ActionConfig): number => blowsOf(parts, config.executors, action);
 
 /** How it holds the edge of its foe's reach: as the Counter-puncher does. */
 const EDGE = (() => {
@@ -80,7 +81,7 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
   }] });
   if (downs.length !== config.subs.length) throw new Error("the options fighter's body made no down half");
   const standing = config.actions.filter((action) => action.lower === undefined), low = config.actions.find((action) => action.lower !== undefined);
-  const strikeNow = standing.map((action) => strike(action, walk, false, throws(config, action)));
+  const strikeNow = standing.map((action) => strike(action, walk, false, throws(host.parts, config, action)));
   const options: readonly Option[] = [
     ...downs,
     followOrders(walk, standing),
@@ -89,7 +90,7 @@ export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wirin
     ...low ? [strikeLow(low, host.spec, walk)] : [],
     evade(walk),
     holdEdge(EDGE, walk, (now) => strikeNow.some((option) => option.available(now))),
-    ...standing.map((action) => strike(action, walk, true, throws(config, action))),
+    ...standing.map((action) => strike(action, walk, true, throws(host.parts, config, action))),
     setDistance({ name: "hold", foe: "any", to: "centre", near: 0, far: Infinity, correcting: false, facing: "foe", slant: 0 }, walk),
   ];
   meta = metaController(options, config.meta === "ranked" ? options.map((_, i) => options.length - i) : valued("hand-built", { ...WEIGHTS, ...config.weights }));

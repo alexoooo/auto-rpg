@@ -13,6 +13,7 @@ import type { GuardPart } from "../skills/guard-part.ts";
 import type { SupportPart } from "../skills/support-part.ts";
 import type { MoveRulePart } from "../skills/move-rule-part.ts";
 import type { ReflexPart } from "./options/reflex.ts";
+import type { AimPart } from "./aim-part.ts";
 
 /** **Each role's kind of part**: what a lookup of the role gives (`PartLookup.of`), its maker included where the role's parts make themselves. */
 export interface RoleParts {
@@ -30,6 +31,7 @@ export interface RoleParts {
   readonly reflex: ReflexPart;
   readonly motor: MotorPart;
   readonly balance: BalancePart;
+  readonly aim: AimPart;
 }
 
 /**

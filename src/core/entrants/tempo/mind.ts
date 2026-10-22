@@ -2,6 +2,7 @@ import { actionConfigFaults, armedActions } from "../../mind/action-config.ts";
 import { OPTIONS, SCRAPPER, STAND_UP, type ActionConfig, type ExecutorEntry, type ReflexConfig, type SkillKit, type SubMindConfig } from "../../mind/config.ts";
 import { controller } from "../../mind/controller.ts";
 import { fighterBody, fighterSkills, kitFaults } from "../../mind/fighter.ts";
+import type { PartLookup } from "../../mind/lookup.ts";
 import { number } from "../../mind/fields.ts";
 import type { BodyHost } from "../../mind/host.ts";
 import type { MindWiring } from "../../mind/minds.ts";
@@ -9,6 +10,7 @@ import { fitsAll, fitsWhen, slotList, slotOne, takesCommands, type Slot } from "
 import { driveBy } from "../../mind/tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
 import { STRAIGHT_PUNCH } from "../../skills/straight-punch.ts";
+import type { PathActionConfig } from "../../skills/path-part.ts";
 import { deepFreeze } from "../../state.ts";
 import { tempoTactics } from "./tactics.ts";
 
@@ -38,7 +40,7 @@ const optionsOwn = <T extends { readonly name: string }>(list: readonly T[], nam
 };
 
 /** A path blow of `family` at the body, aimed as the Scrapper aims its paths. */
-const atBody = (family: "uppercut" | "cross"): ActionConfig => ({ name: family, executor: "paths", family, effectors: ["hand.right", "hand.left"],
+const atBody = (family: "uppercut" | "cross"): PathActionConfig => ({ name: family, executor: "paths", family, effectors: ["hand.right", "hand.left"],
   regions: [{ kind: "mark", mark: "middle" }], aim: SCRAPPER.actions[0]!.aim });
 
 /**
@@ -61,8 +63,8 @@ const TEMPO: TempoConfig = deepFreeze({ kind: "tempo", locomotion: OPTIONS.locom
   actions: ACTIONS, support: OPTIONS.support, reflexes: OPTIONS.reflexes, subs: [STAND_UP], burst: 2, rest: .8, margin: .2, commit: 1.5 });
 
 /** What is wrong with `config`, each a sentence: its kit's faults, a setting out of its bounds, no way up, or no blow standing. */
-function tempoFaults(config: TempoConfig): readonly string[] {
-  const faults = [...kitFaults(config)];
+function tempoFaults(config: TempoConfig, parts: PartLookup): readonly string[] {
+  const faults = [...kitFaults(config, parts)];
   for (const key of ["burst", "rest", "margin", "commit"] as const) {
     const [least, most] = BOUNDS[key], value = config[key];
     if (typeof value !== "number" || !Number.isFinite(value) || value < least || value > most || key === "burst" && !Number.isInteger(value)) faults.push(`${key}: ${least} to ${most}`);

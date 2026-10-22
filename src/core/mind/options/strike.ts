@@ -32,7 +32,7 @@ export function strike(action: ActionConfig, walk: Walker, closes: boolean, thro
   const state = { limb: null as string | null, target: null as TargetRef | null, id: null as number | null, since: 0, over: false };
   const targetOf = (now: Situation): TargetRef | null => {
     const focus = now.focus;
-    if (!focus) return null;
+    if (!focus || !action.regions) return null;
     const ordered = now.orders?.foe === focus.id && now.orders.region !== undefined ? [{ kind: "segment", segment: now.orders.region } as Region] : action.regions;
     const region = ordered.find((r) => regionSegments(focus.spec, r).length > 0);
     return region ? { kind: "body", body: focus.id, region } : null;

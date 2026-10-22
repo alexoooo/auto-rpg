@@ -61,7 +61,7 @@ const withStubs = (kind, base, more) => Object.freeze({ ...STUBS.filter((stub) =
 
 /** The fighter fixture: every stub of its own at once, its one blow the stub executor's, standing up once down. */
 export const SWAP_DEFAULTS = withStubs("swap-stub", RECIPE_FIGHTER, {
-  actions: Object.freeze([{ name: "stub-blow", executor: STUB_BLOW.defaults.name, effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "high" }], aim: { kind: "centre", lead: 0 } }]),
+  actions: Object.freeze([{ name: "stub-blow", executor: STUB_BLOW.defaults.name, effectors: ["hand.right", "hand.left"] }]),
 });
 
 /** The options fixture: the options fighter with its reflex and down stubs. */

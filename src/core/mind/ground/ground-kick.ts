@@ -10,7 +10,7 @@ import { STRIKE_EVENT } from "../../skills/strike-cycle.ts";
 import type { Side } from "../../spec/body.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 import { deepFreeze } from "../../state.ts";
-import { actionAim } from "../action-aim.ts";
+import { CENTRE_AIM } from "../aims.ts";
 import type { OwnBody } from "../mind.ts";
 
 /** Bent knees leave the feet available while the forearms' ordinary guard protects the head. */
@@ -22,7 +22,7 @@ const T = Object.freeze({ ...KICK_PATH, prepareLimit: 2, returnLimit: 2, chamber
 
 /** A supine foot uses the same admission, strike cycle, attribution and verified return as standing actions. */
 export function groundKick(own: OwnBody): Executor {
-  const aim = actionAim(own.spec, { kind: "centre", lead: 0 });
+  const aim = CENTRE_AIM.make(own.spec, CENTRE_AIM.defaults, null);
   const vector = new Vector3(), hip = new Vector3();
   const strikes = Object.fromEntries((["left", "right"] as const).map(side => [side, effectorStrike({ effector: `foot.${side}`, point: "strike",
     limits: { ...T, impact: T }, chamberSeconds: T.chamberSeconds, returnSeconds: T.returnSeconds, response: T.response })])) as Record<Side, ReturnType<typeof effectorStrike>>;

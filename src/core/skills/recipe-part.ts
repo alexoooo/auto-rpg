@@ -1,6 +1,6 @@
 import { takesCommands } from "../mind/parts.ts";
 import { text } from "../mind/fields.ts";
-import { aimedPoint, noPathSettings, type ExecutorPart } from "../mind/executor-part.ts";
+import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../mind/executor-part.ts";
 import { recipeExecutor, type Placed } from "./strike.ts";
 import { REPERTOIRE, recipeAt, recipesFor, strikesWithBlunt, type Repertoire } from "./strikes.ts";
 
@@ -22,13 +22,13 @@ interface Config {
 export const RECIPE_PART: ExecutorPart<Config> = {
   role: "executor", label: "Recipe strike", stage: "game", defaults: { kind: "recipe-strike", name: "recipe" }, keys: { kind: true, name: true, tuning: true },
   fields: [text("name", "Name")], slots: [], tuning: ["repertoire", "placed", "steer"], fits: takesCommands,
-  faults: () => [], effectors: ["hand.left", "hand.right"], actionFaults: noPathSettings,
+  faults: () => [], effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS,
   // A hand strikes with a blunt item by placement, and with anything its repertoire holds a recipe for.
   strikesWith: (spec, config, effector) => strikesWithBlunt(spec, effector)
     || (effector === "hand.left" || effector === "hand.right") && recipesFor(config.tuning?.repertoire ?? REPERTOIRE, spec, effector === "hand.left" ? "left" : "right").length > 0,
   make: ({ body, guard, aim }, config, actions) => recipeExecutor(body.built.spec, actions.map(a => a.name), { ...config.tuning, guard, resolve: aimedPoint(aim) }),
-  estimate(spec, config, action, aim) {
-    if (action.aim.kind === "surface") return null;
+  estimate(spec, config, _action, aim, unit) {
+    if (unit !== null) return null;
     const repertoire = config.tuning?.repertoire ?? REPERTOIRE;
     const known = { left: recipesFor(repertoire, spec, "left"), right: recipesFor(repertoire, spec, "right") };
     return { unit: "net", read(view, target, effector) {

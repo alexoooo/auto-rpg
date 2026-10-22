@@ -16,7 +16,7 @@ import type { MoveConfig } from "../skills/move-part.ts";
 import type { ConfigOf, PartConfig } from "./parts.ts";
 import type { OpeningTuning } from "./openings.ts";
 import { deepFreeze } from "../state.ts";
-import type { AimRule } from "./action-aim.ts";
+import type { AIMS } from "./aims.ts";
 import type { Region } from "../skills/action.ts";
 import type { Weights } from "./options/value.ts";
 
@@ -62,15 +62,22 @@ export type ExecutorConfig = ConfigOf<typeof EXECUTORS>;
 /** **Any executor's config** (`ExecutorPart`): its kind, of any part of the role a mind may hold, and the name its actions call it by. */
 export interface ExecutorEntry extends PartConfig { readonly name: string }
 
-/** A configured attack's identity, anatomical choices and its executor-specific motion settings. */
+/** **A stock aim's config**, by kind (`AIMS`). */
+export type AimConfig = ConfigOf<typeof AIMS>;
+
+/**
+ * **A configured action**: its name, the executor that carries it out and the effectors it may
+ * strike with. Where its executor aims (`ExecutorPart.aims`), the regions it strikes, in order,
+ * and its aim, any part of the role (`AimPart`). Its other settings are its executor's
+ * (`ExecutorPart.actionKeys`): the path strike's path (`PathActionConfig`), and `lower`, the
+ * support height a low blow is thrown from, which planners read to tell a low blow.
+ */
 export interface ActionConfig {
   readonly name: string;
   readonly executor: string;
   readonly effectors: readonly string[];
-  readonly regions: readonly Region[];
-  readonly aim: AimRule;
-  readonly family?: import("./intent.ts").BlowFamily;
-  readonly armExtension?: number;
+  readonly regions?: readonly Region[];
+  readonly aim?: AimConfig | PartConfig;
   readonly lower?: number;
 }
 

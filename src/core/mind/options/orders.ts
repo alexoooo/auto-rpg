@@ -38,6 +38,7 @@ export function followOrders(walk: Pick<Walker, "pace">, actions: readonly Actio
       const { guard: _, ...ordered } = orderedIntent(now.sight, now.orders!, NO_COVER);
       const asks: ActionRequest[] = now.sight.report.actions.map(action => ({ id: action.id, action: action.action, effector: action.effector, target: structuredClone(action.target) }));
       if (now.focus && now.orders?.foe === now.focus.id) outer: for (const action of actions) {
+        if (!action.regions) continue;
         const regions = now.orders.region === undefined ? action.regions : [{ kind: "segment" as const, segment: now.orders.region }];
         const region = regions.find(region => regionSegments(now.focus!.spec, region).length > 0);
         if (!region) continue;

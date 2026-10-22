@@ -28,7 +28,7 @@ export function strikeLow(action: ActionConfig, spec: BodySpec, walk: Walker): S
   const low = (now: Situation): boolean => !now.down && !!now.focus && (lowOpponent(now.sight.view, now.focus) || placing());
   const live = (now: Situation) => state.id === null ? undefined : now.sight.report.actions.find((a) => a.id === state.id);
   const targetOf = (now: Situation): TargetRef | null => {
-    const focus = now.focus!, region = action.regions.find((r: Region) => regionSegments(focus.spec, r).length > 0);
+    const focus = now.focus!, region = action.regions?.find((r: Region) => regionSegments(focus.spec, r).length > 0);
     return region ? { kind: "body", body: focus.id, region } : null;
   };
   return {
