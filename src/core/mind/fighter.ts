@@ -5,6 +5,7 @@ import { holdUp } from "../skills/hold.ts";
 import { locomotion, validTurnLimit, validTurnStartup, type Locomotion } from "../skills/locomotion.ts";
 import type { Skills } from "../skills/skills.ts";
 import type { Ended } from "../skills/action.ts";
+import type { ExecutorBinding } from "../skills/action-instances.ts";
 import { STRIDE, stride, validStride } from "../skills/stride.ts";
 import { RUN, run, validRun } from "../skills/run.ts";
 import { SIMBICON, simbicon, simbiconWays, validSimbicon, validWays, type SimbiconSettings } from "../skills/simbicon.ts";
@@ -221,12 +222,12 @@ export function driveFighter(body: Body, clock: Clock, given: FighterConfig, wir
   return skills;
 }
 
-/** The skills `config` names for `made`, under `driving`: its legs, guard, low support and executors, its actions read through `ledger`. */
-export function fighterSkills(made: Body, clock: Clock, config: SkillKit, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[]): Skills {
+/** The skills `config` names, with entrant-made executors where supplied; action aims read the body's `ledger`. */
+export function fighterSkills(made: Body, clock: Clock, config: SkillKit, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[], suppliedExecutors?: readonly ExecutorBinding[]): Skills {
   return skillSet(made, driving, {
     legs: legsOf(made, config.locomotion), navigation: config.navigation, guard: guardSkill(made.built.spec, config.guard.tuning?.covering, config.guard.kind === "shield-guard"),
     support: config.support ? supportFold(made) : null, hold: config.guard.tuning?.hold === true ? holdUp(made.built) : null,
-    executors: configuredExecutors(made, clock, config.executors, config.actions, ledger),
+    executors: suppliedExecutors ?? configuredExecutors(made, clock, config.executors, config.actions, ledger),
     actions: config.actions,
   });
 }
