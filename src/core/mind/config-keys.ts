@@ -1,12 +1,12 @@
-import type { BehaviourConfig, MotorConfig, ReflexConfig, SkillConfig, TacticsConfig } from "./config.ts";
+import type { BehaviourConfig, ReflexConfig, SkillConfig, TacticsConfig } from "./config.ts";
 import type { MoveRuleConfig } from "../skills/move-part.ts";
 import { deepFreeze } from "../state.ts";
 import type { NavigationConfig } from "./navigation.ts";
 
-type Config = TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ReflexConfig | MotorConfig | NavigationConfig;
+type Config = TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ReflexConfig | NavigationConfig;
 
 /** Every accepted top-level key of a part below a mind, including optional settings; a mind's are
- * its controller's (`Controller.keys`), and a registered implementation's its own (`LocomotionPart.keys`, `SubMindPart.keys`, `ExecutorPart.keys`). The mapped type requires every config property and
+ * its controller's (`Controller.keys`), and a registered implementation's its own (`LocomotionPart.keys`, `SubMindPart.keys`, `ExecutorPart.keys`, `MotorPart.keys`). The mapped type requires every config property and
  * rejects extras; editor fields and default values carry no validation authority. Each part's
  * faults predicate validates values, and its slots validate nested parts. */
 export const CONFIG_KEYS = deepFreeze({
@@ -34,5 +34,4 @@ export const CONFIG_KEYS = deepFreeze({
   "shield-guard": { kind: true, tuning: true },
   "support-fold": { kind: true },
   "cover-reflex": { kind: true },
-  "whole-body": { kind: true },
 } satisfies { readonly [K in Config["kind"]]: { readonly [P in keyof Extract<Config, { kind: K }>]-?: true } });

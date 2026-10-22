@@ -1,6 +1,7 @@
 import type { StandUpConfig } from "./ground/stand-up.ts";
 import type { SubMindConfig } from "./sub-minds.ts";
 import type { ExecutorConfig } from "./executor-parts.ts";
+import type { MotorConfig } from "../control/motors.ts";
 import type { REPTILE_BITE } from "../reptile/tuning.ts";
 import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
 import { STRAIGHT_PUNCH } from "../skills/straight-punch.ts";
@@ -87,12 +88,6 @@ interface CoverReflexConfig { readonly kind: "cover-reflex" }
 
 /** **A reflex's config**, by kind (`reflexOf`). */
 export type ReflexConfig = CoverReflexConfig;
-
-/** **The whole-body solve** (`motorControl`, `solveBody`): the stance's asks, the posture's and the points' as one problem. */
-interface WholeBodyMotorConfig { readonly kind: "whole-body" }
-
-/** **A motor control's config**, by kind (`motorOf`, `src/core/control/motors.ts`). */
-export type MotorConfig = WholeBodyMotorConfig;
 
 /** **A guard's or low support's config**, by kind: the fighter's skill slots but its legs' (`LocomotionConfig`). */
 export type SkillConfig = CoverGuardConfig | ShieldGuardConfig | SupportFoldConfig;

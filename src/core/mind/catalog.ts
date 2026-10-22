@@ -1,7 +1,7 @@
 import type { DataKey } from "../data/store.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { BEHAVIOUR_PARTS } from "./behaviours.ts";
-import type { BehaviourConfig, ExecutorConfig, MotorConfig, ReflexConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
+import type { BehaviourConfig, ExecutorConfig, ReflexConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { CONTROLLERS } from "./controllers.ts";
 import { EXECUTOR_PARTS } from "./executor-parts.ts";
 import { CONFIG_KEYS } from "./config-keys.ts";
@@ -11,7 +11,7 @@ import { MOVE_RULE_PARTS, type MoveRuleConfig } from "../skills/move-part.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Role } from "./parts.ts";
 import { SUB_MIND_PARTS } from "./sub-minds.ts";
 import { REFLEX_PARTS } from "./options/reflex.ts";
-import { MOTOR_PARTS } from "../control/motors.ts";
+import { MOTOR_PARTS, type MotorConfig } from "../control/motors.ts";
 import { TACTICS_PARTS } from "./tactics-of.ts";
 import { NAVIGATION_PARTS, type NavigationConfig } from "./navigation.ts";
 

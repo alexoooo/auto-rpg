@@ -222,7 +222,10 @@ a stance goal) into muscle commands.
   is such a spin.
 - **The motor is a part** of role `motor` (`MOTOR_PARTS`, `motorOf`, `src/core/control/motors.ts`),
   named by `BodyOptions.motor` or a fighter's `motor` slot; the default is the whole-body solve
-  (`motorControl`). Another kind is a maker of the same shape and a line in each list.
+  (`motorControl`, registered as `WHOLE_BODY_MOTOR`, `whole-body-motor.ts`). A kind is a registered
+  implementation (`MotorPart`, `motor-part.ts`): a module of its own and a line in `MOTOR_PARTS`,
+  made as `motorControl` is; one that needs goals a `BodyCommand` does not name brings their
+  vocabulary with it.
 - **The stance** (`stance.ts`; records `stance-state.ts`, steps `gait.ts`, soles `support.ts`,
   constants `stance-tuning.ts`) is the standing plan and the solve's first user
   (`StanceControl.ask`). It keeps the centre of mass inside the support by forces the ground can
