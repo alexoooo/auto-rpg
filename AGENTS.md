@@ -16,6 +16,7 @@ npm run build             # check, then vite build
 npm run match -- <a> <b>  # the standard match of two minds: each on each side, one digest
 npm run evaluate -- <id>  # an evaluation's cases, played where no row has them; --write keeps a record
 npm run evaluate -- tournament --mind new.json --previous <mind> --against default --until settled  # the panel report
+npm run evaluate -- court --previous duellist --ablate 'actions.thrust=null'  # a skill slot's worth at a battery; with --against, in fights
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
 ```
 

@@ -1,10 +1,15 @@
 # Sword and buckler capability readings
 
-What a body with a short sword in its right hand and a buckler in its left does, read by the tasks
-of `research/blade-task.mjs`, `research/buckler-task.mjs`, `research/rising-bed.mjs` and
-`research/court-task.mjs`. Harness: Node, core world, Rapier, 120 Hz, Balance 0 on every side.
-Readings 1, 2 and 4 are at `754999fc`; reading 3 at `69afa0e8`, whose rise no later commit moves
-(the fingerprint moves no pose).
+What a body with a short sword in its right hand and a buckler in its left does. Harness: Node,
+core world, Rapier, 120 Hz, Balance 0 on every side. Readings 1, 2 and 4 are at `754999fc`;
+reading 3 at `69afa0e8`, whose rise no later commit moves (the fingerprint moves no pose).
+
+Readings 1, 2 and 4 are read by the evaluations `blade`, `buckler` and `court`
+(`npm run evaluate -- <id>`, `src/evaluation/<id>/`; `rapier-coordinate`), protocols
+`aa9a2ac918c4dbf1`, `4f665ba847860295` and `6753485a353ab0b1`. Their figures below were read on
+earlier protocols and code: read them again before comparing. The buckler task's defender faces
+off the line between the two spawns (a case's orders are data); the Rogue's head stands 1.1 cm
+off that line as built.
 
 ## 1. A cut that wounds
 
@@ -58,7 +63,7 @@ Whether both items are still held after the rise is not read by the bed.
 
 ## 4. The court
 
-`node research/court-task.mjs`: the Duellist from each spawn of the obstacle court, 4 and 6 m from
+`node research/court-task.mjs@754999fc`: the Duellist from each spawn of the obstacle court, 4 and 6 m from
 a Warrior behind the central column that stands or walks across the line at 0.4 m/s. Bar: it
 reaches its window in every case within 15 s, without a fall.
 

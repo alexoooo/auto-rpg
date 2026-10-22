@@ -2,12 +2,12 @@
  * **The panel report**: a contest subject against its baseline (its previous version, or another),
  * each against the same panel members at the same conditions. The verdict reads the pairs in a
  * fixed order and stops at the first that settles it (`settle`), so rows played past it, or read
- * from a record, give the same answer.
+ * from a record, give the same answer. A battery's comparison is its figures' paired differences.
  */
 import { recordingKey } from "../core/recording.ts";
 import type { Side } from "../core/spec/body.ts";
 import type { BoutReading } from "./contest.ts";
-import type { Figure, Json } from "./evaluation.ts";
+import type { Figure, Json, Table } from "./evaluation.ts";
 import type { Row } from "./play.ts";
 import type { Unit } from "./run.ts";
 import { settle, type SettleRule, type Settled } from "./settle.ts";
@@ -160,5 +160,37 @@ export function panelReport(slots: readonly Slot[], headToHead: readonly Unit[],
     stalemates: { subject: stalemate(bouts("mine")), baseline: stalemate(bouts("theirs")) },
     headToHead: figures.map((figure) => ({ figure: figure.name, pairs: whole.length,
       value: pairBootstrap(whole.map((unit) => pairValue(unit, seatsOf(unit)[0], figure, rows)!), mean) })),
+  };
+}
+
+/** A battery's change: each figure's mean paired difference, a subject less its baseline, over the conditions both played. */
+export interface BatteryComparison {
+  readonly conditions: number;
+  /** The conditions only one of the two played. */
+  readonly only: { readonly subject: number; readonly baseline: number };
+  readonly figures: readonly { readonly figure: string; readonly unit: string; readonly better: "higher" | "lower"; readonly pairs: number; readonly difference: Estimate | null }[];
+}
+
+/**
+ * **A battery's comparison** of `subject` with `baseline` in `table`: for each figure, the mean of
+ * its paired differences over the conditions both played where both read it, with its 95 % interval
+ * by resampling the conditions; and the conditions one alone played.
+ */
+export function batteryComparison(table: Table, subject: string, baseline: string, figures: readonly Figure[]): BatteryComparison {
+  const readings = (id: string) => new Map(table.cases.filter((one) => one.subjects[0] === id).map((one) => [recordingKey(one.condition), one.reading]));
+  const mine = readings(subject), theirs = readings(baseline), shared = [...mine.keys()].filter((key) => theirs.has(key));
+  return {
+    conditions: shared.length, only: { subject: mine.size - shared.length, baseline: theirs.size - shared.length },
+    figures: figures.map((figure) => {
+      const value = (reading: Json): number | null => {
+        const one = figure.of(reading, "left");
+        return one === null ? null : typeof one === "boolean" ? (one ? 1 : 0) : one;
+      };
+      const differences = shared.flatMap((key) => {
+        const a = value(mine.get(key)!), b = value(theirs.get(key)!);
+        return a === null || b === null ? [] : [a - b];
+      });
+      return { figure: figure.name, unit: figure.unit, better: figure.better, pairs: differences.length, difference: pairBootstrap(differences, mean) };
+    }),
   };
 }

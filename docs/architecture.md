@@ -655,7 +655,7 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 - **The runner** (`run.ts`): units of evidence (a contest's one condition with each side on the
   left), run in the order of their keys on lanes (`lanes.ts`: a worker each, behind `spawn`, a
   lost worker or one past its minutes replaced and its case left without a row), until the budget
-  (`--budget`, 10 min unless told) is spent; a table reads the complete units. Figures are a rate (Wilson) or a mean or median over units, a
+  (`--budget`, 10 min unless told) is spent; a table reads the complete units in their definition's order. Figures are a rate (Wilson) or a mean or median over units, a
   pair resampled whole (`stats.ts`).
 - **Records** (`record.ts`): `npm run evaluate -- <id> --write` writes
   `assets/evaluations/<id>/<date>-<commit8>-<keys8>.jsonl`, a header (build, harness, engine,
@@ -672,6 +672,16 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   `delta`, or within it; `--until settled` stops giving out cases once it is reached, or every slot is read. Beside it,
   every figure's difference, by member and condition, the worst pairs, stalemates (at the cap,
   both bars full) and the head-to-head. The tournament's panel and rule are its `analysis`.
+- **Batteries** (arity 1): a skill's task, one subject at a time over its conditions. `blade` (the
+  striker's executor tuning: a sword's cuts and thrusts at a standing body), `buckler` (the
+  defender's cover: whether the buckler meets a sword first) and `court` (the approaching mind:
+  round the obstacle court's column into its window). `--previous` reads a battery's subject
+  against another, each figure's paired difference over the conditions both played
+  (`batteryComparison`, `compare.ts`).
+- **Ablations**: `--previous <mind> --ablate <slot>=<JSON>` makes the subject that mind with one slot
+  of its skills (`SkillKit`: locomotion, navigation, guard, support, motor, the executors and
+  actions, or one of these by name, `actions.<name>=null` removing it) replaced, read against the
+  mind as it is: by the panel report in fights, by a battery's comparison at its task.
 - **Ratings** (`rating.ts`): Bradley-Terry strengths on the Elo scale over a pool's distinct keys,
   computed with the core's `exp` and `log`, a draw half a win, each entrant given half a game drawn
   against the field; intervals from refits to the pairs resampled whole. No strength is carried

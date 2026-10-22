@@ -1,3 +1,6 @@
+import { BLADE } from "./blade/index.ts";
+import { BUCKLER } from "./buckler/index.ts";
+import { COURT } from "./court/index.ts";
 import type { Evaluation } from "./evaluation.ts";
 import { EQUIPPED_RISE } from "./equipped-rise/index.ts";
 import { MATCH } from "./match/index.ts";
@@ -12,4 +15,7 @@ export const EVALUATIONS: Readonly<Record<string, Evaluation>> = Object.freeze({
   unseen: UNSEEN as unknown as Evaluation,
   "rising-target": RISING_TARGET as unknown as Evaluation,
   "equipped-rise": EQUIPPED_RISE as unknown as Evaluation,
+  blade: BLADE as unknown as Evaluation,
+  buckler: BUCKLER as unknown as Evaluation,
+  court: COURT as unknown as Evaluation,
 });

@@ -52,7 +52,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
    - Movement B3 (crowd motion) and B4 (AI Commanders), once B1 has landed;
-   - Ratings step 10 (skills' batteries) as ordinary work; step 9 when a question
+   - Ratings step 10's other research batteries when next worked on; step 9 when a question
      about an item, a character or an attribute is asked; step 12 (case identity by code) when
      the first built-in mind or skill has a folder of its own, or entrants are most of the field;
      step 11 (the sparse league) only when the owner asks, after step 12; step 14 (run live) once
