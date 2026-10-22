@@ -698,11 +698,14 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
 - **The file table** (`fileTable`, `scripts/build-identity.mjs`): each build input's hash, and each
   module's imports read with TypeScript's parser (`importsOf`). **A case's code** (`caseCoder`) is
   drawn from it: the environment, the static import closure (`closureOf`) of `src/evaluation/play.ts` and
-  the case module with the lockfile and the solvers, cut at the kinds list, the build's identity and
-  the mind data store (`CUTS`); then each kind of mind the case plays adds its own code (its
-  module's closure beyond the environment, and `assets/entrants/<kind>/`), and each mind data key
-  its minds read (`treeData`) its module's. A kinds list of more than its imports and its array,
-  and a module in a closure that imports by no literal, are refused. A research run's
+  the case module with the lockfile and the solvers, cut at the kinds list, the world kinds list
+  (`WORLD_BUILDERS`, `src/evaluation/worlds.ts`), the build's identity and the mind data store
+  (`CUTS`); then the kind of world the case plays adds its builder's own code (its module's closure
+  beyond the environment), each kind of mind it plays its own (likewise, and
+  `assets/entrants/<kind>/`), and each mind data key its minds read (`treeData`) its module's. So
+  a Crypt edit keys no bout case anew, nor a bout builder's edit a Crypt run. A kinds list or world
+  kinds list of more than its imports and its list, and a module in a closure that imports by no
+  literal, are refused. A research run's
   implementation (`implementationOf`, `research/rising-provenance.mjs`) is the uncut closure.
 - **Evaluation records** (`assets/evaluations/<id>/`): kept results ([Evaluations](#evaluations)).
   `imports/tournament-1bacac44.jsonl`
@@ -725,7 +728,7 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   gives the question, subjects, figures and summary; nothing a case plays imports it.
 - **A case's key** is the digest of everything it plays: evaluation, protocol, engine, world (every
   subject's value whole), seconds and code (`caseCoder`: the environment with the own code of the
-  kinds of mind it plays, `caseNames`, `code.ts`). A row (`Row`, `play.ts`) is found again by its
+  kind of world and the kinds of mind it plays, `caseNames`, `code.ts`). A row (`Row`, `play.ts`) is found again by its
   key, so a description, script, screen or document edit replays nothing, and an entrant's edit
   replays only its own cases; a case's error or non-finite reading is a fault row, kept like any
   other.

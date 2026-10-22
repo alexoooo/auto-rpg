@@ -26,7 +26,7 @@ export interface Subject {
 }
 
 /**
- * What a case plays, as plain data: one builder each in `playCase`. A bout is bit-equal between
+ * What a case plays, as plain data: one builder each (`WORLD_BUILDERS`, `worlds.ts`). A bout is bit-equal between
  * JavaScript engines; a fall and a Crypt run are not (`fall.ts`, `crypt.ts`).
  */
 export type CaseWorld = { readonly kind: "bout"; readonly engine: EngineName; readonly recipe: DuelRecipe; readonly tape: readonly OrdersEntry[] }

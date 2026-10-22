@@ -1,7 +1,7 @@
 /**
- * **What a case's code names**: the kinds of mind it plays and the mind data they read, each of
- * which adds its own code to the environment in the case's `code` (`caseCoder`,
- * `scripts/build-identity.mjs`).
+ * **What a case's code names**: the kind of world it plays, the kinds of mind it plays and the mind
+ * data they read, each of which adds its own code to the environment in the case's `code`
+ * (`caseCoder`, `scripts/build-identity.mjs`).
  */
 import { SIDES } from "../arena/duel.ts";
 import { treeData } from "../core/mind/catalog.ts";
@@ -11,8 +11,9 @@ import { runParticipants } from "../dungeon/run.ts";
 import { cryptMap } from "./crypt.ts";
 import type { CaseWorld, Subject } from "./evaluation.ts";
 
-/** The kinds of mind and the mind data keys a case or a subject names. */
+/** The kind of world (a case's, none for a subject), the kinds of mind and the mind data keys a case or a subject names. */
 export interface CodeNames {
+  readonly world?: CaseWorld["kind"];
   readonly kinds: readonly string[];
   readonly data: readonly string[];
 }
@@ -37,8 +38,8 @@ function mindsOf(world: CaseWorld): MindConfig[] {
   }
 }
 
-/** What `world` names: the kinds of its minds and the data they read. */
-export const caseNames = (world: CaseWorld): CodeNames => namesOf(mindsOf(world));
+/** What `world` names: its kind, the kinds of its minds and the data they read. */
+export const caseNames = (world: CaseWorld): CodeNames => ({ world: world.kind, ...namesOf(mindsOf(world)) });
 
 /** What `parts` name: the kinds and data of the minds among them (`mind:` parts). */
 export const partNames = (parts: Subject["parts"]): CodeNames =>
