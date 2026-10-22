@@ -121,20 +121,22 @@ beside 1.4 ms for a step of that bout.
 
 ## Watching one
 
-`--out` writes each oracle bout's recipe and tape as JSON.
+`--out` writes each oracle bout's recipe and tape, and prints the link that plays it: the matchup,
+gap, cap and any balance in the query, the tape in the fragment (`#tape=`,
+`src/arena/matchup.ts`). The arena plays a link with a tape by itself, with " · replay" at its
+clock. All 54 links of the three tables, read as the page reads them (`readMatchup`, `readGap`,
+`readCap`, `readBalance`, `readTape`) and played in Node, end as the oracle's rows say.
 
 The clairvoyant bout that turns on one decision: the Rogue against the skeleton, from the right,
 holds still for half a second at 11.5 s and wins a bout it lost
-(`?play=arena&matchup=crypt-skeleton,workshop-rogue&gap=4&cap=120` for the tactics alone). Its tape:
+(`?play=arena&matchup=crypt-skeleton,workshop-rogue` for the tactics alone):
 
-```json
-[{"step":1380,"side":"right","orders":{"move":null,"face":{"x":-0.9642353269925225,"z":-0.26504760738332134},"attack":null}},
- {"step":1440,"side":"right","orders":null}]
+```
+?play=arena&matchup=crypt-skeleton,workshop-rogue&gap=4&cap=120#tape=%5B%7B%22step%22%3A1380%2C%22side%22%3A%22right%22%2C%22orders%22%3A%7B%22move%22%3Anull%2C%22face%22%3A%7B%22x%22%3A-0.9642353269925225%2C%22z%22%3A-0.26504760738332134%7D%2C%22attack%22%3Anull%7D%7D%2C%7B%22step%22%3A1440%2C%22side%22%3A%22right%22%2C%22orders%22%3Anull%7D%5D
 ```
 
-**In a browser the bout with its tape is Node's.** Played through the Arena's tape link
-(`src/arena/matchup.ts@1a03bfd6`, `readTape`) on the built page (Chrome 154, a hidden tab stepped by
-hand) with `&cap=30`, it was Node's bout at every step: 1494 steps to the skeleton fallen at
-12.45 s, both bodies' poses the same to the bit ([real-functions.md](real-functions.md), In Chrome).
-On the engine's own `Math.sin` and its kin it was Node's bout through step
+**In a browser the link plays the oracle's bout.** On the built page (Chrome 154, a hidden tab
+stepped by hand) this link with `&cap=30` was Node's bout at every step: 1494 steps to the skeleton
+fallen at 12.45 s, both bodies' poses the same to the bit ([real-functions.md](real-functions.md),
+In Chrome). On the engine's own `Math.sin` and its kin the same link was Node's bout through step
 240 and another by step 480, ending at 11.75 s.

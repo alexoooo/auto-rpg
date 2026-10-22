@@ -638,14 +638,15 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
   on one step is a draw; at the cap the fuller bar wins. The page plays three seconds of aftermath
   (`arenaPlayback`, `src/arena/playback.ts`).
 - **Tape** (`Duel.tape`): every order with the step it was given before. Recipe and tape are the
-  whole of a bout on one build; `Duel.play` feeds the tape in the sensing phase. A case's world
-  carries it (`#case=`, `src/arena/case-link.ts`).
+  whole of a bout on one build; `Duel.play` feeds the tape in the sensing phase. A link carries it
+  in its fragment (`#tape=`, `readTape`, `tapeHash`, `src/arena/matchup.ts`); changing the recipe
+  drops a linked tape.
 - **Order sheets** (`DuelHooks.record`; `Sheet`, `SheetLog`, `src/core/mind/sheets.ts`): each
   side's muscle commands, assist asks and hand poses at the mind's seam. A bout given them
   (`DuelHooks.replay`) makes no mind (`replayedBody`) and plays the same. Each log names its build,
   protocol, recipe, body, placement, grants, engine, rate, gravity and actuation, and another
   identity is refused.
-- **Recordings** (`Duel.recording`, `src/core/recording.ts`) are versioned
+- **Recordings** (`Duel.recording`, `Duel.playRecording`, `src/core/recording.ts`) are versioned
   envelopes checked for exact identity.
 - **Build fingerprint** (`scripts/build-identity.mjs`): a content SHA-256 of sources, templates,
   assets, lockfile, build config and installed Rapier, LF-normalised; Node and Vite share it.
@@ -778,7 +779,9 @@ arena, crypt, lab and ratings at `?play=arena`, `?play=dungeon`, `?play=lab` and
 | Physics bench | `/physics-bench.html`, `src/physics-bench/` | the bake-off's cases on MuJoCo and Rapier |
 | Control tasks | `/control-foundation.html`, `/control-tasks.html` | research tasks with replay ([equipment](#experimental-separate-equipment)) |
 
-**The Arena.** Each side is fought by its mind; a person watches. The room's solids (`arenaSolids(level)`)
+**The Arena.** A person may take a side (`&you=left`): keys become a walking direction as the
+camera sees the ground, and the pointer a facing and a sensed foe and segment
+(`src/arena/orders-input.ts`), all sent as `Duel.order`. The room's solids (`arenaSolids(level)`)
 are what bodies meet; `LEVELS` (`src/arena/levels.ts`) selects the open stage or obstacle court,
 whose furniture comes from `src/environment/furniture.ts`. Every Mind gets the stage's fixed
 geometry. The visible room is dressed from the forge kit (`forge-style.ts`, `forge-room.ts`), and

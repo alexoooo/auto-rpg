@@ -32,8 +32,8 @@ The [asset pipeline](docs/art/assets.md) owns sources, compression, caching and 
 
 ## The Arena
 
-Pick a character for each side (Warrior, Rogue, Skeleton or Reptile) and press **Fight**, then
-watch: each side is fought by its mind.
+Pick a character for each side (Warrior, Rogue, Skeleton or Reptile) and press **Fight**. You
+watch, or take a side under **Play as**: your side then does what you order and nothing else.
 A side is out when its wounds end it, or when it stays down past the chosen recovery window. At the
 two-minute bell the fuller health bar wins.
 
@@ -53,6 +53,9 @@ fighter is doing and whether it connected. The bout is heard: footfalls, swings,
 
 | Input | Does |
 | --- | --- |
+| W A S D or arrows | go, relative to the camera, as fast as the legs hold; Shift walks |
+| Pointer | where your fighter faces while it walks |
+| Left button | attack the body part under the pointer; hold to keep attacking |
 | Middle or right drag, wheel | orbit and zoom the Free camera |
 | Space or Esc | pause and resume |
 | R | the same bout again |
@@ -65,9 +68,11 @@ Every setting travels in the link, so a bout can be shared or opened directly:
 | `matchup` | `?play=arena&matchup=workshop-fighter,crypt-skeleton` (`workshop-fighter`, `workshop-rogue`, `crypt-skeleton`, `reptile`) |
 | `control` | `&control=scrapper,classic` |
 | `left.loadout`, `right.loadout` | `&left.loadout=buckler,sword` (left hand, right hand) |
+| `you` | `&you=left` |
 | `level`, `gap`, `cap`, `recovery` | `&level=obstacle-court&gap=3&cap=30&recovery=60` |
 | `<side>.<attribute>` | `&left.strength=1.5&right.balance=10` |
 | `appearance`, `view`, `camera`, `projection`, `focus` | `&appearance=industrial,relic` |
+| `#tape=` | a bout's orders, played again |
 | `#case=` | a recorded case from the Ratings: its recipe and orders, with its choices in the pickers |
 
 ## The Crypt

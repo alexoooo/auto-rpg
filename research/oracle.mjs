@@ -27,11 +27,12 @@
  * the share that left the side's own tactics, each response's count, the mean over decisions of
  * the best value less `own`'s (what the search believed it gained), and the rollouts run with the
  * steps they took and the wall time. `--all` runs every matchup; with `--out` each oracle bout's recipe and
- * tape are written there.
+ * tape are written there, and the link that plays it is printed.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { CAP_SECONDS, SIDES } from "../src/arena/duel.ts";
+import { tapeHash } from "../src/arena/matchup.ts";
 import { HUMANOID_MODELS } from "../src/core/models.ts";
 import { buildBout } from "../src/evaluation/bout.ts";
 import { BOUT_ENGINE, BOUT_HARNESS } from "./bout.mjs";
@@ -128,6 +129,6 @@ if (values.out) {
   for (const { recipe, side, oracle } of results) {
     const file = `${values.out}/${recipe.left}-${recipe.right}-${side}.json`;
     writeFileSync(file, JSON.stringify({ recipe, recording: oracle.recording }));
-    console.log(file);
+    console.log(`${file}: ?play=arena&matchup=${recipe.left},${recipe.right}&gap=${recipe.gap}&cap=${recipe.capSeconds}&recovery=0${recipe.balance ? `&balance=${recipe.balance.left},${recipe.balance.right}` : ""}${tapeHash(oracle.recording)}`);
   }
 }

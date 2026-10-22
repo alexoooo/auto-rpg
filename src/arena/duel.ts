@@ -367,6 +367,13 @@ export class Duel {
     queued.splice(0, queued.length, ...tape.map(({ step, side, orders }) => ({ step, side, orders: JSON.parse(JSON.stringify(orders)) as Orders | null })));
   }
 
+  /** Persisted orders are refused before any input is queued when their build or conditions differ. */
+  playRecording(recording: OrdersRecording): void {
+    requireRecordingIdentity(recording.identity, this.identity);
+    if (!Array.isArray(recording.tape) || !recording.tape.every((entry, index, tape) => isOrdersEntry(entry) && (index === 0 || entry.step >= tape[index - 1]!.step))) throw new Error("the tape recording has invalid or unordered orders");
+    this.play(recording.tape);
+  }
+
   /** The bout as the last step left it: what `load` puts back, here or in any bout of this recipe. */
   save(): DuelSave { return { identity: { ...this.identity, protocol: "arena-save/1" }, recipe: this.recipe, physics: this.world.physics.save(), state: saveState(this.state) }; }
 

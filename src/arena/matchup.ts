@@ -3,7 +3,9 @@ import { hasteFrom } from "../core/human/attributes.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
-import { SIDES, type DuelRecipe } from "./duel.ts";
+import { isOrdersEntry, ORDERS_PROTOCOL, SIDES, type DuelRecipe, type OrdersRecording } from "./duel.ts";
+import { BUILD_IDENTITY } from "../build-identity.ts";
+import { requireRecordingIdentity } from "../core/recording.ts";
 import { EMPTY_LOADOUT, HELD, type Loadout } from "../core/items/held.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
 import type { Side } from "../core/spec/body.ts";
@@ -60,6 +62,22 @@ export function appearanceSearch(search: string, matchup: Matchup, appearances: 
   const query = new URLSearchParams(search), left = appearanceFor(matchup.left, appearances.left), right = appearanceFor(matchup.right, appearances.right);
   if (left === "default" && right === "default") query.delete("appearance");
   else query.set("appearance", `${left},${right}`);
+  return `?${query.toString().replace(/%2C/g, ",")}`;
+}
+
+/** The arena link's parameter for the side a person fights: `&you=left` or `&you=right`. */
+const YOU_PARAM = "you";
+
+/** The side an address says the person fights; null, nobody, for anything else. */
+export function readYou(search: string): Side | null {
+  const you = new URLSearchParams(search).get(YOU_PARAM);
+  return you === "left" || you === "right" ? you : null;
+}
+
+/** `search` with the side the person fights set to `you`, or with none. */
+export function youSearch(search: string, you: Side | null): string {
+  const query = new URLSearchParams(search);
+  if (you) query.set(YOU_PARAM, you); else query.delete(YOU_PARAM);
   return `?${query.toString().replace(/%2C/g, ",")}`;
 }
 
@@ -129,6 +147,29 @@ export const readGap = (search: string): number | undefined => readWithin(search
 
 /** How long an address lets the bout run, s: `&cap=`; undefined, and the bout's own, for anything else. */
 export const readCap = (search: string): number | undefined => readWithin(search, "cap", LINK_RANGE.cap);
+
+/** A bout's tape in a link's fragment, which no server is sent: `#tape=<the tape's JSON, URI-encoded>`. */
+const TAPE_KEY = "tape";
+
+/**
+ * A persisted tape belongs to one build and physical recipe. Absence is an ordinary recipe link;
+ * a malformed or incompatible recording is an error, never permission to play a different bout.
+ */
+export function readTape(hash: string): OrdersRecording | null {
+  const text = new URLSearchParams(hash.replace(/^#/, "")).get(TAPE_KEY);
+  if (text === null) return null;
+  let recording: Partial<OrdersRecording>;
+  try { recording = JSON.parse(text) as Partial<OrdersRecording>; }
+  catch { throw new Error("the tape recording is not valid JSON"); }
+  if (!recording || typeof recording !== "object" || Array.isArray(recording)) throw new Error("the tape has no build and protocol identity; make a new recording");
+  if (typeof recording.identity?.configuration !== "string") throw new Error("the tape has no physical recipe identity");
+  requireRecordingIdentity(recording.identity, { build: BUILD_IDENTITY, protocol: ORDERS_PROTOCOL, configuration: recording.identity.configuration });
+  if (!Array.isArray(recording.tape) || !recording.tape.every(isOrdersEntry)) throw new Error("the tape recording has invalid orders");
+  return recording as OrdersRecording;
+}
+
+/** The fragment that carries `tape` (`readTape`). */
+export const tapeHash = (recording: OrdersRecording): string => `#${TAPE_KEY}=${encodeURIComponent(JSON.stringify(recording))}`;
 
 /** A side's choice of mind (`MINDS`), separate from anatomy, equipment and appearance. */
 type Control = string;

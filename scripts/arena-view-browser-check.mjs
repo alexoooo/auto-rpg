@@ -21,7 +21,7 @@ try {
   await page.route("**/favicon.ico", route => route.fulfill({ status: 204 }));
   page.on("pageerror", error => errors.push(error.message));
   page.on("console", message => { if (message.type() === "error") errors.push(`${message.text()} (${message.location().url})`); });
-  const url = `${base}/?play=arena&matchup=workshop-fighter,workshop-fighter&appearance=relic,duelist&gap=4&control=scrapper,classic&recovery=15`;
+  const url = `${base}/?play=arena&matchup=workshop-fighter,workshop-fighter&appearance=relic,duelist&you=right&gap=4&control=scrapper,classic&recovery=15`;
   await page.goto(url);
   await page.waitForFunction(() => window.__arena?.duel);
   await page.keyboard.press("Space");
@@ -90,6 +90,25 @@ try {
   await page.keyboard.press("Space");
   assert.equal(new URL(page.url()).search, selected);
   checks.push("Replay and setup preserve view settings and appearance URLs");
+  await pick("Camera", "Isometric");
+  await page.waitForTimeout(1200);
+  await page.keyboard.press("Space");
+  await page.keyboard.down("w");
+  await page.waitForTimeout(60);
+  const movement = await page.evaluate(() => {
+    const move = __arena.duel.tape.filter(entry => entry.side === "right" && entry.orders.move).at(-1)?.orders.move;
+    const c = __arena.scene.activeCamera, target = c.getTarget(), x = target.x - c.position.x, z = target.z - c.position.z;
+    const size = Math.hypot(x, z); return { move, x: x / size, z: z / size };
+  });
+  await page.keyboard.up("w");
+  assert.ok(movement.move && Math.abs(movement.move.x - movement.x) < .02 && Math.abs(movement.move.z - movement.z) < .02);
+  const bounds = await panel.getByRole("button", { name: "World", exact: true }).boundingBox();
+  await page.mouse.click(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  assert.ok(await page.evaluate(() => {
+    const orders = __arena.duel.tape.filter(entry => entry.side === "right").at(-1)?.orders;
+    return orders !== undefined && orders.foe === undefined;
+  }));
+  checks.push("Camera-relative walking follows Isometric; panel clicks do not attack");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(url.replace("gap=4", "gap=4&cap=1"));
   await page.waitForFunction(() => window.__arena?.duel?.verdict);

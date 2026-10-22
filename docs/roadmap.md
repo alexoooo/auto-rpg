@@ -29,7 +29,7 @@ as it needs ([architecture](architecture.md#the-layers)).
 - **Later**, other ideas on the same bodies, such as an end-to-end learned controller on the
   muscles, with the hand-built skills as its baseline
   ([control foundation](reference/control-foundation.md)).
-- **The game**: the Arena, a bout of two minds to a verdict that a person watches; a Ladder
+- **The game**: the Arena, a bout to a verdict that a person watches or takes a side in; a Ladder
   of bouts, to be designed; the Crypt, a party commanded by a person or an AI against AI enemies.
   A web app: any browser, with mouse and keyboard or by touch.
 - **Bodies**: many morphologies, each a sourced spec. The human is the reference; the skeleton and
@@ -87,7 +87,8 @@ The plans in flight, and what comes next across them. Each plan names its own de
 
 - The Duellist on both levels; accepted, it becomes the reference
   ([sword-and-buckler](reference/sword-and-buckler.md)).
-- Bouts with balance against none (`&balance=25`, `&balance=100`, `&balance=25,0`); an oracle's
+- A bout fought with orders (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`);
+  bouts with balance against none (`&balance=25`, `&balance=100`, `&balance=25,0`); an oracle's
   bout ([oracle](reference/oracle.md)).
 - The five Locomotion courses at Max (`?play=lab`), Back and forth at a long distance for the run,
   the Crypt's long walks, the Warrior's run, and Move's rules and gaits in the mind editor.

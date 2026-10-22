@@ -13,20 +13,20 @@ export function cameraFocuses(camera: CameraMode): readonly ArenaFocus[] {
   }
 }
 
-/** Entering Chase from a shared view follows the left fighter. */
-export function normalizeArenaView(view: ArenaView): ArenaView {
-  return cameraFocuses(view.camera).includes(view.focus) ? view : { ...view, focus: "left" };
+/** Entering Chase from a shared view follows the player, or the left fighter for a spectator. */
+export function normalizeArenaView(view: ArenaView, you: Side | null): ArenaView {
+  return cameraFocuses(view.camera).includes(view.focus) ? view : { ...view, focus: you ?? "left" };
 }
 
 /** Presentation settings are separate from the duel's physical recipe and tape. */
-export function readArenaView(search: string): ArenaView {
+export function readArenaView(search: string, you: Side | null): ArenaView {
   const query = new URLSearchParams(search);
   return normalizeArenaView({
     view: VIEW_MODES.find(value => value === query.get("view")) ?? "world",
     camera: CAMERA_MODES.find(value => value === query.get("camera")) ?? "free",
     projection: PROJECTIONS.find(value => value === query.get("projection")) ?? "orthographic",
     focus: cameraFocuses("free").find(value => value === query.get("focus")) ?? "both",
-  });
+  }, you);
 }
 
 export function arenaViewSearch(search: string, view: ArenaView): string {
