@@ -6,9 +6,10 @@
  * change and compare after, on the same machine. It is not a test: a change that means to change
  * how a fight plays changes its lines, and says so.
  *
- *   node scripts/fingerprint.mjs [--workers 12] [--character] [--only <regex>] [--json <file>] [--compare <file>]
+ *   node scripts/fingerprint.mjs [--workers 12] [--character] [--experimental] [--only <regex>] [--json <file>] [--compare <file>]
  *
- * `--only` runs the cases whose names match. `--json` writes each case's record as well, and
+ * The minds it plays are the game's (`Part.stage`); `--experimental` plays every mind a person may
+ * pick, research ones too. `--only` runs the cases whose names match. `--json` writes each case's record as well, and
  * `--compare` reads such a file and names every case whose record differs: it fails on a pose,
  * and names a state or physics difference without failing, since a change may reshape what a
  * bout keeps and still play it to the bit. The engine is `CORE_ENGINE`'s (`tests/harness/core-stand.mjs`).
@@ -43,6 +44,7 @@ import { loadoutKey } from "../src/core/items/held.ts";
 import { standIntent } from "../src/core/mind/intent.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { MINDS } from "../src/core/mind/controllers.ts";
+import { partOf } from "../src/core/mind/catalog.ts";
 import { CLASSIC, QUADRUPED, STAND_UP } from "../src/core/mind/config.ts";
 import { LOCOMOTIONS } from "../src/core/mind/locomotions.ts";
 import { LAB_PRESETS } from "../src/lab/scenarios.ts";
@@ -399,21 +401,23 @@ const controlled = (left, right, controls, loadouts) => ({
 });
 const rightHand = (right) => ({ left: "empty", right });
 const both = (held) => ({ left: rightHand(held), right: rightHand(held) });
-/** The minds the Warrior is offered (`controlsFor`), with each loadout it is offered with: each a case below. */
-const warriorMinds = () => [...new Set(["club", "empty"].flatMap((held) => controlsFor("workshop-fighter", rightHand(held))))]
+/** Whether the run plays the mind `id`: a game mind, or any where `--experimental` asks (`Part.stage`); a worker is handed the run's arguments. */
+const played = (id) => process.argv.includes("--experimental") || partOf(MINDS[id].config).stage === "game";
+/** The minds the Warrior is offered (`controlsFor`) that the run plays, with each loadout it is offered with: each a case below. */
+const warriorMinds = () => [...new Set(["club", "empty"].flatMap((held) => controlsFor("workshop-fighter", rightHand(held))))].filter(played)
   .map((control) => [control, ["club", "empty"].filter((held) => controlsFor("workshop-fighter", rightHand(held)).includes(control))]);
 /**
- * A case for each mind a person may pick (`MINDS`, an entrant's among them) that the Warrior is not
- * offered and no case above plays (the quadruped's `crawl`): itself on both sides, on the first body
- * it fits, holding the club where that body holds and the mind takes it. So every mind a change
- * moves is named by a case.
+ * A case for each mind a person may pick for a fight (`MINDS`, an entrant's among them) that the
+ * run plays, the Warrior is not offered and no case above plays (the quadruped's `crawl`): itself on
+ * both sides, on the first body it fits, holding the club where that body holds and the mind takes
+ * it. So every such mind a change moves is named by a case; one no fight takes (`controlsFor`) has none.
  */
-const elsewhere = () => Object.entries(MINDS).filter(([id]) => id !== "crawl" && warriorMinds().every(([control]) => control !== id)).map(([id, { config }]) => {
+const elsewhere = () => Object.entries(MINDS).filter(([id]) => id !== "crawl" && played(id) && warriorMinds().every(([control]) => control !== id)).flatMap(([id, { config }]) => {
   const model = BODY_MODELS.find((m) => controlsFor(m, rightHand("club")).includes(id) || controlsFor(m, rightHand("empty")).includes(id));
-  if (!model) throw new Error(`no body fits the ${id} mind`);
+  if (!model) return [];
   const loadouts = both(controlsFor(model, rightHand("club")).includes(id) ? "club" : "empty");
-  return { name: `arena ${model} v ${model}, ${id},${id}, ${loadoutName(loadouts.left)}`,
-    run: () => arena({ left: model, right: model, loadouts, minds: { left: config, right: config } }) };
+  return [{ name: `arena ${model} v ${model}, ${id},${id}, ${loadoutName(loadouts.left)}`,
+    run: () => arena({ left: model, right: model, loadouts, minds: { left: config, right: config } }) }];
 });
 /**
  * A bout in which the Warrior under `mind`, otherwise `CLASSIC`, falls: against `counter`, which fells it at
@@ -470,7 +474,7 @@ const CASES = [
 
 if (isMainThread) {
   const { values } = parseArgs({ options: {
-    workers: { type: "string" }, character: { type: "boolean" }, only: { type: "string" }, json: { type: "string" }, compare: { type: "string" },
+    workers: { type: "string" }, character: { type: "boolean" }, experimental: { type: "boolean" }, only: { type: "string" }, json: { type: "string" }, compare: { type: "string" },
   } });
   const only = values.only === undefined ? null : new RegExp(values.only);
   const chosen = CASES.keys().filter((id) => !!CASES[id].workshop === !!values.character && (!only || only.test(CASES[id].name))).toArray();
@@ -479,7 +483,7 @@ if (isMainThread) {
   const lines = new Array(CASES.length);
   let next = 0;
   await Promise.all(Array.from({ length: lanes }, () => new Promise((resolve, reject) => {
-    const worker = new Worker(new URL(import.meta.url));
+    const worker = new Worker(new URL(import.meta.url), { argv: process.argv.slice(2) });
     const feed = () => {
       if (next >= chosen.length) { worker.terminate(); resolve(); return; }
       const id = chosen[next++];

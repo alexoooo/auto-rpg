@@ -7,6 +7,7 @@ import { motionAtToRef, pointOfToRef, turnOfToRef, withinSupport } from "../cont
 import type { SupportedCommand } from "../control/supported-motor.ts";
 import { advanceStrike, strikeTransition, STRIKE_EVENT, type StrikeCycleState } from "../skills/strike-cycle.ts";
 import type { Vec3 } from "../spec/quantity.ts";
+import type { BodySpec } from "../spec/body.ts";
 import type { Skill } from "../skills/skill.ts";
 import type { QuadrupedView } from "./crawl.ts";
 import { REPTILE_BITE } from "./tuning.ts";
@@ -179,6 +180,7 @@ interface JawConfig { readonly kind: "jaw-bite" }
 /** **The jaw's bite** as a part: a stroke of the jaw at a point (`bite`). */
 export const JAW_PART: BitePart<JawConfig> = deepFreeze({
   role: "bite", label: "Jaw snap", stage: "game", fields: [], slots: [], defaults: { kind: "jaw-bite" }, keys: { kind: true }, fits: fitsJaw, faults: () => [],
+  strikes: (spec: BodySpec) => spec.segments.filter((segment) => segment.points?.bite).map((segment) => segment.name),
   make: (own: OwnBody, tracker: ReturnType<typeof effectorTracker>, tuning: BiteTuning, feedback: { readonly jaw: EffectorFeedback; readonly head: EffectorFeedback }) =>
     bite(own, tracker, tuning, feedback.jaw, feedback.head),
 });

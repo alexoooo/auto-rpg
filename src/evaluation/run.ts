@@ -26,6 +26,13 @@ export interface Case {
 /** The unit of evidence: in a contest, one condition with each side on the left; else one case. */
 export type Unit = readonly Case[];
 
+/** **A condition left unplayed** for its subjects (a contest's pair), and why: each seated subject's faults there (`Cases.faults`), prefixed with its id. */
+export interface Dropped {
+  readonly subjects: readonly string[];
+  readonly condition: Json;
+  readonly reasons: readonly string[];
+}
+
 /** What a worker is given to play a case, as plain data. */
 interface CaseJob {
   readonly evaluation: string;
@@ -48,10 +55,11 @@ const keyOf = (fields: { evaluation: string; play: Json; engine: EngineName; wor
  * The cases of `evaluation` on `protocol` for `subjects`, unit by unit, in the definition's order:
  * arity 0 each condition; 1 each subject on each condition it fits; 2 each pair `schedule` makes
  * on each condition both fit, the first on the left then the second; each case's code what `code`
- * makes of its world. Refused for a subject that fits no condition, or a pair that share none.
+ * makes of its world. Beside them, each condition a subject or pair does not fit, and why
+ * (`Dropped`). Refused for a subject that fits no condition, or a pair that share none.
  */
 export function casesOf(evaluation: Evaluation, protocol: string, subjects: readonly Subject[],
-  { engine, code: codeOf, schedule }: { engine: EngineName; code: (world: CaseWorld) => string; schedule: Schedule }): Unit[] {
+  { engine, code: codeOf, schedule }: { engine: EngineName; code: (world: CaseWorld) => string; schedule: Schedule }): { readonly units: Unit[]; readonly dropped: Dropped[] } {
   const cases = evaluation.protocols[protocol];
   if (!cases) throw new Error(`${evaluation.id} has no protocol ${protocol}: ${Object.keys(evaluation.protocols).join(", ")}`);
   const make = (seated: readonly Subject[], condition: Json): Case => {
@@ -62,10 +70,15 @@ export function casesOf(evaluation: Evaluation, protocol: string, subjects: read
   const faults = (subject: Subject, condition: Json) => cases.faults?.(subject.value, condition) ?? [];
   for (const subject of subjects) if (cases.arity > 0 && cases.conditions.every((condition) => faults(subject, condition).length > 0))
     throw new Error(`${subject.label} fits no condition of ${evaluation.id} ${protocol}: ${[...new Set(cases.conditions.flatMap((condition) => faults(subject, condition)))].join("; ")}`);
-  const fitting = (...seated: Subject[]) => cases.conditions.filter((condition) => seated.every((subject) => faults(subject, condition).length === 0));
+  const dropped: Dropped[] = [];
+  const fitting = (...seated: Subject[]) => cases.conditions.filter((condition) => {
+    const reasons = seated.flatMap((subject) => faults(subject, condition).map((fault) => `${subject.id}: ${fault}`));
+    if (reasons.length > 0) dropped.push({ subjects: seated.map((subject) => subject.id), condition, reasons });
+    return reasons.length === 0;
+  });
   switch (cases.arity) {
-    case 0: return cases.conditions.map((condition) => [make([], condition)]);
-    case 1: return subjects.flatMap((subject) => fitting(subject).map((condition) => [make([subject], condition)]));
+    case 0: return { units: cases.conditions.map((condition) => [make([], condition)]), dropped };
+    case 1: return { units: subjects.flatMap((subject) => fitting(subject).map((condition) => [make([subject], condition)])), dropped };
     case 2: {
       const units: Unit[] = [];
       for (const [a, b] of pairsOf(subjects, schedule)) {
@@ -73,7 +86,7 @@ export function casesOf(evaluation: Evaluation, protocol: string, subjects: read
         if (both.length === 0) throw new Error(`${a.label} and ${b.label} share no condition of ${evaluation.id} ${protocol}`);
         for (const condition of both) units.push([make([a, b], condition), make([b, a], condition)]);
       }
-      return units;
+      return { units, dropped };
     }
     default: {
       const never: never = cases.arity;

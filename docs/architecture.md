@@ -74,12 +74,16 @@ the club, the buckler, the short sword). `armedWith` puts an item in a hand and 
 cannot close on it; `Loadout` names both hands, `withLoadout` assigns them and `modelHolding` reads
 the equipped spec. Item numbers are in [Arena items](reference/arena-items.md).
 
-**What a body can do is read from its spec.** `modelSupportsMind` asks every part of a mind
-(`treeFits`) about the body as armed. Executors declare the effectors they strike with
-(`ExecutorPart.strikesWith`), guards the held segments they cover with
-(`Part.supportedEquipment`); `equipmentSupported` unions them and `canAttack` requires a fighting
-mind to strike with something. A mind fits exactly the loadouts it can be built on and fight with;
-`tests/mind-contract.test.mjs` builds each on each.
+**What a body can do is read from its spec.** Fit is whether the body, as armed, can carry out
+what every part of a mind commands (`treeRefusal`). What a scenario asks beyond fit is its entry
+rules (`EntryRule`, `entryRefusal`, `src/core/mind/catalog.ts`): `attacks`, some part strikes with
+something the body has (`Part.strikes`; executors declare the effectors they strike with,
+`ExecutorPart.strikesWith`), and `uses-held`, every held item has a use (`Part.strikes`,
+`Part.supportedEquipment`). A fight asks both (`FIGHT_ENTRY`): an Arena bout unless its recipe
+says otherwise (`DuelRecipe.entry`), a match, the tournament, the Crypt. The Lab's Attack asks an
+attack; a stand or a course asks neither, so a mind may carry what it never uses there.
+`modelRefusal` (`src/core/models.ts`) gives the reason a mind cannot play a model with a loadout
+under a scenario's rules; `mindFaults` (`src/ui/mind-link.ts`) a screen's.
 
 To add a family, write its spec and its adapter in its own folder. **Families share code, never
 values**: a spec never spreads another family's spec. How a model is shown is the screens'
@@ -457,8 +461,8 @@ the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the reg
 - A part's `fits` answers why a body cannot carry out what it commands, or null where it can: the one
   source of compatibility. It names what the part uses beyond what its mind gives it: legs and the
   sub-minds that stand need soles (`fitsSoles`), an executor one of its effectors
-  (`strikesWithOneOf`), a guard a hand that covers; a planner uses only its mind's view. `treeRefusal` gives the first refusal in a tree by path (`treeFits`, that
-  there is none); `kindsFor` lists every part of a role a mind's slot may hold, its own parts
+  (`strikesWithOneOf`), a guard a hand that covers; a planner uses only its mind's view. `treeRefusal` gives the first refusal in a tree by path;
+  `kindsFor` lists every part of a role a mind's slot may hold, its own parts
   included, with the reason it cannot go somewhere.
 - A part's experiment settings live under `tuning`, are named by `Part.tuning`, and never travel in
   a link (`withoutTuning`). A key a part does not read is a fault, never silently dropped;
@@ -620,14 +624,16 @@ replays it from its order sheets. How well it fights is a measurement:
 - `npm run match -- <a> <b>` plays two minds over fixed bodies, levels, gaps and loadouts, each on
   each side, and names the result by a digest that is the same on every machine;
   `--protocol sword-and-buckler` plays that loadout on both stages. It is an evaluation
-  ([Evaluations](#evaluations)), `match`.
-- The tournament (`tournament`) rates every mind on every character and representative loadout
+  ([Evaluations](#evaluations)), `match`. A condition a subject cannot play is dropped, and the
+  result says which and why (`Dropped`, `casesOf`).
+- The tournament (`tournament`) rates every game mind (`Part.stage`; an experimental one when named) on every character and representative loadout
   (`REPRESENTATIVE`, `src/core/items/held.ts`) within a pool by Bradley-Terry (`rating.ts`); the
   unseen report (`unseen`) plays each mind on the loadouts none is rated on. `npm run evaluate --
   tournament --notes` writes the newest record's ratings into the notes (`ratedNotes`,
   `src/ui/mind-notes.ts`), which the Arena's pickers show beside each mind; the Ratings screen
   ([The screens](#the-screens)) shows every record.
-- The fingerprint (`scripts/fingerprint.mjs`) has a case for every pickable mind and for every
+- The fingerprint (`scripts/fingerprint.mjs`) has a case for every pickable game mind (every one
+  with `--experimental`) and for every
   part that reads mind data (`DATA_CASES`: Research rise, the learned rise, the learned run);
   `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
 

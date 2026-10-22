@@ -151,6 +151,17 @@ function writeNotes() {
 }
 
 /** A 95 % estimate as text. */
+/** What `dropped` (`casesOf`) left unplayed, a line for each subject or pair: how many conditions, and every reason once. */
+function droppedLines(dropped) {
+  const by = new Map();
+  for (const one of dropped) {
+    const seated = one.subjects.join(" v "), entry = by.get(seated) ?? { count: 0, reasons: new Set() };
+    entry.count++; for (const reason of one.reasons) entry.reasons.add(reason);
+    by.set(seated, entry);
+  }
+  return [...by].map(([seated, { count, reasons }]) => `dropped for ${seated}: ${count} condition${count === 1 ? "" : "s"}; ${[...reasons].join("; ")}`);
+}
+
 const estimateText = (estimate) => estimate === null ? "none" : `${estimate.value.toFixed(3)} (${estimate.low.toFixed(3)} to ${estimate.high.toFixed(3)})`;
 
 /** Bouts a minute the 10-hour tournament played on the desktop (11,726 in about 10 hours): what a run is priced at before it starts. */
@@ -279,9 +290,9 @@ async function main() {
   const code = (world) => coder.code(caseNames(world)).digest, ownCode = (parts) => coder.code(partNames(parts)).own;
   const rule = evaluation.analysis.settle;
   if (counterpart.size > 0 && !rule) throw new Error(`${id} has no rule to settle a comparison on`);
-  const units = casesOf(evaluation, protocol, subjects, { engine, code, schedule });
+  const { units, dropped } = casesOf(evaluation, protocol, subjects, { engine, code, schedule });
   const pairs = [...counterpart].filter(([subject, other]) => !panelIds.has(subject) && !panelIds.has(other));
-  const headToHead = pairs.length > 0 ? casesOf(evaluation, protocol, subjects, { engine, code, schedule: { kind: "pairs", pairs } }) : [];
+  const headToHead = pairs.length > 0 ? casesOf(evaluation, protocol, subjects, { engine, code, schedule: { kind: "pairs", pairs } }).units : [];
   const slots = slotsOf(units, counterpart, schedule.panel ?? []), order = playOrder(slots, headToHead, [...units, ...headToHead]);
   const defined = new Map([...units, ...headToHead].map((unit, k) => [unit[0].key, k]));
   const working = join(ROOT, "research/runs/evaluations", id);
@@ -356,6 +367,7 @@ async function main() {
   console.log("\n| Subject | Figure | Units | Value (95 % interval) |\n|---|---|---|---|");
   for (const f of figures) console.log(`| ${f.subject} | ${f.figure}, ${f.unit} | ${f.units} | ${estimateText(f.estimate)} |`);
   for (const fault of faults) console.log(`fault (${fault.fault.kind}) in ${fault.key}: ${fault.fault.message}`);
+  for (const line of droppedLines(dropped)) console.log(line);
   const report = counterpart.size > 0 ? panelReport(slots, headToHead, rows, evaluation.figures, rule) : null;
   if (report) console.log("\n" + reportLines(report, rule, { spent, lost: lost.length }).join("\n"));
   if (cases.arity === 1 && values.previous && baseline.length > 0 && baseline[0].id !== subjects[0].id) {
@@ -368,7 +380,7 @@ async function main() {
   const summary = faults.length || complete.length === 0 ? null : evaluation.summary(table);
   if (summary) console.log("\n" + summary.lines.join("\n"));
   else console.log(`\nno summary: ${complete.length === 0 ? "no unit is complete" : "a case is a fault"}`);
-  if (values.json) writeFileSync(values.json, JSON.stringify({ header, figures, report, summary: summary?.json ?? null, cases: lines }, null, 2) + "\n");
+  if (values.json) writeFileSync(values.json, JSON.stringify({ header, figures, report, summary: summary?.json ?? null, dropped, cases: lines }, null, 2) + "\n");
   if (lost.length > 0 && shards === 1) process.exitCode = 1;
 
   if (values.write) {

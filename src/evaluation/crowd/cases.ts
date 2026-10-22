@@ -27,6 +27,7 @@ import { generateLevel } from "../../dungeon/level.ts";
 import { findPath, walkable, type DungeonMap, type DungeonObstacle, type Point } from "../../dungeon/map.ts";
 import { LEVELS } from "../../dungeon/run.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
+import { FIGHT_ENTRY } from "../../core/mind/catalog.ts";
 import { CRYPT_CAP, floorRows, type BuiltCrypt, type CryptCase, type CryptLayout, type CryptLeg, type CryptReading } from "../crypt.ts";
 import type { Cases, Json, Reader } from "../evaluation.ts";
 
@@ -167,7 +168,7 @@ function faultsOf(value: Json): readonly string[] {
   const kind = typeof value === "object" && value !== null && !Array.isArray(value) ? (value as { kind?: unknown }).kind : undefined;
   if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
   const held = modelInfo(CROWD.model).held;
-  return mindFaults(value as unknown as MindConfig, modelHolding(CROWD.model, { left: "empty", right: held })).map((fault) => `${CROWD.model} holding ${held}: ${fault}`);
+  return mindFaults(value as unknown as MindConfig, modelHolding(CROWD.model, { left: "empty", right: held }), { entry: FIGHT_ENTRY }).map((fault) => `${CROWD.model} holding ${held}: ${fault}`);
 }
 
 /** A run's reader: the run's own ending, and its reading. */

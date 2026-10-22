@@ -1,4 +1,4 @@
-import { isKind, partOf, treeFaults, treeRefusal, withoutTuning } from "../core/mind/catalog.ts";
+import { isKind, partOf, stageRefusal, treeFaults, withoutTuning, type EntryRule } from "../core/mind/catalog.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { Provision } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -12,12 +12,21 @@ export interface LinkedMind {
 /** Named minds a screen offers, by id: a link names one by its id. */
 type Presets = Readonly<Record<string, { readonly config: MindConfig }>>;
 
-/** What is wrong with `config` for a body of `spec` on a screen that `provides` what it does (`treeFaults`), or that it does not fit the body. */
-export function mindFaults(config: MindConfig, spec: BodySpec, provides: readonly Provision[] = []): readonly string[] {
+/** What a screen gives a mind (`Provision`) and the entry rules of its scenario (`EntryRule`): none of either where absent. */
+export interface Staging {
+  readonly provides?: readonly Provision[];
+  readonly entry?: readonly EntryRule[];
+}
+
+/**
+ * What is wrong with `config` for a body of `spec` on a screen that `provides` what it does
+ * (`treeFaults`), or that it does not fit the body or meet the scenario's `entry` rules (`stageRefusal`).
+ */
+export function mindFaults(config: MindConfig, spec: BodySpec, { provides = [], entry = [] }: Staging = {}): readonly string[] {
   const faults = treeFaults(config, provides);
   if (faults.length > 0) return faults;
-  const refused = treeRefusal(spec, config);
-  return refused === null ? faults : [`the mind does not fit this body: ${refused}`];
+  const refused = stageRefusal(spec, config, entry);
+  return refused === null ? faults : [`the mind cannot play this body: ${refused}`];
 }
 
 /** The tree rooted in a mind that `text` holds as JSON, with any research `tuning` dropped; null for text that is none. */
@@ -31,13 +40,13 @@ function treeOf(text: string | null): MindConfig | null {
 }
 
 /**
- * **The mind `text` carries** (`writeMind`), for a body of `spec`, faults and all; null for text
+ * **The mind `text` carries** (`writeMind`), for a body of `spec` in a scenario of `entry` rules, faults and all; null for text
  * that is no tree rooted in a mind. Any research `tuning` in it is dropped: a link carries a
  * person's settings and no experiment's.
  */
-export function parseMind(text: string | null, spec: BodySpec): LinkedMind | null {
+export function parseMind(text: string | null, spec: BodySpec, entry: readonly EntryRule[]): LinkedMind | null {
   const config = treeOf(text);
-  return config && { config, faults: mindFaults(config, spec) };
+  return config && { config, faults: mindFaults(config, spec, { entry }) };
 }
 
 /** `config` as a link carries it: its tree as JSON, with no part's `tuning`. */

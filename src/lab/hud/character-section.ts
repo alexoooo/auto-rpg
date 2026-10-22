@@ -1,7 +1,7 @@
 import { appearancesFor, wearsClothing } from "../../render/appearance.ts";
 import { loadoutAttributes, strikesOf } from "../loadout.ts";
 import { attributeEditor } from "../../ui/attribute-editor.ts";
-import { LAB_HANDS, LAB_PRESETS, LAB_PROVIDES, LAB_WORN, MODELS } from "../scenarios.ts";
+import { LAB_HANDS, LAB_PRESETS, LAB_WORN, MODELS, labStaging } from "../scenarios.ts";
 import { HELD as HOLDS, heldItem, type Held } from "../../core/items/held.ts";
 import { choice, entries, fold, following, group, menu, switches, toggle, when, type Control, type Named } from "../../ui/controls.ts";
 import { mindEditor } from "../../ui/mind-editor.ts";
@@ -59,7 +59,7 @@ export function characterSection(page: LabPage): readonly Control[] {
         (held) => page.load({ ...page.shown, barred: HOLDS.filter((h) => (h === held) !== page.shown.barred.includes(h)) }))),
       // Its tree, drawn again for each body loaded; a change loads a body under the mind changed.
       fold("Edit the mind", [following(() => page.spec, (spec) => {
-        const editor = mindEditor(page.shown.mind, { spec, provides: page.shown.scenario === "attack" ? [] : LAB_PROVIDES, onFault: page.shown.scenario === "attack" ? "the Puncher preset is used" : "the Script preset is used",
+        const editor = mindEditor(page.shown.mind, { spec, ...labStaging(page.shown.scenario), onFault: page.shown.scenario === "attack" ? "the Puncher preset is used" : "the Script preset is used",
           onChange: (mind) => page.load({ ...page.shown, mind }) });
         return { element: editor.element, refresh() {} };
       })]),

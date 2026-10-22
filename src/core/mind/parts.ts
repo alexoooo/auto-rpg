@@ -65,9 +65,8 @@ export interface Part<C extends PartConfig = PartConfig> {
   supportedEquipment?(spec: BodySpec, config: C, parts: PartLookup): readonly string[];
   /**
    * The effectors its blows strike with on a body of `spec`, as it holds what it holds, or
-   * undefined where `config` names no blow of its own: a part that answers is a fighting mind's,
-   * which fits only a body it can attack with (`canAttack`), and each segment it names is a
-   * declared use of what that segment holds.
+   * undefined where `config` names no blow of its own: what a scenario that asks an attack reads
+   * (`EntryRule` `attacks`), and each segment it names a declared use of what that segment holds.
    */
   strikes?(spec: BodySpec, config: C, parts: PartLookup): readonly string[] | undefined;
   /**

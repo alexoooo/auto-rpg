@@ -51,7 +51,7 @@ export function readCase(hash: string): LinkedCase | null {
 
 /** What `recipe` sets that the pickers do not show, by its field's name. */
 export const unshown = (recipe: DuelRecipe): string[] =>
-  (["balance", "haste", "senseDelay", "balancePercent", "rules", "surfaces"] as const).filter((field) => recipe[field] !== undefined);
+  (["balance", "haste", "senseDelay", "balancePercent", "rules", "surfaces", "entry"] as const).filter((field) => recipe[field] !== undefined);
 
 /**
  * The Arena address that shows `recipe`'s choices in the pickers: characters, level, gap, cap,

@@ -16,6 +16,7 @@ import type { Side } from "../../core/spec/body.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { PHYSICS_HZ } from "../../core/world.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
+import { FIGHT_ENTRY } from "../../core/mind/catalog.ts";
 import { STANDS } from "../blade/cases.ts";
 import type { Cases, Json } from "../evaluation.ts";
 
@@ -50,7 +51,7 @@ const other = (side: Side): Side => side === "left" ? "right" : "left";
 function faultsOf(value: Json, model: BodyModel): readonly string[] {
   const kind = typeof value === "object" && value !== null && !Array.isArray(value) ? (value as { kind?: unknown }).kind : undefined;
   if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
-  return mindFaults(value as unknown as MindConfig, modelHolding(model, HELD)).map((fault) => `${model} carrying ${loadoutKey(HELD)}: ${fault}`);
+  return mindFaults(value as unknown as MindConfig, modelHolding(model, HELD), { entry: FIGHT_ENTRY }).map((fault) => `${model} carrying ${loadoutKey(HELD)}: ${fault}`);
 }
 
 function courtCases(protocol: typeof COURT): Cases<CourtCondition, CourtReading> {

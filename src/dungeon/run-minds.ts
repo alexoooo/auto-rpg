@@ -1,6 +1,7 @@
 import type { MindConfig } from "../core/mind/config.ts";
 import { MINDS } from "../core/mind/controllers.ts";
-import { modelInfo, modelHolding, modelSupportsMind, type BodyModel } from "../core/models.ts";
+import { modelInfo, modelHolding, modelRefusal, type BodyModel } from "../core/models.ts";
+import { FIGHT_ENTRY } from "../core/mind/catalog.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { MODEL_DISPLAY } from "../render/models.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
@@ -17,7 +18,7 @@ interface Row { readonly side: Participant["side"]; readonly model: BodyModel }
 /** The minds the start panel offers a body of `model`, by id: its model's own first, then each that fits it holding what its model holds (`MINDS`). */
 function presetsFor(model: BodyModel): Readonly<Record<string, { readonly label: string; readonly config: MindConfig }>> {
   return { [OWN]: { label: "Its own", config: modelInfo(model).mind },
-    ...Object.fromEntries(Object.entries(MINDS).filter(([, mind]) => modelSupportsMind(model, mind.config, { left: "empty", right: modelInfo(model).held }))) };
+    ...Object.fromEntries(Object.entries(MINDS).filter(([, mind]) => modelRefusal(model, mind.config, { left: "empty", right: modelInfo(model).held }, FIGHT_ENTRY) === null)) };
 }
 
 /** A body of `model`, holding what its model holds (`DungeonRun`): what its mind must fit. */
@@ -48,7 +49,7 @@ export function runMinds(holder: HTMLElement, rows: readonly Row[], search: stri
     select.append(...Object.entries(presets).map(([id, { label }]) => Object.assign(document.createElement("option"), { value: id, textContent: label })),
       Object.assign(document.createElement("option"), { value: "", textContent: "Changed", disabled: true }));
     const chosen = () => { const text = mindText(shown.get(key)!, presets); select.value = Object.hasOwn(presets, text) ? text : ""; };
-    const editor = mindEditor(shown.get(key)!, { spec: bodySpec(row.model), onFault: "its own mind is used",
+    const editor = mindEditor(shown.get(key)!, { spec: bodySpec(row.model), entry: FIGHT_ENTRY, onFault: "its own mind is used",
       onChange: (config) => { shown.set(key, config); chosen(); } });
     select.addEventListener("change", () => { select.blur(); shown.set(key, presets[select.value]!.config); editor.set(shown.get(key)!); });
     chosen();
@@ -63,7 +64,7 @@ export function runMinds(holder: HTMLElement, rows: readonly Row[], search: stri
       }));
       return participant => {
         const config = chosen.get(mindKey(participant));
-        return config && mindFaults(config, bodySpec(participant.model, attributes?.(participant))).length === 0 ? config : null;
+        return config && mindFaults(config, bodySpec(participant.model, attributes?.(participant)), { entry: FIGHT_ENTRY }).length === 0 ? config : null;
       };
     },
     write(url) {

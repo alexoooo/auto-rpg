@@ -5,7 +5,8 @@
 import { heldItem, loadoutKey, type Loadout } from "../../core/items/held.ts";
 import { MINDS } from "../../core/mind/controllers.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
-import { BODY_MODELS, modelHolds, modelSpec, modelSupportsMind, type BodyModel } from "../../core/models.ts";
+import { BODY_MODELS, modelRefusal, modelSpec, type BodyModel } from "../../core/models.ts";
+import { FIGHT_ENTRY, partOf } from "../../core/mind/catalog.ts";
 import type { Json, Subject, SubjectChoice } from "../evaluation.ts";
 import { TOURNAMENT, type Entrant } from "./cases.ts";
 
@@ -16,9 +17,8 @@ const plain = (value: unknown): Json => JSON.parse(JSON.stringify(value ?? null)
 const specs = new Map<BodyModel, Json>();
 const specOf = (model: BodyModel): Json => specs.get(model) ?? specs.set(model, plain(modelSpec(model))).get(model)!;
 
-/** Whether `model` can carry `loadout` and `config` fits it so. */
-const fits = (model: BodyModel, config: Json, loadout: Loadout): boolean =>
-  (loadout.left === "empty" && loadout.right === "empty" || modelHolds(model)) && modelSupportsMind(model, config as unknown as MindConfig, loadout);
+/** Whether `config` can play `model` carrying `loadout` in a fight (`modelRefusal`). */
+const fits = (model: BodyModel, config: Json, loadout: Loadout): boolean => modelRefusal(model, config as unknown as MindConfig, loadout, FIGHT_ENTRY) === null;
 
 /** The entrant of mind `id` (`config`, shown as `label`) on `model` with `loadout`. */
 function entrant(id: string, label: string, config: Json, model: BodyModel, loadout: Loadout): Subject {
@@ -37,11 +37,11 @@ export const entrantsOf = (id: string, label: string, config: Json): Subject[] =
 /**
  * The entrants `choice` names, in order: a mind's id gives its entrants, an entrant's id
  * (`mind/character/left,right`) that one, a mind given whole its entrants. None names the field:
- * every mind a person may pick.
+ * every game mind a person may pick (`Part.stage`); an experimental one enters when it is named.
  */
 export function entrantSubjects(choice: SubjectChoice): Subject[] {
   const mind = (id: string) => MINDS[id] ?? (() => { throw new Error(`no mind ${id}: ${Object.keys(MINDS).join(", ")}`); })();
-  const named = choice.length > 0 ? choice : Object.keys(MINDS);
+  const named = choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => partOf(MINDS[id]!.config).stage === "game");
   return named.flatMap((one) => {
     if (typeof one !== "string") return entrantsOf(one.id, one.label, one.value);
     if (!one.includes("/")) return entrantsOf(one, mind(one).label, mind(one).config as unknown as Json);

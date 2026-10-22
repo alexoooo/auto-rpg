@@ -10,6 +10,7 @@ import type { MindConfig } from "../../core/mind/config.ts";
 import { modelHolding, type BodyModel } from "../../core/models.ts";
 import type { Side } from "../../core/spec/body.ts";
 import { mindFaults } from "../../ui/mind-link.ts";
+import { FIGHT_ENTRY } from "../../core/mind/catalog.ts";
 import { readBout, type BoutReading } from "../contest.ts";
 import type { Cases, Json } from "../evaluation.ts";
 
@@ -42,7 +43,7 @@ export type MatchCondition = { readonly left: BodyModel; readonly right: BodyMod
 function faultsOf(protocol: Protocol, value: Json, loadout: Loadout): readonly string[] {
   const kind = typeof value === "object" && value !== null && !Array.isArray(value) ? (value as { kind?: unknown }).kind : undefined;
   if (typeof kind !== "string" || !Object.hasOwn(CONTROLLERS, kind)) return [`no mind: a config names its kind (${Object.keys(CONTROLLERS).join(", ")})`];
-  return protocol.bodies.flatMap((body) => mindFaults(value as unknown as MindConfig, modelHolding(body, loadout)).map((fault) => `${body} carrying ${loadoutKey(loadout)}: ${fault}`));
+  return protocol.bodies.flatMap((body) => mindFaults(value as unknown as MindConfig, modelHolding(body, loadout), { entry: FIGHT_ENTRY }).map((fault) => `${body} carrying ${loadoutKey(loadout)}: ${fault}`));
 }
 
 /** The match on `protocol`: its conditions in the order each left body, right body, loadout, level, gap. */

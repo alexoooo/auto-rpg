@@ -5,6 +5,7 @@
  */
 import { loadoutKey } from "../../core/items/held.ts";
 import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
+import { partOf } from "../../core/mind/catalog.ts";
 import type { Evaluation, Json, Subject } from "../evaluation.ts";
 import { UNSEEN_CASES, type UnseenCondition, type UnseenReading } from "./cases.ts";
 
@@ -20,9 +21,9 @@ export const UNSEEN: Evaluation<UnseenCondition, UnseenReading> = {
   defaultProtocol: "standard",
   schedule: "all",
   analysis: {},
-  /** The minds named, or every mind a person may pick that fits an unrated loadout on some character. */
+  /** The minds named, or every game mind a person may pick (`Part.stage`) that fits an unrated loadout on some character. */
   subjects(choice) {
-    const subjects = (choice.length > 0 ? choice : Object.keys(MINDS)).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value)
+    const subjects = (choice.length > 0 ? choice : Object.keys(MINDS).filter((id) => partOf(MINDS[id]!.config).stage === "game")).map((one) => typeof one !== "string" ? mindSubject(one.id, one.label, one.value)
       : Object.hasOwn(MINDS, one) ? mindSubject(one, MINDS[one].label, MINDS[one].config as unknown as Json)
       : Object.hasOwn(CONTROLLERS, one) ? mindSubject(one, CONTROLLERS[one].label, CONTROLLERS[one].defaults as unknown as Json)
       : (() => { throw new Error(`${one} is no mind`); })());

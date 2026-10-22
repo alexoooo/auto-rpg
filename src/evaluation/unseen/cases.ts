@@ -5,7 +5,8 @@
 import { LOADOUTS, loadoutKey, type Loadout } from "../../core/items/held.ts";
 import { CONTROLLERS, MINDS } from "../../core/mind/controllers.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
-import { BODY_MODELS, modelHolds, modelSupportsMind, type BodyModel } from "../../core/models.ts";
+import { BODY_MODELS, modelHolds, modelRefusal, type BodyModel } from "../../core/models.ts";
+import { FIGHT_ENTRY } from "../../core/mind/catalog.ts";
 import type { Side } from "../../core/spec/body.ts";
 import { readBout, type BoutReading } from "../contest.ts";
 import type { Cases, Json, Reader } from "../evaluation.ts";
@@ -41,8 +42,9 @@ export const UNSEEN_CASES: Readonly<Record<string, Cases<UnseenCondition, Unseen
     faults: (value, { model, loadout }) => {
       if (!isMind(value)) return ["no mind"];
       if (!modelHolds(model) && (loadout.left !== "empty" || loadout.right !== "empty")) return [`${model} holds nothing`];
-      if (!modelSupportsMind(model, value as unknown as MindConfig, loadout)) return [`the mind does not fit ${model} carrying ${loadoutKey(loadout)}`];
-      if (!modelSupportsMind(model, MINDS[OPPONENT.mind].config, OPPONENT.loadout)) return [`the opponent does not fit ${model}`];
+      const refused = modelRefusal(model, value as unknown as MindConfig, loadout, FIGHT_ENTRY), opposed = modelRefusal(model, MINDS[OPPONENT.mind].config, OPPONENT.loadout, FIGHT_ENTRY);
+      if (refused !== null) return [`the mind cannot play ${model} carrying ${loadoutKey(loadout)}: ${refused}`];
+      if (opposed !== null) return [`the opponent cannot play ${model}: ${opposed}`];
       return [];
     },
     world: ([mind], { model, loadout, gap, side }, engine) => ({

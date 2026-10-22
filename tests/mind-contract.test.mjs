@@ -12,7 +12,9 @@ import { buildBout } from "../src/evaluation/bout.ts";
 import { BOUT_ENGINE } from "../research/bout.mjs";
 import { SIDES } from "../src/arena/duel.ts";
 import { CONTROLLERS } from "../src/core/mind/controllers.ts";
-import { BODY_MODELS, modelSupportsMind } from "../src/core/models.ts";
+import { BODY_MODELS, modelRefusal } from "../src/core/models.ts";
+import { FIGHT_ENTRY } from "../src/core/mind/catalog.ts";
+import { EMPTY_LOADOUT } from "../src/core/items/held.ts";
 import { LOADOUTS, loadoutKey } from "../src/core/items/held.ts";
 import { traceOf } from "../src/evaluation/trace.ts";
 import { modelSpec } from "../src/core/models.ts";
@@ -82,9 +84,9 @@ async function played(recipe, hooks, fork) {
 }
 
 for (const [id, config] of MINDS) test(`${id}: a short bout runs, stays finite, flings nobody, forks and resumes, and replays from its order sheets`, async () => {
-  const model = BODY_MODELS.find((candidate) => modelSupportsMind(candidate, config));
+  const model = BODY_MODELS.find((candidate) => modelRefusal(candidate, config, EMPTY_LOADOUT, []) === null);
   assert.ok(model, `${id} fits no body`);
-  const recipe = { left: model, right: model, gap: GAP, minds: { left: config, right: config } };
+  const recipe = { left: model, right: model, gap: GAP, minds: { left: config, right: config }, entry: [] };
   const first = await played(recipe, { record: true }, true);
   assert.deepEqual(first.peak.unfinite, [], "every pose and velocity is finite");
   assert.ok(first.peak.segment < FLUNG.segment && first.peak.body < FLUNG.body, `the fastest segment ${first.peak.segment} m/s, body ${first.peak.body} m/s`);
@@ -128,8 +130,8 @@ test("a body is down by the fight's rule of the body alone, whatever height its 
 
 test("a replay refuses a step with no order sheet, so a record that is short is found", async () => {
   const [, config] = MINDS[0];
-  const model = BODY_MODELS.find((candidate) => modelSupportsMind(candidate, config));
-  const recipe = { left: model, right: model, gap: GAP, minds: { left: config, right: config } };
+  const model = BODY_MODELS.find((candidate) => modelRefusal(candidate, config, EMPTY_LOADOUT, []) === null);
+  const recipe = { left: model, right: model, gap: GAP, minds: { left: config, right: config }, entry: [] };
   const first = await played(recipe, { record: true }, false);
   const short = Object.fromEntries(SIDES.map((side) => [side, { ...first.sheets[side], sheets: first.sheets[side].sheets.slice(0, FORK) }]));
   await assert.rejects(played(recipe, { replay: short }, false), /no order sheet for step/);
@@ -153,7 +155,7 @@ test("both-hand loadouts fork and replay their physical commands", async () => {
 test("every registered Mind is built on each character and catalog loadout it fits", async () => {
   // Fitting is the promise that a mind can be built and fight there: two cases a bout, one a side.
   const cases = MINDS.flatMap(([id, config]) => BODY_MODELS.flatMap((model) => LOADOUTS
-    .filter((loadout) => modelSupportsMind(model, config, loadout)).map((loadout) => ({ id, config, model, loadout }))));
+    .filter((loadout) => modelRefusal(model, config, loadout, FIGHT_ENTRY) === null).map((loadout) => ({ id, config, model, loadout }))));
   assert.ok(cases.some(({ loadout }) => loadout.left === "buckler" && loadout.right === "sword"), "the fixture reaches sword and buckler");
   const failed = [];
   for (let k = 0; k < cases.length; k += 2) {

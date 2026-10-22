@@ -17,12 +17,16 @@ import assert from "node:assert/strict";
 const { buildBout } = await import("../src/evaluation/bout.ts");
 const { BOUT_ENGINE } = await import("../research/bout.mjs");
 const { SIDES } = await import("../src/arena/duel.ts");
-const { kindsFor, treeFaults, treeRefusal } = await import("../src/core/mind/catalog.ts");
+const { FIGHT_ENTRY, kindsFor, treeFaults, treeRefusal } = await import("../src/core/mind/catalog.ts");
+const { createMind } = await import("../src/core/mind/minds.ts");
+const { STAND_ORDERS } = await import("../src/core/mind/orders.ts");
+const { entrantSubjects } = await import("../src/evaluation/tournament/entrants.ts");
+const { MINDS } = await import("../src/core/mind/controllers.ts");
 const { createBody } = await import("../src/core/body.ts");
 const { coreStand } = await import("./harness/core-stand.mjs");
 const { CONTROLLERS } = await import("../src/core/mind/controllers.ts");
 const { RECIPE_FIGHTER } = await import("../src/core/mind/config.ts");
-const { modelSpec } = await import("../src/core/models.ts");
+const { modelHolding, modelSpec } = await import("../src/core/models.ts");
 const { traceOf } = await import("../src/evaluation/trace.ts");
 const { parseMind, writeMind } = await import("../src/ui/mind-link.ts");
 const { GAME_CONFIGS, STUBS, SWAP_DEFAULTS, SWAP_OPTIONS_DEFAULTS } = await import("./fixtures/swap/mind.mjs");
@@ -61,6 +65,21 @@ test("a body without the command layer refuses a mind for what the layer lacks, 
   assert.throws(() => createBody(stand.built, stand.world, { servoSeconds: .1 }), (error) => layer.test(error.message.replace(/^reptile: /, "")));
 });
 
+test("a mind that never strikes carries a club on a stand, is refused from a bout for the bout's rule, and enters no default pool", async () => {
+  const still = { ...SWAP_DEFAULTS, actions: [] }, club = { left: "empty", right: "club" }, held = modelHolding("workshop-fighter", club);
+  assert.deepEqual([treeFaults(still), treeRefusal(held, still)], [[], null], "fit is what the body can carry out, not what it uses");
+  const stand = await coreStand(held);
+  const minded = createMind(stand.built, stand.world, still, { name: "stand", orders: () => STAND_ORDERS });
+  for (let i = 0; i < stand.world.hz; i++) stand.world.step();
+  assert.equal(minded.body.down, false, "the mind holds its body up a second on the stand");
+  const recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds: { left: still, right: SWAP_DEFAULTS }, loadouts: { left: club, right: club } };
+  assert.ok(FIGHT_ENTRY.includes("attacks"), "a fight asks for an attack");
+  await assert.rejects(buildBout(recipe, { engine: BOUT_ENGINE }), { message: "the left mind cannot play workshop-fighter carrying empty,club: it strikes with nothing the body has" });
+  const fixtures = Object.keys(MINDS).filter((id) => id.startsWith("swap-"));
+  assert.ok(fixtures.length > 0, "the fixture minds are among those a person may pick");
+  assert.deepEqual(entrantSubjects([]).filter((subject) => fixtures.some((id) => subject.id.startsWith(`${id}/`))), [], "an experimental mind is in no default pool");
+});
+
 test("each part a bout runs is the one its config names, and the bout forks, resumes, replays and links", async () => {
   const minds = { left: SWAP_DEFAULTS, right: SWAP_OPTIONS_DEFAULTS }, recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds };
   const played = async (hooks, fork) => {
@@ -97,7 +116,7 @@ test("each part a bout runs is the one its config names, and the bout forks, res
   assert.equal(first.resumed, first.tail, "the bout forked and resumed is the bout");
   const replay = await played({ replay: first.sheets }, false);
   assert.equal(replay.digest, first.digest, "the replay is the bout");
-  for (const config of Object.values(minds)) assert.deepEqual(parseMind(writeMind(config), spec), { config, faults: [] }, `${config.kind}'s tree goes through a link unchanged`);
+  for (const config of Object.values(minds)) assert.deepEqual(parseMind(writeMind(config), spec, FIGHT_ENTRY), { config, faults: [] }, `${config.kind}'s tree goes through a link unchanged`);
 });
 
 /** `part`'s stub state in a side's saved mind and body state. */

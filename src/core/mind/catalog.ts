@@ -185,15 +185,13 @@ function unknownSettings(config: PartConfig): readonly string[] {
 
 /**
  * **Why a body of `spec` cannot carry out what the tree `config` roots commands**, prefixed with
- * where (`subs.0: `), or null where it can: the first part that refuses it (`Part.fits`), or a mind
- * with no use for something the body holds (`equipmentSupported`) or no way to strike (`canAttack`).
+ * where (`subs.0: `), or null where it can: the first part that refuses it (`Part.fits`). Fit is
+ * only that: what a scenario asks beyond it is its entry rules (`entryRefusal`).
  */
 export function treeRefusal(spec: BodySpec, config: PartConfig, at = ""): string | null {
   const where = (reason: string) => at ? `${at}: ${reason}` : reason;
   const part = partOf(config), own = part.fits(spec, config, partLookup);
   if (own !== null) return where(own);
-  if (part.role === "mind" && !equipmentSupported(spec, config)) return where("it has no use for something the body holds");
-  if (part.role === "mind" && !canAttack(spec, config)) return where("it strikes with nothing the body has");
   for (const { slot, parts } of held(config)) {
     const path = at ? `${at}.${slot.key}` : slot.key;
     for (const [i, child] of parts.entries()) {
@@ -204,11 +202,33 @@ export function treeRefusal(spec: BodySpec, config: PartConfig, at = ""): string
   return null;
 }
 
-/** Whether a body of `spec` can carry out what every part of the tree `config` roots commands (`treeRefusal`). */
-export const treeFits = (spec: BodySpec, config: PartConfig): boolean => treeRefusal(spec, config) === null;
+/**
+ * **A scenario's entry rule**: what it asks of a mind beyond fitting the body (`treeRefusal`).
+ * `attacks`: a part of it strikes with something the body has (`attacks`); `uses-held`: every
+ * item the body holds has a use in it (`equipmentSupported`). A scenario states its own: a stand or
+ * a course asks neither, so a mind may carry what it never uses there.
+ */
+export type EntryRule = "attacks" | "uses-held";
+
+/** **What a fight asks of a mind** (an Arena bout, a match, a Crypt run): that it can attack, and has a use for what its body holds. */
+export const FIGHT_ENTRY: readonly EntryRule[] = Object.freeze(["attacks", "uses-held"]);
+
+/** **Why the tree `config` roots may not enter a scenario of `rules`** with a body of `spec`, a sentence, or null where it may. */
+export function entryRefusal(spec: BodySpec, config: PartConfig, rules: readonly EntryRule[]): string | null {
+  for (const rule of rules) switch (rule) {
+    case "attacks": if (!attacks(spec, config)) return "it strikes with nothing the body has"; break;
+    case "uses-held": if (!equipmentSupported(spec, config)) return "it has no use for something the body holds"; break;
+    default: { const never: never = rule; throw new Error(`no entry rule ${String(never)}`); }
+  }
+  return null;
+}
+
+/** **Whether a body of `spec` can stage what `config` roots** on its screen: fit (`treeRefusal`), then the scenario's entry rules (`entryRefusal`); the first reason, or null. */
+export const stageRefusal = (spec: BodySpec, config: PartConfig, rules: readonly EntryRule[]): string | null =>
+  treeRefusal(spec, config) ?? entryRefusal(spec, config, rules);
 
 /** Every held item has a declared use somewhere in this mind's assembly. */
-export function equipmentSupported(spec: BodySpec, config: PartConfig): boolean {
+function equipmentSupported(spec: BodySpec, config: PartConfig): boolean {
   const supported = new Set<string>();
   const collect = (one: PartConfig): void => {
     for (const segment of partOf(one).supportedEquipment?.(spec, one, partLookup) ?? []) supported.add(segment);
@@ -219,19 +239,11 @@ export function equipmentSupported(spec: BodySpec, config: PartConfig): boolean 
   return (spec.held ?? []).every(({ segment }) => supported.has(segment));
 }
 
-/**
- * **Whether a body of `spec` can attack under the tree `config` roots**: a part of it strikes with
- * some effector there (`Part.strikes`). A tree none of whose parts names a blow of its own is no
- * fighting mind's (direct control, a fighter given no actions), and is not held to it.
- */
-export function canAttack(spec: BodySpec, config: PartConfig): boolean {
-  let fighting = false;
-  const strikes = (one: PartConfig): boolean => {
-    const own = partOf(one).strikes?.(spec, one, partLookup);
-    if (own !== undefined) { fighting = true; if (own.length > 0) return true; }
-    return held(one).some((slot) => slot.parts.some((child) => strikes(child as PartConfig)));
-  };
-  return strikes(config) || !fighting;
+/** **Whether a body of `spec` can attack under the tree `config` roots**: a part of it strikes with some effector there (`Part.strikes`). */
+function attacks(spec: BodySpec, config: PartConfig): boolean {
+  const strikes = (one: PartConfig): boolean => (partOf(one).strikes?.(spec, one, partLookup)?.length ?? 0) > 0
+    || held(one).some((slot) => slot.parts.some((child) => isPart(child) && strikes(child)));
+  return strikes(config);
 }
 
 /** The tree `config` roots with every part's `tuning` left out: what a person's settings are, and what a link carries. */

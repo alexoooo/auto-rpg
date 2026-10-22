@@ -40,7 +40,7 @@ import type { BodySpec } from "../core/spec/body.ts";
 import type { FighterConfig } from "../core/mind/config.ts";
 import { treeData } from "../core/mind/catalog.ts";
 import { loadData, type DataKey } from "../core/data/store.ts";
-import { labHref, labMind, LAB_PROVIDES, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
+import { labHref, labMind, labStaging, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
 import { dresserFor } from "../render/dress.ts";
 import { skinSlot, type SkinSlot } from "../render/skin-slot.ts";
@@ -291,7 +291,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
       subs: scenario.subs?.(to),
       assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), around: (tactics) => logged(tactics, log),
     });
-    thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.skills }), to.scenario === "attack" ? [] : LAB_PROVIDES));
+    thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.skills }), labStaging(to.scenario)));
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();
     const view = drawBody(built, scene, Color3.FromHexString(MODEL_DISPLAY[to.model].tint)), heldView = drawHeld(built, scene);
     const sounds = createSoundLog(world.dt, AIR_SECONDS), logging = logSounds(world, actor.body, sounds);

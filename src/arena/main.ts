@@ -33,7 +33,7 @@ import { boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts
 import { caseSearch, readCase, unshown, type LinkedCase } from "./case-link.ts";
 import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
 import { MINDS } from "../core/mind/controllers.ts";
-import { partOf, treeData } from "../core/mind/catalog.ts";
+import { FIGHT_ENTRY, partOf, treeData } from "../core/mind/catalog.ts";
 import { loadData } from "../core/data/store.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
 import { notesOf, type NoteLevel } from "../ui/mind-notes.ts";
@@ -235,7 +235,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       try { return modelHolding(select.value as BodyModel, loadout(), attributes[side]); }
       catch { return modelHolding(select.value as BodyModel, loadout()); }
     };
-    const editor = mindEditor(linkedMind(location.search, side).config, { spec: editorSpec(), onFault: "the preset is used", onChange: () => nameControl() });
+    const editor = mindEditor(linkedMind(location.search, side).config, { spec: editorSpec(), entry: FIGHT_ENTRY, onFault: "the preset is used", onChange: () => nameControl() });
     settings.append(summary, editor.element); choices.append(notes, settings);
     const showSettings = (config: MindConfig) => {
       editor.set(config, editorSpec());

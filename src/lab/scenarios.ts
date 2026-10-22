@@ -11,7 +11,7 @@ import { CLASSIC, isFighter, PUNCHER, RECIPE_FIGHTER, type FighterConfig, type M
 import type { Provision } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { deepFreeze } from "../core/state.ts";
-import { mindFaults, mindText, readMind } from "../ui/mind-link.ts";
+import { mindFaults, mindText, readMind, type Staging } from "../ui/mind-link.ts";
 import { groundMind } from "./ground-config.ts";
 import { TECHNIQUES } from "../core/mind/ground/techniques.ts";
 import type { TechniqueName } from "../core/mind/ground/technique.ts";
@@ -93,14 +93,22 @@ export const LAB_PRESETS: Readonly<Record<"script" | "guard" | "classic" | "punc
 });
 
 /** What the Lab gives a mind beyond the body and the world: its scenario's script. */
-export const LAB_PROVIDES: readonly Provision[] = Object.freeze(["script"]);
+const LAB_PROVIDES: readonly Provision[] = Object.freeze(["script"]);
+
+/**
+ * What a Lab scenario gives a mind and asks of it (`Staging`): Attack drives a mind against
+ * targets, so it must strike, and gives no script; any other scenario gives its script and asks
+ * nothing beyond fitting the body, so a mind may hold what it never uses.
+ */
+export const labStaging = (scenario: ScenarioId | null): Staging => scenario === "attack"
+  ? { provides: [], entry: ["attacks"] } : { provides: LAB_PROVIDES, entry: [] };
 
 /**
  * What a Lab body of `spec` is driven by under the mind `config`, and what is wrong with `config`
  * (`mindFaults`): a faulty mind plays the scenario's default, Puncher in Attack and Script elsewhere.
  */
 export function labMind(config: MindConfig, spec: BodySpec, scenario: ScenarioId | null = null): { readonly plays: FighterConfig; readonly faults: readonly string[] } {
-  const faults = isFighter(config) ? mindFaults(config, spec, scenario === "attack" ? [] : LAB_PROVIDES) : ["the Lab drives a fighter"];
+  const faults = isFighter(config) ? mindFaults(config, spec, labStaging(scenario)) : ["the Lab drives a fighter"];
   return { plays: isFighter(config) && faults.length === 0 ? config : scenario === "attack" ? PUNCHER : LAB_PRESETS.script.config, faults };
 }
 

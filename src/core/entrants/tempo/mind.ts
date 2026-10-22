@@ -101,7 +101,7 @@ export const TEMPO_MIND = controller<TempoConfig>({
   // It fits a body with a blow thrown standing among its usable actions.
   fits: fitsAll<TempoConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null,
     fitsWhen((spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).some((action) => action.lower === undefined), "it throws no blow standing")),
-  supportedEquipment: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
+  strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: tempoFaults,
   presets: deepFreeze({ tempo: { label: "Tempo fighter", config: TEMPO } }),
   builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),

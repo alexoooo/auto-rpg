@@ -1,7 +1,8 @@
 import { solidSenses, type SolidSense } from "../core/mind/object-senses.ts";
 import type { ContactTarget } from "../core/control/effector-feedback.ts";
 import type { AssistCeiling } from "../core/control/assist.ts";
-import { modelHolding, modelInfo, resolveCharacter, modelSupportsMind, type BodyModel } from "../core/models.ts";
+import { modelHolding, modelInfo, resolveCharacter, modelRefusal, type BodyModel } from "../core/models.ts";
+import { FIGHT_ENTRY, type EntryRule } from "../core/mind/catalog.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { EMPTY_LOADOUT, withLoadout, type Loadout } from "../core/items/held.ts";
 import { combatantRecordingIdentity, enlist, type Combatant } from "../core/combatant.ts";
@@ -112,6 +113,8 @@ export interface DuelRecipe {
   readonly rules?: RulebookOverride;
   /** For each segment named, what its surface's stiffness is times, on both sides: a sensitivity sweep's. */
   readonly surfaces?: Readonly<Record<string, number>>;
+  /** What a mind must do beyond fitting its body to enter (`EntryRule`): a fight's (`FIGHT_ENTRY`) unless given. */
+  readonly entry?: readonly EntryRule[];
 }
 
 /** `spec` with each segment `factors` names as stiff as its own surface times its factor. */
@@ -244,7 +247,8 @@ export class Duel {
     for (const side of SIDES) {
       const model = recipe[side], info = modelInfo(model), loadout = recipe.loadouts?.[side] ?? EMPTY_LOADOUT, config = recipe.minds?.[side] ?? info.mind;
       modelHolding(model, loadout, characters[side].config.attributes);
-      if (!modelSupportsMind(model, config, loadout, characters[side].config.attributes)) throw new Error(`incompatible controller for ${model} carrying ${JSON.stringify(loadout)}`);
+      const refused = modelRefusal(model, config, loadout, recipe.entry ?? FIGHT_ENTRY, characters[side].config.attributes);
+      if (refused !== null) throw new Error(`the ${side} mind cannot play ${model} carrying ${loadout.left},${loadout.right}: ${refused}`);
     }
     this.world = world;
     this.recipe = Object.freeze({ ...recipe, attributes: Object.freeze({ left: characters.left.config.attributes, right: characters.right.config.attributes }) });

@@ -6,6 +6,7 @@ import type { PartField } from "../core/mind/fields.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Slot } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 import { mindFaults } from "./mind-link.ts";
+import type { EntryRule } from "../core/mind/catalog.ts";
 
 /** **A mind's editor**: its tree of parts, drawn and changed in place. */
 interface MindEditor {
@@ -23,6 +24,8 @@ interface EditorOptions {
   readonly spec: BodySpec;
   /** What the screen gives a mind (`Provision`): parts requiring an absent provision are omitted. Nothing unless given. */
   readonly provides?: readonly Provision[];
+  /** What the screen's scenario asks of a mind beyond fitting the body (`EntryRule`): a mind that does not meet it has that fault. Nothing unless given. */
+  readonly entry?: readonly EntryRule[];
   /** Called after each change a person makes. */
   readonly onChange?: (config: MindConfig) => void;
   /** Shown, never changed: an enemy's mind. */
@@ -86,12 +89,12 @@ function fieldInput<C>(field: PartField<C>, config: C, write: (config: C) => voi
  * and disabling those that do not fit the body; a list slot's parts added, moved up and removed. Every change
  * draws the tree again.
  */
-export function mindEditor(config: MindConfig, { spec: body, provides = [], onChange, readOnly = false, onFault }: EditorOptions): MindEditor {
+export function mindEditor(config: MindConfig, { spec: body, provides = [], entry = [], onChange, readOnly = false, onFault }: EditorOptions): MindEditor {
   const element = document.createElement("div"), tree = document.createElement("div"), fault = document.createElement("p");
   element.className = "mind-editor"; fault.className = "settings-fault";
   element.append(tree, fault);
   let current = config, spec = body;
-  const faultsOf = (config: MindConfig): readonly string[] => mindFaults(config, spec, provides);
+  const faultsOf = (config: MindConfig): readonly string[] => mindFaults(config, spec, { provides, entry });
   const change = (next: PartConfig) => { draw(next as MindConfig); onChange?.(current); };
 
   /** Parts the screen supplies, with incompatible bodies explained by disabled choices. */

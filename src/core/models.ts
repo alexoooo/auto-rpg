@@ -2,11 +2,11 @@ import { HUMANOID_MODELS, humanoidSpec, type HumanoidModel } from "./human/spec.
 import type { Physique } from "./human/physique.ts";
 import type { BodySpec } from "./spec/body.ts";
 import { DUELLIST, QUADRUPED, type MindConfig } from "./mind/config.ts";
-import { treeFits } from "./mind/catalog.ts";
+import { stageRefusal, type EntryRule } from "./mind/catalog.ts";
 import { reptileSpec } from "./reptile/spec.ts";
 import { deepFreeze } from "./state.ts";
 import { canHold } from "./human/grip.ts";
-import { EMPTY_LOADOUT, loadoutFaults, withLoadout, type Held, type Loadout } from "./items/held.ts";
+import { loadoutFaults, withLoadout, type Held, type Loadout } from "./items/held.ts";
 import { validateAttributes, type AttributeOverrides, type CharacterAttributes } from "./character-attributes.ts";
 import { sourced } from "./spec/quantity.ts";
 import { bodyIntersections } from "./spec/clearance.ts";
@@ -98,7 +98,7 @@ export function resolveCharacter(character: CharacterConfig): ResolvedCharacter 
   return Object.freeze({ config: Object.freeze({ model, attributes }), spec: deepFreeze(spec) });
 }
 
-/** The model list owns defaults; what a body can do is read from its spec (`modelHolds`, `modelSupportsMind`). */
+/** The model list owns defaults; what a body can do is read from its spec (`modelHolds`, `modelRefusal`). */
 export function modelInfo(model: BodyModel): ModelInfo {
   return familyOf(model).info;
 }
@@ -147,9 +147,12 @@ export function modelHolding(model: BodyModel, loadout: Loadout, attributes?: At
 }
 
 /**
- * Whether `model`'s body, carrying `loadout`, can carry out what every part of
- * `mind` commands (`treeFits`): a mind that works only with one loadout says so in a part's `fits`,
- * and is offered with no other. A body that cannot carry the loadout supports no mind with it.
+ * **Why `mind` cannot play `model`'s body carrying `loadout`** in a scenario of entry rules
+ * `entry`, a sentence, or null where it can: a body that holds nothing carries no loadout; else
+ * the mind must fit the body as it holds it and meet the rules (`stageRefusal`). A mind that works
+ * only with one loadout says so in a part's `fits`, and is offered with no other.
  */
-export const modelSupportsMind = (model: BodyModel, mind: MindConfig, loadout: Loadout = EMPTY_LOADOUT, attributes?: AttributeOverrides): boolean =>
-  ([loadout.left, loadout.right].every((item) => item === "empty") || modelHolds(model)) && treeFits(modelHolding(model, loadout, attributes), mind);
+export function modelRefusal(model: BodyModel, mind: MindConfig, loadout: Loadout, entry: readonly EntryRule[], attributes?: AttributeOverrides): string | null {
+  if (![loadout.left, loadout.right].every((item) => item === "empty") && !modelHolds(model)) return `${model} holds nothing`;
+  return stageRefusal(modelHolding(model, loadout, attributes), mind, entry);
+}

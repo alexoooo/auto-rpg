@@ -1,4 +1,5 @@
-import { BODY_MODELS, modelHastes, modelHolding, modelHolds, modelInfo, modelSupportsMind, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHastes, modelHolding, modelHolds, modelInfo, modelRefusal, type BodyModel } from "../core/models.ts";
+import { FIGHT_ENTRY } from "../core/mind/catalog.ts";
 import { hasteFrom } from "../core/human/attributes.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { MINDS } from "../core/mind/controllers.ts";
@@ -170,10 +171,10 @@ export function readControls(search: string): Readonly<Record<Side, Control>> {
 
 /**
  * Pickers and links accept the same choices: the minds a body of `model` carrying `loadout` can carry
- * out (`modelSupportsMind`), so a mind that works with one loadout is offered with no other.
+ * out (`modelRefusal`, a fight's entry rules), so a mind that works with one loadout is offered with no other.
  */
 export function controlsFor(model: BodyModel, loadout: Loadout = EMPTY_LOADOUT, attributes?: AttributeOverrides): readonly Control[] {
-  return Object.keys(MINDS).filter((control) => modelSupportsMind(model, MINDS[control]!.config, loadout, attributes));
+  return Object.keys(MINDS).filter((control) => modelRefusal(model, MINDS[control]!.config, loadout, FIGHT_ENTRY, attributes) === null);
 }
 
 /** The choice a side starts on: its model's own mind (`modelInfo`) where it is offered, else the first offered. */
@@ -195,7 +196,7 @@ export function linkedMind(search: string, side: Side): LinkedMind {
   let spec;
   try { spec = modelHolding(model, loadout, arenaAttributes(search)[side]); }
   catch { spec = modelHolding(model, loadout); }
-  return parseMind(new URLSearchParams(search).get(mindKey(side)), spec) ?? { config: preset, faults: [] };
+  return parseMind(new URLSearchParams(search).get(mindKey(side)), spec, FIGHT_ENTRY) ?? { config: preset, faults: [] };
 }
 
 /** The sides' minds as `search` carries them (`linkedMind`); a side whose tree has a fault plays its preset whole. */
