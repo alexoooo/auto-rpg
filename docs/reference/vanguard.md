@@ -153,6 +153,31 @@ case keys and row references are retained in
 in `research/runs/vanguard/bouts.jsonl`. This failed matrix is development evidence for a revised
 fighter, which needs fresh confirmation.
 
+## Conservative travel
+
+At `bf2bf77e`, `steadyWalk` bounds stance-walk turns to 0.3 rad/s, with 0.2 rad/s for the first
+two moving seconds. The setting is portable through a mind link and requires the stance walk.
+`routeAround` responds to an unreachable exact attack entry by requesting another point in
+the candidate's range, leaving geometric routing to the navigator. Its regression fixture runs
+the actual navigator from an obstructed point through the feasible replacement and a state fork.
+
+Paired 30 s development screens use the Node Arena Duel, `rapier-coordinate`, 120 Hz, empty
+hands, matched bodies, Balance 0/0, both sides, Options as the opponent and the contact-driven
+configuration as the reference. On the Rogue's open-stage 6.85 m start, the reference falls
+before striking on both sides. Conservative travel has no falls and commits 20 punches on the
+left and 15 on the right, but trails on health on both sides. On the Skeleton court's 6.15 m
+start, it stays upright on both sides while the reference falls on each; it launches no punches
+against the fallen opponent. This is a travel improvement, not a winning qualification.
+The full recipes, rows and exact source are retained under
+`research/runs/vanguard/rejected/entry-50.json` and `research/runs/vanguard/screen.jsonl`.
+
+The fallen-body stall combines head-based low-support entry with centre-based range navigation,
+then a planted support pose unable to travel to its reported punch window. Head-based travel,
+rising to reposition, correction from measured facing and restricting the low repertoire do
+not produce damaging strikes in the 30–60 s screens. Their exact rejected sources, readings and
+diagnostics are retained in `research/runs/vanguard/rejected/entry-{51,53,54,55}.json`. Those
+low-support revisions are not part of the retained implementation.
+
 ## Tried and not kept
 
 The current preset's additional normal-cap development bouts against Options use the same Node
