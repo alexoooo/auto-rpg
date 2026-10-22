@@ -523,7 +523,7 @@ which their Minds carry out while they defend themselves.
 |---|---|
 | Kinds | `COMMANDERS` (`commanders.ts`), by config kind, each with defaults, faults and a maker; `createCommander(host, config)` |
 | Its maker gets | a `TeamHost`: the level as its adapter answers it (`TeamLevel`: sight, room to stand and pass, routes, the explored edge, doors), never the world |
-| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, its footprint, reach, home, navigation report, the limits its legs state (`gait`, `Skills.gait`) and the way they face; every other body the members sense; whether its host has it look this step; a leader's live input (`Lead`: the keys, a walk, the pointer's point and the part it strikes, exploring) |
+| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, what is left of its pool, its footprint, reach, home, navigation report, the limits its legs state (`gait`, `Skills.gait`) and the way they face; every other body the members sense; whether its host has it look this step; a leader's live input (`Lead`: the keys, a walk, the pointer's point and the part it strikes, exploring) |
 | It keeps | its memory in `state`, plain data |
 | It gives | each member's orders (`TeamDecision`), whether it looked, and on asking, whom each fights, what it does and whether it is selected (`MemberReport`), whether it leaves a member idle, and a notice for its leader |
 | It hears | a leader's command (`Command`, `commands.ts`) at once |
@@ -532,15 +532,19 @@ Its host asks it once a step, after the senses and before every Mind. **A person
 (`Command`) are plain data: select, go (a point, or a route drawn with its points growing), attack a
 sensed foe, face (a point, or turned by an angle), hold, stop, regroup, follow a member. Each goes to
 the members selected, and the keys and pointer steer one of them: the one selected, or the leader.
-The Crypt's host is `DungeonRun` (its mouse and keys, `src/dungeon/commands.ts`, `main.ts`); an
+The Crypt's host is `DungeonRun` (its mouse and keys, `src/dungeon/commands.ts`, `main.ts`), each
+side's Commander its options' (`party`, `enemies`: the person's party and a mob unless the page's
+Options or the address, `&party=`, `&enemies=`, name another); an
 Arena side a person takes is a team of one (`teamOfOne`, `src/arena/team.ts`) under the party
 Commander with `picks: false`, asked in the step's sensing phase, its orders taped by the bout
 (`Duel.order`). The kinds:
 
 | Kind | File | Leads |
 |---|---|---|
-| `independent` | `independent.ts` | each member at the nearest foe it sees, on to where it last saw one, else home: the Crypt's enemies |
+| `mob` | `mob.ts` | the members that see a foe spread over the foes they see and, several on one, about it (`spread`, `bearings`, `spread.ts`): each makes for its place at its reach on the bearing it is given, by a waypoint halfway round where that is far round, and closes in from there; one that sees none goes on to where it last saw one, else home: the Crypt's enemies |
+| `independent` | `independent.ts` | each member at the nearest foe it sees, on to where it last saw one, else home: the Crypt's enemies where chosen |
 | `party` | `party.ts` | a person's party: the member the keys steer where they steer it, the leader otherwise exploring, the others after it or where they were sent, each at the foe its order locks or (unless `picks: false`) the nearest it sees; several sent together take slots about the destination at the slowest one's top speed (`travelSpeed`); doors on the way: the Crypt's party, and an Arena side a person takes |
+| `clearer` | `clearer.ts` | a party by itself: its leader (the first standing on its feet) explores the edge of what is seen, then makes for the exit (`TeamLevel.frontier`), waiting for the others, who follow it; foes seen near are the fight, taken on while the party's pools add up to the odds it asks (`POLICY`) and foes keep falling, its members spread over the foes and a hurt one pulling back; from one it cannot win it draws back the way it came, a few times; otherwise it pushes on past its foes, striking what is upon it |
 
 `tests/core-boundary.test.mjs` holds `src/core/command/` to no engine, world, body, enlistment,
 mind host or senses hub; `tests/command-contract.test.mjs` has each kind lead an Arena bout as a

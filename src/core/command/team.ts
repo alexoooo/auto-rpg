@@ -75,6 +75,8 @@ export interface MemberView {
   readonly fighting: boolean;
   /** Whether its body is held: fixed where it is, with nothing driving it. */
   readonly held: boolean;
+  /** What is left of its pool: 1 whole, 0 spent. */
+  readonly vitality: number;
   /** Its footprint's radius, m: what its routes keep clear by. */
   readonly radius: number;
   /** How near its foe it stands to fight, m. */
