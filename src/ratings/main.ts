@@ -4,6 +4,7 @@
  * `&version=` (a subject's history and cases), `&by=` (a battery's condition field), `&case=` (one
  * case). Everything is derived from the records in the page (`analysis.ts`); nothing is played here.
  */
+import { caseHash } from "../arena/case-link.ts";
 import { need as find } from "../dom.ts";
 import { EVALUATIONS } from "../evaluation/evaluations.ts";
 import type { Evaluation, Json } from "../evaluation/evaluation.ts";
@@ -55,6 +56,13 @@ function table(head: readonly string[], rows: readonly (readonly Child[])[], cla
 const fixed = (value: number, digits = 0) => value.toFixed(digits);
 const percent = (share: number) => `${(100 * share).toFixed(0)} %`;
 const estimateText = (estimate: Estimate | null, digits = 3) => estimate === null ? "none" : `${estimate.value.toFixed(digits)} (${estimate.low.toFixed(digits)}–${estimate.high.toFixed(digits)})`;
+/**
+ * Where a case is watched: a bout case opens in the Arena, returning to `back`; an imported case
+ * has no world and is not opened.
+ */
+const watchHref = (line: Kept["lines"][number], record: Kept, back: string): string | null =>
+  line.world?.kind === "bout" ? `?play=arena${caseHash(line.world, { commit: record.header.commit, back })}` : null;
+
 /** A record's name as a short label: its date and commit. */
 const recordLabel = (name: string) => name.replace(/\.jsonl$/, "").split("-").slice(0, 4).join("-");
 
@@ -102,7 +110,7 @@ export async function bootRatings(context: ScreenContext): Promise<void> {
 
   if (address.case !== undefined) {
     crumbs.push(el("span", { textContent: `case ${address.case.slice(0, 12)}` }));
-    show(heading, caseView(findCase(records, address.case), versions));
+    show(heading, caseView(findCase(records, address.case), versions, evaluation.figures, context.address.search));
     return;
   }
 
@@ -113,7 +121,7 @@ export async function bootRatings(context: ScreenContext): Promise<void> {
     const history = historyOf(evaluation, subject, pools, versions);
     const chosen = history.find((row) => row.version.subject.version.version === address.version)?.version
       ?? versions.get(pool.newest.get(subject) ?? "") ?? history.at(-1)?.version ?? null;
-    show(heading, poolList, subjectView(subject, history, pools, chosen, pool, contest, here, labelOf));
+    show(heading, poolList, subjectView(subject, history, pools, chosen, pool, contest, evaluation.figures, here, labelOf, context.address.search));
     return;
   }
 
@@ -194,7 +202,7 @@ function batteryView(evaluation: Evaluation, pool: Pool, by: string | null, here
 
 /** A subject: each version in its history with its parent and standing, and the chosen version's cases in the pool shown. */
 function subjectView(id: string, history: ReturnType<typeof historyOf>, pools: readonly Pool[], chosen: NamedVersion | null, pool: Pool, contest: boolean,
-  here: (address: Address) => string, labelOf: (name: string) => string): HTMLElement {
+  figures: Evaluation["figures"], here: (address: Address) => string, labelOf: (name: string) => string, back: string): HTMLElement {
   const section = el("section", { className: "subject" }, el("h3", { textContent: `${id}: history` }));
   if (history.length === 0) { section.append(el("p", { className: "note", textContent: "No record names this subject." })); return section; }
   const parts = entrantParts(id);
@@ -219,12 +227,13 @@ function subjectView(id: string, history: ReturnType<typeof historyOf>, pools: r
       ...grouped("By condition", casesBy(pool, name, (one) => conditionText(one.line.condition))));
   }
   section.append(el("h4", { textContent: "Each case" }), el("div", { className: "scroll" }, table(contest
-    ? ["Opponent", "Side", "Condition", "Outcome", "Ending", "Seconds", "Margin", ""] : ["Condition", "Reading", ""],
+    ? ["Opponent", "Side", "Condition", "Outcome", "Ending", "Seconds", "Margin", ""] : ["Condition", ...figures.map((figure) => figure.name), ""],
   mine.map((one) => {
-    const seat = one.subjects.indexOf(name), open = link(here({ case: one.line.key }), "case");
+    const watch = watchHref(one.line, pool.records.find((record) => record.name === one.record)!, back);
+    const seat = one.subjects.indexOf(name), open = el("span", {}, link(here({ case: one.line.key }), "case"), watch && " · ", watch && link(watch, "watch"));
     if (one.line.fault) return contest ? [labelOf(other(one, seat)), seat ? "right" : "left", conditionText(one.line.condition), `fault: ${one.line.fault.message}`, "", "", "", open]
-      : [conditionText(one.line.condition), `fault: ${one.line.fault.message}`, open];
-    if (!contest) return [conditionText(one.line.condition), JSON.stringify(one.line.reading), open];
+      : [conditionText(one.line.condition), `fault: ${one.line.fault.message}`, ...figures.slice(1).map(() => ""), open];
+    if (!contest) return [conditionText(one.line.condition), ...figures.map((figure) => figureText(figure.of(one.line.reading!, "left"))), open];
     const reading = one.line.reading as { score: number; margin: number; ending?: string; seconds?: number }, score = seat ? 1 - reading.score : reading.score;
     return [labelOf(other(one, seat)), seat ? "right" : "left", conditionText(one.line.condition), score === 1 ? "won" : score === 0 ? "lost" : "drawn",
       reading.ending ?? "", reading.seconds !== undefined ? fixed(reading.seconds, 1) : "", fixed(seat ? -reading.margin : reading.margin, 3), open];
@@ -232,12 +241,17 @@ function subjectView(id: string, history: ReturnType<typeof historyOf>, pools: r
   return section;
 }
 
+/** A figure's value in one case: a rate's as yes or no, a number to three figures. */
+const figureText = (value: number | boolean | null): string =>
+  value === null ? "none" : typeof value === "boolean" ? (value ? "yes" : "no") : String(Number(value.toPrecision(3)));
+
 /** A case's condition as text, field by field. */
 const conditionText = (condition: Json): string => condition !== null && typeof condition === "object" && !Array.isArray(condition)
   ? Object.entries(condition).map(([key, value]) => `${key} ${fieldText(value)}`).join(", ") : fieldText(condition);
 
 /** One case as its record keeps it. */
-function caseView(found: { record: Kept; line: Kept["lines"][number] } | null, versions: ReadonlyMap<string, NamedVersion>): HTMLElement {
+function caseView(found: { record: Kept; line: Kept["lines"][number] } | null, versions: ReadonlyMap<string, NamedVersion>, figures: Evaluation["figures"],
+  back: string): HTMLElement {
   const section = el("section", { className: "case" });
   if (!found) { section.append(el("p", { className: "note", textContent: "No record of this evaluation holds that case." })); return section; }
   const { record, line } = found, header = record.header;
@@ -249,10 +263,15 @@ function caseView(found: { record: Kept; line: Kept["lines"][number] } | null, v
     ["Record", `${record.name} (commit ${header.commit.slice(0, 8)}, ${header.harness})`],
     ["Subjects", subjects.length ? subjects.join(" against ") : "none"],
     ["Condition", conditionText(line.condition)],
+    ...(line.fault ? [] : [["Figures", figures.map((figure) => `${figure.name} ${figureText(figure.of(line.reading!, "left"))}`).join(", ")] as [string, Child]]),
     [line.fault ? "Fault" : "Reading", el("pre", { textContent: line.fault ? `${line.fault.kind}: ${line.fault.message}` : JSON.stringify(line.reading, null, 1) })],
     ["Digest", line.digest ?? "none"], ["Key", line.key], ["Code", line.code],
-    ["World", line.world === null ? "none kept: an imported run's case, which is not opened" : `${line.world.kind} on ${line.world.engine}`],
+    ["World", line.world === null ? "none kept: an imported run's case, which is not opened"
+      : line.world.kind === "fall" ? `a fall on ${line.world.engine}; not opened, as a fall is not yet the same in every JavaScript engine`
+      : `${line.world.kind} on ${line.world.engine}`],
   ];
+  const watch = watchHref(line, record, back);
+  if (watch) fields.push(["Watch", el("span", {}, link(watch, "Open in the Arena"), " (it plays as this build's code builds it)")]);
   section.append(el("dl", {}, ...fields.flatMap(([term, value]) => [el("dt", { textContent: term }), el("dd", {}, value)])));
   return section;
 }

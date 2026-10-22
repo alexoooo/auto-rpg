@@ -759,7 +759,11 @@ are what bodies meet; `LEVELS` (`src/arena/levels.ts`) selects the open stage or
 whose furniture comes from `src/environment/furniture.ts`. Every Mind gets the stage's fixed
 geometry. The visible room is dressed from the forge kit (`forge-style.ts`, `forge-room.ts`), and
 `validateRoomPlacements` refuses a piece naming a collider the arena lacks, or a solid-looking one
-within reach naming none. `camera.ts` and `view.ts` own the camera and view settings.
+within reach naming none. `camera.ts` and `view.ts` own the camera and view settings. A case from the
+Ratings opens at `#case=` (`case-link.ts`): its world's recipe gives the pickers their choices
+(`caseSearch`), and Fight plays the recipe and tape as the record keeps them, on the case's
+engine, until a choice is changed; the bout is otherwise assembled from the address (`recipeOf`,
+`matchup.ts`). Back returns to the Ratings address the case was opened from.
 
 **The Crypt.** Walls, doors and obstacles are fixed boxes (`buildDungeonWorld`); enemies are built
 as the party comes near. A person's orders reach the party only through the run's plan
@@ -783,7 +787,8 @@ import's source rows are not records) and read once a tab. A contest's newest po
 version's rating with its interval, minds on common ground (each pair's rating difference over the
 kits both have, with how many) and the matchup grid; a battery shows each figure by subject and by
 a condition field (`&by=`). A subject shows each version's parent, what changed and its standing in
-each pool, and its cases by opponent (worst first) and condition; a case shows its record line.
+each pool, and its cases by opponent (worst first) and condition; a case shows its record line,
+and a bout case with its world opens in the Arena; an imported case has none.
 An older pool is listed with what differs from the newest.
 
 **Shared rendering** (`src/render/`, `src/audio/`):

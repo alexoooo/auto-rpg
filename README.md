@@ -73,6 +73,7 @@ Every setting travels in the link, so a bout can be shared or opened directly:
 | `<side>.<attribute>` | `&left.strength=1.5&right.balance=10` |
 | `appearance`, `view`, `camera`, `projection`, `focus` | `&appearance=industrial,relic` |
 | `#tape=` | a bout's orders, played again |
+| `#case=` | a recorded case from the Ratings: its recipe and orders, with its choices in the pickers |
 
 ## The Crypt
 
@@ -107,7 +108,8 @@ pauses, single-steps, scrubs and slows time.
 **Ratings** (`?play=ratings`, also from the Arena and the Lab) shows every evaluation's kept records
 (`assets/evaluations/`) in its task's units: a contest's ratings with their intervals, minds compared
 on the kits both have, and the matchup grid; a battery's figures by subject and by any condition.
-A subject opens its history across versions and pools and its cases, worst matchups first. The
+A subject opens its history across versions and pools and its cases, worst matchups first; a
+bout case recorded with its world opens in the Arena to watch. The
 address keeps what is shown: `&evaluation=`, `&pool=`, `&subject=`, `&version=`, `&by=`, `&case=`.
 
 ## Other pages

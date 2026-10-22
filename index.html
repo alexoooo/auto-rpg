@@ -78,6 +78,8 @@
         <footer class="duel-footer">
           <button id="help-open" class="link" type="button">How to play</button>
           <a href="?play=ratings&amp;evaluation=tournament">Ratings</a>
+          <!-- Where a case opened from the Ratings returns (src/arena/case-link.ts). -->
+          <a id="case-back" hidden>&larr; Back to the case's ratings</a>
           <p class="note" id="boot-note">Loading&hellip;</p>
           <a href="./">&larr; Main menu</a>
         </footer>
@@ -105,6 +107,7 @@
         <button id="bout-end-replay" class="action" type="button">Replay</button>
         <button id="bout-end-random" class="action" type="button">Random replay</button>
         <button id="bout-end-leave" class="action quiet" type="button">Setup</button>
+        <button id="bout-end-back" class="action quiet" type="button" hidden>Ratings</button>
       </aside>
       <div id="help" class="gone">
         <div class="panel">
