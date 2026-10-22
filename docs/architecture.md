@@ -307,7 +307,11 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
 - **Low support** folds the stance onto a planted base for low blows; a kick or fold waits for a
   gait that drives the legs to give them back.
 
-Action selection belongs to tactics, not to an executor.
+Each executor kind is a registered implementation (`ExecutorPart`, `mind/executor-part.ts`): its
+module (`skills/<kind>-part.ts`) owns its config's type, keys, defaults, faults, fit, the effectors
+it strikes with and its maker, and is a line in `EXECUTOR_PARTS` (`mind/executor-parts.ts`), from
+which `ExecutorConfig` follows; `configuredExecutors` (`action-config.ts`) makes a fighter's named
+executors once each. Action selection belongs to tactics, not to an executor.
 
 ### Minds
 

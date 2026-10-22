@@ -1,14 +1,19 @@
 import { takesCommands } from "../mind/parts.ts";
-import type { ExecutorConfig } from "../mind/config.ts";
 import type { ExecutorPart } from "../mind/executor-part.ts";
 import { noPathSettings } from "../mind/executor-part.ts";
 import { text } from "../mind/fields.ts";
-import { BLADE_STRIKE, bladeExecutor, strikesWithBlade, validBladeSettings } from "./blade.ts";
+import { BLADE_STRIKE, bladeExecutor, strikesWithBlade, validBladeSettings, type BladeSettings } from "./blade.ts";
 
-type Cut = Extract<ExecutorConfig, { kind: "blade-cut" }>;
-type Thrust = Extract<ExecutorConfig, { kind: "blade-thrust" }>;
+/** A blade's cut or thrust (`bladeExecutor`), its swing over `BLADE_STRIKE`. */
+interface Blade<K extends "blade-cut" | "blade-thrust"> {
+  readonly kind: K;
+  readonly name: string;
+  readonly tuning?: Partial<BladeSettings>;
+}
+type Cut = Blade<"blade-cut">;
+type Thrust = Blade<"blade-thrust">;
 const common = {
-  role: "executor" as const, stage: "experimental" as const, slots: [],
+  role: "executor" as const, stage: "experimental" as const, slots: [], keys: { kind: true, name: true, tuning: true } as const,
   tuning: Object.keys(BLADE_STRIKE), fits: takesCommands, effectors: ["hand.left", "hand.right"], actionFaults: noPathSettings,
   faults: (config: Cut | Thrust) => validBladeSettings({ ...BLADE_STRIKE, ...config.tuning }) ? [] : ["invalid blade settings"],
 };

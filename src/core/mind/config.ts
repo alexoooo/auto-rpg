@@ -1,17 +1,13 @@
 import type { StandUpConfig } from "./ground/stand-up.ts";
 import type { SubMindConfig } from "./sub-minds.ts";
+import type { ExecutorConfig } from "./executor-parts.ts";
 import type { REPTILE_BITE } from "../reptile/tuning.ts";
 import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
-import type { AttackTuning } from "../skills/attack-path.ts";
-import type { CombatExecution, DrivenStrike } from "../skills/combat.ts";
-import { STRAIGHT_PUNCH, type StraightPunch } from "../skills/straight-punch.ts";
-import { COMBINATION, type Combination } from "../skills/combination.ts";
+import { STRAIGHT_PUNCH } from "../skills/straight-punch.ts";
+import { COMBINATION } from "../skills/combination.ts";
 import type { NavigationConfig } from "./navigation.ts";
 import type { LocomotionConfig } from "./locomotions.ts";
 import type { MoveConfig } from "../skills/move-part.ts";
-import type { Placed } from "../skills/strike.ts";
-import type { Repertoire } from "../skills/strikes.ts";
-import type { WholeBodyDrive } from "../skills/whole-body-strike.ts";
 import type { OpeningTuning } from "./openings.ts";
 import type { Covering } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
@@ -68,63 +64,8 @@ interface CoverGuardConfig {
 /** A cover guard that also turns an item's declared face toward the threat. */
 interface ShieldGuardConfig extends Omit<CoverGuardConfig, "kind"> { readonly kind: "shield-guard" }
 
-/** **The recipe strike**: the searched recipe blows for what a hand holds (`recipeExecutor`, `skills/strike.ts`). */
-interface RecipeStrikeConfig {
-  readonly kind: "recipe-strike";
-  readonly tuning?: {
-    /** Strikes in place of the searched repertoire (`REPERTOIRE`): a search's candidate. */
-    readonly repertoire?: Repertoire;
-    /** The placed blow in place of `PLACED`: a sweep's cell. */
-    readonly placed?: Placed;
-    /** The most a blow turns the pelvis in place of `STEER`: a sweep's cell. */
-    readonly steer?: number;
-  };
-}
-
-/** **The path strike**: a hand path carried out on the strike cycle (`pathExecutor`, `skills/combat.ts`). */
-interface PathStrikeConfig {
-  readonly kind: "path-strike";
-  /** Whether a hand may begin while the other is still returning. */
-  readonly overlap: boolean;
-  readonly tuning?: {
-    /** The hands' paths over `ATTACK_PATH`. */
-    readonly paths?: Partial<AttackTuning>;
-    readonly execution?: CombatExecution;
-  };
-}
-
-/** **The driven strike** (`DrivenStrike`, `skills/combat.ts`): the path strike with its trunk driven into the swing. */
-interface DrivenStrikeConfig extends DrivenStrike {
-  readonly kind: "driven-strike";
-  readonly tuning?: PathStrikeConfig["tuning"];
-}
-
-/** **The whole-body strike** (`wholeBodyExecutor`, `skills/whole-body-strike.ts`): one torque solve over the whole body under a blow, its fist driven by `drive`. */
-interface WholeBodyStrikeConfig {
-  readonly kind: "whole-body-strike";
-  readonly drive: WholeBodyDrive;
-}
-
-/** **The straight punch** (`straightPunchExecutor`, `skills/straight-punch.ts`): the arm driven flat out at a lined-up contact pose, its settings these. */
-interface StraightPunchConfig extends StraightPunch {
-  readonly kind: "straight-punch";
-}
-
-/** **The combination** (`combinationExecutor`, `skills/combination.ts`): two straight punches, one hand then the other, its settings these. */
-interface CombinationConfig extends Combination {
-  readonly kind: "combination";
-}
-
-/** **The front kick** with either foot (`kickExecutor`), its configured swing tuning. */
-interface FrontKickConfig {
-  readonly kind: "front-kick";
-  readonly tuning?: Partial<KickTuning>;
-}
-
-/** Named execution state shared only by actions that explicitly refer to it. */
-type BladeStrikeConfig = { [K in "blade-cut" | "blade-thrust"]: { readonly kind: K; readonly tuning?: Partial<import("../skills/blade.ts").BladeSettings> } }["blade-cut" | "blade-thrust"];
-
-export type ExecutorConfig = (RecipeStrikeConfig | PathStrikeConfig | DrivenStrikeConfig | WholeBodyStrikeConfig | StraightPunchConfig | CombinationConfig | FrontKickConfig | BladeStrikeConfig) & { readonly name: string };
+/** **An executor's config**, by kind (`EXECUTOR_PARTS`, `executor-parts.ts`). */
+export type { ExecutorConfig };
 
 /** A configured attack's identity, anatomical choices and its executor-specific motion settings. */
 export interface ActionConfig {
