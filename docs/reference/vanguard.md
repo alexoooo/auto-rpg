@@ -4,9 +4,9 @@ Vanguard remains unqualified against the requested field. Its calibrated preset 
 committed point prediction, contact-driven attack/evasion choice and editable motor profiles
 for its own body. The Skeleton refreshes its opening through preparation and pins it at commitment;
 this improves its current four-case Options development panel from 0/4 to 2/4. The profiles select
-the stronger development configurations for the Warrior, Rogue and Skeleton. The braced-gait preset at `8b0ef68e` fails its fresh Options campaign with
-zero wins and three losses in three completed cases. The three earlier qualification campaigns
-also fail. Equipment is unqualified.
+the stronger development configurations for the Warrior, Rogue and Skeleton. The preparation-aim
+preset at `d68ad7e7` fails its fresh Options campaign with one win and three losses in four
+completed cases. The four earlier qualification campaigns also fail. Equipment is unqualified.
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -336,6 +336,31 @@ Both wins contain committed punches and target contacts: 68 commits and 13 conta
 stage, 67 and 17 on the court. The right court case has no committed punch under either preset;
 both fall three times. The selected change improves preparation aim; the panel still exposes a
 case that fails before a punch commits. Equipment and fresh conditions remain unqualified.
+
+## Preparation-aim campaign
+
+The frozen preset at `d68ad7e7` fails its fifth fresh Options matrix: one win and three losses
+in four completed Skeleton cases. Eight Warrior and Rogue cases remain unplayed after the third
+non-win makes ten wins in twelve impossible. This is a failed qualification campaign, not an
+estimate of the complete opponent field's win rate.
+
+Harness: Node Arena Duel, vendored `rapier-coordinate`, 120 Hz, matched bodies, empty hands,
+Balance 0/0, zero sense delay, falls continuing to injury or 120 s. The frozen recipe selection,
+fighter, harness source and complete/unfinished case records remain in
+`research/runs/vanguard/qualification/conditions-5.json`, `fighter-5.json`, `harness-5.json` and
+`campaign-5-options.json`. Starting gaps are selected before playing by the recorded hash rule,
+excluding retained development and diagnostic geometries; every selected nonce is zero.
+
+| Level / gap | Side | Outcome | Candidate falls |
+| --- | --- | --- | ---: |
+| Court / 5.92 m | Left | Time-limit loss | 0 |
+| Court / 5.92 m | Right | Fatal-injury loss at 118.75 s | 0 |
+| Open / 3.24 m | Left | Time-limit win | 1 |
+| Open / 3.24 m | Right | Time-limit loss | 1 |
+
+Both court cases commit punches, so these losses do not depend on failing to enter a stroke.
+The open-stage winner commits five punches and falls at 14.2167 s, staying down to the cap;
+that win does not establish controlled recovery. These conditions become development evidence.
 
 ## Tried and not kept
 
