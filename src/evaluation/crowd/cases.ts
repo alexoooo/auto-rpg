@@ -6,6 +6,7 @@
  *
  * - `reversal`: the party of four on a generated level (`generateLevel`), walked away from a
  *   resting enemy until it is held, then back to the start until it is let go, and on to the start;
+ *   not reached where the enemy sees one of the party as it begins;
  * - `lone`: one body sent across a room and turned back under way;
  * - `following`: a leader turned back under way into the companion following it;
  * - `crossing`: two pairs sent across a room to each other's places, their paths crossing at its middle;
@@ -115,7 +116,8 @@ export function crowdCase(situation: Situation, seed: number, mind: MindConfig):
         layout: { floor: floorRows(map), doors: map.doors.map((door) => ({ ...door, point: { ...door.point } })), obstacles: map.obstacles ?? [],
           start: map.start, exit: map.exit, spawns: map.spawns },
         script: [
-          { acts: [], until: { kind: "seconds", seconds: 1 }, most: 2 },
+          // The enemy at rest, beyond sight of the party: where a companion stands in its sight, the case is not reached.
+          { acts: [], until: { kind: "unaware", enemy: "enemy-0", seconds: 1 }, most: 1.5, fixture: true },
           { acts: [order(PARTY, away)], until: { kind: "held", enemy: "enemy-0", held: true }, most },
           { acts: [order(PARTY, map.start)], until: { kind: "held", enemy: "enemy-0", held: false }, most },
           { acts: [], until: { kind: "arrived", members: PARTY }, most }, settle] };

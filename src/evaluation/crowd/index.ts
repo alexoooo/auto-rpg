@@ -35,7 +35,8 @@ export const CROWD: Evaluation<CrowdCondition, CryptReading> = {
   figures: [
     { name: "no fall", unit: "share of cases", kind: "rate", better: "higher", of: (r) => r.falls.length === 0 },
     { name: "falls", unit: "a case", kind: "mean", better: "lower", of: (r) => r.falls.length },
-    { name: "done", unit: "share of cases", kind: "rate", better: "higher", of: (r) => r.done !== null },
+    { name: "done", unit: "share of cases reached", kind: "rate", better: "higher", of: (r) => r.reached ? r.done !== null : null },
+    { name: "not reached", unit: "share of cases", kind: "rate", better: "lower", of: (r) => !r.reached },
     { name: "time to done", unit: "s, of those done", kind: "median", better: "lower", of: (r) => r.done },
     { name: "members pushed apart", unit: "steps", kind: "mean", better: "lower", of: (r) => r.contactSteps },
     { name: "pushed on the fallen", unit: "steps", kind: "mean", better: "lower", of: (r) => r.fallenContactSteps },
@@ -48,7 +49,7 @@ export const CROWD: Evaluation<CrowdCondition, CryptReading> = {
         `${subject.label} (${sha256Text(recordingKey(subject.value)).slice(0, 16)})`, "",
         "| Situation | Seed | Legs | Done, s | Falls | Members pushed apart, steps | On the fallen, steps |", "|---|---|---|---|---|---|---|",
         ...rows.filter((row) => row.subject === subject.id).map((row) =>
-          `| ${row.situation} | ${row.seed} | ${row.legs}/${row.of} | ${row.done?.toFixed(2) ?? "not done"} | ${row.falls.map((fall) => `${fall.member} ${fall.time.toFixed(2)}`).join(", ") || "none"} | ${row.contactSteps} | ${row.fallenContactSteps} |`),
+          `| ${row.situation} | ${row.seed} | ${row.legs}/${row.of} | ${row.done?.toFixed(2) ?? (row.reached ? "not done" : "not reached")} | ${row.falls.map((fall) => `${fall.member} ${fall.time.toFixed(2)}`).join(", ") || "none"} | ${row.contactSteps} | ${row.fallenContactSteps} |`),
         "",
       ]),
       json: rows as unknown as Json,

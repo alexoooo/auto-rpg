@@ -40,18 +40,25 @@ export type CryptAct = { readonly kind: "command"; readonly members: readonly st
 /**
  * When a leg is done: every member named has carried out its order (its Commander says it holds or
  * stands, `MemberReport.task`); a member has gone `metres` from where the leg began; an enemy is
- * held, or not; or `seconds` have passed.
+ * held, or not; `seconds` have passed; or `seconds` have passed and an enemy fights nobody
+ * (`MemberReport.target`).
  */
 export type CryptUntil = { readonly kind: "arrived"; readonly members: readonly string[] }
   | { readonly kind: "gone"; readonly member: string; readonly metres: number }
   | { readonly kind: "held"; readonly enemy: string; readonly held: boolean }
-  | { readonly kind: "seconds"; readonly seconds: number };
+  | { readonly kind: "seconds"; readonly seconds: number }
+  | { readonly kind: "unaware"; readonly enemy: string; readonly seconds: number };
 
-/** A leg of the script: what it does, when it is done, and the most it may take, s; a leg not done in time ends the case. */
+/**
+ * A leg of the script: what it does, when it is done, and the most it may take, s; a leg not done in
+ * time ends the case. A leg that brings about what the case is of (`fixture`), not done in time, ends
+ * it unreached: the case says so, and its legs are not the motion's to fail.
+ */
 export interface CryptLeg {
   readonly acts: readonly CryptAct[];
   readonly until: CryptUntil;
   readonly most: number;
+  readonly fixture?: true;
 }
 
 /**
@@ -70,9 +77,11 @@ export interface CryptCase {
 /**
  * What a run came to: the legs done of all, and when the last was done (null, not all); each fall
  * of a party member in the fight, by id and time, s; the steps on which any two party members'
- * bodies were pushed apart, both in the fight and one of them out of it; and the time read to, s.
+ * bodies were pushed apart, both in the fight and one of them out of it; the time read to, s; and
+ * whether its fixture's legs were all done (`CryptLeg.fixture`).
  */
 export type CryptReading = {
+  readonly reached: boolean;
   readonly legs: number;
   readonly of: number;
   readonly done: number | null;
@@ -120,7 +129,7 @@ export async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<
   const run = new DungeonRun(scene, { ...options, prepared, engine: await loadEngine(engine), visuals: false,
     mind: (participant) => participant.side === "party" ? crypt.mind ?? null : null, party: crypt.commanders?.party, enemies: crypt.commanders?.enemies });
   const party = run.party, falls: { member: string; time: number }[] = [], down = new Map<string, boolean>(), slain = new Set<string>();
-  let leg = -1, began = 0, from: Point | null = null, pending: CryptAct[] = [], done: number | null = null, ended = false, contactSteps = 0, fallenContactSteps = 0;
+  let reached = true, leg = -1, began = 0, from: Point | null = null, pending: CryptAct[] = [], done: number | null = null, ended = false, contactSteps = 0, fallenContactSteps = 0;
   const member = (id: string) => {
     const found = party.find((one) => one.id === id);
     if (!found) throw new Error(`no party member ${id}`);
@@ -156,6 +165,7 @@ export async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<
       case "gone": return distance(member(until.member).feet(), from!) >= until.metres;
       case "held": { const enemy = actor(until.enemy); return enemy.alive && enemy.held === until.held; }
       case "seconds": return run.clock - began >= until.seconds;
+      case "unaware": return run.clock - began >= until.seconds && run.report(actor(until.enemy)).target === null;
       default: { const never: never = until; throw new Error(`no condition ${JSON.stringify(never)}`); }
     }
   };
@@ -193,9 +203,9 @@ export async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<
         if (leg + 1 >= crypt.script.length) { done = run.clock; ended = true; return; }
         begin(leg + 1);
         if (pending.length) act();
-      } else if (run.clock - began > current.most) ended = true;
+      } else if (run.clock - began > current.most) { ended = true; reached = !current.fixture; }
     },
-    reading: () => ({ legs: done !== null ? crypt.script.length : leg, of: crypt.script.length, done, falls: falls.map((fall) => ({ ...fall })),
+    reading: () => ({ reached, legs: done !== null ? crypt.script.length : leg, of: crypt.script.length, done, falls: falls.map((fall) => ({ ...fall })),
       contactSteps, fallenContactSteps, seconds: run.clock }),
     dispose() { run.dispose(); scene.dispose(); babylon.dispose(); },
   };
