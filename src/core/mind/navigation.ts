@@ -75,6 +75,31 @@ function footprints(solids: readonly SolidSense[], height: number, floor = 0): r
 /** No solid sensed. */
 const NO_SOLIDS: readonly SolidSense[] = Object.freeze([]);
 
+/** Whether two sensed solids are the same: the same name, kind and numbers. */
+function sameSolid(a: SolidSense, b: SolidSense): boolean {
+  if (a.name !== b.name || a.centre[0] !== b.centre[0] || a.centre[1] !== b.centre[1] || a.centre[2] !== b.centre[2]) return false;
+  switch (a.kind) {
+    case "box": return b.kind === "box" && a.turn === b.turn && a.size[0] === b.size[0] && a.size[1] === b.size[1] && a.size[2] === b.size[2];
+    case "hull": {
+      if (b.kind !== "hull" || a.points.length !== b.points.length) return false;
+      for (let i = 0; i < a.points.length; i++) {
+        const p = a.points[i]!, q = b.points[i]!;
+        if (p[0] !== q[0] || p[1] !== q[1] || p[2] !== q[2]) return false;
+      }
+      return true;
+    }
+    default: { const never: never = a; throw new Error(`unknown sensed solid ${never}`); }
+  }
+}
+
+/** Whether two lists of sensed solids are the same, solid by solid: at once where they are one list, as the senses give one until the geometry changes. */
+function sameSolids(a: readonly SolidSense[], b: readonly SolidSense[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (!sameSolid(a[i]!, b[i]!)) return false;
+  return true;
+}
+
 /**
  * `footprints` in objects made once for each solid of the array sensed and moved to each call's
  * height in place: what it gives is read before the next call, and nothing keeps it.
@@ -162,9 +187,13 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
   const baseRadius = bodyClearance(spec) + NAV.margin, carriedRadius = heldClearance(spec);
   const radiusOf = (view: NavigationSight["view"]) => Math.max(baseRadius, carriedRadius(view) + NAV.margin);
   const printsOf = footprinter();
-  const state = { request: null as MovementRequest | null, solids: "", route: [] as GroundPoint[], waypoint: 0, goal: null as GroundPoint | null,
+  /**
+   * `solids` and `fallen` are the geometry its route was found in: the solids sensed and its own
+   * side's fallen bodies (`fallenSolids`); `failure` keeps the same of a search that found none.
+   */
+  const state = { request: null as MovementRequest | null, solids: null as readonly SolidSense[] | null, fallen: NO_SOLIDS, route: [] as GroundPoint[], waypoint: 0, goal: null as GroundPoint | null,
     focus: null as GroundPoint | null,
-    failure: null as { from: GroundPoint; geometry: string; radius: number; focus: GroundPoint | null } | null,
+    failure: null as { from: GroundPoint; solids: readonly SolidSense[]; fallen: readonly SolidSense[]; radius: number; focus: GroundPoint | null } | null,
     progress: null as GroundPoint | null, bestRemaining: null as number | null, lastProgress: 0, lastTime: null as number | null, clearance: baseRadius,
     /** Whether its own side's bodies held its walk back at the last step (`crowdWalk`). */
     held: false,
@@ -187,7 +216,8 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
      */
     step(sight: NavigationSight, request: MovementRequest | null, gait: GaitLimits, ceiling: number, dt: number, available = true, travelFacing = false): { readonly move: readonly [number, number] | null; readonly face: number | null; readonly destination?: number } {
       const { view, report } = sight, centre = view.stance.centre, here = { x: centre.x, z: centre.z };
-      let solids = printsOf(view.senses.solids ?? NO_SOLIDS, centre.y, view.stance.support?.y);
+      const sensed = view.senses.solids ?? NO_SOLIDS;
+      let solids = printsOf(sensed, centre.y, view.stance.support?.y);
       // Its own side's fallen bodies are fixed solids to route round, but the body it ranges about.
       const fallen = fallenSolids(view.senses, request?.kind === "range" ? request.focus : null);
       if (fallen.length) solids = [...solids, ...footprints(fallen, centre.y, view.stance.support?.y)];
@@ -229,17 +259,16 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
         update(move ? "moving" : "stopped", null, null);
         return { move, face: hypot(direction.x, direction.z) > 0 ? atan2(direction.x, direction.z) : null };
       }
-      const geometry = fallen.length ? JSON.stringify([...view.senses.solids ?? [], ...fallen]) : JSON.stringify(view.senses.solids ?? []);
       const focus = request.kind === "range" ? view.senses.others.find(other => other.id === request.focus && !other.out) : null;
       const focusAt = focus ? { x: focus.centre.x, z: focus.centre.z } : null;
       const failure = state.failure;
-      if (failure && failure.geometry === geometry && apart(failure.from, here) < NAV.moved && Math.abs(failure.radius - radius) < NAV.margin
+      if (failure && sameSolids(failure.solids, sensed) && sameSolids(failure.fallen, fallen) && apart(failure.from, here) < NAV.moved && Math.abs(failure.radius - radius) < NAV.margin
         && (focusAt && failure.focus ? apart(focusAt, failure.focus) < NAV.moved : focusAt === failure.focus)) {
         update("unreachable", null, state.goal); return { move: null, face: null };
       }
       state.failure = null;
       const unreachable = (goal: GroundPoint | null) => {
-        state.failure = { from: here, geometry, radius, focus: focusAt };
+        state.failure = { from: here, solids: sensed, fallen, radius, focus: focusAt };
         state.route = []; state.goal = goal; update("unreachable", null, goal);
         return { move: null, face: null };
       };
@@ -298,9 +327,11 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
         }
       }
       const moved = !state.goal || apart(state.goal, goal) > NAV.moved;
-      if (!state.route.length || moved || state.solids !== geometry || Math.abs(radius - state.clearance) > NAV.margin) {
-        if (moved || state.solids !== geometry) { state.bestRemaining = null; state.lastProgress = view.time; }
-        state.solids = geometry; state.goal = { ...goal }; state.clearance = radius;
+      const reshaped = !state.solids || !sameSolids(state.solids, sensed) || !sameSolids(state.fallen, fallen);
+      if (!reshaped) state.solids = sensed;
+      if (!state.route.length || moved || reshaped || Math.abs(radius - state.clearance) > NAV.margin) {
+        if (moved || reshaped) { state.bestRemaining = null; state.lastProgress = view.time; }
+        state.solids = sensed; state.fallen = fallen; state.goal = { ...goal }; state.clearance = radius;
         state.route = config.kind === "visibility-navigation" ? [...navigationPath(here, aim, solids, radius, centre.y)]
           : clearStep(atHeight(here, centre.y), atHeight(aim, centre.y), radius, solids) ? [{ ...aim }] : [];
       }
