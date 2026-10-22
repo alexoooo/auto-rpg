@@ -858,9 +858,11 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   computed with the core's `exp` and `log`, a draw half a win, each entrant given half a game drawn
   against the field; intervals from refits to the pairs resampled whole. No strength is carried
   across pools.
-- **Falls** (`fall.ts`): a body shoved, dropped or placed on the ground of the Lab's Stand-up mode,
-  its stand verified (`STAND_CHECK`), on Rapier; not bit-equal between JavaScript engines, as a bout
-  is. `rising-target` plays the owner's 64 falls and reports the target's gates; `equipped-rise` the
+- **Falls** (`fall.ts`): one body of any model under any mind, on Rapier; not bit-equal between
+  JavaScript engines, as a bout is. A fighter on a body the command layers read is shoved, dropped
+  or placed on the ground of the Lab's Stand-up mode, its stand verified (`STAND_CHECK`); any other
+  is built standing as a fight builds it, shoved, and read by the fight's down rule
+  (`buildLoneFall`), and a condition that bed cannot play is refused with why. `rising-target` plays the owner's 64 falls and reports the target's gates; `equipped-rise` the
   same shoves with sword and buckler and with the club. A subject is a riser: a mind's recovery on
   the bed's host (`risingMind`, `rising.ts`, which also holds the bed's jobs and report).
 - **Crypt runs** (`crypt.ts`): a laid-out level, the party under one mind or each member under its

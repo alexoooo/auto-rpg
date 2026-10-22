@@ -110,7 +110,7 @@ export async function risingTrial(job: RisingJob, { subs, stop }: {
   try {
     while (!built.ended) {
       built.world.step();
-      if (stop?.(built.world, built.body, built.actor)) break;
+      if (stop?.(built.world, built.body, built.actor!)) break;
       built.afterStep();
     }
     const cap = Math.min(30, job.cap ?? 30);
