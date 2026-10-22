@@ -11,5 +11,4 @@ export interface FileEntry {
   readonly data?: Readonly<Record<string, string>>;
 }
 export type FileTable = Readonly<Record<string, FileEntry>>;
-export function readFileTable(): FileTable;
 export function fileTable(): FileTable;

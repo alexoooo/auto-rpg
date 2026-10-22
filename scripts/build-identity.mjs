@@ -145,11 +145,10 @@ function storeModules(file, { source, ts }) {
 /**
  * **The file table**: every build input by path with the SHA-256 of its content (line endings
  * normalised), and for a module what it imports (`importsOf`); the kinds list names its kinds'
- * modules (`kinds`) and the store its data's (`data`). What a case's code is drawn from, in Node
- * (`fileTable`, read once a process) and in the browser, where the Vite plugin
- * `recording-build-identity` emits it (`buildFiles`, `src/build-identity.ts`).
+ * modules (`kinds`) and the store its data's (`data`). What a case's code is drawn from
+ * (`fileTable`, read once a process).
  */
-export function readFileTable() {
+function readFileTable() {
   const files = {};
   for (const file of buildInputs().sort()) {
     const content = contentOf(ROOT, file), entry = { hash: createHash("sha256").update(content).digest("hex") };

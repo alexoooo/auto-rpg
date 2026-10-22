@@ -681,9 +681,8 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
   What runs write (`OUTPUTS`: the minds' notes, `assets/evaluations/`, generated art delivery files) is not in
   it. Evaluation records and research bout pools carry it and refuse a mismatch.
 - **The file table** (`fileTable`, `scripts/build-identity.mjs`): each build input's hash, and each
-  module's imports read with TypeScript's parser (`importsOf`); Vite emits it beside the
-  fingerprint (`buildFiles`, `src/build-identity.ts`). **A case's code** (`caseCoder`) is drawn
-  from it: the environment, the static import closure (`closureOf`) of `src/evaluation/play.ts` and
+  module's imports read with TypeScript's parser (`importsOf`). **A case's code** (`caseCoder`) is
+  drawn from it: the environment, the static import closure (`closureOf`) of `src/evaluation/play.ts` and
   the case module with the lockfile and the solvers, cut at the kinds list, the build's identity and
   the mind data store (`CUTS`); then each kind of mind the case plays adds its own code (its
   module's closure beyond the environment, and `assets/entrants/<kind>/`), and each mind data key

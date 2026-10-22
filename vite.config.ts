@@ -1,14 +1,13 @@
 import { defineConfig } from "vite";
-import { currentBuildIdentity, readFileTable } from "./scripts/build-identity.mjs";
+import { currentBuildIdentity } from "./scripts/build-identity.mjs";
 
 const identityModule = decodeURIComponent(new URL("./src/build-identity.ts", import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, "$1");
 
 export default defineConfig({
   plugins: [{ name: "recording-build-identity", enforce: "pre",
     load(id) {
-      // The identity and the file table a case's code is drawn from (`caseCoder`), as Node reads them.
-      if (id.replaceAll("\\", "/") === identityModule) return `export const BUILD_IDENTITY = ${JSON.stringify(currentBuildIdentity())};\n`
-        + `const FILES = ${JSON.stringify(readFileTable())};\nexport const buildFiles = () => FILES;\n`;
+      // The identity as Node reads it.
+      if (id.replaceAll("\\", "/") === identityModule) return `export const BUILD_IDENTITY = ${JSON.stringify(currentBuildIdentity())};\n`;
     },
     handleHotUpdate(context) {
       const module = [...context.server.moduleGraph.idToModuleMap.values()].find(module => module.file?.replaceAll("\\", "/") === identityModule);
