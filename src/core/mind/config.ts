@@ -8,7 +8,7 @@ import type { REPTILE_BITE } from "../reptile/tuning.ts";
 import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
 import { STRAIGHT_PUNCH } from "../skills/straight-punch.ts";
 import { COMBINATION } from "../skills/combination.ts";
-import type { LocomotionConfig } from "./locomotions.ts";
+import type { LOCOMOTIONS } from "./locomotions.ts";
 import type { MoveConfig } from "../skills/move-part.ts";
 import type { ConfigOf, PartConfig } from "./parts.ts";
 import type { OpeningTuning } from "./openings.ts";
@@ -22,6 +22,9 @@ export type SubMindConfig = ConfigOf<typeof SUB_MINDS>;
 
 /** **A stock motor control's config**, by kind (`MOTORS`). */
 export type MotorConfig = ConfigOf<typeof MOTORS>;
+
+/** **The legs' skill's config**, by kind (`LOCOMOTIONS`). */
+export type LocomotionConfig = ConfigOf<typeof LOCOMOTIONS>;
 
 /** Focus is selected once for all behaviours in a control step. */
 export type FocusRuleConfig = { readonly kind: "ordered" | "current" } | { readonly kind: "nearest"; readonly prefer: "standing" | "standing-first" };

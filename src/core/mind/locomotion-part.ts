@@ -2,7 +2,7 @@ import type { Body } from "../body.ts";
 import type { Locomotion } from "../skills/locomotion.ts";
 import type { KeysOf, Part, PartConfig } from "./parts.ts";
 
-/** Legs of any registered kind (`LOCOMOTION_PARTS`): how Move makes the gaits it chooses among. */
+/** Legs of any registered kind (`LOCOMOTIONS`), as a lookup finds them (`legsOf`, `kit.ts`): how Move makes the gaits it chooses among. */
 export interface Legs {
   make(body: Body, config: PartConfig): Locomotion;
   /** Whether legs of `config` may run (`Locomotion.runs`), undefined for legs that are not told. */

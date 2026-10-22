@@ -280,8 +280,9 @@ actions over it.
 
 Each kind is a registered implementation (`LocomotionPart`, `src/core/mind/locomotion-part.ts`): its
 own module beside its skill (`skills/<kind>-part.ts`) owns its config's type, keys, defaults,
-faults, fit and maker, and is a line in `LOCOMOTION_PARTS` (`mind/locomotions.ts`), from which the
-slot's config type (`LocomotionConfig`) and the maker (`legsOf`) follow. The legs it makes state
+faults, fit and maker, and is a line in `LOCOMOTIONS` (`mind/locomotions.ts`, a role list), from which the
+slot's config type (`LocomotionConfig`) follows; `legsOf` (`mind/kit.ts`) makes the legs a config
+names as the lookup finds them, and Move makes its gaits' legs the same way (`Legs`). The legs it makes state
 their limits to the speed rule: what they hold (`Locomotion.envelope`) and how fast they stop
 (`Locomotion.stopping`); Move's rules (`MOVE_RULE_PARTS`) are in Move's module.
 
@@ -414,7 +415,7 @@ slots (`slotOne`, `slotList`, `slotsOf`), `defaults`, `fits`, `faults` and `need
 screen must give). `allParts` (`catalog.ts`) is every part by kind: the parts below a mind, each
 mind, and each mind's own parts (`Controller.parts`), read once on first use so that any module may
 load first. A role whose parts make themselves has a list of them that holds its imports and its
-list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `GUARDS`, `SUPPORTS`, `SUB_MINDS` in
+list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `GUARDS`, `SUPPORTS`, `SUB_MINDS`, `LOCOMOTIONS` in
 `src/core/mind/`; `MOTORS` in `src/core/control/`), so a case's code begins each part's own
 code there; its parts make what they are (`NavigatorPart.make`), and an assembly makes the one a
 config names as the host's lookup finds it. A part whose checks read the parts it names is handed

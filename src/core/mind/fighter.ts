@@ -7,10 +7,9 @@ import type { BodyHost } from "./host.ts";
 import type { ActionConfig, FighterConfig, SkillKit } from "./config.ts";
 import { actionConfigFaults, armedActions, configuredActionEstimates, configuredExecutors } from "./action-config.ts";
 import type { MindWiring } from "./minds.ts";
-import { legsOf } from "./locomotions.ts";
 import type { PartLookup } from "./lookup.ts";
 import { navigatorOf } from "./navigator.ts";
-import { motorOf, subMindsOf } from "./kit.ts";
+import { legsOf, motorOf, subMindsOf } from "./kit.ts";
 import { tacticsOf } from "./tactics-of.ts";
 import { driveBy, type Tactics } from "./tactics.ts";
 
@@ -72,7 +71,7 @@ export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given:
 export function fighterSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillKit, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[]): Skills {
   const guard = parts.of("guard", config.guard).make(made.built, config.guard);
   return skillSet(made, driving, {
-    legs: legsOf(made, config.locomotion), navigation: navigatorOf(parts, made.built.spec, config.navigation), guard,
+    legs: legsOf(parts, made, config.locomotion), navigation: navigatorOf(parts, made.built.spec, config.navigation), guard,
     support: config.support ? parts.of("support", config.support).make(made, config.support) : null,
     executors: configuredExecutors(parts, made, clock, guard.posture, config.executors, config.actions, ledger),
     actions: config.actions,

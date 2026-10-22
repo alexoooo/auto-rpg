@@ -5,6 +5,8 @@ import type { Pose } from "../control/motor.ts";
 import type { ReadBody } from "../read-body.ts";
 import type { GuardSkill } from "../skills/guard.ts";
 import type { BodySpec } from "../spec/body.ts";
+import type { Locomotion } from "../skills/locomotion.ts";
+import type { Legs } from "./locomotion-part.ts";
 import type { PartLookup } from "./lookup.ts";
 import type { OwnBody } from "./mind.ts";
 import type { PartConfig } from "./parts.ts";
@@ -20,6 +22,16 @@ export const GAME_MOTOR: PartConfig = Object.freeze({ kind: "whole-body" });
 export function motorOf(parts: PartLookup, config: PartConfig | null | undefined): MotorMaker {
   const named = config ?? GAME_MOTOR;
   return parts.of("motor", named).make(named);
+}
+
+/** Legs of any kind `parts` finds, as Move makes its gaits (`LocomotionPart.make`). */
+function legsFrom(parts: PartLookup): Legs {
+  return { make: (body, config) => legsOf(parts, body, config), runs: (config) => parts.of("locomotion", config).runs?.(config) };
+}
+
+/** **The legs' skill** `config` names for `body`, as `parts` finds it (`LocomotionPart.make`). */
+export function legsOf(parts: PartLookup, body: Body, config: PartConfig): Locomotion {
+  return parts.of("locomotion", config).make(body, config, legsFrom(parts));
 }
 
 /**

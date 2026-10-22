@@ -44,7 +44,7 @@ import { standIntent } from "../src/core/mind/intent.ts";
 import { driveBy } from "../src/core/mind/tactics.ts";
 import { MINDS } from "../src/core/mind/controllers.ts";
 import { CLASSIC, STAND_UP } from "../src/core/mind/config.ts";
-import { LOCOMOTION_PARTS } from "../src/core/mind/locomotions.ts";
+import { LOCOMOTIONS } from "../src/core/mind/locomotions.ts";
 import { LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { BODY_MODELS, HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { quadrupedMind } from "../src/core/reptile/mind.ts";
@@ -441,7 +441,7 @@ const felled = (name, mind) => ({ name: `data: ${name}`, run: () => laidDown(min
 const DATA_CASES = [
   felled("research-rise", { ...CLASSIC, subs: [{ kind: "research-rise" }] }),
   felled("learned-rise", { ...CLASSIC, subs: [{ ...STAND_UP, techniques: ["learned-rise"] }] }),
-  { name: "data: learned-run", run: () => labDataRun({ ...LAB_PRESETS.script.config, locomotion: LOCOMOTION_PARTS["learned-run"].defaults }, 3) },
+  { name: "data: learned-run", run: () => labDataRun({ ...LAB_PRESETS.script.config, locomotion: LOCOMOTIONS["learned-run"].defaults }, 3) },
 ];
 /** The cases in the order they print, the long ones first so that the lanes stay full. */
 const CASES = [

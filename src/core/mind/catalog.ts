@@ -1,13 +1,13 @@
 import type { DataKey } from "../data/store.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { BEHAVIOUR_PARTS } from "./behaviours.ts";
-import type { BehaviourConfig, ExecutorConfig, GuardConfig, MotorConfig, ReflexConfig, SubMindConfig, SupportConfig, TacticsConfig } from "./config.ts";
+import type { BehaviourConfig, ExecutorConfig, LocomotionConfig, GuardConfig, MotorConfig, ReflexConfig, SubMindConfig, SupportConfig, TacticsConfig } from "./config.ts";
 import { CONTROLLERS } from "./controllers.ts";
 import { EXECUTORS } from "./executors.ts";
 import { CONFIG_KEYS } from "./config-keys.ts";
 import { GUARDS } from "./guards.ts";
 import { SUPPORTS } from "./supports.ts";
-import { LOCOMOTION_PARTS, type LocomotionConfig } from "./locomotions.ts";
+import { LOCOMOTIONS } from "./locomotions.ts";
 import { MOVE_RULE_PARTS, type MoveRuleConfig } from "../skills/move-part.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Role } from "./parts.ts";
 import { SUB_MINDS } from "./sub-minds.ts";
@@ -43,7 +43,7 @@ let registry: Registry | null = null;
 function registered(): Registry {
   if (registry) return registry;
   const below: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...listed(SUB_MINDS), ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...MOVE_RULE_PARTS,
-    ...LOCOMOTION_PARTS, ...listed(GUARDS), ...listed(SUPPORTS), ...listed(EXECUTORS), ...REFLEX_PARTS, ...listed(MOTORS), ...listed(NAVIGATIONS) };
+    ...listed(LOCOMOTIONS), ...listed(GUARDS), ...listed(SUPPORTS), ...listed(EXECUTORS), ...REFLEX_PARTS, ...listed(MOTORS), ...listed(NAVIGATIONS) };
   const parts: Record<string, Part> = { ...below }, owners: Record<string, string> = {};
   const add = (kind: string, part: Part, what: string) => {
     if (Object.hasOwn(parts, kind)) throw new Error(`${what} of kind ${JSON.stringify(kind)} is another part's`);

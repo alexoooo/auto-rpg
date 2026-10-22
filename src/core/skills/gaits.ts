@@ -1,4 +1,4 @@
-import type { LocomotionConfig } from "../mind/locomotions.ts";
+import type { LocomotionConfig } from "../mind/config.ts";
 import { deepFreeze } from "../state.ts";
 import { SIMBICON } from "./simbicon.ts";
 import { STRIDE } from "./stride.ts";
