@@ -3,9 +3,9 @@
 Vanguard remains unqualified against the requested field. Its calibrated preset combines
 committed point prediction, contact-driven attack/evasion choice and editable motor profiles
 for its own body. The profiles select the stronger development configurations for the Warrior,
-Rogue and Skeleton. The preset at `15dd986c` fails its fresh Options campaign with three wins
-and three losses in six completed cases. The two earlier qualification campaigns also fail.
-Equipment is unqualified.
+Rogue and Skeleton. The braced-gait preset at `8b0ef68e` fails its fresh Options campaign with
+zero wins and three losses in three completed cases. The three earlier qualification campaigns
+also fail. Equipment is unqualified.
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -192,6 +192,26 @@ and are not losses. Full recipes, keys, readings and row references remain in
 `research/runs/vanguard/qualification/campaign-3-options.json`; physical rows remain in
 `research/runs/vanguard/bouts.jsonl`. This matrix is development evidence for the next revision.
 
+### Braced-gait campaign
+
+The landed preset at `8b0ef68e` fails the fourth preregistered Options matrix. The harness is
+the Node Arena Duel, `rapier-coordinate`, 120 Hz, matched bodies, empty hands, Balance 0/0,
+zero sense delay, falls continuing and the ordinary 120 s cap. Its conditions are frozen in
+`research/runs/vanguard/qualification/conditions-4.json`, using a hash rule that excludes
+previously played geometry without reading outcomes. The Skeleton cells play first to decide
+the limiting result promptly.
+
+| Body / level / gap | Left result | Right result |
+| --- | --- | --- |
+| Skeleton / court / 7.71 m | Loss at 120 s, one late fall | Loss at 120 s, no fall |
+| Skeleton / open / 6.16 m | Loss at 120 s, two falls | Incomplete |
+
+The third loss stops the campaign with zero wins in three completed cases. Nine unfinished
+cases are not counted as losses. Full recipes, keys, pose digests and readings remain in
+`research/runs/vanguard/qualification/campaign-4-options.json`, played source
+`sha256:7700e2c53945a284a7785bb391cb595dcbd7dac983691cb113d61091fec54d9c`.
+These failed conditions are development evidence; a revised fighter needs fresh confirmation.
+
 ## Conservative travel
 
 At `bf2bf77e`, `steadyWalk` bounds stance-walk turns to 0.3 rad/s, with 0.2 rad/s for the first
@@ -342,5 +362,7 @@ Raw development rows, full recipes and source archives are kept under
 | Aiming exclusively at the lower trunk | Against an unassisted standing Skeleton guard, records three committed body contacts within 29.8833 s, versus the reference's one within 30 s. The live Options left bout at 4.73 m loses by fatal injury at 54.4917 s without falling. The diagnostic gain does not survive the fight. Retained in `research/runs/vanguard/diagnostics/abdomen-alignment.json` and `rejected/lower-trunk-target.json`. |
 | Pricing the committed punch with shared option models | With the borrowed head-cover reflex, loses the full left Skeleton bout at 4.73 m by fatal injury at 53.1417 s. Restoring Vanguard's body ward extends the loss to the 120 s cap; neither falls. Both are rejected, with no opposite-side variants. Exact sources and paired readings remain in `research/runs/vanguard/rejected/valued-punch-source.json`, `valued-punch.json`, `valued-body-ward-source.json` and `valued-body-ward.json`. |
 | Ordinary-speed evasion with the conservative Skeleton walk | Loses the limiting full left Options bout at 4.73 m by fatal injury at 95.85 s, without falling. No opposite-side variant follows. Retained in `research/runs/vanguard/rejected/fast-evasion.json`. |
+| Releasing standing recovery controls during the cooldown | Loses the limiting full left Skeleton bout at 4.73 m by fatal injury at 104.05 s, without falling. No opposite-side variant follows. Exact source and paired readings remain in `research/runs/vanguard/rejected/mobile-return-source.json` and `mobile-return.json`. |
+| Letting a standing punch finish its full drive after a blocked contact | Still loses the full left Skeleton bout at 4.73 m at the cap, without falling. No opposite-side variant follows. Retained in `research/runs/vanguard/rejected/follow-through-guard.json`. |
 
 A short exchange is a development filter, not a win counted toward qualification.
