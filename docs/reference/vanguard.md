@@ -2,8 +2,9 @@
 
 The committed-aim punching kit wins 18 of 18 development bouts against the nine existing humanoid
 minds. The supported-low preset wins eight of eight against its four-member panel. These results
-do not establish the requested win rate across opponents and equipment: each opponent has only
-two cases, on one body and stage. The punching kit loses both direct bouts to the original Vanguard.
+do not establish the requested win rate across opponents and equipment. Widening the current
+preset to the Skeleton exposes two losses against Options; it wins both on the Rogue. The
+punching kit also loses both direct bouts to the original Vanguard.
 
 ## What is used
 
@@ -73,6 +74,13 @@ cases, with other bodies, stages, starts and equipment still outside this record
 
 ## Tried and not kept
 
+The current preset's additional normal-cap development bouts against Options use the same Node
+Arena Duel, engine, rate, empty hands, Balance 0/0, open stage and 4 m gap. On the Rogue it wins
+2/2 (one injury, one time limit); on the Skeleton it loses 2/2 at the time limit. Neither body
+falls. Both Skeleton bouts lead at 30 s, so those short leads do not predict the full result.
+These rows and complete recipes are retained in `research/runs/vanguard/bouts.jsonl`, played
+source `sha256:867f9b0b750aab30dda66474101dcf6a836783de357420a9c3fb0ae7f73e3bee`.
+
 Raw development rows, full recipes and source archives are kept under
 `research/runs/vanguard/`; their environments distinguish implementations with the same config.
 
@@ -90,5 +98,9 @@ Raw development rows, full recipes and source archives are kept under
 | Standard front kicks, or a smaller lift with proportionate chamber time | Both split the full Reptile bouts. |
 | Faster kick preparation and recovery | Falls interrupt preparation before commitment. |
 | Early low guard without approach, turning steps or a finite return | It stalls outside reach or cannot leave failed low support. |
+| Alternating the current preset's hands on the Skeleton | Weakens one side of the 30 s screen against Options. |
+| Closing the upright covering hand on the Skeleton | Loses both full Options bouts, one with a fall; exact source is archived in `research/runs/vanguard/rejected/closed-upright-guard.json`. |
+| Aiming the current standing punch at the Skeleton's head | Loses both full Options bouts, one with a fall. |
+| Point-controlled arm acceleration on the Skeleton | Weakens both 30 s exchanges; no full bout follows. |
 
 A short exchange is a development filter, not a win counted toward qualification.
