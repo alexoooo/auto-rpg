@@ -2,6 +2,7 @@ import { commandable } from "../body.ts";
 import type { DataKey } from "../data/store.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { PartField } from "./fields.ts";
+import type { PartLookup } from "./lookup.ts";
 
 /**
  * **What a part does in the mind it is part of**: the interface it carries out. A slot names the
@@ -57,23 +58,23 @@ export interface Part<C extends PartConfig = PartConfig> {
   /**
    * Whether a body of `spec` can carry out what a part of `config` commands: null where it can,
    * otherwise why not, a sentence. The one source of a part's compatibility: construction, the
-   * pickers and evaluation read it (`treeRefusal`).
+   * pickers and evaluation read it (`treeRefusal`). `parts` looks up the parts `config` names.
    */
-  fits(spec: BodySpec, config: C): string | null;
+  fits(spec: BodySpec, config: C, parts: PartLookup): string | null;
   /** Held segments this part uses safely: striking, covering or another declared equipment use. */
-  supportedEquipment?(spec: BodySpec, config: C): readonly string[];
+  supportedEquipment?(spec: BodySpec, config: C, parts: PartLookup): readonly string[];
   /**
    * The effectors its blows strike with on a body of `spec`, as it holds what it holds, or
    * undefined where `config` names no blow of its own: a part that answers is a fighting mind's,
    * which fits only a body it can attack with (`canAttack`), and each segment it names is a
    * declared use of what that segment holds.
    */
-  strikes?(spec: BodySpec, config: C): readonly string[] | undefined;
+  strikes?(spec: BodySpec, config: C, parts: PartLookup): readonly string[] | undefined;
   /**
    * What is wrong with `config` itself, each a sentence, a fault found at a slot prefixed with its
    * key (`blow: `). Its slots' parts answer for their own; it is asked only once each slot holds parts of its role.
    */
-  faults(config: C): readonly string[];
+  faults(config: C, parts: PartLookup): readonly string[];
   /** The mind data a part of `config` reads when built (`dataOf`); none where absent. Its slots' parts answer for their own (`treeData`). */
   reads?(config: C): readonly DataKey[];
 }
@@ -116,8 +117,8 @@ export function anyBody(): string | null {
 }
 
 /** A part's `fits` for a body `test` passes, refusing any other for `reason`. */
-export function fitsWhen<C = PartConfig>(test: (spec: BodySpec, config: C) => boolean, reason: string): (spec: BodySpec, config: C) => string | null {
-  return (spec, config) => test(spec, config) ? null : reason;
+export function fitsWhen<C = PartConfig>(test: (spec: BodySpec, config: C, parts: PartLookup) => boolean, reason: string): (spec: BodySpec, config: C, parts: PartLookup) => string | null {
+  return (spec, config, parts) => test(spec, config, parts) ? null : reason;
 }
 
 /** A part's `fits` for a body that takes the game's commands (`commandable`). */
@@ -126,10 +127,10 @@ export function takesCommands(spec: BodySpec): string | null {
 }
 
 /** A part's `fits` that refuses where the first of `fits` refuses, for its reason. */
-export function fitsAll<C = PartConfig>(...fits: readonly ((spec: BodySpec, config: C) => string | null)[]): (spec: BodySpec, config: C) => string | null {
-  return (spec, config) => {
+export function fitsAll<C = PartConfig>(...fits: readonly ((spec: BodySpec, config: C, parts: PartLookup) => string | null)[]): (spec: BodySpec, config: C, parts: PartLookup) => string | null {
+  return (spec, config, parts) => {
     for (const one of fits) {
-      const refused = one(spec, config);
+      const refused = one(spec, config, parts);
       if (refused !== null) return refused;
     }
     return null;

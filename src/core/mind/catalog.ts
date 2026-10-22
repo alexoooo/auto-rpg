@@ -3,7 +3,7 @@ import type { BodySpec } from "../spec/body.ts";
 import { BEHAVIOUR_PARTS } from "./behaviours.ts";
 import type { BehaviourConfig, ExecutorConfig, ReflexConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { CONTROLLERS } from "./controllers.ts";
-import { EXECUTOR_PARTS } from "./executor-parts.ts";
+import { EXECUTORS } from "./executors.ts";
 import { CONFIG_KEYS } from "./config-keys.ts";
 import { SKILL_PARTS } from "./fighter.ts";
 import { LOCOMOTION_PARTS, type LocomotionConfig } from "./locomotions.ts";
@@ -14,8 +14,8 @@ import { REFLEX_PARTS } from "./options/reflex.ts";
 import { MOTOR_PARTS, type MotorConfig } from "../control/motors.ts";
 import { TACTICS_PARTS } from "./tactics-of.ts";
 import { NAVIGATIONS } from "./navigations.ts";
-import type { PartMakers } from "./makers.ts";
-import type { NavigationConfig, NavigatorPart } from "./navigator.ts";
+import type { PartLookup, RoleParts } from "./lookup.ts";
+import type { NavigationConfig } from "./navigator.ts";
 
 /** Every part's config below a mind, by kind. */
 type AnyPart = MotorConfig | ReflexConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | LocomotionConfig | SkillConfig | ExecutorConfig | NavigationConfig;
@@ -42,7 +42,7 @@ let registry: Registry | null = null;
 function registered(): Registry {
   if (registry) return registry;
   const below: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...MOVE_RULE_PARTS,
-    ...LOCOMOTION_PARTS, ...SKILL_PARTS, ...EXECUTOR_PARTS, ...REFLEX_PARTS, ...MOTOR_PARTS, ...listed(NAVIGATIONS) };
+    ...LOCOMOTION_PARTS, ...SKILL_PARTS, ...listed(EXECUTORS), ...REFLEX_PARTS, ...MOTOR_PARTS, ...listed(NAVIGATIONS) };
   const parts: Record<string, Part> = { ...below }, owners: Record<string, string> = {};
   const add = (kind: string, part: Part, what: string) => {
     if (Object.hasOwn(parts, kind)) throw new Error(`${what} of kind ${JSON.stringify(kind)} is another part's`);
@@ -76,28 +76,17 @@ export function partOf<C extends PartConfig>(config: C): Part<C> {
   return part as Part<C>;
 }
 
-/** The navigation a mind's tree names, the game's where its slot holds none (`DEFAULT_NAVIGATION`). */
-const DEFAULT_NAVIGATION: NavigationConfig = Object.freeze({ kind: "visibility-navigation" });
-
-/** The part of `config`'s kind, refused unless it is of `role`. */
-function ofRole(config: PartConfig, role: Role): Part {
-  const part = partOf(config);
-  if (part.role !== role) throw new Error(`a ${part.role} part cannot go where a ${role} part goes`);
-  return part;
-}
-
 /**
- * **What makes a mind's parts for a body of `spec`** (`PartMakers`): each config's part by its
- * kind (`partOf`), its own parts included, refused where the kind is of another role.
+ * **Every part by kind, looked up by role** (`PartLookup`): each config's part (`partOf`), a
+ * mind's own parts included, refused where the kind is of another role.
  */
-export function partMakers(spec: BodySpec): PartMakers {
-  return Object.freeze({
-    navigator: (config: PartConfig | null | undefined) => {
-      const chosen = config ?? DEFAULT_NAVIGATION;
-      return (ofRole(chosen, "navigation") as NavigatorPart).make(spec, chosen);
-    },
-  });
-}
+export const partLookup: PartLookup = Object.freeze({
+  of<R extends Role>(role: R, config: PartConfig): RoleParts[R] {
+    const part = partOf(config);
+    if (part.role !== role) throw new Error(`a ${part.role} part cannot go where a ${role} part goes`);
+    return part as never;
+  },
+});
 
 /** What each slot of `config` holds, by the slot, as a list: a single slot's part or none, or a list slot's parts. */
 function held(config: PartConfig): { readonly slot: Part["slots"][number]; readonly parts: readonly unknown[] }[] {
@@ -146,7 +135,7 @@ export function treeFaults(config: PartConfig, provides: readonly Provision[] = 
     });
   }
   const screen = unprovided(partOf(config).needs, provides);
-  return [...(screen ? [where(screen)] : []), ...unknownSettings(config).map((fault) => where(fault)), ...(formed ? partOf(config).faults(config).map((fault) => where(fault)) : []), ...slots];
+  return [...(screen ? [where(screen)] : []), ...unknownSettings(config).map((fault) => where(fault)), ...(formed ? partOf(config).faults(config, partLookup).map((fault) => where(fault)) : []), ...slots];
 }
 
 /** **Every kind of part in the tree `config` roots**, the root's included, each once: what a case's code holds the parts' own code of (`caseCoder`). */
@@ -191,7 +180,7 @@ function unknownSettings(config: PartConfig): readonly string[] {
  */
 export function treeRefusal(spec: BodySpec, config: PartConfig, at = ""): string | null {
   const where = (reason: string) => at ? `${at}: ${reason}` : reason;
-  const part = partOf(config), own = part.fits(spec, config);
+  const part = partOf(config), own = part.fits(spec, config, partLookup);
   if (own !== null) return where(own);
   if (part.role === "mind" && !equipmentSupported(spec, config)) return where("it has no use for something the body holds");
   if (part.role === "mind" && !canAttack(spec, config)) return where("it strikes with nothing the body has");
@@ -212,8 +201,8 @@ export const treeFits = (spec: BodySpec, config: PartConfig): boolean => treeRef
 export function equipmentSupported(spec: BodySpec, config: PartConfig): boolean {
   const supported = new Set<string>();
   const collect = (one: PartConfig): void => {
-    for (const segment of partOf(one).supportedEquipment?.(spec, one) ?? []) supported.add(segment);
-    for (const segment of partOf(one).strikes?.(spec, one) ?? []) supported.add(segment);
+    for (const segment of partOf(one).supportedEquipment?.(spec, one, partLookup) ?? []) supported.add(segment);
+    for (const segment of partOf(one).strikes?.(spec, one, partLookup) ?? []) supported.add(segment);
     for (const slot of held(one)) for (const child of slot.parts) collect(child as PartConfig);
   };
   collect(config);
@@ -228,7 +217,7 @@ export function equipmentSupported(spec: BodySpec, config: PartConfig): boolean 
 export function canAttack(spec: BodySpec, config: PartConfig): boolean {
   let fighting = false;
   const strikes = (one: PartConfig): boolean => {
-    const own = partOf(one).strikes?.(spec, one);
+    const own = partOf(one).strikes?.(spec, one, partLookup);
     if (own !== undefined) { fighting = true; if (own.length > 0) return true; }
     return held(one).some((slot) => slot.parts.some((child) => strikes(child as PartConfig)));
   };

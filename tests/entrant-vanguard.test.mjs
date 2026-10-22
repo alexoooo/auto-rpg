@@ -10,7 +10,8 @@ import { CAP_SECONDS } from "../src/arena/duel.ts";
 import { BOUT_ENGINE } from "../research/bout.mjs";
 import { adaptiveGuard } from "../src/core/entrants/vanguard/adaptive-guard.ts";
 import { routeAround } from "../src/core/entrants/vanguard/route-around.ts";
-import { partMakers } from "../src/core/mind/catalog.ts";
+import { partLookup } from "../src/core/mind/catalog.ts";
+import { navigatorOf } from "../src/core/mind/navigator.ts";
 import { flank } from "../src/core/entrants/vanguard/flank.ts";
 
 test("a contact-triggered step preserves live strokes and orders, and forks its active decision", () => {
@@ -51,7 +52,7 @@ test("an obstructed attack entry asks navigation for a feasible range point and 
     candidates: [{ key: "strike", readiness: { kind: "position", window } }] };
   const intent = { move: null, face: 3.141592653589793 / 2, actions: [], movement: { kind: "place", points: [{ x: 1, z: 0 }], near: .04 } };
   const base = { name: "fixture", state: { calls: 0 }, engagement, decide() { this.state.calls++; return intent; } };
-  const routed = routeAround(base, () => null), navigator = partMakers(spec).navigator(null);
+  const routed = routeAround(base, () => null), navigator = navigatorOf(partLookup, spec, null);
   const view = { time: 0, stance: { centre: { x: -2, y: 1, z: 0 }, velocity: { x: 0, z: 0 } },
     senses: { side: "left", others: [foe], solids: [{ name: "pillar", kind: "box", centre: [1, 1, 0], size: [.8, 2, 1] }] } };
   const sight = { view, report: { heading: intent.face, navigation: navigator.report } }, gait = { envelope: null, stopping: 1 };

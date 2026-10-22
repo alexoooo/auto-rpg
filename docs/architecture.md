@@ -312,9 +312,9 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
 
 Each executor kind is a registered implementation (`ExecutorPart`, `mind/executor-part.ts`): its
 module (`skills/<kind>-part.ts`) owns its config's type, keys, defaults, faults, fit, the effectors
-it strikes with and its maker, and is a line in `EXECUTOR_PARTS` (`mind/executor-parts.ts`), from
+it strikes with and its maker, and is a line in `EXECUTORS` (`mind/executors.ts`, a role list), from
 which `ExecutorConfig` follows; `configuredExecutors` (`action-config.ts`) makes a fighter's named
-executors once each. Action selection belongs to tactics, not to an executor.
+executors once each, each by the part the host's lookup finds for its kind. Action selection belongs to tactics, not to an executor.
 
 ### Minds
 
@@ -367,8 +367,8 @@ every hosted body one way; the humanoid's `commandMind` (`src/core/body.ts`) and
 fight reads. A fight passes the config through and reads nothing in it.
 
 - The maker never has the world or the built body: it gets a host (`BodyHost`, `host.ts`) with the
-  body's description, the clock (`Clock`), what makes its parts from their configs (`PartMakers`,
-  `makers.ts`, the registry's `partMakers`), which it hands every assembly that builds a part,
+  body's description, the clock (`Clock`), the parts its config may name (`PartLookup`, `lookup.ts`,
+  the registry's `partLookup`), which it hands every assembly that builds a part,
   and three ways to take the body, once: `command` (the
   game's command layers), `hosted` (a host mind of its own) or `policy` (detached observations and
   actions). The host applies the fight's grants (senses, assist ceiling, contact labels); no maker
@@ -406,9 +406,10 @@ slots (`slotOne`, `slotList`, `slotsOf`), `defaults`, `fits`, `faults` and `need
 screen must give). `allParts` (`catalog.ts`) is every part by kind: the parts below a mind, each
 mind, and each mind's own parts (`Controller.parts`), read once on first use so that any module may
 load first. A role whose parts make themselves has a list of them that holds its imports and its
-list and nothing else (`NAVIGATIONS`, `navigations.ts`), so a case's code begins each part's own
-code there; its parts make what they are (`NavigatorPart.make`), and the host's `PartMakers`
-makes the one a config names. Over the tree:
+list and nothing else (`NAVIGATIONS`, `navigations.ts`; `EXECUTORS`, `executors.ts`), so a case's code begins each part's own
+code there; its parts make what they are (`NavigatorPart.make`), and an assembly makes the one a
+config names as the host's lookup finds it. A part whose checks read the parts it names is handed
+the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the registry. Over the tree:
 
 - `treeFaults` names each fault by path (`subs.0: ...`); `createMind` refuses a tree with any, and
   `partOf` refuses an unknown kind. A mind's own part in another mind's tree is a fault.
@@ -550,8 +551,8 @@ joint-feedback Mind (`entrants/direct/mind.ts`) is the example.
 4. It may use any of the toolkit (`src/core/mind/`, `skills/`, `control/`) and imports no engine,
    world or builder. Data and learned weights go under `assets/entrants/<name>/`.
 5. A part of its own of a role whose parts make themselves (navigation) is a module in its folder
-   and a line in its controller's `parts`; its config chooses it, and its maker gets it from the
-   host's makers (`BodyHost.parts`). Only its own minds' slots offer it. `tests/swap.test.mjs`
+   and a line in its controller's `parts`; its config chooses it, and its maker finds it with the
+   host's lookup (`BodyHost.parts`). Only its own minds' slots offer it. `tests/swap.test.mjs`
    registers a fixture entrant this way from outside `src/` (`tests/fixtures/swap/`) and holds a
    stub of each such role to it: chosen by config, run, forked, replayed and linked.
 

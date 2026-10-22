@@ -7,7 +7,7 @@ import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
 import type { MindConfig } from "./config.ts";
 import type { Tactics } from "./tactics.ts";
-import { partMakers, treeFaults } from "./catalog.ts";
+import { partLookup, treeFaults } from "./catalog.ts";
 import { controllerOf } from "./controllers.ts";
 import { bodyHost, type BodyHost, type HostGrants } from "./host.ts";
 import type { Orders } from "./orders.ts";
@@ -65,17 +65,17 @@ export function builtAngles(spec: BodySpec, config: MindConfig): Record<string, 
 export function createMind(built: BuiltBody, world: World, config: MindConfig, wiring: MindWiring, log?: SheetLog): Minded {
   const fault = treeFaults(config, wiring.script ? ["script"] : [])[0];
   if (fault) throw new Error(fault);
-  const { host, made } = bodyHost(built, world, wiring, partMakers(built.spec), log);
+  const { host, made } = bodyHost(built, world, wiring, partLookup, log);
   const mind = controllerOf(config).create(host, config, wiring);
   return { ...mind, kind: config.kind, body: made() };
 }
 
 /**
  * A mind `make` makes through a host of `built` (`bodyHost`) under `wiring`'s grants, its parts
- * made by the registry's makers (`partMakers`), with the body it took: how a test or a study makes
+ * looked up in the registry (`partLookup`), with the body it took: how a test or a study makes
  * one mind of its own.
  */
 export function hostedMind<W extends HostGrants, M extends object>(built: BuiltBody, world: World, wiring: W, make: (host: BodyHost, wiring: W) => M): M & { readonly body: PhysicalBody } {
-  const { host, made } = bodyHost(built, world, wiring, partMakers(built.spec)), mind = make(host, wiring);
+  const { host, made } = bodyHost(built, world, wiring, partLookup), mind = make(host, wiring);
   return { ...mind, body: made() };
 }

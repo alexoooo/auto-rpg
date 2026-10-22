@@ -104,7 +104,7 @@ export function importsOf(file, text) {
  */
 export const CUTS = Object.freeze({
   kinds: "src/core/mind/kinds.ts", worlds: "src/evaluation/worlds.ts", identity: "src/build-identity.ts", store: "src/core/data/store.ts",
-  roles: Object.freeze(["src/core/mind/navigations.ts"]),
+  roles: Object.freeze(["src/core/mind/navigations.ts", "src/core/mind/executors.ts"]),
 });
 
 /** What every case plays besides its closure: the lockfile, the vendored solver and the installed one. */

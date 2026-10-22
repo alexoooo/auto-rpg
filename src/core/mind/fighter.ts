@@ -13,7 +13,8 @@ import type { ActionConfig, FighterConfig, SkillKit, SkillConfig } from "./confi
 import { actionConfigFaults, armedActions, configuredActionEstimates, configuredExecutors } from "./action-config.ts";
 import type { MindWiring } from "./minds.ts";
 import { legsOf } from "./locomotions.ts";
-import type { PartMakers } from "./makers.ts";
+import type { PartLookup } from "./lookup.ts";
+import { navigatorOf } from "./navigator.ts";
 import { takesCommands, type Part } from "./parts.ts";
 import { subMindsOf } from "./sub-minds.ts";
 import { tacticsOf } from "./tactics-of.ts";
@@ -76,25 +77,25 @@ export function fighterBody(config: Pick<FighterConfig, "subs" | "motor">, wirin
 
 /**
  * Named executors are built once; behaviours select actions without rebuilding motion state. Its
- * blows are those its body throws as armed (`armedActions`); its parts are made by `parts`.
+ * blows are those its body throws as armed (`armedActions`); its parts are those `parts` finds.
  */
-export function driveFighter(body: Body, clock: Clock, parts: PartMakers, given: FighterConfig, wiring: MindWiring, around: (tactics: Tactics) => Tactics = tactics => tactics): Skills {
-  const config = { ...given, actions: armedActions(body.built.spec, given.executors, given.actions) };
-  const faults = actionConfigFaults(body.built.spec, config.executors, config.actions);
+export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given: FighterConfig, wiring: MindWiring, around: (tactics: Tactics) => Tactics = tactics => tactics): Skills {
+  const config = { ...given, actions: armedActions(parts, body.built.spec, given.executors, given.actions) };
+  const faults = actionConfigFaults(parts, body.built.spec, config.executors, config.actions);
   if (faults.length) throw new Error(faults.join("; "));
   const tactics = tacticsOf(config.tactics, body.built.spec, wiring.name, config.actions,
-    sight => wiring.orders(sight.view.senses), wiring.script, configuredActionEstimates(body.built.spec, config.executors, config.actions));
+    sight => wiring.orders(sight.view.senses), wiring.script, configuredActionEstimates(parts, body.built.spec, config.executors, config.actions));
   let skills: Skills;
   skills = driveBy(body, around(tactics), (made, driving) => fighterSkills(made, clock, parts, config, driving, () => skills?.report.ledger ?? []));
   return skills;
 }
 
-/** The skills `config` names, each part made by `parts`, with entrant-made executors where supplied; action aims read the body's `ledger`. */
-export function fighterSkills(made: Body, clock: Clock, parts: PartMakers, config: SkillKit, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[], suppliedExecutors?: readonly ExecutorBinding[]): Skills {
+/** The skills `config` names, each part the one `parts` finds, with entrant-made executors where supplied; action aims read the body's `ledger`. */
+export function fighterSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillKit, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[], suppliedExecutors?: readonly ExecutorBinding[]): Skills {
   return skillSet(made, driving, {
-    legs: legsOf(made, config.locomotion), navigation: parts.navigator(config.navigation), guard: guardSkill(made.built.spec, config.guard.tuning?.covering, config.guard.kind === "shield-guard"),
+    legs: legsOf(made, config.locomotion), navigation: navigatorOf(parts, made.built.spec, config.navigation), guard: guardSkill(made.built.spec, config.guard.tuning?.covering, config.guard.kind === "shield-guard"),
     support: config.support ? supportFold(made) : null, hold: config.guard.tuning?.hold === true ? holdUp(made.built) : null,
-    executors: suppliedExecutors ?? configuredExecutors(made, clock, config.executors, config.actions, ledger),
+    executors: suppliedExecutors ?? configuredExecutors(parts, made, clock, config.executors, config.actions, ledger),
     actions: config.actions,
   });
 }

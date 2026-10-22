@@ -16,7 +16,7 @@ import { STAND_ORDERS } from "../src/core/mind/orders.ts";
 import { createWorld } from "../src/core/world.ts";
 import { freshEngine } from "../tests/harness/core-stand.mjs";
 import { COMBAT } from "../tests/fixtures/minds.mjs";
-import { partMakers } from "../src/core/mind/catalog.ts";
+import { partLookup } from "../src/core/mind/catalog.ts";
 
 /** Actual arena lifecycle, isolated by standing the other contestant out of reach. */
 export async function controlArena({ held = "empty", hand = "right", model = "workshop-fighter", seconds = 120,
@@ -80,7 +80,7 @@ function pointAttacks(stand, target, hand = stand.harness.hand) {
     const position = ask.readiness?.kind === "position" ? approachActionWindow(sight.view, ask.readiness.window, sight.report.heading, Infinity) : {};
     return { ...standIntent(sight.report.heading), ...position, actions: ask.requests };
   } };
-  const skills = driveFighter(fighter.body.driver, world, partMakers(fighter.body.driver.built.spec), { ...fighter.mind, tactics: { kind: "script" } }, { name: "point-cycles", orders: () => null, script });
+  const skills = driveFighter(fighter.body.driver, world, partLookup, { ...fighter.mind, tactics: { kind: "script" } }, { name: "point-cycles", orders: () => null, script });
   const cycles = actionCycles(skills);
   return { skills, cycles, state: { own, skills: skills.state, cycles: cycles.state } };
 }

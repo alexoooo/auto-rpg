@@ -1,6 +1,6 @@
 import type { ActionConfig, BehavioursConfig, ConditionConfig, FighterConfig, FocusRuleConfig, SelectorConfig } from "../core/mind/config.ts";
 import { CONDITIONS } from "../core/mind/conditions.ts";
-import { executorPart } from "../core/mind/executor-parts.ts";
+import { partLookup } from "../core/mind/catalog.ts";
 import type { PartField } from "../core/mind/fields.ts";
 
 /** A named action's editor keeps its executor reference distinct from its own identity. */
@@ -20,7 +20,7 @@ export function actionEditor(config: FighterConfig, write: (config: FighterConfi
     };
     block.append(input("Name", action.name, value => replace({ ...action, name: value }), readOnly),
       select("Executor", config.executors.map(e => e.name), action.executor, value => replace({ ...action, executor: value }), readOnly));
-    const executor = config.executors.find(e => e.name === action.executor), part = executor && executorPart(executor);
+    const executor = config.executors.find(e => e.name === action.executor), part = executor && partLookup.of("executor", executor);
     for (const effector of part?.effectors ?? []) {
       const box = document.createElement("input"); box.type = "checkbox"; box.checked = action.effectors.includes(effector); box.disabled = readOnly;
       box.addEventListener("change", () => { box.blur(); replace({ ...action, effectors: box.checked ? [...action.effectors, effector] : action.effectors.filter(e => e !== effector) }); });
@@ -53,7 +53,7 @@ export function actionEditor(config: FighterConfig, write: (config: FighterConfi
   root.append(button("Add action", () => {
     const executor = config.executors[0]; if (!executor) return;
     let name = "action", suffix = 2; while (config.actions.some(a => a.name === name)) name = `action-${suffix++}`;
-    const part = executorPart(executor);
+    const part = partLookup.of("executor", executor);
     set([...config.actions, { name, executor: executor.name, effectors: [...part.effectors], regions: [{ kind: "mark", mark: "high" }], aim: { kind: "centre", lead: 0 }, ...(part.paths ? { family: "straight" as const } : {}) }]);
   }, readOnly || !config.executors.length));
   return root;

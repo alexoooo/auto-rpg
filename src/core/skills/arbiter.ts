@@ -24,7 +24,7 @@ export interface SkillParts {
   readonly guard: GuardSkill;
   /**
    * What turns the tactics' movement requests into walks and keeps a walk asked clear of what is
-   * sensed (`PartMakers.navigator`); none, a movement request is refused and a walk goes as asked.
+   * sensed (`navigatorOf`); none, a movement request is refused and a walk goes as asked.
    */
   readonly navigation: Navigator | null;
   readonly support?: SupportSkill | null;

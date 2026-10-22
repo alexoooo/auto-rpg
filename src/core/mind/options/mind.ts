@@ -49,7 +49,7 @@ const DOWN: readonly (readonly [string, SubMindConfig, DownModel])[] = deepFreez
 ]);
 
 /** Why a body cannot take the options fighter's commands or carry out the actions of `config`'s skills, or null where it can (`Part.fits`). */
-export const optionsFit = fitsAll<OptionsConfig>(takesCommands, (spec, config) => actionConfigFaults(spec, config.executors, config.actions)[0] ?? null);
+export const optionsFit = fitsAll<OptionsConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null);
 
 /**
  * **The options fighter**: a meta-controller (`metaController`) over options, which takes the one
@@ -72,7 +72,7 @@ export const optionsFit = fitsAll<OptionsConfig>(takesCommands, (spec, config) =
  */
 export function createOptionsFighter(host: BodyHost, given: OptionsConfig, wiring: MindWiring) {
   // Its blows are those its body throws as armed.
-  const config = { ...given, actions: armedActions(host.spec, given.executors, given.actions) };
+  const config = { ...given, actions: armedActions(host.parts, host.spec, given.executors, given.actions) };
   const walk = walker(host.spec), reader = situationReader(host.spec, (sight) => wiring.orders(sight.view.senses));
   let sight: Sight | null = null, meta: ReturnType<typeof metaController> | null = null;
   // The situation is read once a step, by whichever asks first; it is of the step's view, so nothing of it outlives the step.

@@ -39,7 +39,7 @@ export const OPTIONS_MIND = controller<OptionsConfig>({
   role: "mind", label: "Options fighter", stage: "game", fields: [OBEDIENCE_FIELD], slots: OPTIONS_SLOTS, defaults: OPTIONS,
   keys: { kind: true, meta: true, weights: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, support: true, reflexes: true, motor: true },
   fits: optionsFit,
-  strikes: (spec, config) => config.actions.length === 0 ? undefined : armedActions(spec, config.executors, config.actions).flatMap((action) => action.effectors),
+  strikes: (spec, config, parts) => config.actions.length === 0 ? undefined : armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: config => [
     ...[undefined, "valued", "ranked"].includes(config.meta) ? [] : ["meta: valued or ranked"],
     ...Object.entries(config.weights ?? {}).flatMap(([term, weight]) => TERMS.includes(term as typeof TERMS[number]) && Number.isFinite(weight) && weight >= 0 ? [] : [`weights.${term}: a term (${TERMS.join(", ")}) of a finite weight, not negative`]),

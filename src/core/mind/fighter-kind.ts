@@ -22,8 +22,8 @@ const FIGHTER_SLOTS: readonly Slot[] = Object.freeze([
 export const FIGHTER_MIND = controller<FighterConfig>({
   role: "mind", label: "Fighter", stage: "game", fields: [], slots: FIGHTER_SLOTS, defaults: RECIPE_FIGHTER,
   keys: { kind: true, tactics: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, support: true, subs: true, motor: true },
-  fits: fitsAll<FighterConfig>(takesCommands, (spec, config) => actionConfigFaults(spec, config.executors, config.actions)[0] ?? null),
-  strikes: (spec, config) => config.actions.length === 0 ? undefined : armedActions(spec, config.executors, config.actions).flatMap((action) => action.effectors),
+  fits: fitsAll<FighterConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null),
+  strikes: (spec, config, parts) => config.actions.length === 0 ? undefined : armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: fighterFaults,
   presets: deepFreeze({
     classic: { label: "Classic fighter", config: CLASSIC },

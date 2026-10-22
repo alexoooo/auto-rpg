@@ -1,6 +1,6 @@
 import type { StandUpConfig } from "./ground/stand-up.ts";
 import type { SubMindConfig } from "./sub-minds.ts";
-import type { ExecutorConfig } from "./executor-parts.ts";
+import type { EXECUTORS } from "./executors.ts";
 import type { MotorConfig } from "../control/motors.ts";
 import type { REPTILE_BITE } from "../reptile/tuning.ts";
 import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
@@ -8,7 +8,7 @@ import { STRAIGHT_PUNCH } from "../skills/straight-punch.ts";
 import { COMBINATION } from "../skills/combination.ts";
 import type { LocomotionConfig } from "./locomotions.ts";
 import type { MoveConfig } from "../skills/move-part.ts";
-import type { PartConfig } from "./parts.ts";
+import type { ConfigOf, PartConfig } from "./parts.ts";
 import type { OpeningTuning } from "./openings.ts";
 import type { Covering } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
@@ -65,8 +65,8 @@ interface CoverGuardConfig {
 /** A cover guard that also turns an item's declared face toward the threat. */
 interface ShieldGuardConfig extends Omit<CoverGuardConfig, "kind"> { readonly kind: "shield-guard" }
 
-/** **An executor's config**, by kind (`EXECUTOR_PARTS`, `executor-parts.ts`). */
-export type { ExecutorConfig };
+/** **An executor's config**, by kind (`EXECUTORS`): its settings and the name its actions call it by. */
+export type ExecutorConfig = ConfigOf<typeof EXECUTORS>;
 
 /** A configured attack's identity, anatomical choices and its executor-specific motion settings. */
 export interface ActionConfig {

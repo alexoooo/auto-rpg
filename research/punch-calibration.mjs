@@ -14,6 +14,7 @@ import { skillSet } from '../src/core/skills/arbiter.ts';
 import { locomotion } from '../src/core/skills/locomotion.ts';
 import { guardSkill } from '../src/core/skills/guard.ts';
 import { configuredExecutors } from '../src/core/mind/action-config.ts';
+import { partLookup } from '../src/core/mind/catalog.ts';
 import { actionCycles } from './action-cycles.mjs';
 import { guardPosture } from '../src/core/skills/guard.ts';
 import { aimOf } from '../src/core/skills/strikes.ts';
@@ -67,7 +68,7 @@ export async function punchStand({model='workshop-fighter',hand='right',family='
   const action = { name: 'strike', executor: executor.name, effectors: [`hand.${hand}`], regions: [{ kind: 'mark', mark: 'high' }], aim: { kind: 'centre', lead: 0 },
     ...(['path-strike','driven-strike'].includes(executor.kind) ? { family, armExtension } : {}) };
   const skills=skillSet(body,{}, { legs:locomotion(body.envelope), guard:guardSkill(spec),
-    executors:configuredExecutors(body,s.world,[executor],[action]), actions:[action] });
+    executors:configuredExecutors(partLookup,body,s.world,[executor],[action]), actions:[action] });
   const cycles=actionCycles(skills);
   const target=[(hand==='right'?.1:-.1)+across,height,ahead];
   sensor=punchPad(s.world,[target[0]+(mode==='miss'?1:0),target[1],target[2]],pad);

@@ -1,6 +1,7 @@
 import type { BodySpec } from "../spec/body.ts";
 import type { heldClearance } from "./held-clearance.ts";
 import type { MovementRequest, GroundPoint } from "./movement.ts";
+import type { PartLookup } from "./lookup.ts";
 import type { NAVIGATIONS } from "./navigations.ts";
 import type { ConfigOf, KeysOf, Part, PartConfig } from "./parts.ts";
 import type { Senses } from "./senses.ts";
@@ -67,4 +68,13 @@ export interface NavigatorPart<C extends PartConfig = PartConfig> extends Part<C
   readonly role: "navigation";
   readonly keys: KeysOf<C>;
   make(spec: BodySpec, config: C): Navigator;
+}
+
+/** The navigation a slot that holds none runs: Visibility routes. */
+const GAME_NAVIGATION: PartConfig = Object.freeze({ kind: "visibility-navigation" });
+
+/** **The navigator** `config` names for a body of `spec`, the game's where it names none, made by its part (`NavigatorPart.make`) as `parts` finds it. */
+export function navigatorOf(parts: PartLookup, spec: BodySpec, config: PartConfig | null | undefined): Navigator {
+  const chosen = config ?? GAME_NAVIGATION;
+  return parts.of("navigation", chosen).make(spec, chosen);
 }

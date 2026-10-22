@@ -83,7 +83,7 @@ const SLOTS: readonly Slot[] = Object.freeze([
 
 /** **A tempo fighter**: its body and sub-minds (`fighterBody`), driven by its rhythm (`tempoTactics`) over its skills, its blows those its body throws as armed (`armedActions`). */
 function createTempo(host: BodyHost, given: TempoConfig, wiring: MindWiring) {
-  const config = { ...given, actions: armedActions(host.spec, given.executors, given.actions) };
+  const config = { ...given, actions: armedActions(host.parts, host.spec, given.executors, given.actions) };
   const body = host.command(fighterBody(config, wiring));
   let skills: Skills;
   skills = driveBy(body, tempoTactics(host.spec, config, wiring), (made, driving) => fighterSkills(made, host.clock, host.parts, config, driving, () => skills?.report.ledger ?? []));
@@ -98,9 +98,9 @@ export const TEMPO_MIND = controller<TempoConfig>({
   keys: { kind: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, support: true, reflexes: true, subs: true, motor: true,
     burst: true, rest: true, margin: true, commit: true },
   // It fits a body with a blow thrown standing among its usable actions.
-  fits: fitsAll<TempoConfig>(takesCommands, (spec, config) => actionConfigFaults(spec, config.executors, config.actions)[0] ?? null,
-    fitsWhen((spec, config) => armedActions(spec, config.executors, config.actions).some((action) => action.lower === undefined), "it throws no blow standing")),
-  supportedEquipment: (spec, config) => armedActions(spec, config.executors, config.actions).flatMap((action) => action.effectors),
+  fits: fitsAll<TempoConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null,
+    fitsWhen((spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).some((action) => action.lower === undefined), "it throws no blow standing")),
+  supportedEquipment: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: tempoFaults,
   presets: deepFreeze({ tempo: { label: "Tempo fighter", config: TEMPO } }),
   builtIn: guardPosture,

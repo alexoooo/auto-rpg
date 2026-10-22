@@ -122,17 +122,17 @@ function createVanguard(host: BodyHost, given: VanguardConfig, wiring: MindWirin
   if (!given.commitAim) return createFighter(host, fighter(given), wiring);
   const profile = given.bodyProfiles?.[host.spec.model];
   const lowActions = new Set(given.lowActions ?? []);
-  const config = { ...given, actions: armedActions(host.spec, given.executors, given.actions),
+  const config = { ...given, actions: armedActions(host.parts, host.spec, given.executors, given.actions),
     executors: given.executors.map(executor => executor.kind === "straight-punch" && profile?.lead !== undefined
       && !given.actions.some(action => action.executor === executor.name && lowActions.has(action.name))
       ? { ...executor, lead: profile.lead } : executor),
     locomotion: (profile?.steady ?? given.steadyWalk) ? { kind: "stance-walk" as const, tuning: STEADY_TURN } : given.locomotion };
   const body = host.command(fighterBody(config, wiring));
   const ordinaryTactics = tacticsOf(config.tactics, host.spec, wiring.name, config.actions,
-    sight => wiring.orders(sight.view.senses), wiring.script, configuredActionEstimates(host.spec, config.executors, config.actions));
+    sight => wiring.orders(sight.view.senses), wiring.script, configuredActionEstimates(host.parts, host.spec, config.executors, config.actions));
   const attacking = given.adaptiveEvade && config.tactics.kind === "behaviours" ? tacticsOf({ ...config.tactics,
     list: config.tactics.list.filter(behaviour => behaviour.kind !== "evade") }, host.spec, wiring.name, config.actions,
-    sight => wiring.orders(sight.view.senses), wiring.script, configuredActionEstimates(host.spec, config.executors, config.actions)) : null;
+    sight => wiring.orders(sight.view.senses), wiring.script, configuredActionEstimates(host.parts, host.spec, config.executors, config.actions)) : null;
   const policy = attacking ? adaptiveGuard(attacking, ordinaryTactics, given.revisitEvade, given.overlapReturn) : ordinaryTactics;
   const tactics = given.slowEvade ? { ...policy, get engagement() { return policy.engagement; },
     decide(sight: Parameters<typeof policy.decide>[0], dt: number) {
@@ -146,7 +146,7 @@ function createVanguard(host: BodyHost, given: VanguardConfig, wiring: MindWirin
   let skills: Skills;
   const ledger = () => skills?.report.ledger ?? [];
   skills = driveBy(body, low?.tactics ?? angled, (made, driving) => {
-    const ordinary = configuredExecutors(made, host.clock, config.executors.filter(executor => executor.kind !== "straight-punch"),
+    const ordinary = configuredExecutors(host.parts, made, host.clock, config.executors.filter(executor => executor.kind !== "straight-punch"),
       config.actions.filter(action => !config.executors.some(executor => executor.name === action.executor && executor.kind === "straight-punch")), ledger);
     const aims = new Map(config.actions.map(action => [action.name, actionAim(host.spec, action.aim, action.family)]));
     const executors = config.executors.map((settings): ExecutorBinding => {
@@ -183,9 +183,9 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
     slotOne("motor", "Motor control", "motor", true)],
   keys: { kind: true, tactics: true, locomotion: true, navigation: true, guard: true, executors: true, actions: true,
     support: true, subs: true, motor: true, commitAim: true, lowGuard: true, predictAim: true, anchorAtDrive: true, overlapReturn: true, returnHold: true, slowEvade: true, adaptiveEvade: true, revisitEvade: true, steadyWalk: true, routeAround: true, flankAfterBlocks: true, bodyProfiles: true, lowActions: true },
-  fits: fitsAll<VanguardConfig>(takesCommands, (spec, config) => actionConfigFaults(spec, config.executors, config.actions)[0] ?? null,
-    fitsWhen((spec, config) => armedActions(spec, config.executors, config.actions).length > 0, "it throws no usable blow")),
-  strikes: (spec, config) => armedActions(spec, config.executors, config.actions).flatMap(action => action.effectors),
+  fits: fitsAll<VanguardConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null,
+    fitsWhen((spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).length > 0, "it throws no usable blow")),
+  strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap(action => action.effectors),
   faults: config => [...fighterFaults(fighter(config)), ...lowActionFaults(config),
     ...config.commitAim !== undefined && typeof config.commitAim !== "boolean" ? ["commitAim: a boolean"] : [],
     ...config.lowGuard !== undefined && typeof config.lowGuard !== "boolean" ? ["lowGuard: a boolean"] : [],
