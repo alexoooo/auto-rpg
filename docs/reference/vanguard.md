@@ -205,7 +205,9 @@ The calibrated preset at `9b3fecd0` uses the
 [own-body profiles](../../assets/entrants/vanguard/body-profiles.json). The complete table is an
 editable `bodyProfiles` field carried by a mind link. A matching own model selects conservative
 stance walking and whether to step around repeated blocks; without a matching entry, the
-configured walk and explicit step setting apply.
+configured walk and explicit step setting apply. An optional `lead` sets the delay in seconds
+between the trunk and arm drive for standing straight-punch executors. Low-only executors retain
+their configured delay.
 
 | Own body | Walk | Step after repeated blocks | Selected development result |
 | --- | --- | --- | --- |
@@ -235,6 +237,15 @@ the native gait, against the no-step reference's 4/4. A four-policy contact lear
 limiting right-side cases where the selected references win. Exact rejected implementations
 are retained in `research/runs/vanguard/rejected/outer-block-step.json` and
 `research/runs/vanguard/rejected/learned-block-step.json`.
+
+At the failed 3.85 m Skeleton start, shortening the standing punch's arm-drive delay from 100 ms
+to 25 ms changes the full pair from 0/2 to 1/2. The left wins at the cap; the right loses at the
+cap with a fall. Applying the same timing to the Warrior at 4 m regresses Options from 2/2 to
+1/2, without falls. The remaining Counter cases stop once this rejects a uniform timing change.
+These Node Arena Duel, `rapier-coordinate`, 120 Hz, matched-body, empty-handed, Balance 0/0
+cases and unfinished cases are retained in
+`research/runs/vanguard/rejected/general-short-arm-lead.json`. The Skeleton profile selects the
+shorter delay; this development gain does not establish qualification.
 
 ## Tried and not kept
 
@@ -280,5 +291,8 @@ Raw development rows, full recipes and source archives are kept under
 | Replacing the Warrior's fallback run with the braced walk | Reproduces the failed court case's complete pose digest and fall exactly; the run is not its cause. |
 | Ending a punch before its arm-drive lead | Not observed in the diagnostic's 13 committed strokes; no timing-rule change is kept on that hypothesis. |
 | Clearing a guard with a free-hand muscle-driven point task | Captures on one side but weakens both exchanges; adding an entry step captures on both but causes a fall. Exact source is retained in `research/runs/vanguard/rejected/parry-no-entry.json` and `parry-entry.json`. |
+| Body cover with a shorter arm-drive delay | Weakens both 30 s Skeleton exchanges at 3.85 m; retained in `research/runs/vanguard/rejected/body-cover-and-uppercuts.json`. |
+| Mixed or exclusive uppercuts with a shorter arm-drive delay | Neither configuration records an uppercut target contact in the 30 s Skeleton exchanges; retained with the body-cover configurations. |
+| Shared ground positioning and downward path strikes against a fallen humanoid | Neither side commits a downward strike within 60 s on the Skeleton court at 6.15 m. Both remain upright. Retained in `research/runs/vanguard/rejected/downward-ground-policy.json`. |
 
 A short exchange is a development filter, not a win counted toward qualification.
