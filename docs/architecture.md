@@ -643,8 +643,8 @@ Every question of how well something does is an evaluation (`src/evaluation/`, b
 path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists them.
 
 - **A case module** (`<id>/cases.ts`, `Cases` in `evaluation.ts`) gives each protocol's
-  conditions, the world of a case for its subjects (`CaseWorld`: a bout's recipe and tape) and its
-  reader; `CASES` (`cases.ts`) is what a worker plays from. **A description** (`<id>/index.ts`)
+  conditions, the world of a case for its subjects (`CaseWorld`: a bout's recipe and tape, or a
+  fall) and its reader, and the engine where the protocol fixes one (`Cases.engine`); `CASES` (`cases.ts`) is what a worker plays from. **A description** (`<id>/index.ts`)
   gives the question, subjects, figures and summary; nothing a case plays imports it.
 - **A case's key** is the digest of everything it plays: evaluation, protocol, engine, world (every
   subject's value whole), seconds and code (the environment). A row (`Row`, `play.ts`) is found
@@ -676,6 +676,11 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   computed with the core's `exp` and `log`, a draw half a win, each entrant given half a game drawn
   against the field; intervals from refits to the pairs resampled whole. No strength is carried
   across pools.
+- **Falls** (`fall.ts`): a body shoved, dropped or placed on the ground of the Lab's Stand-up mode,
+  its stand verified (`STAND_CHECK`), on Rapier; not bit-equal between JavaScript engines, as a bout
+  is. `rising-target` plays the owner's 64 falls and reports the target's gates; `equipped-rise` the
+  same shoves with sword and buckler and with the club. A subject is a riser: a mind's recovery on
+  the bed's host (`risingMind`, `rising.ts`, which also holds the bed's jobs and report).
 - `scripts/evaluate.mjs` and `evaluate-worker.mjs` run it in Node.
 
 ## Rules and wounds
@@ -753,7 +758,8 @@ An actor (`actor.ts`) gives the body its balance, mind (`labMind`, `&mind=`) and
 (`attack-mode.ts`) issues `Orders.foe` against seeded targets (`targets.ts`); Locomotion runs tracks
 (`track.ts`) or random destinations under seeded wind (`wind.ts`). Stand-up (`ground-scenario.ts`,
 `ground-mode.ts`) plays seeded and target falls and verifies every stand (`STAND_CHECK`);
-`research/rising-bed.mjs` runs the same mode in workers. The HUD is sections
+the falls (`src/evaluation/fall.ts`) play the same mode, through `npm run evaluate` and
+`research/rising-bed.mjs`. The HUD is sections
 (`hud/sections.ts`) filled with controls built from data (`src/ui/controls.ts`).
 
 **Shared rendering** (`src/render/`, `src/audio/`):

@@ -52,7 +52,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
    - Movement B3 (crowd motion) and B4 (AI Commanders), once B1 has landed;
-   - Ratings steps 10 (skills' batteries) and 13 (falls) as ordinary work; step 9 when a question
+   - Ratings step 10 (skills' batteries) as ordinary work; step 9 when a question
      about an item, a character or an attribute is asked; step 12 (case identity by code) when
      the first built-in mind or skill has a folder of its own, or entrants are most of the field;
      step 11 (the sparse league) only when the owner asks, after step 12; step 14 (run live) once
@@ -133,7 +133,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   toward a goal to its side, and is thrown by a run ordered in a bout's first 2 s
   ([the walk and run](reference/locomotion.md#the-walk-and-run)). The learned run states no
   envelope, so the speed rule asks it nothing and it stands under orders.
-- **Recovery.** The owner's 64-fall target (`research/rising-bed.mjs --target`,
+- **Recovery.** The owner's 64-fall target (`npm run evaluate -- rising-target`,
   [recovery target](reference/rising.md)): at least 15 of 16 verified recoveries within 6 s in
   every group, 61 of 64 overall, every cardinal direction in every group, a failure-inclusive
   median at most 4 s, unassisted. Step-up, the baseline, stands 40 of 64 and none within 6 s

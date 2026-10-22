@@ -16,6 +16,7 @@
  * `research/runs/evaluations/<evaluation>/` (every file there is read, so machines merge by copying)
  * and found again by key, with every record's under `assets/evaluations/<evaluation>/`. `--previous`
  * names the first subject's parent: the newest recorded version of that id, else that subject here.
+ * `--engine` (or `CORE_ENGINE`) picks the engine unless the protocol fixes one, as the falls fix Rapier.
  * `--write` keeps the run as a record, refused unless every case has a row and the commit holds the
  * environment's files unchanged.
  */
@@ -220,7 +221,8 @@ async function main() {
   if (!evaluation) throw new Error(`name an evaluation: ${Object.keys(EVALUATIONS).join(", ")}`);
   const protocol = values.protocol ?? evaluation.defaultProtocol, cases = evaluation.protocols[protocol];
   if (!cases) throw new Error(`${id} has no protocol ${protocol}: ${Object.keys(evaluation.protocols).join(", ")}`);
-  const engine = values.engine ?? process.env.CORE_ENGINE ?? DEFAULT_ENGINE;
+  if (cases.engine && values.engine && values.engine !== cases.engine) throw new Error(`${id} ${protocol} is played on ${cases.engine}`);
+  const engine = cases.engine ?? values.engine ?? process.env.CORE_ENGINE ?? DEFAULT_ENGINE;
   if (!isEngineName(engine)) throw new Error(`no engine ${engine}`);
   const harness = `Node, core world (src/core/world.ts), ${engine}, 120 Hz`;
   const [shardAt, shards] = values.shard ? values.shard.split("/").map(Number) : [1, 1];

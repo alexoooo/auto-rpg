@@ -18,7 +18,8 @@ import { TECHNIQUES } from '../src/core/mind/ground/techniques.ts';
 import { RISE_DECIDE, learnedRise, readRise, riseFeatures, riseSteerFrom } from '../src/core/mind/ground/learned-rise.ts';
 import { RISE_STEER_KEYS } from '../src/core/mind/rise/staged.ts';
 import { modelSpec } from '../src/core/models.ts';
-import { strengthSpec } from './rising-technique.mjs';
+import '../tests/harness/preload-data.mjs';
+import { strengthSpec } from '../src/evaluation/fall.ts';
 
 export const RISE_ACTIONS = RISE_STEER_KEYS.length;
 

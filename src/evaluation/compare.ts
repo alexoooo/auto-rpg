@@ -29,11 +29,12 @@ const seatsOf = (unit: Unit): readonly [string, string] => [unit[0].subjects[0],
 /**
  * The slots in `units`: each unit of a subject with a counterpart (`counterpart`) against a member
  * of `panel`, beside the counterpart's unit against that member at that condition; in the order of
- * the subject's unit's first key, a shuffle no version or lane count changes.
+ * the subject's unit's first key, a shuffle no version or lane count changes. Only a contest has slots.
  */
 export function slotsOf(units: readonly Unit[], counterpart: ReadonlyMap<string, string>, panel: readonly string[]): Slot[] {
-  const at = new Map(units.map((unit) => [recordingKey([...seatsOf(unit), unit[0].condition]), unit]));
-  const slots = units.flatMap((unit): Slot[] => {
+  const contests = units.filter((unit) => unit[0].subjects.length === 2);
+  const at = new Map(contests.map((unit) => [recordingKey([...seatsOf(unit), unit[0].condition]), unit]));
+  const slots = contests.flatMap((unit): Slot[] => {
     const [subject, member] = seatsOf(unit), baseline = counterpart.get(subject);
     if (baseline === undefined || !panel.includes(member)) return [];
     const theirs = at.get(recordingKey([baseline, member, unit[0].condition]));

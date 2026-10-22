@@ -4,7 +4,7 @@ import { dirname, join, resolve, relative } from "node:path";
 import { createHash } from "node:crypto";
 import ts from "typescript";
 
-export async function risingImplementation(entries = ["research/rising-technique.mjs", "research/rising-search-worker.mjs"]) {
+export async function risingImplementation(entries = ["src/evaluation/rising.ts", "research/rising-search-worker.mjs"]) {
   const files = new Map();
   const collect = async file => {
     const path = resolve(file); if (files.has(path)) return;

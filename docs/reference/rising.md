@@ -35,14 +35,16 @@ fall ends 0.05 to 0.6 s later and is the same to the bit until then
 A stand-up is read on the owner's 64-fall target:
 
 ```powershell
-node research/rising-bed.mjs --target
+npm run evaluate -- rising-target [riser ...]
 ```
 
 - **The falls**: the Warrior and the Rogue, empty-handed and with the club, each shoved sixteen
   ways 22.5 degrees apart, through the Lab's Stand-up mode (`src/lab/ground-mode.ts`); Node stand,
   core world, Rapier, 120 Hz, calm air, Balance 0 and Grit 0, a 30 s cap. The flag fixes models,
   loadouts, directions and assists; the Lab's Stand-up scenario plays the same falls as a round on
-  one body.
+  one body. A riser is the game's Stand up (`step-up`) unless named: `support-recovery`,
+  `stand-up` with every technique, a technique's name, or a mind's JSON. `research/rising-bed.mjs
+  --target` plays the same falls (`src/evaluation/rising.ts`).
 - **A recovery** is timed to verified standing, from the riser's takeover, through landing,
   orientation and retries. A fall not stood counts at the cap.
 - **The bar** (`risingReport`'s gates): every direction present once in each group; at least 15 of
