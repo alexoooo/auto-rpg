@@ -16,9 +16,12 @@ energy it brings. There is no attack animation and no hit box: the pages draw wh
 
 ## The layers
 
-Each layer imports only the layers above it in this table, except that skills and tactics share a
-vocabulary: the `Intent` tactics return (`src/core/mind/intent.ts`) and the `SkillReport` they read
-(`src/core/skills/skills.ts`).
+The table orders the layers by what each is built on. Skills, navigation and tactics share
+`src/core/mind/`'s contracts, so their imports cross both ways: a skill is a part
+(`parts.ts`, `fields.ts`, its role's `*-part.ts`), reads the vocabulary tactics write (`Intent`,
+`intent.ts`; `Sight`, `tactics.ts`; `action-window.ts`, `conditions.ts`, `targets.ts`) and runs
+navigation between them; tactics read the `SkillReport` (`src/core/skills/skills.ts`). What the
+boundary test holds (`tests/core-boundary.test.mjs`) is the core's imports as a whole, not this order.
 
 | Layer | Where | Job |
 |---|---|---|
@@ -29,7 +32,8 @@ vocabulary: the `Intent` tactics return (`src/core/mind/intent.ts`) and the `Ski
 | Mind seam | `src/core/mind/mind.ts`, `sub-mind.ts` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask |
 | Motor control | `src/core/control/` | joint, effector and stance goals turned into muscle commands |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, guard, strike |
-| Tactics | `src/core/mind/tactics.ts`, `tactics-part.ts`, `planners.ts`, `action-tactics.ts`, `behaviours/`, `ordered.ts`, `targets.ts`, `movement.ts` | what the body should do, from what it senses |
+| Navigation | `src/core/mind/navigator.ts`, `navigation.ts`, `visibility-navigation.ts`, `local-navigation.ts`, `route-search.ts`, `crowd.ts`, `travel.ts`, `movement.ts`, `clear-step.ts` | a movement request walked round the solids and the body's own side, at the speed it can stop from; the body's clearance |
+| Tactics | `src/core/mind/tactics.ts`, `tactics-part.ts`, `planners.ts`, `action-tactics.ts`, `behaviours/`, `ordered.ts`, `targets.ts` | what the body should do, from what it senses |
 | Minds | `src/core/mind/config.ts`, `kinds.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `options/`, `rise/`, `ground/`; `src/core/entrants/` | a body's mind made from its config by the controller of its kind |
 | Command | `src/core/command/` | a team's members given orders by its Commander, from what they sense |
 
@@ -618,8 +622,10 @@ joint-feedback Mind (`entrants/direct/mind.ts`) is the example.
 1. The folder holds the config's type (`{ kind, ... }` with a kind of its own), its defaults, its
    faults and its maker, written as one controller (`controller<C>({ ... })`).
 2. The maker takes its body once through the host: `host.policy` reads `BodyObservation` and returns
-   `BodyAction`; `host.command` and `host.hosted` build on the game's command layers or a host and
-   sub-minds of its own.
+   `BodyAction`; `host.command` builds on the game's command layers, which only a body they can
+   read has (a humanoid's, `commandRefusal`): the game's humanoid parts, sub-minds included, read
+   their view, and a mind on them fits only such a body (`takesCommands`); `host.hosted` builds a host and sub-minds of its own, as the
+   quadruped's are. A body the command layers cannot read has `hosted` and `policy`.
 3. It returns its memory (`state`), which a fight saves and loads with the body, and its skills if
    it runs the game's.
 4. It may use any of the toolkit (`src/core/mind/`, `skills/`, `control/`) and imports no engine,

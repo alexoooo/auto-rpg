@@ -90,8 +90,9 @@ it never imports them.
   named rule that writes no factor. A deleted record is cited
   `path@<commit>`; a spec never spreads another family's. It is bookkeeping, not a bar: a number
   the game wants is set to what gets the result, sourced as the owner's decision.
-- **The same arithmetic in every JavaScript engine.** The core, and whatever builds a bout's world
-  (`src/arena/duel.ts`, `room.ts`), computes with `+ - * /`, `Math.sqrt` and its own functions
+- **The same arithmetic in every JavaScript engine.** The core, and whatever builds a case's world
+  (what `src/evaluation/bout.ts` reaches beside the core, each evaluation's `cases.ts`, the Crypt's
+  builders), computes with `+ - * /`, `Math.sqrt` and its own functions
   (`src/core/math/real.ts`, `turn.ts`); never `Math.sin` and kin, `Math.hypot`, `Math.pow` or
   `**`, which engines round their own way. The boundary test enforces it (`EXACT_MATH`) and lists
   the Babylon math read and found exact (`EXACT_BABYLON`): read a member's source before adding it.
@@ -207,7 +208,8 @@ stray files (`tests/workspace.test.mjs`).
 ## Competing minds
 
 - **A Mind is an entrant**: `src/core/entrants/<name>/`, a line in `MIND_KINDS`
-  (`src/core/mind/kinds.ts`), its data under `assets/entrants/<name>/`. What it may read
+  (`src/core/mind/kinds.ts`), its own parts lines in its controller's `parts`, its data under
+  `assets/entrants/<name>/`. What it may read
   and do is the architecture's (Adding a Mind), held by `tests/core-boundary.test.mjs` and
   `tests/mind-contract.test.mjs`.
 - **An entrant's change touches its own files and its registry line**;

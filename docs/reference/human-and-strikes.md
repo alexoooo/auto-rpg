@@ -3,7 +3,9 @@
 What the tuned constants of the skills and the tactics rest on: `STAND` and `APPROACH`
 (`src/core/skills/strike.ts`), `PLACING` (`src/core/skills/locomotion.ts`), the stance's turning
 envelope, `GUARD` (`src/core/skills/guard.ts`), `ATTACK_METRES` and `EDGE`
-(`src/core/mind/recipe-tactics.ts`), `IK_POSTURE_PULL` and `IK_TURN`
+(`src/core/mind/recipe-tactics.ts@cee7aae2`; the edge's band and patience are now the edge
+behaviour's settings, `EDGE`, `src/core/mind/behaviours/edge.ts`, and the clinch the break-clinch
+behaviour's `metres`), `IK_POSTURE_PULL` and `IK_TURN`
 (`src/core/control/kinematics.ts`) and `StrikeWindow` (`src/core/skills/strikes.ts`). Each
 constant's comment cites its section. A value said to be set was chosen, not swept. Figures are
 Node, Rapier, no assist, unless a table says otherwise.
@@ -42,7 +44,7 @@ searched from.
 through its turns, which each human held. `seconds` and `reach` are set: the walk asked is the
 distance left over one second, and the feet are set (`Locomotion.place`) once the centre of mass
 is within 0.25 m of the place. The tactics hold an attack's point until the point ordered moves
-by the same reach (`recipeTactics`, `src/core/mind/recipe-tactics.ts`).
+by the same reach (`recipeTactics`, `src/core/mind/recipe-tactics.ts@cee7aae2`).
 
 The feet are set because a walk alone does not stand a body where it stops: stopped, the stance
 steps a foot out from the gait's 20 cm to the 39 cm it was built at, moving the body some 10 cm
@@ -168,7 +170,7 @@ Of 108 cells the edge gains at d over 0.2 in 26 and loses at under -0.2 in 30. W
 takes about a third less off its foe; empty-handed it falls less and gains nothing in margin.
 
 **The clinch is 0.65 m**: a fighter at the edge backs out, facing its foe, while their centres of
-mass are within it (`seekFoe`). The Puncher against six minds, empty-handed, 40 s bouts at ten
+mass are within it (`seekFoe`, `src/core/mind/recipe-tactics.ts@cee7aae2`). The Puncher against six minds, empty-handed, 40 s bouts at ten
 gaps from 1.2 to 3.9 m, 120 bouts a setting (Node core world, 120 Hz):
 
 | Clinch, m | Won | Falls a bout | Note |

@@ -52,7 +52,8 @@ was a striker (a hand, with what it holds) landing on a body, and a clash strike
 
 The first tree whose bouts go through the senses (`createSenses`, `src/core/mind/senses.ts`):
 every body is read before any mind steps, so both sides decide on the same step (the left side had
-aimed at the right a step late), and each side picks its foe from what it sees (`seekFoe`).
+aimed at the right a step late), and each side picks its foe from what it sees
+(`seekFoe`, `src/core/mind/recipe-tactics.ts@cee7aae2`).
 
 | | Standing table | With senses |
 |---|---|---|
