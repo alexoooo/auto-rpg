@@ -85,7 +85,7 @@ function lowActionFaults(config: VanguardConfig): readonly string[] {
 const VANGUARD: VanguardConfig = deepFreeze({
   kind: "vanguard", commitAim: true, lowGuard: true, lowActions: ["low-punch"], predictAim: true,
   slowEvade: true, adaptiveEvade: true, revisitEvade: true, routeAround: true, bodyProfiles,
-  locomotion: MOVE, guard: { kind: "shield-guard" }, support: { kind: "support-fold" }, subs: [STAND_UP],
+  locomotion: { ...MOVE, otherwise: "braced" }, guard: { kind: "shield-guard" }, support: { kind: "support-fold" }, subs: [STAND_UP],
   tactics: { ...FIGHTING, list: [
     { kind: "follow-orders" }, { kind: "clear-of-walls" }, { kind: "evade" },
     { kind: "break-clinch", metres: .7 }, { kind: "attack" }, { kind: "approach" }, { kind: "cover", guard: "ward" },
