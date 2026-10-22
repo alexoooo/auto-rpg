@@ -46,11 +46,11 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Movement and command](plans/2026-10-21-movement-and-command.md) | One movement pipeline; Commanders over teams |
 | [Component registration](plans/2026-10-21-component-registration.md) | Implementations added by their own files and one line |
 
-1. **Now:** Ratings steps 5 and 6, on bouts played after Movement's Part A.
-2. **Then, in parallel:** Movement B0 to B2; Ratings steps 7 and 8; component registration's
+1. **Now, in parallel:** Movement B0 to B2; Ratings steps 7 and 8; component registration's
    stage 1 (locomotion); and
-   the open work below, each change read by the paired report.
-3. **When each one's condition holds:**
+   the open work below, each change read by the paired report, kept with `--write`.
+2. **When each one's condition holds:**
+   - Ratings step 6 (the cap) once recorded reports' bar series decide it;
    - Movement B3 (crowd motion) and B4 (AI Commanders), once B1 has landed;
    - Ratings steps 10 (skills' batteries) and 13 (falls) as ordinary work; step 9 when a question
      about an item, a character or an attribute is asked; step 12 (case identity by code) when

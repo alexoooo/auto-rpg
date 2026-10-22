@@ -84,24 +84,19 @@ export function casesOf(evaluation: Evaluation, protocol: string, subjects: read
 /** The order units run in: by their first case's key, a shuffle that neither lane count nor finishing order changes. */
 export const runOrder = (units: readonly Unit[]): Unit[] => [...units].sort((a, b) => a[0].key < b[0].key ? -1 : a[0].key > b[0].key ? 1 : 0);
 
-/** How many of `order`'s units, from the first, have every row: what a table or verdict reads. */
-export function completePrefix(order: readonly Unit[], rows: ReadonlyMap<string, Row>): number {
-  const at = order.findIndex((unit) => !unit.every((one) => rows.has(one.key)));
-  return at < 0 ? order.length : at;
-}
-
 /**
- * Play every case of `units` with no row in `rows` on `lanes` workers: each row is handed to
- * `onRow` as it comes, each case whose worker died or overran to `onLost`, and left without a row.
+ * Play every case of `units` with no row in `rows` on `lanes` workers, in the units' order, until
+ * `stop` says so: each row is handed to `onRow` as it comes, each case whose worker died or overran
+ * to `onLost`, and left without a row.
  */
-export async function runEvaluation(units: readonly Unit[], rows: ReadonlyMap<string, Row>, { evaluation, protocol, lanes, spawn, minutes, onRow, onLost }: {
+export async function runEvaluation(units: readonly Unit[], rows: ReadonlyMap<string, Row>, { evaluation, protocol, lanes, spawn, minutes, onRow, onLost, stop }: {
   evaluation: string; protocol: string; lanes: number; spawn: Spawn<CaseJob, Row>; minutes: number;
-  onRow(row: Row, job: CaseJob): void; onLost(job: CaseJob, reason: string): void;
+  onRow(row: Row, job: CaseJob): void; onLost(job: CaseJob, reason: string): void; stop?(): boolean;
 }): Promise<void> {
   const jobs: CaseJob[] = [];
   for (const unit of units) for (const one of unit) if (!rows.has(one.key) && !jobs.some((job) => job.key === one.key))
     jobs.push({ evaluation, protocol, key: one.key, condition: one.condition, world: one.world, seconds: one.seconds });
-  await runLanes(jobs, { lanes, spawn, minutes, onLost, onAnswer: (job, row) => {
+  await runLanes(jobs, { lanes, spawn, minutes, onLost, stop, onAnswer: (job, row) => {
     if (row.key !== job.key) throw new Error(`a worker answered ${job.key} with ${row.key}`);
     onRow(row, job);
   } });

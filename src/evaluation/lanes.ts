@@ -23,15 +23,17 @@ interface LaneOptions<J, A> {
   /** How long a job may take before its worker is stopped, min. */
   readonly minutes: number;
   onAnswer(job: J, answer: A): void;
+  /** Whether to give out no more jobs: those under way finish. */
+  stop?(): boolean;
   /** A job whose worker died or ran past `minutes`: it has no answer, and may be tried again. */
   onLost(job: J, reason: string): void;
 }
 
 /**
  * Give each of `jobs` to a worker, `lanes` at once, each worker one job at a time, until every job
- * is answered or lost. A lost job's worker is replaced; the others go on.
+ * is answered or lost, or `stop` says so. A lost job's worker is replaced; the others go on.
  */
-export async function runLanes<J, A>(jobs: readonly J[], { lanes, spawn, minutes, onAnswer, onLost }: LaneOptions<J, A>): Promise<void> {
+export async function runLanes<J, A>(jobs: readonly J[], { lanes, spawn, minutes, onAnswer, onLost, stop }: LaneOptions<J, A>): Promise<void> {
   let next = 0;
   const lane = async (): Promise<void> => {
     let settle: ((outcome: { answer: A } | { lost: string }) => void) | null = null;
@@ -41,7 +43,7 @@ export async function runLanes<J, A>(jobs: readonly J[], { lanes, spawn, minutes
     };
     let worker: Lane<J> | null = null;
     try {
-      while (next < jobs.length) {
+      while (next < jobs.length && !stop?.()) {
         const job = jobs[next++];
         const current: Lane<J> = worker ??= spawn(listen);
         const outcome = await new Promise<{ answer: A } | { lost: string }>((resolve) => {
