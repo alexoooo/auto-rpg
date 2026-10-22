@@ -117,6 +117,19 @@ function held(config: PartConfig): { readonly slot: Part["slots"][number]; reado
   });
 }
 
+/**
+ * The aims `config`'s actions name (`ActionConfig.aim`), each with its path: parts its tree
+ * holds outside its slots, whose settings its actions' checks read (`actionFaults`).
+ */
+function aimsOf(config: PartConfig, at: string): { readonly path: string; readonly aim: unknown }[] {
+  const actions = (config as { readonly actions?: unknown }).actions;
+  if (!Array.isArray(actions)) return [];
+  return actions.flatMap((action: unknown, i) => {
+    const aim = (action as { readonly aim?: unknown } | null)?.aim;
+    return aim === undefined || aim === null ? [] : [{ path: `${at ? `${at}.` : ""}actions.${i}.aim`, aim }];
+  });
+}
+
 /** Whether `value` is a part's config: an object with a kind that names a part. */
 const isPart = (value: unknown): value is PartConfig =>
   typeof value === "object" && value !== null && isKind((value as { kind?: unknown }).kind);
@@ -155,6 +168,8 @@ export function treeFaults(config: PartConfig, provides: readonly Provision[] = 
       else slots.push(...treeFaults(child, provides, here, of));
     });
   }
+  for (const { path, aim } of aimsOf(config, at))
+    if (isPart(aim) && ownerOf(aim.kind) !== null && ownerOf(aim.kind) !== of) { formed = false; slots.push(where(`${partOf(aim).label} is ${ownerOf(aim.kind)}'s own part`, path)); }
   const screen = unprovided(partOf(config).needs, provides);
   return [...(screen ? [where(screen)] : []), ...unknownSettings(config).map((fault) => where(fault)), ...(formed ? partOf(config).faults(config, partLookup).map((fault) => where(fault)) : []), ...slots];
 }
@@ -165,6 +180,7 @@ export function treeKinds(config: PartConfig): readonly string[] {
   const visit = (one: PartConfig): void => {
     kinds.add(one.kind);
     for (const { parts } of held(one)) for (const child of parts) if (isPart(child)) visit(child);
+    for (const { aim } of aimsOf(one, "")) if (isPart(aim)) kinds.add(aim.kind);
   };
   visit(config);
   return [...kinds];

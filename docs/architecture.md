@@ -470,7 +470,7 @@ config names as the host's lookup finds it. A part whose checks read the parts i
 the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the registry. Over the tree:
 
 - `treeFaults` names each fault by path (`subs.0: ...`); `createMind` refuses a tree with any, and
-  `partOf` refuses an unknown kind. A mind's own part in another mind's tree is a fault.
+  `partOf` refuses an unknown kind. A mind's own part in another mind's tree is a fault, an aim its actions name (`ActionConfig.aim`) as a slot's part.
 - A part's `fits` answers why a body cannot carry out what it commands, or null where it can: the one
   source of compatibility. It names what the part uses beyond what its mind gives it: legs and the
   sub-minds that stand need soles (`fitsSoles`), an executor one of its effectors
@@ -630,12 +630,13 @@ joint-feedback Mind (`entrants/direct/mind.ts`) is the example.
    it runs the game's.
 4. It may use any of the toolkit (`src/core/mind/`, `skills/`, `control/`) and imports no engine,
    world or builder. Data and learned weights go under `assets/entrants/<name>/`.
-5. A part of its own of a role whose parts make themselves (navigation, guard, support, executor,
-   tactics, motor, sub-mind) is a module in its folder and a line in its controller's `parts` (Vanguard's punch,
+5. A part of its own, of any role (any slot's, an action's aim, the quadruped's motor,
+   gaits, bite and planner), is a module in its folder and a line in its controller's `parts` (Vanguard's punch,
    `vanguard-punch`, and planner, `vanguard-plan`); its config chooses it, an ablation (`--ablate`) replaces it alone, and its maker finds it with the
    host's lookup (`BodyHost.parts`). Only its own minds' slots offer it. `tests/swap.test.mjs`
-   registers a fixture entrant this way from outside `src/` (`tests/fixtures/swap/`) and holds a
-   stub of each such role to it: chosen by config, run, forked, replayed and linked.
+   registers fixture entrants this way from outside `src/` (`tests/fixtures/swap/`: a fighter, an
+   options fighter and a quadruped) and holds a stub of each role to it: chosen by config, run,
+   forked, replayed and linked.
 
 Once registered it is offered by its presets (or its kind) in `MINDS`, and
 `tests/mind-contract.test.mjs` runs it against itself on the first body it fits, forks it and

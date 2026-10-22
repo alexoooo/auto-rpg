@@ -13,7 +13,8 @@
  * Crypt subject. The Lab opens a fixture mind for what it takes, not for its kind. The stub
  * evaluation, a folder and a line of the evaluations list, plays a lone body; the stub end rule, a
  * line of the end rules list, ends a bout whose recipe names it and its start arrangement. A
- * planner's own report reaches the readout a person reads.
+ * planner's own report reaches the readout a person reads. The quadruped fixture holds a stub of
+ * each of the quadruped's roles (motor, gait, bite, planner), and the options fixture one aim.
  */
 import "./fixtures/swap/hooks.mjs";
 import test from "node:test";
@@ -34,7 +35,7 @@ const { RECIPE_FIGHTER } = await import("../src/core/mind/config.ts");
 const { modelHolding, modelSpec } = await import("../src/core/models.ts");
 const { traceOf } = await import("../src/evaluation/trace.ts");
 const { parseMind, writeMind } = await import("../src/ui/mind-link.ts");
-const { GAME_CONFIGS, STUBS, SWAP_DEFAULTS, SWAP_OPTIONS_DEFAULTS } = await import("./fixtures/swap/mind.mjs");
+const { GAME_CONFIGS, STUBS, SWAP_DEFAULTS, SWAP_OPTIONS_DEFAULTS, SWAP_QUADRUPED_DEFAULTS } = await import("./fixtures/swap/mind.mjs");
 const { STUB_POSTURE } = await import("./fixtures/swap/stub-guard.mjs");
 const { STRAIGHT_NAVIGATION } = await import("./fixtures/swap/straight-navigation.mjs");
 const { STUB_BLOW } = await import("./fixtures/swap/stub-blow.mjs");
@@ -55,7 +56,7 @@ const STEPS = 240, FORK = 120;
 const spec = modelSpec("workshop-fighter");
 
 test("the fixture entrants are registered from outside src/", () => {
-  for (const config of [SWAP_DEFAULTS, SWAP_OPTIONS_DEFAULTS]) {
+  for (const config of [SWAP_DEFAULTS, SWAP_OPTIONS_DEFAULTS, SWAP_QUADRUPED_DEFAULTS]) {
     assert.ok(Object.hasOwn(CONTROLLERS, config.kind), `the hook put ${config.kind}'s line in the kinds list`);
     assert.deepEqual(treeFaults(config), [], `${config.kind} holding every stub of its own has no fault`);
   }
@@ -189,6 +190,29 @@ test("each part a bout runs is the one its config names, and the bout forks, res
   const replay = await played({ replay: first.sheets }, false);
   assert.equal(replay.digest, first.digest, "the replay is the bout");
   for (const config of Object.values(minds)) assert.deepEqual(parseMind(writeMind(config), spec, FIGHT_ENTRY), { config, faults: [] }, `${config.kind}'s tree goes through a link unchanged`);
+});
+
+test("each part a quadruped's config names is the one its mind runs, and its bout forks and resumes", async () => {
+  const minds = { left: SWAP_QUADRUPED_DEFAULTS, right: CONTROLLERS.quadruped.defaults };
+  const { world, duel, dispose } = await buildBout({ left: "reptile", right: "reptile", gap: 2, minds }, { engine: BOUT_ENGINE });
+  try {
+    duel.play([]);
+    const builts = SIDES.map((side) => duel.duelists[side].built);
+    const run = (until, trace) => { while (duel.steps < until) { world.step(); trace?.take(); } };
+    run(FORK);
+    const saved = duel.save(), tail = traceOf(builts);
+    run(STEPS, tail);
+    const body = saveState(duel.duelists.left.minded.body.state);
+    for (const { part, read } of STUBS.filter((stub) => stub.mind === SWAP_QUADRUPED_DEFAULTS.kind)) {
+      const own = read(null, body), kind = part.defaults.kind;
+      assert.equal(own?.stub, kind, `the ${part.role} the quadruped runs is its config's stub`);
+      assert.ok(own.steps > 0, `the ${kind} stub was asked`);
+    }
+    duel.load(saved);
+    const again = traceOf(builts);
+    run(STEPS, again);
+    assert.equal(again.digest(), tail.digest(), "the bout forked and resumed is the bout");
+  } finally { dispose(); }
 });
 
 /** `part`'s stub state in a side's saved mind and body state. */

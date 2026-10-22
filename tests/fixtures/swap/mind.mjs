@@ -1,9 +1,12 @@
 /**
- * **The swap fixture's entrants**: the game's fighter and options fighter under kinds of their own,
- * every part chosen by its config, their stubs their own parts (`Controller.parts`). They are
- * registered from here by one list line each (`kinds.mjs`), as an entrant's folder is.
+ * **The swap fixture's entrants**: the game's fighter, options fighter and quadruped under kinds of
+ * their own, every part chosen by its config, their stubs their own parts (`Controller.parts`).
+ * They are registered from here by one list line each (`kinds.mjs`), as an entrant's folder is.
  */
-import { MOVE, OPTIONS, RECIPE_FIGHTER, STAND_UP } from "../../../src/core/mind/config.ts";
+import { MOVE, OPTIONS, QUADRUPED, RECIPE_FIGHTER, STAND_UP } from "../../../src/core/mind/config.ts";
+import { QUADRUPED_MIND } from "../../../src/core/reptile/kind.ts";
+import { AIMED, STUB_AIM } from "./stub-aim.mjs";
+import { STUB_JAW, STUB_PAW_MOTOR, STUB_STALK, STUB_TROT } from "./stub-quadruped.mjs";
 import { FIGHTER_MIND } from "../../../src/core/mind/fighter-kind.ts";
 import { OPTIONS_MIND } from "../../../src/core/mind/options/kind.ts";
 import { STRAIGHT_NAVIGATION } from "./straight-navigation.mjs";
@@ -24,6 +27,9 @@ import { GAME_MOTOR } from "../../../src/core/mind/kit.ts";
 
 /** Where a stub behaviour goes: after the fighter's own. */
 const BEHAVIOUR_AT = RECIPE_FIGHTER.tactics.list.length;
+
+/** The options fighter's first aimed action, where the stub aim goes. */
+const AIM_AT = OPTIONS.actions.findIndex((action) => action.aim?.kind === "surface");
 
 /**
  * Each converted role's stub: the part, the fixture mind that owns it (`mind`), `place` putting it
@@ -51,10 +57,14 @@ export const STUBS = Object.freeze([
   { part: STUB_REFLEX, mind: "swap-options", at: "reflexes.0", place: (config) => ({ ...config, reflexes: [STUB_REFLEX.defaults] }), read: (state) => state.tactics.reflexes.own[0] },
   { part: STUB_BALANCE, mind: "swap-options", at: "motor.balance", place: (config) => ({ ...config, motor: { ...GAME_MOTOR, balance: STUB_BALANCE.defaults } }),
     read: (_mind, body) => body.mind.host.motor.stance },
+  { part: STUB_AIM, mind: "swap-options", at: `actions.${AIM_AT}.aim`,
+    place: (config) => ({ ...config, actions: config.actions.map((action, i) => i === AIM_AT ? { ...action, aim: STUB_AIM.defaults } : action) }), read: () => AIMED },
+  ...[["motor", STUB_PAW_MOTOR], ["travel", STUB_TROT], ["bite", STUB_JAW], ["tactics", STUB_STALK]].map(([at, part]) => (
+    { part, mind: "swap-quadruped", at, place: (config) => ({ ...config, [at]: part.defaults }), read: (_mind, body) => body.mind.host[at] })),
 ].map(Object.freeze));
 
 /** Each fixture mind's game config: where its stubs are placed one at a time. */
-export const GAME_CONFIGS = Object.freeze({ "swap-stub": RECIPE_FIGHTER, "swap-options": OPTIONS });
+export const GAME_CONFIGS = Object.freeze({ "swap-stub": RECIPE_FIGHTER, "swap-options": OPTIONS, "swap-quadruped": QUADRUPED });
 
 /** A fixture mind's config: `base` under `kind`, every stub of its own placed, then `more`. */
 const withStubs = (kind, base, more) => Object.freeze({ ...STUBS.filter((stub) => stub.mind === kind).reduce((config, stub) => stub.place(config), base), kind, ...more });
@@ -64,8 +74,11 @@ export const SWAP_DEFAULTS = withStubs("swap-stub", RECIPE_FIGHTER, {
   actions: Object.freeze([{ name: "stub-blow", executor: STUB_BLOW.defaults.name, effectors: ["hand.right", "hand.left"] }]),
 });
 
-/** The options fixture: the options fighter with its reflex and down stubs. */
+/** The options fixture: the options fighter with its reflex, down, balance and aim stubs. */
 export const SWAP_OPTIONS_DEFAULTS = withStubs("swap-options", OPTIONS, {});
+
+/** The quadruped fixture: its motor, trot, bite and planner each a stub. */
+export const SWAP_QUADRUPED_DEFAULTS = withStubs("swap-quadruped", QUADRUPED, {});
 
 /** The stubs a fixture mind owns. */
 const own = (kind) => Object.freeze(STUBS.filter((stub) => stub.mind === kind).map((stub) => stub.part));
@@ -76,4 +89,8 @@ export const SWAP_MIND = Object.freeze({
 
 export const SWAP_OPTIONS_MIND = Object.freeze({
   ...OPTIONS_MIND, label: "Swap options", stage: "experimental", defaults: SWAP_OPTIONS_DEFAULTS, presets: Object.freeze({}), parts: own("swap-options"),
+});
+
+export const SWAP_QUADRUPED_MIND = Object.freeze({
+  ...QUADRUPED_MIND, label: "Swap quadruped", stage: "experimental", defaults: SWAP_QUADRUPED_DEFAULTS, presets: Object.freeze({}), parts: own("swap-quadruped"),
 });
