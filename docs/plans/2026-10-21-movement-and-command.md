@@ -46,12 +46,10 @@ against N, are later work outside this plan.
   at most a ceiling; the navigator routes it; Move's rules choose the gait; one rule sets the speed
   (`travelSpeed`, `src/core/mind/travel.ts`) from the limits the gait states (`Locomotion.envelope`,
   `Locomotion.stopping`); the legs carry it out ([architecture](../architecture.md#minds)).
-- **The Crypt's party is led by screen code**: its enemies are a team under the `independent`
-  Commander (`src/core/command/independent.ts`), but `DungeonRun` (`src/dungeon/run.ts`) decides
-  each party member's target, exploration goal, following the hero, post, slot
-  about a shared destination and way through doors (`choose`, `memberMovement`, `slot`,
-  `throughDoors`); and the person's four mouse orders (`Order`, `src/dungeon/commands.ts`: idle,
-  lock, force, attack-move). None of the party's is in the core or selectable, and no AI can play the party.
+- **The Crypt's teams are Commanders**: its enemies `independent`, its party `party`
+  (`src/core/command/`), with `DungeonRun` their host. The person's four mouse orders (`TeamOrder`,
+  `src/core/command/commands.ts`: idle, lock, force, attack-move) reach the party as `TeamCommand`s;
+  the keys and the pointer as its `Lead`. No AI plays the party yet.
 - **The Arena's person steers one body**: WASD a direct goal relative to the camera, Shift walks,
   the pointer sets facing, the left button attacks the segment it points at (`personOrders`,
   `src/arena/main.ts`). The bout tapes each side's orders (`Duel.tape`), so it replays with no
@@ -65,20 +63,12 @@ against N, are later work outside this plan.
 
 ## Steps
 
-B0 has landed: the Commander contract (`src/core/command/`, [architecture](../architecture.md#command)),
-with the Crypt's enemies as its first kind (`independent`). B1 and B2 can start; B3 and B4 follow B1. Each step is its own
+B0 and B1 have landed: the Commander contract (`src/core/command/`, [architecture](../architecture.md#command)),
+the Crypt's enemies (`independent`) and party (`party`) as its kinds. B2, B3 and B4 can start. Each step is its own
 toolkit commits under the normal gate, naming the fingerprint cases it moves; a step that claims no
 change of behaviour shows the fingerprint unmoved.
 
 ### Part B: command
-
-#### B1. The Crypt's Commanders, no change of behaviour
-
-- A party Commander takes following the leader, choosing targets, exploring, slots about a shared
-  destination and the way through doors, with the person's commands as its input.
-- `DungeonRun` keeps the map, levels (`levelsOf`), the run's status, and opening doors physically.
-
-Check: the fingerprint's Crypt cases are unmoved.
 
 #### B2. The person's commands
 

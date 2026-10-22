@@ -1,21 +1,9 @@
 import { distance, type Point } from "./map.ts";
 import { CAMERA_AZIMUTH, cameraToward } from "./camera.ts";
+import type { TeamOrder } from "../core/command/commands.ts";
 
 interface ControlMode { keyboard: boolean; facing: boolean }
-export type Order = { kind: "idle" } | { kind: "attack-move"; destination: Point }
-  | { kind: "lock"; target: string } | { kind: "force"; points: Point[]; drawing: boolean };
 export const mouseOrdersEnabled = (mode: ControlMode): boolean => !mode.keyboard && !mode.facing;
-
-/** One line for a party member's row: what it was told, or what it does untold. */
-export function orderLabel(order: Order, post: Point | null, hero: boolean): string {
-  switch (order.kind) {
-    case "idle": return post ? "holding" : hero ? "standing" : "with you";
-    case "lock": return "fighting";
-    case "attack-move": return "attack-moving";
-    case "force": return order.points.length ? "force-moving" : post ? "holding" : hero ? "standing" : "with you";
-    default: { const unknown: never = order; throw new Error(`No label for ${JSON.stringify(unknown)}`); }
-  }
-}
 
 /** Keys on the screen's axes as a step on the ground, for a camera standing `toward` of the hero: screen up is
  * `-toward`, away from the camera, and screen right is `(-toward.z, toward.x)`. At `CAMERA_AZIMUTH` they are +z and +x. */
@@ -27,7 +15,7 @@ export function screenMovement(right: number, up: number, toward: Point = camera
 /** Pointer state lives outside the DOM so cancellation and click/drag arbitration are testable. */
 export class DungeonCommands {
   mode: ControlMode = { keyboard: false, facing: false };
-  order: Order = { kind: "idle" };
+  order: TeamOrder = { kind: "idle" };
   cursor: Point | null = null;
   right = 0;
   up = 0;

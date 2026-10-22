@@ -1,5 +1,6 @@
 import { deepFreeze } from "../state.ts";
 import { independentCommander } from "./independent.ts";
+import { partyCommander } from "./party.ts";
 import type { Commander, TeamHost } from "./team.ts";
 
 /** **A Commander's config**: plain data naming its kind, as a Mind's does. */
@@ -24,13 +25,19 @@ const INDEPENDENT: CommanderEntry = deepFreeze({
   create: (host: TeamHost) => independentCommander(host),
 });
 
+/** **A person's party** (`partyCommander`):the leader where its person steers, the others after it or where they were sent. */
+const PARTY: CommanderEntry = deepFreeze({
+  label: "Party", defaults: { kind: "party" }, faults: kindOnly,
+  create: (host: TeamHost) => partyCommander(host),
+});
+
 /**
  * **Every Commander, by its kind** (its defaults' `kind`), in the order a picker offers them: the
  * one place a kind is made. A kind twice is refused.
  */
 export const COMMANDERS: Readonly<Record<string, CommanderEntry>> = (() => {
   const byKind: Record<string, CommanderEntry> = {};
-  for (const entry of [INDEPENDENT]) {
+  for (const entry of [INDEPENDENT, PARTY]) {
     if (Object.hasOwn(byKind, entry.defaults.kind)) throw new Error(`two Commanders of kind ${JSON.stringify(entry.defaults.kind)}`);
     byKind[entry.defaults.kind] = entry;
   }

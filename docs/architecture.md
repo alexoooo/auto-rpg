@@ -533,6 +533,7 @@ Its host asks it once a step, after the senses and before every Mind. The kinds:
 | Kind | File | Leads |
 |---|---|---|
 | `independent` | `independent.ts` | each member at the nearest foe it sees, on to where it last saw one, else home: the Crypt's enemies |
+| `party` | `party.ts` | a person's party: the leader where its person steers or exploring, the others after it or where they were sent, each at the foe its order locks or the nearest it sees, slots about a shared destination, doors on the way: the Crypt's party |
 
 `tests/core-boundary.test.mjs` holds `src/core/command/` to no engine, world, body, enlistment,
 mind host or senses hub; `tests/command-contract.test.mjs` has each kind lead an Arena bout as a
@@ -792,8 +793,10 @@ engine, until a choice is changed; the bout is otherwise assembled from the addr
 `matchup.ts`). Back returns to the Ratings address the case was opened from.
 
 **The Crypt.** Walls, doors and obstacles are fixed boxes (`buildDungeonWorld`); enemies are built
-as the party comes near. A person's orders reach the party only through the run's plan
-(`DungeonCommands`), as movement requests each member's own navigation carries out; a blocked goal
+as the party comes near. Each side is a team under a Commander ([Command](#command)), the run its host
+(`DungeonRun`: the map as `TeamLevel`, who is built, levels, doors, status); a person's mouse
+orders and keys (`DungeonCommands`) reach the party only as its Commander's commands and lead,
+and its orders as movement requests each member's own navigation carries out; a blocked goal
 may route through a door first (`door-approach.ts`). Sight is the map's (`canSee`, `reveal`,
 `SightIndex`, `src/dungeon/map.ts`). Minds are chosen per model (`runMinds`,
 `src/dungeon/run-minds.ts`). Art: [crypt](art/crypt.md).

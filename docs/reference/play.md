@@ -20,7 +20,7 @@ measurement backs it.
 
 ## Sight
 
-`src/dungeon/run.ts`. Every sight line is `canSee`'s: a clear line on the map, no farther than
+`src/dungeon/run.ts`, `src/core/command/`. Every sight line is `canSee`'s (`TeamLevel.sees`): a clear line on the map, no farther than
 the distance given, read through an index of the cells where nothing need be read (`SightIndex`,
 `src/dungeon/map.ts`), which changes no answer
 ([step-cost.md](step-cost.md#sight-read-through-an-index)).
@@ -31,7 +31,7 @@ the distance given, read through an index of the cells where nothing need be rea
   going somewhere comes within `LEVELS.company` of it, so that nothing stands where it is built
   ([Levels](#levels)). The 16 m is the rule the crypt had on an engine that is gone
   (`src/dungeon/run.ts@e029c1e7`), not measured on the core.
-- `PARTY_SIGHT`: a party member sees the enemy its order locks within 12 m, picks one for itself
+- `PARTY_SIGHT` (`src/core/command/party.ts`): a party member sees the enemy its order locks within 12 m, picks one for itself
   within 8 m, and keeps the one it fights while it is within 5 m and nothing ranks above it.
 
 ## Levels
@@ -193,7 +193,7 @@ rest; it is not built ([roadmap](../roadmap.md)).
 
 ## Targets
 
-`src/dungeon/run.ts`, for a hero whose facing the cursor steers.
+`src/core/command/party.ts`, for a hero whose facing the cursor steers.
 
 - `AIM_COSINE`: the hero picks targets from a cone about the cursor's direction whose half-angle
   has a cosine of 0.3: 73 degrees.
@@ -205,7 +205,7 @@ and engine that are gone (`src/dungeon/run.ts@c4c71cb8`); it is not measured on 
 
 ## Following
 
-`src/dungeon/run.ts` chooses movement objectives; the selected Mind's navigation role owns paths,
+The party's Commander (`src/core/command/party.ts`) chooses movement objectives; the selected Mind's navigation role owns paths,
 braking, arrival and progress against the world's solid geometry.
 
 - `cryptModel.radius`: the humanoid's 0.35 m footprint, for placement, formation slots and the

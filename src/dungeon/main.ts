@@ -29,7 +29,6 @@ import { EnemyHover } from "./hover.ts";
 import { DungeonRun, prepareDungeonCharacters, runMap, runModels, runParticipants, type DungeonActor, type Participant, type RunStatus } from "./run.ts";
 import { runAttributes } from "./run-attributes.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
-import { orderLabel } from "./commands.ts";
 import { cellKey } from "./map.ts";
 import { CAMERA_AZIMUTH, CAMERA_PITCH, cameraToward, frameDungeon, pickingCoordinates } from "./camera.ts";
 import { DRESSING, dressingPlacements, torchPlacements } from "./dressing.ts";
@@ -566,7 +565,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
         button.setAttribute("aria-pressed", String(run.selected.has(member.id)));
         button.classList.toggle("fallen", !member.alive);
         button.querySelector("progress")!.value = member.vitality;
-        button.querySelector("small")!.textContent = member.alive ? `· ${orderLabel(member.order, member.post, member === run.hero)}` : "· fallen";
+        button.querySelector("small")!.textContent = member.alive ? `· ${run.report(member).task}` : "· fallen";
       }
     };
     const selectMember = (id: string, add: boolean) => {
@@ -703,9 +702,8 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     const { run, scene } = page;
     if (!run || !scene) return;
     const walks = run.party.filter((member) => member.alive).map((member) => {
-      const order = member.order;
       return {
-        force: order.kind === "force", from: member.feet(),
+        force: run.report(member).forced, from: member.feet(),
         points: member.navigation?.route ?? [],
       };
     }).filter((walk) => walk.points.length);
