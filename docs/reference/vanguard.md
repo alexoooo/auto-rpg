@@ -1,9 +1,9 @@
 # Vanguard development panel
 
-The committed-aim candidate wins six of six development bouts against Options, Puncher and
-Counter-puncher. This does not establish the requested win rate across opponents and equipment:
-each opponent has only two cases, on one body and stage. The candidate loses both direct bouts
-to the original Vanguard.
+The committed-aim candidate wins 18 of 18 development bouts against the nine existing humanoid
+minds. This does not establish the requested win rate across opponents and equipment: each
+opponent has only two cases, on one body and stage. The candidate loses both direct bouts to the
+original Vanguard.
 
 ## What is used
 
@@ -30,6 +30,25 @@ All 14 bouts are valid; none draws. On the shared three-member panel the candida
 is 1 and the original's is 0.5. The paired report is unsettled with three opponent pairs. These
 are development conditions, with no held-out confirmation, other bodies, obstacle court or
 equipment represented. The direct losses show that the gain depends on the matchup.
+
+## Expanded humanoid field
+
+[The expanded record](../../assets/evaluations/tournament/2026-10-22-30c74f89-960fa8de.jsonl)
+uses the same candidate, played source and conditions. It contains 18 unique bouts, including
+the six candidate-panel bouts above; these are reused, not additional trials. It adds both sides
+against six more humanoid opponents. All 18 are valid wins: 11 by injury and seven at the cap.
+
+| Opponent | Wins | Injury / time-limit wins |
+| --- | ---: | ---: |
+| Classic | 2/2 | 0 / 2 |
+| Behaviours | 2/2 | 2 / 0 |
+| Duellist | 2/2 | 0 / 2 |
+| Scrapper | 2/2 | 2 / 0 |
+| Tempo | 2/2 | 2 / 0 |
+| Joint feedback (`direct`) | 2/2 | 0 / 2 |
+
+The Reptile is outside this humanoid field. The results do not test other bodies, equipment,
+the obstacle court or held-out starting gaps.
 
 ## Tried and not kept
 
