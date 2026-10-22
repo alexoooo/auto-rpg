@@ -27,7 +27,7 @@ export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) =
   const hands = (["left", "right"] as const).filter(hand => holdsNothing(spec, `hand.${hand}`));
   const focus = (view: BodyView) => view.senses.others.find(foe => foe.id === base.engagement?.focus && !foe.out && lowOpponent(view, foe));
   const tactics: Tactics = {
-    ...base, state,
+    ...base, state, get engagement() { return base.engagement; },
     decide(sight, dt) {
       const intent = base.decide(sight, dt), foe = focus(sight.view);
       if (!foe || orders(sight)?.move !== undefined || sight.view.down) {

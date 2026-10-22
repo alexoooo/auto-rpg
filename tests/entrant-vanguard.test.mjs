@@ -8,6 +8,53 @@ import { lowGuard } from "../src/core/entrants/vanguard/low-guard.ts";
 import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
 import { CAP_SECONDS } from "../src/arena/duel.ts";
 import { BOUT_ENGINE } from "../research/bout.mjs";
+import { adaptiveGuard } from "../src/core/entrants/vanguard/adaptive-guard.ts";
+
+/** Ordinary policies with distinguishable decisions and an external contact signal. */
+function learningFixture(signal) {
+  const make = pace => { const state = { calls: 0 }; return { name: "fixture", state, engagement: { phase: "attack", focus: "foe" },
+    decide() { state.calls++; return { move: null, face: 0, guard: { left: null, right: null }, actions: [], pace }; } }; };
+  const attacking = make(1), defensive = make(2), policy = adaptiveGuard(attacking, defensive, true);
+  const zero = { x: 0, y: 0, z: 0 }, foe = { id: "foe", out: false, spec: { marks: { middle: ["trunk"] }, segments: [{ name: "trunk" }] },
+    segments: new Map([["trunk", { centre: zero, velocity: zero, spin: zero }]]) };
+  const feedback = () => ({ completedStep: 0, velocity: [3, 0, 0], pairs: [] });
+  const left = feedback(), right = feedback(), view = { time: 0, senses: { others: [foe] }, effectors: { "hand.left": { feedback: left }, "hand.right": { feedback: right } } };
+  const action = { id: 1, action: "strike", effector: "hand.right", phase: "commit", target: { kind: "body", body: "foe", region: { kind: "mark", mark: "middle" } } };
+  const sight = { view, report: { actions: [] } };
+  const clock = { previous: 1, time: 0 };
+  const step = () => {
+    view.time = ++clock.time; left.completedStep = clock.time; right.completedStep = clock.time;
+    sight.report.actions = clock.time % 2 ? [action] : [];
+    const impulse = signal(clock.previous, clock.time);
+    right.pairs = impulse > 0 && sight.report.actions.length ? [{ onset: true, loaded: true, impulse,
+      target: { kind: "body", body: "foe", segment: "trunk", guard: false }, point: [0, 0, 0], normal: [1, 0, 0] }] : [];
+    const decision = policy.decide(sight, 1 / 120); clock.previous = decision.pace; return decision;
+  };
+  return { policy, attacking, defensive, clock, step };
+}
+
+test("policy learning credits observed target impacts and forks both policies and its feedback memory", () => {
+  const { policy, attacking, defensive, clock, step } = learningFixture(mode => mode === 2 ? 1 : 0);
+  while (clock.time < CAP_SECONDS && (!policy.state.samples.every(n => n > 0) || clock.previous !== 2)) step();
+  assert.ok(attacking.state.calls > 0 && defensive.state.calls > 0, "the fixture probes both policies");
+  assert.equal(clock.previous, 2, "observed target impacts favour the productive policy");
+  const saved = saveState(policy.state), checkpoint = { ...clock };
+  const tail = () => { const decisions = []; for (let i = 0; i < 20; i++) decisions.push(step()); return { decisions, state: saveState(policy.state) }; };
+  const first = tail(); loadState(policy.state, saved); Object.assign(clock, checkpoint);
+  assert.deepEqual(tail(), first, "policy scores, motion samples and both decision memories replay exactly");
+});
+
+test("a quiet policy trial is revisited when the contact conditions change", () => {
+  const change = CAP_SECONDS / 3;
+  const { clock, step } = learningFixture((mode, time) => mode === 1 ? .1 : time > change ? 1 : 0);
+  let quietTrial = false, revisited = false;
+  while (clock.time < CAP_SECONDS) {
+    const decision = step();
+    if (decision.pace === 2) { if (clock.time <= change) quietTrial = true; else revisited = true; }
+  }
+  assert.ok(quietTrial, "the fixture first samples the policy while its target contacts are absent");
+  assert.ok(revisited, "an earlier zero score does not prevent trying the policy after conditions change");
+});
 
 test("a committed body-relative punch forks during its stroke and returns exactly", async () => {
   const config = { ...CONTROLLERS.vanguard.defaults, commitAim: true, predictAim: true };
