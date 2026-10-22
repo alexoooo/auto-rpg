@@ -120,17 +120,20 @@ the Warrior–Rogue bout at `889b3c3d`, all the Rogue's right arm, steps 1022 to
 was asked and solved again alone, so two solves answer the same questions. Kinematics alone, Node
 core stand, a pass's time the least of seven readings, quiet machine:
 
-| The Jacobian | At 200 passes | All passes | Of those that end: median, most | At their place (0.1 mm), and of them at the cap | Solved again from its answer, the most an angle moves | A step's three: the greatest second difference | A pass |
+| The solve | At 200 passes | All passes | Of those that end: median, most | At their place (0.1 mm), and of them at the cap | Solved again from its answer, the most an angle moves | A step's three: the greatest second difference | A pass |
 |---|---|---|---|---|---|---|---|
-| Differenced (`@889b3c3d`) | 117 of 144 | 24583 | 27, 146 | 102, 75 | 1.8e-9 rad where it ended, 3.7e-2 where it did not | 0.2949 rad | 10.65 us |
-| In closed form | 43 of 144 | 11470 | 28, 109 | 102, 1 | 7.6e-11 rad where it ended, 3.7e-2 where it did not | 0.2949 rad | 9.86 us |
+| The Jacobian differenced (`@889b3c3d`) | 117 of 144 | 24583 | 27, 146 | 102, 75 | 1.8e-9 rad where it ended, 3.7e-2 where it did not | 0.2949 rad | 10.65 us |
+| The Jacobian in closed form (`@45ee2d7d`) | 43 of 144 | 11470 | 28, 109 | 102, 1 | 7.6e-11 rad where it ended, 3.7e-2 where it did not | 0.2949 rad | 9.86 us; 2.89 at `45ee2d7d` |
+| **Near full stretch solved otherwise**, the solve in the tree | 0 of 144 | 2985 | 23, 54 | 102, 0 | 6.0e-11 rad | 0.1358 rad | 3.06 us |
 
-- **43 of the bed's 144 run to the cap**; a change of the solve may lower that, and none raises it.
-- **A solve at its place ends**, but one: solve 98, a wrist freedom at its stop, 1.1e-9 m from its
-  place and still closing; solved again from its answer it ends in 42 passes.
-- **The other 42 at the cap are of a place out of reach**, 6.6 mm to 0.49 m beyond the hand. There
-  every pass turns the most it may (`IK_TURN`, 0.2 rad) and the next turns back, and the answer is
-  whichever end of the swing the 200th pass is.
+- **None of the bed's 144 runs to the cap**; a change of the solve may not raise that.
+- **A solve at its place ends.** Of the 102, 96 give the answer they gave before to the bit; six,
+  solves 95, 97 to 100 and 102, are within a fifth of a hand of full stretch, end at their place by
+  the other way ([near full stretch](#the-reach-solver-near-full-stretch)), none farther from it, and
+  their angles differ by up to 4.1e-2 rad. The in-reach solves take a median of 27 passes and at most 54.
+- **The 42 out of reach end in 10 passes each**, 8.7 to 228 mm from the place asked (before, at the
+  cap, 6.6 to 487 mm), at the point as far toward it as the arm reaches still bent; solved again,
+  they move 1.3e-12 rad.
 - With the Jacobian differenced (1e-7 rad), its rounding of about 1e-9 kept solves at their place
   moving 2e-10 to 1e-8 rad a pass, never under the tolerance; the closed form ends them.
 
@@ -141,8 +144,58 @@ In the bout, each step the least over three playings:
 | Differenced (`@889b3c3d`) | 1145: the Warrior, by a fatal blow, at 9.54 s | 144, 117, 24583 | 1.547, 1.225, 9.337, 11.294 | 0.998, 8.660 | 144 of 3435 |
 | In closed form | 1244: the Warrior, by a fall, at 10.37 s | 144, 43, 11469 | 1.418, 1.165, 7.767, 10.355 | 0.908, 7.117 | 70 of 3732 |
 
-The longest steps left are those whose three solves are out of reach and each runs 200 passes. They
-go with a solve whose answer out of reach is defined ([roadmap](../roadmap.md#body-and-motor-control)).
+Those two readings are at `889b3c3d`'s bout. The bout at `45ee2d7d` plays longer and otherwise, and
+near full stretch solved otherwise changes how it plays, so its two readings are two bouts, each step
+the least over three playings:
+
+| The solve | Steps, and how it ends | Solves, at the cap, all passes | A step, ms: mean, median, 99th per cent, longest | The rest beside the physics solver, ms: mean, 99th per cent |
+|---|---|---|---|---|
+| The Jacobian in closed form (`@45ee2d7d`) | 7200, by time | 48474, 2578 (5.3 %), 1764300 | 2.418, 2.063, 8.047, 21.736 | 1.817, 7.443 |
+| Near full stretch solved otherwise | 3488, the Warrior by a fall | 23706, 447 (1.9 %), 743291 | 2.272, 2.024, 5.824, 15.124 | 1.686, 5.192 |
+
+**A crypt run** (`crypt-clear` standard, seed 10, trial 0, the mob; 19 bodies, the clearer; Node,
+Rapier, 120 Hz, 120 s of the run, `solveReach` timed by a wrapper):
+
+| The solve | A step, ms | `solveReach`, ms a step, and its share | Solves at the cap | Passes in solves at the cap |
+|---|---|---|---|---|
+| The Jacobian in closed form (`@45ee2d7d`) | 11.100 | 2.766, 24.9 % | 24.6 % of 134776 | 71.7 % |
+| Near full stretch solved otherwise | 9.195 | 1.720, 18.7 % | 9.8 % | 52.2 % |
+
+What is left at the cap in the crypt is a cover: two points of a held item asked to a line 0.6 to
+0.7 m inside the arm's stretch (`wrist.right`, two places, the held item's point), which the joints'
+ranges keep out of reach in about nine of ten. There 47 % of solves run to the cap, before as now;
+the left hand's one place 5 %. A place there is not near full stretch, and the posture's pull and the
+place's step do not settle ([roadmap](../roadmap.md#body-and-motor-control)).
+
+### The reach solver near full stretch
+
+A place near the chain's full stretch, or beyond it, is solved otherwise (`placesTo`,
+`solveReach`, `src/core/control/kinematics.ts`):
+
+- **The full stretch** is the sum of the links from the first moving joint's centre, where the held
+  angles put it, out to the point; no angles reach past it. The last link (the hand, or the hand and
+  what it holds) sets the margins.
+- **A place beyond** the stretch less twice `IK_STRETCH` (0.04) of the last link is brought in on its
+  line from the base, smoothly (`d' = s - m - m^2 / (d - s + 3m)`, `m` that margin): at most to the
+  stretch less one margin. A second place moves with the first. The answer is a function of the
+  place and the held angles.
+- **Within `IK_NEAR` (0.2) of the last link of the stretch** the posture's pull is not asked, so the
+  free angles move the least way from where the solve began; and the damping's square grows by
+  `IK_DAMPING_GROWTH` (0.1) for each metre of error, so a place the ranges keep out of reach is
+  closed on, not overshot.
+
+Why: there the null-space pull bends the arm out of the place to second order and the next step
+straightens it, and the two alternate with a period of two passes; and where a joint at its stop
+holds the arm to its place, the pull drags it off (the bed's solves 101, 103 and 105 reach their
+place only without the pull).
+
+What an arm does there, kinematics alone, from the guard, places in the front half-sphere 0.5 to
+2 m out: every place beyond reach ends, the bare arm and the club arm alike (before, 90 of 90 ran to
+the cap). The bare knuckles stop about 4 mm short of the stretch, the elbow 0.25 to 0.29 rad from
+straight; the club's point about 2.3 cm short, the wrist bent about 0.4 rad, the elbow near its stop,
+since the ranges keep the club from lining up with the forearm. Margins of 5 to 10 mm leave the club
+arm's solves slow and sensitive (second difference 0.72 to 1.37 rad on the bed's steps); 0.04 of the
+last link does not.
 
 ### The reach solver's remedies, tried
 
@@ -159,6 +212,17 @@ an answer is one a second solve leaves alone.
 | Closed form, both of those | 0 | 3979 | | 0.44 |
 | Closed form, the pull taken by halves with the place's step put right after it | 35 | 11310 | | 0.62 |
 | Closed form, the pull dropped on a refusal, then the damping raised | 39 to 40 | 9212 to 10899 | | 0.77 |
+| Closed form at `45ee2d7d`, a place out of reach brought within a hard margin, the pull kept | 43 | | | |
+| That, with the pull a quarter or a tenth where the place was brought in | 0 at a quarter, some at a tenth | 7461 at a quarter | | |
+| Closed form, the damping grown with the error alone | about 43 | | | |
+| Closed form, a predicted step then a corrected one each pass | about 43 | | | |
+| Closed form, the pull asked only where J's least singular value is over 0.1 m/rad | 0; 42 at 0.07 | | | |
+| Closed form, the pull's gain halved each time the step turns back | | | | 4.7e-9; worse in the front half-sphere |
+| Closed form, a pass undone and the pull dropped when the pull grows the error | | | | 3 |
+| **Near full stretch solved otherwise**, the solve in the tree | 0 | 2985 | 0, 6 | 6.0e-11 |
+| That, and elsewhere the place reached first without the pull, then the pull asked, the reached answer kept if the pull loses the place | the crypt's covers 1.7 to 6 % | | | the crypt's covers 0.6 |
+| That, with a step refused while reaching when the error grows | the crypt's covers 0.5 % | | | in reach, answers moved 1.3 |
+| That, with the settling stopped when the error stops falling | the crypt's covers 1.2 %, a mean of 22.8 passes | | | the crypt's covers 1.8 |
 
 - The rows reading 0 at the cap are not cures: 69 solves of the third row stop because the damping
   grew until nothing moves, and solved again their angles move 0.2 rad. Only the second solve tells
@@ -174,6 +238,11 @@ an answer is one a second solve leaves alone.
 - On the differenced solve in the bout, halving the turn when the distance did not fall, with stops
   of 1e-8, 1e-7 or 1e-6 rad, ended the solves at their place but not those out of reach, which crept
   to the cap.
+- Bringing a place in alone cures nothing while the pull is asked: it drags the arm to the wrist's
+  stop and cycles there. Not asking it near full stretch is what ends the 42.
+- Reaching first and settling after cuts the crypt's covers at the cap to 0.5 to 6 %, but their
+  answers are not one function of the place: solved again, an answer moves up to 1.8 rad, and 593 of
+  a sample of 1021 more than 1e-6 rad (with the solve in the tree 26 of 605; before, 23 of 715).
 
 ### Where a bout allocates
 

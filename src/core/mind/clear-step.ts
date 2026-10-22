@@ -8,7 +8,7 @@ import type { SolidSense } from "./object-senses.ts";
  * 9-11. A box's frame is its own, turned and centred; a hull's is the world's, about its points'
  * bounds.
  */
-const SWEEP = 12;
+export const SWEEP = 12;
 
 function sweepBounds(out: Float64Array, solid: SolidSense, fx: number, fy: number, fz: number, tx: number, ty: number, tz: number): Float64Array {
   switch (solid.kind) {
@@ -34,15 +34,23 @@ function sweepBounds(out: Float64Array, solid: SolidSense, fx: number, fy: numbe
   return out;
 }
 
+/**
+ * Whether a body of clearance `radius` at (`x`, `y`, `z`) is within `solid`'s clearance margin,
+ * with `w` (`SWEEP` long) to work in: what `clearanceExit` finds an exit from.
+ */
+export function occupies(w: Float64Array, solid: SolidSense, x: number, y: number, z: number, radius: number): boolean {
+  sweepBounds(w, solid, x, y, z, x, y, z);
+  if (w[10]! <= w[1]! - radius || w[7]! >= w[1]! + radius) return false;
+  return !(w[0]! < w[6]! - radius || w[0]! > w[9]! + radius || w[2]! < w[8]! - radius || w[2]! > w[11]! + radius);
+}
+
 /** Closest outward horizontal direction when the body occupies a fixed solid's clearance margin. */
 export function clearanceExit(from: Vec3, radius: number, solids: readonly SolidSense[]): readonly [number,number] | null {
   if (!(radius >= 0) || !Number.isFinite(radius)) throw new Error("invalid body clearance radius");
   const w = new Float64Array(SWEEP);
   for (let i = 0; i < solids.length; i++) {
     const solid = solids[i]!;
-    sweepBounds(w, solid, from[0], from[1], from[2], from[0], from[1], from[2]);
-    if (w[10]! <= w[1]! - radius || w[7]! >= w[1]! + radius) continue;
-    if (w[0]! < w[6]! - radius || w[0]! > w[9]! + radius || w[2]! < w[8]! - radius || w[2]! > w[11]! + radius) continue;
+    if (!occupies(w, solid, from[0], from[1], from[2], radius)) continue;
     let nearest = Infinity, axis = 0, side = 0;
     for (let k = 0; k <= 2; k += 2) for (let direction = -1; direction <= 1; direction += 2) {
       const gap = direction < 0 ? w[k]! - w[6 + k]! + radius : w[9 + k]! + radius - w[k]!;
@@ -56,24 +64,30 @@ export function clearanceExit(from: Vec3, radius: number, solids: readonly Solid
   return null;
 }
 
+/**
+ * Whether `solid` blocks a body of clearance `radius` sweeping from (`fx`, `fy`, `fz`) to
+ * (`tx`, `ty`, `tz`), with `w` (`SWEEP` long) to work in: what `clearStep` asks of each solid.
+ */
+export function blocks(w: Float64Array, solid: SolidSense, fx: number, fy: number, fz: number, tx: number, ty: number, tz: number, radius: number): boolean {
+  sweepBounds(w, solid, fx, fy, fz, tx, ty, tz);
+  if (w[10]! <= Math.min(w[1]!, w[4]!) - radius || w[7]! >= Math.max(w[1]!, w[4]!) + radius) return false;
+  let first = 0, last = 1, inside = true, inset = Infinity, escape = Infinity;
+  for (let k = 0; k <= 2; k += 2) {
+    const a = w[k]!, lower = w[6 + k]! - radius, upper = w[9 + k]! + radius, d = w[3 + k]! - a;
+    inside &&= a >= lower && a <= upper;
+    // A body inside the clearance margin may reduce its nearest penetration without crossing the solid.
+    inset = Math.min(inset, a - lower, upper - a);
+    if (a !== (lower + upper) / 2 && (a - (lower + upper) / 2) * d >= 0) escape = Math.min(escape, a - lower, upper - a);
+    if (d === 0) { if (a < lower || a > upper) { first = 1; last = 0; } }
+    else { const u = (lower - a) / d, v = (upper - a) / d;
+      first = Math.max(first, Math.min(u, v)); last = Math.min(last, Math.max(u, v)); }
+  }
+  return first <= last && !(inside && escape <= inset);
+}
+
 /** `clearStep` from (`fx`, `fy`, `fz`) to (`tx`, `ty`, `tz`), with `w` to work in. */
 function clearSweep(w: Float64Array, fx: number, fy: number, fz: number, tx: number, ty: number, tz: number, radius: number, solids: readonly SolidSense[]): boolean {
-  for (let i = 0; i < solids.length; i++) {
-    sweepBounds(w, solids[i]!, fx, fy, fz, tx, ty, tz);
-    if (w[10]! <= Math.min(w[1]!, w[4]!) - radius || w[7]! >= Math.max(w[1]!, w[4]!) + radius) continue;
-    let first = 0, last = 1, inside = true, inset = Infinity, escape = Infinity;
-    for (let k = 0; k <= 2; k += 2) {
-      const a = w[k]!, lower = w[6 + k]! - radius, upper = w[9 + k]! + radius, d = w[3 + k]! - a;
-      inside &&= a >= lower && a <= upper;
-      // A body inside the clearance margin may reduce its nearest penetration without crossing the solid.
-      inset = Math.min(inset, a - lower, upper - a);
-      if (a !== (lower + upper) / 2 && (a - (lower + upper) / 2) * d >= 0) escape = Math.min(escape, a - lower, upper - a);
-      if (d === 0) { if (a < lower || a > upper) { first = 1; last = 0; } }
-      else { const u = (lower - a) / d, v = (upper - a) / d;
-        first = Math.max(first, Math.min(u, v)); last = Math.min(last, Math.max(u, v)); }
-    }
-    if (first <= last && !(inside && escape <= inset)) return false;
-  }
+  for (let i = 0; i < solids.length; i++) if (blocks(w, solids[i]!, fx, fy, fz, tx, ty, tz, radius)) return false;
   return true;
 }
 

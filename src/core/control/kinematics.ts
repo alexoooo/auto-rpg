@@ -5,7 +5,7 @@ import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import type { Pose } from "./motor.ts";
 import { linearWork, solve3To, solveLinearTo, type LinearWork } from "../math/flat.ts";
-import { hypot } from "../math/real.ts";
+import { hypot, normIn } from "../math/real.ts";
 import { spinBetweenToRef } from "../math/turn.ts";
 import { channelName } from "../muscle/driver.ts";
 import type { JointKinematics, ReadBody, ReadJoint, ReadSegment } from "../read-body.ts";
@@ -249,7 +249,8 @@ function rowsOf(tasks: number): number {
  * column of J (`stride` entries, the most rows a reach asks), range, whether it is stuck, its step
  * and the posture's pull on it; the tasks' errors; J J' and the system a pass solves (rows by rows,
  * end to end); J times the pull; the two answers; the line from the first point to the second, a
- * direction square to it, and the second point's column. A solve writes every entry it reads.
+ * direction square to it, and the second point's column; and the places the solve goes to, the
+ * first point's and the second's (`placesTo`). A solve writes every entry it reads.
  */
 export interface ReachWork {
   readonly freedoms: number;
@@ -270,6 +271,7 @@ export interface ReachWork {
   readonly line: Float64Array;
   readonly square: Float64Array;
   readonly column: Float64Array;
+  readonly goal: Float64Array;
   readonly linear: LinearWork;
   readonly at: Vector3;
   readonly at2: Vector3;
@@ -281,7 +283,7 @@ export function reachWork(freedoms: number): ReachWork {
     freedoms, stride, walk: chainWalk(), J: new Float64Array(freedoms * stride), least: new Float64Array(freedoms), most: new Float64Array(freedoms),
     stuck: new Uint8Array(freedoms), steps: new Float64Array(freedoms), toward: new Float64Array(freedoms), e: new Float64Array(stride),
     JJ: new Float64Array(stride * stride), A: new Float64Array(stride * stride), Jp: new Float64Array(stride), y: new Float64Array(stride), z: new Float64Array(stride),
-    line: new Float64Array(3), square: new Float64Array(3), column: new Float64Array(3), linear: linearWork(stride), at: new Vector3(), at2: new Vector3(),
+    line: new Float64Array(3), square: new Float64Array(3), column: new Float64Array(3), goal: new Float64Array(6), linear: linearWork(stride), at: new Vector3(), at2: new Vector3(),
   };
 }
 
@@ -305,6 +307,15 @@ export function reachWork(freedoms: number): ReachWork {
  * solve stops at, and a solve at its place never stops.
  * Where the free angles do not outnumber the rows there is no null space, and no pull.
  *
+ * A place near the chain's full stretch, or beyond it, is solved otherwise (`placesTo`): it is
+ * brought within the stretch, short of it, so the answer is the point as far toward the place as
+ * the chain reaches with the arm still bent; the posture's pull is not asked, so the free angles
+ * move the least way there from where the solve began; and the damping grows with the error
+ * (`IK_DAMPING_GROWTH`), so a place the joints' ranges keep out of reach is closed on, not
+ * overshot. There a pull in the null space bends the arm out of the place to second order and the
+ * next step straightens it, and the two do not settle; and where a joint at its stop holds the
+ * arm to the place, the pull drags it off a place it can reach.
+ *
  * A range that reaches a half turn is taken `IK_SHORT` short of it: a joint's angles read within
  * a half turn (`rotationOfToRef`), so a limit at one or beyond never acts, and an angle there
  * has no rotation.
@@ -316,19 +327,21 @@ export function solveReach(chain: readonly JointKinematics[], angles: number[][]
   const n = free.length;
   if (n > work.freedoms) throw new Error(`a reach of ${n} freedoms in a work made for ${work.freedoms}`);
   const [first, second] = tasks as readonly [ReachTask, ReachTask?];
-  const rows = orientation ? 6 : rowsOf(tasks.length), { stride, walk, J, least, most, stuck, steps, toward, e, JJ, A, Jp, y, z, line, square, column, at, at2 } = work;
+  const rows = orientation ? 6 : rowsOf(tasks.length), { stride, walk, J, least, most, stuck, steps, toward, e, JJ, A, Jp, y, z, line, square, column, goal, at, at2 } = work;
   // Each freedom's range, kept short of the half turn its joint's measure reads within.
   for (let k = 0; k < n; k++) {
     least[k] = Math.max(free[k]!.min, IK_SHORT - Math.PI);
     most[k] = Math.min(free[k]!.max, Math.PI - IK_SHORT);
   }
-  let left = Infinity, taken = 0, still = false;
+  let left = Infinity, taken = 0, still = false, near = false;
   while (taken < IK_PASSES && !still) {
     taken++;
     walkTo(walk, chain, angles, free);
+    // The held angles place the chain's base, and the first walk is at them.
+    if (taken === 1) near = placesTo(work, chain, free, tasks);
     walkedPointToRef(walk, chain, first.point, at);
-    e[0] = first.target[0] - at.x; e[1] = first.target[1] - at.y; e[2] = first.target[2] - at.z;
-    left = hypot(e[0]!, e[1]!, e[2]!);
+    e[0] = goal[0]! - at.x; e[1] = goal[1]! - at.y; e[2] = goal[2]! - at.z;
+    left = hypot(first.target[0] - at.x, first.target[1] - at.y, first.target[2] - at.z);
     // The second point's two directions, a and b: square to the line from the first point to it, as they lie.
     let ax = 0, ay = 0, az = 0, bx = 0, by = 0, bz = 0;
     if (second) {
@@ -340,9 +353,9 @@ export function solveReach(chain: readonly JointKinematics[], angles: number[][]
       unitTo(px - lx * along, py - ly * along, pz - lz * along, square);
       ax = square[0]!; ay = square[1]!; az = square[2]!;
       bx = ly * az - lz * ay; by = lz * ax - lx * az; bz = lx * ay - ly * ax;
-      const ex = second.target[0] - at2.x, ey = second.target[1] - at2.y, ez = second.target[2] - at2.z;
+      const ex = goal[3]! - at2.x, ey = goal[4]! - at2.y, ez = goal[5]! - at2.z;
       e[3] = ex * ax + ey * ay + ez * az; e[4] = ex * bx + ey * by + ez * bz;
-      left = Math.max(left, hypot(ex, ey, ez));
+      left = Math.max(left, hypot(second.target[0] - at2.x, second.target[1] - at2.y, second.target[2] - at2.z));
     }
     if (orientation) {
       spinBetweenToRef(walk.last, orientation.target, 1, at2);
@@ -373,16 +386,17 @@ export function solveReach(chain: readonly JointKinematics[], angles: number[][]
     // the step is found again without it. Left in and clamped after, the others move as though it
     // had moved, the posture's pull leaks into the tasks by its share, and the solve settles
     // short of a place the arm can reach.
+    const damping = IK_DAMPING * IK_DAMPING + (near ? IK_DAMPING_GROWTH * normIn(e, 0, rows) : 0);
     stuck.fill(0, 0, n);
     for (let moving = n; ;) {
       for (let r = 0; r < rows; r++) for (let c = 0; c < rows; c++) {
         let sum = 0;
         for (let k = 0; k < n; k++) sum = sum + J[k * stride + r]! * J[k * stride + c]!;
         JJ[r * rows + c] = sum;
-        A[r * rows + c] = sum + (r === c ? IK_DAMPING * IK_DAMPING : 0);
+        A[r * rows + c] = sum + (r === c ? damping : 0);
       }
       solveTo(work, rows, A, e, y);
-      if (moving > rows) {
+      if (moving > rows && !near) {
         for (let k = 0; k < n; k++) toward[k] = stuck[k] ? 0 : IK_POSTURE_PULL * (free[k]!.preferred - angles[free[k]!.joint]![free[k]!.k]!);
         for (let r = 0; r < rows; r++) {
           let sum = 0;
@@ -426,6 +440,46 @@ export function solveReach(chain: readonly JointKinematics[], angles: number[][]
   return left;
 }
 
+/**
+ * The places a solve goes to, into `work.goal`, the first point's and then the second's; and
+ * whether the first is near the chain's full stretch. The chain's base is the centre of the first
+ * joint `free` moves, where the walk in `work` puts it: the held angles place it. Its full stretch
+ * is the sum of its links from there out to the first point, which no angles exceed; its last link
+ * is the one from its last joint to the point. A place within `IK_NEAR` of the last link of the
+ * stretch, or beyond it, is near. A place farther from the base than the stretch less twice
+ * `IK_STRETCH` of the last link is brought in along its line from the base, the more the farther,
+ * toward the stretch less `IK_STRETCH` of the last link and never past it, and a second place
+ * moves with it. Elsewhere the places are the tasks' own. A chain of one joint keeps its places.
+ */
+function placesTo(work: ReachWork, chain: readonly JointKinematics[], free: readonly ReachFreedom[], tasks: readonly ReachTask[]): boolean {
+  const { goal, walk } = work, [first, second] = tasks as readonly [ReachTask, ReachTask?];
+  let base = chain.length - 1, near = false, scale = 1;
+  for (let k = 0; k < free.length; k++) base = Math.min(base, free[k]!.joint);
+  const from = walk.centre[base]!, dx = first.target[0] - from.x, dy = first.target[1] - from.y, dz = first.target[2] - from.z;
+  if (base < chain.length - 1) {
+    let stretch = 0, link = 0;
+    for (let j = base; j < chain.length; j++) {
+      const c = chain[j]!.spec.centre.value, next = j + 1 < chain.length ? chain[j + 1]!.spec.centre.value : first.point;
+      link = hypot(next[0] - c[0], next[1] - c[1], next[2] - c[2]);
+      stretch += link;
+    }
+    const apart = hypot(dx, dy, dz), short = IK_STRETCH * link, eased = stretch - 2 * short;
+    near = apart > stretch - IK_NEAR * link;
+    // Past `eased` the distance from the base is brought in smoothly: its rate falls from one to
+    // none as it nears the stretch less `short`.
+    if (eased > 0 && apart > eased) scale = (stretch - short - short * short / (apart - stretch + 3 * short)) / apart;
+  }
+  if (scale === 1) {
+    goal[0] = first.target[0]; goal[1] = first.target[1]; goal[2] = first.target[2];
+    if (second) { goal[3] = second.target[0]; goal[4] = second.target[1]; goal[5] = second.target[2]; }
+    return near;
+  }
+  const shiftX = dx * (scale - 1), shiftY = dy * (scale - 1), shiftZ = dz * (scale - 1);
+  goal[0] = first.target[0] + shiftX; goal[1] = first.target[1] + shiftY; goal[2] = first.target[2] + shiftZ;
+  if (second) { goal[3] = second.target[0] + shiftX; goal[4] = second.target[1] + shiftY; goal[5] = second.target[2] + shiftZ; }
+  return near;
+}
+
 /** `(x, y, z)` scaled to a unit, into `out`: `normalize`'s arithmetic (`src/core/spec/vec.ts`). */
 function unitTo(x: number, y: number, z: number, out: Float64Array): void {
   const length = hypot(x, y, z);
@@ -454,8 +508,17 @@ function solveTo(work: ReachWork, rows: number, A: Float64Array, y: Float64Array
  * that follows the angle a few degrees off reads it on the same side; and the least a place
  * moves for a radian, m, for the posture's pull to be kept off that way: at a decimetre a
  * radian, an arm's own, the pull's leak into the place is a part in a hundred million.
+ *
+ * Near full stretch (`placesTo`), as shares of the chain's last link (a hand, or a hand and what
+ * it holds): within how much of the stretch a place is near and the posture's pull is not asked,
+ * and how far short of the stretch a place out of reach is brought, which keeps the arm bent where
+ * J has full rank. The joints' ranges keep the last link's line from lining up with the rest, and
+ * its length sets the reach that costs. Then how the damping's square grows near full stretch for
+ * each metre of error, m, so a step on a place the ranges keep out of reach does not overshoot.
+ * What they were read on: `docs/reference/step-cost.md#the-reach-solver-near-full-stretch`.
  */
 const IK_PASSES = 200, IK_TOLERANCE = 1e-10, IK_DAMPING = 0.01, IK_SHORT = 0.1, IK_BLIND = 1e-5;
+const IK_NEAR = 0.2, IK_STRETCH = 0.04, IK_DAMPING_GROWTH = 0.1;
 /**
  * What shapes the path an arm takes to a place: the share of the way to the preferred angles each
  * pass asks in the null space, and the most any angle turns in one pass (rad). Set

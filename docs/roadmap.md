@@ -164,8 +164,9 @@ screened small (one body, one loadout, one group of falls) before its full targe
   shoves ([support entry](reference/support-entry.md)). The whole-body solve is experimental, at
   five or six times a step's cost ([whole-body spike](reference/whole-body-spike.md)), against an
   objective of 0.5 ms per body per step ([step cost](reference/step-cost.md)).
-- **The reach solver runs to its cap out of reach**: it wants a solve whose answer out of reach is
-  defined ([step cost](reference/step-cost.md#the-reach-solver-at-its-cap)).
+- **The reach solver runs to its cap on a cover the joints' ranges keep out of reach**: two points of
+  a held item asked inside the arm's stretch, 47 % of them in a crypt run; beyond the stretch it
+  ends ([step cost](reference/step-cost.md#the-reach-solver-at-its-cap)).
 - **Contact and solver questions**, each in its record:
   [joint-stop prediction](reference/joint-stop-tracking.md),
   [lift-off](reference/contact-liftoff.md), [friction](reference/contact-friction.md),

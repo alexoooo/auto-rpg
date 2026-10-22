@@ -265,8 +265,12 @@ windows narrower than 4 cm.
 `IK_POSTURE_PULL` is 0.5 and `IK_TURN` is 0.2 rad (`solveReach`): of the way from each angle to
 its preferred one, the share a pass asks in the null space of the reach; and the most any angle
 turns in a pass, the whole step scaled alike, so a place out of reach draws the arm straight
-toward it. Both shape the path an arm takes to a place, not where it ends. Set. The solver's other
-settings (passes, tolerance, damping, the margin short of a half turn, `IK_BLIND`) are numerics.
+toward it. Both shape the path an arm takes to a place, not where it ends. Set. Near full stretch
+and beyond it the pull is not asked and the place is brought short of the stretch, `IK_STRETCH`
+(0.04) of the last link, so an arm out of reach ends still bent toward its place, the bare elbow
+about 15 degrees from straight ([step cost](step-cost.md#the-reach-solver-near-full-stretch)). The
+solver's other settings (passes, tolerance, damping and its growth, the margin short of a half
+turn, `IK_BLIND`, `IK_NEAR`) are numerics.
 
 The Jacobian is the kinematics' own derivative in closed form (`reachJacobianTo`), from the
 joints' own axes (`motionAxesToRef`, `turningToRef`). A solve says how many passes it took and
