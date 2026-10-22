@@ -35,7 +35,7 @@ const OPTIONS_SLOTS: readonly Slot[] = Object.freeze([
 
 /** **The options fighter** (`createOptionsFighter`): a meta-controller over options, chosen among by their worth. */
 export const OPTIONS_MIND = controller<OptionsConfig>({
-  role: "mind", label: "Options fighter", stage: "game", phases: { guard: "Guarding" }, fields: [OBEDIENCE_FIELD], slots: OPTIONS_SLOTS, defaults: OPTIONS,
+  role: "mind", label: "Options fighter", stage: "game", obeys: true, phases: { guard: "Guarding" }, fields: [OBEDIENCE_FIELD], slots: OPTIONS_SLOTS, defaults: OPTIONS,
   keys: { kind: true, meta: true, weights: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, support: true, reflexes: true, motor: true, subs: true },
   fits: optionsFit,
   strikes: (spec, config, parts) => config.actions.length === 0 ? undefined : armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),

@@ -44,9 +44,9 @@ export function teamOfOne(duel: Duel, side: Side, config: CommanderConfig): Team
     dispose() { leading.dispose(); },
   };
   const view = (): TeamView => {
-    const skills = duelist.minded.skills;
+    const report = duelist.minded.report;
     const member: MemberView = { id: side, at: at(side), fighting: !duel.eliminated(side), held: false, vitality: duelist.pool.bar(), radius, reach: attackMetres, home,
-      navigation: skills?.report.navigation ?? null, gait: skills?.gait ?? null, heading: skills?.report.heading ?? null };
+      navigation: report?.navigation ?? null, gait: report?.gait ?? null, heading: report?.heading ?? null };
     return { time: duel.clock, look: true, lead: team.lead, members: [member], others: [{ id: other, at: at(other), fighting: !duel.eliminated(other) }] };
   };
   const leading: Hook = duel.world.sense(() => {

@@ -12,7 +12,8 @@
  * The stub Commander, a line of the Commanders list from outside `src/`, leads a team and is a
  * Crypt subject. The Lab opens a fixture mind for what it takes, not for its kind. The stub
  * evaluation, a folder and a line of the evaluations list, plays a lone body; the stub end rule, a
- * line of the end rules list, ends a bout whose recipe names it and its start arrangement.
+ * line of the end rules list, ends a bout whose recipe names it and its start arrangement. A
+ * planner's own report reaches the readout a person reads.
  */
 import "./fixtures/swap/hooks.mjs";
 import test from "node:test";
@@ -35,6 +36,7 @@ const { traceOf } = await import("../src/evaluation/trace.ts");
 const { parseMind, writeMind } = await import("../src/ui/mind-link.ts");
 const { GAME_CONFIGS, STUBS, SWAP_DEFAULTS, SWAP_OPTIONS_DEFAULTS } = await import("./fixtures/swap/mind.mjs");
 const { STUB_POSTURE } = await import("./fixtures/swap/stub-guard.mjs");
+const { STRAIGHT_NAVIGATION } = await import("./fixtures/swap/straight-navigation.mjs");
 const { STUB_BLOW } = await import("./fixtures/swap/stub-blow.mjs");
 const { STUB_TAKEOVER, TAKEOVER } = await import("./fixtures/swap/stub-takeover.mjs");
 const { saveState } = await import("../src/core/state.ts");
@@ -46,6 +48,7 @@ const { EVALUATIONS } = await import("../src/evaluation/evaluations.ts");
 const { playRow } = await import("../src/evaluation/play.ts");
 const { caseNames } = await import("../src/evaluation/code.ts");
 const { endingText } = await import("../src/arena/end-rule.ts");
+const { engagementLines } = await import("../src/ui/action-readout.ts");
 
 /** The bout's steps and the step it is forked at. */
 const STEPS = 240, FORK = 120;
@@ -92,6 +95,19 @@ test("a Commander registered from outside src/ is listed, leads a team of one an
   } finally { team.dispose(); dispose(); }
   const [subject] = CRYPT_CLEAR.subjects(["stub-hold"]);
   assert.deepEqual(CRYPT_CLEAR.protocols.standard.faults(subject.value, CRYPT_CLEAR.protocols.standard.conditions[0]), [], "it leads a party, so the Crypt-clearing task takes it");
+});
+
+test("a planner keeps clear of a solid as its body's navigator does: the stock one steps out of a column's clearance, the straight stub keeps clear of nothing", async () => {
+  const game = { ...SWAP_DEFAULTS, navigation: { kind: "visibility-navigation" } }, straight = { ...SWAP_DEFAULTS, navigation: STRAIGHT_NAVIGATION.defaults };
+  const { duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds: { left: game, right: straight } }, { engine: BOUT_ENGINE });
+  try {
+    // A body 0.2 m from a column's face, inside a humanoid's clearance: what each planner's sight is given (`Sight.clearance`).
+    const column = { name: "column", kind: "box", centre: [0, 1, 0], size: [0.4, 2, 0.4] }, view = { stance: { centre: { x: 0.4, y: 1, z: 0 } }, senses: { solids: [column] } };
+    const [left, right] = SIDES.map((side) => duel.duelists[side].minded.skills.clearance);
+    assert.ok(left.exit(view)?.[0] > 0, "the game's navigator steps the body out of the column's clearance, away from it");
+    assert.equal(right.exit(view), null, "the straight stub, the navigator its config names, keeps clear of nothing");
+    assert.deepEqual(right.keepClear(view, -Math.PI / 2, [1, 0]), [1, 0], "nor steers a walk into the column");
+  } finally { dispose(); }
 });
 
 test("an evaluation registered from outside src/ plays its lone-body case through the one play loop, and its code names its world and mind", async () => {
@@ -145,7 +161,8 @@ test("each part a bout runs is the one its config names, and the bout forks, res
       run(FORK, [trace]);
       const saved = fork ? duel.save() : null, atFork = SIDES.map((side) => duel.duelists[side].minded.body.state.mind?.has ?? null);
       run(STEPS, [trace, tail]);
-      const states = SIDES.map((side) => ({ kind: minds[side].kind, mind: saveState(duel.duelists[side].minded.state), body: saveState(duel.duelists[side].minded.body.state) }));
+      const states = SIDES.map((side) => ({ kind: minds[side].kind, mind: saveState(duel.duelists[side].minded.state), body: saveState(duel.duelists[side].minded.body.state),
+        lines: duel.duelists[side].minded.report ? engagementLines(duel.duelists[side].minded.report.engagement) : null }));
       let resumed = null;
       if (saved) { duel.load(saved); const again = traceOf(builts); run(STEPS, [again]); resumed = again.digest(); }
       return { digest: trace.digest(), tail: tail.digest(), resumed, states, atFork, sheets: Object.fromEntries(SIDES.map((side) => [side, duel.duelists[side].sheets])) };
@@ -166,6 +183,7 @@ test("each part a bout runs is the one its config names, and the bout forks, res
     assert.equal(standUp.motor.stub, "stub-motor", "the stand-up is made with the configured motor");
     assert.equal(standUp.techniques["step-up"].motor.stub, "stub-motor", "its technique is made with the configured motor");
     assert.equal(state.body.mind.has, -1, "the takeover stub handed the body back to its host");
+    assert.ok(state.lines.includes(`Decided: ${state.mind.tactics.steps} steps`), `the readout shows the planner's own detail of what it reports: ${state.lines.join(" | ")}`);
   }
   assert.equal(first.resumed, first.tail, "the bout forked and resumed is the bout");
   const replay = await played({ replay: first.sheets }, false);

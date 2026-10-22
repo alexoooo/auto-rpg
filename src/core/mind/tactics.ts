@@ -1,3 +1,4 @@
+import type { Clearance } from "./clear-step.ts";
 import type { Body, BodyView } from "../body.ts";
 import type { Offer } from "./options/meta.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
@@ -18,8 +19,31 @@ export interface Tactics<S = Sight, I = Intent> {
    * (`Skills.state`). Tactics that keep what they remember anywhere else do not fork.
    */
   readonly state?: object;
-  /** Current engagement decision, read by gameplay status displays; with the offers it was chosen from, where they were priced (`Offer`). */
-  readonly engagement?: { readonly phase: string; readonly offers?: readonly Offer[] } & Partial<Omit<ActionEngagement, "phase">>;
+  /** What they report doing (`Engagement`), read by status displays and inspection, never by the rules. */
+  readonly engagement?: Engagement;
+}
+
+/** A planner's own fact, which a readout shows as it is: a label and its value, in words. */
+export interface EngagementDetail {
+  readonly label: string;
+  readonly value: string;
+}
+
+/**
+ * **What a planner reports doing** (`Tactics.engagement`): what every planner may say, its phase
+ * (shown by its part's label, `Part.phases`), its focus and whether it lost it, and its own
+ * details, which any planner publishes as it likes and a readout shows as they are (`details`).
+ * The stock planners add what is theirs: the options controller the offers it chose among
+ * (`offers`), the action controller its candidates and the one it pursues (`candidates`, `pending`).
+ */
+export interface Engagement {
+  readonly phase: string;
+  readonly focus?: string | null;
+  readonly lost?: boolean;
+  readonly details?: readonly EngagementDetail[];
+  readonly offers?: readonly Offer[];
+  readonly candidates?: ActionEngagement["candidates"];
+  readonly pending?: ActionEngagement["pending"];
 }
 
 /**
@@ -34,6 +58,8 @@ export interface Sight {
   readonly report: SkillReport;
   /** What the skills' locomotion was measured to hold with this body (`Locomotion.envelope`), as it is now: its fastest walk, and its turns. */
   readonly envelope: StanceEnvelope | null;
+  /** How the body keeps clear of the solids sensed (`Skills.clearance`): its navigator's, so replacing the navigator replaces it for the planner. */
+  readonly clearance: Clearance;
 }
 
 /**
@@ -45,7 +71,7 @@ export interface Sight {
  */
 export function driveBy(body: Body, tactics: Tactics, make: (body: Body, tactics: Tactics) => Skills = recipeSkills): Skills {
   const skills = make(body, tactics);
-  const sight: Sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, instance: skills.instance, readiness: skills.readiness };
+  const sight: Sight = { view: body.view, report: skills.report, get envelope() { return skills.envelope; }, instance: skills.instance, readiness: skills.readiness, clearance: skills.clearance };
   body.drive((view, dt) => {
     if (view.resumed) skills.resume(view);
     return skills.command(view, tactics.decide(sight, dt), dt);

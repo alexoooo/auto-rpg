@@ -161,6 +161,6 @@ interface StalkConfig { readonly kind: "stalk" }
 
 /** **Stalking** as a quadruped's tactics: approach, creep and bite at the first exposed surface (`quadrupedTactics`). */
 export const STALK_PART: QuadrupedTacticsPart<StalkConfig> = deepFreeze({
-  role: "quadruped-tactics", label: "Stalk and bite", stage: "game", fields: [], slots: [], defaults: { kind: "stalk" }, keys: { kind: true }, fits: fitsJaw, faults: () => [],
+  role: "quadruped-tactics", label: "Stalk and bite", stage: "game", obeys: true, fields: [], slots: [], defaults: { kind: "stalk" }, keys: { kind: true }, fits: fitsJaw, faults: () => [],
   make: (making) => quadrupedTactics(making.own, making.orders, making.bite, making.navigation, making.biteTarget),
 });

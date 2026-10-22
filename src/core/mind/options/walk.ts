@@ -1,20 +1,12 @@
 import { atan2, hypot } from "../../math/real.ts";
-import type { BodyView } from "../../body.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import { paceToward } from "../../control/stance-envelope.ts";
-import { clearanceExit, clearMove } from "../clear-step.ts";
-import { bodyClearance } from "../sensed-bounds.ts";
 import { directMovement } from "../movement.ts";
 import type { Situation } from "./option.ts";
 import type { Intent } from "../intent.ts";
 
-/**
- * A walk keeps its body `margin` m clear of the solids over the next `ahead` m, and its centre
- * `fallen` m from every segment of a fallen body.
- */
-const SPACE = Object.freeze({ margin: .08, ahead: .5, fallen: .9 });
-
-type Move = readonly [number, number] | null;
+/** A walk keeps its centre `fallen` m from every segment of a fallen body; the solids it keeps clear of are its navigator's to keep (`Sight.clearance`). */
+const SPACE = Object.freeze({ fallen: .9 });
 
 /** What an option asks of the legs: a movement goal under a ceiling, and a facing. */
 type Walk = Pick<Intent, "move" | "face" | "movement" | "pace" | "travelFacing">;
@@ -25,8 +17,7 @@ type Walk = Pick<Intent, "move" | "face" | "movement" | "pace" | "travelFacing">
  * under its orders' pace, facing as asked; and which way its focus is. Whatever an option asks, the
  * body is kept out of what it must keep clear of (`constrain`).
  */
-export function walker(spec: BodySpec) {
-  const radius = bodyClearance(spec) + SPACE.margin;
+export function walker(_spec: BodySpec) {
   /** The orders' pace as a ceiling. */
   const ceiling = (now: Situation): Pick<Intent, "pace"> => now.orders?.pace === undefined ? {} : { pace: now.orders.pace };
   /**
@@ -42,12 +33,12 @@ export function walker(spec: BodySpec) {
     hypot(x, z) > 0 ? { move: null, face, movement: directMovement(x, z), ...ceiling(now) } : { move: null, face };
   /**
    * The ground direction out of what the body must keep clear of: a solid's clearance it stands
-   * in, else the nearest segment within `fallen` m of a fallen body other than `exempt`; null with
+   * in, as its navigator finds it (`Clearance.exit`), else the nearest segment within `fallen` m of a fallen body other than `exempt`; null with
    * neither.
    */
   const away = (now: Situation, exempt: string | null): readonly [number, number] | null => {
-    const { centre } = now.sight.view.stance, { solids, others } = now.sight.view.senses;
-    const exit = clearanceExit([centre.x, centre.y, centre.z], radius, solids ?? []);
+    const { centre } = now.sight.view.stance, { others } = now.sight.view.senses;
+    const exit = now.sight.clearance.exit(now.sight.view);
     if (exit) return exit;
     let near: number = SPACE.fallen, from: { readonly x: number; readonly z: number } | null = null;
     for (const other of others) {
@@ -59,11 +50,8 @@ export function walker(spec: BodySpec) {
     }
     return from ? [centre.x - from.x, centre.z - from.z] : null;
   };
-  /** `move` (forward, right, m/s) for a body heading `heading`, or the nearest to it that keeps clear of the solids. */
-  const clear = (view: BodyView, heading: number, move: Move): Move => clearMove(view.stance.centre, view.senses.solids, heading, move, radius, SPACE.ahead);
   return {
     pace,
-    clear,
     /**
      * The walk the body is given for `asked`: out of a solid's clearance or a fallen body's reach
      * (`away`) if it is in one, but `exempt`'s, the body the option means to be near, facing as asked;

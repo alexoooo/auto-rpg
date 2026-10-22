@@ -1,3 +1,4 @@
+import type { Clearance } from "../clear-step.ts";
 import { walkGoal } from "../movement.ts";
 import type { Side, BodySpec } from "../../spec/body.ts";
 import type { Region, TargetRef } from "../../skills/action.ts";
@@ -22,7 +23,9 @@ const FOLD_FALLS = .05;
  * the fold's own chance of going down (`FOLD_FALLS`), and the blow coming.
  */
 export function strikeLow(action: ActionConfig, spec: BodySpec, walk: Walker): StandingOption {
-  const ground = groundPosition(spec, walk.clear, {}, true);
+  // Its walks are kept clear by the body's navigator (`Sight.clearance`), read at each step.
+  let clearance: Clearance | null = null;
+  const ground = groundPosition(spec, (view, heading, move) => clearance!.keepClear(view, heading, move), {}, true);
   const state = { ground: ground.state, hand: "right" as Side, id: null as number | null };
   const placing = (): boolean => ground.state.near.active || ground.state.wide.active;
   const low = (now: Situation): boolean => !now.down && !!now.focus && (lowOpponent(now.sight.view, now.focus) || placing());
@@ -45,6 +48,7 @@ export function strikeLow(action: ActionConfig, spec: BodySpec, walk: Walker): S
     } },
     step(now, dt) {
       const { view, report } = now.sight, focus = now.focus!;
+      clearance = now.sight.clearance;
       const placement = ground.decide(view, report, focus, state.hand, dt);
       if (!placement) return { move: null, face: walk.facing(now), actions: [] };
       state.hand = placement.hand;

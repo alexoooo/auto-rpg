@@ -1,5 +1,25 @@
 import type { SkillReport } from "../core/skills/skills.ts";
 import type { ActionStatus, Ended } from "../core/skills/action.ts";
+import type { Engagement } from "../core/mind/tactics.ts";
+
+/**
+ * What a planner's report says (`Engagement`), a line each: its focus and phase, its own details
+ * as it gives them, then the offers or candidates a stock planner chose among.
+ */
+export function engagementLines(engagement: Engagement): string[] {
+  const lines = [`Focus: ${engagement.focus ?? "none"}${engagement.lost ? " (lost)" : ""} · ${engagement.phase}`];
+  for (const { label, value } of engagement.details ?? []) lines.push(`${label}: ${value}`);
+  for (const offer of engagement.offers ?? []) {
+    const terms = offer.terms;
+    lines.push(`${offer.name === engagement.phase ? "Chosen · " : ""}${offer.name} · ${offer.worth.toFixed(2)}${terms ? ` · ${terms.duration.toFixed(1)} s, dealt ${terms.dealt.toFixed(1)} J, taken ${terms.taken.toFixed(1)}, orders ${terms.orders.toFixed(2)}, falls ${terms.fall.toFixed(2)}` : ""}`);
+  }
+  for (const candidate of engagement.candidates ?? []) {
+    const ready = candidate.readiness;
+    const region = candidate.target.region;
+    lines.push(`${candidate.key === engagement.pending?.key ? "Pending · " : ""}${candidate.action} · ${candidate.effector} · ${candidate.target.body}/${region.kind === "mark" ? region.mark : region.segment} · ${ready.kind}${"reason" in ready ? `: ${ready.reason}` : ""}${candidate.estimate ? ` · ${candidate.estimate.value.toFixed(3)} ${candidate.estimate.unit}` : ""}`);
+  }
+  return lines;
+}
 
 /** Public candidates, live commitments and exact contact totals for Arena and Lab inspection. */
 export function actionReadout() {
@@ -21,19 +41,7 @@ export function actionReadout() {
     const open = element.querySelector("details")?.open ?? false;
     previous = state; element.replaceChildren();
     if (!report) return;
-    const engagement = report.engagement;
-    if (engagement) {
-      text(`Focus: ${engagement.focus ?? "none"}${engagement.lost ? " (lost)" : ""} · ${engagement.phase}`);
-      for (const offer of engagement.offers ?? []) {
-        const terms = offer.terms;
-        text(`${offer.name === engagement.phase ? "Chosen · " : ""}${offer.name} · ${offer.worth.toFixed(2)}${terms ? ` · ${terms.duration.toFixed(1)} s, dealt ${terms.dealt.toFixed(1)} J, taken ${terms.taken.toFixed(1)}, orders ${terms.orders.toFixed(2)}, falls ${terms.fall.toFixed(2)}` : ""}`);
-      }
-      for (const candidate of engagement.candidates ?? []) {
-        const ready = candidate.readiness;
-        const region = candidate.target.region;
-        text(`${candidate.key === engagement.pending?.key ? "Pending · " : ""}${candidate.action} · ${candidate.effector} · ${candidate.target.body}/${region.kind === "mark" ? region.mark : region.segment} · ${ready.kind}${"reason" in ready ? `: ${ready.reason}` : ""}${candidate.estimate ? ` · ${candidate.estimate.value.toFixed(3)} ${candidate.estimate.unit}` : ""}`);
-      }
-    }
+    if (report.engagement) for (const line of engagementLines(report.engagement)) text(line);
     for (const action of report.actions ?? []) {
       text(`#${action.id} ${action.action} · ${action.effector} · ${action.phase}/${action.stage} · holds ${action.holds.join(", ") || "none"}`);
       contacts(action);

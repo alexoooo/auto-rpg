@@ -170,6 +170,9 @@ export function treeKinds(config: PartConfig): readonly string[] {
   return [...kinds];
 }
 
+/** Whether a part of `config`'s tree carries out a person's orders (`Part.obeys`). */
+export const treeObeys = (config: PartConfig): boolean => treeKinds(config).some((kind) => partOf({ kind }).obeys === true);
+
 /** What a person is shown for each phase the parts of `config`'s tree report (`Part.phases`). */
 export function phaseLabels(config: PartConfig): Readonly<Record<string, string | null>> {
   return Object.assign({}, ...treeKinds(config).map((kind) => partOf({ kind }).phases ?? {}));

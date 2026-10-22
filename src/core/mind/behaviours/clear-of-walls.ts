@@ -1,19 +1,17 @@
 import { deepFreeze } from "../../state.ts";
-import { footRadius, walking, type BehaviourPart } from "../behaviour-part.ts";
-import { clearanceExit } from "../clear-step.ts";
+import { walking, type BehaviourPart } from "../behaviour-part.ts";
 import { anyBody } from "../parts.ts";
 
-/** **Clear walls**: step out of a solid's clearance (`footRadius`) the shortest way out. */
+/** **Clear walls**: step out of a solid's clearance the shortest way out, as the body's navigator finds it (`Clearance.exit`). */
 interface ClearOfWallsConfig { readonly kind: "clear-of-walls" }
 
 export const CLEAR_OF_WALLS: BehaviourPart<ClearOfWallsConfig> = deepFreeze({
   role: "behaviour", label: "Clear walls", stage: "game", phases: { clear: "Making room" }, fields: [], slots: [], defaults: { kind: "clear-of-walls" },
   keys: { kind: true }, fits: anyBody, faults: () => [],
-  make({ spec }) {
-    const radius = footRadius(spec);
+  make() {
     return { decide(turn) {
       if (turn.legs) return;
-      const centre = turn.sight.view.stance.centre, exit = clearanceExit([centre.x, centre.y, centre.z], radius, turn.sight.view.senses.solids ?? []);
+      const exit = turn.sight.clearance.exit(turn.sight.view);
       if (exit) { turn.legs = walking(exit[0], exit[1], turn.face, turn.pace); turn.phase = "clear"; }
     } };
   },

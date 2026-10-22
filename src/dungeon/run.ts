@@ -272,7 +272,7 @@ export class DungeonRun {
         get vitality() { return this.fighter?.pool.bar() ?? 1; },
         get target() { const id = run.report(this).target; return id === null ? null : run.actors.find((other) => other.id === id) ?? null; },
         home: { ...at }, radius: info.radius,
-        get navigation() { return this.skills?.report.navigation ?? null; },
+        get navigation() { return this.fighter?.minded.report?.navigation ?? null; },
         get skills() { return (this.fighter?.minded as { readonly skills?: Skills } | undefined)?.skills ?? null; },
       };
       this.actors.push(actor); return actor;
@@ -442,7 +442,7 @@ export class DungeonRun {
       members: members.filter(built).map((actor): MemberView => ({
         id: actor.id, at: actor.feet(), fighting: actor.alive, held: actor.held, vitality: actor.vitality, radius: actor.radius,
         reach: actor.attackMetres, home: actor.home, navigation: actor.navigation,
-        gait: actor.skills?.gait ?? null, heading: actor.skills?.report.heading ?? null,
+        gait: actor.fighter?.minded.report?.gait ?? null, heading: actor.fighter?.minded.report?.heading ?? null,
       })),
       others: foes.filter(built).map((actor): SensedBody => ({ id: actor.id, at: actor.feet(), fighting: actor.alive })),
     };

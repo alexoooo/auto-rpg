@@ -6,7 +6,9 @@ import type { Skills } from "../skills/skills.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { World } from "../world.ts";
 import type { MindConfig } from "./config.ts";
-import type { Tactics } from "./tactics.ts";
+import type { Engagement, Tactics } from "./tactics.ts";
+import type { NavigationReport } from "./navigator.ts";
+import type { GaitLimits } from "./travel.ts";
 import { partLookup, treeFaults } from "./catalog.ts";
 import { controllerOf } from "./controllers.ts";
 import { bodyHost, type BodyHost, type HostGrants } from "./host.ts";
@@ -30,6 +32,25 @@ export interface MindWiring {
   readonly script?: Tactics;
 }
 
+/**
+ * **What a mind publishes of itself** (`MindMade.report`), for a screen and its Commander, never
+ * for the rules: what it reports doing (`Engagement`), and where it walks, its heading, its gait's
+ * limits (`GaitLimits`) and its navigation's report; null for what it does not say. A mind that
+ * runs the game's skills publishes theirs (`skillsReport`); any other may publish its own.
+ */
+export interface MindReport {
+  readonly engagement: Engagement | null;
+  readonly heading: number | null;
+  readonly gait: GaitLimits | null;
+  readonly navigation: NavigationReport | null;
+}
+
+/** What `skills` say of their mind, live (`MindReport`). */
+export function skillsReport(skills: Skills): MindReport {
+  return { get engagement() { return skills.report.engagement ?? null; }, get heading() { return skills.report.heading; }, gait: skills.gait,
+    get navigation() { return skills.report.navigation ?? null; } };
+}
+
 /** **A mind as its controller makes it** (`Controller.create`): what every kind gives the fight that made it, but the body, which the fight holds from its host (`bodyHost`). */
 export interface MindMade {
   /** The mind's memory above its body's (`src/core/state.ts`), saved and loaded with it. */
@@ -39,6 +60,8 @@ export interface MindMade {
    * of what it is doing and what holds each part of the body, and the rules never read it.
    */
   readonly skills?: Skills;
+  /** What it publishes of itself (`MindReport`): its skills' where it runs them and says nothing of its own (`createMind`). */
+  readonly report?: MindReport;
 }
 
 /**
@@ -66,8 +89,8 @@ export function createMind(built: BuiltBody, world: World, config: MindConfig, w
   const fault = treeFaults(config, wiring.script ? ["script"] : [])[0];
   if (fault) throw new Error(fault);
   const { host, made } = bodyHost(built, world, wiring, partLookup, log);
-  const mind = controllerOf(config).create(host, config, wiring);
-  return { ...mind, kind: config.kind, body: made() };
+  const mind = controllerOf(config).create(host, config, wiring), report = mind.report ?? (mind.skills ? skillsReport(mind.skills) : undefined);
+  return { ...mind, ...(report ? { report } : {}), kind: config.kind, body: made() };
 }
 
 /**

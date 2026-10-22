@@ -83,6 +83,8 @@ export interface Part<C extends PartConfig = PartConfig> {
    * names is shown as its own name (`phaseLabels`).
    */
   readonly phases?: Readonly<Record<string, string | null>>;
+  /** Whether it carries out a person's `Orders`: a mind whose tree holds no part that does plays as its own while a person leads its side (`treeObeys`). */
+  readonly obeys?: boolean;
 }
 
 /** Every key of `C`, each `true`: the keys a config of it may hold, a key missing or extra refused by the compiler. */

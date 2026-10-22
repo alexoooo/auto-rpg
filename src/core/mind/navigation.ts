@@ -3,7 +3,7 @@ import type { BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
 import { heldClearance } from "./held-clearance.ts";
-import { clearanceExit, clearMove, clearStep } from "./clear-step.ts";
+import { clearanceExit, clearMove, clearStep, stockClearance } from "./clear-step.ts";
 import { crowdWalk, fallenSolids, type FallenMemory } from "./crowd.ts";
 import { copyMovement, sameMovement, type MovementRequest, type GroundPoint } from "./movement.ts";
 import type { NavigationReport, NavigationSight, NavigationStatus, NavigationStep, Navigator } from "./navigator.ts";
@@ -85,7 +85,7 @@ export function routeWalker(spec: BodySpec, search: PlaceSearch): Navigator {
   };
   const report: NavigationReport = { get status() { return state.report.status; }, get remaining() { return state.report.remaining; },
     get goal() { return state.report.goal; }, get route() { return state.route; }, get request() { return state.request; } };
-  return { state, report,
+  return { state, report, ...stockClearance(spec),
     steer(view: NavigationSight["view"], heading: number, move: readonly [number, number] | null) {
       return clearMove(view.stance.centre, printsOf(view.senses.solids ?? NO_SOLIDS, view.stance.centre.y, view.stance.support?.y), heading, move, radiusOf(view), .5);
     },

@@ -1,3 +1,4 @@
+import type { Clearance } from "../mind/clear-step.ts";
 import type { Body, BodyCommand, BodyView } from "../body.ts";
 import type { StanceEnvelope } from "../control/stance-envelope.ts";
 import type { Intent } from "../mind/intent.ts";
@@ -20,6 +21,8 @@ export interface Skills extends Skill {
   readonly envelope: StanceEnvelope | null;
   /** The limits its legs state, which the speed rule reads (`travelSpeed`): what a team reads of how fast it goes. */
   readonly gait: GaitLimits;
+  /** How its planner keeps the body clear of the solids sensed: its navigator's (`Navigator`), or the stock navigators' where it has none (`stockClearance`). */
+  readonly clearance: Clearance;
   readonly state: object;
   instance(): number;
   readiness(view: BodyView, action: string, effector: string, target: TargetRef, around: ActionAround): Readiness;

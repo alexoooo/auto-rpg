@@ -34,7 +34,7 @@ import { endingText } from "./end-rule.ts";
 import { caseSearch, readCase, unshown, type LinkedCase } from "./case-link.ts";
 import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, unreadMinds, youSearch, type Matchup } from "./matchup.ts";
 import { MINDS } from "../core/mind/controllers.ts";
-import { FIGHT_ENTRY, partOf, treeData } from "../core/mind/catalog.ts";
+import { FIGHT_ENTRY, partOf, treeData, treeObeys } from "../core/mind/catalog.ts";
 import { loadData } from "../core/data/store.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
 import { notesOf, type NoteLevel } from "../ui/mind-notes.ts";
@@ -136,6 +136,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   let replaying = false;
   const youPicker = need<HTMLSelectElement>("you");
   youPicker.value = you ?? "";
+  youPicker.addEventListener("change", () => { for (const side of SIDES) renameControl[side]?.(); });
   const controlPickers = {} as Record<Side, HTMLSelectElement>, loadoutPickers = {} as Record<Side, Record<Side, HTMLSelectElement>>;
   // Each side's mind as its panel shows it (`mindEditor`).
   const mindOf = {} as Record<Side, () => MindConfig>, mindFaultsOf = {} as Record<Side, () => readonly string[]>;
@@ -143,7 +144,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   const linkedControl = JSON.stringify(readMinds(location.search)), linkedRecovery = readRecovery(location.search);
   const linkedLoadouts = JSON.stringify(loadoutChoices ?? { left: EMPTY_LOADOUT, right: EMPTY_LOADOUT });
   const pickers = {} as Record<Side, HTMLSelectElement>;
-  const refreshChoices = {} as Record<Side, () => void>;
+  const refreshChoices = {} as Record<Side, () => void>, renameControl = {} as Record<Side, () => void>;
   const previews = {} as Record<Side, Awaited<ReturnType<typeof showHeroLineup>>>;
   const attributeEditors = {} as Record<Side, ReturnType<typeof attributeEditor>>;
   const attributes = { ...arenaAttributes(location.search) };
@@ -214,14 +215,16 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     const notes = document.createElement("p"); notes.className = "mind-notes";
     // The chosen preset is named as the mind now stands (`controlName`): custom once it is changed. Each
     // is followed by its most particular note, and the chosen one's notes are listed under the picker.
-    const nameControl = () => {
+    // A side the person leads under a mind that takes no orders (`treeObeys`) is said to: its mind plays it as its own.
+    const nameControl = renameControl[side] = () => {
       const model = select.value as BodyModel, holds = loadout();
       for (const option of control.options) {
         const note = notesOf(option.value, model, holds)[0]?.note;
         option.textContent = `${option.value === control.value ? controlName(option.value, editor.config) : CONTROLS[option.value]!}${note ? ` · ${note}` : ""}`;
       }
-      const all = notesOf(control.value, model, holds);
-      notes.replaceChildren(...all.map(({ level, note }) => Object.assign(document.createElement("span"), { textContent: `${levelName(level, model, holds)}: ${note}` })));
+      const all = notesOf(control.value, model, holds).map(({ level, note }) => `${levelName(level, model, holds)}: ${note}`);
+      if (youPicker.value === side && !treeObeys(editor.config)) all.unshift("Takes no orders: it fights on its own while you lead its side");
+      notes.replaceChildren(...all.map((textContent) => Object.assign(document.createElement("span"), { textContent })));
       notes.hidden = all.length === 0;
     };
     const editorSpec = () => {

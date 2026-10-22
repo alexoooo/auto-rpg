@@ -416,10 +416,17 @@ fight reads. A fight passes the config through and reads nothing in it.
   joints, effectors, contacts, muscles). `createBody` refuses a body they cannot read with what it
   lacks (`commandRefusal`); a mind built on them fits only such a body (`takesCommands`). The host applies the fight's grants (senses, assist ceiling, contact labels); no maker
   can widen them.
-- A mind that runs the game's skills gives them (`MindMade.skills`) for reports; a scene that
+- A mind publishes what it is doing (`MindMade.report`, `MindReport`): what its planner reports
+  (`Engagement`: its phase, focus, candidates or offers, and details of its own), its heading,
+  its gait's limits and its navigation's report. A mind that runs the game's skills and gives
+  them (`MindMade.skills`) publishes theirs (`skillsReport`); one that runs its own, as the
+  quadruped does, gives its own. A screen and a Commander read the report, never the mind's kind
+  or state; a scene that
   drives a mind by a script of its own (the Lab's modes, a fall on the stand bed) asks its
   controller how (`Controller.scripted`, `takesScript`), whatever its kind. A part names the
-  phases it reports and how a person is shown each (`Part.phases`, `phaseLabels`).
+  phases it reports and how a person is shown each (`Part.phases`, `phaseLabels`), and whether
+  it carries out a person's orders (`Part.obeys`, `treeObeys`): an Arena side a person takes
+  under a mind whose tree holds none says that it fights on its own.
 - A fight enlists every body one way (`enlist`, `src/core/combatant.ts`): built with what it holds,
   its pool, the fight's senses and fixed geometry, and the mind its config makes.
 - The mind's folders (`mind`, `skills`, `control`, `reptile`, `entrants`) import no engine, world,
@@ -572,7 +579,11 @@ quadruped's tactics are handed; a skill set given none refuses a movement reques
 game's are a walker (`routeWalker`, `navigation.ts`) that differs in how it finds a route to a
 place (`PlaceSearch`): Visibility routes (`visibility-navigation.ts`) by the shortest route round
 inflated fixed footprints (`createRouter`, `route-search.ts`), Local clearance
-(`local-navigation.ts`) only straight. The walker reports its route, distance, arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
+(`local-navigation.ts`) only straight. A navigator is also its body's clearance (`Clearance`,
+`clear-step.ts`): how a step keeps clear of the solids sensed (`keepClear`) and where a body
+inside a clearance steps out (`exit`), which a planner reads from its sight
+(`Sight.clearance`) and a skill set given no navigation takes from its body
+(`stockClearance`). The walker reports its route, distance, arrival and stalls; how far an order has left is read from the order (`remainingOf`). It keeps
 its route and searches again only where the route breaks: the solids sensed change, its own side's
 fallen bodies come to lie across it, its clearance changes by `NAV.margin`, or a goal that moves is
 neither straight ahead nor seen from the route's last corner and has gone `NAV.moved` from the
@@ -1013,8 +1024,9 @@ An older pool is listed with what differs from the newest.
   `src/ui/mind-link.ts`). The Arena plays no mind with a fault, nor another in its place: begin
   says the faults; a link whose side names no mind this build has shows its preset and says so
   (`unreadMinds`). `mindInspector` shows who has
-  the body, live actions, reservations and the ledger; the Arena's `fighter-hud.ts` and
-  `fighter-readout.ts` read reports and write nothing back.
+  the body, live actions, reservations and the ledger, a row for each holder it is shown; the
+  Arena's `fighter-hud.ts` and `fighter-readout.ts` read a mind's report (`MindReport`; the
+  planner's lines, `engagementLines`) and write nothing back.
 
 ## What the seams are for
 

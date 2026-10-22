@@ -1,3 +1,4 @@
+import { stockClearance } from "../mind/clear-step.ts";
 import type { Intent } from "../mind/intent.ts";
 import type { Tactics } from "../mind/tactics.ts";
 import type { Body, BodyCommand, BodyView } from "../body.ts";
@@ -77,6 +78,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   };
   return {
     state, report, resume, instance: instances.instance, readiness: instances.readiness,
+    clearance: navigation ?? stockClearance(body.built.spec),
     get envelope() { return legs.envelope ?? null; },
     gait: { get envelope() { return legs.envelope ?? null; }, get stopping() { return legs.stopping; } },
     release(view: BodyView, reason: "takeover" | "idle" | "replaced" = "takeover") {

@@ -93,7 +93,7 @@ function createTempo(host: BodyHost, given: TempoConfig, wiring: MindWiring) {
 
 /** **The tempo fighter** as an entrant: hit and run on a fixed rhythm. */
 export const TEMPO_MIND = controller<TempoConfig>({
-  role: "mind", label: "Tempo fighter", stage: "game", slots: SLOTS, defaults: TEMPO,
+  role: "mind", label: "Tempo fighter", stage: "game", obeys: true, slots: SLOTS, defaults: TEMPO,
   fields: [number("burst", "Blows a burst", ...BOUNDS.burst, 1, ""), number("rest", "Rest", ...BOUNDS.rest, .1, "s"),
     number("margin", "Beyond reach", ...BOUNDS.margin, .05, "m"), number("commit", "Longest in reach", ...BOUNDS.commit, .1, "s")],
   keys: { kind: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, support: true, reflexes: true, subs: true, motor: true,

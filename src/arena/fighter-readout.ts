@@ -5,6 +5,7 @@ import type { BodySpec } from "../core/spec/body.ts";
 import type { ActionStatus, Ended } from "../core/skills/action.ts";
 import { blocked, cleanMiss, landed } from "../core/skills/action-instances.ts";
 import type { SkillReport } from "../core/skills/skills.ts";
+import type { Engagement } from "../core/mind/tactics.ts";
 
 /** A front-facing body; screen left is the fighter's anatomical right. */
 const HUMAN: Readonly<Record<string, string>> = {
@@ -127,11 +128,11 @@ export function actionFeed() {
   return { reset,
     /** Show phases by `next` (`phaseLabels` of the mind being read). */
     label(next: Readonly<Record<string, string | null>>): void { labels = next; },
-    sample(report: SkillReport | undefined, body: Pick<PhysicalBody, "has" | "level">, time: number): void {
+    sample(report: (Partial<Pick<SkillReport, "actions" | "ledger">> & { readonly engagement?: Engagement | null }) | undefined, body: Pick<PhysicalBody, "has" | "level">, time: number): void {
       if (time < state.time) reset();
       state.time = time; prune(time);
       if (!report) return;
-      for (const action of report.actions) {
+      for (const action of report.actions ?? []) {
         const key = `action:${action.id}`;
         let entry = state.entries.find(row => row.key === key);
         if (!entry) {
@@ -145,7 +146,7 @@ export function actionFeed() {
           default: { const never: never = action.phase; throw new Error(`Unknown phase ${never}`); }
         }
       }
-      for (const record of report.ledger) {
+      for (const record of report.ledger ?? []) {
         if (record.sequence <= state.sequence) continue;
         state.sequence = record.sequence;
         if (record.ending.kind === "refused") continue;

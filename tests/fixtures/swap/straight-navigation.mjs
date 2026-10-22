@@ -1,5 +1,6 @@
 /**
- * **A stub navigation**: straight at the goal, round nothing. Its state names it and counts the
+ * **A stub navigation**: straight at the goal, round nothing, and keeping clear of nothing for the
+ * planner that asks (`Clearance`). Its state names it and counts the
  * steps it was asked, so a test can read that the part a config names is the part that ran.
  */
 import { atan2, cos, hypot, sin } from "../../../src/core/math/real.ts";
@@ -19,6 +20,8 @@ export const STRAIGHT_NAVIGATION = Object.freeze({
     return {
       state, report,
       steer: (_view, _heading, move) => move,
+      keepClear: (_view, _heading, move) => move,
+      exit: () => null,
       resume() { state.status = "unavailable"; state.goal = null; state.remaining = null; },
       step(sight, request, _gait, ceiling, _dt, available = true) {
         state.steps++;

@@ -1,3 +1,4 @@
+import type { Clearance } from "./clear-step.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { heldClearance } from "./held-clearance.ts";
 import type { MovementRequest, GroundPoint } from "./movement.ts";
@@ -45,7 +46,7 @@ export interface NavigationStep {
  * of progress; whoever asks keeps facing and tactical priorities. Its `state` is plain data
  * (`src/core/state.ts`); its `report` reads it.
  */
-export interface Navigator {
+export interface Navigator extends Clearance {
   readonly state: object;
   readonly report: NavigationReport;
   /**

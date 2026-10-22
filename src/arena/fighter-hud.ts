@@ -45,7 +45,7 @@ export function fighterHud(side: string) {
   return { element, reset,
     bind(next: Combatant): void {
       reset(); fighter = next; reading = damageReadout(next.built.spec, next.pool); history.label(phaseLabels(next.mind));
-      unavailable.hidden = !!next.minded.skills;
+      unavailable.hidden = !!next.minded.report;
       for (const [x, label] of [[9, "R"], [91, "L"]] as const) {
         const text = document.createElementNS(SVG, "text");
         text.setAttribute("x", String(x)); text.setAttribute("y", "11"); text.setAttribute("aria-hidden", "true"); text.textContent = label;
@@ -68,7 +68,7 @@ export function fighterHud(side: string) {
     sample(time: number, actions = true): void {
       if (!fighter) return;
       reading!.sample(time);
-      if (actions) history.sample(fighter.minded.skills?.report, fighter.body, time);
+      if (actions) history.sample(fighter.minded.skills?.report ?? (fighter.minded.report ? { engagement: fighter.minded.report.engagement } : undefined), fighter.body, time);
     },
     render(time: number): void {
       if (!reading) return;
