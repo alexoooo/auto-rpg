@@ -229,7 +229,7 @@
   z-index: 10;
   display: grid;
   grid-template-columns: minmax(180px, 23vw) minmax(0, 1fr) minmax(180px, 23vw);
-  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   column-gap: 20px;
   padding: 28px 3vw 22px;
   font-family: Georgia, "Times New Roman", serif;
@@ -295,31 +295,28 @@
   color: #ecddc5; text-align: center; background: #141013df;
   border: 1px solid #8b684861; border-radius: 0; cursor: pointer;
 }
-:where(#screen-root[data-screen="arena"]) #curtain .you { grid-column: 2; grid-row: 3; justify-self: center; width: 240px; grid-template-columns: auto 1fr; align-items: center; margin-bottom: 12px; }
-:where(#screen-root[data-screen="arena"]) #curtain .you select { padding: 7px 9px; font-size: 14px; }
 :where(#screen-root[data-screen="arena"]) #begin {
-  grid-column: 2; grid-row: 4; justify-self: center; width: 240px; margin: 0;
+  grid-column: 2; grid-row: 3; justify-self: center; width: 240px; margin: 0;
   padding: 14px 30px; font: 23px Georgia, serif; letter-spacing: .2em; text-transform: uppercase;
   color: #f0dfbf; background: linear-gradient(#752c24, #391411); border: 1px solid #b68b57;
   border-radius: 0; box-shadow: inset 0 0 0 3px #1e0f0dcc, 0 5px 30px #0008;
 }
 :where(#screen-root[data-screen="arena"]) #begin:hover { background: linear-gradient(#8b382b, #512017); color: #fff0d4; }
 :where(#screen-root[data-screen="arena"]) #begin:disabled { color: #a09587; background: #221a19; cursor: progress; }
-:where(#screen-root[data-screen="arena"]) #curtain .duel-footer { grid-column: 2; grid-row: 5; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 20px; padding-top: 16px; font-size: 12px; }
+:where(#screen-root[data-screen="arena"]) #curtain .duel-footer { grid-column: 2; grid-row: 4; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 20px; padding-top: 16px; font-size: 12px; }
 :where(#screen-root[data-screen="arena"]) #curtain .duel-footer a, :where(#screen-root[data-screen="arena"]) #curtain .link { padding: 0; color: #c9b596; background: none; border: 0; font: inherit; text-decoration: none; cursor: pointer; }
 :where(#screen-root[data-screen="arena"]) #curtain .duel-footer a:hover, :where(#screen-root[data-screen="arena"]) #curtain .link:hover { color: #ffebc9; text-decoration: underline; }
 :where(#screen-root[data-screen="arena"]) #curtain .duel-footer .note { margin: 0; min-height: 0; }
 :where(#screen-root[data-screen="arena"]) #curtain .duel-footer .note:empty { display: none; }
 :where(#screen-root[data-screen="arena"]) #curtain :focus-visible { outline: 2px solid #efd3a3; outline-offset: 4px; }
 @media (max-width: 820px) {
-  :where(#screen-root[data-screen="arena"]) #curtain { grid-template-columns: 1fr 1fr; grid-template-rows: auto minmax(240px, 1fr) auto auto auto; padding: 22px 14px 62px; gap: 12px; overflow-y: auto; }
+  :where(#screen-root[data-screen="arena"]) #curtain { grid-template-columns: 1fr 1fr; grid-template-rows: auto minmax(240px, 1fr) auto auto; padding: 22px 14px 62px; gap: 12px; overflow-y: auto; }
   :where(#screen-root[data-screen="arena"]) #curtain .contender { height: 100%; padding: 12px 2px; }
   :where(#screen-root[data-screen="arena"]) #curtain .contender[data-side="left"] { grid-column: 1; grid-row: 2; }
   :where(#screen-root[data-screen="arena"]) #curtain .contender[data-side="right"] { grid-column: 2; grid-row: 2; }
-  :where(#screen-root[data-screen="arena"]) #curtain .you, :where(#screen-root[data-screen="arena"]) #begin, :where(#screen-root[data-screen="arena"]) #curtain .duel-footer { grid-column: 1 / -1; }
-  :where(#screen-root[data-screen="arena"]) #curtain .you { grid-row: 3; margin: 0; }
-  :where(#screen-root[data-screen="arena"]) #begin { grid-row: 4; padding: 10px 30px; }
-  :where(#screen-root[data-screen="arena"]) #curtain .duel-footer { grid-row: 5; padding-top: 0; }
+  :where(#screen-root[data-screen="arena"]) #begin, :where(#screen-root[data-screen="arena"]) #curtain .duel-footer { grid-column: 1 / -1; }
+  :where(#screen-root[data-screen="arena"]) #begin { grid-row: 3; padding: 10px 30px; }
+  :where(#screen-root[data-screen="arena"]) #curtain .duel-footer { grid-row: 4; padding-top: 0; }
   :where(#screen-root[data-screen="arena"]) #curtain select { font-size: 16px; padding: 10px 6px; }
 }
 @media (max-height: 620px) and (min-width: 821px) {
@@ -511,9 +508,8 @@
 :where(#screen-root[data-screen="arena"]) #curtain .recovery select { font-size: 14px; }
 :where(#screen-root[data-screen="arena"]) .hud-col small { max-width: 280px; color: var(--dim); }
 @media (max-width: 820px) {
-  :where(#screen-root[data-screen="arena"]) #curtain { grid-template-rows: auto minmax(360px, 1fr) auto auto auto auto; }
+  :where(#screen-root[data-screen="arena"]) #curtain { grid-template-rows: auto minmax(360px, 1fr) auto auto auto; }
   :where(#screen-root[data-screen="arena"]) #curtain .recovery { grid-column: 1 / -1; grid-row: 3; margin: 0; }
-  :where(#screen-root[data-screen="arena"]) #curtain .you { grid-row: 4; }
-  :where(#screen-root[data-screen="arena"]) #begin { grid-row: 5; }
-  :where(#screen-root[data-screen="arena"]) #curtain .duel-footer { grid-row: 6; }
+  :where(#screen-root[data-screen="arena"]) #begin { grid-row: 4; }
+  :where(#screen-root[data-screen="arena"]) #curtain .duel-footer { grid-row: 5; }
 }

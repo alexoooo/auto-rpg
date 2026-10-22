@@ -28,8 +28,6 @@ Principles:
   to that, as it holds a Mind.
 - **A person and an AI use one interface**: the person's input is a Commander's policy, and the
   automatic layer under it an ordinary Commander.
-- **Orders are the recorded seam**: a tape records each body's orders, so a fight led by a person
-  and one led by an AI replay alike, with no Commander and no Mind.
 - **Deterministic and forkable**: a Commander steps inside `World.step`, in the sensing phase, at
   its own rate or on an event, its memory plain data in `state`.
 - **Roles, not special cases**: the Commander is a registered role with its own config, faults and
@@ -38,7 +36,8 @@ Principles:
 
 The owner has decided: the Crypt's enemies are coordinated by B4's mob, kept simple and minimal and
 iterated on later, with today's independent approach still selectable; team bouts in the Arena, N
-against N, are later work outside this plan.
+against N, are later work outside this plan. The Arena is fought by minds alone, with no person on a
+side, and no fight is taped for a person to replay.
 
 ## Where it starts
 
@@ -50,10 +49,6 @@ against N, are later work outside this plan.
   (`src/core/command/`), with `DungeonRun` their host. The person's four mouse orders (`TeamOrder`,
   `src/core/command/commands.ts`: idle, lock, force, attack-move) reach the party as `TeamCommand`s;
   the keys and the pointer as its `Lead`. No AI plays the party yet.
-- **The Arena's person steers one body**: WASD a direct goal relative to the camera, Shift walks,
-  the pointer sets facing, the left button attacks the segment it points at (`personOrders`,
-  `src/arena/main.ts`). The bout tapes each side's orders (`Duel.tape`), so it replays with no
-  mind.
 - **Bodies of one party collide and fall**: `nobody_in_the_fight_is_held_with_the_party_near`
   (`tests/crypt-core-capability.test.mjs@2a1b29ac`) fails: on seed 1 ally-1 falls at 11.59 s,
   ally-2 at 22.86 s, the hero at 23.92 s, ally-0 at 27.28 s. Steering treats a requested direction
@@ -81,10 +76,6 @@ change of behaviour shows the fingerprint unmoved.
 - **Touch**: every command also works on any touchscreen, a laptop's or a phone's (tap the ground
   to go, tap a foe to attack, drag to draw a path, on-screen controls for what WASD and Q/E do).
   Pointer events already carry touch; the commands are the same `Command` data.
-- **The Arena**: its person uses the same Commander for their side, a team of one, so click-to-go
-  works there too.
-- **The Crypt's tape**: the Crypt records each body's orders on a tape, as the Arena does, and
-  replays with no Commander.
 
 Check: the gate; the eye check of the mouse controls' feel.
 
