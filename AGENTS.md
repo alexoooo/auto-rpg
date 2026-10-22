@@ -15,6 +15,7 @@ npm test                  # the gate: step cost, the core's boundary, the mind c
 npm run build             # check, then vite build
 npm run match -- <a> <b>  # the standard match of two minds: each on each side, one digest
 npm run evaluate -- <id>  # an evaluation's cases, played where no row has them; --write keeps a record
+npm run evaluate -- tournament --mind new.json --previous <mind> --against default --until settled  # the panel report
 npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work; list the strays
 ```
 
@@ -44,7 +45,8 @@ npm run clean             # delete crash dumps, bytecode and day-old .tmp/ work;
   go-ahead for that run. What is played is kept as rows and reused.
 - **An iteration is one question**: the question and the evaluation that answers it; one
   implementation changed or added beside the others; a paired reading against the version before
-  (today `npm run match`); kept, or the reason it was not recorded.
+  (the panel report, `--previous`; `npm run match` for two minds); kept, or the reason it was not
+  recorded.
 - **A new test answers a specific need** ([Tests](#tests)), and is fast (under about 10 s).
 - **Landing**: name the checks run and any failure left. Commit each landable change as it lands.
 - **Work on main.** A new branch only when the owner asks for one.

@@ -625,7 +625,8 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
   What runs write (`OUTPUTS`: the minds' notes, `assets/evaluations/`, generated art delivery files) is not in
   it. Evaluation records and research bout pools carry it and refuse a mismatch. The environment
   (`environmentOf`) is the same less what no case plays (scripts, research, the test harness, the
-  pages, the evaluations' descriptions): a case's code.
+  pages, the evaluations' descriptions and what reads their rows: keys, lanes, records, figures,
+  ratings, comparisons; `notPlayed`): a case's code.
 - **Evaluation records** (`assets/evaluations/<id>/`): kept results ([Evaluations](#evaluations)).
   `imports/tournament-1bacac44.jsonl`
   is the 10-hour tournament's rows (11,342 bouts and the unseen report's 384) as played, with their
@@ -650,18 +651,27 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   again by its key, so a description, script or document edit replays nothing; a case's error or
   non-finite reading is a fault row, kept like any other.
 - **A schedule** (`schedule.ts`) pairs a contest's subjects: `all` with each other, `versus` each
-  subject with a panel's members only (`--against`).
+  subject with a panel's members only (`--against`), `pairs` the pairs named.
 - **The runner** (`run.ts`): units of evidence (a contest's one condition with each side on the
   left), run in the order of their keys on lanes (`lanes.ts`: a worker each, behind `spawn`, a
-  lost worker or one past its minutes replaced and its case left without a row); a table reads only
-  the complete units from the first. Figures are a rate (Wilson) or a mean or median over units, a
+  lost worker or one past its minutes replaced and its case left without a row), until the budget
+  (`--budget`, 10 min unless told) is spent; a table reads the complete units. Figures are a rate (Wilson) or a mean or median over units, a
   pair resampled whole (`stats.ts`).
 - **Records** (`record.ts`): `npm run evaluate -- <id> --write` writes
   `assets/evaluations/<id>/<date>-<commit8>-<keys8>.jsonl`, a header (build, harness, engine,
   commit, pool, each subject and part with its version and parent) and a line per case. A version is
   the digest of its own content, protocol and environment, kept apart so a change from its parent
   is named by kind; `--previous` names the parent. Working rows are kept in
-  `research/runs/evaluations/<id>/`.
+  `research/runs/evaluations/<id>/`. A record holds the run's complete units.
+- **The panel report** (`compare.ts`, `settle.ts`): `--against default --previous <mind>` pairs
+  each of the subject's entrants with its baseline's on the same kit, each against the same panel
+  member at the same condition (a slot), and plays the two directly. The baseline is another mind,
+  a mind given whole, or, named by the subject's own id, its newest recorded value that differs.
+  The verdict reads the slots in a fixed order up to the first with a row missing: two one-sided
+  sequential tests on the mean paired difference (`settle`), better or worse by the rule's
+  `delta`, or within it; `--until settled` stops giving out cases once it is reached, or every slot is read. Beside it,
+  every figure's difference, by member and condition, the worst pairs, stalemates (at the cap,
+  both bars full) and the head-to-head. The tournament's panel and rule are its `analysis`.
 - **Ratings** (`rating.ts`): Bradley-Terry strengths on the Elo scale over a pool's distinct keys,
   computed with the core's `exp` and `log`, a draw half a win, each entrant given half a game drawn
   against the field; intervals from refits to the pairs resampled whole. No strength is carried

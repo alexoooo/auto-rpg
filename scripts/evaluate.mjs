@@ -31,7 +31,8 @@ import { recordingKey } from "../src/core/recording.ts";
 import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
 import { MINDS } from "../src/core/mind/controllers.ts";
 import { readRecord, recordedSubject, recordIdentity, recordName, recordText, rowOf, sameRow } from "../src/evaluation/record.ts";
-import { casesOf, completePrefix, figuresOf, runEvaluation, runOrder, tableOf } from "../src/evaluation/run.ts";
+import { casesOf, figuresOf, runEvaluation, runOrder, tableOf } from "../src/evaluation/run.ts";
+import { panelReport, slotsOf, verdictOf } from "../src/evaluation/compare.ts";
 import { scheduleName } from "../src/evaluation/schedule.ts";
 import { sha256Text } from "../src/evaluation/sha256.ts";
 import { tableRatings } from "../src/evaluation/tournament/index.ts";
@@ -121,11 +122,88 @@ function writeNotes() {
 /** A 95 % estimate as text. */
 const estimateText = (estimate) => estimate === null ? "none" : `${estimate.value.toFixed(3)} (${estimate.low.toFixed(3)} to ${estimate.high.toFixed(3)})`;
 
+/** Bouts a minute the 10-hour tournament played on the desktop (11,726 in about 10 hours): what a run is priced at before it starts. */
+const REFERENCE_RATE = 19;
+
+/** Whether subject `id` is mind `prefix`'s: the mind itself, or one of its entrants (`prefix/...`). */
+const belongsTo = (id, prefix) => id === prefix || id.startsWith(`${prefix}/`);
+
+/**
+ * The baseline `previous` names for the subjects of `first` (the first subject asked for), each
+ * subject's counterpart by its suffix: another mind as it is now, a mind given whole, or, when it
+ * names the subject's own id, that id's newest recorded value that differs from today's, played as
+ * given whole (`revived`, each with the recorded version as its parent).
+ */
+function baselineOf(evaluation, first, previous, chosen, records) {
+  const prefix = typeof first === "string" ? first.split("/")[0] : first.id, named = subjectOf(previous);
+  const prior = typeof named === "string" ? named : named.id, mine = chosen.filter((one) => belongsTo(one.id, prefix));
+  const counterpart = new Map(), revived = new Map();
+  if (prior !== prefix) {
+    const all = evaluation.subjects([named]);
+    for (const one of mine) {
+      const other = `${prior}${one.id.slice(prefix.length)}`;
+      if (all.some((each) => each.id === other)) counterpart.set(one.id, other);
+    }
+    const wanted = new Set(counterpart.values());
+    return { baseline: all.filter((each) => wanted.has(each.id)), counterpart, revived };
+  }
+  const baseline = [];
+  for (const one of mine) {
+    const old = records.flatMap(({ header }) => header.subjects)
+      .filter((each) => each.id === one.id && each.value !== null && recordingKey(each.value) !== recordingKey(one.value)).at(-1);
+    if (!old) continue;
+    const tag = old.version.version.slice(0, 8), id = `${prefix}@${tag}${one.id.slice(prefix.length)}`;
+    baseline.push({ id, label: `${old.label} (${tag})`, value: old.value, parts: [] });
+    counterpart.set(one.id, id);
+    revived.set(one.id, old);
+  }
+  if (baseline.length === 0) throw new Error(`no earlier value of ${prefix} in a record of ${evaluation.id}: give the previous version as a JSON file`);
+  return { baseline, counterpart, revived };
+}
+
+/**
+ * The order units are played in: each slot's two units in the slots' order, the head-to-head units
+ * spread among them, then the rest in the run order; a unit once.
+ */
+function playOrder(slots, headToHead, units) {
+  const order = [], seen = new Set(), add = (unit) => { if (!seen.has(unit[0].key)) { seen.add(unit[0].key); order.push(unit); } };
+  const direct = runOrder(headToHead), every = slots.length / Math.max(1, direct.length);
+  let next = 0;
+  slots.forEach((slot, k) => {
+    add(slot.mine); add(slot.theirs);
+    while (next < direct.length && next * every <= k) add(direct[next++]);
+  });
+  direct.slice(next).forEach(add);
+  runOrder(units).forEach(add);
+  return order;
+}
+
+/** A panel report as lines to print: the verdict, then each figure, by member and condition, the worst pairs, stalemates and the head-to-head. */
+function reportLines(report, rule, { spent, lost }) {
+  const { settled, read, of } = report, number = (x) => x.toFixed(3);
+  const state = settled.verdict !== null ? `settled: ${settled.verdict} (${rule.figure}, by ${rule.delta}) at pair ${settled.at} of ${of}`
+    : read === of ? `inconclusive: every pair read (${of})`
+    : spent ? `inconclusive: the budget ran out at pair ${read} of ${of}`
+    : `incomplete: pair ${read + 1} of ${of} has a row missing${lost ? " (lost)" : ""}`;
+  return [
+    `Panel report: ${state}; ${report.faults} with a fault left out.`, "",
+    "| Figure | Subject | Baseline | Difference (95 % interval) |", "|---|---|---|---|",
+    ...report.figures.map((f) => `| ${f.figure}, ${f.unit} | ${estimateText(f.subject)} | ${estimateText(f.baseline)} | ${estimateText(f.difference)} |`),
+    "", `By member and by condition (${rule.figure}):`, "", "| Held | Pairs | Subject | Baseline | Difference |", "|---|---|---|---|---|",
+    ...[...report.members, ...report.conditions].map((h) => `| ${h.by} | ${h.pairs} | ${number(h.subject)} | ${number(h.baseline)} | ${number(h.subject - h.baseline)} |`),
+    "", `Worst pairs (${rule.figure}):`, "", "| Subject | Member | Condition | Subject | Baseline |", "|---|---|---|---|---|",
+    ...report.worst.map((w) => `| ${w.subject} | ${w.member} | ${recordingKey(w.condition)} | ${number(w.mine)} | ${number(w.theirs)} |`),
+    "", `Stalemates (at the cap, both bars full): subject ${estimateText(report.stalemates.subject)}, baseline ${estimateText(report.stalemates.baseline)}`,
+    `Head-to-head, subject against baseline on each kit both fit: ${report.headToHead.map((h) => `${h.figure} ${estimateText(h.value)}`).join("; ")} over ${report.headToHead[0]?.pairs ?? 0} pairs`,
+  ];
+}
+
 async function main() {
   const { values, positionals } = parseArgs({ allowPositionals: true, options: {
     subjects: { type: "string" }, mind: { type: "string", multiple: true }, protocol: { type: "string" }, previous: { type: "string" },
     shard: { type: "string" }, workers: { type: "string" }, engine: { type: "string" }, "case-minutes": { type: "string", default: "30" },
     write: { type: "boolean" }, json: { type: "string" }, against: { type: "string" }, import: { type: "string" }, notes: { type: "boolean" },
+    until: { type: "string" }, budget: { type: "string", default: "10" },
   } });
   if (values.import) {
     for (const { header, lines } of importRun(values.import, ROOT)) writeRecord(header, lines);
@@ -157,27 +235,45 @@ async function main() {
     panel = evaluation.subjects(members);
     schedule = { kind: "versus", panel: panel.map((member) => member.id) };
   } else if (evaluation.schedule === "versus") throw new Error(`${id} is played against a panel: --against default, or --against <id,...>`);
-  const subjects = [...chosen.filter((one) => !panel.some((member) => member.id === one.id)), ...panel];
-  const environment = environmentOf();
-  const units = casesOf(evaluation, protocol, subjects, { engine, code: environment.digest, schedule }), order = runOrder(units);
-  const working = join(ROOT, "research/runs/evaluations", id);
+  if (values.until !== undefined && values.until !== "settled") throw new Error("--until takes settled");
   const records = recordsOf(id);
+  const { baseline, counterpart, revived } = values.previous && values.against
+    ? baselineOf(evaluation, choice[0], values.previous, chosen, records) : { baseline: [], counterpart: new Map(), revived: new Map() };
+  const panelIds = new Set(schedule.panel ?? []), mine = [...chosen, ...baseline].filter((one) => !panelIds.has(one.id));
+  const subjects = [...mine.filter((one, k) => mine.findIndex((other) => other.id === one.id) === k), ...panel];
+  const environment = environmentOf();
+  const rule = evaluation.analysis.settle;
+  if (counterpart.size > 0 && !rule) throw new Error(`${id} has no rule to settle a comparison on`);
+  const units = casesOf(evaluation, protocol, subjects, { engine, code: environment.digest, schedule });
+  const pairs = [...counterpart].filter(([subject, other]) => !panelIds.has(subject) && !panelIds.has(other));
+  const headToHead = pairs.length > 0 ? casesOf(evaluation, protocol, subjects, { engine, code: environment.digest, schedule: { kind: "pairs", pairs } }) : [];
+  const slots = slotsOf(units, counterpart, schedule.panel ?? []), order = playOrder(slots, headToHead, [...units, ...headToHead]);
+  const working = join(ROOT, "research/runs/evaluations", id);
   const rows = rowsFrom([
     ...records.map(({ name, lines }) => ({ name, rows: lines })),
     ...filesIn(working).map(({ name, text }) => ({ name, rows: text.split("\n").filter(Boolean).map((line) => JSON.parse(line)) })),
   ]);
 
-  // Play what has no row: this shard's units, in the run order.
-  const mine = order.filter((_, k) => k % shards === shardAt - 1), lanes = Number(values.workers ?? defaultLanes());
-  const toPlay = mine.flat().filter((one) => !rows.has(one.key)).length, reused = mine.flat().length - toPlay;
-  console.log(`${evaluation.title}: ${protocol}; ${harness}; ${units.length} units, ${toPlay} cases to play, ${reused} found${shards > 1 ? `; shard ${shardAt}/${shards}` : ""}`);
+  // Play what has no row: this shard's units, in the play order, until the budget is spent or, asked, the verdict settles.
+  const shard = order.filter((_, k) => k % shards === shardAt - 1), lanes = Number(values.workers ?? defaultLanes()), budget = Number(values.budget);
+  if (!(budget > 0)) throw new Error("--budget is minutes, more than 0");
+  const toPlay = shard.flat().filter((one) => !rows.has(one.key)).length, reused = shard.flat().length - toPlay;
+  console.log(`${evaluation.title}: ${protocol}; ${harness}; ${order.length} units, ${toPlay} cases to play, ${reused} found${shards > 1 ? `; shard ${shardAt}/${shards}` : ""}`);
+  if (toPlay > 0) console.log(`about ${(toPlay / REFERENCE_RATE).toFixed(0)} min at the 10-hour tournament's rate (${REFERENCE_RATE} bouts a minute); the budget is ${budget} min${values.until ? ", or until the verdict settles" : ""}`);
   const file = join(working, `${hostname()}${shards > 1 ? `-${shardAt}of${shards}` : ""}.jsonl`), lost = [];
-  let played = 0;
-  const started = Date.now();
+  let played = 0, spent = false;
+  const started = Date.now(), deadline = started + budget * 60_000;
+  /** Whether, asked to stop when settled, the verdict is reached, or every pair is read and it never will be. */
+  const settledNow = () => {
+    if (values.until !== "settled" || counterpart.size === 0) return false;
+    const { read, settled } = verdictOf(slots, rows, evaluation.figures, rule);
+    return settled.verdict !== null || read === slots.length;
+  };
   if (toPlay > 0) {
     mkdirSync(working, { recursive: true });
-    await runEvaluation(mine, rows, {
+    await runEvaluation(shard, rows, {
       evaluation: id, protocol, lanes, minutes: Number(values["case-minutes"]),
+      stop: () => (spent ||= Date.now() >= deadline) || settledNow(),
       spawn: (listen) => {
         const worker = new Worker(new URL("./evaluate-worker.mjs", import.meta.url));
         worker.on("message", listen.answer);
@@ -194,43 +290,45 @@ async function main() {
       onLost: (job, reason) => { lost.push({ key: job.key, reason }); console.log(`lost ${job.key}: ${reason}`); },
     });
   }
-  const prefix = completePrefix(order, rows), commit = commitOf();
+  const complete = order.filter((unit) => unit.every((one) => rows.has(one.key))), commit = commitOf();
   console.log(`${played} played in ${((Date.now() - started) / 1000).toFixed(0)} s; ${lost.length} lost; commit ${commit ?? "unknown"}; build ${BUILD_IDENTITY}; environment ${environment.digest}`);
-  if (prefix < order.length) {
-    console.log(`incomplete: ${prefix} of ${order.length} units have every row${lost.length ? "; run again to retry the lost" : ""}`);
-    if (values.write) throw new Error("a record needs a row for every case");
-    process.exitCode = shards > 1 ? 0 : 1;
-    return;
-  }
+  if (complete.length < order.length) console.log(`${complete.length} of ${order.length} units have every row${spent ? "; the budget ran out" : ""}${lost.length ? "; run again to retry the lost" : ""}`);
 
-  // The parent of the first subject, when named: the newest recorded version of that id, else that subject here.
-  const recorded = subjects.map((subject) => recordedSubject(subject, cases.play, environment.digest, null));
-  let parent = null;
-  if (values.previous) {
-    parent = records.flatMap(({ header }) => header.subjects).filter((one) => one.id === values.previous && one.version.version !== recorded[0].version.version).at(-1)
-      ?? recorded.find((one) => one.id === values.previous && one !== recorded[0]) ?? null;
+  // Each subject's version; its parent its counterpart's, or, asked without a panel, the newest recorded version of that id.
+  const recorded = new Map(subjects.map((subject) => [subject.id, recordedSubject(subject, cases.play, environment.digest, null)]));
+  for (const [subject, other] of counterpart)
+    recorded.set(subject, recordedSubject(subjects.find((one) => one.id === subject), cases.play, environment.digest, revived.get(subject) ?? recorded.get(other)));
+  if (values.previous && counterpart.size === 0) {
+    const first = recorded.get(subjects[0].id);
+    const parent = records.flatMap(({ header }) => header.subjects).filter((one) => one.id === values.previous && one.version.version !== first.version.version).at(-1)
+      ?? [...recorded.values()].find((one) => one.id === values.previous && one !== first) ?? null;
     if (!parent) throw new Error(`no version of ${values.previous} in a record of ${id} or among the subjects`);
-    recorded[0] = recordedSubject(subjects[0], cases.play, environment.digest, parent);
+    recorded.set(subjects[0].id, recordedSubject(subjects[0], cases.play, environment.digest, parent));
   }
-  const date = new Date().toISOString().slice(0, 10);
+  const date = new Date().toISOString().slice(0, 10), heads = [...recorded.values()];
   const header = {
     identity: recordIdentity(BUILD_IDENTITY, engine, harness, cases.play), evaluation: id, protocol, play: cases.play, engine, harness,
-    commit, date, schedule: scheduleName(schedule), pool: { protocol: recorded[0].version.protocol, environment: environment.digest }, subjects: recorded,
+    commit, date, schedule: [schedule, ...pairs.length ? [{ kind: "pairs", pairs }] : []].map(scheduleName).join("; "),
+    pool: { protocol: heads[0].version.protocol, environment: environment.digest }, subjects: heads,
   };
-  const lines = units.flat().map(({ subjects: seated, condition, key, code, world }) => ({ subjects: seated, condition, key, code, world, ...rowOf(rows.get(key)) }));
-  const { table, faults } = tableOf(subjects, units, rows), figures = figuresOf(evaluation, subjects, units, rows);
+  const lines = complete.flat().map(({ subjects: seated, condition, key, code, world }) => ({ subjects: seated, condition, key, code, world, ...rowOf(rows.get(key)) }));
+  const { table, faults } = tableOf(subjects, complete, rows), figures = figuresOf(evaluation, subjects, complete, rows);
   console.log(`protocol ${header.pool.protocol}`);
-  for (const one of recorded) console.log(`${one.id}: version ${one.version.version}${one.parent ? `, parent ${one.parent.id} ${one.parent.version.version} (${one.changes.join(", ") || "no change"})` : ""}`);
+  for (const one of heads) console.log(`${one.id}: version ${one.version.version}${one.parent ? `, parent ${one.parent.id} ${one.parent.version.version} (${one.changes.join(", ") || "no change"})` : ""}`);
   console.log("\n| Subject | Figure | Units | Value (95 % interval) |\n|---|---|---|---|");
   for (const f of figures) console.log(`| ${f.subject} | ${f.figure}, ${f.unit} | ${f.units} | ${estimateText(f.estimate)} |`);
   for (const fault of faults) console.log(`fault (${fault.fault.kind}) in ${fault.key}: ${fault.fault.message}`);
-  const summary = faults.length ? null : evaluation.summary(table);
+  const report = counterpart.size > 0 ? panelReport(slots, headToHead, rows, evaluation.figures, rule) : null;
+  if (report) console.log("\n" + reportLines(report, rule, { spent, lost: lost.length }).join("\n"));
+  const summary = faults.length || complete.length === 0 ? null : evaluation.summary(table);
   if (summary) console.log("\n" + summary.lines.join("\n"));
-  else console.log("\nno summary: a case is a fault");
-  if (values.json) writeFileSync(values.json, JSON.stringify({ header, figures, summary: summary?.json ?? null, cases: lines }, null, 2) + "\n");
+  else console.log(`\nno summary: ${complete.length === 0 ? "no unit is complete" : "a case is a fault"}`);
+  if (values.json) writeFileSync(values.json, JSON.stringify({ header, figures, report, summary: summary?.json ?? null, cases: lines }, null, 2) + "\n");
+  if (lost.length > 0 && shards === 1) process.exitCode = 1;
 
   if (values.write) {
     if (!commit) throw new Error("a record needs a commit");
+    if (lines.length === 0) throw new Error("a record needs a complete unit");
     const changed = git("status", "--porcelain", "--", ...environment.files.filter((one) => !one.startsWith("node_modules/")));
     if (changed) throw new Error(`a record's code is its commit's: these differ or are untracked:\n${changed}`);
     writeRecord(header, lines);

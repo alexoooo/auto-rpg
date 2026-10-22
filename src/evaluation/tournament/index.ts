@@ -24,7 +24,23 @@ export const TOURNAMENT: Evaluation<TournamentCondition, BoutReading> = {
   protocols: TOURNAMENT_CASES,
   defaultProtocol: "standard",
   schedule: "versus",
-  analysis: {},
+  analysis: {
+    /**
+     * The default panel: eight minds, each character and loadout of the field at least once, from
+     * the top of the 10-hour record (2056) to its lower middle (1385); chosen for variety, not strength.
+     */
+    panel: [
+      "tempo/workshop-fighter/buckler,club", "behaviours/crypt-skeleton/buckler,club", "duellist/workshop-rogue/buckler,sword",
+      "crawl/reptile/empty,empty", "classic/workshop-fighter/empty,sword", "counter/crypt-skeleton/empty,empty",
+      "options/workshop-rogue/empty,club", "scrapper/crypt-skeleton/empty,sword",
+    ],
+    /**
+     * When a panel report is settled, on the pair score: a difference of 0.14 is about 100 Elo at
+     * the field's middle; the prior's spread is the median of same-kit entrants' paired differences
+     * in the 10-hour record (0.44).
+     */
+    settle: { figure: "score", delta: 0.14, alpha: 0.05, beta: 0.1, minimum: 10, prior: { sd: 0.44, weight: 4 } },
+  },
   subjects: entrantSubjects,
   figures: CONTEST_FIGURES,
   /** Each subject's rating over the table, its interval and its record, best first. */
