@@ -235,8 +235,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   - saving a run; a crypt on senses; a hero that walks one way and faces another;
   - a limp body put to sleep through Rapier woke by itself in three of eight cases, not
     understood ([step cost](reference/step-cost.md#a-limp-body-put-to-sleep)).
-- **Input:** the person's commands (Movement B2). The Crypt's keys have no walk: its Shift adds to the selection. The Lab's locomotion courses
-  drive by velocities, not goals.
+- **Input:** the person's commands (Movement B2). The Crypt's keys have no walk: its Shift adds to
+  the selection. The Lab's locomotion courses drive by velocities, not goals.
 - **Art and sound:** a pixel look for the Crypt, behind a switch
   (`docs/plans/2026-09-24-dungeon-look-06-pixel-look.md@144961d4`); a raking-light check that
   `tangentBasis: "babylon-lh"` orients normal maps; the reptile's art; the sound's gaps (unplayed
