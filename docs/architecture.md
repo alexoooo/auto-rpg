@@ -500,11 +500,12 @@ arrival and stalls; how far an order has left is read from the order (`remaining
 routes round (`fallenSolids`), and every walk it gives is kept clear of its side's standing
 bodies (`crowdWalk`): of the ways its route asks or turned from it by up to six sixteenths of a
 turn either side, or none, the one nearest the walk asked whose sweep keeps `CROWD.margin` clear of
-each over the next `CROWD.horizon` s, judged from its velocity now changing at most at its gait's
-stopping rate (`Locomotion.stopping`), each way as fast as its envelope holds it from its heading
-and as it stops from before a body ahead. It reads one sensed moment and no other body's choice,
-and turning right costs less than left, so two bodies that meet decide alike in either order and
-pass on their right. It faces the way its route asks while it steps round. A body held back that
+each over the next `CROWD.horizon` s or the time it takes to stop, judged from its velocity now
+changing at most at its gait's stopping rate (`Locomotion.stopping`), each way as fast as its
+envelope holds it from its heading and as it stops from before a body ahead. It reads one sensed
+moment and no other body's choice: a body behind it on the way it is asked gives way to it, and
+turning right costs less than left, so two bodies that meet decide alike in either order and pass
+on their right. It faces the way it goes. A body held back that
 way, or going against the way it is sent, is not stalled. A place whose point does not fit its
 clearance is aimed at the nearest point about it that does, within its `near`.
 **The speed rule** (`travelSpeed`, `src/core/mind/travel.ts`) sets how fast the navigator goes: the
@@ -573,7 +574,7 @@ Commander with `picks: false`, asked in the step's sensing phase, its orders tap
 | Kind | File | Leads |
 |---|---|---|
 | `independent` | `independent.ts` | each member at the nearest foe it sees, on to where it last saw one, else home: the Crypt's enemies |
-| `party` | `party.ts` | a person's party: the member the keys steer where they steer it, the leader otherwise exploring, the others after it or where they were sent, each at the foe its order locks or (unless `picks: false`) the nearest it sees; several sent together take slots about the destination at the slowest one's top speed (`travelSpeed`); doors on the way: the Crypt's party, and an Arena side a person takes. Its members keep clear of each other by their own navigation (`crowdWalk`), each from the step's one `TeamView` |
+| `party` | `party.ts` | a person's party: the member the keys steer where they steer it, the leader otherwise exploring, the others after it or where they were sent, each at the foe its order locks or (unless `picks: false`) the nearest it sees; several sent together take slots about the destination at the slowest one's top speed (`travelSpeed`), the one nearest it the slot farthest from them all, so that none comes in through a slot stood in; doors on the way: the Crypt's party, and an Arena side a person takes. Its members keep clear of each other by their own navigation (`crowdWalk`), each from the step's one `TeamView` |
 
 `tests/core-boundary.test.mjs` holds `src/core/command/` to no engine, world, body, enlistment,
 mind host or senses hub; `tests/command-contract.test.mjs` has each kind lead an Arena bout as a

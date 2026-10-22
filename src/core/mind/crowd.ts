@@ -11,7 +11,8 @@ import type { GaitLimits } from "./travel.ts";
  * preferences, not anatomy:
  *
  * - `margin`, m: the room it keeps between its own clearance and another standing body's;
- * - `horizon`, s: how far ahead it judges where a walk takes it, in `samples` steps;
+ * - `horizon`, s: how far ahead it judges where a walk takes it at least, in `samples` steps, and
+ *   farther, at as fine a step, where it takes longer to stop;
  * - `turns`: the candidate ways, in sixteenths of a turn either side of the way its route asks;
  * - `left`, (m/s)² a rad: what turning to its left costs over turning to its right, so that two bodies
  *   that meet both pass the same side;
@@ -74,7 +75,7 @@ const NONE: readonly SolidSense[] = Object.freeze([]);
  * **A walk that keeps clear of its own side's standing bodies**: of the walks that go the way `want`
  * asks (a ground velocity, m/s) or turned from it by up to `CROWD.turns` sixteenths of a turn either
  * side, or none, the one nearest `want` that keeps `CROWD.margin` clear of every such body over
- * the next `CROWD.horizon` s; with none clear, the one that comes within another's room the latest.
+ * the next `CROWD.horizon` s, or the time it takes to stop, if longer; with none clear, the one that comes within another's room the latest.
  *
  * - **Where a walk takes the body** is judged from its velocity now, not from the walk asked: its
  *   velocity changes toward the walk no faster than its gait stops (`Locomotion.stopping`), so a
@@ -83,7 +84,8 @@ const NONE: readonly SolidSense[] = Object.freeze([]);
  *   (`paceToward` on its envelope), and no faster than it stops from before another body ahead of
  *   it on that way, at its gait's stopping rate, plus that body's own speed away.
  * - **Another body** goes on at its velocity now. A body already within another's room may move
- *   away from it.
+ *   away from it. A body behind it, on the way it is asked, it leaves to give way: in a queue the
+ *   one behind waits, and the one in front goes on.
  *
  * It reads one sensed moment, the same for every mind of the fight, and no other body's choice, so
  * two bodies that meet decide alike in either order, each passing to its right (`CROWD.left`).
@@ -91,10 +93,14 @@ const NONE: readonly SolidSense[] = Object.freeze([]);
  */
 export function crowdWalk(view: CrowdView, radius: number, heading: number, want: GroundPoint, gait: GaitLimits): CrowdWalk | null {
   const { centre, velocity } = view.stance, { side, others } = view.senses, stopping = gait.stopping;
-  const speed = hypot(want.x, want.z), going = hypot(velocity.x, velocity.z), H = CROWD.horizon;
+  const speed = hypot(want.x, want.z), going = hypot(velocity.x, velocity.z);
+  // It looks as far ahead as it takes to stop from the speed it goes, at least `CROWD.horizon`.
+  const H = stopping > 0 ? Math.max(CROWD.horizon, going / stopping) : CROWD.horizon, samples = Math.ceil(H * CROWD.samples / CROWD.horizon);
   let near: Neighbour[] | null = null;
   for (const other of others) {
     if (other.side !== side || other.out || other.down) continue;
+    // A body behind it on the way it is asked is the one to give way: it keeps clear of this one.
+    if ((other.centre.x - centre.x) * want.x + (other.centre.z - centre.z) * want.z < 0) continue;
     const room = radius + reachOf(other) + CROWD.margin, w = hypot(other.velocity.x, other.velocity.z);
     if (hypot(other.centre.x - centre.x, other.centre.z - centre.z) > room + (Math.max(speed, going) + w) * H + CROWD.near) continue;
     (near ??= []).push({ x: other.centre.x, z: other.centre.z, vx: other.velocity.x, vz: other.velocity.z, room });
@@ -102,10 +108,10 @@ export function crowdWalk(view: CrowdView, radius: number, heading: number, want
   if (!near) return null;
   /** When a walk at (`cx`, `cz`) first comes deeper within another's room, s from now; Infinity, never inside the horizon. */
   const conflict = (cx: number, cz: number): number => {
-    const dt = H / CROWD.samples;
+    const dt = H / samples;
     let px = centre.x, pz = centre.z, vx = velocity.x, vz = velocity.z;
     const last = near!.map((n) => hypot(n.x - px, n.z - pz));
-    for (let k = 1; k <= CROWD.samples; k++) {
+    for (let k = 1; k <= samples; k++) {
       const ax = cx - vx, az = cz - vz, change = hypot(ax, az), most = stopping * dt;
       if (change > most) { vx += ax * most / change; vz += az * most / change; } else { vx = cx; vz = cz; }
       px += vx * dt; pz += vz * dt;

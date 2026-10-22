@@ -120,6 +120,23 @@ export function partyCommander(host: TeamHost, config: PartyConfig = { kind: "pa
     taken.push(given); return given;
   };
 
+  /**
+   * The slots about `point` for `members` sent together (`slot`, each fitting the widest of them),
+   * the member nearest the point given the slot farthest from where they all are: the first there
+   * goes deepest, so that none comes in through a slot already stood in. Ties go in the team's order.
+   */
+  const slotsFor = (point: GroundPoint, members: readonly MemberView[]): Map<string, GroundPoint> => {
+    const radius = members.reduce((most, member) => Math.max(most, member.radius), 0), taken: GroundPoint[] = [];
+    const places = members.map(() => slot(point, radius, taken));
+    let cx = 0, cz = 0;
+    for (const member of members) { cx += member.at.x / members.length; cz += member.at.z / members.length; }
+    const from = { x: cx, z: cz }, byDepth = places.map((_, i) => i).sort((a, b) => distance(places[b]!, from) - distance(places[a]!, from) || a - b);
+    const byNear = members.map((_, i) => i).sort((a, b) => distance(members[a]!.at, point) - distance(members[b]!.at, point) || a - b);
+    const given = new Map<string, GroundPoint>();
+    byNear.forEach((member, k) => given.set(members[member]!.id, places[byDepth[k]!]!));
+    return given;
+  };
+
   /** Whether the pointer points the member it steers at `foe`: always, unless the pointer steers its facing. */
   const aimedAt = (view: TeamView, foe: SensedBody): boolean => {
     const aim = view.lead?.aim, at = steered(view).at;
@@ -247,9 +264,9 @@ export function partyCommander(host: TeamHost, config: PartyConfig = { kind: "pa
         case "go": {
           const together = members.length > 1 ? { together: members.map(member => member.id) } : {};
           // Several sent to one floor point take the slots about it, or all but one crowd it for ever.
-          const taken: GroundPoint[] = [];
+          const slots = "route" in command ? null : slotsFor(command.destination, members);
           for (const member of members) ordered(member, "route" in command ? { kind: "force", route: command.route, ...together }
-            : { kind: "attack-move", destination: slot(command.destination, member.radius, taken), ...together }).facing = null;
+            : { kind: "attack-move", destination: slots!.get(member.id)!, ...together }).facing = null;
           return;
         }
         case "attack":

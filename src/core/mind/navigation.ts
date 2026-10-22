@@ -209,13 +209,14 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
       /**
        * The walk the ground way (`x`, `z`) at `speed`, kept clear of its own side's standing bodies
        * (`crowdWalk`) and, where turned for them, of the solids, in the heading's frame; and the way
-       * it faces, the way asked, so that a body stepping round another keeps its heading.
+       * it goes, or, held to a stop, the way asked.
        */
       const steered = (x: number, z: number, speed: number): { readonly move: readonly [number, number] | null; readonly face: number | null } => {
         const distance = hypot(x, z), crowd = distance > 0 && speed > 0 ? crowdWalk(view, radius, report.heading, { x: x * speed / distance, z: z * speed / distance }, gait) : null;
         state.held = crowd?.held ?? false;
         if (!crowd) return { move: along(x, z, speed), face: distance > 0 && speed > 0 ? atan2(x, z) : null };
-        return { move: clearMove(centre, solids, report.heading, along(crowd.x, crowd.z, hypot(crowd.x, crowd.z)), radius, .5), face: atan2(x, z) };
+        const most = hypot(crowd.x, crowd.z);
+        return { move: clearMove(centre, solids, report.heading, along(crowd.x, crowd.z, most), radius, .5), face: most > 0 ? atan2(crowd.x, crowd.z) : atan2(x, z) };
       };
       /** The speed going the ground way (`x`, `z`) with `left` m to stop in and `corners` ahead. */
       const going = (x: number, z: number, left: number, corners: readonly Corner[]): number => {
