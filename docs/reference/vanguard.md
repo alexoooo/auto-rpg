@@ -3,8 +3,9 @@
 Vanguard remains unqualified against the requested field. Its calibrated preset combines
 committed point prediction, contact-driven attack/evasion choice and editable motor profiles
 for its own body. The profiles select the stronger development configurations for the Warrior,
-Rogue and Skeleton. The preceding contact-driven configuration fails fresh Options qualification
-with two losses and a draw. Equipment is unqualified.
+Rogue and Skeleton. It fails its fresh Options campaign with four wins and three losses in seven
+completed cases. The earlier contact-driven configuration also fails, with two losses and a
+draw. Equipment is unqualified.
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -154,6 +155,25 @@ case keys and row references are retained in
 in `research/runs/vanguard/bouts.jsonl`. This failed matrix is development evidence for a revised
 fighter, which needs fresh confirmation.
 
+### Calibrated campaign
+
+The calibrated preset at `9b3fecd0` fails the second preregistered Options matrix, under the
+same harness, rate, equal attributes, empty hands and ordinary cap. Its new starts are kept in
+`research/runs/vanguard/qualification/conditions-2.json`.
+
+| Body / level / gap | Left result | Right result |
+| --- | --- | --- |
+| Warrior / open / 2.15 m | Injury win, 85.4667 s | Incomplete |
+| Rogue / open / 6.35 m | Injury win, 97.875 s | Win at 120 s |
+| Skeleton / open / 3.85 m | Loss at 120 s | Loss at 120 s |
+| Warrior / court / 5.15 m | Loss at 120 s, one fall | Win at 120 s |
+
+The other six completed fighters remain upright. The third loss stops the campaign at four
+wins in seven completed cases; five unfinished cases are not counted as losses. Full recipes,
+keys, readings and row references are retained in
+`research/runs/vanguard/qualification/campaign-2-options.json`. Those conditions are development
+evidence for the next revision, not fresh confirmation.
+
 ## Conservative travel
 
 At `bf2bf77e`, `steadyWalk` bounds stance-walk turns to 0.3 rad/s, with 0.2 rad/s for the first
@@ -255,5 +275,10 @@ Raw development rows, full recipes and source archives are kept under
 | Half the hip and chest turn | Weakens both short Skeleton exchanges. |
 | Hooks or overhands using the existing path skill | Produce few target contacts and weaken both short Skeleton exchanges. |
 | Waiting for the actual reachable chamber and a slow fist | Weakens both short Skeleton exchanges and reduces damaging body contacts and body-hit energy; exact rejected source is archived in `research/runs/vanguard/rejected/measured-chamber.json`. |
+| Opening-ranked body/head and shorter-range punches | Weakens the right Skeleton exchange at 3.85 m despite improving the left; retained in `research/runs/vanguard/rejected/repertoire-configurations.json`. |
+| Choosing independently named hands by landed-contact rates | Weakens both short exchange margins at 3.85 m; retained with the repertoire configurations. |
+| Replacing the Warrior's fallback run with the braced walk | Reproduces the failed court case's complete pose digest and fall exactly; the run is not its cause. |
+| Ending a punch before its arm-drive lead | Not observed in the diagnostic's 13 committed strokes; no timing-rule change is kept on that hypothesis. |
+| Clearing a guard with a free-hand muscle-driven point task | Captures on one side but weakens both exchanges; adding an entry step captures on both but causes a fall. Exact source is retained in `research/runs/vanguard/rejected/parry-no-entry.json` and `parry-entry.json`. |
 
 A short exchange is a development filter, not a win counted toward qualification.
