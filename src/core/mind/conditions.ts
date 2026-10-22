@@ -6,6 +6,8 @@ export interface ConditionReading {
   readonly walking: boolean;
   readonly foe: number;
   readonly destination: number;
+  /** The nearest standing body of its own side, m; Infinity where its consumer reads none. */
+  readonly ally?: number;
   readonly targetDown?: boolean;
   readonly sinceTarget?: number;
 }
@@ -21,13 +23,13 @@ export const CONDITIONS: { readonly [K in ConditionConfig["kind"]]: Registration
   "follow-up": { fields: [number<Of<"follow-up">, "seconds">("seconds", "Since contact", 0, 5, .05, "s")],
     matches: (config, reading) => reading.sinceTarget !== undefined && reading.sinceTarget >= 0 && reading.sinceTarget <= config.seconds },
   "when-distance": { fields: [
-    choice<Of<"when-distance">, "of">("of", "Distance to", [["foe", "Nearest foe"], ["destination", "Destination"]]),
+    choice<Of<"when-distance">, "of">("of", "Distance to", [["foe", "Nearest foe"], ["destination", "Destination"], ["ally", "Nearest of its side"]]),
     choice<Of<"when-distance">, "than">("than", "Compare", [["under", "Under"], ["over", "Over"]]),
     number<Of<"when-distance">, "metres">("metres", "Distance", 0, 100, .1, "m"),
   ], matches(config, reading, margin) {
     switch (config.than) {
-      case "under": return reading[config.of] <= config.metres + margin;
-      case "over": return reading[config.of] > config.metres - margin;
+      case "under": return (reading[config.of] ?? Infinity) <= config.metres + margin;
+      case "over": return (reading[config.of] ?? Infinity) > config.metres - margin;
       default: { const never: never = config.than; throw new Error(`unknown distance comparison ${never}`); }
     }
   } },

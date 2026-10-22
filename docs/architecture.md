@@ -274,7 +274,7 @@ actions over it.
 | Walk and learned run | `learned-run.ts` | the walk and run steered by a trained policy (`dataOf("learned-run")`, `assets/core/learned-run.json`; its names and timing before it loads, `RUN_POLICY`); experimental |
 | Stride | `stride.ts` | plans its own capture-point steps; experimental |
 | Run | `run.ts` | Raibert-placed flying steps; experimental |
-| Move | `move.ts` | chooses among the gaits (`GAITS`, `gaits.ts`) by rules (`MoveRuleConfig`) on standing and distance; Classic's is `MOVE` |
+| Move | `move.ts` | chooses among the gaits (`GAITS`, `gaits.ts`) by rules (`MoveRuleConfig`) on standing and the distance to the nearest standing foe, the nearest standing body of its own side, or its destination; Classic's is `MOVE` |
 
 Each kind is a registered implementation (`LocomotionPart`, `src/core/mind/locomotion-part.ts`): its
 own module beside its skill (`skills/<kind>-part.ts`) owns its config's type, keys, defaults,
@@ -496,6 +496,17 @@ a facing and at most a ceiling (`Intent.pace`, `Intent.walk`); none writes a vel
 Navigation is a part between tactics and locomotion (a fighter's `navigation` slot): the
 visibility navigator routes round inflated fixed footprints and reports its route, distance,
 arrival and stalls; how far an order has left is read from the order (`remainingOf`).
+**Its own side** (`src/core/mind/crowd.ts`): a fallen body of its side is a fixed footprint it
+routes round (`fallenSolids`), and every walk it gives is kept clear of its side's standing
+bodies (`crowdWalk`): of the ways its route asks or turned from it by up to six sixteenths of a
+turn either side, or none, the one nearest the walk asked whose sweep keeps `CROWD.margin` clear of
+each over the next `CROWD.horizon` s, judged from its velocity now changing at most at its gait's
+stopping rate (`Locomotion.stopping`), each way as fast as its envelope holds it from its heading
+and as it stops from before a body ahead. It reads one sensed moment and no other body's choice,
+and turning right costs less than left, so two bodies that meet decide alike in either order and
+pass on their right. It faces the way its route asks while it steps round. A body held back that
+way, or going against the way it is sent, is not stalled. A place whose point does not fit its
+clearance is aimed at the nearest point about it that does, within its `near`.
 **The speed rule** (`travelSpeed`, `src/core/mind/travel.ts`) sets how fast the navigator goes: the
 least of the gait's top speed the way it goes (`paceToward` on its envelope), the speed it stops
 from in the distance left at its stopping rate (`Locomotion.stopping`), the speed it slows to for
@@ -565,7 +576,7 @@ Commander with `picks: false`, asked in the step's sensing phase, its orders tap
 |---|---|---|
 | `mob` | `mob.ts` | the members that see a foe spread over the foes they see and, several on one, about it (`spread`, `bearings`, `spread.ts`): each makes for its place at its reach on the bearing it is given, by a waypoint halfway round where that is far round, and closes in from there; one that sees none goes on to where it last saw one, else home: the Crypt's enemies |
 | `independent` | `independent.ts` | each member at the nearest foe it sees, on to where it last saw one, else home: the Crypt's enemies where chosen |
-| `party` | `party.ts` | a person's party: the member the keys steer where they steer it, the leader otherwise exploring, the others after it or where they were sent, each at the foe its order locks or (unless `picks: false`) the nearest it sees; several sent together take slots about the destination at the slowest one's top speed (`travelSpeed`); doors on the way: the Crypt's party, and an Arena side a person takes |
+| `party` | `party.ts` | a person's party: the member the keys steer where they steer it, the leader otherwise exploring, the others after it or where they were sent, each at the foe its order locks or (unless `picks: false`) the nearest it sees; several sent together take slots about the destination at the slowest one's top speed (`travelSpeed`); doors on the way: the Crypt's party, and an Arena side a person takes. Its members keep clear of each other by their own navigation (`crowdWalk`), each from the step's one `TeamView` |
 | `clearer` | `clearer.ts` | a party by itself: its leader (the first standing on its feet) explores the edge of what is seen, then makes for the exit (`TeamLevel.frontier`), waiting for the others, who follow it; foes seen near are the fight, taken on while the party's pools add up to the odds it asks (`POLICY`) and foes keep falling, its members spread over the foes and a hurt one pulling back; from one it cannot win it draws back the way it came, a few times; otherwise it pushes on past its foes, striking what is upon it |
 
 `tests/core-boundary.test.mjs` holds `src/core/command/` to no engine, world, body, enlistment,
@@ -744,9 +755,12 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 - **Batteries** (arity 1): a skill's task, one subject at a time over its conditions. `blade` (the
   striker's executor tuning: a sword's cuts and thrusts at a standing body), `buckler` (the
   defender's cover: whether the buckler meets a sword first) and `court` (the approaching mind:
-  round the obstacle court's column into its window) and `crypt-clear` (a party Commander: through
-  generated Crypt levels against each enemy Commander, in trials that move the start a little
-  (`trialMap`, `crypt.ts`): the share cleared, the time and the members lost). `--previous` reads a battery's subject
+  round the obstacle court's column into its window), `crowd` (a party's mind among its own side's
+  bodies: a party reversed, a lone body and a following pair turned back, paths crossing, a gap that
+  passes one at a time and a fallen companion, each on several seeds: falls, legs done, members pushed
+  apart) and `crypt-clear` (a party Commander: through generated Crypt levels against each enemy
+  Commander, in trials that move the start a little (`trialLayout`): the share cleared, the time and
+  the members lost). `--previous` reads a battery's subject
   against another, each figure's paired difference over the conditions both played
   (`batteryComparison`, `compare.ts`).
 - **Ablations**: `--previous <mind> --ablate <slot>=<JSON>` makes the subject that mind with one slot
@@ -759,9 +773,14 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   across pools.
 - **Falls** (`fall.ts`): a body shoved, dropped or placed on the ground of the Lab's Stand-up mode,
   its stand verified (`STAND_CHECK`), on Rapier; not bit-equal between JavaScript engines, as a bout
-  is. Nor is a Crypt run (`crypt.ts`); the Ratings screen opens neither. `rising-target` plays the owner's 64 falls and reports the target's gates; `equipped-rise` the
+  is. `rising-target` plays the owner's 64 falls and reports the target's gates; `equipped-rise` the
   same shoves with sword and buckler and with the club. A subject is a riser: a mind's recovery on
   the bed's host (`risingMind`, `rising.ts`, which also holds the bed's jobs and report).
+- **Crypt runs** (`crypt.ts`): a laid-out level, the party under one mind or each member under its
+  model's own, each side's Commander (the party's and a mob unless named), and a script of the
+  person's orders, a leg at a time, or none (`CryptCase`); the game's run (`DungeonRun`) on a
+  scene with no canvas. Not bit-equal between JavaScript engines, as a bout is; the Ratings screen
+  does not open one.
 - **History** (`history.ts`): an evaluation's records grouped into pools (`poolsOf`), each case
   once by its key, and each subject's versions numbered by first appearance (`versionsOf`). The
   notes and the Ratings screen read pools through it.

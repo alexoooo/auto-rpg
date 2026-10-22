@@ -13,12 +13,12 @@ interface WhenStandingConfig { readonly kind: "when-standing"; readonly gait: Ga
 
 /**
  * A rule of Move: while what `of` names is `than` `metres` away, `gait`: the nearest standing
- * foe, or where the body's walk is taking it (`Intent.destination`). Where there is none, it is
- * infinitely far.
+ * foe, where the body's walk is taking it (`Intent.destination`), or the nearest standing body of
+ * its own side. Where there is none, it is infinitely far.
  */
 interface WhenDistanceConfig {
   readonly kind: "when-distance";
-  readonly of: "foe" | "destination";
+  readonly of: "foe" | "destination" | "ally";
   readonly than: "under" | "over";
   readonly metres: number;
   readonly gait: GaitName;

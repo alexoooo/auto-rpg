@@ -9,7 +9,7 @@ import { recordingKey } from "../../core/recording.ts";
 import type { Evaluation, Json, Subject } from "../evaluation.ts";
 import { sha256Text } from "../sha256.ts";
 import type { BuiltCrypt } from "../crypt.ts";
-import { CRYPT_CLEAR_CASES, type CryptCondition, type CryptReading } from "./cases.ts";
+import { CRYPT_CLEAR_CASES, type CryptCondition, type ClearReading } from "./cases.ts";
 
 /** A Commander as a subject. */
 const commanderSubject = (id: string, label: string, value: Json): Subject => ({ id, label, parts: [{ id: `commander:${id}`, value }], value });
@@ -21,7 +21,7 @@ const median = (values: readonly number[]): number | null => {
   return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
 };
 
-export const CRYPT_CLEAR: Evaluation<CryptCondition, CryptReading, BuiltCrypt> = {
+export const CRYPT_CLEAR: Evaluation<CryptCondition, ClearReading, BuiltCrypt> = {
   id: "crypt-clear",
   title: "Clearing the Crypt",
   group: "decisions",

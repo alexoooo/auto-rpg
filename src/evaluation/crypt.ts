@@ -1,77 +1,202 @@
 /**
- * **A Crypt run as a case**: a generated level (`generateEncounterLevel`) with no visuals, its
- * party and its enemies each under the Commander the case names, in a world of its own
- * (`DungeonRun`). It is deterministic in Node, but not bit-equal between JavaScript engines: the
- * level's generation uses arithmetic each engine rounds its own way.
+ * **A Crypt run as a case**: a laid-out level (`CryptLayout`), the party placed on it, every party
+ * member under one mind or each under its model's own, and a script of the person's orders
+ * (`CryptLeg`), each leg given once the last is done, or none. It is the game's run (`DungeonRun`,
+ * `src/dungeon/run.ts`), on its own scene with no canvas, each side under the Commander the case
+ * names, the party under the person's and the enemies under a mob unless it names another. A Crypt run is not yet bit-equal between JavaScript
+ * engines, as a bout is: the run's placement and the person's commands (`src/dungeon/`) use
+ * arithmetic each engine rounds its own way.
  */
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import type { BuiltBody } from "../core/build/build-body.ts";
 import type { CommanderConfig } from "../core/command/commanders.ts";
+import type { Command } from "../core/command/commands.ts";
 import { loadEngine, type EngineName } from "../core/engine/engines.ts";
+import type { MindConfig } from "../core/mind/config.ts";
 import type { BodyModel } from "../core/models.ts";
 import type { World } from "../core/world.ts";
-import { generateEncounterLevel } from "../dungeon/encounters.ts";
-import { walkable, type DungeonMap } from "../dungeon/map.ts";
-import { DungeonRun, runModels } from "../dungeon/run.ts";
+import { distance, type Door, type DungeonMap, type DungeonObstacle, type Point } from "../dungeon/map.ts";
+import { DungeonRun, prepareDungeonCharacters } from "../dungeon/run.ts";
 
 /**
- * One Crypt run, as plain data: the level's seed, the trial (`trialMap`), the party's hero and
- * companions, and each side's Commander in full.
+ * A level as plain data: its floor as rows (row `z`, a character a cell along `x`: `.` floor, any
+ * other rock), its doors and obstacles, the party's start, the exit, where each enemy waits, and
+ * each one's model (skeletons unless given).
+ */
+export interface CryptLayout {
+  readonly floor: readonly string[];
+  readonly doors: readonly Door[];
+  readonly obstacles: readonly DungeonObstacle[];
+  readonly start: Point;
+  readonly exit: Point;
+  readonly spawns: readonly Point[];
+  readonly enemies?: readonly BodyModel[];
+}
+
+/** What a leg does as it begins: the person's command to party members, by id, or a member struck dead where it stands. */
+export type CryptAct = { readonly kind: "command"; readonly members: readonly string[]; readonly command: Command }
+  | { readonly kind: "slain"; readonly member: string };
+
+/**
+ * When a leg is done: every member named has carried out its order (its Commander says it holds or
+ * stands, `MemberReport.task`); a member has gone `metres` from where the leg began; an enemy is
+ * held, or not; or `seconds` have passed.
+ */
+export type CryptUntil = { readonly kind: "arrived"; readonly members: readonly string[] }
+  | { readonly kind: "gone"; readonly member: string; readonly metres: number }
+  | { readonly kind: "held"; readonly enemy: string; readonly held: boolean }
+  | { readonly kind: "seconds"; readonly seconds: number };
+
+/** A leg of the script: what it does, when it is done, and the most it may take, s; a leg not done in time ends the case. */
+export interface CryptLeg {
+  readonly acts: readonly CryptAct[];
+  readonly until: CryptUntil;
+  readonly most: number;
+}
+
+/**
+ * One run, as plain data: the level, the party (the hero first, at the start) and where each stands
+ * (null, where the run places a companion, `companionSpawn`), the party's mind (each member its
+ * model's own, where none is given), the script, and each side's Commander where not the run's own.
  */
 export interface CryptCase {
-  readonly seed: number;
-  readonly trial: number;
-  readonly hero: BodyModel;
-  readonly companions: readonly BodyModel[];
-  readonly party: CommanderConfig;
-  readonly enemies: CommanderConfig;
+  readonly layout: CryptLayout;
+  readonly party: readonly { readonly model: BodyModel; readonly at: Point | null }[];
+  readonly mind?: MindConfig;
+  readonly script: readonly CryptLeg[];
+  readonly commanders?: { readonly party?: CommanderConfig; readonly enemies?: CommanderConfig };
 }
-
-/** How far each trial moves the party's start from the last, m: enough that no two trials play alike. */
-const NUDGE = 0.1;
-/** The ways a trial moves the start, in turn: +x, +z, -x, -z. */
-const NUDGES: readonly (readonly [number, number])[] = Object.freeze([[1, 0], [0, 1], [-1, 0], [0, -1]]);
-/** The footprint the start must hold once moved, m: a humanoid's (`cryptModel`) and a margin. */
-const START_CLEARANCE = 0.5;
 
 /**
- * The level of `seed` for trial `trial`: as generated for trial 0, and otherwise its start moved
- * `NUDGE` m a trial along one of `NUDGES`, a ring further every four. Throws where the start
- * moved is not open floor.
+ * What a run came to: the legs done of all, and when the last was done (null, not all); each fall
+ * of a party member in the fight, by id and time, s; the steps on which any two party members'
+ * bodies were pushed apart, both in the fight and one of them out of it; and the time read to, s.
  */
-export function trialMap(seed: number, trial: number): DungeonMap {
-  const map = generateEncounterLevel(seed).map;
-  if (trial === 0) return map;
-  const [x, z] = NUDGES[(trial - 1) % NUDGES.length]!, ring = NUDGE * (1 + Math.floor((trial - 1) / NUDGES.length));
-  const start = { x: map.start.x + x * ring, z: map.start.z + z * ring };
-  if (!walkable(map, start, START_CLEARANCE, true)) throw new Error(`level ${seed}, trial ${trial}: the start moved is not open floor`);
-  map.start = start;
-  return map;
+export type CryptReading = {
+  readonly legs: number;
+  readonly of: number;
+  readonly done: number | null;
+  readonly falls: readonly { readonly member: string; readonly time: number }[];
+  readonly contactSteps: number;
+  readonly fallenContactSteps: number;
+  readonly seconds: number;
+};
+
+/** The longest a run may last, s, whatever its legs allow. */
+export const CRYPT_CAP = 200;
+
+/** `layout` as the run's map: the floor rows read, one room the size of the map. */
+export function cryptMap(layout: CryptLayout): DungeonMap {
+  const size = layout.floor.length, floor = new Uint8Array(size * size);
+  layout.floor.forEach((row, z) => { for (let x = 0; x < size; x++) floor[z * size + x] = row[x] === "." ? 1 : 0; });
+  return { seed: 0, size, floor, rooms: [{ id: 0, centre: { ...layout.start }, min: { x: 0, z: 0 }, max: { x: size - 1, z: size - 1 } }], doors: layout.doors.map((door) => ({ ...door, point: { ...door.point } })),
+    obstacles: layout.obstacles.map((o) => ({ ...o })), start: { ...layout.start }, exit: { ...layout.exit }, spawns: layout.spawns.map((p) => ({ ...p })),
+    ...(layout.enemies ? { encounters: layout.enemies.map((model, i) => ({ room: 0, model, point: { ...layout.spawns[i]! } })) } : {}) };
 }
 
-/** Every model `crypt`'s run fields, each once: the party's, then its level's enemies'. Each plays its own mind. */
-export const cryptModels = (crypt: CryptCase): BodyModel[] => runModels(generateEncounterLevel(crypt.seed).map, crypt);
+/** `map`'s floor as `CryptLayout` rows. */
+export function floorRows(map: Pick<DungeonMap, "size" | "floor">): string[] {
+  return Array.from({ length: map.size }, (_, z) => Array.from({ length: map.size }, (_, x) => map.floor[z * map.size + x] === 1 ? "." : "#").join(""));
+}
 
-/** A Crypt run's world, played a step at a time. */
+/** A run's world, played a step at a time: after each step `afterStep`, until `ended`; then its `reading`. */
 export interface BuiltCrypt {
   readonly world: World;
   readonly run: DungeonRun;
-  /** Every body built so far, in the run's order: what a trace reads. */
-  readonly bodies: Iterable<BuiltBody>;
+  readonly ended: boolean;
+  afterStep(): void;
+  reading(): CryptReading;
   dispose(): void;
 }
 
-/** `crypt`'s run on `engine`, on a scene of its own with no canvas and nothing drawn. */
+/** `crypt`'s run on `engine`: the party placed, every member under the case's mind and the enemies under their own, its script begun. */
 export async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<BuiltCrypt> {
+  const map = cryptMap(crypt.layout), [hero, ...companions] = crypt.party;
+  if (!hero || !hero.at || distance(hero.at, map.start) > 1e-9) throw new Error("the hero stands at the start");
+  const options = { seed: 0, layout: map, hero: hero.model, companions: companions.map((member) => member.model) };
+  const prepared = prepareDungeonCharacters(map, options);
+  companions.forEach((member, i) => { if (member.at) prepared.homes.set(`ally-${i}`, { ...member.at }); });
   const babylon = new NullEngine(), scene = new Scene(babylon);
-  try {
-    const run = new DungeonRun(scene, { seed: crypt.seed, layout: trialMap(crypt.seed, crypt.trial), engine: await loadEngine(engine), visuals: false,
-      hero: crypt.hero, companions: crypt.companions, party: crypt.party, enemies: crypt.enemies });
-    return {
-      world: run.world, run,
-      bodies: { *[Symbol.iterator]() { for (const actor of run.actors) if (actor.fighter) yield actor.fighter.built; } },
-      dispose() { run.dispose(); scene.dispose(); babylon.dispose(); },
-    };
-  } catch (error) { scene.dispose(); babylon.dispose(); throw error; }
+  const run = new DungeonRun(scene, { ...options, prepared, engine: await loadEngine(engine), visuals: false,
+    mind: (participant) => participant.side === "party" ? crypt.mind ?? null : null, party: crypt.commanders?.party, enemies: crypt.commanders?.enemies });
+  const party = run.party, falls: { member: string; time: number }[] = [], down = new Map<string, boolean>(), slain = new Set<string>();
+  let leg = -1, began = 0, from: Point | null = null, pending: CryptAct[] = [], done: number | null = null, ended = false, contactSteps = 0, fallenContactSteps = 0;
+  const member = (id: string) => {
+    const found = party.find((one) => one.id === id);
+    if (!found) throw new Error(`no party member ${id}`);
+    return found;
+  };
+  const actor = (id: string) => run.actors.find((one) => one.id === id) ?? (() => { throw new Error(`no body ${id}`); })();
+  /** Begin leg `k`: its acts given one a step, from the next. */
+  const begin = (k: number): void => {
+    leg = k; began = run.clock; pending = [...(crypt.script[k]?.acts ?? [])];
+    const until = crypt.script[k]?.until;
+    from = until?.kind === "gone" ? member(until.member).feet() : null;
+  };
+  /** Give the next act: the person's command to its members, selected first, or a member slain. */
+  const act = (): void => {
+    const next = pending.shift()!;
+    switch (next.kind) {
+      case "command":
+        run.select(next.members);
+        run.command(next.command);
+        return;
+      case "slain": {
+        const body = member(next.member).fighter!;
+        body.pool.wound({ part: body.built.spec.wounds.vital[0]!, damage: body.pool.total, clean: false });
+        slain.add(next.member);
+        return;
+      }
+      default: { const never: never = next; throw new Error(`no act ${JSON.stringify(never)}`); }
+    }
+  };
+  const met = (until: CryptUntil): boolean => {
+    switch (until.kind) {
+      case "arrived": return until.members.every((id) => { const task = run.report(member(id)).task; return task === "holding" || task === "standing"; });
+      case "gone": return distance(member(until.member).feet(), from!) >= until.metres;
+      case "held": { const enemy = actor(until.enemy); return enemy.alive && enemy.held === until.held; }
+      case "seconds": return run.clock - began >= until.seconds;
+      default: { const never: never = until; throw new Error(`no condition ${JSON.stringify(never)}`); }
+    }
+  };
+  const bodyOf = new Map<unknown, string>();
+  for (const one of party) for (const segment of one.fighter!.built.segments.values()) bodyOf.set(segment.body, one.id);
+  begin(0);
+  if (pending.length) act();
+  return {
+    world: run.world, run,
+    get ended() { return ended; },
+    afterStep() {
+      for (const one of party) {
+        const now = !!one.fighter?.body.down;
+        if (now && !down.get(one.id) && one.alive && !slain.has(one.id)) falls.push({ member: one.id, time: run.clock });
+        down.set(one.id, now);
+      }
+      let touched = false, touchedFallen = false;
+      for (const one of party) {
+        if (!one.fighter || !one.alive) continue;
+        for (const segment of one.fighter.built.segments.values()) for (const touch of run.world.physics.contactsOf(segment.body)) {
+          const other = touch.other === null ? undefined : bodyOf.get(touch.other);
+          if (other === undefined || other === one.id || !(touch.impulse > 0)) continue;
+          if (member(other).alive) touched = true; else touchedFallen = true;
+        }
+      }
+      if (touched) contactSteps++;
+      if (touchedFallen) fallenContactSteps++;
+      if (ended) return;
+      if (run.status !== "playing" || run.clock >= CRYPT_CAP) { ended = true; return; }
+      if (pending.length) { act(); return; }
+      // With no script, the run plays to its end.
+      const current = crypt.script[leg];
+      if (!current) return;
+      if (met(current.until)) {
+        if (leg + 1 >= crypt.script.length) { done = run.clock; ended = true; return; }
+        begin(leg + 1);
+        if (pending.length) act();
+      } else if (run.clock - began > current.most) ended = true;
+    },
+    reading: () => ({ legs: done !== null ? crypt.script.length : leg, of: crypt.script.length, done, falls: falls.map((fall) => ({ ...fall })),
+      contactSteps, fallenContactSteps, seconds: run.clock }),
+    dispose() { run.dispose(); scene.dispose(); babylon.dispose(); },
+  };
 }

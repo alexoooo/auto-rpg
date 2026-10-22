@@ -5,6 +5,7 @@ import { deepFreeze } from "../state.ts";
 import { bodyClearance } from "./sensed-bounds.ts";
 import { heldClearance } from "./held-clearance.ts";
 import { clearanceExit, clearMove, clearStep } from "./clear-step.ts";
+import { crowdWalk, fallenSolids } from "./crowd.ts";
 import { copyMovement, sameMovement, type MovementRequest, type GroundPoint } from "./movement.ts";
 import type { SolidSense } from "./object-senses.ts";
 import { anyBody, type Part } from "./parts.ts";
@@ -39,7 +40,7 @@ const NO_CORNERS: readonly Corner[] = Object.freeze([]);
 interface NavigationSight {
   readonly view: Parameters<ReturnType<typeof heldClearance>>[0] & {
     readonly time: number; readonly stance: { readonly centre: { readonly x: number; readonly y: number; readonly z: number }; readonly velocity: { readonly x: number; readonly z: number }; readonly support?: { readonly y: number } };
-    readonly senses: Pick<Senses, "solids" | "others"> };
+    readonly senses: Pick<Senses, "solids" | "others" | "side"> };
   readonly report: { readonly heading: number };
 }
 
@@ -165,6 +166,8 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
     focus: null as GroundPoint | null,
     failure: null as { from: GroundPoint; geometry: string; radius: number; focus: GroundPoint | null } | null,
     progress: null as GroundPoint | null, bestRemaining: null as number | null, lastProgress: 0, lastTime: null as number | null, clearance: baseRadius,
+    /** Whether its own side's bodies held its walk back at the last step (`crowdWalk`). */
+    held: false,
     report: { status: "stopped", remaining: null, goal: null } as { status: NavigationStatus; remaining: number | null; goal: GroundPoint | null } };
   const update = (status: NavigationStatus, remaining: number | null, goal: GroundPoint | null) => {
     state.report.status = status; state.report.remaining = remaining; state.report.goal = goal;
@@ -175,7 +178,7 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
     steer(view: NavigationSight["view"], heading: number, move: readonly [number, number] | null) {
       return clearMove(view.stance.centre, printsOf(view.senses.solids ?? NO_SOLIDS, view.stance.centre.y, view.stance.support?.y), heading, move, radiusOf(view), .5);
     },
-    resume() { state.route = []; state.failure = null; state.progress = null; state.bestRemaining = null; state.lastTime = null; update("unavailable", null, null); },
+    resume() { state.route = []; state.failure = null; state.progress = null; state.bestRemaining = null; state.lastTime = null; state.held = false; update("unavailable", null, null); },
     /**
      * The walk toward `request` this step, forward and to the right in the heading's frame, m/s, at
      * the speed rule's speed (`travelSpeed`) for `gait` under `ceiling`: the way the walk goes
@@ -185,6 +188,9 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
     step(sight: NavigationSight, request: MovementRequest | null, gait: GaitLimits, ceiling: number, dt: number, available = true, travelFacing = false): { readonly move: readonly [number, number] | null; readonly face: number | null; readonly destination?: number } {
       const { view, report } = sight, centre = view.stance.centre, here = { x: centre.x, z: centre.z };
       let solids = printsOf(view.senses.solids ?? NO_SOLIDS, centre.y, view.stance.support?.y);
+      // Its own side's fallen bodies are fixed solids to route round, but the body it ranges about.
+      const fallen = fallenSolids(view.senses, request?.kind === "range" ? request.focus : null);
+      if (fallen.length) solids = [...solids, ...footprints(fallen, centre.y, view.stance.support?.y)];
       const radius = radiusOf(view);
       const previous = state.request, same = sameMovement(request, previous);
       const following = request?.kind === "place" && previous?.kind === "place" && request.near === previous.near
@@ -200,6 +206,17 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
         const distance = hypot(x, z), h = report.heading;
         return distance > 0 && speed > 0 ? [(x * sin(h) + z * cos(h)) * speed / distance, (x * cos(h) - z * sin(h)) * speed / distance] as const : null;
       };
+      /**
+       * The walk the ground way (`x`, `z`) at `speed`, kept clear of its own side's standing bodies
+       * (`crowdWalk`) and, where turned for them, of the solids, in the heading's frame; and the way
+       * it faces, the way asked, so that a body stepping round another keeps its heading.
+       */
+      const steered = (x: number, z: number, speed: number): { readonly move: readonly [number, number] | null; readonly face: number | null } => {
+        const distance = hypot(x, z), crowd = distance > 0 && speed > 0 ? crowdWalk(view, radius, report.heading, { x: x * speed / distance, z: z * speed / distance }, gait) : null;
+        state.held = crowd?.held ?? false;
+        if (!crowd) return { move: along(x, z, speed), face: distance > 0 && speed > 0 ? atan2(x, z) : null };
+        return { move: clearMove(centre, solids, report.heading, along(crowd.x, crowd.z, hypot(crowd.x, crowd.z)), radius, .5), face: atan2(x, z) };
+      };
       /** The speed going the ground way (`x`, `z`) with `left` m to stop in and `corners` ahead. */
       const going = (x: number, z: number, left: number, corners: readonly Corner[]): number => {
         const h = report.heading, speed = travelSpeed(gait, travelFacing ? [1, 0] : [x * sin(h) + z * cos(h), x * cos(h) - z * sin(h)], left, corners, ceiling);
@@ -207,11 +224,11 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
       };
       if (request.kind === "direct") {
         const direction = request.direction, speed = going(direction.x, direction.z, Infinity, NO_CORNERS);
-        const move = clearMove(centre, solids, report.heading, along(direction.x, direction.z, speed), radius, .5);
+        const move = clearMove(centre, solids, report.heading, steered(direction.x, direction.z, speed).move, radius, .5);
         update(move ? "moving" : "stopped", null, null);
         return { move, face: hypot(direction.x, direction.z) > 0 ? atan2(direction.x, direction.z) : null };
       }
-      const geometry = JSON.stringify(view.senses.solids ?? []);
+      const geometry = fallen.length ? JSON.stringify([...view.senses.solids ?? [], ...fallen]) : JSON.stringify(view.senses.solids ?? []);
       const focus = request.kind === "range" ? view.senses.others.find(other => other.id === request.focus && !other.out) : null;
       const focusAt = focus ? { x: focus.centre.x, z: focus.centre.z } : null;
       const failure = state.failure;
@@ -239,9 +256,9 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
             const correction = (distance - (request.near + request.far) / 2) / NAV.rangeResponse;
             const dx = (focus.velocity?.x ?? 0) + (distance > 0 ? (target.x - here.x) * correction / distance : 0);
             const dz = (focus.velocity?.z ?? 0) + (distance > 0 ? (target.z - here.z) * correction / distance : 0);
-            const speed = Math.min(going(dx, dz, Infinity, NO_CORNERS), hypot(dx, dz));
+            const speed = Math.min(going(dx, dz, Infinity, NO_CORNERS), hypot(dx, dz)), walk = steered(dx, dz, speed);
             update("arrived", 0, here);
-            return { move: clearMove(centre, solids, report.heading, along(dx, dz, speed), radius, .5), face: speed > 0 ? atan2(dx, dz) : null, destination: 0 };
+            return { move: clearMove(centre, solids, report.heading, walk.move, radius, .5), face: walk.face, destination: 0 };
           }
           const range = (request.near + request.far) / 2, bearing = atan2(here.x - target.x, here.z - target.z);
           const focusRadius = focus.spec ? bodyClearance(focus.spec) : .2;
@@ -270,15 +287,24 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
         }
         default: { const never: never = request; throw new Error(`unknown movement ${JSON.stringify(never)}`); }
       }
+      // A place routes to itself, or where the body's clearance does not fit there, to the first point that fits within its `near`
+      // (half way out, then all the way, on eight bearings): it arrives once within `near` of the place either way.
+      let aim = goal;
+      if (request.kind === "place" && clearanceExit(atHeight(goal, centre.y), radius, solids) !== null) {
+        for (let k = 1; k <= 2 && aim === goal; k++) for (let i = 0; i < 8; i++) {
+          const ring = near * k / 2, at = { x: goal.x + sin(i * Math.PI / 4) * ring, z: goal.z + cos(i * Math.PI / 4) * ring };
+          if (clearanceExit(atHeight(at, centre.y), radius, solids) === null) { aim = at; break; }
+        }
+      }
       const moved = !state.goal || apart(state.goal, goal) > NAV.moved;
       if (!state.route.length || moved || state.solids !== geometry || Math.abs(radius - state.clearance) > NAV.margin) {
         if (moved || state.solids !== geometry) { state.bestRemaining = null; state.lastProgress = view.time; }
         state.solids = geometry; state.goal = { ...goal }; state.clearance = radius;
-        state.route = config.kind === "visibility-navigation" ? [...navigationPath(here, goal, solids, radius, centre.y)]
-          : clearStep(atHeight(here, centre.y), atHeight(goal, centre.y), radius, solids) ? [{ ...goal }] : [];
+        state.route = config.kind === "visibility-navigation" ? [...navigationPath(here, aim, solids, radius, centre.y)]
+          : clearStep(atHeight(here, centre.y), atHeight(aim, centre.y), radius, solids) ? [{ ...aim }] : [];
       }
-      else if (state.route.length && clearStep(atHeight(state.route.length > 1 ? state.route[state.route.length - 2]! : here, centre.y), atHeight(goal, centre.y), radius, solids)) {
-        state.route[state.route.length - 1] = { ...goal };
+      else if (state.route.length && clearStep(atHeight(state.route.length > 1 ? state.route[state.route.length - 2]! : here, centre.y), atHeight(aim, centre.y), radius, solids)) {
+        state.route[state.route.length - 1] = { ...aim };
       }
       const distance = apart(here, goal), speed = hypot(view.stance.velocity.x, view.stance.velocity.z);
       if (distance <= near) { update(speed <= NAV.quiet ? "arrived" : "moving", distance, goal); return { move: null, face: null, destination: distance }; }
@@ -289,7 +315,12 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
       if (state.bestRemaining === null || remaining <= state.bestRemaining - NAV.progress) {
         state.progress = here; state.bestRemaining = remaining; state.lastProgress = view.time;
       }
-      if (view.time - state.lastProgress > NAV.stalled) { update("stalled", remaining, goal); return { move: null, face: null }; }
+      // A body still going the other way while it brakes, or held back by its own side, is not stalled.
+      const next = state.route[0]!, velocity = view.stance.velocity, ahead = apart(here, next);
+      if (state.held || ahead > 0 && (velocity.x * (next.x - here.x) + velocity.z * (next.z - here.z)) / ahead < -NAV.quiet) {
+        state.progress = here; state.bestRemaining = remaining; state.lastProgress = view.time;
+      }
+      if (view.time - state.lastProgress > NAV.stalled) { state.held = false; update("stalled", remaining, goal); return { move: null, face: null }; }
       // Each corner of the route ahead: how far along it, and the tangent of half its turn.
       const corners: Corner[] = [];
       let to = apart(here, state.route[0]!);
@@ -300,9 +331,9 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
         corners.push({ distance: to, halfTurn: la === 0 || lb === 0 ? 0 : sum > 0 ? Math.abs(ax * bz - az * bx) / sum : Infinity, room: NAV.waypoint });
         to += lb;
       }
-      const next = state.route[0]!;
       update("moving", remaining, goal);
-      return { move: along(next.x - here.x, next.z - here.z, going(next.x - here.x, next.z - here.z, remaining - near, corners)), face: atan2(next.x - here.x, next.z - here.z), destination: remaining };
+      const walk = steered(next.x - here.x, next.z - here.z, going(next.x - here.x, next.z - here.z, remaining - near, corners));
+      return { move: walk.move, face: walk.face ?? atan2(next.x - here.x, next.z - here.z), destination: remaining };
     },
   };
 }

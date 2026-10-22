@@ -59,7 +59,7 @@ export async function playCase<R extends Json>(world: CaseWorld, seconds: number
     case "crypt": {
       const built = await buildCrypt(world.crypt, world.engine);
       try {
-        const reader = read(built), trace = traceOf(built.bodies);
+        const reader = read(built), trace = traceOf(built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.built] : []));
         while (!reader.ended) {
           if (built.world.time > seconds + OVERRUN) throw new Error(`the case ran past ${seconds} s without ending`);
           built.world.step();

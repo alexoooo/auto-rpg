@@ -27,7 +27,7 @@ export interface MoveRule {
 export const standingRule = (gait: number): MoveRule => ({ gait, matches: (reading) => conditionMatches({ kind: "when-standing" }, reading) });
 
 /** A rule that matches while what `of` names is under (or over) `metres` away. */
-export function distanceRule(gait: number, of: "foe" | "destination", than: "under" | "over", metres: number): MoveRule {
+export function distanceRule(gait: number, of: "foe" | "destination" | "ally", than: "under" | "over", metres: number): MoveRule {
   return {
     gait,
     matches(reading, holding) {
@@ -51,8 +51,17 @@ export interface MoveGait {
   readonly runs?: boolean;
 }
 
+/** The distance from `view`'s body's centre of mass to the nearest standing body of its own side, across the ground, m; Infinity with none. */
+function allyDistance(view: BodyView): number {
+  const centre = view.stance.centre, side = view.senses.side;
+  let nearest = Infinity;
+  for (const other of view.senses.others) if (other.side === side && !other.out && !other.down)
+    nearest = Math.min(nearest, hypot(other.centre.x - centre.x, other.centre.z - centre.z));
+  return nearest;
+}
+
 /** Nothing near, nothing to go to and asked to stand: what a body reads before its first step. */
-const STILL: Reading = Object.freeze({ walking: false, foe: Infinity, destination: Infinity });
+const STILL: Reading = Object.freeze({ walking: false, foe: Infinity, destination: Infinity, ally: Infinity });
 
 /**
  * **Move**: a locomotion skill (`Locomotion`) that walks by one of `gaits`, the first whose rule of
@@ -81,7 +90,7 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
   told();
   /** Whether the gait now is the one wanted, changing to it between steps if not: false while a gait that drives the legs has them. */
   const choose = (view: BodyView, walking: boolean, destination: number | undefined): boolean => {
-    const s = view.stance, wants = wanted({ walking, foe: foeDistance(view), destination: destination ?? Infinity }, memory.gait);
+    const s = view.stance, wants = wanted({ walking, foe: foeDistance(view), destination: destination ?? Infinity, ally: allyDistance(view) }, memory.gait);
     if (!memory.chosen) { memory.chosen = true; memory.gait = wants; return true; }
     if (wants === memory.gait) return true;
     if (gaits[wants]!.legs === now()) { memory.gait = wants; return true; }
