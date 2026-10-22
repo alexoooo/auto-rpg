@@ -11,6 +11,8 @@ import { STUB_SUPPORT } from "./stub-support.mjs";
 import { STUB_BLOW } from "./stub-blow.mjs";
 import { STUB_MOTOR } from "./stub-motor.mjs";
 import { STUB_LEGS } from "./stub-legs.mjs";
+import { STUB_TACTICS } from "./stub-tactics.mjs";
+import { STUB_BEHAVIOUR } from "./stub-behaviour.mjs";
 
 /**
  * Each converted role's stub: the part, `place` putting it alone in a fighter's config, the path of
@@ -23,6 +25,9 @@ export const STUBS = Object.freeze([
   { part: STUB_BLOW, at: "executors.0", place: (config) => ({ ...config, executors: [STUB_BLOW.defaults] }), read: (state) => state.actions.executors[0] },
   { part: STUB_MOTOR, at: "motor", place: (config) => ({ ...config, motor: STUB_MOTOR.defaults }), read: (_mind, body) => body.mind.host.motor },
   { part: STUB_LEGS, at: "locomotion", place: (config) => ({ ...config, locomotion: STUB_LEGS.defaults }), read: (state) => state.legs },
+  { part: STUB_TACTICS, at: "tactics", place: (config) => ({ ...config, tactics: { ...config.tactics, kind: STUB_TACTICS.defaults.kind } }), read: (state) => state.tactics },
+  { part: STUB_BEHAVIOUR, at: `tactics.list.${RECIPE_FIGHTER.tactics.list.length}`, place: (config) => ({ ...config, tactics: { ...config.tactics, list: [...config.tactics.list, STUB_BEHAVIOUR.defaults] } }),
+    read: (state) => state.tactics.inner.behaviours[RECIPE_FIGHTER.tactics.list.length] },
 ].map(Object.freeze));
 
 /** The fixture mind: every stub at once, its one blow the stub executor's, standing up once down. */

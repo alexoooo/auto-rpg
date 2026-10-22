@@ -7,7 +7,7 @@ import type { AttackTuning } from "../skills/attack-path.ts";
 import type { ActionConfig } from "./config.ts";
 import type { KeysOf, Part, PartConfig } from "./parts.ts";
 import type { actionAim } from "./action-aim.ts";
-import type { ActionEstimates } from "./action-tactics.ts";
+import type { ActionEstimates } from "./tactics-part.ts";
 import type { kickExecutor } from "../skills/kick.ts";
 import type { pathExecutor } from "../skills/combat.ts";
 

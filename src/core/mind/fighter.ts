@@ -10,19 +10,15 @@ import type { MindWiring } from "./minds.ts";
 import type { PartLookup } from "./lookup.ts";
 import { navigatorOf } from "./navigator.ts";
 import { legsOf, motorOf, subMindsOf } from "./kit.ts";
-import { tacticsOf } from "./tactics-of.ts";
+import { tacticsOf } from "./tactics-part.ts";
 import { driveBy, type Tactics } from "./tactics.ts";
 
-/** Cross-part references are checked before any motion state is constructed: its kit's (`kitFaults`), and the actions its selector names. */
-export function fighterFaults(config: FighterConfig): readonly string[] {
+/** Cross-part references are checked before any motion state is constructed: its kit's (`kitFaults`), and the actions its tactics name (`TacticsPart.actionFaults`). */
+export function fighterFaults(config: FighterConfig, parts: PartLookup): readonly string[] {
   const faults = [...kitFaults(config)];
   if (!Array.isArray(config.actions)) return faults;
-  const names = new Set(config.actions.map((action) => action?.name));
-  if (config.tactics.kind === "behaviours" && config.tactics.choose.kind === "rules") {
-    const choose = config.tactics.choose;
-    for (const name of [...choose.otherwise, ...choose.rules.flatMap(rule => rule.actions)]) if (!names.has(name)) faults.push(`selector: no action ${name}`);
-  }
-  return faults;
+  const names = config.actions.map((action) => action?.name);
+  return [...faults, ...parts.of("tactics", config.tactics).actionFaults?.(config.tactics, names) ?? []];
 }
 
 /** What is wrong with how a kit's actions name its executors and their own settings, each a sentence. */
@@ -60,8 +56,8 @@ export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given:
   const config = { ...given, actions: armedActions(parts, body.built.spec, given.executors, given.actions) };
   const faults = actionConfigFaults(parts, body.built.spec, config.executors, config.actions);
   if (faults.length) throw new Error(faults.join("; "));
-  const tactics = tacticsOf(config.tactics, body.built.spec, wiring.name, config.actions,
-    sight => wiring.orders(sight.view.senses), wiring.script, configuredActionEstimates(parts, body.built.spec, config.executors, config.actions));
+  const tactics = tacticsOf({ spec: body.built.spec, actions: config.actions, estimates: configuredActionEstimates(parts, body.built.spec, config.executors, config.actions),
+    orders: sight => wiring.orders(sight.view.senses), ...wiring.script ? { script: wiring.script } : {}, parts }, config.tactics);
   let skills: Skills;
   skills = driveBy(body, around(tactics), (made, driving) => fighterSkills(made, clock, parts, config, driving, () => skills?.report.ledger ?? []));
   return skills;

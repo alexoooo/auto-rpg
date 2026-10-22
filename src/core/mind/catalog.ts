@@ -1,6 +1,6 @@
 import type { DataKey } from "../data/store.ts";
 import type { BodySpec } from "../spec/body.ts";
-import { BEHAVIOUR_PARTS } from "./behaviours.ts";
+import { BEHAVIOURS } from "./behaviours.ts";
 import type { BehaviourConfig, ExecutorConfig, LocomotionConfig, GuardConfig, MotorConfig, ReflexConfig, SubMindConfig, SupportConfig, TacticsConfig } from "./config.ts";
 import { CONTROLLERS } from "./controllers.ts";
 import { EXECUTORS } from "./executors.ts";
@@ -13,7 +13,7 @@ import { slotsOf, type Part, type PartConfig, type Provision, type Role } from "
 import { SUB_MINDS } from "./sub-minds.ts";
 import { REFLEX_PARTS } from "./options/reflex.ts";
 import { MOTORS } from "../control/motors.ts";
-import { TACTICS_PARTS } from "./tactics-of.ts";
+import { PLANNERS } from "./planners.ts";
 import { NAVIGATIONS } from "./navigations.ts";
 import type { PartLookup, RoleParts } from "./lookup.ts";
 import type { NavigationConfig } from "./navigator.ts";
@@ -42,7 +42,7 @@ let registry: Registry | null = null;
  */
 function registered(): Registry {
   if (registry) return registry;
-  const below: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...listed(SUB_MINDS), ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...MOVE_RULE_PARTS,
+  const below: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...listed(SUB_MINDS), ...listed(PLANNERS), ...listed(BEHAVIOURS), ...MOVE_RULE_PARTS,
     ...listed(LOCOMOTIONS), ...listed(GUARDS), ...listed(SUPPORTS), ...listed(EXECUTORS), ...REFLEX_PARTS, ...listed(MOTORS), ...listed(NAVIGATIONS) };
   const parts: Record<string, Part> = { ...below }, owners: Record<string, string> = {};
   const add = (kind: string, part: Part, what: string) => {

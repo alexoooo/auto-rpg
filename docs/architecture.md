@@ -29,7 +29,7 @@ vocabulary: the `Intent` tactics return (`src/core/mind/intent.ts`) and the `Ski
 | Mind seam | `src/core/mind/mind.ts`, `sub-mind.ts` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask |
 | Motor control | `src/core/control/` | joint, effector and stance goals turned into muscle commands |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, guard, strike |
-| Tactics | `src/core/mind/tactics.ts`, `action-tactics.ts`, `ordered.ts`, `targets.ts`, `movement.ts` | what the body should do, from what it senses |
+| Tactics | `src/core/mind/tactics.ts`, `tactics-part.ts`, `planners.ts`, `action-tactics.ts`, `behaviours/`, `ordered.ts`, `targets.ts`, `movement.ts` | what the body should do, from what it senses |
 | Minds | `src/core/mind/config.ts`, `kinds.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `options/`, `rise/`, `ground/`; `src/core/entrants/` | a body's mind made from its config by the controller of its kind |
 | Command | `src/core/command/` | a team's members given orders by its Commander, from what they sense |
 
@@ -415,7 +415,7 @@ slots (`slotOne`, `slotList`, `slotsOf`), `defaults`, `fits`, `faults` and `need
 screen must give). `allParts` (`catalog.ts`) is every part by kind: the parts below a mind, each
 mind, and each mind's own parts (`Controller.parts`), read once on first use so that any module may
 load first. A role whose parts make themselves has a list of them that holds its imports and its
-list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `GUARDS`, `SUPPORTS`, `SUB_MINDS`, `LOCOMOTIONS` in
+list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `GUARDS`, `SUPPORTS`, `SUB_MINDS`, `LOCOMOTIONS`, `PLANNERS`, `BEHAVIOURS` in
 `src/core/mind/`; `MOTORS` in `src/core/control/`), so a case's code begins each part's own
 code there; its parts make what they are (`NavigatorPart.make`), and an assembly makes the one a
 config names as the host's lookup finds it. A part whose checks read the parts it names is handed
@@ -506,8 +506,15 @@ what a body cannot play, and a riser refuses such a recipe. How far it stands ea
 
 **Tactics** (`tactics.ts`) read `Sight` (the view, senses, reports, readiness, envelope) and
 return walking, facing, lowering, cover and discrete action requests; they never write a joint,
-posture or push. Shared action tactics combine follow-orders, attack, approach, spacing, retreat,
-clinch breaking and cover; the selector supports ranked, rotating and conditional choices.
+posture or push. A kind of tactics is a part (`TacticsPart`, `tactics-part.ts`) that makes itself
+(`tacticsOf`), a line in `PLANNERS` (`planners.ts`, a role list): the screen's script, standing in
+guard, or behaviours. Behaviour tactics (`actionTactics`, `action-tactics.ts`) hold one focus and
+one choice of candidate action, ranked, rotating, scored, by estimate or by rules, and hand each
+behaviour of their list its `Turn` in rank order; a behaviour (`BehaviourPart`,
+`behaviour-part.ts`, a line in `BEHAVIOURS`, its module in `mind/behaviours/`) fills what an
+earlier one left unset and keeps its own memory, held in the tactics' state. The helpers they share
+(`walking`, `SPACE`, `footRadius`) are `behaviour-part.ts`'s. A planner names what it needs of the
+mind's actions (`TacticsPart.actionFaults`), read by the fighter's faults.
 
 **Orders** (`Orders`) name a movement objective, an independent facing, and a sensed foe id and
 region, and may cap the speed (`pace`) or ask a walk (`walk`, Shift in the Arena); never a camera

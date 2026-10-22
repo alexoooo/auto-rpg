@@ -9,6 +9,8 @@ import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
 import { STRAIGHT_PUNCH } from "../skills/straight-punch.ts";
 import { COMBINATION } from "../skills/combination.ts";
 import type { LOCOMOTIONS } from "./locomotions.ts";
+import type { BEHAVIOURS as BEHAVIOUR_LIST } from "./behaviours.ts";
+import type { PLANNERS } from "./planners.ts";
 import type { MoveConfig } from "../skills/move-part.ts";
 import type { ConfigOf, PartConfig } from "./parts.ts";
 import type { OpeningTuning } from "./openings.ts";
@@ -39,13 +41,8 @@ export type SelectorConfig = ({ readonly kind: "first-ready" | "rotate" | "score
   | { readonly kind: "rules"; readonly rules: readonly { readonly when: ConditionConfig; readonly actions: readonly string[] }[]; readonly otherwise: readonly string[] })
   & { readonly rethink: number; readonly patience: number };
 
-/** A behaviour requests one part of the shared tactical intent. */
-export type BehaviourConfig = { [K in "attack" | "follow-orders" | "clear-of-walls" | "clear-of-fallen" | "evade" | "flee"]: { readonly kind: K } }["attack" | "follow-orders" | "clear-of-walls" | "clear-of-fallen" | "evade" | "flee"]
-  | { readonly kind: "approach"; readonly spacing?: number; readonly spacingStep?: number; readonly travel?: number }
-  | { [K in "close-in" | "keep-distance" | "break-clinch"]: { readonly kind: K; readonly metres: number } }["close-in" | "keep-distance" | "break-clinch"]
-  | { readonly kind: "edge"; readonly band: number; readonly patience: number }
-  | { readonly kind: "ground" }
-  | { readonly kind: "cover"; readonly guard: "pose" | "cover" | "predictive" | "body" | "ward" };
+/** **A behaviour's config**, by kind (`BEHAVIOURS`): one part of the shared tactical intent. */
+export type BehaviourConfig = ConfigOf<typeof BEHAVIOUR_LIST>;
 
 /** Ranked behaviours share focus, selection and action instances. */
 export interface BehavioursConfig {
@@ -55,8 +52,8 @@ export interface BehavioursConfig {
   readonly list: readonly BehaviourConfig[];
 }
 
-/** Tactics either compose behaviours, hold guard, or execute a supplied script. */
-export type TacticsConfig = { readonly kind: "script" } | { readonly kind: "stand" } | BehavioursConfig;
+/** **The tactics' config**, by kind (`PLANNERS`). */
+export type TacticsConfig = ConfigOf<typeof PLANNERS>;
 
 /** **An executor's config**, by kind (`EXECUTORS`): its settings and the name its actions call it by. */
 export type ExecutorConfig = ConfigOf<typeof EXECUTORS>;
