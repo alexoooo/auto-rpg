@@ -31,7 +31,7 @@ as it needs ([architecture](architecture.md#the-layers)).
   ([control foundation](reference/control-foundation.md)).
 - **The game**: the Arena, a bout to a verdict that a person watches or takes a side in; a Ladder
   of bouts, to be designed; the Crypt, a party commanded by a person or an AI against AI enemies.
-  A web app: any browser, with mouse and keyboard or by touch.
+  A web app.
 - **Bodies**: many morphologies, each a sourced spec. The human is the reference; the skeleton and
   a reptile quadruped are on the core.
 
@@ -44,21 +44,17 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Ratings](plans/2026-10-21-ratings.md) | One format for every evaluation, kept records, the paired report, the Ratings screen |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data loaded per use, then packed |
 | [Movement and command](plans/2026-10-21-movement-and-command.md) | One movement pipeline; Commanders over teams |
-| [Component registration](plans/2026-10-21-component-registration.md) | Implementations added by their own files and one line |
 
-1. **Now, in parallel:** Movement B2 to B4; component registration's
-   stage 1 (locomotion); and
-   the open work below, each change read by the paired report, kept with `--write`.
+1. **Now, in parallel:** Movement B3's remainder (the stance walk's sideways run-away); and the
+   open work below, each change read by the paired report, kept with `--write`.
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
    - Ratings step 10's other research batteries when next worked on; step 9 when a question
-     about an item, a character or an attribute is asked; step 12 (case identity by code) when
-     the first built-in mind or skill has a folder of its own, or entrants are most of the field;
-     step 11 (the sparse league) only when the owner asks, after step 12; step 14 (run live) once
-     the Ratings screen is in use and a live run would save a trip to the command line;
+     about an item, a character or an attribute is asked; step 11 (the sparse league) only when
+     the owner asks; step 14 (run live) once the Ratings screen is in use and a live run would
+     save a trip to the command line;
    - Mind data step 2 (packed format), then 3 (precision per kind), when the next action that
-     carries data arrives; step 4 when the owner asks;
-   - component registration's stages 2 to 4 at any time.
+     carries data arrives; step 4 when the owner asks.
 
 ## Waiting on the owner
 
@@ -79,6 +75,10 @@ The plans in flight, and what comes next across them. Each plan names its own de
   ([locomotion](reference/locomotion.md)).
 - The Crypt's set values: `SET_UPON`, `AIM_COSINE`, `LEVEL.clearance`, `FOOTPRINT_METRES`
   ([play](reference/play.md)); how the dead disappear in time.
+- How a Crypt fight ends. The duellist's club strike stalls in its preparation chest to chest, so
+  no club blow lands and nothing dies (`crypt-clear`: 0 of 8 levels cleared, foes defeated 0.02 to
+  0.05). Options: another mind for the Crypt's humanoids; the strike stepping back to its stand-off;
+  a fall ending a Crypt fight (`fallEndsFight`, `src/dungeon/actors.ts`); smaller pools.
 - The look's and the sound's values: torch density, which floor and wall textures ship,
   `MIX.swish`, `MIX.impact`, `CUE.joules` ([look](reference/look.md)); an optional skeleton
   costume, after seeing the bones in play.
@@ -88,21 +88,25 @@ The plans in flight, and what comes next across them. Each plan names its own de
 - The Duellist on both levels; accepted, it becomes the reference
   ([sword-and-buckler](reference/sword-and-buckler.md)).
 - A bout fought with orders (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`);
-  bouts with balance against none (`&balance=25`, `&balance=100`, `&balance=25,0`); an oracle's
-  bout ([oracle](reference/oracle.md)).
+  bouts with balance against none (`&balance=25`, `&balance=100`, `&balance=25,0`).
 - The five Locomotion courses at Max (`?play=lab`), Back and forth at a long distance for the run,
   the Crypt's long walks, the Warrior's run, and Move's rules and gaits in the mind editor.
 - Standing up in the Lab, in Arena bouts and in the Crypt, and whether the rise looks human.
 - The skeleton's look in play.
-- Movement's Part A (holding W, clicking to go) and the mouse controls, as they land.
+- The person's commands: in the Crypt H holds, X stops, Q/E turn, a right click faces or follows;
+  in the Arena a click on the floor goes there. The party walking braced within 11 m of a companion.
+  The level-clearer (`?play=dungeon&party=clearer`) and the mob.
 
 ## Open, by layer
 
 ### Framework
 
-- Component registration ([its plan](plans/2026-10-21-component-registration.md)), and one notion
-  of a task: an evaluation plays a core task (`src/core/tasks/`), the Lab shows it, and the
-  Ratings screen opens it ([Ratings](plans/2026-10-21-ratings.md)).
+- An implementation moves into `src/core/components/<role>/<implementation>/`, its data under
+  `assets/components/<implementation>/`, when work on it would gain from durable evaluation rows;
+  with the first move, `AGENTS.md`'s contribution scopes and `scripts/entrant-check.mjs` learn the
+  component scope. A second motor brings the goal vocabulary it needs.
+- One notion of a task: an evaluation plays a core task (`src/core/tasks/`), the Lab shows it, and
+  the Ratings screen opens it ([Ratings](plans/2026-10-21-ratings.md)).
 - Participant contracts, each extended with its first client: every accepted grip request and
   external input on the tape; exact physical replay apart from live continuation for a
   nondeterministic policy; a slower policy's cadence, held actions and work allowance.
@@ -229,7 +233,9 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 
 - **The Arena:** the Ladder; wider walking courses, fighting strength and equipped recovery.
 - **The Crypt:**
-  - crowd motion and party reversals (Movement B3, `docs/analysis/2026-10-13-crowd-reversal.md@f103f3a9`);
+  - the stance walk runs away sideways after a half turn (Movement B3);
+  - the level-clearer's policy numbers (`POLICY`, `src/core/command/clearer.ts`) are first guesses;
+    a frontier point too close to a wall for a body with a club stalls the person's party;
   - authored set pieces (`docs/plans/2026-09-23-depths-06-set-pieces.md@144961d4`);
   - the skeleton's intent: ribcage and pelvis fatal, weak joints, blunt blows worth more against
     bone ([architecture](architecture.md#standing-decisions)); today its wounds are the human's;
@@ -239,9 +245,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   - saving a run; a crypt on senses; a hero that walks one way and faces another;
   - a limp body put to sleep through Rapier woke by itself in three of eight cases, not
     understood ([step cost](reference/step-cost.md#a-limp-body-put-to-sleep)).
-- **Input:** every command by mouse and keyboard and by touch on any touchscreen (Movement B2).
-  The Crypt's keys have no walk: its Shift adds to the selection. The Lab's locomotion courses
-  drive by velocities, not goals.
+- **Input:** the Crypt's keys have no walk: its Shift adds to the selection. The Lab's locomotion
+  courses drive by velocities, not goals.
 - **Art and sound:** a pixel look for the Crypt, behind a switch
   (`docs/plans/2026-09-24-dungeon-look-06-pixel-look.md@144961d4`); a raking-light check that
   `tangentBasis: "babylon-lh"` orients normal maps; the reptile's art; the sound's gaps (unplayed

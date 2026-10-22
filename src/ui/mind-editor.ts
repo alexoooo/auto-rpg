@@ -1,7 +1,8 @@
 import { techniqueEditor } from "./mind-ground.ts";
 import { kindsFor, partOf, PARTS } from "../core/mind/catalog.ts";
 import { actionEditor, selectionEditor } from "./mind-actions.ts";
-import { isFighter, type BehavioursConfig, type FighterConfig, type MindConfig, type StandUpConfig } from "../core/mind/config.ts";
+import { isFighter, type BehavioursConfig, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
+import type { StandUpConfig } from "../core/mind/ground/stand-up.ts";
 import type { PartField } from "../core/mind/fields.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Slot } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";

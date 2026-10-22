@@ -31,7 +31,7 @@ import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
 import { caseSearch, readCase, unshown, type LinkedCase } from "./case-link.ts";
-import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readTape, readYou, recipeOf, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { partOf, treeData } from "../core/mind/catalog.ts";
 import { loadData } from "../core/data/store.ts";
@@ -44,7 +44,8 @@ import { arenaCameraRig, type ArenaSubjects } from "./camera.ts";
 import { arenaViewSearch, cameraFocuses, normalizeArenaView, readArenaView, type ArenaFocus, type ArenaView } from "./view.ts";
 import { choice, following, type Control } from "../ui/controls.ts";
 import { viewControls } from "../ui/view-controls.ts";
-import { aimPoint, keysToMove, personOrders, rayTarget } from "./orders-input.ts";
+import { aimPoint, keysToMove, rayTarget } from "./orders-input.ts";
+import { teamOfOne } from "./team.ts";
 import type { Side } from "../core/spec/body.ts";
 import { physicalReading } from "../core/observation.ts";
 import { arenaPlayback } from "./playback.ts";
@@ -56,10 +57,11 @@ import { fighterHud } from "./fighter-hud.ts";
  * of two bodies in it (`Duel`). Setup picks the two models and the side the person fights, if
  * any; a bout runs to its verdict, and can be run again, or again with the right side redrawn.
  *
- * A person who takes a side gives it orders (`Duel.order`): the keys walk it, as the camera sees
- * the ground, it faces the pointer, and the left button attacks where the pointer is. The page
- * turns the keys and the pointer into world directions (`orders-input.ts`) before the orders are
- * made, so nothing of the camera reaches a mind.
+ * A person who takes a side leads it as a team of one (`teamOfOne`) under the party's Commander,
+ * which picks no foe untold and gives the side its orders (`Duel.order`): the keys walk it, as the
+ * camera sees the ground, it faces the pointer, the left button attacks where the pointer is, and a
+ * click on the floor sends it there. The page turns the keys and the pointer into world directions
+ * (`orders-input.ts`) before the Commander reads them, so nothing of the camera reaches a mind.
  *
  * The bout is heard until its verdict: each body's touches and its air
  * (`src/audio/body-sounds.ts`), and what a blow takes off (`debrisCues`). The verdict silences
@@ -135,9 +137,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   let appearances = readAppearances(location.search, matchup);
   let view = readArenaView(location.search, you);
   const rig = arenaCameraRig(camera, view);
-  // A link's tape is of the link's matchup: a bout of another matchup begun from the page plays none.
-  const linked = { matchup, tape: readTape(location.hash), hash: location.hash };
-  /** Whether the bout under way plays a tape: it then takes no orders from a person. */
+  // A linked case is of the link's matchup: a bout of another matchup begun from the page plays its own recipe.
+  const linked = { matchup, hash: location.hash };
+  /** Whether the bout under way plays the linked case: it then takes no orders from a person. */
   let replaying = false;
   const youPicker = need<HTMLSelectElement>("you");
   youPicker.value = you ?? "";
@@ -386,8 +388,11 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   /** What hears the bout under way: its touches' listener, and each side's air. */
   let hearing: { dispose(): void } | null = null, airs: { readonly side: Side; readonly air: (at: Vector3) => number }[] = [];
   let hudHook: Hook | null = null;
+  /** The person's side as a team of one, while they lead it in the bout under way. */
+  let led: ReturnType<typeof teamOfOne> | null = null;
   const end = () => {
     hudHook?.dispose(); hudHook = null;
+    led?.dispose(); led = null;
     for (const row of rows) row.condition.reset();
     hud.hidden = true;
     playback?.dispose(); playback = null; undraw(); hearing?.dispose(); hearing = null; airs = []; duel?.dispose(); duel = null; shown = null;
@@ -458,8 +463,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         const sameRecovery = (linkedRecovery ?? null) === (readRecovery(search) ?? null);
         const sameLoadouts = linkedLoadouts === JSON.stringify(readLoadouts(search));
         const asLinked = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameLoadouts && linkedAttributes === attributeKey(matchup, attributes);
-        const tape = asLinked ? linked.tape : null, played = asLinked && linkedCase ? linkedCase.world : null;
-        replaying = tape !== null || played !== null;
+        const played = asLinked && linkedCase ? linkedCase.world : null;
+        replaying = played !== null;
         if (replaying) {
           const snapshot = new URLSearchParams(search);
           for (const side of SIDES) writeAttributes(snapshot, side, resolveCharacter({ model: matchup[side], attributes: attributes[side] }).config.attributes);
@@ -503,8 +508,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         const sides = SIDES.map((side) => ({ id: side, built: bout.duelists[side].built }));
         hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
         airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
-        if (tape) bout.playRecording(tape);
-        else if (played) bout.play(played.tape);
+        if (played) bout.play(played.tape);
+        else if (you) led = teamOfOne(bout, you, { kind: "party", picks: false });
         for (const row of rows) {
           row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === you && !replaying ? " (you)" : ""}`;
           const duelist = bout.duelists[row.side], minded = duelist.minded;
@@ -597,7 +602,25 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       attacking = (event.buttons & 1) !== 0;
     });
   }
-  canvas.addEventListener("pointerleave", () => { pointer = null; attacking = false; });
+  canvas.addEventListener("pointerleave", () => { pointer = null; attacking = false; press = null; });
+  // A left click that is on no body, and moves less than `CLICK_PIXELS` before its release, sends the person's side to the floor under it.
+  const CLICK_PIXELS = 6;
+  let press: { x: number; y: number } | null = null;
+  /** Where the person's ray from the camera through (`x`, `y`) on the canvas meets the floor, and the body part it meets first, if any. */
+  const pointed = (x: number, y: number) => {
+    if (!duel || !you) return null;
+    const ray = scene.createPickingRay(x, y, null, camera), origin = ray.origin.asArray(), direction = ray.direction.asArray();
+    return { floor: aimPoint(origin, direction, 0), part: rayTarget(duel.duelists[you].senses(), origin, direction, camera.maxZ) };
+  };
+  canvas.addEventListener("pointerdown", (event) => {
+    press = event.button === 0 && led && !pointed(event.offsetX, event.offsetY)?.part ? { x: event.offsetX, y: event.offsetY } : null;
+  });
+  canvas.addEventListener("pointerup", (event) => {
+    const pressed = press; press = null;
+    if (event.button !== 0 || !pressed || !led || paused || Math.abs(event.offsetX - pressed.x) + Math.abs(event.offsetY - pressed.y) >= CLICK_PIXELS) return;
+    const at = pointed(event.offsetX, event.offsetY);
+    if (at?.floor && !at.part) led.hear({ kind: "go", destination: { x: at.floor[0], z: at.floor[2] } });
+  });
 
   // Orbit uses the spare buttons; left-button attack remains independent of camera mode.
   canvas.addEventListener("contextmenu", event => event.preventDefault());
@@ -608,14 +631,18 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     event.preventDefault();
     if (screen === "fight") rig.zoom(event.deltaY);
   }, { passive: false });
-  /** The person's orders for this frame, from the keys and the pointer as the camera has them. */
-  const giveOrders = () => {
-    if (!duel || !you || replaying || paused || duel.verdict) return;
+  /**
+   * The person's lead for this frame, from the keys and the pointer as the camera has them: the keys a
+   * direction on the ground, Shift a walk, the pointer a point to face on the level of the side's centre
+   * of mass, and the left button held the body part under the pointer, to strike.
+   */
+  const steer = () => {
+    if (!duel || !you || !led) return;
     const centre = duel.duelists[you].body.physical.centre;
     const ray = pointer ? scene.createPickingRay(pointer.x, pointer.y, null, camera) : null;
     const point = ray ? aimPoint(ray.origin.asArray(), ray.direction.asArray(), centre.y) : null;
-    const target = attacking && ray ? rayTarget(duel.duelists[you].senses(), ray.origin.asArray(), ray.direction.asArray(), camera.maxZ) : null;
-    duel.order(you, personOrders(keysToMove(keys, rig.azimuth), point, target, centre, walking));
+    const strike = attacking && ray ? rayTarget(duel.duelists[you].senses(), ray.origin.asArray(), ray.direction.asArray(), camera.maxZ) : null;
+    led.lead = { keys: keysToMove(keys, rig.azimuth), walk: walking, aim: point ? { x: point[0], z: point[2] } : null, strike, explore: false };
   };
   const airAt = new Vector3();
   const frame = () => {
@@ -664,7 +691,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     const began = measurement ? performance.now() : 0, clockBefore = world.time;
     let physicsMs = 0;
     const seconds = firstFrame ? 0 : engine.getDeltaTime() / 1000; firstFrame = false;
-    if (!context.busy) giveOrders();
+    if (!context.busy) steer();
     if (duel && !paused && !context.busy) {
       const beforePhysics = measurement ? performance.now() : 0;
       playback?.advance(seconds);

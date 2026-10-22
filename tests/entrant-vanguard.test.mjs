@@ -45,7 +45,7 @@ test("a contact-triggered step preserves live strokes and orders, and forks its 
 });
 
 test("an obstructed attack entry asks navigation for a feasible range point and forks that request", () => {
-  const spec = { segments: [] }, foe = { id: "foe", out: false, spec, centre: { x: 2, y: 1, z: 0 }, velocity: { x: 0, y: 0, z: 0 } };
+  const spec = { segments: [] }, foe = { id: "foe", side: "right", out: false, spec, centre: { x: 2, y: 1, z: 0 }, velocity: { x: 0, y: 0, z: 0 } };
   const window = { at: [2, 1, 0], along: [.8, 1.2], across: [-.1, .1], facing: .3, speed: .1 };
   const engagement = { phase: "approach", focus: "foe", pending: { key: "strike" },
     candidates: [{ key: "strike", readiness: { kind: "position", window } }] };
@@ -53,7 +53,7 @@ test("an obstructed attack entry asks navigation for a feasible range point and 
   const base = { name: "fixture", state: { calls: 0 }, engagement, decide() { this.state.calls++; return intent; } };
   const routed = routeAround(base, () => null), navigator = createNavigator(spec);
   const view = { time: 0, stance: { centre: { x: -2, y: 1, z: 0 }, velocity: { x: 0, z: 0 } },
-    senses: { others: [foe], solids: [{ name: "pillar", kind: "box", centre: [1, 1, 0], size: [.8, 2, 1] }] } };
+    senses: { side: "left", others: [foe], solids: [{ name: "pillar", kind: "box", centre: [1, 1, 0], size: [.8, 2, 1] }] } };
   const sight = { view, report: { heading: intent.face, navigation: navigator.report } }, gait = { envelope: null, stopping: 1 };
   navigator.step(sight, intent.movement, gait, 1, 1 / 120);
   assert.equal(navigator.report.status, "unreachable", "the fixture's ordinary entry is inside a pillar");

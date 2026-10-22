@@ -1,7 +1,8 @@
 import type { GroundPoint } from "../mind/movement.ts";
 import type { NavigationReport } from "../mind/navigation.ts";
 import type { Orders } from "../mind/orders.ts";
-import type { TeamCommand } from "./commands.ts";
+import type { GaitLimits } from "../mind/travel.ts";
+import type { Command } from "./commands.ts";
 
 /**
  * **A Commander** stands to a team as a Mind stands to a body: it knows what its members sense,
@@ -17,8 +18,8 @@ import type { TeamCommand } from "./commands.ts";
 export interface Commander {
   /** Its memory: plain data, saved and loaded whole. */
   readonly state: object;
-  /** A command from whoever leads the team, carried out at once on the members it names. */
-  hear(command: TeamCommand, view: TeamView): void;
+  /** A command from whoever leads the team, carried out at once on the members selected. */
+  hear(command: Command, view: TeamView): void;
   /** This step's orders for its members, from what the team senses now. */
   decide(view: TeamView): TeamDecision;
   /** Whether it leaves `member` nothing to do at `time`: a body its fight may hold while it waits. */
@@ -44,6 +45,8 @@ export interface MemberReport {
   readonly task: string;
   /** Whether it walks a route its leader drew, past any foe. */
   readonly forced: boolean;
+  /** Whether its leader's commands go to it. */
+  readonly selected: boolean;
 }
 
 /**
@@ -72,6 +75,8 @@ export interface MemberView {
   readonly fighting: boolean;
   /** Whether its body is held: fixed where it is, with nothing driving it. */
   readonly held: boolean;
+  /** What is left of its pool: 1 whole, 0 spent. */
+  readonly vitality: number;
   /** Its footprint's radius, m: what its routes keep clear by. */
   readonly radius: number;
   /** How near its foe it stands to fight, m. */
@@ -80,6 +85,10 @@ export interface MemberView {
   readonly home: GroundPoint;
   /** Its Mind's navigation report, of whichever request it walks (`NavigationReport.request`); null where its Mind has none. */
   readonly navigation: NavigationReport | null;
+  /** The limits its legs state (`Locomotion.envelope`, `Locomotion.stopping`), which the speed rule reads (`travelSpeed`); null where its Mind states none. */
+  readonly gait: GaitLimits | null;
+  /** The way its legs face, radians from +z toward +x (`SkillReport.heading`); null where its Mind reports none. */
+  readonly heading: number | null;
 }
 
 /** A body some member senses. */
@@ -89,12 +98,19 @@ export interface SensedBody {
   readonly fighting: boolean;
 }
 
-/** A person's live input to the team they lead. */
+/**
+ * A person's live input to the team they lead. The keys and the pointer steer one member: the one
+ * selected, or the leader where several are.
+ */
 interface Lead {
-  /** The step on the ground the keys ask of the leader, where the keys steer it; null where they do not. */
+  /** The step on the ground the keys ask of the member they steer, where the keys steer it; null where they do not. */
   readonly keys: GroundPoint | null;
-  /** The ground point the leader faces and picks foes about, where the pointer steers its facing; null where it does not. */
+  /** Whether that member walks, not runs, where it moves. */
+  readonly walk: boolean;
+  /** The ground point that member faces and picks foes about, where the pointer steers its facing; null where it does not. */
   readonly aim: GroundPoint | null;
+  /** The sensed foe, and its segment, that member strikes now, where the person presses on one; null where they do not. */
+  readonly strike: { readonly foe: string; readonly region: string } | null;
   /** Whether the leader explores by itself. */
   readonly explore: boolean;
 }

@@ -7,7 +7,6 @@ import type { Locomotion } from "../../skills/locomotion.ts";
 import type { Side } from "../../spec/body.ts";
 import type { Clock } from "../../clock.ts";
 import { actionProducer } from "../action-producer.ts";
-import type { GroundFightConfig } from "../config.ts";
 import { standIntent } from "../intent.ts";
 import type { OwnBody } from "../mind.ts";
 import type { Senses } from "../senses.ts";
@@ -16,6 +15,9 @@ import { nearestFoe, nearestSurface } from "../targets.ts";
 import { poseDrive } from "./techniques.ts";
 import { GROUND_LEGS, groundKick } from "./ground-kick.ts";
 import { rootSegment } from "../../read-body.ts";
+
+/** Cover and kick while lying within reach of a foe. */
+export interface GroundFightConfig { readonly kind: "ground-fight"; readonly reach: number; readonly kicks: "either" | "left" | "right" | "none" }
 
 /** Cover and ground footwork surround a named supine kick on the body's shared action compositor. */
 export function groundFight(own: OwnBody, view: BodyView, _clock: Clock, config: GroundFightConfig, afterPhysics: Body["afterPhysics"]): SubMind {

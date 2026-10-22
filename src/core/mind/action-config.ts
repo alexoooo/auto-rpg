@@ -44,7 +44,8 @@ export function actionConfigFaults(spec: BodySpec, executors: readonly ExecutorC
     names.add(executor.name); entries.set(executor.name, executor);
     const part = executorPart(executor);
     faults.push(...part.faults(executor).map(fault => `${executor.name}: ${fault}`));
-    if (!part.fits(spec, executor)) faults.push(`${executor.name}: unsupported body`);
+    const refused = part.fits(spec, executor);
+    if (refused !== null) faults.push(`${executor.name}: ${refused}`);
   }
   names.clear();
   for (const action of actions) {

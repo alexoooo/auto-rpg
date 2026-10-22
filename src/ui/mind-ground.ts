@@ -1,4 +1,4 @@
-import type { StandUpConfig } from "../core/mind/config.ts";
+import type { StandUpConfig } from "../core/mind/ground/stand-up.ts";
 import { TECHNIQUES, type TechniqueName } from "../core/mind/ground/techniques.ts";
 import type { BodySpec } from "../core/spec/body.ts";
 

@@ -212,8 +212,9 @@ braking, arrival and progress against the world's solid geometry.
   map's door selection. Navigation reads clearance from the actual body and its loadout.
 - `TRAIL_METRES`: a companion with no post asks for a range of 2 to 2.5 m about the hero, clear of
   the 1.8 m the hero attacks from.
-- `SLOTS`: several members sent to one floor point take slots about it, no two within 1.3 m: the
-  point, then eight bearings on a ring of 1.4 m, then of 2.8 m.
+- `SLOTS`: several members sent to one floor point, or along one drawn route, take slots about
+  its end, no two within 1.3 m: the point, then eight bearings on a ring of 1.4 m, then of 2.8 m.
+  They go no faster than the slowest of them still on the way, at its gait's top speed (`travelSpeed`).
 - A blocked destination across an openable door first asks for a point 2 m from the door on its
   near side, inside the world's 2.5 m reach for opening; opening refreshes the granted collision
   snapshot and resumes the original objective.

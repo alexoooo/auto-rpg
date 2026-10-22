@@ -1,23 +1,25 @@
 import type { DataKey } from "../data/store.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { BEHAVIOUR_PARTS } from "./behaviours.ts";
-import type { BehaviourConfig, ExecutorConfig, MotorConfig, MoveRuleConfig, ReflexConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
+import type { BehaviourConfig, ExecutorConfig, ReflexConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
 import { CONTROLLERS } from "./controllers.ts";
 import { EXECUTOR_PARTS } from "./executor-parts.ts";
 import { CONFIG_KEYS } from "./config-keys.ts";
-import { MOVE_RULE_PARTS, SKILL_PARTS } from "./fighter.ts";
+import { SKILL_PARTS } from "./fighter.ts";
+import { LOCOMOTION_PARTS, type LocomotionConfig } from "./locomotions.ts";
+import { MOVE_RULE_PARTS, type MoveRuleConfig } from "../skills/move-part.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Role } from "./parts.ts";
 import { SUB_MIND_PARTS } from "./sub-minds.ts";
 import { REFLEX_PARTS } from "./options/reflex.ts";
-import { MOTOR_PARTS } from "../control/motors.ts";
+import { MOTOR_PARTS, type MotorConfig } from "../control/motors.ts";
 import { TACTICS_PARTS } from "./tactics-of.ts";
 import { NAVIGATION_PARTS, type NavigationConfig } from "./navigation.ts";
 
 /** Every part's config below a mind, by kind. */
-type AnyPart = MotorConfig | ReflexConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ExecutorConfig | NavigationConfig;
+type AnyPart = MotorConfig | ReflexConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | LocomotionConfig | SkillConfig | ExecutorConfig | NavigationConfig;
 
 /** Every part below a mind, by its kind. A kind without an entry does not compile. */
-const BELOW: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...MOVE_RULE_PARTS, ...SKILL_PARTS, ...EXECUTOR_PARTS, ...REFLEX_PARTS, ...MOTOR_PARTS, ...NAVIGATION_PARTS };
+const BELOW: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...SUB_MIND_PARTS, ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...MOVE_RULE_PARTS, ...LOCOMOTION_PARTS, ...SKILL_PARTS, ...EXECUTOR_PARTS, ...REFLEX_PARTS, ...MOTOR_PARTS, ...NAVIGATION_PARTS };
 
 /**
  * **Every part, by its kind**, across roles: the minds (`CONTROLLERS`) and the parts below them,
@@ -106,12 +108,29 @@ function unknownSettings(config: PartConfig): readonly string[] {
   ];
 }
 
-/** Whether a body of `spec` can carry out what every part of the tree `config` roots commands. */
-export function treeFits(spec: BodySpec, config: PartConfig): boolean {
-  const part = partOf(config);
-  return part.fits(spec, config) && (part.role !== "mind" || equipmentSupported(spec, config) && canAttack(spec, config))
-    && held(config).every(({ parts }) => parts.every((child) => treeFits(spec, child as PartConfig)));
+/**
+ * **Why a body of `spec` cannot carry out what the tree `config` roots commands**, prefixed with
+ * where (`subs.0: `), or null where it can: the first part that refuses it (`Part.fits`), or a mind
+ * with no use for something the body holds (`equipmentSupported`) or no way to strike (`canAttack`).
+ */
+export function treeRefusal(spec: BodySpec, config: PartConfig, at = ""): string | null {
+  const where = (reason: string) => at ? `${at}: ${reason}` : reason;
+  const part = partOf(config), own = part.fits(spec, config);
+  if (own !== null) return where(own);
+  if (part.role === "mind" && !equipmentSupported(spec, config)) return where("it has no use for something the body holds");
+  if (part.role === "mind" && !canAttack(spec, config)) return where("it strikes with nothing the body has");
+  for (const { slot, parts } of held(config)) {
+    const path = at ? `${at}.${slot.key}` : slot.key;
+    for (const [i, child] of parts.entries()) {
+      const refused = treeRefusal(spec, child as PartConfig, slot.many ? `${path}.${i}` : path);
+      if (refused !== null) return refused;
+    }
+  }
+  return null;
 }
+
+/** Whether a body of `spec` can carry out what every part of the tree `config` roots commands (`treeRefusal`). */
+export const treeFits = (spec: BodySpec, config: PartConfig): boolean => treeRefusal(spec, config) === null;
 
 /** Every held item has a declared use somewhere in this mind's assembly. */
 export function equipmentSupported(spec: BodySpec, config: PartConfig): boolean {
@@ -165,5 +184,5 @@ interface Offered {
  */
 export function kindsFor(role: Role, spec: BodySpec, provides: readonly Provision[] = NOTHING): readonly Offered[] {
   return Object.entries(PARTS).filter(([, part]) => part.role === role)
-    .map(([kind, part]) => ({ kind, part, reason: treeFits(spec, part.defaults) ? unprovided(part.needs, provides) : "does not fit this body" }));
+    .map(([kind, part]) => ({ kind, part, reason: treeRefusal(spec, part.defaults) ?? unprovided(part.needs, provides) }));
 }

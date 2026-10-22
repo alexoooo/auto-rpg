@@ -76,6 +76,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   return {
     state, report, resume, instance: instances.instance, readiness: instances.readiness,
     get envelope() { return legs.envelope; },
+    gait: { get envelope() { return legs.envelope; }, get stopping() { return legs.stopping; } },
     release(view: BodyView, reason: "takeover" | "idle" | "replaced" = "takeover") {
       instances.interrupt(view, reason); legs.resume(view); guard.resume(view); support?.resume(view);
       navigation.resume();

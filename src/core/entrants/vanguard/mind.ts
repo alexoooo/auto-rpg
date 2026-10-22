@@ -1,4 +1,3 @@
-import { commandable } from "../../body.ts";
 import { actionConfigFaults, armedActions } from "../../mind/action-config.ts";
 import { actionAim } from "../../mind/action-aim.ts";
 import { configuredActionEstimates, configuredExecutors } from "../../mind/action-config.ts";
@@ -8,7 +7,7 @@ import { createFighter, fighterBody, fighterFaults, fighterSkills } from "../../
 import { toggle, type PartField } from "../../mind/fields.ts";
 import type { BodyHost } from "../../mind/host.ts";
 import type { MindWiring } from "../../mind/minds.ts";
-import { slotList, slotOne } from "../../mind/parts.ts";
+import { fitsAll, fitsWhen, slotList, slotOne, takesCommands } from "../../mind/parts.ts";
 import { tacticsOf } from "../../mind/tactics-of.ts";
 import { driveBy } from "../../mind/tactics.ts";
 import { guardPosture } from "../../skills/guard.ts";
@@ -168,8 +167,8 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
     slotOne("motor", "Motor control", "motor", true)],
   keys: { kind: true, tactics: true, locomotion: true, navigation: true, guard: true, executors: true, actions: true,
     support: true, subs: true, motor: true, commitAim: true, lowGuard: true, predictAim: true, slowEvade: true, adaptiveEvade: true, revisitEvade: true, steadyWalk: true, routeAround: true, flankAfterBlocks: true, bodyProfiles: true, lowActions: true },
-  fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0
-    && armedActions(spec, config.executors, config.actions).length > 0,
+  fits: fitsAll<VanguardConfig>(takesCommands, (spec, config) => actionConfigFaults(spec, config.executors, config.actions)[0] ?? null,
+    fitsWhen((spec, config) => armedActions(spec, config.executors, config.actions).length > 0, "it throws no usable blow")),
   strikes: (spec, config) => armedActions(spec, config.executors, config.actions).flatMap(action => action.effectors),
   faults: config => [...fighterFaults(fighter(config)), ...lowActionFaults(config),
     ...config.commitAim !== undefined && typeof config.commitAim !== "boolean" ? ["commitAim: a boolean"] : [],

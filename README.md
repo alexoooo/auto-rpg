@@ -56,6 +56,7 @@ fighter is doing and whether it connected. The bout is heard: footfalls, swings,
 | W A S D or arrows | go, relative to the camera, as fast as the legs hold; Shift walks |
 | Pointer | where your fighter faces while it walks |
 | Left button | attack the body part under the pointer; hold to keep attacking |
+| Left click on the floor | go there |
 | Middle or right drag, wheel | orbit and zoom the Free camera |
 | Space or Esc | pause and resume |
 | R | the same bout again |
@@ -72,23 +73,35 @@ Every setting travels in the link, so a bout can be shared or opened directly:
 | `level`, `gap`, `cap`, `recovery` | `&level=obstacle-court&gap=3&cap=30&recovery=60` |
 | `<side>.<attribute>` | `&left.strength=1.5&right.balance=10` |
 | `appearance`, `view`, `camera`, `projection`, `focus` | `&appearance=industrial,relic` |
-| `#tape=` | a bout's orders, played again |
 | `#case=` | a recorded case from the Ratings: its recipe and orders, with its choices in the pickers |
 
 ## The Crypt
 
 Choose **Dungeon**, pick a hero (Warrior, Rogue or Skeleton), a level, up to three companions, and
 press **Start**. Reach the exit's green ring; the run is lost when the whole party is down.
-Everybody carries a club; skeletons and reptile packs wake as the party comes near.
+Everybody carries a club; skeletons and reptile packs wake as the party comes near, and attack as
+a mob, spread over the party.
 
 - **Generated depths** (default): rooms and corridors after Diablo's Cathedral.
 - **The Rootbound Crypt**: one authored chamber, three skeletons.
 - **Random Crypt**: four kit-built chambers from the seed.
 
-Click the floor to attack-move, an enemy to lock on, or drag a route. **1**-**4** select a member,
-**Shift** adds, **0** selects everybody, **F** calls companions back. Two switches hand movement
-to the keyboard (WASD) and facing to the cursor; the minds do the rest. **Minds** sets each hero's
-mind; **Options** holds the seed and rendering quality.
+| Input | Does |
+| --- | --- |
+| Click the floor | the selected go there, fighting what they meet; several take places about it at the slowest one's pace |
+| Click an enemy | the selected attack it |
+| Drag on the floor | the selected walk the drawn route past every foe |
+| Right-click the floor, or an ally | the selected face there, or follow that ally |
+| Q, E | the selected turn an eighth of a turn left, right |
+| H, X | the selected hold where they stand, or stop |
+| F | the selected companions come back to the hero |
+| 1-4 or a click on an ally, 0 | select a member (Shift adds), or everybody |
+
+Two switches hand movement to the keyboard (WASD steers the one selected, or the hero) and facing
+to the cursor; the minds do the rest. **Minds** sets each hero's mind; **Options** holds the seed,
+rendering quality, and who leads each side: the party by you or by the level-clearer, an AI that
+plays it by itself (`&party=clearer`), and the enemies as a mob or each on its own
+(`&enemies=independent`).
 
 ## The Lab
 

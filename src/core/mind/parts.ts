@@ -1,3 +1,4 @@
+import { commandable } from "../body.ts";
 import type { DataKey } from "../data/store.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { PartField } from "./fields.ts";
@@ -53,8 +54,12 @@ export interface Part<C extends PartConfig = PartConfig> {
   readonly tuning?: readonly string[];
   /** What a screen must give a mind for this part to run, if anything. */
   readonly needs?: Provision;
-  /** Whether a body of `spec` can carry out what a part of `config` commands. */
-  fits(spec: BodySpec, config: C): boolean;
+  /**
+   * Whether a body of `spec` can carry out what a part of `config` commands: null where it can,
+   * otherwise why not, a sentence. The one source of a part's compatibility: construction, the
+   * pickers and evaluation read it (`treeRefusal`).
+   */
+  fits(spec: BodySpec, config: C): string | null;
   /** Held segments this part uses safely: striking, covering or another declared equipment use. */
   supportedEquipment?(spec: BodySpec, config: C): readonly string[];
   /**
@@ -73,6 +78,28 @@ export interface Part<C extends PartConfig = PartConfig> {
   reads?(config: C): readonly DataKey[];
 }
 
+/** Every key of `C`, each `true`: the keys a config of it may hold, a key missing or extra refused by the compiler. */
+export type KeysOf<C> = { readonly [P in keyof C]-?: true };
+
+/** Parts by the kind of their defaults: what a role's list of its kinds is (`partsByKind`). */
+export type ByKind<P extends { readonly defaults: PartConfig }> = { readonly [E in P as E["defaults"]["kind"]]: E };
+
+/** The config of every part a list by kind holds (`ByKind`): the union a role's slot takes. */
+export type ConfigOf<R> = { [K in keyof R]: R[K] extends { readonly defaults: infer C } ? C : never }[keyof R];
+
+/**
+ * **A role's kinds**: `parts` by the kind of their defaults, in their order, frozen; a thrown error
+ * for a kind twice. An implementation is its own module and a line in its role's list.
+ */
+export function partsByKind<P extends { readonly defaults: PartConfig }>(parts: readonly P[]): ByKind<P> {
+  const byKind: Record<string, P> = {};
+  for (const part of parts) {
+    if (Object.hasOwn(byKind, part.defaults.kind)) throw new Error(`two parts of kind ${JSON.stringify(part.defaults.kind)}`);
+    byKind[part.defaults.kind] = part;
+  }
+  return Object.freeze(byKind) as unknown as ByKind<P>;
+}
+
 /** A slot of a ranked list of parts of `role`. */
 export const slotList = (key: string, label: string, role: Role): Slot => Object.freeze({ key, label, role, many: true, optional: true });
 
@@ -82,3 +109,29 @@ export const slotOne = (key: string, label: string, role: Role, optional = false
 
 /** The slots `config` of `part` has: those it says it has by what it holds (`Part.slotsFor`), or all of its slots. */
 export const slotsOf = <C extends PartConfig>(part: Part<C>, config: C): readonly Slot[] => part.slotsFor?.(config) ?? part.slots;
+
+/** A part's `fits` for every body. Each of these is a function declaration, which a module that imports it in a cycle can call as it loads. */
+export function anyBody(): string | null {
+  return null;
+}
+
+/** A part's `fits` for a body `test` passes, refusing any other for `reason`. */
+export function fitsWhen<C = PartConfig>(test: (spec: BodySpec, config: C) => boolean, reason: string): (spec: BodySpec, config: C) => string | null {
+  return (spec, config) => test(spec, config) ? null : reason;
+}
+
+/** A part's `fits` for a body that takes the game's commands (`commandable`). */
+export function takesCommands(spec: BodySpec): string | null {
+  return commandable(spec) ? null : "needs fists, box soles and a head";
+}
+
+/** A part's `fits` that refuses where the first of `fits` refuses, for its reason. */
+export function fitsAll<C = PartConfig>(...fits: readonly ((spec: BodySpec, config: C) => string | null)[]): (spec: BodySpec, config: C) => string | null {
+  return (spec, config) => {
+    for (const one of fits) {
+      const refused = one(spec, config);
+      if (refused !== null) return refused;
+    }
+    return null;
+  };
+}

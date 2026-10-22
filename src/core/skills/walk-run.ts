@@ -84,7 +84,8 @@ interface WalkRunOptions {
  * is `past` over the run's pace, the body faces the way asked within `facing` rad (a run goes where
  * its pelvis faces) and goes that way no slower than `short` under the run's pace, or
  * under the walk's own pace where the walk's envelope holds it slower, or the walk asked has stood
- * there `top` s (a walk whose legs cap it under its envelope's pace); and, once it
+ * there `top` s with the body facing that way (a walk whose legs cap it under its envelope's pace;
+ * a body still turning round has not been capped, and a run begun from it standing falls); and, once it
  * has landed `landings` times, gives way to the walk once the pace asked has come down `below`
  * under it, or it is told it may not run, and the body has slowed to the run's pace, its landings
  * braking it until then: a walk handed a body going faster than it walks cannot catch it. A run
@@ -120,8 +121,9 @@ interface WalkRunMemory {
   running: boolean;
   /** The foot the stance's walk swung at its last step until that sole is on the ground, its landing; null once it is. */
   swinging: Side | null;
-  /** How long the walk asked has stood past the run's pace a way it runs (`RUN_WAY`), s (`RUN_SWITCH.top`). */
+  /** How long the walk asked has stood past the run's pace a way it runs (`RUN_WAY`), s; and how long of it the body has faced that way (`RUN_SWITCH.top`). */
   capped: number;
+  faced: number;
   /** How many times the run has landed since it began (`RUN_SWITCH.landings`), and the sole that landed last: a sole that
    * touches down again before the other has landed has bounced in its stance, and has not landed. */
   ran: number;
@@ -164,7 +166,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
   const steady = gaitAssist(body.assist, [...body.built.segments.values()].reduce((sum, segment) => sum + segment.rigid.mass, 0)), aim = { heading: 0, lean: 0, bank: 0 };
   const runEnvelope = options.runEnvelope !== undefined ? options.runEnvelope : body.envelope ? quickened(walkRunEnvelope(body.built.spec), quick) : null;
   const legs = locomotion(body.envelope);
-  const memory: WalkRunMemory = { may, running: false, swinging: null, capped: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
+  const memory: WalkRunMemory = { may, running: false, swinging: null, capped: 0, faced: 0, ran: 0, landed: "left", heading: 0, spin: 0, face: 0, pace: 0,
     assisted: { root: new Quaternion(), read: false } };
   const state = { legs: legs.state, walkRun: memory, run: cycle.state };
 
@@ -174,6 +176,7 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
     memory.running = false;
     memory.swinging = null;
     memory.capped = 0;
+    memory.faced = 0;
     memory.pace = 0;
     legs.resume(view);
   };
@@ -248,8 +251,9 @@ export function walkRun(body: Body, given: WalkRunSettings = WALK_RUN, givenRun:
         if (s.phase === "swing") memory.swinging = s.own ? s.own.foot : null;
         else if (memory.swinging !== null && s.touching[memory.swinging]) { landed = memory.swinging; memory.swinging = null; }
         // Heading for the run, the walk turns to face the way asked and walks it forward, as the run will.
-        const way = memory.capped > 0 ? face + atan2(asked![1], asked![0]) : face;
-        if (landed && memory.capped > 0 && Math.abs(wrap(way - s.facing)) <= RUN_SWITCH.facing && (along >= Math.min(settings.run, legs.pace) - RUN_SWITCH.short || memory.capped >= RUN_SWITCH.top)) runFrom(view, landed, way);
+        const way = memory.capped > 0 ? face + atan2(asked![1], asked![0]) : face, facing = Math.abs(wrap(way - s.facing)) <= RUN_SWITCH.facing;
+        memory.faced = memory.capped > 0 && facing ? memory.faced + dt : 0;
+        if (landed && memory.capped > 0 && facing && (along >= Math.min(settings.run, legs.pace) - RUN_SWITCH.short || memory.faced >= RUN_SWITCH.top)) runFrom(view, landed, way);
         else return { kind: "stance", goal: legs.goal(view, walkable(memory.capped > 0 ? [speed, 0] : asked), way, dt, lower, destination) };
       }
       // Running: along the heading, turning toward the way asked, at what the run's envelope holds; braking to turn round past

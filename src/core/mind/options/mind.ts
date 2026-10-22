@@ -1,5 +1,3 @@
-import { commandable } from "../../body.ts";
-import type { BodySpec } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { BodyHost } from "../host.ts";
 import { COUNTER_PUNCHER, STAND_UP, type ActionConfig, type OptionsConfig, type SubMindConfig } from "../config.ts";
@@ -19,6 +17,7 @@ import { evade } from "./evade.ts";
 import type { Option, Situation } from "./option.ts";
 import { strikeLow } from "./low.ts";
 import { followOrders } from "./orders.ts";
+import { fitsAll, takesCommands } from "../parts.ts";
 import { reflexLayer, reflexOf } from "./reflex.ts";
 import { situationReader } from "./situation.ts";
 import { strike } from "./strike.ts";
@@ -49,8 +48,8 @@ const DOWN: readonly (readonly [string, SubMindConfig, DownModel])[] = deepFreez
   ["lie still", { kind: "lie" }, { seconds: 2, stands: 0, shelter: 0 }],
 ]);
 
-/** Whether a body of `spec` takes the options fighter's commands and carries out the actions of `config`'s skills. */
-export const optionsFit = (spec: BodySpec, config: OptionsConfig): boolean => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0;
+/** Why a body cannot take the options fighter's commands or carry out the actions of `config`'s skills, or null where it can (`Part.fits`). */
+export const optionsFit = fitsAll<OptionsConfig>(takesCommands, (spec, config) => actionConfigFaults(spec, config.executors, config.actions)[0] ?? null);
 
 /**
  * **The options fighter**: a meta-controller (`metaController`) over options, which takes the one

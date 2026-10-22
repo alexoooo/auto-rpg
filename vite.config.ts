@@ -6,7 +6,8 @@ const identityModule = decodeURIComponent(new URL("./src/build-identity.ts", imp
 export default defineConfig({
   plugins: [{ name: "recording-build-identity", enforce: "pre",
     load(id) {
-      if (id.replaceAll("\\", "/") === identityModule) return `export const BUILD_IDENTITY = ${JSON.stringify(currentBuildIdentity())};`;
+      // The identity as Node reads it.
+      if (id.replaceAll("\\", "/") === identityModule) return `export const BUILD_IDENTITY = ${JSON.stringify(currentBuildIdentity())};\n`;
     },
     handleHotUpdate(context) {
       const module = [...context.server.moduleGraph.idToModuleMap.values()].find(module => module.file?.replaceAll("\\", "/") === identityModule);

@@ -6,7 +6,7 @@ import type { Commander, MemberReport, TeamDecision, TeamHost, TeamView } from "
 /** How far a member of an independent team sees a foe along a clear line (`TeamLevel.sees`), m (`docs/reference/play.md#sight`). */
 export const SIGHT_METRES = 14;
 /** How long a member that has lost sight of its foe goes on to the place it last saw it, s (`docs/reference/play.md#run-timing`). */
-const ALERT_SECONDS = 7;
+export const ALERT_SECONDS = 7;
 
 /** What an independent team remembers of a member: its foe, where and until when it was last seen, and the door it is opening. */
 interface Memory {
@@ -73,7 +73,7 @@ export function independentCommander(host: TeamHost): Commander {
       return !mind || mind.target === null && mind.alertedUntil <= time;
     },
     report(member: string): MemberReport {
-      return { target: state.members[member]?.target ?? null, task: "", forced: false };
+      return { target: state.members[member]?.target ?? null, task: "", forced: false, selected: false };
     },
     get notice() { return ""; },
   };

@@ -30,7 +30,7 @@ vocabulary: the `Intent` tactics return (`src/core/mind/intent.ts`) and the `Ski
 | Motor control | `src/core/control/` | joint, effector and stance goals turned into muscle commands |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, guard, strike |
 | Tactics | `src/core/mind/tactics.ts`, `action-tactics.ts`, `ordered.ts`, `targets.ts`, `movement.ts` | what the body should do, from what it senses |
-| Minds | `src/core/mind/config.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `options/`, `rise/`, `ground/`; `src/core/entrants/` | a body's mind made from its config by the controller of its kind |
+| Minds | `src/core/mind/config.ts`, `kinds.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `options/`, `rise/`, `ground/`; `src/core/entrants/` | a body's mind made from its config by the controller of its kind |
 | Command | `src/core/command/` | a team's members given orders by its Commander, from what they sense |
 
 ### Spec
@@ -222,7 +222,10 @@ a stance goal) into muscle commands.
   is such a spin.
 - **The motor is a part** of role `motor` (`MOTOR_PARTS`, `motorOf`, `src/core/control/motors.ts`),
   named by `BodyOptions.motor` or a fighter's `motor` slot; the default is the whole-body solve
-  (`motorControl`). Another kind is a maker of the same shape and a line in each list.
+  (`motorControl`, registered as `WHOLE_BODY_MOTOR`, `whole-body-motor.ts`). A kind is a registered
+  implementation (`MotorPart`, `motor-part.ts`): a module of its own and a line in `MOTOR_PARTS`,
+  made as `motorControl` is; one that needs goals a `BodyCommand` does not name brings their
+  vocabulary with it.
 - **The stance** (`stance.ts`; records `stance-state.ts`, steps `gait.ts`, soles `support.ts`,
   constants `stance-tuning.ts`) is the standing plan and the solve's first user
   (`StanceControl.ask`). It keeps the centre of mass inside the support by forces the ground can
@@ -271,7 +274,14 @@ actions over it.
 | Walk and learned run | `learned-run.ts` | the walk and run steered by a trained policy (`dataOf("learned-run")`, `assets/core/learned-run.json`; its names and timing before it loads, `RUN_POLICY`); experimental |
 | Stride | `stride.ts` | plans its own capture-point steps; experimental |
 | Run | `run.ts` | Raibert-placed flying steps; experimental |
-| Move | `move.ts` | chooses among the gaits (`GAITS`, `gaits.ts`) by rules (`MoveRuleConfig`) on standing and distance; Classic's is `MOVE` |
+| Move | `move.ts` | chooses among the gaits (`GAITS`, `gaits.ts`) by rules (`MoveRuleConfig`) on standing and the distance to the nearest standing foe, the nearest standing body of its own side, or its destination; Classic's is `MOVE` |
+
+Each kind is a registered implementation (`LocomotionPart`, `src/core/mind/locomotion-part.ts`): its
+own module beside its skill (`skills/<kind>-part.ts`) owns its config's type, keys, defaults,
+faults, fit and maker, and is a line in `LOCOMOTION_PARTS` (`mind/locomotions.ts`), from which the
+slot's config type (`LocomotionConfig`) and the maker (`legsOf`) follow. The legs it makes state
+their limits to the speed rule: what they hold (`Locomotion.envelope`) and how fast they stop
+(`Locomotion.stopping`); Move's rules (`MOVE_RULE_PARTS`) are in Move's module.
 
 A gait that drives the legs asks the assist only to right the pelvis (`gaitAssist`,
 `skills/gait-assist.ts`). A push whose level or speed is not a number is refused (`obey`, `body.ts`).
@@ -300,7 +310,11 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
 - **Low support** folds the stance onto a planted base for low blows; a kick or fold waits for a
   gait that drives the legs to give them back.
 
-Action selection belongs to tactics, not to an executor.
+Each executor kind is a registered implementation (`ExecutorPart`, `mind/executor-part.ts`): its
+module (`skills/<kind>-part.ts`) owns its config's type, keys, defaults, faults, fit, the effectors
+it strikes with and its maker, and is a line in `EXECUTOR_PARTS` (`mind/executor-parts.ts`), from
+which `ExecutorConfig` follows; `configuredExecutors` (`action-config.ts`) makes a fighter's named
+executors once each. Action selection belongs to tactics, not to an executor.
 
 ### Minds
 
@@ -365,11 +379,13 @@ fight reads. A fight passes the config through and reads nothing in it.
   builder or read-view maker, beside the adapters `tests/core-boundary.test.mjs` names.
 - Controllers run synchronously inside `World.step`; frame timing never schedules them.
 
-**Controllers.** A kind of mind is a `Controller` (`controller.ts`), one line in `CONTROLLERS`
-(`controllers.ts`): its config keys (`keys`), the bodies it fits (`fits`), its presets (merged into
-`PRESETS`) and its maker (`create`). `MINDS` is what a person may pick: every preset, and each
-controller without presets by its defaults; pickers offer only minds that fit the side's body and
-loadout.
+**Controllers.** A kind of mind is a `Controller` (`controller.ts`) written in a module of its own
+(`fighter-kind.ts`, `options/kind.ts`, `src/core/reptile/kind.ts`, an entrant's `mind.ts`), and one
+line in `MIND_KINDS` (`kinds.ts`, which holds its imports and that list and nothing else, so a case's
+code can begin each kind's own code there). `CONTROLLERS` (`controllers.ts`) keys them by kind: its
+config keys (`keys`), the bodies it fits (`fits`), its presets (merged into `PRESETS`) and its maker
+(`create`). `MINDS` is what a person may pick: every preset, and each controller without presets
+by its defaults; pickers offer only minds that fit the side's body and loadout.
 
 | Kind | Maker | What it composes |
 |---|---|---|
@@ -389,11 +405,13 @@ screen must give). `PARTS` (`catalog.ts`) is every part by kind. Over the tree:
 
 - `treeFaults` names each fault by path (`subs.0: ...`); `createMind` refuses a tree with any, and
   `partOf` refuses an unknown kind.
-- `treeFits` asks every part whether it fits a body; `kindsFor` lists every part of a role with the
-  reason it cannot go somewhere.
+- A part's `fits` answers why a body cannot carry out what it commands, or null where it can: the one
+  source of compatibility. `treeRefusal` gives the first refusal in a tree by path (`treeFits`, that
+  there is none); `kindsFor` lists every part of a role with the reason it cannot go somewhere.
 - A part's experiment settings live under `tuning`, are named by `Part.tuning`, and never travel in
   a link (`withoutTuning`). A key a part does not read is a fault, never silently dropped;
-  `CONFIG_KEYS` (`config-keys.ts`) enumerates accepted keys and is checked at compile time.
+  a registered implementation states its keys (`Part.keys`, `KeysOf`), and `CONFIG_KEYS`
+  (`config-keys.ts`) enumerates the other parts'; both are checked at compile time.
 
 **Presets.** `RECIPE_FIGHTER` is shared action tactics over the recipe strike; `CLASSIC` adds
 `MOVE` and step-up recovery (`STAND_UP`). Puncher, Counter-puncher, Scrapper and Behaviours vary
@@ -431,7 +449,11 @@ detached, frozen `BodyObservation` snapshots (`src/core/observation.ts`) and ret
 within the same envelope), an assist ask (`AssistAsk`), grips and hand poses. The host validates
 and copies the whole action before applying any of it. A policy receives no engine handle.
 
-**Recovery sub-minds.** Each reads its host's down state and the world's clock (`SubMindMaker`):
+**Recovery sub-minds.** Each reads its host's down state and the world's clock (`SubMindMaker`).
+Each kind is a registered implementation (`SubMindPart`, `mind/sub-mind-part.ts`): its own module
+beside the sub-mind (`<file>-part.ts`) owns its config's type, keys, defaults, faults, fit, the
+data it reads and its maker, and is a line in `SUB_MIND_PARTS` (`sub-minds.ts`), from which
+`SubMindConfig` and the maker (`subMind`) follow:
 
 | Sub-mind | File | What it does |
 |---|---|---|
@@ -475,6 +497,18 @@ a facing and at most a ceiling (`Intent.pace`, `Intent.walk`); none writes a vel
 Navigation is a part between tactics and locomotion (a fighter's `navigation` slot): the
 visibility navigator routes round inflated fixed footprints and reports its route, distance,
 arrival and stalls; how far an order has left is read from the order (`remainingOf`).
+**Its own side** (`src/core/mind/crowd.ts`): a fallen body of its side is a fixed footprint it
+routes round (`fallenSolids`), and every walk it gives is kept clear of its side's standing
+bodies (`crowdWalk`): of the ways its route asks or turned from it by up to six sixteenths of a
+turn either side, or none, the one nearest the walk asked whose sweep keeps `CROWD.margin` clear of
+each over the next `CROWD.horizon` s or the time it takes to stop, judged from its velocity now
+changing at most at its gait's stopping rate (`Locomotion.stopping`), each way as fast as its
+envelope holds it from its heading and as it stops from before a body ahead. It reads one sensed
+moment and no other body's choice: a body behind it on the way it is asked gives way to it, and
+turning right costs less than left, so two bodies that meet decide alike in either order and pass
+on their right. It faces the way it goes. A body held back that
+way, or going against the way it is sent, is not stalled. A place whose point does not fit its
+clearance is aimed at the nearest point about it that does, within its `near`.
 **The speed rule** (`travelSpeed`, `src/core/mind/travel.ts`) sets how fast the navigator goes: the
 least of the gait's top speed the way it goes (`paceToward` on its envelope), the speed it stops
 from in the distance left at its stopping rate (`Locomotion.stopping`), the speed it slows to for
@@ -483,7 +517,7 @@ goal has no end and no corner, so it goes at the gait's top speed.
 
 #### Adding a Mind
 
-A Mind is an entrant: a folder under `src/core/entrants/<name>/` and a line in `CONTROLLERS`. The
+A Mind is an entrant: a folder under `src/core/entrants/<name>/` and a line in `MIND_KINDS`. The
 joint-feedback Mind (`entrants/direct/mind.ts`) is the example.
 
 1. The folder holds the config's type (`{ kind, ... }` with a kind of its own), its defaults, its
@@ -524,21 +558,32 @@ which their Minds carry out while they defend themselves.
 |---|---|
 | Kinds | `COMMANDERS` (`commanders.ts`), by config kind, each with defaults, faults and a maker; `createCommander(host, config)` |
 | Its maker gets | a `TeamHost`: the level as its adapter answers it (`TeamLevel`: sight, room to stand and pass, routes, the explored edge, doors), never the world |
-| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, its footprint, reach, home and navigation report; every other body the members sense; whether its host has it look this step; a leader's live input (`Lead`) |
+| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, what is left of its pool, its footprint, reach, home, navigation report, the limits its legs state (`gait`, `Skills.gait`) and the way they face; every other body the members sense; whether its host has it look this step; a leader's live input (`Lead`: the keys, a walk, the pointer's point and the part it strikes, exploring) |
 | It keeps | its memory in `state`, plain data |
-| It gives | each member's orders (`TeamDecision`), whether it looked, and on asking, whom each fights, what it does (`MemberReport`), whether it leaves a member idle, and a notice for its leader |
-| It hears | a leader's command (`TeamCommand`, `commands.ts`) at once |
+| It gives | each member's orders (`TeamDecision`), whether it looked, and on asking, whom each fights, what it does and whether it is selected (`MemberReport`), whether it leaves a member idle, and a notice for its leader |
+| It hears | a leader's command (`Command`, `commands.ts`) at once |
 
-Its host asks it once a step, after the senses and before every Mind. The kinds:
+Its host asks it once a step, after the senses and before every Mind. **A person's commands**
+(`Command`) are plain data: select, go (a point, or a route drawn with its points growing), attack a
+sensed foe, face (a point, or turned by an angle), hold, stop, regroup, follow a member. Each goes to
+the members selected, and the keys and pointer steer one of them: the one selected, or the leader.
+The Crypt's host is `DungeonRun` (its mouse and keys, `src/dungeon/commands.ts`, `main.ts`), each
+side's Commander its options' (`party`, `enemies`: the person's party and a mob unless the page's
+Options or the address, `&party=`, `&enemies=`, name another); an
+Arena side a person takes is a team of one (`teamOfOne`, `src/arena/team.ts`) under the party
+Commander with `picks: false`, asked in the step's sensing phase, its orders taped by the bout
+(`Duel.order`). The kinds:
 
 | Kind | File | Leads |
 |---|---|---|
-| `independent` | `independent.ts` | each member at the nearest foe it sees, on to where it last saw one, else home: the Crypt's enemies |
-| `party` | `party.ts` | a person's party: the leader where its person steers or exploring, the others after it or where they were sent, each at the foe its order locks or the nearest it sees, slots about a shared destination, doors on the way: the Crypt's party |
+| `mob` | `mob.ts` | the members that see a foe spread over the foes they see and, several on one, about it (`spread`, `bearings`, `spread.ts`): each makes for its place at its reach on the bearing it is given, by a waypoint halfway round where that is far round, and closes in from there; one that sees none goes on to where it last saw one, else home: the Crypt's enemies |
+| `independent` | `independent.ts` | each member at the nearest foe it sees, on to where it last saw one, else home: the Crypt's enemies where chosen |
+| `party` | `party.ts` | a person's party: the member the keys steer where they steer it, the leader otherwise exploring, the others after it or where they were sent, each at the foe its order locks or (unless `picks: false`) the nearest it sees; several sent together take slots about the destination at the slowest one's top speed (`travelSpeed`), the one nearest it the slot farthest from them all, so that none comes in through a slot stood in; doors on the way: the Crypt's party, and an Arena side a person takes. Its members keep clear of each other by their own navigation (`crowdWalk`), each from the step's one `TeamView` |
+| `clearer` | `clearer.ts` | a party by itself: its leader (the first standing on its feet) explores the edge of what is seen, then makes for the exit (`TeamLevel.frontier`), waiting for the others, who follow it; foes seen near are the fight, taken on while the party's pools add up to the odds it asks (`POLICY`) and foes keep falling, its members spread over the foes and a hurt one pulling back; from one it cannot win it draws back the way it came, a few times; otherwise it pushes on past its foes, striking what is upon it |
 
 `tests/core-boundary.test.mjs` holds `src/core/command/` to no engine, world, body, enlistment,
 mind host or senses hub; `tests/command-contract.test.mjs` has each kind lead an Arena bout as a
-team of one, fork it with its memory copied and play it again from its orders alone.
+team of one (`teamOfOne`), fork it with its memory copied and play it again from its orders alone.
 
 ## Experimental separate equipment
 
@@ -639,23 +684,31 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
   on one step is a draw; at the cap the fuller bar wins. The page plays three seconds of aftermath
   (`arenaPlayback`, `src/arena/playback.ts`).
 - **Tape** (`Duel.tape`): every order with the step it was given before. Recipe and tape are the
-  whole of a bout on one build; `Duel.play` feeds the tape in the sensing phase. A link carries it
-  in its fragment (`#tape=`, `readTape`, `tapeHash`, `src/arena/matchup.ts`); changing the recipe
-  drops a linked tape.
+  whole of a bout on one build; `Duel.play` feeds the tape in the sensing phase. A case's world
+  carries it (`#case=`, `src/arena/case-link.ts`).
 - **Order sheets** (`DuelHooks.record`; `Sheet`, `SheetLog`, `src/core/mind/sheets.ts`): each
   side's muscle commands, assist asks and hand poses at the mind's seam. A bout given them
   (`DuelHooks.replay`) makes no mind (`replayedBody`) and plays the same. Each log names its build,
   protocol, recipe, body, placement, grants, engine, rate, gravity and actuation, and another
   identity is refused.
-- **Recordings** (`Duel.recording`, `Duel.playRecording`, `src/core/recording.ts`) are versioned
+- **Recordings** (`Duel.recording`, `src/core/recording.ts`) are versioned
   envelopes checked for exact identity.
 - **Build fingerprint** (`scripts/build-identity.mjs`): a content SHA-256 of sources, templates,
   assets, lockfile, build config and installed Rapier, LF-normalised; Node and Vite share it.
   What runs write (`OUTPUTS`: the minds' notes, `assets/evaluations/`, generated art delivery files) is not in
-  it. Evaluation records and research bout pools carry it and refuse a mismatch. The environment
-  (`environmentOf`) is the same less what no case plays (scripts, research, the test harness, the
-  pages, the evaluations' descriptions and what reads their rows: keys, lanes, records, figures,
-  ratings, comparisons; `notPlayed`): a case's code.
+  it. Evaluation records and research bout pools carry it and refuse a mismatch.
+- **The file table** (`fileTable`, `scripts/build-identity.mjs`): each build input's hash, and each
+  module's imports read with TypeScript's parser (`importsOf`). **A case's code** (`caseCoder`) is
+  drawn from it: the environment, the static import closure (`closureOf`) of `src/evaluation/play.ts` and
+  the case module with the lockfile and the solvers, cut at the kinds list, the world kinds list
+  (`WORLD_BUILDERS`, `src/evaluation/worlds.ts`), the build's identity and the mind data store
+  (`CUTS`); then the kind of world the case plays adds its builder's own code (its module's closure
+  beyond the environment), each kind of mind it plays its own (likewise, and
+  `assets/entrants/<kind>/`), and each mind data key its minds read (`treeData`) its module's. So
+  a Crypt edit keys no bout case anew, nor a bout builder's edit a Crypt run. A kinds list or world
+  kinds list of more than its imports and its list, and a module in a closure that imports by no
+  literal, are refused. A research run's
+  implementation (`implementationOf`, `research/rising-provenance.mjs`) is the uncut closure.
 - **Evaluation records** (`assets/evaluations/<id>/`): kept results ([Evaluations](#evaluations)).
   `imports/tournament-1bacac44.jsonl`
   is the 10-hour tournament's rows (11,342 bouts and the unseen report's 384) as played, with their
@@ -672,13 +725,15 @@ Every question of how well something does is an evaluation (`src/evaluation/`, b
 path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists them.
 
 - **A case module** (`<id>/cases.ts`, `Cases` in `evaluation.ts`) gives each protocol's
-  conditions, the world of a case for its subjects (`CaseWorld`: a bout's recipe and tape, or a
-  fall) and its reader, and the engine where the protocol fixes one (`Cases.engine`); `CASES` (`cases.ts`) is what a worker plays from. **A description** (`<id>/index.ts`)
+  conditions, the world of a case for its subjects (`CaseWorld`: a bout's recipe and tape, a
+  fall, or a Crypt run) and its reader, and the engine where the protocol fixes one (`Cases.engine`); `CASES` (`cases.ts`) is what a worker plays from. **A description** (`<id>/index.ts`)
   gives the question, subjects, figures and summary; nothing a case plays imports it.
 - **A case's key** is the digest of everything it plays: evaluation, protocol, engine, world (every
-  subject's value whole), seconds and code (the environment). A row (`Row`, `play.ts`) is found
-  again by its key, so a description, script or document edit replays nothing; a case's error or
-  non-finite reading is a fault row, kept like any other.
+  subject's value whole), seconds and code (`caseCoder`: the environment with the own code of the
+  kind of world and the kinds of mind it plays, `caseNames`, `code.ts`). A row (`Row`, `play.ts`) is found again by its
+  key, so a description, script, screen or document edit replays nothing, and an entrant's edit
+  replays only its own cases; a case's error or non-finite reading is a fault row, kept like any
+  other.
 - **A schedule** (`schedule.ts`) pairs a contest's subjects: `all` with each other, `versus` each
   subject with a panel's members only (`--against`), `pairs` the pairs named.
 - **The runner** (`run.ts`): units of evidence (a contest's one condition with each side on the
@@ -689,8 +744,9 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 - **Records** (`record.ts`): `npm run evaluate -- <id> --write` writes
   `assets/evaluations/<id>/<date>-<commit8>-<keys8>.jsonl`, a header (build, harness, engine,
   commit, pool, each subject and part with its version and parent) and a line per case. A version is
-  the digest of its own content, protocol and environment, kept apart so a change from its parent
-  is named by kind; `--previous` names the parent. Working rows are kept in
+  the digest of its own content, protocol, environment and its minds' own code (`code`, absent for
+  a subject with no `mind:` part and in records written before it), kept apart so a change from its
+  parent is named by kind; `--previous` names the parent. A pool is a protocol and an environment. Working rows are kept in
   `research/runs/evaluations/<id>/`. A record holds the run's complete units.
 - **The panel report** (`compare.ts`, `settle.ts`): `--against default --previous <mind>` pairs
   each of the subject's entrants with its baseline's on the same kit, each against the same panel
@@ -704,7 +760,12 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 - **Batteries** (arity 1): a skill's task, one subject at a time over its conditions. `blade` (the
   striker's executor tuning: a sword's cuts and thrusts at a standing body), `buckler` (the
   defender's cover: whether the buckler meets a sword first) and `court` (the approaching mind:
-  round the obstacle court's column into its window). `--previous` reads a battery's subject
+  round the obstacle court's column into its window), `crowd` (a party's mind among its own side's
+  bodies: a party reversed, a lone body and a following pair turned back, paths crossing, a gap that
+  passes one at a time and a fallen companion, each on several seeds: falls, legs done, members pushed
+  apart) and `crypt-clear` (a party Commander: through generated Crypt levels against each enemy
+  Commander, in trials that move the start a little (`trialLayout`): the share cleared, the time and
+  the members lost). `--previous` reads a battery's subject
   against another, each figure's paired difference over the conditions both played
   (`batteryComparison`, `compare.ts`).
 - **Ablations**: `--previous <mind> --ablate <slot>=<JSON>` makes the subject that mind with one slot
@@ -720,6 +781,12 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   is. `rising-target` plays the owner's 64 falls and reports the target's gates; `equipped-rise` the
   same shoves with sword and buckler and with the club. A subject is a riser: a mind's recovery on
   the bed's host (`risingMind`, `rising.ts`, which also holds the bed's jobs and report).
+- **Crypt runs** (`crypt.ts`): a laid-out level, the party under one mind or each member under its
+  model's own, each side's Commander (the party's and a mob unless named), and a script of the
+  person's orders, a leg at a time, or none (`CryptCase`), a leg that brings the case about ending it
+  unreached where it is not done in time (`CryptLeg.fixture`); the game's run (`DungeonRun`) on a
+  scene with no canvas. Not bit-equal between JavaScript engines, as a bout is; the Ratings screen
+  does not open one.
 - **History** (`history.ts`): an evaluation's records grouped into pools (`poolsOf`), each case
   once by its key, and each subject's versions numbered by first appearance (`versionsOf`). The
   notes and the Ratings screen read pools through it.
@@ -780,9 +847,10 @@ arena, crypt, lab and ratings at `?play=arena`, `?play=dungeon`, `?play=lab` and
 | Physics bench | `/physics-bench.html`, `src/physics-bench/` | the bake-off's cases on MuJoCo and Rapier |
 | Control tasks | `/control-foundation.html`, `/control-tasks.html` | research tasks with replay ([equipment](#experimental-separate-equipment)) |
 
-**The Arena.** A person may take a side (`&you=left`): keys become a walking direction as the
-camera sees the ground, and the pointer a facing and a sensed foe and segment
-(`src/arena/orders-input.ts`), all sent as `Duel.order`. The room's solids (`arenaSolids(level)`)
+**The Arena.** A person may take a side (`&you=left`), which they lead as a team of one
+([Command](#command)): keys become a walking direction as the camera sees the ground, the pointer a
+facing and a sensed foe and segment (`src/arena/orders-input.ts`), and a click on the floor a go
+there; the Commander's orders reach the side as `Duel.order`. The room's solids (`arenaSolids(level)`)
 are what bodies meet; `LEVELS` (`src/arena/levels.ts`) selects the open stage or obstacle court,
 whose furniture comes from `src/environment/furniture.ts`. Every Mind gets the stage's fixed
 geometry. The visible room is dressed from the forge kit (`forge-style.ts`, `forge-room.ts`), and

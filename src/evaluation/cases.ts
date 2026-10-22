@@ -1,6 +1,8 @@
 import { BLADE_CASES } from "./blade/cases.ts";
 import { BUCKLER_CASES } from "./buckler/cases.ts";
 import { COURT_CASES } from "./court/cases.ts";
+import { CROWD_CASES } from "./crowd/cases.ts";
+import { CRYPT_CLEAR_CASES } from "./crypt-clear/cases.ts";
 import type { Cases } from "./evaluation.ts";
 import { EQUIPPED_RISE_CASES } from "./equipped-rise/cases.ts";
 import { MATCH_CASES } from "./match/cases.ts";
@@ -18,4 +20,6 @@ export const CASES: Readonly<Record<string, Readonly<Record<string, Cases>>>> = 
   blade: BLADE_CASES as unknown as Readonly<Record<string, Cases>>,
   buckler: BUCKLER_CASES as unknown as Readonly<Record<string, Cases>>,
   court: COURT_CASES as unknown as Readonly<Record<string, Cases>>,
+  crowd: CROWD_CASES as unknown as Readonly<Record<string, Cases>>,
+  "crypt-clear": CRYPT_CLEAR_CASES as unknown as Readonly<Record<string, Cases>>,
 });

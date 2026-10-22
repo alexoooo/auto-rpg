@@ -1,12 +1,11 @@
-import { commandable } from "../body.ts";
 import { deepFreeze } from "../state.ts";
 import type { BehaviourConfig } from "./config.ts";
 import { choice, number } from "./fields.ts";
-import type { Part } from "./parts.ts";
+import { takesCommands, type Part } from "./parts.ts";
 
 type Of<K extends BehaviourConfig["kind"]> = BehaviourConfig & { readonly kind: K };
 const behaviour = <C extends BehaviourConfig>(label: string, defaults: C, fields: Part<C>["fields"] = []): Part<C> =>
-  ({ role: "behaviour", label, stage: "game", fields, slots: [], defaults, fits: commandable, faults: behaviourFaults });
+  ({ role: "behaviour", label, stage: "game", fields, slots: [], defaults, fits: takesCommands, faults: behaviourFaults });
 
 /** Numeric behaviour settings are finite, nonnegative distances or durations. */
 export function behaviourFaults(config: BehaviourConfig): readonly string[] {

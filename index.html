@@ -116,7 +116,8 @@
             <dt>W A S D, or the arrows</dt><dd>Move relative to camera</dd>
             <dt>Shift, with a move</dt><dd>Walk, not run</dd>
             <dt>Pointer</dt><dd>Face cursor</dd>
-            <dt>Left button</dt><dd>Attack; hold to repeat</dd>
+            <dt>Left button</dt><dd>Attack the part under the pointer; hold to repeat</dd>
+            <dt>Click the floor</dt><dd>Go there</dd>
             <dt>Middle or right drag</dt><dd>orbit the Free camera</dd>
             <dt>Wheel</dt><dd>zoom</dd>
             <dt>View panel</dt><dd>World or Tactical, camera mode, projection and fighter focus; works while paused</dd>
@@ -160,13 +161,18 @@
       <section id="help" class="dialog help" hidden>
         <h2>Controls</h2>
         <dl class="keys">
-          <dt>Click floor</dt><dd>Attack-move</dd>
-          <dt>Click enemy</dt><dd>Lock target</dd>
-          <dt>Drag floor</dt><dd>Force move</dd>
+          <dt>Click floor</dt><dd>Go there, fighting on the way; several take places about it</dd>
+          <dt>Click enemy</dt><dd>Attack it</dd>
+          <dt>Drag floor</dt><dd>Walk the drawn route past every foe</dd>
+          <dt>Right-click floor</dt><dd>Face there</dd>
+          <dt>Right-click ally</dt><dd>Follow it</dd>
+          <dt>Q / E</dt><dd>Turn left / right</dd>
+          <dt>H</dt><dd>Hold where they stand</dd>
+          <dt>X</dt><dd>Stop</dd>
           <dt>1–4 / click ally</dt><dd>Select member; Shift adds</dd>
           <dt>0</dt><dd>Select all</dd>
           <dt>F</dt><dd>Regroup selected companions</dd>
-          <dt>Keyboard movement</dt><dd>WASD / arrows, relative to camera</dd>
+          <dt>Keyboard movement</dt><dd>WASD / arrows, relative to camera: the one selected, or the hero</dd>
           <dt>Mouse facing</dt><dd>Face cursor; auto-explore without keyboard movement</dd>
           <dt>Combat</dt><dd>Automatic attacks and counters</dd>
           <dt>Wheel</dt><dd>Zoom</dd>
@@ -200,6 +206,8 @@
             <details id="party-minds"><summary>Minds</summary><div id="party-mind-list"></div></details>
             <details id="setup-options"><summary>Options</summary><div class="setup-options-fields">
               <label class="field">Seed <input id="seed" type="text" inputmode="numeric" maxlength="10" /></label>
+              <label class="field">Party <select id="party-commander"><option value="party">Led by you</option><option value="clearer">Level-clearer (AI)</option></select></label>
+              <label class="field">Enemies <select id="enemy-commander"><option value="mob">Mob</option><option value="independent">Independent</option></select></label>
               <label class="field" hidden>Quality <select id="dungeon-quality"><option value="high">High</option><option value="reduced">Reduced</option></select></label>
             </div></details>
             </details>

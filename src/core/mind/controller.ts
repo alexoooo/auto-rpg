@@ -3,10 +3,7 @@ import type { BodySpec } from "../spec/body.ts";
 import type { MindConfig } from "./config.ts";
 import type { BodyHost } from "./host.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
-import type { Part } from "./parts.ts";
-
-/** Every key of `C`, each `true`: the keys a config of it may hold, a key missing or extra refused by the compiler. */
-type KeysOf<C> = { readonly [P in keyof C]-?: true };
+import type { KeysOf, Part } from "./parts.ts";
 
 /**
  * **A controller**: a kind of mind, as a part (`Part`) of role `mind`, with the keys its config
