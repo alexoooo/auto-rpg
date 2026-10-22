@@ -110,7 +110,6 @@ readout sit at the sides; **Character** picks the body, loadout, balance and min
 pauses, single-steps, scrubs and slows time.
 
 - **Stance**: walk it from the keyboard and shove it.
-- **Get-up experiment**: shove it down and watch the mind's **When down** part get it up.
 - **Stand-up**: the owner's falls, on an open floor or against a column, wall, tomb or bench.
 - **Attack**: seeded targets for the body's game mind to approach and strike.
 - **Locomotion**: courses (circle, line, square, diamond, random destinations) at a set pace, with

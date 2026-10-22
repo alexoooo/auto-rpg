@@ -913,7 +913,7 @@ may route through a door first (`door-approach.ts`). Sight is the map's (`canSee
 `SightIndex`, `src/dungeon/map.ts`). Minds are chosen per model (`runMinds`,
 `src/dungeon/run-minds.ts`). Art: [crypt](art/crypt.md).
 
-**The Lab.** Stance, Get-up experiment, Stand-up, Attack and Locomotion scenarios at 120 or 480 Hz.
+**The Lab.** Stance, Stand-up, Attack and Locomotion scenarios at 120 or 480 Hz.
 An actor (`actor.ts`) gives the body its balance, mind (`labMind`, `&mind=`) and strikes. Attack
 (`attack-mode.ts`) issues `Orders.foe` against seeded targets (`targets.ts`); Locomotion runs tracks
 (`track.ts`) or random destinations under seeded wind (`wind.ts`). Stand-up (`ground-scenario.ts`,

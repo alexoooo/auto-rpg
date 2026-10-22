@@ -1,6 +1,6 @@
-import { RISE, stageFaults, type Recipe, type PoseStage, type BearStage } from "../core/mind/rise/stages.ts";
-import type { BodySpec } from "../core/spec/body.ts";
-import { deepFreeze } from "../core/state.ts";
+import { RISE, stageFaults, type Recipe, type PoseStage, type BearStage } from "../src/core/mind/rise/stages.ts";
+import type { BodySpec } from "../src/core/spec/body.ts";
+import { deepFreeze } from "../src/core/state.ts";
 
 /** Bounded controller parameters; the independent final-standing predicate is not a parameter. */
 export const FEEDBACK_PARAMETERS = deepFreeze<readonly (readonly [string, number, number, number])[]>([

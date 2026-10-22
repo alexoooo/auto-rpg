@@ -40,13 +40,11 @@ import type { BodySpec } from "../core/spec/body.ts";
 import type { FighterConfig } from "../core/mind/config.ts";
 import { treeData } from "../core/mind/catalog.ts";
 import { loadData, type DataKey } from "../core/data/store.ts";
-import { labHref, labMind, LAB_PRESETS, LAB_PROVIDES, recoveryAddress, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
+import { labHref, labMind, LAB_PROVIDES, SCENARIOS, type LabAddress, type ScenarioId } from "./scenarios.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
 import { dresserFor } from "../render/dress.ts";
 import { skinSlot, type SkinSlot } from "../render/skin-slot.ts";
 import { appearanceFor, type Appearance } from "../render/appearance.ts";
-import { feedbackRecipe } from "./recovery-recipe.ts";
-import recoverySeed from "../../research/stand-up-feedback-seed.json" with { type: "json" };
 import { stanceScenario } from "./stance-scenario.ts";
 import { groundScenario } from "./ground-scenario.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
@@ -92,7 +90,6 @@ const PERCENT = balancePercent(rulebook("arena"));
 
 const SCENARIO: Readonly<Record<ScenarioId, (scene: Scene, shell: LabShell) => LabScenario>> = {
   stance: (scene) => stanceScenario(scene),
-  recovery: (scene, shell) => stanceScenario(scene, shell),
   attack: attackScenario,
   locomotion: locomotionScenario,
   ground: groundScenario,
@@ -157,7 +154,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   }
   MeshBuilder.CreateLineSystem("lab.grid", { lines, colors: lines.map((l) => l.map(() => lineColour)) }, scene);
 
-  const scenario = SCENARIO[address.scenario](scene, { load, restart: () => load(shown), reproduceRecovery: (mode,recipe) => load({...recoveryAddress(shown, mode ?? shown.recoveryMode),...recipe}) });
+  const scenario = SCENARIO[address.scenario](scene, { load, restart: () => load(shown) });
   need("scenario-name").textContent = SCENARIOS.find((s) => s.id === address.scenario)!.name;
   const back = need<HTMLAnchorElement>("to-scenarios");
 
@@ -255,8 +252,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
   /** Load `to`'s loadout at `to`'s rate, in a new world, and start the scenario on it. */
   /** The mind a body of `spec` plays at `to`: the page's choice, as the scenario has it. */
   function mindAt(to: LabAddress, spec: BodySpec): FighterConfig {
-    const chosen = to.scenario === "recovery" && to.recoveryMode === "witness"
-      ? { ...LAB_PRESETS.script.config, subs: [{ kind: "support-recovery" as const }] } : labMind(to.mind, spec, to.scenario).plays;
+    const chosen = labMind(to.mind, spec, to.scenario).plays;
     return scenario.mind?.(chosen, to) ?? chosen;
   }
 
@@ -293,7 +289,7 @@ export async function bootLab(address: LabAddress & { readonly scenario: Scenari
     const actor = labActor(built, world, {
       mind,
       subs: scenario.subs?.(to),
-      recoveryRecipe: to.scenario === "recovery" && to.recoveryMode === "witness" ? feedbackRecipe(spec, recoverySeed.feedback.u) : undefined, assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), around: (tactics) => logged(tactics, log),
+      assist: balanceCeiling(balance, PERCENT), allows: allowing(to.barred), around: (tactics) => logged(tactics, log),
     });
     thinking.inspect(mindInspector(mind, spec, () => ({ body: actor.body, skills: actor.skills }), to.scenario === "attack" ? [] : LAB_PROVIDES));
     const rest = built.segments.get("lowerTrunk")!.node.rotationQuaternion!.clone();

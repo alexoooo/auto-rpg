@@ -51,7 +51,7 @@ export function characterSection(page: LabPage): readonly Control[] {
     ]),
     group("Mind", [
       choice("Preset", PRESET_IDS.filter(id => page.shown.scenario === "attack" ? id !== "script" : id === "script" || id === "guard").map((id) => ({ value: id as string, name: LAB_PRESETS[id].label })), () => presetOf(page),
-        (id) => page.load({ ...page.shown, recoveryMode: "selected", mind: LAB_PRESETS[id as keyof typeof LAB_PRESETS].config })),
+        (id) => page.load({ ...page.shown, mind: LAB_PRESETS[id as keyof typeof LAB_PRESETS].config })),
       // The strikes are the loaded body's; a hand whose strike is barred guards, whatever its mind asks.
       following(() => page.spec, (spec) => switches("Strikes",
         strikesOf(spec).map(({ held, name }) => ({ value: held, name })),
@@ -60,7 +60,7 @@ export function characterSection(page: LabPage): readonly Control[] {
       // Its tree, drawn again for each body loaded; a change loads a body under the mind changed.
       fold("Edit the mind", [following(() => page.spec, (spec) => {
         const editor = mindEditor(page.shown.mind, { spec, provides: page.shown.scenario === "attack" ? [] : LAB_PROVIDES, onFault: page.shown.scenario === "attack" ? "the Puncher preset is used" : "the Script preset is used",
-          onChange: (mind) => page.load({ ...page.shown, recoveryMode: "selected", mind }) });
+          onChange: (mind) => page.load({ ...page.shown, mind }) });
         return { element: editor.element, refresh() {} };
       })]),
     ]),

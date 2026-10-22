@@ -13,9 +13,6 @@ import type { RecipeOptions, Skills } from "../core/skills/skills.ts";
 import { heldIn } from "../core/skills/strikes.ts";
 import type { World } from "../core/world.ts";
 import type { Side } from "../core/spec/body.ts";
-import { supportRecovery } from "../core/mind/rise/support-recovery.ts";
-import { kitOf } from "../core/mind/kit.ts";
-import type { Recipe } from "../core/mind/rise/stages.ts";
 import { LAB_PRESETS } from "./scenarios.ts";
 
 /** A mode's instrument: it reads what the mind sees, before the mind decides, and changes nothing. */
@@ -53,8 +50,6 @@ export interface Actor {
 interface ActorOptions {
   /** An explicit experiment's pre-created sub-minds, in place of the selected fighter's. */
   readonly subs?: BodyOptions["subs"];
-  /** A Lab experiment's immutable recovery recipe in place of the mind's recovery choices. */
-  readonly recoveryRecipe?: Recipe;
   /** Its mind: the script on the game's recipe skills, lying still once down (`LAB_PRESETS.script`), unless given. */
   readonly mind?: FighterConfig;
   /** The most its assist gives it (`balanceCeiling`); none unless given. */
@@ -120,7 +115,7 @@ function tuned(config: FighterConfig, skills: RecipeOptions | undefined): Fighte
 }
 
 /** `built`, a human in its reference pose on the ground of `world`, as a mode's actor; a mind with a fault in its tree (`treeFaults`, given a script) is refused. */
-export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.script.config, assist, stance, measuring, allows = () => true, around = (tactics) => tactics, recoveryRecipe, subs }: ActorOptions = {}): Actor {
+export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.script.config, assist, stance, measuring, allows = () => true, around = (tactics) => tactics, subs }: ActorOptions = {}): Actor {
   const fault = treeFaults(mind, ["script"])[0];
   if (fault) throw new Error(fault);
   let input: Driving = {};
@@ -128,7 +123,7 @@ export function labActor(built: BuiltBody, world: World, { mind = LAB_PRESETS.sc
   const wiring: MindWiring = { name: "lab", orders: (senses) => input.orders?.(senses) ?? null, assist,
     senses: () => (input.senses ?? clock)(), contactIdentity: (other) => input.contactIdentity?.(other) ?? null };
   const body = createBody(built, world, { ...fighterBody(mind, wiring, partLookup), stance, measuring,
-    ...(recoveryRecipe ? { subs: [(own, view, into) => supportRecovery(own, view, into, kitOf(partLookup, own.spec, mind), recoveryRecipe)] } : {}), ...(subs ? { subs } : {}) });
+    ...(subs ? { subs } : {}) });
   const strikes = { left: allows(heldIn(built.spec, "left")), right: allows(heldIn(built.spec, "right")) };
   let driven: Skills | null = null;
   return {

@@ -26,14 +26,6 @@ import type { World } from "../core/world.ts";
  * This module has no page-only imports, so the Node stand can run it.
  */
 
-/**
- * The recovery search's fall: two shoves of `impulse` N s from `degrees`, the first after 2 s
- * standing and the second `separation` s later, on physics steps. 60 N s twice is caught by every
- * body's recovery steps; 70 and 80 fell the Warrior and the Rogue, empty or with the club, and the
- * skeleton (Node stand, Rapier, 120 Hz, balance 0).
- */
-export const SEARCH_FALL = Object.freeze({ impulse: 80, degrees: 0, separation: 0.2 });
-
 /** What the page asks of the stance; the page writes it, the stance reads it every control step. */
 interface StanceOrders {
   /** The walk's velocity, m/s: along the heading, and to its right. Zero stands. */
@@ -115,7 +107,7 @@ function stanceTactics(orders: StanceOrders): Tactics {
  * driven by the page's orders. `pushed` is told of each shove as it is applied: the segment
  * pushed, the impulse, N s, and where, world.
  */
-export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void, reproduceRecovery: boolean | { readonly impulse: number; readonly degrees: number; readonly separation: number } = false): StanceSession {
+export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impulse: Vector3, at: Vector3) => void): StanceSession {
   const { body, world } = actor;
   const orders = restOrders();
   const { report } = actor.drive(stanceTactics(orders));
@@ -131,10 +123,6 @@ export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impul
   };
 
   const push = shoving.shove;
-  const recipe = typeof reproduceRecovery === "object" ? reproduceRecovery : SEARCH_FALL;
-  const reproduction = reproduceRecovery ? world.afterStep(() => {
-    if (world.steps === 2 * world.hz || world.steps === Math.round((2+recipe.separation) * world.hz)) push(recipe.impulse, recipe.degrees);
-  }) : null;
   return {
     body, orders, frame,
     shove: push,
@@ -144,7 +132,6 @@ export function startStance(actor: Actor, pushed?: (segment: BuiltSegment, impul
       return out.set(s.centre.x + s.velocity.x / w, 0, s.centre.z + s.velocity.z / w);
     },
     dispose() {
-      reproduction?.dispose();
       shoving.dispose();
       actor.dispose();
     },

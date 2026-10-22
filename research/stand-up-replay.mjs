@@ -11,7 +11,8 @@ import { observeBody } from "../src/core/observation.ts";
 import { clockSenses } from "../src/core/mind/senses.ts";
 import { LAB_PRESETS } from "../src/lab/scenarios.ts";
 import { labActor } from "../src/lab/actor.ts";
-import { SEARCH_FALL, startStance } from "../src/lab/stance-mode.ts";
+import { startStance } from "../src/lab/stance-mode.ts";
+import { SEARCH_FALL } from "./stand-up-fall.mjs";
 import { coreStand, saveStand, loadStand } from "../tests/harness/core-stand.mjs";
 
 const digest = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -23,6 +24,7 @@ for (const name of readdirSync(new URL("../src/core/", import.meta.url), { recur
   controllerHash.update(name.replaceAll("\\", "/")).update(readFileSync(new URL(`../src/core/${name.replaceAll("\\", "/")}`, import.meta.url)));
 for (const name of ["actor", "stance-mode", "scenarios"])
   controllerHash.update(name).update(readFileSync(new URL(`../src/lab/${name}.ts`, import.meta.url)));
+controllerHash.update("stand-up-fall.mjs").update(readFileSync(new URL("./stand-up-fall.mjs", import.meta.url)));
 const controllerSha256 = controllerHash.digest("hex");
 
 /** Shared objects, collection order and typed-array bytes survive hashing; record storage order does not affect it. */

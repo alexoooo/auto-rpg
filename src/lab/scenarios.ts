@@ -14,7 +14,6 @@ import { deepFreeze } from "../core/state.ts";
 import { mindFaults, mindText, readMind } from "../ui/mind-link.ts";
 import { groundMind } from "./ground-config.ts";
 import { TECHNIQUES, type TechniqueName } from "../core/mind/ground/techniques.ts";
-import { SEARCH_FALL } from "./stance-mode.ts";
 import { readAttributes, writeAttributes, legacyAttributes } from "../ui/attribute-link.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
 import { loadoutAttributes } from "./loadout.ts";
@@ -30,7 +29,7 @@ import { GROUND_LEVELS, type GroundLevel } from "./ground-environment.ts";
  * Pure and free of the DOM. The menu reads its options from here, so an option offered is one the lab has.
  */
 
-export type ScenarioId = "stance" | "attack" | "locomotion" | "recovery" | "ground";
+export type ScenarioId = "stance" | "attack" | "locomotion" | "ground";
 
 interface ScenarioInfo {
   readonly id: ScenarioId;
@@ -40,7 +39,6 @@ interface ScenarioInfo {
 /** Every scenario, in the menu's order; the first is the default. */
 export const SCENARIOS: readonly ScenarioInfo[] = [
   { id: "stance", name: "Stance" },
-  { id: "recovery", name: "Get-up experiment" },
   { id: "ground", name: "Stand-up" },
   { id: "attack", name: "Attack" },
   { id: "locomotion", name: "Locomotion" },
@@ -130,9 +128,6 @@ export interface LabAddress extends LabLoadout, ViewSettings {
     readonly foe: 0 | 1 | 2 | 4;
     readonly gusts: boolean;
   };
-  readonly recoveryMode: "witness" | "selected";
-  /** Two timed chest impulses: direction in degrees, impulse in N s, separation in seconds. */
-  readonly recoveryPush: { readonly degrees: number; readonly impulse: number; readonly separation: number };
   readonly appearance: Appearance;
   /** The scenario to run; none is the menu. */
   readonly scenario: ScenarioId | null;
@@ -148,7 +143,7 @@ export interface LabAddress extends LabLoadout, ViewSettings {
   readonly seed: number;
 }
 
-const KEYS = ["groundLevel", "groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "recoveryMode", "pushDegrees", "pushImpulse", "pushSeparation", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
+const KEYS = ["groundLevel", "groundRise", "groundStart", "groundPosture", "groundDegrees", "groundImpulse", "groundFoe", "groundGusts", "scenario", "model", "appearance", "right", "left", "boots", "armour", "sole", "balance", "haste", "mind", "barred", "hz", "view", "camera", "projection", "targets", "seed"] as const;
 
 /** A switch in the address: `1` on, `0` off, anything else `fallback`. */
 /** A whole number in the address, from `least` to `most`: plain digits, anything else `fallback`. */
@@ -183,8 +178,6 @@ export function labAddress(search: string): LabAddress {
       foe: ([0, 1, 2, 4] as const).find(v => String(v) === query.get("groundFoe")) ?? 0,
       gusts: flag(query.get("groundGusts"), false),
     },
-    recoveryMode: recoveryModeFrom(query.get("recoveryMode")),
-    recoveryPush: {degrees:bounded("pushDegrees",0,360,SEARCH_FALL.degrees),impulse:bounded("pushImpulse",10,120,SEARCH_FALL.impulse),separation:bounded("pushSeparation",.05,1,SEARCH_FALL.separation)},
     scenario: SCENARIOS.find((s) => s.id === query.get("scenario"))?.id ?? null,
     model,
     attributes,
@@ -228,10 +221,6 @@ export function labHref(address: LabAddress, search = ""): string {
   if (address.ground.impulse !== null) query.set("groundImpulse", String(address.ground.impulse));
   if (address.ground.foe !== 0) query.set("groundFoe", String(address.ground.foe));
   if (address.ground.gusts) query.set("groundGusts", "1");
-  if (address.recoveryMode !== "selected") query.set("recoveryMode", address.recoveryMode);
-  if (address.recoveryPush.degrees !== SEARCH_FALL.degrees) query.set("pushDegrees", String(address.recoveryPush.degrees));
-  if (address.recoveryPush.impulse !== SEARCH_FALL.impulse) query.set("pushImpulse", String(address.recoveryPush.impulse));
-  if (address.recoveryPush.separation !== SEARCH_FALL.separation) query.set("pushSeparation", String(address.recoveryPush.separation));
   if (address.scenario) query.set("scenario", address.scenario);
   query.set("model", address.model);
   const appearance = appearanceFor(address.model, address.appearance);
@@ -251,19 +240,4 @@ export function labHref(address: LabAddress, search = ""): string {
   if (address.targets !== LAB_TARGETS.count) query.set("targets", String(address.targets));
   if (address.seed !== LAB_TARGETS.seed) query.set("seed", String(address.seed));
   return `?${query}`;
-}
-
-/** An explicit recovery demonstration; changing it preserves the view preferences. */
-export function recoveryAddress(address: LabAddress, recoveryMode: LabAddress["recoveryMode"] = "selected"): LabAddress {
-  if (recoveryMode === "selected") return { ...address, scenario: "recovery", recoveryMode };
-  return { ...address, scenario: "recovery", recoveryMode, recoveryPush: SEARCH_FALL,
-    model: "workshop-fighter", right: "empty", left: "empty", sole: true,
-    balance: 0, haste: null, attributes: { balance: 0 }, hz: 120, mind: LAB_PRESETS.script.config, barred: [], appearance: "default" };
-}
-
-function recoveryModeFrom(value: string | null): LabAddress["recoveryMode"] {
-  switch (value) {
-    case "selected": case "witness": return value;
-    default: return "selected";
-  }
 }

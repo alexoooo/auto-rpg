@@ -1,7 +1,7 @@
 import { recoveryFeatures } from '../src/core/control/recovery-features.ts';
 import { serialize, deserialize } from 'node:v8';
 import { recoveryEnvironment } from './stand-up-environment.mjs';
-import { SEARCH_FALL } from '../src/lab/stance-mode.ts';
+import { SEARCH_FALL } from './stand-up-fall.mjs';
 import { recoveryDesign } from './stand-up-design.mjs';
 
 /** Full-body observations and bounded actions over the actual game world's recovery port. */

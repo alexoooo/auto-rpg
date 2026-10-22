@@ -9,7 +9,8 @@ import { armedWith } from '../src/core/items/held.ts';
 import { createBody } from '../src/core/body.ts';
 import { driveFighter, fighterBody } from '../src/core/mind/fighter.ts';
 import { LAB_PRESETS } from '../src/lab/scenarios.ts';
-import { SEARCH_FALL, startStance } from '../src/lab/stance-mode.ts';
+import { startStance } from '../src/lab/stance-mode.ts';
+import { SEARCH_FALL } from './stand-up-fall.mjs';
 import { guardPosture } from '../src/core/skills/guard.ts';
 import { SIMBICON } from '../src/core/skills/simbicon.ts';
 import { supportRecovery } from '../src/core/mind/rise/support-recovery.ts';
@@ -36,7 +37,8 @@ for (const name of readdirSync(new URL('../src/core/', import.meta.url), { recur
   sourceHash.update(name.replaceAll('\\', '/'));
   sourceHash.update(sourceText(new URL(`../src/core/${name.replaceAll('\\', '/')}`, import.meta.url)));
 }
-for (const name of ['actor', 'stance-mode', 'scenarios', 'recovery-recipe']) sourceHash.update(sourceText(new URL(`../src/lab/${name}.ts`, import.meta.url)));
+for (const name of ['actor', 'stance-mode', 'scenarios']) sourceHash.update(sourceText(new URL(`../src/lab/${name}.ts`, import.meta.url)));
+for (const name of ['stand-up-feedback-recipe.ts', 'stand-up-fall.mjs']) sourceHash.update(sourceText(new URL(`./${name}`, import.meta.url)));
 const sourceSha = sourceHash.digest('hex');
 const encoded = v => v === Infinity ? '+inf' : v === -Infinity ? '-inf' : v;
 const decoded = v => v === '+inf' ? Infinity : v === '-inf' ? -Infinity : v;

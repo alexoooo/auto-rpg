@@ -49,8 +49,6 @@ export interface LabShell {
   load(address: LabAddress): void;
   /** Start the scenario again on a new body in a new world, as Restart does. */
   restart(): void;
-  /** Reset to the chosen recovery demonstration, with its explicit body and assistance. */
-  reproduceRecovery(mode?: LabAddress["recoveryMode"], recipe?: Pick<LabAddress,"model"|"right"|"recoveryPush">): void;
 }
 
 interface ScenarioContext {
