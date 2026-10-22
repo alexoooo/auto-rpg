@@ -19,6 +19,7 @@ import { deepFreeze } from "../../state.ts";
 import { committedAim } from "./committed-aim.ts";
 import { lowGuard } from "./low-guard.ts";
 import { adaptiveGuard } from "./adaptive-guard.ts";
+import { routeAround } from "./route-around.ts";
 
 interface VanguardConfig extends Omit<FighterConfig, "kind"> {
   readonly kind: "vanguard";
@@ -28,6 +29,8 @@ interface VanguardConfig extends Omit<FighterConfig, "kind"> {
   readonly slowEvade?: boolean;
   readonly adaptiveEvade?: boolean;
   readonly revisitEvade?: boolean;
+  readonly steadyWalk?: boolean;
+  readonly routeAround?: boolean;
   readonly lowActions?: readonly string[];
 }
 
@@ -73,11 +76,14 @@ const fighter = (config: VanguardConfig): FighterConfig => ({ ...config, kind: "
 
 /** A short defensive retreat is capped at 0.2 m/s instead of the navigator's ordinary travel pace. */
 const EVADE_PACE = .2;
+/** The stance walk turns at 0.3 rad/s, with its first two moving seconds limited to 0.2 rad/s. */
+const STEADY_TURN = deepFreeze({ turnLimit: .3, turnStartup: { seconds: 2, limit: .2 } });
 
 /** The committed-aim variant supplies its own straight-punch bindings and shares the rest of the kit. */
 function createVanguard(host: BodyHost, given: VanguardConfig, wiring: MindWiring) {
   if (!given.commitAim) return createFighter(host, fighter(given), wiring);
-  const config = { ...given, actions: armedActions(host.spec, given.executors, given.actions) };
+  const config = { ...given, actions: armedActions(host.spec, given.executors, given.actions),
+    locomotion: given.steadyWalk ? { kind: "stance-walk" as const, tuning: STEADY_TURN } : given.locomotion };
   const lowActions = new Set(given.lowActions ?? []);
   const body = host.command(fighterBody(config, wiring));
   const ordinaryTactics = tacticsOf(config.tactics, host.spec, wiring.name, config.actions,
@@ -92,10 +98,11 @@ function createVanguard(host: BodyHost, given: VanguardConfig, wiring: MindWirin
       return policy.engagement?.phase === "evade" ? { ...intent, pace: EVADE_PACE } : intent;
     },
   } : policy;
-  const low = given.lowGuard ? lowGuard(tactics, host.spec, sight => wiring.orders(sight.view.senses)) : null;
+  const routed = given.routeAround ? routeAround(tactics, sight => wiring.orders(sight.view.senses)) : tactics;
+  const low = given.lowGuard ? lowGuard(routed, host.spec, sight => wiring.orders(sight.view.senses)) : null;
   let skills: Skills;
   const ledger = () => skills?.report.ledger ?? [];
-  skills = driveBy(body, low?.tactics ?? tactics, (made, driving) => {
+  skills = driveBy(body, low?.tactics ?? routed, (made, driving) => {
     const ordinary = configuredExecutors(made, host.clock, config.executors.filter(executor => executor.kind !== "straight-punch"),
       config.actions.filter(action => !config.executors.some(executor => executor.name === action.executor && executor.kind === "straight-punch")), ledger);
     const aims = new Map(config.actions.map(action => [action.name, actionAim(host.spec, action.aim, action.family)]));
@@ -121,13 +128,14 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
   role: "mind", label: "Vanguard", stage: "experimental", defaults: VANGUARD,
   fields: [toggle("commitAim", "Commit to one aim point"), toggle("lowGuard", "Prepare a low guard"), toggle("predictAim", "Refresh the committed point's motion prediction"),
     toggle("slowEvade", "Limit evasive steps"), toggle("adaptiveEvade", "Learn attack or evasion from target contacts"),
-    toggle("revisitEvade", "Revisit an earlier quiet policy"), LOW_ACTIONS],
+    toggle("revisitEvade", "Revisit an earlier quiet policy"), toggle("steadyWalk", "Limit stance-walk turns"),
+    toggle("routeAround", "Find another reachable entry point"), LOW_ACTIONS],
   slots: [slotOne("navigation", "Navigation", "navigation", true), slotOne("tactics", "Tactics", "tactics"),
     slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotList("executors", "Executors", "executor"),
     slotOne("support", "Low support", "support", true), slotList("subs", "When down", "sub-mind"),
     slotOne("motor", "Motor control", "motor", true)],
   keys: { kind: true, tactics: true, locomotion: true, navigation: true, guard: true, executors: true, actions: true,
-    support: true, subs: true, motor: true, commitAim: true, lowGuard: true, predictAim: true, slowEvade: true, adaptiveEvade: true, revisitEvade: true, lowActions: true },
+    support: true, subs: true, motor: true, commitAim: true, lowGuard: true, predictAim: true, slowEvade: true, adaptiveEvade: true, revisitEvade: true, steadyWalk: true, routeAround: true, lowActions: true },
   fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0
     && armedActions(spec, config.executors, config.actions).length > 0,
   strikes: (spec, config) => armedActions(spec, config.executors, config.actions).flatMap(action => action.effectors),
@@ -142,6 +150,10 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
     ...config.adaptiveEvade && (!config.slowEvade || config.tactics.kind !== "behaviours") ? ["adaptiveEvade needs behaviour tactics and limited evasive steps"] : [],
     ...config.revisitEvade !== undefined && typeof config.revisitEvade !== "boolean" ? ["revisitEvade: a boolean"] : [],
     ...config.revisitEvade && !config.adaptiveEvade ? ["revisitEvade needs adaptive evasion"] : [],
+    ...config.steadyWalk !== undefined && typeof config.steadyWalk !== "boolean" ? ["steadyWalk: a boolean"] : [],
+    ...config.steadyWalk && (!config.commitAim || config.locomotion.kind !== "stance-walk") ? ["steadyWalk needs committed aim and stance walking"] : [],
+    ...config.routeAround !== undefined && typeof config.routeAround !== "boolean" ? ["routeAround: a boolean"] : [],
+    ...config.routeAround && !config.commitAim ? ["routeAround needs committed aim"] : [],
     ...config.lowGuard && (!config.commitAim || config.support?.kind !== "support-fold") ? ["lowGuard needs committed aim and low support"] : []],
   presets: deepFreeze({ vanguard: { label: "Vanguard", config: VANGUARD } }),
   builtIn: guardPosture,

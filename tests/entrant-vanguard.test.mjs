@@ -9,6 +9,35 @@ import { STANCE_LOWER } from "../src/core/skills/locomotion.ts";
 import { CAP_SECONDS } from "../src/arena/duel.ts";
 import { BOUT_ENGINE } from "../research/bout.mjs";
 import { adaptiveGuard } from "../src/core/entrants/vanguard/adaptive-guard.ts";
+import { routeAround } from "../src/core/entrants/vanguard/route-around.ts";
+import { createNavigator } from "../src/core/mind/navigation.ts";
+
+test("an obstructed attack entry asks navigation for a feasible range point and forks that request", () => {
+  const spec = { segments: [] }, foe = { id: "foe", out: false, spec, centre: { x: 2, y: 1, z: 0 }, velocity: { x: 0, y: 0, z: 0 } };
+  const window = { at: [2, 1, 0], along: [.8, 1.2], across: [-.1, .1], facing: .3, speed: .1 };
+  const engagement = { phase: "approach", focus: "foe", pending: { key: "strike" },
+    candidates: [{ key: "strike", readiness: { kind: "position", window } }] };
+  const intent = { move: null, face: 3.141592653589793 / 2, actions: [], movement: { kind: "place", points: [{ x: 1, z: 0 }], near: .04 } };
+  const base = { name: "fixture", state: { calls: 0 }, engagement, decide() { this.state.calls++; return intent; } };
+  const routed = routeAround(base, () => null), navigator = createNavigator(spec);
+  const view = { time: 0, stance: { centre: { x: -2, y: 1, z: 0 }, velocity: { x: 0, z: 0 } },
+    senses: { others: [foe], solids: [{ name: "pillar", kind: "box", centre: [1, 1, 0], size: [.8, 2, 1] }] } };
+  const sight = { view, report: { heading: intent.face, navigation: navigator.report } }, gait = { envelope: null, stopping: 1 };
+  navigator.step(sight, intent.movement, gait, 1, 1 / 120);
+  assert.equal(navigator.report.status, "unreachable", "the fixture's ordinary entry is inside a pillar");
+  const saved = saveState({ tactics: routed.state, navigation: navigator.state });
+  const next = () => { const decision = routed.decide(sight, 1 / 120), movement = navigator.step(sight, decision.movement, gait, 1, 1 / 120);
+    return { decision, movement, status: navigator.report.status, goal: { ...navigator.report.goal }, state: saveState({ tactics: routed.state, navigation: navigator.state }) }; };
+  const first = next();
+  assert.equal(first.decision.movement.kind, "range");
+  assert.equal(first.status, "moving", "the actual navigator finds another reachable entry");
+  assert.ok(first.movement.move, "the feasible route asks for physical travel");
+  loadState({ tactics: routed.state, navigation: navigator.state }, saved);
+  assert.deepEqual(next(), first, "the fallback and route replay together");
+  intent.actions = [{ id: 1 }];
+  assert.equal(routed.decide(sight, 1 / 120), intent, "an admitted action returns control to ordinary tactics");
+  assert.equal(routed.state.active, false);
+});
 
 /** Ordinary policies with distinguishable decisions and an external contact signal. */
 function learningFixture(signal) {
