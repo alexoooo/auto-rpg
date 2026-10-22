@@ -6,7 +6,8 @@
  * its own mind's slot and refuses it in another's tree, the part its maker made is the part a bout
  * runs, the bout forks and resumes to the bit and replays from its order sheets, and its tree goes
  * through a link unchanged. One bout, the two fixtures facing, holds every stub at once; an
- * executor is made with the configured guard's posture.
+ * executor is made with the configured guard's posture, and the fork falls inside a sub-mind's
+ * takeover and resumes across its handback.
  */
 import "./fixtures/swap/hooks.mjs";
 import test from "node:test";
@@ -24,6 +25,7 @@ const { parseMind, writeMind } = await import("../src/ui/mind-link.ts");
 const { GAME_CONFIGS, STUBS, SWAP_DEFAULTS, SWAP_OPTIONS_DEFAULTS } = await import("./fixtures/swap/mind.mjs");
 const { STUB_POSTURE } = await import("./fixtures/swap/stub-guard.mjs");
 const { STUB_BLOW } = await import("./fixtures/swap/stub-blow.mjs");
+const { STUB_TAKEOVER, TAKEOVER } = await import("./fixtures/swap/stub-takeover.mjs");
 const { saveState } = await import("../src/core/state.ts");
 
 /** The bout's steps and the step it is forked at. */
@@ -55,15 +57,18 @@ test("each part a bout runs is the one its config names, and the bout forks, res
       const builts = SIDES.map((side) => duel.duelists[side].built), trace = traceOf(builts), tail = traceOf(builts);
       const run = (until, traces) => { while (duel.steps < until) { world.step(); for (const one of traces) one.take(); } };
       run(FORK, [trace]);
-      const saved = fork ? duel.save() : null;
+      const saved = fork ? duel.save() : null, atFork = SIDES.map((side) => duel.duelists[side].minded.body.state.mind?.has ?? null);
       run(STEPS, [trace, tail]);
       const states = SIDES.map((side) => ({ kind: minds[side].kind, mind: saveState(duel.duelists[side].minded.state), body: saveState(duel.duelists[side].minded.body.state) }));
       let resumed = null;
       if (saved) { duel.load(saved); const again = traceOf(builts); run(STEPS, [again]); resumed = again.digest(); }
-      return { digest: trace.digest(), tail: tail.digest(), resumed, states, sheets: Object.fromEntries(SIDES.map((side) => [side, duel.duelists[side].sheets])) };
+      return { digest: trace.digest(), tail: tail.digest(), resumed, states, atFork, sheets: Object.fromEntries(SIDES.map((side) => [side, duel.duelists[side].sheets])) };
     } finally { dispose(); }
   };
   const first = await played({ record: true }, true);
+  const taker = SWAP_DEFAULTS.subs.findIndex((sub) => sub.kind === STUB_TAKEOVER.defaults.kind);
+  assert.ok(FORK >= TAKEOVER.FROM && STEPS >= TAKEOVER.UNTIL, "the bout is long enough to fork inside the takeover and hand back after it");
+  assert.equal(first.atFork[SIDES.indexOf("left")], taker, "the fixture forked while the takeover stub had the body");
   for (const state of first.states) for (const { part, read } of STUBS.filter((stub) => stub.mind === state.kind)) {
     const kind = part.defaults.kind, own = read(state.mind, state.body);
     assert.equal(own?.stub, kind, `the ${part.role} the mind runs is its config's stub`);
@@ -74,6 +79,7 @@ test("each part a bout runs is the one its config names, and the bout forks, res
     const standUp = state.body.mind.subs[0];
     assert.equal(standUp.motor.stub, "stub-motor", "the stand-up is made with the configured motor");
     assert.equal(standUp.techniques["step-up"].motor.stub, "stub-motor", "its technique is made with the configured motor");
+    assert.equal(state.body.mind.has, -1, "the takeover stub handed the body back to its host");
   }
   assert.equal(first.resumed, first.tail, "the bout forked and resumed is the bout");
   const replay = await played({ replay: first.sheets }, false);

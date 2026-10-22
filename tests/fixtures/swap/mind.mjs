@@ -18,6 +18,7 @@ import { STUB_BEHAVIOUR } from "./stub-behaviour.mjs";
 import { STUB_REFLEX } from "./stub-reflex.mjs";
 import { STUB_SUB } from "./stub-sub.mjs";
 import { STUB_TECHNIQUE } from "./stub-technique.mjs";
+import { STUB_TAKEOVER } from "./stub-takeover.mjs";
 
 /** Where a stub behaviour goes: after the fighter's own. */
 const BEHAVIOUR_AT = RECIPE_FIGHTER.tactics.list.length;
@@ -41,6 +42,8 @@ export const STUBS = Object.freeze([
     read: (state) => state.tactics.inner.behaviours[BEHAVIOUR_AT] },
   { part: STUB_TECHNIQUE, mind: "swap-stub", at: "subs.0.techniques.1", place: (config) => ({ ...config, subs: [{ ...STAND_UP, techniques: [...STAND_UP.techniques, STUB_TECHNIQUE.defaults] }] }),
     read: (_mind, body) => body.mind.subs[0].techniques["stub-technique"] },
+  { part: STUB_TAKEOVER, mind: "swap-stub", at: `subs.${RECIPE_FIGHTER.subs.length}`, place: (config) => ({ ...config, subs: [...config.subs, STUB_TAKEOVER.defaults] }),
+    read: (_mind, body) => body.mind.subs.find((sub) => sub?.stub === "stub-takeover") },
   { part: STUB_SUB, mind: "swap-options", at: `subs.${OPTIONS.subs.length}`, place: (config) => ({ ...config, subs: [...config.subs, STUB_SUB.defaults] }),
     read: (state) => state.tactics.options[OPTIONS.subs.length].mind },
   { part: STUB_REFLEX, mind: "swap-options", at: "reflexes.0", place: (config) => ({ ...config, reflexes: [STUB_REFLEX.defaults] }), read: (state) => state.tactics.reflexes.own[0] },
