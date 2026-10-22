@@ -4,6 +4,7 @@ import type { AssistCeiling } from "../core/control/assist.ts";
 import type { StanceTuning } from "../core/control/stance-tuning.ts";
 import { partLookup, treeFaults } from "../core/mind/catalog.ts";
 import type { FighterConfig } from "../core/mind/config.ts";
+import type { PartConfig } from "../core/mind/parts.ts";
 import { driveFighter, fighterBody } from "../core/mind/fighter.ts";
 import type { MindWiring } from "../core/mind/minds.ts";
 import { clockSenses } from "../core/mind/senses.ts";
@@ -93,6 +94,15 @@ function barred(tactics: Tactics, strikes: Readonly<Record<Side, boolean>>): Tac
   });
 }
 
+/** The research tuning a part's config carries (`Part.tuning`), or none. */
+const tuningOf = (config: PartConfig): object => (config as { readonly tuning?: object }).tuning ?? {};
+
+/** `config` with `tuning` over the research tuning it carries. */
+function retuned<C extends PartConfig>(config: C, tuning: object): C {
+  const out = { ...config, tuning: { ...tuningOf(config), ...tuning } };
+  return out;
+}
+
 /**
  * `config` with a mode's recipe options (`skills`) as its parts' `tuning`: the cover the guard's,
  * the rest the recipe strike's, where its blow is the recipe strike.
@@ -102,9 +112,9 @@ function tuned(config: FighterConfig, skills: RecipeOptions | undefined): Fighte
   const { cover, ...strike } = skills;
   return {
     ...config,
-    guard: cover === undefined ? config.guard : { ...config.guard, tuning: { ...config.guard.tuning, covering: cover } },
+    guard: cover === undefined ? config.guard : retuned(config.guard, { covering: cover }),
     executors: config.executors.map(executor => executor.kind === "recipe-strike" && Object.keys(strike).length > 0
-      ? { ...executor, tuning: { ...executor.tuning, ...strike } } : executor),
+      ? retuned(executor, strike) : executor),
   };
 }
 

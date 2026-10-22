@@ -22,12 +22,12 @@ const common = {
 export const BLADE_CUT_PART: ExecutorPart<Cut> = { ...common, label: "Blade cut", defaults: { kind: "blade-cut", name: "cut" },
   fields: [text("name", "Name")],
   strikesWith: (spec, _config, effector) => strikesWithBlade(spec, effector, "edge"),
-  make: (body, _clock, config, actions, resolve, direction) => bladeExecutor(body, actions.map(action => action.name), "edge", { ...BLADE_STRIKE, ...config.tuning }, resolve, direction),
+  make: ({ body, guard, resolve, direction }, config, actions) => bladeExecutor(body, guard, actions.map(action => action.name), "edge", { ...BLADE_STRIKE, ...config.tuning }, resolve, direction),
 };
 
 /** A tip-point trajectory aligns its actual physical point before committing the thrust. */
 export const BLADE_THRUST_PART: ExecutorPart<Thrust> = { ...common, label: "Blade thrust", defaults: { kind: "blade-thrust", name: "thrust" },
   fields: [text("name", "Name")],
   strikesWith: (spec, _config, effector) => strikesWithBlade(spec, effector, "point"),
-  make: (body, _clock, config, actions, resolve, direction) => bladeExecutor(body, actions.map(action => action.name), "point", { ...BLADE_STRIKE, ...config.tuning }, resolve, direction),
+  make: ({ body, guard, resolve, direction }, config, actions) => bladeExecutor(body, guard, actions.map(action => action.name), "point", { ...BLADE_STRIKE, ...config.tuning }, resolve, direction),
 };

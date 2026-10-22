@@ -1,10 +1,10 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../body.ts";
+import type { Pose } from "../control/motor.ts";
 import { heldFrame } from "../build/rigid.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import type { BodySpec, Side } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
-import { guardPosture } from "./guard.ts";
 import { effectorStrike, type StrikeCourse } from "./effector-strike.ts";
 import { STRIKE_EVENT } from "./strike-cycle.ts";
 import { placedHeightFits, placedReach } from "./strike.ts";
@@ -47,10 +47,10 @@ export const strikesWithBlade = (spec: BodySpec, effector: string, mechanism: "e
 type Resolve = (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null;
 
 /** Cuts and thrusts share the bounded strike lifecycle, with an independent turn that aims the actual region. */
-export function bladeExecutor(body: Body, actions: readonly string[], mechanism: "edge" | "point", settings: BladeSettings = BLADE_STRIKE,
+export function bladeExecutor(body: Body, guard: Pose, actions: readonly string[], mechanism: "edge" | "point", settings: BladeSettings = BLADE_STRIKE,
   resolve: Resolve = (_view, target) => target.kind === "point" ? target.at : null, contactDirection?: Resolve): Executor {
   if (!validBladeSettings(settings)) throw new Error("invalid blade strike settings");
-  const spec = body.built.spec, guard = guardPosture(spec), hands = ["left", "right"] as const;
+  const spec = body.built.spec, hands = ["left", "right"] as const;
   const ends = { left: endpoint(spec, "hand.left", mechanism), right: endpoint(spec, "hand.right", mechanism) };
   const make = (hand: Side) => ends[hand] ? effectorStrike({ effector: `hand.${hand}`, point: ends[hand]!.point,
     limits: settings, chamberSeconds: settings.chamberSeconds, returnSeconds: settings.returnSeconds }) : null;

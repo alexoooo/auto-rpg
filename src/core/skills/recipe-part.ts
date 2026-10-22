@@ -26,7 +26,7 @@ export const RECIPE_PART: ExecutorPart<Config> = {
   // A hand strikes with a blunt item by placement, and with anything its repertoire holds a recipe for.
   strikesWith: (spec, config, effector) => strikesWithBlunt(spec, effector)
     || (effector === "hand.left" || effector === "hand.right") && recipesFor(config.tuning?.repertoire ?? REPERTOIRE, spec, effector === "hand.left" ? "left" : "right").length > 0,
-  make: (body, _world, config, actions, resolve) => recipeExecutor(body.built.spec, actions.map(a => a.name), { ...config.tuning, resolve }),
+  make: ({ body, guard, resolve }, config, actions) => recipeExecutor(body.built.spec, actions.map(a => a.name), { ...config.tuning, guard, resolve }),
   estimate(spec, config, action, aim) {
     if (action.aim.kind === "surface") return null;
     const repertoire = config.tuning?.repertoire ?? REPERTOIRE;

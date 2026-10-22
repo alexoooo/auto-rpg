@@ -1,5 +1,6 @@
 import type { BodySpec } from "../../spec/body.ts";
 import type { ActionConfig } from "../../mind/config.ts";
+import { blowsOf } from "../../mind/action-config.ts";
 import { NO_COVER, type Intent } from "../../mind/intent.ts";
 import { orderedFacing } from "../../mind/ordered.ts";
 import type { MindWiring } from "../../mind/minds.ts";
@@ -23,11 +24,8 @@ type Phase = "wait" | "enter" | "burst" | "exit" | "low" | "orders";
 /** The longest it steps back before it rests again, s, wherever it has got to. */
 const EXIT_LONGEST = 1.5;
 
-/** How many blows an action of `config` throws: a combination its drives, else one. */
-const throws = (config: TempoConfig, action: ActionConfig): number => {
-  const executor = config.executors.find((one) => one.name === action.executor);
-  return executor?.kind === "combination" ? executor.drives : 1;
-};
+/** How many blows an action of `config` throws (`blowsOf`). */
+const throws = (config: TempoConfig, action: ActionConfig): number => blowsOf(config.executors, action);
 
 type Asked = Omit<Intent, "guard">;
 

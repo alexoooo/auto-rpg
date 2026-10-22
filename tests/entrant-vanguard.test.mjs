@@ -120,9 +120,9 @@ test("a quiet policy trial is revisited when the contact conditions change", () 
 
 test("independent body-relative punches fork through preparation, commitment and released recovery", async () => {
   const base = CONTROLLERS.vanguard.defaults;
-  const config = { ...base, commitAim: true, predictAim: true, anchorAtDrive: true, overlapReturn: true, returnHold: .1,
+  const config = { ...base,
     executors: base.executors.flatMap(executor => executor.name === "punch"
-      ? ["left", "right"].map(side => ({ ...executor, name: `punch.${side}` })) : [executor]),
+      ? ["left", "right"].map(side => ({ ...executor, name: `punch.${side}`, predict: true, anchorAtDrive: true, overlapReturn: true, returnHold: .1 })) : [executor]),
     actions: base.actions.flatMap(action => action.executor === "punch"
       ? ["left", "right"].map(side => ({ ...action, name: `strike.${side}`, executor: `punch.${side}`, effectors: [`hand.${side}`] })) : [action]),
   };

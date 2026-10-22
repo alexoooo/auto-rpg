@@ -1,7 +1,7 @@
 import { deepFreeze } from "../../state.ts";
 import type { BodyHost } from "../host.ts";
 import { COUNTER_PUNCHER, STAND_UP, type ActionConfig, type OptionsConfig, type SubMindConfig } from "../config.ts";
-import { actionConfigFaults, armedActions } from "../action-config.ts";
+import { actionConfigFaults, armedActions, blowsOf } from "../action-config.ts";
 import { fighterBody, fighterSkills } from "../fighter.ts";
 import { NO_COVER } from "../intent.ts";
 import { orderedFacing } from "../ordered.ts";
@@ -24,11 +24,8 @@ import { strike } from "./strike.ts";
 import { CLINCH, WEIGHTS } from "./value.ts";
 import { walker } from "./walk.ts";
 
-/** How many blows an action of `config` throws: a combination its drives, else one. */
-const throws = (config: OptionsConfig, action: ActionConfig): number => {
-  const executor = config.executors.find((one) => one.name === action.executor);
-  return executor?.kind === "combination" ? executor.drives : 1;
-};
+/** How many blows an action of `config` throws (`blowsOf`). */
+const throws = (config: OptionsConfig, action: ActionConfig): number => blowsOf(config.executors, action);
 
 /** How it holds the edge of its foe's reach: as the Counter-puncher does. */
 const EDGE = (() => {

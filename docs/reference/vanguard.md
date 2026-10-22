@@ -14,7 +14,8 @@ name each configuration; they are not pooled into qualification evidence.
 
 ## What is used
 
-The punching kit is Vanguard with `commitAim: true` and its punch's `settle: 0.2`. The other kit
+The punching kit is Vanguard with its committed punch (the `vanguard-punch` executor, `commitAim: true`
+at the recorded commits) and its punch's `settle: 0.2`. The other kit
 settings are the original Vanguard's. A punch follows one segment-local aim through its stroke,
 then frees its hand to the continuous guard during recovery. The records carry both configurations
 whole. They measure the punching kit; the current preset also includes low support and a low-only
@@ -80,7 +81,7 @@ cases, with other bodies, stages, starts and equipment still outside this record
 
 ## Refreshed point prediction
 
-With `predictAim: true`, the punch projects its chosen point onto the sensed collider before
+With its punch's `predict` (`predictAim: true` at the recorded commits), the punch projects its chosen point onto the sensed collider before
 remembering it locally. Each control step predicts that point from the segment's current linear
 and angular velocity, with a 0.12 s lead plus the sensed frame's age. The calibrated preset
 enables this option; the editor also exposes it separately.

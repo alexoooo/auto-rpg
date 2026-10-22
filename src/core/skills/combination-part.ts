@@ -22,8 +22,8 @@ export const COMBINATION_PART: ExecutorPart<Config> = {
   faults: config => validCombination(config) ? [] : ["invalid combination settings"], effectors: ["hand.left", "hand.right"], actionFaults: noPathSettings,
   // Its punches are thrown by hands that hold nothing: of two drives, the hand asked for and the other.
   strikesWith: (spec, config, effector) => config.drives === 2 ? holdsNothing(spec, "hand.left") && holdsNothing(spec, "hand.right") : holdsNothing(spec, effector),
-  make(body, _world, config, actions, resolve) {
+  make({ body, guard, resolve }, config, actions) {
     const { kind: _, name: __, ...settings } = config;
-    return combinationExecutor(body, actions.map(a => a.name), settings, resolve);
+    return combinationExecutor(body, guard, actions.map(a => a.name), settings, resolve);
   },
 };

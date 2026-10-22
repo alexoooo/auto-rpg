@@ -16,5 +16,5 @@ export const KICK_PART: ExecutorPart<Config> = {
   fields: [text("name", "Name")], slots: [], tuning: Object.keys(KICK_PATH), fits: takesCommands,
   faults: config => validKickTuning({ ...KICK_PATH, ...config.tuning }) ? [] : ["invalid kick settings"],
   effectors: ["foot.left", "foot.right"], actionFaults: action => [...noPathSettings(action), ...action.aim.kind === "surface" ? ["unsupported surface aim"] : []],
-  make: (body, _world, config, actions, resolve) => kickExecutor(body, actions.map(a => a.name), { ...KICK_PATH, ...config.tuning }, resolve),
+  make: ({ body, resolve }, config, actions) => kickExecutor(body, actions.map(a => a.name), { ...KICK_PATH, ...config.tuning }, resolve),
 };

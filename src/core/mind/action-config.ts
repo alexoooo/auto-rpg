@@ -1,16 +1,23 @@
-import type { Body } from "../body.ts";
+import type { Body, BodyView } from "../body.ts";
+import type { Pose } from "../control/motor.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Clock } from "../clock.ts";
-import type { Ended } from "../skills/action.ts";
+import type { Ended, TargetRef } from "../skills/action.ts";
 import type { ExecutorBinding } from "../skills/action-instances.ts";
 import { actionAim } from "./action-aim.ts";
 import type { ActionEstimates } from "./action-tactics.ts";
-import type { ActionConfig, ExecutorConfig } from "./config.ts";
+import type { ActionConfig, ExecutorEntry } from "./config.ts";
 import type { PartLookup } from "./lookup.ts";
 import { validOpeningTuning } from "./openings.ts";
 
+/** How many blows `action` throws: its executor's drives where it is a combination, else one. */
+export function blowsOf(executors: readonly ExecutorEntry[], action: ActionConfig): number {
+  const executor = executors.find((one) => one.name === action.executor), drives = (executor as { readonly drives?: unknown } | undefined)?.drives;
+  return executor?.kind === "combination" && typeof drives === "number" ? drives : 1;
+}
+
 /** Compile measured recipe values without exposing execution kinds to the selector. */
-export function configuredActionEstimates(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorConfig[], actions: readonly ActionConfig[]): ActionEstimates {
+export function configuredActionEstimates(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[]): ActionEstimates {
   const providers: Record<string, ActionEstimates[string]> = {};
   for (const action of actions) {
     const executor = executors.find(entry => entry.name === action.executor);
@@ -27,7 +34,7 @@ export function configuredActionEstimates(parts: PartLookup, spec: BodySpec, exe
  * effectors its executor strikes with there (`ExecutorPart.strikesWith`), and one with none left
  * out. A mind declares these effectors as the equipment its actions support.
  */
-export function armedActions(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorConfig[], actions: readonly ActionConfig[]): readonly ActionConfig[] {
+export function armedActions(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[]): readonly ActionConfig[] {
   return actions.flatMap((action) => {
     const executor = executors.find((entry) => entry.name === action.executor);
     if (!executor) return [action];
@@ -37,8 +44,8 @@ export function armedActions(parts: PartLookup, spec: BodySpec, executors: reado
 }
 
 /** Validate named sharing, anatomical choices and settings before constructing any executor. */
-export function actionConfigFaults(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorConfig[], actions: readonly ActionConfig[]): readonly string[] {
-  const faults: string[] = [], names = new Set<string>(), entries = new Map<string, ExecutorConfig>();
+export function actionConfigFaults(parts: PartLookup, spec: BodySpec, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[]): readonly string[] {
+  const faults: string[] = [], names = new Set<string>(), entries = new Map<string, ExecutorEntry>();
   for (const executor of executors) {
     if (!executor.name || names.has(executor.name)) faults.push(`duplicate or empty executor name ${executor.name}`);
     names.add(executor.name); entries.set(executor.name, executor);
@@ -77,15 +84,15 @@ export function actionConfigFaults(parts: PartLookup, spec: BodySpec, executors:
 }
 
 /** Build each named motion state once and resolve every action through its own shared aiming rule. */
-export function configuredExecutors(parts: PartLookup, body: Body, clock: Clock, executors: readonly ExecutorConfig[], actions: readonly ActionConfig[], ledger: () => readonly Ended[] = () => []): readonly ExecutorBinding[] {
+export function configuredExecutors(parts: PartLookup, body: Body, clock: Clock, guard: Pose, executors: readonly ExecutorEntry[], actions: readonly ActionConfig[], ledger: () => readonly Ended[] = () => []): readonly ExecutorBinding[] {
   const faults = actionConfigFaults(parts, body.built.spec, executors, actions);
   if (faults.length) throw new Error(faults.join("; "));
   const aims = new Map(actions.map(action => {
     const config = executors.find(executor => executor.name === action.executor)!;
     return [action.name, actionAim(body.built.spec, action.aim, action.family, parts.of("executor", config).paths?.(config))] as const;
   }));
-  return executors.map(config => ({ name: config.name, executor: parts.of("executor", config).make(body, clock, config,
-    actions.filter(action => action.executor === config.name),
-    (view, target, action, effector) => aims.get(action)?.(view, target, effector, ledger())?.at ?? null,
-    (view, target, action, effector) => aims.get(action)?.(view, target, effector, ledger())?.direction ?? null) }));
+  const making = { body, clock, guard,
+    resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => aims.get(action)?.(view, target, effector, ledger())?.at ?? null,
+    direction: (view: BodyView, target: TargetRef, action: string, effector: string) => aims.get(action)?.(view, target, effector, ledger())?.direction ?? null };
+  return executors.map(config => ({ name: config.name, executor: parts.of("executor", config).make(making, config, actions.filter(action => action.executor === config.name)) }));
 }

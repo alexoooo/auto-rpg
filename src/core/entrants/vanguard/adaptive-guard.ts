@@ -8,8 +8,8 @@ const RECENCY = .5;
 /** Revisit the other policy after four consecutive complete periods, including an earlier quiet trial. */
 const REVISIT = 4;
 
-/** Compare target-impact scores from two ordinary policies, switching only between strokes. */
-export function adaptiveGuard(attacking: Tactics, defensive: Tactics, revisit = false, unreservedReturns = false): Tactics {
+/** Compare target-impact scores from two ordinary policies, switching only between strokes: with none under way, or every one recovering and holding nothing. */
+export function adaptiveGuard(attacking: Tactics, defensive: Tactics, revisit = false): Tactics {
   const policies = [attacking, defensive];
   const state = { attacking: attacking.state ?? null, defensive: defensive.state ?? null, mode: 0,
     since: null as number | null, score: 0, rates: [0, 0], samples: [0, 0], streak: 0,
@@ -42,8 +42,8 @@ export function adaptiveGuard(attacking: Tactics, defensive: Tactics, revisit = 
           before[0] = feedback.velocity[0]; before[1] = feedback.velocity[1]; before[2] = feedback.velocity[2];
         }
       }
-      const between = !sight.report.actions.length || unreservedReturns
-        && sight.report.actions.every(action => action.phase === "release" && action.holds.length === 0);
+      const between = !sight.report.actions.length
+        || sight.report.actions.every(action => action.phase === "release" && action.holds.length === 0);
       if (state.since !== null && view.time - state.since >= PERIOD && between) {
         const mode = state.mode, other = 1 - mode, rate = state.score / (view.time - state.since);
         state.rates[mode] = state.samples[mode] === 0 ? rate : state.rates[mode]! * RECENCY + rate * (1 - RECENCY);

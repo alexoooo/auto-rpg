@@ -9,7 +9,7 @@ import type { HandPose, Side } from "../spec/body.ts";
 import type { ActionAround, ActionClaim, CommandPatch } from "./action.ts";
 import { actionInstances, type ActionBinding, type ActionContact, type ExecutorBinding } from "./action-instances.ts";
 import { actionResources } from "./action-resources.ts";
-import { guardPosture, type GuardSkill } from "./guard.ts";
+import type { GuardSkill } from "./guard.ts";
 import { STANCE_LOWER, type Locomotion } from "./locomotion.ts";
 import type { SupportSkill } from "./support-fold.ts";
 import type { Navigator } from "../mind/navigator.ts";
@@ -28,8 +28,6 @@ export interface SkillParts {
    */
   readonly navigation: Navigator | null;
   readonly support?: SupportSkill | null;
-  /** A free hand's hold of what it holds (`holdUp`), asked of each hand neither a cover nor an action drives; absent, the posture's. */
-  readonly hold?: ((side: Side) => PointTask | null) | null;
 }
 
 /** One owner per concrete control, with defaults named and actions identified by instance id. */
@@ -43,8 +41,8 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const models = bodyEffectors(body.built).map(e => e.model), feet = footStatesOf(body.built).map(f => f.segment.spec.name);
   const resources = actionResources(body.muscles.channels.map(c => c.name), models, feet);
   const allControls = resources.controls(Object.keys(resources.footprints)), supportControls = resources.controls(["legs", "trunk"]);
-  const instances = actionInstances(executors, actions, resources), guarding = guardPosture(body.built.spec);
-  const state = { actions: instances.state, legs: legs.state, navigation: navigation?.state ?? null, support: support?.state ?? null, tactics: tactics.state ?? null,
+  const instances = actionInstances(executors, actions, resources), guarding = guard.posture;
+  const state = { actions: instances.state, legs: legs.state, navigation: navigation?.state ?? null, guard: guard.state ?? null, support: support?.state ?? null, tactics: tactics.state ?? null,
     command: { posture: guarding, pushes: [], stance: null } as BodyCommand, owners: {} as Holders,
     reservations: {} as Record<string, number>,
     /** Whether the last step's owner of the stance let a walk through: what a route may ask of the legs now. */
@@ -95,7 +93,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       // The goal's ceiling: its own, or a walk's speed where the tactics asked a walk; asked to walk, no faster than the plain walk forward.
       const ceiling = Math.min(requested.pace ?? (velocity && !requested.movement ? hypot(velocity[0], velocity[1]) : Infinity),
         requested.walk && body.envelope ? body.envelope.ways.forward.value : Infinity);
-      const supportAllowsWalk = !support || support.report.stage === "stand" || support.report.stage === "wait";
+      const supportAllowsWalk = !support || support.walks();
       if (!navigation && requested.movement) throw new Error("a movement request to a skill set with no navigation");
       const result = navigation?.step({ view, report }, request, legs, ceiling, dt, state.walkable && supportAllowsWalk, requested.travelFacing === true) ?? null;
       let intent = requested;
@@ -129,7 +127,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       for (const side of ["left", "right"] as const) {
         if (available(`effector:hand.${side}`)) effectors[`hand.${side}`] = covers[side];
         if (available(`pose:${side}`) && body.built.spec.segments.find(s => s.name === `hand.${side}`)?.handPoses) handPoses[side] = "open";
-        const held = !effectors[`hand.${side}`] && available(`effector:hand.${side}`) ? services.hold?.(side) : null;
+        const held = !effectors[`hand.${side}`] && available(`effector:hand.${side}`) ? guard.hold?.(side) : null;
         if (held) points.push(held);
       }
       const legOwner = claims.find(item => item.controls.includes("stance"));
@@ -148,7 +146,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         default: { const never: never = ask; throw new Error(`unknown legs ask ${JSON.stringify(never)}`); }
       }
       // A fold under way holds the legs where they stand: a walk asked waits for it to rise.
-      if (moving && support && support.report.stage !== "stand" && support.report.stage !== "wait") moving = { walk: null, face: moving.face };
+      if (moving && support && !support.walks()) moving = { walk: null, face: moving.face };
       let driven = false;
       if (moving) {
         const drive = legs.drive?.(view, moving.walk, moving.face, dt, lower, intent.destination)

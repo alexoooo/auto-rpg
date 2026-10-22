@@ -21,6 +21,22 @@ const TURN_PACE = .2;
 /** Unready support is abandoned within six seconds, including when a fall hides behind the crouch's height. */
 const PREPARE_LIMIT = 6;
 
+/**
+ * **Where a punch aims at a low foe**: the highest surface point of the target region's segments of
+ * the foe `target` names, where that foe is low (`lowOpponent`); null for any other target.
+ */
+export function lowAim(view: BodyView, target: TargetRef): Vec3 | null {
+  if (target.kind !== "body") return null;
+  const foe = sensedActionTarget(view, target);
+  if (!foe || !lowOpponent(view, foe)) return null;
+  let chosen: Vec3 | null = null;
+  for (const name of regionSegments(foe.spec, target.region)) {
+    const point = highestSurface(foe, name);
+    if (point && (!chosen || point[1] > chosen[1])) chosen = point;
+  }
+  return chosen;
+}
+
 /** Prepare low support early and cover a low opponent's head with the free closed hands. */
 export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) => Orders | null) {
   const state = { base: base.state ?? null, unready: null as number | null, rising: false };
@@ -61,17 +77,6 @@ export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) =
     },
   };
   return { tactics,
-    aim(view: BodyView, target: TargetRef): Vec3 | null {
-      if (target.kind !== "body") return null;
-      const foe = sensedActionTarget(view, target);
-      if (!foe || !lowOpponent(view, foe)) return null;
-      let chosen: Vec3 | null = null;
-      for (const name of regionSegments(foe.spec, target.region)) {
-        const point = highestSurface(foe, name);
-        if (point && (!chosen || point[1] > chosen[1])) chosen = point;
-      }
-      return chosen;
-    },
     skills(base: Skills): Skills {
     return { ...base, get envelope() { return base.envelope; }, get report() { return base.report; },
       command(view, intent, dt) {

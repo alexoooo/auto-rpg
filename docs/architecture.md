@@ -128,7 +128,7 @@ spec joint, whose free axes are the spec's freedoms.
 - A held item's mass is folded into its segment by `rigidOf`, which names the owner of each shape:
   the segment, an anatomical region, an item or an item's region.
 - **A body is built in the pose its joints demand**: a fighter in the posture its mind holds from
-  its first step (`builtAngles`, `Controller.builtIn`; for a fighter, `guardPosture`). Optional
+  its first step (`builtAngles`, `Controller.builtIn`; for a fighter, its guard's posture, `GuardPart.posture`). Optional
   initial angles and a root quaternion place a task's body; a policy may not reposition a live one.
 - Rapier uses impulse joints; its multibody form cannot hold the same anatomy
   ([solver contract](reference/solver-contract.md#anatomical-joint-shape-compatibility)).
@@ -302,19 +302,25 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
 - **Blade actions** (`blade.ts`, `blade-part.ts`): `blade-cut` and `blade-thrust` aim a held item's
   directed edge or point region on the same cycle. `shortSword` (`src/core/items/sword.ts`) is the
   first such item.
-- **Guard** (`guard.ts`) has the hands no action holds. Its pose is `GUARD` (`guardPosture`); a
+- **Guard** (`guard.ts`) has the hands no action holds. A guard is a part (`GuardPart`,
+  `skills/guard-part.ts`, a line in `GUARDS`, `mind/guards.ts`) whose posture is the one source of
+  the arms' rest: where the body is built, where the arbiter puts the arms no skill holds, and where
+  a blow returns (`ExecutorMaking.guard`). The game's pose is `GUARD` (`guardPosture`); a
   hand told what to cover (`Cover`) places its knuckles, or an item's two cover points
   (`ItemSpec.cover`), between the threat and the place guarded (`GUARD_COVER`). `shield-guard`
   also orients a buckler's face; `cover-guard` is the line-cover alternative. There is no block or
   parry: a cover is a placement, and what it costs is the blow rule's.
 - **Low support** folds the stance onto a planted base for low blows; a kick or fold waits for a
-  gait that drives the legs to give them back.
+  gait that drives the legs to give them back. It is a part (`SupportPart`, `skills/support-part.ts`,
+  a line in `SUPPORTS`, `mind/supports.ts`) that says whether the legs may walk under it (`walks`).
 
 Each executor kind is a registered implementation (`ExecutorPart`, `mind/executor-part.ts`): its
 module (`skills/<kind>-part.ts`) owns its config's type, keys, defaults, faults, fit, the effectors
 it strikes with and its maker, and is a line in `EXECUTORS` (`mind/executors.ts`, a role list), from
 which `ExecutorConfig` follows; `configuredExecutors` (`action-config.ts`) makes a fighter's named
-executors once each, each by the part the host's lookup finds for its kind. Action selection belongs to tactics, not to an executor.
+executors once each, each by the part the host's lookup finds for its kind, a mind's own included,
+handed what it is made with (`ExecutorMaking`: the body, the clock, the guard's posture and the
+aim rules). Action selection belongs to tactics, not to an executor.
 
 ### Minds
 
@@ -406,7 +412,7 @@ slots (`slotOne`, `slotList`, `slotsOf`), `defaults`, `fits`, `faults` and `need
 screen must give). `allParts` (`catalog.ts`) is every part by kind: the parts below a mind, each
 mind, and each mind's own parts (`Controller.parts`), read once on first use so that any module may
 load first. A role whose parts make themselves has a list of them that holds its imports and its
-list and nothing else (`NAVIGATIONS`, `navigations.ts`; `EXECUTORS`, `executors.ts`), so a case's code begins each part's own
+list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `GUARDS`, `SUPPORTS`, in `src/core/mind/`), so a case's code begins each part's own
 code there; its parts make what they are (`NavigatorPart.make`), and an assembly makes the one a
 config names as the host's lookup finds it. A part whose checks read the parts it names is handed
 the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the registry. Over the tree:
@@ -550,8 +556,9 @@ joint-feedback Mind (`entrants/direct/mind.ts`) is the example.
    it runs the game's.
 4. It may use any of the toolkit (`src/core/mind/`, `skills/`, `control/`) and imports no engine,
    world or builder. Data and learned weights go under `assets/entrants/<name>/`.
-5. A part of its own of a role whose parts make themselves (navigation) is a module in its folder
-   and a line in its controller's `parts`; its config chooses it, and its maker finds it with the
+5. A part of its own of a role whose parts make themselves (navigation, guard, support, executor)
+   is a module in its folder and a line in its controller's `parts` (Vanguard's punch,
+   `vanguard-punch`); its config chooses it, and its maker finds it with the
    host's lookup (`BodyHost.parts`). Only its own minds' slots offer it. `tests/swap.test.mjs`
    registers a fixture entrant this way from outside `src/` (`tests/fixtures/swap/`) and holds a
    stub of each such role to it: chosen by config, run, forked, replayed and linked.

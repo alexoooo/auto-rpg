@@ -1,4 +1,3 @@
-import { guardPosture } from "../../skills/guard.ts";
 import { deepFreeze } from "../../state.ts";
 import { armedActions } from "../action-config.ts";
 import { OPTIONS, type OptionsConfig } from "../config.ts";
@@ -46,6 +45,6 @@ export const OPTIONS_MIND = controller<OptionsConfig>({
     ...kitFaults(config),
   ],
   presets: deepFreeze({ options: { label: "Options fighter", config: OPTIONS } }),
-  builtIn: guardPosture,
+  builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
   create: createOptionsFighter,
 });

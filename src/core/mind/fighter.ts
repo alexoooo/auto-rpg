@@ -1,40 +1,18 @@
 import { SERVO_SECONDS, type Body, type BodyOptions } from "../body.ts";
 import { skillSet } from "../skills/arbiter.ts";
-import { guardSkill } from "../skills/guard.ts";
-import { holdUp } from "../skills/hold.ts";
 import type { Skills } from "../skills/skills.ts";
 import type { Ended } from "../skills/action.ts";
-import type { ExecutorBinding } from "../skills/action-instances.ts";
-import { supportFold } from "../skills/support-fold.ts";
-import { deepFreeze } from "../state.ts";
 import type { Clock } from "../clock.ts";
 import type { BodyHost } from "./host.ts";
-import type { ActionConfig, FighterConfig, SkillKit, SkillConfig } from "./config.ts";
+import type { ActionConfig, FighterConfig, SkillKit } from "./config.ts";
 import { actionConfigFaults, armedActions, configuredActionEstimates, configuredExecutors } from "./action-config.ts";
 import type { MindWiring } from "./minds.ts";
 import { legsOf } from "./locomotions.ts";
 import type { PartLookup } from "./lookup.ts";
 import { navigatorOf } from "./navigator.ts";
-import { takesCommands, type Part } from "./parts.ts";
 import { subMindsOf } from "./sub-minds.ts";
 import { tacticsOf } from "./tactics-of.ts";
 import { driveBy, type Tactics } from "./tactics.ts";
-
-/** A skill part of no settings: its role, what it is called, its stage, its config and what is wrong with one. */
-const skill = <C extends SkillConfig>(role: Part["role"], label: string, stage: Part["stage"], defaults: C, faults: (config: C) => readonly string[] = () => []): Part<C> =>
-  ({ role, label, stage, fields: [], slots: [], defaults, fits: takesCommands, faults });
-
-/**
- * **Every guard and low support, by its kind** (`Part`): what a fighter's guard and support slots
- * hold. Low support is the opening tactics' research, offered beside the game's.
- */
-export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<SkillConfig, { kind: K }>> } = deepFreeze({
-  "cover-guard": { ...skill("guard", "Guard and cover", "game", { kind: "cover-guard" }),
-    supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined && item.coverNormal === undefined).map(({ segment }) => segment), tuning: ["covering", "hold"] },
-  "shield-guard": { ...skill("guard", "Guard faces and lines", "game", { kind: "shield-guard" }),
-    supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined).map(({ segment }) => segment), tuning: ["covering", "hold"] },
-  "support-fold": skill("support", "Fight from low support", "experimental", { kind: "support-fold" }),
-});
 
 /** Cross-part references are checked before any motion state is constructed: its kit's (`kitFaults`), and the actions its selector names. */
 export function fighterFaults(config: FighterConfig): readonly string[] {
@@ -90,12 +68,13 @@ export function driveFighter(body: Body, clock: Clock, parts: PartLookup, given:
   return skills;
 }
 
-/** The skills `config` names, each part the one `parts` finds, with entrant-made executors where supplied; action aims read the body's `ledger`. */
-export function fighterSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillKit, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[], suppliedExecutors?: readonly ExecutorBinding[]): Skills {
+/** The skills `config` names, each part the one `parts` finds, a mind's own included; action aims read the body's `ledger`. */
+export function fighterSkills(made: Body, clock: Clock, parts: PartLookup, config: SkillKit, driving: Pick<Tactics, "state" | "engagement">, ledger: () => readonly Ended[]): Skills {
+  const guard = parts.of("guard", config.guard).make(made, config.guard);
   return skillSet(made, driving, {
-    legs: legsOf(made, config.locomotion), navigation: navigatorOf(parts, made.built.spec, config.navigation), guard: guardSkill(made.built.spec, config.guard.tuning?.covering, config.guard.kind === "shield-guard"),
-    support: config.support ? supportFold(made) : null, hold: config.guard.tuning?.hold === true ? holdUp(made.built) : null,
-    executors: suppliedExecutors ?? configuredExecutors(parts, made, clock, config.executors, config.actions, ledger),
+    legs: legsOf(made, config.locomotion), navigation: navigatorOf(parts, made.built.spec, config.navigation), guard,
+    support: config.support ? parts.of("support", config.support).make(made, config.support) : null,
+    executors: configuredExecutors(parts, made, clock, guard.posture, config.executors, config.actions, ledger),
     actions: config.actions,
   });
 }

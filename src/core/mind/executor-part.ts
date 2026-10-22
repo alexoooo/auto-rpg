@@ -2,6 +2,7 @@ import type { Body } from "../body.ts";
 import type { Clock } from "../clock.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { Executor } from "../skills/action.ts";
+import type { Pose } from "../control/motor.ts";
 import type { AttackTuning } from "../skills/attack-path.ts";
 import type { ActionConfig } from "./config.ts";
 import type { KeysOf, Part, PartConfig } from "./parts.ts";
@@ -13,6 +14,18 @@ import type { pathExecutor } from "../skills/combat.ts";
 /** An executor's config: its kind and the name a fighter's actions call it by. */
 interface NamedConfig extends PartConfig {
   readonly name: string;
+}
+
+/** **What an executor's maker is handed** beside its config and its actions. */
+export interface ExecutorMaking {
+  readonly body: Body;
+  readonly clock: Clock;
+  /** The arms' rest, the mind's guard's (`GuardSkill.posture`): where its blows return. */
+  readonly guard: Pose;
+  /** Where an action's effector aims at its target (`actionAim`), or null where it has none. */
+  readonly resolve: NonNullable<Parameters<typeof kickExecutor>[3]>;
+  /** The way an action's effector drives at its target, or null for its own. */
+  readonly direction: NonNullable<Parameters<typeof pathExecutor>[3]>["direction"];
 }
 
 /**
@@ -28,8 +41,7 @@ export interface ExecutorPart<C extends NamedConfig = NamedConfig> extends Part<
   actionFaults(action: ActionConfig): readonly string[];
   paths?(config: C): AttackTuning;
   estimate?(spec: BodySpec, config: C, action: ActionConfig, aim: ReturnType<typeof actionAim>): ActionEstimates[string] | null;
-  make(body: Body, clock: Clock, config: C, actions: readonly ActionConfig[],
-    resolve: NonNullable<Parameters<typeof kickExecutor>[3]>, direction: NonNullable<Parameters<typeof pathExecutor>[2]>["direction"]): Executor;
+  make(making: ExecutorMaking, config: C, actions: readonly ActionConfig[]): Executor;
 }
 
 /** Fields belonging to path execution cannot silently affect another kind. */

@@ -53,7 +53,7 @@ export interface Minded extends MindMade {
 
 /** The posture a body of `spec` is built in under the mind `config` names (`Controller.builtIn`), as a placement's angles (`poseAngles`). */
 export function builtAngles(spec: BodySpec, config: MindConfig): Record<string, number[]> {
-  return poseAngles(spec, controllerOf(config).builtIn(spec, config));
+  return poseAngles(spec, controllerOf(config).builtIn(spec, config, partLookup));
 }
 
 /**

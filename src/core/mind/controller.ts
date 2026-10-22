@@ -4,6 +4,7 @@ import type { MindConfig } from "./config.ts";
 import type { BodyHost } from "./host.ts";
 import type { MindMade, MindWiring } from "./minds.ts";
 import type { KeysOf, Part } from "./parts.ts";
+import type { PartLookup } from "./lookup.ts";
 
 /**
  * **A controller**: a kind of mind, as a part (`Part`) of role `mind`, with the keys its config
@@ -16,10 +17,10 @@ export interface Controller<C extends MindConfig = MindConfig> extends Part<C> {
   readonly presets: Readonly<Record<string, { readonly label: string; readonly config: C }>>;
   /**
    * The posture a body of `spec` under a mind of `config` is built in (`poseAngles`): the one
-   * its mind holds from its first step, so that no joint is flung into it. `NO_POSTURE` builds
-   * the spec's reference pose.
+   * its mind holds from its first step, so that no joint is flung into it: a fighting mind's is its
+   * guard's (`GuardPart.posture`), which `parts` finds. `NO_POSTURE` builds the spec's reference pose.
    */
-  builtIn(spec: BodySpec, config: C): Pose;
+  builtIn(spec: BodySpec, config: C, parts: PartLookup): Pose;
   /**
    * Its own parts, each of a role below a mind: offered only in its own minds' slots
    * (`kindsFor`), a fault in another mind's tree (`treeFaults`), and its own code, which a case

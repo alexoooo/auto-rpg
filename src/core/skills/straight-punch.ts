@@ -8,7 +8,6 @@ import { channelName } from "../muscle/driver.ts";
 import type { BodySpec, Side } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
-import { guardPosture } from "./guard.ts";
 import { type StrikeReport } from "./strike.ts";
 import { turnSense } from "./whole-body-strike.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, Readiness, TargetRef } from "./action.ts";
@@ -146,8 +145,8 @@ const HANDS: readonly Side[] = Object.freeze(["left", "right"]);
  * guard and stands. An attack given up before the drive is dropped; a drive begun is thrown to its
  * end. It has the legs from its approach to its return, and the hand is closed throughout.
  */
-export function straightTechnique(body: Body, settings: StraightPunch) {
-  const built = body.built, spec = built.spec, guard = guardPosture(spec), sense = { left: turnSense("left"), right: turnSense("right") };
+export function straightTechnique(body: Body, guard: Pose, settings: StraightPunch) {
+  const built = body.built, spec = built.spec, sense = { left: turnSense("left"), right: turnSense("right") };
   if (!straightPunchFits(spec)) throw new Error(`${spec.model} cannot throw the straight punch`);
   const effectors = bodyEffectors(built), at = new Vector3(), before = new Vector3();
   const limbOf = (hand: Side): Limb => {
@@ -325,10 +324,10 @@ export function punchReadiness(view: BodyView, technique: ReturnType<typeof stra
 }
 
 /** A straight-punch instance owns settling, its committed drive and its bounded guard return. */
-export function straightPunchExecutor(body: Body, actions: readonly string[], settings: StraightPunch = STRAIGHT_PUNCH,
+export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly string[], settings: StraightPunch = STRAIGHT_PUNCH,
   resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null = (_view, target) => target.kind === "point" ? target.at : null): Executor {
   if (!validStraightPunch(settings)) throw new Error("invalid straight punch settings");
-  const technique = straightTechnique(body, settings), motion = technique.state, guard = guardPosture(body.built.spec);
+  const technique = straightTechnique(body, guard, settings), motion = technique.state;
   technique.read(body.view);
   const sides = { left: ["hand.left", "trunk", "legs"], right: ["hand.right", "trunk", "legs"] } as const;
   const sideOf = (effector: string): Side => {

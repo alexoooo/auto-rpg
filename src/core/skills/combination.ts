@@ -1,12 +1,11 @@
 import type { Body, BodyView } from "../body.ts";
 import { bodyEffectors } from "../control/effectors.ts";
-import type { MusclePush, PointTask } from "../control/motor.ts";
+import type { MusclePush, PointTask, Pose } from "../control/motor.ts";
 import { atan2, hypot } from "../math/real.ts";
 import type { Side } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import type { ActionEnding, ActionRequest, Executor, LifecycleUpdate, TargetRef } from "./action.ts";
-import { guardPosture } from "./guard.ts";
 import { PUNCH_PREPARE_LIMIT, punchReadiness, quietToPunch, STRAIGHT_PUNCH, straightPunchFits, straightTechnique, validStraightPunch, type StraightPunch } from "./straight-punch.ts";
 import { closesToStrike } from "./strikes.ts";
 
@@ -56,10 +55,10 @@ const other = (hand: Side): Side => hand === "left" ? "right" : "left";
  * first, and coming back of both, to the guard, which brings each back and may cover with it, while
  * it holds the trunk and legs to the end. It is ready where the first hand's straight punch is.
  */
-export function combinationExecutor(body: Body, actions: readonly string[], settings: Combination = COMBINATION,
+export function combinationExecutor(body: Body, guard: Pose, actions: readonly string[], settings: Combination = COMBINATION,
   resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null = (_view, target) => target.kind === "point" ? target.at : null): Executor {
   if (!validCombination(settings)) throw new Error("invalid combination settings");
-  const technique = straightTechnique(body, settings), motion = technique.state, guard = guardPosture(body.built.spec);
+  const technique = straightTechnique(body, guard, settings), motion = technique.state;
   technique.read(body.view);
   const holds = ["hand.left", "hand.right", "trunk", "legs"] as const;
   /** What it holds where it is: both hands, the trunk and the legs, of one drive the first hand of them; from the first drive's end, the second hand of them; coming back the trunk and legs. */

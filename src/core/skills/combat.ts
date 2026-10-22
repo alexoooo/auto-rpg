@@ -3,13 +3,13 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../body.ts";
 import { intoFrameToRef } from "../control/kinematics.ts";
 import { cos, hypot, sin } from "../math/real.ts";
-import type { MusclePush } from "../control/motor.ts";
+import type { MusclePush, Pose } from "../control/motor.ts";
 import type { BlowFamily } from "../mind/intent.ts";
 import type { Tactics } from "../mind/tactics.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { skillSet, type SkillParts } from "./arbiter.ts";
 import { attackPath, ATTACK_PATH, validAttackTuning, type AttackTuning } from "./attack-path.ts";
-import { guardPosture, guardSkill } from "./guard.ts";
+import { guardSkill } from "./guard.ts";
 import { supportFold, supportHeadDrop } from "./support-fold.ts";
 import { locomotion, STANCE_LOWER, type TurnStartup } from "./locomotion.ts";
 import type { LegsAsk } from "./skill.ts";
@@ -84,9 +84,10 @@ const HOLD: LegsAsk = Object.freeze({ kind: "hold" });
 /** The path strike's usual skills of `body`: the walk, the guard, the path strike, and the kick and the support fold it has. */
 export function pathParts(body: Body, { paths, kick, execution, turnLimit, turnStartup, ground = false, overlap = false }: CombatSettings = {}): SkillParts {
   const actions: PathAction[] = (["straight", "cross", "hook", "downward", "overhand", "uppercut"] as const).map(family => ({ name: family, family }));
+  const guard = guardSkill(body.built.spec);
   return {
-    legs: locomotion(body.envelope, turnLimit, turnStartup), navigation: null, guard: guardSkill(body.built.spec),
-    executors: [{ name: "paths", executor: pathExecutor(body, actions, { paths, execution, overlap }) },
+    legs: locomotion(body.envelope, turnLimit, turnStartup), navigation: null, guard,
+    executors: [{ name: "paths", executor: pathExecutor(body, guard.posture, actions, { paths, execution, overlap }) },
       ...(kick ? [{ name: "kicks", executor: kickExecutor(body, ["kick"], kick) }] : [])],
     actions: [...actions.map(action => ({ name: action.name, executor: "paths", effectors: ["hand.left", "hand.right"] })),
       ...(kick ? [{ name: "kick", executor: "kicks", effectors: ["foot.left", "foot.right"] }] : [])],
@@ -113,13 +114,13 @@ interface PathExecutorSettings extends PathStrikeSettings {
 }
 
 /** Path and driven actions retain separate returning instances and generate only their own writes. */
-export function pathExecutor(body: Body, actions: readonly PathAction[], settings: PathExecutorSettings = {}): Executor {
+export function pathExecutor(body: Body, guard: Pose, actions: readonly PathAction[], settings: PathExecutorSettings = {}): Executor {
   const { execution, driven, overlap = false } = settings;
   const paths = settings.paths ?? ATTACK_PATH;
   const tuning = driven ? { ...paths, windup: driven.windup, torso: driven.torso, contactSpeed: driven.contact } : paths;
   if (!validAttackTuning(tuning) || execution && !validCombatExecution(execution) || driven && !validDrivenStrike(driven))
     throw new Error("invalid path executor settings");
-  const spec = body.built.spec, guarding = guardPosture(spec);
+  const spec = body.built.spec, guarding = guard;
   const resolve = settings.resolve ?? ((_view: BodyView, target: TargetRef) => target.kind === "point" ? target.at : null);
   const foundation = execution?.planted ? supportReadiness(body.built) : null;
   const bare = { left: closesToStrike(spec, "left"), right: closesToStrike(spec, "right") };

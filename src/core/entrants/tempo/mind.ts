@@ -1,5 +1,5 @@
 import { actionConfigFaults, armedActions } from "../../mind/action-config.ts";
-import { OPTIONS, SCRAPPER, STAND_UP, type ActionConfig, type ExecutorConfig, type ReflexConfig, type SkillKit, type SubMindConfig } from "../../mind/config.ts";
+import { OPTIONS, SCRAPPER, STAND_UP, type ActionConfig, type ExecutorEntry, type ReflexConfig, type SkillKit, type SubMindConfig } from "../../mind/config.ts";
 import { controller } from "../../mind/controller.ts";
 import { fighterBody, fighterSkills, kitFaults } from "../../mind/fighter.ts";
 import { number } from "../../mind/fields.ts";
@@ -8,7 +8,6 @@ import type { MindWiring } from "../../mind/minds.ts";
 import { fitsAll, fitsWhen, slotList, slotOne, takesCommands, type Slot } from "../../mind/parts.ts";
 import { driveBy } from "../../mind/tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
-import { guardPosture } from "../../skills/guard.ts";
 import { STRAIGHT_PUNCH } from "../../skills/straight-punch.ts";
 import { deepFreeze } from "../../state.ts";
 import { tempoTactics } from "./tactics.ts";
@@ -48,7 +47,7 @@ const atBody = (family: "uppercut" | "cross"): ActionConfig => ({ name: family, 
  * record picks among them; the experimental kick and whole-body strike, tried beside them, cost
  * it more time than they gave.
  */
-const EXECUTORS: readonly ExecutorConfig[] = [{ name: "straight", kind: "straight-punch", ...STRAIGHT_PUNCH },
+const EXECUTORS: readonly ExecutorEntry[] = [{ name: "straight", kind: "straight-punch", ...STRAIGHT_PUNCH },
   optionsOwn(OPTIONS.executors, "combination"), optionsOwn(OPTIONS.executors, "paths")];
 const ACTIONS: readonly ActionConfig[] = [
   { name: "jab", executor: "straight", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "high" }], aim: { kind: "centre", lead: 0 } },
@@ -103,6 +102,6 @@ export const TEMPO_MIND = controller<TempoConfig>({
   supportedEquipment: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: tempoFaults,
   presets: deepFreeze({ tempo: { label: "Tempo fighter", config: TEMPO } }),
-  builtIn: guardPosture,
+  builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
   create: createTempo,
 });

@@ -5,6 +5,8 @@ import type { LocomotionPart } from "./locomotion-part.ts";
 import type { NavigatorPart } from "./navigator.ts";
 import type { Part, PartConfig, Role } from "./parts.ts";
 import type { SubMindPart } from "./sub-mind-part.ts";
+import type { GuardPart } from "../skills/guard-part.ts";
+import type { SupportPart } from "../skills/support-part.ts";
 
 /** **Each role's kind of part**: what a lookup of the role gives (`PartLookup.of`), its maker included where the role's parts make themselves. */
 export interface RoleParts {
@@ -15,9 +17,9 @@ export interface RoleParts {
   readonly "move-rule": Part;
   readonly navigation: NavigatorPart;
   readonly locomotion: LocomotionPart;
-  readonly guard: Part;
+  readonly guard: GuardPart;
   readonly executor: ExecutorPart;
-  readonly support: Part;
+  readonly support: SupportPart;
   readonly reflex: Part;
   readonly motor: MotorPart;
 }

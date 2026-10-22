@@ -67,8 +67,9 @@ export async function punchStand({model='workshop-fighter',hand='right',family='
   const executor = { name: 'motion', ...(blow ?? { kind: 'path-strike', overlap: false, tuning: { paths: { ...paths, contactSpeed }, execution } }) };
   const action = { name: 'strike', executor: executor.name, effectors: [`hand.${hand}`], regions: [{ kind: 'mark', mark: 'high' }], aim: { kind: 'centre', lead: 0 },
     ...(['path-strike','driven-strike'].includes(executor.kind) ? { family, armExtension } : {}) };
-  const skills=skillSet(body,{}, { legs:locomotion(body.envelope), guard:guardSkill(spec),
-    executors:configuredExecutors(partLookup,body,s.world,[executor],[action]), actions:[action] });
+  const guard=guardSkill(spec);
+  const skills=skillSet(body,{}, { legs:locomotion(body.envelope), guard,
+    executors:configuredExecutors(partLookup,body,s.world,guard.posture,[executor],[action]), actions:[action] });
   const cycles=actionCycles(skills);
   const target=[(hand==='right'?.1:-.1)+across,height,ahead];
   sensor=punchPad(s.world,[target[0]+(mode==='miss'?1:0),target[1],target[2]],pad);

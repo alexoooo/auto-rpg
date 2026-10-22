@@ -1,4 +1,3 @@
-import { guardPosture } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
 import { actionConfigFaults, armedActions } from "./action-config.ts";
 import { BEHAVIOURS, CLASSIC, COUNTER_PUNCHER, DUELLIST, PUNCHER, RECIPE_FIGHTER, SCRAPPER, type FighterConfig } from "./config.ts";
@@ -33,6 +32,6 @@ export const FIGHTER_MIND = controller<FighterConfig>({
     behaviours: { label: "Behaviours", config: BEHAVIOURS },
     duellist: { label: "Duellist", config: DUELLIST },
   }),
-  builtIn: guardPosture,
+  builtIn: (spec, config, parts) => parts.of("guard", config.guard).posture(spec, config.guard),
   create: createFighter,
 });

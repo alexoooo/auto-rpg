@@ -8,7 +8,7 @@ import type { Side, BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { distance, sub } from "../spec/vec.ts";
 import { deepFreeze } from "../state.ts";
-import { GUARD, guardPosture } from "./guard.ts";
+import { GUARD } from "./guard.ts";
 import { PLACING, type Footing } from "./locomotion.ts";
 import { wrap } from "../math/turn.ts";
 import type { Skill } from "./skill.ts";
@@ -563,14 +563,15 @@ interface RecipeActionSettings {
   readonly repertoire?: Repertoire;
   readonly placed?: Placed;
   readonly steer?: number;
-  readonly guard?: Pose;
+  /** The arms' rest, the mind's guard's (`GuardSkill.posture`). */
+  readonly guard: Pose;
   readonly resolve?: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null;
 }
 
 /** A named recipe executor separates elapsed motion from pure per-instance command generation. */
-export function recipeExecutor(spec: BodySpec, actions: readonly string[], settings: RecipeActionSettings = {}): Executor {
+export function recipeExecutor(spec: BodySpec, actions: readonly string[], settings: RecipeActionSettings): Executor {
   const repertoire = settings.repertoire ?? REPERTOIRE, placing = settings.placed ?? PLACED;
-  const guard = settings.guard ?? guardPosture(spec), steering = settings.steer ?? STEER;
+  const guard = settings.guard, steering = settings.steer ?? STEER;
   const known = { left: blowsOf(spec, repertoire, "left"), right: blowsOf(spec, repertoire, "right") };
   const hands = { left: ["hand.left", "trunk", "legs"], right: ["hand.right", "trunk", "legs"] } as const;
   const resolve = settings.resolve ?? ((_view: BodyView, target: TargetRef) => target.kind === "point" ? target.at : null);

@@ -1,5 +1,6 @@
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../../body.ts";
+import type { Pose } from "../../control/motor.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
 import { regionSegments, sensedActionTarget } from "../../mind/action-aim.ts";
 import type { ActionRequest, Executor, TargetRef } from "../../skills/action.ts";
@@ -14,7 +15,7 @@ interface Anchor { body: string; segment: string; local: Vec3 }
 const LEAD = .12;
 
 /** A punch follows one sensed point through its drive, optionally refreshing the opening while preparing. */
-export function committedAim(body: Body, actions: readonly string[], settings: StraightPunch, resolve: Resolve, lowSupport = false, predict = false, anchorAtDrive = false, overlapReturn = false, returnHold = 0): Executor {
+export function committedAim(body: Body, guard: Pose, actions: readonly string[], settings: StraightPunch, resolve: Resolve, lowSupport = false, predict = false, anchorAtDrive = false, overlapReturn = false, returnHold = 0): Executor {
   const state = { base: null as object | null, id: null as number | null, anchor: null as Anchor | null, returning: false, committed: false,
     releasedAt: null as number | null, freeReturn: false };
   const arms = new Set(bodyEffectors(body.built).filter(e => e.model.segment.startsWith("hand.")).flatMap(e => e.model.channels));
@@ -55,7 +56,7 @@ export function committedAim(body: Body, actions: readonly string[], settings: S
       }
   };
   const clear = () => { state.id = null; state.anchor = null; state.returning = false; state.committed = false; state.releasedAt = null; state.freeReturn = false; };
-  const base = straightPunchExecutor(body, actions, settings, follow);
+  const base = straightPunchExecutor(body, guard, actions, settings, follow);
   state.base = base.state;
   return {
     ...base, state,

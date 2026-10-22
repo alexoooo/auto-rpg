@@ -4,7 +4,7 @@ import type { Intent } from "../mind/intent.ts";
 import type { Tactics } from "../mind/tactics.ts";
 import type { ActionAround, ActionStatus, Ended, Readiness, TargetRef } from "./action.ts";
 import { skillSet, type Holders, type SkillParts } from "./arbiter.ts";
-import { guardPosture, guardSkill, type Covering } from "./guard.ts";
+import { guardSkill, type Covering } from "./guard.ts";
 import { locomotion } from "./locomotion.ts";
 import type { Skill } from "./skill.ts";
 import { recipeExecutor, type Placed } from "./strike.ts";
@@ -51,8 +51,9 @@ export interface RecipeOptions {
 /** A named recipe action, continuous locomotion and the unreserved hands' guard. */
 function recipeParts(body: Body, { repertoire = REPERTOIRE, placed, steer, cover }: RecipeOptions = {}): SkillParts {
   const spec = body.built.spec;
-  return { legs: locomotion(body.envelope), navigation: null, guard: guardSkill(spec, cover),
-    executors: [{ name: "recipe", executor: recipeExecutor(spec, ["strike"], { repertoire, placed, steer, guard: guardPosture(spec) }) }],
+  const guard = guardSkill(spec, cover);
+  return { legs: locomotion(body.envelope), navigation: null, guard,
+    executors: [{ name: "recipe", executor: recipeExecutor(spec, ["strike"], { repertoire, placed, steer, guard: guard.posture }) }],
     actions: [{ name: "strike", executor: "recipe", effectors: ["hand.left", "hand.right"] }] };
 }
 

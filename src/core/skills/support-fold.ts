@@ -29,6 +29,8 @@ export interface SupportReport {
 export interface SupportSkill extends Skill {
   readonly state: object;
   readonly report: SupportReport;
+  /** Whether the legs may walk under it as it stands: not while a fold is under way. */
+  walks(): boolean;
   /** Move toward `lower` (`Intent.lower`), the body `moving` or not. */
   tick(view: BodyView, lower: number, moving: boolean, dt: number): void;
   /** `stance` and `posture` as the support under way leaves them. */
@@ -57,7 +59,7 @@ export function supportFold(body: Body): SupportSkill {
     const c = view.stance.centre, nearest = withinSupport(feet, c.x, c.z);
     return nearest[0] === c.x && nearest[1] === c.z;
   };
-  return { state, report: state, resume() {
+  return { state, report: state, walks: () => state.stage === "stand" || state.stage === "wait", resume() {
     state.stage = "stand"; state.ready = false; state.active = false;
     state.depth = 0; state.from = 0; state.to = 0; state.time = 0; state.quiet = 0;
   }, tick(view, lower, moving, dt) {

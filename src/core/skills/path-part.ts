@@ -43,7 +43,7 @@ export const PATH_PART: ExecutorPart<Path> = {
   fields: [text("name", "Name"), toggle("overlap", "Overlap returns")], slots: [], tuning: ["paths", "execution"], fits: takesCommands,
   faults, effectors: ["hand.left", "hand.right"], actionFaults, paths,
   strikesWith: (spec, _config, effector) => strikesWithBlunt(spec, effector),
-  make: (body, _world, config, actions, resolve, direction) => pathExecutor(body, actions.map(a => ({ ...a, family: a.family! })),
+  make: ({ body, guard, resolve, direction }, config, actions) => pathExecutor(body, guard, actions.map(a => ({ ...a, family: a.family! })),
     { ...config.tuning, paths: paths(config), overlap: config.overlap, resolve, direction }),
 };
 /** Driven paths expose their additional trunk controls beside the common path fields. */
@@ -55,8 +55,8 @@ export const DRIVEN_PART: ExecutorPart<Driven> = {
   slots: [], tuning: ["paths", "execution"], fits: takesCommands, faults: config => [...faults(config), ...validDrivenStrike(config) ? [] : ["invalid driven strike settings"]],
   effectors: ["hand.left", "hand.right"], actionFaults, paths,
   strikesWith: (spec, _config, effector) => strikesWithBlunt(spec, effector),
-  make(body, _world, config, actions, resolve, direction) {
+  make({ body, guard, resolve, direction }, config, actions) {
     const { kind: _, name: __, tuning, ...driven } = config;
-    return pathExecutor(body, actions.map(a => ({ ...a, family: a.family! })), { ...tuning, paths: paths(config), driven, resolve, direction });
+    return pathExecutor(body, guard, actions.map(a => ({ ...a, family: a.family! })), { ...tuning, paths: paths(config), driven, resolve, direction });
   },
 };

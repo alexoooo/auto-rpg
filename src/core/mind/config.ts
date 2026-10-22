@@ -1,6 +1,8 @@
 import type { StandUpConfig } from "./ground/stand-up.ts";
 import type { SubMindConfig } from "./sub-minds.ts";
 import type { EXECUTORS } from "./executors.ts";
+import type { GUARDS } from "./guards.ts";
+import type { SUPPORTS } from "./supports.ts";
 import type { MotorConfig } from "../control/motors.ts";
 import type { REPTILE_BITE } from "../reptile/tuning.ts";
 import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
@@ -10,7 +12,6 @@ import type { LocomotionConfig } from "./locomotions.ts";
 import type { MoveConfig } from "../skills/move-part.ts";
 import type { ConfigOf, PartConfig } from "./parts.ts";
 import type { OpeningTuning } from "./openings.ts";
-import type { Covering } from "../skills/guard.ts";
 import { deepFreeze } from "../state.ts";
 import type { AimRule } from "./action-aim.ts";
 import type { Region } from "../skills/action.ts";
@@ -51,22 +52,11 @@ export interface BehavioursConfig {
 /** Tactics either compose behaviours, hold guard, or execute a supplied script. */
 export type TacticsConfig = { readonly kind: "script" } | { readonly kind: "stand" } | BehavioursConfig;
 
-/** **The guard**: the arms' posture, and a guarding hand's cover of what the tactics name (`guardSkill`). */
-interface CoverGuardConfig {
-  readonly kind: "cover-guard";
-  readonly tuning?: {
-    /** The cover in place of `GUARD_COVER`. */
-    readonly covering?: Covering;
-    /** Whether a free hand holds what it holds up through the whole-body solve (`holdUp`) rather than by its posture alone. */
-    readonly hold?: boolean;
-  };
-}
-
-/** A cover guard that also turns an item's declared face toward the threat. */
-interface ShieldGuardConfig extends Omit<CoverGuardConfig, "kind"> { readonly kind: "shield-guard" }
-
 /** **An executor's config**, by kind (`EXECUTORS`): its settings and the name its actions call it by. */
 export type ExecutorConfig = ConfigOf<typeof EXECUTORS>;
+
+/** **Any executor's config** (`ExecutorPart`): its kind, of any part of the role a mind may hold, and the name its actions call it by. */
+export interface ExecutorEntry extends PartConfig { readonly name: string }
 
 /** A configured attack's identity, anatomical choices and its executor-specific motion settings. */
 export interface ActionConfig {
@@ -80,17 +70,17 @@ export interface ActionConfig {
   readonly lower?: number;
 }
 
-/** **Fighting from low support** (`supportFold`): lowering, folding and rising again. */
-interface SupportFoldConfig { readonly kind: "support-fold" }
-
 /** **Cover** (`cover`, `options/reflex.ts`): a free hand put between a blow coming at the head and the head. */
 interface CoverReflexConfig { readonly kind: "cover-reflex" }
 
 /** **A reflex's config**, by kind (`reflexOf`). */
 export type ReflexConfig = CoverReflexConfig;
 
-/** **A guard's or low support's config**, by kind: the fighter's skill slots but its legs' (`LocomotionConfig`). */
-export type SkillConfig = CoverGuardConfig | ShieldGuardConfig | SupportFoldConfig;
+/** **A stock guard's config**, by kind (`GUARDS`). */
+export type GuardConfig = ConfigOf<typeof GUARDS>;
+
+/** **A stock low support's config**, by kind (`SUPPORTS`). */
+export type SupportConfig = ConfigOf<typeof SUPPORTS>;
 
 /** A fighter shares named executors across its configured actions. */
 export interface FighterConfig {
@@ -99,10 +89,12 @@ export interface FighterConfig {
   readonly locomotion: LocomotionConfig;
   /** Its navigation, any part of the role (`navigatorOf`): the game's where it names none. */
   readonly navigation?: PartConfig;
-  readonly guard: CoverGuardConfig | ShieldGuardConfig;
-  readonly executors: readonly ExecutorConfig[];
+  /** Its guard, any part of the role (`GuardPart`): the arms' rest and cover. */
+  readonly guard: PartConfig;
+  readonly executors: readonly ExecutorEntry[];
   readonly actions: readonly ActionConfig[];
-  readonly support: SupportFoldConfig | null;
+  /** Its low support, any part of the role (`SupportPart`), or none. */
+  readonly support: PartConfig | null;
   /** The sub-minds it hands its body to, in rank order: the first that wants the body has it. */
   readonly subs: readonly SubMindConfig[];
   /** What turns its skills' goals into its muscles' command; the game's (`motorOf`) where it names none. */

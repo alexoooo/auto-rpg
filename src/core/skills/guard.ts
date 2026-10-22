@@ -3,7 +3,7 @@ import type { BodyView } from "../body.ts";
 import { heldFrame, rigidPoints } from "../build/rigid.ts";
 import { effectorFreedoms } from "../control/effectors.ts";
 import { intoFrameToRef, pointAtToRef, solveReach, specChainTo } from "../control/kinematics.ts";
-import type { EffectorGoal, Pose } from "../control/motor.ts";
+import type { EffectorGoal, PointTask, Pose } from "../control/motor.ts";
 import type { Cover, Intent } from "../mind/intent.ts";
 import type { Side, BodySpec } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
@@ -119,11 +119,17 @@ const NO_LINE = 1e-6;
  * hand a strike has. The skill remembers nothing.
  */
 export interface GuardSkill extends Skill {
+  /** What it remembers, plain data saved and loaded with the mind (`src/core/state.ts`); none, it remembers nothing. */
+  readonly state?: object;
+  /** The arms' rest: where the arms no skill holds are put, and where a blow returns (`guardPosture` for the stock guards). */
+  readonly posture: Pose;
+  /** A free hand's hold of what it holds (`holdUp`), asked of each hand neither a cover nor an action drives; null, the posture's. */
+  readonly hold: ((side: Side) => PointTask | null) | null;
   /** Each hand's goal this step: a cover's places for a hand that guards with one and that `taken` is not; null otherwise. */
   command(view: BodyView, guard: Intent["guard"], taken: Side | null): Readonly<Record<Side, EffectorGoal | null>>;
 }
 
-export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, faces = false): GuardSkill {
+export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, faces = false, hold: GuardSkill["hold"] = null): GuardSkill {
   const covers = { left: coversOf(spec, "left"), right: coversOf(spec, "right") };
   const guarded = new Vector3(), threat = new Vector3();
   const normalNow = new Vector3(), align = new Quaternion(), oriented = new Quaternion();
@@ -163,6 +169,7 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, fac
     };
   };
   return {
+    posture: guardPosture(spec), hold,
     resume() {},
     command(view, guard, taken) {
       let goals: { left: EffectorGoal | null; right: EffectorGoal | null } | null = null;

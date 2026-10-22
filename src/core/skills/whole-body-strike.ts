@@ -12,7 +12,6 @@ import type { Vec3 } from "../spec/quantity.ts";
 import { deepFreeze } from "../state.ts";
 import type { Clock } from "../clock.ts";
 import { ATTACK_PATH } from "./attack-path.ts";
-import { guardPosture } from "./guard.ts";
 import { placedHeightFits, placedReach, type StrikeReport } from "./strike.ts";
 import { aimOf, closesToStrike } from "./strikes.ts";
 import type { BlowAttack } from "../mind/intent.ts";
@@ -152,8 +151,8 @@ export function wholeBodyFits(spec: BodySpec): boolean {
  * `returned` m of there or the blow's `cycle` is up. A blow begins as the path strike's does, not
  * before `startup` s of the body's time (`BodyView.born`) and `hold` s after the last ended (`ATTACK_PATH`).
  */
-function wholeBodyTechnique(body: Body, clock: Clock, drive: WholeBodyDrive, returnsHome = false) {
-  const built = body.built, spec = built.spec, muscles = body.muscles, guard = guardPosture(spec), { punch } = WHOLE_BODY;
+function wholeBodyTechnique(body: Body, clock: Clock, guard: Pose, drive: WholeBodyDrive, returnsHome = false) {
+  const built = body.built, spec = built.spec, muscles = body.muscles, { punch } = WHOLE_BODY;
   if (!wholeBodyFits(spec)) throw new Error(`${spec.model} cannot take the whole-body strike`);
   const tracking = wholeBodyTracking(built, muscles, built.physics.gravity, [], [], { capacity: WHOLE_BODY.capacity, effortCost: WHOLE_BODY.effortCost,
     contact: { physics: built.physics, settings: WHOLE_BODY.contact, dt: clock.dt } });
@@ -317,9 +316,9 @@ function wholeBodyTechnique(body: Body, clock: Clock, drive: WholeBodyDrive, ret
 }
 
 /** Whole-body action commands are the result of one solve during admission or elapsed update. */
-export function wholeBodyExecutor(body: Body, clock: Clock, actions: readonly string[], drive: WholeBodyDrive,
+export function wholeBodyExecutor(body: Body, clock: Clock, guard: Pose, actions: readonly string[], drive: WholeBodyDrive,
   resolve: (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null = (_view, target) => target.kind === "point" ? target.at : null): Executor {
-  const technique = wholeBodyTechnique(body, clock, drive, true), motion = technique.state;
+  const technique = wholeBodyTechnique(body, clock, guard, drive, true), motion = technique.state;
   const footprint = Object.freeze(["hand.left", "hand.right", "trunk", "legs"]);
   const state = { motion, pushes: [] as readonly MusclePush[], cooldown: 0,
     live: null as null | { request: ActionRequest; hand: Side; phase: "prepare" | "commit" | "release"; stage: string; elapsed: number;

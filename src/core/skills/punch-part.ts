@@ -22,8 +22,8 @@ export const PUNCH_PART: ExecutorPart<Config> = {
   faults: config => validStraightPunch(config) ? [] : ["invalid straight punch settings"], effectors: ["hand.left", "hand.right"], actionFaults: noPathSettings,
   // A punch is thrown by a hand that holds nothing: one holding an item would drive the item's end along the punch's line.
   strikesWith: (spec, _config, effector) => holdsNothing(spec, effector),
-  make(body, _world, config, actions, resolve) {
+  make({ body, guard, resolve }, config, actions) {
     const { kind: _, name: __, ...settings } = config;
-    return straightPunchExecutor(body, actions.map(a => a.name), settings, resolve);
+    return straightPunchExecutor(body, guard, actions.map(a => a.name), settings, resolve);
   },
 };
