@@ -3,7 +3,7 @@
  * on worker threads; then what the complete rows give each subject, and the evaluation's summary.
  *
  *   npm run evaluate -- <evaluation> [subject ...] [--subjects a,b] [--mind <file.json>] [--protocol <name>]
- *     [--against default|<id,...>] [--previous <id>] [--shard k/n] [--workers N] [--engine <name>]
+ *     [--against default|<id,...>] [--previous <id>] [--ablate <slot>=<JSON> ...] [--shard k/n] [--workers N] [--engine <name>]
  *     [--case-minutes 30] [--write] [--json <file>]
  *   npm run match -- <mind> <mind> [...]: the same for `match`
  *   npm run evaluate -- tournament --notes: the newest tournament pool's ratings into assets/minds/notes.json
@@ -15,7 +15,12 @@
  * whose schedule is a panel is played no other way. Rows are kept as they come in
  * `research/runs/evaluations/<evaluation>/` (every file there is read, so machines merge by copying)
  * and found again by key, with every record's under `assets/evaluations/<evaluation>/`. `--previous`
- * names the first subject's parent: the newest recorded version of that id, else that subject here.
+ * names the first subject's parent: the newest recorded version of that id, else that subject here;
+ * against a panel it is the baseline of the panel report, and in a battery the subject's figures are
+ * read against it, condition by condition. `--ablate` makes the first subject the `--previous` mind
+ * with one slot of its skills (`SkillKit`) replaced by the JSON given: `support=null`, `guard={...}`,
+ * or one named executor or action, `actions.<name>=null` to remove it.
+ * `--engine` (or `CORE_ENGINE`) picks the engine unless the protocol fixes one, as the falls fix Rapier.
  * `--write` keeps the run as a record, refused unless every case has a row and the commit holds the
  * environment's files unchanged.
  */
@@ -29,10 +34,11 @@ import { Worker } from "node:worker_threads";
 import { DEFAULT_ENGINE, isEngineName } from "../src/core/engine/engines.ts";
 import { recordingKey } from "../src/core/recording.ts";
 import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
-import { MINDS } from "../src/core/mind/controllers.ts";
+import { CONTROLLERS, MINDS } from "../src/core/mind/controllers.ts";
+import { poolsOf } from "../src/evaluation/history.ts";
 import { readRecord, recordedSubject, recordIdentity, recordName, recordText, rowOf, sameRow } from "../src/evaluation/record.ts";
 import { casesOf, figuresOf, runEvaluation, runOrder, tableOf } from "../src/evaluation/run.ts";
-import { panelReport, slotsOf, verdictOf } from "../src/evaluation/compare.ts";
+import { batteryComparison, panelReport, slotsOf, verdictOf } from "../src/evaluation/compare.ts";
 import { scheduleName } from "../src/evaluation/schedule.ts";
 import { sha256Text } from "../src/evaluation/sha256.ts";
 import { tableRatings } from "../src/evaluation/tournament/index.ts";
@@ -42,6 +48,9 @@ import { importRun } from "./evaluation-import.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 
+/** The slots of a mind's skills an ablation may replace (`SkillKit`, `src/core/mind/config.ts`); the lists also by an entry's name. */
+const SLOTS = Object.freeze(["locomotion", "navigation", "guard", "support", "executors", "actions", "motor"]);
+
 /** The lanes a run takes unless told: all but two of the machine's threads. */
 const defaultLanes = () => Math.max(1, availableParallelism() - 2);
 
@@ -50,9 +59,35 @@ function subjectOf(text) {
   if (existsSync(text)) return { id: basename(text).replace(/\.json$/, ""), label: text, value: JSON.parse(readFileSync(text, "utf8")) };
   if (text.trim().startsWith("{")) {
     const value = JSON.parse(text);
-    return { id: `json:${sha256Text(recordingKey(value)).slice(0, 8)}`, label: "a JSON mind", value };
+    return { id: `json:${sha256Text(recordingKey(value)).slice(0, 8)}`, label: "given as JSON", value };
   }
   return text;
+}
+
+/**
+ * The mind `previous` names with each of `ablations` (`<slot>=<JSON>`, the slot `SLOTS`' or `executors.<name>` or
+ * `actions.<name>`) replaced, null removing a named entry: a subject given whole, its id the previous one's and the slots.
+ */
+function ablated(previous, ablations) {
+  const named = subjectOf(previous);
+  const [id, label, config] = typeof named !== "string" ? [named.id, named.label, named.value]
+    : Object.hasOwn(MINDS, named) ? [named, MINDS[named].label, MINDS[named].config]
+    : Object.hasOwn(CONTROLLERS, named) ? [named, CONTROLLERS[named].label, CONTROLLERS[named].defaults]
+    : (() => { throw new Error(`--ablate needs --previous to name a mind, a kind or a config: ${previous} is none`); })();
+  const value = JSON.parse(JSON.stringify(config)), slots = [];
+  for (const ablation of ablations) {
+    const at = ablation.indexOf("="), slot = ablation.slice(0, at), [field, entry] = slot.split(".");
+    if (at < 0 || !SLOTS.includes(field)) throw new Error(`--ablate is <slot>=<JSON>, the slot one of ${SLOTS.join(", ")}, or executors.<name> or actions.<name>`);
+    const replacement = JSON.parse(ablation.slice(at + 1));
+    if (entry === undefined) value[field] = replacement;
+    else {
+      const list = value[field], k = Array.isArray(list) ? list.findIndex((one) => one.name === entry) : -1;
+      if (k < 0) throw new Error(`${label} has no ${field} named ${entry}`);
+      if (replacement === null) list.splice(k, 1); else list[k] = replacement;
+    }
+    slots.push(slot);
+  }
+  return { id: `${id}~${slots.join("~")}`, label: `${label} with ${ablations.join(", ")}`, value };
 }
 
 /** Every `.jsonl` file in `directory`, by name, with its text. */
@@ -97,22 +132,17 @@ function writeRecord(header, lines) {
 const NOTES = join(ROOT, "assets/minds/notes.json");
 
 /**
- * The ratings of the newest tournament record's pool, every distinct case of its records once and
- * one strength per version, into the notes (`ratedNotes`) at each id's newest version, dated as
- * the newest record.
+ * The ratings of the newest tournament record's pool (`poolsOf`), every distinct case of its
+ * records once and one strength per version, into the notes (`ratedNotes`) at each id's newest
+ * version, dated as the newest record.
  */
 function writeNotes() {
   const records = recordsOf("tournament"), newest = records.at(-1);
   if (!newest) throw new Error("no tournament record");
-  const pool = recordingKey(newest.header.pool), games = new Map(), current = new Map();
-  for (const { header, lines } of records) {
-    if (recordingKey(header.pool) !== pool) continue;
-    const named = new Map(header.subjects.map((subject) => [subject.id, `${subject.id} ${subject.version.version}`]));
-    for (const subject of header.subjects) current.set(subject.id, named.get(subject.id));
-    for (const line of lines) if (!line.fault) games.set(line.key, { ...line, subjects: line.subjects.map((id) => named.get(id)) });
-  }
-  const cases = [...games.values()], versions = [...new Set(cases.flatMap((line) => line.subjects))].sort();
-  const newestOf = new Map([...current].map(([id, version]) => [version, id]));
+  const pool = poolsOf(records).find((one) => one.key === recordingKey(newest.header.pool));
+  const cases = pool.cases.filter(({ line }) => !line.fault).map(({ line, subjects }) => ({ ...line, subjects }));
+  const versions = [...new Set(cases.flatMap((line) => line.subjects))].sort();
+  const newestOf = new Map([...pool.newest].map(([id, version]) => [version, id]));
   const rated = tableRatings({ subjects: versions.map((one) => ({ id: one })), cases }).flatMap((one) => newestOf.has(one.id) ? [{ ...one, id: newestOf.get(one.id), rating: Math.round(one.rating) }] : []);
   const ids = rated.map((one) => one.id);
   writeFileSync(NOTES, JSON.stringify(ratedNotes(JSON.parse(readFileSync(NOTES, "utf8")), rated, newest.header.date, Object.keys(MINDS)), null, 2) + "\n");
@@ -203,7 +233,7 @@ async function main() {
     subjects: { type: "string" }, mind: { type: "string", multiple: true }, protocol: { type: "string" }, previous: { type: "string" },
     shard: { type: "string" }, workers: { type: "string" }, engine: { type: "string" }, "case-minutes": { type: "string", default: "30" },
     write: { type: "boolean" }, json: { type: "string" }, against: { type: "string" }, import: { type: "string" }, notes: { type: "boolean" },
-    until: { type: "string" }, budget: { type: "string", default: "10" },
+    until: { type: "string" }, budget: { type: "string", default: "10" }, ablate: { type: "string", multiple: true },
   } });
   if (values.import) {
     for (const { header, lines } of importRun(values.import, ROOT)) writeRecord(header, lines);
@@ -220,13 +250,15 @@ async function main() {
   if (!evaluation) throw new Error(`name an evaluation: ${Object.keys(EVALUATIONS).join(", ")}`);
   const protocol = values.protocol ?? evaluation.defaultProtocol, cases = evaluation.protocols[protocol];
   if (!cases) throw new Error(`${id} has no protocol ${protocol}: ${Object.keys(evaluation.protocols).join(", ")}`);
-  const engine = values.engine ?? process.env.CORE_ENGINE ?? DEFAULT_ENGINE;
+  if (cases.engine && values.engine && values.engine !== cases.engine) throw new Error(`${id} ${protocol} is played on ${cases.engine}`);
+  const engine = cases.engine ?? values.engine ?? process.env.CORE_ENGINE ?? DEFAULT_ENGINE;
   if (!isEngineName(engine)) throw new Error(`no engine ${engine}`);
   const harness = `Node, core world (src/core/world.ts), ${engine}, 120 Hz`;
   const [shardAt, shards] = values.shard ? values.shard.split("/").map(Number) : [1, 1];
   if (!(Number.isInteger(shardAt) && Number.isInteger(shards) && shardAt >= 1 && shardAt <= shards)) throw new Error("--shard is k/n, 1 <= k <= n");
 
-  const choice = [...(values.mind ?? []), ...named, ...(values.subjects ? values.subjects.split(",") : [])].map(subjectOf);
+  if (values.ablate && !values.previous) throw new Error("--ablate builds its subject from --previous");
+  const choice = [...(values.ablate ? [ablated(values.previous, values.ablate)] : []), ...[...(values.mind ?? []), ...named, ...(values.subjects ? values.subjects.split(",") : [])].map(subjectOf)];
   const chosen = evaluation.subjects(choice);
   let schedule = { kind: "all" }, panel = [];
   if (values.against) {
@@ -237,8 +269,9 @@ async function main() {
   } else if (evaluation.schedule === "versus") throw new Error(`${id} is played against a panel: --against default, or --against <id,...>`);
   if (values.until !== undefined && values.until !== "settled") throw new Error("--until takes settled");
   const records = recordsOf(id);
-  const { baseline, counterpart, revived } = values.previous && values.against
-    ? baselineOf(evaluation, choice[0], values.previous, chosen, records) : { baseline: [], counterpart: new Map(), revived: new Map() };
+  const { baseline, counterpart, revived } = values.previous && values.against ? baselineOf(evaluation, choice[0], values.previous, chosen, records)
+    // A battery plays its baseline beside its subject.
+    : { baseline: values.previous && cases.arity === 1 ? evaluation.subjects([subjectOf(values.previous)]) : [], counterpart: new Map(), revived: new Map() };
   const panelIds = new Set(schedule.panel ?? []), mine = [...chosen, ...baseline].filter((one) => !panelIds.has(one.id));
   const subjects = [...mine.filter((one, k) => mine.findIndex((other) => other.id === one.id) === k), ...panel];
   const environment = environmentOf();
@@ -248,6 +281,7 @@ async function main() {
   const pairs = [...counterpart].filter(([subject, other]) => !panelIds.has(subject) && !panelIds.has(other));
   const headToHead = pairs.length > 0 ? casesOf(evaluation, protocol, subjects, { engine, code: environment.digest, schedule: { kind: "pairs", pairs } }) : [];
   const slots = slotsOf(units, counterpart, schedule.panel ?? []), order = playOrder(slots, headToHead, [...units, ...headToHead]);
+  const defined = new Map([...units, ...headToHead].map((unit, k) => [unit[0].key, k]));
   const working = join(ROOT, "research/runs/evaluations", id);
   const rows = rowsFrom([
     ...records.map(({ name, lines }) => ({ name, rows: lines })),
@@ -290,7 +324,8 @@ async function main() {
       onLost: (job, reason) => { lost.push({ key: job.key, reason }); console.log(`lost ${job.key}: ${reason}`); },
     });
   }
-  const complete = order.filter((unit) => unit.every((one) => rows.has(one.key))), commit = commitOf();
+  // The complete units in their definition's order, which neither the play order nor the keys change: a summary's digest reads them so.
+  const complete = order.filter((unit) => unit.every((one) => rows.has(one.key))).sort((a, b) => defined.get(a[0].key) - defined.get(b[0].key)), commit = commitOf();
   console.log(`${played} played in ${((Date.now() - started) / 1000).toFixed(0)} s; ${lost.length} lost; commit ${commit ?? "unknown"}; build ${BUILD_IDENTITY}; environment ${environment.digest}`);
   if (complete.length < order.length) console.log(`${complete.length} of ${order.length} units have every row${spent ? "; the budget ran out" : ""}${lost.length ? "; run again to retry the lost" : ""}`);
 
@@ -300,9 +335,10 @@ async function main() {
     recorded.set(subject, recordedSubject(subjects.find((one) => one.id === subject), cases.play, environment.digest, revived.get(subject) ?? recorded.get(other)));
   if (values.previous && counterpart.size === 0) {
     const first = recorded.get(subjects[0].id);
-    const parent = records.flatMap(({ header }) => header.subjects).filter((one) => one.id === values.previous && one.version.version !== first.version.version).at(-1)
-      ?? [...recorded.values()].find((one) => one.id === values.previous && one !== first) ?? null;
-    if (!parent) throw new Error(`no version of ${values.previous} in a record of ${id} or among the subjects`);
+    const previous = baseline[0]?.id ?? values.previous;
+    const parent = records.flatMap(({ header }) => header.subjects).filter((one) => one.id === previous && one.version.version !== first.version.version).at(-1)
+      ?? [...recorded.values()].find((one) => one.id === previous && one !== first) ?? null;
+    if (!parent) throw new Error(`no version of ${previous} in a record of ${id} or among the subjects`);
     recorded.set(subjects[0].id, recordedSubject(subjects[0], cases.play, environment.digest, parent));
   }
   const date = new Date().toISOString().slice(0, 10), heads = [...recorded.values()];
@@ -320,6 +356,13 @@ async function main() {
   for (const fault of faults) console.log(`fault (${fault.fault.kind}) in ${fault.key}: ${fault.fault.message}`);
   const report = counterpart.size > 0 ? panelReport(slots, headToHead, rows, evaluation.figures, rule) : null;
   if (report) console.log("\n" + reportLines(report, rule, { spent, lost: lost.length }).join("\n"));
+  if (cases.arity === 1 && values.previous && baseline.length > 0 && baseline[0].id !== subjects[0].id) {
+    const compared = batteryComparison(table, subjects[0].id, baseline[0].id, evaluation.figures);
+    console.log(`\n${subjects[0].id} less ${baseline[0].id}, condition by condition, over the ${compared.conditions} both played` +
+      `${compared.only.subject + compared.only.baseline ? ` (${compared.only.subject} the subject's alone, ${compared.only.baseline} the baseline's)` : ""}:\n`);
+    console.log("| Figure | Better | Pairs | Difference (95 % interval) |\n|---|---|---|---|");
+    for (const f of compared.figures) console.log(`| ${f.figure}, ${f.unit} | ${f.better} | ${f.pairs} | ${estimateText(f.difference)} |`);
+  }
   const summary = faults.length || complete.length === 0 ? null : evaluation.summary(table);
   if (summary) console.log("\n" + summary.lines.join("\n"));
   else console.log(`\nno summary: ${complete.length === 0 ? "no unit is complete" : "a case is a fault"}`);

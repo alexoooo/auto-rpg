@@ -14,6 +14,7 @@ const state = { current: null as { lifetime: ReturnType<typeof screenLifetime>; 
   drafts: new Map<Route, string>(), pending: new Set<symbol>(), reveal: null as symbol | null };
 const modules = {
   arena: () => import("./arena/main.ts"), dungeon: () => import("./dungeon/main.ts"), lab: () => import("./lab/setup.ts"),
+  ratings: () => import("./ratings/main.ts"),
 };
 
 function mount(templateId: string, root: HTMLElement): void {
@@ -28,7 +29,7 @@ async function open(route: Route, context: ScreenContext): Promise<void> {
   switch (route) {
     case "menu": {
       document.title = "Auto-RPG"; mount("menu-screen", root);
-      for (const to of ["dungeon", "arena", "lab"] as const) {
+      for (const to of ["dungeon", "arena", "ratings", "lab"] as const) {
         const button = need(`menu-${to}`, root);
         button.addEventListener("click", () => context.navigate(state.drafts.get(to) ?? playHref(to, context.address.search), { setup: true }));
         const preload = () => { void modules[to]().catch(() => {}); };
@@ -64,6 +65,12 @@ async function open(route: Route, context: ScreenContext): Promise<void> {
       mount("lab-screen", root);
       const { bootLab } = await import("./lab/main.ts"); check();
       return bootLab({ ...address, scenario: address.scenario }, context);
+    }
+    case "ratings": {
+      document.title = "Ratings · Auto-RPG";
+      await import("./ratings/style.css"); check(); mount("ratings-screen", root);
+      const { bootRatings } = await modules.ratings(); check();
+      return bootRatings(context);
     }
     default: { const unknown: never = route; throw new Error(`no screen for ${String(unknown)}`); }
   }

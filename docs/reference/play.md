@@ -20,18 +20,18 @@ measurement backs it.
 
 ## Sight
 
-`src/dungeon/run.ts`. Every sight line is `canSee`'s: a clear line on the map, no farther than
+`src/dungeon/run.ts`, `src/core/command/`. Every sight line is `canSee`'s (`TeamLevel.sees`): a clear line on the map, no farther than
 the distance given, read through an index of the cells where nothing need be read (`SightIndex`,
 `src/dungeon/map.ts`), which changes no answer
 ([step-cost.md](step-cost.md#sight-read-through-an-index)).
 
-- `SIGHT_METRES`: an enemy sees a party member within 14 m.
+- `SIGHT_METRES` (`src/core/command/independent.ts`): an enemy sees a party member within 14 m.
 - `WAKE_METRES`: an enemy's body is built once a standing party member comes within 16 m of where
   it waits, 2 m beyond its sight, so that it is standing when it can first see; or once a body
   going somewhere comes within `LEVELS.company` of it, so that nothing stands where it is built
   ([Levels](#levels)). The 16 m is the rule the crypt had on an engine that is gone
   (`src/dungeon/run.ts@e029c1e7`), not measured on the core.
-- `PARTY_SIGHT`: a party member sees the enemy its order locks within 12 m, picks one for itself
+- `PARTY_SIGHT` (`src/core/command/party.ts`): a party member sees the enemy its order locks within 12 m, picks one for itself
   within 8 m, and keeps the one it fights while it is within 5 m and nothing ranks above it.
 
 ## Levels
@@ -193,7 +193,7 @@ rest; it is not built ([roadmap](../roadmap.md)).
 
 ## Targets
 
-`src/dungeon/run.ts`, for a hero whose facing the cursor steers.
+`src/core/command/party.ts`, for a hero whose facing the cursor steers.
 
 - `AIM_COSINE`: the hero picks targets from a cone about the cursor's direction whose half-angle
   has a cosine of 0.3: 73 degrees.
@@ -205,7 +205,7 @@ and engine that are gone (`src/dungeon/run.ts@c4c71cb8`); it is not measured on 
 
 ## Following
 
-`src/dungeon/run.ts` chooses movement objectives; the selected Mind's navigation role owns paths,
+The party's Commander (`src/core/command/party.ts`) chooses movement objectives; the selected Mind's navigation role owns paths,
 braking, arrival and progress against the world's solid geometry.
 
 - `cryptModel.radius`: the humanoid's 0.35 m footprint, for placement, formation slots and the
@@ -220,16 +220,15 @@ braking, arrival and progress against the world's solid geometry.
 
 ## Run timing
 
-`RUN_TIMING` (`src/dungeon/run.ts`), s:
-
-| Field | Value |
-|---|---|
-| `perceive` | who sees whom is read every 0.2 |
-| `alerted` | an enemy goes on to where it last saw the party for 7 after losing sight of it, then goes home |
+- `RUN_TIMING.perceive` (`src/dungeon/run.ts`): who sees whom is read every 0.2 s, and at once
+  after a party member's plan is reset.
+- `ALERT_SECONDS` (`src/core/command/independent.ts`): an enemy goes on to where it last saw the
+  party for 7 s after losing sight of it, then goes home.
 
 ## Arrival
 
-`ARRIVAL` (`src/dungeon/run.ts`), how near counts as there, m:
+`ARRIVAL` (`src/core/command/goals.ts`), how near counts as there, m, and `EXIT_METRES`
+(`src/dungeon/run.ts`):
 
 | Field | Value |
 |---|---|
@@ -237,7 +236,7 @@ braking, arrival and progress against the world's solid geometry.
 | `post` | a companion's post, 0.6 |
 | `explored` | the hero's goal while it explores, 0.5 |
 | `lastSeen` | where a locked target was last seen, 0.5 |
-| `exit` | the run is won within 1.1 of the exit |
+| `EXIT_METRES` | the run is won within 1.1 of the exit |
 
 ## Companions
 

@@ -7,6 +7,7 @@ import type { DuelRecipe, OrdersEntry } from "../arena/duel.ts";
 import type { EngineName } from "../core/engine/engines.ts";
 import type { Side } from "../core/spec/body.ts";
 import type { BuiltBout } from "./bout.ts";
+import type { BuiltFall, FallCase } from "./fall.ts";
 
 /** Plain finite JSON: what survives a key, a record, a URL and `postMessage`. */
 export type Json = null | boolean | number | string | readonly Json[] | { readonly [key: string]: Json };
@@ -23,11 +24,15 @@ export interface Subject {
   readonly value: Json;
 }
 
-/** What a case plays, as plain data: one builder each in `playCase`. */
-export type CaseWorld = { readonly kind: "bout"; readonly engine: EngineName; readonly recipe: DuelRecipe; readonly tape: readonly OrdersEntry[] };
+/**
+ * What a case plays, as plain data: one builder each in `playCase`. A bout is bit-equal between
+ * JavaScript engines; a fall is not (`fall.ts`).
+ */
+export type CaseWorld = { readonly kind: "bout"; readonly engine: EngineName; readonly recipe: DuelRecipe; readonly tape: readonly OrdersEntry[] }
+  | { readonly kind: "fall"; readonly engine: EngineName; readonly fall: FallCase };
 
-/** What a case's world gives its reader. */
-export type BuiltCase = BuiltBout;
+/** What a case's world gives its reader: a bout's or a fall's. */
+export type BuiltCase = BuiltBout | BuiltFall;
 
 /** Reads a case as it plays: after each step, whether it is over, and what it came to. */
 export interface Reader<R extends Json> {
@@ -39,17 +44,19 @@ export interface Reader<R extends Json> {
 /**
  * **A case module's protocol**: `arity` 0 (decision points), 1 (a battery) or 2 (a contest, the first
  * on the left); `play`, the protocol, in every case's key; `conditions`; the longest a case may last,
- * simulated s; the world of each case and its reader.
+ * simulated s; the engine, where the protocol fixes one; the world of each case (built as `B`) and its reader.
  */
-export interface Cases<C extends Json = Json, R extends Json = Json> {
+export interface Cases<C extends Json = Json, R extends Json = Json, B extends BuiltCase = BuiltBout> {
   readonly arity: 0 | 1 | 2;
   readonly play: Json;
+  /** The one engine the protocol is played on; any the runner is given, unless named. */
+  readonly engine?: EngineName;
   readonly conditions: readonly C[];
   readonly seconds: number;
   /** Why a subject's value cannot play `condition`; none unless given. */
   faults?(value: Json, condition: C): readonly string[];
   world(values: readonly Json[], condition: C, engine: EngineName): CaseWorld;
-  read(built: BuiltCase, condition: C): Reader<R>;
+  read(built: B, condition: C): Reader<R>;
 }
 
 /**
@@ -83,12 +90,12 @@ export interface Table<C extends Json = Json, R extends Json = Json> {
  * **An evaluation's description**: what it asks, its protocols (the case modules'), its subjects,
  * figures and summary. `analysis` is in no key.
  */
-export interface Evaluation<C extends Json = Json, R extends Json = Json> {
+export interface Evaluation<C extends Json = Json, R extends Json = Json, B extends BuiltCase = BuiltBout> {
   readonly id: string;
   readonly title: string;
   readonly group: "fighters" | "skills" | "decisions";
   readonly question: string;
-  readonly protocols: Readonly<Record<string, Cases<C, R>>>;
+  readonly protocols: Readonly<Record<string, Cases<C, R, B>>>;
   readonly defaultProtocol: string;
   /** Whom a contest's subjects meet unless told: every pair, or a panel (`schedule.ts`). */
   readonly schedule: "all" | "versus";

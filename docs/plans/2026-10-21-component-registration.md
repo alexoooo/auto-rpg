@@ -38,7 +38,8 @@ Each is a toolkit change of its own, with the fingerprint unmoved:
 2. **Recovery and the other sub-minds.**
 3. **Executors.**
 4. **Motor control.** A second motor brings the goal vocabulary it needs.
-5. **The Commander** registers as a role when Movement's B0 builds it.
+
+The Commander is a registered role already (`COMMANDERS`, `src/core/command/commanders.ts`).
 
 An implementation moves into `src/core/components/<role>/<implementation>/`, with its data under
 `assets/components/<implementation>/`, when work on it would gain from durable rows, not before.
@@ -59,7 +60,7 @@ unrelated changes. The roadmap's Order then drops this plan, and this file is de
 
 ## Relations
 
-- [Movement and command](2026-10-21-movement-and-command.md): its B0 builds the Commander role
-  (step 5).
+- [Movement and command](2026-10-21-movement-and-command.md): its Commanders are registered as a
+  role (`COMMANDERS`).
 - [Ratings](2026-10-21-ratings.md): an implementation's own folder is what its step 12 cuts out of
   the environment, so its rows outlive unrelated changes.

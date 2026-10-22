@@ -48,11 +48,11 @@ export const currentBuildIdentity = () => hashBuildInputs(ROOT, buildInputs());
 /**
  * Not what a case plays: the scripts, research and test harness that run it, the pages, the
  * evaluations' descriptions and their catalogue, and what reads and keeps their rows (keys, lanes,
- * records, schedules, figures, ratings, comparisons). What runs write is no build input (`OUTPUTS`).
+ * records, histories, schedules, figures, ratings, comparisons). What runs write is no build input (`OUTPUTS`).
  */
 const notPlayed = (file) => /^(scripts|research|tests\/harness|src\/ratings)\//.test(file) || /^[^/]+\.html$/.test(file)
   || /^src\/evaluation\/([^/]+\/index|evaluations)\.ts$/.test(file)
-  || /^src\/evaluation\/(run|lanes|record|schedule|stats|rating|compare|settle|tournament\/entrants|tournament\/notes)\.ts$/.test(file);
+  || /^src\/evaluation\/(run|lanes|record|history|schedule|stats|rating|compare|settle|tournament\/entrants|tournament\/notes)\.ts$/.test(file);
 
 /**
  * **The environment** a case's code is until each case names its own: the build's inputs less what

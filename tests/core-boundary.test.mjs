@@ -176,9 +176,10 @@ export const probe = (mesh: ProbeMesh, hand: { right: number }): unknown[] =>
  */
 const EXACT_MATH = new Set(["PI", "SQRT2", "abs", "max", "min", "sqrt", "ceil", "floor", "trunc", "round", "sign", "fround", "imul"]);
 
-/** The modules beside the core whose numbers go into a bout's world: the arena's bout and its solids. */
+/** The modules beside the core whose numbers go into a bout's world: the arena's bout and its solids, and the batteries' cases. */
 const WORLD_BUILDERS = ["src/arena/duel.ts", "src/arena/room.ts", "src/arena/levels.ts", "src/environment/furniture.ts", "src/lab/ground-environment.ts",
-  "src/dungeon/run.ts", "src/dungeon/map.ts", "src/dungeon/door-approach.ts", "src/evaluation/bout.ts"];
+  "src/dungeon/run.ts", "src/dungeon/map.ts", "src/dungeon/door-approach.ts", "src/evaluation/bout.ts",
+  "src/evaluation/blade/cases.ts", "src/evaluation/buckler/cases.ts", "src/evaluation/court/cases.ts"];
 
 /**
  * Each use in `text` of arithmetic an engine rounds its own way, as `"file what"`: a member of
@@ -362,16 +363,25 @@ const MIND_ADAPTERS = new Set([
 /** What a mind's source never imports: the engine, the world, the builder, the read view's maker and the hands' port. */
 const MIND_BARRED = ["src/core/engine/", "src/core/world.ts", "src/core/build/build-body.ts", "src/core/build/read-view.ts", "src/core/build/hand-poses.ts"];
 
-/** Each of `files` (path and source) under a mind's folders, beside the adapters, that imports what a mind may not, or reads `globalThis`. */
-function mindCrossings(files) {
+/** The folder a Commander is written in, which meets its team through the view and the orders alone. */
+const COMMAND_FOLDERS = ["src/core/command/"];
+
+/** What a Commander's source never imports: what a mind may not, and a body, a fight's enlistment, a mind's host or the senses' hub. */
+const COMMAND_BARRED = [...MIND_BARRED, "src/core/body.ts", "src/core/physical-body.ts", "src/core/combatant.ts", "src/core/mind/host.ts", "src/core/mind/senses.ts"];
+
+/**
+ * Each of `files` (path and source) under `folders`, beside `adapters`, that imports what `barred`
+ * names, imports the engine's package, or reads `globalThis`: a mind's folders by default.
+ */
+function mindCrossings(files, { folders = MIND_FOLDERS, adapters = MIND_ADAPTERS, barred = MIND_BARRED } = {}) {
   const crossings = [];
   for (const [file, source] of files) {
-    if (!MIND_FOLDERS.some((folder) => file.startsWith(folder)) || MIND_ADAPTERS.has(file)) continue;
+    if (!folders.some((folder) => file.startsWith(folder)) || adapters.has(file)) continue;
     for (const { fileName: specifier } of ts.preProcessFile(source, true, true).importedFiles) {
       if (specifier.startsWith("@dimforge/rapier")) crossings.push(`${file} imports the engine package "${specifier}"`);
       if (!specifier.startsWith(".")) continue;
       const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier));
-      if (MIND_BARRED.some((barred) => target === barred || barred.endsWith("/") && target.startsWith(barred))) crossings.push(`${file} imports ${target}`);
+      if (barred.some((one) => target === one || one.endsWith("/") && target.startsWith(one))) crossings.push(`${file} imports ${target}`);
     }
     if (/\bglobalThis\b/.test(source)) crossings.push(`${file} reads globalThis`);
   }
@@ -394,5 +404,28 @@ test("a mind and its toolkit reach no engine, world, builder or global: only the
     "src/core/entrants/sly/mind.ts reads globalThis",
     "src/core/skills/sly.ts imports src/core/engine/engine.ts",
     `src/core/skills/sly.ts imports the engine package "@dimforge/rapier3d-simd-compat"`,
+  ]);
+});
+
+test("a Commander reaches no engine, world, body or global: only its team's view and the orders it gives", () => {
+  const command = { folders: COMMAND_FOLDERS, adapters: new Set(), barred: COMMAND_BARRED };
+  const files = COMMAND_FOLDERS.flatMap(filesUnder).filter((file) => file.endsWith(".ts")).map((file) => [file, fs.readFileSync(path.join(ROOT, file), "utf8")]);
+  assert.ok(files.length > 0, "no Commander's source, so this test would pass on nothing");
+  assert.deepEqual(mindCrossings(files, command), []);
+  // The control: a Commander reaching a body, the world or the engine is found.
+  assert.deepEqual(mindCrossings([
+    ["src/core/command/sly.ts", `import type { PhysicalBody } from "../physical-body.ts";
+import type { World } from "../world.ts";
+export const w = globalThis;
+`],
+    ["src/core/command/sly-too.ts", `import { enlist } from "../combatant.ts";
+import RAPIER from "@dimforge/rapier3d-simd-compat";
+`],
+  ], command), [
+    "src/core/command/sly.ts imports src/core/physical-body.ts",
+    "src/core/command/sly.ts imports src/core/world.ts",
+    "src/core/command/sly.ts reads globalThis",
+    "src/core/command/sly-too.ts imports src/core/combatant.ts",
+    `src/core/command/sly-too.ts imports the engine package "@dimforge/rapier3d-simd-compat"`,
   ]);
 });

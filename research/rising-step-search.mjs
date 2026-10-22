@@ -26,7 +26,8 @@ import { CONTACT_RISE, RISE } from "../src/core/mind/rise/stages.ts";
 import { STEP_UP, stepUp } from "../src/core/mind/ground/step-up.ts";
 import { standUp } from "../src/core/mind/ground/stand-up.ts";
 import { TECHNIQUES } from "../src/core/mind/ground/techniques.ts";
-import { risingTrial } from "./rising-trial.mjs";
+import "../tests/harness/preload-data.mjs";
+import { risingTrial } from "../src/evaluation/rising.ts";
 
 const log = (u, lo, hi) => Math.exp(Math.log(lo) + Math.min(1, Math.max(0, u)) * (Math.log(hi) - Math.log(lo)));
 const unlog = (v, lo, hi) => Math.min(1, Math.max(0, Math.log(v / lo) / Math.log(hi / lo)));

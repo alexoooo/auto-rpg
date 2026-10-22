@@ -46,20 +46,19 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Movement and command](plans/2026-10-21-movement-and-command.md) | One movement pipeline; Commanders over teams |
 | [Component registration](plans/2026-10-21-component-registration.md) | Implementations added by their own files and one line |
 
-1. **Now, in parallel:** Movement B0 to B2; Ratings steps 7 and 8; component registration's
+1. **Now, in parallel:** Movement B2 to B4; component registration's
    stage 1 (locomotion); and
    the open work below, each change read by the paired report, kept with `--write`.
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
-   - Movement B3 (crowd motion) and B4 (AI Commanders), once B1 has landed;
-   - Ratings steps 10 (skills' batteries) and 13 (falls) as ordinary work; step 9 when a question
+   - Ratings step 10's other research batteries when next worked on; step 9 when a question
      about an item, a character or an attribute is asked; step 12 (case identity by code) when
      the first built-in mind or skill has a folder of its own, or entrants are most of the field;
      step 11 (the sparse league) only when the owner asks, after step 12; step 14 (run live) once
      the Ratings screen is in use and a live run would save a trip to the command line;
    - Mind data step 2 (packed format), then 3 (precision per kind), when the next action that
      carries data arrives; step 4 when the owner asks;
-   - component registration's stages 2 to 4 at any time, stage 5 (the Commander) with Movement B0.
+   - component registration's stages 2 to 4 at any time.
 
 ## Waiting on the owner
 
@@ -133,7 +132,7 @@ screened small (one body, one loadout, one group of falls) before its full targe
   toward a goal to its side, and is thrown by a run ordered in a bout's first 2 s
   ([the walk and run](reference/locomotion.md#the-walk-and-run)). The learned run states no
   envelope, so the speed rule asks it nothing and it stands under orders.
-- **Recovery.** The owner's 64-fall target (`research/rising-bed.mjs --target`,
+- **Recovery.** The owner's 64-fall target (`npm run evaluate -- rising-target`,
   [recovery target](reference/rising.md)): at least 15 of 16 verified recoveries within 6 s in
   every group, 61 of 64 overall, every cardinal direction in every group, a failure-inclusive
   median at most 4 s, unassisted. Step-up, the baseline, stands 40 of 64 and none within 6 s

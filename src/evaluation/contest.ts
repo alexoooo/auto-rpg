@@ -2,7 +2,8 @@
 import type { DuelEnding } from "../arena/duel.ts";
 import { isClash } from "../core/rules/blows.ts";
 import type { Side } from "../core/spec/body.ts";
-import type { BuiltCase, ContestReading, Figure, Reader } from "./evaluation.ts";
+import type { BuiltBout } from "./bout.ts";
+import type { ContestReading, Figure, Reader } from "./evaluation.ts";
 
 /**
  * What a bout came to: the winner (null a draw) and how, when, how many blows landed (clashes not
@@ -22,7 +23,7 @@ export type BoutReading = ContestReading & {
 export const SERIES_SECONDS = 10;
 
 /** A bout's reader: its bars every `SERIES_SECONDS` and at the verdict. */
-export function readBout(built: BuiltCase): Reader<BoutReading> {
+export function readBout(built: BuiltBout): Reader<BoutReading> {
   const { duel } = built, every = SERIES_SECONDS * built.world.hz, series: (readonly [number, number])[] = [];
   const bars = (): readonly [number, number] => [duel.duelists.left.pool.bar(), duel.duelists.right.pool.bar()];
   let steps = 0, last = -1;

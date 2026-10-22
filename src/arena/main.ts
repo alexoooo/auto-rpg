@@ -16,7 +16,7 @@ import { airOf, hearTouches } from "../audio/body-sounds.ts";
 import { debrisCues } from "../audio/cues.ts";
 import { GameAudio } from "../audio/game-audio.ts";
 import { loadEngine } from "../core/engine/engines.ts";
-import { BODY_MODELS, modelHolding, modelHolds, resolveCharacter, type BodyModel } from "../core/models.ts";
+import { BODY_MODELS, modelHolding, modelHolds, modelInfo, resolveCharacter, type BodyModel } from "../core/models.ts";
 import { attributeEditor } from "../ui/attribute-editor.ts";
 import { writeAttributes } from "../ui/attribute-link.ts";
 import type { AttributeOverrides } from "../core/character-attributes.ts";
@@ -30,12 +30,13 @@ import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
-import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readCap, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readTape, readYou, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
+import { caseSearch, readCase, unshown, type LinkedCase } from "./case-link.ts";
+import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readTape, readYou, recipeOf, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { partOf, treeData } from "../core/mind/catalog.ts";
 import { loadData } from "../core/data/store.ts";
 import { mindEditor } from "../ui/mind-editor.ts";
-import { notedRatings, notesOf, type NoteLevel } from "../ui/mind-notes.ts";
+import { notesOf, type NoteLevel } from "../ui/mind-notes.ts";
 import { mindInspector } from "../ui/mind-inspector.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
@@ -80,7 +81,7 @@ const ENDING_TEXT: Readonly<Record<DuelEnding, string>> = Object.freeze({
   time: "on the bar at the bell",
 });
 
-/** What a hand may hold, by name, as the pickers and the ratings show it. */
+/** What a hand may hold, by name, as the pickers show it. */
 const HELD_NAMES = Object.fromEntries(HELD.map((held) => [held, heldItem(held)?.name ?? "Empty"])) as Readonly<Record<typeof HELD[number], string>>;
 const loadoutName = (loadout: Loadout): string => `Left: ${HELD_NAMES[loadout.left]}, right: ${HELD_NAMES[loadout.right]}`;
 /** A note's level as a person reads it, for a character and loadout. */
@@ -94,32 +95,25 @@ const levelName = (level: NoteLevel, model: BodyModel, loadout: Loadout): string
   }
 };
 
-/** **Each entrant's rating** as the notes give it (`notedRatings`), best first, into the ratings panel. */
-function showRatings(root: ParentNode): void {
-  const need = <T extends HTMLElement>(id: string): T => find<T>(id, root);
-  const rated = notedRatings(), dates = [...new Set(rated.map((one) => one.date))].sort();
-  need("ratings-about").textContent = rated.length === 0 ? "No tournament has been rated yet (npm run evaluate -- tournament --notes)."
-    : `Each mind on each character with each loadout against every other, both sides, Bradley-Terry on the Elo scale (the field's mean 1500), from the newest tournament record (assets/evaluations/tournament/), ${dates.join(", ")}.`;
-  const cell = (tag: "td" | "th", text: string) => Object.assign(document.createElement(tag), { textContent: text });
-  const head = document.createElement("tr");
-  head.append(...["", "Mind", "Character", "Hands", "Rating"].map(text => cell("th", text)));
-  const rows = rated.map((entrant, rank) => {
-    const row = document.createElement("tr");
-    row.append(...[`${rank + 1}`, MINDS[entrant.mind]?.label ?? entrant.mind, MODEL_DISPLAY[entrant.model].label, loadoutName(entrant.loadout), `${entrant.rating}`]
-      .map(text => cell("td", text)));
-    return row;
-  });
-  need("ratings-table").replaceChildren(head, ...rows);
-}
+/** What the setup says of a case from the Ratings (`LinkedCase`). */
+const caseNote = ({ commit, world }: LinkedCase): string => {
+  const extra = unshown(world.recipe);
+  return `A recorded case${commit ? ` from commit ${commit.slice(0, 8)}` : ""}: Fight plays its recipe and orders as this build's code builds them, `
+    + `which may not be the code it was recorded at. A changed choice makes a new bout.${extra.length ? ` It also sets ${extra.join(", ")}, which the pickers do not show.` : ""}`;
+};
 
 export async function bootArena(context: ScreenContext): Promise<void> {
   const location = context.address, lifetime = context;
   const need = <T extends HTMLElement>(id: string): T => find<T>(id, context.root);
   const show = (id: string, shown: boolean) => need(id).classList.toggle("gone", !shown);
+  // A case opened from the Ratings puts its choices in the address, so the pickers show them; its
+  // recipe and tape are what Fight plays until a choice is changed.
+  const linkedCase = readCase(location.hash);
+  if (linkedCase) context.replace(caseSearch(linkedCase.world.recipe) + location.hash);
   const canvas = need<HTMLCanvasElement>("stage");
   const engine = new Engine(canvas, true, { stencil: true, antialias: true });
   context.own(() => { engine.stopRenderLoop(); engine.dispose(); });
-  const physicsEngine = await loadEngine();
+  const physicsEngine = await loadEngine(linkedCase?.world.engine);
   context.signal.throwIfAborted();
   const level = readLevel(location.search);
   let made: World | null = null;
@@ -463,15 +457,18 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         const sameControllers = linkedControl === JSON.stringify(readMinds(search));
         const sameRecovery = (linkedRecovery ?? null) === (readRecovery(search) ?? null);
         const sameLoadouts = linkedLoadouts === JSON.stringify(readLoadouts(search));
-        const tape = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameLoadouts && linkedAttributes === attributeKey(matchup, attributes) ? linked.tape : null;
-        replaying = tape !== null;
+        const asLinked = matchup.left === linked.matchup.left && matchup.right === linked.matchup.right && sameControllers && sameRecovery && sameLoadouts && linkedAttributes === attributeKey(matchup, attributes);
+        const tape = asLinked ? linked.tape : null, played = asLinked && linkedCase ? linkedCase.world : null;
+        replaying = tape !== null || played !== null;
         if (replaying) {
           const snapshot = new URLSearchParams(search);
           for (const side of SIDES) writeAttributes(snapshot, side, resolveCharacter({ model: matchup[side], attributes: attributes[side] }).config.attributes);
           search = `?${snapshot}`;
         }
         context.replace(arenaViewSearch(youSearch(appearanceSearch(matchupSearch(search, matchup), matchup, appearances), you), view) + (replaying ? linked.hash : ""));
-        const minds = readMinds(location.search);
+        // The bout: the case's recipe as recorded, or the one the address and the pickers make.
+        const recipe = played?.recipe ?? recipeOf(location.search, attributes, level);
+        const minds = recipe.minds ?? { left: modelInfo(recipe.left).mind, right: modelInfo(recipe.right).mind };
         const [dress] = await Promise.all([
           Promise.all(SIDES.map(async (side) => [side, await dresser(matchup[side], appearances[side])] as const)).then((dressed) => new Map(dressed)),
           loadData(SIDES.flatMap((side) => treeData(minds[side]))),
@@ -480,12 +477,8 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         end();
         toStart();
         audio.reset();
-        const gap = readGap(location.search), capSeconds = readCap(location.search), loadouts = readLoadouts(location.search), recoverySeconds = readRecovery(location.search) ?? null;
         controllers = { left: controllerLabel(location.search, "left"), right: controllerLabel(location.search, "right") };
-        const bout = duel = new Duel(world, {
-          left: matchup.left, right: matchup.right, recoverySeconds, attributes, level,
-          ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(loadouts ? { loadouts } : {}), ...(minds ? { minds } : {}),
-        }, {
+        const bout = duel = new Duel(world, recipe, {
           solids: arenaSolids(level),
           onBuilt: (duelist, built) => {
             const hands = fighterHands(duelist);
@@ -511,6 +504,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         hearing = hearTouches(world, sides, (cue) => audio.cue(cue));
         airs = sides.map(({ id, built }) => ({ side: id, air: airOf(built) }));
         if (tape) bout.playRecording(tape);
+        else if (played) bout.play(played.tape);
         for (const row of rows) {
           row.label.textContent = `${ARENA_SIDES[row.side].label} · ${MODEL_DISPLAY[matchup[row.side]].label}${row.side === you && !replaying ? " (you)" : ""}`;
           const duelist = bout.duelists[row.side], minded = duelist.minded;
@@ -557,12 +551,14 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   for (const id of ["random-replay", "bout-end-random"]) need(id).addEventListener("click", () => void begin(redrawn()));
   for (const id of ["leave", "bout-end-leave"]) need(id).addEventListener("click", setup);
   need<HTMLButtonElement>("to-menu").addEventListener("click", () => context.navigate(MENU_HREF));
+  if (linkedCase?.back) {
+    const back = linkedCase.back, link = need<HTMLAnchorElement>("case-back"), button = need<HTMLButtonElement>("bout-end-back");
+    link.href = back; link.hidden = false; button.hidden = false;
+    button.addEventListener("click", () => context.navigate(back));
+  }
   const help = (open: boolean) => show("help", open);
   need("help-open").addEventListener("click", () => help(true));
   need("help-close").addEventListener("click", () => help(false));
-  showRatings(context.root);
-  need("ratings-open").addEventListener("click", () => show("ratings", true));
-  need("ratings-close").addEventListener("click", () => show("ratings", false));
   // What the person's hands are doing: the walking keys held, and whether Shift is, which walks; where the
   // pointer is on the canvas, px, and whether its left button is down.
   const keys = { up: false, down: false, left: false, right: false };
@@ -689,7 +685,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   context.signal.throwIfAborted();
   frame();
   await warmScene(scene, context.signal);
-  need("boot-note").textContent = "";
+  need("boot-note").textContent = linkedCase ? caseNote(linkedCase) : "";
   beginButton.disabled = false;
   // A link that names its matchup opens the bout directly.
   if (context.autostart && new URLSearchParams(location.search).has(MATCHUP_PARAM)) await begin(matchup);

@@ -3,7 +3,7 @@ import { hasteFrom } from "../core/human/attributes.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { balanceFrom } from "../core/rules/rulebook.ts";
-import { isOrdersEntry, ORDERS_PROTOCOL, SIDES, type OrdersRecording } from "./duel.ts";
+import { isOrdersEntry, ORDERS_PROTOCOL, SIDES, type DuelRecipe, type OrdersRecording } from "./duel.ts";
 import { BUILD_IDENTITY } from "../build-identity.ts";
 import { requireRecordingIdentity } from "../core/recording.ts";
 import { EMPTY_LOADOUT, HELD, type Loadout } from "../core/items/held.ts";
@@ -256,3 +256,12 @@ export function controllerLabel(search: string, side: Side): string {
 /** Optional continuous-down allowance, in seconds, for recovery bouts. */
 export const readRecovery = (search: string): number | null | undefined =>
   new URLSearchParams(search).get("recovery") === "continue" ? null : readWithin(search, "recovery", [0, 60]);
+
+/** The bout `search` asks for on `level`, each side's attributes as the page holds them. */
+export function recipeOf(search: string, attributes: Readonly<Record<Side, AttributeOverrides>>, level: ArenaLevel): DuelRecipe {
+  const matchup = readMatchup(search), gap = readGap(search), capSeconds = readCap(search), loadouts = readLoadouts(search);
+  return {
+    left: matchup.left, right: matchup.right, recoverySeconds: readRecovery(search) ?? null, attributes, level, minds: readMinds(search),
+    ...(gap !== undefined ? { gap } : {}), ...(capSeconds !== undefined ? { capSeconds } : {}), ...(loadouts ? { loadouts } : {}),
+  };
+}

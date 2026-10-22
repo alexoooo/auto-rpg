@@ -55,25 +55,3 @@ export function noteFaults(tree: unknown): readonly string[] {
   }
   return faults;
 }
-
-/** One entrant's rating as its leaf note says it: a mind on a character with a loadout. */
-export interface NotedRating {
-  readonly mind: string;
-  readonly model: BodyModel;
-  readonly loadout: Loadout;
-  /** On the Elo scale, the tournament field's mean 1500 (`ratedNotes`, `src/evaluation/tournament/notes.ts`). */
-  readonly rating: number;
-  readonly date: string;
-}
-
-/** A rating note, `"<rating> <date>"`. */
-const RATED = /^(\d+) (\d{4}-\d{2}-\d{2})$/;
-
-/** Every entrant whose leaf note in `tree` is a rating, best first. */
-export function notedRatings(tree: Readonly<Record<string, NoteTree>> = MIND_NOTES): readonly NotedRating[] {
-  return Object.entries(tree).flatMap(([mind, notes]) => Object.entries(notes.bodies ?? {}).flatMap(([model, body]) =>
-    Object.entries(body?.loadouts ?? {}).flatMap(([held, note]) => {
-      const loadout = LOADOUTS.find((one) => loadoutKey(one) === held), rated = RATED.exec(note);
-      return loadout && rated ? [{ mind, model: model as BodyModel, loadout, rating: Number(rated[1]), date: rated[2]! }] : [];
-    }))).sort((a, b) => b.rating - a.rating);
-}

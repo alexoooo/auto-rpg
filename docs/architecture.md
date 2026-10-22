@@ -31,6 +31,7 @@ vocabulary: the `Intent` tactics return (`src/core/mind/intent.ts`) and the `Ski
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, guard, strike |
 | Tactics | `src/core/mind/tactics.ts`, `action-tactics.ts`, `ordered.ts`, `targets.ts`, `movement.ts` | what the body should do, from what it senses |
 | Minds | `src/core/mind/config.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `options/`, `rise/`, `ground/`; `src/core/entrants/` | a body's mind made from its config by the controller of its kind |
+| Command | `src/core/command/` | a team's members given orders by its Commander, from what they sense |
 
 ### Spec
 
@@ -507,10 +508,37 @@ replays it from its order sheets. How well it fights is a measurement:
   (`REPRESENTATIVE`, `src/core/items/held.ts`) within a pool by Bradley-Terry (`rating.ts`); the
   unseen report (`unseen`) plays each mind on the loadouts none is rated on. `npm run evaluate --
   tournament --notes` writes the newest record's ratings into the notes (`ratedNotes`,
-  `src/ui/mind-notes.ts`), which the Arena's Ratings panel lists.
+  `src/ui/mind-notes.ts`), which the Arena's pickers show beside each mind; the Ratings screen
+  ([The screens](#the-screens)) shows every record.
 - The fingerprint (`scripts/fingerprint.mjs`) has a case for every pickable mind and for every
   part that reads mind data (`DATA_CASES`: Research rise, the learned rise, the learned run);
   `scripts/entrant-check.mjs` tells an entrant's change from the toolkit's.
+
+### Command
+
+A **Commander** (`src/core/command/team.ts`) stands to a team as a Mind stands to a body: it knows
+what its members sense, pooled, and its own memory, and acts only by giving them orders (`Orders`),
+which their Minds carry out while they defend themselves.
+
+| Aspect | Contract |
+|---|---|
+| Kinds | `COMMANDERS` (`commanders.ts`), by config kind, each with defaults, faults and a maker; `createCommander(host, config)` |
+| Its maker gets | a `TeamHost`: the level as its adapter answers it (`TeamLevel`: sight, room to stand and pass, routes, the explored edge, doors), never the world |
+| It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, its footprint, reach, home and navigation report; every other body the members sense; whether its host has it look this step; a leader's live input (`Lead`) |
+| It keeps | its memory in `state`, plain data |
+| It gives | each member's orders (`TeamDecision`), whether it looked, and on asking, whom each fights, what it does (`MemberReport`), whether it leaves a member idle, and a notice for its leader |
+| It hears | a leader's command (`TeamCommand`, `commands.ts`) at once |
+
+Its host asks it once a step, after the senses and before every Mind. The kinds:
+
+| Kind | File | Leads |
+|---|---|---|
+| `independent` | `independent.ts` | each member at the nearest foe it sees, on to where it last saw one, else home: the Crypt's enemies |
+| `party` | `party.ts` | a person's party: the leader where its person steers or exploring, the others after it or where they were sent, each at the foe its order locks or the nearest it sees, slots about a shared destination, doors on the way: the Crypt's party |
+
+`tests/core-boundary.test.mjs` holds `src/core/command/` to no engine, world, body, enlistment,
+mind host or senses hub; `tests/command-contract.test.mjs` has each kind lead an Arena bout as a
+team of one, fork it with its memory copied and play it again from its orders alone.
 
 ## Experimental separate equipment
 
@@ -565,7 +593,7 @@ world for learning and search.
 1. the sensing hooks (a fight's senses, `createSenses`; a tape's orders);
 2. the before-step hooks in the order added: each body's `driveMuscles` (muscles read the joints,
    the mind steps, the assist gives, the motors are set), and a page's own (the Crypt's
-   `DungeonRun.plan`, the Lab's shove);
+   `DungeonRun.plan`, added first, which asks its Commanders; the Lab's shove);
 3. one solver step, which writes every node; the clock advances;
 4. the post-physics observations (`afterPhysics`: effector feedback, contacts);
 5. the after-step hooks (readings, blows, pointed loads). Observations finish before any event can
@@ -644,8 +672,8 @@ Every question of how well something does is an evaluation (`src/evaluation/`, b
 path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists them.
 
 - **A case module** (`<id>/cases.ts`, `Cases` in `evaluation.ts`) gives each protocol's
-  conditions, the world of a case for its subjects (`CaseWorld`: a bout's recipe and tape) and its
-  reader; `CASES` (`cases.ts`) is what a worker plays from. **A description** (`<id>/index.ts`)
+  conditions, the world of a case for its subjects (`CaseWorld`: a bout's recipe and tape, or a
+  fall) and its reader, and the engine where the protocol fixes one (`Cases.engine`); `CASES` (`cases.ts`) is what a worker plays from. **A description** (`<id>/index.ts`)
   gives the question, subjects, figures and summary; nothing a case plays imports it.
 - **A case's key** is the digest of everything it plays: evaluation, protocol, engine, world (every
   subject's value whole), seconds and code (the environment). A row (`Row`, `play.ts`) is found
@@ -656,7 +684,7 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 - **The runner** (`run.ts`): units of evidence (a contest's one condition with each side on the
   left), run in the order of their keys on lanes (`lanes.ts`: a worker each, behind `spawn`, a
   lost worker or one past its minutes replaced and its case left without a row), until the budget
-  (`--budget`, 10 min unless told) is spent; a table reads the complete units. Figures are a rate (Wilson) or a mean or median over units, a
+  (`--budget`, 10 min unless told) is spent; a table reads the complete units in their definition's order. Figures are a rate (Wilson) or a mean or median over units, a
   pair resampled whole (`stats.ts`).
 - **Records** (`record.ts`): `npm run evaluate -- <id> --write` writes
   `assets/evaluations/<id>/<date>-<commit8>-<keys8>.jsonl`, a header (build, harness, engine,
@@ -673,10 +701,28 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   `delta`, or within it; `--until settled` stops giving out cases once it is reached, or every slot is read. Beside it,
   every figure's difference, by member and condition, the worst pairs, stalemates (at the cap,
   both bars full) and the head-to-head. The tournament's panel and rule are its `analysis`.
+- **Batteries** (arity 1): a skill's task, one subject at a time over its conditions. `blade` (the
+  striker's executor tuning: a sword's cuts and thrusts at a standing body), `buckler` (the
+  defender's cover: whether the buckler meets a sword first) and `court` (the approaching mind:
+  round the obstacle court's column into its window). `--previous` reads a battery's subject
+  against another, each figure's paired difference over the conditions both played
+  (`batteryComparison`, `compare.ts`).
+- **Ablations**: `--previous <mind> --ablate <slot>=<JSON>` makes the subject that mind with one slot
+  of its skills (`SkillKit`: locomotion, navigation, guard, support, motor, the executors and
+  actions, or one of these by name, `actions.<name>=null` removing it) replaced, read against the
+  mind as it is: by the panel report in fights, by a battery's comparison at its task.
 - **Ratings** (`rating.ts`): Bradley-Terry strengths on the Elo scale over a pool's distinct keys,
   computed with the core's `exp` and `log`, a draw half a win, each entrant given half a game drawn
   against the field; intervals from refits to the pairs resampled whole. No strength is carried
   across pools.
+- **Falls** (`fall.ts`): a body shoved, dropped or placed on the ground of the Lab's Stand-up mode,
+  its stand verified (`STAND_CHECK`), on Rapier; not bit-equal between JavaScript engines, as a bout
+  is. `rising-target` plays the owner's 64 falls and reports the target's gates; `equipped-rise` the
+  same shoves with sword and buckler and with the club. A subject is a riser: a mind's recovery on
+  the bed's host (`risingMind`, `rising.ts`, which also holds the bed's jobs and report).
+- **History** (`history.ts`): an evaluation's records grouped into pools (`poolsOf`), each case
+  once by its key, and each subject's versions numbered by first appearance (`versionsOf`). The
+  notes and the Ratings screen read pools through it.
 - `scripts/evaluate.mjs` and `evaluate-worker.mjs` run it in Node.
 
 ## Rules and wounds
@@ -714,7 +760,7 @@ The rules of a fight are `src/core/rules/`, free of any page. The Arena and the 
 ## The screens
 
 `index.html` is one document (`src/app.ts`, routed by `src/app-route.ts`): the main menu, and the
-arena, crypt and lab at `?play=arena`, `?play=dungeon` and `?play=lab`.
+arena, crypt, lab and ratings at `?play=arena`, `?play=dungeon`, `?play=lab` and `?play=ratings`.
 
 - **The shell** mounts one screen `<template>` at a time. Changing screen disposes the previous one
   explicitly (pending loads, worlds, scenes, previews, listeners, audio); setup choices stay for the
@@ -729,6 +775,7 @@ arena, crypt and lab at `?play=arena`, `?play=dungeon` and `?play=lab`.
 | Arena | `src/arena/` | two bodies under a `Duel`, to a verdict |
 | Crypt | `src/dungeon/` | a party in a generated dungeon (`DungeonRun`) |
 | Lab | `src/lab/` | one body in a scenario (`scenarios.ts`), stepped by hand |
+| Ratings | `src/ratings/` | each evaluation's records, derived in the page (`analysis.ts`); nothing played |
 | Character workshop | `/character-lab.html`, `src/character-lab/` | workshop models with preview motion; no core ([characters](art/characters.md)) |
 | Physics bench | `/physics-bench.html`, `src/physics-bench/` | the bake-off's cases on MuJoCo and Rapier |
 | Control tasks | `/control-foundation.html`, `/control-tasks.html` | research tasks with replay ([equipment](#experimental-separate-equipment)) |
@@ -740,11 +787,17 @@ are what bodies meet; `LEVELS` (`src/arena/levels.ts`) selects the open stage or
 whose furniture comes from `src/environment/furniture.ts`. Every Mind gets the stage's fixed
 geometry. The visible room is dressed from the forge kit (`forge-style.ts`, `forge-room.ts`), and
 `validateRoomPlacements` refuses a piece naming a collider the arena lacks, or a solid-looking one
-within reach naming none. `camera.ts` and `view.ts` own the camera and view settings.
+within reach naming none. `camera.ts` and `view.ts` own the camera and view settings. A case from the
+Ratings opens at `#case=` (`case-link.ts`): its world's recipe gives the pickers their choices
+(`caseSearch`), and Fight plays the recipe and tape as the record keeps them, on the case's
+engine, until a choice is changed; the bout is otherwise assembled from the address (`recipeOf`,
+`matchup.ts`). Back returns to the Ratings address the case was opened from.
 
 **The Crypt.** Walls, doors and obstacles are fixed boxes (`buildDungeonWorld`); enemies are built
-as the party comes near. A person's orders reach the party only through the run's plan
-(`DungeonCommands`), as movement requests each member's own navigation carries out; a blocked goal
+as the party comes near. Each side is a team under a Commander ([Command](#command)), the run its host
+(`DungeonRun`: the map as `TeamLevel`, who is built, levels, doors, status); a person's mouse
+orders and keys (`DungeonCommands`) reach the party only as its Commander's commands and lead,
+and its orders as movement requests each member's own navigation carries out; a blocked goal
 may route through a door first (`door-approach.ts`). Sight is the map's (`canSee`, `reveal`,
 `SightIndex`, `src/dungeon/map.ts`). Minds are chosen per model (`runMinds`,
 `src/dungeon/run-minds.ts`). Art: [crypt](art/crypt.md).
@@ -754,8 +807,19 @@ An actor (`actor.ts`) gives the body its balance, mind (`labMind`, `&mind=`) and
 (`attack-mode.ts`) issues `Orders.foe` against seeded targets (`targets.ts`); Locomotion runs tracks
 (`track.ts`) or random destinations under seeded wind (`wind.ts`). Stand-up (`ground-scenario.ts`,
 `ground-mode.ts`) plays seeded and target falls and verifies every stand (`STAND_CHECK`);
-`research/rising-bed.mjs` runs the same mode in workers. The HUD is sections
+the falls (`src/evaluation/fall.ts`) play the same mode, through `npm run evaluate` and
+`research/rising-bed.mjs`. The HUD is sections
 (`hud/sections.ts`) filled with controls built from data (`src/ui/controls.ts`).
+
+**The Ratings.** Evaluations by group, each with its question (`EVALUATIONS`). Records are fetched
+when an evaluation opens (`src/ratings/records.ts`, `import.meta.glob` of the files' URLs; an
+import's source rows are not records) and read once a tab. A contest's newest pool shows each
+version's rating with its interval, minds on common ground (each pair's rating difference over the
+kits both have, with how many) and the matchup grid; a battery shows each figure by subject and by
+a condition field (`&by=`). A subject shows each version's parent, what changed and its standing in
+each pool, and its cases by opponent (worst first) and condition; a case shows its record line,
+and a bout case with its world opens in the Arena; an imported case has none.
+An older pool is listed with what differs from the newest.
 
 **Shared rendering** (`src/render/`, `src/audio/`):
 

@@ -46,7 +46,7 @@ export interface Named {
 }
 
 /** A subject as a record keeps it: in full, with its version, its parent and what changed from it; each part likewise. */
-interface RecordedSubject extends Named {
+export interface RecordedSubject extends Named {
   readonly label: string;
   readonly value: Json;
   readonly parent: Named | null;
@@ -72,7 +72,7 @@ export interface RecordHeader {
 }
 
 /** A case as a record keeps it: enough to open it again without its definition. */
-type RecordLine = Omit<Case, "seconds"> & Omit<Row, "key">;
+export type RecordLine = Omit<Case, "seconds"> & Omit<Row, "key">;
 
 /** The identity a record of `play` on `engine` under `harness` carries, at `build`. */
 export const recordIdentity = (build: string, engine: string, harness: string, play: Json): RecordingIdentity =>
