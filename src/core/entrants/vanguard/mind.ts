@@ -23,7 +23,7 @@ import { routeAround } from "./route-around.ts";
 import { flank } from "./flank.ts";
 import bodyProfiles from "../../../../assets/entrants/vanguard/body-profiles.json" with { type: "json" };
 
-interface BodyProfile { readonly steady: boolean; readonly flank: boolean }
+interface BodyProfile { readonly steady: boolean; readonly flank: boolean; readonly lead?: number }
 type BodyProfiles = Readonly<Record<string, BodyProfile>>;
 
 interface VanguardConfig extends Omit<FighterConfig, "kind"> {
@@ -41,12 +41,13 @@ interface VanguardConfig extends Omit<FighterConfig, "kind"> {
   readonly lowActions?: readonly string[];
 }
 
-/** Each own-body profile contains only its walking and blocked-step choices. */
+/** Each own-body profile selects its walk, blocked step and optional standing-punch lead in seconds. */
 function validProfiles(value: unknown): value is BodyProfiles {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     && Object.entries(value).every(([model, profile]) => model.length > 0 && profile !== null && typeof profile === "object"
-      && !Array.isArray(profile) && Object.keys(profile).every(key => key === "steady" || key === "flank")
-      && typeof profile.steady === "boolean" && typeof profile.flank === "boolean");
+      && !Array.isArray(profile) && Object.keys(profile).every(key => key === "steady" || key === "flank" || key === "lead")
+      && typeof profile.steady === "boolean" && typeof profile.flank === "boolean"
+      && (profile.lead === undefined || typeof profile.lead === "number" && Number.isFinite(profile.lead) && profile.lead >= 0));
 }
 
 /** The complete own-body calibration travels with an edited mind. */
@@ -109,9 +110,12 @@ const STEADY_TURN = deepFreeze({ turnLimit: .3, turnStartup: { seconds: 2, limit
 function createVanguard(host: BodyHost, given: VanguardConfig, wiring: MindWiring) {
   if (!given.commitAim) return createFighter(host, fighter(given), wiring);
   const profile = given.bodyProfiles?.[host.spec.model];
-  const config = { ...given, actions: armedActions(host.spec, given.executors, given.actions),
-    locomotion: (profile?.steady ?? given.steadyWalk) ? { kind: "stance-walk" as const, tuning: STEADY_TURN } : given.locomotion };
   const lowActions = new Set(given.lowActions ?? []);
+  const config = { ...given, actions: armedActions(host.spec, given.executors, given.actions),
+    executors: given.executors.map(executor => executor.kind === "straight-punch" && profile?.lead !== undefined
+      && !given.actions.some(action => action.executor === executor.name && lowActions.has(action.name))
+      ? { ...executor, lead: profile.lead } : executor),
+    locomotion: (profile?.steady ?? given.steadyWalk) ? { kind: "stance-walk" as const, tuning: STEADY_TURN } : given.locomotion };
   const body = host.command(fighterBody(config, wiring));
   const ordinaryTactics = tacticsOf(config.tactics, host.spec, wiring.name, config.actions,
     sight => wiring.orders(sight.view.senses), wiring.script, configuredActionEstimates(host.spec, config.executors, config.actions));
@@ -184,7 +188,7 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
     ...config.routeAround && !config.commitAim ? ["routeAround needs committed aim"] : [],
     ...config.flankAfterBlocks !== undefined && typeof config.flankAfterBlocks !== "boolean" ? ["flankAfterBlocks: a boolean"] : [],
     ...config.flankAfterBlocks && !config.commitAim ? ["flankAfterBlocks needs committed aim"] : [],
-    ...config.bodyProfiles !== undefined && !validProfiles(config.bodyProfiles) ? ["bodyProfiles: model names mapped to steady and flank booleans"] : [],
+    ...config.bodyProfiles !== undefined && !validProfiles(config.bodyProfiles) ? ["bodyProfiles: model names mapped to steady/flank booleans and an optional nonnegative lead"] : [],
     ...config.bodyProfiles && !config.commitAim ? ["bodyProfiles needs committed aim"] : [],
     ...config.lowGuard && (!config.commitAim || config.support?.kind !== "support-fold") ? ["lowGuard needs committed aim and low support"] : []],
   presets: deepFreeze({ vanguard: { label: "Vanguard", config: VANGUARD } }),
