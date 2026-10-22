@@ -20,6 +20,11 @@ import { committedAim } from "./committed-aim.ts";
 import { lowGuard } from "./low-guard.ts";
 import { adaptiveGuard } from "./adaptive-guard.ts";
 import { routeAround } from "./route-around.ts";
+import { flank } from "./flank.ts";
+import bodyProfiles from "../../../../assets/entrants/vanguard/body-profiles.json" with { type: "json" };
+
+interface BodyProfile { readonly steady: boolean; readonly flank: boolean }
+type BodyProfiles = Readonly<Record<string, BodyProfile>>;
 
 interface VanguardConfig extends Omit<FighterConfig, "kind"> {
   readonly kind: "vanguard";
@@ -31,8 +36,28 @@ interface VanguardConfig extends Omit<FighterConfig, "kind"> {
   readonly revisitEvade?: boolean;
   readonly steadyWalk?: boolean;
   readonly routeAround?: boolean;
+  readonly flankAfterBlocks?: boolean;
+  readonly bodyProfiles?: BodyProfiles;
   readonly lowActions?: readonly string[];
 }
+
+/** Each own-body profile contains only its walking and blocked-step choices. */
+function validProfiles(value: unknown): value is BodyProfiles {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    && Object.entries(value).every(([model, profile]) => model.length > 0 && profile !== null && typeof profile === "object"
+      && !Array.isArray(profile) && Object.keys(profile).every(key => key === "steady" || key === "flank")
+      && typeof profile.steady === "boolean" && typeof profile.flank === "boolean");
+}
+
+/** The complete own-body calibration travels with an edited mind. */
+const BODY_PROFILES: PartField<VanguardConfig> = {
+  kind: "text", key: "bodyProfiles", label: "Body motor profiles (JSON)",
+  read: config => JSON.stringify(config.bodyProfiles ?? {}),
+  write(config, text) {
+    try { const profiles: unknown = JSON.parse(text); return validProfiles(profiles) ? { ...config, bodyProfiles: profiles } : null; }
+    catch { return null; }
+  },
+};
 
 /** Low-only actions remain ordinary editable actions, with their admission restriction named explicitly. */
 const LOW_ACTIONS: PartField<VanguardConfig> = {
@@ -57,10 +82,11 @@ function lowActionFaults(config: VanguardConfig): readonly string[] {
 
 /** A body punch behind an anticipatory guard, with a planted low punch and closed low cover. */
 const VANGUARD: VanguardConfig = deepFreeze({
-  kind: "vanguard", commitAim: true, lowGuard: true, lowActions: ["low-punch"],
+  kind: "vanguard", commitAim: true, lowGuard: true, lowActions: ["low-punch"], predictAim: true,
+  slowEvade: true, adaptiveEvade: true, revisitEvade: true, routeAround: true, bodyProfiles,
   locomotion: MOVE, guard: { kind: "shield-guard" }, support: { kind: "support-fold" }, subs: [STAND_UP],
   tactics: { ...FIGHTING, list: [
-    { kind: "follow-orders" }, { kind: "clear-of-walls" },
+    { kind: "follow-orders" }, { kind: "clear-of-walls" }, { kind: "evade" },
     { kind: "break-clinch", metres: .7 }, { kind: "attack" }, { kind: "approach" }, { kind: "cover", guard: "ward" },
   ] },
   executors: (["punch", "low-punch"] as const).map(name => ({ name, kind: "straight-punch", ...STRAIGHT_PUNCH,
@@ -82,8 +108,9 @@ const STEADY_TURN = deepFreeze({ turnLimit: .3, turnStartup: { seconds: 2, limit
 /** The committed-aim variant supplies its own straight-punch bindings and shares the rest of the kit. */
 function createVanguard(host: BodyHost, given: VanguardConfig, wiring: MindWiring) {
   if (!given.commitAim) return createFighter(host, fighter(given), wiring);
+  const profile = given.bodyProfiles?.[host.spec.model];
   const config = { ...given, actions: armedActions(host.spec, given.executors, given.actions),
-    locomotion: given.steadyWalk ? { kind: "stance-walk" as const, tuning: STEADY_TURN } : given.locomotion };
+    locomotion: (profile?.steady ?? given.steadyWalk) ? { kind: "stance-walk" as const, tuning: STEADY_TURN } : given.locomotion };
   const lowActions = new Set(given.lowActions ?? []);
   const body = host.command(fighterBody(config, wiring));
   const ordinaryTactics = tacticsOf(config.tactics, host.spec, wiring.name, config.actions,
@@ -99,10 +126,11 @@ function createVanguard(host: BodyHost, given: VanguardConfig, wiring: MindWirin
     },
   } : policy;
   const routed = given.routeAround ? routeAround(tactics, sight => wiring.orders(sight.view.senses)) : tactics;
-  const low = given.lowGuard ? lowGuard(routed, host.spec, sight => wiring.orders(sight.view.senses)) : null;
+  const angled = (profile?.flank ?? given.flankAfterBlocks) ? flank(routed, host.spec, sight => wiring.orders(sight.view.senses)) : routed;
+  const low = given.lowGuard ? lowGuard(angled, host.spec, sight => wiring.orders(sight.view.senses)) : null;
   let skills: Skills;
   const ledger = () => skills?.report.ledger ?? [];
-  skills = driveBy(body, low?.tactics ?? routed, (made, driving) => {
+  skills = driveBy(body, low?.tactics ?? angled, (made, driving) => {
     const ordinary = configuredExecutors(made, host.clock, config.executors.filter(executor => executor.kind !== "straight-punch"),
       config.actions.filter(action => !config.executors.some(executor => executor.name === action.executor && executor.kind === "straight-punch")), ledger);
     const aims = new Map(config.actions.map(action => [action.name, actionAim(host.spec, action.aim, action.family)]));
@@ -129,13 +157,13 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
   fields: [toggle("commitAim", "Commit to one aim point"), toggle("lowGuard", "Prepare a low guard"), toggle("predictAim", "Refresh the committed point's motion prediction"),
     toggle("slowEvade", "Limit evasive steps"), toggle("adaptiveEvade", "Learn attack or evasion from target contacts"),
     toggle("revisitEvade", "Revisit an earlier quiet policy"), toggle("steadyWalk", "Limit stance-walk turns"),
-    toggle("routeAround", "Find another reachable entry point"), LOW_ACTIONS],
+    toggle("routeAround", "Find another reachable entry point"), toggle("flankAfterBlocks", "Step around repeated blocks"), BODY_PROFILES, LOW_ACTIONS],
   slots: [slotOne("navigation", "Navigation", "navigation", true), slotOne("tactics", "Tactics", "tactics"),
     slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotList("executors", "Executors", "executor"),
     slotOne("support", "Low support", "support", true), slotList("subs", "When down", "sub-mind"),
     slotOne("motor", "Motor control", "motor", true)],
   keys: { kind: true, tactics: true, locomotion: true, navigation: true, guard: true, executors: true, actions: true,
-    support: true, subs: true, motor: true, commitAim: true, lowGuard: true, predictAim: true, slowEvade: true, adaptiveEvade: true, revisitEvade: true, steadyWalk: true, routeAround: true, lowActions: true },
+    support: true, subs: true, motor: true, commitAim: true, lowGuard: true, predictAim: true, slowEvade: true, adaptiveEvade: true, revisitEvade: true, steadyWalk: true, routeAround: true, flankAfterBlocks: true, bodyProfiles: true, lowActions: true },
   fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0
     && armedActions(spec, config.executors, config.actions).length > 0,
   strikes: (spec, config) => armedActions(spec, config.executors, config.actions).flatMap(action => action.effectors),
@@ -154,6 +182,10 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
     ...config.steadyWalk && (!config.commitAim || config.locomotion.kind !== "stance-walk") ? ["steadyWalk needs committed aim and stance walking"] : [],
     ...config.routeAround !== undefined && typeof config.routeAround !== "boolean" ? ["routeAround: a boolean"] : [],
     ...config.routeAround && !config.commitAim ? ["routeAround needs committed aim"] : [],
+    ...config.flankAfterBlocks !== undefined && typeof config.flankAfterBlocks !== "boolean" ? ["flankAfterBlocks: a boolean"] : [],
+    ...config.flankAfterBlocks && !config.commitAim ? ["flankAfterBlocks needs committed aim"] : [],
+    ...config.bodyProfiles !== undefined && !validProfiles(config.bodyProfiles) ? ["bodyProfiles: model names mapped to steady and flank booleans"] : [],
+    ...config.bodyProfiles && !config.commitAim ? ["bodyProfiles needs committed aim"] : [],
     ...config.lowGuard && (!config.commitAim || config.support?.kind !== "support-fold") ? ["lowGuard needs committed aim and low support"] : []],
   presets: deepFreeze({ vanguard: { label: "Vanguard", config: VANGUARD } }),
   builtIn: guardPosture,

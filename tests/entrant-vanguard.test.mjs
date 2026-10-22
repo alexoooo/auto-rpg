@@ -11,6 +11,38 @@ import { BOUT_ENGINE } from "../research/bout.mjs";
 import { adaptiveGuard } from "../src/core/entrants/vanguard/adaptive-guard.ts";
 import { routeAround } from "../src/core/entrants/vanguard/route-around.ts";
 import { createNavigator } from "../src/core/mind/navigation.ts";
+import { flank } from "../src/core/entrants/vanguard/flank.ts";
+
+test("a contact-triggered step preserves live strokes and orders, and forks its active decision", () => {
+  const state = { calls: 0 }, intent = { move: null, face: 0, guard: { left: null, right: null }, actions: [] };
+  const base = { name: "fixture", state, engagement: { phase: "attack", focus: "foe" }, decide() { state.calls++; return intent; } };
+  let orders = null;
+  const policy = flank(base, { segments: [] }, () => orders);
+  const foe = { id: "foe", out: false, centre: { x: 0, y: 1, z: 1 }, spec: { marks: { high: "head" } },
+    segments: new Map([["head", { centre: { x: 0, y: 1.5, z: 1 } }], ["guard", { centre: { x: .2, y: 1, z: 1 } }]]) };
+  const view = { time: 0, down: false, resumed: false, stance: { centre: { x: 0, y: 1, z: 0 }, support: { y: 0 } },
+    senses: { others: [foe], solids: [] } };
+  const sight = { view, report: { heading: 0, ledger: [], actions: [{ id: 1 }] } };
+  for (let sequence = 1; sequence <= CAP_SECONDS; sequence++) {
+    sight.report.ledger.push({ sequence, target: { kind: "body", body: "foe" }, committed: true,
+      contacts: { counts: { commit: { target: 0, block: 1 } }, blockedSegments: ["guard"] } });
+    view.time += .1;
+    assert.equal(policy.decide(sight, .1), intent, "the current stroke retains its controls despite repeated blocks");
+  }
+  sight.report.actions = [];
+  const active = policy.decide(sight, .1);
+  assert.ok(active.move?.[1] < 0, "a free step moves away from the sensed blocking limb");
+  const saved = saveState(policy.state), time = view.time;
+  const next = () => { view.time += .1; return { decision: policy.decide(sight, .1), state: saveState(policy.state) }; };
+  const first = next(); loadState(policy.state, saved); view.time = time;
+  assert.deepEqual(next(), first, "the active step and nested policy memory replay together");
+  orders = { move: [1, 0] };
+  assert.equal(policy.decide(sight, .1), intent, "user movement takes precedence");
+  orders = null; loadState(policy.state, saved); view.resumed = true;
+  assert.equal(policy.decide(sight, .1), intent, "a sub-mind return abandons the interrupted step");
+  view.resumed = false;
+  assert.equal(policy.decide(sight, .1), intent, "old contact records cannot launch it again after resumption");
+});
 
 test("an obstructed attack entry asks navigation for a feasible range point and forks that request", () => {
   const spec = { segments: [] }, foe = { id: "foe", out: false, spec, centre: { x: 2, y: 1, z: 0 }, velocity: { x: 0, y: 0, z: 0 } };
