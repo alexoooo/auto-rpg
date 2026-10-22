@@ -18,7 +18,7 @@ export function fighterFaults(config: FighterConfig, parts: PartLookup): readonl
   const faults = [...kitFaults(config, parts)];
   if (!Array.isArray(config.actions)) return faults;
   const names = config.actions.map((action) => action?.name);
-  return [...faults, ...parts.of("tactics", config.tactics).actionFaults?.(config.tactics, names) ?? []];
+  return [...faults, ...parts.of("tactics", config.tactics).actionFaults?.(config.tactics, names, parts) ?? []];
 }
 
 /** What is wrong with how a kit's actions name its executors and their own settings, each a sentence (`actionFaults`). */

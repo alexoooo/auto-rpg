@@ -35,8 +35,8 @@ export interface TacticsMaking {
 export interface TacticsPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "tactics";
   readonly keys: KeysOf<C>;
-  /** What is wrong with how `config` names the mind's actions (`actions`, their names), each a sentence. */
-  actionFaults?(config: C, actions: readonly string[]): readonly string[];
+  /** What is wrong with how `config` names the mind's actions (`actions`, their names), each a sentence; a planner that holds another asks it (`parts`). */
+  actionFaults?(config: C, actions: readonly string[], parts: PartLookup): readonly string[];
   make(making: TacticsMaking, config: C): Tactics;
 }
 
