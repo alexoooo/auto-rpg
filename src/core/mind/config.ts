@@ -3,16 +3,11 @@ import type { REPTILE_BITE } from "../reptile/tuning.ts";
 import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
 import type { AttackTuning } from "../skills/attack-path.ts";
 import type { CombatExecution, DrivenStrike } from "../skills/combat.ts";
-import type { TurnStartup } from "../skills/locomotion.ts";
 import { STRAIGHT_PUNCH, type StraightPunch } from "../skills/straight-punch.ts";
 import { COMBINATION, type Combination } from "../skills/combination.ts";
-import type { StrideSettings } from "../skills/stride.ts";
-import type { RunSettings } from "../skills/run.ts";
 import type { NavigationConfig } from "./navigation.ts";
-import type { SimbiconSettings, SimbiconWay } from "../skills/simbicon.ts";
-import type { WalkRunSettings } from "../skills/walk-run.ts";
-import type { RunCycleSettings } from "../skills/cycle-run.ts";
-import type { GaitName } from "../skills/gaits.ts";
+import type { LocomotionConfig } from "./locomotions.ts";
+import type { MoveConfig } from "../skills/move-part.ts";
 import type { Placed } from "../skills/strike.ts";
 import type { Repertoire } from "../skills/strikes.ts";
 import type { WholeBodyDrive } from "../skills/whole-body-strike.ts";
@@ -74,92 +69,6 @@ export interface BehavioursConfig {
 
 /** Tactics either compose behaviours, hold guard, or execute a supplied script. */
 export type TacticsConfig = { readonly kind: "script" } | { readonly kind: "stand" } | BehavioursConfig;
-
-/** **The walk** within the body's stance envelope (`locomotion`). */
-export interface StanceWalkConfig {
-  readonly kind: "stance-walk";
-  readonly tuning?: {
-    /** A heading-speed ceiling, rad/s: `docs/reference/combat-locomotion.md`. */
-    readonly turnLimit?: number;
-    /** A brief heading-speed ceiling while setting off: `docs/reference/combat-turn-startup.md`. */
-    readonly turnStartup?: TurnStartup;
-  };
-}
-
-/** **The walk and run** (`stride`, `skills/stride.ts`): steps it plans itself, its settings these. */
-export interface StrideConfig extends StrideSettings {
-  readonly kind: "stride";
-}
-
-/** **The run** (`run`, `skills/run.ts`): steps that fly, its settings these. */
-export interface RunConfig extends RunSettings {
-  readonly kind: "run";
-}
-
-/**
- * **The walk and the run** (`walkRun`, `skills/walk-run.ts`): the stance's walk, and the run that tracks a person's cycle past
- * `run`, its settings these and the run's over its own. It runs unless `runs` is false (`Locomotion.runs`).
- */
-export interface WalkRunConfig extends WalkRunSettings {
-  readonly kind: "walk-run";
-  readonly runs?: boolean;
-  readonly tuning?: { readonly run?: Partial<RunCycleSettings> };
-}
-
-/**
- * **The walk and the learned run** (`learnedRun`, `skills/learned-run.ts`): the walk and run whose run a policy steers, the one
- * `policy` names (`RUN_POLICY`, its network `dataOf("learned-run")`), or, null, steered from outside the mind (research's training). Its settings are the walk and run's,
- * its gait by default timed to its haste as its policy's was in training (`RunPolicy.hasted`).
- */
-export interface LearnedRunConfig extends WalkRunSettings {
-  readonly kind: "learned-run";
-  readonly policy: string | null;
-  readonly runs?: boolean;
-  readonly tuning?: { readonly run?: Partial<RunCycleSettings> };
-}
-
-/**
- * **The SIMBICON walk** (`simbicon`, `skills/simbicon.ts`): the legs driven by a state machine with no stance, its settings
- * these, forward's; and the settings it takes walking to a side or back in place of forward's, over its own (`SimbiconWays`),
- * and running, over the run's. It runs unless `runs` is false (`Locomotion.runs`).
- */
-export interface SimbiconConfig extends SimbiconSettings {
-  readonly kind: "simbicon";
-  readonly runs?: boolean;
-  readonly tuning?: { readonly side?: Partial<SimbiconWay>; readonly back?: Partial<SimbiconWay>; readonly run?: Partial<RunCycleSettings> };
-}
-
-/** A rule of Move: while the body is asked to stand, `gait`. */
-interface WhenStandingConfig { readonly kind: "when-standing"; readonly gait: GaitName }
-
-/**
- * A rule of Move: while what `of` names is `than` `metres` away, `gait`: the nearest standing
- * foe, or where the body's walk is taking it (`Intent.destination`). Where there is none, it is
- * infinitely far.
- */
-interface WhenDistanceConfig {
-  readonly kind: "when-distance";
-  readonly of: "foe" | "destination";
-  readonly than: "under" | "over";
-  readonly metres: number;
-  readonly gait: GaitName;
-}
-
-/** **A rule of Move's config**, by kind: when it chooses its gait. */
-export type MoveRuleConfig = WhenStandingConfig | WhenDistanceConfig;
-
-/**
- * **Move** (`move`, `skills/move.ts`): the gait (`GAITS`) of the first of `rules` that holds, or
- * `otherwise`'s.
- */
-export interface MoveConfig {
-  readonly kind: "move";
-  readonly rules: readonly MoveRuleConfig[];
-  readonly otherwise: GaitName;
-}
-
-/** **The legs' skill**, by kind. */
-export type LocomotionConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | WalkRunConfig | LearnedRunConfig | MoveConfig;
 
 /** **The guard**: the arms' posture, and a guarding hand's cover of what the tactics name (`guardSkill`). */
 interface CoverGuardConfig {
@@ -260,8 +169,8 @@ interface WholeBodyMotorConfig { readonly kind: "whole-body" }
 /** **A motor control's config**, by kind (`motorOf`, `src/core/control/motors.ts`). */
 export type MotorConfig = WholeBodyMotorConfig;
 
-/** **A skill's config**, by kind, across the fighter's skill slots. */
-export type SkillConfig = StanceWalkConfig | StrideConfig | RunConfig | SimbiconConfig | WalkRunConfig | LearnedRunConfig | MoveConfig | CoverGuardConfig | ShieldGuardConfig | SupportFoldConfig;
+/** **A guard's or low support's config**, by kind: the fighter's skill slots but its legs' (`LocomotionConfig`). */
+export type SkillConfig = CoverGuardConfig | ShieldGuardConfig | SupportFoldConfig;
 
 /** A fighter shares named executors across its configured actions. */
 export interface FighterConfig {

@@ -1,11 +1,12 @@
-import type { BehaviourConfig, ExecutorConfig, MotorConfig, MoveRuleConfig, ReflexConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
+import type { BehaviourConfig, ExecutorConfig, MotorConfig, ReflexConfig, SkillConfig, SubMindConfig, TacticsConfig } from "./config.ts";
+import type { MoveRuleConfig } from "../skills/move-part.ts";
 import { deepFreeze } from "../state.ts";
 import type { NavigationConfig } from "./navigation.ts";
 
 type Config = SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | SkillConfig | ExecutorConfig | ReflexConfig | MotorConfig | NavigationConfig;
 
 /** Every accepted top-level key of a part below a mind, including optional settings; a mind's are
- * its controller's (`Controller.keys`). The mapped type requires every config property and
+ * its controller's (`Controller.keys`), and a registered implementation's its own (`LocomotionPart.keys`). The mapped type requires every config property and
  * rejects extras; editor fields and default values carry no validation authority. Each part's
  * faults predicate validates values, and its slots validate nested parts. */
 export const CONFIG_KEYS = deepFreeze({
@@ -33,28 +34,6 @@ export const CONFIG_KEYS = deepFreeze({
   "edge": { kind: true, band: true, patience: true },
   "ground": { kind: true },
   "cover": { kind: true, guard: true },
-  "stance-walk": { kind: true, tuning: true },
-  "stride": {
-    kind: true, swing: true, transfer: true, lift: true, settle: true, width: true, longest: true, accel: true,
-    turn: true, paced: true, lands: true, push: true, launch: true, lead: true, momentum: true, lever: true,
-    arms: true, ramp: true, drive: true, lengthen: true,
-  },
-  "run": {
-    kind: true, contact: true, flight: true, lift: true, settle: true, width: true, gain: true, accel: true,
-    turn: true, drop: true, arms: true, drive: true, lever: true,
-  },
-  "simbicon": {
-    kind: true, tuning: true, runs: true, seconds: true, longest: true, swingHip: true, swingHipLate: true,
-    swingKnee: true, swingKneeLate: true, swingSpread: true, swingAnkle: true, swingAnkleLate: true,
-    stanceKnee: true, stanceKneeLate: true, stanceAnkle: true, cvAnkle: true, cvAnkleSide: true, lean: true,
-    cd: true, cv: true, cdLate: true, cvLate: true, cdSide: true, cvSide: true, landing: true, lead: true,
-    leadSide: true, leadOut: true, width: true, vf: true, vfSide: true, vfMost: true, trim: true,
-    trimSide: true, trimMost: true, trimLeak: true, settle: true, stance: true, swing: true, ankle: true,
-    pelvis: true, hold: true, turn: true, swerve: true, turnRate: true, speedup: true, slowdown: true, arms: true, run: true, leg: true, hasted: true,
-  },
-  "walk-run": { kind: true, tuning: true, runs: true, run: true, turn: true, swerve: true, turnRate: true, leg: true, hasted: true },
-  "learned-run": { kind: true, policy: true, tuning: true, runs: true, run: true, turn: true, swerve: true, turnRate: true, leg: true, hasted: true },
-  "move": { kind: true, rules: true, otherwise: true },
   "when-standing": { kind: true, gait: true },
   "when-distance": { kind: true, of: true, than: true, metres: true, gait: true },
   "cover-guard": { kind: true, tuning: true },

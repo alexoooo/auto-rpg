@@ -2,28 +2,17 @@ import { SERVO_SECONDS, type Body, type BodyOptions } from "../body.ts";
 import { skillSet } from "../skills/arbiter.ts";
 import { guardSkill } from "../skills/guard.ts";
 import { holdUp } from "../skills/hold.ts";
-import { locomotion, validTurnLimit, validTurnStartup, type Locomotion } from "../skills/locomotion.ts";
 import type { Skills } from "../skills/skills.ts";
 import type { Ended } from "../skills/action.ts";
-import { STRIDE, stride, validStride } from "../skills/stride.ts";
-import { RUN, run, validRun } from "../skills/run.ts";
-import { SIMBICON, simbicon, simbiconWays, validSimbicon, validWays, type SimbiconSettings } from "../skills/simbicon.ts";
-import { runCycleSettings, validRunCycle } from "../skills/cycle-run.ts";
-import { WALK_RUN, WALK_RUN_CYCLE, validWalkRun, walkRun, type WalkRunSettings } from "../skills/walk-run.ts";
-import { learnedRun, RUN_POLICY } from "../skills/learned-run.ts";
-import { GAIT_NAMES, GAITS, type GaitName } from "../skills/gaits.ts";
-import { distanceRule, move, standingRule, type MoveGait, type MoveRule } from "../skills/move.ts";
 import { supportFold } from "../skills/support-fold.ts";
-import { dataOf } from "../data/store.ts";
 import { deepFreeze } from "../state.ts";
 import type { Clock } from "../clock.ts";
 import type { BodyHost } from "./host.ts";
-import { MOVE, type ActionConfig, type FighterConfig, type SkillKit, type SkillConfig, type StanceWalkConfig, type StrideConfig, type RunConfig, type SimbiconConfig, type WalkRunConfig, type LearnedRunConfig, type MoveConfig, type MoveRuleConfig, type LocomotionConfig } from "./config.ts";
+import type { ActionConfig, FighterConfig, SkillKit, SkillConfig } from "./config.ts";
 import { actionConfigFaults, armedActions, configuredActionEstimates, configuredExecutors } from "./action-config.ts";
-import { choice, type PartField } from "./fields.ts";
-import { CONDITIONS } from "./conditions.ts";
 import type { MindWiring } from "./minds.ts";
-import { anyBody, slotList, takesCommands, type Part } from "./parts.ts";
+import { legsOf } from "./locomotions.ts";
+import { takesCommands, type Part } from "./parts.ts";
 import { subMindsOf } from "./sub-minds.ts";
 import { tacticsOf } from "./tactics-of.ts";
 import { driveBy, type Tactics } from "./tactics.ts";
@@ -32,92 +21,11 @@ import { driveBy, type Tactics } from "./tactics.ts";
 const skill = <C extends SkillConfig>(role: Part["role"], label: string, stage: Part["stage"], defaults: C, faults: (config: C) => readonly string[] = () => []): Part<C> =>
   ({ role, label, stage, fields: [], slots: [], defaults, fits: takesCommands, faults });
 
-/** A SIMBICON walk's config's settings, its kind taken off. */
-const settingsOf = ({ kind: _, tuning: __, runs: ___, ...settings }: SimbiconConfig): SimbiconSettings => settings;
-
-/** A walk and run's config's settings, its kind taken off. */
-const walkRunOf = ({ kind: _, tuning: __, runs: ___, ...settings }: WalkRunConfig): WalkRunSettings => settings;
-const learnedRunOf = ({ kind: _, tuning: __, runs: ___, policy: ____, ...settings }: LearnedRunConfig): WalkRunSettings => settings;
-
-/** Whether `name` is a gait's (`GAITS`): a config read from a save or a link may name any. */
-const isGait = (name: string): name is GaitName => Object.hasOwn(GAITS, name);
-
-/** The gaits as a choice offers them. */
-const GAIT_CHOICES = GAIT_NAMES.map((name): [GaitName, string] => [name, GAITS[name].stage === "experimental" ? `${GAITS[name].label} (experimental)` : GAITS[name].label]);
-
-/** A rule part of Move: a gait it chooses, and what is wrong with a config of it. */
-const rule = <C extends MoveRuleConfig>(label: string, defaults: C, fields: readonly PartField<C>[], faults: (config: C) => readonly string[] = () => []): Part<C> =>
-  ({ role: "move-rule", label, stage: "game", fields: [...fields, choice<C, "gait">("gait", "Gait", GAIT_CHOICES)], slots: [], defaults, fits: anyBody,
-    faults: (config) => [...faults(config), ...isGait(config.gait) ? [] : [`no gait called ${JSON.stringify(config.gait)}`]] });
-
-type DistanceRuleConfig = Extract<MoveRuleConfig, { kind: "when-distance" }>;
-/** Shared condition fields retain the movement rule's selected gait when edited. */
-const withGait = <C>(fields: readonly PartField<C>[]): readonly PartField<C & { readonly gait: GaitName }>[] => fields.map(field => ({ ...field,
-  write(config: C & { readonly gait: GaitName }, value: string) {
-    const updated = field.write(config, value);
-    return updated ? { ...config, ...updated } : null;
-  } }));
-
-/** **Every rule of Move, by its kind** (`Part`): what Move's rule list holds. */
-export const MOVE_RULE_PARTS: { readonly [K in MoveRuleConfig["kind"]]: Part<Extract<MoveRuleConfig, { kind: K }>> } = deepFreeze({
-  "when-standing": rule<Extract<MoveRuleConfig, { kind: "when-standing" }>>("While standing", { kind: "when-standing", gait: "braced" }, withGait(CONDITIONS["when-standing"].fields)),
-  "when-distance": rule<DistanceRuleConfig>("While a distance", { kind: "when-distance", of: "foe", than: "under", metres: 5, gait: "braced" }, withGait(CONDITIONS["when-distance"].fields),
-    (config) => Number.isFinite(config.metres) && config.metres > 0 ? [] : ["a rule's distance must be finite and positive"]),
-});
-
 /**
- * **Every skill, by its kind** (`Part`): what a fighter's skill slots hold, each its role's. The
- * path strike, the kick and low support are the opening tactics' research, and the driven and
- * whole-body strikes the punch's, offered beside the game's.
+ * **Every guard and low support, by its kind** (`Part`): what a fighter's guard and support slots
+ * hold. Low support is the opening tactics' research, offered beside the game's.
  */
 export const SKILL_PARTS: { readonly [K in SkillConfig["kind"]]: Part<Extract<SkillConfig, { kind: K }>> } = deepFreeze({
-  "stance-walk": {
-    ...skill<StanceWalkConfig>("locomotion", "Walk in the stance", "game", { kind: "stance-walk" }, (config) => [
-      ...(validTurnLimit(config.tuning?.turnLimit) ? [] : ["locomotion turn limit must be finite and positive"]),
-      ...(validTurnStartup(config.tuning?.turnStartup) ? [] : ["invalid combat turn startup settings"]),
-    ]),
-    tuning: ["turnLimit", "turnStartup"],
-  },
-  "stride": {
-    ...skill<StrideConfig>("locomotion", "Stride", "experimental", { kind: "stride", ...STRIDE },
-      (config) => validStride(config) ? [] : ["a stride needs every setting finite and positive, its double support not negative"]),
-  },
-  "run": {
-    ...skill<RunConfig>("locomotion", "Run", "experimental", { kind: "run", ...RUN },
-      (config) => validRun(config) ? [] : ["a run needs every setting finite and positive, its gain not negative"]),
-  },
-  "simbicon": {
-    ...skill<SimbiconConfig>("locomotion", "SIMBICON walk", "game", { kind: "simbicon", ...SIMBICON },
-      (config) => [
-        ...validSimbicon(settingsOf(config)) ? [] : ["a SIMBICON gait needs every setting finite, its times, turn, swerve, turn's change, speed-up, run and leg positive, and its shares of strength within (0, 1]"],
-        ...validWays(simbiconWays(config.tuning)) ? [] : ["a SIMBICON gait's side and back give only the settings a way changes, each finite"],
-        ...validRunCycle(runCycleSettings(config.tuning?.run)) ? [] : ["a SIMBICON gait's run gives only the run's settings, each finite, its times and the cycle's positive and its shares of strength within (0, 1]"],
-      ]),
-    tuning: ["side", "back", "run"],
-  },
-  "walk-run": {
-    ...skill<WalkRunConfig>("locomotion", "Walk and run", "game", { kind: "walk-run", ...WALK_RUN },
-      (config) => [
-        ...validWalkRun(walkRunOf(config)) ? [] : ["a walk and run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1"],
-        ...validRunCycle(runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE)) ? [] : ["a walk and run's run gives only the run's settings, each finite, its times and the cycle's positive and its shares of strength within (0, 1]"],
-      ]),
-    tuning: ["run"],
-  },
-  "learned-run": {
-    ...skill<LearnedRunConfig>("locomotion", "Walk and learned run", "experimental", { kind: "learned-run", ...WALK_RUN, hasted: RUN_POLICY.hasted, policy: RUN_POLICY.policies[0]! },
-      (config) => [
-        ...validWalkRun(learnedRunOf(config)) ? [] : ["a walk and learned run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1"],
-        ...validRunCycle(runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE)) ? [] : ["a walk and learned run's run gives only the run's settings, each finite, its times and the cycle's positive and its shares of strength within (0, 1]"],
-        ...config.policy === null || RUN_POLICY.policies.includes(config.policy) ? [] : [`a learned run has no policy called ${JSON.stringify(config.policy)}`],
-      ]),
-    reads: (config) => config.policy === null ? [] : ["learned-run"],
-    tuning: ["run"],
-  },
-  "move": {
-    ...skill<MoveConfig>("locomotion", "Move", "game", MOVE, (config) => isGait(config.otherwise) ? [] : [`move: no gait called ${JSON.stringify(config.otherwise)}`]),
-    fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
-    slots: [slotList("rules", "When", "move-rule")],
-  },
   "cover-guard": { ...skill("guard", "Guard and cover", "game", { kind: "cover-guard" }),
     supportedEquipment: (spec) => (spec.held ?? []).filter(({ item }) => item.cover !== undefined && item.coverNormal === undefined).map(({ segment }) => segment), tuning: ["covering", "hold"] },
   "shield-guard": { ...skill("guard", "Guard faces and lines", "game", { kind: "shield-guard" }),
@@ -156,51 +64,6 @@ export function kitFaults(config: SkillKit): readonly string[] {
     if (!executors.has(action.executor)) faults.push(`${action.name}: missing executor ${action.executor}`);
   }
   return faults;
-}
-
-/** The gaits `config` walks by, each once, in the order its rules and then `otherwise` name them. */
-const gaitsOf = (config: MoveConfig): readonly GaitName[] => [...new Set([...config.rules.map((r) => r.gait), config.otherwise])];
-
-/** The rule `config` makes, choosing the `gait`th of its Move's gaits. */
-function moveRule(config: MoveRuleConfig, gait: number): MoveRule {
-  switch (config.kind) {
-    case "when-standing": return standingRule(gait);
-    case "when-distance": return distanceRule(gait, config.of, config.than, config.metres);
-    default: { const never: never = config; throw new Error(`no rule of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
-  }
-}
-
-/** Whether legs of `config` may run (`Locomotion.runs`), undefined for legs that are not told. */
-function runsOf(config: LocomotionConfig): boolean | undefined {
-  switch (config.kind) {
-    case "simbicon": case "walk-run": case "learned-run": return config.runs ?? true;
-    case "stance-walk": case "stride": case "run": case "move": return undefined;
-    default: { const never: never = config; throw new Error(`no locomotion of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
-  }
-}
-
-/** The legs' skill of `config` for `body`. */
-function legsOf(body: Body, config: LocomotionConfig): Locomotion {
-  switch (config.kind) {
-    case "stance-walk": return locomotion(body.envelope, config.tuning?.turnLimit, config.tuning?.turnStartup);
-    case "stride": { const { kind: _, ...settings } = config; return stride(body, settings); }
-    case "run": { const { kind: _, ...settings } = config; return run(body, settings); }
-    case "simbicon": return simbicon(body, settingsOf(config), simbiconWays(config.tuning), runCycleSettings(config.tuning?.run), config.runs ?? true);
-    case "walk-run": return walkRun(body, walkRunOf(config), runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE), config.runs ?? true);
-    case "learned-run": return learnedRun(body, config.policy === null ? null : dataOf("learned-run"), learnedRunOf(config), runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE), config.runs ?? true);
-    case "move": {
-      const names = gaitsOf(config), built = new Map<string, Locomotion>();
-      // Gaits whose legs differ only in whether they may run share one walk (`MoveGait`).
-      const gaits = names.map((name): MoveGait => {
-        const legs: LocomotionConfig = GAITS[name].legs, runs = runsOf(legs);
-        const key = JSON.stringify(runs === undefined ? legs : { ...legs, runs: undefined });
-        if (!built.has(key)) built.set(key, legsOf(body, legs));
-        return { legs: built.get(key)!, ...(runs === undefined ? {} : { runs }) };
-      });
-      return move(gaits, config.rules.map((r) => moveRule(r, names.indexOf(r.gait))), names.indexOf(config.otherwise));
-    }
-    default: { const never: never = config; throw new Error(`no locomotion of kind ${JSON.stringify((never as { kind?: unknown }).kind)}`); }
-  }
 }
 
 /** All action instances share the fighter's physical feedback and body-local ledger. */

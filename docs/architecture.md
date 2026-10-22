@@ -273,6 +273,13 @@ actions over it.
 | Run | `run.ts` | Raibert-placed flying steps; experimental |
 | Move | `move.ts` | chooses among the gaits (`GAITS`, `gaits.ts`) by rules (`MoveRuleConfig`) on standing and distance; Classic's is `MOVE` |
 
+Each kind is a registered implementation (`LocomotionPart`, `src/core/mind/locomotion-part.ts`): its
+own module beside its skill (`skills/<kind>-part.ts`) owns its config's type, keys, defaults,
+faults, fit and maker, and is a line in `LOCOMOTION_PARTS` (`mind/locomotions.ts`), from which the
+slot's config type (`LocomotionConfig`) and the maker (`legsOf`) follow. The legs it makes state
+their limits to the speed rule: what they hold (`Locomotion.envelope`) and how fast they stop
+(`Locomotion.stopping`); Move's rules (`MOVE_RULE_PARTS`) are in Move's module.
+
 A gait that drives the legs asks the assist only to right the pelvis (`gaitAssist`,
 `skills/gait-assist.ts`). A push whose level or speed is not a number is refused (`obey`, `body.ts`).
 The gaits' measured speeds are in [locomotion](reference/locomotion.md).
@@ -393,7 +400,8 @@ screen must give). `PARTS` (`catalog.ts`) is every part by kind. Over the tree:
   there is none); `kindsFor` lists every part of a role with the reason it cannot go somewhere.
 - A part's experiment settings live under `tuning`, are named by `Part.tuning`, and never travel in
   a link (`withoutTuning`). A key a part does not read is a fault, never silently dropped;
-  `CONFIG_KEYS` (`config-keys.ts`) enumerates accepted keys and is checked at compile time.
+  a registered implementation states its keys (`Part.keys`, `KeysOf`), and `CONFIG_KEYS`
+  (`config-keys.ts`) enumerates the other parts'; both are checked at compile time.
 
 **Presets.** `RECIPE_FIGHTER` is shared action tactics over the recipe strike; `CLASSIC` adds
 `MOVE` and step-up recovery (`STAND_UP`). Puncher, Counter-puncher, Scrapper and Behaviours vary
