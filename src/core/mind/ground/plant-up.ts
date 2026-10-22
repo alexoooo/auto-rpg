@@ -17,7 +17,7 @@ import type { OwnBody } from "../mind.ts";
 import { riseLimbs, type RiseLimbs } from "../rise/limbs.ts";
 import { RISE } from "../rise/stages.ts";
 import { standReady, type GroundReading, type Position } from "./reading.ts";
-import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "./techniques.ts";
+import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique } from "./technique.ts";
 
 type Phase = "brace" | "plant" | "transfer" | "rise" | "steady";
 interface PlantUpTuning {
@@ -165,3 +165,8 @@ export function plantUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKi
     },
   };
 }
+
+/** **Plant up** (`plantUp`): from the front, on all fours or kneeling. */
+export const PLANT_UP_TECHNIQUE = technique("plant-up", { label: "Plant up", stage: "experimental", sides: Object.freeze(["left"] as const),
+  edges: Object.freeze((["front", "fours", "half-kneel", "crouch"] as const).map(from => Object.freeze({ from, to: "standing" as const }))),
+  make: (own, view, clock, _listed, kit) => plantUp(own, view, clock, kit) });

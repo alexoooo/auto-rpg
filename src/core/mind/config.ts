@@ -9,6 +9,9 @@ import { KICK_PATH, type KickTuning } from "../skills/kick.ts";
 import { STRAIGHT_PUNCH } from "../skills/straight-punch.ts";
 import { COMBINATION } from "../skills/combination.ts";
 import type { LOCOMOTIONS } from "./locomotions.ts";
+import type { BEHAVIOURS as BEHAVIOUR_LIST } from "./behaviours.ts";
+import type { PLANNERS } from "./planners.ts";
+import type { REFLEXES } from "./options/reflexes.ts";
 import type { MoveConfig } from "../skills/move-part.ts";
 import type { ConfigOf, PartConfig } from "./parts.ts";
 import type { OpeningTuning } from "./openings.ts";
@@ -39,13 +42,8 @@ export type SelectorConfig = ({ readonly kind: "first-ready" | "rotate" | "score
   | { readonly kind: "rules"; readonly rules: readonly { readonly when: ConditionConfig; readonly actions: readonly string[] }[]; readonly otherwise: readonly string[] })
   & { readonly rethink: number; readonly patience: number };
 
-/** A behaviour requests one part of the shared tactical intent. */
-export type BehaviourConfig = { [K in "attack" | "follow-orders" | "clear-of-walls" | "clear-of-fallen" | "evade" | "flee"]: { readonly kind: K } }["attack" | "follow-orders" | "clear-of-walls" | "clear-of-fallen" | "evade" | "flee"]
-  | { readonly kind: "approach"; readonly spacing?: number; readonly spacingStep?: number; readonly travel?: number }
-  | { [K in "close-in" | "keep-distance" | "break-clinch"]: { readonly kind: K; readonly metres: number } }["close-in" | "keep-distance" | "break-clinch"]
-  | { readonly kind: "edge"; readonly band: number; readonly patience: number }
-  | { readonly kind: "ground" }
-  | { readonly kind: "cover"; readonly guard: "pose" | "cover" | "predictive" | "body" | "ward" };
+/** **A behaviour's config**, by kind (`BEHAVIOURS`): one part of the shared tactical intent. */
+export type BehaviourConfig = ConfigOf<typeof BEHAVIOUR_LIST>;
 
 /** Ranked behaviours share focus, selection and action instances. */
 export interface BehavioursConfig {
@@ -55,8 +53,8 @@ export interface BehavioursConfig {
   readonly list: readonly BehaviourConfig[];
 }
 
-/** Tactics either compose behaviours, hold guard, or execute a supplied script. */
-export type TacticsConfig = { readonly kind: "script" } | { readonly kind: "stand" } | BehavioursConfig;
+/** **The tactics' config**, by kind (`PLANNERS`). */
+export type TacticsConfig = ConfigOf<typeof PLANNERS>;
 
 /** **An executor's config**, by kind (`EXECUTORS`): its settings and the name its actions call it by. */
 export type ExecutorConfig = ConfigOf<typeof EXECUTORS>;
@@ -77,10 +75,9 @@ export interface ActionConfig {
 }
 
 /** **Cover** (`cover`, `options/reflex.ts`): a free hand put between a blow coming at the head and the head. */
-interface CoverReflexConfig { readonly kind: "cover-reflex" }
 
-/** **A reflex's config**, by kind (`reflexOf`). */
-export type ReflexConfig = CoverReflexConfig;
+/** **A reflex's config**, by kind (`REFLEXES`). */
+export type ReflexConfig = ConfigOf<typeof REFLEXES>;
 
 /** **A stock guard's config**, by kind (`GUARDS`). */
 export type GuardConfig = ConfigOf<typeof GUARDS>;
@@ -133,6 +130,8 @@ export interface OptionsConfig extends SkillKit {
   readonly weights?: Readonly<Partial<Weights>>;
   /** Its reflexes, in rank order (`reflexLayer`). */
   readonly reflexes: readonly ReflexConfig[];
+  /** What it does down, by rank: each a sub-mind it prices as a down option (`SubMindPart.down`). */
+  readonly subs: readonly SubMindConfig[];
 }
 
 /** Four-paw crawling, physical jaw snaps and self-righting through the body's own muscles. */
@@ -181,7 +180,7 @@ export const RECIPE_FIGHTER: FighterConfig = deepFreeze({ kind: "fighter", tacti
   actions: [{ name: "strike", executor: "recipe", effectors: ["hand.right", "hand.left"], regions: [{ kind: "mark", mark: "high" }], aim: { kind: "centre", lead: 0 } }, ...BLADE_ACTIONS], support: null, subs: [{ kind: "lie" }] });
 
 /** Standing up by stepping up (`stepUp`), the way the game's fighters rise once down. */
-export const STAND_UP: StandUpConfig = deepFreeze({ kind: "stand-up", techniques: ["step-up"] });
+export const STAND_UP: StandUpConfig = deepFreeze({ kind: "stand-up", techniques: [{ kind: "step-up" }] });
 
 /** The Classic fighter: the recipe fighter, getting about by `MOVE` and standing up once down. */
 export const CLASSIC: FighterConfig = deepFreeze({ ...RECIPE_FIGHTER, locomotion: MOVE, subs: [STAND_UP] });
@@ -250,7 +249,8 @@ export const OPTIONS: OptionsConfig = deepFreeze({ kind: "options", locomotion: 
     { name: "combination", kind: "combination" as const, ...COMBINATION },
     ...SCRAPPER.executors.filter((executor) => executor.name === LOW.executor), ...BLADE_EXECUTORS],
   actions: [...COUNTER_PUNCHER.actions, ONE_TWO, LOW].map((action) => action.lower === undefined ? { ...action, aim: { kind: "surface" as const, tuning: {} } } : action).concat(BLADE_ACTIONS),
-  support: SCRAPPER.support, reflexes: [{ kind: "cover-reflex" }] });
+  support: SCRAPPER.support, reflexes: [{ kind: "cover-reflex" }],
+  subs: [STAND_UP, { kind: "get-away", metres: 2 }, { kind: "ground-fight", reach: 1.2, kicks: "either" }, { kind: "lie" }] });
 
 /** The configurable behaviour fighter starts from the shared recipe actions. */
 export const BEHAVIOURS: FighterConfig = deepFreeze({ ...CLASSIC, tactics: { ...FIGHTING, choose: { kind: "rotate", rethink: .2, patience: 2 }, list: [

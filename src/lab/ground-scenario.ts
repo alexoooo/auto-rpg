@@ -5,7 +5,9 @@ import { GROUND_RISES, labAddress, type GroundRise, type LabAddress } from "./sc
 import { groundShove, ROUND_FALLS, startGround, STAND_CHECK } from "./ground-mode.ts";
 import { groundPlacement, groundPostures } from "./ground-starts.ts";
 import { groundTechnique, plantWaypoint } from "./ground-technique.ts";
-import { TECHNIQUES, type TechniqueName } from "../core/mind/ground/techniques.ts";
+import { TECHNIQUES } from "../core/mind/ground/techniques.ts";
+import type { TechniqueName, TechniquePart } from "../core/mind/ground/technique.ts";
+import { partLookup } from "../core/mind/catalog.ts";
 import type { StandUpConfig } from "../core/mind/ground/stand-up.ts";
 import { STAND_UP, type FighterConfig } from "../core/mind/config.ts";
 import { recordHistory } from "./history.ts";
@@ -31,7 +33,7 @@ const RISES: Readonly<Record<GroundRise, string>> = { "step-up": "Stand up: step
 function risingBy(chosen: FighterConfig, rise: GroundRise): FighterConfig {
   switch (rise) {
     case "step-up": return { ...chosen, subs: [STAND_UP] };
-    case "learned-rise": { const learned: StandUpConfig = { ...STAND_UP, techniques: ["learned-rise"] }; return { ...chosen, subs: [learned] }; }
+    case "learned-rise": { const learned: StandUpConfig = { ...STAND_UP, techniques: [{ kind: "learned-rise" }] }; return { ...chosen, subs: [learned] }; }
     case "support-recovery": return { ...chosen, subs: [{ kind: "support-recovery" }] };
     case "mind": return chosen;
     default: { const never: never = rise; throw new Error(`unknown rise ${String(never)}`); }
@@ -90,7 +92,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
         when(() => address.ground.start === "shoved", action("Draw shove from seed", () => change({ degrees: null, impulse: null }))),
         following(() => address.model, () => menu("Gets up by", [
           ...GROUND_RISES.map((rise) => ({ value: `rise:${rise}`, name: RISES[rise] })),
-          ...Object.entries(TECHNIQUES).filter(([, technique]) => technique.fits(loadoutSpec(address))).map(([value, spec]) => ({ value: `alone:${value}`, name: `${spec.label} alone (experimental)` }))],
+          ...Object.entries(TECHNIQUES as Readonly<Record<string, TechniquePart>>).filter(([, technique]) => technique.fits(loadoutSpec(address), technique.defaults, partLookup) === null).map(([value, spec]) => ({ value: `alone:${value}`, name: `${spec.label} alone (experimental)` }))],
         () => address.ground.drive === "mind" ? `rise:${address.ground.rise}` : `alone:${address.ground.drive}`,
         value => value.startsWith("rise:") ? change({ drive: "mind", rise: value.slice(5) as GroundRise }) : change({ drive: value.slice(6) as TechniqueName }))),
         when(() => address.ground.start === "placed" && address.ground.drive === "plant-up", menu("Waypoint",

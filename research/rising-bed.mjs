@@ -10,6 +10,7 @@ import { writeFile, appendFile } from "node:fs/promises";
 import { loadoutFaults, loadoutKey } from "../src/core/items/held.ts";
 import { HUMANOID_MODELS, modelSpec } from "../src/core/models.ts";
 import { TECHNIQUES } from "../src/core/mind/ground/techniques.ts";
+import { partLookup } from "../src/core/mind/catalog.ts";
 import { risingImplementation } from "./rising-provenance.mjs";
 import { risingJobs, risingMind, risingReport } from "../src/evaluation/rising.ts";
 
@@ -68,8 +69,9 @@ export function risingOptions(args) {
     options.sub = "stand-up";
   }
   if (options.technique && (options.target || options.balance !== 0 || options.gusts)) throw new Error("standalone techniques use calm Balance 0 eight-second trials, separately from --target");
-  if (options.technique && !specified.has("--models")) options.models = options.models.filter(model => TECHNIQUES[options.technique].fits(modelSpec(model)));
-  if (options.technique && options.models.some(model => !TECHNIQUES[options.technique].fits(modelSpec(model)))) throw new Error("technique does not fit every selected model");
+  const fits = (model) => { const technique = TECHNIQUES[options.technique]; return technique.fits(modelSpec(model), technique.defaults, partLookup) === null; };
+  if (options.technique && !specified.has("--models")) options.models = options.models.filter(fits);
+  if (options.technique && !options.models.every(fits)) throw new Error("technique does not fit every selected model");
   return options;
 }
 

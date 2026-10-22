@@ -29,7 +29,7 @@ vocabulary: the `Intent` tactics return (`src/core/mind/intent.ts`) and the `Ski
 | Mind seam | `src/core/mind/mind.ts`, `sub-mind.ts` | a mind made with its body, stepped before the solver, writing the muscles' command and its assist's ask |
 | Motor control | `src/core/control/` | joint, effector and stance goals turned into muscle commands |
 | Skills | `src/core/skills/` | an intent turned into the body's command: walk, guard, strike |
-| Tactics | `src/core/mind/tactics.ts`, `action-tactics.ts`, `ordered.ts`, `targets.ts`, `movement.ts` | what the body should do, from what it senses |
+| Tactics | `src/core/mind/tactics.ts`, `tactics-part.ts`, `planners.ts`, `action-tactics.ts`, `behaviours/`, `ordered.ts`, `targets.ts`, `movement.ts` | what the body should do, from what it senses |
 | Minds | `src/core/mind/config.ts`, `kinds.ts`, `controllers.ts`, `minds.ts`, `hosted.ts`, `options/`, `rise/`, `ground/`; `src/core/entrants/` | a body's mind made from its config by the controller of its kind |
 | Command | `src/core/command/` | a team's members given orders by its Commander, from what they sense |
 
@@ -278,13 +278,14 @@ actions over it.
 | Run | `run.ts` | Raibert-placed flying steps; experimental |
 | Move | `move.ts` | chooses among the gaits (`GAITS`, `gaits.ts`) by rules (`MoveRuleConfig`) on standing and the distance to the nearest standing foe, the nearest standing body of its own side, or its destination; Classic's is `MOVE` |
 
-Each kind is a registered implementation (`LocomotionPart`, `src/core/mind/locomotion-part.ts`): its
-own module beside its skill (`skills/<kind>-part.ts`) owns its config's type, keys, defaults,
-faults, fit and maker, and is a line in `LOCOMOTIONS` (`mind/locomotions.ts`, a role list), from which the
-slot's config type (`LocomotionConfig`) follows; `legsOf` (`mind/kit.ts`) makes the legs a config
-names as the lookup finds them, and Move makes its gaits' legs the same way (`Legs`). The legs it makes state
-their limits to the speed rule: what they hold (`Locomotion.envelope`) and how fast they stop
-(`Locomotion.stopping`); Move's rules (`MOVE_RULE_PARTS`) are in Move's module.
+Each kind is a registered implementation (`LocomotionPart`, `src/core/mind/locomotion-part.ts`):
+its own module beside its skill (`skills/<kind>-part.ts`) owns its config's type, keys, defaults,
+faults, fit and maker, and is a line in `LOCOMOTIONS` (`mind/locomotions.ts`, a role list), from
+which the slot's config type (`LocomotionConfig`) follows. `legsOf` (`mind/kit.ts`) makes the
+legs a config names as the lookup finds them; Move makes its gaits' legs and its rules
+(`MoveRulePart`, `skills/move-rule-part.ts`, a line in `MOVE_RULES`) through the lookup the legs
+carry (`Legs`). The legs state their limits to the speed rule: what they hold
+(`Locomotion.envelope`) and how fast they stop (`Locomotion.stopping`).
 
 A gait that drives the legs asks the assist only to right the pelvis (`gaitAssist`,
 `skills/gait-assist.ts`). A push whose level or speed is not a number is refused (`obey`, `body.ts`).
@@ -408,15 +409,16 @@ by its defaults; pickers offer only minds that fit the side's body and loadout.
 | vanguard | `src/core/entrants/vanguard/` | committed point prediction, contact-driven tactics, editable own-body walking, blocked-step, punch-timing and preparation-aim profiles, recovery guard and low cover |
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`mind`,
-`sub-mind`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `reflex`, or a skill's:
+`sub-mind`, `technique`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `reflex`, or a skill's:
 `locomotion`, `guard`, `executor`, `support`), a label, a stage (`game` or `experimental`), the `fields` a
 person may change (`fields.ts`: trade-off choices, never a controller's searched constants), its
 slots (`slotOne`, `slotList`, `slotsOf`), `defaults`, `fits`, `faults` and `needs` (a `Provision` a
 screen must give). `allParts` (`catalog.ts`) is every part by kind: the parts below a mind, each
 mind, and each mind's own parts (`Controller.parts`), read once on first use so that any module may
 load first. A role whose parts make themselves has a list of them that holds its imports and its
-list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `GUARDS`, `SUPPORTS`, `SUB_MINDS`, `LOCOMOTIONS` in
-`src/core/mind/`; `MOTORS` in `src/core/control/`), so a case's code begins each part's own
+list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `TECHNIQUES` in `ground/`, `GUARDS`, `SUPPORTS`, `SUB_MINDS`, `LOCOMOTIONS`, `PLANNERS`, `BEHAVIOURS` in
+`src/core/mind/`; `REFLEXES` in `options/`; `MOTORS` in `src/core/control/`; `MOVE_RULES` in
+`src/core/skills/`), so a case's code begins each part's own
 code there; its parts make what they are (`NavigatorPart.make`), and an assembly makes the one a
 config names as the host's lookup finds it. A part whose checks read the parts it names is handed
 the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the registry. Over the tree:
@@ -429,8 +431,7 @@ the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the reg
   included, with the reason it cannot go somewhere.
 - A part's experiment settings live under `tuning`, are named by `Part.tuning`, and never travel in
   a link (`withoutTuning`). A key a part does not read is a fault, never silently dropped;
-  a registered implementation states its keys (`Part.keys`, `KeysOf`), and `CONFIG_KEYS`
-  (`config-keys.ts`) enumerates the other parts'; both are checked at compile time.
+  every part states its keys (`Part.keys`, `KeysOf`), checked at compile time.
 
 **Presets.** `RECIPE_FIGHTER` is shared action tactics over the recipe strike; `CLASSIC` adds
 `MOVE` and step-up recovery (`STAND_UP`). Puncher, Counter-puncher, Scrapper and Behaviours vary
@@ -441,8 +442,9 @@ chooses by participant, side and model (`DungeonRunOptions.mind`); the Lab's act
 
 **The options fighter** (`metaController`, `options/meta.ts`). An `Option` (`option.ts`) says
 whether it is `available`, whether it `yields`, whether it has `ended`, and what it asks of the
-skills; a down option is carried out by its sub-mind (`downOption`, `down.ts`; the `downHalf`
-sub-mind hands the body over). Each control step `situationReader` (`situation.ts`) reads the
+skills; a down option is carried out by a sub-mind of its config's `subs` (`downOption`, `down.ts`,
+priced by the sub-mind's part, `SubMindPart.down`, its memory holding the sub-mind's; the
+`downHalf` sub-mind hands the body over). Each control step `situationReader` (`situation.ts`) reads the
 situation, and the meta-controller takes the available option of highest worth, keeping the
 running one within its keep and deciding afresh every `DECIDING.rethink` s or on an event.
 
@@ -454,8 +456,9 @@ running one within its keep and deciding afresh every `DECIDING.rethink` s or on
   clinch, strike, strike low, evade, hold at the edge, close and strike, hold. Its walk (`walker`,
   `walk.ts`) keeps clear of solids and fallen bodies.
 - Its skills are a `SkillKit` (`kitFaults` refuses a missing executor); its defaults are `OPTIONS`.
-- Reflexes (`reflexLayer`, `reflex.ts`, parts of role `reflex`) patch the intent each control step
-  in rank order; the one reflex is cover (`cover-reflex`).
+- Reflexes (`reflexLayer`, `reflex.ts`; each a `ReflexPart` in `REFLEXES`, made by `reflexOf`
+  through the lookup) patch the intent each control step in rank order; the one reflex is cover
+  (`cover-reflex`).
 
 **The quadruped** uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. Its
 `Tactics` give approach, facing and bite; its skills answer the same `Skill` resume contract over
@@ -473,14 +476,14 @@ Each kind is a registered implementation (`SubMindPart`, `mind/sub-mind-part.ts`
 beside the sub-mind (`<file>-part.ts`) owns its config's type, keys, defaults, faults, fit, the
 data it reads and its maker, and is a line in `SUB_MINDS` (`sub-minds.ts`, a role list), from which
 `SubMindConfig` follows. Its maker is handed the mind's kit (`MindKit`, `mind/kit.ts`: its motor,
-its guard and the guard's posture), which it and its techniques drive the body with, so a motor or
-guard swapped into the mind is the one recovery uses (`subMindsOf`, `kitOf`):
+its guard and the guard's posture, and the lookup), which it and its techniques drive the body
+with, so a motor or guard swapped into the mind is the one recovery uses (`subMindsOf`, `kitOf`):
 
 | Sub-mind | File | What it does |
 |---|---|---|
 | `lie` | `lie.ts` (`lying`) | asks nothing |
 | `support-recovery` | `supportRecovery` | the staged rise (`stagedRise`), then verified quiet standing (`recoveryReady`) before handing back ([recovery](reference/recovery-cycle.md)) |
-| Stand up | `ground/` | techniques with physical admission and completion (`ground/techniques.ts`); `step-up` (`ground/step-up.ts`) is the game's, the learned rise (`ground/learned-rise.ts`) is experimental |
+| Stand up | `ground/` | its list of techniques (`TechniquePart`, `ground/technique.ts`, each in its own module and a line in `TECHNIQUES`, a role list), with physical admission and completion, routed in rank order, rolling to reposition (`techniquesOf`); `step-up` (`ground/step-up.ts`) is the game's, the learned rise (`ground/learned-rise.ts`) is experimental |
 | `research-rise` | `rise/research.ts` (`researchRise`) | tracks reference motions; experimental |
 
 **Mind data loads per use** (`src/core/data/store.ts`). The learned run's and the learned rise's
@@ -506,8 +509,15 @@ what a body cannot play, and a riser refuses such a recipe. How far it stands ea
 
 **Tactics** (`tactics.ts`) read `Sight` (the view, senses, reports, readiness, envelope) and
 return walking, facing, lowering, cover and discrete action requests; they never write a joint,
-posture or push. Shared action tactics combine follow-orders, attack, approach, spacing, retreat,
-clinch breaking and cover; the selector supports ranked, rotating and conditional choices.
+posture or push. A kind of tactics is a part (`TacticsPart`, `tactics-part.ts`) that makes itself
+(`tacticsOf`), a line in `PLANNERS` (`planners.ts`, a role list): the screen's script, standing in
+guard, or behaviours. Behaviour tactics (`actionTactics`, `action-tactics.ts`) hold one focus and
+one choice of candidate action, ranked, rotating, scored, by estimate or by rules, and hand each
+behaviour of their list its `Turn` in rank order; a behaviour (`BehaviourPart`,
+`behaviour-part.ts`, a line in `BEHAVIOURS`, its module in `mind/behaviours/`) fills what an
+earlier one left unset and keeps its own memory, held in the tactics' state. The helpers they share
+(`walking`, `SPACE`, `footRadius`) are `behaviour-part.ts`'s. A planner names what it needs of the
+mind's actions (`TacticsPart.actionFaults`), read by the fighter's faults.
 
 **Orders** (`Orders`) name a movement objective, an independent facing, and a sensed foe id and
 region, and may cap the speed (`pace`) or ask a walk (`walk`, Shift in the Arena); never a camera

@@ -76,7 +76,7 @@ export async function stepFall({ tuning, cap = 14, first = true, recipe = "rise"
       return end;
     } } });
   } } };
-  const subs = [(own, view, world) => standUp(own, view, world, { kind: "stand-up", techniques: ["step-up"] }, kitOf(partLookup, own.spec, { guard: GAME_GUARD }), registry)];
+  const subs = [(own, view, world) => standUp(own, view, world, { kind: "stand-up", techniques: [{ kind: "step-up" }] }, kitOf(partLookup, own.spec, { guard: GAME_GUARD }), registry)];
   const r = await risingTrial({ seed: 1, start: "shoved", balance: 0, grit: 0, gusts: false, target: true, sub: "stand-up", techniques: ["step-up"], cap, ...job }, { subs, stop: (world, built, actor) => { job.watch?.(world, built, actor); return first && failed; } });
   const score = r.stood ? 2 + Math.max(0, cap - r.verified) / cap
     : r.takeover === null ? null : .9 * (Math.max(0, furthest) + steady + (r.verified !== null ? 1 : 0)) / (RISE.rise.length + 2);

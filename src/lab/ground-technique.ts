@@ -2,7 +2,8 @@ import type { BodyView } from "../core/body.ts";
 import type { OwnBody } from "../core/mind/mind.ts";
 import type { SubMind } from "../core/mind/sub-mind.ts";
 import type { Clock } from "../core/clock.ts";
-import { TECHNIQUES, type TechniqueEnd, type TechniqueName, type TechniqueSpec } from "../core/mind/ground/techniques.ts";
+import { TECHNIQUES } from "../core/mind/ground/techniques.ts";
+import type { TechniqueEnd, TechniqueName, TechniquePart } from "../core/mind/ground/technique.ts";
 import { plantPostures } from "../core/mind/ground/plant-up.ts";
 import { partLookup } from "../core/mind/catalog.ts";
 import { GAME_GUARD, kitOf } from "../core/mind/kit.ts";
@@ -32,8 +33,9 @@ export interface GroundTechniqueState {
 
 /** A run is made with its host, never added to a saved state tree after the body starts. */
 export function groundTechnique(name: TechniqueName, own: OwnBody, view: BodyView, clock: Clock, immediate = true): SubMind {
-  const spec: TechniqueSpec = TECHNIQUES[name];
-  if (!spec.fits(own.spec)) throw new Error(`${spec.label} does not fit ${own.spec.model}`);
+  const spec: TechniquePart = TECHNIQUES[name];
+  const refused = spec.fits(own.spec, spec.defaults, partLookup);
+  if (refused !== null) throw new Error(`${spec.label} does not fit ${own.spec.model}: ${refused}`);
   const run = spec.make(own, view, clock, true, kitOf(partLookup, own.spec, { guard: GAME_GUARD }));
   const state: GroundTechniqueState = { kind: "ground-technique", technique: name, run: run.state, phase: run.phase,
     ended: null, reached: false, time: 0, active: immediate, waiting: !immediate };

@@ -4,6 +4,7 @@ import { blowsOf } from "../../mind/action-config.ts";
 import { NO_COVER, type Intent } from "../../mind/intent.ts";
 import { orderedFacing } from "../../mind/ordered.ts";
 import type { MindWiring } from "../../mind/minds.ts";
+import type { PartLookup } from "../../mind/lookup.ts";
 import type { Situation, StandingOption } from "../../mind/options/option.ts";
 import { strikeLow } from "../../mind/options/low.ts";
 import { followOrders } from "../../mind/options/orders.ts";
@@ -42,7 +43,7 @@ type Asked = Omit<Intent, "guard">;
  * its sub-minds have the body, and it rests again once it is up. Its memory is its phase, when it
  * began, the blows of its burst, the option running and every option's own.
  */
-export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWiring): Tactics {
+export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWiring, parts: PartLookup): Tactics {
   const walk = walker(spec), reader = situationReader(spec, (sight) => wiring.orders(sight.view.senses));
   const standing = config.actions.filter((action) => action.lower === undefined), lowAction = config.actions.find((action) => action.lower !== undefined);
   const orders = followOrders(walk, standing), low = lowAction ? strikeLow(lowAction, spec, walk) : null;
@@ -51,7 +52,7 @@ export function tempoTactics(spec: BodySpec, config: TempoConfig, wiring: MindWi
   const strikes: readonly StandingOption[] = [...ready, ...closing];
   const counts = standing.map((action) => throws(config, action));
   const options: readonly StandingOption[] = [orders, ...low ? [low] : [], ...strikes];
-  const reflexes = reflexLayer(config.reflexes.map((reflex) => reflexOf(reflex, spec)));
+  const reflexes = reflexLayer(config.reflexes.map((reflex) => reflexOf(parts, reflex, spec)));
   const state = { phase: "wait" as Phase, since: 0, settled: null as number | null, thrown: 0, running: -1,
     situation: reader.state, options: options.map((option) => option.state), reflexes: reflexes.state };
 

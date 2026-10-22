@@ -1,14 +1,11 @@
-import { cos, sin } from "../../math/real.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
-import { deepFreeze } from "../../state.ts";
-import type { ReflexConfig } from "../config.ts";
-import { anyBody, type Part } from "../parts.ts";
+import type { PartLookup } from "../lookup.ts";
+import type { KeysOf, Part, PartConfig } from "../parts.ts";
 import type { Cover, Intent } from "../intent.ts";
 import type { Situation } from "./option.ts";
-import { coveringHand } from "../cover-hand.ts";
 
 /** What a reflex writes on the command for the limbs it takes: each hand's cover. */
-interface ReflexPatch {
+export interface ReflexPatch {
   readonly guard: Readonly<Partial<Record<Side, Cover>>>;
 }
 
@@ -19,12 +16,14 @@ interface ReflexPatch {
  * `seizes`, ending that blow as interrupted. It holds them at most `longest` s, then lets go until its
  * trigger has gone.
  */
-interface Reflex {
+export interface Reflex {
   readonly name: string;
   readonly limbs: readonly Side[];
   readonly seizes: boolean;
   readonly longest: number;
   trigger(now: Situation): ReflexPatch | null;
+  /** Its memory, if it keeps any (`src/core/state.ts`), held in the layer's. */
+  readonly state?: object;
 }
 
 /**
@@ -32,10 +31,10 @@ interface Reflex {
  * (`apply`). A hand a reflex takes is the reflex's: the blow that held it, where it seizes, is
  * interrupted, and the option's requests on it are dropped; when the reflex lets go, the hand is the
  * option's again. Its memory is, per reflex, when it took its hands, whether it has held them its
- * longest, and which it holds.
+ * longest, and which it holds, and each reflex's own (`Reflex.state`).
  */
 export function reflexLayer(reflexes: readonly Reflex[]) {
-  const state = { reflexes: reflexes.map(() => ({ since: null as number | null, spent: false, hands: [] as Side[] })) };
+  const state = { reflexes: reflexes.map(() => ({ since: null as number | null, spent: false, hands: [] as Side[] })), own: reflexes.map((reflex) => reflex.state ?? null) };
   return {
     state,
     apply(now: Situation, intent: Intent): Intent {
@@ -64,35 +63,12 @@ export function reflexLayer(reflexes: readonly Reflex[]) {
   };
 }
 
-/**
- * **Cover**: the hand on the side a foe's blow closes on the head from (`Situation.threat`), where
- * it is free, between the two, for at most `longest` s at a time.
- */
-export function cover(longest: number, spec?: BodySpec): Reflex {
-  return {
-    name: "cover", limbs: ["left", "right"], seizes: false, longest,
-    trigger(now) {
-      const threat = now.threat;
-      if (!threat) return null;
-      const h = now.sight.report.heading, dx = threat.threat[0] - threat.guarded[0], dz = threat.threat[2] - threat.guarded[2];
-      const preferred = dx * cos(h) - dz * sin(h) >= 0 ? "right" : "left", hand = spec ? coveringHand(spec, preferred) : preferred;
-      return { guard: { [hand]: threat } };
-    },
-  };
+/** **A kind of reflex**: a part of role `reflex` that owns its config's keys and faults, and makes the reflex for a body of `spec`. */
+export interface ReflexPart<C extends PartConfig = PartConfig> extends Part<C> {
+  readonly role: "reflex";
+  readonly keys: KeysOf<C>;
+  make(config: C, spec?: BodySpec): Reflex;
 }
 
-/** The longest its cover holds a hand up against one run of blows, s. */
-const COVER_LONGEST = 1;
-
-/** **Every reflex, by its kind**, as a part (`Part`) of role `reflex`. A kind without an entry does not compile. */
-export const REFLEX_PARTS: { readonly [K in ReflexConfig["kind"]]: Part<Extract<ReflexConfig, { kind: K }>> } = deepFreeze({
-  "cover-reflex": { role: "reflex", label: "Cover", stage: "game", fields: [], slots: [], defaults: { kind: "cover-reflex" }, fits: anyBody, faults: () => [] },
-});
-
-/** The reflex `config` names. */
-export function reflexOf(config: ReflexConfig, spec?: BodySpec): Reflex {
-  switch (config.kind) {
-    case "cover-reflex": return cover(COVER_LONGEST, spec);
-    default: { const never: never = config.kind; throw new Error(`no reflex of kind ${JSON.stringify(never)}`); }
-  }
-}
+/** The reflex `config` names, as `parts` finds it, for a body of `spec`. */
+export const reflexOf = (parts: PartLookup, config: PartConfig, spec?: BodySpec): Reflex => parts.of("reflex", config).make(config, spec);

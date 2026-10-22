@@ -5,7 +5,7 @@ import type { Clock } from "../clock.ts";
 import type { Ended, TargetRef } from "../skills/action.ts";
 import type { ExecutorBinding } from "../skills/action-instances.ts";
 import { actionAim } from "./action-aim.ts";
-import type { ActionEstimates } from "./action-tactics.ts";
+import type { ActionEstimates } from "./tactics-part.ts";
 import type { ActionConfig, ExecutorEntry } from "./config.ts";
 import type { PartLookup } from "./lookup.ts";
 import { validOpeningTuning } from "./openings.ts";

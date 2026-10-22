@@ -2,7 +2,7 @@ import type { BodyView } from "../../body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { OwnBody } from "../mind.ts";
 import type { GroundReading, Position } from "./reading.ts";
-import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "./techniques.ts";
+import { phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique } from "./technique.ts";
 
 /** Flexing the trunk brings the shoulders forward while bent knees and posted arms check the fall. */
 const CURL = deepFreeze({ "neck flexion": .25, "lumbar flexion": .65, "thoracic flexion": .45,
@@ -44,3 +44,7 @@ export function sitUp(own: OwnBody, _view: BodyView): TechniqueRun {
     },
   };
 }
+
+/** **Sit up** (`sitUp`): from the back to sitting. */
+export const SIT_UP = technique("sit-up", { label: "Sit up", stage: "experimental", sides: Object.freeze(["left"] as const),
+  edges: Object.freeze([Object.freeze({ from: "back" as const, to: "sitting" as const })]), make: sitUp });

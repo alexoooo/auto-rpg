@@ -2,7 +2,6 @@ import { techniqueEditor } from "./mind-ground.ts";
 import { isKind, kindsFor, partOf } from "../core/mind/catalog.ts";
 import { actionEditor, selectionEditor } from "./mind-actions.ts";
 import { isFighter, type BehavioursConfig, type FighterConfig, type MindConfig } from "../core/mind/config.ts";
-import type { StandUpConfig } from "../core/mind/ground/stand-up.ts";
 import type { PartField } from "../core/mind/fields.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Slot } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -120,9 +119,11 @@ export function mindEditor(config: MindConfig, { spec: body, provides = [], onCh
       block.append(shown);
     }
     if (config.kind === "behaviours") block.append(selectionEditor(config as BehavioursConfig, write, readOnly));
-    if (config.kind === "stand-up") block.append(techniqueEditor(config as StandUpConfig, spec, write, readOnly));
     if (isFighter(config)) block.append(actionEditor(config, write, readOnly));
-    for (const slot of slotsOf(part, config)) block.append(drawSlot(config, slot, write));
+    for (const slot of slotsOf(part, config)) block.append(slot.role === "technique" && slot.many
+      ? techniqueEditor((config as unknown as Record<string, readonly PartConfig[]>)[slot.key] ?? [], kindsFor(slot.role, spec, provides, current.kind),
+        (techniques) => write({ ...config, [slot.key]: techniques } as PartConfig), readOnly)
+      : drawSlot(config, slot, write));
     return block;
   };
 

@@ -8,7 +8,7 @@ import type { PartLookup } from "./lookup.ts";
  * **What a part does in the mind it is part of**: the interface it carries out. A slot names the
  * role of what it holds, and holds only a part of that role.
  */
-export type Role = "mind" | "sub-mind" | "tactics" | "behaviour" | "move-rule" | "navigation" | "locomotion" | "guard" | "executor" | "support" | "reflex" | "motor";
+export type Role = "mind" | "sub-mind" | "technique" | "tactics" | "behaviour" | "move-rule" | "navigation" | "locomotion" | "guard" | "executor" | "support" | "reflex" | "motor";
 
 /** What a screen gives a mind beyond the body and the world: the Lab gives its scenario's script (`MindWiring.script`). */
 export type Provision = "script";
@@ -49,8 +49,8 @@ export interface Part<C extends PartConfig = PartConfig> {
   slotsFor?(config: C): readonly Slot[];
   /** The config a slot set to this kind takes. */
   readonly defaults: C;
-  /** The keys a config of it may hold (`KeysOf`); the catalog's list where it states none (`CONFIG_KEYS`). */
-  readonly keys?: Readonly<Record<string, true>>;
+  /** The keys a config of it may hold (`KeysOf`): a key outside them is a fault (`treeFaults`). */
+  readonly keys: Readonly<Record<string, true>>;
   /** The keys of the research tuning a config of it may carry (`tuning`); none, it carries none. */
   readonly tuning?: readonly string[];
   /** What a screen must give a mind for this part to run, if anything. */

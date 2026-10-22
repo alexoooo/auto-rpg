@@ -1,30 +1,25 @@
 import { deepFreeze } from "../../state.ts";
 import { STAND_UP } from "../config.ts";
-import { fitsAll, takesCommands } from "../parts.ts";
+import { slotList, takesCommands } from "../parts.ts";
 import type { SubMindPart } from "../sub-mind-part.ts";
 import { graphWork, reachable } from "./graph.ts";
 import { standUp, type StandUpConfig } from "./stand-up.ts";
-import { TECHNIQUES, type TechniqueName } from "./techniques.ts";
 
 /**
  * **Stand up** (`standUp`): its techniques in rank order, each with physical admission and
- * completion (`TECHNIQUES`); it fits a body every technique it lists fits, and reads the learned
- * rise's network where it lists the learned rise.
+ * completion (`TechniquePart`), each a part of its list; a body its techniques fit, it fits.
  */
 export const STAND_UP_PART: SubMindPart<StandUpConfig> = deepFreeze({
-  role: "sub-mind", label: "Stand up", stage: "game", fields: [], slots: [], defaults: STAND_UP, keys: { kind: true, techniques: true },
-  fits: fitsAll<StandUpConfig>(takesCommands, (spec, config) => {
-    if (!Array.isArray(config.techniques)) return "its techniques are no list";
-    const unfit: TechniqueName | undefined = config.techniques.find((name: TechniqueName) => !TECHNIQUES[name]?.fits(spec));
-    return unfit === undefined ? null : `${TECHNIQUES[unfit]?.label ?? JSON.stringify(unfit)} does not fit it`;
-  }),
-  faults: (config) => {
-    if (!Array.isArray(config.techniques)) return ["techniques must be a ranked list"];
-    if (config.techniques.some(name => !Object.hasOwn(TECHNIQUES, name))) return ["unknown technique"];
-    if (new Set(config.techniques).size !== config.techniques.length) return ["a technique may appear only once"];
-    const graph = Object.fromEntries(Object.entries(TECHNIQUES).map(([name, spec]) => [name, { ...spec, admits: () => true }]));
-    return (["back", "front"] as const).filter(from => !reachable(config.techniques, from, graph, graphWork())).map(from => `no route to standing from ${from}`);
+  role: "sub-mind", label: "Stand up", stage: "game", fields: [], slots: [slotList("techniques", "Techniques", "technique")], defaults: STAND_UP,
+  keys: { kind: true, techniques: true }, fits: takesCommands, down: { name: "get up", seconds: 5, stands: .7, shelter: 0 },
+  faults: (config, parts) => {
+    const order = config.techniques.map((technique) => technique.kind);
+    if (new Set(order).size !== order.length) return ["a technique may appear only once"];
+    const graph = Object.fromEntries(config.techniques.map((technique) => {
+      const { sides, edges } = parts.of("technique", technique);
+      return [technique.kind, { sides, edges, admits: () => true }];
+    }));
+    return (["back", "front"] as const).filter(from => !reachable(order, from, graph, graphWork())).map(from => `no route to standing from ${from}`);
   },
-  reads: (config) => config.techniques.includes("learned-rise") ? ["learned-rise"] : [],
   make: (own, view, config, kit, clock) => standUp(own, view, clock, config, kit),
 });

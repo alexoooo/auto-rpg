@@ -1,25 +1,27 @@
 import type { DataKey } from "../data/store.ts";
 import type { BodySpec } from "../spec/body.ts";
-import { BEHAVIOUR_PARTS } from "./behaviours.ts";
+import { BEHAVIOURS } from "./behaviours.ts";
 import type { BehaviourConfig, ExecutorConfig, LocomotionConfig, GuardConfig, MotorConfig, ReflexConfig, SubMindConfig, SupportConfig, TacticsConfig } from "./config.ts";
 import { CONTROLLERS } from "./controllers.ts";
 import { EXECUTORS } from "./executors.ts";
-import { CONFIG_KEYS } from "./config-keys.ts";
 import { GUARDS } from "./guards.ts";
 import { SUPPORTS } from "./supports.ts";
 import { LOCOMOTIONS } from "./locomotions.ts";
-import { MOVE_RULE_PARTS, type MoveRuleConfig } from "../skills/move-part.ts";
+import type { MoveRuleConfig } from "../skills/move-part.ts";
+import { MOVE_RULES } from "../skills/move-rules.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Role } from "./parts.ts";
 import { SUB_MINDS } from "./sub-minds.ts";
-import { REFLEX_PARTS } from "./options/reflex.ts";
+import { REFLEXES } from "./options/reflexes.ts";
+import { TECHNIQUES } from "./ground/techniques.ts";
+import type { TechniqueConfig } from "./ground/technique.ts";
 import { MOTORS } from "../control/motors.ts";
-import { TACTICS_PARTS } from "./tactics-of.ts";
+import { PLANNERS } from "./planners.ts";
 import { NAVIGATIONS } from "./navigations.ts";
 import type { PartLookup, RoleParts } from "./lookup.ts";
 import type { NavigationConfig } from "./navigator.ts";
 
 /** Every part's config below a mind, by kind. */
-type AnyPart = MotorConfig | ReflexConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | LocomotionConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
+type AnyPart = TechniqueConfig | MotorConfig | ReflexConfig | SubMindConfig | TacticsConfig | BehaviourConfig | MoveRuleConfig | LocomotionConfig | GuardConfig | SupportConfig | ExecutorConfig | NavigationConfig;
 
 /** A role's list by kind (`NAVIGATIONS`), each entry's kind its defaults': a thrown error for one that is not. */
 function listed<L extends Readonly<Record<string, Part>>>(list: L): L {
@@ -42,8 +44,8 @@ let registry: Registry | null = null;
  */
 function registered(): Registry {
   if (registry) return registry;
-  const below: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...listed(SUB_MINDS), ...TACTICS_PARTS, ...BEHAVIOUR_PARTS, ...MOVE_RULE_PARTS,
-    ...listed(LOCOMOTIONS), ...listed(GUARDS), ...listed(SUPPORTS), ...listed(EXECUTORS), ...REFLEX_PARTS, ...listed(MOTORS), ...listed(NAVIGATIONS) };
+  const below: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...listed(SUB_MINDS), ...listed(TECHNIQUES), ...listed(PLANNERS), ...listed(BEHAVIOURS), ...listed(MOVE_RULES),
+    ...listed(LOCOMOTIONS), ...listed(GUARDS), ...listed(SUPPORTS), ...listed(EXECUTORS), ...listed(REFLEXES), ...listed(MOTORS), ...listed(NAVIGATIONS) };
   const parts: Record<string, Part> = { ...below }, owners: Record<string, string> = {};
   const add = (kind: string, part: Part, what: string) => {
     if (Object.hasOwn(parts, kind)) throw new Error(`${what} of kind ${JSON.stringify(kind)} is another part's`);
@@ -166,7 +168,7 @@ export function treeData(config: PartConfig): readonly DataKey[] {
  */
 function unknownSettings(config: PartConfig): readonly string[] {
   const part = partOf(config), tuning = part.tuning ?? [];
-  const known = part.keys ?? CONFIG_KEYS[config.kind as keyof typeof CONFIG_KEYS];
+  const known = part.keys;
   const given = (config as { tuning?: unknown }).tuning;
   return [
     ...Object.keys(config).filter((key) => !Object.hasOwn(known, key)).map((key) => `${part.label} has no setting ${key}`),
@@ -238,7 +240,7 @@ export function withoutTuning<C extends PartConfig>(config: C): C {
 }
 
 /** A kind a slot may be set to, with the reason it cannot go there for this body and screen, or null. */
-interface Offered {
+export interface Offered {
   readonly kind: string;
   readonly part: Part;
   readonly reason: string | null;

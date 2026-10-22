@@ -7,7 +7,7 @@ import type { OwnBody } from "../mind.ts";
 import type { MindKit } from "../kit.ts";
 import { RISE_STEER_KEYS, type RiseSteer } from "../rise/staged.ts";
 import { stepUp, type StepUpRise } from "./step-up.ts";
-import type { TechniqueRun } from "./techniques.ts";
+import { technique, TO_STANDING, type TechniqueRun } from "./technique.ts";
 
 /** How many control steps a policy's steer holds, at 120 Hz: it decides 30 times a second. */
 export const RISE_DECIDE = 4;
@@ -112,3 +112,7 @@ export function learnedRise(own: OwnBody, view: BodyView, clock: Clock, kit: Min
     },
   };
 }
+
+/** **Learned rise** (`learnedRise`): the rise's network, read where its stand-up lists it. */
+export const LEARNED_RISE = technique("learned-rise", { label: "Learned rise", stage: "experimental", sides: Object.freeze(["left"] as const), edges: TO_STANDING,
+  reads: () => ["learned-rise"], make: (own, view, clock, listed, kit) => learnedRise(own, view, clock, kit, listed ? undefined : null) });

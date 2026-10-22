@@ -6,7 +6,7 @@ import { toggle, type PartField } from "../../mind/fields.ts";
 import type { BodyHost } from "../../mind/host.ts";
 import type { MindWiring } from "../../mind/minds.ts";
 import { fitsAll, fitsWhen, slotList, slotOne, takesCommands } from "../../mind/parts.ts";
-import { tacticsOf } from "../../mind/tactics-of.ts";
+import { tacticsOf, type TacticsMaking } from "../../mind/tactics-part.ts";
 import { driveBy } from "../../mind/tactics.ts";
 import { STRAIGHT_PUNCH } from "../../skills/straight-punch.ts";
 import type { Skills } from "../../skills/skills.ts";
@@ -93,11 +93,11 @@ function createVanguard(host: BodyHost, given: VanguardConfig, wiring: MindWirin
       ...profile?.lead !== undefined ? { lead: profile.lead } : {}, ...profile?.anchorAtDrive !== undefined ? { anchorAtDrive: profile.anchorAtDrive } : {} } : executor),
     locomotion: (profile?.steady ?? given.steadyWalk) ? { kind: "stance-walk" as const, tuning: STEADY_TURN } : given.locomotion };
   const body = host.command(fighterBody(config, wiring, host.parts));
-  const ordinaryTactics = tacticsOf(config.tactics, host.spec, wiring.name, config.actions,
-    sight => wiring.orders(sight.view.senses), wiring.script, configuredActionEstimates(host.parts, host.spec, config.executors, config.actions));
-  const attacking = given.adaptiveEvade && config.tactics.kind === "behaviours" ? tacticsOf({ ...config.tactics,
-    list: config.tactics.list.filter(behaviour => behaviour.kind !== "evade") }, host.spec, wiring.name, config.actions,
-    sight => wiring.orders(sight.view.senses), wiring.script, configuredActionEstimates(host.parts, host.spec, config.executors, config.actions)) : null;
+  const making = (): TacticsMaking => ({ spec: host.spec, actions: config.actions, estimates: configuredActionEstimates(host.parts, host.spec, config.executors, config.actions),
+    orders: sight => wiring.orders(sight.view.senses), ...wiring.script ? { script: wiring.script } : {}, parts: host.parts });
+  const ordinaryTactics = tacticsOf(making(), config.tactics);
+  const attacking = given.adaptiveEvade && config.tactics.kind === "behaviours" ? tacticsOf(making(), { ...config.tactics,
+    list: config.tactics.list.filter(behaviour => behaviour.kind !== "evade") }) : null;
   const policy = attacking ? adaptiveGuard(attacking, ordinaryTactics, given.revisitEvade) : ordinaryTactics;
   const tactics = given.slowEvade ? { ...policy, get engagement() { return policy.engagement; },
     decide(sight: Parameters<typeof policy.decide>[0], dt: number) {
@@ -133,7 +133,7 @@ export const VANGUARD_MIND = controller<VanguardConfig>({
   fits: fitsAll<VanguardConfig>(takesCommands, (spec, config, parts) => actionConfigFaults(parts, spec, config.executors, config.actions)[0] ?? null,
     fitsWhen((spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).length > 0, "it throws no usable blow")),
   strikes: (spec, config, parts) => armedActions(parts, spec, config.executors, config.actions).flatMap(action => action.effectors),
-  faults: config => [...fighterFaults(fighter(config)),
+  faults: (config, parts) => [...fighterFaults(fighter(config), parts),
     ...config.lowGuard !== undefined && typeof config.lowGuard !== "boolean" ? ["lowGuard: a boolean"] : [],
     ...config.slowEvade !== undefined && typeof config.slowEvade !== "boolean" ? ["slowEvade: a boolean"] : [],
     ...config.adaptiveEvade !== undefined && typeof config.adaptiveEvade !== "boolean" ? ["adaptiveEvade: a boolean"] : [],

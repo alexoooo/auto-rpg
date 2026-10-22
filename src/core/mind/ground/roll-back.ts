@@ -3,7 +3,7 @@ import type { BodyView } from "../../body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { OwnBody } from "../mind.ts";
 import type { GroundReading, Position } from "./reading.ts";
-import { mirrorPosture, phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun } from "./techniques.ts";
+import { mirrorPosture, phaseClock, poseDrive, REACHED_SECONDS, type TechniqueEnd, type TechniqueRun, technique } from "./technique.ts";
 
 /** A leftward turn opens the far shoulder and sweeps the far leg across the body's line. */
 const POSES = deepFreeze<readonly Readonly<Record<string, number>>[]>([
@@ -54,3 +54,7 @@ export function rollBack(own: OwnBody, _view: BodyView): TechniqueRun {
     },
   };
 }
+
+/** **Roll onto back** (`rollBack`). */
+export const ROLL_BACK = technique("roll-back", { label: "Roll onto back", stage: "experimental", sides: Object.freeze(["right"] as const),
+  edges: Object.freeze([Object.freeze({ from: "front" as const, to: "back" as const })]), make: rollBack });
