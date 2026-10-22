@@ -401,7 +401,7 @@ export function wholeBodyExecutor(body: Body, clock: Clock, guard: Pose, actions
     command(_view, id) {
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`whole-body executor has no instance ${id}`);
-      return { pushes: state.pushes, ...(closesToStrike(body.built.spec, live.hand) ? { handPoses: { [live.hand]: "fist" as const } } : {}) };
+      return { pushes: state.pushes, ...(closesToStrike(body.built.spec, live.hand) ? { handPoses: { [`hand.${live.hand}`]: "fist" as const } } : {}) };
     },
   };
 }

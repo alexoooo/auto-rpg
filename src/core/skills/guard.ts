@@ -5,7 +5,7 @@ import { effectorFreedoms } from "../control/effectors.ts";
 import { intoFrameToRef, pointAtToRef, solveReach, specChainTo } from "../control/kinematics.ts";
 import type { EffectorGoal, PointTask, Pose } from "../control/motor.ts";
 import type { Cover, Intent } from "../mind/intent.ts";
-import type { Side, BodySpec } from "../spec/body.ts";
+import type { BodySpec, HandPose } from "../spec/body.ts";
 import type { Vec3 } from "../spec/quantity.ts";
 import { add, cross, distance, dot, length, scale, sub } from "../spec/vec.ts";
 import type { Skill } from "./skill.ts";
@@ -75,15 +75,15 @@ interface Covers {
   readonly normal: Vec3 | null;
 }
 
-function coversOf(spec: BodySpec, hand: Side): Covers {
-  const segment = spec.segments.find((s) => s.name === `hand.${hand}`);
-  if (!segment) throw new Error(`${spec.model} has no ${hand} hand`);
+function coversOf(spec: BodySpec, hand: string): Covers {
+  const segment = spec.segments.find((s) => s.name === hand);
+  if (!segment) throw new Error(`${spec.model} has no ${hand}`);
   const held = spec.held?.find((h) => h.segment === segment.name), points = held?.item.cover ?? ["knuckles"];
   const normal = held?.item.coverNormal, frame = held ? heldFrame(held) : null;
   const known = rigidPoints(spec, segment);
   const at = points.map((name) => {
     const point = known.get(name);
-    if (!point) throw new Error(`${spec.model}'s ${hand} hand has no point ${name} to cover with`);
+    if (!point) throw new Error(`${spec.model}'s ${hand} has no point ${name} to cover with`);
     return point.value;
   });
   if (normal && Math.abs(length(normal.value) - 1) > 1e-8) throw new Error(`${spec.model}'s ${hand} covering normal must be unit length`);
@@ -93,9 +93,16 @@ function coversOf(spec: BodySpec, hand: Side): Covers {
 }
 
 /** No hand given a goal. */
-const NO_HANDS: Readonly<Record<Side, EffectorGoal | null>> = Object.freeze({ left: null, right: null });
+const NO_HANDS: Readonly<Record<string, EffectorGoal | null>> = Object.freeze({});
 
-const HANDS: readonly Side[] = ["left", "right"];
+/**
+ * **A body's hands**: its effectors that can cover, by segment, in the spec's order: each with
+ * knuckles (`SegmentSpec.points`) or holding an item that says how it covers (`ItemSpec.cover`).
+ */
+export function handsOf(spec: BodySpec): readonly string[] {
+  return (spec.effectors ?? []).map((effector) => effector.segment).filter((name) =>
+    !!spec.segments.find((s) => s.name === name)?.points?.knuckles || spec.held?.some((h) => h.segment === name && h.item.cover !== undefined));
+}
 
 /** The body frame's up and right: the ways an item's line is laid when how it lies now says nothing. */
 const UP: Vec3 = [0, 1, 0], RIGHT: Vec3 = [1, 0, 0];
@@ -116,36 +123,40 @@ const NO_LINE = 1e-6;
  *   outward normal toward the threat while preserving its current roll as closely as possible.
  *
  * A hand whose guard names no cover has no goal: its arm is the posture's (`GUARD`). So has the
- * hand a strike has. The skill remembers nothing.
+ * hand a strike has. A free hand that can change its pose is opened. The skill remembers nothing.
  */
 export interface GuardSkill extends Skill {
+  /** The hands it guards with, by segment (`handsOf` for the stock guards): what the arbiter asks it of, each free hand. */
+  readonly hands: readonly string[];
   /** What it remembers, plain data saved and loaded with the mind (`src/core/state.ts`); none, it remembers nothing. */
   readonly state?: object;
   /** The arms' rest: where the arms no skill holds are put, and where a blow returns (`guardPosture` for the stock guards). */
   readonly posture: Pose;
   /** A free hand's hold of what it holds (`holdUp`), asked of each hand neither a cover nor an action drives; null, the posture's. */
-  readonly hold: ((side: Side) => PointTask | null) | null;
-  /** Each hand's goal this step: a cover's places for a hand that guards with one and that `taken` is not; null otherwise. */
-  command(view: BodyView, guard: Intent["guard"], taken: Side | null): Readonly<Record<Side, EffectorGoal | null>>;
+  readonly hold: ((hand: string) => PointTask | null) | null;
+  /** The pose a free hand that can change its pose is asked (`BodyCommand.handPoses`); absent or null, it keeps what it was asked last. */
+  handPose?(hand: string): HandPose | null;
+  /** Each hand's goal this step, by segment: a cover's places for a hand that guards with one; absent or null otherwise. */
+  command(view: BodyView, guard: Intent["guard"]): Readonly<Record<string, EffectorGoal | null>>;
 }
 
 export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, faces = false, hold: GuardSkill["hold"] = null): GuardSkill {
-  const covers = { left: coversOf(spec, "left"), right: coversOf(spec, "right") };
+  const hands = handsOf(spec), covers = Object.fromEntries(hands.map((hand) => [hand, coversOf(spec, hand)]));
   const guarded = new Vector3(), threat = new Vector3();
   const normalNow = new Vector3(), align = new Quaternion(), oriented = new Quaternion();
   /** `hand`'s goal for `cover`, in the body frame (`BodyView.root`); null where the threat is at the place guarded, and names no line. */
-  const goalOf = (view: BodyView, hand: Side, cover: Cover): EffectorGoal | null => {
+  const goalOf = (view: BodyView, hand: string, cover: Cover): EffectorGoal | null => {
     intoFrameToRef(view.root, cover.guarded, guarded);
     intoFrameToRef(view.root, cover.threat, threat);
     const from: Vec3 = [guarded.x, guarded.y, guarded.z], way = sub([threat.x, threat.y, threat.z], from), far = length(way);
     if (far < NO_LINE) return null;
     const toward = scale(way, 1 / far), middle = add(from, scale(toward, Math.min(covering.out, far)));
     const seconds = cover.seconds === undefined ? covering.seconds : Math.min(covering.seconds, cover.seconds);
-    const { points, span, normal } = covers[hand];
+    const { points, span, normal } = covers[hand]!;
     if (points.length === 1) {
       const goal = { places: [{ point: points[0]!, position: middle }], seconds, follows: true };
       if (!faces || !normal) return goal;
-      const rotation = view.effectors[`hand.${hand}`]!.rotation;
+      const rotation = view.effectors[hand]!.rotation;
       normalNow.set(...normal).applyRotationQuaternionToRef(rotation, normalNow).normalize();
       const current: Vec3 = [normalNow.x, normalNow.y, normalNow.z], axis = cross(current, toward), cosine = dot(current, toward);
       if (cosine < -1 + NO_LINE) {
@@ -157,7 +168,7 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, fac
       return { ...goal, orientation: { target: [oriented.x, oriented.y, oriented.z, oriented.w], seconds } };
     }
     // The item's line as it lies, less what of it runs along the threat's line.
-    const now = view.effectors[`hand.${hand}`]!.points, a = now[points[0]!]!, b = now[points[1]!]!;
+    const now = view.effectors[hand]!.points, a = now[points[0]!]!, b = now[points[1]!]!;
     const square = (line: Vec3): Vec3 => sub(line, scale(toward, dot(line, toward)));
     let across = square([b.x - a.x, b.y - a.y, b.z - a.z]);
     if (length(across) < NO_LINE) across = square(UP);
@@ -169,15 +180,16 @@ export function guardSkill(spec: BodySpec, covering: Covering = GUARD_COVER, fac
     };
   };
   return {
-    posture: guardPosture(spec), hold,
+    hands, posture: guardPosture(spec), hold,
+    handPose: (hand) => spec.segments.find((s) => s.name === hand)?.handPoses ? "open" : null,
     resume() {},
-    command(view, guard, taken) {
-      let goals: { left: EffectorGoal | null; right: EffectorGoal | null } | null = null;
-      for (const hand of HANDS) {
+    command(view, guard) {
+      let goals: Record<string, EffectorGoal | null> | null = null;
+      for (const hand of hands) {
         const cover = guard[hand];
-        if (hand === taken || !cover) continue;
+        if (!cover) continue;
         const goal = goalOf(view, hand, cover);
-        if (goal) (goals ??= { left: null, right: null })[hand] = goal;
+        if (goal) (goals ??= {})[hand] = goal;
       }
       return goals ?? NO_HANDS;
     },

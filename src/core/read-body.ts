@@ -130,6 +130,6 @@ export interface ReadPhysics {
 
 /** Each posable hand's configurations, and the pose each has and was asked (`HandPoses`). */
 interface ReadHandPoses {
-  readonly model: readonly { readonly hand: "left" | "right"; readonly poses: readonly HandPose[] }[];
+  readonly model: readonly { readonly hand: "left" | "right"; readonly segment: string; readonly poses: readonly HandPose[] }[];
   readonly state: Readonly<Record<string, { readonly applied: HandPose; readonly requested: HandPose }>>;
 }

@@ -719,7 +719,7 @@ export function recipeExecutor(spec: BodySpec, actions: readonly string[], setti
       const live = state.live;
       if (!live || live.request.id !== id) throw new Error(`recipe executor has no instance ${id}`);
       const common = { posture: guarding[live.hand], legs: live.footing ? { kind: "place" as const, footing: live.footing } : { kind: "walk" as const, walk: null, face: live.facing },
-        lower: live.lower, steer: live.steer, ...(closesToStrike(spec, live.hand) ? { handPoses: { [live.hand]: "fist" as const } } : {}) };
+        lower: live.lower, steer: live.steer, ...(closesToStrike(spec, live.hand) ? { handPoses: { [`hand.${live.hand}`]: "fist" as const } } : {}) };
       if (live.phase === "release") return { ...common, effectors: { [live.request.effector]: {
         places: [{ point: aimOf(spec, live.hand), position: live.home }], seconds: RECIPE_ACTION.return,
       } } };

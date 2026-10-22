@@ -15,7 +15,7 @@ import { navigatorOf } from "../src/core/mind/navigator.ts";
 import { flank } from "../src/core/entrants/vanguard/flank.ts";
 
 test("a contact-triggered step preserves live strokes and orders, and forks its active decision", () => {
-  const state = { calls: 0 }, intent = { move: null, face: 0, guard: { left: null, right: null }, actions: [] };
+  const state = { calls: 0 }, intent = { move: null, face: 0, guard: {}, actions: [] };
   const base = { name: "fixture", state, engagement: { phase: "attack", focus: "foe" }, decide() { state.calls++; return intent; } };
   let orders = null;
   const policy = flank(base, { segments: [] }, () => orders);
@@ -75,7 +75,7 @@ test("an obstructed attack entry asks navigation for a feasible range point and 
 /** Ordinary policies with distinguishable decisions and an external contact signal. */
 function learningFixture(signal) {
   const make = pace => { const state = { calls: 0 }; return { name: "fixture", state, engagement: { phase: "attack", focus: "foe" },
-    decide() { state.calls++; return { move: null, face: 0, guard: { left: null, right: null }, actions: [], pace }; } }; };
+    decide() { state.calls++; return { move: null, face: 0, guard: {}, actions: [], pace }; } }; };
   const attacking = make(1), defensive = make(2), policy = adaptiveGuard(attacking, defensive, true);
   const zero = { x: 0, y: 0, z: 0 }, foe = { id: "foe", out: false, spec: { marks: { middle: ["trunk"] }, segments: [{ name: "trunk" }] },
     segments: new Map([["trunk", { centre: zero, velocity: zero, spin: zero }]]) };
@@ -153,10 +153,12 @@ test("independent body-relative punches fork through preparation, commitment and
 
 /** A low opponent in reach, a facing body and support that never becomes ready. */
 function lowFixture() {
-  const state = { calls: 0 }, spec = { held: [] };
+  // Two empty hands that can cover (`handsOf`): knuckles at the end of each arm.
+  const hand = (name) => ({ name, points: { knuckles: { value: [0, 0, 0] } } });
+  const state = { calls: 0 }, spec = { held: [], effectors: [{ segment: "hand.left" }, { segment: "hand.right" }], segments: [hand("hand.left"), hand("hand.right")] };
   const base = { name: "fixture", state, engagement: { phase: "guard", focus: "foe" }, decide() {
     state.calls++;
-    return { move: null, face: Math.PI / 2, guard: { left: null, right: null }, actions: [] };
+    return { move: null, face: Math.PI / 2, guard: {}, actions: [] };
   } };
   const view = { time: 0, down: false, stance: { centre: { x: 0, y: 1, z: 0 }, support: { y: 0 }, facing: Math.PI / 2 },
     senses: { others: [{ id: "foe", out: false, spec: { marks: { high: "head" } }, segments: new Map([["head", { centre: { x: .4, y: .3, z: 0 } }]]) }] } };
@@ -184,12 +186,12 @@ test("unready low support returns toward standing without first becoming ready, 
 });
 
 test("a closed low guard preserves an action's reserved hand pose", () => {
-  for (const reserved of ["left", "right"]) {
-    const { layer, sight } = lowFixture(), original = { posture: {}, pushes: [], stance: null, handPoses: { left: "open", right: "open" } };
+  for (const reserved of ["hand.left", "hand.right"]) {
+    const { layer, sight } = lowFixture(), original = { posture: {}, pushes: [], stance: null, handPoses: { "hand.left": "open", "hand.right": "open" } };
     const base = { state: {}, envelope: null, report: { reservations: { [`pose:${reserved}`]: 0 } }, command: () => original };
-    const intent = { ...layer.tactics.decide(sight, 1), guard: { left: { threat: [1, .3, 0], guarded: [0, .3, 0] }, right: { threat: [1, .3, 0], guarded: [0, .3, 0] } } };
-    const command = layer.skills(base).command(sight.view, intent, 1), free = reserved === "left" ? "right" : "left";
+    const intent = { ...layer.tactics.decide(sight, 1), guard: { "hand.left": { threat: [1, .3, 0], guarded: [0, .3, 0] }, "hand.right": { threat: [1, .3, 0], guarded: [0, .3, 0] } } };
+    const command = layer.skills(base).command(sight.view, intent, 1), free = reserved === "hand.left" ? "hand.right" : "hand.left";
     assert.deepEqual(command, { ...original, handPoses: { [reserved]: "open", [free]: "fist" } });
-    assert.deepEqual(original.handPoses, { left: "open", right: "open" }, "the guard does not mutate its service's command");
+    assert.deepEqual(original.handPoses, { "hand.left": "open", "hand.right": "open" }, "the guard does not mutate its service's command");
   }
 });

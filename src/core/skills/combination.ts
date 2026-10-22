@@ -104,7 +104,7 @@ export function combinationExecutor(body: Body, guard: Pose, actions: readonly s
   const release = (ending: ActionEnding) => {
     const live = state.live!; live.phase = "release"; live.stage = "return"; live.time = 0; live.ending = ending; motion.phase = "return";
   };
-  const fists = deepFreeze(Object.fromEntries((["left", "right"] as const).filter((hand) => closesToStrike(body.built.spec, hand)).map((hand) => [hand, "fist" as const])));
+  const fists = deepFreeze(Object.fromEntries((["left", "right"] as const).filter((hand) => closesToStrike(body.built.spec, hand)).map((hand) => [`hand.${hand}`, "fist" as const])));
   return {
     state,
     needs(_action, effector) { return holding("settle", sideOf(effector)); },
@@ -175,8 +175,8 @@ export function combinationExecutor(body: Body, guard: Pose, actions: readonly s
           : live.stage === "between" ? technique.chamber(view, other(live.first)) ?? guard : guard;
       const held = holding(live.stage, live.first), free = (["left", "right"] as const).filter((side) => !held.includes(`hand.${side}`));
       if (free.length) {
-        const own: Record<string, number> = { ...posture }, poses: Partial<Record<Side, "fist">> = { ...fists };
-        for (const side of free) { for (const channel of arms[side]) delete own[channel]; delete poses[side]; }
+        const own: Record<string, number> = { ...posture }, poses: Partial<Record<string, "fist">> = { ...fists };
+        for (const side of free) { for (const channel of arms[side]) delete own[channel]; delete poses[`hand.${side}`]; }
         return { posture: own, pushes, points, handPoses: poses, legs: { kind: "walk", walk: null, face: motion.face }, lower: live.lower, steer: 0 };
       }
       return { posture, pushes, points, handPoses: fists, legs: { kind: "walk", walk: null, face: motion.face }, lower: live.lower,

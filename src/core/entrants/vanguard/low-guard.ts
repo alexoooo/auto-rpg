@@ -9,6 +9,7 @@ import type { Skills } from "../../skills/skills.ts";
 import { STANCE_LOWER } from "../../skills/locomotion.ts";
 import type { TargetRef } from "../../skills/action.ts";
 import { holdsNothing } from "../../skills/strikes.ts";
+import { handsOf } from "../../skills/guard.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
 
@@ -40,7 +41,7 @@ export function lowAim(view: BodyView, target: TargetRef): Vec3 | null {
 /** Prepare low support early and cover a low opponent's head with the free closed hands. */
 export function lowGuard(base: Tactics, spec: BodySpec, orders: (sight: Sight) => Orders | null) {
   const state = { base: base.state ?? null, unready: null as number | null, rising: false };
-  const hands = (["left", "right"] as const).filter(hand => holdsNothing(spec, `hand.${hand}`));
+  const hands = handsOf(spec).filter(hand => holdsNothing(spec, hand));
   const focus = (view: BodyView) => view.senses.others.find(foe => foe.id === base.engagement?.focus && !foe.out && lowOpponent(view, foe));
   const tactics: Tactics = {
     ...base, state, get engagement() { return base.engagement; },

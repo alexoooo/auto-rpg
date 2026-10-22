@@ -103,8 +103,8 @@ type BodyDriver = (view: BodyView, dt: number) => BodyCommand | null;
  * and the freedoms pushed flat out.
  */
 export interface BodyCommand {
-  /** A coarse contact configuration; omitted hands retain their pending request. */
-  readonly handPoses?: Readonly<Partial<Record<Side, HandPose>>>;
+  /** A coarse contact configuration, by the hand's segment; omitted hands retain their pending request. */
+  readonly handPoses?: Readonly<Partial<Record<string, HandPose>>>;
   /** Angles by channel; a freedom not named is held at its reference angle. */
   readonly posture: Pose;
   /**
@@ -140,6 +140,7 @@ export interface BodyView {
    * reads it (`BodyOptions.feedback`).
    */
   readonly effectors: Readonly<Record<string, { readonly points: Readonly<Record<string, Vector3>>; readonly rotation: Quaternion; readonly feedback?: EffectorFeedback }>>;
+  /** Each posable hand's pose, by its segment: the one it has and the one it was asked. */
   readonly handPoses: Readonly<Record<string, { readonly applied: HandPose; readonly requested: HandPose }>>;
   /** Seconds of the world's clock. */
   readonly time: number;
@@ -265,8 +266,10 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
     groundActive: false,
     resumed: false,
   };
+  // A hand is asked its pose by its segment; the port names it by its own name.
+  const posable = new Map(built.handPoses.model.map((hand) => [hand.segment, hand.hand]));
   const view = {
-    handPoses: built.handPoses.state, effectors,
+    handPoses: Object.fromEntries(built.handPoses.model.map((hand) => [hand.segment, built.handPoses.state[hand.hand]!])), effectors,
     get time() { return state.time; },
     get born() { return state.born ?? state.time; },
     senses: NOTHING_SENSED,
@@ -290,7 +293,11 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
     }
     // A motor asked a speed or level that is not a number would leave its body's island to the engine, which gives it up.
     for (const push of command.pushes) if (!Number.isFinite(push.level) || (push.speed !== undefined && !Number.isFinite(push.speed))) throw new Error(`a push on ${push.channel} needs a finite level and speed`);
-    if (command.handPoses) own.requestHandPoses(Object.entries(command.handPoses).map(([hand, pose]) => ({ hand: hand as Side, pose: pose! })));
+    if (command.handPoses) own.requestHandPoses(Object.entries(command.handPoses).map(([segment, pose]) => {
+      const hand = posable.get(segment);
+      if (!hand) throw new Error(`no posable hand ${segment}`);
+      return { hand, pose: pose! };
+    }));
     motor.setPosture(command.posture);
     for (const task of command.points ?? []) {
       if (command.effectors?.[task.segment]) throw new Error(`two controllers own ${task.segment}`);

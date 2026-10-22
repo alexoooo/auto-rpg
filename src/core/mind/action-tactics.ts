@@ -7,7 +7,7 @@ import { actionAim, regionSegments } from "./action-aim.ts";
 import { structuredConfig, type Behaviour, type Candidate, type Turn } from "./behaviour-part.ts";
 import { FIGHTING, type BehavioursConfig, type ConditionConfig } from "./config.ts";
 import { conditionMatches } from "./conditions.ts";
-import type { Intent } from "./intent.ts";
+import { NO_COVER, type Intent } from "./intent.ts";
 import { remainingOf } from "./movement.ts";
 import type { Orders } from "./orders.ts";
 import { orderedFacing } from "./ordered.ts";
@@ -151,7 +151,7 @@ export function actionTactics(making: TacticsMaking, settings: BehavioursConfig)
     interrupt() { for (const behaviour of made) behaviour.interrupted?.(); },
   };
   return { name: "Actions", state, engagement: state, decide(sight, dt) {
-    if (sight.view.senses.out) { turn.interrupt(); state.pending = null; state.awaiting = null; state.phase = "out"; return { move: null, face: sight.report.heading, guard: { left: null, right: null }, actions: [] }; }
+    if (sight.view.senses.out) { turn.interrupt(); state.pending = null; state.awaiting = null; state.phase = "out"; return { move: null, face: sight.report.heading, guard: NO_COVER, actions: [] }; }
     const orders = ordersOf(sight), focus = selectFocus(sight, orders), changed = state.focus !== (focus?.id ?? null) || state.orderedRegion !== (orders?.region ?? null);
     state.focus = focus?.id ?? null;
     state.orderedRegion = orders?.region ?? null;
@@ -193,7 +193,7 @@ export function actionTactics(making: TacticsMaking, settings: BehavioursConfig)
     for (const behaviour of made) behaviour.decide(turn);
     state.phase = turn.phase;
     const filled: Turn = turn, { legs, requested, left, right } = filled, facing = orders?.move === undefined && orders ? orderedFacing(orders.face) : null;
-    return { move: legs?.move ?? null, face: facing ?? legs?.face ?? turn.face, guard: { left: left ?? null, right: right ?? null }, actions: requested ?? [],
+    return { move: legs?.move ?? null, face: facing ?? legs?.face ?? turn.face, guard: { "hand.left": left ?? null, "hand.right": right ?? null }, actions: requested ?? [],
       ...(legs?.lower === undefined ? {} : { lower: legs.lower }), ...(legs?.destination === undefined ? {} : { destination: legs.destination }),
       ...(legs?.movement === undefined ? {} : { movement: legs.movement }), ...(legs?.pace === undefined ? {} : { pace: legs.pace }),
       ...(legs?.walk ? { walk: true } : {}), ...(legs?.travelFacing ? { travelFacing: true } : {}) };

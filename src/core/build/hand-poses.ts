@@ -8,7 +8,8 @@ export interface HandPoseRequest { readonly hand: "left" | "right"; readonly pos
 
 /** Detached requests; an applied pose changes only at an unloaded, clear world-step boundary. */
 export interface HandPoses {
-  readonly model: readonly { readonly hand: "left" | "right"; readonly poses: readonly HandPose[] }[];
+  /** Each posable hand: its name in a request, the segment it is, and its poses. */
+  readonly model: readonly { readonly hand: "left" | "right"; readonly segment: string; readonly poses: readonly HandPose[] }[];
   readonly state: Record<string, { applied: HandPose; requested: HandPose }>;
   check(requests: readonly HandPoseRequest[]): readonly HandPoseRequest[];
   request(requests: readonly HandPoseRequest[]): void;
@@ -52,6 +53,6 @@ export function createHandPoses(spec: BodySpec, segments: ReadonlyMap<string, Bu
       hand.part.body.changeShape(0, collider); pose.applied = desired;
     }
   });
-  return { model: deepFreeze(hands.map(h => ({ hand: h.hand, poses: ["open", "fist", "grip"] as HandPose[] }))), state, check,
+  return { model: deepFreeze(hands.map(h => ({ hand: h.hand, segment: h.part.spec.name, poses: ["open", "fist", "grip"] as HandPose[] }))), state, check,
     request(requests) { for (const request of check(requests)) state[request.hand]!.requested = request.pose; }, dispose: () => hook?.dispose() };
 }

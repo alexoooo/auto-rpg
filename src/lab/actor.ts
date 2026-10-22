@@ -85,7 +85,7 @@ function barred(tactics: Tactics, strikes: Readonly<Record<Side, boolean>>): Tac
   if (strikes.left && strikes.right) return tactics;
   return deciding(tactics, (sight, dt) => {
     const intent = tactics.decide(sight, dt), { guard, actions } = intent;
-    return { ...intent, guard: { left: strikes.left ? guard.left : null, right: strikes.right ? guard.right : null },
+    return { ...intent, guard: { "hand.left": strikes.left ? guard["hand.left"] ?? null : null, "hand.right": strikes.right ? guard["hand.right"] ?? null : null },
       actions: actions.filter(action => action.effector !== "hand.left" || strikes.left).filter(action => action.effector !== "hand.right" || strikes.right) };
   });
 }

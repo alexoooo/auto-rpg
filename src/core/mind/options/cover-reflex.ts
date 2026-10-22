@@ -14,13 +14,13 @@ const COVER_LONGEST = 1;
  */
 export function cover(longest: number, spec?: BodySpec): Reflex {
   return {
-    name: "cover", limbs: ["left", "right"], seizes: false, longest,
+    name: "cover", limbs: ["hand.left", "hand.right"], seizes: false, longest,
     trigger(now) {
       const threat = now.threat;
       if (!threat) return null;
       const h = now.sight.report.heading, dx = threat.threat[0] - threat.guarded[0], dz = threat.threat[2] - threat.guarded[2];
       const preferred = dx * cos(h) - dz * sin(h) >= 0 ? "right" : "left", hand = spec ? coveringHand(spec, preferred) : preferred;
-      return { guard: { [hand]: threat } };
+      return { guard: { [`hand.${hand}`]: threat } };
     },
   };
 }

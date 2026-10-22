@@ -313,7 +313,11 @@ The gaits' measured speeds are in [locomotion](reference/locomotion.md).
 - **Guard** (`guard.ts`) has the hands no action holds. A guard is a part (`GuardPart`,
   `skills/guard-part.ts`, a line in `GUARDS`, `mind/guards.ts`) whose posture is the one source of
   the arms' rest: where the body is built, where the arbiter puts the arms no skill holds, and where
-  a blow returns (`ExecutorMaking.guard`). The game's pose is `GUARD` (`guardPosture`); a
+  a blow returns (`ExecutorMaking.guard`). It guards with the body's hands, by segment
+  (`GuardSkill.hands`; the stock guards' are `handsOf`, the effectors that can cover), and asks a
+  free hand's pose (`GuardSkill.handPose`); `Intent.guard`, a command's hand poses and the pose
+  resources (`pose:<segment>`) name a hand by its segment, and only the hand-pose port
+  (`hand-poses.ts`) names it by side. The game's pose is `GUARD` (`guardPosture`); a
   hand told what to cover (`Cover`) places its knuckles, or an item's two cover points
   (`ItemSpec.cover`), between the threat and the place guarded (`GUARD_COVER`). `shield-guard`
   also orients a buckler's face; `cover-guard` is the line-cover alternative. There is no block or

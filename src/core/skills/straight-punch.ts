@@ -405,7 +405,7 @@ export function straightPunchExecutor(body: Body, guard: Pose, actions: readonly
       const pushes: MusclePush[] = [], points: PointTask[] = [];
       const posture = live.phase === "commit" ? technique.drive(view, live.hand, live.time, pushes, points)
         : live.phase === "prepare" ? technique.chamber(view, live.hand) ?? guard : guard;
-      return { posture: sparse(posture, live.hand), pushes, points, ...(closesToStrike(body.built.spec, live.hand) ? { handPoses: { [live.hand]: "fist" as const } } : {}),
+      return { posture: sparse(posture, live.hand), pushes, points, ...(closesToStrike(body.built.spec, live.hand) ? { handPoses: { [`hand.${live.hand}`]: "fist" as const } } : {}),
         legs: { kind: "walk", walk: null, face: motion.face }, lower: live.lower,
         steer: live.phase === "commit" ? technique.sense[live.hand] * settings.hips : 0 };
     },

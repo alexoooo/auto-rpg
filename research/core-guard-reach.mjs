@@ -50,7 +50,7 @@ async function reach(cover, way, hand) {
   let threat = null;
   body.drive((_, dt) => {
     const cover = (which) => threat && which === hand && !own ? { threat, guarded: view.head.asArray() } : null;
-    const command = skills.command(view, { move: null, face: 0, guard: { left: cover("left"), right: cover("right") }, actions: [] }, dt);
+    const command = skills.command(view, { move: null, face: 0, guard: { "hand.left": cover("left"), "hand.right": cover("right") }, actions: [] }, dt);
     if (!threat || !own) return command;
     // This script's goal, in the body frame as the skill's is: the same middle, and the line by the body's up or left free.
     intoFrameToRef(view.root, view.head.asArray(), guarded);

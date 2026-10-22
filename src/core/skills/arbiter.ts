@@ -5,7 +5,7 @@ import { bodyEffectors } from "../control/effectors.ts";
 import type { EffectorGoal, MusclePush, PointTask } from "../control/motor.ts";
 import type { StanceGoal } from "../control/stance.ts";
 import { footStatesOf } from "../control/support.ts";
-import type { HandPose, Side } from "../spec/body.ts";
+import type { HandPose } from "../spec/body.ts";
 import type { ActionAround, ActionClaim, CommandPatch } from "./action.ts";
 import { actionInstances, type ActionBinding, type ActionContact, type ExecutorBinding } from "./action-instances.ts";
 import { actionResources } from "./action-resources.ts";
@@ -39,7 +39,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   const { legs, guard } = services, support = services.support ?? null;
   const navigation = services.navigation;
   const models = bodyEffectors(body.built).map(e => e.model), feet = footStatesOf(body.built).map(f => f.segment.spec.name);
-  const resources = actionResources(body.muscles.channels.map(c => c.name), models, feet);
+  const resources = actionResources(body.muscles.channels.map(c => c.name), models, feet, body.built.handPoses.model.map(hand => hand.segment));
   const allControls = resources.controls(Object.keys(resources.footprints)), supportControls = resources.controls(["legs", "trunk"]);
   const instances = actionInstances(executors, actions, resources), guarding = guard.posture;
   const state = { actions: instances.state, legs: legs.state, navigation: navigation?.state ?? null, guard: guard.state ?? null, support: support?.state ?? null, tactics: tactics.state ?? null,
@@ -121,13 +121,14 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       const legsAsked = claims.find(item => item.controls.includes("stance"))?.claim.legs;
       state.walkable = legsAsked ? legsAsked.kind === "free" : available("stance");
       const posture: Record<string, number> = {}, pushes: MusclePush[] = [], points: PointTask[] = [], effectors: Record<string, EffectorGoal | null> = {};
-      const handPoses: Partial<Record<Side, HandPose>> = {};
+      const handPoses: Partial<Record<string, HandPose>> = {};
       for (const [channel, angle] of Object.entries(guarding)) if (available(`channel:${channel}`)) posture[channel] = angle;
-      const covers = guard.command(view, intent.guard, null);
-      for (const side of ["left", "right"] as const) {
-        if (available(`effector:hand.${side}`)) effectors[`hand.${side}`] = covers[side];
-        if (available(`pose:${side}`) && body.built.spec.segments.find(s => s.name === `hand.${side}`)?.handPoses) handPoses[side] = "open";
-        const held = !effectors[`hand.${side}`] && available(`effector:hand.${side}`) ? guard.hold?.(side) : null;
+      const covers = guard.command(view, intent.guard);
+      for (const hand of guard.hands) {
+        if (available(`effector:${hand}`)) effectors[hand] = covers[hand] ?? null;
+        const pose = available(`pose:${hand}`) ? guard.handPose?.(hand) ?? null : null;
+        if (pose) handPoses[hand] = pose;
+        const held = !effectors[hand] && available(`effector:${hand}`) ? guard.hold?.(hand) : null;
         if (held) points.push(held);
       }
       const legOwner = claims.find(item => item.controls.includes("stance"));
@@ -169,7 +170,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
       if (stance && legOwner?.claim.steer) stance = { ...stance, heading: stance.heading + legOwner.claim.steer };
       const swung = legs.arms?.(view);
       if (swung) for (const model of models) {
-        if (!model.segment.startsWith("hand.") || !available(`effector:${model.segment}`) || effectors[model.segment]) continue;
+        if (!guard.hands.includes(model.segment) || !available(`effector:${model.segment}`) || effectors[model.segment]) continue;
         for (const channel of model.channels) if (swung[channel] !== undefined && available(`channel:${channel}`)) posture[channel] = swung[channel]!;
       }
       for (const { claim } of claims) {

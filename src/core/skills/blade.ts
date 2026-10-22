@@ -161,14 +161,14 @@ export function bladeExecutor(body: Body, guard: Pose, actions: readonly string[
       const live = state.lives[hand]!, strike = strikes[hand]!, phase = strike.state.phase;
       const posture = Object.fromEntries(Object.entries(guard).filter(([name]) => name.startsWith(`shoulder.${hand} `) || name.startsWith(`elbow.${hand} `) || name.startsWith(`wrist.${hand} `)));
       const course = courseOf(view, live), goal = strike.goal(course), end = ends[hand]!;
-      if (mechanism === "edge") return { posture, handPoses: { [hand]: "grip" as const },
+      if (mechanism === "edge") return { posture, handPoses: { [`hand.${hand}`]: "grip" as const },
         effectors: { [live.request.effector]: strike.goal(course, { target: phase === "return" ? live.homeTurn : live.targetTurn,
           seconds: phase === "return" ? settings.returnSeconds : settings.chamberSeconds }) },
         ...(phase !== "return" ? { legs: { kind: "hold" as const } } : {}) };
       direction.set(...live.axisDirection).applyRotationQuaternionToRef(Quaternion.InverseToRef(view.root.rotation, inverse), direction);
       const axis: Vec3 = [direction.x, direction.y, direction.z];
       const rear = phase === "return" ? live.homeRear : goal.places[0]!.position.map((value, k) => value - axis[k]! * end.span) as unknown as Vec3;
-      return { posture, handPoses: { [hand]: "grip" as const }, effectors: { [live.request.effector]: {
+      return { posture, handPoses: { [`hand.${hand}`]: "grip" as const }, effectors: { [live.request.effector]: {
         places: [goal.places[0]!, { point: end.rear, position: rear }], seconds: goal.seconds, follows: true, sequence: goal.sequence } },
         ...(phase !== "return" ? { legs: { kind: "hold" as const } } : {}) };
     },

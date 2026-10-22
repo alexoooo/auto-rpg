@@ -12,8 +12,8 @@ export interface ResourceMap {
   validatePatch(resources: readonly Resource[], patch: CommandPatch): void;
 }
 
-/** Compile anatomical chains and the stance's support limbs into concrete control slots. */
-export function actionResources(channels: readonly string[], effectors: readonly EffectorModel[], support: readonly string[]): ResourceMap {
+/** Compile anatomical chains, the posable hands (by segment) and the stance's support limbs into concrete control slots. */
+export function actionResources(channels: readonly string[], effectors: readonly EffectorModel[], support: readonly string[], posable: readonly string[]): ResourceMap {
   const footprints: Record<string, readonly string[]> = Object.create(null) as Record<string, readonly string[]>, limbChannels = new Set<string>();
   for (const effector of effectors) {
     if (effector.segment === "legs" || effector.segment === "trunk" || footprints[effector.segment]) throw new Error("duplicate or reserved effector resource");
@@ -22,7 +22,7 @@ export function actionResources(channels: readonly string[], effectors: readonly
       limbChannels.add(channel);
     }
     footprints[effector.segment] = [`effector:${effector.segment}`, ...effector.channels.map(c => `channel:${c}`),
-      ...effector.segment === "hand.left" || effector.segment === "hand.right" ? [`pose:${effector.segment.slice(5)}`] : []];
+      ...posable.includes(effector.segment) ? [`pose:${effector.segment}`] : []];
   }
   footprints.trunk = channels.filter(c => !limbChannels.has(c)).map(c => `channel:${c}`);
   footprints.legs = ["stance", ...support.flatMap(name => {
@@ -48,7 +48,7 @@ export function actionResources(channels: readonly string[], effectors: readonly
     for (const segment in patch.effectors) owns(`effector:${segment}`);
     for (const task of patch.points ?? []) owns(`effector:${task.segment}`);
     for (const segment of support) if (patch.effectors?.[segment] && !held.includes("stance")) throw new Error("a support effector needs legs");
-    for (const side in patch.handPoses) owns(`pose:${side}`);
+    for (const segment in patch.handPoses) owns(`pose:${segment}`);
     if (patch.stance !== undefined) owns("stance");
     if (patch.stance) for (const side of patch.stance.feet) {
       if (patch.effectors?.[`foot.${side}`]) throw new Error(`two controllers own foot.${side}`);

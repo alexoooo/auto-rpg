@@ -1,6 +1,6 @@
 import type { ActionRequest } from "../skills/action.ts";
-import type { Vec3 } from "../spec/quantity.ts";
 import type { Side } from "../spec/body.ts";
+import type { Vec3 } from "../spec/quantity.ts";
 import type { MovementRequest } from "./movement.ts";
 
 /**
@@ -27,11 +27,11 @@ export interface Intent {
   /** Face this way, rad about up (0 faces +z, growing to the right); the body turns toward it as its walk allows. */
   readonly face: number;
   /**
-   * What each hand covers (`Cover`), or null to hold the guard's pose. The guard skill puts what
-   * the hand covers with between the threat and the place guarded (`src/core/skills/guard.ts`); a
-   * hand an attack has does not guard.
+   * What each hand covers (`Cover`), by the hand's segment; a hand not named, or null, holds the
+   * guard's pose. The guard skill puts what the hand covers with between the threat and the place
+   * guarded (`src/core/skills/guard.ts`); a hand an attack has does not guard.
    */
-  readonly guard: Readonly<Record<Side, Cover | null>>;
+  readonly guard: Readonly<Partial<Record<string, Cover | null>>>;
   /** How far under its standing height to hold the centre of mass, m; `STANCE_LOWER` when not given. */
   readonly lower?: number;
   /** Discrete commitments requested on this control step. */
@@ -54,7 +54,7 @@ export interface Cover {
 }
 
 /** No hand covers anything: each holds the guard's pose. */
-export const NO_COVER: Intent["guard"] = Object.freeze({ left: null, right: null });
+export const NO_COVER: Intent["guard"] = Object.freeze({});
 
 /**
  * **An attack**, by what it is made with: a blow of a hand or a kick of a foot, at a point (world,

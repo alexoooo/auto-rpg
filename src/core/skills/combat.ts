@@ -262,7 +262,7 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
           strike.begin("chamber", velocity);
         }
         const { course } = courseOf(view, hand, live), previous = cycle.phase;
-        const prepared = (!bare[hand] || view.handPoses[hand]?.applied === "fist")
+        const prepared = (!bare[hand] || view.handPoses[`hand.${hand}`]?.applied === "fist")
           && (!foundation || foundation.state.quiet >= STRIKE_SUPPORT.hold && view.stance.phase === "stand")
           && (action.lower !== undefined ? around.support?.ready === true : !around.support || around.support.stage === "stand" || around.support.ready);
         const supported = !foundation || bearingSupport(foundation.state);
@@ -300,7 +300,7 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
       if (live.supportPhase !== "ready") {
         const posture = Object.fromEntries(Object.entries(guarding).filter(([name]) => name.startsWith(`shoulder.${hand} `) || name.startsWith(`elbow.${hand} `) || name.startsWith(`wrist.${hand} `)));
         const lower = live.supportPhase === "rise" ? STANCE_LOWER : live.lower;
-        return { posture, legs: HOLD, lower, support: lower, ...(bare[hand] ? { handPoses: { [hand]: "fist" as const } } : {}) };
+        return { posture, legs: HOLD, lower, support: lower, ...(bare[hand] ? { handPoses: { [`hand.${hand}`]: "fist" as const } } : {}) };
       }
       const phase = strike.state.phase, posture: Record<string, number> = Object.fromEntries(Object.entries(guarding).filter(([name]) => name.startsWith(`wrist.${hand} `))), pushes: MusclePush[] = [];
       if (live.elbow) {
@@ -317,7 +317,7 @@ export function pathExecutor(body: Body, guard: Pose, actions: readonly PathActi
       const owns = held(hand, live), low = find(live.request.action).lower;
       const goal = strike.goal(course);
       return { posture, pushes, effectors: { [live.request.effector]: driven ? { ...goal, carried: true } : goal },
-        ...(bare[hand] ? { handPoses: { [hand]: "fist" as const } } : {}),
+        ...(bare[hand] ? { handPoses: { [`hand.${hand}`]: "fist" as const } } : {}),
         ...(owns.includes("legs") ? { legs: HOLD, lower: live.lower } : {}),
         ...(low !== undefined ? { support: live.lower } : {}) };
     },
