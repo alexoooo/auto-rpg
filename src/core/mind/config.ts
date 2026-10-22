@@ -11,6 +11,7 @@ import { COMBINATION } from "../skills/combination.ts";
 import type { LOCOMOTIONS } from "./locomotions.ts";
 import type { BEHAVIOURS as BEHAVIOUR_LIST } from "./behaviours.ts";
 import type { PLANNERS } from "./planners.ts";
+import type { REFLEXES } from "./options/reflexes.ts";
 import type { MoveConfig } from "../skills/move-part.ts";
 import type { ConfigOf, PartConfig } from "./parts.ts";
 import type { OpeningTuning } from "./openings.ts";
@@ -74,10 +75,9 @@ export interface ActionConfig {
 }
 
 /** **Cover** (`cover`, `options/reflex.ts`): a free hand put between a blow coming at the head and the head. */
-interface CoverReflexConfig { readonly kind: "cover-reflex" }
 
-/** **A reflex's config**, by kind (`reflexOf`). */
-export type ReflexConfig = CoverReflexConfig;
+/** **A reflex's config**, by kind (`REFLEXES`). */
+export type ReflexConfig = ConfigOf<typeof REFLEXES>;
 
 /** **A stock guard's config**, by kind (`GUARDS`). */
 export type GuardConfig = ConfigOf<typeof GUARDS>;

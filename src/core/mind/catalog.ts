@@ -4,14 +4,14 @@ import { BEHAVIOURS } from "./behaviours.ts";
 import type { BehaviourConfig, ExecutorConfig, LocomotionConfig, GuardConfig, MotorConfig, ReflexConfig, SubMindConfig, SupportConfig, TacticsConfig } from "./config.ts";
 import { CONTROLLERS } from "./controllers.ts";
 import { EXECUTORS } from "./executors.ts";
-import { CONFIG_KEYS } from "./config-keys.ts";
 import { GUARDS } from "./guards.ts";
 import { SUPPORTS } from "./supports.ts";
 import { LOCOMOTIONS } from "./locomotions.ts";
-import { MOVE_RULE_PARTS, type MoveRuleConfig } from "../skills/move-part.ts";
+import type { MoveRuleConfig } from "../skills/move-part.ts";
+import { MOVE_RULES } from "../skills/move-rules.ts";
 import { slotsOf, type Part, type PartConfig, type Provision, type Role } from "./parts.ts";
 import { SUB_MINDS } from "./sub-minds.ts";
-import { REFLEX_PARTS } from "./options/reflex.ts";
+import { REFLEXES } from "./options/reflexes.ts";
 import { MOTORS } from "../control/motors.ts";
 import { PLANNERS } from "./planners.ts";
 import { NAVIGATIONS } from "./navigations.ts";
@@ -42,8 +42,8 @@ let registry: Registry | null = null;
  */
 function registered(): Registry {
   if (registry) return registry;
-  const below: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...listed(SUB_MINDS), ...listed(PLANNERS), ...listed(BEHAVIOURS), ...MOVE_RULE_PARTS,
-    ...listed(LOCOMOTIONS), ...listed(GUARDS), ...listed(SUPPORTS), ...listed(EXECUTORS), ...REFLEX_PARTS, ...listed(MOTORS), ...listed(NAVIGATIONS) };
+  const below: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...listed(SUB_MINDS), ...listed(PLANNERS), ...listed(BEHAVIOURS), ...listed(MOVE_RULES),
+    ...listed(LOCOMOTIONS), ...listed(GUARDS), ...listed(SUPPORTS), ...listed(EXECUTORS), ...listed(REFLEXES), ...listed(MOTORS), ...listed(NAVIGATIONS) };
   const parts: Record<string, Part> = { ...below }, owners: Record<string, string> = {};
   const add = (kind: string, part: Part, what: string) => {
     if (Object.hasOwn(parts, kind)) throw new Error(`${what} of kind ${JSON.stringify(kind)} is another part's`);
@@ -166,7 +166,7 @@ export function treeData(config: PartConfig): readonly DataKey[] {
  */
 function unknownSettings(config: PartConfig): readonly string[] {
   const part = partOf(config), tuning = part.tuning ?? [];
-  const known = part.keys ?? CONFIG_KEYS[config.kind as keyof typeof CONFIG_KEYS];
+  const known = part.keys;
   const given = (config as { tuning?: unknown }).tuning;
   return [
     ...Object.keys(config).filter((key) => !Object.hasOwn(known, key)).map((key) => `${part.label} has no setting ${key}`),

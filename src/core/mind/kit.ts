@@ -26,7 +26,7 @@ export function motorOf(parts: PartLookup, config: PartConfig | null | undefined
 
 /** Legs of any kind `parts` finds, as Move makes its gaits (`LocomotionPart.make`). */
 function legsFrom(parts: PartLookup): Legs {
-  return { make: (body, config) => legsOf(parts, body, config), runs: (config) => parts.of("locomotion", config).runs?.(config) };
+  return { make: (body, config) => legsOf(parts, body, config), runs: (config) => parts.of("locomotion", config).runs?.(config), parts };
 }
 
 /** **The legs' skill** `config` names for `body`, as `parts` finds it (`LocomotionPart.make`). */

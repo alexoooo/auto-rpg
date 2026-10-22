@@ -49,8 +49,8 @@ export interface Part<C extends PartConfig = PartConfig> {
   slotsFor?(config: C): readonly Slot[];
   /** The config a slot set to this kind takes. */
   readonly defaults: C;
-  /** The keys a config of it may hold (`KeysOf`); the catalog's list where it states none (`CONFIG_KEYS`). */
-  readonly keys?: Readonly<Record<string, true>>;
+  /** The keys a config of it may hold (`KeysOf`): a key outside them is a fault (`treeFaults`). */
+  readonly keys: Readonly<Record<string, true>>;
   /** The keys of the research tuning a config of it may carry (`tuning`); none, it carries none. */
   readonly tuning?: readonly string[];
   /** What a screen must give a mind for this part to run, if anything. */

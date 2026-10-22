@@ -85,7 +85,7 @@ function createTempo(host: BodyHost, given: TempoConfig, wiring: MindWiring) {
   const config = { ...given, actions: armedActions(host.parts, host.spec, given.executors, given.actions) };
   const body = host.command(fighterBody(config, wiring, host.parts));
   let skills: Skills;
-  skills = driveBy(body, tempoTactics(host.spec, config, wiring), (made, driving) => fighterSkills(made, host.clock, host.parts, config, driving, () => skills?.report.ledger ?? []));
+  skills = driveBy(body, tempoTactics(host.spec, config, wiring, host.parts), (made, driving) => fighterSkills(made, host.clock, host.parts, config, driving, () => skills?.report.ledger ?? []));
   return { skills, state: skills.state };
 }
 

@@ -21,6 +21,8 @@ type Reading = ConditionReading;
 export interface MoveRule {
   readonly gait: number;
   matches(reading: Reading, holding: boolean): boolean;
+  /** Its memory, if it keeps any (`src/core/state.ts`), held in Move's. */
+  readonly state?: object;
 }
 
 /** A rule that matches while the body is asked to stand: a body standing stands by its gait. */
@@ -79,7 +81,7 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
     rules.find((rule) => rule.matches(reading, rule.gait === current))?.gait ?? otherwise;
   const memory = { chosen: false, gait: wanted(STILL, null), driven: false };
   const walks = [...new Set(gaits.map((gait) => gait.legs))];
-  const state = { gaits: walks.map((walk) => walk.state), choice: memory };
+  const state = { gaits: walks.map((walk) => walk.state), choice: memory, rules: rules.map((rule) => rule.state ?? null) };
   const now = (): Locomotion => gaits[memory.gait]!.legs;
   /** The walk now told whether its gait may run. */
   const told = (): Locomotion => {

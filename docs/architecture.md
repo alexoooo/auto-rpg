@@ -278,13 +278,14 @@ actions over it.
 | Run | `run.ts` | Raibert-placed flying steps; experimental |
 | Move | `move.ts` | chooses among the gaits (`GAITS`, `gaits.ts`) by rules (`MoveRuleConfig`) on standing and the distance to the nearest standing foe, the nearest standing body of its own side, or its destination; Classic's is `MOVE` |
 
-Each kind is a registered implementation (`LocomotionPart`, `src/core/mind/locomotion-part.ts`): its
-own module beside its skill (`skills/<kind>-part.ts`) owns its config's type, keys, defaults,
-faults, fit and maker, and is a line in `LOCOMOTIONS` (`mind/locomotions.ts`, a role list), from which the
-slot's config type (`LocomotionConfig`) follows; `legsOf` (`mind/kit.ts`) makes the legs a config
-names as the lookup finds them, and Move makes its gaits' legs the same way (`Legs`). The legs it makes state
-their limits to the speed rule: what they hold (`Locomotion.envelope`) and how fast they stop
-(`Locomotion.stopping`); Move's rules (`MOVE_RULE_PARTS`) are in Move's module.
+Each kind is a registered implementation (`LocomotionPart`, `src/core/mind/locomotion-part.ts`):
+its own module beside its skill (`skills/<kind>-part.ts`) owns its config's type, keys, defaults,
+faults, fit and maker, and is a line in `LOCOMOTIONS` (`mind/locomotions.ts`, a role list), from
+which the slot's config type (`LocomotionConfig`) follows. `legsOf` (`mind/kit.ts`) makes the
+legs a config names as the lookup finds them; Move makes its gaits' legs and its rules
+(`MoveRulePart`, `skills/move-rule-part.ts`, a line in `MOVE_RULES`) through the lookup the legs
+carry (`Legs`). The legs state their limits to the speed rule: what they hold
+(`Locomotion.envelope`) and how fast they stop (`Locomotion.stopping`).
 
 A gait that drives the legs asks the assist only to right the pelvis (`gaitAssist`,
 `skills/gait-assist.ts`). A push whose level or speed is not a number is refused (`obey`, `body.ts`).
@@ -416,7 +417,8 @@ screen must give). `allParts` (`catalog.ts`) is every part by kind: the parts be
 mind, and each mind's own parts (`Controller.parts`), read once on first use so that any module may
 load first. A role whose parts make themselves has a list of them that holds its imports and its
 list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `GUARDS`, `SUPPORTS`, `SUB_MINDS`, `LOCOMOTIONS`, `PLANNERS`, `BEHAVIOURS` in
-`src/core/mind/`; `MOTORS` in `src/core/control/`), so a case's code begins each part's own
+`src/core/mind/`; `REFLEXES` in `options/`; `MOTORS` in `src/core/control/`; `MOVE_RULES` in
+`src/core/skills/`), so a case's code begins each part's own
 code there; its parts make what they are (`NavigatorPart.make`), and an assembly makes the one a
 config names as the host's lookup finds it. A part whose checks read the parts it names is handed
 the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the registry. Over the tree:
@@ -429,8 +431,7 @@ the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the reg
   included, with the reason it cannot go somewhere.
 - A part's experiment settings live under `tuning`, are named by `Part.tuning`, and never travel in
   a link (`withoutTuning`). A key a part does not read is a fault, never silently dropped;
-  a registered implementation states its keys (`Part.keys`, `KeysOf`), and `CONFIG_KEYS`
-  (`config-keys.ts`) enumerates the other parts'; both are checked at compile time.
+  every part states its keys (`Part.keys`, `KeysOf`), checked at compile time.
 
 **Presets.** `RECIPE_FIGHTER` is shared action tactics over the recipe strike; `CLASSIC` adds
 `MOVE` and step-up recovery (`STAND_UP`). Puncher, Counter-puncher, Scrapper and Behaviours vary
@@ -454,8 +455,9 @@ running one within its keep and deciding afresh every `DECIDING.rethink` s or on
   clinch, strike, strike low, evade, hold at the edge, close and strike, hold. Its walk (`walker`,
   `walk.ts`) keeps clear of solids and fallen bodies.
 - Its skills are a `SkillKit` (`kitFaults` refuses a missing executor); its defaults are `OPTIONS`.
-- Reflexes (`reflexLayer`, `reflex.ts`, parts of role `reflex`) patch the intent each control step
-  in rank order; the one reflex is cover (`cover-reflex`).
+- Reflexes (`reflexLayer`, `reflex.ts`; each a `ReflexPart` in `REFLEXES`, made by `reflexOf`
+  through the lookup) patch the intent each control step in rank order; the one reflex is cover
+  (`cover-reflex`).
 
 **The quadruped** uses the same `OwnBody`, muscle driver and `PhysicalBody` lifecycle. Its
 `Tactics` give approach, facing and bite; its skills answer the same `Skill` resume contract over
