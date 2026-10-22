@@ -394,7 +394,7 @@ by its defaults; pickers offer only minds that fit the side's body and loadout.
 | quadruped | `src/core/reptile/` | crawl, trot, bite, righting |
 | direct | `src/core/entrants/direct/` | joint feedback through the policy port |
 | tempo | `src/core/entrants/tempo/` | shared skills under rhythm tactics |
-| vanguard | `src/core/entrants/vanguard/` | committed point prediction, contact-driven tactics, editable own-body walking, blocked-step and punch-timing profiles, recovery guard and low cover |
+| vanguard | `src/core/entrants/vanguard/` | committed point prediction, contact-driven tactics, editable own-body walking, blocked-step, punch-timing and preparation-aim profiles, recovery guard and low cover |
 
 **A mind is a tree of parts** (`Part`, `src/core/mind/parts.ts`). A part has a role (`mind`,
 `sub-mind`, `tactics`, `behaviour`, `move-rule`, `navigation`, `motor`, `reflex`, or a skill's:

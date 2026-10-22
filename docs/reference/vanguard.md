@@ -2,8 +2,9 @@
 
 Vanguard remains unqualified against the requested field. Its calibrated preset combines
 committed point prediction, contact-driven attack/evasion choice and editable motor profiles
-for its own body. The profiles select the stronger development configurations for the Warrior,
-Rogue and Skeleton. The braced-gait preset at `8b0ef68e` fails its fresh Options campaign with
+for its own body. The Skeleton refreshes its opening through preparation and pins it at commitment;
+this improves its current four-case Options development panel from 0/4 to 2/4. The profiles select
+the stronger development configurations for the Warrior, Rogue and Skeleton. The braced-gait preset at `8b0ef68e` fails its fresh Options campaign with
 zero wins and three losses in three completed cases. The three earlier qualification campaigns
 also fail. Equipment is unqualified.
 
@@ -304,6 +305,38 @@ cases and unfinished cases are retained in
 `research/runs/vanguard/rejected/general-short-arm-lead.json`. The Skeleton profile selects the
 shorter delay; this development gain does not establish qualification.
 
+## Preparation aim
+
+The Skeleton profile's `anchorAtDrive: true` refreshes the chosen opening while the standing punch
+prepares. The first committed step pins that surface point; its sensed rigid motion continues to
+refresh the prediction during the drive. Low-only punches retain their planted aim behavior.
+The field is also available in the mind editor and the complete body-profile JSON travels with a
+linked mind. The Warrior and Rogue profiles keep their existing preparation.
+
+The paired prototype at source
+`sha256:133f36aeef1ccd86f02fda6b604dbd30aa9080e9954dbbeb6aab14ea1ac6805c`
+improves the Skeleton panel from zero to two wins in four cases. Harness: Node Arena Duel,
+vendored `rapier-coordinate`, 120 Hz, matched Skeleton bodies, empty hands, Balance 0/0,
+zero sense delay, falls continuing to injury or the ordinary 120 s cap. These are reused
+development layouts, not fresh qualification cases. All configurations, pose digests and readings
+remain in `research/runs/vanguard/contact-coverage.json`; exact prototype source remains in
+`research/runs/vanguard/rejected/contact-modes-source.json`.
+The simplified native profile and its previous-preset controls reproduce all eight corresponding
+pose digests exactly, retained in `research/runs/vanguard/native-profile-panel.json`. Those
+replays verify the implementation translation; they add no independent conditions.
+
+| Level / gap | Side | Previous preset | Late preparation aim | Candidate falls |
+| --- | --- | --- | --- | ---: |
+| Open / 4.73 m | Left | Time-limit loss | Time-limit win | 0 |
+| Open / 4.73 m | Right | Time-limit loss | Fatal-injury loss at 73.2167 s | 0 |
+| Court / 7.71 m | Left | Time-limit loss | Time-limit win | 0 |
+| Court / 7.71 m | Right | Time-limit loss | Time-limit loss | 3 |
+
+Both wins contain committed punches and target contacts: 68 commits and 13 contacts on the open
+stage, 67 and 17 on the court. The right court case has no committed punch under either preset;
+both fall three times. The selected change improves preparation aim; the panel still exposes a
+case that fails before a punch commits. Equipment and fresh conditions remain unqualified.
+
 ## Tried and not kept
 
 The supported-low preset's additional normal-cap development bouts against Options use the same Node
@@ -354,7 +387,7 @@ Raw development rows, full recipes and source archives are kept under
 | Closer punch ranges with a 25 ms arm-drive delay | Ranges of 0.75, 0.80 and 0.85 of arm length all lose the left full Skeleton bout by injury at 3.85 m, without falling; the 0.95 reference wins that side. No opposite-side variants follow. Retained in `research/runs/vanguard/rejected/short-lead-punch-range.json`. |
 | Replacing contact learning with a fixed policy | Fixed slow evasion loses both full Skeleton bouts at 4.73 m; fixed attack loses the first. The remaining fixed-attack side stops once neither can win both. Retained in `research/runs/vanguard/rejected/fixed-evasion-policies.json`. |
 | Solving the arm from the current trunk pose | Full tracking changes the Skeleton pair at 4.73 m from 0/2 to 1/2, but its left loss becomes an injury loss at 99.3167 s. Current-pose shares of 0.75, 0.50 and 0.25 all lose the left at the cap, without falling; no opposite-side variants follow. The prototype is not kept. Exact sources and readings remain in `research/runs/vanguard/trunk-tracking-source.json`, `trunk-tracking-pair.json`, `trunk-blend-source.json` and `rejected/trunk-blend-*-left.json`. |
-| Choosing the opening through preparation, then freezing it at commitment | Wins the left Skeleton bout at 4.73 m but loses the right by injury at 73.2167 s. Combining it with current-trunk solving loses both at the cap. All fighters remain upright. Neither feature is kept; exact sources and paired readings remain in `research/runs/vanguard/late-opening-source.json`, `late-opening-pair.json`, `combined-opening-source.json` and `rejected/combined-opening.json`. |
+| Combining preparation aim with current-trunk solving | The combined variant loses both Skeleton bouts at 4.73 m at the cap, without falls. The standalone preparation-aim variant is selected for the Skeleton after its broader [development panel](#preparation-aim); the combined variant is rejected. Exact sources and readings remain in `research/runs/vanguard/late-opening-source.json`, `late-opening-pair.json`, `combined-opening-source.json` and `rejected/combined-opening.json`. |
 | Shorter standing-punch preparation on the Skeleton | Preparation times of 0, 0.05 and 0.10 s all lose the limiting left full bout at 4.73 m without falling. No opposite-side variants follow. Retained in `research/runs/vanguard/rejected/settle-*-left.json`. |
 | Preserving the complete measured low-strike placement | On the Skeleton court at 6.15 m, the right reaches readiness and commits one low punch, misses and falls; the left repeatedly repositions without committing. Both 60 s screens draw without damaging blows. Exact source and readings remain in `research/runs/vanguard/rejected/complete-ground-placement-source.json` and `complete-ground-placement.json`. |
 | Learning early or late opening selection from target impacts | Loses both full Skeleton bouts at 4.73 m and introduces a left-side fall. The matched reference loses both without falling. Exact source and paired readings remain in `research/runs/vanguard/rejected/learned-opening-source.json` and `learned-opening.json`. |
@@ -377,5 +410,6 @@ Raw development rows, full recipes and source archives are kept under
 | Alternating hands on the merged preset | The full left Skeleton versus Options bout at 4.73 m still loses at the cap without falling. This rechecks a change rejected by an earlier short screen against the ordinary full-bout outcome. The paired record remains in `research/runs/vanguard/rejected/alternate-full-left.json`. |
 | Opening the preparing shoulder an additional 0.35 rad | The standing-guard screen improves from one to two distinct driven body-hit strokes in 30 s, summed body-impact damage from 0.0502 to 0.1366 HP, and first contact from 24.6167 to 16.45 s, without falls. The full left Options bout at 4.73 m still loses at the cap and falls at 98.05 s; it has fewer target contacts than the reference. The prototype is rejected. Exact source and paired readings remain in `research/runs/vanguard/rejected/outside-chamber-source.json`, `outside-chamber-full-left.json` and `diagnostics/outside-*.json`. |
 | Clearing the guard through a following punch | Both the 0.35 s and 0.8 s outward presses lose the ordinary full left Skeleton versus Options bout at 4.73 m, without falling. The shorter press rechecks a prototype rejected by a short exchange; the longer spans a punch's preparation and drive. Neither advances. Exact source and all three full readings remain in `research/runs/vanguard/rejected/parry-full-source.json` and `parry-full-left.json`. |
+| Selecting preparation aim or current-trunk solving by net contact impulse | Loses the full left Skeleton versus Options bout at 4.73 m without falling, while fixed preparation aim wins. Delivered fist impulse minus received head/trunk impulse favors the losing mode during part of its diagnostic prefix. The selector is rejected. Exact source, readings and the diagnostic remain in `research/runs/vanguard/rejected/contact-modes-source.json`, `contact-modes-left.json` and `diagnostics/contact-choice.json`. |
 
 A short exchange is a development filter, not a win counted toward qualification.
