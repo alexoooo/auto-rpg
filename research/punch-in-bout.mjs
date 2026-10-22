@@ -71,7 +71,7 @@ const toUnit = (settings) => KEYS.map((key) => (settings[key] - RANGES[key][0]) 
  * seconds it spent down.
  */
 export async function boutOf(mind, { foe = STANDS, gap = 1.4, seconds = 8, hz = 120, loadouts = BARE } = {}) {
-  const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-fighter", minds: { left: mind, right: foe }, loadouts, gap }, { engine: BOUT_ENGINE, hz });
+  const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-fighter", minds: { left: mind, right: foe }, loadouts, gap, entry: [] }, { engine: BOUT_ENGINE, hz });
   try {
     const left = duel.duelists.left, cycles = actionCycles(left.minded.skills);
     let down = 0;

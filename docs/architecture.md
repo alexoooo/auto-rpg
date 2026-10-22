@@ -766,14 +766,17 @@ A bout or a body forks by copying its state. A Crypt run does not save.
 ## Bouts, tapes and replay
 
 A bout is built from a recipe (`DuelRecipe`, `src/arena/duel.ts`): bodies, gap, cap, level, each
-side's mind (`minds`), loadouts, attributes and recovery allowance (`recoverySeconds`), as plain
-data. What a page hears (`DuelHooks`) is beside it. Nothing in a bout is random, so a recipe plays
+side's mind (`minds`), loadouts, attributes, recovery allowance (`recoverySeconds`), end rules
+(`ends`) and, where a scenario arranges it, each side's place and heading (`start`) in place of
+the level's spawn, as plain data. What a page hears (`DuelHooks`) is beside it. Nothing in a bout is random, so a recipe plays
 the same to the bit in Node and in the page (`playBout`, `research/bout.mjs`; `traceOf`,
 `src/evaluation/trace.ts`; [real functions](reference/real-functions.md)). The page resets its
 world before each bout (`boutStart`) and a body's time starts at its first view (`BodyView.born`).
 
-- **Verdict** (`Duel.judge`): a side is out when its pool ends or its down allowance expires; both
-  on one step is a draw; at the cap the fuller bar wins. The page plays three seconds of aftermath
+- **Verdict** (`Duel.judge`): a side is out by the first of the recipe's end rules that puts it out
+  (`EndRule`, `src/arena/end-rule.ts`; each a part of the list `END_RULES`, `ends.ts`), which
+  names the ending a person is told (`endingText`); the game's (`GAME_ENDS`) are its pool's ending,
+  then its down allowance. Both on one step is a draw; at the cap the fuller bar wins. The page plays three seconds of aftermath
   (`arenaPlayback`, `src/arena/playback.ts`).
 - **Tape** (`Duel.tape`): every order with the step it was given before. Recipe and tape are the
   whole of a bout on one build; `Duel.play` feeds the tape in the sensing phase. A case's world
@@ -793,11 +796,11 @@ world before each bout (`boutStart`) and a body's time starts at its first view 
   module's imports read with TypeScript's parser (`importsOf`). **A case's code** (`caseCoder`) is
   drawn from it: the environment, the static import closure (`closureOf`) of `src/evaluation/play.ts` and
   the case module with the lockfile and the solvers, cut at the kinds list, the world kinds list
-  (`WORLD_BUILDERS`, `src/evaluation/worlds.ts`), each role's list of parts (`CUTS.roles`), the
+  (`WORLD_BUILDERS`, `src/evaluation/worlds.ts`), each role's list of parts, the Commanders and the end rules (`CUTS.roles`), the
   build's identity and the mind data store (`CUTS`); then the kind of world the case plays adds its
   builder's own code (its module's closure beyond the environment), each kind of mind it plays its
   own (likewise, and `assets/entrants/<kind>/`), each part a role's list holds that its minds'
-  trees name (`treeKinds`) its module's, and each mind data key its minds read (`treeData`) its
+  trees name (`treeKinds`) or its world kind names beside them (`WorldKind.parts`: Commanders, end rules) its module's, and each mind data key its minds read (`treeData`) its
   module's. So
   a Crypt edit keys no bout case anew, nor a bout builder's edit a Crypt run. A kinds list or world
   kinds list of more than its imports and its list, and a module in a closure that imports by no
@@ -820,7 +823,8 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
 
 - **A case module** (`<id>/cases.ts`, `Cases` in `evaluation.ts`) gives each protocol's
   conditions, the world of a case for its subjects (`CaseWorld`: a bout's recipe and tape, a
-  fall, or a Crypt run) and its reader, and the engine where the protocol fixes one (`Cases.engine`); `CASES` (`cases.ts`) is what a worker plays from. **A description** (`<id>/index.ts`)
+  fall, a Crypt run or a lone body, `lone.ts`; each kind built, stepped and traced by one loop,
+  `playCase`, from its `WorldKind`) and its reader, and the engine where the protocol fixes one (`Cases.engine`); A worker plays it as its description's `protocols` (`EVALUATIONS`), the one list. **A description** (`<id>/index.ts`)
   gives the question, subjects, figures and summary; nothing a case plays imports it.
 - **A case's key** is the digest of everything it plays: evaluation, protocol, engine, world (every
   subject's value whole), seconds and code (`caseCoder`: the environment with the own code of the

@@ -176,21 +176,34 @@ export const probe = (mesh: ProbeMesh, hand: { right: number }): unknown[] =>
  */
 const EXACT_MATH = new Set(["PI", "SQRT2", "abs", "max", "min", "sqrt", "ceil", "floor", "trunc", "round", "sign", "fround", "imul"]);
 
-/** Every module outside the core that `entries` reach through their relative imports, themselves included. */
+/** The relative modules `file` imports for their values: a type-only import brings no arithmetic. */
+function valueImports(file) {
+  const source = ts.createSourceFile(file, fs.readFileSync(path.join(ROOT, file), "utf8"), ts.ScriptTarget.Latest, true), out = [];
+  for (const statement of source.statements) {
+    const from = (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) && statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier) ? statement.moduleSpecifier.text : null;
+    if (!from?.startsWith(".")) continue;
+    const clause = ts.isImportDeclaration(statement) ? statement.importClause : null;
+    const typeOnly = ts.isExportDeclaration(statement) ? statement.isTypeOnly : clause !== null && clause !== undefined && (clause.isTypeOnly
+      || !clause.name && clause.namedBindings !== undefined && ts.isNamedImports(clause.namedBindings) && clause.namedBindings.elements.every((element) => element.isTypeOnly));
+    if (!typeOnly) out.push(path.posix.normalize(path.posix.join(path.posix.dirname(file), from)));
+  }
+  return out;
+}
+
+/** Every module outside the core that `entries` reach through their relative value imports (`valueImports`), themselves included. */
 function reachedBeside(entries) {
   const seen = new Set();
   const visit = (file) => {
     if (seen.has(file) || !file.endsWith(".ts")) return;
     seen.add(file);
-    for (const { fileName } of ts.preProcessFile(fs.readFileSync(path.join(ROOT, file), "utf8"), true, true).importedFiles)
-      if (fileName.startsWith(".")) visit(path.posix.normalize(path.posix.join(path.posix.dirname(file), fileName)));
+    for (const target of valueImports(file)) visit(target);
   };
   entries.forEach(visit);
   return [...seen].filter((file) => !inCore(file));
 }
 
-/** The bout's builder (`WORLD_BUILDERS.bout`, `src/evaluation/worlds.ts`) and the list of every evaluation's cases. */
-const BOUT_BUILDER = "src/evaluation/bout.ts", CASE_LISTS = "src/evaluation/cases.ts";
+/** The bout's builder (`WORLD_BUILDERS.bout`, `src/evaluation/worlds.ts`) and the list of every evaluation (`EVALUATIONS`). */
+const BOUT_BUILDER = "src/evaluation/bout.ts", EVALUATION_LIST = "src/evaluation/evaluations.ts";
 
 /**
  * The Crypt run's own world: its map, its run and its approach to a door, held to the bout's
@@ -200,11 +213,13 @@ const CRYPT_BUILDERS = ["src/dungeon/run.ts", "src/dungeon/map.ts", "src/dungeon
 
 /**
  * The modules beside the core whose numbers go into a bout's world: all the bout's builder
- * reaches, each evaluation's cases (`CASE_LISTS`' imports), which write their recipes, and the Crypt's.
+ * reaches, each listed evaluation's cases (the `cases.ts` beside its module), which write their
+ * recipes, and the Crypt's.
  */
 const worldBuilders = () => [...new Set([...reachedBeside([BOUT_BUILDER]),
-  ...ts.preProcessFile(fs.readFileSync(path.join(ROOT, CASE_LISTS), "utf8"), true, true).importedFiles
-    .map(({ fileName }) => path.posix.normalize(path.posix.join(path.posix.dirname(CASE_LISTS), fileName))).filter((file) => file.endsWith("/cases.ts")),
+  ...ts.preProcessFile(fs.readFileSync(path.join(ROOT, EVALUATION_LIST), "utf8"), true, true).importedFiles
+    .filter(({ fileName }) => fileName.startsWith("./") && fileName.endsWith("/index.ts"))
+    .map(({ fileName }) => path.posix.join(path.posix.dirname(EVALUATION_LIST), path.posix.dirname(fileName), "cases.ts")),
   ...CRYPT_BUILDERS])];
 
 /**

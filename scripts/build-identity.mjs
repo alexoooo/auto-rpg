@@ -97,14 +97,14 @@ export function importsOf(file, text) {
  * **Where a case's code is cut**: the kinds list (each kind's controller begins its own code, which
  * a case holds for the kinds its world names), the world kinds list (each kind's builder begins its
  * own code, which a case holds for the kind of world it plays), each role's list of parts and the
- * Commanders list (each entry's module begins its own code, which a case holds for the parts its
+ * Commanders and end rules lists (each entry's module begins its own code, which a case holds for the parts its
  * minds' trees name, `treeKinds`, and the Commanders it plays), the build's identity (its value is the whole tree's, so a case holds no recording
  * identity) and the mind data store (each key's module joins the code of a case whose minds read
  * it, `treeData`).
  */
 export const CUTS = Object.freeze({
   kinds: "src/core/mind/kinds.ts", worlds: "src/evaluation/worlds.ts", identity: "src/build-identity.ts", store: "src/core/data/store.ts",
-  roles: Object.freeze(["src/core/mind/navigations.ts", "src/core/mind/executors.ts", "src/core/mind/guards.ts", "src/core/mind/supports.ts", "src/core/mind/sub-minds.ts", "src/core/mind/ground/techniques.ts", "src/core/mind/locomotions.ts", "src/core/mind/planners.ts", "src/core/mind/behaviours.ts", "src/core/mind/options/reflexes.ts", "src/core/skills/move-rules.ts", "src/core/control/motors.ts", "src/core/control/balances.ts", "src/core/reptile/support-motors.ts", "src/core/reptile/gaits.ts", "src/core/reptile/bites.ts", "src/core/reptile/planners.ts", "src/core/command/commanders.ts"]),
+  roles: Object.freeze(["src/core/mind/navigations.ts", "src/core/mind/executors.ts", "src/core/mind/guards.ts", "src/core/mind/supports.ts", "src/core/mind/sub-minds.ts", "src/core/mind/ground/techniques.ts", "src/core/mind/locomotions.ts", "src/core/mind/planners.ts", "src/core/mind/behaviours.ts", "src/core/mind/options/reflexes.ts", "src/core/skills/move-rules.ts", "src/core/control/motors.ts", "src/core/control/balances.ts", "src/core/reptile/support-motors.ts", "src/core/reptile/gaits.ts", "src/core/reptile/bites.ts", "src/core/reptile/planners.ts", "src/core/command/commanders.ts", "src/arena/ends.ts"]),
 });
 
 /** What every case plays besides its closure: the lockfile, the vendored solver and the installed one. */

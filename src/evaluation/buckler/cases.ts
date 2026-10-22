@@ -76,7 +76,8 @@ function bucklerCases(protocol: typeof BUCKLER): Cases<BucklerCondition, Buckler
       return { kind: "bout", engine,
         tape: [{ step: 0, side: "right", orders: { move: { kind: "direct", direction: { x: protocol.sidestep * face.z, z: -protocol.sidestep * face.x } }, face, ...foe } },
           { step: Math.round(protocol.turning * PHYSICS_HZ.value), side: "right", orders: { move: null, face, ...foe } }],
-        recipe: { left: "workshop-fighter", right: model, gap: protocol.gap, capSeconds: protocol.seconds + protocol.return + 1, recoverySeconds: null,
+        // A task, not a fight: the defender need throw nothing, so the bout asks no attack of either side (`EntryRule`).
+        recipe: { left: "workshop-fighter", right: model, gap: protocol.gap, capSeconds: protocol.seconds + protocol.return + 1, recoverySeconds: null, entry: [],
           loadouts: { left: { left: "empty", right: "sword" }, right: { left: "buckler", right: "sword" } }, minds: { left: attacker, right: defender(own, cover) } } };
     },
     read({ world, duel }) {

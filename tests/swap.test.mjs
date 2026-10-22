@@ -10,7 +10,9 @@
  * takeover and resumes across its handback. A body the command layers cannot read refuses a mind
  * on them for what they lack, at construction too, and every stock legs for what they stand on.
  * The stub Commander, a line of the Commanders list from outside `src/`, leads a team and is a
- * Crypt subject. The Lab opens a fixture mind for what it takes, not for its kind.
+ * Crypt subject. The Lab opens a fixture mind for what it takes, not for its kind. The stub
+ * evaluation, a folder and a line of the evaluations list, plays a lone body; the stub end rule, a
+ * line of the end rules list, ends a bout whose recipe names it and its start arrangement.
  */
 import "./fixtures/swap/hooks.mjs";
 import test from "node:test";
@@ -40,6 +42,10 @@ const { COMMANDERS } = await import("../src/core/command/commanders.ts");
 const { teamOfOne } = await import("../src/arena/team.ts");
 const { CRYPT_CLEAR } = await import("../src/evaluation/crypt-clear/index.ts");
 const { labMind } = await import("../src/lab/scenarios.ts");
+const { EVALUATIONS } = await import("../src/evaluation/evaluations.ts");
+const { playRow } = await import("../src/evaluation/play.ts");
+const { caseNames } = await import("../src/evaluation/code.ts");
+const { endingText } = await import("../src/arena/end-rule.ts");
 
 /** The bout's steps and the step it is forked at. */
 const STEPS = 240, FORK = 120;
@@ -86,6 +92,31 @@ test("a Commander registered from outside src/ is listed, leads a team of one an
   } finally { team.dispose(); dispose(); }
   const [subject] = CRYPT_CLEAR.subjects(["stub-hold"]);
   assert.deepEqual(CRYPT_CLEAR.protocols.standard.faults(subject.value, CRYPT_CLEAR.protocols.standard.conditions[0]), [], "it leads a party, so the Crypt-clearing task takes it");
+});
+
+test("an evaluation registered from outside src/ plays its lone-body case through the one play loop, and its code names its world and mind", async () => {
+  const evaluation = EVALUATIONS["stub-stand"];
+  assert.ok(evaluation, "the hook put the stub's line in the evaluations list");
+  const [subject] = evaluation.subjects([{ id: "swap-stub", label: "Swap stubs", value: SWAP_DEFAULTS }]);
+  const cases = evaluation.protocols.standard, [condition] = cases.conditions, world = cases.world([subject.value], condition, BOUT_ENGINE);
+  const row = await playRow("stub", world, cases.seconds, (built) => cases.read(built, condition));
+  assert.equal(row.fault, null, `the case played: ${row.fault?.message}`);
+  assert.deepEqual(row.reading, { down: false, seconds: 1 }, "the fixture fighter stands alone a second");
+  const names = caseNames(world);
+  assert.deepEqual([names.world, names.kinds], ["lone", ["swap-stub"]]);
+});
+
+test("an end rule registered from outside src/ ends a bout whose recipe names it, from the start its recipe arranges", async () => {
+  const recipe = { left: "workshop-fighter", right: "workshop-rogue", minds: { left: SWAP_DEFAULTS, right: SWAP_DEFAULTS },
+    start: { left: { at: [0, -0.5], heading: 0 }, right: { at: [0, 3], heading: Math.PI } }, ends: [{ kind: "stub-ring", radius: 2 }] };
+  const { world, duel, dispose } = await buildBout(recipe, { engine: BOUT_ENGINE });
+  try {
+    world.step();
+    assert.deepEqual({ ...duel.verdict }, { winner: "left", ending: "rung out", time: duel.clock }, "the right starts outside the ring and is rung out at once");
+    assert.equal(endingText("rung out"), "by leaving the ring");
+  } finally { dispose(); }
+  assert.ok(caseNames({ kind: "bout", engine: BOUT_ENGINE, recipe, tape: [] }).parts.includes("stub-ring"), "a case that plays the rule holds its code");
+  await assert.rejects(buildBout({ ...recipe, ends: [{ kind: "nowhere" }] }, { engine: BOUT_ENGINE }), /no end rule "nowhere"/);
 });
 
 test("a mind that never strikes carries a club on a stand, is refused from a bout for the bout's rule, and enters no default pool", async () => {

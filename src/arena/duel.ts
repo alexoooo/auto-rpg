@@ -11,16 +11,16 @@ import type { MindConfig } from "../core/mind/config.ts";
 import { isOrders, sameOrders, type Orders } from "../core/mind/orders.ts";
 import { createSenses, type SensesHub } from "../core/mind/senses.ts";
 import { watchBlows, type BlowWatch, type LandedBlow } from "../core/rules/blows.ts";
-import type { Ending } from "../core/rules/pool.ts";
 import { rulebook, type Rulebook, type RulebookOverride } from "../core/rules/rulebook.ts";
 import type { BodySpec, Side } from "../core/spec/body.ts";
-import { derive } from "../core/spec/quantity.ts";
+import { derive, type Vec3 } from "../core/spec/quantity.ts";
 import type { BuiltBody } from "../core/build/build-body.ts";
 import { loadState, saveState, type Saved } from "../core/state.ts";
 import type { Hook, World } from "../core/world.ts";
 import { sensedBounds } from "../core/mind/sensed-bounds.ts";
 import { arenaSolids } from "./room.ts";
 import { levelDefinition, levelSpawn, spawnClearanceFaults, type ArenaLevel } from "./levels.ts";
+import { endRuleOf, GAME_ENDS, type EndRule, type EndRuleConfig } from "./end-rule.ts";
 import { BUILD_IDENTITY } from "../build-identity.ts";
 import { recordingIdentity, requireRecordingIdentity, type RecordingIdentity } from "../core/recording.ts";
 
@@ -62,8 +62,8 @@ export const CAP_SECONDS = 120;
 
 export const SIDES: readonly Side[] = Object.freeze(["left", "right"]);
 
-/** How a bout ended: the loser's pool's ending, its fall, or the clock. */
-export type DuelEnding = Exclude<Ending, "time"> | "fallen" | "time";
+/** How a bout ended: as the end rule that put the loser out names it (`EndRule.out`: `fatal`, `fallen`), or `time`, the bars at the cap (`endingText`). */
+export type DuelEnding = string;
 
 export interface Verdict {
   /** Null is a draw. */
@@ -115,6 +115,10 @@ export interface DuelRecipe {
   readonly surfaces?: Readonly<Record<string, number>>;
   /** What a mind must do beyond fitting its body to enter (`EntryRule`): a fight's (`FIGHT_ENTRY`) unless given. */
   readonly entry?: readonly EntryRule[];
+  /** What puts a side out, in order (`EndRuleConfig`, `END_RULES`): the game's (`GAME_ENDS`: damage, then a fall) unless given. */
+  readonly ends?: readonly EndRuleConfig[];
+  /** Where a side stands at the start, on the floor (x, z, m), and which way it faces (rad, zero facing +z), in place of its level's spawn (`levelSpawn`): a scenario's arrangement. */
+  readonly start?: Readonly<Partial<Record<Side, { readonly at?: readonly [number, number]; readonly heading?: number }>>>;
 }
 
 /** `spec` with each segment `factors` names as stiff as its own surface times its factor. */
@@ -229,6 +233,8 @@ export class Duel {
   /** Its memory, and every module's under it: what `save` copies and `load` fills. */
   readonly state: DuelState;
   private readonly cap: number;
+  /** The recipe's end rules, each with its config, in order. */
+  private readonly ends: readonly (readonly [EndRule, EndRuleConfig])[];
   private readonly senses: SensesHub;
   private readonly feeding: Hook;
   private readonly watch: BlowWatch;
@@ -253,7 +259,14 @@ export class Duel {
     this.world = world;
     this.recipe = Object.freeze({ ...recipe, attributes: Object.freeze({ left: characters.left.config.attributes, right: characters.right.config.attributes }) });
     const level = recipe.level ?? "open", gap = recipe.gap ?? levelDefinition(level).gap.default;
-    const spawns = { left: levelSpawn(level, "left", gap), right: levelSpawn(level, "right", gap) };
+    const spawns = Object.fromEntries(SIDES.map((side) => {
+      const spawn = levelSpawn(level, side, gap), given = recipe.start?.[side];
+      if (given?.at !== undefined && !(given.at.length === 2 && given.at.every(Number.isFinite)) || given?.heading !== undefined && !Number.isFinite(given.heading))
+        throw new Error(`invalid ${side} start`);
+      return [side, { position: given?.at ? [given.at[0], spawn.position[1], given.at[1]] as Vec3 : spawn.position, heading: given?.heading ?? spawn.heading }];
+    })) as Record<Side, { position: Vec3; heading: number }>;
+    if (spawns.left.position.every((v, k) => v === spawns.right.position[k])) throw new Error("the two start on one spot");
+    this.ends = (recipe.ends ?? GAME_ENDS).map((config) => [endRuleOf(config), config] as const);
     const solids = solidSenses(hooks.solids ?? arenaSolids(level));
     const effective = JSON.parse(recipeKey({ ...this.recipe, level, gap, capSeconds: recipe.capSeconds ?? CAP_SECONDS,
       senseDelay: recipe.senseDelay ?? 0, recoverySeconds: recipe.recoverySeconds === null ? null : recipe.recoverySeconds ?? 0,
@@ -394,11 +407,19 @@ export class Duel {
     return this.verdict;
   }
 
-  /** Whether the side is out under this bout's damage and continuous-down rules. */
+  /** Whether the side is out under this bout's end rules (`DuelRecipe.ends`). */
   eliminated(side: Side): boolean {
-    const duelist = this.duelists[side];
-    return duelist.pool.ending() !== null || (duelist.body.down
-      && (!this.state.recovery || (this.recipe.recoverySeconds !== null && this.state.recovery[side] >= this.recipe.recoverySeconds!)));
+    return this.outBy(side) !== null;
+  }
+
+  /** How the side is out: the ending of the first of the bout's end rules that puts it out, or null. */
+  private outBy(side: Side): DuelEnding | null {
+    const { pool, body, built } = this.duelists[side], one = { pool, body, built, downFor: this.state.recovery?.[side] ?? 0 };
+    for (const [rule, config] of this.ends) {
+      const ending = rule.out(one, config, this.recipe);
+      if (ending !== null) return ending;
+    }
+    return null;
   }
 
   private judge(): void {
@@ -413,19 +434,14 @@ export class Duel {
   /** The verdict, if this step decides the bout: frozen, so one a page holds is a record no load writes into. */
   private decide(): Verdict | null {
     const out = SIDES.filter((side) => this.eliminated(side));
-    if (out.length === 2) return Object.freeze({ winner: null, ending: this.ending("left"), time: this.clock });
+    if (out.length === 2) return Object.freeze({ winner: null, ending: this.outBy("left")!, time: this.clock });
     if (out.length === 1) {
-      const loser = out[0];
-      return Object.freeze({ winner: loser === "left" ? "right" : "left", ending: this.ending(loser), time: this.clock });
+      const loser = out[0]!;
+      return Object.freeze({ winner: loser === "left" ? "right" : "left", ending: this.outBy(loser)!, time: this.clock });
     }
     if (this.clock < this.cap) return null;
     const left = this.duelists.left.pool.bar(), right = this.duelists.right.pool.bar();
     return Object.freeze({ winner: left > right ? "left" : right > left ? "right" : null, ending: "time", time: this.clock });
-  }
-
-  private ending(side: Side): DuelEnding {
-    const ending = this.duelists[side].pool.ending();
-    return ending === null || ending === "time" ? "fallen" : ending;
   }
 
   dispose(): void {

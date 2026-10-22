@@ -30,7 +30,7 @@ import { groundShove, startGround, targetImpulse } from "../lab/ground-mode.ts";
 import type { GroundLevel } from "../lab/ground-environment.ts";
 import { loadoutSpec } from "../lab/loadout.ts";
 import { labAddress, type LabAddress } from "../lab/scenarios.ts";
-import type { Cases, Json, Reader } from "./evaluation.ts";
+import type { CaseWorld, Cases, Json, Reader, WorldKind } from "./evaluation.ts";
 
 /**
  * One fall, as plain data: the body (a model with an item in its right hand, or a loadout), the start and its seed, the level, the assists, and the riser's mind in full. `target`,
@@ -257,3 +257,11 @@ export function fallCases<C extends Json & Omit<FallCase, "mind">>(play: Json, c
     read: (built) => readFall(built),
   };
 }
+
+/** The fall world kind: built by `buildFall`, its one body traced, played by the world's clock. */
+export const FALL_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "fall" }>, BuiltFall> = {
+  build: (world) => buildFall(world.fall, world.engine),
+  traced: (built) => [built.body],
+  clock: (built) => built.world.time,
+  minds: (world) => [world.fall.mind],
+};

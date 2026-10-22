@@ -9,6 +9,9 @@ import type { Side } from "../core/spec/body.ts";
 import type { BuiltBout } from "./bout.ts";
 import type { BuiltCrypt, CryptCase } from "./crypt.ts";
 import type { BuiltFall, FallCase } from "./fall.ts";
+import type { BuiltLone, LoneCase } from "./lone.ts";
+import type { BuiltBody } from "../core/build/build-body.ts";
+import type { MindConfig } from "../core/mind/config.ts";
 
 /** Plain finite JSON: what survives a key, a record, a URL and `postMessage`. */
 export type Json = null | boolean | number | string | readonly Json[] | { readonly [key: string]: Json };
@@ -26,15 +29,32 @@ export interface Subject {
 }
 
 /**
- * What a case plays, as plain data: one builder each (`WORLD_BUILDERS`, `worlds.ts`). A bout is bit-equal between
- * JavaScript engines; a fall and a Crypt run are not (`fall.ts`, `crypt.ts`).
+ * What a case plays, as plain data: one kind of world each (`WorldKind`, listed in `WORLD_BUILDERS`,
+ * `worlds.ts`). A bout and a lone body are bit-equal between JavaScript engines; a fall and a
+ * Crypt run are not (`fall.ts`, `crypt.ts`).
  */
 export type CaseWorld = { readonly kind: "bout"; readonly engine: EngineName; readonly recipe: DuelRecipe; readonly tape: readonly OrdersEntry[] }
   | { readonly kind: "fall"; readonly engine: EngineName; readonly fall: FallCase }
-  | { readonly kind: "crypt"; readonly engine: EngineName; readonly crypt: CryptCase };
+  | { readonly kind: "crypt"; readonly engine: EngineName; readonly crypt: CryptCase }
+  | { readonly kind: "lone"; readonly engine: EngineName; readonly lone: LoneCase };
 
-/** What a case's world gives its reader: a bout's, a fall's or a Crypt run's. */
-export type BuiltCase = BuiltBout | BuiltFall | BuiltCrypt;
+/** What a case's world gives its reader: a bout's, a fall's, a Crypt run's or a lone body's. */
+export type BuiltCase = BuiltBout | BuiltFall | BuiltCrypt | BuiltLone;
+
+/**
+ * **A kind of case world**: how a world of it is built, what it is handed once its reader is made
+ * (a bout its tape), the bodies a case's digest traces (`traceOf`), the simulated seconds it has
+ * played, and the minds it plays and its other parts by kind (Commanders, end rules), whose code a case holds (`caseNames`).
+ * `playCase` steps every kind the same way.
+ */
+export interface WorldKind<W extends CaseWorld = CaseWorld, B extends { readonly world: { step(): void }; dispose(): void } = BuiltCase> {
+  build(world: W): Promise<B>;
+  start?(built: B, world: W): void;
+  traced(built: B): readonly BuiltBody[];
+  clock(built: B): number;
+  minds(world: W): readonly MindConfig[];
+  parts?(world: W): readonly string[];
+}
 
 /** Reads a case as it plays: after each step, whether it is over, and what it came to. */
 export interface Reader<R extends Json> {

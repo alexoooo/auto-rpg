@@ -85,7 +85,8 @@ function bladeCases(protocol: typeof BLADE): Cases<BladeCondition, BladeReading>
     faults: (value) => value !== null && typeof value === "object" && !Array.isArray(value) ? [] : ["a tuning is an object of the executor's fields"],
     world: ([tuning], { model, style, mark }, engine) => ({
       kind: "bout", engine, tape: [],
-      recipe: { left: model, right: "workshop-fighter", gap: protocol.gap, capSeconds: protocol.seconds + 1, recoverySeconds: null,
+      // A task, not a fight: the target throws nothing, so the bout asks no attack of either side (`EntryRule`).
+      recipe: { left: model, right: "workshop-fighter", gap: protocol.gap, capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [],
         loadouts: { left: { left: "buckler", right: "sword" }, right: { left: "empty", right: "empty" } },
         minds: { left: bladeStriker(style, mark, tuningOf(tuning)), right: STANDS } },
     }),

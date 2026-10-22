@@ -13,10 +13,11 @@ import type { CommanderConfig } from "../core/command/commander.ts";
 import type { Command } from "../core/command/commands.ts";
 import { loadEngine, type EngineName } from "../core/engine/engines.ts";
 import type { MindConfig } from "../core/mind/config.ts";
-import type { BodyModel } from "../core/models.ts";
+import { modelInfo, type BodyModel } from "../core/models.ts";
 import type { World } from "../core/world.ts";
 import { distance, type Door, type DungeonMap, type DungeonObstacle, type Point } from "../dungeon/map.ts";
-import { DungeonRun, prepareDungeonCharacters } from "../dungeon/run.ts";
+import { DungeonRun, prepareDungeonCharacters, RUN_COMMANDERS, runParticipants } from "../dungeon/run.ts";
+import type { CaseWorld, WorldKind } from "./evaluation.ts";
 
 /**
  * A level as plain data: its floor as rows (row `z`, a character a cell along `x`: `.` floor, any
@@ -210,3 +211,20 @@ export async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<
     dispose() { run.dispose(); scene.dispose(); babylon.dispose(); },
   };
 }
+
+/**
+ * The Crypt world kind: built by `buildCrypt`, every fighting body traced, played by the world's
+ * clock; its party under the case's mind or each member's model's, its enemies under their own,
+ * and each side under the case's Commander or the run's own (`RUN_COMMANDERS`).
+ */
+export const CRYPT_WORLD: WorldKind<Extract<CaseWorld, { readonly kind: "crypt" }>, BuiltCrypt> = {
+  build: (world) => buildCrypt(world.crypt, world.engine),
+  traced: (built) => built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.built] : []),
+  clock: (built) => built.world.time,
+  minds: ({ crypt }) => {
+    const [hero, ...companions] = crypt.party;
+    return runParticipants(cryptMap(crypt.layout), { hero: hero!.model, companions: companions.map((one) => one.model) })
+      .map((one) => one.side === "party" ? crypt.mind ?? modelInfo(one.model).mind : modelInfo(one.model).mind);
+  },
+  parts: ({ crypt }) => [crypt.commanders?.party?.kind ?? RUN_COMMANDERS.party.kind, crypt.commanders?.enemies?.kind ?? RUN_COMMANDERS.enemies.kind],
+};

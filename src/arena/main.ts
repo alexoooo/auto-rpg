@@ -29,7 +29,8 @@ import { loadSkeletonArt, type SkeletonArt } from "../render/skeleton-skin.ts";
 import { drawBody, drawHeld, type BodyShapes } from "../render/body-shapes.ts";
 import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
-import { boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
+import { boutStart, Duel, SIDES, type Verdict } from "./duel.ts";
+import { endingText } from "./end-rule.ts";
 import { caseSearch, readCase, unshown, type LinkedCase } from "./case-link.ts";
 import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, unreadMinds, youSearch, type Matchup } from "./matchup.ts";
 import { MINDS } from "../core/mind/controllers.ts";
@@ -74,14 +75,6 @@ import { fighterHud } from "./fighter-hud.ts";
  * A numeric setting. */
 const CATCH_UP_SECONDS = 0.1;
 
-/** How a bout ended, as the verdict bar says it. */
-const ENDING_TEXT: Readonly<Record<DuelEnding, string>> = Object.freeze({
-  fatal: "by a fatal wound",
-  severed: "by a severing wound",
-  exhausted: "by exhaustion",
-  fallen: "by a fall",
-  time: "on the bar at the bell",
-});
 
 /** What a hand may hold, by name, as the pickers show it. */
 const HELD_NAMES = Object.fromEntries(HELD.map((held) => [held, heldItem(held)?.name ?? "Empty"])) as Readonly<Record<typeof HELD[number], string>>;
@@ -679,7 +672,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       pauseButton.hidden = true;
       shown = duel.verdict;
       const { winner, ending, time } = shown;
-      const how = ENDING_TEXT[ending];
+      const how = endingText(ending);
       need("bout-end").style.setProperty("--side-colour", winner ? ARENA_SIDES[winner].colour : "var(--hot)");
       need("bout-verdict").textContent = winner ? `${ARENA_SIDES[winner].label} wins${winner === you && !replaying ? " (you)" : ""}` : "Draw";
       need("bout-ending").textContent = `${winner ? `${MODEL_DISPLAY[matchup[winner]].label} ` : ""}${how} · ${time.toFixed(1)} s`;

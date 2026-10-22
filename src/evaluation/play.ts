@@ -1,6 +1,5 @@
-import { SIDES } from "../arena/duel.ts";
 import { recordingKey } from "../core/recording.ts";
-import type { CaseWorld, Json, Reader, BuiltCase } from "./evaluation.ts";
+import type { CaseWorld, Json, Reader, BuiltCase, WorldKind } from "./evaluation.ts";
 import { traceOf } from "./trace.ts";
 import { WORLD_BUILDERS } from "./worlds.ts";
 
@@ -24,54 +23,21 @@ export interface Row<R extends Json = Json> {
 /** How far past its `seconds` a case may run before it is an error, simulated s. */
 const OVERRUN = 1;
 
-/** Play `world` until `read`'s reader says it ended; an error once it runs `seconds` and `OVERRUN` more. */
+/** Play `world` until `read`'s reader says it ended; an error once it runs `seconds` and `OVERRUN` more. Every kind of world is stepped and traced the same way (`WorldKind`). */
 export async function playCase<R extends Json>(world: CaseWorld, seconds: number, read: (built: BuiltCase) => Reader<R>): Promise<Played<R>> {
-  switch (world.kind) {
-    case "bout": {
-      const built = await WORLD_BUILDERS.bout(world.recipe, { engine: world.engine });
-      try {
-        const { duel } = built, reader = read(built), trace = traceOf(SIDES.map((side) => duel.duelists[side].built));
-        duel.play(world.tape);
-        while (!reader.ended) {
-          if (duel.clock > seconds + OVERRUN) throw new Error(`the case ran past ${seconds} s without ending`);
-          built.world.step();
-          trace.take();
-          reader.afterStep();
-        }
-        return { reading: reader.reading(), digest: trace.digest() };
-      } finally { built.dispose(); }
+  const kind = WORLD_BUILDERS[world.kind] as unknown as WorldKind;
+  const built = await kind.build(world);
+  try {
+    const reader = read(built), trace = traceOf(kind.traced(built));
+    kind.start?.(built, world);
+    while (!reader.ended) {
+      if (kind.clock(built) > seconds + OVERRUN) throw new Error(`the case ran past ${seconds} s without ending`);
+      built.world.step();
+      trace.take();
+      reader.afterStep();
     }
-    case "fall": {
-      const built = await WORLD_BUILDERS.fall(world.fall, world.engine);
-      try {
-        const reader = read(built), trace = traceOf([built.body]);
-        while (!reader.ended) {
-          if (built.world.time > seconds + OVERRUN) throw new Error(`the case ran past ${seconds} s without ending`);
-          built.world.step();
-          trace.take();
-          reader.afterStep();
-        }
-        return { reading: reader.reading(), digest: trace.digest() };
-      } finally { built.dispose(); }
-    }
-    case "crypt": {
-      const built = await WORLD_BUILDERS.crypt(world.crypt, world.engine);
-      try {
-        const reader = read(built), trace = traceOf(built.run.actors.flatMap((actor) => actor.fighter ? [actor.fighter.built] : []));
-        while (!reader.ended) {
-          if (built.world.time > seconds + OVERRUN) throw new Error(`the case ran past ${seconds} s without ending`);
-          built.world.step();
-          trace.take();
-          reader.afterStep();
-        }
-        return { reading: reader.reading(), digest: trace.digest() };
-      } finally { built.dispose(); }
-    }
-    default: {
-      const never: never = world;
-      throw new Error(`no case world ${JSON.stringify(never)}`);
-    }
-  }
+    return { reading: reader.reading(), digest: trace.digest() };
+  } finally { built.dispose(); }
 }
 
 /** `playCase` as a row under `key`: what it threw is its fault. */

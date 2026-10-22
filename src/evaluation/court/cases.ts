@@ -69,7 +69,8 @@ function courtCases(protocol: typeof COURT): Cases<CourtCondition, CourtReading>
     world: ([mind], { model, gap, side, target }, engine) => {
       const foe = other(side);
       return { kind: "bout", engine, tape: target === "moving" ? walks(foe) : [],
-        recipe: { level: "obstacle-court", ...{ [side]: model, [foe]: "workshop-fighter" } as Record<Side, BodyModel>, gap, capSeconds: protocol.seconds + 1, recoverySeconds: null,
+        // A task, not a fight: the target throws nothing, so the bout asks no attack of either side (`EntryRule`); the subject's own is asked in `faultsOf`.
+        recipe: { level: "obstacle-court", ...{ [side]: model, [foe]: "workshop-fighter" } as Record<Side, BodyModel>, gap, capSeconds: protocol.seconds + 1, recoverySeconds: null, entry: [],
           loadouts: { [side]: HELD, [foe]: { left: "empty", right: "empty" } } as Record<Side, typeof HELD>,
           minds: { [side]: mind as unknown as MindConfig, [foe]: target === "moving" ? WALKS : STANDS } as Record<Side, MindConfig> } };
     },

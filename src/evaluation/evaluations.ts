@@ -10,7 +10,7 @@ import { RISING_TARGET } from "./rising-target/index.ts";
 import { TOURNAMENT } from "./tournament/index.ts";
 import { UNSEEN } from "./unseen/index.ts";
 
-/** **Every evaluation**, by its id: the one catalogue. */
+/** **Every evaluation**, by its id: the one catalogue, its protocols the case modules a worker plays. */
 export const EVALUATIONS: Readonly<Record<string, Evaluation>> = Object.freeze({
   match: MATCH as unknown as Evaluation,
   tournament: TOURNAMENT as unknown as Evaluation,
