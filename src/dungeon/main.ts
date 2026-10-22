@@ -49,6 +49,7 @@ import { need as find } from "../dom.ts";
 import type { ScreenContext } from "../ui/screen.ts";
 import { showHeroLineup } from "../render/character-preview.ts";
 import type { Command } from "../core/command/commands.ts";
+import type { CommanderConfig } from "../core/command/commanders.ts";
 
 type DungeonScenario = "generated" | "reference" | "random-crypt";
 
@@ -155,6 +156,19 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   };
   scenario.addEventListener("change", chooseScenario);
   chooseScenario();
+  // Each side's Commander by kind, as the address carries it (`?party=`, `?enemies=`): the person's party and a mob unless it names another.
+  const partyCommander = need<HTMLSelectElement>("party-commander"), enemyCommander = need<HTMLSelectElement>("enemy-commander");
+  for (const [select, key] of [[partyCommander, "party"], [enemyCommander, "enemies"]] as const) {
+    const kind = setupQuery.get(key);
+    if (kind !== null && [...select.options].some((option) => option.value === kind)) select.value = kind;
+  }
+  /** `url` with each side's Commander, and none where it is the default (the picker's first). */
+  const writeCommanders = (url: URL) => {
+    for (const [select, key] of [[partyCommander, "party"], [enemyCommander, "enemies"]] as const) {
+      if (select.selectedIndex === 0) url.searchParams.delete(key);
+      else url.searchParams.set(key, select.value);
+    }
+  };
 
   /** The most real time one frame steps the world through, s: a page that falls behind runs slow rather than in a burst.
    * A numeric setting. */
@@ -201,6 +215,8 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     selectedQuality: ReferenceQuality;
     /** Whether the scenario is drawn with the reference chamber's look. */
     reference: boolean;
+    /** Each side's Commander (`DungeonRunOptions.party`, `enemies`). */
+    commanders: { party: CommanderConfig; enemies: CommanderConfig };
 
     /** The run on show and what was built for it; each is null between runs. */
     seed: number;
@@ -255,7 +271,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       abort, signal: abort.signal,
       party: null,
       selectedHero: "workshop-fighter", mind: () => null, attributes: () => ({}), companions: [], clothing: { boots: true, armour: true },
-      selectedScenario: "generated", selectedQuality: "high", reference: false,
+      selectedScenario: "generated", selectedQuality: "high", reference: false, commanders: { party: { kind: "party" }, enemies: { kind: "mob" } },
       seed: 0, cryptPlan: undefined, scene: null, run: null, hearing: null, camera: null, lighting: null, referenceLook: null,
       drawn: [], soundTorches: [], route: null, routeSignature: "",
       paused: false, launching: false, freshFrame: true, zoom: 10, lastUi: 0, held: new Set(), hoverPointer: null, hovered: null, inspected: null,
@@ -406,6 +422,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       seed, engine: page.physicsEngine,
       visuals: { ...dungeonStone(scene, stone.floor, stone.wall, browserTextures(art)), masonry: reference ? false : stone.masonry },
       layout, prepared, hero: page.selectedHero, companions: page.companions, mind: page.mind, attributes: page.attributes, onBuilt: dress,
+      party: page.commanders.party, enemies: page.commanders.enemies,
       // A blow is a touch, and is heard as one (`hearRun`); this is what it took off, where the party can see.
       onBlow: (blow) => {
         const heard = page.run;
@@ -520,10 +537,12 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       page.reference = usesReferenceLook(page.selectedScenario);
       page.selectedQuality = quality.value === "reduced" ? "reduced" : "high";
       page.mind = mindPanel.mind(page.attributes);
+      page.commanders = { party: { kind: partyCommander.value }, enemies: { kind: enemyCommander.value } };
       // The address keeps the scenario and the party's minds, so that a reload opens the same.
       const url = new URL(location.href);
       mindPanel.write(url);
       attributePanel.write(url);
+      writeCommanders(url);
       url.searchParams.set("hero", page.selectedHero);
       url.searchParams.set("companions", selectedCompanions.join(","));
       url.searchParams.set("seed", seedInput.value);
@@ -864,6 +883,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       const url = new URL(location.href);
       mindPanel.write(url);
       try { attributePanel.write(url); } catch { /* The last valid attributes remain in the link. */ }
+      writeCommanders(url);
       url.searchParams.set("hero", choice(heroChoices));
       url.searchParams.set("companions", selectedCompanions.join(","));
       url.searchParams.set("seed", seedInput.value);

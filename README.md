@@ -79,7 +79,8 @@ Every setting travels in the link, so a bout can be shared or opened directly:
 
 Choose **Dungeon**, pick a hero (Warrior, Rogue or Skeleton), a level, up to three companions, and
 press **Start**. Reach the exit's green ring; the run is lost when the whole party is down.
-Everybody carries a club; skeletons and reptile packs wake as the party comes near.
+Everybody carries a club; skeletons and reptile packs wake as the party comes near, and attack as
+a mob, spread over the party.
 
 - **Generated depths** (default): rooms and corridors after Diablo's Cathedral.
 - **The Rootbound Crypt**: one authored chamber, three skeletons.
@@ -97,8 +98,10 @@ Everybody carries a club; skeletons and reptile packs wake as the party comes ne
 | 1-4 or a click on an ally, 0 | select a member (Shift adds), or everybody |
 
 Two switches hand movement to the keyboard (WASD steers the one selected, or the hero) and facing
-to the cursor; the minds do the rest. **Minds** sets each hero's mind; **Options** holds the seed
-and rendering quality.
+to the cursor; the minds do the rest. **Minds** sets each hero's mind; **Options** holds the seed,
+rendering quality, and who leads each side: the party by you or by the level-clearer, an AI that
+plays it by itself (`&party=clearer`), and the enemies as a mob or each on its own
+(`&enemies=independent`).
 
 ## The Lab
 

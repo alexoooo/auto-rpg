@@ -28,7 +28,7 @@ function mindsOf(world: CaseWorld): MindConfig[] {
     case "crypt": {
       const { crypt } = world, [hero, ...companions] = crypt.party;
       return runParticipants(cryptMap(crypt.layout), { hero: hero!.model, companions: companions.map((one) => one.model) })
-        .map((one) => one.side === "party" ? crypt.mind : modelInfo(one.model).mind);
+        .map((one) => one.side === "party" ? crypt.mind ?? modelInfo(one.model).mind : modelInfo(one.model).mind);
     }
     default: {
       const never: never = world;
