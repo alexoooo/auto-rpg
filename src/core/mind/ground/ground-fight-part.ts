@@ -1,6 +1,6 @@
 import { deepFreeze } from "../../state.ts";
 import { choice, number } from "../fields.ts";
-import { takesCommands } from "../parts.ts";
+import { fitsSoles } from "../../control/stance-balance.ts";
 import type { SubMindPart } from "../sub-mind-part.ts";
 import { groundFight, type GroundFightConfig } from "./ground-fight.ts";
 
@@ -10,7 +10,7 @@ export const GROUND_FIGHT_PART: SubMindPart<GroundFightConfig> = deepFreeze({
   fields: [number("reach", "Foe reach", .1, 3, .1, "m"), choice("kicks", "Kicking foot", [["either", "Either"], ["left", "Left"], ["right", "Right"], ["none", "Cover only"]])],
   defaults: { kind: "ground-fight", reach: 1.2, kicks: "either" }, keys: { kind: true, reach: true, kicks: true },
   down: { name: "fight from the ground", seconds: 2, stands: 0, shelter: .3 },
-  fits: takesCommands,
+  fits: fitsSoles,
   faults: (config) => [...Number.isFinite(config.reach) && config.reach > 0 ? [] : ["reach must be finite and positive"],
     ...["either", "left", "right", "none"].includes(config.kicks) ? [] : ["unknown kicking foot"]],
   make(own, view, config, kit, clock, afterPhysics) {

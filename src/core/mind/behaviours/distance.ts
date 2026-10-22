@@ -2,7 +2,7 @@ import { deepFreeze } from "../../state.ts";
 import { hypot } from "../../math/real.ts";
 import { nonnegative, SPACE, walking, type Behaviour, type BehaviourPart } from "../behaviour-part.ts";
 import { number } from "../fields.ts";
-import { takesCommands } from "../parts.ts";
+import { anyBody } from "../parts.ts";
 
 /** A behaviour that holds the focus `metres` away, within `SPACE.band`. */
 interface DistanceConfig<K extends string> { readonly kind: K; readonly metres: number }
@@ -32,7 +32,7 @@ function distance(kind: "close-in" | "keep-distance" | "break-clinch", metres: n
 export const CLOSE_IN: BehaviourPart<DistanceConfig<"close-in">> = deepFreeze({
   role: "behaviour", label: "Close in", stage: "game", slots: [], defaults: { kind: "close-in", metres: .6 },
   fields: [number<DistanceConfig<"close-in">, "metres">("metres", "Distance", 0, 5, .1, "m")],
-  keys: { kind: true, metres: true }, fits: takesCommands, faults: nonnegative,
+  keys: { kind: true, metres: true }, fits: anyBody, faults: nonnegative,
   make: (_making, config) => distance(config.kind, config.metres),
 });
 
@@ -40,7 +40,7 @@ export const CLOSE_IN: BehaviourPart<DistanceConfig<"close-in">> = deepFreeze({
 export const KEEP_DISTANCE: BehaviourPart<DistanceConfig<"keep-distance">> = deepFreeze({
   role: "behaviour", label: "Keep distance", stage: "game", slots: [], defaults: { kind: "keep-distance", metres: 2.5 },
   fields: [number<DistanceConfig<"keep-distance">, "metres">("metres", "Distance", 0, 10, .1, "m")],
-  keys: { kind: true, metres: true }, fits: takesCommands, faults: nonnegative,
+  keys: { kind: true, metres: true }, fits: anyBody, faults: nonnegative,
   make: (_making, config) => distance(config.kind, config.metres),
 });
 
@@ -48,6 +48,6 @@ export const KEEP_DISTANCE: BehaviourPart<DistanceConfig<"keep-distance">> = dee
 export const BREAK_CLINCH: BehaviourPart<DistanceConfig<"break-clinch">> = deepFreeze({
   role: "behaviour", label: "Break clinch", stage: "game", slots: [], defaults: { kind: "break-clinch", metres: .65 },
   fields: [number<DistanceConfig<"break-clinch">, "metres">("metres", "Clearance", 0, 2, .05, "m")],
-  keys: { kind: true, metres: true }, fits: takesCommands, faults: nonnegative,
+  keys: { kind: true, metres: true }, fits: anyBody, faults: nonnegative,
   make: (_making, config) => distance(config.kind, config.metres),
 });

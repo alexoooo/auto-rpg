@@ -1,5 +1,5 @@
 import type { LocomotionPart } from "../mind/locomotion-part.ts";
-import { takesCommands } from "../mind/parts.ts";
+import { fitsSoles } from "../control/stance-balance.ts";
 import { deepFreeze } from "../state.ts";
 import { locomotion, validTurnLimit, validTurnStartup, type TurnStartup } from "./locomotion.ts";
 
@@ -17,7 +17,7 @@ interface StanceWalkConfig {
 /** **Walk in the stance** (`locomotion`): it holds the body's stance envelope (`Body.envelope`) and stops at `STANCE_STOPPING`. */
 export const STANCE_WALK_PART: LocomotionPart<StanceWalkConfig> = deepFreeze({
   role: "locomotion", label: "Walk in the stance", stage: "game", fields: [], slots: [], defaults: { kind: "stance-walk" },
-  keys: { kind: true, tuning: true }, tuning: ["turnLimit", "turnStartup"], fits: takesCommands,
+  keys: { kind: true, tuning: true }, tuning: ["turnLimit", "turnStartup"], fits: fitsSoles,
   faults: (config) => [
     ...(validTurnLimit(config.tuning?.turnLimit) ? [] : ["locomotion turn limit must be finite and positive"]),
     ...(validTurnStartup(config.tuning?.turnStartup) ? [] : ["invalid combat turn startup settings"]),

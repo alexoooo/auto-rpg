@@ -1,5 +1,5 @@
 import type { LocomotionPart } from "../mind/locomotion-part.ts";
-import { takesCommands } from "../mind/parts.ts";
+import { fitsSoles } from "../control/stance-balance.ts";
 import { deepFreeze } from "../state.ts";
 import { RUN, run, validRun, type RunSettings } from "./run.ts";
 
@@ -15,7 +15,7 @@ export const RUN_PART: LocomotionPart<RunConfig> = deepFreeze({
     kind: true, contact: true, flight: true, lift: true, settle: true, width: true, gain: true, accel: true,
     turn: true, drop: true, arms: true, drive: true, lever: true,
   },
-  fits: takesCommands,
+  fits: fitsSoles,
   faults: (config) => validRun(config) ? [] : ["a run needs every setting finite and positive, its gain not negative"],
   make: (body, config) => { const { kind: _, ...settings } = config; return run(body, settings); },
 });

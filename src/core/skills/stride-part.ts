@@ -1,5 +1,5 @@
 import type { LocomotionPart } from "../mind/locomotion-part.ts";
-import { takesCommands } from "../mind/parts.ts";
+import { fitsSoles } from "../control/stance-balance.ts";
 import { deepFreeze } from "../state.ts";
 import { STRIDE, stride, validStride, type StrideSettings } from "./stride.ts";
 
@@ -19,7 +19,7 @@ export const STRIDE_PART: LocomotionPart<StrideConfig> = deepFreeze({
     turn: true, paced: true, lands: true, push: true, launch: true, lead: true, momentum: true, lever: true,
     arms: true, ramp: true, drive: true, lengthen: true,
   },
-  fits: takesCommands,
+  fits: fitsSoles,
   faults: (config) => validStride(config) ? [] : ["a stride needs every setting finite and positive, its double support not negative"],
   make: (body, config) => { const { kind: _, ...settings } = config; return stride(body, settings); },
 });

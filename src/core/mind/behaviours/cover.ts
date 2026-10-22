@@ -4,7 +4,7 @@ import type { BehaviourPart } from "../behaviour-part.ts";
 import { coveringHand } from "../cover-hand.ts";
 import { choice } from "../fields.ts";
 import type { Cover } from "../intent.ts";
-import { takesCommands } from "../parts.ts";
+import { anyBody } from "../parts.ts";
 import { PREDICTION, THREAT, threatReader, WARD } from "../threat.ts";
 
 /** What the hands cover against: nothing beyond the pose, the threat, its predicted contact on the head or the body, or the weapon, warded off. */
@@ -17,7 +17,7 @@ interface CoverConfig { readonly kind: "cover"; readonly guard: CoverPolicy }
 export const COVER: BehaviourPart<CoverConfig> = deepFreeze({
   role: "behaviour", label: "Guard", stage: "game", slots: [], defaults: { kind: "cover", guard: "cover" },
   fields: [choice<CoverConfig, "guard">("guard", "Guard", [["cover", "Cover threat"], ["predictive", "Predict contact"], ["body", "Predict contact on the body"], ["ward", "Ward off the weapon"], ["pose", "Hold pose"]])],
-  keys: { kind: true, guard: true }, fits: takesCommands,
+  keys: { kind: true, guard: true }, fits: anyBody,
   faults: (config) => POLICIES.includes(config.guard) ? [] : ["guard must name a cover policy"],
   make({ spec }, config) {
     const threat = threatReader(), shield = spec.held?.some(({ item }) => item.coverNormal !== undefined);

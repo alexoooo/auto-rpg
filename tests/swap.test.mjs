@@ -7,7 +7,8 @@
  * runs, the bout forks and resumes to the bit and replays from its order sheets, and its tree goes
  * through a link unchanged. One bout, the two fixtures facing, holds every stub at once; an
  * executor is made with the configured guard's posture, and the fork falls inside a sub-mind's
- * takeover and resumes across its handback.
+ * takeover and resumes across its handback. A body the command layers cannot read refuses a mind
+ * on them for what they lack, at construction too, and every stock legs for what they stand on.
  */
 import "./fixtures/swap/hooks.mjs";
 import test from "node:test";
@@ -16,7 +17,9 @@ import assert from "node:assert/strict";
 const { buildBout } = await import("../src/evaluation/bout.ts");
 const { BOUT_ENGINE } = await import("../research/bout.mjs");
 const { SIDES } = await import("../src/arena/duel.ts");
-const { kindsFor, treeFaults } = await import("../src/core/mind/catalog.ts");
+const { kindsFor, treeFaults, treeRefusal } = await import("../src/core/mind/catalog.ts");
+const { createBody } = await import("../src/core/body.ts");
+const { coreStand } = await import("./harness/core-stand.mjs");
 const { CONTROLLERS } = await import("../src/core/mind/controllers.ts");
 const { RECIPE_FIGHTER } = await import("../src/core/mind/config.ts");
 const { modelSpec } = await import("../src/core/models.ts");
@@ -47,6 +50,16 @@ for (const { part, at, mind, place } of STUBS) {
     assert.deepEqual(treeFaults(place(game)), [`${at}: ${part.label} is ${mind}'s own part`]);
   });
 }
+
+test("a body without the command layer refuses a mind for what the layer lacks, at construction too, and every legs for what they stand on", async () => {
+  const reptile = modelSpec("reptile"), layer = /^the command layer needs /;
+  assert.match(treeRefusal(reptile, RECIPE_FIGHTER) ?? "", layer);
+  const legs = kindsFor("locomotion", reptile);
+  assert.ok(legs.length > 0, "the fixture offers legs to refuse");
+  for (const { kind, reason } of legs) assert.equal(reason, "needs a left and a right foot, each with a box sole", kind);
+  const stand = await coreStand(reptile);
+  assert.throws(() => createBody(stand.built, stand.world, { servoSeconds: .1 }), (error) => layer.test(error.message.replace(/^reptile: /, "")));
+});
 
 test("each part a bout runs is the one its config names, and the bout forks, resumes, replays and links", async () => {
   const minds = { left: SWAP_DEFAULTS, right: SWAP_OPTIONS_DEFAULTS }, recipe = { left: "workshop-fighter", right: "workshop-fighter", gap: 3, minds };

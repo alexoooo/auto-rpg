@@ -365,17 +365,29 @@ export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feed
 }
 
 /**
- * Whether a body of `spec` can take a command (`commandMind`): a fist (a hand with knuckles) on
- * each side, a box sole under each foot for its stance, and a head its view is centred on.
+ * **What the command layer lacks of a body of `spec`** (`commandMind`), a sentence, or null where
+ * it has all the layer reads: a fist (a hand with knuckles) on each side (`BodyView.fists`), a box
+ * sole under each foot for its stance (`BodyView.stance`), and a head its view is centred on
+ * (`BodyView.head`). The layer is the humanoid's; a body without these is driven by its own
+ * muscles (`BodyHost.hosted`, `policy`).
  */
+export function commandRefusal(spec: BodySpec): string | null {
+  const segment = (name: string) => spec.segments.find((s) => s.name === name), lacks: string[] = [];
+  for (const side of ["left", "right"] as const) if (!segment(`hand.${side}`)?.points?.knuckles) lacks.push(`a fist at hand.${side}`);
+  for (const side of ["left", "right"] as const) if (segment(`foot.${side}`)?.shape.kind !== "box") lacks.push(`a box sole at foot.${side}`);
+  if (!segment("head")) lacks.push("a head");
+  return lacks.length ? `the command layer needs ${lacks.join(", ")}` : null;
+}
+
+/** Whether a body of `spec` can take a command (`commandRefusal`). */
 export function commandable(spec: BodySpec): boolean {
-  const segment = (name: string) => spec.segments.find((s) => s.name === name);
-  return (["left", "right"] as const).every((side) => !!segment(`hand.${side}`)?.points?.knuckles && segment(`foot.${side}`)?.shape.kind === "box")
-    && segment("head") !== undefined;
+  return commandRefusal(spec) === null;
 }
 
 /** `built` in `world`, holding its reference pose until something drives it. */
 export function createBody(built: BuiltBody, world: World, options: BodyOptions): HostedBody {
+  const refused = commandRefusal(built.spec);
+  if (refused) throw new Error(`${built.spec.model}: ${refused}`);
   let command!: CommandMind;
   const listeners = new Set<(step: number, time: number) => void>();
   const afterPhysics: Body["afterPhysics"] = listener => {

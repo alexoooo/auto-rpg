@@ -1,4 +1,4 @@
-import { takesCommands, fitsAll, fitsWhen } from "../mind/parts.ts";
+import { strikesWithOneOf, fitsAll, fitsWhen } from "../mind/parts.ts";
 import { text } from "../mind/fields.ts";
 import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../mind/executor-part.ts";
 import { STRAIGHT_PUNCH, straightPunchExecutor, straightPunchFits, validStraightPunch, type StraightPunch } from "./straight-punch.ts";
@@ -18,7 +18,7 @@ export const PUNCH_PART: ExecutorPart<Config> = {
     lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
     recover: true, landed: true, driven: true,
   },
-  fields: [text("name", "Name")], slots: [], fits: fitsAll(takesCommands, fitsWhen(straightPunchFits, "needs both arms on the upper trunk and a thoracic joint")),
+  fields: [text("name", "Name")], slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk and a thoracic joint")),
   faults: config => validStraightPunch(config) ? [] : ["invalid straight punch settings"], effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS,
   // A punch is thrown by a hand that holds nothing: one holding an item would drive the item's end along the punch's line.
   strikesWith: (spec, _config, effector) => holdsNothing(spec, effector),

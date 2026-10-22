@@ -1,4 +1,4 @@
-import { takesCommands, fitsAll, fitsWhen } from "../mind/parts.ts";
+import { strikesWithOneOf, fitsAll, fitsWhen } from "../mind/parts.ts";
 import { text } from "../mind/fields.ts";
 import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../mind/executor-part.ts";
 import { COMBINATION, combinationExecutor, combinationFits, validCombination, type Combination } from "./combination.ts";
@@ -18,7 +18,7 @@ export const COMBINATION_PART: ExecutorPart<Config> = {
     lean: true, chamber: true, lead: true, elbow: true, brake: true, follow: true, longest: true,
     recover: true, landed: true, driven: true, drives: true, gap: true, poise: true, wait: true,
   },
-  fields: [text("name", "Name")], slots: [], fits: fitsAll(takesCommands, fitsWhen(combinationFits, "needs both arms on the upper trunk and a thoracic joint")),
+  fields: [text("name", "Name")], slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(combinationFits, "needs both arms on the upper trunk and a thoracic joint")),
   faults: config => validCombination(config) ? [] : ["invalid combination settings"], effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS,
   blows: config => config.drives,
   // Its punches are thrown by hands that hold nothing: of two drives, the hand asked for and the other.

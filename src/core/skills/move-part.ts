@@ -1,7 +1,8 @@
 import { MOVE } from "../mind/config.ts";
 import { choice } from "../mind/fields.ts";
 import type { LocomotionPart } from "../mind/locomotion-part.ts";
-import { slotList, takesCommands, type ConfigOf, type PartConfig } from "../mind/parts.ts";
+import { fitsSoles } from "../control/stance-balance.ts";
+import { slotList, type ConfigOf, type PartConfig } from "../mind/parts.ts";
 import { deepFreeze } from "../state.ts";
 import { GAITS, type GaitName } from "./gaits.ts";
 import type { Locomotion } from "./locomotion.ts";
@@ -33,7 +34,7 @@ const gaitsOf = (config: MoveConfig): readonly GaitName[] => [...new Set([...con
 export const MOVE_PART: LocomotionPart<MoveConfig> = deepFreeze({
   role: "locomotion", label: "Move", stage: "game", defaults: MOVE, keys: { kind: true, rules: true, otherwise: true },
   fields: [choice<MoveConfig, "otherwise">("otherwise", "Otherwise", GAIT_CHOICES)],
-  slots: [slotList("rules", "When", "move-rule")], fits: takesCommands,
+  slots: [slotList("rules", "When", "move-rule")], fits: fitsSoles,
   faults: (config) => isGait(config.otherwise) ? [] : [`move: no gait called ${JSON.stringify(config.otherwise)}`],
   make(body, config, legs) {
     const names = gaitsOf(config), built = new Map<string, Locomotion>();

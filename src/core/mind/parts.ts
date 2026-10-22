@@ -1,4 +1,4 @@
-import { commandable } from "../body.ts";
+import { commandRefusal } from "../body.ts";
 import type { DataKey } from "../data/store.ts";
 import type { BodySpec } from "../spec/body.ts";
 import type { PartField } from "./fields.ts";
@@ -121,9 +121,17 @@ export function fitsWhen<C = PartConfig>(test: (spec: BodySpec, config: C, parts
   return (spec, config, parts) => test(spec, config, parts) ? null : reason;
 }
 
-/** A part's `fits` for a body that takes the game's commands (`commandable`). */
+/**
+ * A mind's `fits` for a body that takes the game's commands: what the command layer lacks of it
+ * (`commandRefusal`), or null. A part below such a mind fits by what it uses itself.
+ */
 export function takesCommands(spec: BodySpec): string | null {
-  return commandable(spec) ? null : "needs fists, box soles and a head";
+  return commandRefusal(spec);
+}
+
+/** A part's `fits` for a body with one of `effectors` at least: what an executor strikes with. */
+export function strikesWithOneOf(...effectors: readonly string[]): (spec: BodySpec) => string | null {
+  return (spec) => effectors.some((name) => spec.effectors?.some((effector) => effector.segment === name)) ? null : `needs ${effectors.join(" or ")} to strike with`;
 }
 
 /** A part's `fits` that refuses where the first of `fits` refuses, for its reason. */

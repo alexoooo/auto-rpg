@@ -11,7 +11,7 @@ import { NO_COVER, type Intent } from "./intent.ts";
 import { remainingOf } from "./movement.ts";
 import type { Orders } from "./orders.ts";
 import { orderedFacing } from "./ordered.ts";
-import { slotList, takesCommands } from "./parts.ts";
+import { slotList, anyBody } from "./parts.ts";
 import type { BodySense } from "./senses.ts";
 import type { Sight, Tactics } from "./tactics.ts";
 import type { TacticsMaking, TacticsPart } from "./tactics-part.ts";
@@ -216,7 +216,7 @@ function selectionFaults(config: BehavioursConfig): readonly string[] {
 /** **Behaviours** (`actionTactics`): a ranked list of behaviours over one focus and one choice of action. */
 export const BEHAVIOUR_TACTICS: TacticsPart<BehavioursConfig> = deepFreeze({
   role: "tactics", label: "Behaviours", stage: "game", fields: [], slots: [slotList("list", "Behaviours", "behaviour")], defaults: FIGHTING,
-  keys: { kind: true, target: true, choose: true, list: true }, fits: takesCommands, faults: selectionFaults,
+  keys: { kind: true, target: true, choose: true, list: true }, fits: anyBody, faults: selectionFaults,
   actionFaults(config, actions) {
     if (config.choose.kind !== "rules") return [];
     const choose = config.choose;

@@ -3,7 +3,7 @@ import { cleanMiss } from "../../skills/action-instances.ts";
 import { approachActionWindow } from "../action-window.ts";
 import { nonnegative, type BehaviourPart } from "../behaviour-part.ts";
 import { number } from "../fields.ts";
-import { takesCommands } from "../parts.ts";
+import { anyBody } from "../parts.ts";
 
 /**
  * **Approach**: walk into the chosen candidate's window, `spacing` m further out than it asks, the
@@ -17,7 +17,7 @@ export const APPROACH: BehaviourPart<ApproachConfig> = deepFreeze({
     number<ApproachConfig, "spacing">("spacing", "Spacing", 0, 1, .05, "m"),
     number<ApproachConfig, "spacingStep">("spacingStep", "Miss adjustment", 0, .2, .01, "m"),
   ],
-  keys: { kind: true, spacing: true, spacingStep: true, travel: true }, fits: takesCommands, faults: nonnegative,
+  keys: { kind: true, spacing: true, spacingStep: true, travel: true }, fits: anyBody, faults: nonnegative,
   make(_making, config) {
     const state = { spacing: config.spacing ?? 0 };
     return { state,

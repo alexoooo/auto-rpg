@@ -1,5 +1,5 @@
 import type { LocomotionPart } from "../mind/locomotion-part.ts";
-import { takesCommands } from "../mind/parts.ts";
+import { fitsSoles } from "../control/stance-balance.ts";
 import { deepFreeze } from "../state.ts";
 import { runCycleSettings, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
 import { WALK_RUN, WALK_RUN_CYCLE, validWalkRun, walkRun, type WalkRunSettings } from "./walk-run.ts";
@@ -25,7 +25,7 @@ const walkRunOf = ({ kind: _, tuning: __, runs: ___, ...settings }: WalkRunConfi
 export const WALK_RUN_PART: LocomotionPart<WalkRunConfig> = deepFreeze({
   role: "locomotion", label: "Walk and run", stage: "game", fields: [], slots: [], defaults: { kind: "walk-run", ...WALK_RUN },
   keys: { kind: true, tuning: true, runs: true, run: true, turn: true, swerve: true, turnRate: true, leg: true, hasted: true },
-  tuning: ["run"], fits: takesCommands,
+  tuning: ["run"], fits: fitsSoles,
   faults: (config) => [
     ...validWalkRun(walkRunOf(config)) ? [] : ["a walk and run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1"],
     ...validRunCycle(runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE)) ? [] : ["a walk and run's run gives only the run's settings, each finite, its times and the cycle's positive and its shares of strength within (0, 1]"],

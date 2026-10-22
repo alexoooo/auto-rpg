@@ -1,14 +1,14 @@
 import { deepFreeze } from "../../state.ts";
 import { footRadius, walking, type BehaviourPart } from "../behaviour-part.ts";
 import { clearanceExit } from "../clear-step.ts";
-import { takesCommands } from "../parts.ts";
+import { anyBody } from "../parts.ts";
 
 /** **Clear walls**: step out of a solid's clearance (`footRadius`) the shortest way out. */
 interface ClearOfWallsConfig { readonly kind: "clear-of-walls" }
 
 export const CLEAR_OF_WALLS: BehaviourPart<ClearOfWallsConfig> = deepFreeze({
   role: "behaviour", label: "Clear walls", stage: "game", fields: [], slots: [], defaults: { kind: "clear-of-walls" },
-  keys: { kind: true }, fits: takesCommands, faults: () => [],
+  keys: { kind: true }, fits: anyBody, faults: () => [],
   make({ spec }) {
     const radius = footRadius(spec);
     return { decide(turn) {

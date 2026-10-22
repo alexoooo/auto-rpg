@@ -407,7 +407,10 @@ fight reads. A fight passes the config through and reads nothing in it.
   the registry's `partLookup`), which it hands every assembly that builds a part,
   and three ways to take the body, once: `command` (the
   game's command layers), `hosted` (a host mind of its own) or `policy` (detached observations and
-  actions). The host applies the fight's grants (senses, assist ceiling, contact labels); no maker
+  actions). The command layers are the humanoid's: their view's fists, head and stance
+  (`BodyView`) and the intent's guarding hands belong to them, beside the general body (segments,
+  joints, effectors, contacts, muscles). `createBody` refuses a body they cannot read with what it
+  lacks (`commandRefusal`); a mind built on them fits only such a body (`takesCommands`). The host applies the fight's grants (senses, assist ceiling, contact labels); no maker
   can widen them.
 - A mind that runs the game's skills gives them (`MindMade.skills`) for reports; a screen that
   drives a fighter's tactics asks `isFighter`.
@@ -452,7 +455,9 @@ the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the reg
 - `treeFaults` names each fault by path (`subs.0: ...`); `createMind` refuses a tree with any, and
   `partOf` refuses an unknown kind. A mind's own part in another mind's tree is a fault.
 - A part's `fits` answers why a body cannot carry out what it commands, or null where it can: the one
-  source of compatibility. `treeRefusal` gives the first refusal in a tree by path (`treeFits`, that
+  source of compatibility. It names what the part uses beyond what its mind gives it: legs and the
+  sub-minds that stand need soles (`fitsSoles`), an executor one of its effectors
+  (`strikesWithOneOf`), a guard a hand that covers; a planner uses only its mind's view. `treeRefusal` gives the first refusal in a tree by path (`treeFits`, that
   there is none); `kindsFor` lists every part of a role a mind's slot may hold, its own parts
   included, with the reason it cannot go somewhere.
 - A part's experiment settings live under `tuning`, are named by `Part.tuning`, and never travel in

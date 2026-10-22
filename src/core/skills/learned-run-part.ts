@@ -1,6 +1,6 @@
 import { dataOf } from "../data/store.ts";
 import type { LocomotionPart } from "../mind/locomotion-part.ts";
-import { takesCommands } from "../mind/parts.ts";
+import { fitsSoles } from "../control/stance-balance.ts";
 import { deepFreeze } from "../state.ts";
 import { runCycleSettings, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
 import { learnedRun, RUN_POLICY } from "./learned-run.ts";
@@ -29,7 +29,7 @@ export const LEARNED_RUN_PART: LocomotionPart<LearnedRunConfig> = deepFreeze({
   role: "locomotion", label: "Walk and learned run", stage: "experimental", fields: [], slots: [],
   defaults: { kind: "learned-run", ...WALK_RUN, hasted: RUN_POLICY.hasted, policy: RUN_POLICY.policies[0]! },
   keys: { kind: true, policy: true, tuning: true, runs: true, run: true, turn: true, swerve: true, turnRate: true, leg: true, hasted: true },
-  tuning: ["run"], fits: takesCommands,
+  tuning: ["run"], fits: fitsSoles,
   faults: (config) => [
     ...validWalkRun(learnedRunOf(config)) ? [] : ["a walk and learned run needs every setting finite, its run, turns and leg positive, timed to its haste to the power 0, 1/2 or 1"],
     ...validRunCycle(runCycleSettings(config.tuning?.run, WALK_RUN_CYCLE)) ? [] : ["a walk and learned run's run gives only the run's settings, each finite, its times and the cycle's positive and its shares of strength within (0, 1]"],

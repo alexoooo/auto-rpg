@@ -3,7 +3,7 @@ import { hypot } from "../../math/real.ts";
 import { rangeOf } from "../../skills/strike.ts";
 import { nonnegative, walking, type BehaviourPart } from "../behaviour-part.ts";
 import { number } from "../fields.ts";
-import { takesCommands } from "../parts.ts";
+import { anyBody } from "../parts.ts";
 
 /**
  * **Hold the reach edge**: against a two-handed focus, while nothing is under way or ready, stand
@@ -14,7 +14,7 @@ interface EdgeConfig { readonly kind: "edge"; readonly band: number; readonly pa
 export const EDGE: BehaviourPart<EdgeConfig> = deepFreeze({
   role: "behaviour", label: "Hold reach edge", stage: "game", slots: [], defaults: { kind: "edge", band: .25, patience: 4 },
   fields: [number<EdgeConfig, "band">("band", "Reach margin", 0, 1, .05, "m"), number<EdgeConfig, "patience">("patience", "Patience", 0, 120, .1, "s")],
-  keys: { kind: true, band: true, patience: true }, fits: takesCommands, faults: nonnegative,
+  keys: { kind: true, band: true, patience: true }, fits: anyBody, faults: nonnegative,
   make(_making, config) {
     const state = { since: null as number | null };
     return { state, refocus() { state.since = null; }, decide(turn) {

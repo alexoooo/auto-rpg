@@ -1,5 +1,5 @@
 import type { LocomotionPart } from "../mind/locomotion-part.ts";
-import { takesCommands } from "../mind/parts.ts";
+import { fitsSoles } from "../control/stance-balance.ts";
 import { deepFreeze } from "../state.ts";
 import { runCycleSettings, validRunCycle, type RunCycleSettings } from "./cycle-run.ts";
 import { SIMBICON, simbicon, simbiconWays, validSimbicon, validWays, type SimbiconSettings, type SimbiconWay } from "./simbicon.ts";
@@ -33,7 +33,7 @@ export const SIMBICON_PART: LocomotionPart<SimbiconConfig> = deepFreeze({
     trimSide: true, trimMost: true, trimLeak: true, settle: true, stance: true, swing: true, ankle: true,
     pelvis: true, hold: true, turn: true, swerve: true, turnRate: true, speedup: true, slowdown: true, arms: true, run: true, leg: true, hasted: true,
   },
-  tuning: ["side", "back", "run"], fits: takesCommands,
+  tuning: ["side", "back", "run"], fits: fitsSoles,
   faults: (config) => [
     ...validSimbicon(settingsOf(config)) ? [] : ["a SIMBICON gait needs every setting finite, its times, turn, swerve, turn's change, speed-up, run and leg positive, and its shares of strength within (0, 1]"],
     ...validWays(simbiconWays(config.tuning)) ? [] : ["a SIMBICON gait's side and back give only the settings a way changes, each finite"],

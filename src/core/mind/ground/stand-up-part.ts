@@ -1,6 +1,7 @@
 import { deepFreeze } from "../../state.ts";
 import { STAND_UP } from "../config.ts";
-import { slotList, takesCommands } from "../parts.ts";
+import { fitsSoles } from "../../control/stance-balance.ts";
+import { slotList } from "../parts.ts";
 import type { SubMindPart } from "../sub-mind-part.ts";
 import { graphWork, reachable } from "./graph.ts";
 import { standUp, type StandUpConfig } from "./stand-up.ts";
@@ -11,7 +12,7 @@ import { standUp, type StandUpConfig } from "./stand-up.ts";
  */
 export const STAND_UP_PART: SubMindPart<StandUpConfig> = deepFreeze({
   role: "sub-mind", label: "Stand up", stage: "game", fields: [], slots: [slotList("techniques", "Techniques", "technique")], defaults: STAND_UP,
-  keys: { kind: true, techniques: true }, fits: takesCommands, down: { name: "get up", seconds: 5, stands: .7, shelter: 0 },
+  keys: { kind: true, techniques: true }, fits: fitsSoles, down: { name: "get up", seconds: 5, stands: .7, shelter: 0 },
   faults: (config, parts) => {
     const order = config.techniques.map((technique) => technique.kind);
     if (new Set(order).size !== order.length) return ["a technique may appear only once"];

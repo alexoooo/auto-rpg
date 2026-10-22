@@ -3,7 +3,7 @@ import { footRadius, SPACE, type BehaviourPart } from "../behaviour-part.ts";
 import { clearMove } from "../clear-step.ts";
 import { groundPosition } from "../ground-position.ts";
 import { walkGoal } from "../movement.ts";
-import { takesCommands } from "../parts.ts";
+import { anyBody } from "../parts.ts";
 import { lowOpponent } from "../sensed-bounds.ts";
 
 /** **Ground positioning**: against a low focus, place the body for a lowered action (`groundPosition`), choosing its hand. */
@@ -11,7 +11,7 @@ interface GroundConfig { readonly kind: "ground" }
 
 export const GROUND: BehaviourPart<GroundConfig> = deepFreeze({
   role: "behaviour", label: "Ground positioning", stage: "game", fields: [], slots: [], defaults: { kind: "ground" },
-  keys: { kind: true }, fits: takesCommands, faults: () => [],
+  keys: { kind: true }, fits: anyBody, faults: () => [],
   make({ spec, actions }) {
     const radius = footRadius(spec);
     const ground = groundPosition(spec, (view, heading, move) => clearMove(view.stance.centre, view.senses.solids, heading, move, radius, SPACE.ahead), {}, true);

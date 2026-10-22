@@ -1,6 +1,6 @@
 import { aimedPoint, AIMED_ACTIONS, type ExecutorPart } from "../../mind/executor-part.ts";
 import { number, text, toggle } from "../../mind/fields.ts";
-import { fitsAll, fitsWhen, takesCommands } from "../../mind/parts.ts";
+import { fitsAll, fitsWhen, strikesWithOneOf } from "../../mind/parts.ts";
 import { STRAIGHT_PUNCH, straightPunchFits, validStraightPunch, type StraightPunch } from "../../skills/straight-punch.ts";
 import { holdsNothing } from "../../skills/strikes.ts";
 import { committedAim } from "./committed-aim.ts";
@@ -50,7 +50,7 @@ export const VANGUARD_PUNCH: ExecutorPart<VanguardPunchConfig> = {
   fields: [text("name", "Name"), toggle("low", "Aim and fold for a low foe"), toggle("lowOnly", "Only at a low foe"),
     toggle("predict", "Lead the followed point"), toggle("anchorAtDrive", "Choose the point until the drive"),
     toggle("overlapReturn", "Allow another punch during recovery"), number("returnHold", "Body hold during recovery", 0, 2, .01, "s")],
-  slots: [], fits: fitsAll(takesCommands, fitsWhen(straightPunchFits, "needs both arms on the upper trunk and a thoracic joint")),
+  slots: [], fits: fitsAll(strikesWithOneOf("hand.left", "hand.right"), fitsWhen(straightPunchFits, "needs both arms on the upper trunk and a thoracic joint")),
   faults, effectors: ["hand.left", "hand.right"], ...AIMED_ACTIONS,
   // A punch is thrown by a hand that holds nothing, as the straight punch's.
   strikesWith: (spec, _config, effector) => holdsNothing(spec, effector),
