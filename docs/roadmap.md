@@ -58,7 +58,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
      the Ratings screen is in use and a live run would save a trip to the command line;
    - Mind data step 2 (packed format), then 3 (precision per kind), when the next action that
      carries data arrives; step 4 when the owner asks;
-   - component registration's stages 2 to 4 at any time, stage 5 (the Commander) with Movement B0.
+   - component registration's stages 2 to 4 at any time.
 
 ## Waiting on the owner
 

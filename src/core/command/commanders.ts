@@ -25,7 +25,7 @@ const INDEPENDENT: CommanderEntry = deepFreeze({
   create: (host: TeamHost) => independentCommander(host),
 });
 
-/** **A person's party** (`partyCommander`):the leader where its person steers, the others after it or where they were sent. */
+/** **A person's party** (`partyCommander`): the leader where its person steers, the others after it or where they were sent. */
 const PARTY: CommanderEntry = deepFreeze({
   label: "Party", defaults: { kind: "party" }, faults: kindOnly,
   create: (host: TeamHost) => partyCommander(host),
