@@ -76,8 +76,8 @@ It writes:
 
 - `assets/dungeon-reference/chamber.blend`, saved before the per-material join, so every component
   stays individually named and editable;
-- `public/assets/dungeon-reference/chamber.glb`, its geometry batched by material into seven nodes;
-- `public/assets/dungeon-reference/stone-albedo.png`, `stone-normal.png` (OpenGL convention) and
+- `assets/art/environment/dungeon-reference/chamber.glb`, its geometry batched by material into seven nodes;
+- `assets/art/environment/dungeon-reference/stone-albedo.png`, `stone-normal.png` (OpenGL convention) and
   `stone-orm.png` (occlusion, roughness, metalness), 1024 px, periodic so they tile without seams;
 - `assets/dungeon-reference/manifest.json`: provenance, triangle count and the maps' hashes.
 
@@ -135,7 +135,7 @@ blender --background --python scripts/dungeon/build-kit.py
 
 `scripts/dungeon/build-kit.py` uses the same helpers (`crypt_geometry.py`) and writes
 `assets/crypt-kit/kit.blend`, `assets/crypt-kit/manifest.json` and
-`public/assets/crypt-kit/kit.glb`: metre-space pieces with their origins baked in. The tomb is
+`assets/art/environment/crypt-kit/kit.glb`: metre-space pieces with their origins baked in. The tomb is
 taken from `chamber.blend`'s sarcophagus. It reuses the chamber's stone maps and does not rewrite
 any of the chamber's files.
 
@@ -156,5 +156,5 @@ No triangle budget is set: one waits on the frame rate measured on a range of ha
 
 `src/render/textures.json` registers every downloaded map: Poly Haven CC0 sets at 1K, each row with its
 source URL, SHA-256 and the materials that use it, and each source's licence listed apart by URL. `node scripts/dungeon/fetch-textures.mjs
-<asset>:<consumer>:<metresPerRepeat> ...` downloads a set into `public/assets/textures/` and
+<asset>:<consumer>:<metresPerRepeat> ...` downloads a set into `assets/art/environment/textures/` and
 registers it; it checks the hashes and refuses a registry it did not write.

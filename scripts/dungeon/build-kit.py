@@ -4,7 +4,7 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from crypt_geometry import *
 
-OUT=ROOT/'public/assets/crypt-kit'; SOURCE=ROOT/'assets/crypt-kit'
+OUT=ROOT/'assets/art/environment/crypt-kit'; SOURCE=ROOT/'assets/crypt-kit'
 OUT.mkdir(parents=True,exist_ok=True); SOURCE.mkdir(parents=True,exist_ok=True)
 # Additional shared surfaces belong only to the modular kit, not the reference chamber.
 for name,color in [('wood',(.25,.13,.055,1)),('cloth',(.22,.045,.035,1))]:

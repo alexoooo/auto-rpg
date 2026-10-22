@@ -1,15 +1,21 @@
 # Art sources and web delivery
 
-Character art has one editable source and generated web resources. Large originals are in Git
-LFS; delivery files and lossless inspection exports are reproducible build outputs. The Fighter
-and Rogue use this pipeline. Other art keeps its documented builders until it is migrated.
+Characters, environment models and surface textures have full-quality sources and generated web
+resources. Large originals are in Git LFS; web delivery and character inspection exports are
+reproducible build outputs. The HDR environment and menu image retain their existing encodings.
 
 ## Sources
 
-`assets/art/catalog.json` names each character's master, licence, consumers and delivery profile.
+`assets/art/catalog.json` names character masters, environment inputs, licences and the delivery profile.
 The Blender masters reference original images relatively under `assets/art/textures/`. Images
 are named by SHA-256 and shared between masters; packed copies are removed. Character authoring
 scripts preserve this arrangement. Commit changed masters, original images and recipes together.
+
+`assets/art/environment/` holds the lossless Forge, chamber, crypt-kit and skeleton GLBs and the
+original PNG/JPEG texture maps. These exports preserve the builders' template frames, batching
+and skeleton-local coordinates. The editable Blender masters stay in their authoring folders.
+Run the documented authoring builder to update a source export, then `npm run assets` to compile
+delivery files. The builders never write full-quality exports into `public/`.
 
 After cloning, run `git lfs install`, `git lfs pull`, `npm ci`, then `npm run assets`. Never
 commit an LFS pointer whose content has not been uploaded when publishing the corresponding code.
@@ -21,7 +27,7 @@ commit an LFS pointer whose content has not been uploaded when publishing the co
 | `npm run assets` | Build changed sources, or validate and reuse cached output |
 | `npm run assets -- --force` | Rebuild the current source recipe |
 | `npm run assets:check` | Check freshness, references, hashes, rig frames, sharing and the size budget |
-| `npm run assets:report` | Unique delivery bytes, workshop additions and decoder sizes |
+| `npm run assets:report` | Unique delivery bytes, workshop additions, environment resources and the whole art total |
 
 `npm run dev` and `npm run build` prepare assets automatically. Normal export never saves a master
 or updates the physics metadata. Windows x64 and Linux x64 use checksum-verified Blender 4.5.12
@@ -41,15 +47,24 @@ per character reference the same geometry and KTX2 textures. The workshop descri
 its animation buffer; the gameplay descriptor contains no animation. Decoder scripts and WASM
 are served from the same deployment base, with their licence notices.
 
+The manifest also maps stable model and texture IDs to their hashed files. Every scene obtains
+a ready resolver before constructing textures or opening compressed models. The skeleton's
+custom reader decodes Meshopt buffer views and respects accessor offsets and strides.
+
 The profile limits texture dimensions to 1024 pixels without upscaling. Colour maps use ETC1S
 at quality 200; normal and material data use UASTC quality 2 and Zstandard level 18. Mipmaps are
 built offline, colour is sRGB, and normal/material channels are linear. Alpha and material modes
 are retained. Identical encoded textures share a URL. Geometry and animation use lossless
 Meshopt compression; names, authored rig frames, skin weights and topology are retained.
+Standalone textures use their original encoding when the KTX2 candidate would be larger; either
+selected variant has one hashed delivery URL. A source image is never upscaled. Texture sampling,
+normal conventions and physical repeat scales belong to the runtime material descriptors.
 
 The combined base resources of both characters have an 8,000,000-byte ceiling, counting shared
 resources once, before HTTP compression. Workshop additions and decoders are reported separately.
-This is a character budget, not the whole Arena's download. A larger asset needs a visible purpose
+The entire art inventory, including all decoders, the HDR and menu image, has a 30,000,000-byte
+ceiling. Both budgets count shared payloads once, before HTTP compression; manifest and licence
+text are excluded. Neither is a single scene's download. A larger asset needs a visible purpose
 and an explicit recipe budget change; an encoder failure never relaxes the ceiling automatically.
 The kept [delivery-size record](../reference/art-delivery.md) gives the measured comparison.
 

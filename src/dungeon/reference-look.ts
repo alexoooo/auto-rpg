@@ -14,7 +14,8 @@ import type { Scene } from "@babylonjs/core/scene.js";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
 import { surface } from "../render/surface.ts";
 import { TEXTURED_SURFACES } from "../render/materials.ts";
-import { publicAssetUrl } from "../asset-url.ts";
+import { loadArtAssets } from "../render/art-assets.ts";
+import { browserTextures } from "../render/surface.ts";
 import { flatStone } from "./stone.ts";
 import { REFERENCE_TORCHES } from "./reference.ts";
 import type { buildDungeonWorld } from "./world.ts";
@@ -122,7 +123,8 @@ class CryptCutaway extends MaterialPluginBase {
 }
 /** Visual-only owner: all solid props have already been built by the level (`buildDungeonWorld`). */
 export async function dressReference(scene: Scene, level: ReturnType<typeof buildDungeonWorld>, quality: ReferenceQuality, azimuth: number, plan?: CryptRoomPlan) {
-  const container=await sceneModel(publicAssetUrl(plan ? "/assets/crypt-kit/kit.glb" : "/assets/dungeon-reference/chamber.glb"),scene);
+  const art = await loadArtAssets();
+  const container=await sceneModel(art.model(plan ? "crypt-kit/kit.glb" : "dungeon-reference/chamber.glb"),scene);
   container.addAllToScene();
   if(plan) assembleCryptKit(container,plan.placements);
   const torches=plan?.torches??REFERENCE_TORCHES;
@@ -132,7 +134,7 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   // conversion; glTF meshes retain their explicit clockwise face convention.
   if(root){root.rotationQuaternion=Quaternion.Identity();root.scaling.setAll(1);}
   const maps = await Promise.all(["albedo", "normal", "orm"].map(channel => new Promise<Texture>((resolve, reject) => {
-    const texture = new Texture(publicAssetUrl(`/assets/dungeon-reference/stone-${channel}.png`), scene, false, false,
+    const texture = new Texture(art.texture(`dungeon-reference/stone-${channel}.png`), scene, false, false,
       Texture.TRILINEAR_SAMPLINGMODE, () => resolve(texture), message => { texture.dispose(); reject(new Error(message)); });
     texture.gammaSpace = channel === "albedo"; texture.anisotropicFilteringLevel = 4;
   })));
@@ -156,7 +158,7 @@ export async function dressReference(scene: Scene, level: ReturnType<typeof buil
   const earth=textured("reference.earth","#a5b275"); earth.roughness=1;
   const iron=flatStone(scene,"reference.iron","#444a4d",.4);iron.metallic=.8;
   const tomb=textured("crypt.tomb", "#ddd5c3");
-  const wood=surface(scene,TEXTURED_SURFACES.wood);
+  const wood=surface(scene,TEXTURED_SURFACES.wood,browserTextures(art));
   const cloth=flatStone(scene,"crypt.cloth","#752c25",.95);
   const materials={wall,trim,floor,root:rootMat,earth,iron,tomb,wood,cloth};
   new CryptCutaway(wood, cutaway);

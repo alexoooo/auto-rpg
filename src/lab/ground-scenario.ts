@@ -18,7 +18,7 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder.js";
 import type { Mesh } from "@babylonjs/core/Meshes/mesh.js";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
 import { sceneModel } from "../render/asset-cache.ts";
-import { publicAssetUrl } from "../asset-url.ts";
+import { loadArtAssets } from "../render/art-assets.ts";
 import { assembleCryptKit } from "../environment/crypt-kit.ts";
 import "@babylonjs/loaders/glTF/2.0/glTFLoader.js";
 
@@ -112,7 +112,7 @@ export function groundScenario(scene: Scene, shell: LabShell): LabScenario {
       obstacleMaterial.diffuseColor.set(.5, .47, .42);
       let closed = false;
       if (session.environment.placements.length) {
-        kit ??= sceneModel(publicAssetUrl("/assets/crypt-kit/kit.glb"), scene).then(container => {
+        kit ??= loadArtAssets().then(art => sceneModel(art.model("crypt-kit/kit.glb"), scene)).then(container => {
           for (const mesh of container.meshes) mesh.setEnabled(false);
           container.addAllToScene(); return container;
         });

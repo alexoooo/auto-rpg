@@ -27,6 +27,8 @@ async function filesUnder(directory) {
 async function inputKey() {
   const files = [CATALOG, join(ROOT, "package-lock.json"),
     ...Object.values(catalog().characters).map(asset => join(ROOT, asset.source)),
+    ...Object.values(catalog().models).map(asset => join(ROOT, asset.source)),
+    ...Object.values(catalog().textures).map(asset => join(ROOT, asset.source)),
     ...await filesUnder(join(ROOT, "assets/art/textures")), ...(await filesUnder(join(ROOT, "scripts/art"))).filter(file => /\.(mjs|py)$/.test(file)),
     ...["morph_export.py", "phases.py"].map(name => join(ROOT, "scripts/character-lab/realistic", name))];
   return digest(Buffer.from(JSON.stringify(await Promise.all(files.map(async file => {
@@ -62,12 +64,9 @@ function textureKinds(document) {
   return kinds;
 }
 
-async function compressTextures(document, folder, ktx, profile) {
-  assert.equal(profile.colour, "etc1s"); assert.equal(profile.data, "uastc");
-  document.createExtension(KHRTextureBasisu).setRequired(true);
-  for (const [texture, kind] of textureKinds(document)) {
-    const source = texture.getImage();
-    const key = digest(Buffer.concat([Buffer.from(JSON.stringify([profile, kind, TOOL_RELEASES.ktx.version])), source]));
+async function encodeTexture(source, kind, ktx, profile) {
+    assert.equal(profile.colour, "etc1s"); assert.equal(profile.data, "uastc");
+    const key = digest(Buffer.concat([Buffer.from(JSON.stringify([profile, kind, TOOL_RELEASES.ktx.version, encodeTexture.toString().replace(/\r\n/g, "\n")])), source]));
     const cached = join(CACHE, "textures", `${key}.ktx2`);
     if (!existsSync(cached)) {
       await mkdir(join(CACHE, "textures"), { recursive: true });
@@ -76,15 +75,70 @@ async function compressTextures(document, folder, ktx, profile) {
       const input = join(staging, `${key}.png`), output = join(staging, `${key}.ktx2`);
       await sharp(source).resize({ width: profile.maxTextureDimension, height: profile.maxTextureDimension, fit: "inside", withoutEnlargement: true }).ensureAlpha().png().toFile(input);
       const srgb = kind === "colour";
-      await run(ktx, ["create", "--format", srgb ? "R8G8B8A8_SRGB" : "R8G8B8A8_UNORM", "--assign-tf", srgb ? "srgb" : "linear", "--generate-mipmap",
+      await run(ktx, ["create", "--format", srgb ? "R8G8B8A8_SRGB" : "R8G8B8A8_UNORM", "--assign-tf", srgb ? "srgb" : "linear", "--assign-primaries", srgb ? "bt709" : "none", "--generate-mipmap",
         "--encode", srgb ? "basis-lz" : "uastc", "--threads", "1",
         ...(srgb ? ["--qlevel", String(profile.colourQuality), "--clevel", "1"] : ["--uastc-quality", String(profile.dataQuality), "--zstd", String(profile.zstdLevel)]), input, output]);
       await cp(output, cached);
       await rm(input); await rm(output);
     }
-    const bytes = await readFile(cached), uri = await put(folder, bytes, "ktx2", "textures/");
+    return readFile(cached);
+}
+
+async function compressTextures(document, folder, ktx, profile) {
+  document.createExtension(KHRTextureBasisu).setRequired(true);
+  for (const [texture, kind] of textureKinds(document)) {
+    const bytes = await encodeTexture(texture.getImage(), kind, ktx, profile), uri = await put(folder, bytes, "ktx2", "textures/");
     texture.setImage(bytes).setMimeType("image/ktx2").setURI(uri);
   }
+}
+
+async function standaloneTexture(asset, folder, ktx, profile) {
+  const original = await readFile(join(ROOT, asset.source));
+  const encoded = await encodeTexture(original, asset.kind, ktx, profile);
+  const smaller = encoded.length < original.length;
+  const uri = await put(folder, smaller ? encoded : original, smaller ? "ktx2" : asset.source.split(".").at(-1), "textures/");
+  return { uri, resources: [uri] };
+}
+
+/** Standalone GLBs retain their frames, metadata and exact accessor bytes. */
+export async function compressModel(source) {
+  await Promise.all([MeshoptEncoder.ready, MeshoptDecoder.ready]);
+  const document = await io().readBinary(source), expected = dataSignature(document);
+  const structure = doc => JSON.stringify({
+    nodes: doc.getRoot().listNodes().map(node => [node.getName(), node.getTranslation(), node.getRotation(), node.getScale(), node.listChildren().map(child => child.getName()), node.getMesh()?.getName(), node.getExtras()]),
+    meshes: doc.getRoot().listMeshes().map(mesh => [mesh.getName(), mesh.getExtras(), mesh.listPrimitives().map(primitive => [primitive.getMaterial()?.getName(), primitive.getExtras()])]),
+    extras: doc.getRoot().getExtras(),
+  });
+  const expectedStructure = structure(document);
+  document.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({ method: EXTMeshoptCompression.EncoderMethod.QUANTIZE });
+  const output = await io().writeJSON(document);
+  for (const view of output.json.bufferViews ?? []) {
+    if (view.extensions?.EXT_meshopt_compression?.mode === "TRIANGLES") view.extensions.EXT_meshopt_compression.mode = "INDICES";
+  }
+  // Exporters may omit near-identity TRS; the imported frame remains the authored one.
+  for (const [index, node] of output.json.nodes.entries()) {
+    const original = document.getRoot().listNodes()[index];
+    Object.assign(node, { translation: original.getTranslation(), rotation: original.getRotation(), scale: original.getScale() });
+  }
+  assert.equal(dataSignature(await io().readJSON(output)), expected, "Static model data changed");
+  // A GLB keeps the custom skeleton reader independent of external buffer downloads.
+  const buffer = output.json.buffers.findIndex(value => value.uri && output.resources[value.uri]);
+  assert.equal(buffer, 0, "GLB payload must be the first buffer");
+  assert.equal(output.json.buffers.filter(value => value.uri).length, 1, "Standalone model has external buffers");
+  const binary = Buffer.from(output.resources[output.json.buffers[buffer].uri]);
+  delete output.json.buffers[buffer].uri;
+  const text = Buffer.from(JSON.stringify(output.json)), jsonLength = (text.length + 3) & ~3, binLength = (binary.length + 3) & ~3;
+  const result = Buffer.alloc(28 + jsonLength + binLength);
+  result.writeUInt32LE(0x46546c67, 0); result.writeUInt32LE(2, 4); result.writeUInt32LE(result.length, 8);
+  result.writeUInt32LE(jsonLength, 12); result.writeUInt32LE(0x4e4f534a, 16);
+  result.fill(32, 20, 20 + jsonLength); text.copy(result, 20);
+  result.writeUInt32LE(binLength, 20 + jsonLength); result.writeUInt32LE(0x004e4942, 24 + jsonLength); binary.copy(result, 28 + jsonLength);
+  const decoded = await io().readBinary(result);
+  assert.equal(dataSignature(decoded), expected, "Packed model data changed");
+  assert.equal(structure(decoded), expectedStructure, "Static model frames or metadata changed");
+  const validation = await validator.validateBytes(result, { maxIssues: 20 });
+  assert.equal(validation.issues.numErrors, 0, `Invalid model: ${JSON.stringify(validation.issues.messages)}`);
+  return result;
 }
 
 function dataSignature(document) {
@@ -180,8 +234,28 @@ async function decoders(folder) {
   for (const [key, name] of Object.entries(names)) outputs[key] = await put(folder, await readFile(join(base, "wasm", name)), name.split(".").at(-1), "decoders/");
   outputs.meshopt = await put(folder, await readFile(join(ROOT, "node_modules/meshoptimizer/meshopt_decoder.cjs")), "js", "decoders/");
   await writeFile(join(folder, "NOTICE.txt"), await Promise.all(["license.md", "NOTICE.md"].map(name => readFile(join(base, name), "utf8"))).then(text => text.join("\n"))
-    + "\n" + await readFile(join(ROOT, "node_modules/meshoptimizer/LICENSE.md"), "utf8") + "\nCharacter sources: MakeHuman/MPFB CC0; clothing, equipment and motion authored by Auto-RPG.\n");
+    + "\n" + await readFile(join(ROOT, "node_modules/meshoptimizer/LICENSE.md"), "utf8")
+    + "\nCharacter sources: MakeHuman/MPFB CC0; clothing, equipment and motion authored by Auto-RPG.\n"
+    + "Skeleton: Blender Studio Human Base Meshes, CC0. Surface photographs: Poly Haven, CC0; sources in src/render/textures.json. Forge and crypt art authored by Auto-RPG.\n");
   return outputs;
+}
+
+function deliveryUris(manifest) {
+  return [...new Set([
+    ...Object.values(manifest.characters).flatMap(asset => [...asset.model.resources, ...asset.workshop.resources]),
+    ...Object.values(manifest.models ?? {}).flatMap(asset => asset.resources),
+    ...Object.values(manifest.textures ?? {}).flatMap(asset => asset.resources),
+    ...Object.values(manifest.decoders),
+  ])];
+}
+
+async function sizeOf(folder, uris) {
+  return (await Promise.all([...new Set(uris)].map(uri => readFile(join(folder, uri))))).reduce((sum, bytes) => sum + bytes.length, 0);
+}
+
+async function deliveryBytes(folder, manifest) {
+  return await sizeOf(folder, deliveryUris(manifest))
+    + await sizeOf(ROOT, catalog().retained);
 }
 
 /** Structural validation also protects consumers from silent reintroduction of duplicated payloads. */
@@ -216,7 +290,19 @@ export async function checkAssets(folder = OUTPUT) {
     const hash = digest(await readFile(file));
     assert.ok(!hashes.has(hash), `Duplicate encoded texture: ${file}`); hashes.add(hash);
   }
-  for (const uri of Object.values(manifest.decoders)) assert.ok(existsSync(join(folder, uri)), `Missing decoder: ${uri}`);
+  for (const [id, asset] of Object.entries({ ...manifest.models, ...manifest.textures })) {
+    assert.deepEqual(asset.resources, [asset.uri], `${id}: standalone resource graph is incomplete`);
+  }
+  const content = new Map();
+  for (const uri of deliveryUris(manifest)) {
+    assert.ok(!uri.includes("..") && !uri.includes(":") && !uri.startsWith("/"), `Non-local asset: ${uri}`);
+    assert.ok(existsSync(join(folder, uri)), `Missing asset: ${uri}`);
+    const hash = digest(await readFile(join(folder, uri)));
+    assert.equal(hash, uri.split("/").at(-1).split(".")[0], `Changed artifact: ${uri}`);
+    assert.ok(!content.has(hash), `Duplicated delivery payload: ${uri} and ${content.get(hash)}`); content.set(hash, uri);
+  }
+  const total = await deliveryBytes(folder, manifest);
+  assert.ok(total <= catalog().profile.totalBudgetBytes, `Art delivery: ${total} > ${catalog().profile.totalBudgetBytes} bytes`);
   return { manifest, baseBytes: bytes };
 }
 
@@ -225,7 +311,7 @@ async function buildAssets({ force = false } = {}) {
   if (!force && existsSync(join(folder, "manifest.json"))) {
     await checkAssets(folder);
   } else {
-    console.log("Building character assets (lossless source export, shared web resources)");
+    console.log("Building art assets (lossless sources, shared web resources)");
     await mkdir(work, { recursive: true });
     const tools = { blender: await tool("blender"), ktx: await tool("ktx") };
     const assets = {}, spec = catalog();
@@ -235,7 +321,18 @@ async function buildAssets({ force = false } = {}) {
       console.log(`Exporting ${id}`);
       assets[id] = await character(id, asset.source, work, folder, tools, spec.profile);
     }
-    await writeFile(join(folder, "manifest.json"), JSON.stringify({ version: 1, key, characters: assets, decoders: await decoders(folder) }));
+    const models = {}, textures = {};
+    for (const [id, asset] of Object.entries(spec.models)) {
+      console.log(`Compressing ${id}`);
+      const uri = await put(folder, await compressModel(await readFile(join(ROOT, asset.source))), "glb", "models/");
+      models[id] = { uri, resources: [uri] };
+    }
+    for (const [id, asset] of Object.entries(spec.textures)) {
+      console.log(`Encoding ${id}`);
+      assert.ok(existsSync(join(ROOT, asset.licence)), `Missing licence provenance: ${id}`);
+      textures[id] = await standaloneTexture(asset, folder, tools.ktx, spec.profile);
+    }
+    await writeFile(join(folder, "manifest.json"), JSON.stringify({ version: 2, key, characters: assets, models, textures, decoders: await decoders(folder) }));
     await checkAssets(folder);
   }
   await mkdir(OUTPUT, { recursive: true });
@@ -248,11 +345,14 @@ async function buildAssets({ force = false } = {}) {
 
 async function report() {
   const { manifest, baseBytes } = await checkAssets();
-  const size = async uris => (await Promise.all([...new Set(uris)].map(uri => readFile(join(OUTPUT, uri))))).reduce((sum, b) => sum + b.length, 0);
+  const size = uris => sizeOf(OUTPUT, uris);
   const base = Object.values(manifest.characters).flatMap(asset => asset.model.resources);
   const all = Object.values(manifest.characters).flatMap(asset => asset.workshop.resources);
   console.log(JSON.stringify({ harness: "Static web artifacts; bytes before HTTP compression, shared resources counted once", baseBytes,
     workshopAdditionalBytes: await size(all.filter(uri => !base.includes(uri))), decodersBytes: await size(Object.values(manifest.decoders)),
+    modelsBytes: await size(Object.values(manifest.models).flatMap(asset => asset.resources)),
+    environmentTexturesBytes: await size(Object.values(manifest.textures).flatMap(asset => asset.resources)),
+    retainedBytes: await sizeOf(ROOT, catalog().retained), totalBytes: await deliveryBytes(OUTPUT, manifest),
     characters: Object.fromEntries(await Promise.all(Object.entries(manifest.characters).map(async ([id, asset]) => [id, { baseBytes: await size(asset.model.resources), workshopBytes: await size(asset.workshop.resources) }]))), key: manifest.key }, null, 2));
 }
 
@@ -260,7 +360,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   try {
     switch (process.argv[2] ?? "build") {
       case "build": await buildAssets({ force: process.argv.includes("--force") }); console.log("Art assets ready"); break;
-      case "check": await checkAssets(); assert.equal(json(join(OUTPUT, "manifest.json")).key, await inputKey(), "Assets are stale; run npm run assets"); console.log("Art assets valid"); break;
+      case "check": {
+        const { manifest } = await checkAssets();
+        assert.equal(manifest.key, await inputKey(), "Assets are stale; run npm run assets");
+        for (const group of ["characters", "models", "textures"]) assert.deepEqual(Object.keys(manifest[group]).sort(), Object.keys(catalog()[group]).sort(), `${group}: catalogue is incomplete`);
+        console.log("Art assets valid"); break;
+      }
       case "report": await report(); break;
       default: throw new Error("Use build, check or report");
     }

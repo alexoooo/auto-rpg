@@ -7,18 +7,163 @@
     "colourQuality": 200,
     "dataQuality": 2,
     "zstdLevel": 18,
-    "baseBudgetBytes": 8000000
+    "baseBudgetBytes": 8000000,
+    "totalBudgetBytes": 30000000
   },
   "characters": {
     "fighter": {
       "source": "assets/character-lab/fighter.blend",
-      "consumers": ["arena", "dungeon", "lab", "character-lab"],
+      "consumers": [
+        "arena",
+        "dungeon",
+        "lab",
+        "character-lab"
+      ],
       "licence": "assets/character-lab/MAKEHUMAN-CC0.txt"
     },
     "rogue": {
       "source": "assets/character-lab/rogue.blend",
-      "consumers": ["arena", "dungeon", "lab", "character-lab"],
+      "consumers": [
+        "arena",
+        "dungeon",
+        "lab",
+        "character-lab"
+      ],
       "licence": "assets/character-lab/MAKEHUMAN-CC0.txt"
     }
-  }
+  },
+  "models": {
+    "forge/forge-kit.glb": {
+      "source": "assets/art/environment/forge/forge-kit.glb",
+      "licence": "assets/forge/README.md"
+    },
+    "dungeon-reference/chamber.glb": {
+      "source": "assets/art/environment/dungeon-reference/chamber.glb",
+      "licence": "docs/art/crypt.md"
+    },
+    "crypt-kit/kit.glb": {
+      "source": "assets/art/environment/crypt-kit/kit.glb",
+      "licence": "docs/art/crypt.md"
+    },
+    "skeleton/skeleton.glb": {
+      "source": "assets/art/environment/skeleton/skeleton.glb",
+      "licence": "public/assets/skeleton/README.md"
+    }
+  },
+  "textures": {
+    "forge/bronze-color.png": {
+      "source": "assets/art/environment/forge/bronze-color.png",
+      "kind": "colour",
+      "licence": "assets/forge/README.md"
+    },
+    "forge/bronze-orm.png": {
+      "source": "assets/art/environment/forge/bronze-orm.png",
+      "kind": "data",
+      "licence": "assets/forge/README.md"
+    },
+    "forge/carved-normal.png": {
+      "source": "assets/art/environment/forge/carved-normal.png",
+      "kind": "normal",
+      "licence": "assets/forge/README.md"
+    },
+    "forge/carved-orm.png": {
+      "source": "assets/art/environment/forge/carved-orm.png",
+      "kind": "data",
+      "licence": "assets/forge/README.md"
+    },
+    "forge/stone-color.png": {
+      "source": "assets/art/environment/forge/stone-color.png",
+      "kind": "colour",
+      "licence": "assets/forge/README.md"
+    },
+    "forge/stone-normal.png": {
+      "source": "assets/art/environment/forge/stone-normal.png",
+      "kind": "normal",
+      "licence": "assets/forge/README.md"
+    },
+    "forge/stone-orm.png": {
+      "source": "assets/art/environment/forge/stone-orm.png",
+      "kind": "data",
+      "licence": "assets/forge/README.md"
+    },
+    "dungeon-reference/stone-albedo.png": {
+      "source": "assets/art/environment/dungeon-reference/stone-albedo.png",
+      "kind": "colour",
+      "licence": "docs/art/crypt.md"
+    },
+    "dungeon-reference/stone-normal.png": {
+      "source": "assets/art/environment/dungeon-reference/stone-normal.png",
+      "kind": "normal",
+      "licence": "docs/art/crypt.md"
+    },
+    "dungeon-reference/stone-orm.png": {
+      "source": "assets/art/environment/dungeon-reference/stone-orm.png",
+      "kind": "data",
+      "licence": "docs/art/crypt.md"
+    },
+    "textures/fine_grained_wood_arm_1k.jpg": {
+      "source": "assets/art/environment/textures/fine_grained_wood_arm_1k.jpg",
+      "kind": "data",
+      "licence": "src/render/textures.json"
+    },
+    "textures/fine_grained_wood_col_1k.jpg": {
+      "source": "assets/art/environment/textures/fine_grained_wood_col_1k.jpg",
+      "kind": "colour",
+      "licence": "src/render/textures.json"
+    },
+    "textures/fine_grained_wood_nor_gl_1k.jpg": {
+      "source": "assets/art/environment/textures/fine_grained_wood_nor_gl_1k.jpg",
+      "kind": "normal",
+      "licence": "src/render/textures.json"
+    },
+    "textures/large_floor_tiles_02_arm_1k.jpg": {
+      "source": "assets/art/environment/textures/large_floor_tiles_02_arm_1k.jpg",
+      "kind": "data",
+      "licence": "src/render/textures.json"
+    },
+    "textures/large_floor_tiles_02_diff_1k.jpg": {
+      "source": "assets/art/environment/textures/large_floor_tiles_02_diff_1k.jpg",
+      "kind": "colour",
+      "licence": "src/render/textures.json"
+    },
+    "textures/large_floor_tiles_02_nor_gl_1k.jpg": {
+      "source": "assets/art/environment/textures/large_floor_tiles_02_nor_gl_1k.jpg",
+      "kind": "normal",
+      "licence": "src/render/textures.json"
+    },
+    "textures/old_stone_wall_arm_1k.jpg": {
+      "source": "assets/art/environment/textures/old_stone_wall_arm_1k.jpg",
+      "kind": "data",
+      "licence": "src/render/textures.json"
+    },
+    "textures/old_stone_wall_diff_1k.jpg": {
+      "source": "assets/art/environment/textures/old_stone_wall_diff_1k.jpg",
+      "kind": "colour",
+      "licence": "src/render/textures.json"
+    },
+    "textures/old_stone_wall_nor_gl_1k.jpg": {
+      "source": "assets/art/environment/textures/old_stone_wall_nor_gl_1k.jpg",
+      "kind": "normal",
+      "licence": "src/render/textures.json"
+    },
+    "textures/wooden_planks_arm_1k.jpg": {
+      "source": "assets/art/environment/textures/wooden_planks_arm_1k.jpg",
+      "kind": "data",
+      "licence": "src/render/textures.json"
+    },
+    "textures/wooden_planks_diff_1k.jpg": {
+      "source": "assets/art/environment/textures/wooden_planks_diff_1k.jpg",
+      "kind": "colour",
+      "licence": "src/render/textures.json"
+    },
+    "textures/wooden_planks_nor_gl_1k.jpg": {
+      "source": "assets/art/environment/textures/wooden_planks_nor_gl_1k.jpg",
+      "kind": "normal",
+      "licence": "src/render/textures.json"
+    }
+  },
+  "retained": [
+    "public/assets/env.hdr",
+    "public/assets/menu/cathedral.jpg"
+  ]
 }

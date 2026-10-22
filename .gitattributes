@@ -8,3 +8,9 @@ assets/evaluations/** text eol=lf
 # Editable character masters and the shared original texture library.
 assets/character-lab/*.blend filter=lfs diff=lfs merge=lfs -text
 assets/art/textures/** filter=lfs diff=lfs merge=lfs -text
+# Full-quality environment inputs are shared by generated web delivery and authoring tools.
+assets/art/environment/** filter=lfs diff=lfs merge=lfs -text
+assets/forge/*.blend filter=lfs diff=lfs merge=lfs -text
+assets/dungeon-reference/*.blend filter=lfs diff=lfs merge=lfs -text
+assets/crypt-kit/*.blend filter=lfs diff=lfs merge=lfs -text
+assets/skeleton/*.blend filter=lfs diff=lfs merge=lfs -text

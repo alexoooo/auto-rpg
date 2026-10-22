@@ -7,13 +7,14 @@
 // asset the registry already holds gains the consumer on its existing rows, with no download. Running it twice
 // changes nothing, and it refuses a file on disk, or a row, whose sha256 disagrees with what it would write.
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const registryPath = join(root, "src", "render", "textures.json");
-const textureDir = join(root, "public", "assets", "textures");
+const textureDir = join(root, "assets", "art", "environment", "textures");
+const catalogPath = join(root, "assets/art/catalog.json");
 const CC0 = { license: "CC0-1.0", licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/" };
 const CHANNELS = [
   { channel: "albedo", key: "Diffuse", colourSpace: "srgb" },
@@ -27,12 +28,12 @@ function serialize(registry) {
   // A span is written as a decimal, 2.0 and not 2, as the rows were written by hand.
   const format = (k, v) => k === "metresPerRepeat" && Number.isInteger(v) ? v.toFixed(1) : value(v);
   const fields = (row, keys) => keys.filter(k => row[k] !== undefined).map(k => `"${k}": ${format(k, row[k])}`).join(", ");
-  const known = ["name", "file", "localUrl", "url", "sourceUrl", "sha256", "channel", "colourSpace", "family", "consumers",
+  const known = ["name", "file", "asset", "url", "sourceUrl", "sha256", "channel", "colourSpace", "family", "consumers",
     "scale", "invertY", "metresPerRepeat", "normalConvention", "tangentBasis"];
   const row = r => {
     const extra = Object.keys(r).filter(k => !known.includes(k));
     if (extra.length) throw new Error(`${r.name} has fields this script cannot lay out: ${extra.join(", ")}`);
-    const lines = [fields(r, ["name", "file", "localUrl"]), fields(r, ["url", "sourceUrl"]), fields(r, ["sha256", "channel", "colourSpace"]),
+    const lines = [fields(r, ["name", "file", "asset"]), fields(r, ["url", "sourceUrl"]), fields(r, ["sha256", "channel", "colourSpace"]),
       fields(r, ["family", "consumers", "scale", "invertY", "metresPerRepeat"]), fields(r, ["normalConvention", "tangentBasis"])].filter(Boolean);
     return `    {\n${lines.map(l => `      ${l}`).join(",\n")}\n    }`;
   };
@@ -76,7 +77,7 @@ async function register(registry, asset, consumer, metresPerRepeat) {
   for (const { channel, colourSpace, url, file, path, bytes, hash } of maps) {
     writeFileSync(path, bytes);
     registry.textures.push({
-      name: `${asset.replace(/_/g, "-")}-${channel}`, file, localUrl: `/assets/textures/${file}`, url, sourceUrl, sha256: hash,
+      name: `${asset.replace(/_/g, "-")}-${channel}`, file, asset: `textures/${file}`, url, sourceUrl, sha256: hash,
       channel, colourSpace, family, consumers: [consumer], scale: 1, invertY: false, metresPerRepeat,
       ...(channel === "normal" ? { normalConvention: "opengl", tangentBasis: "babylon-lh" } : {}),
     });
@@ -89,9 +90,16 @@ const text = readFileSync(registryPath, "utf8").replace(/\r\n/g, "\n"), registry
 if (serialize(registry) !== text) throw new Error("src/render/textures.json is not in the layout this script writes; refusing to reformat it");
 const specs = process.argv.slice(2);
 if (!specs.length) throw new Error("usage: node scripts/dungeon/fetch-textures.mjs <asset>:<consumer>:<metresPerRepeat> ...");
+mkdirSync(textureDir, { recursive: true });
 for (const spec of specs) {
   const [asset, consumer, metres] = spec.split(":"), metresPerRepeat = Number(metres);
   if (!asset || !consumer || !(metresPerRepeat > 0)) throw new Error(`cannot read ${spec}`);
   await register(registry, asset, consumer, metresPerRepeat);
 }
 writeFileSync(registryPath, serialize(registry));
+const catalog = JSON.parse(readFileSync(catalogPath, "utf8"));
+for (const row of registry.textures) catalog.textures[row.asset] = {
+  source: `assets/art/environment/textures/${row.file}`, kind: row.channel === "albedo" ? "colour" : row.channel === "normal" ? "normal" : "data",
+  licence: "src/render/textures.json",
+};
+writeFileSync(catalogPath, JSON.stringify(catalog, null, 2) + "\n");

@@ -822,7 +822,7 @@ An older pool is listed with what differs from the newest.
 
 **Shared rendering** (`src/render/`, `src/audio/`):
 
-- Character art uses the [asset pipeline](art/assets.md): LFS masters and shared original images
+- Art uses the [asset pipeline](art/assets.md): LFS masters, lossless environment inputs and original images
   compile into hashed geometry, KTX2 textures and workshop animation buffers. `art-assets.ts`
   resolves the generated manifest and self-hosted decoders; `asset-cache.ts` decodes scene-owned
   containers. The core reads exact versioned metadata independently of web compression.

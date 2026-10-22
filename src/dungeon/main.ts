@@ -1,4 +1,6 @@
 import { warmScene } from "../render/ready.ts";
+import { loadArtAssets } from "../render/art-assets.ts";
+import { browserTextures } from "../render/surface.ts";
 import { Engine } from "@babylonjs/core/Engines/engine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera.js";
@@ -353,6 +355,8 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   /** Replaces the run on show with one of `nextSeed`, in the scenario and with the party the start panel chose. */
   async function buildRun(page: DungeonPage, nextSeed: number, stage: (label: string) => Promise<void>): Promise<void> {
     const { engine, audio, reference } = page;
+    const art = await loadArtAssets();
+    page.signal.throwIfAborted();
     const seed = nextSeed >>> 0;
     const cryptPlan = page.selectedScenario === "random-crypt" ? generateCryptDungeon(seed) : undefined;
     const fielded = { seed, layout: cryptPlan?.map ?? (reference ? referenceChamber(seed) : undefined), hero: page.selectedHero, companions: page.companions, attributes: page.attributes };
@@ -399,7 +403,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
     stillShown();
     const run = page.run = new DungeonRun(scene, {
       seed, engine: page.physicsEngine,
-      visuals: { ...dungeonStone(scene, stone.floor, stone.wall), masonry: reference ? false : stone.masonry },
+      visuals: { ...dungeonStone(scene, stone.floor, stone.wall, browserTextures(art)), masonry: reference ? false : stone.masonry },
       layout, prepared, hero: page.selectedHero, companions: page.companions, mind: page.mind, attributes: page.attributes, onBuilt: dress,
       // A blow is a touch, and is heard as one (`hearRun`); this is what it took off, where the party can see.
       onBlow: (blow) => {

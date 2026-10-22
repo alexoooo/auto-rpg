@@ -1,4 +1,4 @@
-import { publicAssetUrl } from "../asset-url.ts";
+import type { ArtAssets } from "./art-assets.ts";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial.js";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture.js";
 import { Color3 } from "@babylonjs/core/Maths/math.color.js";
@@ -27,7 +27,7 @@ function attachMap(material: PBRMaterial, channel: TextureChannel, texture: Text
 /** Apply every sampling fact that is independent of image decoding. */
 function configureTexture(texture: Texture, map: TextureDescriptor): Texture {
   if (texture.invertY !== map.invertY) {
-    throw new Error(`${map.url} was constructed with invertY=${texture.invertY}, expected ${map.invertY}`);
+    throw new Error(`${map.asset} was constructed with invertY=${texture.invertY}, expected ${map.invertY}`);
   }
   texture.gammaSpace = map.colourSpace === "srgb";
   texture.updateSamplingMode(Texture.TRILINEAR_SAMPLINGMODE);
@@ -38,11 +38,11 @@ function configureTexture(texture: Texture, map: TextureDescriptor): Texture {
   return texture;
 }
 
-const browserTexture: TextureFactory = (scene, map, ready, failed) => {
+export const browserTextures = (art: ArtAssets): TextureFactory => (scene, map, ready, failed) => {
   let loaded: Texture | null = null;
   const becameReady = () => loaded ? ready(loaded) : queueMicrotask(becameReady);
   loaded = new Texture(
-    publicAssetUrl(map.url),
+    art.texture(map.asset),
     scene,
     false,
     map.invertY,
@@ -64,7 +64,7 @@ const browserTexture: TextureFactory = (scene, map, ready, failed) => {
 export function surface(
   scene: Scene,
   descriptor: SurfaceDescriptor,
-  textureFactory: TextureFactory = browserTexture,
+  textureFactory: TextureFactory,
 ): PBRMaterial {
   const material = new PBRMaterial(descriptor.name, scene);
   material.albedoColor = Color3.FromArray(descriptor.albedo);
