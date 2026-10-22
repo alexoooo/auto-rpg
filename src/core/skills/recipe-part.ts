@@ -1,15 +1,27 @@
-import { commandable } from "../body.ts";
-import type { ExecutorConfig } from "../mind/config.ts";
+import { takesCommands } from "../mind/parts.ts";
 import { text } from "../mind/fields.ts";
 import { noPathSettings, type ExecutorPart } from "../mind/executor-part.ts";
-import { recipeExecutor } from "./strike.ts";
-import { REPERTOIRE, recipeAt, recipesFor, strikesWithBlunt } from "./strikes.ts";
+import { recipeExecutor, type Placed } from "./strike.ts";
+import { REPERTOIRE, recipeAt, recipesFor, strikesWithBlunt, type Repertoire } from "./strikes.ts";
 
-type Config = Extract<ExecutorConfig, { kind: "recipe-strike" }>;
+/** **The recipe strike**: the searched recipe blows for what a hand holds (`recipeExecutor`, `skills/strike.ts`). */
+interface Config {
+  readonly kind: "recipe-strike";
+  readonly name: string;
+  readonly tuning?: {
+    /** Strikes in place of the searched repertoire (`REPERTOIRE`): a search's candidate. */
+    readonly repertoire?: Repertoire;
+    /** The placed blow in place of `PLACED`: a sweep's cell. */
+    readonly placed?: Placed;
+    /** The most a blow turns the pelvis in place of `STEER`: a sweep's cell. */
+    readonly steer?: number;
+  };
+}
+
 /** Recipe construction and measured net estimates share one registration. */
 export const RECIPE_PART: ExecutorPart<Config> = {
-  role: "executor", label: "Recipe strike", stage: "game", defaults: { kind: "recipe-strike", name: "recipe" },
-  fields: [text("name", "Name")], slots: [], tuning: ["repertoire", "placed", "steer"], fits: commandable,
+  role: "executor", label: "Recipe strike", stage: "game", defaults: { kind: "recipe-strike", name: "recipe" }, keys: { kind: true, name: true, tuning: true },
+  fields: [text("name", "Name")], slots: [], tuning: ["repertoire", "placed", "steer"], fits: takesCommands,
   faults: () => [], effectors: ["hand.left", "hand.right"], actionFaults: noPathSettings,
   // A hand strikes with a blunt item by placement, and with anything its repertoire holds a recipe for.
   strikesWith: (spec, config, effector) => strikesWithBlunt(spec, effector)

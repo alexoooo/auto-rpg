@@ -5,7 +5,6 @@ import { locomotion } from "../../skills/locomotion.ts";
 import type { Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { Clock } from "../../clock.ts";
-import type { StandUpConfig } from "../config.ts";
 import type { OwnBody } from "../mind.ts";
 import type { SubMind } from "../sub-mind.ts";
 import { flatten } from "./flatten.ts";
@@ -22,6 +21,9 @@ const BRACE_LIMIT = 1, STEADY_LIMIT = 2, BACKOFF = 2, RETRIES = 2, LOG_SIZE = 32
 type Mode = "execute" | "brace" | "steady" | "reposition" | "stuck";
 interface Attempt { technique: string; side: Side; from: Position; to: Position; seconds: number }
 interface Entry extends Attempt { end: TechniqueEnd | "ready" | "steady-limit" }
+
+/** Preferred contracts for recovering the feet, in player order. */
+export interface StandUpConfig { readonly kind: "stand-up"; readonly techniques: readonly TechniqueName[] }
 
 /** A supervisor retries contracts from the body as read; no successful reposition clears a failure. */
 export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: StandUpConfig,

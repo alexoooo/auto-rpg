@@ -20,24 +20,27 @@ export interface Version {
   readonly own: string;
   /** The protocol its cases played (`Cases.play`). */
   readonly protocol: string;
-  /** The code they ran on (`environmentOf`). */
+  /** The code every case ran on: the environment (`caseCoder`, `scripts/build-identity.mjs`). */
   readonly environment: string;
-  /** The digest of the three: the version's name. */
+  /** Its minds' own code beyond the environment, their kinds' and data's (`caseCoder`); absent where it names none. */
+  readonly code?: string;
+  /** The digest of the others: the version's name. */
   readonly version: string;
 }
 
-/** What a version is changed in from another: its content, protocol, environment. */
-type Change = "own" | "protocol" | "environment";
+/** What a version is changed in from another: its content, protocol, environment, own code. */
+type Change = "own" | "protocol" | "environment" | "code";
 
-/** The version of `value` in the pool of `play` and `environment`. */
-export function versionOf(value: Json, play: Json, environment: string): Version {
+/** The version of `value` in the pool of `play` and `environment`, its minds' own code `code` (none unless given). */
+export function versionOf(value: Json, play: Json, environment: string, code: string | null = null): Version {
   const own = digest(value), protocol = digest(play);
-  return { own, protocol, environment, version: digest({ own, protocol, environment }) };
+  return code === null ? { own, protocol, environment, version: digest({ own, protocol, environment }) }
+    : { own, protocol, environment, code, version: digest({ own, protocol, environment, code }) };
 }
 
 /** Which of a version's parts differ from `parent`'s. */
 export const changesFrom = (version: Version, parent: Version): Change[] =>
-  (["own", "protocol", "environment"] as const).filter((kind) => version[kind] !== parent[kind]);
+  (["own", "protocol", "environment", "code"] as const).filter((kind) => (version[kind] ?? null) !== (parent[kind] ?? null));
 
 /** A version named by its id. */
 export interface Named {
@@ -80,19 +83,21 @@ export const recordIdentity = (build: string, engine: string, harness: string, p
 
 /**
  * `subject` as recorded in the pool of `play` and `environment`, its parent `parent` (none
- * unless named): its own content its value and its parts' together; each part's parent the
- * parent's part of the same kind (`mind:`, `model:`).
+ * unless named): its own content its value and its parts' together, its own code what `code` gives
+ * its parts (`caseCoder`'s `own`); each part's parent the parent's part of the same kind (`mind:`,
+ * `model:`).
  */
-export function recordedSubject(subject: Subject, play: Json, environment: string, parent: RecordedSubject | null): RecordedSubject {
+export function recordedSubject(subject: Subject, play: Json, environment: string, parent: RecordedSubject | null,
+  code: (parts: Subject["parts"]) => string | null = () => null): RecordedSubject {
   const own = { value: subject.value, parts: subject.parts.map(({ id, value }) => ({ id, value })) };
-  const version = versionOf(own, play, environment), kind = (id: string) => id.slice(0, id.indexOf(":") + 1);
+  const version = versionOf(own, play, environment, code(subject.parts)), kind = (id: string) => id.slice(0, id.indexOf(":") + 1);
   return {
     id: subject.id, label: subject.label, value: subject.value, version,
     parent: parent && { id: parent.id, version: parent.version },
     changes: parent ? changesFrom(version, parent.version) : [],
     parts: subject.parts.map((part) => {
       const before = parent?.parts.find((one) => kind(one.id) === kind(part.id));
-      return { id: part.id, version: versionOf(part.value, play, environment), parent: before ? { id: before.id, version: before.version } : null };
+      return { id: part.id, version: versionOf(part.value, play, environment, code([part])), parent: before ? { id: before.id, version: before.version } : null };
     }),
   };
 }
