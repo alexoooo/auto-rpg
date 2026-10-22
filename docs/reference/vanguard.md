@@ -5,8 +5,9 @@ minds. The supported-low preset wins eight of eight against its four-member pane
 do not establish the requested win rate across opponents and equipment. Widening the current
 preset to the Skeleton exposes two losses against Options; it wins both on the Rogue. The
 punching kit also loses both direct bouts to the original Vanguard.
-The optional refreshed prediction wins 5/6 in its paired development cases, including one
-Skeleton win, and remains below the required per-opponent result.
+The optional contact-driven policy with periodic re-evaluation wins all six of its paired
+development bouts, including both Skeleton sides, but fails fresh unarmed qualification against
+Options: two losses and a draw make the required 10/12 impossible. Equipment is unqualified.
 
 ## What is used
 
@@ -100,6 +101,57 @@ at 54.85 s, without falling in the raw development reading. Its left-side Skelet
 deficit at the cap grows from 0.004665 to 0.078327. This is a useful option with a remaining
 weak side, rather than qualification against Options. Other bodies, starts, levels and equipment
 are outside these paired records.
+
+## Contact-driven policy
+
+The optional `adaptiveEvade` compares two ordinary behaviour policies, with and without the
+configured evasion behaviour. `slowEvade` caps an evasive step at 0.2 m/s. Only onset, loaded,
+non-guard contacts on the committed stroke's intended target region contribute: normal impulse
+times preceding relative normal speed ranks those impacts. This is a contact heuristic, not
+the foe's health or the rulebook's damage. Both policies keep independent memories.
+
+The fighter compares six-second periods between strokes, weighting the latest period and its
+earlier mean equally. `revisitEvade` retries the other policy after four consecutive periods
+of the preferred policy, including when its initial trial scored zero. All feedback, timing
+and policy memories fork with the fighter.
+
+The [Skeleton record](../../assets/evaluations/tournament/2026-10-22-70df4389-cf2d165f.jsonl)
+compares periodic re-evaluation with greedy contact learning. The
+[Warrior record](../../assets/evaluations/tournament/2026-10-22-70df4389-c25f74c2.jsonl)
+compares it with refreshed prediction alone. Both carry full configurations and recipes at
+source commit `70df4389`. Harness and conditions are the Node Arena Duel, `rapier-coordinate`,
+120 Hz, matched bodies, empty hands, Balance 0/0, open stage, 4 m gap, each side, continuing
+after falls to injury or 120 s.
+
+| Body / opponent | Re-evaluation wins | Injury / time-limit wins | Named reference wins |
+| --- | ---: | ---: | ---: |
+| Skeleton / Options | 2/2 | 0 / 2 | Greedy learning: 1/2 |
+| Warrior / Options | 2/2 | 1 / 1 | Prediction alone: 2/2 |
+| Warrior / Counter-puncher | 2/2 | 2 / 0 | Prediction alone: 2/2 |
+
+All 12 bouts are valid, without draws or falls. Both panel reports remain unsettled. These six
+candidate wins are development evidence; the per-opponent held-out target is still open.
+
+## Fresh unarmed qualification
+
+The frozen contact-driven configuration at `70df4389` fails the first Options campaign. Its
+preregistered matrix has twelve bouts, both sides of the Warrior, Rogue and Skeleton on the
+open stage and obstacle court, at distinct starts. More than 80% requires ten wins; draws do
+not count. Harness is the Node Arena Duel, `rapier-coordinate`, 120 Hz, empty hands, matched
+bodies, Balance 0/0 and the ordinary 120 s cap, continuing after falls.
+
+| Completed case | Result | Ending | Candidate falls |
+| --- | --- | --- | ---: |
+| Rogue, open, 6.85 m, right | Draw, neither side damaged | 120 s | 3 |
+| Skeleton, open, 4.35 m, right | Loss | Injury at 85.5333 s | 0 |
+| Skeleton, open, 4.35 m, left | Loss | 120 s | 0 |
+
+The run stops at the third non-win, with zero wins in three completed cases. The other nine
+cases have no completed result and are not counted as losses. The complete manifest, decision,
+case keys and row references are retained in
+`research/runs/vanguard/qualification/campaign-1-options.json`; completed physical rows remain
+in `research/runs/vanguard/bouts.jsonl`. This failed matrix is development evidence for a revised
+fighter, which needs fresh confirmation.
 
 ## Tried and not kept
 
