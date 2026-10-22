@@ -1,3 +1,4 @@
+import { carrying } from "../../control/motor.ts";
 import { SERVO_SECONDS, type BodyView } from "../../body.ts";
 import type { MindKit } from "../kit.ts";
 import { locomotion } from "../../skills/locomotion.ts";
@@ -42,7 +43,7 @@ export function standUp(own: OwnBody, view: BodyView, clock: Clock, config: Stan
   }
   runs.flatten = flatten(own, view);
   const drive = poseDrive(own.muscles), work = graphWork(), legs = locomotion(null);
-  const motor = kit.motor(own.built, SERVO_SECONDS, kit.posture, undefined, own.assist);
+  const motor = carrying(kit.motor(own.built, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "the stand-up");
   const state = { active: false, mode: "brace" as Mode, time: 0, ready: 0, braceUsed: false,
     current: null as Attempt | null, route: [] as RouteStep[], failures: [] as GraphFailure[],
     reposition: [] as string[], steadyTried: [] as Position[], log: [] as Entry[], omitted: 0,

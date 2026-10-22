@@ -16,12 +16,12 @@ import type { SubMind } from "./sub-mind.ts";
 export const GAME_GUARD: PartConfig = Object.freeze({ kind: "cover-guard" });
 
 /** The game's motor control, where a mind names none: the whole-body solve. */
-export const GAME_MOTOR: PartConfig = Object.freeze({ kind: "whole-body" });
+export const GAME_MOTOR: PartConfig = Object.freeze({ kind: "whole-body", balance: Object.freeze({ kind: "stance" }) });
 
 /** What makes the motor control `config` names, the game's where it names none, as `parts` finds it. */
 export function motorOf(parts: PartLookup, config: PartConfig | null | undefined): MotorMaker {
   const named = config ?? GAME_MOTOR;
-  return parts.of("motor", named).make(named);
+  return parts.of("motor", named).make(named, parts);
 }
 
 /** Legs of any kind `parts` finds, as Move makes its gaits (`LocomotionPart.make`). */

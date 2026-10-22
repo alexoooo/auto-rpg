@@ -1,3 +1,4 @@
+import { carrying } from "../../control/motor.ts";
 import poses from "../../../../assets/research/posture-holds.json" with { type: "json" };
 import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { MotionModel } from "../../control/tasks.ts";
@@ -52,7 +53,7 @@ export function supportEntryPolicy(built: ReadBody, model: Pick<MotionModel, "ch
 export function supportRecovery(own: OwnBody, view: BodyView, clock: Clock, kit: MindKit, recipe: Recipe = RISE): SubMind {
   const { built, muscles } = own;
   const rise = stagedRise(own, view, recipe), feet = footStatesOf(built), legs = locomotion(null);
-  const motor = kit.motor(built, SERVO_SECONDS, kit.posture, undefined, own.assist);
+  const motor = carrying(kit.motor(built, SERVO_SECONDS, kit.posture, undefined, own.assist), ["stance"], "support recovery");
   const observe = observeBody(built, muscles, clock, () => view.senses);
   const state = { phase: "complete" as "rise" | "stabilize" | "complete", rise: rise.state, motor: motor.state, legs: legs.state,
     time: 0, ready: 0, retries: 0, completed: 0 };

@@ -12,7 +12,7 @@ import { humanSpec } from "../../human/spec.ts";
 import { deepFreeze } from "../../state.ts";
 import type { BodySpec } from "../../spec/body.ts";
 import type { Clock } from "../../clock.ts";
-import type { Pose } from "../../control/motor.ts";
+import { carrying, type Pose } from "../../control/motor.ts";
 import type { OwnBody } from "../mind.ts";
 import { riseLimbs, type RiseLimbs } from "../rise/limbs.ts";
 import { RISE } from "../rise/stages.ts";
@@ -58,7 +58,7 @@ export function plantUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKi
   const hand = [index("hand.left"), index("hand.right")], shin = [index("shank.left"), index("shank.right")];
   const root = muscles.dynamics.root.segment, low = uprightness(own.built);
   const made: RiseLimbs = riseLimbs(own, RISE);
-  const motor = kit.motor(own.built, .1, kit.posture);
+  const motor = carrying(kit.motor(own.built, .1, kit.posture), ["stance"], "the plant-up");
   const state = { phase: "brace" as Phase, ended: null as TechniqueEnd | null, begun: false, elapsed: 0, heading: 0,
     initial: Object.fromEntries(muscles.channels.map(c => [c.name, 0])),
     yieldPending: false, clock: clock.state, motor: motor.state,

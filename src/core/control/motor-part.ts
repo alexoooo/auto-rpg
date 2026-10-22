@@ -1,11 +1,16 @@
+import type { PartLookup } from "../mind/lookup.ts";
 import type { KeysOf, Part, PartConfig } from "../mind/parts.ts";
-import type { motorControl } from "./motor.ts";
+import type { ReadBody } from "../read-body.ts";
+import type { Assist } from "./assist.ts";
+import type { MotorControl, Pose } from "./motor.ts";
+import type { StanceTuning } from "./stance-tuning.ts";
 
 /**
  * **What makes a motor control**: from the body, its servo's time constant, its posture, its
- * stance's tuning and its assist, as `motorControl` is; it takes the goals `BodyCommand` names.
+ * stance's tuning and its assist, as `motorControl` is; it says the goals it carries out
+ * (`MotorControl.carries`).
  */
-export type MotorMaker = typeof motorControl;
+export type MotorMaker = (built: ReadBody, seconds: number, posture?: Pose, stanceTuning?: StanceTuning, assist?: Assist | null) => MotorControl;
 
 /**
  * **A kind of motor control**: a part of role `motor` that owns its config's type, keys, defaults,
@@ -16,6 +21,6 @@ export type MotorMaker = typeof motorControl;
 export interface MotorPart<C extends PartConfig = PartConfig> extends Part<C> {
   readonly role: "motor";
   readonly keys: KeysOf<C>;
-  /** What makes a motor control of `config`. */
-  make(config: C): MotorMaker;
+  /** What makes a motor control of `config`, the parts it names (its balance) as `parts` finds them. */
+  make(config: C, parts: PartLookup): MotorMaker;
 }

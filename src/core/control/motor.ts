@@ -8,6 +8,7 @@ import type { Limb, Row } from "./bearing.ts";
 import { servoAsk, servoSolve, type ServoWork } from "./servo.ts";
 import { makeWholeBody, solveBody, type WholeBodyAsk } from "./solve.ts";
 import { stanceControl, type StanceControl, type StanceGoal } from "./stance.ts";
+import type { BalanceMaker } from "./balance-part.ts";
 import type { StanceTuning } from "./stance-tuning.ts";
 import { type ReadBody, type ReadSegment, rootSegment } from "../read-body.ts";
 
@@ -72,12 +73,33 @@ export interface PointTask {
  * hold the posture from the pelvis, as a body carried or in the air, and the servo solves it.
  */
 export interface MotorControl {
-  /** What it can reach with, in declared order. */
-  readonly effectors: readonly EffectorModel[];
+  /** The goals beyond a posture and pushes it carries out (`MotorGoal`): what it has the members for (`carrying`). */
+  readonly carries: readonly MotorGoal[];
   /** The controller for `driveMuscles`. */
   readonly control: MuscleController;
   /** Hold `pose` for every freedom no effector's goal owns, from `control`'s next call. */
   setPosture(pose: Pose): void;
+  /** Drive `pushes` flat out from `control`'s next call, in place of those before. */
+  setPushes(pushes: readonly MusclePush[]): void;
+  /** Forget what was under way: no pushes, and none of the goals it carries (`StanceControl.reset` with a stance). The posture stays. */
+  reset(): void;
+  /** The segment whose frame the body frame is carried by. */
+  readonly root: ReadSegment;
+  /** Its memory (`src/core/state.ts`). */
+  readonly state: object;
+}
+
+/**
+ * **A goal a motor may carry out** beside a posture and pushes: effectors' places (`Reaching`),
+ * driven points (`Pointing`) and a stance (`Balancing`). A motor says which (`MotorControl.carries`),
+ * and what drives it asks for those it needs where it is made (`carrying`).
+ */
+export type MotorGoal = "effectors" | "points" | "stance";
+
+/** **A motor that takes effectors to places** (`EffectorGoal`). */
+export interface Reaching {
+  /** What it can reach with, in declared order. */
+  readonly effectors: readonly EffectorModel[];
   /**
    * Take the effector of `segment` to `goal`, from `control`'s next call. It refuses, with the
    * reason, a point its rigid body has not, no place or more than two, and two places whose
@@ -86,37 +108,59 @@ export interface MotorControl {
   reach(segment: string, goal: EffectorGoal): void;
   /** Give the chain of `segment`'s effector back to the posture. */
   release(segment: string): void;
-  /** Drive `pushes` flat out from `control`'s next call, in place of those before. */
-  setPushes(pushes: readonly MusclePush[]): void;
+  /** Where the path of `segment`'s first place stands now (body frame), or null with no goal. */
+  path(segment: string): Vector3 | null;
+  /** Where `point` of `segment`'s rigid body is now, body frame. */
+  pointToRef(segment: string, point: string, out: Vector3): Vector3;
+}
+
+/** **A motor that drives effectors' points** (`PointTask`). */
+export interface Pointing {
   /**
    * Drive `tasks`' points from `control`'s next call, in place of those before (`PointTask`). It
    * refuses a segment with no effector, a point its rigid body has not, and two tasks on one segment.
    */
   setPoints(tasks: readonly PointTask[]): void;
+}
+
+/** **A motor that stands the body on the ground**: its balance (`BalancePart`) carries out a stance goal. */
+export interface Balancing {
   /** Stand on the ground as `goal` asks, or with null leave the legs to the posture, from `control`'s next call. */
   setStance(goal: StanceGoal | null): void;
   /** The stance goal it was last given, or null: what the legs are asked to hold. */
   readonly standing: StanceGoal | null;
-  /** Forget what was under way: no pushes, no points driven, no stance, no effector's goal, and the stance's own memory (`StanceControl.reset`). The posture stays. */
-  reset(): void;
-  /** The stance's readings, as its last step left them. */
+  /** Its balance: the stance's readings, as its last step left them. */
   readonly stance: StanceControl;
-  /** Where the path of `segment`'s first place stands now (body frame), or null with no goal. */
-  path(segment: string): Vector3 | null;
-  /** Where `point` of `segment`'s rigid body is now, body frame. */
-  pointToRef(segment: string, point: string, out: Vector3): Vector3;
-  /** The segment whose frame the body frame is carried by. */
-  readonly root: ReadSegment;
-  /** Its memory (`src/core/state.ts`): the goals it was last given, each effector's path, their solves counted (`ReachMeter`), and the stance's. */
-  readonly state: object;
 }
 
+/** A motor with the members of each goal of `G`. */
+export type Carrying<G extends MotorGoal> = MotorControl & ("effectors" extends G ? Reaching : unknown) & ("points" extends G ? Pointing : unknown) & ("stance" extends G ? Balancing : unknown);
+
+/** What a person calls each goal, in a refusal. */
+const GOAL_NAMES: Readonly<Record<MotorGoal, string>> = Object.freeze({ effectors: "effectors' places", points: "driven points", stance: "a stance" });
+
 /**
- * Motor control of `built`, servoing at a time constant of `seconds`; its stance asks `assist` for
- * what the soles miss.
+ * `motor` as one that carries `goals`, for `who` to drive it by them: a thrown error, where it is
+ * made, naming the first goal it does not carry.
  */
-export function motorControl(built: ReadBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning, assist: Assist | null = null): MotorControl {
-  const stance = stanceControl(built, stanceTuning, assist);
+export function carrying<G extends MotorGoal>(motor: MotorControl, goals: readonly G[], who: string): Carrying<G> {
+  for (const goal of goals) if (!motor.carries.includes(goal)) throw new Error(`${who} needs a motor that carries ${GOAL_NAMES[goal]}`);
+  return motor as Carrying<G>;
+}
+
+/** **The whole-body solve**: every goal (`motorControl`). */
+export type WholeBody = Carrying<MotorGoal>;
+
+/** Every goal. */
+const EVERY_GOAL: readonly MotorGoal[] = Object.freeze(["effectors", "points", "stance"]);
+
+/**
+ * Motor control of `built`, servoing at a time constant of `seconds`; its balance (`balance`, the
+ * stance unless given) asks `assist` for what the soles miss.
+ */
+export function motorControl(built: ReadBody, seconds: number, posture: Pose = {}, stanceTuning?: StanceTuning, assist: Assist | null = null,
+  balance: BalanceMaker = stanceControl): WholeBody {
+  const stance = balance(built, stanceTuning, assist);
   const root = rootSegment(built);
   const tracker = effectorTracker(built, root);
   const points = pointLimbs(built);
@@ -160,7 +204,7 @@ export function motorControl(built: ReadBody, seconds: number, posture: Pose = {
   };
 
   return {
-    control, effectors: tracker.models,
+    carries: EVERY_GOAL, control, effectors: tracker.models,
     setPosture(next) { state.pose = next; },
     reach: tracker.reach,
     release: tracker.release,

@@ -1,3 +1,4 @@
+import { carrying } from "../../control/motor.ts";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { BodyView } from "../../body.ts";
 import type { MindKit } from "../kit.ts";
@@ -178,7 +179,7 @@ export function stepUp(own: OwnBody, view: BodyView, _clock: Clock, kit: MindKit
 } {
   const whole = stepUpRecipe(tuning, base), from = (stage: string): Recipe => ({ ...whole, rise: whole.rise.slice(whole.rise.findIndex(s => s.name === stage)) });
   const rises = { whole: stagedRise(own, view, whole), fours: stagedRise(own, view, from(JOINS.fours)), "half-kneel": stagedRise(own, view, from(JOINS["half-kneel"])) };
-  const motor = kit.motor(own.built, .1, kit.posture);
+  const motor = carrying(kit.motor(own.built, .1, kit.posture), ["stance"], "the step-up");
   const state = { phase: "rise" as Phase, entry: "whole" as Entry, begun: false, rose: false, ended: null as TechniqueEnd | null,
     elapsed: 0, steady: 0, off: 0, reached: 0, height: 0, heading: 0,
     rises: { whole: rises.whole.state, fours: rises.fours.state, "half-kneel": rises["half-kneel"].state }, motor: motor.state };

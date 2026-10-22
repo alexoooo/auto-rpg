@@ -1,4 +1,5 @@
 import type { MotorPart } from "../control/motor-part.ts";
+import type { BalancePart } from "../control/balance-part.ts";
 import type { Controller } from "./controller.ts";
 import type { ExecutorPart } from "./executor-part.ts";
 import type { LocomotionPart } from "./locomotion-part.ts";
@@ -28,6 +29,7 @@ export interface RoleParts {
   readonly support: SupportPart;
   readonly reflex: ReflexPart;
   readonly motor: MotorPart;
+  readonly balance: BalancePart;
 }
 
 /**

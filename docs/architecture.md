@@ -227,7 +227,16 @@ a stance goal) into muscle commands.
   makes a motor control (`MotorMaker`, made as `motorControl` is). A mind resolves it through its
   host's lookup (`motorOf`) and hands it to its body (`BodyOptions.motor`, the whole-body solve where
   none is given) and to its sub-minds; one that needs goals a `BodyCommand` does not name brings
-  their vocabulary with it.
+  their vocabulary with it. A motor control asks of every motor a posture, pushes and a reset; the
+  goals beyond them it says it carries (`MotorControl.carries`, `MotorGoal`: effectors' places,
+  driven points, a stance), and what drives it asks for those it needs where it is made
+  (`carrying`): the command layers for all three, each recovery technique for a stance, so a
+  motor without one is refused there with the reason.
+- **Balance is a part** of role `balance` (`BALANCES`, `src/core/control/balances.ts`, a role list,
+  `BalancePart`, `balance-part.ts`), named by the whole-body solve's `balance` slot; the game's is
+  the stance (`STANCE_BALANCE`, `stance-balance.ts`), which fits a body with a box sole under each
+  foot (`standsOnSoles`). A motor that carries a stance stands the body with the balance its config
+  names, and the command layers' view reads the stance from it.
 - **The stance** (`stance.ts`; records `stance-state.ts`, steps `gait.ts`, soles `support.ts`,
   constants `stance-tuning.ts`) is the standing plan and the solve's first user
   (`StanceControl.ask`). It keeps the centre of mass inside the support by forces the ground can
@@ -425,7 +434,7 @@ screen must give). `allParts` (`catalog.ts`) is every part by kind: the parts be
 mind, and each mind's own parts (`Controller.parts`), read once on first use so that any module may
 load first. A role whose parts make themselves has a list of them that holds its imports and its
 list and nothing else (`NAVIGATIONS`, `EXECUTORS`, `TECHNIQUES` in `ground/`, `GUARDS`, `SUPPORTS`, `SUB_MINDS`, `LOCOMOTIONS`, `PLANNERS`, `BEHAVIOURS` in
-`src/core/mind/`; `REFLEXES` in `options/`; `MOTORS` in `src/core/control/`; `MOVE_RULES` in
+`src/core/mind/`; `REFLEXES` in `options/`; `MOTORS` and `BALANCES` in `src/core/control/`; `MOVE_RULES` in
 `src/core/skills/`), so a case's code begins each part's own
 code there; its parts make what they are (`NavigatorPart.make`), and an assembly makes the one a
 config names as the host's lookup finds it. A part whose checks read the parts it names is handed

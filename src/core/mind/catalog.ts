@@ -15,6 +15,7 @@ import { REFLEXES } from "./options/reflexes.ts";
 import { TECHNIQUES } from "./ground/techniques.ts";
 import type { TechniqueConfig } from "./ground/technique.ts";
 import { MOTORS } from "../control/motors.ts";
+import { BALANCES } from "../control/balances.ts";
 import { PLANNERS } from "./planners.ts";
 import { NAVIGATIONS } from "./navigations.ts";
 import type { PartLookup, RoleParts } from "./lookup.ts";
@@ -45,7 +46,7 @@ let registry: Registry | null = null;
 function registered(): Registry {
   if (registry) return registry;
   const below: { readonly [K in AnyPart["kind"]]: Part<Extract<AnyPart, { kind: K }>> } = { ...listed(SUB_MINDS), ...listed(TECHNIQUES), ...listed(PLANNERS), ...listed(BEHAVIOURS), ...listed(MOVE_RULES),
-    ...listed(LOCOMOTIONS), ...listed(GUARDS), ...listed(SUPPORTS), ...listed(EXECUTORS), ...listed(REFLEXES), ...listed(MOTORS), ...listed(NAVIGATIONS) };
+    ...listed(LOCOMOTIONS), ...listed(GUARDS), ...listed(SUPPORTS), ...listed(EXECUTORS), ...listed(REFLEXES), ...listed(MOTORS), ...listed(BALANCES), ...listed(NAVIGATIONS) };
   const parts: Record<string, Part> = { ...below }, owners: Record<string, string> = {};
   const add = (kind: string, part: Part, what: string) => {
     if (Object.hasOwn(parts, kind)) throw new Error(`${what} of kind ${JSON.stringify(kind)} is another part's`);

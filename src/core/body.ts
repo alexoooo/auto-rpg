@@ -3,7 +3,7 @@ import type { Assist, AssistCeiling } from "./control/assist.ts";
 import { uprightness } from "./control/ground.ts";
 import { standingHeight } from "./control/support.ts";
 import { rootFrameToRef, type Frame } from "./control/kinematics.ts";
-import { motorControl, type EffectorGoal, type MotorControl, type MusclePush, type PointTask, type Pose } from "./control/motor.ts";
+import { carrying, motorControl, type EffectorGoal, type MusclePush, type PointTask, type Pose } from "./control/motor.ts";
 import type { StanceGoal, StanceReading } from "./control/stance.ts";
 import type { StanceTuning } from "./control/stance-tuning.ts";
 import { stanceEnvelope, type StanceEnvelope } from "./control/stance-envelope.ts";
@@ -239,7 +239,8 @@ interface CommandMind extends HostMind {
 export function commandMind(own: OwnBody, { servoSeconds, stance, feedback: feedbackEnabled, contactIdentity, contacts, motor: makeMotor }: BodyOptions,
   dt = 1 / PHYSICS_HZ.value): CommandMind {
   const { built, muscles } = own;
-  const motor: MotorControl = (makeMotor ?? motorControl)(built, servoSeconds, {}, stance, own.assist);
+  // The command layers' vocabulary is every goal a motor may carry out (`BodyCommand`).
+  const motor = carrying((makeMotor ?? motorControl)(built, servoSeconds, {}, stance, own.assist), ["effectors", "points", "stance"], "the command layers");
   const feedback = feedbackEnabled ? effectorFeedback(built, motor.effectors.map(e => e.segment), contactIdentity,
     segment => contacts?.(segment) ?? []) : null;
   const fists = { left: fistOf(built, "left"), right: fistOf(built, "right") };

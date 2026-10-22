@@ -19,6 +19,8 @@ import { STUB_REFLEX } from "./stub-reflex.mjs";
 import { STUB_SUB } from "./stub-sub.mjs";
 import { STUB_TECHNIQUE } from "./stub-technique.mjs";
 import { STUB_TAKEOVER } from "./stub-takeover.mjs";
+import { STUB_BALANCE } from "./stub-balance.mjs";
+import { GAME_MOTOR } from "../../../src/core/mind/kit.ts";
 
 /** Where a stub behaviour goes: after the fighter's own. */
 const BEHAVIOUR_AT = RECIPE_FIGHTER.tactics.list.length;
@@ -47,6 +49,8 @@ export const STUBS = Object.freeze([
   { part: STUB_SUB, mind: "swap-options", at: `subs.${OPTIONS.subs.length}`, place: (config) => ({ ...config, subs: [...config.subs, STUB_SUB.defaults] }),
     read: (state) => state.tactics.options[OPTIONS.subs.length].mind },
   { part: STUB_REFLEX, mind: "swap-options", at: "reflexes.0", place: (config) => ({ ...config, reflexes: [STUB_REFLEX.defaults] }), read: (state) => state.tactics.reflexes.own[0] },
+  { part: STUB_BALANCE, mind: "swap-options", at: "motor.balance", place: (config) => ({ ...config, motor: { ...GAME_MOTOR, balance: STUB_BALANCE.defaults } }),
+    read: (_mind, body) => body.mind.host.motor.stance },
 ].map(Object.freeze));
 
 /** Each fixture mind's game config: where its stubs are placed one at a time. */
