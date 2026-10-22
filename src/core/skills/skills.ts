@@ -11,12 +11,15 @@ import { recipeExecutor, type Placed } from "./strike.ts";
 import { REPERTOIRE, type Repertoire } from "./strikes.ts";
 import type { SupportReport } from "./support-fold.ts";
 import type { NavigationReport } from "../mind/navigation.ts";
+import type { GaitLimits } from "../mind/travel.ts";
 
 /** The body's sole action runtime composes discrete commitments with continuous services. */
 export interface Skills extends Skill {
   command(view: BodyView, intent: Intent, dt: number): BodyCommand;
   readonly report: SkillReport;
   readonly envelope: StanceEnvelope | null;
+  /** The limits its legs state, which the speed rule reads (`travelSpeed`): what a team reads of how fast it goes. */
+  readonly gait: GaitLimits;
   readonly state: object;
   instance(): number;
   readiness(view: BodyView, action: string, effector: string, target: TargetRef, around: ActionAround): Readiness;

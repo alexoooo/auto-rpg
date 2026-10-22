@@ -68,12 +68,12 @@ export function throughDoors(memory: DoorMemory, member: MemberView, request: Mo
   if (!goal) return request;
   const interaction = level.doorway(member.at, goal, member.radius);
   if (!interaction) return request;
-  const order = memory.order;
-  if (request.kind === "place" && order?.kind === "force") {
-    const start = memory.routeStart ?? 0, index = order.points.findIndex((point, i) => i >= start && point.x === goal.x && point.z === goal.z);
+  // A drawn route's request is its points from where the member resumes, and what it walks past their end.
+  if (request.kind === "place" && memory.order?.kind === "force") {
+    const index = request.points.findIndex(point => point.x === goal.x && point.z === goal.z);
     if (index >= 0) {
-      memory.routeStart = index;
-      request = { ...request, points: order.points.slice(index).map(point => ({ ...point })) };
+      memory.routeStart = (memory.routeStart ?? 0) + index;
+      request = { ...request, points: request.points.slice(index).map(point => ({ ...point })) };
     }
   }
   memory.opening = { ...interaction, request: JSON.stringify(request) };
