@@ -44,6 +44,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Ratings](plans/2026-10-21-ratings.md) | One format for every evaluation, kept records, the paired report, the Ratings screen |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data loaded per use, then packed |
 | [Movement and command](plans/2026-10-21-movement-and-command.md) | One movement pipeline; Commanders over teams |
+| [General AI testbed](plans/2026-10-22-ai-testbed.md) | Separate component construction, arbitration, controller policy and scenario presentation |
 
 1. **Now, in parallel:** Movement B3's remainder (the stance walk's sideways run-away); and the
    open work below, each change read by the paired report, kept with `--write`.
