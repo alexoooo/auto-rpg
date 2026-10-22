@@ -171,14 +171,16 @@ export function treeData(config: PartConfig): readonly DataKey[] {
 }
 
 /**
- * The keys outside the config's complete type-checked shape, and outside its research tuning.
+ * The keys outside the config's complete type-checked shape, and outside its research tuning; a
+ * part that states no keys (`Part.keys`) has that fault.
  */
 function unknownSettings(config: PartConfig): readonly string[] {
   const part = partOf(config), tuning = part.tuning ?? [];
-  const known = part.keys;
+  const known: unknown = part.keys;
+  if (typeof known !== "object" || known === null) return [`${part.label} states none of its keys (Part.keys)`];
   const given = (config as { tuning?: unknown }).tuning;
   return [
-    ...Object.keys(config).filter((key) => !Object.hasOwn(known, key)).map((key) => `${part.label} has no setting ${key}`),
+    ...Object.keys(config).filter((key) => !Object.hasOwn(known as object, key)).map((key) => `${part.label} has no setting ${key}`),
     ...(part.tuning && typeof given === "object" && given !== null ? Object.keys(given).filter((key) => !tuning.includes(key)).map((key) => `${part.label} has no tuning ${key}`) : []),
   ];
 }

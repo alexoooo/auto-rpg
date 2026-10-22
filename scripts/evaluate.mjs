@@ -361,7 +361,9 @@ async function main() {
     pool: { protocol: heads[0].version.protocol, environment: environment.digest }, subjects: heads,
   };
   const lines = complete.flat().map(({ subjects: seated, condition, key, code, world }) => ({ subjects: seated, condition, key, code, world, ...rowOf(rows.get(key)) }));
-  const { table, faults } = tableOf(subjects, complete, rows), figures = figuresOf(evaluation, subjects, complete, rows);
+  const { faults } = tableOf(subjects, complete, rows), figures = figuresOf(evaluation, subjects, complete, rows);
+  // The summary reads the complete units with no fault; a unit with one is named above it and left out.
+  const clean = complete.filter((unit) => unit.every((one) => !rows.get(one.key).fault)), { table } = tableOf(subjects, clean, rows);
   console.log(`protocol ${header.pool.protocol}`);
   for (const one of heads) console.log(`${one.id}: version ${one.version.version}${one.parent ? `, parent ${one.parent.id} ${one.parent.version.version} (${one.changes.join(", ") || "no change"})` : ""}`);
   console.log("\n| Subject | Figure | Units | Value (95 % interval) |\n|---|---|---|---|");
@@ -377,9 +379,10 @@ async function main() {
     console.log("| Figure | Better | Pairs | Difference (95 % interval) |\n|---|---|---|---|");
     for (const f of compared.figures) console.log(`| ${f.figure}, ${f.unit} | ${f.better} | ${f.pairs} | ${estimateText(f.difference)} |`);
   }
-  const summary = faults.length || complete.length === 0 ? null : evaluation.summary(table);
+  const summary = clean.length === 0 ? null : evaluation.summary(table);
+  if (clean.length < complete.length) console.log(`\n${complete.length - clean.length} of ${complete.length} complete units have a fault and are left out of the summary`);
   if (summary) console.log("\n" + summary.lines.join("\n"));
-  else console.log(`\nno summary: ${complete.length === 0 ? "no unit is complete" : "a case is a fault"}`);
+  else console.log(`\nno summary: ${complete.length === 0 ? "no unit is complete" : "every complete unit has a fault"}`);
   if (values.json) writeFileSync(values.json, JSON.stringify({ header, figures, report, summary: summary?.json ?? null, dropped, cases: lines }, null, 2) + "\n");
   if (lost.length > 0 && shards === 1) process.exitCode = 1;
 

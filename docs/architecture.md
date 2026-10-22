@@ -466,7 +466,8 @@ the lookup (`Part.fits`, `faults`, `strikes`), so no part's module reads the reg
   included, with the reason it cannot go somewhere.
 - A part's experiment settings live under `tuning`, are named by `Part.tuning`, and never travel in
   a link (`withoutTuning`). A key a part does not read is a fault, never silently dropped;
-  every part states its keys (`Part.keys`, `KeysOf`), checked at compile time.
+  every part states its keys (`Part.keys`, `KeysOf`), checked at compile time; a part from plain
+  JavaScript that states none is a fault in every tree that holds it, never a crash.
 
 **Presets.** `RECIPE_FIGHTER` is shared action tactics over the recipe strike; `CLASSIC` adds
 `MOVE` and step-up recovery (`STAND_UP`). Puncher, Counter-puncher, Scrapper and Behaviours vary
@@ -824,7 +825,7 @@ path for Node, its workers and a page; `EVALUATIONS` (`evaluations.ts`) lists th
   kind of world and the kinds of mind it plays, `caseNames`, `code.ts`). A row (`Row`, `play.ts`) is found again by its
   key, so a description, script, screen or document edit replays nothing, and an entrant's edit
   replays only its own cases; a case's error or non-finite reading is a fault row, kept like any
-  other.
+  other. A summary reads the complete units with no fault and names how many it left out.
 - **A schedule** (`schedule.ts`) pairs a contest's subjects: `all` with each other, `versus` each
   subject with a panel's members only (`--against`), `pairs` the pairs named.
 - **The runner** (`run.ts`): units of evidence (a contest's one condition with each side on the
@@ -1003,7 +1004,9 @@ An older pool is listed with what differs from the newest.
   controls; each screen owns its camera rig, input and URL.
 - `mindEditor` (`src/ui/mind-editor.ts`) draws a mind tree's fields, slots and faults for a body;
   a link carries a preset id or the whole tree without `tuning` (`writeMind`, `parseMind`,
-  `src/ui/mind-link.ts`), and a faulty linked tree plays the preset. `mindInspector` shows who has
+  `src/ui/mind-link.ts`). The Arena plays no mind with a fault, nor another in its place: begin
+  says the faults; a link whose side names no mind this build has shows its preset and says so
+  (`unreadMinds`). `mindInspector` shows who has
   the body, live actions, reservations and the ledger; the Arena's `fighter-hud.ts` and
   `fighter-readout.ts` read reports and write nothing back.
 

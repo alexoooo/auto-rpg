@@ -199,13 +199,22 @@ export function linkedMind(search: string, side: Side): LinkedMind {
   return parseMind(new URLSearchParams(search).get(mindKey(side)), spec, FIGHT_ENTRY) ?? { config: preset, faults: [] };
 }
 
-/** The sides' minds as `search` carries them (`linkedMind`); a side whose tree has a fault plays its preset whole. */
+/**
+ * What `search` carries for a side's mind that is no tree of a mind this build has (`parseMind`),
+ * a sentence a side: its panel shows its preset instead, and the page says so.
+ */
+export function unreadMinds(search: string): string[] {
+  const query = new URLSearchParams(search);
+  return SIDES.flatMap((side) => {
+    const text = query.get(mindKey(side));
+    return text !== null && parseMind(text, modelHolding(readMatchup(search)[side], EMPTY_LOADOUT), []) === null
+      ? [`The link's ${side} mind is no mind this build has; its preset is shown.`] : [];
+  });
+}
+
+/** The sides' minds as `search` carries them (`linkedMind`), faults and all: a mind with one is refused where it is built, never replaced. */
 export function readMinds(search: string): Readonly<Record<Side, MindConfig>> {
-  const controls = readControls(search), read = (side: Side) => {
-    const { config, faults } = linkedMind(search, side);
-    return faults.length > 0 ? MINDS[controls[side]]!.config : config;
-  };
-  return { left: read("left"), right: read("right") };
+  return { left: linkedMind(search, "left").config, right: linkedMind(search, "right").config };
 }
 
 /** `search` with each side's mind written where it differs from its preset (`writeMind`), and no other. */

@@ -31,7 +31,7 @@ import { dresserFor, type Dresser } from "../render/dress.ts";
 import { fighterHands } from "../render/strike-hands.ts";
 import { boutStart, Duel, SIDES, type DuelEnding, type Verdict } from "./duel.ts";
 import { caseSearch, readCase, unshown, type LinkedCase } from "./case-link.ts";
-import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, youSearch, type Matchup } from "./matchup.ts";
+import { MATCHUP_PARAM, arenaAttributes, appearanceSearch, readAppearances, matchupSearch, readGap, readLevel, CONTROLS, controllerLabel, controlName, controlsFor, defaultControl, readControls, readMinds, readRecovery, readLoadouts, readMatchup, readYou, recipeOf, linkedMind, mindsSearch, unreadMinds, youSearch, type Matchup } from "./matchup.ts";
 import { MINDS } from "../core/mind/controllers.ts";
 import { FIGHT_ENTRY, partOf, treeData } from "../core/mind/catalog.ts";
 import { loadData } from "../core/data/store.ts";
@@ -145,7 +145,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   youPicker.value = you ?? "";
   const controlPickers = {} as Record<Side, HTMLSelectElement>, loadoutPickers = {} as Record<Side, Record<Side, HTMLSelectElement>>;
   // Each side's mind as its panel shows it (`mindEditor`).
-  const mindOf = {} as Record<Side, () => MindConfig>;
+  const mindOf = {} as Record<Side, () => MindConfig>, mindFaultsOf = {} as Record<Side, () => readonly string[]>;
   const controls = readControls(location.search), loadoutChoices = readLoadouts(location.search);
   const linkedControl = JSON.stringify(readMinds(location.search)), linkedRecovery = readRecovery(location.search);
   const linkedLoadouts = JSON.stringify(loadoutChoices ?? { left: EMPTY_LOADOUT, right: EMPTY_LOADOUT });
@@ -235,7 +235,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
       try { return modelHolding(select.value as BodyModel, loadout(), attributes[side]); }
       catch { return modelHolding(select.value as BodyModel, loadout()); }
     };
-    const editor = mindEditor(linkedMind(location.search, side).config, { spec: editorSpec(), entry: FIGHT_ENTRY, onFault: "the preset is used", onChange: () => nameControl() });
+    const editor = mindEditor(linkedMind(location.search, side).config, { spec: editorSpec(), entry: FIGHT_ENTRY, onFault: "the bout is not played until it is fixed", onChange: () => nameControl() });
     settings.append(summary, editor.element); choices.append(notes, settings);
     const showSettings = (config: MindConfig) => {
       editor.set(config, editorSpec());
@@ -244,6 +244,7 @@ export async function bootArena(context: ScreenContext): Promise<void> {
     };
     showSettings(editor.config);
     mindOf[side] = () => editor.config;
+    mindFaultsOf[side] = () => editor.faults;
     control.addEventListener("change", () => { control.blur(); showSettings(MINDS[control.value]!.config); });
     // What it holds before how it thinks: the mind's tree is last, and scrolls in what room is left.
     // The minds offered are those the body, holding what it holds, can carry out (`controlsFor`).
@@ -444,6 +445,9 @@ export async function bootArena(context: ScreenContext): Promise<void> {
         attributes[side] = attributeEditors[side].read();
         resolveCharacter({ model: next[side], attributes: attributes[side] });
       }
+      // A mind with a fault is not played, nor another in its place.
+      const faults = SIDES.flatMap((side) => mindFaultsOf[side]().map((fault) => `${ARENA_SIDES[side].label}: ${fault}`));
+      if (faults.length > 0) throw new Error(`The bout is not played: ${faults.join("; ")}`);
     } catch (error) { need("boot-note").textContent = error instanceof Error ? error.message : String(error); return; }
     beginButton.disabled = true;
     try {
@@ -712,10 +716,11 @@ export async function bootArena(context: ScreenContext): Promise<void> {
   context.signal.throwIfAborted();
   frame();
   await warmScene(scene, context.signal);
-  need("boot-note").textContent = linkedCase ? caseNote(linkedCase) : "";
+  const unread = unreadMinds(location.search);
+  need("boot-note").textContent = [...unread, ...linkedCase ? [caseNote(linkedCase)] : []].join(" ");
   beginButton.disabled = false;
-  // A link that names its matchup opens the bout directly.
-  if (context.autostart && new URLSearchParams(location.search).has(MATCHUP_PARAM)) await begin(matchup);
+  // A link that names its matchup opens the bout directly, unless a mind it names could not be read.
+  if (context.autostart && new URLSearchParams(location.search).has(MATCHUP_PARAM) && unread.length === 0) await begin(matchup);
   context.own(() => {
     if ((window as unknown as { __arena?: { engine: Engine } }).__arena?.engine === engine) Reflect.deleteProperty(window, "__arena");
   });
