@@ -23,6 +23,7 @@ interface VanguardConfig extends Omit<FighterConfig, "kind"> {
   readonly kind: "vanguard";
   readonly commitAim?: boolean;
   readonly lowGuard?: boolean;
+  readonly predictAim?: boolean;
   readonly lowActions?: readonly string[];
 }
 
@@ -84,7 +85,7 @@ function createVanguard(host: BodyHost, given: VanguardConfig, wiring: MindWirin
     const executors = config.executors.map((settings): ExecutorBinding => {
       if (settings.kind !== "straight-punch") return ordinary.find(binding => binding.name === settings.name)!;
       const executor = committedAim(made, config.actions.filter(action => action.executor === settings.name).map(action => action.name), settings,
-        (view, target, action, effector) => low?.aim(view, target) ?? aims.get(action)?.(view, target, effector, ledger())?.at ?? null, given.lowGuard);
+        (view, target, action, effector) => low?.aim(view, target) ?? aims.get(action)?.(view, target, effector, ledger())?.at ?? null, given.lowGuard, given.predictAim);
       return { name: settings.name, executor: { ...executor,
         readiness(view, action, effector, target, around) {
           if (lowActions.has(action) && !low?.aim(view, target)) return { kind: "blocked" as const, reason: "action needs a low opponent" };
@@ -101,19 +102,21 @@ function createVanguard(host: BodyHost, given: VanguardConfig, wiring: MindWirin
 /** Vanguard is an independent entrant, with every skill exposed through the shared mind editor. */
 export const VANGUARD_MIND = controller<VanguardConfig>({
   role: "mind", label: "Vanguard", stage: "experimental", defaults: VANGUARD,
-  fields: [toggle("commitAim", "Commit to one aim point"), toggle("lowGuard", "Prepare a low guard"), LOW_ACTIONS],
+  fields: [toggle("commitAim", "Commit to one aim point"), toggle("lowGuard", "Prepare a low guard"), toggle("predictAim", "Refresh the committed point's motion prediction"), LOW_ACTIONS],
   slots: [slotOne("navigation", "Navigation", "navigation", true), slotOne("tactics", "Tactics", "tactics"),
     slotOne("locomotion", "Walk", "locomotion"), slotOne("guard", "Guard", "guard"), slotList("executors", "Executors", "executor"),
     slotOne("support", "Low support", "support", true), slotList("subs", "When down", "sub-mind"),
     slotOne("motor", "Motor control", "motor", true)],
   keys: { kind: true, tactics: true, locomotion: true, navigation: true, guard: true, executors: true, actions: true,
-    support: true, subs: true, motor: true, commitAim: true, lowGuard: true, lowActions: true },
+    support: true, subs: true, motor: true, commitAim: true, lowGuard: true, predictAim: true, lowActions: true },
   fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0
     && armedActions(spec, config.executors, config.actions).length > 0,
   strikes: (spec, config) => armedActions(spec, config.executors, config.actions).flatMap(action => action.effectors),
   faults: config => [...fighterFaults(fighter(config)), ...lowActionFaults(config),
     ...config.commitAim !== undefined && typeof config.commitAim !== "boolean" ? ["commitAim: a boolean"] : [],
     ...config.lowGuard !== undefined && typeof config.lowGuard !== "boolean" ? ["lowGuard: a boolean"] : [],
+    ...config.predictAim !== undefined && typeof config.predictAim !== "boolean" ? ["predictAim: a boolean"] : [],
+    ...config.predictAim && !config.commitAim ? ["predictAim needs committed aim"] : [],
     ...config.lowGuard && (!config.commitAim || config.support?.kind !== "support-fold") ? ["lowGuard needs committed aim and low support"] : []],
   presets: deepFreeze({ vanguard: { label: "Vanguard", config: VANGUARD } }),
   builtIn: guardPosture,

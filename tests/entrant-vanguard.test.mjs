@@ -10,7 +10,7 @@ import { CAP_SECONDS } from "../src/arena/duel.ts";
 import { BOUT_ENGINE } from "../research/bout.mjs";
 
 test("a committed body-relative punch forks during its stroke and returns exactly", async () => {
-  const config = { ...CONTROLLERS.vanguard.defaults, commitAim: true };
+  const config = { ...CONTROLLERS.vanguard.defaults, commitAim: true, predictAim: true };
   const built = await buildBout({ left: "workshop-fighter", right: "workshop-fighter", gap: .9,
     minds: { left: config, right: config } }, { engine: BOUT_ENGINE });
   try {

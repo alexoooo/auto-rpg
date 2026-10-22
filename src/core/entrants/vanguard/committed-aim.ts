@@ -6,21 +6,31 @@ import type { Executor, TargetRef } from "../../skills/action.ts";
 import { straightPunchExecutor, type StraightPunch } from "../../skills/straight-punch.ts";
 import { STANCE_LOWER } from "../../skills/locomotion.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
+import { nearSurface } from "../../mind/openings.ts";
 
 type Resolve = (view: BodyView, target: TargetRef, action: string, effector: string) => Vec3 | null;
 interface Anchor { body: string; segment: string; local: Vec3 }
+/** Predict the chosen surface point 0.12 s ahead, in addition to the age of its sensed frame. */
+const LEAD = .12;
 
 /** A punch chooses its aim once and follows the sensed segment's pose until the stroke returns. */
-export function committedAim(body: Body, actions: readonly string[], settings: StraightPunch, resolve: Resolve, lowSupport = false): Executor {
+export function committedAim(body: Body, actions: readonly string[], settings: StraightPunch, resolve: Resolve, lowSupport = false, predict = false): Executor {
   const state = { base: null as object | null, id: null as number | null, anchor: null as Anchor | null, returning: false };
   const arms = new Set(bodyEffectors(body.built).filter(e => e.model.segment.startsWith("hand.")).flatMap(e => e.model.channels));
   const point = new Vector3(), inverse = new Quaternion();
   const follow: Resolve = (view, target, action, effector) => {
     const anchor = state.anchor;
     if (!anchor || target.kind !== "body" || target.body !== anchor.body) return resolve(view, target, action, effector);
-    const segment = sensedActionTarget(view, target)?.segments.get(anchor.segment);
+    const foe = sensedActionTarget(view, target), segment = foe?.segments.get(anchor.segment);
     if (!segment) return null;
     point.set(...anchor.local).applyRotationQuaternionToRef(segment.rotation, point).addInPlace(segment.position);
+    if (predict) {
+      const seconds = LEAD + Math.max(0, view.time - (foe?.time ?? view.time));
+      const dx = point.x - segment.centre.x, dy = point.y - segment.centre.y, dz = point.z - segment.centre.z;
+      point.x += (segment.velocity.x + segment.spin.y * dz - segment.spin.z * dy) * seconds;
+      point.y += (segment.velocity.y + segment.spin.z * dx - segment.spin.x * dz) * seconds;
+      point.z += (segment.velocity.z + segment.spin.x * dy - segment.spin.y * dx) * seconds;
+    }
     return [point.x, point.y, point.z];
   };
   const base = straightPunchExecutor(body, actions, settings, follow);
@@ -48,7 +58,8 @@ export function committedAim(body: Body, actions: readonly string[], settings: S
         }
         if (chosen) {
           const segment = foe.segments.get(chosen)!;
-          point.set(...at).subtractInPlace(segment.position)
+          const chosenPoint = predict ? nearSurface(foe, chosen, at) ?? at : at;
+          point.set(...chosenPoint).subtractInPlace(segment.position)
             .applyRotationQuaternionToRef(Quaternion.InverseToRef(segment.rotation, inverse), point);
           state.anchor = { body: foe.id, segment: chosen, local: [point.x, point.y, point.z] };
         }
