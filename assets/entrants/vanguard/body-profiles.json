@@ -1,5 +1,5 @@
 {
   "workshop-fighter": { "steady": false, "flank": false },
   "workshop-rogue": { "steady": true, "flank": false },
-  "crypt-skeleton": { "steady": true, "flank": true, "lead": 0.025 }
+  "crypt-skeleton": { "steady": true, "flank": true, "lead": 0.025, "anchorAtDrive": true }
 }

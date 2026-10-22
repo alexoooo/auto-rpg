@@ -2,7 +2,7 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
 import type { Body, BodyView } from "../../body.ts";
 import { bodyEffectors } from "../../control/effectors.ts";
 import { regionSegments, sensedActionTarget } from "../../mind/action-aim.ts";
-import type { Executor, TargetRef } from "../../skills/action.ts";
+import type { ActionRequest, Executor, TargetRef } from "../../skills/action.ts";
 import { straightPunchExecutor, type StraightPunch } from "../../skills/straight-punch.ts";
 import { STANCE_LOWER } from "../../skills/locomotion.ts";
 import type { Vec3 } from "../../spec/quantity.ts";
@@ -13,9 +13,9 @@ interface Anchor { body: string; segment: string; local: Vec3 }
 /** Predict the chosen surface point 0.12 s ahead, in addition to the age of its sensed frame. */
 const LEAD = .12;
 
-/** A punch chooses its aim once and follows the sensed segment's pose until the stroke returns. */
-export function committedAim(body: Body, actions: readonly string[], settings: StraightPunch, resolve: Resolve, lowSupport = false, predict = false): Executor {
-  const state = { base: null as object | null, id: null as number | null, anchor: null as Anchor | null, returning: false };
+/** A punch follows one sensed point through its drive, optionally refreshing the opening while preparing. */
+export function committedAim(body: Body, actions: readonly string[], settings: StraightPunch, resolve: Resolve, lowSupport = false, predict = false, anchorAtDrive = false): Executor {
+  const state = { base: null as object | null, id: null as number | null, anchor: null as Anchor | null, returning: false, committed: false };
   const arms = new Set(bodyEffectors(body.built).filter(e => e.model.segment.startsWith("hand.")).flatMap(e => e.model.channels));
   const point = new Vector3(), inverse = new Quaternion();
   const follow: Resolve = (view, target, action, effector) => {
@@ -33,19 +33,7 @@ export function committedAim(body: Body, actions: readonly string[], settings: S
     }
     return [point.x, point.y, point.z];
   };
-  const base = straightPunchExecutor(body, actions, settings, follow);
-  state.base = base.state;
-  return {
-    ...base, state,
-    resume(view) { base.resume(view); state.id = null; state.anchor = null; state.returning = false; },
-    interrupt(view, id) {
-      base.interrupt?.(view, id);
-      if (state.id === id) { state.id = null; state.anchor = null; state.returning = false; }
-    },
-    start(view, request, around) {
-      if (state.id !== null) throw new Error("a committed aim already owns a stroke");
-      const at = resolve(view, request.target, request.action, request.effector);
-      if (!at) throw new Error("the committed aim has no target");
+  const remember = (view: BodyView, request: ActionRequest, at: Vec3) => {
       const foe = request.target.kind === "body" ? sensedActionTarget(view, request.target) : null;
       if (foe && request.target.kind === "body") {
         let chosen: string | null = null, nearest = Infinity;
@@ -64,14 +52,33 @@ export function committedAim(body: Body, actions: readonly string[], settings: S
           state.anchor = { body: foe.id, segment: chosen, local: [point.x, point.y, point.z] };
         }
       }
+  };
+  const clear = () => { state.id = null; state.anchor = null; state.returning = false; state.committed = false; };
+  const base = straightPunchExecutor(body, actions, settings, follow);
+  state.base = base.state;
+  return {
+    ...base, state,
+    resume(view) { base.resume(view); clear(); },
+    interrupt(view, id) { base.interrupt?.(view, id); if (state.id === id) clear(); },
+    start(view, request, around) {
+      if (state.id !== null) throw new Error("a committed aim already owns a stroke");
+      const at = resolve(view, request.target, request.action, request.effector);
+      if (!at) throw new Error("the committed aim has no target");
+      remember(view, request, at);
       try { base.start(view, request, around); state.id = request.id; state.returning = false; }
-      catch (error) { state.anchor = null; throw error; }
+      catch (error) { clear(); throw error; }
     },
     update(view, continued, around, dt) {
+      if (anchorAtDrive && !state.committed && !state.returning) {
+        const request = continued.find(one => one.id === state.id);
+        const at = request && resolve(view, request.target, request.action, request.effector);
+        if (request && at) remember(view, request, at);
+      }
       const updates = base.update(view, continued, around, dt);
       return updates.map(update => {
         if (update.id !== state.id) return update;
-        if ("ending" in update) { state.id = null; state.anchor = null; state.returning = false; return update; }
+        if ("ending" in update) { clear(); return update; }
+        if (update.phase === "commit") state.committed = true;
         state.returning = update.phase === "release";
         return state.returning ? { ...update, holds: ["trunk", "legs"] } : update;
       });
