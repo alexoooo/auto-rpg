@@ -5,6 +5,8 @@ minds. The supported-low preset wins eight of eight against its four-member pane
 do not establish the requested win rate across opponents and equipment. Widening the current
 preset to the Skeleton exposes two losses against Options; it wins both on the Rogue. The
 punching kit also loses both direct bouts to the original Vanguard.
+The optional refreshed prediction wins 5/6 in its paired development cases, including one
+Skeleton win, and remains below the required per-opponent result.
 
 ## What is used
 
@@ -71,6 +73,33 @@ preset and the punching kit. Against the Reptile, the preset wins by injury at 2
 and at the cap on the right. Its ending bars are 0.999276 and 0.999529; the raw step readings record
 zero Warrior falls in either bout. The four-pair panel report is unsettled. These are development
 cases, with other bodies, stages, starts and equipment still outside this record.
+
+## Refreshed point prediction
+
+With `predictAim: true`, the punch projects its chosen point onto the sensed collider before
+remembering it locally. Each control step predicts that point from the segment's current linear
+and angular velocity, with a 0.12 s lead plus the sensed frame's age. The ordinary preset keeps
+the previous aiming mode; the editor exposes the option separately.
+
+The [Skeleton record](../../assets/evaluations/tournament/2026-10-22-8047251e-aa0c393a.jsonl)
+and [Warrior record](../../assets/evaluations/tournament/2026-10-22-8047251e-dbfb3163.jsonl)
+compare the option with the previous supported-low preset at source commit `8047251e`. Each
+record carries the full configurations, recipes and pose digests. Harness and conditions are
+the Node Arena Duel, `rapier-coordinate`, 120 Hz, matched bodies, empty hands, Balance 0/0,
+open stage, 4 m gap, each side, continuing after falls to injury or 120 s.
+
+| Body / opponent | Prediction wins | Injury / time-limit wins | Previous preset wins |
+| --- | ---: | ---: | ---: |
+| Skeleton / Options | 1/2 | 1 / 0 | 0/2 |
+| Warrior / Options | 2/2 | 1 / 1 | 2/2 |
+| Warrior / Counter-puncher | 2/2 | 2 / 0 | 2/2 |
+
+All 12 bouts are valid, without draws. The prediction option wins 5/6 against the previous
+preset's 4/6; both panel reports are unsettled. It wins the right-side Skeleton bout by injury
+at 54.85 s, without falling in the raw development reading. Its left-side Skeleton health
+deficit at the cap grows from 0.004665 to 0.078327. This is a useful option with a remaining
+weak side, rather than qualification against Options. Other bodies, starts, levels and equipment
+are outside these paired records.
 
 ## Tried and not kept
 
