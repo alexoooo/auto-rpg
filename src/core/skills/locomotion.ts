@@ -103,7 +103,63 @@ const SQUARE_NEAR = 0.1;
 const SQUARE_STILL = 0.3;
 
 /**
- * **The locomotion skill**: an intent's walk and facing made a stance goal, within what the stance
+ * **Legs**: what every locomotion part makes, and all a mind's skills ask of its legs. Each
+ * control step the legs make an intent's walk and facing the legs' command (`goal`, or `drive`
+ * for legs that drive the muscles themselves), and say which way they face and how fast they
+ * stop. What a walk under the stance says besides is its own (`StanceWalk`): the readers of it
+ * ask whether the legs say it.
+ */
+export interface Locomotion extends Skill {
+  /**
+   * The stance goal for `walk` and `face` this control step (null before the body's first step),
+   * `destination` m from where the tactics are taking the body, absent where they take it nowhere.
+   */
+  goal(view: BodyView, walk: readonly [forward: number, right: number] | null, face: number, dt: number, lower?: number, destination?: number): StanceGoal | null;
+  /** The heading the legs face, rad: the frame a walk is asked in. */
+  readonly heading: number;
+  /**
+   * How fast it slows to a stop, m/s²: the deceleration the movement pipeline brakes by before a
+   * place and a corner (`travelSpeed`, `src/core/mind/travel.ts`); 0 for legs that do not walk, which the speed rule takes nowhere.
+   */
+  readonly stopping: number;
+  /** Its memory (`src/core/state.ts`). */
+  readonly state: object;
+  /** The walk's speed asked, m/s (0 standing); absent, legs that do not say. */
+  readonly pace?: number;
+  /** The height the legs hold the centre of mass at, m, null before the body's first step; absent, legs that hold none. */
+  readonly reference?: number | null;
+  /**
+   * What the legs were measured to hold with the body (`StanceEnvelope`), which caps their walk and
+   * turn and which tactics plan by (`Sight.envelope`); null or absent where they state none.
+   */
+  readonly envelope?: StanceEnvelope | null;
+  /**
+   * The stance goal that sets the feet at `footing` (`StanceWalk.place`); absent, legs that place no
+   * feet, which a skill that asks a footing finds standing (`goal` with no walk).
+   */
+  place?(view: BodyView, footing: Footing, lower?: number): StanceGoal | null;
+  /** Whether the feet have been placed at the footing last asked; absent with `place`. */
+  readonly placed?: boolean;
+  /**
+   * The arms' posture as this walk swings them, for the arms no other skill holds (`skillSet`);
+   * absent or null, a walk that leaves them in the guard.
+   */
+  arms?(view: BodyView): Pose | null;
+  /**
+   * For a walk that runs as well, whether it may run from now on: told not, it walks no faster than
+   * its walk, and its envelope is its walk's. Absent, a walk that does not run.
+   */
+  runs?(may: boolean): void;
+  /**
+   * In place of `goal`, for a walk that may drive the legs itself: for `walk` and `face` this
+   * control step, a stance goal as `goal` gives one, or the legs' own drive (`LegsDrive`). Absent,
+   * a walk is the stance's, and the skill set asks `goal`.
+   */
+  drive?(view: BodyView, walk: readonly [forward: number, right: number] | null, face: number, dt: number, lower?: number, destination?: number): LegsDrive;
+}
+
+/**
+ * **The stance walk** (`locomotion`): an intent's walk and facing made a stance goal, within what the stance
  * holds with the body (`StanceEnvelope`, `Body.envelope`).
  *
  * - **The walk** is the intent's velocity (forward along the heading and to its right, m/s), its
@@ -126,16 +182,9 @@ const SQUARE_STILL = 0.3;
  * it walks or stands (`squaring`), unless it moves faster than `SQUARE_STILL`. The reference
  * height stays: it is the body's.
  */
-export interface Locomotion extends Skill {
-  /**
-   * The stance goal for `walk` and `face` this control step (null before the body's first step),
-   * `destination` m from where the tactics are taking the body, absent where they take it nowhere.
-   */
-  goal(view: BodyView, walk: readonly [forward: number, right: number] | null, face: number, dt: number, lower?: number, destination?: number): StanceGoal | null;
-  /** The heading the stance is asked to face, rad. */
-  readonly heading: number;
-  /** The walk's speed asked, m/s (0 standing). */
+export interface StanceWalk extends Locomotion {
   readonly pace: number;
+  /** The centre of mass's height over the soles in the reference pose (`BodyView.standing`), m; null before the body's first step. */
   readonly reference: number | null;
   /**
    * The stance goal that sets the feet at `footing`, standing, facing the heading it has: once no
@@ -145,35 +194,8 @@ export interface Locomotion extends Skill {
   place(view: BodyView, footing: Footing, lower?: number): StanceGoal | null;
   /** Whether the feet have been placed at the footing last asked, and stand: set by `place`, cleared by `goal`. */
   readonly placed: boolean;
-  /**
-   * What this skill was measured to hold with the body (`StanceEnvelope`), which caps its walk and
-   * turn and which tactics plan by (`Sight.envelope`); null where the body has none.
-   */
+  /** What this walk was measured to hold with the body (`StanceEnvelope`); null where the body has none. */
   readonly envelope: StanceEnvelope | null;
-  /**
-   * How fast it slows to a stop, m/s²: the deceleration the movement pipeline brakes by before a
-   * place and a corner (`travelSpeed`, `src/core/mind/travel.ts`). A setting of the gait's controller,
-   * read by its overshoot at a place goal.
-   */
-  readonly stopping: number;
-  /** Its memory (`src/core/state.ts`). */
-  readonly state: object;
-  /**
-   * The arms' posture as this walk swings them, for the arms no other skill holds (`skillSet`);
-   * absent or null, a walk that leaves them in the guard.
-   */
-  arms?(view: BodyView): Pose | null;
-  /**
-   * For a walk that runs as well, whether it may run from now on: told not, it walks no faster than
-   * its walk, and its envelope is its walk's. Absent, a walk that does not run.
-   */
-  runs?(may: boolean): void;
-  /**
-   * In place of `goal`, for a walk that may drive the legs itself: for `walk` and `face` this
-   * control step, a stance goal as `goal` gives one, or the legs' own drive (`LegsDrive`). Absent,
-   * a walk is the stance's, and the skill set asks `goal`.
-   */
-  drive?(view: BodyView, walk: readonly [forward: number, right: number] | null, face: number, dt: number, lower?: number, destination?: number): LegsDrive;
 }
 
 /**
@@ -219,7 +241,7 @@ export function validTurnStartup(startup?: TurnStartup): boolean {
     && Number.isFinite(startup.limit) && startup.limit > 0);
 }
 
-export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, turnStartup?: TurnStartup): Locomotion {
+export function locomotion(envelope: StanceEnvelope | null, turnLimit?: number, turnStartup?: TurnStartup): StanceWalk {
   if (!validTurnLimit(turnLimit)) throw new Error("locomotion turn limit must be finite and positive");
   if (!validTurnStartup(turnStartup)) throw new Error("locomotion turn startup needs a finite positive interval and ceiling");
   const state: LocomotionState = { reference: null, width: null, squaring: null, rising: null, heading: 0, pace: 0, placing: null, placed: false,

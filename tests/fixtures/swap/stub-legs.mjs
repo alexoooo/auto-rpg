@@ -1,7 +1,8 @@
 /**
- * **A stub locomotion**: the legs its `walk` slot names, the steps it is asked for counted. Its
- * state names it, so a test can read that the legs a config names are the legs that ran, made
- * through the lookup (`Legs.make`).
+ * **A stub locomotion**: the legs its `walk` slot names, the steps it is asked for counted. It
+ * gives only what every legs give (`Locomotion`): its heading and stopping are its walk's, and what
+ * a stance walk says besides it does not say. Its state names it, so a test can read that the legs
+ * a config names are the legs that ran, made through the lookup (`Legs.make`).
  */
 import { slotOne, takesCommands } from "../../../src/core/mind/parts.ts";
 
@@ -11,10 +12,13 @@ export const STUB_LEGS = Object.freeze({
   fits: takesCommands, faults: () => [],
   make(body, config, legs) {
     const walk = legs.make(body, config.walk), state = { stub: "stub-legs", steps: 0, walk: walk.state };
-    return Object.create(walk, {
-      state: { value: state, enumerable: true },
-      goal: { value: (...asked) => { state.steps++; return walk.goal(...asked); }, enumerable: true },
-      ...walk.drive ? { drive: { value: (...asked) => { state.steps++; return walk.drive(...asked); }, enumerable: true } } : {},
-    });
+    return {
+      state,
+      get heading() { return walk.heading; },
+      get stopping() { return walk.stopping; },
+      resume: (view) => walk.resume(view),
+      goal: (...asked) => { state.steps++; return walk.goal(...asked); },
+      ...walk.drive ? { drive: (...asked) => { state.steps++; return walk.drive(...asked); } } : {},
+    };
   },
 });

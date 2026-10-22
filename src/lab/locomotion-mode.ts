@@ -337,7 +337,7 @@ export function startLocomotion(actor: Actor, course: Track | Commands, { top, f
   const frame = (): LocomotionFrame => {
     const s = body.view.stance, time = body.view.time;
     return {
-      ...tactics.frame(time, s.centre.x, s.centre.z), time, heading: report.heading, fallen: body.view.down, walking: report.pace,
+      ...tactics.frame(time, s.centre.x, s.centre.z), time, heading: report.heading, fallen: body.view.down, walking: report.pace ?? 0,
       speed: Math.hypot(s.velocity.x, s.velocity.z), gait: meter.reading(), wind: blowing.state.force, gusts: blowing.state.count,
     };
   };

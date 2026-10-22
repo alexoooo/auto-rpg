@@ -266,11 +266,15 @@ actions over it.
 - Every skill answers `Skill.resume` (`src/core/skills/skill.ts`) and is in the one list its skill
   set resumes; the arbiter releases every instance on host takeover or idling.
 
-**Locomotion skills** (`Locomotion`):
+**Locomotion skills** (`Locomotion`): every legs give their state, a resume, the legs' command
+for a walk and a facing (`goal`, or `drive`), their heading and how fast they stop. What a walk
+under the stance says besides (`StanceWalk`: its pace, standing height, envelope and placed
+feet) is its own; its readers ask whether the legs say it, and a footing asked of legs that place
+no feet finds them standing.
 
 | Skill | File | What it is |
 |---|---|---|
-| Locomotion | `locomotion.ts` | the stance's own walk within its envelope; places feet (`Locomotion.place`) |
+| Locomotion | `locomotion.ts` | the stance's own walk within its envelope; places feet (`StanceWalk.place`) |
 | Walk and run | `walk-run.ts` | the stance's walk, handing over to SIMBICON's run cycle (`runCycle`, `WALK_RUN_CYCLE`) when asked past its walk and allowed (`Locomotion.runs`) |
 | SIMBICON walk | `simbicon.ts` | drives the legs itself (`Locomotion.drive`) by Yin, Loken and van de Panne 2007, running by `runCycle` (`cycle-run.ts`, CMU clips in `assets/core/run-cycle.json`) |
 | Walk and learned run | `learned-run.ts` | the walk and run steered by a trained policy (`dataOf("learned-run")`, `assets/core/learned-run.json`; its names and timing before it loads, `RUN_POLICY`); experimental |

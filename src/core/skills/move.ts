@@ -118,7 +118,8 @@ export function move(gaits: readonly MoveGait[], rules: readonly MoveRule[], oth
     place(view, footing, lower) {
       choose(view, false, undefined);
       memory.driven = false;
-      return told().place(view, footing, lower);
+      const legs = told();
+      return legs.place ? legs.place(view, footing, lower) : legs.goal(view, null, legs.heading, 0, lower);
     },
     goal(view, walk, face, dt, lower, destination) {
       choose(view, walk !== null, destination);

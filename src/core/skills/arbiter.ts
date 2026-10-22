@@ -49,7 +49,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     walkable: true };
   const claims: { id: number; claim: ActionClaim; controls: readonly string[]; delegated: readonly string[] }[] = [];
   const contacts: ActionContact[] = [];
-  const around: ActionAround = { get heading() { return legs.heading; }, get placed() { return legs.placed; },
+  const around: ActionAround = { get heading() { return legs.heading; }, get placed() { return legs.placed ?? false; },
     support: support?.report ?? null, walk: null, lower: STANCE_LOWER };
   const context = (intent: Intent): ActionAround => ({ ...around, walk: intent.move, lower: intent.lower ?? STANCE_LOWER });
   const free = (slot: string): boolean => state.reservations[slot] === undefined;
@@ -66,7 +66,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
     instances.observe(step, time, contacts);
   });
   const report = {
-    get heading() { return legs.heading; }, get pace() { return legs.pace; }, get reference() { return legs.reference; },
+    get heading() { return legs.heading; }, get pace() { return legs.pace; }, get reference() { return legs.reference ?? null; },
     get actions() { return instances.live; }, get ledger() { return instances.ledger; }, holders: state.owners, reservations: state.reservations,
     get engagement() { return tactics.engagement; },
     ...(navigation ? { navigation: navigation.report } : {}),
@@ -77,8 +77,8 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
   };
   return {
     state, report, resume, instance: instances.instance, readiness: instances.readiness,
-    get envelope() { return legs.envelope; },
-    gait: { get envelope() { return legs.envelope; }, get stopping() { return legs.stopping; } },
+    get envelope() { return legs.envelope ?? null; },
+    gait: { get envelope() { return legs.envelope ?? null; }, get stopping() { return legs.stopping; } },
     release(view: BodyView, reason: "takeover" | "idle" | "replaced" = "takeover") {
       instances.interrupt(view, reason); legs.resume(view); guard.resume(view); support?.resume(view);
       navigation?.resume();
@@ -142,7 +142,7 @@ export function skillSet(body: Pick<Body, "built" | "muscles" | "view" | "envelo
         case "free": moving = { walk: intent.move, face: intent.face }; break;
         case "hold": moving = { walk: null, face: intent.face }; break;
         case "walk": moving = { walk: ask.walk, face: ask.face }; break;
-        case "place": stance = legs.place(view, ask.footing, lower); break;
+        case "place": stance = legs.place ? legs.place(view, ask.footing, lower) : legs.goal(view, null, legs.heading, dt, lower); break;
         default: { const never: never = ask; throw new Error(`unknown legs ask ${JSON.stringify(never)}`); }
       }
       // A fold under way holds the legs where they stand: a walk asked waits for it to rise.

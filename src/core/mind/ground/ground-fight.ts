@@ -22,8 +22,8 @@ export interface GroundFightConfig { readonly kind: "ground-fight"; readonly rea
 /** Cover and ground footwork surround a named supine kick on the body's shared action compositor. */
 export function groundFight(own: OwnBody, view: BodyView, _clock: Clock, config: GroundFightConfig, kit: MindKit, afterPhysics: Body["afterPhysics"]): SubMind {
   const tracker = effectorTracker(own.built, rootSegment(own.built)), posture: Record<string, number> = {};
-  const legs: Locomotion = { state: {}, heading: 0, pace: 0, reference: null, placed: true, envelope: null, stopping: 0,
-    resume() {}, goal() { return null; }, place() { return null; }, drive() { return { kind: "drive", posture: config.kicks === "none" ? {} : GROUND_LEGS, pushes: [] }; } };
+  const legs: Locomotion = { state: {}, heading: 0, stopping: 0,
+    resume() {}, goal() { return null; }, drive() { return { kind: "drive", posture: config.kicks === "none" ? {} : GROUND_LEGS, pushes: [] }; } };
   const producer = actionProducer(), executor = groundKick(own), rest = poseDrive(own.muscles);
   const skills = skillSet({ built: own.built, muscles: own.muscles, view, envelope: null, afterPhysics }, {}, {
     legs, navigation: null, guard: kit.guard(own.built), executors: [{ name: "ground", executor }],

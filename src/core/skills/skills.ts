@@ -29,7 +29,9 @@ export interface Skills extends Skill {
 /** Public execution facts contain no executor-specific counters or motion state. */
 export interface SkillReport {
   readonly heading: number;
-  readonly pace: number;
+  /** The walk's speed asked, m/s (`Locomotion.pace`); absent where the legs say none. */
+  readonly pace?: number;
+  /** The height the legs hold the centre of mass at, m (`Locomotion.reference`); null before the first step or where the legs hold none. */
   readonly reference: number | null;
   readonly actions: readonly ActionStatus[];
   readonly ledger: readonly Ended[];
