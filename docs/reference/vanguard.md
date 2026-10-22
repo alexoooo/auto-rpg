@@ -9,8 +9,9 @@ original Vanguard.
 
 The candidate is Vanguard with `commitAim: true` and its punch's `settle: 0.2`. The other kit
 settings are the original Vanguard's. A punch follows one segment-local aim through its stroke,
-then frees its hand to the continuous guard during recovery. The registered default retains the
-original kit; the record carries both configurations whole.
+then frees its hand to the continuous guard during recovery. The records carry both configurations
+whole. They measure the punching kit; the current preset also includes low support and a low-only
+punch.
 
 ## Measurement
 
