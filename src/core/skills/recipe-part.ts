@@ -1,4 +1,4 @@
-import { commandable } from "../body.ts";
+import { takesCommands } from "../mind/parts.ts";
 import type { ExecutorConfig } from "../mind/config.ts";
 import { text } from "../mind/fields.ts";
 import { noPathSettings, type ExecutorPart } from "../mind/executor-part.ts";
@@ -9,7 +9,7 @@ type Config = Extract<ExecutorConfig, { kind: "recipe-strike" }>;
 /** Recipe construction and measured net estimates share one registration. */
 export const RECIPE_PART: ExecutorPart<Config> = {
   role: "executor", label: "Recipe strike", stage: "game", defaults: { kind: "recipe-strike", name: "recipe" },
-  fields: [text("name", "Name")], slots: [], tuning: ["repertoire", "placed", "steer"], fits: commandable,
+  fields: [text("name", "Name")], slots: [], tuning: ["repertoire", "placed", "steer"], fits: takesCommands,
   faults: () => [], effectors: ["hand.left", "hand.right"], actionFaults: noPathSettings,
   // A hand strikes with a blunt item by placement, and with anything its repertoire holds a recipe for.
   strikesWith: (spec, config, effector) => strikesWithBlunt(spec, effector)

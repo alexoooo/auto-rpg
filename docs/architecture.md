@@ -388,8 +388,9 @@ screen must give). `PARTS` (`catalog.ts`) is every part by kind. Over the tree:
 
 - `treeFaults` names each fault by path (`subs.0: ...`); `createMind` refuses a tree with any, and
   `partOf` refuses an unknown kind.
-- `treeFits` asks every part whether it fits a body; `kindsFor` lists every part of a role with the
-  reason it cannot go somewhere.
+- A part's `fits` answers why a body cannot carry out what it commands, or null where it can: the one
+  source of compatibility. `treeRefusal` gives the first refusal in a tree by path (`treeFits`, that
+  there is none); `kindsFor` lists every part of a role with the reason it cannot go somewhere.
 - A part's experiment settings live under `tuning`, are named by `Part.tuning`, and never travel in
   a link (`withoutTuning`). A key a part does not read is a fault, never silently dropped;
   `CONFIG_KEYS` (`config-keys.ts`) enumerates accepted keys and is checked at compile time.

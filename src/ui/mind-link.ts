@@ -1,4 +1,4 @@
-import { partOf, PARTS, treeFaults, treeFits, withoutTuning } from "../core/mind/catalog.ts";
+import { partOf, PARTS, treeFaults, treeRefusal, withoutTuning } from "../core/mind/catalog.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { Provision } from "../core/mind/parts.ts";
 import type { BodySpec } from "../core/spec/body.ts";
@@ -15,7 +15,9 @@ type Presets = Readonly<Record<string, { readonly config: MindConfig }>>;
 /** What is wrong with `config` for a body of `spec` on a screen that `provides` what it does (`treeFaults`), or that it does not fit the body. */
 export function mindFaults(config: MindConfig, spec: BodySpec, provides: readonly Provision[] = []): readonly string[] {
   const faults = treeFaults(config, provides);
-  return faults.length > 0 || treeFits(spec, config) ? faults : ["the mind does not fit this body"];
+  if (faults.length > 0) return faults;
+  const refused = treeRefusal(spec, config);
+  return refused === null ? faults : [`the mind does not fit this body: ${refused}`];
 }
 
 /** The tree rooted in a mind that `text` holds as JSON, with any research `tuning` dropped; null for text that is none. */

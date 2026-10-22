@@ -1,4 +1,4 @@
-import { commandable, SERVO_SECONDS, type Body, type BodyOptions } from "../body.ts";
+import { SERVO_SECONDS, type Body, type BodyOptions } from "../body.ts";
 import { skillSet } from "../skills/arbiter.ts";
 import { guardSkill } from "../skills/guard.ts";
 import { holdUp } from "../skills/hold.ts";
@@ -23,14 +23,14 @@ import { actionConfigFaults, armedActions, configuredActionEstimates, configured
 import { choice, type PartField } from "./fields.ts";
 import { CONDITIONS } from "./conditions.ts";
 import type { MindWiring } from "./minds.ts";
-import { slotList, type Part } from "./parts.ts";
+import { anyBody, slotList, takesCommands, type Part } from "./parts.ts";
 import { subMindsOf } from "./sub-minds.ts";
 import { tacticsOf } from "./tactics-of.ts";
 import { driveBy, type Tactics } from "./tactics.ts";
 
 /** A skill part of no settings: its role, what it is called, its stage, its config and what is wrong with one. */
 const skill = <C extends SkillConfig>(role: Part["role"], label: string, stage: Part["stage"], defaults: C, faults: (config: C) => readonly string[] = () => []): Part<C> =>
-  ({ role, label, stage, fields: [], slots: [], defaults, fits: commandable, faults });
+  ({ role, label, stage, fields: [], slots: [], defaults, fits: takesCommands, faults });
 
 /** A SIMBICON walk's config's settings, its kind taken off. */
 const settingsOf = ({ kind: _, tuning: __, runs: ___, ...settings }: SimbiconConfig): SimbiconSettings => settings;
@@ -47,7 +47,7 @@ const GAIT_CHOICES = GAIT_NAMES.map((name): [GaitName, string] => [name, GAITS[n
 
 /** A rule part of Move: a gait it chooses, and what is wrong with a config of it. */
 const rule = <C extends MoveRuleConfig>(label: string, defaults: C, fields: readonly PartField<C>[], faults: (config: C) => readonly string[] = () => []): Part<C> =>
-  ({ role: "move-rule", label, stage: "game", fields: [...fields, choice<C, "gait">("gait", "Gait", GAIT_CHOICES)], slots: [], defaults, fits: () => true,
+  ({ role: "move-rule", label, stage: "game", fields: [...fields, choice<C, "gait">("gait", "Gait", GAIT_CHOICES)], slots: [], defaults, fits: anyBody,
     faults: (config) => [...faults(config), ...isGait(config.gait) ? [] : [`no gait called ${JSON.stringify(config.gait)}`]] });
 
 type DistanceRuleConfig = Extract<MoveRuleConfig, { kind: "when-distance" }>;

@@ -1,4 +1,3 @@
-import { commandable } from "../body.ts";
 import { REPTILE_BITE, REPTILE_CRAWL, REPTILE_TROT, REPTILE_MOTOR, REPTILE_TRAVEL } from "../reptile/tuning.ts";
 import { quadrupedMind, quadrupedFits } from "../reptile/mind.ts";
 import { guardPosture } from "../skills/guard.ts";
@@ -9,7 +8,7 @@ import { DIRECT_MIND } from "../entrants/direct/mind.ts";
 import { TEMPO_MIND } from "../entrants/tempo/mind.ts";
 import { createFighter, fighterFaults, kitFaults } from "./fighter.ts";
 import { actionConfigFaults, armedActions } from "./action-config.ts";
-import { slotList, slotOne, type Slot } from "./parts.ts";
+import { fitsAll, fitsWhen, slotList, slotOne, takesCommands, type Slot } from "./parts.ts";
 import { createOptionsFighter, optionsFit } from "./options/mind.ts";
 import { OBEDIENCE, TERMS, WEIGHTS } from "./options/value.ts";
 import type { PartField } from "./fields.ts";
@@ -72,7 +71,7 @@ const OPTIONS_MIND = controller<OptionsConfig>({
 const FIGHTER_MIND = controller<FighterConfig>({
   role: "mind", label: "Fighter", stage: "game", fields: [], slots: FIGHTER_SLOTS, defaults: RECIPE_FIGHTER,
   keys: { kind: true, tactics: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, support: true, subs: true, motor: true },
-  fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0,
+  fits: fitsAll<FighterConfig>(takesCommands, (spec, config) => actionConfigFaults(spec, config.executors, config.actions)[0] ?? null),
   strikes: (spec, config) => config.actions.length === 0 ? undefined : armedActions(spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: fighterFaults,
   presets: deepFreeze({
@@ -91,7 +90,7 @@ const FIGHTER_MIND = controller<FighterConfig>({
 const QUADRUPED_MIND = controller<QuadrupedConfig>({
   role: "mind", label: "Quadruped", stage: "game", fields: [], slots: [], defaults: QUADRUPED, tuning: ["bite"],
   keys: { kind: true, tuning: true },
-  fits: quadrupedFits,
+  fits: fitsWhen(quadrupedFits, "needs three paws or more, each at the end of a hip, a knee and an ankle, and a jaw on a head"),
   faults: config => Object.entries(config.tuning?.bite ?? {}).flatMap(([key, value]) =>
     !(key in REPTILE_BITE) || !Number.isFinite(value) || (key === "closeRate" || key === "biteInset" || key === "contactAt" || key === "biteLead" || key === "neckRetract" ? value < 0 : value <= 0)
     || key === "open" && value > REPTILE_BITE.open || key === "contactAt" && value > 1 || key === "biteSamples" && !Number.isInteger(value)

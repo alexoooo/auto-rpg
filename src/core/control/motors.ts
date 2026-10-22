@@ -1,5 +1,5 @@
 import type { MotorConfig } from "../mind/config.ts";
-import type { Part } from "../mind/parts.ts";
+import { anyBody, type Part } from "../mind/parts.ts";
 import { deepFreeze } from "../state.ts";
 import { motorControl } from "./motor.ts";
 
@@ -11,7 +11,7 @@ type MotorMaker = typeof motorControl;
  * body's goals into its muscles' command. A kind without an entry does not compile.
  */
 export const MOTOR_PARTS: { readonly [K in MotorConfig["kind"]]: Part<Extract<MotorConfig, { kind: K }>> } = deepFreeze({
-  "whole-body": { role: "motor", label: "Whole-body solve", stage: "game", fields: [], slots: [], defaults: { kind: "whole-body" }, fits: () => true, faults: () => [] },
+  "whole-body": { role: "motor", label: "Whole-body solve", stage: "game", fields: [], slots: [], defaults: { kind: "whole-body" }, fits: anyBody, faults: () => [] },
 });
 
 /** The motor control `config` names; the game's, the whole-body solve (`motorControl`), where it names none. */

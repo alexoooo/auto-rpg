@@ -1,4 +1,4 @@
-import { commandable } from "../body.ts";
+import { takesCommands } from "../mind/parts.ts";
 import type { ExecutorConfig } from "../mind/config.ts";
 import type { ExecutorPart } from "../mind/executor-part.ts";
 import { noPathSettings } from "../mind/executor-part.ts";
@@ -9,7 +9,7 @@ type Cut = Extract<ExecutorConfig, { kind: "blade-cut" }>;
 type Thrust = Extract<ExecutorConfig, { kind: "blade-thrust" }>;
 const common = {
   role: "executor" as const, stage: "experimental" as const, slots: [],
-  tuning: Object.keys(BLADE_STRIKE), fits: commandable, effectors: ["hand.left", "hand.right"], actionFaults: noPathSettings,
+  tuning: Object.keys(BLADE_STRIKE), fits: takesCommands, effectors: ["hand.left", "hand.right"], actionFaults: noPathSettings,
   faults: (config: Cut | Thrust) => validBladeSettings({ ...BLADE_STRIKE, ...config.tuning }) ? [] : ["invalid blade settings"],
 };
 

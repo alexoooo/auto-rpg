@@ -4,14 +4,14 @@ import { choice, number } from "./fields.ts";
 import { standUp } from "./ground/stand-up.ts";
 import { TECHNIQUES, type TechniqueName } from "./ground/techniques.ts";
 import { graphWork, reachable } from "./ground/graph.ts";
-import { commandable, type Body, type BodyView } from "../body.ts";
+import type { Body, BodyView } from "../body.ts";
 import { deepFreeze } from "../state.ts";
-import { STAND_UP, type SubMindConfig } from "./config.ts";
+import { STAND_UP, type StandUpConfig, type SubMindConfig } from "./config.ts";
 import { lying } from "./lie.ts";
 import type { OwnBody } from "./mind.ts";
 import { supportRecovery } from "./rise/support-recovery.ts";
 import { researchRise, researchRiseFits } from "./rise/research.ts";
-import type { Part } from "./parts.ts";
+import { anyBody, fitsAll, fitsWhen, takesCommands, type Part } from "./parts.ts";
 import type { SubMind } from "./sub-mind.ts";
 import type { Clock } from "../clock.ts";
 
@@ -22,7 +22,7 @@ import type { Clock } from "../clock.ts";
 export type SubMindMaker = (own: OwnBody, view: BodyView, clock: Clock, afterPhysics: Body["afterPhysics"]) => SubMind;
 
 /** A sub-mind of no settings and no slots: what it is called, and which bodies it fits. */
-const plain = <K extends SubMindConfig["kind"]>(kind: K, label: string, fits: Part["fits"]): Part<Extract<SubMindConfig, { kind: K }>> =>
+const plain = <K extends SubMindConfig["kind"]>(kind: K, label: string, fits: Part<Extract<SubMindConfig, { kind: K }>>["fits"]): Part<Extract<SubMindConfig, { kind: K }>> =>
   deepFreeze({ role: "sub-mind", label, stage: "game", fields: [], slots: [], defaults: { kind } as Extract<SubMindConfig, { kind: K }>, fits, faults: () => [] });
 
 /**
@@ -32,7 +32,11 @@ const plain = <K extends SubMindConfig["kind"]>(kind: K, label: string, fits: Pa
 export const SUB_MIND_PARTS: { readonly [K in SubMindConfig["kind"]]: Part<Extract<SubMindConfig, { kind: K }>> } = Object.freeze({
   "stand-up": deepFreeze<Part<Extract<SubMindConfig, { kind: "stand-up" }>>>({ role: "sub-mind", label: "Stand up", stage: "game", fields: [], slots: [],
     defaults: STAND_UP,
-    fits: (spec, config) => commandable(spec) && Array.isArray(config.techniques) && config.techniques.every((name: TechniqueName) => TECHNIQUES[name]?.fits(spec)),
+    fits: fitsAll<StandUpConfig>(takesCommands, (spec, config) => {
+      if (!Array.isArray(config.techniques)) return "its techniques are no list";
+      const unfit: TechniqueName | undefined = config.techniques.find((name: TechniqueName) => !TECHNIQUES[name]?.fits(spec));
+      return unfit === undefined ? null : `${TECHNIQUES[unfit]?.label ?? JSON.stringify(unfit)} does not fit it`;
+    }),
     faults: config => {
       if (!Array.isArray(config.techniques)) return ["techniques must be a ranked list"];
       if (config.techniques.some(name => !Object.hasOwn(TECHNIQUES, name))) return ["unknown technique"];
@@ -42,17 +46,17 @@ export const SUB_MIND_PARTS: { readonly [K in SubMindConfig["kind"]]: Part<Extra
     },
     reads: config => config.techniques.includes("learned-rise") ? ["learned-rise"] : [] }),
   "get-away": deepFreeze<Part<Extract<SubMindConfig, { kind: "get-away" }>>>({ role: "sub-mind", label: "Get away", stage: "experimental", slots: [],
-    fields: [number("metres", "Foe distance", .1, 10, .1, "m")], defaults: { kind: "get-away", metres: 2 }, fits: commandable,
+    fields: [number("metres", "Foe distance", .1, 10, .1, "m")], defaults: { kind: "get-away", metres: 2 }, fits: takesCommands,
     faults: config => Number.isFinite(config.metres) && config.metres > 0 ? [] : ["distance must be finite and positive"] }),
   "ground-fight": deepFreeze<Part<Extract<SubMindConfig, { kind: "ground-fight" }>>>({ role: "sub-mind", label: "Fight on the ground", stage: "experimental", slots: [],
     fields: [number("reach", "Foe reach", .1, 3, .1, "m"), choice("kicks", "Kicking foot", [["either", "Either"], ["left", "Left"], ["right", "Right"], ["none", "Cover only"]])],
-    defaults: { kind: "ground-fight", reach: 1.2, kicks: "either" }, fits: commandable,
+    defaults: { kind: "ground-fight", reach: 1.2, kicks: "either" }, fits: takesCommands,
     faults: config => [...Number.isFinite(config.reach) && config.reach > 0 ? [] : ["reach must be finite and positive"],
       ...["either", "left", "right", "none"].includes(config.kicks) ? [] : ["unknown kicking foot"]] }),
-  lie: plain("lie", "Lie still", () => true),
-  "support-recovery": plain("support-recovery", "Rise, then steady", (spec) => commandable(spec)),
+  lie: plain("lie", "Lie still", anyBody),
+  "support-recovery": plain("support-recovery", "Rise, then steady", takesCommands),
   "research-rise": deepFreeze({ role: "sub-mind", label: "Research rise", stage: "experimental", fields: [], slots: [],
-    defaults: { kind: "research-rise" }, fits: researchRiseFits, faults: () => [], reads: () => ["research-rise" as const] } as const),
+    defaults: { kind: "research-rise" }, fits: fitsWhen(researchRiseFits, "needs the Warrior or the Rogue, holding one item at most, in a hand"), faults: () => [], reads: () => ["research-rise" as const] } as const),
 });
 
 /** The sub-mind `config` names. */

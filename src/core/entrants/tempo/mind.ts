@@ -1,4 +1,3 @@
-import { commandable } from "../../body.ts";
 import { actionConfigFaults, armedActions } from "../../mind/action-config.ts";
 import { OPTIONS, SCRAPPER, STAND_UP, type ActionConfig, type ExecutorConfig, type ReflexConfig, type SkillKit, type SubMindConfig } from "../../mind/config.ts";
 import { controller } from "../../mind/controller.ts";
@@ -6,7 +5,7 @@ import { fighterBody, fighterSkills, kitFaults } from "../../mind/fighter.ts";
 import { number } from "../../mind/fields.ts";
 import type { BodyHost } from "../../mind/host.ts";
 import type { MindWiring } from "../../mind/minds.ts";
-import { slotList, slotOne, type Slot } from "../../mind/parts.ts";
+import { fitsAll, fitsWhen, slotList, slotOne, takesCommands, type Slot } from "../../mind/parts.ts";
 import { driveBy } from "../../mind/tactics.ts";
 import type { Skills } from "../../skills/skills.ts";
 import { guardPosture } from "../../skills/guard.ts";
@@ -99,8 +98,8 @@ export const TEMPO_MIND = controller<TempoConfig>({
   keys: { kind: true, navigation: true, locomotion: true, guard: true, executors: true, actions: true, support: true, reflexes: true, subs: true, motor: true,
     burst: true, rest: true, margin: true, commit: true },
   // It fits a body with a blow thrown standing among its usable actions.
-  fits: (spec, config) => commandable(spec) && actionConfigFaults(spec, config.executors, config.actions).length === 0
-    && armedActions(spec, config.executors, config.actions).some((action) => action.lower === undefined),
+  fits: fitsAll<TempoConfig>(takesCommands, (spec, config) => actionConfigFaults(spec, config.executors, config.actions)[0] ?? null,
+    fitsWhen((spec, config) => armedActions(spec, config.executors, config.actions).some((action) => action.lower === undefined), "it throws no blow standing")),
   supportedEquipment: (spec, config) => armedActions(spec, config.executors, config.actions).flatMap((action) => action.effectors),
   faults: tempoFaults,
   presets: deepFreeze({ tempo: { label: "Tempo fighter", config: TEMPO } }),

@@ -2,7 +2,7 @@ import { cos, sin } from "../../math/real.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 import { deepFreeze } from "../../state.ts";
 import type { ReflexConfig } from "../config.ts";
-import type { Part } from "../parts.ts";
+import { anyBody, type Part } from "../parts.ts";
 import type { Cover, Intent } from "../intent.ts";
 import type { Situation } from "./option.ts";
 import { coveringHand } from "../cover-hand.ts";
@@ -86,7 +86,7 @@ const COVER_LONGEST = 1;
 
 /** **Every reflex, by its kind**, as a part (`Part`) of role `reflex`. A kind without an entry does not compile. */
 export const REFLEX_PARTS: { readonly [K in ReflexConfig["kind"]]: Part<Extract<ReflexConfig, { kind: K }>> } = deepFreeze({
-  "cover-reflex": { role: "reflex", label: "Cover", stage: "game", fields: [], slots: [], defaults: { kind: "cover-reflex" }, fits: () => true, faults: () => [] },
+  "cover-reflex": { role: "reflex", label: "Cover", stage: "game", fields: [], slots: [], defaults: { kind: "cover-reflex" }, fits: anyBody, faults: () => [] },
 });
 
 /** The reflex `config` names. */

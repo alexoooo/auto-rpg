@@ -1,4 +1,4 @@
-import { commandable } from "../body.ts";
+import { takesCommands } from "../mind/parts.ts";
 import type { ActionConfig, ExecutorConfig } from "../mind/config.ts";
 import { number, text, toggle } from "../mind/fields.ts";
 import type { ExecutorPart } from "../mind/executor-part.ts";
@@ -22,7 +22,7 @@ const faults = (config: Path | Driven): readonly string[] => [
 /** Hand paths own their cycle settings and anatomical contract. */
 export const PATH_PART: ExecutorPart<Path> = {
   role: "executor", label: "Path strike", stage: "experimental", defaults: { kind: "path-strike", name: "paths", overlap: false },
-  fields: [text("name", "Name"), toggle("overlap", "Overlap returns")], slots: [], tuning: ["paths", "execution"], fits: commandable,
+  fields: [text("name", "Name"), toggle("overlap", "Overlap returns")], slots: [], tuning: ["paths", "execution"], fits: takesCommands,
   faults, effectors: ["hand.left", "hand.right"], actionFaults, paths,
   strikesWith: (spec, _config, effector) => strikesWithBlunt(spec, effector),
   make: (body, _world, config, actions, resolve, direction) => pathExecutor(body, actions.map(a => ({ ...a, family: a.family! })),
@@ -33,7 +33,7 @@ export const DRIVEN_PART: ExecutorPart<Driven> = {
   role: "executor", label: "Driven strike", stage: "experimental", defaults: { kind: "driven-strike", name: "driven", ...DRIVEN_STRIKE },
   fields: [text("name", "Name"), number("drive", "Trunk drive", 0, 1, .05, "of full"), number("torso", "Trunk turn", 0, .6, .01, "rad"),
     number("windup", "Wind-up", 0, .4, .01, "m"), number("contact", "Contact speed", 1, 12, .5, "m/s")],
-  slots: [], tuning: ["paths", "execution"], fits: commandable, faults: config => [...faults(config), ...validDrivenStrike(config) ? [] : ["invalid driven strike settings"]],
+  slots: [], tuning: ["paths", "execution"], fits: takesCommands, faults: config => [...faults(config), ...validDrivenStrike(config) ? [] : ["invalid driven strike settings"]],
   effectors: ["hand.left", "hand.right"], actionFaults, paths,
   strikesWith: (spec, _config, effector) => strikesWithBlunt(spec, effector),
   make(body, _world, config, actions, resolve, direction) {
