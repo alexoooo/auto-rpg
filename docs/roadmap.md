@@ -44,11 +44,10 @@ The plans in flight, and what comes next across them. Each plan names its own de
 | [Ratings](plans/2026-10-21-ratings.md) | One format for every evaluation, kept records, the paired report, the Ratings screen |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data loaded per use, then packed |
 | [Movement and command](plans/2026-10-21-movement-and-command.md) | One movement pipeline; Commanders over teams |
-| [General AI testbed](plans/2026-10-22-ai-testbed.md) | Any part of a mind replaced from its own folder by configuration, carried by every screen and tool |
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
-1. **Now:** the AI testbed, step 3 (each role's interface its own; steps 1 and 2, every host
-   receiving its parts, have landed); Vanguard on hold, converted as its parts' roles are. In parallel: Movement B3's remainder (the stance walk's sideways run-away).
+1. **Now:** Movement B3's remainder (the stance walk's sideways run-away); Vanguard on hold, its
+   flags now its planner part (`vanguard-plan`), each of its parts replaced alone by `--ablate`.
 2. **When each one's condition holds:**
    - Ratings step 6 (the cap) once recorded reports' bar series decide it;
    - Ratings step 10's other research batteries when next worked on; step 9 when a question
@@ -119,6 +118,20 @@ The plans in flight, and what comes next across them. Each plan names its own de
   the Lab and the Crypt still place bodies and aim orders with the engine's `Math`.
 - A new body family or item brings its own tasks; a shared name does not show an algorithm works
   on another family.
+- Parts swap by configuration ([Adding a Mind](architecture.md#adding-a-mind)); what is left:
+  - the orders vocabulary is closed: a planner that wants a new kind of order edits `Orders`,
+    `isOrders`, `Command` and the Commanders;
+  - a planner's memory forks only through the skills it drives (`driveBy`): one that keeps it
+    elsewhere does not fork;
+  - nothing holds a navigator to its report's statuses: the straight stub never says `stalled`,
+    which a Commander reads;
+  - `crypt-clear` takes a party Commander as its subject; an enemy Commander is evaluated only by
+    a new protocol;
+  - a part's settings are choices, numbers, toggles or text: a list setting is edited as JSON text;
+  - the research shortfall meter (`research/bout.mjs`) reads a command-layer body's stance, which
+    a policy body has not;
+  - the rising bed's pre-fall pose and the Lab's start placements are the stock guard posture
+    (`guardPosture`), not the mind's guard.
 
 ### Body and motor control
 
