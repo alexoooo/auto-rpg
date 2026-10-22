@@ -36,9 +36,13 @@ export function cryptModel(model: BodyModel, spec?: BodySpec): CryptModel {
     }));
     return { ...own, radius: own.radius * (footprint(spec) / footprint(base)), attackMetres: own.attackMetres * (spec.stature.value / base.stature.value) };
   }
-  switch (model) {
-    case "workshop-fighter": case "workshop-rogue": case "crypt-skeleton": return HUMANOID;
-    case "reptile": return reptileModel ??= readReptile();
-    default: { const never: never = model; throw new Error(`unknown model ${never}`); }
-  }
+  const read = Object.hasOwn(CRYPT_MODELS, model) ? CRYPT_MODELS[model] : undefined;
+  if (!read) throw new Error(`unknown model ${String(model)}`);
+  return read();
 }
+
+/** **What the crypt needs of each model**, read when first asked: the one list a body family is added to here. */
+const CRYPT_MODELS: Readonly<Record<BodyModel, () => CryptModel>> = Object.freeze({
+  "workshop-fighter": () => HUMANOID, "workshop-rogue": () => HUMANOID, "crypt-skeleton": () => HUMANOID,
+  reptile: () => reptileModel ??= readReptile(),
+});

@@ -47,6 +47,9 @@ const REPTILE: Readonly<Record<string, string>> = {
   "paw.hind.left": "M96 147H86L87 157H97Z",
 };
 
+/** Every body diagram, each a path by segment name. */
+const DIAGRAMS: readonly Readonly<Record<string, string>>[] = [HUMAN, REPTILE];
+
 /** Anatomical identifiers become readable labels without losing their side. */
 export function partLabel(name: string): string {
   const words = name.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().split(/[.\s_-]+/);
@@ -57,9 +60,10 @@ export function partLabel(name: string): string {
 
 /** Fixed diagram geometry and current damage, keyed by the pool's actual segments. */
 export function damageReadout(spec: BodySpec, pool: Pool) {
-  const paths = spec.model === "reptile" ? REPTILE : HUMAN;
+  // The diagram that draws every segment the body has: a body family is drawn by its segments, not its name.
+  const paths = DIAGRAMS.find(diagram => spec.segments.every(segment => Object.hasOwn(diagram, segment.name)));
   const parts = spec.segments.map(segment => {
-    const path = paths[segment.name];
+    const path = paths?.[segment.name];
     if (!path) throw new Error(`No damage diagram part for ${spec.model}/${segment.name}`);
     return { name: segment.name, label: partLabel(segment.name), path,
       remaining: 1, attached: true, flashUntil: -Infinity, hp: pool.hp(segment.name) };

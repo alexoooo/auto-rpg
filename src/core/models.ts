@@ -26,13 +26,38 @@ export interface ResolvedCharacter {
   readonly spec: BodySpec;
 }
 
-/** The family's unmodified anatomy. */
-function originalSpec(model: BodyModel): BodySpec {
-  switch (model) {
-    case "workshop-fighter": case "workshop-rogue": case "crypt-skeleton": return humanoidSpec(model);
-    case "reptile": return reptileSpec();
-    default: { const never: never = model; throw new Error(`unknown model ${never}`); }
-  }
+/** A model's defaults: the mind it fights under and what its right hand holds, unless a fight says otherwise. */
+interface ModelInfo {
+  readonly mind: MindConfig;
+  readonly held: Held;
+}
+
+/**
+ * **A body family's entry** (`FAMILIES`): its unmodified anatomy, that anatomy under a physique and
+ * haste, its defaults, and whether it takes a haste in place of its character's.
+ */
+interface Family {
+  spec(model: BodyModel): BodySpec;
+  physique(model: BodyModel, original: BodySpec, physique: Physique, haste: number): BodySpec;
+  readonly info: ModelInfo;
+  readonly hastes: boolean;
+}
+
+const HUMANOID: Family = deepFreeze({ spec: (model: BodyModel) => humanoidSpec(model as HumanoidModel),
+  physique: (model: BodyModel, _original: BodySpec, physique: Physique, haste: number) => humanoidSpec(model as HumanoidModel, physique, haste),
+  info: { mind: DUELLIST, held: "club" }, hastes: true });
+const REPTILE: Family = deepFreeze({ spec: () => reptileSpec(),
+  physique: (_model: BodyModel, original: BodySpec, physique: Physique, haste: number) => reptilePhysique(original, physique, haste),
+  info: { mind: QUADRUPED, held: "empty" }, hastes: true });
+
+/** **Every model's family**: the one list a body family is added to in the core. */
+const FAMILIES: Readonly<Record<BodyModel, Family>> = Object.freeze({ "workshop-fighter": HUMANOID, "workshop-rogue": HUMANOID, "crypt-skeleton": HUMANOID, reptile: REPTILE });
+
+/** `model`'s family; a thrown error for a model there is none of, read from a save or a link. */
+function familyOf(model: BodyModel): Family {
+  const family = Object.hasOwn(FAMILIES, model) ? FAMILIES[model] : undefined;
+  if (!family) throw new Error(`unknown model ${String(model)}`);
+  return family;
 }
 
 /** Model defaults, including its own hit points and assistance capabilities. */
@@ -54,9 +79,7 @@ export function resolveCharacter(character: CharacterConfig): ResolvedCharacter 
   const physique = Object.fromEntries((["size", "weight", "strength", "speed"] as const)
     .filter(key => attributes[key] !== 1).map(key => [key, attributes[key]]));
   const changed = Object.keys(physique).length > 0 || attributes.haste !== defaults.haste;
-  let spec = !changed ? specOf(model) : model === "reptile"
-    ? reptilePhysique(specOf(model), physique, attributes.haste)
-    : humanoidSpec(model, physique, attributes.haste);
+  let spec = !changed ? specOf(model) : familyOf(model).physique(model, specOf(model), physique, attributes.haste);
   if (attributes.hp !== defaults.hp || attributes.balance !== defaults.balance) spec = { ...spec,
     wounds: attributes.hp === defaults.hp ? spec.wounds : { ...spec.wounds, hp: sourced(attributes.hp, "HP", "owner-hp-pool", "a character's configured hit points") },
     attributes: attributes.balance === defaults.balance ? spec.attributes : { ...spec.attributes, balance: sourced(attributes.balance, "%", "owner-balance", "a character's configured balance") },
@@ -75,23 +98,10 @@ export function resolveCharacter(character: CharacterConfig): ResolvedCharacter 
   return Object.freeze({ config: Object.freeze({ model, attributes }), spec: deepFreeze(spec) });
 }
 
-/** A model's defaults: the mind it fights under and what its right hand holds, unless a fight says otherwise. */
-interface ModelInfo {
-  readonly mind: MindConfig;
-  readonly held: Held;
-}
-
 /** The model list owns defaults; what a body can do is read from its spec (`modelHolds`, `modelSupportsMind`). */
 export function modelInfo(model: BodyModel): ModelInfo {
-  switch (model) {
-    case "workshop-fighter": case "workshop-rogue": case "crypt-skeleton": return HUMANOID;
-    case "reptile": return REPTILE;
-    default: { const never: never = model; throw new Error(`unknown model ${never}`); }
-  }
+  return familyOf(model).info;
 }
-
-const HUMANOID: ModelInfo = deepFreeze({ mind: DUELLIST, held: "club" });
-const REPTILE: ModelInfo = deepFreeze({ mind: QUADRUPED, held: "empty" });
 
 /**
  * Positional construction adapter for scripts and experiments; game setups use `resolveCharacter`.
@@ -102,17 +112,14 @@ export function modelSpec(model: BodyModel, physique?: Physique, attributes: { r
 
 /** Whether `model` takes a haste in place of its character's (`modelSpec`). */
 export function modelHastes(model: BodyModel): boolean {
-  switch (model) {
-    case "workshop-fighter": case "workshop-rogue": case "crypt-skeleton": case "reptile": return true;
-    default: { const never: never = model; throw new Error(`unknown model ${never}`); }
-  }
+  return familyOf(model).hastes;
 }
 
 /** Each model's spec, read once, for what its body can do. */
 const specs = new Map<BodyModel, BodySpec>();
 function specOf(model: BodyModel): BodySpec {
   let spec = specs.get(model);
-  if (!spec) specs.set(model, spec = deepFreeze(originalSpec(model)));
+  if (!spec) specs.set(model, spec = deepFreeze(familyOf(model).spec(model)));
   return spec;
 }
 

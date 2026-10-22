@@ -1,4 +1,4 @@
-import type { BodyView } from "../../body.ts";
+import { commandRefusal, type BodyView } from "../../body.ts";
 import type { MuscleDriver } from "../../muscle/driver.ts";
 import type { BodySpec, Side } from "../../spec/body.ts";
 import type { Clock } from "../../clock.ts";
@@ -7,7 +7,7 @@ import type { MindKit } from "../kit.ts";
 import type { Senses } from "../senses.ts";
 import type { Recipe } from "../rise/stages.ts";
 import type { GroundReading, Position } from "./reading.ts";
-import { fitsWhen, type KeysOf, type Part, type PartConfig } from "../parts.ts";
+import type { KeysOf, Part, PartConfig } from "../parts.ts";
 import type { TECHNIQUES } from "./techniques.ts";
 
 /** A physical event completes a technique; other ends remain failures in the bed. */
@@ -104,8 +104,8 @@ export function mirrorLimbs(limbs: Recipe["limbs"]): Recipe["limbs"] {
   });
 }
 
-/** A technique's `fits`: a humanoid body. Experimental techniques stay out of gameplay defaults until their physical evidence qualifies them. */
-export const fitsHumanoid = fitsWhen((spec: BodySpec) => spec.model === "workshop-fighter" || spec.model === "workshop-rogue" || spec.model === "crypt-skeleton", "it is for a humanoid body");
+/** A technique's `fits`: a body the command layers read (`commandRefusal`), whose limbs it bears on. Experimental techniques stay out of gameplay defaults until their physical evidence qualifies them. */
+export const fitsHumanoid = (spec: BodySpec): string | null => commandRefusal(spec);
 
 /** A technique part of `kind` with no settings of its own. */
 export const technique = <K extends string>(kind: K, part: Pick<TechniquePart, "label" | "stage" | "sides" | "edges" | "make"> & { reads?: Part["reads"] }): TechniquePart<{ readonly kind: K }> =>
