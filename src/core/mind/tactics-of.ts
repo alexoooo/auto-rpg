@@ -1,4 +1,3 @@
-import { commandable } from "../body.ts";
 import type { BodySpec } from "../spec/body.ts";
 import { deepFreeze } from "../state.ts";
 import { actionTactics, type ActionEstimates } from "./action-tactics.ts";
@@ -6,7 +5,7 @@ import { behaviourFaults } from "./behaviours.ts";
 import { FIGHTING, type ActionConfig, type BehavioursConfig, type TacticsConfig } from "./config.ts";
 import { standIntent } from "./intent.ts";
 import type { Orders } from "./orders.ts";
-import { slotList, type Part } from "./parts.ts";
+import { slotList, takesCommands, type Part } from "./parts.ts";
 import type { Sight, Tactics } from "./tactics.ts";
 
 /** The tactics' bounded decisions and condition numbers must be finite before execution. */
@@ -23,9 +22,9 @@ function tacticsFaults(config: BehavioursConfig): readonly string[] {
 
 /** The tactics registry exposes one shared behaviour engine, scripts and standing guard. */
 export const TACTICS_PARTS: { readonly [K in TacticsConfig["kind"]]: Part<Extract<TacticsConfig, { kind: K }>> } = deepFreeze({
-  script: { role: "tactics", label: "Follow script", stage: "game", fields: [], slots: [], defaults: { kind: "script" }, needs: "script", fits: commandable, faults: () => [] },
-  stand: { role: "tactics", label: "Stand in guard", stage: "game", fields: [], slots: [], defaults: { kind: "stand" }, fits: commandable, faults: () => [] },
-  behaviours: { role: "tactics", label: "Behaviours", stage: "game", fields: [], slots: [slotList("list", "Behaviours", "behaviour")], defaults: FIGHTING, fits: commandable, faults: tacticsFaults },
+  script: { role: "tactics", label: "Follow script", stage: "game", fields: [], slots: [], defaults: { kind: "script" }, needs: "script", fits: takesCommands, faults: () => [] },
+  stand: { role: "tactics", label: "Stand in guard", stage: "game", fields: [], slots: [], defaults: { kind: "stand" }, fits: takesCommands, faults: () => [] },
+  behaviours: { role: "tactics", label: "Behaviours", stage: "game", fields: [], slots: [slotList("list", "Behaviours", "behaviour")], defaults: FIGHTING, fits: takesCommands, faults: tacticsFaults },
 });
 
 /** Compile the shared decisions over this body's named actions, or carry out a supplied script. */

@@ -8,7 +8,7 @@
  */
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import type { TeamOrder } from "../core/command/commands.ts";
+import type { Command } from "../core/command/commands.ts";
 import { loadEngine, type EngineName } from "../core/engine/engines.ts";
 import type { MindConfig } from "../core/mind/config.ts";
 import type { BodyModel } from "../core/models.ts";
@@ -29,8 +29,8 @@ export interface CryptLayout {
   readonly spawns: readonly Point[];
 }
 
-/** What a leg does as it begins: an order to party members, by id, or a member struck dead where it stands. */
-export type CryptAct = { readonly kind: "order"; readonly members: readonly string[]; readonly order: TeamOrder }
+/** What a leg does as it begins: the person's command to party members, by id, or a member struck dead where it stands. */
+export type CryptAct = { readonly kind: "command"; readonly members: readonly string[]; readonly command: Command }
   | { readonly kind: "slain"; readonly member: string };
 
 /**
@@ -126,13 +126,13 @@ export async function buildCrypt(crypt: CryptCase, engine: EngineName): Promise<
     const until = crypt.script[k]?.until;
     from = until?.kind === "gone" ? member(until.member).feet() : null;
   };
-  /** Give the next act: an order to its members through the person's commands, or a member slain. */
+  /** Give the next act: the person's command to its members, selected first, or a member slain. */
   const act = (): void => {
     const next = pending.shift()!;
     switch (next.kind) {
-      case "order":
+      case "command":
         run.select(next.members);
-        run.commands.order = next.order; run.commands.revision++;
+        run.command(next.command);
         return;
       case "slain": {
         const body = member(next.member).fighter!;

@@ -3,7 +3,6 @@ import type { BodyView } from "../../body.ts";
 import { hypot } from "../../math/real.ts";
 import { LEAVING } from "../../skills/move.ts";
 import type { Side } from "../../spec/body.ts";
-import type { GetAwayConfig } from "../config.ts";
 import type { OwnBody } from "../mind.ts";
 import type { Senses } from "../senses.ts";
 import type { SubMind } from "../sub-mind.ts";
@@ -11,6 +10,9 @@ import { nearestFoe } from "../targets.ts";
 import { rollToFront } from "./roll.ts";
 import { rollBack } from "./roll-back.ts";
 import { poseDrive, type TechniqueEnd } from "./techniques.ts";
+
+/** Roll away from a nearby foe before handing over. */
+export interface GetAwayConfig { readonly kind: "get-away"; readonly metres: number }
 
 /** Distance hysteresis applies between complete rolls; every technique yield remains a handover. */
 export function getAway(own: OwnBody, view: BodyView, config: GetAwayConfig): SubMind {

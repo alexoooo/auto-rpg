@@ -205,8 +205,8 @@ what a Commander may (`tests/command-contract.test.mjs`) and a working copy with
 
 ## Competing minds
 
-- **A Mind is an entrant**: `src/core/entrants/<name>/`, a line in `CONTROLLERS`
-  (`src/core/mind/controllers.ts`), its data under `assets/entrants/<name>/`. What it may read
+- **A Mind is an entrant**: `src/core/entrants/<name>/`, a line in `MIND_KINDS`
+  (`src/core/mind/kinds.ts`), its data under `assets/entrants/<name>/`. What it may read
   and do is the architecture's (Adding a Mind), held by `tests/core-boundary.test.mjs` and
   `tests/mind-contract.test.mjs`.
 - **An entrant's change touches its own files and its registry line**;

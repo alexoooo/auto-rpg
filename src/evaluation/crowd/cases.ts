@@ -15,7 +15,7 @@
  * It is read until the script is done, or a leg is not done in its time (`CryptLeg.most`): the legs
  * done, each fall, and the steps the members' bodies were pushed apart.
  */
-import type { TeamOrder } from "../../core/command/commands.ts";
+import type { Command } from "../../core/command/commands.ts";
 import { hypot } from "../../core/math/real.ts";
 import { randomStream } from "../../core/math/random.ts";
 import type { MindConfig } from "../../core/mind/config.ts";
@@ -50,8 +50,8 @@ const CROWD = deepFreeze({
 export type CrowdCondition = { readonly situation: Situation; readonly seed: number };
 
 const apart = (a: Point, b: Point): number => hypot(a.x - b.x, a.z - b.z);
-const to = (destination: Point): TeamOrder => ({ kind: "attack-move", destination: { x: destination.x, z: destination.z } });
-const order = (members: readonly string[], destination: Point) => ({ kind: "order" as const, members, order: to(destination) });
+const to = (destination: Point): Command => ({ kind: "go", destination: { x: destination.x, z: destination.z } });
+const order = (members: readonly string[], destination: Point) => ({ kind: "command" as const, members, command: to(destination) });
 const settle: CryptLeg = { acts: [], until: { kind: "seconds", seconds: CROWD.settle }, most: CROWD.settle + 1 };
 
 /**

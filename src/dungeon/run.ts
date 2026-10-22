@@ -30,13 +30,14 @@ import { STAND_ORDERS } from "../core/mind/orders.ts";
 import { createCommander } from "../core/command/commanders.ts";
 import { SIGHT_METRES } from "../core/command/independent.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamLevel, TeamView } from "../core/command/team.ts";
+import type { Command } from "../core/command/commands.ts";
 import { doorApproach } from "./door-approach.ts";
 
 /**
  * **A crypt run**: the level's colliders are fixed boxes in a world
  * (`buildDungeonWorld`), and the party and the enemies are bodies (`src/core/`), each under a mind
  * that carries out its team's orders. Each side is a team under a Commander (`src/core/command/`):
- * the party under the person's (`partyCommander`), whose commands reach it only as `TeamCommand`s
+ * the party under the person's (`partyCommander`), whose commands reach it only as `Command`s
  * and the live input of the keys and pointer (`DungeonCommands`); the enemies each at the nearest
  * member it sees (`independentCommander`). The run is their host: it answers for the map
  * (`TeamLevel`), asks the party's Commander and then the enemies' once a step, before every mind,
@@ -120,6 +121,8 @@ export interface DungeonActor {
   readonly radius: number;
   /** Navigation feedback and geometric route from its selected Mind, where it exposes the role. */
   readonly navigation: NavigationReport | null;
+  /** The skills its Mind runs, where it runs the game's: the way its legs face and the limits they state. */
+  readonly skills: Skills | null;
 }
 
 /** How near a standing party member comes before an enemy is built: beyond its sight, so it is standing when it can
@@ -198,7 +201,8 @@ export function prepareDungeonCharacters(map: DungeonMap, options: Pick<DungeonR
 
 export class DungeonRun {
   readonly map: DungeonMap;
-  readonly commands = new DungeonCommands();
+  /** The left button's commands, each heard by the party's Commander as it is given. */
+  readonly commands = new DungeonCommands((command) => this.command(command));
   /** The world every body and collider is in. */
   readonly world: World;
   /** The level built: its floor, walls and doors, drawn, and their colliders in `world`. */
@@ -210,8 +214,6 @@ export class DungeonRun {
   readonly enemies: DungeonActor[] = [];
   /** Every blow and clash so far. */
   readonly blows: LandedBlow[] = [];
-  /** Which party members the person's next mouse order goes to, by id. Everybody, until the person picks. */
-  selected: ReadonlySet<string>;
   readonly explored = new Set<number>();
   visible = new Set<number>();
   status: RunStatus = "playing";
@@ -223,7 +225,6 @@ export class DungeonRun {
   private nextPerception = 0;
   /** The map's sight index, and how many of its doors were open when it was made: `sight` makes it again when another has opened. */
   private seeing: { index: SightIndex; opened: number } | null = null;
-  private commandRevision = -1;
   private watch: BlowWatch | null = null;
   private readonly planning: Hook;
   private readonly rules = rulebook("dungeon");
@@ -263,7 +264,8 @@ export class DungeonRun {
         get vitality() { return this.fighter?.pool.bar() ?? 1; },
         get target() { const id = run.report(this).target; return id === null ? null : run.actors.find((other) => other.id === id) ?? null; },
         home: { ...at }, radius: info.radius,
-        get navigation() { return (this.fighter?.minded as { readonly skills?: Skills } | undefined)?.skills?.report.navigation ?? null; },
+        get navigation() { return this.skills?.report.navigation ?? null; },
+        get skills() { return (this.fighter?.minded as { readonly skills?: Skills } | undefined)?.skills ?? null; },
       };
       this.actors.push(actor); return actor;
     };
@@ -273,7 +275,6 @@ export class DungeonRun {
     (options.companions ?? []).forEach((model, i) => {
       this.party.push(create(`ally-${i}`, model, homes.get(`ally-${i}`)!, "party"));
     });
-    this.selected = new Set(this.party.map(member => member.id));
     for (const member of this.party) this.build(member);
     this.wake();
     this.visible = this.sight(this.party.map(member => member.home));
@@ -365,15 +366,16 @@ export class DungeonRun {
   /** The party member the camera follows and the page reports: the hero while it stands, then the first companion that does. */
   get leader(): DungeonActor { return this.party.find(member => member.alive) ?? this.hero; }
 
-  /** Sends the person's next mouse order to these party members, or to everybody when `ids` is null. Unknown ids are dropped. */
+  /** Which party members the person's commands go to, by id, as the party's Commander says. */
+  get selected(): ReadonlySet<string> { return new Set(this.party.filter((member) => this.team.report(member.id).selected).map((member) => member.id)); }
+
+  /** Sends the person's next commands to these party members, or to everybody when `ids` is null. Unknown ids are dropped. */
   select(ids: readonly string[] | null): void {
-    this.selected = new Set(ids === null ? this.party.map(m => m.id) : ids.filter(id => this.party.some(m => m.id === id)));
+    this.command({ kind: "select", members: ids ?? this.party.map((member) => member.id) });
   }
 
-  /** Calls the selected companions back to the hero: each drops its order and its post. The hero is not a companion. */
-  regroup(): void {
-    this.team.hear({ kind: "regroup", members: this.party.filter((member) => this.selected.has(member.id)).map((member) => member.id) }, this.partyView(false));
-  }
+  /** The person's command, heard by the party's Commander at once and carried out on the members selected. */
+  command(command: Command): void { this.team.hear(command, this.partyView(false)); }
 
   /** What `actor`'s team's Commander says of it: whom it fights, what it is doing (`MemberReport`). */
   report(actor: DungeonActor): MemberReport { return (actor.side === "party" ? this.team : this.foes).report(actor.id); }
@@ -381,19 +383,13 @@ export class DungeonRun {
   /** What the party's Commander tells the person of the party's movement, or "". */
   get notice(): string { return this.team.notice; }
 
-  /** The run's part of a step, before the bodies': who is built, each body's level, the person's command, doors, each team's orders, and the status. */
+  /** The run's part of a step, before the bodies': who is built, each body's level, doors, each team's orders, and the status. */
   private plan(): void {
     if (this.status === "playing") this.wake();
     this.levels();
     if (this.status !== "playing") {
       this.given.clear();
       return;
-    }
-    if (this.commands.revision !== this.commandRevision) {
-      // The person's new order goes to the selected members, and replaces whatever each was doing.
-      this.commandRevision = this.commands.revision;
-      const members = this.party.filter((member) => this.selected.has(member.id)).map((member) => member.id);
-      this.team.hear({ kind: "order", order: this.commands.order, members }, this.partyView(false));
     }
     this.level.openNearby(this.actors.filter(a => a.fighter && a.alive).map(a => a.feet()));
     const party = this.team.decide(this.partyView(this.clock >= this.nextPerception));
@@ -425,8 +421,8 @@ export class DungeonRun {
   private partyView(look: boolean): TeamView {
     const { mode, cursor } = this.commands;
     return this.view(this.party, this.enemies, look, {
-      keys: mode.keyboard ? screenMovement(this.commands.right, this.commands.up, this.toward) : null,
-      aim: mode.facing ? cursor : null, explore: mode.facing,
+      keys: mode.keyboard ? screenMovement(this.commands.right, this.commands.up, this.toward) : null, walk: false,
+      aim: mode.facing ? cursor : null, strike: null, explore: mode.facing,
     });
   }
 
@@ -438,6 +434,7 @@ export class DungeonRun {
       members: members.filter(built).map((actor): MemberView => ({
         id: actor.id, at: actor.feet(), fighting: actor.alive, held: actor.held, radius: actor.radius,
         reach: actor.attackMetres, home: actor.home, navigation: actor.navigation,
+        gait: actor.skills?.gait ?? null, heading: actor.skills?.report.heading ?? null,
       })),
       others: foes.filter(built).map((actor): SensedBody => ({ id: actor.id, at: actor.feet(), fighting: actor.alive })),
     };

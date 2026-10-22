@@ -22,7 +22,7 @@
  * or one named executor or action, `actions.<name>=null` to remove it.
  * `--engine` (or `CORE_ENGINE`) picks the engine unless the protocol fixes one, as the falls fix Rapier.
  * `--write` keeps the run as a record, refused unless every case has a row and the commit holds the
- * environment's files unchanged.
+ * files of every case's code unchanged (`caseCoder`).
  */
 import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -43,7 +43,8 @@ import { scheduleName } from "../src/evaluation/schedule.ts";
 import { sha256Text } from "../src/evaluation/sha256.ts";
 import { tableRatings } from "../src/evaluation/tournament/index.ts";
 import { ratedNotes } from "../src/evaluation/tournament/notes.ts";
-import { BUILD_IDENTITY, environmentOf } from "./build-identity.mjs";
+import { caseNames, partNames } from "../src/evaluation/code.ts";
+import { BUILD_IDENTITY, caseCoder, fileTable } from "./build-identity.mjs";
 import { importRun } from "./evaluation-import.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
@@ -274,12 +275,13 @@ async function main() {
     : { baseline: values.previous && cases.arity === 1 ? evaluation.subjects([subjectOf(values.previous)]) : [], counterpart: new Map(), revived: new Map() };
   const panelIds = new Set(schedule.panel ?? []), mine = [...chosen, ...baseline].filter((one) => !panelIds.has(one.id));
   const subjects = [...mine.filter((one, k) => mine.findIndex((other) => other.id === one.id) === k), ...panel];
-  const environment = environmentOf();
+  const coder = caseCoder(fileTable(), `src/evaluation/${id}/cases.ts`, Object.keys(CONTROLLERS)), environment = coder.environment;
+  const code = (world) => coder.code(caseNames(world)).digest, ownCode = (parts) => coder.code(partNames(parts)).own;
   const rule = evaluation.analysis.settle;
   if (counterpart.size > 0 && !rule) throw new Error(`${id} has no rule to settle a comparison on`);
-  const units = casesOf(evaluation, protocol, subjects, { engine, code: environment.digest, schedule });
+  const units = casesOf(evaluation, protocol, subjects, { engine, code, schedule });
   const pairs = [...counterpart].filter(([subject, other]) => !panelIds.has(subject) && !panelIds.has(other));
-  const headToHead = pairs.length > 0 ? casesOf(evaluation, protocol, subjects, { engine, code: environment.digest, schedule: { kind: "pairs", pairs } }) : [];
+  const headToHead = pairs.length > 0 ? casesOf(evaluation, protocol, subjects, { engine, code, schedule: { kind: "pairs", pairs } }) : [];
   const slots = slotsOf(units, counterpart, schedule.panel ?? []), order = playOrder(slots, headToHead, [...units, ...headToHead]);
   const defined = new Map([...units, ...headToHead].map((unit, k) => [unit[0].key, k]));
   const working = join(ROOT, "research/runs/evaluations", id);
@@ -330,16 +332,16 @@ async function main() {
   if (complete.length < order.length) console.log(`${complete.length} of ${order.length} units have every row${spent ? "; the budget ran out" : ""}${lost.length ? "; run again to retry the lost" : ""}`);
 
   // Each subject's version; its parent its counterpart's, or, asked without a panel, the newest recorded version of that id.
-  const recorded = new Map(subjects.map((subject) => [subject.id, recordedSubject(subject, cases.play, environment.digest, null)]));
+  const recorded = new Map(subjects.map((subject) => [subject.id, recordedSubject(subject, cases.play, environment.digest, null, ownCode)]));
   for (const [subject, other] of counterpart)
-    recorded.set(subject, recordedSubject(subjects.find((one) => one.id === subject), cases.play, environment.digest, revived.get(subject) ?? recorded.get(other)));
+    recorded.set(subject, recordedSubject(subjects.find((one) => one.id === subject), cases.play, environment.digest, revived.get(subject) ?? recorded.get(other), ownCode));
   if (values.previous && counterpart.size === 0) {
     const first = recorded.get(subjects[0].id);
     const previous = baseline[0]?.id ?? values.previous;
     const parent = records.flatMap(({ header }) => header.subjects).filter((one) => one.id === previous && one.version.version !== first.version.version).at(-1)
       ?? [...recorded.values()].find((one) => one.id === previous && one !== first) ?? null;
     if (!parent) throw new Error(`no version of ${previous} in a record of ${id} or among the subjects`);
-    recorded.set(subjects[0].id, recordedSubject(subjects[0], cases.play, environment.digest, parent));
+    recorded.set(subjects[0].id, recordedSubject(subjects[0], cases.play, environment.digest, parent, ownCode));
   }
   const date = new Date().toISOString().slice(0, 10), heads = [...recorded.values()];
   const header = {
@@ -372,7 +374,8 @@ async function main() {
   if (values.write) {
     if (!commit) throw new Error("a record needs a commit");
     if (lines.length === 0) throw new Error("a record needs a complete unit");
-    const changed = git("status", "--porcelain", "--", ...environment.files.filter((one) => !one.startsWith("node_modules/")));
+    const files = new Set(lines.flatMap(({ world }) => coder.code(caseNames(world)).files));
+    const changed = git("status", "--porcelain", "--", ...[...files].filter((one) => !one.startsWith("node_modules/")));
     if (changed) throw new Error(`a record's code is its commit's: these differ or are untracked:\n${changed}`);
     writeRecord(header, lines);
   }

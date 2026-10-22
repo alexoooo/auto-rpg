@@ -8,7 +8,7 @@ import { clearanceExit, clearMove, clearStep } from "./clear-step.ts";
 import { crowdWalk, fallenSolids } from "./crowd.ts";
 import { copyMovement, sameMovement, type MovementRequest, type GroundPoint } from "./movement.ts";
 import type { SolidSense } from "./object-senses.ts";
-import type { Part } from "./parts.ts";
+import { anyBody, type Part } from "./parts.ts";
 import type { Senses } from "./senses.ts";
 import { travelSpeed, type Corner, type GaitLimits } from "./travel.ts";
 
@@ -340,6 +340,6 @@ export function createNavigator(spec: BodySpec, config: NavigationConfig = { kin
 
 /** Navigation alternatives share the request, observation, feedback and replay contract. */
 export const NAVIGATION_PARTS: { readonly [K in NavigationConfig["kind"]]: Part<Extract<NavigationConfig, { kind: K }>> } = deepFreeze({
-  "visibility-navigation": { role: "navigation", label: "Visibility routes", stage: "game", fields: [], slots: [], defaults: { kind: "visibility-navigation" }, fits: () => true, faults: () => [] },
-  "local-navigation": { role: "navigation", label: "Local clearance", stage: "experimental", fields: [], slots: [], defaults: { kind: "local-navigation" }, fits: () => true, faults: () => [] },
+  "visibility-navigation": { role: "navigation", label: "Visibility routes", stage: "game", fields: [], slots: [], defaults: { kind: "visibility-navigation" }, fits: anyBody, faults: () => [] },
+  "local-navigation": { role: "navigation", label: "Local clearance", stage: "experimental", fields: [], slots: [], defaults: { kind: "local-navigation" }, fits: anyBody, faults: () => [] },
 });

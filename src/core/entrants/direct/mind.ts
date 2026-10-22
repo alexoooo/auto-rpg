@@ -1,5 +1,6 @@
 import { controller, NO_POSTURE } from "../../mind/controller.ts";
 import type { ActuatorModel, Policy } from "../../mind/direct.ts";
+import { anyBody } from "../../mind/parts.ts";
 import { deepFreeze } from "../../state.ts";
 
 /** **Joint feedback**'s config: targets in radians by channel, and explicit time, speed and activation bounds. */
@@ -47,7 +48,7 @@ export function directPolicy(config: DirectMindConfig): (model: ActuatorModel) =
 export const DIRECT_MIND = controller<DirectMindConfig>({
   role: "mind", label: "Joint feedback", stage: "experimental", fields: [], slots: [], defaults: DIRECT,
   keys: { kind: true, targets: true, seconds: true, speed: true, activation: true },
-  fits: () => true,
+  fits: anyBody,
   faults: directFaults,
   presets: {},
   builtIn: () => NO_POSTURE,

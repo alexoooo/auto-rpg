@@ -8,7 +8,7 @@
  * It reads every file changed since the branch left `--base` (committed, staged, unstaged and
  * new) and names the change:
  * - **entrant `<name>`**: only that entrant's own files (`entrantOf`) and its line in the registry
- *   (`src/core/mind/controllers.ts`: the import of its folder and its name in `CONTROLLERS`);
+ *   (`src/core/mind/kinds.ts`: the import of its folder and its name in `MIND_KINDS`);
  * - **toolkit**: no entrant's files; the fingerprint (`scripts/fingerprint.mjs`) names the minds
  *   it moves, a case each;
  * - **mixed**: anything else, refused with exit code 1, and what to split.
@@ -18,7 +18,7 @@ import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
 /** The registry every mind is a line in. */
-const REGISTRY = "src/core/mind/controllers.ts";
+const REGISTRY = "src/core/mind/kinds.ts";
 
 /**
  * The entrant `path` belongs to, or null: its folder (`src/core/entrants/<name>/`), its learned or
@@ -32,7 +32,7 @@ export function entrantOf(path) {
 }
 
 /** Whether `line`, added to or taken from the registry, is entrant `name`'s: its folder's import, or the list of minds. */
-const registryLine = (line, name) => line.includes(`"../entrants/${name}/`) || /^export const CONTROLLERS\b/.test(line.trim());
+const registryLine = (line, name) => line.includes(`"../entrants/${name}/`) || /^export const MIND_KINDS\b/.test(line.trim());
 
 /**
  * What `paths` change (`{ kind: "entrant", name }`, `{ kind: "toolkit" }` or `{ kind: "mixed",
