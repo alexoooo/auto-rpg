@@ -80,6 +80,9 @@ Arena Duel, engine, rate, empty hands, Balance 0/0, open stage and 4 m gap. On t
 falls. Both Skeleton bouts lead at 30 s, so those short leads do not predict the full result.
 These rows and complete recipes are retained in `research/runs/vanguard/bouts.jsonl`, played
 source `sha256:867f9b0b750aab30dda66474101dcf6a836783de357420a9c3fb0ae7f73e3bee`.
+On the obstacle court at 6 m, the same preset wins both Warrior bouts and splits the Skeleton
+pair. These four bouts at the bell include fallen bodies; they do not establish controlled
+recovery. The Rogue court pair is not scheduled after the Skeleton loss decides that screen.
 
 Raw development rows, full recipes and source archives are kept under
 `research/runs/vanguard/`; their environments distinguish implementations with the same config.
@@ -102,5 +105,11 @@ Raw development rows, full recipes and source archives are kept under
 | Closing the upright covering hand on the Skeleton | Loses both full Options bouts, one with a fall; exact source is archived in `research/runs/vanguard/rejected/closed-upright-guard.json`. |
 | Aiming the current standing punch at the Skeleton's head | Loses both full Options bouts, one with a fall. |
 | Point-controlled arm acceleration on the Skeleton | Weakens both 30 s exchanges; no full bout follows. |
+| Closer standing range on the Skeleton | Splits full Options bouts, with a fall in the winning bout. |
+| Contact-ranked head/body attacks with either hand | Loses both full Skeleton bouts, one with falls. |
+| A reachable low kick against the Skeleton | Loses support before commitment on both sides; the initial trunk target is an invalid fixture outside the kick's height band. |
+| Half the hip and chest turn | Weakens both short Skeleton exchanges. |
+| Hooks or overhands using the existing path skill | Produce few target contacts and weaken both short Skeleton exchanges. |
+| Waiting for the actual reachable chamber and a slow fist | Weakens both short Skeleton exchanges and reduces damaging body contacts and body-hit energy; exact rejected source is archived in `research/runs/vanguard/rejected/measured-chamber.json`. |
 
 A short exchange is a development filter, not a win counted toward qualification.
