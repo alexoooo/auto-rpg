@@ -35,6 +35,7 @@ import { DEFAULT_ENGINE, isEngineName } from "../src/core/engine/engines.ts";
 import { recordingKey } from "../src/core/recording.ts";
 import { EVALUATIONS } from "../src/evaluation/evaluations.ts";
 import { CONTROLLERS, MINDS } from "../src/core/mind/controllers.ts";
+import { replacedAt } from "../src/core/mind/catalog.ts";
 import { poolsOf } from "../src/evaluation/history.ts";
 import { readRecord, recordedSubject, recordIdentity, recordName, recordText, rowOf, sameRow } from "../src/evaluation/record.ts";
 import { casesOf, figuresOf, runEvaluation, runOrder, tableOf } from "../src/evaluation/run.ts";
@@ -48,9 +49,6 @@ import { BUILD_IDENTITY, caseCoder, fileTable } from "./build-identity.mjs";
 import { importRun } from "./evaluation-import.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
-
-/** The slots of a mind's skills an ablation may replace (`SkillKit`, `src/core/mind/config.ts`); the lists also by an entry's name. */
-const SLOTS = Object.freeze(["locomotion", "navigation", "guard", "support", "executors", "actions", "motor"]);
 
 /** The lanes a run takes unless told: all but two of the machine's threads. */
 const defaultLanes = () => Math.max(1, availableParallelism() - 2);
@@ -66,8 +64,9 @@ function subjectOf(text) {
 }
 
 /**
- * The mind `previous` names with each of `ablations` (`<slot>=<JSON>`, the slot `SLOTS`' or `executors.<name>` or
- * `actions.<name>`) replaced, null removing a named entry: a subject given whole, its id the previous one's and the slots.
+ * The mind `previous` names with each of `ablations` (`<path>=<JSON>`) replaced (`replacedAt`: any
+ * slot or setting of its parts, a list's entry by index, name or kind, null removing it): a subject
+ * given whole, its id the previous one's and the paths.
  */
 function ablated(previous, ablations) {
   const named = subjectOf(previous);
@@ -75,17 +74,13 @@ function ablated(previous, ablations) {
     : Object.hasOwn(MINDS, named) ? [named, MINDS[named].label, MINDS[named].config]
     : Object.hasOwn(CONTROLLERS, named) ? [named, CONTROLLERS[named].label, CONTROLLERS[named].defaults]
     : (() => { throw new Error(`--ablate needs --previous to name a mind, a kind or a config: ${previous} is none`); })();
-  const value = JSON.parse(JSON.stringify(config)), slots = [];
+  let value = JSON.parse(JSON.stringify(config));
+  const slots = [];
   for (const ablation of ablations) {
-    const at = ablation.indexOf("="), slot = ablation.slice(0, at), [field, entry] = slot.split(".");
-    if (at < 0 || !SLOTS.includes(field)) throw new Error(`--ablate is <slot>=<JSON>, the slot one of ${SLOTS.join(", ")}, or executors.<name> or actions.<name>`);
-    const replacement = JSON.parse(ablation.slice(at + 1));
-    if (entry === undefined) value[field] = replacement;
-    else {
-      const list = value[field], k = Array.isArray(list) ? list.findIndex((one) => one.name === entry) : -1;
-      if (k < 0) throw new Error(`${label} has no ${field} named ${entry}`);
-      if (replacement === null) list.splice(k, 1); else list[k] = replacement;
-    }
+    const at = ablation.indexOf("=");
+    if (at <= 0) throw new Error(`--ablate is <path>=<JSON>, the path a slot or setting of the mind's parts (subs.0, tactics.list.attack, actions.thrust): ${ablation}`);
+    const slot = ablation.slice(0, at);
+    value = replacedAt(value, slot, JSON.parse(ablation.slice(at + 1)));
     slots.push(slot);
   }
   return { id: `${id}~${slots.join("~")}`, label: `${label} with ${ablations.join(", ")}`, value };

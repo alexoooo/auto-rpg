@@ -4,6 +4,7 @@
  * standing member at the exit), the time taken, and the members lost. The subject is the party's
  * Commander; the reference is the level-clearer.
  */
+import { commanderOf } from "../../core/command/commander.ts";
 import { COMMANDERS } from "../../core/command/commanders.ts";
 import { recordingKey } from "../../core/recording.ts";
 import type { Evaluation, Json, Subject } from "../evaluation.ts";
@@ -33,7 +34,7 @@ export const CRYPT_CLEAR: Evaluation<CryptCondition, ClearReading, BuiltCrypt> =
   /** The Commanders named, by kind or given whole. None names the level-clearer. */
   subjects(choice) {
     return (choice.length > 0 ? choice : ["clearer"]).map((one) => typeof one !== "string" ? commanderSubject(one.id, one.label, one.value)
-      : Object.hasOwn(COMMANDERS, one) ? commanderSubject(one, COMMANDERS[one]!.label, COMMANDERS[one]!.defaults as unknown as Json)
+      : commanderOf(one) ? commanderSubject(one, commanderOf(one)!.label, commanderOf(one)!.defaults as unknown as Json)
       : (() => { throw new Error(`${one} is no Commander: name a kind (${Object.keys(COMMANDERS).join(", ")}), or a config`); })());
   },
   figures: [

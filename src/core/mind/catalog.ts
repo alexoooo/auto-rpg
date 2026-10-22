@@ -276,3 +276,34 @@ export function kindsFor(role: Role, spec: BodySpec, provides: readonly Provisio
   return Object.entries(allParts()).filter(([kind, part]) => part.role === role && (ownerOf(kind) === null || ownerOf(kind) === mind))
     .map(([kind, part]) => ({ kind, part, reason: treeRefusal(spec, part.defaults) ?? unprovided(part.needs, provides) }));
 }
+
+/**
+ * **The tree `config` roots with what is at `path` replaced by `value`** (null removes a list's
+ * entry), a copy: `path` is dot-separated, each step a slot of the part it is in (`slotsOf`) or a
+ * key it states (`Part.keys`), in a list an index or an entry's name or kind, and in plain data a
+ * key it has. A thrown error names the step that matches nothing, with what does.
+ */
+export function replacedAt<C extends PartConfig>(config: C, path: string, value: unknown): C {
+  const steps = path.split(".");
+  /** What a step in the part config `at` may be: its part's slots and stated keys, beside its kind. */
+  const keysOf = (at: PartConfig): string[] => {
+    const part = partOf(at);
+    return [...new Set([...slotsOf(part, at).map((slot) => slot.key), ...Object.keys(part.keys ?? {})])].filter((key) => key !== "kind");
+  };
+  const walk = (at: unknown, k: number, holder: string): unknown => {
+    const step = steps[k]!, last = k === steps.length - 1;
+    if (Array.isArray(at)) {
+      const i = /^\d+$/.test(step) ? Number(step) : at.findIndex((one) => one?.name === step || one?.kind === step);
+      if (i < 0 || i >= at.length) throw new Error(`${holder} has no entry ${step}: ${at.map((one, j) => one?.name ?? one?.kind ?? j).join(", ")}`);
+      const copy = [...at];
+      if (last && value === null) copy.splice(i, 1);
+      else copy[i] = last ? value : walk(at[i], k + 1, `${holder}.${step}`);
+      return copy;
+    }
+    if (typeof at !== "object" || at === null) throw new Error(`${holder} holds nothing to read ${step} in`);
+    const open = isPart(at) ? keysOf(at) : Object.keys(at);
+    if (!open.includes(step)) throw new Error(`${holder} has no slot or setting ${step}: ${open.join(", ")}`);
+    return { ...at, [step]: last ? value : walk((at as Record<string, unknown>)[step], k + 1, `${holder}.${step}`) };
+  };
+  return walk(config, 0, config.kind) as C;
+}

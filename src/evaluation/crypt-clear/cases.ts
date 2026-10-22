@@ -6,7 +6,7 @@
  * script (`CryptCase`), deterministic in Node but not bit-equal between JavaScript engines
  * (`crypt.ts`).
  */
-import { COMMANDERS, type CommanderConfig } from "../../core/command/commanders.ts";
+import { commanderFaults, commanderOf, type CommanderConfig } from "../../core/command/commander.ts";
 import type { BodyModel } from "../../core/models.ts";
 import { deepFreeze } from "../../core/state.ts";
 import { generateEncounterLevel } from "../../dungeon/encounters.ts";
@@ -67,11 +67,11 @@ export type ClearReading = {
   readonly defeated: number;
 };
 
-/** Why `value` is no Commander's config. */
+/** Why `value` is no Commander's config (`commanderFaults`), or one that leads no party. */
 function faultsOf(value: Json): readonly string[] {
-  const kind = typeof value === "object" && value !== null && !Array.isArray(value) ? (value as { kind?: unknown }).kind : undefined;
-  if (typeof kind !== "string" || !Object.hasOwn(COMMANDERS, kind)) return [`no Commander: a config names its kind (${Object.keys(COMMANDERS).join(", ")})`];
-  return COMMANDERS[kind]!.faults(value as unknown as CommanderConfig);
+  const faults = commanderFaults(value);
+  if (faults.length > 0) return faults;
+  return commanderOf((value as unknown as CommanderConfig).kind)!.sides.includes("party") ? [] : [`the ${(value as unknown as CommanderConfig).kind} Commander leads no party`];
 }
 
 function clearCases(protocol: typeof CRYPT_CLEAR): Cases<CryptCondition, ClearReading, BuiltCrypt> {

@@ -1,15 +1,20 @@
 /**
- * **Registers the swap fixture's entrant** as one more line of the kinds list, from outside `src/`:
+ * **Registers the swap fixture's entrants** as one more line of each list, from outside `src/`:
  * once this has run, `src/core/mind/kinds.ts` resolves to `kinds.mjs`, which lists the game's
- * kinds and the fixture's. It runs before any module of `src/` loads.
+ * kinds and the fixture's, and `src/core/command/commanders.ts` to `commanders.mjs`, which lists the
+ * game's Commanders and the stub. It runs before any module of `src/` loads.
  */
 import { registerHooks } from "node:module";
 
-const KINDS = new URL("../../../src/core/mind/kinds.ts", import.meta.url).href, FIXTURE = new URL("./kinds.mjs", import.meta.url).href;
+/** Each list the fixture adds to, by the list's URL: the fixture's list in its place. */
+const LISTS = new Map([
+  [new URL("../../../src/core/mind/kinds.ts", import.meta.url).href, new URL("./kinds.mjs", import.meta.url).href],
+  [new URL("../../../src/core/command/commanders.ts", import.meta.url).href, new URL("./commanders.mjs", import.meta.url).href],
+]);
 
 registerHooks({
   resolve(specifier, context, next) {
     const resolved = next(specifier, context);
-    return resolved.url === KINDS ? { ...resolved, url: FIXTURE } : resolved;
+    return LISTS.has(resolved.url) ? { ...resolved, url: LISTS.get(resolved.url) } : resolved;
   },
 });

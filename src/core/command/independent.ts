@@ -1,3 +1,5 @@
+import { deepFreeze } from "../state.ts";
+import { kindOnly, type CommanderEntry } from "./commander.ts";
 import { placeMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
 import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
 import { ARRIVAL, approach, direction, distance, throughDoors, type Opening } from "./goals.ts";
@@ -78,3 +80,9 @@ export function independentCommander(host: TeamHost): Commander {
     get notice() { return ""; },
   };
 }
+
+/** **Independent members** (`independentCommander`): each at the nearest foe it sees. */
+export const INDEPENDENT: CommanderEntry = deepFreeze({
+  label: "Independent", sides: ["enemies"], defaults: { kind: "independent" }, faults: kindOnly,
+  create: (host: TeamHost) => independentCommander(host),
+});

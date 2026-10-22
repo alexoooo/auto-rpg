@@ -1,4 +1,4 @@
-import { createCommander, type CommanderConfig } from "../core/command/commanders.ts";
+import { createCommander, type CommanderConfig } from "../core/command/commander.ts";
 import type { Command } from "../core/command/commands.ts";
 import type { Commander, MemberView, TeamLevel, TeamView } from "../core/command/team.ts";
 import { hypot } from "../core/math/real.ts";

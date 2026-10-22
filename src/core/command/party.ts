@@ -1,3 +1,5 @@
+import { deepFreeze } from "../state.ts";
+import type { CommanderConfig, CommanderEntry } from "./commander.ts";
 import { cos, sin } from "../math/real.ts";
 import { directMovement, placeMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
 import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
@@ -358,3 +360,11 @@ export function partyCommander(host: TeamHost, config: PartyConfig = { kind: "pa
     get notice() { return state.notice; },
   };
 }
+
+/** **A person's party** (`partyCommander`): the leader where its person steers, the others after it or where they were sent. */
+export const PARTY: CommanderEntry = deepFreeze({
+  label: "Led by you", sides: ["party"], defaults: { kind: "party" },
+  faults: (config: CommanderConfig) => Object.entries(config).flatMap(([key, value]) => key === "kind" ? []
+    : key !== "picks" ? [`${key}: not a setting of ${config.kind}`] : typeof value === "boolean" ? [] : ["picks: true or false"]),
+  create: (host: TeamHost, config: CommanderConfig) => partyCommander(host, config as PartyConfig),
+});

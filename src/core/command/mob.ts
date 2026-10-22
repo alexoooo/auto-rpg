@@ -1,3 +1,5 @@
+import { deepFreeze } from "../state.ts";
+import { kindOnly, type CommanderEntry } from "./commander.ts";
 import { atan2, cos, sin } from "../math/real.ts";
 import { placeMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
 import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
@@ -129,3 +131,9 @@ export function mobCommander(host: TeamHost): Commander {
     get notice() { return ""; },
   };
 }
+
+/** **A mob** (`mobCommander`): its members spread over the foes they see, and round each. */
+export const MOB: CommanderEntry = deepFreeze({
+  label: "Mob", sides: ["enemies"], defaults: { kind: "mob" }, faults: kindOnly,
+  create: (host: TeamHost) => mobCommander(host),
+});

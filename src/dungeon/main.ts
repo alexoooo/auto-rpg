@@ -49,7 +49,8 @@ import { need as find } from "../dom.ts";
 import type { ScreenContext } from "../ui/screen.ts";
 import { showHeroLineup } from "../render/character-preview.ts";
 import type { Command } from "../core/command/commands.ts";
-import type { CommanderConfig } from "../core/command/commanders.ts";
+import { commanderOf, type CommanderConfig, type CommanderEntry } from "../core/command/commander.ts";
+import { COMMANDERS } from "../core/command/commanders.ts";
 
 type DungeonScenario = "generated" | "reference" | "random-crypt";
 
@@ -156,12 +157,19 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
   };
   scenario.addEventListener("change", chooseScenario);
   chooseScenario();
-  // Each side's Commander by kind, as the address carries it (`?party=`, `?enemies=`): the person's party and a mob unless it names another.
+  // Each side's Commander, offered from every one that leads that side (`COMMANDERS`, `CommanderEntry.sides`), by kind as the
+  // address carries it (`?party=`, `?enemies=`): the first offered unless it names another, and a kind it cannot take is said.
   const partyCommander = need<HTMLSelectElement>("party-commander"), enemyCommander = need<HTMLSelectElement>("enemy-commander");
-  for (const [select, key] of [[partyCommander, "party"], [enemyCommander, "enemies"]] as const) {
+  const unknownCommanders: string[] = [];
+  for (const [select, key, side] of [[partyCommander, "party", "party"], [enemyCommander, "enemies", "enemies"]] as const) {
+    select.replaceChildren(...Object.entries(COMMANDERS).filter(([, entry]) => (entry as CommanderEntry).sides.includes(side))
+      .map(([kind, entry]) => Object.assign(document.createElement("option"), { value: kind, textContent: entry.label })));
     const kind = setupQuery.get(key);
-    if (kind !== null && [...select.options].some((option) => option.value === kind)) select.value = kind;
+    if (kind === null) continue;
+    if ([...select.options].some((option) => option.value === kind)) select.value = kind;
+    else unknownCommanders.push(`No Commander ${JSON.stringify(kind)} leads the ${side}; ${select.selectedOptions[0]?.textContent ?? "none"} does.`);
   }
+  if (unknownCommanders.length > 0) Object.assign(need("setup-error"), { hidden: false, textContent: unknownCommanders.join(" ") });
   /** `url` with each side's Commander, and none where it is the default (the picker's first). */
   const writeCommanders = (url: URL) => {
     for (const [select, key] of [[partyCommander, "party"], [enemyCommander, "enemies"]] as const) {
@@ -537,7 +545,7 @@ export async function bootDungeon(context: ScreenContext): Promise<void> {
       page.reference = usesReferenceLook(page.selectedScenario);
       page.selectedQuality = quality.value === "reduced" ? "reduced" : "high";
       page.mind = mindPanel.mind(page.attributes);
-      page.commanders = { party: { kind: partyCommander.value }, enemies: { kind: enemyCommander.value } };
+      page.commanders = { party: commanderOf(partyCommander.value)!.defaults, enemies: commanderOf(enemyCommander.value)!.defaults };
       // The address keeps the scenario and the party's minds, so that a reload opens the same.
       const url = new URL(location.href);
       mindPanel.write(url);

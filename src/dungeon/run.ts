@@ -27,7 +27,10 @@ import type { NavigationReport } from "../core/mind/navigator.ts";
 import type { Skills } from "../core/skills/skills.ts";
 import type { Orders } from "../core/mind/orders.ts";
 import { STAND_ORDERS } from "../core/mind/orders.ts";
-import { createCommander, type CommanderConfig } from "../core/command/commanders.ts";
+import { createCommander, type CommanderConfig } from "../core/command/commander.ts";
+
+/** Each side's Commander where a run names none: the person's party, and a mob. */
+export const RUN_COMMANDERS: Readonly<Record<"party" | "enemies", CommanderConfig>> = Object.freeze({ party: Object.freeze({ kind: "party" }), enemies: Object.freeze({ kind: "mob" }) });
 import { SIGHT_METRES } from "../core/command/independent.ts";
 import type { Commander, MemberReport, MemberView, SensedBody, TeamLevel, TeamView } from "../core/command/team.ts";
 import type { Command } from "../core/command/commands.ts";
@@ -247,8 +250,8 @@ export class DungeonRun {
     this.world = createWorld(scene, options.engine);
     this.senses = createSenses(this.world);
     this.level = buildDungeonWorld(scene, this.map, options.visuals ?? true, this.world.physics);
-    this.team = createCommander({ level: this.ground((places) => { this.visible = this.sight(places); }) }, options.party ?? { kind: "party" });
-    this.foes = createCommander({ level: this.ground(() => {}) }, options.enemies ?? { kind: "mob" });
+    this.team = createCommander({ level: this.ground((places) => { this.visible = this.sight(places); }) }, options.party ?? RUN_COMMANDERS.party);
+    this.foes = createCommander({ level: this.ground(() => {}) }, options.enemies ?? RUN_COMMANDERS.enemies);
     // Before any body's own hooks, so each body's mind reads this step's orders.
     this.planning = this.world.beforeStep(() => this.plan());
     const run = this;

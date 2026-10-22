@@ -1,71 +1,12 @@
-import { deepFreeze } from "../state.ts";
-import { clearerCommander } from "./clearer.ts";
-import { independentCommander } from "./independent.ts";
-import { mobCommander } from "./mob.ts";
-import { partyCommander, type PartyConfig } from "./party.ts";
-import type { Commander, TeamHost } from "./team.ts";
-
-/** **A Commander's config**: plain data naming its kind and its settings, as a Mind's does. */
-export interface CommanderConfig {
-  readonly kind: string;
-  readonly [setting: string]: unknown;
-}
-
-/** **A kind of Commander**: its name, its default config, what is wrong with a config of it, and how one is made from its host. */
-interface CommanderEntry {
-  readonly label: string;
-  readonly defaults: CommanderConfig;
-  faults(config: CommanderConfig): string[];
-  create(host: TeamHost, config: CommanderConfig): Commander;
-}
-
-/** A config's faults where it holds no key but its kind. */
-const kindOnly = (config: CommanderConfig): string[] => Object.keys(config).filter((key) => key !== "kind").map((key) => `${key}: not a setting of ${config.kind}`);
-
-/** **Independent members** (`independentCommander`): each at the nearest foe it sees. */
-const INDEPENDENT: CommanderEntry = deepFreeze({
-  label: "Independent", defaults: { kind: "independent" }, faults: kindOnly,
-  create: (host: TeamHost) => independentCommander(host),
-});
-
-/** **A mob** (`mobCommander`): its members spread over the foes they see, and round each. */
-const MOB: CommanderEntry = deepFreeze({
-  label: "Mob", defaults: { kind: "mob" }, faults: kindOnly,
-  create: (host: TeamHost) => mobCommander(host),
-});
-
-/** **A level-clearer** (`clearerCommander`): a party clearing a level by itself. */
-const CLEARER: CommanderEntry = deepFreeze({
-  label: "Level-clearer", defaults: { kind: "clearer" }, faults: kindOnly,
-  create: (host: TeamHost) => clearerCommander(host),
-});
-
-/** **A person's party** (`partyCommander`): the leader where its person steers, the others after it or where they were sent. */
-const PARTY: CommanderEntry = deepFreeze({
-  label: "Party", defaults: { kind: "party" },
-  faults: (config: CommanderConfig) => Object.entries(config).flatMap(([key, value]) => key === "kind" ? []
-    : key !== "picks" ? [`${key}: not a setting of ${config.kind}`] : typeof value === "boolean" ? [] : ["picks: true or false"]),
-  create: (host: TeamHost, config: CommanderConfig) => partyCommander(host, config as PartyConfig),
-});
+import { CLEARER } from "./clearer.ts";
+import { INDEPENDENT } from "./independent.ts";
+import { MOB } from "./mob.ts";
+import { PARTY } from "./party.ts";
 
 /**
- * **Every Commander, by its kind** (its defaults' `kind`), in the order a picker offers them: the
- * one place a kind is made. A kind twice is refused.
+ * **Every Commander, by its kind** (`CommanderEntry`, its defaults' `kind`), in the order a picker
+ * offers them: a line here registers one. This module holds its imports and this list and nothing
+ * else: a case's code reads it as where each kind's own code begins (`caseCoder`,
+ * `scripts/build-identity.mjs`).
  */
-export const COMMANDERS: Readonly<Record<string, CommanderEntry>> = (() => {
-  const byKind: Record<string, CommanderEntry> = {};
-  for (const entry of [MOB, INDEPENDENT, PARTY, CLEARER]) {
-    if (Object.hasOwn(byKind, entry.defaults.kind)) throw new Error(`two Commanders of kind ${JSON.stringify(entry.defaults.kind)}`);
-    byKind[entry.defaults.kind] = entry;
-  }
-  return Object.freeze(byKind);
-})();
-
-/** A Commander of `config` made from `host`; a thrown error for a kind none has or a config with faults. */
-export function createCommander(host: TeamHost, config: CommanderConfig): Commander {
-  const entry = Object.hasOwn(COMMANDERS, config.kind) ? COMMANDERS[config.kind] : undefined;
-  if (!entry) throw new Error(`no Commander of kind ${JSON.stringify(config.kind)}`);
-  const faults = entry.faults(config);
-  if (faults.length) throw new Error(`the ${config.kind} Commander's config: ${faults.join("; ")}`);
-  return entry.create(host, config);
-}
+export const COMMANDERS = { mob: MOB, independent: INDEPENDENT, party: PARTY, clearer: CLEARER };

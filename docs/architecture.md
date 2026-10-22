@@ -646,7 +646,7 @@ which their Minds carry out while they defend themselves.
 
 | Aspect | Contract |
 |---|---|
-| Kinds | `COMMANDERS` (`commanders.ts`), by config kind, each with defaults, faults and a maker; `createCommander(host, config)` |
+| Kinds | `COMMANDERS` (`commanders.ts`), a list of imported entries by config kind (`CommanderEntry`, `commander.ts`: a label, the sides it may lead, defaults, faults and a maker), each its own module's; `createCommander(host, config)`. A line registers one: the Crypt's pickers offer it on the sides it leads, a case's code holds its module as a part's (`caseCoder`), and `entrant-check` counts an entrant's line as the entrant's |
 | Its maker gets | a `TeamHost`: the level as its adapter answers it (`TeamLevel`: sight, room to stand and pass, routes, the explored edge, doors), never the world |
 | It reads (`TeamView`) | the clock; each built member's place, whether it is in the fight or held, what is left of its pool, its footprint, reach, home, navigation report, the limits its legs state (`gait`, `Skills.gait`) and the way they face; every other body the members sense; whether its host has it look this step; a leader's live input (`Lead`: the keys, a walk, the pointer's point and the part it strikes, exploring) |
 | It keeps | its memory in `state`, plain data |
@@ -658,8 +658,8 @@ Its host asks it once a step, after the senses and before every Mind. **A person
 sensed foe, face (a point, or turned by an angle), hold, stop, regroup, follow a member. Each goes to
 the members selected, and the keys and pointer steer one of them: the one selected, or the leader.
 The Crypt's host is `DungeonRun` (its mouse and keys, `src/dungeon/commands.ts`, `main.ts`), each
-side's Commander its options' (`party`, `enemies`: the person's party and a mob unless the page's
-Options or the address, `&party=`, `&enemies=`, name another); an
+side's Commander its options' config (`party`, `enemies`: the person's party and a mob, `RUN_COMMANDERS`, unless the page's
+Options or the address, `&party=`, `&enemies=`, name another, and a kind no Commander of that side has is said); an
 Arena side a person takes is a team of one (`teamOfOne`, `src/arena/team.ts`) under the party
 Commander with `picks: false`, asked in the step's sensing phase, its orders taped by the bout
 (`Duel.order`). The kinds:

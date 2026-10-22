@@ -1,3 +1,5 @@
+import { deepFreeze } from "../state.ts";
+import { kindOnly, type CommanderEntry } from "./commander.ts";
 import { placeMovement, type GroundPoint, type MovementRequest } from "../mind/movement.ts";
 import { STAND_ORDERS, type Orders } from "../mind/orders.ts";
 import { ARRIVAL, approach, arrived, direction, distance, reportOf, throughDoors, type Opening } from "./goals.ts";
@@ -256,3 +258,9 @@ export function clearerCommander(host: TeamHost): Commander {
     get notice() { return ""; },
   };
 }
+
+/** **A level-clearer** (`clearerCommander`): a party clearing a level by itself. */
+export const CLEARER: CommanderEntry = deepFreeze({
+  label: "Level-clearer (AI)", sides: ["party"], defaults: { kind: "clearer" }, faults: kindOnly,
+  create: (host: TeamHost) => clearerCommander(host),
+});

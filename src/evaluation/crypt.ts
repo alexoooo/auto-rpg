@@ -9,7 +9,7 @@
  */
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
-import type { CommanderConfig } from "../core/command/commanders.ts";
+import type { CommanderConfig } from "../core/command/commander.ts";
 import type { Command } from "../core/command/commands.ts";
 import { loadEngine, type EngineName } from "../core/engine/engines.ts";
 import type { MindConfig } from "../core/mind/config.ts";

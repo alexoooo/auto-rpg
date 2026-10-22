@@ -9,6 +9,8 @@
  * executor is made with the configured guard's posture, and the fork falls inside a sub-mind's
  * takeover and resumes across its handback. A body the command layers cannot read refuses a mind
  * on them for what they lack, at construction too, and every stock legs for what they stand on.
+ * The stub Commander, a line of the Commanders list from outside `src/`, leads a team and is a
+ * Crypt subject.
  */
 import "./fixtures/swap/hooks.mjs";
 import test from "node:test";
@@ -34,6 +36,9 @@ const { STUB_POSTURE } = await import("./fixtures/swap/stub-guard.mjs");
 const { STUB_BLOW } = await import("./fixtures/swap/stub-blow.mjs");
 const { STUB_TAKEOVER, TAKEOVER } = await import("./fixtures/swap/stub-takeover.mjs");
 const { saveState } = await import("../src/core/state.ts");
+const { COMMANDERS } = await import("../src/core/command/commanders.ts");
+const { teamOfOne } = await import("../src/arena/team.ts");
+const { CRYPT_CLEAR } = await import("../src/evaluation/crypt-clear/index.ts");
 
 /** The bout's steps and the step it is forked at. */
 const STEPS = 240, FORK = 120;
@@ -63,6 +68,18 @@ test("a body without the command layer refuses a mind for what the layer lacks, 
   for (const { kind, reason } of legs) assert.equal(reason, "needs a left and a right foot, each with a box sole", kind);
   const stand = await coreStand(reptile);
   assert.throws(() => createBody(stand.built, stand.world, { servoSeconds: .1 }), (error) => layer.test(error.message.replace(/^reptile: /, "")));
+});
+
+test("a Commander registered from outside src/ is listed, leads a team of one and is a Crypt subject", async () => {
+  assert.ok(Object.hasOwn(COMMANDERS, "stub-hold"), "the hook put the stub's line in the Commanders list");
+  const { world, duel, dispose } = await buildBout({ left: "workshop-fighter", right: "workshop-rogue", gap: 3 }, { engine: BOUT_ENGINE });
+  const team = teamOfOne(duel, "left", { kind: "stub-hold" });
+  try {
+    for (let i = 0; i < world.hz; i++) world.step();
+    assert.ok(team.commander.state.decided > 0, "the stub's maker made the Commander that led");
+  } finally { team.dispose(); dispose(); }
+  const [subject] = CRYPT_CLEAR.subjects(["stub-hold"]);
+  assert.deepEqual(CRYPT_CLEAR.protocols.standard.faults(subject.value, CRYPT_CLEAR.protocols.standard.conditions[0]), [], "it leads a party, so the Crypt-clearing task takes it");
 });
 
 test("a mind that never strikes carries a club on a stand, is refused from a bout for the bout's rule, and enters no default pool", async () => {
