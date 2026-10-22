@@ -58,7 +58,7 @@ export interface StraightPunch {
 }
 
 /**
- * A straight punch's settings as the game throws it: the best of a bare-handed search of Arena
+ * A straight punch's drive settings: a bare-handed search of Arena
  * bouts of the Puncher against Classic, Combat, Brawler, Kicker, Scrapper and itself fighting
  * back, scored by the hit points and the share of the head each side lost and held to the punch
  * test's walked-in blows on a Warrior standing in guard (`research/punch-in-bout.mjs --scene
@@ -66,10 +66,11 @@ export interface StraightPunch {
  * 0.376 s, not the searched 0.26 s, over which it fell eight times as often against itself, and the
  * hips turned 0.22 rad, which beat the searched 0.077 against itself without falling more; at the
  * longest reach whose fist still meets its target with the arm behind it: an arm apart, not chest
- * to chest.
+ * to chest. The entry band permits 0.05 m beyond that stand-off: the bounded drive must reach a
+ * stationary target without relying on a foe walking into it.
  */
 export const STRAIGHT_PUNCH: StraightPunch = deepFreeze({
-  pace: 1.021, reach: 0.8, band: 0.275, settle: 0, through: 0.265, hips: 0.22, turn: 0.41, lean: 0.276,
+  pace: 1.021, reach: 0.8, band: 0.05, settle: 0, through: 0.265, hips: 0.22, turn: 0.41, lean: 0.276,
   chamber: 0.195, lead: 0.055, elbow: 0, brake: 0, follow: 0.02, longest: 0.249, recover: 0.376,
 });
 
