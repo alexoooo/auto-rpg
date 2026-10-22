@@ -3,9 +3,9 @@
 Vanguard remains unqualified against the requested field. Its calibrated preset combines
 committed point prediction, contact-driven attack/evasion choice and editable motor profiles
 for its own body. The profiles select the stronger development configurations for the Warrior,
-Rogue and Skeleton. It fails its fresh Options campaign with four wins and three losses in seven
-completed cases. The earlier contact-driven configuration also fails, with two losses and a
-draw. Equipment is unqualified.
+Rogue and Skeleton. The preset at `15dd986c` fails its fresh Options campaign with three wins
+and three losses in six completed cases. The two earlier qualification campaigns also fail.
+Equipment is unqualified.
 
 The punching kit's 18/18 humanoid development wins and the supported-low kit's 8/8 panel wins
 do not establish the requested rate across bodies, conditions and equipment. The records below
@@ -173,6 +173,24 @@ wins in seven completed cases; five unfinished cases are not counted as losses. 
 keys, readings and row references are retained in
 `research/runs/vanguard/qualification/campaign-2-options.json`. Those conditions are development
 evidence for the next revision, not fresh confirmation.
+
+### Body-specific timing campaign
+
+The preset at `15dd986c` fails the third preregistered Options matrix, using the same harness,
+rate, equal attributes, empty hands and ordinary cap. The starts are frozen by a hash rule in
+`research/runs/vanguard/qualification/conditions-3.json` before any bout plays.
+
+| Body / level / gap | Left result | Right result |
+| --- | --- | --- |
+| Warrior / open / 6.21 m | Loss at 120 s, one fall | Injury win, 90.3583 s |
+| Rogue / open / 5.81 m | Win at 120 s | Injury win, 111.1167 s |
+| Skeleton / open / 4.73 m | Loss at 120 s | Loss at 120 s |
+
+The other five completed fighters remain upright. The third loss stops the campaign at three
+wins in six completed cases, two by injury and one at the cap. All six court cases are unfinished
+and are not losses. Full recipes, keys, readings and row references remain in
+`research/runs/vanguard/qualification/campaign-3-options.json`; physical rows remain in
+`research/runs/vanguard/bouts.jsonl`. This matrix is development evidence for the next revision.
 
 ## Conservative travel
 
