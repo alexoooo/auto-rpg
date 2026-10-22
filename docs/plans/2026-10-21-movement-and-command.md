@@ -76,9 +76,6 @@ change of behaviour shows the fingerprint unmoved.
   Q/E or the mouse for facing; WASD steers the one selected body with a direct goal.
 - **Several selected** take slots about the destination, their ceiling the slowest member's top
   speed (`travelSpeed`), so the group arrives together.
-- **Touch**: every command also works on any touchscreen, a laptop's or a phone's (tap the ground
-  to go, tap a foe to attack, drag to draw a path, on-screen controls for what WASD and Q/E do).
-  Pointer events already carry touch; the commands are the same `Command` data.
 - **The Arena**: its person uses the same Commander for their side, a team of one, so click-to-go
   works there too.
 

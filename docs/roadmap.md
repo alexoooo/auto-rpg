@@ -31,7 +31,7 @@ as it needs ([architecture](architecture.md#the-layers)).
   ([control foundation](reference/control-foundation.md)).
 - **The game**: the Arena, a bout to a verdict that a person watches or takes a side in; a Ladder
   of bouts, to be designed; the Crypt, a party commanded by a person or an AI against AI enemies.
-  A web app: any browser, with mouse and keyboard or by touch.
+  A web app.
 - **Bodies**: many morphologies, each a sourced spec. The human is the reference; the skeleton and
   a reptile quadruped are on the core.
 
@@ -235,8 +235,7 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
   - saving a run; a crypt on senses; a hero that walks one way and faces another;
   - a limp body put to sleep through Rapier woke by itself in three of eight cases, not
     understood ([step cost](reference/step-cost.md#a-limp-body-put-to-sleep)).
-- **Input:** every command by mouse and keyboard and by touch on any touchscreen (Movement B2).
-  The Crypt's keys have no walk: its Shift adds to the selection. The Lab's locomotion courses
+- **Input:** the person's commands (Movement B2). The Crypt's keys have no walk: its Shift adds to the selection. The Lab's locomotion courses
   drive by velocities, not goals.
 - **Art and sound:** a pixel look for the Crypt, behind a switch
   (`docs/plans/2026-09-24-dungeon-look-06-pixel-look.md@144961d4`); a raking-light check that
