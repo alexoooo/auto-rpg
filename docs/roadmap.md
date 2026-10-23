@@ -43,10 +43,9 @@ The plans in flight, and what comes next across them. Each plan names its own de
 |---|---|
 | [Ratings](plans/2026-10-21-ratings.md) | A shorter cap; items, characters and attributes by design; the other skill batteries; a sparse league and live runs |
 | [Mind data](plans/2026-10-21-mind-data.md) | Mind data packed per kind |
-| [The braced walk](plans/2026-10-22-braced-walk.md) | Its bar is met: shoved, the Rogue falls 5 and 2 of 200, the Warrior 1 and 2, with the ankle holding across what it gives lengthening ([measured](reference/stance-tuning.md#ankle-hold)); the walk is faster: 0.7 m/s every way and 1.5 to 1.7 forward, the envelope measured again, turning none at 1 m/s ([measured](reference/locomotion.md#the-stances-walk)); a crowd member whose post lies behind members standing waits for good; the run's stops planned at 0.2 m/s² and the allies' braced rule at 8.5 m ([measured](reference/locomotion.md#the-walk-and-run)); the skeleton never runs, its pelvis turning past the run's start |
 | [Vanguard](plans/2026-10-21-vanguard.md) | A fighter that wins over 80 % against each opponent and loadout |
 
-1. **Now:** the braced walk; Vanguard on hold, its
+1. **Now:** Vanguard on hold, its
    explicit Warrior, Rogue and Skeleton presets and planner layers are editable and replaceable
    alone by `--ablate`, with their decisions visible in Arena and Lab.
 2. **When each one's condition holds:**
@@ -91,6 +90,7 @@ The plans in flight, and what comes next across them. Each plan names its own de
   ([sword-and-buckler](reference/sword-and-buckler.md)).
 - A bout fought with orders (`?play=arena&matchup=workshop-fighter,workshop-rogue&you=left`);
   bouts with balance against none (`&balance=25`, `&balance=100`, `&balance=25,0`).
+- The faster walk, 1.5 to 1.7 m/s forward, in Arena bouts and the Crypt.
 - The five Locomotion courses at Max (`?play=lab`), Back and forth at a long distance for the run,
   the Crypt's long walks, the Warrior's run, and Move's rules and gaits in the mind editor.
 - Standing up in the Lab, in Arena bouts and in the Crypt, and whether the rise looks human.
@@ -140,6 +140,14 @@ The plans in flight, and what comes next across them. Each plan names its own de
 All targets are read on the Node stand, Rapier, 120 Hz, Balance and Haste declared; a candidate is
 screened small (one body, one loadout, one group of falls) before its full target.
 
+- **The braced walk.** Shoved at 20 N s at a third of its orders, the Rogue falls in 5 and 2 of
+  200, the Warrior 1 and 2 ([ankle hold](reference/stance-tuning.md#ankle-hold)); it walks 1.5 to
+  1.7 m/s forward and 0.7 every other way, and turns none at 1 m/s or faster
+  ([the stance's walk](reference/locomotion.md#the-stances-walk)). Open: a crowd member whose post
+  lies behind members standing waits for good, the route search not seeing them; the skeleton never
+  starts its run, its pelvis turning about 0.3 rad either way as it walks, past the run's
+  `RUN_SWITCH.facing`; the Rogue with the club never runs, its run envelope holding 0.7 m/s
+  ([the walk and run](reference/locomotion.md#the-walk-and-run)).
 - **Running.** The Warrior sustains at least 4.5 m/s forward, toward the owner's 5 m/s; Haste +100
   adds at least 1 m/s; at most 19 falls in the 300-trial gait battery and 18 in its 150 club
   trials, the forward club envelope at or above SIMBICON's; stops and turns exercised; sideways
@@ -250,7 +258,8 @@ Minds, tactics and command ([Minds](architecture.md#minds)).
 
 - **The Arena:** the Ladder; wider walking courses, fighting strength and equipped recovery.
 - **The Crypt:**
-  - the stance walk runs away sideways after a half turn ([the braced walk](plans/2026-10-22-braced-walk.md));
+  - the stance walk runs away sideways after a half turn, read before the walk steered the way its
+    route goes ([the stance's walk](reference/locomotion.md#the-stances-walk));
   - the level-clearer's policy numbers (`POLICY`, `src/core/command/clearer.ts`) are first guesses;
     a frontier point too close to a wall for a body with a club stalls the person's party;
   - authored set pieces (`docs/plans/2026-09-23-depths-06-set-pieces.md@144961d4`);
