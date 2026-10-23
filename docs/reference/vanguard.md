@@ -559,6 +559,11 @@ incomplete units. The five fixed-case outcomes below are descriptive development
 | Open / 3.24 m | Right | Win | Loss | 0.6344 / 0.7206 |
 | Court / 5.92 m | Left | Win | Loss | 0.6364 / 0.6589 |
 
+A physical preparation feint toward the head, followed by the committed body punch, loses the
+full open-left case at 7.63 m at the cap without falling: own bar 0.7729 against 0.8373, with
+68 committed punches. Its declared loss gate rejects it without wider cases. The source,
+complete recipe, reference key and physical row remain in `research/runs/vanguard/feint/`.
+
 ## Tried and not kept
 
 The supported-low preset's additional normal-cap development bouts against Options use the same Node
