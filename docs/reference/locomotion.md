@@ -24,13 +24,28 @@ against one, and members push each other apart 355 steps a case against 20: the 
 faster than the 0.5 m/s² the walk is asked to stop at (`STANCE_STOPPING`) and the 1 rad/s they
 turn at let them take a reversal or a passage. A heading still to turn where the envelope holds no turn at the
 pace asked once stood still for good; it now walks at the fastest pace that turns
-(`fastestTurning`, `src/core/skills/locomotion.ts`).
+(`fastestTurning`, `src/core/skills/locomotion.ts`). Shoved under orders at 20 N s (seeds 1 to
+200, at `827b28a6`), the envelope measured in place of the asset cuts the Warrior's falls from 9
+to 0 and leaves the Rogue's at 19 against 17: asked turns the legs cannot take, the walk falls.
 
-**The turn is capped by the hip.** A half turn asked at 2 or 4 rad/s (the Warrior with the club,
-0.3 to 1 m/s, each sense, three moments of setting off) falls twice in 36 and lags 0.7 to 2.5 rad:
-the pelvis turns at most about 1.4 rad/s whatever is asked, since each step lands no further round
-than the hip's rotation lets the pelvis serve both feet (`landingHeading`, some 0.75 rad a step).
-Quicker steps do little: at 2 rad/s the median lag is 1.07 rad with `STANCE_GAIT`'s 0.3 s swing, 1.01 at 0.25 s and 0.77 at 0.2 s (18 trials each), short of the 0.5 a turn must keep to. A faster turn wants a pivot on the bearing sole. Tried with the envelope above
+**What caps the turn**, from the slowest walk up (the Warrior with the club, each sense, the
+envelope's 14 moments of setting off, at `827b28a6`):
+
+- the pelvis's own turn, critically damped at `STANCE_SECONDS.turn` (0.15 s), trails a steady
+  turn by twice that times its rate: 0.3 rad at 1 rad/s and 0.6 at 2, against the 0.5 a turn must
+  end within;
+- each step lands no further round than the hip's rotation lets the pelvis serve both feet
+  (`landingHeading`, some 0.75 rad a step): at 2 or 4 rad/s the pelvis turns at most about
+  1.4 rad/s, lagging 0.7 to 2.5 rad;
+- from 0.5 m/s a turn starts a catch, and a catch holds the pelvis's facing through its swing
+  (`StanceState.step.facing`): the body's way lags the heading, so in the frame turned to the
+  heading it drifts outward, and the outside foot's next walking step would land 0.55 to 0.9 m
+  across from the bearing one, past its reach (`reachablePace` finds no pace whose step it
+  reaches, the body's own among them);
+- at 1 m/s the path does not bend: through a half turn at 1 rad/s the way the body goes falls
+  0.4 to 2 rad behind the heading while the pelvis keeps up.
+
+Quicker steps do little: at 2 rad/s the median lag is 1.07 rad with `STANCE_GAIT`'s 0.3 s swing, 1.01 at 0.25 s and 0.77 at 0.2 s (18 trials each), short of the 0.5 a turn must keep to. Tried with the envelope above
 written (the crowd battery's 24 cases, then the 69 of seeds 1 to 12, at `4813e84b`):
 
 | Change | Falls, 24 | Done of reached | Pushed apart, steps a case | Falls / not done, 69 |
@@ -323,6 +338,31 @@ On the stance's walk and the stride:
   1.2, at two and four times the stiffness too, which points at the stance's torque control; on the
   spot it keeps the run up 8 times in 8, against 3 rigid. The mechanism is in the core; no body has
   one.
+
+On the stance's walk's turn (the Warrior with the club, 28 trials a cell, at `827b28a6`):
+
+- the pelvis following the heading at its rate as well, read from the heading's change a step
+  and fed to the turn's spin (no faster than a radian in the turn's constant). Its half turns:
+
+  | Speed, rate | Held, without | Held, with | Median lag, rad |
+  |---|---:|---:|---:|
+  | 0.5 m/s, 1 rad/s | 28 | 28 | 0.39 to 0.12 |
+  | 0.7 m/s, 1 rad/s | 22 | 27 | 0.45 to 0.23 |
+  | 1 m/s, 0.25 rad/s | 27 | 28 | 0.19 to 0.05 |
+  | 1 m/s, 0.5 rad/s | 25, 2 fell | 22, 6 fell | 0.20 to 0.19 |
+  | 0.3 m/s, 2 rad/s | 1 | 7 | 0.79 to 0.65 |
+
+  The envelope measured with it (657 s) walks as before and turns faster: the Warrior 1 rad/s at
+  0.7 m/s against 0.5, the Rogue 1 at 0.5 against 0.5 and 0.25 at 1 m/s against none, the
+  skeleton 0.5 at 0.7 against 0.25. Shoved under orders (20 N s, seeds 1 to 200) on the asset as it
+  is, the Rogue falls 33 times against 17 and the Warrior 20 against 9: the pelvis takes the
+  asset's 4 rad/s turns the legs cannot. With each its own envelope, 24 and 1 against 19 and 0;
+  the crowd battery with its envelope is done in 15 of 23 against 18, falling 0.21 a case
+  against 0.08 and pushing apart 464 steps a case against 355;
+- with that, a landing foot turned past the pelvis by 0.7 of its own hip's rotation, not only as
+  far as the bearing hip lets the pelvis turn (`landingHeading`): at 0.3 m/s and 2 rad/s 17 of 28
+  held against 7, but at 1 m/s and 0.25 rad/s one fell, and at 0.5 m/s and up the catch still
+  holds the facing, so its gait is not a faster turn.
 
 On the SIMBICON run (its battery above):
 
